@@ -5,10 +5,10 @@ nanolab.cnf.cornell.edu
 =======================
 
 Here you find information about the the system
-`<http://www.cnf.cornell.edu/cnf5_tool.taf?_function=detail&eq_id=111>`_.
+http://www.cnf.cornell.edu/cnf5_tool.taf?_function=detail&eq_id=111.
 
 The installation of user's packages on nanolab EL4, 32-bit described below uses
-`modules <http://modules.sourceforge.net/>`_, and assumes `bash` shell:
+`modules <http://modules.sourceforge.net/>`_, and assumes *bash* shell:
 
 - packages are installed under ``~/CAMd``::
 
@@ -28,12 +28,13 @@ The installation of user's packages on nanolab EL4, 32-bit described below uses
 
   .. literalinclude:: download_nanolab.sh
 
-- from `nanolab.cnf.cornell.edu` login to one of `c`-nodes (Red Hat 4, 32-bit)::
+- from *nanolab.cnf.cornell.edu* login to one of c-nodes (Red Hat 4, 32-bit)::
 
     ssh c7.cnf.cornell.edu
 
-- install packages, deploy modules and test with :svn:`~doc/install/Linux/install_nanolab_EL4.sh`,
-  buy running ``sh install_nanolab_EL4.sh``:
+- install packages, deploy modules and test with
+  :svn:`~doc/install/Linux/install_nanolab_EL4.sh`, buy running ``sh
+  install_nanolab_EL4.sh``:
 
   .. literalinclude:: install_nanolab_EL4.sh
 
@@ -49,7 +50,7 @@ The installation of user's packages on nanolab EL4, 32-bit described below uses
 
    TODO
 
-- to enable the installation permanently add the following to `~/.bashrc`::
+- to enable the installation permanently add the following to *~/.bashrc*::
 
    module use --append /home/karsten/CAMd/modulefiles
    module load numpy

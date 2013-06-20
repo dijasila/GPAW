@@ -141,7 +141,7 @@ Proceed as follows:
 
     May 7 2013: note that ``compyte`` has been removed from ``pucuda``,
     but the source of ``pucuda`` does not reflect that.
-    Therefore `git clone https://github.com/inducer/compyte.git`
+    Therefore ``git clone https://github.com/inducer/compyte.git``
     and create a link under ``pucuda`` install tree.
     In addition https://pypi.python.org/pypi/pytools,
     https://pypi.python.org/pypi/py,

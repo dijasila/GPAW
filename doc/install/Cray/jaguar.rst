@@ -5,7 +5,7 @@ jaguar  (Cray XT5)
 ==================
 
 Here you find information about the the system
-`<http://www.nccs.gov/computing-resources/jaguar/>`_.
+http://www.nccs.gov/computing-resources/jaguar/.
 
 The current operating system in Cray XT4/XT5 compute nodes, Compute Linux
 Environment (CLE) has some limitations, most notably it does not
@@ -19,7 +19,7 @@ script :svn:`~doc/install/Cray/make_python_numpy`::
   ./make_python_numpy |& tee all.log
 
 whose details are given below. **Note**: One may want to change the
-installation paths in the beginning of `make_python_numpy`.
+installation paths in the beginning of *make_python_numpy*.
 
 Set the correct C compiler and flags, e.g.::
 

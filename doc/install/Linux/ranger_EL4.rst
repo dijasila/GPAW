@@ -5,10 +5,10 @@ ranger.tacc.utexas.edu
 ======================
 
 Here you find information about the the system
-`<http://services.tacc.utexas.edu/index.php/ranger-user-guide>`_.
+http://services.tacc.utexas.edu/index.php/ranger-user-guide.
 
 The installation of user's packages on ranger EL4, 64-bit described below uses
-`modules <http://modules.sourceforge.net/>`_, and assumes `csh` shell:
+`modules <http://modules.sourceforge.net/>`_, and assumes *csh* shell:
 
 - packages are installed under ``~/CAMd``::
 
@@ -93,7 +93,7 @@ The installation of user's packages on ranger EL4, 64-bit described below uses
 
    ibrun `which gpaw-python` b256H2O.py
 
-- to enable the installation permanently add the following to `~/.bashrc`::
+- to enable the installation permanently add the following to *~/.bashrc*::
 
    module use --append /share/home/01067/tg803307/CAMd/modulefiles
    module load python/2.5.2

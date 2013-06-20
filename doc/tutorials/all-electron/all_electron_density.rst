@@ -76,6 +76,6 @@ Example 2: Bader analysis of H\ :sub:`2`\ O
 -------------------------------------------
 
 For information on the Bader algorithm, and an example of how to do
-Bader analysis using the all-electron density; see the `ase`
+Bader analysis using the all-electron density; see the ASE
 tutorial on the H\ :sub:`2`\ O molecule :ase:`Bader
 <ase/dft/bader.html>`

@@ -5,7 +5,7 @@ juropa.fz-juelich.de   (Intel Xeon, Infiniband, MKL)
 ====================================================
 
 Here you find information about the the system
-`<http://www.fz-juelich.de/jsc/juropa>`_.
+http://www.fz-juelich.de/jsc/juropa.
 
 Numpy is installed system wide, so separate installation is not needed.
 
@@ -42,7 +42,8 @@ Now, default parastation/intel module is used so execute only::
 Execution
 =========
 
-General execution instructions can be found at `<http://www.fz-juelich.de/jsc/juropa/usage/quick-intro>`_.
+General execution instructions can be found at
+http://www.fz-juelich.de/jsc/juropa/usage/quick-intro.
 
 Example batch job script for GPAW (512 cores, 30 minutes)::
 
@@ -60,7 +61,7 @@ Example batch job script for GPAW (512 cores, 30 minutes)::
 
   mpiexec -np 512 -x $GPAW_PYTHON my_input.py --sl_default=4,4,64
 
-Note that **-x** flag for `mpiexec` is needed for exporting the environment 
+Note that **-x** flag for *mpiexec* is needed for exporting the environment 
 variables to MPI tasks. The environment variable ``PSP_ONDEMAND`` can decrease 
 the running time with almost a factor of two with large process counts!
 
@@ -87,6 +88,6 @@ an improvement in performance though.
 128    2077  yes 16.5.2011
 ====== ===== === =========
 
-SMT can be switched on in `gpaw-runscript` via::
+SMT can be switched on in *gpaw-runscript* via::
 
   gpaw-runscript -s

@@ -8,7 +8,7 @@ In this tutorial we calculate the electronic band structure of Si along
 high symmetry directions in the Brillouin zone.
 
 First, a standard ground state calculations is performed and the results
-are saved to a `.gpw` file. As we are dealing with small bulk system, 
+are saved to a *.gpw* file. As we are dealing with small bulk system, 
 plane wave mode is the most appropriate here.
 
 .. literalinclude:: bandstructure.py
@@ -22,8 +22,8 @@ the high symmetry points of few common crystal lattices.
    :width: 600 px
 
 For the band structure calculation, density is fixed to the previously
-calculated ground state density (`fixdensity=True`), and as we want to
-calculate all k-points, symmetry is not used (`usesymm=None`). The
+calculated ground state density (``fixdensity=True``), and as we want to
+calculate all k-points, symmetry is not used (``usesymm=None``). The
 unoccupied states can be sometimes converged faster with the conjugate gradient
 eigensolver.
 

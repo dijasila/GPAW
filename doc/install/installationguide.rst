@@ -201,8 +201,8 @@ HDF5 support can be enabled by setting in :file:`customize.py`::
 
  hdf5 = True
 
-and, in this case, provide HDF5 `include_dirs`, `libraries`, and `library_dirs`
-as described in :ref:`install_custom_installation`.
+and, in this case, provide HDF5 ``include_dirs``, ``libraries``, and
+``library_dirs`` as described in :ref:`install_custom_installation`.
 
 
 Parallel installation
@@ -278,7 +278,7 @@ Make sure that everything works by running the test suite (using bash)::
 This will a couple of hours.  If you have a multicore CPU, you
 can speed up the test by using ``gpaw-test -j <number-of-cores>``.
 This will run tests simultaneously (**not** employing MPI parallelization)
-on the requested `<number-of-cores>`.
+on the requested *<number-of-cores>*.
 Please report errors to the ``gpaw-developers`` mailing list (see
 :ref:`mailing_lists`) Send us :file:`test.log`, as well as the
 information about your environment (processor architecture, versions
@@ -294,7 +294,7 @@ If tests pass, and the parallel version is built, test the parallel code::
 
 .. note::
 
-   Many MPI versions have their own `-c` option which may
+   Many MPI versions have their own ``-c`` option which may
    invalidate python command line options. In this case
    test the parallel code as in the example below.
 

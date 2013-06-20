@@ -7,7 +7,7 @@ vsc.univie
 The vsc.univie machine is a cluster of dual socket, hexa-core Intel Xeon X5650
 2.67 GHz processors with 2 GB of memory per core.
 
-Instructions assume **bash**, installation under `${HOME}/opt`.
+Instructions assume **bash**, installation under ``${HOME}/opt``.
 
 Setup the root directory::
 
