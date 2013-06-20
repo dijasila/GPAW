@@ -2,11 +2,6 @@
 TPSS notes
 ==========
 
-
-.. default-role:: math
-
-
-
 Kinetic energy density
 ======================
 

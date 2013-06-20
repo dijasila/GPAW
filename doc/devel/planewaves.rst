@@ -2,8 +2,6 @@
 Planewaves
 ==========
 
-.. default-role:: math
-
 With `N=N_1N_2N_3` grid points: `\br^T=(g_1/N_1,g_2/N_2,g_3/N_3)\mathbf
 A`, where `g_c=0,1,...,N_c-1`, we get a plane wave expansion of the wave
 funtion as:

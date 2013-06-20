@@ -4,8 +4,6 @@
 Bulk aluminum
 =============
 
-.. default-role:: math
-
 Now we are ready to run the first GPAW calculation. We will look at
 bulk fcc aluminum and make a single energy calculation at the
 experimental lattice constant `a_0` = 4.05 Å. For the first example,

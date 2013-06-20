@@ -4,7 +4,6 @@
 XML specification for atomic PAW setups
 =======================================
 
-.. default-role:: math
 
 ------------
 Introduction

@@ -1,8 +1,5 @@
 .. _convergence:
 
-.. default-role:: math
-
-
 ==================
 Convergence Issues
 ==================

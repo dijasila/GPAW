@@ -4,9 +4,6 @@
 Manual
 ======
 
-.. default-role:: math
-
-
 GPAW calculations are controlled through scripts written in the
 programming language Python_.  GPAW relies on the :ase:`Atomic
 Simulation Environment <>` (ASE), which is a Python package that helps
@@ -924,5 +921,3 @@ argument                         description
              *J. Phys. Chem.* **98** 11623-11627 (1994)
              Ab-Initio Calculation of Vibrational Absorption and Circular-Dichroism
              Spectra Using Density-Functional Force-Fields
-
-.. default-role::

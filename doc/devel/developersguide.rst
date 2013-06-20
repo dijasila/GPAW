@@ -4,8 +4,6 @@
 Developers guide to GPAW
 ========================
 
-.. default-role:: math
-
 XXX Update page to new GPAW style (after guc merge) and mention NewLFCs.
 
 This page goes through the most important equations of a PAW
