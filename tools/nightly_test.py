@@ -96,7 +96,10 @@ def count(dir, pattern):
     return int(p.read().split()[0])
 
 os.chdir('..')
-libxc = count('c/libxc', '\\*.[ch]')
+if 0:  # revision 10429 - libxc merged
+    libxc = count('c/libxc', '\\*.[ch]')
+else:
+    libxc = 0
 ch = count('c', '\\*.[ch]') - libxc
 test = count('gpaw/test', '\\*.py')
 py = count('gpaw', '\\*.py') - test
