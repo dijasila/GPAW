@@ -48,10 +48,10 @@ class PAW(PAWTextOutput):
     def __init__(self, filename=None, **kwargs):
         """ASE-calculator interface.
 
-        The following parameters can be used: `nbands`, `xc`, `kpts`,
-        `spinpol`, `gpts`, `h`, `charge`, `usesymm`, `width`, `mixer`,
-        `hund`, `lmax`, `fixdensity`, `convergence`, `txt`, `parallel`,
-        `communicator`, `dtype`, `softgauss` and `stencils`.
+        The following parameters can be used: nbands, xc, kpts,
+        spinpol, gpts, h, charge, usesymm, width, mixer,
+        hund, lmax, fixdensity, convergence, txt, parallel,
+        communicator, dtype, softgauss and stencils.
 
         If you don't specify any parameters, you will get:
 

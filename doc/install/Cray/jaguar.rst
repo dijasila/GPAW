@@ -177,9 +177,9 @@ following instructions are tested with python 2.5.4:
    make | tee make2.log
    make install | tee make_install2.log
 
-On jaguar only `/tmp/work/$USER` filesystem is available for batch jobs.
+On jaguar only */tmp/work/$USER* filesystem is available for batch jobs.
 **Note**: that this space is cleaning periodically
-`<http://www.nccs.gov/computing-resources/jaguar/file-systems/>`_.
+http://www.nccs.gov/computing-resources/jaguar/file-systems/.
 Test python/numpy::
 
  cp -r ${PYTHON_DIR} /tmp/work/$USER
