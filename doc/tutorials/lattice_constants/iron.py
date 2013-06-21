@@ -1,31 +1,30 @@
 import numpy as np
-from ase.tasks.bulk import BulkTask
-from gpaw import FermiDirac, MethfesselPaxton, MixerSum, \
-         KohnShamConvergenceError, PoissonSolver
-from gpaw.factory import GPAWFactory
+from ase.structure import bulk
+from gpaw import GPAW, PW, FermiDirac, MethfesselPaxton
 
 a0 = 2.84
-def f(name, dist, k, g):
-    tag = '%s-%02d-%2d' % (name, k, g)
-    task = BulkTask(tag=tag, lattice_constant=a0, cubic=True,
-                    magmoms=[2.3],
-                    fit=(5, 0.02))
-    factory = GPAWFactory(xc='PBE',
-                          kpts=(k, k, k),
-                          occupations=dist,
-                          basis='dzp',
-                          mixer=MixerSum(0.05, 5, 1),
-                          eigensolver='cg',
-                          maxiter=500,
-                          poissonsolver=PoissonSolver(eps=1e-12), 
-                          gpts=(g, g, g))
-    task.set_calculator_factory(factory)
-    task.run('Fe')
+fe = bulk('Fe', 'bcc', a=a0)
+fe[0].magmom = 2.3
+cell0 = fe.cell
 
-for width in [0.05, 0.1, 0.15, 0.2]:
-    for k in [4, 6, 8, 10, 12]:
-        f('FD-%.2f' % width, FermiDirac(width), k, 12)
-        f('MP-%.2f' % width, MethfesselPaxton(width), k, 12)
-        #f('MP1-%.2f' % width, MethfesselPaxton(width, 1), k, 12)
-for g in range(16, 32, 4):
-    f('FD-%.2f' % 0.1, FermiDirac(0.1), 8, g)
+for ecut in [300, 400, 500, 600, 700, 800]:
+    fe.calc = GPAW(mode=PW(ecut),
+                   xc='PBE',
+                   kpts=(8, 8, 8),
+                   basis='dzp',
+                   txt='Fe-%d.txt' % ecut)
+    for eps in np.linspace(-0.02, 0.02, 5):
+        fe.cell = (1 + eps) * cell0
+        fe.get_potential_energy()
+
+fe.calc.set(mode=PW(800))
+for k in range(4, 13):
+    fe.calc.set(kpts=(k,k,k))
+    for width in [0.05, 0.1, 0.15, 0.2]:
+        for name, occ in [('FD', FermiDirac(width)),
+                          ('MP', MethfesselPaxton(width))]:
+            fe.calc.set(occupations=occ,
+                        txt='Fe-%02d-%s-%.2f.txt' % (k, name, width))
+            for eps in np.linspace(-0.02, 0.02, 5):
+                fe.cell = (1 + eps) * cell0
+                fe.get_potential_energy()
