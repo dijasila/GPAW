@@ -72,11 +72,18 @@ os.chdir(dir)
 
 cmd('svn checkout https://svn.fysik.dtu.dk/projects/gpaw/trunk gpaw')
 
+# a hack: link libxc for the common version built on surt statically
+cmd('cp gpaw/customize.py gpaw/customize.py.libxca')
+cmd('echo extra_link_args += [os.environ[\\\'LIBXC_HOME\\\'] + \\\'/lib/libxc.a\\\'] >> gpaw/customize.py.libxca')
+cmd('echo libraries.remove\(\\\'xc\\\'\) >> gpaw/customize.py.libxca')
+
 # a version of gpaw is needed for imports from within this script!
 cmd("\
 cd " + gpawdir + "&& \
 source /home/opt/modulefiles/modulefiles_el6.sh&& \
-python setup.py build_ext 2>&1 > build_ext.log")
+module load libxc&& \
+python setup.py build_ext \
+--customize=customize.py.libxca 2>&1 > build_ext.log")
 
 # import gpaw from where it was installed
 sys.path.insert(0, gpawdir)
