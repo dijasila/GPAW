@@ -71,7 +71,8 @@ if scalapack:
 # - static linking:
 #include_dirs += ['/home/user/libxc-2.0.1-1/include']
 #extra_link_args += ['/home/user/libxc-2.0.1-1/lib/libxc.a']
+#if 'xc' in libraries: libraries.remove('xc')
 # - dynamic linking (requires also setting LD_LIBRARY_PATH at runtime):
 #include_dirs += ['/home/user/libxc-2.0.1-1/include']
-#libraries += ['xc'] 
 #library_dirs += ['/home/user/libxc-2.0.1-1/lib']
+#if 'xc' not in libraries: libraries.append('xc')
