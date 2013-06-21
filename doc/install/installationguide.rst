@@ -217,7 +217,7 @@ Additionally a user may want to enable ScaLAPACK, setting in
 
  scalapack = True
 
-and, in this case, provide BLACS/ScaLAPACK `libraries` and `library_dirs`
+and, in this case, provide BLACS/ScaLAPACK ``libraries`` and ``library_dirs``
 as described in :ref:`install_custom_installation`.
 
 Instructions for running parallel calculations can be found in the

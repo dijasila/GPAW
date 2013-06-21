@@ -65,11 +65,13 @@ Download and install acml::
   cd acml-${acml}
   tar zxf acml-*.tgz && tar zxf contents-acml-*.tgz
 
-**Note**: numpy with acml dotblas Segmentation Faults (well, for some versions on numpy, etc?)
-for :file:`gpaw/test/numpy_core_multiarray_dot.py` or :file:`gpaw/test/gemm.py`.
-Still there is no performance improvement for :file:`gpaw/test/gemm.py` (if it works),
-even if case of dynamic linking of cblas/acml - check with `ldd` that `_dotbas.so`
-is linked to both acml and cblas.
+**Note**: numpy with acml dotblas Segmentation Faults (well, for some
+versions on numpy, etc?)  for
+:file:`gpaw/test/numpy_core_multiarray_dot.py` or
+:file:`gpaw/test/gemm.py`.  Still there is no performance improvement
+for :file:`gpaw/test/gemm.py` (if it works), even if case of dynamic
+linking of cblas/acml - check with ldd that _dotblas.so is linked to
+both acml and cblas.
 
 This is how you can download and install cblas::
 
