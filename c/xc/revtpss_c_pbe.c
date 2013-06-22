@@ -428,6 +428,23 @@ gga_c_pbe_revtpss(XC(func_type) *p, const FLOAT *rho, const FLOAT *sigma,
   FLOAT A, dAdec, dAdphi, dAdrs, d2Adec2, d2Adecphi, d2Adphi2;
   FLOAT H, dHdphi, dHdrs, dHdt, dHdA, d2Hdphi2, d2Hdphit, d2HdphiA, d2Hdt2, d2HdtA, d2HdA2;
 
+  d2HdphiA = 0.0;
+  d2Hdphi2 = 0.0;
+  d2Adphi2 = 0.0;
+  d2HdA2 = 0.0;
+  d2HdtA = 0.0;
+  d2Hdphit = 0.0;
+  d2Adecphi = 0.0;
+  d2Hdt2 = 0.0;
+  d2Adec2 = 0.0;
+  dAdrs = 0.0;
+  dAdphi = 0.0;
+  dAdec = 0.0;
+  dHdA = 0.0;
+  dHdt = 0.0;
+  dHdrs = 0.0;
+  dHdphi = 0.0;
+
   func = 3; // for revTPSS
 
   order = 0;

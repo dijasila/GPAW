@@ -117,7 +117,7 @@ x_tpss_para(XC(func_type) *lda_aux, const FLOAT *rho, const FLOAT sigma, const F
   FLOAT x, dxdp, dxdalpha, Fx, dFxdx;
   FLOAT tau_lsda, exunif, vxunif, dtau_lsdadd;
   FLOAT dpdd, dpdsigma;
-  FLOAT alpha, dalphadtau_lsda, dalphadd, dalphadsigma, dalphadtau; 
+  FLOAT alpha, dalphadd, dalphadsigma, dalphadtau; 
   FLOAT aux =  (3./10.) * pow((3*M_PI*M_PI),2./3.); 
 
 
@@ -141,8 +141,6 @@ x_tpss_para(XC(func_type) *lda_aux, const FLOAT *rho, const FLOAT sigma, const F
   dtau_lsdadd = aux * 5./3.* pow(rho[0],2./3.);
   
   alpha = (tau - tauw)/tau_lsda;
-  dalphadtau_lsda = -1./POW(tau_lsda,2.);
-  
 
   if(ABS(tauw-tau_)< 1.0e-10){
     dalphadsigma = 0.0;
@@ -332,6 +330,8 @@ static void c_tpss_12(XC(func_type) *aux1, XC(func_type) *aux2, int nspin, const
     C          = 0.53;
     dzetadd[0] = 0.0;
     dcsidd [0] = 0.0;
+    dzetadd[1] = 0.0;
+    dcsidd [1] = 0.0;
     for(i=0; i<3; i++) dcsidsigma[i] = 0.0;
   }else{
     // initialize derivatives
@@ -471,6 +471,8 @@ XC(mgga_c_tpss)(void* p, const FLOAT *rho, const FLOAT *sigma, const FLOAT *tau,
   
   FLOAT sigmatmp[3];
   sigmatmp[0] = max(MIN_GRAD*MIN_GRAD, sigma[0]);
+  sigmatmp[1] = 0.0;
+  sigmatmp[2] = 0.0;
   if(nspin == XC_POLARIZED) 
     {
       //sigma[1] = max(MIN_GRAD*MIN_GRAD, sigma[1]);

@@ -134,6 +134,8 @@ static void c_revtpss_12(revtpss_params *p, const FLOAT *rho, const FLOAT *sigma
     C          = 0.59;
     dzetadd[0] = 0.0;
     dcsidd [0] = 0.0;
+    dzetadd[1] = 0.0;
+    dcsidd [1] = 0.0;
     for(i=0; i<3; i++) dcsidsigma[i] = 0.0;
   }else{
     // initialize derivatives
@@ -439,7 +441,7 @@ x_revtpss_para(revtpss_params *pt, const FLOAT *rho, FLOAT sigma, FLOAT tau_,
   FLOAT x, dxdp, dxdalpha, Fx, dFxdx;
   FLOAT tau_lsda, exunif, vxunif, dtau_lsdadd;
   FLOAT dpdd, dpdsigma;
-  FLOAT alpha, dalphadtau_lsda, dalphadd, dalphadsigma, dalphadtau; 
+  FLOAT alpha, dalphadd, dalphadsigma, dalphadtau; 
   FLOAT aux =  (3./10.) * pow((3*M_PI*M_PI),2./3.); 
 
 
@@ -463,8 +465,6 @@ x_revtpss_para(revtpss_params *pt, const FLOAT *rho, FLOAT sigma, FLOAT tau_,
   dtau_lsdadd = aux * 5./3.* pow(rho[0],2./3.);
   
   alpha = (tau - tauw)/tau_lsda;
-  dalphadtau_lsda = -1./POW(tau_lsda,2.);
-  
 
   if(ABS(tauw-tau_)< 1.0e-10){
     dalphadsigma = 0.0;
