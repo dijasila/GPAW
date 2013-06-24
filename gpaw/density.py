@@ -93,7 +93,8 @@ class Density:
             self.D_asp is None and (rank_a == self.gd.comm.rank).any()):
             self.D_asp = {}
 
-        if self.rank_a is not None and self.D_asp is not None:
+        if (self.rank_a is not None and self.D_asp is not None and
+            rank_a is not None):
             self.timer.start('Redistribute')
             requests = []
             flags = (self.rank_a != rank_a)
