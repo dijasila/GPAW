@@ -8,7 +8,15 @@ For a brief introduction to the GW theory and the details of its implementation 
 
 **For GW calculations, the latest development release is required.**
 
-This tutorial and the documentation will frequently be updated.
+More information can be found here:
+
+    \F. Hüser, T. Olsen, and K. S. Thygesen
+
+    `Quasiparticle GW calculations for solids, molecules, and two-dimensional materials`__
+
+    Physical Review B, Vol. **87**, 235132 (2013)
+
+    __ http://prb.aps.org/abstract/PRB/v87/i23/e235132
 
 
 Quasi-particle spectrum of bulk silicon
