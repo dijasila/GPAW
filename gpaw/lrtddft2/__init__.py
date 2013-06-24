@@ -380,10 +380,11 @@ class LrTDDFTindexed:
         magny = self.transition_properties[k][5]
         magnz = self.transition_properties[k][6]
 
+        # R_0I = Im[mu_0I.m_I0] = -Im[mu_0I.m_0I]
         if units == 'a.u.':
-            return - ( dmx * magnx + dmy * magny + dmz * magnz )
+            return -( dmx * magnx + dmy * magny + dmz * magnz )
         elif units == 'cgs':
-            return - 64604.8164 * ( dmx * magnx + dmy * magny + dmz * magnz )
+            return -64604.8164 * ( dmx * magnx + dmy * magny + dmz * magnz )
         else:
             raise RuntimeError('Unknown units.')
 
@@ -1983,8 +1984,9 @@ class LrTDDFTindexed:
         drhot_gip = self.calc.density.finegd.empty()
 
         # Init gradients of wfs
-        grad_psit2_G = [self.calc.wfs.gd.empty(), self.calc.wfs.gd.empty(),
-                        self.calc.wfs.gd.empty()]
+        grad_psit2_G = [ self.calc.wfs.gd.empty(), 
+                         self.calc.wfs.gd.empty(),
+                         self.calc.wfs.gd.empty() ]
 
         # Init gradient operators
         grad = []
@@ -1992,59 +1994,124 @@ class LrTDDFTindexed:
         for c in range(3):
             grad.append(Gradient(self.calc.wfs.gd, c, dtype=dtype, n=2))
 
+
+        # FIXME: WHAT IS THE ORIGIN OF DIPOLE MOMENT??? 
+        #        HOW ABOUT MAGN MOM? THOSE SHOULD BE THE SAME!!!
+            
+
+        # center of charge, CZ
+        rCZ = np.array([0.0,0.0,0.0])
+        Zsum = 0.
+        for (setup,atom) in zip(self.calc.wfs.setups, self.calc.atoms):
+            #print 'setup', setup.Z, atom.position
+            rCZ += setup.Z * atom.position
+            Zsum += setup.Z
+        #print rCZ, Zsum
+        rCZ = rCZ / 0.529177 / Zsum
+
+
+        # Coordinate vector r
+        R0 = np.array([0.0,0.0,0.0])
+        R0 = rCZ
+        r_cG, r2_G = coordinates(self.calc.wfs.gd,         origin=R0)
+        r_cg, r2_g = coordinates(self.calc.density.finegd, origin=R0)
+
+        #print r_cg[0]
+
+        # Transition dipole moment, mu_ip = <p| (-e r) |i> 
+        # Magnetic transition dipole, m_ip = -(1/2c) <i|L|p>
+        # For total m_0I = -m_I0 = -(m_0I)^*, but not for m_ip (?)
+        # R_0I = Im[mu_0I * m_0I]
+        # mu_ip^0I =  omega_0I^(-1/2) D_ip      S^(-1/2) F_0I
+        # m_ip^0I  = -omega_0I^(+1/2) M_ip C^-1 S^(+1/2) F_0I
+        #
+        # S_ip,ip = - (eps_p - eps_i) / (n_p - n_i)    (note: n_p < n_i)
+        # C_ip,ip = 1 / (n_p - n_i)
+        #
+        # See:
+        # WIREs Comput Mol Sci 2012, 2: 150–166 doi: 10.1002/wcms.55
+        # J. Chem. Phys., Vol. 116, No. 16, 22 April 2002
+
+
         # Loop over all KS single excitations
         for kss_ip in self.kss_list:
             # If have dipole moment and magnetic moment, already done and skip
             if (kss_ip.dip_mom_r is not None
                 and kss_ip.magn_mom is not None):
                 continue
-            
-            # Dipole moment
+
+            # Transition dipole moment, mu_ip = <p| (-r) |i> 
             self.calculate_pair_density( self.calc.wfs.kpt_u[self.kpt_ind],
                                          kss_ip, dnt_Gip, dnt_gip, drhot_gip )
-            kss_ip.dip_mom_r = self.calc.density.finegd.calculate_dipole_moment(drhot_gip)
+            #kss_ip.dip_mom_r = self.calc.density.finegd.calculate_dipole_moment(drhot_gip)            
+            kss_ip.dip_mom_r = np.zeros(3)
+            kss_ip.dip_mom_r[0] = -self.calc.density.finegd.integrate(r_cg[0] * drhot_gip)
+            kss_ip.dip_mom_r[1] = -self.calc.density.finegd.integrate(r_cg[1] * drhot_gip)
+            kss_ip.dip_mom_r[2] = -self.calc.density.finegd.integrate(r_cg[2] * drhot_gip)
 
 
-            # Magnetic transition dipole
-            # J. Chem. Phys., Vol. 116, No. 16, 22 April 2002
+            # Magnetic transition dipole, m_ip = -(1/2c) <i|L|p> = i/2c <i|r x p|p>
 
-            # Coordinate vector r
-            r_cG, r2_G = coordinates(self.calc.wfs.gd)
-            # Gradients
+            # Gradients, nabla |q>
             for c in range(3):
-                grad[c].apply(self.pair_density.psit2_G, grad_psit2_G[c], self.calc.wfs.kpt_u[self.kpt_ind].phase_cd)
+                grad[c].apply( self.pair_density.psit2_G, 
+                               grad_psit2_G[c], 
+                               self.calc.wfs.kpt_u[self.kpt_ind].phase_cd )
                     
-            # <psi1|r x grad|psi2>
+            # <psi1|r x nabla|psi2>
             #    i  j  k
-            #    x  y  z   = (y pz - z py)i + (z px - x pz)j + (x py - y px)
+            #    x  y  z   = (y pz - z py)i + (z px - x pz)j + (x py - y px)k
             #    px py pz
-            magn_g = np.zeros(3)
-            magn_g[0] = self.calc.wfs.gd.integrate(self.pair_density.psit1_G *
-                                                   (r_cG[1] * grad_psit2_G[2] -
-                                                    r_cG[2] * grad_psit2_G[1]))
-            magn_g[1] = self.calc.wfs.gd.integrate(self.pair_density.psit1_G * 
-                                                   (r_cG[2] * grad_psit2_G[0] -
-                                                    r_cG[0] * grad_psit2_G[2]))
-            magn_g[2] = self.calc.wfs.gd.integrate(self.pair_density.psit1_G * 
-                                                   (r_cG[0] * grad_psit2_G[1] -
-                                                    r_cG[1] * grad_psit2_G[0]))
+            rxnabla_g = np.zeros(3)
+            rxnabla_g[0] = self.calc.wfs.gd.integrate(self.pair_density.psit1_G *
+                                                      (r_cG[1] * grad_psit2_G[2] -
+                                                       r_cG[2] * grad_psit2_G[1]))
+            rxnabla_g[1] = self.calc.wfs.gd.integrate(self.pair_density.psit1_G * 
+                                                      (r_cG[2] * grad_psit2_G[0] -
+                                                       r_cG[0] * grad_psit2_G[2]))
+            rxnabla_g[2] = self.calc.wfs.gd.integrate(self.pair_density.psit1_G * 
+                                                      (r_cG[0] * grad_psit2_G[1] -
+                                                       r_cG[1] * grad_psit2_G[0]))
             
             # augmentation contributions to magnetic moment
-            magn_a = np.zeros(3)
+            # <psi1| r x nabla |psi2> = <psi1| (r-Ra+Ra) x nabla |psi2> 
+            #                         = <psi1| (r-Ra) x nabla |psi2> + Ra x <psi1| nabla |psi2>
+            rxnabla_a = np.zeros(3)
+            # <psi1| (r-Ra) x nabla |psi2>
             for a, P_ni in self.calc.wfs.kpt_u[self.kpt_ind].P_ani.items():
                 Pi_i = P_ni[kss_ip.occ_ind]
                 Pp_i = P_ni[kss_ip.unocc_ind]
-                rxp_iiv = self.calc.wfs.setups[a].rxp_iiv
+                rxnabla_iiv = self.calc.wfs.setups[a].rxnabla_iiv
                 for c in range(3):
                     for i1, Pi in enumerate(Pi_i):
                         for i2, Pp in enumerate(Pp_i):
-                            magn_a[c] += Pi * Pp * rxp_iiv[i1, i2, c]
-            self.calc.wfs.gd.comm.sum(magn_a) # sum up from different procs
+                            rxnabla_a[c] += Pi * Pp * rxnabla_iiv[i1, i2, c]
 
-            # FIXME: Why we have alpha (fine structure constant?) here=
-            ###################### FIXME ######################
-            #magn_a *= 0.
-            kss_ip.magn_mom = ase.units.alpha / 2. * (magn_g + magn_a)
+            self.calc.wfs.gd.comm.sum(rxnabla_a) # sum up from different procs
+
+
+            # Ra x <psi1| nabla |psi2>
+            Rxnabla_a = np.zeros(3)
+            for a, P_ni in self.calc.wfs.kpt_u[self.kpt_ind].P_ani.items():
+                Pi_i = P_ni[kss_ip.occ_ind]
+                Pp_i = P_ni[kss_ip.unocc_ind]
+                nabla_iiv = self.calc.wfs.setups[a].nabla_iiv
+                Ra = (self.calc.atoms[a].position / 0.529177) - R0
+                for i1, Pi in enumerate(Pi_i):
+                    for i2, Pp in enumerate(Pp_i):
+                        # (y pz - z py)i + (z px - x pz)j + (x py - y px)k
+                        Rxnabla_a[0] += Pi * Pp * ( Ra[1] * nabla_iiv[i1, i2, 2] - Ra[2] * nabla_iiv[i1, i2, 1] )
+                        Rxnabla_a[1] += Pi * Pp * ( Ra[2] * nabla_iiv[i1, i2, 0] - Ra[0] * nabla_iiv[i1, i2, 2] )
+                        Rxnabla_a[2] += Pi * Pp * ( Ra[0] * nabla_iiv[i1, i2, 1] - Ra[1] * nabla_iiv[i1, i2, 0] )
+
+
+            self.calc.wfs.gd.comm.sum(Rxnabla_a) # sum up from different procs
+
+            #print (kss_ip.occ_ind, kss_ip.unocc_ind), kss_ip.dip_mom_r, rxnabla_g, rxnabla_a, Rxnabla_a
+
+            # m_ip = -1/2c <i|r x p|p> = i/2c <i|r x nabla|p>
+            # just imaginary part!!!
+            kss_ip.magn_mom = ase.units.alpha / 2. * (rxnabla_g + rxnabla_a + Rxnabla_a)
 
 
 

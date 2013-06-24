@@ -439,7 +439,7 @@ class LeanSetup(BaseSetup):
         self.N0_p = s.N0_p # req. by estimate_magnetic_moments
         self.nabla_iiv = s.nabla_iiv  # req. by lrtddft
         self.rnabla_iiv = s.rnabla_iiv  # req. by lrtddft
-        self.rxp_iiv = s.rxp_iiv  # req. by lrtddft
+        self.rxnabla_iiv = s.rxnabla_iiv  # req. by lrtddft
 
         # XAS stuff
         self.phicorehole_g = s.phicorehole_g # should be optional
@@ -752,7 +752,7 @@ class Setup(BaseSetup):
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
         self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
-        self.rxp_iiv = self.get_magnetic_integrals_new(rgd2, phi_jg, phit_jg)
+        self.rxnabla_iiv = self.get_magnetic_integrals_new(rgd2, phi_jg, phit_jg)
 
     def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,
                                       lmax, Delta_lq, wnt_lqg,
@@ -926,8 +926,13 @@ class Setup(BaseSetup):
             i1 += nm1
         return nabla_iiv
 
+
+
+    # WRONG!!!!!!!!!!! DO NOT USE
+    # This could be implemented in the same spirit as nabla, 
+    # but below implementation is incorrect.
     def get_magnetic_integrals(self, rgd, phi_jg, phit_jg):
-        """Calculate PAW-correction matrix elements of r x nabla.
+        """Calculate PAW-correction matrix elements of r x nabla. WRONG!!! DO NOT USE
 
         ::
         
@@ -939,7 +944,24 @@ class Setup(BaseSetup):
           where O  = y -- - z --
                  x     dz     dy
 
-        and similar for y and z."""
+        and similar for y and z.
+
+        Something like this would be correct:
+
+        d/dx = dr/dx d/dr + dphi/dx d/dphi + dtheta/dx d/dtheta = (x/r) d/dr + ...
+        
+        <Rn1 Yl1m1| y d/dx | Rn2 Yl2m2> 
+        = <Rn1 Yl1m1| y d/dx |(Rn2/r**l2) (r**l2 Yl2m2) > 
+        = <Rn1 Yl1m1| y d/dx (Rn2/r**l2) + y d/dx (r**l2 Yl2m2) > 
+        = <Rn1 Yl1m1| y Yl2m2 r**l2 d/dx (Rn2/r**l2)  +  y (Rn2/r**l2) [d/dx (r**l2 Yl2m2)] >
+        = <Rn1 Yl1m1| y Yl2m2 r**l2 (x/r) d/dr (Rn2/r**l2)  +  y (Rn2/r**l2) [d/dx (r**l2 Yl2m2)] >
+        = <Rn1 Yl1m1| y Yl2m2 r**l2 (x/r) [ dRn2/dr * 1/r**l2 + (-l2) Rn2 r**(-l2-1) ]  
+                      +  y (Rn2/r**l2) [d/dx (r**l2 Yl2m2)] >
+        = <Rn1 Yl1m1| Yl2m2 (y/r) (x/r) [r * dRn2/dr - l2 Rn2]  +  (y/r) Rn2 [r * r**(-l2) d/dx (r**l2 Yl2m2)] >
+    
+        and now use (y/r) = sqrt(4pi/3) Y1my etc.
+        """
+
 
         if extra_parameters.get('fprojectors'):
             return None
@@ -996,11 +1018,17 @@ class Setup(BaseSetup):
           | dr [phi (r) O  phi (r) - phi (r) O  phi (r)]
           /        1     x    2         1     x    2
 
-                       d      d
-          where O  = y -- - z --
-                 x     dz     dy
+                         d           d
+          where O  =  y -- - (-i) z --  
+                 x      dz          dy  
 
-        and similar for y and z."""
+        and similar for y and z.
+
+        This implementation is based on angular momentum operator L:
+           L = r x p = -i r x nabla => r x nabla = i L
+        Spherical harmonics are eigenfunctions of Lz, 
+        and Lx and Ly can be evaluated easily using ladder operator L+ and L-.
+        """
 
         # f-projectors are not implemented, return None
         # maybe error would be better
@@ -1107,10 +1135,11 @@ class Setup(BaseSetup):
             return -.5j * ( YL1_Lp_YL2(L1,L2) - YL1_Lm_YL2(L1,L2) )
 
 
-        # r x p for [i-index 1, i-index 2, (x,y,z)]
-        rxp_iiv = np.zeros((self.ni, self.ni, 3))
+        # r x nabla for [i-index 1, i-index 2, (x,y,z)]
+        rxnabla_iiv = np.zeros((self.ni, self.ni, 3))
 
 
+        #print self.dO_ii
         
         # loops over all j1=(l1,m1) values
         i1 = 0
@@ -1123,30 +1152,34 @@ class Setup(BaseSetup):
                 for j2, l2 in enumerate(self.l_j):
 
                     # radial part, which is common for same j values
-                    # int_0^infty phi_l1,m1,g(r) phi_l2,m2,g(r) * 4*pi*r**2 dr
-                    # 4 pi here?????
+                    # int_0^infty phi_l1,m1,g(r) phi_l2,m2,g(r) * r**2 dr
+                    #
+                    # 4 pi here????? yes, because integrate includes 4pi, 
+                    # but we already take radial integrals when calculating
+                    # expectation values of Lx/y/z...
                     radial_part = rgd.integrate(phi_jg[j1] * phi_jg[j2] -
                                                 phit_jg[j1] * phit_jg[j2]) / (4*pi)
 
                     for m2 in range(2 * l2 + 1):
+                        #print j1,l1,m1,' : ' ,j2,l2,m2, ' = ', radial_part
+                        #print j1,l1,m1,' : ' ,j2,l2,m2, ' = ', 
+
                         L2 = l2**2 + m2
 
-                        #print l1,m1,l2,m2, '   :    ',
-
                         # Lx
-                        Lx = (1j * YL1_Lx_YL2(L1,L2))
+                        Lx = YL1_Lx_YL2(L1,L2)
                         #print '%8.3lf %8.3lf | ' % (Lx.real, Lx.imag),
-                        rxp_iiv[i1,i2,0] = Lx.real * radial_part
+                        rxnabla_iiv[i1,i2,0] = (1.j * Lx).real * radial_part
 
                         # Ly
-                        Ly = (1j * YL1_Ly_YL2(L1,L2))
+                        Ly = YL1_Ly_YL2(L1,L2)
                         #print '%8.3lf %8.3lf | ' % (Ly.real, Ly.imag),
-                        rxp_iiv[i1,i2,1] = Ly.real * radial_part
+                        rxnabla_iiv[i1,i2,1] = (1.j * Ly).real * radial_part
 
                         # Lz
-                        Lz = (1j * YL1_Lz_YL2(L1,L2))
+                        Lz = YL1_Lz_YL2(L1,L2)
                         #print '%8.3lf %8.3lf | ' % (Lz.real, Lz.imag),
-                        rxp_iiv[i1,i2,2] = Lz.real * radial_part
+                        rxnabla_iiv[i1,i2,2] = (1.j * Lz).real * radial_part
 
                         #print
 
@@ -1156,13 +1189,17 @@ class Setup(BaseSetup):
                 # increase index 1
                 i1 += 1
 
-        #print rxp_iiv[:,:,0]
+        #print rxnabla_iiv[:,:,0]
         #print
-        #print rxp_iiv[:,:,1]
+        #print rxnabla_iiv[:,:,1]
         #print
-        #print rxp_iiv[:,:,2]
+        #print rxnabla_iiv[:,:,2]
         #print
-        return rxp_iiv
+
+
+        return rxnabla_iiv
+
+
 
 
 ######################
