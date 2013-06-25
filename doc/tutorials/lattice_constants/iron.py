@@ -11,6 +11,7 @@ for ecut in [300, 400, 500, 600, 700, 800]:
     fe.calc = GPAW(mode=PW(ecut),
                    xc='PBE',
                    kpts=(8, 8, 8),
+                   parallel={'band': 1},
                    basis='dzp',
                    txt='Fe-%d.txt' % ecut)
     for eps in np.linspace(-0.02, 0.02, 5):
