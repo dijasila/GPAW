@@ -103,9 +103,9 @@ class PAWTextOutput:
             import scipy as sp
             self.text('scipy: %s (version %s)' %
                       (os.path.dirname(sp.__file__), sp.version.version))
+            del sp
         except ImportError:
-            self.text('scipy: %s (version %s)' %
-                      (str(None), str(None)))
+            self.text('scipy: Not available')
         self.text('units: Angstrom and eV')
         self.text('cores:', self.wfs.world.size)
 
