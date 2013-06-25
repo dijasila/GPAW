@@ -103,6 +103,8 @@ class PAWTextOutput:
             import scipy as sp
             self.text('scipy: %s (version %s)' %
                       (os.path.dirname(sp.__file__), sp.version.version))
+            # Explicitly deleting SciPy seems to remove garbage collection
+            # problem of unknown cause
             del sp
         except ImportError:
             self.text('scipy: Not available')
