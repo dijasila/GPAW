@@ -30,9 +30,9 @@ parameters = {
 'Be': ('1s,2s,2p,p,d', 1.4, {}),
 'B':  ('2s,s,2p,p,d', 1.2, {}),
 'C':  ('2s,s,2p,p,d', 1.2, {}),
-'N':  ('2s,s,2p,p,d', 1.2, {'r0': 1.1}),
-'O':  ('2s,s,2p,p,d', [1.2, 1.3], {}),
-'F':  ('2s,s,2p,p,d', [1.1,1.2], {}),
+'N':  ('2s,s,2p,p,d', [1.2, 1.3], {'r0': 1.1}),
+'O':  ('2s,s,2p,p,d', [1.2, 1.4], {}),
+'F':  ('2s,s,2p,p,d', [1.2,1.4], {}),
 'Ne': ('2s,s,2p,p,d', 1.8, {}),
 'Na': ('2s,3s,s,2p,3p,d', 2.3, {'local': 'f'}),
 'Mg': ('2s,3s,2p,3p,d', [2.0, 1.8], {'local': 'f'}),
@@ -43,39 +43,39 @@ parameters = {
 'Cl': ('3s,s,3p,p,d', 1.5, {'local': 'f'}),
 'Ar': ('3s,s,3p,p,d', 1.5, {'local': 'f'}),
 'K':  ('3s,4s,3p,4p,d,d', 2.1, {'local': 'f'}),
-'Ca': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
+'Ca': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),  # 20
 'Sc': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),  # improve
-'Ti': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),  # improve
+'Ti': ('3s,4s,3p,4p,3d,d', 2.2, {'local': 'f'}),  # improve
 'V':  ('3s,4s,3p,4p,3d,d', 2.2, {'local': 'f'}),  # improve
-'Cr': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),  # improve
-'Mn': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),  # improve
-'Fe': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),  # improve
-'Co': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),  # improve
-'Ni': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),  # improve
-'Cu': ('3s,4s,3p,4p,3d,d', 1.8, {'local': 'f'}),
-'Zn': ('3s,4s,3p,4p,3d,d', 1.8, {'local': 'f'}),
+'Cr': ('3s,4s,3p,4p,3d,d', 2.2, {'local': 'f'}),  # improve
+'Mn': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),  # improve
+'Fe': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),  # improve
+'Co': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),  # improve
+'Ni': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),  # improve
+'Cu': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),
+'Zn': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),  # 30
 'Ga': ('4s,s,4p,p,3d,d', 2.2, {'local': 'f'}),
 'Ge': ('4s,s,4p,p,3d,d', 2.1, {'local': 'f'}),
 'As': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
-'Se': ('4s,s,4p,p,d', 1.9, {'local': 'f'}),
-'Br': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
-'Kr': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
+'Se': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
+'Br': ('4s,s,4p,p,d', 2.1, {'local': 'f'}),
+'Kr': ('4s,s,4p,p,d', 2.1, {'local': 'f'}),
 'Rb': ('4s,5s,4p,5p,d,d', 2.5, {'local': 'f'}),
 'Sr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
 'Y':  ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
 'Zr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),  # 40
 'Nb': ('4s,5s,4p,5p,4d,d', [2.4,2.4,2.5], {'local': 'f'}),
-'Mo': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
-'Tc': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
-'Ru': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
-'Rh': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
-'Pd': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
+'Mo': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Tc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Ru': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Rh': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Pd': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
 'Ag': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
 'Cd': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'In': ('5s,s,s,5p,p,4d,d', 2.6, {'local': 'f'}),  # improve
-'Sn': ('5s,s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
-'Sb': ('5s,s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
-'Te': ('5s,6s,5p,p,d,d', 2.6, {'local': 'f'}),  # improve
+'In': ('5s,s,5p,p,4d,d', 2.6, {'local': 'f'}),  # improve
+'Sn': ('5s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
+'Sb': ('5s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
+'Te': ('5s,6s,5p,p,d,d', 2.5, {'local': 'f'}),  # improve
 'I':  ('5s,s,5p,p,d', 2.4, {'local': 'f'}),
 'Xe': ('5s,s,5p,p,d', 2.3, {'local': 'f'}),
 'Cs': ('5s,6s,5p,6p,5d', [1.9, 2.2], {}),  # 55
@@ -962,7 +962,7 @@ def generate(argv=None):
     parser.add_option('-F', '--filter', metavar='gamma,h',
                       help='Fourier filtering parameters for Wang ' +
                       'mask-function.  Default: ' +
-                      'gamma=1.8 and h=0.2 Bohr.  Use gamma=1 and ' +
+                      'gamma=1.8 and h=0.4 Bohr.  Use gamma=1 and ' +
                       'h=0 to turn off filtering.')
 
     opt, args = parser.parse_args(argv)
@@ -1059,7 +1059,7 @@ def get_parameters(symbol, opt):
         radii = [float(r) for r in opt.radius.split(',')]
 
     gamma = extra.get('gamma', 1.8)
-    h = extra.get('h', 0.2)
+    h = extra.get('h', 0.4)
 
     if opt.filter:
         gamma, h = (float(x) for x in opt.filter.split(','))
