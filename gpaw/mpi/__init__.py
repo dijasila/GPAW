@@ -856,7 +856,7 @@ class Parallelization:
             raise RuntimeError('All the CPUs must be used')
     
     def get_optimal_kpt_parallelization(self, kptprioritypower=1.4):
-        if self.domain or self.band:
+        if self.domain and self.band:
             # Try to use all the CPUs for k-point parallelization
             ncpus = min(self.nspinkpts, self.navail)
             return ncpus
