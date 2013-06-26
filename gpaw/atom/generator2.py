@@ -90,19 +90,19 @@ parameters = {
 'Gd': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
 'Tb': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 65
 'Dy': ('5s,6s,5p,6p,5d,d,4f,f', 2.1, {'local': 'g'}),
-'Ho': ('5s,6s,5p,6p,5d,d,4f,f', 2.1, {'local': 'g'}),
-'Er': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),
-'Tm': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),
-'Yb': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # 70
-'Lu': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),
+'Ho': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Er': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Tm': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Yb': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 70
+'Lu': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
 'Hf': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
 'Ta': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
 'W':  ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
 'Re': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # 75
 'Os': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
 'Ir': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Pt': ('5s,6s,5p,6p,5d,d', [2.2, 2.2, 2.4], {'local': 'f'}),
-'Au': ('5s,6s,5p,6p,5d,d', [2.2, 2.2, 2.4], {'local': 'f'}),
+'Pt': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),
+'Au': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),
 'Hg': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),  # 80
 'Tl': ('6s,s,6p,p,5d,d', 2.8, {'local': 'f'}),
 'Pb': ('6s,s,6p,p,5d,d', 2.6, {'local': 'f'}),
