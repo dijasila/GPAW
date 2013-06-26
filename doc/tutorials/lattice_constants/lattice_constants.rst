@@ -22,7 +22,7 @@ Let's try to converge the lattice constant with respect to number of
 plane-waves:
 
 .. literalinclude:: iron.py
-    :lines: 1-18
+    :lines: 1-19
 
 .. image:: Fe_conv_ecut.png
 
@@ -31,7 +31,7 @@ with respect to number of **k**-points and with respect to the
 smearing width used for occupations numbers:
 
 .. literalinclude:: iron.py
-    :lines: 20-
+    :lines: 21-
 
 .. image:: Fe_conv_k.png
 
