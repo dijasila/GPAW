@@ -10,7 +10,6 @@ from ase.units import Hartree, Bohr
 from gpaw import GPAW
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.utilities.blas import gemmdot
-from gpaw.utilities.memory import maxrss
 from gpaw.xc.tools import vxc
 from gpaw.wavefunctions.pw import PWWaveFunctions
 from gpaw.response.parallel import set_communicator, parallel_partition, SliceAlongFrequency, GatherOrbitals
@@ -77,22 +76,22 @@ class GW(BASECHI):
             self.eta_w = dw_w * 4
             self.wcut = wcut
 
-        BASECHI.__init__(self, calc=file, nbands=nbands, w=w, eshift=eshift, ecut=ecut, eta=eta, txt=txt)
+        BASECHI.__init__(self, calc=file, nbands=nbands, w=w_w, eshift=eshift, ecut=ecut, eta=eta, txt=txt)
 
         self.file = file
         self.vcut = vcut
         self.bands = bands
         self.kpoints = kpoints
-        self.eshift = eshift
         self.hilbert_trans = hilbert_trans
         self.wpar = wpar
-        self.w_w = w_w
         self.ppa = ppa
         self.E0 = E0
         self.static = static
 
 
     def initialize(self):
+
+        self.ini = True
 
         self.printtxt('-----------------------------------------------')
         self.printtxt('GW calculation started at: \n')
@@ -101,9 +100,7 @@ class GW(BASECHI):
         
         BASECHI.initialize(self)
         calc = self.calc
-        self.kd = kd = self.calc.wfs.kd
-        self.nkpt = kd.nbzkpts
-        self.nikpt = kd.nibzkpts
+        kd = self.kd
 
         # q point init
         self.bzq_kc = kd.get_bz_q_points()
@@ -121,18 +118,9 @@ class GW(BASECHI):
             self.Nw = len(self.w_w)
 #            self.wpar = int(self.Nw * self.npw**2 * 16. / 1024**2) // 1500 + 1 # estimate memory and parallelize over frequencies
 
-        # eigenvalues and occupations init
-        self.e_skn = np.zeros((self.nspins, self.nikpt, calc.wfs.bd.nbands), dtype=float)
-        self.f_skn = np.zeros((self.nspins, self.nikpt, calc.wfs.bd.nbands), dtype=float)
-        for s in range(self.nspins):
-            for k in range(self.nikpt):
-                self.e_skn[s,k] = calc.get_eigenvalues(kpt=k, spin=s) / Hartree
-                self.f_skn[s,k] = calc.get_occupation_numbers(kpt=k, spin=s) / kd.weight_k[k]
-        if self.eshift is not None:
-            self.add_discontinuity(self.eshift)
-        if not self.ppa and not self.static:
-            emaxdiff = self.e_skn[:,:,self.nbands-1].max() - self.e_skn[:,:,0].min()
-            assert (self.wmax > emaxdiff), 'Maximum frequency must be larger than %f' %(emaxdiff*Hartree)
+            for s in range(self.nspins):
+                emaxdiff = self.e_skn[s][:,self.nbands-1].max() - self.e_skn[s][:,0].min()
+                assert (self.wmax > emaxdiff), 'Maximum frequency must be larger than %f' %(emaxdiff*Hartree)
 
         # GW kpoints init
         if (self.kpoints == None):
@@ -179,7 +167,10 @@ class GW(BASECHI):
 
     def get_QP_spectrum(self, exxfile='EXX.pckl', file='GW.pckl'):
 
-        self.initialize()
+        try:
+            self.ini
+        except:
+            self.initialize()
         self.print_gw_init()
         self.printtxt("calculating Sigma")
 
@@ -227,7 +218,7 @@ class GW(BASECHI):
             self.printtxt("reading Exact exchange and E_XC from file")
         else:
             t0 = time()
-            self.get_exact_exchange(ecut=self.ecut.max()*Hartree)
+            self.get_exact_exchange()
             world.barrier()
             exxfile='EXX.pckl'
             self.printtxt('EXX takes %f seconds' %(time()-t0))
@@ -314,7 +305,7 @@ class GW(BASECHI):
                 for j, n in enumerate(self.bands):
                     for m in range(self.m_start, self.m_end):
 
-                        if self.f_skn[s,ibzkpt2,m] < self.ftol: #self.e_kn[s,ibzkpt2, m] > E_f :
+                        if self.e_skn[s][ibzkpt2, m] > self.eFermi:
                             sign = 1.
                         else:
                             sign = -1.
@@ -326,7 +317,7 @@ class GW(BASECHI):
                             W_wGG[:,0,:] = Wbackup_w0G
 
                             # w1 = w - epsilon_m,k-q
-                            w1 = self.e_skn[s,ibzkpt1, n] - self.e_skn[s,ibzkpt2,m]
+                            w1 = self.e_skn[s][ibzkpt1,n] - self.e_skn[s][ibzkpt2,m]
 
                             if self.ppa:
                                 # analytical expression for Plasmon Pole Approximation
@@ -379,11 +370,11 @@ class GW(BASECHI):
                                 dSigma_skn[s,i,j] -= np.real(gemmdot(C_w, w1_w, beta=0.0))
 
                         else: #method 2
-                            if not np.abs(self.e_skn[s,ibzkpt2,m] - self.e_skn[s,ibzkpt1,n]) < 1e-10:
-                                sign *= np.sign(self.e_skn[s,ibzkpt1,n] - self.e_skn[s,ibzkpt2,m])
+                            if not np.abs(self.e_skn[s][ibzkpt2,m] - self.e_skn[s][ibzkpt1,n]) < 1e-10:
+                                sign *= np.sign(self.e_skn[s][ibzkpt1,n] - self.e_skn[s][ibzkpt2,m])
 
                             # find points on frequency grid
-                            w0 = self.e_skn[s,ibzkpt1,n] - self.e_skn[s,ibzkpt2,m]
+                            w0 = self.e_skn[s][ibzkpt1,n] - self.e_skn[s][ibzkpt2,m]
                             w0_id = np.abs(int(w0 / self.dw))
                             w1 = w0_id * self.dw
                             w2 = (w0_id + 1) * self.dw
@@ -422,7 +413,7 @@ class GW(BASECHI):
                                 Sw2 = np.real(gemmdot(Sw2_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
 
                                 Sw0 = (w2-np.abs(w0))/self.dw * Sw1 + (np.abs(w0)-w1)/self.dw * Sw2
-                                Sigma_skn[s,i,j] += np.sign(self.e_skn[s,ibzkpt1,n] - self.e_skn[s,ibzkpt2,m]) * Sw0
+                                Sigma_skn[s,i,j] += np.sign(self.e_skn[s][ibzkpt1,n] - self.e_skn[s][ibzkpt2,m]) * Sw0
                                 dSigma_skn[s,i,j] += (Sw2 - Sw1)/self.dw
 
         self.ncomm.barrier()
@@ -434,7 +425,11 @@ class GW(BASECHI):
 
     def get_exact_exchange(self, ecut=None, communicator=world, file='EXX.pckl'):
 
-#        self.initialize()
+        try:
+            self.ini
+        except:
+            self.initialize()
+
         self.printtxt("calculating Exact exchange and E_XC")
         self.printtxt('------------------------------------------------')
 
@@ -443,6 +438,8 @@ class GW(BASECHI):
 
         if ecut == None:
             ecut = self.ecut.max()
+        else:
+            ecut /= Hartree
 
         if not self.static:
             if isinstance(calc.wfs, PWWaveFunctions): # planewave mode
@@ -451,41 +448,26 @@ class GW(BASECHI):
                 exx = HybridXC('EXX', alpha=5.0, bandstructure=True, bands=self.bands)
             else:                                     # grid mode
                 from gpaw.xc.hybridk import HybridXC
-                self.printtxt('Planewave ecut (eV): %4.1f' % (ecut) )
-                exx = HybridXC('EXX', alpha=5.0, ecut=ecut/Hartree, bands=self.bands)
+                self.printtxt('Planewave ecut (eV): %4.1f' % (ecut*Hartree) )
+                exx = HybridXC('EXX', alpha=5.0, ecut=ecut, bands=self.bands)
             calc.get_xc_difference(exx)
 
-        gwbands_n = self.bands
-        gwkpt_k = self.kpoints
+        e_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
+        f_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
+        vxc_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
+        exx_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
 
-        if (gwbands_n == None):
-            gwbands_n = range(calc.wfs.bd.nbands)
-        if (gwkpt_k == None):
-            gwkpt_k = calc.wfs.kd.ibz2bz_k
-
-        nspins = calc.wfs.nspins
-        gwnkpt = len(gwkpt_k)
-        gwnband = len(gwbands_n)
-
-        e_skn = np.zeros((nspins, gwnkpt, gwnband), dtype=float)
-        f_skn = np.zeros((nspins, gwnkpt, gwnband), dtype=float)
-        vxc_skn = np.zeros((nspins, gwnkpt, gwnband), dtype=float)
-        exx_skn = np.zeros((nspins, gwnkpt, gwnband), dtype=float)
-
-        eFermi = calc.occupations.get_fermi_level()
-
-        for s in range(nspins):
-            for i, k in enumerate(gwkpt_k):
-                ik = calc.wfs.kd.bz2ibz_k[k]
-                for j, n in enumerate(gwbands_n):
-                    e_skn[s][i][j] = calc.get_eigenvalues(kpt=ik, spin=s)[n] / Hartree
-                    f_skn[s][i][j] = calc.get_occupation_numbers(kpt=ik, spin=s)[n] / calc.wfs.kd.weight_k[ik]
+        for s in range(self.nspins):
+            for i, k in enumerate(self.gwkpt_k):
+                ik = self.kd.bz2ibz_k[k]
+                for j, n in enumerate(self.gwbands_n):
+                    e_skn[s][i][j] = self.e_skn[s][ik][n]
+                    f_skn[s][i][j] = self.f_skn[s][ik][n]
                     vxc_skn[s][i][j] = v_xc[s][ik][n] / Hartree
                     if not self.static:
                         exx_skn[s][i][j] = exx.exx_skn[s][ik][n]
                     if self.eshift is not None:
-                        if e_skn[s][i][j] > eFermi:
-                            e_skn[s][i][j] += self.eshift / Hartree
+                        if e_skn[s][i][j] > self.eFermi:
                             vxc_skn[s][i][j] += self.eshift / Hartree
 
         data = {
@@ -493,8 +475,8 @@ class GW(BASECHI):
                 'vxc_skn':   vxc_skn,    # in Hartree
                 'exx_skn':   exx_skn,    # in Hartree
                 'f_skn':     f_skn,
-                'gwkpt_k':   gwkpt_k,
-                'gwbands_n': gwbands_n
+                'gwkpt_k':   self.gwkpt_k,
+                'gwbands_n': self.gwbands_n
                }
         if rank == 0:
             pickle.dump(data, open(file, 'w'), -1)
@@ -533,7 +515,7 @@ class GW(BASECHI):
         self.printtxt("Kohn-Sham eigenvalues are (eV): ")
         self.printtxt("%s \n" %(e_skn*Hartree))
         self.printtxt("Occupation numbers are: ")
-        self.printtxt("%s \n" %(f_skn))
+        self.printtxt("%s \n" %(f_skn*self.nkpt))
         self.printtxt("Kohn-Sham exchange-correlation contributions are (eV): ")
         self.printtxt("%s \n" %(vxc_skn*Hartree))
         if not self.static:

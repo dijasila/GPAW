@@ -96,6 +96,7 @@ class BASECHI:
         self.bzk_kc = kd.bzk_kc
         self.ibzk_kc = kd.ibzk_kc
         self.nkpt = kd.nbzkpts
+        self.nikpt = kd.nibzkpts
         self.ftol /= self.nkpt
 
         # cell init
@@ -115,6 +116,8 @@ class BASECHI:
         # obtain eigenvalues, occupations
         nibzkpt = kd.nibzkpts
         kweight_k = kd.weight_k
+
+        self.eFermi = self.calc.occupations.get_fermi_level()
 
         try:
             self.e_skn
@@ -403,11 +406,10 @@ class BASECHI:
 
     def add_discontinuity(self, shift):
 
-        eFermi = self.calc.occupations.get_fermi_level()
         for ispin in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 for i in range(self.e_skn[0].shape[1]):
-                    if self.e_skn[ispin][k,i] > eFermi:
+                    if self.e_skn[ispin][k,i] > self.eFermi:
                         self.e_skn[ispin][k,i] += shift / Hartree
 
         return
