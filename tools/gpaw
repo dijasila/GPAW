@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # Emacs: treat this as -*- python -*-
 
-from gpaw.commands.cli import run
+from gpaw.cli.run import main
 
-run()
+main()
