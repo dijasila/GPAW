@@ -24,18 +24,18 @@ calc.write('H2f.gpw')
 calc.write('H2fa.gpw', mode='all')
 
 from time import time
-def timer(func, *args, **kwargs):
+def timer(func):
     t0 = time()
-    ret = func(*args, **kwargs)
-    return ret, time()-t0
+    ret = func()
+    return ret, time() - t0
 
-molecule = GPAW('H2.gpw', txt=None).get_atoms()
+molecule = GPAW('H2.gpw', txt='t1').get_atoms()
 f1, t1 = timer(molecule.get_forces)
-molecule = GPAW('H2a.gpw', txt=None).get_atoms()
+molecule = GPAW('H2a.gpw', txt='t2').get_atoms()
 f2, t2 = timer(molecule.get_forces)
-molecule = GPAW('H2f.gpw', txt=None).get_atoms()
+molecule = GPAW('H2f.gpw', txt='t3').get_atoms()
 f3, t3 = timer(molecule.get_forces)
-molecule = GPAW('H2fa.gpw', txt=None).get_atoms()
+molecule = GPAW('H2fa.gpw', txt='t4').get_atoms()
 f4, t4 = timer(molecule.get_forces)
 print 'timing:', t1, t2, t3, t4
 assert t2 < 0.6 * t1

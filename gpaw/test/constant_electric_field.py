@@ -40,7 +40,7 @@ z_list = np.linspace(a0/2-dx/2, a0/2+dx/2, nsteps)
 if True:
     c = GPAW(
         h         = 0.30,
-        width     = 0.0,
+        #width     = 0.0,
         nbands    = nbands,
         spinpol   = False,
         xc        = 'LDA',
@@ -66,7 +66,7 @@ if True:
 if True:
     c = GPAW(
         h         = 0.30,
-        width     = 0.0,
+        #width     = 0.0,
         nbands    = nbands,
         spinpol   = False,
         xc        = 'LDA',

@@ -256,10 +256,12 @@ class GPAW(PAW, Calculator):
         self.results['energy'] = Hartree * (self.hamiltonian.Etot +
                                             0.5 * self.hamiltonian.S)
         if 'forces' in properties:
+            self.converge_wave_functions()
             F_av = forces(self)
             self.results['forces'] = F_av * (Hartree / Bohr)
 
         if 'stress' in properties:
+            self.converge_wave_functions()
             stress_vv = stress(self)
             self.results['stress'] = (stress_vv.flat[[0, 4, 8, 5, 2, 1]] *
                                       (Hartree / Bohr**3))

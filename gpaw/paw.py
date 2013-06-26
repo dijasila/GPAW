@@ -685,20 +685,21 @@ class PAW(PAWTextOutput):
     def converge_wave_functions(self):
         """Converge the wave-functions if not present."""
 
+        if self.parameters.mode == 'lcao':
+            return
 
         self.results = {}
         if not self.wfs or self.scf is None:
             self.initialize()
-            self.set_positions()
         else:
             self.wfs.initialize_wave_functions_from_restart_file()
-            spos_ac = self.atoms.get_scaled_positions() % 1.0
-            self.wfs.set_positions(spos_ac)
-
+        
         no_wave_functions = (self.wfs.kpt_u[0].psit_nG is None)
         converged = self.scf.check_convergence(self.density,
                                                self.wfs.eigensolver)
         if no_wave_functions or not converged:
+            self.set_positions()
+        
             self.wfs.eigensolver.error = np.inf
             self.scf.converged = False
 
