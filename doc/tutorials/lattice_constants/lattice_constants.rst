@@ -15,24 +15,23 @@ Finding lattice constants
      <https://wiki.fysik.dtu.dk/ase/ase/utils.html#equation-of-state>`_
 
 
-BCC iron
-========
+Fcc Aluminium
+=============
 
 Let's try to converge the lattice constant with respect to number of
 plane-waves:
 
-.. literalinclude:: iron.py
+.. literalinclude:: al.py
     :lines: 1-19
 
-.. image:: Fe_conv_ecut.png
+.. image:: Al_conv_ecut.png
 
-Using a plane-wave cutoff energy of 600 eV, we now check convergence
-with respect to number of **k**-points and with respect to the
-smearing width used for occupations numbers:
+Using a plane-wave cutoff energy of 400 eV, we now check convergence
+with respect to number of **k**-points:
 
-.. literalinclude:: iron.py
+.. literalinclude:: al.py
     :lines: 21-
 
-.. image:: Fe_conv_k.png
+.. image:: Al_conv_k.png
 
-(see also :download:`analysis script <iron.agts.py>`).
+(see also :download:`analysis script <al.agts.py>`).
