@@ -47,9 +47,9 @@ else:
 k = 2
 calc.set(kpts=(k, k, k))
 calc.initialize()
-#calc.set_positions(si)
 assert calc.wfs.dtype == complex
 
+calc.set_positions()
 r = RecursionMethod(calc)
 r.run(40)
 if mpi.size == 1:
