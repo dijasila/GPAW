@@ -23,28 +23,28 @@ molecule.get_forces()
 calc.write('H2f.gpw')
 calc.write('H2fa.gpw', mode='all')
 
-from time import time
-def timer(func):
-    t0 = time()
-    ret = func()
-    return ret, time() - t0
-
 molecule = GPAW('H2.gpw', txt='t1').get_atoms()
-f1, t1 = timer(molecule.get_forces)
+f1 = molecule.get_forces()
+assert 8 < molecule.calc.niterations < 13
+assert molecule.calc.scf.fixdensity
+
 molecule = GPAW('H2a.gpw', txt='t2').get_atoms()
-f2, t2 = timer(molecule.get_forces)
+f2 = molecule.get_forces()
+assert molecule.calc.niterations is None
+
 molecule = GPAW('H2f.gpw', txt='t3').get_atoms()
-f3, t3 = timer(molecule.get_forces)
+f3 = molecule.get_forces()
+assert molecule.calc.niterations is None
+
 molecule = GPAW('H2fa.gpw', txt='t4').get_atoms()
-f4, t4 = timer(molecule.get_forces)
-print 'timing:', t1, t2, t3, t4
-assert t2 < 0.6 * t1
-assert t3 < 0.5
-assert t4 < 0.5
+f4 = molecule.get_forces()
+assert molecule.calc.niterations is None
+
 print f1
 print f2
 print f3
 print f4
+
 assert sum((f1 - f4).ravel()**2) < 1e-6
 assert sum((f2 - f4).ravel()**2) < 1e-6
 assert sum((f3 - f4).ravel()**2) < 1e-6

@@ -96,10 +96,11 @@ Eg_Hub=band_gab(calc)
 ## gab, so the band gab shall we test parameter:
 ## Let's compare the new and old band gab and require that is has opened by
 ## at least 0.2 eV
-print( Eg_Hub, Eg_non_Hub)
-assert( Eg_Hub- Eg_non_Hub>1.9)
+print(Eg_Hub, Eg_non_Hub)
+assert abs(Eg_Hub - 4.7) < 0.03
+assert abs(Eg_non_Hub - 0.828) < 0.001
 
-energy_tolerance = 0.0004
+energy_tolerance = 0.001
 niter_tolerance = 0
 equal(e1, -29.35604, energy_tolerance) # version 0.9.1
 equal(niter1, 13, niter_tolerance) # svnversion 5252

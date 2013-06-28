@@ -695,7 +695,6 @@ class PAW(PAWTextOutput):
         if self.parameters.mode == 'lcao':
             return
 
-        self.results = {}
         if not self.wfs or self.scf is None:
             self.initialize()
         else:
