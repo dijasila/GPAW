@@ -240,8 +240,6 @@ density and pass that and the density on to the libxc kernel.
 
 Refer to :ref:`manual_xc` for other examples.
 
-Updating libxc and adding new functionals is described at :ref:`updating_libxc`.
-
 GPAW also has a few non-libxc kernels that one can use like this::
 
     from gpaw.xc.kernel import XCKernel

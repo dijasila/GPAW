@@ -16,7 +16,7 @@ Requirements
 
 4) C compiler - preferably gcc.
 
-5) Libxc version 2.0.1 (libxc-2.0.1_).
+5) Libxc version 2.0.1 (libxc-download_).
 
 6) BLAS and LAPACK libraries. Start with your system provided defaults or
    e.g. acml_
@@ -36,7 +36,7 @@ Optionally:
 
 .. _NumPy: http://numpy.org/
 .. _SciPy: http://scipy.org/
-.. _libxc-2.0.1: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download
+.. _libxc-download: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download
 .. _acml: http://developer.amd.com/tools-and-sdks/cpu-development/amd-core-math-library-acml/
 
 
@@ -52,6 +52,27 @@ are described, in order of preference.
    for :ref:`Niflheim`.
 
 .. _installationguide_macosx:
+
+Libxc Installation
+------------------
+
+Libxc download/install instructions can be found `here <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`_.  A few extra tips:
+
+- Libxc installation requires both a C compiler and a fortran compiler.
+
+- We've tried intel and gnu compilers and haven't noticed much of a
+  performance difference.  Use whatever is easiest.
+
+- Libxc shared libraries can be built with the "--enable-shared" option
+  to configure.  This might be slightly preferred because it reduces
+  memory footprints for executables.
+
+- Typically when building GPAW one has to modify customize.py in a manner
+  similar to the following::
+
+    libraries += ['xc']
+    library_dirs += ['/my/path/to/libxc/2.0.1/install/lib']
+    include_dirs += ['/my/path/to/libxc/2.0.1/install/include']
 
 Installation on OS X
 --------------------

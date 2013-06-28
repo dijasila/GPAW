@@ -48,7 +48,6 @@ to become the next release.
    ase_optimize/ase_optimize
    bugs
    newrelease
-   updating_libxc
    svn
    technology
    todo
