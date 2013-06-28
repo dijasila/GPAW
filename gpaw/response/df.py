@@ -27,7 +27,7 @@ class DF(CHI):
                  xc='ALDA',
                  print_xc_scf=False,
                  hilbert_trans=True,
-                 full_response=False,
+                 time_ordered=False,
                  optical_limit=False,
                  comm=None,
                  kcommsize=None):
@@ -36,7 +36,7 @@ class DF(CHI):
                      ecut=ecut, smooth_cut=smooth_cut, density_cut=density_cut,
                      G_plus_q=G_plus_q, eta=eta, rpad=rpad, vcut=vcut,
                      ftol=ftol, txt=txt, xc=xc, hilbert_trans=hilbert_trans,
-                     full_response=full_response, optical_limit=optical_limit,
+                     time_ordered=time_ordered, optical_limit=optical_limit,
                      comm=comm, kcommsize=kcommsize)
 
         self.df_flag = False

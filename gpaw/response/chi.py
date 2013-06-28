@@ -55,7 +55,7 @@ class CHI(BASECHI):
                  txt=None,
                  xc='ALDA',
                  hilbert_trans=True,
-                 full_response=False,
+                 time_ordered=False,
                  optical_limit=False,
                  comm=None,
                  kcommsize=None):
@@ -68,7 +68,7 @@ class CHI(BASECHI):
         
         self.xc = xc
         self.hilbert_trans = hilbert_trans
-        self.full_hilbert_trans = full_response
+        self.full_hilbert_trans = time_ordered
         self.vcut = vcut
         self.kcommsize = kcommsize
         self.comm = comm
@@ -633,7 +633,7 @@ class CHI(BASECHI):
 
         printtxt = self.printtxt
         printtxt('Use Hilbert Transform: %s' %(self.hilbert_trans) )
-        printtxt('Calculate full Response Function: %s' %(self.full_hilbert_trans) )
+        printtxt('Calculate time-ordered Response Function: %s' %(self.full_hilbert_trans) )
         printtxt('')
         printtxt('Number of frequency points   : %d' %(self.Nw) )
         if self.hilbert_trans:

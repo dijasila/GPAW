@@ -181,11 +181,6 @@ class BASECHI:
         # band init
         if self.nbands is None:
             self.nbands = calc.wfs.bd.nbands
-        elif self.nbands == 'npw':
-            if self.npw > calc.wfs.bd.nbands:
-                self.nbands = calc.wfs.bd.nbands
-            else:
-                self.nbands = self.npw
         self.nvalence = calc.wfs.nvalence
 
         # Projectors init
@@ -562,96 +557,3 @@ class BASECHI:
                 P_i = P_i.conj()
             P_ai[a] = P_i
         return P_ai
-
-
-    def screened_interaction_kernel(self, iq, static=True, E0=None, comm=None, kcommsize=None):
-        """Calcuate W_GG(w) for a given q.
-        if static: return W_GG(w=0)
-        is not static: return W_GG(q,w) - Vc_GG
-        """
-
-        ppa = False
-        if E0 is not None: # use Plasmon Pole Approximation
-            ppa = True
-            w = (0.,1j*E0)
-            hilbert_trans = False
-        elif not static: # dynamic screened interaction
-            w=self.w_w.copy()*Hartree
-            hilbert_trans = True
-            full_response = True
-        else: # static screened interaction
-            w=(0.,)
-            hilbert_trans = False
-
-        from gpaw.response.df import DF
-        q = self.ibzq_qc[iq]
-
-        optical_limit = False
-        if np.abs(q).sum() < 1e-8:
-            q = np.array([1e-12, 0, 0]) # arbitrary q, not really need to be calculated
-            optical_limit = True
-            
-        if static:
-            df = DF(calc=self.calc, q=q.copy(), w=(0.,), nbands=self.nbands, eshift=self.eshift,
-                    optical_limit=optical_limit, hilbert_trans=False, xc='RPA',
-                    rpad=self.rpad, vcut=self.vcut, G_plus_q=True,
-                    eta=0.0001, ecut=self.ecut*Hartree,
-                    txt='df.out', comm=comm, kcommsize=kcommsize)
-        else:
-            df = DF(calc=self.calc, q=q.copy(), w=w, nbands=self.nbands, eshift=self.eshift,
-                    optical_limit=optical_limit, hilbert_trans=hilbert_trans, xc='RPA', full_response=True,
-                    rpad=self.rpad, vcut=self.vcut, G_plus_q=True,
-                    eta=self.eta*Hartree, ecut=self.ecut.copy()*Hartree,
-                    txt='df.out', comm=comm, kcommsize=kcommsize)
-
-        dfinv_wGG = df.get_inverse_dielectric_matrix(xc='RPA')
-        assert df.ecut[0] == self.ecut[0]
-        if not static and not ppa:
-            assert df.eta == self.eta
-            assert df.Nw == self.Nw
-            assert df.dw == self.dw
-
-        # calculate Coulomb kernel and use truncation in 2D
-        delta_GG = np.eye(df.npw)
-        Vq_G = np.diag(calculate_Kc(q,
-                                    df.Gvec_Gc,
-                                    self.acell_cv,
-                                    self.bcell_cv,
-                                    self.pbc,
-                                    integrate_gamma=True,
-                                    N_k=self.kd.N_c,
-                                    vcut=self.vcut))**0.5
-        if self.vcut == '2D' and df.optical_limit:
-            for iG in range(len(df.Gvec_Gc)):
-                if df.Gvec_Gc[iG, 0] == 0 and df.Gvec_Gc[iG, 1] == 0:
-                    v_q, v0_q = calculate_Kc_q(self.acell_cv,
-                                               self.bcell_cv,
-                                               self.pbc,
-                                               self.kd.N_c,
-                                               vcut=self.vcut,
-                                               q_qc=np.array([q]),
-                                               Gvec_c=df.Gvec_Gc[iG])
-                    Vq_G[iG] = v_q[0]**0.5
-        self.Kc_GG = np.outer(Vq_G, Vq_G)
-
-        if ppa:
-            dfinv1_GG = dfinv_wGG[0] - delta_GG
-            dfinv2_GG = dfinv_wGG[1] - delta_GG
-            self.wt_GG = E0/Hartree * np.sqrt(dfinv2_GG / (dfinv1_GG - dfinv2_GG))
-            self.R_GG = - self.wt_GG / 2 * dfinv1_GG
-            del dfinv_wGG
-            dfinv_wGG = np.array([1j*pi*self.R_GG + delta_GG])
-
-        if static:
-            assert len(dfinv_wGG) == 1
-            W_GG = dfinv_wGG[0] * self.Kc_GG
-
-            return df, W_GG
-        else:
-            Nw = np.shape(dfinv_wGG)[0]
-            W_wGG = np.zeros_like(dfinv_wGG)
-            for iw in range(Nw):
-                dfinv_wGG[iw] -= delta_GG 
-                W_wGG[iw] = dfinv_wGG[iw] * self.Kc_GG
-
-            return df, W_wGG

@@ -1,19 +1,23 @@
-import numpy as np
-import pickle
-import sys
 import os
+import sys
+import pickle
+import numpy as np
 from math import pi, sqrt
 from time import time, ctime
 from datetime import timedelta
 from ase.parallel import paropen
 from ase.units import Hartree, Bohr
 from gpaw import GPAW
+from gpaw.version import version
 from gpaw.mpi import world, rank, size, serial_comm
+from gpaw.utilities import devnull
 from gpaw.utilities.blas import gemmdot
 from gpaw.xc.tools import vxc
 from gpaw.wavefunctions.pw import PWWaveFunctions
 from gpaw.response.parallel import set_communicator, parallel_partition, SliceAlongFrequency, GatherOrbitals
 from gpaw.response.base import BASECHI
+from gpaw.response.df import DF
+from gpaw.response.kernel import calculate_Kxc, calculate_Kc, calculate_Kc_q
 
 class GW(BASECHI):
 
@@ -23,6 +27,7 @@ class GW(BASECHI):
                  nbands=None,
                  bands=None,
                  kpoints=None,
+                 e_skn=None,
                  eshift=None,
                  w=None,
                  ecut=150.,
@@ -35,27 +40,86 @@ class GW(BASECHI):
                  txt=None
                 ):
 
-        static=False
+        BASECHI.__init__(self, calc=file, nbands=nbands, w=w, eshift=eshift, ecut=ecut, eta=eta, txt=devnull)
 
-        if ppa: # Plasmon Pole Approximation
-            w_w = (0.,)
-            hilbert_trans=False
-            wpar=1
-            if E0 is None:
-                E0 = Hartree
-        elif w==None: # static COHSEX
-            w_w = (0.,)
-            static=True
-            hilbert_trans=False
-            wpar=1
+        self.file = file
+        self.gwnbands = nbands
+        self.bands = bands
+        self.kpoints = kpoints
+        self.user_skn = e_skn
+        self.ppa = ppa
+        self.E0 = E0
+        self.hilbert_trans = hilbert_trans
+        self.wpar = wpar
+        self.vcut = vcut
+        self.gwtxtname = txt
+
+
+    def initialize(self):
+
+        self.ini = True
+
+        BASECHI.initialize(self)
+
+        self.txtname = self.gwtxtname
+        self.output_init()
+
+        self.printtxt('GPAW version %s' %(version))
+        self.printtxt('-----------------------------------------------')
+        self.printtxt('GW calculation started at:')
+        self.printtxt(ctime())
+        self.printtxt('-----------------------------------------------')
+        self.starttime = time()
+
+        calc = self.calc
+        kd = self.kd
+
+        # band init
+        if self.gwnbands is None:
+            if self.npw > calc.wfs.bd.nbands:
+                self.nbands = calc.wfs.bd.nbands
+            else:
+                self.nbands = self.npw
+
+        # eigenvalue init
+        if self.user_skn is not None:
+            self.printtxt('Use eigenvalues from user.')
+            assert np.shape(self.user_skn)[0] == self.nspins, 'Eigenvalues not compatible with .gpw file!'
+            assert np.shape(self.user_skn)[1] == self.nikpt, 'Eigenvalues not compatible with .gpw file!'
+            assert np.shape(self.user_skn)[2] >= self.nbands, 'Too few eigenvalues!'
+            self.e_skn = self.user_skn
+        else:
+            self.printtxt('Use eigenvalues from the calculator.')
+
+        # q point init
+        self.bzq_kc = kd.get_bz_q_points()
+        self.ibzq_qc = self.bzq_kc # q point symmetry is not used at the moment.
+        self.nqpt = np.shape(self.bzq_kc)[0]
+        
+        # frequency points init
+        self.static=False
+
+        if self.ppa: # Plasmon Pole Approximation
+            if self.E0 is None:
+                self.E0 = Hartree
+            self.E0 /= Hartree
+            self.w_w = np.array([0., 1j*self.E0])
+            self.hilbert_trans=False
+            self.wpar=1
+        elif self.w_w is None: # static COHSEX
+            self.w_w = np.array([0.])
+            self.static=True
+            self.hilbert_trans=False
+            self.wpar=1
+            self.eta = 0.0001 / Hartree
         else:
             # create nonlinear frequency grid
             # grid is linear from 0 to wcut with spacing dw
             # spacing is linearily increasing between wcut and wmax
             # Hilbert transforms are still carried out on linear grid
-            wcut = w[0]
-            wmax = w[1]
-            dw = w[2]
+            wcut = self.w_w[0]
+            wmax = self.w_w[1]
+            dw = self.w_w[2]
             w_w = np.linspace(0., wcut, wcut/dw+1)
             i=1
             wi=wcut
@@ -63,7 +127,7 @@ class GW(BASECHI):
                 wi += i*dw
                 w_w = np.append(w_w, wi)
                 i+=1
-            while len(w_w) % wpar != 0:
+            while len(w_w) % self.wpar != 0:
                 wi += i*dw
                 w_w = np.append(w_w, wi)
                 i+=1
@@ -72,46 +136,11 @@ class GW(BASECHI):
             dw_w[0] = dw
             dw_w[1:] = w_w[1:] - w_w[:-1]
 
-            self.dw_w = dw_w
-            self.eta_w = dw_w * 4
+            self.w_w = w_w / Hartree
+            self.dw_w = dw_w / Hartree
+            self.eta_w = dw_w * 4 / Hartree
             self.wcut = wcut
 
-        BASECHI.__init__(self, calc=file, nbands=nbands, w=w_w, eshift=eshift, ecut=ecut, eta=eta, txt=txt)
-
-        self.file = file
-        self.vcut = vcut
-        self.bands = bands
-        self.kpoints = kpoints
-        self.hilbert_trans = hilbert_trans
-        self.wpar = wpar
-        self.ppa = ppa
-        self.E0 = E0
-        self.static = static
-
-
-    def initialize(self):
-
-        self.ini = True
-
-        self.printtxt('-----------------------------------------------')
-        self.printtxt('GW calculation started at: \n')
-        self.printtxt(ctime())
-        self.starttime = time()
-        
-        BASECHI.initialize(self)
-        calc = self.calc
-        kd = self.kd
-
-        # q point init
-        self.bzq_kc = kd.get_bz_q_points()
-        self.ibzq_qc = self.bzq_kc # q point symmetry is not used at the moment.
-        self.nqpt = np.shape(self.bzq_kc)[0]
-        
-        # frequency points init
-        if not self.ppa and not self.static:
-            self.dw_w /= Hartree
-            self.w_w  /= Hartree
-            self.eta_w /= Hartree
             self.wmax = self.w_w[-1]
             self.wmin = self.w_w[0]
             self.dw = self.w_w[1] - self.w_w[0]
@@ -185,8 +214,9 @@ class GW(BASECHI):
             if iq >= self.nqpt:
                 continue
             t1 = time()
+
             # get screened interaction. 
-            df, W_wGG = self.screened_interaction_kernel(iq, static=self.static, E0=self.E0, comm=self.dfcomm, kcommsize=self.kcommsize)
+            df, W_wGG = self.screened_interaction_kernel(iq)
             t2 = time()
             t_w += t2 - t1
 
@@ -232,7 +262,10 @@ class GW(BASECHI):
         assert (gwkpt_k == self.gwkpt_k).all(), 'exxfile inconsistent with input parameters'
         assert (gwbands_n == self.gwbands_n).all(), 'exxfile inconsistent with input parameters'
 
-        QP_skn = e_skn + Z_skn * (Sigma_skn + exx_skn - vxc_skn)
+        if not self.static:
+            QP_skn = e_skn + Z_skn * (Sigma_skn + exx_skn - vxc_skn)
+        else:
+            QP_skn = e_skn + Sigma_skn - vxc_skn
         self.QP_skn = QP_skn
 
         # finish
@@ -250,6 +283,87 @@ class GW(BASECHI):
                }
         if rank == 0:
             pickle.dump(data, open(file, 'w'), -1)
+
+
+    def screened_interaction_kernel(self, iq):
+        """Calcuate W_GG(w) for a given q.
+        if static: return W_GG(w=0)
+        is not static: return W_GG(q,w) - Vc_GG
+        """
+
+        q = self.ibzq_qc[iq]
+        w = self.w_w.copy()*Hartree
+
+        optical_limit = False
+        if np.abs(q).sum() < 1e-8:
+            q = np.array([1e-12, 0, 0]) # arbitrary q, not really need to be calculated
+            optical_limit = True
+
+        hilbert_trans = True
+        if self.ppa or self.static:
+            hilbert_trans = False
+
+        df = DF(calc=self.calc, q=q.copy(), w=w, nbands=self.nbands, eshift=None,
+                optical_limit=optical_limit, hilbert_trans=hilbert_trans, xc='RPA', time_ordered=True,
+                rpad=self.rpad, vcut=self.vcut, G_plus_q=True,
+                eta=self.eta*Hartree, ecut=self.ecut.copy()*Hartree,
+                txt='df.out', comm=self.dfcomm, kcommsize=self.kcommsize)
+
+        df.initialize()
+        df.e_skn = self.e_skn.copy()
+        df.calculate()
+
+        dfinv_wGG = df.get_inverse_dielectric_matrix(xc='RPA')
+        assert df.ecut[0] == self.ecut[0]
+        if not self.static and not self.ppa:
+            assert df.eta == self.eta
+            assert df.Nw == self.Nw
+            assert df.dw == self.dw
+
+        # calculate Coulomb kernel and use truncation in 2D
+        delta_GG = np.eye(df.npw)
+        Vq_G = np.diag(calculate_Kc(q,
+                                    df.Gvec_Gc,
+                                    self.acell_cv,
+                                    self.bcell_cv,
+                                    self.pbc,
+                                    integrate_gamma=True,
+                                    N_k=self.kd.N_c,
+                                    vcut=self.vcut))**0.5
+        if self.vcut == '2D' and df.optical_limit:
+            for iG in range(len(df.Gvec_Gc)):
+                if df.Gvec_Gc[iG, 0] == 0 and df.Gvec_Gc[iG, 1] == 0:
+                    v_q, v0_q = calculate_Kc_q(self.acell_cv,
+                                               self.bcell_cv,
+                                               self.pbc,
+                                               self.kd.N_c,
+                                               vcut=self.vcut,
+                                               q_qc=np.array([q]),
+                                               Gvec_c=df.Gvec_Gc[iG])
+                    Vq_G[iG] = v_q[0]**0.5
+        self.Kc_GG = np.outer(Vq_G, Vq_G)
+
+        if self.ppa:
+            dfinv1_GG = dfinv_wGG[0] - delta_GG
+            dfinv2_GG = dfinv_wGG[1] - delta_GG
+            self.wt_GG = self.E0 * np.sqrt(dfinv2_GG / (dfinv1_GG - dfinv2_GG))
+            self.R_GG = - self.wt_GG / 2 * dfinv1_GG
+            del dfinv_wGG
+            dfinv_wGG = np.array([1j*pi*self.R_GG + delta_GG])
+
+        if self.static:
+            assert len(dfinv_wGG) == 1
+            W_GG = dfinv_wGG[0] * self.Kc_GG
+
+            return df, W_GG
+        else:
+            Nw = np.shape(dfinv_wGG)[0]
+            W_wGG = np.zeros_like(dfinv_wGG)
+            for iw in range(Nw):
+                dfinv_wGG[iw] -= delta_GG
+                W_wGG[iw] = dfinv_wGG[iw] * self.Kc_GG
+
+            return df, W_wGG
 
 
     def get_self_energy(self, df, W_wGG):
@@ -441,16 +555,15 @@ class GW(BASECHI):
         else:
             ecut /= Hartree
 
-        if not self.static:
-            if isinstance(calc.wfs, PWWaveFunctions): # planewave mode
-                from gpaw.xc.hybridg import HybridXC
-                self.printtxt('Use planewave ecut from groundstate calculator: %4.1f eV' % (calc.wfs.pd.ecut*Hartree) )
-                exx = HybridXC('EXX', alpha=5.0, bandstructure=True, bands=self.bands)
-            else:                                     # grid mode
-                from gpaw.xc.hybridk import HybridXC
-                self.printtxt('Planewave ecut (eV): %4.1f' % (ecut*Hartree) )
-                exx = HybridXC('EXX', alpha=5.0, ecut=ecut, bands=self.bands)
-            calc.get_xc_difference(exx)
+        if self.pwmode: # planewave mode
+            from gpaw.xc.hybridg import HybridXC
+            self.printtxt('Use planewave ecut from groundstate calculator: %4.1f eV' % (calc.wfs.pd.ecut*Hartree) )
+            exx = HybridXC('EXX', alpha=5.0, bandstructure=True, bands=self.bands)
+        else:                                     # grid mode
+            from gpaw.xc.hybridk import HybridXC
+            self.printtxt('Planewave ecut (eV): %4.1f' % (ecut*Hartree) )
+            exx = HybridXC('EXX', alpha=5.0, ecut=ecut, bands=self.bands)
+        calc.get_xc_difference(exx)
 
         e_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
         f_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
@@ -464,8 +577,7 @@ class GW(BASECHI):
                     e_skn[s][i][j] = self.e_skn[s][ik][n]
                     f_skn[s][i][j] = self.f_skn[s][ik][n]
                     vxc_skn[s][i][j] = v_xc[s][ik][n] / Hartree
-                    if not self.static:
-                        exx_skn[s][i][j] = exx.exx_skn[s][ik][n]
+                    exx_skn[s][i][j] = exx.exx_skn[s][ik][n]
                     if self.eshift is not None:
                         if e_skn[s][i][j] > self.eFermi:
                             vxc_skn[s][i][j] += self.eshift / Hartree
@@ -487,12 +599,26 @@ class GW(BASECHI):
 
     def print_gw_init(self):
 
-        self.printtxt("Number of IBZ k-points       : %d" %(self.kd.nibzkpts))
+        if self.eshift is not None:
+            self.printtxt('Shift unoccupied bands by %f eV' % (self.eshift))
+        for s in range(self.nspins):
+            self.printtxt('Lowest eigenvalue (spin=%s) : %f eV' %(s, self.e_skn[s][:, 0].min()*Hartree))
+            self.printtxt('Highest eigenvalue (spin=%s): %f eV' %(s, self.e_skn[s][:, self.nbands-1].max()*Hartree))
+        self.printtxt('')
+        if self.ecut[0] == self.ecut[1] and self.ecut[0] == self.ecut[2]:
+            self.printtxt('Plane wave ecut (eV)         : %4.1f' % (self.ecut[0]*Hartree))
+        else:
+            self.printtxt('Plane wave ecut (eV)         : (%f, %f, %f)' % (self.ecut[0]*Hartree,self.ecut[1]*Hartree,self.ecut[2]*Hartree) )
+        self.printtxt('Number of plane waves used   : %d' %(self.npw) )
+        self.printtxt('Number of bands              : %d' %(self.nbands) )
+        self.printtxt('Number of k points           : %d' %(self.nkpt) )
+        self.printtxt("Number of IBZ k points       : %d" %(self.kd.nibzkpts))
         self.printtxt("Number of spins              : %d" %(self.nspins))
         self.printtxt('')
         if self.ppa:
             self.printtxt("Use Plasmon Pole Approximation")
-            self.printtxt("imaginary frequency (eV)     : %.2f" %(self.E0))
+            self.printtxt("imaginary frequency (eV)     : %.2f" %(self.E0*Hartree))
+            self.printtxt("broadening (eV)              : %.2f" %(self.eta*Hartree))
         elif self.static:
             self.printtxt("Use static COHSEX")
         else:
@@ -501,11 +627,14 @@ class GW(BASECHI):
             self.printtxt("Number of frequency points   : %d" %(self.Nw))
             self.printtxt("Use Hilbert transform        : %s" %(self.hilbert_trans))
         self.printtxt('')
+        self.printtxt('Coulomb interaction cutoff   : %s' % self.vcut)
+        self.printtxt('')
         self.printtxt('Calculate matrix elements for k = :')
         for k in self.gwkpt_k:
             self.printtxt(self.kd.bzk_kc[k])
         self.printtxt('')
-        self.printtxt('Calculate matrix elements for n = %s' %(self.gwbands_n))
+        self.printtxt('Calculate matrix elements for n = :')
+        self.printtxt(self.gwbands_n)
         self.printtxt('')
 
 
@@ -518,9 +647,8 @@ class GW(BASECHI):
         self.printtxt("%s \n" %(f_skn*self.nkpt))
         self.printtxt("Kohn-Sham exchange-correlation contributions are (eV): ")
         self.printtxt("%s \n" %(vxc_skn*Hartree))
-        if not self.static:
-            self.printtxt("Exact exchange contributions are (eV): ")
-            self.printtxt("%s \n" %(exx_skn*Hartree))
+        self.printtxt("Exact exchange contributions are (eV): ")
+        self.printtxt("%s \n" %(exx_skn*Hartree))
         self.printtxt("Self energy contributions are (eV):")
         self.printtxt("%s \n" %(Sigma_skn*Hartree))
         if not self.static:
