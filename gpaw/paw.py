@@ -352,7 +352,40 @@ class PAW(PAWTextOutput):
         else:
             xc = par.xc
 
-        setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc, world)
+        mode = par.mode
+
+        if xc.orbital_dependent:
+            assert mode != 'lcao'
+
+        if mode == 'pw':
+            mode = PW()
+
+        if par.realspace is None:
+            realspace = not isinstance(mode, PW)
+        else:
+            realspace = par.realspace
+            if isinstance(mode, PW):
+                assert not realspace
+
+        if par.gpts is not None:
+            N_c = np.array(par.gpts)
+        else:
+            h = par.h
+            if h is not None:
+                h /= Bohr
+            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
+
+        if par.filter is None and not isinstance(mode, PW):
+            gamma = 1.6
+            hmax = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / N_c).max()
+            def filter(rgd, rcut, f_r, l=0):
+                gcut = np.pi / hmax - 2 / rcut / gamma
+                f_r[:] = rgd.filter(f_r, rcut * gamma, gcut, l)
+        else:
+            filter = par.filter
+
+        setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc,
+                        filter, world)
 
         if magmom_av.ndim == 1:
             collinear = True
@@ -395,29 +428,6 @@ class PAW(PAWTextOutput):
         else:
             assert par.occupations is None
       
-        mode = par.mode
-
-        if xc.orbital_dependent:
-            assert mode != 'lcao'
-
-        if mode == 'pw':
-            mode = PW()
-
-        if par.realspace is None:
-            realspace = not isinstance(mode, PW)
-        else:
-            realspace = par.realspace
-            if isinstance(mode, PW):
-                assert not realspace
-
-        if par.gpts is not None:
-            N_c = np.array(par.gpts)
-        else:
-            h = par.h
-            if h is not None:
-                h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
-
         if hasattr(self, 'time') or par.dtype == complex:
             dtype = complex
         else:

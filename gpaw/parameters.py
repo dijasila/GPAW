@@ -35,6 +35,7 @@ class InputParameters(dict):
             ('hund',            False),
             ('random',          False),
             ('dtype',           None),
+            ('filter',          None),
             ('maxiter',         120),
             ('parallel',        {'kpt':                 None,
                                  'domain':              parsize_domain,

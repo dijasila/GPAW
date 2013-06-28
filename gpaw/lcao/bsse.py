@@ -94,7 +94,7 @@ class GhostSetupData:
         self.symbol = symbol + '.ghost'
         self.Z = atomic_numbers[symbol]
 
-    def build(self, xcfunc, lmax, basis):
+    def build(self, xcfunc, lmax, basis, filter=None):
         if basis is None:
             raise ValueError('Loading partial waves not supported right now')
         setup = GhostSetup(basis, self)

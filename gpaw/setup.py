@@ -29,7 +29,8 @@ from gpaw.xc import XC
 
 
 def create_setup(symbol, xc='LDA', lmax=0,
-                 type='paw', basis=None, setupdata=None, world=None):
+                 type='paw', basis=None, setupdata=None,
+                 filter=None, world=None):
     if isinstance(xc, str):
         xc = XC(xc)
 
@@ -62,7 +63,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
                                   type, True,
                                   world=world)
     if hasattr(setupdata, 'build'):
-        return LeanSetup(setupdata.build(xc, lmax, basis))
+        return LeanSetup(setupdata.build(xc, lmax, basis, filter))
     else:
         return setupdata
 
@@ -543,7 +544,7 @@ class Setup(BaseSetup):
     ``tauct``  Pseudo core kinetic energy density
     ========== ============================================
     """
-    def __init__(self, data, xc, lmax=0, basis=None):
+    def __init__(self, data, xc, lmax=0, basis=None, filter=None):
         self.type = data.name
         
         self.HubU = None
@@ -580,17 +581,39 @@ class Setup(BaseSetup):
         dr_g = rgd.dr_g
 
         self.lmax = lmax
-
-        # Find Fourier-filter cutoff radius:
-        gcutfilter = data.get_max_projector_cutoff()
-        self.rcutfilter = rcutfilter = r_g[gcutfilter]
-
+            
         rcutmax = max(rcut_j)
         rcut2 = 2 * rcutmax
         gcut2 = rgd.ceil(rcut2)
         self.gcut2 = gcut2
 
         self.gcutmin = rgd.ceil(min(rcut_j))
+
+        if data.generator_version < 2:
+            # Find Fourier-filter cutoff radius:
+            gcutfilter = data.get_max_projector_cutoff()
+        elif filter:
+            rc = rcutmax
+            filter(rgd, rc, data.vbar_g)
+
+            for l, pt_g in zip(l_j, pt_jg):
+                filter(rgd, rc, pt_g, l)
+
+            for l in range(lmax + 1):
+                J = [j for j, lj in enumerate(l_j) if lj == l]
+                A_nn = [[rgd.integrate(phit_jg[j1] * pt_jg[j2]) / 4 / pi
+                         for j1 in J] for j2 in J]
+                B_nn = np.linalg.inv(A_nn)
+                pt_ng = np.dot(B_nn, [pt_jg[j] for j in J])
+                for n, j in enumerate(J):
+                    pt_jg[j] = pt_ng[n]
+            gcutfilter = data.get_max_projector_cutoff()
+        else:
+            rcutfilter = max(rcut_j)
+            gcutfilter = rgd.ceil(rcutfilter)
+        
+        self.rcutfilter = rcutfilter = r_g[gcutfilter]
+        assert (data.vbar_g[gcutfilter:] == 0).all()
 
         ni = 0
         i = 0
@@ -1080,7 +1103,7 @@ class Setups(list):
     """
 
     def __init__(self, Z_a, setup_types, basis_sets, lmax, xc,
-                 world=None):
+                 filter=None, world=None):
         list.__init__(self)
         symbols = [chemical_symbols[Z] for Z in Z_a]
         type_a = types2atomtypes(symbols, setup_types, default='paw')
@@ -1104,7 +1127,8 @@ class Setups(list):
                 if isinstance(basis, str):
                     basis = Basis(symbol, basis, world=world)
                 setup = create_setup(symbol, xc, lmax, type,
-                                     basis, setupdata=setupdata, world=world)
+                                     basis, setupdata=setupdata,
+                                     filter=filter, world=world)
                 self.setups[id] = setup
                 natoms[id] = 0
             natoms[id] += 1
