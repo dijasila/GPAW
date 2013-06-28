@@ -5,13 +5,13 @@ curie.ccc.cea.fr GPU
 ====================
 
 Here you find information about the the system
-`<http://www-hpc.cea.fr/en/complexe/tgcc-curie.htm>`_.
+http://www-hpc.cea.fr/en/complexe/tgcc-curie.htm.
 
 **Warning**: May 14 2013: rpa-gpu-expt branch fails to compile
 due to cublasZdgmm missing in cuda-4.2.
 
 The system runs Bull Linux.
-The installation assumes `bash` shell:
+The installation assumes *bash* shell:
 
 - packages are installed under ``~/CAMd``::
 
@@ -30,7 +30,8 @@ The installation assumes `bash` shell:
 
   .. literalinclude:: download_curie_gpu.sh
 
-- install packages, deploy modules and test with :svn:`~doc/install/Bull/install_curie_gpu.sh`:
+- install packages, deploy modules and test with
+  :svn:`~doc/install/Bull/install_curie_gpu.sh`:
 
   .. literalinclude:: install_curie_gpu.sh
 

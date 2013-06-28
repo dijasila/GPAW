@@ -15,10 +15,11 @@ pressure derivative of the bulk modulus *B1* (dimensionless).
 Percentage errors with respect to http://www.wien2k.at/.
 
 **Note**: in order to get an impression about the magnitude of the
-Delta factors one could for example divide them by the corresponding Deltas
-of PBE exchange-correlation functional with respect to experiment,
-available in the publication http://molmod.ugent.be/DeltaCodesDFT in Table IX.
-This can be performed using the `calcDelta.py` script provided at the website::
+Delta factors one could for example divide them by the corresponding
+Deltas of PBE exchange-correlation functional with respect to
+experiment, available in the publication
+http://molmod.ugent.be/DeltaCodesDFT in Table IX.  This can be
+performed using the ``calcDelta.py`` script provided at the website::
 
   python calcDelta.py VASP-relaxed.txt exp.txt --stdout | grep -E -v "#|-|np" > test.txt
   python calcDelta.py VASP.txt WIEN2k.txt --stdout | grep -E -v "#|-|np" | join test.txt - | grep -v "N/A" | awk '{print $1, $3/$2*100}'

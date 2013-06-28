@@ -60,7 +60,7 @@ df = DF(calc='C2.gpw',
         optical_limit=True)
 df.get_absorption_spectrum(filename='C2.dat')
 
-spect = np.loadtxt('C2.dat')
+spect = np.loadtxt('C2.dat.y')
 eps2_max = spect[0][spect[6].argmax()]
 
 if np.abs(eps2_max - 8.92972)>1e-3:

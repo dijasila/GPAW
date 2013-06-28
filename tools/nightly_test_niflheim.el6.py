@@ -50,12 +50,12 @@ if os.system('svn export ' +
 os.chdir('gpaw')
 if os.system('source /home/opt/modulefiles/modulefiles_el6.sh&& ' +
              'export PYTHONDONTWRITEBYTECODE=1&& ' +
-             'module load NUMPY&& ' +
+             'module load NUMPY/1.7.1-1&& ' +
              'module load intel-compilers&& ' +
              'module load openmpi&& ' +
              'python setup.py --remove-default-flags ' +
              '--customize=doc/install/Linux/Niflheim/' +
-             'el6-sl230s-tm-intel-2013.1.117-openmpi-1.6.3-mkl-2013.1.117-sl-hdf5-1.8.10.py ' +
+             'el6-sl230s-tm-gfortran-openmpi-1.6.3-acml-4.4.0-sl-hdf5-1.8.10.py ' +
              'install --home=%s 2>&1 | ' % tmpdir +
              'grep -v "c/libxc/src"') != 0:
     fail('Installation failed!')
@@ -65,6 +65,7 @@ os.system('mv ../ase/ase ../lib64/python')
 # import gpaw from where it was installed
 sys.path.insert(0, '%s/%s/python' % (tmpdir, 'lib64'))
 
+# this import requires numpy!
 from gpaw.version import version
 
 os.system('wget --no-check-certificate --quiet ' +
@@ -76,8 +77,8 @@ setups = tmpdir + '/gpaw/' + glob.glob('gpaw-setups-[0-9]*')[0]
 print 'Run'
 if os.system('source /home/opt/modulefiles/modulefiles_el6.sh&& ' +
              'export PYTHONDONTWRITEBYTECODE=1&& ' +
-             'module load NUMPY&& ' +
-             'module load SCIPY&& ' +
+             'module load NUMPY/1.7.1-1&& ' +
+             'module load SCIPY/0.12.0-1&& ' +
              'module load SCIENTIFICPYTHON&& ' +
              'module load CMR&& ' +
              'module load intel-compilers&& ' +

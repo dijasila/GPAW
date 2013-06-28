@@ -1,7 +1,5 @@
 .. _electrostatic_potential:
 
-.. default-role:: math
-
 ===============================
 Note on electrostatic potential
 ===============================

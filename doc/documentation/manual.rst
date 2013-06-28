@@ -4,9 +4,6 @@
 Manual
 ======
 
-.. default-role:: math
-
-
 GPAW calculations are controlled through scripts written in the
 programming language Python_.  GPAW relies on the :ase:`Atomic
 Simulation Environment <>` (ASE), which is a Python package that helps
@@ -222,8 +219,7 @@ generalized gradient approximation (GGA) type, and the last two are
 For the list of all functionals available in GPAW see :ref:`overview_xc`.
 
 GPAW uses the functionals from libxc_ by default.
-Keywords are based on the strings from the
-:file:`gpaw/xc/libxc_functionals.py` file.
+Keywords are based on the names in the libxc :file:`'xc_funcs.h'` header file (the leading ``'XC_'`` should be removed from those names).
 Valid keywords are strings or combinations of exchange and correlation string
 joined by **+** (plus).
 For example, "the" (most common) LDA approximation in chemistry
@@ -924,5 +920,3 @@ argument                         description
              *J. Phys. Chem.* **98** 11623-11627 (1994)
              Ab-Initio Calculation of Vibrational Absorption and Circular-Dichroism
              Spectra Using Density-Functional Force-Fields
-
-.. default-role::

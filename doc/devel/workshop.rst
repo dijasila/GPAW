@@ -94,8 +94,9 @@ Tuesday (May 21)
      <http://www.youtube.com/watch?v=ihajSLIqPG8>`__
  * - 14:10
    - Bjørk Hammer
-   - Challenges with the currently (correctly) implemented NEB-method. Should
+   - `Challenges with the currently (correctly) implemented NEB-method. Should
      ASE revert to the original more robust NEB-formulation with springs?
+     <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a08.pdf>`__
    - `youtube
      <http://www.youtube.com/watch?v=wKJLRBsVt7Q>`__
  * - 14:30

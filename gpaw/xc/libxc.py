@@ -1,6 +1,5 @@
 import _gpaw
 from gpaw.xc.kernel import XCKernel
-from gpaw.xc.libxc_functionals import libxc_functionals
 from gpaw import debug
 
 short_names = {
@@ -14,16 +13,15 @@ short_names = {
     'HCTH407': 'GGA_XC_HCTH_407',
     'WC':      'GGA_X_WC+GGA_C_PBE',
     'AM05':    'GGA_X_AM05+GGA_C_AM05',
-    'TPSS':    'MGGA_X_TPSS+MGGA_C_TPSS',
-    'M06L':    'MGGA_X_M06L+MGGA_C_M06L',
-    'revTPSS': 'MGGA_X_REVTPSS+MGGA_C_REVTPSS',
-    'oTPSS':   'MGGA_X_OTPSS+MGGA_C_OTPSS',
-    'MS0':     'MGGA_X_MS0+GGA_C_PBE_REVTPSS',
-    'MS1':     'MGGA_X_MS1+GGA_C_PBE_REVTPSS',
-    'MS2':     'MGGA_X_MS2+GGA_C_PBE_REVTPSS',
-    'mBEEF':   'MGGA_X_MBEEF+GGA_C_PBE_SOL'
+#    'TPSSLXC':    'MGGA_X_TPSS+MGGA_C_TPSS',
+    'M06LLXC':    'MGGA_X_M06_L+MGGA_C_M06_L',
+#    'revTPSSLXC': 'MGGA_X_REVTPSS+MGGA_C_REVTPSS',
+#    'oTPSS':   'MGGA_X_OTPSS+MGGA_C_OTPSS',
+#    'MS0':     'MGGA_X_MS0+GGA_C_VPBE',
+#    'MS1':     'MGGA_X_MS1+GGA_C_VPBE',
+#    'MS2':     'MGGA_X_MS2+GGA_C_VPBE',
+#    'mBEEF':   'MGGA_X_MBEEF+GGA_C_PBE_SOL'
 }
-
 
 class LibXC(XCKernel):
     def __init__(self, name):
@@ -33,8 +31,9 @@ class LibXC(XCKernel):
     def initialize(self, nspins):
         self.nspins = nspins
         name = short_names.get(self.name, self.name)
-        if name in libxc_functionals:
-            f = libxc_functionals[name]
+        number = _gpaw.lxcXCFuncNum(name)
+        if number is not None:
+            f = number
             xc = -1
             x = -1
             c = -1
@@ -50,19 +49,14 @@ class LibXC(XCKernel):
             except ValueError:
                 raise NameError('Unknown functional: "%s".' % name)
             xc = -1
-            x = libxc_functionals[x]
-            c = libxc_functionals[c]
-
-        if xc != -1:
-            # The C code can't handle this case!
-            c = xc
-            xc = -1
+            x = _gpaw.lxcXCFuncNum(x)
+            c = _gpaw.lxcXCFuncNum(c)
 
         self.xc = _gpaw.lxcXCFunctional(xc, x, c, nspins)
 
         if self.xc.is_mgga():
             self.type = 'MGGA'
-        elif self.xc.is_gga() or self.xc.is_hyb_gga():
+        elif self.xc.is_gga():
             self.type = 'GGA'
         else:
             self.type = 'LDA'
@@ -77,30 +71,6 @@ class LibXC(XCKernel):
         if self.nspins != nspins:
             self.initialize(nspins)
 
-        if nspins == 1:
-            self.xc.calculate_spinpaired(e_g.ravel(), n_sg, dedn_sg,
-                                         sigma_xg, dedsigma_xg,
-                                         tau_sg, dedtau_sg)
-        else:
-            if self.type == 'LDA':
-                self.xc.calculate_spinpolarized(
-                    e_g.ravel(),
-                    n_sg[0], dedn_sg[0],
-                    n_sg[1], dedn_sg[1])
-            elif self.type == 'GGA':
-                self.xc.calculate_spinpolarized(
-                    e_g.ravel(),
-                    n_sg[0], dedn_sg[0],
-                    n_sg[1], dedn_sg[1],
-                    sigma_xg[0], sigma_xg[1], sigma_xg[2],
-                    dedsigma_xg[0], dedsigma_xg[1], dedsigma_xg[2])
-            else:
-                self.xc.calculate_spinpolarized(
-                    e_g.ravel(),
-                    n_sg[0], dedn_sg[0],
-                    n_sg[1], dedn_sg[1],
-                    sigma_xg[0], sigma_xg[1], sigma_xg[2],
-                    dedsigma_xg[0], dedsigma_xg[1], dedsigma_xg[2],
-                    tau_sg[0], tau_sg[1],
-                    dedtau_sg[0], dedtau_sg[1])
-
+        self.xc.calculate(e_g.ravel(), n_sg, dedn_sg,
+                          sigma_xg, dedsigma_xg,
+                          tau_sg, dedtau_sg)

@@ -126,6 +126,9 @@ tests = [
     'lcao_density.py',
     'parallel/overlap.py',
     'restart.py',
+    # numpy/scipy tests fail randomly
+    #'numpy_test.py',
+    #'scipy_test.py',
     'gemv.py',
     'ylexpand.py',
     'potential.py',
@@ -278,7 +281,7 @@ tests = [
     'td_na2.py',
     'rpa_energy_N2.py',
     'beefvdw.py',
-    'mbeef.py',
+    #'mbeef.py',
     'wannierk.py',
     'rpa_energy_Na.py',
     'coreeig.py',
@@ -340,7 +343,10 @@ if mpi.size > 1:
                 'lcao_pair_and_coulomb.py',
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
-                'pw/davidson_pw.py']
+                'pw/davidson_pw.py',
+                # scipy.weave fails often in parallel due to ~/.python*_compiled
+                # https://github.com/scipy/scipy/issues/1895
+                'scipy_test.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']

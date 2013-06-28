@@ -5,7 +5,7 @@ neolith.nsc.liu.se
 ==================
 
 Here you find information about the the system
-`<http://www.nsc.liu.se/systems/neolith>`_.
+http://www.nsc.liu.se/systems/neolith.
 
 The installation of user's packages on neolith described below uses
 `cmod <http://www.lysator.liu.se/cmod/>`_ modules:
@@ -43,7 +43,7 @@ The installation of user's packages on neolith described below uses
    cd ..
    tar zxf python-ase-3.2.0.962.tar.gz
 
-- build `gpaw-setups`::
+- build gpaw-setups::
 
    cd ~/apps
    wget --no-check-certificate "http://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.5.3574.tar.gz"
@@ -100,7 +100,7 @@ The installation of user's packages on neolith described below uses
     ln -s ${MODULEFILES}/campos-gpaw/0.6.3934-1.el5.gfortran.python2.4.openmpi.mkl.10.0.4.023.mkl_lapack ${MODULEFILES}/campos-gpaw/default
 
   **Note** that every time you wish to install a new version of a package,
-  you (`svn up` is necessary), create new tarball,
+  you (``svn up`` is necessary), create new tarball,
   and deploy new module file, keeping the old module file.
 
 - test numpy installation::

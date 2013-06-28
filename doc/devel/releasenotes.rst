@@ -10,6 +10,8 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* Support for new libxc 2.0.1.  libxc must now be built separately from GPAW.
+
 * MGGA calculations can be done in plane-wave mode.
 
 * Calculation of the stress tensor has been implemented for plane-wave

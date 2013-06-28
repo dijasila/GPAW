@@ -4,7 +4,7 @@
 armageddon.chimfar.unimo.it
 ===========================
 
-The installation of user's packages described below assumes `bash` shell:
+The installation of user's packages described below assumes *bash* shell:
 
 - packages are installed under ``~/CAMd``::
 
@@ -28,4 +28,4 @@ The installation of user's packages described below assumes `bash` shell:
   buy running ``sh install_armageddon.sh``.
 
 - enable packages with :svn:`~doc/install/Linux/set_env_armageddon.sh`,
-  buy running ``. set_env_armageddon.sh`` (put this in `~/.bashrc`).
+  buy running ``. set_env_armageddon.sh`` (put this in *~/.bashrc*).

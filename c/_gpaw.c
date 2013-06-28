@@ -70,6 +70,7 @@ PyObject* hartree(PyObject *self, PyObject *args);
 PyObject* localize(PyObject *self, PyObject *args);
 PyObject* NewXCFunctionalObject(PyObject *self, PyObject *args);
 PyObject* NewlxcXCFunctionalObject(PyObject *self, PyObject *args);
+PyObject* lxcXCFuncNum(PyObject *self, PyObject *args);
 PyObject* exterior_electron_density_region(PyObject *self, PyObject *args);
 PyObject* plane_wave_grid(PyObject *self, PyObject *args);
 PyObject* overlap(PyObject *self, PyObject *args);
@@ -157,6 +158,7 @@ static PyMethodDef functions[] = {
   {"XCFunctional",    NewXCFunctionalObject,    METH_VARARGS, 0},
   /*  {"MGGAFunctional",    NewMGGAFunctionalObject,    METH_VARARGS, 0},*/
   {"lxcXCFunctional",    NewlxcXCFunctionalObject,    METH_VARARGS, 0},
+  {"lxcXCFuncNum",    lxcXCFuncNum,    METH_VARARGS, 0},
   {"overlap",       overlap,        METH_VARARGS, 0},
   {"vdw", vdw, METH_VARARGS, 0},
   {"vdw2", vdw2, METH_VARARGS, 0},

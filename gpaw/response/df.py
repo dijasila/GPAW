@@ -52,7 +52,8 @@ class DF(CHI):
                               symmetric=True,
                               chi0_wGG=None,
                               calc=None,
-                              vcut=None):
+                              vcut=None,
+                              dir=None):
 	if self.chi0_wGG is None and chi0_wGG is None:
             self.initialize()
             self.calculate()
@@ -104,9 +105,16 @@ class DF(CHI):
             dm_wGG = self.chi0_wGG
         else:
             dm_wGG = np.zeros_like(self.chi0_wGG)
+
+        if dir is None:
+            q_c = self.q_c
+        else:
+            q_c = np.diag((1,1,1))[dir] * self.qopt
+            self.chi0_wGG[:,0,:] = self.chi00G_wGv[:,:,dir]
+            self.chi0_wGG[:,:,0] = self.chi0G0_wGv[:,:,dir]
         
         from gpaw.response.kernel import calculate_Kc
-        self.Kc_GG = calculate_Kc(self.q_c,
+        self.Kc_GG = calculate_Kc(q_c,
                                   self.Gvec_Gc,
                                   self.acell_cv,
                                   self.bcell_cv,
@@ -171,7 +179,7 @@ class DF(CHI):
         return chi_wGG
     
 
-    def get_dielectric_function(self, xc='RPA'):
+    def get_dielectric_function(self, xc='RPA', dir=None):
         """Calculate the dielectric function. Returns df1_w and df2_w.
 
         Parameters:
@@ -182,8 +190,11 @@ class DF(CHI):
             Dielectric function with local field correction.
         """
 
+        if not self.optical_limit:
+            assert dir is None
+            
         if self.df_flag is False:
-            dm_wGG = self.get_dielectric_matrix(xc=xc)
+            dm_wGG = self.get_dielectric_matrix(xc=xc, dir=dir)
 
             Nw_local = dm_wGG.shape[0]
             dfNLF_w = np.zeros(Nw_local, dtype = complex)
@@ -328,14 +339,20 @@ class DF(CHI):
 
         """
 
-        eM = np.zeros(2)
-        df1, df2 = self.get_dielectric_function(xc=xc)
-        eps0 = np.real(df1[0])
-        eps = np.real(df2[0])
+        assert self.optical_limit is True
         self.printtxt('')
         self.printtxt('%s Macroscopic Dielectric Constant:' % xc)
-        self.printtxt('    Without local field: %f' % eps0 )
-        self.printtxt('    Include local field: %f' % eps )        
+        dirstr = ['x', 'y', 'z']
+
+        for dir in range(3):
+        
+            eM = np.zeros(2)
+            df1, df2 = self.get_dielectric_function(xc=xc, dir=dir)
+            eps0 = np.real(df1[0])
+            eps = np.real(df2[0])
+            self.printtxt('  %s direction' %(dirstr[dir]))
+            self.printtxt('    Without local field: %f' % eps0 )
+            self.printtxt('    Include local field: %f' % eps )        
             
         return eps0, eps
 
@@ -346,45 +363,52 @@ class DF(CHI):
         Optical absorption spectrum is obtained from the imaginary part of dielectric function.
         """
 
-        df1, df2 = self.get_dielectric_function(xc='RPA')
-        if self.xc == 'ALDA':
-            df3, df4 = self.get_dielectric_function(xc='ALDA')
-        if self.xc is 'ALDA_X':
-            df3, df4 = self.get_dielectric_function(xc='ALDA_X')
+        assert self.optical_limit is True
+        dirstr = ['x','y','z']
+        for dir in range(3):
 
-        Nw = df1.shape[0]
+            df1, df2 = self.get_dielectric_function(xc='RPA', dir=dir)
+            if self.xc == 'ALDA':
+                df3, df4 = self.get_dielectric_function(xc='ALDA', dir=dir)
+            if self.xc is 'ALDA_X':
+                df3, df4 = self.get_dielectric_function(xc='ALDA_X', dir=dir)
+    
+            Nw = df1.shape[0]
+    
+            if self.xc == 'Bootstrap':
+                # bootstrap doesnt support all direction spectra yet
+                from gpaw.response.fxc import Bootstrap
+                Kc_GG = np.zeros((self.npw, self.npw))
+                q_c = np.diag((1,1,1))[dir] * self.qopt
 
-        if self.xc == 'Bootstrap':
-            from gpaw.response.fxc import Bootstrap
-            Kc_GG = np.zeros((self.npw, self.npw))
-            for iG in range(self.npw):
-                qG = np.dot(self.q_c + self.Gvec_Gc[iG], self.bcell_cv)
-                Kc_GG[iG,iG] = 4 * pi / np.dot(qG, qG)
-
-            from gpaw.mpi import world
-            assert self.wcomm.size == world.size
-            df3 = Bootstrap(self.chi0_wGG, Nw, Kc_GG, self.printtxt, self.print_bootstrap, self.wcomm)
-
-        if rank == 0:
-            f = open(filename,'w')
-            for iw in range(Nw):
-                energy = iw * self.dw * Hartree
-                if self.xc == 'RPA':
-                    print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
-                          np.real(df2[iw]), np.imag(df2[iw])
-                elif self.xc == 'ALDA':
-                    print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
-                      np.real(df2[iw]), np.imag(df2[iw]), \
-                      np.real(df3[iw]), np.imag(df3[iw]), \
-                      np.real(df4[iw]), np.imag(df4[iw])
-                elif self.xc == 'Bootstrap':
-                    print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
-                      np.real(df2[iw]), np.imag(df2[iw]), \
-                      np.real(df3[iw]), np.imag(df3[iw])
-            f.close()
-
-        # Wait for I/O to finish
-        self.comm.barrier()
+                for iG in range(self.npw):
+                    qG = np.dot(q_c + self.Gvec_Gc[iG], self.bcell_cv)
+                    Kc_GG[iG,iG] = 4 * pi / np.dot(qG, qG)
+    
+                from gpaw.mpi import world
+                assert self.wcomm.size == world.size
+                df3 = Bootstrap(self.chi0_wGG, Nw, Kc_GG, self.printtxt, self.print_bootstrap, self.wcomm)
+    
+            if rank == 0:
+                f = open(filename+'.%s'%(dirstr[dir]),'w')
+                for iw in range(Nw):
+                    energy = iw * self.dw * Hartree
+                    if self.xc == 'RPA':
+                        print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                              np.real(df2[iw]), np.imag(df2[iw])
+                    elif self.xc == 'ALDA':
+                        print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                          np.real(df2[iw]), np.imag(df2[iw]), \
+                          np.real(df3[iw]), np.imag(df3[iw]), \
+                          np.real(df4[iw]), np.imag(df4[iw])
+                    elif self.xc == 'Bootstrap':
+                        print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                          np.real(df2[iw]), np.imag(df2[iw]), \
+                          np.real(df3[iw]), np.imag(df3[iw])
+                f.close()
+    
+            # Wait for I/O to finish
+            self.comm.barrier()
 
 
     def get_EELS_spectrum(self, filename='EELS.dat'):

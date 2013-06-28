@@ -15,7 +15,7 @@ UNIFORM = False# distribute grid points uniformly
 class Domain:
     """Domain class.
 
-    A ``Domain`` object (in `domain.py`) holds informaion on the unit
+    A ``Domain`` object (in domain.py) holds informaion on the unit
     cell and the boundary conditions"""
 
     def __init__(self, cell, pbc, comm, parsize, N_c):

@@ -817,25 +817,30 @@ class Parallelization:
         self.autofinalize()
         
         comm = self.comm
-        
         rank = comm.rank
-        ndomains = self.domain
-        parsize_bands = self.band
-        size = self.size
-        
-        # XXX change this to have an option to put bands last
-        # So far this is still just a copy from distribute_cpus
-        r0 = (rank // ndomains) * ndomains
-        ranks = np.arange(r0, r0 + ndomains)
-        domain_comm = comm.new_communicator(ranks)
+        communicators = {}
+        parent_stride = self.size
+        offset = 0
 
-        r0 = rank % (ndomains * parsize_bands)
-        ranks = np.arange(r0, r0 + size, ndomains * parsize_bands)
-        kpt_comm = comm.new_communicator(ranks)
+        # Build communicators in hierachical manner
+        # The ranks in the first group have largest separation while
+        # the ranks in the last group are next to each other
+        for group, name in zip([self.kpt, self.band, self.domain], 
+                               ['k-point', 'band', 'domain']):
+            stride = parent_stride // group
+            # First rank in this group
+            r0 = rank % stride + offset
+            # Last rank in this group
+            r1 = r0 + stride * group
+            ranks = np.arange(r0, r1, stride)
+            communicators[name] = comm.new_communicator(ranks)
+            parent_stride = stride
+            # Offset for the next communicator
+            offset += communicators[name].rank * stride
 
-        r0 = rank % ndomains + kpt_comm.rank * (ndomains * parsize_bands)
-        ranks = np.arange(r0, r0 + (ndomains * parsize_bands), ndomains)
-        band_comm = comm.new_communicator(ranks)
+        # return domain_comm, kpt_comm, band_comm
+        return (communicators['domain'], communicators['k-point'], 
+                communicators['band'])
 
         return domain_comm, kpt_comm, band_comm
     
@@ -846,8 +851,15 @@ class Parallelization:
             self.set(domain=self.navail)
         if self.band is None:
             self.set(band=self.navail)
+
+        if self.navail > 1:
+            raise RuntimeError('All the CPUs must be used')
     
     def get_optimal_kpt_parallelization(self, kptprioritypower=1.4):
+        if self.domain and self.band:
+            # Try to use all the CPUs for k-point parallelization
+            ncpus = min(self.nspinkpts, self.navail)
+            return ncpus
         ncpuvalues, wastevalues = self.find_kpt_parallelizations()
         scores = ((self.navail // ncpuvalues) 
                   * ncpuvalues**kptprioritypower)**(1.0 - wastevalues)

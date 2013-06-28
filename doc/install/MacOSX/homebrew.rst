@@ -11,9 +11,9 @@ Install https://developer.apple.com/xcode/ and activate it from a terminal::
 
   xcodebuild -license
 
-After installing xcode install also its `Command-Line Tools` (provides
-`llvm-gcc compiler` on the command line).
-After launching Xcode, in the top menubar, close to the `Apple`, choose
+After installing xcode install also its *Command-Line Tools* (provides
+*llvm-gcc compiler* on the command line).
+After launching Xcode, in the top menubar, close to the *Apple*, choose
 Xcode -> Preferences -> Downloads).
 
 Make sure the compilers are in place::
@@ -25,7 +25,7 @@ the famous::
 
   ruby <(curl -fsSkL https://raw.github.com/mxcl/homebrew/go)
 
-and configure your init scripts `~/.bash_profile`::
+and configure your init scripts *~/.bash_profile*::
 
   # Set architecture flags
   export ARCHFLAGS="-arch x86_64"
@@ -113,7 +113,7 @@ Install the dependencies::
   pip install numpy
 
 and install GPAW (still inside of the virtualenv) accordingly to
-:ref:`installationguide_standard` (`python setup.py install`).
+:ref:`installationguide_standard` (``python setup.py install``).
 
 Installing ASE requirements
 ---------------------------

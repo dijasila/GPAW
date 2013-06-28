@@ -34,10 +34,8 @@ if memstats:
     assert ase_svnversion >= 905 # wasn't bug-free untill 973!
     from ase.utils.memory import MemorySingleton, MemoryStatistics
 
-# -------------------------------------------------------------------
-
 xc = 'LDA'
-setups = dict([(symbol, SetupData(symbol, xc)) for symbol in 'HO'])
+setups = dict([(symbol, SetupData(symbol, xc)) for symbol in 'HN'])
 
 class UTBandParallelSetup(TestCase):
     """

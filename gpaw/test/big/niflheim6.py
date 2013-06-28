@@ -51,7 +51,8 @@ class NiflheimCluster(Cluster):
             '$PYTHONPATH'])
 
         run_command = '. /home/opt/modulefiles/modulefiles_el6.sh&& '
-        run_command += 'module load SCIPY&& '
+        run_command += 'module load NUMPY/1.7.1-1&& '
+        run_command += 'module load SCIPY/0.12.0-1&& '
         run_command += 'module load povray&& '
         run_command += 'module load ABINIT&& '
         run_command += 'module load DACAPO&& '
@@ -63,15 +64,15 @@ class NiflheimCluster(Cluster):
             run_command += 'module load intel-compilers&& '
             run_command += 'module load openmpi&& '  # intel version!
             fftw = 'fftw/3.3.3-' + gpaw_platform.replace('-2.6', '')
-            fftw += '-tm-intel-2013.1.117-openmpi-1.6.3-1'
+            fftw += '-tm-gfortran-openmpi-1.6.3-1'
             run_command += 'module load ' + fftw + '&& '
             run_command += 'export GPAW_FFTWSO="libfftw3.so"&& '
-        if 1:  # libmkl_intel_lp64.so causes scipy crash?
+        if 0:  # libmkl_intel_lp64.so causes scipy crash?
             run_command += 'module unload fftw&& '  # all fftw must be unloaded!
             fftw = 'intel-mkl'
             run_command += 'module load ' + fftw + '&& '
             run_command += 'export GPAW_FFTWSO="libmkl_rt.so"&& '
-        if 0: # numpy fftw has most chances to work
+        if 1: # numpy fftw has most chances to work
             run_command += 'module unload fftw&& '  # all fftw must be unloaded
             run_command += 'export GPAW_FFTWSO=""&& '  # and use numpy fftw
         # disable mpi_warn_on_fork - causes crashes on xeon16!

@@ -372,7 +372,7 @@ class HGHSetupData:
         n = len(self.vbar_g)
         return self.rgd.spline(self.vbar_g, self.rgd.r_g[n - 1])
 
-    def build(self, xcfunc, lmax, basis):
+    def build(self, xcfunc, lmax, basis, filter=None):
         if basis is None:
             basis = self.create_basis_functions()
         setup = HGHSetup(self, basis)

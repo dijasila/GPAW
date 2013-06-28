@@ -1,8 +1,5 @@
 .. _densitymix:
 
-.. default-role:: math
-
-
 ==============
 Density Mixing
 ==============
@@ -159,5 +156,3 @@ References
 
 .. [#Pulay1980] Pulay, Chem. Phys. Let. **73**, 393 (1980)
 .. [#Kresse1996] Kresse, Phys. Rev. B **54**, 11169 (1996)
-
-.. default-role::

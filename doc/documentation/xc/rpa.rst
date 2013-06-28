@@ -4,8 +4,6 @@
 RPA correlation energy
 =======================
 
-.. default-role:: math
-
 The correlation energy within the Random Phase Approximation (RPA) can be written
 
 .. math::

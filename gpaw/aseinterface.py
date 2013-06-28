@@ -60,6 +60,7 @@ class GPAW(PAW, Calculator):
         'idiotproof':      True,
         'mode':            'fd',
         'realspace':       None,
+        'filter':          None,
         'convergence':     {'energy':      0.0005,  # eV / electron
                             'density':     1.0e-4,
                             'eigenstates': 4.0e-8,  # eV^2

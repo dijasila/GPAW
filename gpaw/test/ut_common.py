@@ -53,7 +53,7 @@ from ase.units import Bohr
 from gpaw.mpi import compare_atoms
 from gpaw.utilities.tools import md5_array
 
-def create_random_atoms(gd, nmolecules=10, name='H2O', mindist=4.5 / Bohr):
+def create_random_atoms(gd, nmolecules=10, name='NH2', mindist=4.5 / Bohr):
     """Create gas-like collection of atoms from randomly placed molecules.
     Applies rigid motions to molecules, translating the COM and/or rotating
     by a given angle around an axis of rotation through the new COM. These

@@ -46,10 +46,10 @@ class PAW(PAWTextOutput):
     def __init__(self):
         """ASE-calculator interface.
 
-        The following parameters can be used: `nbands`, `xc`, `kpts`,
-        `spinpol`, `gpts`, `h`, `charge`, `usesymm`, `width`, `mixer`,
-        `hund`, `lmax`, `fixdensity`, `convergence`, `txt`, `parallel`,
-        `communicator`, `dtype`, `softgauss` and `stencils`.
+        The following parameters can be used: nbands, xc, kpts,
+        spinpol, gpts, h, charge, usesymm, width, mixer,
+        hund, lmax, fixdensity, convergence, txt, parallel,
+        communicator, dtype, softgauss and stencils.
 
         If you don't specify any parameters, you will get:
 
@@ -120,7 +120,40 @@ class PAW(PAWTextOutput):
         else:
             xc = par.xc
 
-        setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc, world)
+        mode = par.mode
+
+        if xc.orbital_dependent:
+            assert mode != 'lcao'
+
+        if mode == 'pw':
+            mode = PW()
+
+        if par.realspace is None:
+            realspace = not isinstance(mode, PW)
+        else:
+            realspace = par.realspace
+            if isinstance(mode, PW):
+                assert not realspace
+
+        if par.gpts is not None:
+            N_c = np.array(par.gpts)
+        else:
+            h = par.h
+            if h is not None:
+                h /= Bohr
+            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
+
+        if par.filter is None and not isinstance(mode, PW):
+            gamma = 1.6
+            hmax = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / N_c).max()
+            def filter(rgd, rcut, f_r, l=0):
+                gcut = np.pi / hmax - 2 / rcut / gamma
+                f_r[:] = rgd.filter(f_r, rcut * gamma, gcut, l)
+        else:
+            filter = par.filter
+
+        setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc,
+                        filter, world)
 
         if magmom_av.ndim == 1:
             collinear = True
@@ -156,29 +189,6 @@ class PAW(PAWTextOutput):
         else:
             kpts = par.kpts
         kd = KPointDescriptor(kpts, nspins, collinear)
-
-        mode = par.mode
-
-        if xc.orbital_dependent:
-            assert mode != 'lcao'
-
-        if mode == 'pw':
-            mode = PW()
-
-        if par.realspace is None:
-            realspace = not isinstance(mode, PW)
-        else:
-            realspace = par.realspace
-            if isinstance(mode, PW):
-                assert not realspace
-
-        if par.gpts is not None:
-            N_c = np.array(par.gpts)
-        else:
-            h = par.h
-            if h is not None:
-                h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
 
         if hasattr(self, 'time') or par.dtype == complex:
             dtype = complex
@@ -523,10 +533,7 @@ class PAW(PAWTextOutput):
         TODO: Is this really the most efficient way?
         """
         spos_ac = self.atoms.get_scaled_positions() % 1.0
-        self.density.nct.set_positions(spos_ac)
-        self.density.ghat.set_positions(spos_ac)
-        self.density.nct_G = self.density.gd.zeros()
-        self.density.nct.add(self.density.nct_G, 1.0 / self.density.nspins)
+        self.density.set_positions(spos_ac)
         self.density.interpolate_pseudo_density()
         self.density.calculate_pseudo_charge()
         self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)

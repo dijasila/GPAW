@@ -103,7 +103,8 @@ There are several debuggers available, the following example session applies to 
     at c/operators.c:83
   (gdb)
 
-One can also do combined C and python debugging by starting the input script as `run -m pdb H.py` i.e::
+One can also do combined C and python debugging by starting the input
+script as ``run -m pdb H.py`` i.e::
 
   sepeli ~/gpaw/trunk/test> gdb python
   GNU gdb Red Hat Linux (6.1post-1.20040607.52rh)

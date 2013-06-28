@@ -1,7 +1,5 @@
 .. _transport:
 
-.. default-role:: math
-
 =========
 Transport
 =========

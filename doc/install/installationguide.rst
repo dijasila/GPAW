@@ -16,16 +16,18 @@ Requirements
 
 4) C compiler - preferably gcc.
 
-5) BLAS and LAPACK libraries. Start with your system provided defaults or
-   e.g. http://www.amd.com/acml.
+5) Libxc version 2.0.1 (libxc-download_).
+
+6) BLAS and LAPACK libraries. Start with your system provided defaults or
+   e.g. acml_
 
 Optionally:
 
-6) an MPI library (required for parallel calculations).
+7) an MPI library (required for parallel calculations).
 
-7) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
+8) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
 
-8) SciPy_ 0.7.0 or later (required for example for transport of response calculations)
+9) SciPy_ 0.7.0 or later (required for example for transport of response calculations)
 
 .. note::
 
@@ -34,6 +36,8 @@ Optionally:
 
 .. _NumPy: http://numpy.org/
 .. _SciPy: http://scipy.org/
+.. _libxc-download: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download
+.. _acml: http://developer.amd.com/tools-and-sdks/cpu-development/amd-core-math-library-acml/
 
 
 Installation
@@ -48,6 +52,27 @@ are described, in order of preference.
    for :ref:`Niflheim`.
 
 .. _installationguide_macosx:
+
+Libxc Installation
+------------------
+
+Libxc download/install instructions can be found `here <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`_.  A few extra tips:
+
+- Libxc installation requires both a C compiler and a fortran compiler.
+
+- We've tried intel and gnu compilers and haven't noticed much of a
+  performance difference.  Use whatever is easiest.
+
+- Libxc shared libraries can be built with the "--enable-shared" option
+  to configure.  This might be slightly preferred because it reduces
+  memory footprints for executables.
+
+- Typically when building GPAW one has to modify customize.py in a manner
+  similar to the following::
+
+    libraries += ['xc']
+    library_dirs += ['/my/path/to/libxc/2.0.1/install/lib']
+    include_dirs += ['/my/path/to/libxc/2.0.1/install/include']
 
 Installation on OS X
 --------------------
@@ -197,8 +222,8 @@ HDF5 support can be enabled by setting in :file:`customize.py`::
 
  hdf5 = True
 
-and, in this case, provide HDF5 `include_dirs`, `libraries`, and `library_dirs`
-as described in :ref:`install_custom_installation`.
+and, in this case, provide HDF5 ``include_dirs``, ``libraries``, and
+``library_dirs`` as described in :ref:`install_custom_installation`.
 
 
 Parallel installation
@@ -213,7 +238,7 @@ Additionally a user may want to enable ScaLAPACK, setting in
 
  scalapack = True
 
-and, in this case, provide BLACS/ScaLAPACK `libraries` and `library_dirs`
+and, in this case, provide BLACS/ScaLAPACK ``libraries`` and ``library_dirs``
 as described in :ref:`install_custom_installation`.
 
 Instructions for running parallel calculations can be found in the
@@ -274,7 +299,7 @@ Make sure that everything works by running the test suite (using bash)::
 This will a couple of hours.  If you have a multicore CPU, you
 can speed up the test by using ``gpaw-test -j <number-of-cores>``.
 This will run tests simultaneously (**not** employing MPI parallelization)
-on the requested `<number-of-cores>`.
+on the requested *<number-of-cores>*.
 Please report errors to the ``gpaw-developers`` mailing list (see
 :ref:`mailing_lists`) Send us :file:`test.log`, as well as the
 information about your environment (processor architecture, versions
@@ -290,7 +315,7 @@ If tests pass, and the parallel version is built, test the parallel code::
 
 .. note::
 
-   Many MPI versions have their own `-c` option which may
+   Many MPI versions have their own ``-c`` option which may
    invalidate python command line options. In this case
    test the parallel code as in the example below.
 

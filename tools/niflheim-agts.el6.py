@@ -72,11 +72,18 @@ os.chdir(dir)
 
 cmd('svn checkout https://svn.fysik.dtu.dk/projects/gpaw/trunk gpaw')
 
+# a hack: link libxc for the common version built on surt statically
+cmd('cp gpaw/customize.py gpaw/customize.py.libxca')
+cmd('echo extra_link_args += [os.environ[\\\'LIBXC_HOME\\\'] + \\\'/lib/libxc.a\\\'] >> gpaw/customize.py.libxca')
+cmd('echo libraries.remove\(\\\'xc\\\'\) >> gpaw/customize.py.libxca')
+
 # a version of gpaw is needed for imports from within this script!
 cmd("\
 cd " + gpawdir + "&& \
 source /home/opt/modulefiles/modulefiles_el6.sh&& \
-python setup.py build_ext 2>&1 > build_ext.log")
+module load libxc&& \
+python setup.py build_ext \
+--customize=customize.py.libxca 2>&1 > build_ext.log")
 
 # import gpaw from where it was installed
 sys.path.insert(0, gpawdir)
@@ -86,7 +93,7 @@ cd '" + gpawdir + "'&& \
 source /home/opt/modulefiles/modulefiles_el6.sh&& \
 module load intel-compilers && \
 python setup.py --remove-default-flags --customize=\
-doc/install/Linux/Niflheim/el6-sl230s-tm-intel-2013.1.117-openmpi-1.6.3-mkl-2013.1.117-sl-hdf5-1.8.10.py \
+doc/install/Linux/Niflheim/el6-sl230s-tm-gfortran-openmpi-1.6.3-acml-4.4.0-sl-hdf5-1.8.10.py \
 build_ext 2>&1 > surt.log' | ssh surt bash")
 
 cmd("echo '\
@@ -95,7 +102,7 @@ source /home/opt/modulefiles/modulefiles_el6.sh&& \
 module load intel-compilers && \
 source /home/camp/modulefiles.sh&& \
 python setup.py --remove-default-flags --customize=\
-doc/install/Linux/Niflheim/el6-dl160g6-tm-intel-2013.1.117-openmpi-1.6.3-mkl-2013.1.117-sl-hdf5-1.8.10.py \
+doc/install/Linux/Niflheim/el6-dl160g6-tm-gfortran-openmpi-1.6.3-acml-4.4.0-sl-hdf5-1.8.10.py \
 build_ext 2>&1 > muspel.log' | ssh muspel bash")
 
 cmd("echo '\
@@ -104,7 +111,7 @@ source /home/opt/modulefiles/modulefiles_el6.sh&& \
 module load intel-compilers && \
 source /home/camp/modulefiles.sh&& \
 python setup.py --remove-default-flags --customize=\
-doc/install/Linux/Niflheim/el6-x3455-tm-intel-2013.1.117-openmpi-1.6.3-mkl-2013.1.117-sl-hdf5-1.8.10.py \
+doc/install/Linux/Niflheim/el6-x3455-tm-gfortran-openmpi-1.6.3-acml-4.4.0-sl-hdf5-1.8.10.py \
 build_ext 2>&1 > slid.log' | ssh slid bash")
 
 cmd("""wget --no-check-certificate --quiet \

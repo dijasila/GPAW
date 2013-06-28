@@ -1,7 +1,5 @@
 .. _pdos:
 
-.. default-role:: math
-
 =================
 Density Of States
 =================
@@ -339,5 +337,3 @@ density to atoms is the Bader_ algorithm (all though the Wigner-Seitz
 approach is faster).
 
 .. _Bader: https://wiki.fysik.dtu.dk/ase/ase/dft/bader.html
-
-.. default-role::
