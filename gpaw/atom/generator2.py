@@ -34,7 +34,7 @@ parameters = {
 'O':  ('2s,s,2p,p,d', [1.2, 1.4], {}),
 'F':  ('2s,s,2p,p,d', [1.2,1.4], {}),
 'Ne': ('2s,s,2p,p,d', 1.8, {}),  # 10
-'Na': ('2s,3s,s,2p,3p,d', 2.3, {'local': 'f'}),
+'Na': ('2s,3s,2p,3p,d', 2.3, {'local': 'f'}),
 'Mg': ('2s,3s,2p,3p,d', [2.0, 1.8], {'local': 'f'}),
 'Al': ('3s,s,3p,p,d', 2.1, {'local': 'f'}),
 'Si': ('3s,s,3p,p,d', 1.9, {'local': 'f'}),
@@ -163,7 +163,7 @@ class PAWWaves:
                     phit_ng[n1] * phit_ng[n2]) / (4 * pi)
         self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
 
-    def construct_projectors(self, vtr_g, rcmax, rcfilter, Gcut):
+    def construct_projectors(self, vtr_g, rcmax):
         N = len(self)
         if N == 0:
             self.pt_ng = []
@@ -193,8 +193,6 @@ class PAWWaves:
             q_g[1:] /= r_g[1:]
             if l == 0:
                 q_g[0] = q_g[1]
-            if Gcut is not None:
-                q_g = rgd.filter(q_g, rcfilter, Gcut, l)
             q_ng[n] = q_g
 
         A_nn = rgd.integrate(phit_ng[:, None] * q_ng) / (4 * pi)
@@ -380,21 +378,7 @@ class PAWSetupGenerator:
                 waves.add(phi_g, n, e, f)
             self.waves_l.append(waves)
 
-    def pseudize(self, type='poly', nderiv=6, rcore=None, h=None, gamma=None):
-        # Filtering parameters:
-        self.gamma = gamma
-        self.h = h
-
-        self.rcfilter = gamma * self.rcmax
-
-        if h == 0:
-            self.Gcut = None
-        else:
-            self.Gcut = pi / h - 2 / self.rcfilter
-            self.log('Wang mask function for Fourier filtering:')
-            self.log('gamma=%.2f, h=%.2f Bohr, rcut=%.2f, Gcut=%.2f Bohr^-1' %
-                     (gamma, h, self.rcfilter, self.Gcut))
-
+    def pseudize(self, type='poly', nderiv=6, rcore=None):
         self.Q = -self.aea.Z + self.ncore
 
         self.nt_g = self.rgd.zeros()
@@ -457,14 +441,6 @@ class PAWSetupGenerator:
 
         self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
         self.v0r_g[self.rgd.round(self.rcmax):] = 0.0
-
-        if self.Gcut is not None:
-            self.vtr_g -= self.v0r_g
-            self.v0r_g[1:] /= self.rgd.r_g[1:]
-            self.v0r_g[0] = self.v0r_g[1]
-            self.v0r_g = self.rgd.filter(
-                self.v0r_g, self.rcfilter, self.Gcut) * self.rgd.r_g
-            self.vtr_g += self.v0r_g
 
         self.log('\nProjectors:')
         self.log(' state  occ         energy             norm        rcut')
@@ -546,8 +522,7 @@ class PAWSetupGenerator:
 
     def construct_projectors(self):
         for waves in self.waves_l:
-            waves.construct_projectors(self.vtr_g, self.rcmax,
-                                       self.rcfilter, self.Gcut)
+            waves.construct_projectors(self.vtr_g, self.rcmax)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
 
@@ -833,8 +808,7 @@ class PAWSetupGenerator:
         else:
             reltype = 'non-relativistic'
         attrs = [('type', reltype),
-                 ('gamma', self.gamma),
-                 ('h', self.h),
+                 ('version', 2),
                  ('name', 'gpaw-%s' % version)]
         setup.generatorattrs = attrs
 
@@ -959,11 +933,6 @@ def generate(argv=None):
     parser.add_option('--no-check', action='store_true')
     parser.add_option('-t', '--tag', type='string')
     parser.add_option('-a', '--alpha', type=float)
-    parser.add_option('-F', '--filter', metavar='gamma,h',
-                      help='Fourier filtering parameters for Wang ' +
-                      'mask-function.  Default: ' +
-                      'gamma=1.8 and h=0.4 Bohr.  Use gamma=1 and ' +
-                      'h=0 to turn off filtering.')
 
     opt, args = parser.parse_args(argv)
 
@@ -1058,12 +1027,6 @@ def get_parameters(symbol, opt):
     if opt.radius:
         radii = [float(r) for r in opt.radius.split(',')]
 
-    gamma = extra.get('gamma', 1.8)
-    h = extra.get('h', 0.4)
-
-    if opt.filter:
-        gamma, h = (float(x) for x in opt.filter.split(','))
-
     if isinstance(radii, float):
         radii = [radii]
 
@@ -1126,14 +1089,12 @@ def get_parameters(symbol, opt):
                 projectors=projectors,
                 radii=radii,
                 scalar_relativistic=opt.scalar_relativistic, alpha=opt.alpha,
-                gamma=gamma, h=h,
                 l0=l0, r0=r0, nderiv0=nderiv0, e0=e0,
                 pseudize=pseudize, rcore=opt.pseudo_core_density_radius)
 
 
 def _generate(symbol, xc, projectors, radii,
               scalar_relativistic, alpha,
-              gamma, h,
               l0, r0, nderiv0, e0,
               pseudize, rcore):
     aea = AllElectronAtom(symbol, xc)
@@ -1144,7 +1105,7 @@ def _generate(symbol, xc, projectors, radii,
     gen.calculate_core_density()
     gen.find_local_potential(l0, r0, nderiv0, e0)
     gen.add_waves(radii)
-    gen.pseudize(pseudize[0], pseudize[1], rcore=rcore, gamma=gamma, h=h)
+    gen.pseudize(pseudize[0], pseudize[1], rcore=rcore)
     gen.construct_projectors()
     return gen
 
