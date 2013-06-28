@@ -4,7 +4,10 @@
 Quasi-particle spectrum in the GW approximation: theory
 =======================================================
 
-The foundations of the GW method are described in refs. \ [#Hedin1965]_ and \ [#Hybertsen1986]_. The implementation in GPAW follows mainly ref. \ [#Kresse2006]_.
+The foundations of the GW method are described in Refs. \ [#Hedin1965]_ and \ [#Hybertsen1986]_.
+The implementation in GPAW is documented in Ref. \ [#Hueser2013]_.
+
+For examples, see see :ref:`gw_tutorial`.
 
 Introduction
 ============
@@ -144,7 +147,7 @@ I/O
 ===
 
 
-All necessary informations of the system are read from ``file = 'filename.gpw'`` which must contain the wavefunctions. This is done by performing ``calc.write('groundstate.gpw', 'all')`` after the groundstate calculation. GW supports grid mode, planewave and LCAO basis.
+All necessary informations of the system are read from ``file = 'filename.gpw'`` which must contain the wavefunctions. This is done by performing ``calc.write('groundstate.gpw', 'all')`` after the groundstate calculation. GW supports grid mode and planewave basis.
 
 Especially for big systems, it might be reasonable to determine the exact exchange contributions seperately and store them in a pickle file which can be read by defining ``exxfile = 'filename.pckl'`` (see below). The band and k-point indices must match the ones used for the GW calculation. The pickle file needs to contain the following data:
 
@@ -191,26 +194,28 @@ Parameters
 ==========
 
 
-=================  =================  ===================  ===============================================
+=================  =================  ===================  ====================================================
 keyword            type               default value        description
-=================  =================  ===================  ===============================================
+=================  =================  ===================  ====================================================
 ``file``           ``str``            None                 gpw filename
                                                            groundstate calculation including wavefunctions
-``nbands``         ``int``            nbands from gs calc  Number of bands
-``bands``          ``numpy.ndarray``  all bands from       Band indices for QP spectrum
-                                      gs calc
+``nbands``         ``int``            equal to number of   Number of bands
+                                      plane waves
+``bands``          ``numpy.ndarray``  equal to nbands      Band indices for QP spectrum
 ``kpoints``        ``numpy.ndarray``  all irreducible	   K-point indices for QP spectrum
                                       k-points
-``w``              ``numpy.ndarray``  None                 [wlin, wmax, dw] for defining frequency grid
+``e_skn``          ``numpy.ndarray``  None                 User-defined starting point eigenvalues
+``eshift``         ``float``          None                 Manual shift of unoccupied bands (in eV)
+``w``              ``numpy.ndarray``  None                 [wlin, wmax, dw] for defining frequency grid (in eV)
 ``ecut``           ``float``          150 (eV)             Planewave energy cutoff.
 ``eta``            ``float``          0.1 (eV)             Broadening parameter.
 ``ppa``            ``bool``           False                Use Plasmon Pole Approximation
 ``E0``             ``float``          27.2114 (eV)         Frequency for fitting PPA
 ``hilbert_trans``  ``bool``           False                False = method 1, True = method 2
 ``wpar``           ``int``            1                    Parallelization in energy
-``vcut``           ``str``            None                 Coulomb cutoff (currently, only '2D' supported)
+``vcut``           ``str``            None                 Coulomb truncation (currently, only '2D' supported)
 ``txt``            ``str``            None                 Output filename
-=================  =================  ===================  ===============================================
+=================  =================  ===================  ====================================================
 
 Functions
 =========
@@ -241,6 +246,10 @@ References
 .. [#Hybertsen1986] M.S. Hybertsen and S.G. Louie,
                     "Electron correlation in semiconductors and insulators: Band gaps and quasiparticle energies",
                     *Phys. Rev. B* **34**, 5390 (1986).
+
+.. [#Hueser2013] F. Hüser, T. Olsen, and K. S. Thygesen,
+                 "Quasiparticle GW calculations for solids, molecules, and two-dimensional materials",
+                 *Phys. Rev. B* **87**, 235132 (2013).
 
 .. [#Kresse2006] M. Shishkin and G. Kresse,
                  "Implementation and performance of the frequency-dependent GW method within the PAW framework",

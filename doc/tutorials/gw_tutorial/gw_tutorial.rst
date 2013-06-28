@@ -96,8 +96,8 @@ again sorted by spin, k-points (rows) and bands (columns).
 Repeat the calculation varying number of bands ``nbands`` and the planewave cutoff ``ecut``
 and check how the results converge.
 
-These two parameters are not independent of each other. For a proper convergence, the energy of the highest band
-should be around the plane wave cutoff. This can be done automatically by setting ``ecut='npw'``,
+These two parameters are not independent of each other. For correct convergence, the energy of the highest band
+should be around the plane wave cutoff. This can be done automatically using the default ``ecut=None``,
 so that the number of bands is set equally to the number of plane waves correspoding to the cutoff energy.
 
 .. image:: Si_GW.png
