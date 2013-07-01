@@ -599,7 +599,7 @@ class Setup(BaseSetup):
             for l, pt_g in zip(l_j, pt_jg):
                 filter(rgd, rc, pt_g, l)
 
-            for l in range(lmax + 1):
+            for l in range(max(l_j) + 1):
                 J = [j for j, lj in enumerate(l_j) if lj == l]
                 A_nn = [[rgd.integrate(phit_jg[j1] * pt_jg[j2]) / 4 / pi
                          for j1 in J] for j2 in J]
