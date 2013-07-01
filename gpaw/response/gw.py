@@ -201,7 +201,7 @@ class GW(BASECHI):
         except:
             self.initialize()
         self.print_gw_init()
-        self.printtxt("calculating Sigma")
+        self.printtxt("calculating Self energy")
 
         Sigma_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
         dSigma_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
@@ -231,12 +231,12 @@ class GW(BASECHI):
             del df, W_wGG
             self.timing(iq, t0, self.nq_local, 'iq')
 
-        self.printtxt('W_wGG takes %f seconds' %(t_w))
-        self.printtxt('Self energy takes %f  seconds' %(t_selfenergy))
-
         self.qcomm.barrier()
         self.qcomm.sum(Sigma_skn)
         self.qcomm.sum(dSigma_skn)
+
+        self.printtxt('W_wGG takes %s ' %(timedelta(seconds=round(t_w))))
+        self.printtxt('Self energy takes %s ' %(timedelta(seconds=round(t_selfenergy))))
 
         Z_skn = 1. / (1. - dSigma_skn)
 
@@ -251,7 +251,7 @@ class GW(BASECHI):
             self.get_exact_exchange()
             world.barrier()
             exxfile='EXX.pckl'
-            self.printtxt('EXX takes %f seconds' %(time()-t0))
+            self.printtxt('EXX takes %s ' %(timedelta(seconds=round(time()-t0))))
         data = pickle.load(open(exxfile))
         e_skn = data['e_skn'] # in Hartree
         vxc_skn = data['vxc_skn'] # in Hartree
@@ -544,8 +544,8 @@ class GW(BASECHI):
         except:
             self.initialize()
 
-        self.printtxt("calculating Exact exchange and E_XC")
         self.printtxt('------------------------------------------------')
+        self.printtxt("calculating Exact exchange and E_XC")
 
         calc = GPAW(self.file, communicator=communicator, parallel={'domain':1, 'band':1}, txt=None)
         v_xc = vxc(calc)
