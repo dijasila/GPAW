@@ -378,6 +378,8 @@ class PAW(PAWTextOutput):
         if par.filter is None and not isinstance(mode, PW):
             gamma = 1.6
             hmax = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / N_c).max()
+            self.text('Fourier filtering: gamma=%.2f and h=%.3f Angstrom' %
+                      (gamma, hmax * Bohr))
             def filter(rgd, rcut, f_r, l=0):
                 gcut = np.pi / hmax - 2 / rcut / gamma
                 f_r[:] = rgd.filter(f_r, rcut * gamma, gcut, l)

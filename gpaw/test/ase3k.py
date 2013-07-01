@@ -8,15 +8,8 @@ H = Atoms([Atom('H')],
           cell=(a, a, a),
           pbc=True,
           calculator=calc)
-e0 = H.get_potential_energy()
-niter0 = calc.get_number_of_iterations()
-del H
+e1 = H.get_potential_energy()
 H = read('H.txt')
-print H.get_potential_energy()
-
-energy_tolerance = 0.00007
-niter_tolerance = 0
-equal(e0, -6.55685, energy_tolerance)
-equal(niter0, 12, niter_tolerance)
-
-print calc.get_xc_functional()
+e2 = H.get_potential_energy()
+assert abs(e1 - e2) < 1e-6
+assert calc.get_xc_functional() == 'LDA'

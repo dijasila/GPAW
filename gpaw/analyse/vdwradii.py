@@ -45,8 +45,7 @@ def vdWradii(symbols, xc):
     def get_density(Z):
         """Return density and radial grid from setup."""
         # load setup
-        setups = Setups([Z], 'paw', {}, 2, 
-                        xc, world)
+        setups = Setups([Z], 'paw', {}, 2, xc, None, world)
         setup = setups[0].data
         #  create density
         n_g = setup.nc_g.copy()

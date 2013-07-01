@@ -38,4 +38,4 @@ for soft in [False]:
     gd.comm.sum(S_LL)
     S_LL.ravel()[::10] = 0.0
     print max(abs(S_LL).ravel())
-    assert max(abs(S_LL).ravel()) < 3e-4
+    assert max(abs(S_LL).ravel()) < 5e-4
