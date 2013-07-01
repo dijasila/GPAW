@@ -215,11 +215,11 @@ def par_write(filename, name, comm, chi0_wGG):
     assert npw == npw1
     Nw = Nw_local * size
     
+    w = open(filename, 'w', comm)
+    w.dimension('Nw', Nw)
+    w.dimension('npw', npw)
+    w.add(name, ('Nw', 'npw', 'npw'), dtype=complex)
     if rank == 0:
-        w = open(filename, 'w', comm)
-        w.dimension('Nw', Nw)
-        w.dimension('npw', npw)
-        w.add(name, ('Nw', 'npw', 'npw'), dtype=complex)
         tmp = np.zeros_like(chi0_wGG[0])
 
     for iw in range(Nw):
