@@ -755,6 +755,7 @@ class PAWSetupGenerator:
         r2 = rgd.r_g[g2]
         r1 = 0.6 * r2
         g1 = rgd.ceil(r1)
+
         r = rgd.r_g[g1:g2]
         vtr_g = self.vtr_g.copy()
         vtr_g[g1:g2] += scale * np.exp((r2 - r1) / (r1 - r)) / (r - r2)**2
@@ -920,6 +921,8 @@ class PAWSetupGenerator:
         setup.e0 = self.e0
         setup.r0 = self.r0
         setup.nderiv0 = self.nderiv0
+
+        setup.basis_functions = self.basis_functions
 
         return setup
 

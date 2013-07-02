@@ -7,7 +7,6 @@ import xml.sax
 import numpy as np
 
 from gpaw import setup_paths
-from gpaw.setup_data import search_for_file
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 
 try:
@@ -157,6 +156,20 @@ class Basis:
         return '\n  '.join(lines)
 
 
+class BasisFunctionsFromPAWSetupFile:
+    def __init__(self, symbol):
+        self.rgd = None
+        self.symbol = symbol
+        self.bf_j = []
+
+    def tosplines(self):
+        return [self.rgd.spline(bf.phit_g, bf.rc, bf.l, points=200)
+                for bf in self.bf_j]
+    
+    def get_description(self):
+        return 'Minimal basis set for ' + self.symbol
+
+
 class BasisFunction:
     """Encapsulates various basis function data."""
     def __init__(self, l=None, rc=None, phit_g=None, type=''):
@@ -184,6 +197,8 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
         Example of filename: N.dzp.basis.  Use sz(dzp) to read
         the sz-part from the N.dzp.basis file."""
         
+        from gpaw.setup_data import search_for_file
+
         basis = self.basis
         if '(' in basis.name:
             reduced, name = basis.name.split('(')

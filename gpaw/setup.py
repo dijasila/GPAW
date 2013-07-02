@@ -1017,6 +1017,10 @@ class Setup(BaseSetup):
         return rcore, setupdata.nc_g, setupdata.nct_g, nct
 
     def create_basis_functions(self, phit_jg, rcut2, gcut2):
+        if self.data.basis:
+            self.data.basis.rgd = self.rgd
+            return self.data.basis
+
         # Cutoff for atomic orbitals used for initial guess:
         rcut3 = 8.0  # XXXXX Should depend on the size of the atom!
         gcut3 = self.rgd.ceil(rcut3)

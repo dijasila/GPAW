@@ -17,6 +17,7 @@ from gpaw.utilities.tools import md5_new
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast_string
 from gpaw.atom.radialgd import AERadialGridDescriptor
+from gpaw.basis_data import BasisFunctionsFromPAWSetupFile, BasisFunction
 
 try:
     import gzip
@@ -106,6 +107,8 @@ class SetupData:
         self.e0 = None
         self.r0 = None
         self.nderiv0 = None
+
+        self.basis = None
 
         if readxml:
             self.read_xml(world=world)
@@ -354,6 +357,12 @@ class SetupData:
                     print >> xml, '%r' % x,
                 print >> xml, '\n  </%s>' % name
 
+        for bf in self.basis_functions:
+            xml.write('  <basis_function state="%d%s" grid="g1" rcut="%r">\n' %
+                      (bf['n'], 'spdf'[bf['l']], bf['rcut']))
+            xml.write(' '.join(repr(x) for x in bf['radial_function']))
+            xml.write('\n  </basis_function>\n')
+            
         print >> xml, '  <kinetic_energy_differences>',
         nj = len(self.e_kin_jj)
         for j1 in range(nj):
@@ -539,6 +548,14 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
                     setup.e0 = float(attrs['e0'])
                     setup.l0 = 'spdfg'.find(attrs['type'])
             self.data = []
+        elif name == 'basis_function':
+            self.data = []
+            if setup.basis is None:
+                setup.basis = BasisFunctionsFromPAWSetupFile(setup.symbol)
+            rcut = float(attrs['rcut'])
+            id = attrs['state']
+            l = 'spdf'.find(id[1])
+            setup.basis.bf_j.append(BasisFunction(l, rcut, type='minimal'))
         elif name == 'generator':
             setup.type = attrs['type']
             setup.generator_version = attrs.get('version', 1)
@@ -587,3 +604,5 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
             setup.X_p = x_g
         elif name == 'core_hole_state':
             setup.phicorehole_g = x_g
+        elif name == 'basis_function':
+            setup.basis.bf_j[-1].phit_g = x_g
