@@ -241,7 +241,7 @@ class Channel:
         return dudr
 
     def integrate_inwards(self, u_g, rgd, vr_g, g0, e,
-                          scalar_relativistic=False):
+                          scalar_relativistic=False, gmax=None):
         l = self.l
         r_g = rgd.r_g
 
@@ -251,10 +251,13 @@ class Channel:
         c0_g /= -cm1_g
         cp1_g /= -cm1_g
 
-        g = len(u_g) - 2
+        if gmax is None:
+            gmax = len(u_g)
+
+        g = gmax - 2
         agp1 = 1.0
-        u_g[-1] = agp1 * r_g[-1]**(l + 1)
-        ag = np.exp(-(-2 * e)**0.5 * (rgd.r_g[-2] - rgd.r_g[-1]))
+        u_g[gmax - 1] = agp1 * r_g[gmax - 1]**(l + 1)
+        ag = np.exp(-(-2 * e)**0.5 * (rgd.r_g[gmax - 2] - rgd.r_g[gmax - 1]))
 
         while True:
             u_g[g] = ag * r_g[g]**(l + 1)

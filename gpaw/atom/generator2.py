@@ -7,7 +7,7 @@ import numpy as np
 from scipy.optimize import fsolve
 from scipy import __version__ as scipy_version
 from ase.utils import prnt, devnull
-from ase.units import Hartree
+from ase.units import Hartree, Bohr
 from ase.data import atomic_numbers, chemical_symbols
 
 from gpaw.spline import Spline
@@ -281,6 +281,8 @@ class PAWSetupGenerator:
         self.rgd = aea.rgd
 
         self.vtr_g = None
+
+        self.basis_functions = []
 
         self.log('\nGenerating PAW', aea.xc.name, 'setup for', aea.symbol)
 
@@ -729,6 +731,89 @@ class PAWSetupGenerator:
         plt.axis(xmax=self.rcmax)
         plt.legend()
 
+    def create_minimal_basis_set(self, tailnorm=0.0005, scale=200.0):
+        for l, waves in enumerate(self.waves_l):
+            for i, n in enumerate(waves.n_n):
+                if n > 0:
+                    u_g, rc, de = self.create_basis_function(
+                        l, i, tailnorm, scale)
+                    self.basis_functions.append(
+                        {'n': n,
+                         'l': l,
+                         'rcut': rc,
+                         'tailnorm': tailnorm,
+                         'scale': scale,
+                         'deltae': de,
+                         'radial_function': u_g})
+
+    def create_basis_function(self, l, n, tailnorm, scale):
+        rgd = self.rgd
+        waves = self.waves_l[l]
+
+        n_g = np.add.accumulate(waves.phit_ng[n]**2 * rgd.r_g**2 * rgd.dr_g)
+        g2 = (n_g[-1] - n_g > tailnorm).sum()
+        r2 = rgd.r_g[g2]
+        r1 = 0.6 * r2
+        g1 = rgd.ceil(r1)
+        r = rgd.r_g[g1:g2]
+        vtr_g = self.vtr_g.copy()
+        vtr_g[g1:g2] += scale * np.exp((r2 - r1) / (r1 - r)) / (r - r2)**2
+        vtr_g[g2:] = np.inf
+
+        self.log('%d%s basis function:' % (waves.n_n[n], 'spdf'[l]))
+        self.log('Cutoffs: %.3f and %.3f (tail-norm=%f)' % (r1, r2, tailnorm))
+
+        # Nonlocal PAW stuff:
+        pt_ng = waves.pt_ng
+        dH_nn = waves.dH_nn
+        dS_nn = waves.dS_nn
+        N = len(pt_ng)
+        
+        u_g = rgd.zeros()
+        u_ng = rgd.zeros(N)
+        duodr_n = np.empty(N)
+
+        e = waves.e_n[0]
+        e0 = e
+        ch = Channel(l)
+        iter = 0
+        while True:
+            duodr = ch.integrate_outwards(u_g, rgd, vtr_g, g1, e)
+
+            for n in range(N):
+                duodr_n[n] = ch.integrate_outwards(u_ng[n], rgd,
+                                                   vtr_g, g1, e,
+                                                   pt_g=pt_ng[n])
+
+            A_nn = (dH_nn - e * dS_nn) / (4 * pi)
+            B_nn = rgd.integrate(pt_ng[:, None] * u_ng, -1)
+            c_n  = rgd.integrate(pt_ng * u_g, -1)
+            d_n = np.linalg.solve(np.dot(A_nn, B_nn) + np.eye(N),
+                                  np.dot(A_nn, c_n))
+            u_g[:g1 + 1] -= np.dot(d_n, u_ng[:, :g1 + 1])
+            duodr -= np.dot(duodr_n, d_n)
+            uo = u_g[g1]
+
+            duidr = ch.integrate_inwards(u_g, rgd, vtr_g, g1, e, gmax=g2)
+            ui = u_g[g1]
+            A = duodr / uo - duidr / ui
+            u_g[g1:] *= uo / ui
+            u_g /= (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
+
+            if abs(A) < 1e-5:
+                break
+
+            e += 0.5 * A * u_g[g1]**2
+            iter += 1
+
+        de = e - e0
+        self.log('Eigenvalue shift:', de * Hartree, 'eV')
+
+        u_g[1:] /= rgd.r_g[1:]
+        if l == 0:
+            u_g[0] = u_g[1]
+        return u_g, r2, e - e0
+
     def logarithmic_derivative(self, l, energies, rcut):
         rgd = self.rgd
         ch = Channel(l)
@@ -952,6 +1037,7 @@ def generate(argv=None):
     parser.add_option('--no-check', action='store_true')
     parser.add_option('-t', '--tag', type='string')
     parser.add_option('-a', '--alpha', type=float)
+    parser.add_option('-b', '--create-basis-set', action='store_true')
     parser.add_option('-F', '--filter', metavar='gamma,h',
                       help='Fourier filtering parameters for Wang ' +
                       'mask-function.  Default: ' +
@@ -986,6 +1072,9 @@ def generate(argv=None):
             ok = True
         else:
             ok = gen.check_all()
+
+        if opt.create_basis_set:
+            gen.create_minimal_basis_set()
 
         #gen.test_convergence()
 
