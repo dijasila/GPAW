@@ -772,7 +772,8 @@ class PAWSetupGenerator:
 
             # Find cutoff radius:
             n_g = np.add.accumulate(phit_g**2 * rgd.r_g**2 * rgd.dr_g)
-            gc = (n_g[-1] - n_g > splitnorm).sum()
+            norm = n_g[-1]
+            gc = (norm - n_g > splitnorm * norm).sum()
             rc = rgd.r_g[gc]
 
             phit2_g = rgd.pseudize(phit_g, gc, l, 2)[0]  # "split valence"
@@ -813,7 +814,8 @@ class PAWSetupGenerator:
 
         # Find cutoff radii:
         n_g = np.add.accumulate(waves.phit_ng[n]**2 * rgd.r_g**2 * rgd.dr_g)
-        g2 = (n_g[-1] - n_g > tailnorm).sum()
+        norm = n_g[-1]
+        g2 = (norm - n_g > tailnorm * norm).sum()
         r2 = rgd.r_g[g2]
         r1 = 0.6 * r2
         g1 = rgd.ceil(r1)
@@ -834,7 +836,6 @@ class PAWSetupGenerator:
         u_ng = rgd.zeros(N)
         duodr_n = np.empty(N)
 
-        norm = rgd.integrate(waves.phit_ng[n]**2) / (4 * pi)
         e = waves.e_n[n]
         e0 = e
         ch = Channel(l)
@@ -859,7 +860,7 @@ class PAWSetupGenerator:
             ui = u_g[g1]
             A = duodr / uo - duidr / ui
             u_g[g1:] *= uo / ui
-            u_g *= norm / (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
+            u_g *= (norm / rgd.integrate(u_g**2, -2) * (4 * pi))**0.5
 
             if abs(A) < 1e-5:
                 break
