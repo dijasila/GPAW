@@ -2029,7 +2029,7 @@ class LrTDDFTindexed:
         # C_ip,ip = 1 / (n_p - n_i)
         #
         # See:
-        # WIREs Comput Mol Sci 2012, 2: 150–166 doi: 10.1002/wcms.55
+        # WIREs Comput Mol Sci 2012, 2: 150-166 doi: 10.1002/wcms.55
         # J. Chem. Phys., Vol. 116, No. 16, 22 April 2002
 
 
@@ -2057,6 +2057,7 @@ class LrTDDFTindexed:
                 grad[c].apply( self.pair_density.psit2_G, 
                                grad_psit2_G[c], 
                                self.calc.wfs.kpt_u[self.kpt_ind].phase_cd )
+
                     
             # <psi1|r x nabla|psi2>
             #    i  j  k
