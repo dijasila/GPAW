@@ -44,12 +44,11 @@ def parse_basis_name(name):
 
 
 class Basis:
-    def __init__(self, symbol, name, readxml=True, world=None):
+    def __init__(self, symbol, name=None, readxml=True, world=None, rgd=None):
         self.symbol = symbol
         self.name = name
+        self.rgd = rgd
         self.bf_j = []
-        self.ng = None
-        self.d = None
         self.generatorattrs = {}
         self.generatordata = ''
         self.filename = None
@@ -63,12 +62,12 @@ class Basis:
         return sum([2 * bf.l + 1 for bf in self.bf_j])
     nao = property(nao)
 
-    def get_grid_descriptor(self):
-        return EquidistantRadialGridDescriptor(self.d, self.ng)
+    def append(self, bf):
+        self.bf_j.append(bf)
 
     def tosplines(self):
-        gd = self.get_grid_descriptor()
-        return [gd.spline(bf.phit_g, bf.l) for bf in self.bf_j]
+        return [self.rgd.spline(bf.phit_g, bf.rc, bf.l, points=400)
+                for bf in self.bf_j]
 
     def read_xml(self, filename=None, world=None):
         parser = BasisSetXMLParser(self)
@@ -94,18 +93,11 @@ class Basis:
         for line in self.generatordata.split('\n'):
             write('\n    '+line)
         write('\n  </generator>\n')
-        write(('  <radial_grid eq="r=d*i" d="%f" istart="0" iend="%d" ' +
-               'id="lingrid"/>\n') % (self.d, self.ng - 1))
+        write('  ' + self.rgd.xml())
 
         for bf in self.bf_j:
-            write('  <basis_function l="%d" rc="%f" type="%s" '
-                  'grid="lingrid" ng="%d">\n'% 
-                  (bf.l, bf.rc, bf.type, bf.ng))
-            write('   ')
-            for value in bf.phit_g:
-                write(' %16.12e' % value)
-            write('\n')
-            write('  </basis_function>\n')
+            write(bf.xml(indentation='  '))
+
         write('</paw_basis>\n')
 
     def reduce(self, name):
@@ -124,7 +116,7 @@ class Basis:
                     newbf_j.append(bf)
                     p += 1
             else:
-                nl = (int(bf.type[0]), 'spdf'.index(bf.type[1]))
+                nl = (bf.n, bf.l)
                 if nl not in N:
                     N[nl] = 0
                 if N[nl] < zeta:
@@ -133,7 +125,7 @@ class Basis:
         self.bf_j = newbf_j
 
     def get_description(self):
-        title = 'LCAO basis set for %s:' % self.symbol
+        title = 'Basis set for %s:' % self.symbol
         if self.name is not None:
             name = 'Name: %s' % self.name
         else:
@@ -148,7 +140,11 @@ class Basis:
 
         bf_lines = []
         for bf in self.bf_j:
-            line = '  l=%d, rc=%.4f Bohr: %s' % (bf.l, bf.rc, bf.type)
+            if bf.n is None:
+                line = '  l=%d %s: rc=%.4f Bohr' % (bf.l, bf.type, bf.rc)
+            else:
+                line = '  %d%s %s: rc=%.4f Bohr' % (bf.n, 'spdf'[bf.l],
+                                                    bf.type, bf.rc)
             bf_lines.append(line)
             
         lines = [title, name, fileinfo, count1, count2]
@@ -156,30 +152,24 @@ class Basis:
         return '\n  '.join(lines)
 
 
-class BasisFunctionsFromPAWSetupFile:
-    def __init__(self, symbol):
-        self.rgd = None
-        self.symbol = symbol
-        self.bf_j = []
-
-    def tosplines(self):
-        return [self.rgd.spline(bf.phit_g, bf.rc, bf.l, points=200)
-                for bf in self.bf_j]
-    
-    def get_description(self):
-        return 'Minimal basis set for ' + self.symbol
-
-
 class BasisFunction:
     """Encapsulates various basis function data."""
-    def __init__(self, l=None, rc=None, phit_g=None, type=''):
+    def __init__(self, n=None, l=None, rc=None, phit_g=None, type=''):
+        self.n = n
         self.l = l
         self.rc = rc
         self.phit_g = phit_g
-        self.ng = None
-        if phit_g is not None:
-            self.ng = len(phit_g)
         self.type = type
+
+    def xml(self, gridid='grid1', indentation=''):
+        txt = indentation + '<basis_function '
+        if self.n is not None:
+            txt += 'n="%d" ' % self.n
+        txt += ('l="%d" rc="%f" type="%s" grid="%s">\n' %
+                (self.l, self.rc, self.type, gridid))
+        txt += indentation + '  ' + ' '.join(repr(x) for x in self.phit_g)
+        txt += '\n' + indentation + '</basis_function>\n'
+        return txt
 
 
 class BasisSetXMLParser(xml.sax.handler.ContentHandler):
@@ -214,7 +204,7 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
 You need to set the GPAW_SETUP_PATH environment variable to point to
 the directory where the basis set files are stored.  See
 
-  http://wiki.fysik.dtu.dk/gpaw/Setups
+  http://wiki.fysik.dtu.dk/gpaw/setups/setups.html
 
 for details."""
 
@@ -238,15 +228,13 @@ for details."""
             basis.generatorattrs = dict(attrs)
             self.data = []
         elif name == 'radial_grid':
-            assert attrs['eq'] == 'r=d*i'
-            basis.ng = int(attrs['iend']) + 1
-            basis.d = float(attrs['d'])
+            basis.rgd = radial_grid_descriptor(**attrs)
             assert int(attrs['istart']) == 0
         elif name == 'basis_function':
+            self.n = attrs.get('n') or int(attrs['n'])
             self.l = int(attrs['l'])
             self.rc = float(attrs['rc'])
             self.type = attrs.get('type')
-            self.ng = int(attrs.get('ng'))
             self.data = []
 
     def characters(self, data):

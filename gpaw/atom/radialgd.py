@@ -356,14 +356,6 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
     def r2g(self, r):
         return (r - self.r_g[0]) / (self.r_g[1] - self.r_g[0])
 
-    def spline(self, a_g, l=0):
-        b_g = a_g.copy()
-        if l > 0:
-            b_g = divrl(b_g, l, self.r_g[:len(a_g)])
-            #b_g[1:] /= self.r_g[1:]**l
-            #b_g[0] = b_g[1]
-        return Spline(l, self.r_g[len(a_g) - 1], b_g)
-
 
 class AERadialGridDescriptor(RadialGridDescriptor):
     def __init__(self, a, b, N=1000, default_spline_points=25):
@@ -393,10 +385,10 @@ class AERadialGridDescriptor(RadialGridDescriptor):
     def xml(self, id='grid1'):
         if abs(self.N - 1 / self.b) < 1e-5:
             return (('<radial_grid eq="r=a*i/(n-i)" a="%r" n="%d" ' +
-                     'istart="0" iend="%d" id="%s"/>') %
+                     'istart="0" iend="%d" id="%s"/>\n') %
                     (self.a * self.N, self.N, self.N - 1, id))
         return (('<radial_grid eq="r=a*i/(1-b*i)" a="%r" b="%r" n="%d" ' +
-                 'istart="0" iend="%d" id="%s"/>') %
+                 'istart="0" iend="%d" id="%s"/>\n') %
                 (self.a, self.b, self.N, self.N - 1, id))
 
     def d2gdr2(self):

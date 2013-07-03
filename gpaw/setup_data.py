@@ -17,7 +17,7 @@ from gpaw.utilities.tools import md5_new
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast_string
 from gpaw.atom.radialgd import AERadialGridDescriptor
-from gpaw.basis_data import BasisFunctionsFromPAWSetupFile, BasisFunction
+from gpaw.basis_data import Basis, BasisFunction
 
 try:
     import gzip
@@ -357,11 +357,9 @@ class SetupData:
                     print >> xml, '%r' % x,
                 print >> xml, '\n  </%s>' % name
 
-        for bf in self.basis_functions:
-            xml.write('  <basis_function state="%d%s" grid="g1" rcut="%r">\n' %
-                      (bf['n'], 'spdf'[bf['l']], bf['rcut']))
-            xml.write(' '.join(repr(x) for x in bf['radial_function']))
-            xml.write('\n  </basis_function>\n')
+        for bf in self.basis.bf_j:
+            if bf.type == 'bound state':
+                xml.write(bf.xml(gridid='g1', indentation='  '))
             
         print >> xml, '  <kinetic_energy_differences>',
         nj = len(self.e_kin_jj)
@@ -551,11 +549,13 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
         elif name == 'basis_function':
             self.data = []
             if setup.basis is None:
-                setup.basis = BasisFunctionsFromPAWSetupFile(setup.symbol)
-            rcut = float(attrs['rcut'])
-            id = attrs['state']
-            l = 'spdf'.find(id[1])
-            setup.basis.bf_j.append(BasisFunction(l, rcut, type='minimal'))
+                setup.basis = Basis(setup.symbol, readxml=False, rgd=setup.rgd)
+            n = int(attrs['n'])
+            l = int(attrs['l'])
+            rc = float(attrs['rc'])
+            type = attrs.get('type')
+            assert type == 'bound state'
+            setup.basis.bf_j.append(BasisFunction(n, l, rc, type=type))
         elif name == 'generator':
             setup.type = attrs['type']
             setup.generator_version = attrs.get('version', 1)

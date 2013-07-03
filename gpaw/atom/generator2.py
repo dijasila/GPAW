@@ -13,7 +13,7 @@ from ase.data import atomic_numbers, chemical_symbols
 from gpaw.spline import Spline
 from gpaw.setup import BaseSetup
 from gpaw.version import version
-from gpaw.basis_data import Basis
+from gpaw.basis_data import Basis, BasisFunction
 from gpaw.gaunt import make_gaunt
 from gpaw.utilities import erf, pack2
 from gpaw.setup_data import SetupData
@@ -731,21 +731,19 @@ class PAWSetupGenerator:
         plt.axis(xmax=self.rcmax)
         plt.legend()
 
-    def create_minimal_basis_set(self, tailnorm=0.0005, scale=200.0):
+    def create_basis_set(self, tailnorm=0.0005, scale=200.0):
+        self.basis = Basis(self.aea.symbol, readxml=False, rgd=self.rgd)
+        self.basis.generatorattrs.update(
+            dict(tailnorm=tailnorm, scale=scale))
         for l, waves in enumerate(self.waves_l):
             for i, n in enumerate(waves.n_n):
                 if n > 0:
                     u_g, rc, de = self.create_basis_function(
                         l, i, tailnorm, scale)
-                    self.basis_functions.append(
-                        {'n': n,
-                         'l': l,
-                         'rcut': rc,
-                         'tailnorm': tailnorm,
-                         'scale': scale,
-                         'deltae': de,
-                         'radial_function': u_g})
-
+                    bf = BasisFunction(n, l, rc, u_g, 'bound state')
+                    self.basis.append(bf)
+        self.basis.write_xml()
+                
     def create_basis_function(self, l, n, tailnorm, scale):
         rgd = self.rgd
         waves = self.waves_l[l]
@@ -922,7 +920,7 @@ class PAWSetupGenerator:
         setup.r0 = self.r0
         setup.nderiv0 = self.nderiv0
 
-        setup.basis_functions = self.basis_functions
+        setup.basis = self.basis
 
         return setup
 
@@ -1077,7 +1075,7 @@ def generate(argv=None):
             ok = gen.check_all()
 
         if opt.create_basis_set:
-            gen.create_minimal_basis_set()
+            gen.create_basis_set()
 
         #gen.test_convergence()
 
