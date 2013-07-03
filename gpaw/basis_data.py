@@ -276,8 +276,8 @@ class BasisPlotter:
         import pylab as pl # Should not import in module namespace
         if plot_args is None:
             plot_args = {}
-        rc = basis.d * (basis.ng - 1)
-        r_g = np.linspace(0., rc, basis.ng)
+
+        rgd = basis.rgd
 
         print 'Element  :', basis.symbol
         print 'Name     :', basis.name
@@ -287,8 +287,7 @@ class BasisPlotter:
 
         norm_j = []
         for j, bf in enumerate(basis.bf_j):
-            rphit_g = r_g[:bf.ng] * bf.phit_g
-            norm = (np.dot(rphit_g, rphit_g) * basis.d) ** .5
+            norm = rgd.integrate(bf.phit_g**2) / (4 * np.pi)
             norm_j.append(norm)
             print bf.type, '[norm=%0.4f]' % norm
 
@@ -301,20 +300,20 @@ class BasisPlotter:
         print basis.generatordata
 
         if self.premultiply:
-            factor = r_g
+            factor = rgd.r_g
         else:
-            factor = np.ones_like(r_g)
+            factor = rgd.zeros() + 1
 
         dashes_l = [(1, 0), (6, 3), (4, 1, 1, 1), (1, 1)]
 
         pl.figure()
         for norm, bf in zip(norm_j, basis.bf_j):
-            y_g = bf.phit_g * factor[:bf.ng]
+            y_g = bf.phit_g * factor
             if self.normalize:
-                y_g /= norm
-            pl.plot(r_g[:bf.ng], y_g, label=bf.type[:12],
-                       dashes = dashes_l[bf.l],
-                       **plot_args)
+                y_g /= norm**0.5
+            pl.plot(rgd.r_g, y_g, label=bf.type,
+                    dashes=dashes_l[bf.l],
+                    **plot_args)
         axis = pl.axis()
         rc = max([bf.rc for bf in basis.bf_j])
         newaxis = [0., rc, axis[2], axis[3]]

@@ -13,7 +13,7 @@ from ase.data import atomic_numbers, chemical_symbols
 from gpaw.spline import Spline
 from gpaw.setup import BaseSetup
 from gpaw.version import version
-from gpaw.basis_data import Basis, BasisFunction
+from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import make_gaunt
 from gpaw.utilities import erf, pack2
 from gpaw.setup_data import SetupData
@@ -282,7 +282,7 @@ class PAWSetupGenerator:
 
         self.vtr_g = None
 
-        self.basis_functions = []
+        self.basis = None
 
         self.log('\nGenerating PAW', aea.xc.name, 'setup for', aea.symbol)
 
@@ -731,36 +731,98 @@ class PAWSetupGenerator:
         plt.axis(xmax=self.rcmax)
         plt.legend()
 
-    def create_basis_set(self, tailnorm=0.0005, scale=200.0):
-        self.basis = Basis(self.aea.symbol, readxml=False, rgd=self.rgd)
-        self.basis.generatorattrs.update(
-            dict(tailnorm=tailnorm, scale=scale))
+    def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16):
+        rgd = self.rgd
+        self.basis = Basis(self.aea.symbol, readxml=False, rgd=rgd)
+
+        # We print text to sdtout and put it in the basis-set file
+        txt = 'Basis functions:\n'
+
+        # Bound states:
         for l, waves in enumerate(self.waves_l):
             for i, n in enumerate(waves.n_n):
                 if n > 0:
-                    u_g, rc, de = self.create_basis_function(
-                        l, i, tailnorm, scale)
-                    bf = BasisFunction(n, l, rc, u_g, 'bound state')
+                    phit_g, rc, de = self.create_basis_function(l, i, tailnorm,
+                                                                scale)
+                    bf = BasisFunction(n, l, rc, phit_g, 'bound state')
                     self.basis.append(bf)
+
+                    txt += '%d%s bound state:\n' % (n, 'spdf'[l])
+                    txt += ('  cutoff: %.3f to %.3f Bohr (tail-norm=%f)\n' %
+                            (rc * 0.6, rc, tailnorm))
+                    txt += '  eigenvalue shift: %.3f eV\n' % (de * Hartree)
+
+        # Split valence:
+        for l, waves in enumerate(self.waves_l):
+            # Find the largest n that is occupied:
+            n0 = None
+            for f, n in zip(waves.f_n, waves.n_n):
+                if n > 0 and f > 0:
+                    n0 = n
+            if n0 is None:
+                continue
+
+            bf = [bf for bf in self.basis.bf_j if bf.l == l and bf.n == n0][0]
+
+            # Radius and l-value used for polarization function below:
+            rcpol = bf.rc
+            lpol = l + 1
+
+            phit_g = bf.phit_g
+
+            # Find cutoff radius:
+            n_g = np.add.accumulate(phit_g**2 * rgd.r_g**2 * rgd.dr_g)
+            gc = (n_g[-1] - n_g > splitnorm).sum()
+            rc = rgd.r_g[gc]
+
+            phit2_g = rgd.pseudize(phit_g, gc, l, 2)[0]  # "split valence"
+            bf = BasisFunction(n, l, rc, phit_g - phit2_g, 'split valence')
+            self.basis.append(bf)
+
+            txt += '%d%s split valence:\n' % (n0, 'spdf'[l])
+            txt += '  cutoff: %.3f Bohr (tail-norm=%f)\n' % (rc, splitnorm)
+
+        # Polarization:
+        gcpol = rgd.round(rcpol)
+        alpha = 1 / (0.25 * rcpol)**2
+
+        # Gaussian that is continuous and has a continuous derivative at rcpol:
+        phit_g = np.exp(-alpha * rgd.r_g**2) * rgd.r_g**lpol
+        phit_g -= rgd.pseudize(phit_g, gcpol, lpol, 2)[0]
+        phit_g[gcpol:] = 0.0
+
+        bf = BasisFunction(None, lpol, rcpol, phit_g, 'polarization')
+        self.basis.append(bf)
+        txt += 'l=%d polarization functions:\n' % lpol
+        txt += '  cutoff: %.3f Bohr (r^%d exp(-%.3f*r^2))\n' % (rcpol, lpol,
+                                                                alpha)
+
+        self.log(txt)
+
+        # Write basis-set file:
+        self.basis.generatordata = txt
+        self.basis.generatorattrs.update(dict(tailnorm=tailnorm,
+                                              scale=scale,
+                                              splitnorm=splitnorm))
+        self.basis.name = 'dzp'
         self.basis.write_xml()
                 
     def create_basis_function(self, l, n, tailnorm, scale):
         rgd = self.rgd
         waves = self.waves_l[l]
 
+        # Find cutoff radii:
         n_g = np.add.accumulate(waves.phit_ng[n]**2 * rgd.r_g**2 * rgd.dr_g)
         g2 = (n_g[-1] - n_g > tailnorm).sum()
         r2 = rgd.r_g[g2]
         r1 = 0.6 * r2
         g1 = rgd.ceil(r1)
 
+        # Set up confining potential:
         r = rgd.r_g[g1:g2]
         vtr_g = self.vtr_g.copy()
         vtr_g[g1:g2] += scale * np.exp((r2 - r1) / (r1 - r)) / (r - r2)**2
         vtr_g[g2:] = np.inf
-
-        self.log('%d%s basis function:' % (waves.n_n[n], 'spdf'[l]))
-        self.log('Cutoffs: %.3f and %.3f (tail-norm=%f)' % (r1, r2, tailnorm))
 
         # Nonlocal PAW stuff:
         pt_ng = waves.pt_ng
@@ -772,10 +834,10 @@ class PAWSetupGenerator:
         u_ng = rgd.zeros(N)
         duodr_n = np.empty(N)
 
-        e = waves.e_n[0]
+        norm = rgd.integrate(waves.phit_ng[n]**2) / (4 * pi)
+        e = waves.e_n[n]
         e0 = e
         ch = Channel(l)
-        iter = 0
         while True:
             duodr = ch.integrate_outwards(u_g, rgd, vtr_g, g1, e)
 
@@ -797,16 +859,12 @@ class PAWSetupGenerator:
             ui = u_g[g1]
             A = duodr / uo - duidr / ui
             u_g[g1:] *= uo / ui
-            u_g /= (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
+            u_g *= norm / (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
 
             if abs(A) < 1e-5:
                 break
 
             e += 0.5 * A * u_g[g1]**2
-            iter += 1
-
-        de = e - e0
-        self.log('Eigenvalue shift:', de * Hartree, 'eV')
 
         u_g[1:] /= rgd.r_g[1:]
         if l == 0:
@@ -1121,6 +1179,10 @@ def generate(argv=None):
 
             if opt.plot:
                 gen.plot()
+                
+                if opt.create_basis_set:
+                    gen.basis.generatordata = ''  # we already printed this
+                    BasisPlotter(show=True).plot(gen.basis)
 
             try:
                 plt.show()

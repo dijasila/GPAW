@@ -69,9 +69,9 @@ if scalapack:
 # In order to link libxc installed in a non-standard location
 # (e.g.: configure --prefix=/home/user/libxc-2.0.1-1), use:
 # - static linking:
-#include_dirs += ['/home/user/libxc-2.0.1-1/include']
-#extra_link_args += ['/home/user/libxc-2.0.1-1/lib/libxc.a']
-#if 'xc' in libraries: libraries.remove('xc')
+libraries.remove('xc')
+include_dirs += ['/home/jensj/xc/include']
+extra_link_args += ['/home/jensj/xc/lib/libxc.a']
 # - dynamic linking (requires also setting LD_LIBRARY_PATH at runtime):
 #include_dirs += ['/home/user/libxc-2.0.1-1/include']
 #library_dirs += ['/home/user/libxc-2.0.1-1/lib']
