@@ -320,6 +320,7 @@ class PAWSetupGenerator:
 
     def calculate_core_density(self):
         self.nc_g = self.rgd.zeros()
+        self.tauc_g = self.rgd.zeros()
         self.ncore = 0
         self.nvalence = 0
         self.ekincore = 0.0
@@ -329,6 +330,7 @@ class PAWSetupGenerator:
                     self.nvalence += f
                 else:
                     self.nc_g += f * ch.calculate_density(n)
+                    self.tauc_g += f * ch.calculate_kinetic_energy_density(n)
                     self.ncore += f
                     self.ekincore += f * ch.e_n[n]
 
@@ -404,30 +406,16 @@ class PAWSetupGenerator:
                 break
             rcore -= 0.01
 
-        if 1:
-            rcore *= 1.2
-            print rcore, '1.200000000000000000000000000'
-            gcore = self.rgd.round(rcore)
-            self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
-            nt_g = self.nt_g + self.nct_g
+        rcore *= 1.2
+        gcore = self.rgd.round(rcore)
+        self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
+        nt_g = self.nt_g + self.nct_g
 
         self.log('Constructing smooth pseudo core density for r < %.3f' %
                  rcore)
         self.nt_g = nt_g
 
-        if 0:
-            # Constuct function that decrease smoothly from
-            # f(0)=1 to f(rcmax)=0:
-            x_g = self.rgd.r_g[:gcore] / self.rcmax
-            f_g = self.rgd.zeros()
-            f_g[:gcore] = (1 - x_g**2 * (3 - 2 * x_g))**2
-
-            # Add enough of f to nct to make nt monotonically decreasing:
-            dfdr_g = self.rgd.derivative(f_g)
-            A = (-dntdr_g / dfdr_g[:gcore]).max() * 1.5
-            self.nt_g += A * f_g
-            self.nct_g += A * f_g
-            self.log('Adding to nct ...')
+        self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
 
         self.npseudocore = self.rgd.integrate(self.nct_g)
         self.log('Pseudo core electrons: %.6f' % self.npseudocore)
@@ -971,9 +959,8 @@ class PAWSetupGenerator:
         setup.ExxC = self.exxcc
         setup.X_p = pack2(self.exxcv_ii[I][:, I])
 
-        setup.tauc_g = self.rgd.zeros()
-        setup.tauct_g = self.rgd.zeros()
-        #print 'no tau!!!!!!!!!!!'
+        setup.tauc_g = self.tauc_g
+        setup.tauct_g = self.tauct_g
 
         if self.aea.scalar_relativistic:
             reltype = 'scalar-relativistic'

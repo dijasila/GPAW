@@ -201,6 +201,16 @@ class Channel:
             n_g = self.phi_ng[n]**2 / (4 * pi)
         return n_g
 
+    def calculate_kinetic_energy_density(self, n):
+        """Calculate kinetic energy density."""
+        phi_g = self.phi_ng[n]
+        rgd = self.basis.rgd
+        tau_g = rgd.derivative(phi_g)**2 / (8 * pi)
+        if self.l > 0:
+            tau_g[1:] += (self.l * (self.l + 1) *
+                          (phi_g[1:] / rgd.r_g[1:])**2 / (8 * pi))
+        return tau_g
+
     def get_eigenvalue_sum(self):
         f_n = self.f_n
         return np.dot(f_n, self.e_n[:len(f_n)])
