@@ -742,14 +742,14 @@ class PAWSetupGenerator:
         for l, waves in enumerate(self.waves_l):
             for i, n in enumerate(waves.n_n):
                 if n > 0:
-                    phit_g, rc, de = self.create_basis_function(l, i, tailnorm,
-                                                                scale)
+                    phit_g, ronset, rc, de = self.create_basis_function(
+                        l, i, tailnorm, scale)
                     bf = BasisFunction(n, l, rc, phit_g, 'bound state')
                     self.basis.append(bf)
 
                     txt += '%d%s bound state:\n' % (n, 'spdf'[l])
                     txt += ('  cutoff: %.3f to %.3f Bohr (tail-norm=%f)\n' %
-                            (rc * 0.6, rc, tailnorm))
+                            (ronset, rc, tailnorm))
                     txt += '  eigenvalue shift: %.3f eV\n' % (de * Hartree)
 
         # Split valence:
@@ -817,9 +817,9 @@ class PAWSetupGenerator:
         norm = n_g[-1]
         g2 = (norm - n_g > tailnorm * norm).sum()
         r2 = rgd.r_g[g2]
-        r1 = 0.6 * r2
+        r1 = max(0.6 * r2, waves.rcut)
         g1 = rgd.ceil(r1)
-
+        print r1,r2,n,l
         # Set up confining potential:
         r = rgd.r_g[g1:g2]
         vtr_g = self.vtr_g.copy()
@@ -870,7 +870,7 @@ class PAWSetupGenerator:
         u_g[1:] /= rgd.r_g[1:]
         if l == 0:
             u_g[0] = u_g[1]
-        return u_g, r2, e - e0
+        return u_g, r1, r2, e - e0
 
     def logarithmic_derivative(self, l, energies, rcut):
         rgd = self.rgd
