@@ -8,6 +8,22 @@ from gpaw.spline import Spline
 from gpaw.utilities import hartree, divrl, _fact as fac
 
 
+def radial_grid_descriptor(eq, **kwargs):
+    if eq == 'r=d*i':
+        assert kwargs['istart'] == 0
+        return EquidistantRaialGridDescriptor(kwargs['d'], kwargs['iend'])
+    if eq == 'r=a*i/(n-i)':
+        beta = float(kwargs['a'])
+        ng = int(kwargs['n'])
+        return AERadialGridDescriptor(beta / ng, 1.0 / ng, ng)
+    if eq == 'r=a*i/(1-b*i)':
+        a = float(kwargs['a'])
+        b = float(kwargs['b'])
+        N = int(kwargs['n'])
+        return AERadialGridDescriptor(a, b, N)
+    raise ValueError('Unknown grid: ' + eq)
+
+
 def fsbt(l, f_g, r_g, G_k):
     """Fast spherical Bessel transform.
 

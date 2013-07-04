@@ -16,7 +16,7 @@ from gpaw.utilities import _fact, divrl
 from gpaw.utilities.tools import md5_new
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast_string
-from gpaw.atom.radialgd import AERadialGridDescriptor
+from gpaw.atom.radialgd import radial_grid_descriptor
 from gpaw.basis_data import Basis, BasisFunction
 
 try:
@@ -494,17 +494,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
             if setup.version < '0.6' and setup.f_j[-1] == 0:
                 setup.n_j[-1] = -1
         elif name == 'radial_grid':
-            if attrs['eq'] == 'r=a*i/(n-i)':
-                beta = float(attrs['a'])
-                ng = int(attrs['n'])
-                setup.rgd = AERadialGridDescriptor(beta / ng, 1.0 / ng, ng)
-            elif attrs['eq'] == 'r=a*i/(1-b*i)':
-                a = float(attrs['a'])
-                b = float(attrs['b'])
-                N = int(attrs['n'])
-                setup.rgd = AERadialGridDescriptor(a, b, N)
-            else:
-                raise ValueError('Unknown grid:' + attrs['eq'])
+            setup.rgd = radial_grid_descriptor(**attrs)
         elif name == 'shape_function':
             if attrs.has_key('rc'):
                 assert attrs['type'] == 'gauss'

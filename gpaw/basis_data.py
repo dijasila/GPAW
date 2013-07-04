@@ -7,7 +7,7 @@ import xml.sax
 import numpy as np
 
 from gpaw import setup_paths
-from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
+from gpaw.atom.radialgd import radial_grid_descriptor
 
 try:
     import gzip
@@ -229,13 +229,17 @@ for details."""
             self.data = []
         elif name == 'radial_grid':
             basis.rgd = radial_grid_descriptor(**attrs)
-            assert int(attrs['istart']) == 0
         elif name == 'basis_function':
-            self.n = attrs.get('n') or int(attrs['n'])
+            self.data = []
             self.l = int(attrs['l'])
             self.rc = float(attrs['rc'])
             self.type = attrs.get('type')
-            self.data = []
+            if 'n' in attrs:
+                self.n = int(attrs['n'])
+            elif self.type[0].isdigit():
+                self.n = int(self.type[0])
+            else:
+                self.n = None
 
     def characters(self, data):
         if self.data is not None:
@@ -245,9 +249,7 @@ for details."""
         basis = self.basis
         if name == 'basis_function':
             phit_g = np.array([float(x) for x in ''.join(self.data).split()])
-            bf = BasisFunction(self.l, self.rc, phit_g, self.type)
-            assert bf.ng == self.ng, ('Bad grid size %d vs ng=%d!'
-                                      % (bf.ng, self.ng))
+            bf = BasisFunction(self.n, self.l, self.rc, phit_g, self.type)
             basis.bf_j.append(bf)
         elif name == 'generator':
             basis.generatordata = ''.join([line for line in self.data])
