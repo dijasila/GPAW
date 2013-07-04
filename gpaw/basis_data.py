@@ -165,7 +165,7 @@ class BasisFunction:
         txt = indentation + '<basis_function '
         if self.n is not None:
             txt += 'n="%d" ' % self.n
-        txt += ('l="%d" rc="%f" type="%s" grid="%s">\n' %
+        txt += ('l="%d" rc="%r" type="%s" grid="%s">\n' %
                 (self.l, self.rc, self.type, gridid))
         txt += indentation + '  ' + ' '.join(repr(x) for x in self.phit_g)
         txt += '\n' + indentation + '</basis_function>\n'
