@@ -58,13 +58,6 @@ pes = TDDFTPES(calc, lr)
 pes.save_folded_pes(filename=out, folding='Gauss')
 pes.save_folded_pes(filename=None, folding=None)
 
-energy_tolerance = 0.000008
-niter_tolerance = 1
-equal(e_H2, -3.90059, energy_tolerance)
-equal(niter_H2, 16, niter_tolerance)
-equal(e_H2_plus, 10.5659703, energy_tolerance)
-equal(niter_H2_plus, 15, niter_tolerance)
-
 # io
 out = 'lrpes.dat.gz'
 lr.write(out)

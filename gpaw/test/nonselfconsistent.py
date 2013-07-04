@@ -27,10 +27,3 @@ calc.write('revPBE.gpw')
 
 de21b = GPAW('revPBE.gpw').get_xc_difference('PBE')
 equal(de21, de21b, 9e-8)
-
-energy_tolerance = 0.000005
-niter_tolerance = 0
-equal(e1, -0.07904951, energy_tolerance)
-equal(niter1, 16, niter_tolerance)
-equal(e2, -0.08147563, energy_tolerance)
-equal(niter2, 11, niter_tolerance)

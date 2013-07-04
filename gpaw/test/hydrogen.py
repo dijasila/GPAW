@@ -24,12 +24,3 @@ calc.set(occupations=FermiDirac(width=kT))
 e3 = hydrogen.get_potential_energy()
 niter3 = calc.get_number_of_iterations()
 equal(e1, e3 + log(2) * kT, 3.0e-7)
-
-energy_tolerance = 0.00006
-niter_tolerance = 0
-equal(e1, 0.526939, energy_tolerance)
-assert 24 <= niter1 <= 26, niter1
-equal(e2, 0.526938, energy_tolerance)
-equal(niter2, 3, niter_tolerance)
-equal(e3, 0.526245, energy_tolerance)
-equal(niter3, 11, niter_tolerance)
