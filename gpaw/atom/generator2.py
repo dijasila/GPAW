@@ -919,42 +919,48 @@ class PAWSetupGenerator:
 
         setup = SetupData(aea.symbol, aea.xc.name, tag, readxml=False)
 
-        nj = sum(len(waves) for waves in self.waves_l)
-        setup.e_kin_jj = np.zeros((nj, nj))
         setup.id_j = []
 
+        J = []  # new reordered j-indices
+
         # Bound states:
-        j1 = 0
+        j = 0
         for l, waves in enumerate(self.waves_l):
             for n, f, e, phi_g, phit_g, pt_g in zip(waves.n_n, waves.f_n,
                                                     waves.e_n, waves.phi_ng,
                                                     waves.phit_ng,
                                                     waves.pt_ng):
-                if n == -1:
-                    continue
-                setup.append(n, l, f, e, waves.rcut, phi_g, phit_g, pt_g)
-                id = '%s-%d%s' % (aea.symbol, n, 'spdf'[l])
-                setup.id_j.append(id)
-            j2 = j1 + len(waves)
-            setup.e_kin_jj[j1:j2, j1:j2] = waves.dekin_nn
-            j1 = j2
+                if n != -1:
+                    setup.append(n, l, f, e, waves.rcut, phi_g, phit_g, pt_g)
+                    id = '%s-%d%s' % (aea.symbol, n, 'spdf'[l])
+                    setup.id_j.append(id)
+                    J.append(j)
+                j += 1
 
         # Excited states:
+        j = 0
         for l, waves in enumerate(self.waves_l):
             ne = 0
             for n, f, e, phi_g, phit_g, pt_g in zip(waves.n_n, waves.f_n,
                                                     waves.e_n, waves.phi_ng,
                                                     waves.phit_ng,
                                                     waves.pt_ng):
-                if n != -1:
-                    continue
-                setup.append(n, l, f, e, waves.rcut, phi_g, phit_g, pt_g)
-                ne += 1
-                id = '%s-%s%d' % (aea.symbol, 'spdf'[l], ne)
-                setup.id_j.append(id)
+                if n == -1:
+                    setup.append(n, l, f, e, waves.rcut, phi_g, phit_g, pt_g)
+                    ne += 1
+                    id = '%s-%s%d' % (aea.symbol, 'spdf'[l], ne)
+                    setup.id_j.append(id)
+                    J.append(j)
+                j += 1
+            
+        nj = sum(len(waves) for waves in self.waves_l)
+        e_kin_jj = np.zeros((nj, nj))
+        j1 = 0
+        for waves in self.waves_l:
             j2 = j1 + len(waves)
-            setup.e_kin_jj[j1:j2, j1:j2] = waves.dekin_nn
+            e_kin_jj[j1:j2, j1:j2] = waves.dekin_nn
             j1 = j2
+        setup.e_kin_jj = e_kin_jj[J][:, J].copy()
 
         setup.nc_g = self.nc_g * sqrt(4 * pi)
         setup.nct_g = self.nct_g * sqrt(4 * pi)
