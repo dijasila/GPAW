@@ -435,6 +435,8 @@ class LeanSetup(BaseSetup):
         self.l_j = s.l_j
         self.nj = len(s.l_j)
 
+        assert -1 not in self.n_j[:self.nj - self.n_j.count(-1)], 'wrong ordering!'
+
         self.data = s.data
 
         # Below are things which are not really used all that much,

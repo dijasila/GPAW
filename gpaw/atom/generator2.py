@@ -922,19 +922,35 @@ class PAWSetupGenerator:
         nj = sum(len(waves) for waves in self.waves_l)
         setup.e_kin_jj = np.zeros((nj, nj))
         setup.id_j = []
+
+        # Bound states:
         j1 = 0
+        for l, waves in enumerate(self.waves_l):
+            for n, f, e, phi_g, phit_g, pt_g in zip(waves.n_n, waves.f_n,
+                                                    waves.e_n, waves.phi_ng,
+                                                    waves.phit_ng,
+                                                    waves.pt_ng):
+                if n == -1:
+                    continue
+                setup.append(n, l, f, e, waves.rcut, phi_g, phit_g, pt_g)
+                id = '%s-%d%s' % (aea.symbol, n, 'spdf'[l])
+                setup.id_j.append(id)
+            j2 = j1 + len(waves)
+            setup.e_kin_jj[j1:j2, j1:j2] = waves.dekin_nn
+            j1 = j2
+
+        # Excited states:
         for l, waves in enumerate(self.waves_l):
             ne = 0
             for n, f, e, phi_g, phit_g, pt_g in zip(waves.n_n, waves.f_n,
                                                     waves.e_n, waves.phi_ng,
                                                     waves.phit_ng,
                                                     waves.pt_ng):
+                if n != -1:
+                    continue
                 setup.append(n, l, f, e, waves.rcut, phi_g, phit_g, pt_g)
-                if n == -1:
-                    ne += 1
-                    id = '%s-%s%d' % (aea.symbol, 'spdf'[l], ne)
-                else:
-                    id = '%s-%d%s' % (aea.symbol, n, 'spdf'[l])
+                ne += 1
+                id = '%s-%s%d' % (aea.symbol, 'spdf'[l], ne)
                 setup.id_j.append(id)
             j2 = j1 + len(waves)
             setup.e_kin_jj[j1:j2, j1:j2] = waves.dekin_nn
