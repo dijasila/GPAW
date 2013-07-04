@@ -903,10 +903,12 @@ class PAWSetupGenerator:
 
         setup.id_j = []
 
-        J = []  # new reordered j-indices
+        J = []  # new reordered j and i indices
+        I = []
 
         # Bound states:
         j = 0
+        i = 0
         for l, waves in enumerate(self.waves_l):
             for n, f, e, phi_g, phit_g, pt_g in zip(waves.n_n, waves.f_n,
                                                     waves.e_n, waves.phi_ng,
@@ -914,13 +916,16 @@ class PAWSetupGenerator:
                                                     waves.pt_ng):
                 if n != -1:
                     setup.append(n, l, f, e, waves.rcut, phi_g, phit_g, pt_g)
-                    id = '%s-%d%s' % (aea.symbol, n, 'spdf'[l])
+                    id = '%d%s' % (n, 'spdf'[l])
                     setup.id_j.append(id)
                     J.append(j)
+                    I.extend(range(i, i + 2 * l + 1))
                 j += 1
+                i += 2 * l + 1
 
         # Excited states:
         j = 0
+        i = 0
         for l, waves in enumerate(self.waves_l):
             ne = 0
             for n, f, e, phi_g, phit_g, pt_g in zip(waves.n_n, waves.f_n,
@@ -930,10 +935,12 @@ class PAWSetupGenerator:
                 if n == -1:
                     setup.append(n, l, f, e, waves.rcut, phi_g, phit_g, pt_g)
                     ne += 1
-                    id = '%s-%s%d' % (aea.symbol, 'spdf'[l], ne)
+                    id = '%s%d' % ('spdf'[l], ne)
                     setup.id_j.append(id)
                     J.append(j)
+                    I.extend(range(i, i + 2 * l + 1))
                 j += 1
+                i += 2 * l + 1
             
         nj = sum(len(waves) for waves in self.waves_l)
         e_kin_jj = np.zeros((nj, nj))
@@ -962,7 +969,7 @@ class PAWSetupGenerator:
 
         self.calculate_exx_integrals()
         setup.ExxC = self.exxcc
-        setup.X_p = pack2(self.exxcv_ii)
+        setup.X_p = pack2(self.exxcv_ii[I][:, I])
 
         setup.tauc_g = self.rgd.zeros()
         setup.tauct_g = self.rgd.zeros()
