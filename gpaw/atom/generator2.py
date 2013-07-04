@@ -30,11 +30,11 @@ parameters = {
 'Be': ('1s,2s,2p,p,d', 1.4, {}),
 'B':  ('2s,s,2p,p,d', 1.2, {}),
 'C':  ('2s,s,2p,p,d', 1.2, {}),
-'N':  ('2s,s,2p,p,d', 1.2, {'r0': 1.1}),
-'O':  ('2s,s,2p,p,d', 1.2, {}),
-'F':  ('2s,s,2p,p,d', 1.1, {}),
-'Ne': ('2s,s,2p,p,d', 1.8, {}),
-'Na': ('2s,3s,s,2p,3p,d', 2.3, {'local': 'f'}),
+'N':  ('2s,s,2p,p,d', [1.2, 1.3], {'r0': 1.1}),
+'O':  ('2s,s,2p,p,d', [1.2, 1.4], {}),
+'F':  ('2s,s,2p,p,d', [1.2,1.4], {}),
+'Ne': ('2s,s,2p,p,d', 1.8, {}),  # 10
+'Na': ('2s,3s,2p,3p,d', 2.3, {'local': 'f'}),
 'Mg': ('2s,3s,2p,3p,d', [2.0, 1.8], {'local': 'f'}),
 'Al': ('3s,s,3p,p,d', 2.1, {'local': 'f'}),
 'Si': ('3s,s,3p,p,d', 1.9, {'local': 'f'}),
@@ -43,73 +43,73 @@ parameters = {
 'Cl': ('3s,s,3p,p,d', 1.5, {'local': 'f'}),
 'Ar': ('3s,s,3p,p,d', 1.5, {'local': 'f'}),
 'K':  ('3s,4s,3p,4p,d,d', 2.1, {'local': 'f'}),
-'Ca': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
-'Sc': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),  # improve
-'Ti': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),  # improve
-'V':  ('3s,4s,3p,4p,3d,d', 2.2, {'local': 'f'}),  # improve
-'Cr': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),  # improve
-'Mn': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),  # improve
-'Fe': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),  # improve
-'Co': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),  # improve
-'Ni': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),  # improve
-'Cu': ('3s,4s,3p,4p,3d,d', 1.8, {'local': 'f'}),
-'Zn': ('3s,4s,3p,4p,3d,d', 1.8, {'local': 'f'}),
+'Ca': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),  # 20
+'Sc': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),
+'Ti': ('3s,4s,3p,4p,3d,d', [2.2, 2.2, 2.3], {'local': 'f'}),
+'V':  ('3s,4s,3p,4p,3d,d', [2.1, 2.1, 2.3], {'local': 'f'}),
+'Cr': ('3s,4s,3p,4p,3d,d', [2.1, 2.1, 2.3], {'local': 'f'}),
+'Mn': ('3s,4s,3p,4p,3d,d', [2.0, 2.0, 2.2], {'local': 'f'}),
+'Fe': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
+'Co': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
+'Ni': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),
+'Cu': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),
+'Zn': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),  # 30
 'Ga': ('4s,s,4p,p,3d,d', 2.2, {'local': 'f'}),
 'Ge': ('4s,s,4p,p,3d,d', 2.1, {'local': 'f'}),
 'As': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
-'Se': ('4s,s,4p,p,d', 1.9, {'local': 'f'}),
-'Br': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
-'Kr': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
+'Se': ('4s,s,4p,p,d', 2.1, {'local': 'f'}),
+'Br': ('4s,s,4p,p,d', 2.1, {'local': 'f'}),
+'Kr': ('4s,s,4p,p,d', 2.1, {'local': 'f'}),
 'Rb': ('4s,5s,4p,5p,d,d', 2.5, {'local': 'f'}),
 'Sr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
 'Y':  ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
 'Zr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),  # 40
-'Nb': ('4s,5s,4p,5p,4d,d', 2.4, {'local': 'f'}),
-'Mo': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
-'Tc': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
-'Ru': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
-'Rh': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
-'Pd': ('4s,5s,4p,5p,4d,d', 2.2, {'local': 'f'}),
+'Nb': ('4s,5s,4p,5p,4d,d', [2.4,2.4,2.5], {'local': 'f'}),
+'Mo': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Tc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Ru': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Rh': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Pd': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
 'Ag': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
 'Cd': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'In': ('5s,s,s,5p,p,4d,d', 2.6, {'local': 'f'}),  # improve
-'Sn': ('5s,s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
-'Sb': ('5s,s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
-'Te': ('5s,6s,5p,p,d,d', 2.6, {'local': 'f'}),  # improve
+'In': ('5s,s,5p,p,4d,d', 2.6, {'local': 'f'}),
+'Sn': ('5s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
+'Sb': ('5s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
+'Te': ('5s,6s,5p,p,d,d', 2.5, {'local': 'f'}),
 'I':  ('5s,s,5p,p,d', 2.4, {'local': 'f'}),
 'Xe': ('5s,s,5p,p,d', 2.3, {'local': 'f'}),
 'Cs': ('5s,6s,5p,6p,5d', [1.9, 2.2], {}),  # 55
-'Ba': ('5s,6s,s,5p,6p,5d,d', 2.5, {'local': 'g'}),  # improve
+'Ba': ('5s,6s,5p,6p,5d', [1.8, 2.2], {}),
 'La': ('5s,6s,5p,6p,5d,d,4f,f', 2.5, {'local': 'g'}),
-'Ce': ('5s,6s,5p,6p,5d,d,4f,f', 2.4, {'local': 'g'}),  # improve
-'Pr': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
-'Nd': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
-'Pm': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
-'Sm': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # improve
-'Eu': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # improve
-'Gd': ('5s,6s,5p,6p,5d,d,4f,f', 2.4, {'local': 'g'}),  # improve
-'Tb': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
-'Dy': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # improve
-'Ho': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
-'Er': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
-'Tm': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
-'Yb': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
-'Lu': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # improve
-'Hf': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
-'Ta': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
-'W':  ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
-'Re': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
-'Os': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
-'Ir': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
-'Pt': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
-'Au': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # improve
-'Hg': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),
-'Tl': ('6s,s,s,6p,p,5d,d', 2.8, {'local': 'f'}),  # improve
-'Pb': ('6s,s,s,6p,p,5d,d', 2.6, {'local': 'f'}),
-'Bi': ('6s,s,s,6p,p,5d,d', 2.6, {'local': 'f'}),
-'Po': ('6s,s,6p,p,d', 2.7, {'local': 'f'}),  # improve
-'At': ('6s,s,6p,p,d', 2.6, {'local': 'f'}),  # improve
-'Rn': ('6s,s,6p,p,d', 2.6, {'local': 'f'}),  # improve
+'Ce': ('5s,6s,5p,6p,5d,d,4f,f', 2.4, {'local': 'g'}),
+'Pr': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),
+'Nd': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # 60
+'Pm': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),
+'Sm': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Eu': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Gd': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Tb': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 65
+'Dy': ('5s,6s,5p,6p,5d,d,4f,f', 2.1, {'local': 'g'}),
+'Ho': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Er': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Tm': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Yb': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 70
+'Lu': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Hf': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Ta': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'W':  ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Re': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # 75
+'Os': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Ir': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Pt': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),
+'Au': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),
+'Hg': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),  # 80
+'Tl': ('6s,s,6p,p,5d,d', 2.8, {'local': 'f'}),
+'Pb': ('6s,s,6p,p,5d,d', 2.6, {'local': 'f'}),
+'Bi': ('6s,s,6p,p,5d,d', 2.6, {'local': 'f'}),
+'Po': ('6s,s,6p,p,d', 2.7, {'local': 'f'}),
+'At': ('6s,s,6p,p,d', 2.6, {'local': 'f'}),
+'Rn': ('6s,s,6p,p,d', 2.6, {'local': 'f'}),
 }
 
 
@@ -163,7 +163,7 @@ class PAWWaves:
                     phit_ng[n1] * phit_ng[n2]) / (4 * pi)
         self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
 
-    def construct_projectors(self, vtr_g, rcmax, rcfilter, Gcut):
+    def construct_projectors(self, vtr_g, rcmax):
         N = len(self)
         if N == 0:
             self.pt_ng = []
@@ -193,8 +193,6 @@ class PAWWaves:
             q_g[1:] /= r_g[1:]
             if l == 0:
                 q_g[0] = q_g[1]
-            if Gcut is not None:
-                q_g = rgd.filter(q_g, rcfilter, Gcut, l)
             q_ng[n] = q_g
 
         A_nn = rgd.integrate(phit_ng[:, None] * q_ng) / (4 * pi)
@@ -382,21 +380,7 @@ class PAWSetupGenerator:
                 waves.add(phi_g, n, e, f)
             self.waves_l.append(waves)
 
-    def pseudize(self, type='poly', nderiv=6, rcore=None, h=None, gamma=None):
-        # Filtering parameters:
-        self.gamma = gamma
-        self.h = h
-
-        self.rcfilter = gamma * self.rcmax
-
-        if h == 0:
-            self.Gcut = None
-        else:
-            self.Gcut = pi / h - 2 / self.rcfilter
-            self.log('Wang mask function for Fourier filtering:')
-            self.log('gamma=%.2f, h=%.2f Bohr, rcut=%.2f, Gcut=%.2f Bohr^-1' %
-                     (gamma, h, self.rcfilter, self.Gcut))
-
+    def pseudize(self, type='poly', nderiv=6, rcore=None):
         self.Q = -self.aea.Z + self.ncore
 
         self.nt_g = self.rgd.zeros()
@@ -419,6 +403,13 @@ class PAWSetupGenerator:
             if dntdr_g.max() < 0.0:
                 break
             rcore -= 0.01
+
+        if 1:
+            rcore *= 1.2
+            print rcore, '1.200000000000000000000000000'
+            gcore = self.rgd.round(rcore)
+            self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
+            nt_g = self.nt_g + self.nct_g
 
         self.log('Constructing smooth pseudo core density for r < %.3f' %
                  rcore)
@@ -452,14 +443,6 @@ class PAWSetupGenerator:
 
         self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
         self.v0r_g[self.rgd.round(self.rcmax):] = 0.0
-
-        if self.Gcut is not None:
-            self.vtr_g -= self.v0r_g
-            self.v0r_g[1:] /= self.rgd.r_g[1:]
-            self.v0r_g[0] = self.v0r_g[1]
-            self.v0r_g = self.rgd.filter(
-                self.v0r_g, self.rcfilter, self.Gcut) * self.rgd.r_g
-            self.vtr_g += self.v0r_g
 
         self.log('\nProjectors:')
         self.log(' state  occ         energy             norm        rcut')
@@ -541,8 +524,7 @@ class PAWSetupGenerator:
 
     def construct_projectors(self):
         for waves in self.waves_l:
-            waves.construct_projectors(self.vtr_g, self.rcmax,
-                                       self.rcfilter, self.Gcut)
+            waves.construct_projectors(self.vtr_g, self.rcmax)
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
 
@@ -991,8 +973,7 @@ class PAWSetupGenerator:
         else:
             reltype = 'non-relativistic'
         attrs = [('type', reltype),
-                 ('gamma', self.gamma),
-                 ('h', self.h),
+                 ('version', 2),
                  ('name', 'gpaw-%s' % version)]
         setup.generatorattrs = attrs
 
@@ -1120,11 +1101,6 @@ def generate(argv=None):
     parser.add_option('-t', '--tag', type='string')
     parser.add_option('-a', '--alpha', type=float)
     parser.add_option('-b', '--create-basis-set', action='store_true')
-    parser.add_option('-F', '--filter', metavar='gamma,h',
-                      help='Fourier filtering parameters for Wang ' +
-                      'mask-function.  Default: ' +
-                      'gamma=1.8 and h=0.2 Bohr.  Use gamma=1 and ' +
-                      'h=0 to turn off filtering.')
 
     opt, args = parser.parse_args(argv)
 
@@ -1226,12 +1202,6 @@ def get_parameters(symbol, opt):
     if opt.radius:
         radii = [float(r) for r in opt.radius.split(',')]
 
-    gamma = extra.get('gamma', 1.8)
-    h = extra.get('h', 0.2)
-
-    if opt.filter:
-        gamma, h = (float(x) for x in opt.filter.split(','))
-
     if isinstance(radii, float):
         radii = [radii]
 
@@ -1279,10 +1249,12 @@ def get_parameters(symbol, opt):
     else:
         if 'local' not in extra:
             nderiv0 = 2
+            #nderiv0 = 3
             e0 = None
             r0 = extra.get('r0', min(radii) / scale) * scale
         else:
             nderiv0 = 5
+            #nderiv0 = 6
             r0 = extra.get('r0', min(radii) * 0.9 / scale) * scale
             l0 = 'spdfg'.find(extra['local'])
             e0 = 0.0
@@ -1292,14 +1264,12 @@ def get_parameters(symbol, opt):
                 projectors=projectors,
                 radii=radii,
                 scalar_relativistic=opt.scalar_relativistic, alpha=opt.alpha,
-                gamma=gamma, h=h,
                 l0=l0, r0=r0, nderiv0=nderiv0, e0=e0,
                 pseudize=pseudize, rcore=opt.pseudo_core_density_radius)
 
 
 def _generate(symbol, xc, projectors, radii,
               scalar_relativistic, alpha,
-              gamma, h,
               l0, r0, nderiv0, e0,
               pseudize, rcore):
     aea = AllElectronAtom(symbol, xc)
@@ -1310,7 +1280,7 @@ def _generate(symbol, xc, projectors, radii,
     gen.calculate_core_density()
     gen.find_local_potential(l0, r0, nderiv0, e0)
     gen.add_waves(radii)
-    gen.pseudize(pseudize[0], pseudize[1], rcore=rcore, gamma=gamma, h=h)
+    gen.pseudize(pseudize[0], pseudize[1], rcore=rcore)
     gen.construct_projectors()
     return gen
 

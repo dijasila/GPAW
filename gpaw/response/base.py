@@ -2,6 +2,7 @@ import sys
 from time import time, ctime
 import numpy as np
 from math import sqrt, pi
+from datetime import timedelta
 from ase.units import Hartree, Bohr
 from gpaw import GPAW, extra_parameters
 from gpaw.utilities import unpack, devnull
@@ -265,11 +266,13 @@ class BASECHI:
         if i == 0:
             dt = time() - t0
             self.totaltime = dt * n_local
-            self.printtxt('  Finished %s 0 in %f seconds, estimated %f seconds left.' %(txt, dt, self.totaltime))
+            self.printtxt('  Finished %s 0 in %s, estimated %s left.'
+                          %(txt, timedelta(seconds=round(dt)), timedelta(seconds=round(self.totaltime))))
         if rank == 0 and n_local // 5 > 0:            
             if i > 0 and i % (n_local // 5) == 0:
                 dt =  time() - t0
-                self.printtxt('  Finished %s %d in %f seconds, estimated %f seconds left.  '%(txt, i, dt, self.totaltime - dt) )
+                self.printtxt('  Finished %s %d in %s, estimated %s left.'
+                              %(txt, i, timedelta(seconds=round(dt)), timedelta(seconds=round(self.totaltime - dt))))
 
         return    
 
