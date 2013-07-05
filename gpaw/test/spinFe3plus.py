@@ -14,21 +14,21 @@ convergence={'eigenstates':0.01, 'density':0.1, 'energy':0.1}
 
 # use Hunds rules
 
-c = GPAW(charge=q, h=h, nbands=5,
+c = GPAW(charge=q, h=h, nbands=9,
          hund=True,
          occupations=FermiDirac(width=0.1),
          convergence=convergence
          )
 c.calculate(s)
-equal(c.get_magnetic_moment(0), 5, 0.1)
+equal(c.get_magnetic_moment(0), 5, 0.01)
 
 # set magnetic moment
 
 mm = [5]
 s.set_initial_magnetic_moments(mm)
-c = GPAW(charge=q, h=h, nbands=5,
+c = GPAW(charge=q, h=h, nbands=9,
          occupations=FermiDirac(width=0.1, fixmagmom=True),
          convergence=convergence
          )
 c.calculate(s)
-equal(c.get_magnetic_moment(0), 5, 0.1)
+equal(c.get_magnetic_moment(0), 5, 0.01)
