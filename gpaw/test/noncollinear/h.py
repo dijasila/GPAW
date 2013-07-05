@@ -17,5 +17,5 @@ h.calc = GPAW(txt='nc.txt', mode='lcao', basis='dz(dzp)', h=0.25,
               eigensolver=NonCollinearLCAOEigensolver())
 e = h.get_potential_energy()
 
-assert abs(e - e0) < 2e-5, (e, e0)
+assert abs(e - e0) < 1e-4, (e, e0)
 
