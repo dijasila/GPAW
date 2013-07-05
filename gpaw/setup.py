@@ -588,7 +588,7 @@ class Setup(BaseSetup):
         rcut2 = 2 * rcutmax
         gcut2 = rgd.ceil(rcut2)
         self.gcut2 = gcut2
-
+        rcut2 = rgd.r_g[gcut2]
         self.gcutmin = rgd.ceil(min(rcut_j))
 
         if data.generator_version < 2:

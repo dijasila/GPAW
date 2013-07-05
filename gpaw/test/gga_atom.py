@@ -4,12 +4,13 @@ from gpaw.test import equal
 from gpaw.setup import create_setup
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.localized_functions import create_localized_functions
-from gpaw.spline import Spline
 from gpaw.xc import XC
 from gpaw.utilities import pack
 from gpaw.mpi import serial_comm
 
-ra.seed(8)
+
+rs = ra.RandomState(9)
+
 for name in ['LDA', 'PBE']:
     xc = XC(name)
     s = create_setup('N', xc)
@@ -20,16 +21,12 @@ for name in ['LDA', 'PBE']:
     rcut = s.xc_correction.rgd.r_g[-1]
 
     wt_j = []
-    for wt0 in wt0_j:
-        data = [wt0(r) for r in np.arange(121) * rcut / 100]
-        data[-1] = 0.0
-        l = wt0.get_angular_momentum_number()
-        wt_j.append(Spline(l, 1.2 * rcut, data))
+    for j in [0, 1]:
+        wt_j.append(s.rgd.spline(s.data.phit_jg[j], 1.2 * rcut, s.l_j[j],
+                                 points=100))
 
     a = rcut * 1.2 * 2 + 1.0
-##    n = 120
     n = 70
-    n = 90
     gd = GridDescriptor((n, n, n), (a, a, a), comm=serial_comm)
     pr = create_localized_functions(wt_j, gd, (0.5, 0.5, 0.5))
 
@@ -41,12 +38,11 @@ for name in ['LDA', 'PBE']:
     D_p = np.zeros(nii)
     H_p = np.zeros(nii)
 
-
     e_g = np.zeros((n, n, n))
     n_g = np.zeros((1, n, n, n))
     v_g = np.zeros((1, n, n, n))
 
-    P_ni = 0.2 * ra.random((20, ni))
+    P_ni = 0.2 * rs.random_sample((20, ni))
     P_ni[:, nao:] = 0.0
     D_ii = np.dot(np.transpose(P_ni), P_ni)
     D_p = pack(D_ii)
@@ -72,5 +68,5 @@ for name in ['LDA', 'PBE']:
     E1 = (xc.calculate_paw_correction(s, D_p.reshape(1, -1))
           + s.xc_correction.Exc0)
 
-    print name, E1, E2, E1 - E2
-    equal(E1, E2, 0.0013)
+    print(name, E1, E2, E1 - E2)
+    equal(E1, E2, 0.0002)
