@@ -357,9 +357,10 @@ class SetupData:
                     print >> xml, '%r' % x,
                 print >> xml, '\n  </%s>' % name
 
-        for bf in self.basis.bf_j:
-            if bf.type == 'bound state':
-                xml.write(bf.xml(gridid='g1', indentation='  '))
+        if self.basis:
+            for bf in self.basis.bf_j:
+                if bf.type == 'bound state':
+                    xml.write(bf.xml(gridid='g1', indentation='  '))
             
         print >> xml, '  <kinetic_energy_differences>',
         nj = len(self.e_kin_jj)
