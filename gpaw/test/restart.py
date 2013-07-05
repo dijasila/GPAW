@@ -23,7 +23,7 @@ atoms = Atoms('Na3', positions=[( 0, 0, 0),
 # Only a short, non-converged calcuation
 conv = {'eigenstates': 1.24, 'energy':2e-1, 'density':1e-1}
 calc = GPAW(h=0.30, nbands=3,
-            setups={'Na': '1'},
+            setups={'Na': '1e'},
             convergence=conv)
 atoms.set_calculator(calc)
 e0 = atoms.get_potential_energy()

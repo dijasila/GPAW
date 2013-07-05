@@ -21,9 +21,12 @@ from gpaw.utilities.lapack import general_diagonalize
 from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
     GaussianBasis
 
+extra_parameters = {
+    ('Na', '1e'): ('3s,s,3p', 2.6, {'local': 'd'})}
+
 
 parameters = {
-'H':  ('1s,s,p', 0.9, {}),
+    'H':  ('1s,s,p', 0.9, {}),
 'He': ('1s,s,p', 1.5, {}),
 'Li': ('1s,2s,2p,p,d', 1.5, {}),
 'Be': ('1s,2s,2p,p,d', 1.4, {}),
@@ -1184,10 +1187,10 @@ def generate(argv=None):
 
 
 def get_parameters(symbol, opt):
-    if symbol in parameters:
-        projectors, radii, extra = parameters[symbol]
+    if opt.tag and (symbol, opt.tag) in extra_parameters:
+        projectors, radii, extra = extra_parameters[(symbol, opt.tag)]
     else:
-        projectors, radii, extra = None, 1.0, {}
+        projectors, radii, extra = parameters[symbol]
 
     if opt.projectors:
         projectors = opt.projectors
