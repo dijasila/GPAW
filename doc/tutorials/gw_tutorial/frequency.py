@@ -29,7 +29,7 @@ for wlin in [25.,50.,75.,100.]:
 
         gw = GW(
                 file='Si_groundstate.gpw',
-                nbands='npw',
+                nbands=None,
                 bands=np.array([2,3,4,5]),
                 kpoints=None,
                 ecut=100.,
