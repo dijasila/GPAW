@@ -170,6 +170,8 @@ tests = [
     'ah.py',
     'laplace.py',
     'pw/mgo.py',
+    'pw/mgo_hse03.py',
+    'pw/mgo_hse06.py',
     'lcao_largecellforce.py',
     'restart2.py',
     'Cl_minus.py',
