@@ -39,6 +39,7 @@ Specialized tutorials
    dipole_correction/dipole
    jellium/jellium
    hydrogen/h
+   stm/stm
    all-electron/all_electron_density
    neb/neb
    pbe0/pbe0
