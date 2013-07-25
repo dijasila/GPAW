@@ -38,7 +38,8 @@ from gpaw import FermiDirac
 
 def calculate(parallel, comm=world, Eref=None, Fref=None):
     calc = GPAW(mode='lcao',
-                basis=dict(O='dzp', Au='sz(dzp)'),
+                setups={'Au': '11e'},
+                basis=dict(O='dzp'),
                 occupations=FermiDirac(0.1),
                 kpts=(4, 1, 1),
                 #txt=None,

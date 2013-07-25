@@ -22,7 +22,8 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
     GaussianBasis
 
 extra_parameters = {
-    ('Na', '1e'): ('3s,s,3p', 2.6, {'local': 'd'})}
+    ('Na', '1e'): ('3s,s,3p', 2.6, {'local': 'd'}),
+    ('Au', '11e'): ('6s,s,6p,p,5d,d', 2.5, {})}
 
 
 parameters = {
@@ -703,7 +704,8 @@ class PAWSetupGenerator:
         plt.axis(xmax=self.rcmax)
         plt.legend()
 
-    def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16):
+    def create_basis_set(self, tag,
+                         tailnorm=0.0005, scale=200.0, splitnorm=0.16):
         rgd = self.rgd
         self.basis = Basis(self.aea.symbol, readxml=False, rgd=rgd)
 
@@ -778,6 +780,9 @@ class PAWSetupGenerator:
                                               scale=scale,
                                               splitnorm=splitnorm))
         self.basis.name = 'dzp'
+        if tag:
+            self.basis.name = tag + '.' + self.basis.name
+
         self.basis.write_xml()
                 
     def create_basis_function(self, l, n, tailnorm, scale):
@@ -1128,7 +1133,7 @@ def generate(argv=None):
             ok = gen.check_all()
 
         if opt.create_basis_set:
-            gen.create_basis_set()
+            gen.create_basis_set(opt.tag)
 
         #gen.test_convergence()
 
