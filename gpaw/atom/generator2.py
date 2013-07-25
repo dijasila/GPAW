@@ -21,7 +21,9 @@ from gpaw.utilities.lapack import general_diagonalize
 from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
     GaussianBasis
 
+
 extra_parameters = {
+    ('Li', '1e'): ('2s,s,2p', 2.2, {}),
     ('Na', '1e'): ('3s,s,3p', 2.6, {'local': 'd'}),
     ('Au', '11e'): ('6s,s,6p,p,5d,d', 2.5, {})}
 
