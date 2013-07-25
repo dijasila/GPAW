@@ -15,11 +15,4 @@ e2 = hydrogen.get_potential_energy()
 niter2 = calc.get_number_of_iterations()
 de = e1 - e2
 print de
-equal(de, 0.7871, 1.e-4)
-
-energy_tolerance = 0.00006
-niter_tolerance = 0
-equal(e1, -0.499854, energy_tolerance)
-assert 29 <= niter1 <= 36, niter1
-equal(e2, -1.287, energy_tolerance)
-equal(niter2, 26, niter_tolerance)
+equal(de, 0.7905, 0.001)
