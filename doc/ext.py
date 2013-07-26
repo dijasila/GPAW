@@ -6,6 +6,7 @@ from os.path import join
 from stat import ST_MTIME
 from docutils import nodes
 from docutils.parsers.rst.roles import set_classes
+import matplotlib.pyplot as plt
 
 
 def mol_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
@@ -161,6 +162,7 @@ def create_png_files():
                     if run:
                         print('running:', join(dirpath, filename))
                         os.chdir(dirpath)
+                        plt.figure()
                         try:
                             execfile(filename, {})
                         finally:
