@@ -9,7 +9,7 @@ from gpaw.io import open as gpaw_io_open
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.ewald import madelung
-from gpaw.utilities.gauss import Gaussian
+#from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.tools import construct_reciprocal
 from gpaw.utilities import mlsqr
 from math import pi
@@ -58,32 +58,32 @@ class PolarizableMaterial:
         self.gd = gd;
         
         # 3-dimensional scalar array: rho, epsInfty
-        self.rhoCl    = gd.zeros()
-        self.epsInfty = np.ones(gd.empty().shape) * _eps0_au
+        self.rhoCl    = self.gd.zeros()
+        self.epsInfty = np.ones(self.gd.empty().shape) * _eps0_au
         
         # 3-dimensional vector arrays:
         #        electric field, total polarization density
-        dims = [3] + list(gd.empty().shape)
+        dims = [3] + list(self.gd.empty().shape)
         self.eField = np.zeros(dims)
         self.pTotal = np.zeros(dims)
         
         # 4-dimensional vector arrays:
         #        currents, polarizations
         
-        dims = [3, self.Nj] + list(gd.empty().shape)
+        dims = [3, self.Nj] + list(self.gd.empty().shape)
         self.currents      = np.zeros(dims)
         self.polarizations = np.zeros(dims)
         
         # 4-dimensional scalar arrays:
         #        oscillator parameters alpha, beta, barOmega, epsInfty
-        dims = [self.Nj] + list(gd.empty().shape)
+        dims = [self.Nj] + list(self.gd.empty().shape)
         self.alpha    = np.zeros(dims)
         self.beta     = np.zeros(dims)
         self.barOmega = np.ones(dims)
         
         # Set the permittivity for each grid point
         for component in self.components:
-            self.applyMask(mask = component.getMask(gd),
+            self.applyMask(mask = component.getMask(self.gd),
                            permittivity = component.permittivity)
     
             
