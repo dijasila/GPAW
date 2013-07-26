@@ -310,6 +310,10 @@ class TDDFT(GPAW):
         if dipole_moment_file is not None:
             self.initialize_dipole_moment_file(dipole_moment_file)
 
+        # Set these as class properties for use of observers
+        self.time_step = time_step
+        self.dump_interval = dump_interval
+
         niterpropagator = 0
         maxiter = self.niter + iterations
 
