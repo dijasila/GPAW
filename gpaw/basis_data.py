@@ -108,7 +108,7 @@ class Basis:
         
         zeta, pol = parse_basis_name(name)[:2]
         newbf_j = []
-        N = {}
+        L = {}
         p = 0
         for bf in self.bf_j:
             if 'polarization' in bf.type:
@@ -116,12 +116,14 @@ class Basis:
                     newbf_j.append(bf)
                     p += 1
             else:
-                nl = (bf.n, bf.l)
-                if nl not in N:
-                    N[nl] = 0
-                if N[nl] < zeta:
+                l = bf.l
+                if l not in L:
+                    L[l] = 0
+                if bf.n > 0:
                     newbf_j.append(bf)
-                    N[nl] += 1
+                elif L[l] < zeta - 1:
+                    newbf_j.append(bf)
+                    L[l] += 1
         self.bf_j = newbf_j
 
     def get_description(self):
@@ -161,12 +163,17 @@ class BasisFunction:
         self.phit_g = phit_g
         self.type = type
 
-    def xml(self, gridid='grid1', indentation=''):
-        txt = indentation + '<basis_function '
+    def __repr__(self, gridid=None):
+        txt = '<basis_function '
         if self.n is not None:
             txt += 'n="%d" ' % self.n
-        txt += ('l="%d" rc="%r" type="%s" grid="%s">\n' %
-                (self.l, self.rc, self.type, gridid))
+        txt += ('l="%r" rc="%r" type="%s"' % (self.l, self.rc, self.type))
+        if gridid is not None:
+            txt += ' grid="%s"' % gridid
+        return txt + '>'
+
+    def xml(self, gridid='grid1', indentation=''):
+        txt = indentation + self.__repr__(gridid) + '\n'
         txt += indentation + '  ' + ' '.join(repr(x) for x in self.phit_g)
         txt += '\n' + indentation + '</basis_function>\n'
         return txt
