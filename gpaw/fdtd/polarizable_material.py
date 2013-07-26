@@ -4,16 +4,12 @@ from ase.parallel import parprint
 from ase.units import Hartree, Bohr, _eps0, _c, _aut
 from gpaw import PoissonConvergenceError
 from gpaw.fd_operators import Gradient
-#from gpaw.poisson import PoissonSolver
-from poisson_corr import PoissonSolver
-from gpaw.transformers import Transformer
 from gpaw.io import open as gpaw_io_open
-from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
-from gpaw.utilities.blas import axpy
-from gpaw.utilities.ewald import madelung
-#from gpaw.utilities.gauss import Gaussian
-from gpaw.utilities.tools import construct_reciprocal
+from gpaw.tddft.units import attosec_to_autime, autime_to_attosec, \
+    autime_to_attosec
+from gpaw.transformers import Transformer
 from gpaw.utilities import mlsqr
+from gpaw.utilities.blas import axpy
 from math import pi
 from numpy.fft import fftn, ifftn, fft2, ifft2
 from string import split
@@ -21,7 +17,6 @@ import _gpaw
 import gpaw.mpi as mpi
 import numpy as np
 import sys
-from gpaw.tddft.units import autime_to_attosec
 
 # in atomic units, 1/(4*pi*e_0) = 1
 _eps0_au = 1.0 / (4.0 * np.pi)
@@ -39,14 +34,14 @@ class PolarizableMaterial:
         self.components  = components
         self.sign        = sign
     
-    def addComponent(self, component):
+    def add_component(self, component):
         self.components.append(component)
 
-    def permittivityValue(self, omega=0.0):
-        return self.epsInfty + _eps0_au * np.sum(self.beta / (self.barOmega**2.0 - 1J * self.alpha * omega - omega**2.0), axis=0)
+    def permittivity_value(self, omega=0.0):
+        return self.eps_infty + _eps0_au * np.sum(self.beta / (self.bar_omega**2.0 - 1J * self.alpha * omega - omega**2.0), axis=0)
 
-    def getStaticPermittivity(self):
-        return self.gd.collect(self.permittivityValue(0.0))
+    def get_static_permittivity(self):
+        return self.gd.collect(self.permittivity_value(0.0))
 
     def initialize(self, gd):
         self.initialized = True
@@ -59,55 +54,54 @@ class PolarizableMaterial:
             
         self.gd = gd
         
-        # 3-dimensional scalar array: rho, epsInfty
-        self.rhoCl    = self.gd.zeros()
-        self.epsInfty = np.ones(self.gd.empty().shape) * _eps0_au
+        # 3-dimensional scalar array: rho, eps_infty
+        self.charge_density = self.gd.zeros()
+        self.eps_infty = np.ones(self.gd.empty().shape) * _eps0_au
         
         # 3-dimensional vector arrays:
         #        electric field, total polarization density
         dims = [3] + list(self.gd.empty().shape)
-        self.eField = np.zeros(dims)
-        self.pTotal = np.zeros(dims)
+        self.electric_field = np.zeros(dims)
+        self.polarization_total = np.zeros(dims)
         
         # 4-dimensional vector arrays:
         #        currents, polarizations
-        
         dims = [3, self.Nj] + list(self.gd.empty().shape)
         self.currents      = np.zeros(dims)
         self.polarizations = np.zeros(dims)
         
         # 4-dimensional scalar arrays:
-        #        oscillator parameters alpha, beta, barOmega, epsInfty
+        #        oscillator parameters alpha, beta, bar_omega, eps_infty
         dims = [self.Nj] + list(self.gd.empty().shape)
-        self.alpha    = np.zeros(dims)
-        self.beta     = np.zeros(dims)
-        self.barOmega = np.ones(dims)
+        self.alpha     = np.zeros(dims)
+        self.beta      = np.zeros(dims)
+        self.bar_omega = np.ones(dims)
         
         # Set the permittivity for each grid point
         for component in self.components:
-            self.applyMask(mask = component.getMask(self.gd),
+            self.apply_mask(mask = component.get_mask(self.gd),
                            permittivity = component.permittivity)
     
             
     # Here the 3D-arrays are filled with material-specific information
-    def applyMask(self, mask, permittivity):
+    def apply_mask(self, mask, permittivity):
         for j in range(permittivity.Nj):
-            self.barOmega   [j] = np.logical_not(mask) * self.barOmega[j] + mask * permittivity.oscillators[j].barOmega
-            self.alpha      [j] = np.logical_not(mask) * self.alpha[j]    + mask * permittivity.oscillators[j].alpha
-            self.beta       [j] = np.logical_not(mask) * self.beta[j]     + mask * permittivity.oscillators[j].beta
+            self.bar_omega[j] = np.logical_not(mask) * self.bar_omega[j] + mask * permittivity.oscillators[j].bar_omega
+            self.alpha    [j] = np.logical_not(mask) * self.alpha[j]    + mask * permittivity.oscillators[j].alpha
+            self.beta     [j] = np.logical_not(mask) * self.beta[j]     + mask * permittivity.oscillators[j].beta
         
         # Add dummy oscillators if needed
         for j in range(permittivity.Nj, self.Nj):
-            self.barOmega   [j] = np.logical_not(mask) * self.barOmega[j] + mask * 1.0
+            self.bar_omega  [j] = np.logical_not(mask) * self.bar_omega[j] + mask * 1.0
             self.alpha      [j] = np.logical_not(mask) * self.alpha[j]    + mask * 0.0
             self.beta       [j] = np.logical_not(mask) * self.beta[j]     + mask * 0.0
 
         # Print the permittivity information
         parprint("  Permittivity data:")
-        parprint("    baromega         alpha          beta")
+        parprint("    bar_omega         alpha          beta")
         parprint("  ----------------------------------------")
         for j in range(permittivity.Nj):
-            parprint("%12.6f  %12.6f  %12.6f" % (permittivity.oscillators[j].barOmega,
+            parprint("%12.6f  %12.6f  %12.6f" % (permittivity.oscillators[j].bar_omega,
                                                  permittivity.oscillators[j].alpha,
                                                  permittivity.oscillators[j].beta))
         parprint("  ----------------------------------------")
@@ -122,63 +116,40 @@ class PolarizableMaterial:
     #     electron unit charge is +1 so that the calculated V(r) is
     #     positive around negative charge. In order to get the correct
     #     direction of the electric field, the sign must be changed.
-    def solveElectricField(self, phi):
+    def solve_electric_field(self, phi):
         for v in range(3):
-            Gradient(self.gd, v, n=3).apply(-1.0 * self.sign * phi, self.eField[v])
+            Gradient(self.gd, v, n=3).apply(-1.0 * self.sign * phi, self.electric_field[v])
 
     # n(r) = -Div P(r)
-    def solveRho(self):
-        self.rhoCl *= 0.0
+    def solve_rho(self):
+        self.charge_density *= 0.0
         dmy         = self.gd.empty()
         for v in range(3):
-            Gradient(self.gd, v, n=3).apply(self.pTotal[v], dmy)
-            self.rhoCl -= dmy
+            Gradient(self.gd, v, n=3).apply(self.polarization_total[v], dmy)
+            self.charge_density -= dmy
 
     # P(r, omega) = [eps(r, omega) - eps0] E(r, omega)
     # P0(r) = [eps_inf(r) - eps0] E0(r) + sum_j P0_j(r) // Gao2012, Eq. 10
-    def solvePolarizations(self):
+    def solve_polarizations(self):
         for v in range(3):
-            self.polarizations[v] = _eps0_au * self.beta / (self.barOmega**2.0) * self.eField[v]
-        self.pTotal = np.sum(self.polarizations, axis=1) + (self.epsInfty - _eps0_au ) * self.eField
+            self.polarizations[v] = _eps0_au * self.beta / (self.bar_omega**2.0) * self.electric_field[v]
+        self.polarization_total = np.sum(self.polarizations, axis=1) + (self.eps_infty - _eps0_au ) * self.electric_field
 
-    def propagatePolarizations(self, timestep):
+    def propagate_polarizations(self, timestep):
         for v in range(3):
             self.polarizations[v] = self.polarizations[v] + timestep * self.currents[v]
-        self.pTotal = np.sum(self.polarizations, axis=1)
+        self.polarization_total = np.sum(self.polarizations, axis=1)
     
-    def propagateCurrents(self, timestep):
+    def propagate_currents(self, timestep):
         c1 = (1.0 - 0.5 * self.alpha*timestep)/(1.0 + 0.5 * self.alpha*timestep)
-        c2 = - timestep / (1.0 + 0.5 * self.alpha*timestep) * (self.barOmega**2.0)
+        c2 = - timestep / (1.0 + 0.5 * self.alpha*timestep) * (self.bar_omega**2.0)
         c3 = - timestep / (1.0 + 0.5 * self.alpha*timestep) * (-1.0) * _eps0_au * self.beta
         for v in range(3):
-            self.currents[v] = c1 * self.currents[v] + c2 * self.polarizations[v] + c3 * self.eField[v]
+            self.currents[v] = c1 * self.currents[v] + c2 * self.polarizations[v] + c3 * self.electric_field[v]
 
-    def kickElectricField(self, timestep, kick):
+    def kick_electric_field(self, timestep, kick):
         for v in range(3):
-            self.eField[v] = self.eField[v] + kick[v] / timestep
-
-    def plotPermittivity(self, omega = 0.0, figtitle=None):
-        try:
-            from matplotlib.pyplot import figure, rcParams, plot, title, xlim, legend, show
-            from plot_functions import plot_projection
-            plotData = self.gd.collect(self.permittivityValue(omega))
-            if self.gd.comm.rank == 0:
-                figure(1, figsize = (19, 10))
-                rcParams['font.size'] = 26
-                plot(range(0, plotData.shape[0]), np.real(plotData[:, plotData.shape[1]/2, plotData.shape[2]/2])/_eps0_au, label = 'permittivity')
-                print np.real(plotData[:, plotData.shape[1]/2, plotData.shape[2]/2])/_eps0_au
-                if figtitle is None:
-                    title('Permittivity along the x-axis for omega=%.2f eV' % (omega*Hartree))
-                else:
-                    title(figtitle)
-                xlim(0, plotData.shape[0])
-                legend()
-                show()
-        except:
-            parprint('Plotting with pyplot failed!')
-        self.gd.comm.barrier()
-
-
+            self.electric_field[v] = self.electric_field[v] + kick[v] / timestep
 
 # Box-shaped classical material
 class PolarizableBox():
@@ -192,8 +163,10 @@ class PolarizableBox():
         self.permittivity = permittivity
 
     # Setup grid descriptor and the permittivity values inside the box
-    def getMask(self, gd):
-        parprint("Initializing Polarizable Box")
+    def get_mask(self, gd, verbose=True):
+        
+        if verbose:
+            parprint("Initializing Polarizable Box")
 
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
@@ -219,8 +192,9 @@ class PolarizableSphere():
         self.radius1      = radius1/Bohr           # from Angstroms to atomic units
         self.permittivity = permittivity
 
-    def getMask(self, gd):
-        parprint("Initializing Polarizable Sphere")
+    def get_mask(self, gd, verbose=True):
+        if verbose:
+            parprint("Initializing Polarizable Sphere")
         
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
@@ -241,8 +215,9 @@ class PolarizableEllipsoid():
         self.radii        = np.array(radii)/Bohr   # from Angstroms to atomic units
         self.permittivity = permittivity
 
-    def getMask(self, gd):
-        parprint("Initializing Polarizable Ellipsoid")
+    def get_mask(self, gd, verbose=True):
+        if verbose:
+            parprint("Initializing Polarizable Ellipsoid")
         
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
@@ -254,18 +229,19 @@ class PolarizableEllipsoid():
 
  # Rod-shaped classical material
 class PolarizableRod():
-    def __init__(self, corners, radius, permittivity, roundCorners=True):
+    def __init__(self, corners, radius, permittivity, round_corners=True):
         # sanity check
         assert(np.array(corners).shape[0]>1)  # at least two points
         assert(np.array(corners).shape[1]==3) # 3D
         
         self.corners      = np.array(corners)/Bohr # from Angstroms to atomic units
         self.radius       = radius/Bohr  # from Angstroms to atomic units
-        self.roundCorners = roundCorners
+        self.round_corners = round_corners
         self.permittivity = permittivity
 
-    def getMask(self, gd):
-        parprint("Initializing Polarizable Rod (%i corners)" % len(self.corners))
+    def get_mask(self, gd, verbose=True):
+        if verbose:
+            parprint("Initializing Polarizable Rod (%i corners)" % len(self.corners))
         
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
@@ -305,18 +281,18 @@ class PolarizableRod():
             angle2 = np.arccos(aprp/(1.0e-9+np.sqrt(ll2)))
 
             # Include in the mask
-            thisMask = np.logical_and(np.logical_and(angle1 < 0.5*np.pi, angle2 < 0.5*np.pi),
+            this_mask = np.logical_and(np.logical_and(angle1 < 0.5*np.pi, angle2 < 0.5*np.pi),
                                       d <= self.radius**2.0 )
 
             # Add spheres around current end points 
-            if self.roundCorners:
+            if self.round_corners:
                 # |r-a| and |r-p|
                 raDist = np.sum([ra[:, :, :, w]*ra[:, :, :, w] for w in range(3)], axis=0)
                 rpDist = np.sum([rp[:, :, :, w]*rp[:, :, :, w] for w in range(3)], axis=0)
-                thisMask = np.logical_or(thisMask,
+                this_mask = np.logical_or(this_mask,
                                          np.logical_or(raDist <= self.radius**2.0, rpDist <= self.radius**2.0))
 
-            mask =  np.logical_or(mask, thisMask)
+            mask =  np.logical_or(mask, this_mask)
 
             # move to next point
             a = p
@@ -328,26 +304,27 @@ class PolarizableRod():
 class PolarizableDeepConvexPolyhedron():
     def __init__(self, corners, height, permittivity):
         # sanity check
-        assert(np.array(corners).shape[0]>2)  # at least three points
-        assert(np.array(corners).shape[1]==3) # 3D
-        assert(height>0)
+        assert(np.array(corners).shape[0] > 2)  # at least three points
+        assert(np.array(corners).shape[1] == 3) # 3D
+        assert(height > 0)
         
         self.corners      = np.array(corners)/Bohr # from Angstroms to atomic units
         self.height       = height/Bohr  # from Angstroms to atomic units
         self.permittivity = permittivity
 
-    def getMask(self, gd):
-        parprint("Initializing Polarizable Deep Convex Polyhedron (%i corners)" % len(self.corners))
+    def get_mask(self, gd, verbose=False):
+        if verbose:
+            parprint("Initializing Polarizable Deep Convex Polyhedron (%i corners)" % len(self.corners))
         
         # Vector (perpendicular to the plane) defining the plane 
-        perpVector = np.cross(self.corners[1]-self.corners[0],
-                              self.corners[-1]-self.corners[0])
-        perpVector = -perpVector/np.linalg.norm(perpVector)
-        vUp        = np.max(perpVector)>0
+        perp_vector = np.cross(self.corners[1]-self.corners[0],
+                               self.corners[-1]-self.corners[0])
+        perp_vector = -perp_vector/np.linalg.norm(perp_vector)
+        vector_up   = np.max(perp_vector)>0
         
         # Ensure that all corners are in the same plane
         for k in range(len(self.corners)):
-            assert 0 == np.linalg.norm(np.cross(perpVector, np.cross(self.corners[k]-self.corners[0],
+            assert 0 == np.linalg.norm(np.cross(perp_vector, np.cross(self.corners[k]-self.corners[0],
                                                                      self.corners[-1]-self.corners[0])))
         
         # 3D coordinates at each grid point
@@ -356,11 +333,11 @@ class PolarizableDeepConvexPolyhedron():
         ngv = r_gv.shape
         
         # Calculate the distances of all points to the plane
-        dists = np.sum([perpVector[w]*(r_gv[:, :, :, w]-self.corners[0][w]) for w in range(3)], axis=0)
+        dists = np.sum([perp_vector[w]*(r_gv[:, :, :, w]-self.corners[0][w]) for w in range(3)], axis=0)
         mask = np.logical_and(0.0 <= dists, dists <= self.height)
         
         # Then calculate the projections of all points into our 2D plane
-        projs = np.array([r_gv[:, :, :, w]-dists[:, :, :]*perpVector[w] for w in range(3)])
+        projs = np.array([r_gv[:, :, :, w]-dists[:, :, :]*perp_vector[w] for w in range(3)])
         
         # Then check the angles between all 2D vertices and the projected points: if any is >180dgr, the point is outside.
         # Here I use the condition that angle>180 if the points are given in clockwise order and the
@@ -371,7 +348,7 @@ class PolarizableDeepConvexPolyhedron():
             m1 = np.array([self.corners[(p  )%num][w]-projs[w, :, :, :] for w in range(3)])
             m2 = np.array([self.corners[(p+1)%num][w]-projs[w, :, :, :] for w in range(3)])
             
-            if vUp:
+            if vector_up:
                 mask = np.logical_and(mask, np.min(np.cross(m1, m2, axis=0), axis=0)<0)
             else:
                 mask = np.logical_and(mask, np.max(np.cross(m1, m2, axis=0), axis=0)>0)
@@ -440,7 +417,7 @@ class PolarizableTetrahedron():
         self.corners      = np.array(corners)/Bohr # from Angstroms to atomic units
         self.permittivity = permittivity
 
-    def detValue(self, x, y, z,
+    def determinant_value(self, x, y, z,
                        x1, y1, z1,
                        x2, y2, z2,
                        x3, y3, z3,
@@ -449,11 +426,12 @@ class PolarizableTetrahedron():
         mat[ind][:] = np.array([x, y, z, 1])
         return np.linalg.det(mat)
 
-    def getMask(self, gd):
-        parprint("Initializing Polarizable Tetrahedron")
+    def get_mask(self, gd, verbose=True):
+        if verbose:
+            parprint("Initializing Polarizable Tetrahedron")
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-        ng = r_gv.shape[0:-1]
-        ngv = r_gv.shape
+        ng   = r_gv.shape[0:-1]
+        ngv  = r_gv.shape
         x1, y1, z1 = self.corners[0]
         x2, y2, z2 = self.corners[1]
         x3, y3, z3 = self.corners[2]
@@ -491,16 +469,16 @@ class PolarizableTetrahedron():
             s3 = np.linalg.det(d3)
             s4 = np.linalg.det(d4)
             
-            if (np.sign(s0)==np.sign(s1) or abs(s1)<1e-12) and \
-               (np.sign(s0)==np.sign(s2) or abs(s2)<1e-12) and \
-               (np.sign(s0)==np.sign(s3) or abs(s3)<1e-12) and \
-               (np.sign(s0)==np.sign(s4) or abs(s4)<1e-12):
+            if (np.sign(s0) == np.sign(s1) or abs(s1) < 1e-12) and \
+               (np.sign(s0) == np.sign(s2) or abs(s2) < 1e-12) and \
+               (np.sign(s0) == np.sign(s3) or abs(s3) < 1e-12) and \
+               (np.sign(s0) == np.sign(s4) or abs(s4) < 1e-12):
                 mask[ind] = True
         return mask
 
         
        
-class simpleMixer():
+class SimpleMixer():
     def __init__(self, alpha, data):
         self.alpha = alpha
         self.data  = np.copy(data)
@@ -512,18 +490,18 @@ class simpleMixer():
 
 # Lorentzian oscillator function: L(omega) = eps0 * beta / (w**2 - i*alpha*omega - omega**2)    // Coomar2011, Eq. 2
 class LorentzOscillator:
-    def __init__(self, barOmega, alpha, beta):
-        self.barOmega = barOmega
+    def __init__(self, bar_omega, alpha, beta):
+        self.bar_omega = bar_omega
         self.alpha    = alpha
         self.beta     = beta
 
     def value(self, omega):
-        return _eps0_au * self.beta / (self.barOmega**2 - 1J * self.alpha * omega - omega**2)
+        return _eps0_au * self.beta / (self.bar_omega**2 - 1J * self.alpha * omega - omega**2)
 
 # Dieletric function: e(omega) = eps_inf + sum_j L_j(omega) // Coomar2011, Eq. 2
 class Permittivity:
-    def __init__(self, fname=None, epsInfty = _eps0_au ):
-        self.epsInfty = epsInfty
+    def __init__(self, fname=None, eps_infty = _eps0_au ):
+        self.eps_infty = eps_infty
 
         if fname == None:
             # constant (vacuum?) permittivity
@@ -539,53 +517,30 @@ class Permittivity:
             self.oscillators = []
 
             for line in lines:
-                barOmega = float(split(line)[0]) / Hartree
-                alpha    = float(split(line)[1]) / Hartree
-                beta     = float(split(line)[2]) / Hartree / Hartree
-                self.oscillators.append(LorentzOscillator(barOmega, alpha, beta))
+                bar_omega = float(split(line)[0]) / Hartree
+                alpha     = float(split(line)[1]) / Hartree
+                beta      = float(split(line)[2]) / Hartree / Hartree
+                self.oscillators.append(LorentzOscillator(bar_omega, alpha, beta))
 
     def value(self, omega = 0):
-        return self.epsInfty + sum([osc.value(omega) for osc in self.oscillators])
+        return self.eps_infty + sum([osc.value(omega) for osc in self.oscillators])
     
-    def plot(self, emin=1.0, emax=10.0, figtitle='Dielectric function', fname=None):
-        try:
-            from matplotlib.pyplot import plot, title, legend, show, clf
-            xgrid = np.arange(emin, emax, float(emax-emin)/1000.0)
-            ygrid = [self.value(x) for x in xgrid/Hartree]            
-            plot(xgrid, np.real(ygrid)/_eps0_au, label='real part')
-            title(figtitle)
-            legend()
-            show()
-            clf()
-            plot(xgrid, np.imag(ygrid)/_eps0_au, label='imag part')
-            title(figtitle)
-            legend()
-            show()
-            if not fname == None:
-                datafile = file(fname, 'w')
-                if datafile.tell() == 0:
-                    for omega in xgrid:
-                        datafile.write(' %22.12e %22.12e %22.12e\n' % (omega, np.real(self.value(omega/Hartree)), np.imag(self.value(omega/Hartree))))
-                    datafile.close()
-        except:
-            parprint('Permittivity.plot: Plotting with matplotlib failed!')
 
 
-
-# Dieletric function that renormalizes the static permittivity to wanted value (usually epsZero) 
+# Dieletric function that renormalizes the static permittivity to the requested value (usually epsZero) 
 class PermittivityPlus(Permittivity):
-    def __init__(self, fname=None, epsInfty = _eps0_au, epsZero = _eps0_au, newBarOmega = 0.01, newAlpha = 0.10 ):
-        Permittivity.__init__(self, fname, epsInfty)
+    def __init__(self, fname=None, eps_infty = _eps0_au, epsZero = _eps0_au, newbar_omega = 0.01, new_alpha = 0.10 ):
+        Permittivity.__init__(self, fname, eps_infty)
         parprint("Original Nj=%i and eps(0) = %12.6f + i*%12.6f" % (self.Nj, self.value(0.0).real, self.value(0.0).imag))
         
-        # convert given values from eVs to Hartrees
-        _newBarOmega = newBarOmega / Hartree
-        _newAlpha    = newAlpha / Hartree
+        # Convert given values from eVs to Hartrees
+        _newbar_omega = newbar_omega / Hartree
+        _new_alpha    = new_alpha / Hartree
         
-        # evaluate the new value    
-        _newBeta = ((epsZero - self.value(0.0))*_newBarOmega**2.0/_eps0_au).real
-        self.oscillators.append(LorentzOscillator(_newBarOmega, _newAlpha, _newBeta))
+        # Evaluate the new value    
+        _new_beta = ((epsZero - self.value(0.0))*_newbar_omega**2.0/_eps0_au).real
+        self.oscillators.append(LorentzOscillator(_newbar_omega, _new_alpha, _new_beta))
         self.Nj = len(self.oscillators)
-        parprint("Added following oscillator: (baromega, alpha, beta) = (%12.6f, %12.6g, %12.6f)" % (_newBarOmega*Hartree, _newAlpha*Hartree, _newBeta*Hartree*Hartree))
+        parprint("Added following oscillator: (bar_omega, alpha, beta) = (%12.6f, %12.6g, %12.6f)" % (_newbar_omega*Hartree, _new_alpha*Hartree, _new_beta*Hartree*Hartree))
         parprint("New Nj=%i and eps(0) = %12.6f + i*%12.6f" % (self.Nj, self.value(0.0).real, self.value(0.0).imag))
             
