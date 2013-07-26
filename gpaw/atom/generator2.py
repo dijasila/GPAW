@@ -707,7 +707,7 @@ class PAWSetupGenerator:
         plt.axis(xmax=self.rcmax)
         plt.legend()
 
-    def create_basis_set(self, tag,
+    def create_basis_set(self, tag=None,
                          tailnorm=0.0005, scale=200.0, splitnorm=0.16):
         rgd = self.rgd
         self.basis = Basis(self.aea.symbol, readxml=False, rgd=rgd)
@@ -786,7 +786,8 @@ class PAWSetupGenerator:
         if tag:
             self.basis.name = tag + '.' + self.basis.name
 
-        self.basis.write_xml()
+        self.basis
+        return self.basis
                 
     def create_basis_function(self, l, n, tailnorm, scale):
         rgd = self.rgd
@@ -1136,7 +1137,7 @@ def generate(argv=None):
             ok = gen.check_all()
 
         if opt.create_basis_set:
-            gen.create_basis_set(opt.tag)
+            gen.create_basis_set(opt.tag).write_xml()
 
         #gen.test_convergence()
 

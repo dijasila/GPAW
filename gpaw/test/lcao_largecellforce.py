@@ -15,9 +15,10 @@ from numpy import array
 from ase import Atoms
 from ase.units import Bohr
 from gpaw import GPAW
-from gpaw.atom.basis import BasisMaker
+from gpaw.atom.generator2 import generate
 
-hbasis = BasisMaker('H').generate(1, 0, energysplit=1.8, tailnorm=0.03**.5)
+
+hbasis = generate(['H']).create_basis_set(tailnorm=0.01)
 basis = {'H' : hbasis}
 
 atom = Atoms('H')
@@ -47,10 +48,14 @@ fd = 0
 
 # Values taken from FD calculation below
 # (Symmetry means only z-component may be nonzero)
-ref = array([[0.0, 0.0,  4.61734874],
-             [0.0, 0.0, -2.74398046],
-             [0.0, 0.0,  2.74398027],
-             [0.0, 0.0, -4.61734856]])
+
+
+
+
+ref = array([[0.0, 0.0,  3.71040879],
+             [0.0, 0.0, -2.46376113],
+             [0.0, 0.0,  2.46377827],
+             [0.0, 0.0, -3.71039215]])
 
 if fd:
     from ase.calculators.test import numeric_forces
@@ -67,4 +72,4 @@ print ref
 print 'Calculated'
 print F_ac
 print 'Max error', err
-assert err < 6e-4
+assert err < 9e-4
