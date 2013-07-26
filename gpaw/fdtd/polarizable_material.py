@@ -1,3 +1,5 @@
+# Useful routines for the Electrodynamics module, by Arto Sakko (Aalto University)
+
 from ase.parallel import parprint
 from ase.units import Hartree, Bohr, _eps0, _c, _aut
 from gpaw import PoissonConvergenceError
@@ -38,7 +40,7 @@ class PolarizableMaterial:
         self.sign        = sign
     
     def addComponent(self, component):
-        self.components.append(component);
+        self.components.append(component)
 
     def permittivityValue(self, omega=0.0):
         return self.epsInfty + _eps0_au * np.sum(self.beta / (self.barOmega**2.0 - 1J * self.alpha * omega - omega**2.0), axis=0)
@@ -51,11 +53,11 @@ class PolarizableMaterial:
         parprint("Initializing Polarizable Material")
         
         try:
-            self.Nj = max(component.permittivity.Nj for component in self.components);
+            self.Nj = max(component.permittivity.Nj for component in self.components)
         except:
             self.Nj = 0
             
-        self.gd = gd;
+        self.gd = gd
         
         # 3-dimensional scalar array: rho, epsInfty
         self.rhoCl    = self.gd.zeros()
@@ -129,8 +131,8 @@ class PolarizableMaterial:
         self.rhoCl *= 0.0
         dmy         = self.gd.empty()
         for v in range(3):
-          Gradient(self.gd, v, n=3).apply(self.pTotal[v], dmy)
-          self.rhoCl -= dmy
+            Gradient(self.gd, v, n=3).apply(self.pTotal[v], dmy)
+            self.rhoCl -= dmy
 
     # P(r, omega) = [eps(r, omega) - eps0] E(r, omega)
     # P0(r) = [eps_inf(r) - eps0] E0(r) + sum_j P0_j(r) // Gao2012, Eq. 10
@@ -146,7 +148,7 @@ class PolarizableMaterial:
     
     def propagateCurrents(self, timestep):
         c1 = (1.0 - 0.5 * self.alpha*timestep)/(1.0 + 0.5 * self.alpha*timestep)
-        c2 = - timestep / (1.0 + 0.5 * self.alpha*timestep) * (self.barOmega**2.0);
+        c2 = - timestep / (1.0 + 0.5 * self.alpha*timestep) * (self.barOmega**2.0)
         c3 = - timestep / (1.0 + 0.5 * self.alpha*timestep) * (-1.0) * _eps0_au * self.beta
         for v in range(3):
             self.currents[v] = c1 * self.currents[v] + c2 * self.polarizations[v] + c3 * self.eField[v]
@@ -155,78 +157,12 @@ class PolarizableMaterial:
         for v in range(3):
             self.eField[v] = self.eField[v] + kick[v] / timestep
 
-    def visualize2D(self, box=None, atoms=None, fname=None): # Nice 2D plots with pyplot
-        try:
-            # plot data: for example, beta_0(r)
-            from matplotlib.pyplot import figure, rcParams, subplot, savefig, show, subplot
-            from plot_functions import plot_projection
-
-            # prepare data
-            plotData=self.gd.collect(self.beta[0])
-            if self.gd.comm.rank==0:
-                # create figure
-                figure(1, figsize = (19, 10))
-                rcParams['font.size'] = 26
-                # initialize data
-                ng  = plotData.shape
-                if box==None:
-                    box = ng
-
-                ax=[]
-                for axis in range(3):
-                    ax.append(subplot(1, 3, axis+1))
-                    g = [None, None, None]
-                    g[axis] = ng[axis]/2
-                    cm = plot_projection(plotData, atom_a=atoms, g=g, box=box, colorbar=False, plotLabels=['x', 'y'], colormap='Blues')
-
-                # Plot colorbar
-                #plt.colorbar(cm, format='%.1e', cax=plt.axes([0.85, 0.102, 0.025, 0.79]))
-                if fname!=None:
-                    savefig(fname)
-                else:
-                    show()
-        except:
-            parprint('PolarizableMaterial.visualize2D: Plotting with matplotlib failed!')
-        self.gd.comm.barrier()
-
-    def visualize3D(self, box=None, atoms=None): # Nice 3D plot with Mayavi
-        try:
-            # plot data: for example, beta_0(r)
-            from mayavi import mlab
-            from plot3d_functions import plot_positions3d, plot_atoms3d, plot_box
-            plotData=self.gd.collect(self.beta[0])
-    
-            if self.gd.comm.rank==0:
-                fig = mlab.figure(bgcolor=(1, 1, 1), fgcolor=(0,0,0), size=(400, 400))
-                fig.scene.anti_aliasing_frames = 0
-                #fig.scene.disable_render = True
-                mlab.clf(fig)
-                ng =  plotData.shape
-                if box==None:
-                    box = ng
-                source = mlab.pipeline.scalar_field(plotData)
-                min = plotData.min()
-                max = plotData.max()
-                x = np.linspace(0, box[0], ng[0]); dx = x[1]-x[0]
-                y = np.linspace(0, box[1], ng[1]); dy = y[1]-y[0]
-                z = np.linspace(0, box[2], ng[2]); dz = z[1]-z[0]
-                sc = [ng[0]/(x[-1]-x[0]), ng[1]/(y[-1]-y[0]), ng[2]/(z[-1]-z[0])]
-                plot_box(box*sc)
-                if atoms!=None:
-                    plot_positions3d(atoms, s=1.00, scale_positions=sc)
-                vol = mlab.pipeline.volume(source, vmin=min+0.40*(max-min), vmax=min+0.60*(max-min))
-                mlab.view(distance=100, azimuth=90)
-                mlab.show()
-        except:
-            parprint('PolarizableMaterial.visualize3D: Plotting with matplotlib and/or mayavi failed!')
-        self.gd.comm.barrier()
-    
     def plotPermittivity(self, omega = 0.0, figtitle=None):
         try:
             from matplotlib.pyplot import figure, rcParams, plot, title, xlim, legend, show
             from plot_functions import plot_projection
             plotData = self.gd.collect(self.permittivityValue(omega))
-            if self.gd.comm.rank==0:
+            if self.gd.comm.rank == 0:
                 figure(1, figsize = (19, 10))
                 rcParams['font.size'] = 26
                 plot(range(0, plotData.shape[0]), np.real(plotData[:, plotData.shape[1]/2, plotData.shape[2]/2])/_eps0_au, label = 'permittivity')
@@ -344,46 +280,46 @@ class PolarizableRod():
             #http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line:
             # d = |(a-p)-((a-p).n)n|   point p, line a+tn  (|n|=1)
             n = (p-a)/np.sqrt((p-a).dot((p-a)))
-            v1 = np.array([a[w]-r_gv[:, :, :, w] for w in range(3)]).transpose((1,2,3,0)) # a-p
+            v1 = np.array([a[w]-r_gv[:, :, :, w] for w in range(3)]).transpose((1, 2, 3, 0)) # a-p
 
-            v2 = np.sum(np.array([v1[:,:,:,w]*n[w] for w in range(3)]),axis=0)  # (a-p).n
+            v2 = np.sum(np.array([v1[:, :, :, w]*n[w] for w in range(3)]), axis=0)  # (a-p).n
 
-            v3 = np.array([v2*n[w] for w in range(3)]).transpose(1,2,3,0)       # ((a-p).n)n
+            v3 = np.array([v2*n[w] for w in range(3)]).transpose(1, 2, 3, 0)       # ((a-p).n)n
 
             d = np.zeros(ng)
-            for ind, idx in np.ndenumerate(v3[:,:,:, 0]):
-            	d[ind] = np.array(v1[ind]-v3[ind]).dot(v1[ind]-v3[ind])
+            for ind, idx in np.ndenumerate(v3[:, :, :, 0]):
+                d[ind] = np.array(v1[ind]-v3[ind]).dot(v1[ind]-v3[ind])
 
             # angle between (p-a) and (r-a):
             pa = p-a # (3)
-            ra = np.array([r_gv[:, :, :, w]-a[w] for w in range(3)]).transpose((1,2,3,0)) # (ng1, ng2, ng3, 3)
+            ra = np.array([r_gv[:, :, :, w]-a[w] for w in range(3)]).transpose((1, 2, 3, 0)) # (ng1, ng2, ng3, 3)
             para = np.sum([pa[w]*ra[:, :, :, w] for w in range(3)], axis=0)
             ll2   = pa.dot(pa)*np.sum([ra[:, :, :, w]*ra[:, :, :, w] for w in range(3)], axis=0)
             angle1 = np.arccos(para/(1.0e-9+np.sqrt(ll2)))
             
             # angle between (a-p) and (r-p):
             ap = a-p # (3)
-            rp = np.array([r_gv[:, :, :, w]-p[w] for w in range(3)]).transpose((1,2,3,0)) # (ng1, ng2, ng3, 3)
+            rp = np.array([r_gv[:, :, :, w]-p[w] for w in range(3)]).transpose((1, 2, 3, 0)) # (ng1, ng2, ng3, 3)
             aprp = np.sum([ap[w]*rp[:, :, :, w] for w in range(3)], axis=0)
             ll2   = ap.dot(ap)*np.sum([rp[:, :, :, w]*rp[:, :, :, w] for w in range(3)], axis=0)
             angle2 = np.arccos(aprp/(1.0e-9+np.sqrt(ll2)))
 
             # Include in the mask
-            thisMask = np.logical_and(np.logical_and(angle1 < 0.5*np.pi, angle2<0.5*np.pi),
+            thisMask = np.logical_and(np.logical_and(angle1 < 0.5*np.pi, angle2 < 0.5*np.pi),
                                       d <= self.radius**2.0 )
 
             # Add spheres around current end points 
             if self.roundCorners:
-              # |r-a| and |r-p|
-              raDist = np.sum([ra[:, :, :, w]*ra[:, :, :, w] for w in range(3)], axis=0)
-              rpDist = np.sum([rp[:, :, :, w]*rp[:, :, :, w] for w in range(3)], axis=0)
-              thisMask = np.logical_or(thisMask,
-                                       np.logical_or(raDist <= self.radius**2.0, rpDist <= self.radius**2.0))
+                # |r-a| and |r-p|
+                raDist = np.sum([ra[:, :, :, w]*ra[:, :, :, w] for w in range(3)], axis=0)
+                rpDist = np.sum([rp[:, :, :, w]*rp[:, :, :, w] for w in range(3)], axis=0)
+                thisMask = np.logical_or(thisMask,
+                                         np.logical_or(raDist <= self.radius**2.0, rpDist <= self.radius**2.0))
 
             mask =  np.logical_or(mask, thisMask)
 
             # move to next point
-            a=p
+            a = p
 
         return mask
 
@@ -411,8 +347,8 @@ class PolarizableDeepConvexPolyhedron():
         
         # Ensure that all corners are in the same plane
         for k in range(len(self.corners)):
-            assert 0==np.linalg.norm(np.cross(perpVector, np.cross(self.corners[k]-self.corners[0],
-                                                                   self.corners[-1]-self.corners[0])))
+            assert 0 == np.linalg.norm(np.cross(perpVector, np.cross(self.corners[k]-self.corners[0],
+                                                                     self.corners[-1]-self.corners[0])))
         
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
@@ -504,13 +440,13 @@ class PolarizableTetrahedron():
         self.corners      = np.array(corners)/Bohr # from Angstroms to atomic units
         self.permittivity = permittivity
 
-    def detValue(self, x,y,z,
+    def detValue(self, x, y, z,
                        x1, y1, z1,
                        x2, y2, z2,
                        x3, y3, z3,
                        x4, y4, z4, ind):
-        mat = np.array([[x1,y1,z1,1], [x2,y2,z2,1], [x3,y3,z3,1], [x4,y4,z4,1]]);
-        mat[ind][:] = np.array([x,y,z,1])
+        mat = np.array([[x1, y1, z1, 1], [x2, y2, z2, 1], [x3, y3, z3, 1], [x4, y4, z4, 1]])
+        mat[ind][:] = np.array([x, y, z, 1])
         return np.linalg.det(mat)
 
     def getMask(self, gd):
@@ -527,7 +463,7 @@ class PolarizableTetrahedron():
         
         # TODO: associate a determinant for each point, and use numpy tools to determine
         #       the mask without the *very slow* loop over grid points
-        for ind, pt in np.ndenumerate(r_gv[:,:,:,0]):
+        for ind, pt in np.ndenumerate(r_gv[:, :, :, 0]):
             x, y, z = r_gv[ind][:]
             d0 = np.array([[x1, y1, z1, 1],
                            [x2, y2, z2, 1],
@@ -559,7 +495,7 @@ class PolarizableTetrahedron():
                (np.sign(s0)==np.sign(s2) or abs(s2)<1e-12) and \
                (np.sign(s0)==np.sign(s3) or abs(s3)<1e-12) and \
                (np.sign(s0)==np.sign(s4) or abs(s4)<1e-12):
-               mask[ind] = True
+                mask[ind] = True
         return mask
 
         
@@ -589,14 +525,14 @@ class Permittivity:
     def __init__(self, fname=None, epsInfty = _eps0_au ):
         self.epsInfty = epsInfty
 
-        if fname==None:
+        if fname == None:
             # constant (vacuum?) permittivity
             self.Nj = 0
             self.oscillators = []
         else:
             # read permittivity from a 3-column file
             fp = open(fname, 'r')
-            lines = fp.readlines();
+            lines = fp.readlines()
             fp.close()
 
             self.Nj = len(lines)
@@ -625,7 +561,7 @@ class Permittivity:
             title(figtitle)
             legend()
             show()
-            if not fname==None:
+            if not fname == None:
                 datafile = file(fname, 'w')
                 if datafile.tell() == 0:
                     for omega in xgrid:

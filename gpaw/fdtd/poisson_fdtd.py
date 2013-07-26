@@ -1,10 +1,10 @@
+# Electrodynamics module, by Arto Sakko (Aalto University)
+
 from ase.parallel import parprint
 from ase.units import Hartree, Bohr, _eps0, _c, _aut
-from gpaw.utilities.gauss import Gaussian
 
 from gpaw import PoissonConvergenceError
 from gpaw.fd_operators import Gradient
-#from gpaw.poisson import PoissonSolver
 from poisson_corr import PoissonSolver
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.transformers import Transformer
@@ -12,7 +12,7 @@ from gpaw.io import open as gpaw_io_open
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.ewald import madelung
-#from gpaw.utilities.gauss import Gaussian
+from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.tools import construct_reciprocal
 from gpaw.utilities import mlsqr
@@ -23,9 +23,8 @@ import _gpaw
 import gpaw.mpi as mpi
 import numpy as np
 import sys
-from gpaw.tddft.units import autime_to_attosec
-from gpaw.mpi import world
-from polarizable_material import *
+from gpaw.mpi import world, serial_comm
+from polarizable_material import PolarizableMaterial, SimpleMixer, LorentzOscillator, Permittivity
 
 
 # in atomic units, 1/(4*pi*e_0) = 1
@@ -33,9 +32,9 @@ _eps0_au = 1.0 / (4.0 * np.pi)
 _maxL    = 4 # 1 for monopole, 4 for dipole, 9 for quadrupole
 
 # This helps in telling the classical quantitites from the quantum ones
-class PoissonOrganizer():
-    def __init__(self, PoissonSolver=None):
-        self.poissonSolver = PoissonSolver
+class PoissonOrganizer:
+    def __init__(self, poissonSolver=None):
+        self.poissonSolver = poissonSolver
         self.gd            = None
         self.density       = None
         self.cell          = None
@@ -53,21 +52,23 @@ class FDTDPoissonSolver(PoissonSolver):
                         cl_spacing=1.20,
                         qm_spacing=0.30,
                         tag='fdtd.poisson',
-                        remove_moment=_maxL,
+                        remove_moments=(_maxL, 1),
                         debugPlots=False,
                         coupling='both'):
         PoissonSolver.__init__(self)
-        if classicalMaterial==None:
+        if classicalMaterial == None:
             self.classMat = PolarizableMaterial()
         else:
             self.classMat = classicalMaterial
         self.setCalculationMode('solve')
-        self.remove_moment = remove_moment
+        self.remove_moment_qm = remove_moments[0]
+        self.remove_moment_cl = remove_moments[0]
         self.tag      = tag
         self.time     = 0.0
         self.timestep = 0.0
-        self.rank     = None
         self.rank     = mpi.rank
+        self.dcomm    = serial_comm
+        self.dparsize = None
         self.dm_file  = None
         self.kick     = None
         self.debugPlots = debugPlots
@@ -91,7 +92,7 @@ class FDTDPoissonSolver(PoissonSolver):
 
         N_c = get_number_of_grid_points(self.cl.cell, self.cl.spacing)
         self.cl.spacing = np.diag(self.cl.cell)/N_c
-        self.cl.gd = GridDescriptor(N_c, self.cl.cell, False, world, None)
+        self.cl.gd = GridDescriptor(N_c, self.cl.cell, False, self.dcomm, self.dparsize)
 
     def set_grid_descriptor(self, qmgd=None,
                                      clgd=None):
@@ -117,9 +118,9 @@ class FDTDPoissonSolver(PoissonSolver):
         
         # Quantum grid is probably not yet created
         if not self.qm.gd:
-            self.qm.cell = np.zeros((3,3))
+            self.qm.cell = np.zeros((3, 3))
             for w in range(3):
-                self.qm.cell[w,w] = v2[w]-v1[w]
+                self.qm.cell[w, w] = v2[w]-v1[w]
         
             N_c = get_number_of_grid_points(self.qm.cell, qmh)
             self.qm.spacing = np.diag(self.qm.cell)/N_c
@@ -135,7 +136,7 @@ class FDTDPoissonSolver(PoissonSolver):
 
         # Classical corner indices must be divisable with numb
         if any(self.cl.spacing/self.qm.spacing >= 3):
-            numb=1
+            numb = 1
         elif any(self.cl.spacing/self.qm.spacing >= 2):
             numb = 2
         else:
@@ -168,7 +169,7 @@ class FDTDPoissonSolver(PoissonSolver):
                
         # new quantum grid
         for w in range(3):
-            self.qm.cell[w,w] = (self.shift_indices_2[w]-self.shift_indices_1[w])*self.cl.spacing[w]
+            self.qm.cell[w, w] = (self.shift_indices_2[w]-self.shift_indices_1[w])*self.cl.spacing[w]
         self.qm.spacing = self.cl.spacing/hratios
         N_c = get_number_of_grid_points(self.qm.cell, self.qm.spacing)
  
@@ -176,13 +177,13 @@ class FDTDPoissonSolver(PoissonSolver):
         atoms_out.positions = atoms_in.get_positions() - self.qm.corner1*Bohr
         
         parprint("Quantum box readjustment:")
-        parprint("  Given cell/atomic coordinates:");
+        parprint("  Given cell/atomic coordinates:")
         parprint("             [%10.5f %10.5f %10.5f]" % tuple(np.diag(atoms_in.get_cell())))
-        for s,c in zip(atoms_in.get_chemical_symbols(), atoms_in.get_positions()):
+        for s, c in zip(atoms_in.get_chemical_symbols(), atoms_in.get_positions()):
             parprint("           %s %10.5f %10.5f %10.5f" % (s, c[0], c[1], c[2]))
-        parprint("  Readjusted cell/atomic coordinates:");
+        parprint("  Readjusted cell/atomic coordinates:")
         parprint("             [%10.5f %10.5f %10.5f]" % tuple(np.diag(atoms_out.get_cell())))
-        for s,c in zip(atoms_out.get_chemical_symbols(), atoms_out.get_positions()):
+        for s, c in zip(atoms_out.get_chemical_symbols(), atoms_out.get_positions()):
             parprint("           %s %10.5f %10.5f %10.5f" % (s, c[0], c[1], c[2]))
         
         parprint("  Given corner points:       (%10.5f %10.5f %10.5f) - (%10.5f %10.5f %10.5f)" % (tuple(np.concatenate((v1, v2))*Bohr)))
@@ -205,7 +206,7 @@ class FDTDPoissonSolver(PoissonSolver):
         N_c = get_number_of_grid_points(subcell_cv, self.cl.spacing)
         N_c = self.shift_indices_2 - self.shift_indices_1
         self.cl.subgds = []
-        self.cl.subgds.append(GridDescriptor(N_c, subcell_cv, False, world, None))
+        self.cl.subgds.append(GridDescriptor(N_c, subcell_cv, False, self.dcomm, self.dparsize))
 
         parprint("  N_c/spacing of the subgrid:           %3i %3i %3i / %.4f %.4f %.4f" %
                   (self.cl.subgds[0].N_c[0], self.cl.subgds[0].N_c[1], self.cl.subgds[0].N_c[2],
@@ -227,8 +228,8 @@ class FDTDPoissonSolver(PoissonSolver):
         
         # Now extend the grid in order to handle the zero boundary conditions that the refiner assumes
         # The default interpolation order
-        self.extend_nn = Transformer(GridDescriptor([8, 8, 8], [1, 1, 1], False, world, None),
-                                     GridDescriptor([8, 8, 8], [1, 1, 1], False, world, None).coarsen()).nn
+        self.extend_nn = Transformer(GridDescriptor([8, 8, 8], [1, 1, 1], False, self.dcomm, self.dparsize),
+                                     GridDescriptor([8, 8, 8], [1, 1, 1], False, self.dcomm, self.dparsize).coarsen()).nn
         
         #if self.extend_nn<2:
         #    self.extended_num_indices = self.num_indices+4*self.extend_nn
@@ -261,7 +262,7 @@ class FDTDPoissonSolver(PoissonSolver):
         self.cl.extended_refiners = []
         extended_subcell_cv = np.diag(self.qm.extended_corner2 - self.qm.extended_corner1)
 
-        self.cl.extended_subgds.append(GridDescriptor(N_c, extended_subcell_cv, False, world, None))
+        self.cl.extended_subgds.append(GridDescriptor(N_c, extended_subcell_cv, False, self.dcomm, self.dparsize))
 
         for n in range(self.num_refinements):
             self.cl.extended_subgds.append(self.cl.extended_subgds[n].refine())
@@ -290,6 +291,7 @@ class FDTDPoissonSolver(PoissonSolver):
                   (dmygd.N_c[0], dmygd.N_c[1], dmygd.N_c[2],
                    dmygd.h_cv[0][0]*Bohr, dmygd.h_cv[1][1]*Bohr, dmygd.h_cv[2][2]*Bohr))
 
+        self.atoms = atoms_out
         return atoms_out, self.qm.spacing[0]*Bohr, qgpts
                 
     def initializePropagation(self, timestep,
@@ -343,118 +345,54 @@ class FDTDPoissonSolver(PoissonSolver):
     
     # Depending on the coupling scheme, the quantum and classical potentials
     # are added in different ways
-    def sumPotentials(self, phi, moments, doplots=False):
+    def sumPotentials(self, qm_phi, cl_phi, moments, doplots=False):
 
         if self.coupling in ['both', 'Cl2Qm']:
 
             # 1) Store the quantum grid for later use
-            #print 'Phase 1: Store the quantum grid for later use'
-            qm_phi_copy = self.qm.phi.copy()
+            qm_phi_copy = qm_phi.copy()
 
             # 2) From classical to quantum grid:
             #    Create suitable subgrid of the self.cl.gd, whose refined version
             #    yields the quantum grid. During the refinement, interpolate the
             #    values, and finally copy the interpolated values to the quantum grid.
-            #print 'Phase 2: From classical to quantum grid'
-            #cl_phi_copy = self.cl.phi[self.shift_indices_1[0]:self.shift_indices_2[0]-1,
-            #                          self.shift_indices_1[1]:self.shift_indices_2[1]-1,
-            #                          self.shift_indices_1[2]:self.shift_indices_2[2]-1].copy()
-            cl_phi_copy2 = self.cl.phi[self.extended_shift_indices_1[0]:self.extended_shift_indices_2[0]-1,
-                                       self.extended_shift_indices_1[1]:self.extended_shift_indices_2[1]-1,
-                                       self.extended_shift_indices_1[2]:self.extended_shift_indices_2[2]-1].copy()
+            cl_phi_copy = cl_phi[self.extended_shift_indices_1[0]:self.extended_shift_indices_2[0]-1,
+                                 self.extended_shift_indices_1[1]:self.extended_shift_indices_2[1]-1,
+                                 self.extended_shift_indices_1[2]:self.extended_shift_indices_2[2]-1].copy()
             
-            if doplots:
-                import matplotlib.pyplot as plt         
-                
-                plt.clf()
-                p = cl_phi_copy
-                n = p.shape
-                #r = self.qm.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))+self.qm.corner1
-                plt.plot(np.linspace(0, 1.0, n[0]), p[:, n[1]/2, n[2]/2], 'o-', label = 'cl.phi.copy (0) / %i %i %i' % ( \
-                                    cl_phi_copy.shape[0], cl_phi_copy.shape[1], cl_phi_copy.shape[2]))
-                for nn in range(self.num_refinements):
-                    cl_phi_copy = self.cl.refiners[nn].apply(cl_phi_copy)
-                    p = cl_phi_copy
-                    n = p.shape
-                    plt.plot(np.linspace(0, 1.0, n[0]), p[:, n[1]/2, n[2]/2], 'o-', label = 'cl.phi.copy (%i) / %i %i %i' % (nn+1,
-                                    cl_phi_copy.shape[0], cl_phi_copy.shape[1], cl_phi_copy.shape[2]))
+            for n in range(self.num_refinements):
+                cl_phi_copy = self.cl.extended_refiners[n].apply(cl_phi_copy)
             
-                p = cl_phi_copy2[self.extended_deltaIndex:-self.extended_deltaIndex]
-                n = p.shape
-                #r = self.qm.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))+self.qm.corner1
-                plt.plot(np.linspace(0, 1.0, n[0]), p[:, n[1]/2, n[2]/2], 'o-', label = 'cl.phi.copy (0) / %i %i %i' % ( \
-                                    cl_phi_copy2.shape[0],
-                                    cl_phi_copy2.shape[1],
-                                    cl_phi_copy2.shape[2]))
-                for nn in range(self.num_refinements):
-                    cl_phi_copy2 = self.cl.extended_refiners[nn].apply(cl_phi_copy2)
-                    p = cl_phi_copy2
-                    n = p.shape
-                    plt.plot(np.linspace(0, 1.0, n[0]), p[:, n[1]/2, n[2]/2], 'o-', label = 'cl.phi.copy (%i) / %i %i %i' % (nn+1,
-                                    cl_phi_copy2.shape[0],
-                                    cl_phi_copy2.shape[1],
-                                    cl_phi_copy2.shape[2]))
-                plt.legend()
-                plt.show()
-            else:
-                #for n in range(self.num_refinements):
-                #    cl_phi_copy = self.cl.refiners[n].apply(cl_phi_copy)
-                    
-                for n in range(self.num_refinements):
-                    cl_phi_copy2 = self.cl.extended_refiners[n].apply(cl_phi_copy2)
-            
-            #self.qm.phi[:] += cl_phi_copy[:]
-            self.qm.phi[:] += cl_phi_copy2[self.extended_deltaIndex:-self.extended_deltaIndex,
-                                           self.extended_deltaIndex:-self.extended_deltaIndex,
-                                           self.extended_deltaIndex:-self.extended_deltaIndex
-                                           ]
+            qm_phi[:] += cl_phi_copy[self.extended_deltaIndex:-self.extended_deltaIndex,
+                                     self.extended_deltaIndex:-self.extended_deltaIndex,
+                                     self.extended_deltaIndex:-self.extended_deltaIndex
+                                     ]
             
             
             # 3a) From quantum to classical grid outside the overlapping region:
             #     Calculate the multipole moments of the quantum density, then
             #     determine the potential that they generate at the outside points.
-            #print 'Phase 3a: From quantum to classical grid outside the overlapping region'
-            if moments==None:
+            if moments == None:
                 # calculate the multipole moments from self.rho?
                 pass
             else:
                 center = self.qm.corner1 + 0.5*self.qm.gd.cell_cv.sum(0)
-                p = np.sum(np.array([m*Gaussian(self.cl.gd, center=center).get_gauss_pot(l) for m,l in zip(moments, range(self.remove_moment))]), axis=0)
+                p = np.sum(np.array([m*Gaussian(self.cl.gd, center=center).get_gauss_pot(l) for m, l in zip(moments, range(self.remove_moment_qm))]), axis=0)
                 p[self.shift_indices_1[0]:self.shift_indices_2[0]-1,
                   self.shift_indices_1[1]:self.shift_indices_2[1]-1,
                   self.shift_indices_1[2]:self.shift_indices_2[2]-1] = 0.0
-                self.cl.phi[:] += p[:]
+                cl_phi[:] += p[:]
 	                
             # 3b) From quantum to classical grid inside the overlapping region:
             #     The quantum values in qm_phi_copy (i.e. the values before the
             #     classical values were added) are now added to phi_cl at those
             #     points that are common to both grids.
-            #print 'Phase 3b: From quantum to classical grid inside the overlapping region'
             for n in range(self.num_refinements):
                 qm_phi_copy = self.cl.coarseners[n].apply(qm_phi_copy)
                 
-            self.cl.phi[self.shift_indices_1[0]:self.shift_indices_2[0]-1,
-                        self.shift_indices_1[1]:self.shift_indices_2[1]-1,
-                        self.shift_indices_1[2]:self.shift_indices_2[2]-1] += qm_phi_copy[:]
-                                        
-            phi[:] = self.qm.phi[:]
-        else:
-            phi[:] = self.qm.phi[:]
-        
-        return qm_phi_copy, cl_phi_copy2[self.extended_deltaIndex:-self.extended_deltaIndex,
-                                         self.extended_deltaIndex:-self.extended_deltaIndex,
-                                         self.extended_deltaIndex:-self.extended_deltaIndex]
-    
-    # Depending on the coupling scheme, the quantum and classical potentials
-    # contribute to the electic field in different ways
-    def solveCoupledElectricField(self):
-        if self.coupling in ['none', 'Cl2Qm']: # field from classical charge
-            self.classMat.solveElectricField(self.cl.phi)
-        else:                          # field from classical+quantum charge
-            #new_phi = self.qm.gd.zeros()
-            #self.sumPotentials(new_phi) #np.add(self.qm.phi, self.cl.phi)
-            #self.classMat.solveElectricField(new_phi)
-            self.classMat.solveElectricField(self.cl.phi)
+            cl_phi[self.shift_indices_1[0]:self.shift_indices_2[0]-1,
+                   self.shift_indices_1[1]:self.shift_indices_2[1]-1,
+                   self.shift_indices_1[2]:self.shift_indices_2[2]-1] += qm_phi_copy[:]
     
     # Just solve it 
     def solve_solve(self, phi,
@@ -465,23 +403,35 @@ class FDTDPoissonSolver(PoissonSolver):
                             zero_initial_phi=False,
                             calcMode=None):
         self.qm.phi = phi.copy() #self.qm.gd.empty()
-        self.cl.phi = self.cl.gd.empty()
+        #self.cl.phi = self.cl.gd.empty()
         niter, moments = self.qm.poissonSolver.solve(self, self.qm.phi,
                                                      rho,
                                                      charge,
                                                      eps,
                                                      maxcharge,
                                                      zero_initial_phi,
-                                                     self.remove_moment)
+                                                     self.remove_moment_qm)
         self.cl.poissonSolver.solve(self.cl.phi,
                                     self.classMat.sign * self.classMat.rhoCl,
                                     0.0, #charge,
                                     eps,
                                     0.0, #maxcharge,
                                     zero_initial_phi,
-                                    self.remove_moment)
-        self.sumPotentials(phi[:], moments)
-    
+                                    self.remove_moment_cl)
+
+        global_qm_phi = self.qm.gd.collect(self.qm.phi)#, broadcast=True)
+        global_cl_phi = self.cl.gd.collect(self.cl.phi)#, broadcast=True)
+        
+        if self.rank == 0:
+            self.sumPotentials(global_qm_phi, global_cl_phi, moments)
+        
+        self.qm.gd.distribute(global_qm_phi, self.qm.phi)
+        self.cl.gd.distribute(global_cl_phi, self.cl.phi)
+
+        phi[:] = self.qm.phi[:]
+
+
+ 
     # Iterate classical and quantum potentials until convergence
     def solve_iterate(self, phi,
                               rho,
@@ -496,80 +446,33 @@ class FDTDPoissonSolver(PoissonSolver):
         except:
             print 'not initialized'
             self.cl.phi = self.cl.gd.zeros()
-        
-        if False: # artificial rhos for debugging how they add up 
-            import matplotlib.pyplot as plt
-            r = self.qm.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0)) + self.qm.corner1
-            n = rho.shape
-            cc = r[n[0]/2, n[1]/2, n[2]/2] #+ self.qm.corner1
-            #self.qm.phi = (r[:,:,:,0]-cc[0]) * np.exp(-0.10*np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3))  # ~ x*exp(-r^2)
-            
-            if True:
-                #rho = np.sum(np.array([0.1*float(l)*Gaussian(self.qm.gd).get_gauss(l) for l in np.arange(0, 10, 1)]), axis=0)
-                #rho = -0.25*(r[:,:,:,0]-cc[0]) * np.cos(5.0/(0.50+np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3))) #* \
-                #    #np.exp(-0.05*np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3)) # ~ x*sin(-r^2) * exp(-r^2)
-                rho = np.exp(-0.05*np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3)) # ~ x*sin(-r^2) * exp(-r^2)
-                p = rho
-                n = p.shape
-                r = self.qm.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))  + self.qm.corner1
-
-                plt.plot(r[:, 0,0,0], p[:, n[1]/2, n[2]/2], 'bo-', label = 'rho*10')
-                
-                niter, moments = self.qm.poissonSolver.solve(self,
-                                                             self.qm.phi,
-                                                             rho,
-                                                             charge,
-                                                             eps,
-                                                             maxcharge,
-                                                             zero_initial_phi,
-                                                             remove_moment=self.remove_moment)
-                print moments
-                p = self.qm.phi
-                n = p.shape
-                r = self.qm.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0)) + self.qm.corner1
-                plt.plot(r[:, 0,0,0], p[:, n[1]/2, n[2]/2], 'ro-', label = 'phi')
-                center = self.qm.corner1 + 0.5*self.qm.gd.cell_cv.sum(0)
-
-                p = np.sum(np.array([m*Gaussian(self.cl.gd, center=center).get_gauss_pot(l) for m,l in zip(moments, range(self.remove_moment))]), axis=0)
-                p[self.shift_indices_1[0]:self.shift_indices_2[0]-1,
-                  self.shift_indices_1[1]:self.shift_indices_2[1]-1,
-                  self.shift_indices_1[2]:self.shift_indices_2[2]-1] = 0.0
-                r = self.cl.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-                n = p.shape
-                plt.plot(r[:, 0,0,0], p[:, n[1]/2, n[2]/2], 'ko-', label = 'cl.phi')
-                plt.legend()
-                plt.show()
-                sys.exit()
-                
-        if False:
-            import matplotlib.pyplot as plt
-            p = self.qm.phi
-            n = p.shape
-            r = self.qm.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))+self.qm.corner1
-            plt.plot(r[:, 0,0,0], p[:, n[1]/2, n[2]/2], 'b', label = 'qm.phi')
-            p = self.cl.phi
-            n = p.shape
-            r = self.cl.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-            plt.plot(r[:, 0,0,0], p[:, n[1]/2, n[2]/2], 'ro', label = 'cl.phi')
-            plt.legend()
-            plt.show()
-        
+               
         niter, moments = self.qm.poissonSolver.solve(self, self.qm.phi,
                                                      rho,
                                                      charge,
                                                      eps,
                                                      maxcharge,
                                                      zero_initial_phi,
-                                                     self.remove_moment)
+                                                     self.remove_moment_qm)
+
         self.cl.poissonSolver.solve(self.cl.phi,
                                     self.classMat.sign * self.classMat.rhoCl,
                                     0.0, #charge,
                                     eps,
                                     0.0, #maxcharge,
                                     zero_initial_phi,
-                                    self.remove_moment)
-        self.sumPotentials(phi[:], moments)
-        #phi[:] = self.qm.phi[:]
+                                    self.remove_moment_cl)
+
+        global_qm_phi = self.qm.gd.collect(self.qm.phi)#, broadcast=True)
+        global_cl_phi = self.cl.gd.collect(self.cl.phi)#, broadcast=True)
+
+        if self.rank == 0:
+            self.sumPotentials(global_qm_phi, global_cl_phi, moments)
+
+        self.qm.gd.distribute(global_qm_phi, self.qm.phi)
+        self.cl.gd.distribute(global_cl_phi, self.cl.phi)
+
+        phi[:] = self.qm.phi[:]
 
         oldRho_qm = rho.copy()
         oldRho_cl = self.classMat.rhoCl.copy()
@@ -595,7 +498,7 @@ class FDTDPoissonSolver(PoissonSolver):
                                                          eps,
                                                          maxcharge,
                                                          zero_initial_phi,
-                                                         self.remove_moment)
+                                                         self.remove_moment_qm)
             
             self.cl.poissonSolver.solve(self.cl.phi,
                                         self.classMat.sign*self.classMat.rhoCl,
@@ -603,10 +506,19 @@ class FDTDPoissonSolver(PoissonSolver):
                                         eps,
                                         0.0, #maxcharge,
                                         zero_initial_phi,
-                                        self.remove_moment)            
+                                        self.remove_moment_cl)            
 
-            self.sumPotentials(phi[:], moments)
+            global_qm_phi = self.qm.gd.collect(self.qm.phi)#, broadcast=True)
+            global_cl_phi = self.cl.gd.collect(self.cl.phi)#, broadcast=True)
             
+            if self.qm.gd.comm.rank == 0:
+                self.sumPotentials(global_qm_phi, global_cl_phi, moments)
+            
+            self.qm.gd.distribute(global_qm_phi, self.qm.phi)
+            self.cl.gd.distribute(global_cl_phi, self.cl.phi)
+            
+            phi[:] = self.qm.phi[:]
+
             # Mix potential
             try:
                 self.mixPhi
@@ -640,28 +552,13 @@ class FDTDPoissonSolver(PoissonSolver):
                                 zero_initial_phi=False,
                                 calcMode=None):
         if self.debugPlots and np.floor(self.time/self.timestep) % 50 == 0:
-                self.plotThings(phi, rho)
+            self.plotThings(phi, rho)
 
         # 1) P(t) from P(t-dt) and J(t-dt/2)
         self.classMat.propagatePolarizations(self.timestep)
                 
         # 2) n(t) from P(t)
         self.classMat.solveRho()
-        
-        if False: # artificial rhos for debugging how they add up 
-            r = self.qm.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-            n = rho.shape
-            cc = r[n[0]/2, n[1]/2, n[2]/2]
-            #self.qm.phi = (r[:,:,:,0]-cc[0]) * np.exp(-0.10*np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3))  # ~ x*exp(-r^2)
-            rho = -0.05*(0.1*r[:,:,:,0]-cc[0]) * np.sin(0.10*np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3)) * \
-                                                 np.exp(-0.05*np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3)) # ~ x*sin(-r^2) * exp(-r^2)
-        
-            r = self.cl.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-            n = r.shape
-            cc = r[n[0]/2, n[1]/2, n[2]/2]
-            #self.qm.phi = (r[:,:,:,0]-cc[0]) * np.exp(-0.10*np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3))  # ~ x*exp(-r^2)
-            self.classMat.rhoCl = -0.05*(0.1*r[:,:,:,0]-cc[0]) * np.sin(0.03*np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3)) * \
-                                            np.exp(-0.12*np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3)) # ~ x*sin(-r^2) * exp(-r^2)
         
         # 3a) V(t) from n(t)       
         niter, moments = self.qm.poissonSolver.solve(self, self.qm.phi,
@@ -670,111 +567,31 @@ class FDTDPoissonSolver(PoissonSolver):
                                                      eps,
                                                      maxcharge,
                                                      zero_initial_phi,
-                                                     self.remove_moment)
+                                                     self.remove_moment_qm)
         self.cl.poissonSolver.solve(self.cl.phi,
                                     self.classMat.sign * self.classMat.rhoCl,
-                                    charge,
+                                    0.0, #charge,
                                     eps,
-                                    maxcharge,
+                                    0.0, #maxcharge,
                                     zero_initial_phi,
-                                    self.remove_moment)
+                                    self.remove_moment_cl)
         
-        doPlots2 = False and np.round(self.time/self.timestep)%20==0
+        global_qm_phi = self.qm.gd.collect(self.qm.phi)#, broadcast=True)
+        global_cl_phi = self.cl.gd.collect(self.cl.phi)#, broadcast=True)
+        
+        if self.rank == 0:
+            self.sumPotentials(global_qm_phi, global_cl_phi, moments)
+        
+        self.qm.gd.distribute(global_qm_phi, self.qm.phi)
+        self.cl.gd.distribute(global_cl_phi, self.cl.phi)
 
-        if False: # artificial phis for debugging how they add up 
-            r = self.cl.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-            n = self.cl.phi.shape
-            cc = r[n[0]/2, n[1]/2, n[2]/2]
-            self.cl.phi = 0.75*np.exp(-0.01*np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3)) # ~ exp(-r^2)
-            
-            r = self.qm.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-            n = self.qm.phi.shape
-            cc = r[n[0]/2, n[1]/2, n[2]/2]
-            #self.qm.phi = (r[:,:,:,0]-cc[0]) * np.exp(-0.10*np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3))  # ~ x*exp(-r^2)
-            self.qm.phi = -0.05*(0.1*r[:,:,:,0]-cc[0]) * np.sin(0.10*np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3)) * \
-                                                         np.exp(-0.05*np.sum((r[:,:,:,:]-cc) * (r[:,:,:,:]-cc), axis=3)) # ~ x*sin(-r^2) * exp(-r^2)
-        
-        aa = 2
-        bb = 3
-        
-        if doPlots2:
-            import matplotlib.pyplot as plt
-            plt.ylim(-3.00, 0.10)
-            p = self.qm.phi
-            n = p.shape
-            ny = aa*n[1]/bb
-            nz = aa*n[2]/bb
-            r = self.qm.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))+self.qm.corner1
-            plt.plot(r[:, 0,0,0], p[:, ny, nz], 'b.-', label = 'qm.phi.0')
-            p = self.cl.phi
-            n = p.shape
-            ny = aa*n[1]/bb
-            nz = aa*n[2]/bb
-            r = self.cl.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-            plt.plot(r[:, 0,0,0], p[:, ny, nz], 'r.-', label = 'cl.phi.0')
-        
-        qm_phi_coarsed, cl_phi_refined = self.sumPotentials(phi[:], moments, doplots=False)
-        
-        if False and doPlots2:
-            import matplotlib.pyplot as plt
-            p0 = qm_phi_coarsed
-            p  = self.cl.gd.zeros()
-            n = p.shape
-            ny = aa*n[1]/bb
-            nz = aa*n[2]/bb
-            r = self.cl.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-            
-            p[self.shift_indices_1[0]:self.shift_indices_2[0]-1,
-              self.shift_indices_1[1]:self.shift_indices_2[1]-1,
-              self.shift_indices_1[2]:self.shift_indices_2[2]-1] = p0
-            
-            plt.plot(r[:, 0,0,0], -20*p[:, ny, nz], 'b:', label = '-20*qm_phi_coarsed')
-            
-            center = self.qm.corner1 + 0.5*self.qm.gd.cell_cv.sum(0)
-            p = np.sum(np.array([m*Gaussian(self.cl.gd, center=center).get_gauss_pot(l) for m,l in zip(moments, range(self.remove_moment))]), axis=0)
-            p[self.shift_indices_1[0]:self.shift_indices_2[0]-1,
-              self.shift_indices_1[1]:self.shift_indices_2[1]-1,
-              self.shift_indices_1[2]:self.shift_indices_2[2]-1] = 0.0
-            n = p.shape
-            ny = aa*n[1]/bb
-            nz = aa*n[2]/bb
-            r = self.cl.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-            plt.plot(r[:, 0,0,0], p[:, ny, nz], 'm:', label = 'qm_phi_extended')
-            
-            p = cl_phi_refined
-            n = p.shape
-            ny = aa*n[1]/bb
-            nz = aa*n[2]/bb
-            r = self.qm.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))+self.qm.corner1
-            plt.plot(r[:, 0,0,0], -p[:, ny, nz], 'r:', label = '-cl_phi_refined')
-        
-        if doPlots2:
-            import matplotlib.pyplot as plt
-            p = self.qm.phi
-            n = p.shape
-            ny = aa*n[1]/bb
-            nz = aa*n[2]/bb
-            r = self.qm.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))+self.qm.corner1
-            plt.plot(r[:, 0,0,0], p[:, ny, nz]-0.0, 'g.-', label = 'qm.phi.1')
-            
-            p = self.cl.phi
-            n = p.shape
-            ny = aa*n[1]/bb
-            nz = aa*n[2]/bb
-            r = self.cl.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-            plt.plot(r[:, 0,0,0], p[:, ny, nz]-0.0, 'k.-', label = 'cl.phi.1')
-            plt.title('Potentials at propagation, time t=%.1f as' % (self.time * autime_to_attosec))
-            if doPlots2:
-                plt.legend(loc=4)
-                plt.show()
-                plt.clf()
-                #sys.exit()
+        phi[:] = self.qm.phi[:]
                         
         # 4a) E(r) from V(t):      E = -Div[Vh]
-        self.solveCoupledElectricField()
+        self.classMat.solveElectricField(self.cl.phi)
                 
         # 4b) Apply the kick by changing the electric field
-        if self.time==0:
+        if self.time == 0:
             self.classMat.kickElectricField(self.timestep, self.kick)
                     
         # 5) J(t+dt/2) from J(t-dt/2) and P(t)
@@ -798,9 +615,6 @@ class FDTDPoissonSolver(PoissonSolver):
                      zero_initial_phi=False,
                      calcMode=None):
         
-        #self.qm.phi = None
-        #self.cl.phi = None
-
         # if requested, switch to new calculation mode
         if calcMode != None:
             self.dm_file = file('dmCl.%s.dat' % (self.tag), mode)
@@ -828,14 +642,6 @@ class FDTDPoissonSolver(PoissonSolver):
             self.classMat.initialize(self.cl.gd)
             self.mixPhi = simpleMixer(0.10, phi)
 
-            if False:
-                qr = self.qm.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-                cr = self.cl.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-                print qr[:,0,0,0]
-                print cr[:,0,0,0]
-                sys.exit()
-        
-            
         if(self.calcMode=='solve'): # do not modify the polarizable material
             self.solve_solve(phi,
                              rho,
@@ -862,7 +668,126 @@ class FDTDPoissonSolver(PoissonSolver):
                                  maxcharge=1e-6,
                                  zero_initial_phi=False,
                                  calcMode=None)
+    
+    def visualize2D(self, fname=None): # Nice 2D plots with pyplot
+        if True: #try
+            from matplotlib import patches
+            from matplotlib.pyplot import figure, rcParams, subplot, savefig, show, subplot
+            from plot_functions import plot_projection
+            
+            box   = np.diagonal(self.cl.gd.cell_cv)*Bohr                        # in Ang
+            atom_positions = self.atoms.get_positions() + self.qm.corner1*Bohr  # in Ang
+
+            # prepare data
+            plotData = self.cl.gd.collect(self.classMat.beta[0])
+            if self.rank == 0:
+                # create figure
+                figure(1, figsize = (19, 10))
+                rcParams['font.size'] = 26
+                # initialize data
+                ng  = plotData.shape
+                if box == None:
+                    box = ng
+
+                ax = []
+                for axis in range(3):
+                    ax.append(subplot(1, 3, axis+1))
+                    g = [None, None, None]
+                    g[axis] = ng[axis]/2
+                    cm = plot_projection(plotData, atom_a=atom_positions, g=g, box=box, colorbar=False, plotLabels=['x', 'y'], colormap='Blues')
+                    
+                    # Mark the quantum region
+                    if axis == 0: # z,y
+                        i, j = 2, 1
+                    if axis == 1: # z,x
+                        i, j = 2, 0
+                    if axis == 2: # y,x
+                        i, j = 1, 0
+                    qmrect = patches.Rectangle((self.qm.corner1[i]*Bohr, self.qm.corner1[j]*Bohr),
+                                               (self.qm.corner2[i]-self.qm.corner1[i])*Bohr,
+                                               (self.qm.corner2[j]-self.qm.corner1[j])*Bohr,
+                                               color='black', ##0099FF',
+                                               fill=0,
+                                               linewidth=1.0)
+                    ax[-1].add_patch(qmrect)
+
+                # Plot colorbar
+                #plt.colorbar(cm, format='%.1e', cax=plt.axes([0.85, 0.102, 0.025, 0.79]))
+                if fname == None:
+                    show()
+                else:
+                    savefig(fname)
+
+        else: #except:
+            parprint('FDTDPoissonSolver.visualize2D: Plotting with matplotlib failed!')
+        mpi.barrier()
+
+    def visualize3D(self): # Nice 3D plot with Mayavi
+        if True: #try:
+            box             = np.diagonal(self.cl.gd.cell_cv)*Bohr               # in Ang
+            atom_positions  = self.atoms.get_positions() + self.qm.corner1*Bohr  # in Ang
+            
+            # plot data: for example, beta_0(r)
+            from mayavi import mlab
+            from plot3d_functions import plot_positions3d, plot_atoms3d, plot_box
+            plotData = self.cl.gd.collect(self.classMat.beta[0])
+    
+            if self.rank == 0:
+                fig = mlab.figure(bgcolor=(1, 1, 1), fgcolor=(0, 0, 0), size=(400, 400))
+                fig.scene.anti_aliasing_frames = 0
+                #fig.scene.disable_render = True
+                mlab.clf(fig)
+                ng =  plotData.shape
+                if box == None:
+                    box = ng
+                source = mlab.pipeline.scalar_field(plotData)
+                min = plotData.min()
+                max = plotData.max()
+                x = np.linspace(0, box[0], ng[0]); dx = x[1]-x[0]
+                y = np.linspace(0, box[1], ng[1]); dy = y[1]-y[0]
+                z = np.linspace(0, box[2], ng[2]); dz = z[1]-z[0]
+                sc = [ng[0]/(x[-1]-x[0]), ng[1]/(y[-1]-y[0]), ng[2]/(z[-1]-z[0])]
+                plot_box(box*sc)
+                if atom_positions != None:
+                    plot_positions3d(atom_positions, s=1.00, scale_positions=sc)
+                vol = mlab.pipeline.volume(source, vmin=min+0.40*(max-min), vmax=min+0.60*(max-min))
+
+                ## Mark quantum region with shading
+                #plotData=self.cl.gd.zeros()+0.0
+                #plotData[self.shift_indices_1[0]:self.shift_indices_2[0],
+                #         self.shift_indices_1[1]:self.shift_indices_2[1],
+                #         self.shift_indices_1[2]:self.shift_indices_2[2]] = 0.1
+                #source = mlab.pipeline.scalar_field(plotData)
+                #vol = mlab.pipeline.volume(source, vmin=0.0, vmax=1.0)
                 
+                # Mark quantum region with rectangular box
+                c1 = self.qm.corner1*Bohr*sc
+                c2 = self.qm.corner2*Bohr*sc
+                
+                boxcol = (1, 0, 0) # red
+                mlab.plot3d([c1[0], c2[0], c2[0], c1[0], c1[0]],
+                            [c1[1], c1[1], c2[1], c2[1], c1[1]],
+                            [c1[2], c1[2], c1[2], c1[2], c1[2]],
+                            color=boxcol)
+                mlab.plot3d([c1[0], c2[0], c2[0], c1[0], c1[0]],
+                            [c1[1], c1[1], c2[1], c2[1], c1[1]],
+                            [c2[2], c2[2], c2[2], c2[2], c2[2]],
+                            color=boxcol)
+                mlab.plot3d([c1[0], c1[0]], [c1[1], c1[1]], [c1[2], c2[2]], color=boxcol)
+                mlab.plot3d([c2[0], c2[0]], [c1[1], c1[1]], [c1[2], c2[2]], color=boxcol)
+                mlab.plot3d([c2[0], c2[0]], [c2[1], c2[1]], [c1[2], c2[2]], color=boxcol)
+                mlab.plot3d([c1[0], c1[0]], [c2[1], c2[1]], [c1[2], c2[2]], color=boxcol)
+                
+                mlab.view(distance=100, azimuth=90)
+                mlab.show()
+
+        else: #except:
+            parprint('FDTDPoissonSolver.visualize3D: Plotting with matplotlib and/or mayavi failed!')
+        mpi.barrier()
+    
+
+
+
     def updateDipoleMomentFile(self, rho):
         
         # classical contribution. Note the different origin.
@@ -900,32 +825,28 @@ class FDTDPoissonSolver(PoissonSolver):
         
         # Read self.classMat.rhoCl
         if self.cl.gd.comm.rank == 0:
-                big_rhoCl = np.array(r.get('ClassicalMaterialRho'),
-                                     dtype=float)
+            big_rhoCl = np.array(r.get('ClassicalMaterialRho'), dtype=float)
         else:
-                big_rhoCl = None
-        self.cl.gd.distribute(big_rhoCl,
-                              self.classMat.rhoCl)
+            big_rhoCl = None
+        self.cl.gd.distribute(big_rhoCl, self.classMat.rhoCl)
                 
         # Read self.classMat.pTotal
         if self.cl.gd.comm.rank == 0:
-                    big_pTotal = np.array(r.get('pTotal'),
-                                          dtype=float)
+            big_pTotal = np.array(r.get('pTotal'), dtype=float)
         else:
-                big_pTotal = None
-        self.cl.gd.distribute(big_pTotal,
-                           self.classMat.pTotal)
+            big_pTotal = None
+        self.cl.gd.distribute(big_pTotal, self.classMat.pTotal)
         
         # Read self.classMat.polarizations
         if self.cl.gd.comm.rank == 0:
-                big_polarizations = np.array(r.get('polarizations'),
-                                             dtype=float)
+            big_polarizations = np.array(r.get('polarizations'),
+                                         dtype=float)
         else:
-                big_polarizations = None
-        self.cl.gd.distribute(big_polarizations,
-                           self.classMat.polarizations)
+            big_polarizations = None
+        self.cl.gd.distribute(big_polarizations, self.classMat.polarizations)
         
-        r.close
+        r.close()
+        world.barrier()
          
     def write(self, paw,
                      filename = 'poisson'):
