@@ -46,7 +46,7 @@ def plot(xdata, ydata, std,
          xlabel, ylabel,
          label, color, num=1):
     import matplotlib
-    #matplotlib.use('Agg')
+    matplotlib.use('Agg')
     import pylab
 
     # all goes to figure num
