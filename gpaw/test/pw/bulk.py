@@ -6,7 +6,7 @@ from gpaw.test import equal
 
 bulk = Atoms('Li', pbc=True)
 k = 4
-calc = GPAW(mode=PW(200), kpts=(k, k, k))
+calc = GPAW(mode=PW(200), setups='1e', kpts=(k, k, k))
 bulk.set_calculator(calc)
 e = []
 niter = []
@@ -17,4 +17,4 @@ for a in A:
 
 a = np.roots(np.polyder(np.polyfit(A, e, 2), 1))[0]
 print 'a =', a
-equal(a, 2.65247379609, 0.001)
+equal(a, 2.659, 0.001)
