@@ -20,6 +20,6 @@ a.calc = GPAW(mode=PW(250),
               txt='%d.txt' % world.size)
 e = a.get_potential_energy()
 f = a.get_forces()
-assert abs(e - e0) < 3e-5
+assert abs(e - e0) < 6e-5
 assert abs(f).max() < 1e-10
 
