@@ -27,7 +27,7 @@ print at, 'dimer'
 nelectrons = 2 * H2[0].number
 
 txt = None
-#txt = '-'
+txt = '-'
 
 # load point charges
 fname = 'pc.xyz'
@@ -70,7 +70,7 @@ if True:
     if txt:
         print '################## 1 potential'
     cp1 = ConstantPotential(-1.0/Hartree)
-    c1 = GPAW(h=0.3, nbands=-2, external=cp1, 
+    c1 = GPAW(h=0.3, nbands=-1, external=cp1, 
               convergence=convergence,
               txt=txt)
     c1.calculate(H2)

@@ -37,8 +37,3 @@ if rank == 0:
         # cmp is a byte-by-byte comparison, more portable than diff
         assert os.system('cmp %s %s' % (f1, f2)) == 0
     os.system('rm -rf gpaw-restart gpaw-result')
-
-energy_tolerance = 0.00006
-niter_tolerance = 0
-equal(e, 0.0451789, energy_tolerance)
-equal(niter, 12, niter_tolerance)
