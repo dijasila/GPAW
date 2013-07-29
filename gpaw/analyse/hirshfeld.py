@@ -54,7 +54,7 @@ class HirshfeldDensity(RealSpaceDensity):
         par = self.calculator.input_parameters
         setups = Setups(Z_a, par.setups, par.basis, par.lmax, 
                         XC(par.xc), 
-                        self.calculator.wfs.world)
+                        world=self.calculator.wfs.world)
         self.D_asp = D_asp
 
         # initialize 

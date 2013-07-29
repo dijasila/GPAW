@@ -76,8 +76,8 @@ def check_diff(g1, g2, gd, txt):
     parprint(txt, 'integrated diff=', intd, end='')
     maxd = np.max(np.abs(g1 - g2))
     parprint('max diff=', maxd)
-    equal(intd, 0, 1.e-9) 
-    equal(maxd, 0, 1.e-9) 
+    equal(intd, 0, 3e-8) 
+    equal(maxd, 0, 1e-8) 
 
 nt_spinpol_G = calc.density.nt_sG.sum(axis=0)
 check_diff(nt_G, nt_spinpol_G, elf.finegd, 'nt_G')

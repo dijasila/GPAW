@@ -25,9 +25,6 @@ except:
 # full information
 c = GPAW(fwfname, txt=txt)
 E_PBE = c.get_potential_energy()
-try: # number of iterations needed in restart
-    niter_PBE = c.get_number_of_iterations()
-except: pass
 dE = c.get_xc_difference('TPSS')
 E_1 = E_PBE + dE
 print "E PBE, TPSS=", E_PBE, E_1
@@ -35,19 +32,13 @@ print "E PBE, TPSS=", E_PBE, E_1
 # no wfs
 c = GPAW(fname, txt=txt)
 E_PBE_no_wfs = c.get_potential_energy()
-try: # number of iterations needed in restart
-    niter_PBE_no_wfs = c.get_number_of_iterations()
-except: pass
 dE = c.get_xc_difference('TPSS')
+niter_PBE_no_wfs = c.get_number_of_iterations()
 E_2 = E_PBE_no_wfs + dE
+
 print "E PBE, TPSS=", E_PBE_no_wfs, E_2
-
 print "diff=", E_1 - E_2
-assert abs(E_1 - E_2) < 0.005
-
-energy_tolerance = 0.00004
-niter_tolerance = 0
-equal(E_PBE, -5.33901, energy_tolerance)
-equal(E_PBE_no_wfs, -5.33901, energy_tolerance)
-equal(E_1, -5.57685, energy_tolerance)
-equal(E_2, -5.57685, energy_tolerance)
+assert abs(E_1 - E_2) < 0.0001
+assert abs(E_PBE - E_PBE_no_wfs) < 1e-8
+assert abs(E_PBE - E_1 - 0.26) < 0.01
+assert niter_PBE_no_wfs == 6
