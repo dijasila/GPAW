@@ -6,6 +6,7 @@ from os.path import join
 from stat import ST_MTIME
 from docutils import nodes
 from docutils.parsers.rst.roles import set_classes
+import matplotlib
 import matplotlib.pyplot as plt
 
 
@@ -116,6 +117,7 @@ def setup(app):
 
 
 def create_png_files():
+    matplotlib.use('Agg')
     errcode = os.system('povray -h 2> /dev/null')
     if errcode:
         warnings.warn('No POVRAY!')
