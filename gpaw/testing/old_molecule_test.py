@@ -14,12 +14,7 @@ from ase.io.trajectory import PickleTrajectory
 from ase.units import kcal, mol
 import numpy as np
 
-try:
-    import matplotlib
-    matplotlib.use('Agg')
-    import pylab as plt
-except ImportError:
-    pass
+import pylab as plt
 
 from gpaw import GPAW, restart, ConvergenceError
 from gpaw.testing.atomization_data import atomization_vasp, diatomic
