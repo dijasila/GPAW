@@ -21,8 +21,14 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
 
 extra_parameters = {
     ('Li', '1e'): ('2s,s,2p', 2.2, {}),
+    ('Be', '2e'): ('2s,s,2p', 2.2, {}),
     ('Na', '1e'): ('3s,s,3p', 2.6, {'local': 'd'}),
     ('Mg', '2e'): ('3s,s,3p', 2.6, {'local': 'd'}),
+    ('Fe', '8e'): ('4s,s,4p,p,3d,d', 2.1, {}),
+    ('Ni', '10e'): ('4s,s,4p,p,3d,d', 2.1, {}),
+    ('Mo', '6e'): ('5s,s,5p,p,4d,d', 2.8, {}),
+    ('Ru', '8e'): ('5s,s,5p,p,4d,d', 2.6, {}),
+    ('Pt', '10e'): ('6s,s,6p,p,5d,d', 2.5, {}),
     ('Au', '11e'): ('6s,s,6p,p,5d,d', 2.5, {})}
 
 
