@@ -4,7 +4,7 @@ import os
 import datetime
 
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import pylab as plt
 
 

@@ -31,7 +31,7 @@ for k in [3,5,7,9]:
 
         gw = GW(
                 file='Si_groundstate_k%s_ecut%s.gpw' % (k, ecut),
-                nbands='npw',
+                nbands=None,
                 bands=np.array([2,3,4,5]),
                 kpoints=None,
                 ecut=ecut,

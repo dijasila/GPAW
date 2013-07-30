@@ -3,7 +3,7 @@ import sys
 import pickle
 
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 
 import numpy as np
 from ase.atoms import Atoms

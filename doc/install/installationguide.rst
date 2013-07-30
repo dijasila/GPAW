@@ -8,9 +8,9 @@ Installation guide
 Requirements
 ============
 
-1) Python 2.4 - 2.7.  Python is available from http://www.python.org.
+1) Python 2.6 - 2.7.  Python is available from http://www.python.org.
 
-2) NumPy_ 1.1 or later.
+2) NumPy_ 1.3.0 or later.
 
 3) Atomic Simulation Environment (:ase:`ASE <>`).
 

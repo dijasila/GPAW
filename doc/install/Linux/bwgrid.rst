@@ -27,13 +27,54 @@ Load the necessary modules::
   module load numlib/mkl/10.3.5
   module load numlib/python_numpy/1.6.1-python-2.7.2
 
-The installation of gpaw requires to modify customize.py to
+Internal libxc
+--------------
+
+Before revision 10429 libxc was internal. The
+:file:`customize.py` had to be changed to
 :svn:`~doc/install/Linux/customize_bwgrid_icc.py`
 
 .. literalinclude:: customize_bwgrid_icc.py
 
-and build GPAW (``python setup.py build_ext 2>&1 | tee build_ext.log``)
-while ignoring some intermediate warnings.
+External libxc
+--------------
+
+After svn revision 10429 libxc has to be included as external library
+(see also the `libxc web site <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`__). To install libxc we assume that MYLIBXCDIR is set to 
+the directory where you want to install::
+
+ $ module load compiler/intel/12.0
+ $ cd $MYLIBXCDIR
+ $ wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-2.0.2.tar.gz
+ $ tar -xzvf libxc-2.0.2.tar.gz
+ $ cd libxc-2.0.2/
+ $ mkdir install
+ $ ./configure CFLAGS="-fPIC" --prefix=$PWD/install -enable-shared
+ $ make |tee make.log
+ $ make install
+
+This will have installed the libs $MYLIBXCDIR/libxc-2.0.2/install/lib 
+and the C header
+files to $MYLIBXCDIR/libxc-2.0.2/install/include.
+
+We have to modify the file :file:`customize.py` to
+:svn:`~doc/install/Linux/customize_bwgrid_icc_libxc.py`
+
+.. literalinclude:: customize_bwgrid_icc_libxc.py
+
+Note that the location of the external libxc on runtime has to be enabled
+by setting::
+
+  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MYLIBXCDIR/libxc-2.0.2/install/lib
+
+Building and running GPAW
+-------------------------
+
+To build GPAW use::
+
+  python setup.py build_ext 2>&1 | tee build_ext.log
+
+and ignoring some intermediate warnings.
 
 A gpaw script :file:`test.py` can be submitted to run on 8 cpus like this::
 

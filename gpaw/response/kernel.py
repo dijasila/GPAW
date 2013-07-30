@@ -4,7 +4,7 @@ from gpaw.utilities.blas import gemmdot
 from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.mpi import world, rank, size
-from ase.dft import monkhorst_pack
+from ase.dft.kpoints import monkhorst_pack
 
 def v3D_Coulomb(qG):
     """Coulomb Potential in the 3D Periodic Case

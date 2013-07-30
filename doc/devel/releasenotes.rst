@@ -22,6 +22,9 @@ Development version in trunk
 
 * New setups: Y, Sb, Xe, Hf, Re, Hg, Tl, Rn
 
+* Non self-consistent calculations with screened hybrid functionals
+  (HSE03 and HSE06) can be done in plane-wave mode.
+
 * Modified setups:
 
   .. note::

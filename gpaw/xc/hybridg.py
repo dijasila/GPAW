@@ -36,7 +36,7 @@ class HybridXC(HybridXCBase):
         """Mix standard functionals with exact exchange.
 
         name: str
-            Name of functional: EXX, PBE0, B3LYP.
+            Name of functional: EXX, PBE0, HSE03, HSE06
         hybrid: float
             Fraction of exact exchange.
         xc: str or XCFunctional object
@@ -267,12 +267,23 @@ class HybridXC(HybridXCBase):
         # Calculate 1/|G+q|^2 with special treatment of |G+q|=0:
         G2_qG = self.pd2.G2_qG
         if self.q0 is None:
-            self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
+            if self.omega is None:
+                self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
+            else:
+                self.iG2_qG = [(1.0 / G2_G *
+                                (1 - np.exp(-G2_G / (4 * self.omega**2))))
+                               for G2_G in G2_qG]
         else:
-            G2_qG[self.q0][0] = 117.0
-            self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
-            G2_qG[self.q0][0] = 0.0
-            self.iG2_qG[self.q0][0] = self.gamma
+            G2_qG[self.q0][0] = 117.0  # avoid division by zero
+            if self.omega is None:
+                self.iG2_qG = [1.0 / G2_G for G2_G in G2_qG]
+                self.iG2_qG[self.q0][0] = self.gamma
+            else:
+                self.iG2_qG = [(1.0 / G2_G *
+                                (1 - np.exp(-G2_G / (4 * self.omega**2))))
+                               for G2_G in G2_qG]
+                self.iG2_qG[self.q0][0] = 1 / (4 * self.omega**2)
+            G2_qG[self.q0][0] = 0.0  # restore correct value
 
         # Compensation charges:
         self.ghat = PWLFC([setup.ghat_l for setup in wfs.setups], self.pd2)

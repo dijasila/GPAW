@@ -169,7 +169,7 @@ tests = [
     'parallel/hamiltonian.py',
     'ah.py',
     'laplace.py',
-    'pw/mgo.py',
+    'pw/mgo_hybrids.py',
     'lcao_largecellforce.py',
     'restart2.py',
     'Cl_minus.py',

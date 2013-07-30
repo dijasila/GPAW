@@ -46,7 +46,7 @@ def plot(xdata, ydata, std,
          xlabel, ylabel,
          label, color, num=1):
     import matplotlib
-    #matplotlib.use('Agg')
+    matplotlib.use('Agg')
     import pylab
 
     # all goes to figure num
@@ -260,7 +260,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
     #    avg.append(np.average(pre_results[p]))
     #    q.append(np.std(pre_results[p]))
     import matplotlib
-    matplotlib.use('Agg')
+    #matplotlib.use('Agg')
     from matplotlib import pylab, ticker
     from twiny import twiny
     # from http://matplotlib.sourceforge.net/examples/dashtick.py

@@ -162,7 +162,7 @@ class GW(BASECHI):
         # GW bands init
         if (self.bands == None):
             self.gwnband = self.nbands
-            self.bands = self.gwbands_n = range(self.nbands)
+            self.bands = self.gwbands_n = np.array(range(self.nbands))
         else:
             self.gwnband = np.shape(self.bands)[0]
             self.gwbands_n = self.bands
