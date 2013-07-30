@@ -6,7 +6,7 @@ from gpaw.utilities.kspot import AllElectronPotential
 if 1:
     be = Atoms(symbols='Be',positions=[(0,0,0)])
     be.center(vacuum=5)
-    calc = GPAW(gpts=(64,64,64), xc='LDA', nbands=1) #0.1 required for accuracy
+    calc = GPAW(gpts=(64,64,64), setups='2e', xc='LDA', nbands=1) #0.1 required for accuracy
     be.set_calculator(calc)
     e = be.get_potential_energy()
     niter = calc.get_number_of_iterations()
