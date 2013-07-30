@@ -1,4 +1,5 @@
 import os
+import platform
 import time
 
 from gpaw.version import version
@@ -41,7 +42,7 @@ class FMF:
             header += ec + 'hostname: ' + socket.gethostname() + '\n'
         except:
             pass
-        header += ec + 'architecture: ' + os.uname()[4]  + '\n'
+        header += ec + 'architecture: ' + platform.uname()[4]  + '\n'
 
         return header
 

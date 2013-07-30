@@ -86,7 +86,7 @@ def get_system_config(define_macros, undef_macros,
     # libxc
     libraries += ['xc']
 
-    machine = os.uname()[4]
+    machine = platform.uname()[4]
     if machine == 'sun4u':
 
         #  _
