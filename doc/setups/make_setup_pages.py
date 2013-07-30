@@ -4,7 +4,7 @@ import sys
 import pickle
 
 import matplotlib
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 
 # Workaround for bug #562421 in python-matplotlib on Fedora
 # https://bugzilla.redhat.com/show_bug.cgi?id=562421
