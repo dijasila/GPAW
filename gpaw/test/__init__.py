@@ -321,7 +321,8 @@ tests = [
     'cmrtest/cmr_test3.py',
     'cmrtest/cmr_test4.py',
     'cmrtest/cmr_append.py',
-    'cmrtest/Li2_atomize.py'
+    'cmrtest/Li2_atomize.py',
+    'tf_mode.py'
     ]
 
 exclude = []

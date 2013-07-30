@@ -31,7 +31,7 @@ class AllElectron:
 
     def __init__(self, symbol, xcname='LDA', scalarrel=False,
                  corehole=None, configuration=None, nofiles=True,
-                 txt='-', gpernode=150):
+                 txt='-', gpernode=150, tf_mode=False, tf_coeff=1.):
         """Do an atomic DFT calculation.
 
         Example::
@@ -91,6 +91,15 @@ class AllElectron:
                           'Kr': 8,
                           'Xe': 11}[conf]
 
+        self.tf_mode = tf_mode
+        self.tf_coeff = tf_coeff
+        #In tf mode we must force these numbers
+        if self.tf_mode:
+            self.n_j = [1]
+            self.l_j = [0]
+            self.nelectrons = sum(self.f_j)
+            self.f_j = [1]
+
         maxnodes = max([n - l - 1 for n, l in zip(self.n_j, self.l_j)])
         self.N = (maxnodes + 1) * gpernode
         self.beta = 0.4
@@ -127,20 +136,30 @@ class AllElectron:
                                                     for arg in args]) +
                        kwargs.get('end', '\n'))
 
-    def intialize_wave_functions(self):
+    def initialize_wave_functions(self):
         r = self.r
         dr = self.dr
-        # Initialize with Slater function:
-        for l, e, u in zip(self.l_j, self.e_j, self.u_j):
-            if self.symbol in ['Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au']:
-                # For some reason this works better for these atoms:
-                a = sqrt(-4.0 * e)
-            else:
-                a = sqrt(-2.0 * e)
+        if not self.tf_mode:
+            # Initialize with Slater function:
+            for l, e, u in zip(self.l_j, self.e_j, self.u_j):
+                if self.symbol in ['Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au']:
+                    # For some reason this works better for these atoms:
+                    a = sqrt(-4.0 * e)
+                else:
+                    a = sqrt(-2.0 * e)
 
-            u[:] = r**(1 + l) * np.exp(-a * r)
-            norm = np.dot(u**2, dr)
-            u *= 1.0 / sqrt(norm)
+                u[:] = r**(1 + l) * np.exp(-a * r)
+                norm = np.dot(u**2, dr)
+                u *= 1.0 / sqrt(norm)
+        #In tf mode we initialize wavefunction with hydrogen like density
+        else:
+            if self.symbol != 'H':
+                self.u_j[0][:] = r*self.nelectrons**2*np.exp(-self.nelectrons*r)/sqrt(pi)
+            else:
+                #For hydrogen we need different initial value
+                self.u_j[0][:] = r * np.exp(-sqrt(-2.0*self.e_j[0]) * r)
+            norm = np.dot(self.u_j**2, self.dr)
+            self.u_j = 1/sqrt(norm)*self.u_j
             
     def run(self, use_restart_file=True):
         #     beta g
@@ -221,13 +240,19 @@ class AllElectron:
                         n *= sum(f_j) / norm
 
         if fd is None:
-            self.intialize_wave_functions()
+            self.initialize_wave_functions()
             n[:] = self.calculate_density()
 
         bar = '|------------------------------------------------|'
         t(bar)
         niter = 0
+        allow_niterations = 117
         qOK = log(1e-10)
+        #tf_mode needs more iterations and coefficient
+        if self.tf_mode:
+            e_j[0] /= self.tf_coeff
+            allow_niterations = 20000
+
         while True:
             # calculate hartree potential
             hartree(0, n * r * dr, self.beta, self.N, vHr)
@@ -249,12 +274,23 @@ class AllElectron:
             # calculate new total Kohn-Sham effective potential and
             # admix with old version
             vr[:] = vHr + self.vXC * r
+            #Coefficient in tf_mode
+            if self.tf_mode:
+                vr /= self.tf_coeff
             if niter > 0:
-                vr[:] = 0.4 * vr + 0.6 * vrold
+                if not self.tf_mode:
+                    vr[:] = 0.4 * vr + 0.6 * vrold
+                else:
+                    #In tf_mode the density mixing must be careful
+                    vr[:] = 0.001 *vr + 0.999 * vrold
             vrold = vr.copy()
 
             # solve Kohn-Sham equation and determine the density change
             self.solve()
+            #Normalization in tf_mode to N electrons
+            if self.tf_mode:
+                norm = np.dot(self.u_j**2, self.dr)
+                self.u_j = sqrt(self.nelectrons)/sqrt(norm)*self.u_j
             dn = self.calculate_density() - n
             n += dn
 
@@ -279,7 +315,7 @@ class AllElectron:
                 break
 
             niter += 1
-            if niter > 117:
+            if niter > allow_niterations:
                 raise RuntimeError, 'Did not converge!'
 
 ##         print
@@ -310,10 +346,17 @@ class AllElectron:
             except OSError:
                 pass
 
+        Ekin = 0
+        if self.tf_mode:
+            e_j[0] *= self.tf_coeff
+            vr *= self.tf_coeff
+            Ekin += self.nelectrons*e_j[0]
+        else:
+            for f, e in zip(f_j, e_j):
+                Ekin += f * e
+
         Epot = 2 * pi * np.dot(n * r * (vHr - Z), dr)
-        Ekin = -4 * pi * np.dot(n * vr * r, dr)
-        for f, e in zip(f_j, e_j):
-            Ekin += f * e
+        Ekin += -4 * pi * np.dot(n * vr * r, dr)
 
 
         t()
@@ -776,6 +819,7 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel=False, gmax=None):
     A = (dudrplus - dudrminus) * utp
 
     return nodes, A
+
 
 def shoot_confined(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel=False,
                    gmax=None, rc=10., beta=7.):

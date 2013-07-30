@@ -1,7 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-"""Occpation number objects."""
+"""Occupation number objects."""
 
 import warnings
 import numpy as np
@@ -23,6 +23,7 @@ class OccupationNumbers:
         self.nvalence = None    # number of electrons
         self.split = 0.0        # splitting of Fermi levels from fixmagmom=True
         self.niter = 0          # number of iterations for finding Fermi level
+        self.tf_mode = False    # if tf_mode is used then occupy only one band
         
     def calculate(self, wfs):
         """Calculate everything.
@@ -163,27 +164,6 @@ class OccupationNumbers:
         self.split = fermisplit
 
 
-def occupy(f_n, eps_n, ne, weight=1):
-    """Fill in occupation numbers.
-
-    return HOMO and LUMO energies."""
-
-    N = len(f_n)
-    if ne == N * weight:
-        f_n[:] = weight
-        return eps_n[-1], np.inf
-
-    n, f = divmod(ne, weight)
-    n = int(n)
-    f_n[:n] = weight
-    assert n < N
-    f_n[n] = f
-    f_n[n + 1:] = 0.0
-    if f > 0.0:
-        return eps_n[n], eps_n[n]
-    return eps_n[n - 1], eps_n[n]
-
-
 class ZeroKelvin(OccupationNumbers):
     def __init__(self, fixmagmom):
         self.width = 0.0
@@ -200,6 +180,25 @@ class ZeroKelvin(OccupationNumbers):
             self.spin_polarized(wfs)
 
         self.e_entropy = 0.0
+
+    def occupy(self, f_n, eps_n, ne, weight=1):
+        """Fill in occupation numbers.
+
+        return HOMO and LUMO energies."""
+        N = len(f_n)
+        if ne == N * weight:
+            f_n[:] = weight
+            return eps_n[-1], np.inf
+
+        n, f = divmod(ne, weight)
+        n = int(n)
+        f_n[:n] = weight
+        assert n < N
+        f_n[n] = f
+        f_n[n + 1:] = 0.0
+        if f > 0.0:
+            return eps_n[n], eps_n[n]
+        return eps_n[n - 1], eps_n[n]
 
     def print_fermi_level(self, stream):
         if self.fermilevel is not None and np.isfinite(self.fermilevel):
@@ -287,7 +286,7 @@ class ZeroKelvin(OccupationNumbers):
                 f_n = wfs.bd.empty(global_array=True)
                 sign = 1 - kpt.s * 2
                 ne = 0.5 * (self.nvalence + sign * self.magmom)
-                homo, lumo = occupy(f_n, eps_n, ne) 
+                homo, lumo = self.occupy(f_n, eps_n, ne) 
                 fermilevels[kpt.s] = 0.5 * (homo + lumo)
             wfs.bd.distribute(f_n, kpt.f_n)
         wfs.bd.comm.sum(fermilevels)
@@ -302,7 +301,7 @@ class ZeroKelvin(OccupationNumbers):
             eps_n = wfs.bd.collect(kpt.eps_n)
             if wfs.bd.comm.rank == 0:
                 f_n = wfs.bd.empty(global_array=True)
-                homo, lumo = occupy(f_n, eps_n,
+                homo, lumo = self.occupy(f_n, eps_n,
                                     0.5 * self.nvalence * wfs.ncomp *
                                     kpt.weight, kpt.weight)
                 self.homo = max(self.homo, homo)
@@ -337,7 +336,7 @@ class ZeroKelvin(OccupationNumbers):
                 eps_n = np.ravel(eps_sn)
                 f_n = np.empty(nbands * 2)
                 nsorted = eps_n.argsort()
-                self.homo, self.lumo = occupy(f_n, eps_n[nsorted],
+                self.homo, self.lumo = self.occupy(f_n, eps_n[nsorted],
                                               self.nvalence)
                 f_sn = f_n[nsorted.argsort()].reshape((2, nbands))
                 self.magmom = f_sn[0].sum() - f_sn[1].sum()
@@ -583,4 +582,18 @@ class FixedOccupations(ZeroKelvin):
     def fixed_moment(self, wfs):
         for kpt in wfs.kpt_u:
             wfs.bd.distribute(self.occupation[kpt.s], kpt.f_n)
+
+
+class TFOccupations(FermiDirac):
+    def __init__(self, width, fixmagmom=False, maxiter=1000):
+        FermiDirac.__init__(self, width, fixmagmom, maxiter)
+    
+    def occupy(self, f_n, eps_n, ne, weight=1):
+        """Fill in occupation numbers. 
+        In TF mode only one band. Is guarenteed to work only
+        for spin-paired case.
+        
+        return HOMO and LUMO energies."""
+        #Same as occupy in ZeroKelvin expect one band: weight = ne
+        return FermiDirac.occupy.im_func(self, f_n, eps_n, ne, ne)
         

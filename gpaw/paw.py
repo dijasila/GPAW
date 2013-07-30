@@ -83,6 +83,8 @@ class PAW(PAWTextOutput):
         self.hamiltonian = None
         self.atoms = None
 
+        self.tf_mode = False
+
         self.initialized = False
         self.nbands_parallelization_adjustment = None # Somehow avoid this?
 
@@ -131,7 +133,6 @@ class PAW(PAWTextOutput):
 
     def set(self, **kwargs):
         p = self.input_parameters
-
         # Prune input for things that didn't change
         for key, value in kwargs.items():
             if key == 'kpts':
@@ -184,7 +185,7 @@ class PAW(PAWTextOutput):
             self.scf = None
             self.wfs.set_orthonormalized(False)
             if key in ['lmax', 'width', 'stencils', 'external', 'xc',
-                       'poissonsolver', 'occupations']:
+                       'poissonsolver', 'occupations', 'tf_mode']:
                 self.hamiltonian = None
                 self.occupations = None
             elif key in ['charge']:
@@ -338,6 +339,10 @@ class PAW(PAWTextOutput):
             world = mpi.world.new_communicator(np.asarray(world))
         self.wfs.world = world
 
+        #Are we using tf_mode?
+        if bool(par.tf_mode):
+            self.tf_mode = True
+
         self.set_text(par.txt, par.verbose)
 
         natoms = len(atoms)
@@ -385,7 +390,7 @@ class PAW(PAWTextOutput):
             filter = par.filter
 
         setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc,
-                        filter, world)
+                        filter, world, par.tf_mode)
 
         if magmom_av.ndim == 1:
             collinear = True
@@ -463,7 +468,7 @@ class PAW(PAWTextOutput):
         if nbands <= 0:
             nbands = int(nvalence + M + 0.5) // 2 + (-nbands)
 
-        if nvalence > 2 * nbands:
+        if nvalence > 2 * nbands and not par.tf_mode:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
@@ -479,7 +484,10 @@ class PAW(PAWTextOutput):
         if self.occupations is None:
             if par.occupations is None:
                 # Create object for occupation numbers:
-                self.occupations = occupations.FermiDirac(width, par.fixmom)
+                if self.tf_mode:
+                    self.occupations = occupations.TFOccupations(width, par.fixmom)
+                else:
+                    self.occupations = occupations.FermiDirac(width, par.fixmom)
             else:
                 self.occupations = par.occupations
 

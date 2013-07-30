@@ -9,9 +9,9 @@ from numpy.linalg import solve, inv
 from ase.data import atomic_names
 
 from gpaw.setup_data import SetupData
-from gpaw.atom.configurations import configurations
+from configurations import configurations
 from gpaw.version import version
-from gpaw.atom.all_electron import AllElectron, shoot
+from all_electron import AllElectron, shoot
 from gpaw.utilities.lapack import general_diagonalize
 from gpaw.utilities import hartree
 from gpaw.xc.hybrid import constructX, atomic_exact_exchange
@@ -21,9 +21,9 @@ from gpaw.atom.filter import Filter
 class Generator(AllElectron):
     def __init__(self, symbol, xcname='LDA', scalarrel=False, corehole=None,
                  configuration=None,
-                 nofiles=True, txt='-', gpernode=150):
+                 nofiles=True, txt='-', gpernode=150, tf_mode=False, tf_coeff=1.):
         AllElectron.__init__(self, symbol, xcname, scalarrel, corehole,
-                             configuration, nofiles, txt, gpernode)
+                             configuration, nofiles, txt, gpernode, tf_mode, tf_coeff)
 
     def run(self, core='', rcut=1.0, extra=None,
             logderiv=False, vbar=None, exx=False, name=None,
@@ -79,8 +79,6 @@ class Generator(AllElectron):
         njcore = j
         self.njcore = njcore
 
-        lmaxocc = max(l_j[njcore:])
-
         while empty_states != '':
             n = int(empty_states[0])
             l = 'spdf'.find(empty_states[1])
@@ -113,6 +111,23 @@ class Generator(AllElectron):
 
         self.Nv = sum(f_j[njcore:])
         self.Nc = sum(f_j[:njcore])
+
+        lmaxocc = max(l_j[njcore:])
+        lmax = max(l_j[njcore:])
+
+        #Parameters for tf_mode
+        if self.tf_mode:
+            self.n_j = [1]
+            self.l_j = [0]
+            self.f_j = [1]
+            self.e_j = [self.e_j[0]]
+            n_j = self.n_j
+            l_j = self.l_j
+            f_j = self.f_j
+            e_j = self.e_j
+            nj = len(n_j)
+            lmax = max(l_j)
+            lmaxocc = max(l_j)
 
         # Do all-electron calculation:
         AllElectron.run(self, use_restart_file)
@@ -169,8 +184,6 @@ class Generator(AllElectron):
                                                       self.u_j[:njcore])
             t('Kinetic energy of the core from tauc =',
               np.dot(tauc * r * r, dr) * 4 * pi)
-
-        lmax = max(l_j[njcore:])
 
         # Order valence states with respect to angular momentum
         # quantum number:
@@ -496,9 +509,9 @@ class Generator(AllElectron):
         self.dK_lnn = dK_lnn = []
         self.dH_lnn = dH_lnn = []
         self.dO_lnn = dO_lnn = []
+
         for l, (e_n, u_n, s_n, q_n) in enumerate(zip(e_ln, u_ln,
                                                      s_ln, q_ln)):
-
             A_nn = np.inner(s_n, q_n * dr)
             # Do a LU decomposition of A:
             nn = len(e_n)
@@ -518,6 +531,7 @@ class Generator(AllElectron):
             e_nn = np.zeros((nn, nn))
             e_nn.ravel()[::nn + 1] = e_n
             dH_nn = np.dot(dO_nn, e_nn) - A_nn
+
 
             q_n[:] = np.dot(inv(np.transpose(U_nn)), q_n)
             s_n[:] = np.dot(inv(L_nn), s_n)
@@ -546,7 +560,6 @@ class Generator(AllElectron):
 
         self.vt = vt
         self.vbar = vbar
-
 
         t('state    eigenvalue         norm')
         t('--------------------------------')
@@ -744,7 +757,7 @@ class Generator(AllElectron):
             setup.core_hole_e_kin = self.Ekincorehole
             setup.fcorehole = self.fcorehole
 
-        if self.ghost:
+        if self.ghost and not self.tf_mode: #In tf_mode we are not interested in ghosts
             raise RuntimeError('Ghost!')
 
         if self.scalarrel:
@@ -863,7 +876,6 @@ class Generator(AllElectron):
             xml = open('%s.%s' % (self.symbol, xcname), 'w')
         else:
             xml = open('%s.%s.%s' % (self.symbol, self.name, xcname), 'w')
-
         if self.ghost:
             raise RuntimeError('Ghost!')
 
