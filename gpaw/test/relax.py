@@ -74,16 +74,14 @@ d0 = positions[1, 0] - positions[0, 0]
 #              ^                 ^
 #              second atom       first atom
 
-print 'PBE energy minimum:'
-print 'hydrogen molecule energy: %7.3f eV' % e2
-print 'bondlength              : %7.3f Ang' % d0
-
+print('PBE energy minimum:')
+print('hydrogen molecule energy: %7.3f eV' % e2)
+print('bondlength              : %7.3f Ang' % d0)
 
 molecule = GPAW('H2fa.gpw', txt='H2.txt').get_atoms()
 relax = BFGS(molecule)
 relax.run(fmax=0.05)
 e2q = molecule.get_potential_energy()
-niter2q = calc.get_number_of_iterations()
 positions = molecule.get_positions()
 d0q = positions[1, 0] - positions[0, 0]
 assert abs(e2 - e2q) < 2e-6
@@ -96,12 +94,3 @@ from gpaw.mpi import world
 world.barrier()  # syncronize before reading text output file
 f = read('H2.txt').get_forces()
 assert abs(f - f0).max() < 5e-6  # 5 digits in txt file
-
-energy_tolerance = 0.000007
-niter_tolerance = 0
-equal(e1, -6.287873, energy_tolerance)
-equal(niter1, 17, niter_tolerance)
-equal(e2, -6.290744, energy_tolerance)
-equal(niter2, 17, niter_tolerance)
-equal(e2q, -6.290744, energy_tolerance)
-equal(niter2q, 17, niter_tolerance)

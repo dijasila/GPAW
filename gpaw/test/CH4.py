@@ -33,5 +33,3 @@ d0 = np.roots(np.polyder(fit, 1))[0]
 e0 = np.polyval(fit, d0)
 print 'd,e =', d0, e0
 equal(d0, 1.093204, 0.0001)
-equal(e0, -23.2076, 0.0002)
-assert 32 <= niter0 <= 34, niter0

@@ -62,12 +62,6 @@ if 0:
     p.plot(x, z[0])
     p.show()
 
-print e, niter
-energy_tolerance = 0.0003
-niter_tolerance = 2
-equal(e, 18.5772, energy_tolerance) # svnversion 5252
-equal(niter, 23, niter_tolerance) # svnversion 5252
-
 # 2p corehole
 gen('Si', name='hch2p', corehole=(2, 1, 0.5))
 calc = GPAW(nbands=None,
@@ -77,6 +71,5 @@ calc = GPAW(nbands=None,
             usesymm=True)
 si.set_calculator(calc)
 e = si.get_potential_energy()
-niter = calc.get_number_of_iterations()
 calc.write('si_hch2p.gpw')
 

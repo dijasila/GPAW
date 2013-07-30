@@ -22,12 +22,6 @@ ethylene.center()
 calc = GPAW(nbands=8, gpts=(32, 32, 32), convergence={'eigenstates': 3.3e-5})
 ethylene.set_calculator(calc)
 e = ethylene.get_potential_energy()
-niter = calc.get_number_of_iterations()
-
-energy_tolerance = 0.00003
-niter_tolerance = 0
-equal(e, -33.3232491, energy_tolerance)
-equal(niter, 25, niter_tolerance)
 
 def check(calc):
     wannier = Wannier(calc, nbands=6)

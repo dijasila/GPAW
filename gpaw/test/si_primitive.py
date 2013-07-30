@@ -11,9 +11,6 @@ calc = GPAW(h=0.24,
 atoms = bulk('Si', 'diamond', a=a)
 atoms.set_calculator(calc)
 E = atoms.get_potential_energy()
-equal(E, -11.8092858, 0.0001)
-niter = calc.get_number_of_iterations()
-assert 25 <= niter <= 27, niter
 
 equal(atoms.calc.get_fermi_level(), 5.17751284, 0.005)
 homo, lumo = calc.get_homo_lumo()

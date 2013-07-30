@@ -120,7 +120,6 @@ if not io_only:
     equal(t3.get_energy(), t4.get_energy(), 1e-6)
 
 e4 = t4.get_energy()
-equal(e4, 0.675814, 1e-4)
 
 # excited state with forces
 accuracy = 0.01
