@@ -21,8 +21,8 @@ atoms = Atoms('Na3', positions=[( 0, 0, 0),
                    pbc=True)
 
 # Only a short, non-converged calcuation
-conv = {'eigenstates': 1.e-3, 'energy':1e-2, 'density':1e-1}
-calc = GPAW(h=0.30, nbands=3,
+conv = {'eigenstates': 1.e-3, 'energy':1e-3, 'density':1e-1}
+calc = GPAW(h=0.3, nbands=3,
             setups={'Na': '1e'}, 
             convergence=conv)
 atoms.set_calculator(calc)
@@ -48,21 +48,21 @@ for mode in modes:
     eig10 = calc.get_eigenvalues(spin=0)
     eig11 = calc.get_eigenvalues(spin=1)
     print e0, e1
-    equal(e0, e1, 2e-3)
+    equal(e0, e1, 4e-4)
     print f0, f1
     for ff0, ff1 in zip(f0, f1):
         err = np.linalg.norm(ff0-ff1)
         # for forces we use larger tolerance
-        equal(err, 0.0, 2e-2)
+        equal(err, 0.0, 3e-4)
     print m0, m1
     for mm0, mm1 in zip(m0, m1):
-        equal(mm0, mm1, 2e-3)
+        equal(mm0, mm1, 6e-4)
     print 'A',eig00, eig10
     for eig0, eig1 in zip(eig00, eig10):
-        equal(eig0, eig1, 2e-3)
+        equal(eig0, eig1, 2e-4)
     print 'B',eig01, eig11
     for eig0, eig1 in zip(eig01, eig11):
-        equal(eig0, eig1, 2e-3)
+        equal(eig0, eig1, 2e-4)
 
     niter1 = calc.get_number_of_iterations()
     equal(niter1, 7, 0)

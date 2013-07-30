@@ -25,7 +25,7 @@ calc = GPAW(xc='PBE',
             stencils=(3, 3),
             occupations=FermiDirac(width=0.1),
             kpts=[4, 4, 1],
-            setups={'Ru': '8'},
+            setups={'Ru': '8e'},
             txt=tag + '.txt')
 slab.set_calculator(calc)
   

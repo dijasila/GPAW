@@ -17,7 +17,7 @@ if GS:
                      ], pbc=True)
     cluster.set_cell((15.,15.,18.), scale_atoms=False)
     cluster.center()
-    calc = GPAW(h=0.3, nbands=8, setups={'Na': '1'})
+    calc = GPAW(h=0.3, nbands=8, setups={'Na': '1e'})
 
     cluster.set_calculator(calc)
     cluster.get_potential_energy()
