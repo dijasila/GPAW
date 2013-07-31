@@ -50,14 +50,12 @@ print 'For excited state calc, it took', (t3 - t2) / 60, 'minutes'
 
 d = np.loadtxt('EELS_Al')
 wpeak = 15.7 # eV
-Nw = 157
-if d[Nw, 1] > d[Nw-1, 1] and d[Nw, 2] > d[Nw+1, 2]:
-    pass
-else:
-    raise ValueError('Plasmon peak not correct ! ')
-
-if (np.abs(d[Nw, 1] - 28.8932274034) > 1e-5
-    or np.abs(d[Nw, 2] -  25.9806674277) > 1e-5):
-    print d[Nw, 1], d[Nw, 2]
-    raise ValueError('Please check spectrum strength ! ')
-
+from gpaw.test import findpeak
+x, y = findpeak(d[:, 1], 0.1)
+print(x, y)
+assert abs(x - wpeak) < 0.05
+assert abs(y - 29.0) < 0.15
+x, y = findpeak(d[:, 2], 0.1)
+print(x, y)
+assert abs(x - wpeak) < 0.05
+assert abs(y - 26.6) < 0.15
