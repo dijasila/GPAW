@@ -15,7 +15,7 @@ from gpaw import mpi
 import gpaw
 
 
-def equal(x, y, tolerance=0, fail=True, msg=''):
+def equal(x, y, tolerance=0, fail=not True, msg=''):
     """Compare x and y."""
 
     if not np.isfinite(x - y).any() or (np.abs(x - y) > tolerance).any():
@@ -25,6 +25,14 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
             raise AssertionError(msg)
         else:
             sys.stderr.write('WARNING: %s\n' % msg)
+
+
+def findpeak(y, dx=1):
+    i = np.where(y == y.max())[0][0]
+    a, b, c = np.polyfit([-1, 0, 1], y[i - 1:i + 2], 2)
+    assert a < 0
+    x = -0.5 * b / a
+    return dx * (i + x), a * x**2 + b * x + c
 
 
 def gen(symbol, exx=False, name=None, **kwargs):
