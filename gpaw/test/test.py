@@ -42,12 +42,20 @@ def run():
     parser.add_option('-d', '--directory', help='Run test in this directory')
     parser.add_option('-s', '--show-output', action='store_true',
                       help='Show standard output from tests.')
+    parser.add_option('-i', '--ignore-equal-errors', action='store_true')
 
     opt, tests = parser.parse_args()
 
 
     if len(tests) == 0:
         from gpaw.test import tests
+
+    if opt.ignore_equal_errors:
+        import gpaw.test as test
+        equal0 = test.equal
+        def equal(x, y, tolerance=0, msg=''):
+            equal0(x, y, tolerance, msg=msg, fail=False)
+        test.equal = equal
 
     if opt.reverse:
         tests.reverse()

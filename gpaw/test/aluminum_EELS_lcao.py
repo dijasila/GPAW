@@ -9,6 +9,7 @@ from gpaw.atom.basis import BasisMaker
 from gpaw.response.df import DF
 from gpaw.mpi import serial_comm, rank, size
 from gpaw.utilities import devnull
+from gpaw.test import findpeak, equal
 
 
 if rank != 0:
@@ -52,16 +53,11 @@ print 'For excited state calc, it took', (t4 - t3) / 60, 'minutes'
 
 d = np.loadtxt('EELS_Al_lcao')
 wpeak = 16.9 # eV
-Nw = 169
-if d[Nw, 1] > d[Nw-1, 1] and d[Nw, 2] > d[Nw+1, 2]:
-    pass
-else:
-    raise ValueError('Plasmon peak not correct ! ')
-
-if (np.abs(d[Nw, 1] - 19.7274875955) > 1e-3
-    or np.abs(d[Nw, 2] -  18.9147047194) > 1e-3):
-    print d[Nw, 1], d[Nw, 2]
-    raise ValueError('Please check spectrum strength ! ')
-                                                              
-
-
+x, y = findpeak(d[:, 1], 0.1)
+print(x, y)
+equal(x, wpeak, 0.05)
+equal(y, 19.7, 0.15)
+x, y = findpeak(d[:, 2], 0.1)
+print(x, y)
+equal(x, wpeak, 0.05)
+equal(y, 18.9, 0.15)

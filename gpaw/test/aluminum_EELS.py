@@ -9,6 +9,7 @@ from gpaw.atom.basis import BasisMaker
 from gpaw.response.df import DF
 from gpaw.mpi import serial_comm, rank, size
 from gpaw.utilities import devnull
+from gpaw.test import findpeak, equal
 
 
 if rank != 0:
@@ -50,12 +51,11 @@ print 'For excited state calc, it took', (t3 - t2) / 60, 'minutes'
 
 d = np.loadtxt('EELS_Al')
 wpeak = 15.7 # eV
-from gpaw.test import findpeak
 x, y = findpeak(d[:, 1], 0.1)
 print(x, y)
-assert abs(x - wpeak) < 0.05
-assert abs(y - 29.0) < 0.15
+equal(x, wpeak, 0.05)
+equal(y, 29.0, 0.15)
 x, y = findpeak(d[:, 2], 0.1)
 print(x, y)
-assert abs(x - wpeak) < 0.05
-assert abs(y - 26.6) < 0.15
+equal(x, wpeak, 0.05)
+equal(y, 26.6, 0.15)
