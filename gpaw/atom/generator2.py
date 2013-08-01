@@ -19,100 +19,148 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
     GaussianBasis
 
 
-extra_parameters = {
-    ('Li', '1e'): ('2s,s,2p', 2.2, {}),
-    ('Be', '2e'): ('2s,s,2p', 2.2, {}),
-    ('Na', '1e'): ('3s,s,3p', 2.6, {'local': 'd'}),
-    ('Mg', '2e'): ('3s,s,3p', 2.6, {'local': 'd'}),
-    ('Fe', '8e'): ('4s,s,4p,p,3d,d', 2.1, {}),
-    ('Ni', '10e'): ('4s,s,4p,p,3d,d', 2.1, {}),
-    ('Mo', '6e'): ('5s,s,5p,p,4d,d', 2.8, {}),
-    ('Ru', '8e'): ('5s,s,5p,p,4d,d', 2.6, {}),
-    ('Pt', '10e'): ('6s,s,6p,p,5d,d', 2.5, {}),
-    ('Au', '11e'): ('6s,s,6p,p,5d,d', 2.5, {})}
-
-
 parameters = {
-    'H':  ('1s,s,p', 0.9, {}),
+'H':  ('1s,s,p', 0.9, {}),
 'He': ('1s,s,p', 1.5, {}),
-'Li': ('1s,2s,2p,p,d', 1.5, {}),
-'Be': ('1s,2s,2p,p,d', 1.4, {}),
+#
+'Li': ('2s,s,2p', 2.2, {}),
+'Li.sc': ('1s,2s,2p,p,d', 1.5, {}),
+'Be': ('2s,s,2p', 2.2, {}),
+'Be.sc': ('1s,2s,2p,p,d', 1.4, {}),
 'B':  ('2s,s,2p,p,d', 1.2, {}),
 'C':  ('2s,s,2p,p,d', 1.2, {}),
 'N':  ('2s,s,2p,p,d', [1.2, 1.3], {'r0': 1.1}),
 'O':  ('2s,s,2p,p,d', [1.2, 1.4], {}),
 'F':  ('2s,s,2p,p,d', [1.2, 1.4], {}),
 'Ne': ('2s,s,2p,p,d', 1.8, {}),  # 10
-'Na': ('2s,3s,2p,3p,d', 2.3, {'local': 'f'}),
-'Mg': ('2s,3s,2p,3p,d', [2.0, 1.8], {'local': 'f'}),
+#
+'Na': ('3s,s,3p', 2.6, {'local': 'd'}),
+'Na.sc': ('2s,3s,2p,3p,d', 2.3, {'local': 'f'}),
+'Mg': ('3s,s,3p', 2.6, {'local': 'd'}),
+'Mg.sc': ('2s,3s,2p,3p,d', [2.0, 1.8], {'local': 'f'}),
 'Al': ('3s,s,3p,p,d', 2.1, {'local': 'f'}),
 'Si': ('3s,s,3p,p,d', 1.9, {'local': 'f'}),
 'P':  ('3s,s,3p,p,d', 1.7, {'local': 'f'}),
 'S':  ('3s,s,3p,p,d', 1.6, {'local': 'f'}),
 'Cl': ('3s,s,3p,p,d', 1.5, {'local': 'f'}),
 'Ar': ('3s,s,3p,p,d', 1.5, {'local': 'f'}),
-'K':  ('3s,4s,3p,4p,d,d', 2.1, {'local': 'f'}),
-'Ca': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),  # 20
-'Sc': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),
-'Ti': ('3s,4s,3p,4p,3d,d', [2.2, 2.2, 2.3], {'local': 'f'}),
-'V':  ('3s,4s,3p,4p,3d,d', [2.1, 2.1, 2.3], {'local': 'f'}),
-'Cr': ('3s,4s,3p,4p,3d,d', [2.1, 2.1, 2.3], {'local': 'f'}),
-'Mn': ('3s,4s,3p,4p,3d,d', [2.0, 2.0, 2.2], {'local': 'f'}),
-'Fe': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
-'Co': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
-'Ni': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),
-'Cu': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),
-'Zn': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),  # 30
+#
+'K':  ('4s,s,4p', 3.5, {'local': 'd'}),
+'K.sc':  ('3s,4s,3p,4p,d,d', 2.1, {'local': 'f'}),
+'Ca': ('4s,s,4p', 3.1, {'local': 'd'}),
+'Ca.sc': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),  # 20
+'Sc': ('4s,s,4p,p,3d,d', 2.7, {}),
+'Sc.sc': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),
+'Ti': ('4s,s,4p,p,3d,d', 2.7, {}),
+'Ti.sc': ('3s,4s,3p,4p,3d,d', [2.2, 2.2, 2.3], {'local': 'f'}),
+'V':  ('4s,s,4p,p,3d,d', 2.6, {}),
+'V.sc':  ('3s,4s,3p,4p,3d,d', [2.1, 2.1, 2.3], {'local': 'f'}),
+'Cr': ('4s,s,4p,p,3d,d', 2.5, {}),
+'Cr.sc': ('3s,4s,3p,4p,3d,d', [2.1, 2.1, 2.3], {'local': 'f'}),
+'Mn': ('4s,s,4p,p,3d,d', 2.4, {}),
+'Mn.sc': ('3s,4s,3p,4p,3d,d', [2.0, 2.0, 2.2], {'local': 'f'}),
+'Fe': ('4s,s,4p,p,3d,d', 2.2, {}),
+'Fe.sc': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
+'Co': ('4s,s,4p,p,3d,d', 2.2, {}),
+'Co.sc': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
+'Ni': ('4s,s,4p,p,3d,d', 2.1, {}),
+'Ni.sc': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),
+'Cu': ('4s,s,4p,p,3d,d', 2.1, {}),
+'Cu.sc': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),
+'Zn': ('4s,s,4p,p,3d', 1.9, {'local': 'f'}),  # 30
+'Zn.sc': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),  # 30
 'Ga': ('4s,s,4p,p,3d,d', 2.2, {'local': 'f'}),
 'Ge': ('4s,s,4p,p,3d,d', 2.1, {'local': 'f'}),
 'As': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
 'Se': ('4s,s,4p,p,d', 2.1, {'local': 'f'}),
 'Br': ('4s,s,4p,p,d', 2.1, {'local': 'f'}),
 'Kr': ('4s,s,4p,p,d', 2.1, {'local': 'f'}),
-'Rb': ('4s,5s,4p,5p,d,d', 2.5, {'local': 'f'}),
-'Sr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
-'Y':  ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
-'Zr': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),  # 40
-'Nb': ('4s,5s,4p,5p,4d,d', [2.4, 2.4, 2.5], {'local': 'f'}),
-'Mo': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'Tc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'Ru': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'Rh': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'Pd': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'Ag': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'Cd': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+#
+'Rb': ('5s,s,5p', 2.8, {'local': 'd'}),
+'Rb.sc': ('4s,5s,4p,5p,d,d', 2.5, {'local': 'f'}),
+'Sr': ('5s,s,5p', 2.8, {'local': 'd'}),
+'Sr.sc': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
+'Y':  ('5s,s,5p,p,4d,d', 2.6, {'local': 'f'}),
+'Y.sc':  ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
+'Zr': ('5s,s,5p,p,4d,d', 2.7, {'local': 'f'}),  # 40
+'Zr.sc': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),  # 40
+'Nb': ('5s,s,5p,p,4d,d', 2.7, {'local': 'f'}),
+'Nb.sc': ('4s,5s,4p,5p,4d,d', [2.4, 2.4, 2.5], {'local': 'f'}),
+'Mo': ('5s,s,5p,p,4d,d', 2.8, {}),
+'Mo.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Tc': ('5s,s,5p,p,4d,d', 2.7, {'local': 'f'}),
+'Tc.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Ru': ('5s,s,5p,p,4d,d', 2.6, {}),
+'Ru.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Rh': ('5s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
+'Rh.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Pd': ('5s,s,5p,p,4d,d', 2.4, {'local': 'f'}),
+'Pd.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Ag': ('5s,s,5p,p,4d,d', 2.4, {'local': 'f'}),
+'Ag.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
+'Cd': ('5s,s,5p,p,4d,d', 2.4, {'local': 'f'}),
+'Cd.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
 'In': ('5s,s,5p,p,4d,d', 2.6, {'local': 'f'}),
 'Sn': ('5s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
 'Sb': ('5s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
 'Te': ('5s,6s,5p,p,d,d', 2.5, {'local': 'f'}),
 'I':  ('5s,s,5p,p,d', 2.4, {'local': 'f'}),
 'Xe': ('5s,s,5p,p,d', 2.3, {'local': 'f'}),
-'Cs': ('5s,6s,5p,6p,5d', [1.9, 2.2], {}),  # 55
-'Ba': ('5s,6s,5p,6p,5d', [1.8, 2.2], {}),
-'La': ('5s,6s,5p,6p,5d,d,4f,f', 2.5, {'local': 'g'}),
-'Ce': ('5s,6s,5p,6p,5d,d,4f,f', 2.4, {'local': 'g'}),
-'Pr': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),
-'Nd': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # 60
-'Pm': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),
-'Sm': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Eu': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Gd': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Tb': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 65
-'Dy': ('5s,6s,5p,6p,5d,d,4f,f', 2.1, {'local': 'g'}),
-'Ho': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Er': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Tm': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Yb': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 70
-'Lu': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Hf': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Ta': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'W':  ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Re': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # 75
-'Os': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Ir': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Pt': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),
-'Au': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),
-'Hg': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),  # 80
+#
+'Cs': ('6s,s,6p', 2.9, {'local': 'd'}),  # 55
+'Cs.sc': ('5s,6s,5p,6p,5d', [1.9, 2.2], {}),
+'Ba': ('6s,s,6p', 2.9, {'local': 'd'}), 
+'Ba.sc': ('5s,6s,5p,6p,5d', [1.8, 2.2], {}),
+#
+'La': ('6s,s,6p,p,5d,d,4f,f', 2.5, {'local': 'g'}),
+'La.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.5, {'local': 'g'}),
+'Ce': ('6s,s,6p,p,5d,d,4f,f', 2.4, {'local': 'g'}),
+'Ce.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.4, {'local': 'g'}),
+'Pr': ('6s,s,6p,p,5d,d,4f,f', 2.3, {'local': 'g'}),
+'Pr.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),
+'Nd': ('6s,s,6p,p,5d,d,4f,f', 2.3, {'local': 'g'}),  # 60
+'Nd.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # 60
+'Pm': ('6s,s,6p,p,5d,d,4f,f', 2.3, {'local': 'g'}),
+'Pm.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),
+'Sm': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Sm.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Eu': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Eu.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Gd': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Gd.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Tb': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 65
+'Tb.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 65
+'Dy': ('6s,s,6p,p,5d,d,4f,f', 2.1, {'local': 'g'}),
+'Dy.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.1, {'local': 'g'}),
+'Ho': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Ho.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Er': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Er.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Tm': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Tm.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Yb': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 70
+'Yb.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 70
+'Lu': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
+'Lu.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
+#
+'Hf': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
+'Hf.sc': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Ta': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
+'Ta.sc': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'W':  ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
+'W.sc':  ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Re': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),  # 75
+'Re.sc': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # 75
+'Os': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
+'Os.sc': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Ir': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
+'Ir.sc': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
+'Pt': ('6s,s,6p,p,5d,d', 2.5, {}),
+'Pt.sc': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),
+'Au': ('6s,s,6p,p,5d,d', 2.5, {}),
+'Au.sc': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),
+'Hg': ('6s,s,6p,p,5d,d', 2.3, {'local': 'f'}),  # 80
+'Hg.sc': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),  # 80
 'Tl': ('6s,s,6p,p,5d,d', 2.8, {'local': 'f'}),
 'Pb': ('6s,s,6p,p,5d,d', 2.6, {'local': 'f'}),
 'Bi': ('6s,s,6p,p,5d,d', 2.6, {'local': 'f'}),
@@ -1183,10 +1231,9 @@ def generate(argv=None):
 
 
 def get_parameters(symbol, opt):
-    if opt.tag and (symbol, opt.tag) in extra_parameters:
-        projectors, radii, extra = extra_parameters[(symbol, opt.tag)]
-    else:
-        projectors, radii, extra = parameters[symbol]
+    projectors, radii, extra = parameters[symbol]
+    if opt.tag and symbol + '.' + opt.tag in parameters:
+        projectors, radii, extra = parameters[symbol + '.' + opt.tag]
 
     if opt.projectors:
         projectors = opt.projectors
