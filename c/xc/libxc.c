@@ -805,8 +805,8 @@ static PyObject* lxcXCFunctional_getattr(PyObject *obj, char *name)
   return Py_FindMethod(lxcXCFunctional_Methods, obj, name);
 }
 
-static PyTypeObject lxcXCFunctionalType = {
-  PyObject_HEAD_INIT(&PyType_Type)
+PyTypeObject lxcXCFunctionalType = {
+  PyObject_HEAD_INIT(NULL)
   0,
   "lxcXCFunctional",
   sizeof(lxcXCFunctionalObject),
