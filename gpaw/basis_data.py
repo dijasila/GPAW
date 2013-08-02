@@ -142,11 +142,7 @@ class Basis:
 
         bf_lines = []
         for bf in self.bf_j:
-            if bf.n is None:
-                line = '  l=%d %s: rc=%.4f Bohr' % (bf.l, bf.type, bf.rc)
-            else:
-                line = '  %d%s %s: rc=%.4f Bohr' % (bf.n, 'spdf'[bf.l],
-                                                    bf.type, bf.rc)
+            line = '  %s: rc=%.4f Bohr' % (bf.name, bf.rc)
             bf_lines.append(line)
             
         lines = [title, name, fileinfo, count1, count2]
@@ -162,6 +158,10 @@ class BasisFunction:
         self.rc = rc
         self.phit_g = phit_g
         self.type = type
+        if n is None:
+            self.name = 'l=%d %s' % (l, type)
+        else:
+            self.name = '%d%s %s' % (n, 'spdf'[l], type)
 
     def __repr__(self, gridid=None):
         txt = '<basis_function '
@@ -320,7 +320,7 @@ class BasisPlotter:
             y_g = bf.phit_g * factor
             if self.normalize:
                 y_g /= norm**0.5
-            pl.plot(rgd.r_g, y_g, label=bf.type,
+            pl.plot(rgd.r_g, y_g, label=bf.name,
                     dashes=dashes_l[bf.l],
                     **plot_args)
         axis = pl.axis()
