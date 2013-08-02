@@ -144,11 +144,11 @@ parameters = {
 'Lu': ('6s,s,6p,p,5d,d,4f,f', 3.2),
 'Lu.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.2),
 # 72-86:
-'Hf': ('6s,s,6p,p,5d,d', 2.6),
+'Hf': ('6s,s,6p,p,5d,d', 2.8),
 'Hf.sc': ('5s,6s,5p,6p,5d,d,F', 2.4),
-'Ta': ('6s,s,6p,p,5d,d', 2.6),
+'Ta': ('6s,s,6p,p,5d,d', 2.7),
 'Ta.sc': ('5s,6s,5p,6p,5d,d,F', 2.4),
-'W':  ('6s,s,6p,p,5d,d', 2.6),
+'W':  ('6s,s,6p,p,5d,d', 2.7),
 'W.sc':  ('5s,6s,5p,6p,5d,d,F', 2.4),
 'Re': ('6s,s,6p,p,5d,d', 2.6),
 'Re.sc': ('5s,6s,5p,6p,5d,d,F', 2.4),
@@ -529,6 +529,8 @@ class PAWSetupGenerator:
 
         g0 = self.rgd.ceil(r0)
         gc = g0 + 20
+
+        e0 = 0.0
 
         ch = Channel(l0)
         phi_g = self.rgd.zeros()
@@ -1230,9 +1232,15 @@ def generate(argv=None):
 
 
 def get_parameters(symbol, opt):
-    projectors, radii, extra = parameters[symbol]
+    par = parameters[symbol]
     if opt.tag and symbol + '.' + opt.tag in parameters:
-        projectors, radii, extra = parameters[symbol + '.' + opt.tag]
+        par = parameters[symbol + '.' + opt.tag]
+
+    projectors, radii = par[:2]
+    if len(par) == 3:
+        extra = par[2]
+    else:
+        extra = {}
 
     if opt.projectors:
         projectors = opt.projectors
