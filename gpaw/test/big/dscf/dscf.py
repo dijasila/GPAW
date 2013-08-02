@@ -15,7 +15,6 @@ c_mol = GPAW(nbands=8, h=0.2, xc='RPBE', kpts=(4,6,1),
              convergence={'bands': -2}, txt='CO.txt')
 
 calc = GPAW(nbands=120, h=0.2, xc='RPBE', kpts=(4,6,1),
-            setups={'Pt': '10e'},
             eigensolver='cg', spinpol=True,
             mixer=MixerSum(nmaxold=5, beta=0.1, weight=100),
             convergence={'eigenstates': 1.0e-4,

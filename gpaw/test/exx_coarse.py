@@ -31,7 +31,6 @@ for fg in fgl:
     timer.start(tstr)
     calc = GPAW(h=0.3,
                 xc='PBE',
-                setups='2e',
                 nbands=4,
                 convergence={'eigenstates': 1e-4},
                 charge=-1)

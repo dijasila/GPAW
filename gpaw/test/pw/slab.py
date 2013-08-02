@@ -13,7 +13,6 @@ slab = Atoms('Li2',
              pbc=True)
 k = 4
 calc = GPAW(mode=PW(200),
-            setups='1e',
             parallel={'band': min(world.size, 4)},
             idiotproof=0,
             kpts=(k, k, 1))

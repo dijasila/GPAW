@@ -8,7 +8,6 @@ n = 24
 li = Atoms('Li', magmoms=[1.0], cell=(a, a, a), pbc=True)
 
 calc = GPAW(gpts=(n, n, n), nbands=1, xc='PBE',
-            setups='1e',
             poissonsolver=PoissonSolver(nn='M'),
             convergence=dict(eigenstates=4.5e-8))
 li.set_calculator(calc)

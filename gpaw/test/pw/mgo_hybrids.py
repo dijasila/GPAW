@@ -17,15 +17,15 @@ if rank < 3:
                         parallel=dict(band=1),
                         idiotproof=False,
                         communicator=comm,
-                        setups={'Mg': '2e'},
                         convergence={'eigenstates': 5.e-9},
                         kpts=monkhorst_pack((2, 2, 2)) + 0.25)
         mgo.get_potential_energy()
         mgo.calc.write('mgo', 'all')
 
     for name in ['PBE0', 'HSE03', 'HSE06']:
-        calc = GPAW('mgo', setups={'Mg': '2e'},
-                   txt=None, communicator=serial_comm)
+        calc = GPAW('mgo',
+                   txt=None,
+                   communicator=serial_comm)
         hyb_calc = HybridXC(name, alpha=5.0, bandstructure=True, world=comm)
         de_skn = vxc(calc, hyb_calc) - vxc(calc, 'LDA')
         

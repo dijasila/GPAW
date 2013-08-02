@@ -9,7 +9,6 @@ from gpaw.mpi import rank
 calc = GPAW(h=0.2,
             xc='GLLBSC',
             nbands=20,
-            setups={'Mo': '6e'},
             occupations=FermiDirac(0.001),
             convergence={'bands': -5},
             kpts=(9,9,1))

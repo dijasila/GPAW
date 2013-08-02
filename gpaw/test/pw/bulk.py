@@ -6,7 +6,7 @@ from gpaw.test import equal
 
 bulk = Atoms('Li', pbc=True)
 k = 4
-calc = GPAW(mode=PW(200), setups='1e', kpts=(k, k, k))
+calc = GPAW(mode=PW(200), kpts=(k, k, k))
 bulk.set_calculator(calc)
 e = []
 niter = []

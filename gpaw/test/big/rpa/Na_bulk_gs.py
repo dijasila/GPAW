@@ -17,15 +17,16 @@ tag = 'Nabulk'
 if 1:
     ecut = 350
     calc = GPAW(mode=PW(ecut),dtype=complex, basis='dzp', kpts=kpts, xc='PBE',
-                  parallel={'band': size}, txt='gs_occ_%s.txt' %(tag), nbands=4,
-                  occupations=FermiDirac(0.01), setups={'Na': '1e'},
-                  )
+                parallel={'band': size}, txt='gs_occ_%s.txt' %(tag),
+                nbands=4,
+                occupations=FermiDirac(0.01))
     bulk.set_calculator(calc)
     bulk.get_potential_energy()
     calc.write('gs_occ_%s.gpw' %(tag))
 
 if 1:
-    calc = GPAW('gs_occ_%s.gpw' %(tag),txt='gs_%s.txt'%(tag), parallel={'band': 1, 'domain':1})
+    calc = GPAW('gs_occ_%s.gpw' %(tag),txt='gs_%s.txt'%(tag),
+                parallel={'band': 1, 'domain':1})
     calc.diagonalize_full_hamiltonian(nbands=520)
     calc.write('gs_%s.gpw' %(tag), 'all')
 

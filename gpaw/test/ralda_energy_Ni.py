@@ -15,7 +15,6 @@ kpts = monkhorst_pack((3,3,3))
 calc = GPAW(mode='pw',
             kpts=kpts,
             occupations=FermiDirac(0.001),
-            setups={'Ni': '10e'}, 
             communicator=serial_comm)
 
 Ni.set_calculator(calc)

@@ -15,7 +15,6 @@ for mode in ('pw', 'fd'):
     if mode == 'pw':
         calc = GPAW(mode=PW(800), basis='dzp', xc='PBE', maxiter=300,
                     kpts=kpts, parallel={'band': 1, 'domain': 1},
-                    setups={'Mg': '2e'},
                     occupations=FermiDirac(0.01))
         atoms.set_calculator(calc)
         E1 = atoms.get_potential_energy()
@@ -26,7 +25,6 @@ for mode in ('pw', 'fd'):
     else:
         calc = GPAW(h=0.12,
                     basis='dzp', kpts=kpts, xc='PBE',
-                    setups={'Mg': '2e'},
                     parallel={'domain': 1, 'band': 1},
                     occupations=FermiDirac(0.01))
         atoms.set_calculator(calc)
