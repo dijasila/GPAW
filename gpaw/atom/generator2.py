@@ -20,153 +20,154 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
 
 
 parameters = {
-'H':  ('1s,s,p', 0.9, {}),
-'He': ('1s,s,p', 1.5, {}),
-#
-'Li': ('2s,s,2p', 2.2, {}),
-'Li.sc': ('1s,2s,2p,p,d', 1.5, {}),
-'Be': ('2s,s,2p', 2.2, {}),
-'Be.sc': ('1s,2s,2p,p,d', 1.4, {}),
-'B':  ('2s,s,2p,p,d', 1.2, {}),
-'C':  ('2s,s,2p,p,d', 1.2, {}),
+# 1-2:
+'H':  ('1s,s,p', 0.9),
+'He': ('1s,s,p', 1.5),
+# 3-10:
+'Li': ('2s,s,2p', 2.2),
+'Li.sc': ('1s,2s,2p,p,d', 1.5),
+'Be': ('2s,s,2p', 2.2),
+'Be.sc': ('1s,2s,2p,p,d', 1.4),
+'B':  ('2s,s,2p,p,d', 1.2),
+'C':  ('2s,s,2p,p,d', 1.2),
 'N':  ('2s,s,2p,p,d', [1.2, 1.3], {'r0': 1.1}),
-'O':  ('2s,s,2p,p,d', [1.2, 1.4], {}),
-'F':  ('2s,s,2p,p,d', [1.2, 1.4], {}),
-'Ne': ('2s,s,2p,p,d', 1.8, {}),  # 10
-#
-'Na': ('3s,s,3p', 2.6, {'local': 'd'}),
-'Na.sc': ('2s,3s,2p,3p,d', 2.3, {'local': 'f'}),
-'Mg': ('3s,s,3p', 2.6, {'local': 'd'}),
-'Mg.sc': ('2s,3s,2p,3p,d', [2.0, 1.8], {'local': 'f'}),
-'Al': ('3s,s,3p,p,d', 2.1, {'local': 'f'}),
-'Si': ('3s,s,3p,p,d', 1.9, {'local': 'f'}),
-'P':  ('3s,s,3p,p,d', 1.7, {'local': 'f'}),
-'S':  ('3s,s,3p,p,d', 1.6, {'local': 'f'}),
-'Cl': ('3s,s,3p,p,d', 1.5, {'local': 'f'}),
-'Ar': ('3s,s,3p,p,d', 1.5, {'local': 'f'}),
-#
-'K':  ('4s,s,4p', 3.5, {'local': 'd'}),
-'K.sc':  ('3s,4s,3p,4p,d,d', 2.1, {'local': 'f'}),
-'Ca': ('4s,s,4p', 3.1, {'local': 'd'}),
-'Ca.sc': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),  # 20
-'Sc': ('4s,s,4p,p,3d,d', 2.7, {}),
-'Sc.sc': ('3s,4s,3p,4p,3d,d', 2.3, {'local': 'f'}),
-'Ti': ('4s,s,4p,p,3d,d', 2.7, {}),
-'Ti.sc': ('3s,4s,3p,4p,3d,d', [2.2, 2.2, 2.3], {'local': 'f'}),
-'V':  ('4s,s,4p,p,3d,d', 2.6, {}),
-'V.sc':  ('3s,4s,3p,4p,3d,d', [2.1, 2.1, 2.3], {'local': 'f'}),
-'Cr': ('4s,s,4p,p,3d,d', 2.5, {}),
-'Cr.sc': ('3s,4s,3p,4p,3d,d', [2.1, 2.1, 2.3], {'local': 'f'}),
-'Mn': ('4s,s,4p,p,3d,d', 2.4, {}),
-'Mn.sc': ('3s,4s,3p,4p,3d,d', [2.0, 2.0, 2.2], {'local': 'f'}),
-'Fe': ('4s,s,4p,p,3d,d', 2.2, {}),
-'Fe.sc': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
-'Co': ('4s,s,4p,p,3d,d', 2.2, {}),
-'Co.sc': ('3s,4s,3p,4p,3d,d', 2.1, {'local': 'f'}),
-'Ni': ('4s,s,4p,p,3d,d', 2.1, {}),
-'Ni.sc': ('3s,4s,3p,4p,3d,d', 2.0, {'local': 'f'}),
-'Cu': ('4s,s,4p,p,3d,d', 2.1, {}),
-'Cu.sc': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),
-'Zn': ('4s,s,4p,p,3d', 1.9, {'local': 'f'}),  # 30
-'Zn.sc': ('3s,4s,3p,4p,3d,d', 1.9, {'local': 'f'}),  # 30
-'Ga': ('4s,s,4p,p,3d,d', 2.2, {'local': 'f'}),
-'Ge': ('4s,s,4p,p,3d,d', 2.1, {'local': 'f'}),
-'As': ('4s,s,4p,p,d', 2.0, {'local': 'f'}),
-'Se': ('4s,s,4p,p,d', 2.1, {'local': 'f'}),
-'Br': ('4s,s,4p,p,d', 2.1, {'local': 'f'}),
-'Kr': ('4s,s,4p,p,d', 2.1, {'local': 'f'}),
-#
-'Rb': ('5s,s,5p', 2.8, {'local': 'd'}),
-'Rb.sc': ('4s,5s,4p,5p,d,d', 2.5, {'local': 'f'}),
-'Sr': ('5s,s,5p', 2.8, {'local': 'd'}),
-'Sr.sc': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
-'Y':  ('5s,s,5p,p,4d,d', 2.6, {'local': 'f'}),
-'Y.sc':  ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),
-'Zr': ('5s,s,5p,p,4d,d', 2.7, {'local': 'f'}),  # 40
-'Zr.sc': ('4s,5s,4p,5p,4d,d', 2.5, {'local': 'f'}),  # 40
-'Nb': ('5s,s,5p,p,4d,d', 2.7, {'local': 'f'}),
-'Nb.sc': ('4s,5s,4p,5p,4d,d', [2.4, 2.4, 2.5], {'local': 'f'}),
-'Mo': ('5s,s,5p,p,4d,d', 2.8, {}),
-'Mo.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'Tc': ('5s,s,5p,p,4d,d', 2.7, {'local': 'f'}),
-'Tc.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'Ru': ('5s,s,5p,p,4d,d', 2.6, {}),
-'Ru.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'Rh': ('5s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
-'Rh.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'Pd': ('5s,s,5p,p,4d,d', 2.4, {'local': 'f'}),
-'Pd.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'Ag': ('5s,s,5p,p,4d,d', 2.4, {'local': 'f'}),
-'Ag.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'Cd': ('5s,s,5p,p,4d,d', 2.4, {'local': 'f'}),
-'Cd.sc': ('4s,5s,4p,5p,4d,d', 2.3, {'local': 'f'}),
-'In': ('5s,s,5p,p,4d,d', 2.6, {'local': 'f'}),
-'Sn': ('5s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
-'Sb': ('5s,s,5p,p,4d,d', 2.5, {'local': 'f'}),
-'Te': ('5s,6s,5p,p,d,d', 2.5, {'local': 'f'}),
-'I':  ('5s,s,5p,p,d', 2.4, {'local': 'f'}),
-'Xe': ('5s,s,5p,p,d', 2.3, {'local': 'f'}),
-#
-'Cs': ('6s,s,6p', 2.9, {'local': 'd'}),  # 55
-'Cs.sc': ('5s,6s,5p,6p,5d', [1.9, 2.2], {}),
-'Ba': ('6s,s,6p', 2.9, {'local': 'd'}), 
-'Ba.sc': ('5s,6s,5p,6p,5d', [1.8, 2.2], {}),
-#
-'La': ('6s,s,6p,p,5d,d,4f,f', 2.5, {'local': 'g'}),
-'La.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.5, {'local': 'g'}),
-'Ce': ('6s,s,6p,p,5d,d,4f,f', 2.4, {'local': 'g'}),
-'Ce.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.4, {'local': 'g'}),
-'Pr': ('6s,s,6p,p,5d,d,4f,f', 2.3, {'local': 'g'}),
-'Pr.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),
-'Nd': ('6s,s,6p,p,5d,d,4f,f', 2.3, {'local': 'g'}),  # 60
-'Nd.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),  # 60
-'Pm': ('6s,s,6p,p,5d,d,4f,f', 2.3, {'local': 'g'}),
-'Pm.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.3, {'local': 'g'}),
-'Sm': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Sm.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Eu': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Eu.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Gd': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Gd.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Tb': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 65
-'Tb.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 65
-'Dy': ('6s,s,6p,p,5d,d,4f,f', 2.1, {'local': 'g'}),
-'Dy.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.1, {'local': 'g'}),
-'Ho': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Ho.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Er': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Er.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Tm': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Tm.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Yb': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 70
-'Yb.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),  # 70
-'Lu': ('6s,s,6p,p,5d,d,4f,f', 2.2, {'local': 'g'}),
-'Lu.sc': ('5s,6s,5p,6p,5d,d,4f,f', 2.2, {'local': 'g'}),
-#
-'Hf': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
-'Hf.sc': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Ta': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
-'Ta.sc': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'W':  ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
-'W.sc':  ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Re': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),  # 75
-'Re.sc': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),  # 75
-'Os': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
-'Os.sc': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Ir': ('6s,s,6p,p,5d,d', 2.4, {'local': 'f'}),
-'Ir.sc': ('5s,6s,5p,6p,5d,d', 2.4, {'local': 'f'}),
-'Pt': ('6s,s,6p,p,5d,d', 2.5, {}),
-'Pt.sc': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),
-'Au': ('6s,s,6p,p,5d,d', 2.5, {}),
-'Au.sc': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),
-'Hg': ('6s,s,6p,p,5d,d', 2.3, {'local': 'f'}),  # 80
-'Hg.sc': ('5s,6s,5p,6p,5d,d', 2.3, {'local': 'f'}),  # 80
-'Tl': ('6s,s,6p,p,5d,d', 2.8, {'local': 'f'}),
-'Pb': ('6s,s,6p,p,5d,d', 2.6, {'local': 'f'}),
-'Bi': ('6s,s,6p,p,5d,d', 2.6, {'local': 'f'}),
-'Po': ('6s,s,6p,p,d', 2.7, {'local': 'f'}),
-'At': ('6s,s,6p,p,d', 2.6, {'local': 'f'}),
-'Rn': ('6s,s,6p,p,d', 2.6, {'local': 'f'}),
+'O':  ('2s,s,2p,p,d', [1.2, 1.4]),
+'F':  ('2s,s,2p,p,d', [1.2, 1.4]),
+'Ne': ('2s,s,2p,p,d', 1.8),
+# 11-18:
+'Na': ('3s,s,3p,D', 2.6),
+'Na.sc': ('2s,3s,2p,3p,d,F', 2.3),
+'Mg': ('3s,s,3p,D', 2.6),
+'Mg.sc': ('2s,3s,2p,3p,d,F', [2.0, 1.8]),
+'Al': ('3s,s,3p,p,d,F', 2.1),
+'Si': ('3s,s,3p,p,d,F', 1.9),
+'P':  ('3s,s,3p,p,d,F', 1.7),
+'S':  ('3s,s,3p,p,d,F', 1.6),
+'Cl': ('3s,s,3p,p,d,F', 1.5),
+'Ar': ('3s,s,3p,p,d,F', 1.5),
+# 19-36:
+'K':  ('4s,s,4p,D', 3.5),
+'K.sc':  ('3s,4s,3p,4p,d,d,F', 2.1),
+'Ca': ('4s,s,4p,D', 3.1),
+'Ca.sc': ('3s,4s,3p,4p,3d,d,F', 2.1),
+'Sc': ('4s,s,4p,p,3d,d', 2.7),
+'Sc.sc': ('3s,4s,3p,4p,3d,d,F', 2.3),
+'Ti': ('4s,s,4p,p,3d,d', 2.7),
+'Ti.sc': ('3s,4s,3p,4p,3d,d,F', [2.2, 2.2, 2.3]),
+'V':  ('4s,s,4p,p,3d,d', 2.6),
+'V.sc':  ('3s,4s,3p,4p,3d,d,F', [2.1, 2.1, 2.3]),
+'Cr': ('4s,s,4p,p,3d,d', 2.5),
+'Cr.sc': ('3s,4s,3p,4p,3d,d,F', [2.1, 2.1, 2.3]),
+'Mn': ('4s,s,4p,p,3d,d', 2.4),
+'Mn.sc': ('3s,4s,3p,4p,3d,d,F', [2.0, 2.0, 2.2]),
+'Fe': ('4s,s,4p,p,3d,d', 2.2),
+'Fe.sc': ('3s,4s,3p,4p,3d,d,F', 2.1),
+'Co': ('4s,s,4p,p,3d,d', 2.2),
+'Co.sc': ('3s,4s,3p,4p,3d,d,F', 2.1),
+'Ni': ('4s,s,4p,p,3d,d', 2.1),
+'Ni.sc': ('3s,4s,3p,4p,3d,d,F', 2.0),
+'Cu': ('4s,s,4p,p,3d,d', 2.1),
+'Cu.sc': ('3s,4s,3p,4p,3d,d,F', 1.9),
+'Zn': ('4s,s,4p,p,3d', 2.1),
+'Zn.sc': ('3s,4s,3p,4p,3d,d,F', 1.9),
+'Ga': ('4s,s,4p,p,3d,d,F', 2.2),
+'Ge': ('4s,s,4p,p,3d,d,F', 2.1),
+'As': ('4s,s,4p,p,d,F', 2.0),
+'Se': ('4s,s,4p,p,d,F', 2.1),
+'Br': ('4s,s,4p,p,d,F', 2.1),
+'Kr': ('4s,s,4p,p,d,F', 2.1),
+# 37-54:
+'Rb': ('5s,s,5p', 3.6),
+'Rb.sc': ('4s,5s,4p,5p,d,d,F', 2.5),
+'Sr': ('5s,s,5p', 3.3),
+'Sr.sc': ('4s,5s,4p,5p,4d,d,F', 2.5),
+'Y':  ('5s,s,5p,p,4d,d', [2.9, 3.1]),
+'Y.sc':  ('4s,5s,4p,5p,4d,d,F', 2.5),
+'Zr': ('5s,s,5p,p,4d,d', 3.0),
+'Zr.sc': ('4s,5s,4p,5p,4d,d,F', 2.5),
+'Nb': ('5s,s,5p,p,4d,d', 2.9),
+'Nb.sc': ('4s,5s,4p,5p,4d,d,F', [2.4, 2.4, 2.5]),
+'Mo': ('5s,s,5p,p,4d,d', 2.8),
+'Mo.sc': ('4s,5s,4p,5p,4d,d,F', 2.3),
+'Tc': ('5s,s,5p,p,4d,d', 2.7),
+'Tc.sc': ('4s,5s,4p,5p,4d,d,F', 2.3),
+'Ru': ('5s,s,5p,p,4d,d', 2.6),
+'Ru.sc': ('4s,5s,4p,5p,4d,d,F', 2.3),
+'Rh': ('5s,s,5p,p,4d,d', 2.5),
+'Rh.sc': ('4s,5s,4p,5p,4d,d,F', 2.3),
+'Pd': ('5s,s,5p,p,4d,d', 2.4),
+'Pd.sc': ('4s,5s,4p,5p,4d,d,F', 2.3),
+'Ag': ('5s,s,5p,p,4d,d', 2.4),
+'Ag.sc': ('4s,5s,4p,5p,4d,d,F', 2.3),
+'Cd': ('5s,s,5p,p,4d,d', 2.4),
+'Cd.sc': ('4s,5s,4p,5p,4d,d,F', 2.3),
+'In': ('5s,s,5p,p,4d,d,F', 2.6),
+'Sn': ('5s,s,5p,p,4d,d,F', 2.5),
+'Sb': ('5s,s,5p,p,4d,d,F', 2.5),
+'Te': ('5s,6s,5p,p,d,d,F', 2.5),
+'I':  ('5s,s,5p,p,d,F', 2.4),
+'Xe': ('5s,s,5p,p,d,F', 2.3),
+# 55-56:
+'Cs': ('6s,s,6p,5d', 4.3),
+'Cs.sc': ('5s,6s,5p,6p,5d', [1.9, 2.2]),
+'Ba': ('6s,s,6p,5d', 3.9),
+'Ba.sc': ('5s,6s,5p,6p,5d', [1.8, 2.2]),
+# 57-71:
+'La': ('6s,s,6p,p,5d,d,4f,f', 3.5),
+'La.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.5),
+'Ce': ('6s,s,6p,p,5d,d,4f,f', 3.6),
+'Ce.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.4),
+'Pr': ('6s,s,6p,p,5d,d,4f,f', 3.5),
+'Pr.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.3),
+'Nd': ('6s,s,6p,p,5d,d,4f,f', 3.4),
+'Nd.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.3),
+'Pm': ('6s,s,6p,p,5d,d,4f,f', 3.4),
+'Pm.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.3),
+'Sm': ('6s,s,6p,p,5d,d,4f,f', 3.4),
+'Sm.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.2),
+'Eu': ('6s,s,6p,p,5d,d,4f,f', 3.3),
+'Eu.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.2),
+'Gd': ('6s,s,6p,p,5d,d,4f,f', 3.3),
+'Gd.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.2),
+'Tb': ('6s,s,6p,p,5d,d,4f,f', 3.3),
+'Tb.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.2),
+'Dy': ('6s,s,6p,p,5d,d,4f,f', 3.2),
+'Dy.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.1),
+'Ho': ('6s,s,6p,p,5d,d,4f,f', 3.2),
+'Ho.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.2),
+'Er': ('6s,s,6p,p,5d,d,4f,f', 3.2),
+'Er.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.2),
+'Tm': ('6s,s,6p,p,5d,d,4f,f', 3.2),
+'Tm.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.2),
+'Yb': ('6s,s,6p,p,5d,d,4f,f', 3.2),
+'Yb.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.2),
+'Lu': ('6s,s,6p,p,5d,d,4f,f', 3.2),
+'Lu.sc': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.2),
+# 72-86:
+'Hf': ('6s,s,6p,p,5d,d', 2.6),
+'Hf.sc': ('5s,6s,5p,6p,5d,d,F', 2.4),
+'Ta': ('6s,s,6p,p,5d,d', 2.6),
+'Ta.sc': ('5s,6s,5p,6p,5d,d,F', 2.4),
+'W':  ('6s,s,6p,p,5d,d', 2.6),
+'W.sc':  ('5s,6s,5p,6p,5d,d,F', 2.4),
+'Re': ('6s,s,6p,p,5d,d', 2.6),
+'Re.sc': ('5s,6s,5p,6p,5d,d,F', 2.4),
+'Os': ('6s,s,6p,p,5d,d', 2.6),
+'Os.sc': ('5s,6s,5p,6p,5d,d,F', 2.4),
+'Ir': ('6s,s,6p,p,5d,d', 2.6),
+'Ir.sc': ('5s,6s,5p,6p,5d,d,F', 2.4),
+'Pt': ('6s,s,6p,p,5d,d', 2.5),
+'Pt.sc': ('5s,6s,5p,6p,5d,d,F', 2.3),
+'Au': ('6s,s,6p,p,5d,d', 2.5),
+'Au.sc': ('5s,6s,5p,6p,5d,d,F', 2.3),
+'Hg': ('6s,s,6p,p,5d,d', 2.5),
+'Hg.sc': ('5s,6s,5p,6p,5d,d,F', 2.3),
+'Tl': ('6s,s,6p,p,5d,d,F', 2.8),
+'Pb': ('6s,s,6p,p,5d,d,F', 2.6),
+'Bi': ('6s,s,6p,p,5d,d,F', 2.6),
+'Po': ('6s,s,6p,p,d,F', 2.7),
+'At': ('6s,s,6p,p,d,F', 2.6),
+'Rn': ('6s,s,6p,p,d,F', 2.6),
 }
 
 
@@ -299,6 +300,12 @@ class PAWSetupGenerator:
         if fd is None:
             fd = devnull
         self.fd = fd
+
+        if projectors[-1].isupper():
+            self.l0 = 'SPDFG'.find(projectors[-1])
+            projectors = projectors[:-2]
+        else:
+            self.l0 = None
 
         self.lmax = -1
         self.states = {}
@@ -501,28 +508,24 @@ class PAWSetupGenerator:
                               waves.rcut))
         self.log()
 
-    def find_local_potential(self, l0, r0, P, e0):
-        if l0 is None:
+    def find_local_potential(self, r0, P):
+        self.r0 = r0
+        self.nderiv0 = P
+        if self.l0 is None:
             self.find_polynomial_potential(r0, P)
         else:
-            self.match_local_potential(l0, r0, P, e0)
+            self.match_local_potential(r0, P)
 
-    def find_polynomial_potential(self, r0, P, e0=None):
+    def find_polynomial_potential(self, r0, P):
         self.log('Constructing smooth local potential for r < %.3f' % r0)
         g0 = self.rgd.ceil(r0)
-        assert e0 is None
 
         self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
 
-        self.l0 = None
-        self.e0 = None
-        self.r0 = r0
-        self.nderiv0 = P
-
-    def match_local_potential(self, l0, r0, P, e0):
-        self.log('Local potential matching %s-scattering at e=%.3f eV' %
-                 ('spdfg'[l0], e0 * Hartree) +
-                 ' and r=%.2f Bohr' % r0)
+    def match_local_potential(self, r0, P):
+        l0 = self.l0
+        self.log('Local potential matching %s-scattering at e=0.0 eV' %
+                 'spdfg'[l0] + ' and r=%.2f Bohr' % r0)
 
         g0 = self.rgd.ceil(r0)
         gc = g0 + 20
@@ -555,10 +558,6 @@ class PAWSetupGenerator:
         self.vtr_g = self.aea.vr_sg[0].copy()
         self.vtr_g[0] = 0.0
         self.vtr_g[1:g0] = q_g[1:g0]
-        self.l0 = l0
-        self.e0 = e0
-        self.r0 = r0
-        self.nderiv0 = P
 
     def construct_projectors(self):
         for waves in self.waves_l:
@@ -830,7 +829,7 @@ class PAWSetupGenerator:
 
         self.basis
         return self.basis
-                
+
     def create_basis_function(self, l, n, tailnorm, scale):
         rgd = self.rgd
         waves = self.waves_l[l]
@@ -853,7 +852,7 @@ class PAWSetupGenerator:
         dH_nn = waves.dH_nn
         dS_nn = waves.dS_nn
         N = len(pt_ng)
-        
+
         u_g = rgd.zeros()
         u_ng = rgd.zeros(N)
         duodr_n = np.empty(N)
@@ -981,7 +980,7 @@ class PAWSetupGenerator:
                     I.extend(range(i, i + 2 * l + 1))
                 j += 1
                 i += 2 * l + 1
-            
+
         nj = sum(len(waves) for waves in self.waves_l)
         e_kin_jj = np.zeros((nj, nj))
         j1 = 0
@@ -1024,7 +1023,7 @@ class PAWSetupGenerator:
         setup.generatorattrs = attrs
 
         setup.l0 = self.l0
-        setup.e0 = self.e0
+        setup.e0 = 0.0
         setup.r0 = self.r0
         setup.nderiv0 = self.nderiv0
 
@@ -1126,7 +1125,7 @@ def generate(argv=None):
     parser.add_option('-r', '--radius',
                       help='1.2 or 1.2,1.1,1.1')
     parser.add_option('-0', '--zero-potential',
-                      metavar='type,nderivs,radius,e0',
+                      metavar='nderivs,radius',
                       help='Parameters for zero potential.')
     parser.add_option('-c', '--pseudo-core-density-radius', type=float,
                       metavar='radius',
@@ -1218,7 +1217,7 @@ def generate(argv=None):
 
             if opt.plot:
                 gen.plot()
-                
+
                 if opt.create_basis_set:
                     gen.basis.generatordata = ''  # we already printed this
                     BasisPlotter(show=True).plot(gen.basis)
@@ -1253,70 +1252,37 @@ def get_parameters(symbol, opt):
     else:
         pseudize = ('poly', 4)
 
-    l0 = None
     if opt.zero_potential:
         x = opt.zero_potential.split(',')
-        type = x[0]
-        if len(x) == 1:
-            # select only zero_potential type (with defaults)
-            # i.e. on the command line: -0 {f,poly}
-            nderiv0 = 6
-            r0 = max(radii)
-        elif len(x) == 2:
-            # select zero_potential type, nderivs
-            # i.e. on the command line: -0 f,nderivs
-            nderiv0 = int(x[1])
-            r0 = max(radii)
-        else:
-            if x[2] in ['min', 'max']:
-                # select zero_potential type, nderivs, min/max
-                # i.e. on the command line: -0 f,nderivs,{min,max}
-                nderiv0 = int(x[1])
-                r0 = eval(x[2] + '(radii)')
-            else:
-                nderiv0 = int(x[1])
-                r0 = float(x[2])
-        if len(x) == 4:
-            e0 = float(x[3])
-        elif type == 'poly':
-            e0 = None
-        else:
-            e0 = 0.0
-
-        if type != 'poly':
-            l0 = 'spdfg'.find(type)
+        nderiv0 = int(x[0])
+        r0 = float(x[1])
     else:
-        if 'local' not in extra:
-            nderiv0 = 2
-            #nderiv0 = 3
-            e0 = None
-            r0 = extra.get('r0', min(radii) / scale) * scale
-        else:
+        if projectors[-1].isupper():
             nderiv0 = 5
-            #nderiv0 = 6
-            r0 = extra.get('r0', min(radii) * 0.9 / scale) * scale
-            l0 = 'spdfg'.find(extra['local'])
-            e0 = 0.0
+            r0 = extra.get('r0', min(radii) * 0.9)
+        else:
+            nderiv0 = 2
+            r0 = extra.get('r0', min(radii))
 
     return dict(symbol=symbol,
                 xc=opt.xc_functional,
                 projectors=projectors,
                 radii=radii,
                 scalar_relativistic=opt.scalar_relativistic, alpha=opt.alpha,
-                l0=l0, r0=r0, nderiv0=nderiv0, e0=e0,
+                r0=r0, nderiv0=nderiv0,
                 pseudize=pseudize, rcore=opt.pseudo_core_density_radius)
 
 
 def _generate(symbol, xc, projectors, radii,
               scalar_relativistic, alpha,
-              l0, r0, nderiv0, e0,
+              r0, nderiv0,
               pseudize, rcore):
     aea = AllElectronAtom(symbol, xc)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic)
 
     gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
-    gen.find_local_potential(l0, r0, nderiv0, e0)
+    gen.find_local_potential(r0, nderiv0)
     gen.add_waves(radii)
     gen.pseudize(pseudize[0], pseudize[1], rcore=rcore)
     gen.construct_projectors()
