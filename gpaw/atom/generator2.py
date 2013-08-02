@@ -762,14 +762,17 @@ class PAWSetupGenerator:
         for l, waves in enumerate(self.waves_l):
             for i, n in enumerate(waves.n_n):
                 if n > 0:
+                    tn = tailnorm
+                    if waves.f_n[i] == 0:
+                        tn *= 20  # no need for long tail
                     phit_g, ronset, rc, de = self.create_basis_function(
-                        l, i, tailnorm, scale)
+                        l, i, tn, scale)
                     bf = BasisFunction(n, l, rc, phit_g, 'bound state')
                     self.basis.append(bf)
 
                     txt += '%d%s bound state:\n' % (n, 'spdf'[l])
                     txt += ('  cutoff: %.3f to %.3f Bohr (tail-norm=%f)\n' %
-                            (ronset, rc, tailnorm))
+                            (ronset, rc, tn))
                     txt += '  eigenvalue shift: %.3f eV\n' % (de * Hartree)
 
         # Split valence:
@@ -1102,14 +1105,6 @@ class PAWSetupGenerator:
                 i1 += 2 * l1 + 1
 
 
-def str2z(x):
-    if isinstance(x, int):
-        return x
-    if x[0].isdigit():
-        return int(x)
-    return atomic_numbers[x]
-
-
 def generate(argv=None):
     from optparse import OptionParser
 
@@ -1150,24 +1145,18 @@ def generate(argv=None):
 
     opt, args = parser.parse_args(argv)
 
-    if len(args) == 0:
-        symbols = [symbol for symbol in chemical_symbols
-                   if symbol in parameters]
-    elif len(args) == 1 and '-' in args[0]:
+    if len(args) == 1 and '-' in args[0]:
         Z1, Z2 = args[0].split('-')
-        Z1 = str2z(Z1)
-        if Z2:
-            Z2 = str2z(Z2)
-        else:
-            Z2 = 86
-        symbols = range(Z1, Z2 + 1)
+        Z1 = atomic_numbers[Z1]
+        Z2 = atomic_numbers[Z2]
+        symbols = chemical_symbols[Z1:Z2 + 1]
+        if opt.tag:
+            symbols = [symbol for symbol in symbols
+                       if symbol + '.' + opt.tag in parameters]
     else:
         symbols = args
 
     for symbol in symbols:
-        Z = str2z(symbol)
-        symbol = chemical_symbols[Z]
-
         kwargs = get_parameters(symbol, opt)
         gen = _generate(**kwargs)
 
