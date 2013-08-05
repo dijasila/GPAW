@@ -108,22 +108,18 @@ class Basis:
         
         zeta, pol = parse_basis_name(name)[:2]
         newbf_j = []
-        L = {}
+        L = {0: 0, 1: 0, 2: 0, 3: 0}
         p = 0
         for bf in self.bf_j:
-            if 'polarization' in bf.type:
+            if bf.type == 'polarization':
                 if p < pol:
                     newbf_j.append(bf)
                     p += 1
-            else:
-                l = bf.l
-                if l not in L:
-                    L[l] = 0
-                if bf.n > 0:
-                    newbf_j.append(bf)
-                elif L[l] < zeta - 1:
-                    newbf_j.append(bf)
-                    L[l] += 1
+            elif bf.type == 'bound state':
+                newbf_j.append(bf)
+            elif L[bf.l] < zeta - 1:
+                newbf_j.append(bf)
+                L[bf.l] += 1
         self.bf_j = newbf_j
 
     def get_description(self):
