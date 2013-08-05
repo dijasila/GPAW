@@ -400,6 +400,7 @@ class LeanSetup(BaseSetup):
 
         self.ni = s.ni
         self.nao = s.nao
+        self.nbands = s.nbands
 
         self.pt_j = s.pt_j
         self.phit_j = s.phit_j # basis functions
@@ -617,11 +618,14 @@ class Setup(BaseSetup):
         self.rcutfilter = rcutfilter = r_g[gcutfilter]
         assert (data.vbar_g[gcutfilter:] == 0).all()
 
+        self.nbands = 0  # suggested number of bands
         ni = 0
         i = 0
         j = 0
         jlL_i = []
         for l, n in zip(l_j, n_j):
+            if n > 0:
+                self.nbands += 2 * l + 1
             for m in range(2 * l + 1):
                 jlL_i.append((j, l, l**2 + m))
                 i += 1
