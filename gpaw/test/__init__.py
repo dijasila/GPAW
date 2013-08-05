@@ -195,7 +195,6 @@ tests = [
     'parallel/lcao_hamiltonian.py',
     'fermisplit.py',
     'parallel/ut_redist.py',
-    'lcao_h2o.py',
     'cmrtest/cmr_test2.py',
     'h2o_xas.py',
     'ne_gllb.py',
