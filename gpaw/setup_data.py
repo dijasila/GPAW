@@ -36,6 +36,10 @@ class SetupData:
         self.name = name
         self.zero_reference = zero_reference
 
+        self.dir = None
+        if '/' in name:
+            self.dir, name = name.rsplit('/', 1)
+
         # Default filename if this setup is written 
         if name is None or name == 'paw':
             self.stdfilename = '%s.%s' % (symbol, self.setupname)
@@ -98,8 +102,8 @@ class SetupData:
         self.fcorehole = 0.0
         self.lcorehole = None
         self.ncorehole = None
-        self.core_hole_e = None
-        self.core_hole_e_kin = None
+        #self.core_hole_e = None
+        #self.core_hole_e_kin = None
         self.has_corehole = False        
 
         # Parameters for zero-potential:
@@ -315,10 +319,9 @@ class SetupData:
 
         if self.has_corehole:
             print >> xml, (('  <core_hole_state state="%d%s" ' +
-                           'removed="%r" eig="%r" ekin="%r">') %
+                           'removed="%r">') %
                            (self.ncorehole, 'spdf'[self.lcorehole],
-                            self.fcorehole,
-                            self.core_hole_e, self.core_hole_e_kin))
+                            self.fcorehole))
             for x in self.phicorehole_g:
                 print >> xml, '%r' % x,
             print >> xml, '\n  </core_hole_state>'
@@ -433,8 +436,14 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
     def parse(self, source=None, world=None):
         setup = self.setup
         if source is None:
-            (setup.filename, source) = search_for_file(setup.stdfilename,
-                                                       world)
+            if setup.dir:
+                setup_paths.insert(0, setup.dir)
+            try:
+                (setup.filename, source) = search_for_file(setup.stdfilename,
+                                                           world)
+            finally:
+                if setup.dir:
+                    setup_paths.pop(0)
 
         if source is None:
             print """
@@ -522,9 +531,10 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
         elif name == 'core_hole_state':
             setup.has_corehole = True
             setup.fcorehole = float(attrs['removed'])
+            setup.ncorehole = int(attrs['state'][0])
             setup.lcorehole = 'spdf'.find(attrs['state'][1])
-            setup.core_hole_e = float(attrs['eig'])
-            setup.core_hole_e_kin = float(attrs['ekin'])
+            #setup.core_hole_e = float(attrs['eig'])
+            #setup.core_hole_e_kin = float(attrs['ekin'])
             self.data = []
         elif name == 'zero_potential':
             if attrs.has_key('type'):

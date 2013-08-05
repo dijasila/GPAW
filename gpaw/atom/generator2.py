@@ -291,6 +291,7 @@ class PAWWaves:
 class PAWSetupGenerator:
     def __init__(self, aea, projectors,
                  scalar_relativistic=False,
+                 core_hole=None,
                  fd=sys.stdout):
         """fd: stream
             Text output."""
@@ -300,6 +301,16 @@ class PAWSetupGenerator:
         if fd is None:
             fd = devnull
         self.fd = fd
+
+        if core_hole:
+            state, occ = core_hole.split(',')
+            n = int(state[0])
+            l = 'spdf'.find(state[1])
+            occ = float(occ)
+            aea.add(n, l, -occ)
+            self.core_hole = (n, l, occ)
+        else:
+            self.core_hole = None
 
         if projectors[-1].isupper():
             self.l0 = 'SPDFG'.find(projectors[-1])
@@ -1038,6 +1049,15 @@ class PAWSetupGenerator:
 
         setup.basis = self.basis
 
+        if self.core_hole:
+            n, l, occ = self.core_hole
+            phi_g = self.aea.channels[l].phi_ng[n - l - 1]
+            setup.ncorehole = n
+            setup.lcorehole = l
+            setup.fcorehole = occ
+            setup.phicorehole_g = phi_g
+            setup.has_corehole = True
+
         return setup
 
     def calculate_exx_integrals(self):
@@ -1114,38 +1134,39 @@ def generate(argv=None):
 
     parser = OptionParser(usage='%prog [options] element',
                           version='%prog 0.1')
-    parser.add_option('-f', '--xc-functional', type='string', default='LDA',
-                      help='Exchange-Correlation functional ' +
-                      '(default value LDA)',
-                      metavar='<XC>')
-    parser.add_option('-P', '--projectors',
-                      help='Projector functions - use comma-separated - ' +
-                      'nl values, where n can be pricipal quantum number ' +
-                      '(integer) or energy (floating point number). ' +
-                      'Example: 2s,0.5s,2p,0.5p,0.0d.')
-    parser.add_option('-r', '--radius',
-                      help='1.2 or 1.2,1.1,1.1')
-    parser.add_option('-0', '--zero-potential',
-                      metavar='nderivs,radius',
-                      help='Parameters for zero potential.')
-    parser.add_option('-c', '--pseudo-core-density-radius', type=float,
-                      metavar='radius',
-                      help='Radius for pseudizing core density.')
-    parser.add_option('-z', '--pseudize',
-                      metavar='type,nderivs',
-                      help='Parameters for pseudizing wave functions.')
-    parser.add_option('-p', '--plot', action='store_true')
-    parser.add_option('-l', '--logarithmic-derivatives',
-                      metavar='spdfg,e1:e2:de,radius',
-                      help='Plot logarithmic derivatives. ' +
-                      'Example: -l spdf,-1:1:0.05,1.3. ' +
-                      'Energy range and/or radius can be left out.')
-    parser.add_option('-w', '--write', action='store_true')
-    parser.add_option('-s', '--scalar-relativistic', action='store_true')
-    parser.add_option('--no-check', action='store_true')
-    parser.add_option('-t', '--tag', type='string')
-    parser.add_option('-a', '--alpha', type=float)
-    parser.add_option('-b', '--create-basis-set', action='store_true')
+    add = parser.add_option
+    add('-f', '--xc-functional', type='string', default='LDA',
+        help='Exchange-Correlation functional (default value LDA)',
+        metavar='<XC>')
+    add('-P', '--projectors',
+        help='Projector functions - use comma-separated - ' +
+        'nl values, where n can be pricipal quantum number ' +
+        '(integer) or energy (floating point number). ' +
+        'Example: 2s,0.5s,2p,0.5p,0.0d.')
+    add('-r', '--radius',
+        help='1.2 or 1.2,1.1,1.1')
+    add('-0', '--zero-potential',
+        metavar='nderivs,radius',
+        help='Parameters for zero potential.')
+    add('-c', '--pseudo-core-density-radius', type=float,
+        metavar='radius',
+        help='Radius for pseudizing core density.')
+    add('-z', '--pseudize',
+        metavar='type,nderivs',
+        help='Parameters for pseudizing wave functions.')
+    add('-p', '--plot', action='store_true')
+    add('-l', '--logarithmic-derivatives',
+        metavar='spdfg,e1:e2:de,radius',
+        help='Plot logarithmic derivatives. ' +
+        'Example: -l spdf,-1:1:0.05,1.3. ' +
+        'Energy range and/or radius can be left out.')
+    add('-w', '--write', action='store_true')
+    add('-s', '--scalar-relativistic', action='store_true')
+    add('--no-check', action='store_true')
+    add('-t', '--tag', type='string')
+    add('-a', '--alpha', type=float)
+    add('-b', '--create-basis-set', action='store_true')
+    add('--core-hole')
 
     opt, args = parser.parse_args(argv)
 
@@ -1271,15 +1292,16 @@ def get_parameters(symbol, opt):
                 radii=radii,
                 scalar_relativistic=opt.scalar_relativistic, alpha=opt.alpha,
                 r0=r0, nderiv0=nderiv0,
-                pseudize=pseudize, rcore=opt.pseudo_core_density_radius)
+                pseudize=pseudize, rcore=opt.pseudo_core_density_radius,
+                core_hole=opt.core_hole)
 
 
 def _generate(symbol, xc, projectors, radii,
               scalar_relativistic, alpha,
               r0, nderiv0,
-              pseudize, rcore):
+              pseudize, rcore, core_hole):
     aea = AllElectronAtom(symbol, xc)
-    gen = PAWSetupGenerator(aea, projectors, scalar_relativistic)
+    gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole)
 
     gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
