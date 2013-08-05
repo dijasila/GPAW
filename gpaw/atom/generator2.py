@@ -456,26 +456,30 @@ class PAWSetupGenerator:
         else:
             assert rcore <= self.rcmax
 
-        # Make sure pseudo density is monotonically decreasing:
-        while 1:
+        if self.ncore == 0:
+            self.nct_g = self.rgd.zeros()
+            self.tauct_g = self.rgd.zeros()
+        else:
+            # Make sure pseudo density is monotonically decreasing:
+            while 1:
+                gcore = self.rgd.round(rcore)
+                self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
+                nt_g = self.nt_g + self.nct_g
+                dntdr_g = self.rgd.derivative(nt_g)[:gcore]
+                if dntdr_g.max() < 0.0:
+                    break
+                rcore -= 0.01
+
+            rcore *= 1.2
             gcore = self.rgd.round(rcore)
             self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
             nt_g = self.nt_g + self.nct_g
-            dntdr_g = self.rgd.derivative(nt_g)[:gcore]
-            if dntdr_g.max() < 0.0:
-                break
-            rcore -= 0.01
 
-        rcore *= 1.2
-        gcore = self.rgd.round(rcore)
-        self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
-        nt_g = self.nt_g + self.nct_g
+            self.log('Constructing smooth pseudo core density for r < %.3f' %
+                     rcore)
+            self.nt_g = nt_g
 
-        self.log('Constructing smooth pseudo core density for r < %.3f' %
-                 rcore)
-        self.nt_g = nt_g
-
-        self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
+            self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
 
         self.npseudocore = self.rgd.integrate(self.nct_g)
         self.log('Pseudo core electrons: %.6f' % self.npseudocore)
@@ -764,7 +768,7 @@ class PAWSetupGenerator:
                 if n > 0:
                     tn = tailnorm
                     if waves.f_n[i] == 0:
-                        tn *= 20  # no need for long tail
+                        tn = min(0.1, tn * 20)  # no need for long tail
                     phit_g, ronset, rc, de = self.create_basis_function(
                         l, i, tn, scale)
                     bf = BasisFunction(n, l, rc, phit_g, 'bound state')
@@ -1194,7 +1198,7 @@ def generate(argv=None):
                         ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
 
                     if l == gen.l0:
-                        efix = [gen.e0]
+                        efix = [0.0]
                         ldfix = gen.logarithmic_derivative(l, efix, r)
                         plt.plot(efix, ldfix, 'x' + colors[l])
                         ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
