@@ -9,6 +9,7 @@ from gpaw.atom.basis import BasisMaker
 from gpaw.response.df import DF
 from gpaw.mpi import serial_comm, rank, size
 from gpaw.utilities import devnull
+from gpaw.test import findpeak, equal
 
 
 if rank != 0:
@@ -45,7 +46,7 @@ df = DF(calc='C2.gpw',
         optical_limit=True)
 eM1, eM2 = df.get_macroscopic_dielectric_constant(xc='ALDA')
 
-if np.abs(eM2 - 7.914302) > 1e-3:
+if np.abs(eM2 - 7.91) > 1e-1:
     raise ValueError("Incorrect value for Diamond dielectric constant with ALDA Kernel %.4f" % (eM2))
 
 # Dielectric function
@@ -61,10 +62,10 @@ df = DF(calc='C2.gpw',
 df.get_absorption_spectrum(filename='C2.dat')
 
 spect = np.loadtxt('C2.dat.y')
-eps2_max = spect[0][spect[6].argmax()]
-
-if np.abs(eps2_max - 8.92972)>1e-3:
-    raise ValueError("Incorrect position for Diamond dielectric function peak with Bootstrap Kernel %.4f" % (eps2_max))
+eps2_max = findpeak(spect[:, 6], dx=spect[1, 0])[0]
+equal(eps2_max, 9.19, 0.05,
+      msg='Incorrect position for Diamond dielectric function peak with ' +
+      'Bootstrap Kernel')
 
 # RPA:
 # With kpts=(12,12,12) and bands=64, ecut=250eV, this script gives 5.56
