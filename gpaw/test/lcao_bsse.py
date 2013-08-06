@@ -1,8 +1,8 @@
 from ase.structure import molecule
 from gpaw import GPAW
 from gpaw.poisson import PoissonSolver
-from gpaw.atom.basis import BasisMaker
 from gpaw.test import equal
+from gpaw.atom.generator2 import generate
 
 # Tests basis set super position error correction
 
@@ -10,13 +10,15 @@ from gpaw.test import equal
 # and one ghost hydrogen atom.  The systems should have identical properties,
 # i.e. the ghost orbital should have a coefficient of 0.
 
-b = BasisMaker('H').generate(1, 0, energysplit=0.005)
+#b = generate(['H']).create_basis_set(tailnorm=0.005)
+#b = BasisMaker('H').generate(1, 0, energysplit=0.005)
 
 system = molecule('H2')
 system.center(vacuum=6.0)
 
 def prepare(setups):
-    calc = GPAW(basis={'H' : b}, mode='lcao',
+    calc = GPAW(basis='sz(dzp)',#{'H' : b},
+                mode='lcao',
                 setups=setups, h=0.2,
                 poissonsolver=PoissonSolver('M', relax='GS', eps=1e-5),
                 spinpol=False,

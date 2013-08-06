@@ -101,4 +101,3 @@ equal(niter1, 27, niter_tolerance)
 equal(e2, -1.51101, energy_tolerance)
 equal(niter2, 22, niter_tolerance)
 equal(e3, -2.83573, energy_tolerance)
-assert 38 <= niter3 <= 40, niter3

@@ -7,10 +7,10 @@
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.atom.basis import BasisMaker
 from gpaw.test import equal
+from gpaw.atom.generator2 import generate
 
-sibasis = BasisMaker('Si').generate(2, 1, energysplit=0.3, tailnorm=0.03**.5)
+hbasis = generate(['Si']).create_basis_set(tailnorm=0.005)
 basis = {'Si' : sibasis}
 
 a = 5.475

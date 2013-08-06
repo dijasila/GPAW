@@ -1,14 +1,14 @@
 from ase import Atoms
 from gpaw import FermiDirac, Mixer
 from gpaw.transport.calculator import Transport 
-from gpaw.atom.basis import BasisMaker
 from gpaw.poisson import PoissonSolver
 import pickle
+from gpaw.atom.generator2 import generate
 
 a = 3.6
 L = 7.00
 
-basis = BasisMaker('Na').generate(1, 1, energysplit=0.3)
+basis = generate(['Na']).create_basis_set(tailnorm=0.005)
 
 atoms = Atoms('Na12', pbc=(0, 0, 1), cell=[L, L, 12 * a])
 atoms.positions[:12, 2] = [i * a for i in range(12)]

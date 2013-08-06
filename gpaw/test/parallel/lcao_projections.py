@@ -3,6 +3,7 @@ from ase.structure import molecule
 
 from gpaw import GPAW
 from gpaw.lcao.projected_wannier import get_lcao_projections_HSP
+from gpaw.test import equal
 
 atoms = molecule('C2H2')
 atoms.center(vacuum=3.0)
@@ -21,7 +22,7 @@ eig_ref = np.array([-17.87911292, -13.24864985, -11.43106707, -7.12558127,
                     -7.12558127, 0.59294531, 0.59294531, 3.92526888,
                     7.45117399, 26.73466374])
 print eig
-assert np.allclose(eig, eig_ref)
+equal(abs(eig - eig_ref).max(), 0, 0.05)
 
 # Test V
 Vref_nM = np.array(

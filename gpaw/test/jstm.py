@@ -3,16 +3,8 @@ import numpy as np
 from ase import Atoms
 from gpaw import GPAW, setup_paths, FermiDirac
 from gpaw.transport.jstm import STM, dump_hs, dump_lead_hs
-from gpaw.atom.basis import BasisMaker
 from gpaw.mpi import world
 from gpaw.test import equal
-
-if world.rank == 0:
-    basis = BasisMaker('H', 'sz').generate(1, 0)
-    basis.write_xml()
-world.barrier()
-if setup_paths[0] != '.':
-    setup_paths.insert(0, '.')
 
 # GPAW calculations
 a = 0.75 # Bond length
@@ -24,7 +16,7 @@ atoms.positions[:, 2] = [i * a for i in range(12)]
 calc = GPAW(h=0.2,
             occupations=FermiDirac(width=0.1),
             mode='lcao',
-            basis='sz',
+            basis='sz(dzp)',
             usesymm=False)
 
 # Lead calculation

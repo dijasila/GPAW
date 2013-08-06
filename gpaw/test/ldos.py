@@ -87,4 +87,3 @@ equal(niter_Hnospin, 17, niter_tolerance)
 equal(e_Hspin,  -0.782309, energy_tolerance)
 equal(niter_Hspin, 14, niter_tolerance)
 equal(e_LiH, -3.74582, energy_tolerance)
-assert 29 <= niter_LiH <= 31, niter_LiH

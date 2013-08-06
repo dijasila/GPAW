@@ -26,7 +26,6 @@ calc = GPAW(h=0.30, nbands=3,
             convergence=conv)
 atoms.set_calculator(calc)
 e0 = atoms.get_potential_energy()
-niter0 = calc.get_number_of_iterations()
 f0 = atoms.get_forces()
 m0 = atoms.get_magnetic_moments()
 eig00 = calc.get_eigenvalues(spin=0)
@@ -40,9 +39,6 @@ del atoms, calc
 for mode in modes:
     atoms, calc = restart('tmp.%s' % mode)
     e1 = atoms.get_potential_energy()
-    try: # number of iterations needed in restart
-        niter1 = calc.get_number_of_iterations()
-    except: pass
     f1 = atoms.get_forces()
     m1 = atoms.get_magnetic_moments()
     eig10 = calc.get_eigenvalues(spin=0)
@@ -63,6 +59,5 @@ for mode in modes:
     for eig0, eig1 in zip(eig01, eig11):
         equal(eig0, eig1, 1e-10)
 
-    equal(niter0, 6, 0)
     # Check that after restart everything is writable
     calc.write('tmp2.%s' % mode)

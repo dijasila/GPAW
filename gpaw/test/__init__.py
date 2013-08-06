@@ -15,7 +15,7 @@ from gpaw import mpi
 import gpaw
 
 
-def equal(x, y, tolerance=0, fail=not True, msg=''):
+def equal(x, y, tolerance=0, fail=True, msg=''):
     """Compare x and y."""
 
     if not np.isfinite(x - y).any() or (np.abs(x - y) > tolerance).any():

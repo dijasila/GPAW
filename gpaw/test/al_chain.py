@@ -7,6 +7,6 @@ calc = GPAW(h=d / 16, kpts=(17, 1, 1), parallel={'domain': ndomains,
                                                  'band': 1})
 chain = Atoms('Al', cell=(d, 5, 5), pbc=True, calculator=calc)
 e = chain.get_potential_energy()
-assert abs(e - -1.81816) < 0.00005
+assert abs(e - -1.82) < 0.01
 assert calc.wfs.kpt_comm.size * ndomains == size
 calc.write('al_chain', 'all')
