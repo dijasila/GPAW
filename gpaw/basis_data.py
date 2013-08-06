@@ -154,7 +154,7 @@ class BasisFunction:
         self.rc = rc
         self.phit_g = phit_g
         self.type = type
-        if n is None:
+        if n is None or n < 0:
             self.name = 'l=%d %s' % (l, type)
         else:
             self.name = '%d%s %s' % (n, 'spdf'[l], type)

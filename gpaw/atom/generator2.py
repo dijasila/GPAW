@@ -9,6 +9,7 @@ from ase.utils import prnt, devnull
 from ase.units import Hartree
 from ase.data import atomic_numbers, chemical_symbols
 
+from gpaw.mpi import world
 from gpaw.version import version
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import make_gaunt
@@ -1242,6 +1243,8 @@ def generate(argv=None):
                 plt.show()
             except KeyboardInterrupt:
                 pass
+
+    world.barrier()
     return gen
 
 

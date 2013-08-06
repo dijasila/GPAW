@@ -27,6 +27,7 @@ class AppelbaumHamann(BaseSetup):
         self.Nc = 10
         self.Nv = 4
         self.nao = None
+        self.nbands = 4
         nullspline = Spline(0, 0.5, [0., 0., 0.])
         self.pt_j = [nullspline]
         self.ni = 1

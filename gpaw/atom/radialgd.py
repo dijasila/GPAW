@@ -10,8 +10,9 @@ from gpaw.utilities import hartree, divrl, _fact as fac
 
 def radial_grid_descriptor(eq, **kwargs):
     if eq == 'r=d*i':
-        assert kwargs['istart'] == 0
-        return EquidistantRaialGridDescriptor(kwargs['d'], kwargs['iend'])
+        assert int(kwargs['istart']) == 0
+        return EquidistantRadialGridDescriptor(float(kwargs['d']),
+                                               int(kwargs['iend']) + 1)
     if eq == 'r=a*i/(n-i)':
         beta = float(kwargs['a'])
         ng = int(kwargs['n'])

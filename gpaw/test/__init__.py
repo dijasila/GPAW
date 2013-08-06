@@ -19,8 +19,9 @@ def equal(x, y, tolerance=0, fail=not True, msg=''):
     """Compare x and y."""
 
     if not np.isfinite(x - y).any() or (np.abs(x - y) > tolerance).any():
-        msg = (msg + '%s != %s (error: |%s| > %.9g)' %
-               (x, y, x - y, tolerance))
+        if msg:
+            msg += ' '
+        msg += '%s != %s (error: |%s| > %.9g)' % (x, y, x - y, tolerance)
         if fail:
             raise AssertionError(msg)
         else:
@@ -28,22 +29,11 @@ def equal(x, y, tolerance=0, fail=not True, msg=''):
 
 
 def findpeak(y, dx=1):
-    i = np.where(y == y.max())[0][0]
+    i = y.argmax()
     a, b, c = np.polyfit([-1, 0, 1], y[i - 1:i + 2], 2)
     assert a < 0
     x = -0.5 * b / a
     return dx * (i + x), a * x**2 + b * x + c
-
-
-def gen(symbol, exx=False, name=None, **kwargs):
-    if mpi.rank == 0:
-        if 'scalarrel' not in kwargs:
-            kwargs['scalarrel'] = True
-        g = Generator(symbol, **kwargs)
-        g.run(exx=exx, name=name, use_restart_file=False, **parameters[symbol])
-    mpi.world.barrier()
-    if setup_paths[0] != '.':
-        setup_paths.insert(0, '.')
 
 
 def wrap_pylab(names=[]):

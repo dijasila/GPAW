@@ -37,8 +37,10 @@ class SetupData:
         self.zero_reference = zero_reference
 
         self.dir = None
-        if '/' in name:
+        if name is not None and '/' in name:
             self.dir, name = name.rsplit('/', 1)
+            if name == '':
+                name = 'paw'
 
         # Default filename if this setup is written 
         if name is None or name == 'paw':
