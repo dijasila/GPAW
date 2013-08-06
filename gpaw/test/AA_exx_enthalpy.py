@@ -5,13 +5,14 @@ from ase.units import Hartree, mol, kcal
 from gpaw import GPAW, setup_paths
 from gpaw.mixer import Mixer, MixerSum
 from gpaw.occupations import FermiDirac
-from gpaw.atom.generator import Generator
+from gpaw.atom.generator2 import generate
 from gpaw.atom.configurations import parameters
-from gpaw.test import equal, gen
+from gpaw.test import equal
 from gpaw.mpi import rank
 
 from os import remove
 from os.path import exists
+
 
 data = {}
 
@@ -103,6 +104,7 @@ def calculate(element, h, vacuum, xc, magmom):
         atom.set_positions(atom.get_positions()+[0.0, 0.0, 0.0001])
 
     calc_atom = GPAW(h=h, xc=data[element][xc][2],
+                     setups='./paw',
                      occupations=FermiDirac(0.0, fixmagmom=True),
                      mixer=mixer,
                      nbands=-2,
@@ -117,6 +119,7 @@ def calculate(element, h, vacuum, xc, magmom):
         compound.set_initial_magnetic_moments(mms)
 
     calc = GPAW(h=h, xc=data[element][xc][2],
+                setups='./paw',
                 mixer=mixer,
                 txt='%s2.%s.txt' % (element, xc))
     compound.set_distance(0,1, data[element]['R_AA_B3LYP'])
@@ -176,7 +179,7 @@ for element in ['H']:#, 'N']:#, 'O']: # oxygen atom fails to converge
             exx = True
         else:
             exx = False
-        gen(element, exx=exx, xcname=setup)
+        generate([element, '-f', setup])
         for h in [0.20]:
             for vacuum in [4.5]:
                 calculate(element, h, vacuum, xc, data[element]['magmom'])

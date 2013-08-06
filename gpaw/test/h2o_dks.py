@@ -2,10 +2,11 @@ from ase.structure import molecule
 from ase.parallel import rank, barrier
 
 from gpaw import GPAW, FermiDirac
-from gpaw.test import equal, gen
+from gpaw.test import equal
+from gpaw.atom.generator2 import generate
 
 # Generate setup for oxygen with a core-hole:
-gen('O', name='fch1s', xcname='PBE', corehole=(1, 0, 1.0))
+generate(['O', '--core-hole=1s,1', '-wt', 'fch'])
 
 atoms = molecule('H2O')
 atoms.center(vacuum=2.5)
@@ -17,14 +18,14 @@ niter1 = calc.get_number_of_iterations()
 
 atoms[0].magmom = 1
 calc.set(charge=-1,
-         setups={'O': 'fch1s'},
+         setups={'O': './fch'},
          occupations=FermiDirac(0.0, fixmagmom=True))
 e2 = atoms.get_potential_energy() + calc.get_reference_energy()
 niter2 = calc.get_number_of_iterations()
 
 atoms[0].magmom = 0
 calc.set(charge=0,
-         setups={'O': 'fch1s'},
+         setups={'O': './fch'},
          occupations=FermiDirac(0.0, fixmagmom=True),
          spinpol=True)
 e3 = atoms.get_potential_energy() + calc.get_reference_energy()

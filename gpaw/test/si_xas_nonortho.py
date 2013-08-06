@@ -3,15 +3,15 @@ from math import pi, cos, sin
 from ase import Atom, Atoms
 from ase.parallel import rank, barrier
 from gpaw import GPAW, FermiDirac
-from gpaw.test import equal, gen
+from gpaw.test import equal
 from gpaw.xas import  * #XAS, RecursionMethod
 import numpy as np
 from gpaw import setup_paths
-#setup_paths.insert(0, '.')
+from gpaw.atom.generator2 import generate
 
 
 # Generate setup for oxygen with half a core-hole:
-gen('Si', name='hch1s', corehole=(1, 0, 0.5))
+generate(['Si', '--core-hole=1s,0.5', '-wt', 'hch'])
 
 a = 5.43095
 b = a / 2
@@ -28,7 +28,7 @@ calc = GPAW(nbands=-10,
             h=0.25,
             kpts=(2,2,2),
             occupations=FermiDirac(width=0.05),
-            setups={0: 'hch1s'},
+            setups={0: './hch'},
             usesymm=True)
 
 si_nonortho.set_calculator(calc)
@@ -42,7 +42,7 @@ calc = GPAW(nbands=-10,
             h=0.25,
             kpts=(2,2,2),
             occupations=FermiDirac(width=0.05),
-            setups={0: 'hch1s'},
+            setups={0: './hch'},
             usesymm=None)
 
 si_nonortho.set_calculator(calc)
