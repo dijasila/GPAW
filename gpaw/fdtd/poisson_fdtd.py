@@ -22,7 +22,6 @@ import sys
 
 
 # In atomic units, 1/(4*pi*e_0) = 1
-_eps0_au = 1.0 / (4.0 * np.pi)
 _maxL = 1  # 1 for monopole, 4 for dipole, 9 for quadrupole
 
 # This helps in telling the classical quantitites from the quantum ones
