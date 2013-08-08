@@ -4,7 +4,7 @@ from ase import Atom, Atoms
 from ase.parallel import rank, barrier
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
-from gpaw.generator2 import generate
+from gpaw.atom.generator2 import generate
 from gpaw.xas import XAS, RecursionMethod
 
 # Generate setup for oxygen with half a core-hole:

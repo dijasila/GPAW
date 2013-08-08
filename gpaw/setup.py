@@ -16,6 +16,7 @@ import sys
 from math import pi, sqrt
 
 import numpy as np
+import ase.units as units
 from ase.data import atomic_names, chemical_symbols, atomic_numbers
 
 from gpaw.setup_data import SetupData
@@ -33,6 +34,14 @@ def create_setup(symbol, xc='LDA', lmax=0,
                  filter=None, world=None):
     if isinstance(xc, str):
         xc = XC(xc)
+
+    if isinstance(type, str) and ':' in type:
+        type, lu = type.split(':')
+        l = 'spdf'.find(lu[0])
+        U = float(lu[2:]) / units.Hartree
+    else:
+        l = None
+        U = None
 
     if setupdata is None:
         if type == 'hgh' or type == 'hgh.sc':
@@ -63,7 +72,10 @@ def create_setup(symbol, xc='LDA', lmax=0,
                                   type, True,
                                   world=world)
     if hasattr(setupdata, 'build'):
-        return LeanSetup(setupdata.build(xc, lmax, basis, filter))
+        setup = LeanSetup(setupdata.build(xc, lmax, basis, filter))
+        if U is not None:
+            setup.set_hubbard_u(U, l)
+        return setup
     else:
         return setupdata
 

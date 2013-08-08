@@ -151,6 +151,9 @@ class SetupData:
         else:
             text('  core   : %.1f' % self.Nc)
         text('  charge :', self.Z - self.Nv - self.Nc)
+        if setup.HubU is not None:
+            text('  Hubbard U: %f eV (l=%d)' % (setup.HubU * Hartree,
+                                                setup.Hubl))
         text('  file   :', self.filename)
         text(('  cutoffs: %4.2f(comp), %4.2f(filt), %4.2f(core),'
               ' lmax=%d' % (sqrt(10) * self.rcgauss * Bohr,

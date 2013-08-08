@@ -1,6 +1,6 @@
 import numpy as np
 from ase.units import Ha
-from ase.dft import monkhorst_pack
+from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import paropen
 from ase.structure import bulk
 from gpaw import GPAW, FermiDirac

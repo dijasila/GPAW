@@ -70,9 +70,16 @@ Libxc download/install instructions can be found `here <http://www.tddft.org/pro
 - Typically when building GPAW one has to modify customize.py in a manner
   similar to the following::
 
-    libraries += ['xc']
     library_dirs += ['/my/path/to/libxc/2.0.1/install/lib']
     include_dirs += ['/my/path/to/libxc/2.0.1/install/include']
+
+  or if you don't want to modify your customize.py, you can add these lines to
+  your .bashrc::
+  
+    export C_INCLUDE_PATH=/my/path/to/libxc/2.0.1/install/include
+    export LIBRARY_PATH=/my/path/to/libxc/2.0.1/install/lib
+    export LD_LIBRARY_PATH=/my/path/to/libxc/2.0.1/install/lib
+
 
 Installation on OS X
 --------------------

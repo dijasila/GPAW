@@ -12,7 +12,7 @@ timer = Timer()
 
 loa = Atoms('Be2',
             [(0, 0, 0), (2.45, 0, 0)],
-            cell=[5.9, 4.8, 5.0])
+            cell=[6.9, 4.8, 5.0])
 loa.center()
 
 txt='-'

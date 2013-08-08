@@ -138,7 +138,7 @@ static PyMethodDef mpi_request_methods[] = {
 };
 
 PyTypeObject GPAW_MPI_Request_type = {
-    PyObject_HEAD_INIT(&PyType_Type)
+    PyObject_HEAD_INIT(NULL)
     0,                         /*ob_size*/
     "MPI_Request",             /*tp_name*/
     sizeof(GPAW_MPI_Request),             /*tp_basicsize*/
@@ -943,7 +943,7 @@ static int InitMPIObject(MPIObject* self, PyObject *args, PyObject *kwds)
 
 
 PyTypeObject MPIType = {
-  PyObject_HEAD_INIT(&PyType_Type)
+  PyObject_HEAD_INIT(NULL)
   0,                         /*ob_size*/
   "MPI",                     /*tp_name*/
   sizeof(MPIObject),         /*tp_basicsize*/

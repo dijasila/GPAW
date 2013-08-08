@@ -4,7 +4,7 @@
 2010-10-15 10.1021/nl101688a The Relation between Structure and Quantum Interference in Single Molecule Junctions
 2010-11-05 10.1103/PhysRevB.82.195411 First-principles calculations of graphene nanoribbons in gaseous environments: Structural and electronic properties
 2010-12-30 10.1021/jp1076774 Ab Initio Adsorption Thermodynamics of H2S and H-2 on Ni(111): The Importance of Thermal Corrections and Multiple Reaction Equilibria
-2011-01-15 10.1002/anie.201104381 "Ligand-Free" Cluster Quantized Charging in an Ionic Liquid
+2011-01-15 10.1002/anie.201104381 'Ligand-Free' Cluster Quantized Charging in an Ionic Liquid
 2011-01-15 10.1016/j.procs.2011.04.003 GPAW - massively parallel electronic structure calculations with Python-based software
 2011-01-15 10.1021/nn102887x Solid-State Reactions in Binary Molecular Assemblies of F16CuPc and Pentacene
 2011-01-15 10.1039/c1cp20406h Thermodynamic and kinetic properties of hydrogen defect pairs in SrTiO3 from density functional theory

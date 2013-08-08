@@ -1,5 +1,5 @@
 from ase import *
-from ase.dft import monkhorst_pack
+from ase.dft.kpoints import monkhorst_pack
 from ase.structure import bulk
 from gpaw import *
 from gpaw.test import equal

@@ -5,19 +5,21 @@
 
 import os
 import sys
-import re
 import distutils
 import distutils.util
 from distutils.core import setup, Extension
-from distutils.sysconfig import get_config_var
 from glob import glob
 from os.path import join
 
-from config import *
+from config import (check_packages, get_system_config, get_parallel_config,
+                    get_scalapack_config, get_hdf5_config, check_dependencies,
+                    write_configuration, build_interpreter, get_config_vars)
+
 
 # Get the current version number:
 try:
-    execfile('gpaw/svnversion_io.py')  # write gpaw/svnversion.py and get svnversion
+    execfile('gpaw/svnversion_io.py')  # write gpaw/svnversion.py and get
+                                       # svnversion
 except ValueError:
     svnversion = ''
 execfile('gpaw/version.py')        # get version_base
@@ -129,7 +131,8 @@ execfile(customize)
 
 if platform_id != '':
     my_platform = distutils.util.get_platform() + '-' + platform_id
-    def my_get_platform(): return my_platform
+    def my_get_platform():
+        return my_platform
     distutils.util.get_platform = my_get_platform
 
 if compiler is not None:
@@ -170,7 +173,7 @@ if scalapack:
 # distutils clean does not remove the _gpaw.so library and gpaw-python
 # binary so do it here:
 plat = distutils.util.get_platform()
-msg += ['* Architecture: '+plat]
+msg += ['* Architecture: ' + plat]
 plat = plat + '-' + sys.version[0:3]
 gpawso = 'build/lib.%s/' % plat + '_gpaw.so'
 gpawbin = 'build/bin.%s/' % plat + 'gpaw-python'
@@ -199,7 +202,7 @@ extension = Extension('_gpaw',
                       runtime_library_dirs=runtime_library_dirs,
                       extra_objects=extra_objects)
 
-extensions = [extension,]
+extensions = [extension]
 
 if hdf5:
     hdf5_sources = ['c/hdf5.c']
@@ -226,11 +229,11 @@ scripts = [join('tools', script)
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
-                    runtime_library_dirs,extra_objects, mpicompiler,
+                    runtime_library_dirs, extra_objects, mpicompiler,
                     mpi_libraries, mpi_library_dirs, mpi_include_dirs,
                     mpi_runtime_library_dirs, mpi_define_macros)
 
-setup(name = 'gpaw',
+setup(name='gpaw',
       version=version,
       description='A grid-based real-space PAW method DFT code',
       author='J. J. Mortensen, et.al.',

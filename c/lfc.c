@@ -98,8 +98,8 @@ static PyObject* lfc_getattr(PyObject *obj, char *name)
   return Py_FindMethod(lfc_methods, obj, name);
 }
 
-static PyTypeObject LFCType = {
-  PyObject_HEAD_INIT(&PyType_Type)
+PyTypeObject LFCType = {
+  PyObject_HEAD_INIT(NULL)
   0,
   "LocalizedFunctionsCollection",
   sizeof(LFCObject),

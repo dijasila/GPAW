@@ -451,8 +451,8 @@ static PyObject* Operator_getattr(PyObject *obj, char *name)
     return Py_FindMethod(Operator_Methods, obj, name);
 }
 
-static PyTypeObject OperatorType = {
-  PyObject_HEAD_INIT(&PyType_Type)
+PyTypeObject OperatorType = {
+  PyObject_HEAD_INIT(NULL)
   0,
   "Operator",
   sizeof(OperatorObject),

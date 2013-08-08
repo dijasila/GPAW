@@ -60,34 +60,20 @@ calc = GPAW(
     kpts=(k, k, k),
     xc='PBE')
 
-atoms.set_pbc((1,1,1))
+atoms.set_pbc(1)
 atoms.set_calculator(calc)
 
 ##############################################################################
 ## Find the  ground-state and get the band gab
 e1 = atoms.get_potential_energy()
-niter1 = calc.get_number_of_iterations()
-Eg_non_Hub=band_gab(calc)
+Eg_non_Hub = band_gab(calc)
 
-##############################################################################
-## Setup 6eV Hubbard U on the d-orbitals (l=2) of Ni atoms (atom 0 and 1)
-## arg 3 and 4 :scaling =1 (yes scale) and store=0 (no do not store)
-
-l=2                         # d-orbitals
-U_ev=6                      # U in eV
-U_au=U_ev / Hartree   # U in atomic units
-scale=1                     # Do not scale (does not seem to matter much)
-store=0                     # Do not store (not in use yet)
-for a in np.arange(2):      # Loops though all Ni atoms
-    calc.hamiltonian.setups[a].set_hubbard_u(U_au,l,scale,store) # Apply U
-
-##############################################################################
+# Setup 6eV Hubbard U on the d-orbitals (l=2) of Ni atoms:
+calc.set(setups={'Ni': '10:d,6.0'})
 ## Make ready for scf with the DFT+U functional and converge this new system
 ## and get new band bag.....which should be much larger:
-calc.scf.reset()
 e2 = calc.get_potential_energy()
-niter2 = calc.get_number_of_iterations()
-Eg_Hub=band_gab(calc)
+Eg_Hub = band_gab(calc)
 
 ##############################################################################
 ## Now we expect that one effect of the Hubbard U is the opening of the band

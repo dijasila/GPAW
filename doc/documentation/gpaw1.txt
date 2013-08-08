@@ -89,7 +89,7 @@
 2010-12-15 10.1002/pssb.201000226 Mechanism study of floating catalyst CVD synthesis of SWCNTs
 2010-12-15 10.1002/pssb.201000373 A combined photoemission and ab initio study of the electronic structure of (6,4)/(6,5) enriched single wall carbon nanotubes
 2010-12-15 10.1007/s11467-010-0133-4 First-principles modelling of scanning tunneling microscopy using non-equilibrium Green's functions
-2011-01-15 10.1002/anie.201104381 "Ligand-Free" Cluster Quantized Charging in an Ionic Liquid
+2011-01-15 10.1002/anie.201104381 'Ligand-Free' Cluster Quantized Charging in an Ionic Liquid
 2011-01-15 10.1016/j.procs.2011.04.003 GPAW - massively parallel electronic structure calculations with Python-based software
 2011-01-15 10.1039/c1cp20406h Thermodynamic and kinetic properties of hydrogen defect pairs in SrTiO3 from density functional theory
 2011-01-15 10.1039/c1cp20454h Mechanism of the initial stages of nitrogen-doped single-walled carbon nanotube growth

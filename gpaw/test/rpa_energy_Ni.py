@@ -1,6 +1,6 @@
 from ase import *
 from ase.structure import bulk
-from ase.dft import monkhorst_pack
+from ase.dft.kpoints import monkhorst_pack
 from gpaw import *
 from gpaw.mpi import serial_comm, world
 from gpaw.test import equal

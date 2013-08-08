@@ -96,6 +96,7 @@ Install the following homebrew packages::
 
   brew install gfortran
   brew install openmpi
+  brew install libxc
 
 Install GPAW setups::
 
