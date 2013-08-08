@@ -102,8 +102,3 @@ for a, dH_sp in dH_asp.items():
 for psit_G in psit_nG:
     norm = gd.integrate(psit_G**2) # Around 1e-15 !  Surprisingly good.
     assert abs(1 - norm) < 1e-10, 'Not normconserving'
-
-energy_tolerance = 0.000001
-niter_tolerance = 0
-equal(e, eref, energy_tolerance) # svnversion 5252
-equal(niter, 31, niter_tolerance) # svnversion 5252

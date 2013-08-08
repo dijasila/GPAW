@@ -2,6 +2,7 @@ from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.mpi import rank, size, serial_comm
 from gpaw.xc.hybridg import HybridXC
+from gpaw.test import equal
 
 a = 2.0
 li = Atoms('Li', cell=(a, a, a), pbc=1)
@@ -35,9 +36,9 @@ for spinpol in [False, True]:
                            bandstructure=True, bands=[0, 1])
             de2 = calc.get_xc_difference(exx)
             kd = calc.wfs.kd
-            assert abs(e - -0.56024) < 1e-5
-            assert abs(de - -0.4520) < 2e-4
-            assert abs(de - de2) < 1e-12
+            equal(e, -0.52, 0.05)
+            equal(de, -0.44, 0.02)
+            equal(de, de2, 1e-12)
             for k in range(kd.nibzkpts):
                 if abs(kd.ibzk_kc[k] - [0.25, 1 / 3.0, 3 / 8.0]).max() < 1e-7:
-                    assert abs(exx.exx_skn[:, k, 0] - -0.18246).max() < 1e-5
+                    equal(abs(exx.exx_skn[:, k, 0] - -0.1826).max(), 0, 1e-4)

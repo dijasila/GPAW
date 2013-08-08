@@ -7,7 +7,8 @@ from gpaw.utilities import pack2
 from gpaw.utilities.tools import md5_new
 from gpaw.setup import BaseSetup
 from gpaw.spline import Spline
-from gpaw.atom.radialgd import AERadialGridDescriptor
+from gpaw.atom.radialgd import AERadialGridDescriptor, \
+                               EquidistantRadialGridDescriptor
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.configurations import configurations
 from gpaw.basis_data import Basis, BasisFunction
@@ -45,6 +46,7 @@ class HGHSetup(BaseSetup):
         self.basis = basis
         self.nao = sum([2 * phit.get_angular_momentum_number() + 1
                         for phit in self.phit_j])
+        self.nbands = self.nao
 
         self.Nct = 0.0
         self.nct = Spline(0, 1.0, [0., 0., 0.])
@@ -338,11 +340,9 @@ class HGHSetupData:
     def create_basis_functions(self):
         class SimpleBasis(Basis):
             def __init__(self, symbol, l_j):
-                Basis.__init__(self, symbol, 'simple', readxml=False)
+                rgd = EquidistantRadialGridDescriptor(0.02, 160)
+                Basis.__init__(self, symbol, 'simple', readxml=False, rgd=rgd)
                 self.generatordata = 'simple'
-                self.d = 0.02
-                self.ng = 160
-                rgd = self.get_grid_descriptor()
                 bf_j = self.bf_j
                 rcgauss = rgd.r_g[-1] / 3.0
                 gauss_g = np.exp(-(rgd.r_g / rcgauss)**2.0)
@@ -350,7 +350,8 @@ class HGHSetupData:
                     phit_g = rgd.r_g**l * gauss_g
                     norm = (rgd.integrate(phit_g**2) / (4 * pi))**0.5
                     phit_g /= norm
-                    bf = BasisFunction(l, rgd.r_g[-1], phit_g, 'gaussian')
+                    bf = BasisFunction(None, l, rgd.r_g[-1], phit_g,
+                                       'gaussian')
                     bf_j.append(bf)
         b1 = SimpleBasis(self.symbol, range(max(self.l_j) + 1))
         apaw = AtomPAW(self.symbol, [self.f_ln], h=0.05, rcut=9.0,
