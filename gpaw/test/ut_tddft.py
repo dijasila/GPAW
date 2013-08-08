@@ -83,7 +83,7 @@ class UTGroundStateSetup(TestCase):
         #XXX DEBUG END
 
         self.atoms.set_calculator(self.gscalc)
-        self.assertAlmostEqual(self.atoms.get_potential_energy(), -1.0621, 4)
+        self.assertAlmostEqual(self.atoms.get_potential_energy(), -1.06, 2)
         self.gscalc.write(self.gsname + '.gpw', mode='all')
         self.assertTrue(os.path.isfile(self.gsname + '.gpw'))
 

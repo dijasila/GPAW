@@ -6,7 +6,7 @@ from gpaw.test import equal
 from gpaw.atom.generator2 import generate
 
 # Generate setup for oxygen with a core-hole:
-generate(['O', '--core-hole=1s,1', '-wt', 'fch'])
+generate(['O', '--core-hole=1s,1', '-wt', 'fch', '-f', 'PBE'])
 
 atoms = molecule('H2O')
 atoms.center(vacuum=2.5)

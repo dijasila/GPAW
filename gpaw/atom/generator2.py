@@ -780,7 +780,7 @@ class PAWSetupGenerator:
                 if n > 0:
                     tn = tailnorm
                     if waves.f_n[i] == 0:
-                        tn = min(0.1, tn * 20)  # no need for long tail
+                        tn = min(0.05, tn * 20)  # no need for long tail
                     phit_g, ronset, rc, de = self.create_basis_function(
                         l, i, tn, scale)
                     bf = BasisFunction(n, l, rc, phit_g, 'bound state')

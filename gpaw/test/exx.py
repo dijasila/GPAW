@@ -5,7 +5,7 @@ from gpaw import GPAW, PoissonSolver
 from gpaw.test import equal
 
 be2 = Atoms('Be2', [(0, 0, 0), (2.45, 0, 0)])
-be2.center(vacuum=2.0)
+be2.center(vacuum=3.0)
 calc = GPAW(h=0.21,
             nbands=3,
             convergence={'eigenstates': 1e-8},

@@ -98,7 +98,7 @@ if rank == 0:
     err1 = abs(dvz1 - dvz2)
     
     # Comparison to what the values were when this test was last modified:
-    ref_value = 2.07342988218
+    ref_value = 2.00
     err2 = abs(dvz1 - ref_value)
 
     if 0:
@@ -117,4 +117,4 @@ if rank == 0:
     # fine grid needed to achieve convergence!
     print 'Error', err1, err2
     assert err1 < 4e-3
-    assert err2 < 2e-4
+    assert err2 < 0.04
