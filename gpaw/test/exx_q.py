@@ -37,5 +37,4 @@ print 'Hartree-Fock ACDF method (hybridk.py)   :', E_k1
 print 'Hartree-Fock Standard method            :', E_k2
 
 equal(E_k2, E_k1, 0.001)
-#equal(E_q, E_k1, 0.001)
-equal(E_k1, -27.71, 0.01)
+equal(E_k1, -27.66, 0.1)

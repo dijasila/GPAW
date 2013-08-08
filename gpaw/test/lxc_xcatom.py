@@ -2,7 +2,7 @@ import numpy as np
 import numpy.random as ra
 from gpaw.setup import create_setup
 from gpaw.xc import XC
-from gpaw.test import equal, gen
+from gpaw.test import equal
 from gpaw.atom.generator2 import generate
 
 if 1:

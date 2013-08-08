@@ -32,4 +32,4 @@ if 0:#size == 1:
 
     print E_q, E_k
     equal(E_q, E_k, 0.001)
-equal(E_k, -14.30, 0.01)
+equal(E_k, -14.3, 0.1)

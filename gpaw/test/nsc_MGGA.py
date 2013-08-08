@@ -1,6 +1,6 @@
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.test import equal, gen
+from gpaw.test import equal
 
 # ??? g = Generator('H', 'TPSS', scalarrel=True, nofiles=True)
 

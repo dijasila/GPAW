@@ -9,13 +9,6 @@ if 1:
     calc = GPAW(gpts=(64,64,64), nbands=1) #0.1 required for accuracy
     be.set_calculator(calc)
     e = be.get_potential_energy()
-    niter = calc.get_number_of_iterations()
-    #calc.write("be.gpw")
-
-    energy_tolerance = 0.00001
-    niter_tolerance = 0
-    equal(e, 0.00246471, energy_tolerance)
-    equal(niter, 16, niter_tolerance)
 
 #be, calc = restart("be.gpw")
 AllElectronPotential(calc).write_spherical_ks_potentials('bepot.txt')

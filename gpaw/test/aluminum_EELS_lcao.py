@@ -52,12 +52,12 @@ print 'For writing gpw, it took', (t3 - t2) / 60, 'minutes'
 print 'For excited state calc, it took', (t4 - t3) / 60, 'minutes'
 
 d = np.loadtxt('EELS_Al_lcao')
-wpeak = 16.9 # eV
+wpeak = 15.9 # eV
 x, y = findpeak(d[:, 1], 0.1)
 print(x, y)
 equal(x, wpeak, 0.05)
-equal(y, 20.9, 0.15)
+equal(y, 28.3, 0.15)
 x, y = findpeak(d[:, 2], 0.1)
 print(x, y)
 equal(x, wpeak, 0.05)
-equal(y, 19.4, 0.15)
+equal(y, 26.6, 0.15)

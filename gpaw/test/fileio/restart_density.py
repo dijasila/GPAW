@@ -55,7 +55,7 @@ for mode in modes:
         equal(err, 0.0, 3e-2)
     print m0, m1
     for mm0, mm1 in zip(m0, m1):
-        equal(mm0, mm1, 6e-3)
+        equal(mm0, mm1, 8e-3)
     print 'A',eig00, eig10
     for eig0, eig1 in zip(eig00, eig10):
         equal(eig0, eig1, 2e-3)

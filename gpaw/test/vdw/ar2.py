@@ -33,8 +33,8 @@ def test():
     E = 2 * e - e2
     Evdw = E + 2 * evdw - e2vdw
     print E, Evdw
-    assert abs(E - -0.0048) < 1e-4
-    assert abs(Evdw - +0.0223) < 1e-4
+    equal(E, -0.0048)
+    equal(Evdw, 0.0223)
 
     print e2, e
     equal(e2, -0.001581923, energy_tolerance)

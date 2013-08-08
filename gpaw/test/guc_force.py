@@ -10,7 +10,7 @@ from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.atom.generator2 import generate
 
-hbasis = generate(['Si']).create_basis_set(tailnorm=0.005)
+sibasis = generate(['Si']).create_basis_set(tailnorm=0.005)
 basis = {'Si' : sibasis}
 
 a = 5.475

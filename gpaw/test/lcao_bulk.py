@@ -19,7 +19,7 @@ for a in A:
 
 a = np.roots(np.polyder(np.polyfit(A, e, 2), 1))[0]
 print 'a =', a
-equal(a, 2.63781, 0.0001)
+equal(a, 2.68, 0.01)
 
 wf1 = calc.get_pseudo_wave_function(kpt=3, band=0)
 calc.write('Li', mode='all')

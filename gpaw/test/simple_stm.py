@@ -62,7 +62,7 @@ if not load:
     BH.set_pbc(False)
     cf = GPAW(occupations=FermiDirac(0.1, fixmagmom=True),
               nbands=5,
-              h=0.3,
+              h=0.2,
               txt=txt)
     BH.set_calculator(cf)
     e2 = BH.get_potential_energy()

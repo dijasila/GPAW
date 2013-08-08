@@ -36,7 +36,7 @@ de_h = ens.get_ensemble_energies()
 f0 = f[0].sum()
 f1 = f[1].sum()
 equal(f0, -f1, tol1)
-equal(f0, 1.044, tol2)
+equal(f0, 1.01, 0.04)
 
 # binding energy
 E_bind = 2*e_h - e_h2
