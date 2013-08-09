@@ -37,4 +37,4 @@ for esolver in esolvers:
 
 for esolver in esolvers:
     print esolver
-    equal(E[esolver], Eini, 1E-8)
+    equal(E[esolver], Eini, 2e-4)

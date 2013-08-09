@@ -246,7 +246,6 @@ tests = [
     'IP_oxygen.py',
     'rpa_energy_Si.py',
     '2Al.py',
-    'jstm.py',
     'tpss.py',
     'be_nltd_ip.py',
     'si_xas.py',

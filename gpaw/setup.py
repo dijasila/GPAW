@@ -942,8 +942,8 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
-        if extra_parameters.get('fprojectors'):
-            return None
+        #if extra_parameters.get('fprojectors'):
+        #    return None
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
@@ -990,8 +990,8 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
-        if extra_parameters.get('fprojectors'):
-            return None
+        #if extra_parameters.get('fprojectors'):
+        #    return None
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         rnabla_iiv = np.zeros((self.ni, self.ni, 3))

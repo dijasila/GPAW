@@ -34,5 +34,5 @@ E_fxc = fxc.get_fxc_correlation_energy(ecut=50,
                                        skip_gamma=True,
                                        gauss_legendre=8)
 
-equal(E_rpa, -7.762, 0.01)
-equal(E_fxc, -7.764, 0.01)
+equal(E_rpa, -7.96, 0.02)
+equal(E_fxc, E_rpa, 0.005)

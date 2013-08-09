@@ -11,9 +11,8 @@ timer = Timer()
 
 loa = Atoms('Be2',
             [(0, 0, 0), (2.45, 0, 0)],
-            magmoms=[0.5, 0.5],
-            cell=[6.9, 4.8, 5.0])
-loa.center()
+            magmoms=[0.5, 0.5])
+loa.center(vacuum=3.0)
 
 fgl = [False, True]
 #fgl = [True, False]

@@ -48,8 +48,8 @@ gw.get_exact_exchange()
 gw.get_QP_spectrum()
 
 gap = (gw.QP_skn[0,0,1] - gw.QP_skn[0,0,0]) * Hartree
-
-if not (np.abs(gap - 11.35) < 0.01):
+print gap
+if not (np.abs(gap - 11.34) < 0.05):
     raise AssertionError("check your results!")
 
 totaltime = round(time() - starttime)

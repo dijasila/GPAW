@@ -14,29 +14,6 @@ if 1:
         ]:
         generate(['N', '-f', functional, '-w'])
         
-tolerance = 0.000005 # libxc must reproduce old gpaw energies
-# zero Kelvin: in Hartree
-
-reference = { # version 0.9.1
-    'LDA_X+LDA_C_PW': 2.28836113207, # 'LDA'
-    'GGA_X_PBE+GGA_C_PBE': 2.3366049993, # 'PBE'
-    'GGA_X_PBE_R+GGA_C_PBE': 2.34496288319, # 'revPBE'
-    }
-
-tolerance_libxc = 0.000001 # libxc must reproduce reference libxc energies
-
-reference_libxc = { # svnversion 5252
-    'LDA_X': 1.95030600807,
-    'LDA_X+LDA_C_PW': 2.23194461135,
-    'LDA_X+LDA_C_VWN': 2.23297429824,
-    'LDA_X+LDA_C_PZ': 2.23146045547,
-    'GGA_X_PBE+GGA_C_PBE': 2.28208665019,
-    'GGA_X_PBE_R+GGA_C_PBE': 2.29201920843,
-    'GGA_X_B88+GGA_C_P86': 2.30508027546,
-    'GGA_X_B88+GGA_C_LYP': 2.28183010548,
-    'GGA_X_FT97_A+GGA_C_LYP': 2.26846048873,
-    }
-
 libxc_set = [
     'LDA_X', 'LDA_X+LDA_C_PW', 'LDA_X+LDA_C_VWN', 'LDA_X+LDA_C_PZ',
     'GGA_X_PBE+GGA_C_PBE', 'GGA_X_PBE_R+GGA_C_PBE',
@@ -66,14 +43,6 @@ for xcname in libxc_set:
         np.array([0.5 * D_p, 0.5 * D_p]), np.array([H_p, H_p]))
     print E2, E2s
     equal(E2, E2s, 1.0e-12)
-
-    if xcname in reference: # compare with old gpaw
-        print 'A:', E2, reference[xcname]
-        equal(E2, reference[xcname], tolerance)
-
-    if xc in reference_libxc: # compare with reference libxc
-        print 'B:', E2, reference_libxc[xcname]
-        equal(E2, reference_libxc[xcname], tolerance)
 
     D_sp = 0.1 * ra.random((2, nii)) + 0.2
     H_sp = np.zeros((2, nii))

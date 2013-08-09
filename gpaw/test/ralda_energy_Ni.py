@@ -39,5 +39,5 @@ E_standard = ralda.get_fxc_correlation_energy(ecut=50,
                                               skip_gamma=True,
                                               kcommsize=world.size)
 
-equal(E_solid, -7.3271, 0.001)
-equal(E_standard, -7.4415, 0.001)
+equal(E_solid, -7.51, 0.02)
+equal(E_standard, -7.63, 0.02)
