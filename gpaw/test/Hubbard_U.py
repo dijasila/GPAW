@@ -69,7 +69,8 @@ e1 = atoms.get_potential_energy()
 Eg_non_Hub = band_gab(calc)
 
 # Setup 6eV Hubbard U on the d-orbitals (l=2) of Ni atoms:
-calc.set(setups={'Ni': ':d,6.0'})
+calc.hamiltonian.setups[0].set_hubbard_u(6.0 / Hartree, 2)
+calc.scf.reset()
 ## Make ready for scf with the DFT+U functional and converge this new system
 ## and get new band bag.....which should be much larger:
 e2 = calc.get_potential_energy()
