@@ -11,16 +11,10 @@ data = paropen('data.txt', 'w')
 tpss_de = {
 'Li2': 22.5,
 }
-tpss_old = {
-'Li2': 22.7,
-}
 
 exp_bonds_dE = {
 'Li2': (2.673,24.4),
 }
-
-niters_ref = {'Li2': 21, 'Li': 14}
-niter_tolerance = 0
 
 systems = ['Li2']
 
@@ -90,5 +84,4 @@ for formula in tpss_de.keys():
 
 
 #comparison to gpaw revision 5450 version value in kcal/mol (note the grid:0.3 Ang)
-    equal(de_tpss, tpss_old[formula], 0.15)
-    equal(niters[formula], niters_ref[formula], niter_tolerance)
+    equal(de_tpss, tpss_de[formula], 0.15)
