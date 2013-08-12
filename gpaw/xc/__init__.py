@@ -70,6 +70,11 @@ def XC(kernel, parameters=None):
         elif name == '2D-MGGA':
             from gpaw.xc.mgga import PurePython2DMGGAKernel
             kernel = PurePython2DMGGAKernel(name, parameters)
+        elif name == "TF":
+            from gpaw.xc.parametrizedxc import ParametrizedKernel
+            #kernel = ParametrizedKernel(name, 'GGA', [1,1,0.21], [LibXC('GGA_X_PBE'), LibXC('GGA_C_PBE'), LibXC('LDA_K_TF')])
+            kernel = ParametrizedKernel(name, 'LDA', [1,1], [LibXC('LDA_X'), LibXC('LDA_K_TF')])
+            #kernel = ParametrizedKernel(name, 'GGA', [1,1, -0.1], [LibXC('LDA_X'), LibXC('LDA_K_TF'), LibXC('GGA_K_VW')])
         else:
             kernel = LibXC(kernel)
     if kernel.type == 'LDA':

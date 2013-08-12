@@ -247,7 +247,7 @@ class AllElectron:
         t(bar)
         niter = 0
         allow_niterations = 117
-        qOK = log(1e-10)
+        qOK = log(1e-14)
         #tf_mode needs more iterations and coefficient
         if self.tf_mode:
             e_j[0] /= self.tf_coeff
