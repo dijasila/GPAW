@@ -35,4 +35,4 @@ E_rpa_qsym = rpa.get_rpa_correlation_energy(ecut=ecut,
                                             gauss_legendre=8)
 
 equal(E_rpa_qsym, E_rpa_noqsym, 0.001)
-equal(E_rpa_qsym, -12.61, 0.01)
+equal(E_rpa_qsym, -12.64, 0.05)
