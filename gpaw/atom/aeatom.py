@@ -164,15 +164,17 @@ class Channel:
             iter = 0
             ok = False
             while True:
-                du1dr = self.integrate_outwards(u_g, rgd, vr_g, g0, e,
-                                                scalar_relativistic)
+                du1dr, a = self.integrate_outwards(u_g, rgd, vr_g, g0, e,
+                                                   scalar_relativistic)
                 u1 = u_g[g0]
                 du2dr = self.integrate_inwards(u_g, rgd, vr_g, g0, e,
                                                scalar_relativistic)
                 u2 = u_g[g0]
                 A = du1dr / u1 - du2dr / u2
                 u_g[g0:] *= u1 / u2
-                u_g /= (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
+                norm = rgd.integrate(u_g**2, -2) / (4 * pi)
+                u_g /= norm**0.5
+                a /= norm**0.5
 
                 if abs(A) < 1e-5:
                     ok = True
@@ -188,8 +190,7 @@ class Channel:
             if ok:
                 self.e_n[n] = e
                 self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
-                if self.l == 0:
-                    self.phi_ng[n, 0] = self.phi_ng[n, 1]
+                self.phi_ng[n, 0] = a * 0.0**self.l
             
     def calculate_density(self, n=None):
         """Calculate density."""
@@ -248,7 +249,7 @@ class Channel:
 
         u_g[:g0 + 2] = a_g * r_g[:g0 + 2]**(l + 1)
 
-        return dudr
+        return dudr, a_g[0]
 
     def integrate_inwards(self, u_g, rgd, vr_g, g0, e,
                           scalar_relativistic=False, gmax=None):
@@ -652,7 +653,7 @@ class AllElectronAtom:
         logderivs = []
         for e in energies:
             dudr = ch.integrate_outwards(u_g, self.rgd, self.vr_sg[0],
-                                         gcut, e, self.scalar_relativistic)
+                                         gcut, e, self.scalar_relativistic)[0]
             logderivs.append(dudr / u_g[gcut])
         return logderivs
             

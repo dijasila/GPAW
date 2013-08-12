@@ -444,11 +444,11 @@ class PAWSetupGenerator:
                     phi_g = self.rgd.zeros()
                     gc = self.rgd.round(1.5 * rcut)
                     ch = Channel(l)
-                    ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0],
-                                          gc, e, self.aea.scalar_relativistic)
+                    a = ch.integrate_outwards(phi_g, self.rgd,
+                                              self.aea.vr_sg[0], gc, e,
+                                              self.aea.scalar_relativistic)[1]
                     phi_g[1:gc + 1] /= self.rgd.r_g[1:gc + 1]
-                    if l == 0:
-                        phi_g[0] = phi_g[1]
+                    phi_g[0] = a * 0.0**l
                     phi_g /= (self.rgd.integrate(phi_g**2) / (4 * pi))**0.5
 
                 waves.add(phi_g, n, e, f)
@@ -550,11 +550,10 @@ class PAWSetupGenerator:
 
         ch = Channel(l0)
         phi_g = self.rgd.zeros()
-        ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0], gc, e0,
-                              self.aea.scalar_relativistic)
+        a = ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0], gc, e0,
+                                  self.aea.scalar_relativistic)[1]
         phi_g[1:gc] /= self.rgd.r_g[1:gc]
-        if l0 == 0:
-            phi_g[0] = phi_g[1]
+        phi_g[0] = a * 0.0**l0
 
         phit_g, c = self.rgd.pseudize(phi_g, g0, l=l0, points=P)
 
@@ -877,17 +876,18 @@ class PAWSetupGenerator:
         u_g = rgd.zeros()
         u_ng = rgd.zeros(N)
         duodr_n = np.empty(N)
+        a_n = np.empty(N)
 
         e = waves.e_n[n]
         e0 = e
         ch = Channel(l)
         while True:
-            duodr = ch.integrate_outwards(u_g, rgd, vtr_g, g1, e)
+            duodr, a = ch.integrate_outwards(u_g, rgd, vtr_g, g1, e)
 
             for n in range(N):
-                duodr_n[n] = ch.integrate_outwards(u_ng[n], rgd,
-                                                   vtr_g, g1, e,
-                                                   pt_g=pt_ng[n])
+                duodr_n[n], a_n[n] = ch.integrate_outwards(u_ng[n], rgd,
+                                                          vtr_g, g1, e,
+                                                          pt_g=pt_ng[n])
 
             A_nn = (dH_nn - e * dS_nn) / (4 * pi)
             B_nn = rgd.integrate(pt_ng[:, None] * u_ng, -1)
@@ -895,6 +895,7 @@ class PAWSetupGenerator:
             d_n = np.linalg.solve(np.dot(A_nn, B_nn) + np.eye(N),
                                   np.dot(A_nn, c_n))
             u_g[:g1 + 1] -= np.dot(d_n, u_ng[:, :g1 + 1])
+            a -= np.dot(d_n, a_n)
             duodr -= np.dot(duodr_n, d_n)
             uo = u_g[g1]
 
@@ -902,7 +903,9 @@ class PAWSetupGenerator:
             ui = u_g[g1]
             A = duodr / uo - duidr / ui
             u_g[g1:] *= uo / ui
-            u_g *= (norm / rgd.integrate(u_g**2, -2) * (4 * pi))**0.5
+            x = (norm / rgd.integrate(u_g**2, -2) * (4 * pi))**0.5
+            u_g *= x
+            a *= x
 
             if abs(A) < 1e-5:
                 break
@@ -910,8 +913,7 @@ class PAWSetupGenerator:
             e += 0.5 * A * u_g[g1]**2
 
         u_g[1:] /= rgd.r_g[1:]
-        if l == 0:
-            u_g[0] = u_g[1]
+        u_g[0] = a * 0.0**l
         return u_g, r1, r2, e - e0
 
     def logarithmic_derivative(self, l, energies, rcut):
@@ -935,14 +937,14 @@ class PAWSetupGenerator:
 
         logderivs = []
         for e in energies:
-            dudr = ch.integrate_outwards(u_g, rgd, self.vtr_g, gcut, e)
+            dudr = ch.integrate_outwards(u_g, rgd, self.vtr_g, gcut, e)[0]
             u = u_g[gcut]
 
             if N:
                 for n in range(N):
                     dudr_n[n] = ch.integrate_outwards(u_ng[n], rgd,
                                                       self.vtr_g, gcut, e,
-                                                      pt_g=pt_ng[n])
+                                                      pt_g=pt_ng[n])[0]
 
                 A_nn = (dH_nn - e * dS_nn) / (4 * pi)
                 B_nn = rgd.integrate(pt_ng[:, None] * u_ng, -1)
@@ -1031,8 +1033,8 @@ class PAWSetupGenerator:
         setup.ExxC = self.exxcc
         setup.X_p = pack2(self.exxcv_ii[I][:, I])
 
-        setup.tauc_g = self.tauc_g
-        setup.tauct_g = self.tauct_g
+        setup.tauc_g = self.tauc_g * (4 * pi)**0.5
+        setup.tauct_g = self.tauct_g * (4 * pi)**0.5
 
         if self.aea.scalar_relativistic:
             reltype = 'scalar-relativistic'
