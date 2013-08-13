@@ -12,7 +12,6 @@ calc = GPAW(h=0.25,
             kpts=(8, 8, 8),
             occupations=FermiDirac(width=0.05),
             nbands=3,
-            setups={'Na': '1'},
             txt='Na_sc.txt')
 
 atoms.set_calculator(calc)
