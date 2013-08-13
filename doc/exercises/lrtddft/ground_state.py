@@ -12,7 +12,6 @@ atoms.center(vacuum=4.0) # For real calculations use larger vacuum (e.g. 6)
 
 calc = GPAW(nbands=1,
             h=0.35,
-            setups={'Na': '1'},
             txt='Na2_gs.txt')
 
 atoms.set_calculator(calc)
