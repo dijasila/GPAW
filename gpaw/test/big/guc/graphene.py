@@ -23,7 +23,7 @@ kpts_c[~atoms.get_pbc()] = 1
 calc.set(kpts=kpts_c)
 eppa1 = atoms.get_potential_energy() / len(atoms)
 F1_av = atoms.get_forces()
-equal(np.abs(F1_av).max(), 0, 5e-3)
+equal(abs(F1_av).max(), 0, 0.02)
 
 # Redo calculation with non-orthogonal unitcell
 atoms = Atoms(symbols='C2', pbc=(True,True,False),
@@ -36,6 +36,6 @@ kpts_c[~atoms.get_pbc()] = 1
 calc.set(kpts=kpts_c)
 eppa2 = atoms.get_potential_energy() / len(atoms)
 F2_av = atoms.get_forces()
-equal(np.abs(F2_av).max(), 0, 5e-3)
+equal(abs(F2_av).max(), 0, 0.00001)
 
 equal(eppa1, eppa2, 1e-3)
