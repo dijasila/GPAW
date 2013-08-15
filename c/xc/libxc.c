@@ -253,6 +253,7 @@ lxcXCFunctional_CalculateFXC_FD_SpinPaired(lxcXCFunctionalObject *self, PyObject
 
   self->get_fxc = get_fxc_fd_spinpaired;
   /* ################################################################ */
+  Py_BEGIN_ALLOW_THREADS;
   for (int g = 0; g < ng; g++)
     {
       double n = n_g[g];
@@ -333,6 +334,7 @@ lxcXCFunctional_CalculateFXC_FD_SpinPaired(lxcXCFunctionalObject *self, PyObject
       }
 
     }
+  Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
 
@@ -570,7 +572,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
                         &py_sigma_xg, &py_dedsigma_xg,
                         &py_tau_sg, &py_dedtau_sg))
     return NULL;
-
+  Py_BEGIN_ALLOW_THREADS;
   xcinfo info;
   info.nspin = self->nspin;
   info.spinpolarized = (info.nspin==2);
@@ -690,7 +692,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
           noutcopy = 3; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         case XC_FAMILY_MGGA:
-          xc_mgga_exc_vxc(func, blocksize, n_sg, sigma_xg, scratch_lapl, tau_sg,
+	  xc_mgga_exc_vxc(func, blocksize, n_sg, sigma_xg, scratch_lapl, tau_sg,
                           e_g, dedn_sg, dedsigma_xg, scratch_vlapl, dedtau_sg);
           noutcopy = 4; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
@@ -713,7 +715,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
 
     remaining -= blocksize;
   } while (remaining>0);
-
+  Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
 
@@ -742,6 +744,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
   int remaining = info.ng;
 
   // setup pointers using most complex functional
+  Py_BEGIN_ALLOW_THREADS;
   switch(self->functional[0]->info->family)
     {
     case XC_FAMILY_MGGA:
@@ -860,7 +863,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
 
     remaining -= blocksize;
   } while (remaining>0);
-
+  Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
 

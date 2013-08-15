@@ -64,7 +64,7 @@ static PyObject * Operator_relax(OperatorObject *self,
   if (!PyArg_ParseTuple(args, "iOOi|d", &relax_method, &func, &source,
                         &nrelax, &w))
     return NULL;
-
+  Py_BEGIN_ALLOW_THREADS;
   const boundary_conditions* bc = self->bc;
 
   double* fun = DOUBLEP(func);
@@ -94,6 +94,7 @@ static PyObject * Operator_relax(OperatorObject *self,
   free(recvbuf);
   free(sendbuf);
   free(buf);
+  Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
 
@@ -344,7 +345,7 @@ static PyObject * Operator_apply(OperatorObject *self,
   const double_complex* ph;
 
   bool real = (input->descr->type_num == PyArray_DOUBLE);
-
+  Py_BEGIN_ALLOW_THREADS;
   if (real)
     ph = 0;
   else
@@ -407,7 +408,7 @@ static PyObject * Operator_apply(OperatorObject *self,
 #endif
   free(wargs);
   free(thds);
-
+  Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
 

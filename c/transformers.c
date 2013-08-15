@@ -142,6 +142,7 @@ static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
   const double_complex* ph = (real ? 0 : COMPLEXP(phases));
 
   int nthds = 1;
+  Py_BEGIN_ALLOW_THREADS;
 #ifdef GPAW_OMP
   if (getenv("OMP_NUM_THREADS") != NULL)
     nthds = atoi(getenv("OMP_NUM_THREADS"));
@@ -174,7 +175,7 @@ static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
 #endif
   free(wargs);
   free(thds);
-
+  Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
 

@@ -114,40 +114,47 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
 
   if (self->mgga) {
     int nspin = PyArray_DIM(n_array, 0) == 1 ? 1 : 2;
+    Py_BEGIN_ALLOW_THREADS;
     calc_mgga(&self->mgga, nspin, ng, n_g, sigma_g, tau_g, e_g, v_g, dedsigma_g, dedtau_g);
+    Py_END_ALLOW_THREADS;
     Py_RETURN_NONE;
   }
 
   if (PyArray_DIM(n_array, 0) == 1)
-    for (int g = 0; g < ng; g++)
-      {
-        double n = n_g[g];
-        if (n < NMIN)
-          n = NMIN;
-        double rs = pow(C0I / n, THIRD);
-        double dexdrs;
-        double dexda2;
-        double ex;
-        double decdrs;
-        double decda2;
-        double ec;
-        if (par->gga)
-          {
-            double a2 = sigma_g[g];
-            ex = self->exchange(par, n, rs, a2, &dexdrs, &dexda2);
-            ec = self->correlation(n, rs, 0.0, a2, 1, 0, &decdrs, 0, &decda2);
-            dedsigma_g[g] = n * (dexda2 + decda2);
-          }
-        else
-          {
-            ex = self->exchange(par, n, rs, 0.0, &dexdrs, 0);
-            ec = self->correlation(n, rs, 0.0, 0.0, 0, 0, &decdrs, 0, 0);
-          }
-        e_g[g] = n * (ex + ec);
-        v_g[g] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
-      }
+    {
+      Py_BEGIN_ALLOW_THREADS;
+      for (int g = 0; g < ng; g++)
+	{
+	  double n = n_g[g];
+	  if (n < NMIN)
+	    n = NMIN;
+	  double rs = pow(C0I / n, THIRD);
+	  double dexdrs;
+	  double dexda2;
+	  double ex;
+	  double decdrs;
+	  double decda2;
+	  double ec;
+	  if (par->gga)
+	    {
+	      double a2 = sigma_g[g];
+	      ex = self->exchange(par, n, rs, a2, &dexdrs, &dexda2);
+	      ec = self->correlation(n, rs, 0.0, a2, 1, 0, &decdrs, 0, &decda2);
+	      dedsigma_g[g] = n * (dexda2 + decda2);
+	    }
+	  else
+	    {
+	      ex = self->exchange(par, n, rs, 0.0, &dexdrs, 0);
+	      ec = self->correlation(n, rs, 0.0, 0.0, 0, 0, &decdrs, 0, 0);
+	    }
+	  e_g[g] = n * (ex + ec);
+	  v_g[g] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
+	}
+      Py_END_ALLOW_THREADS;
+    }
   else
     {
+      Py_BEGIN_ALLOW_THREADS;
       const double* na_g = n_g;
       double* va_g = v_g;
       const double* nb_g = na_g + ng;
@@ -222,6 +229,7 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
                       (rsb * dexbdrs + rs * decdrs) / 3.0 -
                       (zeta + 1.0) * decdzeta);
         }
+      Py_END_ALLOW_THREADS;
     }
   Py_RETURN_NONE;
 }
