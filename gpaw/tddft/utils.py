@@ -6,6 +6,7 @@ from gpaw.utilities.mblas import multi_axpy,multi_dotc,multi_dotu,multi_scal
 
 import _gpaw
 
+import gpaw.cuda
 
 class MultiBlas:
     def __init__(self, gd, timer = None):
@@ -14,53 +15,64 @@ class MultiBlas:
         #self.timer = timer
 
     # Multivector ZAXPY: a x + y => y
-    def multi_zaxpy(self, a,x,y, nvec):
+    def multi_zaxpy(self, a, x, y):
         assert type(x) == type(y)
         if self.timer is not None:
-            self.timer.start('multi_axpy')
+            self.timer.start('Multi zaxpy')
         if isinstance(a, (float, complex)):
-            axpy(a*(1+0J), x, y)
+            axpy(complex(a), x, y)
         else:
-            multi_axpy(a*(1+0J), x, y)
+            multi_axpy(a.astype(complex), x, y)
         if self.timer is not None:
-            self.timer.stop('multi_axpy')
+            self.timer.stop('Multi zaxpy')
 
 
     # Multivector dot product, a^H b, where ^H is transpose
-    def multi_zdotc(self, s, x,y, nvec):
+    def multi_zdotc(self, x, y, s = None):
         if self.timer is not None:
-            self.timer.start('multi_zdotc')
+            self.timer.start('Multi zdotc')
 
-        s=multi_dotc(x,y,s)
-        
-        self.gd.comm.sum(s)
+        ss = multi_dotc(x, y, s)
+        if self.gd.comm.size > 1:
+            if isinstance(ss, gpaw.cuda.gpuarray.GPUArray):
+                s_cpu = ss.get(pagelocked = True)
+                self.gd.comm.sum(s_cpu)
+                ss.set(s_cpu)
+            else:    
+                self.gd.comm.sum(ss)
         if self.timer is not None:
-            self.timer.stop('multi_zdotc')
-        return s
+            self.timer.stop('Multi zdotc')
+        return ss
 
-    def multi_zdotu(self, s, x,y, nvec):
+    def multi_zdotu(self, x, y, s = None):
         if self.timer is not None:
-            self.timer.start('multi_zdotu')
+            self.timer.start('Multi zdotu')
 
-        s=multi_dotu(x,y,s)
-        
-        self.gd.comm.sum(s)
+        ss = multi_dotu(x, y, s)
+        if self.gd.comm.size > 1:
+            if isinstance(s, gpaw.cuda.gpuarray.GPUArray):
+                s_cpu = ss.get(pagelocked = True)
+                self.gd.comm.sum(s_cpu)
+                ss.set(s_cpu)
+            else:    
+                self.gd.comm.sum(ss)        
+
         if self.timer is not None:
-            self.timer.stop('multi_zdotu')
-        return s
+            self.timer.stop('Multi zdotu')
+        return ss
 
             
     # Multiscale: a x => x
-    def multi_scale(self, a,x, nvec):
+    def multi_scale(self, a, x):
         if self.timer is not None:
-            self.timer.start('multi_scale')
+            self.timer.start('Multi scale')
         if isinstance(a, (float, complex)):
             scal(a,x)
         else:
             multi_scal(a,x)
 
         if self.timer is not None:
-            self.timer.stop('multi_scale')
+            self.timer.stop('Multi scale')
 
 
 

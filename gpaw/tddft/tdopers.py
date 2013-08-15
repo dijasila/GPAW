@@ -56,7 +56,8 @@ class TimeDependentHamiltonian:
         # internal smooth potential
         self.vt_sG = hamiltonian.gd.zeros(hamiltonian.nspins)
 
-        self.vt_sG_gpu = hamiltonian.gd.zeros(hamiltonian.nspins, cuda=self.cuda)
+        #if self.cuda:
+        #    self.vt_sG_gpu = hamiltonian.gd.zeros(hamiltonian.nspins, cuda=self.cuda)
 
         # Increase the accuracy of Poisson solver
         self.hamiltonian.poisson.eps = 1e-12
@@ -145,10 +146,10 @@ class TimeDependentHamiltonian:
 
         
         if isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
-            if self.cuda:
-                vt_G = self.vt_sG_gpu[s]
-            else:            
-                vt_G = gpaw.cuda.gpuarray.to_gpu(self.vt_sG[s])
+            #if self.cuda:
+            vt_G = self.vt_sG_gpu[s]
+            #else:            
+            #    vt_G = gpaw.cuda.gpuarray.to_gpu(self.vt_sG[s])
             if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
                 _gpaw.elementwise_multiply_add_gpu(psit_nG.gpudata,psit_nG.shape,psit_nG.dtype,
                                                    vt_G.gpudata,vt_G.dtype,Htpsit_nG.gpudata);
@@ -214,7 +215,7 @@ class TimeDependentHamiltonian:
             #raise NotImplementedError
             pass
 
-    def apply(self, kpt, psit, hpsit, calculate_P_ani=True):
+    def apply(self, kpt, psit, hpsit, calculate_P_ani = True, P_axi = None):
         """Applies the time-dependent Hamiltonian to the wavefunction psit of
         the k-point kpt.
         
@@ -235,21 +236,26 @@ class TimeDependentHamiltonian:
         """
 
         self.hamiltonian.timer.start('Apply time-dependent Hamiltonian')
-        #if debug_cuda and self.cuda:                
-        #    if not  np.allclose(self.vt_sG,self.vt_sG_gpu.get(),
-        #                        debug_cuda_reltol,debug_cuda_abstol):
-        #        diff=abs(self.vt_sG-self.vt_sG_gpu.get())
-        #        error_i=np.unravel_index(np.argmax(diff - debug_cuda_reltol * abs(self.vt_sG)),diff.shape)
-        #        print "Debug cuda: TDHamiltonian vt_sG max rel error: ",error_i,\
-        #              self.vt_sG[error_i],self.vt_sG_gpu.get()[error_i], \
-        #              abs(self.vt_sG[error_i]-self.vt_sG_gpu.get()[error_i])
-        #        error_i=np.unravel_index(np.argmax(diff),diff.shape)
-        #        print "Debug cuda: TDHamiltonian vt_sG max abs error: ",error_i,\
-        #              self.vt_sG[error_i],self.vt_sG_gpu.get()[error_i],\
-        #              abs(self.vt_sG[error_i]-self.vt_sG_gpu.get()[error_i])
-        
-        self.hamiltonian.apply(psit, hpsit, self.wfs, kpt, calculate_P_ani)
 
+        self.wfs.apply_pseudo_hamiltonian(kpt, self.hamiltonian, psit,
+                                          hpsit)
+        if P_axi is None:
+            shape = psit.shape[:-3]
+            P_axi = self.wfs.pt.dict(shape)
+            
+            if calculate_P_ani:  # TODO calculate_P_ani=False is experimental
+                wfs.pt.integrate(psit, P_axi, kpt.q)
+            else:
+                for a, P_ni in kpt.P_ani.items():
+                    P_axi[a][:] = P_ni
+
+        c_axi = {}
+        for a, P_xi in P_axi.items():
+            dH_ii = unpack(self.hamiltonian.dH_asp[a][kpt.s])
+            c_axi[a] = np.dot(P_xi, dH_ii)
+                
+        self.wfs.pt.add(hpsit, c_axi, kpt.q)
+            
         # PAW correction
         if self.P is not None:
             self.P.add(psit, hpsit, self.wfs, kpt)
@@ -429,7 +435,7 @@ class AbsorptionKickHamiltonian:
         """
         pass
         
-    def apply(self, kpt, psit, hpsit, calculate_P_ani=True):
+    def apply(self, kpt, psit, hpsit, calculate_P_ani = True, P_axi = None):
         """Applies the absorption kick Hamiltonian to the wavefunction psit of
         the k-point kpt.
         
@@ -474,7 +480,7 @@ class TimeDependentOverlap(Overlap):
         """
         Overlap.__init__(self, ksl, timer)
 
-    def update_k_point_projections(self, wfs, kpt, psit=None, cuda_psit_nG=False):
+    def update_k_point_projections(self, wfs, kpt, psit=None):
         """Updates the projector function overlap integrals
         with the wavefunctions of a given k-point.
         
@@ -489,18 +495,19 @@ class TimeDependentOverlap(Overlap):
             (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
 
         """
-        self.overlap.timer.start('Update k-point projections')
+        #self.overlap.timer.start('Update k-point projections')
+
         
         if psit is not None:
             wfs.pt.integrate(psit, kpt.P_ani, kpt.q)
         else:
-            if cuda_psit_nG:
+            if kpt.cuda:
                 wfs.pt.integrate(kpt.psit_nG_gpu, kpt.P_ani, kpt.q)
             else:
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-        self.overlap.timer.stop('Update k-point projections')
+        #self.overlap.timer.stop('Update k-point projections')
 
-    def update(self, wfs, cuda_psit_nG=False):
+    def update(self, wfs):
         """Updates the time-dependent overlap operator.
         
         Parameters
@@ -510,7 +517,7 @@ class TimeDependentOverlap(Overlap):
 
         """
         for kpt in wfs.kpt_u:
-            self.update_k_point_projections(wfs, kpt, cuda_psit_nG=cuda_psit_nG)
+            self.update_k_point_projections(wfs, kpt)
     
     def half_update(self, wfs):
         """Updates the time-dependent overlap operator, in such a way,
@@ -538,29 +545,51 @@ class TimeDependentOverlap(Overlap):
         # !!! FIX ME !!! update overlap operator/projectors/...
         pass
     
-    #def apply(self, psit, spsit, wfs, kpt, calculate_P_ani=True):
-    #    """Apply the time-dependent overlap operator to the wavefunction
-    #    psit of the k-point kpt.
-    #    
-    #    Parameters
-    #    ----------
-    #    psit: List of coarse grids
-    #        the wavefuntions (on coarse grid) 
-    #        (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
-    #    spsit: List of coarse grids
-    #        the resulting "operated wavefunctions" (S psit)
-    #    wfs: TimeDependentWaveFunctions
-    #        time-independent grid-based wavefunctions
-    #    kpt: Kpoint
-    #        the current k-point (kpt_u[index_of_k-point])
-    #    calculate_P_ani: bool
-    #        When True, the integrals of projector times vectors
-    #        P_ni = <p_i | psit> are calculated.
-    #        When False, existing P_ani are used
-    #
-    #    """
-    #    self.overlap.apply(psit, spsit, wfs, kpt, calculate_P_ani)
-    #
+    def apply(self, psit, spsit, wfs, kpt, calculate_P_ani = True, P_axi = None):
+        """Apply the time-dependent overlap operator to the wavefunction
+        psit of the k-point kpt.
+        
+        Parameters
+        ----------
+        psit: List of coarse grids
+            the wavefuntions (on coarse grid) 
+            (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
+        spsit: List of coarse grids
+            the resulting "operated wavefunctions" (S psit)
+        wfs: TimeDependentWaveFunctions
+            time-independent grid-based wavefunctions
+        kpt: Kpoint
+            the current k-point (kpt_u[index_of_k-point])
+        calculate_P_ani: bool
+            When True, the integrals of projector times vectors
+            P_ni = <p_i | psit> are calculated.
+            When False, existing P_ani are used
+    
+        """
+
+        self.timer.start('Apply overlap')
+        if isinstance(psit,gpaw.cuda.gpuarray.GPUArray):
+            gpaw.cuda.drv.memcpy_dtod(spsit.gpudata, psit.gpudata, psit.nbytes)
+        else:
+            spsit[:] = psit
+
+        if P_axi is None:
+            shape = psit.shape[:-3]
+            P_axi = wfs.pt.dict(shape)
+
+            if calculate_P_ani:
+                wfs.pt.integrate(psit, P_axi, kpt.q)
+            else:
+                for a, P_ni in kpt.P_ani.items():
+                    P_axi[a][:] = P_ni
+            
+        c_axi = {}
+        for a, P_xi in P_axi.items():
+            c_axi[a] = np.dot(P_xi, wfs.setups[a].dO_ii)
+        wfs.pt.add(spsit, c_axi, kpt.q) # spsit += sum_ai pt^a_i P_axi
+        self.timer.stop('Apply overlap')
+        
+    
     def apply_inverse(self, a_nG, b_nG, wfs, kpt, calculate_P_ani=True, use_cg=True):
         """Apply the approximative time-dependent inverse overlap operator
         to the wavefunction psit of the k-point kpt.
@@ -591,23 +620,10 @@ class TimeDependentOverlap(Overlap):
             return            
 
         self.timer.start('Apply exact inverse overlap')
-        from gpaw.utilities.blas import dotu, axpy, dotc
+        from gpaw.utilities.mblas import multi_dotu, multi_axpy, multi_dotc
         #from gpaw.tddft.cscg import multi_zdotu, multi_scale, multi_zaxpy
         #initialization
           # Multivector dot product, a^T b, where ^T is transpose
-        def multi_zdotu(s, x,y, nvec):
-            for i in range(nvec):
-                s[i] = dotu(x[i],y[i])
-            wfs.gd.comm.sum(s)
-            return s
-        # Multivector ZAXPY: a x + y => y
-        def multi_zaxpy(a,x,y, nvec):
-            for i in range(nvec):
-                axpy(a[i]*(1+0J), x[i], y[i])
-        # Multiscale: a x => x
-        def multi_scale(a,x, nvec):
-            for i in range(nvec):
-                x[i] *= a[i]
         nvec = len(a_nG)
         r = wfs.gd.zeros(nvec, dtype=wfs.dtype)
         z  = wfs.gd.zeros((nvec,), dtype=wfs.dtype)
@@ -622,7 +638,8 @@ class TimeDependentOverlap(Overlap):
         rho_prev  = np.zeros((nvec,), dtype=wfs.dtype)
         rho_prev[:] = 1.0
         tol_cg = 1e-14
-        multi_zdotu(scale, a_nG, a_nG, nvec)
+        multi_zdotu(a_nG, a_nG, scale)
+        wfs.gd.comm.sum(scale)
         scale = np.abs(scale)
 
         x = b_nG #XXX TODO rename this
@@ -642,22 +659,23 @@ class TimeDependentOverlap(Overlap):
 
             self.apply_inverse(r, z, wfs, kpt, calculate_P_ani, use_cg=False)
 
-            multi_zdotu(rho, r, z, nvec)
-
+            multi_zdotu(r, z, rho)
+            wfs.gd.comm.sum(rho)
             beta = rho / rho_prev
-            multi_scale(beta, p, nvec)
+            multi_scale(beta, p)
             p += z
 
             self.apply(p,q,wfs,kpt, calculate_P_ani)
 
-            multi_zdotu(alpha, p, q, nvec)
+            multi_zdotu(p, q, alpha)
+            wfs.gd.comm.sum(alpha)
             alpha = rho/alpha
 
-            multi_zaxpy(alpha, p, x, nvec)
-            multi_zaxpy(-alpha, q, r, nvec)
+            multi_zaxpy(alpha, p, x)
+            multi_zaxpy(-alpha, q, r)
 
-            multi_zdotu(normr2, r,r, nvec)
-
+            multi_zdotu(r,r, normr2)
+            wfs.gd.comm.sum(normr2)
             #rhoc = rho.copy()
             rho_prev[:] = rho.copy()
             #rho.copy()
@@ -672,10 +690,10 @@ class TimeDependentOverlap(Overlap):
 
 class TimeDependentWaveFunctions(FDWaveFunctions):
     def __init__(self, stencil, diagksl, orthoksl, initksl, gd, nvalence, setups,
-                 bd, world, kd, timer=None):
+                 bd, world, kd, timer=None, cuda=False):
         FDWaveFunctions.__init__(self, stencil, diagksl, orthoksl, initksl,
                                  gd, nvalence, setups, bd, complex, world,
-                                 kd, timer)
+                                 kd, timer, cuda=cuda)
 
     def make_overlap(self):
         return TimeDependentOverlap(self.orthoksl, self.timer)
@@ -775,7 +793,7 @@ class DummyDensity:
         """
         self.wfs = wfs
 
-    def update(self, cuda_psit_nG=False):
+    def update(self):
         pass
 
     def get_wavefunctions(self):
@@ -804,7 +822,7 @@ class TimeDependentDensity(DummyDensity):
         DummyDensity.__init__(self, paw.wfs)
         self.density = paw.density
 
-    def update(self, cuda_psit_nG=False):
+    def update(self):
         """Updates the time-dependent density.
         
         Parameters
@@ -814,7 +832,7 @@ class TimeDependentDensity(DummyDensity):
         """
         #for kpt in self.wfs.kpt_u:
         #    self.wfs.pt.integrate(kpt.psit_nG, kpt.P_ani)
-        self.density.update(self.wfs, cuda_psit_nG=cuda_psit_nG)
+        self.density.update(self.wfs)
        
     def get_density(self):
         """Returns the current density.

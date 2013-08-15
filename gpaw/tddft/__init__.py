@@ -119,11 +119,13 @@ class TDDFT(GPAW):
         parallel = kwargs.setdefault('parallel', {})
         parallel.setdefault('stridebands', True)
 
+        kwargs.setdefault('cuda', cuda)
+
         # Initialize paw-object without density mixing
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
 
-        GPAW.__init__(self, filename, cuda=self.cuda, **kwargs)
+        GPAW.__init__(self, filename, **kwargs)
 
         assert isinstance(self.wfs, TimeDependentWaveFunctions)
         assert isinstance(self.wfs.overlap, TimeDependentOverlap)
@@ -131,8 +133,9 @@ class TDDFT(GPAW):
         # Prepare for dipole moment file handle
         self.dm_file = None
 
-        print "wfs.cuda ",self.wfs.cuda
-        print "wfs.overlap.cuda ",self.wfs.overlap.cuda 
+        #print "wfs.cuda ",self.wfs.cuda
+        #print "self.cuda ",self.cuda
+        #print "wfs.overlap.cuda ",self.wfs.overlap.cuda 
 
         # Initialize wavefunctions and density 
         # (necessary after restarting from file)
@@ -156,7 +159,7 @@ class TDDFT(GPAW):
         # Time-dependent variables and operators
         self.td_potential = td_potential
         self.td_hamiltonian = TimeDependentHamiltonian(self.wfs, self.atoms,
-                                  self.hamiltonian, td_potential)
+                                  self.hamiltonian, td_potential, cuda=self.cuda)
         self.td_overlap = self.wfs.overlap #TODO remove this property
         self.td_density = TimeDependentDensity(self)
 
@@ -166,7 +169,7 @@ class TDDFT(GPAW):
             self.solver = BiCGStab(gd=wfs.gd, timer=self.timer,
                                    tolerance=tolerance)
         elif solver == 'CSCG':
-            self.solver = CSCG(gd=wfs.gd, timer=self.timer,
+            self.solver = CSCG(wfs, timer=self.timer,
                                tolerance=tolerance, cuda=self.cuda)
         else:
             raise RuntimeError('Solver %s not supported.' % solver)
@@ -254,7 +257,7 @@ class TDDFT(GPAW):
             if self.initialized and key not in ['txt']:
                 raise TypeError("Keyword argument '%s' is immutable." % key)
 
-            if key in ['txt', 'parallel', 'communicator']:
+            if key in ['txt', 'parallel', 'communicator', 'cuda']:
                 continue
             elif key == 'mixer':
                 if not isinstance(kwargs[key], DummyMixer):
@@ -326,15 +329,15 @@ class TDDFT(GPAW):
                 kpt.cuda_psit_nG_htod() 
         
         while self.niter < maxiter:
-            print "Propagate iter = ",self.niter
+            #print "Propagate iter = ",self.niter
             norm = self.density.finegd.integrate(self.density.rhot_g)
 
             # Write dipole moment at every iteration
             if dipole_moment_file is not None:
                 self.update_dipole_moment_file(norm)
 
-            # print output (energy etc.) every 10th iteration 
-            if self.niter % 10 == 0:
+            # print output (energy etc.) every 1th iteration 
+            if self.niter % 1 == 0:
                 self.get_td_energy()
                 
                 T = time.localtime()
@@ -436,17 +439,21 @@ class TDDFT(GPAW):
         kpt_u = self.wfs.kpt_u
         if self.hpsit is None:
             self.hpsit = self.wfs.gd.zeros(len(kpt_u[0].psit_nG),
-                                           dtype=complex)
+                                           dtype=complex, cuda=self.cuda)
         if self.eps_tmp is None:
             self.eps_tmp = np.zeros(len(kpt_u[0].eps_n),
                                     dtype=complex)
 
         # self.Eband = sum_i <psi_i|H|psi_j>
         for kpt in kpt_u:
-            self.td_hamiltonian.apply(kpt, kpt.psit_nG, self.hpsit,
+            if self.cuda:
+                psit_nG=kpt.psit_nG_gpu
+            else:
+                psit_nG=kpt.psit_nG
+                
+            self.td_hamiltonian.apply(kpt, psit_nG, self.hpsit,
                                       calculate_P_ani=False)
-            self.mblas.multi_zdotc(self.eps_tmp, kpt.psit_nG,
-                                   self.hpsit, len(kpt_u[0].psit_nG))
+            self.mblas.multi_zdotc(psit_nG, self.hpsit, self.eps_tmp)
             self.eps_tmp *= self.wfs.gd.dv
             kpt.eps_n[:] = self.eps_tmp.real
 
