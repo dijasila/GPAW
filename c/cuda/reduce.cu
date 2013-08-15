@@ -175,8 +175,9 @@ MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
 
   int mynvec=MAX(MIN(work_buffer_size/min_wsize,nvec),1);
   
-  Tcuda *result_gpu=(Tcuda*)reduce_buffer;
-  Tcuda *work_buffer1=result_gpu+nvec;
+  //  Tcuda *result_gpu=(Tcuda*)reduce_buffer;
+  Tcuda *result_gpu=(Tcuda*)d_odata;
+  Tcuda *work_buffer1=(Tcuda*)reduce_buffer;
   Tcuda *work_buffer2=work_buffer1+work_buffer_size;
 
   int smemSize = (threads <= 32) ? 2 * threads * sizeof(Tcuda) : 
@@ -326,7 +327,7 @@ MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
     }
   }
   
-  GPAW_CUDAMEMCPY(d_odata,result_gpu,Tcuda,nvec,
-		  cudaMemcpyDeviceToHost);
+  /*  GPAW_CUDAMEMCPY(d_odata,result_gpu,Tcuda,nvec,
+      cudaMemcpyDeviceToHost);*/
   
 }

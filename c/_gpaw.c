@@ -11,6 +11,8 @@
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include "cuda/gpaw-cuda-common.h"
+
+void gpaw_cuda_init_c();
 #endif
 
 #ifdef GPAW_WITH_HDF5 
@@ -356,6 +358,7 @@ main(int argc, char **argv)
     }
     PyRun_SimpleString("cuda_ctx.push()");
     PyRun_SimpleString("cuda_ctx.set_cache_config(drv.func_cache.PREFER_L1)");
+    gpaw_cuda_init_c();
   }
 #endif
   

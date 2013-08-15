@@ -21,10 +21,9 @@
 #include "gpaw-cuda-int.h"
 #ifndef CUGPAWCOMPLEX
 
-
-#define MBLAS_BLOCK_X  128
-
-
+#define MBLAS_BLOCK_X  (128)
+#define MAX_BLOCKS     (65535)
+#define MIN_BLOCKS     (MAX_BLOCKS)
 
 #endif
 
@@ -43,47 +42,34 @@
 
 __global__ void Zcuda(multi_scal_cuda_kernel)(int n,const Tcuda *alpha,Tcuda* a)
 {
-  int i=blockIdx.x*MBLAS_BLOCK_X+threadIdx.x;
+  int i = blockIdx.x*MBLAS_BLOCK_X+threadIdx.x;    
   int k=blockIdx.y;
-  a+=n*k+i;
-  if (i<n)
-    a[0]=MULTT(a[0],alpha[k]);
+  
+  a += n*k;
+  
+  while (i < n) {
+    a[i] = MULTT(a[i], alpha[k]);
+    i += gridDim.x*MBLAS_BLOCK_X;
+  }
 }
 
 
 
 
-__global__ void Zcuda(multi_scalx_cuda_kernel)(int n,const double *alpha,Tcuda* a)
+__global__ void Zcuda(multi_axpy_cuda_kernel)(int n, const Tcuda *alpha, const Tcuda *a, 
+					      Tcuda *b)
 {
-  int i=blockIdx.x*MBLAS_BLOCK_X+threadIdx.x;
-  int k=blockIdx.y;
-  a+=n*k+i;
-  if (i<n)
-    a[0]=MULTD(a[0],alpha[k]);
+
+  int k = blockIdx.y;
+  int i = blockIdx.x*MBLAS_BLOCK_X+threadIdx.x; 
+  
+  a += n*k;
+  b += n*k;  
+  while (i < n) {
+      IADD(b[i], MULTT(a[i], alpha[k]));      
+      i += gridDim.x*MBLAS_BLOCK_X;
+  }
 }
-
-
-__global__ void Zcuda(multi_axpy_cuda_kernel)(int n,const Tcuda *alpha,const Tcuda *a,Tcuda *b)
-{
-  int i=blockIdx.x*MBLAS_BLOCK_X+threadIdx.x; 
-  int k=blockIdx.y;
-  a+=n*k+i;
-  b+=n*k+i;
-  if (i<n)
-      IADD(b[0],MULTT(a[0],alpha[k]));      
-}
-
-__global__ void Zcuda(multi_axxpy_cuda_kernel)(int n,const double *alpha,const Tcuda *a,Tcuda *b)
-{
-  int i=blockIdx.x*MBLAS_BLOCK_X+threadIdx.x; 
-  int k=blockIdx.y;
-  a+=n*k+i;
-  b+=n*k+i;
-  if (i<n)
-      IADD(b[0],MULTD(a[0],alpha[k]));      
-}
-
-
 
 
 #ifndef CUGPAWCOMPLEX
@@ -108,37 +94,42 @@ extern "C" {
     Py_ssize_t nd=PyTuple_Size(x_shape);
     for (int d = 2; d < nd; d++)
       n *= PyInt_AsLong(PyTuple_GetItem(x_shape,d));
-    //int incx = 1;
     
     nvec= PyInt_AsLong(PyTuple_GetItem(x_shape,0));
-    
-    if (type->type_num == PyArray_DOUBLE){
-      int gridx=MAX((n+MBLAS_BLOCK_X-1)/MBLAS_BLOCK_X,1);
-      int gridy=nvec;
-      
-      dim3 dimBlock(MBLAS_BLOCK_X,1); 
-      dim3 dimGrid(gridx,gridy);    
-      multi_scal_cuda_kernel<<<dimGrid, dimBlock, 0>>>
-	(n, (double *)alpha_gpu,(double*)x_gpu);
-    } else {
 
-      int gridx=MAX((n+MBLAS_BLOCK_X-1)/MBLAS_BLOCK_X,1);
-      int gridy=nvec;
+
+    if (type->type_num == PyArray_DOUBLE){      
+      int gridx = MIN(MAX((n+MBLAS_BLOCK_X-1)/MBLAS_BLOCK_X,1),MAX_BLOCKS);
+      int gridy = nvec;
       
       dim3 dimBlock(MBLAS_BLOCK_X,1); 
       dim3 dimGrid(gridx,gridy);    
-      if (a_type->type_num == PyArray_DOUBLE){
-	double *alpha=(double*)(alpha_gpu);
-	multi_scalx_cuda_kernelz<<<dimGrid, dimBlock, 0>>> 
-	  (n, alpha,(cuDoubleComplex*)x_gpu);
-      }else{
-	cuDoubleComplex *alpha=(cuDoubleComplex*)(alpha_gpu);
-	multi_scal_cuda_kernelz<<<dimGrid, dimBlock, 0>>> 
-	  (n, alpha,(cuDoubleComplex*)x_gpu);
-      }
+      
+      multi_scal_cuda_kernel<<<dimGrid, dimBlock, 0>>>
+	(n, (double *)alpha_gpu, (double*)x_gpu);
+    } else if (a_type->type_num == PyArray_DOUBLE){
+      double *alpha = (double*)(alpha_gpu);
+      int gridx = MIN(MAX((2*n+MBLAS_BLOCK_X-1)/MBLAS_BLOCK_X,1),MAX_BLOCKS);
+      int gridy = nvec;
+      
+      dim3 dimBlock(MBLAS_BLOCK_X,1); 
+      dim3 dimGrid(gridx,gridy);    
+            
+      multi_scal_cuda_kernel<<<dimGrid, dimBlock, 0>>> 
+	  (2*n, alpha, (double *)x_gpu);
+    }else{
+      cuDoubleComplex *alpha = (cuDoubleComplex*)(alpha_gpu);
+      int gridx = MIN(MAX((n+MBLAS_BLOCK_X-1)/MBLAS_BLOCK_X,1),MAX_BLOCKS);
+      int gridy = nvec;
+      
+      dim3 dimBlock(MBLAS_BLOCK_X,1); 
+      dim3 dimGrid(gridx,gridy);    
+
+      multi_scal_cuda_kernelz<<<dimGrid, dimBlock, 0>>> 
+	(n, alpha, (cuDoubleComplex*)x_gpu);
+      
     }
     gpaw_cudaSafeCall(cudaGetLastError());
-    
     if (PyErr_Occurred())
       return NULL;
     else
@@ -166,44 +157,37 @@ extern "C" {
     Py_ssize_t nd=PyTuple_Size(x_shape);
     for (int d = 2; d < nd; d++)
       n *= PyInt_AsLong(PyTuple_GetItem(x_shape,d));
-    /*int incx = 1;
-      int incy = 1;*/
-    //int nvec = PyArray_SIZE(alpha_i);
-    
     nvec= PyInt_AsLong(PyTuple_GetItem(x_shape,0));
-    
     if (type->type_num == PyArray_DOUBLE){
-      double *alpha=(double*)alpha_gpu;
-      int gridx=MAX((n+MBLAS_BLOCK_X-1)/MBLAS_BLOCK_X,1);
-      int gridy=nvec;
-      
+      double *alpha = (double*)alpha_gpu;
+      int gridx = MIN(MAX((n+MBLAS_BLOCK_X-1)/MBLAS_BLOCK_X,1),MAX_BLOCKS);
+      int gridy = nvec;
       dim3 dimBlock(MBLAS_BLOCK_X,1); 
-      dim3 dimGrid(gridx,gridy);    
-      
+      dim3 dimGrid(gridx,gridy);       
+   
       multi_axpy_cuda_kernel<<<dimGrid, dimBlock, 0>>> 
-	(n, alpha, (double*)x_gpu, (double*)y_gpu);
-      
-    } else {
-      //printf("multi_zaxpy\n");
-
-      int gridx=MAX((n+MBLAS_BLOCK_X-1)/MBLAS_BLOCK_X,1);
-      int gridy=nvec;
-      
+	(n, alpha, (double*)x_gpu, (double*)y_gpu);      
+    } else  if (a_type->type_num == PyArray_DOUBLE){
+      double *alpha = (double*)alpha_gpu;
+      int gridx = MIN(MAX((2*n+MBLAS_BLOCK_X-1)/MBLAS_BLOCK_X,1),MAX_BLOCKS);
+      int gridy = nvec;
       dim3 dimBlock(MBLAS_BLOCK_X,1); 
-      dim3 dimGrid(gridx,gridy);    
-      if (a_type->type_num == PyArray_DOUBLE){
-	double *alpha=(double*)alpha_gpu;
-	multi_axxpy_cuda_kernelz<<<dimGrid, dimBlock, 0>>> 
+      dim3 dimGrid(gridx,gridy);       
+
+      multi_axpy_cuda_kernel<<<dimGrid, dimBlock, 0>>> 
+	(2*n, alpha,(double*)x_gpu,(double*)y_gpu);
+    } else {
+      cuDoubleComplex *alpha = (cuDoubleComplex*)alpha_gpu;
+      int gridx = MIN(MAX((n+MBLAS_BLOCK_X-1)/MBLAS_BLOCK_X,1),MAX_BLOCKS);
+      int gridy = nvec;
+      dim3 dimBlock(MBLAS_BLOCK_X,1); 
+      dim3 dimGrid(gridx,gridy);       
+
+      multi_axpy_cuda_kernelz<<<dimGrid, dimBlock, 0>>> 
 	  (n, alpha,(cuDoubleComplex*)x_gpu,(cuDoubleComplex*)y_gpu);
-      } else {
-	cuDoubleComplex *alpha=(cuDoubleComplex*)alpha_gpu;
-	multi_axpy_cuda_kernelz<<<dimGrid, dimBlock, 0>>> 
-	  (n, alpha,(cuDoubleComplex*)x_gpu,(cuDoubleComplex*)y_gpu);
-      }
     }
     
     gpaw_cudaSafeCall(cudaGetLastError());
-    
     if (PyErr_Occurred())
       return NULL;
     else
@@ -219,53 +203,31 @@ extern "C" {
   PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args)
   {
     
-    PyArrayObject* res_i;
     CUdeviceptr a_gpu;
     CUdeviceptr b_gpu;
+    CUdeviceptr res_gpu;
     
     PyObject *a_shape;
     PyArray_Descr *type;
     
-    //    cuda_mblas_init();  
-    
-    if (!PyArg_ParseTuple(args, "nOnOO", &a_gpu,&a_shape,&b_gpu,&type,&res_i))
+    if (!PyArg_ParseTuple(args, "nOnOn", &a_gpu,&a_shape,&b_gpu,&type,&res_gpu))
       return NULL;
     int n = PyInt_AsLong(PyTuple_GetItem(a_shape,1));
     
     for (int i = 2; i < PyTuple_Size(a_shape); i++)
       n *= PyInt_AsLong(PyTuple_GetItem(a_shape,i));
     
-    /*  int incx = 1;
-	int incy = 1;
-    */
-    //int nvec = PyArray_SIZE(res_i);
     
     int nvec= PyInt_AsLong(PyTuple_GetItem(a_shape,0));
-    
     if (type->type_num == PyArray_DOUBLE) {
-      double *result=(double*)PyArray_DATA(res_i);;
-      reducemap_dotu((double*)a_gpu,(double*)b_gpu,result,n,nvec);
-      /*    for (int i=0;i<nvec;i++){
-	    cublasSetKernelStream(mblas_streams[i%MBLAS_BLOCKS]);
-	    result[i] = cublasDdot(n, (double*)a_gpu+i*n,
-	    incx, (double*)b_gpu+i*n, incy);
-	    
-	    }*/
+      double *result = (double *)res_gpu;
+      reducemap_dotu((double*)a_gpu, (double*)b_gpu, result, n, nvec);
     } else {
-      cuDoubleComplex *result=(cuDoubleComplex*)PyArray_DATA(res_i);
-      reducemap_dotuz((cuDoubleComplex*)a_gpu,(cuDoubleComplex*)b_gpu,
-		      result,n,nvec);
-      /*for (int i=0;i<nvec;i++){
-	cublasSetKernelStream(mblas_streams[i%MBLAS_BLOCKS]);
-	result[i] = cublasZdotu(n, (cuDoubleComplex*)a_gpu+i*n,
-	incx, (cuDoubleComplex*)b_gpu+i*n, incy);
-	}*/
+      cuDoubleComplex *result=(cuDoubleComplex *)res_gpu;
+      reducemap_dotuz((cuDoubleComplex *)a_gpu, (cuDoubleComplex *)b_gpu,
+		      result, n, nvec);
     }
     gpaw_cudaSafeCall(cudaGetLastError());
-    /*  cublasSetKernelStream(NULL);
-	for (int i=0;i<MBLAS_BLOCKS;i++){
-	cudaStreamSynchronize(mblas_streams[i]);
-	}*/
     if (PyErr_Occurred())
       return NULL;
     else
@@ -278,16 +240,14 @@ extern "C" {
   PyObject* multi_dotc_cuda_gpu(PyObject *self, PyObject *args)
   {
     
-    PyArrayObject* res_i;
     CUdeviceptr a_gpu;
     CUdeviceptr b_gpu;
+    CUdeviceptr res_gpu;
     
     PyObject *a_shape;
     PyArray_Descr *type;
     
-    // cuda_mblas_init();  
-    
-    if (!PyArg_ParseTuple(args, "nOnOO", &a_gpu,&a_shape,&b_gpu,&type,&res_i))
+    if (!PyArg_ParseTuple(args, "nOnOn", &a_gpu,&a_shape,&b_gpu,&type,&res_gpu))
       return NULL;
     int n = PyInt_AsLong(PyTuple_GetItem(a_shape,1));
     Py_ssize_t nd=PyTuple_Size(a_shape);
@@ -295,42 +255,18 @@ extern "C" {
       n *= PyInt_AsLong(PyTuple_GetItem(a_shape,i));
       
     }
-    /*  int incx = 1;
-	int incy = 1;
-    */
-    //  int nvec = PyArray_SIZE(res_i);
     int nvec= PyInt_AsLong(PyTuple_GetItem(a_shape,0));
-    
-    
     if (type->type_num == PyArray_DOUBLE) {
       
-      double *result=(double*)PyArray_DATA(res_i);
+      double *result=(double *)res_gpu;
       reducemap_dotc((double*)a_gpu,(double*)b_gpu,result,n,nvec);
-      
-      
-      /*
-	for (int i=0;i<nvec;i++){
-	cublasSetKernelStream(mblas_streams[i%MBLAS_BLOCKS]);
-	result[i] = cublasDdot(n, (double*)a_gpu+i*n,
-	incx, (double*)b_gpu+i*n, incy);
-	
-	}
-      */
+
     } else {
-      cuDoubleComplex *result=(cuDoubleComplex*)PyArray_DATA(res_i);
+      cuDoubleComplex *result=(cuDoubleComplex *)res_gpu;
       reducemap_dotcz((cuDoubleComplex*)a_gpu,(cuDoubleComplex*)b_gpu,
 		      result,n,nvec);
-      /*    for (int i=0;i<nvec;i++){
-	    cublasSetKernelStream(mblas_streams[i%MBLAS_BLOCKS]);
-	    result[i] = cublasZdotc(n, (cuDoubleComplex*)a_gpu+i*n,
-	    incx, (cuDoubleComplex*)b_gpu+i*n, incy);
-	    }*/
     }
     gpaw_cudaSafeCall(cudaGetLastError());
-    /* cublasSetKernelStream(NULL);
-       for (int i=0;i<MBLAS_BLOCKS;i++){
-       cudaStreamSynchronize(mblas_streams[i]);
-       }*/
     if (PyErr_Occurred())
       return NULL;
     else
