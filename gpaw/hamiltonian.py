@@ -9,6 +9,7 @@ from math import pi, sqrt
 import numpy as np
 
 from gpaw.poisson import PoissonSolver
+from gpaw.xc import XCThread
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC
 from gpaw.utilities import pack2, unpack, unpack2
@@ -65,7 +66,8 @@ class Hamiltonian:
         self.timer = timer
         self.xc = xc
 
-        self.cuda = cuda
+        self.cuda = cuda        
+        self.use_xc_thread = True
 
         self.collinear = collinear
         self.ncomp = 2 - int(collinear)
@@ -558,20 +560,32 @@ class RealSpaceHamiltonian(Hamiltonian):
                                          global_integral=False) - Ebar
 
         self.vt_sg[1:self.nspins] = vt_g
-
+        
         self.vt_sg[self.nspins:] = 0.0
-            
-        self.timer.start('XC 3D grid')
-        Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
-        Exc /= self.gd.comm.size
-        self.timer.stop('XC 3D grid')
 
-        self.timer.start('Poisson')
+        if self.use_xc_thread:
+            self.timer.start('XC 3D grid + Poisson')
+            xc_thread = XCThread(self.xc, self.finegd, density.nt_sg, self.vt_sg)
+            xc_thread.start()
+        else:
+            self.timer.start('XC 3D grid')
+            Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
+            Exc /= self.gd.comm.size
+            self.timer.stop('XC 3D grid')
+
+        if not self.use_xc_thread:
+            self.timer.start('Poisson')
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
                                            charge=-density.charge)
-        self.timer.stop('Poisson')
+        if not self.use_xc_thread:
+            self.timer.stop('Poisson')
 
+        if self.use_xc_thread:            
+            Exc = xc_thread.join()
+            Exc /= self.gd.comm.size
+            self.timer.stop('XC 3D grid + Poisson')
+            
         self.timer.start('Hartree integrate/restrict')
         Epot = 0.5 * self.finegd.integrate(self.vHt_g, density.rhot_g,
                                            global_integral=False)

@@ -3,6 +3,19 @@ from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
 from gpaw.xc.mgga import MGGA
 
+from threading import Thread
+
+class XCThread(Thread):
+    def __init__(self, xc, *args):
+        Thread.__init__(self, args=args)
+        self.xc=xc
+        
+    def run(self):
+        self.Exc=self.xc.calculate(*self._Thread__args)
+
+    def join(self):
+        Thread.join(self)
+        return self.Exc
 
 def XC(kernel, parameters=None):
     """Create XCFunctional object.
