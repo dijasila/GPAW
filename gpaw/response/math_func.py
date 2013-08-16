@@ -1,7 +1,7 @@
 from math import sqrt, pi
 import numpy as np
 from gpaw.utilities.blas import gemmdot
-from gpaw.gaunt import gaunt as G_LLL
+from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import Y
 
 
@@ -102,6 +102,8 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=None, Gend=None, rgd=No
         for j2 in range(nj):
             tmp_jjg[j1, j2] = (phi_jg[j1] * phi_jg[j2] -
                                phit_jg[j1] * phit_jg[j2])
+
+    G_LLL = gaunt(max(l_j))
 
     # Loop over G vectors
     for iG in range(Gstart, Gend):

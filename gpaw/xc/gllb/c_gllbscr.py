@@ -4,7 +4,7 @@ from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.xc.gllb import safe_sqr
 from math import sqrt, pi
 from gpaw.io.tar import TarFileReference
-from gpaw.sphere.lebedev import weight_n
+from gpaw.lebedev import weight_n
 import numpy as np
 
 K_G = 0.382106112167171

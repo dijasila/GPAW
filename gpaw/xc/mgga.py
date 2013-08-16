@@ -4,7 +4,7 @@ import numpy as np
 
 from gpaw.xc.gga import GGA
 from gpaw.utilities.blas import axpy
-from gpaw.sphere.lebedev import weight_n
+from gpaw.lebedev import weight_n
 
 
 class MGGA(GGA):

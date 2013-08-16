@@ -12,7 +12,7 @@ from ase.data import atomic_numbers, chemical_symbols
 from gpaw.mpi import world
 from gpaw.version import version
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
-from gpaw.gaunt import make_gaunt
+from gpaw.gaunt import gaunt
 from gpaw.utilities import erf, pack2
 from gpaw.setup_data import SetupData
 from gpaw.utilities.lapack import general_diagonalize
@@ -1077,7 +1077,7 @@ class PAWSetupGenerator:
                         lmax = l
 
         lmax = max(lmax, len(self.waves_l) - 1)
-        G_LLL = make_gaunt(lmax)
+        G_LLL = gaunt(lmax)
 
         # Calculate core contribution to EXX energy:
         self.exxcc = 0.0

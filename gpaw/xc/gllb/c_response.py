@@ -1,7 +1,7 @@
 from gpaw.xc.gllb.contribution import Contribution
 #from gpaw.xc_functional import XCRadialGrid, XCFunctional, XC3DGrid
 #from gpaw.xc_correction import A_Liy, weights
-from gpaw.sphere.lebedev import weight_n
+from gpaw.lebedev import weight_n
 from gpaw.utilities import pack
 from gpaw.xc.gllb import safe_sqr
 from math import sqrt, pi

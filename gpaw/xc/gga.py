@@ -5,7 +5,7 @@ import numpy as np
 from gpaw.xc.lda import LDA
 from gpaw.utilities.blas import axpy
 from gpaw.fd_operators import Gradient
-from gpaw.sphere.lebedev import Y_nL, weight_n
+from gpaw.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 
 

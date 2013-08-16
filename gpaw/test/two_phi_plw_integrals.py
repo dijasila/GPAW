@@ -4,7 +4,6 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.grid_descriptor import GridDescriptor, RadialGridDescriptor
 from gpaw.spline import Spline
 from gpaw.setup import Setup
-from gpaw.gaunt import gaunt as G_LLL
 from gpaw.spherical_harmonics import Y
 from gpaw.response.math_func import two_phi_planewave_integrals
 

@@ -11,7 +11,7 @@ from gpaw.utilities import unpack
 from gpaw.utilities.blas import gemm
 from gpaw.mixer import BaseMixer
 from gpaw.utilities.tools import tri2full
-from gpaw.sphere.lebedev import Y_nL, weight_n
+from gpaw.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 
 X = np.newaxis

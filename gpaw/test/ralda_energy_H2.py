@@ -66,5 +66,5 @@ if rank == 0:
     system('rm H2.gpw')
     system('rm H.gpw')
 
-equal(Ec_H2, -0.8411, 0.001)
-equal(Ec_H, 0.003248, 0.00001)
+equal(Ec_H2, -0.84, 0.02)
+equal(Ec_H, 0.00, 0.02)

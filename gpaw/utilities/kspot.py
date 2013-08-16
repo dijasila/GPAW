@@ -7,7 +7,7 @@ from gpaw.utilities import hartree
 from gpaw.utilities.blas import gemmdot
 from gpaw.atom.all_electron import AllElectron
 from gpaw import extra_parameters
-from gpaw.sphere.lebedev import weight_n, R_nv
+from gpaw.lebedev import weight_n, R_nv
 
 
 def get_scaled_positions(atoms, positions):

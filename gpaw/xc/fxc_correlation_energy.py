@@ -14,7 +14,7 @@ from gpaw.mpi import rank, size, world, serial_comm
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.response.parallel import parallel_partition, set_communicator
 from gpaw.fd_operators import Gradient, Laplace
-from gpaw.sphere.lebedev import weight_n, R_nv
+from gpaw.lebedev import weight_n, R_nv
 from gpaw.io.tar import Writer, Reader
 from gpaw import debug
 from scipy.special import sici

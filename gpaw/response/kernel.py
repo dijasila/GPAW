@@ -2,7 +2,7 @@ import numpy as np
 from math import sqrt, pi, sin, cos, exp
 from gpaw.utilities.blas import gemmdot
 from gpaw.xc import XC
-from gpaw.sphere.lebedev import weight_n, R_nv
+from gpaw.lebedev import weight_n, R_nv
 from gpaw.mpi import world, rank, size
 from ase.dft.kpoints import monkhorst_pack
 

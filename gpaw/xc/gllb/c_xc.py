@@ -1,7 +1,7 @@
 from gpaw.xc.gllb.contribution import Contribution
 from gpaw.xc import XC
 from gpaw.xc.pawcorrection import rnablaY_nLv
-from gpaw.sphere.lebedev import weight_n
+from gpaw.lebedev import weight_n
 import numpy as np
 from numpy import dot as dot3  # Avoid dotblas bug!
 from math import pi, sqrt

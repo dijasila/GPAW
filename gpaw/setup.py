@@ -21,7 +21,7 @@ from ase.data import atomic_names, chemical_symbols, atomic_numbers
 
 from gpaw.setup_data import SetupData
 from gpaw.basis_data import Basis
-from gpaw.gaunt import gaunt as G_LLL, Y_LLv
+from gpaw.gaunt import gaunt, nabla
 from gpaw.utilities import unpack, pack
 from gpaw.rotation import rotation
 from gpaw import extra_parameters
@@ -357,6 +357,8 @@ class BaseSetup:
         # j_i is the list of j values
         # L_i is the list of L (=l**2+m for 0<=m<2*l+1) values
         # https://wiki.fysik.dtu.dk/gpaw/devel/overview.html
+
+        G_LLL = gaunt(max(self.l_j))
 
         # calculate the integrals
         _np = ni * (ni + 1) // 2 # length for packing
@@ -850,6 +852,8 @@ class Setup(BaseSetup):
         return -np.dot(dO_ii, np.linalg.inv(np.identity(ni) + xO_ii))
 
     def calculate_T_Lqp(self, lcut, nq, _np, nj, jlL_i):
+        G_LLL = gaunt(lcut)
+
         Lcut = (2 * lcut + 1)**2
         T_Lqp = np.zeros((Lcut, nq, _np))
         p = 0
@@ -945,6 +949,9 @@ class Setup(BaseSetup):
         #if extra_parameters.get('fprojectors'):
         #    return None
 
+        G_LLL = gaunt(max(self.l_j))
+        Y_LLv = nabla(max(self.l_j))
+
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         nabla_iiv = np.empty((self.ni, self.ni, 3))
@@ -990,6 +997,9 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
+        G_LLL = gaunt(max(self.l_j))
+        Y_LLv = nabla(max(self.l_j))
+
         #if extra_parameters.get('fprojectors'):
         #    return None
         r_g = rgd.r_g
@@ -1015,7 +1025,7 @@ class Setup(BaseSetup):
                         for m3 in range(0, (2 * l3 + 1)):
                             L3 = l3**2 + m3
                             try:
-                                G += np.outer(G_LLL[L3, l1**2:l1**2 + nm1, 
+                                G += np.outer(G_LLL[L3, l1**2:l1**2 + nm1,
                                                     1 + v1],
                                               Y_LLv[L3, l2**2:l2**2 + nm2, v2])
                                 G -= np.outer(G_LLL[L3, l1**2:l1**2 + nm1, 
