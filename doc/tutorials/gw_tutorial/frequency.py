@@ -25,7 +25,7 @@ calc.write('Si_groundstate.gpw','all')
 
 for wlin in [25.,50.,75.,100.]:
 
-    for dw in [0.01,0.02,0.05,0.1,0.2,0.5]:
+    for dw in [0.02,0.05,0.1,0.2,0.5]:
 
         gw = GW(
                 file='Si_groundstate.gpw',
@@ -37,7 +37,5 @@ for wlin in [25.,50.,75.,100.]:
                 wpar=4,
                 txt='Si_GW_wlin%s_dw%s.out' % (wlin, dw)
                )
-
-#        gw.get_exact_exchange()
 
         gw.get_QP_spectrum(file='Si_GW_wlin%s_dw%s.pckl' % (wlin, dw))
