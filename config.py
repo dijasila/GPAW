@@ -119,6 +119,29 @@ def get_system_config(define_macros, undef_macros,
 
         msg += ['* Using SUN high performance library']
 
+    elif sys.platform.startswith('win'):
+
+        # We compile with mingw coming from pythonyx (32-bit)
+        # on the msys command line, e.g.:
+        # LIBRARY_PATH=/c/libxc/lib:/c/OpenBLAS/lib \
+        # C_INCLUDE_PATH=/c/libxc/include python setup.py build
+        if 'LIBRARY_PATH' in os.environ:
+            library_dirs += os.environ['LIBRARY_PATH'].split(os.path.pathsep)
+
+        extra_compile_args += ['-Wall', '-std=c99']
+
+        lib = ''
+        for ld in library_dirs:
+            # OpenBLAS (includes Lapack)
+            if os.path.exists(join(ld, 'libopenblas.a')):
+                lib = 'openblas'
+                directory = ld
+                break
+        if lib == 'openblas':
+             libraries += [lib, 'gfortran']
+        if lib:
+             msg +=  ['* Using %s library from %s' % (lib, directory)]
+
     elif sys.platform in ['aix5', 'aix6']:
 
         #
