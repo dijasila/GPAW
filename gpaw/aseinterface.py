@@ -102,6 +102,32 @@ class GPAW(PAW):
         return ('forces' in quantities and self.forces.F_av is None or
                 'stress' in quantities and self.stress_vv is None)
 
+    def check_state(self, atoms):
+        # XXX hack for compatibility with ASE's cli branch ...
+        return []
+
+    def todict(self):
+        # XXX hack for compatibility with ASE's cli branch ...
+        return {}
+
+    def _get_results(self):
+        # XXX hack for compatibility with ASE's cli branch ...
+        results = {}
+        from ase.calculators.calculator import all_properties
+        for property in all_properties:
+            if property == 'charges':
+                continue
+            if not self.calculation_required(self.atoms, [property]):
+                results[property] = getattr(self,
+                    'get_' + {'energy': 'potential_energy',
+                              'dipole': 'dipole_moment',
+                              'magmom': 'magnetic_moment',
+                              'magmoms': 'magnetic_moments'}.get(
+                                  property, property))(self.atoms)
+        return results
+
+    results = property(_get_results)
+
     def get_number_of_bands(self):
         """Return the number of bands."""
         return self.wfs.bd.nbands
@@ -604,7 +630,10 @@ class GPAW(PAW):
     def get_dipole_moment(self, atoms=None):
         """Return the total dipole moment in ASE units."""
         rhot_g = self.density.rhot_g
-        return self.density.finegd.calculate_dipole_moment(rhot_g) * Bohr
+        try:
+            return self.density.finegd.calculate_dipole_moment(rhot_g) * Bohr
+        except AttributeError:
+            raise NotImplementedError
 
     def get_magnetic_moment(self, atoms=None):
         """Return the total magnetic moment."""
