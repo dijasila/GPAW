@@ -326,6 +326,10 @@ tests = [
 
 exclude = []
 
+# not available on Windows
+if os.name in ['ce', 'nt']:
+    exclude += ['maxrss.py']
+
 if mpi.size > 1:
     exclude += ['maxrss.py',
                 'pes.py',
