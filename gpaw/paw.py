@@ -45,6 +45,8 @@ class PAW(PAWTextOutput):
 
     timer_class = Timer
 
+    name = 'GPAW'
+
     def __init__(self, filename=None, **kwargs):
         """ASE-calculator interface.
 
@@ -135,11 +137,7 @@ class PAW(PAWTextOutput):
         # Prune input for things that didn't change
         for key, value in kwargs.items():
             if key == 'kpts':
-                oldbzk_kc = kpts2ndarray(p.kpts)
-                newbzk_kc = kpts2ndarray(value)
-                if (len(oldbzk_kc) == len(newbzk_kc) and
-                    (oldbzk_kc == newbzk_kc).all()):
-                    kwargs.pop('kpts')
+                pass
             elif np.all(p[key] == value):
                 kwargs.pop(key)
 
@@ -172,7 +170,7 @@ class PAW(PAWTextOutput):
                 self.wfs.set_eigensolver(None)
             
             if key in ['fixmom', 'mixer',
-                       'verbose', 'txt', 'hund', 'random',
+                       'verbose', 'txt', 'label', 'hund', 'random',
                        'eigensolver', 'idiotproof', 'notify']:
                 continue
 
@@ -338,7 +336,10 @@ class PAW(PAWTextOutput):
             world = mpi.world.new_communicator(np.asarray(world))
         self.wfs.world = world
 
-        self.set_text(par.txt, par.verbose)
+        txt = par.txt
+        if par.label is not None:
+            txt = par.label + '.txt'
+        self.set_text(txt, par.verbose)
 
         natoms = len(atoms)
 
@@ -419,7 +420,11 @@ class PAW(PAWTextOutput):
             ncomp = 2
 
         # K-point descriptor
-        kd = KPointDescriptor(par.kpts, nspins, collinear)
+        kpts = par.kpts
+        if isinstance(par.kpts, (float, int)):
+            from ase.calculators.calculator import kptdensity2monkhorstpack
+            kpts = kptdensity2monkhorstpack(atoms, kpts)
+        kd = KPointDescriptor(kpts, nspins, collinear)
 
         width = par.width
         if width is None:

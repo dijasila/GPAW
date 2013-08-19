@@ -32,6 +32,7 @@ class InputParameters(dict):
             ('fixdensity',      False),
             ('mixer',           None),
             ('txt',             '-'),
+            ('label',           None),
             ('hund',            False),
             ('random',          False),
             ('dtype',           None),

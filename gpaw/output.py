@@ -34,7 +34,7 @@ def initialize_text_stream(txt, rank, old_txt=None):
         return devnull, firsttime
     elif txt == '-':
         return sys.stdout, firsttime
-    elif isinstance(txt, str):
+    elif isinstance(txt, (str, unicode)):
         if isinstance(old_txt, file) and old_txt.name == txt:
             return old_txt, firsttime
         else:
