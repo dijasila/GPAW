@@ -47,7 +47,7 @@ class FDTDPoissonSolver(PoissonSolver):
                         tag='fdtd.poisson',
                         remove_moments=(_maxL, 1),
                         communicator=serial_comm,
-                        debugPlots=False,
+                        debugPlots=0,
                         coupling='both'):
 
         assert(coupling in ['none', 'both', 'Cl2Qm', 'Qm2Cl'])
@@ -113,10 +113,18 @@ class FDTDPoissonSolver(PoissonSolver):
             self.cl.poisson_solver.set_grid_descriptor(self, clgd)
 
     # The quantum simulation cell is determined by the two corners v1 and v2
-    def cut_cell(self, atoms_in, _v1, _v2):
+    def cut_cell(self, atoms_in, vacuum=5.0, corners=None):
         qmh = self.qm.spacing_def
-        v1 = np.array(_v1) / Bohr
-        v2 = np.array(_v2) / Bohr
+        if corners != None:
+            v1 = np.array(corners[0]).ravel() / Bohr
+            v2 = np.array(corners[1]).ravel() / Bohr
+        else: # Use vacuum
+            pos_old = atoms_in.get_positions()[0];
+            dmy_atoms = atoms_in.copy()
+            dmy_atoms.center(vacuum=vacuum)
+            pos_new = dmy_atoms.get_positions()[0];
+            v1 = (pos_old - pos_new)/Bohr
+            v2 = v1 + np.diag(dmy_atoms.get_cell())/Bohr
         
         # Sanity check: quantum box must be inside the classical one
         assert(all([v1[w] <= v2[w] and
@@ -666,8 +674,9 @@ class FDTDPoissonSolver(PoissonSolver):
                                 zero_initial_phi=False,
                                 calculation_mode=None):
         
-        if self.debugPlots and np.floor(self.time / self.timestep) % 50 == 0:
-            self.visualize_potential()
+        if self.debugPlots!=0 and np.floor(self.time / self.timestep) % self.debugPlots == 0:
+            from visualization import visualize_density
+            visualize_density(self, plotInduced=False)
 
         # 1) P(t) from P(t-dt) and J(t-dt/2)
         self.classical_material.propagate_polarizations(self.timestep)
