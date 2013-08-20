@@ -118,12 +118,15 @@ class GPAW(PAW):
             if property == 'charges':
                 continue
             if not self.calculation_required(self.atoms, [property]):
-                results[property] = getattr(self,
-                    'get_' + {'energy': 'potential_energy',
-                              'dipole': 'dipole_moment',
-                              'magmom': 'magnetic_moment',
-                              'magmoms': 'magnetic_moments'}.get(
-                                  property, property))(self.atoms)
+                try:
+                    results[property] = getattr(self,
+                        'get_' + {'energy': 'potential_energy',
+                                  'dipole': 'dipole_moment',
+                                  'magmom': 'magnetic_moment',
+                                  'magmoms': 'magnetic_moments'}.get(
+                                      property, property))(self.atoms)
+                except NotImplementedError:
+                    pass
         return results
 
     results = property(_get_results)
