@@ -2,6 +2,6 @@
 
 # Emacs: treat this as -*- python -*-
 
-from gpaw.atom.gpaw_setup import main
+from gpaw.atom.generator2 import generate
 
-main()
+generate()

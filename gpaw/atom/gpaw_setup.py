@@ -159,3 +159,8 @@ def main():
         if opt.plot:
             from gpaw.atom.analyse_setup import analyse
             analyse(g, show=True)
+
+
+if __name__ == '__main__':
+    main()
+

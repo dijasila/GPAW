@@ -847,7 +847,6 @@ class PAWSetupGenerator:
         if tag:
             self.basis.name = tag + '.' + self.basis.name
 
-        self.basis
         return self.basis
 
     def create_basis_function(self, l, n, tailnorm, scale):
@@ -1191,13 +1190,14 @@ def generate(argv=None):
         if not opt.no_check:
             gen.check_all()
 
-        if opt.create_basis_set:
-            gen.create_basis_set(opt.tag).write_xml()
+        if opt.create_basis_set or opt.write:
+            basis = gen.create_basis_set(opt.tag)
+            
+            if opt.create_basis_set:
+                basis.write_xml()
 
-        #gen.test_convergence()
-
-        if opt.write or opt.tag:
-            gen.make_paw_setup(opt.tag).write_xml()
+            if opt.write:
+                gen.make_paw_setup(opt.tag).write_xml()
 
         if opt.logarithmic_derivatives or opt.plot:
             import matplotlib.pyplot as plt
@@ -1318,4 +1318,16 @@ def _generate(symbol, xc, projectors, radii,
 
 
 if __name__ == '__main__':
-    generate()
+    if len(sys.argv) > 1:
+        functionals = sys.argv[1:]
+    else:
+        functionals = ['LDA', 'PBE', 'revPBE', 'RPBE']
+    for xc in functionals:
+        #argv = ['H-Rn', '-swf', xc]
+        argv = ['H-Rn', '-wf', xc]
+        if xc == 'PBE':
+            argv.append('-b')
+        for sc in [False, True]:
+            if sc:
+                argv.extend(['-t', 'sc'])
+            generate(argv)
