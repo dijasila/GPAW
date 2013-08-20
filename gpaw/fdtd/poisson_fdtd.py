@@ -14,6 +14,7 @@ from math import pi
 from gpaw.utilities.gauss import Gaussian
 from poisson_corr import PoissonSolver
 from polarizable_material import *
+from potential_transformers import *
 from string import split
 import _gpaw
 import gpaw.mpi as mpi
@@ -101,6 +102,7 @@ class FDTDPoissonSolver(PoissonSolver):
                                            False,
                                            serial_comm,
                                            None)
+        self.cl.extrapolated_qm_phi = self.cl.gd.empty()
         
         parprint('FDTDPoissonSolver: domain parallelization with %i processes.' % self.cl.gd.comm.size)
 
@@ -111,6 +113,7 @@ class FDTDPoissonSolver(PoissonSolver):
 
         if clgd != None:
             self.cl.poisson_solver.set_grid_descriptor(self, clgd)
+            self.cl.extrapolated_qm_phi = self.cl.gd.empty()
 
     # The quantum simulation cell is determined by the two corners v1 and v2
     def cut_cell(self, atoms_in, vacuum=5.0, corners=None):
@@ -465,7 +468,7 @@ class FDTDPoissonSolver(PoissonSolver):
     
     # Depending on the coupling scheme, the quantum and classical potentials
     # are added in different ways
-    def sum_potentials(self, qm_phi, cl_phi, moments, doplots=False):
+    def sum_potentials(self, qm_phi, cl_phi, rho, moments, doplots=False):
 
         if self.coupling in ['both', 'Cl2Qm']:
 
@@ -488,34 +491,19 @@ class FDTDPoissonSolver(PoissonSolver):
                                      self.extended_deltaIndex:-self.extended_deltaIndex
                                      ]
             
-            
-            # 3a) From quantum to classical grid outside the overlapping region:
-            #     Calculate the multipole moments of the quantum density, then
-            #     determine the potential that they generate at the outside points.
-            if moments == None:
-                # Calculate the multipole moments from self.rho?
-                pass
-            else:
-                center = self.qm.corner1 + 0.5 * self.qm.gd.cell_cv.sum(0)
-                # p = np.sum(np.array([m*Gaussian(self.cl.gd, center=center).get_gauss_pot(l) for m, l in zip(moments, range(self.remove_moment_qm))]), axis=0)
-                p = np.sum(np.array([m * Gaussian(self.cl.gd_global, center=center).get_gauss_pot(l) for m, l in zip(moments, range(self.remove_moment_qm))]), axis=0)
-                p[self.shift_indices_1[0]:self.shift_indices_2[0] - 1,
-                  self.shift_indices_1[1]:self.shift_indices_2[1] - 1,
-                  self.shift_indices_1[2]:self.shift_indices_2[2] - 1] = 0.0
-                cl_phi[:] += p[:]
-                self.cl.extrapolated_qm_phi = p
-	                
-            # 3b) From quantum to classical grid inside the overlapping region:
-            #     The quantum values in qm_phi_copy (i.e. the values before the
-            #     classical values were added) are now added to phi_cl at those
-            #     points that are common to both grids.
-            for n in range(self.num_refinements):
-                qm_phi_copy = self.cl.coarseners[n].apply(qm_phi_copy)
-                
-            cl_phi[self.shift_indices_1[0]:self.shift_indices_2[0] - 1,
-                   self.shift_indices_1[1]:self.shift_indices_2[1] - 1,
-                   self.shift_indices_1[2]:self.shift_indices_2[2] - 1] += qm_phi_copy[:]
-            
+                                                  
+            # 3) From quantum to classical grid, handled by PotentialTransformer object
+            cl_phi += GaussianPotentialTransformer(self.cl.gd,
+                                                   self.qm.gd,
+                                                   self.shift_indices_1,
+                                                   self.shift_indices_2,
+                                                   self.num_refinements,
+                                                   self.cl.coarseners,
+                                                   self.cl.gd_global,
+                                                   self.remove_moment_qm).getPotential(center = self.qm.corner1 + 0.5 * self.qm.gd.cell_cv.sum(0),
+                                                                                       moments = moments,
+                                                                                       inside_potential = qm_phi_copy,
+                                                                                       outside_potential = self.cl.extrapolated_qm_phi)
     
     # Just solve it 
     def solve_solve(self, phi,
@@ -546,7 +534,7 @@ class FDTDPoissonSolver(PoissonSolver):
         global_cl_phi = self.cl.gd.collect(self.cl.phi)  # , broadcast=True)
         
         if self.rank == 0:
-            self.sum_potentials(global_qm_phi, global_cl_phi, moments)
+            self.sum_potentials(global_qm_phi, global_cl_phi, rho, moments)
         
         self.qm.gd.distribute(global_qm_phi, self.qm.phi)
         self.cl.gd.distribute(global_cl_phi, self.cl.phi)
@@ -589,7 +577,7 @@ class FDTDPoissonSolver(PoissonSolver):
         global_cl_phi = self.cl.gd.collect(self.cl.phi)  # , broadcast=True)
 
         if self.rank == 0:
-            self.sum_potentials(global_qm_phi, global_cl_phi, moments)
+            self.sum_potentials(global_qm_phi, global_cl_phi, rho, moments)
 
         self.qm.gd.distribute(global_qm_phi, self.qm.phi)
         self.cl.gd.distribute(global_cl_phi, self.cl.phi)
@@ -634,7 +622,7 @@ class FDTDPoissonSolver(PoissonSolver):
             global_cl_phi = self.cl.gd.collect(self.cl.phi)  # , broadcast=True)
             
             if self.qm.gd.comm.rank == 0:
-                self.sum_potentials(global_qm_phi, global_cl_phi, moments)
+                self.sum_potentials(global_qm_phi, global_cl_phi, rho, moments)
             
             self.qm.gd.distribute(global_qm_phi, self.qm.phi)
             self.cl.gd.distribute(global_cl_phi, self.cl.phi)
@@ -704,7 +692,7 @@ class FDTDPoissonSolver(PoissonSolver):
         global_cl_phi = self.cl.gd.collect(self.cl.phi)  # , broadcast=True)
         
         if self.rank == 0:
-            self.sum_potentials(global_qm_phi, global_cl_phi, moments)
+            self.sum_potentials(global_qm_phi, global_cl_phi, rho, moments)
         
         self.qm.gd.distribute(global_qm_phi, self.qm.phi)
         self.cl.gd.distribute(global_cl_phi, self.cl.phi)
