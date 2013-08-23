@@ -35,9 +35,8 @@ class PoissonOrganizer:
         self.spacing_def = None
         self.spacing = None
 
-# Inherits the properties normal PoissonSolver, and adds a contribution
-# from classical polarization charge density 
-class FDTDPoissonSolver(PoissonSolver):
+# Contains one PoissonSolver for the classical and one for the quantum subsystem
+class FDTDPoissonSolver:
     def __init__(self, nn=3,
                         relax='J',
                         eps=2e-10,
@@ -48,16 +47,17 @@ class FDTDPoissonSolver(PoissonSolver):
                         tag='fdtd.poisson',
                         remove_moments=(_maxL, 1),
                         communicator=serial_comm,
-                        debugPlots=0,
+                        debug_plots=0,
                         coupling='both'):
 
         assert(coupling in ['none', 'both', 'Cl2Qm', 'Qm2Cl'])
-        PoissonSolver.__init__(self)
+        
         if classical_material == None:
             self.classical_material = PolarizableMaterial()
         else:
             self.classical_material = classical_material
-            
+        
+        self.description = 'FDTD+TDDFT'
         self.set_calculation_mode('solve')
         
         self.remove_moment_qm = remove_moments[0]
@@ -68,7 +68,7 @@ class FDTDPoissonSolver(PoissonSolver):
         self.rank = mpi.rank
         self.dm_file = None
         self.kick = None
-        self.debugPlots = debugPlots
+        self.debug_plots = debug_plots
         self.coupling = coupling
         self.maxiter = 2000
         
@@ -106,13 +106,42 @@ class FDTDPoissonSolver(PoissonSolver):
         
         parprint('FDTDPoissonSolver: domain parallelization with %i processes.' % self.cl.gd.comm.size)
 
-    def set_grid_descriptor(self, qmgd=None,
-                                     clgd=None):
-        if qmgd != None:
-            self.qm.poisson_solver.set_grid_descriptor(self, qmgd)
+    # Return the TDDFT stencil by default 
+    def get_stencil(self, mode='qm'):
+        if mode=='qm':
+            return self.qm.poisson_solver.get_stencil()
+        else:
+            return self.cl.poisson_solver.get_stencil()
 
-        if clgd != None:
-            self.cl.poisson_solver.set_grid_descriptor(self, clgd)
+    # Initialize both PoissonSolvers
+    def initialize(self, load_Gauss=False):
+        self.qm.poisson_solver.initialize(load_Gauss)
+        self.cl.poisson_solver.initialize(load_Gauss)     
+
+    def set_grid_descriptor(self, qmgd):
+
+        self.qm.gd = qmgd
+        
+        # Create quantum Poisson solver
+        self.qm.poisson_solver = PoissonSolver()
+        self.qm.poisson_solver.set_grid_descriptor(self.qm.gd)
+        self.qm.poisson_solver.initialize()
+        self.qm.phi = self.qm.gd.zeros()
+
+        # Set quantum grid descriptor
+        self.qm.poisson_solver.set_grid_descriptor(qmgd)
+
+        if self.cl.poisson_solver == None:
+            # Create classical PoissonSolver
+            self.cl.poisson_solver = PoissonSolver()
+            self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
+            self.cl.poisson_solver.initialize()
+            
+            # Initialize classical material, its Poisson solver was generated already
+            self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
+            self.classical_material.initialize(self.cl.gd)
+            self.cl.extrapolated_qm_phi = self.cl.gd.zeros()
+            self.cl.phi = self.cl.gd.zeros()
             self.cl.extrapolated_qm_phi = self.cl.gd.empty()
 
     # The quantum simulation cell is determined by the two corners v1 and v2
@@ -344,7 +373,8 @@ class FDTDPoissonSolver(PoissonSolver):
 
         self.atoms = atoms_out
         return atoms_out, self.qm.spacing[0] * Bohr, qgpts
-                
+
+    
     def initialize_propagation(self, timestep,
                                        kick,
                                        time=0.0,
@@ -507,21 +537,21 @@ class FDTDPoissonSolver(PoissonSolver):
     
     # Just solve it 
     def solve_solve(self, phi,
-                            rho,
-                            charge=None,
-                            eps=None,
-                            maxcharge=1e-6,
-                            zero_initial_phi=False,
-                            calculation_mode=None):
+                           rho,
+                           charge=None,
+                           eps=None,
+                           maxcharge=1e-6,
+                           zero_initial_phi=False,
+                           calculation_mode=None):
         self.qm.phi = phi.copy()  # self.qm.gd.empty()
         # self.cl.phi = self.cl.gd.empty()
-        niter, moments = self.qm.poisson_solver.solve(self, self.qm.phi,
-                                                     rho,
-                                                     charge,
-                                                     eps,
-                                                     maxcharge,
-                                                     zero_initial_phi,
-                                                     self.remove_moment_qm)
+        niter, moments = self.qm.poisson_solver.solve(self.qm.phi,
+                                                      rho,
+                                                      charge,
+                                                      eps,
+                                                      maxcharge,
+                                                      zero_initial_phi,
+                                                      self.remove_moment_qm)
         self.cl.poisson_solver.solve(self.cl.phi,
                                     self.classical_material.sign * self.classical_material.charge_density,
                                     0.0,  # charge,
@@ -557,13 +587,13 @@ class FDTDPoissonSolver(PoissonSolver):
         except:
             self.cl.phi = self.cl.gd.zeros()
         
-        niter, moments = self.qm.poisson_solver.solve(self, self.qm.phi,
-                                                     rho,
-                                                     charge,
-                                                     eps,
-                                                     maxcharge,
-                                                     zero_initial_phi,
-                                                     self.remove_moment_qm)
+        niter, moments = self.qm.poisson_solver.solve(self.qm.phi,
+                                                      rho,
+                                                      charge,
+                                                      eps,
+                                                      maxcharge,
+                                                      zero_initial_phi,
+                                                      self.remove_moment_qm)
 
         self.cl.poisson_solver.solve(self.cl.phi,
                                     self.classical_material.sign * self.classical_material.charge_density,
@@ -602,7 +632,7 @@ class FDTDPoissonSolver(PoissonSolver):
             self.classical_material.solve_rho()  # n = -Grad[P]
                 
             # # Update electrostatic potential         # nabla^2 Vh = -4*pi*n
-            niter, moments = self.qm.poisson_solver.solve(self, self.qm.phi,
+            niter, moments = self.qm.poisson_solver.solve(self.qm.phi,
                                                           rho,
                                                           charge,
                                                           eps,
@@ -662,7 +692,7 @@ class FDTDPoissonSolver(PoissonSolver):
                                 zero_initial_phi=False,
                                 calculation_mode=None):
         
-        if self.debugPlots!=0 and np.floor(self.time / self.timestep) % self.debugPlots == 0:
+        if self.debug_plots!=0 and np.floor(self.time / self.timestep) % self.debug_plots == 0:
             from visualization import visualize_density
             visualize_density(self, plotInduced=False)
 
@@ -673,13 +703,13 @@ class FDTDPoissonSolver(PoissonSolver):
         self.classical_material.solve_rho()
         
         # 3a) V(t) from n(t)       
-        niter, moments = self.qm.poisson_solver.solve(self, self.qm.phi,
-                                                     rho,
-                                                     charge,
-                                                     eps,
-                                                     maxcharge,
-                                                     zero_initial_phi,
-                                                     self.remove_moment_qm)
+        niter, moments = self.qm.poisson_solver.solve(self.qm.phi,
+                                                      rho,
+                                                      charge,
+                                                      eps,
+                                                      maxcharge,
+                                                      zero_initial_phi,
+                                                      self.remove_moment_qm)
         self.cl.poisson_solver.solve(self.cl.phi,
                                     self.classical_material.sign * self.classical_material.charge_density,
                                     0.0,  # charge,
