@@ -14,6 +14,7 @@ from math import pi
 from gpaw.utilities.gauss import Gaussian
 from poisson_corr import PoissonSolver
 from polarizable_material import *
+from potential_couplers import *
 from string import split
 import _gpaw
 import gpaw.mpi as mpi
@@ -146,8 +147,22 @@ class FDTDPoissonSolver:
         self.cl.extrapolated_qm_phi = self.cl.gd.zeros()
         self.cl.phi = self.cl.gd.zeros()
         self.cl.extrapolated_qm_phi = self.cl.gd.empty()
-        
-    # The quantum simulation cell is determined by the two corners v1 and v2
+
+        # Initialize potential coupler
+        self.potential_coupler = NewPotentialCoupler(cl = self.cl,
+                                                     qm = self.qm,
+                                                     index_offset_1 = self.shift_indices_1,
+                                                     index_offset_2 = self.shift_indices_2,
+                                                     extended_index_offset_1 = self.extended_shift_indices_1,
+                                                     extended_index_offset_2 = self.extended_shift_indices_2,
+                                                     extended_delta_index = self.extended_deltaIndex,
+                                                     num_refinements = self.num_refinements,
+                                                     remove_moment_qm = self.remove_moment_qm,
+                                                     remove_moment_cl = self.remove_moment_cl,
+                                                     rank = self.rank)
+        self.phi_tot_clgd = self.cl.gd.empty()
+        self.phi_tot_qmgd = self.qm.gd.empty()
+
     def cut_cell(self, atoms_in, vacuum=5.0, corners=None):
         qmh = self.qm.spacing_def
         if corners != None:
@@ -500,105 +515,21 @@ class FDTDPoissonSolver:
             
     
     # Solve quantum and classical potentials, and add them up
-    def solve_solve(self, charge=None,
-                          eps=None,
-                          maxcharge=1e-6,
-                          zero_initial_phi=False):
+    def solve_solve(self, **kwargs):
+        self.phi_tot_qmgd, self.phi_tot_clgd, niter = self.potential_coupler.getPotential(local_rho_qm_qmgd = self.qm.rho, local_rho_cl_clgd = self.classical_material.sign * self.classical_material.charge_density, **kwargs)
+        self.qm.phi[:] = self.phi_tot_qmgd[:]
+        self.cl.phi[:] = self.phi_tot_clgd[:]
+        return niter
 
-        # Quantum potential
-        local_phi_qm_qmgd = self.qm.phi
-        local_rho_qm_qmgd = self.qm.rho
-        niter, moments = self.qm.poisson_solver.solve(phi=local_phi_qm_qmgd,
-                                                      rho=local_rho_qm_qmgd,
-                                                      charge=charge,
-                                                      eps=eps,
-                                                      maxcharge=maxcharge,
-                                                      zero_initial_phi=zero_initial_phi,
-                                                      remove_moment=self.remove_moment_qm) 
-
-        # Classical potential
-        local_phi_cl_clgd = self.cl.phi
-        local_rho_cl_clgd = self.classical_material.sign * self.classical_material.charge_density
-        self.cl.poisson_solver.solve(phi=local_phi_cl_clgd,
-                                     rho=local_rho_cl_clgd,
-                                     charge=0.0,
-                                     eps=eps,
-                                     maxcharge=0.0,
-                                     zero_initial_phi=zero_initial_phi,
-                                     remove_moment=self.remove_moment_cl)
-
-
-        # Transfer classical potential into quantum subsystem
-        global_phi_qm_qmgd = self.qm.gd.collect(local_phi_qm_qmgd)
-        global_phi_cl_clgd = self.cl.gd.collect(local_phi_cl_clgd)
-
-        if self.rank == 0:
-            # Extract the overlapping region from the classical potential
-            global_phi_cl_clgd_refined= global_phi_cl_clgd[self.extended_shift_indices_1[0]:self.extended_shift_indices_2[0] - 1,
-                                                           self.extended_shift_indices_1[1]:self.extended_shift_indices_2[1] - 1,
-                                                           self.extended_shift_indices_1[2]:self.extended_shift_indices_2[2] - 1].copy()
-            
-            for n in range(self.num_refinements):
-                global_phi_cl_clgd_refined = self.cl.extended_refiners[n].apply(global_phi_cl_clgd_refined)
-            
-            global_phi_qm_qmgd += global_phi_cl_clgd_refined[self.extended_deltaIndex:-self.extended_deltaIndex,
-                                                            self.extended_deltaIndex:-self.extended_deltaIndex,
-                                                            self.extended_deltaIndex:-self.extended_deltaIndex]
-
-        self.qm.gd.distribute(global_phi_qm_qmgd, self.qm.phi)
-        self.cl.gd.distribute(global_phi_cl_clgd, self.cl.phi)
-
-        phi = self.qm.phi
-
-        # Transfer quantum potential into classical subsystem
-        global_rho_qm_qmgd = self.qm.gd.collect(local_rho_qm_qmgd)
-        global_rho_qm_clgd = self.cl.gd.zeros(global_array = True)
-        local_rho_qm_clgd = self.cl.gd.zeros()
-        local_phi_tot_clgd = self.cl.gd.zeros()
-        if self.rank==0:
-            # Coarsen the quantum density
-            global_rho_qm_qmgd_coarsened = global_rho_qm_qmgd.copy()
-            for n in range(self.num_refinements):
-                global_rho_qm_qmgd_coarsened=self.cl.coarseners[n].apply(global_rho_qm_qmgd_coarsened)
-            
-            # Add the coarsened quantum density
-            global_rho_qm_clgd[self.shift_indices_1[0]:self.shift_indices_2[0] - 1,
-                               self.shift_indices_1[1]:self.shift_indices_2[1] - 1,
-                               self.shift_indices_1[2]:self.shift_indices_2[2] - 1] += global_rho_qm_qmgd_coarsened[:]
-            
-        # Distribute the combined density to all processes
-        self.cl.gd.distribute(global_rho_qm_clgd, local_rho_qm_clgd)
-        
-        # Solve potential
-        local_phi_qm_clgd = self.cl.gd.zeros() #self.old_local_phi_qm_clgd
-        self.cl.poisson_solver.solve(phi=local_phi_qm_clgd,
-                                     rho=local_rho_qm_clgd,
-                                     charge=charge,
-                                     eps=eps,
-                                     maxcharge=maxcharge,
-                                     zero_initial_phi=zero_initial_phi,
-                                     remove_moment=None) #self.remove_moment_qm)
-        #self.old_local_phi_qm_clgd = local_phi_qm_clgd.copy()
-        # Add quantum and classical potentials 
-        self.cl.phi = local_phi_cl_clgd + local_phi_qm_clgd
-            
  
     # Iterate classical and quantum potentials until convergence
-    def solve_iterate(self, charge=None,
-                            eps=None,
-                            maxcharge=1e-6,
-                            zero_initial_phi=False):
+    def solve_iterate(self, **kwargs):
         # Initial value (unefficient?) 
-        self.solve_solve(charge=charge,
-                         eps=eps,
-                         maxcharge=maxcharge,
-                         zero_initial_phi=zero_initial_phi)
-
+        self.solve_solve(**kwargs)
         old_rho_qm = self.qm.rho.copy()
         old_rho_cl = self.classical_material.charge_density.copy()
         
-        poissonClCnt = 0
-
+        niter_cl = 0
             
         while True:
             # field from the potential
@@ -611,11 +542,8 @@ class FDTDPoissonSolver:
             self.classical_material.solve_rho()  # n = -Grad[P]
                 
             # Update electrostatic potential         # nabla^2 Vh = -4*pi*n
-            self.solve_solve(charge=charge,
-                             eps=eps,
-                             maxcharge=maxcharge,
-                             zero_initial_phi=zero_initial_phi)
-            
+            niter = self.solve_solve(**kwargs) 
+
             # Mix potential
             try:
                 self.mix_phi
@@ -625,7 +553,7 @@ class FDTDPoissonSolver:
             self.qm.phi = self.mix_phi.mix(self.qm.phi)
                 
             # Check convergence
-            poissonClCnt = poissonClCnt + 1
+            niter_cl += 1
             
             dRho = self.qm.gd.integrate(abs(self.qm.rho - old_rho_qm)) + \
                     self.cl.gd.integrate(abs(self.classical_material.charge_density - old_rho_cl))
@@ -635,17 +563,10 @@ class FDTDPoissonSolver:
             old_rho_qm = rho.copy()
             old_rho_cl = (self.classical_material.sign * self.classical_material.charge_density).copy()
 
-
-        if True:
-            parprint("Poisson equation solved in %i iterations" \
-                     " for the classical part" % (poissonClCnt))
+        return (niter, niter_cl)
         
             
-    def solve_propagate(self, charge=None,
-                              eps=None,
-                              maxcharge=1e-6,
-                              zero_initial_phi=False):
-        
+    def solve_propagate(self, **kwargs):        
         if self.debug_plots!=0 and np.floor(self.time / self.timestep) % self.debug_plots == 0:
             from visualization import visualize_density
             visualize_density(self, plotInduced=False)
@@ -657,11 +578,8 @@ class FDTDPoissonSolver:
         self.classical_material.solve_rho()
         
         # 3a) V(t) from n(t)
-        self.solve_solve(charge=charge,
-                         eps=eps,
-                         maxcharge=maxcharge,
-                         zero_initial_phi=zero_initial_phi)
-                                
+        niter = self.solve_solve(**kwargs)
+        
         # 4a) E(r) from V(t):      E = -Div[Vh]
         self.classical_material.solve_electric_field(self.cl.phi)
                 
@@ -679,7 +597,9 @@ class FDTDPoissonSolver:
         self.time = self.time + self.timestep
                 
         # Do not propagate before the next time step
-        self.set_calculation_mode('solve')             
+        self.set_calculation_mode('solve')
+
+        return niter
                                 
 
     def solve(self, phi,
@@ -700,22 +620,22 @@ class FDTDPoissonSolver:
         self.qm.rho = rho
 
         if(self.calculation_mode == 'solve'):  # do not modify the polarizable material
-            self.solve_solve(charge=None,
-                             eps=None,
-                             maxcharge=maxcharge,
-                             zero_initial_phi=False)
+            return self.solve_solve(charge=None,
+                                   eps=None,
+                                   maxcharge=maxcharge,
+                                   zero_initial_phi=False)
 
         elif(self.calculation_mode == 'iterate'):  # find self-consistent density
-            self.solve_iterate(charge=None,
-                               eps=None,
-                               maxcharge=maxcharge,
-                               zero_initial_phi=False)
+            return self.solve_iterate(charge=None,
+                                      eps=None,
+                                      maxcharge=maxcharge,
+                                      zero_initial_phi=False)
         
         elif(self.calculation_mode == 'propagate'):  # propagate one time step
-            self.solve_propagate(charge=None,
-                                 eps=None,
-                                 maxcharge=maxcharge,
-                                 zero_initial_phi=False)
+            return self.solve_propagate(charge=None,
+                                        eps=None,
+                                        maxcharge=maxcharge,
+                                        zero_initial_phi=False)
 
         
     def update_dipole_moment_file(self, rho):
