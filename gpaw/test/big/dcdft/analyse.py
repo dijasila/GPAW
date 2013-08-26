@@ -34,7 +34,8 @@ if not os.path.exists('%s_raw.csv' % tag):
     task.read()
     task.analyse()
 
-    csvwriter1 = csv.writer(open('%s_raw.csv' % tag, 'wb'))
+    f1 = open('%s_raw.csv' % tag, 'wb')
+    csvwriter1 = csv.writer(f1)
     csvwriter1.writerow(h)
 
     for n in task.collection.names:
@@ -52,6 +53,7 @@ if not os.path.exists('%s_raw.csv' % tag):
             row.extend(['N/A', 'N/A', 'N/A'])
         if 'N/A' not in row:
             csvwriter1.writerow(row)
+    f1.close()
 
 # read raw results
 csvreader1 = csv.reader(open('%s_raw.csv' % tag, 'r'))
