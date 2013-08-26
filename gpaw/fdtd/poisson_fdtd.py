@@ -46,6 +46,7 @@ class FDTDPoissonSolver:
                         qm_spacing=0.30,
                         tag='fdtd.poisson',
                         remove_moments=(_maxL, 1),
+                        potential_coupler='Refiner',
                         communicator=serial_comm,
                         debug_plots=0,
                         coupling='both'):
@@ -60,6 +61,7 @@ class FDTDPoissonSolver:
         self.description = 'FDTD+TDDFT'
         self.set_calculation_mode('solve')
         
+        self.potential_coupling_scheme = potential_coupler
         self.remove_moment_qm = remove_moments[0]
         self.remove_moment_cl = remove_moments[1]
         self.tag = tag
@@ -149,17 +151,33 @@ class FDTDPoissonSolver:
         self.cl.extrapolated_qm_phi = self.cl.gd.empty()
 
         # Initialize potential coupler
-        self.potential_coupler = NewPotentialCoupler(cl = self.cl,
-                                                     qm = self.qm,
-                                                     index_offset_1 = self.shift_indices_1,
-                                                     index_offset_2 = self.shift_indices_2,
-                                                     extended_index_offset_1 = self.extended_shift_indices_1,
-                                                     extended_index_offset_2 = self.extended_shift_indices_2,
-                                                     extended_delta_index = self.extended_deltaIndex,
-                                                     num_refinements = self.num_refinements,
-                                                     remove_moment_qm = self.remove_moment_qm,
-                                                     remove_moment_cl = self.remove_moment_cl,
-                                                     rank = self.rank)
+        if self.potential_coupling_scheme == 'Multipoles':
+            parprint('Classical-quantum coupling by multipole expansion with Lmax = %i' % self.remove_moment_qm)
+            self.potential_coupler = MultipolesPotentialCoupler(cl = self.cl,
+                                                                qm = self.qm,
+                                                                index_offset_1 = self.shift_indices_1,
+                                                                index_offset_2 = self.shift_indices_2,
+                                                                extended_index_offset_1 = self.extended_shift_indices_1,
+                                                                extended_index_offset_2 = self.extended_shift_indices_2,
+                                                                extended_delta_index = self.extended_deltaIndex,
+                                                                num_refinements = self.num_refinements,
+                                                                remove_moment_qm = self.remove_moment_qm,
+                                                                remove_moment_cl = self.remove_moment_cl,
+                                                                rank = self.rank)
+        else:
+            parprint('Classical-quantum coupling by coarsening/refining')
+            self.potential_coupler = NewPotentialCoupler(cl = self.cl,
+                                                         qm = self.qm,
+                                                         index_offset_1 = self.shift_indices_1,
+                                                         index_offset_2 = self.shift_indices_2,
+                                                         extended_index_offset_1 = self.extended_shift_indices_1,
+                                                         extended_index_offset_2 = self.extended_shift_indices_2,
+                                                         extended_delta_index = self.extended_deltaIndex,
+                                                         num_refinements = self.num_refinements,
+                                                         remove_moment_qm = self.remove_moment_qm,
+                                                         remove_moment_cl = self.remove_moment_cl,
+                                                         rank = self.rank)
+            
         self.phi_tot_clgd = self.cl.gd.empty()
         self.phi_tot_qmgd = self.qm.gd.empty()
 
