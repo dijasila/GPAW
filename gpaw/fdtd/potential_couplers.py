@@ -1,24 +1,22 @@
 from gpaw.utilities.gauss import Gaussian
 import numpy as np
 
-# Coarsen quantum potential to suit the classical grid,
-# and refine classical potential to suit the quantum grid 
-class NewPotentialCoupler():
-
+class PotentialCoupler():
     def __init__(self,
-                 cl, # PoissonOrganizer
-                 qm, # PoissonOrganizer
-                 index_offset_1,
-                 index_offset_2,
-                 extended_index_offset_1,
-                 extended_index_offset_2,
-                 extended_delta_index,
-                 num_refinements,
-                 remove_moment_qm,
-                 remove_moment_cl,
-                 rank):
-        self.cl = cl
+                  qm, # PoissonOrganizer
+                  cl, # PoissonOrganizer
+                  index_offset_1,
+                  index_offset_2,
+                  extended_index_offset_1,
+                  extended_index_offset_2,
+                  extended_delta_index,
+                  num_refinements,
+                  remove_moment_qm,
+                  remove_moment_cl,
+                  coupling_level,
+                  rank):
         self.qm = qm
+        self.cl = cl
         self.index_offset_1 = index_offset_1
         self.index_offset_2 = index_offset_2
         self.extended_index_offset_1 = extended_index_offset_1
@@ -27,13 +25,63 @@ class NewPotentialCoupler():
         self.num_refinements = num_refinements
         self.remove_moment_qm = remove_moment_qm
         self.remove_moment_cl = remove_moment_cl
+        self.coupling_level = coupling_level
         self.rank = rank
+        assert(self.coupling_level in ['both', 'qm2cl', 'cl2qm', 'none'])
 
         # These are used to remember the previous solutions
         self.old_local_phi_qm_qmgd = self.qm.gd.zeros()
         self.old_local_phi_cl_clgd = self.cl.gd.zeros()
         self.old_local_phi_qm_clgd = self.cl.gd.zeros()
-        
+    
+    # Add quantum and classical parts (usually potentials)
+    def couple(self, qm_qmgd,
+                      qm_clgd,
+                      cl_qmgd,
+                      cl_clgd):
+        if self.coupling_level=='both':
+            tot_qmgd = cl_qmgd + qm_qmgd
+            tot_clgd = cl_clgd + qm_clgd
+        elif self.coupling_level=='qm2cl':
+            tot_qmgd = qm_qmgd
+            tot_clgd = cl_clgd + qm_clgd
+        elif self.coupling_level=='cl2qm':
+            tot_qmgd = cl_qmgd + qm_qmgd
+            tot_clgd = cl_clgd
+        else: # self.coupling_level=='none'
+            tot_qmgd = qm_qmgd
+            tot_clgd = cl_clgd
+         
+        return tot_qmgd, tot_clgd
+    
+# Coarsen quantum potential to suit the classical grid,
+# and refine classical potential to suit the quantum grid 
+class NewPotentialCoupler(PotentialCoupler):
+
+    def __init__(self, qm,
+                        cl,
+                        index_offset_1,
+                        index_offset_2,
+                        extended_index_offset_1,
+                        extended_index_offset_2,
+                        extended_delta_index,
+                        num_refinements,
+                        remove_moment_qm,
+                        remove_moment_cl,
+                        rank):
+        PotentialCoupler.__init__(self,
+                                  qm,
+                                  cl,
+                                  index_offset_1,
+                                  index_offset_2,
+                                  extended_index_offset_1,
+                                  extended_index_offset_2,
+                                  extended_delta_index,
+                                  num_refinements,
+                                  remove_moment_qm,
+                                  remove_moment_cl,
+                                  coupling_level,
+                                  rank)
 
     def getPotential(self, local_rho_qm_qmgd, local_rho_cl_clgd, **kwargs):
         # Quantum potential
@@ -70,7 +118,6 @@ class NewPotentialCoupler():
                                                             self.extended_delta_index:-self.extended_delta_index,
                                                             self.extended_delta_index:-self.extended_delta_index]
 
-
         self.qm.gd.distribute(global_phi_cl_qmgd, local_phi_cl_qmgd)
 
         # Transfer quantum potential into classical subsystem
@@ -100,46 +147,45 @@ class NewPotentialCoupler():
                                                      **kwargs)
         self.old_local_phi_qm_clgd = local_phi_qm_clgd.copy()
 
-        # Add quantum and classical potentials 
-        local_phi_tot_qmgd = local_phi_cl_qmgd + local_phi_qm_qmgd
-        local_phi_tot_clgd = local_phi_cl_clgd + local_phi_qm_clgd
-
+        # Sum quantum and classical potentials 
+        local_phi_tot_qmgd, local_phi_tot_clgd = self.couple(qm_qmgd = local_phi_qm_qmgd,
+                                                             qm_clgd = local_phi_qm_clgd,
+                                                             cl_qmgd = local_phi_cl_qmgd,
+                                                             cl_clgd = local_phi_cl_clgd)
+        
         return local_phi_tot_qmgd, local_phi_tot_clgd, (niter_qm, niter_cl, niter_qm_clgd)
 
 
 # Refine classical potential to suit the quantum grid, and use the multipole 
 # expansion to extrapolate the quantum potential into classical grid
-class MultipolesPotentialCoupler():
+class MultipolesPotentialCoupler(PotentialCoupler):
 
-    def __init__(self,
-                 cl, # PoissonOrganizer
-                 qm, # PoissonOrganizer
-                 index_offset_1,
-                 index_offset_2,
-                 extended_index_offset_1,
-                 extended_index_offset_2,
-                 extended_delta_index,
-                 num_refinements,
-                 remove_moment_qm,
-                 remove_moment_cl,
-                 rank):
-        self.cl = cl
-        self.qm = qm
-        self.index_offset_1 = index_offset_1
-        self.index_offset_2 = index_offset_2
-        self.extended_index_offset_1 = extended_index_offset_1
-        self.extended_index_offset_2 = extended_index_offset_2
-        self.extended_delta_index = extended_delta_index
-        self.num_refinements = num_refinements
-        self.remove_moment_qm = remove_moment_qm
-        self.remove_moment_cl = remove_moment_cl
-        self.rank = rank
+    def __init__(self, qm,
+                        cl,
+                        index_offset_1,
+                        index_offset_2,
+                        extended_index_offset_1,
+                        extended_index_offset_2,
+                        extended_delta_index,
+                        num_refinements,
+                        remove_moment_qm,
+                        remove_moment_cl,
+                        coupling_level,
+                        rank):
+        PotentialCoupler.__init__(self,
+                                  qm,
+                                  cl,
+                                  index_offset_1,
+                                  index_offset_2,
+                                  extended_index_offset_1,
+                                  extended_index_offset_2,
+                                  extended_delta_index,
+                                  num_refinements,
+                                  remove_moment_qm,
+                                  remove_moment_cl,
+                                  coupling_level,
+                                  rank)
 
-        # These are used to remember the previous solutions
-        self.old_local_phi_qm_qmgd = self.qm.gd.zeros()
-        self.old_local_phi_cl_clgd = self.cl.gd.zeros()
-        self.old_local_phi_qm_clgd = self.cl.gd.zeros()
-        
 
     def getPotential(self, local_rho_qm_qmgd, local_rho_cl_clgd, **kwargs):        
         # Quantum potential
@@ -205,9 +251,11 @@ class MultipolesPotentialCoupler():
         # Distribute the combined potential to all processes
         self.cl.gd.distribute(global_phi_qm_clgd, local_phi_qm_clgd)
         
-        # Add quantum and classical potentials
-        local_phi_tot_qmgd = local_phi_cl_qmgd + local_phi_qm_qmgd
-        local_phi_tot_clgd = local_phi_cl_clgd + local_phi_qm_clgd
+        # Sum quantum and classical potentials
+        local_phi_tot_qmgd, local_phi_tot_clgd = self.couple(qm_qmgd = local_phi_qm_qmgd,
+                                                             qm_clgd = local_phi_qm_clgd,
+                                                             cl_qmgd = local_phi_cl_qmgd,
+                                                             cl_clgd = local_phi_cl_clgd)
 
         return local_phi_tot_qmgd, local_phi_tot_clgd, (niter_qm, niter_cl)
 

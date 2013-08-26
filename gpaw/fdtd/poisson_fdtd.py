@@ -47,11 +47,13 @@ class FDTDPoissonSolver:
                         tag='fdtd.poisson',
                         remove_moments=(_maxL, 1),
                         potential_coupler='Refiner',
+                        coupling_level='both',
                         communicator=serial_comm,
-                        debug_plots=0,
-                        coupling='both'):
+                        debug_plots=0):
 
-        assert(coupling in ['none', 'both', 'Cl2Qm', 'Qm2Cl'])
+        assert(coupling_level in ['none', 'both', 'cl2qm', 'qm2cl'])
+        self.potential_coupling_scheme = potential_coupler
+        self.coupling_level = coupling_level
         
         if classical_material == None:
             self.classical_material = PolarizableMaterial()
@@ -61,7 +63,6 @@ class FDTDPoissonSolver:
         self.description = 'FDTD+TDDFT'
         self.set_calculation_mode('solve')
         
-        self.potential_coupling_scheme = potential_coupler
         self.remove_moment_qm = remove_moments[0]
         self.remove_moment_cl = remove_moments[1]
         self.tag = tag
@@ -71,7 +72,6 @@ class FDTDPoissonSolver:
         self.dm_file = None
         self.kick = None
         self.debug_plots = debug_plots
-        self.coupling = coupling
         self.maxiter = 2000
         
         # Only handle the quantities via self.qm or self.cl 
@@ -153,8 +153,8 @@ class FDTDPoissonSolver:
         # Initialize potential coupler
         if self.potential_coupling_scheme == 'Multipoles':
             parprint('Classical-quantum coupling by multipole expansion with Lmax = %i' % self.remove_moment_qm)
-            self.potential_coupler = MultipolesPotentialCoupler(cl = self.cl,
-                                                                qm = self.qm,
+            self.potential_coupler = MultipolesPotentialCoupler(qm = self.qm,
+                                                                cl = self.cl,
                                                                 index_offset_1 = self.shift_indices_1,
                                                                 index_offset_2 = self.shift_indices_2,
                                                                 extended_index_offset_1 = self.extended_shift_indices_1,
@@ -163,11 +163,12 @@ class FDTDPoissonSolver:
                                                                 num_refinements = self.num_refinements,
                                                                 remove_moment_qm = self.remove_moment_qm,
                                                                 remove_moment_cl = self.remove_moment_cl,
+                                                                coupling_level = self.coupling_level,
                                                                 rank = self.rank)
         else:
             parprint('Classical-quantum coupling by coarsening/refining')
-            self.potential_coupler = NewPotentialCoupler(cl = self.cl,
-                                                         qm = self.qm,
+            self.potential_coupler = NewPotentialCoupler(qm = self.qm,
+                                                         cl = self.cl,
                                                          index_offset_1 = self.shift_indices_1,
                                                          index_offset_2 = self.shift_indices_2,
                                                          extended_index_offset_1 = self.extended_shift_indices_1,
@@ -176,6 +177,7 @@ class FDTDPoissonSolver:
                                                          num_refinements = self.num_refinements,
                                                          remove_moment_qm = self.remove_moment_qm,
                                                          remove_moment_cl = self.remove_moment_cl,
+                                                         coupling_level = self.coupling_level,
                                                          rank = self.rank)
             
         self.phi_tot_clgd = self.cl.gd.empty()
