@@ -49,7 +49,7 @@ parameters = {
 # 19-36:
 'K':  ('4s,s,4p,D', 3.5),
 'K.sc':  ('3s,4s,3p,4p,d,d,F', 2.1),
-'Ca': ('4s,s,4p,D', 3.1),
+'Ca': ('4s,s,4p', 3.1),
 'Ca.sc': ('3s,4s,3p,4p,3d,d,F', 2.1),
 'Sc': ('4s,s,4p,p,3d,d', 2.7),
 'Sc.sc': ('3s,4s,3p,4p,3d,d,F', 2.3),
@@ -1323,8 +1323,8 @@ if __name__ == '__main__':
     else:
         functionals = ['LDA', 'PBE', 'revPBE', 'RPBE']
     for xc in functionals:
-        #argv = ['H-Rn', '-swf', xc]
-        argv = ['H-Rn', '-wf', xc]
+        argv = ['H-Rn', '-swf', xc]
+        #argv = ['H-Rn', '-wf', xc]
         if xc == 'PBE':
             argv.append('-b')
         for sc in [False, True]:
