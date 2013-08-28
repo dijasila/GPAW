@@ -210,6 +210,7 @@ tests = [
     'diamond_eps.py',
     'gemm.py',
     # > 20 sec tests start here
+    'ed.py',
     'rpa_energy_Ni.py',
     'si.py',
     'blocked_rmm_diis.py',

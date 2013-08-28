@@ -42,8 +42,8 @@ class FDTDPoissonSolver:
                         eps=2e-10,
                         classical_material=None,
                         cell=None,
-                        cl_spacing=1.20,
                         qm_spacing=0.30,
+                        cl_spacing=1.20,
                         tag='fdtd.poisson',
                         remove_moments=(_maxL, 1),
                         potential_coupler='Refiner',
@@ -152,7 +152,7 @@ class FDTDPoissonSolver:
 
         # Initialize potential coupler
         if self.potential_coupling_scheme == 'Multipoles':
-            parprint('Classical-quantum coupling by multipole expansion with Lmax = %i' % self.remove_moment_qm)
+            parprint('Classical-quantum coupling by multipole expansion with maxL: %i and coupling level: %s' % (self.remove_moment_qm, self.coupling_level))
             self.potential_coupler = MultipolesPotentialCoupler(qm = self.qm,
                                                                 cl = self.cl,
                                                                 index_offset_1 = self.shift_indices_1,
@@ -195,7 +195,7 @@ class FDTDPoissonSolver:
             pos_new = dmy_atoms.get_positions()[0];
             v1 = (pos_old - pos_new)/Bohr
             v2 = v1 + np.diag(dmy_atoms.get_cell())/Bohr
-        
+
         # Sanity check: quantum box must be inside the classical one
         assert(all([v1[w] <= v2[w] and
                     v1[w] >= 0 and
@@ -203,7 +203,7 @@ class FDTDPoissonSolver:
         
         # Create new Atoms object
         atoms_out = atoms_in.copy()
-        
+
         # Quantum grid is probably not yet created
         if not self.qm.gd:
             self.qm.cell = np.zeros((3, 3))
@@ -301,7 +301,7 @@ class FDTDPoissonSolver:
                                                    self.cl.spacing)) / \
                         (np.diag(self.qm.cell) * Bohr / N_c))))
         parprint("  Needed number of refinements: %10i" % self.num_refinements)
-
+        
         #   First, create the quantum grid equivalent griddescriptor object self.cl.subgd.
         #   Then coarsen it until its h_cv equals that of self.cl.gd.
         #   Finally, map the points between clgd and coarsened subgrid.
@@ -372,7 +372,7 @@ class FDTDPoissonSolver:
                                                       False,
                                                       serial_comm,
                                                       None))
-
+        
         for n in range(self.num_refinements):
             self.cl.extended_subgds.append(self.cl.extended_subgds[n].refine())
             self.cl.extended_refiners.append(Transformer(self.cl.extended_subgds[n], self.cl.extended_subgds[n + 1]))
@@ -399,7 +399,7 @@ class FDTDPoissonSolver:
         parprint("self.extended_deltaIndex = %i" % self.extended_deltaIndex)
         
         qgpts = self.cl.subgds[-2].N_c
-    
+        
         # Assure that one returns to the original shape
         dmygd = self.cl.subgds[-1].coarsen()
         for n in range(self.num_refinements - 1):
@@ -408,8 +408,7 @@ class FDTDPoissonSolver:
         parprint("  N_c/spacing of the coarsened subgrid: %3i %3i %3i / %.4f %.4f %.4f" % 
                   (dmygd.N_c[0], dmygd.N_c[1], dmygd.N_c[2],
                    dmygd.h_cv[0][0] * Bohr, dmygd.h_cv[1][1] * Bohr, dmygd.h_cv[2][2] * Bohr))
-
-        self.atoms = atoms_out
+        
         return atoms_out, self.qm.spacing[0] * Bohr, qgpts
 
     

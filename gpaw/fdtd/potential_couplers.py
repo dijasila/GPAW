@@ -68,6 +68,7 @@ class NewPotentialCoupler(PotentialCoupler):
                         num_refinements,
                         remove_moment_qm,
                         remove_moment_cl,
+                        coupling_level,
                         rank):
         PotentialCoupler.__init__(self,
                                   qm,
@@ -86,10 +87,10 @@ class NewPotentialCoupler(PotentialCoupler):
     def getPotential(self, local_rho_qm_qmgd, local_rho_cl_clgd, **kwargs):
         # Quantum potential
         local_phi_qm_qmgd = self.old_local_phi_qm_qmgd
-        niter_qm, moments = self.qm.poisson_solver.solve(phi=local_phi_qm_qmgd,
-                                                         rho=local_rho_qm_qmgd,
-                                                         remove_moment=self.remove_moment_qm,
-                                                         **kwargs)
+        niter_qm, moments_qm = self.qm.poisson_solver.solve(phi=local_phi_qm_qmgd,
+                                                            rho=local_rho_qm_qmgd,
+                                                            remove_moment=self.remove_moment_qm,
+                                                            **kwargs)
         self.old_local_phi_qm_qmgd = local_phi_qm_qmgd.copy()
 
         # Classical potential
@@ -190,10 +191,10 @@ class MultipolesPotentialCoupler(PotentialCoupler):
     def getPotential(self, local_rho_qm_qmgd, local_rho_cl_clgd, **kwargs):        
         # Quantum potential
         local_phi_qm_qmgd = self.old_local_phi_qm_qmgd
-        niter_qm, moments = self.qm.poisson_solver.solve(phi=local_phi_qm_qmgd,
-                                                         rho=local_rho_qm_qmgd,
-                                                         remove_moment=self.remove_moment_qm,
-                                                         **kwargs)
+        niter_qm, moments_qm = self.qm.poisson_solver.solve(phi=local_phi_qm_qmgd,
+                                                            rho=local_rho_qm_qmgd,
+                                                            remove_moment=self.remove_moment_qm,
+                                                            **kwargs)
         self.old_local_phi_qm_qmgd = local_phi_qm_qmgd.copy()
 
         # Classical potential
@@ -231,7 +232,7 @@ class MultipolesPotentialCoupler(PotentialCoupler):
         center = self.qm.corner1 + 0.5*self.qm.gd.cell_cv.sum(0)
         global_phi_qm_clgd = np.sum(np.array([m * Gaussian(self.cl.gd_global,
                                                           center=self.qm.corner1 + 0.5*self.qm.gd.cell_cv.sum(0)).get_gauss_pot(l) \
-                                             for m, l in zip(moments, range(self.remove_moment_qm))]), axis=0)      
+                                             for m, l in zip(moments_qm, range(self.remove_moment_qm))]), axis=0)      
                 
         # Inside overlapping region: coarsen
         global_phi_qm_qmgd = self.qm.gd.collect(local_phi_qm_qmgd)
