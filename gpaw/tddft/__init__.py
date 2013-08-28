@@ -228,6 +228,28 @@ class TDDFT(GPAW):
         self.eps_tmp = None
         self.mblas = MultiBlas(wfs.gd)
 
+    # Electrodynamics requires extra care 
+    def initialize_FDTD(self, poisson_solver, fname='dmCl.dat'):
+        # Sanity check
+        assert(poisson_solver.description == 'FDTD+TDDFT')
+
+        # Set the correct variables 
+        self.hamiltonian.poisson = poisson_solver
+        self.hamiltonian.poisson.set_density(self.density)
+        self.hamiltonian.poisson.set_dipole_moment_fname(fname)
+
+        # The propagate calculation_mode causes classical part to evolve
+        # in time when self.hamiltonian.poisson.solve(...) is called
+        self.hamiltonian.poisson.set_calculation_mode('propagate')
+
+        # During each time step, self.hamiltonian.poisson.solve may be called several
+        # times (depending on the used propagator). Using the attached observer one
+        # ensures that actual propagation takes place only once. This is because
+        # the FDTDPoissonSolver changes the calculation_mode from propagate to
+        # something else when the propagation is finished. 
+        self.attach(self.hamiltonian.poisson.set_calculation_mode, 1, 'propagate')
+
+
     def set(self, **kwargs):
         p = self.input_parameters
 
@@ -316,6 +338,10 @@ class TDDFT(GPAW):
 
         niterpropagator = 0
         maxiter = self.niter + iterations
+
+        # Let FDTD part know the time step
+        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+            self.hamiltonian.poisson.set_time_step(time_step)
 
         self.timer.start('Propagate')
         while self.niter < maxiter:
@@ -482,6 +508,12 @@ class TDDFT(GPAW):
                                   self.td_overlap, self.solver,
                                   self.preconditioner, self.wfs.gd, self.timer)
         abs_kick.kick()
+
+        # Kick the classical part, if it is present
+        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+            self.hamiltonian.poisson.initialize_propagation(kick = self.kick_strength)
+
+
 
     def __del__(self):
         """Destructor"""

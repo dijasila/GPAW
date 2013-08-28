@@ -54,9 +54,9 @@ class PotentialCoupler():
          
         return tot_qmgd, tot_clgd
     
-# Coarsen quantum potential to suit the classical grid,
+# Coarsen quantum charge to suit the classical grid,
 # and refine classical potential to suit the quantum grid 
-class NewPotentialCoupler(PotentialCoupler):
+class RefinerPotentialCoupler(PotentialCoupler):
 
     def __init__(self, qm,
                         cl,

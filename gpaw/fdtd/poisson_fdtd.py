@@ -67,7 +67,7 @@ class FDTDPoissonSolver:
         self.remove_moment_cl = remove_moments[1]
         self.tag = tag
         self.time = 0.0
-        self.timestep = 0.0
+        self.time_step = 0.0
         self.rank = mpi.rank
         self.dm_file = None
         self.kick = None
@@ -167,18 +167,18 @@ class FDTDPoissonSolver:
                                                                 rank = self.rank)
         else:
             parprint('Classical-quantum coupling by coarsening/refining')
-            self.potential_coupler = NewPotentialCoupler(qm = self.qm,
-                                                         cl = self.cl,
-                                                         index_offset_1 = self.shift_indices_1,
-                                                         index_offset_2 = self.shift_indices_2,
-                                                         extended_index_offset_1 = self.extended_shift_indices_1,
-                                                         extended_index_offset_2 = self.extended_shift_indices_2,
-                                                         extended_delta_index = self.extended_deltaIndex,
-                                                         num_refinements = self.num_refinements,
-                                                         remove_moment_qm = self.remove_moment_qm,
-                                                         remove_moment_cl = self.remove_moment_cl,
-                                                         coupling_level = self.coupling_level,
-                                                         rank = self.rank)
+            self.potential_coupler = RefinerPotentialCoupler(qm = self.qm,
+                                                             cl = self.cl,
+                                                             index_offset_1 = self.shift_indices_1,
+                                                             index_offset_2 = self.shift_indices_2,
+                                                             extended_index_offset_1 = self.extended_shift_indices_1,
+                                                             extended_index_offset_2 = self.extended_shift_indices_2,
+                                                             extended_delta_index = self.extended_deltaIndex,
+                                                             num_refinements = self.num_refinements,
+                                                             remove_moment_qm = self.remove_moment_qm,
+                                                             remove_moment_cl = self.remove_moment_cl,
+                                                             coupling_level = self.coupling_level,
+                                                             rank = self.rank)
             
         self.phi_tot_clgd = self.cl.gd.empty()
         self.phi_tot_qmgd = self.qm.gd.empty()
@@ -408,18 +408,23 @@ class FDTDPoissonSolver:
         parprint("  N_c/spacing of the coarsened subgrid: %3i %3i %3i / %.4f %.4f %.4f" % 
                   (dmygd.N_c[0], dmygd.N_c[1], dmygd.N_c[2],
                    dmygd.h_cv[0][0] * Bohr, dmygd.h_cv[1][1] * Bohr, dmygd.h_cv[2][2] * Bohr))
-        
+       
         return atoms_out, self.qm.spacing[0] * Bohr, qgpts
 
-    
-    def initialize_propagation(self, timestep,
-                                       kick,
-                                       time=0.0,
-                                       fname='dmCl.dat'):
-        self.time = time
-        self.timestep = timestep * attosec_to_autime
-        self.kick = kick
+   
+    # Where the induced dipole moment is written
+    def set_dipole_moment_fname(self, fname):
         self.fname = fname
+
+    # Set the time step
+    def set_time_step(self, time_step):
+        self.time_step = time_step
+
+    # This must be called before propagation begins
+    def initialize_propagation(self, kick,
+                                     time=0.0):
+        self.time = time
+        self.kick = kick
         
         # dipole moment file
         if self.rank == 0:
@@ -586,12 +591,12 @@ class FDTDPoissonSolver:
         
             
     def solve_propagate(self, **kwargs):        
-        if self.debug_plots!=0 and np.floor(self.time / self.timestep) % self.debug_plots == 0:
+        if self.debug_plots!=0 and np.floor(self.time / self.time_step) % self.debug_plots == 0:
             from visualization import visualize_density
             visualize_density(self, plotInduced=False)
 
         # 1) P(t) from P(t-dt) and J(t-dt/2)
-        self.classical_material.propagate_polarizations(self.timestep)
+        self.classical_material.propagate_polarizations(self.time_step)
                 
         # 2) n(t) from P(t)
         self.classical_material.solve_rho()
@@ -604,16 +609,16 @@ class FDTDPoissonSolver:
                 
         # 4b) Apply the kick by changing the electric field
         if self.time == 0:
-            self.classical_material.kick_electric_field(self.timestep, self.kick)
+            self.classical_material.kick_electric_field(self.time_step, self.kick)
                     
         # 5) J(t+dt/2) from J(t-dt/2) and P(t)
-        self.classical_material.propagate_currents(self.timestep)
+        self.classical_material.propagate_currents(self.time_step)
 
         # Write updated dipole moment into file
         self.update_dipole_moment_file(self.qm.rho)
                 
         # Update timer
-        self.time = self.time + self.timestep
+        self.time = self.time + self.time_step
                 
         # Do not propagate before the next time step
         self.set_calculation_mode('solve')

@@ -51,8 +51,6 @@ gs_calc = GPAW(gpts          = gpts,
                nbands        = -1,
                poissonsolver = poissonsolver);
 atoms.set_calculator(gs_calc)
-gs_calc.initialize(atoms)
-poissonsolver.set_density(gs_calc.density) # Hack 1
 
 # Ground state
 energy = atoms.get_potential_energy()
@@ -66,15 +64,7 @@ time_step = 10.0
 max_time = 100 # 0.1 fs
 
 td_calc = TDDFT('gs.gpw')
-poissonsolver.set_density(td_calc.density) # Hack 2
-poissonsolver.set_calculation_mode('propagate') # Hack 3
-poissonsolver.initialize_propagation(timestep=time_step,
-                                     kick = kick,
-                                     fname='dmCl.dat')
-
-td_calc.attach(poissonsolver.set_calculation_mode, 1, 'propagate') # Hack 4
-td_calc.hamiltonian.poisson = poissonsolver # Hack 5
-
+td_calc.initialize_FDTD(poissonsolver, 'dmCl.dat')
 td_calc.absorption_kick(kick_strength=kick)
 
 # Propagate TDDFT and FDTD
