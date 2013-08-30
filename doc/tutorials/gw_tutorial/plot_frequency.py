@@ -1,4 +1,7 @@
 import pickle
+# mathtext fails to create labels with matplotlib 0.99 on el6
+import matplotlib
+matplotlib.rc('text', usetex=True)
 import matplotlib.pyplot as plt
 from ase.units import Hartree
 
