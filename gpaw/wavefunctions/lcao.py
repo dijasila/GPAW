@@ -146,8 +146,8 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.stop('TCI: Calculate S, T, P')
 
         S_MM = None # allow garbage collection of old S_qMM after redist
-        S_qMM = self.ksl.distribute_overlap_matrix(S_qMM) 
-        T_qMM = self.ksl.distribute_overlap_matrix(T_qMM)
+        S_qMM = self.ksl.distribute_overlap_matrix(S_qMM, root=-1) 
+        T_qMM = self.ksl.distribute_overlap_matrix(T_qMM, root=-1)
         for kpt in self.kpt_u:
             q = kpt.q
             kpt.S_MM = S_qMM[q]
@@ -186,6 +186,7 @@ class LCAOWaveFunctions(WaveFunctions):
             # make sure it does.  Of course, this should have been taken care
             # of already by this time, so we should improve the code elsewhere
             density.calculate_normalized_charges_and_mix()
+        print "Updating hamiltonian in LCAO initialize wfs"
         hamiltonian.update(density)
            
     def calculate_density_matrix(self, f_n, C_nM, rho_MM=None):
