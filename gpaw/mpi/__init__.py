@@ -891,16 +891,13 @@ def cleanup():
     if error is not None: # else: Python script completed or raise SystemExit
         if parallel and not (dry_run_size > 1):
             sys.stdout.flush()
-            sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  ' +
-                          'Calling MPI_Abort!\n') % (world.rank, error))
+            sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  '
+                              'Calling MPI_Abort!\n') % (world.rank, error))
             sys.stderr.flush()
             # Give other nodes a moment to crash by themselves (perhaps
             # producing helpful error messages)
             time.sleep(10)
             world.abort(42)
-        else:
-            sys.stderr.write(('GPAW CLEANUP for serial binary: %s occured. ' +
-                              'Calling sys.exit()\n') % error)
 
 def exit(error='Manual exit'):
     # Note that exit must be called on *all* MPI tasks
