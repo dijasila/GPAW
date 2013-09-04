@@ -49,7 +49,17 @@ class FDTDPoissonSolver:
                         potential_coupler='Refiner',
                         coupling_level='both',
                         communicator=serial_comm,
-                        debug_plots=0):
+                        debug_plots=0,
+                        restart_file=None,
+                        paw=None):
+
+        if restart_file != None: # load everything from here
+            assert(paw!=None)
+            self.read(paw = paw,
+                      classical_material = classical_material,
+                      filename = restart_file)
+            return
+            
 
         assert(coupling_level in ['none', 'both', 'cl2qm', 'qm2cl'])
         self.potential_coupling_scheme = potential_coupler
@@ -84,7 +94,7 @@ class FDTDPoissonSolver:
         self.qm.spacing_def = qm_spacing * np.ones(3) / Bohr
         self.qm.cell = np.array(cell) / Bohr
         
-        # Create grid descriptor for the classical part
+        # Classical spacing and simulation cell
         _cell = np.array(cell) / Bohr
         self.cl.spacing = self.cl.spacing_def
         if np.size(_cell) == 3:
@@ -92,6 +102,15 @@ class FDTDPoissonSolver:
         else:
             self.cl.cell = _cell
 
+        # Generate classical grid descriptor
+        self.initialize_clgd()
+        
+        parprint('FDTDPoissonSolver: domain parallelization with %i processes.' % self.cl.gd.comm.size)
+
+    # Generated classical GridDescriptors, after spacing and cell are known
+    def initialize_clgd(self):
+        assert(self.cl.spacing)
+        assert(self.cl.cell)
         N_c = get_number_of_grid_points(self.cl.cell, self.cl.spacing)
         self.cl.spacing = np.diag(self.cl.cell) / N_c
         self.cl.gd = GridDescriptor(N_c,
@@ -105,8 +124,6 @@ class FDTDPoissonSolver:
                                            serial_comm,
                                            None)
         self.cl.extrapolated_qm_phi = self.cl.gd.empty()
-        
-        parprint('FDTDPoissonSolver: domain parallelization with %i processes.' % self.cl.gd.comm.size)
 
     def estimate_memory(self, mem):
         #self.cl.poisson_solver.estimate_memory(mem)
@@ -183,7 +200,7 @@ class FDTDPoissonSolver:
         self.phi_tot_clgd = self.cl.gd.empty()
         self.phi_tot_qmgd = self.qm.gd.empty()
 
-    def cut_cell(self, atoms_in, vacuum=5.0, corners=None):
+    def cut_cell(self, atoms_in, vacuum=5.0, corners=None, create_subsystems=True):
         qmh = self.qm.spacing_def
         if corners != None:
             v1 = np.array(corners[0]).ravel() / Bohr
@@ -196,31 +213,28 @@ class FDTDPoissonSolver:
             v1 = (pos_old - pos_new)/Bohr
             v2 = v1 + np.diag(dmy_atoms.get_cell())/Bohr
 
+        # Needed for restarting
+        self.given_corner_v1 = v1 * Bohr
+        self.given_corner_v2 = v2 * Bohr
+        self.given_cell = atoms_in.get_cell()
+
         # Sanity check: quantum box must be inside the classical one
         assert(all([v1[w] <= v2[w] and
                     v1[w] >= 0 and
                     v2[w] <= np.diag(self.cl.cell)[w] for w in range(3)]))
         
-        # Create new Atoms object
-        atoms_out = atoms_in.copy()
-
-        # Quantum grid is probably not yet created
-        if not self.qm.gd:
-            self.qm.cell = np.zeros((3, 3))
-            for w in range(3):
-                self.qm.cell[w, w] = v2[w] - v1[w]
-        
-            N_c = get_number_of_grid_points(self.qm.cell, qmh)
-            self.qm.spacing = np.diag(self.qm.cell) / N_c
-        else:
-            self.qm.cell = self.qm.gd.cell_cv
-            N_c = self.qm.gd.N_c
-            self.qm.spacing = self.qm.gd.get_grid_spacings()
-        
         # Ratios of the user-given spacings
-        hratios = self.cl.spacing_def / qmh
-        self.num_refinements = 1 + int(round(np.log(hratios[0]) / np.log(2.0)))
-        assert([int(round(np.log(hratios[w]) / np.log(2.0))) == self.num_refinements for w in range(3)])
+        self.hratios = self.cl.spacing_def / qmh
+        self.num_refinements = 1 + int(round(np.log(self.hratios[0]) / np.log(2.0)))
+        assert([int(round(np.log(self.hratios[w]) / np.log(2.0))) == self.num_refinements for w in range(3)])
+
+        # Create quantum grid
+        self.qm.cell = np.zeros((3, 3))
+        for w in range(3):
+            self.qm.cell[w, w] = v2[w] - v1[w]
+        
+        N_c = get_number_of_grid_points(self.qm.cell, qmh)
+        self.qm.spacing = np.diag(self.qm.cell) / N_c        
 
         # Classical corner indices must be divisable with numb
         if any(self.cl.spacing / self.qm.spacing >= 3):
@@ -257,12 +271,21 @@ class FDTDPoissonSolver:
         self.qm.corner1 = self.shift_indices_1 * self.cl.spacing
         self.qm.corner2 = self.shift_indices_2 * self.cl.spacing
         
+        # Now the information for creating the subsystems is ready
+        if create_subsystems:
+            return self.create_subsystems(atoms_in)
+    
+    def create_subsystems(self, atoms_in):
+        
+        # Create new Atoms object
+        atoms_out = atoms_in.copy()
+        
         # New quantum grid
         for w in range(3):
             self.qm.cell[w, w] = (self.shift_indices_2[w] -
                                   self.shift_indices_1[w]) * \
                                   self.cl.spacing[w]
-        self.qm.spacing = self.cl.spacing / hratios
+        self.qm.spacing = self.cl.spacing / self.hratios
         N_c = get_number_of_grid_points(self.qm.cell, self.qm.spacing)
         
         atoms_out.set_cell(np.diag(self.qm.cell) * Bohr)
@@ -279,7 +302,7 @@ class FDTDPoissonSolver:
             parprint("           %s %10.5f %10.5f %10.5f" % (s, c[0], c[1], c[2]))
         
         parprint("  Given corner points:       (%10.5f %10.5f %10.5f) - (%10.5f %10.5f %10.5f)" %
-                 (tuple(np.concatenate((v1, v2)) * Bohr)))
+                 (tuple(np.concatenate((self.given_corner_v1, self.given_corner_v2)))))
         parprint("  Readjusted corner points:  (%10.5f %10.5f %10.5f) - (%10.5f %10.5f %10.5f)" %
                  (tuple(np.concatenate((self.qm.corner1,
                                         self.qm.corner2)) * Bohr)))
@@ -294,7 +317,7 @@ class FDTDPoissonSolver:
         parprint("  Spacings in classical grid:  (%10.5f %10.5f %10.5f)" %
                  (tuple(np.diag(self.cl.cell) * Bohr / \
                         get_number_of_grid_points(self.cl.cell, self.cl.spacing))))
-        parprint("  Ratios of cl/qm spacings:    (%10i %10i %10i)" % (tuple(hratios)))
+        parprint("  Ratios of cl/qm spacings:    (%10i %10i %10i)" % (tuple(self.hratios)))
         parprint("                             = (%10.2f %10.2f %10.2f)" %
                  (tuple((np.diag(self.cl.cell) * Bohr / \
                          get_number_of_grid_points(self.cl.cell,
@@ -345,7 +368,7 @@ class FDTDPoissonSolver:
         self.extended_num_indices = self.num_indices + [2, 2, 2]
         
         # Center, left, and right points of the suggested quantum grid
-        extended_cp = 0.5 * (np.array(v1) + np.array(v2))
+        extended_cp = 0.5 * (np.array(self.given_corner_v1/Bohr) + np.array(self.given_corner_v1/Bohr))
         extended_lp = extended_cp - 0.5 * (self.extended_num_indices) * self.cl.spacing 
         extended_rp = extended_cp + 0.5 * (self.extended_num_indices) * self.cl.spacing
         
@@ -420,12 +443,16 @@ class FDTDPoissonSolver:
     def set_time_step(self, time_step):
         self.time_step = time_step
 
-    # This must be called before propagation begins
-    def initialize_propagation(self, kick,
-                                     time=0.0):
+    # Set the time
+    def set_time(self, time):
         self.time = time
+
+    # Setup kick
+    def set_kick(self, kick):
         self.kick = kick
-        
+
+    # This must be called before propagation begins
+    def initialize_dipole_moment_file(self):
         # dipole moment file
         if self.rank == 0:
             if self.dm_file is not None and not self.dm_file.closed:
@@ -590,7 +617,7 @@ class FDTDPoissonSolver:
         return (niter, niter_cl)
         
             
-    def solve_propagate(self, **kwargs):        
+    def solve_propagate(self, **kwargs):
         if self.debug_plots!=0 and np.floor(self.time / self.time_step) % self.debug_plots == 0:
             from visualization import visualize_density
             visualize_density(self, plotInduced=False)
@@ -678,8 +705,9 @@ class FDTDPoissonSolver:
             self.dm_file.write(line)
             self.dm_file.flush()
 
-    def read(self, paw, filename='poisson'):
-        
+    # Read the information needed for restarting
+    # TODO: some of the loaded data is unnecessary; remove them
+    def read(self, paw, classical_material, filename='poisson'):
         world = paw.wfs.world
         master = (world.rank == 0)
         parallel = (world.size > 1)
@@ -688,8 +716,61 @@ class FDTDPoissonSolver:
         r = gpaw_io_open(filename, 'r', world)
 
         version = r['version']
-        parprint('reading poisson gpw-file... version: %f', version)
+        parprint('reading poisson gpw-file... version: %f' % version)
+        
+        # FDTDPoissonSolver related data
+        self.potential_coupling_scheme = r['potential_coupling_scheme']
+        self.coupling_level = r['coupling_level'] 
+        self.description = r['description']
+        self.calculation_mode = r['calculation_mode']
+        self.remove_moment_qm = int(r['remove_moment_qm'])
+        self.remove_moment_cl = int(r['remove_moment_cl'])
+        self.tag = r['tag']               
+        self.time = float(r['time'])
+        self.time_step = float(r['time_step'])
+        self.fname = r['dm_filename']
+        self.dm_file = None
+        self.kick = np.array([float(x) for x in r['kick'].replace('[','').replace(']','').split()])
+        self.debug_plots = r['debug_plots']
+        self.maxiter = int(r['maxiter'])
+        
+        # PoissonOrganizer: classical
+        self.cl = PoissonOrganizer()
+        self.cl.spacing_def = np.array([float(x) for x in r['cl_spacing_def'].replace('[','').replace(']','').split()])
+        self.cl.spacing = np.array([float(x) for x in r['cl_spacing'].replace('[','').replace(']','').split()])
+        self.cl.cell = np.diag([float(x) for x in r['cl_cell'].replace('[','').replace(']','').split()])
+        self.cl.dparsize = None
+        if r['cl_world_comm']:
+            self.cl.dcomm = world
+        else:
+            self.cl.dcomm = mpi.serial_comm
+        
+        # Generate classical grid descriptor
+        self.initialize_clgd()
+        self.classical_material = classical_material
         self.classical_material.initialize(self.cl.gd)
+        
+        # PoissonOrganizer: quantum
+        self.qm = PoissonOrganizer()
+        self.qm.spacing_def = np.array([float(x) for x in r['qm_spacing_def'].replace('[','').replace(']','').split()])
+        self.qm.spacing = np.array([float(x) for x in r['qm_spacing'].replace('[','').replace(']','').split()])
+        self.qm.cell = np.diag([float(x) for x in r['qm_cell'].replace('[','').replace(']','').split()])
+        self.qm.corner1 = np.array([float(x) for x in r['qm_corner1'].replace('[','').replace(']','').split()])
+        self.qm.corner2 = np.array([float(x) for x in r['qm_corner2'].replace('[','').replace(']','').split()])
+        self.given_corner_v1 = np.array([float(x) for x in r['given_corner_1'].replace('[','').replace(']','').split()])
+        self.given_corner_v2 = np.array([float(x) for x in r['given_corner_2'].replace('[','').replace(']','').split()])
+        self.given_cell = np.diag([float(x) for x in r['given_cell'].replace('[','').replace(']','').split()])
+        self.hratios = np.array([float(x) for x in r['hratios'].replace('[','').replace(']','').split()])
+        self.shift_indices_1 = np.array([float(x) for x in r['shift_indices_1'].replace('[','').replace(']','').split()])
+        self.shift_indices_2 = np.array([float(x) for x in r['shift_indices_2'].replace('[','').replace(']','').split()])
+        self.num_indices = np.array([float(x) for x in r['num_indices'].replace('[','').replace(']','').split()])
+        self.num_refinements = int(r['num_refinements'])
+        
+        # Redefine atoms to suit the cut_cell routine
+        newatoms = paw.atoms.copy()
+        newatoms.positions = newatoms.positions + self.qm.corner1*Bohr
+        newatoms.set_cell(np.diag(self.given_cell))
+        self.create_subsystems(newatoms)
         
         # Read self.classical_material.charge_density
         if self.cl.gd.comm.rank == 0:
@@ -715,6 +796,7 @@ class FDTDPoissonSolver:
         
         r.close()
         world.barrier()
+        
          
     def write(self, paw,
                      filename='poisson'):
@@ -734,6 +816,42 @@ class FDTDPoissonSolver:
         w['lengthunit'] = 'Bohr'
         w['energyunit'] = 'Hartree'
         w['DataType'] = 'Float'
+        
+        # FDTDPoissonSolver related data
+        w['potential_coupling_scheme'] = self.potential_coupling_scheme
+        w['coupling_level'] = self.coupling_level
+        w['description'] = self.description
+        w['calculation_mode'] = self.calculation_mode
+        w['remove_moment_qm'] = self.remove_moment_qm
+        w['remove_moment_cl'] = self.remove_moment_cl
+        w['tag'] = self.tag               
+        w['time'] = self.time
+        w['time_step'] = self.time_step
+        w['dm_filename'] = self.fname
+        w['kick'] = self.kick
+        w['debug_plots'] = self.debug_plots
+        w['maxiter'] = self.maxiter
+        
+        # PoissonOrganizer
+        w['cl_spacing_def'] = self.cl.spacing_def
+        w['cl_world_comm'] = self.cl.dcomm == world
+        w['qm_spacing_def'] = self.qm.spacing_def
+        
+        w['cl_spacing'] = self.cl.spacing
+        w['cl_cell'] = np.diag(self.cl.cell)
+        
+        w['qm_spacing'] = self.qm.spacing
+        w['qm_cell'] = np.diag(self.qm.cell)        
+        w['qm_corner1'] = self.qm.corner1
+        w['qm_corner2'] = self.qm.corner2
+        w['given_corner_1'] = self.given_corner_v1
+        w['given_corner_2'] = self.given_corner_v2
+        w['given_cell'] = np.diag(self.given_cell)
+        w['hratios'] = self.hratios
+        w['shift_indices_1'] = self.shift_indices_1
+        w['shift_indices_2'] = self.shift_indices_2
+        w['num_refinements'] = self.num_refinements
+        w['num_indices'] = self.num_indices
         
         # Create dimensions for various netCDF variables:
         ng = self.cl.gd.get_size_of_global_array()

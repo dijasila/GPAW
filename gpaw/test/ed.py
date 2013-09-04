@@ -68,16 +68,26 @@ td_calc.initialize_FDTD(poissonsolver, 'dmCl.dat')
 td_calc.absorption_kick(kick_strength=kick)
 
 # Propagate TDDFT and FDTD
-td_calc.propagate(time_step,
-                  max_time/time_step,
-                  'dm.dat',
-                  'td.gpw')
-
-# Finalize
-poissonsolver.finalize_propagation()
+if False: # old test without restarting
+    td_calc.propagate(time_step,  max_time/time_step, 'dm.dat', 'td.gpw')
+    poissonsolver.finalize_propagation()
+    td_calc2 = td_calc
+else: # new test with restarting
+    td_calc.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
+    poissonsolver.write(td_calc, 'tdp.gpw') # for now, use a separate file 
+    poissonsolver.finalize_propagation()
+    
+    # Restart and continue: note that classical_material is not saved
+    td_calc2 = TDDFT('td.gpw')
+    poissonsolver2 = FDTDPoissonSolver(restart_file='tdp.gpw',
+                                       paw=td_calc2,
+                                       classical_material=classical_material)
+    td_calc2.initialize_FDTD(poissonsolver2, 'dmCl.dat')
+    td_calc2.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
+    poissonsolver2.finalize_propagation()
 
 # Test
 ref_dipole_moment_z = -0.0494828968091
 tol = 0.0001
-equal(td_calc.get_dipole_moment()[2], ref_dipole_moment_z, tol)
+equal(td_calc2.get_dipole_moment()[2], ref_dipole_moment_z, tol)
 

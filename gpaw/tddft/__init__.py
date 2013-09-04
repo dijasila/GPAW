@@ -248,6 +248,9 @@ class TDDFT(GPAW):
         # the FDTDPoissonSolver changes the calculation_mode from propagate to
         # something else when the propagation is finished. 
         self.attach(self.hamiltonian.poisson.set_calculation_mode, 1, 'propagate')
+        
+        # This is not necessarily set yet 
+        self.hamiltonian.poisson.set_grid_descriptor(self.density.finegd)
 
 
     def set(self, **kwargs):
@@ -421,6 +424,11 @@ class TDDFT(GPAW):
                     % ('time', 'norm', 'dmx', 'dmy', 'dmz')
                 self.dm_file.write(header)
                 self.dm_file.flush()
+        
+        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+            self.hamiltonian.poisson.set_time(time=self.time)
+            self.hamiltonian.poisson.set_kick(kick=self.kick_strength)
+            self.hamiltonian.poisson.initialize_dipole_moment_file()
 
     def update_dipole_moment_file(self, norm):
         dm = self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
@@ -511,7 +519,7 @@ class TDDFT(GPAW):
 
         # Kick the classical part, if it is present
         if self.hamiltonian.poisson.description=='FDTD+TDDFT':
-            self.hamiltonian.poisson.initialize_propagation(kick = self.kick_strength)
+            self.hamiltonian.poisson.set_kick(kick = self.kick_strength)
 
 
 

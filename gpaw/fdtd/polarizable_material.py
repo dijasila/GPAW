@@ -44,6 +44,8 @@ class PolarizableMaterial:
         return self.gd.collect(self.permittivity_value(0.0))
 
     def initialize(self, gd):
+        if self.initialized: # double initialization leads to problems
+            return
         self.initialized = True
         parprint("Initializing Polarizable Material")
         
