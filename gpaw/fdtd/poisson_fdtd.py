@@ -78,9 +78,9 @@ class FDTDPoissonSolver:
         self.tag = tag
         self.time = 0.0
         self.time_step = 0.0
+        self.kick = np.array([0.0, 0.0, 0.0], dtype=float)
         self.dm_file = None
         self.fname = None
-        self.kick = None
         self.debug_plots = debug_plots
         self.maxiter = 2000
         
@@ -279,10 +279,7 @@ class FDTDPoissonSolver:
         atoms_out = atoms_in.copy()
         
         # New quantum grid
-        for w in range(3):
-            self.qm.cell[w, w] = (self.shift_indices_2[w] -
-                                  self.shift_indices_1[w]) * \
-                                  self.cl.spacing[w]
+        self.qm.cell = np.diag([(self.shift_indices_2[w] - self.shift_indices_1[w])*self.cl.spacing[w] for w in range(3)])
         self.qm.spacing = self.cl.spacing / self.hratios
         N_c = get_number_of_grid_points(self.qm.cell, self.qm.spacing)
         
@@ -323,7 +320,7 @@ class FDTDPoissonSolver:
                         (np.diag(self.qm.cell) * Bohr / N_c))))
         parprint("  Needed number of refinements: %10i" % self.num_refinements)
         
-        #   First, create the quantum grid equivalent griddescriptor object self.cl.subgd.
+        #   First, create the quantum grid equivalent GridDescriptor self.cl.subgd.
         #   Then coarsen it until its h_cv equals that of self.cl.gd.
         #   Finally, map the points between clgd and coarsened subgrid.
         subcell_cv = np.diag(self.qm.corner2 - self.qm.corner1)
@@ -703,44 +700,40 @@ class FDTDPoissonSolver:
             self.dm_file.write(line)
             self.dm_file.flush()
 
-    # Read the restart data
-    # TODO: some of the loaded data is unnecessary; remove them
+    # Read restart data
     def read(self, paw, reader):
         r = reader
 
         version = r['version']
-        
-        # FDTDPoissonSolver related data
-        self.potential_coupling_scheme = r['potential_coupling_scheme']
-        self.coupling_level = r['coupling_level'] 
-        self.description = r['poisson_description']
-        self.calculation_mode = r['calculation_mode']
-        self.remove_moment_qm = int(r['remove_moment_qm'])
-        self.remove_moment_cl = int(r['remove_moment_cl'])
-        self.tag = r['tag']               
-        self.time = float(r['time'])
-        self.time_step = float(r['time_step'])
-        self.fname = r['dm_filename']
-        self.dm_file = None
-        # Try to read time-dependent information
-        try:
-            self.kick = np.array([float(x) for x in r['kick'].replace('[','').replace(']','').split()])
-        except:
-            self.kick = [0.0, 0.0, 0.0]
-        self.debug_plots = r['debug_plots']
-        self.maxiter = int(r['maxiter'])
-        
+
         # Helper function
         def read_vector(v):
             return np.array([float(x) for x in v.replace('[','').replace(']','').split()])
         
+        # FDTDPoissonSolver related data
+        self.potential_coupling_scheme = r['fdtd.coupling_scheme']
+        self.coupling_level = r['fdtd.coupling_level'] 
+        self.description = r['fdtd.description']
+        self.remove_moment_qm = int(r['fdtd.remove_moment_qm'])
+        self.remove_moment_cl = int(r['fdtd.remove_moment_cl'])
+        self.tag = r['fdtd.tag']               
+        self.time = float(r['fdtd.time'])
+        self.time_step = float(r['fdtd.time_step'])
+        self.fname = r['fdtd.dm_filename']
+        self.dm_file = None
+        
+        # Try to read time-dependent information
+        self.kick = read_vector(r['fdtd.kick'])
+        self.debug_plots = r['fdtd.debug_plots']
+        self.maxiter = int(r['fdtd.maxiter'])
+        
         # PoissonOrganizer: classical
         self.cl = PoissonOrganizer()
-        self.cl.spacing_def = read_vector(r['cl_spacing_def'])
-        self.cl.spacing = read_vector(r['cl_spacing'])
-        self.cl.cell = np.diag(read_vector(r['cl_cell']))
+        self.cl.spacing_def = read_vector(r['fdtd.cl_spacing_def'])
+        self.cl.spacing = read_vector(r['fdtd.cl_spacing'])
+        self.cl.cell = np.diag(read_vector(r['fdtd.cl_cell']))
         self.cl.dparsize = None
-        if r['cl_world_comm']:
+        if r['fdtd.cl_world_comm']:
             self.cl.dcomm = world
         else:
             self.cl.dcomm = mpi.serial_comm
@@ -752,19 +745,16 @@ class FDTDPoissonSolver:
         
         # PoissonOrganizer: quantum
         self.qm = PoissonOrganizer()
-        self.qm.spacing_def = read_vector(r['qm_spacing_def'])
-        self.qm.spacing = read_vector(r['qm_spacing'])
-        self.qm.cell = np.diag(read_vector(r['qm_cell']))
-        self.qm.corner1 = read_vector(r['qm_corner1'])
-        self.qm.corner2 = read_vector(r['qm_corner2'])
-        self.given_corner_v1 = read_vector(r['given_corner_1'])
-        self.given_corner_v2 = read_vector(r['given_corner_2'])
-        self.given_cell = np.diag(read_vector(r['given_cell']))
-        self.hratios = read_vector(r['hratios'])
-        self.shift_indices_1 = read_vector(r['shift_indices_1'])
-        self.shift_indices_2 = read_vector(r['shift_indices_2'])
-        self.num_indices = read_vector(r['num_indices'])
-        self.num_refinements = int(r['num_refinements'])
+        self.qm.corner1 = read_vector(r['fdtd.qm_corner1'])
+        self.qm.corner2 = read_vector(r['fdtd.qm_corner2'])
+        self.given_corner_v1 = read_vector(r['fdtd.given_corner_1'])
+        self.given_corner_v2 = read_vector(r['fdtd.given_corner_2'])
+        self.given_cell = np.diag(read_vector(r['fdtd.given_cell']))
+        self.hratios = read_vector(r['fdtd.hratios'])
+        self.shift_indices_1 = read_vector(r['fdtd.shift_indices_1'])
+        self.shift_indices_2 = read_vector(r['fdtd.shift_indices_2'])
+        self.num_indices = read_vector(r['fdtd.num_indices'])
+        self.num_refinements = int(r['fdtd.num_refinements'])
         
         # Redefine atoms to suit the cut_cell routine
         newatoms = paw.atoms.copy()
@@ -794,7 +784,7 @@ class FDTDPoissonSolver:
             big_polarizations = None
         self.cl.gd.distribute(big_polarizations, self.classical_material.polarizations)
         
-         
+    # Write restart data   
     def write(self, paw, writer):#                     filename='poisson'):
         # parprint('Writing FDTDPoissonSolver data to %s' % (filename))
         rho = self.classical_material.charge_density
@@ -808,40 +798,35 @@ class FDTDPoissonSolver:
         w = writer
         
         # FDTDPoissonSolver related data
-        w['potential_coupling_scheme'] = self.potential_coupling_scheme
-        w['coupling_level'] = self.coupling_level
-        w['poisson_description'] = self.description
-        w['calculation_mode'] = self.calculation_mode
-        w['remove_moment_qm'] = self.remove_moment_qm
-        w['remove_moment_cl'] = self.remove_moment_cl
-        w['tag'] = self.tag               
-        w['time'] = self.time
-        w['time_step'] = self.time_step
-        w['dm_filename'] = self.fname
-        w['kick'] = self.kick
-        w['debug_plots'] = self.debug_plots
-        w['maxiter'] = self.maxiter
+        w['fdtd.coupling_scheme'] = self.potential_coupling_scheme
+        w['fdtd.coupling_level'] = self.coupling_level
+        w['fdtd.description'] = self.description
+        w['fdtd.remove_moment_qm'] = self.remove_moment_qm
+        w['fdtd.remove_moment_cl'] = self.remove_moment_cl
+        w['fdtd.tag'] = self.tag               
+        w['fdtd.time'] = self.time
+        w['fdtd.time_step'] = self.time_step
+        w['fdtd.dm_filename'] = self.fname
+        w['fdtd.kick'] = self.kick
+        w['fdtd.debug_plots'] = self.debug_plots
+        w['fdtd.maxiter'] = self.maxiter
         
         # PoissonOrganizer
-        w['cl_spacing_def'] = self.cl.spacing_def
-        w['cl_world_comm'] = self.cl.dcomm == world
-        w['qm_spacing_def'] = self.qm.spacing_def
+        w['fdtd.cl_cell'] = np.diag(self.cl.cell)
+        w['fdtd.cl_spacing_def'] = self.cl.spacing_def
+        w['fdtd.cl_spacing'] = self.cl.spacing
+        w['fdtd.cl_world_comm'] = self.cl.dcomm == world
         
-        w['cl_spacing'] = self.cl.spacing
-        w['cl_cell'] = np.diag(self.cl.cell)
-        
-        w['qm_spacing'] = self.qm.spacing
-        w['qm_cell'] = np.diag(self.qm.cell)        
-        w['qm_corner1'] = self.qm.corner1
-        w['qm_corner2'] = self.qm.corner2
-        w['given_corner_1'] = self.given_corner_v1
-        w['given_corner_2'] = self.given_corner_v2
-        w['given_cell'] = np.diag(self.given_cell)
-        w['hratios'] = self.hratios
-        w['shift_indices_1'] = self.shift_indices_1
-        w['shift_indices_2'] = self.shift_indices_2
-        w['num_refinements'] = self.num_refinements
-        w['num_indices'] = self.num_indices
+        w['fdtd.qm_corner1'] = self.qm.corner1
+        w['fdtd.qm_corner2'] = self.qm.corner2
+        w['fdtd.given_corner_1'] = self.given_corner_v1
+        w['fdtd.given_corner_2'] = self.given_corner_v2
+        w['fdtd.given_cell'] = np.diag(self.given_cell)
+        w['fdtd.hratios'] = self.hratios
+        w['fdtd.shift_indices_1'] = self.shift_indices_1
+        w['fdtd.shift_indices_2'] = self.shift_indices_2
+        w['fdtd.num_refinements'] = self.num_refinements
+        w['fdtd.num_indices'] = self.num_indices
         
         # Create dimensions for various netCDF variables:
         ng = self.cl.gd.get_size_of_global_array()
