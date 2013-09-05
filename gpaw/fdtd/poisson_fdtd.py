@@ -50,15 +50,15 @@ class FDTDPoissonSolver:
                         coupling_level='both',
                         communicator=serial_comm,
                         debug_plots=0,
-                        restart_file=None,
+                        restart_reader=None,
                         paw=None):
 
-        if restart_file != None: # load everything from here
+        self.rank = mpi.rank
+
+        if restart_reader != None: # restart
             assert(paw!=None)
-            self.read(paw = paw,
-                      classical_material = classical_material,
-                      filename = restart_file)
-            return
+            self.read(paw = paw, reader=restart_reader)
+            return # we are ready
             
 
         assert(coupling_level in ['none', 'both', 'cl2qm', 'qm2cl'])
@@ -78,8 +78,8 @@ class FDTDPoissonSolver:
         self.tag = tag
         self.time = 0.0
         self.time_step = 0.0
-        self.rank = mpi.rank
         self.dm_file = None
+        self.fname = None
         self.kick = None
         self.debug_plots = debug_plots
         self.maxiter = 2000
@@ -109,8 +109,6 @@ class FDTDPoissonSolver:
 
     # Generated classical GridDescriptors, after spacing and cell are known
     def initialize_clgd(self):
-        assert(self.cl.spacing)
-        assert(self.cl.cell)
         N_c = get_number_of_grid_points(self.cl.cell, self.cl.spacing)
         self.cl.spacing = np.diag(self.cl.cell) / N_c
         self.cl.gd = GridDescriptor(N_c,
@@ -705,23 +703,17 @@ class FDTDPoissonSolver:
             self.dm_file.write(line)
             self.dm_file.flush()
 
-    # Read the information needed for restarting
+    # Read the restart data
     # TODO: some of the loaded data is unnecessary; remove them
-    def read(self, paw, classical_material, filename='poisson'):
-        world = paw.wfs.world
-        master = (world.rank == 0)
-        parallel = (world.size > 1)
-        self.rank = paw.wfs.world.rank
-
-        r = gpaw_io_open(filename, 'r', world)
+    def read(self, paw, reader):
+        r = reader
 
         version = r['version']
-        parprint('reading poisson gpw-file... version: %f' % version)
         
         # FDTDPoissonSolver related data
         self.potential_coupling_scheme = r['potential_coupling_scheme']
         self.coupling_level = r['coupling_level'] 
-        self.description = r['description']
+        self.description = r['poisson_description']
         self.calculation_mode = r['calculation_mode']
         self.remove_moment_qm = int(r['remove_moment_qm'])
         self.remove_moment_cl = int(r['remove_moment_cl'])
@@ -730,15 +722,23 @@ class FDTDPoissonSolver:
         self.time_step = float(r['time_step'])
         self.fname = r['dm_filename']
         self.dm_file = None
-        self.kick = np.array([float(x) for x in r['kick'].replace('[','').replace(']','').split()])
+        # Try to read time-dependent information
+        try:
+            self.kick = np.array([float(x) for x in r['kick'].replace('[','').replace(']','').split()])
+        except:
+            self.kick = [0.0, 0.0, 0.0]
         self.debug_plots = r['debug_plots']
         self.maxiter = int(r['maxiter'])
         
+        # Helper function
+        def read_vector(v):
+            return np.array([float(x) for x in v.replace('[','').replace(']','').split()])
+        
         # PoissonOrganizer: classical
         self.cl = PoissonOrganizer()
-        self.cl.spacing_def = np.array([float(x) for x in r['cl_spacing_def'].replace('[','').replace(']','').split()])
-        self.cl.spacing = np.array([float(x) for x in r['cl_spacing'].replace('[','').replace(']','').split()])
-        self.cl.cell = np.diag([float(x) for x in r['cl_cell'].replace('[','').replace(']','').split()])
+        self.cl.spacing_def = read_vector(r['cl_spacing_def'])
+        self.cl.spacing = read_vector(r['cl_spacing'])
+        self.cl.cell = np.diag(read_vector(r['cl_cell']))
         self.cl.dparsize = None
         if r['cl_world_comm']:
             self.cl.dcomm = world
@@ -747,23 +747,23 @@ class FDTDPoissonSolver:
         
         # Generate classical grid descriptor
         self.initialize_clgd()
-        self.classical_material = classical_material
+        self.classical_material = paw.classical_material
         self.classical_material.initialize(self.cl.gd)
         
         # PoissonOrganizer: quantum
         self.qm = PoissonOrganizer()
-        self.qm.spacing_def = np.array([float(x) for x in r['qm_spacing_def'].replace('[','').replace(']','').split()])
-        self.qm.spacing = np.array([float(x) for x in r['qm_spacing'].replace('[','').replace(']','').split()])
-        self.qm.cell = np.diag([float(x) for x in r['qm_cell'].replace('[','').replace(']','').split()])
-        self.qm.corner1 = np.array([float(x) for x in r['qm_corner1'].replace('[','').replace(']','').split()])
-        self.qm.corner2 = np.array([float(x) for x in r['qm_corner2'].replace('[','').replace(']','').split()])
-        self.given_corner_v1 = np.array([float(x) for x in r['given_corner_1'].replace('[','').replace(']','').split()])
-        self.given_corner_v2 = np.array([float(x) for x in r['given_corner_2'].replace('[','').replace(']','').split()])
-        self.given_cell = np.diag([float(x) for x in r['given_cell'].replace('[','').replace(']','').split()])
-        self.hratios = np.array([float(x) for x in r['hratios'].replace('[','').replace(']','').split()])
-        self.shift_indices_1 = np.array([float(x) for x in r['shift_indices_1'].replace('[','').replace(']','').split()])
-        self.shift_indices_2 = np.array([float(x) for x in r['shift_indices_2'].replace('[','').replace(']','').split()])
-        self.num_indices = np.array([float(x) for x in r['num_indices'].replace('[','').replace(']','').split()])
+        self.qm.spacing_def = read_vector(r['qm_spacing_def'])
+        self.qm.spacing = read_vector(r['qm_spacing'])
+        self.qm.cell = np.diag(read_vector(r['qm_cell']))
+        self.qm.corner1 = read_vector(r['qm_corner1'])
+        self.qm.corner2 = read_vector(r['qm_corner2'])
+        self.given_corner_v1 = read_vector(r['given_corner_1'])
+        self.given_corner_v2 = read_vector(r['given_corner_2'])
+        self.given_cell = np.diag(read_vector(r['given_cell']))
+        self.hratios = read_vector(r['hratios'])
+        self.shift_indices_1 = read_vector(r['shift_indices_1'])
+        self.shift_indices_2 = read_vector(r['shift_indices_2'])
+        self.num_indices = read_vector(r['num_indices'])
         self.num_refinements = int(r['num_refinements'])
         
         # Redefine atoms to suit the cut_cell routine
@@ -794,33 +794,23 @@ class FDTDPoissonSolver:
             big_polarizations = None
         self.cl.gd.distribute(big_polarizations, self.classical_material.polarizations)
         
-        r.close()
-        world.barrier()
-        
          
-    def write(self, paw,
-                     filename='poisson'):
+    def write(self, paw, writer):#                     filename='poisson'):
         # parprint('Writing FDTDPoissonSolver data to %s' % (filename))
         rho = self.classical_material.charge_density
         world = paw.wfs.world
         domain_comm = self.cl.gd.comm
         kpt_comm = paw.wfs.kpt_comm
         band_comm = paw.wfs.band_comm
-    
         master = (world.rank == 0)
         parallel = (world.size > 1)
-        
-        w = gpaw_io_open(filename, 'w', world)
-        w['history'] = 'FDTDPoissonSolver restart file'
-        w['version'] = 1
-        w['lengthunit'] = 'Bohr'
-        w['energyunit'] = 'Hartree'
-        w['DataType'] = 'Float'
+        #w = gpaw_io_open(filename, 'w', world)
+        w = writer
         
         # FDTDPoissonSolver related data
         w['potential_coupling_scheme'] = self.potential_coupling_scheme
         w['coupling_level'] = self.coupling_level
-        w['description'] = self.description
+        w['poisson_description'] = self.description
         w['calculation_mode'] = self.calculation_mode
         w['remove_moment_qm'] = self.remove_moment_qm
         w['remove_moment_cl'] = self.remove_moment_cl
@@ -857,11 +847,11 @@ class FDTDPoissonSolver:
         ng = self.cl.gd.get_size_of_global_array()
         
         # Write the classical charge density
-        w.dimension('ngptsx', ng[0])
-        w.dimension('ngptsy', ng[1])
-        w.dimension('ngptsz', ng[2])
+        w.dimension('nclgptsx', ng[0])
+        w.dimension('nclgptsy', ng[1])
+        w.dimension('nclgptsz', ng[2])
         w.add('classical_material_rho',
-              ('ngptsx', 'ngptsy', 'ngptsz'),
+              ('nclgptsx', 'nclgptsy', 'nclgptsz'),
               dtype=float,
               write=master)
         if kpt_comm.rank == 0:
@@ -871,11 +861,11 @@ class FDTDPoissonSolver:
 
         # Write the total polarization
         w.dimension('3', 3)
-        w.dimension('ngptsx', ng[0])
-        w.dimension('ngptsy', ng[1])
-        w.dimension('ngptsz', ng[2])
+        w.dimension('nclgptsx', ng[0])
+        w.dimension('nclgptsy', ng[1])
+        w.dimension('nclgptsz', ng[2])
         w.add('polarization_total',
-              ('3', 'ngptsx', 'ngptsy', 'ngptsz'),
+              ('3', 'nclgptsx', 'nclgptsy', 'nclgptsz'),
               dtype=float,
               write=master)
         if kpt_comm.rank == 0:
@@ -886,19 +876,16 @@ class FDTDPoissonSolver:
         # Write the partial polarizations
         w.dimension('3', 3)
         w.dimension('Nj', self.classical_material.Nj)
-        w.dimension('ngptsx', ng[0])
-        w.dimension('ngptsy', ng[1])
-        w.dimension('ngptsz', ng[2])
+        w.dimension('nclgptsx', ng[0])
+        w.dimension('nclgptsy', ng[1])
+        w.dimension('nclgptsz', ng[2])
         w.add('polarizations',
-              ('3', 'Nj', 'ngptsx', 'ngptsy', 'ngptsz'),
+              ('3', 'Nj', 'nclgptsx', 'nclgptsy', 'nclgptsz'),
               dtype=float,
               write=master)
         if kpt_comm.rank == 0:
             polarizations = self.cl.gd.collect(self.classical_material.polarizations)
             if master:
                 w.fill(polarizations)
-
-        w.close()
-        world.barrier()
         
 

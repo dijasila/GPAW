@@ -45,6 +45,7 @@ poissonsolver.set_calculation_mode('iterate')
 atoms.set_cell(large_cell)
 atoms, qm_spacing, gpts = poissonsolver.cut_cell(atoms,
                                                  vacuum=2.50)
+
 # Initialize GPAW
 gs_calc = GPAW(gpts          = gpts,
                eigensolver   = 'cg',
@@ -63,28 +64,17 @@ kick = [0.0, 0.0, 1.0e-3]
 time_step = 10.0
 max_time = 100 # 0.1 fs
 
-td_calc = TDDFT('gs.gpw')
-td_calc.initialize_FDTD(poissonsolver, 'dmCl.dat')
+td_calc = TDDFT('gs.gpw', classical_material  = classical_material)
 td_calc.absorption_kick(kick_strength=kick)
 
 # Propagate TDDFT and FDTD
-if False: # old test without restarting
+if False: # without restarting
     td_calc.propagate(time_step,  max_time/time_step, 'dm.dat', 'td.gpw')
-    poissonsolver.finalize_propagation()
     td_calc2 = td_calc
-else: # new test with restarting
+else: # with restarting
     td_calc.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
-    poissonsolver.write(td_calc, 'tdp.gpw') # for now, use a separate file 
-    poissonsolver.finalize_propagation()
-    
-    # Restart and continue: note that classical_material is not saved
-    td_calc2 = TDDFT('td.gpw')
-    poissonsolver2 = FDTDPoissonSolver(restart_file='tdp.gpw',
-                                       paw=td_calc2,
-                                       classical_material=classical_material)
-    td_calc2.initialize_FDTD(poissonsolver2, 'dmCl.dat')
+    td_calc2 = TDDFT('td.gpw', classical_material  = classical_material)
     td_calc2.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
-    poissonsolver2.finalize_propagation()
 
 # Test
 ref_dipole_moment_z = -0.0494828968091

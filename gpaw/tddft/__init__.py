@@ -117,6 +117,12 @@ class TDDFT(GPAW):
         parallel = kwargs.setdefault('parallel', {})
         parallel.setdefault('stridebands', True)
 
+        # Classical material must be initialized before restarting 
+        try:
+            self.classical_material = kwargs['classical_material']
+        except:
+            pass
+
         # Initialize paw-object without density mixing
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
@@ -227,14 +233,23 @@ class TDDFT(GPAW):
         self.hpsit = None
         self.eps_tmp = None
         self.mblas = MultiBlas(wfs.gd)
+        
+        # Restarting an FDTD run generates hamiltonian.fdtd_poisson, which now overwrites hamiltonian.poisson
+        if hasattr(self.hamiltonian, 'fdtd_poisson'):
+            self.hamiltonian.poisson = self.hamiltonian.fdtd_poisson
+            self.hamiltonian.poisson.set_grid_descriptor(self.density.finegd)
+
+        # For electrodynamics mode
+        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+            self.initialize_FDTD(fname='dmCl.dat')
+
 
     # Electrodynamics requires extra care 
-    def initialize_FDTD(self, poisson_solver, fname='dmCl.dat'):
+    def initialize_FDTD(self, fname='dmCl.dat'):
+        
         # Sanity check
-        assert(poisson_solver.description == 'FDTD+TDDFT')
-
-        # Set the correct variables 
-        self.hamiltonian.poisson = poisson_solver
+        assert(self.hamiltonian.poisson.description == 'FDTD+TDDFT')
+        
         self.hamiltonian.poisson.set_density(self.density)
         self.hamiltonian.poisson.set_dipole_moment_fname(fname)
 
@@ -248,9 +263,7 @@ class TDDFT(GPAW):
         # the FDTDPoissonSolver changes the calculation_mode from propagate to
         # something else when the propagation is finished. 
         self.attach(self.hamiltonian.poisson.set_calculation_mode, 1, 'propagate')
-        
-        # This is not necessarily set yet 
-        self.hamiltonian.poisson.set_grid_descriptor(self.density.finegd)
+
 
 
     def set(self, **kwargs):
@@ -288,6 +301,8 @@ class TDDFT(GPAW):
                 raise DeprecationWarning(
                     'Keyword argument has been moved ' +
                     "to the 'parallel' dictionary keyword under '%s'." % name)
+            elif key == 'classical_material':
+                continue
             else:
                 raise TypeError("Unknown keyword argument: '%s'" % key)
 
@@ -395,6 +410,10 @@ class TDDFT(GPAW):
             #norm = self.density.finegd.integrate(self.density.rhot_g)
             #self.finalize_dipole_moment_file(norm)
             self.finalize_dipole_moment_file()
+
+        # Finalize FDTDPoissonSolver
+        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+            self.hamiltonian.poisson.finalize_propagation()
 
         # Call registered callback functions
         self.call_observers(self.niter, final=True)

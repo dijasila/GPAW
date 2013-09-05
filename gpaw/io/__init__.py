@@ -258,6 +258,12 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             else:
                 w[name] = value
 
+    # Try to write FDTD-related data
+    use_fdtd = hasattr(paw.hamiltonian.poisson, 'description') and paw.hamiltonian.poisson.description=='FDTD+TDDFT'
+    w['FDTD'] = use_fdtd
+    if use_fdtd:
+        paw.hamiltonian.poisson.write(paw, w)
+
     # Write fingerprint (md5-digest) for all setups:
     for setup in wfs.setups.setups.values():
         key = atomic_names[setup.Z] + 'Fingerprint'
@@ -634,6 +640,16 @@ def read(paw, reader):
                 setattr(paw, attr, value)
             except KeyError:
                 pass
+
+    # Try to read FDTD-related data
+    try:
+        use_fdtd = r['FDTD']
+    except:
+        use_fdtd = False
+    if use_fdtd:
+        from gpaw.fdtd import FDTDPoissonSolver
+        # fdtd_poisson will overwrite the poisson at a later stage
+        paw.hamiltonian.fdtd_poisson = FDTDPoissonSolver(restart_reader=r, paw=paw)
 
     # Try to read the number of Delta SCF orbitals
     try:
