@@ -162,7 +162,7 @@ class GW(BASECHI):
         # GW bands init
         if (self.bands == None):
             self.gwnband = self.nbands
-            self.bands = self.gwbands_n = np.array(range(self.nbands))
+            self.bands = self.gwbands_n = np.arange(self.nbands)
         else:
             self.gwnband = np.shape(self.bands)[0]
             self.gwbands_n = self.bands
@@ -253,7 +253,6 @@ class GW(BASECHI):
             exxfile='EXX.pckl'
             self.printtxt('EXX takes %s ' %(timedelta(seconds=round(time()-t0))))
         data = pickle.load(open(exxfile))
-        e_skn = data['e_skn'] # in Hartree
         vxc_skn = data['vxc_skn'] # in Hartree
         exx_skn = data['exx_skn'] # in Hartree
         f_skn = data['f_skn']
@@ -261,6 +260,18 @@ class GW(BASECHI):
         gwbands_n = data['gwbands_n']
         assert (gwkpt_k == self.gwkpt_k).all(), 'exxfile inconsistent with input parameters'
         assert (gwbands_n == self.gwbands_n).all(), 'exxfile inconsistent with input parameters'
+        if self.user_skn is None:
+            e_skn = data['e_skn'] # in Hartree
+        else:
+            e_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
+        for s in range(self.nspins):
+            for i, k in enumerate(self.gwkpt_k):
+                ik = self.kd.bz2ibz_k[k]
+                for j, n in enumerate(self.gwbands_n):
+                    if self.user_skn is None:
+                        assert e_skn[s][i][j] == self.e_skn[s][ik][n], 'exxfile inconsistent with eigenvalues'
+                    else:
+                        e_skn[s][i][j] = self.e_skn[s][ik][n]
 
         if not self.static:
             QP_skn = e_skn + Z_skn * (Sigma_skn + exx_skn - vxc_skn)
