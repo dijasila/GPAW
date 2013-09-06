@@ -24,9 +24,10 @@ world.barrier()
 # Classical subsystem
 classical_material = PolarizableMaterial()
 sphere_center = np.array([10.0, 10.0, 10.0]);
-classical_material.add_component(PolarizableSphere(vector1 = sphere_center,
-                                                   radius1 = 5.0,
-                                                   permittivity = PermittivityPlus('ed.txt')))
+classical_material.add_component(PolarizableSphere(permittivity = PermittivityPlus('ed.txt'),
+                                                   center = sphere_center,
+                                                   radius = 5.0
+                                                   ))
 
 # Combined Poisson solver
 poissonsolver = FDTDPoissonSolver(classical_material  = classical_material,
@@ -58,26 +59,26 @@ energy = atoms.get_potential_energy()
 
 # Save state
 gs_calc.write('gs.gpw', 'all')
+classical_material = None
+gs_calc = None
 
 # Initialize TDDFT and FDTD
 kick = [0.0, 0.0, 1.0e-3]
 time_step = 10.0
 max_time = 100 # 0.1 fs
 
-td_calc = TDDFT('gs.gpw', classical_material  = classical_material)
+td_calc = TDDFT('gs.gpw')
 td_calc.absorption_kick(kick_strength=kick)
 
 # Propagate TDDFT and FDTD
-if False: # without restarting
-    td_calc.propagate(time_step,  max_time/time_step, 'dm.dat', 'td.gpw')
-    td_calc2 = td_calc
-else: # with restarting
-    td_calc.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
-    td_calc2 = TDDFT('td.gpw', classical_material  = classical_material)
-    td_calc2.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
+td_calc.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
+td_calc2 = TDDFT('td.gpw')
+td_calc2.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
 
 # Test
-ref_dipole_moment_z = -0.0494828968091
+ref_qm_dipole_moment = [ -4.45805498e-05, -4.45813902e-05, -4.95239989e-02]
+ref_cl_dipole_moment = [ -8.42450221e-05, -8.42466103e-05, -9.35867862e-02]
 tol = 0.0001
-equal(td_calc2.get_dipole_moment()[2], ref_dipole_moment_z, tol)
+equal(td_calc2.get_dipole_moment(), ref_qm_dipole_moment, tol)
+equal(td_calc2.hamiltonian.poisson.get_dipole_moment(), ref_cl_dipole_moment, tol)
 

@@ -117,12 +117,6 @@ class TDDFT(GPAW):
         parallel = kwargs.setdefault('parallel', {})
         parallel.setdefault('stridebands', True)
 
-        # Classical material must be initialized before restarting 
-        try:
-            self.classical_material = kwargs['classical_material']
-        except:
-            pass
-
         # Initialize paw-object without density mixing
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
@@ -301,8 +295,6 @@ class TDDFT(GPAW):
                 raise DeprecationWarning(
                     'Keyword argument has been moved ' +
                     "to the 'parallel' dictionary keyword under '%s'." % name)
-            elif key == 'classical_material':
-                continue
             else:
                 raise TypeError("Unknown keyword argument: '%s'" % key)
 

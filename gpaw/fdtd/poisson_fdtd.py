@@ -683,6 +683,8 @@ class FDTDPoissonSolver:
                                         maxcharge=maxcharge,
                                         zero_initial_phi=False)
 
+    def get_dipole_moment(self):
+        return self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
         
     def update_dipole_moment_file(self, rho):
         # Classical contribution. Note the different origin.
@@ -690,7 +692,7 @@ class FDTDPoissonSolver:
         dmcl = -1.0 * self.classical_material.sign * np.array([self.cl.gd.integrate(np.multiply(r_gv[:, :, :, w] + self.qm.corner1[w], self.classical_material.charge_density)) for w in range(3)])
 
         # Quantum contribution
-        dm = self.density.finegd.calculate_dipole_moment(self.density.rhot_g) + dmcl
+        dm = self.get_dipole_moment() + dmcl
         norm = self.qm.gd.integrate(rho) + self.classical_material.sign * self.cl.gd.integrate(self.classical_material.charge_density)
         
         # Write 
@@ -740,7 +742,10 @@ class FDTDPoissonSolver:
         
         # Generate classical grid descriptor
         self.initialize_clgd()
-        self.classical_material = paw.classical_material
+        
+        # Classical materials data
+        self.classical_material = PolarizableMaterial()
+        self.classical_material.read(r)
         self.classical_material.initialize(self.cl.gd)
         
         # PoissonOrganizer: quantum
@@ -768,8 +773,8 @@ class FDTDPoissonSolver:
         else:
             big_charge_density = None
         self.cl.gd.distribute(big_charge_density, self.classical_material.charge_density)
-                
-        # Read self.classical_material.polarization_Total
+        
+        # Read self.classical_material.polarization_total
         if self.cl.gd.comm.rank == 0:
             big_polarization_total = np.array(r.get('polarization_total'), dtype=float)
         else:
@@ -784,6 +789,15 @@ class FDTDPoissonSolver:
             big_polarizations = None
         self.cl.gd.distribute(big_polarizations, self.classical_material.polarizations)
         
+        # Read self.classical_material.currents
+        if self.cl.gd.comm.rank == 0:
+            big_currents = np.array(r.get('currents'),
+                                         dtype=float)
+        else:
+            big_currents = None
+        self.cl.gd.distribute(big_currents, self.classical_material.currents)                
+        
+        
     # Write restart data   
     def write(self, paw, writer):#                     filename='poisson'):
         # parprint('Writing FDTDPoissonSolver data to %s' % (filename))
@@ -796,6 +810,10 @@ class FDTDPoissonSolver:
         parallel = (world.size > 1)
         #w = gpaw_io_open(filename, 'w', world)
         w = writer
+        
+        # Classical materials data
+        w['classmat.num_components'] = len(self.classical_material.components)
+        self.classical_material.write(w)
         
         # FDTDPoissonSolver related data
         w['fdtd.coupling_scheme'] = self.potential_coupling_scheme
@@ -872,5 +890,20 @@ class FDTDPoissonSolver:
             polarizations = self.cl.gd.collect(self.classical_material.polarizations)
             if master:
                 w.fill(polarizations)
-        
+
+
+        # Write the partial currents
+        w.dimension('3', 3)
+        w.dimension('Nj', self.classical_material.Nj)
+        w.dimension('nclgptsx', ng[0])
+        w.dimension('nclgptsy', ng[1])
+        w.dimension('nclgptsz', ng[2])
+        w.add('currents',
+              ('3', 'Nj', 'nclgptsx', 'nclgptsy', 'nclgptsz'),
+              dtype=float,
+              write=master)
+        if kpt_comm.rank == 0:
+            currents = self.cl.gd.collect(self.classical_material.currents)
+            if master:
+                w.fill(currents)
 

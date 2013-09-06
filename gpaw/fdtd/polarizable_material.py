@@ -27,12 +27,17 @@ _eps0_au = 1.0 / (4.0 * np.pi)
 #        2) electric field
 #        3) classical polarization charge density
 #    -contains routines for calculating them from each other and/or external potential
-class PolarizableMaterial:
-    def __init__(self, components=[], sign = -1.0):
+class PolarizableMaterial():
+    def __init__(self, components=None, sign = -1.0):
         self.gd          = None
         self.initialized = False
-        self.components  = components
         self.sign        = sign
+
+        if components==None:
+            self.components = []
+        else:
+            self.components  = components
+    
     
     def add_component(self, component):
         self.components.append(component)
@@ -84,6 +89,29 @@ class PolarizableMaterial:
             self.apply_mask(mask = component.get_mask(self.gd),
                            permittivity = component.permittivity)
     
+    # Restart by regenerating the structures
+    # TODO: is everything always fully reproduced? Should there be a test for it (e.g. checksum[mask])
+    def read(self, reader):
+        r = reader
+        num_components = r['classmat.num_components']
+        for n in range(num_components):
+            name = r['classmat.component_%i.name' % n]
+            arguments = r['classmat.component_%i.arguments' % n]
+            eps_infty = r['classmat.component_%i.eps_infty' % n]
+            eps = r['classmat.component_%i.eps' % n] # Data as array
+            eval('self.add_component(%s(permittivity = Permittivity(data=eps), %s))' % (name, arguments))
+            
+    # Save information on the structures for restarting
+    def write(self, writer):
+        w = writer
+        ind = 0
+        for component in self.components:
+            w['classmat.component_%i.name' % ind] = component.name
+            w['classmat.component_%i.arguments' % ind] = component.arguments
+            w['classmat.component_%i.eps_infty' % ind] = component.permittivity.eps_infty
+            w['classmat.component_%i.eps' % ind] = component.permittivity.data()
+            ind += 1
+        
             
     # Here the 3D-arrays are filled with material-specific information
     def apply_mask(self, mask, permittivity):
@@ -163,6 +191,10 @@ class PolarizableBox():
         self.vector1      = np.array(vector1)/Bohr # from Angstroms to atomic units
         self.vector2      = np.array(vector2)/Bohr # from Angstroms to atomic units
         self.permittivity = permittivity
+        
+        self.name = 'PolarizableBox'
+        self.arguments = 'vector1=[%f, %f, %f], radius1=[%f, %f, %f]' % (vector1[0], vector1[1], vector1[2],
+                                                                         vector2[0], vector2[1], vector2[2])        
 
     # Setup grid descriptor and the permittivity values inside the box
     def get_mask(self, gd, verbose=True):
@@ -177,22 +209,25 @@ class PolarizableBox():
         return np.logical_and(np.logical_and( # z
                 np.logical_and(np.logical_and( # y
                  np.logical_and( #x
-                                r_gv[:, :, :, 0] >= self.vector1[0],
-                                r_gv[:, :, :, 0] <= self.vector2[0]),
-                                 r_gv[:, :, :, 1] >= self.vector1[1]),
-                                 r_gv[:, :, :, 1] <= self.vector2[1]),
-                                  r_gv[:, :, :, 2] >= self.vector1[2]),
-                                  r_gv[:, :, :, 2] <= self.vector2[2])
+                                r_gv[:, :, :, 0] > self.vector1[0],
+                                r_gv[:, :, :, 0] < self.vector2[0]),
+                                 r_gv[:, :, :, 1] > self.vector1[1]),
+                                 r_gv[:, :, :, 1] < self.vector2[1]),
+                                  r_gv[:, :, :, 2] > self.vector1[2]),
+                                  r_gv[:, :, :, 2] < self.vector2[2])
 
 # Sphere-shaped classical material
 class PolarizableSphere():
-    def __init__(self, vector1, radius1, permittivity):
-        # sanity check
-        assert(len(vector1)==3)
-        
-        self.vector1      = np.array(vector1)/Bohr # from Angstroms to atomic units
-        self.radius1      = radius1/Bohr           # from Angstroms to atomic units
+    def __init__(self, permittivity, center, radius):
         self.permittivity = permittivity
+        self.vector1      = np.array(center)/Bohr # from Angstroms to atomic units
+        self.radius1      = radius/Bohr # from Angstroms to atomic units
+        
+        # sanity check
+        assert(len(self.vector1)==3)
+        
+        self.name = 'PolarizableSphere'
+        self.arguments = 'center=[%20.12e, %20.12e, %20.12e], radius=%20.12e' % (center[0], center[1], center[2], radius)
 
     def get_mask(self, gd, verbose=True):
         if verbose:
@@ -204,7 +239,7 @@ class PolarizableSphere():
         # inside or outside
         return  np.array( (r_gv[:, :, :, 0] - self.vector1[0])**2.0 +
                           (r_gv[:, :, :, 1] - self.vector1[1])**2.0 +
-                          (r_gv[:, :, :, 2] - self.vector1[2])**2.0 <= self.radius1**2 )
+                          (r_gv[:, :, :, 2] - self.vector1[2])**2.0 < self.radius1**2)
 
 # Sphere-shaped classical material
 class PolarizableEllipsoid():
@@ -216,6 +251,8 @@ class PolarizableEllipsoid():
         self.vector1      = np.array(vector1)/Bohr # from Angstroms to atomic units
         self.radii        = np.array(radii)/Bohr   # from Angstroms to atomic units
         self.permittivity = permittivity
+        
+        
 
     def get_mask(self, gd, verbose=True):
         if verbose:
@@ -227,7 +264,7 @@ class PolarizableEllipsoid():
         # inside or outside
         return  np.array( (r_gv[:, :, :, 0] - self.vector1[0])**2.0/self.radii[0]**2.0 +
                           (r_gv[:, :, :, 1] - self.vector1[1])**2.0/self.radii[1]**2.0 +
-                          (r_gv[:, :, :, 2] - self.vector1[2])**2.0/self.radii[2]**2.0 <= 1.0)
+                          (r_gv[:, :, :, 2] - self.vector1[2])**2.0/self.radii[2]**2.0 < 1.0)
 
  # Rod-shaped classical material
 class PolarizableRod():
@@ -284,7 +321,7 @@ class PolarizableRod():
 
             # Include in the mask
             this_mask = np.logical_and(np.logical_and(angle1 < 0.5*np.pi, angle2 < 0.5*np.pi),
-                                      d <= self.radius**2.0 )
+                                      d < self.radius**2.0 )
 
             # Add spheres around current end points 
             if self.round_corners:
@@ -292,7 +329,7 @@ class PolarizableRod():
                 raDist = np.sum([ra[:, :, :, w]*ra[:, :, :, w] for w in range(3)], axis=0)
                 rpDist = np.sum([rp[:, :, :, w]*rp[:, :, :, w] for w in range(3)], axis=0)
                 this_mask = np.logical_or(this_mask,
-                                         np.logical_or(raDist <= self.radius**2.0, rpDist <= self.radius**2.0))
+                                         np.logical_or(raDist < self.radius**2.0, rpDist < self.radius**2.0))
 
             mask =  np.logical_or(mask, this_mask)
 
@@ -502,37 +539,48 @@ class LorentzOscillator:
 
 # Dieletric function: e(omega) = eps_inf + sum_j L_j(omega) // Coomar2011, Eq. 2
 class Permittivity:
-    def __init__(self, fname=None, eps_infty = _eps0_au ):
-        self.eps_infty = eps_infty
+    def __init__(self, fname=None, data=None, eps_infty = _eps0_au ):
 
-        if fname == None:
-            # constant (vacuum?) permittivity
-            self.Nj = 0
-            self.oscillators = []
-        else:
-            # read permittivity from a 3-column file
+        # Initialize to vacuum permittivity
+        self.eps_infty = eps_infty
+        self.Nj = 0
+        self.oscillators = []
+
+        # Input as data array
+        if data != None:
+            assert(fname==None)
+            self.Nj = len(data)
+            for v in range(self.Nj):
+                self.oscillators.append(LorentzOscillator(data[v][0], data[v][1], data[v][2]))
+            return
+
+        # Input as filename
+        if fname != None: # read permittivity from a 3-column file
             fp = open(fname, 'r')
             lines = fp.readlines()
             fp.close()
 
             self.Nj = len(lines)
-            self.oscillators = []
 
             for line in lines:
                 bar_omega = float(split(line)[0]) / Hartree
                 alpha     = float(split(line)[1]) / Hartree
                 beta      = float(split(line)[2]) / Hartree / Hartree
                 self.oscillators.append(LorentzOscillator(bar_omega, alpha, beta))
+            return
+
+            
 
     def value(self, omega = 0):
         return self.eps_infty + sum([osc.value(omega) for osc in self.oscillators])
     
-
+    def data(self):
+        return [[osc.bar_omega, osc.alpha, osc.beta] for osc in self.oscillators]
 
 # Dieletric function that renormalizes the static permittivity to the requested value (usually epsZero) 
 class PermittivityPlus(Permittivity):
     def __init__(self, fname=None, eps_infty = _eps0_au, epsZero = _eps0_au, newbar_omega = 0.01, new_alpha = 0.10 ):
-        Permittivity.__init__(self, fname, eps_infty)
+        Permittivity.__init__(self, fname=fname, data=None, eps_infty=eps_infty)
         parprint("Original Nj=%i and eps(0) = %12.6f + i*%12.6f" % (self.Nj, self.value(0.0).real, self.value(0.0).imag))
         
         # Convert given values from eVs to Hartrees

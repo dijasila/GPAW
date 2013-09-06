@@ -54,7 +54,6 @@ class InputParameters(dict):
             ('verbose',         0),
             ('eigensolver',     None),
             ('poissonsolver',   None),
-            ('classical_material',   None),
             ('communicator',    mpi.world),
             ('idiotproof',      True),
             ('mode',            'fd'),
