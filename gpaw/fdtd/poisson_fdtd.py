@@ -45,6 +45,7 @@ class FDTDPoissonSolver:
                         qm_spacing=0.30,
                         cl_spacing=1.20,
                         tag='fdtd.poisson',
+                        dm_fname='dmCl.dat',
                         remove_moments=(_maxL, 1),
                         potential_coupler='Refiner',
                         coupling_level='both',
@@ -79,8 +80,8 @@ class FDTDPoissonSolver:
         self.time = 0.0
         self.time_step = 0.0
         self.kick = np.array([0.0, 0.0, 0.0], dtype=float)
+        self.dm_fname = dm_fname
         self.dm_file = None
-        self.fname = None
         self.debug_plots = debug_plots
         self.maxiter = 2000
         
@@ -431,8 +432,8 @@ class FDTDPoissonSolver:
 
    
     # Where the induced dipole moment is written
-    def set_dipole_moment_fname(self, fname):
-        self.fname = fname
+    def set_dipole_moment_fname(self, dm_fname):
+        self.dm_fname = dm_fname
 
     # Set the time step
     def set_time_step(self, time_step):
@@ -456,7 +457,7 @@ class FDTDPoissonSolver:
                 mode = 'w'
             else:
                 mode = 'a'
-            self.dm_file = file(self.fname, mode)
+            self.dm_file = file(self.dm_fname, mode)
             if self.dm_file.tell() == 0:
                 header = '# Kick = [%22.12le, %22.12le, %22.12le]\n' % \
                             (self.kick[0], self.kick[1], self.kick[2])
@@ -721,7 +722,7 @@ class FDTDPoissonSolver:
         self.tag = r['fdtd.tag']               
         self.time = float(r['fdtd.time'])
         self.time_step = float(r['fdtd.time_step'])
-        self.fname = r['fdtd.dm_filename']
+        self.dm_fname = r['fdtd.dm_filename']
         self.dm_file = None
         
         # Try to read time-dependent information
@@ -824,7 +825,7 @@ class FDTDPoissonSolver:
         w['fdtd.tag'] = self.tag               
         w['fdtd.time'] = self.time
         w['fdtd.time_step'] = self.time_step
-        w['fdtd.dm_filename'] = self.fname
+        w['fdtd.dm_filename'] = self.dm_fname
         w['fdtd.kick'] = self.kick
         w['fdtd.debug_plots'] = self.debug_plots
         w['fdtd.maxiter'] = self.maxiter

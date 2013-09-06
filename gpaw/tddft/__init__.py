@@ -235,17 +235,16 @@ class TDDFT(GPAW):
 
         # For electrodynamics mode
         if self.hamiltonian.poisson.description=='FDTD+TDDFT':
-            self.initialize_FDTD(fname='dmCl.dat')
+            self.initialize_FDTD()
 
 
     # Electrodynamics requires extra care 
-    def initialize_FDTD(self, fname='dmCl.dat'):
+    def initialize_FDTD(self):
         
         # Sanity check
         assert(self.hamiltonian.poisson.description == 'FDTD+TDDFT')
         
         self.hamiltonian.poisson.set_density(self.density)
-        self.hamiltonian.poisson.set_dipole_moment_fname(fname)
 
         # The propagate calculation_mode causes classical part to evolve
         # in time when self.hamiltonian.poisson.solve(...) is called
