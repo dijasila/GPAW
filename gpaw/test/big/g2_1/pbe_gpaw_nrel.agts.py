@@ -28,9 +28,10 @@ def agts(queue):
         vs = queue.add(tag + '_vs.py',
                        ncpus=1, walltime=5, deps=[analyse],
                        creates=[tag + '_ea_vs.csv'])
-        plot = queue.add(tag + '_plot.py',
-                         ncpus=1, walltime=5, deps=[analyse],
-                         creates=[tag + '_ea_vs.png'])
+        if 0:  # plot broken on el6
+            plot = queue.add(tag + '_plot.py',
+                             ncpus=1, walltime=5, deps=[analyse],
+                             creates=[tag + '_ea_vs.png'])
     # optimization
     if 0:  # run after releasing new setups
         opt_run = [queue.add(tag + '_opt_run.py %d' % i,
