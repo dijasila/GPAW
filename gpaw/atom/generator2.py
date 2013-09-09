@@ -70,7 +70,7 @@ parameters = {
 'Cu11': ('4s,s,4p,p,3d,d', 2.1),
 'Cu19': ('3s,4s,3p,4p,3d,d,F', 1.9),
 'Zn12': ('4s,s,4p,p,3d', 2.1),
-'Zn.20': ('3s,4s,3p,4p,3d,d,F', 1.9),
+'Zn20': ('3s,4s,3p,4p,3d,d,F', 1.9),
 'Ga13': ('4s,s,4p,p,3d,d,F', 2.2),
 'Ge14': ('4s,s,4p,p,3d,d,F', 2.1),
 'As5': ('4s,s,4p,p,d,F', 2.0),
@@ -172,6 +172,35 @@ parameters = {
 }
 
 
+default = [0,
+           1, 2,
+           1, 2, 5, 6, 7, 8, 9, 10,
+           1, 2, 3, 4, 5, 6, 7, 8,
+           1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 5, 6, 7, 8,
+           1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 6, 7, 8,
+           1, 2, 3,
+           4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+           4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 6, 7, 8]
+
+
+semicore = [0,
+            1, 2,
+            3, 4, 5, 6, 7, 8, 9, 10,
+            9, 10, 3, 4, 5, 6, 7, 8,
+            9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 13, 14, 5, 6, 7, 8,
+            9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 13, 14, 15, 6, 7, 8,
+            9, 10, 11,
+            12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+            12, 13, 14, 15, 16, 17, 18, 19, 20, 13, 14, 15, 6, 7, 8]
+
+
+def get_number_of_electrons(symbol, name):
+    Z = atomic_numbers[symbol]
+    if name == 'default':
+        return default[Z]
+    return semicore[Z]
+    
+        
 class PAWWaves:
     def __init__(self, rgd, l, rcut):
         self.rgd = rgd
@@ -1169,19 +1198,9 @@ def generate(argv=None):
     add('-a', '--alpha', type=float)
     add('-b', '--create-basis-set', action='store_true')
     add('--core-hole')
+    add('-e', '--electrons', type=int)
 
-    opt, args = parser.parse_args(argv)
-
-    if len(args) == 1 and '-' in args[0]:
-        Z1, Z2 = args[0].split('-')
-        Z1 = atomic_numbers[Z1]
-        Z2 = atomic_numbers[Z2]
-        symbols = chemical_symbols[Z1:Z2 + 1]
-        if opt.tag:
-            symbols = [symbol for symbol in symbols
-                       if symbol + '.' + opt.tag in parameters]
-    else:
-        symbols = args
+    opt, symbols = parser.parse_args(argv)
 
     for symbol in symbols:
         kwargs = get_parameters(symbol, opt)
@@ -1251,10 +1270,13 @@ def generate(argv=None):
 
 
 def get_parameters(symbol, opt):
-    par = parameters[symbol]
-    if opt.tag and symbol + '.' + opt.tag in parameters:
-        par = parameters[symbol + '.' + opt.tag]
-
+    if opt.electrons:
+        par = parameters[symbol + str(opt.electrons)]
+    else:
+        names = [name for name in parameters if name.startswith(symbol)]
+        names.sort()
+        par = parameters[names[0]]
+        
     projectors, radii = par[:2]
     if len(par) == 3:
         extra = par[2]
@@ -1269,9 +1291,6 @@ def get_parameters(symbol, opt):
 
     if isinstance(radii, float):
         radii = [radii]
-
-    scale = 1.0
-    radii = [scale * r for r in radii]
 
     if opt.pseudize:
         type, nderiv = opt.pseudize.split(',')
@@ -1317,17 +1336,18 @@ def _generate(symbol, xc, projectors, radii,
     return gen
 
 
-if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        functionals = sys.argv[1:]
-    else:
-        functionals = ['LDA', 'PBE', 'revPBE', 'RPBE']
-    for xc in functionals:
-        argv = ['H-Rn', '-swf', xc]
-        #argv = ['H-Rn', '-wf', xc]
-        if xc == 'PBE':
-            argv.append('-b')
-        for sc in [False, True]:
-            if sc:
-                argv.extend(['-t', 'sc'])
+def generate_all():
+    functionals = ['LDA', 'PBE', 'revPBE', 'RPBE']
+    for name in parameters:
+        n = sum(c.isalpha() for c in name)
+        symbol = name[:n]
+        electrons = name[n:]
+        for xc in functionals:
+            argv = [symbol, '-swf', xc, '-e', electrons, '-t', electrons + 'e']
+            if xc == 'PBE':
+                argv.append('-b')
             generate(argv)
+
+
+if __name__ == '__main__':
+    generate_all()

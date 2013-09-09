@@ -17,6 +17,7 @@ from gpaw.utilities.tools import md5_new
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast_string
 from gpaw.atom.radialgd import radial_grid_descriptor
+from gpaw.atom.generator2 import get_number_of_electrons
 from gpaw.basis_data import Basis, BasisFunction
 
 try:
@@ -46,6 +47,8 @@ class SetupData:
         if name is None or name == 'paw':
             self.stdfilename = '%s.%s' % (symbol, self.setupname)
         else:
+            if name == 'sc':
+                name = str(get_number_of_electrons(symbol, 'sc')) + 'e'
             self.stdfilename = '%s.%s.%s' % (symbol, name, self.setupname)
 
         self.filename = None # full path if this setup was loaded from file
@@ -415,6 +418,7 @@ def search_for_file(name, world=None):
 
     source = None
     filename = None
+    names = [name, name + 'gz']
     for path in setup_paths:
         filename = os.path.join(path, name)
         if os.path.isfile(filename):
@@ -428,6 +432,24 @@ def search_for_file(name, world=None):
                 else:
                     source = os.popen('gunzip -c ' + filename, 'r').read()
                 break
+    else:
+        if name.count('.') == 1:
+            symbol, tail = name.split('.')
+            e = get_number_of_electrons(symbol, 'default')
+            name = '%s.%de.%s' % (symbol, e, tail)
+            filename, source = search_for_file(name)
+            names += [name, name + 'gz']
+    
+    if not source:
+        raise RuntimeError(
+            'Could not find any of the files:\n\n    %s\n\n' %
+            ', '.join(names[:-1]) + ' and ' + names[-1] +
+            'in any of the folders of your $GPAW_SETUP_PATH environment ' +
+            variable.\n + 
+            'See ' +
+            'http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html' +
+            'for details.')
+        
     return filename, source
 
 
@@ -449,15 +471,6 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             finally:
                 if setup.dir:
                     setup_paths.pop(0)
-
-        if source is None:
-            print """
-You need to set the GPAW_SETUP_PATH environment variable to point to
-the directory where the setup files are stored.  See
-http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
-            raise RuntimeError('Could not find %s-setup for "%s".' %
-                               (setup.name + '.' + setup.setupname, 
-                                setup.symbol))
         
         setup.fingerprint = md5_new(source).hexdigest()
         
