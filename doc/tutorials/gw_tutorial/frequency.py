@@ -23,6 +23,17 @@ atoms.get_potential_energy()
 calc.diagonalize_full_hamiltonian()
 calc.write('Si_groundstate.gpw','all')
 
+gw = GW(
+        file='Si_groundstate.gpw',
+        nbands=None,
+        bands=np.array([2,3,4,5]),
+        kpoints=None,
+        ecut=100.,
+        txt='Si_EXX.out'
+       )
+
+gw.get_exact_exchange()
+
 for wlin in [25.,50.,75.,100.]:
 
     for dw in [0.02,0.05,0.1,0.2,0.5]:
