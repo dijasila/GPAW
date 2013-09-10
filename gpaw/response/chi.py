@@ -97,7 +97,7 @@ class CHI(BASECHI):
             assert self.w_w.max() == self.w_w[-1]
             
             self.dw /= Hartree
-            self.w_w  /= Hartree
+            self.w_w /= Hartree
             self.wmax = self.w_w[-1] 
             self.wcut = self.wmax + 5. / Hartree
 #            self.Nw  = int(self.wmax / self.dw) + 1
@@ -160,17 +160,8 @@ class CHI(BASECHI):
                                       self.calc.atoms.pbc,
                                       self.vcut)
 
-            nt_sg = calc.density.nt_sG
-            if (self.rpad > 1).any() or (self.pbc - True).any():
-                nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
-                for s in range(self.nspins):
-                    nt_G = self.pad(nt_sg[s])
-                    nt_sG[s] = nt_G
-            else:
-                nt_sG = nt_sg
-            
             self.Kxc_sGG = calculate_Kxc(self.gd, # global grid
-                                         nt_sG,
+                                         calc.density.nt_sG,
                                          self.npw, self.Gvec_Gc,
                                          self.nG, self.vol,
                                          self.bcell_cv, R_av,
@@ -186,7 +177,6 @@ class CHI(BASECHI):
 
     def calculate(self, seperate_spin=None):
         """Calculate the non-interacting density response function. """
-
         calc = self.calc
         kd = self.kd
         gd = self.gd
@@ -263,8 +253,8 @@ class CHI(BASECHI):
                     k_c = self.kd.ibzk_kc[ibzkpt2]
                     eikr2_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
                     
-                index1_g, phase1_g = kd.get_transform_wavefunction_index(self.nG, k)
-                index2_g, phase2_g = kd.get_transform_wavefunction_index(self.nG, kq_k[k])
+                index1_g, phase1_g = kd.get_transform_wavefunction_index(self.nG - (self.pbc == False), k)
+                index2_g, phase2_g = kd.get_transform_wavefunction_index(self.nG - (self.pbc == False), kq_k[k])
     
                 for n in range(self.nvalbands):
                     if self.calc.wfs.world.size == 1:
@@ -278,13 +268,8 @@ class CHI(BASECHI):
                         u = self.kd.get_rank_and_index(spin, ibzkpt1)[1]
                         psitold_g = calc.wfs._get_wave_function_array(u, n, realspace=True, phase=eikr1_R)
     
-                    psit1new_g_tmp = kd.transform_wave_function(psitold_g,k,index1_g,phase1_g)
-    
-                    if (self.rpad > 1).any() or (self.pbc - True).any():
-                        psit1new_g = self.pad(psit1new_g_tmp)
-                    else:
-                        psit1new_g = psit1new_g_tmp
-    
+                    psit1new_g = kd.transform_wave_function(psitold_g,k,index1_g,phase1_g)
+
                     # PAW part
                     if not self.pwmode:
                         if (calc.wfs.world.size > 1 or self.nkpt==1):
@@ -315,20 +300,12 @@ class CHI(BASECHI):
                                 u = self.kd.get_rank_and_index(spin, ibzkpt2)[1]
                                 psitold_g = calc.wfs._get_wave_function_array(u, m, realspace=True, phase=eikr2_R)
     
-                            psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k], index2_g, phase2_g)
+                            psit2_g = kd.transform_wave_function(psitold_g, kq_k[k], index2_g, phase2_g)
     
-                            if (self.rpad > 1).any() or (self.pbc - True).any():
-                                psit2_g = self.pad(psit2_g_tmp)
-                            else:
-                                psit2_g = psit2_g_tmp
-    
-                            # fft
-                            fft_R[:] = psit2_g * psit1_g
-                            fftplan.execute()
-                            fft_G *= self.vol / self.nG0
-    #                        tmp_g = np.fft.fftn(psit2_g*psit1_g) * self.vol / self.nG0
-    
-                            rho_G = fft_G.ravel()[self.Gindex_G]
+                            # zero padding is included through the FFT
+                            rho_g = np.fft.fftn(psit2_g * psit1_g, s=self.nGrpad) * self.vol / self.nG0rpad
+                            # Here, planewave cutoff is applied
+                            rho_G = rho_g.ravel()[self.Gindex_G]
     
                             if self.optical_limit:
                                 phase_cd = np.exp(2j * pi * sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
@@ -440,22 +417,22 @@ class CHI(BASECHI):
                         if n == 0:
                             dt = time() - t0
                             totaltime = dt * self.nvalbands * self.nspins
-                            self.printtxt('Finished n 0 in %f seconds, estimated %f seconds left.' %(dt, totaltime) )
+                            self.printtxt('Finished n 0 in %d seconds, estimate %d seconds left.' %(dt, totaltime) )
                         if rank == 0 and self.nvalbands // 5 > 0:
                             if n > 0 and n % (self.nvalbands // 5) == 0:
                                 dt = time() - t0
-                                self.printtxt('Finished n %d in %f seconds, estimated %f seconds left.'%(n, dt, totaltime-dt))
+                                self.printtxt('Finished n %d in %d seconds, estimate %d seconds left.'%(n, dt, totaltime-dt))
                 if calc.wfs.world.size != 1:
                     self.kcomm.barrier()            
                 if k == 0:
                     dt = time() - t0
                     totaltime = dt * self.nkpt_local * self.nspins
-                    self.printtxt('Finished k 0 in %f seconds, estimated %f seconds left.' %(dt, totaltime))
+                    self.printtxt('Finished k 0 in %d seconds, estimate %d seconds left.' %(dt, totaltime))
                     
                 if rank == 0 and self.nkpt_local // 5 > 0:            
                     if k > 0 and k % (self.nkpt_local // 5) == 0:
                         dt =  time() - t0
-                        self.printtxt('Finished k %d in %f seconds, estimated %f seconds left.  '%(k, dt, totaltime - dt) )
+                        self.printtxt('Finished k %d in %d seconds, estimate %d seconds left.  '%(k, dt, totaltime - dt) )
         self.printtxt('Finished summation over k')
 
         self.kcomm.barrier()

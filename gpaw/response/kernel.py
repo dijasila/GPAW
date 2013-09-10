@@ -46,10 +46,11 @@ def v1D_Coulomb(qG, G_p, G_n, R):
 
     """
     from scipy.special import j1,k0,j0,k1
-    
-    G_nR = sqrt(np.dot(G_n,qG*qG))*R
-    G_pR = abs(np.dot(G_p,qG))*R
-    return 1. / np.dot(qG,qG) * (1 + G_nR * j1(G_nR) * k0(G_pR) - G_pR * j0(G_nR) * k1(G_pR))
+
+    G_nR = (qG[:,1]**2 + qG[:,2]**2)**0.5*R
+    G_pR = abs(qG[:,0])*R
+    result = 1. / (qG[:,0]**2 + qG[:,1]**2 + qG[:,2]**2) * (1 + G_nR * j1(G_nR) * k0(G_pR) - G_pR * j0(G_nR) * k1(G_pR))
+    return result
 
 
 def v0D_Coulomb(qG, R):
@@ -84,7 +85,7 @@ def calculate_Kc(q_c,
     G_p = np.array(pbc, float)
     G_n = np.array([1,1,1]) - G_p
 
-    if vcut is None:
+    if vcut is None or vcut == '3D':
         pass
     elif vcut == '2D': ######
         # R is half the length of cell in non-periodic direction
@@ -115,7 +116,7 @@ def calculate_Kc(q_c,
     qG = np.dot(qG_c, bcell_cv)
 
     # Calculate coulomb kernel
-    if vcut is None:
+    if vcut is None or vcut == '3D':
         Kc_G = v3D_Coulomb(qG)
     elif vcut == '2D':
         Kc_G = v2D_Coulomb(qG, G_p, G_n, R)
@@ -132,8 +133,15 @@ def calculate_Kc(q_c,
         Kc_G[0] = 4*pi * R_q0 / bvol
         
     if symmetric:
-        Kc_G = np.sqrt(Kc_G)
-        return 4 * pi * np.outer(Kc_G.conj(), Kc_G)
+        #print "Kc_G"
+        #print Kc_G
+        Kc_G = np.array(Kc_G,np.complex)**0.5
+        #print "Kc_G^0.5"
+        #print Kc_GC
+        #print "Outer Product"
+        Kc_G = np.outer(Kc_G.conj(), Kc_G)
+        #print Kc_G        
+        return 4 * pi * Kc_G #np.outer(Kc_G.conj(), Kc_G)
     else:
         return 4 * pi * (Kc_G * np.ones([len(Kc_G), len(Kc_G)])).T
         
@@ -271,7 +279,7 @@ def calculate_Kc_q(acell_cv,
     # Normal Direction
     G_n = np.array([1,1,1]) - G_p
 
-    if vcut is None:
+    if vcut is None or vcut == '3D':
         pass
     elif vcut == '2D':
         if G_n.sum() < 1e-8: # default dir is z
@@ -308,7 +316,7 @@ def calculate_Kc_q(acell_cv,
     q_qc[:,2] += Gvec_c[2]
     qG = np.dot(q_qc, bcell_cv)
 
-    if vcut is None:
+    if vcut is None or vcut == '3D':
         K0_q = v3D_Coulomb(qG)
         if (Gvec_c == 0).all():
             R_q0 = (3*bvol / (4*np.pi))**(1/3.)
@@ -334,7 +342,7 @@ def calculate_Kc_q(acell_cv,
 
     for i in range(len(q_qc)):
         q = qt_qcv.copy() + qG[i]
-        if vcut is None:
+        if vcut is None or vcut == '3D':
             v_q = v3D_Coulomb(q)
         elif vcut == '2D':
             v_q = v2D_Coulomb(q, G_p, G_n, R, integrated=True)

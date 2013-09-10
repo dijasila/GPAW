@@ -67,7 +67,10 @@ class BASECHI:
         self.nbands = nbands
         self.q_c = q
 
-        self.w_w = w
+        # chi.py modifies the input array w by dividing by Hartree.
+        # This will change the user-supplied arrays in-place unless
+        # we create a copy.  So now we create a copy.  *Grumble*
+        self.w_w = np.copy(w)
         self.eta = eta
         self.ftol = ftol
         if type(ecut) is int or type(ecut) is float:
@@ -107,10 +110,17 @@ class BASECHI:
 
         # grid init
         self.pbc = calc.atoms.get_pbc()
-        gd = GridDescriptor(calc.wfs.gd.N_c*self.rpad, self.acell_cv, pbc_c=True, comm=serial_comm)
+        # Grid Descriptor does not include zero padding
+        gd = GridDescriptor(calc.wfs.gd.N_c, 
+                            calc.wfs.gd.cell_cv, 
+                            pbc_c=calc.atoms.get_pbc(), 
+                            comm=serial_comm)
         self.gd = gd
         self.nG = gd.N_c
         self.nG0 = self.nG[0] * self.nG[1] * self.nG[2]
+        # Number of grid points and volume including zero padding
+        self.nGrpad = gd.N_c * self.rpad
+        self.nG0rpad = self.nGrpad[0] * self.nGrpad[1] * self.nGrpad[2]
         self.h_cv = gd.h_cv
         self.d_c = [Gradient(gd, i, n=4, dtype=complex).apply for i in range(3)]
 
@@ -266,13 +276,16 @@ class BASECHI:
         if i == 0:
             dt = time() - t0
             self.totaltime = dt * n_local
-            self.printtxt('  Finished %s 0 in %s, estimated %s left.'
-                          %(txt, timedelta(seconds=round(dt)), timedelta(seconds=round(self.totaltime))))
+            self.printtxt('  Finished %s 0 in %s, estimate %s left.'
+                          % (txt, timedelta(seconds=round(dt)),
+                             timedelta(seconds=round(self.totaltime))))
         if rank == 0 and n_local // 5 > 0:            
             if i > 0 and i % (n_local // 5) == 0:
                 dt =  time() - t0
-                self.printtxt('  Finished %s %d in %s, estimated %s left.'
-                              %(txt, i, timedelta(seconds=round(dt)), timedelta(seconds=round(self.totaltime - dt))))
+                self.printtxt('  Finished %s %d in %s, estimate %s left.'
+                              % (txt, i, timedelta(seconds=round(dt)),
+                                 timedelta(seconds=round(self.totaltime
+                                                         - dt))))
 
         return    
 
@@ -386,22 +399,6 @@ class BASECHI:
             return psit_G
 
 
-    def pad(self, psit_g):
-        if self.pwmode:
-            return psit_g
-        else:
-            N_c = self.calc.wfs.gd.N_c
-            shift = np.zeros(3, int)
-            shift[np.where(self.pbc == False)] = 1
-            psit_G = self.gd.zeros(dtype=psit_g.dtype)
-            psit_G[shift[0]:N_c[0],
-                   shift[1]:N_c[1],
-                   shift[2]:N_c[2]] = psit_g[:N_c[0]-shift[0],
-                                             :N_c[1]-shift[1],
-                                             :N_c[2]-shift[2]]
-        return psit_G
-
-
     def add_discontinuity(self, shift):
 
         for ispin in range(self.nspins):
@@ -452,18 +449,12 @@ class BASECHI:
         psitold_g = self.get_wavefunction(ibzkpt2, m, True, spin=spin2)
         psit2_g = kd.transform_wave_function(psitold_g, kq)
 
-        if (self.rpad > 1).any() or (self.pbc - True).any():
-            tmp = self.pad(psit1_g)
-            psit1_g = tmp.copy()
-            tmp = self.pad(psit2_g)
-            psit2_g = tmp.copy()
-
         if Gspace is False:
             return psit1_g.conj() * psit2_g * expqr_g
         else:
-            # FFT
             tmp_g = psit1_g.conj()* psit2_g * expqr_g
-            rho_g = np.fft.fftn(tmp_g) * self.vol / self.nG0
+            # zero padding is included through the FFT
+            rho_g = np.fft.fftn(tmp_g, s=self.nGrpad) * self.vol / self.nG0rpad
 
             # Here, planewave cutoff is applied
             rho_G = rho_g.ravel()[self.Gindex_G]
