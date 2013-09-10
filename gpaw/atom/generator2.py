@@ -14,7 +14,6 @@ from gpaw.version import version
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import gaunt
 from gpaw.utilities import erf, pack2
-from gpaw.setup_data import SetupData
 from gpaw.utilities.lapack import general_diagonalize
 from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
     GaussianBasis
@@ -794,8 +793,7 @@ class PAWSetupGenerator:
         plt.axis(xmax=self.rcmax)
         plt.legend()
 
-    def create_basis_set(self, tag=None,
-                         tailnorm=0.0005, scale=200.0, splitnorm=0.16):
+    def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16):
         rgd = self.rgd
         self.basis = Basis(self.aea.symbol, readxml=False, rgd=rgd)
 
@@ -872,9 +870,7 @@ class PAWSetupGenerator:
         self.basis.generatorattrs.update(dict(tailnorm=tailnorm,
                                               scale=scale,
                                               splitnorm=splitnorm))
-        self.basis.name = 'dzp'
-        if tag:
-            self.basis.name = tag + '.' + self.basis.name
+        self.basis.name = '%de.dzp' % self.nvalence
 
         return self.basis
 
@@ -989,6 +985,7 @@ class PAWSetupGenerator:
     def make_paw_setup(self, tag=None):
         aea = self.aea
 
+        from gpaw.setup_data import SetupData
         setup = SetupData(aea.symbol, aea.xc.name, tag, readxml=False)
 
         setup.id_j = []
@@ -1210,7 +1207,7 @@ def generate(argv=None):
             gen.check_all()
 
         if opt.create_basis_set or opt.write:
-            basis = gen.create_basis_set(opt.tag)
+            basis = gen.create_basis_set()
             
             if opt.create_basis_set:
                 basis.write_xml()

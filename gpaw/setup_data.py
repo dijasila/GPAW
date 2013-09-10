@@ -45,11 +45,15 @@ class SetupData:
 
         # Default filename if this setup is written 
         if name is None or name == 'paw':
-            self.stdfilename = '%s.%s' % (symbol, self.setupname)
+            e = get_number_of_electrons(symbol, 'default')
+            self.stdfilename = '%s.%de.%s' % (symbol, e, self.setupname)
+            self.oldstdfilename = '%s.%s' % (symbol, self.setupname)
         else:
             if name == 'sc':
-                name = str(get_number_of_electrons(symbol, 'sc')) + 'e'
+                e = get_number_of_electrons(symbol, 'sc')
+                name = str(e) + 'e'
             self.stdfilename = '%s.%s.%s' % (symbol, name, self.setupname)
+            self.oldstdfilename = None
 
         self.filename = None # full path if this setup was loaded from file
         self.fingerprint = None # hash value of file data if applicable
@@ -391,13 +395,14 @@ class SetupData:
 
         print >> xml, '</paw_setup>'
 
-    def build(self, xcfunc, lmax, basis, filter=None):
+    def build(self, xcfunc, lmax, basis, filter=None, world=None):
         from gpaw.setup import Setup
-        setup = Setup(self, xcfunc, lmax, basis, filter)
+        setup = Setup(self, xcfunc, lmax, filter)
+        setup.set_basis(basis, world)
         return setup
 
 
-def search_for_file(name, world=None):
+def search_for_file(name, oldname=None, world=None, fail=True):
     """Traverse gpaw setup paths to find file.
 
     Returns the file path and file contents.  If the file is not found,
@@ -405,7 +410,7 @@ def search_for_file(name, world=None):
 
     if world is not None and world.size > 1:
         if world.rank == 0:
-            filename, source = search_for_file(name)
+            filename, source = search_for_file(name, oldname, fail=False)
             if source is None:
                 source = ''
             string = filename + '|' + source
@@ -414,41 +419,36 @@ def search_for_file(name, world=None):
         filename, source = broadcast_string(string, 0, world).split('|', 1)
         if source == '':
             source = None
-        return filename, source
-
-    source = None
-    filename = None
-    names = [name, name + 'gz']
-    for path in setup_paths:
-        filename = os.path.join(path, name)
-        if os.path.isfile(filename):
-            source = open(filename).read()
-            break
-        else:
-            filename += '.gz'
-            if os.path.isfile(filename):
-                if has_gzip:
-                    source = gzip.open(filename).read()
-                else:
-                    source = os.popen('gunzip -c ' + filename, 'r').read()
-                break
     else:
-        if name.count('.') == 1:
-            symbol, tail = name.split('.')
-            e = get_number_of_electrons(symbol, 'default')
-            name = '%s.%de.%s' % (symbol, e, tail)
-            filename, source = search_for_file(name)
-            names += [name, name + 'gz']
+        names = [name]
+        if oldname:
+            names.insert(0, oldname)
+
+        source = None
+        filename = None
+        for name in names:
+            for path in setup_paths:
+                filename = os.path.join(path, name)
+                if os.path.isfile(filename):
+                    source = open(filename).read()
+                    break
+                else:
+                    filename += '.gz'
+                    if os.path.isfile(filename):
+                        if has_gzip:
+                            source = gzip.open(filename).read()
+                        else:
+                            source = os.popen('gunzip -c ' + filename, 'r').read()
+                        break
     
-    if not source:
+    if not source and fail:
         raise RuntimeError(
             'Could not find any of the files:\n\n    %s\n\n' %
-            ', '.join(names[:-1]) + ' and ' + names[-1] +
+            ', '.join(name + ext for name in names for ext in ['', '.gz']) +
             'in any of the folders of your $GPAW_SETUP_PATH environment ' +
-            variable.\n + 
-            'See ' +
-            'http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html' +
-            'for details.')
+            'variable.\n' + 
+            'See http://wiki.fysik.dtu.dk/gpaw/install/' +
+            'installationguide.html for details.')
         
     return filename, source
 
@@ -466,8 +466,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             if setup.dir:
                 setup_paths.insert(0, setup.dir)
             try:
-                (setup.filename, source) = search_for_file(setup.stdfilename,
-                                                           world)
+                setup.filename, source = search_for_file(
+                    setup.stdfilename, setup.oldstdfilename, world)
             finally:
                 if setup.dir:
                     setup_paths.pop(0)

@@ -681,17 +681,6 @@ class Setup(BaseSetup):
 
         self.pt_j = self.create_projectors(rcutfilter)
 
-        if basis is None:
-            basis = self.create_basis_functions(phit_jg, rcut2, gcut2)
-        phit_j = basis.tosplines()
-        self.phit_j = phit_j
-        self.basis = basis #?
-
-        self.nao = 0
-        for phit in self.phit_j:
-            l = phit.get_angular_momentum_number()
-            self.nao += 2 * l + 1
-
         rgd2 = self.rgd2 = AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
         r_g = rgd2.r_g
         dr_g = rgd2.dr_g
@@ -804,6 +793,23 @@ class Setup(BaseSetup):
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
         self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
+
+    def set_basis(self, basis, world=None):
+        if isinstance(basis, str):
+            e = self.filename.rsplit('/', 1)[1].split('.')[1]
+            if e[0].isdigit() and e[-1] == 'e' and not basis.startswith(e):
+                basis = e + '.' + basis
+            basis = Basis(self.symbol, basis, world=world)
+        elif basis is None:
+            basis = self.create_basis_functions(phit_jg, rcut2, gcut2)
+        phit_j = basis.tosplines()
+        self.phit_j = phit_j
+        self.basis = basis #?
+
+        self.nao = 0
+        for phit in self.phit_j:
+            l = phit.get_angular_momentum_number()
+            self.nao += 2 * l + 1
 
     def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,
                                       lmax, Delta_lq, wnt_lqg,
@@ -1156,8 +1162,8 @@ class Setups(list):
                 # Basis may be None (meaning that the setup decides), a string
                 # (meaning we load the basis set now from a file) or an actual
                 # pre-created Basis object (meaning we just pass it along)
-                if isinstance(basis, str):
-                    basis = Basis(symbol, basis, world=world)
+                #if isinstance(basis, str):
+                #    basis = Basis(symbol, basis, world=world)
                 setup = create_setup(symbol, xc, lmax, type,
                                      basis, setupdata=setupdata,
                                      filter=filter, world=world)
