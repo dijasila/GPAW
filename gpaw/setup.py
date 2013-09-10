@@ -801,7 +801,8 @@ class Setup(BaseSetup):
                 basis = e + '.' + basis
             basis = Basis(self.symbol, basis, world=world)
         elif basis is None:
-            basis = self.create_basis_functions(phit_jg, rcut2, gcut2)
+            basis = self.create_basis_functions(self.data.phit_jg)
+
         phit_j = basis.tosplines()
         self.phit_j = phit_j
         self.basis = basis #?
@@ -1050,12 +1051,14 @@ class Setup(BaseSetup):
         nct = self.rgd.spline(setupdata.nct_g, rcore)
         return rcore, setupdata.nc_g, setupdata.nct_g, nct
 
-    def create_basis_functions(self, phit_jg, rcut2, gcut2):
+    def create_basis_functions(self, phit_jg):
         if self.data.basis:
             self.data.basis.rgd = self.rgd
             return self.data.basis
 
         # Cutoff for atomic orbitals used for initial guess:
+        gcut2 = self.gcut2
+        rcut2 = self.rgd_r_g[gcut2]
         rcut3 = 8.0  # XXXXX Should depend on the size of the atom!
         gcut3 = self.rgd.ceil(rcut3)
 
