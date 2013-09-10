@@ -1058,7 +1058,7 @@ class Setup(BaseSetup):
 
         # Cutoff for atomic orbitals used for initial guess:
         gcut2 = self.gcut2
-        rcut2 = self.rgd_r_g[gcut2]
+        rcut2 = self.rgd.r_g[gcut2]
         rcut3 = 8.0  # XXXXX Should depend on the size of the atom!
         gcut3 = self.rgd.ceil(rcut3)
 
