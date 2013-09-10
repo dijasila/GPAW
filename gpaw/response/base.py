@@ -70,7 +70,12 @@ class BASECHI:
         # chi.py modifies the input array w by dividing by Hartree.
         # This will change the user-supplied arrays in-place unless
         # we create a copy.  So now we create a copy.  *Grumble*
-        self.w_w = np.copy(w)
+        #
+        # To make matters worse, w is allowed to be None (why not take
+        # care of that *before*??  This should really be cleaned up.
+        if isinstance(w, np.ndarray):
+            w = w.copy()
+        self.w_w = w
         self.eta = eta
         self.ftol = ftol
         if type(ecut) is int or type(ecut) is float:
