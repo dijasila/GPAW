@@ -195,6 +195,9 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
         basis = self.basis
         if '(' in basis.name:
             reduced, name = basis.name.split('(')
+            if '.' in reduced:
+                tag, reduced = reduced.rsplit('.', 1)
+                name = tag + '.' + name
             name = name[:-1]
         else:
             name = basis.name
