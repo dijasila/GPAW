@@ -19,7 +19,7 @@ Y = 6 - T // 18
 Y[Y > 0] += 0.2
 
 def table(data, title):
-    fig = plt.figure(figsize=(8, 2.5))
+    fig = plt.figure(figsize=(16, 6))
     ax = plt.subplot(111)
 
     patches = []
@@ -38,7 +38,6 @@ def table(data, title):
         x0 = 18.5
         
     p = PatchCollection(patches, cmap=mpl.cm.jet,
-    #norm=mpl.colors.LogNorm(0.1,100),
                         norm=mpl.colors.LogNorm(),
                         alpha=0.6,lw=1)
     p.set_array(np.array(colors))
@@ -63,12 +62,7 @@ def table(data, title):
                  ha='right', va='bottom')
     plt.axis('off')
     plt.axis('equal')
-    plt.axis(xmax=18 + 10.5, ymax=7.2)
+    plt.axis(xmax=18 + 12.5, ymax=7.2)
     plt.title(title)
     plt.show()
     return fig
-
-
-if __name__ == '__main__':
-    fig=table(range(1,87),range(1,87), 'test')
-    fig.show()
