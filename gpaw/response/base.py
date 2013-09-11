@@ -109,17 +109,14 @@ class BASECHI:
         self.ftol /= self.nkpt
 
         # cell init
-        self.acell_cv = calc.atoms.cell / Bohr 
+        self.acell_cv = calc.wfs.gd.cell_cv
         self.acell_cv, self.bcell_cv, self.vol, self.BZvol = \
                        get_primitive_cell(self.acell_cv,rpad=self.rpad)
 
         # grid init
-        self.pbc = calc.atoms.get_pbc()
+        gd = calc.wfs.gd.new_descriptor(comm=serial_comm)
+        self.pbc = gd.pbc_c
         # Grid Descriptor does not include zero padding
-        gd = GridDescriptor(calc.wfs.gd.N_c, 
-                            calc.wfs.gd.cell_cv, 
-                            pbc_c=calc.atoms.get_pbc(), 
-                            comm=serial_comm)
         self.gd = gd
         self.nG = gd.N_c
         self.nG0 = self.nG[0] * self.nG[1] * self.nG[2]
