@@ -11,7 +11,7 @@ from gpaw.atom.generator2 import get_number_of_electrons
 
 sc = (chemical_symbols[3:5] + chemical_symbols[11:13] +
       chemical_symbols[19:31] + chemical_symbols[37:49] +
-      chemical_symbols[55:81])
+      chemical_symbols[55:57] + chemical_symbols[72:81])
 
 fcc = fcc()
 rocksalt = rocksalt()
