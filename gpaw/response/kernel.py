@@ -164,16 +164,13 @@ def calculate_Kxc(gd,
     #assert np.abs(nt_sG[0].shape - nG).sum() == 0
     if functional == 'ALDA_X':
         x_only = True
+        A_x = -3. / 4. * (3. / np.pi)**(1. / 3.)
+        nspins = len(nt_sG)
+        assert nspins in [1, 2]
+        fxc_sg = nspins**(1. / 3.) * 4. / 9. * A_x * nt_sG**(-2. / 3.)
     else:
         assert len(nt_sG) == 1
         x_only = False
-    if x_only:
-        A_x = -(3/4.) * (3/np.pi)**(1/3.)
-        if len(nt_sG) == 1:
-            fxc_sg = (4 / 9.) * A_x * nt_sG**(-2/3.)
-        else:
-            fxc_sg = 2 * (4 / 9.) * A_x * (2*nt_sG)**(-2/3.)
-    else:
         fxc_sg = np.zeros_like(nt_sG)
         xc = XC(functional[1:])
         xc.calculate_fxc(gd, nt_sG, fxc_sg)
