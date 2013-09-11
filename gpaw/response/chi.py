@@ -161,7 +161,7 @@ class CHI(BASECHI):
                                       self.vcut)
 
             self.Kxc_sGG = calculate_Kxc(self.gd, # global grid
-                                         calc.density.nt_sG,
+                                         self.gd.zero_pad(calc.density.nt_sG),
                                          self.npw, self.Gvec_Gc,
                                          self.nG, self.vol,
                                          self.bcell_cv, R_av,
