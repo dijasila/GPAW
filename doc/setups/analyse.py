@@ -148,7 +148,7 @@ for s, t in S:
     es = d['es'] - eF[4]
     
     for x in ('arF0 anrF0 anrF arF arFL arR0 anrR0 anrR arR arRL ' +
-              'fe0 dfenr dferL ceF dcenrF dcerFL ceR dcenrR dcerFL ' +
+              'fe0 dfenr dferL ceF dcenrF dcerFL ceR dcenrR dcerRL ' +
               'de dde egg es').split():
         d[x] = locals()[x]
 
