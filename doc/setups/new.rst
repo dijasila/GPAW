@@ -40,7 +40,7 @@ All the numbers can be found :ref:`below <bulk>`.
 Convergence of the energy with respect to number of plane-waves
 ===============================================================
 
-For convergence of relative energies (shown below for a cut-off of 350 eV) we use the difference between FCC and an isolated atom.  For absolute energy convergence, see the table :ref:`below <conv>`.
+For convergence of energy differences (shown below for a cut-off of 350 eV) we use the difference between FCC and an isolated atom.  For absolute energy convergence, see the table :ref:`below <conv>`.
 
 .. figure:: conv.png
    :width: 100%
@@ -58,7 +58,7 @@ Eggbox errors:
 Test of LCAO basis sets
 =======================
 
-The three figure below compare LCAO with the dzp basis sets to converged plane-wave calculations.
+The three figures below compare LCAO with the dzp basis sets to converged plane-wave calculations.
 
 .. figure:: dfelcao.png
    :width: 100%
@@ -89,7 +89,7 @@ Energy difference convergence (FCC minus isolated atom, relative to calculation 
 
 .. _conv:
 
-Absolute energy convergence (FCC, relative to calculation at 1000 ev):
+Absolute energy convergence (FCC, relative to calculation at 1000 eV):
         
 .. csv-table::
     :header: , 300, 350, 400, 450, 500, 550, 600
@@ -98,11 +98,17 @@ Absolute energy convergence (FCC, relative to calculation at 1000 ev):
 Eggbox errors in meV for diferent grid-spacings:
 
 .. csv-table::
-    :header: , 0.18, 0.18, 0.18 
+    :header: , 0.16, 0.18, 0.20 
     :file: egg.csv
 
 LCAO calculations with dzp basis set:
     
 .. csv-table::
-    :header: , `\\Delta F`, `\\Delta C^{FCC}`, `\\Delta C^{RS}`, `\\Delta a^{FCC}`, `\\Delta a^{RS}`, `\\Delta a^{FCC}`, `\\Delta a^{RS}`
+    :header: , `\\Delta F`, `\\Delta C^{FCC}`, `\\Delta C^{RS}`, `\\Delta a^{FCC}`, `\\Delta a^{RS}`
     :file: lcao.csv
+
+Miscellaneous (default eigensolver and 4-step RMM-DIIS compared to CG, relativistic lattice constants compared to FHI-aims):
+    
+.. csv-table::
+    :header: , RMM-DIIS, RMM-DIIS(4), `\\Delta a^{FCC}`, `\\Delta a^{RS}`
+    :file: misc.csv

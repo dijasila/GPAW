@@ -7,6 +7,7 @@ fd2 = open('relconv.csv', 'w')
 fd3 = open('absconv.csv', 'w')
 fd4 = open('lcao.csv', 'w')
 fd5 = open('egg.csv', 'w')
+fd6 = open('misc.csv', 'w')
 for s in symbols:
     for t in ['std', 'sc']:
         d = D.get((s, t))
@@ -18,6 +19,7 @@ for s in symbols:
         fd3.write('%s\ :sub:`%d`' % (s, e))
         fd4.write('%s\ :sub:`%d`' % (s, e))
         fd5.write('%s\ :sub:`%d`' % (s, e))
+        fd6.write('%s\ :sub:`%d`' % (s, e))
         for x in [fe0, dfenr, dcenrF, dcenrR,
                   anrF0, anrF - anrF0, anrR0, anrR - anrR0]:
             fd1.write(', %.3f' % x)
@@ -26,15 +28,18 @@ for s in symbols:
         for x in de:
             fd3.write(', %.3f' % x)
         for x in [dferL, dcerFL, dcerRL,
-                  arFL - arF, arRL - arR, arF - arF0, arR - arR0]:
+                  arFL - arF, arRL - arR]:
             fd4.write(', %.3f' % x)
         for x in egg:
             fd5.write(', %.3f' % x)
+        for x in [es[0], es[1], arF - arF0, arR - arR0]:
+            fd6.write(', %.3f' % x)
         fd1.write('\n')
         fd2.write('\n')
         fd3.write('\n')
         fd4.write('\n')
         fd5.write('\n')
+        fd6.write('\n')
 
 
 #    for x in ('arF0 anrF0 anrF arF arFL arR0 anrR0 anrR arR arRL ' +
