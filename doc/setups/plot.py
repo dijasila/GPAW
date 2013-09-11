@@ -3,15 +3,9 @@ from ase.data import chemical_symbols, covalent_radii, atomic_numbers
 symbols = chemical_symbols[1:87]
 D = pickle.load(open('data.pckl'))
 fd1 = open('bulk.csv', 'w')
-fd1.write(', `F`, `\Delta F`, `\Delta C^{FCC}`, `\Delta C^{RS}`?, ' +
-          '`a^{FCC}`, `\Delta a^{FCC}`, `a^{RS}?`, `\Delta a^{RS}`?\n')
 fd2 = open('relconv.csv', 'w')
-fd2.write(', ' + ', '.join('%d' % e for e in range(300, 551, 50)) + '\n')
 fd3 = open('absconv.csv', 'w')
-fd3.write(', ' + ', '.join('%d' % e for e in range(300, 601, 50)) + '\n')
 fd4 = open('lcao.csv', 'w')
-fd4.write(', `\Delta F`, `\Delta C^{FCC}`, `\Delta C^{RS}`, ' +
-          '`\Delta a^{FCC}`, `\Delta a^{RS}`, `\Delta a^{FCC}`, `\Delta a^{RS}`\n')
 fd5 = open('egg.csv', 'w')
 for s in symbols:
     for t in ['std', 'sc']:

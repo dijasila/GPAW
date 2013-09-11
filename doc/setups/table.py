@@ -19,7 +19,7 @@ Y = 6 - T // 18
 Y[Y > 0] += 0.2
 
 def table(data, title):
-    fig = plt.figure(figsize=(16, 6))
+    fig = plt.figure(figsize=(14, 5))
     ax = plt.subplot(111)
 
     patches = []
@@ -64,5 +64,5 @@ def table(data, title):
     plt.axis('equal')
     plt.axis(xmax=18 + 12.5, ymax=7.2)
     plt.title(title)
-    plt.show()
+    #plt.show()
     return fig
