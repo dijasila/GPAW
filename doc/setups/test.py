@@ -3,6 +3,7 @@ import sys
 import traceback
 
 import numpy as np
+from ase import Atoms
 from ase.data import chemical_symbols
 from ase.utils import opencew
 
@@ -48,6 +49,10 @@ def run(symbol):
                 continue
             setup_paths[:] = ['../' + type]
             for setup in setups:
+                if mode == 'lcao' and setup == 'sc':
+                    kwargs['basis'] = {symbol: 'sc.dzp', 'O': 'dzp'}
+                else:
+                    kwargs['basis'] = 'dzp'
                 for x in ['fcc', 'rocksalt']:
                     name = 'vol-%s-%s-%s-%s' % (mode, type, setup, x)
                     fd = opencew(name + '.dat')
@@ -74,6 +79,7 @@ def run(symbol):
                         energy(atoms, fd, name)
 
     atoms = fcc[symbol]
+    atom = Atoms(symbol,cell=[5,5,5],pbc=1)
     setup_paths[:] = ['../nr']
     for mode in ['lcao', 'fd', 'pw']:
         if mode != 'pw':
@@ -91,6 +97,19 @@ def run(symbol):
                                   mode=PW(e),
                                   eigensolver='cg')
                 energy(atoms, fd, name)
+        for setup in setups:
+            name = 'conv-atom-%s-%s' % (mode, setup)
+            fd = opencew(name + '.dat')
+            if fd is None:
+                continue
+            for e in np.linspace(300, 600, 7):
+                atom.calc = GPAW(txt=name + '.txt',
+                                  width=0.1,
+                                  xc='PBE',
+                                  setups={'std': 'paw'}.get(setup, setup),
+                                  mode=PW(e),
+                                  eigensolver='cg')
+                energy(atom, fd, name)
 
     for es, type in  [('rmm-diis', 'nr'), ('rmm-diis4', 'nr'),
                       ('rmm-diis', 's09')]:
