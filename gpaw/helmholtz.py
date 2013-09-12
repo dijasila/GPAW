@@ -8,6 +8,7 @@ from gpaw.utilities.gauss import Gaussian
 from gpaw.fd_operators import FDOperator, laplace
 from gpaw.transformers import Transformer
 
+
 class HelmholtzGaussian(Gaussian):
     def get_phi(self, k2):
         """Get the solution of the Helmholtz equation for a Gaussian."""
@@ -21,11 +22,12 @@ class HelmholtzGaussian(Gaussian):
         rhom = r / sqrt(2) / sigma - i * p
         h = np.sin(k * r)
 
-        # the gpaw-Gaussian is sqrt(4 * pi) times a 3D normalized Gaussian 
+        # the gpaw-Gaussian is sqrt(4 * pi) times a 3D normalized Gaussian
         return sqrt(4 * pi) * exp(-p**2) / r / 2 * (
             np.cos(k * r) * (cerf(rhop) + cerf(rhom)) +
             i * np.sin(k * r) * (2 + cerf(rhop) - cerf(rhom)))
         
+
 class ScreenedPoissonGaussian(Gaussian):
     def get_phi(self, mu2):
         """Get the solution of the screened Poisson equation for a Gaussian.
@@ -35,15 +37,15 @@ class ScreenedPoissonGaussian(Gaussian):
         mu = sqrt(mu2)
         sigma = 1. / sqrt(2 * self.a)
         sig2 = sigma**2
-        mrho = (sig2 * mu - r)/(sqrt(2) * sigma)
-        prho = (sig2 * mu + r)/(sqrt(2) * sigma)
+        mrho = (sig2 * mu - r) / (sqrt(2) * sigma)
+        prho = (sig2 * mu + r) / (sqrt(2) * sigma)
 
         def erfc(values):
-            return 1.-erf(values)
-        
-        # the gpaw-Gaussian is sqrt(4 * pi) times a 3D normalized Gaussian 
+            return 1. - erf(values)
+
+        # the gpaw-Gaussian is sqrt(4 * pi) times a 3D normalized Gaussian
         return sqrt(4 * pi) * exp(sig2 * mu2 / 2.0) / (2 * r) * (
-                exp(-mu * r)*erfc(mrho) - exp(mu * r)*erfc(prho))
+                exp(-mu * r) * erfc(mrho) - exp(mu * r) * erfc(prho))
         
 
 class HelmholtzOperator(FDOperator):
@@ -79,9 +81,9 @@ class HelmholtzOperator(FDOperator):
                 break
 
         a_d *= scale
-        offsets = [(0,0,0)]
+        offsets = [(0, 0, 0)]
         coefs = [laplace[n][0] * a_d.sum()]
-        coefs[0] += k2*scale
+        coefs[0] += k2 * scale
         for d in range(D):
             M_c = M_ic[i_d[d]]
             offsets.extend(np.arange(1, n + 1)[:, np.newaxis] * M_c)
@@ -94,6 +96,7 @@ class HelmholtzOperator(FDOperator):
         self.description = (
             '%d*%d+1=%d point O(h^%d) finite-difference Helmholtz' %
             ((self.npoints - 1) // n, n, self.npoints, 2 * n))
+
 
 class HelmholtzSolver(PoissonSolver):
     """Solve the Helmholtz or screened Poisson equations.
@@ -127,7 +130,7 @@ class HelmholtzSolver(PoissonSolver):
 
         if self.nn == 'M':
             raise ValueError(
-                "Helmholtz not defined for Mehrstellen stencil")
+                'Helmholtz not defined for Mehrstellen stencil')
         self.operators = [HelmholtzOperator(gd, scale, self.nn, k2=self.k2)]
         self.B = None
 
@@ -147,8 +150,8 @@ class HelmholtzSolver(PoissonSolver):
                 gd2 = gd.coarsen()
             except ValueError:
                 break
-            self.operators.append(HelmholtzOperator(gd2, scale, 1, 
-                k2=self.k2))
+            self.operators.append(HelmholtzOperator(gd2, scale, 1,
+                                                    k2=self.k2))
             self.interpolators.append(Transformer(gd2, gd))
             self.restrictors.append(Transformer(gd, gd2))
             self.presmooths.append(4)
@@ -175,5 +178,3 @@ class HelmholtzSolver(PoissonSolver):
                 gauss = ScreenedPoissonGaussian(self.gd)
             self.rho_gauss = gauss.get_gauss(0)
             self.phi_gauss = gauss.get_phi(abs(self.k2))
-
-            
