@@ -49,7 +49,7 @@ class CHI(BASECHI):
                  density_cut=None,
                  G_plus_q=False,
                  eta=0.2,
-                 rpad=np.array([1,1,1]),
+                 rpad=None,
                  vcut=None,
                  ftol=1e-5,
                  txt=None,
@@ -66,10 +66,13 @@ class CHI(BASECHI):
                          rpad=rpad, ftol=ftol, txt=txt,
                          optical_limit=optical_limit)
         
+        #if vcut is None:
+        #    vcut = '%dD' % self.calc.wfs.gd.pbc_c.sum()
+        self.vcut = vcut
+
         self.xc = xc
         self.hilbert_trans = hilbert_trans
         self.full_hilbert_trans = time_ordered
-        self.vcut = vcut
         self.kcommsize = kcommsize
         self.comm = comm
         if self.comm is None:
@@ -163,7 +166,7 @@ class CHI(BASECHI):
             self.Kxc_sGG = calculate_Kxc(self.gd, # global grid
                                          self.gd.zero_pad(calc.density.nt_sG),
                                          self.npw, self.Gvec_Gc,
-                                         self.nG, self.vol,
+                                         self.gd.N_c, self.vol,
                                          self.bcell_cv, R_av,
                                          calc.wfs.setups,
                                          calc.density.D_asp,
@@ -181,8 +184,8 @@ class CHI(BASECHI):
         kd = self.kd
         gd = self.gd
         sdisp_cd = gd.sdisp_cd
-        ibzk_kc = self.ibzk_kc
-        bzk_kc = self.bzk_kc
+        ibzk_kc = kd.ibzk_kc
+        bzk_kc = kd.bzk_kc
         kq_k = self.kq_k
         pt = self.pt
         f_skn = self.f_skn
@@ -207,7 +210,7 @@ class CHI(BASECHI):
             specfunc0G_wGv = np.zeros((self.NwS_local, self.npw, 3), dtype=complex)
             
         # fftw init
-        fft_R = fftw.empty(self.nG, complex)
+        fft_R = fftw.empty(self.gd.N_c, complex)
         fft_G = fft_R
         fftplan = fftw.FFTPlan(fft_R, fft_G, -1, fftw.ESTIMATE)
 
@@ -235,7 +238,7 @@ class CHI(BASECHI):
 
             for k in range(self.kstart, self.kend):
                 k_pad = False
-                if k >= self.nkpt:
+                if k >= self.kd.nbzkpts:
                     k = 0
                     k_pad = True
     
@@ -253,8 +256,8 @@ class CHI(BASECHI):
                     k_c = self.kd.ibzk_kc[ibzkpt2]
                     eikr2_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
                     
-                index1_g, phase1_g = kd.get_transform_wavefunction_index(self.nG - (self.pbc == False), k)
-                index2_g, phase2_g = kd.get_transform_wavefunction_index(self.nG - (self.pbc == False), kq_k[k])
+                index1_g, phase1_g = kd.get_transform_wavefunction_index(self.gd.N_c - (self.pbc == False), k)
+                index2_g, phase2_g = kd.get_transform_wavefunction_index(self.gd.N_c - (self.pbc == False), kq_k[k])
     
                 for n in range(self.nvalbands):
                     if self.calc.wfs.world.size == 1:
@@ -272,7 +275,7 @@ class CHI(BASECHI):
 
                     # PAW part
                     if not self.pwmode:
-                        if (calc.wfs.world.size > 1 or self.nkpt==1):
+                        if (calc.wfs.world.size > 1 or self.kd.nbzkpts == 1):
                             P1_ai = pt.dict()
                             pt.integrate(psit1new_g, P1_ai, k)
                         else:
@@ -308,7 +311,7 @@ class CHI(BASECHI):
                             rho_G = rho_g.ravel()[self.Gindex_G]
     
                             if self.optical_limit:
-                                phase_cd = np.exp(2j * pi * sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
+                                phase_cd = np.exp(2j * pi * sdisp_cd * kd.bzk_kc[kq_k[k], :, np.newaxis])
                                 for ix in range(3):
                                     d_c[ix](psit2_g, dpsit_g, phase_cd)
                                     tmp[ix] = gd.integrate(psit1_g * dpsit_g)
@@ -321,7 +324,7 @@ class CHI(BASECHI):
 
                             # PAW correction
                             if not self.pwmode:
-                                if (calc.wfs.world.size > 1 or self.nkpt==1):
+                                if calc.wfs.world.size > 1 or self.kd.nbzkpts == 1:
                                     P2_ai = pt.dict()
                                     pt.integrate(psit2_g, P2_ai, kq_k[k])
                                 else:
@@ -413,7 +416,7 @@ class CHI(BASECHI):
     #                            for wi in range(self.NwS_local):
     #                                if deltaw[wi + self.wS1] > 1e-8:
     #                                    specfunc_wGG[wi] += tmp_GG * deltaw[wi + self.wS1]
-                    if self.nkpt == 1:
+                    if self.kd.nbzkpts == 1:
                         if n == 0:
                             dt = time() - t0
                             totaltime = dt * self.nvalbands * self.nspins
@@ -566,18 +569,18 @@ class CHI(BASECHI):
 
         self.kcomm, self.wScomm, self.wcomm = set_communicator(world, rank, size, self.kcommsize)
 
-        if self.nkpt >= world.size:
-            self.nkpt_reshape = self.nkpt
+        if self.kd.nbzkpts >= world.size:
+            self.nkpt_reshape = self.kd.nbzkpts
             self.nkpt_reshape, self.nkpt_local, self.kstart, self.kend = parallel_partition(
                                self.nkpt_reshape, self.kcomm.rank, self.kcomm.size, reshape=True, positive=True)
             self.mband_local = self.nvalbands
             self.mlist = np.arange(self.nbands)
         else:
             # if number of kpoints == 1, use band parallelization
-            self.nkpt_local = self.nkpt
+            self.nkpt_local = self.kd.nbzkpts
             self.kstart = 0
-            self.kend = self.nkpt
-            self.nkpt_reshape = self.nkpt
+            self.kend = self.kd.nbzkpts
+            self.nkpt_reshape = self.kd.nbzkpts
 
             self.nbands, self.mband_local, self.mlist = parallel_partition_list(
                                self.nbands, self.kcomm.rank, self.kcomm.size)
@@ -618,12 +621,12 @@ class CHI(BASECHI):
         printtxt('')
         printtxt('Parallelization scheme:')
         printtxt('     Total cpus      : %d' %(self.comm.size))
-        if self.nkpt == 1:
+        if self.kd.nbzkpts == 1:
             printtxt('     nbands parsize  : %d' %(self.kcomm.size))
         else:
             printtxt('     kpoint parsize  : %d' %(self.kcomm.size))
-            if self.nkpt_reshape > self.nkpt:
-                self.printtxt('        kpoints (%d-%d) are padded with zeros' %(self.nkpt,self.nkpt_reshape))
+            if self.nkpt_reshape > self.kd.nbzkpts:
+                self.printtxt('        kpoints (%d-%d) are padded with zeros' % (self.kd.nbzkpts, self.nkpt_reshape))
 
         if self.hilbert_trans:
             printtxt('     specfunc parsize: %d' %(self.wScomm.size))

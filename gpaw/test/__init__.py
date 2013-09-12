@@ -233,6 +233,7 @@ tests = [
     'test_ibzqpt.py',
     'aedensity.py',
     'fd2lcao_restart.py',
+    'graphene_EELS.py',
     'lcao_bsse.py',
     'pplda.py',
     'revPBE_Li.py',

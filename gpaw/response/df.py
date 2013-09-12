@@ -20,7 +20,7 @@ class DF(CHI):
                  density_cut=None,
                  G_plus_q=False,
                  eta=0.2,
-                 rpad=np.array([1, 1, 1]),
+                 rpad=None,
                  vcut=None,
                  ftol=1e-7,
                  txt=None,
@@ -78,13 +78,12 @@ class DF(CHI):
                 self.gd = GridDescriptor(self.calc.wfs.gd.N_c*self.rpad, self.acell_cv,
                                          pbc_c=True, comm=serial_comm)
 
-                self.h_cv = self.gd.h_cv
-                self.nG = self.gd.N_c
                 R_av = self.calc.atoms.positions / Bohr
                 nt_sg = self.calc.density.nt_sG
                     
                 if (self.rpad > 1).any() or (self.pbc - True).any():
-                    nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
+                    nt_sG = self.gd.zeros(self.nspins)
+                    #nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
                     for s in range(self.nspins):
                         nt_G = self.pad(nt_sg[s])
                         nt_sG[s] = nt_G
@@ -94,7 +93,7 @@ class DF(CHI):
                 self.Kxc_sGG = calculate_Kxc(self.gd, 
                                              nt_sG,
                                              self.npw, self.Gvec_Gc,
-                                             self.nG, self.vol,
+                                             self.gd.N_c, self.vol,
                                              self.bcell_cv, R_av,
                                              self.calc.wfs.setups,
                                              self.calc.density.D_asp,
@@ -232,9 +231,9 @@ class DF(CHI):
 
 
         g_w2 = np.zeros((self.Nw,2), dtype=complex)
-        assert self.acell_cv[0,2] == 0. and self.acell_cv[1,2] == 0.
+        assert self.acell_cv[0, 2] == 0. and self.acell_cv[1, 2] == 0.
 
-        Nz = self.nG[2] # number of points in z direction
+        Nz = self.gd.N_c[2] # number of points in z direction
         tmp = np.zeros(Nz, dtype=int)
         nGz = 0         # number of G_z 
         for i in range(self.npw):
@@ -253,7 +252,7 @@ class DF(CHI):
     
             # Fourier transform of chi_wgg to chi_wzz
             Gz_g = tmp[:nGz] * self.bcell_cv[2,2]
-            z_z = np.linspace(0, self.acell_cv[2,2]-self.h_cv[2,2], Nz)
+            z_z = np.linspace(0, self.acell_cv[2,2]-self.gd.h_cv[2,2], Nz)
             phase1_zg = np.exp(1j  * np.outer(z_z, Gz_g))
             phase2_gz = np.exp(-1j * np.outer(Gz_g, z_z))
     
@@ -273,7 +272,7 @@ class DF(CHI):
             for iw in range(self.Nw_local):
                 tmp_w[iw] = np.dot(np.dot(phase1_1z, chi_wzz_LFC[iw]), phase2_z1)[0]            
     
-            tmp_w *= -2 * pi / qq * self.h_cv[2,2]**2        
+            tmp_w *= -2 * pi / qq * self.gd.h_cv[2,2]**2        
             g_w = np.zeros(self.Nw, dtype=complex)
             self.wcomm.all_gather(tmp_w, g_w)
             g_w2[:, id] = g_w
@@ -339,7 +338,7 @@ class DF(CHI):
 
         """
 
-        assert self.optical_limit is True
+        assert self.optical_limit
         self.printtxt('')
         self.printtxt('%s Macroscopic Dielectric Constant:' % xc)
         dirstr = ['x', 'y', 'z']
@@ -363,10 +362,8 @@ class DF(CHI):
         Optical absorption spectrum is obtained from the imaginary part of dielectric function.
         """
 
-        assert self.optical_limit is True
-        dirstr = ['x','y','z']
+        assert self.optical_limit
         for dir in range(3):
-
             df1, df2 = self.get_dielectric_function(xc='RPA', dir=dir)
             if self.xc == 'ALDA':
                 df3, df4 = self.get_dielectric_function(xc='ALDA', dir=dir)
@@ -379,7 +376,7 @@ class DF(CHI):
                 # bootstrap doesnt support all direction spectra yet
                 from gpaw.response.fxc import Bootstrap
                 Kc_GG = np.zeros((self.npw, self.npw))
-                q_c = np.diag((1,1,1))[dir] * self.qopt
+                q_c = np.diag((1, 1, 1))[dir] * self.qopt
 
                 for iG in range(self.npw):
                     qG = np.dot(q_c + self.Gvec_Gc[iG], self.bcell_cv)
@@ -390,7 +387,8 @@ class DF(CHI):
                 df3 = Bootstrap(self.chi0_wGG, Nw, Kc_GG, self.printtxt, self.print_bootstrap, self.wcomm)
     
             if rank == 0:
-                f = open(filename+'.%s'%(dirstr[dir]),'w')
+                f = open('%s.%s' % (filename, 'xyz'[dir]), 'w')
+                #f = open(filename+'.%s'%(dirstr[dir]),'w') # ????
                 for iw in range(Nw):
                     energy = iw * self.dw * Hartree
                     if self.xc == 'RPA':
@@ -442,10 +440,9 @@ class DF(CHI):
         """Calculate Joint density of states"""
 
         JDOS_w = np.zeros(Nw)
-        nkpt = kd.nbzkpts
         nbands = f_skn[0].shape[1]
 
-        for k in range(nkpt):
+        for k in range(kd.nbzkpts):
             print k
             ibzkpt1 = kd.bz2ibz_k[k]
             ibzkpt2 = kd.bz2ibz_k[kq[k]]
@@ -517,7 +514,6 @@ class DF(CHI):
             drho_R += chi_G[iG] * np.exp(1j * qGr_R)
 
         # phase = sum exp(iq.R_i)
-        # drho_R /= self.vol * nkpt / phase
         return drho_R
 
 
@@ -526,10 +522,10 @@ class DF(CHI):
 
         drho_R = self.calculate_induced_density(q, w)
 
-        drho_z = np.zeros(self.nG[2],dtype=complex)
+        drho_z = np.zeros(self.gd.N_c[2],dtype=complex)
 #        dxdy = np.cross(self.h_c[0], self.h_c[1])
 
-        for iz in range(self.nG[2]):
+        for iz in range(self.gd.N_c[2]):
             drho_z[iz] = drho_R[:,:,iz].sum()
 
         return drho_z
@@ -772,16 +768,16 @@ class DF(CHI):
         data = {'nbands': self.nbands,
                 'acell': self.acell_cv, #* Bohr,
                 'bcell': self.bcell_cv, #/ Bohr,
-                'h_cv' : self.h_cv,   #* Bohr,
-                'nG'   : self.nG,
+                'h_cv' : self.gd.h_cv,   #* Bohr,
+                'nG'   : self.gd.N_c,
                 'nG0'  : self.nG0,
                 'vol'  : self.vol,   #* Bohr**3,
                 'BZvol': self.BZvol, #/ Bohr**3,
-                'nkpt' : self.nkpt,
+                'nkpt' : self.kd.nbzkpts,
                 'ecut' : self.ecut,  #* Hartree,
                 'npw'  : self.npw,
                 'eta'  : self.eta,   #* Hartree,
-                'ftol' : self.ftol,  #* self.nkpt,
+                'ftol' : self.ftol,
                 'Nw'   : self.Nw,
                 'NwS'  : self.NwS,
                 'dw'   : self.dw,    # * Hartree,
@@ -794,9 +790,9 @@ class DF(CHI):
                 'hilbert_trans' : self.hilbert_trans,
                 'optical_limit' : self.optical_limit,
                 'e_skn'         : self.e_skn,          # * Hartree,
-                'f_skn'         : self.f_skn,          # * self.nkpt,
-                'bzk_kc'       : self.bzk_kc,
-                'ibzk_kc'      : self.ibzk_kc,
+                'f_skn'         : self.f_skn,
+                'bzk_kc'       : self.kd.bzk_kc,
+                'ibzk_kc'      : self.kd.ibzk_kc,
                 'kq_k'         : self.kq_k,
                 'Gvec_Gc'      : self.Gvec_Gc,
                 'dfNLFRPA_w'   : self.df1_w,
@@ -805,7 +801,7 @@ class DF(CHI):
                 'dfLFCALDA_w'  : self.df4_w,
                 'df_flag'      : True}
 
-        if all == True:
+        if all:
             from gpaw.response.parallel import par_write
             par_write('chi0' + filename,'chi0_wGG',self.wcomm,self.chi0_wGG)
         
@@ -823,12 +819,9 @@ class DF(CHI):
         self.nbands = data['nbands']
         self.acell_cv = data['acell']
         self.bcell_cv = data['bcell']
-        self.h_cv   = data['h_cv']
-        self.nG    = data['nG']
         self.nG0   = data['nG0']
         self.vol   = data['vol']
         self.BZvol = data['BZvol']
-        self.nkpt  = data['nkpt']
         self.ecut  = data['ecut']
         self.npw   = data['npw']
         self.eta   = data['eta']
@@ -849,8 +842,6 @@ class DF(CHI):
         self.f_skn  = data['f_skn']
                 
         self.nvalence= data['nvalence']
-        self.bzk_kc  = data['bzk_kc']
-        self.ibzk_kc = data['ibzk_kc']
         self.kq_k    = data['kq_k']
         self.Gvec_Gc  = data['Gvec_Gc']
         self.df1_w   = data['dfNLFRPA_w']

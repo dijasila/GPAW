@@ -439,7 +439,7 @@ class FXCCorrelation:
         print >> self.txt
         print >> self.txt, 'Parallelization scheme'
         print >> self.txt, '     Total CPUs        : %d' % dummy.comm.size
-        if dummy.nkpt == 1:
+        if dummy.kd.nbzkpts == 1:
             print >> self.txt, '     Band parsize      : %d' % dummy.kcomm.size
         else:
             print >> self.txt, '     Kpoint parsize    : %d' % dummy.kcomm.size
@@ -706,7 +706,7 @@ class Kernel:
             self.Gvec_qGc[iq] = dummy.Gvec_Gc
             self.npw_q.append(len(dummy.Gvec_Gc))            
         self.gd = dummy.gd
-        self.nG = dummy.nG
+        self.nG = dummy.kd.N_c
         self.vol = dummy.vol
         self.bcell_cv = dummy.bcell_cv
         self.acell_cv = dummy.acell_cv

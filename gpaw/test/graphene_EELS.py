@@ -72,20 +72,20 @@ def getpeak(energies, loss):
 
 scriptlines = []
 
+loss_errs = []
+energy_errs = []
+
 def check(name, energy, peakloss, ref_energy, ref_loss):
     pp('check %s :: energy = %5.2f [%5.2f], peakloss = %.12f [%.12f]' 
        % (name, energy, ref_energy, peakloss, ref_loss))
-    energy_errs.append(energy - ref_energy)
-    loss_errs.append(peakloss - ref_loss)
+    energy_errs.append(abs(energy - ref_energy))
+    loss_errs.append(abs(peakloss - ref_loss))
     
 
 array = np.array
 template = """\
 check_df('%s', %s, %s, %s, %s,
          **%s)"""
-
-loss_errs = []
-energy_errs = []
 
 def check_df(name, ref_energy, ref_loss, ref_energy_lfe, ref_loss_lfe,
              **kwargs_override):
