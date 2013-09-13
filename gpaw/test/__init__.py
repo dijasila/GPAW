@@ -191,8 +191,6 @@ tests = [
     'exx_acdf.py',
     'asewannier.py',
     'exx_q.py',
-    'ut_rsh.py',
-    'ut_csh.py',
     'spin_contamination.py',
     'davidson.py',
     'pw/davidson_pw.py',
