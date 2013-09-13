@@ -561,7 +561,7 @@ class Setup(BaseSetup):
     ``tauct``  Pseudo core kinetic energy density
     ========== ============================================
     """
-    def __init__(self, data, xc, lmax=0, basis=None, filter=None):
+    def __init__(self, data, xc, lmax=0, filter=None):
         self.type = data.name
         
         self.HubU = None
