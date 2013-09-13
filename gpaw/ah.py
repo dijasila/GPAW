@@ -55,7 +55,7 @@ class AppelbaumHamann(BaseSetup):
         
     def build(self, basis):
         if basis is None:
-            basis = Basis('Si', 'sz(dzp)')
+            basis = Basis('Si', '4e.sz(dzp)')
         elif isinstance(basis, str):
             basis = Basis('Si', basis)
         self.basis = basis
