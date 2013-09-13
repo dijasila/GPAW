@@ -12,6 +12,7 @@ from gpaw.response.math_func import hilbert_transform
 from gpaw.response.parallel import set_communicator, \
      parallel_partition, parallel_partition_list, SliceAlongFrequency, SliceAlongOrbitals
 from gpaw.response.kernel import calculate_Kxc, calculate_Kc
+from gpaw.response.kernel import CoulombKernel
 from gpaw.utilities.memory import maxrss
 from gpaw.response.base import BASECHI
 
@@ -156,13 +157,20 @@ class CHI(BASECHI):
             self.Kc_GG = None
             self.printtxt('RPA calculation.')
         elif self.xc == 'ALDA' or self.xc == 'ALDA_X':
-            self.Kc_GG = calculate_Kc(self.q_c,
-                                      self.Gvec_Gc,
-                                      self.acell_cv,
-                                      self.bcell_cv,
-                                      self.calc.atoms.pbc,
-                                      self.vcut)
-
+            #self.Kc_GG = calculate_Kc(self.q_c,
+            #                          self.Gvec_Gc,
+            #                          self.acell_cv,
+            #                          self.bcell_cv,
+            #                          self.calc.atoms.pbc,
+            #                          self.vcut)
+            # Initialize a CoulombKernel instance
+            kernel = CoulombKernel(vcut=self.vcut,
+                                   pbc=self.calc.atoms.pbc,
+                                   cell=self.acell_cv)
+            self.Kc_GG = kernel.calculate_Kc(self.q_c,
+                                             self.Gvec_Gc,
+                                             self.bcell_cv)
+            
             self.Kxc_sGG = calculate_Kxc(self.gd, # global grid
                                          self.gd.zero_pad(calc.density.nt_sG),
                                          self.npw, self.Gvec_Gc,

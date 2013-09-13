@@ -112,14 +112,21 @@ class DF(CHI):
             self.chi0_wGG[:,0,:] = self.chi00G_wGv[:,:,dir]
             self.chi0_wGG[:,:,0] = self.chi0G0_wGv[:,:,dir]
         
-        from gpaw.response.kernel import calculate_Kc
-        self.Kc_GG = calculate_Kc(q_c,
-                                  self.Gvec_Gc,
-                                  self.acell_cv,
-                                  self.bcell_cv,
-                                  self.pbc,
-                                  self.vcut,
-                                  symmetric=symmetric)
+        from gpaw.response.kernel import calculate_Kc, CoulombKernel
+        kernel = CoulombKernel(vcut=self.vcut,
+                               pbc=self.calc.atoms.pbc,
+                               cell=self.acell_cv)
+        self.Kc_GG = kernel.calculate_Kc(q_c,
+                                         self.Gvec_Gc,
+                                         self.bcell_cv,
+                                         symmetric=symmetric)
+        #self.Kc_GG = calculate_Kc(q_c,
+        #                          self.Gvec_Gc,
+        #                          self.acell_cv,
+        #                          self.bcell_cv,
+        #                          self.pbc,
+        #                          self.vcut,
+        #                          symmetric=symmetric)
 
         tmp_GG = np.eye(self.npw, self.npw)
 
