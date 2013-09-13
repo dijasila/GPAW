@@ -36,4 +36,4 @@ epbe = calc.get_eigenvalues()
 de = epbe[1] - epbe[0]
 de0 = epbe0[1] - epbe0[0]
 print de, de0
-equal(de, de0, 0.003)
+equal(de, de0, 0.01)
