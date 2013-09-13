@@ -216,7 +216,7 @@ tests = [
     'fixmom.py',
     'CH4.py',
     'diamond_absorption.py',
-    'simple_stm.py',
+    #'simple_stm.py',
     'gw_method.py',
     'lcao_bulk.py',
     'constant_electric_field.py',
