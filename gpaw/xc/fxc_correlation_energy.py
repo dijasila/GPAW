@@ -704,9 +704,9 @@ class Kernel:
             dummy.txt = devnull
             dummy.initialize(simple_version=True)
             self.Gvec_qGc[iq] = dummy.Gvec_Gc
-            self.npw_q.append(len(dummy.Gvec_Gc))            
+            self.npw_q.append(len(dummy.Gvec_Gc))
         self.gd = dummy.gd
-        self.nG = dummy.kd.N_c
+        self.nG = dummy.gd.N_c
         self.vol = dummy.vol
         self.bcell_cv = dummy.bcell_cv
         self.acell_cv = dummy.acell_cv
@@ -804,7 +804,7 @@ class Kernel:
         #flocal_g = 4 * n_g * fx_g # LDA
         Vlocal_g = 4 * (3 * n_g / np.pi)**(1./3.)
         
-        nG0 = nG[0] * nG[1] * nG[2]
+        nG0 = np.prod(nG)
         r_vg = gd.get_grid_point_coordinates()
         r_vgx = r_vg[0].flatten()
         r_vgy = r_vg[1].flatten()
@@ -883,10 +883,10 @@ class Kernel:
                 if (np.abs(R_i) < 0.001).all():
                     tmp_flat = f_rr.flatten()
                     tmp_flat[g] = flocal_g.flatten()[g]
-                    f_rr = tmp_flat.reshape((nG[0], nG[1], nG[2]))
+                    f_rr = tmp_flat.reshape(nG)
                     tmp_flat = V_rr.flatten()
                     tmp_flat[g] = Vlocal_g.flatten()[g]
-                    V_rr = tmp_flat.reshape((nG[0], nG[1], nG[2]))
+                    V_rr = tmp_flat.reshape(nG)
                     del tmp_flat
 
                 f_rr[np.where(n_av < self.density_cut)] = 0.0
