@@ -58,6 +58,7 @@ def v1D_Coulomb(qG, N_p, N_np, R):
     v1D = 1 / ❘q+G❘^2 x [1 
                          + ❘G❘[N_np] R J_1(❘G❘[N_np] R) K_0(❘q+G❘[N_p] R) 
                          - ❘q+G❘[N_p] R J_0(❘q+G❘[N_n] R) K_1(❘q+G❘[N_p] R)]
+    
     """
 
     from scipy.special import j1, k0, j0, k1
