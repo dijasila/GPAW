@@ -1,3 +1,6 @@
+# -*- coding: utf-8
+# In an attempt to appease epydoc and still have readable docstrings,
+# the vertical bar | is represented by u'\u2758' in this module.
 """This module defines Coulomb and XC kernels for the response model.
 """
 
@@ -15,7 +18,7 @@ def v3D_Coulomb(qG):
     
     Periodic calculation, no cutoff.
     
-    v3D = 1 / |q+G|^2
+    v3D = 1 / ❘q+G❘^2
     """
     
     v_q = 1. / (qG**2).sum(axis=1)
@@ -29,8 +32,8 @@ def v2D_Coulomb(qG, N_p, N_np, R):  # , integrated=False):
     Cutoff in non-periodic N_np direction.
     No cutoff in periodic N_p directions.
 
-    v2D = 1 / |q+G|^2 x [1 + exp(-|q+G|[N_p] R) x
-    [|G|[N_np]/|q+G|[N_p] x sin(|G|[N_np] R) - cos(|G|[N_np] R)]
+    v2D = 1 / ❘q+G❘^2 x [1 + exp(-❘q+G❘[N_p] R) x
+    [❘G❘[N_np]/❘q+G❘[N_p] x sin(❘G❘[N_np] R) - cos(❘G❘[N_np] R)]
     """
 
     G_nR = qG[:, N_np[0]] * R
@@ -52,9 +55,9 @@ def v1D_Coulomb(qG, N_p, N_np, R):
     Cutoff in non-periodic N_np directions.
     No cutoff in periodic N_p direction.
 
-    v1D = 1 / |q+G|^2 x [1 
-                         + |G|[N_np] R J_1(|G|[N_np] R) K_0(|q+G|[N_p] R) 
-                         - |q+G|[N_p] R J_0(|q+G|[N_n] R) K_1(|q+G|[N_p] R)]
+    v1D = 1 / ❘q+G❘^2 x [1 
+                         + ❘G❘[N_np] R J_1(❘G❘[N_np] R) K_0(❘q+G❘[N_p] R) 
+                         - ❘q+G❘[N_p] R J_0(❘q+G❘[N_n] R) K_1(❘q+G❘[N_p] R)]
     """
 
     from scipy.special import j1, k0, j0, k1
@@ -73,7 +76,7 @@ def v0D_Coulomb(qG, R):
     Isolated System/Molecule calculation.
     Spherical cutoff in all directions.
 
-    v0D = 1 / |q+G|^2 * [1 - cos(|q+G| R)]
+    v0D = 1 / ❘q+G❘^2 * [1 - cos(❘q+G❘ R)]
     """
 
     qGR = qG * R
@@ -126,7 +129,7 @@ class CoulombKernel3D(BaseCoulombKernel):
 
         Periodic calculation, no cutoff.
 
-        v3D = 1 / |q+G|^2
+        v3D = 1 / ❘q+G❘^2
         """
         return v3D_Coulomb(qG)
 
@@ -157,8 +160,8 @@ class CoulombKernel2D(BaseCoulombKernel):
         Cutoff in non-periodic N_np direction.
         No cutoff in periodic N_p directions.
 
-        v2D = 1 / |q+G|^2 x [1 + exp(-|q+G|[N_p] R) x
-        [|G|[N_np]/|q+G|[N_p] x sin(|G|[N_np] R) - cos(|G|[N_np] R)]
+        v2D = 1 / ❘q+G❘^2 x [1 + exp(-❘q+G❘[N_p] R) x
+        [❘G❘[N_np]/❘q+G❘[N_p] x sin(❘G❘[N_np] R) - cos(❘G❘[N_np] R)]
         """
         
         return v2D_Coulomb(qG, self.N_p, self.N_np, self.R)
@@ -196,10 +199,10 @@ class CoulombKernel1D(BaseCoulombKernel):
         Cutoff in non-periodic N_np directions.
         No cutoff in periodic N_p direction.
 
-        v1D = 1 / |q+G|^2 x [1 + |G|[N_np] R x J_1(|G|[N_np] R) 
-                             x K_0(|q+G|[N_p] R) 
-                             - |q+G|[N_p] R x J_0(|q+G|[N_n] R) 
-                             x K_1(|q+G|[N_p] R)]
+        v1D = 1 / ❘q+G❘^2 x [1 + ❘G❘[N_np] R x J_1(❘G❘[N_np] R) 
+                             x K_0(❘q+G❘[N_p] R) 
+                             - ❘q+G❘[N_p] R x J_0(❘q+G❘[N_n] R) 
+                             x K_1(❘q+G❘[N_p] R)]
         """
 
         return v1D_Coulomb(qG, self.N_p, self.N_np, self.R)
@@ -224,7 +227,7 @@ class CoulombKernel0D(BaseCoulombKernel):
         Isolated System/Molecule calculation.
         Spherical cutoff in all directions.
 
-        v0D = 1 / |q+G|^2 * [1 - cos(|q+G| R)]
+        v0D = 1 / ❘q+G❘^2 * [1 - cos(❘q+G❘ R)]
         """
 
         return v0D_Coulomb(qG, self.R)
