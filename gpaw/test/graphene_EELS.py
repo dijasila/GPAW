@@ -22,7 +22,7 @@ system.center(axis=2, vacuum=4.0)
 nkpts = 5
 
 
-communicator = world.new_communicator(np.arange(1))
+communicator = world.new_communicator(np.array([world.rank]))
 gpwname = 'dump.graphene.gpw'
 
 if world.rank == 0:
