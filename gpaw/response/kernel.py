@@ -18,7 +18,7 @@ def v3D_Coulomb(qG):
     
     Periodic calculation, no cutoff.
     
-    v3D = 1 / ❘q+G❘^2
+    v3D = 1/∣𝐪+𝐆∣²
     """
     
     v_q = 1. / (qG**2).sum(axis=1)
@@ -28,12 +28,11 @@ def v3D_Coulomb(qG):
 def v2D_Coulomb(qG, N_p, N_np, R):  # , integrated=False):
     """Coulomb Potential in the 2D Periodic Case.
 
-    Slab/Surface/Layer calculation. 
+    Slab/Surface/Layer calculation.
     Cutoff in non-periodic N_np direction.
     No cutoff in periodic N_p directions.
 
-    v2D = 1 / ❘q+G❘^2 x [1 + exp(-❘q+G❘[N_p] R) x
-    [❘G❘[N_np]/❘q+G❘[N_p] x sin(❘G❘[N_np] R) - cos(❘G❘[N_np] R)]
+    v2D = 1/∣𝐪+𝐆∣²×[1 + exp(-∣𝐪+𝐆∥∣𝑅)[∣𝐆⊥∣/∣𝐪+𝐆∥∣×sin(∣𝐆⊥∣𝑅) - cos(∣𝐆⊥∣𝑅)]]
     """
 
     G_nR = qG[:, N_np[0]] * R
@@ -55,10 +54,8 @@ def v1D_Coulomb(qG, N_p, N_np, R):
     Cutoff in non-periodic N_np directions.
     No cutoff in periodic N_p direction.
 
-    v1D = 1 / ❘q+G❘^2 x [1 
-                         + ❘G❘[N_np] R J_1(❘G❘[N_np] R) K_0(❘q+G❘[N_p] R) 
-                         - ❘q+G❘[N_p] R J_0(❘q+G❘[N_n] R) K_1(❘q+G❘[N_p] R)]
-    
+    v1D = 1/∣𝐪+𝐆∣²×[1 + ∣𝐆⊥∣𝑅 J₁(∣𝐆⊥∣𝑅) Kₒ(∣𝐪+𝐆∥∣𝑅)
+    - ∣𝐪+𝐆∥∣𝑅 Jₒ(∣𝐆⊥∣𝑅) K₁(∣𝐪+𝐆∥∣𝑅)]
     """
 
     from scipy.special import j1, k0, j0, k1
@@ -77,10 +74,10 @@ def v0D_Coulomb(qG, R):
     Isolated System/Molecule calculation.
     Spherical cutoff in all directions.
 
-    v0D = 1 / ❘q+G❘^2 * [1 - cos(❘q+G❘ R)]
+    v0D = 1/∣𝐪+𝐆∣²×[1 - cos(∣𝐪+𝐆∣𝑅)]
     """
 
-    qGR = qG * R
+    qGR = ((qG.sum(axis=1))**2)**0.5 * R
     v_q = 1. / (qG**2).sum(axis=1)
     v_q *= 1. - np.cos(qGR)
     return v_q
@@ -130,7 +127,7 @@ class CoulombKernel3D(BaseCoulombKernel):
 
         Periodic calculation, no cutoff.
 
-        v3D = 1 / ❘q+G❘^2
+        v3D = 1/∣𝐪+𝐆∣²
         """
         return v3D_Coulomb(qG)
 
@@ -138,7 +135,7 @@ class CoulombKernel3D(BaseCoulombKernel):
 class CoulombKernel2D(BaseCoulombKernel):
     """Class for calculating the Coulomb kernel for a 2D calculation.
     
-    Slab/Surface/Layer calculation. 
+    Slab/Surface/Layer calculation.
     vcut = [False, False, True].
     Cutoff in non-periodic N_np direction.
     No cutoff in periodic N_p directions.
@@ -157,12 +154,11 @@ class CoulombKernel2D(BaseCoulombKernel):
     def v_Coulomb(self, qG):
         """Coulomb Potential in the 2D Periodic Case.
 
-        Slab/Surface/Layer calculation. 
+        Slab/Surface/Layer calculation.
         Cutoff in non-periodic N_np direction.
         No cutoff in periodic N_p directions.
 
-        v2D = 1 / ❘q+G❘^2 x [1 + exp(-❘q+G❘[N_p] R) x
-        [❘G❘[N_np]/❘q+G❘[N_p] x sin(❘G❘[N_np] R) - cos(❘G❘[N_np] R)]
+        v2D = 1/∣𝐪+𝐆∣²×[1 + exp(-∣𝐪+𝐆∥∣𝑅)[∣𝐆⊥∣/∣𝐪+𝐆∥∣×sin(∣𝐆⊥∣𝑅) - cos(∣𝐆⊥∣𝑅)]]
         """
         
         return v2D_Coulomb(qG, self.N_p, self.N_np, self.R)
@@ -200,10 +196,8 @@ class CoulombKernel1D(BaseCoulombKernel):
         Cutoff in non-periodic N_np directions.
         No cutoff in periodic N_p direction.
 
-        v1D = 1 / ❘q+G❘^2 x [1 + ❘G❘[N_np] R x J_1(❘G❘[N_np] R) 
-                             x K_0(❘q+G❘[N_p] R) 
-                             - ❘q+G❘[N_p] R x J_0(❘q+G❘[N_n] R) 
-                             x K_1(❘q+G❘[N_p] R)]
+        v1D = 1/∣𝐪+𝐆∣²×[1 + ∣𝐆⊥∣𝑅 J₁(∣𝐆⊥∣𝑅) Kₒ(∣𝐪+𝐆∥∣𝑅)
+        - ∣𝐪+𝐆∥∣𝑅 Jₒ(∣𝐆⊥∣𝑅) K₁(∣𝐪+𝐆∥∣𝑅)]
         """
 
         return v1D_Coulomb(qG, self.N_p, self.N_np, self.R)
@@ -228,7 +222,7 @@ class CoulombKernel0D(BaseCoulombKernel):
         Isolated System/Molecule calculation.
         Spherical cutoff in all directions.
 
-        v0D = 1 / ❘q+G❘^2 * [1 - cos(❘q+G❘ R)]
+        v0D = 1/∣𝐪+𝐆∣²×[1 - cos(∣𝐪+𝐆∣𝑅)]
         """
 
         return v0D_Coulomb(qG, self.R)
@@ -237,12 +231,12 @@ class CoulombKernel0D(BaseCoulombKernel):
 class CoulombKernel(BaseCoulombKernel):
     """Class for calculating the Coulomb kernel.
 
-    vcut = None (Default). 
+    vcut = None (Default).
     Applies Coulomb cutoff in non-periodic directions.
     vcut = '3D' => [False, False, False].
     vcut = '2D' => [False, False, True].
     vcut = '1D' => [False, True, True].
-    vcut = '0D' => [True, True, True].    
+    vcut = '0D' => [True, True, True].
     vcut is a numpy arry of type bool of length 3.
     
     """
