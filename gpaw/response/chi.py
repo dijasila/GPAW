@@ -1,7 +1,6 @@
 import sys
 from time import time, ctime
 import numpy as np
-import gpaw.fftw as fftw
 from math import sqrt, pi
 from ase.units import Hartree, Bohr
 from gpaw import extra_parameters
@@ -186,6 +185,22 @@ class CHI(BASECHI):
         return
 
 
+    def pawstuff(self, psit_g, k, n, spin, u, ibzkpt):
+        if not self.pwmode:
+            if self.calc.wfs.world.size > 1 or self.kd.nbzkpts == 1:
+                P_ai = self.pt.dict()
+                self.pt.integrate(psit_g, P_ai, k)
+            else:
+                P_ai = self.get_P_ai(k, n, spin)
+        else:
+            # first calculate P_ai at ibzkpt, then rotate to k
+            Ptmp_ai = self.pt.dict()
+            kpt = self.calc.wfs.kpt_u[u]
+            self.pt.integrate(kpt.psit_nG[n], Ptmp_ai, ibzkpt)
+            P_ai = self.get_P_ai(k, n, spin, Ptmp_ai)
+        return P_ai
+
+
     def calculate(self, seperate_spin=None):
         """Calculate the non-interacting density response function. """
         calc = self.calc
@@ -195,7 +210,6 @@ class CHI(BASECHI):
         ibzk_kc = kd.ibzk_kc
         bzk_kc = kd.bzk_kc
         kq_k = self.kq_k
-        pt = self.pt
         f_skn = self.f_skn
         e_skn = self.e_skn
 
@@ -217,16 +231,6 @@ class CHI(BASECHI):
             specfuncG0_wGv = np.zeros((self.NwS_local, self.npw, 3), dtype=complex)
             specfunc0G_wGv = np.zeros((self.NwS_local, self.npw, 3), dtype=complex)
             
-        # fftw init
-        fft_R = fftw.empty(self.gd.N_c, complex)
-        fft_G = fft_R
-        fftplan = fftw.FFTPlan(fft_R, fft_G, -1, fftw.ESTIMATE)
-
-        if fftw.FFTPlan is fftw.NumpyFFTPlan:
-            self.printtxt('Using Numpy FFT.')
-        else:
-            self.printtxt('Using FFTW Library.') 
-
         use_zher = False
         if self.eta < 1e-5:
             use_zher = True
@@ -266,35 +270,24 @@ class CHI(BASECHI):
                     
                 index1_g, phase1_g = kd.get_transform_wavefunction_index(self.gd.N_c - (self.pbc == False), k)
                 index2_g, phase2_g = kd.get_transform_wavefunction_index(self.gd.N_c - (self.pbc == False), kq_k[k])
-    
+                
                 for n in range(self.nvalbands):
                     if self.calc.wfs.world.size == 1:
                         if (self.f_skn[spin][ibzkpt1, n] - self.ftol < 0):
                             continue
 
                     t1 = time()
-                    if not self.pwmode:
-                        psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
-                    else:
+                    if self.pwmode:
                         u = self.kd.get_rank_and_index(spin, ibzkpt1)[1]
                         psitold_g = calc.wfs._get_wave_function_array(u, n, realspace=True, phase=eikr1_R)
+                    else:
+                        u = None
+                        psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
     
                     psit1new_g = kd.transform_wave_function(psitold_g,k,index1_g,phase1_g)
 
-                    # PAW part
-                    if not self.pwmode:
-                        if (calc.wfs.world.size > 1 or self.kd.nbzkpts == 1):
-                            P1_ai = pt.dict()
-                            pt.integrate(psit1new_g, P1_ai, k)
-                        else:
-                            P1_ai = self.get_P_ai(k,n,spin)
-                    else:
-                        # first calculate P_ai at ibzkpt, then rotate to k
-                        Ptmp_ai = pt.dict()
-                        kpt = calc.wfs.kpt_u[u]
-                        pt.integrate(kpt.psit_nG[n], Ptmp_ai, ibzkpt1)
-                        P1_ai = self.get_P_ai(k,n,spin,Ptmp_ai)
-                    
+                    P1_ai = self.pawstuff(psit1new_g, k, n, spin, u, ibzkpt1)
+
                     psit1_g = psit1new_g.conj() * self.expqr_g
     
                     for m in self.mlist:
@@ -330,18 +323,7 @@ class CHI(BASECHI):
                                     qq2_v = np.dot(q2_c, self.bcell_cv) # summation over c
                                     rhoG0_v[ix] = -1j * np.dot(qq2_v, tmp)
 
-                            # PAW correction
-                            if not self.pwmode:
-                                if calc.wfs.world.size > 1 or self.kd.nbzkpts == 1:
-                                    P2_ai = pt.dict()
-                                    pt.integrate(psit2_g, P2_ai, kq_k[k])
-                                else:
-                                    P2_ai = self.get_P_ai(kq_k[k],m,spin)                                    
-                            else:
-                                Ptmp_ai = pt.dict()
-                                kpt = calc.wfs.kpt_u[u]
-                                pt.integrate(kpt.psit_nG[m], Ptmp_ai, ibzkpt2)
-                                P2_ai = self.get_P_ai(kq_k[k],m,spin,Ptmp_ai)
+                            P2_ai = self.pawstuff(psit2_g, kq_k[k], m, spin, u, ibzkpt2)
 
                             for a, id in enumerate(calc.wfs.setups.id_a):
                                 P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
@@ -532,8 +514,6 @@ class CHI(BASECHI):
             
         self.printtxt('')
         self.printtxt('Finished chi0 !')
-
-        return
 
 
     def parallel_init(self):

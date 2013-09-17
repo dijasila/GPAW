@@ -261,7 +261,7 @@ class BASECHI:
         printtxt('')
         if self.q_c is not None:
             if self.optical_limit:
-                printtxt('Optical limit calculation ! (q=0.00001)')
+                printtxt('Optical limit calculation ! (q=1e-5)')
             else:
                 printtxt('q in reduced coordinate        : (%f %f %f)' % tuple(self.q_c))
                 printtxt('q in cartesian coordinate (1/A): (%f %f %f)' % tuple(self.qq_v / Bohr))
