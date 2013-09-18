@@ -73,12 +73,12 @@ lr.calculate_excitations()
 e0_3 = np.sqrt(lr.evalues[0])
 e1_3 = np.sqrt(lr.evalues[-1])
 
-equal(e0_1, 0.001058511318, 1e-7)
-equal(e0_1, e0_2, 1e-7)
-equal(e0_1, e0_3, 1e-7)
-equal(e1_1, 0.183257196898, 1e-7)
-equal(e1_2, 0.194976170383, 1e-7)
-equal(e1_3, 0.120725669098, 1e-7)
+equal(e0_1, 0.001058511318, 1e-6)
+equal(e0_1, e0_2, 1e-6)
+equal(e0_1, e0_3, 1e-6)
+equal(e1_1, 0.183257196898, 1e-6)
+equal(e1_2, 0.194976170383, 1e-6)
+equal(e1_3, 0.120725669098, 1e-6)
 
 if debug and rank == 0:
     print e0_1, e1_1
