@@ -21,8 +21,10 @@ atoms = Atoms('Al2', positions=((0, 0, 0),
                                 (0, 0, d))
              )
 atoms.center(4.0)
-calc = GPAW(h=0.24, eigensolver='cg',
+calc = GPAW(h=0.24, eigensolver='cg', basis='dzp',
             occupations=FermiDirac(width=0.01),
+            convergence={'eigenstates': 4.0e-5, 'density' : 1.0e-2, 
+                         'bands' : 'all'},
             nbands=20)
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
@@ -73,17 +75,18 @@ lr.calculate_excitations()
 e0_3 = np.sqrt(lr.evalues[0])
 e1_3 = np.sqrt(lr.evalues[-1])
 
-equal(e0_1, 0.001058511318, 1e-6)
-equal(e0_1, e0_2, 1e-6)
-equal(e0_1, e0_3, 1e-6)
-equal(e1_1, 0.183257196898, 1e-6)
-equal(e1_2, 0.194976170383, 1e-6)
-equal(e1_3, 0.120725669098, 1e-6)
-
 if debug and rank == 0:
     print e0_1, e1_1
     print e0_2, e1_2
     print e0_3, e1_3
+
+tol = 1.0e-8
+equal(e0_1, 0.00105074187176, tol)
+equal(e0_1, e0_2, tol)
+equal(e0_1, e0_3, tol)
+equal(e1_1, 0.183188157301, tol)
+equal(e1_2, 0.194973135812, tol)
+equal(e1_3, 0.120681529342, tol)
 
 # Remove the unused output files
 if rank == 0:

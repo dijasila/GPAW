@@ -166,7 +166,7 @@ tests = [
     'plt.py',
     'lcao_pair_and_coulomb.py',
     'eed.py',
-    # 'Al2_lrtddft.py',
+    'Al2_lrtddft.py',
     'lrtddft2.py',
     'parallel/hamiltonian.py',
     'ah.py',
