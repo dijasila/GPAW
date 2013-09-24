@@ -1,3 +1,4 @@
+from __future__ import division
 import os
 import sys
 
@@ -5,7 +6,7 @@ import numpy as np
 from ase.data import chemical_symbols, covalent_radii, atomic_numbers
 from ase.utils.eos import EquationOfState
 
-from gpaw.test.big.setups.structures import fcc, rocksalt
+#from gpaw.test.big.setups.structures import fcc, rocksalt
 from gpaw.atom.generator2 import get_number_of_electrons
 
 
@@ -13,8 +14,17 @@ sc = (chemical_symbols[3:5] + chemical_symbols[11:13] +
       chemical_symbols[19:31] + chemical_symbols[37:49] +
       chemical_symbols[55:57] + chemical_symbols[72:81])
 
-fcc = fcc()
-rocksalt = rocksalt()
+fcc = np.loadtxt('fcc/energies_aims.csv',
+                 delimiter=',',
+                 skiprows=1,
+                 usecols=range(1,25))
+rocksalt = np.loadtxt('rocksalt/energies_aims.csv',
+                      delimiter=',',
+                      skiprows=1,
+                      usecols=range(1,17))
+volaims = np.array([0.8,0.85,0.9,0.925,0.95,0.975,1.0,1.025,1.05,1.075,
+                    1.1,1.125,1.15,1.175,1.2,1.225,1.25,1.275,
+                    1.3,1.325,1.35,1.375,1.4])**3
 
 dir = sys.argv[1]
 
@@ -27,10 +37,9 @@ def get_data(symbol, mode, type, setup, x):
     return data
 
 
-def analyse(data):
-    vol = np.linspace(0.80, 1.1, 7)**3
-    i = data.argmin()
-    i2 = min(7, i + 2)
+def analyse(data, vol, x1=None):
+    i0 = data.argmin()
+    i2 = min(len(data), i0 + 2)
     i1 = i2 - 4
     v0 = e0 = np.nan
     if i1 > 0:
@@ -38,33 +47,63 @@ def analyse(data):
         try:
             v0, e0, B = eos.fit()
         except (ValueError, np.linalg.LinAlgError):
-            print 'XXX', i
+            print 'XXX', i0
     else:
-        print 'XXX:', i
+        print 'XXX:', i0
     x0 = v0**(1 / 3.0)
-    return data[4], e0, x0, data[2] - data[4]
+    if x1 is None:
+        i = i0
+        x1 = np.nan
+        while i > 0:
+            if data[i] - e0 > 1.0:
+                f = np.poly1d(np.polyfit(vol[i:i + 3],
+                                         data[i:i + 3] - e0 - 1.0, 2))
+                f1 = np.polyder(f, 1)
+                for v1 in np.roots(f):
+                    if f1(v1) < 0:
+                        x1 = v1**(1 / 3)
+                        break
+                break
+            i -= 1
+        print i,x1,
+    else:
+        for i, v in enumerate(vol):
+            if v > x1**3 and i > 0:
+                f = np.poly1d(np.polyfit(vol[i - 1:i + 2], data[i - 1:i + 2] - e0 - 1.0, 2))
+                x1 = f(x1**3)
+                print x1,
+                break
+        else:
+            x1 = np.nan
+                
+    return e0, x0, x1, data[4]
 
 
 def run(symbol, setup, x):
     D = []
     print symbol,setup,x,
+    Z = atomic_numbers[symbol]
     if x == 'fcc':
-        data = np.array(fcc.data[symbol])
+        data = fcc[Z - 1, 1:]
     else:
-        data = np.array(rocksalt.data[symbol])
-    data = data[:-8:-1] + data[1]
+        data = rocksalt[Z - 1, 1:]
     print 'aims',
-    D.append(analyse(data))
+    D.append(analyse(data, volaims))
+    x1 = D[0][2]
+    
     data = get_data(symbol, 'pw', 'nr', setup, x)
     print 'nr',
-    D.append(analyse(data))
+    vol = np.linspace(0.80, 1.1, 7)**3
+    D.append(analyse(data, vol, x1))
+    
     data = get_data(symbol, 'pw', 'r', setup, x)
     print 'r',
-    D.append(analyse(data))
-
+    D.append(analyse(data, vol))
+    x1 = D[2][2]
+    
     data = get_data(symbol, 'lcao', 'r', setup, x)
     print 'r-lcao',
-    D.append(analyse(data))
+    D.append(analyse(data, vol, x1))
     print
     return np.array(D)
 
@@ -111,35 +150,32 @@ for symbol in sc:
 
 
 for s, t in S:
+    Z = atomic_numbers[symbol]
     d = S[(s, t)]
     print '%2s_%d,' % (s, d['e']),
-    fe = d['fcc'][:, 1] + S[('O', 'std')]['fcc'][:, 1] - d['rocksalt'][:, 1]
+    fe = d['fcc'][:, 0] + S[('O', 'std')]['fcc'][:, 0] - d['rocksalt'][:, 0]
     fe0 = fe[0]
     dfenr = fe[1] - fe[0]
     dferL = fe[3] - fe[2]
     
-    arF0 = fcc.data[s][0]
-    anrF0 = arF0 * d['fcc'][0, 2]
-    anrF = arF0 * d['fcc'][1, 2]
-    arF = arF0 * d['fcc'][2, 2]
-    arFL = arF0 * d['fcc'][3, 2]
+    arF0 = fcc[Z - 1][0]
+    anrF0 = arF0 * d['fcc'][0, 1]
+    anrF = arF0 * d['fcc'][1, 1]
+    arF = arF0 * d['fcc'][2, 1]
+    arFL = arF0 * d['fcc'][3, 1]
     
-    arR0 = rocksalt.data[s][0]
-    anrR0 = arR0 * d['rocksalt'][0, 2]
-    anrR = arR0 * d['rocksalt'][1, 2]
-    arR = arR0 * d['rocksalt'][2, 2]
-    arRL = arR0 * d['rocksalt'][3, 2]
+    arR0 = rocksalt[Z - 1][0]
+    anrR0 = arR0 * d['rocksalt'][0, 1]
+    anrR = arR0 * d['rocksalt'][1, 1]
+    arR = arR0 * d['rocksalt'][2, 1]
+    arRL = arR0 * d['rocksalt'][3, 1]
     
-    ceF = d['fcc'][:, 3]
-    dcenrF = ceF[1] - ceF[0]
-    dcerFL = ceF[3] - ceF[2]
-    
-    ceR = d['rocksalt'][:, 3]
-    dcenrR = ceR[1] - ceR[0]
-    dcerRL = ceR[3] - ceR[2]
+    dceR = d['rocksalt'][:, 2]
+    dcenrR = dceR[1]
+    dcerRL = dceR[3]
 
     eF, eA = d['conv']
-    de = eF - d['fcc'][2, 0]
+    de = eF - d['fcc'][2, 3]
     dde = eA - eF
     dde -= dde[-1]
     
@@ -148,7 +184,7 @@ for s, t in S:
     es = d['es'] - eF[4]
     
     for x in ('arF0 anrF0 anrF arF arFL arR0 anrR0 anrR arR arRL ' +
-              'fe0 dfenr dferL ceF dcenrF dcerFL ceR dcenrR dcerRL ' +
+              'fe0 dfenr dferL dcenrR dcerRL ' +
               'de dde egg es').split():
         d[x] = locals()[x]
 

@@ -20,14 +20,14 @@ for s in symbols:
         fd4.write('%s\ :sub:`%d`' % (s, e))
         fd5.write('%s\ :sub:`%d`' % (s, e))
         fd6.write('%s\ :sub:`%d`' % (s, e))
-        for x in [fe0, dfenr, dcenrF, dcenrR,
+        for x in [fe0, dfenr, dcenrR,
                   anrF0, anrF - anrF0, anrR0, anrR - anrR0]:
             fd1.write(', %.3f' % x)
         for x in dde[:-1]:
             fd2.write(', %.3f' % x)
         for x in de:
             fd3.write(', %.3f' % x)
-        for x in [dferL, dcerFL, dcerRL,
+        for x in [dferL, dcerRL,
                   arFL - arF, arRL - arR]:
             fd4.write(', %.3f' % x)
         for x in egg:
@@ -42,33 +42,50 @@ for s in symbols:
         fd6.write('\n')
 
 
-#    for x in ('arF0 anrF0 anrF arF arFL arR0 anrR0 anrR arR arRL ' +
-#              'fe dfenr dferL ceF dcenrF dcerFL ceR dcenrR dcerFL ' +
-#              'de dde egg es').split():
-
 from table import table
 fig = table(dict((key, d['dfenr']) for key, d in D.items()),
             r'$|\Delta F|$ [eV]')
 fig.savefig('dfe.png')
-fig = table(dict((key, d['dcenrF']) for key, d in D.items()),
-            r'$|\Delta C^{FCC}|$ [eV]')
+print dict((key, d['dcenrR']) for key, d in D.items())
+fig = table(dict((key, d['dcenrR']) for key, d in D.items()),
+            r'$|\Delta C^{RS}|$ [eV]')
 fig.savefig('dce.png')
-fig = table(dict((key, d['anrF'] - d['anrF0']) for key, d in D.items()),
+
+fig = table(dict((key, abs(d['arF'] - d['arF0']))
+                 for key, d in D.items()),
             r'$|\Delta a^{FCC}|$ [Ang]')
-fig.savefig('a.png')
+fig.savefig('aF.png')
+fig = table(dict((key, abs(d['arR'] - d['arR0']))
+                 for key, d in D.items()),
+            r'$|\Delta a^{RS}|$ [Ang]')
+fig.savefig('aR.png')
+fig = table(dict((key, abs(d['anrF'] - d['anrF0']))
+                 for key, d in D.items()),
+            r'$|\Delta a^{FCC}|$ [Ang]')
+fig.savefig('anrF.png')
+fig = table(dict((key, abs(d['anrR'] - d['anrR0']))
+                 for key, d in D.items()),
+            r'$|\Delta a^{RS}|$ [Ang]')
+fig.savefig('anrR.png')
 
 fig = table(dict((key, d['dferL']) for key, d in D.items()),
             r'$|\Delta F|$ [eV]')
 fig.savefig('dfelcao.png')
-fig = table(dict((key, abs(d['dcerFL']) + abs(d['dcerRL']))
+
+fig = table(dict((key, d['dcerRL'])
                  for key, d in D.items()),
-            r'$|\Delta C^{FCC}| + |\Delta C^{RS}|$ [eV]')
+            r'$|\Delta C^{RS}|$ [eV]')
 fig.savefig('dcelcao.png')
-fig = table(dict((key, abs(d['arFL'] - d['arF']) +
-                  abs(d['arRL'] - d['arR']))
+
+fig = table(dict((key, d['arFL'] - d['arF'])
                  for key, d in D.items()),
-            r'$|\Delta a^{FCC}| + |\Delta a^{RS}|$ [Ang]')
-fig.savefig('alcao.png')
+            r'$|\Delta a^{FCC}|$ [Ang]')
+fig.savefig('aFlcao.png')
+
+fig = table(dict((key, d['arRL'] - d['arR'])
+                 for key, d in D.items()),
+            r'$|\Delta a^{RS}|$ [Ang]')
+fig.savefig('aRlcao.png')
 
 fig = table(dict((key, d['dde'][0]) for key, d in D.items()),
             r'$|\Delta E(350 eV) - \Delta E(600 eV)|$ [eV]')
