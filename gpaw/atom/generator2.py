@@ -306,15 +306,13 @@ class PAWSetupGenerator:
     def __init__(self, aea, projectors,
                  scalar_relativistic=False,
                  core_hole=None,
-                 fd=sys.stdout):
+                 fd=None):
         """fd: stream
             Text output."""
 
         self.aea = aea
 
-        if fd is None:
-            fd = devnull
-        self.fd = fd
+        self.fd = fd or sys.stdout
 
         if core_hole:
             state, occ = core_hole.split(',')
