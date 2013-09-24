@@ -78,7 +78,7 @@ if rank == 0:
    system('rm N2.gpw')
    system('rm N.gpw')
 
-equal(Ec_N2, -6.1651, 0.001,)
-equal(Ec_N2_s, -7.7042, 0.001,)
-equal(Ec_N, -1.0567, 0.001)
-equal(Ec_N_s, -2.0419, 0.001)
+equal(Ec_N2, -6.3, 0.2,)
+equal(Ec_N2_s, -7.6, 0.2,)
+equal(Ec_N, -1.0, 0.2)
+equal(Ec_N_s, -1.5, 0.2)
