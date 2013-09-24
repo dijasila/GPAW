@@ -440,7 +440,9 @@ def search_for_file(name, oldname=None, world=None, fail=True):
                         else:
                             source = os.popen('gunzip -c ' + filename, 'r').read()
                         break
-    
+            if source:
+                break
+
     if not source and fail:
         raise RuntimeError(
             'Could not find any of the files:\n\n    %s\n\n' %
