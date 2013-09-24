@@ -332,7 +332,7 @@ class DiracChannel(Channel):
         
 class AllElectronAtom:
     def __init__(self, symbol, xc='LDA', spinpol=False, dirac=False,
-                 log=sys.stdout):
+                 log=None):
         """All-electron calculation for spherically symmetric atom.
 
         symbol: str (or int)
@@ -362,9 +362,7 @@ class AllElectronAtom:
         else:
             self.xc = xc
 
-        if log is None:
-            log = devnull
-        self.fd = log
+        self.fd = log or sys.stdout
 
         self.vr_sg = None  # potential * r
         self.n_sg = 0.0    # density
