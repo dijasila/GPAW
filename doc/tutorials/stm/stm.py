@@ -15,6 +15,7 @@ plt.hot()
 plt.colorbar()
 plt.savefig('2d.png')
 plt.figure()
-x, y = stm.linescan(bias, c, [0, 0], [5, 0])
+a = atoms.cell[0, 0]
+x, y = stm.linescan(bias, c, [0, 0], [2 * a, 0])
 plt.plot(x, y)
 plt.savefig('line.png')

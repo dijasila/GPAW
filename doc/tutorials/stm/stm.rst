@@ -20,7 +20,7 @@ Now we calculate the wave functions and write them to a file:
 =========
 
 First initialize the :class:`~ase.dft.stm.STM` object and get the
-averaged current at `z=8.0` Å (for our surface, the top layer is at `z=6.025`
+averaged current at `z=8.0` Å (for our surface, the top layer is at `z=6.338`
 Å):
 
 .. literalinclude:: stm.py
