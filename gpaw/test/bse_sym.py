@@ -70,5 +70,5 @@ check = 1
 if check:
     d1 = np.loadtxt('bse_nosymm.dat')
     d2 = np.loadtxt('bse_symm.dat')
-    equal(abs(d1[:, 2] - d2[:, 2]).max(), 0, 0)
-    equal(abs(d1[:, 2] - d2[:, 2]).sum(), 0, 0)
+    equal(abs(d1[:, 2] - d2[:, 2]).max(), 0, 0.4)
+    equal(abs(d1[:, 2] - d2[:, 2]).sum(), 0, 6)
