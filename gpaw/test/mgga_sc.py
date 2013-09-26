@@ -3,16 +3,17 @@ from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 
-h=0.4
+h=0.2
 txt = None
-#txt = '-'
+txt = '-'
 
 s = Cluster([Atom('H')])
 s.minimal_box(4., h=h)
 s.set_initial_magnetic_moments([1])
 
-c = GPAW(xc='TPSS', h=h, nbands=5, txt=txt, 
-#         eigensolver='cg', 
+c = GPAW(xc='TPSS', h=h, #nbands=5,
+         txt=txt, 
+         #eigensolver='cg', 
          maxiter=300)
 c.calculate(s)
 
