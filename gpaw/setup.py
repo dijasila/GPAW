@@ -237,6 +237,25 @@ class BaseSetup:
             D_sp[s] = pack(D_sii[s])
         return D_sp
 
+    def set_basis(self, basis, world=None):
+        if isinstance(basis, str):
+            if self.filename is not None:
+                e = self.filename.rsplit('/', 1)[1].split('.')[1]
+                if e[0].isdigit() and e[-1] == 'e' and not basis.startswith(e):
+                    basis = e + '.' + basis
+            basis = Basis(self.symbol, basis, world=world)
+        elif basis is None:
+            basis = self.create_basis_functions(self.data.phit_jg)
+
+        phit_j = basis.tosplines()
+        self.phit_j = phit_j
+        self.basis = basis #?
+
+        self.nao = 0
+        for phit in self.phit_j:
+            l = phit.get_angular_momentum_number()
+            self.nao += 2 * l + 1
+
     def symmetrize(self, a, D_aii, map_sa):
         D_ii = np.zeros((self.ni, self.ni))
         for s, R_ii in enumerate(self.R_sii):
@@ -793,24 +812,6 @@ class Setup(BaseSetup):
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
         self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
-
-    def set_basis(self, basis, world=None):
-        if isinstance(basis, str):
-            e = self.filename.rsplit('/', 1)[1].split('.')[1]
-            if e[0].isdigit() and e[-1] == 'e' and not basis.startswith(e):
-                basis = e + '.' + basis
-            basis = Basis(self.symbol, basis, world=world)
-        elif basis is None:
-            basis = self.create_basis_functions(self.data.phit_jg)
-
-        phit_j = basis.tosplines()
-        self.phit_j = phit_j
-        self.basis = basis #?
-
-        self.nao = 0
-        for phit in self.phit_j:
-            l = phit.get_angular_momentum_number()
-            self.nao += 2 * l + 1
 
     def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,
                                       lmax, Delta_lq, wnt_lqg,
