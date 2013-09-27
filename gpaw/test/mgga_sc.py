@@ -1,23 +1,21 @@
-from ase import Atom
+from ase import Atoms
 from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 
-h=0.2
+
 txt = None
 txt = '-'
 
-s = Cluster([Atom('H')])
-s.minimal_box(4., h=h)
-s.set_initial_magnetic_moments([1])
+s = Atoms('H', magmoms=[1])
+s.center(vacuum=4.0)
 
-c = GPAW(xc='TPSS', h=h, #nbands=5,
-         txt=txt, 
-         #eigensolver='cg', 
-         maxiter=300)
+c = GPAW(xc='TPSS',
+         mode='pw',
+         txt=txt)
 c.calculate(s)
 
-cpbe = GPAW(xc='PBE', h=h, nbands=5, txt=txt)
+cpbe = GPAW(xc='PBE', mode='pw', txt=txt)
 cpbe.calculate(s)
 cpbe.set(xc='TPSS')
 cpbe.calculate()
