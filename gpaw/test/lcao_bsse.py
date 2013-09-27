@@ -17,7 +17,7 @@ system = molecule('H2')
 system.center(vacuum=6.0)
 
 def prepare(setups):
-    calc = GPAW(basis='sz(dzp)',#{'H' : b},
+    calc = GPAW(basis='1e.sz(dzp)',#{'H' : b},
                 mode='lcao',
                 setups=setups, h=0.2,
                 poissonsolver=PoissonSolver('M', relax='GS', eps=1e-5),

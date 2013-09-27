@@ -22,13 +22,9 @@ zero_function = Spline(0, 0.5, [0.0, 0.0, 0.0])
 nonzero_function = Spline(0, 0.5, [0.0, 1.0e-12, 0.0]) # XXX
 
 class GhostSetup(BaseSetup):
-    def __init__(self, basis, data):
+    def __init__(self, data):
         self.symbol = data.symbol
         self.data = data
-        self.phit_j = basis.tosplines()
-        self.basis = basis
-        self.nao = sum([2 * phit.get_angular_momentum_number() + 1
-                        for phit in self.phit_j])
         self.nbands = 0
         self.HubU = None
         self.filename = None
@@ -92,13 +88,14 @@ class GhostSetup(BaseSetup):
 class GhostSetupData:
     def __init__(self, symbol):
         self.chemsymbol = symbol
-        self.symbol = symbol + '.ghost'
+        self.symbol = symbol# + '.ghost'
         self.Z = atomic_numbers[symbol]
 
     def build(self, xcfunc, lmax, basis, filter=None):
         if basis is None:
             raise ValueError('Loading partial waves not supported right now')
-        setup = GhostSetup(basis, self)
+        setup = GhostSetup(self)
+        setup.set_basis(basis)
         return setup
 
     def print_info(self, text, _setup):
