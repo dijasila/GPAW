@@ -1,18 +1,18 @@
 .. _stm-tutorial:
 
 ==============================
-Tutorial: STM images - Al(100)
+Tutorial: STM images - Al(111)
 ==============================
 
-Let's make a 2 layer Al(100) fcc surface using the
-:func:`ase.lattice.surface.fcc100` function:
+Let's make a 2 layer Al(111) fcc surface using the
+:func:`ase.lattice.surface.fcc111` function:
 
-.. literalinclude:: al100.py
+.. literalinclude:: al111.py
    :lines: 1-3
 
 Now we calculate the wave functions and write them to a file:
 
-.. literalinclude:: al100.py
+.. literalinclude:: al111.py
    :lines: 5-
 
 
@@ -20,7 +20,7 @@ Now we calculate the wave functions and write them to a file:
 =========
 
 First initialize the :class:`~ase.dft.stm.STM` object and get the
-averaged current at `z=8.0` Å (for our surface, the top layer is at `z=6.025`
+averaged current at `z=8.0` Å (for our surface, the top layer is at `z=6.338`
 Å):
 
 .. literalinclude:: stm.py

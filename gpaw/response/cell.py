@@ -1,11 +1,14 @@
 import numpy as np
 from math import sqrt, pi
 
-def get_primitive_cell(a,rpad=np.array([1,1,1])):
+def get_primitive_cell(a, rpad=None):
     """From the unit cell, calculate primitive cell and volume. """
 
-    a = (a.T * rpad).T
-    vol = np.abs(np.dot(a[0],np.cross(a[1],a[2])))
+    if rpad is None:
+        rpad = np.ones(3, int)
+
+    a = (a.T * rpad).T # ???
+    vol = np.abs(np.dot(a[0], np.cross(a[1], a[2])))
     BZvol = (2. * pi)**3 / vol
     b = np.linalg.inv(a.T)
     

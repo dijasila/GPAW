@@ -645,9 +645,6 @@ class PAW(PAWTextOutput):
                 except RuntimeError:
                     initksl = None
                 else:
-                    #assert nbands <= nao or bd.comm.size == 1
-                    assert lcaobd.mynbands == min(bd.mynbands, nao)  # XXX
-
                     # Layouts used for general diagonalizer
                     # (LCAO initialization)
                     sl_lcao = par.parallel['sl_lcao']

@@ -69,11 +69,13 @@ sorted by spin, k-points (rows) and bands (columns).
     By default, the results are stored in a pickle file called ``EXX.pckl``.
     The name can be changed by using ``gw.get_exact_exchange(file='myown_EXX.pckl')``.
 
-Check for convergence with respect to the plane wave cutoff and number of k-points
+Check for convergence with respect to the plane wave cutoff energy and number of k points
 by changing the respective values in the groundstate calculation and restarting.
 
 .. image:: Si_EXX.png
        :height: 400 px
+
+A k-point sampling of (9x9x9) and 150 eV plane wave cutoff seems to give well converged results.
 
 calculating the self-energy
 ---------------------------
@@ -93,15 +95,12 @@ again sorted by spin, k-points (rows) and bands (columns).
     By default, the results are stored in a pickle file called ``GW.pckl``.
     The name can be changed by using ``gw.get_QP_spectrum(file='myown_GW.pckl', exxfile='myown_EXX.pckl')``.
 
-Repeat the calculation varying number of bands ``nbands`` and the planewave cutoff ``ecut``
-and check how the results converge.
+Again, results need to be checked for convergence with respect to k-point sampling, plane wave cutoff energy and number of bands.
 
-These two parameters are not independent of each other. For correct convergence, the energy of the highest band
-should be around the plane wave cutoff. This can be done automatically using the default ``ecut=None``,
-so that the number of bands is set equally to the number of plane waves correspoding to the cutoff energy.
-
-.. image:: Si_GW.png
-       :height: 400 px
+A reasonable choice are the values determined previously for the Hartree Fock band gap, that means (9x9x9) k points and plane waves up to 150 eV.
+Usually, the self-energy converges faster with respect to the number of k points than the exchange contributions, whereas the dependence on the plane wave cutoff energy is similar.
+The number of bands should be chosen in a way, so that the energy of the highest band is around `E_\text{cut}`. This is easiest done by using the default value ``nbands = None``,
+which sets the number of bands equal to the number of plane waves.
 
 frequency dependence
 --------------------

@@ -8,8 +8,9 @@ import matplotlib
 import pylab as plt
 
 
-months = [datetime.date(2000, m, 1).strftime('%B')[:3].upper()
-          for m in range(1, 13)]
+
+months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+          'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
 
 
 def f(filename):
@@ -40,6 +41,8 @@ def f(filename):
                     else:
                         y = w
                 else:
+                    if '-' in w:
+                        w = w.split('-')[-1]
                     m = months.index(w) + 1
         elif tag == '\n':
             date = datetime.date(y, m, d)
@@ -65,12 +68,12 @@ for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
     papers.sort()
     plt.plot([paper[0] for paper in papers], range(1, len(papers) + 1),
              '-o', label=bib)
-    #fd = open(bib + '.txt', 'w')
+    fd = open(bib + '.txt', 'w')
     for date, doi, title in papers:
-        #fd.write('%d-%02d-%02d %s %s\n' % (date.year, date.month, date.day,
-        #                               doi, title))
+        fd.write('%d-%02d-%02d %s %s\n' % (date.year, date.month, date.day,
+                                       doi, title))
         total[doi] = (date, title)
-    #fd.close()
+    fd.close()
     x = dict([(p[1], 0) for p in papers])
     print(bib, len(papers), len(x), len(total))
 

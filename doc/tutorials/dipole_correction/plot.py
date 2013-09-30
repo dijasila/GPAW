@@ -1,4 +1,7 @@
 import numpy as np
+# mathtext fails to create Angstrom with matplotlib 0.99 on el6
+import matplotlib
+matplotlib.rc('text', usetex=True)
 import matplotlib.pyplot as plt
 import ase.units as units
 from ase.io import write

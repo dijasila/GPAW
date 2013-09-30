@@ -420,7 +420,7 @@ class RPACorrelation:
         print >> self.txt
         print >> self.txt, 'Parallelization scheme'
         print >> self.txt, '     Total CPUs        : %d' % dummy.comm.size
-        if dummy.nkpt == 1:
+        if dummy.kd.nbzkpts == 1:
             print >> self.txt, '     Band parsize      : %d' % dummy.kcomm.size
         else:
             print >> self.txt, '     Kpoint parsize    : %d' % dummy.kcomm.size

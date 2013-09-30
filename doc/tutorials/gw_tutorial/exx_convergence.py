@@ -36,9 +36,7 @@ for k in [3,5,7,9]:
                 kpoints=None,
                 ecut=ecut,
                 ppa=True,
-                txt='Si_GW_k%s_ecut%s.out' % (k, ecut)
+                txt='Si_EXX_k%s_ecut%s.out' % (k, ecut)
                )
 
         gw.get_exact_exchange(file='Si_EXX_k%s_ecut%s.pckl' % (k, ecut))
-
-        gw.get_QP_spectrum(file='Si_GW_k%s_ecut%s.pckl' % (k, ecut), exxfile='Si_EXX_k%s_ecut%s.pckl' % (k, ecut))

@@ -130,6 +130,7 @@ anpet      Andrew Peterson            andrew_peterson:brown,edu
 aoj        Ari Ojanperä               ari,ojanpera:tkk,fi
 askhl      Ask Hjorth Larsen          asklarsen:gmail,com
 dlandis    David Landis               dlandis:fysik,dtu,dk
+dmowbray   Duncan Mowbray             duncan,mowbray:gmail,com
 dulak      Marcin Dulak               dulak:fysik,dtu,dk
 eojons     Elvar Örn Jónsson          elvar,jonsson:fysik,dtu,dk
 falh       Falco Huser                falh:fysik,dtu,dk

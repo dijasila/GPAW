@@ -1,20 +1,21 @@
 from ase.dft.stm import STM
 from gpaw import GPAW
-calc = GPAW('al100.gpw')
+calc = GPAW('al111.gpw')
 atoms = calc.get_atoms()
-stm = STM(atoms, symmetries=[0, 1, 2])
+stm = STM(atoms)
 z = 8.0
 bias = 1.0
 c = stm.get_averaged_current(bias, z)
-h = stm.scan(bias, c)
+x, y, h = stm.scan(bias, c, repeat=(3, 5))
 import matplotlib.pyplot as plt
 import numpy as np
-h = np.tile(h, (3, 3))
-plt.contourf(h, 40)
+plt.gca(aspect='equal')
+plt.contourf(x, y, h, 40)
 plt.hot()
 plt.colorbar()
 plt.savefig('2d.png')
 plt.figure()
-x, y = stm.linescan(bias, c, [0, 0], [2.5, 2.5])
+a = atoms.cell[0, 0]
+x, y = stm.linescan(bias, c, [0, 0], [2 * a, 0])
 plt.plot(x, y)
 plt.savefig('line.png')

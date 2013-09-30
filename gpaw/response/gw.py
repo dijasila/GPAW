@@ -85,7 +85,7 @@ class GW(BASECHI):
         if self.user_skn is not None:
             self.printtxt('Use eigenvalues from user.')
             assert np.shape(self.user_skn)[0] == self.nspins, 'Eigenvalues not compatible with .gpw file!'
-            assert np.shape(self.user_skn)[1] == self.nikpt, 'Eigenvalues not compatible with .gpw file!'
+            assert np.shape(self.user_skn)[1] == self.kd.nibzkpts, 'Eigenvalues not compatible with .gpw file!'
             assert np.shape(self.user_skn)[2] >= self.nbands, 'Too few eigenvalues!'
             self.e_skn = self.user_skn
         else:
@@ -152,22 +152,22 @@ class GW(BASECHI):
                 assert (self.wmax > emaxdiff), 'Maximum frequency must be larger than %f' %(emaxdiff*Hartree)
 
         # GW kpoints init
-        if (self.kpoints == None):
-            self.gwnkpt = self.nikpt
+        if self.kpoints is None:
+            self.gwnkpt = self.kd.nibzkpts
             self.gwkpt_k = kd.ibz2bz_k
         else:
             self.gwnkpt = np.shape(self.kpoints)[0]
             self.gwkpt_k = self.kpoints
 
         # GW bands init
-        if (self.bands == None):
+        if self.bands is None:
             self.gwnband = self.nbands
-            self.bands = self.gwbands_n = np.array(range(self.nbands))
+            self.bands = self.gwbands_n = np.arange(self.nbands)
         else:
             self.gwnband = np.shape(self.bands)[0]
             self.gwbands_n = self.bands
 
-        self.alpha = 1j/(2*pi * self.vol * self.nkpt)
+        self.alpha = 1j/(2*pi * self.vol * self.kd.nbzkpts)
         
         # parallel init
         assert len(self.w_w) % self.wpar == 0
@@ -253,7 +253,6 @@ class GW(BASECHI):
             exxfile='EXX.pckl'
             self.printtxt('EXX takes %s ' %(timedelta(seconds=round(time()-t0))))
         data = pickle.load(open(exxfile))
-        e_skn = data['e_skn'] # in Hartree
         vxc_skn = data['vxc_skn'] # in Hartree
         exx_skn = data['exx_skn'] # in Hartree
         f_skn = data['f_skn']
@@ -261,6 +260,18 @@ class GW(BASECHI):
         gwbands_n = data['gwbands_n']
         assert (gwkpt_k == self.gwkpt_k).all(), 'exxfile inconsistent with input parameters'
         assert (gwbands_n == self.gwbands_n).all(), 'exxfile inconsistent with input parameters'
+        if self.user_skn is None:
+            e_skn = data['e_skn'] # in Hartree
+        else:
+            e_skn = np.zeros((self.nspins, self.gwnkpt, self.gwnband), dtype=float)
+        for s in range(self.nspins):
+            for i, k in enumerate(self.gwkpt_k):
+                ik = self.kd.bz2ibz_k[k]
+                for j, n in enumerate(self.gwbands_n):
+                    if self.user_skn is None:
+                        assert e_skn[s][i][j] == self.e_skn[s][ik][n], 'exxfile inconsistent with eigenvalues'
+                    else:
+                        e_skn[s][i][j] = self.e_skn[s][ik][n]
 
         if not self.static:
             QP_skn = e_skn + Z_skn * (Sigma_skn + exx_skn - vxc_skn)
@@ -611,7 +622,7 @@ class GW(BASECHI):
             self.printtxt('Plane wave ecut (eV)         : (%f, %f, %f)' % (self.ecut[0]*Hartree,self.ecut[1]*Hartree,self.ecut[2]*Hartree) )
         self.printtxt('Number of plane waves used   : %d' %(self.npw) )
         self.printtxt('Number of bands              : %d' %(self.nbands) )
-        self.printtxt('Number of k points           : %d' %(self.nkpt) )
+        self.printtxt('Number of k points           : %d' %(self.kd.nbzkpts) )
         self.printtxt("Number of IBZ k points       : %d" %(self.kd.nibzkpts))
         self.printtxt("Number of spins              : %d" %(self.nspins))
         self.printtxt('')
@@ -644,7 +655,7 @@ class GW(BASECHI):
         self.printtxt("Kohn-Sham eigenvalues are (eV): ")
         self.printtxt("%s \n" %(e_skn*Hartree))
         self.printtxt("Occupation numbers are: ")
-        self.printtxt("%s \n" %(f_skn*self.nkpt))
+        self.printtxt("%s \n" %(f_skn*self.kd.nbzkpts))
         self.printtxt("Kohn-Sham exchange-correlation contributions are (eV): ")
         self.printtxt("%s \n" %(vxc_skn*Hartree))
         self.printtxt("Exact exchange contributions are (eV): ")

@@ -96,7 +96,6 @@ tests = [
     'poisson.py',
     'pw/lfc.py',
     'pw/reallfc.py',
-    'pw/moleculecg.py',
     'XC2.py',
     'multipoletest.py',
     'nabla.py',
@@ -104,6 +103,7 @@ tests = [
     'gauss_wave.py',
     'harmonic.py',
     'atoms_too_close.py',
+    'screened_poisson.py',
     'noncollinear/xcgrid3d.py',
     'vdwradii.py',
     'lcao_restart.py',
@@ -118,6 +118,7 @@ tests = [
     'xcatom.py',
     'maxrss.py',
     'proton.py',
+    'pw/moleculecg.py',
     'keep_htpsit.py',
     'pw/stresstest.py',
     'aeatom.py',
@@ -227,6 +228,7 @@ tests = [
     'test_ibzqpt.py',
     'aedensity.py',
     'fd2lcao_restart.py',
+    #'graphene_EELS.py', disabled while work is in progress on response code
     'lcao_bsse.py',
     'pplda.py',
     'revPBE_Li.py',
@@ -242,6 +244,7 @@ tests = [
     'lrtddft.py',
     'dscf_lcao.py',
     'IP_oxygen.py',
+    'Al2_lrtddft.py',
     'rpa_energy_Si.py',
     '2Al.py',
     'tpss.py',
@@ -319,6 +322,10 @@ tests = [
     ]
 
 exclude = []
+
+# not available on Windows
+if os.name in ['ce', 'nt']:
+    exclude += ['maxrss.py']
 
 if mpi.size > 1:
     exclude += ['maxrss.py',
