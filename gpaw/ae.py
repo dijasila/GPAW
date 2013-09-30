@@ -20,6 +20,7 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.Nc = 0
         self.Nv = 1
         self.nao = None
+        self.nbands = 1
         self.pt_j = []
         self.ni = 0
         self.l_j = []
@@ -51,7 +52,7 @@ class HydrogenAllElectronSetup(BaseSetup):
         
     def build(self, basis):
         if basis is None:
-            basis = Basis('H', 'sz(dzp)')
+            basis = Basis('H', '1e.sz(dzp)')
         elif isinstance(basis, str):
             basis = Basis('H', basis)
         self.basis = basis
