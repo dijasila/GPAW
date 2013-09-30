@@ -15,7 +15,7 @@ for name in ['zero', 'periodic', 'corrected']:
     energies.append(calc.get_potential_energy())
 
 print energies
-assert abs(energies[1] - energies[0]) < 0.003
+assert abs(energies[1] - energies[0]) < 0.004
 assert abs(energies[2] - energies[0] - 0.0409) < 0.003
 
 efermi = calc.get_fermi_level()
