@@ -24,14 +24,14 @@ parameters = {
 'H1':  ('1s,s,p', 0.9),
 'He2': ('1s,s,p', 1.5),
 # 3-10:
-'Li1': ('2s,s,2p', 2.2),
+'Li1': ('2s,s,2p', 2.1),
 'Li3': ('1s,2s,2p,p,d', 1.5),
 'Be2': ('2s,s,2p', 1.5),
 'Be4': ('1s,2s,2p,p,d', 1.4),
 'B3':  ('2s,s,2p,p,d', 1.2),
 'C4':  ('2s,s,2p,p,d', 1.2),
 'N5':  ('2s,s,2p,p,d', [1.2, 1.3], {'r0': 1.1}),
-'O6':  ('2s,s,2p,p,d', [1.2, 1.4]),
+'O6':  ('2s,s,2p,p,d,F', 1.2),
 'F7':  ('2s,s,2p,p,d', [1.2, 1.4]),
 'Ne8': ('2s,s,2p,p,d', 1.8),
 # 11-18:
@@ -70,7 +70,9 @@ parameters = {
 'Cu19': ('3s,4s,3p,4p,3d,d,F', 1.9),
 'Zn12': ('4s,s,4p,p,3d', 2.1),
 'Zn20': ('3s,4s,3p,4p,3d,d,F', 1.9),
+'Ga3': ('4s,s,4p,p,d,F', 2.2),
 'Ga13': ('4s,s,4p,p,3d,d,F', 2.2),
+'Ge4': ('4s,s,4p,p,d,F', 2.1),
 'Ge14': ('4s,s,4p,p,3d,d,F', 2.1),
 'As5': ('4s,s,4p,p,d,F', 2.0),
 'Se6': ('4s,s,4p,p,d,F', 2.1),
@@ -160,7 +162,7 @@ default = [0,
            1, 2,
            1, 2, 3, 4, 5, 6, 7, 8,
            1, 2, 3, 4, 5, 6, 7, 8,
-           1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 5, 6, 7, 8,
+           1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 3, 4, 5, 6, 7, 8,
            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 6, 7, 8,
            1, 2, 11,
            12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
@@ -1253,9 +1255,8 @@ def get_parameters(symbol, opt):
     if opt.electrons:
         par = parameters[symbol + str(opt.electrons)]
     else:
-        names = [name for name in parameters if name.startswith(symbol)]
-        names.sort()
-        par = parameters[names[0]]
+        Z = atomic_numbers[symbol]
+        par = parameters[symbol + str(default[Z])]
         
     projectors, radii = par[:2]
     if len(par) == 3:
