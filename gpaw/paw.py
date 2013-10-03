@@ -354,8 +354,9 @@ class PAW(PAWTextOutput):
 
         mode = par.mode
 
-        if xc.orbital_dependent:
-            assert mode != 'lcao'
+        if xc.orbital_dependent and mode == 'lcao':
+            raise NotImplementedError('LCAO mode does not support '
+                                      'orbital-dependent XC functionals.')
 
         if mode == 'pw':
             mode = PW()
