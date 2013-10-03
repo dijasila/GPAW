@@ -443,7 +443,7 @@ class LeanSetup(BaseSetup):
 
         self.lmax = s.lmax
         self.ghat_l = s.ghat_l
-        self.rcgauss = s.rcgauss
+        #self.rcgauss = s.rcgauss
         self.vbar = s.vbar
 
         self.Delta_pL = s.Delta_pL
@@ -695,13 +695,17 @@ class Setup(BaseSetup):
         # Construct splines for core kinetic energy density:
         tauct_g = data.tauct_g
         if tauct_g is None:
-            tauct_g = np.zeros(ng)
-            # FIXME: ng is not defined! 
+            tauct_g = rgd.zeros()
         self.tauct = rgd.spline(tauct_g, self.rcore)
 
         self.pt_j = self.create_projectors(rcutfilter)
 
-        rgd2 = self.rgd2 = AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
+        if isinstance(rgd, AERadialGridDescriptor):
+            rgd2 = self.rgd2 = AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
+        else:
+            from gpaw.atom.radialgd import AbinitRadialGridDescriptor
+            rgd2 = self.rgd2 = AbinitRadialGridDescriptor(rgd.a, rgd.d, gcut2)
+                
         r_g = rgd2.r_g
         dr_g = rgd2.dr_g
         phi_jg = np.array([phi_g[:gcut2].copy() for phi_g in phi_jg])
@@ -709,7 +713,7 @@ class Setup(BaseSetup):
         self.nc_g = nc_g = nc_g[:gcut2].copy()
         self.nct_g = nct_g = nct_g[:gcut2].copy()
         vbar_g = data.vbar_g[:gcut2].copy()
-        tauc_g = data.tauc_g[:gcut2].copy()
+        #tauc_g = data.tauc_g[:gcut2].copy()
 
         extra_xc_data = dict(data.extra_xc_data)
         # Cut down the GLLB related extra data
@@ -806,9 +810,8 @@ class Setup(BaseSetup):
         self.K_p = data.get_linear_kinetic_correction(T_Lqp[0])
         
         r = 0.02 * rcut2 * np.arange(51, dtype=float)
-        alpha = data.rcgauss**-2
-        self.ghat_l = data.get_ghat(lmax, alpha, r, rcut2)#;print 'use g_lg!'
-        self.rcgauss = data.rcgauss
+        self.ghat_l = data.get_ghat(lmax, data.shape_function_type,
+                                    data.shape_function_rc, r, rcut2)
         
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)

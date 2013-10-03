@@ -22,6 +22,11 @@ def radial_grid_descriptor(eq, **kwargs):
         b = float(kwargs['b'])
         N = int(kwargs['n'])
         return AERadialGridDescriptor(a, b, N)
+    if eq == 'r=a*(exp(d*i)-1)':
+        a = float(kwargs['a'])
+        d = float(kwargs['d'])
+        N = int(kwargs['iend']) + 1
+        return AbinitRadialGridDescriptor(a, d, N)
     raise ValueError('Unknown grid: ' + eq)
 
 
@@ -177,7 +182,7 @@ class RadialGridDescriptor:
 
         return f_g
 
-    def purepythonpoisson(self, n_g, l=0):
+    def poisson(self, n_g, l=0):
         r_g = self.r_g
         dr_g = self.dr_g
         a_g = -4 * pi * n_g * r_g * dr_g
@@ -193,7 +198,7 @@ class RadialGridDescriptor:
         vr_g[1:] /= r_g[1:]**l
         return vr_g
     
-    def poisson(self, n_g, l=0):  # Old C version
+    def oldpoisson(self, n_g, l=0):  # Old C version
         vr_g = self.zeros()
         nrdr_g = n_g * self.r_g * self.dr_g
         beta = self.a / self.b
@@ -410,3 +415,24 @@ class AERadialGridDescriptor(RadialGridDescriptor):
 
     def d2gdr2(self):
         return -2 * self.a * self.b / (self.b * self.r_g + self.a)**3
+
+        
+class AbinitRadialGridDescriptor(RadialGridDescriptor):
+    def __init__(self, a, d, N=1000, default_spline_points=25):
+        """Radial grid descriptor for Abinit calculations.
+
+        The radial grid is::
+
+                      dg
+            r(g) = a(e   - 1),  g = 0, 1, ..., N - 1
+        """
+
+        self.a = a
+        self.d = d
+        g = np.arange(N)
+        r_g = a * (np.exp(d * g) - 1)
+        dr_g = (r_g + a) * d
+        RadialGridDescriptor.__init__(self, r_g, dr_g, default_spline_points)
+                                      
+    def r2g(self, r):
+        return np.log(r / self.a + 1) / self.d

@@ -163,7 +163,7 @@ class SetupData:
                                                 setup.Hubl))
         text('  file   :', self.filename)
         text(('  cutoffs: %4.2f(comp), %4.2f(filt), %4.2f(core),'
-              ' lmax=%d' % (sqrt(10) * self.rcgauss * Bohr,
+              ' lmax=%d' % (sqrt(10) * self.shape_function_rc * Bohr,
                             # XXX is this really true?  I don't think this is
                             # actually the cutoff of the compensation charges
                             setup.rcutfilter * Bohr,
@@ -185,15 +185,23 @@ class SetupData:
 
     def create_compensation_charge_functions(self, lmax):
         """Create Gaussians used to expand compensation charges."""
-        rcgauss = self.rcgauss
+        rc = self.shape_function_rc
+        type = self.shape_function_type
         g_lg = self.rgd.zeros(lmax + 1)
         r_g = self.rgd.r_g
-        g_lg[0] = 4 / rcgauss**3 / sqrt(pi) * np.exp(-(r_g / rcgauss)**2)
+        
+        if type == 'gauss':
+            g_lg[0] = np.exp(-(r_g / rc)**2)
+        else:
+            g_lg[0] = np.sinc(r_g / rc)**2
+            g_lg[0, r_g >= rc] = 0.0
+            
         for l in range(1, lmax + 1):
-            g_lg[l] = 2.0 / (2 * l + 1) / rcgauss**2 * r_g * g_lg[l - 1]
+            g_lg[l] = r_g * g_lg[l - 1]
 
         for l in range(lmax + 1):
             g_lg[l] /= self.rgd.integrate(g_lg[l], l) / (4 * pi)
+            
         return g_lg
 
     def get_smooth_core_density_integral(self, Delta0):
@@ -212,13 +220,23 @@ class SetupData:
         K_p = sqrt(4 * pi) * np.dot(K_q, T0_qp)
         return K_p
 
-    def get_ghat(self, lmax, alpha, r, rcut):
-        d_l = [_fact[l] * 2**(2 * l + 2) / sqrt(pi) / _fact[2 * l + 1]
-               for l in range(lmax + 1)]
-        g = alpha**1.5 * np.exp(-alpha * r**2)
-        g[-1] = 0.0
-        ghat_l = [Spline(l, rcut, d_l[l] * alpha**l * g)
-                  for l in range(lmax + 1)]
+    def get_ghat(self, lmax, type, rc, r, rcut):
+        if type == 'gauss':
+            d_l = [_fact[l] * 2**(2 * l + 2) / sqrt(pi) / _fact[2 * l + 1]
+                   for l in range(lmax + 1)]
+            alpha = 1 / rc**2
+            g = alpha**1.5 * np.exp(-alpha * r**2)
+            g[-1] = 0.0
+            ghat_l = [Spline(l, rcut, d_l[l] * alpha**l * g)
+                      for l in range(lmax + 1)]
+        else:
+            c_l = [pi / 2,
+                   pi**3 / 6 - pi / 4,
+                   pi**5 / 10 - pi**3 / 2 + 3 * pi / 4]
+            g = np.sinc(r / rc)**2
+            g[r > rc] = 0.0
+            ghat_l = [Spline(l, rcut, (pi / rc)**(3 + 2 * l) / c_l[l] * g)
+                      for l in range(lmax + 1)]
         return ghat_l
 
     def find_core_density_cutoff(self, nc_g):
@@ -246,6 +264,9 @@ class SetupData:
         if phicorehole_g is not None:
             phicorehole_g = phicorehole_g[:gcut2].copy()
 
+        if self.tauc_g is None:
+            self.tauc_g = self.tauct_g = rgd.zeros()
+            
         xc_correction = PAWXCCorrection(
             [phi_g[:gcut2] for phi_g in self.phi_jg],
             [phit_g[:gcut2] for phit_g in self.phit_jg],
@@ -497,9 +518,13 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.version = attrs['version']
             assert setup.version >= '0.4'
         if name == 'atom':
-            setup.Z = int(attrs['Z'])
+            Z = float(attrs['Z'])
+            assert int(Z) == Z
+            setup.Z = int(Z)
             setup.Nc = float(attrs['core'])
-            setup.Nv = int(attrs['valence'])
+            Nv = float(attrs['valence'])
+            assert int(Nv) == Nv
+            setup.Nv = int(Nv)
         elif name == 'xc_functional':
             if attrs['type'] == 'LDA':
                 setup.xcname = 'LDA'
@@ -516,7 +541,9 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         elif name == 'state':
             setup.n_j.append(int(attrs.get('n', -1)))
             setup.l_j.append(int(attrs['l']))
-            setup.f_j.append(int(attrs.get('f', 0)))
+            f = float(attrs.get('f', 0))
+            assert int(f) == f
+            setup.f_j.append(int(f))
             setup.eps_j.append(float(attrs['e']))
             setup.rcut_j.append(float(attrs.get('rc', -1)))
             setup.id_j.append(attrs['id'])
@@ -527,8 +554,9 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.rgd = radial_grid_descriptor(**attrs)
         elif name == 'shape_function':
             if attrs.has_key('rc'):
-                assert attrs['type'] == 'gauss'
-                setup.rcgauss = float(attrs['rc'])
+                assert attrs['type'] in ['gauss', 'sinc']
+                setup.shape_function_type = attrs['type']
+                setup.shape_function_rc = float(attrs['rc'])
             else:
                 # Old style: XXX
                 setup.rcgauss = max(setup.rcut_j) / sqrt(float(attrs['alpha']))
@@ -591,7 +619,13 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         setup = self.setup
         if self.data is None:
             return
+
         x_g = np.array([float(x) for x in ''.join(self.data).split()])
+        if len(x_g) < setup.rgd.N and name != 'kinetic_energy_differences':
+            tmp_g = x_g
+            x_g = setup.rgd.zeros()
+            x_g[:len(tmp_g)] = tmp_g
+            
         if name == 'ae_core_density':
             setup.nc_g = x_g
         elif name == 'pseudo_core_density':
