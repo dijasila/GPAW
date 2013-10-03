@@ -1318,11 +1318,17 @@ def _generate(symbol, xc, projectors, radii,
 
 
 def generate_all():
+    if len(sys.argv) > 1:
+        atoms = sys.argv[1:]
+    else:
+        atoms = None
     functionals = ['LDA', 'PBE', 'revPBE', 'RPBE']
     for name in parameters:
         n = sum(c.isalpha() for c in name)
         symbol = name[:n]
         electrons = name[n:]
+        if atoms and symbol not in atoms:
+            continue
         for xc in functionals:
             argv = [symbol, '-swf', xc, '-e', electrons, '-t', electrons + 'e']
             if xc == 'PBE':
