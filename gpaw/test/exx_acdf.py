@@ -1,7 +1,6 @@
 from ase import *
 from ase.dft.kpoints import monkhorst_pack
 from ase.lattice import bulk
-from ase.structure import bulk
 from gpaw import *
 from gpaw.test import equal
 import numpy as np
