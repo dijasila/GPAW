@@ -621,7 +621,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             return
 
         x_g = np.array([float(x) for x in ''.join(self.data).split()])
-        if len(x_g) < setup.rgd.N and name != 'kinetic_energy_differences':
+        if len(x_g) < setup.rgd.N and name not in ['kinetic_energy_differences',
+                                                   'exact_exchange_X_matrix']:
             tmp_g = x_g
             x_g = setup.rgd.zeros()
             x_g[:len(tmp_g)] = tmp_g
