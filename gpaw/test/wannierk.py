@@ -1,6 +1,6 @@
 'Test ase.dft.wannier module with k-points.'
 
-from ase.structure import bulk
+from ase.lattice import bulk
 from ase.dft.wannier import Wannier
 
 from gpaw import GPAW

@@ -11,7 +11,7 @@ from gpaw import GPAW, restart
 from gpaw.response.df import DF
 from gpaw.mpi import world
 from gpaw.version import version
-from ase.structure import bulk
+from ase.lattice import bulk
 
 system = Graphene(symbol='C',
                   latticeconstant={'a': 2.45,'c': 1.0},

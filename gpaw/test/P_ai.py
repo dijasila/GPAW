@@ -1,7 +1,7 @@
 import numpy as np
 from ase import Atom, Atoms
-from ase.structure import bulk
-from ase.structure import molecule
+from ase.lattice import bulk
+from ase.lattice import molecule
 from gpaw import GPAW
 from gpaw.mpi import serial_comm
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
