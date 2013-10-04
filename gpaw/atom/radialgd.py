@@ -183,30 +183,9 @@ class RadialGridDescriptor:
         return f_g
 
     def poisson(self, n_g, l=0):
-        r_g = self.r_g
-        dr_g = self.dr_g
-        a_g = -4 * pi * n_g * r_g * dr_g
-        a_g[1:] /= r_g[1:]**l
-        A_g = np.add.accumulate(a_g)
-        vr_g = self.zeros()
-        vr_g[1:] = A_g[:-1] + 0.5 * a_g[1:]
-        vr_g -= A_g[-1]
-        vr_g *= r_g**(1 + l)
-        a_g *= r_g**(2 * l + 1)
-        A_g = np.add.accumulate(a_g)
-        vr_g[1:] -= A_g[:-1] + 0.5 * a_g[1:]
-        vr_g[1:] /= r_g[1:]**l
-        return vr_g
-    
-    def oldpoisson(self, n_g, l=0):  # Old C version
         vr_g = self.zeros()
         nrdr_g = n_g * self.r_g * self.dr_g
-        beta = self.a / self.b
-        ng = int(round(1.0 / self.b))
-        assert abs(ng - 1 / self.b) < 1e-5
-        hartree(l, nrdr_g, beta, ng, vr_g)
-        #vrp_g = self.purepythonpoisson(n_g,l)
-        #assert abs(vr_g-vrp_g).max() < 1e-12
+        hartree(l, nrdr_g, self.r_g, vr_g)
         return vr_g
 
     def pseudize(self, a_g, gc, l=0, points=4):

@@ -89,7 +89,7 @@ def is_contiguous(array, dtype=None):
 #   r = max(r, r')
 #    >
 #
-def hartree(l, nrdr, beta, N, vr):
+def hartree(l, nrdr, r, vr):
     """Calculates radial Coulomb integral.
 
     The following integral is calculated::
@@ -104,21 +104,18 @@ def hartree(l, nrdr, beta, N, vr):
     where input and output arrays `nrdr` and `vr`::
 
               dr
-      n (r) r --  and  v (r) r,
+      n (r) r --  and  v (r) r.
        l      dg        l
-
-    are defined on radial grids as::
-
-          beta g
-      r = ------,  g = 0, 1, ..., N - 1.
-          N - g
-
     """
     assert is_contiguous(nrdr, float)
+    assert is_contiguous(r, float)
     assert is_contiguous(vr, float)
     assert nrdr.shape == vr.shape and len(vr.shape) == 1
-    return _gpaw.hartree(l, nrdr, beta, N, vr)
+    assert len(r.shape) == 1
+    assert len(r) >= len(vr)
+    return _gpaw.hartree(l, nrdr, r, vr)
 
+    
 def packed_index(i1, i2, ni):
     """Return a packed index"""
     if i1 > i2:
