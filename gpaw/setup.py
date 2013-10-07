@@ -1090,7 +1090,7 @@ class Setup(BaseSetup):
             #print '--------', c1, l1, m1, c2, l2, m2
                     lz = m2
                     if l1 == l2 and m1 == m2:
-                        sum += lz * c1.conjugate() * c2
+                        sum += lz * np.conjugate(c1) * c2
 
             return sum
 
@@ -1108,7 +1108,7 @@ class Setup(BaseSetup):
                     lp = sqrt(l2*(l2+1) - m2*(m2+1))
                     if abs(lp) < 1e-5: continue
                     if l1 == l2 and m1 == m2+1:
-                        sum += lp * c1.conjugate() * c2
+                        sum += lp * np.conjugate(c1) * c2
 
             return sum
 
@@ -1126,7 +1126,7 @@ class Setup(BaseSetup):
                     lp = sqrt(l2*(l2+1) - m2*(m2-1))
                     if abs(lp) < 1e-5: continue
                     if l1 == l2 and m1 == m2-1:
-                        sum += lp * c1.conjugate() * c2
+                        sum += lp * np.conjugate(c1) * c2
 
             return sum
 
