@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <assert.h>
 #include <xc.h>
-#include <xc_funcs.h>
 #include "xc_mgga.h"
 
 /************************************************************************
@@ -19,18 +18,18 @@
 #define RS(x)          (pow((3.0/(4*M_PI*x)), 1.0/3.0))
 typedef struct XC(perdew_t) {
   int    nspin;
-  FLOAT dens, zeta, gdmt;
-  FLOAT ecunif, vcunif[2], fcunif[3];
+  double dens, zeta, gdmt;
+  double ecunif, vcunif[2], fcunif[3];
 
-  FLOAT  rs,  kf,  ks,  phi, t;
-  FLOAT drs, dkf, dks, dphi, dt, decunif;
+  double  rs,  kf,  ks,  phi, t;
+  double drs, dkf, dks, dphi, dt, decunif;
 
-  FLOAT d2rs2, d2rskf, d2rsks, d2rsphi,  d2rst,  d2rsecunif;
-  FLOAT        d2kf2,  d2kfks, d2kfphi,  d2kft,  d2kfecunif;
-  FLOAT                 d2ks2, d2ksphi,  d2kst,  d2ksecunif;
-  FLOAT                         d2phi2, d2phit, d2phiecunif;
-  FLOAT                                   d2t2,   d2tecunif;
-  FLOAT                                           d2ecunif2;
+  double d2rs2, d2rskf, d2rsks, d2rsphi,  d2rst,  d2rsecunif;
+  double        d2kf2,  d2kfks, d2kfphi,  d2kft,  d2kfecunif;
+  double                 d2ks2, d2ksphi,  d2kst,  d2ksecunif;
+  double                         d2phi2, d2phit, d2phiecunif;
+  double                                   d2t2,   d2tecunif;
+  double                                           d2ecunif2;
 } XC(perdew_t);
 
 // from old libxc util.c
@@ -38,7 +37,7 @@ typedef struct XC(perdew_t) {
 /* this function converts the spin-density into total density and
 	 relative magnetization */
 inline void
-XC(rho2dzeta)(int nspin, const FLOAT *rho, FLOAT *d, FLOAT *zeta)
+XC(rho2dzeta)(int nspin, const double *rho, double *d, double *zeta)
 {
   assert(nspin==XC_UNPOLARIZED || nspin==XC_POLARIZED);
   
@@ -54,7 +53,7 @@ XC(rho2dzeta)(int nspin, const FLOAT *rho, FLOAT *d, FLOAT *zeta)
 // from old libxc gga_perdew.c
 
 static void 
-XC(perdew_params)(const XC(func_type) *gga_p, const FLOAT *rho, const FLOAT *sigma, int order, XC(perdew_t) *pt)
+XC(perdew_params)(const XC(func_type) *gga_p, const double *rho, const double *sigma, int order, XC(perdew_t) *pt)
 {
   pt->nspin = gga_p->nspin;
   XC(rho2dzeta)(pt->nspin, rho, &(pt->dens), &(pt->zeta));
@@ -73,11 +72,11 @@ XC(perdew_params)(const XC(func_type) *gga_p, const FLOAT *rho, const FLOAT *sig
   }
 
   pt->rs = RS(pt->dens);
-  pt->kf = POW(3.0*M_PI*M_PI*pt->dens, 1.0/3.0);
+  pt->kf = pow(3.0*M_PI*M_PI*pt->dens, 1.0/3.0);
   pt->ks = sqrt(4.0*pt->kf/M_PI);
 
   /* phi is bounded between 2^(-1/3) and 1 */
-  pt->phi  = 0.5*(POW(1.0 + pt->zeta, 2.0/3.0) + POW(1.0 - pt->zeta, 2.0/3.0));
+  pt->phi  = 0.5*(pow(1.0 + pt->zeta, 2.0/3.0) + pow(1.0 - pt->zeta, 2.0/3.0));
 
   /* get gdmt = |nabla n| */
   pt->gdmt = sigma[0];
@@ -101,16 +100,16 @@ XC(perdew_params)(const XC(func_type) *gga_p, const FLOAT *rho, const FLOAT *sig
 }
 
 static void 
-XC(perdew_potentials)(XC(perdew_t) *pt, const FLOAT *rho, FLOAT e_gga, int order,
-		      FLOAT *vrho, FLOAT *vsigma,
-		      FLOAT *v2rho2, FLOAT *v2rhosigma, FLOAT *v2sigma2)
+XC(perdew_potentials)(XC(perdew_t) *pt, const double *rho, double e_gga, int order,
+		      double *vrho, double *vsigma,
+		      double *v2rho2, double *v2rhosigma, double *v2sigma2)
 {
   /* alpha = {0->rs, 1->kf, 2->ks, 3->phi, 4->t, 5->ec */
-  FLOAT   dalphadd[6][2],   dFdalpha[6];
-  FLOAT d2alphadd2[6][3], d2Fdalpha2[6][6];
+  double   dalphadd[6][2],   dFdalpha[6];
+  double d2alphadd2[6][3], d2Fdalpha2[6][6];
 
-  FLOAT dzdd[2], dpdz, d2zdd2[3], d2pdz2;
-  FLOAT dtdsig, d2tdsig2;
+  double dzdd[2], dpdz, d2zdd2[3], d2pdz2;
+  double dtdsig, d2tdsig2;
   int is, js, ks, ns;
  
   if(order < 1) return;
@@ -118,9 +117,9 @@ XC(perdew_potentials)(XC(perdew_t) *pt, const FLOAT *rho, FLOAT e_gga, int order
   if(pt->nspin == XC_POLARIZED){
     dpdz    = 0.0;
     if(fabs(1.0 + pt->zeta) >= MIN_DENS)
-      dpdz += 1.0/(3.0*POW(1.0 + pt->zeta, 1.0/3.0));
+      dpdz += 1.0/(3.0*pow(1.0 + pt->zeta, 1.0/3.0));
     if(fabs(1.0 - pt->zeta) >= MIN_DENS)
-      dpdz -= 1.0/(3.0*POW(1.0 - pt->zeta, 1.0/3.0));
+      dpdz -= 1.0/(3.0*pow(1.0 - pt->zeta, 1.0/3.0));
 
     dzdd[0] =  (1.0 - pt->zeta)/pt->dens;
     dzdd[1] = -(1.0 + pt->zeta)/pt->dens;
@@ -218,9 +217,9 @@ XC(perdew_potentials)(XC(perdew_t) *pt, const FLOAT *rho, FLOAT e_gga, int order
   if(pt->nspin == XC_POLARIZED){
     d2pdz2 = 0.0;
     if(fabs(1.0 + pt->zeta) >= MIN_DENS)
-      d2pdz2 += -(1.0/9.0)*POW(1.0 + pt->zeta, -4.0/3.0);
+      d2pdz2 += -(1.0/9.0)*pow(1.0 + pt->zeta, -4.0/3.0);
     if(fabs(1.0 - pt->zeta) >= MIN_DENS)
-      d2pdz2 += -(1.0/9.0)*POW(1.0 - pt->zeta, -4.0/3.0);
+      d2pdz2 += -(1.0/9.0)*pow(1.0 - pt->zeta, -4.0/3.0);
 
     d2zdd2[0] = -2.0*dzdd[0]/pt->dens;
     d2zdd2[1] =  2.0*pt->zeta/(pt->dens*pt->dens);
@@ -309,23 +308,23 @@ XC(perdew_potentials)(XC(perdew_t) *pt, const FLOAT *rho, FLOAT e_gga, int order
 
 // from old libxc gga_c_pbe.c
 
-static const FLOAT beta[4]  = {
+static const double beta[4]  = {
   0.06672455060314922,  /* original PBE */
   0.046,                /* PBE sol      */
   0.089809,
   0.06672455060314922  /* PBE for revTPSS */
 };
 
-static FLOAT gamm[4];
+static double gamm[4];
 
 static inline void 
-pbe_eq8(int func, int order, FLOAT rs, FLOAT ecunif, FLOAT phi, 
-	FLOAT *A, FLOAT *dec, FLOAT *dphi, FLOAT *drs,
-	FLOAT *dec2, FLOAT *decphi, FLOAT *dphi2)
+pbe_eq8(int func, int order, double rs, double ecunif, double phi, 
+	double *A, double *dec, double *dphi, double *drs,
+	double *dec2, double *decphi, double *dphi2)
 {
-  FLOAT phi3, f1, df1dphi, d2f1dphi2, f2, f3, dx, d2x;
+  double phi3, f1, df1dphi, d2f1dphi2, f2, f3, dx, d2x;
 
-  phi3 = POW(phi, 3);
+  phi3 = pow(phi, 3);
   f1   = ecunif/(gamm[func]*phi3);
   f2   = exp(-f1);
   f3   = f2 - 1.0;
@@ -341,7 +340,7 @@ pbe_eq8(int func, int order, FLOAT rs, FLOAT ecunif, FLOAT phi,
   *dec    = dx/(gamm[func]*phi3);
   *dphi   = dx*df1dphi;
   *drs    = 0.0;
-  if(func == 3) *drs = beta[func]*((0.1-0.1778)/POW(1+0.1778*rs,2))/(gamm[func]*f3);
+  if(func == 3) *drs = beta[func]*((0.1-0.1778)/pow(1+0.1778*rs,2))/(gamm[func]*f3);
 
   if(func ==3) return;
   if(order < 2) return;
@@ -355,16 +354,16 @@ pbe_eq8(int func, int order, FLOAT rs, FLOAT ecunif, FLOAT phi,
 
 
 static void 
-pbe_eq7(int func, int order, FLOAT rs, FLOAT phi, FLOAT t, FLOAT A, 
-	FLOAT *H, FLOAT *dphi, FLOAT *drs, FLOAT *dt, FLOAT *dA,
-	FLOAT *d2phi, FLOAT *d2phit, FLOAT *d2phiA, FLOAT *d2t2, FLOAT *d2tA, FLOAT *d2A2)
+pbe_eq7(int func, int order, double rs, double phi, double t, double A, 
+	double *H, double *dphi, double *drs, double *dt, double *dA,
+	double *d2phi, double *d2phit, double *d2phiA, double *d2t2, double *d2tA, double *d2A2)
 {
-  FLOAT t2, phi3, f1, f2, f3;
-  FLOAT df1dt, df2drs, df2dt, df1dA, df2dA;
-  FLOAT d2f1dt2, d2f2dt2, d2f2dA2, d2f1dtA, d2f2dtA;
+  double t2, phi3, f1, f2, f3;
+  double df1dt, df2drs, df2dt, df1dA, df2dA;
+  double d2f1dt2, d2f2dt2, d2f2dA2, d2f1dtA, d2f2dtA;
 
   t2   = t*t;
-  phi3 = POW(phi, 3);
+  phi3 = pow(phi, 3);
 
   f1 = t2 + A*t2*t2;
   f3 = 1.0 + A*f1;
@@ -390,7 +389,7 @@ pbe_eq7(int func, int order, FLOAT rs, FLOAT phi, FLOAT t, FLOAT A,
   df2drs = 0.0;
   *drs = 0.0;
   if(func == 3){
-    df2drs = beta[func]*((0.1-0.1778)/POW(1+0.1778*rs,2))*f1/(gamm[func]*f3);
+    df2drs = beta[func]*((0.1-0.1778)/pow(1+0.1778*rs,2))*f1/(gamm[func]*f3);
     *drs = gamm[func]*phi3*df2drs/(1.0 + f2);
   }
 
@@ -415,18 +414,18 @@ pbe_eq7(int func, int order, FLOAT rs, FLOAT phi, FLOAT t, FLOAT A,
 }
 
 void 
-gga_c_pbe_revtpss(XC(func_type) *p, const FLOAT *rho, const FLOAT *sigma,
-                  FLOAT *e, FLOAT *vrho, FLOAT *vsigma,
-                  FLOAT *v2rho2, FLOAT *v2rhosigma, FLOAT *v2sigma2)
+gga_c_pbe_revtpss(XC(func_type) *p, const double *rho, const double *sigma,
+                  double *e, double *vrho, double *vsigma,
+                  double *v2rho2, double *v2rhosigma, double *v2sigma2)
 {
   gamm[0] = gamm[1] = gamm[3] = (1.0 - log(2.0))/(M_PI*M_PI);
 
   XC(perdew_t) pt;
 
   int func, order;
-  FLOAT me;
-  FLOAT A, dAdec, dAdphi, dAdrs, d2Adec2, d2Adecphi, d2Adphi2;
-  FLOAT H, dHdphi, dHdrs, dHdt, dHdA, d2Hdphi2, d2Hdphit, d2HdphiA, d2Hdt2, d2HdtA, d2HdA2;
+  double me;
+  double A, dAdec, dAdphi, dAdrs, d2Adec2, d2Adecphi, d2Adphi2;
+  double H, dHdphi, dHdrs, dHdt, dHdA, d2Hdphi2, d2Hdphit, d2HdphiA, d2Hdt2, d2HdtA, d2HdA2;
 
   d2HdphiA = 0.0;
   d2Hdphi2 = 0.0;
