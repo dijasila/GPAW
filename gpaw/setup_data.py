@@ -138,8 +138,6 @@ class SetupData:
         
     def read_xml(self, source=None, world=None):
         PAWXMLParser(self).parse(source=source, world=world)
-        nj = len(self.l_j)
-        self.e_kin_jj.shape = (nj, nj)
 
     def is_compatible(self, xc):
         return xc.get_setup_name() == self.setupname
@@ -508,6 +506,25 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.e_electrostatic = 0.0
             setup.e_xc = 0.0
 
+        nj = len(setup.l_j)
+        setup.e_kin_jj.shape = (nj, nj)
+        
+        if setup.abinit:
+            J = range(nj)
+            jj = 0
+            for j, n in enumerate(list(setup.n_j)):
+                if n == -1:
+                    for x_j in [J, setup.n_j, setup.l_j, setup.f_j,
+                                setup.eps_j, setup.rcut_j, setup.id_j,
+                                setup.phi_jg, setup.phit_jg, setup.pt_jg]:
+                        x_j.append(x_j.pop(jj))
+                else:
+                    jj += 1
+            setup.X_p = None
+            print setup.e_kin_jj
+            setup.e_kin_jj = setup.e_kin_jj[J][:, J]
+            print setup.e_kin_jj
+                    
         #if not hasattr(setup, 'tauc_g'):
         #    setup.tauc_g = setup.tauct_g = None
 
@@ -548,10 +565,14 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.rcut_j.append(float(attrs.get('rc', -1)))
             setup.id_j.append(attrs['id'])
             # Compatibility with old setups:
-            if setup.version < '0.6' and setup.f_j[-1] == 0:
+            if ((not setup.abinit and
+                setup.version < '0.6' and setup.f_j[-1] == 0) or
+                setup.n_j[-1] >= 10):
                 setup.n_j[-1] = -1
         elif name == 'radial_grid':
-            setup.rgd = radial_grid_descriptor(**attrs)
+            rgd = radial_grid_descriptor(**attrs)
+            if setup.rgd is None or setup.rgd.N < rgd.N:
+                setup.rgd = rgd
         elif name == 'shape_function':
             if attrs.has_key('rc'):
                 assert attrs['type'] in ['gauss', 'sinc']
@@ -608,6 +629,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         elif name == 'generator':
             setup.type = attrs['type']
             setup.generator_version = attrs.get('version', 1)
+            setup.abinit = not attrs.get('name', '').startswith('gpaw')
         else:
             self.data = None
 
