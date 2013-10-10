@@ -19,6 +19,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.utilities import pack, unpack2, packed_index, logfile, erf
 from gpaw.utilities.ewald import madelung
+from gpaw.utilities.timing import Timer
 
 
 class HybridXC(HybridXCBase):
@@ -92,6 +93,8 @@ class HybridXC(HybridXCBase):
         self.world = world
 
         self.molecule = molecule
+        
+        self.timer = Timer()
 
     def log(self, *args, **kwargs):
         prnt(file=self.fd, *args, **kwargs)
@@ -137,6 +140,9 @@ class HybridXC(HybridXCBase):
     def calculate_exx(self):
         """Non-selfconsistent calculation."""
 
+        self.timer.start('EXX')
+        self.timer.start('Initialization')
+        
         kd = self.kd
         wfs = self.wfs
 
@@ -293,6 +299,8 @@ class HybridXC(HybridXCBase):
             self.initialize_gaussian()
             self.log('Value of beta parameter: %.3f 1/Bohr^2' % self.beta)
             
+        self.timer.stop('Initialization')
+        
         # Ready ... set ... go:
         self.t0 = time()
         self.npairs = 0
@@ -323,15 +331,19 @@ class HybridXC(HybridXCBase):
                     else:
                         kpt = kpt2_q[0]
 
+                self.timer.start('Calculate')
                 for kpt1, kpt2 in zip(kpt1_q, kpt2_q):
                     # Loop over all k-points that k2 can be mapped to:
                     for K2, q, n1_n, n2 in self.indices(s, kpt1.k, kpt2.k):
                         self.apply(K2, q, kpt1, kpt2, n1_n, n2)
+                self.timer.stop('Calculate')
 
                 if i < kd.nibzkpts - 1:
+                    self.timer.start('Wait')
                     if kparallel:
                         kpt.wait()
                         kpt2_q[0].wait()
+                    self.timer.stop('Wait')
                     kpt2_q.pop(0)
                     kpt2_q.append(kpt)
 
@@ -360,6 +372,9 @@ class HybridXC(HybridXCBase):
 
         self.npairs = self.world.sum(self.npairs)
         assert self.npairs == self.npairs0
+        
+        self.timer.stop('EXX')
+        self.timer.write(self.fd)
 
     def calculate_gamma(self, vol, alpha):
         if self.molecule:
@@ -457,8 +472,10 @@ class HybridXC(HybridXCBase):
         k2_c = self.kd.bzk_kc[K2]
 
         if k2_c.any():
+            self.timer.start('Initialize plane waves')
             eik2r_R = self.wfs.gd.plane_wave(k2_c)
             eik20r_R = self.wfs.gd.plane_wave(k20_c)
+            self.timer.stop('Initialize plane waves')
         else:
             eik2r_R = 1.0
             eik20r_R = 1.0
@@ -511,23 +528,32 @@ class HybridXC(HybridXCBase):
         ng2 = self.wfs.ng_k[kpt2.k]
 
         # Transform to real space and apply symmetry operation:
+        self.timer.start('IFFT1')
         if is_ibz2:
             u2_R = self.pd.ifft(kpt2.psit_nG[n2, : ng2], kpt2.k)
         else:
             psit2_R = self.pd.ifft(kpt2.psit_nG[n2, : ng2], kpt2.k) * eik20r_R
+            self.timer.start('Symmetry transform')
             u2_R = self.kd.transform_wave_function(psit2_R, k) / eik2r_R
+            self.timer.stop()
+        self.timer.stop()
 
         # Calculate pair densities:
         nt_nG = self.pd2.zeros(len(n1_n), q=q)
         for n1, nt_G in zip(n1_n, nt_nG):
+            self.timer.start('IFFT2')
             u1_R = self.pd.ifft(kpt1.psit_nG[n1, :ng1], kpt1.k)
+            self.timer.stop()
             nt_R = u1_R.conj() * u2_R
+            self.timer.start('FFT')
             nt_G[:] = self.pd2.fft(nt_R, q)
+            self.timer.stop()
         
         s = self.kd.sym_k[k]
         time_reversal = self.kd.time_reversal_k[k]
         k2_c = self.kd.ibzk_kc[kpt2.k]
 
+        self.timer.start('Compensation charges')
         Q_anL = {}  # coefficients for shape functions
         for a, P1_ni in kpt1.P_ani.items():
             P1_ni = P1_ni[n1_n]
@@ -554,12 +580,15 @@ class HybridXC(HybridXCBase):
                 D_np.append(pack(D_ii))
             Q_anL[a] = np.dot(D_np, self.wfs.setups[a].Delta_pL)
             
+        self.timer.start('Expand')
         if q != self.qlatest:
             self.f_IG = self.ghat.expand(q)
             self.qlatest = q
+        self.timer.stop('Expand')
 
         # Add compensation charges:
         self.ghat.add(nt_nG, Q_anL, q, self.f_IG)
+        self.timer.stop('Compensation charges')
 
         if self.molecule and n2 in n1_n:
             nn = (n1_n == n2).nonzero()[0][0]
@@ -589,6 +618,7 @@ class HybridXC(HybridXCBase):
         return e_n
 
     def calculate_exx_paw_correction(self):
+        self.timer.start('PAW correction')
         self.devv = 0.0
         self.evc = 0.0
         self.ecc = 0.0
@@ -614,6 +644,7 @@ class HybridXC(HybridXCBase):
             self.ecc += setup.ExxC
 
         if not self.bandstructure:
+            self.timer.stop('PAW correction')
             return
 
         Q = self.world.size // self.wfs.kd.comm.size
@@ -642,6 +673,7 @@ class HybridXC(HybridXCBase):
 
         self.world.sum(self.exx_skn)
         self.exx_skn *= self.hybrid / Q
+        self.timer.stop('PAW correction')
     
     def initialize_gaussian(self):
         """Calculate gaussian compensation charge and its potential.

@@ -1,51 +1,44 @@
-#!/usr/bin/env python
-
 from ase.visualize import view
 from ase.lattice.surface import fcc111, add_adsorbate
-from gpaw import GPAW
-from gpaw.mixer import MixerSum
-from gpaw import dscf
+from gpaw import *
+from gpaw import PW
 
 filename='top'
 
-#-------------------------------------------
-
-c_mol = GPAW(nbands=9, h=0.2, xc='RPBE', kpts=(8,6,1),
-             spinpol=True,
+c_mol = GPAW(mode=PW(400),
+             xc='RPBE',
+             kpts=(12,12,1),
+             eigensolver='cg',
              convergence={'energy': 100,
                           'density': 100,
                           'eigenstates': 1.0e-9,
-                          'bands': 'occupied'})#, txt='CO.txt')
-
-calc = GPAW(nbands=45, h=0.2, xc='RPBE', kpts=(8,6,1),
+                          'bands': 'occupied'},
+             #txt='CO.txt',
+             )
+calc = GPAW(mode=PW(400),
+            xc='RPBE',
+            kpts=(12,12,1),
             eigensolver='cg',
-            spinpol=True,
-            mixer=MixerSum(nmaxold=5, beta=0.1, weight=100),
+            mixer=Mixer(0.05, 5, 100),
             convergence={'energy': 100,
                          'density': 100,
                          'eigenstates': 1.0e-7,
-                         'bands': -10})#, txt=filename+'.txt')
-
-#----------------------------------------
+                         'bands': -10},
+            #txt=filename+'.txt',
+            )
 
 #  Import Slab with relaxed CO
-slab = fcc111('Pt', size=(1, 2, 3), orthogonal=True)
+slab = fcc111('Pt', size=(1, 1, 3))
 add_adsorbate(slab, 'C', 2.0, 'ontop')
 add_adsorbate(slab, 'O', 3.15, 'ontop')
 slab.center(axis=2, vacuum=4.0)
-
-#view(slab)
-
-molecule = slab.copy()
-
-del molecule [:-2]
-
-#   Molecule
-#----------------
-molecule.set_calculator(c_mol)
-molecule.get_potential_energy()
-c_mol.write('CO.gpw', mode='all')
-
 slab.set_calculator(calc)
 slab.get_potential_energy()
 calc.write('top.gpw', mode='all')
+
+#  Molecule
+molecule = slab.copy()
+del molecule [:-2]
+molecule.set_calculator(c_mol)
+molecule.get_potential_energy()
+c_mol.write('CO.gpw', mode='all')

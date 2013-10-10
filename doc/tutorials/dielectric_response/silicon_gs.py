@@ -1,4 +1,4 @@
-from ase.structure import bulk
+from ase.lattice import bulk
 from gpaw import GPAW, FermiDirac
 
 a = 5.431 

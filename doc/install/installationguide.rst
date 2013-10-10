@@ -80,6 +80,20 @@ Libxc download/install instructions can be found `here <http://www.tddft.org/pro
     export LIBRARY_PATH=/my/path/to/libxc/2.0.1/install/lib
     export LD_LIBRARY_PATH=/my/path/to/libxc/2.0.1/install/lib
 
+Example::
+    
+    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-2.0.2.tar.gz -O libxc-2.0.2.tar.gz
+    tar xzf libxc-2.0.2.tar.gz
+    cd libxc-2.0.2
+    ./configure --enable-shared --prefix=$HOME/xc
+    make
+    make install
+    
+    # add these to your .bashrc:
+    export C_INCLUDE_PATH=~/xc/include                                           
+    export LIBRARY_PATH=~/xc/lib                                                 
+    export LD_LIBRARY_PATH=~/xc/lib
+    
 
 Installation on OS X
 --------------------

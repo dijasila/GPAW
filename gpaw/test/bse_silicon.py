@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from ase import Atom, Atoms
-from ase.structure import bulk
+from ase.lattice import bulk
 from ase.units import Hartree, Bohr
 from gpaw import GPAW, FermiDirac
 from gpaw.response.bse import BSE

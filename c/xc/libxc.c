@@ -23,7 +23,7 @@ typedef struct
   int nspin; /* must be common to x and c, so declared redundantly here */
 } lxcXCFunctionalObject;
 
-void XC(lda_fxc_fd)(const XC(func_type) *p, const FLOAT *rho, FLOAT *fxc);
+void XC(lda_fxc_fd)(const XC(func_type) *p, const double *rho, double *fxc);
 
 /* a general call for an LDA functional - finite difference */
 void get_fxc_fd_lda(XC(func_type) *func, double point[7], double der[5][5])

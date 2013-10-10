@@ -5,7 +5,7 @@ import time
 from ase import Atom, Atoms
 from ase.visualize import view
 from ase.units import Bohr
-from ase.structure import bulk
+from ase.lattice import bulk
 from gpaw import GPAW
 from gpaw.atom.basis import BasisMaker
 from gpaw.response.df import DF

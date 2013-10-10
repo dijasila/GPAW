@@ -8,7 +8,6 @@
 #include <math.h>
 #include <stdlib.h>
 #include <xc.h>
-#include <xc_funcs.h>
 #include "xc_mgga.h"
 
 typedef struct tpss_params {
@@ -19,30 +18,30 @@ typedef struct tpss_params {
 } tpss_params;
   
 /* some parameters */
-static FLOAT b=0.40, c=1.59096, e=1.537, kappa=0.804, mu=0.21951;
+static double b=0.40, c=1.59096, e=1.537, kappa=0.804, mu=0.21951;
 
 /* This is Equation (7) from the paper and its derivatives */
 static void 
-x_tpss_7(FLOAT p, FLOAT alpha, 
-	 FLOAT *qb, FLOAT *dqbdp, FLOAT *dqbdalpha)
+x_tpss_7(double p, double alpha, 
+	 double *qb, double *dqbdp, double *dqbdalpha)
 {
   /* Eq. (7) */
-  FLOAT a = sqrt(1.0 + b*alpha*(alpha-1.0)), h = 9.0/20.0;
+  double a = sqrt(1.0 + b*alpha*(alpha-1.0)), h = 9.0/20.0;
 
   *qb    = h*(alpha - 1.0)/a + 2.0*p/3.0;
   *dqbdp = 2.0/3.0;
-  *dqbdalpha = h*(1.0 + 0.5*b*(alpha-1.0))/POW(a, 3);
+  *dqbdalpha = h*(1.0 + 0.5*b*(alpha-1.0))/pow(a, 3);
 }
 
 
 /* Equation (10) in all it's glory */
 static 
-void x_tpss_10(FLOAT p, FLOAT alpha,
-	       FLOAT *x, FLOAT *dxdp, FLOAT *dxdalpha)
+void x_tpss_10(double p, double alpha,
+	       double *x, double *dxdp, double *dxdalpha)
 {
-  FLOAT x1, dxdp1, dxdalpha1;
-  FLOAT aux1, ap, apsr, p2;
-  FLOAT qb, dqbdp, dqbdalpha;
+  double x1, dxdp1, dxdalpha1;
+  double aux1, ap, apsr, p2;
+  double qb, dqbdp, dqbdalpha;
   
   /* Equation 7 */
   x_tpss_7(p, alpha, &qb, &dqbdp, &dqbdalpha);
@@ -58,29 +57,29 @@ void x_tpss_10(FLOAT p, FLOAT alpha,
   dxdalpha1 = 0.0;
 
   { /* first term */
-    FLOAT a = (9*alpha*alpha+30*alpha*p+50*p2), a2 = a*a;
+    double a = (9*alpha*alpha+30*alpha*p+50*p2), a2 = a*a;
     x1    += aux1*p + 25*c*p2*p*ap/a2;
     dxdp1 += aux1 + ((3*225*c*p2*alpha*alpha+ 4*750*c*p*p2*alpha + 5*625*c*p2*p2)*a2 - 25*c*p2*p*ap*2*a*(30*alpha+50*2*p))/(a2*a2);
     dxdalpha1 += ((225*c*p*p2*2*alpha + 750*c*p2*p2)*a2 - 25*c*p2*p*ap*2*a*(9*2*alpha+30*p))/(a2*a2);
   }
   
   { /* second term */
-    FLOAT a = 146.0/2025.0*qb;
+    double a = 146.0/2025.0*qb;
     x1    += a*qb;
     dxdp1 += 2.0*a*dqbdp;
     dxdalpha1 += 2.0*a*dqbdalpha;
   }
   
   { /* third term */
-    FLOAT h = 73.0/(405*sqrt(2.0));
+    double h = 73.0/(405*sqrt(2.0));
     x1    += -h*qb*p/apsr * sqrt(ap+9);
-    dxdp1 += -h * qb *((3*alpha)/ap * sqrt(ap+9) + p/apsr * 1./2. * POW(ap+9,-1./2.)* 2*apsr*5) - h*p/apsr*sqrt(ap+9)*dqbdp; 
-    dxdalpha1 += -h*qb*( (-1)*p*3/ap * sqrt(ap+9) + p/apsr * 1./2. * POW(ap+9,-1./2.)* 2*apsr*3) - h*p/apsr*sqrt(ap+9)*dqbdalpha;
+    dxdp1 += -h * qb *((3*alpha)/ap * sqrt(ap+9) + p/apsr * 1./2. * pow(ap+9,-1./2.)* 2*apsr*5) - h*p/apsr*sqrt(ap+9)*dqbdp; 
+    dxdalpha1 += -h*qb*( (-1)*p*3/ap * sqrt(ap+9) + p/apsr * 1./2. * pow(ap+9,-1./2.)* 2*apsr*3) - h*p/apsr*sqrt(ap+9)*dqbdalpha;
   }
   
 
   { /* forth term */
-    FLOAT a = aux1*aux1/kappa;
+    double a = aux1*aux1/kappa;
     x1    += a*p2;
     dxdp1 += a*2.0*p;
     dxdalpha1 += 0.0;
@@ -93,7 +92,7 @@ void x_tpss_10(FLOAT p, FLOAT alpha,
   }
   
   { /* sixth term */
-    FLOAT a = e*mu;
+    double a = e*mu;
     x1    += a*p*p2;
     dxdp1 += a*3.0*p2;
     dxdalpha1 += 0.0;
@@ -101,7 +100,7 @@ void x_tpss_10(FLOAT p, FLOAT alpha,
   
   /* and now the denominator */
   {
-    FLOAT a = 1.0+sqrt(e)*p, a2 = a*a;
+    double a = 1.0+sqrt(e)*p, a2 = a*a;
     *x    = x1/a2;
     *dxdp = (dxdp1*a - 2.0*sqrt(e)*x1)/(a2*a);
     *dxdalpha = dxdalpha1/a2;
@@ -109,16 +108,16 @@ void x_tpss_10(FLOAT p, FLOAT alpha,
 }
 
 static void 
-x_tpss_para(XC(func_type) *lda_aux, const FLOAT *rho, const FLOAT sigma, const FLOAT tau_,
-	    FLOAT *energy, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau)
+x_tpss_para(XC(func_type) *lda_aux, const double *rho, const double sigma, const double tau_,
+	    double *energy, double *dedd, double *vsigma, double *dedtau)
 {
 
-  FLOAT gdms, p, tau, tauw;
-  FLOAT x, dxdp, dxdalpha, Fx, dFxdx;
-  FLOAT tau_lsda, exunif, vxunif, dtau_lsdadd;
-  FLOAT dpdd, dpdsigma;
-  FLOAT alpha, dalphadd, dalphadsigma, dalphadtau; 
-  FLOAT aux =  (3./10.) * pow((3*M_PI*M_PI),2./3.); 
+  double gdms, p, tau, tauw;
+  double x, dxdp, dxdalpha, Fx, dFxdx;
+  double tau_lsda, exunif, vxunif, dtau_lsdadd;
+  double dpdd, dpdsigma;
+  double alpha, dalphadd, dalphadsigma, dalphadtau; 
+  double aux =  (3./10.) * pow((3*M_PI*M_PI),2./3.); 
 
 
   /* get the uniform gas energy and potential */
@@ -129,9 +128,9 @@ x_tpss_para(XC(func_type) *lda_aux, const FLOAT *rho, const FLOAT sigma, const F
   gdms = max(MIN_GRAD*MIN_GRAD, sigma);
   
   /* Eq. (4) */
-  p = gdms/(4.0*POW(3*M_PI*M_PI, 2.0/3.0)*POW(rho[0], 8.0/3.0));
+  p = gdms/(4.0*pow(3*M_PI*M_PI, 2.0/3.0)*pow(rho[0], 8.0/3.0));
   dpdd = -(8.0/3.0)*p/rho[0];
-  dpdsigma= 1/(4.0*POW(3*M_PI*M_PI, 2.0/3.0)*POW(rho[0], 8.0/3.0));
+  dpdsigma= 1/(4.0*pow(3*M_PI*M_PI, 2.0/3.0)*pow(rho[0], 8.0/3.0));
 
   /* von Weisaecker kinetic energy density */
   tauw = max(gdms/(8.0*rho[0]), 1.0e-12);
@@ -142,21 +141,21 @@ x_tpss_para(XC(func_type) *lda_aux, const FLOAT *rho, const FLOAT sigma, const F
   
   alpha = (tau - tauw)/tau_lsda;
 
-  if(ABS(tauw-tau_)< 1.0e-10){
+  if(fabs(tauw-tau_)< 1.0e-10){
     dalphadsigma = 0.0;
     dalphadtau = 0.0;
     dalphadd = 0.0; 
   }else{
     dalphadtau = 1./tau_lsda;
     dalphadsigma = -1./(tau_lsda*8.0*rho[0]);
-    dalphadd = (tauw/rho[0]* tau_lsda - (tau - tauw) * dtau_lsdadd)/ POW(tau_lsda,2.); 
+    dalphadd = (tauw/rho[0]* tau_lsda - (tau - tauw) * dtau_lsdadd)/ pow(tau_lsda,2.); 
   }
 
   /* get Eq. (10) */
   x_tpss_10(p, alpha, &x, &dxdp, &dxdalpha);
 
   { /* Eq. (5) */
-    FLOAT a = kappa/(kappa + x);
+    double a = kappa/(kappa + x);
     Fx    = 1.0 + kappa*(1.0 - a);
     dFxdx = a*a;
   }
@@ -178,12 +177,12 @@ x_tpss_para(XC(func_type) *lda_aux, const FLOAT *rho, const FLOAT sigma, const F
 }
 
 static void 
-XC(mgga_x_tpss)(void *p, const FLOAT *rho, const FLOAT *sigma, const FLOAT *tau,
-                FLOAT *e, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau)
+XC(mgga_x_tpss)(void *p, const double *rho, const double *sigma, const double *tau,
+                double *e, double *dedd, double *vsigma, double *dedtau)
 {
   tpss_params *par = (tpss_params*)p;
   if(par->common.nspin == XC_UNPOLARIZED){
-    FLOAT en;
+    double en;
     x_tpss_para(par->x_aux, rho, sigma[0], tau[0], &en, dedd, vsigma, dedtau);
     *e = en/(rho[0]+rho[1]);
   }else{ 
@@ -193,9 +192,9 @@ XC(mgga_x_tpss)(void *p, const FLOAT *rho, const FLOAT *sigma, const FLOAT *tau,
 
     *e = 0.0;
 
-    FLOAT e2na, e2nb, rhoa[2], rhob[2];
+    double e2na, e2nb, rhoa[2], rhob[2];
 
-    FLOAT vsigmapart[3]; 
+    double vsigmapart[3]; 
 	  
     rhoa[0]=2*rho[0];
     rhoa[1]=0.0;
@@ -222,25 +221,25 @@ XC(mgga_x_tpss)(void *p, const FLOAT *rho, const FLOAT *sigma, const FLOAT *tau,
 ************************************************************************/
 
 /* some parameters */
-static FLOAT d = 2.8;
+static double d = 2.8;
 
 /* Equation (14) */
 static void
-c_tpss_14(FLOAT csi, FLOAT zeta, FLOAT *C, FLOAT *dCdcsi, FLOAT *dCdzeta)
+c_tpss_14(double csi, double zeta, double *C, double *dCdcsi, double *dCdzeta)
 {
-  FLOAT fz, C0, dC0dz, dfzdz;
-  FLOAT z2 = zeta*zeta;
+  double fz, C0, dC0dz, dfzdz;
+  double z2 = zeta*zeta;
     
   /* Equation (13) */
   C0    = 0.53 + z2*(0.87 + z2*(0.50 + z2*2.26));
   dC0dz = zeta*(2.0*0.87 + z2*(4.0*0.5 + z2*6.0*2.26));  /*OK*/
   
-  fz    = 0.5*(POW(1.0 + zeta, -4.0/3.0) + POW(1.0 - zeta, -4.0/3.0));
-  dfzdz = 0.5*(-4.0/3.0)*(POW(1.0 + zeta, -7.0/3.0) - POW(1.0 - zeta, -7.0/3.0)); /*OK*/
+  fz    = 0.5*(pow(1.0 + zeta, -4.0/3.0) + pow(1.0 - zeta, -4.0/3.0));
+  dfzdz = 0.5*(-4.0/3.0)*(pow(1.0 + zeta, -7.0/3.0) - pow(1.0 - zeta, -7.0/3.0)); /*OK*/
   
   { /* Equation (14) */
-    FLOAT csi2 = csi*csi;
-    FLOAT a = 1.0 + csi2*fz, a4 = POW(a, 4);
+    double csi2 = csi*csi;
+    double a = 1.0 + csi2*fz, a4 = pow(a, 4);
     
     *C      =  C0 / a4;
     *dCdcsi = -8.0*C0*csi*fz/(a*a4);  /*added C OK*/
@@ -249,22 +248,22 @@ c_tpss_14(FLOAT csi, FLOAT zeta, FLOAT *C, FLOAT *dCdcsi, FLOAT *dCdzeta)
 }
 
 /* Equation (12) */
-static void c_tpss_12(XC(func_type) *aux1, XC(func_type) *aux2, int nspin, const FLOAT *rho, const FLOAT *sigma, 
-                      FLOAT dens, FLOAT zeta, FLOAT z,
-                      FLOAT *e_PKZB, FLOAT *de_PKZBdd, FLOAT *de_PKZBdsigma, FLOAT *de_PKZBdz)
+static void c_tpss_12(XC(func_type) *aux1, XC(func_type) *aux2, int nspin, const double *rho, const double *sigma, 
+                      double dens, double zeta, double z,
+                      double *e_PKZB, double *de_PKZBdd, double *de_PKZBdsigma, double *de_PKZBdz)
 {
   /*some incoming variables:  
     dens = rho[0] + rho[1]
     z = tau_w/tau
     zeta = (rho[0] - rho[1])/dens*/
 
-  FLOAT e_PBE, e_PBEup, e_PBEdn;
-  FLOAT de_PBEdd[2], de_PBEdsigma[3], de_PBEddup[2], de_PBEdsigmaup[3], de_PBEdddn[2], de_PBEdsigmadn[3] ;
-  FLOAT aux, zsq;
-  FLOAT dzetadd[2], dcsidd[2], dcsidsigma[3];  
+  double e_PBE, e_PBEup, e_PBEdn;
+  double de_PBEdd[2], de_PBEdsigma[3], de_PBEddup[2], de_PBEdsigmaup[3], de_PBEdddn[2], de_PBEdsigmadn[3] ;
+  double aux, zsq;
+  double dzetadd[2], dcsidd[2], dcsidsigma[3];  
 
-  FLOAT C, dCdcsi, dCdzeta;
-  FLOAT densp[2], densp2[2], sigmatot[3], sigmaup[3], sigmadn[3];
+  double C, dCdcsi, dCdzeta;
+  double densp[2], densp2[2], sigmatot[3], sigmaup[3], sigmadn[3];
   int i;
   /*initialize dCdcsi and dCdzeta and the energy*/
   dCdcsi = dCdzeta = 0.0;  
@@ -343,18 +342,18 @@ static void c_tpss_12(XC(func_type) *aux1, XC(func_type) *aux2, int nspin, const
 
 
 
-    FLOAT num, gzeta, csi, a;
+    double num, gzeta, csi, a;
 
     /*numerator of csi: derive as grho all components and then square the 3 parts
       [2 (grho_a[0]n_b - grho_b[0]n_a) +2 (grho_a[1]n_b - grho_b[1]n_a) + 2 (grho_a[2]n_b - grho_b[2]n_a)]/(n_a+n_b)^2   
       -> 4 (sigma_aa n_b^2 - 2 sigma_ab n_a n_b + sigma_bb n_b^2)/(n_a+n_b)^2 */
 
-    num = sigma[0] * POW(rho[1],2) - 2.* sigma[1]*rho[0]*rho[1]+ sigma[2]*POW(rho[0],2);
+    num = sigma[0] * pow(rho[1],2) - 2.* sigma[1]*rho[0]*rho[1]+ sigma[2]*pow(rho[0],2);
     num = max(num, 1e-20);
     gzeta = sqrt(4*(num))/(dens*dens);
     gzeta = max(gzeta, MIN_GRAD);
     /*denominator of csi*/
-    a = 2*POW(3.0*M_PI*M_PI*dens, 1.0/3.0);
+    a = 2*pow(3.0*M_PI*M_PI*dens, 1.0/3.0);
 
     csi = gzeta/a;
 
@@ -367,15 +366,15 @@ static void c_tpss_12(XC(func_type) *aux1, XC(func_type) *aux2, int nspin, const
     dcsidd [0] = 0.5*csi*(-2*sigma[1]*rho[1]+2*sigma[2]*rho[0])/num - 7./3.*csi/dens; /*OK*/
     dcsidd [1] = 0.5*csi*(-2*sigma[1]*rho[0]+2*sigma[0]*rho[1])/num - 7./3.*csi/dens; /*OK*/
 
-    dcsidsigma[0]=  csi*POW(rho[1],2)/(2*num);   /*OK*/
+    dcsidsigma[0]=  csi*pow(rho[1],2)/(2*num);   /*OK*/
     dcsidsigma[1]= -csi*rho[0]*rho[1]/num;  /*OK*/
-    dcsidsigma[2]=  csi*POW(rho[0],2)/(2*num);   /*OK*/
+    dcsidsigma[2]=  csi*pow(rho[0],2)/(2*num);   /*OK*/
 
   }
 
   aux = (densp[0] * max(e_PBEup, e_PBE) + densp[1] * max(e_PBEdn, e_PBE)) / dens;
 
-  FLOAT dauxdd[2], dauxdsigma[3];
+  double dauxdd[2], dauxdsigma[3];
       
   if(e_PBEup > e_PBE)
     {
@@ -414,7 +413,7 @@ static void c_tpss_12(XC(func_type) *aux1, XC(func_type) *aux2, int nspin, const
   *de_PKZBdz = dens * e_PBE * C * 2*z - dens * (1.0 + C) * 2*z * aux;  /*? think ok*/
 
       
-  FLOAT dCdd[2];
+  double dCdd[2];
       
   dCdd[0] = dCdzeta*dzetadd[0] + dCdcsi*dcsidd[0]; /*OK*/
   dCdd[1] = dCdzeta*dzetadd[1] + dCdcsi*dcsidd[1]; /*OK*/
@@ -428,7 +427,7 @@ static void c_tpss_12(XC(func_type) *aux1, XC(func_type) *aux2, int nspin, const
   int nder = (nspin==XC_UNPOLARIZED) ? 1 : 3;
   for(i=0; i<nder; i++){
     if(nspin==XC_UNPOLARIZED) dauxdsigma[i] /= 2.;
-    FLOAT dCdsigma[i]; 
+    double dCdsigma[i]; 
     dCdsigma[i]=  dCdcsi*dcsidsigma[i];
 	
     /* partial derivatives*/
@@ -440,13 +439,13 @@ static void c_tpss_12(XC(func_type) *aux1, XC(func_type) *aux2, int nspin, const
 
 
 static void 
-XC(mgga_c_tpss)(void* p, const FLOAT *rho, const FLOAT *sigma, const FLOAT *tau,
-                FLOAT *energy, FLOAT *dedd, FLOAT *vsigma, FLOAT *dedtau)
+XC(mgga_c_tpss)(void* p, const double *rho, const double *sigma, const double *tau,
+                double *energy, double *dedd, double *vsigma, double *dedtau)
 {
   tpss_params *par = (tpss_params*)p;
-  FLOAT dens, zeta, grad;
-  FLOAT tautr, taut, tauw, z;
-  FLOAT e_PKZB, de_PKZBdd[2], de_PKZBdsigma[3], de_PKZBdz;
+  double dens, zeta, grad;
+  double tautr, taut, tauw, z;
+  double e_PKZB, de_PKZBdd[2], de_PKZBdsigma[3], de_PKZBdz;
   int i, is;
   int nspin = par->common.nspin;
 
@@ -469,7 +468,7 @@ XC(mgga_c_tpss)(void* p, const FLOAT *rho, const FLOAT *sigma, const FLOAT *tau,
 
   z = tauw/taut;
   
-  FLOAT sigmatmp[3];
+  double sigmatmp[3];
   sigmatmp[0] = max(MIN_GRAD*MIN_GRAD, sigma[0]);
   sigmatmp[1] = 0.0;
   sigmatmp[2] = 0.0;
@@ -486,11 +485,11 @@ XC(mgga_c_tpss)(void* p, const FLOAT *rho, const FLOAT *sigma, const FLOAT *tau,
 
   /* Equation (11) */
   {
-    FLOAT z2 = z*z, z3 = z2*z;
-    FLOAT dedz;
-    FLOAT dzdd[2], dzdsigma[3], dzdtau;
+    double z2 = z*z, z3 = z2*z;
+    double dedz;
+    double dzdd[2], dzdsigma[3], dzdtau;
 
-    if(tauw >= tautr || ABS(tauw- tautr)< 1.0e-10){ 
+    if(tauw >= tautr || fabs(tauw- tautr)< 1.0e-10){ 
       dzdtau = 0.0;              
       dzdd[0] = 0.0;                
       dzdd[1] = 0.0;                

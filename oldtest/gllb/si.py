@@ -3,7 +3,7 @@ from ase import *
 from ase.calculators import numeric_force
 from gpaw.test import equal
 from gpaw.test import gen
-from ase.structure import bulk
+from ase.lattice import bulk
 
 gen('Si', xcname='GLLB')
 

@@ -1,4 +1,4 @@
-from ase.structure import bulk
+from ase.lattice import bulk
 from gpaw import GPAW, FermiDirac
 def groundstate(a, k):
     si = bulk('Si', 'diamond', a)
