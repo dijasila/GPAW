@@ -559,8 +559,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.n_j.append(int(attrs.get('n', -1)))
             setup.l_j.append(int(attrs['l']))
             f = float(attrs.get('f', 0))
-            assert int(f) == f
-            setup.f_j.append(int(f))
+            setup.f_j.append(f)
             setup.eps_j.append(float(attrs['e']))
             setup.rcut_j.append(float(attrs.get('rc', -1)))
             setup.id_j.append(attrs['id'])
