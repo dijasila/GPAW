@@ -321,9 +321,15 @@ class RadialGridDescriptor:
     def ceil(self, r):
         return np.ceil(self.r2g(r)).astype(int)
 
-    def spline(self, a_g, rcut, l=0, points=None):
+    def spline(self, a_g, rcut=None, l=0, points=None):
         if points is None:
             points = self.default_spline_points
+
+        if rcut is None:
+            g = self.N - 1
+            while a_g[g] == 0.0:
+                g -= 1
+            rcut = self.r_g[g + 1]
 
         b_g = a_g.copy()
         N = len(b_g)

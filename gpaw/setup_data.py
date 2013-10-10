@@ -160,11 +160,10 @@ class SetupData:
             text('  Hubbard U: %f eV (l=%d)' % (setup.HubU * Hartree,
                                                 setup.Hubl))
         text('  file   :', self.filename)
-        text(('  cutoffs: %4.2f(comp), %4.2f(filt), %4.2f(core),'
+        text(('  cutoffs: %4.2f(comp), %4.2f(core),'
               ' lmax=%d' % (sqrt(10) * self.shape_function_rc * Bohr,
                             # XXX is this really true?  I don't think this is
                             # actually the cutoff of the compensation charges
-                            setup.rcutfilter * Bohr,
                             setup.rcore * Bohr,
                             setup.lmax)))
         text('  valence states:')
@@ -248,14 +247,6 @@ class SetupData:
                 N += sqrt(4 * pi) * nc_g[g] * rgd.r_g[g]**2 * rgd.dr_g[g]
                 g -= 1
             return rgd.r_g[g]
-
-    def get_max_projector_cutoff(self):
-        g = self.rgd.N - 1
-        pt_g = self.pt_jg[0]
-        while pt_g[g] == 0.0:
-            g -= 1
-        gcutfilter = g + 1
-        return gcutfilter
 
     def get_xc_correction(self, rgd, xc, gcut2, lcut):
         phicorehole_g = self.phicorehole_g
@@ -521,9 +512,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
                 else:
                     jj += 1
             setup.X_p = None
-            print setup.e_kin_jj
             setup.e_kin_jj = setup.e_kin_jj[J][:, J]
-            print setup.e_kin_jj
                     
         #if not hasattr(setup, 'tauc_g'):
         #    setup.tauc_g = setup.tauct_g = None

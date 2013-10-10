@@ -478,7 +478,6 @@ class LeanSetup(BaseSetup):
         # involving dictionaries for these "optional" parameters
         
         # Required by print_info
-        self.rcutfilter = s.rcutfilter
         self.rcore = s.rcore
         self.basis = s.basis # we don't need nao if we use this instead
         # Can also get rid of the phit_j splines if need be
@@ -627,8 +626,7 @@ class Setup(BaseSetup):
         self.gcutmin = rgd.ceil(min(rcut_j))
 
         if data.generator_version < 2:
-            # Find Fourier-filter cutoff radius:
-            gcutfilter = data.get_max_projector_cutoff()
+            pass
         elif filter:
             rc = rcutmax
             filter(rgd, rc, data.vbar_g)
@@ -644,14 +642,7 @@ class Setup(BaseSetup):
                 pt_ng = np.dot(B_nn, [pt_jg[j] for j in J])
                 for n, j in enumerate(J):
                     pt_jg[j] = pt_ng[n]
-            gcutfilter = data.get_max_projector_cutoff()
-        else:
-            rcutfilter = max(rcut_j)
-            gcutfilter = rgd.ceil(rcutfilter)
         
-        self.rcutfilter = rcutfilter = r_g[gcutfilter]
-        assert (data.vbar_g[gcutfilter:] == 0).all()
-
         self.nbands = 0  # suggested number of bands
         ni = 0
         i = 0
@@ -686,7 +677,7 @@ class Setup(BaseSetup):
                 self.A_ci = None
 
         # Construct splines:
-        self.vbar = rgd.spline(data.vbar_g, rcutfilter)
+        self.vbar = rgd.spline(data.vbar_g)
 
         rcore, nc_g, nct_g, nct = self.construct_core_densities(data)
         self.rcore = rcore
@@ -698,7 +689,7 @@ class Setup(BaseSetup):
             tauct_g = rgd.zeros()
         self.tauct = rgd.spline(tauct_g, self.rcore)
 
-        self.pt_j = self.create_projectors(rcutfilter)
+        self.pt_j = self.create_projectors()
 
         if isinstance(rgd, AERadialGridDescriptor):
             rgd2 = self.rgd2 = AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
@@ -852,11 +843,11 @@ class Setup(BaseSetup):
 
         return M_p, M_pp
 
-    def create_projectors(self, rcut):
+    def create_projectors(self):
         pt_j = []
         for j, pt_g in enumerate(self.data.pt_jg):
             l = self.l_j[j]
-            pt_j.append(self.rgd.spline(pt_g, rcut, l))
+            pt_j.append(self.rgd.spline(pt_g, l=l))
         return pt_j
 
     def get_inverse_overlap_coefficients(self, B_ii, dO_ii):
