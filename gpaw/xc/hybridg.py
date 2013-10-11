@@ -433,7 +433,7 @@ class HybridXC(HybridXCBase):
         for n2 in range(self.wfs.bd.nbands):
             # Find range of n1's (from n1a to n1b-1):
             if is_ibz2:
-                # We get this combination twice, so let only do half:
+                # We get this combination twice, so let's only do half:
                 if k1 >= k2:
                     n1a = n2
                 else:
