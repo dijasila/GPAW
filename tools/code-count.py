@@ -87,7 +87,10 @@ if __name__ == '__main__':
         # Remove gui:
         os.system('rm -rf temp-gpaw/gpaw/gui')
 
-        libxc = count('temp-gpaw/c/libxc', '\*.[ch]')
+        if 0:  # revision 10429 - libxc merged
+            libxc = count('temp-gpaw/c/libxc', '\*.[ch]')
+        else:
+            libxc = 0
         ch = count('temp-gpaw/c', '\*.[ch]') - libxc
         py = count('temp-gpaw/gridpaw', '\*.py')
         py += count('temp-gpaw/gpaw', '\*.py')

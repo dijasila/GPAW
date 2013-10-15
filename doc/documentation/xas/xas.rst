@@ -4,8 +4,6 @@
 X-Ray Absorption Spectroscopy (XAS)
 ===================================
 
-.. default-role:: math
-
 Introduction
 ============
 

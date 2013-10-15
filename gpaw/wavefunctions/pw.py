@@ -27,7 +27,8 @@ class PWDescriptor:
     def __init__(self, ecut, gd, dtype=None, kd=None,
                  fftwflags=fftw.ESTIMATE, cuda=None):
 
-        assert gd.pbc_c.all() and gd.comm.size == 1
+        assert gd.pbc_c.all()
+        assert gd.comm.size == 1
 
         self.ecut = ecut
         self.gd = gd
@@ -419,7 +420,7 @@ class Preconditioner:
             x_G = 1 / ekin / 3 * G2_G
             a_G = 27.0 + x_G * (18.0 + x_G * (12.0 + x_G * 8.0))
             PR_G[:] = 4.0 / 3 / ekin * R_G * a_G / (a_G + 16.0 * x_G**4)
-        return PR_xG
+        return -PR_xG
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
@@ -494,6 +495,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
             psit_R = self.pd.ifft(psit_G, kpt.q)
             Htpsit_G += self.pd.fft(psit_R * hamiltonian.vt_sG[kpt.s], kpt.q)
+
+    def add_orbital_density(self, nt_G, kpt, n):
+        axpy(1.0, abs(self.pd.ifft(kpt.psit_nG[n], kpt.q))**2, nt_G)
 
     def add_to_density_from_k_point_with_occupation(self, nt_sR, kpt, f_n):
         nt_R = nt_sR[kpt.s]

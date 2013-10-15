@@ -7,8 +7,6 @@ Setup generation
 The generation of setups, starts from a spin-paired atomic
 all-electron calculation with spherical symmetry.
 
-.. default-role:: math
-
 
 All-electron calculations for spherical atoms
 =============================================

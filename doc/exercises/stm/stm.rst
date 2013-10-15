@@ -25,3 +25,4 @@ Try the following:
 * different number of layers
 * different number of **k**-points
 * different current
+* negative bias (positive tip)

@@ -53,13 +53,13 @@ class KPoint:
         # Total number of projector functions:
         I = sum([P_ni.shape[1] for P_ni in self.P_ani.values()])
         
-        kpt.P_In = np.empty((I, len(kpt.f_n)), complex)
+        kpt.P_nI = np.empty((len(kpt.f_n), I), complex)
 
         kpt.P_ani = {}
         I1 = 0
         for a, P_ni in self.P_ani.items():
             I2 = I1 + P_ni.shape[1]
-            kpt.P_ani[a] = kpt.P_In[I1:I2].T
+            kpt.P_ani[a] = kpt.P_nI[:, I1:I2]
             I1 = I2
 
         kpt.k = (self.k + 1) % self.kd.nibzkpts
@@ -68,13 +68,14 @@ class KPoint:
         return kpt
         
     def start_sending(self, rank):
-        P_In = np.concatenate([P_ni.T for P_ni in self.P_ani.values()])
+        P_nI = np.hstack([P_ni for P_ni in self.P_ani.values()])
+        P_nI = np.ascontiguousarray(P_nI)
         self.requests += [
             self.kd.comm.send(self.psit_nG, rank, block=False, tag=1),
             self.kd.comm.send(self.f_n, rank, block=False, tag=2),
             self.kd.comm.send(self.eps_n, rank, block=False, tag=3),
             self.kd.comm.send(self.weight, rank, block=False, tag=4),
-            self.kd.comm.send(P_In, rank, block=False, tag=5)]
+            self.kd.comm.send(P_nI, rank, block=False, tag=5)]
         
     def start_receiving(self, rank):
         self.requests += [
@@ -82,7 +83,7 @@ class KPoint:
             self.kd.comm.receive(self.f_n, rank, block=False, tag=2),
             self.kd.comm.receive(self.eps_n, rank, block=False, tag=3),
             self.kd.comm.receive(self.weight, rank, block=False, tag=4),
-            self.kd.comm.receive(self.P_In, rank, block=False, tag=5)]
+            self.kd.comm.receive(self.P_nI, rank, block=False, tag=5)]
 
         
     def wait(self):
@@ -150,6 +151,8 @@ class HybridXC(HybridXCBase):
         self.gd = density.gd
         self.kd = wfs.kd
         self.bd = wfs.bd
+        if self.bd.comm.size > 1:
+            raise ValueError('Band parallelization not supported by hybridk')
         self.wfs = wfs
 
         self.world = wfs.world

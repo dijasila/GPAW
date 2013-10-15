@@ -1,5 +1,5 @@
 import numpy as np
-from ase.structure import bulk
+from ase.lattice import bulk
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 
@@ -21,7 +21,7 @@ equal(lumo - homo, 1.11445025, 0.001)
 
 calc.write('si_primitive.gpw', 'all')
 calc = GPAW('si_primitive.gpw',
-            parallel={'domain': 1},
+            parallel={'domain': 1, 'band': 1},
             idiotproof=False,
             txt=None)
 from gpaw.xc.hybridk import HybridXC

@@ -19,7 +19,7 @@ E_n2_hf = E_n2_pbe + calc.get_xc_difference(HybridXC('EXX',
                                                      etotflag=True))
 calc.diagonalize_full_hamiltonian(nbands=100)
 
-rpa = RPACorrelation(calc)
+rpa = RPACorrelation(calc, vcut='3D')
 E_n2_rpa = rpa.get_rpa_correlation_energy(ecut=ecut,
                                           directions=[[0, 2/3.], [2, 1/3.]],
                                           gauss_legendre=8)
@@ -36,7 +36,7 @@ E_n_hf = E_n_pbe + calc.get_xc_difference(HybridXC('EXX',
                                                    etotflag=True))
 calc.diagonalize_full_hamiltonian(nbands=100)
 
-rpa = RPACorrelation(calc)
+rpa = RPACorrelation(calc, vcut='3D')
 E_n_rpa = rpa.get_rpa_correlation_energy(ecut=ecut,
                                          directions=[[0, 1.0]],
                                          gauss_legendre=8)

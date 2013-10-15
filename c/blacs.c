@@ -311,7 +311,7 @@ PyObject* pblas_tran(PyObject *self, PyObject *args)
         return NULL;
  
     int one = 1;
-    if (c->descr->type_num == PyArray_DOUBLE)
+    if (PyArray_DESCR(c)->type_num == NPY_DOUBLE)
         pdtran_(&m, &n,
 		&(alpha.real), 
 		DOUBLEP(a), &one, &one, INTP(desca), 
@@ -320,9 +320,9 @@ PyObject* pblas_tran(PyObject *self, PyObject *args)
     else
         pztranc_(&m, &n,
 		 &alpha, 
-		 (void*)a->data, &one, &one, INTP(desca), 
+		 (void*)PyArray_DATA(a), &one, &one, INTP(desca), 
 		 &beta,
-		 (void*)c->data, &one, &one, INTP(descc));
+		 (void*)PyArray_DATA(c), &one, &one, INTP(descc));
     Py_RETURN_NONE;
 }
 
@@ -350,7 +350,7 @@ PyObject* pblas_gemm(PyObject *self, PyObject *args)
   // If process not on BLACS grid, then return.
   // if (c_ConTxt == -1) Py_RETURN_NONE;
 
-  if (c->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(c)->type_num == NPY_DOUBLE)
     pdgemm_(&transa, &transb, &m, &n, &k,
 	    &(alpha.real), 
 	    DOUBLEP(a), &one, &one, INTP(desca), 
@@ -392,7 +392,7 @@ PyObject* pblas_gemv(PyObject *self, PyObject *args)
   // If process not on BLACS grid, then return.
   // if (y_ConTxt == -1) Py_RETURN_NONE;
 
-  if (y->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(y)->type_num == NPY_DOUBLE)
     pdgemv_(&transa, &m, &n,
 	    &(alpha.real),
 	    DOUBLEP(a), &one, &one, INTP(desca),
@@ -433,7 +433,7 @@ PyObject* pblas_r2k(PyObject *self, PyObject *args)
   // If process not on BLACS grid, then return.
   // if (c_ConTxt == -1) Py_RETURN_NONE;
 
-  if (c->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(c)->type_num == NPY_DOUBLE)
     pdsyr2k_(&uplo, "T", &n, &k,
 	     &(alpha.real), 
 	     DOUBLEP(a), &one, &one, INTP(desca), 
@@ -474,7 +474,7 @@ PyObject* pblas_rk(PyObject *self, PyObject *args)
   // If process not on BLACS grid, then return.
   // if (c_ConTxt == -1) Py_RETURN_NONE;
 
-  if (c->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(c)->type_num == NPY_DOUBLE)
     pdsyrk_(&uplo, "T", &n, &k,
 	    &(alpha.real), 
 	    DOUBLEP(a), &one, &one, INTP(desca), 
@@ -575,7 +575,7 @@ PyObject* scalapack_set(PyObject *self, PyObject *args)
 			&m, &n, &ia, &ja))
     return NULL;
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     pdlaset_(&uplo, &m, &n, &(alpha.real), &(beta.real), DOUBLEP(a), 
 	     &ia, &ja, INTP(desca));
   else
@@ -612,7 +612,7 @@ PyObject* scalapack_redist(PyObject *self, PyObject *args)
 
   if (uplo == 'G') // General matrix
     {
-      if (a->descr->type_num == PyArray_DOUBLE)
+      if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
 	Cpdgemr2d_(m, n,
                    DOUBLEP(a), ia, ja, INTP(desca),
 		   DOUBLEP(b), ib, jb, INTP(descb),
@@ -625,7 +625,7 @@ PyObject* scalapack_redist(PyObject *self, PyObject *args)
     }
   else // Trapezoidal matrix
     {
-      if (a->descr->type_num == PyArray_DOUBLE)
+      if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
 	Cpdtrmr2d_(&uplo, &diag, m, n,
                    DOUBLEP(a), ia, ja, INTP(desca),
 		   DOUBLEP(b), ib, jb, INTP(descb),
@@ -682,7 +682,7 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
   double d_work;
   double_complex c_work;
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       pdsyevd_(&jobz, &uplo, &n,
 	       DOUBLEP(a), &one, &one, INTP(desca),
@@ -713,7 +713,7 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
   // Computation part
   liwork = i_work;
   iwork = GPAW_MALLOC(int, liwork);
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double* work = GPAW_MALLOC(double, lwork);
       pdsyevd_(&jobz, &uplo, &n,
@@ -811,7 +811,7 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
   double d_work[3];
   double_complex c_work;
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       pdsyevx_(&jobz, &range, &uplo, &n,
 	       DOUBLEP(a), &one, &one, INTP(desca),
@@ -848,7 +848,7 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
   liwork = i_work;
   iwork = GPAW_MALLOC(int, liwork);
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double* work = GPAW_MALLOC(double, lwork);
       pdsyevx_(&jobz, &range, &uplo, &n,
@@ -937,7 +937,7 @@ PyObject* scalapack_diagonalize_mr3(PyObject *self, PyObject *args)
   double d_work[3];
   double_complex c_work;
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       pdsyevr_(&jobz, &range, &uplo, &n,
 	       DOUBLEP(a), &one, &one, INTP(desca),
@@ -973,7 +973,7 @@ PyObject* scalapack_diagonalize_mr3(PyObject *self, PyObject *args)
   liwork = i_work;
   iwork = GPAW_MALLOC(int, liwork);
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double* work = GPAW_MALLOC(double, lwork);
       pdsyevr_(&jobz, &range, &uplo, &n,
@@ -1047,7 +1047,7 @@ PyObject* scalapack_general_diagonalize_dc(PyObject *self, PyObject *args)
 
   // Cholesky Decomposition
   int info;
-  if (b->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(b)->type_num == NPY_DOUBLE)
     pdpotrf_(&uplo, &n, DOUBLEP(b), &one, &one, INTP(desca), &info);
   else
     pzpotrf_(&uplo, &n, (void*)COMPLEXP(b), &one, &one, INTP(desca), &info);
@@ -1069,7 +1069,7 @@ PyObject* scalapack_general_diagonalize_dc(PyObject *self, PyObject *args)
   double d_work;
   double_complex c_work;
   // NGST Query 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       pdsyngst_(&ibtype, &uplo, &n,
 		DOUBLEP(a), &one, &one, INTP(desca),
@@ -1092,7 +1092,7 @@ PyObject* scalapack_general_diagonalize_dc(PyObject *self, PyObject *args)
     return NULL;
   }
   // NGST Compute
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double* work = GPAW_MALLOC(double, lwork);
       pdsyngst_(&ibtype, &uplo, &n,
@@ -1122,7 +1122,7 @@ PyObject* scalapack_general_diagonalize_dc(PyObject *self, PyObject *args)
   // the BLAS1 d/zscal. See pdsygvx.f
 
   // EVD Query
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       pdsyevd_(&jobz, &uplo, &n,
 	       DOUBLEP(a), &one, &one, INTP(desca),
@@ -1153,7 +1153,7 @@ PyObject* scalapack_general_diagonalize_dc(PyObject *self, PyObject *args)
   // EVD Computation
   liwork = i_work;
   iwork = GPAW_MALLOC(int, liwork);
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double* work = GPAW_MALLOC(double, lwork);
       pdsyevd_(&jobz, &uplo, &n,
@@ -1188,7 +1188,7 @@ PyObject* scalapack_general_diagonalize_dc(PyObject *self, PyObject *args)
   else
     trans = 'T';
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     pdtrsm_("L", &uplo, &trans, "N", &n, &n, &d_one,
 	    DOUBLEP(b), &one, &one, INTP(desca),
 	    DOUBLEP(z), &one, &one, INTP(desca));
@@ -1272,7 +1272,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
   double d_work[3];
   double_complex c_work;
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       pdsygvx_(&ibtype, &jobz, &range, &uplo, &n,
 	       DOUBLEP(a), &one, &one, INTP(desca),
@@ -1308,7 +1308,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
   // lwork = lwork + (n-1)*n; // this is a ridiculous amount of workspace
   liwork = i_work;
   iwork = GPAW_MALLOC(int, liwork);
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double* work = GPAW_MALLOC(double, lwork);
       pdsygvx_(&ibtype, &jobz, &range, &uplo, &n,
@@ -1394,7 +1394,7 @@ PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args)
 
   // Cholesky Decomposition
   int info;
-  if (b->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(b)->type_num == NPY_DOUBLE)
     pdpotrf_(&uplo, &n, DOUBLEP(b), &one, &one, INTP(desca), &info);
   else
     pzpotrf_(&uplo, &n, (void*)COMPLEXP(b), &one, &one, INTP(desca), &info);
@@ -1416,7 +1416,7 @@ PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args)
   double d_work[3];
   double_complex c_work;
   // NGST Query 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       pdsyngst_(&ibtype, &uplo, &n,
 		DOUBLEP(a), &one, &one, INTP(desca),
@@ -1440,7 +1440,7 @@ PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args)
   }
 
   // NGST Compute
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double* work = GPAW_MALLOC(double, lwork);
       pdsyngst_(&ibtype, &uplo, &n,
@@ -1470,7 +1470,7 @@ PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args)
   // the BLAS1 d/zscal. See pdsygvx.f
 
   // EVR Query
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       pdsyevr_(&jobz, &range, &uplo, &n,
 	       DOUBLEP(a), &one, &one, INTP(desca),
@@ -1505,7 +1505,7 @@ PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args)
   // EVR Computation
   liwork = i_work;
   iwork = GPAW_MALLOC(int, liwork);
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double* work = GPAW_MALLOC(double, lwork);
       pdsyevr_(&jobz, &range, &uplo, &n,
@@ -1544,7 +1544,7 @@ PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args)
   else
     trans = 'T';
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     pdtrsm_("L", &uplo, &trans, "N", &n, &n, &d_one,
 	    DOUBLEP(b), &one, &one, INTP(desca),
 	    DOUBLEP(z), &one, &one, INTP(desca));
@@ -1591,7 +1591,7 @@ PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args)
   // If process not on BLACS grid, then return.
   // if (a_ConTxt == -1) Py_RETURN_NONE;
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       pdpotrf_(&uplo, &n, DOUBLEP(a), &one, &one,
 	       INTP(desca), &info);

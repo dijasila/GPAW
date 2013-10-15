@@ -1,52 +1,55 @@
 import numpy as np
-from ase import Atom, Atoms
-from ase.structure import bulk
-from ase.structure import molecule
-from gpaw import GPAW
-from gpaw.mpi import serial_comm
-from gpaw.lfc import LocalizedFunctionsCollection as LFC
-from gpaw.wavefunctions.pw import PWLFC, PWDescriptor
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.df import DF
-from gpaw.grid_descriptor import GridDescriptor
+
 from ase.units import Bohr
+from ase.lattice import bulk
+from ase.structure import molecule
 
-for mode in ('fd', 'pw',):
+from gpaw import GPAW
+from gpaw.response.df import DF
+from gpaw.mpi import serial_comm
+from gpaw.wavefunctions.pw import PWLFC
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
+
+for mode in ('fd', 'pw'):
     for sys in ('atoms', 'solids', 'solidswithspin'):
-
         spinpol = False
         if sys == 'atoms':
             atoms = molecule('O2')
             atoms.set_pbc(True)
-            atoms.set_cell([4.,4.,5.], scale_atoms=False)
+            atoms.set_cell([4.0, 4.0, 5.0], scale_atoms=False)
             atoms.center()
-            kpts = (1,1,1)
+            kpts = (1, 1, 1)
             spinpol = True
         elif sys == 'solids':
-            atoms = bulk('Si', 'fcc')
-            kpts = (2,2,2)
+            atoms = bulk('Si', 'fcc', a=3.25)
+            kpts = (2, 2, 2)
         elif sys == 'solidswithspin':
-            atoms = bulk('Ni', 'bcc')
+            atoms = bulk('Ni', 'bcc', a=2.88)
             atoms[0].magmom = 0.7
-            kpts = (2,2,2)
+            kpts = (2, 2, 2)
             spinpol = True
             
         if mode == 'fd':
-            calc = GPAW(h=0.18, kpts=kpts, basis='dzp',maxiter=500,
+            calc = GPAW(h=0.18, kpts=kpts, basis='dzp', maxiter=500,
                         setups={'Ni': '10'},
-                        usesymm=None,communicator=serial_comm, spinpol=spinpol)
+                        usesymm=None,
+                        communicator=serial_comm,
+                        spinpol=spinpol)
         
         else:
             calc = GPAW(mode='pw', kpts=kpts, basis='dzp', dtype=complex,
                         maxiter=500,
                         setups={'Ni': '10'},
-                        usesymm=None,communicator=serial_comm)
+                        usesymm=None, communicator=serial_comm)
 
         atoms.set_calculator(calc)
         atoms.get_potential_energy()
 
-        gd = GridDescriptor(calc.wfs.gd.N_c, calc.atoms.cell/Bohr, pbc_c=True, comm=serial_comm)
+        gd = GridDescriptor(calc.wfs.gd.N_c, calc.atoms.cell / Bohr,
+                            pbc_c=True, comm=serial_comm)
         kd = calc.wfs.kd
         setups = calc.wfs.setups
         bzk_kc = calc.wfs.kd.bzk_kc
@@ -64,17 +67,22 @@ for mode in ('fd', 'pw',):
         
             for spin in range(nspins):
                 for k in range(len(bzk_kc)):
-                    ibzk = k # since no symmetry
+                    ibzk = k  # since no symmetry
                     u = kd.get_rank_and_index(spin, ibzk)[1]
                     kpt = calc.wfs.kpt_u[u]
                     for n in range(nbands):
                         P_ai = pt.dict()
-                        psit_G = calc.wfs.get_wave_function_array(n, ibzk, spin)
+                        psit_G = calc.wfs.get_wave_function_array(n, ibzk,
+                                                                  spin)
                         pt.integrate(psit_G, P_ai, ibzk)
                             
                         for a in range(len(P_ai)):
-                            assert np.abs(P_ai[a] - calc.wfs.kpt_u[u].P_ani[a][n]).sum() < 1e-8
-                            assert np.abs(P_ai[a] - df.get_P_ai(k,n,spin)[a]).sum() < 1e-8
+                            assert np.abs(
+                                P_ai[a] -
+                                calc.wfs.kpt_u[u].P_ani[a][n]).sum() < 1e-8
+                            assert np.abs(
+                                P_ai[a] -
+                                df.get_P_ai(k, n, spin)[a]).sum() < 1e-8
         
         else:
             pt = PWLFC([setup.pt_j for setup in setups], calc.wfs.pd)
@@ -82,12 +90,15 @@ for mode in ('fd', 'pw',):
         
             for spin in range(nspins):
                 for k in range(len(bzk_kc)):
-                    ibzk = k # since no symmetry
+                    ibzk = k  # since no symmetry
                     u = kd.get_rank_and_index(spin, ibzk)[1]
                     kpt = calc.wfs.kpt_u[u]
                     for n in range(nbands):
                         Ptmp_ai = pt.dict()
-                        pt.integrate(kpt.psit_nG[n], Ptmp_ai, ibzk) # here psit_G is planewave coefficient !
-                        P_ai = df.get_P_ai(k,n,spin,Ptmp_ai)
+                        # here psit_G is planewave coefficient:
+                        pt.integrate(kpt.psit_nG[n], Ptmp_ai, ibzk)
+                        P_ai = df.get_P_ai(k, n, spin, Ptmp_ai)
                         for a in range(len(P_ai)):
-                            assert np.abs(P_ai[a] - calc.wfs.kpt_u[u].P_ani[a][n]).sum() < 1e-8
+                            assert np.abs(
+                                P_ai[a] -
+                                calc.wfs.kpt_u[u].P_ani[a][n]).sum() < 1e-8

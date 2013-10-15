@@ -196,14 +196,14 @@ class SimpleStm:
         self.density = density
 
         gd = self.gd
-        h_c = gd.h_c
+        h_c = [np.linalg.norm(gd.h_cv[c]) for c in range(3)]
         nx, ny = (gd.N_c - self.offset_c)[:2]
 
         # each cpu will have the full array, but works on its
         # own part only
         heights = np.zeros((nx, ny)) - 1
         if hmax is None:
-            hmax = gd.h_c[2] * self.ldos.shape[2] + h_c[2] / 2.
+            hmax = h_c[2] * self.ldos.shape[2] + h_c[2] / 2.
         else:
             hmax /= Bohr
         ihmax = min(gd.end_c[2]-1, int(hmax / h_c[2]))
@@ -297,7 +297,8 @@ class SimpleStm:
         """Return the countour to be plotted using pylab."""
 
         nx, ny = self.heights.shape[:2]
-        h_c = self.gd.h_c * Bohr
+        h_c = np.array([np.linalg.norm(self.gd.h_cv[c]) 
+                        for c in range(3)]) * Bohr
         # the lowest point is not stored for non-periodic BCs
         xvals = [(i + self.offset_c[0]) * h_c[0] for i in range(nx)]
         yvals = [(i + self.offset_c[1]) * h_c[1] for i in range(ny)]

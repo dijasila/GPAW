@@ -1,14 +1,11 @@
 import numpy as np
-import pickle
 from time import time, ctime
 from datetime import timedelta
-from ase.structure import bulk
+from ase.lattice import bulk
 from ase.units import Hartree
 from gpaw import GPAW, FermiDirac
 from gpaw.response.gw import GW
-from gpaw.xc.hybridk import HybridXC
-from gpaw.xc.tools import vxc
-from gpaw.mpi import serial_comm, world, rank
+from gpaw.mpi import serial_comm
 
 starttime = time()
 
@@ -31,51 +28,10 @@ atoms.set_calculator(calc)
 atoms.get_potential_energy()
 calc.write('Si_gs.gpw','all')
 
+file='Si_gs.gpw'
 nbands=8
 bands=np.array([3,4])
 ecut=25./Hartree
-
-gwkpt_k = calc.wfs.kd.ibz2bz_k
-gwnkpt = calc.wfs.kd.nibzkpts
-gwnband = len(bands)
-nspins = calc.wfs.nspins
-
-file='Si_gs.gpw'
-calc = GPAW(
-            file,
-            communicator=serial_comm,
-            parallel={'domain':1},
-            txt=None
-           )
-
-v_xc = vxc(calc)
-
-alpha = 5.0
-exx = HybridXC('EXX', alpha=alpha, ecut=ecut, bands=bands)
-calc.get_xc_difference(exx)
-
-e_skn = np.zeros((nspins, gwnkpt, gwnband), dtype=float)
-vxc_skn = np.zeros((nspins, gwnkpt, gwnband), dtype=float)
-exx_skn = np.zeros((nspins, gwnkpt, gwnband), dtype=float)
-
-for s in range(nspins):
-    for i, k in enumerate(range(gwnkpt)):
-        for j, n in enumerate(bands):
-            e_skn[s][i][j] = calc.get_eigenvalues(kpt=k, spin=s)[n] / Hartree
-            vxc_skn[s][i][j] = v_xc[s][k][n] / Hartree
-            exx_skn[s][i][j] = exx.exx_skn[s][k][n]
-
-data = {
-        'e_skn': e_skn,        # in Hartree
-        'vxc_skn': vxc_skn,    # in Hartree
-        'exx_skn': exx_skn,    # in Hartree
-        'gwkpt_k': gwkpt_k,
-        'gwbands_n': bands
-       }
-if rank == 0:
-    pickle.dump(data, open('EXX.pckl', 'w'), -1)
-
-exxfile='EXX.pckl'
 
 gw = GW(
         file=file,
@@ -84,9 +40,10 @@ gw = GW(
         w=np.array([10., 30., 0.05]),
         ecut=25.,
         eta=0.1,
-        hilbert_trans=False,
-        exxfile=exxfile
+        hilbert_trans=False
        )
+
+gw.get_exact_exchange(communicator=serial_comm)
 
 gw.get_QP_spectrum()
 
@@ -99,8 +56,7 @@ gw = GW(
         w=np.array([10., 30., 0.05]),
         ecut=25.,
         eta=0.1,
-        hilbert_trans=True,
-        exxfile=exxfile
+        hilbert_trans=True
        )
 
 gw.get_QP_spectrum()

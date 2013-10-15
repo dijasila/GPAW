@@ -4,8 +4,6 @@
 Introduction to PAW
 ===================
 
-.. default-role:: math
-
 A simple example
 ================
 

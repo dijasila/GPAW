@@ -4,8 +4,6 @@
 Delta Self-Consistent Field
 ===========================
 
-.. default-role:: math
-
 --------------------------------------------
 Linear expansion Delta Self-Consistent Field
 --------------------------------------------
@@ -151,5 +149,3 @@ corresponds to in each k-point before we start the slab calculation.
              Hot electron mediated desorption rates calculated from excited
 	     state potential energy surfaces,
              *Phys. Rev. B* **79**, 035403 (2009)
-
-.. default-role::

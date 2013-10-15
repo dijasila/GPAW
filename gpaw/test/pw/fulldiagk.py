@@ -42,7 +42,7 @@ w4 = calc.get_pseudo_wave_function(0, 1)
 e4 = calc.get_eigenvalues(1)
 
 for w in [w2, w3, w4]:
-    assert abs(abs(w[1, 2, 3]) - abs(w[1, 2, 3])) < 1e-10
+    assert abs(abs(w[1, 2, 3]) - abs(w1[1, 2, 3])) < 1e-7
 
 for e in [e2, e3, e4]:
     assert abs(e[0] - e1[0]) < 1e-9

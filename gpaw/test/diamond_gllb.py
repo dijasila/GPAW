@@ -1,4 +1,4 @@
-from ase.structure import bulk
+from ase.lattice import bulk
 from sys import argv
 from ase.dft.kpoints import ibz_points, get_bandpath
 from gpaw import *

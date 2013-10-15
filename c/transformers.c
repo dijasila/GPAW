@@ -133,8 +133,8 @@ static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
     return NULL;
 
   int nin = 1;
-  if (input->nd == 4)
-    nin = input->dimensions[0];
+  if (PyArray_NDIM(input) == 4)
+    nin = PyArray_DIMS(input)[0];
 
   boundary_conditions* bc = self->bc;
   const int* size1 = bc->size1;
@@ -144,7 +144,7 @@ static PyObject* Transformer_apply(TransformerObject *self, PyObject *args)
 
   const double* in = DOUBLEP(input);
   double* out = DOUBLEP(output);
-  bool real = (input->descr->type_num == PyArray_DOUBLE);
+  bool real = (PyArray_DESCR(input)->type_num == NPY_DOUBLE);
   const double_complex* ph = (real ? 0 : COMPLEXP(phases));
 
   int nthds = 1;
@@ -208,8 +208,8 @@ static PyObject* Transformer_getattr(PyObject *obj, char *name)
     return Py_FindMethod(Transformer_Methods, obj, name);
 }
 
-static PyTypeObject TransformerType = {
-  PyObject_HEAD_INIT(&PyType_Type)
+PyTypeObject TransformerType = {
+  PyObject_HEAD_INIT(NULL)
   0,
   "Transformer",
   sizeof(TransformerObject),

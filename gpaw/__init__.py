@@ -56,6 +56,7 @@ sl_default = None
 sl_diagonalize = None
 sl_inverse_cholesky = None
 sl_lcao = None
+sl_lrtddft = None
 buffer_size = None
 extra_parameters = {}
 profile = False
@@ -159,6 +160,24 @@ while len(sys.argv) > i:
                     sl_lcao.append(int(sl_args[sl_args_index]))
                 else:
                     sl_lcao.append(sl_args[sl_args_index])
+    elif arg.startswith('--sl_lrtddft='):
+        # --sl_lcao=nprow,npcol,mb,cpus_per_node
+        # use 'd' for the default of one or more of the parameters
+        # --sl_lcao=default to use all default values
+        sl_args = [n for n in arg.split('=')[1].split(',')]
+        if len(sl_args) == 1:
+            assert sl_args[0] == 'default'
+            sl_lrtddft = ['d'] * 3
+        else:
+            sl_lrtddft = []
+            assert len(sl_args) == 3
+            for sl_args_index in range(len(sl_args)):
+                assert sl_args[sl_args_index] is not None
+                if sl_args[sl_args_index] is not 'd':
+                    assert int(sl_args[sl_args_index]) > 0
+                    sl_lrtddft.append(int(sl_args[sl_args_index]))
+                else:
+                    sl_lrtddft.append(sl_args[sl_args_index])
     elif arg.startswith('--buffer_size='):
         # Buffer size for MatrixOperator in MB
         buffer_size = int(arg.split('=')[1])
@@ -183,8 +202,8 @@ if debug:
         a = oldempty(*args, **kwargs)
         try:
             a.fill(np.nan)
-        except:
-            a.fill(-100000000)
+        except ValueError:
+            a.fill(-1000000)
         return a
     np.empty = empty
 
@@ -206,11 +225,15 @@ def get_gpaw_python_path():
     raise RuntimeError('Could not find gpaw-python!')
 
 
-default_paths = r'C:\gpaw-setups'
-default_paths += os.pathsep + '/usr/local/share/gpaw-setups'
-default_paths += os.pathsep + '/usr/share/gpaw-setups'
+try:
+    setup_paths = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
+except KeyError:
+    if os.pathsep == ';':
+        setup_paths = [r'C:\gpaw-setups']
+    else:
+        setup_paths = ['/usr/local/share/gpaw-setups',
+                       '/usr/share/gpaw-setups']
 
-setup_paths = os.environ.get('GPAW_SETUP_PATH', default_paths).split(os.pathsep)
 
 from gpaw.aseinterface import GPAW
 from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
@@ -268,3 +291,14 @@ if profile:
             prof.dump_stats(filename + '.%04d' % rank)
     atexit.register(f, prof, profile)
     prof.enable()
+
+
+command = os.environ.get('GPAWSTARTUP')
+if command is not None:
+    exec(command)
+home = os.environ.get('HOME')
+if home is not None:
+    rc = os.path.join(home, '.gpaw', 'rc.py')
+    if os.path.isfile(rc):
+        # Read file in ~/.gpaw/rc.py
+        execfile(rc)

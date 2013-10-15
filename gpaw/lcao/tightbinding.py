@@ -96,7 +96,7 @@ class TightBinding:
         if R_c is None:
             R_Nc = self.R_cN.transpose()
         else:
-            R_Nc = [R_c]
+            R_Nc = [R_c,]
             
         # Real-space quantities
         A_NxMM = []

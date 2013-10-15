@@ -49,7 +49,7 @@ class NonLocalFunctional(XCFunctional):
         if self.nspins == 1:
             self.calculate_spinpaired(e_g, n_sg[0], v_sg[0])
         else:
-            self.calculate_spinpolarized(e_g, n_sg[0], v_sg[0], n_sg[1], v_sg[1])
+            self.calculate_spinpolarized(e_g, n_sg, v_sg)
         return gd.integrate(e_g)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp, a=None, addcoredensity=True):
@@ -60,10 +60,10 @@ class NonLocalFunctional(XCFunctional):
         for contribution in self.contributions:
             contribution.calculate_spinpaired(e_g, n_g, v_g)
 
-    def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g):
+    def calculate_spinpolarized(self, e_g, n_sg, v_sg):
         e_g[:] = 0.0
         for contribution in self.contributions:
-            contribution.calculate_spinpolarized(e_g, na_g, va_g, nb_g, vb_g)
+            contribution.calculate_spinpolarized(e_g, n_sg, v_sg)
             
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         Exc = 0.0

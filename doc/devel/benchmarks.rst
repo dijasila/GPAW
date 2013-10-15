@@ -54,8 +54,9 @@ it is important to find the (fastest) combination of processor/memory.
 See section :ref:`opteron_285` for an example of performance degradation
 depending on the numa policy.
 
-To see which CPU corresponds to which node examine `/sys/devices/system/node/node*`.
-It is assumed the following mapping:
+To see which CPU corresponds to which node examine
+``/sys/devices/system/node/node*``.  It is assumed the following
+mapping:
 
 - dual-socket dual-core machine::
 
@@ -80,7 +81,7 @@ first memory node, what is **non**-optimal for runs with the number
 of processes larger than 1 and smaller than NCORES.
 See :ref:`opteron_285` section for example of this behaviour.
 
-For description of `numa` see `NUMACTL <https://computing.llnl.gov/LCdocs/chaos/index.jsp?show=s5.2.2>`_
+For description of numa see `NUMACTL <https://computing.llnl.gov/LCdocs/chaos/index.jsp?show=s5.2.2>`_
 and `NUMA support <http://lwn.net/Articles/254445/>`_.
 
 Getting the results

@@ -11,9 +11,9 @@ Install https://developer.apple.com/xcode/ and activate it from a terminal::
 
   xcodebuild -license
 
-After installing xcode install also its `Command-Line Tools` (provides
-`llvm-gcc compiler` on the command line).
-After launching Xcode, in the top menubar, close to the `Apple`, choose
+After installing xcode install also its *Command-Line Tools* (provides
+*llvm-gcc compiler* on the command line).
+After launching Xcode, in the top menubar, close to the *Apple*, choose
 Xcode -> Preferences -> Downloads).
 
 Make sure the compilers are in place::
@@ -25,7 +25,7 @@ the famous::
 
   ruby <(curl -fsSkL https://raw.github.com/mxcl/homebrew/go)
 
-and configure your init scripts `~/.bash_profile`::
+and configure your init scripts *~/.bash_profile*::
 
   # Set architecture flags
   export ARCHFLAGS="-arch x86_64"
@@ -34,6 +34,8 @@ and configure your init scripts `~/.bash_profile`::
   export PATH=/Users/$USER/pip_latest:$PATH
   export PYTHONPATH=/Users/$USER/pip_latest:$PYTHONPATH
 
+  pyver=`python -c "from distutils import sysconfig; print sysconfig.get_python_version()"`
+
   # pip --user installations of packages
   export PATH=/Users/$USER/Library/Python/${pyver}/bin:$PATH
   export PYTHONPATH=/Users/$USER/Library/Python/${pyver}/lib/python/site-packages:$PYTHONPATH
@@ -41,7 +43,6 @@ and configure your init scripts `~/.bash_profile`::
   # homebrew
   # Ensure user-installed binaries take precedence
   export PATH=/usr/local/share/python:/usr/local/bin:$PATH
-  pyver=`python -c "from distutils import sysconfig; print sysconfig.get_python_version()"`
   export PYTHONPATH=/usr/local/lib/python${pyver}/site-packages:$PYTHONPATH
   # hack gtk-2.0
   export PYTHONPATH=/usr/local/lib/python${pyver}/site-packages/gtk-2.0:$PYTHONPATH
@@ -70,6 +71,7 @@ Update with::
 
 If you prefer to use OS X python (recommended!), install ``pip``::
 
+  mkdir -p ~/pip_latest
   easy_install --install-dir=$HOME/pip_latest pip  # fails under $HOME/pip
 
 Note that homebrew recommends installing its own python, but by doing so
@@ -94,6 +96,7 @@ Install the following homebrew packages::
 
   brew install gfortran
   brew install openmpi
+  brew install libxc
 
 Install GPAW setups::
 
@@ -105,12 +108,13 @@ Configure a virtualenv for GPAW, e.g. trunk::
   virtualenv gpaw-trunk && cd gpaw-trunk
   . bin/activate
 
-Install GPAW (still inside of the virtualenv) for example with
-:ref:`installationguide_standard`::
+Install the dependencies::
 
   pip install python-ase
   pip install numpy
-  cd gpaw&& python setup.py install
+
+and install GPAW (still inside of the virtualenv) accordingly to
+:ref:`installationguide_standard` (``python setup.py install``).
 
 Installing ASE requirements
 ---------------------------

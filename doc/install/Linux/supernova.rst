@@ -7,7 +7,7 @@ supernova
 The supernova machine is a cluster of dual-core AMD Athlon 64 X2 5000+ CPUs,
 2.6 GHz processors with 1 GB of memory per core.
 
-Instructions assume **tcsh**, installation under `${HOME}/opt`.
+Instructions assume **tcsh**, installation under *${HOME}/opt*.
 Build the unoptimized numpy/scipy::
 
   mkdir ${HOME}/opt

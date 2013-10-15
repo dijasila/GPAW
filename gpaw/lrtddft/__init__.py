@@ -71,8 +71,8 @@ class LrTDDFT(ExcitationList):
                  force_ApmB=False, # for tests
                  eh_comm=None # parallelization over eh-pairs
                  ):
-
-        parameters = {
+        
+        defaults = {
             'nspins' : None,
             'eps' : 0.001,
             'istart' : 0,
@@ -87,7 +87,6 @@ class LrTDDFT(ExcitationList):
             'force_ApmB' : False, # for tests
             'eh_comm' : None # parallelization over eh-pairs
             }
-
         self.timer = Timer()
 
         self.nspins = None
@@ -125,11 +124,18 @@ class LrTDDFT(ExcitationList):
         self.eh_comm = eh_comm
  
         if calculator is not None:
+            if calculator.wfs.kpt_comm.size > 1:
+                err_txt = "Spin parallelization with Linear response "
+                err_txt += "TDDFT. Use parallel = {'domain' : 'domain_only'} "
+                err_txt += "calculator parameter."
+                raise NotImplementedError(err_txt)
             if xc == 'GS':
                 xc = calculator.hamiltonian.xc.name
             calculator.converge_wave_functions()
             if calculator.density.nct_G is None:
-                calculator.set_positions()
+                spos_ac = calculator.initialize_positions()
+                calculator.wfs.initialize(calculator.density, 
+                                          calculator.hamiltonian, spos_ac)
 
             self.update(calculator, nspins, eps, 
                         istart, jend, energy_range,
@@ -137,7 +143,8 @@ class LrTDDFT(ExcitationList):
 
     def set_calculator(self, calculator):
         self.calculator = calculator
-        self.force_ApmB = parameters['force_ApmB']
+#        self.force_ApmB = parameters['force_ApmB']
+        self.force_ApmB = None # XXX
 
     def analyse(self, what=None, out=None, min=0.1):
         """Print info about the transitions.
@@ -202,7 +209,7 @@ class LrTDDFT(ExcitationList):
                 if hasattr(xc, 'hybrid') and xc.hybrid > 0.0:
                     Om = ApmB
                     name = 'LrTDDFThyb'
-                    nonselfconsistent_xc = HybridXC('PBE0', alpha=5.0)
+#                    nonselfconsistent_xc = HybridXC('PBE0', alpha=5.0)
         else:
             Om = ApmB
             name = 'LrTDDFThyb'
@@ -222,10 +229,11 @@ class LrTDDFT(ExcitationList):
                      txt=self.txt)
         self.name = name
 
-    def diagonalize(self, istart=None, jend=None, energy_range=None):
+    def diagonalize(self, istart=None, jend=None, 
+                    energy_range=None, TDA=False):
         self.timer.start('diagonalize')
         self.timer.start('omega')
-        self.Om.diagonalize(istart, jend, energy_range)
+        self.Om.diagonalize(istart, jend, energy_range, TDA)
         self.timer.stop('omega')
         
         # remove old stuff
@@ -339,7 +347,7 @@ class LrTDDFT(ExcitationList):
     def __str__(self):
         string = ExcitationList.__str__(self)
         string += '# derived from:\n'
-        string += self.kss.__str__()
+        string += self.Om.kss.__str__()
         return string
 
     def write(self, filename=None, fh=None):

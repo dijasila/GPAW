@@ -1,4 +1,7 @@
 import numpy as np
+# mathtext fails to create title with matplotlib 0.99 on el6
+import matplotlib
+matplotlib.rc('text', usetex=True)
 import matplotlib.pyplot as plt
 from ase.units import Bohr
 from gpaw import GPAW

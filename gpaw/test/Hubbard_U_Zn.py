@@ -9,12 +9,6 @@ h =.3
 box = 4.
 energy_tolerance = 0.0004
 
-l=2                         # d-orbitals
-U_ev=3                      # U in eV
-U_au=U_ev / Hartree   # U in atomic units
-scale=1                     # Do not scale (does not seem to matter much)
-store=0                     # Do not store (not in use yet)
-
 s = Cluster([Atom('Zn')])
 s.minimal_box(box, h=h)
 
@@ -27,9 +21,7 @@ for spin in [0, 1]:
              )
     s.set_calculator(c)
     E[spin] = s.get_potential_energy()
-    for setup in c.hamiltonian.setups:
-        setup.set_hubbard_u(U_au, l, scale, store) # Apply U
-    c.scf.reset()
+    c.set(setups='paw:d,3.0')
     E_U[spin] = s.get_potential_energy()
 
 print "E=", E

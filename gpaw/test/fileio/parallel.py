@@ -1,6 +1,6 @@
 from gpaw import GPAW, ConvergenceError, restart
 from gpaw.test import equal
-from ase.structure import bulk
+from ase.lattice import bulk
 
 modes = ['gpw']
 try:

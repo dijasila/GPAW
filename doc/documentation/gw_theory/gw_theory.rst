@@ -4,7 +4,10 @@
 Quasi-particle spectrum in the GW approximation: theory
 =======================================================
 
-The foundations of the GW method are described in refs. \ [#Hedin1965]_ and \ [#Hybertsen1986]_. The implementation in GPAW follows mainly ref. \ [#Kresse2006]_.
+The foundations of the GW method are described in Refs. \ [#Hedin1965]_ and \ [#Hybertsen1986]_.
+The implementation in GPAW is documented in Ref. \ [#Hueser2013]_.
+
+For examples, see see :ref:`gw_tutorial`.
 
 Introduction
 ============
@@ -63,15 +66,15 @@ This is only relevant for the terms with :math:`n = m`, as otherwise the pair de
 
 Frequency integration
 =====================
- :math:`\rightarrow` ``w = np.array([wlin, wmax, dw])``
+ :math:`\rightarrow` ``w = (wlin, wmax, dw)``
 
 
 The frequency integration is performed numerically on a user-defined grid for positive values only. This is done by rewriting the integral as:
 
 .. math:: & \int\limits_{-\infty}^\infty\!d\omega'\, \frac{W(\omega')}{\omega + \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} \pm i \eta}\\
- =& \int\limits_{0}^\infty\!d\omega'\, W(\omega') \left(\frac{1}{\omega + \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} \pm i \eta} + \frac{1}{\omega - \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} \pm i \eta}\right) - \frac{1}{\omega - \epsilon_{m \, \mathbf{k} - \mathbf{q}} \pm i \eta}
+ =& \int\limits_{0}^\infty\!d\omega'\, W(\omega') \left(\frac{1}{\omega + \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} \pm i \eta} + \frac{1}{\omega - \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} \pm i \eta}\right)
 
-with the use of :math:`W(\omega') = W(-\omega')` The last term corrects for the double counting of :math:`\omega' = 0`.
+with the use of :math:`W(\omega') = W(-\omega')`.
 
 The frequency grid is defined by an array of three values: :math:`[\omega_{\text{lin}}, \omega_{\text{max}}, \Delta\omega]`. This creates a linear grid from :math:`0` to :math:`\omega_{\text{lin}}` with a spacing :math:`\Delta\omega`. Above :math:`\omega_{\text{lin}}`, the spacing increases linearly with every step up to the maximum frequency :math:`\omega_{\text{max}}`. All values are in eV. The maximum frequency has to be bigger than the largest transition energy :math:`|\epsilon_{n \, \mathbf{k}} - \epsilon_{m \, \mathbf{k} - \mathbf{q}}|` included in the calculation. 
 
@@ -144,9 +147,9 @@ I/O
 ===
 
 
-All necessary informations of the system are read from ``file = 'filename.gpw'`` which must contain the wavefunctions. This is done by performing ``calc.write('groundstate.gpw', 'all')`` after the groundstate calculation. GW supports grid mode, planewave and LCAO basis.
+All necessary informations of the system are read from ``file = 'filename.gpw'`` which must contain the wavefunctions. This is done by performing ``calc.write('groundstate.gpw', 'all')`` after the groundstate calculation. GW supports grid mode and planewave basis.
 
-Especially for big systems, it might be reasonable to determine the exact exchange contributions seperately and store them in a pickle file which can be read by defining ``exxfile = 'filename.pckl'``. The band and k-point indices must match the ones used for the GW calculation. The pickle file needs to contain the following data:
+Especially for big systems, it might be reasonable to determine the exact exchange contributions seperately and store them in a pickle file which can be read by defining ``exxfile = 'filename.pckl'`` (see below). The band and k-point indices must match the ones used for the GW calculation. The pickle file needs to contain the following data:
 
 ================= ==============================================================================
 ``gwkpt_k``       list of k-point indices
@@ -164,7 +167,7 @@ See the GW tutorial for an example: :ref:`gw_tutorial`
 
 The output is written to ``txt = 'filename.out'`` which summarizes the input and results and gives an estimation of the timing while the calculation is running. An additional file ``df.out`` is created for the calculation of the dielectric matrix.
 
-All results are also stored in a pickle file called ``GW.pckl``, which contains all data listed in the table above and addionally ``Sigma_skn``, ``Z_skn`` and ``QP_skn`` for the self energy contributions, renormalization factors and the quasi-particle bandstructure, respectively.
+All results are also stored in a pickle file called ``GW.pckl`` by default, which contains all data listed in the table above and addionally ``Sigma_skn``, ``Z_skn`` and ``QP_skn`` for the self energy contributions, renormalization factors and the quasi-particle bandstructure, respectively.
 
 Convergence
 ===========
@@ -191,27 +194,46 @@ Parameters
 ==========
 
 
-=================  =================  ===================  ===============================================
+=================  =================  ===================  ====================================================
 keyword            type               default value        description
-=================  =================  ===================  ===============================================
+=================  =================  ===================  ====================================================
 ``file``           ``str``            None                 gpw filename
                                                            groundstate calculation including wavefunctions
-``nbands``         ``int``            nbands from gs calc  Number of bands
-``bands``          ``numpy.ndarray``  all bands from       Band indices for QP spectrum
-                                      gs calc
+``nbands``         ``int``            equal to number of   Number of bands
+                                      plane waves
+``bands``          ``numpy.ndarray``  equal to nbands      Band indices for QP spectrum
 ``kpoints``        ``numpy.ndarray``  all irreducible	   K-point indices for QP spectrum
                                       k-points
-``w``              ``numpy.ndarray``  None                 [wlin, wmax, dw] for defining frequency grid
+``e_skn``          ``numpy.ndarray``  None                 User-defined starting point eigenvalues
+``eshift``         ``float``          None                 Manual shift of unoccupied bands (in eV)
+``w``              ``numpy.ndarray``  None                 [wlin, wmax, dw] for defining frequency grid (in eV)
 ``ecut``           ``float``          150 (eV)             Planewave energy cutoff.
 ``eta``            ``float``          0.1 (eV)             Broadening parameter.
 ``ppa``            ``bool``           False                Use Plasmon Pole Approximation
 ``E0``             ``float``          27.2114 (eV)         Frequency for fitting PPA
 ``hilbert_trans``  ``bool``           False                False = method 1, True = method 2
 ``wpar``           ``int``            1                    Parallelization in energy
-``vcut``           ``str``            None                 Coulomb cutoff ('2D', '1D' or '0D')
-``exxfile``        ``str``            None                 filename from which EXX contributions are read
+``vcut``           ``str``            None                 Coulomb truncation (currently, only '2D' supported)
 ``txt``            ``str``            None                 Output filename
-=================  =================  ===================  ===============================================
+=================  =================  ===================  ====================================================
+
+Functions
+=========
+
+``get_exact_exchange(ecut=None, communicator=world, file='EXX.pckl')``
+
+calculates exact exchange and Kohn-Sham exchange-correlation contributions for given ``bands`` and ``kpoints``
+and stores everything in a pickle file.
+
+In planewave mode ``ecut`` is taken from the groundstate calculation.
+Otherwise, it can be chosen independently from the actual GW calculation. The value needs to be given in eV.
+Note that the exact exchange and GW may converge differently with respect to ``ecut``.
+
+``get_QP_spectrum(exxfile='EXX.pckl', file='GW.pckl')``
+
+calculates GW quasi-particle spectrum reading exact exchange and exchange-correlation contribution from ``exxfile``
+and stores all results in a pickle file.
+
 
 References
 ==========
@@ -224,6 +246,10 @@ References
 .. [#Hybertsen1986] M.S. Hybertsen and S.G. Louie,
                     "Electron correlation in semiconductors and insulators: Band gaps and quasiparticle energies",
                     *Phys. Rev. B* **34**, 5390 (1986).
+
+.. [#Hueser2013] F. Hüser, T. Olsen, and K. S. Thygesen,
+                 "Quasiparticle GW calculations for solids, molecules, and two-dimensional materials",
+                 *Phys. Rev. B* **87**, 235132 (2013).
 
 .. [#Kresse2006] M. Shishkin and G. Kresse,
                  "Implementation and performance of the frequency-dependent GW method within the PAW framework",

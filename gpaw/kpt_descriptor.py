@@ -68,17 +68,24 @@ class KPointDescriptor:
             Number of spins.
 
         Attributes
-        ============  ======================================================
-        ``N_c``       Number of k-points in the different directions.
-        ``nspins``    Number of spins in total.
-        ``mynspins``  Number of spins on this CPU.
-        ``nibzkpts``  Number of irreducible kpoints in 1st Brillouin zone.
-        ``nks``       Number of k-point/spin combinations in total.
-        ``mynks``     Number of k-point/spin combinations on this CPU.
-        ``gamma``     Boolean indicator for gamma point calculation.
-        ``comm``      MPI-communicator for kpoint distribution.
-        ============  ======================================================
-        
+        ===================  =================================================
+        ``N_c``               Number of k-points in the different directions.
+        ``nspins``            Number of spins in total.
+        ``mynspins``          Number of spins on this CPU.
+        ``nibzkpts``          Number of irreducible kpoints in 1st BZ.
+        ``nks``               Number of k-point/spin combinations in total.
+        ``mynks``             Number of k-point/spin combinations on this CPU.
+        ``gamma``             Boolean indicator for gamma point calculation.
+        ``comm``              MPI-communicator for kpoint distribution.
+        ``weight_k``          Weights of each k-point
+        ``ibzk_kc``           Unknown
+        ``sym_k``             Unknown
+        ``time_reversal_k``   Unknown
+        ``bz2ibz_k``          Unknown
+        ``ibz2bz_k``          Unknown
+        ``bz2bz_ks``          Unknown
+        ``symmetry``          Object representing symmetries
+        ===================  =================================================
         """
 
         if kpts is None:
@@ -313,6 +320,10 @@ class KPointDescriptor:
             b_g = np.zeros_like(psit_G)
             kbz_c = np.dot(self.symmetry.op_scc[s], kibz_c)
             if index_G is not None:
+                assert index_G.shape == psit_G.shape == phase_G.shape,\
+                    'Shape mismatch %s vs %s vs %s' % (index_G.shape,
+                                                       psit_G.shape,
+                                                       phase_G.shape)
                 _gpaw.symmetrize_with_index(psit_G, b_g, index_G, phase_G)
             else:
                 _gpaw.symmetrize_wavefunction(psit_G, b_g, op_cc.copy(),
@@ -363,12 +374,20 @@ class KPointDescriptor:
 
 
     def get_transform_wavefunction_index(self, nG, k):
+        """Get the "wavefunction transform index".
+
+        This is a permutation of the numbers 1, 2, .. N which
+        associates k + q to some k, and where N is the total
+        number of grid points as specified by nG which is a
+        3D tuple.
+        
+        Returns index_G and phase_G which are one-dimensional
+        arrays on the grid."""
         
         s = self.sym_k[k]
         op_cc = np.linalg.inv(self.symmetry.op_scc[s]).round().astype(int)
 
         # General point group symmetry
-        nG0 = nG[0]*nG[1]*nG[2]
         if (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all():
             index_G = np.arange(nG0, dtype=np.int32)
             phase_G = np.ones(nG0)
@@ -381,9 +400,9 @@ class KPointDescriptor:
 
             kbz_c = np.dot(self.symmetry.op_scc[s], kibz_c)
             _gpaw.symmetrize_return_index(index_G, phase_G, op_cc.copy(),
-                                              np.ascontiguousarray(kibz_c),
-                                              kbz_c)
-            return index_G, phase_G
+                                          np.ascontiguousarray(kibz_c),
+                                          kbz_c)
+        return index_G, phase_G
 
     #def find_k_plus_q(self, q_c, k_x=None):
     def find_k_plus_q(self, q_c, kpts_k=None):

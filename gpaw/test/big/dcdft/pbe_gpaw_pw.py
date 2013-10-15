@@ -43,6 +43,8 @@ class Factory(GPAWFactory):
             calculator.set(nbands=-7)
         if name.split('-')[0] in ['Ne', 'Ar', 'Kr']:
             calculator.set(nbands=-8)
+        if name.split('-')[0] in ['Cr']:
+            calculator.set(nbands=-10)
         if name.split('-')[0] in ['Ti', 'Cr', 'Fe', 'Y', 'Nb', 'Mo',
                                   'Te', 'Hf', 'Re', 'Hg', 'Sb', 'Ca',
                                   'Pd', 'Ni', 'Ta',
@@ -64,8 +66,7 @@ class Factory(GPAWFactory):
             calculator.set(mixer=MixerDif())
             calculator.set(maxiter=450)
         if name.split('-')[0] in ['Cr']:
-            calculator.set(eigensolver='dav')
-            calculator.set(mixer=MixerDif(0.05,1))
+            calculator.set(mixer=MixerDif())
             calculator.set(maxiter=650)
         return calculator
 

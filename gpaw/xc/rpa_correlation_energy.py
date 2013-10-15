@@ -2,7 +2,11 @@ import sys
 from time import ctime
 import numpy as np
 from ase.parallel import paropen
+<<<<<<< .working
 from ase.units import Hartree, Bohr
+=======
+from ase.units import Ha
+>>>>>>> .merge-right.r10763
 from gpaw import GPAW
 from gpaw.response.df import DF
 from gpaw.utilities import devnull
@@ -68,7 +72,7 @@ class RPACorrelation:
         self.initialized = 0
    
     def get_rpa_correlation_energy(self,
-                                   kcommsize=1,
+                                   kcommsize=None,
                                    dfcommsize=world.size,
                                    directions=None,
                                    skip_gamma=False,
@@ -254,7 +258,7 @@ class RPACorrelation:
                 sync=self.sync,
                 optical_limit=optical_limit,
                 hilbert_trans=False)
-        
+
         if index is None:
             print >> self.txt, 'Calculating KS response function at:'
         else:
@@ -369,6 +373,12 @@ class RPACorrelation:
     def initialize_calculation(self, w, ecut, smooth_cut,
                                nbands, kcommsize, extrapolate,
                                gauss_legendre, frequency_cut, frequency_scale):
+        if kcommsize is None:
+            if len(self.calc.wfs.bzk_kc) == 1:
+                kcommsize = 1
+            else:
+                kcommsize = world.size
+            
         if w is not None:
             assert (gauss_legendre is None and
                     frequency_cut is None and
@@ -452,7 +462,7 @@ class RPACorrelation:
         print >> self.txt
         print >> self.txt, 'Parallelization scheme'
         print >> self.txt, '     Total CPUs        : %d' % dummy.comm.size
-        if dummy.nkpt == 1:
+        if dummy.kd.nbzkpts == 1:
             print >> self.txt, '     Band parsize      : %d' % dummy.kcomm.size
         else:
             print >> self.txt, '     Kpoint parsize    : %d' % dummy.kcomm.size
@@ -505,3 +515,119 @@ class RPACorrelation:
         print >> self.txt, \
               '------------------------------------------------------'
         print >> self.txt
+
+
+    def get_C6_coefficient(self,
+                           ecut=100.,
+                           smoothcut=None,
+                           nbands=None,
+                           kcommsize=None,
+                           extrapolate=False,
+                           gauss_legendre=None,
+                           frequency_cut=None,
+                           frequency_scale=None,
+                           direction=2):
+
+        self.initialize_calculation(None,
+                                    ecut,
+                                    None,
+                                    nbands,
+                                    kcommsize,
+                                    extrapolate,
+                                    gauss_legendre,
+                                    frequency_cut,
+                                    frequency_scale)
+
+        d = direction
+        d_pro = []
+        for i in range(3):
+            if i != d:
+                d_pro.append(i)
+        
+        dummy = DF(calc=self.calc,
+                   eta=0.0,
+                   w=self.w * 1j,
+                   ecut=self.ecut,
+                   hilbert_trans=False)
+        dummy.txt = devnull
+        dummy.initialize(simple_version=True)
+        npw = dummy.npw
+        del dummy
+
+        q = [0.,0.,0.]
+        q[d] = 1.e-5
+
+        if self.nbands is None:
+            nbands = npw
+        else:
+            nbands = self.nbands
+
+        if self.txt is sys.stdout:
+            txt = 'response.txt'
+        else:
+            txt='response_'+self.txt.name
+        df = DF(calc=self.calc,
+                xc=None,
+                nbands=nbands,
+                eta=0.0,
+                q=q,
+                txt=txt,
+                vcut=self.vcut,
+                w=self.w * 1j,
+                ecut=self.ecut,
+                comm=world,
+                optical_limit=True,
+                G_plus_q=True,
+                kcommsize=self.kcommsize,
+                hilbert_trans=False)
+        
+        print >> self.txt, 'Calculating RPA response function'
+        print >> self.txt, 'Polarization: %s' % d
+
+        chi_wGG = df.get_chi(xc='RPA')
+        chi0_wGG = df.chi0_wGG
+
+        Nw_local = len(chi_wGG)
+        local_a0_w = np.zeros(Nw_local, dtype=complex)
+        a0_w = np.empty(len(self.w), complex)
+        local_a_w = np.zeros(Nw_local, dtype=complex)
+        a_w = np.empty(len(self.w), complex)
+
+        Gvec_Gv = np.dot(df.Gvec_Gc + np.array(q), df.bcell_cv)
+        gd = self.calc.density.gd
+        n_d = gd.get_size_of_global_array()[d]
+        d_d = gd.get_grid_spacings()[d]
+        r_d = np.array([i*d_d for i in range(n_d)])
+
+        print >> self.txt, 'Calculating real space integrals'
+
+        int_G = np.zeros(npw, complex)
+        for iG in range(npw):
+            if df.Gvec_Gc[iG, d_pro[0]] == 0 and df.Gvec_Gc[iG, d_pro[1]] == 0:
+                int_G[iG] = np.sum(r_d * np.exp(1j*Gvec_Gv[iG, d] * r_d))*d_d
+        int2_GG = np.outer(int_G, int_G.conj())
+
+        print >> self.txt, 'Calculating dynamic polarizability'
+
+        for i in range(Nw_local):
+            local_a0_w[i] = np.trace(np.dot(chi0_wGG[i], int2_GG))
+            local_a_w[i] = np.trace(np.dot(chi_wGG[i], int2_GG))
+        df.wcomm.all_gather(local_a0_w, a0_w)
+        df.wcomm.all_gather(local_a_w, a_w)
+
+        A = df.vol / gd.cell_cv[d,d]
+        a0_w *= A**2 / df.vol
+        a_w *= A**2 / df.vol
+
+        del df
+        
+        C06 = np.sum(a0_w**2 * self.gauss_weights
+                     * self.transform) * 3 / (2*np.pi)
+        C6 = np.sum(a_w**2 * self.gauss_weights
+                    * self.transform) * 3 / (2*np.pi)
+
+        print >> self.txt, 'C06 = %s Ha*Bohr**6' % (C06.real / Ha)
+        print >> self.txt, 'C6 = %s Ha*Bohr**6' % (C6.real / Ha)
+        print >> self.txt
+
+        return C6.real / Ha, C06.real / Ha

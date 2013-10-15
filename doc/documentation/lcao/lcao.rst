@@ -1,8 +1,5 @@
 .. _lcao:
 
-.. default-role:: math
-
-
 =========
 LCAO Mode
 =========
