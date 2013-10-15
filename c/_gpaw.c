@@ -35,7 +35,7 @@ PyObject* cuZscal(PyObject *self, PyObject *args);
 PyObject* cugemm(PyObject *self, PyObject *args);
 PyObject* cuZgemv(PyObject *self, PyObject *args);
 PyObject* cuCgemv(PyObject *self, PyObject *args);
-PyObject* cudgmm(PyObject *self, PyObject *args);
+/*PyObject* cudgmm(PyObject *self, PyObject *args);*/
 PyObject* axpy(PyObject *self, PyObject *args);
 PyObject* czher(PyObject *self, PyObject *args);
 PyObject* ccher(PyObject *self, PyObject *args);
@@ -168,7 +168,7 @@ static PyMethodDef functions[] = {
   {"cugemm", cugemm, METH_VARARGS, 0},
   {"cuZgemv", cuZgemv, METH_VARARGS, 0},
   {"cuCgemv", cuCgemv, METH_VARARGS, 0},
-  {"cudgmm", cudgmm, METH_VARARGS, 0},
+  /*  {"cudgmm", cudgmm, METH_VARARGS, 0},*/
   {"axpy", axpy, METH_VARARGS, 0}, 
   {"czher", czher, METH_VARARGS, 0},
   {"ccher", ccher, METH_VARARGS, 0},

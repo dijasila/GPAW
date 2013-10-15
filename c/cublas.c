@@ -56,11 +56,11 @@ PyObject* cugemm(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-
+/*
 PyObject* cudgmm(PyObject *self, PyObject *args)
 {
   cublasHandle_t handle;
-  cublasSideMode_t mode = CUBLAS_SIDE_LEFT; /* left : 0 , right : 1*/
+  cublasSideMode_t mode = CUBLAS_SIDE_LEFT; 
   cuDoubleComplex* A;
   cuDoubleComplex* x;
   cuDoubleComplex* C;
@@ -72,7 +72,7 @@ PyObject* cudgmm(PyObject *self, PyObject *args)
   CudaCheckError();
   Py_RETURN_NONE;
 }
-
+*/
 
 PyObject* cuCgemv(PyObject *self, PyObject *args)
 {

@@ -2,7 +2,7 @@ import sys
 from time import ctime
 import numpy as np
 from ase.parallel import paropen
-from ase.units import Hartree
+from ase.units import Hartree, Bohr
 from gpaw import GPAW
 from gpaw.response.df import DF
 from gpaw.utilities import devnull
@@ -11,7 +11,7 @@ from gpaw.mpi import rank, size, world
 from gpaw.response.parallel import parallel_partition, \
      parallel_partition_list, set_communicator
 from scipy.special.orthogonal import p_roots
-from gpaw.response.cell import set_Gvectors
+from gpaw.response.cell import set_Gvectors, get_primitive_cell
 from gpaw.response.cuda import BaseCuda
 import _gpaw
 
@@ -168,7 +168,7 @@ class RPACorrelation:
                 q=[0., 0., 0.],
                 direction=0,
                 integrated=True,
-                ecut=10,
+                ecutlist=[10., 20., 30.],
                 smooth_cut=None,
                 nbands=None,
                 gauss_legendre=None,
@@ -176,6 +176,10 @@ class RPACorrelation:
                 frequency_scale=None,
                 w=None,
                 extrapolate=False):
+
+        self.ecutlist_e = np.sort(ecutlist)
+        self.necut = len(self.ecutlist_e)
+        ecut = max(self.ecutlist_e)
 
         self.initialize_calculation(w, ecut, smooth_cut,
                                     nbands, kcommsize, extrapolate,
@@ -270,7 +274,16 @@ class RPACorrelation:
         mband_e = np.zeros(self.necut, int)
         for iecut, ecut in enumerate(self.ecutlist_e):
             if ecut < max(self.ecutlist_e):
-                npw, Gvec_Gc, Gindex_G = set_Gvectors(df.acell_cv, df.bcell_cv,
+
+                if self.cell is not None:
+                    self.aorg_cv = self.cell / Bohr
+                    self.aorg_cv, self.borg_cv, tmp, tmp = \
+                       get_primitive_cell(self.aorg_cv,rpad=self.rpad)
+                else:
+                    self.aorg_cv = df.acell_cv
+                    self.borg_cv = df.bcell_cv
+
+                npw, Gvec_Gc, Gindex_G = set_Gvectors(self.aorg_cv, self.borg_cv,
                                                   df.nG, np.ones(3)*ecut/Hartree, q=df.q_c)
                 mband_e[iecut] = npw
                 for ipw in range(npw):

@@ -620,11 +620,11 @@ class Chi(BaseChi):
                                     else:
                                         assert use_zher is True
                                         if self.timing: timer.start('apply_alpha')
-                                        _gpaw.cudgmm(cu.handle, cu.rho_uG, cu.alpha_wu+iw*nmultix*sizeofdata, 
-                                                         cu.rho_uG, mmultix, self.npw, self.npw, self.npw, 1, 1)
+#                                        _gpaw.cudgmm(cu.handle, cu.rho_uG, cu.alpha_wu+iw*nmultix*sizeofdata, 
+#                                                         cu.rho_uG, mmultix, self.npw, self.npw, self.npw, 1, 1)
 
                                         # cuda-4 option
-#                                        _gpaw.cuApply_alpha_wu(cu.alpha_wu, cu.rho_uG, iw, mmultix, nmultix, self.npw)
+                                        _gpaw.cuApply_alpha_wu(cu.alpha_wu, cu.rho_uG, iw, mmultix, nmultix, self.npw)
                                         
                                         # cuda-4 option 2, but very slow
 #                                        alpha_wu = np.zeros((self.Nw_local, nmultix), complex)
