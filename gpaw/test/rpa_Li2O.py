@@ -36,7 +36,7 @@ calc.write('gs.gpw', 'all')
 # RPA
 calc = GPAW('gs.gpw', communicator=serial_comm, txt=None)
 
-for cuda in (True, False):
+for cuda in (False,):
     rpa = RPACorrelation(calc, txt='rpa_all.txt',cuda=cuda, sync=False, nmultix=50)
     
     if rank == 0 :
@@ -58,10 +58,10 @@ for cuda in (True, False):
             ])
 
     if cuda is False: # CPU used finite difference method
-        saved_data[0,0] = -11.5398763793
-        saved_data[0,1] = -11.7905922944
-        saved_data[0,2] = -11.9306422869
-    
+        saved_data[0,0] = -12.5409896748
+        saved_data[0,1] = -12.7810983671
+        saved_data[0,2] = -12.9337316241
+
     assert np.abs(rpa.E_qe - saved_data).sum() < 1e-7
 
     if rank == 0:
