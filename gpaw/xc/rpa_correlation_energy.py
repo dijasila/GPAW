@@ -2,11 +2,7 @@ import sys
 from time import ctime
 import numpy as np
 from ase.parallel import paropen
-<<<<<<< .working
-from ase.units import Hartree, Bohr
-=======
-from ase.units import Ha
->>>>>>> .merge-right.r10763
+from ase.units import Hartree, Bohr, Ha
 from gpaw import GPAW
 from gpaw.response.df import DF
 from gpaw.utilities import devnull

@@ -223,7 +223,7 @@ class HybridXC(HybridXCBase):
 
         from gpaw.response.timing import Timer
         from time import time
-        self.timer = Timer()
+        self.timer = Timer(sync=False)
         t0 = time()
 
         if self.etotflag and not self.gygi:
@@ -355,26 +355,26 @@ class HybridXC(HybridXCBase):
     
     def apply(self, kpt1, kpt2, k):
 
-        self.timer.start('init_k', sync=False)
+        self.timer.start('init_k')
         k1_c = self.kd.ibzk_kc[kpt1.k]
         k20_c = self.kd.ibzk_kc[kpt2.k]
         k2_c = self.kd.bzk_kc[k]
         q_c = k2_c - k1_c
         N_c = self.gd.N_c
-        self.timer.end('init_k', sync=False)
+        self.timer.end('init_k')
 
-        self.timer.start('find_q', sync=False)
+        self.timer.start('find_q')
         q = self.kd.where_is_q(q_c, self.bzq_qc)
-        self.timer.end('find_q', sync=False)
+        self.timer.end('find_q')
 
-        self.timer.start('eikr', sync=False)
+        self.timer.start('eikr')
         q_c = self.bzq_qc[q]
         eik1r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k1_c / N_c).T)
         eik2r_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k20_c / N_c).T)
         eiqr_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, q_c / N_c).T)
-        self.timer.end('eikr', sync=False)
+        self.timer.end('eikr')
 
-        self.timer.start('init_others', sync=False)
+        self.timer.start('init_others')
         same = abs(k1_c - k2_c).max() < 1e-9
 
         iG2_G = self.iG2_qG[q]
@@ -386,13 +386,13 @@ class HybridXC(HybridXCBase):
         fcut = 1e-10
         is_ibz2 = abs(k2_c - self.kd.ibzk_kc[kpt2.k]).max() < 1e-9
 
-        self.timer.end('init_others', sync=False)
+        self.timer.end('init_others')
         
         for n1 in range(self.nbands):
             f1 = kpt1.f_n[n1]
             e1 = kpt1.eps_n[n1]
             for n2 in range(self.nbands):
-                self.timer.start('apply_loop_init', sync=False)
+                self.timer.start('apply_loop_init')
                 if same:
                     assert is_ibz2
                     if n2 > n1:
@@ -431,7 +431,7 @@ class HybridXC(HybridXCBase):
                 if self.skip_gamma and same:
                     continue
 
-                self.timer.end('apply_loop_init', sync=False)
+                self.timer.end('apply_loop_init')
                 
                 t0 = time()
 
@@ -439,20 +439,20 @@ class HybridXC(HybridXCBase):
                                                    eik1r_R, eik2r_R, eiqr_R,
                                                    is_ibz2)
 
-                self.timer.start('nt_G', sync=False)                
+                self.timer.start('nt_G')                
                 nt_G = self.pwd.fft(nt_R, q) / N
-                self.timer.end('nt_G', sync=False)
+                self.timer.end('nt_G')
 
-                self.timer.start('vt_G', sync=False)                
+                self.timer.start('vt_G')                
                 vt_G = nt_G.copy()
                 vt_G *= -pi * vol * iG2_G
-                self.timer.end('vt_G', sync=False)
+                self.timer.end('vt_G')
 
-                self.timer.start('np.vdot', sync=False)                
+                self.timer.start('np.vdot')                
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid * x
-                self.timer.end('np.vdot', sync=False)                
+                self.timer.end('np.vdot')                
 
-                self.timer.start('exxacdf', sync=False)                
+                self.timer.start('exxacdf')                
                 if self.etotflag:
                     if self.acdf:
                         if self.gygi and same:
@@ -477,7 +477,7 @@ class HybridXC(HybridXCBase):
                             self.exx += f1 * e * kpt2.weight[0] * f2 * self.kd.nbzkpts * nspins / 2
                     else:
                         self.exx_skn[kpt2.s, kpt2.k, n2] += 2 * f1 * e
-                self.timer.end('exxacdf', sync=False)                
+                self.timer.end('exxacdf')                
                 
                 if self.write_timing_information:
                     t = time() - t0
@@ -514,33 +514,33 @@ class HybridXC(HybridXCBase):
 
     def calculate_pair_density(self, n1, n2, kpt1, kpt2, q, k,
                                eik1r_R, eik2r_R, eiqr_R, ibz2):
-        self.timer.start('get_wfs', sync=False)
+        self.timer.start('get_wfs')
         if isinstance(self.wfs, PWWaveFunctions):
             psit1_R = self.wfs.pd.ifft(kpt1.psit_nG[n1]) * eik1r_R
             psit2_R = self.wfs.pd.ifft(kpt2.psit_nG[n2]) * eik2r_R
         else:
             psit1_R = kpt1.psit_nG[n1]
             psit2_R = kpt2.psit_nG[n2]
-        self.timer.end('get_wfs', sync=False)
+        self.timer.end('get_wfs')
 
-        self.timer.start('trans_wfs', sync=False)
+        self.timer.start('trans_wfs')
         if ibz2:
             psit2_R = psit2_R
         else:
             psit2_R = np.asarray(self.kd.transform_wave_function(psit2_R, k),
                                  complex)
-        self.timer.end('trans_wfs', sync=False)
+        self.timer.end('trans_wfs')
 
-        self.timer.start('nt_R', sync=False)
+        self.timer.start('nt_R')
         nt_R = psit1_R.conj() * psit2_R
-        self.timer.end('nt_R', sync=False)
+        self.timer.end('nt_R')
 
         s = self.kd.sym_k[k]
         time_reversal = self.kd.time_reversal_k[k]
         k2_c = self.kd.ibzk_kc[kpt2.k]
 
         Q_aL = {}
-        self.timer.start('paw', sync=False)
+        self.timer.start('paw')
         for a, P1_ni in kpt1.P_ani.items():
             P1_i = P1_ni[n1]
 
@@ -560,11 +560,11 @@ class HybridXC(HybridXCBase):
             D_p = pack(D_ii)
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
 
-        self.timer.end('paw', sync=False)
+        self.timer.end('paw')
         
         self.ghat.timer = self.timer
-        self.timer.start('ghat_add', sync=False)        
+        self.timer.start('ghat_add')        
         self.ghat.add(nt_R, Q_aL, q)
-        self.timer.end('ghat_add', sync=False)        
+        self.timer.end('ghat_add')        
 
         return nt_R / eiqr_R

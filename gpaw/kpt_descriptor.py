@@ -388,6 +388,7 @@ class KPointDescriptor:
         op_cc = np.linalg.inv(self.symmetry.op_scc[s]).round().astype(int)
 
         # General point group symmetry
+        nG0 = nG[0]*nG[1]*nG[2]
         if (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all():
             index_G = np.arange(nG0, dtype=np.int32)
             phase_G = np.ones(nG0)

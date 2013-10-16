@@ -16,6 +16,8 @@ from gpaw.utilities.memory import maxrss
 from gpaw.response.base import BaseChi
 import _gpaw
 from gpaw.response.timing import Timer
+import gpaw.fftw as fftw
+
 
 class Chi(BaseChi):
     """This class is a calculator for the linear density response function.
@@ -246,7 +248,7 @@ class Chi(BaseChi):
                 chi0_wGG *= self.vol 
                 for iw in range(self.Nw_local):
                     for iG in range(self.npw):
-                        if self.nkpt % self.kcomm.size == 0:
+                        if self.kd.nbzkpts % self.kcomm.size == 0:
                             chi0_wGG[iw,iG,iG+1:] = 0.
                         else:      #  nmultix is not used if k-point is not parallelized 
                             chi0_wGG[iw,iG,:iG] = 0.
@@ -267,7 +269,7 @@ class Chi(BaseChi):
                 specfunc_wGG = np.zeros((self.NwS_local, self.npw, self.npw), dtype = complex)
     
             # fftw init
-            fft_R = fftw.empty(self.nG, complex)
+            fft_R = fftw.empty(self.gd.N_c, complex)
             fft_G = fft_R
             fftplan = fftw.FFTPlan(fft_R, fft_G, -1, fftw.ESTIMATE)
     
@@ -380,6 +382,9 @@ class Chi(BaseChi):
                             cu.get_wfs(psit_G, cu.psit_G, cu.Q1_G, cu.ncoef, 1, self)
 #                            _gpaw.cuCopy_vector(cu.tmp_uQ, cu.tmp_Q, self.nG0) 
                             if self.timing: timer.end('wfs_get')
+                    else:
+                        u = self.kd.get_rank_and_index(spin, ibzkpt1)[1]
+                        psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
 
                     if self.timing: timer.start('wfs_transform')
                     if not self.cuda:
@@ -584,6 +589,11 @@ class Chi(BaseChi):
                                                 - self.enoshift_skn[spin][ibzkpt1, n]
                                 else:
                                     rho_G[0] = 0.
+                                rho0G_Gv = np.outer(rho_G.conj(), rhoG0_v)
+                                rhoG0_Gv = np.outer(rho_G, rhoG0_v.conj())
+                                rho0G_Gv[0,:] = rhoG0_v * rhoG0_v.conj()
+                                rhoG0_Gv[0,:] = rhoG0_v * rhoG0_v.conj()
+
                                 if self.timing: timer.end('opt')
 
 
@@ -594,12 +604,6 @@ class Chi(BaseChi):
     
                             if k_pad:
                                 rho_G[:] = 0.
-
-                            if self.optical_limit:
-                                rho0G_Gv = np.outer(rho_G.conj(), rhoG0_v)
-                                rhoG0_Gv = np.outer(rho_G, rhoG0_v.conj())
-                                rho0G_Gv[0,:] = rhoG0_v * rhoG0_v.conj()
-                                rhoG0_Gv[0,:] = rhoG0_v * rhoG0_v.conj()
 
                             if not self.hilbert_trans:
                                 if not use_zher:
@@ -649,7 +653,7 @@ class Chi(BaseChi):
 
                                     if use_zher:
                                         if not self.cuda:
-                                            if self.nkpt % self.kcomm.size ==0:
+                                            if self.kd.nbzkpts % self.kcomm.size ==0:
                                                 C_wu[iw, imultix] = C.real
                                                 if iw == 0:
                                                     alpha_wu[iw, imultix] = np.sqrt(-C_wu[iw, imultix])
@@ -754,12 +758,12 @@ class Chi(BaseChi):
                         chi0_wGG[iw] = chi0_wGG[iw].conj()
                         if np.isnan(chi0_wGG[iw]).any():
                             self.printtxt('chi0 has nan result !')
-                if self.optical_limit:
-                    self.kcomm.sum(self.chi0G0_wGv[iw])
-                    self.kcomm.sum(self.chi00G_wGv[iw])
-
                     cu.chi_free(self)
                     cu.paw_free()
+                else: 
+                    if self.optical_limit:
+                        self.kcomm.sum(self.chi0G0_wGv[iw])
+                        self.kcomm.sum(self.chi00G_wGv[iw])
                     
                 for iw in range(self.Nw_local):
                     self.kcomm.sum(chi0_wGG[iw])
@@ -828,7 +832,7 @@ class Chi(BaseChi):
                 self.chi0G0_wGv = hilbert_transform(specfuncG0_wGv, self.w_w, self.Nw, self.dw, self.eta,
                                              self.full_hilbert_trans)[self.wstart:self.wend]
 
-        if self.optical_limit:
+        if not self.cuda and self.optical_limit:
             self.chi00G_wGv /= self.vol
             self.chi0G0_wGv /= self.vol
 
@@ -886,7 +890,7 @@ class Chi(BaseChi):
 
         self.kcomm, self.wScomm, self.wcomm = set_communicator(world, rank, size, self.kcommsize)
 
-        if self.nkpt % self.kcomm.size ==0:
+        if self.kd.nbzkpts % self.kcomm.size ==0:
             self.nkpt_reshape = self.kd.nbzkpts
             self.nkpt_reshape, self.nkpt_local, self.kstart, self.kend = parallel_partition(
                                self.nkpt_reshape, self.kcomm.rank, self.kcomm.size, reshape=True, positive=True)

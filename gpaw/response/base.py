@@ -133,6 +133,7 @@ class BaseChi:
         gd = calc.wfs.gd.new_descriptor(comm=serial_comm)
         self.pbc = gd.pbc_c
         self.gd = gd
+        self.nG = gd.N_c
         self.nG0 = np.prod(gd.N_c)
         # Number of grid points and volume including zero padding
         self.nGrpad = gd.N_c * self.rpad
@@ -546,8 +547,8 @@ class BaseChi:
         calc = self.calc
         kd = self.calc.wfs.kd
         spos_ac = self.spos_ac
-        if Ptmp_ai is not None:
-            assert type(n_n) is int
+#        if Ptmp_ai is not None:
+#            assert type(n_n) is int
         
         ibzkpt = kd.bz2ibz_k[k]
         u = ibzkpt + kd.nibzkpts * spin
