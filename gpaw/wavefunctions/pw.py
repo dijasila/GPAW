@@ -730,6 +730,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         sigma_vv = np.zeros((3, 3), dtype=complex)
         pd = self.pd
         dOmega = pd.gd.dv / pd.gd.N_c.prod()
+        if pd.dtype == float:
+            dOmega *= 2
         K_qv = self.pd.K_qv
         for kpt in self.kpt_u:
             G_Gv = pd.G_Qv[pd.Q_qG[kpt.q]]
