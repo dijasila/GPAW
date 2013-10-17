@@ -66,15 +66,15 @@ This is only relevant for the terms with :math:`n = m`, as otherwise the pair de
 
 Frequency integration
 =====================
- :math:`\rightarrow` ``w = np.array([wlin, wmax, dw])``
+ :math:`\rightarrow` ``w = (wlin, wmax, dw)``
 
 
 The frequency integration is performed numerically on a user-defined grid for positive values only. This is done by rewriting the integral as:
 
 .. math:: & \int\limits_{-\infty}^\infty\!d\omega'\, \frac{W(\omega')}{\omega + \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} \pm i \eta}\\
- =& \int\limits_{0}^\infty\!d\omega'\, W(\omega') \left(\frac{1}{\omega + \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} \pm i \eta} + \frac{1}{\omega - \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} \pm i \eta}\right) - \frac{1}{\omega - \epsilon_{m \, \mathbf{k} - \mathbf{q}} \pm i \eta}
+ =& \int\limits_{0}^\infty\!d\omega'\, W(\omega') \left(\frac{1}{\omega + \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} \pm i \eta} + \frac{1}{\omega - \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} \pm i \eta}\right)
 
-with the use of :math:`W(\omega') = W(-\omega')` The last term corrects for the double counting of :math:`\omega' = 0`.
+with the use of :math:`W(\omega') = W(-\omega')`.
 
 The frequency grid is defined by an array of three values: :math:`[\omega_{\text{lin}}, \omega_{\text{max}}, \Delta\omega]`. This creates a linear grid from :math:`0` to :math:`\omega_{\text{lin}}` with a spacing :math:`\Delta\omega`. Above :math:`\omega_{\text{lin}}`, the spacing increases linearly with every step up to the maximum frequency :math:`\omega_{\text{max}}`. All values are in eV. The maximum frequency has to be bigger than the largest transition energy :math:`|\epsilon_{n \, \mathbf{k}} - \epsilon_{m \, \mathbf{k} - \mathbf{q}}|` included in the calculation. 
 
