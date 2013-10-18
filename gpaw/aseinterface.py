@@ -91,6 +91,9 @@ class GPAW(PAW):
         if not (self.initialized and self.scf.converged):
             return True
 
+        if 'dipole' in quantities:
+            return True
+            
         if (len(atoms) != len(self.atoms) or
             (atoms.get_positions() != self.atoms.get_positions()).any() or
             (atoms.get_atomic_numbers() !=
