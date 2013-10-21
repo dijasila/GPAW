@@ -89,7 +89,6 @@ class FXCCorrelation:
                                    directions=None,
                                    skip_gamma=False,
                                    ecut=10,
-                                   smooth_cut=None,
                                    nbands=None,
                                    gauss_legendre=None,
                                    frequency_cut=None,
@@ -99,7 +98,6 @@ class FXCCorrelation:
             
         self.initialize_calculation(w,
                                     ecut,
-                                    smooth_cut,
                                     nbands,
                                     kcommsize,
                                     gauss_legendre,
@@ -141,7 +139,7 @@ class FXCCorrelation:
                             density_cut=self.density_cut)
             kernel.calculate_fhxc(directions=[d[0] for d in directions])
             del kernel
-
+ 
         for index, q in zip(range(len(E_q), len(self.ibz_q_points)),
                             self.ibz_q_points[len(E_q):]):
             if abs(np.dot(q, q))**0.5 < 1.e-5:
@@ -185,16 +183,18 @@ class FXCCorrelation:
                 direction=0,
                 integrated=True,
                 ecut=10,
-                smooth_cut=None,
                 nbands=None,
                 gauss_legendre=None,
                 frequency_cut=None,
                 frequency_scale=None,
                 w=None):
 
-        self.initialize_calculation(w, ecut, smooth_cut,
-                                    nbands, kcommsize,
-                                    gauss_legendre, frequency_cut,
+        self.initialize_calculation(w,
+                                    ecut,
+                                    nbands,
+                                    kcommsize,
+                                    gauss_legendre,
+                                    frequency_cut,
                                     frequency_scale)
         E_q = self.E_q(q,
                        direction=direction,
@@ -224,7 +224,7 @@ class FXCCorrelation:
 
         if self.xc[0] == 'r':
             name = self.xc + '_' + self.method + '_' + self.tag
-            if optical_limit:# and self.method == 'solid':
+            if optical_limit:
                 r = Reader('fhxc_%s_%s_0%s.gpw' % (name, self.ecut, direction))
             else:
                 r = Reader('fhxc_%s_%s_%s.gpw' % (name, self.ecut, index))
@@ -263,7 +263,6 @@ class FXCCorrelation:
                 txt=txt,
                 w=self.w * 1j,
                 ecut=self.ecut,
-                smooth_cut=self.smooth_cut,
                 G_plus_q=True,
                 density_cut=self.density_cut,
                 kcommsize=self.kcommsize,
@@ -329,9 +328,14 @@ class FXCCorrelation:
             return E_q_w.real               
 
 
-    def initialize_calculation(self, w, ecut, smooth_cut,
-                               nbands, kcommsize,
-                               gauss_legendre, frequency_cut, frequency_scale):
+    def initialize_calculation(self,
+                               w,
+                               ecut,
+                               nbands,
+                               kcommsize,
+                               gauss_legendre,
+                               frequency_cut,
+                               frequency_scale):
         if kcommsize is None:
             if len(self.calc.wfs.bzk_kc) == 1:
                 kcommsize = 1
@@ -372,7 +376,6 @@ class FXCCorrelation:
         dummy.initialize(simple_version=True)
             
         self.ecut = ecut
-        self.smooth_cut = smooth_cut
         self.w = w
         self.gauss_legendre = gauss_legendre
         self.frequency_cut = frequency_cut
@@ -389,9 +392,6 @@ class FXCCorrelation:
               + ' with % s Gauss-Legendre points' % self.lambda_points
         print >> self.txt
         print >> self.txt, 'Planewave cutoff              : %s eV' % ecut
-        if self.smooth_cut is not None:
-            print >> self.txt, 'Smooth cutoff from            : %s x cutoff' \
-                  % self.smooth_cut
         print >> self.txt, 'Number of Planewaves at Gamma : %s' % dummy.npw
         if self.nbands is None:
             print >> self.txt, 'Response function bands       :' \
@@ -506,10 +506,8 @@ class FXCCorrelation:
 
     def get_C6_coefficient(self,
                            ecut=100.,
-                           smoothcut=None,
                            nbands=None,
                            kcommsize=None,
-                           extrapolate=False,
                            gauss_legendre=None,
                            frequency_cut=None,
                            frequency_scale=None,
@@ -517,10 +515,8 @@ class FXCCorrelation:
 
         self.initialize_calculation(None,
                                     ecut,
-                                    None,
                                     nbands,
                                     kcommsize,
-                                    extrapolate,
                                     gauss_legendre,
                                     frequency_cut,
                                     frequency_scale)

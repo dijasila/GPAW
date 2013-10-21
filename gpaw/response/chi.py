@@ -45,7 +45,6 @@ class CHI(BASECHI):
                  q=None,
                  eshift=None,
                  ecut=10.,
-                 smooth_cut=None,
                  density_cut=None,
                  G_plus_q=False,
                  eta=0.2,
@@ -61,7 +60,7 @@ class CHI(BASECHI):
                  kcommsize=None):
 
         BASECHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q,
-                         eshift=eshift, ecut=ecut, smooth_cut=smooth_cut,
+                         eshift=eshift, ecut=ecut,
                          density_cut=density_cut, G_plus_q=G_plus_q, eta=eta,
                          rpad=rpad, ftol=ftol, txt=txt,
                          optical_limit=optical_limit)
@@ -508,10 +507,6 @@ class CHI(BASECHI):
         self.chi0_wGG = chi0_wGG
         self.chi0_wGG /= self.vol
 
-        if self.smooth_cut is not None:
-            for iw in range(self.Nw_local):
-                self.chi0_wGG[iw] *= np.outer(self.G_weights, self.G_weights)
-            
         self.printtxt('')
         self.printtxt('Finished chi0 !')
 
