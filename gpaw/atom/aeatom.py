@@ -402,6 +402,12 @@ class AllElectronAtom:
                 f0 = min(f, 2 * l + 1)
                 self.f_lsn[l][0].append(f0)
                 self.f_lsn[l][1].append(f - f0)
+                
+        if 0:
+            n = 2 + len(self.f_lsn[2][0])
+            if self.f_lsn[0][0][n] == 2:
+                self.f_lsn[0][0][n] = 1
+                self.f_lsn[2][0][n - 3] += 1
 
     def add(self, n, l, df=+1, s=None):
         """Add (remove) electrons."""

@@ -3,7 +3,7 @@ import sys
 from math import pi, exp, sqrt, log
 
 import numpy as np
-from scipy.optimize import fsolve
+from scipy.optimize import fsolve, root
 from scipy import __version__ as scipy_version
 from ase.utils import prnt, devnull
 from ase.units import Hartree
@@ -514,8 +514,9 @@ class PAWSetupGenerator:
         self.vHtr_g = self.rgd.poisson(self.rhot_g)
 
         self.vxct_g = self.rgd.zeros()
+        nt_sg = self.nt_g.reshape((1, -1))
         self.exct = self.aea.xc.calculate_spherical(
-            self.rgd, self.nt_g.reshape((1, -1)), self.vxct_g.reshape((1, -1)))
+            self.rgd, nt_sg, self.vxct_g.reshape((1, -1)))
 
         self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
         self.v0r_g[self.rgd.round(self.rcmax):] = 0.0
@@ -549,7 +550,21 @@ class PAWSetupGenerator:
         self.log('Constructing smooth local potential for r < %.3f' % r0)
         g0 = self.rgd.ceil(r0)
 
-        self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+        r_g = self.rgd.r_g
+        if 1:
+            self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+        else:
+            # Use bessel function:
+            r0 = r_g[g0]
+            v_g = self.aea.vr_sg[0, g0 - 1:g0 + 2] / r_g[g0 - 1:g0 + 2]
+            v0 = v_g[1]
+            v1 = (v_g[2] - v_g[0]) / 2 / self.rgd.dr_g[g0]
+            def f(x):
+                return x / np.tan(x) - 1 - v1 * r0 / v0
+            q = root(f, 2).x / r0
+            A = v0 * r0 / np.sin(q * r0)
+            self.vtr_g = self.aea.vr_sg[0].copy()
+            self.vtr_g[:g0] = A * np.sin(q * r_g[:g0])
 
     def match_local_potential(self, r0, P):
         l0 = self.l0
@@ -1181,7 +1196,8 @@ def generate(argv=None):
     add('-b', '--create-basis-set', action='store_true')
     add('--core-hole')
     add('-e', '--electrons', type=int)
-
+    add('-o', '--output')
+    
     opt, symbols = parser.parse_args(argv)
 
     for symbol in symbols:
@@ -1291,22 +1307,31 @@ def get_parameters(symbol, opt):
             nderiv0 = 2
             r0 = extra.get('r0', min(radii))
 
+    if opt.pseudo_core_density_radius:
+        rcore = opt.pseudo_core_density_radius
+    else:
+        rcore = extra.get('rcore')
+        
     return dict(symbol=symbol,
                 xc=opt.xc_functional,
                 projectors=projectors,
                 radii=radii,
                 scalar_relativistic=opt.scalar_relativistic, alpha=opt.alpha,
                 r0=r0, nderiv0=nderiv0,
-                pseudize=pseudize, rcore=opt.pseudo_core_density_radius,
-                core_hole=opt.core_hole)
+                pseudize=pseudize, rcore=rcore,
+                core_hole=opt.core_hole,
+                output=opt.output)
 
 
 def _generate(symbol, xc, projectors, radii,
               scalar_relativistic, alpha,
               r0, nderiv0,
-              pseudize, rcore, core_hole):
-    aea = AllElectronAtom(symbol, xc)
-    gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole)
+              pseudize, rcore, core_hole, output):
+    if output is not None:
+        output = open(output, 'w')
+    aea = AllElectronAtom(symbol, xc, log=output)
+    gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
+                            fd=output)
 
     gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
@@ -1329,6 +1354,7 @@ def generate_all():
         electrons = name[n:]
         if atoms and symbol not in atoms:
             continue
+        print name,symbol,electrons
         for xc in functionals:
             argv = [symbol, '-swf', xc, '-e', electrons, '-t', electrons + 'e']
             if xc == 'PBE':
