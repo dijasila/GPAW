@@ -17,31 +17,33 @@ def v3D_Coulomb(qG):
     """Coulomb Potential in the 3D Periodic Case.
     
     Periodic calculation, no cutoff.
+
+    ::
     
-    v3D = 1/∣𝐪+𝐆∣²
+      v3D = 4 pi / |q+G|^2
     """
     
     v_q = 1. / (qG**2).sum(axis=1)
     return v_q
 
 
-def v2D_Coulomb(qG, N_p, N_np, R):  # , integrated=False):
+def v2D_Coulomb(qG, N_p, N_np, R):
     """Coulomb Potential in the 2D Periodic Case.
 
     Slab/Surface/Layer calculation.
     Cutoff in non-periodic N_np direction.
     No cutoff in periodic N_p directions.
 
-    v2D = 1/∣𝐪+𝐆∣²×[1 + exp(-∣𝐪+𝐆∥∣𝑅)[∣𝐆⊥∣/∣𝐪+𝐆∥∣×sin(∣𝐆⊥∣𝑅) - cos(∣𝐆⊥∣𝑅)]]
+    ::
+
+      v2D = 4 pi/|q+G|^2 * [1 + exp(-|G_p|R)*[(G_n/|G_p|)*sin(G_n R)
+                                                        - cos(G_n R)]
     """
 
     G_nR = qG[:, N_np[0]] * R
     G_pR = (qG[:, N_p[0]]**2 + qG[:, N_p[1]]**2)**0.5 * R
 
     v_q = 1. / (qG**2).sum(axis=1)
-    # if not integrated:
-    #    v_q *= 1. - np.exp(-G_pR) * np.cos(G_nR)
-    # else:
     v_q *= 1. + np.exp(-G_pR) * ((G_nR / G_pR) * np.sin(G_nR)
                                  - np.cos(G_nR))
     return v_q.astype(complex)
@@ -54,8 +56,10 @@ def v1D_Coulomb(qG, N_p, N_np, R):
     Cutoff in non-periodic N_np directions.
     No cutoff in periodic N_p direction.
 
-    v1D = 1/∣𝐪+𝐆∣²×[1 + ∣𝐆⊥∣𝑅 J₁(∣𝐆⊥∣𝑅) Kₒ(∣𝐪+𝐆∥∣𝑅)
-    - ∣𝐪+𝐆∥∣𝑅 Jₒ(∣𝐆⊥∣𝑅) K₁(∣𝐪+𝐆∥∣𝑅)]
+    ::
+    
+      v1D = 4 pi/|q+G|^2 * [1 + |G_n|R J_1(|G_n|R) K_0(G_p R)
+                              - G_p R J_0(|G_n| R) K_1(G_p R)]
     """
 
     from scipy.special import j1, k0, j0, k1
@@ -74,7 +78,9 @@ def v0D_Coulomb(qG, R):
     Isolated System/Molecule calculation.
     Spherical cutoff in all directions.
 
-    v0D = 1/∣𝐪+𝐆∣²×[1 - cos(∣𝐪+𝐆∣𝑅)]
+    ::
+
+      v0D = 4 pi/|G|^2 * [1 - cos(|G|R)]
     """
 
     qGR = ((qG.sum(axis=1))**2)**0.5 * R
@@ -124,10 +130,7 @@ class CoulombKernel3D(BaseCoulombKernel):
     """
     def v_Coulomb(self, qG):
         """Coulomb Potential in the 3D Periodic Case.
-
         Periodic calculation, no cutoff.
-
-        v3D = 1/∣𝐪+𝐆∣²
         """
         return v3D_Coulomb(qG)
 
@@ -140,7 +143,6 @@ class CoulombKernel2D(BaseCoulombKernel):
     Cutoff in non-periodic N_np direction.
     No cutoff in periodic N_p directions.
     R = 1/2 max cell[N_np].
-
     """
     def __init__(self, vcut, cell):
         # Periodic Directions
@@ -157,8 +159,6 @@ class CoulombKernel2D(BaseCoulombKernel):
         Slab/Surface/Layer calculation.
         Cutoff in non-periodic N_np direction.
         No cutoff in periodic N_p directions.
-
-        v2D = 1/∣𝐪+𝐆∣²×[1 + exp(-∣𝐪+𝐆∥∣𝑅)[∣𝐆⊥∣/∣𝐪+𝐆∥∣×sin(∣𝐆⊥∣𝑅) - cos(∣𝐆⊥∣𝑅)]]
         """
         
         return v2D_Coulomb(qG, self.N_p, self.N_np, self.R)
@@ -172,7 +172,6 @@ class CoulombKernel1D(BaseCoulombKernel):
     Cutoff in non-periodic N_np directions.
     No cutoff in periodic N_p direction.
     R = 1/2 max cell[N_np].
-
     """
     def __init__(self, vcut, cell):
         from scipy.special import j1, k0, j0, k1
@@ -195,9 +194,6 @@ class CoulombKernel1D(BaseCoulombKernel):
         Nanotube/Nanowire/Atomic Chain calculation.
         Cutoff in non-periodic N_np directions.
         No cutoff in periodic N_p direction.
-
-        v1D = 1/∣𝐪+𝐆∣²×[1 + ∣𝐆⊥∣𝑅 J₁(∣𝐆⊥∣𝑅) Kₒ(∣𝐪+𝐆∥∣𝑅)
-        - ∣𝐪+𝐆∥∣𝑅 Jₒ(∣𝐆⊥∣𝑅) K₁(∣𝐪+𝐆∥∣𝑅)]
         """
 
         return v1D_Coulomb(qG, self.N_p, self.N_np, self.R)
@@ -209,8 +205,7 @@ class CoulombKernel0D(BaseCoulombKernel):
     Isolated System/Molecule calculation.
     vcut = [True, True, True].
     Spherical cutoff in all directions.
-    R = 1/2 max cell.
-    
+    R = 1/2 max cell.    
     """
     def __init__(self, vcut, cell):
         self.R = max(np.diag(cell)) / 2.
@@ -221,8 +216,6 @@ class CoulombKernel0D(BaseCoulombKernel):
 
         Isolated System/Molecule calculation.
         Spherical cutoff in all directions.
-
-        v0D = 1/∣𝐪+𝐆∣²×[1 - cos(∣𝐪+𝐆∣𝑅)]
         """
 
         return v0D_Coulomb(qG, self.R)
@@ -614,8 +607,9 @@ def calculate_Kc_q(acell_cv,
     bvol = np.abs(np.linalg.det(bcell))
 
     gamma = np.where(np.sum(abs(q_qc), axis=1) < 1e-5)[0][0]
-    if (Gvec_c == 0).all():
-        q_qc[gamma] = [0.001, 0., 0.]  # Just to avoid zero division
+
+    if (Gvec_c[G_p] == 0).all():
+        q_qc[gamma][G_p[0]] = 1.e-12  # Just to avoid zero division
 
     q_qc[:, 0] += Gvec_c[0]
     q_qc[:, 1] += Gvec_c[1]
