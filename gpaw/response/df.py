@@ -16,7 +16,6 @@ class DF(CHI):
                  q=None,
                  eshift=None,
                  ecut=10.,
-                 smooth_cut=None,
                  density_cut=None,
                  G_plus_q=False,
                  eta=0.2,
@@ -33,7 +32,7 @@ class DF(CHI):
                  kcommsize=None):
 
         CHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q, eshift=eshift,
-                     ecut=ecut, smooth_cut=smooth_cut, density_cut=density_cut,
+                     ecut=ecut, density_cut=density_cut,
                      G_plus_q=G_plus_q, eta=eta, rpad=rpad, vcut=vcut,
                      ftol=ftol, txt=txt, xc=xc, hilbert_trans=hilbert_trans,
                      time_ordered=time_ordered, optical_limit=optical_limit,

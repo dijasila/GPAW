@@ -32,7 +32,6 @@ class BASECHI:
                  q=None,
                  eshift=None,
                  ecut=10.,
-                 smooth_cut=None,
                  density_cut=None,
                  G_plus_q=False,
                  eta=0.2,
@@ -87,7 +86,6 @@ class BASECHI:
         else:
             assert len(ecut) == 3
             self.ecut = np.array(ecut, dtype=float)
-        self.smooth_cut = smooth_cut
         self.density_cut = density_cut
         self.G_plus_q = G_plus_q
         self.rpad = rpad
@@ -179,15 +177,6 @@ class BASECHI:
                                                                  self.bcell_cv,
                                                                  self.gd.N_c,
                                                                  self.ecut)
-        if self.smooth_cut is not None:
-            G_weights = np.ones(self.npw)
-            for iG in range(self.npw):
-                G = np.dot(self.Gvec_Gc[iG] + self.q_c, self.bcell_cv)
-                E = np.dot(G, G) / 2.
-                if E > self.smooth_cut * self.ecut[0]:
-                    x = np.pi*(E/self.ecut[0] - self.smooth_cut) / (1. - self.smooth_cut)
-                    G_weights[iG] = 0.5 * (1. + np.cos(x))
-            self.G_weights = G_weights
 
         # band init
         if self.nbands is None:

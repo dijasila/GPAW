@@ -24,13 +24,11 @@ calc.diagonalize_full_hamiltonian(nbands=50)
 
 rpa = RPACorrelation(calc)
 E_rpa = rpa.get_rpa_correlation_energy(ecut=50,
-                                       kcommsize=world.size,
                                        skip_gamma=True,
                                        gauss_legendre=8)
 
 fxc = FXCCorrelation(calc, xc='RPA')
 E_fxc = fxc.get_fxc_correlation_energy(ecut=50,
-                                       kcommsize=world.size,
                                        skip_gamma=True,
                                        gauss_legendre=8)
 

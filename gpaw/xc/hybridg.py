@@ -26,13 +26,14 @@ class HybridXC(HybridXCBase):
     orbital_dependent = True
 
     def __init__(self, name, hybrid=None, xc=None,
-                 alpha=None, 
+                 alpha=None,
                  gamma_point=1,
                  method='standard',
                  bandstructure=False,
                  logfilename='-', bands=None,
                  fcut=1e-10,
                  molecule=False,
+                 qstride=1,
                  world=None):
         """Mix standard functionals with exact exchange.
 
@@ -93,6 +94,10 @@ class HybridXC(HybridXCBase):
         self.world = world
 
         self.molecule = molecule
+        
+        if isinstance(qstride, int):
+            qstride = [qstride] * 3
+        self.qstride_c = np.asarray(qstride)
         
         self.timer = Timer()
 
@@ -202,15 +207,17 @@ class HybridXC(HybridXCBase):
             kcell_cv[2] *= N_c[2]
             #qvol = (2*np.pi)**3 / vol / N_c.prod()
             #self.gamma = 4*np.pi * (3*qvol / (4*np.pi))**(1/3.) / qvol
-            self.gamma = madelung(kcell_cv) * vol * N_c.prod() / (4*np.pi)
+            self.gamma = madelung(kcell_cv) * vol * N_c.prod() / (4 * np.pi)
 
         self.log('Value of alpha parameter: %.3f Bohr^2' % alpha)
         self.log('Value of gamma parameter: %.3f Bohr^2' % self.gamma)
             
         # Construct all possible q=k2-k1 vectors:
-        i_qc = np.indices(N_c * 2 - 1).transpose((1, 2, 3, 0)).reshape((-1, 3))
-        self.bzq_qc = (i_qc - N_c + 1.0) / N_c
-        self.q0 = ((N_c * 2 - 1).prod() - 1) // 2  # index of q=(0,0,0)
+        Nq_c = (N_c - 1) // self.qstride_c
+        i_qc = np.indices(Nq_c * 2 + 1, float).transpose(
+            (1, 2, 3, 0)).reshape((-1, 3))
+        self.bzq_qc = (i_qc - Nq_c) / N_c * self.qstride_c
+        self.q0 = ((Nq_c * 2 + 1).prod() - 1) // 2  # index of q=(0,0,0)
         assert not self.bzq_qc[self.q0].any()
 
         # Count number of pairs for each q-vector:
@@ -391,7 +398,7 @@ class HybridXC(HybridXCBase):
             if G2_G[0] < 1e-7:
                 G2_G = G2_G[1:]
             gamma -= np.dot(np.exp(-alpha * G2_G), G2_G**-1)
-        return gamma
+        return gamma / self.qstride_c.prod()
 
     def indices(self, s, k1, k2):
         """Generator for (K2, q, n1, n2) indices for (k1, k2) pair.
@@ -490,7 +497,7 @@ class HybridXC(HybridXCBase):
                                          eik20r_R, eik2r_R,
                                          is_ibz2)
 
-        e_n *= 1.0 / self.kd.nbzkpts / self.wfs.nspins
+        e_n *= 1.0 / self.kd.nbzkpts / self.wfs.nspins * self.qstride_c.prod()
 
         if q == self.q0:
             e_n[n1_n == n2] *= 0.5
@@ -530,9 +537,9 @@ class HybridXC(HybridXCBase):
         # Transform to real space and apply symmetry operation:
         self.timer.start('IFFT1')
         if is_ibz2:
-            u2_R = self.pd.ifft(kpt2.psit_nG[n2, : ng2], kpt2.k)
+            u2_R = self.pd.ifft(kpt2.psit_nG[n2, :ng2], kpt2.k)
         else:
-            psit2_R = self.pd.ifft(kpt2.psit_nG[n2, : ng2], kpt2.k) * eik20r_R
+            psit2_R = self.pd.ifft(kpt2.psit_nG[n2, :ng2], kpt2.k) * eik20r_R
             self.timer.start('Symmetry transform')
             u2_R = self.kd.transform_wave_function(psit2_R, k) / eik2r_R
             self.timer.stop()
