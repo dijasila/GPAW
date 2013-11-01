@@ -84,10 +84,10 @@ class Chi0:
     def calculate(self, q_c):
         wfs = self.calc.wfs
 
-        if self.eta == 0:
-            update = self.update_hermetian_chi0
+        if self.eta == 0.0:
+            update = self.update_chi0_hermetian
         elif self.hilbert:
-            update = self.update_hilbert
+            update = self.update_chi0_hilbert
         else:
             update = self.update_chi0
             
@@ -124,13 +124,13 @@ class Chi0:
                     
         world.sum(chi0_wGG)
         
-        if self.eta == 0:
+        if self.eta == 0.0:
             il = np.tril_indices(nG, -1)
             iu = il[::-1]
             for chi0_GG in chi0_wGG:
                 chi0_GG[il] = chi0_GG[iu]
                 
-        if self.hilbert:
+        elif self.hilbert:
             for G in range(nG):
                 chi0_wGG[:, :, G] = np.dot(A_ww, chi0_wGG[:, :, G])
         
@@ -144,11 +144,20 @@ class Chi0:
             gemm(self.prefactor, n_mG.conj(), np.ascontiguousarray(x_mG.T),
                  1.0, chi0_wGG[w])
 
-    def update_hermitian_chi0(self, n_mG, omega_m, chi0_wGG):
+    def update_chi0_hermitian(self, n_mG, omega_m, chi0_wGG):
         for w, omega in enumerate(self.omega_w):
-            x_m = (omega_m / (omega**2 + omega_m**2))**0.5
+            x_m = (2 * omega_m / (omega**2 + omega_m**2))**0.5
             x_mG = n_mG * x_m[:, np.newaxis]
             rk(self.prefactor, x_mG, 1.0, chi0_wGG[w])
+
+    def update_chi0_hilbert(self, n_mG, omega_m, chi0_wGG):
+        domega = self.omega_w[1]
+        for omega, n_G in zip(omega_m, n_mG):
+            w = omega / domega
+            iw = int(w)
+            weights = np.array([[1 - w + iw], [w - iw]])
+            x_2G = n_G * weights**0.5
+            rk(self.prefactor, x_2G, 1.0, chi0_wGG[iw:iw + 2])
 
     def calculate_pair_densities(self, utcc_R, C_aGi, ut_mR, P_ami,
                                  m1, m2, pd, Q_G):
@@ -220,7 +229,8 @@ class Chi0:
         q_v = pd.K_qv[0]
         G_Gv = pd.G_Qv[pd.Q_qG[0]] + q_v
         pos_av = np.dot(self.spos_ac, pd.gd.cell_cv)
-            
+          
+        # Collect integrals for all species:
         Q_xGii = {}
         for id, atomdata in wfs.setups.setups.items():
             Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
@@ -229,6 +239,7 @@ class Chi0:
         
         self.Q_aGii = []
         for a, atomdata in enumerate(wfs.setups):
-            Q_Gii = Q_xGii[wfs.setups.id_a[a]]
+            id = wfs.setups.id_a[a]
+            Q_Gii = Q_xGii[id]
             x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
             self.Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
