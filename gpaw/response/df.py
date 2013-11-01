@@ -62,7 +62,8 @@ class DF(Chi):
                               dir=None,
                               initialized=False,
                               mstart=None,
-                              mend=None):
+                              mend=None,
+                              rc=None):
 
     	if self.chi0_wGG is None and chi0_wGG is None:
             if not initialized:
@@ -125,21 +126,21 @@ class DF(Chi):
             self.chi0_wGG[:,0,:] = self.chi00G_wGv[:,:,dir]
             self.chi0_wGG[:,:,0] = self.chi0G0_wGv[:,:,dir]
         
-        from gpaw.response.kernel import calculate_Kc, CoulombKernel
-        kernel = CoulombKernel(vcut=self.vcut,
-                               pbc=self.calc.atoms.pbc,
-                               cell=self.acell_cv)
-        self.Kc_GG = kernel.calculate_Kc(q_c,
-                                         self.Gvec_Gc,
-                                         self.bcell_cv,
-                                         symmetric=symmetric)
-        #self.Kc_GG = calculate_Kc(q_c,
-        #                          self.Gvec_Gc,
-        #                          self.acell_cv,
-        #                          self.bcell_cv,
-        #                          self.pbc,
-        #                          self.vcut,
-        #                          symmetric=symmetric)
+#        from gpaw.response.kernel import calculate_Kc, CoulombKernel
+#        kernel = CoulombKernel(vcut=self.vcut,
+#                               pbc=self.calc.atoms.pbc,
+#                               cell=self.acell_cv)
+#        self.Kc_GG = kernel.calculate_Kc(q_c,
+#                                         self.Gvec_Gc,
+#                                         self.bcell_cv,
+#                                         symmetric=symmetric)
+
+#        rc = 0.5
+        Kc_G = np.zeros(self.npw)
+        for iG in range(self.npw):
+            qG = np.dot(q_c + self.Gvec_Gc[iG], self.bcell_cv)
+            Kc_G[iG] = np.sqrt( np.exp(-rc**2 * np.dot(qG, qG) / 4.) / np.dot(qG, qG)) 
+        self.Kc_GG = 4 * pi * np.outer(Kc_G.conj(), Kc_G)
 
         tmp_GG = np.eye(self.npw, self.npw)
 

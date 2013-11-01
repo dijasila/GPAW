@@ -73,6 +73,7 @@ class RPACorrelation:
                                    directions=None,
                                    skip_gamma=False,
                                    ecutlist=[10., 20., 30.],
+                                   rc=0.0, # range separation
                                    smooth_cut=None,
                                    nbands=None,
                                    gauss_legendre=None,
@@ -84,6 +85,7 @@ class RPACorrelation:
 
         self.ecutlist_e = np.sort(ecutlist)
         self.necut = len(self.ecutlist_e)
+        self.rc = rc
         ecut = max(self.ecutlist_e)
             
         self.initialize_calculation(w,
@@ -303,7 +305,7 @@ class RPACorrelation:
             else:
                 overwritechi0 = False
             e_wGG = df.get_dielectric_matrix(xc='RPA',overwritechi0=overwritechi0,
-                                             initialized=True, mstart=mstart, mend=mend)
+                                             initialized=True, mstart=mstart, mend=mend, rc=self.rc)
             for i in range(Nw_local):
                 if ecut == max(self.ecutlist_e):
                     local_E_q_we[i, iecut] = (np.log(np.linalg.det(e_wGG[i]))
