@@ -1,8 +1,4 @@
-"""Todo:
-
-* metals
-* optical limit
-"""
+"""Todo: optical limit, Hilbert transform"""
 
 import sys
 from math import pi
@@ -45,7 +41,7 @@ class Chi0:
         self.eps_kn = None  # eigenvalues
         self.f_kn = None  # occupation numbers
         self.P_kani = None  # PAW projections
-        self.shift_k = None  # long story - see get_symmetry_operators()
+        self.shift_kc = None  # long story - see construct_symmetry_operators()
         self.initialize_occupied_states()
         
         vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
@@ -118,7 +114,8 @@ class Chi0:
         
         return ut_nR, eps_n, f_n, P_ani, shift_c
     
-    def calculate(self, q_c, chi0_wGG=None, nocc1=None, nbands=None):
+    def calculate(self, q_c, chi0_wGG=None, nocc1=None, nbands=None,
+                  direction=None):
         wfs = self.calc.wfs
 
         if self.eta == 0.0:
@@ -227,6 +224,28 @@ class Chi0:
         return Q_G
         
     def construct_symmetry_operators(self, K):
+        """Construct symmetry operators for wave function and PAW projections.
+        
+        We want to transform a k-point in the irreducible part of the BZ to
+        the corresponding k-point with index K.
+        
+        Returns T, T_a and shift_c, where:
+            
+        * T() is a function that transforms the periodic part of the wave
+          function.
+        * T_a is a list of (b, U_ii, time_reversal) tuples (one for each
+          atom a), where:
+        
+          * b is the symmetry related atom index
+          * U_ii is a rotation matrix for the PAW projections
+          * time_reversal is a flag - if True, projections should be complex
+            conjugated
+            
+          See the get_k_point() method for how tu use these tuples.
+        
+        * shift_c is three integers: see code below.
+        """
+        
         wfs = self.calc.wfs
         kd = wfs.kd
 
@@ -237,8 +256,9 @@ class Chi0:
         k_c = kd.bzk_kc[K]
         ik_c = kd.ibzk_kc[ik]
         
-        shift_c = np.dot(U_cc, ik_c) - k_c * (1 - 2 * time_reversal)
-        assert (shift_c.round() == shift_c).all()
+        sign = 1 - 2 * time_reversal
+        shift_c = np.dot(U_cc, ik_c) - k_c * sign
+        assert np.allclose(shift_c.round(), shift_c)
         shift_c = shift_c.round().astype(int)
         
         if (U_cc == np.eye(3)).all():
