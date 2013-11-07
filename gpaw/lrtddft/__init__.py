@@ -95,7 +95,7 @@ class LrTDDFT(ExcitationList):
 
         if isinstance(calculator, str):
             ExcitationList.__init__(self, None, txt)
-            return self.read(calculator)
+            filename = calculator
         else:
             ExcitationList.__init__(self, calculator, txt)
 
@@ -103,7 +103,6 @@ class LrTDDFT(ExcitationList):
             return self.read(filename)
 
         self.filename = None
-        self.calculator = None
         self.eps = None
         self.xc = None
         self.derivative_level = None
@@ -123,7 +122,7 @@ class LrTDDFT(ExcitationList):
 
         self.eh_comm = eh_comm
  
-        if calculator is not None:
+        if calculator is not None and calculator.initialized:
             if calculator.wfs.kpt_comm.size > 1:
                 err_txt = "Spin parallelization with Linear response "
                 err_txt += "TDDFT. Use parallel = {'domain' : 'domain_only'} "

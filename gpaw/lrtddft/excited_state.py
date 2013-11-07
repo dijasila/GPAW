@@ -1,18 +1,23 @@
 """Excited state as calculator object."""
 
+from __future__ import print_function
+
+import sys
 import numpy as np
 
 from ase.units import Bohr, Hartree
 from ase.calculators.general import Calculator
-from ase.calculators.test import numeric_forces
+from ase.calculators.test import numeric_force
 from gpaw import GPAW
 from gpaw.density import RealSpaceDensity
 from gpaw.output import initialize_text_stream
-from gpaw.mpi import rank, world
+from gpaw import mpi
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
+from gpaw.utilities.timing import Timer
 
+from ase.parallel import distribute_cpus
 
 class FiniteDifferenceCalculator(Calculator):
     def __init__(self, lrtddft, d=0.001, txt=None, parallel=None):
@@ -21,20 +26,34 @@ class FiniteDifferenceCalculator(Calculator):
         parallel: Can be used to parallelize the numerical force 
         calculation over images
         """
+        self.timer = Timer()
+        world = mpi.world
         if lrtddft is not None:
             self.lrtddft = lrtddft
             self.calculator = self.lrtddft.calculator
-            self.timer = self.calculator.timer
+            if self.calculator.initialized:
+                world = self.calculator.wfs.world
             self.set_atoms(self.calculator.get_atoms())
 
             if txt is None:
                 self.txt = self.lrtddft.txt
             else:
-                rank = world.rank
-                self.txt, firsttime = initialize_text_stream(txt, rank)
+                self.txt, firsttime = initialize_text_stream(
+                    txt, world.rank)
                                                               
         self.d = d
-        self.parallel = parallel
+        self.parallel = {
+            'world' : world, 'mycomm' : world, 'ncalcs' : 1, 'icalc' : 0 } 
+        if isinstance(world, mpi.SerialCommunicator):
+            if parallel > 0:
+                print('#', (self.__class__.__name__ + ':'), 
+                      'Serial communicator, keyword parallel ignored.',
+                      file=self.txt)
+        elif parallel > 0:
+            mycomm, ncalcs, icalc = distribute_cpus(parallel, world)
+            self.parallel = { 'world' : world, 'mycomm' : mycomm, 
+                              'ncalcs' : ncalcs, 'icalc' : icalc }
+            self.calculator.set(communicator=mycomm)
 
     def calculate(self, atoms):
         redo = self.calculator.calculate(atoms)
@@ -50,7 +69,7 @@ class FiniteDifferenceCalculator(Calculator):
     def set(self, **kwargs):
         self.calculator.set(**kwargs)
 
-class ExcitedState(FiniteDifferenceCalculator,GPAW):
+class ExcitedState(FiniteDifferenceCalculator, GPAW):
     def __init__(self, lrtddft, index, d=0.001, txt=None,
                  parallel=None, name=None):
         """ExcitedState object.
@@ -69,14 +88,15 @@ class ExcitedState(FiniteDifferenceCalculator,GPAW):
         self.energy = None
         self.forces = None
 
-        print >> self.txt, 'ExcitedState', self.index,
+        print('#', self.__class__.__name__, self.index, file=self.txt)
         if name:
-            print >> self.txt, ('name=' + name),
-        print >> self.txt
+            print(('name=' + name), file=self.txt)
+        print(file=self.txt)
  
     def calculation_required(self, atoms, quantities):
         if len(quantities) == 0:
             return False
+##        print rank, "atoms != self.atoms",atoms != self.atoms, atoms.get_positions()
         if atoms != self.atoms:
             return True
         for quantity in ['energy', 'forces']:
@@ -104,22 +124,40 @@ class ExcitedState(FiniteDifferenceCalculator,GPAW):
         index = self.index.apply(self.lrtddft)
         return E0 + self.lrtddft[index].energy * Hartree
 
-    def get_forces(self, atoms):
+    def get_forces(self, atoms=None):
         """Get finite-difference forces"""
+        if atoms is None:
+            atoms = self.atoms
+        atoms.set_calculator(self.calculator)
+
         if self.calculation_required(atoms, ['forces']):
-            atoms.set_calculator(self)
-            name = self.name
-            if name:
-                name += 'force'
-            self.forces = numeric_forces(atoms, d=self.d, 
-                                         parallel=self.parallel,
-                                         name=name)
+            # do the ground state calculation to set all
+            # ranks to the same density to start with
+            self.calculator.get_potential_energy()
+
+            # get your tasks
+            tasks = []
+            mycomm = self.parallel['mycomm']
+            ncalcs = self.parallel['ncalcs']
+            icalc = self.parallel['icalc']
+            forces = np.zeros((len(atoms), 3))
+            i = 0
+            for ia, a in enumerate(self.atoms):
+                for ic in range(3):
+                    if (i % ncalcs) == icalc:
+                        forces[ia, ic] = numeric_force(
+                            atoms, ia, ic, self.d) / mycomm.size
+                    i += 1
+            self.parallel['world'].sum(forces)
+            self.forces = forces
+
             if self.txt:
-                print >> self.txt, 'Excited state forces in eV/Ang:'
+                print('Excited state forces in eV/Ang:', file=self.txt)
                 symbols = self.atoms.get_chemical_symbols()
                 for a, symbol in enumerate(symbols):
-                    print >> self.txt, ('%3d %-2s %10.5f %10.5f %10.5f' %
-                                        ((a, symbol) + tuple(self.forces[a])))
+                    print(('%3d %-2s %10.5f %10.5f %10.5f' %
+                           ((a, symbol) + tuple(self.forces[a]))), 
+                          file=self.txt)
         return self.forces
 
     def get_stress(self, atoms):
@@ -159,6 +197,8 @@ class UnconstraintIndex:
         self.index = index
     def apply(self, *argv):
         return self.index
+    def __str__(self):
+        return (self.__class__.__name__ + '(' + str(self.index) + ')')
 
 class MinimalOSIndex:
     """
