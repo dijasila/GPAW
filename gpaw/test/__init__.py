@@ -208,6 +208,7 @@ tests = [
     'h2o_xas_recursion.py',
     'diamond_eps.py',
     'gemm.py',
+    'excited_state.py',
     # > 20 sec tests start here
     'rpa_energy_Ni.py',
     'si.py',
