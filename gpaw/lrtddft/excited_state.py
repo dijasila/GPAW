@@ -137,6 +137,11 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
 
             # get your tasks
             tasks = []
+            world = self.parallel['world']
+            txt = self.txt
+            if world.rank > 0:
+                txt = None
+            mpi.broadcast(txt, 0, world) # allow the slaves to write
             mycomm = self.parallel['mycomm']
             ncalcs = self.parallel['ncalcs']
             icalc = self.parallel['icalc']
@@ -147,8 +152,10 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
                     if (i % ncalcs) == icalc:
                         forces[ia, ic] = numeric_force(
                             atoms, ia, ic, self.d) / mycomm.size
+                        print('# rank', world.rank, '-> force',
+                              (str(ia) + 'xyz'[ic]), file=txt)
                     i += 1
-            self.parallel['world'].sum(forces)
+            world.sum(forces)
             self.forces = forces
 
             if self.txt:
