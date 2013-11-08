@@ -43,11 +43,11 @@ class FiniteDifferenceCalculator(Calculator):
                                                               
         self.d = d
         self.parallel = {
-            'world' : world, 'mycomm' : world, 'ncalcs' : 1, 'icalc' : 0 } 
-        if isinstance(world, mpi.SerialCommunicator):
+            'world' : world, 'mycomm' : world, 'ncalcs' : 1, 'icalc' : 0 }
+        if world.size < 2:
             if parallel > 0:
                 print('#', (self.__class__.__name__ + ':'), 
-                      'Serial communicator, keyword parallel ignored.',
+                      'Serial calculation, keyword parallel ignored.',
                       file=self.txt)
         elif parallel > 0:
             mycomm, ncalcs, icalc = distribute_cpus(parallel, world)
