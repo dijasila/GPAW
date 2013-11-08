@@ -127,7 +127,7 @@ class Chi0:
         q_c = np.asarray(q_c, dtype=float)
 
         if self.eta == 0.0:
-            update = self.update_hermetian
+            update = self.update_hermitian
         elif self.hilbert:
             update = self.update_hilbert
         else:
@@ -171,22 +171,22 @@ class Chi0:
                                                          m1, m2, pd, Q_G)
                     deps_m = eps - eps_m[m1:m2]
                     df_m = f - f_m
-                    update(n_mG, deps_m, df_m, chi0_wGG)
                     if optical_limit:
                         self.update_optical_limit(
                         k, n, P_ani, Q_aiiv, df_m, deps_m, ut_mR, n_mG, P_ami,
                         m1, m2, chi0_wxvG)
+                    update(n_mG, deps_m, df_m, chi0_wGG)
                     
         self.comm.sum(chi0_wGG)
         if optical_limit:
             self.comm.sum(chi0_wxvG)
         
         if self.eta == 0.0:
-            # Set lower triangle also:
+            # Fill in upper triangle also:
             il = np.tril_indices(nG, -1)
             iu = il[::-1]
             for chi0_GG in chi0_wGG:
-                chi0_GG[il] = chi0_GG[iu]
+                chi0_GG[iu] = chi0_GG[il].conj()
                 
         elif self.hilbert:
             for G in range(nG):
@@ -204,9 +204,9 @@ class Chi0:
 
     def update_hermitian(self, n_mG, deps_m, df_m, chi0_wGG):
         for w, omega in enumerate(self.omega_w):
-            x_m = (2 * df_m * deps_m / (omega.imag**2 + deps_m**2))**0.5
-            nx_mG = n_mG * x_m[:, np.newaxis]
-            rk(self.prefactor, nx_mG, 1.0, chi0_wGG[w])
+            x_m = (-2 * df_m * deps_m / (omega.imag**2 + deps_m**2))**0.5
+            nx_mG = n_mG.T.copy() * x_m
+            rk(-self.prefactor, nx_mG, 1.0, chi0_wGG[w])
 
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
         domega = self.omega_w[1]
@@ -240,17 +240,18 @@ class Chi0:
             self.ut_knvR = self.calculate_derivatives()
             
         ut_vR = self.ut_knvR[k][n]
+        
         C_avi = [np.dot(Q_iiv.T, P_ni[n])
                  for Q_iiv, P_ni in zip(Q_aiiv, self.P_kani[k])]
         
-        n0_mv = self.calc.wfs.gd.integrate(ut_vR, ut_mR).T
-        
-        # PAW corrections:
+        n0_mv = -self.calc.wfs.gd.integrate(ut_vR, ut_mR).T
+
         for C_vi, P_mi in zip(C_avi, P_ami):
             gemm(1.0, C_vi, P_mi[m1:m2], 1.0, n0_mv, 'c')
 
         n0_mv *= 1j / deps_m[:, np.newaxis]
-        
+        n_mG[:, 0] = n0_mv[:, 0]
+
         for w, omega in enumerate(self.omega_w):
             x_m = (self.prefactor *
                    df_m * (1.0 / (omega + deps_m + 1j * self.eta) -
@@ -356,11 +357,14 @@ class Chi0:
             x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
             Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
             if optical_limit:
-                Q_aiiv.append(-1j * atomdata.nabla_iiv)
+                Q_aiiv.append(atomdata.nabla_iiv)
                 
         return Q_aGii, Q_aiiv
 
     def calculate_derivatives(self):
+        #from gpaw.fd_operators import Gradient
+        #g_v = [Gradient(self.calc.wfs.gd, v, 1.0, 4,complex).apply
+        #       for v in range(3)]
         wfs = self.calc.wfs
         ut_knvR = []
         for K, n1, n2 in self.Kn1n2_k:
@@ -375,5 +379,7 @@ class Chi0:
                 for v in range(3):
                     ut_R = T(wfs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
                     ut_nvR[n - n1, v] = ut_R
+                    #ut_R = T(wfs.pd.ifft(psit_nG[n], ik))
+                    #g_v[v](ut_R, ut_nvR[n - n1, v], np.ones((3, 2), complex))
             ut_knvR.append(ut_nvR)
         return ut_knvR
