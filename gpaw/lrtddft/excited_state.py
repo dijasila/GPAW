@@ -58,7 +58,6 @@ class FiniteDifferenceCalculator(Calculator):
     def calculate(self, atoms):
         redo = self.calculator.calculate(atoms)
         E0 = self.calculator.get_potential_energy()
-        lr = self.lrtddft
         if redo:
             if hasattr(self, 'density'):
                 del(self.density)
@@ -128,7 +127,7 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         """Get finite-difference forces"""
         if atoms is None:
             atoms = self.atoms
-        atoms.set_calculator(self.calculator)
+        atoms.set_calculator(self)
 
         if self.calculation_required(atoms, ['forces']):
             # do the ground state calculation to set all
