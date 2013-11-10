@@ -90,14 +90,21 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         print('#', self.__class__.__name__, self.index, file=self.txt)
         if name:
             print(('name=' + name), file=self.txt)
-        print(file=self.txt)
+        print('# Force displacement:', self.d, file=self.txt)
+        if self.parallel:
+            print('#', self.parallel['world'].size, 
+                  'cores per energy evaluation', 
+                  file=self.txt)
  
     def calculation_required(self, atoms, quantities):
         if len(quantities) == 0:
             return False
-##        print rank, "atoms != self.atoms",atoms != self.atoms, atoms.get_positions()
+
         if atoms != self.atoms:
+            self.energy = None
+            self.forces = None
             return True
+
         for quantity in ['energy', 'forces']:
             if quantity in quantities:
                 quantities.remove(quantity)
@@ -127,9 +134,10 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         """Get finite-difference forces"""
         if atoms is None:
             atoms = self.atoms
-        atoms.set_calculator(self)
 
         if self.calculation_required(atoms, ['forces']):
+            atoms.set_calculator(self)
+
             # do the ground state calculation to set all
             # ranks to the same density to start with
             self.calculator.get_potential_energy()
