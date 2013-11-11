@@ -27,13 +27,15 @@ class FiniteDifferenceCalculator(Calculator):
         calculation over images
         """
         self.timer = Timer()
+        self.atoms = None
+
         world = mpi.world
         if lrtddft is not None:
             self.lrtddft = lrtddft
             self.calculator = self.lrtddft.calculator
+            self.atoms = self.calculator.atoms
             if self.calculator.initialized:
                 world = self.calculator.wfs.world
-            self.set_atoms(self.calculator.get_atoms())
 
             if txt is None:
                 self.txt = self.lrtddft.txt
@@ -140,7 +142,7 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
 
             # do the ground state calculation to set all
             # ranks to the same density to start with
-            self.calculator.get_potential_energy()
+            self.calculator.calculate(atoms)
 
             # get your tasks
             tasks = []
@@ -193,17 +195,17 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         self.density.initialize(self.lrtddft, index)
         self.density.update(self.calculator.wfs)
 
-    def get_pseudo_density(self, *args, **kwargs):
+    def get_pseudo_density(self, **kwargs):
         """Return pseudo-density array."""
         method = kwargs.pop('method', 'dipole')
         self.initialize_density(method)
-        return GPAW.get_pseudo_density(self, *args, **kwargs)
+        return GPAW.get_pseudo_density(self, **kwargs)
 
-    def get_all_electron_density(self, *args, **kwargs):
+    def get_all_electron_density(self, **kwargs):
         """Return all electron density array."""
         method = kwargs.pop('method', 'dipole')
         self.initialize_density(method)
-        return GPAW.get_all_electron_density(self, *args, **kwargs)
+        return GPAW.get_all_electron_density(self, **kwargs)
 
 class UnconstraintIndex:
     def __init__(self, index):

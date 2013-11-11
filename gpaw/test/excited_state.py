@@ -31,7 +31,7 @@ exst = ExcitedState(lr, 0, d=0.01,
         txt=sys.stdout,
       )
 
-forces = exst.get_forces()
+forces = exst.get_forces(H2)
 for c in range(2):
     equal(forces[0,c], 0.0, accuracy)
     equal(forces[1,c], 0.0, accuracy)
