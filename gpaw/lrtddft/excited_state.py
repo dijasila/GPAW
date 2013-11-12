@@ -87,7 +87,7 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         self.name = name
 
         self.energy = None
-        self.forces = None
+        self.F_av = None
 
         print('#', self.__class__.__name__, self.index, file=self.txt)
         if name:
@@ -97,17 +97,33 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
             print('#', self.parallel['world'].size, 
                   'cores per energy evaluation', 
                   file=self.txt)
+
+    def set_positions(self, atoms):
+        """Update the positions of the atoms."""
+        self.atoms = atoms.copy()
+        self.energy = None
+        self.F_av = None
+        self.atoms.set_calculator(self)
  
     def calculation_required(self, atoms, quantities):
         if len(quantities) == 0:
             return False
 
-        if atoms != self.atoms:
-            self.energy = None
-            self.forces = None
+        if self.atoms is None:
+            return True
+        elif (len(atoms) != len(self.atoms) or
+              (atoms.get_atomic_numbers() !=
+               self.atoms.get_atomic_numbers()).any() or
+              (atoms.get_initial_magnetic_moments() !=
+               self.atoms.get_initial_magnetic_moments()).any() or
+              (atoms.get_cell() != self.atoms.get_cell()).any() or
+              (atoms.get_pbc() != self.atoms.get_pbc()).any()):
+            return True
+        elif (atoms.get_positions() != 
+              self.atoms.get_positions()).any():
             return True
 
-        for quantity in ['energy', 'forces']:
+        for quantity in ['energy', 'F_av']:
             if quantity in quantities:
                 quantities.remove(quantity)
                 if self.__dict__[quantity] is None:
@@ -118,16 +134,15 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         """Evaluate potential energy for the given excitation."""
         if atoms is None:
             atoms = self.atoms
+
         if self.calculation_required(atoms, ['energy']):
-            if atoms is None or atoms == self.atoms:
-                self.energy = self.calculate(atoms)
-                return self.energy
-            else:
-                return self.calculate(atoms)
-        else:
-            return self.energy
+            self.energy = self.calculate(atoms)
+
+        return self.energy
 
     def calculate(self, atoms):
+        """Evaluate your energy if needed."""
+        self.set_positions(atoms)
         E0 = FiniteDifferenceCalculator.calculate(self, atoms)
         index = self.index.apply(self.lrtddft)
         return E0 + self.lrtddft[index].energy * Hartree
@@ -137,7 +152,7 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         if atoms is None:
             atoms = self.atoms
 
-        if self.calculation_required(atoms, ['forces']):
+        if self.calculation_required(atoms, ['F_av']):
             atoms.set_calculator(self)
 
             # do the ground state calculation to set all
@@ -154,27 +169,33 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
             mycomm = self.parallel['mycomm']
             ncalcs = self.parallel['ncalcs']
             icalc = self.parallel['icalc']
-            forces = np.zeros((len(atoms), 3))
+            F_av = np.zeros((len(atoms), 3))
             i = 0
             for ia, a in enumerate(self.atoms):
                 for ic in range(3):
                     if (i % ncalcs) == icalc:
-                        forces[ia, ic] = numeric_force(
+                        F_av[ia, ic] = numeric_force(
                             atoms, ia, ic, self.d) / mycomm.size
                         print('# rank', world.rank, '-> force',
                               (str(ia) + 'xyz'[ic]), file=txt)
                     i += 1
-            world.sum(forces)
-            self.forces = forces
+            self.set_positions(atoms)
+            self.energy = 0
+            if (i % ncalcs) == icalc:
+                self.energy = self.get_potential_energy(atoms) / mycomm.size
+                print('# rank', world.rank, '-> energy')
+            world.sum(F_av)
+            world.sum(self.energy)
+            self.F_av = F_av
 
             if self.txt:
                 print('Excited state forces in eV/Ang:', file=self.txt)
                 symbols = self.atoms.get_chemical_symbols()
                 for a, symbol in enumerate(symbols):
                     print(('%3d %-2s %10.5f %10.5f %10.5f' %
-                           ((a, symbol) + tuple(self.forces[a]))), 
+                           ((a, symbol) + tuple(self.F_av[a]))), 
                           file=self.txt)
-        return self.forces
+        return self.F_av
 
     def get_stress(self, atoms):
         """Return the stress for the current state of the Atoms."""
