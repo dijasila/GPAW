@@ -283,7 +283,6 @@ class RPACorrelation:
 
         e_wGG = df.get_dielectric_matrix(xc='RPA', overwritechi0=True)
         df.chi0_wGG = None
-        print e_wGG[:1,0,0]
         Nw_local = len(e_wGG)
         local_E_q_w = np.zeros(Nw_local, dtype=complex)
         E_q_w = np.empty(len(self.w), complex)
@@ -293,7 +292,6 @@ class RPACorrelation:
             #local_E_q_w[i] = (np.sum(np.log(np.linalg.eigvals(e_wGG[i])))
             #                  + len(e_wGG[0]) - np.trace(e_wGG[i]))
         df.wcomm.all_gather(local_E_q_w, E_q_w)
-        print E_q_w
         del df
         
         if self.gauss_legendre is not None:
@@ -346,7 +344,7 @@ class RPACorrelation:
             transform = (-np.log(1-ys))**(frequency_scale-1) \
                         / (1-ys)*frequency_scale/alpha
             self.transform = transform
-
+            
         dummy = DF(calc=self.calc,
                    eta=0.0,
                    w=w * 1j,
