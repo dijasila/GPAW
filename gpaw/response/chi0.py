@@ -5,18 +5,31 @@ from math import pi
 
 import numpy as np
 from ase.units import Hartree
+from ase.utils import devnull
 
-from gpaw.mpi import world
+import gpaw.mpi as mpi
 from gpaw.utilities.blas import gemm, rk
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.math_func import two_phi_planewave_integrals
 
 
+class KPoint:
+    def __init__(self, K, n1, n2, ut_nR, eps_n, f_n, P_ani, shift_c):
+        self.K = K  # BZ k-point index
+        self.n1 = n1  # first band
+        self.n2 = n2  # first band not included
+        self.ut_nR = ut_nR  # periodic part of wave functions in real-space
+        self.eps_n = eps_n  # eigenvalues
+        self.f_n = f_n  # occupation numbers
+        self.P_ani = P_ani  # PAW projections
+        self.shift_c = shift_c  # long story. See construct_symmetry_operators
+
+
 class Chi0:
     def __init__(self, calc, omega_w, ecut=50 / Hartree, hilbert=False,
                  eta=0.2 / Hartree, blocksize=50, spin=0, ftol=1e-6,
-                 comm=world, fd=None):
+                 world=mpi.world, txt=sys.stdout):
         self.calc = calc
         self.omega_w = np.asarray(omega_w)
         self.ecut = ecut
@@ -25,8 +38,11 @@ class Chi0:
         self.blocksize = blocksize
         self.spin = spin
         self.ftol = ftol
-        self.comm = comm
-        self.fd = fd or sys.stdout
+        self.world = world
+        
+        if world.rank != 0:
+            txt = devnull
+        self.fd = txt
         
         if eta == 0.0:
             assert not hilbert
@@ -41,17 +57,13 @@ class Chi0:
         self.Kn1n2 = None  # my occupied k-points and bands
         self.distribute_k_points_and_bands()
         
-        self.ut_knR = None  # periodic part of wave functions in real-space
-        self.eps_kn = None  # eigenvalues
-        self.f_kn = None  # occupation numbers
-        self.P_kani = None  # PAW projections
-        self.shift_kc = None  # long story - see construct_symmetry_operators()
-        self.initialize_occupied_states()
+        self.mykpts = [self.get_k_point(K, n1, n2)
+                       for K, n1, n2 in self.Kn1n2_k]
         
         vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
         self.prefactor = 2 / vol / calc.wfs.kd.nbzkpts
 
-        self.ut_knvR = None  # gradient of wave functions for optical limit
+        self.ut_KnvR = None  # gradient of wave functions for optical limit
         
     def count_occupied_bands(self):
         self.nocc1 = 9999999
@@ -65,11 +77,11 @@ class Chi0:
         self.fd.write('Total number of bands: %d\n' % self.calc.wfs.bd.nbands)
         
     def distribute_k_points_and_bands(self):
-        comm = self.comm
+        world = self.world
         nk = self.calc.wfs.kd.nbzkpts
-        n = (nk * self.nocc2 + comm.size - 1) // comm.size
-        i1 = comm.rank * n
-        i2 = min((comm.rank + 1) * n, nk * self.nocc2)
+        n = (nk * self.nocc2 + world.size - 1) // world.size
+        i1 = world.rank * n
+        i2 = min((world.rank + 1) * n, nk * self.nocc2)
         K1, n1 = divmod(i1, self.nocc2)
         K2, n2 = divmod(i2, self.nocc2)
         self.Kn1n2_k = []
@@ -80,22 +92,9 @@ class Chi0:
             self.Kn1n2_k.append((K2, n1, n2))
         self.fd.write('k-points: %s\n' % self.calc.wfs.kd.description)
         self.fd.write('Distributing %d x %d bands over %d process%s\n' %
-                      (nk, self.nocc2, comm.size, ['es', ''][comm.size == 1]))
+                      (nk, self.nocc2,
+                       world.size, ['es', ''][world.size == 1]))
             
-    def initialize_occupied_states(self):
-        self.ut_knR = []
-        self.eps_kn = []
-        self.f_kn = []
-        self.P_kani = []
-        self.shift_kc = []
-        for K, n1, n2 in self.Kn1n2_k:
-            ut_nG, eps_n, f_n, P_ani, shift_c = self.get_k_point(K, n1, n2)
-            self.ut_knR.append(ut_nG)
-            self.eps_kn.append(eps_n)
-            self.f_kn.append(f_n)
-            self.P_kani.append(P_ani)
-            self.shift_kc.append(shift_c)
-
     def get_k_point(self, K, n1, n2):
         wfs = self.calc.wfs
         
@@ -119,7 +118,7 @@ class Chi0:
                 P_ni = P_ni.conj()
             P_ani.append(P_ni)
         
-        return ut_nR, eps_n, f_n, P_ani, shift_c
+        return KPoint(K, n1, n2, ut_nR, eps_n, f_n, P_ani, shift_c)
     
     def calculate(self, q_c):
         # Start from scratch and do all empty bands:
@@ -138,10 +137,12 @@ class Chi0:
         else:
             chi0_wxvG = None
             
-        return self._calculate(pd, chi0_wGG, chi0_wxvG,
+        Q_aGii = self.calculate_paw_corrections(pd)
+        
+        return self._calculate(pd, chi0_wGG, chi0_wxvG, Q_aGii,
                                self.nocc1, wfs.bd.nbands)
 
-    def _calculate(self, pd, chi0_wGG, chi0_wxvG, m1, m2):
+    def _calculate(self, pd, chi0_wGG, chi0_wxvG, Q_aGii, m1, m2):
         wfs = self.calc.wfs
 
         if self.eta == 0.0:
@@ -154,36 +155,32 @@ class Chi0:
         q_c = pd.kd.bzk_kc[0]
         optical_limit = not q_c.any()
             
-        Q_aGii, Q_aiiv = self.calculate_paw_corrections(pd)
-        
-        for k, (K, n1, n2) in enumerate(self.Kn1n2_k):
-            P_ani = self.P_kani[k]
-            K2 = wfs.kd.find_k_plus_q(q_c, [K])[0]
-            ut_mR, eps_m, f_m, P_ami, shift_c = self.get_k_point(K2, m1, m2)
-            Q_G = self.get_fft_indices(K, K2, q_c, pd,
-                                       self.shift_kc[k] - shift_c)
-            for n in range(n2 - n1):
-                eps = self.eps_kn[k][n]
-                f = self.f_kn[k][n]
-                utcc_R = self.ut_knR[k][n].conj()
+        for kpt1 in self.mykpts:
+            K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
+            kpt2 = self.get_k_point(K2, m1, m2)
+            Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
+                                       kpt1.shift_c - kpt2.shift_c)
+            for n in range(kpt1.n2 - kpt1.n1):
+                eps = kpt1.eps_n[n]
+                f = kpt1.f_n[n]
+                utcc_R = kpt1.ut_nR[n].conj()
                 C_aGi = [np.dot(Q_Gii, P_ni[n].conj())
-                         for Q_Gii, P_ni in zip(Q_aGii, P_ani)]
+                         for Q_Gii, P_ni in zip(Q_aGii, kpt1.P_ani)]
                 for ma in range(0, m2 - m1, self.blocksize):
                     mb = min(ma + self.blocksize, m2 - m1)
                     n_mG = self.calculate_pair_densities(utcc_R, C_aGi,
-                                                         ut_mR, P_ami,
-                                                         ma, mb, pd, Q_G)
-                    deps_m = eps - eps_m[ma:mb]
-                    df_m = f - f_m
+                                                         kpt2, ma, mb, pd, Q_G)
+                    deps_m = eps - kpt2.eps_n[ma:mb]
+                    df_m = f - kpt2.f_n[ma:mb]
                     if optical_limit:
                         self.update_optical_limit(
-                        k, n, P_ani, Q_aiiv, df_m, deps_m, ut_mR, n_mG, P_ami,
-                        ma, mb, chi0_wxvG)
+                            n, kpt1, kpt2, deps_m, df_m, n_mG,
+                            ma, mb, chi0_wxvG)
                     update(n_mG, deps_m, df_m, chi0_wGG)
                     
-        self.comm.sum(chi0_wGG)
+        self.world.sum(chi0_wGG)
         if optical_limit:
-            self.comm.sum(chi0_wxvG)
+            self.world.sum(chi0_wxvG)
         
         if self.eta == 0.0:
             # Fill in upper triangle also:
@@ -222,37 +219,36 @@ class Chi0:
             x_2G = n_G * weights**0.5
             rk(self.prefactor, x_2G, 1.0, chi0_wGG[iw:iw + 2])
 
-    def calculate_pair_densities(self, utcc_R, C_aGi, ut_mR, P_ami,
-                                 m1, m2, pd, Q_G):
+    def calculate_pair_densities(self, utcc_R, C_aGi, kpt2,
+                                 ma, mb, pd, Q_G):
         dv = pd.gd.dv
-        n_mG = pd.empty(m2 - m1)
-        for m in range(m1, m2):
-            n_R = utcc_R * ut_mR[m]
+        n_mG = pd.empty(mb - ma)
+        for m in range(ma, mb):
+            n_R = utcc_R * kpt2.ut_nR[m]
             pd.tmp_R[:] = n_R
             pd.fftplan.execute()
-            n_mG[m - m1] = pd.tmp_Q.ravel()[Q_G] * dv
+            n_mG[m - ma] = pd.tmp_Q.ravel()[Q_G] * dv
         
         # PAW corrections:
-        for C_Gi, P_mi in zip(C_aGi, P_ami):
-            gemm(1.0, C_Gi, P_mi[m1:m2], 1.0, n_mG, 't')
+        for C_Gi, P_mi in zip(C_aGi, kpt2.P_ani):
+            gemm(1.0, C_Gi, P_mi[ma:mb], 1.0, n_mG, 't')
             
         return n_mG
     
-    def update_optical_limit(self, k, n, P_ani, Q_aiiv, df_m,
-                             deps_m, ut_mR, n_mG,
-                             P_ami, m1, m2, chi0_wxvG):
-        if self.ut_knvR is None:
-            self.ut_knvR = self.calculate_derivatives()
+    def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG,
+                             ma, mb, chi0_wxvG):
+        if self.ut_KnvR is None:
+            self.ut_KnvR = self.calculate_derivatives()
             
-        ut_vR = self.ut_knvR[k][n]
+        ut_vR = self.ut_KnvR[kpt1.K][n]
         
-        C_avi = [np.dot(Q_iiv.T, P_ni[n])
-                 for Q_iiv, P_ni in zip(Q_aiiv, self.P_kani[k])]
+        atomdata_a = self.calc.wfs.setups
+        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
+                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
         
-        n0_mv = -self.calc.wfs.gd.integrate(ut_vR, ut_mR).T
-
-        for C_vi, P_mi in zip(C_avi, P_ami):
-            gemm(1.0, C_vi, P_mi[m1:m2], 1.0, n0_mv, 'c')
+        n0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR[ma:mb]).T
+        for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
+            gemm(1.0, C_vi, P_mi[ma:mb], 1.0, n0_mv, 'c')
 
         n0_mv *= 1j / deps_m[:, np.newaxis]
         n_mG[:, 0] = n0_mv[:, 0]
@@ -355,16 +351,13 @@ class Chi0:
             Q_xGii[id] = Q_Gii.reshape((-1, ni, ni))
             
         Q_aGii = []
-        Q_aiiv = []
         for a, atomdata in enumerate(wfs.setups):
             id = wfs.setups.id_a[a]
             Q_Gii = Q_xGii[id]
             x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
             Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
-            if optical_limit:
-                Q_aiiv.append(atomdata.nabla_iiv)
                 
-        return Q_aGii, Q_aiiv
+        return Q_aGii
 
     def calculate_derivatives(self):
         if 0:
@@ -372,7 +365,7 @@ class Chi0:
             g_v = [Gradient(self.calc.wfs.gd, v, 1.0, 4,complex).apply
                    for v in range(3)]
         wfs = self.calc.wfs
-        ut_knvR = []
+        ut_KnvR = {}
         for K, n1, n2 in self.Kn1n2_k:
             U_cc, T, a_a, U_aii, shift_c, time_reversal = \
                 self.construct_symmetry_operators(K)
@@ -382,7 +375,7 @@ class Chi0:
             kpt = wfs.kpt_u[ik]
             psit_nG = kpt.psit_nG
             iG_Gv = 1j * wfs.pd.G_Qv[wfs.pd.Q_qG[ik]]
-            ut_nvR = wfs.gd.empty((n2 - n1, 3), complex)*0
+            ut_nvR = wfs.gd.zeros((n2 - n1, 3), complex)
             for n in range(n1, n2):
                 for v in range(3):
                     if 1:
@@ -391,9 +384,11 @@ class Chi0:
                             ut_nvR[n - n1, v2] += ut_R * M_vv[v,v2]
                     else:
                         ut_R = T(wfs.pd.ifft(psit_nG[n], ik))
-                        g_v[v](ut_R, ut_nvR[n - n1, v], np.ones((3, 2), complex))
-            ut_knvR.append(ut_nvR)
-        return ut_knvR
+                        g_v[v](ut_R, ut_nvR[n - n1, v],
+                               np.ones((3, 2), complex))
+            ut_KnvR[K] = ut_nvR
+            
+        return ut_KnvR
 
 
 if np.__version__ < '1.6':

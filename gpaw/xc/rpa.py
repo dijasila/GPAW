@@ -136,11 +136,11 @@ class RPACorrelation:
             self.read()
             self.world.barrier()
 
-        chi0 = Chi0(self.calc, 1j * self.omega_w, eta=0.0, fd=devnull,
-                    comm=self.chicomm)
+        chi0 = Chi0(self.calc, 1j * self.omega_w, eta=0.0, txt=devnull,
+                    world=self.chicomm)
         
         nq = len(self.energy_qi)
-        for q_c, weight in zip(self.qd.ibzk_kc[nq:], self.qd.weight_k):
+        for q_c, weight in zip(self.qd.ibzk_kc[nq:], self.qd.weight_k[nq:]):
             thisqd = KPointDescriptor([q_c])
             pd = PWDescriptor(ecutmax, self.calc.wfs.gd, complex, thisqd)
 
@@ -152,6 +152,8 @@ class RPACorrelation:
                 chi0_wxvG = np.zeros((self.mynw, 2, 3, nG), complex)
             else:
                 chi0_wxvG = None
+        
+            Q_aGii = chi0.calculate_paw_corrections(pd)
         
             # First not completely filled band:
             m1 = chi0.nocc1
@@ -173,7 +175,8 @@ class RPACorrelation:
                      file=self.fd, end='', flush=True)
                 
                 energy = self.calculate_q(chi0, pd, weight,
-                                          chi0_wGG, chi0_wxvG, m1, m2, cut_G)
+                                          chi0_wGG, chi0_wxvG, Q_aGii,
+                                          m1, m2, cut_G)
                 energy_i.append(energy)
                 m1 = m2
 
@@ -205,8 +208,8 @@ class RPACorrelation:
         return e_i * Hartree
         
     def calculate_q(self, chi0, pd, weight,
-                    chi0_wGG, chi0_wxvG, m1, m2, cut_G):
-        chi0._calculate(pd, chi0_wGG, chi0_wxvG, m1, m2)
+                    chi0_wGG, chi0_wxvG, Q_aGii, m1, m2, cut_G):
+        chi0._calculate(pd, chi0_wGG, chi0_wxvG, Q_aGii, m1, m2)
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_wGG, cut_G) * weight
             prnt(' %.3f eV' % (e * Hartree), flush=True, file=self.fd)

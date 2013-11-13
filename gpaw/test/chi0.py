@@ -45,7 +45,7 @@ for k in [2, 3]:
                 chi0old_wGG = chi.chi0_wGG
                 
                 chi = Chi0(calc, omega / Hartree, ecut=100 / Hartree,
-                           fd=open(name + '.log', 'w'))
+                           txt=open(name + '.log', 'w'))
                 pd, chi0_wGG, _ = chi.calculate(q)
 
                 assert abs(chi0_wGG - chi0old_wGG).max() < 1e-15
