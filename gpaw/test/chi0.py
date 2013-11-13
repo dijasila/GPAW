@@ -25,7 +25,7 @@ for k in [2, 3]:
             for sym in [None, True]:
                 name = 'si.k%d.g%d.c%d.s%d' % (k, gamma, center, bool(sym))
                 print name
-                if 0:
+                if 1:
                     calc = a.calc = GPAW(kpts=kpts,
                                          usesymm=sym,
                                          mode='pw',

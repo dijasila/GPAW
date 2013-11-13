@@ -394,3 +394,17 @@ class Chi0:
                         g_v[v](ut_R, ut_nvR[n - n1, v], np.ones((3, 2), complex))
             ut_knvR.append(ut_nvR)
         return ut_knvR
+
+
+if np.__version__ < '1.6':
+    old_unravel_index = np.unravel_index
+    def new_unravel_index(indices, dims):
+        if isinstance(indices, int):
+            return old_unravel_index(indices, dims)
+        return np.array([old_unravel_index(index, dims)
+                         for index in indices]).T
+    np.unravel_index = new_unravel_index
+    def ravel_multi_index(i, d, mode):
+        i = i % d[:, None]
+        return np.dot([d[1] * d[2], d[2], 1], i)
+    np.ravel_multi_index = ravel_multi_index
