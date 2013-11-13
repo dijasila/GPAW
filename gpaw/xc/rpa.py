@@ -169,7 +169,7 @@ class RPACorrelation:
                     m2 = len(cut_G)
                     
                 prnt('Cutoff energy%9.3f eV,' % (ecut * Hartree),
-                     'bands %d-%d:' % (m1, m2 - 1),
+                     'bands %-10s' % ('%d-%d:' % (m1, m2 - 1)),
                      file=self.fd, end='', flush=True)
                 
                 energy = self.calculate_q(chi0, pd, weight,
@@ -183,8 +183,27 @@ class RPACorrelation:
         e_i = np.array(self.energy_qi).sum(axis=0)
         prnt('Total correlation energy:', file=self.fd)
         prnt(', '.join('%.3f' % (e * Hartree) for e in e_i), 'eV',
+             file=self.fd)
+        
+        self.extrapolate()
+        
+        return e_i * Hartree
+        
+    def extrapolate(self):
+        e_i = np.array(self.energy_qi).sum(axis=0)
+        ex_i = []
+        for i in range(len(e_i) - 1):
+            e1, e2 = e_i[i:i + 2]
+            x1, x2 = self.ecut_i[i:i + 2]**-1.5
+            ex = (e1 * x2 - e2 * x1) / (x2 - x1)
+            ex_i.append(ex)
+        
+        prnt('Extrapolated:', file=self.fd)
+        prnt(', '.join('%.3f' % (e * Hartree) for e in ex_i), 'eV',
              file=self.fd, flush=True)
-
+        
+        return e_i * Hartree
+        
     def calculate_q(self, chi0, pd, weight,
                     chi0_wGG, chi0_wxvG, m1, m2, cut_G):
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, m1, m2)
