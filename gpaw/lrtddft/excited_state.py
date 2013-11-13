@@ -16,6 +16,7 @@ from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities.timing import Timer
+from gpaw.version import version
 
 from ase.parallel import distribute_cpus
 
@@ -42,6 +43,7 @@ class FiniteDifferenceCalculator(Calculator):
             else:
                 self.txt, firsttime = initialize_text_stream(
                     txt, world.rank)
+        print('#', self.__class__.__name__, version, file=self.txt)
                                                               
         self.d = d
         self.parallel = {
@@ -56,16 +58,6 @@ class FiniteDifferenceCalculator(Calculator):
             self.parallel = { 'world' : world, 'mycomm' : mycomm, 
                               'ncalcs' : ncalcs, 'icalc' : icalc }
             self.calculator.set(communicator=mycomm)
-
-    def calculate(self, atoms):
-        redo = self.calculator.calculate(atoms)
-        E0 = self.calculator.get_potential_energy()
-        if redo:
-            if hasattr(self, 'density'):
-                del(self.density)
-            self.lrtddft.forced_update()
-        self.lrtddft.diagonalize()
-        return E0
 
     def set(self, **kwargs):
         self.calculator.set(**kwargs)
@@ -89,12 +81,13 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         self.energy = None
         self.F_av = None
 
-        print('#', self.__class__.__name__, self.index, file=self.txt)
+        print('#', self.index, file=self.txt)
         if name:
             print(('name=' + name), file=self.txt)
         print('# Force displacement:', self.d, file=self.txt)
         if self.parallel:
             print('#', self.parallel['world'].size, 
+                  'cores in total, ', self.parallel['mycomm'].size, 
                   'cores per energy evaluation', 
                   file=self.txt)
 
@@ -143,9 +136,19 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
     def calculate(self, atoms):
         """Evaluate your energy if needed."""
         self.set_positions(atoms)
-        E0 = FiniteDifferenceCalculator.calculate(self, atoms)
+
+        self.calculator.calculate(atoms)
+        E0 = self.calculator.get_potential_energy()
+
+        if hasattr(self, 'density'):
+            del(self.density)
+        self.lrtddft.forced_update()
+        self.lrtddft.diagonalize()
+
         index = self.index.apply(self.lrtddft)
-        return E0 + self.lrtddft[index].energy * Hartree
+
+        energy = E0 + self.lrtddft[index].energy * Hartree
+        return energy
 
     def get_forces(self, atoms=None):
         """Get finite-difference forces"""
@@ -159,8 +162,6 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
             # ranks to the same density to start with
             self.calculator.calculate(atoms)
 
-            # get your tasks
-            tasks = []
             world = self.parallel['world']
             txt = self.txt
             if world.rank > 0:
@@ -179,13 +180,16 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
                         print('# rank', world.rank, '-> force',
                               (str(ia) + 'xyz'[ic]), file=txt)
                     i += 1
-            self.set_positions(atoms)
-            self.energy = 0
+            energy = np.array([0.]) # array needed for world.sum()
             if (i % ncalcs) == icalc:
-                self.energy = self.get_potential_energy(atoms) / mycomm.size
-                print('# rank', world.rank, '-> energy')
+                self.energy = None
+                energy[0] = self.get_potential_energy(atoms) / mycomm.size
+                print('# rank', world.rank, '-> energy', 
+                      energy[0] * mycomm.size, file=txt)
+            self.set_positions(atoms)
             world.sum(F_av)
-            world.sum(self.energy)
+            world.sum(energy)
+            self.energy = energy[0]
             self.F_av = F_av
 
             if self.txt:

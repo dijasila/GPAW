@@ -31,7 +31,7 @@ lr = LrTDDFT(calc, xc=xc)
 # excited state with forces
 accuracy = 0.01
 exst = ExcitedState(lr, 0, d=0.01,
-        parallel=1,
+        parallel=2,
         txt=sys.stdout,
       )
 
@@ -47,10 +47,12 @@ equal(forces[0, 2] + forces[1, 2], 0.0, accuracy)
 
 parprint("########### second call to potential energy --> just return")
 t0 = time.time()
-exst.get_potential_energy()
+E = exst.get_potential_energy()
+parprint("E=", E)
 parprint("time used:", time.time() - t0)
 t0 = time.time()
-exst.get_potential_energy(H2)
+E = exst.get_potential_energy(H2)
+parprint("E=", E)
 parprint("time used:", time.time() - t0)
 
 parprint("########### second call to forces --> just return")
