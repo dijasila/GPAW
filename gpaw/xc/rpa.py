@@ -36,8 +36,8 @@ class RPACorrelation:
         
         self.omega_w = frequencies / Hartree
         self.weight_w = weights / Hartree
-        prnt('Frequencies: [eV]', file=self.fd)
-        prnt(', '.join('%.2f' % (o * Hartree) for o in self.omega_w),
+        prnt('Frequencies:', file=self.fd)
+        prnt(', '.join('%.2f' % (o * Hartree) for o in self.omega_w), 'eV',
              file=self.fd)
 
         if wcomm is None:
@@ -119,7 +119,7 @@ class RPACorrelation:
         ecutmax = max(self.ecut_i)
         
         prnt('Cutoff energies:',
-             ', '.join('%.3f eV' % e for e in self.ecut_i * Hartree),
+             ', '.join('%.3f' % e for e in self.ecut_i * Hartree), 'eV',
              file=self.fd)
         
         if self.filename and os.path.isfile(self.filename):
@@ -143,22 +143,23 @@ class RPACorrelation:
         
             # Range of unoccupied bands:
             m1 = chi0.nocc1
-            m2 = nbands or nG
 
             prnt('q:', q_c, file=self.fd)
             
             energy_i = []
             for ecut in self.ecut_i:
-                prnt('Cutoff energy: %.3f eV,' % (ecut * Hartree),
-                     'bands:', m2, file=self.fd, end='', flush=True)
-                
                 if ecut == ecutmax:
                     # Nothing to cut away:
                     cut_G = None
+                    m2 = nbands or nG
                 else:
                     cut_G = np.arange(nG)[pd.G2_qG[0] <= 2 * ecut]
                     m2 = len(cut_G)
                     
+                prnt('Cutoff energy%9.3f eV,' % (ecut * Hartree),
+                     'bands %d-%d:' % (m1, m2 - 1),
+                     file=self.fd, end='', flush=True)
+                
                 energy = self.calculate_q(chi0, pd, weight,
                                           chi0_wGG, chi0_wxvG, m1, m2, cut_G)
                 energy_i.append(energy)
@@ -169,7 +170,7 @@ class RPACorrelation:
         
         e_i = np.array(self.energy_qi).sum(axis=0)
         prnt('Total correlation energy:', file=self.fd)
-        prnt(', '.join('%.3f eV' % (e * Hartree) for e in e_i),
+        prnt(', '.join('%.3f' % (e * Hartree) for e in e_i), 'eV',
              file=self.fd, flush=True)
 
     def calculate_q(self, chi0, pd, weight,
@@ -195,21 +196,22 @@ class RPACorrelation:
         if G_G[0] == 0.0:
             G_G[0] = 1.0
         
-        nG = len(G_G)
-        
         if cut_G is not None:
             G_G = G_G[cut_G]
-            
+
+        nG = len(G_G)
+        
         e_w = []
         for chi0_GG in chi0_wGG:
             if cut_G is not None:
-                chi0_GG = chi0_GG[cut_G, cut_G]
+                chi0_GG = chi0_GG.take(cut_G, 0).take(cut_G, 1)
+
             e_GG = np.eye(nG) - 4 * np.pi * chi0_GG / G_G / G_G[:, np.newaxis]
             e = np.log(np.linalg.det(e_GG)) + nG - np.trace(e_GG)
             e_w.append(e.real)
 
         E_w = np.zeros_like(self.omega_w)
-        self.wcomm.gather(e_w, 0, E_w)
+        self.wcomm.gather(np.array(e_w), 0, E_w)
         energy = np.dot(E_w, self.weight_w) / (4 * np.pi)
         return energy
 
