@@ -15,12 +15,13 @@ from gpaw.kpt_descriptor import KPointDescriptor
 
 
 class RPACorrelation:
-    def __init__(self, calc, filename='rpa.data',
+    def __init__(self, calc, filename=None,
                  skip_gamma=False,
                  nfrequencies=16, frequency_cut=800.0, frequency_scale=2.0,
                  frequencies=None, weights=None,
                  wcomm=None, chicomm=None, world=mpi.world,
                  txt=sys.stdout):
+    
         if isinstance(calc, str):
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         self.calc = calc
@@ -75,6 +76,7 @@ class RPACorrelation:
     
     def initialize_q_points(self):
         kd = self.calc.wfs.kd
+        assert -1 not in kd.bz2bz_ks
         shift_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
         bzq_qc = monkhorst_pack(kd.N_c) + shift_c
         self.qd = KPointDescriptor(bzq_qc)
@@ -111,6 +113,14 @@ class RPACorrelation:
                          (tuple(q_c) + (ecut, energy)), file=fd)
         
     def calculate(self, ecut, nbands=None):
+        """Calculate RPA correlation energy for one or several cutoffs.
+        
+        ecut: float or list of floats
+            Plane-wave cutoff(s).
+        nbands: int
+            Number of bands (defaults to number of plane-waves).
+        """
+        
         if isinstance(ecut, (float, int)):
             ecut_i = [ecut]
         else:
@@ -137,11 +147,13 @@ class RPACorrelation:
             nG = pd.ngmax
             chi0_wGG = np.zeros((self.mynw, nG, nG), complex)
             if not q_c.any():
+                # Wings (x=0,1) and head (G=0) for optical limit and three
+                # directions (v=0,1,2):
                 chi0_wxvG = np.zeros((self.mynw, 2, 3, nG), complex)
             else:
                 chi0_wxvG = None
         
-            # Range of unoccupied bands:
+            # First not completely filled band:
             m1 = chi0.nocc1
 
             prnt('q:', q_c, file=self.fd)
@@ -192,6 +204,8 @@ class RPACorrelation:
         return e
         
     def calculate_energy(self, pd, chi0_wGG, cut_G):
+        """Evaluate RPA correlation energy from chi-0."""
+        
         G_G = pd.G2_qG[0]**0.5  # |G+q|
         if G_G[0] == 0.0:
             G_G[0] = 1.0
