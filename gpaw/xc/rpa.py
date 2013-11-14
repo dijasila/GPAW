@@ -142,7 +142,7 @@ class RPACorrelation:
             self.read()
             self.world.barrier()
 
-        chi0 = Chi0(self.calc, 1j * self.omega_w, eta=0.0, txt=devnull,
+        chi0 = Chi0(self.calc, 1j * self.myomega_w, eta=0.0, txt=devnull,
                     world=self.chicomm)
         
         nq = len(self.energy_qi)
@@ -253,7 +253,7 @@ class RPACorrelation:
             e_w.append(e.real)
 
         E_w = np.zeros_like(self.omega_w)
-        self.wcomm.gather(np.array(e_w), 0, E_w)
+        self.wcomm.all_gather(np.array(e_w), E_w)
         energy = np.dot(E_w, self.weight_w) / (4 * np.pi)
         return energy
 
