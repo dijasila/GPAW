@@ -216,7 +216,6 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
             gsdensity.charge,
             method=method)
         index = self.index.apply(self.lrtddft)
-        energy = self.get_potential_energy()
         self.density.initialize(self.lrtddft, index)
         self.density.update(self.calculator.wfs)
 
