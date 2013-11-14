@@ -31,14 +31,13 @@ class KPoint:
 
 class Chi0:
     def __init__(self, calc, omega_w, ecut=50 / Hartree, hilbert=False,
-                 eta=0.2 / Hartree, blocksize=50, spin=0, ftol=1e-6,
+                 eta=0.2 / Hartree, blocksize=50, ftol=1e-6,
                  world=mpi.world, txt=sys.stdout):
         self.omega_w = np.asarray(omega_w)
         self.ecut = ecut
         self.hilbert = hilbert
         self.eta = eta
         self.blocksize = blocksize
-        self.spin = spin
         self.ftol = ftol
         self.world = world
         
@@ -262,6 +261,8 @@ class Chi0:
         for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
             gemm(1.0, C_vi, P_mi[ma:mb], 1.0, n0_mv, 'c')
 
+        deps_m = deps_m.copy()
+        deps_m[deps_m > -1e-3] = np.inf
         n0_mv *= 1j / deps_m[:, np.newaxis]
         n_mG[:, 0] = n0_mv[:, 0]
 
