@@ -5,7 +5,6 @@ from time import ctime
 import numpy as np
 from ase.units import Hartree
 from ase.utils import devnull, prnt
-from ase.dft.kpoints import monkhorst_pack
 from scipy.special.orthogonal import p_roots
 
 from gpaw import GPAW
@@ -76,7 +75,7 @@ class RPACorrelation:
     def initialize_q_points(self, qsym):
 
         self.bzq_qc = self.calc.wfs.kd.get_bz_q_points(first=True)
-        if qsym == False:
+        if not qsym:
             self.ibzq_qc = self.bzq_qc
             self.weight_q = np.ones(len(self.bzq_qc)) / len(self.bzq_qc)
         else:
@@ -126,7 +125,7 @@ class RPACorrelation:
         if isinstance(ecut, (float, int)):
             ecut_i = [ecut]
             for i in range(5):
-                ecut_i.append(ecut_i[-1]*0.8)
+                ecut_i.append(ecut_i[-1] * 0.8)
             ecut_i = np.sort(ecut_i)
         else:
             ecut_i = np.sort(ecut)
@@ -164,7 +163,7 @@ class RPACorrelation:
             # First not completely filled band:
             m1 = chi0.nocc1
 
-            prnt('%s:' % len(self.energy_qi), 'q =', q_c, 
+            prnt('%s:' % len(self.energy_qi), 'q =', q_c,
                  '-', ctime().split()[-2], file=self.fd)
             
             energy_i = []
@@ -178,14 +177,21 @@ class RPACorrelation:
                     m2 = len(cut_G)
                     
                 prnt('%6.0f eV,   ' % (ecut * Hartree),
-                     'bands %-15s'  % ('%d-%d:' % (m1, m2 - 1)),
-                file=self.fd, end='', flush=True)
+                     'bands %-15s' % ('%d-%d:' % (m1, m2 - 1)),
+                     file=self.fd, end='', flush=True)
                 
                 energy = self.calculate_q(chi0, pd,
                                           chi0_wGG, chi0_wxvG, Q_aGii,
                                           m1, m2, cut_G)
                 energy_i.append(energy)
                 m1 = m2
+                
+                if ecut < ecutmax and self.chicomm.size > 1:
+                    # Chi0 will be summed again over chicomm, so we divide
+                    # by its size:
+                    chi0_wGG *= 1.0 / self.chicomm.size
+                    if chi0_wxvG is not None:
+                        chi0_wxvG *= 1.0 / self.chicomm.size
 
             self.energy_qi.append(energy_i)
             self.write()
@@ -197,7 +203,7 @@ class RPACorrelation:
         prnt(file=self.fd)
         prnt('Total correlation energy:', file=self.fd)
         for e_cut, e in zip(self.ecut_i, e_i):
-            prnt('%6.0f:   %6.3f eV' % (e_cut*Hartree, e*Hartree),
+            prnt('%6.0f:   %6.3f eV' % (e_cut * Hartree, e * Hartree),
                  file=self.fd)
         prnt(file=self.fd)
 
@@ -214,7 +220,7 @@ class RPACorrelation:
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, Q_aGii, m1, m2)
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_wGG, cut_G)
-            prnt('%.3f eV' % (e * Hartree), end='', flush=True, file=self.fd)
+            prnt('%.3f eV' % (e * Hartree), flush=True, file=self.fd)
         else:
             e = 0.0
             for v in range(3):
@@ -222,12 +228,12 @@ class RPACorrelation:
                 chi0_wGG[:, :, 0] = chi0_wxvG[:, 1, v]
                 ev = self.calculate_energy(pd, chi0_wGG, cut_G)
                 e += ev
-                if v in [0,1]:
-                    prnt('%.3f/' % (ev * Hartree), end='', file=self.fd)
+                prnt('%.3f' % (ev * Hartree), end='', file=self.fd)
+                if v < 2:
+                    prnt('/', end='', file=self.fd)
                 else:
-                    prnt('%.3f eV' % (ev * Hartree), end='', file=self.fd)
+                    prnt('eV', flush=True, file=self.fd)
             e /= 3
-        prnt(file=self.fd, flush=True)
 
         return e
         
@@ -266,9 +272,9 @@ class RPACorrelation:
             ex = (e1 * x2 - e2 * x1) / (x2 - x1)
             ex_i.append(ex)
         
-            prnt('  %4.0f -%4.0f:  %5.3f eV' % (self.ecut_i[i]*Hartree,
-                                                self.ecut_i[i+1]*Hartree,
-                                                ex*Hartree),
+            prnt('  %4.0f -%4.0f:  %5.3f eV' % (self.ecut_i[i] * Hartree,
+                                                self.ecut_i[i + 1] * Hartree,
+                                                ex * Hartree),
                  file=self.fd, flush=True)
         prnt(file=self.fd)
         
@@ -302,8 +308,8 @@ class RPACorrelation:
              len(self.ibzq_qc), file=self.fd)
         prnt(file=self.fd)
         for q, weight in zip(self.ibzq_qc, self.weight_q):
-            prnt('q: [%1.4f %1.4f %1.4f] - weight: %1.3f'
-                 % (q[0],q[1],q[2], weight), file=self.fd)
+            prnt('q: [%1.4f %1.4f %1.4f] - weight: %1.3f' %
+                 (q[0], q[1], q[2], weight), file=self.fd)
         prnt(file=self.fd)
         prnt('----------------------------------------------------------',
              file=self.fd)
@@ -313,25 +319,26 @@ class RPACorrelation:
         if nlambda is None:
             prnt('Analytical coupling constant integration', file=self.fd)
         else:
-            prnt('Numerical coupling constant integration using', nlambda, 
+            prnt('Numerical coupling constant integration using', nlambda,
                  'Gauss-Legendre points', file=self.fd)
         prnt(file=self.fd)
         prnt('Frequencies', file=self.fd)
-        prnt('    Gauss-Legendre integration with %s frequency points'
-             % len(self.omega_w), file=self.fd)
+        prnt('    Gauss-Legendre integration with %s frequency points' %
+             len(self.omega_w), file=self.fd)
         prnt('    Transformed from [0,\infty] to [0,1] using e^[-aw^(1/B)]',
              file=self.fd)
-        prnt('    Highest frequency point at %5.1f eV and B=%1.1f'
-             % (self.omega_w[-1]*Hartree, frequency_scale), file=self.fd)
+        prnt('    Highest frequency point at %5.1f eV and B=%1.1f' %
+             (self.omega_w[-1] * Hartree, frequency_scale), file=self.fd)
         prnt(file=self.fd)
         prnt('Parallelization', file=self.fd)
-        prnt('    Total number of CPUs          : % s'
-             % self.world.size, file=self.fd)
-        prnt('    Frequency decomposition       : % s'
-             % self.wcomm.size, file=self.fd)
-        prnt('    K-point/band decomposition    : % s'
-             % self.chicomm.size, file=self.fd)
+        prnt('    Total number of CPUs          : % s' % self.world.size,
+             file=self.fd)
+        prnt('    Frequency decomposition       : % s' % self.wcomm.size,
+             file=self.fd)
+        prnt('    K-point/band decomposition    : % s' % self.chicomm.size,
+             file=self.fd)
         prnt(file=self.fd)
+
         
 def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
     y_w, weights_w = p_roots(nw)
