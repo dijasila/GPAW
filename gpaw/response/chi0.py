@@ -9,6 +9,7 @@ from ase.utils import devnull, prnt
 
 from gpaw import GPAW
 import gpaw.mpi as mpi
+from gpaw.fd_operators import Gradient
 from gpaw.utilities.blas import gemm, rk
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -32,6 +33,7 @@ class KPoint:
 class Chi0:
     def __init__(self, calc, omega_w, ecut=50 / Hartree, hilbert=False,
                  eta=0.2 / Hartree, blocksize=50, ftol=1e-6,
+                 real_space_derivatives=False,
                  world=mpi.world, txt=sys.stdout):
         self.omega_w = np.asarray(omega_w)
         self.ecut = ecut
@@ -39,6 +41,7 @@ class Chi0:
         self.eta = eta
         self.blocksize = blocksize
         self.ftol = ftol
+        self.real_space_derivatives = real_space_derivatives
         self.world = world
         
         if isinstance(calc, str):
@@ -47,6 +50,8 @@ class Chi0:
 
         if world.rank != 0:
             txt = devnull
+        if isinstance(txt, str):
+            txt = open(txt, 'w')
         self.fd = txt
         
         if eta == 0.0:
@@ -373,10 +378,9 @@ class Chi0:
         return Q_aGii
 
     def calculate_derivatives(self):
-        if 0:
-            from gpaw.fd_operators import Gradient
-            g_v = [Gradient(self.calc.wfs.gd, v, 1.0, 4, complex).apply
-                   for v in range(3)]
+        if self.real_space_derivatives:
+            grad_v = [Gradient(self.calc.wfs.gd, v, 1.0, 4, complex).apply
+                      for v in range(3)]
         wfs = self.calc.wfs
         ut_sKnvR = [{}, {}]
         for s, K, n1, n2 in self.mysKn1n2:
@@ -391,28 +395,14 @@ class Chi0:
             ut_nvR = wfs.gd.zeros((n2 - n1, 3), complex)
             for n in range(n1, n2):
                 for v in range(3):
-                    if 1:
+                    if self.real_space_derivatives:
+                        ut_R = T(wfs.pd.ifft(psit_nG[n], ik))
+                        grad_v[v](ut_R, ut_nvR[n - n1, v],
+                                  np.ones((3, 2), complex))
+                    else:
                         ut_R = T(wfs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
                         for v2 in range(3):
                             ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
-                    else:
-                        ut_R = T(wfs.pd.ifft(psit_nG[n], ik))
-                        g_v[v](ut_R, ut_nvR[n - n1, v],
-                               np.ones((3, 2), complex))
             ut_sKnvR[s][K] = ut_nvR
             
         return ut_sKnvR
-
-
-if np.__version__ < '1.6':
-    old_unravel_index = np.unravel_index
-    def new_unravel_index(indices, dims):
-        if isinstance(indices, int):
-            return old_unravel_index(indices, dims)
-        return np.array([old_unravel_index(index, dims)
-                         for index in indices]).T
-    np.unravel_index = new_unravel_index
-    def ravel_multi_index(i, d, mode):
-        i = i % d[:, None]
-        return np.dot([d[1] * d[2], d[2], 1], i)
-    np.ravel_multi_index = ravel_multi_index
