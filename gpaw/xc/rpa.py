@@ -16,9 +16,9 @@ from gpaw.kpt_descriptor import KPointDescriptor
 
 
 class RPACorrelation:
-    def __init__(self, calc, filename=None,
-                 skip_gamma=False, qsym=True,
-                 nfrequencies=16, frequency_cut=800.0, frequency_scale=2.0,
+    def __init__(self, calc, xc='RPA', filename=None,
+                 skip_gamma=False, qsym=True, nlambda=None,
+                 nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
                  frequencies=None, weights=None,
                  wcomm=None, chicomm=None, world=mpi.world,
                  txt=sys.stdout):
@@ -26,14 +26,14 @@ class RPACorrelation:
         if isinstance(calc, str):
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         self.calc = calc
-        
+
         if world.rank != 0:
             txt = devnull
         self.fd = txt
-
+        
         if frequencies is None:
             frequencies, weights = get_gauss_legendre_points(nfrequencies,
-                                                             frequency_cut,
+                                                             frequency_max,
                                                              frequency_scale)
         
         self.omega_w = frequencies / Hartree
@@ -71,7 +71,7 @@ class RPACorrelation:
         
         self.filename = filename
 
-        self.print_initialization(frequency_scale)
+        self.print_initialization(xc, frequency_scale, nlambda)
     
     def initialize_q_points(self, qsym):
 
@@ -232,7 +232,7 @@ class RPACorrelation:
         return e
         
     def calculate_energy(self, pd, chi0_wGG, cut_G):
-        """Evaluate RPA correlation energy from chi-0."""
+        """Evaluate correlation energy from chi0."""
         
         G_G = pd.G2_qG[0]**0.5  # |G+q|
         if G_G[0] == 0.0:
@@ -254,7 +254,7 @@ class RPACorrelation:
 
         E_w = np.zeros_like(self.omega_w)
         self.wcomm.all_gather(np.array(e_w), E_w)
-        energy = np.dot(E_w, self.weight_w) / (4 * np.pi)
+        energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
         return energy
 
     def extrapolate(self, e_i):
@@ -274,10 +274,10 @@ class RPACorrelation:
         
         return e_i * Hartree
         
-    def print_initialization(self, frequency_scale):
+    def print_initialization(self, xc, frequency_scale, nlambda):
         prnt('----------------------------------------------------------',
              file=self.fd)
-        prnt('Non-self-consistent RPA correlation energy', file=self.fd)
+        prnt('Non-self-consistent %s correlation energy' % xc, file=self.fd)
         prnt('----------------------------------------------------------',
              file=self.fd)
         prnt('Started at:  ', ctime(), file=self.fd)
@@ -303,12 +303,18 @@ class RPACorrelation:
         prnt(file=self.fd)
         for q, weight in zip(self.ibzq_qc, self.weight_q):
             prnt('q: [%1.4f %1.4f %1.4f] - weight: %1.3f'
-                 % (q[0],q[1],q[2], weight))
+                 % (q[0],q[1],q[2], weight), file=self.fd)
         prnt(file=self.fd)
         prnt('----------------------------------------------------------',
              file=self.fd)
         prnt('----------------------------------------------------------',
              file=self.fd)
+        prnt(file=self.fd)
+        if nlambda is None:
+            prnt('Analytical coupling constant integration', file=self.fd)
+        else:
+            prnt('Numerical coupling constant integration using', nlambda, 
+                 'Gauss-Legendre points', file=self.fd)
         prnt(file=self.fd)
         prnt('Frequencies', file=self.fd)
         prnt('    Gauss-Legendre integration with %s frequency points'
@@ -316,8 +322,7 @@ class RPACorrelation:
         prnt('    Transformed from [0,\infty] to [0,1] using e^[-aw^(1/B)]',
              file=self.fd)
         prnt('    Highest frequency point at %5.1f eV and B=%1.1f'
-             % (self.omega_w[-1]*Hartree, frequency_scale),
-             file=self.fd)
+             % (self.omega_w[-1]*Hartree, frequency_scale), file=self.fd)
         prnt(file=self.fd)
         prnt('Parallelization', file=self.fd)
         prnt('    Total number of CPUs          : % s'
@@ -328,13 +333,13 @@ class RPACorrelation:
              % self.chicomm.size, file=self.fd)
         prnt(file=self.fd)
         
-def get_gauss_legendre_points(nw=16, frequency_cut=800.0, frequency_scale=2.0):
+def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
     y_w, weights_w = p_roots(nw)
     ys = 0.5 - 0.5 * y_w
     ys = ys[::-1]
     w = (-np.log(1 - ys))**frequency_scale
-    w *= frequency_cut / w[-1]
-    alpha = (-np.log(1 - ys[-1]))**frequency_scale / frequency_cut
+    w *= frequency_max / w[-1]
+    alpha = (-np.log(1 - ys[-1]))**frequency_scale / frequency_max
     transform = (-np.log(1 - ys))**(frequency_scale - 1) \
         / (1 - ys) * frequency_scale / alpha
-    return w, weights_w * transform
+    return w, weights_w * transform / 2

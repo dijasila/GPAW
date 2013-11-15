@@ -71,7 +71,7 @@ class Chi0:
                        for s, K, n1, n2 in self.mysKn1n2]
         
         vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
-        self.prefactor = 2 / vol / calc.wfs.kd.nbzkpts
+        self.prefactor = 2 / vol / calc.wfs.kd.nbzkpts / self.calc.wfs.nspins 
 
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
         
