@@ -7,8 +7,9 @@ from ase.utils import devnull, prnt
 
 from gpaw import GPAW
 import gpaw.mpi as mpi
-from gpaw.fd_operators import Gradient
 from gpaw.utilities.blas import gemm
+from gpaw.fd_operators import Gradient
+from gpaw.wavefunctions.pw import PWLFC
 from gpaw.response.math_func import two_phi_planewave_integrals
 
 
@@ -226,7 +227,7 @@ class PairDensity:
 
         return U_cc, T, a_a, U_aii, shift_c, time_reversal
 
-    def calculate_paw_corrections(self, pd):
+    def calculate_paw_corrections(self, pd, soft=False):
         wfs = self.calc.wfs
         q_v = pd.K_qv[0]
         optical_limit = not q_v.any()
@@ -240,9 +241,17 @@ class PairDensity:
         # Collect integrals for all species:
         Q_xGii = {}
         for id, atomdata in wfs.setups.setups.items():
-            Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
-            ni = atomdata.ni
-            Q_xGii[id] = Q_Gii.reshape((-1, ni, ni))
+            if soft:
+                ghat = PWLFC([atomdata.ghat_l], pd)
+                ghat.set_positions([[0, 0, 0]])
+                Q_LG = ghat.expand()
+                Q_Gii = np.dot(Q_LG.T, atomdata.Delta_Lii)
+            else:
+                Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
+                ni = atomdata.ni
+                Q_Gii.shape = (-1, ni, ni)
+                
+            Q_xGii[id] = Q_Gii
             
         Q_aGii = []
         for a, atomdata in enumerate(wfs.setups):
