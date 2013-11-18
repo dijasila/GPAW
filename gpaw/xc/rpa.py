@@ -142,7 +142,6 @@ class RPACorrelation:
             self.world.barrier()
 
         chi0 = Chi0(self.calc, 1j * Hartree * self.myomega_w, eta=0.0,
-                    ecut=None,  # will be set below ...
                     txt=devnull, world=self.chicomm)
         
         nq = len(self.energy_qi)
@@ -233,7 +232,7 @@ class RPACorrelation:
                 if v < 2:
                     prnt('/', end='', file=self.fd)
                 else:
-                    prnt('eV', flush=True, file=self.fd)
+                    prnt(' eV', flush=True, file=self.fd)
             e /= 3
 
         return e

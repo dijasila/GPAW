@@ -23,18 +23,18 @@ class KPoint:
         self.f_n = f_n          # occupation numbers
         self.P_ani = P_ani      # PAW projections
         self.shift_c = shift_c  # long story - see the
-                                # Chi0.construct_symmetry_operators() method
+                                # PairDensity.construct_symmetry_operators()
+                                # method
 
 
 class PairDensity:
     def __init__(self, calc, ecut=50,
-                 blocksize=50, ftol=1e-6,
+                 ftol=1e-6,
                  real_space_derivatives=False,
                  world=mpi.world, txt=sys.stdout):
         ecut /= Hartree
         
         self.ecut = ecut
-        self.blocksize = blocksize
         self.ftol = ftol
         self.real_space_derivatives = real_space_derivatives
         self.world = world
@@ -58,7 +58,7 @@ class PairDensity:
         self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
 
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
-        
+
     def count_occupied_bands(self):
         self.nocc1 = 9999999
         self.nocc2 = 0
@@ -72,6 +72,15 @@ class PairDensity:
              file=self.fd)
         
     def distribute_k_points_and_bands(self, nbands):
+        """Distribute spins, k-points and bands.
+        
+        nbands: int
+            Number of bands for each spin/k-point combination.
+            
+        The attribute self.mysKn1n2 will be set to a list of (s, K, n1, n2)
+        tuples that this process handles.
+        """
+        
         world = self.world
         wfs = self.calc.wfs
         ns = wfs.nspins
@@ -96,6 +105,15 @@ class PairDensity:
               world.size, ['es', ''][world.size == 1]), file=self.fd)
             
     def get_k_point(self, s, K, n1, n2):
+        """Return wave functions for a specific k-point and spin.
+        
+        s: int
+            Spin index (0 or 1).
+        K: int
+            BZ k-point index.
+        n1, n2: int
+            Range of bands to include.
+        """
         wfs = self.calc.wfs
         
         U_cc, T, a_a, U_aii, shift_c, time_reversal = \
@@ -120,27 +138,28 @@ class PairDensity:
         
         return KPoint(s, K, n1, n2, ut_nR, eps_n, f_n, P_ani, shift_c)
     
-    def calculate_pair_densities(self, utcc_R, C_aGi, kpt2,
-                                 ma, mb, pd, Q_G):
+    def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G):
+        """"""
         dv = pd.gd.dv
-        n_mG = pd.empty(mb - ma)
-        for m in range(ma, mb):
-            n_R = utcc_R * kpt2.ut_nR[m]
+        n_mG = pd.empty(kpt2.n2 - kpt2.n1)
+        for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
+            n_R = ut1cc_R * ut_R
             pd.tmp_R[:] = n_R
             pd.fftplan.execute()
-            n_mG[m - ma] = pd.tmp_Q.ravel()[Q_G] * dv
+            n_G[:] = pd.tmp_Q.ravel()[Q_G] * dv
         
         # PAW corrections:
-        for C_Gi, P_mi in zip(C_aGi, kpt2.P_ani):
-            gemm(1.0, C_Gi, P_mi[ma:mb], 1.0, n_mG, 't')
+        for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
+            gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG, 't')
             
         return n_mG
     
-    def get_fft_indices(self, K, K2, q_c, pd, shift0_c):
+    def get_fft_indices(self, K1, K2, q_c, pd, shift0_c):
+        """Get indices for G-vectors inside cutoff sphere."""
         kd = self.calc.wfs.kd
         Q_G = pd.Q_qG[0]
         shift_c = (shift0_c +
-                   (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K]).round().astype(int))
+                   (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
         if shift_c.any():
             q_cG = np.unravel_index(Q_G, pd.gd.N_c)
             q_cG = [q_G + shift for q_G, shift in zip(q_cG, shift_c)]
@@ -164,7 +183,7 @@ class PairDensity:
         * time_reversal is a flag - if True, projections should be complex
           conjugated.
             
-        See the get_k_point() method for how tu use these tuples.
+        See the get_k_point() method for how to use these tuples.
         """
         
         wfs = self.calc.wfs

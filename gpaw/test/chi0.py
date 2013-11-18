@@ -1,13 +1,11 @@
-import pickle
-
 import numpy as np
 from ase.lattice import bulk
-from ase.units import Hartree
 from ase.dft.kpoints import monkhorst_pack
 from gpaw import GPAW
 from gpaw.response.chi import CHI
 from gpaw.response.chi0 import Chi0
 from gpaw.mpi import serial_comm
+
 
 omega = np.array([0, 1.0, 2.0])
 for k in [2, 3]:
@@ -24,8 +22,8 @@ for k in [2, 3]:
                 a.center()
             for sym in [None, True]:
                 name = 'si.k%d.g%d.c%d.s%d' % (k, gamma, center, bool(sym))
-                print name
-                if 1:
+                print(name)
+                if 0:
                     calc = a.calc = GPAW(kpts=kpts,
                                          usesymm=sym,
                                          mode='pw',
@@ -44,8 +42,7 @@ for k in [2, 3]:
                 chi.calculate()
                 chi0old_wGG = chi.chi0_wGG
                 
-                chi = Chi0(calc, omega / Hartree, ecut=100 / Hartree,
-                           txt=open(name + '.log', 'w'))
+                chi = Chi0(calc, omega, ecut=100, txt=name + '.log')
                 pd, chi0_wGG, _ = chi.calculate(q)
 
                 assert abs(chi0_wGG - chi0old_wGG).max() < 1e-15
@@ -61,4 +58,3 @@ for k in [2, 3]:
                 elif -1 not in calc.wfs.kd.bz2bz_ks:
                     assert abs(chi0_wGG - chi00_wGG).max() < 2e-5
                     #print abs(chi0_wGG - chi00_wGG).max()
-                    

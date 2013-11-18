@@ -14,10 +14,10 @@ from gpaw.kpt_descriptor import KPointDescriptor
 
 class Chi0(PairDensity):
     def __init__(self, calc, omega_w, ecut=50, hilbert=False,
-                 eta=0.2, blocksize=50, ftol=1e-6,
+                 eta=0.2, ftol=1e-6,
                  real_space_derivatives=False,
                  world=mpi.world, txt=sys.stdout):
-        PairDensity.__init__(self, calc, ecut, blocksize, ftol,
+        PairDensity.__init__(self, calc, ecut, ftol,
                              real_space_derivatives, world, txt)
         
         eta /= Hartree
@@ -36,21 +36,20 @@ class Chi0(PairDensity):
         self.mykpts = [self.get_k_point(s, K, n1, n2)
                        for s, K, n1, n2 in self.mysKn1n2]
         
-        self.prefactor = (2 / self.vol / calc.wfs.kd.nbzkpts /
-                          self.calc.wfs.nspins)
+        wfs = self.calc.wfs
+        self.prefactor = 2 / self.vol / wfs.kd.nbzkpts / wfs.nspins
         
     def calculate(self, q_c):
-        # Start from scratch and do all empty bands:
         wfs = self.calc.wfs
 
         q_c = np.asarray(q_c, dtype=float)
-
         qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
-        
+
         nG = pd.ngmax
         nw = len(self.omega_w)
         chi0_wGG = np.zeros((nw, nG, nG), complex)
+        
         if not q_c.any():
             chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
         else:
@@ -58,8 +57,10 @@ class Chi0(PairDensity):
             
         Q_aGii = self.calculate_paw_corrections(pd)
         
-        return self._calculate(pd, chi0_wGG, chi0_wxvG, Q_aGii,
-                               self.nocc1, wfs.bd.nbands)
+        # Do all empty bands:
+        m1 = self.nocc1
+        m2 = wfs.bd.nbands
+        return self._calculate(pd, chi0_wGG, chi0_wxvG, Q_aGii, m1, m2)
 
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, Q_aGii, m1, m2):
         wfs = self.calc.wfs
@@ -80,22 +81,19 @@ class Chi0(PairDensity):
             Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                        kpt1.shift_c - kpt2.shift_c)
             for n in range(kpt1.n2 - kpt1.n1):
-                eps = kpt1.eps_n[n]
-                f = kpt1.f_n[n]
-                utcc_R = kpt1.ut_nR[n].conj()
-                C_aGi = [np.dot(Q_Gii, P_ni[n].conj())
-                         for Q_Gii, P_ni in zip(Q_aGii, kpt1.P_ani)]
-                for ma in range(0, m2 - m1, self.blocksize):
-                    mb = min(ma + self.blocksize, m2 - m1)
-                    n_mG = self.calculate_pair_densities(utcc_R, C_aGi,
-                                                         kpt2, ma, mb, pd, Q_G)
-                    deps_m = eps - kpt2.eps_n[ma:mb]
-                    df_m = f - kpt2.f_n[ma:mb]
-                    if optical_limit:
-                        self.update_optical_limit(
-                            n, kpt1, kpt2, deps_m, df_m, n_mG,
-                            ma, mb, chi0_wxvG)
-                    update(n_mG, deps_m, df_m, chi0_wGG)
+                eps1 = kpt1.eps_n[n]
+                f1 = kpt1.f_n[n]
+                ut1cc_R = kpt1.ut_nR[n].conj()
+                C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
+                         for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+                n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2, pd,
+                                                     Q_G)
+                deps_m = eps1 - kpt2.eps_n
+                df_m = f1 - kpt2.f_n
+                if optical_limit:
+                    self.update_optical_limit(
+                        n, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG)
+                update(n_mG, deps_m, df_m, chi0_wGG)
                     
         self.world.sum(chi0_wGG)
         if optical_limit:
@@ -139,7 +137,7 @@ class Chi0(PairDensity):
             rk(self.prefactor, x_2G, 1.0, chi0_wGG[iw:iw + 2])
 
     def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG,
-                             ma, mb, chi0_wxvG):
+                             chi0_wxvG):
         if self.ut_sKnvR is None:
             self.ut_sKnvR = self.calculate_derivatives()
             
@@ -149,9 +147,9 @@ class Chi0(PairDensity):
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
         
-        n0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR[ma:mb]).T
+        n0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
         for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
-            gemm(1.0, C_vi, P_mi[ma:mb], 1.0, n0_mv, 'c')
+            gemm(1.0, C_vi, P_mi, 1.0, n0_mv, 'c')
 
         deps_m = deps_m.copy()
         deps_m[deps_m > -1e-3] = np.inf
