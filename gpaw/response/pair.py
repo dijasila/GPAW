@@ -125,7 +125,7 @@ class PairDensity:
         ut_nR = wfs.gd.empty(n2 - n1, complex)
         for n in range(n1, n2):
             ut_nR[n - n1] = T(wfs.pd.ifft(psit_nG[n], ik))
-
+            
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
         
@@ -147,7 +147,7 @@ class PairDensity:
             pd.tmp_R[:] = n_R
             pd.fftplan.execute()
             n_G[:] = pd.tmp_Q.ravel()[Q_G] * dv
-        
+            
         # PAW corrections:
         for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
             gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG, 't')
@@ -250,6 +250,8 @@ class PairDensity:
             Q_Gii = Q_xGii[id]
             x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
             Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
+            if optical_limit:
+                Q_aGii[a][0] = atomdata.dO_ii
                 
         return Q_aGii
 
