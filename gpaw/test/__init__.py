@@ -258,6 +258,7 @@ tests = [
     'be_nltd_ip.py',
     'si_xas.py',
     'atomize.py',
+    'chi0.py',
     'ralda_energy_H2.py',
     'ralda_energy_N2.py',
     'ralda_energy_Ni.py',
