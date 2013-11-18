@@ -54,6 +54,7 @@ Cray:
    Cray/louhi
    Cray/jaguar
    Cray/sisu
+   Cray/hermit
 
 HP:
 
