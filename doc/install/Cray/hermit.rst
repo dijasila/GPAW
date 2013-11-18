@@ -75,3 +75,34 @@ Buid with::
 
   /some_path/scalable-python-gcc/bin/python setup.py install --home=/path_in_workspace --ignore-numpy
 
+Creating a module
+=================
+Users can define their own modules for making it easier to setup environment variables. First, create (or edit) a file ``.modulerc`` in the home directory::
+
+  #%Module1.0
+  ##
+
+  append-path MODULEPATH $HOME/modules
+
+Now, custom modules can be put to the ``modules`` directory, e.g. GPAW module 
+in file ``modules/gpaw``::
+
+  #%Module1.0
+
+  set     prog_root       "/root_folder_of_gpaw_installation"
+
+  # Change PrgEnv to intel
+  set confl_prgenvs [list "PrgEnv-cray" "PrgEnv-gnu"]
+  foreach prgenv $confl_prgenvs {
+    if { [ is-loaded $prgenv] } {
+      module swap $prgenv PrgEnv-intel
+    }
+  }
+
+  setenv GPAW_SETUP_PATH                  "$prog_root/gpaw-setups-0.8.7929"
+  prepend-path    PYTHONPATH              "$prog_root/lib/python"
+  prepend-path    PATH                    "$prog_root/bin/"
+
+Now, GPAW paths can be set as::
+
+  module load gpaw
