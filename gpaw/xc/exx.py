@@ -33,10 +33,12 @@ class EXX(PairDensity):
         self.bands = bands
 
         shape = (self.calc.wfs.nspins, len(kpts), bands[1] - bands[0])
-        self.ex_sin = np.zeros(shape)   # exchange energies
+        self.exx_sin = np.zeros(shape)   # exchange energies
         self.eps_sin = np.zeros(shape)  # KS-eigenvalues
         self.f_sin = np.zeros(shape)    # occupation numbers
-        
+
+        self.energy = np.nan  # total EXX energy
+
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
         self.distribute_k_points_and_bands(self.nocc2)
         
@@ -58,9 +60,13 @@ class EXX(PairDensity):
                 for kpt2 in self.mykpts:
                     if kpt2.s == s:
                         self.calculate_exx(i, kpt1, kpt2)
-                        
-        exx_i = (self.exx_sin * self.f_sin).sum(axis=2).sum(axis=0)
-        self.energy = 0.5 * np.dot(kd.weight_k[self.kpts], exx_i)
+
+        if (len(self.kpts) == kd.nibzkpts and
+            self.bands[0] == 0 and
+            self.bands[1] >= self.nocc2):
+            exx_i = (self.exx_sin * self.f_sin).sum(axis=2).sum(axis=0)
+            self.energy = 0.5 * np.dot(kd.weight_k[self.kpts], exx_i)
+
         return self.energy * Hartree
         
     def calculate_exx(self, i, kpt1, kpt2):
@@ -72,7 +78,7 @@ class EXX(PairDensity):
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                    kpt1.shift_c - kpt2.shift_c)
 
-        Q_aGii = self.calculate_paw_corrections(pd)
+        Q_aGii = self.calculate_paw_corrections(pd, soft=True)
         
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
@@ -82,7 +88,7 @@ class EXX(PairDensity):
                                                  pd, Q_G)
             f_m = kpt2.f_n
             x = self.exx(pd, n_mG, f_m)
-            self.ex_sin[kpt1.s, i, n] += x
+            self.exx_sin[kpt1.s, i, n] += x
 
     def exx(self, pd, n_mG, f_m):
         G_G = pd.G2_qG[0]**0.5

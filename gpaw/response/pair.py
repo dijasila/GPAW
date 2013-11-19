@@ -243,9 +243,9 @@ class PairDensity:
         for id, atomdata in wfs.setups.setups.items():
             if soft:
                 ghat = PWLFC([atomdata.ghat_l], pd)
-                ghat.set_positions([[0, 0, 0]])
+                ghat.set_positions(np.zeros((1, 3)))
                 Q_LG = ghat.expand()
-                Q_Gii = np.dot(Q_LG.T, atomdata.Delta_Lii)
+                Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
             else:
                 Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
                 ni = atomdata.ni
