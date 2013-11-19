@@ -35,12 +35,14 @@ hosts = { 'batman'                   : 'pbs_batman',
           'ui.bfg.uni'               : 'pbs_bfg',
           r'xc2(.*)'                 : 'xc2',
           'juropa.fz-juelich.de'     : 'juropa',
-	  r'jj(.*)'                  : 'juropa'
+	  r'jj(.*)'                  : 'juropa',
+          'joe1'                     : 'joe'
           }
 
 platforms = { 'aix5' : 'loadleveler' }
 
-env = {'PYTHONPATH'      : None,
+env = {'PATH'            : None,
+       'PYTHONPATH'      : None,
        'GPAW_PYTHON'     : None,
        'GPAW_SETUP_PATH' : None,
        'GPAW_MAIL'       : None
@@ -385,6 +387,35 @@ unset CC CFLAGS LDFLAGS
             print >> f, set['parameters'],
         print >> f, '>', set['out']+'_$PBS_JOBID',
         print >> f, '2>', set['err']+'_$PBS_JOBID'
+
+    def joe(self, f, set, env):
+        modules_to_load = []
+        print >> f, '#!/bin/bash'
+        print >> f, '#$ -N ' + set['name']
+        print >> f, '#$ -cwd'
+        print >> f, '#$ -S /bin/bash'
+        print >> f, '#$ -j y  # join stdout and stderr'
+        print >> f, '#$ -o', set['out'] + '_$PBS_JOBID'
+        cores = set['cores']
+        print >> f, '#$ -pe openmpi_8', cores
+        print >> f, '#$ -l h_rt=' + hms_string(set['time'])
+        print >> f
+        print >> f, 'cd', set['wd']
+        print >> f
+        print >> f, 'export PATH=$PATH:' + env['PATH']
+        print >> f, 'export PYTHONPATH=$PYTHONPATH:' + env['PYTHONPATH']
+        print >> f, 'export GPAW_SETUP_PATH='+env['GPAW_SETUP_PATH']
+        print >> f, 'export GPAW_PYTHON='+env['GPAW_PYTHON']
+        try:       
+            LD_LIBRARY_PATH = os.environ['LD_LIBRARY_PATH'] + ':'
+        except:
+            LD_LIBRARY_PATH = ''
+        print >> f, ('export LD_LIBRARY_PATH=' + LD_LIBRARY_PATH
+                     + '$LD_LIBRARY_PATH')
+        print >> f
+        print >> f, 'mpirun -np $NSLOTS $GPAW_PYTHON', set['script'],
+        if 'parameters' in set:
+            print >> f, set['parameters'],
 
     def juropa(self, f, set, env):
         print >> f, '#!/bin/bash'
