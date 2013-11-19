@@ -65,13 +65,13 @@ class EXX(PairDensity):
             self.bands[0] == 0 and
             self.bands[1] >= self.nocc2):
             exx_i = (self.exx_sin * self.f_sin).sum(axis=2).sum(axis=0)
-            self.energy = 0.5 * np.dot(kd.weight_k[self.kpts], exx_i)
+            self.energy = np.dot(kd.weight_k[self.kpts], exx_i)
 
         return self.energy * Hartree
         
     def calculate_exx(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
-        q_c = wfs.kd.bzk_kc[kpt1.K] - wfs.kd.bzk_kc[kpt2.K]
+        q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
         shift_c = 0
         qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
@@ -94,7 +94,7 @@ class EXX(PairDensity):
         G_G = pd.G2_qG[0]**0.5
         if G_G[0] == 0.0:
             G_G[0] = self.G0
-            
-        x_G = np.dot(f_m, n_mG) / G_G
-        ex = np.vdot(x_G, x_G).real
+        
+        x_mG = ((f_m**0.5)[:, np.newaxis] * n_mG / G_G).view(float)
+        ex = -2 * pi / self.vol * np.vdot(x_mG, x_mG)
         return ex
