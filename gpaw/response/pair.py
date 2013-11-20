@@ -46,7 +46,7 @@ class PairDensity:
 
         if world.rank != 0:
             txt = devnull
-        if isinstance(txt, str):
+        elif isinstance(txt, str):
             txt = open(txt, 'w')
         self.fd = txt
         

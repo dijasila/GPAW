@@ -28,6 +28,8 @@ class RPACorrelation:
 
         if world.rank != 0:
             txt = devnull
+        elif isinstance(txt, str):
+            txt = open(txt, 'w')
         self.fd = txt
         
         if frequencies is None:
@@ -142,7 +144,7 @@ class RPACorrelation:
             self.world.barrier()
 
         chi0 = Chi0(self.calc, 1j * Hartree * self.myomega_w, eta=0.0,
-                    txt=devnull, world=self.chicomm)
+                    txt=self.fd, world=self.chicomm)
         
         nq = len(self.energy_qi)
         for q_c in self.ibzq_qc[nq:]:
