@@ -150,7 +150,7 @@ class RPACorrelation:
             self.world.barrier()
 
         chi0 = Chi0(self.calc, 1j * Hartree * self.myomega_w, eta=0.0,
-                    txt=self.fd, world=self.chicomm)
+                    txt='response.txt', world=self.chicomm)
 
         nq = len(self.energy_qi)
         for q_c in self.ibzq_qc[nq:]:
@@ -166,7 +166,7 @@ class RPACorrelation:
             else:
                 chi0_wxvG = None
 
-            Q_aGii = chi0.calculate_paw_corrections(pd)
+            Q_aGii = chi0.initialize_paw_corrections(pd)
 
             # First not completely filled band:
             m1 = chi0.nocc1
