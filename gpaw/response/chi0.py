@@ -55,7 +55,7 @@ class Chi0(PairDensity):
         else:
             chi0_wxvG = None
             
-        Q_aGii = self.calculate_paw_corrections(pd)
+        Q_aGii = self.initialize_paw_corrections(pd)
         
         # Do all empty bands:
         m1 = self.nocc1
@@ -90,7 +90,7 @@ class Chi0(PairDensity):
                                                      Q_G)
                 deps_m = eps1 - kpt2.eps_n
                 df_m = f1 - kpt2.f_n
-                df_m[df_m <= 0] = 0.0
+                df_m[df_m < 0] = 0.0
                 if optical_limit:
                     self.update_optical_limit(
                         n, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG)

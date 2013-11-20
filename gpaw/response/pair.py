@@ -227,7 +227,7 @@ class PairDensity:
 
         return U_cc, T, a_a, U_aii, shift_c, time_reversal
 
-    def calculate_paw_corrections(self, pd, soft=False):
+    def initialize_paw_corrections(self, pd, soft=False):
         wfs = self.calc.wfs
         q_v = pd.K_qv[0]
         optical_limit = not q_v.any()
