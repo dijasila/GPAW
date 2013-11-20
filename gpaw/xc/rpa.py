@@ -21,28 +21,28 @@ class RPACorrelation:
                  frequencies=None, weights=None,
                  wcomm=None, chicomm=None, world=mpi.world,
                  txt=sys.stdout):
-    
+
         if isinstance(calc, str):
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         self.calc = calc
 
         if world.rank != 0:
             txt = devnull
-        elif isinstance(txt, str):
+        elif isinstance(txt, str): 
             txt = open(txt, 'w')
         self.fd = txt
-        
+
         if frequencies is None:
             frequencies, weights = get_gauss_legendre_points(nfrequencies,
                                                              frequency_max,
                                                              frequency_scale)
-        
+
         self.omega_w = frequencies / Hartree
         self.weight_w = weights / Hartree
 
         if wcomm is None:
             wcomm = 1
-            
+
         if isinstance(wcomm, int):
             if wcomm == 1:
                 wcomm = mpi.serial_comm
@@ -55,7 +55,7 @@ class RPACorrelation:
                 wcomm = world.new_communicator(range(r % n, s, n))
                 chicomm = world.new_communicator(range(r // n * n,
                                                        (r // n + 1) * n))
-            
+
         assert len(self.omega_w) % wcomm.size == 0
         self.mynw = len(self.omega_w) // wcomm.size
         self.w1 = wcomm.rank * self.mynw
@@ -66,14 +66,14 @@ class RPACorrelation:
         self.world = world
 
         self.initialize_q_points(qsym)
-        
+
         # Energies for all q-vetors and cutoff energies:
         self.energy_qi = []
-        
+
         self.filename = filename
 
         self.print_initialization(xc, frequency_scale, nlambda)
-    
+
     def initialize_q_points(self, qsym):
 
         self.bzq_qc = self.calc.wfs.kd.get_bz_q_points(first=True)
@@ -83,9 +83,9 @@ class RPACorrelation:
         else:
             op_scc = self.calc.wfs.kd.symmetry.op_scc
             self.ibzq_qc = self.calc.wfs.kd.get_ibz_q_points(self.bzq_qc,
-                                                        op_scc)[0]
+                                                             op_scc)[0]
             self.weight_q = self.calc.wfs.kd.q_weights
-        
+
     def read(self):
         lines = open(self.filename).readlines()
         n = 0
@@ -95,18 +95,18 @@ class RPACorrelation:
             self.energy_qi.append([])
             for ecut in self.ecut_i:
                 q1, q2, q3, ec, energy = [float(x)
-                                            for x in lines[n].split()]
+                                          for x in lines[n].split()]
                 self.energy_qi[-1].append(energy)
                 n += 1
-            
+
                 if (abs(q_c - (q1, q2, q3)).max() > 1e-5 or
-                    abs(ecut - ec) > 1e-5):
+                                   abs(ecut - ec) > 1e-5):
                     self.energy_qi = []
                     return
 
         prnt('Read %d q-points from file: %s' % (nq, self.filename),
              file=self.fd)
-            
+
     def write(self):
         if self.world.rank == 0 and self.filename:
             fd = open(self.filename, 'w')
@@ -114,16 +114,16 @@ class RPACorrelation:
                 for energy, ecut in zip(energy_i, self.ecut_i):
                     prnt('%10.6f %10.6f %10.6f %10.6f %r' %
                          (tuple(q_c) + (ecut, energy)), file=fd)
-        
+
     def calculate(self, ecut, nbands=None):
         """Calculate RPA correlation energy for one or several cutoffs.
-        
+
         ecut: float or list of floats
             Plane-wave cutoff(s).
         nbands: int
             Number of bands (defaults to number of plane-waves).
         """
-        
+
         if isinstance(ecut, (float, int)):
             ecut_i = [ecut]
             for i in range(5):
@@ -134,18 +134,24 @@ class RPACorrelation:
         self.ecut_i = np.asarray(ecut_i) / Hartree
         ecutmax = max(self.ecut_i)
         
+        if nbands is None:
+            prnt('Response function bands: Equal to number of plane waves', 
+                 file=self.fd)
+        else:
+            prnt('Response function bands: %s' % nbands, 
+                 file=self.fd)            
         prnt('Cutoff energies:', file=self.fd)
-        prnt('   ', ', '.join('%.0f' % e for e in self.ecut_i * Hartree), 'eV',
-             file=self.fd)
+        for ecut in ecut_i:
+            prnt('    %.0f eV' % ecut, file=self.fd)
         prnt(file=self.fd)
-        
+
         if self.filename and os.path.isfile(self.filename):
             self.read()
             self.world.barrier()
 
         chi0 = Chi0(self.calc, 1j * Hartree * self.myomega_w, eta=0.0,
                     txt=self.fd, world=self.chicomm)
-        
+
         nq = len(self.energy_qi)
         for q_c in self.ibzq_qc[nq:]:
             thisqd = KPointDescriptor([q_c])
@@ -159,15 +165,16 @@ class RPACorrelation:
                 chi0_wxvG = np.zeros((self.mynw, 2, 3, nG), complex)
             else:
                 chi0_wxvG = None
-        
+
             Q_aGii = chi0.calculate_paw_corrections(pd)
-            
+
             # First not completely filled band:
             m1 = chi0.nocc1
+            prnt('# %s  -  %s' % (len(self.energy_qi), ctime().split()[-2]), 
+                 file=self.fd)
+            prnt('q = [%s %s %s]' % (q_c[0], q_c[1], q_c[2]), 
+                 file=self.fd)
 
-            prnt('%s:' % len(self.energy_qi), 'q =', q_c,
-                 '-', ctime().split()[-2], file=self.fd)
-            
             energy_i = []
             for ecut in self.ecut_i:
                 if ecut == ecutmax:
@@ -177,17 +184,18 @@ class RPACorrelation:
                 else:
                     cut_G = np.arange(nG)[pd.G2_qG[0] <= 2 * ecut]
                     m2 = len(cut_G)
-                    
-                prnt('%6.0f eV,   ' % (ecut * Hartree),
-                     'bands %-15s' % ('%d-%d:' % (m1, m2 - 1)),
+
+                prnt('E_cut = %d eV / Bands = %d:   ' 
+                     % (ecut * Hartree, m2),
+                     #'bands %-15s' % ('%d-%d:' % (m1, m2 - 1)),
                      file=self.fd, end='', flush=True)
-                
+
                 energy = self.calculate_q(chi0, pd,
                                           chi0_wGG, chi0_wxvG, Q_aGii,
                                           m1, m2, cut_G)
                 energy_i.append(energy)
                 m1 = m2
-                
+
                 if ecut < ecutmax and self.chicomm.size > 1:
                     # Chi0 will be summed again over chicomm, so we divide
                     # by its size:
@@ -198,28 +206,30 @@ class RPACorrelation:
             self.energy_qi.append(energy_i)
             self.write()
             prnt(file=self.fd)
-            
+
         e_i = np.dot(self.weight_q, np.array(self.energy_qi))
         prnt('==========================================================',
              file=self.fd)
         prnt(file=self.fd)
         prnt('Total correlation energy:', file=self.fd)
         for e_cut, e in zip(self.ecut_i, e_i):
-            prnt('%6.0f:   %6.3f eV' % (e_cut * Hartree, e * Hartree),
+            prnt('%6.0f:   %6.4f eV' % (e_cut * Hartree, e * Hartree),
                  file=self.fd)
         prnt(file=self.fd)
 
         if len(e_i) > 1:
             self.extrapolate(e_i)
-        
+
         prnt('Calculation completed at: ', ctime(), file=self.fd)
         prnt(file=self.fd)
 
         return e_i * Hartree
-        
+
     def calculate_q(self, chi0, pd,
                     chi0_wGG, chi0_wxvG, Q_aGii, m1, m2, cut_G):
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, Q_aGii, m1, m2)
+        prnt('E_c(q) = ', end='', file=self.fd)
+
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_wGG, cut_G)
             prnt('%.3f eV' % (e * Hartree), flush=True, file=self.fd)
@@ -238,19 +248,19 @@ class RPACorrelation:
             e /= 3
 
         return e
-        
+
     def calculate_energy(self, pd, chi0_wGG, cut_G):
         """Evaluate correlation energy from chi0."""
-        
+
         G_G = pd.G2_qG[0]**0.5  # |G+q|
         if G_G[0] == 0.0:
             G_G[0] = 1.0
-        
+
         if cut_G is not None:
             G_G = G_G[cut_G]
 
         nG = len(G_G)
-        
+
         e_w = []
         for chi0_GG in chi0_wGG:
             if cut_G is not None:
@@ -273,15 +283,15 @@ class RPACorrelation:
             x1, x2 = self.ecut_i[i:i + 2]**-1.5
             ex = (e1 * x2 - e2 * x1) / (x2 - x1)
             ex_i.append(ex)
-        
+
             prnt('  %4.0f -%4.0f:  %5.3f eV' % (self.ecut_i[i] * Hartree,
                                                 self.ecut_i[i + 1] * Hartree,
                                                 ex * Hartree),
                  file=self.fd, flush=True)
         prnt(file=self.fd)
-        
+
         return e_i * Hartree
-        
+
     def print_initialization(self, xc, frequency_scale, nlambda):
         prnt('----------------------------------------------------------',
              file=self.fd)
@@ -310,7 +320,7 @@ class RPACorrelation:
              len(self.ibzq_qc), file=self.fd)
         prnt(file=self.fd)
         for q, weight in zip(self.ibzq_qc, self.weight_q):
-            prnt('q: [%1.4f %1.4f %1.4f] - weight: %1.3f' %
+            prnt('    q: [%1.4f %1.4f %1.4f] - weight: %1.3f' %
                  (q[0], q[1], q[2], weight), file=self.fd)
         prnt(file=self.fd)
         prnt('----------------------------------------------------------',
@@ -341,7 +351,7 @@ class RPACorrelation:
              file=self.fd)
         prnt(file=self.fd)
 
-        
+
 def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
     y_w, weights_w = p_roots(nw)
     ys = 0.5 - 0.5 * y_w
