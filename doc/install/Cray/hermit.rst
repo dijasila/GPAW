@@ -1,4 +1,4 @@
-.. _louhi:
+.. _hermit:
 
 ============================
 hermit.hww.de  (Cray XE6) 
