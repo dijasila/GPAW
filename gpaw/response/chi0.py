@@ -90,6 +90,7 @@ class Chi0(PairDensity):
                                                      Q_G)
                 deps_m = eps1 - kpt2.eps_n
                 df_m = f1 - kpt2.f_n
+                df_m[df_m <= 0] = 0.0
                 if optical_limit:
                     self.update_optical_limit(
                         n, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG)
