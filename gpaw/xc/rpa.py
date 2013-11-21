@@ -28,7 +28,7 @@ class RPACorrelation:
 
         if world.rank != 0:
             txt = devnull
-        elif isinstance(txt, str): 
+        elif isinstance(txt, str):
             txt = open(txt, 'w')
         self.fd = txt
 
@@ -78,16 +78,16 @@ class RPACorrelation:
         self.print_initialization(xc, frequency_scale, nlambda)
 
     def initialize_q_points(self, qsym):
-
-        self.bzq_qc = self.calc.wfs.kd.get_bz_q_points(first=True)
+        kd = self.calc.wfs.kd
+        self.bzq_qc = kd.get_bz_q_points(first=True)
+        
         if not qsym:
             self.ibzq_qc = self.bzq_qc
             self.weight_q = np.ones(len(self.bzq_qc)) / len(self.bzq_qc)
         else:
-            op_scc = self.calc.wfs.kd.symmetry.op_scc
-            self.ibzq_qc = self.calc.wfs.kd.get_ibz_q_points(self.bzq_qc,
-                                                             op_scc)[0]
-            self.weight_q = self.calc.wfs.kd.q_weights
+            U_scc = kd.symmetry.op_scc
+            self.ibzq_qc = kd.get_ibz_q_points(self.bzq_qc, U_scc)[0]
+            self.weight_q = kd.q_weights
 
     def read(self):
         lines = open(self.filename).readlines()[1:]
@@ -114,12 +114,12 @@ class RPACorrelation:
     def write(self):
         if self.world.rank == 0 and self.filename:
             fd = open(self.filename, 'w')
-            prnt('#%9s %10s %10s %8s %12s' 
-                 % ('q1', 'q2', 'q3', 'E_cut', 'E_c(q)'), file=fd)
+            prnt('#%9s %10s %10s %8s %12s' %
+                 ('q1', 'q2', 'q3', 'E_cut', 'E_c(q)'), file=fd)
             for energy_i, q_c in zip(self.energy_qi, self.ibzq_qc):
                 for energy, ecut in zip(energy_i, self.ecut_i):
                     prnt('%10.4f %10.4f %10.4f %8d   %r' %
-                         (tuple(q_c) + (ecut * Hartree, energy * Hartree)), 
+                         (tuple(q_c) + (ecut * Hartree, energy * Hartree)),
                          file=fd)
 
     def calculate(self, ecut, nbands=None):
@@ -142,11 +142,10 @@ class RPACorrelation:
         ecutmax = max(self.ecut_i)
         
         if nbands is None:
-            prnt('Response function bands    : Equal to number of plane waves', 
+            prnt('Response function bands    : Equal to number of plane waves',
                  file=self.fd)
         else:
-            prnt('Response function bands    : %s' % nbands, 
-                 file=self.fd)            
+            prnt('Response function bands    : %s' % nbands, file=self.fd)
         prnt('Plane wave cutoff energies :', file=self.fd)
         for ecut in ecut_i:
             prnt('    %.0f eV' % ecut, file=self.fd)
@@ -162,7 +161,7 @@ class RPACorrelation:
         nq = len(self.energy_qi)
         for q_c in self.ibzq_qc[nq:]:
             if (q_c == 0.0).all() and self.skip_gamma:
-                self.energy_qi.append(len(self.ecut_i)*[0.0])
+                self.energy_qi.append(len(self.ecut_i) * [0.0])
                 self.write()
                 prnt('Not calculating E_c(q) at Gamma', file=self.fd)
                 prnt(file=self.fd)
@@ -184,10 +183,9 @@ class RPACorrelation:
 
             # First not completely filled band:
             m1 = chi0.nocc1
-            prnt('# %s  -  %s' % (len(self.energy_qi), ctime().split()[-2]), 
+            prnt('# %s  -  %s' % (len(self.energy_qi), ctime().split()[-2]),
                  file=self.fd)
-            prnt('q = [%1.3f %1.3f %1.3f]' % (q_c[0], q_c[1], q_c[2]), 
-                 file=self.fd)
+            prnt('q = [%1.3f %1.3f %1.3f]' % tuple(q_c), file=self.fd)
 
             energy_i = []
             for ecut in self.ecut_i:
@@ -199,9 +197,7 @@ class RPACorrelation:
                     cut_G = np.arange(nG)[pd.G2_qG[0] <= 2 * ecut]
                     m2 = len(cut_G)
 
-                prnt('E_cut = %d eV / Bands = %d:   ' 
-                     % (ecut * Hartree, m2),
-                     #'bands %-15s' % ('%d-%d:' % (m1, m2 - 1)),
+                prnt('E_cut = %d eV / Bands = %d:   ' % (ecut * Hartree, m2),
                      file=self.fd, end='', flush=True)
 
                 energy = self.calculate_q(chi0, pd,
