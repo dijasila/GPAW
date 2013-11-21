@@ -107,10 +107,11 @@ class EXX(PairDensity):
                 prnt('%16s%11.3f eV' % (kind + ':', exx * Hartree),
                      file=self.fd)
 
+        exx_sin = self.exxvv_sin + self.exxvc_sin
         prnt('Eigenvalues in eV:', file=self.fd)
-        prnt((self.exxvv_sin + self.exxvc_sin) * Hartree, file=self.fd)
+        prnt(exx_sin * Hartree, file=self.fd)
         
-        return self.exx * Hartree
+        return self.exx * Hartree, exx_sin * Hartree
         
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
