@@ -57,8 +57,9 @@ class FDTDInducedField(BaseInducedField, Observer):
         self.restart_file = restart_file
         
         # These are allocated in allocate()
-        self.Fn_wG = None
+        self.Fn_wsG = None
         self.n0_G = None
+
 
         self.readwritemode_str_to_list = \
         {'': ['Fn', 'n0', 'FD', 'atoms'],
@@ -114,8 +115,8 @@ class FDTDInducedField(BaseInducedField, Observer):
                                  self.paw.hamiltonian.poisson.classical_material.charge_density.copy()
             
             # Fourier transformed charge density
-            self.Fn_wG = self.paw.hamiltonian.poisson.cl.gd.zeros((self.nw, self.nspins),
-                                                                  dtype=self.dtype)
+            self.Fn_wsG = self.paw.hamiltonian.poisson.cl.gd.zeros((self.nw, self.nspins),
+                                                                   dtype=self.dtype)
     
             self.allocated = True
             
@@ -141,13 +142,13 @@ class FDTDInducedField(BaseInducedField, Observer):
 
         # Update Fourier transforms
         for w in range(self.nw):
-            self.Fn_wG[w] += (n_G - self.n0_G) * f_w[w]
+            self.Fn_wsG[w] += (n_G - self.n0_G) * f_w[w]
 
         # Restart file
         if self.restart_file is not None and \
            self.niter % self.paw.dump_interval == 0:
             self.write(self.restart_file)
-            parprint('%s: Wrote restart file' % self.__class__.__name__)
+            parprint('%s: Wrote restart file %s' % (self.__class__.__name__, self.restart_file))
     
         
     def get_induced_density(self, from_density, gridrefinement):
@@ -158,12 +159,12 @@ class FDTDInducedField(BaseInducedField, Observer):
         Frho_wg = []
         for w in range(self.nw):
             if self.gd == self.fdtd.cl.gd:
-                Frho_wg.append(self.Fn_wG[w].sum(axis=0))
+                Frho_wg.append(self.Fn_wsG[w].sum(axis=0))
             else:
                 Frho_wg.append(Transformer(self.fdtd.cl.gd,
                                            self.gd,
                                            self.stencil,
-                                           dtype=self.dtype).apply(self.Fn_wG[w].sum(axis=0)))
+                                           dtype=self.dtype).apply(self.Fn_wsG[w].sum(axis=0)))
         
         return Frho_wg, self.gd
     
@@ -185,7 +186,7 @@ class FDTDInducedField(BaseInducedField, Observer):
         
         if 'Fn' in reads:
             for w, wread in enumerate(ws):
-                big_g = tar.get('Fn_wG', wread)
+                big_g = tar.get('Fn_wsG', wread)
                 self.gd.distribute(big_g, self.Fn_wsG[w])
         
         if 'eps0' in reads:
@@ -238,15 +239,15 @@ class FDTDInducedField(BaseInducedField, Observer):
                 
         if 'Fn' in writes:
             if master:
-                tar.add('Fn_wG',
-                        ('nw', 'ng0', 'ng1', 'ng2'),
+                tar.add('Fn_wsG',
+                        ('nw', 'nspins', 'ng0', 'ng1', 'ng2'),
                         dtype=self.dtype)
             for w in ws:
                 #big_g = self.gd.collect(self.Fn_wG[w])
                 if self.fdtd.cl.gd == self.gd:
-                    big_g = self.gd.collect(self.Fn_wG[w])
+                    big_g = self.gd.collect(self.Fn_wsG[w])
                 else:
-                    big_g = self.gd.collect(Transformer(self.fdtd.cl.gd, self.gd, self.stencil, self.dtype).apply(self.Fn_wG[w]))
+                    big_g = self.gd.collect(Transformer(self.fdtd.cl.gd, self.gd, self.stencil, self.dtype).apply(self.Fn_wsG[w]))
                 #big_g = self.gd.collect(interpolator_float.apply(self.n0_G.copy()))
                 if master:
                     tar.fill(big_g)

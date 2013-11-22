@@ -38,21 +38,21 @@ class PoissonOrganizer:
 # Contains one PoissonSolver for the classical and one for the quantum subsystem
 class FDTDPoissonSolver:
     def __init__(self, nn=3,
-                        relax='J',
-                        eps=2e-10,
-                        classical_material=None,
-                        cell=None,
-                        qm_spacing=0.30,
-                        cl_spacing=1.20,
-                        tag='fdtd.poisson',
-                        dm_fname='dmCl.dat',
-                        remove_moments=(_maxL, 1),
-                        potential_coupler='Refiner',
-                        coupling_level='both',
-                        communicator=serial_comm,
-                        debug_plots=0,
-                        restart_reader=None,
-                        paw=None):
+                       relax='J',
+                       eps=2e-10,
+                       classical_material=None,
+                       cell=None,
+                       qm_spacing=0.30,
+                       cl_spacing=1.20,
+                       tag='fdtd.poisson',
+                       dm_fname='dmCl.dat',
+                       remove_moments=(_maxL, 1),
+                       potential_coupler='Refiner',
+                       coupling_level='both',
+                       communicator=serial_comm,
+                       debug_plots=0,
+                       restart_reader=None,
+                       paw=None):
 
         self.rank = mpi.rank
 
@@ -84,6 +84,9 @@ class FDTDPoissonSolver:
         self.dm_file = None
         self.debug_plots = debug_plots
         self.maxiter = 2000
+        self.eps = eps
+        self.relax= relax
+        self.nn = nn
         
         # Only handle the quantities via self.qm or self.cl 
         self.cl = PoissonOrganizer()        
@@ -145,7 +148,7 @@ class FDTDPoissonSolver:
         self.qm.gd = qmgd
         
         # Create quantum Poisson solver
-        self.qm.poisson_solver = PoissonSolver()
+        self.qm.poisson_solver = PoissonSolver(nn=self.nn, eps=self.eps, relax=self.relax)
         self.qm.poisson_solver.set_grid_descriptor(self.qm.gd)
         self.qm.poisson_solver.initialize()
         self.qm.phi = self.qm.gd.zeros()
@@ -155,7 +158,7 @@ class FDTDPoissonSolver:
         self.qm.poisson_solver.set_grid_descriptor(qmgd)
 
         # Create classical PoissonSolver
-        self.cl.poisson_solver = PoissonSolver()
+        self.cl.poisson_solver = PoissonSolver(nn=self.nn, eps=self.eps, relax=self.relax)
         self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
         self.cl.poisson_solver.initialize()
             
@@ -668,19 +671,19 @@ class FDTDPoissonSolver:
 
         if(self.calculation_mode == 'solve'):  # do not modify the polarizable material
             return self.solve_solve(charge=None,
-                                   eps=None,
+                                   eps=eps,
                                    maxcharge=maxcharge,
                                    zero_initial_phi=False)
 
         elif(self.calculation_mode == 'iterate'):  # find self-consistent density
             return self.solve_iterate(charge=None,
-                                      eps=None,
+                                      eps=eps,
                                       maxcharge=maxcharge,
                                       zero_initial_phi=False)
         
         elif(self.calculation_mode == 'propagate'):  # propagate one time step
             return self.solve_propagate(charge=None,
-                                        eps=None,
+                                        eps=eps,
                                         maxcharge=maxcharge,
                                         zero_initial_phi=False)
 
@@ -714,6 +717,9 @@ class FDTDPoissonSolver:
             return np.array([float(x) for x in v.replace('[','').replace(']','').split()])
         
         # FDTDPoissonSolver related data
+        self.eps = r['fdtd.eps']
+        self.nn = r['fdtd.nn']
+        self.relax = r['fdtd.relax']
         self.potential_coupling_scheme = r['fdtd.coupling_scheme']
         self.coupling_level = r['fdtd.coupling_level'] 
         self.description = r['fdtd.description']
@@ -817,6 +823,9 @@ class FDTDPoissonSolver:
         self.classical_material.write(w)
         
         # FDTDPoissonSolver related data
+        w['fdtd.eps'] = self.eps
+        w['fdtd.nn'] = self.nn
+        w['fdtd.relax'] = self.relax
         w['fdtd.coupling_scheme'] = self.potential_coupling_scheme
         w['fdtd.coupling_level'] = self.coupling_level
         w['fdtd.description'] = self.description

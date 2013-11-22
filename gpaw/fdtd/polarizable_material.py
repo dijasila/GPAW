@@ -193,7 +193,7 @@ class PolarizableBox():
         self.permittivity = permittivity
         
         self.name = 'PolarizableBox'
-        self.arguments = 'vector1=[%f, %f, %f], radius1=[%f, %f, %f]' % (vector1[0], vector1[1], vector1[2],
+        self.arguments = 'vector1=[%f, %f, %f], vector2=[%f, %f, %f]' % (vector1[0], vector1[1], vector1[2],
                                                                          vector2[0], vector2[1], vector2[2])        
 
     # Setup grid descriptor and the permittivity values inside the box
@@ -216,6 +216,51 @@ class PolarizableBox():
                                   r_gv[:, :, :, 2] > self.vector1[2]),
                                   r_gv[:, :, :, 2] < self.vector2[2])
 
+
+# Shape from atom positions (surrounding region)
+class PolarizableAtomisticRegion():
+    def __init__(self, atoms=None, atom_positions=None, distance=0.0, permittivity=None):
+
+        if atoms is not None:
+            self.atom_positions = np.array(atoms.get_positions())
+        else:
+            self.atom_positions = np.array(atom_positions)
+        
+        # sanity check
+        assert(len(self.atom_positions)>1)
+        
+        self.permittivity = permittivity
+        self.name = 'PolarizableAtomisticRegion'
+        
+        # use the minimum interatomic distance
+        if distance<1e-10:
+            self.distance = np.sqrt(np.min([np.sort(np.sum((self.atom_positions-ap)**2, axis=1))[1] for ap in self.atom_positions]))/Bohr
+        else:
+            self.distance   = distance/Bohr # from Angstroms to atomic units
+       
+        dbohr = self.distance*Bohr
+        self.arguments = 'distance = %20.12e, atom_positions=[' % dbohr
+        for ap in self.atom_positions:
+            self.arguments += '[%20.12e, %20.12e, %20.12e],' % (ap[0], ap[1], ap[2])
+        self.arguments = self.arguments[:-1] + ']'
+
+    # Setup grid descriptor and the permittivity values inside the box
+    def get_mask(self, gd, verbose=True):
+        
+        if verbose:
+            parprint("Initializing Polarizable Atomistic Region")
+
+        # 3D coordinates at each grid point
+        r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
+        
+        # inside or outside
+        mask_tbl = False * np.ones(r_gv.shape[:-1])
+        for ap in self.atom_positions:
+            mask_tbl = np.logical_or(mask_tbl, np.array( (r_gv[:, :, :, 0] - ap[0]/Bohr)**2.0 +
+                                                         (r_gv[:, :, :, 1] - ap[1]/Bohr)**2.0 +
+                                                         (r_gv[:, :, :, 2] - ap[2]/Bohr)**2.0 < self.distance**2))
+        return mask_tbl
+    
 # Sphere-shaped classical material
 class PolarizableSphere():
     def __init__(self, permittivity, center, radius):

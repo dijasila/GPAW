@@ -111,7 +111,6 @@ class BaseInducedField(object):
     
     def initialize(self, paw, allocate=True):
         self.allocated = False
-        
         self.paw = paw
         self.world = paw.wfs.world
         self.domain_comm = paw.wfs.gd.comm
@@ -192,7 +191,7 @@ class BaseInducedField(object):
         
         for w in range(self.nw):
             # TODO: better output of progress
-            parprint('%d' % w)
+            #parprint('%d' % w)
             calculate_field(gd, Frho_wg[w], self.Fbgef_v,
                             Fphi_wg[w], Fef_wvg[w], Ffe_wg[w],
                             nv=self.nv,
@@ -552,6 +551,7 @@ def read_data(filename, keys=None, ws='all'):
                       'Fphi_wg': 'Fphi_wg',
                       'Fef_wvg': 'Fef_wvg',
                       'Ffe_wg': 'Ffe_wg',
+                      'eps0_G': 'eps0_G'
                       }
     
     print('Reading %s' % (filename))
