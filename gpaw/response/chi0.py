@@ -86,8 +86,8 @@ class Chi0(PairDensity):
                 ut1cc_R = kpt1.ut_nR[n].conj()
                 C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
                          for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-                n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2, pd,
-                                                     Q_G)
+                n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
+                                                     pd, Q_G)
                 deps_m = eps1 - kpt2.eps_n
                 df_m = f1 - kpt2.f_n
                 df_m[df_m < 0] = 0.0
@@ -139,23 +139,8 @@ class Chi0(PairDensity):
 
     def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG,
                              chi0_wxvG):
-        if self.ut_sKnvR is None:
-            self.ut_sKnvR = self.calculate_derivatives()
-            
-        ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]
-        
-        atomdata_a = self.calc.wfs.setups
-        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
-                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
-        
-        n0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
-        for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
-            gemm(1.0, C_vi, P_mi, 1.0, n0_mv, 'c')
-
-        deps_m = deps_m.copy()
-        deps_m[deps_m > -1e-3] = np.inf
-        n0_mv *= 1j / deps_m[:, np.newaxis]
-        n_mG[:, 0] = n0_mv[:, 0]
+        n0_mv = PairDensity.update_optical_limit(self, n, kpt1, kpt2,
+                                                 deps_m, df_m, n_mG)
 
         for w, omega in enumerate(self.omega_w):
             x_m = (self.prefactor *

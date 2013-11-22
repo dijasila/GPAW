@@ -140,7 +140,21 @@ class PairDensity:
         return KPoint(s, K, n1, n2, ut_nR, eps_n, f_n, P_ani, shift_c)
     
     def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G):
-        """"""
+        """Calculate FFT of pair-denities and add PAW corrections.
+        
+        ut1cc_R: 3-d complex ndarray
+            Complex conjugate of the periodic part of the left hand side
+            wave function.
+        C1_aGi: list of ndarrays
+            PAW corrections for all atoms.
+        kpt2: KPoint object
+            Right hand side k-point object.
+        pd: PWDescriptor
+            Plane-wave descriptor for for q=k2-k1.
+        Q_G: 1-d int ndarray
+            Mapping from flattened 3-d FFT grid to 0.5(G+q)^2<ecut sphere.
+        """
+        
         dv = pd.gd.dv
         n_mG = pd.empty(kpt2.n2 - kpt2.n1)
         for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
@@ -263,6 +277,27 @@ class PairDensity:
                 Q_aGii[a][0] = atomdata.dO_ii
                 
         return Q_aGii
+
+    def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG):
+        if self.ut_sKnvR is None:
+            self.ut_sKnvR = self.calculate_derivatives()
+            
+        ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]
+        
+        atomdata_a = self.calc.wfs.setups
+        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
+                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        
+        n0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
+        for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
+            gemm(1.0, C_vi, P_mi, 1.0, n0_mv, 'c')
+
+        deps_m = deps_m.copy()
+        deps_m[deps_m > -1e-3] = np.inf
+        n0_mv *= 1j / deps_m[:, np.newaxis]
+        n_mG[:, 0] = n0_mv[:, 0]
+        
+        return n0_mv
 
     def calculate_derivatives(self):
         if self.real_space_derivatives:
