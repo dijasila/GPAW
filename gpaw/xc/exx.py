@@ -50,7 +50,6 @@ class EXX(PairDensity):
         shape = (self.calc.wfs.nspins, len(kpts), bands[1] - bands[0])
         self.exxvv_sin = np.zeros(shape)   # valence-valence exchange energies
         self.exxvc_sin = np.zeros(shape)   # valence-core exchange energies
-        self.eps_sin = np.empty(shape)     # KS-eigenvalues
         self.f_sin = np.empty(shape)       # occupation numbers
 
         # The total EXX energy will not be calculated if we are only
@@ -73,7 +72,7 @@ class EXX(PairDensity):
         # PAW matrices:
         self.D_asii = []  # atomic density matrices
         self.V_asii = []  # valence-valence correction
-        self.C_aii = []  # valence-core correction
+        self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
         
     def calculate(self):
@@ -82,7 +81,6 @@ class EXX(PairDensity):
             for i, k1 in enumerate(self.kpts):
                 K1 = kd.ibz2bz_k[k1]
                 kpt1 = self.get_k_point(s, K1, *self.bands)
-                self.eps_sin[s, i] = kpt1.eps_n
                 self.f_sin[s, i] = kpt1.f_n
                 for kpt2 in self.mykpts:
                     if kpt2.s == s:
@@ -90,6 +88,8 @@ class EXX(PairDensity):
                 
                 self.calculate_paw_exx_corrections(i, kpt1)
 
+        self.world.sum(self.exxvv_sin)
+        
         # Calculate total energy if we have everything needed:
         if (len(self.kpts) == kd.nibzkpts and
             self.bands[0] == 0 and
@@ -108,7 +108,7 @@ class EXX(PairDensity):
                      file=self.fd)
 
         exx_sin = self.exxvv_sin + self.exxvc_sin
-        prnt('Eigenvalues in eV:', file=self.fd)
+        prnt('EXX eigenvalue contributions in eV:', file=self.fd)
         prnt(exx_sin * Hartree, file=self.fd)
         
         return self.exx * Hartree, exx_sin * Hartree
@@ -173,5 +173,5 @@ class EXX(PairDensity):
             exxvc -= np.vdot(D_ii, C_ii)
             v_n = (np.dot(P_ni, V_ii) * P_ni.conj()).sum(axis=1).real
             c_n = (np.dot(P_ni, C_ii) * P_ni.conj()).sum(axis=1).real
-            self.exxvv_sin[s, i] -= v_n
+            self.exxvv_sin[s, i] -= v_n / self.world.size
             self.exxvc_sin[s, i] -= c_n
