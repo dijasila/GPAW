@@ -25,9 +25,9 @@ def agts(queue):
                      ncpus=1,
                      walltime=30*60)
            for r in runs*8]
-    jacapo = queue.add('dcdft_pbe_pw_jacapo.py',
-                       ncpus=1,
-                       walltime=5*60)
+    #jacapo = queue.add('dcdft_pbe_pw_jacapo.py',
+    #                   ncpus=1,
+    #                   walltime=5*60)
     if 0:  # we don't run all the runs for the moment
         analyse = queue.add('analyse.py bulk scf_dcdft_pbe_pw ' + runsstr,
                             ncpus=1, walltime=10, deps=run + [jacapo],
