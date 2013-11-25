@@ -70,14 +70,15 @@ class EXX(PairDensity):
         self.G0 = (4 * pi * qcut / dvq)**-0.5
         
         # PAW matrices:
-        self.D_asii = []  # atomic density matrices
         self.V_asii = []  # valence-valence correction
         self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
         
     def calculate(self):
         kd = self.calc.wfs.kd
-        for s in range(self.calc.wfs.nspins):
+        nspins = self.calc.wfs.nspins
+        
+        for s in range(nspins):
             for i, k1 in enumerate(self.kpts):
                 K1 = kd.ibz2bz_k[k1]
                 kpt1 = self.get_k_point(s, K1, *self.bands)
@@ -96,8 +97,8 @@ class EXX(PairDensity):
             self.bands[1] >= self.nocc2):
             exxvv_i = (self.exxvv_sin * self.f_sin).sum(axis=2).sum(axis=0)
             exxvc_i = 2 * (self.exxvc_sin * self.f_sin).sum(axis=2).sum(axis=0)
-            self.exxvv = np.dot(kd.weight_k[self.kpts], exxvv_i)
-            self.exxvc = np.dot(kd.weight_k[self.kpts], exxvc_i)
+            self.exxvv = np.dot(kd.weight_k[self.kpts], exxvv_i) / nspins
+            self.exxvc = np.dot(kd.weight_k[self.kpts], exxvc_i) / nspins
             self.exx = self.exxvv + self.exxvc + self.exxcc
             prnt('Exact exchange energy:', file=self.fd)
             for kind, exx in [('valence-valence', self.exxvv),
@@ -116,7 +117,7 @@ class EXX(PairDensity):
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
-        shift_c = 0
+        #shift_c = 0
         qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
@@ -145,33 +146,23 @@ class EXX(PairDensity):
 
     def initialize_paw_exx_corrections(self):
         for a, atomdata in enumerate(self.calc.wfs.setups):
-            D_sii = []
             V_sii = []
             for D_p in self.calc.density.D_asp[a]:
                 D_ii = unpack2(D_p)
                 V_ii = pawexxvv(atomdata, D_ii)
-                D_sii.append(D_ii)
                 V_sii.append(V_ii)
             C_ii = unpack(atomdata.X_p)
-            self.D_asii.append(D_sii)
             self.V_asii.append(V_sii)
             self.C_aii.append(C_ii)
             self.exxcc += atomdata.ExxC
 
     def calculate_paw_exx_corrections(self, i, kpt):
-        dexxvv = 0.0
-        exxvc = 0.0
-        
-        n1, n2 = self.bands
+        x = self.calc.wfs.nspins / self.world.size
         s = kpt.s
         
-        for D_sii, V_sii, C_ii, P_ni in zip(self.D_asii, self.V_asii,
-                                            self.C_aii, kpt.P_ani):
-            D_ii = D_sii[s]
+        for V_sii, C_ii, P_ni in zip(self.V_asii, self.C_aii, kpt.P_ani):
             V_ii = V_sii[s]
-            dexxvv -= np.vdot(D_ii, V_ii) / 2
-            exxvc -= np.vdot(D_ii, C_ii)
             v_n = (np.dot(P_ni, V_ii) * P_ni.conj()).sum(axis=1).real
             c_n = (np.dot(P_ni, C_ii) * P_ni.conj()).sum(axis=1).real
-            self.exxvv_sin[s, i] -= v_n / self.world.size
+            self.exxvv_sin[s, i] -= v_n * x
             self.exxvc_sin[s, i] -= c_n
