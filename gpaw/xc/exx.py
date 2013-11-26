@@ -136,12 +136,13 @@ class EXX(PairDensity):
             self.exxvv_sin[kpt1.s, i, n] += e
 
     def calculate_n(self, pd, n_mG, f_m):
+        nk = self.calc.wfs.kd.nbzkpts
         G_G = pd.G2_qG[0]**0.5
         if G_G[0] == 0.0:
             G_G[0] = self.G0
         
         x_mG = ((f_m**0.5)[:, np.newaxis] * n_mG / G_G).view(float)
-        ex = -4 * pi / self.vol * np.vdot(x_mG, x_mG)
+        ex = -4 * pi / self.vol * np.vdot(x_mG, x_mG) / nk
         return ex
 
     def initialize_paw_exx_corrections(self):
