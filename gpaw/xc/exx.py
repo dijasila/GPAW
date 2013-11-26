@@ -132,8 +132,8 @@ class EXX(PairDensity):
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                  pd, Q_G)
             f_m = kpt2.f_n
-            x = self.calculate_n(pd, n_mG, f_m)
-            self.exxvv_sin[kpt1.s, i, n] += x
+            e = self.calculate_n(pd, n_mG, f_m)
+            self.exxvv_sin[kpt1.s, i, n] += e
 
     def calculate_n(self, pd, n_mG, f_m):
         G_G = pd.G2_qG[0]**0.5
@@ -141,7 +141,7 @@ class EXX(PairDensity):
             G_G[0] = self.G0
         
         x_mG = ((f_m**0.5)[:, np.newaxis] * n_mG / G_G).view(float)
-        ex = -2 * pi / self.vol * np.vdot(x_mG, x_mG)
+        ex = -4 * pi / self.vol * np.vdot(x_mG, x_mG)
         return ex
 
     def initialize_paw_exx_corrections(self):
