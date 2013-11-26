@@ -100,7 +100,7 @@ class PairDensity:
                     self.mysKn1n2.append((s, K, n1, n2))
                 i += nbands
 
-        prnt('k-points:', self.calc.wfs.kd.description, file=self.fd)
+        prnt('BZ k-points:', self.calc.wfs.kd.description, file=self.fd)
         prnt('Distributing %d x %d x %d bands over %d process%s' %
              (ns, nk, nbands,
               world.size, ['es', ''][world.size == 1]), file=self.fd)

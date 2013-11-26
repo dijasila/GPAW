@@ -14,7 +14,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 
 class Chi0(PairDensity):
     def __init__(self, calc, omega_w, ecut=50, hilbert=False,
-                 eta=0.2, ftol=1e-6,
+                 timeordered=False, eta=0.2, ftol=1e-6,
                  real_space_derivatives=False,
                  world=mpi.world, txt=sys.stdout):
         PairDensity.__init__(self, calc, ecut, ftol,
@@ -24,10 +24,12 @@ class Chi0(PairDensity):
         
         self.omega_w = omega_w = np.asarray(omega_w) / Hartree
         self.hilbert = hilbert
+        self.timeordered = bool(timeordered)
         self.eta = eta
         
         if eta == 0.0:
             assert not hilbert
+            assert not timeordered
             assert not omega_w.real.any()
             
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
@@ -115,9 +117,10 @@ class Chi0(PairDensity):
         return pd, chi0_wGG, chi0_wxvG
         
     def update(self, n_mG, deps_m, df_m, chi0_wGG):
+        sign = 1 - 2 * self.timeordered
         for w, omega in enumerate(self.omega_w):
             x_m = df_m * (1.0 / (omega + deps_m + 1j * self.eta) -
-                          1.0 / (omega - deps_m + 1j * self.eta))
+                          1.0 / (omega - deps_m + 1j * self.eta * sign))
             nx_mG = n_mG * x_m[:, np.newaxis]
             gemm(self.prefactor, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_wGG[w])

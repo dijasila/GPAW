@@ -47,7 +47,12 @@ class EXX(PairDensity):
         if bands is None:
             # Do all occupied bands:
             bands = [0, self.nocc2]
-            
+        
+        prnt('Calculating exact exchange contributions for band index',
+             '%d-%d' % (bands[0], bands[1] - 1),
+             'for IBZ k-points with indices:\n  ',
+             ', '.join(str(i) for i in kpts), file=self.fd)
+        
         self.kpts = kpts
         self.bands = bands
 
@@ -70,8 +75,20 @@ class EXX(PairDensity):
         self.mykpts = [self.get_k_point(s, K, n1, n2)
                        for s, K, n1, n2 in self.mysKn1n2]
 
-        if alpha is None:
+        # Compensation charge used for molecular calculations only:
+        self.beta = None      # e^(-beta*r^2)
+        self.ngauss_G = None  # density
+        self.vgauss_G = None  # potential
+
+        if not self.calc.atoms.pbc.any():
+            # Set exponent of exp-function to -19 on the boundary:
+            self.beta = 4 * 19 * (self.calc.wfs.gd.icell_cv**2).sum(1).max()
+            prnt('Gaussian for electrostatic decoupling: e^(-beta*r^2),',
+                 'beta=%.3f 1/Ang^2' % (self.beta / Bohr**2), file=self.fd)
+            self.G0 = 42.0
+        elif alpha is None:
             self.G0 = np.inf
+            prnt('Skip G+q=0 term', file=self.fd)
         else:
             # Volume per q-point:
             dvq = (2 * pi)**3 / self.vol / self.calc.wfs.kd.nbzkpts
@@ -81,11 +98,9 @@ class EXX(PairDensity):
             else:
                 self.G0 = (2 * pi**1.5 * erf(alpha**0.5 * qcut) / alpha**0.5 /
                            dvq)**-0.5
-
-        # Compensation charge used for molecular calculations only:
-        self.beta = None      # e^(-beta r^2)
-        self.ngauss_G = None  # density
-        self.vgauss_G = None  # potential
+            prnt('G+q=0 term: Integrate e^(-alpha*q^2)/q^2 for',
+                 'q<%.3f 1/Ang and alpha=%.3f Ang^2' %
+                 (qcut / Bohr, alpha * Bohr**2), file=self.fd)
 
         # PAW matrices:
         self.V_asii = []  # valence-valence correction
@@ -156,10 +171,10 @@ class EXX(PairDensity):
         
         f_m = kpt2.f_n
         
-        molecule = not pd.gd.pbc_c.any()
+        molecule = not self.calc.atoms.pbc.any()
         
         if molecule and kpt2.n1 <= n < kpt2.n2:
-            if self.beta is None:
+            if self.ngauss_G is None:
                 self.initialize_gaussian_compensation_charge(pd)
             m = n - kpt2.n1
             n_mG[m] -= self.ngauss_G
@@ -218,9 +233,6 @@ class EXX(PairDensity):
         """
 
         gd = pd.gd
-
-        # Set exponent of exp-function to -19 on the boundary:
-        self.beta = 4 * 19 * (gd.icell_cv**2).sum(1).max()
 
         # Calculate gaussian:
         G_Gv = pd.G_Qv[pd.Q_qG[0]]
