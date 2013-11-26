@@ -123,7 +123,7 @@ class PairDensity:
         kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
         
         psit_nG = kpt.psit_nG
-        ut_nR = wfs.gd.empty(n2 - n1, complex)
+        ut_nR = wfs.gd.empty(n2 - n1, wfs.dtype)
         for n in range(n1, n2):
             ut_nR[n - n1] = T(wfs.pd.ifft(psit_nG[n], ik))
             

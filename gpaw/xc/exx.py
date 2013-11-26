@@ -85,7 +85,7 @@ class EXX(PairDensity):
             self.beta = 4 * 19 * (self.calc.wfs.gd.icell_cv**2).sum(1).max()
             prnt('Gaussian for electrostatic decoupling: e^(-beta*r^2),',
                  'beta=%.3f 1/Ang^2' % (self.beta / Bohr**2), file=self.fd)
-            self.G0 = 42.0
+            self.G0 = np.inf
         elif alpha is None:
             self.G0 = np.inf
             prnt('Skip G+q=0 term', file=self.fd)
@@ -151,7 +151,7 @@ class EXX(PairDensity):
         wfs = self.calc.wfs
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
         qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
+        pd = PWDescriptor(self.ecut, wfs.gd, wfs.dtype, kd=qd)
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                    kpt1.shift_c - kpt2.shift_c)
 
