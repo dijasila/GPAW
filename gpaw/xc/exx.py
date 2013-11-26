@@ -4,14 +4,14 @@ import sys
 from math import pi
 
 import numpy as np
-from ase.units import Hartree
+from ase.units import Hartree, Bohr
 from ase.utils import prnt
 
 import gpaw.mpi as mpi
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.utilities import unpack, unpack2, packed_index
+from gpaw.utilities import unpack, unpack2, packed_index, erf
 
 
 def pawexxvv(atomdata, D_ii):
@@ -32,16 +32,20 @@ def pawexxvv(atomdata, D_ii):
         
 class EXX(PairDensity):
     def __init__(self, calc, kpts=None, bands=None, ecut=150.0,
-                 world=mpi.world, txt=sys.stdout):
+                 alpha=0.0, world=mpi.world, txt=sys.stdout):
     
+        alpha /= Bohr**2
+
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt)
 
         ecut /= Hartree
         
         if kpts is None:
+            # Do all k-points in the IBZ:
             kpts = range(self.calc.wfs.kd.nibzkpts)
         
         if bands is None:
+            # Do all occupied bands:
             bands = [0, self.nocc2]
             
         self.kpts = kpts
@@ -62,13 +66,27 @@ class EXX(PairDensity):
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
         self.distribute_k_points_and_bands(self.nocc2)
         
+        # All occupied states:
         self.mykpts = [self.get_k_point(s, K, n1, n2)
                        for s, K, n1, n2 in self.mysKn1n2]
 
-        dvq = (2 * pi)**3 / self.vol / self.calc.wfs.kd.nbzkpts
-        qcut = (dvq / (4 * pi / 3))**(1 / 3)
-        self.G0 = (4 * pi * qcut / dvq)**-0.5
-        
+        if alpha is None:
+            self.G0 = np.inf
+        else:
+            # Volume per q-point:
+            dvq = (2 * pi)**3 / self.vol / self.calc.wfs.kd.nbzkpts
+            qcut = (dvq / (4 * pi / 3))**(1 / 3)
+            if alpha == 0.0:
+                self.G0 = (4 * pi * qcut / dvq)**-0.5
+            else:
+                self.G0 = (2 * pi**1.5 * erf(alpha**0.5 * qcut) / alpha**0.5 /
+                           dvq)**-0.5
+
+        # Compensation charge used for molecular calculations only:
+        self.beta = None      # e^(-beta r^2)
+        self.ngauss_G = None  # density
+        self.vgauss_G = None  # potential
+
         # PAW matrices:
         self.V_asii = []  # valence-valence correction
         self.C_aii = []   # valence-core correction
@@ -117,7 +135,6 @@ class EXX(PairDensity):
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
-        #shift_c = 0
         qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
@@ -131,19 +148,32 @@ class EXX(PairDensity):
                      for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                  pd, Q_G)
-            f_m = kpt2.f_n
-            e = self.calculate_n(pd, n_mG, f_m)
+            e = self.calculate_n(pd, n, n_mG, kpt2)
             self.exxvv_sin[kpt1.s, i, n] += e
 
-    def calculate_n(self, pd, n_mG, f_m):
+    def calculate_n(self, pd, n, n_mG, kpt2):
+        e = 0.0
+        
+        f_m = kpt2.f_n
+        
+        molecule = not pd.gd.pbc_c.any()
+        
+        if molecule and kpt2.n1 <= n < kpt2.n2:
+            if self.beta is None:
+                self.initialize_gaussian_compensation_charge(pd)
+            m = n - kpt2.n1
+            n_mG[m] -= self.ngauss_G
+            e -= 2 * (pd.integrate(self.vgauss_G, n_mG[m]) +
+                      (self.beta / 2 / pi)**0.5) * f_m[m]
+
         nk = self.calc.wfs.kd.nbzkpts
         G_G = pd.G2_qG[0]**0.5
         if G_G[0] == 0.0:
             G_G[0] = self.G0
         
         x_mG = ((f_m**0.5)[:, np.newaxis] * n_mG / G_G).view(float)
-        ex = -4 * pi / self.vol * np.vdot(x_mG, x_mG) / nk
-        return ex
+        e += -4 * pi / self.vol * np.vdot(x_mG, x_mG) / nk
+        return e
 
     def initialize_paw_exx_corrections(self):
         for a, atomdata in enumerate(self.calc.wfs.setups):
@@ -167,3 +197,48 @@ class EXX(PairDensity):
             c_n = (np.dot(P_ni, C_ii) * P_ni.conj()).sum(axis=1).real
             self.exxvv_sin[s, i] -= v_n * x
             self.exxvc_sin[s, i] -= c_n
+
+    def initialize_gaussian_compensation_charge(self, pd):
+        """Calculate gaussian compensation charge and its potential.
+
+        Used to decouple electrostatic interactions between
+        periodically repeated images for molecular calculations.
+
+        Charge containing one electron::
+
+            (beta/pi)^(3/2)*exp(-beta*r^2),
+
+        its Fourier transform::
+
+            exp(-G^2/(4*beta)),
+
+        and its potential::
+
+            erf(beta^0.5*r)/r.
+        """
+
+        gd = pd.gd
+
+        # Set exponent of exp-function to -19 on the boundary:
+        self.beta = 4 * 19 * (gd.icell_cv**2).sum(1).max()
+
+        # Calculate gaussian:
+        G_Gv = pd.G_Qv[pd.Q_qG[0]]
+        G2_G = pd.G2_qG[0]
+        C_v = gd.cell_cv.sum(0) / 2  # center of cell
+        self.ngauss_G = np.exp(-1.0 / (4 * self.beta) * G2_G +
+                                1j * np.dot(G_Gv, C_v)) / gd.dv
+
+        # Calculate potential from gaussian:
+        R_Rv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
+        r_R = ((R_Rv - C_v)**2).sum(3)**0.5
+        if (gd.N_c % 2 == 0).all():
+            r_R[tuple(gd.N_c // 2)] = 1.0  # avoid dividing by zero
+        v_R = erf(self.beta**0.5 * r_R) / r_R
+        if (gd.N_c % 2 == 0).all():
+            v_R[tuple(gd.N_c // 2)] = (4 * self.beta / pi)**0.5
+        self.vgauss_G = pd.fft(v_R)
+
+        # Compare self-interaction to analytic result:
+        assert abs(0.5 * pd.integrate(self.ngauss_G, self.vgauss_G) -
+                   (self.beta / 2 / pi)**0.5) < 1e-6
