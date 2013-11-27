@@ -101,9 +101,10 @@ class PairDensity:
                 i += nbands
 
         prnt('BZ k-points:', self.calc.wfs.kd.description, file=self.fd)
-        prnt('Distributing %d x %d x %d bands over %d process%s' %
-             (ns, nk, nbands,
-              world.size, ['es', ''][world.size == 1]), file=self.fd)
+        prnt('Distributing spins, k-points and bands (%d x %d x %d)' %
+             (ns, nk, nbands),
+             'over %d process%s' %
+              (world.size, ['es', ''][world.size == 1]), file=self.fd)
             
     def get_k_point(self, s, K, n1, n2):
         """Return wave functions for a specific k-point and spin.
