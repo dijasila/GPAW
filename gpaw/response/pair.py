@@ -159,9 +159,7 @@ class PairDensity:
         n_mG = pd.empty(kpt2.n2 - kpt2.n1)
         for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
             n_R = ut1cc_R * ut_R
-            pd.tmp_R[:] = n_R
-            pd.fftplan.execute()
-            n_G[:] = pd.tmp_Q.ravel()[Q_G] * dv
+            n_G[:] = pd.fft(n_R, 0, Q_G) * dv
             
         # PAW corrections:
         for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
