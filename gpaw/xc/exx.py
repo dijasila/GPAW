@@ -1,3 +1,4 @@
+# Todo: ACDF formula
 from __future__ import division
 
 import sys
@@ -32,7 +33,8 @@ def pawexxvv(atomdata, D_ii):
         
 class EXX(PairDensity):
     def __init__(self, calc, kpts=None, bands=None, ecut=150.0,
-                 alpha=0.0, world=mpi.world, txt=sys.stdout):
+                 alpha=0.0, skip_gamma=False,
+                 world=mpi.world, txt=sys.stdout):
     
         alpha /= Bohr**2
 
@@ -80,15 +82,17 @@ class EXX(PairDensity):
         self.ngauss_G = None  # density
         self.vgauss_G = None  # potential
 
+        self.G0 = None  # effective value for |G+q| when |G+q|=0
+        
+        self.skip_gamma = skip_gamma
+        
         if not self.calc.atoms.pbc.any():
             # Set exponent of exp-function to -19 on the boundary:
             self.beta = 4 * 19 * (self.calc.wfs.gd.icell_cv**2).sum(1).max()
             prnt('Gaussian for electrostatic decoupling: e^(-beta*r^2),',
                  'beta=%.3f 1/Ang^2' % (self.beta / Bohr**2), file=self.fd)
-            self.G0 = np.inf
-        elif alpha is None:
-            self.G0 = np.inf
-            prnt('Skip G+q=0 term', file=self.fd)
+        elif skip_gamma:
+            prnt('Skip |G+q|=0 term', file=self.fd)
         else:
             # Volume per q-point:
             dvq = (2 * pi)**3 / self.vol / self.calc.wfs.kd.nbzkpts
@@ -150,6 +154,9 @@ class EXX(PairDensity):
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
+        if self.skip_gamma and not q_c.any():
+            return
+            
         qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, wfs.gd, wfs.dtype, kd=qd)
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
@@ -167,11 +174,20 @@ class EXX(PairDensity):
             self.exxvv_sin[kpt1.s, i, n] += e
 
     def calculate_n(self, pd, n, n_mG, kpt2):
-        e = 0.0
-        
-        f_m = kpt2.f_n
-        
         molecule = not self.calc.atoms.pbc.any()
+        
+        G2_G = pd.G2_qG[0]
+        iG_G = np.empty(len(G2_G))
+        iG_G[1:] = G2_G**-0.5
+        
+        if G2_G[0] == 0.0:
+            if molecule:
+                iG_G[0] = 0.0
+            else:
+                iG_G[0] = 1 / self.G0
+
+        e = 0.0
+        f_m = kpt2.f_n
         
         if molecule and kpt2.n1 <= n < kpt2.n2:
             if self.ngauss_G is None:
@@ -181,14 +197,10 @@ class EXX(PairDensity):
             e -= 2 * f_m[m] * (pd.integrate(self.vgauss_G, n_mG[m]) +
                                (self.beta / 2 / pi)**0.5)
 
-        G2_G = pd.G2_qG[0]
-        if G2_G[0] == 0.0:
-            G2_G = G2_G.copy()
-            G2_G[0] = self.G0**2
-
         x = 4 * pi / self.calc.wfs.kd.nbzkpts / pd.gd.dv**2
         for f, n_G in zip(f_m, n_mG):
-            e -= x * f * pd.integrate(n_G, n_G / G2_G).real
+            x_G = n_G * iG_G
+            e -= x * f * pd.integrate(x_G, x_G)
 
         return e
 
