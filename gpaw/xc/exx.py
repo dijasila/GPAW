@@ -178,16 +178,18 @@ class EXX(PairDensity):
                 self.initialize_gaussian_compensation_charge(pd)
             m = n - kpt2.n1
             n_mG[m] -= self.ngauss_G
-            e -= 2 * (pd.integrate(self.vgauss_G, n_mG[m]) +
-                      (self.beta / 2 / pi)**0.5) * f_m[m]
+            e -= 2 * f_m[m] * (pd.integrate(self.vgauss_G, n_mG[m]) +
+                               (self.beta / 2 / pi)**0.5)
 
-        nk = self.calc.wfs.kd.nbzkpts
-        G_G = pd.G2_qG[0]**0.5
-        if G_G[0] == 0.0:
-            G_G[0] = self.G0
-        
-        x_mG = ((f_m**0.5)[:, np.newaxis] * n_mG / G_G).view(float)
-        e += -4 * pi / self.vol * np.vdot(x_mG, x_mG) / nk
+        G2_G = pd.G2_qG[0]
+        if G2_G[0] == 0.0:
+            G2_G = G2_G.copy()
+            G2_G[0] = self.G0**2
+
+        x = 4 * pi / self.calc.wfs.kd.nbzkpts / pd.gd.dv**2
+        for f, n_G in zip(f_m, n_mG):
+            e -= x * f * pd.integrate(n_G, n_G / G2_G).real
+
         return e
 
     def initialize_paw_exx_corrections(self):
@@ -239,7 +241,7 @@ class EXX(PairDensity):
         G2_G = pd.G2_qG[0]
         C_v = gd.cell_cv.sum(0) / 2  # center of cell
         self.ngauss_G = np.exp(-1.0 / (4 * self.beta) * G2_G +
-                                1j * np.dot(G_Gv, C_v)) / gd.dv
+                               1j * np.dot(G_Gv, C_v))
 
         # Calculate potential from gaussian:
         R_Rv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
@@ -249,7 +251,7 @@ class EXX(PairDensity):
         v_R = erf(self.beta**0.5 * r_R) / r_R
         if (gd.N_c % 2 == 0).all():
             v_R[tuple(gd.N_c // 2)] = (4 * self.beta / pi)**0.5
-        self.vgauss_G = pd.fft(v_R)
+        self.vgauss_G = pd.fft(v_R) / gd.dv
 
         # Compare self-interaction to analytic result:
         assert abs(0.5 * pd.integrate(self.ngauss_G, self.vgauss_G) -
