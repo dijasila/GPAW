@@ -153,19 +153,21 @@ class VDWFunctional(GGA):
             Zab = -0.8491
         elif name == 'vdW-DF2':
             assert kernel is None and Zab is None
-            kernel = LibXC('GGA_X_PW86+LDA_C_PW')
+            kernel = LibXC('GGA_X_RPW86+LDA_C_PW')
             Zab = -1.887
         elif name == 'optPBE-vdW':
             assert kernel is None and Zab is None
+            string = "optPBE exchange is not implemented in LibXC"
+            raise NotImplementedError(string)
             kernel = LibXC('GGA_X_OPTPBE+LDA_C_PW')
             Zab = -0.8491
         elif name == 'optB88-vdW':
             assert kernel is None and Zab is None
-            kernel = LibXC('GGA_X_OPTB88+LDA_C_PW')
+            kernel = LibXC('GGA_X_OPTB88_VDW+LDA_C_PW')
             Zab = -0.8491
         elif name == 'C09-vdW':
             assert kernel is None and Zab is None
-            kernel = LibXC('GGA_X_C09+LDA_C_PW')
+            kernel = LibXC('GGA_X_C09X+LDA_C_PW')
             Zab = -0.8491
         else:
             assert kernel is not None and Zab is not None
