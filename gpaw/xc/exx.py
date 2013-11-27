@@ -51,8 +51,8 @@ class EXX(PairDensity):
             bands = [0, self.nocc2]
         
         prnt('Calculating exact exchange contributions for band index',
-             '%d-%d' % (bands[0], bands[1] - 1),
-             'for IBZ k-points with indices:\n  ',
+             '%d-%d' % (bands[0], bands[1] - 1), file=self.fd)
+        prnt('for IBZ k-points with indices:',
              ', '.join(str(i) for i in kpts), file=self.fd)
         
         self.kpts = kpts
@@ -147,7 +147,7 @@ class EXX(PairDensity):
 
         exx_sin = self.exxvv_sin + self.exxvc_sin
         prnt('EXX eigenvalue contributions in eV:', file=self.fd)
-        prnt(exx_sin * Hartree, file=self.fd)
+        prnt(np.array_str(exx_sin * Hartree, precision=3), file=self.fd)
         
         return self.exx * Hartree, exx_sin * Hartree
         
@@ -178,13 +178,15 @@ class EXX(PairDensity):
         
         G2_G = pd.G2_qG[0]
         iG_G = np.empty(len(G2_G))
-        iG_G[1:] = G2_G**-0.5
+        iG_G[1:] = G2_G[1:]**-0.5
         
         if G2_G[0] == 0.0:
             if molecule:
                 iG_G[0] = 0.0
             else:
                 iG_G[0] = 1 / self.G0
+        else:
+            iG_G[0] = G2_G[0]**-0.5
 
         e = 0.0
         f_m = kpt2.f_n
