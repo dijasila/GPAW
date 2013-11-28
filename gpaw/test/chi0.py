@@ -1,6 +1,8 @@
 import numpy as np
 from ase.lattice import bulk
 from ase.dft.kpoints import monkhorst_pack
+from ase.units import Bohr
+
 from gpaw import GPAW
 from gpaw.response.chi import CHI
 from gpaw.response.chi0 import Chi0
@@ -9,7 +11,7 @@ from gpaw.mpi import serial_comm
 
 omega = np.array([0, 1.0, 2.0])
 for k in [2, 3]:
-    q = [0, 0, 1.0 / k]
+    q_c = [0, 0, 1.0 / k]
     for gamma in [False, True]:
         if k == 3 and gamma:
             continue
@@ -35,15 +37,15 @@ for k in [2, 3]:
                     
                 calc = GPAW(name, txt=None, communicator=serial_comm)
 
-                chi = CHI(calc, w=omega, q=q, ecut=100,
-                          hilbert_trans=False, xc='RPA',
-                          G_plus_q=True, txt=name + '.logold')
-                chi.initialize()
-                chi.calculate()
-                chi0old_wGG = chi.chi0_wGG
-                
+                chiold = CHI(calc, w=omega, q=q_c, ecut=100,
+                             hilbert_trans=False, xc='RPA',
+                             G_plus_q=True, txt=name + '.logold')
+                chiold.initialize()
+                chiold.calculate()
+                chi0old_wGG = chiold.chi0_wGG
+
                 chi = Chi0(calc, omega, ecut=100, txt=name + '.log')
-                pd, chi0_wGG, _ = chi.calculate(q)
+                pd, chi0_wGG, _ = chi.calculate(q_c)
 
                 assert abs(chi0_wGG - chi0old_wGG).max() < 1e-15
                 
@@ -58,3 +60,31 @@ for k in [2, 3]:
                 elif -1 not in calc.wfs.kd.bz2bz_ks:
                     assert abs(chi0_wGG - chi00_wGG).max() < 2e-5
                     #print abs(chi0_wGG - chi00_wGG).max()
+
+                q0_c = [0, 1e-7, 1e-7]
+                q0_v = np.dot(q0_c, a.get_reciprocal_cell() * 2 * np.pi) * Bohr
+                q0 = (q0_v**2).sum()**0.5
+                
+                chiold = CHI(calc, w=omega, q=q0_c, ecut=100,
+                             hilbert_trans=False, xc='RPA', optical_limit=True,
+                             G_plus_q=True, txt=name + '.logold0')
+                chiold.initialize()
+                chiold.calculate()
+                chi0old_wGG = chiold.chi0_wGG
+                chi0old_wGG[:, 0] /= q0
+                chi0old_wGG[:, :, 0] /= q0
+                
+                pd, chi0_wGG, _ = chi.calculate([0, 0, 0])
+                
+                assert abs(chi0_wGG - chi0old_wGG).max() < 0.003
+                assert abs(chi0_wGG - chi0old_wGG)[:, 1:, 1:].max() < 1e-9
+                
+                if sym is None and not center:
+                    chi000_w = chi0_wGG[:, 0, 0]
+                elif -1 not in calc.wfs.kd.bz2bz_ks:
+                    assert abs(chi0_wGG[:, 0, 0] - chi000_w).max() < 0.001
+                    
+                if sym is None:
+                    chi000_wGG = chi0_wGG
+                elif -1 not in calc.wfs.kd.bz2bz_ks:
+                    assert abs(chi0_wGG - chi000_wGG).max() < 0.001
