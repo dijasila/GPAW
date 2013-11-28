@@ -18,3 +18,5 @@ make clean
 
 module swap craype-istanbul craype-interlagos
 make mpi 2>&1 | tee log-make-mpi
+cp ${install_dir}/bin/python .
+make install-mpi 2>&1 | tee log-inst-mpi
