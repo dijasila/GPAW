@@ -3,6 +3,7 @@ import sys
 import pickle
 
 import numpy as np
+from ase.utils import prnt
 
 import gpaw.mpi as mpi
 from gpaw.response.chi0 import Chi0
@@ -26,25 +27,30 @@ class DielectricFunction:
             kd = self.chi0.calc.wfs.kd
             name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
             if os.path.isfile(name):
-                pd, chi0_wGG, ch0_wxvG = pickle.load(open(name))
-                return pd, chi0_wGG, ch0_wxvG
-        pd, chi0_wGG, ch0_wxvG = self.chi0.calculate(q_c)
+                try:
+                    G_G, chi0_wGG, chi0_wxvG = pickle.load(open(name))
+                except EOFError:
+                    pass
+                else:
+                    return G_G, chi0_wGG, chi0_wxvG
+        pd, chi0_wGG, chi0_wxvG = self.chi0.calculate(q_c)
+        G_G = pd.G2_qG[0]**0.5  # |G+q|
+
         if self.name:
-            pickle.dump(open(name, 'wb'), (pd, chi0_wGG, ch0_wxvG),
+            pickle.dump((G_G, chi0_wGG, chi0_wxvG), open(name, 'wb'),
                         pickle.HIGHEST_PROTOCOL)
-        return pd, chi0_wGG, ch0_wxvG
+        return G_G, chi0_wGG, chi0_wxvG
         
     def calculate_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                                     direction='x'):
-        pd, chi0_wGG, chi0_wxvG = self.calculate_chi0(q_c)
-        
-        G_G = pd.G2_qG[0]**0.5  # |G+q|
+        G_G, chi0_wGG, chi0_wxvG = self.calculate_chi0(q_c)
+
         if G_G[0] == 0.0:
             G_G[0] = 1.0
             d_v = {'x': [1, 0, 0],
                    'y': [0, 1, 0],
                    'z': [0, 0, 1]}.get(direction, direction)
-            d_v = np.asarray(d_v) / np.linaglg.norm(d_v)
+            d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             chi0_wGG[:, 0, 0] = np.dot(chi0_wxvG[:, 0, :, 0], d_v**2)
             chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[:, 0])
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[:, 1])
@@ -55,20 +61,23 @@ class DielectricFunction:
         for chi0_GG in chi0_wGG:
             e_GG = np.eye(nG) - 4 * np.pi * chi0_GG / G_G / G_G[:, np.newaxis]
             chi0_GG[:] = e_GG
-
         return chi0_wGG
 
     def calculate_dielectric_function(self, xc='RPA', q_c=[0, 0, 0],
-                                      direction='x'):
+                                      direction='x', filename='df.csv'):
         """Calculate the dielectric function.
 
         Returns dielectric function without and with local field correction.
         """
-        
         e_wGG = self.calculate_dielectric_matrix(xc, q_c, direction)
-        df1_w = np.zeros(len(e_wGG), complex)
-        df2_w = np.zeros(len(e_wGG), complex)
+        df1_w = np.zeros(len(e_wGG), dtype=complex)
+        df2_w = np.zeros(len(e_wGG), dtype=complex)
+        fd = open(filename, 'w')
         for w, e_GG in enumerate(e_wGG):
             df1_w[w] = e_GG[0, 0]
             df2_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
+            prnt('%.3f, %.3f, %.3f, %.3f, %.3f' %
+                 (self.chi0.omega_w[w],
+                  df1_w[w].real, df1_w[w].imag,
+                  df2_w[w].real, df2_w[w].imag), file=fd)
         return df1_w, df2_w
