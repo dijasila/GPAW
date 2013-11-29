@@ -4,7 +4,7 @@ export CC=cc
 export CXX=g++
 export MPICC=cc
 export LINKFORSHARED='-Wl,-export-dynamic -dynamic'
-export MPI_LDFLAGS_SHARED='-Wl,-export-dynamic -dynamic'
+export MPI_LINKFORSHARED='-Wl,-export-dynamic -dynamic'
 
 install_dir='/some_path/scalable-python-gcc'
 ./configure --prefix=$install_dir --enable-mpi --disable-ipv6 2>&1 | tee loki-conf
