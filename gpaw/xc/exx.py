@@ -9,6 +9,8 @@ from ase.units import Hartree, Bohr
 from ase.utils import prnt
 
 import gpaw.mpi as mpi
+from gpaw.xc import XC
+from gpaw.xc.kernel import XCNull
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -32,7 +34,7 @@ def pawexxvv(atomdata, D_ii):
 
         
 class EXX(PairDensity):
-    def __init__(self, calc, kpts=None, bands=None, ecut=150.0,
+    def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=150.0,
                  alpha=0.0, skip_gamma=False,
                  world=mpi.world, txt=sys.stdout):
     
@@ -41,6 +43,18 @@ class EXX(PairDensity):
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt)
 
         ecut /= Hartree
+        
+        if xc is None:
+            self.exx_fraction = 1.0
+            xc = XC(XCNull())
+        if xc == 'PBE0':
+            self.exx_fraction = 0.25
+            xc = XC('HYB_GGA_XC_PBEH')
+        elif xc == 'B3LYP':
+            self.exx_fraction = 0.2
+            xc = XC('HYB_GGA_XC_B3LYP')
+        self.xc = xc
+        self.exc = np.nan  # density dependent part of xc-energy
         
         if kpts is None:
             # Do all k-points in the IBZ:
@@ -144,12 +158,23 @@ class EXX(PairDensity):
                               ('total', self.exx)]:
                 prnt('%16s%11.3f eV' % (kind + ':', exx * Hartree),
                      file=self.fd)
+            
+            self.exc = self.calculate_hybrid_correction()
 
         exx_sin = self.exxvv_sin + self.exxvc_sin
         prnt('EXX eigenvalue contributions in eV:', file=self.fd)
         prnt(np.array_str(exx_sin * Hartree, precision=3), file=self.fd)
+    
+    def get_exx_energy(self):
+        return self.exx * Hartree
+    
+    def get_total_energy(self):
+        ham = self.calc.hamiltonian
+        return (self.exx * self.exx_fraction + self.exc +
+                ham.Etot - ham.Exc) * Hartree
         
-        return self.exx * Hartree, exx_sin * Hartree
+    def get_eigenvalue_contributions(self):
+        return (self.exxvv_sin + self.exxvc_sin) * self.exx_fraction * Hartree
         
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
@@ -228,6 +253,16 @@ class EXX(PairDensity):
             c_n = (np.dot(P_ni, C_ii) * P_ni.conj()).sum(axis=1).real
             self.exxvv_sin[s, i] -= v_n * x
             self.exxvc_sin[s, i] -= c_n
+
+    def calculate_hybrid_correction(self):
+        dens = self.calc.density
+        if dens.nt_sg is None:
+            dens.interpolate_pseudo_density()
+        exc = self.xc.calculate(dens.finegd, dens.nt_sg)
+        for a, D_sp in dens.D_asp.items():
+            atomdata = dens.setups[a]
+            exc += self.xc.calculate_paw_correction(atomdata, D_sp)
+        return exc
 
     def initialize_gaussian_compensation_charge(self, pd):
         """Calculate gaussian compensation charge and its potential.
