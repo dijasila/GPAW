@@ -4,7 +4,7 @@ from ase.dft.kpoints import monkhorst_pack
 from gpaw import *
 from gpaw.mpi import serial_comm, world
 from gpaw.test import equal
-from gpaw.xc.rpa_correlation_energy import RPACorrelation
+from gpaw.xc.rpa import RPACorrelation
 from gpaw.xc.fxc_correlation_energy import FXCCorrelation
 import numpy as np
 
@@ -23,10 +23,8 @@ Ni.set_calculator(calc)
 E = Ni.get_potential_energy()
 calc.diagonalize_full_hamiltonian(nbands=50)
 
-rpa = RPACorrelation(calc)
-E_rpa = rpa.get_rpa_correlation_energy(ecut=50,
-                                       skip_gamma=True,
-                                       gauss_legendre=8)
+rpa = RPACorrelation(calc, nfrequencies=8, skip_gamma=True)
+E_rpa = rpa.calculate(ecut=[50])
 
 fxc = FXCCorrelation(calc, xc='RPA')
 E_fxc = fxc.get_fxc_correlation_energy(ecut=50,
