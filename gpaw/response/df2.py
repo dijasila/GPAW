@@ -107,6 +107,7 @@ class DielectricFunction:
         # Calculate eels
         eels_NLFC_w  = -(1 / df_NLFC_w).imag
         eels_LFC_w = -(1 / df_LFC_w).imag        
+
         # Write to file
   #      if rank == 0:
         fd = open(filename, 'w')
@@ -120,6 +121,25 @@ class DielectricFunction:
         # Wait for I/O to finish
         self.comm.barrier()
 
-#    def get_absorption_spectrum(self,xc='RPA',filename='absorption.csv'):
-        
-        
+    def get_absorption_spectrum(self, xc='RPA', filename='absorption.csv'):
+        """Calculate optical absorption spectrum. 
+           
+           By default, generate a file 'absorption.csv'. Optical absorption
+           spectrum is obtained from the imaginary part of dielectric function.
+        """
+
+        for dir in ['x', 'y', 'z']:
+            df_NLFC_w, df_LFC_w = \ 
+            self.get_dielectric_function(xc=xc, q_c = [0,0,0], dir=dir)
+            
+            Nw = df_NLFC_w.shape[0]
+
+            f = open('%s_%s' % ('xyz'[dir], filename), 'w')
+            #f = open(filename+'.%s'%(dirstr[dir]),'w') # ????
+            for iw in range(Nw):
+                prnt(self.chi0.omega_w[iw]*Hartree, df_NLFC_w[iw].real, \ 
+                     df_NLFC_w[iw].imag, df_LFC_w[iw].real, df_LFC_imag[iw].imag)
+            f.close()
+
+            # Wait for I/O to finish
+            self.comm.barrier()
