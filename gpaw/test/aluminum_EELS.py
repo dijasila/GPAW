@@ -4,7 +4,7 @@ import os
 import time
 from ase.units import Bohr
 from ase.lattice import bulk
-from gpaw import GPAW
+from gpaw import GPAW, PW
 from gpaw.atom.basis import BasisMaker
 from gpaw.response.df import DF
 from gpaw.mpi import serial_comm, rank, size
@@ -23,10 +23,9 @@ t1 = time.time()
 a = 4.043
 atoms = bulk('Al', 'fcc', a=a)
 atoms.center()
-calc = GPAW(h=0.2,
+calc = GPAW(mode=PW(200),
             kpts=(4,4,4),
-            parallel={'domain':1,
-                      'band':1},
+            parallel={'band':1},
             idiotproof=False,  # allow uneven distribution of k-points
             xc='LDA')
 
