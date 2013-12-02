@@ -129,15 +129,14 @@ class DielectricFunction:
         """
 
         for dir in ['x', 'y', 'z']:
-            df_NLFC_w, df_LFC_w = \ 
-            self.get_dielectric_function(xc=xc, q_c = [0,0,0], dir=dir)
+            df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, q_c = [0,0,0], dir=dir)
             
             Nw = df_NLFC_w.shape[0]
 
             f = open('%s_%s' % ('xyz'[dir], filename), 'w')
             #f = open(filename+'.%s'%(dirstr[dir]),'w') # ????
             for iw in range(Nw):
-                prnt(self.chi0.omega_w[iw]*Hartree, df_NLFC_w[iw].real, \ 
+                prnt(self.chi0.omega_w[iw]*Hartree, df_NLFC_w[iw].real,
                      df_NLFC_w[iw].imag, df_LFC_w[iw].real, df_LFC_imag[iw].imag)
             f.close()
 
