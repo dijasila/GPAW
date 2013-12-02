@@ -33,7 +33,8 @@ class PairDensity:
                  ftol=1e-6,
                  real_space_derivatives=False,
                  world=mpi.world, txt=sys.stdout):
-        ecut /= Hartree
+        if ecut is not None:
+            ecut /= Hartree
         
         self.ecut = ecut
         self.ftol = ftol

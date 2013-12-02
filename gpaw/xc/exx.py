@@ -34,16 +34,17 @@ def pawexxvv(atomdata, D_ii):
 
         
 class EXX(PairDensity):
-    def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=150.0,
+    def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=None,
                  alpha=0.0, skip_gamma=False, omega=None,
                  world=mpi.world, txt=sys.stdout):
     
         alpha /= Bohr**2
-
+        
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt)
 
-        ecut /= Hartree
-        
+        if self.ecut is None:
+            self.ecut = self.calc.wfs.pd.ecut
+            
         if xc is None:
             self.exx_fraction = 1.0
             xc = XC(XCNull())
@@ -245,7 +246,7 @@ class EXX(PairDensity):
         x = 4 * pi / self.calc.wfs.kd.nbzkpts / pd.gd.dv**2
         for f, n_G in zip(f_m, n_mG):
             x_G = n_G * iG_G
-            e -= x * f * pd.integrate(x_G, x_G)
+            e -= x * f * pd.integrate(x_G, x_G).real
 
         return e
 
