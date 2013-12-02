@@ -4,6 +4,7 @@ import pickle
 
 import numpy as np
 from ase.utils import prnt
+from ase.units import Hartree
 
 import gpaw.mpi as mpi
 from gpaw.response.chi0 import Chi0
@@ -41,7 +42,7 @@ class DielectricFunction:
                         pickle.HIGHEST_PROTOCOL)
         return G_G, chi0_wGG, chi0_wxvG
         
-    def calculate_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
+    def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                                     direction='x'):
         G_G, chi0_wGG, chi0_wxvG = self.calculate_chi0(q_c)
 
@@ -63,21 +64,62 @@ class DielectricFunction:
             chi0_GG[:] = e_GG
         return chi0_wGG
 
-    def calculate_dielectric_function(self, xc='RPA', q_c=[0, 0, 0],
+    def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0],
                                       direction='x', filename='df.csv'):
         """Calculate the dielectric function.
 
-        Returns dielectric function without and with local field correction.
+        Returns dielectric function without and with local field correction:
+ 
+        df_NLFC_w, df_LFC_w = DielectricFunction.get_dielectric_function()
         """
-        e_wGG = self.calculate_dielectric_matrix(xc, q_c, direction)
-        df1_w = np.zeros(len(e_wGG), dtype=complex)
-        df2_w = np.zeros(len(e_wGG), dtype=complex)
-        fd = open(filename, 'w')
+        e_wGG = self.get_dielectric_matrix(xc, q_c, direction)
+        df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
+        df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
+        if filename is not None:
+            fd = open(filename, 'w')
         for w, e_GG in enumerate(e_wGG):
-            df1_w[w] = e_GG[0, 0]
-            df2_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
-            prnt('%.3f, %.3f, %.3f, %.3f, %.3f' %
-                 (self.chi0.omega_w[w],
-                  df1_w[w].real, df1_w[w].imag,
-                  df2_w[w].real, df2_w[w].imag), file=fd)
-        return df1_w, df2_w
+            df_NLFC_w[w] = e_GG[0, 0]
+            df_LFC_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
+            if filename is not None:
+                prnt('%.3f, %.3f, %.3f, %.3f, %.3f' %
+                     (self.chi0.omega_w[w]*Hartree,
+                      df_NLFC_w[w].real, df_NLFC_w[w].imag,
+                      df_LFC_w[w].real, df_LFC_w[w].imag), file=fd)
+        return df_NLFC_w, df_LFC_w
+
+    def get_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0], 
+                          direction='x', filename='eels.csv'):
+        """Calculate EELS spectrum. By default, generate a file 'eels.csv'.
+
+        EELS spectrum is obtained from the imaginary part of the inverse 
+        of dielectric function. Returns EELS spectrum without and with 
+        local field corrections:
+
+        df_NLFC_w, df_LFC_w = DielectricFunction.get_eels_spectrum()
+        """
+
+        # Calculate dielectric function
+        df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, q_c=q_c,
+                                                           direction=direction,
+                                                           filename=None)
+        Nw = df_NLFC_w.shape[0]
+        
+        # Calculate eels
+        eels_NLFC_w  = -(1 / df_NLFC_w).imag
+        eels_LFC_w = -(1 / df_LFC_w).imag        
+        # Write to file
+  #      if rank == 0:
+        fd = open(filename, 'w')
+        prnt('# energy, eels_NLFC_w, eels_LFC_w')
+        for iw in range(Nw):
+            prnt('%.3f, %.3f, %.3f' %
+                 (self.chi0.omega_w[iw]*Hartree, eels_NLFC_w[iw], eels_LFC_w[iw]), file=fd)
+        fd.close()
+
+        return eels_NLFC_w, eels_LFC_w
+        # Wait for I/O to finish
+        self.comm.barrier()
+
+#    def get_absorption_spectrum(self,xc='RPA',filename='absorption.csv'):
+        
+        
