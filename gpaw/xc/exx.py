@@ -35,7 +35,7 @@ def pawexxvv(atomdata, D_ii):
         
 class EXX(PairDensity):
     def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=150.0,
-                 alpha=0.0, skip_gamma=False,
+                 alpha=0.0, skip_gamma=False, omega=None,
                  world=mpi.world, txt=sys.stdout):
     
         alpha /= Bohr**2
@@ -50,10 +50,19 @@ class EXX(PairDensity):
         if xc == 'PBE0':
             self.exx_fraction = 0.25
             xc = XC('HYB_GGA_XC_PBEH')
+        if xc == 'HSE03':
+            omega = 0.106
+            self.exx_fraction = 0.25
+            xc = XC('HYB_GGA_XC_HSE03')
+        if xc == 'HSE06':
+            omega = 0.11
+            self.exx_fraction = 0.25
+            xc = XC('HYB_GGA_XC_HSE06')
         elif xc == 'B3LYP':
             self.exx_fraction = 0.2
             xc = XC('HYB_GGA_XC_B3LYP')
         self.xc = xc
+        self.omega = omega
         self.exc = np.nan  # density dependent part of xc-energy
         
         if kpts is None:
@@ -203,16 +212,25 @@ class EXX(PairDensity):
         
         G2_G = pd.G2_qG[0]
         iG_G = np.empty(len(G2_G))
-        iG_G[1:] = G2_G[1:]**-0.5
-        
+
+        if self.omega is None:
+            iG_G[1:] = G2_G[1:]**-0.5
+        else:
+            iG_G[1:] = G2_G[1:] ** -0.5 * (1 - np.exp(-G2_G[1:] / (4 * self.omega**2))) ** 0.5
+
         if G2_G[0] == 0.0:
             if molecule:
                 iG_G[0] = 0.0
             else:
-                iG_G[0] = 1 / self.G0
+                if self.omega is None:
+                    iG_G[0] = 1 / self.G0
+                else:
+                    iG_G[0] = 1 / (4 * self.omega ** 2) ** 0.5
         else:
-            iG_G[0] = G2_G[0]**-0.5
-
+            if self.omega is None:
+                iG_G[0] = G2_G[0]**-0.5
+            else:
+                iG_G[0] = G2_G[0] ** -0.5 * (1 - np.exp(-G2_G[0] / (4 * self.omega**2))) ** 0.5
         e = 0.0
         f_m = kpt2.f_n
         
