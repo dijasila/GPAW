@@ -26,8 +26,17 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
         else:
             sys.stderr.write('WARNING: %s\n' % msg)
 
-            
+'''           
 def findpeak(y, dx=1):
+    i = y.argmax()
+    a, b, c = np.polyfit([-1, 0, 1], y[i - 1:i + 2], 2)
+    assert a < 0
+    x = -0.5 * b / a
+    return dx * (i + x), a * x**2 + b * x + c
+'''
+
+def findpeak(x,y):   
+    dx = x[1]-x[0]
     i = y.argmax()
     a, b, c = np.polyfit([-1, 0, 1], y[i - 1:i + 2], 2)
     assert a < 0
