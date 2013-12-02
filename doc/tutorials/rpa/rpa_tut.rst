@@ -11,7 +11,7 @@ For more details on the theory and implemenation we refer to :ref:`rpa`. Below w
 Example 1: Atomization energy of N2
 ===================================
 
-The atomization energy of :mol:`N2` is overestimated by typical GGA functionals, and the RPA functional seems to do a bit better. This is not a general trend for small molecules, however, typically the HF-RPA approach yields to small atomization energies when evaluated at the GGA equilibrium geometry. See for example Furche \ [#Furche]_ for a table of atomization energies for small molecules calculated with the RPA functional. The main advantage is that RPA includes non-local correlation as well as giving a reasonable description of covalent bonds and the functional has no fitted parameters.
+The atomization energy of :math:`N_2` is overestimated by typical GGA functionals, and the RPA functional seems to do a bit better. This is not a general trend for small molecules, however, typically the HF-RPA approach yields too small atomization energies when evaluated at the GGA equilibrium geometry. See for example Furche \ [#Furche]_ for a table of atomization energies for small molecules calculated with the RPA functional. The main advantage is that RPA includes non-local correlation as well as giving a reasonable description of covalent bonds and the functional has no fitted parameters.
 
 Ground state calculation
 --------------------------
@@ -25,21 +25,18 @@ which takes on the order of 20 CPU hours. The script generates N.gpw and N2.gpw 
 Converging the frequency integration
 -------------------------------------
 
-We will start by making a single RPA calculation with extremely fine frequency sampling. The following script returns the integrand at 2001 frequency points from 0 to 1000 eV at a particular q-point (since there is no k-point sampling, only q=[0,0,0] is possible here and one therefore needs to specify a direction as well):
+We will start by making a single RPA calculation with extremely fine frequency sampling. The following script returns the integrand at 2001 frequency points from 0 to 1000 eV from a cutoff of 50 eV.
 
 .. literalinclude:: frequency.py
 
 The correlation energy is obtained as the integral of this function divided by :math:`2\pi` and yields -6.23738879181 eV. The frequency sampling is dense enough so that this value can be regarded as "exact". We can now test the Gauss-Legendre integration method with different number of points using the same script but now specifying the gauss_legendre parameters instead of a frequency list:: 
 
-    Es = rpa.get_E_q(ecut=ecut, 
-                     gauss_legendre=16,
-                     frequency_cut=800, 
-                     frequency_scale=2.0, 
-                     integrated=False,
-                     q=[0,0,0], 
-                     direction=0)
+    rpa = RPACorrelation(calc, 
+                         nfrequencies=16,
+			 frequency_max=800.0,
+			 frequency_scale=2.0)
 
-This is the default parameters for Gauss-legendre integration. The gauss_legendre keyword specifies the number of points, the frequency_cut keyword sets the value of the highest frequency (but the integration is always an approximation for the infinite integral) and the frequency_scale keyword determines how dense the frequencies are sampled close to :math:`\omega=0`. The integrals for different number of Gauss-Legendre points is shown below as well as the integrand evaluated at the fine equidistant frequency grid
+This is the default parameters for Gauss-legendre integration. The gauss_legendre keyword specifies the number of points, the frequency_cut keyword sets the value of the highest frequency (but the integration is always an approximation for the infinite integral) and the frequency_scale keyword determines how dense the frequencies are sampled close to :math:`\omega=0`. The integrals for different number of Gauss-Legendre points is shown below as well as the integrand evaluated at the fine equidistant frequency grid.
 
 .. image:: E_w.png
 	   :height: 400 px
@@ -47,7 +44,7 @@ This is the default parameters for Gauss-legendre integration. The gauss_legendr
 .. image:: con_freq.png
 	   :height: 400 px
 
-It is seen that using the default value of 16 frequency points gives a result which is very well converged (to 0.1 meV). Below we will simply use the default values allthough we could perhaps use 8 points instead of 16, which would half the total CPU time for the calculations. In this particular case the result is not very sensitive to the frequency scale, but if the there is a non-vanishing density of states near the Fermi level, there may be much more structure in the integrand near :math:`\omega=0` and it is important to sample this region well. It should of course be remembered that these values are not converged with respect to the number of unoccupied bands and plane waves, which were calculated with a cutoff at 200 eV.
+It is seen that using the default value of 16 frequency points gives a result which is very well converged (to 0.1 meV). Below we will simply use the default values allthough we could perhaps use 8 points instead of 16, which would half the total CPU time for the calculations. In this particular case the result is not very sensitive to the frequency scale, but if the there is a non-vanishing density of states near the Fermi level, there may be much more structure in the integrand near :math:`\omega=0` and it is important to sample this region well. It should of course be remembered that these values are not converged with respect to the number of unoccupied bands and plane waves. The calculations with the varying number of Gauss-Legendre points are made with a cutoff of 200 eV.
 
 Extrapolating to infinite number of bands
 -----------------------------------------
@@ -85,7 +82,7 @@ The fit is seen to be very good at the last three points and we find an extrapol
 ======   =====   =====   ======       ============
 PBE      HF      RPA     HF+RPA       Experimental
 ======   =====   =====   ======       ============
-10.60	 4.64    4.96    9.60	  	9.89
+10.61	 4.80    4.96    9.76	  	9.89
 ======   =====   =====   ======       ============
 
 One should also be aware that due to the non-local nature of the RPA functional, very large supercells are needed to avoid spurious interactions between repeated images and the calculation done for the 6x6x7 cell used here is not expected to be fully converged with respect to super cell size. In fact, the present super cell is not even large enough for the PBE and HF calculations to be converged. See ref. \ [#Harl]_ for more details on this. It should be noted that in general, the accuaracy of RPA is comparable to that of PBE calculations and N2 is just a special case where RPA performs better than PBE. The major advantage of RPA is the non-locality, which results in a good description of van der Waals forces. The true power of RPA thus only comes into play for systems where dispersive interaction dominate.
