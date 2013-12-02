@@ -283,6 +283,7 @@ class RPACorrelation:
         E_w = np.zeros_like(self.omega_w)
         self.wcomm.all_gather(np.array(e_w), E_w)
         energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
+        self.E_w = E_w
         return energy
 
     def extrapolate(self, e_i):
