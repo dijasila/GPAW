@@ -128,8 +128,8 @@ class Chi0(PairDensity):
     def update_hermitian(self, n_mG, deps_m, df_m, chi0_wGG):
         for w, omega in enumerate(self.omega_w):
             x_m = (-2 * df_m * deps_m / (omega.imag**2 + deps_m**2))**0.5
-            nx_mG = n_mG.T.copy() * x_m
-            rk(-self.prefactor, nx_mG, 1.0, chi0_wGG[w])
+            nx_mG = n_mG * x_m[:, np.newaxis]
+            rk(-self.prefactor, nx_mG, 1.0, chi0_wGG[w], 'n')
 
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
         domega = self.omega_w[1]
