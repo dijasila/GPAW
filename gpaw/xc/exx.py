@@ -304,4 +304,4 @@ class EXX(PairDensity):
 
         # Compare self-interaction to analytic result:
         assert abs(0.5 * pd.integrate(self.ngauss_G, self.vgauss_G) -
-                   (self.beta / 2 / pi)**0.5) < 1e-6
+                   (self.beta / 2 / pi)**0.5) < 1e-2
