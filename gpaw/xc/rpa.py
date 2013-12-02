@@ -364,6 +364,7 @@ class RPACorrelation:
 
 def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
     y_w, weights_w = p_roots(nw)
+    y_w = y_w.real
     ys = 0.5 - 0.5 * y_w
     ys = ys[::-1]
     w = (-np.log(1 - ys))**frequency_scale
