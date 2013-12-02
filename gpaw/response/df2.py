@@ -48,9 +48,12 @@ class DielectricFunction:
 
         if G_G[0] == 0.0:
             G_G[0] = 1.0
-            d_v = {'x': [1, 0, 0],
-                   'y': [0, 1, 0],
-                   'z': [0, 0, 1]}.get(direction, direction)
+            if isinstance(direction, str):
+                d_v = {'x': [1, 0, 0],
+                       'y': [0, 1, 0],
+                       'z': [0, 0, 1]}[direction]
+            else:
+                d_v = direction
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             chi0_wGG[:, 0, 0] = np.dot(chi0_wxvG[:, 0, :, 0], d_v**2)
             chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[:, 0])
@@ -87,6 +90,42 @@ class DielectricFunction:
                       df_LFC_w[w].real, df_LFC_w[w].imag), file=fd)
         return df_NLFC_w, df_LFC_w
 
+
+    def get_macroscopic_dielectric_constant(self, xc='RPA'):
+        """Calculate macroscopic dielectric constant. Returns eM_NLFC and eM_LFC
+
+        Macroscopic dielectric constant is defined as the real part of dielectric function at w=0.
+        
+        Parameters:
+
+        eM_LFC: float
+            Dielectric constant without local field correction. (RPA, ALDA)
+        eM2_NLFC: float
+            Dielectric constant with local field correction.
+
+        """
+
+        #assert self.optical_limit
+	fd = self.chi0.fd
+	prnt('', file=fd)
+        prnt('%s Macroscopic Dielectric Constant:' % xc, file=fd)
+        dirstr = ['x', 'y', 'z']
+	tempdir = np.array([1,-1,1])
+
+        if 1:  #for dir in distr:
+        
+            eM = np.zeros(2)
+            df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, direction=tempdir)
+            eps0 = np.real(df_NLFC_w[0])
+            eps = np.real(df_LFC_w[0])
+	    prnt('  %s direction' %dir, file=fd)
+            prnt('    Without local field: %f' % eps0, file=fd)
+	    prnt('    Include local field: %f' % eps, file=fd)     
+            
+        return eps0, eps
+
+
+
     def get_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0], 
                           direction='x', filename='eels.csv'):
         """Calculate EELS spectrum. By default, generate a file 'eels.csv'.
@@ -111,7 +150,7 @@ class DielectricFunction:
         # Write to file
   #      if rank == 0:
         fd = open(filename, 'w')
-        prnt('# energy, eels_NLFC_w, eels_LFC_w')
+        prnt('# energy, eels_NLFC_w, eels_LFC_w', file=fd)
         for iw in range(Nw):
             prnt('%.3f, %.3f, %.3f' %
                  (self.chi0.omega_w[iw]*Hartree, eels_NLFC_w[iw], eels_LFC_w[iw]), file=fd)
