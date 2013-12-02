@@ -7,10 +7,10 @@ from ase.lattice import bulk
 from gpaw import GPAW, PW
 from gpaw.test import findpeak
 from gpaw.atom.basis import BasisMaker
-from gpaw.response.df import DF
+from gpaw.response.df2 import DielectricFunction
 from gpaw.mpi import serial_comm, rank, size
 from gpaw.utilities import devnull
-
+from gpaw.wavefunctions.pw import PW
 
 if rank != 0:
   sys.stdout = devnull 
@@ -38,23 +38,21 @@ t2 = time.time()
 q = np.array([1/4.,0.,0.])
 w = np.linspace(0, 24, 241)
 
-df = DF(calc=calc, q=q, w=w, eta=0.2, ecut=(50,50,50))
-df.get_EELS_spectrum(filename='EELS_Al')
-df.check_sum_rule()
-df.write('Al.pckl')
+df = DielectricFunction(calc=calc, omega_w=w, eta=0.2, ecut=50)
+df.get_eels_spectrum(filename='EELS_Al',q_c=q)
+#df.check_sum_rule()
+#df.write('Al.pckl')
 
 t3 = time.time()
 
 print 'For ground  state calc, it took', (t2 - t1) / 60, 'minutes'
 print 'For excited state calc, it took', (t3 - t2) / 60, 'minutes'
 
-d = np.loadtxt('EELS_Al')
+d = np.loadtxt('EELS_Al',delimiter=',')
 
 # New results are compared with test values
-
 wpeak1,Ipeak1 = findpeak(d[:,0],d[:,1])
 wpeak2,Ipeak2 = findpeak(d[:,0],d[:,2])
-
 
 test_wpeak1 = 15.70 # eV
 test_Ipeak1 = 29.05 # eV
@@ -69,7 +67,7 @@ else:
     raise ValueError('Plasmon peak not correct ! ')
 
 if np.abs(test_Ipeak1-Ipeak1)>1e-2 or np.abs(test_Ipeak2-Ipeak2)>1e-2:
-    print Ipeak1, Ipeak2
+    print Ipeak1-test_Ipeak1, Ipeak2-test_Ipeak2
     raise ValueError('Please check spectrum strength ! ')
 
 
