@@ -57,9 +57,9 @@ wpeak2,Ipeak2 = findpeak(d[:,0],d[:,2])
 
 
 test_wpeak1 = 15.70 # eV
-test_Ipeak1 = 28.90 # eV
+test_Ipeak1 = 29.05 # eV
 test_wpeak2 = 15.725 # eV
-test_Ipeak2 = 26.24 # eV
+test_Ipeak2 = 26.41 # eV
 
 
 if np.abs(test_wpeak1-wpeak1)<1e-2 and np.abs(test_wpeak2-wpeak2)<1e-2:
