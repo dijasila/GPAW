@@ -43,9 +43,6 @@ class EXX(PairDensity):
         
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt)
 
-        if self.ecut is None:
-            self.ecut = self.calc.wfs.pd.ecut
-            
         if xc is None:
             self.exx_fraction = 1.0
             xc = XC(XCNull())
@@ -83,6 +80,11 @@ class EXX(PairDensity):
         self.kpts = kpts
         self.bands = bands
 
+        if self.ecut is None:
+            self.ecut = self.calc.wfs.pd.ecut
+        prnt('Plane-wave cutoff: %.3f eV' % (self.ecut * Hartree),
+             file=self.fd)
+        
         shape = (self.calc.wfs.nspins, len(kpts), bands[1] - bands[0])
         self.exxvv_sin = np.zeros(shape)   # valence-valence exchange energies
         self.exxvc_sin = np.zeros(shape)   # valence-core exchange energies
@@ -132,8 +134,11 @@ class EXX(PairDensity):
                  'q<%.3f 1/Ang and alpha=%.3f Ang^2' %
                  (qcut / Bohr, alpha * Bohr**2), file=self.fd)
         else:
+            prnt('Using Wigner-Seitz truncated coulomb interaction.',
+                 file=self.fd)
             self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd,
                                                     self.calc.wfs.kd.N_c)
+            self.iG_qG = {}
             
         # PAW matrices:
         self.V_asii = []  # valence-valence correction
@@ -264,9 +269,13 @@ class EXX(PairDensity):
                 iG_G[0] = G2_G[0]**-0.5
             iG_G[1:] = G2_G[1:]**-0.5
             return iG_G
-            
-        v_G = self.wstc.get_potential(pd)
-        iG_G = (v_G / (4 * pi))**-0.5
+
+        key = tuple((pd.kd.bzk_kc[0] * self.calc.wfs.kd.N_c).round())
+        iG_G = self.iG_qG.get(key)
+        if iG_G is None:
+            v_G = self.wstc.get_potential(pd)
+            iG_G = (v_G / (4 * pi))**-0.5
+            self.iG_qG[key] = iG_G
         return iG_G
 
     def initialize_paw_exx_corrections(self):
