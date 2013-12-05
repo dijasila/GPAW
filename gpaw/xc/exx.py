@@ -14,6 +14,7 @@ from gpaw.xc.kernel import XCNull
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.utilities import unpack, unpack2, packed_index, erf
 
 
@@ -107,6 +108,7 @@ class EXX(PairDensity):
         self.vgauss_G = None  # potential
 
         self.G0 = None  # effective value for |G+q| when |G+q|=0
+        self.iG_qG = None
         
         self.skip_gamma = skip_gamma
         
@@ -117,7 +119,7 @@ class EXX(PairDensity):
                  'beta=%.3f 1/Ang^2' % (self.beta / Bohr**2), file=self.fd)
         elif skip_gamma:
             prnt('Skip |G+q|=0 term', file=self.fd)
-        else:
+        elif alpha >= 0:
             # Volume per q-point:
             dvq = (2 * pi)**3 / self.vol / self.calc.wfs.kd.nbzkpts
             qcut = (dvq / (4 * pi / 3))**(1 / 3)
@@ -129,7 +131,10 @@ class EXX(PairDensity):
             prnt('G+q=0 term: Integrate e^(-alpha*q^2)/q^2 for',
                  'q<%.3f 1/Ang and alpha=%.3f Ang^2' %
                  (qcut / Bohr, alpha * Bohr**2), file=self.fd)
-
+        else:
+            self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd,
+                                                    self.calc.wfs.kd.N_c)
+            
         # PAW matrices:
         self.V_asii = []  # valence-valence correction
         self.C_aii = []   # valence-core correction
@@ -210,28 +215,8 @@ class EXX(PairDensity):
 
     def calculate_n(self, pd, n, n_mG, kpt2):
         molecule = not self.calc.atoms.pbc.any()
-        
-        G2_G = pd.G2_qG[0]
-        iG_G = np.empty(len(G2_G))
+        iG_G = self.get_coulomb_kernel(pd)
 
-        if self.omega is None:
-            iG_G[1:] = G2_G[1:]**-0.5
-        else:
-            iG_G[1:] = G2_G[1:] ** -0.5 * (1 - np.exp(-G2_G[1:] / (4 * self.omega**2))) ** 0.5
-
-        if G2_G[0] == 0.0:
-            if molecule:
-                iG_G[0] = 0.0
-            else:
-                if self.omega is None:
-                    iG_G[0] = 1 / self.G0
-                else:
-                    iG_G[0] = 1 / (4 * self.omega ** 2) ** 0.5
-        else:
-            if self.omega is None:
-                iG_G[0] = G2_G[0]**-0.5
-            else:
-                iG_G[0] = G2_G[0] ** -0.5 * (1 - np.exp(-G2_G[0] / (4 * self.omega**2))) ** 0.5
         e = 0.0
         f_m = kpt2.f_n
         
@@ -249,6 +234,40 @@ class EXX(PairDensity):
             e -= x * f * pd.integrate(x_G, x_G).real
 
         return e
+
+    def get_coulomb_kernel(self, pd):
+        molecule = not self.calc.atoms.pbc.any()
+        if molecule:
+            G2_G = pd.G2_qG[0]
+            iG_G = np.zeros_like(G2_G)
+            iG_G[1:] = G2_G[1:]**-0.5
+            return iG_G
+        
+        if self.omega is not None:
+            G2_G = pd.G2_qG[0]
+            iG_G = np.empty_like(G2_G)
+            if G2_G[0] == 0:
+                iG_G[0] = 1 / (2 * self.omega)
+            else:
+                iG_G[0] = ((1 - np.exp(-G2_G[0] / (4 * self.omega**2))) /
+                           G2_G[0])**0.5
+            iG_G[1:] = ((1 - np.exp(-G2_G[1:] / (4 * self.omega**2))) /
+                        G2_G[1:])**0.5
+            return iG_G
+
+        if self.G0 is not None:
+            G2_G = pd.G2_qG[0]
+            iG_G = np.empty_like(G2_G)
+            if G2_G[0] == 0:
+                iG_G[0] = 1 / self.G0
+            else:
+                iG_G[0] = G2_G[0]**-0.5
+            iG_G[1:] = G2_G[1:]**-0.5
+            return iG_G
+            
+        v_G = self.wstc.get_potential(pd)
+        iG_G = (v_G / (4 * pi))**-0.5
+        return iG_G
 
     def initialize_paw_exx_corrections(self):
         for a, atomdata in enumerate(self.calc.wfs.setups):
