@@ -22,10 +22,10 @@ class WignerSeitzTruncatedCoulomb:
     def __init__(self, gd, nk_c):
         self.nk_c = nk_c
         bigcell_cv = gd.cell_cv * nk_c[:, np.newaxis]
-        self.gd = GridDescriptor(4 * gd.N_c, bigcell_cv)
+        self.gd = GridDescriptor(1 * gd.N_c, bigcell_cv)
         assert not (self.gd.N_c % 2).any()
         rc = 0.5 * (self.gd.icell_cv**2).sum(1).max()**-0.5
-        self.a = 5 / rc
+        self.a = 4 / rc
         v_R = self.gd.empty()
         v_i = v_R.ravel()
         pos_iv = self.gd.get_grid_point_coordinates().reshape((3, -1)).T
@@ -58,4 +58,12 @@ class WignerSeitzTruncatedCoulomb:
         else:
             K_G[0] += 4 * pi * (1 - np.exp(-G2_G[0] / (4 * a**2))) / G2_G[0]
         K_G[1:] += 4 * pi * (1 - np.exp(-G2_G[1:] / (4 * a**2))) / G2_G[1:]
+        assert pd.dtype== complex
         return K_G
+        if 0:
+            K_G[0] = np.inf
+            K_G[1:] = 4 * pi / G2_G[1:]
+        rc = 4/a*1.1
+        print a,rc
+        K_G[0] = 2*pi*rc**2
+        K_G[1:] = 4 * pi / G2_G[1:] * (1 - np.cos(G2_G[1:]**0.5*rc))
