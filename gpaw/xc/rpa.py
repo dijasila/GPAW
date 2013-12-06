@@ -80,7 +80,7 @@ class RPACorrelation:
     def initialize_q_points(self, qsym):
         kd = self.calc.wfs.kd
         self.bzq_qc = kd.get_bz_q_points(first=True)
-        
+
         if not qsym:
             self.ibzq_qc = self.bzq_qc
             self.weight_q = np.ones(len(self.bzq_qc)) / len(self.bzq_qc)
@@ -103,10 +103,10 @@ class RPACorrelation:
                 n += 1
 
                 if (abs(q_c - (q1, q2, q3)).max() > 1e-4 or
-                                   abs(int(ecut * Hartree) - ec) > 0):
+                               abs(int(ecut * Hartree) - ec) > 0):
                     self.energy_qi = []
                     return
-                    
+
         prnt('Read %d q-points from file: %s' % (nq, self.filename),
              file=self.fd)
         prnt(file=self.fd)
@@ -122,13 +122,15 @@ class RPACorrelation:
                          (tuple(q_c) + (ecut * Hartree, energy * Hartree)),
                          file=fd)
 
-    def calculate(self, ecut, nbands=None):
+    def calculate(self, ecut, nbands=None, spin=0):
         """Calculate RPA correlation energy for one or several cutoffs.
 
         ecut: float or list of floats
             Plane-wave cutoff(s).
         nbands: int
             Number of bands (defaults to number of plane-waves).
+        spin: separate spin in response funtion.
+            (Only needed for beyond RPA methods that inherit this function)
         """
 
         if isinstance(ecut, (float, int)):
@@ -140,15 +142,16 @@ class RPACorrelation:
             ecut_i = np.sort(ecut)
         self.ecut_i = np.asarray(ecut_i) / Hartree
         ecutmax = max(self.ecut_i)
-        
+
         if nbands is None:
-            prnt('Response function bands    : Equal to number of plane waves',
+            prnt('Response function bands : Equal to number of plane waves',
                  file=self.fd)
         else:
-            prnt('Response function bands    : %s' % nbands, file=self.fd)
-        prnt('Plane wave cutoff energies :', file=self.fd)
+            prnt('Response function bands : %s' % nbands, file=self.fd)
+        prnt('Plane wave cutoffs (eV) :', end='', file=self.fd)
         for ecut in ecut_i:
-            prnt('    %.0f eV' % ecut, file=self.fd)
+            prnt('%5d' % ecut, end='', file=self.fd)
+        prnt(file=self.fd)
         prnt(file=self.fd)
 
         if self.filename and os.path.isfile(self.filename):
@@ -171,13 +174,13 @@ class RPACorrelation:
             pd = PWDescriptor(ecutmax, self.calc.wfs.gd, complex, thisqd)
             nG = pd.ngmax
 
-            chi0_wGG = np.zeros((self.mynw, nG, nG), complex)
+            chi0_swGG = np.zeros((1 + spin, self.mynw, nG, nG), complex)
             if not q_c.any():
                 # Wings (x=0,1) and head (G=0) for optical limit and three
                 # directions (v=0,1,2):
-                chi0_wxvG = np.zeros((self.mynw, 2, 3, nG), complex)
+                chi0_swxvG = np.zeros((1 + spin, self.mynw, 2, 3, nG), complex)
             else:
-                chi0_wxvG = None
+                chi0_swxvG = None
 
             Q_aGii = chi0.initialize_paw_corrections(pd)
 
@@ -201,7 +204,7 @@ class RPACorrelation:
                      file=self.fd, end='', flush=True)
 
                 energy = self.calculate_q(chi0, pd,
-                                          chi0_wGG, chi0_wxvG, Q_aGii,
+                                          chi0_swGG, chi0_swxvG, Q_aGii,
                                           m1, m2, cut_G)
                 energy_i.append(energy)
                 m1 = m2
@@ -209,9 +212,9 @@ class RPACorrelation:
                 if ecut < ecutmax and self.chicomm.size > 1:
                     # Chi0 will be summed again over chicomm, so we divide
                     # by its size:
-                    chi0_wGG *= 1.0 / self.chicomm.size
-                    if chi0_wxvG is not None:
-                        chi0_wxvG *= 1.0 / self.chicomm.size
+                    chi0_swGG *= 1.0 / self.chicomm.size
+                    if chi0_swxvG is not None:
+                        chi0_swxvG *= 1.0 / self.chicomm.size
 
             self.energy_qi.append(energy_i)
             self.write()
@@ -236,19 +239,25 @@ class RPACorrelation:
         return e_i * Hartree
 
     def calculate_q(self, chi0, pd,
-                    chi0_wGG, chi0_wxvG, Q_aGii, m1, m2, cut_G):
-        chi0._calculate(pd, chi0_wGG, chi0_wxvG, Q_aGii, m1, m2)
+                    chi0_swGG, chi0_swxvG, Q_aGii, m1, m2, cut_G):
+        chi0_wGG = chi0_swGG[0]
+        if chi0_swxvG is not None:
+            chi0_wxvG = chi0_swxvG[0]
+        else:
+            chi0_wxvG = None
+        chi0._calculate(pd, chi0_wGG, chi0_wxvG, Q_aGii, m1, m2, [0, 1])
+
         prnt('E_c(q) = ', end='', file=self.fd)
 
         if not pd.kd.gamma:
-            e = self.calculate_energy(pd, chi0_wGG, cut_G)
+            e = self.calculate_energy(pd, chi0_swGG[0], cut_G)
             prnt('%.3f eV' % (e * Hartree), flush=True, file=self.fd)
         else:
             e = 0.0
             for v in range(3):
-                chi0_wGG[:, 0] = chi0_wxvG[:, 0, v]
-                chi0_wGG[:, :, 0] = chi0_wxvG[:, 1, v]
-                ev = self.calculate_energy(pd, chi0_wGG, cut_G)
+                chi0_swGG[0, :, 0] = chi0_swxvG[0, :, 0, v]
+                chi0_swGG[0, :, :, 0] = chi0_swxvG[0, :, 1, v]
+                ev = self.calculate_energy(pd, chi0_swGG[0], cut_G)
                 e += ev
                 prnt('%.3f' % (ev * Hartree), end='', file=self.fd)
                 if v < 2:
