@@ -230,7 +230,7 @@ class EXX(PairDensity):
                 self.initialize_gaussian_compensation_charge(pd)
             m = n - kpt2.n1
             n_mG[m] -= self.ngauss_G
-            e -= 2 * f_m[m] * (pd.integrate(self.vgauss_G, n_mG[m]) +
+            e -= 2 * f_m[m] * (pd.integrate(self.vgauss_G, n_mG[m]).real +
                                (self.beta / 2 / pi)**0.5)
 
         x = 4 * pi / self.calc.wfs.kd.nbzkpts / pd.gd.dv**2
@@ -273,8 +273,8 @@ class EXX(PairDensity):
         key = tuple((pd.kd.bzk_kc[0] * self.calc.wfs.kd.N_c).round())
         iG_G = self.iG_qG.get(key)
         if iG_G is None:
-            v_G = self.wstc.get_potential(pd)
-            iG_G = (v_G / (4 * pi))**-0.5
+            v_G = self.wstc.get_potential(pd).real
+            iG_G = (v_G / (4 * pi))**0.5
             self.iG_qG[key] = iG_G
         return iG_G
 
