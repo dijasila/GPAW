@@ -244,27 +244,39 @@ PyObject* czher(PyObject *self, PyObject *args)
 
 PyObject* rk(PyObject *self, PyObject *args)
 {
-  double alpha;
-  PyArrayObject* a;
-  double beta;
-  PyArrayObject* c;
-  char trans = 'c';
-  if (!PyArg_ParseTuple(args, "dOdO|c", &alpha, &a, &beta, &c, &trans))
-    return NULL;
-  int n = PyArray_DIMS(a)[0];
-  int k = PyArray_DIMS(a)[1];
-  for (int d = 2; d < PyArray_NDIM(a); d++)
-    k *= PyArray_DIMS(a)[d];
-  int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
-  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
-    dsyrk_("u", &trans, &n, &k,
-           &alpha, DOUBLEP(a), &k, &beta,
-           DOUBLEP(c), &ldc);
-  else
-    zherk_("u", &trans, &n, &k,
-           &alpha, (void*)COMPLEXP(a), &k, &beta,
-           (void*)COMPLEXP(c), &ldc);
-  Py_RETURN_NONE;
+    double alpha;
+    PyArrayObject* a;
+    double beta;
+    PyArrayObject* c;
+    char trans = 'c';
+    if (!PyArg_ParseTuple(args, "dOdO|c", &alpha, &a, &beta, &c, &trans))
+        return NULL;
+
+    int n = PyArray_DIMS(c)[0];
+    
+    int k, lda;
+    
+    if (trans == 'c') {
+        k = PyArray_DIMS(a)[1];
+        for (int d = 2; d < PyArray_NDIM(a); d++)
+            k *= PyArray_DIMS(a)[d];
+        lda = k;
+    }
+    else {
+        k = PyArray_DIMS(a)[0];
+        lda = n;
+    }
+    
+    int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
+    if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
+        dsyrk_("u", &trans, &n, &k,
+               &alpha, DOUBLEP(a), &lda, &beta,
+               DOUBLEP(c), &ldc);
+    else
+        zherk_("u", &trans, &n, &k,
+               &alpha, (void*)COMPLEXP(a), &lda, &beta,
+               (void*)COMPLEXP(c), &ldc);
+    Py_RETURN_NONE;
 }
 
 PyObject* r2k(PyObject *self, PyObject *args)
