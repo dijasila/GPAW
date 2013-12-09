@@ -137,7 +137,7 @@ class EXX(PairDensity):
             prnt('Using Wigner-Seitz truncated coulomb interaction.',
                  file=self.fd)
             self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
-                                                    self.calc.wfs.kd.N_c)
+                                                    self.calc.wfs.kd.N_c, self.fd)
             self.iG_qG = {}  # cache
             
         # PAW matrices:
