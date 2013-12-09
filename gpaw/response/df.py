@@ -53,7 +53,7 @@ class DF(CHI):
                               calc=None,
                               vcut=None,
                               dir=None):
-        if self.chi0_wGG is None and chi0_wGG is None:
+	if self.chi0_wGG is None and chi0_wGG is None:
             self.initialize()
             self.calculate()
         elif self.chi0_wGG is None and chi0_wGG is not None:
@@ -110,8 +110,7 @@ class DF(CHI):
             q_c = np.diag((1,1,1))[dir] * self.qopt
             self.chi0_wGG[:,0,:] = self.chi00G_wGv[:,:,dir]
             self.chi0_wGG[:,:,0] = self.chi0G0_wGv[:,:,dir]
-            print q_c,dir,self.chi0_wGG[0,:2,:2]
-            
+        
         from gpaw.response.kernel import calculate_Kc, CoulombKernel
         kernel = CoulombKernel(vcut=self.vcut,
                                pbc=self.calc.atoms.pbc,
@@ -161,7 +160,7 @@ class DF(CHI):
     def get_chi(self, xc='RPA'):
         """Solve Dyson's equation."""
 
-        if self.chi0_wGG is None:
+	if self.chi0_wGG is None:
             self.initialize()
             self.calculate()
         else:
@@ -232,7 +231,7 @@ class DF(CHI):
     def get_surface_response_function(self, z0=0., filename='surf_EELS'):
         """Calculate surface response function."""
 
-        if self.chi0_wGG is None:
+	if self.chi0_wGG is None:
             self.initialize()
             self.calculate()
 
@@ -298,7 +297,7 @@ class DF(CHI):
     def check_sum_rule(self, df1_w=None, df2_w=None):
         """Check f-sum rule."""
 
-        if df1_w is None:
+	if df1_w is None:
             df1_w = self.df1_w
             df2_w = self.df2_w
 

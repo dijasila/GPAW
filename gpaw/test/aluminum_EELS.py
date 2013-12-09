@@ -32,7 +32,6 @@ calc = GPAW(mode=PW(200),
 
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
-calc.write('Al', 'all')
 t2 = time.time()
 
 # Excited state calculation

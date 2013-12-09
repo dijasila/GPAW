@@ -19,7 +19,7 @@ class DielectricFunction:
             omega_w = np.linspace(0, 20, 51, end=True)
             
         self.chi0 = Chi0(calc, omega_w, ecut=ecut, eta=eta, ftol=ftol,
-                         world=world, txt=txt, real_space_derivatives=not True)
+                         world=world, txt=txt)
         
         self.name = name
 
@@ -58,9 +58,7 @@ class DielectricFunction:
             chi0_wGG[:, 0, 0] = np.dot(chi0_wxvG[:, 0, :, 0], d_v**2)
             chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[:, 0])
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[:, 1])
-            print d_v
-        
-        print chi0_wGG[0,:2,:2]
+            
         assert xc == 'RPA'
 
         nG = len(G_G)
@@ -108,11 +106,11 @@ class DielectricFunction:
         """
 
         #assert self.optical_limit
-        fd = self.chi0.fd
-        prnt('', file=fd)
+	fd = self.chi0.fd
+	prnt('', file=fd)
         prnt('%s Macroscopic Dielectric Constant:' % xc, file=fd)
         dirstr = ['x', 'y', 'z']
-        tempdir = np.array([1,-1,1])
+	tempdir = np.array([1,-1,1])
 
         if 1:  #for dir in distr:
         
@@ -120,9 +118,9 @@ class DielectricFunction:
             df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, direction=tempdir)
             eps0 = np.real(df_NLFC_w[0])
             eps = np.real(df_LFC_w[0])
-            prnt('  %s direction' %dir, file=fd)
+	    prnt('  %s direction' %dir, file=fd)
             prnt('    Without local field: %f' % eps0, file=fd)
-            prnt('    Include local field: %f' % eps, file=fd)     
+	    prnt('    Include local field: %f' % eps, file=fd)     
             
         return eps0, eps
 
