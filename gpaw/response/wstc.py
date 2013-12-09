@@ -10,24 +10,42 @@ See:
     in nontrivial systems
 """
 
+import sys
 from math import pi
 
 import numpy as np
+from ase.units import Bohr
+from ase.utils import prnt
 
+import gpaw.mpi as mpi
 from gpaw.utilities import erf
+from gpaw.fftw import get_efficient_fft_size
 from gpaw.grid_descriptor import GridDescriptor
 
 
 class WignerSeitzTruncatedCoulomb:
-    def __init__(self, gd, nk_c):
+    def __init__(self, cell_cv, nk_c, txt=sys.stdout):
         self.nk_c = nk_c
-        bigcell_cv = gd.cell_cv * nk_c[:, np.newaxis]
-        self.gd = GridDescriptor(1 * gd.N_c, bigcell_cv)
-        assert not (self.gd.N_c % 2).any()
-        rc = 0.5 * (self.gd.icell_cv**2).sum(1).max()**-0.5
-        self.a = 4 / rc
+        bigcell_cv = cell_cv * nk_c[:, np.newaxis]
+        L_c = (np.linalg.inv(bigcell_cv)**2).sum(0)**-0.5
+        
+        rc = 0.5 * L_c.min()
+        prnt('Inner radius for %dx%dx%d Wigner-Seitz cell: %.3f Ang' %
+             (tuple(nk_c) + (rc * Bohr,)), file=txt)
+        
+        self.a = 5 / rc
+        prnt('Range-separation parameter: %.3f Ang^-1' % (self.a / Bohr),
+             file=txt)
+        
+        nr_c = [get_efficient_fft_size(2 * int(L * self.a * 1.5))
+                for L in L_c]
+        prnt('FFT size for calculating truncated Coulomb: %dx%dx%d' %
+             tuple(nr_c), file=txt)
+        
+        self.gd = GridDescriptor(nr_c, bigcell_cv, comm=mpi.serial_comm)
         v_R = self.gd.empty()
         v_i = v_R.ravel()
+        
         pos_iv = self.gd.get_grid_point_coordinates().reshape((3, -1)).T
         corner_jv = np.dot(np.indices((2, 2, 2)).reshape((3, 8)).T, bigcell_cv)
         for i, pos_v in enumerate(pos_iv):
@@ -36,6 +54,7 @@ class WignerSeitzTruncatedCoulomb:
                 v_i[i] = 2 * self.a / pi**0.5
             else:
                 v_i[i] = erf(self.a * r) / r
+                
         self.K_Q = np.fft.fftn(v_R) * self.gd.dv
         
     def get_potential(self, pd):
@@ -58,12 +77,5 @@ class WignerSeitzTruncatedCoulomb:
         else:
             K_G[0] += 4 * pi * (1 - np.exp(-G2_G[0] / (4 * a**2))) / G2_G[0]
         K_G[1:] += 4 * pi * (1 - np.exp(-G2_G[1:] / (4 * a**2))) / G2_G[1:]
-        assert pd.dtype== complex
+        assert pd.dtype == complex
         return K_G
-        if 0:
-            K_G[0] = np.inf
-            K_G[1:] = 4 * pi / G2_G[1:]
-        rc = 4/a*1.1
-        print a,rc
-        K_G[0] = 2*pi*rc**2
-        K_G[1:] = 4 * pi / G2_G[1:] * (1 - np.cos(G2_G[1:]**0.5*rc))

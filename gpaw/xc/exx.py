@@ -136,9 +136,9 @@ class EXX(PairDensity):
         else:
             prnt('Using Wigner-Seitz truncated coulomb interaction.',
                  file=self.fd)
-            self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd,
+            self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
                                                     self.calc.wfs.kd.N_c)
-            self.iG_qG = {}
+            self.iG_qG = {}  # cache
             
         # PAW matrices:
         self.V_asii = []  # valence-valence correction
