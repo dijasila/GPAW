@@ -29,22 +29,22 @@ class DielectricFunction:
             name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
             if os.path.isfile(name):
                 try:
-                    G_G, chi0_wGG, chi0_wxvG = pickle.load(open(name))
+                    pd, chi0_wGG, chi0_wxvG = pickle.load(open(name))
                 except EOFError:
                     pass
                 else:
-                    return G_G, chi0_wGG, chi0_wxvG
+                    return pd, chi0_wGG, chi0_wxvG
         pd, chi0_wGG, chi0_wxvG = self.chi0.calculate(q_c)
-        G_G = pd.G2_qG[0]**0.5  # |G+q|
 
         if self.name:
-            pickle.dump((G_G, chi0_wGG, chi0_wxvG), open(name, 'wb'),
+            pickle.dump((pd, chi0_wGG, chi0_wxvG), open(name, 'wb'),
                         pickle.HIGHEST_PROTOCOL)
-        return G_G, chi0_wGG, chi0_wxvG
+        return pd, chi0_wGG, chi0_wxvG
         
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                                     direction='x'):
-        G_G, chi0_wGG, chi0_wxvG = self.calculate_chi0(q_c)
+        pd, chi0_wGG, chi0_wxvG = self.calculate_chi0(q_c)
+        G_G = pd.G2_qG[0]**0.5  # |G+q|
 
         if G_G[0] == 0.0:
             G_G[0] = 1.0
@@ -106,11 +106,11 @@ class DielectricFunction:
         """
 
         #assert self.optical_limit
-	fd = self.chi0.fd
-	prnt('', file=fd)
+        fd = self.chi0.fd
+        prnt('', file=fd)
         prnt('%s Macroscopic Dielectric Constant:' % xc, file=fd)
         dirstr = ['x', 'y', 'z']
-	tempdir = np.array([1,-1,1])
+        tempdir = np.array([1,-1,1])
 
         if 1:  #for dir in distr:
         
@@ -118,9 +118,9 @@ class DielectricFunction:
             df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, direction=tempdir)
             eps0 = np.real(df_NLFC_w[0])
             eps = np.real(df_LFC_w[0])
-	    prnt('  %s direction' %dir, file=fd)
+            prnt('  %s direction' %dir, file=fd)
             prnt('    Without local field: %f' % eps0, file=fd)
-	    prnt('    Include local field: %f' % eps, file=fd)     
+            prnt('    Include local field: %f' % eps, file=fd)     
             
         return eps0, eps
 
