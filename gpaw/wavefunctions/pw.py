@@ -105,7 +105,13 @@ class PWDescriptor:
             self.ngmax = kd.comm.max(self.ngmax)
 
         self.n_c = np.array([self.ngmax])  # used by hs_operators.py XXX
+        
+    def __getstate__(self):
+        return (self.ecut, self.gd, self.dtype, self.kd)
 
+    def __setstate__(self, state):
+        self.__init__(*state)
+        
     def estimate_memory(self, mem):
         mem.subnode('Arrays', self.nbytes)
 
