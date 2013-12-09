@@ -31,6 +31,7 @@ class PWDescriptor:
 
         self.ecut = ecut
         self.gd = gd
+        self.fftwflags = fftwflags
 
         N_c = gd.N_c
         self.comm = gd.comm
@@ -107,7 +108,7 @@ class PWDescriptor:
         self.n_c = np.array([self.ngmax])  # used by hs_operators.py XXX
         
     def __getstate__(self):
-        return (self.ecut, self.gd, self.dtype, self.kd)
+        return (self.ecut, self.gd, self.dtype, self.kd, self.fftwflags)
 
     def __setstate__(self, state):
         self.__init__(*state)
