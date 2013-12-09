@@ -4,7 +4,7 @@ import pickle
 
 import numpy as np
 from ase.utils import prnt
-from ase.units import Hartree
+from ase.units import Hartree, Bohr
 
 import gpaw.mpi as mpi
 from gpaw.response.chi0 import Chi0
@@ -44,7 +44,7 @@ class DielectricFunction:
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                                     direction='x'):
         pd, chi0_wGG, chi0_wxvG = self.calculate_chi0(q_c)
-        G_G = pd.G2_qG[0]**0.5  # |G+q|
+        G_G = pd.G2_qG[0]**0.5
 
         if G_G[0] == 0.0:
             G_G[0] = 1.0
@@ -58,13 +58,45 @@ class DielectricFunction:
             chi0_wGG[:, 0, 0] = np.dot(chi0_wxvG[:, 0, :, 0], d_v**2)
             chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[:, 0])
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[:, 1])
-            
-        assert xc == 'RPA'
 
-        nG = len(G_G)
-        for chi0_GG in chi0_wGG:
-            e_GG = np.eye(nG) - 4 * np.pi * chi0_GG / G_G / G_G[:, np.newaxis]
-            chi0_GG[:] = e_GG
+
+        if xc == 'RPA':
+            nG = len(G_G)
+            for chi0_GG in chi0_wGG:
+                e_GG = np.eye(nG) - 4 * np.pi * chi0_GG / G_G / G_G[:, np.newaxis]
+                chi0_GG[:] = e_GG
+
+        elif xc == 'ALDA':
+            from gpaw.response.kernel2 import calculate_Kxc, calculate_Kc, CoulombKernel
+            from gpaw.grid_descriptor import GridDescriptor
+            from gpaw.mpi import world, rank, size, serial_comm
+            
+            pbc = self.chi0.calc.atoms.pbc
+                       
+            R_av = self.chi0.calc.atoms.positions / Bohr
+            nt_sg = self.chi0.calc.density.nt_sG
+            
+            if (pbc - True).any():
+                nt_sG = self.gd.zeros(self.nspins)
+                for s in range(self.nspins):
+                    nt_G = self.pad(nt_sg[s])
+                    nt_sG[s] = nt_G
+            else:
+                nt_sG = nt_sg
+            
+            Kxc_sGG = calculate_Kxc(pd, nt_sG, R_av, self.chi0.calc.wfs.setups,
+                                         self.chi0.calc.density.D_asp,
+                                         functional=xc)
+            kernel = CoulombKernel(gd, vcut=None, pbc=self.chi0.calc.atoms.pbc)
+            Kc_GG = kernel.calculate_Kc(q_c, pd, symmetric=True)
+
+            nG = len(G_G)
+            for chi0_GG in chi0_wGG:
+                e_GG = np.eye(nG) - np.dot(Kc_GG, np.dot(chi0_GG,  
+                                           np.linalg.inv(tmp_GG -\
+                                               np.dot(Kxc_sGG[0], chi0_wGG[iw]))))
+                chi0_GG[:] = e_GG
+        # chi0_wGG is the dielectric matrix
         return chi0_wGG
 
     def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0],
