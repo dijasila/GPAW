@@ -154,6 +154,7 @@ tests = [
     'hydrogen.py',
     'fileio/file_reference.py',
     'fixdensity.py',
+    'nonlocalset.py', 
     'bee1.py',
     'spinFe3plus.py',
     'pw/h.py',

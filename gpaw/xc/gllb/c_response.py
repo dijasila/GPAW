@@ -13,6 +13,11 @@ class C_Response(Contribution):
     def __init__(self, nlfunc, weight, coefficients):
         Contribution.__init__(self, nlfunc, weight)
         self.coefficients = coefficients
+        self.vt_sg = None
+        self.vt_sG = None
+        self.nt_sG = None
+        self.D_asp = None
+        self.Dresp_asp = None
 
     def get_name(self):
         return "RESPONSE"
@@ -45,11 +50,19 @@ class C_Response(Contribution):
         self.kpt_comm = self.wfs.kpt_comm
         self.band_comm = self.wfs.band_comm
         self.grid_comm = self.gd.comm
-        self.vt_sg = self.finegd.empty(self.nlfunc.nspins)
-        self.vt_sG = self.gd.empty(self.nlfunc.nspins)
-        self.nt_sG = self.gd.empty(self.nlfunc.nspins)
-        self.Dresp_asp = None
-        self.D_asp = None
+        if self.vt_sg is None or self.density is None \
+           or self.density.nt_sg is None or \
+            np.any(self.vt_sg.shape != self.density.nt_sg.shape):
+             self.vt_sg = self.finegd.empty(self.nlfunc.nspins)
+             self.vt_sG = self.gd.empty(self.nlfunc.nspins)
+             self.nt_sG = self.gd.empty(self.nlfunc.nspins)
+        if self.Dresp_asp is None:
+            self.Dresp_asp = {}
+            self.D_asp = {}
+            if self.density.D_asp is not None:
+                for a in self.density.D_asp:
+                    self.Dresp_asp[a] = np.zeros_like(self.density.D_asp[a])
+                    self.D_asp[a] = np.zeros_like(self.density.D_asp[a])
 
         # The response discontinuity is stored here
         self.Dxc_vt_sG = None
@@ -61,10 +74,6 @@ class C_Response(Contribution):
         w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u, nspins=nspins)
         f_kn = [ kpt.f_n for kpt in self.kpt_u ]
 
-        #if w_kn is None:
-        #    # LDA Response, before eigenvalues are available
-        #    self.vt_sg[:] = 0.0 # 3*pi**2*np.array(nt_sg))**(1.0/3.0)/(2*pi)
-        #    print self.vt_sg
         if w_kn is not None:
             self.vt_sG[:] = 0.0
             self.nt_sG[:] = 0.0
@@ -91,9 +100,8 @@ class C_Response(Contribution):
                 self.D_asp, f_kn)
 
             self.vt_sG /= self.nt_sG +1e-10
-
         self.density.interpolate(self.vt_sG, self.vt_sg)
-        
+
     def calculate_spinpaired(self, e_g, n_g, v_g):
         self.update_potentials([n_g]) 
         v_g[:] += self.weight * self.vt_sg[0]
@@ -107,6 +115,7 @@ class C_Response(Contribution):
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         # Get the XC-correction instance
         c = setup.xc_correction
+
         ncresp_g = setup.extra_xc_data['core_response'] / self.nspins
         if not addcoredensity:
             ncresp_g[:] = 0.0
