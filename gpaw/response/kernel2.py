@@ -205,7 +205,7 @@ class CoulombKernel0D(BaseCoulombKernel):
     Isolated System/Molecule calculation.
     vcut = [True, True, True].
     Spherical cutoff in all directions.
-    R = 1/2 max cell.    
+    R = 1/2 max cell.
     """
     def __init__(self, vcut, cell):
         self.R = max(np.diag(cell)) / 2.
@@ -444,7 +444,7 @@ def calculate_Kc(q_c,
 
 
 def calculate_Kxc(pd, nt_sG, R_av, setups, D_asp, functional='ALDA',
-                  density_cut = None):
+                  density_cut=None):
     """ALDA kernel"""
 
     gd = pd.gd
@@ -480,17 +480,16 @@ def calculate_Kxc(pd, nt_sG, R_av, setups, D_asp, functional='ALDA',
     Kxc_sGG = np.zeros((len(fxc_sg), npw, npw), dtype=complex)
     for s in range(len(fxc_sg)):
         for iG, iQ in enumerate(pd.Q_qG[0]):
-            iQ_c = np.unravel_index(iQ, nG)
+            iQ_c = np.array(np.unravel_index(iQ, nG))
             for jG, jQ in enumerate(pd.Q_qG[0]):
                 jQ_c = np.unravel_index(jQ, nG)
-                ijQ_c = ((tuple([(iQ_c[n] - jQ_c[n]) for n in range(3)]) + 
-                           nG) % nG)
-                print iQ_c, jQ_c, ijQ_c
+                ijQ_c = (iQ_c - jQ_c + nG) % nG
                 Kxc_sGG[s, iG, jG] = tmp_sg[s][ijQ_c[0], ijQ_c[1], ijQ_c[2]]
 
     # The PAW part
     KxcPAW_sGG = np.zeros_like(Kxc_sGG)
-    dG_GGv = np.repeat(np.subtract.outer(G_G,G_G)[:,:,np.newaxis], 3, axis=2)
+    dG_GGv = np.repeat(np.subtract.outer(G_G, G_G)[:, :, np.newaxis],
+                       3, axis=2)
 
     for a, setup in enumerate(setups):
         if rank == a % size:
