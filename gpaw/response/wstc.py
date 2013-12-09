@@ -63,7 +63,6 @@ class WignerSeitzTruncatedCoulomb:
         max_c = self.gd.N_c // 2
         K_G = pd.zeros()
         N_c = pd.gd.N_c
-        assert not (N_c % 2).any()
         for G, Q in enumerate(pd.Q_qG[0]):
             Q_c = (np.unravel_index(Q, N_c) + N_c // 2) % N_c - N_c // 2
             Q_c = Q_c * self.nk_c + shift_c
