@@ -55,10 +55,9 @@ class DielectricFunction:
             else:
                 d_v = direction
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            chi0_wGG[:, 0, 0] = np.dot(chi0_wxvG[:, 0, :, 0], d_v**2)
             chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[:, 0])
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[:, 1])
-
+            chi0_wGG[:, 0, 0] = np.dot(chi0_wxvG[:, 0, :, 0], d_v**2)
 
         if xc == 'RPA':
             nG = len(G_G)
