@@ -2,7 +2,7 @@ from ase import *
 from ase.parallel import paropen
 from gpaw import *
 from gpaw.mpi import serial_comm
-from gpaw.xc.rpa_correlation_energy import RPACorrelation
+from gpaw.xc.rpa import RPACorrelation
 
 calc = GPAW('N2.gpw', communicator=serial_comm, txt=None)
 
