@@ -67,8 +67,8 @@ class G0W0(PairDensity):
         offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
-        self.qd.set_symmetry(self.calc.atoms, self.calc.wfs.setups,
-                             usesymm=True, N_c=self.calc.wfs.gd.N_c)
+        #self.qd.set_symmetry(self.calc.atoms, self.calc.wfs.setups,
+        #                     usesymm=True, N_c=self.calc.wfs.gd.N_c)
         
     def initialize_frequencies(self, domega=0.05):
         domega /= Hartree
@@ -124,25 +124,25 @@ class G0W0(PairDensity):
         wfs = self.calc.wfs
         qd = self.qd
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
-        Q = abs((qd.bzk_kc - q_c) % 1).sum().argmin()
+        Q = abs((qd.bzk_kc - q_c) % 1).sum(axis=1).argmin()
         s = qd.sym_k[Q]
-        U_cc = qd.symmetry.op_scc[s]
-        time_reversal = qd.time_reversal_k[Q]
+        #U_cc = qd.symmetry.op_scc[s]
+        #time_reversal = qd.time_reversal_k[Q]
         iq = qd.bz2ibz_k[Q]
-        iq_c = qd.ibzk_kc[iq]
+        #iq_c = qd.ibzk_kc[iq]
         
-        sign = 1 - 2 * time_reversal
-        shift_c = np.dot(U_cc, iq_c) - q_c * sign
-        assert np.allclose(shift_c.round(), shift_c)
-        shift_c = shift_c.round().astype(int)
+        #sign = 1 - 2 * time_reversal
+        #shift_c = np.dot(U_cc, iq_c) - q_c * sign
+        #assert np.allclose(shift_c.round(), shift_c)
+        #shift_c = shift_c.round().astype(int)
         
-        if (U_cc == np.eye(3)).all():
-            pass
-        else:
-            N_c = self.calc.wfs.gd.N_c
-            i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
-            i = np.ravel_multi_index(i_cr, N_c, 'wrap')
-            sdfg
+        #if (U_cc == np.eye(3)).all():
+        #    pass
+        #else:
+        #    N_c = self.calc.wfs.gd.N_c
+        #    i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
+        #    i = np.ravel_multi_index(i_cr, N_c, 'wrap')
+        #    sdfg
             
         qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
@@ -180,8 +180,9 @@ class G0W0(PairDensity):
             sigma += domegap * np.vdot(nW_mG, n_mG * x_m[:, np.newaxis]).imag
             dsigma -= domegap * np.vdot(nW_mG, n_mG * dx_m[:, np.newaxis]).imag
 
-        sigma /= 2 * pi * self.vol
-        dsigma /= 2 * pi * self.vol
+        x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
+        sigma *= x
+        dsigma *= x
         
         return sigma, dsigma
         
