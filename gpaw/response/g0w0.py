@@ -13,6 +13,7 @@ from gpaw.response.chi0 import Chi0
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
 class G0W0(PairDensity):
@@ -60,10 +61,6 @@ class G0W0(PairDensity):
         self.omega_w = None  # frequencies
         self.initialize_frequencies()
         
-        dvq = (2 * pi)**3 / self.vol / self.calc.wfs.kd.nbzkpts
-        qcut = (dvq / (4 * pi / 3))**(1 / 3)
-        self.G0 = (4 * pi * qcut / dvq)**-0.5
-
         # Find q-vectors and weights in IBZ:
         kd = self.calc.wfs.kd
         assert -1 not in kd.bz2bz_ks
@@ -87,6 +84,11 @@ class G0W0(PairDensity):
         w = np.arange(int(wmax) + 1)
         self.omega_w = w * domega
         self.omega_w[w > w0] = domega * (w0 + 0.5 * (w[w > w0] - w0)**2)
+        
+        self.domega_w = np.empty_like(self.omega_w)
+        self.domega_w[0] = domega / 2
+        self.domega_w[1:] = domega
+        self.domega_w[w > w0] = domega * (w[w > w0] - w0)
         
         prnt('Minimum eigenvalue: %10.3f eV' % (epsmin * Hartree),
              file=self.fd)
@@ -133,15 +135,14 @@ class G0W0(PairDensity):
             N_c = self.calc.wfs.gd.N_c
             i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
             i = np.ravel_multi_index(i_cr, N_c, 'wrap')
-        
+            sdfg
+            
         qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                    kpt1.shift_c - kpt2.shift_c)
 
         Q_aGii = self.initialize_paw_corrections(pd)
-        
-        optical_limit = (not q_c.any())
         
         for n in range(kpt1.n2 - kpt1.n1):
             fd = open(self.filename + '.W.%d' % iq)
@@ -155,8 +156,6 @@ class G0W0(PairDensity):
             f_m = kpt2.f_n
             deps_m = eps1 - kpt2.eps_n
             df_m = f1 - f_m
-            if optical_limit:
-                self.update_optical_limit(n, kpt1, kpt2, deps_m, df_m, n_mG)
             sigma, dsigma = self.calculate_sigma(fd, n_mG, deps_m, f_m)
             self.sigma_sin[s, i, n] += sigma
             self.dsigma_sin[s, i, n] += dsigma
@@ -187,24 +186,26 @@ class G0W0(PairDensity):
                 # Chi_0 calculator:
                 chi0 = Chi0(self.calc, self.omega_w, ecut=self.ecut * Hartree,
                             eta=self.eta, timeordered=True, hilbert=not True)
+                wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
+                                                   self.calc.wfs.kd.N_c,
+                                                   self.fd)
             
             prnt(q_c, file=self.fd)
             pd, chi0_wGG = chi0.calculate(q_c)[:2]
             prnt(chi0_wGG.shape, file=self.fd)
+
+            if not q_c.any():
+                chi0_wGG[:, 0] = 0.0
+                chi0_wGG[:, :, 0] = 0.0
+                
+            iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
             
-            G_G = pd.G2_qG[0]**0.5  # |G+q|
-            if G_G[0] == 0.0:
-                G_G[0] = 1.0
-            
-            delta_GG = np.eye(len(G_G))
+            delta_GG = np.eye(len(iG_G))
             
             for chi0_GG in chi0_wGG:
-                e_GG = delta_GG - 4 * pi * chi0_GG / G_G / G_G[:, np.newaxis]
+                e_GG = delta_GG - 4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis]
                 W_GG = 4 * pi * (np.linalg.inv(e_GG) -
-                                 delta_GG) / G_G / G_G[:, np.newaxis]
-                if not q_c.any():
-                    W_GG[0] /= self.G0
-                    W_GG[:, 0] /= self.G0
+                                 delta_GG) * iG_G * iG_G[:, np.newaxis]
                     
                 np.save(fd, W_GG)
             fd.close()
