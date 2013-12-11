@@ -29,7 +29,7 @@ We will start by making a single RPA calculation with extremely fine frequency s
 
 .. literalinclude:: frequency.py
 
-The correlation energy is obtained as the integral of this function divided by :math:`2\pi` and yields -6.23738879181 eV. The frequency sampling is dense enough so that this value can be regarded as "exact". We can now test the Gauss-Legendre integration method with different number of points using the same script but now specifying the gauss_legendre parameters instead of a frequency list:: 
+The correlation energy is obtained as the integral of this function divided by :math:`2\pi` and yields -6.72512811971 eV. The frequency sampling is dense enough so that this value can be regarded as "exact" (but not converged with respect to cutoff energy, of course). We can now test the Gauss-Legendre integration method with different number of points using the same script but now specifying the gauss_legendre parameters instead of a frequency list:: 
 
     rpa = RPACorrelation(calc, 
                          nfrequencies=16,
@@ -44,7 +44,7 @@ This is the default parameters for Gauss-legendre integration. The gauss_legendr
 .. image:: con_freq.png
 	   :height: 400 px
 
-It is seen that using the default value of 16 frequency points gives a result which is very well converged (to 0.1 meV). Below we will simply use the default values allthough we could perhaps use 8 points instead of 16, which would half the total CPU time for the calculations. In this particular case the result is not very sensitive to the frequency scale, but if the there is a non-vanishing density of states near the Fermi level, there may be much more structure in the integrand near :math:`\omega=0` and it is important to sample this region well. It should of course be remembered that these values are not converged with respect to the number of unoccupied bands and plane waves. The calculations with the varying number of Gauss-Legendre points are made with a cutoff of 200 eV.
+It is seen that using the default value of 16 frequency points gives a result which is very well converged (to 0.1 meV). Below we will simply use the default values allthough we could perhaps use 8 points instead of 16, which would half the total CPU time for the calculations. In this particular case the result is not very sensitive to the frequency scale, but if the there is a non-vanishing density of states near the Fermi level, there may be much more structure in the integrand near :math:`\omega=0` and it is important to sample this region well. It should of course be remembered that these values are not converged with respect to the number of unoccupied bands and plane waves. The calculations with the varying number of Gauss-Legendre points are made with a cutoff of 200 eV, and the energy therefore differs from that obtained using an equidistant frequency sampling where a cutoff of only 50 eV was used.
 
 Extrapolating to infinite number of bands
 -----------------------------------------
