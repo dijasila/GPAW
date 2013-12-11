@@ -79,22 +79,26 @@ class G0W0(PairDensity):
             epsmax = max(epsmax, kpt.eps_n[self.nbands - 1])
         
         omegamax = epsmax - epsmin
-        w0 = 0.25 * omegamax / domega
-        wmax = (0.75 * omegamax * 2 / domega)**0.5 + w0
-        w = np.arange(int(wmax) + 1)
-        self.omega_w = w * domega
-        self.omega_w[w > w0] = domega * (w0 + 0.5 * (w[w > w0] - w0)**2)
+        w0 = omegamax / domega / 3
+        a = domega * 0.5 * w0**2
+        b = domega * (1 - w0)
+        c = domega * 0.5
+        nw = 2 + int((-b + (b**2 - 4 * (a - omegamax) * c)**0.5) / (2 * c))
+        w = np.arange(nw)
         
+        self.omega_w = w * domega
+        self.omega_w[w > w0] = a + b * w[w > w0] + c * w[w > w0]**2
+
         self.domega_w = np.empty_like(self.omega_w)
         self.domega_w[0] = domega / 2
         self.domega_w[1:] = domega
-        self.domega_w[w > w0] = domega * (w[w > w0] - w0)
+        self.domega_w[w > w0] = b + 2 * c * w[w > w0]
         
         prnt('Minimum eigenvalue: %10.3f eV' % (epsmin * Hartree),
              file=self.fd)
         prnt('Maximum eigenvalue: %10.3f eV' % (epsmax * Hartree),
              file=self.fd)
-        prnt('Number of frequencies:', len(self.omega_w), file=self.fd)
+        prnt('Number of frequencies:', nw, file=self.fd)
     
     def calculate(self):
         kd = self.calc.wfs.kd
@@ -112,7 +116,10 @@ class G0W0(PairDensity):
                 for kpt2 in mykpts:
                     if kpt2.s == s:
                         self.calculate_q(i, kpt1, kpt2)
-        
+        prnt(np.array_str(self.eps_sin * Hartree, precision=3), file=self.fd)    
+        prnt(np.array_str(self.sigma_sin * Hartree, precision=3), file=self.fd)    
+        prnt(np.array_str(self.dsigma_sin, precision=3), file=self.fd)    
+
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
         qd = self.qd
@@ -155,7 +162,6 @@ class G0W0(PairDensity):
                                                  pd, Q_G)
             f_m = kpt2.f_n
             deps_m = eps1 - kpt2.eps_n
-            df_m = f1 - f_m
             sigma, dsigma = self.calculate_sigma(fd, n_mG, deps_m, f_m)
             self.sigma_sin[s, i, n] += sigma
             self.dsigma_sin[s, i, n] += dsigma
@@ -166,12 +172,17 @@ class G0W0(PairDensity):
         
         for omegap, domegap in zip(self.omega_w, self.domega_w):
             W_GG = np.load(fd)
-            x_m = (1 / (deps_m + omegap + 2j * self.eta * (f_m - 0.5)) +
-                   1 / (deps_m - omegap + 2j * self.eta * (f_m - 0.5)))
-            sigma += domegap * np.vdot(n_mG,
-                                       np.dot(n_mG * x_m[:, None], W_GG)).real
-            dsigma += 0
+            x1_m = 1 / (deps_m + omegap + 2j * self.eta * (f_m - 0.5))
+            x2_m = 1 / (deps_m - omegap + 2j * self.eta * (f_m - 0.5))
+            x_m = x1_m + x2_m
+            dx_m = x1_m**2 + x2_m**2
+            nW_mG = np.dot(n_mG, W_GG)
+            sigma += domegap * np.vdot(nW_mG, n_mG * x_m[:, np.newaxis]).imag
+            dsigma -= domegap * np.vdot(nW_mG, n_mG * dx_m[:, np.newaxis]).imag
 
+        sigma /= 2 * pi * self.vol
+        dsigma /= 2 * pi * self.vol
+        
         return sigma, dsigma
         
     def calculate_screened_potential(self):
