@@ -39,12 +39,20 @@ q = np.array([1/4.,0.,0.])
 w = np.linspace(0, 24, 241)
 
 df = DielectricFunction(calc=calc, frequencies=w, eta=0.2, ecut=50)
-df.get_eels_spectrum(filename='EELS_Al',q_c=q)
-#df.check_sum_rule()
+eels_NLFC_w, eels_LFC_w = df.get_eels_spectrum(filename='EELS_Al', q_c=q)
+df_NLFC_w, df_LFC_w = df.get_dielectric_function(q_c=q)
+
+
+df.check_sum_rule(spectrum=np.imag(df_NLFC_w))
+df.check_sum_rule(spectrum=np.imag(df_LFC_w))
+
+df.check_sum_rule(spectrum=eels_NLFC_w)
+df.check_sum_rule(spectrum=eels_LFC_w)
 #df.write('Al.pckl')
 
 t3 = time.time()
 
+print ''
 print 'For ground  state calc, it took', (t2 - t1) / 60, 'minutes'
 print 'For excited state calc, it took', (t3 - t2) / 60, 'minutes'
 
