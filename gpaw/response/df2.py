@@ -119,7 +119,7 @@ class DielectricFunction:
         return df_NLFC_w, df_LFC_w
 
 
-    def get_macroscopic_dielectric_constant(self, xc='RPA'):
+    def get_macroscopic_dielectric_constant(self, xc='RPA', direction='x'):
         """Calculate macroscopic dielectric constant. Returns eM_NLFC and eM_LFC
 
         Macroscopic dielectric constant is defined as the real part of dielectric function at w=0.
@@ -137,18 +137,15 @@ class DielectricFunction:
         fd = self.chi0.fd
         prnt('', file=fd)
         prnt('%s Macroscopic Dielectric Constant:' % xc, file=fd)
-        dirstr = ['x', 'y', 'z']
-        tempdir = np.array([1,-1,1])
+       
 
-        if 1:  #for dir in distr:
-        
-            eM = np.zeros(2)
-            df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, direction=tempdir)
-            eps0 = np.real(df_NLFC_w[0])
-            eps = np.real(df_LFC_w[0])
-            prnt('  %s direction' %dir, file=fd)
-            prnt('    Without local field: %f' % eps0, file=fd)
-            prnt('    Include local field: %f' % eps, file=fd)     
+        #eM = np.zeros(2)
+        df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, direction=direction)
+        eps0 = np.real(df_NLFC_w[0])
+        eps = np.real(df_LFC_w[0])
+        prnt('  %s direction' %direction, file=fd)
+        prnt('    Without local field: %f' % eps0, file=fd)
+        prnt('    Include local field: %f' % eps, file=fd)     
             
         return eps0, eps
 
