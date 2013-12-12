@@ -52,7 +52,7 @@ def calculate_Kxc(pd, nt_sG, R_av, setups, D_asp, functional='ALDA',
             iQ_c = np.array(np.unravel_index(iQ, nG))
             for jG, jQ in enumerate(pd.Q_qG[0]):
                 jQ_c = np.unravel_index(jQ, nG)
-                ijQ_c = (iQ_c - jQ_c)
+                ijQ_c = (iQ_c - jQ_c + nG) % nG - nG
                 if (abs(ijQ_c) < nG // 2).all():
                     Kxc_sGG[s, iG, jG] = tmp_sg[s][tuple(ijQ_c)]
 
