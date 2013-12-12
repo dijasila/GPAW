@@ -40,7 +40,63 @@ class DielectricFunction:
             pickle.dump((pd, chi0_wGG, chi0_wxvG), open(name, 'wb'),
                         pickle.HIGHEST_PROTOCOL)
         return pd, chi0_wGG, chi0_wxvG
+
+
+    def get_chi(self, xc='RPA', q_c=[0, 0, 0], direction='x',
+                wigner_seitz_truncation=False):
+        pd, chi0_wGG, chi0_wxvG = self.calculate_chi0(q_c)
+        G_G = pd.G2_qG[0]**0.5
+
+        if G_G[0] == 0.0:
+            G_G[0] = 1.0
+            if isinstance(direction, str):
+                d_v = {'x': [1, 0, 0],
+                       'y': [0, 1, 0],
+                       'z': [0, 0, 1]}[direction]
+            else:
+                d_v = direction
+            d_v = np.asarray(d_v) / np.linalg.norm(d_v)
+            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[:, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[:, 1])
+            chi0_wGG[:, 0, 0] = np.dot(chi0_wxvG[:, 0, :, 0], d_v**2)
         
+        chi_wGG = []
+        if xc == 'RPA':
+            nG = len(G_G)
+            for chi0_GG in chi0_wGG:
+                chi0_GG = chi0_GG / G_G / G_G[:, np.newaxis]
+                chi_wGG.append(np.dot(np.linalg.inv(np.eye(nG) - chi0_GG), chi0_GG))
+
+        elif xc == 'ALDA':
+            #### Needs fixing
+            from gpaw.response.kernel2 import calculate_Kxc
+            from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+            from gpaw.grid_descriptor import GridDescriptor
+            from gpaw.mpi import world, rank, size, serial_comm
+            
+            pbc = self.chi0.calc.atoms.pbc
+                       
+            R_av = self.chi0.calc.atoms.positions / Bohr
+            nt_sG = self.chi0.calc.density.nt_sG
+            
+            Kxc_sGG = calculate_Kxc(pd, nt_sG, R_av, self.chi0.calc.wfs.setups,
+                                    self.chi0.calc.density.D_asp,
+                                    functional=xc)
+
+            kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, 
+                                                 self.chi0.calc.wfs.kd.N_c)
+            K_G = kernel.get_potential(pd)
+            Kc_GG = np.sqrt(np.outer(K_G,K_G))
+
+            nG = len(G_G)
+            for chi0_GG in chi0_wGG:
+                e_GG = (np.eye(nG) - np.dot(Kc_GG, 
+                        np.dot(chi0_GG, np.linalg.inv(np.eye(nG) - 
+                        np.dot(Kxc_sGG[0], chi0_GG)))))
+                chi0_GG[:] = e_GG
+        
+        return chi0_wGG, np.array(chi_wGG)
+
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                                     direction='x'):
         pd, chi0_wGG, chi0_wxvG = self.calculate_chi0(q_c)
@@ -201,14 +257,16 @@ class DielectricFunction:
                 alpha_w = V * (df_w - 1.0) / (4 * np.pi)
                 alpha0_w = V * (df0_w - 1.0) / (4 * np.pi)
             else:
-                chi_w = self.get_chi(xc=xc, direction=dir)[:, 0, 0]
-                chi0_w = self.chi0.chi0_wGG[:, 0, 0]
-                alpha_w = V * chi_w / (4 * np.pi)
-                alpha0_w = V * chi0_w / (4 * np.pi)
+                prnt('Using Wigner-Seitz truncated Coulomb interaction',
+                     file=self.chi0.fd)
+                chi0_wGG, chi_wGG = self.get_chi(xc=xc, direction=dir)
+                #print np.shape(chi0_wGG), chi0_wGG[:,0,0]
+                alpha_w = -V * chi_wGG[:, 0, 0] #/ (4 * np.pi)
+                alpha0_w = -V * chi0_wGG[:, 0, 0]# / (4 * np.pi)
             Nw = len(alpha_w)
 
             if mpi.rank == 0:
-                f = open('%s_%s_%s' % (filename[:-4], dir, filename[-4:]), 'w')
+                f = open('%s_%s%s' % (filename[:-4], dir, filename[-4:]), 'w')
                 for iw in range(Nw):
                     prnt(self.chi0.omega_w[iw] * Hartree, 
                          alpha0_w[iw].real, alpha0_w[iw].imag, 
