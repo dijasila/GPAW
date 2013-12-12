@@ -62,7 +62,6 @@ class DielectricFunction:
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[:, 1])
             chi0_wGG[:, 0, 0] = np.dot(chi0_wxvG[:, 0, :, 0], d_v**2)
         
-
         chi_wGG = []
         G_G /= (4 * np.pi)**0.5
         nG = len(G_G)
@@ -70,13 +69,15 @@ class DielectricFunction:
         if xc == 'RPA':
             for chi0_GG in chi0_wGG:
                 chi0_GG[:] = chi0_GG / G_G / G_G[:, np.newaxis] 
-                chi_wGG.append(np.dot(np.linalg.inv(np.eye(nG) - chi0_GG), chi0_GG))
+                chi_wGG.append(np.dot(np.linalg.inv(np.eye(nG) - chi0_GG), 
+                                      chi0_GG))
 
         elif xc == 'ALDA':
             R_av = self.chi0.calc.atoms.positions / Bohr
             nt_sG = self.chi0.calc.density.nt_sG
             
-            Kxc_sGG = calculate_Kxc(pd, nt_sG, R_av, self.chi0.calc.wfs.setups,
+            Kxc_sGG = calculate_Kxc(pd, nt_sG, R_av, 
+                                    self.chi0.calc.wfs.setups,
                                     self.chi0.calc.density.D_asp,
                                     functional=xc)
             
@@ -158,7 +159,7 @@ class DielectricFunction:
             df_NLFC_w[w] = e_GG[0, 0]
             df_LFC_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
             if filename is not None:
-                prnt('%.3f, %.3f, %.3f, %.3f, %.3f' %
+                prnt('%.6f, %.6f, %.6f, %.6f, %.6f' %
                      (self.chi0.omega_w[w]*Hartree,
                       df_NLFC_w[w].real, df_NLFC_w[w].imag,
                       df_LFC_w[w].real, df_LFC_w[w].imag), file=fd)
@@ -168,7 +169,8 @@ class DielectricFunction:
     def get_macroscopic_dielectric_constant(self, xc='RPA', direction='x'):
         """Calculate macroscopic dielectric constant. Returns eM_NLFC and eM_LFC
 
-        Macroscopic dielectric constant is defined as the real part of dielectric function at w=0.
+        Macroscopic dielectric constant is defined as the real part 
+        of dielectric function at w=0.
         
         Parameters:
 
@@ -176,7 +178,6 @@ class DielectricFunction:
             Dielectric constant without local field correction. (RPA, ALDA)
         eM2_NLFC: float
             Dielectric constant with local field correction.
-
         """
 
         #assert self.optical_limit
@@ -187,7 +188,8 @@ class DielectricFunction:
         tempdir = np.array([1,0,0])
 
         #eM = np.zeros(2)
-        df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, direction=direction)
+        df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, 
+                                                           direction=direction)
         eps0 = np.real(df_NLFC_w[0])
         eps = np.real(df_LFC_w[0])
         prnt('  %s direction' %direction, file=fd)
@@ -195,8 +197,6 @@ class DielectricFunction:
         prnt('    Include local field: %f' % eps, file=fd)     
             
         return eps0, eps
-
-
 
     def get_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0], 
                           direction='x', filename='eels.csv',
@@ -222,19 +222,18 @@ class DielectricFunction:
         eels_LFC_w = -(1 / df_LFC_w).imag        
 
         # Write to file
-  #      if rank == 0:
+#        if rank == 0:
         fd = open(filename, 'w')
         prnt('# energy, eels_NLFC_w, eels_LFC_w', file=fd)
         for iw in range(Nw):
             prnt('%.6f, %.6f, %.6f' %
-                 (self.chi0.omega_w[iw]*Hartree, eels_NLFC_w[iw], eels_LFC_w[iw]), file=fd)
+                 (self.chi0.omega_w[iw] * Hartree, 
+                  eels_NLFC_w[iw], eels_LFC_w[iw]), file=fd)
         fd.close()
 
         return eels_NLFC_w, eels_LFC_w
         # Wait for I/O to finish
         self.comm.barrier()
-        
-        
         
     def check_sum_rule(self, spectrum=None):
         """Check f-sum rule.
@@ -253,24 +252,28 @@ class DielectricFunction:
             N1 += spectrum[iw] * w
         N1 *= dw * self.chi0.vol / (2 * np.pi**2)
 
-        
         prnt('', file=fd)
         prnt('Sum rule:', file=fd)
         nv = self.chi0.calc.wfs.nvalence
         prnt('N1 = %f, %f  %% error' %(N1, (N1 - nv) / nv * 100), file=fd)
-        
-
-        
-
 
     def get_polarizability(self, xc='RPA', direction='x',
                            wigner_seitz_truncation=False,
-                           filename='absorption.csv', pbc=None):
-        """Calculate polarizability. The imaginary part gives the absorption spectrum
-           
-           By default, generate a file 'absorption.csv'. Optical absorption
-           spectrum is obtained from the imaginary part of dielectric function.
+                           filename='polarizability.csv', pbc=None):
+        """Calculate the polarizability alpha. 
+           In 3D the imaginary part of the polarizability is related to the
+           dielectric function by Im(eps_M) = - 4 pi * Im(alpha). In systems
+           with reduced dimensionality the converged value of alpha is
+           independent of the cell volume. This is not the case for eps_M, 
+           which is ill defined. A truncated Coulomb kernel will always give
+           eps_M = 1.0, whereas the polarizability maintains its structure.
+
+           By default, generate a file 'absorption.csv'. The five colomns are:
+           frequency (eV), Real(alpha0), Imag(alpha0), Real(alpha), Imag(alpha)
+           alpha0 is the result without local field effects and the 
+           dimension of alpha is \AA to the power of non-periodic directions
         """
+
         cell_cv = self.chi0.calc.wfs.gd.cell_cv
         if not pbc:
             pbc_c = self.chi0.calc.atoms.pbc
@@ -279,32 +282,35 @@ class DielectricFunction:
         if pbc_c.all():
             V = 1.0
         else:
-            V = np.abs(np.linalg.det(cell[~pbc_c][:, ~pbc_c]))
+            V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
 
-        df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, q_c = [0,0,0], direction=direction)
-            
-        Nw = df_NLFC_w.shape[0]
         if not wigner_seitz_truncation:
-            df0_w, df_w = self.get_dielectric_function(xc=xc, q_c=[0,0,0],
+            # Without truncation alpha is simply related to eps_M
+            df0_w, df_w = self.get_dielectric_function(xc=xc, q_c=[0, 0, 0],
                                                        direction=direction)
-            alpha_w = V * (df_w - 1.0) / (4 * np.pi)
-            alpha0_w = V * (df0_w - 1.0) / (4 * np.pi)
+            alpha_w = V * (1.0 - df_w) / (4 * np.pi)
+            alpha0_w = V * (1.0 - df0_w) / (4 * np.pi)
         else:
+            # With truncation we need to calculate \chit = v^0.5*chi*v^0.5
             prnt('Using Wigner-Seitz truncated Coulomb interaction',
-                     file=self.chi0.fd)
+                 file=self.chi0.fd)
             chi0_wGG, chi_wGG = self.get_chi(xc=xc, direction=direction)
             epsM = 1.0 / (1.0 + chi_wGG[:, 0, 0])
             eps0M = 1.0 / (1.0 + chi0_wGG[:, 0, 0])
-            alpha_w = V * (epsM - 1.0) / (4 * np.pi)
-            alpha0_w = V * (eps0M - 1.0) / (4 * np.pi)
-        Nw = len(alpha_w)
+            alpha_w = V * (1.0 - epsM) / (4 * np.pi)
+            #alpha0_w = V * (1.0 - eps0M) / (4 * np.pi)
+            alpha0_w = V * (chi0_wGG[:,0,0]) / (4 * np.pi)
 
+        Nw = len(alpha_w)
         if mpi.rank == 0:
-            f = open(filename, 'w')
+            fd = open(filename, 'w')
             for iw in range(Nw):
-                prnt(self.chi0.omega_w[iw] * Hartree, 
-                     alpha0_w[iw].real, alpha0_w[iw].imag, 
-                     alpha_w[iw].real, alpha_w[iw].imag, file=f)
-            f.close()
+                prnt('%.6f, %.6f, %.6f, %.6f, %.6f' %
+                     (self.chi0.omega_w[iw] * Hartree,
+                      alpha0_w[iw].real * Bohr**(sum(~pbc_c)), 
+                      alpha0_w[iw].imag * Bohr**(sum(~pbc_c)), 
+                      alpha_w[iw].real * Bohr**(sum(~pbc_c)), 
+                      alpha_w[iw].imag * Bohr**(sum(~pbc_c))), file=fd)
+            fd.close()
 
         return alpha0_w * Bohr**(sum(~pbc_c)), alpha_w * Bohr**(sum(~pbc_c))
