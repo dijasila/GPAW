@@ -241,6 +241,35 @@ class DielectricFunction:
         return eels_NLFC_w, eels_LFC_w
         # Wait for I/O to finish
         self.comm.barrier()
+        
+        
+        
+    def check_sum_rule(self, spectrum=None):
+        """Check f-sum rule.
+           It takes the y of a spectrum as an entry and it check its integral"""
+        
+        fd = self.chi0.fd
+        
+        #prnt('df',df_NLFC_w, file=fd)
+        if spectrum is None:
+            raise ValueError('No spectrum input ')
+        dw = self.chi0.omega_w[1]-self.chi0.omega_w[0]
+        N1 = N2 = 0
+        for iw in range(len(spectrum)):
+            #prnt(iw, file=fd)
+            w = iw * dw
+            N1 += np.imag(spectrum[iw]) * w
+        N1 *= dw * self.chi0.vol / (2 * np.pi**2)
+
+        
+        prnt('', file=fd)
+        prnt('Sum rule:', file=fd)
+        nv = self.chi0.calc.wfs.nvalence
+        prnt('Without local field: N1 = %f, %f  %% error' %(N1, (N1 - nv) / nv * 100), file=fd)
+        
+
+        
+
 
     def get_polarizability(self, xc='RPA', wigner_seitz_truncation=False,
                            filename='absorption.csv'):
