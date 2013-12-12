@@ -76,11 +76,6 @@ class DielectricFunction:
             R_av = self.chi0.calc.atoms.positions / Bohr
             nt_sG = self.chi0.calc.density.nt_sG
             
-            # Padding need to be included here, 
-            # there should perhaps be a more general
-            # method in the pd for including padding 
-            # in non-periodic directions
-            
             Kxc_sGG = calculate_Kxc(pd, nt_sG, R_av, self.chi0.calc.wfs.setups,
                                     self.chi0.calc.density.D_asp,
                                     functional=xc)
@@ -185,7 +180,7 @@ class DielectricFunction:
         fd = open(filename, 'w')
         prnt('# energy, eels_NLFC_w, eels_LFC_w', file=fd)
         for iw in range(Nw):
-            prnt('%.3f, %.3f, %.3f' %
+            prnt('%.6f, %.6f, %.6f' %
                  (self.chi0.omega_w[iw]*Hartree, eels_NLFC_w[iw], eels_LFC_w[iw]), file=fd)
         fd.close()
 
@@ -193,24 +188,33 @@ class DielectricFunction:
         # Wait for I/O to finish
         self.comm.barrier()
 
-    def get_absorption_spectrum(self, xc='RPA', filename='absorption.csv'):
-        """Calculate optical absorption spectrum. 
+    def get_polarizability(self, xc='RPA', wigner_seitz_truncation=False,
+                           filename='absorption.csv'):
+        """Calculate polarizability. The imaginary part gives the absorption spectrum
            
            By default, generate a file 'absorption.csv'. Optical absorption
            spectrum is obtained from the imaginary part of dielectric function.
         """
-
+        V=1.0 # XXX
         for dir in ['x', 'y', 'z']:
-            df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, q_c = [0,0,0], dir=dir)
-            
-            Nw = df_NLFC_w.shape[0]
+            if not wigner_seitz_truncation:
+                df0_w, df_w = self.get_dielectric_function(xc=xc, q_c=[0,0,0],
+                                                           direction=dir)
+                alpha_w = V * (df_w - 1.0) / (4 * np.pi)
+                alpha0_w = V * (df0_w - 1.0) / (4 * np.pi)
+            else:
+                chi_w = self.get_chi(xc=xc, direction=dir)[:, 0, 0]
+                chi0_w = self.chi0.chi0_wGG[:, 0, 0]
+                alpha_w = V * chi_w / (4 * np.pi)
+                alpha0_w = V * chi0_w / (4 * np.pi)
+            Nw = len(alpha_w)
 
-            f = open('%s_%s' % ('xyz'[dir], filename), 'w')
-            #f = open(filename+'.%s'%(dirstr[dir]),'w') # ????
-            for iw in range(Nw):
-                prnt(self.chi0.omega_w[iw]*Hartree, df_NLFC_w[iw].real,
-                     df_NLFC_w[iw].imag, df_LFC_w[iw].real, df_LFC_imag[iw].imag)
-            f.close()
+            if mpi.rank == 0:
+                f = open('%s_%s_%s' % (filename[:-4], dir, filename[-4:]), 'w')
+                for iw in range(Nw):
+                    prnt(self.chi0.omega_w[iw] * Hartree, 
+                         alpha0_w[iw].real, alpha0_w[iw].imag, 
+                         alpha_w[iw].real, alpha_w[iw].imag, file=f)
+                f.close()
 
-            # Wait for I/O to finish
-            self.comm.barrier()
+        return alpha0_w, alpha_w
