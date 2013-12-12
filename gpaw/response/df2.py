@@ -12,13 +12,13 @@ from gpaw.response.chi0 import Chi0
 
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
-    def __init__(self, calc=None, name=None, omega_w=None, ecut=50,
+    def __init__(self, calc, name=None, frequencies=None, ecut=50,
                  eta=0.2, ftol=1e-6,
                  world=mpi.world, txt=sys.stdout):
-        if omega_w is None:
-            omega_w = np.linspace(0, 20, 51, end=True)
+        if frequencies is None:
+            frequencies = np.linspace(0, 20, 51, end=True)
             
-        self.chi0 = Chi0(calc, omega_w, ecut=ecut, eta=eta, ftol=ftol,
+        self.chi0 = Chi0(calc, frequencies, ecut=ecut, eta=eta, ftol=ftol,
                          world=world, txt=txt)
         
         self.name = name
@@ -138,6 +138,7 @@ class DielectricFunction:
         prnt('', file=fd)
         prnt('%s Macroscopic Dielectric Constant:' % xc, file=fd)
        
+        tempdir = np.array([1,0,0])
 
         #eM = np.zeros(2)
         df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, direction=direction)

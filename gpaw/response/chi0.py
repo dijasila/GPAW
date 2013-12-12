@@ -13,7 +13,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 
 
 class Chi0(PairDensity):
-    def __init__(self, calc, omega_w, ecut=50, hilbert=False,
+    def __init__(self, calc, frequencies, ecut=50, hilbert=False,
                  timeordered=False, eta=0.2, ftol=1e-6,
                  real_space_derivatives=False,
                  world=mpi.world, txt=sys.stdout):
@@ -22,7 +22,7 @@ class Chi0(PairDensity):
 
         eta /= Hartree
 
-        self.omega_w = omega_w = np.asarray(omega_w) / Hartree
+        self.omega_w = omega_w = np.asarray(frequencies) / Hartree
         self.hilbert = hilbert
         self.timeordered = bool(timeordered)
         self.eta = eta

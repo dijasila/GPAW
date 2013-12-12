@@ -27,7 +27,7 @@ gpwname = 'dump.graphene.gpw'
 
 if world.rank == 0:
     calc = GPAW(mode='pw',
-		kpts=(nkpts, nkpts, 1),
+                kpts=(nkpts, nkpts, 1),
                 communicator=communicator,
                 xc='oldLDA',
                 nbands=len(system) * 6,
@@ -89,7 +89,7 @@ check_df('%s', %s, %s, %s, %s,
 
 def check_df(name, ref_energy, ref_loss, ref_energy_lfe, ref_loss_lfe,
              **kwargs_override):
-    kwargs = dict(calc=calc, omega_w=w.copy(), eta=0.5, ecut=30,
+    kwargs = dict(calc=calc, frequencies=w.copy(), eta=0.5, ecut=30,
                   txt='df.%s.txt' % name)
     kwargs.update(kwargs_override)
     df = DielectricFunction(**kwargs)
@@ -128,7 +128,7 @@ def check_df(name, ref_energy, ref_loss, ref_energy_lfe, ref_loss_lfe,
 # The implementation for vcut choices has still to be done
 
 check_df('3d', 20.20, 2.505295593820, 26.90, 1.748517033160)
-         #**{'rpad': array([1, 1, 1])})	#, 'vcut': '3D'})
+         #**{'rpad': array([1, 1, 1])}) #, 'vcut': '3D'})
 #check_df('2d', 20.10, 2.449662058530, 26.80, 1.538080502420,
 #         **{'rpad': array([1, 1, 1]), 'vcut': '2D'})
 

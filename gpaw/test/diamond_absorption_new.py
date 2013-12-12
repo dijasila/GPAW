@@ -30,7 +30,7 @@ calc.write('C.gpw','all')
 #q = np.array([0.0, 0.00001, 0.])  It'not needed anymore in the new version of the code
 w = np.linspace(0, 24., 241)
 
-df = DielectricFunction(calc='C.gpw', omega_w=(0.,), eta=0.001,
+df = DielectricFunction(calc='C.gpw', frequencies=(0.,), eta=0.001,
         ecut=50, txt='diamond_df_out_new.txt')
 eM1, eM2 = df.get_macroscopic_dielectric_constant(direction='x')
 
