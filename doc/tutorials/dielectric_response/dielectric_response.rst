@@ -159,12 +159,7 @@ Here is a minimum script to get an EELS spectrum.
 This script takes less than one minute on a single cpu and by default, generates a file 'EELS.dat'.
 Then you can plot the file using::
 
-    from pylab import *
-    import numpy as np
-
-    d = np.loadtxt('EELS.dat')
-    plot(d[:,0], d[:,1], '-k')
-    show()
+.. literalinclude:: plot_aluminum_EELS_simple.py
 
 The three columns of this file correspond to energy (eV), EELS without and with local field correction, 
 respectively. 
