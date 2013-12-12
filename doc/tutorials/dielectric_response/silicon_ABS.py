@@ -16,7 +16,7 @@ from gpaw.response.df2 import DielectricFunction
 
 
 if rank != 0:
-    sys.stdout = devnull 
+    sys.stdout = devnull
 
 GS = 1
 ABS = 1
