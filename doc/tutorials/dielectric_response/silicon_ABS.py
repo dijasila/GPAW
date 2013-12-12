@@ -12,7 +12,7 @@ from ase.parallel import paropen
 from gpaw import GPAW, FermiDirac
 from gpaw.mpi import serial_comm, rank, size
 from gpaw.utilities import devnull
-from gpaw.response.df import DF
+from gpaw.response.df2 import DielectricFunction
 
 
 if rank != 0:
@@ -27,7 +27,7 @@ if GS:
     a = 5.431 #10.16 * Bohr 
     atoms = bulk('Si', 'diamond', a=a)
 
-    calc = GPAW(h=0.20,
+    calc = GPAW(mode='pw',
             kpts=(12,12,12),
             xc='LDA',
             basis='dzp',
@@ -44,23 +44,16 @@ if GS:
 if ABS:
             
     w = np.linspace(0, 24, 481)
-    q = np.array([0.0, 0.00001, 0.])
 
     # getting macroscopic constant
-    df = DF(calc='si.gpw', q=q, w=w, eta=0.0001, 
-        hilbert_trans=False, txt='df_1.out',
-        ecut=150, optical_limit=True)
+    df = DielectricFunction(calc='si.gpw', omega_w=w, eta=0.0001,
+                            ecut=150, txt='df_1.out')
 
     df.get_macroscopic_dielectric_constant()
 
-    df.write('df_1.pckl')
-
     #getting absorption spectrum
-    df = DF(calc='si.gpw', q=q, w=w, eta=0.1,
-        ecut=150, optical_limit=True, txt='df_2.out')
+    df = DielectricFunction(calc='si.gpw', omega_w=w, eta=0.1,
+                            ecut=150, txt='df_2.out')
 
-    df.get_absorption_spectrum(filename='si_abs.dat')
-    df.check_sum_rule()
-    
-    df.write('df_2.pckl')
+    df.get_polarizability(filename='si_abs.csv')
 
