@@ -274,7 +274,8 @@ class DielectricFunction:
         
 
 
-    def get_polarizability(self, xc='RPA', wigner_seitz_truncation=False,
+    def get_polarizability(self, xc='RPA', direction='x',
+                           wigner_seitz_truncation=False,
                            filename='absorption.csv', pbc=None):
         """Calculate polarizability. The imaginary part gives the absorption spectrum
            
@@ -291,28 +292,30 @@ class DielectricFunction:
         else:
             V = np.abs(np.linalg.det(cell[~pbc_c][:, ~pbc_c]))
 
-        for dir in ['x', 'y', 'z']:
-            if not wigner_seitz_truncation:
-                df0_w, df_w = self.get_dielectric_function(xc=xc, q_c=[0,0,0],
-                                                           direction=dir)
-                alpha_w = V * (1.0 - df_w) / (4 * np.pi)
-                alpha0_w = V * (1.0 - df0_w) / (4 * np.pi)
-            else:
-                prnt('Using Wigner-Seitz truncated Coulomb interaction',
+        df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, q_c = [0,0,0], direction=direction)
+            
+        Nw = df_NLFC_w.shape[0]
+        if not wigner_seitz_truncation:
+            df0_w, df_w = self.get_dielectric_function(xc=xc, q_c=[0,0,0],
+                                                       direction=direction)
+            alpha_w = V * (1.0 - df_w) / (4 * np.pi)
+            alpha0_w = V * (1.0 - df0_w) / (4 * np.pi)
+        else:
+            prnt('Using Wigner-Seitz truncated Coulomb interaction',
                      file=self.chi0.fd)
-                chi0_wGG, chi_wGG = self.get_chi(xc=xc, direction=dir)
-                epsM = 1.0 / (1.0 + chi_wGG[:, 0, 0])
-                eps0M = 1.0 / (1.0 + chi0_wGG[:, 0, 0])
-                alpha_w = V * (1.0 - epsM) / (4 * np.pi)
-                alpha0_w = V * (1.0 - eps0M) / (4 * np.pi)
-            Nw = len(alpha_w)
+            chi0_wGG, chi_wGG = self.get_chi(xc=xc, direction=direction)
+            epsM = 1.0 / (1.0 + chi_wGG[:, 0, 0])
+            eps0M = 1.0 / (1.0 + chi0_wGG[:, 0, 0])
+            alpha_w = V * (1.0 - epsM) / (4 * np.pi)
+            alpha0_w = V * (1.0 - eps0M) / (4 * np.pi)
+        Nw = len(alpha_w)
 
-            if mpi.rank == 0:
-                f = open('%s_%s%s' % (filename[:-4], dir, filename[-4:]), 'w')
-                for iw in range(Nw):
-                    prnt(self.chi0.omega_w[iw] * Hartree, 
-                         alpha0_w[iw].real, alpha0_w[iw].imag, 
-                         alpha_w[iw].real, alpha_w[iw].imag, file=f)
-                f.close()
+        if mpi.rank == 0:
+            f = open(filename, 'w')
+            for iw in range(Nw):
+                prnt(self.chi0.omega_w[iw] * Hartree, 
+                     alpha0_w[iw].real, alpha0_w[iw].imag, 
+                     alpha_w[iw].real, alpha_w[iw].imag, file=f)
+            f.close()
 
         return alpha0_w * Bohr**(sum(~pbc_c)), alpha_w * Bohr**(sum(~pbc_c))
