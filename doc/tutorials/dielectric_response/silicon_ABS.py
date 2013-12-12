@@ -46,13 +46,13 @@ if ABS:
     w = np.linspace(0, 24, 481)
 
     # getting macroscopic constant
-    df = DielectricFunction(calc='si.gpw', omega_w=w, eta=0.0001,
+    df = DielectricFunction(calc='si.gpw', frequencies=w, eta=0.0001,
                             ecut=150, txt='df_1.out')
 
     df.get_macroscopic_dielectric_constant()
 
     #getting absorption spectrum
-    df = DielectricFunction(calc='si.gpw', omega_w=w, eta=0.1,
+    df = DielectricFunction(calc='si.gpw', frequencies=w, eta=0.1,
                             ecut=150, txt='df_2.out')
 
     df.get_polarizability(filename='si_abs.csv')

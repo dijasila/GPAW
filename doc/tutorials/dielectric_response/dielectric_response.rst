@@ -8,10 +8,9 @@ A short introduction
 =====================
 
 
-The DF (dielectric function) object calculates the RPA (random-phase approximation) 
-dielectric function of an extended system 
-from its ground state electronic structure. The frequency and wave-vector dependent linear dielectric 
-matrix in reciprocal space representation is written as 
+The DielectricFunction object can calculate the dielectric function of an extended system from its
+ground state electronic structure. The frequency and wave-vector dependent linear dielectric matrix
+in reciprocal space representation is written as
 
 .. math:: \epsilon_{\mathbf{G} \mathbf{G}^{\prime}}(\mathbf{q}, \omega)
 
@@ -46,32 +45,30 @@ Example 1: Optical absorption of bulk silicon
 
 A simple startup
 ----------------
-Here is a minimum script to get an absorption spectrum. 
+Here is a minimum script to get an absorption spectrum.
 
 .. literalinclude:: silicon_ABS_simpleversion.py
 
+This script takes less than one minute on a single cpu and by default, generates three files
+'absorption_x_.csv', 'absorption_y_.csv' and 'absorption_z_.csv' containing the optical
+(:math:`\mathbf{q} = 0`) dielectric function along the x-, y- and z-direction. Note that the
+groundstate calculation is done using plane waves since the new DielectricFunction object so far
+does not support other basis sets.
+The absorption spectrum along the x-direction can then be plotted using
 
-This script takes less than one minute on a single cpu and by default, generates a file 'Absorption.dat'.
-Then you can plot the file using::
+.. literalinclude:: plot_silicon_ABS_simple.py
 
-    from pylab import *
-    import numpy as np
-
-    d = np.loadtxt('Absorption.dat')
-    plot(d[:,0], d[:,2], '-k')
-    show()
-
-There are five columns in this 'Absorption.dat' file. The first is the energy (eV). 
+There are five columns in this 'absorption_x_.csv' file. The first is the energy (eV). 
 The third and fifth correspond to absorption spectrum (imaginary part of dielectric function)
-without and with local field correction, respectively. The second and fourth column correspond to the
-real part of dielectric function without and with local field correction. 
+without and with local field correction, respectively. The second and fourth column correspond to
+the real part of dielectric function without and with local field correction. 
 
 More realistic calculation
 --------------------------
 
-To get a realistic silicon absorption spectrum and macroscopic dielectric constant, 
-one needs to converge the calculations
-with respect to grid spacing, kpoints, number of bands, planewave cutoff energy and so on. 
+To get a realistic silicon absorption spectrum and macroscopic dielectric constant, one needs to
+converge the calculations with respect to grid spacing, kpoints, number of bands, planewave cutoff
+energy and so on. 
 Here is an example script: :svn:`~doc/tutorials/dielectric_response/silicon_ABS.py`. 
 In the following, the script is split into different parts for illustration.
 
@@ -110,21 +107,10 @@ Macroscopic dielectric constant is defined as the real part of dielectric functi
 In the following script, only a single point at :math:`\omega=0` is calculated 
 without using hilbert transform::
 
-
-    df = DF(calc='si.gpw',
-            q=q,
-	    eta=0.0001,         # Should be close to zero when calculate dielectric constant.
-	    w=(0.,),            # Only calculate w=0 point ! 
-	    hilbert_trans=False,# so hilbert transform is not used. 
-	    txt='df_1.out',
-	    ecut=150,           
-	    optical_limit=True)
-
-    df.get_macroscopic_dielectric_constant()
-    df.write('df_1.pckl')
+.. literalinclude:: silicon_MDF.py
 
 At the end of the output file 'df_1.out', you can find the dielectric constant 
-calculated with RPA and ALDA, without and with local field correction. 
+calculated with RPA, without and with local field correction. 
 In general, local field correction will reduce this value by 10-20%.
 
 Result
