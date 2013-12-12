@@ -66,40 +66,42 @@ class DielectricFunction:
                 chi0_GG[:] = e_GG
 
         elif xc == 'ALDA':
-            from gpaw.response.kernel2 import calculate_Kxc, calculate_Kc, CoulombKernel
+            from gpaw.response.kernel2 import calculate_Kxc
+            from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
             from gpaw.grid_descriptor import GridDescriptor
             from gpaw.mpi import world, rank, size, serial_comm
             
             pbc = self.chi0.calc.atoms.pbc
                        
             R_av = self.chi0.calc.atoms.positions / Bohr
-            nt_sg = self.chi0.calc.density.nt_sG
+            nt_sG = self.chi0.calc.density.nt_sG
             
-            if (pbc - True).any():
-                nt_sG = self.gd.zeros(self.nspins)
-                for s in range(self.nspins):
-                    nt_G = self.pad(nt_sg[s])
-                    nt_sG[s] = nt_G
-            else:
-                nt_sG = nt_sg
+            # Padding need to be included here, 
+            # there should perhaps be a more general
+            # method in the pd for including padding 
+            # in non-periodic directions
             
             Kxc_sGG = calculate_Kxc(pd, nt_sG, R_av, self.chi0.calc.wfs.setups,
-                                         self.chi0.calc.density.D_asp,
-                                         functional=xc)
-            kernel = CoulombKernel(gd, vcut=None, pbc=self.chi0.calc.atoms.pbc)
-            Kc_GG = kernel.calculate_Kc(q_c, pd, symmetric=True)
+                                    self.chi0.calc.density.D_asp,
+                                    functional=xc)
+
+            kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, 
+                                                 self.chi0.calc.wfs.kd.N_c)
+            K_G = kernel.get_potential(pd)
+            Kc_GG = np.sqrt(np.outer(K_G,K_G))
 
             nG = len(G_G)
             for chi0_GG in chi0_wGG:
-                e_GG = np.eye(nG) - np.dot(Kc_GG, np.dot(chi0_GG,  
-                                           np.linalg.inv(tmp_GG -\
-                                               np.dot(Kxc_sGG[0], chi0_wGG[iw]))))
+                e_GG = (np.eye(nG) - np.dot(Kc_GG, 
+                        np.dot(chi0_GG, np.linalg.inv(np.eye(nG) - 
+                        np.dot(Kxc_sGG[0], chi0_GG)))))
                 chi0_GG[:] = e_GG
-        # chi0_wGG is the dielectric matrix
+        
+        # chi0_wGG is now the dielectric matrix
         return chi0_wGG
 
     def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0],
-                                      direction='x', filename='df.csv'):
+                                direction='x', filename='df.csv'):
         """Calculate the dielectric function.
 
         Returns dielectric function without and with local field correction:
