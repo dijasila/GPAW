@@ -286,6 +286,7 @@ tests = [
     'lb94.py',
     '8Si.py',
     'td_na2.py',
+    'ehrenfest_nacl.py',
     'rpa_energy_N2.py',
     'beefvdw.py',
     #'mbeef.py',
