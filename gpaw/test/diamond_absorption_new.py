@@ -19,7 +19,7 @@ a = 6.75 * Bohr
 atoms = bulk('C', 'diamond', a=a)
 
 calc = GPAW(mode='pw',
-            kpts=(10,10,10),
+            kpts=(4,4,4),
             occupations=FermiDirac(0.001))
 
 atoms.set_calculator(calc)
@@ -31,11 +31,13 @@ calc.write('C.gpw','all')
 w = np.linspace(0, 24., 241)
 
 df = DielectricFunction(calc='C.gpw', omega_w=(0.,), eta=0.001,
-        ecut=50)
-eM1, eM2 = df.get_macroscopic_dielectric_constant()
+        ecut=50, txt='diamond_df_out_new.txt')
+eM1, eM2 = df.get_macroscopic_dielectric_constant(direction='x')
 
-eM1_ = 6.23996719474
-eM2_ = 6.13299839433
+print eM1, eM2
+
+eM1_ = 5.83540485038
+eM2_ = 5.73382717669
 
 if (np.abs(eM1 - eM1_) > 1e-5 or
     np.abs(eM2 - eM2_) > 1e-5):
