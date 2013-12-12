@@ -60,11 +60,14 @@ class DielectricFunction:
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[:, 1])
             chi0_wGG[:, 0, 0] = np.dot(chi0_wxvG[:, 0, :, 0], d_v**2)
         
+
         chi_wGG = []
+        G_G /= (4 * np.pi)**0.5
+        nG = len(G_G)
+
         if xc == 'RPA':
-            nG = len(G_G)
             for chi0_GG in chi0_wGG:
-                chi0_GG = chi0_GG / G_G / G_G[:, np.newaxis]
+                chi0_GG[:] = chi0_GG / G_G / G_G[:, np.newaxis] 
                 chi_wGG.append(np.dot(np.linalg.inv(np.eye(nG) - chi0_GG), chi0_GG))
 
         elif xc == 'ALDA':
@@ -94,7 +97,7 @@ class DielectricFunction:
                         np.dot(chi0_GG, np.linalg.inv(np.eye(nG) - 
                         np.dot(Kxc_sGG[0], chi0_GG)))))
                 chi0_GG[:] = e_GG
-        
+
         return chi0_wGG, np.array(chi_wGG)
 
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
@@ -272,26 +275,36 @@ class DielectricFunction:
 
 
     def get_polarizability(self, xc='RPA', wigner_seitz_truncation=False,
-                           filename='absorption.csv'):
+                           filename='absorption.csv', pbc=None):
         """Calculate polarizability. The imaginary part gives the absorption spectrum
            
            By default, generate a file 'absorption.csv'. Optical absorption
            spectrum is obtained from the imaginary part of dielectric function.
         """
-        V=1.0 # XXX
+        cell_cv = self.chi0.calc.wfs.gd.cell_cv
+        if not pbc:
+            pbc_c = self.chi0.calc.atoms.pbc
+        else:
+            pbc_c = pbc
+        if pbc_c.all():
+            V = 1.0
+        else:
+            V = np.abs(np.linalg.det(cell[~pbc_c][:, ~pbc_c]))
+
         for dir in ['x', 'y', 'z']:
             if not wigner_seitz_truncation:
                 df0_w, df_w = self.get_dielectric_function(xc=xc, q_c=[0,0,0],
                                                            direction=dir)
-                alpha_w = V * (df_w - 1.0) / (4 * np.pi)
-                alpha0_w = V * (df0_w - 1.0) / (4 * np.pi)
+                alpha_w = V * (1.0 - df_w) / (4 * np.pi)
+                alpha0_w = V * (1.0 - df0_w) / (4 * np.pi)
             else:
                 prnt('Using Wigner-Seitz truncated Coulomb interaction',
                      file=self.chi0.fd)
                 chi0_wGG, chi_wGG = self.get_chi(xc=xc, direction=dir)
-                #print np.shape(chi0_wGG), chi0_wGG[:,0,0]
-                alpha_w = -V * chi_wGG[:, 0, 0] #/ (4 * np.pi)
-                alpha0_w = -V * chi0_wGG[:, 0, 0]# / (4 * np.pi)
+                epsM = 1.0 / (1.0 + chi_wGG[:, 0, 0])
+                eps0M = 1.0 / (1.0 + chi0_wGG[:, 0, 0])
+                alpha_w = V * (1.0 - epsM) / (4 * np.pi)
+                alpha0_w = V * (1.0 - eps0M) / (4 * np.pi)
             Nw = len(alpha_w)
 
             if mpi.rank == 0:
@@ -302,4 +315,4 @@ class DielectricFunction:
                          alpha_w[iw].real, alpha_w[iw].imag, file=f)
                 f.close()
 
-        return alpha0_w, alpha_w
+        return alpha0_w * Bohr**(sum(~pbc_c)), alpha_w * Bohr**(sum(~pbc_c))
