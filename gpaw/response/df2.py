@@ -278,7 +278,7 @@ class DielectricFunction:
         if not pbc:
             pbc_c = self.chi0.calc.atoms.pbc
         else:
-            pbc_c = pbc
+            pbc_c = np.array(pbc)
         if pbc_c.all():
             V = 1.0
         else:
@@ -296,9 +296,7 @@ class DielectricFunction:
                  file=self.chi0.fd)
             chi0_wGG, chi_wGG = self.get_chi(xc=xc, direction=direction)
             epsM = 1.0 / (1.0 + chi_wGG[:, 0, 0])
-            eps0M = 1.0 / (1.0 + chi0_wGG[:, 0, 0])
             alpha_w = V * (1.0 - epsM) / (4 * np.pi)
-            #alpha0_w = V * (1.0 - eps0M) / (4 * np.pi)
             alpha0_w = V * (chi0_wGG[:,0,0]) / (4 * np.pi)
 
         Nw = len(alpha_w)
