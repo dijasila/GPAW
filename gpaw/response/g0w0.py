@@ -129,12 +129,13 @@ class G0W0(PairDensity):
         #U_cc = qd.symmetry.op_scc[s]
         #time_reversal = qd.time_reversal_k[Q]
         iq = qd.bz2ibz_k[Q]
-        #iq_c = qd.ibzk_kc[iq]
+        iq_c = qd.ibzk_kc[iq]
         
         #sign = 1 - 2 * time_reversal
+        shift_c = iq_c - q_c
         #shift_c = np.dot(U_cc, iq_c) - q_c * sign
-        #assert np.allclose(shift_c.round(), shift_c)
-        #shift_c = shift_c.round().astype(int)
+        assert np.allclose(shift_c.round(), shift_c)
+        shift_c = shift_c.round().astype(int)
         
         #if (U_cc == np.eye(3)).all():
         #    pass
@@ -148,11 +149,12 @@ class G0W0(PairDensity):
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                    kpt1.shift_c - kpt2.shift_c)
+        print Q_G
 
         Q_aGii = self.initialize_paw_corrections(pd)
         
         for n in range(kpt1.n2 - kpt1.n1):
-            fd = open(self.filename + '.W.%d' % iq)
+            fd = open('W.q%d.%s.npy' % (iq, self.filename))
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
             f1 = kpt1.f_n[n]
@@ -189,7 +191,7 @@ class G0W0(PairDensity):
     def calculate_screened_potential(self):
         chi0 = None
         for iq, q_c in enumerate(self.qd.ibzk_kc):
-            fd = opencew(self.filename + '.W.%d' % iq)
+            fd = opencew('W.q%d.%s.npy' % (iq, self.filename))
             if fd is None:
                 continue
                 

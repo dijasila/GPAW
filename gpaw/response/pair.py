@@ -69,7 +69,7 @@ class PairDensity:
             self.nocc1 = min((f_n > 1 - self.ftol).sum(), self.nocc1)
             self.nocc2 = max((f_n > self.ftol).sum(), self.nocc2)
         prnt('Number of completely filled bands:', self.nocc1, file=self.fd)
-        prnt('Number of non-empty bands:', self.nocc2, file=self.fd)
+        prnt('Number of partially filled bands:', self.nocc2, file=self.fd)
         prnt('Total number of bands:', self.calc.wfs.bd.nbands,
              file=self.fd)
         
