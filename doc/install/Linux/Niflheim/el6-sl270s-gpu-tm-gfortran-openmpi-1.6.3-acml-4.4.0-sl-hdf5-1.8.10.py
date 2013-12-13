@@ -50,5 +50,5 @@ define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
 define_macros += [('GPAW_CUDA', '1')]
 mpicompiler = '/home/opt/el6/' + nodetype + '/openmpi-1.6.3-' + nodetype + '-tm-gfortran-1/bin/mpicc'
 mpilinker = mpicompiler
-platform_id = 'sl270'
+platform_id = 'sl270s'
 hdf5 = True
