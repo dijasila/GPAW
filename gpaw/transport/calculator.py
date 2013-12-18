@@ -184,7 +184,7 @@ class Transport(GPAW):
         self.bias = p['bias']
         self.lead_calculators = p['lead_calculators']
         self.enable_dbglog = p['enable_dbglog']
-        self.log.enable =  self.enable_dbglog
+        self.dbg.enable =  self.enable_dbglog
         #parprint(">>> lead_calculators: {0}".format(self.lead_calculators))
         #parprint(">>> gpw_kwargs:")
         #for key in self.gpw_kwargs:
@@ -266,7 +266,7 @@ class Transport(GPAW):
         self.perturbation_charge = p['perturbation_charge']
         self.perturbation_magmom = p['perturbation_magmom']
         self.perturbation_atoms = p['perturbation_atoms']
-
+        
         self.verbose = p['verbose']
         self.d = p['d']
        
@@ -274,12 +274,12 @@ class Transport(GPAW):
             self.restart_file = 'bias_data1'
         
         self.master = (world.rank==0)
-    
+        
         bias = self.bias
-      
+        
         if self.LR_leads and self.lead_num != 2:
             raise RuntimeError('wrong way to use keyword LR_leads')
-       
+        
         self.initialized_transport = False
         self.analysis_parameters = []
         self.optimize = False
@@ -300,8 +300,10 @@ class Transport(GPAW):
         # ! Also save the the parameters
         # !'plot_energy_range' and for later analysis 'plot_energy_point_num'
         if self.master:
-            ee = np.linspace(kw['plot_energy_range'][0], \
-                    kw['plot_energy_range'][1], num=kw['plot_energy_point_num'])
+            ee = \
+             np.linspace(self.transport_parameters['plot_energy_range'][0], \
+             self.transport_parameters['plot_energy_range'][1], \
+             num=self.transport_parameters['plot_energy_point_num'])
             np.save('plot_energy_range.npy', ee)
         
 
