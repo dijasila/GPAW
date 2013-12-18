@@ -393,6 +393,7 @@ class Transport(GPAW):
         p['non_sc'] = False
         p['spinpol'] = False
         p['verbose'] = False
+        p['enable_dbglog'] = False
         return p     
 
     def set_atoms(self, atoms):
