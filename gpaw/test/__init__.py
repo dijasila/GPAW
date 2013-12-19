@@ -106,6 +106,7 @@ tests = [
     'harmonic.py',
     'atoms_too_close.py',
     'screened_poisson.py',
+    'yukawa_radial.py',
     'noncollinear/xcgrid3d.py',
     'vdwradii.py',
     'lcao_restart.py',
