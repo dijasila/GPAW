@@ -20,6 +20,7 @@ class G0W0(PairDensity):
     def __init__(self, calc, filename='gw',
                  kpts=None, bands=None, nbands=None, ppa=False, hilbert=False,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
+                 domega=0.025, omegamax=100,
                  world=mpi.world, txt=sys.stdout):
     
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt)
@@ -27,14 +28,14 @@ class G0W0(PairDensity):
         self.filename = filename
         
         ecut /= Hartree
-        eta /= Hartree
-        E0 /= Hartree
         
         self.ppa = ppa
         self.hilbert = hilbert
-        self.eta = eta
-        self.E0 = E0
-
+        self.eta = eta / Hartree
+        self.E0 = E0 / Hartree
+        self.domega = domega / Hartree
+        self.omegamax = omegamax / Hartree
+        
         if kpts is None:
             kpts = range(self.calc.wfs.kd.nibzkpts)
         
@@ -66,6 +67,7 @@ class G0W0(PairDensity):
         assert -1 not in kd.bz2bz_ks
         offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
+        #bzq_qc = np.array([(-0.5,0,0),(0,0,0),(0.5,0,0)])
         self.qd = KPointDescriptor(bzq_qc)
         #self.qd.set_symmetry(self.calc.atoms, self.calc.wfs.setups,
         #                     usesymm=True, N_c=self.calc.wfs.gd.N_c)
@@ -78,27 +80,18 @@ class G0W0(PairDensity):
             epsmin = min(epsmin, kpt.eps_n[0])
             epsmax = max(epsmax, kpt.eps_n[self.nbands - 1])
         
-        omegamax = epsmax - epsmin
-        w0 = omegamax / domega / 3
-        a = domega * 0.5 * w0**2
-        b = domega * (1 - w0)
-        c = domega * 0.5
-        nw = 2 + int((-b + (b**2 - 4 * (a - omegamax) * c)**0.5) / (2 * c))
-        w = np.arange(nw)
-        
-        self.omega_w = w * domega
-        self.omega_w[w > w0] = a + b * w[w > w0] + c * w[w > w0]**2
-
-        self.domega_w = np.empty_like(self.omega_w)
-        self.domega_w[0] = domega / 2
-        self.domega_w[1:] = domega
-        self.domega_w[w > w0] = b + 2 * c * w[w > w0]
-        
+        self.omega_w = np.linspace(0, self.omegamax,
+                                   round(self.omegamax / self.domega) + 1)
+        self.domega_w = np.ones_like(self.omega_w) * self.domega
+        self.domega_w[0] *= 0.5
+            
         prnt('Minimum eigenvalue: %10.3f eV' % (epsmin * Hartree),
              file=self.fd)
         prnt('Maximum eigenvalue: %10.3f eV' % (epsmax * Hartree),
              file=self.fd)
-        prnt('Number of frequencies:', nw, file=self.fd)
+        prnt('Maximum frequency: %10.3f eV' % (self.omegamax * Hartree),
+             file=self.fd)
+        prnt('Number of frequencies:', len(self.omega_w), file=self.fd)
     
     def calculate(self):
         kd = self.calc.wfs.kd
@@ -116,15 +109,16 @@ class G0W0(PairDensity):
                 for kpt2 in mykpts:
                     if kpt2.s == s:
                         self.calculate_q(i, kpt1, kpt2)
-        prnt(np.array_str(self.eps_sin * Hartree, precision=3), file=self.fd)    
-        prnt(np.array_str(self.sigma_sin * Hartree, precision=3), file=self.fd)    
-        prnt(np.array_str(self.dsigma_sin, precision=3), file=self.fd)    
+        prnt(np.array_str(self.eps_sin * Hartree, precision=3), file=self.fd)
+        prnt(np.array_str(self.sigma_sin * Hartree, precision=3), file=self.fd)
+        prnt(np.array_str(self.dsigma_sin, precision=3), file=self.fd)
 
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
         qd = self.qd
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
-        Q = abs((qd.bzk_kc - q_c) % 1).sum(axis=1).argmin()
+        #Q = abs((qd.bzk_kc - q_c) % 1).sum(axis=1).argmin()
+        Q = abs(qd.bzk_kc - q_c).sum(axis=1).argmin()
         s = qd.sym_k[Q]
         #U_cc = qd.symmetry.op_scc[s]
         #time_reversal = qd.time_reversal_k[Q]
@@ -149,7 +143,6 @@ class G0W0(PairDensity):
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                    kpt1.shift_c - kpt2.shift_c)
-        print Q_G
 
         Q_aGii = self.initialize_paw_corrections(pd)
         
@@ -157,7 +150,6 @@ class G0W0(PairDensity):
             fd = open('W.q%d.%s.npy' % (iq, self.filename))
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
-            f1 = kpt1.f_n[n]
             C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
                      for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
@@ -179,14 +171,11 @@ class G0W0(PairDensity):
             x_m = x1_m + x2_m
             dx_m = x1_m**2 + x2_m**2
             nW_mG = np.dot(n_mG, W_GG)
-            sigma += domegap * np.vdot(nW_mG, n_mG * x_m[:, np.newaxis]).imag
-            dsigma -= domegap * np.vdot(nW_mG, n_mG * dx_m[:, np.newaxis]).imag
+            sigma -= domegap * np.vdot(n_mG * x_m[:, np.newaxis], nW_mG).imag
+            dsigma += domegap * np.vdot(n_mG * dx_m[:, np.newaxis], nW_mG).imag
 
         x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
-        sigma *= x
-        dsigma *= x
-        
-        return sigma, dsigma
+        return x * sigma, x * dsigma
         
     def calculate_screened_potential(self):
         chi0 = None
@@ -198,28 +187,43 @@ class G0W0(PairDensity):
             if chi0 is None:
                 prnt('Calulating screened Coulomb potential:', file=self.fd)
                 # Chi_0 calculator:
-                chi0 = Chi0(self.calc, self.omega_w, ecut=self.ecut * Hartree,
-                            eta=self.eta, timeordered=True, hilbert=not True)
-                wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
-                                                   self.calc.wfs.kd.N_c,
-                                                   self.fd)
+                chi0 = Chi0(self.calc,
+                            self.omega_w * Hartree,
+                            ecut=self.ecut * Hartree,
+                            eta=self.eta * Hartree,
+                            timeordered=True,
+                            hilbert=not True,
+                            real_space_derivatives=True)
+                #wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
+                #                                   self.calc.wfs.kd.N_c,
+                #                                   self.fd)
             
             prnt(q_c, file=self.fd)
             pd, chi0_wGG = chi0.calculate(q_c)[:2]
             prnt(chi0_wGG.shape, file=self.fd)
 
-            if not q_c.any():
-                chi0_wGG[:, 0] = 0.0
-                chi0_wGG[:, :, 0] = 0.0
-                
-            iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
+            #iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
+            iG_G = pd.G2_qG[0]**-0.5
             
+            if not q_c.any():
+                #chi0_wGG[:, 0] = 0.0
+                #chi0_wGG[:, :, 0] = 0.0
+                dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
+                qc = (dq3 / 4 / pi * 3)**(1 / 3)
+                G0inv = 2 * pi * qc**2 / dq3
+                G20inv = 4 * pi * qc / dq3
+                iG_G[0] = 1
+                
             delta_GG = np.eye(len(iG_G))
             
             for chi0_GG in chi0_wGG:
                 e_GG = delta_GG - 4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis]
                 W_GG = 4 * pi * (np.linalg.inv(e_GG) -
                                  delta_GG) * iG_G * iG_G[:, np.newaxis]
+                if not q_c.any():
+                    W_GG[0, 0] *= G20inv
+                    W_GG[1:, 0] *= G0inv
+                    W_GG[0, 1:] *= G0inv
                     
                 np.save(fd, W_GG)
             fd.close()
