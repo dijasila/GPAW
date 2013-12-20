@@ -141,6 +141,7 @@ class GridDescriptor(Domain):
 
         self.h_cv = self.cell_cv / self.N_c[:, np.newaxis]
         self.dv = abs(np.linalg.det(self.cell_cv)) / self.N_c.prod()
+        self.volume = abs(np.linalg.det(self.cell_cv))
 
         self.orthogonal = not (self.cell_cv -
                                np.diag(self.cell_cv.diagonal())).any()
