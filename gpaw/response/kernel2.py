@@ -49,14 +49,11 @@ def calculate_Kxc(pd, nt_sG, R_av, setups, D_asp, functional='ALDA',
     Kxc_sGG = np.zeros((len(fxc_sg), npw, npw), dtype=complex)
     for s in range(len(fxc_sg)):
         for iG, iQ in enumerate(pd.Q_qG[0]):
-            iQ_c = np.array(np.unravel_index(iQ, nG))
-            iQ_c = (iQ_c + nG // 2) % nG - nG // 2
+            iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
             for jG, jQ in enumerate(pd.Q_qG[0]):
-                jQ_c = np.unravel_index(jQ, nG)
-                jQ_c = (jQ_c + nG // 2) % nG - nG // 2
+                jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
                 ijQ_c = (iQ_c - jQ_c)
                 if (abs(ijQ_c) < nG // 2).all():
-                    ijQ_c = ijQ_c
                     Kxc_sGG[s, iG, jG] = tmp_sg[s][tuple(ijQ_c)]
 
     # The PAW part
