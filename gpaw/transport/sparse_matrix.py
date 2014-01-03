@@ -231,22 +231,36 @@ class Tp_Sparse_HSD:
             spar[pk] = Tp_Sparse_Matrix(self.dtype, self.ll_index, mat,
                                              self.band_indices, self.extended)
 
-    def append_lead_as_buffer(self, lead_hsd, lead_couple_hsd, ex_index):
+    def append_lead_as_buffer(self, lead_hsd, lead_couple_hsd, ex_index, tp=None):
         assert self.extended == True
         clm = collect_lead_mat
+        if tp != None:
+            tp.log('append_lead_as_buffer(), npk : {0}  ns : {1}'.format(self.npk, self.ns))
         for pk in range(self.npk):
+            if tp != None:
+                tp.log('append_lead_as_buffer(), pk : {0}'.format(pk))
             diag_h, upc_h, dwnc_h = clm(lead_hsd, lead_couple_hsd, 0, pk)    
             self.S[pk].append_ex_mat(diag_h, upc_h, dwnc_h, ex_index)
             for s in range(self.ns):
+                if tp != None:
+                    tp.log('append_lead_as_buffer(), s : {0}'.format(s))
+                    tp.log('    clm()')
                 diag_h, upc_h, dwnc_h = clm(lead_hsd,
                                                   lead_couple_hsd, s, pk, 'H')              
+                if tp != None:
+                    tp.log('    append_ex_mat()')
                 self.H[s][pk].append_ex_mat(diag_h, upc_h, dwnc_h, ex_index)                    
+                if tp != None:
+                    tp.log('    clm()')
                 diag_h, upc_h, dwnc_h = clm(lead_hsd,
-                                                  lead_couple_hsd, s, pk, 'D')                 
-                self.D[s][pk].append_ex_mat(diag_h, upc_h, dwnc_h, ex_index)                 
+                                                  lead_couple_hsd, s, pk, 'D')
+                if tp != None:
+                    tp.log('    append_ex_mat()')
+                self.D[s][pk].append_ex_mat(diag_h, upc_h, dwnc_h, ex_index, tp=tp)                 
   
     def calculate_eq_green_function(self, zp, sigma, ex=True, full=False):
         s, pk = self.s, self.pk
+        #print('calculate_eq_green_function() s: {0} pk : {1}'.format(s,pk))
         self.G.reset_from_others(self.S[pk], self.H[s][pk], zp, -1, init=True)
         self.G.substract_sigma(sigma)
         if full:
@@ -349,14 +363,29 @@ class Tp_Sparse_Matrix:
                 self.dwnc_h[i].append([])
         self.ex_nb = self.nb
 
-    def append_ex_mat(self, diag_h, upc_h, dwnc_h, ex_index):
+    def append_ex_mat(self, diag_h, upc_h, dwnc_h, ex_index, tp=None):
         assert self.extended
+        if tp != None:
+            tp.log('        append_ex_mat()')
         for i in range(self.lead_num):
+            if tp != None:
+                tp.log('        append_ex_mat() i: {0}'.format(i))
             self.diag_h[i][-1] = diag_h[i]
+            if tp != None:
+                tp.log('        append_ex_mat() diag_h')
             self.upc_h[i][-1] = upc_h[i]
+            if tp != None:
+                tp.log('        append_ex_mat() upc_h')
             self.dwnc_h[i][-1] = dwnc_h[i]
+            if tp != None:
+                tp.log('        append_ex_mat() dwnc_h')
             self.ex_ll_index[i].append(ex_index[i])
+            if tp != None:
+                tp.log('        append_ex_mat() .append')
             self.ex_nb += len(ex_index[i])
+            if tp != None:
+                tp.log('        append_ex_mat() += len()')
+            
   
     def abstract_layer_info(self):
         self.basis_to_layer = np.empty([self.nb], int)
@@ -420,6 +449,7 @@ class Tp_Sparse_Matrix:
        
     def reset_from_others(self, tps_mm1, tps_mm2, c1, c2, init=False):
         #self.mol_h = c1 * tps_mm1.mol_h + c2 * tps_mm2.mol_h
+        #print('reset_from_others {0}  {1}'.format(tps_mm1, tps_mm2))
         if init:
             self.mol_h = Banded_Sparse_Matrix(complex)
         

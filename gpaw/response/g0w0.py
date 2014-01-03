@@ -66,8 +66,9 @@ class G0W0(PairDensity):
         kd = self.calc.wfs.kd
         assert -1 not in kd.bz2bz_ks
         offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
-        bzq_qc = monkhorst_pack(kd.N_c) + offset_c
-        #bzq_qc = np.array([(-0.5,0,0),(0,0,0),(0.5,0,0)])
+        #bzq_qc = monkhorst_pack(kd.N_c) + offset_c
+        bzq_qc = np.array([(-0.5,0,0),(0,0,0),(0.5,0,0)])
+        print 'XXXXXXXXXX'
         self.qd = KPointDescriptor(bzq_qc)
         #self.qd.set_symmetry(self.calc.atoms, self.calc.wfs.setups,
         #                     usesymm=True, N_c=self.calc.wfs.gd.N_c)
@@ -111,7 +112,7 @@ class G0W0(PairDensity):
                         self.calculate_q(i, kpt1, kpt2)
         prnt(np.array_str(self.eps_sin * Hartree, precision=3), file=self.fd)
         prnt(np.array_str(self.sigma_sin * Hartree, precision=3), file=self.fd)
-        prnt(np.array_str(self.dsigma_sin, precision=3), file=self.fd)
+        prnt(np.array_str(1 / (1 - self.dsigma_sin), precision=3), file=self.fd)
 
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
@@ -127,6 +128,7 @@ class G0W0(PairDensity):
         
         #sign = 1 - 2 * time_reversal
         shift_c = iq_c - q_c
+        print shift_c,q_c,Q,iq,iq_c
         #shift_c = np.dot(U_cc, iq_c) - q_c * sign
         assert np.allclose(shift_c.round(), shift_c)
         shift_c = shift_c.round().astype(int)
@@ -143,7 +145,8 @@ class G0W0(PairDensity):
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                    kpt1.shift_c - kpt2.shift_c)
-
+        print Q_G[0]
+    
         Q_aGii = self.initialize_paw_corrections(pd)
         
         for n in range(kpt1.n2 - kpt1.n1):
@@ -158,6 +161,7 @@ class G0W0(PairDensity):
             deps_m = eps1 - kpt2.eps_n
             sigma, dsigma = self.calculate_sigma(fd, n_mG, deps_m, f_m)
             self.sigma_sin[s, i, n] += sigma
+            print self.sigma_sin[0,0]
             self.dsigma_sin[s, i, n] += dsigma
 
     def calculate_sigma(self, fd, n_mG, deps_m, f_m):
@@ -166,6 +170,7 @@ class G0W0(PairDensity):
         
         for omegap, domegap in zip(self.omega_w, self.domega_w):
             W_GG = np.load(fd)
+            if omegap==0:print W_GG[0:2,0:2]
             x1_m = 1 / (deps_m + omegap + 2j * self.eta * (f_m - 0.5))
             x2_m = 1 / (deps_m - omegap + 2j * self.eta * (f_m - 0.5))
             x_m = x1_m + x2_m
@@ -174,11 +179,13 @@ class G0W0(PairDensity):
             sigma -= domegap * np.vdot(n_mG * x_m[:, np.newaxis], nW_mG).imag
             dsigma += domegap * np.vdot(n_mG * dx_m[:, np.newaxis], nW_mG).imag
 
-        x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
+        #x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
+        x = 1 / (2 * 2 * pi * self.vol);print 'XXXXXXXX',
         return x * sigma, x * dsigma
         
     def calculate_screened_potential(self):
         chi0 = None
+        print self.qd.ibzk_kc
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             fd = opencew('W.q%d.%s.npy' % (iq, self.filename))
             if fd is None:
@@ -208,7 +215,8 @@ class G0W0(PairDensity):
             if not q_c.any():
                 #chi0_wGG[:, 0] = 0.0
                 #chi0_wGG[:, :, 0] = 0.0
-                dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
+                #dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
+                dq3 = (2 * pi)**3 / (2 * self.vol);print 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
                 qc = (dq3 / 4 / pi * 3)**(1 / 3)
                 G0inv = 2 * pi * qc**2 / dq3
                 G20inv = 4 * pi * qc / dq3

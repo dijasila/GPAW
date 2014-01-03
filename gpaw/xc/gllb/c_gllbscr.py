@@ -121,13 +121,7 @@ class C_GLLBScr(Contribution):
             coeff = [ np.array([ f * K_G * self.f( np.where(eref_s[kpt.s] - e>ee, eref_s[kpt.s]-e,0))
                      for e, f in zip(kpt.eps_n, kpt.f_n) ])
                      for kpt in kpt_u ]
-            if self.old_coeffs is None:
-                self.old_coeffs = coeff
-            else:
-                # Mix the coefficients with 25%
-                mix = 0.25
-                self.old_coeffs = np.array([ (1-mix) * old + mix * new for new, old in zip(coeff, self.old_coeffs) ])
-            return self.old_coeffs
+            return coeff
         
 
     def calculate_spinpaired(self, e_g, n_g, v_g):

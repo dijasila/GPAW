@@ -91,6 +91,7 @@ class Transport_Analysor:
         self.data = {}
 
     def save_overhead_data(self, tp):
+        tp.log('-> save_overhead_data()')
         contour_parameters = {}
         cp = contour_parameters
         cp['neintmethod'] = tp.neintmethod
@@ -104,14 +105,17 @@ class Transport_Analysor:
         bi = basis_information
         bi['orbital_indices'] = tp.orbital_indices
         bi['lead_orbital_indices'] = tp.lead_orbital_indices
+        tp.log('   tp.hsd.S[0] : {0}'.format(tp.hsd.S[0]))
         bi['ll_index'] = tp.hsd.S[0].ll_index
         bi['ex_ll_index'] = tp.hsd.S[0].ex_ll_index
           
         atoms = tp.atoms.copy()
         if world.rank == 0:
             fd = file('analysis_overhead', 'wb')
+            tp.log('   cPickle.dump()')
             cPickle.dump((atoms, basis_information, contour_parameters), fd, 2)
             fd.close()
+        tp.log('<- save_overhead_data()')
            
     def set_default_analysis_parameters(self):
         p = {}
@@ -166,23 +170,29 @@ class Transport_Analysor:
         return gamma
         
     def calculate_transmission(self, tp, s, k, energy, nid_flag=None):
+        tp.log('-> calculate_transmission()')
         self.reset_selfenergy(tp, s, k)
         self.reset_green_function(tp, s, k)
+        tp.log('  calculate_sigma()')
         sigma = self.calculate_sigma(tp, s, k, energy, nid_flag)
+        tp.log('  calculate_gamma()')
         gamma = self.get_gamma(tp, sigma)    
         trans_coff = []
         for i, lead_pair in enumerate(self.lead_pairs):
             l1, l2 = lead_pair
             if i == 0:
+                tp.log('  tp.hsd.abstract_sub_green_matrix()')
                 gr_sub, inv_mat = tp.hsd.abstract_sub_green_matrix(
                                                     energy, sigma, l1, l2)
             else:
+                tp.log('  tp.hsd.abstract_sub_green_matrix()')
                 gr_sub = tp.hsd.abstract_sub_green_matrix(energy,
                                                     sigma, l1, l2, inv_mat)                    
             transmission =  dot(dot(gamma[l1], gr_sub),
                                               dot(gamma[l2], gr_sub.T.conj()))
             trans_coff.append(np.real(np.trace(transmission)))        
         trans_coff = np.array(trans_coff)
+        tp.log('<- calculate_transmission()')
         return trans_coff
     
     def calculate_dos(self, tp, s, k, energy, nid_flag=None):
@@ -705,18 +715,18 @@ class Transport_Analysor:
 
         if not tp.use_qzk_boundary and not tp.multi_leads:
             nt_sG = tp.density.nt_sG
-	    nt_sg = tp.density.nt_sg
+            nt_sg = tp.density.nt_sg
         else:
             nt_sG = calc.density.nt_sG            
-	    nt_sg = calc.density.nt_sg
+            nt_sg = calc.density.nt_sg
         vt_sG = calc.hamiltonian.vt_sG
         vt_sg = calc.hamiltonian.vt_sg
         data = self.data
         flag = 'ele_' + str(self.n_ele_step) + '_'
         nt = []
         vt = []
-	ntg = []
-	vtg = []
+        ntg = []
+        vtg = []
         for s in range(tp.nspins): 
             nts = aa1d(nt_sG[s]) 
             vts = aa1d(vt_sG[s]) * Hartree
@@ -731,7 +741,7 @@ class Transport_Analysor:
         data[flag + 'vt'] = np.array(vt)
         data[flag + 'ntg'] = np.array(ntg)
         data[flag + 'vtg'] = np.array(vtg)
-	data[flag + 'vbarg'] = aa1d(calc.hamiltonian.vbar_g)
+        data[flag + 'vbarg'] = aa1d(calc.hamiltonian.vbar_g)
         data[flag + 'df'] = np.diag(tp.hsd.H[0][0].recover(True))
         data[flag + 'dd'] = np.diag(tp.hsd.D[0][0].recover(True))            
         
@@ -753,20 +763,26 @@ class Transport_Analysor:
         self.n_ele_step += 1
       
     def save_bias_step(self, tp):
+        tp.log('-> save_bias_step()')
+        tp.text('----- saving bias step {0} ------'.format(self.n_bias_step))
         if not self.overhead_data_saved:
+            tp.log('   save_overhead_data()')
             self.save_overhead_data(tp)
             self.overhead_data_saved = True
         ks_map = tp.my_ks_map
 
         if 'tc' in tp.analysis_data_list:
+            tp.log('   collect_transmission_and_dos()')
             tc, dos = self.collect_transmission_and_dos(tp)
             if not tp.non_sc:
+                tp.log('   calculate_current()')
                 current = self.calculate_current(tp, tc)
             else:
                 current = np.array(0)
             self.data['tc'] = tc
             self.data['dos'] = dos
             self.data['current'] = current
+        tp.log('   abstract_d_and_v()')
         nt, vt, ntx, vtx, nty, vty = self.abstract_d_and_v(tp)
         for name in ['nt', 'vt', 'ntx', 'vtx', 'nty', 'vty']:
                 self.data[name] = eval(name)
@@ -774,17 +790,19 @@ class Transport_Analysor:
             force = None
             contour = None
         else:
-	    if 'force' in tp.analysis_data_list:
+            if 'force' in tp.analysis_data_list:
                 if not tp.use_qzk_boundary and not tp.multi_leads:
                     force = tp.calculate_force() * Hartree / Bohr
                 else:
                     force = tp.extended_calc.get_forces(tp.extended_atoms
                                                     )[:len(tp.atoms)]
             else:
-	        force = None
+                force = None
             tp.F_av = None
+            tp.log('   collect_contour()')
             contour = self.collect_contour(tp)            
     
+        tp.log('   collect_charge()')
         charge = self.collect_charge(tp)
         magmom = tp.occupations.magmom
         local_magmom = tp.get_magnetic_moments()   
@@ -803,15 +821,15 @@ class Transport_Analysor:
         #self.data = gather_ndarray_dict(self.data, tp.contour.comm)
         self.data['contour'] = contour
         self.data['force'] = force
-	self.data['kpt_rank'] = tp.wfs.kpt_comm.rank
-	self.data['kpt_size'] = tp.wfs.kpt_comm.size
-	self.data['domain_rank'] = tp.gd.comm.rank
-	self.data['domain_parpos'] = tp.gd.parpos_c
-	self.data['domain_parsize'] = tp.gd.parsize_c
+        self.data['kpt_rank'] = tp.wfs.kpt_comm.rank
+        self.data['kpt_size'] = tp.wfs.kpt_comm.size
+        self.data['domain_rank'] = tp.gd.comm.rank
+        self.data['domain_parpos'] = tp.gd.parpos_c
+        self.data['domain_parsize'] = tp.gd.parsize_c
         ns, npk, nlp, ne = tp.nspins, tp.npk, len(self.lead_pairs), len(self.energies)
-	self.data['transmission_dimension'] = (ns, npk, nlp, ne)
-	nb = tp.nbmol_inner
-	self.data['dos_dimension'] = (ns, npk, nb, ne)
+        self.data['transmission_dimension'] = (ns, npk, nlp, ne)
+        nb = tp.nbmol_inner
+        self.data['dos_dimension'] = (ns, npk, nb, ne)
 
         if tp.non_sc:
             self.data['total_energy'] = tp.guess_total_energy
@@ -819,9 +837,11 @@ class Transport_Analysor:
             if eval(condition):
                 self.data[name] = eval(obj)
        
+        tp.log('   tio.save_data()')
         tp.tio.save_data(self, option='Analysis', bias_step=self.n_bias_step)
+        tp.log('   tio.arrange_analysis_data()')
         tp.tio.arrange_analysis_data(self.n_bias_step, 
-	                                    self.n_ion_step, tp.analysis_mode)
+                                            self.n_ion_step, tp.analysis_mode)
         #if world.rank == 0:
         #    if tp.analysis_mode:
         #        filename = '/abias_step_' + str(self.n_bias_step)
@@ -834,8 +854,11 @@ class Transport_Analysor:
         self.data = {}
         self.n_ele_step = 0
         self.n_bias_step += 1
+        tp.log('<- save_bias_step()')
+        
 
     def collect_transmission_and_dos(self, tp, energies=None, nids=None):
+        tp.log('-> collect_transmission_and_dos()')
         if energies == None:
             energies = self.my_energies
         if nids == None:
@@ -848,11 +871,15 @@ class Transport_Analysor:
         local_tc_array = np.empty([ns, npk, nlp, ne], float)
         local_dos_array = np.empty([ns, npk, nbmol, ne], float)
         
+        tp.log('  nr. energies: {0}'.format(len(energies)))       
+        tp.log('  nids: {0}'.format(nids))
         for s in range(ns):
             for q in range(npk):
                 for e, energy, nid in zip(range(len(energies)), energies, nids):
+                    tp.log('  calculate_dos() {0} {1} {2}'.format(s,q,e))
                     local_dos_array[s, q, :, e] = self.calculate_dos(tp, s, q,
                                                                energy, nid)
+                    tp.log('  calculate_transmission() {0} {1} {2}'.format(s,q,e))
                     local_tc_array[s, q, :, e] =  self.calculate_transmission(tp, s,
                                                             q, energy, nid)
 
@@ -866,6 +893,7 @@ class Transport_Analysor:
         #    dos_array = None
         #kpt_comm.gather(local_tc_array, 0, tc_array)
         #kpt_comm.gather(local_dos_array, 0, dos_array)                    
+        tp.log('<- collect_transmission_and_dos()')
         return local_tc_array, local_dos_array
     
     def collect_charge(self, tp):
@@ -1021,9 +1049,9 @@ class Transport_Plotter:
     
     def get_info(self, name, bias_step, ion_step=0):
         data = self.get_data(bias_step, ion_step)
-	if 'newform' in data and data['newform'] == True:
-	    info = self.collect_info(data, name)
-	else:
+        if 'newform' in data and data['newform'] == True:
+            info = self.collect_info(data, name)
+        else:
             if name in ['tc', 'dos']:
                 info = data['ER_0_' + name]        
                 data_name = 'ER_1_' + name
@@ -1041,124 +1069,133 @@ class Transport_Plotter:
         domain_parsize = data['domain_parsize']
         domain_size = np.product(domain_parsize)
         if name == 'vt' or name == 'nt':
-	    vt = []
-	    for i in range(domain_parsize[2]):
-	        vt.append([])
-	    for i in range(domain_size):
-	        d1, d2, d3 =  (i // (domain_parsize[1] * domain_parsize[2]),
-		               i % (domain_parsize[1] * 
-			       domain_parsize[2]) // domain_parsize[2], 
-			       i % domain_parsize[2])        
+            vt = []
+            for i in range(domain_parsize[2]):
+                vt.append([])
+            for i in range(domain_size):
+                d1, d2, d3 =  (i // (domain_parsize[1] * domain_parsize[2]),
+                               i % (domain_parsize[1] * 
+                               domain_parsize[2]) // domain_parsize[2], 
+                               i % domain_parsize[2])        
                 lvt = data['K_0D_' + str(i) + '_' + name]
-		#lvt = np.sum(lvt, axis=1) / lvt.shape[1]
-		#lvt = np.sum(lvt, axis=1) / lvt.shape[1]
-		vt[d3].append(lvt) 
-	    for i in range(domain_parsize[2]):
-	        vt[i] = np.sum(vt[i],axis=0) / len(vt[i])
-	    output = np.concatenate(vt, axis=-1)
-	elif name =='vty' or name =='nty':
-	    vty = []
-	    for i in range(domain_parsize[0]):
-	        vty.append([])
-		for j in range(domain_parsize[2]):
-		    vty[i].append([])
-	    for i in range(domain_size):
-	        d1, d2, d3 =  (i // (domain_parsize[1] * domain_parsize[2]),
-		               i % (domain_parsize[1] * 
-			       domain_parsize[2]) // domain_parsize[2], 
-			       i % domain_parsize[2])        
+                #lvt = np.sum(lvt, axis=1) / lvt.shape[1]
+                #lvt = np.sum(lvt, axis=1) / lvt.shape[1]
+                vt[d3].append(lvt) 
+            for i in range(domain_parsize[2]):
+                vt[i] = np.sum(vt[i],axis=0) / len(vt[i])
+            output = np.concatenate(vt, axis=-1)
+        elif name =='vty' or name =='nty':
+            vty = []
+            for i in range(domain_parsize[0]):
+                vty.append([])
+                for j in range(domain_parsize[2]):
+                    vty[i].append([])
+            for i in range(domain_size):
+                d1, d2, d3 =  (i // (domain_parsize[1] * domain_parsize[2]),
+                               i % (domain_parsize[1] * 
+                               domain_parsize[2]) // domain_parsize[2], 
+                               i % domain_parsize[2])        
                 lvty = data['K_0D_' + str(i) + '_' + name]
-		vty[d1][d3].append(lvty) 
-	    for i in range(domain_parsize[0]):
-	        for j in range(domain_parsize[2]):
-		    vty[i][j] = np.sum(vty[i][j],axis=0) / len(vty[i][j])
-	    output = np.concatenate(vty, axis=-1)	    
-	    output = np.concatenate(output, axis=-1)	    
-	elif name =='vtx' or name =='ntx':
-	    vtx = []
-	    for i in range(domain_parsize[1]):
-	        vtx.append([])
-		for j in range(domain_parsize[2]):
-		    vtx[i].append([])
-	    for i in range(domain_size):
-	        d1, d2, d3 =  (i // (domain_parsize[1] * domain_parsize[2]),
-		               i % (domain_parsize[1] * 
-			       domain_parsize[2]) // domain_parsize[2], 
-			       i % domain_parsize[2])        
+                vty[d1][d3].append(lvty) 
+            for i in range(domain_parsize[0]):
+                for j in range(domain_parsize[2]):
+                    vty[i][j] = np.sum(vty[i][j],axis=0) / len(vty[i][j])
+            output = np.concatenate(vty, axis=-1)           
+            output = np.concatenate(output, axis=-1)        
+        elif name =='vtx' or name =='ntx':
+            vtx = []
+            for i in range(domain_parsize[1]):
+                vtx.append([])
+                for j in range(domain_parsize[2]):
+                    vtx[i].append([])
+            for i in range(domain_size):
+                d1, d2, d3 =  (i // (domain_parsize[1] * domain_parsize[2]),
+                               i % (domain_parsize[1] * 
+                               domain_parsize[2]) // domain_parsize[2], 
+                               i % domain_parsize[2])        
                 lvtx = data['K_0D_' + str(i) + '_' + name]
-		vtx[d2][d3].append(lvtx) 
-	    for i in range(domain_parsize[1]):
-	        for j in range(domain_parsize[2]):
-		    vtx[i][j] = np.sum(vtx[i][j],axis=0) / len(vtx[i][j])
-	    output = np.concatenate(vtx, axis=-1)	    
-	    output = np.concatenate(output, axis=-1)	    
+                vtx[d2][d3].append(lvtx) 
+            for i in range(domain_parsize[1]):
+                for j in range(domain_parsize[2]):
+                    vtx[i][j] = np.sum(vtx[i][j],axis=0) / len(vtx[i][j])
+            output = np.concatenate(vtx, axis=-1)           
+            output = np.concatenate(output, axis=-1)        
         elif name == 'vHt' or name == 'rho':
-	    vHt = []
-	    for i in range(domain_parsize[2]):
-	        vHt.append([])
-	    for i in range(domain_size):
-	        d1, d2, d3 =  (i // (domain_parsize[1] * domain_parsize[2]),
-		               i % (domain_parsize[1] * 
-			       domain_parsize[2]) // domain_parsize[2], 
-			       i % domain_parsize[2])        
+            vHt = []
+            for i in range(domain_parsize[2]):
+                vHt.append([])
+            for i in range(domain_size):
+                d1, d2, d3 =  (i // (domain_parsize[1] * domain_parsize[2]),
+                               i % (domain_parsize[1] * 
+                               domain_parsize[2]) // domain_parsize[2], 
+                               i % domain_parsize[2])        
                 lvHt = data['K_0D_' + str(i) + '_' + name]
-		lvHt = np.sum(lvHt, axis=0) / lvHt.shape[0]
-		lvHt = np.sum(lvHt, axis=0) / lvHt.shape[0]
-		vHt[d3].append(lvHt) 
-	    for i in range(domain_parsize[2]):
-	        vHt[i] = np.sum(vHt[i],axis=0) / vHt[i].shape[0]
-	    output = np.concatenate(vHt, axis=-1)
+                lvHt = np.sum(lvHt, axis=0) / lvHt.shape[0]
+                lvHt = np.sum(lvHt, axis=0) / lvHt.shape[0]
+                vHt[d3].append(lvHt) 
+            for i in range(domain_parsize[2]):
+                vHt[i] = np.sum(vHt[i],axis=0) / vHt[i].shape[0]
+            output = np.concatenate(vHt, axis=-1)
         elif name == 'tc':
-	    ns, npk, npl, ne = data['transmission_dimension']
-	    tc = []
-	    for i in range(kpt_size):
-	        ltc = []
-	        for j in range(domain_size):
- 	            ltc.append(data['K_' + str(i) + 'D_' + str(j) + '_tc'])
-	    	ltc = np.concatenate(ltc, axis=-1)
-		tc.append(ltc)
-	    output = np.array(tc)
-	    output.shape = (ns, npk, npl, ne)
-	elif name == 'dos':
-	    ns, npk, nb, ne = data['dos_dimension']
-	    dos = []
-	    for i in range(kpt_size):
-	        ldos = []
-		for j in range(domain_size):
-		    ldos.append(data['K_' + str(i) + 'D_' + str(j) + '_dos'])
-		ldos = np.concatenate(ldos, axis=-1)
-		dos.append(ldos)
+            ns, npk, npl, ne = data['transmission_dimension']
+            tc = []
+            for i in range(kpt_size):
+                ltc = []
+                for j in range(domain_size):
+                    ltc.append(data['K_' + str(i) + 'D_' + str(j) + '_tc'])
+                ltc = np.concatenate(ltc, axis=-1)
+                tc.append(ltc)
+            output = np.array(tc)
+            output.shape = (ns, npk, npl, ne)
+        elif name == 'dos':
+            ns, npk, nb, ne = data['dos_dimension']
+            dos = []
+            for i in range(kpt_size):
+                ldos = []
+                for j in range(domain_size):
+                    ldos.append(data['K_' + str(i) + 'D_' + str(j) + '_dos'])
+                ldos = np.concatenate(ldos, axis=-1)
+                dos.append(ldos)
             output = np.array(dos)
-	    output.shape = (ns, npk, nb, ne)
+            output.shape = (ns, npk, nb, ne)
         elif name == 'charge':
             data = cPickle.load(file('temperary_data/KC_0_DC_0AD_bias_0','r'))
             data1 = cPickle.load(file('temperary_data/KC_1_DC_0AD_bias_0','r'))
-	    output = [data['charge'], data1['charge']]
-	    output=np.sum(output,axis=1)
-	elif name == 'current':
+            output = [data['charge'], data1['charge']]
+            output=np.sum(output,axis=1)
+        elif name == 'current':
             # temperary lines
-	    ee = np.linspace(-5,5,201) 	
-	    interval = 10. / 200
-	    kt = 0.02
-	    lead_ef1 = data['bias'][0]
-	    lead_ef2 = data['bias'][1]
-	    ns, npk, npl, ne = data['transmission_dimension']
-	    tc = []
-	    for i in range(kpt_size):
-	        ltc = []
-	        for j in range(domain_size):
- 	            ltc.append(data['K_' + str(i) + 'D_' + str(j) + '_tc'])
-	    	ltc = np.concatenate(ltc, axis=-1)
-		tc.append(ltc)
-	    tc = np.array(tc)
-	    tc.shape = (ns, npk,  ne)
-	    tc = np.sum(tc, axis=1) / npk
-	    fd = fermidistribution
+            # ! THa: Hack, load energy scale from saved file
+            try:
+                ee  = np.load('plot_energy_range.npy')
+                enp = len(ee)
+            except IOError:
+                print('WARNING: could not find file plot_energy_range.npy,\
+                        fall back to default: np.linspoace(-5,5,201)')
+                ee = np.linspace(-5,5,201)
+            enp = len(ee)
+            interval = np.abs(ee[0] - ee[-1]) / enp
+            # ! THa: Hack end
+            kt = 0.02
+            lead_ef1 = data['bias'][0]
+            lead_ef2 = data['bias'][1]
+            ns, npk, npl, ne = data['transmission_dimension']
+            tc = []
+            for i in range(kpt_size):
+                ltc = []
+                for j in range(domain_size):
+                    ltc.append(data['K_' + str(i) + 'D_' + str(j) + '_tc'])
+                ltc = np.concatenate(ltc, axis=-1)
+                tc.append(ltc)
+            tc = np.array(tc)
+            tc.shape = (ns, npk,  ne)
+            tc = np.sum(tc, axis=1) / npk
+            fd = fermidistribution
             fermi_factor = fd(ee - lead_ef1, kt) - fd(ee - lead_ef2, kt)
             output = np.sum(tc * fermi_factor * interval, axis=-1)
-	else:
-	    output = data[name]
-        return output	    
+        else:
+            output = data[name]
+        return output       
 
     def get_positions(self, ion_step=0):
         fd = file('analysis_data/ionic_step_' + str(ion_step) + '/positions', 'r')
