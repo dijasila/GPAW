@@ -102,6 +102,31 @@ class GPAW(PAW):
         return ('forces' in quantities and self.forces.F_av is None or
                 'stress' in quantities and self.stress_vv is None)
 
+    # XXX hack for compatibility with ASE-3.8's new calculator specification.
+    # In the future, we will get this stuff for free by inheriting from
+    # ase.calculators.calculator.Calculator.
+    name = 'GPAW'
+    def check_state(self, atoms): return []
+    def todict(self): return {}
+    def _get_results(self):
+        results = {}
+        from ase.calculators.calculator import all_properties
+        for property in all_properties:
+            if property == 'charges':
+                continue
+            if not self.calculation_required(self.atoms, [property]):
+                name = {'energy': 'potential_energy',
+                        'dipole': 'dipole_moment',
+                        'magmom': 'magnetic_moment',
+                        'magmoms': 'magnetic_moments'}.get(property, property)
+                try:
+                    x = getattr(self, 'get_' + name)(self.atoms)
+                    results[property] = x
+                except (NotImplementedError, AttributeError):
+                    pass
+        return results
+    results = property(_get_results)
+
     def get_number_of_bands(self):
         """Return the number of bands."""
         return self.wfs.bd.nbands
