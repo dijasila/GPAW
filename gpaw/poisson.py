@@ -21,12 +21,14 @@ import _gpaw
 
 
 class PoissonSolver:
-    def __init__(self, nn=3, relax='J', eps=2e-10):
+    def __init__(self, nn=3, relax='J', eps=2e-10, remove_moment=None):
+        print "PoissonSolver def __init__ remove_moment", remove_moment
         self.relax = relax
         self.nn = nn
         self.eps = eps
         self.charged_periodic_correction = None
         self.maxiter = 1000
+        self.remove_moment = remove_moment
 
         # Relaxation method
         if relax == 'GS':
@@ -135,6 +137,27 @@ class PoissonSolver:
         background = (actual_charge / self.gd.dv /
                       self.gd.get_size_of_global_array().prod())
 
+        if self.remove_moment and not self.gd.pbc_c.any():
+            if not hasattr(self, 'gauss'):
+                self.gauss = Gaussian(self.gd)
+       
+            rho_neutral = rho.copy()
+            phi_cor_L = []
+            for L in range(self.remove_moment):
+                phi_cor_L.append(self.gauss.remove_moment(rho_neutral, L))
+            print "Removing moment"
+            # Remove multipoles for better initial guess
+            for phi_cor in phi_cor_L:
+                phi -= phi_cor
+
+            niter = self.solve_neutral(phi, rho_neutral, eps=eps)
+            # correct error introduced by removing multipoles
+            for phi_cor in phi_cor_L:
+                phi += phi_cor
+
+            return niter
+        else:
+            print "NOT Removing moment"
         if charge is None:
             charge = actual_charge
         if abs(charge) <= maxcharge:
