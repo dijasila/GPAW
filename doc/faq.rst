@@ -54,6 +54,14 @@ If you use the :ref:`df_tutorial`, please cite also:
 
    __ http://link.aps.org/doi/10.1103/PhysRevB.83.245122
 
+If you use the :ref:`gw_tutorial`, please cite also:
+
+   | F. Hüser, T. Olsen, and K. S. Thygesen
+   | `Quasiparticle GW calculations for solids, molecules, and two-dimensional materials`__
+   | Physical Review B Vol. **87**, 235132, 2013
+
+   __ http://link.aps.org/doi/10.1103/PhysRevB.87.235132
+
 BibTex (:svn:`doc/GPAW.bib`):
 
 .. literalinclude:: GPAW.bib
