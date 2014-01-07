@@ -40,6 +40,11 @@ The last line in the script creates a .gpw file which contains all the informati
     You can change the number of bands to be written out by using ``calc.diagonalize_full_hamiltonian(nbands=...)``.
     This will be useful for higher plane wave cutoffs.
 
+.. note::
+
+    For calculations including only the :math:`\Gamma` point, insert ``dtype=complex`` in the calculator.
+    This holds both for the plane wave and the grid mode.
+
 the GW calculator
 -----------------
 
