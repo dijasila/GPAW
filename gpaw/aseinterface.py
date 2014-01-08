@@ -106,6 +106,7 @@ class GPAW(PAW):
     # In the future, we will get this stuff for free by inheriting from
     # ase.calculators.calculator.Calculator.
     name = 'GPAW'
+    nolabel = True
     def check_state(self, atoms): return []
     def todict(self): return {}
     def _get_results(self):
