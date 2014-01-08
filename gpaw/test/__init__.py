@@ -155,7 +155,7 @@ tests = [
     'hydrogen.py',
     'fileio/file_reference.py',
     'fixdensity.py',
-    'nonlocalset.py', 
+    'nonlocalset.py',
     'bee1.py',
     'spinFe3plus.py',
     'pw/h.py',
@@ -312,7 +312,7 @@ tests = [
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
     'bse_silicon.py',
-    'bse_MoS2_cut.py',    
+    'bse_MoS2_cut.py',
     'parallel/pblas.py',
     'parallel/scalapack.py',
     'parallel/scalapack_diag_simple.py',
@@ -357,7 +357,8 @@ if mpi.size > 1:
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
                 'pw/davidson_pw.py',
-                # scipy.weave fails often in parallel due to ~/.python*_compiled
+                # scipy.weave fails often in parallel due to
+                # ~/.python*_compiled
                 # https://github.com/scipy/scipy/issues/1895
                 'scipy_test.py']
 
@@ -403,6 +404,12 @@ if mpi.size != 8:
     exclude += ['parallel/lcao_parallel_kpt.py']
     exclude += ['parallel/fd_parallel_kpt.py']
 
+if sys.version_info < (2, 6):
+    exclude.append('transport.py')
+    
+if np.__version__ < '1.6.0':
+    exclude.append('chi0.py')
+    
 for test in exclude:
     if test in tests:
         tests.remove(test)

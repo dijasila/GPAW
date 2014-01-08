@@ -1,16 +1,15 @@
-from __future__ import print_function
-
 import os
 import sys
 import time
 
-from ase import Atom, Atoms
 from ase.units import Bohr
+from ase import Atom, Atoms
 from ase.parallel import parprint
+
 from gpaw import GPAW
+from gpaw.mpi import world 
 from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
-from gpaw.mpi import world 
 from gpaw.lrtddft.excited_state import ExcitedState
 
 txt='-'
