@@ -65,7 +65,6 @@ packages = ['gpaw',
             'gpaw.pes',
             'gpaw.response',
             'gpaw.sphere',
-            'gpaw.tasks',
             'gpaw.tddft',
             'gpaw.test',
             'gpaw.test.big',
@@ -224,7 +223,7 @@ if hdf5:
     extensions.append(hdf5_extension)
 
 scripts = [join('tools', script)
-           for script in ('gpaw', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
+           for script in ('gpaw-run', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
                           'gpaw-mpisim', 'gpaw-mapfile-bgp',
                           'gpaw-mapfile-cray', 'gpaw-runscript')]
 
