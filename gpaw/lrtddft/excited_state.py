@@ -164,8 +164,8 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
             world = self.parallel['world']
             txt = self.txt
             if world.rank > 0:
-                txt = None
-            mpi.broadcast(txt, 0, world) # allow the slaves to write
+                txt = sys.stdout
+
             mycomm = self.parallel['mycomm']
             ncalcs = self.parallel['ncalcs']
             icalc = self.parallel['icalc']
