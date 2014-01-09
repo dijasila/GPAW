@@ -314,7 +314,7 @@ class PAWTextOutput:
 
         try:
             dipole = self.get_dipole_moment()
-        except AttributeError:
+        except NotImplementedError:
             pass
         else:
             if self.density.charge == 0:

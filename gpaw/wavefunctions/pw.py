@@ -1182,6 +1182,8 @@ class ReciprocalSpaceDensity(Density):
             [[setup.tauct] for setup in self.setups], self.pd2)
 
     def calculate_dipole_moment(self):
+        if np.__version__ < '1.6.0':
+            raise NotImplementedError
         pd = self.pd3
         N_c = pd.tmp_Q.shape
         
