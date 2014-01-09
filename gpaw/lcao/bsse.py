@@ -76,7 +76,7 @@ class GhostSetup(BaseSetup):
         self.rgd = None
         self.rcut_j = [0.5]
         self.tauct = None
-        self.Delta_Lii = None
+        self.Delta_iiL = None
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None

@@ -199,14 +199,16 @@ class HybridXC(HybridXCBase):
         else:
             alpha = self.alpha
         if self.gamma_point == 1:
-            self.gamma = self.calculate_gamma(vol, alpha)
+            if alpha == 0.0:
+                qvol = (2*np.pi)**3 / vol / N_c.prod()
+                self.gamma = 4*np.pi * (3*qvol / (4*np.pi))**(1/3.) / qvol
+            else:
+                self.gamma = self.calculate_gamma(vol, alpha)
         else:
             kcell_cv = wfs.gd.cell_cv.copy()
             kcell_cv[0] *= N_c[0]
             kcell_cv[1] *= N_c[1]
             kcell_cv[2] *= N_c[2]
-            #qvol = (2*np.pi)**3 / vol / N_c.prod()
-            #self.gamma = 4*np.pi * (3*qvol / (4*np.pi))**(1/3.) / qvol
             self.gamma = madelung(kcell_cv) * vol * N_c.prod() / (4 * np.pi)
 
         self.log('Value of alpha parameter: %.3f Bohr^2' % alpha)
@@ -498,7 +500,7 @@ class HybridXC(HybridXCBase):
                                          is_ibz2)
 
         e_n *= 1.0 / self.kd.nbzkpts / self.wfs.nspins * self.qstride_c.prod()
-
+        
         if q == self.q0:
             e_n[n1_n == n2] *= 0.5
 
@@ -604,13 +606,13 @@ class HybridXC(HybridXCBase):
             nn = None
             
         iG2_G = self.iG2_qG[q]
-
+        
         # Calculate energies:
         e_n = np.empty(len(n1_n))
         for n, nt_G in enumerate(nt_nG):
             e_n[n] = -4 * pi * np.real(self.pd2.integrate(nt_G, nt_G * iG2_G))
             self.npairs += 1
-
+        
         if nn is not None:
             e_n[nn] -= 2 * (self.pd2.integrate(nt_nG[nn], self.vgauss_G) +
                             (self.beta / 2 / pi)**0.5)

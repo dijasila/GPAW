@@ -361,7 +361,7 @@ class BASECHI:
 
             psit_G = self.calc.wfs.gd.empty(dtype=self.calc.wfs.dtype)
 
-	    for i in range(self.kcomm.size):
+            for i in range(self.kcomm.size):
                 if check_focc_global[i]:
                     kpt_rank, u, bzkpt_rank, nlocal = klist_kcomm[i]
                     if kpt_rank == bzkpt_rank:

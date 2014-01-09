@@ -87,6 +87,25 @@ class RadialGridDescriptor:
         return np.dot(a_xg[..., 1:],
                       (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
 
+    def integrate_yukawa(self, n1, n2, l, gamma):
+        """Integrate two densities n1 and n2 with yukawa interaction."""
+        from scipy.special import iv, kv
+        r = self.r_g
+        dr = self.dr_g
+        k_rgamma = kv(l + 0.5, r * gamma)      # K(>)
+        i_rgamma = iv(l + 0.5, r * gamma)      # I(<)
+        k_rgamma[0] = kv(l + 0.5, r[1] * gamma * 1e-5)
+        matrix_ik = np.outer(n1 * dr, n2 * dr)
+        len_vec = len(k_rgamma)
+        for i in xrange(len_vec):
+            k_rgi = k_rgamma[i]
+            for k in xrange(i):
+                modified_bessels = i_rgamma[k] * k_rgi
+                matrix_ik[i, k] *= modified_bessels
+                matrix_ik[k, i] *= modified_bessels
+            matrix_ik[i, i] *= i_rgamma[i] * k_rgi
+        return matrix_ik.sum()
+
     def derivative(self, n_g, dndr_g=None):
         """Finite-difference derivative of radial function."""
         if dndr_g is None:

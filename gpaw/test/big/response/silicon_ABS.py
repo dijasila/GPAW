@@ -51,7 +51,7 @@ if ABS:
     df = DF(calc='si.gpw',
             q=q,
             w=(0.,),
-            eta=0.0001, 
+            eta=0.001, 
             hilbert_trans=False,
             ecut=150,
             optical_limit=True,

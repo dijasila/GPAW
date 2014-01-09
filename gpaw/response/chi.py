@@ -292,7 +292,7 @@ class CHI(BASECHI):
                     for m in self.mlist:
                         if self.nbands > 1000 and m % 200 == 0:
                             print >> self.txt, '    ', k, n, m, time() - t0
-    		    
+                    
                         check_focc = (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m]) > self.ftol
     
                         if not self.pwmode:

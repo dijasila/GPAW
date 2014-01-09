@@ -94,7 +94,7 @@ class HGHSetup(BaseSetup):
         self.rgd = data.rgd
         self.rcut_j = data.rcut_j
         self.tauct = None
-        self.Delta_Lii = None
+        self.Delta_iiL = None
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None

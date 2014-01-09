@@ -131,9 +131,10 @@ class PAWTextOutput:
                   '---------------------')
         gd = self.wfs.gd
         h_c = gd.get_grid_spacings()
+        pbc_c = self.atoms.pbc
         for c in range(3):
             self.text('  %d. axis:    %s  %10.6f  %10.6f  %10.6f   %3d   %8.4f'
-                      % ((c + 1, ['no ', 'yes'][int(gd.pbc_c[c])]) +
+                      % ((c + 1, ['no ', 'yes'][int(pbc_c[c])]) +
                          tuple(Bohr * gd.cell_cv[c]) +
                          (gd.N_c[c], Bohr * h_c[c])))
         self.text()

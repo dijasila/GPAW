@@ -104,6 +104,7 @@ tests = [
     'harmonic.py',
     'atoms_too_close.py',
     'screened_poisson.py',
+    'yukawa_radial.py',
     'noncollinear/xcgrid3d.py',
     'vdwradii.py',
     'lcao_restart.py',
@@ -152,6 +153,7 @@ tests = [
     'hydrogen.py',
     'fileio/file_reference.py',
     'fixdensity.py',
+    'nonlocalset.py',
     'bee1.py',
     'spinFe3plus.py',
     'pw/h.py',
@@ -203,6 +205,7 @@ tests = [
     'h2o_xas_recursion.py',
     'diamond_eps.py',
     'gemm.py',
+    'excited_state.py',
     # > 20 sec tests start here
     'rpa_energy_Ni.py',
     'si.py',
@@ -251,6 +254,7 @@ tests = [
     'be_nltd_ip.py',
     'si_xas.py',
     'atomize.py',
+    'chi0.py',
     'ralda_energy_H2.py',
     'ralda_energy_N2.py',
     'ralda_energy_Ni.py',
@@ -277,6 +281,7 @@ tests = [
     'lb94.py',
     '8Si.py',
     'td_na2.py',
+    'ehrenfest_nacl.py',
     'rpa_energy_N2.py',
     'beefvdw.py',
     #'mbeef.py',
@@ -301,7 +306,7 @@ tests = [
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
     'bse_silicon.py',
-    'bse_MoS2_cut.py',    
+    'bse_MoS2_cut.py',
     'parallel/pblas.py',
     'parallel/scalapack.py',
     'parallel/scalapack_diag_simple.py',
@@ -346,7 +351,8 @@ if mpi.size > 1:
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
                 'pw/davidson_pw.py',
-                # scipy.weave fails often in parallel due to ~/.python*_compiled
+                # scipy.weave fails often in parallel due to
+                # ~/.python*_compiled
                 # https://github.com/scipy/scipy/issues/1895
                 'scipy_test.py']
 
@@ -392,6 +398,12 @@ if mpi.size != 8:
     exclude += ['parallel/lcao_parallel_kpt.py']
     exclude += ['parallel/fd_parallel_kpt.py']
 
+if sys.version_info < (2, 6):
+    exclude.append('transport.py')
+    
+if np.__version__ < '1.6.0':
+    exclude.append('chi0.py')
+    
 for test in exclude:
     if test in tests:
         tests.remove(test)

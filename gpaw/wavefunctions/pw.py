@@ -128,7 +128,7 @@ class PWDescriptor:
             shape = x + self.Q_qG[q].shape
         return np.empty(shape, complex)
     
-    def fft(self, f_R, q=-1):
+    def fft(self, f_R, q=-1, Q_G=None):
         """Fast Fourier transform.
 
         Returns c(G) for G<Gc::
@@ -143,7 +143,9 @@ class PWDescriptor:
         self.tmp_R[:] = f_R
 
         self.fftplan.execute()
-        return self.tmp_Q.ravel()[self.Q_qG[q]]
+        if Q_G is None:
+            Q_G = self.Q_qG[q]
+        return self.tmp_Q.ravel()[Q_G]
 
     def ifft(self, c_G, q=-1):
         """Inverse fast Fourier transform.

@@ -498,7 +498,7 @@ class LeanSetup(BaseSetup):
 
         self.tauct = s.tauct # required by TPSS, MGGA
 
-        self.Delta_Lii = s.Delta_Lii # required with external potential
+        self.Delta_iiL = s.Delta_iiL # required with external potential
 
         self.B_ii = s.B_ii # required for exact inverse overlap operator
         self.dC_ii = s.dC_ii # required by time-prop tddft with apply_inverse
@@ -542,8 +542,8 @@ class Setup(BaseSetup):
     Name          Description
     ============= ==========================================================
     ``Delta0``    Constant in compensation charge expansion coeff.
-    ``Delta_Lii`` Linear term in compensation charge expansion coeff.
-    ``Delta_pL``  Packed version of ``Delta_Lii``.
+    ``Delta_iiL`` Linear term in compensation charge expansion coeff.
+    ``Delta_pL``  Packed version of ``Delta_iiL``.
     ``dO_ii``     Overlap coefficients
     ``B_ii``      Projector function overlaps B_ii = <pt_i | pt_i>
     ``dC_ii``     Inverse overlap coefficients
@@ -793,9 +793,9 @@ class Setup(BaseSetup):
         self.dC_ii = self.get_inverse_overlap_coefficients(self.B_ii,
                                                            self.dO_ii)
         
-        self.Delta_Lii = np.zeros((ni, ni, self.Lmax)) # XXX index order
+        self.Delta_iiL = np.zeros((ni, ni, self.Lmax))
         for L in range(self.Lmax):
-            self.Delta_Lii[:, :, L] = unpack(self.Delta_pL[:, L].copy())
+            self.Delta_iiL[:, :, L] = unpack(self.Delta_pL[:, L].copy())
 
         self.Nct = data.get_smooth_core_density_integral(Delta0)
         self.K_p = data.get_linear_kinetic_correction(T_Lqp[0])

@@ -348,10 +348,14 @@ class PAW(PAWTextOutput):
         Z_a = atoms.get_atomic_numbers()
         magmom_av = atoms.get_initial_magnetic_moments()
 
-        if isinstance(par.xc, str):
-            xc = XC(par.xc)
+        # Generate new xc functional only when it is reset by set
+        if self.hamiltonian is None or self.hamiltonian.xc is None:
+            if isinstance(par.xc, str):
+                xc = XC(par.xc)
+            else:
+                xc = par.xc
         else:
-            xc = par.xc
+            xc = self.hamiltonian.xc
 
         mode = par.mode
 
