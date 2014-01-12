@@ -5,11 +5,11 @@ from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import paropen
 from ase.lattice.surface import *
 from gpaw import *
-from gpaw.wavefunctions.pw import PW
-from gpaw.xc.hybridg import HybridXC
+from gpaw import PW
+from gpaw.xc.exx import EXX
 
-kpts = monkhorst_pack((12,12,1))
-kpts += np.array([1/24., 1/24., 0])
+kpts = monkhorst_pack((16,16,1))
+kpts += np.array([1/32., 1/32., 0])
 
 a = 2.51 # Lattice parameter of Co
 slab = hcp0001('Co', a=a, c=4.07, size=(1,1,4))
@@ -27,8 +27,9 @@ for d in ds:
     add_adsorbate(slab, 'C', d, position=(pos[3,0], pos[3,1]))
     add_adsorbate(slab, 'C', d, position=(cell[0,0]/3+cell[1,0]/3,
                                           cell[0,1]/3+cell[1,1]/3))
-    view(slab)
+    #view(slab)
     calc = GPAW(xc='PBE',
+                eigensolver='cg',
                 mode=PW(600),
                 kpts=kpts,
                 occupations=FermiDirac(width=0.01),
@@ -40,13 +41,15 @@ for d in ds:
                 txt='gs_%s.txt' % d)
     slab.set_calculator(calc)
     E = slab.get_potential_energy()
-    E_hf = E + calc.get_xc_difference(HybridXC('EXX', method='acdf'))
+    exx = EXX(calc, txt='exx_%s.txt' % d)
+    exx.calculate()
+    E_hf = exx.get_total_energy()
 
-    calc.diagonalize_full_hamiltonian()
+    #calc.diagonalize_full_hamiltonian()
     calc.write('gs_%s.gpw' % d, mode='all')
 
     f = paropen('hf_acdf.dat', 'a')
-    print >> f, d, E_hf
+    print >> f, d, E, E_hf
     f.close()
     
     del slab[-2:]
