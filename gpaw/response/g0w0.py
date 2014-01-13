@@ -62,14 +62,14 @@ class G0W0(PairDensity):
         self.omega_w = None  # frequencies
         self.initialize_frequencies()
         
-        # Find q-vectors and weights in IBZ:
+        # Find q-vectors and weights in the IBZ:
         kd = self.calc.wfs.kd
         assert -1 not in kd.bz2bz_ks
         offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
-        #self.qd.set_symmetry(self.calc.atoms, self.calc.wfs.setups,
-        #                     usesymm=True, N_c=self.calc.wfs.gd.N_c)
+        self.qd.set_symmetry(self.calc.atoms, self.calc.wfs.setups,
+                             usesymm=True, N_c=self.calc.wfs.gd.N_c)
         
     def initialize_frequencies(self, domega=0.05):
         domega /= Hartree
@@ -109,42 +109,51 @@ class G0W0(PairDensity):
                     if kpt2.s == s:
                         self.calculate_q(i, kpt1, kpt2)
                         
-        print(np.array_str(self.eps_sin * Hartree, precision=3), file=self.fd)
-        print(np.array_str(self.sigma_sin * Hartree, precision=3), file=self.fd)
+        print(np.array_str(self.eps_sin * Hartree, precision=3),
+              file=self.fd)
+        print(np.array_str(self.sigma_sin * Hartree, precision=3),
+              file=self.fd)
         print(np.array_str(1 / (1 - self.dsigma_sin), precision=3),
               file=self.fd)
 
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
         qd = self.qd
-        q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
+        q_c = wfs.kd.bzk_kc[kpt1.K] - wfs.kd.bzk_kc[kpt2.K]
         Q = abs((qd.bzk_kc - q_c) % 1).sum(axis=1).argmin()
+        q2_c = qd.bzk_kc[Q]
         s = qd.sym_k[Q]
-        #U_cc = qd.symmetry.op_scc[s]
-        #time_reversal = qd.time_reversal_k[Q]
+        U_cc = qd.symmetry.op_scc[s]
+        time_reversal = qd.time_reversal_k[Q]
         iq = qd.bz2ibz_k[Q]
         iq_c = qd.ibzk_kc[iq]
         
-        #sign = 1 - 2 * time_reversal
-        shift_c = iq_c - q_c
-        #print(shift_c,q_c,Q,iq,iq_c)
-        #shift_c = np.dot(U_cc, iq_c) - q_c * sign
+        sign = 1 - 2 * time_reversal
+        suiq_c = sign * np.dot(U_cc, iq_c)
+        shift_c = suiq_c - q_c
         assert np.allclose(shift_c.round(), shift_c)
         shift_c = shift_c.round().astype(int)
         
-        #if (U_cc == np.eye(3)).all():
-        #    pass
-        #else:
-        #    N_c = self.calc.wfs.gd.N_c
-        #    i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
-        #    i = np.ravel_multi_index(i_cr, N_c, 'wrap')
-        #    sdfg
-            
-        qd = KPointDescriptor([iq_c])
+        #print('K1:', wfs.kd.bzk_kc[kpt1.K], 'K2:', wfs.kd.bzk_kc[kpt2.K])
+        #print(suiq_c,iq_c,q_c)
+        #print(U_cc.ravel(),sign)
+        
+        iqd = KPointDescriptor([iq_c])
+        ipd = PWDescriptor(self.ecut, wfs.gd, complex, iqd)
+        qd = KPointDescriptor([suiq_c])
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
-        Q_G = self.get_fft_indices(kpt1.K, kpt2.K, iq_c, pd,
-                                   kpt1.shift_c - kpt2.shift_c)
-    
+        N_G = self.get_fft_indices(kpt2.K, kpt1.K, q2_c, pd,
+                                   shift_c + kpt2.shift_c - kpt1.shift_c)
+
+        N_c = pd.gd.N_c
+        n_cG = np.unravel_index(pd.Q_qG[0], N_c)
+        N2_G = np.ravel_multi_index(sign * np.dot(U_cc, n_cG), N_c, 'wrap')
+        G_N = np.empty(N_c.prod(), int)
+        G_N[:] = -1
+        G_N[ipd.Q_qG[0]] = np.arange(len(N_G))
+        G_G = G_N[N2_G]
+        assert (G_G >= 0).all()
+        
         Q_aGii = self.initialize_paw_corrections(pd)
         
         for n in range(kpt1.n2 - kpt1.n1):
@@ -154,19 +163,19 @@ class G0W0(PairDensity):
             C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
                      for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                 pd, Q_G)
+                                                 pd, N_G)
             f_m = kpt2.f_n
             deps_m = eps1 - kpt2.eps_n
-            sigma, dsigma = self.calculate_sigma(fd, n_mG, deps_m, f_m)
-            self.sigma_sin[s, i, n] += sigma
-            self.dsigma_sin[s, i, n] += dsigma
+            sigma, dsigma = self.calculate_sigma(fd, n_mG, deps_m, f_m, G_G)
+            self.sigma_sin[kpt1.s, i, n] += sigma
+            self.dsigma_sin[kpt1.s, i, n] += dsigma
 
-    def calculate_sigma(self, fd, n_mG, deps_m, f_m):
+    def calculate_sigma(self, fd, n_mG, deps_m, f_m, G_G):
         sigma = 0.0
         dsigma = 0.0
         
         for omegap, domegap in zip(self.omega_w, self.domega_w):
-            W_GG = np.load(fd)
+            W_GG = np.load(fd).take(G_G, 0).take(G_G, 1)
             x1_m = 1 / (deps_m + omegap + 2j * self.eta * (f_m - 0.5))
             x2_m = 1 / (deps_m - omegap + 2j * self.eta * (f_m - 0.5))
             x_m = x1_m + x2_m

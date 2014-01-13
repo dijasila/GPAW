@@ -172,14 +172,14 @@ class PairDensity:
     def get_fft_indices(self, K1, K2, q_c, pd, shift0_c):
         """Get indices for G-vectors inside cutoff sphere."""
         kd = self.calc.wfs.kd
-        Q_G = pd.Q_qG[0]
+        N_G = pd.Q_qG[0]
         shift_c = (shift0_c +
                    (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
         if shift_c.any():
-            q_cG = np.unravel_index(Q_G, pd.gd.N_c)
-            q_cG = [q_G + shift for q_G, shift in zip(q_cG, shift_c)]
-            Q_G = np.ravel_multi_index(q_cG, pd.gd.N_c, 'wrap')
-        return Q_G
+            n_cG = np.unravel_index(N_G, pd.gd.N_c)
+            n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
+            N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
+        return N_G
         
     def construct_symmetry_operators(self, K):
         """Construct symmetry operators for wave function and PAW projections.
