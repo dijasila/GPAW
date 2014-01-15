@@ -367,7 +367,7 @@ class FDTDPoissonSolver:
         self.extended_num_indices = self.num_indices + [2, 2, 2]
         
         # Center, left, and right points of the suggested quantum grid
-        extended_cp = 0.5 * (np.array(self.given_corner_v1/Bohr) + np.array(self.given_corner_v1/Bohr))
+        extended_cp = 0.5 * (np.array(self.given_corner_v1/Bohr) + np.array(self.given_corner_v2/Bohr))
         extended_lp = extended_cp - 0.5 * (self.extended_num_indices) * self.cl.spacing 
         extended_rp = extended_cp + 0.5 * (self.extended_num_indices) * self.cl.spacing
         
@@ -670,22 +670,28 @@ class FDTDPoissonSolver:
         self.qm.rho = rho
 
         if(self.calculation_mode == 'solve'):  # do not modify the polarizable material
-            return self.solve_solve(charge=None,
+            niter = self.solve_solve(charge=None,
                                    eps=eps,
                                    maxcharge=maxcharge,
                                    zero_initial_phi=False)
 
         elif(self.calculation_mode == 'iterate'):  # find self-consistent density
-            return self.solve_iterate(charge=None,
+            niter = self.solve_iterate(charge=None,
                                       eps=eps,
                                       maxcharge=maxcharge,
                                       zero_initial_phi=False)
-        
+
         elif(self.calculation_mode == 'propagate'):  # propagate one time step
-            return self.solve_propagate(charge=None,
+            niter = self.solve_propagate(charge=None,
                                         eps=eps,
                                         maxcharge=maxcharge,
                                         zero_initial_phi=False)
+
+        phi = self.qm.phi
+        rho = self.qm.rho
+
+        return niter
+
 
     def get_dipole_moment(self):
         return self.density.finegd.calculate_dipole_moment(self.density.rhot_g)

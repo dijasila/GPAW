@@ -128,7 +128,7 @@ class RefinerPotentialCoupler(PotentialCoupler):
         
         if self.rank == 0:
             # Coarsen the quantum density
-            global_rho_qm_qmgd_coarsened = global_rho_qm_qmgd.copy()
+            global_rho_qm_qmgd_coarsened = global_rho_qm_qmgd
             for n in range(self.num_refinements):
                 global_rho_qm_qmgd_coarsened = self.cl.coarseners[n].apply(global_rho_qm_qmgd_coarsened)
             
