@@ -250,7 +250,7 @@ class Kernel:
         rz_g = r_vg[2].flatten()
 
         prnt('    %d grid points and %d plane waves at the Gamma point' %
-             (ng, self.pd.ngmax))
+             (ng, self.pd.ngmax), file=self.fd)
 
         # Unit cells
         R_Rv = []
@@ -275,7 +275,7 @@ class Kernel:
             Vlocal_g -= 2 * np.pi * gc**2 / dv
             prnt('    Lattice point sampling: ' +
                  '(%s x %s x %s)^2 ' % (nR_v[0], nR_v[1], nR_v[2]) +
-                 ' Reduced to %s lattice points' % len(R_Rv))
+                 ' Reduced to %s lattice points' % len(R_Rv), file=self.fd)
 
         l_g_size = -(-ng // mpi.world.size)
         l_g_range = range(mpi.world.rank * l_g_size,
@@ -297,13 +297,13 @@ class Kernel:
             if i == 1:
                 prnt('      Finished 1 cell in %s seconds' % int(time() - t0) +
                      ' - estimated %s seconds left' %
-                     int((len(R_Rv) - 1) * (time() - t0)))
+                     int((len(R_Rv) - 1) * (time() - t0)), file=self.fd)
             if len(R_Rv) > 5:
                 if (i+1) % (len(R_Rv) / 5 + 1) == 0:
                     prnt('      Finished %s cells in %s seconds'
                          % (i, int(time() - t0))
                          + ' - estimated %s seconds left'
-                         % int((len(R_Rv) - i) * (time() - t0) / i))
+                         % int((len(R_Rv) - i) * (time() - t0) / i), file=self.fd)
             for g in l_g_range:
                 rx = rx_g[g] + R_v[0]
                 ry = ry_g[g] + R_v[1]

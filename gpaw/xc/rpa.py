@@ -36,7 +36,11 @@ class RPACorrelation:
             frequencies, weights = get_gauss_legendre_points(nfrequencies,
                                                              frequency_max,
                                                              frequency_scale)
-
+            user_spec = False
+        else:
+            assert weights is not None
+            user_spec = True
+            
         self.omega_w = frequencies / Hartree
         self.weight_w = weights / Hartree
 
@@ -75,7 +79,7 @@ class RPACorrelation:
 
         self.filename = filename
 
-        self.print_initialization(xc, frequency_scale, nlambda)
+        self.print_initialization(xc, frequency_scale, nlambda, user_spec)
 
     def initialize_q_points(self, qsym):
         kd = self.calc.wfs.kd
@@ -312,7 +316,7 @@ class RPACorrelation:
 
         return e_i * Hartree
 
-    def print_initialization(self, xc, frequency_scale, nlambda):
+    def print_initialization(self, xc, frequency_scale, nlambda, user_spec):
         prnt('----------------------------------------------------------',
              file=self.fd)
         prnt('Non-self-consistent %s correlation energy' % xc, file=self.fd)
@@ -355,12 +359,16 @@ class RPACorrelation:
                  'Gauss-Legendre points', file=self.fd)
         prnt(file=self.fd)
         prnt('Frequencies', file=self.fd)
-        prnt('    Gauss-Legendre integration with %s frequency points' %
-             len(self.omega_w), file=self.fd)
-        prnt('    Transformed from [0,\infty] to [0,1] using e^[-aw^(1/B)]',
-             file=self.fd)
-        prnt('    Highest frequency point at %5.1f eV and B=%1.1f' %
-             (self.omega_w[-1] * Hartree, frequency_scale), file=self.fd)
+        if not user_spec:
+            prnt('    Gauss-Legendre integration with %s frequency points' %
+                 len(self.omega_w), file=self.fd)
+            prnt('    Transformed from [0,\infty] to [0,1] using e^[-aw^(1/B)]',
+                 file=self.fd)
+            prnt('    Highest frequency point at %5.1f eV and B=%1.1f' %
+                 (self.omega_w[-1] * Hartree, frequency_scale), file=self.fd)
+        else:
+            prnt('    User specified frequency integration with', 
+                 len(self.omega_w), 'frequency points', file=self.fd)
         prnt(file=self.fd)
         prnt('Parallelization', file=self.fd)
         prnt('    Total number of CPUs          : % s' % self.world.size,
