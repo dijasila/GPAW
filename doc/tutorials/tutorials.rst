@@ -47,6 +47,7 @@ Specialized tutorials
    negfstm/negfstm
    dielectric_response/dielectric_response
    rpa/rpa_tut
+   fxc_correlation/rapbe_tut
    ensembles/ensembles
    gw_tutorial/gw_tutorial
    atomization_cmr/atomization_cmr
