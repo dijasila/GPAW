@@ -4,7 +4,7 @@ from ase.utils import prnt
 from ase.data.g2_1 import molecule_names
 
 
-c = ase.db.connect('g2-1.json')
+c = ase.db.connect('g2-1.db')
 
 def analyse(calc, relaxed):
     e = {}
