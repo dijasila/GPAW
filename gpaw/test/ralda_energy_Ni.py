@@ -1,10 +1,11 @@
+from os import system
 from ase import *
 from ase.lattice import bulk
 from ase.dft.kpoints import monkhorst_pack
 from gpaw import *
 from gpaw.test import equal
-from gpaw.xc.fxc_correlation_energy import FXCCorrelation
-from gpaw.mpi import serial_comm, world
+from gpaw.xc.fxc import FXCCorrelation
+from gpaw.mpi import rank
 
 a0  = 5.43
 Ni = bulk('Ni', 'fcc')
@@ -15,30 +16,31 @@ kpts = monkhorst_pack((3,3,3))
 calc = GPAW(mode='pw',
             kpts=kpts,
             occupations=FermiDirac(0.001),
-            setups={'Ni': '10'}, 
-            communicator=serial_comm)
+            setups={'Ni': '10'})
 
 Ni.set_calculator(calc)
-E = Ni.get_potential_energy()
-calc.diagonalize_full_hamiltonian(nbands=50)
+Ni.get_potential_energy()
+calc.diagonalize_full_hamiltonian()
+calc.write('Ni.gpw', mode='all')
 
-ralda = FXCCorrelation(calc,
-                       xc='rALDA',
-                       method='solid')
-E_solid = ralda.get_fxc_correlation_energy(ecut=50,
-                                           gauss_legendre=8,
-                                           skip_gamma=True,
-                                           kcommsize=world.size)
+rpa = FXCCorrelation('Ni.gpw', xc='RPA',
+                     nfrequencies=8, skip_gamma=True)
+E_rpa = rpa.calculate(ecut=[50])
 
-ralda = FXCCorrelation(calc,
-                       xc='rALDA',
-                       method='standard',
-                       unit_cells=[2,1,1],
-                       )
-E_standard = ralda.get_fxc_correlation_energy(ecut=50,
-                                              gauss_legendre=8,
-                                              skip_gamma=True,
-                                              kcommsize=world.size)
+ralda = FXCCorrelation('Ni.gpw', xc='rALDA', unit_cells=[2,1,1],
+                       nfrequencies=8, skip_gamma=True)
+E_ralda = ralda.calculate(ecut=[50])
 
-equal(E_solid, -7.391, 0.001)
-equal(E_standard, -7.501, 0.001)
+rapbe = FXCCorrelation('Ni.gpw', xc='rAPBE', unit_cells=[2,1,1],
+                       nfrequencies=8, skip_gamma=True)
+E_rapbe = rapbe.calculate(ecut=[50])
+
+if rank == 0:
+    system('rm Ni.gpw')
+    for i in range(4):        
+        system('rm fhxc_Ni_rALDA_50_%s.gpw' % i)
+        system('rm fhxc_Ni_rAPBE_50_%s.gpw' % i)
+
+equal(E_rpa, -7.8271, 0.001)
+equal(E_ralda, -7.5012, 0.001)
+equal(E_rapbe, -7.4442, 0.001)

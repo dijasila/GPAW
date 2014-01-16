@@ -282,6 +282,7 @@ tests = [
     'ralda_energy_H2.py',
     'ralda_energy_N2.py',
     'ralda_energy_Ni.py',
+    'ralda_energy_Si.py',
     'Cu.py',
     'restart_band_structure.py',
     'ne_disc.py',
@@ -406,6 +407,7 @@ if mpi.size != 1 and not compiled_with_sl():
     exclude += ['ralda_energy_H2.py',
                 'ralda_energy_N2.py',
                 'ralda_energy_Ni.py',
+                'ralda_energy_Si.py',
                 'bse_sym.py',
                 'bse_silicon.py']
 
