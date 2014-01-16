@@ -291,7 +291,6 @@ tests = [
     'muffintinpot.py',
     'diamond_gllb.py',
     'h2o_dks.py',
-    'aluminum_EELS_lcao.py',
     'gw_ppa.py',
     'nscfsic.py',
     'gw_static.py',
