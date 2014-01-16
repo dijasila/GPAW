@@ -220,7 +220,7 @@ class Kernel:
     def calculate_fhxc(self):
 
         prnt('Calculating %s kernel at %d eV cutoff' %
-             (self.xc, self.ecut), file=self.fd)
+             (self.xc, self.ecut), flush=True, file=self.fd)
         if self.xc[0] == 'r':
             self.calculate_rkernel()
         else:
@@ -250,7 +250,7 @@ class Kernel:
         rz_g = r_vg[2].flatten()
 
         prnt('    %d grid points and %d plane waves at the Gamma point' %
-             (ng, self.pd.ngmax), file=self.fd)
+             (ng, self.pd.ngmax), flush=True, file=self.fd)
 
         # Unit cells
         R_Rv = []
@@ -297,13 +297,15 @@ class Kernel:
             if i == 1:
                 prnt('      Finished 1 cell in %s seconds' % int(time() - t0) +
                      ' - estimated %s seconds left' %
-                     int((len(R_Rv) - 1) * (time() - t0)), file=self.fd)
+                     int((len(R_Rv) - 1) * (time() - t0)), 
+                     flush=True, file=self.fd)
             if len(R_Rv) > 5:
                 if (i+1) % (len(R_Rv) / 5 + 1) == 0:
                     prnt('      Finished %s cells in %s seconds'
                          % (i, int(time() - t0))
                          + ' - estimated %s seconds left'
-                         % int((len(R_Rv) - i) * (time() - t0) / i), file=self.fd)
+                         % int((len(R_Rv) - i) * (time() - t0) / i), 
+                         flush=True, file=self.fd)
             for g in l_g_range:
                 rx = rx_g[g] + R_v[0]
                 ry = ry_g[g] + R_v[1]

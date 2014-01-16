@@ -10,7 +10,7 @@ The correlation energy within the Random Phase Approximation (RPA) can be writte
 
   E_c^{RPA} = \int_0^{\infty}\frac{d\omega}{2\pi}\text{Tr}\Big[\text{ln}\{1-\chi^0(i\omega)v\}+\chi^0(i\omega)v\Big],
  
-where `\chi^0(i\omega)` is the non-interacting (Kohn-Sham) response function evaluated at complex frequencies, `\text{Tr}` is the Trace and `\it{v}` is the Coulomb interaction. The response function and Coulomb interaction are evaluted in a plane wave basis as described in :ref:`df_tutorial` and :ref:`df_theory` and for periodic systems the Trace therefore involves a summation over `\mathbf{q}`-points, which are determined from the Brillouin zone sampling used when calculating `\chi^0(i\omega)`.
+where `\chi^0(i\omega)` is the non-interacting (Kohn-Sham) response function evaluated at complex frequencies, `\text{Tr}` is the Trace and `\it{v}` is the Coulomb interaction. The response function and Coulomb interaction are evaluated in a plane wave basis as described in :ref:`df_tutorial` and :ref:`df_theory` and for periodic systems the Trace therefore involves a summation over `\mathbf{q}`-points, which are determined from the Brillouin zone sampling used when calculating `\chi^0(i\omega)`.
 
 The RPA correlation energy is obtained by::
     
@@ -18,7 +18,7 @@ The RPA correlation energy is obtained by::
     rpa = RPACorrelation(calc, txt='rpa_correlation.txt')   
     E_rpa = rpa.calculate(ecut=400)
 
-where calc is either a calculator object containing converged wavefunctions from a ground state calculation or a string reference to a .gpw file containing wavefunctions. If calc is a calculator object it should be loaded in serial since the RPA parallellization scheme is rather different from that of standard DFT calculatons. txt denotes the output file. The RPACorrelation also takes a number of optional keywords described below. The calculate() function performs the actual calculaton at the cutoff energy specified by ecut (in eV). In addition the rpa calculator will calculate the correlation energy at four values for the cutoff energies up to the specified cutoff, but one can also give a list of cutoff values instead. By default, the response function is calculated with the same number of bands as the number of plane waves, but one can also specify that it should use N bands with nbands=N in the calculate() function.
+where calc is either a calculator object containing converged wavefunctions from a ground state calculation or a string reference to a .gpw file containing wavefunctions. If calc is a calculator object it should be loaded in serial since the RPA parallellization scheme is rather different from that of standard DFT calculatons. txt denotes the output file. The RPACorrelation also takes a number of optional keywords described below. The calculate() function performs the actual calculation at the cutoff energy specified by ecut (in eV). In addition the rpa calculator will calculate the correlation energy at four values for the cutoff energies up to the specified cutoff, but one can also give a list of cutoff values instead. By default, the response function is calculated with the same number of bands as the number of plane waves, but one can also specify that it should use N bands with nbands=N in the calculate() function.
 
 
 Parameters
@@ -45,6 +45,9 @@ keyword             type               default value       description
 ``skip_gamma``      ``bool``	       False		   For metals the :math:`\mathbf{q} = 0` point can give rise
                                                            to divergent contributions and it may be faster to converge 
 							   the k-point sampling if this point is excluded. 
+``wcomm``           ``int``            1	           Frequency parallelization. Default parallelization scheme is over 
+                                                           kpoints, spin and bands. If memory becomes an issue it can be an 
+							   advantage to use frequency parallelization instead.
 ``filename``        ``str``	       None		   Restart file. If calculations with k-point sampling, the 
                                                            contributions from different q-points are calculated 
 							   sequentially and written to filename such that these do not have 
