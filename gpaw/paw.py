@@ -77,6 +77,8 @@ class PAW(PAWTextOutput):
         self.scf = None
         self.forces = ForceCalculator(self.timer)
         self.stress_vv = None
+        self.dipole_v = None
+        self.magmom_av = None
         self.wfs = EmptyWaveFunctions()
         self.occupations = None
         self.density = None
@@ -311,6 +313,8 @@ class PAW(PAWTextOutput):
         self.scf.reset()
         self.forces.reset()
         self.stress_vv = None
+        self.dipole_v = None
+        self.magmom_av = None
         self.print_positions()
 
     def initialize(self, atoms=None):

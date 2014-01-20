@@ -100,7 +100,9 @@ class GPAW(PAW):
             return True
 
         return ('forces' in quantities and self.forces.F_av is None or
-                'stress' in quantities and self.stress_vv is None)
+                'stress' in quantities and self.stress_vv is None or
+                'magmoms' in quantities and self.magmom_av is None or
+                'dipole' in quantities and self.dipole_v is None)
 
     # XXX hack for compatibility with ASE-3.8's new calculator specification.
     # In the future, we will get this stuff for free by inheriting from
@@ -629,7 +631,9 @@ class GPAW(PAW):
 
     def get_dipole_moment(self, atoms=None):
         """Return the total dipole moment in ASE units."""
-        return self.density.calculate_dipole_moment() * Bohr
+        if self.dipole_v is None:
+            self.dipole_v = self.density.calculate_dipole_moment()
+        return self.dipole_v * Bohr
 
     def get_magnetic_moment(self, atoms=None):
         """Return the total magnetic moment."""
@@ -637,16 +641,18 @@ class GPAW(PAW):
 
     def get_magnetic_moments(self, atoms=None):
         """Return the local magnetic moments within augmentation spheres"""
-        magmom_av = self.density.estimate_magnetic_moments()
+        if self.magmom_av is not None:
+            return self.magmom_av
+            
+        self.magmom_av = self.density.estimate_magnetic_moments()
         if self.wfs.collinear:
-            momsum = magmom_av.sum()
+            momsum = self.magmom_av.sum()
             M = self.occupations.magmom
             if abs(M) > 1e-7 and abs(momsum) > 1e-7:
-                magmom_av *= M / momsum
+                self.magmom_av *= M / momsum
             # return a contiguous array
-            return magmom_av[:, 2].copy()
-        else:
-            return magmom_av
+            self.magmom_av = self.magmom_av[:, 2].copy()
+        return self.magmom_av
         
     def get_number_of_grid_points(self):
         return self.wfs.gd.N_c
