@@ -1,9 +1,10 @@
+from __future__ import print_function
 import sys
 from math import pi
 
 import numpy as np
 from ase.units import Hartree
-from ase.utils import devnull, prnt
+from ase.utils import devnull
 
 from gpaw import GPAW
 import gpaw.mpi as mpi
@@ -43,6 +44,9 @@ class PairDensity:
         
         if isinstance(calc, str):
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
+        else:
+            assert calc.wfs.world.size == 1
+            
         self.calc = calc
 
         if world.rank != 0:
@@ -68,9 +72,9 @@ class PairDensity:
             f_n = kpt.f_n / kpt.weight
             self.nocc1 = min((f_n > 1 - self.ftol).sum(), self.nocc1)
             self.nocc2 = max((f_n > self.ftol).sum(), self.nocc2)
-        prnt('Number of completely filled bands:', self.nocc1, file=self.fd)
-        prnt('Number of partially filled bands:', self.nocc2, file=self.fd)
-        prnt('Total number of bands:', self.calc.wfs.bd.nbands,
+        print('Number of completely filled bands:', self.nocc1, file=self.fd)
+        print('Number of partially filled bands:', self.nocc2, file=self.fd)
+        print('Total number of bands:', self.calc.wfs.bd.nbands,
              file=self.fd)
         
     def distribute_k_points_and_bands(self, nbands):
@@ -101,8 +105,8 @@ class PairDensity:
                     self.mysKn1n2.append((s, K, n1, n2))
                 i += nbands
 
-        prnt('BZ k-points:', self.calc.wfs.kd.description, file=self.fd)
-        prnt('Distributing spins, k-points and bands (%d x %d x %d)' %
+        print('BZ k-points:', self.calc.wfs.kd.description, file=self.fd)
+        print('Distributing spins, k-points and bands (%d x %d x %d)' %
              (ns, nk, nbands),
              'over %d process%s' %
               (world.size, ['es', ''][world.size == 1]), file=self.fd)
