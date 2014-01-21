@@ -166,11 +166,11 @@ class PairDensity:
         for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
             n_R = ut1cc_R * ut_R
             n_G[:] = pd.fft(n_R, 0, Q_G) * dv
-            
+        
         # PAW corrections:
         for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
             gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG, 't')
-            
+        
         return n_mG
     
     def get_fft_indices(self, K1, K2, q_c, pd, shift0_c):
@@ -291,17 +291,49 @@ class PairDensity:
         atomdata_a = self.calc.wfs.setups
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
-        
+
         n0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
         for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
             gemm(1.0, C_vi, P_mi, 1.0, n0_mv, 'c')
+
+        kd = self.calc.wfs.kd
+        gd = self.calc.wfs.gd
+        k_c = kd.bzk_kc[kpt1.K]
+        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
+        
+        nt_m = self.calc.wfs.gd.integrate(kpt1.ut_nR[n], kpt2.ut_nR).T
+        n0_mv += 1j * nt_m[:, np.newaxis] * k_v[np.newaxis, :]
 
         deps_m = deps_m.copy()
         deps_m[deps_m > -1e-3] = np.inf
         n0_mv *= 1j / deps_m[:, np.newaxis]
         n_mG[:, 0] = n0_mv[:, 0]
-        
+
         return n0_mv
+
+    def update_intraband(self, n, kpt1, kpt2):
+        if self.ut_sKnvR is None:
+            self.ut_sKnvR = self.calculate_derivatives()
+
+        ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]
+
+        atomdata_a = self.calc.wfs.setups
+        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
+                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+
+        nabla0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
+        for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
+            gemm(1.0, C_vi, P_mi, 1.0, nabla0_mv, 'c')
+
+        kd = self.calc.wfs.kd
+        gd = self.calc.wfs.gd
+        k_c = kd.bzk_kc[kpt1.K]
+        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
+
+        nt_m = self.calc.wfs.gd.integrate(kpt1.ut_nR[n], kpt2.ut_nR).T
+        nabla0_mv += 1j * nt_m[:, np.newaxis] * k_v[np.newaxis, :]
+
+        return nabla0_mv
 
     def calculate_derivatives(self):
         if self.real_space_derivatives:
