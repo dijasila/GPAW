@@ -82,7 +82,7 @@ class Chi0(PairDensity):
 
         q_c = pd.kd.bzk_kc[0]
         optical_limit = not q_c.any()
-
+        
         for kpt1 in self.mykpts:
             if not kpt1.s in spins:
                 continue
@@ -90,6 +90,7 @@ class Chi0(PairDensity):
             kpt2 = self.get_k_point(kpt1.s, K2, m1, m2)
             Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                        kpt1.shift_c - kpt2.shift_c)
+
             for n in range(kpt1.n2 - kpt1.n1):
                 eps1 = kpt1.eps_n[n]
                 f1 = kpt1.f_n[n]
@@ -104,6 +105,7 @@ class Chi0(PairDensity):
                 if optical_limit:
                     self.update_optical_limit(
                         n, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG)
+                    #self.update_intraband(n, kpt1, kpt2, chi0_wxvG)
                 update(n_mG, deps_m, df_m, chi0_wGG)
 
         self.world.sum(chi0_wGG)
@@ -160,3 +162,19 @@ class Chi0(PairDensity):
             chi0_wxvG[w, :, :, 0] += np.dot(x_m, n0_mv * n0_mv.conj())
             chi0_wxvG[w, 0, :, 1:] += np.dot(x_m * n0_mv.T, n_mG[:, 1:].conj())
             chi0_wxvG[w, 1, :, 1:] += np.dot(x_m * n0_mv.T.conj(), n_mG[:, 1:])
+
+    def update_intraband(self, n, kpt1, kpt2, chi0_wxvG):
+        width = self.calc.occupations.width
+        dfde_n = - 1. / width * (kpt1.f_n[n] - kpt1.f_n[n]**2.0)
+
+        if np.abs(dfde_n) > 1e-3:
+            kd = self.calc.wfs.kd
+            gd = self.calc.wfs.gd            
+            nabla0_mv = PairDensity.update_intraband(self, n, kpt1, kpt2)
+            k_c = kd.bzk_kc[kpt1.K]
+            k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)            
+            veln_v = k_v - 1j * nabla0_mv[kpt1.n1 + n - kpt2.n1]            
+            x = -self.prefactor * dfde_n * np.abs(veln_v)**2.0
+            for w, omega in enumerate(self.omega_w):
+                chi0_wxvG[w, :, :, 0] += (x / ((omega + 1j * self.eta) *
+                                               (omega - 1j * self.eta)))
