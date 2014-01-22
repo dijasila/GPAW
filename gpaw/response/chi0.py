@@ -142,23 +142,27 @@ class Chi0(PairDensity):
             rk(-self.prefactor, nx_mG, 1.0, chi0_wGG[w], 'n')
 
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
-        domega = self.omega_w[1]
         for omega, df, n_G in zip(deps_m, df_m, n_mG):
-            w = omega / domega
-            iw = int(w)
-            weights = df * np.array([[1 - w + iw], [w - iw]])
-            x_2G = n_G * weights**0.5
+            w = 1
+            while omega < self.omega_w[w]:
+                w += 1
+
+            o1, o2, o3 = self.omega_w[w - 1:w + 2]
+            x_21 = df * np.array([[(o2 - omega) / (o2 - o1)],
+                                  [(omega - o2) / (o3 - o2)]])
+            x_2G = n_G * x_21**0.5
             rk(self.prefactor, x_2G, 1.0, chi0_wGG[iw:iw + 2])
 
     def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG,
                              chi0_wxvG):
         n0_mv = PairDensity.update_optical_limit(self, n, kpt1, kpt2,
                                                  deps_m, df_m, n_mG)
+        sign = 1 - 2 * self.timeordered
 
         for w, omega in enumerate(self.omega_w):
             x_m = (self.prefactor *
                    df_m * (1.0 / (omega + deps_m + 1j * self.eta) -
-                           1.0 / (omega - deps_m + 1j * self.eta)))
+                           1.0 / (omega - deps_m + 1j * sign * self.eta)))
             chi0_wxvG[w, :, :, 0] += np.dot(x_m, n0_mv * n0_mv.conj())
             chi0_wxvG[w, 0, :, 1:] += np.dot(x_m * n0_mv.T, n_mG[:, 1:].conj())
             chi0_wxvG[w, 1, :, 1:] += np.dot(x_m * n0_mv.T.conj(), n_mG[:, 1:])
