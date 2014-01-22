@@ -67,9 +67,12 @@ class G0W0(PairDensity):
         assert -1 not in kd.bz2bz_ks
         offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
+        self.bzq27_qc = (np.indices((3,3,3)).transpose((1, 2, 3, 0)).reshape((-1, 3))-1)*0.5
+        #bzq_qc=self.bzq27_qc
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, self.calc.wfs.setups,
-                             usesymm=True, N_c=self.calc.wfs.gd.N_c)
+                             usesymm=self.calc.input_parameters.usesymm,
+                             N_c=self.calc.wfs.gd.N_c)
         
     def initialize_frequencies(self, domega=0.05):
         domega /= Hartree
@@ -119,8 +122,9 @@ class G0W0(PairDensity):
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
         qd = self.qd
-        q_c = wfs.kd.bzk_kc[kpt1.K] - wfs.kd.bzk_kc[kpt2.K]
+        q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
         Q = abs((qd.bzk_kc - q_c) % 1).sum(axis=1).argmin()
+        Q27 = abs((self.bzq27_qc - q_c)).sum(axis=1).argmin()
         q2_c = qd.bzk_kc[Q]
         s = qd.sym_k[Q]
         U_cc = qd.symmetry.op_scc[s]
@@ -134,48 +138,85 @@ class G0W0(PairDensity):
         assert np.allclose(shift_c.round(), shift_c)
         shift_c = shift_c.round().astype(int)
         
-        #print('K1:', wfs.kd.bzk_kc[kpt1.K], 'K2:', wfs.kd.bzk_kc[kpt2.K])
+        print('K1:', wfs.kd.bzk_kc[kpt1.K], 'K2:', wfs.kd.bzk_kc[kpt2.K])
         #print(suiq_c,iq_c,q_c)
         #print(U_cc.ravel(),sign)
         
-        iqd = KPointDescriptor([iq_c])
-        ipd = PWDescriptor(self.ecut, wfs.gd, complex, iqd)
-        qd = KPointDescriptor([suiq_c])
+        #iqd = KPointDescriptor([q2_c])
+        #ipd = PWDescriptor(self.ecut, wfs.gd, complex, iqd)
+        #qd0 = KPointDescriptor([suiq_c])
+        #pd0 = PWDescriptor(self.ecut, wfs.gd, complex, qd0)
+        qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
-        N_G = self.get_fft_indices(kpt2.K, kpt1.K, q2_c, pd,
-                                   shift_c + kpt2.shift_c - kpt1.shift_c)
+#        N_G = self.get_fft_indices(kpt2.K, kpt1.K, q2_c, pd,
+        N0_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
+                                   kpt2.shift_c - kpt1.shift_c)
+        print(q_c,q2_c,iq_c,Q,iq,shift_c,U_cc,sign)
 
         N_c = pd.gd.N_c
-        n_cG = np.unravel_index(pd.Q_qG[0], N_c)
-        N2_G = np.ravel_multi_index(sign * np.dot(U_cc, n_cG), N_c, 'wrap')
-        G_N = np.empty(N_c.prod(), int)
-        G_N[:] = -1
-        G_N[ipd.Q_qG[0]] = np.arange(len(N_G))
-        G_G = G_N[N2_G]
+
+
+        fd = open('W.q%d.n27.npy' % Q27)
+        assert (q_c == np.load(fd)).all()
+        N_c=np.load(fd)
+        N27_G=np.load(fd)
+        W27_wGG = [np.load(fd) for x in self.omega_w]
+        assert (N0_G==N27_G).all()
+        
+        fd = open('W.q%d.n8.npy' % iq)
+        assert (iq_c == np.load(fd)).all()
+        N_c=np.load(fd)
+        N_G=np.load(fd)
+        
+        if 0:
+            n_cG = np.unravel_index(N27_G, N_c)
+            N3_G = np.ravel_multi_index(sign * np.dot(U_cc.T, n_cG) -
+                                        shift_c[:,None],
+                                        N_c, 'wrap')
+            G_N = np.empty(N_c.prod(), int)
+            G_N[:] = -1
+            G_N[N_G] = np.arange(len(N_G))
+            G_G = G_N[N3_G]
+        else:
+            n_cG = np.unravel_index(N_G, N_c)
+            N3_G = np.ravel_multi_index(sign * np.dot(U_cc.T, n_cG) +
+                                        shift_c[:,None],
+                                        N_c, 'wrap')
+            G_N = np.empty(N_c.prod(), int)
+            G_N[:] = -1
+            G_N[N3_G] = np.arange(len(N_G))
+            G_G = G_N[N27_G]
+
+        print(Q,iq,Q27, G_G)
         assert (G_G >= 0).all()
+
+        W_wGG = [np.load(fd).take(G_G,0).take(G_G,1) for x in self.omega_w]
+        
+        print(abs(W_wGG[7]-W27_wGG[7]).max())
+        assert abs(W_wGG[7]-W27_wGG[7]).max() < 1e-10
         
         Q_aGii = self.initialize_paw_corrections(pd)
-        
+        print (q_c,Q)
         for n in range(kpt1.n2 - kpt1.n1):
-            fd = open('W.q%d.%s.npy' % (iq, self.filename))
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
             C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
                      for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                 pd, N_G)
+                                                 pd, N0_G)
             f_m = kpt2.f_n
             deps_m = eps1 - kpt2.eps_n
-            sigma, dsigma = self.calculate_sigma(fd, n_mG, deps_m, f_m, G_G)
+            sigma, dsigma = self.calculate_sigma(fd, n_mG, deps_m, f_m, W_wGG)
             self.sigma_sin[kpt1.s, i, n] += sigma
             self.dsigma_sin[kpt1.s, i, n] += dsigma
 
-    def calculate_sigma(self, fd, n_mG, deps_m, f_m, G_G):
+    def calculate_sigma(self, fd, n_mG, deps_m, f_m, W_wGG):
         sigma = 0.0
         dsigma = 0.0
         
+        w = 0
         for omegap, domegap in zip(self.omega_w, self.domega_w):
-            W_GG = np.load(fd).take(G_G, 0).take(G_G, 1)
+            W_GG = W_wGG[w];w+=1#np.load(fd).take(G_G, 0).take(G_G, 1)
             x1_m = 1 / (deps_m + omegap + 2j * self.eta * (f_m - 0.5))
             x2_m = 1 / (deps_m - omegap + 2j * self.eta * (f_m - 0.5))
             x_m = x1_m + x2_m
@@ -220,6 +261,8 @@ class G0W0(PairDensity):
                 #chi0_wGG[:, 0] = 0.0
                 #chi0_wGG[:, :, 0] = 0.0
                 dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
+                dq3 = (2 * pi)**3 / (8 * self.vol)
+                print('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
                 qc = (dq3 / 4 / pi * 3)**(1 / 3)
                 G0inv = 2 * pi * qc**2 / dq3
                 G20inv = 4 * pi * qc / dq3
@@ -227,6 +270,10 @@ class G0W0(PairDensity):
                 
             delta_GG = np.eye(len(iG_G))
             
+            np.save(fd, q_c)
+            np.save(fd, pd.gd.N_c)
+            np.save(fd, pd.Q_qG[0])
+
             for chi0_GG in chi0_wGG:
                 e_GG = delta_GG - 4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis]
                 W_GG = 4 * pi * (np.linalg.inv(e_GG) -
