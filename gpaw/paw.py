@@ -735,9 +735,11 @@ class PAW(PAWTextOutput):
         self.print_memory_estimate(self.txt, maxdepth=memory_estimate_depth)
         self.txt.flush()
 
+        self.timer.print_info(self)
+        
         if dry_run:
             self.dry_run()
-
+        
         self.initialized = True
 
     def dry_run(self):

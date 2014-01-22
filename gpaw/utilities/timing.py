@@ -21,6 +21,8 @@ import time
 import math
 import sys
 
+import numpy as np
+
 import gpaw.mpi as mpi
 MASTER = 0
 
@@ -74,7 +76,11 @@ class Timer:
         self.t0 = time.time()
         self.running = []
         self.print_levels = print_levels
-        
+    
+    def print_info(self, calc):
+        """Override to get to write info during calculator's initialize()."""
+        pass
+
     def start(self, name):
         names = tuple(self.running + [name])
         self.timers[names] = self.timers.get(names, 0.0) - time.time()
@@ -153,6 +159,7 @@ class Timer:
 class NullTimer:
     """Compatible with Timer and StepTimer interfaces.  Does nothing."""
     def __init__(self): pass
+    def print_info(self, calc): pass
     def start(self, name): pass
     def stop(self, name=None): pass
     def get_time(self, name):
@@ -174,14 +181,52 @@ class DebugTimer(Timer):
 
     def start(self, name):
         Timer.start(self, name)
-        t = self.timers[tuple(self.running)] + time.time()
-        self.txt.write('T%s >> %s (%7.5fs) started\n' % (self.srank, name, t))
+        abstime = time.time()
+        t = self.timers[tuple(self.running)] + abstime
+        self.txt.write('T%s >> %15.8f %s (%7.5fs) started\n'
+                       % (self.srank, abstime, name, t))
 
     def stop(self, name=None):
-        if name is None: name = self.running[-1]
-        t = self.timers[tuple(self.running)] + time.time()
-        self.txt.write('T%s << %s (%7.5fs) stopped\n' % (self.srank, name, t))
+        if name is None:
+            name = self.running[-1]
+        abstime = time.time()
+        t = self.timers[tuple(self.running)] + abstime
+        self.txt.write('T%s << %15.8f %s (%7.5fs) stopped\n'
+                       % (self.srank, abstime, name, t))
         Timer.stop(self, name)
+
+
+class ParallelTimer(DebugTimer):
+    """Like DebugTimer but writes timings from all ranks.
+
+    Each rank writes to timings.<rank>.txt.  Also timings.metadata.txt
+    will contain information about the parallelization layout.  The idea
+    is that the output from this timer can be used for plots and to
+    determine bottlenecks in the parallelization."""
+    def __init__(self):
+        ndigits = len(str(mpi.world.size - 1))
+        ranktxt = '%0*d' % (ndigits, mpi.world.rank)
+        fname = 'timings.%s.txt' % ranktxt
+        txt = open(fname, 'w')
+        DebugTimer.__init__(self, comm=mpi.world, txt=txt)
+
+    def print_info(self, calc):
+        """Print information about parallelization into a file."""
+        fd = open('timings.metadata.txt', 'w')
+        DebugTimer.print_info(self, calc)
+        wfs = calc.wfs
+        
+        # We won't have to type a lot if everyone just sends all their numbers.
+        myranks = np.array([wfs.world.rank, wfs.kd.comm.rank,
+                            wfs.bd.comm.rank, wfs.gd.comm.rank])
+        allranks = None
+        if wfs.world.rank == 0:
+            allranks = np.empty(wfs.world.size * 4, dtype=int)
+        wfs.world.gather(myranks, 0, allranks)
+        if wfs.world.rank == 0:
+            for itsranks in allranks.reshape(-1, 4):
+                fd.write('r=%d k=%d b=%d d=%d\n' % tuple(itsranks))
+        fd.close()
 
 
 class StepTimer(Timer):
