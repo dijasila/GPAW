@@ -124,7 +124,6 @@ class G0W0(PairDensity):
         qd = self.qd
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
         Q = abs((qd.bzk_kc - q_c) % 1).sum(axis=1).argmin()
-        Q27 = abs((self.bzq27_qc - q_c)).sum(axis=1).argmin()
         q2_c = qd.bzk_kc[Q]
         s = qd.sym_k[Q]
         U_cc = qd.symmetry.op_scc[s]
@@ -138,65 +137,29 @@ class G0W0(PairDensity):
         assert np.allclose(shift_c.round(), shift_c)
         shift_c = shift_c.round().astype(int)
         
-        print('K1:', wfs.kd.bzk_kc[kpt1.K], 'K2:', wfs.kd.bzk_kc[kpt2.K])
-        #print(suiq_c,iq_c,q_c)
-        #print(U_cc.ravel(),sign)
-        
-        #iqd = KPointDescriptor([q2_c])
-        #ipd = PWDescriptor(self.ecut, wfs.gd, complex, iqd)
-        #qd0 = KPointDescriptor([suiq_c])
-        #pd0 = PWDescriptor(self.ecut, wfs.gd, complex, qd0)
         qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
-#        N_G = self.get_fft_indices(kpt2.K, kpt1.K, q2_c, pd,
         N0_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                    kpt2.shift_c - kpt1.shift_c)
-        print(q_c,q2_c,iq_c,Q,iq,shift_c,U_cc,sign)
-
         N_c = pd.gd.N_c
 
-
-        fd = open('W.q%d.n27.npy' % Q27)
-        assert (q_c == np.load(fd)).all()
-        N_c=np.load(fd)
-        N27_G=np.load(fd)
-        W27_wGG = [np.load(fd) for x in self.omega_w]
-        assert (N0_G==N27_G).all()
-        
-        fd = open('W.q%d.n8.npy' % iq)
+        fd = open('W.q{0}.{1}.npy'.format(iq, self.filename))
         assert (iq_c == np.load(fd)).all()
-        N_c=np.load(fd)
         N_G=np.load(fd)
         
-        if 0:
-            n_cG = np.unravel_index(N27_G, N_c)
-            N3_G = np.ravel_multi_index(sign * np.dot(U_cc.T, n_cG) -
-                                        shift_c[:,None],
-                                        N_c, 'wrap')
-            G_N = np.empty(N_c.prod(), int)
-            G_N[:] = -1
-            G_N[N_G] = np.arange(len(N_G))
-            G_G = G_N[N3_G]
-        else:
-            n_cG = np.unravel_index(N_G, N_c)
-            N3_G = np.ravel_multi_index(sign * np.dot(U_cc.T, n_cG) +
-                                        shift_c[:,None],
-                                        N_c, 'wrap')
-            G_N = np.empty(N_c.prod(), int)
-            G_N[:] = -1
-            G_N[N3_G] = np.arange(len(N_G))
-            G_G = G_N[N27_G]
-
-        print(Q,iq,Q27, G_G)
+        n_cG = np.unravel_index(N_G, N_c)
+        N3_G = np.ravel_multi_index(sign * np.dot(U_cc.T, n_cG) +
+                                    shift_c[:,None],
+                                    N_c, 'wrap')
+        G_N = np.empty(N_c.prod(), int)
+        G_N[:] = -1
+        G_N[N3_G] = np.arange(len(N_G))
+        G_G = G_N[N0_G]
         assert (G_G >= 0).all()
 
         W_wGG = [np.load(fd).take(G_G,0).take(G_G,1) for x in self.omega_w]
         
-        print(abs(W_wGG[7]-W27_wGG[7]).max())
-        assert abs(W_wGG[7]-W27_wGG[7]).max() < 1e-10
-        
         Q_aGii = self.initialize_paw_corrections(pd)
-        print (q_c,Q)
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
@@ -216,7 +179,8 @@ class G0W0(PairDensity):
         
         w = 0
         for omegap, domegap in zip(self.omega_w, self.domega_w):
-            W_GG = W_wGG[w];w+=1#np.load(fd).take(G_G, 0).take(G_G, 1)
+            W_GG = W_wGG[w]
+            w += 1
             x1_m = 1 / (deps_m + omegap + 2j * self.eta * (f_m - 0.5))
             x2_m = 1 / (deps_m - omegap + 2j * self.eta * (f_m - 0.5))
             x_m = x1_m + x2_m
@@ -261,8 +225,6 @@ class G0W0(PairDensity):
                 #chi0_wGG[:, 0] = 0.0
                 #chi0_wGG[:, :, 0] = 0.0
                 dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
-                dq3 = (2 * pi)**3 / (8 * self.vol)
-                print('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
                 qc = (dq3 / 4 / pi * 3)**(1 / 3)
                 G0inv = 2 * pi * qc**2 / dq3
                 G20inv = 4 * pi * qc / dq3
@@ -271,7 +233,6 @@ class G0W0(PairDensity):
             delta_GG = np.eye(len(iG_G))
             
             np.save(fd, q_c)
-            np.save(fd, pd.gd.N_c)
             np.save(fd, pd.Q_qG[0])
 
             for chi0_GG in chi0_wGG:
