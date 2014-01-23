@@ -67,8 +67,6 @@ class G0W0(PairDensity):
         assert -1 not in kd.bz2bz_ks
         offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
-        self.bzq27_qc = (np.indices((3,3,3)).transpose((1, 2, 3, 0)).reshape((-1, 3))-1)*0.5
-        #bzq_qc=self.bzq27_qc
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, self.calc.wfs.setups,
                              usesymm=self.calc.input_parameters.usesymm,
@@ -124,13 +122,11 @@ class G0W0(PairDensity):
         qd = self.qd
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
         Q = abs((qd.bzk_kc - q_c) % 1).sum(axis=1).argmin()
-        q2_c = qd.bzk_kc[Q]
         s = qd.sym_k[Q]
         U_cc = qd.symmetry.op_scc[s]
         time_reversal = qd.time_reversal_k[Q]
         iq = qd.bz2ibz_k[Q]
         iq_c = qd.ibzk_kc[iq]
-        
         sign = 1 - 2 * time_reversal
         suiq_c = sign * np.dot(U_cc, iq_c)
         shift_c = suiq_c - q_c
@@ -140,25 +136,26 @@ class G0W0(PairDensity):
         qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
         N0_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
-                                   kpt2.shift_c - kpt1.shift_c)
+                                    kpt1.shift_c - kpt2.shift_c)
         N_c = pd.gd.N_c
 
         fd = open('W.q{0}.{1}.npy'.format(iq, self.filename))
         assert (iq_c == np.load(fd)).all()
-        N_G=np.load(fd)
+        N_G = np.load(fd)
         
         n_cG = np.unravel_index(N_G, N_c)
-        N3_G = np.ravel_multi_index(sign * np.dot(U_cc.T, n_cG) +
-                                    shift_c[:,None],
-                                    N_c, 'wrap')
+        N3_G = np.ravel_multi_index(
+            sign * np.dot(U_cc, n_cG) +
+            (shift_c + kpt1.shift_c - kpt2.shift_c)[:, None],
+            N_c, 'wrap')
         G_N = np.empty(N_c.prod(), int)
         G_N[:] = -1
         G_N[N3_G] = np.arange(len(N_G))
         G_G = G_N[N0_G]
         assert (G_G >= 0).all()
 
-        W_wGG = [np.load(fd).take(G_G,0).take(G_G,1) for x in self.omega_w]
-        
+        W_wGG = [np.load(fd).take(G_G, 0).take(G_G, 1) for x in self.omega_w]
+
         Q_aGii = self.initialize_paw_corrections(pd)
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
@@ -177,10 +174,7 @@ class G0W0(PairDensity):
         sigma = 0.0
         dsigma = 0.0
         
-        w = 0
-        for omegap, domegap in zip(self.omega_w, self.domega_w):
-            W_GG = W_wGG[w]
-            w += 1
+        for W_GG, omegap, domegap in zip(W_wGG, self.omega_w, self.domega_w):
             x1_m = 1 / (deps_m + omegap + 2j * self.eta * (f_m - 0.5))
             x2_m = 1 / (deps_m - omegap + 2j * self.eta * (f_m - 0.5))
             x_m = x1_m + x2_m
