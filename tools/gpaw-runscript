@@ -393,7 +393,8 @@ unset CC CFLAGS LDFLAGS
         queue_pe_cores = {
             # queue    pe            min.cores
             'short' : ['openmpi_64', 64],
-            'medium': ['openmpi_8',   8]
+            'medium': ['openmpi_8',   8],
+            'long'  : ['openmpi', 1],
             }
         modules_to_load = []
         print >> f, '#!/bin/bash'
