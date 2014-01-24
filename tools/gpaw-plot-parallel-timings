@@ -6,13 +6,25 @@ import pylab as pl
 
 p = OptionParser(usage='%prog [OPTION] FILE...',
                  description='plot timings from gpaw parallel timer.  '
-                 'Typically one would run %prog timings.*.txt to plot '
+                 'The timer dumps a lot of files called "timings.<...>.txt".  '
+                 'This programme plots the contents of those files.  '
+                 'Typically one would run "%prog timings.*.txt" to plot '
                  'timings on all cores.  (Note: The plotting code is '
                  'rather hacky and ugly at the moment.)')
 p.add_option('--threshold', type=float, default=0.01, metavar='FRACTION',
              help='suppress entries of less than FRACTION of total CPU time.  '
              'Such entries are shown as black.  Default: %default')
+p.add_option('--ignore', metavar='TIMERS', default='',
+             help='comma-separated list of timer names to be ignored.')
+p.add_option('--noxcc', action='store_true',
+             help='add "XC correction" to --ignore.  XC Correction '
+             'is called once for every atom in each SCF step which clutters '
+             'the graph a lot.')
 opts, fnames = p.parse_args()
+
+ignored_timers = set(opts.ignore.split(','))
+if opts.noxcc:
+    ignored_timers.add('XC Correction')
 
 fnames.sort()
 
@@ -101,7 +113,7 @@ alltimings = []
 metadata = None
     
 for rank, fname in enumerate(fnames):
-    if fname == 'timings.metadata.txt':
+    if fname.endswith('timings.metadata.txt'):
         assert metadata is None
         metadata = [line.strip() for line in open(fname)]
     else:
@@ -111,7 +123,7 @@ if len(alltimings) == 0:
     p.error('no timings found')
 
 if metadata is None:
-    metadata = range(len(names))
+    metadata = map(str, range(len(alltimings)))
 
 entries = EntryCollection(alltimings)
 
@@ -129,18 +141,21 @@ nameax.set_xticks([])
 styles = {}
 
 
-for rank, rootnode in enumerate(alltimings):
-    thecolors = 'bgrcmy'
-    thehatches = ['', '//', r'\\', '.', 'o', '*']
-    def getstyle(i):
-        return thecolors[i % len(thecolors)], thehatches[i // len(thecolors)]
+thecolors = 'bgrcmy'
+thehatches = ['', '//', '.', 'o', '*', r'\\']
+def getstyle(i):
+    return thecolors[i % len(thecolors)], thehatches[i // len(thecolors)]
 
+for rank, rootnode in enumerate(alltimings):
     nstyles_used = 0
 
     for child in rootnode.iterate():
+        if child.name in ignored_timers:
+            continue
         if child.name not in styles:
             if entries.totals[child.name] < opts.threshold:
-                color, hatch = ('k', '')
+                #color, hatch = ('k', '')
+                continue
             else:
                 color, hatch = getstyle(nstyles_used)
                 nstyles_used += 1
