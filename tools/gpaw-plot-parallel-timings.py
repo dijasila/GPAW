@@ -9,6 +9,9 @@ p = OptionParser(usage='%prog [OPTION] FILE...',
                  'Typically one would run %prog timings.*.txt to plot '
                  'timings on all cores.  (Note: The plotting code is '
                  'rather hacky and ugly at the moment.)')
+p.add_option('--threshold', type=float, default=0.01, metavar='FRACTION',
+             help='suppress entries of less than FRACTION of total CPU time.  '
+             'Such entries are shown as black.  Default: %default')
 opts, fnames = p.parse_args()
 
 fnames.sort()
@@ -136,7 +139,7 @@ for rank, rootnode in enumerate(alltimings):
 
     for child in rootnode.iterate():
         if child.name not in styles:
-            if entries.totals[child.name] < 0.01:
+            if entries.totals[child.name] < opts.threshold:
                 color, hatch = ('k', '')
             else:
                 color, hatch = getstyle(nstyles_used)
