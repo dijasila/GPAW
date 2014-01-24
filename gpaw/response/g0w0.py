@@ -120,8 +120,14 @@ class G0W0(PairDensity):
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
         qd = self.qd
+        
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
-        Q = abs((qd.bzk_kc - q_c) % 1).sum(axis=1).argmin()
+        
+        # Find index of q-vector:
+        d_Qc = ((qd.bzk_kc - q_c) * qd.N_c).round() % qd.N_c
+        Q = abs(d_Qc).sum(axis=1).argmin()
+
+        # Find symmetry related q-vector in IBZ:
         s = qd.sym_k[Q]
         U_cc = qd.symmetry.op_scc[s]
         time_reversal = qd.time_reversal_k[Q]
@@ -130,6 +136,7 @@ class G0W0(PairDensity):
         sign = 1 - 2 * time_reversal
         suiq_c = sign * np.dot(U_cc, iq_c)
         shift_c = suiq_c - q_c
+
         assert np.allclose(shift_c.round(), shift_c)
         shift_c = shift_c.round().astype(int)
         
@@ -139,6 +146,7 @@ class G0W0(PairDensity):
                                     kpt1.shift_c - kpt2.shift_c)
         N_c = pd.gd.N_c
 
+        # Read W and transform from IBZ to BZ:
         fd = open('W.q{0}.{1}.npy'.format(iq, self.filename))
         assert (iq_c == np.load(fd)).all()
         N_G = np.load(fd)
