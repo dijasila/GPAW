@@ -20,7 +20,7 @@ class G0W0(PairDensity):
     def __init__(self, calc, filename='gw',
                  kpts=None, bands=None, nbands=None, ppa=False, hilbert=False,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
-                 domega=0.025, omegamax=100,
+                 domega0=0.025, omegamax=100, alpha=3.0,
                  world=mpi.world, txt=sys.stdout):
     
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt)
@@ -33,8 +33,9 @@ class G0W0(PairDensity):
         self.hilbert = hilbert
         self.eta = eta / Hartree
         self.E0 = E0 / Hartree
-        self.domega = domega / Hartree
-        self.omegamax = omegamax / Hartree
+        self.domega0 = domega0 / Hartree
+        self.omegamax = omegamax if omegamax is None else omegamax / Hartree
+        self.alpha = alpha
         
         if kpts is None:
             kpts = range(self.calc.wfs.kd.nibzkpts)
@@ -72,18 +73,12 @@ class G0W0(PairDensity):
                              usesymm=self.calc.input_parameters.usesymm,
                              N_c=self.calc.wfs.gd.N_c)
         
-    def initialize_frequencies(self, domega=0.05):
-        domega /= Hartree
-        epsmin = 10000.0
-        epsmax = -10000.0
+    def initialize_frequencies(self):
+        self.epsmin = 10000.0
+        self.epsmax = -10000.0
         for kpt in self.calc.wfs.kpt_u:
-            epsmin = min(epsmin, kpt.eps_n[0])
-            epsmax = max(epsmax, kpt.eps_n[self.nbands - 1])
-        
-        self.omega_w = np.linspace(0, self.omegamax,
-                                   round(self.omegamax / self.domega) + 1)
-        self.domega_w = np.ones_like(self.omega_w) * self.domega
-        self.domega_w[0] *= 0.5
+            self.epsmin = min(self.epsmin, kpt.eps_n[0])
+            self.epsmax = max(self.epsmax, kpt.eps_n[self.nbands - 1])
             
         print('Minimum eigenvalue: %10.3f eV' % (epsmin * Hartree),
               file=self.fd)
@@ -206,7 +201,9 @@ class G0W0(PairDensity):
                 print('Calulating screened Coulomb potential:', file=self.fd)
                 # Chi_0 calculator:
                 chi0 = Chi0(self.calc,
-                            self.omega_w * Hartree,
+                            self.domega0 * Hartree,
+                            (self.epsmax - self.epsmin) * Hartree,
+                            self.alpha,
                             ecut=self.ecut * Hartree,
                             eta=self.eta * Hartree,
                             timeordered=True,

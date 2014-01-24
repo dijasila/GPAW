@@ -6,14 +6,16 @@ import numpy as np
 from ase.units import Hartree
 
 import gpaw.mpi as mpi
-from gpaw.utilities.blas import gemm, rk
+from gpaw.utilities.blas import gemm, rk, czher
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 
 
 class Chi0(PairDensity):
-    def __init__(self, calc, frequencies, ecut=50, hilbert=False,
+    def __init__(self, calc,
+                 frequencies=None, domega0=0.1, omegamax=None, alpha=3.0,
+                 ecut=50, hilbert=False,
                  timeordered=False, eta=0.2, ftol=1e-6,
                  real_space_derivatives=False,
                  world=mpi.world, txt=sys.stdout):
@@ -21,8 +23,20 @@ class Chi0(PairDensity):
                              real_space_derivatives, world, txt)
 
         eta /= Hartree
-
-        self.omega_w = omega_w = np.asarray(frequencies) / Hartree
+        domega0 /= Hartree
+        omegamax = (omegamax or ecut) / Hartree
+        
+        if frequencies is None:
+            wmax = int(omegamax / domega0 / (1 + alpha)) + 1
+            w = np.arange(wmax)
+            self.omega_w = w * domega0 / (1 - alpha * domega0 / omegamax * w)
+            self.domega0 = domega0
+            self.omegamax = omegamax
+            self.alpha = alpha
+            print(wmax)
+        else:
+            self.omega_w = np.asarray(frequencies) / Hartree
+        
         self.hilbert = hilbert
         self.timeordered = bool(timeordered)
         self.eta = eta
@@ -32,9 +46,9 @@ class Chi0(PairDensity):
             assert not timeordered
             assert not omega_w.real.any()
 
+        # Occupied states:
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
         self.distribute_k_points_and_bands(self.nocc2)
-
         self.mykpts = [self.get_k_point(s, K, n1, n2)
                        for s, K, n1, n2 in self.mysKn1n2]
 
@@ -83,6 +97,7 @@ class Chi0(PairDensity):
         q_c = pd.kd.bzk_kc[0]
         optical_limit = not q_c.any()
         
+        # kpt1 occupied and kpt2 empty:
         for kpt1 in self.mykpts:
             if not kpt1.s in spins:
                 continue
@@ -121,7 +136,7 @@ class Chi0(PairDensity):
                 chi0_GG[iu] = chi0_GG[il].conj()
 
         elif self.hilbert:
-            for G in range(nG):
+            if 0:#for G in range(nG):
                 chi0_wGG[:, :, G] = np.dot(A_ww, chi0_wGG[:, :, G])
 
         return pd, chi0_wGG, chi0_wxvG
@@ -142,16 +157,18 @@ class Chi0(PairDensity):
             rk(-self.prefactor, nx_mG, 1.0, chi0_wGG[w], 'n')
 
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
-        for omega, df, n_G in zip(deps_m, df_m, n_mG):
-            w = 1
-            while omega < self.omega_w[w]:
-                w += 1
-
-            o1, o2, o3 = self.omega_w[w - 1:w + 2]
-            x_21 = df * np.array([[(o2 - omega) / (o2 - o1)],
-                                  [(omega - o2) / (o3 - o2)]])
-            x_2G = n_G * x_21**0.5
-            rk(self.prefactor, x_2G, 1.0, chi0_wGG[iw:iw + 2])
+        for deps, df, n_G in zip(deps_m, df_m, n_mG):
+            if df <= 0:
+                continue
+            o = -deps
+            w = int(o / self.domega0 / (1 + self.alpha * o / self.omegamax))
+            if w + 2 > len(self.omega_w):
+                break
+            o1, o2 = self.omega_w[w:w + 2]
+            assert o1 < o < o2, (o1,o,o2)
+            p = self.prefactor * df / (o2 - o1)**2
+            czher(p * (o2 - o), n_G, chi0_wGG[w])
+            czher(p * (o - o1), n_G, chi0_wGG[w + 1])
 
     def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG,
                              chi0_wxvG):
