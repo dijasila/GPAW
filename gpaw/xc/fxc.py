@@ -128,6 +128,7 @@ class FXCCorrelation(RPACorrelation):
             fv = r.get('fhxc_sGsG')
             if cut_G is not None:
                 cut_sG = np.tile(cut_G, ns)
+                cut_sG[len(cut_G):] += len(fv) / ns
                 fv = fv.take(cut_sG, 0).take(cut_sG, 1)
             for s1 in range(ns):
                 for s2 in range(ns):

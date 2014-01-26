@@ -234,6 +234,8 @@ class RPACorrelation:
                  file=self.fd)
         prnt(file=self.fd)
 
+        self.energy_qi = [] # Important if another calculation is performed
+
         if len(e_i) > 1:
             self.extrapolate(e_i)
 

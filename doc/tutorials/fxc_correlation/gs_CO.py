@@ -36,7 +36,7 @@ calc = GPAW(mode=PW(600),
             xc='PBE',
             mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),
             hund=True,
-            #txt='C.txt',
+            txt='C.txt',
             convergence={'density': 1.e-6})
 
 C.set_calculator(calc)
