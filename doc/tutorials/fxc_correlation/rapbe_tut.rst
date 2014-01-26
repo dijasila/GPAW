@@ -27,11 +27,11 @@ Below we give examples on how to calculate the correlation energy of a Hydrogen 
 Example 1: Correlation energy of the Hydrogen atom
 ==============================================
 
-As a first demonstration of the deficiencies of RPA, we calculate the correlation energy of a Hydrogen atom. This exact correlation energy should vanish for any one-electron system. The calculations can be performed with the script
+As a first demonstration of the deficiencies of RPA, we calculate the correlation energy of a Hydrogen atom. The exact correlation energy should vanish for any one-electron system. The calculations can be performed with the script
 
 .. literalinclude:: hydrogen.py
 
-which also give the LDA and PBE correlation energies. The script takes on the order of one hour, but the computationally heavy RPA/rALDA/rAPBE can be parallelized efficiently on multiple CPUs. Note that a rather small unit cell is used and the results may not be completely converged with respect to cutoff and unit cell. Also note that the correlation energy is calculated at different cutoff energies up to 300 eV and the values based on two-point extrapolation is printed at the end (see :ref:`rpa_tut` :ref:`rpa` for a discussion on extrapolation). The results in eV are summarized below.
+which also give the LDA and PBE correlation energies. The script takes on the order of one hour, but the computationally heavy RPA/rALDA/rAPBE parts can be parallelized efficiently on multiple CPUs. Note that a rather small unit cell is used and the results may not be completely converged with respect to cutoff and unit cell. Also note that the correlation energy is calculated at different cutoff energies up to 300 eV and the values based on two-point extrapolation is printed at the end (see :ref:`rpa_tut` :ref:`rpa` for a discussion on extrapolation). The results in eV are summarized below.
 
 =====   =======   ======
  LDA    RPA       rALDA 
@@ -45,12 +45,12 @@ PBE     RPA        rAPBE
 -0.16    -0.55     -0.007
 =====   =======    ======
 
-The fact that RPA gives such a dramatic underestimation of the correlation energy is a general problem with the method, which is also seen for bulk systems. For example, for the homogeneous electron gas RPA underestimates the correlation energy by ~0.5 eV per electron for a wide range of densities [#Olsen1]_.
+The fact that RPA gives such a dramatic underestimation of the correlation energy is a general problem with the method, which is also seen for bulk systems. For example, for the homogeneous electron gas RPA underestimates the correlation energy by ~0.5 eV per electron for a wide range of densities [#Olsen1]_. 
  
 Example 2: Atomization energy of CO
 ===================================
 
-Although RPA severely underestimates absolute correlation energies in general, energy differences are often of decent quality due to extended error cancellation. Typically RPA tends to underbind and performs slightly worse than PBE. The following example shows that rAPBE not only corrects the absolute correlation energies, but also performs better than RPA for atomization energies.
+Although RPA severely underestimates absolute correlation energies in general, energy differences are often of decent quality due to extended error cancellation. Nevertheless, RPA tends to underbind and performs slightly worse than PBE for atomization energies of molecules. The following example shows that rAPBE not only corrects the absolute correlation energies, but also performs better than RPA for atomization energies.
 
 First we set up a ground state calculation with lots of unoccupied bands. This is done with the script:
 
@@ -60,7 +60,7 @@ which takes on the order of 6-7 CPU hours. The script generates CO.gpw, C.gpw an
 
 .. literalinclude:: rapbe_CO.py
 
-The results for various cutoffs are written to the files rpa_CO.dat and rapbe_CO.dat. We also print the correlation nergies of the C atom to be used in a tutorial below. As in the case of RPA the converged result is obtained by extrapolation using the script 
+The results for various cutoffs are written to the files rpa_CO.dat and rapbe_CO.dat. We also print the correlation energies of the C atom to be used in a tutorial below. As in the case of RPA the converged result is obtained by extrapolation using the script 
 
 .. literalinclude:: extrapolate.py
 
@@ -69,7 +69,7 @@ If pylab is installed, the plot=False can be change to plot=True to visualize th
 ======   =====   =====   ======       ============
 PBE      HF      RPA     rAPBE        Experimental
 ======   =====   =====   ======       ============
-11.71	 7.36    10.49    11.27	  	11.23
+11.71	 7.36    10.60    11.31	  	11.23
 ======   =====   =====   ======       ============
 
 Example 3: Cohesive energy of diamond
@@ -91,7 +91,7 @@ The results are summarized below
 ====   ====   ====   ======       ============
 PBE     HF     RPA    rAPBE       Experimental
 ====   ====   ====   ======       ============
-7.75   5.17   7.00     7.60	  	7.55
+7.75   5.17   7.04     7.61	  	7.55
 ====   ====   ====   ======       ============
 
 
