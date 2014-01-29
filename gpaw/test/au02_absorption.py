@@ -16,6 +16,7 @@ if GS:
     cluster.center()
     #view(cluster)    
     calc=GPAW(xc='RPBE',
+              nbands=30,
               h=0.15,
               mode='lcao',
               basis='dzp',

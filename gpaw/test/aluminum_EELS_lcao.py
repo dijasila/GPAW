@@ -23,6 +23,7 @@ atoms = bulk('Al', 'fcc', a=a)
 atoms.center()
 calc = GPAW(h=0.2,
             kpts=(4,4,4),
+            nbands=13,
             mode='lcao',
             basis='dzp',
             xc='LDA')

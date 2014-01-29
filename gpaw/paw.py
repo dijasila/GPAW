@@ -456,9 +456,13 @@ class PAW(PAWTextOutput):
         if nbands is None:
             nbands = 0
             for setup in setups:
-                nbands += max(sum([2 * l + 1 for l in setup.l_j]),
-                              -(-setup.Nv // 2))
+                nbands_from_atom = setup.get_default_nbands()
+                
+                # Any obscure setup errors?
+                assert nbands_from_atom >= -(-setup.Nv // 2)
+                nbands += nbands_from_atom
             nbands = min(nao, nbands)
+            print 'NBANDS', nbands
         elif nbands > nao and mode == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: '
                              '%d bands and only %d atomic orbitals!' %
@@ -551,6 +555,16 @@ class PAW(PAWTextOutput):
             # because we allow negative numbers)
             self.nbands_parallelization_adjustment = -nbands % band_comm.size
             nbands += self.nbands_parallelization_adjustment
+
+            # I would like to give the following error message, but apparently
+            # there are cases, e.g. gpaw/test/gw_ppa.py, which involve
+            # nbands > nao and are supposed to work that way.
+            #if nbands > nao:
+            #    raise ValueError('Number of bands %d adjusted for band '
+            #                     'parallelization %d exceeds number of atomic '
+            #                     'orbitals %d.  This problem can be fixed '
+            #                     'by reducing the number of bands a bit.'
+            #                     % (nbands, band_comm.size, nao))
             bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
             if (self.density is not None and
