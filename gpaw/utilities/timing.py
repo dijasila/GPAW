@@ -202,7 +202,9 @@ class ParallelTimer(DebugTimer):
     Each rank writes to timings.<rank>.txt.  Also timings.metadata.txt
     will contain information about the parallelization layout.  The idea
     is that the output from this timer can be used for plots and to
-    determine bottlenecks in the parallelization."""
+    determine bottlenecks in the parallelization.
+
+    See the tool gpaw-plot-parallel-timings."""
     def __init__(self):
         ndigits = len(str(mpi.world.size - 1))
         ranktxt = '%0*d' % (ndigits, mpi.world.rank)
