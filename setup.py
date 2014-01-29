@@ -225,7 +225,8 @@ if hdf5:
 scripts = [join('tools', script)
            for script in ('gpaw-run', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
                           'gpaw-mpisim', 'gpaw-mapfile-bgp',
-                          'gpaw-mapfile-cray', 'gpaw-runscript')]
+                          'gpaw-mapfile-cray', 'gpaw-runscript',
+                          'gpaw-install-setups')]
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
