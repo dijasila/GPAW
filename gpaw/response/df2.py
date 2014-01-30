@@ -31,22 +31,22 @@ class DielectricFunction:
             name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
             if os.path.isfile(name):
                 try:
-                    pd, chi0_wGG, chi0_wxvG = pickle.load(open(name))
+                    pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(open(name))
                 except EOFError:
                     pass
                 else:
-                    return pd, chi0_wGG, chi0_wxvG
-        pd, chi0_wGG, chi0_wxvG = self.chi0.calculate(q_c)
+                    return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c)
 
         if self.name:
-            pickle.dump((pd, chi0_wGG, chi0_wxvG), open(name, 'wb'),
+            pickle.dump((pd, chi0_wGG, chi0_wxvG, chi0_wvv), open(name, 'wb'),
                         pickle.HIGHEST_PROTOCOL)
-        return pd, chi0_wGG, chi0_wxvG
+        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], direction='x',
                 wigner_seitz_truncation=False):
-        pd, chi0_wGG, chi0_wxvG = self.calculate_chi0(q_c)
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         G_G = pd.G2_qG[0]**0.5
         nG = len(G_G)
 
@@ -61,7 +61,7 @@ class DielectricFunction:
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[:, 0])
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[:, 1])
-            chi0_wGG[:, 0, 0] = np.dot(chi0_wxvG[:, 0, :, 0], d_v**2)
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv, d_v).T)
         
         G_G /= (4 * np.pi)**0.5
 
@@ -108,7 +108,7 @@ class DielectricFunction:
         to the head of the inverse dielectric matrix (inverse dielectric 
         function)
         """
-        pd, chi0_wGG, chi0_wxvG = self.calculate_chi0(q_c)
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         G_G = pd.G2_qG[0]**0.5
         nG = len(G_G)
 
@@ -124,8 +124,9 @@ class DielectricFunction:
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[:, 0])
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[:, 1])
-            chi0_wGG[:, 0, 0] = np.dot(chi0_wxvG[:, 0, :, 0], d_v**2)
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv, d_v).T)
 
+                    
         if wigner_seitz_truncation: 
             kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, 
                                                  self.chi0.calc.wfs.kd.N_c)
@@ -329,3 +330,4 @@ class DielectricFunction:
         prnt('Sum rule:', file=fd)
         nv = self.chi0.calc.wfs.nvalence
         prnt('N1 = %f, %f  %% error' %(N1, (N1 - nv) / nv * 100), file=fd)
+
