@@ -219,7 +219,7 @@ class PairDensity:
         shift_c = np.dot(U_cc, ik_c) - k_c * sign
         assert np.allclose(shift_c.round(), shift_c)
         shift_c = shift_c.round().astype(int)
-        
+
         if (U_cc == np.eye(3)).all():
             T = lambda f_R: f_R
         else:
@@ -232,7 +232,7 @@ class PairDensity:
             T0 = T
             T = lambda f_R: T0(f_R).conj()
             shift_c *= -1
-        
+
         a_a = []
         U_aii = []
         for a, id in enumerate(self.calc.wfs.setups.id_a):
@@ -286,26 +286,27 @@ class PairDensity:
         if self.ut_sKnvR is None:
             self.ut_sKnvR = self.calculate_derivatives()
             
-        ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]
-        
-        atomdata_a = self.calc.wfs.setups
-        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
-                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
-
-        n0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
-        for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
-            gemm(1.0, C_vi, P_mi, 1.0, n0_mv, 'c')
-
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
         k_c = kd.bzk_kc[kpt1.K]
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
+
+        ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]  
+      
+        atomdata_a = self.calc.wfs.setups
+        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
+                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
         
-        nt_m = self.calc.wfs.gd.integrate(kpt1.ut_nR[n], kpt2.ut_nR).T
+        n0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
+        nt_m = self.calc.wfs.gd.integrate(kpt1.ut_nR[n], kpt2.ut_nR)
         n0_mv += 1j * nt_m[:, np.newaxis] * k_v[np.newaxis, :]
+        
+        for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
+            gemm(1.0, C_vi, P_mi, 1.0, n0_mv, 'c')
 
         deps_m = deps_m.copy()
-        deps_m[deps_m > -1e-3] = np.inf
+        #deps_m[deps_m > -1e-3] = np.inf
+        deps_m[deps_m > -0.1/Hartree] = np.inf
         n0_mv *= 1j / deps_m[:, np.newaxis]
         n_mG[:, 0] = n0_mv[:, 0]
 
@@ -315,6 +316,11 @@ class PairDensity:
         if self.ut_sKnvR is None:
             self.ut_sKnvR = self.calculate_derivatives()
 
+        kd = self.calc.wfs.kd
+        gd = self.calc.wfs.gd
+        k_c = kd.bzk_kc[kpt1.K]
+        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
+
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]
 
         atomdata_a = self.calc.wfs.setups
@@ -322,16 +328,11 @@ class PairDensity:
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
         nabla0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
+        nt_m = self.calc.wfs.gd.integrate(kpt1.ut_nR[n], kpt2.ut_nR)
+        nabla0_mv += 1j * nt_m[:, np.newaxis] * k_v[np.newaxis, :]
+
         for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
             gemm(1.0, C_vi, P_mi, 1.0, nabla0_mv, 'c')
-
-        kd = self.calc.wfs.kd
-        gd = self.calc.wfs.gd
-        k_c = kd.bzk_kc[kpt1.K]
-        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
-
-        nt_m = self.calc.wfs.gd.integrate(kpt1.ut_nR[n], kpt2.ut_nR).T
-        nabla0_mv += 1j * nt_m[:, np.newaxis] * k_v[np.newaxis, :]
 
         return nabla0_mv
 
@@ -362,5 +363,5 @@ class PairDensity:
                         for v2 in range(3):
                             ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
             ut_sKnvR[s][K] = ut_nvR
-            
+
         return ut_sKnvR
