@@ -17,7 +17,7 @@ class Chi0(PairDensity):
                  frequencies=None, domega0=0.1, omegamax=None, alpha=3.0,
                  ecut=50, hilbert=False,
                  timeordered=False, eta=0.2, ftol=1e-6,
-                 real_space_derivatives=False,
+                 real_space_derivatives=True,
                  world=mpi.world, txt=sys.stdout):
         PairDensity.__init__(self, calc, ecut, ftol,
                              real_space_derivatives, world, txt)
@@ -54,7 +54,7 @@ class Chi0(PairDensity):
 
         wfs = self.calc.wfs
         self.prefactor = 2 / self.vol / wfs.kd.nbzkpts / wfs.nspins
-
+        
     def calculate(self, q_c, spin='all'):
         wfs = self.calc.wfs
 
@@ -74,17 +74,19 @@ class Chi0(PairDensity):
 
         if not q_c.any():
             chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
+            chi0_wvv = np.zeros((len(self.omega_w), 3, 3), complex)
         else:
             chi0_wxvG = None
+            chi0_wvv = None
 
         Q_aGii = self.initialize_paw_corrections(pd)
 
         # Do all empty bands:
         m1 = self.nocc1
         m2 = wfs.bd.nbands
-        return self._calculate(pd, chi0_wGG, chi0_wxvG, Q_aGii, m1, m2, spins)
+        return self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii, m1, m2, spins)
 
-    def _calculate(self, pd, chi0_wGG, chi0_wxvG, Q_aGii, m1, m2, spins):
+    def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii, m1, m2, spins):
         wfs = self.calc.wfs
 
         if self.eta == 0.0:
@@ -119,13 +121,14 @@ class Chi0(PairDensity):
                 df_m[df_m < 0] = 0.0
                 if optical_limit:
                     self.update_optical_limit(
-                        n, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG)
-                    #self.update_intraband(n, kpt1, kpt2, chi0_wxvG)
+                        n, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG, chi0_wvv)
+                    #self.update_intraband(n, kpt1, kpt2, chi0_wvv)
                 update(n_mG, deps_m, df_m, chi0_wGG)
 
         self.world.sum(chi0_wGG)
         if optical_limit:
             self.world.sum(chi0_wxvG)
+            self.world.sum(chi0_wvv)
 
         if self.eta == 0.0:
             # Fill in upper triangle also:
@@ -139,7 +142,7 @@ class Chi0(PairDensity):
             if 0:#for G in range(nG):
                 chi0_wGG[:, :, G] = np.dot(A_ww, chi0_wGG[:, :, G])
 
-        return pd, chi0_wGG, chi0_wxvG
+        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     def update(self, n_mG, deps_m, df_m, chi0_wGG):
         sign = 1 - 2 * self.timeordered
@@ -171,7 +174,7 @@ class Chi0(PairDensity):
             czher(p * (o - o1), n_G, chi0_wGG[w + 1])
 
     def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG,
-                             chi0_wxvG):
+                             chi0_wxvG, chi0_wvv):
         n0_mv = PairDensity.update_optical_limit(self, n, kpt1, kpt2,
                                                  deps_m, df_m, n_mG)
         sign = 1 - 2 * self.timeordered
@@ -180,22 +183,20 @@ class Chi0(PairDensity):
             x_m = (self.prefactor *
                    df_m * (1.0 / (omega + deps_m + 1j * self.eta) -
                            1.0 / (omega - deps_m + 1j * sign * self.eta)))
-            chi0_wxvG[w, :, :, 0] += np.dot(x_m, n0_mv * n0_mv.conj())
+            
+            chi0_wvv[w] += np.dot(x_m * n0_mv.T, n0_mv.conj())
             chi0_wxvG[w, 0, :, 1:] += np.dot(x_m * n0_mv.T, n_mG[:, 1:].conj())
             chi0_wxvG[w, 1, :, 1:] += np.dot(x_m * n0_mv.T.conj(), n_mG[:, 1:])
 
-    def update_intraband(self, n, kpt1, kpt2, chi0_wxvG):
+    def update_intraband(self, n, kpt1, kpt2, chi0_wvv):
         width = self.calc.occupations.width
         dfde_n = - 1. / width * (kpt1.f_n[n] - kpt1.f_n[n]**2.0)
 
         if np.abs(dfde_n) > 1e-3:
-            kd = self.calc.wfs.kd
-            gd = self.calc.wfs.gd            
             nabla0_mv = PairDensity.update_intraband(self, n, kpt1, kpt2)
-            k_c = kd.bzk_kc[kpt1.K]
-            k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)            
-            veln_v = k_v - 1j * nabla0_mv[kpt1.n1 + n - kpt2.n1]            
-            x = -self.prefactor * dfde_n * np.abs(veln_v)**2.0
+            veln_v = - 1j * nabla0_mv[kpt1.n1 + n - kpt2.n1]            
+            x_vv = -self.prefactor * dfde_n * np.outer(veln_v.conj(),veln_v)
+
             for w, omega in enumerate(self.omega_w):
-                chi0_wxvG[w, :, :, 0] += (x / ((omega + 1j * self.eta) *
-                                               (omega - 1j * self.eta)))
+                chi0_wvv[w, :, :] += (x_vv / ((omega + 1j * self.eta) *
+                                              (omega - 1j * self.eta)))
