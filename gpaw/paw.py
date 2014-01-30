@@ -462,7 +462,6 @@ class PAW(PAWTextOutput):
                 assert nbands_from_atom >= -(-setup.Nv // 2)
                 nbands += nbands_from_atom
             nbands = min(nao, nbands)
-            print 'NBANDS', nbands
         elif nbands > nao and mode == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: '
                              '%d bands and only %d atomic orbitals!' %
