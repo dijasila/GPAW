@@ -32,7 +32,7 @@ class KPoint:
 class PairDensity:
     def __init__(self, calc, ecut=50,
                  ftol=1e-6,
-                 real_space_derivatives=False,
+                 real_space_derivatives=not False,
                  world=mpi.world, txt=sys.stdout):
         if ecut is not None:
             ecut /= Hartree
@@ -288,7 +288,7 @@ class PairDensity:
             
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
-        k_c = kd.bzk_kc[kpt1.K]
+        k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]  
@@ -305,8 +305,7 @@ class PairDensity:
             gemm(1.0, C_vi, P_mi, 1.0, n0_mv, 'c')
 
         deps_m = deps_m.copy()
-        #deps_m[deps_m > -1e-3] = np.inf
-        deps_m[deps_m > -0.1/Hartree] = np.inf
+        deps_m[deps_m > -1e-3] = np.inf
         n0_mv *= 1j / deps_m[:, np.newaxis]
         n_mG[:, 0] = n0_mv[:, 0]
 
@@ -315,14 +314,14 @@ class PairDensity:
     def update_intraband(self, n, kpt1, kpt2):
         if self.ut_sKnvR is None:
             self.ut_sKnvR = self.calculate_derivatives()
-
+        
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
         k_c = kd.bzk_kc[kpt1.K]
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]
-
+        
         atomdata_a = self.calc.wfs.setups
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
@@ -363,5 +362,5 @@ class PairDensity:
                         for v2 in range(3):
                             ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
             ut_sKnvR[s][K] = ut_nvR
-
+            
         return ut_sKnvR
