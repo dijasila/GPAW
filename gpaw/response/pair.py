@@ -32,7 +32,7 @@ class KPoint:
 class PairDensity:
     def __init__(self, calc, ecut=50,
                  ftol=1e-6,
-                 real_space_derivatives=not False,
+                 real_space_derivatives=False,
                  world=mpi.world, txt=sys.stdout):
         if ecut is not None:
             ecut /= Hartree
