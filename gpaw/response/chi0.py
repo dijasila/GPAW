@@ -84,9 +84,11 @@ class Chi0(PairDensity):
         # Do all empty bands:
         m1 = self.nocc1
         m2 = wfs.bd.nbands
-        return self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii, m1, m2, spins)
+        return self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
+                               m1, m2, spins)
 
-    def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii, m1, m2, spins):
+    def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
+                   m1, m2, spins):
         wfs = self.calc.wfs
 
         if self.eta == 0.0:
@@ -139,7 +141,26 @@ class Chi0(PairDensity):
                 chi0_GG[iu] = chi0_GG[il].conj()
 
         elif self.hilbert:
-            if 0:#for G in range(nG):
+            nw = len(self.omega_w)
+            A_ww = np.zeros((nw, nw))
+            o_w = self.omega_w
+            do_w = o_w[1:] - o_w[:-1]
+            for w, o in enumerate(o_w):
+                d_w = o_w - o
+                x1_w = d_w[1:] / do_w
+                x2_w = d_w[:-1] / do_w
+                d_w[w] = 1.0
+                y_w = np.log(abs(d_w[1:] / d_w[:-1]))
+                A_ww[w, :-1] = x1_w * y_w
+                A_ww[w, 1:] -= x2_w * y_w
+                d_w = o_w + o
+                x1_w = d_w[1:] / do_w
+                x2_w = d_w[:-1] / do_w
+                d_w[0] = 1.0
+                y_w = np.log(abs(d_w[1:] / d_w[:-1]))
+                A_ww[w, :-1] += x1_w * y_w
+                A_ww[w, 1:] -= x2_w * y_w
+            for G in range(pd.ngmax):
                 chi0_wGG[:, :, G] = np.dot(A_ww, chi0_wGG[:, :, G])
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
