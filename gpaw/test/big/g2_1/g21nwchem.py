@@ -8,7 +8,7 @@ from ase.data.g2_1 import molecule_names, atom_names
 c = ase.db.connect('g2-1.db')
 
 for name in molecule_names + atom_names:
-    id = c.reserve(name=name)
+    id = c.reserve(name=name, calculator='nwchem')
     if id is None:
         continue
     atoms = molecule(name)
