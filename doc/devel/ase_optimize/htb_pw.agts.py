@@ -6,7 +6,7 @@ optimizers = [
     #'BFGSLineSearch',  # StrainFilter instance has no attribute 'copy'
     #'LBFGSLineSearch',  # hundreds of force evaluations
     #'SciPyFminCG',  # hundreds of force evaluations
-    'SciPyFminBFGS',
+    #'SciPyFminBFGS',  # scipy 0.12.0: hundreds of force evaluations
     'GoodOldQuasiNewton',
 ]
 

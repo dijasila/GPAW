@@ -109,7 +109,7 @@ PyObject* gemm(PyObject *self, PyObject *args)
       for (int i = 2; i < PyArray_NDIM(a); i++)
 	m *= PyArray_DIMS(a)[i];
       k = PyArray_DIMS(a)[0];
-      lda = MAX(1, m);
+      lda = MAX(1, PyArray_STRIDES(a)[0] / PyArray_STRIDES(a)[PyArray_NDIM(a) - 1]);
       ldb = MAX(1, PyArray_STRIDES(b)[0] / PyArray_STRIDES(b)[1]);
       ldc = MAX(1, PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[PyArray_NDIM(c) - 1]);
     }
@@ -162,7 +162,7 @@ PyObject* gemv(PyObject *self, PyObject *args)
       for (int i = 2; i < PyArray_NDIM(a); i++)
 	m *= PyArray_DIMS(a)[i];
       n = PyArray_DIMS(a)[0];
-      lda = m;
+      lda = MAX(1, m);
     }
   else
     {
@@ -170,7 +170,7 @@ PyObject* gemv(PyObject *self, PyObject *args)
       for (int i = 1; i < PyArray_NDIM(a)-1; i++)
 	n *= PyArray_DIMS(a)[i];
       m = PyArray_DIMS(a)[PyArray_NDIM(a)-1];
-      lda = m;
+      lda = MAX(1, m);
     }
 
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)

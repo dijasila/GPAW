@@ -14,12 +14,7 @@ from ase.io.trajectory import PickleTrajectory
 from ase.units import kcal, mol
 import numpy as np
 
-try:
-    import matplotlib
-    matplotlib.use('Agg')
-    import pylab as plt
-except ImportError:
-    pass
+import pylab as plt
 
 from gpaw import GPAW, restart, ConvergenceError
 from gpaw.testing.atomization_data import atomization_vasp, diatomic
@@ -82,7 +77,7 @@ def bondlengths(Ea, dE):
         
     plt.plot(B, E0, 'g.', label='reference')
     plt.legend(loc='lower right')
-    plt.xlabel(u'Bond length [Å]')
+    plt.xlabel('Bond length $\mathrm{\AA}$')
     plt.ylabel('Energy [eV]')
     plt.savefig('bondlengths.png')
 

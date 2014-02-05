@@ -142,6 +142,9 @@ class SetupData:
         else:
             text('  core   : %.1f' % self.Nc)
         text('  charge :', self.Z - self.Nv - self.Nc)
+        if setup.HubU is not None:
+            text('  Hubbard U: %f eV (l=%d)' % (setup.HubU * Hartree,
+                                                setup.Hubl))
         text('  file   :', self.filename)
         text(('  cutoffs: %4.2f(comp), %4.2f(filt), %4.2f(core),'
               ' lmax=%d' % (sqrt(10) * self.rcgauss * Bohr,
@@ -372,9 +375,9 @@ class SetupData:
 
         print >> xml, '</paw_setup>'
 
-    def build(self, xcfunc, lmax, basis):
+    def build(self, xcfunc, lmax, basis, filter=None):
         from gpaw.setup import Setup
-        setup = Setup(self, xcfunc, lmax, basis)
+        setup = Setup(self, xcfunc, lmax, basis, filter)
         return setup
 
 
@@ -541,8 +544,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
             self.data = []
         elif name == 'generator':
             setup.type = attrs['type']
-            setup.gamma = float(attrs.get('gamma', 0.0))
-            setup.h = float(attrs.get('h', 0.0))
+            setup.generator_version = attrs.get('version', 1)
         else:
             self.data = None
 

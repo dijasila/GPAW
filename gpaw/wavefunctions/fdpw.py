@@ -71,6 +71,9 @@ class FDPWWaveFunctions(WaveFunctions):
                                                        basis_functions,
                                                        density, hamiltonian,
                                                        spos_ac):
+        if self.initksl is None:
+            raise RuntimeError('use fewer bands or more basis functions')
+            
         self.timer.start('LCAO initialization')
         lcaoksl, lcaobd = self.initksl, self.initksl.bd
         lcaowfs = LCAOWaveFunctions(lcaoksl, self.gd, self.nvalence,

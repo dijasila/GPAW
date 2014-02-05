@@ -22,16 +22,17 @@ class AppelbaumHamann(BaseSetup):
         self.v1 = v1
         self.v2 = v2
         
-        self.natoms = 0
         self.E = 0.0
         self.Z = 14
         self.Nc = 10
         self.Nv = 4
-        self.niAO = None
+        self.nao = None
         nullspline = Spline(0, 0.5, [0., 0., 0.])
         self.pt_j = [nullspline]
         self.ni = 1
         self.l_j = [0]
+        self.f_j = [4]
+        self.n_j = [1]
         self.nct = nullspline
         self.Nct = 0.0
         rc = 4.0
@@ -60,7 +61,7 @@ class AppelbaumHamann(BaseSetup):
             basis = Basis('Si', basis)
         self.basis = basis
         self.phit_j = self.basis.tosplines()
-        self.niAO = self.basis.nao
+        self.nao = self.basis.nao
     
     def print_info(self, text):
         text('Appelbaum-Hamann pseudo potential')
@@ -72,3 +73,6 @@ class AppelbaumHamann(BaseSetup):
 
     def initialize_density_matrix(self, f_si):
         return np.zeros((len(f_si), 1))
+
+    def get_default_nbands(self):
+        return 3

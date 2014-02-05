@@ -35,7 +35,7 @@ static void lfc_dealloc(LFCObject *self)
 
 PyObject* calculate_potential_matrix(LFCObject *self, PyObject *args);
 PyObject* calculate_potential_matrices(LFCObject *self, PyObject *args);
-PyObject* integrate(LFCObject *self, PyObject *args);
+PyObject* lfcintegrate(LFCObject *self, PyObject *args);
 PyObject* derivative(LFCObject *self, PyObject *args);
 PyObject* normalized_derivative(LFCObject *self, PyObject *args);
 PyObject* construct_density(LFCObject *self, PyObject *args);
@@ -59,7 +59,7 @@ static PyMethodDef lfc_methods[] = {
     {"calculate_potential_matrices",
      (PyCFunction)calculate_potential_matrices, METH_VARARGS, 0},
     {"integrate",
-     (PyCFunction)integrate, METH_VARARGS, 0},
+     (PyCFunction)lfcintegrate, METH_VARARGS, 0},
     {"derivative",
      (PyCFunction)derivative, METH_VARARGS, 0},
     {"normalized_derivative",
@@ -98,8 +98,8 @@ static PyObject* lfc_getattr(PyObject *obj, char *name)
   return Py_FindMethod(lfc_methods, obj, name);
 }
 
-static PyTypeObject LFCType = {
-  PyObject_HEAD_INIT(&PyType_Type)
+PyTypeObject LFCType = {
+  PyObject_HEAD_INIT(NULL)
   0,
   "LocalizedFunctionsCollection",
   sizeof(LFCObject),
@@ -364,7 +364,7 @@ PyObject* calculate_potential_matrices(LFCObject *lfc, PyObject *args)
     Py_RETURN_NONE;
 }
 
-PyObject* integrate(LFCObject *lfc, PyObject *args)
+PyObject* lfcintegrate(LFCObject *lfc, PyObject *args)
 {
   PyArrayObject* a_xG_obj;
   PyArrayObject* c_xM_obj;

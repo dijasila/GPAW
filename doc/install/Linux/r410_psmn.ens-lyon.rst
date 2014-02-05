@@ -4,9 +4,9 @@
 r410 psmn.ens-lyon
 ==================
 
-Information about the machine `<https://www.psmn.ens-lyon.fr>`_.
+Information about the machine https://www.psmn.ens-lyon.fr.
 
-Instructions assume **cshrc**, installation under `${HOME}/softs`.
+Instructions assume **cshrc**, installation under *${HOME}/softs*.
 
 Enable the basic settings::
 

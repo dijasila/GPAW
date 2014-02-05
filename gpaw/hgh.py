@@ -26,7 +26,6 @@ class HGHSetup(BaseSetup):
     def __init__(self, data, basis):
         self.data = data
 
-        self.natoms = 0
         self.R_sii = None
         self.HubU = None
         self.lq = None
@@ -44,8 +43,8 @@ class HGHSetup(BaseSetup):
         self.pt_j = data.get_projectors()
         self.phit_j = basis.tosplines()
         self.basis = basis
-        self.niAO = sum([2 * phit.get_angular_momentum_number() + 1
-                         for phit in self.phit_j])
+        self.nao = sum([2 * phit.get_angular_momentum_number() + 1
+                        for phit in self.phit_j])
 
         self.Nct = 0.0
         self.nct = Spline(0, 1.0, [0., 0., 0.])
@@ -88,11 +87,12 @@ class HGHSetup(BaseSetup):
         self.N0_p = np.zeros(_np) # not really implemented
         self.nabla_iiv = None
         self.rnabla_iiv = None
+        self.rxp_iiv = None
         self.phicorehole_g = None
         self.rgd = data.rgd
         self.rcut_j = data.rcut_j
         self.tauct = None
-        self.Delta_Lii = None
+        self.Delta_iiL = None
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None
@@ -373,7 +373,7 @@ class HGHSetupData:
         n = len(self.vbar_g)
         return self.rgd.spline(self.vbar_g, self.rgd.r_g[n - 1])
 
-    def build(self, xcfunc, lmax, basis):
+    def build(self, xcfunc, lmax, basis, filter=None):
         if basis is None:
             basis = self.create_basis_functions()
         setup = HGHSetup(self, basis)

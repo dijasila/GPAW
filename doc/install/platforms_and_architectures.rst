@@ -44,6 +44,7 @@ Bull:
    :maxdepth: 1
 
    Bull/curie
+   Bull/curie_gpu
 
 Cray:
 
@@ -53,6 +54,7 @@ Cray:
    Cray/louhi
    Cray/jaguar
    Cray/sisu
+   Cray/hermit
 
 HP:
 

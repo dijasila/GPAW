@@ -369,11 +369,46 @@ class OmegaMatrix:
             timer.stop()
 ##            timer2.write()
             if ij < (nij-1):
-                t = timer.get_time(ij) # time for nij-ij calculations
-                t = .5*t*(nij-ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
                 print >> self.txt,'XC estimated time left',\
-                      self.timestring(t0*(nij-ij-1)+t)
+                    self.time_left(timer, t0, ij, nij)
 
+
+    def Coulomb_integral_kss(self, kss_ij, kss_kq, phit, rhot, 
+                             timer=None):
+        # smooth part
+        if timer: 
+            timer.start('integrate')
+        I = self.gd.integrate(rhot * phit)
+        if timer: 
+            timer.stop()
+            timer.start('integrate corrections 2')
+        
+        wfs = self.paw.wfs
+        Pij_ani = wfs.kpt_u[kss_ij.spin].P_ani
+        Pkq_ani = wfs.kpt_u[kss_kq.spin].P_ani
+
+        # Add atomic corrections
+        Ia = 0.0
+        for a, Pij_ni in Pij_ani.items():
+            Pi_i = Pij_ni[kss_ij.i]
+            Pj_i = Pij_ni[kss_ij.j]
+            Dij_ii = np.outer(Pi_i, Pj_i)
+            Dij_p = pack(Dij_ii)
+            Pk_i = Pkq_ani[a][kss_kq.i]
+            Pq_i = Pkq_ani[a][kss_kq.j]
+            Dkq_ii = np.outer(Pk_i, Pq_i)
+            Dkq_p = pack(Dkq_ii)
+            C_pp = wfs.setups[a].M_pp
+            #   ----
+            # 2 >      P   P  C    P  P
+            #   ----    ip  jr prst ks qt
+            #   prst
+            Ia += 2.0*np.dot(Dkq_p, np.dot(C_pp, Dij_p))
+        I += self.gd.comm.sum(Ia)
+        if timer: 
+            timer.stop()
+
+        return I
 
     def get_rpa(self):
         """calculate RPA part of the omega matrix"""
@@ -430,35 +465,11 @@ class OmegaMatrix:
                         finegrid is 2)
                     timer2.stop()
 
-                timer2.start('integrate')
-                pre = 2.*sqrt(kss[ij].get_energy()*kss[kq].get_energy()*
-                                  kss[ij].get_weight()*kss[kq].get_weight())
-                Om[ij,kq]= pre * self.gd.integrate(rhot*phit)
-##                print "int=",Om[ij,kq]
-                timer2.stop()
-
-                # Add atomic corrections
-                timer2.start('integrate corrections 2')
-                Ia = 0.
-                for a, P_ni in wfs.kpt_u[kss[ij].spin].P_ani.items():
-                    Pi_i = P_ni[kss[ij].i]
-                    Pj_i = P_ni[kss[ij].j]
-                    Dij_ii = np.outer(Pi_i, Pj_i)
-                    Dij_p = pack(Dij_ii)
-                    Pkq_ni = wfs.kpt_u[kss[kq].spin].P_ani[a]
-                    Pk_i = Pkq_ni[kss[kq].i]
-                    Pq_i = Pkq_ni[kss[kq].j]
-                    Dkq_ii = np.outer(Pk_i, Pq_i)
-                    Dkq_p = pack(Dkq_ii)
-                    C_pp = wfs.setups[a].M_pp
-                    #   ----
-                    # 2 >      P   P  C    P  P
-                    #   ----    ip  jr prst ks qt
-                    #   prst
-                    Ia += 2.0*np.dot(Dkq_p,np.dot(C_pp,Dij_p))
-                timer2.stop()
-                
-                Om[ij,kq] += pre * self.gd.comm.sum(Ia)
+                pre = 2 * sqrt(kss[ij].get_energy() * kss[kq].get_energy() *
+                               kss[ij].get_weight() * kss[kq].get_weight()  )
+                I = self.Coulomb_integral_kss(kss[ij], kss[kq],
+                                              rhot, phit, timer2)
+                Om[ij,kq] = pre * I
                     
                 if ij == kq:
                     Om[ij,kq] += kss[ij].get_energy()**2
@@ -522,6 +533,11 @@ class OmegaMatrix:
         st += '%d' % ti + 's'
         return st
 
+    def time_left(self, timer, t0, ij, nij):
+        t = timer.get_time(ij) # time for nij-ij calculations
+        t = .5 * t * (nij - ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
+        return self.timestring(t0 * (nij - ij - 1) + t)
+
     def get_map(self, istart=None, jend=None, energy_range=None):
         """Return the reduction map for the given requirements"""
 
@@ -569,8 +585,12 @@ class OmegaMatrix:
             
         return map, kss
 
-    def diagonalize(self, istart=None, jend=None, energy_range=None):
+    def diagonalize(self, istart=None, jend=None, energy_range=None,
+                    TDA=False):
         """Evaluate Eigenvectors and Eigenvalues:"""
+
+        if TDA:
+            raise NotImplementedError
 
         map, kss = self.get_map(istart, jend, energy_range)
         nij = len(kss)

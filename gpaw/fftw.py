@@ -1,8 +1,15 @@
 """Python wrapper for FFTW3 library."""
 
+import os
+
 import numpy as np
 
-fftwlibnames = ['libfftw3.so', 'libmkl_intel_lp64.so', 'libmkl_rt.so']
+if 'GPAW_FFTWSO' in os.environ:
+    fftwlibnames = [os.environ['GPAW_FFTWSO']]
+    if '' in fftwlibnames:
+        fftwlibnames.remove('')  # GPAW_FFTWSO='' for numpy fallback!
+else:
+    fftwlibnames = ['libfftw3.so', 'libmkl_intel_lp64.so', 'libmkl_rt.so']
 
 lib = None
 for libname in fftwlibnames:

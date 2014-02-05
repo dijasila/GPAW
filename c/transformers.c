@@ -208,8 +208,8 @@ static PyObject* Transformer_getattr(PyObject *obj, char *name)
     return Py_FindMethod(Transformer_Methods, obj, name);
 }
 
-static PyTypeObject TransformerType = {
-  PyObject_HEAD_INIT(&PyType_Type)
+PyTypeObject TransformerType = {
+  PyObject_HEAD_INIT(NULL)
   0,
   "Transformer",
   sizeof(TransformerObject),

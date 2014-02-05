@@ -5,7 +5,9 @@ import numpy as np
 from ase.structure import molecule
 from gpaw import GPAW
 
-np.set_printoptions(precision=3, suppress=1)
+# setting number of decimals globally makes numpy.test() tests
+# which use docstrings fail
+#np.set_printoptions(precision=3, suppress=1)
 
 system = molecule('H2')
 system.center(vacuum=2.5)

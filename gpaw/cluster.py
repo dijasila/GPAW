@@ -84,7 +84,7 @@ class Cluster(Atoms):
 
         return atoms
 
-    def minimal_box(self, border=0, h=None):
+    def minimal_box(self, border=0, h=None, multiple=4):
         """The box needed to fit the structure in.
 
         The structure is moved to fit into the box [(0,x),(0,y),(0,z)]
@@ -93,7 +93,7 @@ class Cluster(Atoms):
         around the structure.
 
         If h is set, the box is extended to ensure that box/h is 
-        a multiple of 4. 
+        a multiple of 'multiple'. 
         This ensures that GPAW uses the desired h.
 
         The shift applied to the structure is returned.
@@ -120,7 +120,7 @@ class Cluster(Atoms):
             for c in range(3):
                 # apply the same as in paw.py 
                 L = extr[1][c] # shifted already
-                N = np.ceil(L / h[c] / 4) * 4
+                N = np.ceil(L / h[c] / multiple) * multiple
                 # correct L
                 dL = N * h[c] - L
                 # move accordingly

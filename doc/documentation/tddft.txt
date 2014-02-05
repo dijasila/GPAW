@@ -14,3 +14,4 @@
 2012-05-14 10.1063/1.4712616 Enhanced charge transfer by phenyl groups at a rubrene/C-60 interface
 2012-10-18 10.1021/jz301261x Experimental and Theoretical Determination of the Optical Gap of the Au-144(SC2H4Ph)(60) Cluster and the (Au/Ag)(144)(SC2H4Ph)(60) Nanoalloys
 2013-01-15 10.1016/j.cpc.2012.08.001 Large nonadiabatic quantum molecular dynamics simulations on parallel computers
+2013-01-30 10.1103/PhysRevB.87.045428 Stratified graphene/noble metal systems for low-loss plasmonics applications

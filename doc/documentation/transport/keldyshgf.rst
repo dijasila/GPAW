@@ -1,7 +1,5 @@
 .. _keldyshgf:
 
-.. default-role:: math
-
 =======================
 Keldysh Green functions
 =======================
@@ -130,5 +128,3 @@ Saving calculated data to a NetCDFFile
 The GF method ``WriteSpectralInfoToNetCDFFile`` is used to save all
 the calculated data such as spectral functions, transmission function etc.
 to a NetCDFFile. 
-
-.. default-role::

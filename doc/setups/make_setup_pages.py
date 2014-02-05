@@ -21,7 +21,6 @@ from gpaw.atom.configurations import parameters
 
 page = """.. Computer generated reST (make_setup_pages.py)
 .. index:: %(name)s
-.. default-role:: math
 .. _%(name)s:
 
 ================
@@ -87,7 +86,6 @@ Wave functions, projectors, ...
 
 Back to :ref:`setups`.
 
-.. default-role::
 
 """
 

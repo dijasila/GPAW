@@ -4,7 +4,6 @@
 Molecule tests
 ==============
 
-.. default-role:: math
 
 **Warning**: this page is outdated.
 For performance of GPAW for molecular systems refer to :ref:`g2_1`.
@@ -58,6 +57,3 @@ References
        Y. Zhang and W. Yang, Phys. Rev. Lett.
 
 .. [4] Reply to [3]_, J. P. Perdew, K. Burke and M. Ernzerhof
-
-
-.. default-role:: math

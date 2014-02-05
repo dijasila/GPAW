@@ -1,6 +1,6 @@
 import numpy as np
 from ase import Atom, Atoms
-from ase.structure import bulk
+from ase.lattice import bulk
 from ase.units import Hartree, Bohr
 from gpaw import GPAW, FermiDirac
 from gpaw.response.bse import BSE
@@ -64,7 +64,7 @@ if check_spectrum:
         print d[Nw1], d[Nw2]
         raise ValueError('Please check spectrum strength ! ')
 
-    d2 = np.loadtxt('C.dat')
+    d2 = np.loadtxt('C.dat.x')
     print np.abs(d - d2[:200, 4]).sum()
     if np.abs(d - d2[:200, 4]).sum() > 1e-3:
         raise ValueError('Please compare two spectrum')

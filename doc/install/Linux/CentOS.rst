@@ -4,8 +4,7 @@
 CentOS
 ======
 
-Here you find information about the the system
-`<http://www.centos.org/>`_.
+Here you find information about the the system http://www.centos.org/.
 
 .. _PGO_gcc_EL5:
 
@@ -26,11 +25,13 @@ to compile GPAW with gcc version **4.3.0** on CentOS 5.3:
 
     mpilinker = mpicompiler+' '+opt_string
 
-- build GPAW's :ref:`c_extension` as described at :ref:`developer_installation`.
-  This will create `*.gcno` files in the `./build/temp.<platform>-<python-version>/c/` directory.
+- build GPAW's :ref:`c_extension` as described at
+  :ref:`developer_installation`.  This will create ``*.gcno`` files in
+  the :file:`./build/temp.<platform>-<python-version>/c/` directory.
 
-- perform a test run using :file:`gpaw-python`.
-  This will create `*.gcda` files in the `./build/temp.<platform>-python-version/c/` directory.
+- perform a test run using :file:`gpaw-python`.  This will create
+  ``*.gcda`` files in the :file:`./build/temp.<platform>-python-version/c/`
+  directory.
 
 - remove object files and :file:`_gpaw.so` (example for **linux-i686** platform, python **2.4**)::
 
@@ -42,6 +43,7 @@ to compile GPAW with gcc version **4.3.0** on CentOS 5.3:
     opt_string = '-fprofile-use'
 
   and rebuild GPAW's :ref:`c_extension`.
+
 
 System wide installation with yum
 =================================

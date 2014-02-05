@@ -204,8 +204,12 @@ class LCAOWaveFunctions(WaveFunctions):
             # Although that requires knowing C_Mn and not C_nM.
             # that also conforms better to the usual conventions in literature
             Cf_Mn = C_nM.T.conj() * f_n
+            self.timer.start('gemm')
             gemm(1.0, C_nM, Cf_Mn, 0.0, rho_MM, 'n')
+            self.timer.stop('gemm')
+            self.timer.start('band comm sum')
             self.bd.comm.sum(rho_MM)
+            self.timer.stop('band comm sum')
         else:
             # Alternative suggestion. Might be faster. Someone should test this
             from gpaw.utilities.blas import r2k
@@ -286,7 +290,7 @@ class LCAOWaveFunctions(WaveFunctions):
             def _slices(indices):
                 for a in indices:
                     M1 = bfs.M_a[a] - Mstart
-                    M2 = M1 + self.setups[a].niAO
+                    M2 = M1 + self.setups[a].nao
                     if M2 > 0:
                         yield a, max(0, M1), M2
 

@@ -15,7 +15,7 @@ UNIFORM = False# distribute grid points uniformly
 class Domain:
     """Domain class.
 
-    A ``Domain`` object (in `domain.py`) holds informaion on the unit
+    A ``Domain`` object (in domain.py) holds informaion on the unit
     cell and the boundary conditions"""
 
     def __init__(self, cell, pbc, comm, parsize, N_c):
@@ -105,6 +105,7 @@ class Domain:
 
     def get_rank_from_position(self, spos_c):
         """Calculate rank of domain containing scaled position."""
+        spos_c = np.asarray(spos_c) % 1
         # XXX just return self.get_ranks_from_positions(spos_c)
         rnk_c = np.floor(spos_c * self.parsize_c).astype(int)
         assert (rnk_c >= 0).all() and (rnk_c < self.parsize_c).all()

@@ -22,6 +22,13 @@ class ApmB(OmegaMatrix):
 
     def get_full(self):
 
+        hybrid = ((self.xc is not None) and
+                  hasattr(self.xc, 'hybrid') and
+                  (self.xc.hybrid > 0.0))
+        if self.fullkss.npspins < 2 and hybrid:
+            raise RuntimeError('Does not work spin-unpolarized ' +
+                               'with hybrids (use nspins=2)')
+
         self.paw.timer.start('ApmB RPA')
         self.ApB = self.Om
         self.AmB = self.get_rpa()
@@ -31,7 +38,7 @@ class ApmB(OmegaMatrix):
             self.paw.timer.start('ApmB XC')
             self.get_xc() # inherited from OmegaMatrix
             self.paw.timer.stop()
-        
+
     def get_rpa(self):
         """Calculate RPA and Hartree-fock part of the A+-B matrices."""
 
@@ -96,7 +103,7 @@ class ApmB(OmegaMatrix):
                                                       kss[kq].i, kss[kq].j,
                                                       kss[ij].spin         )
                     integrals[name] = I
-                ApB[ij,kq]= pre * I
+                ApB[ij, kq]= pre * I
                 timer2.stop()
                 
                 if ij == kq:
@@ -107,33 +114,41 @@ class ApmB(OmegaMatrix):
             timer.stop()
 ##            timer2.write()
             if ij < (nij - 1):
-                t = timer.get_time(ij) # time for nij-ij calculations
-                t = .5*t*(nij-ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
                 print >> self.txt,'RPAhyb estimated time left',\
-                      self.timestring(t0*(nij-ij-1)+t)
+                      self.time_left(timer, t0, ij, nij)
 
         # add HF parts and apply symmetry
-        timer.start('RPA hyb HF part')
         if hasattr(self.xc, 'hybrid'):
             weight = self.xc.hybrid
         else:
             weight = 0.0
         for ij in range(nij):
+            print >> self.txt, 'HF kss[' + '%d' % ij + ']'
+            timer = Timer()
+            timer.start('init')
+            timer.stop()
+            t0 = timer.get_time('init')
+            timer.start(ij)
+
             i = kss[ij].i
             j = kss[ij].j
             s = kss[ij].spin
-            for kq in range(ij,nij):
+            for kq in range(ij, nij):
                 if kss[ij].pspin == kss[kq].pspin:
                     k = kss[kq].i
                     q = kss[kq].j
                     ikjq = self.Coulomb_integral_ijkq(i, k, j, q, s, integrals)
                     iqkj = self.Coulomb_integral_ijkq(i, q, k, j, s, integrals)
-                    ApB[ij,kq] -= weight * ( ikjq + iqkj )
-                    AmB[ij,kq] -= weight * ( ikjq - iqkj )
+                    ApB[ij, kq] -= weight * (ikjq + iqkj)
+                    AmB[ij, kq] -= weight * (ikjq - iqkj)
                 
                 ApB[kq,ij] = ApB[ij,kq]
                 AmB[kq,ij] = AmB[ij,kq]
-        timer.stop()
+
+            timer.stop()
+            if ij < (nij - 1):
+                print >> self.txt,'HF estimated time left',\
+                     self.time_left(timer, t0, ij, nij)
         
         return AmB
     
@@ -154,13 +169,12 @@ class ApmB(OmegaMatrix):
         name = self.Coulomb_integral_name(i, j, k, q, spin)
         if name in integrals:
             return integrals[name]
+
         # create the Kohn-Sham singles
         kss_ij = PairDensity(self.paw)
         kss_ij.initialize(self.paw.wfs.kpt_u[spin], i, j)
         kss_kq = PairDensity(self.paw)
         kss_kq.initialize(self.paw.wfs.kpt_u[spin], k, q)
-##         kss_ij = KSSingle(i, j, spin, spin, self.paw)
-##         kss_kq = KSSingle(k, q, spin, spin, self.paw)
 
         rhot_p = kss_ij.with_compensation_charges(
             self.finegrid is not 0)
@@ -180,35 +194,6 @@ class ApmB(OmegaMatrix):
                                                     phit, rhot)
         return integrals[name]
     
-    def Coulomb_integral_kss(self, kss_ij, kss_kq, phit, rhot):
-        # smooth part
-        I = self.gd.integrate(rhot * phit)
-        
-        wfs = self.paw.wfs
-        Pij_ani = wfs.kpt_u[kss_ij.spin].P_ani
-        Pkq_ani = wfs.kpt_u[kss_kq.spin].P_ani
-
-        # Add atomic corrections
-        Ia = 0.0
-        for a, Pij_ni in Pij_ani.items():
-            Pi_i = Pij_ni[kss_ij.i]
-            Pj_i = Pij_ni[kss_ij.j]
-            Dij_ii = np.outer(Pi_i, Pj_i)
-            Dij_p = pack(Dij_ii)
-            Pk_i = Pkq_ani[a][kss_kq.i]
-            Pq_i = Pkq_ani[a][kss_kq.j]
-            Dkq_ii = np.outer(Pk_i, Pq_i)
-            Dkq_p = pack(Dkq_ii)
-            C_pp = wfs.setups[a].M_pp
-            #   ----
-            # 2 >      P   P  C    P  P
-            #   ----    ip  jr prst ks qt
-            #   prst
-            Ia += 2.0*np.dot(Dkq_p, np.dot(C_pp, Dij_p))
-        I += self.gd.comm.sum(Ia)
-
-        return I
-
     def timestring(self,t):
         ti = int(t+.5)
         td = int(ti//86400)
@@ -227,41 +212,55 @@ class ApmB(OmegaMatrix):
         st+='%d'%ti+'s'
         return st
 
-    def diagonalize(self, istart=None, jend=None, energy_range=None):
-        """Evaluate Eigenvectors and Eigenvalues:"""
+    def map(self, istart=None, jend=None, energy_range=None):
+        """Map A+B, A-B matrices according to constraints."""
 
-        map, kss = self.get_map(istart, jend, energy_range)
-        nij = len(kss)
+        map, self.kss = self.get_map(istart, jend, energy_range)
         if map is None:
             ApB = self.ApB.copy()
             AmB = self.AmB.copy()
-            nij = len(kss)
         else:
+            nij = len(self.kss)
             ApB = np.empty((nij, nij))
             AmB = np.empty((nij, nij))
             for ij in range(nij):
                 for kq in range(nij):
-                    ApB[ij,kq] = self.ApB[map[ij],map[kq]]
-                    AmB[ij,kq] = self.AmB[map[ij],map[kq]]
+                    ApB[ij,kq] = self.ApB[map[ij], map[kq]]
+                    AmB[ij,kq] = self.AmB[map[ij], map[kq]]
 
-        # the occupation matrix
-        C = np.empty((nij,))
-        for ij in range(nij):
-            C[ij] = 1. / kss[ij].fij
+        return ApB, AmB
 
-        S = C * inv(AmB) * C
-        S = sqrt_matrix(inv(S).copy())
+    def diagonalize(self, istart=None, jend=None, energy_range=None,
+                    TDA=False):
+        """Evaluate Eigenvectors and Eigenvalues"""
 
-        # get Omega matrix
-        M = np.zeros(ApB.shape)
-        gemm(1.0, ApB, S, 0.0, M)
-        self.eigenvectors = np.zeros(ApB.shape)
-        gemm(1.0, S, M, 0.0, self.eigenvectors)
-        
-        self.eigenvalues = np.zeros((len(kss)))
-        self.kss = kss
-        diagonalize(self.eigenvectors, self.eigenvalues)
-        
+        ApB, AmB = self.map(istart, jend, energy_range)
+        nij = len(self.kss)
+
+        if TDA:
+            # Tamm-Dancoff approximation (B=0)
+            self.eigenvectors = 0.5 * (ApB + AmB)
+            eigenvalues = np.zeros((nij))
+            diagonalize(self.eigenvectors, eigenvalues)
+            self.eigenvalues = eigenvalues**2
+        else:
+            # the occupation matrix
+            C = np.empty((nij,))
+            for ij in range(nij):
+                C[ij] = 1. / self.kss[ij].fij
+
+            S = C * inv(AmB) * C
+            S = sqrt_matrix(inv(S).copy())
+
+            # get Omega matrix
+            M = np.zeros(ApB.shape)
+            gemm(1.0, ApB, S, 0.0, M)
+            self.eigenvectors = np.zeros(ApB.shape)
+            gemm(1.0, S, M, 0.0, self.eigenvectors)
+
+            self.eigenvalues = np.zeros((nij))
+            diagonalize(self.eigenvectors, self.eigenvalues)
+
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
         if mpi.rank == mpi.MASTER:

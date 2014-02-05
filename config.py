@@ -82,7 +82,9 @@ def get_system_config(define_macros, undef_macros,
     if import_numpy:
         import numpy
         include_dirs += [numpy.get_include()]
-    include_dirs += ['c/libxc']
+
+    # libxc
+    libraries += ['xc']
 
     machine = platform.uname()[4]
     if machine == 'sun4u':
@@ -116,6 +118,29 @@ def get_system_config(define_macros, undef_macros,
         #define_macros.append(('NO_C99_COMPLEX', '1'))
 
         msg += ['* Using SUN high performance library']
+
+    elif sys.platform.startswith('win'):
+
+        # We compile with mingw coming from pythonyx (32-bit)
+        # on the msys command line, e.g.:
+        # LIBRARY_PATH=/c/libxc/lib:/c/OpenBLAS/lib \
+        # C_INCLUDE_PATH=/c/libxc/include python setup.py build
+        if 'LIBRARY_PATH' in os.environ:
+            library_dirs += os.environ['LIBRARY_PATH'].split(os.path.pathsep)
+
+        extra_compile_args += ['-Wall', '-std=c99']
+
+        lib = ''
+        for ld in library_dirs:
+            # OpenBLAS (includes Lapack)
+            if os.path.exists(join(ld, 'libopenblas.a')):
+                lib = 'openblas'
+                directory = ld
+                break
+        if lib == 'openblas':
+             libraries += [lib, 'gfortran']
+        if lib:
+             msg +=  ['* Using %s library from %s' % (lib, directory)]
 
     elif sys.platform in ['aix5', 'aix6']:
 
@@ -379,16 +404,8 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     plat = distutils.util.get_platform() + '-' + sys.version[0:3]
 
     cfiles = glob('c/[a-zA-Z_]*.c') + ['c/bmgs/bmgs.c']
-    cfiles += glob('c/libxc/src/*.c')
+    cfiles += glob('c/xc/*.c')
 
-    cfiles2remove = ['c/libxc/src/test.c',
-                     'c/libxc/src/xc_f.c',
-                     'c/libxc/src/work_gga_x.c',
-                     'c/libxc/src/work_lda.c'
-                     ]
-
-    for c2r in glob('c/libxc/src/funcs_*.c'): cfiles2remove.append(c2r)
-    for c2r in cfiles2remove: cfiles.remove(c2r)
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
                'c/operators.c', 'c/transformers.c',
                'c/blacs.c', 'c/utilities.c', 'c/hdf5.c']

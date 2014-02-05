@@ -100,7 +100,6 @@ tests = [
     'poisson.py',
     'pw/lfc.py',
     'pw/reallfc.py',
-    'pw/moleculecg.py',
     'XC2.py',
     'multipoletest.py',
     'nabla.py',
@@ -108,6 +107,8 @@ tests = [
     'gauss_wave.py',
     'harmonic.py',
     'atoms_too_close.py',
+    'screened_poisson.py',
+    'yukawa_radial.py',
     'noncollinear/xcgrid3d.py',
     'vdwradii.py',
     'lcao_restart.py',
@@ -122,6 +123,7 @@ tests = [
     'xcatom.py',
     'maxrss.py',
     'proton.py',
+    'pw/moleculecg.py',
     'keep_htpsit.py',
     'pw/stresstest.py',
     'aeatom.py',
@@ -129,6 +131,9 @@ tests = [
     'lcao_density.py',
     'parallel/overlap.py',
     'restart.py',
+    # numpy/scipy tests fail randomly
+    #'numpy_test.py',
+    #'scipy_test.py',
     'gemv.py',
     'ylexpand.py',
     'potential.py',
@@ -152,6 +157,7 @@ tests = [
     'hydrogen.py',
     'fileio/file_reference.py',
     'fixdensity.py',
+    'nonlocalset.py',
     'bee1.py',
     'spinFe3plus.py',
     'pw/h.py',
@@ -168,7 +174,7 @@ tests = [
     'parallel/hamiltonian.py',
     'ah.py',
     'laplace.py',
-    'pw/mgo.py',
+    'pw/mgo_hybrids.py',
     'lcao_largecellforce.py',
     'restart2.py',
     'Cl_minus.py',
@@ -206,6 +212,7 @@ tests = [
     'h2o_xas_recursion.py',
     'diamond_eps.py',
     'gemm.py',
+    'excited_state.py',
     # > 20 sec tests start here
     'rpa_energy_Ni.py',
     'si.py',
@@ -231,6 +238,7 @@ tests = [
     'test_ibzqpt.py',
     'aedensity.py',
     'fd2lcao_restart.py',
+    #'graphene_EELS.py', disabled while work is in progress on response code
     'lcao_bsse.py',
     'pplda.py',
     'revPBE_Li.py',
@@ -246,6 +254,7 @@ tests = [
     'lrtddft.py',
     'dscf_lcao.py',
     'IP_oxygen.py',
+    'Al2_lrtddft.py',
     'rpa_energy_Si.py',
     '2Al.py',
     'jstm.py',
@@ -253,6 +262,7 @@ tests = [
     'be_nltd_ip.py',
     'si_xas.py',
     'atomize.py',
+    'chi0.py',
     'ralda_energy_H2.py',
     'ralda_energy_N2.py',
     'ralda_energy_Ni.py',
@@ -260,6 +270,7 @@ tests = [
     'restart_band_structure.py',
     'ne_disc.py',
     'exx_coarse.py',
+    'exx_unocc.py',
     'Hubbard_U_Zn.py',
     'muffintinpot.py',
     'diamond_gllb.py',
@@ -278,9 +289,10 @@ tests = [
     'lb94.py',
     '8Si.py',
     'td_na2.py',
+    'ehrenfest_nacl.py',
     'rpa_energy_N2.py',
     'beefvdw.py',
-    'mbeef.py',
+    #'mbeef.py',
     'wannierk.py',
     'rpa_energy_Na.py',
     'coreeig.py',
@@ -302,7 +314,7 @@ tests = [
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
     'bse_silicon.py',
-    'bse_MoS2_cut.py',    
+    'bse_MoS2_cut.py',
     'parallel/pblas.py',
     'parallel/scalapack.py',
     'parallel/scalapack_diag_simple.py',
@@ -324,6 +336,10 @@ tests = [
 
 exclude = []
 
+# not available on Windows
+if os.name in ['ce', 'nt']:
+    exclude += ['maxrss.py']
+
 if mpi.size > 1:
     exclude += ['maxrss.py',
                 'pes.py',
@@ -342,7 +358,11 @@ if mpi.size > 1:
                 'lcao_pair_and_coulomb.py',
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
-                'pw/davidson_pw.py']
+                'pw/davidson_pw.py',
+                # scipy.weave fails often in parallel due to
+                # ~/.python*_compiled
+                # https://github.com/scipy/scipy/issues/1895
+                'scipy_test.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']
@@ -386,6 +406,12 @@ if mpi.size != 8:
     exclude += ['parallel/lcao_parallel_kpt.py']
     exclude += ['parallel/fd_parallel_kpt.py']
 
+if sys.version_info < (2, 6):
+    exclude.append('transport.py')
+    
+if np.__version__ < '1.6.0':
+    exclude.append('chi0.py')
+    
 for test in exclude:
     if test in tests:
         tests.remove(test)
@@ -500,7 +526,7 @@ class TestRunner:
                 skip = True
             else:
                 failed = True
-        except:
+        except Exception:
             failed = True
 
         mpi.ibarrier(timeout=60.0)  # guard against parallel hangs

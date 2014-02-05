@@ -2,8 +2,6 @@
 Setting up an aluminium surface
 ===============================
 
-.. default-role:: math
-
 In this exercise, we build an Al(100) surface. For this
 surface, we calculate the surface energy and other properties.
 

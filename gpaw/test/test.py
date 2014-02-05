@@ -131,3 +131,6 @@ def run():
             os.system('rm -rf ' + tmpdir)
     hooks.update(old_hooks.items())
     return len(failed)
+
+if __name__ == '__main__':
+    run()

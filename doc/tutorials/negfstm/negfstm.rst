@@ -1,5 +1,4 @@
 .. _negfstm:
-.. default-role:: math
 
 =======================================
 STM-simulations using Green's functions

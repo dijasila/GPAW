@@ -25,8 +25,6 @@ Simple tasks
 * The :ref:`pawxml` needs to be extended to include MGGA quantities
   like the core kinetic energy density.
 
-* Evaluate the effect of using default RMMDIIS blocksize=10.
-
 * Write dipole moment to trajectory files.
 
 * "Broken symmetry": We need a better error message.  This happens
@@ -65,8 +63,6 @@ Larger projects
 * Update our copy of the libxc source code and integrate our MGGA changes.
 
 * Implement the HSE03 hybrid functional.
-
-* Calculate the stress tensor.
 
 
 Documentation

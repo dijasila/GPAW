@@ -1,8 +1,6 @@
 Symmetry
 ========
 
-.. default-role:: math
-
 Let `\mathbf A^T=(\mathbf a_0,\mathbf a_1, \mathbf a_2)`, where
 `\mathbf a_0`, `\mathbf a_1` and `\mathbf a_2` are the lattice vectors
 of the unit cell.

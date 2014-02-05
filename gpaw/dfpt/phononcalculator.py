@@ -331,7 +331,7 @@ class PhononCalculator:
         """
 
         if name is None:
-            self.name = 'phonon.' + self.atoms.get_name()
+            self.name = 'phonon.' + self.atoms.get_chemical_formula()
         else:
             self.name = name
         # self.name += '.nibzkpts_%i' % self.kd.nibzkpts

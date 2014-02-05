@@ -7,7 +7,7 @@ uranus
 The uranus machine is a cluster of dual socket, quad-core AMD Opteron
 2354 CPUs, 2.2 GHz processors with 2 GB of memory per core.
 
-Instructions assume **bash**, installation under `${HOME}/opt`.
+Instructions assume **bash**, installation under *${HOME}/opt*.
 Build the unoptimized numpy/scipy::
 
   mkdir ${HOME}/opt

@@ -19,7 +19,7 @@ Do the following:
 
     .. note::
 
-       The instructions assume :envvar:`GPAW_HOME` is set to `${HOME}/gpaw`.
+       The instructions assume :envvar:`GPAW_HOME` is set to *${HOME}/gpaw*.
 
   * Go to the :file:`gpaw` directory::
 
@@ -37,12 +37,13 @@ Do the following:
 
       .. note::
 
-         Here is how to find the `<platform>` and `<python_version>` variables::
+         Here is how to find the *<platform>* and *<python_version>* variables::
        
            python -c "from distutils import util; print util.get_platform()"
            python -c "from distutils import sysconfig; print sysconfig.get_python_version()"
 
-      For example `<platform>` could be `linux-x86_64`, and `<python_version>` could be `2.5`.
+      For example *<platform>* could be *linux-x86_64*, and
+      *<python_version>* could be *2.5*.
 
     * :file:`gpaw-python`: A special Python interpreter for parallel
       calculations.  The interpreter has GPAW's C-code built in.  The

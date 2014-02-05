@@ -4,20 +4,39 @@
 Calculation of electronic band structures
 =========================================
 
-The script :svn:`~doc/tutorials/bandstructures/bandstructure.py` will
-calculate the band structure of Na along the Gamma-X direction.  The
-resulting band structure is shown below.
+In this tutorial we calculate the electronic band structure of Si along
+high symmetry directions in the Brillouin zone.
 
-.. figure:: sodium_bands.png
+First, a standard ground state calculations is performed and the results
+are saved to a *.gpw* file. As we are dealing with small bulk system, 
+plane wave mode is the most appropriate here.
 
-(This plot was made using :svn:`~doc/tutorials/bandstructures/plot_bands.py`)
+.. literalinclude:: bandstructure.py
+    :lines: 8-23
 
-One should note that as GPAW only works with orthorhombic cells, the
-unit cell here is larger than the primitive BCC cell.  Accordingly,
-the Brillouin zone is smaller, and bands are folded back from the
-larger primitive Brillouin zone. For a description of the symmetry
-labels of the Brillouin zone; see the figure below.
+Next, :mod:`ase.dft.kpoints` module is used for generating k-points along
+the high symmetry directions in the Brillouin zone. The below figure shows 
+the high symmetry points of few common crystal lattices. 
 
 .. figure:: ../../_static/bz-all.png
    :width: 600 px
-   :align: left
+
+For the band structure calculation, density is fixed to the previously
+calculated ground state density (``fixdensity=True``), and as we want to
+calculate all k-points, symmetry is not used (``usesymm=None``). The
+unoccupied states can be sometimes converged faster with the conjugate gradient
+eigensolver.
+
+.. literalinclude:: bandstructure.py
+    :lines: 25-44
+
+Finally, the bandstructure can be plotted e.g. with matplotlib. 
+The :func:`ase.dft.kpoints.get_bandpath` provides in addition to the 
+actual k-points information which is useful for plotting.
+
+.. literalinclude:: bandstructure.py
+    :lines: 46-69
+
+.. figure:: bandstructure.png
+
+The full script: :svn:`~doc/tutorials/bandstructures/bandstructure.py`.

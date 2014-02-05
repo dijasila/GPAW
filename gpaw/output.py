@@ -99,6 +99,15 @@ class PAWTextOutput:
                   (os.path.dirname(ase.__file__), ase_version))
         self.text('numpy: %s (version %s)' %
                   (os.path.dirname(np.__file__), np.version.version))
+        try:
+            import scipy as sp
+            self.text('scipy: %s (version %s)' %
+                      (os.path.dirname(sp.__file__), sp.version.version))
+            # Explicitly deleting SciPy seems to remove garbage collection
+            # problem of unknown cause
+            del sp
+        except ImportError:
+            self.text('scipy: Not available')
         self.text('units: Angstrom and eV')
         self.text('cores:', self.wfs.world.size)
 
@@ -122,9 +131,10 @@ class PAWTextOutput:
                   '---------------------')
         gd = self.wfs.gd
         h_c = gd.get_grid_spacings()
+        pbc_c = self.atoms.pbc
         for c in range(3):
             self.text('  %d. axis:    %s  %10.6f  %10.6f  %10.6f   %3d   %8.4f'
-                      % ((c + 1, ['no ', 'yes'][int(gd.pbc_c[c])]) +
+                      % ((c + 1, ['no ', 'yes'][int(pbc_c[c])]) +
                          tuple(Bohr * gd.cell_cv[c]) +
                          (gd.N_c[c], Bohr * h_c[c])))
         self.text()
@@ -229,8 +239,9 @@ class PAWTextOutput:
             t('Fixing the initial density')
         else:
             mixer = self.density.mixer
+            t('Mixer Type:                        %s' % mixer.__class__.__name__)
             t('Linear Mixing Parameter:           %g' % mixer.beta)
-            t('Pulay Mixing with %d Old Densities' % mixer.nmaxold)
+            t('Mixing with %d Old Densities' % mixer.nmaxold)
             if mixer.weight == 1:
                 t('No Damping of Long Wave Oscillations')
             else:
@@ -247,6 +258,9 @@ class PAWTextOutput:
           cc['eigenstates'])
         t('Number of Atoms: %d' % len(self.wfs.setups))
         t('Number of Atomic Orbitals: %d' % self.wfs.setups.nao)
+        if self.nbands_parallelization_adjustment != 0:
+            t('Adjusting Number of Bands by %+d to Match Parallelization'
+              % self.nbands_parallelization_adjustment)
         t('Number of Bands in Calculation:         %i' % self.wfs.bd.nbands)
         t('Bands to Converge:                      ', end='')
         if cc['bands'] == 'occupied':
@@ -301,7 +315,7 @@ class PAWTextOutput:
 
         try:
             dipole = self.get_dipole_moment()
-        except AttributeError:
+        except NotImplementedError:
             pass
         else:
             if self.density.charge == 0:
@@ -377,13 +391,13 @@ class PAWTextOutput:
             if eigerr == 0.0:
                 eigerr = ''
             else:
-                eigerr = '%-+5.1f' % (log(eigerr) / log(10))
+                eigerr = '%+.2f' % (log(eigerr) / log(10))
 
             denserr = self.density.mixer.get_charge_sloshing()
             if denserr is None or denserr == 0 or nvalence == 0:
                 denserr = ''
             else:
-                denserr = '%+.1f' % (log(denserr / nvalence) / log(10))
+                denserr = '%+.2f' % (log(denserr / nvalence) / log(10))
 
             niterocc = self.occupations.niter
             if niterocc == -1:
@@ -396,7 +410,7 @@ class PAWTextOutput:
             else:
                 niterpoisson = str(self.hamiltonian.npoisson)
 
-            t('iter: %3d  %02d:%02d:%02d  %-5s  %-5s    %11.6f  %-5s  %-7s' %
+            t('iter: %3d  %02d:%02d:%02d %6s %6s    %11.6f  %-5s  %-7s' %
               (iter,
                T[3], T[4], T[5],
                eigerr,

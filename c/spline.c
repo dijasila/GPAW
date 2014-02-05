@@ -107,8 +107,8 @@ static PyObject * spline_call(SplineObject *obj, PyObject *args,
   return Py_BuildValue("d", bmgs_splinevalue(&obj->spline, r));
 }
 
-static PyTypeObject SplineType = {
-  PyObject_HEAD_INIT(&PyType_Type) 0,
+PyTypeObject SplineType = {
+  PyObject_HEAD_INIT(NULL) 0,
   "Spline",
   sizeof(SplineObject), 0,
   (destructor)spline_dealloc, 0,

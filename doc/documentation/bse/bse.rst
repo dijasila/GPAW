@@ -1,7 +1,5 @@
 .. _bse:
 
-.. default-role:: math
-
 ============================================
  Bethe Salpeter Equation (BSE) for excitons
 ============================================

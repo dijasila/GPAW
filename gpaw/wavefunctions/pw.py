@@ -26,7 +26,8 @@ class PWDescriptor:
     def __init__(self, ecut, gd, dtype=None, kd=None,
                  fftwflags=fftw.ESTIMATE):
 
-        assert gd.pbc_c.all() and gd.comm.size == 1
+        assert gd.pbc_c.all()
+        assert gd.comm.size == 1
 
         self.ecut = ecut
         self.gd = gd
@@ -127,7 +128,7 @@ class PWDescriptor:
             shape = x + self.Q_qG[q].shape
         return np.empty(shape, complex)
     
-    def fft(self, f_R, q=-1):
+    def fft(self, f_R, q=-1, Q_G=None):
         """Fast Fourier transform.
 
         Returns c(G) for G<Gc::
@@ -142,7 +143,9 @@ class PWDescriptor:
         self.tmp_R[:] = f_R
 
         self.fftplan.execute()
-        return self.tmp_Q.ravel()[self.Q_qG[q]]
+        if Q_G is None:
+            Q_G = self.Q_qG[q]
+        return self.tmp_Q.ravel()[Q_G]
 
     def ifft(self, c_G, q=-1):
         """Inverse fast Fourier transform.
@@ -729,6 +732,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         sigma_vv = np.zeros((3, 3), dtype=complex)
         pd = self.pd
         dOmega = pd.gd.dv / pd.gd.N_c.prod()
+        if pd.dtype == float:
+            dOmega *= 2
         K_qv = self.pd.K_qv
         for kpt in self.kpt_u:
             G_Gv = pd.G_Qv[pd.Q_qG[kpt.q]]
@@ -1176,7 +1181,23 @@ class ReciprocalSpaceDensity(Density):
         return PsudoCoreKineticEnergyDensityLFC(
             [[setup.tauct] for setup in self.setups], self.pd2)
 
-
+    def calculate_dipole_moment(self):
+        if np.__version__ < '1.6.0':
+            raise NotImplementedError
+        pd = self.pd3
+        N_c = pd.tmp_Q.shape
+        
+        m0_q, m1_q, m2_q = [i_G == 0
+                            for i_G in np.unravel_index(pd.Q_qG[0], N_c)]
+        rhot_q = self.rhot_q.imag
+        rhot_cs = [rhot_q[m1_q & m2_q],
+                   rhot_q[m0_q & m2_q],
+                   rhot_q[m0_q & m1_q]]
+        d_c = [np.dot(rhot_s[1:], 1.0 / np.arange(1, len(rhot_s)))
+               for rhot_s in rhot_cs]
+        return -np.dot(d_c, pd.gd.cell_cv) / pi * pd.gd.dv
+        
+        
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
                  vext=None, collinear=True, world=None):
