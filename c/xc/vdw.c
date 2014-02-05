@@ -71,7 +71,7 @@ PyObject * vdw(PyObject* self, PyObject *args)
   const double* q0 = (const double*)DOUBLEP(q0_obj);
   const double (*R)[3] = (const double (*)[3])DOUBLEP(R_obj);
   const double* cell = (const double*)DOUBLEP(cell_obj);
-  const char* pbc = (const char*)(PyArray_DATA(cell_obj));
+  const char* pbc = (const char*)(PyArray_DATA(pbc_obj));
   const long* repeat = (const long*)(PyArray_DATA(repeat_obj));
   const double (*phi)[nD] = (const double (*)[nD])DOUBLEP(phi_obj);
   double* rhistogram = (double*)DOUBLEP(rhistogram_obj);
