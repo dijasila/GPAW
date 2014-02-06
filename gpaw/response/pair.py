@@ -317,7 +317,7 @@ class PairDensity:
         
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
-        k_c = kd.bzk_kc[kpt1.K]
+        k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]
