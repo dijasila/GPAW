@@ -68,6 +68,7 @@ PyObject * vdw(PyObject* self, PyObject *args)
   int ndelta = PyArray_DIMS(phi_obj)[0];
   int nD = PyArray_DIMS(phi_obj)[1];
   const double* n = (const double*)DOUBLEP(n_obj);
+  const int ni = PyArray_SIZE(n_obj);
   const double* q0 = (const double*)DOUBLEP(q0_obj);
   const double (*R)[3] = (const double (*)[3])DOUBLEP(R_obj);
   const double* cell = (const double*)DOUBLEP(cell_obj);
@@ -123,7 +124,7 @@ PyObject * vdw(PyObject* self, PyObject *args)
 	    for (int a3 = -repeat[2]; a3 <= repeat[2]; a3++)
 	      {
 		double x = 0.5;
-		int i2max = iB-1;
+		int i2max = ni-1;
 		if (a1 == 0 && a2 == 0 && a3 == 0)
 		  {
 		    i2max = i1;
