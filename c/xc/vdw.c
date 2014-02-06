@@ -123,7 +123,7 @@ PyObject * vdw(PyObject* self, PyObject *args)
 	    for (int a3 = -repeat[2]; a3 <= repeat[2]; a3++)
 	      {
 		double x = 0.5;
-		int i2max = iB;
+		int i2max = iB-1;
 		if (a1 == 0 && a2 == 0 && a3 == 0)
 		  {
 		    i2max = i1;
