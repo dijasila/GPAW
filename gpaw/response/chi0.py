@@ -120,7 +120,10 @@ class Chi0(PairDensity):
                                                      pd, Q_G)
                 deps_m = eps1 - kpt2.eps_n
                 df_m = f1 - kpt2.f_n
-                df_m[df_m < 0] = 0.0
+                m0 = kpt1.n1 + n - kpt2.n1
+                if m0 >= 0:
+                    df_m[:m0] = 0.0
+                    df_m[m0] *= 0.5
                 if optical_limit:
                     self.update_optical_limit(
                         n, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG, chi0_wvv)
@@ -166,10 +169,16 @@ class Chi0(PairDensity):
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     def update(self, n_mG, deps_m, df_m, chi0_wGG):
-        sign = 1 - 2 * self.timeordered
+        if self.timeordered:
+            t = -1
+            ieta_m = -1j * self.eta * np.sign(deps_m)
+        else:
+            t = 1
+            ieta_m = 1j * self.eta
+
         for w, omega in enumerate(self.omega_w):
-            x_m = df_m * (1.0 / (omega + deps_m + 1j * self.eta) -
-                          1.0 / (omega - deps_m + 1j * self.eta * sign))
+            x_m = df_m * (1.0 / (omega + deps_m + ieta_m) -
+                          1.0 / (omega - deps_m + t * ieta_m))
             nx_mG = n_mG * x_m[:, np.newaxis]
             gemm(self.prefactor, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_wGG[w])
