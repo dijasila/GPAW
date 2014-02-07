@@ -44,7 +44,7 @@ class Chi0(PairDensity):
         if eta == 0.0:
             assert not hilbert
             assert not timeordered
-            assert not omega_w.real.any()
+            assert not self.omega_w.real.any()
 
         # Occupied states:
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
