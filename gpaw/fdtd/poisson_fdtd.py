@@ -39,7 +39,7 @@ class PoissonOrganizer:
 class FDTDPoissonSolver:
     def __init__(self, nn=3,
                        relax='J',
-                       eps=2e-10,
+                       eps=1e-24,
                        classical_material=None,
                        cell=None,
                        qm_spacing=0.30,
@@ -61,7 +61,7 @@ class FDTDPoissonSolver:
             self.read(paw = paw, reader=restart_reader)
             return # we are ready
             
-
+        assert(potential_coupler in ['Multipoles', 'Refiner'])
         assert(coupling_level in ['none', 'both', 'cl2qm', 'qm2cl'])
         self.potential_coupling_scheme = potential_coupler
         self.coupling_level = coupling_level
@@ -375,6 +375,10 @@ class FDTDPoissonSolver:
         self.extended_shift_indices_1 = np.floor(extended_lp / self.cl.spacing)
         self.extended_shift_indices_2 = self.extended_shift_indices_1 + self.extended_num_indices
 
+        parprint('  extended_shift_indices_1: %i %i %i' % (self.extended_shift_indices_1[0],self.extended_shift_indices_1[1], self.extended_shift_indices_1[2]))
+        parprint('  extended_shift_indices_2: %i %i %i' % (self.extended_shift_indices_2[0],self.extended_shift_indices_2[1], self.extended_shift_indices_2[2]))
+        parprint('  cl.gd.N_c:                %i %i %i' % (self.cl.gd.N_c[0], self.cl.gd.N_c[1], self.cl.gd.N_c[2]))
+
         # Sanity checks
         assert(all([self.extended_shift_indices_1[w] >= 0 and
                     self.extended_shift_indices_2[w] <= self.cl.gd.N_c[w] for w in range(3)])), \
@@ -448,7 +452,7 @@ class FDTDPoissonSolver:
 
     # Setup kick
     def set_kick(self, kick):
-        self.kick = kick
+        self.kick = np.array(kick)
 
     # This must be called before propagation begins
     def initialize_dipole_moment_file(self):
@@ -520,7 +524,7 @@ class FDTDPoissonSolver:
         spacing_au = spacing / Bohr  # from Angstroms to a.u.
         
         # Collect data from different processes
-        cln = self.cl.gd.collect(cldata) * self.classical_material.sign
+        cln = self.cl.gd.collect(cldata)
         qmn = self.qm.gd.collect(qmdata)
 
         clgd = GridDescriptor(self.cl.gd.N_c,
@@ -530,6 +534,7 @@ class FDTDPoissonSolver:
                               None)
 
         if world.rank == 0:
+            cln *= self.classical_material.sign
             # refine classical part
             while clgd.h_cv[0, 0] > spacing_au * 1.50:  # 45:
                 cln = Transformer(clgd, clgd.refine()).apply(cln)
@@ -635,6 +640,11 @@ class FDTDPoissonSolver:
                 
         # 4b) Apply the kick by changing the electric field
         if self.time == 0:
+            self.cl.rho_gs = self.classical_material.charge_density.copy()
+            self.qm.rho_gs = self.qm.rho.copy()
+            self.cl.phi_gs = self.cl.phi.copy()
+            self.cl.extrapolated_qm_phi_gs = self.cl.gd.zeros()
+            self.qm.phi_gs = self.qm.phi.copy()
             self.classical_material.kick_electric_field(self.time_step, self.kick)
                     
         # 5) J(t+dt/2) from J(t-dt/2) and P(t)

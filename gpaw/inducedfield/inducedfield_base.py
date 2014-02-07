@@ -598,7 +598,13 @@ def read_data(filename, keys=None, ws='all'):
     data['atom_a'] = atom_a
     data['cell_cv'] = atomcell_cv
     data['Fbgef_v'] = Fbgef_v
-    
+   
+    try:
+        data['corner1_v'] = tar.get('corner1_v')
+        data['corner2_v'] = tar.get('corner2_v')
+    except:
+        print('no corners')
+
     try:
         FD_awsp = {}
         D0_asp = {}

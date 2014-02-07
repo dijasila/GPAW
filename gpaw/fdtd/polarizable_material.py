@@ -288,15 +288,17 @@ class PolarizableSphere():
 
 # Sphere-shaped classical material
 class PolarizableEllipsoid():
-    def __init__(self, vector1, radii, permittivity):
+    def __init__(self, center, radii, permittivity):
         # sanity check
-        assert(len(vector1)==3)
+        assert(len(center)==3)
         assert(len(radii)==3)
         
-        self.vector1      = np.array(vector1)/Bohr # from Angstroms to atomic units
+        self.vector1      = np.array(center)/Bohr # from Angstroms to atomic units
         self.radii        = np.array(radii)/Bohr   # from Angstroms to atomic units
         self.permittivity = permittivity
         
+        self.name = 'PolarizableEllipsoid'
+        self.arguments = 'center=[%20.12e, %20.12e, %20.12e], radii=[%20.12e, %20.12e, %20.12e]' % (center[0], center[1], center[2], radii[0], radii[1], radii[2])
         
 
     def get_mask(self, gd, verbose=True):
@@ -395,6 +397,12 @@ class PolarizableDeepConvexPolyhedron():
         self.corners      = np.array(corners)/Bohr # from Angstroms to atomic units
         self.height       = height/Bohr  # from Angstroms to atomic units
         self.permittivity = permittivity
+
+        self.name = 'PolarizableDeepConvexPolyhedron'
+        self.arguments = 'height = %20.12e, corners=[' % height
+        for c in self.corners:
+            self.arguments += '[%20.12e, %20.12e, %20.12e],' % (c[0], c[1], c[2])
+        self.arguments = self.arguments[:-1] + ']'
 
     def get_mask(self, gd, verbose=False):
         if verbose:

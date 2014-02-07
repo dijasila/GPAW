@@ -69,6 +69,7 @@ max_time = 100 # 0.1 fs
 
 td_calc = TDDFT('gs.gpw')
 td_calc.absorption_kick(kick_strength=kick)
+td_calc.hamiltonian.poisson.set_kick(kick)
 
 # Propagate TDDFT and FDTD
 td_calc.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')

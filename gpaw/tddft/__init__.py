@@ -437,7 +437,6 @@ class TDDFT(GPAW):
         
         if self.hamiltonian.poisson.description=='FDTD+TDDFT':
             self.hamiltonian.poisson.set_time(time=self.time)
-            self.hamiltonian.poisson.set_kick(kick=self.kick_strength)
             self.hamiltonian.poisson.initialize_dipole_moment_file()
 
     def update_dipole_moment_file(self, norm):
