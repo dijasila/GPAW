@@ -89,7 +89,8 @@ class FXCCorrelation(RPACorrelation):
 
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_swGG, cut_G)
-            prnt('%.3f eV' % (e * Hartree), end='', flush=True, file=self.fd)
+            prnt('%.3f eV' % (e * Hartree), end='', file=self.fd)
+            self.fd.flush()
         else:
             e = 0.0
             for v in range(3):
@@ -102,7 +103,7 @@ class FXCCorrelation(RPACorrelation):
                 else:
                     prnt('%.3f eV' % (ev * Hartree), end='', file=self.fd)
             e /= 3
-        prnt(file=self.fd, flush=True)
+        prnt(file=self.fd)
 
         return e
 
@@ -221,7 +222,7 @@ class Kernel:
     def calculate_fhxc(self):
 
         prnt('Calculating %s kernel at %d eV cutoff' %
-             (self.xc, self.ecut), flush=True, file=self.fd)
+             (self.xc, self.ecut), file=self.fd)
         if self.xc[0] == 'r':
             self.calculate_rkernel()
         else:
@@ -251,7 +252,7 @@ class Kernel:
         rz_g = r_vg[2].flatten()
 
         prnt('    %d grid points and %d plane waves at the Gamma point' %
-             (ng, self.pd.ngmax), flush=True, file=self.fd)
+             (ng, self.pd.ngmax), file=self.fd)
 
         # Unit cells
         R_Rv = []
@@ -299,14 +300,14 @@ class Kernel:
                 prnt('      Finished 1 cell in %s seconds' % int(time() - t0) +
                      ' - estimated %s seconds left' %
                      int((len(R_Rv) - 1) * (time() - t0)), 
-                     flush=True, file=self.fd)
+                     file=self.fd)
             if len(R_Rv) > 5:
                 if (i+1) % (len(R_Rv) / 5 + 1) == 0:
                     prnt('      Finished %s cells in %s seconds'
                          % (i, int(time() - t0))
                          + ' - estimated %s seconds left'
                          % int((len(R_Rv) - i) * (time() - t0) / i), 
-                         flush=True, file=self.fd)
+                         file=self.fd)
             for g in l_g_range:
                 rx = rx_g[g] + R_v[0]
                 ry = ry_g[g] + R_v[1]

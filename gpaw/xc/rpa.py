@@ -209,7 +209,8 @@ class RPACorrelation:
                     m2 = len(cut_G)
 
                 print('E_cut = %d eV / Bands = %d:   ' % (ecut * Hartree, m2),
-                      file=self.fd, end='', flush=True)
+                      file=self.fd, end='')
+                self.fd.flush()
 
                 energy = self.calculate_q(chi0, pd,
                                           chi0_swGG, chi0_swxvG, chi0_swvv,
@@ -265,7 +266,8 @@ class RPACorrelation:
 
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_wGG, cut_G)
-            print('%.3f eV' % (e * Hartree), flush=True, file=self.fd)
+            print('%.3f eV' % (e * Hartree), file=self.fd)
+            self.fd.flush()
         else:
             e = 0.0
             for v in range(3):
@@ -278,7 +280,8 @@ class RPACorrelation:
                 if v < 2:
                     print('/', end='', file=self.fd)
                 else:
-                    print(' eV', flush=True, file=self.fd)
+                    print(' eV', file=self.fd)
+                    self.fd.flush()
             e /= 3
 
         return e
@@ -322,8 +325,9 @@ class RPACorrelation:
             print('  %4.0f -%4.0f:  %5.3f eV' % (self.ecut_i[i] * Hartree,
                                                  self.ecut_i[i + 1] * Hartree,
                                                  ex * Hartree),
-                  file=self.fd, flush=True)
+                  file=self.fd)
         print(file=self.fd)
+        self.fd.flush()
 
         return e_i * Hartree
 
