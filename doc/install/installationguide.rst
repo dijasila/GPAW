@@ -98,7 +98,7 @@ Example::
 Installation on OS X
 --------------------
 
-For installation with http://mxcl.github.com/homebrew/ please follow
+For installation with http://brew.sh/ please follow
 instructions at :ref:`homebrew`.
 
 .. _installationguide_package:
