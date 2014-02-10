@@ -119,6 +119,10 @@ class SSS09CavityDensity(BaseCavityDensity):
         self._rho = gd.empty()
 
     def update_atoms(self, atoms):
+        if atoms.pbc.any():
+            raise NotImplementedError(
+                'Periodic boundary conditions are not yet implemented!'
+                )
         self._positions = atoms.positions / Bohr
         self._vdw_radii = [self.vdw_radii_map[n] for n in atoms.numbers]
         self._vdw_radii = np.array(self._vdw_radii) / Bohr
@@ -174,6 +178,10 @@ class RepulsiveVdWCavityDensity(BaseCavityDensity):
         self._rho = gd.empty()
 
     def update_atoms(self, atoms):
+        if atoms.pbc.any():
+            raise NotImplementedError(
+                'Periodic boundary conditions are not yet implemented!'
+                )
         r0 = self.r0 / Bohr
         self._positions = atoms.positions / Bohr
         self._vdw_radii = [self.vdw_radii_map[n] for n in atoms.numbers]
