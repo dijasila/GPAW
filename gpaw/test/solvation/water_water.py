@@ -6,23 +6,21 @@ from ase.units import Bohr, mol, kcal, Pascal, m
 from ase.data.vdw import vdw_radii
 from gpaw.solvation import (
     SolvationGPAW,
-    RepulsiveVdWCavityDensity,
+    Power12VdWCavityDensity,
     BoltzmannSmoothedStep,
-    CMDielectric,
+    LinearDielectric,
     QuantumSurfaceInteraction,
 )
-import numpy as np
-
-np.seterr(all='raise')
 
 SKIP_VAC_CALC = True
 
 h = 0.24
 vac = 4.0
-r0 = 0.4
-rho0 = 1.5
+rho0 = 1. / 7.
 epsinf = 78.36
-st = 48.2
+st = 18.4
+vdw_radii = vdw_radii[:]
+vdw_radii[1] = 1.09
 
 atoms = Cluster(molecule('H2O'))
 atoms.minimal_box(vac, h)
@@ -37,9 +35,9 @@ else:
 
 atoms.calc = SolvationGPAW(
     xc='PBE', h=h,
-    cavdens=RepulsiveVdWCavityDensity(vdw_radii, r0 * Bohr),
+    cavdens=Power12VdWCavityDensity(vdw_radii),
     smoothedstep=BoltzmannSmoothedStep(rho0 / Bohr ** 3),
-    dielectric=CMDielectric(epsinf=epsinf),
+    dielectric=LinearDielectric(epsinf=epsinf),
     interactions=[
         QuantumSurfaceInteraction(
             surface_tension=st * 1e-3 * Pascal * m,

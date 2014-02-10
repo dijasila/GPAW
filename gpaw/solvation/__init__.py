@@ -1,6 +1,7 @@
 from gpaw.solvation.cavity import (
     ElCavityDensity, ExponentElCavityDensity,
     SSS09CavityDensity, RepulsiveVdWCavityDensity,
+    Power12VdWCavityDensity,
     FG02SmoothedStep, ADM12SmoothedStep, BoltzmannSmoothedStep
 )
 from gpaw.solvation.dielectric import (

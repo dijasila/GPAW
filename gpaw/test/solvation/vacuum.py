@@ -6,21 +6,19 @@ from ase.data.vdw import vdw_radii
 from ase.units import Bohr
 from gpaw.solvation import (
     SolvationGPAW,
-    RepulsiveVdWCavityDensity,
+    Power12VdWCavityDensity,
     BoltzmannSmoothedStep,
-    CMDielectric
+    LinearDielectric
 )
-import numpy as np
-
-np.seterr(all='raise')
 
 SKIP_REF_CALC = True
 dE = 1e-9
 
 h = 0.3
 vac = 3.0
-r0 = 0.4
-rho0 = 1.5
+rho0 = 1. / 7.
+vdw_radii = vdw_radii[:]
+vdw_radii[1] = 1.09
 
 atoms = Cluster(Atoms('H'))
 atoms.minimal_box(vac, h)
@@ -34,9 +32,9 @@ else:
 
 atoms.calc = SolvationGPAW(
     xc='LDA', h=h,
-    cavdens=RepulsiveVdWCavityDensity(vdw_radii, r0 * Bohr),
+    cavdens=Power12VdWCavityDensity(vdw_radii),
     smoothedstep=BoltzmannSmoothedStep(rho0 / Bohr ** 3),
-    dielectric=CMDielectric(epsinf=1.0),
+    dielectric=LinearDielectric(epsinf=1.0),
     )
 Etest = atoms.get_potential_energy()
 equal(Etest, Eref, dE)

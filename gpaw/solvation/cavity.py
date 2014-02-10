@@ -211,6 +211,72 @@ class RepulsiveVdWCavityDensity(BaseCavityDensity):
         text('r0                 : %11.6f' % (self.r0, ))
 
 
+class Power12VdWCavityDensity(BaseCavityDensity):
+    """Fake cavity density from van der Waals radii.
+
+    Corresponds to an 1 / r ** 12 repulsive potential
+    taking the value 1.0 at the van der Waals radius
+
+    """
+    name = 'Power12 van der Waals'
+
+    def __init__(self, vdw_radii_map, r_max=10 * Bohr):
+        BaseCavityDensity.__init__(self)
+        self.vdw_radii_map = vdw_radii_map
+        self.r_max = float(r_max)
+        self._rho = None
+        self._pos_aav = None
+        self._vdw_radii = None
+
+    def set_grid_descriptor(self, gd):
+        BaseCavityDensity.set_grid_descriptor(self, gd)
+        self._rho = gd.empty()
+        self._r_vg = gd.get_grid_point_coordinates()
+
+    def update_atoms(self, atoms):
+        self._hack_non_pbc = not atoms.pbc.any()  # XXX remove after fix
+        self._pos_aav = get_pbc_positions(atoms, self.r_max / Bohr)
+        self._vdw_radii = [self.vdw_radii_map[n] for n in atoms.numbers]
+        self._vdw_radii = np.array(self._vdw_radii) / Bohr
+        self._rho.fill(.0)
+        na = np.newaxis
+        for index, pos_av in self._pos_aav.iteritems():
+            r_vdw_12 = self._vdw_radii[index] ** 12
+            for pos_v in pos_av:
+                origin_vg = pos_v[:, na, na, na]
+                r2_g = np.sum((self._r_vg - origin_vg) ** 2, axis=0)
+                u = r_vdw_12 / r2_g ** 6
+                self._rho += u
+        self._rho[np.isnan(self._rho)] = np.inf
+
+    def get_rho_drho(self, nt_g):
+        return (self._rho, .0)
+
+    def get_atomic_position_derivative(self, index):
+        na = np.newaxis
+        pos_av = self._pos_aav[index]
+        r_vdw_12 = self._vdw_radii[index] ** 12
+        if not self._hack_non_pbc:
+            raise NotImplementedError(
+                'Periodic boundary conditions are not yet implemented!'
+                )
+        # XXX hack for non PBC
+        # XXX todo: implement for PBC
+        pos_v = pos_av[0]
+        origin_vg = pos_v[:, na, na, na]
+        x_vg = self._r_vg - origin_vg
+        r2_g = np.sum(x_vg ** 2, axis=0)
+        mf_vg = 12. * r_vdw_12 / r2_g ** 7 * x_vg
+        mf_vg[np.isnan(mf_vg)] = np.inf
+        return mf_vg
+
+    def print_parameters(self, text):
+        if self._vdw_radii is not None:
+            text('Van der Waals radii: %s' % (list(self._vdw_radii * Bohr), ))
+        else:
+            text('Van der Waals radii: %s' % ('not initialized', ))
+
+
 class BaseSmoothedStep:
     name = 'unnamed'
 

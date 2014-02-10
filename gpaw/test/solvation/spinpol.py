@@ -5,22 +5,20 @@ from ase.units import Bohr, Pascal, m
 from ase.data.vdw import vdw_radii
 from gpaw.solvation import (
     SolvationGPAW,
-    RepulsiveVdWCavityDensity,
+    Power12VdWCavityDensity,
     BoltzmannSmoothedStep,
-    CMDielectric,
+    LinearDielectric,
     QuantumSurfaceInteraction,
     QuantumVolumeInteraction,
     LeakedDensityInteraction
 )
-import numpy as np
-
-np.seterr(all='raise')
 
 h = 0.3
 vac = 3.0
-r0 = 0.4
-rho0 = 1.5
+rho0 = 1. / 7.
 epsinf = 80.
+vdw_radii = vdw_radii[:]
+vdw_radii[1] = 1.09
 
 atoms = Cluster(molecule('CN'))
 atoms.minimal_box(vac, h)
@@ -33,9 +31,9 @@ Es = []
 for atoms in atomss:
     atoms.calc = SolvationGPAW(
         xc='LDA', h=h, charge=-1,
-        cavdens=RepulsiveVdWCavityDensity(vdw_radii, r0 * Bohr),
+        cavdens=Power12VdWCavityDensity(vdw_radii),
         smoothedstep=BoltzmannSmoothedStep(rho0 / Bohr ** 3),
-        dielectric=CMDielectric(epsinf=epsinf),
+        dielectric=LinearDielectric(epsinf=epsinf),
         interactions=[
             QuantumSurfaceInteraction(
                 surface_tension=100. * 1e-3 * Pascal * m,
@@ -53,3 +51,6 @@ for atoms in atomss:
 
 print 'difference: ', Es[0] - Es[1]
 equal(Es[0], Es[1], 0.0002)  # compare to difference of a gas phase calc
+
+
+# XXX add test case where spin matters, e.g. charge=0 for CN?

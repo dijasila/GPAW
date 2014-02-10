@@ -4,27 +4,27 @@ from ase.data.vdw import vdw_radii
 from ase.units import Bohr
 from gpaw.solvation import (
     SolvationGPAW,
-    RepulsiveVdWCavityDensity,
+    Power12VdWCavityDensity,
     BoltzmannSmoothedStep,
-    CMDielectric
+    LinearDielectric,
 )
-import numpy as np
-
-np.seterr(all='raise')
+from gpaw.solvation.poisson import ADM12PoissonSolver
 
 h = 0.3
 vac = 3.0
-r0 = 0.4
-rho0 = 1.5
+rho0 = 1. / 7.
 epsinf = 80.
+vdw_radii = vdw_radii[:]
+vdw_radii[1] = 1.09
 
 atoms = Cluster(molecule('H2O'))
 atoms.minimal_box(vac, h)
 atoms.pbc = True
 atoms.calc = SolvationGPAW(
     xc='LDA', h=h,
-    cavdens=RepulsiveVdWCavityDensity(vdw_radii, r0 * Bohr),
+    cavdens=Power12VdWCavityDensity(vdw_radii),
     smoothedstep=BoltzmannSmoothedStep(rho0 / Bohr ** 3),
-    dielectric=CMDielectric(epsinf=epsinf)
+    dielectric=LinearDielectric(epsinf=epsinf),
+    poissonsolver=ADM12PoissonSolver(eps=1e-7)
     )
 atoms.get_potential_energy()
