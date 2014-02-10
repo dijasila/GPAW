@@ -317,6 +317,7 @@ tests = [
     'cmrtest/cmr_test4.py',
     'cmrtest/cmr_append.py',
     'cmrtest/Li2_atomize.py',
+    'solvation/pbc_pos_repeat.py',
     'solvation/pbc.py',
     'solvation/spinpol.py',
     'solvation/vacuum.py',
