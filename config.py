@@ -181,15 +181,17 @@ def get_system_config(define_macros, undef_macros,
             for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64/atlas']:
                 if glob(join(dir, 'libatlas.so')) != []:
                     atlas = True
+                    libdir = dir        
                     break
             openblas = False
             for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64']:
                 if glob(join(dir, 'libopenblas.so')) != []:
                     openblas = True
+                    libdir = dir        
                     break
             if openblas:  # prefer openblas
                 libraries += ['openblas', 'lapack']
-                library_dirs += [dir]
+                library_dirs += [libdir]
                 msg +=  ['* Using OpenBLAS library']
             else:
                 if atlas:  # then atlas
@@ -197,7 +199,7 @@ def get_system_config(define_macros, undef_macros,
                     # atlas does not respect OMP_NUM_THREADS - build single-thread
                     # http://math-atlas.sourceforge.net/faq.html#tsafe
                     libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
-                    library_dirs += [dir]
+                    library_dirs += [libdir]
                     msg +=  ['* Using ATLAS library']
                 else:
                     libraries += ['blas', 'lapack']
@@ -242,15 +244,17 @@ def get_system_config(define_macros, undef_macros,
             for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
                 if glob(join(dir, 'libatlas.so')) != []:
                     atlas = True
+                    libdir = dir        
                     break
             openblas = False
             for dir in ['/usr/lib', '/usr/local/lib']:
                 if glob(join(dir, 'libopenblas.so')) != []:
                     openblas = True
+                    libdir = dir        
                     break
             if openblas:  # prefer openblas
                 libraries += ['openblas', 'lapack']
-                library_dirs += [dir]
+                library_dirs += [libdir]
                 msg +=  ['* Using OpenBLAS library']
             else:
                 if atlas:  # then atlas
@@ -258,7 +262,7 @@ def get_system_config(define_macros, undef_macros,
                     # atlas does not respect OMP_NUM_THREADS - build single-thread
                     # http://math-atlas.sourceforge.net/faq.html#tsafe
                     libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
-                    library_dirs += [dir]
+                    library_dirs += [libdir]
                     msg +=  ['* Using ATLAS library']
                 else:
                     libraries += ['blas', 'lapack']
