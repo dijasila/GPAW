@@ -43,26 +43,26 @@ class ElCavityDensity(BaseCavityDensity):
 class ExponentElCavityDensity(BaseCavityDensity):
     name = 'Pseudo Electron Density with Exponent'
 
-    def __init__(self, beta):
+    def __init__(self, beta, n0):
         self.beta = beta
+        self.n0 = n0
         BaseCavityDensity.__init__(self)
 
     def get_rho_drho(self, nt_g):
-        n0 = 0.001
-        nt_g = nt_g / n0
-        if self.beta == .5:
-            return (nt_g, 1. / n0)
-        else:
-            return (
-                nt_g ** (2. * self.beta),
-                2. * self.beta * nt_g ** (2. * self.beta - 1.) / n0
-                )
+        n0 = self.n0 * Bohr ** 3
+        n_scaled = nt_g / n0
+        n_scaled[n_scaled < .0] = .0
+        return (
+            n_scaled ** self.beta,
+            self.beta * n_scaled ** (self.beta - 1) / n0
+            )
 
     def get_atomic_position_derivative(self, index):
         return np.zeros(3)
 
     def print_parameters(self, text):
         text('beta: %11.6f' % (self.beta, ))
+        text('n0  : %11.6f' % (self.n0, ))
 
 
 class SSS09CavityDensity(BaseCavityDensity):
