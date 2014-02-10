@@ -4,7 +4,7 @@ from gpaw.fd_operators import Laplace, Gradient
 from gpaw.wfd_operators import WeightedFDOperator
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities import erf
-import numpy
+import numpy as np
 
 
 class SolvationPoissonSolver(PoissonSolver):
@@ -18,16 +18,16 @@ class SolvationPoissonSolver(PoissonSolver):
         rho_g = gauss.get_gauss(0)
         phi_g = gauss.get_gauss_pot(0)
         x, y, z = gauss.xyz
-        fac = 2. * numpy.sqrt(gauss.a) * numpy.exp(-gauss.a * gauss.r2)
-        fac /= numpy.sqrt(numpy.pi) * gauss.r2
-        fac -= erf(numpy.sqrt(gauss.a) * gauss.r) / (gauss.r2 * gauss.r)
+        fac = 2. * np.sqrt(gauss.a) * np.exp(-gauss.a * gauss.r2)
+        fac /= np.sqrt(np.pi) * gauss.r2
+        fac -= erf(np.sqrt(gauss.a) * gauss.r) / (gauss.r2 * gauss.r)
         fac *= 2.0 * 1.7724538509055159
         dx_phi_g = fac * x
         dy_phi_g = fac * y
         dz_phi_g = fac * z
         sp = dx_phi_g * dx_epsr + dy_phi_g * dy_epsr + dz_phi_g * dz_epsr
-        rho = epsr * rho_g - 1. / (4. * numpy.pi) * sp
-        invnorm = numpy.sqrt(4. * numpy.pi) / self.gd.integrate(rho)
+        rho = epsr * rho_g - 1. / (4. * np.pi) * sp
+        invnorm = np.sqrt(4. * np.pi) / self.gd.integrate(rho)
         self.phi_gauss = phi_g * invnorm
         self.rho_gauss = rho * invnorm
 
@@ -55,11 +55,6 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
         self.step = 0.66666666 / self.operators[0].get_diagonal_element()
 
     def set_grid_descriptor(self, gd):
-        if gd.pbc_c.any():
-            raise NotImplementedError(
-                'WeightedFDPoissonSolver supports only '
-                'non-periodic boundary conditions up to now.'
-                )
         self.gd = gd
         self.gds = [gd]
         self.dv = gd.dv
@@ -95,7 +90,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
         self.rhos = [gd.zeros() for gd in self.gds]
         self.op_coarse_weights = [[g.empty() for g in (gd, ) * 4] \
                                for gd in self.gds[1:]]
-        scale = -0.25 / numpy.pi
+        scale = -0.25 / np.pi
         for i, gd in enumerate(self.gds):
             if i == 0:
                 nn = self.nn
@@ -156,7 +151,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
                          dz_epsr * dz_phi_tilde
 
         rho_and_pol = rho / epsr + \
-                      scalar_product / (4. * numpy.pi * epsr ** 2)
+                      scalar_product / (4. * np.pi * epsr ** 2)
 
         niter = PoissonSolver.solve(
             self, phi, rho_and_pol, None, eps,
@@ -168,46 +163,50 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
         return PoissonSolver.load_gauss(self)
 
 
-class IterativePoissonSolver(SolvationPoissonSolver):
+class ADM12PoissonSolver(SolvationPoissonSolver):
     """Poisson solver including an electrostatic solvation model
 
     following Andreussi et al.
     The Journal of Chemical Physics 136, 064102 (2012)
 
-    experimental, probably broken
+    XXX TODO : Correction for charged systems???
+               Check: Can the polarization charge introduce a monopole?
 
+               Optimize numerics
     """
 
-    # XXX broken convergence for eta != 1.0 (non-self-consistent) ???
-    eta = 1.0
+    def __init__(self, nn=3, relax='J', eps=2e-10, eta=.6):
+        self.eta = eta
+        SolvationPoissonSolver.__init__(self, nn, relax, eps)
 
     def set_grid_descriptor(self, gd):
         SolvationPoissonSolver.set_grid_descriptor(self, gd)
-        self.dx_phi = gd.empty()
-        self.dy_phi = gd.empty()
-        self.dz_phi = gd.empty()
         self.gradx = Gradient(gd, 0, 1.0, self.nn)
         self.grady = Gradient(gd, 1, 1.0, self.nn)
         self.gradz = Gradient(gd, 2, 1.0, self.nn)
 
-    def solve_neutral(self, phi, rho, eps=2e-10):
+    def initialize(self, load_gauss=False):
         self.rho_iter = self.gd.zeros()
+        self.d_phi = self.gd.empty()
+        return SolvationPoissonSolver.initialize(self, load_gauss)
+
+    def solve_neutral(self, phi, rho, eps=2e-10):
         self.rho = rho
         return SolvationPoissonSolver.solve_neutral(self, phi, rho, eps)
+
+    def load_gauss(self):
+        return PoissonSolver.load_gauss(self)
 
     def iterate2(self, step, level=0):
         if level == 0:
             epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric
-            self.gradx.apply(self.phis[0], self.dx_phi)
-            self.grady.apply(self.phis[0], self.dy_phi)
-            self.gradz.apply(self.phis[0], self.dz_phi)
-            sp = dx_epsr * self.dx_phi + \
-                 dy_epsr * self.dy_phi + \
-                 dz_epsr * self.dz_phi
-            if self.eta == 1.0:
-                self.rho_iter = 1. / (4. * numpy.pi) * sp
-            else:
-                self.rho_iter = self.eta / (4. * numpy.pi) * sp + \
-                                (self.eta - 1.) * self.rho_iter
+            self.gradx.apply(self.phis[0], self.d_phi)
+            sp = dx_epsr * self.d_phi
+            self.grady.apply(self.phis[0], self.d_phi)
+            sp += dy_epsr * self.d_phi
+            self.gradz.apply(self.phis[0], self.d_phi)
+            sp += dz_epsr * self.d_phi
+            self.rho_iter = self.eta / (4. * np.pi) * sp + \
+                (1. - self.eta) * self.rho_iter
             self.rhos[0][:] = (self.rho_iter + self.rho) / epsr
         return SolvationPoissonSolver.iterate2(self, step, level)
