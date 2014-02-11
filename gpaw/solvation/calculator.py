@@ -19,13 +19,12 @@ class SolvationGPAW(GPAW):
 
     def __init__(self, cavity, dielectric, interactions=None,
                  **gpaw_kwargs):
-        raise NotImplementedError('refactoring')
         if interactions is None:
             interactions = []
 
         def real_space_hamiltonian_factory(*args, **kwargs):
             return SolvationRealSpaceHamiltonian(
-                cavdens, smoothedstep, dielectric, interactions,
+                cavity, dielectric, interactions,
                 *args, **kwargs
                 )
 
@@ -34,7 +33,7 @@ class SolvationGPAW(GPAW):
 
     def initialize_positions(self, atoms=None):
         spos_ac = GPAW.initialize_positions(self, atoms)
-        self.hamiltonian.set_atoms(self.atoms)
+        self.hamiltonian.update_atoms(self.atoms)
         return spos_ac
 
     def get_electrostatic_energy(self, atoms=None, force_consistent=False):
@@ -61,10 +60,8 @@ class SolvationGPAW(GPAW):
         t = self.text
         t()
         t('Solvation Parameters:')
-        fixed = [self.hamiltonian.cavdens,
-                 self.hamiltonian.smoothedstep,
-                 self.hamiltonian.dielectric]
-        txt = ['Cavity Density:', 'Smoothed Step:', 'Dielectric:']
+        fixed = [self.hamiltonian.cavity, self.hamiltonian.dielectric]
+        txt = ['Cavity:', 'Dielectric:']
         for txt, fixed in zip(txt, fixed):
             t(txt)
             t('type: %s' % (fixed.name))
