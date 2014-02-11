@@ -1,5 +1,37 @@
 class Interaction():
+    """Base class for non electrostatic solvent solute interactions."""
+
+    subscript = 'unnamed'
+
     def __init__(self):
+        self.hamiltonian = None
+
+    def init(self, hamiltonian):
+        """Performs inexpensive initialization."""
+        self.hamiltonian = hamiltonian
+
+    def update_atoms(self, atoms):
+        """Handles changes to atoms."""
+        pass
+
+    def allocate(self):
+        """Performs expensive initialization."""
+        pass
+
+    def update_pseudo_potential(self, density):
+        """Updates the Kohn-Sham potential of the Hamiltonian.
+
+        Returns interaction energy in Hartree.
+
+        """
+        raise NotImplementedError
+
+    def update_forces(self, dens, F_av):
+        """Adds interaction forces to F_av in Hartree / Bohr."""
+        raise NotImplementedError
+
+    def print_parameters(self, text):
+        """Prints parameters using text function."""
         pass
 
 

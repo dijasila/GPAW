@@ -3,44 +3,6 @@ from gpaw.fd_operators import Gradient
 import numpy as np
 
 
-class BaseInteraction:
-    """Base class for additional solvent solute interactions."""
-
-    name = 'unnamed'
-    subscript = 'unnamed'
-
-    def __init__(self):
-        self.hamiltonian = None
-
-    def init(self, hamiltonian):
-        """Perform inexpensive initialization."""
-        self.hamiltonian = hamiltonian
-
-    def set_atoms(self, atoms):
-        """Handle changes to atoms."""
-        pass
-
-    def allocate(self):
-        """Perform expensive initialization."""
-        pass
-
-    def update_pseudo_potential(self, density):
-        """Update the Kohn-Sham potential of the Hamiltonian.
-
-        Return interaction energy in Hartree.
-
-        """
-        raise NotImplementedError
-
-    def update_forces(self, dens, F_av):
-        """Add interaction forces to F_av in Hartree / Bohr."""
-        raise NotImplementedError
-
-    def print_parameters(self, text):
-        """Print parameters using text function."""
-        pass
-
-
 class QuantumVolumeInteraction(BaseInteraction):
     """Interaction proportional to quantum volume.
 
