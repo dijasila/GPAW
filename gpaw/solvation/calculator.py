@@ -17,8 +17,9 @@ class SolvationGPAW(GPAW):
 
     reciprocal_space_hamiltonian_class = NIReciprocalSpaceHamiltonian
 
-    def __init__(self, cavdens, smoothedstep, dielectric, interactions=None,
+    def __init__(self, cavity, dielectric, interactions=None,
                  **gpaw_kwargs):
+        raise NotImplementedError('refactoring')
         if interactions is None:
             interactions = []
 
