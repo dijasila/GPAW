@@ -27,7 +27,7 @@ from gpaw.solvation import (
     VolumeInteraction,
     LeakedDensityInteraction,
     # surface and volume calculators
-    GeneralizedQuantumSurface,
+    ADM12Surface,
     KB51Volume,
 )
 # poisson solver
@@ -95,7 +95,7 @@ atoms.calc = SolvationGPAW(
     cavity=EffectivePotentialCavity(
         effective_potential=Power12Potential(vdw_radii=vdw_radii, u0=u0),
         distribution_function=BoltzmannDistributionFunction(temperature=T),
-        surface_calculator=GeneralizedQuantumSurface(delta=delta_pot),
+        surface_calculator=ADM12Surface(delta=delta_pot),
         volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
         ),
     dielectric=LinearDielectric(epsinf=epsinf),
@@ -116,7 +116,7 @@ atoms.calc = SolvationGPAW(
     cavity=DensityCavity(
         density=ElDensity(),
         smooth_step=ADM12SmoothStep(rhomin, rhomax, epsinf),
-        surface_calculator=GeneralizedQuantumSurface(delta=delta_dens),
+        surface_calculator=ADM12Surface(delta=delta_dens),
         volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
         ),
     dielectric=LinearDielectric(epsinf=epsinf),
@@ -136,7 +136,7 @@ atoms.calc = SolvationGPAW(
     cavity=DensityCavity(
         density=SSS09Density(),
         smooth_step=FG02SmoothStep(rho0, beta),
-        surface_calculator=GeneralizedQuantumSurface(delta=delta_dens),
+        surface_calculator=ADM12Surface(delta=delta_dens),
         volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
         ),
     dielectric=LinearDielectric(epsinf=epsinf),
