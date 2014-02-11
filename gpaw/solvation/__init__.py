@@ -2,7 +2,6 @@ from gpaw.solvation.calculator import SolvationGPAW
 from gpaw.solvation.cavity import (
     EffectivePotentialCavity,
     Power12Potential,
-    BoltzmannDistributionFunction,
     DensityCavity,
     ElDensity,
     SSS09Density,

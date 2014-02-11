@@ -18,7 +18,6 @@ from gpaw.solvation import (
     ElDensity,
     SSS09Density,
     FG02SmoothStep,
-    BoltzmannDistributionFunction,
     # dielectric
     LinearDielectric,
     CMDielectric,  # not used any more
@@ -94,7 +93,7 @@ atoms.calc = SolvationGPAW(
     xc=xc, h=h,
     cavity=EffectivePotentialCavity(
         effective_potential=Power12Potential(vdw_radii=vdw_radii, u0=u0),
-        distribution_function=BoltzmannDistributionFunction(temperature=T),
+        temperature=T,
         surface_calculator=ADM12Surface(delta=delta_pot),
         volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
         ),
@@ -134,7 +133,7 @@ print atoms.get_forces()
 atoms.calc = SolvationGPAW(
     xc=xc, h=h,
     cavity=DensityCavity(
-        density=SSS09Density(),
+        density=SSS09Density(vdw_radii=vdw_radii),
         smooth_step=FG02SmoothStep(rho0, beta),
         surface_calculator=ADM12Surface(delta=delta_dens),
         volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
