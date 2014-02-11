@@ -1,6 +1,19 @@
 class Cavity():
     def __init__(self, surface_calculator=None, volume_calculator=None):
-        pass
+        self.gd = None
+        self.g_g = None
+        self.del_g_del_n_g = None
+
+    def set_grid_descriptor(self, gd):
+        self.gd = gd
+
+    def update_atoms(self, atoms):
+        """returns whether cavity has changed"""
+        return False
+
+    def update_el_density(self, density):
+        """returns whether cavity has changed"""
+        return False
 
 
 class EffectivePotentialCavity(Cavity):
