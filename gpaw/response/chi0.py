@@ -120,10 +120,14 @@ class Chi0(PairDensity):
                                                      pd, Q_G)
                 deps_m = eps1 - kpt2.eps_n
                 df_m = f1 - kpt2.f_n
+
+                # Avoid double counting if occupied and empty states
+                # overlap (metals)
                 m0 = kpt1.n1 + n - kpt2.n1
                 if m0 >= 0:
                     df_m[:m0] = 0.0
                     df_m[m0] *= 0.5
+                    
                 if optical_limit:
                     self.update_optical_limit(
                         n, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG, chi0_wvv)
@@ -144,41 +148,21 @@ class Chi0(PairDensity):
                 chi0_GG[iu] = chi0_GG[il].conj()
 
         elif self.hilbert:
-            nw = len(self.omega_w)
-            A_ww = np.zeros((nw, nw))
-            o_w = self.omega_w
-            do_w = o_w[1:] - o_w[:-1]
-            for w, o in enumerate(o_w):
-                d_w = o_w - o
-                x1_w = d_w[1:] / do_w
-                x2_w = d_w[:-1] / do_w
-                d_w[w] = 1.0
-                y_w = np.log(abs(d_w[1:] / d_w[:-1]))
-                A_ww[w, :-1] = x1_w * y_w
-                A_ww[w, 1:] -= x2_w * y_w
-                d_w = o_w + o
-                x1_w = d_w[1:] / do_w
-                x2_w = d_w[:-1] / do_w
-                d_w[0] = 1.0
-                y_w = np.log(abs(d_w[1:] / d_w[:-1]))
-                A_ww[w, :-1] += x1_w * y_w
-                A_ww[w, 1:] -= x2_w * y_w
-            for G in range(pd.ngmax):
-                chi0_wGG[:, :, G] = np.dot(A_ww, chi0_wGG[:, :, G])
+            ht = HilbertTransform(self.omega_w)
+            ht(chi0_wGG)
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     def update(self, n_mG, deps_m, df_m, chi0_wGG):
         if self.timeordered:
-            t = -1
-            ieta_m = -1j * self.eta * np.sign(deps_m)
+            deps1_m = deps_m + 1j * self.eta * np.sign(deps_m)
+            deps2_m = deps1_m
         else:
-            t = 1
-            ieta_m = 1j * self.eta
-
+            deps1_m = deps_m + 1j * self.eta
+            deps2_m = deps_m - 1j * self.eta
+            
         for w, omega in enumerate(self.omega_w):
-            x_m = df_m * (1.0 / (omega + deps_m + ieta_m) -
-                          1.0 / (omega - deps_m + t * ieta_m))
+            x_m = df_m * (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             nx_mG = n_mG * x_m[:, np.newaxis]
             gemm(self.prefactor, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_wGG[w])
@@ -191,15 +175,13 @@ class Chi0(PairDensity):
 
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
         for deps, df, n_G in zip(deps_m, df_m, n_mG):
-            if df <= 0:
-                continue
-            o = -deps
+            o = abs(deps)
             w = int(o / self.domega0 / (1 + self.alpha * o / self.omegamax))
             if w + 2 > len(self.omega_w):
                 break
             o1, o2 = self.omega_w[w:w + 2]
             assert o1 < o < o2, (o1,o,o2)
-            p = self.prefactor * df / (o2 - o1)**2
+            p = self.prefactor * abs(df) / (o2 - o1)**2
             czher(p * (o2 - o), n_G, chi0_wGG[w])
             czher(p * (o - o1), n_G, chi0_wGG[w + 1])
 
@@ -207,12 +189,17 @@ class Chi0(PairDensity):
                              chi0_wxvG, chi0_wvv):
         n0_mv = PairDensity.update_optical_limit(self, n, kpt1, kpt2,
                                                  deps_m, df_m, n_mG)
-        sign = 1 - 2 * self.timeordered
 
+        if self.timeordered:
+            deps1_m = deps_m + 1j * self.eta * np.sign(deps_m)
+            deps2_m = deps1_m
+        else:
+            deps1_m = deps_m + 1j * self.eta
+            deps2_m = deps_m - 1j * self.eta
+            
         for w, omega in enumerate(self.omega_w):
-            x_m = (self.prefactor *
-                   df_m * (1.0 / (omega + deps_m + 1j * self.eta) -
-                           1.0 / (omega - deps_m + 1j * sign * self.eta)))
+            x_m = self.prefactor * df_m * (1 / (omega + deps1_m) -
+                                           1 / (omega - deps2_m))
             
             chi0_wvv[w] += np.dot(x_m * n0_mv.T, n0_mv.conj())
             chi0_wxvG[w, 0, :, 1:] += np.dot(x_m * n0_mv.T, n_mG[:, 1:].conj())
@@ -230,3 +217,38 @@ class Chi0(PairDensity):
             for w, omega in enumerate(self.omega_w):
                 chi0_wvv[w, :, :] += (x_vv / ((omega + 1j * self.eta) *
                                               (omega - 1j * self.eta)))
+
+
+class HilberTransform:
+    def __init__(self, omega_w, blocksize=500):
+        """Analytic Hilbert transformation using linear interpolation."""
+        self.omega_w = omega_w
+        self.bolcksize = blocksize
+
+        nw = len(omega_w)
+        self.H_ww = np.zeros((nw, nw))
+        o_w = omega_w
+        do_w = o_w[1:] - o_w[:-1]
+        for w, o in enumerate(o_w):
+            d_w = o_w - o
+            x1_w = d_w[1:] / do_w
+            x2_w = d_w[:-1] / do_w
+            d_w[w] = 1.0
+            y_w = np.log(abs(d_w[1:] / d_w[:-1]))
+            self.H_ww[w, :-1] = x1_w * y_w
+            self.H_ww[w, 1:] -= x2_w * y_w
+            d_w = o_w + o
+            x1_w = d_w[1:] / do_w
+            x2_w = d_w[:-1] / do_w
+            d_w[0] = 1.0
+            y_w = np.log(abs(d_w[1:] / d_w[:-1]))
+            self.H_ww[w, :-1] += x1_w * y_w
+            self.H_ww[w, 1:] -= x2_w * y_w
+    
+    def __call__(self, A_wx):
+        B_wx = A_wx.reshape((len(A_wx), -1))
+        nx = B_wx.shape[1]
+        for x in range(0, nx, self.blocksize):
+            C_wx = B_wx[:, x:x + self.blocksize]
+            C_wx[:] = np.dot(self.H_ww, C_wx)
+        
