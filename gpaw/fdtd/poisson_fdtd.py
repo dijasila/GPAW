@@ -238,7 +238,7 @@ class FDTDPoissonSolver:
         N_c = get_number_of_grid_points(self.qm.cell, qmh)
         self.qm.spacing = np.diag(self.qm.cell) / N_c        
 
-        # Classical corner indices must be divisable with numb
+        # Classical corner indices must be divisible with numb
         if any(self.cl.spacing / self.qm.spacing >= 3):
             numb = 1
         elif any(self.cl.spacing / self.qm.spacing >= 2):
@@ -372,7 +372,7 @@ class FDTDPoissonSolver:
         extended_rp = extended_cp + 0.5 * (self.extended_num_indices) * self.cl.spacing
         
         # Indices in the classical grid restricting the quantum grid
-        self.extended_shift_indices_1 = np.floor(extended_lp / self.cl.spacing)
+        self.extended_shift_indices_1 = np.round(extended_lp / self.cl.spacing)
         self.extended_shift_indices_2 = self.extended_shift_indices_1 + self.extended_num_indices
 
         parprint('  extended_shift_indices_1: %i %i %i' % (self.extended_shift_indices_1[0],self.extended_shift_indices_1[1], self.extended_shift_indices_1[2]))
@@ -424,7 +424,7 @@ class FDTDPoissonSolver:
         self.extended_deltaIndex = 2 ** (self.num_refinements) * self.extend_nn
         parprint("self.extended_deltaIndex = %i" % self.extended_deltaIndex)
         
-        qgpts = self.cl.subgds[-2].N_c
+        qgpts = self.cl.subgds[-1].coarsen().N_c
         
         # Assure that one returns to the original shape
         dmygd = self.cl.subgds[-1].coarsen()
