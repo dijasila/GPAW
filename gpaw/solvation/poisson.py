@@ -8,12 +8,12 @@ import numpy as np
 
 
 class SolvationPoissonSolver(PoissonSolver):
-    def set_dielectric_arrays(self, dielectric_arrays):
-        self.dielectric = dielectric_arrays
+    def set_dielectric(self, dielectric):
+        self.dielectric = dielectric
 
     def load_gauss(self):
         # XXX Check if update is needed (dielectric changed)?
-        epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric
+        epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
         gauss = Gaussian(self.gd)
         rho_g = gauss.get_gauss(0)
         phi_g = gauss.get_gauss_pot(0)
@@ -48,7 +48,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
         return ret
 
     def restrict_op_weights(self):
-        weights = [self.dielectric] + self.op_coarse_weights
+        weights = [self.dielectric.eps_gradeps] + self.op_coarse_weights
         for i, res in enumerate(self.restrictors):
             for j in xrange(4):
                 res.apply(weights[i][j], weights[i + 1][j])
@@ -94,7 +94,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
         for i, gd in enumerate(self.gds):
             if i == 0:
                 nn = self.nn
-                weights = self.dielectric
+                weights = self.dielectric.eps_gradeps
             else:
                 nn = 1
                 weights = self.op_coarse_weights[i - 1]
@@ -138,7 +138,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
             maxcharge, False
             )
 
-        epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric
+        epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
         dx_phi_tilde = self.gd.empty()
         dy_phi_tilde = self.gd.empty()
         dz_phi_tilde = self.gd.empty()
@@ -199,7 +199,7 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
 
     def iterate2(self, step, level=0):
         if level == 0:
-            epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric
+            epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
             self.gradx.apply(self.phis[0], self.d_phi)
             sp = dx_epsr * self.d_phi
             self.grady.apply(self.phis[0], self.d_phi)
