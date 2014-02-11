@@ -6,26 +6,21 @@ import numpy as np
 
 class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
     def __init__(
-        self, cavdens, smoothedstep, dielectric, interactions,
+        self, cavity, dielectric, interactions,
         gd, finegd, nspins, setups, timer, xc,
         vext=None, collinear=True, psolver=None,
         stencil=3, world=None
         ):
-        self.cavdens = cavdens
-        self.smoothedstep = smoothedstep
+        self.cavity = cavity
         self.dielectric = dielectric
         self.interactions = interactions
-        cavdens.set_grid_descriptor(finegd)
-        smoothedstep.set_grid_descriptor(finegd)
+        cavity.set_grid_descriptor(finegd)
         dielectric.set_grid_descriptor(finegd)
-        self.dielectric_arrays = []
         if psolver is None:
             psolver = WeightedFDPoissonSolver()
-        psolver.set_dielectric_arrays(self.dielectric_arrays)
-        self.rho = self.drho = None
-        self.theta = self.dtheta = None
-        self.eps = self.deps = None
+        psolver.set_dielectric(self.dielectric)
         self.gradient = None
+        self.cav_dirty = True
         RealSpaceHamiltonian.__init__(
             self,
             gd, finegd, nspins, setups, timer, xc,
@@ -36,21 +31,16 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             setattr(self, 'E_' + ia.subscript, None)
             ia.init(self)
 
-    def set_atoms(self, atoms):
-        self.cavdens.update_atoms(atoms)
+    def update_atoms(self, atoms):
+        self.cav_dirty = self.cav_dirty or self.cavity.update_atoms(atoms)
         for ia in self.interactions:
-            ia.set_atoms(atoms)
+            ia.update_atoms(atoms)
 
     def initialize(self):
         self.gradient = [
             Gradient(self.finegd, i, 1.0, self.poisson.nn) for i in (0, 1, 2)
             ]
-        del self.dielectric_arrays[:]
-        finegd = self.finegd
-        eps = finegd.empty()
-        eps.fill(1.0)
-        self.dielectric_arrays.append(eps)
-        self.dielectric_arrays.extend([gd.zeros() for gd in (finegd, ) * 3])
+        self.dielectric.allocate()
         for ia in self.interactions:
             ia.allocate()
         RealSpaceHamiltonian.initialize(self)
@@ -62,14 +52,12 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             self.initialize()
             self.timer.stop('Initialize Hamiltonian')
 
-        self.rho, self.drho = self.cavdens.get_rho_drho(density.nt_g)
-        self.theta, self.dtheta = self.smoothedstep.get_theta_dtheta(self.rho)
-
-        self.eps, self.deps = self.dielectric.get_eps_deps(self.theta)
-        self.dielectric_arrays[0][:] = self.eps
-        eps_hack = self.eps - self.dielectric.epsinf  # zero on boundary
-        for i in (0, 1, 2):
-            self.gradient[i].apply(eps_hack, self.dielectric_arrays[i + 1])
+        self.cav_dirty = (
+            self.cav_dirty or self.cavity.update_el_density(density)
+            )
+        if self.cav_dirty:
+            self.dielectric.update_cavity(self.cavity)
+            self.cav_dirty = False
 
         Epot, Ebar, Eext, Exc = self.update_pseudo_potential(density)
         Eias = [i.update_pseudo_potential(density) for i in self.interactions]
@@ -97,10 +85,15 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
 
     def update_pseudo_potential(self, density):
         ret = RealSpaceHamiltonian.update_pseudo_potential(self, density)
-        Veps = -1. / (8. * np.pi) * self.deps * self.dtheta * self.drho
-        Veps *= self.grad_squared(self.vHt_g)
-        for vt_g in self.vt_sg[:self.nspins]:
-            vt_g += Veps
+        del_g_del_n_g = self.cavity.del_g_del_n_g
+        # does cavity depend on electron density?
+        # XXX optimize numerics
+        if np.any(del_g_del_n_g != .0):
+            del_eps_del_g_g = self.dielectric.del_eps_del_g_g
+            Veps = -1. / (8. * np.pi) * del_eps_del_g_g * del_g_del_n_g
+            Veps *= self.grad_squared(self.vHt_g)
+            for vt_g in self.vt_sg[:self.nspins]:
+                vt_g += Veps
         return ret
 
     def calculate_forces(self, dens, F_av):
@@ -112,15 +105,18 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             )
 
     def el_force_correction(self, dens, F_av):
-        fixed = 1. / (8. * np.pi) * self.deps * self.dtheta * \
+        del_eps_del_g_g = self.dielectric.del_eps_del_g_g
+        fixed = 1. / (8. * np.pi) * del_eps_del_g_g * \
             self.grad_squared(self.vHt_g)  # XXX grad_vHt_g inexact in bmgs
         for a, fa in enumerate(F_av):
-            dRa = self.cavdens.get_atomic_position_derivative(a)
-            for v in (0, 1, 2):
-                fa[v] += self.finegd.integrate(
-                    fixed * dRa[v],
-                    global_integral=False
-                    )
+            dRa = self.cavity.get_atomic_position_derivative(a)
+            # does cavity depend on atomic positions?
+            if np.any(dRa != 0):
+                for v in (0, 1, 2):
+                    fa[v] += self.finegd.integrate(
+                        fixed * dRa[v],
+                        global_integral=False
+                        )
 
     def get_energy(self, occupations):
         self.Ekin = self.Ekin0 + occupations.e_band
