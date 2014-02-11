@@ -32,7 +32,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             ia.init(self)
 
     def update_atoms(self, atoms):
-        self.cav_dirty = self.cav_dirty or self.cavity.update_atoms(atoms)
+        cav_dirty = self.cavity.update_atoms(atoms)
+        self.cav_dirty = self.cav_dirty or cav_dirty
         for ia in self.interactions:
             ia.update_atoms(atoms)
 
@@ -52,9 +53,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             self.initialize()
             self.timer.stop('Initialize Hamiltonian')
 
-        self.cav_dirty = (
-            self.cav_dirty or self.cavity.update_el_density(density)
-            )
+        cav_dirty = self.cavity.update_el_density(density)
+        self.cav_dirty = self.cav_dirty or cav_dirty
         if self.cav_dirty:
             self.dielectric.update_cavity(self.cavity)
             self.cav_dirty = False
