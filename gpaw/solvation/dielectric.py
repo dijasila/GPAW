@@ -27,7 +27,7 @@ class Dielectric(NeedsGD):
 
     def print_parameters(self, text):
         """Print parameters using text function."""
-        text('epsilon_inf: %11.6f' % (self.epsinf, ))
+        text('epsilon_inf: %s' % (self.epsinf, ))
 
 
 class FDGradientDielectric(Dielectric):

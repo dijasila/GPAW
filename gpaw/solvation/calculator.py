@@ -59,17 +59,20 @@ class SolvationGPAW(GPAW):
         GPAW.print_parameters(self)
         t = self.text
         t()
-        t('Solvation Parameters:')
-        fixed = [self.hamiltonian.cavity, self.hamiltonian.dielectric]
-        txt = ['Cavity:', 'Dielectric:']
-        for txt, fixed in zip(txt, fixed):
-            t(txt)
-            t('type: %s' % (fixed.name))
-            fixed.print_parameters(t)
-        for ia in self.hamiltonian.interactions:
-            t('%s:' % (ia.name))
-            ia.print_parameters(t)
+        def ul(s, l):
+            t(s)
+            t(l * len(s))
+        ul('Solvation Parameters:', '=')
+        ul('Cavity: %s' % (self.hamiltonian.cavity.__class__, ), '-')
+        self.hamiltonian.cavity.print_parameters(t)
         t()
+        ul('Dielectric: %s' % (self.hamiltonian.dielectric.__class__, ), '-')
+        self.hamiltonian.dielectric.print_parameters(t)
+        t()
+        for ia in self.hamiltonian.interactions:
+            ul('Interaction: %s' % (ia.__class__, ), '-')
+            ia.print_parameters(t)
+            t()
 
     def print_all_information(self):
         t = self.text

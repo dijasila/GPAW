@@ -36,6 +36,8 @@ class Cavity(NeedsGD):
         NeedsGD.__init__(self)
         self.g_g = None
         self.del_g_del_n_g = None
+        self.surface_calculator = surface_calculator
+        self.volume_calculator = volume_calculator
 
     def update(self, atoms, density):
         """
@@ -56,6 +58,18 @@ class Cavity(NeedsGD):
     def depends_on_atomic_positions(self):
         """returns whether the cavity depends explicitly on atomic positions"""
         raise NotImplementedError()
+
+    def print_parameters(self, text):
+        """prints parameters using text function"""
+        typ = self.surface_calculator and self.surface_calculator.__class__
+        text('surface calculator: %s' % (typ, ))
+        if self.surface_calculator is not None:
+            self.surface_calculator.print_parameters(text)
+        text()
+        typ = self.volume_calculator and self.volume_calculator.__class__
+        text('volume calculator: %s' % (typ, ))
+        if self.volume_calculator is not None:
+            self.volume_calculator.print_parameters(text)
 
 
 class EffectivePotentialCavity(Cavity):
@@ -100,6 +114,12 @@ class EffectivePotentialCavity(Cavity):
     def depends_on_atomic_positions(self):
         return self.effective_potential.depends_on_atomic_positions
 
+    def print_parameters(self, text):
+        text('effective potential: %s' % (self.effective_potential.__class__))
+        self.effective_potential.print_parameters(text)
+        text()
+        Cavity.print_parameters(self, text)
+
 
 class Potential(NeedsGD):
     def __init__(self):
@@ -132,6 +152,9 @@ class Potential(NeedsGD):
         Returns whether the potential has changed.
         """
         raise NotImplementedError()
+
+    def print_parameters(self, text):
+        pass
 
 
 class Power12Potential(Potential):
@@ -167,6 +190,11 @@ class Power12Potential(Potential):
                 self.u_g += r_12 / r2_g ** 6
         self.u_g[np.isnan(self.u_g)] = np.inf
         return True
+
+    def print_parameters(self, text):
+        Potential.print_parameters(self, text)
+        text('u0: %s' % (self.u0, ))
+        text('atomic_radii: [%s]' % (', '.join(map(str, self.atomic_radii)), ))
 
 
 class DensityCavity(Cavity):
@@ -211,17 +239,35 @@ class SurfaceCalculator():
     def __init__(self):
         pass
 
+    def print_parameters(self, text):
+        pass
+
 
 class ADM12Surface(SurfaceCalculator):
     def __init__(self, delta):
         SurfaceCalculator.__init__(self)
+        self.delta = float(delta)
+
+    def print_parameters(self, text):
+        SurfaceCalculator.print_parameters(self, text)
+        text('delta: %s' % (self.delta, ))
 
 
 class VolumeCalculator():
     def __init__(self):
         pass
 
+    def print_parameters(self, text):
+        pass
+
 
 class KB51Volume(VolumeCalculator):
     def __init__(self, compressibility, temperature):
         VolumeCalculator.__init__(self)
+        self.compressibility = float(compressibility)
+        self.temperature = float(temperature)
+
+    def print_parameters(self, text):
+        VolumeCalculator.print_parameters(self, text)
+        text('compressibility: %s' % (self.compressibility, ))
+        text('temperature:     %s' % (self.temperature, ))
