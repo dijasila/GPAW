@@ -11,7 +11,7 @@ class Dielectric(NeedsGD):
         epsinf -- dielectric constant at infinite distance from the cavity
         """
         NeedsGD.__init__(self)
-        self.epsinf = epsinf
+        self.epsinf = float(epsinf)
         self.eps_gradeps = []  # eps_g, dxeps_g, dyeps_g, dzeps_g
         self.del_eps_del_g_g = None
 
