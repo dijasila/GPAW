@@ -51,13 +51,6 @@ class QuantumVolumeInteraction(BaseInteraction):
 
 
 class QuantumSurfaceInteraction(BaseInteraction):
-    """Interaction proportional to quantum surface.
-
-    Following O. Andreussi, I. Dabo, and N. Marzari,
-    J. Chem. Phys. 136, 064102 (2012).
-
-    """
-
     name = 'Quantum Surface'
     subscript = 'surf'
 

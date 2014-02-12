@@ -38,6 +38,8 @@ class Cavity(NeedsGD):
         self.del_g_del_n_g = None
         self.surface_calculator = surface_calculator
         self.volume_calculator = volume_calculator
+        self.V = None  # global Volume
+        self.A = None  # global Surface
 
     def update(self, atoms, density):
         """
@@ -48,6 +50,42 @@ class Cavity(NeedsGD):
         Returns whether the cavity has changed.
         """
         raise NotImplementedError()
+
+    def update_vol_surf(self):
+        if self.surface_calculator is not None:
+            self.surface_calculator.update(self)
+        if self.volume_calculator is not None:
+            self.volume_calculator.update(self)
+
+    def communicate_vol_surf(self, world):
+        if self.surface_calculator is not None:
+            A = np.array([self.surface_calculator.A])
+            self.gd.comm.sum(A)
+            world.broadcast(A, 0)
+            self.A = A[0]
+        else:
+            self.A = None
+        if self.volume_calculator is not None:
+            V = np.array([self.volume_calculator.V])
+            self.gd.comm.sum(V)
+            world.broadcast(V, 0)
+            self.V = V[0]
+        else:
+            self.V = None
+
+    def allocate(self):
+        NeedsGD.allocate(self)
+        if self.surface_calculator is not None:
+            self.surface_calculator.allocate()
+        if self.volume_calculator is not None:
+            self.volume_calculator.allocate()
+
+    def set_grid_descriptor(self, gd):
+        NeedsGD.set_grid_descriptor(self, gd)
+        if self.surface_calculator is not None:
+            self.surface_calculator.set_grid_descriptor(gd)
+        if self.volume_calculator is not None:
+            self.volume_calculator.set_grid_descriptor(gd)
 
     @property
     def depends_on_el_density(self):
@@ -236,15 +274,22 @@ class FG02SmoothStep(SmoothStep):
         SmoothStep.__init__(self)
 
 
-class SurfaceCalculator():
-    def __init__(self):
-        pass
-
+class SurfaceCalculator(NeedsGD):
     def print_parameters(self, text):
         pass
 
+    def update(self, cavity):
+        raise NotImplementedError()
+
 
 class ADM12Surface(SurfaceCalculator):
+    """Generalized quantum surface
+
+    Following O. Andreussi, I. Dabo, and N. Marzari,
+    J. Chem. Phys. 136, 064102 (2012).
+
+    """
+
     def __init__(self, delta):
         SurfaceCalculator.__init__(self)
         self.delta = float(delta)
@@ -254,15 +299,31 @@ class ADM12Surface(SurfaceCalculator):
         text('delta: %s' % (self.delta, ))
 
 
-class VolumeCalculator():
+class VolumeCalculator(NeedsGD):
     def __init__(self):
-        pass
+        NeedsGD.__init__(self)
+        self.V = None
+        self.delta_V_delta_g_g = None
 
     def print_parameters(self, text):
         pass
 
+    def update(self, cavity):
+        raise NotImplementedError()
+
 
 class KB51Volume(VolumeCalculator):
+    """
+    KB51 Volume Calculator
+
+    V = Integral(1 - g) + kappa_T * k_B * T
+
+    Following
+
+    J. G. Kirkwood and F. P. Buff,
+    The Journal of Chemical Physics, vol. 19, no. 6, pp. 774--777, 1951
+    """
+
     def __init__(self, compressibility, temperature):
         VolumeCalculator.__init__(self)
         self.compressibility = float(compressibility)
@@ -272,3 +333,9 @@ class KB51Volume(VolumeCalculator):
         VolumeCalculator.print_parameters(self, text)
         text('compressibility: %s' % (self.compressibility, ))
         text('temperature:     %s' % (self.temperature, ))
+
+    def update(self, cavity):
+        self.V = self.gd.integrate(1. - cavity.g_g, global_integral=False)
+        V_compress = self.compressibility * kB * self.temperature / Bohr ** 3
+        self.V += V_compress / self.gd.comm.size
+        self.delta_V_delta_g_g = -1.

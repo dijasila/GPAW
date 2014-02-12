@@ -105,8 +105,10 @@ atoms.calc = SolvationGPAW(
         LeakedDensityInteraction(charging_energy=E_leak)
         ]
     )
-print atoms.get_potential_energy()
-print atoms.get_forces()
+print 'E', atoms.get_potential_energy()
+print 'V', atoms.calc.get_cavity_volume()
+print 'A', atoms.calc.get_cavity_surface()
+print 'F', atoms.get_forces()
 
 
 # Cavity from electron density a la ADM12
@@ -126,8 +128,10 @@ atoms.calc = SolvationGPAW(
         LeakedDensityInteraction(charging_energy=E_leak)
         ]
     )
-print atoms.get_potential_energy()
-print atoms.get_forces()
+print 'E', atoms.get_potential_energy()
+print 'V', atoms.calc.get_cavity_volume()
+print 'A', atoms.calc.get_cavity_surface()
+print 'F', atoms.get_forces()
 
 
 # Cavity from fake electron density a la SSS09
@@ -146,5 +150,7 @@ atoms.calc = SolvationGPAW(
         LeakedDensityInteraction(charging_energy=E_leak)
         ]
     )
-print atoms.get_potential_energy()
-print atoms.get_forces()
+print 'E', atoms.get_potential_energy()
+print 'V', atoms.calc.get_cavity_volume()
+print 'A', atoms.calc.get_cavity_surface()
+print 'F', atoms.get_forces()

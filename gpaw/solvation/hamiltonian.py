@@ -31,6 +31,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         for ia in interactions:
             setattr(self, 'E_' + ia.subscript, None)
         self.new_atoms = None
+        self.vt_ia_g = None
 
     def update_atoms(self, atoms):
         self.new_atoms = atoms.copy()
@@ -39,6 +40,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.gradient = [
             Gradient(self.finegd, i, 1.0, self.poisson.nn) for i in (0, 1, 2)
             ]
+        self.vt_ia_g = self.finegd.empty()
         self.cavity.allocate()
         self.dielectric.allocate()
         for ia in self.interactions:
@@ -52,12 +54,30 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             self.initialize()
             self.timer.stop('Initialize Hamiltonian')
 
-        if self.cavity.update(self.new_atoms, density):
-            self.dielectric.update_cavity(self.cavity)
-        self.new_atoms = None
+        cavity_changed = self.cavity.update(self.new_atoms, density)
+        if cavity_changed:
+            self.cavity.update_vol_surf()
+            self.dielectric.update(self.cavity)
 
         Epot, Ebar, Eext, Exc = self.update_pseudo_potential(density)
-        Eias = [i.update_pseudo_potential(density) for i in self.interactions]
+        ia_changed = [
+            ia.update(
+                self.new_atoms,
+                density,
+                self.cavity if cavity_changed else None
+                ) for ia in self.interactions
+            ]
+        if np.any(ia_changed):
+            self.vt_ia_g.fill(.0)
+            for ia in self.interactions:
+                if ia.depends_on_el_density:
+                    self.vt_ia_g += ia.delta_E_delta_n_g
+                if self.cavity.depends_on_el_density:
+                    self.vt_ia_g += (ia.delta_E_delta_g_g *
+                                     self.cavity.del_g_del_n_g)
+        for vt_g in self.vt_sg[:self.nspins]:
+            vt_g += self.vt_ia_g
+        Eias = [ia.E for ia in self.interactions]
 
         Ekin = self.calculate_kinetic_energy(density)
         W_aL = self.calculate_atomic_hamiltonians(density)
@@ -70,6 +90,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.gd.comm.sum(energies)
         # Make sure that all CPUs have the same energies
         self.world.broadcast(energies, 0)
+        self.cavity.communicate_vol_surf(self.world)
         self.timer.stop('Communicate energies')
         (self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc) = energies[:5]
         for E, ia in zip(energies[5:], self.interactions):
@@ -78,6 +99,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         #self.Exc += self.Enlxc
         #self.Ekin0 += self.Enlkin
 
+        self.new_atoms = None
         self.timer.stop('Hamiltonian')
 
     def update_pseudo_potential(self, density):

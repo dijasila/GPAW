@@ -22,7 +22,7 @@ class Dielectric(NeedsGD):
         self.eps_gradeps.append(eps_g)
         self.eps_gradeps.extend([gd.zeros() for gd in (self.gd, ) * 3])
 
-    def update_cavity(self, cavity):
+    def update(self, cavity):
         raise NotImplementedError
 
     def print_parameters(self, text):
@@ -50,9 +50,8 @@ class FDGradientDielectric(Dielectric):
 
 
 class LinearDielectric(FDGradientDielectric):
-    def update_cavity(self, cavity):
-        self.eps_gradeps[0][:] = cavity.g_g
-        self.eps_gradeps[0] *= self.epsinf - 1.
+    def update(self, cavity):
+        np.multiply(cavity.g_g, self.epsinf - 1., self.eps_gradeps[0])
         self.eps_gradeps[0] += 1.
         self.del_eps_del_g_g = self.epsinf - 1.
         self.update_gradient()
@@ -63,7 +62,7 @@ class CMDielectric(FDGradientDielectric):
         FDGradientDielectric.allocate(self)
         self.del_eps_del_g_g = self.gd.zeros()
 
-    def update_cavity(self, cavity):
+    def update(self, cavity):
         ei = self.epsinf
         t = 1. - cavity.g_g
         self.eps_gradeps[0][:] = (3. * (ei + 2.)) / ((ei - 1.) * t + 3.) - 2.

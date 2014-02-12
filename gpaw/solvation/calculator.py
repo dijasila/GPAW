@@ -1,6 +1,6 @@
 from gpaw import GPAW
 from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
-from ase.units import Hartree
+from ase.units import Hartree, Bohr
 from gpaw.occupations import MethfesselPaxton
 
 
@@ -54,6 +54,16 @@ class SolvationGPAW(GPAW):
     def get_solvation_interaction_energy(self, subscript, atoms=None):
         self.calculate(atoms, converge=True)
         return Hartree * getattr(self.hamiltonian, 'E_' + subscript)
+
+    def get_cavity_volume(self, atoms=None):
+        self.calculate(atoms, converge=True)
+        V = self.hamiltonian.cavity.V
+        return V and V * Bohr ** 3
+
+    def get_cavity_surface(self, atoms=None):
+        self.calculate(atoms, converge=True)
+        A = self.hamiltonian.cavity.A
+        return A and A * Bohr ** 2
 
     def print_parameters(self):
         GPAW.print_parameters(self)
