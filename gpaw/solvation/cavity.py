@@ -82,7 +82,7 @@ class EffectivePotentialCavity(Cavity):
         Cavity.__init__(self, surface_calculator, volume_calculator)
         self.effective_potential = effective_potential
         self.temperature = float(temperature)
-        self.minus_beta = -1. / (kB * temperature * Hartree)
+        self.minus_beta = -1. / (kB * temperature / Hartree)
 
     def set_grid_descriptor(self, gd):
         Cavity.set_grid_descriptor(self, gd)
@@ -188,6 +188,7 @@ class Power12Potential(Potential):
                 origin_vg = pos_v[:, na, na, na]
                 r2_g = np.sum((r_vg - origin_vg) ** 2, axis=0)
                 self.u_g += r_12 / r2_g ** 6
+        self.u_g *= self.u0 / Hartree
         self.u_g[np.isnan(self.u_g)] = np.inf
         return True
 
