@@ -61,7 +61,7 @@ epsinf = 78.36
 # other interactions
 gamma = 72. * dyn_per_cm  # surface tension
 p = -0.1 * Giga_Pascal  # pressure
-E_leak = 1.0  # eV (energy for one electron to leak outside the cavity)
+V_leak = 1.0  # V (interaction energy E = V_leak * [charge outside cavity])
 # only for volume calculations respecting compressibility
 T = 298.15  # K  (also used for Boltzmann distribution)
 kappa_T = 4.53e-10 / Pascal
@@ -102,7 +102,7 @@ atoms.calc = SolvationGPAW(
     interactions=[
         SurfaceInteraction(surface_tension=gamma),
         VolumeInteraction(pressure=p),
-        LeakedDensityInteraction(charging_energy=E_leak)
+        LeakedDensityInteraction(voltage=V_leak)
         ]
     )
 print 'E', atoms.get_potential_energy()
@@ -125,7 +125,7 @@ atoms.calc = SolvationGPAW(
     interactions=[
         SurfaceInteraction(surface_tension=gamma),
         VolumeInteraction(pressure=p),
-        LeakedDensityInteraction(charging_energy=E_leak)
+        LeakedDensityInteraction(voltage=V_leak)
         ]
     )
 print 'E', atoms.get_potential_energy()
@@ -147,7 +147,7 @@ atoms.calc = SolvationGPAW(
     interactions=[
         SurfaceInteraction(surface_tension=gamma),
         VolumeInteraction(pressure=p),
-        LeakedDensityInteraction(charging_energy=E_leak)
+        LeakedDensityInteraction(voltage=V_leak)
         ]
     )
 print 'E', atoms.get_potential_energy()

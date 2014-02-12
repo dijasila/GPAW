@@ -77,7 +77,35 @@ class VolumeInteraction(Interaction):
         np.multiply(pressure, vcalc.delta_V_delta_g_g, self.delta_E_delta_g_g)
         return True
 
+    def print_parameters(self, text):
+        text('pressure: %s' % (self.pressure, ))
+
 
 class LeakedDensityInteraction(Interaction):
-    def __init__(self, charging_energy):
+    """Interaction proportional to el. density leaking outside cavity."""
+    subscript = 'leak'
+    depends_on_el_density = True
+    depends_on_atomic_positions = False
+
+    def __init__(self, voltage):
         Interaction.__init__(self)
+        self.voltage = float(voltage)
+
+    def allocate(self):
+        Interaction.allocate(self)
+        self.delta_E_delta_g_g = self.gd.empty()
+        self.delta_E_delta_n_g = self.gd.empty()
+
+    def update(self, atoms, density, cavity):
+        E0 = self.voltage / Hartree
+        if cavity is not None:
+            np.multiply(E0, cavity.g_g, self.delta_E_delta_n_g)
+        np.multiply(E0, density.nt_g, self.delta_E_delta_g_g)
+        self.E = self.gd.integrate(
+            density.nt_g * self.delta_E_delta_n_g,
+            global_integral=False
+            )
+        return True
+
+    def print_parameters(self, text):
+        text('voltage: %s' % (self.voltage, ))
