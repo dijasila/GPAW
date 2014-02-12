@@ -3,34 +3,6 @@ from ase.units import Bohr
 import numpy as np
 
 
-def get_pbc_positions(atoms, r_max):
-    """
-    returns dict mapping atom index to positions in Bohr
-
-    With periodic boundary conditions, it also includes neighbouring
-    cells up to a distance of r_max (in Bohr).
-    """
-    # code snippet taken from ase/calculators/vdwcorrection.py
-    pbc_c = atoms.get_pbc()
-    cell_cv = atoms.get_cell() / Bohr
-    Rcell_c = np.sqrt(np.sum(cell_cv ** 2, axis=1))
-    ncells_c = np.ceil(np.where(pbc_c, 1. + r_max / Rcell_c, 1)).astype(int)
-    pos_aav = {}
-    # loop over all atoms in the cell (and neighbour cells for PBC)
-    for index1, atom in enumerate(atoms):
-        pos = atom.position / Bohr
-        pos_aav[index1] = np.empty((np.prod(ncells_c * 2 - 1), 3))
-        # loops over neighbour cells
-        index2 = 0
-        for ix in xrange(-ncells_c[0] + 1, ncells_c[0]):
-            for iy in xrange(-ncells_c[1] + 1, ncells_c[1]):
-                for iz in xrange(-ncells_c[2] + 1, ncells_c[2]):
-                    i_c = np.array([ix, iy, iz])
-                    pos_aav[index1][index2, :] = pos + np.dot(i_c, cell_cv)
-                    index2 += 1
-    return pos_aav
-
-
 class BaseCavityDensity:
     name = 'unnamed'
 
@@ -231,23 +203,6 @@ class Power12VdWCavityDensity(BaseCavityDensity):
     def set_grid_descriptor(self, gd):
         BaseCavityDensity.set_grid_descriptor(self, gd)
         self._rho = gd.empty()
-        self._r_vg = gd.get_grid_point_coordinates()
-
-    def update_atoms(self, atoms):
-        self._hack_non_pbc = not atoms.pbc.any()  # XXX remove after fix
-        self._pos_aav = get_pbc_positions(atoms, self.r_max / Bohr)
-        self._vdw_radii = [self.vdw_radii_map[n] for n in atoms.numbers]
-        self._vdw_radii = np.array(self._vdw_radii) / Bohr
-        self._rho.fill(.0)
-        na = np.newaxis
-        for index, pos_av in self._pos_aav.iteritems():
-            r_vdw_12 = self._vdw_radii[index] ** 12
-            for pos_v in pos_av:
-                origin_vg = pos_v[:, na, na, na]
-                r2_g = np.sum((self._r_vg - origin_vg) ** 2, axis=0)
-                u = r_vdw_12 / r2_g ** 6
-                self._rho += u
-        self._rho[np.isnan(self._rho)] = np.inf
 
     def get_rho_drho(self, nt_g):
         return (self._rho, .0)
