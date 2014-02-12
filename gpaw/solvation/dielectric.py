@@ -1,21 +1,19 @@
 from gpaw.fd_operators import Gradient
+from gpaw.solvation.gridmem import NeedsGD
 import numpy as np
 
 
-class Dielectric:
+class Dielectric(NeedsGD):
     def __init__(self, epsinf):
         """Initialize paramters.
 
         Keyword arguments:
         epsinf -- dielectric constant at infinite distance from the cavity
         """
+        NeedsGD.__init__(self)
         self.epsinf = epsinf
-        self.gd = None
         self.eps_gradeps = []  # eps_g, dxeps_g, dyeps_g, dzeps_g
         self.del_eps_del_g_g = None
-
-    def set_grid_descriptor(self, gd):
-        self.gd = gd
 
     def allocate(self):
         assert len(self.eps_gradeps) == 0

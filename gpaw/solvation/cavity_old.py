@@ -391,32 +391,3 @@ class ADM12SmoothedStep(BaseSmoothedStep):
         text('rhomin: %11.6f' % (self.rhomin, ))
         text('rhomax: %11.6f' % (self.rhomax, ))
         text('epsinf: %11.6f' % (self.epsinf, ))
-
-
-class BoltzmannSmoothedStep(BaseSmoothedStep):
-    """Smoothed step function.
-
-    1 - exp(-rho / rho0)
-
-    """
-    name = 'Boltzmann'
-
-    def __init__(self, rho0):
-        """Initialize parameters.
-
-        Keyword arguments:
-        rho0 -- cutoff density value in 1 / Ang ** 3
-
-        """
-        BaseSmoothedStep.__init__(self)
-        self.rho0 = rho0
-
-    def print_parameters(self, text):
-        text('rho0: %11.6f' % (self.rho0, ))
-
-    def get_theta_dtheta(self, rho):
-        rho0 = self.rho0 * Bohr ** 3
-        g = np.exp(-rho / rho0)
-        theta = 1. - g
-        dtheta = g / rho0
-        return (theta, dtheta)
