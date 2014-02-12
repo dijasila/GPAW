@@ -86,13 +86,14 @@ beta = 2.4
 
 atoms = molecule('H2O')
 atoms.center(vacuum=vac)
+atomic_radii = [vdw_radii[n] for n in atoms.numbers]
 
 
 # Cavity from 1 / r ** 12 effective potential
 atoms.calc = SolvationGPAW(
     xc=xc, h=h,
     cavity=EffectivePotentialCavity(
-        effective_potential=Power12Potential(vdw_radii=vdw_radii, u0=u0),
+        effective_potential=Power12Potential(atomic_radii=atomic_radii, u0=u0),
         temperature=T,
         surface_calculator=ADM12Surface(delta=delta_pot),
         volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
@@ -133,7 +134,7 @@ print atoms.get_forces()
 atoms.calc = SolvationGPAW(
     xc=xc, h=h,
     cavity=DensityCavity(
-        density=SSS09Density(vdw_radii=vdw_radii),
+        density=SSS09Density(atomic_radii=atomic_radii),
         smooth_step=FG02SmoothStep(rho0, beta),
         surface_calculator=ADM12Surface(delta=delta_dens),
         volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
