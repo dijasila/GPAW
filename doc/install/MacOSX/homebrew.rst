@@ -20,10 +20,10 @@ Make sure the compilers are in place::
 
   which llvm-gcc
 
-Follow the instructions for installing Homebrew http://mxcl.github.com/homebrew/
+Follow the instructions for installing Homebrew http://brew.sh/
 the famous::
 
-  ruby <(curl -fsSkL https://raw.github.com/mxcl/homebrew/go)
+  ruby -e "$(curl -fsSL https://raw.github.com/Homebrew/homebrew/go/install)"
 
 and configure your init scripts *~/.bash_profile*::
 
