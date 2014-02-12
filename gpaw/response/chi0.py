@@ -1,6 +1,7 @@
 """Todo: Hilbert transform"""
 
 import sys
+from math import pi
 
 import numpy as np
 from ase.units import Hartree
@@ -11,6 +12,13 @@ from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 
+
+def frequency_grid(domega0, omegamax, alpha):
+    wmax = int(omegamax / domega0 / (1 + alpha)) + 1
+    w = np.arange(wmax)
+    omega_w = w * domega0 / (1 - alpha * domega0 / omegamax * w)
+    return omega_w
+    
 
 class Chi0(PairDensity):
     def __init__(self, calc,
@@ -27,9 +35,7 @@ class Chi0(PairDensity):
         omegamax = (omegamax or ecut) / Hartree
         
         if frequencies is None:
-            wmax = int(omegamax / domega0 / (1 + alpha)) + 1
-            w = np.arange(wmax)
-            self.omega_w = w * domega0 / (1 - alpha * domega0 / omegamax * w)
+            self.omega_w = frequency_grid(domega0, omegamax, alpha)
             self.domega0 = domega0
             self.omegamax = omegamax
             self.alpha = alpha
@@ -219,11 +225,11 @@ class Chi0(PairDensity):
                                               (omega - 1j * self.eta)))
 
 
-class HilberTransform:
+class HilbertTransform:
     def __init__(self, omega_w, blocksize=500):
         """Analytic Hilbert transformation using linear interpolation."""
         self.omega_w = omega_w
-        self.bolcksize = blocksize
+        self.blocksize = blocksize
 
         nw = len(omega_w)
         self.H_ww = np.zeros((nw, nw))
@@ -250,5 +256,38 @@ class HilberTransform:
         nx = B_wx.shape[1]
         for x in range(0, nx, self.blocksize):
             C_wx = B_wx[:, x:x + self.blocksize]
-            C_wx[:] = np.dot(self.H_ww, C_wx)
+            C_wx[:] = pi * 1j * C_wx + np.dot(self.H_ww, C_wx)
         
+
+if __name__ == '__main__':
+    do = 0.05
+    eta = 0.1
+    omega_w = frequency_grid(do, 100.0, 3)
+    ht = HilbertTransform(omega_w)
+    print(len(omega_w))
+    X_w = omega_w * 0j
+    Xt_w = omega_w * 0j
+    Xh_w = omega_w * 0j
+    for o in np.linspace(2.5, 25.0, 1000):
+        X_w -= (1 / (omega_w - o + 1j * eta) -
+                1 / (omega_w + o + 1j * eta)) / o**2
+        Xt_w -= (1 / (omega_w - o + 1j * eta) -
+                 1 / (omega_w + o - 1j * eta)) / o**2
+        w = int(o / do / (1 + 3 * o / 100))
+        o1, o2 = omega_w[w:w + 2]
+        assert o1 - 1e-12 <= o <= o2 + 1e-12, (o1,o,o2)
+        p = 1 / (o2 - o1)**2 / o**2
+        Xh_w[w] += p * (o2 - o)
+        Xh_w[w + 1] += p * (o - o1)
+        
+    ht(Xh_w)
+    import matplotlib.pyplot as plt
+    plt.plot(omega_w, X_w.imag, label='ImX')
+    plt.plot(omega_w, X_w.real, label='ReX')
+    plt.plot(omega_w, Xt_w.imag, label='ImXt')
+    plt.plot(omega_w, Xt_w.real, label='ReXt')
+    plt.plot(omega_w, Xh_w.imag, label='ImXh')
+    plt.plot(omega_w, Xh_w.real, label='ReXh')
+    plt.legend()
+    plt.show()
+    
