@@ -51,9 +51,9 @@ class FDGradientDielectric(Dielectric):
 
 class LinearDielectric(FDGradientDielectric):
     def update_cavity(self, cavity):
-        self.eps_gradeps[0].fill(1.)
-        self.eps_gradeps[0] += cavity.g_g
-        self.eps_gradeps[0] *= (self.epsinf - 1.)
+        self.eps_gradeps[0][:] = cavity.g_g
+        self.eps_gradeps[0] *= self.epsinf - 1.
+        self.eps_gradeps[0] += 1.
         self.del_eps_del_g_g = self.epsinf - 1.
         self.update_gradient()
 
