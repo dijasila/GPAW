@@ -219,9 +219,7 @@ class G0W0(PairDensity):
 
             #iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
             
-            if q_c.any():
-                iG_G = pd.G2_qG[0]**-0.5
-            else:
+            if np.allclose(q_c, 0):
                 #chi0_wGG[:, 0] = 0.0
                 #chi0_wGG[:, :, 0] = 0.0
                 dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
@@ -231,6 +229,8 @@ class G0W0(PairDensity):
                 G_G = pd.G2_qG[0]**0.5
                 G_G[0] = 1
                 iG_G = 1 / G_G
+            else:
+                iG_G = pd.G2_qG[0]**-0.5
                 
             delta_GG = np.eye(len(iG_G))
             
@@ -241,7 +241,7 @@ class G0W0(PairDensity):
                 e_GG = delta_GG - 4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis]
                 W_GG = 4 * pi * (np.linalg.inv(e_GG) -
                                  delta_GG) * iG_G * iG_G[:, np.newaxis]
-                if not q_c.any():
+                if np.allclose(q_c, 0):
                     W_GG[0, 0] *= G20inv
                     W_GG[1:, 0] *= G0inv
                     W_GG[0, 1:] *= G0inv

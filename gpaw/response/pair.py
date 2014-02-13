@@ -248,7 +248,7 @@ class PairDensity:
     def initialize_paw_corrections(self, pd, soft=False):
         wfs = self.calc.wfs
         q_v = pd.K_qv[0]
-        optical_limit = not q_v.any()
+        optical_limit = np.allclose(q_v, 0)
 
         G_Gv = pd.G_Qv[pd.Q_qG[0]] + q_v
         if optical_limit:

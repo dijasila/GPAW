@@ -77,7 +77,7 @@ class Chi0(PairDensity):
         nw = len(self.omega_w)
         chi0_wGG = np.zeros((nw, nG, nG), complex)
 
-        if not q_c.any():
+        if np.allclose(q_c, 0.0):
             chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
             chi0_wvv = np.zeros((len(self.omega_w), 3, 3), complex)
         else:
@@ -104,7 +104,7 @@ class Chi0(PairDensity):
             update = self.update
 
         q_c = pd.kd.bzk_kc[0]
-        optical_limit = not q_c.any()
+        optical_limit = np.allclose(q_c, 0.0)
         
         # kpt1 occupied and kpt2 empty:
         for kpt1 in self.mykpts:

@@ -181,7 +181,7 @@ class RPACorrelation:
             nG = pd.ngmax
 
             chi0_swGG = np.zeros((1 + spin, self.mynw, nG, nG), complex)
-            if not q_c.any():
+            if np.allclose(q_c, 0.0):
                 # Wings (x=0,1) and head (G=0) for optical limit and three
                 # directions (v=0,1,2):
                 chi0_swxvG = np.zeros((1 + spin, self.mynw, 2, 3, nG), complex)
