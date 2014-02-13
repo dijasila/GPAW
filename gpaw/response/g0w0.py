@@ -80,13 +80,13 @@ class G0W0(PairDensity):
             self.epsmin = min(self.epsmin, kpt.eps_n[0])
             self.epsmax = max(self.epsmax, kpt.eps_n[self.nbands - 1])
             
-        print('Minimum eigenvalue: %10.3f eV' % (epsmin * Hartree),
+        print('Minimum eigenvalue: %10.3f eV' % (self.epsmin * Hartree),
               file=self.fd)
-        print('Maximum eigenvalue: %10.3f eV' % (epsmax * Hartree),
+        print('Maximum eigenvalue: %10.3f eV' % (self.epsmax * Hartree),
               file=self.fd)
-        print('Maximum frequency: %10.3f eV' % (self.omegamax * Hartree),
-              file=self.fd)
-        print('Number of frequencies:', len(self.omega_w), file=self.fd)
+        #print('Maximum frequency: %10.3f eV' % (self.omegamax * Hartree),
+        #      file=self.fd)
+        #print('Number of frequencies:', len(self.omega_w), file=self.fd)
     
     def calculate(self):
         kd = self.calc.wfs.kd
@@ -201,13 +201,13 @@ class G0W0(PairDensity):
                 print('Calulating screened Coulomb potential:', file=self.fd)
                 # Chi_0 calculator:
                 chi0 = Chi0(self.calc,
-                            self.domega0 * Hartree,
-                            (self.epsmax - self.epsmin) * Hartree,
-                            self.alpha,
+                            domega0=self.domega0 * Hartree,
+                            omegamax=(self.epsmax - self.epsmin) * Hartree,
+                            alpha=self.alpha,
                             ecut=self.ecut * Hartree,
                             eta=self.eta * Hartree,
                             timeordered=True,
-                            hilbert=not True,
+                            hilbert=True,
                             real_space_derivatives=True)
                 #wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
                 #                                   self.calc.wfs.kd.N_c,
@@ -218,16 +218,19 @@ class G0W0(PairDensity):
             print(chi0_wGG.shape, file=self.fd)
 
             #iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
-            iG_G = pd.G2_qG[0]**-0.5
             
-            if not q_c.any():
+            if q_c.any():
+                iG_G = pd.G2_qG[0]**-0.5
+            else:
                 #chi0_wGG[:, 0] = 0.0
                 #chi0_wGG[:, :, 0] = 0.0
                 dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
                 qc = (dq3 / 4 / pi * 3)**(1 / 3)
                 G0inv = 2 * pi * qc**2 / dq3
                 G20inv = 4 * pi * qc / dq3
-                iG_G[0] = 1
+                G_G = pd.G2_qG[0]**0.5
+                G_G[0] = 1
+                iG_G = 1 / G_G
                 
             delta_GG = np.eye(len(iG_G))
             
