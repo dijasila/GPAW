@@ -6,6 +6,7 @@
 from ase.structure import molecule
 from ase.units import Pascal, m, Bohr
 from ase.data.vdw import vdw_radii
+from ase.parallel import parprint
 from gpaw.solvation import (
     # calculator
     SolvationGPAW,
@@ -87,6 +88,15 @@ atoms.center(vacuum=vac)
 atomic_radii = [vdw_radii[n] for n in atoms.numbers]
 
 
+def print_results(atoms):
+    parprint('E = %.3f eV' % (atoms.get_potential_energy(), ))
+    parprint('V = %.3f Ang ** 3' % (atoms.calc.get_cavity_volume(), ))
+    parprint('A = %.3f Ang ** 2' % (atoms.calc.get_cavity_surface(), ))
+    parprint('Forces:')
+    parprint(atoms.get_forces())
+    parprint('')
+
+
 # Cavity from 1 / r ** 12 effective potential
 atoms.calc = SolvationGPAW(
     xc=xc, h=h,
@@ -103,10 +113,7 @@ atoms.calc = SolvationGPAW(
         LeakedDensityInteraction(voltage=V_leak)
         ]
     )
-print 'E', atoms.get_potential_energy()
-print 'V', atoms.calc.get_cavity_volume()
-print 'A', atoms.calc.get_cavity_surface()
-print 'F', atoms.get_forces()
+print_results(atoms)
 
 
 # Cavity from electron density a la ADM12
@@ -126,10 +133,7 @@ atoms.calc = SolvationGPAW(
         LeakedDensityInteraction(voltage=V_leak)
         ]
     )
-print 'E', atoms.get_potential_energy()
-print 'V', atoms.calc.get_cavity_volume()
-print 'A', atoms.calc.get_cavity_surface()
-print 'F', atoms.get_forces()
+print_results(atoms)
 
 
 # Cavity from fake electron density a la SSS09
@@ -148,7 +152,4 @@ atoms.calc = SolvationGPAW(
         LeakedDensityInteraction(voltage=V_leak)
         ]
     )
-print 'E', atoms.get_potential_energy()
-print 'V', atoms.calc.get_cavity_volume()
-print 'A', atoms.calc.get_cavity_surface()
-print 'F', atoms.get_forces()
+print_results(atoms)
