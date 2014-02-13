@@ -7,7 +7,7 @@ from gpaw.solvation.cavity import (
     SSS09Density,
     ADM12SmoothStep,
     FG02SmoothStep,
-    ADM12Surface,
+    GradientSurface,
     KB51Volume,
 )
 from gpaw.solvation.dielectric import (

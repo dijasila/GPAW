@@ -34,6 +34,8 @@ class FDGradientDielectric(Dielectric):
     def __init__(self, epsinf, nn=3):
         Dielectric.__init__(self, epsinf)
         self.nn = nn
+        self.eps_hack_g = None
+        self.gradient = None
 
     def allocate(self):
         Dielectric.allocate(self)

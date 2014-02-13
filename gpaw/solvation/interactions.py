@@ -45,12 +45,28 @@ class Interaction(NeedsGD):
 
 class SurfaceInteraction(Interaction):
     subscript = 'surf'
+    depends_on_el_density = False
+    depends_on_atomic_positions = False
 
     def __init__(self, surface_tension):
         Interaction.__init__(self)
         self.surface_tension = float(surface_tension)
 
+    def allocate(self):
+        Interaction.allocate(self)
+        self.delta_E_delta_g_g = self.gd.empty()
+
+    def update(self, atoms, density, cavity):
+        if cavity is None:
+            return False
+        acalc = cavity.surface_calculator
+        st = self.surface_tension * Bohr ** 2 / Hartree
+        self.E = st * acalc.A
+        np.multiply(st, acalc.delta_A_delta_g_g, self.delta_E_delta_g_g)
+        return True
+
     def print_parameters(self, text):
+        Interaction.print_parameters(self, text)
         text('surface_tension: %s' % (self.surface_tension, ))
 
 
@@ -78,6 +94,7 @@ class VolumeInteraction(Interaction):
         return True
 
     def print_parameters(self, text):
+        Interaction.print_parameters(self, text)
         text('pressure: %s' % (self.pressure, ))
 
 
@@ -108,4 +125,5 @@ class LeakedDensityInteraction(Interaction):
         return True
 
     def print_parameters(self, text):
+        Interaction.print_parameters(self, text)
         text('voltage: %s' % (self.voltage, ))

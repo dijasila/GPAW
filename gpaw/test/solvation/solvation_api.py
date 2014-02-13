@@ -26,7 +26,7 @@ from gpaw.solvation import (
     VolumeInteraction,
     LeakedDensityInteraction,
     # surface and volume calculators
-    ADM12Surface,
+    GradientSurface,
     KB51Volume,
 )
 # poisson solver
@@ -71,11 +71,9 @@ kappa_T = 4.53e-10 / Pascal
 u0 = 0.180  # eV
 vdw_radii = vdw_radii[:]
 vdw_radii[1] = 1.09
-delta_pot = 1e-6  # eV in this case, numerical param for surface
 
 # density cavity params (examples)
 # --------------------------------
-delta_dens = 1e-6 / Bohr ** 3  # numerical param for surface
 # ADM12
 rhomin = 0.0001 / Bohr ** 3
 rhomax = 0.0050 / Bohr ** 3
@@ -95,7 +93,7 @@ atoms.calc = SolvationGPAW(
     cavity=EffectivePotentialCavity(
         effective_potential=Power12Potential(atomic_radii=atomic_radii, u0=u0),
         temperature=T,
-        surface_calculator=ADM12Surface(delta=delta_pot),
+        surface_calculator=GradientSurface(),
         volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
         ),
     dielectric=LinearDielectric(epsinf=epsinf),
@@ -118,7 +116,7 @@ atoms.calc = SolvationGPAW(
     cavity=DensityCavity(
         density=ElDensity(),
         smooth_step=ADM12SmoothStep(rhomin, rhomax, epsinf),
-        surface_calculator=ADM12Surface(delta=delta_dens),
+        surface_calculator=GradientSurface(),
         volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
         ),
     dielectric=LinearDielectric(epsinf=epsinf),
@@ -140,7 +138,7 @@ atoms.calc = SolvationGPAW(
     cavity=DensityCavity(
         density=SSS09Density(atomic_radii=atomic_radii),
         smooth_step=FG02SmoothStep(rho0, beta),
-        surface_calculator=ADM12Surface(delta=delta_dens),
+        surface_calculator=GradientSurface(),
         volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
         ),
     dielectric=LinearDielectric(epsinf=epsinf),

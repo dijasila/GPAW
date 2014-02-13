@@ -1,5 +1,6 @@
 from ase.units import kB, Hartree, Bohr
 from gpaw.solvation.gridmem import NeedsGD
+from gpaw.fd_operators import Gradient
 import numpy as np
 
 
@@ -275,6 +276,11 @@ class FG02SmoothStep(SmoothStep):
 
 
 class SurfaceCalculator(NeedsGD):
+    def __init__(self):
+        NeedsGD.__init__(self)
+        self.A = None
+        self.delta_A_delta_g_g = None
+
     def print_parameters(self, text):
         pass
 
@@ -282,21 +288,52 @@ class SurfaceCalculator(NeedsGD):
         raise NotImplementedError()
 
 
-class ADM12Surface(SurfaceCalculator):
-    """Generalized quantum surface
-
-    Following O. Andreussi, I. Dabo, and N. Marzari,
-    J. Chem. Phys. 136, 064102 (2012).
-
-    """
-
-    def __init__(self, delta):
+class GradientSurface(SurfaceCalculator):
+    def __init__(self, nn=3):
         SurfaceCalculator.__init__(self)
-        self.delta = float(delta)
+        self.nn = nn
+        self.gradient = None
+        self.gradient_in = None
+        self.gradient_out = None
+        self.norm_grad_out = None
+        self.div_tmp = None
 
-    def print_parameters(self, text):
-        SurfaceCalculator.print_parameters(self, text)
-        text('delta: %s' % (self.delta, ))
+    def allocate(self):
+        SurfaceCalculator.allocate(self)
+        self.gradient = [
+            Gradient(self.gd, i, 1.0, self.nn) for i in (0, 1, 2)
+            ]
+        self.gradient_in = self.gd.empty()
+        self.gradient_out = (self.gd.empty(), self.gd.empty(), self.gd.empty())
+        self.norm_grad_out = self.gd.empty()
+        self.delta_A_delta_g_g = self.gd.empty()
+        self.div_tmp = self.gd.empty()
+
+    def update(self, cavity):
+        self.calc_grad(cavity)
+        self.A = self.gd.integrate(self.norm_grad_out, global_integral=False)
+        mask = self.norm_grad_out > .0
+        masked_norm_grad = self.norm_grad_out[mask]
+        for i in (0, 1, 2):
+            self.gradient_out[i][mask] /= masked_norm_grad
+        self.calc_div(self.gradient_out, self.delta_A_delta_g_g)
+        self.delta_A_delta_g_g *= -1
+
+    def calc_grad(self, cavity):
+        # zero on non-PBC boundary (cavity.g_g is 1 on non-PBC boundary)
+        np.subtract(cavity.g_g, 1., self.gradient_in)
+        self.norm_grad_out.fill(.0)
+        for i in (0, 1, 2):
+            self.gradient[i].apply(self.gradient_in, self.gradient_out[i])
+            self.norm_grad_out += self.gradient_out[i] ** 2
+        self.norm_grad_out **= .5
+
+    def calc_div(self, vec, out):
+        self.gradient[0].apply(vec[0], out)
+        self.gradient[1].apply(vec[1], self.div_tmp)
+        out += self.div_tmp
+        self.gradient[2].apply(vec[2], self.div_tmp)
+        out += self.div_tmp
 
 
 class VolumeCalculator(NeedsGD):
