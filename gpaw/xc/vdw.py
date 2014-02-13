@@ -18,6 +18,7 @@ from math import sin, cos, exp, pi, log, sqrt, ceil
 
 import numpy as np
 from numpy.fft import fft, rfftn, irfftn
+import time
 
 from gpaw.utilities.timing import nulltimer
 from gpaw.xc.libxc import LibXC
@@ -243,7 +244,7 @@ class VDWFunctional(GGA):
         q0_g, dhdx_g = hRPS(kF_g -
                             4 * pi / 3 * e_LDAc_g / n_g -
                             self.Zab / 36 / kF_g * a2_g / n_g**2, self.q0cut)
-
+        
         if self.verbose:
             print ('VDW: q0 (min, mean, max): (%f, %f, %f)' %
                    (q0_g.min(), q0_g.mean(), q0_g.max()))
@@ -415,13 +416,18 @@ class RealSpaceVDWFunctional(VDWFunctional):
         # Number of pairs per processor:
         world = self.world
         p = ni * (ni - 1) // 2 // world.size
-        
-        iA = 0
-        for r in range(world.size):
-            iB = iA + int(0.5 - iA + sqrt((iA - 0.5)**2 + 2 * p))
-            if r == world.rank:
-                break
-            iA = iB
+
+        # When doing supercell, the pairs are not that important
+        if np.any(self.repeat): # XXX This can be further optimized
+            iA = world.rank * (ni // world.size)        
+            iB = (world.rank+1) * (ni // world.size)
+        else:
+            iA = 0
+            for r in range(world.size):
+                iB = iA + int(0.5 - iA + sqrt((iA - 0.5)**2 + 2 * p))
+                if r == world.rank:
+                    break
+                iA = iB
 
         assert iA <= iB
         
@@ -437,6 +443,8 @@ class RealSpaceVDWFunctional(VDWFunctional):
         self.Dhistogram = np.zeros(200)
         dr = 0.05
         dD = 0.05
+        if self.verbose:
+            start = time.time()
         E_vdwnl = _gpaw.vdw(n_i, q0_i, R_ic, gd.cell_cv.diagonal().copy(),
                             gd.pbc_c,
                             repeat_c,
@@ -444,6 +452,10 @@ class RealSpaceVDWFunctional(VDWFunctional):
                             iA, iB,
                             self.rhistogram, dr,
                             self.Dhistogram, dD)
+        end = time.time()
+        if self.verbose:
+            print "vdW in rank ", world.rank, 'took', end-start
+
         self.rhistogram *= gd.dv**2 / dr
         self.Dhistogram *= gd.dv**2 / dD
         self.world.sum(self.rhistogram)

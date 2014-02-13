@@ -29,6 +29,10 @@ class Davidson(Eigensolver):
         self.orthonormalization_required = False
 
     def initialize(self, wfs):
+        if wfs.bd.comm.size > 1:
+            raise ValueError('CG eigensolver does not support band '
+                             'parallelization.  This calculation parallelizes '
+                             'over %d band groups.' % wfs.bd.comm.size)
         Eigensolver.initialize(self, wfs)
         self.overlap = wfs.overlap
         # Allocate arrays

@@ -111,19 +111,19 @@ relevant changes
   that the rate doubles for every temperature increase of 10 K around
   room temperature.  What activation energy does this correspond to?
 
-* Look at the relaxed configurations with the :command:`ag`
+* Look at the relaxed configurations with the :command:`ase-gui`
   command::
 
-    $ ag -r 3,3,2 ontop.traj
+    $ ase-gui -r 3,3,2 ontop.traj
 
   or::
 
-    $ ag -g 'd(0,4),F[4,2]' ontop.traj
+    $ ase-gui -g 'd(0,4),F[4,2]' ontop.traj
 
   to plot the force in the *z*-direction on the gold atom as a
   function of the Au-Al distance.  Try also *terminal-only-mode*::
  
-    $ ag -t -g 'd(0,-1),F[2,2]' ontop.traj
+    $ ase-gui -t -g 'd(0,-1),F[2,2]' ontop.traj
 
 
 

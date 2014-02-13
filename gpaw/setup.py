@@ -389,6 +389,10 @@ class BaseSetup:
 
         return self.I4_pp
 
+    def get_default_nbands(self):
+        return sum([2 * l + 1 for (l, n) in zip(self.l_j, self.n_j)
+                    if n > 0])
+
 
 class LeanSetup(BaseSetup):
     """Setup class with minimal attribute set.

@@ -134,6 +134,7 @@ dmowbray   Duncan Mowbray             duncan,mowbray:gmail,com
 dulak      Marcin Dulak               dulak:fysik,dtu,dk
 eojons     Elvar Örn Jónsson          elvar,jonsson:fysik,dtu,dk
 falh       Falco Huser                falh:fysik,dtu,dk
+fras       Filip Anselm Rasmussen     fras:fysik,dtu,dk
 georg      Poul Georg Moses           gtritsaris:seas,harvard,edu
 getri      George Tritsaris           getri:fysik,dtu,dk
 hahansen   Heine Anton Hansen         hahansen:fysik,dtu,dk
@@ -166,10 +167,13 @@ mvanin     Marco Vanin                mvanin:fysik,dtu,dk
 naromero   Nichols Romero             naromero:alcf,anl,gov
 peterklue  Peter Kluepfel             peter:theochem,org
 s032082    Christian Glinsvad         s032082:fysik,dtu,dk
+s093017    Per Simmendefeldt Schmidt  s093017:student,dtu,dk
 sakko      Arto Sakko                 arto,sakko:aalto,fi
 schiotz    Jakob Schiotz              schiotz:fysik,dtu,dk
 shakala    Samuli Hakala              samuli,hakala:tkk,fi
+simola     Simone Latini              simola:fysik,dtu,dk
 strange    Mikkel Strange             mikkel,strange:gmail,com
+thahn      Torsten Hahn               der,hahn,torsten:googlemail,com
 tjiang     Tao Jiang                  tjiang:fysik,dtu,dk
 tolsen     Thomas Olsen               tolsen:fysik,dtu,dk
 tprossi    Tuomas Rossi               tuomas,rossi:aalto,fi

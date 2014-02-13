@@ -24,12 +24,12 @@ In the :ref:`aluminium_exercise` exercise the lattice constant of bulk Al was fo
 
 .. literalinclude:: stress.py
 
-The calculation uses 12 iterations to find the optimal lattice constant and the relaxation can be viewed with the command line tool ag:
+The calculation uses 12 iterations to find the optimal lattice constant and the relaxation can be viewed with the command line tool ase-gui:
 
 .. highlight:: bash
 
 ::
 
-  $ ag stress.txt
+  $ ase-gui stress.txt
 
 Since we know the experimental lattice constant, we could probably have calculated the PBE lattice constant faster by fitting a parabola to five points in the vicinity of the expermental lattice constant. However, for complicated unit cells with more than one lattice parameter, the stress tensor becomes a highly valuable tool.

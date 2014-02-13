@@ -1,10 +1,9 @@
 """Excited state as calculator object."""
 
-from __future__ import print_function
-
 import sys
 import numpy as np
 
+from ase.utils import prnt
 from ase.units import Bohr, Hartree
 from ase.calculators.general import Calculator
 from ase.calculators.test import numeric_force
@@ -43,16 +42,16 @@ class FiniteDifferenceCalculator(Calculator):
             else:
                 self.txt, firsttime = initialize_text_stream(
                     txt, world.rank)
-        print('#', self.__class__.__name__, version, file=self.txt)
+        prnt('#', self.__class__.__name__, version, file=self.txt)
                                                               
         self.d = d
         self.parallel = {
             'world' : world, 'mycomm' : world, 'ncalcs' : 1, 'icalc' : 0 }
         if world.size < 2:
             if parallel > 0:
-                print('#', (self.__class__.__name__ + ':'), 
-                      'Serial calculation, keyword parallel ignored.',
-                      file=self.txt)
+                prnt('#', (self.__class__.__name__ + ':'), 
+                     'Serial calculation, keyword parallel ignored.',
+                     file=self.txt)
         elif parallel > 0:
             mycomm, ncalcs, icalc = distribute_cpus(parallel, world)
             self.parallel = { 'world' : world, 'mycomm' : mycomm, 
@@ -81,15 +80,15 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         self.energy = None
         self.F_av = None
 
-        print('#', self.index, file=self.txt)
+        prnt('#', self.index, file=self.txt)
         if name:
-            print(('name=' + name), file=self.txt)
-        print('# Force displacement:', self.d, file=self.txt)
+            prnt(('name=' + name), file=self.txt)
+        prnt('# Force displacement:', self.d, file=self.txt)
         if self.parallel:
-            print('#', self.parallel['world'].size, 
-                  'cores in total, ', self.parallel['mycomm'].size, 
-                  'cores per energy evaluation', 
-                  file=self.txt)
+            prnt('#', self.parallel['world'].size, 
+                 'cores in total, ', self.parallel['mycomm'].size, 
+                 'cores per energy evaluation', 
+                 file=self.txt)
 
     def set_positions(self, atoms):
         """Update the positions of the atoms."""
@@ -165,8 +164,8 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
             world = self.parallel['world']
             txt = self.txt
             if world.rank > 0:
-                txt = None
-            mpi.broadcast(txt, 0, world) # allow the slaves to write
+                txt = sys.stdout
+
             mycomm = self.parallel['mycomm']
             ncalcs = self.parallel['ncalcs']
             icalc = self.parallel['icalc']
@@ -177,15 +176,15 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
                     if (i % ncalcs) == icalc:
                         F_av[ia, ic] = numeric_force(
                             atoms, ia, ic, self.d) / mycomm.size
-                        print('# rank', world.rank, '-> force',
-                              (str(ia) + 'xyz'[ic]), file=txt)
+                        prnt('# rank', world.rank, '-> force',
+                             (str(ia) + 'xyz'[ic]), file=txt)
                     i += 1
             energy = np.array([0.]) # array needed for world.sum()
             if (i % ncalcs) == icalc:
                 self.energy = None
                 energy[0] = self.get_potential_energy(atoms) / mycomm.size
-                print('# rank', world.rank, '-> energy', 
-                      energy[0] * mycomm.size, file=txt)
+                prnt('# rank', world.rank, '-> energy', 
+                     energy[0] * mycomm.size, file=txt)
             self.set_positions(atoms)
             world.sum(F_av)
             world.sum(energy)
@@ -193,12 +192,12 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
             self.F_av = F_av
 
             if self.txt:
-                print('Excited state forces in eV/Ang:', file=self.txt)
+                prnt('Excited state forces in eV/Ang:', file=self.txt)
                 symbols = self.atoms.get_chemical_symbols()
                 for a, symbol in enumerate(symbols):
-                    print(('%3d %-2s %10.5f %10.5f %10.5f' %
-                           ((a, symbol) + tuple(self.F_av[a]))), 
-                          file=self.txt)
+                    prnt(('%3d %-2s %10.5f %10.5f %10.5f' %
+                          ((a, symbol) + tuple(self.F_av[a]))), 
+                         file=self.txt)
         return self.F_av
 
     def get_stress(self, atoms):

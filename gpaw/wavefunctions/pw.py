@@ -1188,7 +1188,23 @@ class ReciprocalSpaceDensity(Density):
         return PsudoCoreKineticEnergyDensityLFC(
             [[setup.tauct] for setup in self.setups], self.pd2)
 
-
+    def calculate_dipole_moment(self):
+        if np.__version__ < '1.6.0':
+            raise NotImplementedError
+        pd = self.pd3
+        N_c = pd.tmp_Q.shape
+        
+        m0_q, m1_q, m2_q = [i_G == 0
+                            for i_G in np.unravel_index(pd.Q_qG[0], N_c)]
+        rhot_q = self.rhot_q.imag
+        rhot_cs = [rhot_q[m1_q & m2_q],
+                   rhot_q[m0_q & m2_q],
+                   rhot_q[m0_q & m1_q]]
+        d_c = [np.dot(rhot_s[1:], 1.0 / np.arange(1, len(rhot_s)))
+               for rhot_s in rhot_cs]
+        return -np.dot(d_c, pd.gd.cell_cv) / pi * pd.gd.dv
+        
+        
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
                  vext=None, collinear=True, world=None):

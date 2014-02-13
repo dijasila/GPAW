@@ -579,3 +579,5 @@ class RealSpaceDensity(Density):
                    [[setup.tauct] for setup in self.setups],
                    forces=True, cut=True)
 
+    def calculate_dipole_moment(self):
+        return self.finegd.calculate_dipole_moment(self.rhot_g)

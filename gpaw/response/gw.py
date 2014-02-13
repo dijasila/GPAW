@@ -182,7 +182,7 @@ class GW(BASECHI):
         else: # parallelize over bands
             self.wcomm, self.ncomm, self.worldcomm = set_communicator(world, rank, size, self.wpar)
             self.qcomm = serial_comm
-            if len(self.w_w) > 1:
+            if self.wpar > 1:
                 self.dfcomm = self.wcomm
                 self.kcommsize = 1
             else:

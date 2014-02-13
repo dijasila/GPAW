@@ -77,6 +77,8 @@ class PAW(PAWTextOutput):
         self.scf = None
         self.forces = ForceCalculator(self.timer)
         self.stress_vv = None
+        self.dipole_v = None
+        self.magmom_av = None
         self.wfs = EmptyWaveFunctions()
         self.occupations = None
         self.density = None
@@ -311,6 +313,8 @@ class PAW(PAWTextOutput):
         self.scf.reset()
         self.forces.reset()
         self.stress_vv = None
+        self.dipole_v = None
+        self.magmom_av = None
         self.print_positions()
 
     def initialize(self, atoms=None):
@@ -452,8 +456,11 @@ class PAW(PAWTextOutput):
         if nbands is None:
             nbands = 0
             for setup in setups:
-                nbands += max(sum([2 * l + 1 for l in setup.l_j]),
-                              -(-setup.Nv // 2))
+                nbands_from_atom = setup.get_default_nbands()
+                
+                # Any obscure setup errors?
+                assert nbands_from_atom >= -(-setup.Nv // 2)
+                nbands += nbands_from_atom
             nbands = min(nao, nbands)
         elif nbands > nao and mode == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: '
@@ -547,6 +554,16 @@ class PAW(PAWTextOutput):
             # because we allow negative numbers)
             self.nbands_parallelization_adjustment = -nbands % band_comm.size
             nbands += self.nbands_parallelization_adjustment
+
+            # I would like to give the following error message, but apparently
+            # there are cases, e.g. gpaw/test/gw_ppa.py, which involve
+            # nbands > nao and are supposed to work that way.
+            #if nbands > nao:
+            #    raise ValueError('Number of bands %d adjusted for band '
+            #                     'parallelization %d exceeds number of atomic '
+            #                     'orbitals %d.  This problem can be fixed '
+            #                     'by reducing the number of bands a bit.'
+            #                     % (nbands, band_comm.size, nao))
             bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
             if (self.density is not None and
@@ -731,9 +748,11 @@ class PAW(PAWTextOutput):
         self.print_memory_estimate(self.txt, maxdepth=memory_estimate_depth)
         self.txt.flush()
 
+        self.timer.print_info(self)
+        
         if dry_run:
             self.dry_run()
-
+        
         self.initialized = True
 
     def dry_run(self):

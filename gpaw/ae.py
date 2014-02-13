@@ -49,6 +49,9 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.type = 'all-electron'
         self.fingerprint = None
         
+    def get_default_nbands(self):
+        return 1
+        
     def build(self, basis):
         if basis is None:
             basis = Basis('H', 'sz(dzp)')

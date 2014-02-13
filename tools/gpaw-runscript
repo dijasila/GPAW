@@ -37,7 +37,7 @@ hosts = { 'batman'                   : 'pbs_batman',
           r'xc2(.*)'                 : 'xc2',
           'juropa.fz-juelich.de'     : 'juropa',
 	  r'jj(.*)'                  : 'juropa',
-          'joe1'                     : 'joe'
+          r'joe*'                    : 'joe'
           }
 
 platforms = { 'aix5' : 'loadleveler' }
@@ -393,7 +393,8 @@ unset CC CFLAGS LDFLAGS
         queue_pe_cores = {
             # queue    pe            min.cores
             'short' : ['openmpi_64', 64],
-            'medium': ['openmpi_8',   8]
+            'medium': ['openmpi_8',   8],
+            'long'  : ['openmpi', 1],
             }
         modules_to_load = []
         print >> f, '#!/bin/bash'
@@ -423,6 +424,7 @@ unset CC CFLAGS LDFLAGS
         print >> f
         print >> f, 'cd', set['wd']
         print >> f
+        print >> f, 'export OMP_NUM_THREADS="1"'
         print >> f, 'export PATH=$PATH:' + env['PATH']
         print >> f, 'export PYTHONPATH=$PYTHONPATH:' + env['PYTHONPATH']
         print >> f, 'export GPAW_SETUP_PATH='+env['GPAW_SETUP_PATH']

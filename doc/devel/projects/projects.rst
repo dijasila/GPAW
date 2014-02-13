@@ -11,7 +11,6 @@ Ongoing Projects
     rmmdiis
     mixing
     pw
-    stress
     response
     bse
     gw
