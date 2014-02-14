@@ -6,24 +6,27 @@ from ase.units import Bohr, mol, kcal, Pascal, m
 from ase.data.vdw import vdw_radii
 from gpaw.solvation import (
     SolvationGPAW,
-    Power12VdWCavityDensity,
-    BoltzmannSmoothedStep,
+    EffectivePotentialCavity,
+    Power12Potential,
     LinearDielectric,
-    QuantumSurfaceInteraction,
+    GradientSurface,
+    SurfaceInteraction,
 )
 
 SKIP_VAC_CALC = True
 
 h = 0.24
 vac = 4.0
-rho0 = 1. / 7.
+u0 = 0.180
 epsinf = 78.36
-st = 18.4
+st = 18.4 * 1e-3 * Pascal * m
+T = 298.15
 vdw_radii = vdw_radii[:]
 vdw_radii[1] = 1.09
 
 atoms = Cluster(molecule('H2O'))
 atoms.minimal_box(vac, h)
+atomic_radii = [vdw_radii[n] for n in atoms.numbers]
 
 if not SKIP_VAC_CALC:
     atoms.calc = GPAW(xc='PBE', h=h)
@@ -35,17 +38,16 @@ else:
 
 atoms.calc = SolvationGPAW(
     xc='PBE', h=h,
-    cavdens=Power12VdWCavityDensity(vdw_radii),
-    smoothedstep=BoltzmannSmoothedStep(rho0 / Bohr ** 3),
+    cavity=EffectivePotentialCavity(
+        effective_potential=Power12Potential(atomic_radii, u0),
+        temperature=T,
+        surface_calculator=GradientSurface()
+        ),
     dielectric=LinearDielectric(epsinf=epsinf),
-    interactions=[
-        QuantumSurfaceInteraction(
-            surface_tension=st * 1e-3 * Pascal * m,
-            delta=1e-6 / Bohr ** 3
-            )
-        ]
+    interactions=[SurfaceInteraction(surface_tension=st)]
     )
 Ewater = atoms.get_potential_energy()
+atoms.get_forces()
 ham = atoms.calc.hamiltonian
 DGSol = (Ewater - Evac) / (kcal / mol)
 print 'Delta Gsol: %s kcal / mol' % (DGSol, )
