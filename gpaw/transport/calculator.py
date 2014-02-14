@@ -549,6 +549,7 @@ class Transport(GPAW):
         # scattering region
         if dry_run:
             self.parameters_test()
+        self.cvg_ham_steps = 0
         self.initialize()
         self.nspins = self.wfs.nspins
         self.npk = len(self.wfs.ibzk_kc)
@@ -1582,9 +1583,22 @@ class Transport(GPAW):
         self.get_hamiltonian_matrix()
         self.timer.stop('HamMM')
         if self.master:
-            self.text('HamMM', self.timer.timers['HamMM',], 'second')         
+            self.text('HamMM', self.timer.timers['HamMM',], 'seconds')         
        
         self.d_cvg = self.check_convergence('d')
+        
+        # adaptive mixing ?
+        if self.h_cvg:
+            self.cvg_ham_steps += 1
+        else:
+            self.cvg_ham_steps = 0
+        
+        if self.cvg_ham_steps > 4:
+            self.text('Ham cvg since {0} iterations -> increase density mixing'.format(self.cvg_ham_steps))
+            b = self.density.mixer.beta
+            self.density.mixer.beta = b + (b*0.25)
+            self.text('New beta: {0}'.format(self.density.mixer.beta))
+        
         self.txt.flush()
         
     def check_convergence(self, var):
