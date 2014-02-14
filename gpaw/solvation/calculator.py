@@ -98,3 +98,8 @@ class SolvationGPAW(GPAW):
         Eel = Hartree * getattr(self.hamiltonian, 'Eel')
         t('%-14s: %+11.6f' % ('el', Eel))
         GPAW.print_all_information(self)
+
+    def write(self, *args, **kwargs):
+        raise NotImplementedError(
+            'IO is not implemented yet for SolvationGPAW!'
+            )
