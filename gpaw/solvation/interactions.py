@@ -34,8 +34,7 @@ class Interaction(NeedsGD):
         """returns whether the ia depends explicitly on the electron density"""
         raise NotImplementedError
 
-    def update_forces(self, dens, F_av):
-        """Adds interaction forces to F_av in Hartree / Bohr."""
+    def get_del_r_vg(self, atomic_index, density):
         raise NotImplementedError
 
     def print_parameters(self, text):

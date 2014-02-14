@@ -88,6 +88,9 @@ class Cavity(NeedsGD):
         if self.volume_calculator is not None:
             self.volume_calculator.set_grid_descriptor(gd)
 
+    def get_del_r_vg(self, atom_index, density):
+        raise NotImplementedError()
+
     @property
     def depends_on_el_density(self):
         """returns whether the cavity depends on the electron density"""
@@ -145,6 +148,14 @@ class EffectivePotentialCavity(Cavity):
             self.del_g_del_n_g *= self.effective_potential.del_u_del_n_g
         return True
 
+    def get_del_r_vg(self, atom_index, density):
+        u = self.effective_potential
+        del_u_del_r_vg = u.get_del_r_vg(atom_index, density)
+        for v in (0, 1, 2):
+            assert (self.g_g[np.isnan(del_u_del_r_vg[v])] < 1e-10).all()  # XXX remove
+            del_u_del_r_vg[v][np.isnan(del_u_del_r_vg[v])] = .0
+        return self.minus_beta * self.g_g * del_u_del_r_vg
+
     @property
     def depends_on_el_density(self):
         return self.effective_potential.depends_on_el_density
@@ -192,6 +203,9 @@ class Potential(NeedsGD):
         """
         raise NotImplementedError()
 
+    def get_del_r_vg(self, atom_index, density):
+        raise NotImplementedError()
+
     def print_parameters(self, text):
         pass
 
@@ -211,30 +225,52 @@ class Power12Potential(Potential):
         self.atomic_radii = np.array(atomic_radii)
         self.u0 = float(u0)
         self.r_max = float(r_max)
+        self.r12_a = None
+        self.r_vg = None
+        self.pos_aav = None
+        self.del_u_del_r_vg = None
+
+    def allocate(self):
+        Potential.allocate(self)
+        self.r_vg = self.gd.get_grid_point_coordinates()
+        self.del_u_del_r_vg = self.gd.empty(3)
 
     def update(self, atoms, density):
         if atoms is None:
             return False
         assert len(atoms) == len(self.atomic_radii)
-        pos_aav = get_pbc_positions(atoms, self.r_max / Bohr)
-        r_vg = self.gd.get_grid_point_coordinates()
-        r12_a = (self.atomic_radii / Bohr) ** 12
+        self.pos_aav = get_pbc_positions(atoms, self.r_max / Bohr)
+        self.r12_a = (self.atomic_radii / Bohr) ** 12
         self.u_g.fill(.0)
         na = np.newaxis
-        for index, pos_av in pos_aav.iteritems():
-            r_12 = r12_a[index]
+        for index, pos_av in self.pos_aav.iteritems():
+            r_12 = self.r12_a[index]
             for pos_v in pos_av:
                 origin_vg = pos_v[:, na, na, na]
-                r2_g = np.sum((r_vg - origin_vg) ** 2, axis=0)
+                r2_g = np.sum((self.r_vg - origin_vg) ** 2, axis=0)
                 self.u_g += r_12 / r2_g ** 6
         self.u_g *= self.u0 / Hartree
         self.u_g[np.isnan(self.u_g)] = np.inf
         return True
 
+    def get_del_r_vg(self, atom_index, density):
+        u0 = self.u0 / Hartree
+        r12 = self.r12_a[atom_index]
+        na = np.newaxis
+        self.del_u_del_r_vg.fill(.0)
+        for pos_v in self.pos_aav[atom_index]:
+            origin_vg = pos_v[:, na, na, na]
+            diff_vg = self.r_vg - origin_vg
+            r2_g = np.sum(diff_vg ** 2, axis=0)
+            self.del_u_del_r_vg += diff_vg / r2_g ** 7
+        self.del_u_del_r_vg *= (12. * u0 * r12)
+        return self.del_u_del_r_vg
+
     def print_parameters(self, text):
         Potential.print_parameters(self, text)
-        text('u0: %s' % (self.u0, ))
         text('atomic_radii: [%s]' % (', '.join(map(str, self.atomic_radii)), ))
+        text('u0: %s' % (self.u0, ))
+        text('PBC r_max: %s' % (self.r_max, ))
 
 
 class DensityCavity(Cavity):
@@ -361,7 +397,7 @@ class KB51Volume(VolumeCalculator):
     The Journal of Chemical Physics, vol. 19, no. 6, pp. 774--777, 1951
     """
 
-    def __init__(self, compressibility, temperature):
+    def __init__(self, compressibility=.0, temperature=.0):
         VolumeCalculator.__init__(self)
         self.compressibility = float(compressibility)
         self.temperature = float(temperature)

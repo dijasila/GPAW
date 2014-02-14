@@ -116,9 +116,25 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         return ret
 
     def calculate_forces(self, dens, F_av):
+        # XXX reorganize
         self.el_force_correction(dens, F_av)
         for ia in self.interactions:
-            ia.update_forces(dens, F_av)
+            if self.cavity.depends_on_atomic_positions:
+                for a, F_v in enumerate(F_av):
+                    del_g_del_r_vg = self.cavity.get_del_r_vg(a, dens)
+                    for v in (0, 1, 2):
+                        F_v[v] -= self.finegd.integrate(
+                            ia.delta_E_delta_g_g * del_g_del_r_vg[v],
+                            global_integral=False
+                            )
+            if ia.depends_on_atomic_positions:
+                for a, F_v in enumerate(F_av):
+                    del_E_del_r_vg = ia.get_del_r_vg(a, dens)
+                    for v in (0, 1, 2):
+                        F_v[v] -= self.finegd.integrate(
+                            del_E_del_r_vg[v],
+                            global_integral=False
+                            )
         return RealSpaceHamiltonian.calculate_forces(
             self, dens, F_av
             )
@@ -129,11 +145,11 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         del_eps_del_g_g = self.dielectric.del_eps_del_g_g
         fixed = 1. / (8. * np.pi) * del_eps_del_g_g * \
             self.grad_squared(self.vHt_g)  # XXX grad_vHt_g inexact in bmgs
-        for a, fa in enumerate(F_av):
-            dRa = self.cavity.get_atomic_position_derivative(a)
+        for a, F_v in enumerate(F_av):
+            del_g_del_r_vg = self.cavity.get_del_r_vg(a, dens)
             for v in (0, 1, 2):
-                fa[v] += self.finegd.integrate(
-                    fixed * dRa[v],
+                F_v[v] += self.finegd.integrate(
+                    fixed * del_g_del_r_vg[v],
                     global_integral=False
                     )
 
@@ -149,6 +165,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         return self.Etot
 
     def grad_squared(self, x):
+        # XXX ugly
         gs = np.empty_like(x)
         tmp = np.empty_like(x)
         self.gradient[0].apply(x, gs)
