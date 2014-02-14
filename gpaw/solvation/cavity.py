@@ -220,11 +220,11 @@ class Power12Potential(Potential):
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
-    def __init__(self, atomic_radii, u0, r_max=10. * Bohr):
+    def __init__(self, atomic_radii, u0, pbc_cutoff=1e-6):
         Potential.__init__(self)
         self.atomic_radii = np.array(atomic_radii)
         self.u0 = float(u0)
-        self.r_max = float(r_max)
+        self.pbc_cutoff = float(pbc_cutoff)
         self.r12_a = None
         self.r_vg = None
         self.pos_aav = None
@@ -239,8 +239,9 @@ class Power12Potential(Potential):
         if atoms is None:
             return False
         assert len(atoms) == len(self.atomic_radii)
-        self.pos_aav = get_pbc_positions(atoms, self.r_max / Bohr)
         self.r12_a = (self.atomic_radii / Bohr) ** 12
+        r_cutoff = (self.r12_a.max() * self.u0 / self.pbc_cutoff) ** (1. / 12.)
+        self.pos_aav = get_pbc_positions(atoms, r_cutoff)
         self.u_g.fill(.0)
         na = np.newaxis
         for index, pos_av in self.pos_aav.iteritems():
@@ -270,7 +271,7 @@ class Power12Potential(Potential):
         Potential.print_parameters(self, text)
         text('atomic_radii: [%s]' % (', '.join(map(str, self.atomic_radii)), ))
         text('u0: %s' % (self.u0, ))
-        text('PBC r_max: %s' % (self.r_max, ))
+        text('pbc_cutoff: %s' % (self.pbc_cutoff, ))
 
 
 class DensityCavity(Cavity):
