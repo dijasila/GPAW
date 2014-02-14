@@ -169,7 +169,7 @@ class RPACorrelation:
 
         nq = len(self.energy_qi)
         for q_c in self.ibzq_qc[nq:]:
-            if (q_c == 0.0).all() and self.skip_gamma:
+            if np.allclose(q_c, 0.0) and self.skip_gamma:
                 self.energy_qi.append(len(self.ecut_i) * [0.0])
                 self.write()
                 print('Not calculating E_c(q) at Gamma', file=self.fd)
