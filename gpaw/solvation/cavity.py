@@ -76,6 +76,9 @@ class Cavity(NeedsGD):
 
     def allocate(self):
         NeedsGD.allocate(self)
+        self.g_g = self.gd.empty()
+        if self.depends_on_el_density:
+            self.del_g_del_n_g = self.gd.empty()
         if self.surface_calculator is not None:
             self.surface_calculator.allocate()
         if self.volume_calculator is not None:
@@ -133,9 +136,6 @@ class EffectivePotentialCavity(Cavity):
     def allocate(self):
         Cavity.allocate(self)
         self.effective_potential.allocate()
-        self.g_g = self.gd.empty()
-        if self.depends_on_el_density:
-            self.del_g_del_n_g = self.gd.empty()
 
     def update(self, atoms, density):
         if not self.effective_potential.update(atoms, density):
@@ -318,6 +318,10 @@ class SurfaceCalculator(NeedsGD):
         self.A = None
         self.delta_A_delta_g_g = None
 
+    def allocate(self):
+        NeedsGD.allocate(self)
+        self.delta_A_delta_g_g = self.gd.empty()
+
     def print_parameters(self, text):
         pass
 
@@ -343,7 +347,6 @@ class GradientSurface(SurfaceCalculator):
         self.gradient_in = self.gd.empty()
         self.gradient_out = (self.gd.empty(), self.gd.empty(), self.gd.empty())
         self.norm_grad_out = self.gd.empty()
-        self.delta_A_delta_g_g = self.gd.empty()
         self.div_tmp = self.gd.empty()
 
     def update(self, cavity):
@@ -379,6 +382,10 @@ class VolumeCalculator(NeedsGD):
         self.V = None
         self.delta_V_delta_g_g = None
 
+    def allocate(self):
+        NeedsGD.allocate(self)
+        self.delta_V_delta_g_g = self.gd.empty()
+
     def print_parameters(self, text):
         pass
 
@@ -408,8 +415,11 @@ class KB51Volume(VolumeCalculator):
         text('compressibility: %s' % (self.compressibility, ))
         text('temperature:     %s' % (self.temperature, ))
 
+    def allocate(self):
+        VolumeCalculator.allocate(self)
+        self.delta_V_delta_g_g = -1.  # frees array
+
     def update(self, cavity):
         self.V = self.gd.integrate(1. - cavity.g_g, global_integral=False)
         V_compress = self.compressibility * kB * self.temperature / Bohr ** 3
         self.V += V_compress / self.gd.comm.size
-        self.delta_V_delta_g_g = -1.

@@ -24,6 +24,12 @@ class Interaction(NeedsGD):
         """
         raise NotImplementedError
 
+    def allocate(self):
+        NeedsGD.allocate(self)
+        self.delta_E_delta_g_g = self.gd.empty()
+        if self.depends_on_el_density:
+            self.delta_E_delta_n_g = self.gd.empty()
+
     @property
     def depends_on_atomic_positions(self):
         """returns whether the ia depends explicitly on atomic positions"""
@@ -51,10 +57,6 @@ class SurfaceInteraction(Interaction):
         Interaction.__init__(self)
         self.surface_tension = float(surface_tension)
 
-    def allocate(self):
-        Interaction.allocate(self)
-        self.delta_E_delta_g_g = self.gd.empty()
-
     def update(self, atoms, density, cavity):
         if cavity is None:
             return False
@@ -79,10 +81,6 @@ class VolumeInteraction(Interaction):
         Interaction.__init__(self)
         self.pressure = float(pressure)
 
-    def allocate(self):
-        Interaction.allocate(self)
-        self.delta_E_delta_g_g = self.gd.empty()
-
     def update(self, atoms, density, cavity):
         if cavity is None:
             return False
@@ -106,11 +104,6 @@ class LeakedDensityInteraction(Interaction):
     def __init__(self, voltage):
         Interaction.__init__(self)
         self.voltage = float(voltage)
-
-    def allocate(self):
-        Interaction.allocate(self)
-        self.delta_E_delta_g_g = self.gd.empty()
-        self.delta_E_delta_n_g = self.gd.empty()
 
     def update(self, atoms, density, cavity):
         E0 = self.voltage / Hartree
