@@ -2,7 +2,7 @@ from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 from ase.structure import molecule
-from ase.units import Bohr, mol, kcal, Pascal, m
+from ase.units import mol, kcal, Pascal, m
 from ase.data.vdw import vdw_radii
 from gpaw.solvation import (
     SolvationGPAW,
