@@ -290,7 +290,7 @@ class RPACorrelation:
         """Evaluate correlation energy from chi0."""
 
         G_G = pd.G2_qG[0]**0.5  # |G+q|
-        if G_G[0] == 0.0:
+        if pd.kd.gamma:
             G_G[0] = 1.0
 
         if cut_G is not None:

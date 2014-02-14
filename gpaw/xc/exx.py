@@ -5,7 +5,7 @@ import sys
 from math import pi
 
 import numpy as np
-from ase.units import Hartree, Bohr
+from ase.units import Hartree
 from ase.utils import prnt
 
 import gpaw.mpi as mpi
@@ -14,8 +14,8 @@ from gpaw.xc.kernel import XCNull
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.utilities import unpack, unpack2, packed_index
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.utilities import unpack, unpack2, packed_index, erf
 
 
 def pawexxvv(atomdata, D_ii):
@@ -200,7 +200,7 @@ class EXX(PairDensity):
         if self.omega is not None:
             G2_G = pd.G2_qG[0]
             iG_G = np.empty_like(G2_G)
-            if G2_G[0] == 0:
+            if pd.kd.gamma:
                 iG_G[0] = 1 / (2 * self.omega)
             else:
                 iG_G[0] = ((1 - np.exp(-G2_G[0] / (4 * self.omega**2))) /

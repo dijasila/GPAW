@@ -71,7 +71,7 @@ class WignerSeitzTruncatedCoulomb:
 
         G2_G = pd.G2_qG[0]
         a = self.a
-        if G2_G[0] == 0.0:
+        if pd.kd.gamma:
             K_G[0] += pi / a**2
         else:
             K_G[0] += 4 * pi * (1 - np.exp(-G2_G[0] / (4 * a**2))) / G2_G[0]

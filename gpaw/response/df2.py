@@ -1,6 +1,7 @@
 import os
 import sys
 import pickle
+from math import pi
 
 import numpy as np
 from ase.utils import prnt
@@ -50,7 +51,7 @@ class DielectricFunction:
         G_G = pd.G2_qG[0]**0.5
         nG = len(G_G)
 
-        if G_G[0] == 0.0:
+        if pd.kd.gamma:
             G_G[0] = 1.0
             if isinstance(direction, str):
                 d_v = {'x': [1, 0, 0],
@@ -63,14 +64,14 @@ class DielectricFunction:
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[:, 1])
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv, d_v).T)
         
-        G_G /= (4 * np.pi)**0.5
+        G_G /= (4 * pi)**0.5
 
         if wigner_seitz_truncation:
             kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv,
                                                  self.chi0.calc.wfs.kd.N_c)
             K_G = kernel.get_potential(pd)
             K_G *= G_G**2
-            if pd.G2_qG[0][0] == 0.0:
+            if pd.kd.gamma:
                 K_G[0] = 0.0
         else:
             K_G = np.ones(nG)
@@ -112,7 +113,7 @@ class DielectricFunction:
         G_G = pd.G2_qG[0]**0.5
         nG = len(G_G)
 
-        if G_G[0] == 0.0:
+        if pd.kd.gamma:
             G_G[0] = 1.0
             if isinstance(direction, str):
                 d_v = {'x': [1, 0, 0],
@@ -131,10 +132,10 @@ class DielectricFunction:
             kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, 
                                                  self.chi0.calc.wfs.kd.N_c)
             K_G = kernel.get_potential(pd)**0.5
-            if pd.G2_qG[0][0] == 0.0:
+            if pd.kd.gamma:
                 K_G[0] = 0.0
         else:
-            K_G = (4 * np.pi)**0.5 / G_G
+            K_G = (4 * pi)**0.5 / G_G
 
         if xc != 'RPA':
             R_av = self.chi0.calc.atoms.positions / Bohr
@@ -284,16 +285,16 @@ class DielectricFunction:
             df0_w, df_w = self.get_dielectric_function(xc=xc, q_c=[0, 0, 0],
                                                        filename=None,
                                                        direction=direction)
-            alpha_w = V * (df_w - 1.0) / (4 * np.pi)
-            alpha0_w = V * (df0_w - 1.0) / (4 * np.pi)
+            alpha_w = V * (df_w - 1.0) / (4 * pi)
+            alpha0_w = V * (df0_w - 1.0) / (4 * pi)
         else:
             # With truncation we need to calculate \chit = v^0.5*chi*v^0.5
             prnt('Using Wigner-Seitz truncated Coulomb interaction',
                  file=self.chi0.fd)
             chi0_wGG, chi_wGG = self.get_chi(xc=xc, direction=direction,
                                              wigner_seitz_truncation=True)
-            alpha_w = -V * (chi_wGG[:,0,0]) / (4 * np.pi)
-            alpha0_w = -V * (chi0_wGG[:,0,0]) / (4 * np.pi)
+            alpha_w = -V * (chi_wGG[:,0,0]) / (4 * pi)
+            alpha0_w = -V * (chi0_wGG[:,0,0]) / (4 * pi)
 
         Nw = len(alpha_w)
         if filename is not None and mpi.rank == 0:
@@ -324,7 +325,7 @@ class DielectricFunction:
             #prnt(N1, file=fd)
             w = iw * dw
             N1 += spectrum[iw] * w
-        N1 *= dw * self.chi0.vol / (2 * np.pi**2)
+        N1 *= dw * self.chi0.vol / (2 * pi**2)
 
         prnt('', file=fd)
         prnt('Sum rule:', file=fd)

@@ -139,7 +139,7 @@ class FXCCorrelation(RPACorrelation):
                     n2 = (s2 + 1) * nG
                     fv[m1:n1, m2:n2] *= G_G * G_G[:, np.newaxis] / 4 / np.pi
 
-                    if np.prod(self.unit_cells) > 1 and G_G[0] == 0.0:
+                    if np.prod(self.unit_cells) > 1 and pd.kd.gamma:
                         m1 = s1 * nG
                         n1 = (s1 + 1) * nG
                         m2 = s2 * nG
@@ -150,7 +150,7 @@ class FXCCorrelation(RPACorrelation):
         else:
             fv = np.tile(np.eye(nG), (ns, ns))
 
-        if G_G[0] == 0.0:
+        if pd.kd.gamma:
             G_G[0] = 1.0
 
         e_w = []
