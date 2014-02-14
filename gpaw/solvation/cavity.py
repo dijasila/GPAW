@@ -32,6 +32,18 @@ def get_pbc_positions(atoms, r_max):
     return pos_aav
 
 
+def divide_silently(x, y):
+    """
+    Divides numpy arrays x / y ignoring all floating point errors.
+
+    Use with caution!
+    """
+    old_err = np.seterr(all='ignore')
+    result = x / y
+    np.seterr(**old_err)
+    return result
+
+
 class Cavity(NeedsGD):
     def __init__(self, surface_calculator=None, volume_calculator=None):
         NeedsGD.__init__(self)
@@ -151,9 +163,8 @@ class EffectivePotentialCavity(Cavity):
     def get_del_r_vg(self, atom_index, density):
         u = self.effective_potential
         del_u_del_r_vg = u.get_del_r_vg(atom_index, density)
-        for v in (0, 1, 2):
-            assert (self.g_g[np.isnan(del_u_del_r_vg[v])] < 1e-10).all()  # XXX remove
-            del_u_del_r_vg[v][np.isnan(del_u_del_r_vg[v])] = .0
+        # asserts lim_(||r - r_atom|| -> 0) dg/du * du/dr_atom = 0
+        del_u_del_r_vg[np.isnan(del_u_del_r_vg)] = .0
         return self.minus_beta * self.g_g * del_u_del_r_vg
 
     @property
@@ -245,11 +256,11 @@ class Power12Potential(Potential):
         self.u_g.fill(.0)
         na = np.newaxis
         for index, pos_av in self.pos_aav.iteritems():
-            r_12 = self.r12_a[index]
+            r12 = self.r12_a[index]
             for pos_v in pos_av:
                 origin_vg = pos_v[:, na, na, na]
-                r2_g = np.sum((self.r_vg - origin_vg) ** 2, axis=0)
-                self.u_g += r_12 / r2_g ** 6
+                r12_g = np.sum((self.r_vg - origin_vg) ** 2, axis=0) ** 6
+                self.u_g += divide_silently(r12, r12_g)
         self.u_g *= self.u0 / Hartree
         self.u_g[np.isnan(self.u_g)] = np.inf
         return True
@@ -262,8 +273,8 @@ class Power12Potential(Potential):
         for pos_v in self.pos_aav[atom_index]:
             origin_vg = pos_v[:, na, na, na]
             diff_vg = self.r_vg - origin_vg
-            r2_g = np.sum(diff_vg ** 2, axis=0)
-            self.del_u_del_r_vg += diff_vg / r2_g ** 7
+            r14_g = np.sum(diff_vg ** 2, axis=0) ** 7
+            self.del_u_del_r_vg += divide_silently(diff_vg, r14_g)
         self.del_u_del_r_vg *= (12. * u0 * r12)
         return self.del_u_del_r_vg
 
