@@ -23,10 +23,10 @@ epsinf = 80.
 T = 298.15
 vdw_radii = vdw_radii[:]
 vdw_radii[1] = 1.09
+atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
 
 atoms = Cluster(molecule('CN'))
 atoms.minimal_box(vac, h)
-atomic_radii = [vdw_radii[n] for n in atoms.numbers]
 atoms2 = atoms.copy()
 atoms2.set_initial_magnetic_moments(None)
 

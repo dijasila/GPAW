@@ -12,11 +12,12 @@ class Dielectric(NeedsGD):
         """
         NeedsGD.__init__(self)
         self.epsinf = float(epsinf)
-        self.eps_gradeps = []  # eps_g, dxeps_g, dyeps_g, dzeps_g
+        self.eps_gradeps = None  # eps_g, dxeps_g, dyeps_g, dzeps_g
         self.del_eps_del_g_g = None
 
     def allocate(self):
-        assert len(self.eps_gradeps) == 0
+        NeedsGD.allocate(self)
+        self.eps_gradeps = []
         eps_g = self.gd.empty()
         eps_g.fill(1.0)
         self.eps_gradeps.append(eps_g)

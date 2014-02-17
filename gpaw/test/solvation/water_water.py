@@ -23,10 +23,10 @@ st = 18.4 * 1e-3 * Pascal * m
 T = 298.15
 vdw_radii = vdw_radii[:]
 vdw_radii[1] = 1.09
+atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
 
 atoms = Cluster(molecule('H2O'))
 atoms.minimal_box(vac, h)
-atomic_radii = [vdw_radii[n] for n in atoms.numbers]
 
 if not SKIP_VAC_CALC:
     atoms.calc = GPAW(xc='PBE', h=h)

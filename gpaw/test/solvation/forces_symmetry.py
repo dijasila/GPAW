@@ -21,6 +21,7 @@ min_vac = 4.0
 u0 = .180
 epsinf = 80.
 T = 298.15
+atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
 
 xy_cell = np.ceil((min_vac * 2.) / h / 8.) * 8. * h
 z_cell = np.ceil((min_vac * 2. + d) / h / 8.) * 8. * h
@@ -30,7 +31,6 @@ atoms = Atoms('NaCl', positions=(
         )
               )
 atoms.set_cell((xy_cell, xy_cell, z_cell))
-atomic_radii = [vdw_radii[n] for n in atoms.numbers]
 
 atoms.calc = SolvationGPAW(
     xc='PBE', h=h, setups={'Na': '1'},

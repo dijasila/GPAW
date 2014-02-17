@@ -324,6 +324,7 @@ tests = [
     'solvation/water_water.py',
     'solvation/forces_symmetry.py',
     'solvation/forces.py',
+    'solvation/swap_atoms.py',
     ]
 
 exclude = []

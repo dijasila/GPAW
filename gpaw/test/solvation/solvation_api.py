@@ -72,6 +72,7 @@ kappa_T = 4.53e-10 / Pascal
 u0 = 0.180  # eV
 vdw_radii = vdw_radii[:]
 vdw_radii[1] = 1.09
+atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
 
 # density cavity params (examples)
 # --------------------------------
@@ -85,7 +86,6 @@ beta = 2.4
 
 atoms = molecule('H2O')
 atoms.center(vacuum=vac)
-atomic_radii = [vdw_radii[n] for n in atoms.numbers]
 
 
 def print_results(atoms):
