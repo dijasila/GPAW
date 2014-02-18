@@ -15,6 +15,12 @@ class Dielectric(NeedsGD):
         self.eps_gradeps = None  # eps_g, dxeps_g, dyeps_g, dzeps_g
         self.del_eps_del_g_g = None
 
+    def estimate_memory(self, mem):
+        nbytes = self.gd.bytecount()
+        mem.subnode('Permittivity', nbytes)
+        mem.subnode('Permittivity Gradient', 3 * nbytes)
+        mem.subnode('Permittivity Derivative', nbytes)
+
     def allocate(self):
         NeedsGD.allocate(self)
         self.eps_gradeps = []
@@ -38,6 +44,10 @@ class FDGradientDielectric(Dielectric):
         self.nn = nn
         self.eps_hack_g = None
         self.gradient = None
+
+    def estimate_memory(self, mem):
+        Dielectric.estimate_memory(self, mem)
+        mem.subnode('Boundary Correction', self.gd.bytecount())
 
     def allocate(self):
         Dielectric.allocate(self)

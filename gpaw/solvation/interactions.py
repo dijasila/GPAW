@@ -24,6 +24,10 @@ class Interaction(NeedsGD):
         """
         raise NotImplementedError
 
+    def estimate_memory(self, mem):
+        ngrids = 1 + self.depends_on_el_density
+        mem.subnode('Functional Derivatives', ngrids * self.gd.bytecount())
+
     def allocate(self):
         NeedsGD.allocate(self)
         self.delta_E_delta_g_g = self.gd.empty()

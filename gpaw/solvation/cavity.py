@@ -54,6 +54,18 @@ class Cavity(NeedsGD):
         self.V = None  # global Volume
         self.A = None  # global Surface
 
+    def estimate_memory(self, mem):
+        ngrids = 1 + self.depends_on_el_density
+        mem.subnode('Distribution Function', ngrids * self.gd.bytecount())
+        if self.surface_calculator is not None:
+            self.surface_calculator.estimate_memory(
+                mem.subnode('Surface Calculator')
+                )
+        if self.volume_calculator is not None:
+            self.volume_calculator.estimate_memory(
+                mem.subnode('Volume Calculator')
+                )
+
     def update(self, atoms, density):
         """
         Updates the cavity.
@@ -141,6 +153,12 @@ class EffectivePotentialCavity(Cavity):
         self.temperature = float(temperature)
         self.minus_beta = -1. / (kB * temperature / Hartree)
 
+    def estimate_memory(self, mem):
+        Cavity.estimate_memory(self, mem)
+        self.effective_potential.estimate_memory(
+            mem.subnode('Effective Potential')
+            )
+
     def set_grid_descriptor(self, gd):
         Cavity.set_grid_descriptor(self, gd)
         self.effective_potential.set_grid_descriptor(gd)
@@ -198,6 +216,10 @@ class Potential(NeedsGD):
         """returns whether the cavity depends explicitly on atomic positions"""
         raise NotImplementedError()
 
+    def estimate_memory(self, mem):
+        ngrids = 1 + self.depends_on_el_density
+        mem.subnode('Potential', ngrids * self.gd.bytecount())
+
     def allocate(self):
         NeedsGD.allocate(self)
         self.u_g = self.gd.empty()
@@ -241,6 +263,11 @@ class Power12Potential(Potential):
         self.pos_aav = None
         self.del_u_del_r_vg = None
         self.atomic_radii_output = None
+
+    def estimate_memory(self, mem):
+        Potential.estimate_memory(self, mem)
+        nbytes = self.gd.bytecount()
+        mem.subnode('Coordinates', 6 * nbytes)
 
     def allocate(self):
         Potential.allocate(self)
@@ -334,6 +361,9 @@ class SurfaceCalculator(NeedsGD):
         self.A = None
         self.delta_A_delta_g_g = None
 
+    def estimate_memory(self, mem):
+        mem.subnode('Functional Derivative', self.gd.bytecount())
+
     def allocate(self):
         NeedsGD.allocate(self)
         self.delta_A_delta_g_g = self.gd.empty()
@@ -354,6 +384,12 @@ class GradientSurface(SurfaceCalculator):
         self.gradient_out = None
         self.norm_grad_out = None
         self.div_tmp = None
+
+    def estimate_memory(self, mem):
+        SurfaceCalculator.estimate_memory(self, mem)
+        nbytes = self.gd.bytecount()
+        mem.subnode('Gradient', 5 * nbytes)
+        mem.subnode('Divergence', nbytes)
 
     def allocate(self):
         SurfaceCalculator.allocate(self)
@@ -397,6 +433,9 @@ class VolumeCalculator(NeedsGD):
         NeedsGD.__init__(self)
         self.V = None
         self.delta_V_delta_g_g = None
+
+    def estimate_memory(self, mem):
+        mem.subnode('Functional Derivative', self.gd.bytecount())
 
     def allocate(self):
         NeedsGD.allocate(self)

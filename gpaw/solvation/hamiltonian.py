@@ -33,6 +33,16 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.new_atoms = None
         self.vt_ia_g = None
 
+    def estimate_memory(self, mem):
+        RealSpaceHamiltonian.estimate_memory(self, mem)
+        solvation = mem.subnode('Solvation')
+        for name, obj in [
+            ('Cavity', self.cavity),
+            ('Dielectric', self.dielectric),
+            ] + \
+            [('Interaction: ' + ia.subscript, ia) for ia in self.interactions]:
+            obj.estimate_memory(solvation.subnode(name))
+
     def update_atoms(self, atoms):
         self.new_atoms = atoms.copy()
 
