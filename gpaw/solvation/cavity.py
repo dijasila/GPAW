@@ -317,22 +317,103 @@ class Power12Potential(Potential):
         text('pbc_cutoff: %s' % (self.pbc_cutoff, ))
 
 
-class DensityCavity(Cavity):
+class SmoothStepCavity(Cavity):
     def __init__(
         self,
-        density, smooth_step,
+        density,
         surface_calculator=None, volume_calculator=None
         ):
         Cavity.__init__(self, surface_calculator, volume_calculator)
+        self.del_g_del_rho_g = None
+        self.density = density
+
+    @property
+    def depends_on_el_density(self):
+        return self.density.depends_on_el_density
+
+    @property
+    def depends_on_atomic_positions(self):
+        return self.density.depends_on_atomic_positions
+
+    def set_grid_descriptor(self, gd):
+        Cavity.set_grid_descriptor(self, gd)
+        self.density.set_grid_descriptor(gd)
+
+    def estimate_memory(self, mem):
+        Cavity.estimate_memory(self, mem)
+        mem.subnode('Cavity Derivative', self.gd.bytecount())
+        self.density.estimate_memory(mem.subnode('Density'))
+
+    def allocate(self):
+        Cavity.allocate(self)
+        self.del_g_del_rho_g = self.gd.empty()
+        self.density.allocate()
+
+    def update(self, atoms, density):
+        if not self.density.update(atoms, density):
+            return False
+        self.update_smooth_step(self.density.rho_g)
+        if self.depends_on_el_density:
+            np.multiply(
+                self.del_g_del_rho_g,
+                self.density.del_rho_del_n_g,
+                self.del_g_del_n_g
+                )
+        return True
+
+    def update_smooth_step(self, rho_g):
+        """calculates self.g_g and self.del_g_del_rho_g"""
+        raise NotImplementedError()
+
+    def print_parameters(self, text):
+        text('density: %s' % (self.density.__class__))
+        self.density.print_parameters(text)
+        text()
+        Cavity.print_parameters(self, text)
 
 
-class Density():
+class Density(NeedsGD):
     def __init__(self):
+        NeedsGD.__init__(self)
+        self.rho_g = None
+        self.del_rho_del_n_g = None
+
+    def estimate_memory(self, mem):
+        nbytes = self.gd.bytecount()
+        mem.subnode('Density', nbytes)
+        if self.depends_on_el_density:
+            mem.subnode('Density Derivative', nbytes)
+
+    def allocate(self):
+        NeedsGD.allocate(self)
+        self.rho_g = self.gd.empty()
+        if self.depends_on_el_density:
+            self.del_rho_del_n_g = self.gd.empty()
+
+    @property
+    def depends_on_el_density(self):
+        raise NotImplementedError()
+
+    @property
+    def depends_on_atomic_positions(self):
+        raise NotImplementedError()
+
+    def print_parameters(self, text):
         pass
 
 
 class ElDensity(Density):
-    pass
+    depends_on_el_density = True
+    depends_on_atomic_positions = False
+
+    def allocate(self):
+        Density.allocate(self)
+        self.del_rho_del_n_g = 1.  # free array
+
+    def update(self, atoms, density):
+        self.rho_g[:] = density.nt_g
+        self.rho_g[self.rho_g < .0] = .0
+        return True
 
 
 class SSS09Density(Density):
@@ -340,19 +421,80 @@ class SSS09Density(Density):
         Density.__init__(self)
 
 
-class SmoothStep():
-    def __init__(self):
-        pass
+class ADM12SmoothStepCavity(SmoothStepCavity):
+    """Cavity from smooth step function.
+
+    Following O. Andreussi, I. Dabo, and N. Marzari,
+    J. Chem. Phys. 136, 064102 (2012).
+
+    """
+
+    def __init__(
+        self,
+        rhomin, rhomax, epsinf,
+        density,
+        surface_calculator=None, volume_calculator=None
+        ):
+        SmoothStepCavity.__init__(
+            self, density, surface_calculator, volume_calculator
+            )
+        self.rhomin = float(rhomin)
+        self.rhomax = float(rhomax)
+        self.epsinf = float(epsinf)
+
+    def update_smooth_step(self, rho_g):
+        eps = self.epsinf
+        inside = rho_g > self.rhomax * Bohr ** 3
+        outside = rho_g < self.rhomin * Bohr ** 3
+        transition = np.logical_not(
+            np.logical_or(inside, outside)
+            )
+        self.g_g[inside] = .0
+        self.g_g[outside] = 1.
+        self.del_g_del_rho_g.fill(.0)
+        t, dt = self._get_t_dt(np.log(rho_g[transition]))
+        if eps == 1.0:
+            # lim_{eps -> 1} (eps - eps ** t) / (eps - 1) = 1 - t
+            self.g_g[transition] = t
+            self.del_g_del_rho_g[transition] = dt / rho_g[transition]
+        else:
+            eps_to_t = eps ** t
+            self.g_g[transition] = (eps_to_t - 1.) / (eps - 1.)
+            self.del_g_del_rho_g[transition] = (
+                eps_to_t * np.log(eps) * dt
+                ) / (
+                rho_g[transition] * (eps - 1.)
+                )
+
+    def _get_t_dt(self, x):
+        lnmax = np.log(self.rhomax * Bohr ** 3)
+        lnmin = np.log(self.rhomin * Bohr ** 3)
+        twopi = 2. * np.pi
+        arg = twopi * (lnmax - x) / (lnmax - lnmin)
+        t = (arg - np.sin(arg)) / twopi
+        dt = -2. * np.sin(arg / 2.) ** 2 / (lnmax - lnmin)
+        return (t, dt)
+
+    def print_parameters(self, text):
+        text('rhomin: %s' % (self.rhomin, ))
+        text('rhomax: %s' % (self.rhomax, ))
+        text('epsinf: %s' % (self.epsinf, ))
+        SmoothStepCavity.print_parameters(self, text)
 
 
-class ADM12SmoothStep(SmoothStep):
-    def __init__(self, rhomin, rhomax, epsinf):
-        SmoothStep.__init__(self)
-
-
-class FG02SmoothStep(SmoothStep):
-    def __init__(self, rho0, beta):
-        SmoothStep.__init__(self)
+class FG02SmoothStepCavity(SmoothStepCavity):
+    def __init__(
+        self,
+        rho0,
+        beta,
+        density,
+        surface_calculator=None, volume_calculator=None
+        ):
+        SmoothStepCavity.__init__(
+            self, density, surface_calculator, volume_calculator
+            )
+        self.rho0 = float(rho0)
+        self.beta = float(beta)
 
 
 class SurfaceCalculator(NeedsGD):
