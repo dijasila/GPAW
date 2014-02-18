@@ -7,18 +7,18 @@ from ase.structure import molecule
 from ase.units import Pascal, m, Bohr
 from ase.data.vdw import vdw_radii
 from ase.parallel import parprint
+from gpaw import Mixer
 from gpaw.solvation import (
     # calculator
     SolvationGPAW,
     # cavities
     EffectivePotentialCavity,
-    DensityCavity,
+    ADM12SmoothStepCavity,
+    FG02SmoothStepCavity,
     # custom classes for the cavities
     Power12Potential,
-    ADM12SmoothStep,
     ElDensity,
     SSS09Density,
-    FG02SmoothStep,
     # dielectric
     LinearDielectric,
     CMDielectric,  # not used any more
@@ -113,16 +113,16 @@ atoms.calc = SolvationGPAW(
         LeakedDensityInteraction(voltage=V_leak)
         ]
     )
-print_results(atoms)
+#print_results(atoms)
 
 
 # Cavity from electron density a la ADM12
 atoms.calc = SolvationGPAW(
-    xc=xc, h=h,
+    xc=xc, h=h, mixer=Mixer(beta=0.1, nmaxold=5, weight=50.0),
     poissonsolver=ADM12PoissonSolver(),
-    cavity=DensityCavity(
+    cavity=ADM12SmoothStepCavity(
+        rhomin, rhomax, epsinf,
         density=ElDensity(),
-        smooth_step=ADM12SmoothStep(rhomin, rhomax, epsinf),
         surface_calculator=GradientSurface(),
         volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
         ),
@@ -139,9 +139,9 @@ print_results(atoms)
 # Cavity from fake electron density a la SSS09
 atoms.calc = SolvationGPAW(
     xc=xc, h=h,
-    cavity=DensityCavity(
+    cavity=FG02SmoothStepCavity(
+        rho0, beta,
         density=SSS09Density(atomic_radii=atomic_radii),
-        smooth_step=FG02SmoothStep(rho0, beta),
         surface_calculator=GradientSurface(),
         volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
         ),
