@@ -53,6 +53,7 @@ atoms.calc = SolvationGPAW(
         ]
     )
 Ewater = atoms.get_potential_energy()
+assert atoms.calc.get_number_of_iterations() < 40
 atoms.get_forces()
 ham = atoms.calc.hamiltonian
 DGSol = (Ewater - Evac) / (kcal / mol)

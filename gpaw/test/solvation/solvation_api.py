@@ -7,7 +7,6 @@ from ase.structure import molecule
 from ase.units import Pascal, m, Bohr
 from ase.data.vdw import vdw_radii
 from ase.parallel import parprint
-from gpaw import Mixer
 from gpaw.solvation import (
     # calculator
     SolvationGPAW,
@@ -113,12 +112,12 @@ atoms.calc = SolvationGPAW(
         LeakedDensityInteraction(voltage=V_leak)
         ]
     )
-#print_results(atoms)
+print_results(atoms)
 
 
 # Cavity from electron density a la ADM12
 atoms.calc = SolvationGPAW(
-    xc=xc, h=h, mixer=Mixer(beta=0.1, nmaxold=5, weight=50.0),
+    xc=xc, h=h,
     poissonsolver=ADM12PoissonSolver(),
     cavity=ADM12SmoothStepCavity(
         rhomin, rhomax, epsinf,
