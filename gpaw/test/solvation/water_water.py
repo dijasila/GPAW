@@ -48,7 +48,6 @@ atoms.calc = SolvationGPAW(
     )
 Ewater = atoms.get_potential_energy()
 atoms.get_forces()
-ham = atoms.calc.hamiltonian
 DGSol = (Ewater - Evac) / (kcal / mol)
 print 'Delta Gsol: %s kcal / mol' % (DGSol, )
 

@@ -1,3 +1,10 @@
+"""
+tests solvation parameters as in
+
+O. Andreussi, I. Dabo, and N. Marzari,
+The Journal of Chemical Physics, vol. 136, no. 6, p. 064102, 2012
+"""
+
 from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.test import equal
@@ -25,7 +32,6 @@ rhomin = 0.0001 / Bohr ** 3
 rhomax = 0.0050 / Bohr ** 3
 st = 50. * 1e-3 * Pascal * m
 p = -0.35 * 1e9 * Pascal
-T = 298.15
 
 atoms = Cluster(molecule('H2O'))
 atoms.minimal_box(vac, h)
@@ -55,7 +61,6 @@ atoms.calc = SolvationGPAW(
 Ewater = atoms.get_potential_energy()
 assert atoms.calc.get_number_of_iterations() < 40
 atoms.get_forces()
-ham = atoms.calc.hamiltonian
 DGSol = (Ewater - Evac) / (kcal / mol)
 print 'Delta Gsol: %s kcal / mol' % (DGSol, )
 
