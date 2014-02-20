@@ -201,10 +201,14 @@ class EffectivePotentialCavity(Cavity):
 
     # --- BEGIN GradientSurface API ---
     def get_inner_function(self):
-        return self.effective_potential.u_g
+        return self.g_g
+
+    def get_inner_function_boundary_value(self):
+        return 1.
 
     def get_del_outer_del_inner(self):
-        return self.minus_beta * self.g_g
+        return np.array(1.)
+
     # --- END GradientSurface API ---
 
 
@@ -383,6 +387,9 @@ class SmoothStepCavity(Cavity):
     def get_inner_function(self):
         return self.density.rho_g
 
+    def get_inner_function_boundary_value(self):
+        return .0
+
     def get_del_outer_del_inner(self):
         return self.del_g_del_rho_g
     # --- END GradientSurface API ---
@@ -538,6 +545,7 @@ class GradientSurface(SurfaceCalculator):
         SurfaceCalculator.__init__(self)
         self.nn = nn
         self.gradient = None
+        self.gradient_in = None
         self.gradient_out = None
         self.norm_grad_out = None
         self.div_tmp = None
@@ -545,7 +553,7 @@ class GradientSurface(SurfaceCalculator):
     def estimate_memory(self, mem):
         SurfaceCalculator.estimate_memory(self, mem)
         nbytes = self.gd.bytecount()
-        mem.subnode('Gradient', 4 * nbytes)
+        mem.subnode('Gradient', 5 * nbytes)
         mem.subnode('Divergence', nbytes)
 
     def allocate(self):
@@ -553,6 +561,7 @@ class GradientSurface(SurfaceCalculator):
         self.gradient = [
             Gradient(self.gd, i, 1.0, self.nn) for i in (0, 1, 2)
             ]
+        self.gradient_in = self.gd.empty()
         self.gradient_out = (self.gd.empty(), self.gd.empty(), self.gd.empty())
         self.norm_grad_out = self.gd.empty()
         self.div_tmp = self.gd.empty()
@@ -561,7 +570,7 @@ class GradientSurface(SurfaceCalculator):
         inner = cavity.get_inner_function()
         del_outer_del_inner = cavity.get_del_outer_del_inner()
         sign = np.sign(del_outer_del_inner.max() + del_outer_del_inner.min())
-        self.calc_grad(inner)
+        self.calc_grad(inner, cavity.get_inner_function_boundary_value())
         self.A = sign * self.gd.integrate(
             del_outer_del_inner * self.norm_grad_out, global_integral=False
             )
@@ -572,13 +581,18 @@ class GradientSurface(SurfaceCalculator):
             self.gradient_out[i][mask] /= masked_norm_grad
             self.gradient_out[i][imask] = .0
         self.calc_div(self.gradient_out, self.delta_A_delta_g_g)
-        if sign == -1:
-            self.delta_A_delta_g_g *= sign
+        if sign == 1:
+            self.delta_A_delta_g_g *= -1.
 
-    def calc_grad(self, x):
+    def calc_grad(self, x, boundary):
+        if boundary != .0:
+            np.subtract(x, boundary, self.gradient_in)
+            gradient_in = self.gradient_in
+        else:
+            gradient_in = x
         self.norm_grad_out.fill(.0)
         for i in (0, 1, 2):
-            self.gradient[i].apply(x, self.gradient_out[i])
+            self.gradient[i].apply(gradient_in, self.gradient_out[i])
             self.norm_grad_out += self.gradient_out[i] ** 2
         self.norm_grad_out **= .5
 
