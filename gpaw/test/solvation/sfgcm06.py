@@ -9,7 +9,7 @@ J. Chem. Phys. 124, 074103, 2006
 from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.test import equal
-from ase.structure import molecule
+from ase import Atoms
 from ase.units import mol, kcal, Pascal, m, Bohr
 from gpaw.solvation import (
     SolvationGPAW,
@@ -30,19 +30,18 @@ rho0 = 0.00078 / Bohr ** 3
 beta = 1.3
 st = 72. * 1e-3 * Pascal * m
 
-atoms = Cluster(molecule('H2O'))
+atoms = Cluster(Atoms('Cl'))
 atoms.minimal_box(vac, h)
 
 if not SKIP_VAC_CALC:
-    atoms.calc = GPAW(xc='PBE', h=h)
+    atoms.calc = GPAW(xc='PBE', h=h, charge=-1)
     Evac = atoms.get_potential_energy()
     print Evac
 else:
-    #Evac = -14.6154407425  # h = 0.2, vac = 4.0
-    Evac = -14.862428  # h = 0.24, vac = 4.0
+    Evac = -3.77186119824  # h = 0.24, vac = 4.0
 
 atoms.calc = SolvationGPAW(
-    xc='PBE', h=h,
+    xc='PBE', h=h, charge=-1,
     cavity=FG02SmoothStepCavity(
         rho0=rho0, beta=beta,
         density=ElDensity(),
@@ -57,5 +56,4 @@ atoms.get_forces()
 DGSol = (Ewater - Evac) / (kcal / mol)
 print 'Delta Gsol: %s kcal / mol' % (DGSol, )
 
-# value differs from implementation in the above reference
-#equal(DGSol, -6.3, 2.)
+equal(DGSol, -75., 10.)
