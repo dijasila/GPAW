@@ -201,13 +201,22 @@ class EffectivePotentialCavity(Cavity):
 
     # --- BEGIN GradientSurface API ---
     def get_inner_function(self):
-        return self.g_g
+        return np.minimum(self.effective_potential.u_g, 1e20)
 
     def get_inner_function_boundary_value(self):
-        return 1.
+        if hasattr(self.effective_potential, 'grad_u_vg'):
+            raise NotImplementedError
+        else:
+            return .0
+
+    def get_grad_inner(self):
+        if hasattr(self.effective_potential, 'grad_u_vg'):
+            return self.effective_potential.grad_u_vg
+        else:
+            raise NotImplementedError
 
     def get_del_outer_del_inner(self):
-        return np.array(1.)
+        return self.minus_beta * self.g_g
 
     # --- END GradientSurface API ---
 
@@ -275,16 +284,19 @@ class Power12Potential(Potential):
         self.pos_aav = None
         self.del_u_del_r_vg = None
         self.atomic_radii_output = None
+        self.grad_u_vg = None
 
     def estimate_memory(self, mem):
         Potential.estimate_memory(self, mem)
         nbytes = self.gd.bytecount()
         mem.subnode('Coordinates', 6 * nbytes)
+        mem.subnode('Gradient', 3 * nbytes)
 
     def allocate(self):
         Potential.allocate(self)
         self.r_vg = self.gd.get_grid_point_coordinates()
         self.del_u_del_r_vg = self.gd.empty(3)
+        self.grad_u_vg = self.gd.empty(3)
 
     def update(self, atoms, density):
         if atoms is None:
@@ -294,15 +306,29 @@ class Power12Potential(Potential):
         r_cutoff = (self.r12_a.max() * self.u0 / self.pbc_cutoff) ** (1. / 12.)
         self.pos_aav = get_pbc_positions(atoms, r_cutoff)
         self.u_g.fill(.0)
+        self.grad_u_vg.fill(.0)
         na = np.newaxis
         for index, pos_av in self.pos_aav.iteritems():
             r12 = self.r12_a[index]
             for pos_v in pos_av:
                 origin_vg = pos_v[:, na, na, na]
-                r12_g = np.sum((self.r_vg - origin_vg) ** 2, axis=0) ** 6
+                r_diff_vg = self.r_vg - origin_vg
+                r_diff2_g = (r_diff_vg ** 2).sum(0)
+                r12_g = r_diff2_g ** 6
+                r14_g = r12_g * r_diff2_g
                 self.u_g += divide_silently(r12, r12_g)
+                self.grad_u_vg += divide_silently(r12 * r_diff_vg, r14_g)
         self.u_g *= self.u0 / Hartree
+        # np.exp(-np.inf) = .0
         self.u_g[np.isnan(self.u_g)] = np.inf
+
+        self.grad_u_vg *= -12. * self.u0 / Hartree
+        # mask points where the limit of all later
+        # calculations is zero anyways
+        self.grad_u_vg[...] = np.nan_to_num(self.grad_u_vg)
+        # avoid overflow in norm calculation:
+        self.grad_u_vg[self.grad_u_vg < -1e20] = -1e20
+        self.grad_u_vg[self.grad_u_vg > 1e20] = 1e20
         return True
 
     def get_del_r_vg(self, atom_index, density):
@@ -390,8 +416,12 @@ class SmoothStepCavity(Cavity):
     def get_inner_function_boundary_value(self):
         return .0
 
+    def get_grad_inner(self):
+        raise NotImplementedError
+
     def get_del_outer_del_inner(self):
         return self.del_g_del_rho_g
+
     # --- END GradientSurface API ---
 
 
@@ -562,7 +592,7 @@ class GradientSurface(SurfaceCalculator):
             Gradient(self.gd, i, 1.0, self.nn) for i in (0, 1, 2)
             ]
         self.gradient_in = self.gd.empty()
-        self.gradient_out = (self.gd.empty(), self.gd.empty(), self.gd.empty())
+        self.gradient_out = self.gd.empty(3)
         self.norm_grad_out = self.gd.empty()
         self.div_tmp = self.gd.empty()
 
@@ -570,15 +600,20 @@ class GradientSurface(SurfaceCalculator):
         inner = cavity.get_inner_function()
         del_outer_del_inner = cavity.get_del_outer_del_inner()
         sign = np.sign(del_outer_del_inner.max() + del_outer_del_inner.min())
-        self.calc_grad(inner, cavity.get_inner_function_boundary_value())
+        try:
+            self.gradient_out[...] = cavity.get_grad_inner()
+            self.norm_grad_out = (self.gradient_out ** 2).sum(0) ** .5
+        except NotImplementedError:
+            self.calc_grad(inner, cavity.get_inner_function_boundary_value())
         self.A = sign * self.gd.integrate(
             del_outer_del_inner * self.norm_grad_out, global_integral=False
             )
-        mask = self.norm_grad_out > 1e-12
+        mask = self.norm_grad_out > 1e-12  # avoid division by zero or overflow
         imask = np.logical_not(mask)
         masked_norm_grad = self.norm_grad_out[mask]
         for i in (0, 1, 2):
             self.gradient_out[i][mask] /= masked_norm_grad
+            # set limit for later calculations:
             self.gradient_out[i][imask] = .0
         self.calc_div(self.gradient_out, self.delta_A_delta_g_g)
         if sign == 1:
