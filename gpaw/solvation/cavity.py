@@ -536,6 +536,12 @@ class ADM12SmoothStepCavity(SmoothStepCavity):
 
 
 class FG02SmoothStepCavity(SmoothStepCavity):
+    """Cavity from smooth step function.
+
+    Following J. Fattebert, and F. Gygi, J Comput Chem 23: 662-666, 2002.
+
+    """
+
     def __init__(
         self,
         rho0,
@@ -548,6 +554,22 @@ class FG02SmoothStepCavity(SmoothStepCavity):
             )
         self.rho0 = float(rho0)
         self.beta = float(beta)
+
+    def update_smooth_step(self, rho_g):
+        rho0 = self.rho0 / (1. / Bohr ** 3)
+        rho_scaled_g = rho_g / rho0
+        exponent = 2. * self.beta
+        np.divide(1., rho_scaled_g ** exponent + 1., self.g_g)
+        np.multiply(
+            (-exponent / rho0) * rho_scaled_g ** (exponent - 1.),
+            self.g_g ** 2,
+            self.del_g_del_rho_g
+            )
+
+    def print_parameters(self, text):
+        text('rho0: %s' % (self.rho0, ))
+        text('beta: %s' % (self.beta, ))
+        SmoothStepCavity.print_parameters(self, text)
 
 
 class SurfaceCalculator(NeedsGD):
