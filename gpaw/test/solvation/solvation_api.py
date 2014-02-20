@@ -79,8 +79,10 @@ atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
 rhomin = 0.0001 / Bohr ** 3
 rhomax = 0.0050 / Bohr ** 3
 # FG02, SSS09
-rho0 = 1.0 / Bohr ** 3
-beta = 2.4
+rho0 = 0.0004 / Bohr ** 3
+beta = 1.3
+rho0_fake = 1.0 / Bohr ** 3
+beta_fake = 2.4
 
 
 atoms = molecule('H2O')
@@ -135,11 +137,30 @@ atoms.calc = SolvationGPAW(
 print_results(atoms)
 
 
-# Cavity from fake electron density a la SSS09
+# Cavity from electron density a la FG02
 atoms.calc = SolvationGPAW(
     xc=xc, h=h,
     cavity=FG02SmoothStepCavity(
         rho0, beta,
+        density=ElDensity(),
+        surface_calculator=GradientSurface(),
+        volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
+        ),
+    dielectric=LinearDielectric(epsinf=epsinf),
+    interactions=[
+        SurfaceInteraction(surface_tension=gamma),
+        VolumeInteraction(pressure=p),
+        LeakedDensityInteraction(voltage=V_leak)
+        ]
+    )
+print_results(atoms)
+
+
+# Cavity from fake electron density a la SSS09
+atoms.calc = SolvationGPAW(
+    xc=xc, h=h,
+    cavity=FG02SmoothStepCavity(
+        rho0_fake, beta_fake,
         density=SSS09Density(atomic_radii=atomic_radii),
         surface_calculator=GradientSurface(),
         volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
