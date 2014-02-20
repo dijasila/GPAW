@@ -327,6 +327,7 @@ tests = [
     'solvation/swap_atoms.py',
     'solvation/adm12.py',
     'solvation/sfgcm06.py',
+    'solvation/sss09.py',
     ]
 
 exclude = []

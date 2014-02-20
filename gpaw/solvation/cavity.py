@@ -289,7 +289,8 @@ class Power12Potential(Potential):
     def estimate_memory(self, mem):
         Potential.estimate_memory(self, mem)
         nbytes = self.gd.bytecount()
-        mem.subnode('Coordinates', 6 * nbytes)
+        mem.subnode('Coordinates', 3 * nbytes)
+        mem.subnode('Atomic Position Derivative', 3 * nbytes)
         mem.subnode('Gradient', 3 * nbytes)
 
     def allocate(self):
@@ -345,7 +346,6 @@ class Power12Potential(Potential):
         return self.del_u_del_r_vg
 
     def print_parameters(self, text):
-        Potential.print_parameters(self, text)
         if self.atomic_radii_output is None:
             radiistr = 'not initialized (dry run)'
         else:
@@ -353,6 +353,7 @@ class Power12Potential(Potential):
         text('atomic_radii: ' + radiistr)
         text('u0: %s' % (self.u0, ))
         text('pbc_cutoff: %s' % (self.pbc_cutoff, ))
+        Potential.print_parameters(self, text)
 
 
 class SmoothStepCavity(Cavity):
@@ -403,6 +404,11 @@ class SmoothStepCavity(Cavity):
         """calculates self.g_g and self.del_g_del_rho_g"""
         raise NotImplementedError()
 
+    def get_del_r_vg(self, atom_index, density):
+        return self.del_g_del_rho_g * self.density.get_del_r_vg(
+            atom_index, density
+            )
+
     def print_parameters(self, text):
         text('density: %s' % (self.density.__class__))
         self.density.print_parameters(text)
@@ -443,6 +449,9 @@ class Density(NeedsGD):
         if self.depends_on_el_density:
             self.del_rho_del_n_g = self.gd.empty()
 
+    def update(self, atoms, density):
+        raise NotImplementedError()
+
     @property
     def depends_on_el_density(self):
         raise NotImplementedError()
@@ -470,8 +479,74 @@ class ElDensity(Density):
 
 
 class SSS09Density(Density):
-    def __init__(self, vdw_radii):
+    """Fake density from atomic radii.
+
+    Following Sanchez et al J. Chem. Phys. 131 (2009) 174108.
+
+    """
+
+    depends_on_el_density = False
+    depends_on_atomic_positions = True
+
+    def __init__(self, atomic_radii, pbc_cutoff=1e-3):
         Density.__init__(self)
+        self.atomic_radii = atomic_radii
+        self.atomic_radii_output = None
+        self.pbc_cutoff = float(pbc_cutoff)
+        self.pos_aav = None
+        self.r_vg = None
+        self.del_rho_del_r_vg = None
+
+    def estimate_memory(self, mem):
+        Density.estimate_memory(self, mem)
+        nbytes = self.gd.bytecount()
+        mem.subnode('Coordinates', 3 * nbytes)
+        mem.subnode('Atomic Position Derivative', 3 * nbytes)
+
+    def allocate(self):
+        Density.allocate(self)
+        self.r_vg = self.gd.get_grid_point_coordinates()
+        self.del_rho_del_r_vg = self.gd.empty(3)
+
+    def update(self, atoms, density):
+        if atoms is None:
+            return False
+        self.atomic_radii_output = np.array(self.atomic_radii(atoms))
+        r_a = self.atomic_radii_output / Bohr
+        r_cutoff = r_a.max() - np.log(self.pbc_cutoff)
+        self.pos_aav = get_pbc_positions(atoms, r_cutoff)
+        self.rho_g.fill(.0)
+        na = np.newaxis
+        for index, pos_av in self.pos_aav.iteritems():
+            for pos_v in pos_av:
+                origin_vg = pos_v[:, na, na, na]
+                r_diff_vg = self.r_vg - origin_vg
+                norm_r_diff_g = (r_diff_vg ** 2).sum(0) ** .5
+                self.rho_g += np.exp(r_a[index] - norm_r_diff_g)
+        return True
+
+    def get_del_r_vg(self, atom_index, density):
+        r_a = self.atomic_radii_output[atom_index] / Bohr
+        na = np.newaxis
+        self.del_rho_del_r_vg.fill(.0)
+        for pos_v in self.pos_aav[atom_index]:
+            origin_vg = pos_v[:, na, na, na]
+            r_diff_vg = self.r_vg - origin_vg
+            norm_r_diff_g = np.sum(r_diff_vg ** 2, axis=0) ** .5
+            exponential = np.exp(r_a - norm_r_diff_g)
+            self.del_rho_del_r_vg += divide_silently(
+                exponential * r_diff_vg, norm_r_diff_g
+                )
+        return self.del_rho_del_r_vg
+
+    def print_parameters(self, text):
+        if self.atomic_radii_output is None:
+            radiistr = 'not initialized (dry run)'
+        else:
+            radiistr = str(self.atomic_radii_output)
+        text('atomic_radii: ' + radiistr)
+        text('pbc_cutoff: %s' % (self.pbc_cutoff, ))
+        Density.print_parameters(self, text)
 
 
 class ADM12SmoothStepCavity(SmoothStepCavity):
@@ -699,9 +774,9 @@ class KB51Volume(VolumeCalculator):
         self.temperature = float(temperature)
 
     def print_parameters(self, text):
-        VolumeCalculator.print_parameters(self, text)
         text('compressibility: %s' % (self.compressibility, ))
         text('temperature:     %s' % (self.temperature, ))
+        VolumeCalculator.print_parameters(self, text)
 
     def allocate(self):
         VolumeCalculator.allocate(self)
