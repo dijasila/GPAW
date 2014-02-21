@@ -3,7 +3,7 @@ from optparse import OptionParser
 def build_parser():
     parser = OptionParser(usage='%prog [options] [elements]',
                           version='%prog 0.1')
-    parser.add_option('-f', '--xcfunctional', type='string', default='LDA_K_TF+LDA_X',
+    parser.add_option('-f', '--xcfunctional', type='string', default='LDA',
                       help='Exchange-Correlation functional (default value LDA)',
                       metavar='<XC>')
     parser.add_option('-n', '--non-scalar-relativistic', action='store_true',
