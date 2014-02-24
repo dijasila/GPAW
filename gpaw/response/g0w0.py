@@ -9,7 +9,7 @@ from ase.utils import opencew
 from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
-from gpaw.response.chi0 import Chi0
+from gpaw.response.chi0 import Chi0, frequency_grid
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -36,6 +36,7 @@ class G0W0(PairDensity):
         self.domega0 = domega0 / Hartree
         self.omegamax = omegamax if omegamax is None else omegamax / Hartree
         self.alpha = alpha
+        self.omega_w = frequency_grid(self.domega0, self.omegamax, alpha)
         
         if kpts is None:
             kpts = range(self.calc.wfs.kd.nibzkpts)
@@ -60,7 +61,7 @@ class G0W0(PairDensity):
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
         self.distribute_k_points_and_bands(nbands)
         
-        self.omega_w = None  # frequencies
+        #self.omega_w = None  # frequencies
         self.initialize_frequencies()
         
         # Find q-vectors and weights in the IBZ:
@@ -104,7 +105,10 @@ class G0W0(PairDensity):
                 for kpt2 in mykpts:
                     if kpt2.s == s:
                         self.calculate_q(i, kpt1, kpt2)
-                        
+
+        self.world.sum(self.sigma_sin)
+        self.world.sum(self.dsigma_sin)
+        
         print(np.array_str(self.eps_sin * Hartree, precision=3),
               file=self.fd)
         print(np.array_str(self.sigma_sin * Hartree, precision=3),
@@ -177,14 +181,16 @@ class G0W0(PairDensity):
         sigma = 0.0
         dsigma = 0.0
         
-        for W_GG, omegap, domegap in zip(W_wGG, self.omega_w, self.domega_w):
+        domegap = self.domega0
+        assert self.alpha == 0
+        for W_GG, omegap in zip(W_wGG, self.omega_w):
             x1_m = 1 / (deps_m + omegap + 2j * self.eta * (f_m - 0.5))
             x2_m = 1 / (deps_m - omegap + 2j * self.eta * (f_m - 0.5))
             x_m = x1_m + x2_m
             dx_m = x1_m**2 + x2_m**2
             nW_mG = np.dot(n_mG, W_GG)
-            sigma -= domegap * np.vdot(n_mG * x_m[:, np.newaxis], nW_mG).imag
-            dsigma += domegap * np.vdot(n_mG * dx_m[:, np.newaxis], nW_mG).imag
+            sigma += domegap * np.vdot(n_mG * x_m[:, np.newaxis], nW_mG).imag
+            dsigma -= domegap * np.vdot(n_mG * dx_m[:, np.newaxis], nW_mG).imag
 
         x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
 
@@ -201,14 +207,12 @@ class G0W0(PairDensity):
                 print('Calulating screened Coulomb potential:', file=self.fd)
                 # Chi_0 calculator:
                 chi0 = Chi0(self.calc,
-                            domega0=self.domega0 * Hartree,
-                            omegamax=(self.epsmax - self.epsmin) * Hartree,
-                            alpha=self.alpha,
+                            self.omega_w * Hartree,
                             ecut=self.ecut * Hartree,
                             eta=self.eta * Hartree,
                             timeordered=True,
-                            hilbert=True,
-                            real_space_derivatives=True)
+                            hilbert=False,
+                            real_space_derivatives=False)
                 #wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
                 #                                   self.calc.wfs.kd.N_c,
                 #                                   self.fd)

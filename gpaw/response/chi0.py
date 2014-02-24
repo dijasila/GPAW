@@ -41,7 +41,10 @@ class Chi0(PairDensity):
             self.alpha = alpha
         else:
             self.omega_w = np.asarray(frequencies) / Hartree
-        
+            self.domega0 = self.omega_w[1]
+            self.omegamax = -42.0
+            self.alpha = 0.0
+            
         self.hilbert = hilbert
         self.timeordered = bool(timeordered)
         self.eta = eta
