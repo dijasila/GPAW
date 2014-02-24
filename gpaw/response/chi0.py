@@ -25,7 +25,7 @@ class Chi0(PairDensity):
                  frequencies=None, domega0=0.1, omegamax=None, alpha=3.0,
                  ecut=50, hilbert=False,
                  timeordered=False, eta=0.2, ftol=1e-6,
-                 real_space_derivatives=True,
+                 real_space_derivatives=False,
                  world=mpi.world, txt=sys.stdout):
         PairDensity.__init__(self, calc, ecut, ftol,
                              real_space_derivatives, world, txt)
