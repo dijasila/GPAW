@@ -300,7 +300,7 @@ class PairDensity:
         n0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
         nt_m = self.calc.wfs.gd.integrate(kpt1.ut_nR[n], kpt2.ut_nR)
         n0_mv += 1j * nt_m[:, np.newaxis] * k_v[np.newaxis, :]
-        
+
         for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
             gemm(1.0, C_vi, P_mi, 1.0, n0_mv, 'c')
 
@@ -311,56 +311,66 @@ class PairDensity:
 
         return n0_mv
 
-    def update_intraband(self, n, kpt1, kpt2):
-        if self.ut_sKnvR is None:
-            self.ut_sKnvR = self.calculate_derivatives()
-        
+    def update_intraband(self, inds_m, kpt):
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
-        k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
+        k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
-
-        ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]
-        
         atomdata_a = self.calc.wfs.setups
-        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
-                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        
+        ut_mvR = self.make_derivative(kpt.s, kpt.K, kpt.n1, kpt.n2)[inds_m]
+        npartocc = len(inds_m)
+        ut_mR = kpt.ut_nR[inds_m]
 
-        nabla0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
-        nt_m = self.calc.wfs.gd.integrate(kpt1.ut_nR[n], kpt2.ut_nR)
-        nabla0_mv += 1j * nt_m[:, np.newaxis] * k_v[np.newaxis, :]
+        nabla0_mmv = np.zeros((npartocc, npartocc, 3), dtype=complex)
+        for m in range(npartocc):
+            ut_vR = ut_mvR[m]
+            C_avi = [np.dot(atomdata.nabla_iiv.T, P_mi[inds_m[m]])  
+                     for atomdata, P_mi in zip(atomdata_a, kpt.P_ani)]
 
-        for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
-            gemm(1.0, C_vi, P_mi, 1.0, nabla0_mv, 'c')
+            nabla0_mv = -self.calc.wfs.gd.integrate(ut_vR, ut_mR).T
+            nt_m = self.calc.wfs.gd.integrate(ut_mR[m], ut_mR)
+            nabla0_mv += 1j * nt_m[:, np.newaxis] * k_v[np.newaxis, :]
 
-        return nabla0_mv
+            for C_vi, P_mi in zip(C_avi, kpt.P_ani):
+                gemm(1.0, C_vi, P_mi[inds_m[0:npartocc]], 1.0, nabla0_mv, 'c')
+            
+            nabla0_mmv[m] = nabla0_mv
+
+        return nabla0_mmv
 
     def calculate_derivatives(self):
-        if self.real_space_derivatives:
-            grad_v = [Gradient(self.calc.wfs.gd, v, 1.0, 4, complex).apply
-                      for v in range(3)]
-        wfs = self.calc.wfs
         ut_sKnvR = [{}, {}]
         for s, K, n1, n2 in self.mysKn1n2:
-            U_cc, T, a_a, U_aii, shift_c, time_reversal = \
-                self.construct_symmetry_operators(K)
-            A_cv = wfs.gd.cell_cv
-            M_vv = np.dot(np.dot(A_cv.T, U_cc.T), np.linalg.inv(A_cv).T)
-            ik = wfs.kd.bz2ibz_k[K]
-            kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
-            psit_nG = kpt.psit_nG
-            iG_Gv = 1j * wfs.pd.G_Qv[wfs.pd.Q_qG[ik]]
-            ut_nvR = wfs.gd.zeros((n2 - n1, 3), complex)
-            for n in range(n1, n2):
-                for v in range(3):
-                    if self.real_space_derivatives:
-                        ut_R = T(wfs.pd.ifft(psit_nG[n], ik))
-                        grad_v[v](ut_R, ut_nvR[n - n1, v],
-                                  np.ones((3, 2), complex))
-                    else:
-                        ut_R = T(wfs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
-                        for v2 in range(3):
-                            ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
+            ut_nvR = self.make_derivative(s, K, n1, n2)
             ut_sKnvR[s][K] = ut_nvR
             
         return ut_sKnvR
+
+    def make_derivative(self, s, K, n1, n2):
+        wfs = self.calc.wfs
+        if self.real_space_derivatives:
+            grad_v = [Gradient(wfs.gd, v, 1.0, 4, complex).apply
+                      for v in range(3)]
+
+        U_cc, T, a_a, U_aii, shift_c, time_reversal = \
+            self.construct_symmetry_operators(K)
+        A_cv = wfs.gd.cell_cv
+        M_vv = np.dot(np.dot(A_cv.T, U_cc.T), np.linalg.inv(A_cv).T)
+        ik = wfs.kd.bz2ibz_k[K]
+        kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+        psit_nG = kpt.psit_nG
+        iG_Gv = 1j * wfs.pd.G_Qv[wfs.pd.Q_qG[ik]]
+        ut_nvR = wfs.gd.zeros((n2 - n1, 3), complex)
+        for n in range(n1, n2):
+            for v in range(3):
+                if self.real_space_derivatives:
+                    ut_R = T(wfs.pd.ifft(psit_nG[n], ik))
+                    grad_v[v](ut_R, ut_nvR[n - n1, v],
+                              np.ones((3, 2), complex))
+                else:
+                    ut_R = T(wfs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
+                    for v2 in range(3):
+                        ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
+
+        return ut_nvR
