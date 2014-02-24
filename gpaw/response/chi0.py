@@ -25,7 +25,7 @@ class Chi0(PairDensity):
                  frequencies=None, domega0=0.1, omegamax=None, alpha=3.0,
                  ecut=50, hilbert=False,
                  timeordered=False, eta=0.2, ftol=1e-6,
-                 real_space_derivatives=False,
+                 real_space_derivatives=True,
                  world=mpi.world, txt=sys.stdout):
         PairDensity.__init__(self, calc, ecut, ftol,
                              real_space_derivatives, world, txt)
@@ -139,8 +139,13 @@ class Chi0(PairDensity):
                 if optical_limit:
                     self.update_optical_limit(
                         n, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG, chi0_wvv)
-                    #self.update_intraband(n, kpt1, kpt2, chi0_wvv)
                 update(n_mG, deps_m, df_m, chi0_wGG)
+            
+            if optical_limit:
+                # Avoid that more ranks are summing up 
+                # the intraband contributions
+                if kpt1.n1 == 0: 
+                    self.update_intraband(kpt2, chi0_wvv)
 
         self.world.sum(chi0_wGG)
         if optical_limit:
@@ -213,20 +218,48 @@ class Chi0(PairDensity):
             chi0_wxvG[w, 0, :, 1:] += np.dot(x_m * n0_mv.T, n_mG[:, 1:].conj())
             chi0_wxvG[w, 1, :, 1:] += np.dot(x_m * n0_mv.T.conj(), n_mG[:, 1:])
 
-    def update_intraband(self, n, kpt1, kpt2, chi0_wvv):
+    def update_intraband(self, kpt, chi0_wvv):
+        kd = self.calc.wfs.kd
+        gd = self.calc.wfs.gd
+        k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
+        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
+
+        # Check whether there is any partly occupied bands
         width = self.calc.occupations.width
-        dfde_n = - 1. / width * (kpt1.f_n[n] - kpt1.f_n[n]**2.0)
+        dfde_m = - 1. / width * (kpt.f_n - kpt.f_n**2.0)
+        partocc_m = np.abs(dfde_m) > 1e-5
+        if not partocc_m.any():
+            return
+        
+        # Break bands into degenerate chunks
+        deginds_cm = [] # indexing c as chunk number
+        for m in range(kpt.n2 - kpt.n1):
+            inds_m = np.nonzero(np.abs(kpt.eps_n[m] - kpt.eps_n) < 1e-5)[0]
+            if m == np.min(inds_m) and partocc_m[m]:
+                deginds_cm.append((inds_m))
 
-        if np.abs(dfde_n) > 1e-3:
-            nabla0_mv = PairDensity.update_intraband(self, n, kpt1, kpt2)
-            veln_v = - 1j * nabla0_mv[kpt1.n1 + n - kpt2.n1]            
-            x_vv = -self.prefactor * dfde_n * np.outer(veln_v.conj(),veln_v)
+        # Sum over the chunks of degenerate bands
+        for inds_m in deginds_cm:
+            deg = len(inds_m)
+            vel_mmv = -1j * PairDensity.update_intraband(self, inds_m, kpt)
+            vel_mv = np.zeros((deg, 3), dtype=complex)
 
-            for w, omega in enumerate(self.omega_w):
-                chi0_wvv[w, :, :] += (x_vv / ((omega + 1j * self.eta) *
-                                              (omega - 1j * self.eta)))
+            
+            for iv in range(3):
+                if True:
+                    w, v = np.linalg.eig(vel_mmv[..., iv])
+                    vel_mv[:, iv] = w
+                else:
+                    vel_mv[:, iv] = np.diag(vel_mmv[..., iv])
+                
 
+            for m in range(deg):
+                velm_v = vel_mv[m]
+                x_vv = - self.prefactor * dfde_m[inds_m[m]] * np.outer(velm_v.conj(),velm_v)
 
+                for w, omega in enumerate(self.omega_w):
+                    chi0_wvv[w, :, :] += x_vv / w**2.0
+                
 class HilbertTransform:
     def __init__(self, omega_w, blocksize=500):
         """Analytic Hilbert transformation using linear interpolation."""
@@ -292,4 +325,4 @@ if __name__ == '__main__':
     plt.plot(omega_w, Xh_w.real, label='ReXh')
     plt.legend()
     plt.show()
-    
+
