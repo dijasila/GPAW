@@ -20,6 +20,22 @@ class HirshfeldDensity(RealSpaceDensity):
         RealSpaceDensity.__init__(self, density.gd, density.finegd, 1, 0,
                                   stencil=par.stencils[1])
 
+    def set_positions(self, spos_ac, rank_a):
+        """HirshfeldDensity builds a hack density object to calculate all electron density
+           of atoms. This methods overrides the parallel distribution of atomic density matrices
+           in density.py"""
+        self.nct.set_positions(spos_ac)
+        self.ghat.set_positions(spos_ac)
+        self.mixer.reset()
+        self.rank_a = rank_a
+        #self.nt_sG = None
+        self.nt_sg = None
+        self.nt_g = None
+        self.rhot_g = None
+        self.Q_aL = None
+        self.nct_G = self.gd.zeros()
+        self.nct.add(self.nct_G, 1.0 / self.nspins)
+
     def get_density(self, atom_indicees=None, gridrefinement=2):
         """Get sum of atomic densities from the given atom list.
 
