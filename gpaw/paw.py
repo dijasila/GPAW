@@ -607,7 +607,6 @@ class PAW(PAWTextOutput):
                 # but so will ScaLAPACK in any case
                 blocksize = min(-(-nbands // 4), 64)
                 sl_default = (nprow, npcol, blocksize)
-                par.parallel['sl_default'] = sl_default
             else:
                 sl_default = par.parallel['sl_default']
 
