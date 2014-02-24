@@ -117,7 +117,7 @@ class Chi0(PairDensity):
             kpt2 = self.get_k_point(kpt1.s, K2, m1, m2)
             Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                        kpt1.shift_c - kpt2.shift_c)
-
+            
             for n in range(kpt1.n2 - kpt1.n1):
                 eps1 = kpt1.eps_n[n]
                 f1 = kpt1.f_n[n]
@@ -147,6 +147,7 @@ class Chi0(PairDensity):
                 if kpt1.n1 == 0: 
                     self.update_intraband(kpt2, chi0_wvv)
 
+        
         self.world.sum(chi0_wGG)
         if optical_limit:
             self.world.sum(chi0_wxvG)
@@ -243,23 +244,18 @@ class Chi0(PairDensity):
             deg = len(inds_m)
             vel_mmv = -1j * PairDensity.update_intraband(self, inds_m, kpt)
             vel_mv = np.zeros((deg, 3), dtype=complex)
-
             
             for iv in range(3):
-                if True:
-                    w, v = np.linalg.eig(vel_mmv[..., iv])
-                    vel_mv[:, iv] = w
-                else:
-                    vel_mv[:, iv] = np.diag(vel_mmv[..., iv])
-                
-
+                w, v = np.linalg.eig(vel_mmv[..., iv])
+                vel_mv[:, iv] = w
+                                
             for m in range(deg):
                 velm_v = vel_mv[m]
                 x_vv = - self.prefactor * dfde_m[inds_m[m]] * np.outer(velm_v.conj(),velm_v)
-
-                for w, omega in enumerate(self.omega_w):
-                    chi0_wvv[w, :, :] += x_vv / w**2.0
                 
+                for w, omega in enumerate(self.omega_w):
+                    chi0_wvv[w, :, :] += x_vv / omega**2.0
+                    
 class HilbertTransform:
     def __init__(self, omega_w, blocksize=500):
         """Analytic Hilbert transformation using linear interpolation."""
