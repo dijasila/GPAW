@@ -1,6 +1,7 @@
 import numpy as np
 from gpaw.mpi import world
 from gpaw.transport.tools import fermidistribution, gather_ndarray_dict
+from ase.parallel import parprint, paropen
 
 '''The Contour class is used to get the integral contour parallelly and control
    the necessary parameters.
@@ -362,6 +363,7 @@ class Contour:
             self.paths[i].get_full_nids()
 
     def get_optimized_contour(self, tp):
+        tp.log('Contour.get_optimized_contour()')
         self.paths = []
         depth = self.maxdepth
         self.paths.append(Path(self.min_energy + self.minfermi,
@@ -470,6 +472,7 @@ class Contour:
         return loc_nids[self.comm.rank], loc_path_indices[self.comm.rank]
     
     def calculate(self, tp, loc_nids, path_indices):
+        tp.log('Contour.calculate()')
         for nid, path_index in zip(loc_nids, path_indices):
             exp10 = int(np.floor(np.log10(nid)))
             flags = self.paths[path_index].get_flags(nid, True)

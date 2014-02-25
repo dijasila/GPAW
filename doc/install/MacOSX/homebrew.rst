@@ -11,21 +11,21 @@ Install https://developer.apple.com/xcode/ and activate it from a terminal::
 
   xcodebuild -license
 
-After installing xcode install also its `Command-Line Tools` (provides
-`llvm-gcc compiler` on the command line).
-After launching Xcode, in the top menubar, close to the `Apple`, choose
+After installing xcode install also its *Command-Line Tools* (provides
+*llvm-gcc compiler* on the command line).
+After launching Xcode, in the top menubar, close to the *Apple*, choose
 Xcode -> Preferences -> Downloads).
 
 Make sure the compilers are in place::
 
   which llvm-gcc
 
-Follow the instructions for installing Homebrew http://mxcl.github.com/homebrew/
+Follow the instructions for installing Homebrew http://brew.sh/
 the famous::
 
-  ruby <(curl -fsSkL https://raw.github.com/mxcl/homebrew/go)
+  ruby -e "$(curl -fsSL https://raw.github.com/Homebrew/homebrew/go/install)"
 
-and configure your init scripts `~/.bash_profile`::
+and configure your init scripts *~/.bash_profile*::
 
   # Set architecture flags
   export ARCHFLAGS="-arch x86_64"
@@ -96,6 +96,7 @@ Install the following homebrew packages::
 
   brew install gfortran
   brew install openmpi
+  brew install libxc
 
 Install GPAW setups::
 
@@ -113,7 +114,7 @@ Install the dependencies::
   pip install numpy
 
 and install GPAW (still inside of the virtualenv) accordingly to
-:ref:`installationguide_standard` (`python setup.py install`).
+:ref:`installationguide_standard` (``python setup.py install``).
 
 Installing ASE requirements
 ---------------------------

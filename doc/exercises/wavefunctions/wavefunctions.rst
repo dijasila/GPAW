@@ -61,7 +61,7 @@ atom and CO molecule and compare them to results from molecular orbital theory.
   writing :samp:`{calc}.write('CO.gpw', mode='all')`, where :samp:`{calc}` is
   the calculator object. The trajectory can be viewed by::
 
-    $ ag CO.traj
+    $ ase-gui CO.traj
 
   Mark the two atoms to see the bond length.
 

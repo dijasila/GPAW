@@ -1,7 +1,7 @@
 import numpy as np
 from time import time, ctime
 from datetime import timedelta
-from ase.structure import bulk
+from ase.lattice import bulk
 from ase.units import Hartree
 from gpaw import GPAW, FermiDirac
 from gpaw.response.gw import GW
@@ -44,6 +44,7 @@ gw = GW(
         hilbert_trans=False
        )
 
+gw.get_exact_exchange()
 gw.get_QP_spectrum()
 
 gap = (gw.QP_skn[0,0,1] - gw.QP_skn[0,0,0]) * Hartree

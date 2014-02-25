@@ -228,7 +228,3 @@ class CoreEigenvalues(AllElectronPotential):
       t('-----------------------------------------------')
       t('(units: Bohr and Hartree)')
       return atom.e_j
-      
-if not extra_parameters.get('usenewxc'):
-    raise "New XC-corrections required. Add --gpaw usenewxc=1 to command line and try again."
-

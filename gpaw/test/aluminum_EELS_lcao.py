@@ -3,7 +3,7 @@ import sys
 import os
 import time
 from ase.units import Bohr
-from ase.structure import bulk
+from ase.lattice import bulk
 from gpaw import GPAW
 from gpaw.atom.basis import BasisMaker
 from gpaw.response.df import DF
@@ -23,6 +23,7 @@ atoms = bulk('Al', 'fcc', a=a)
 atoms.center()
 calc = GPAW(h=0.2,
             kpts=(4,4,4),
+            nbands=13,
             mode='lcao',
             basis='dzp',
             xc='LDA')

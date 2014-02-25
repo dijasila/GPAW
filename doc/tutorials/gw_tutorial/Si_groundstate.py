@@ -1,24 +1,21 @@
-from ase.structure import bulk
+from ase.lattice import bulk
 from gpaw import GPAW, FermiDirac
+from gpaw.wavefunctions.pw import PW
 
 a = 5.431
 atoms = bulk('Si', 'diamond', a=a)
 
-h = 0.20
-kpts = (3,3,3)
-nbands = 100
-
 calc = GPAW(
-            h=h,
-            kpts=kpts,
+            mode=PW(200),                  # energy cutoff for plane wave basis (in eV)
+            kpts=(3,3,3),
             xc='LDA',
-            txt='Si_groundstate.txt',
-            nbands=nbands,
-            convergence={'bands':nbands-10}, # for faster convergence
-            eigensolver='cg',                # for faster convergence
-            occupations=FermiDirac(0.001)    # for faster convergence
+            eigensolver='cg',
+            occupations=FermiDirac(0.001),
+            txt='Si_groundstate.txt'
            )
 
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
-calc.write('Si_groundstate.gpw','all')
+
+calc.diagonalize_full_hamiltonian()       # determine all bands
+calc.write('Si_groundstate.gpw','all')    # write out wavefunctions

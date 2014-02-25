@@ -1,5 +1,5 @@
 from ase import Atoms
-from ase.structure import bulk
+from ase.lattice import bulk
 from ase.optimize.bfgs import BFGS
 from ase.constraints import UnitCellFilter
 from gpaw import GPAW

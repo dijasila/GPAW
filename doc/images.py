@@ -18,8 +18,8 @@ import os
 from sys import executable
 
 srcpath = 'http://wiki.fysik.dtu.dk/gpaw-files'
-
-jjwww = 'http://dcwww.camp.dtu.dk/~jensj'
+agtspath = 'http://wiki.fysik.dtu.dk'
+jjwww = 'http://dcwww.camp.dtu.dk/~jensj'  # should that be in srcpath?
 
 def get(path, names, target=None, source=None):
     """Get files from web-server.
@@ -56,7 +56,7 @@ marco_master.pdf        mortensen_paw.pdf
 """.split()
 
 logos = """
-logo-csc.png  logo-fmf.png   logo-hut.png  logo-tree.png
+logo-csc.png  logo-fmf.png   logo-aalto.png  logo-tree.png
 logo-dtu.png  logo-gpaw.png  logo-jyu.png  logo-tut.png  logo-anl.png
 logo-suncat.png logo-slac-center.png
 """.split()
@@ -102,7 +102,10 @@ get('tutorials/negfstm', ['fullscan.png', 'linescan.png'])
 
 get('tutorials/xas', ['h2o_xas_3.png', 'h2o_xas_4.png'])
 
-# files from jjwww
+# workshop2013 photo
+get('workshop13', ['workshop13_01_33-1.jpg'], '_static')
+
+# files from agtspath
 
 scf_conv_eval_stuff = """
 scf_g2_1_pbe0_fd_calculator_steps.png
@@ -111,7 +114,7 @@ scf_dcdft_pbe_pw_calculator_steps.png
 scf_dcdft_pbe_pw_energy.csv
 """.split()
 
-get('gpaw-files', scf_conv_eval_stuff, target='documentation/convergence', source=jjwww)
+get('agts-files', scf_conv_eval_stuff, target='documentation/convergence', source=agtspath)
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_gpaw_pw_stuff = """
@@ -120,7 +123,7 @@ dcdft_pbe_gpaw_pw_raw.csv
 dcdft_pbe_gpaw_pw_Delta.txt
 """.split()
 
-get('gpaw-files', dcdft_pbe_gpaw_pw_stuff, target='setups', source=jjwww)
+get('agts-files', dcdft_pbe_gpaw_pw_stuff, target='setups', source=agtspath)
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_jacapo_stuff = """
@@ -129,7 +132,7 @@ dcdft_pbe_jacapo_raw.csv
 dcdft_pbe_jacapo_Delta.txt
 """.split()
 
-get('gpaw-files', dcdft_pbe_jacapo_stuff, target='setups', source=jjwww)
+get('agts-files', dcdft_pbe_jacapo_stuff, target='setups', source=agtspath)
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_abinit_fhi_stuff = """
@@ -138,7 +141,7 @@ dcdft_pbe_abinit_fhi_raw.csv
 dcdft_pbe_abinit_fhi_Delta.txt
 """.split()
 
-get('gpaw-files', dcdft_pbe_abinit_fhi_stuff, target='setups', source=jjwww)
+get('agts-files', dcdft_pbe_abinit_fhi_stuff, target='setups', source=agtspath)
 
 g2_1_stuff = """
 pbe_gpaw_nrel_ea_vs.csv pbe_gpaw_nrel_ea_vs.png
@@ -146,7 +149,7 @@ pbe_gpaw_nrel_opt_ea_vs.csv pbe_gpaw_nrel_opt_distance_vs.csv
 pbe_nwchem_def2_qzvppd_opt_ea_vs.csv pbe_nwchem_def2_qzvppd_opt_distance_vs.csv
 """.split()
 
-get('gpaw-files', g2_1_stuff, target='setups', source=jjwww)
+get('agts-files', g2_1_stuff, target='setups', source=agtspath)
 
 def setup(app):
     # Generate one page for each setup:
@@ -199,10 +202,10 @@ def setup(app):
             for name in job.creates:
                 assert name not in names, "Name '%s' clashes!" % name
                 names.add(name)
-                # the files are saved by the weekly tests under jjwww/gpaw-files
+                # the files are saved by the weekly tests under agtspath/agts-files
                 # now we are copying them back to their original run directories
-                print os.path.join(job.dir, name) + ' copied from ' + jjwww
-                get('gpaw-files', [name], job.dir, source=jjwww)
+                print os.path.join(job.dir, name) + ' copied from ' + agtspath
+                get('agts-files', [name], job.dir, source=agtspath)
 
     # Get files that we can't generate:
     for dir, file in [

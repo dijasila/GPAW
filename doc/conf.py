@@ -34,6 +34,7 @@ except ImportError:
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['ext', 'images', 'sitelink',
               'sphinx.ext.autodoc',
+              'sphinx.ext.viewcode',
               ext_png_math]
 
 try:
@@ -78,7 +79,7 @@ today_fmt = '%B %d, %Y'
 exclude_trees = ['_build']
 
 # The reST default role (used for this markup: `text`) to use for all documents.
-#default_role = None
+default_role = 'math'
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 #add_function_parentheses = True

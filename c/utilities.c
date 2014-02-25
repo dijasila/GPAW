@@ -1,6 +1,7 @@
 /*  Copyright (C) 2003-2007  CAMP
  *  Copyright (C) 2007-2008  CAMd
  *  Copyright (C) 2008-2010  CSC - IT Center for Science Ltd.
+ *  Copyright (C) 2011  Argonne National Laboratory
  *  Please see the accompanying LICENSE file for further information. */
 
 #include <Python.h>
@@ -57,7 +58,7 @@ PyObject* ibm_mpi_stop(PyObject *self)
 #endif
 
 
-#ifdef GPAW_CRAYPAT
+#ifdef CRAYPAT
 #include <pat_api.h>
 
 PyObject* craypat_region_begin(PyObject *self, PyObject *args)
@@ -333,8 +334,8 @@ PyObject* elementwise_multiply_add(PyObject *self, PyObject *args)
   const double* const b = DOUBLEP(bb);
   double* const c = DOUBLEP(cc);
   int n = 1;
-  for (int d = 0; d < aa->nd; d++)
-    n *= aa->dimensions[d];
+  for (int d = 0; d < PyArray_NDIM(aa); d++)
+    n *= PyArray_DIMS(aa)[d];
   for (int i = 0; i < n; i++)
     {
       c[i] += a[i] * b[i];
@@ -356,10 +357,10 @@ PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args)
     return NULL;
 
   int C, G;
-  C = r_cG_obj->dimensions[0];
-  G = r_cG_obj->dimensions[1];
-  for (int i = 2; i < r_cG_obj->nd; i++)
-	G *= r_cG_obj->dimensions[i];
+  C = PyArray_DIMS(r_cG_obj)[0];
+  G = PyArray_DIMS(r_cG_obj)[1];
+  for (int i = 2; i < PyArray_NDIM(r_cG_obj); i++)
+	G *= PyArray_DIMS(r_cG_obj)[i];
 
   double* r_cG = DOUBLEP(r_cG_obj); // XXX not ideally strided
   double* r0_c = DOUBLEP(r0_c_obj);
@@ -370,7 +371,7 @@ PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args)
   for (int c=0; c<C; c++)
     gammapoint &= (k_c[c]==0);
 
-  if (gs_G_obj->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(gs_G_obj)->type_num == NPY_DOUBLE)
     {
       double* gs_G = DOUBLEP(gs_G_obj);
 
@@ -452,8 +453,8 @@ PyObject* utilities_vdot(PyObject *self, PyObject *args)
   const double* const b = DOUBLEP(bb);
   double sum = 0.0;
   int n = 1;
-  for (int d = 0; d < aa->nd; d++)
-    n *= aa->dimensions[d];
+  for (int d = 0; d < PyArray_NDIM(aa); d++)
+    n *= PyArray_DIMS(aa)[d];
   for (int i = 0; i < n; i++)
     {
       sum += a[i] * b[i];
@@ -475,8 +476,8 @@ PyObject* utilities_vdot_self(PyObject *self, PyObject *args)
   const double* const a = DOUBLEP(aa);
   double sum = 0.0;
   int n = 1;
-  for (int d = 0; d < aa->nd; d++)
-    n *= aa->dimensions[d];
+  for (int d = 0; d < PyArray_NDIM(aa); d++)
+    n *= PyArray_DIMS(aa)[d];
   for (int i = 0; i < n; i++)
     {
       sum += a[i] * a[i];
@@ -500,24 +501,24 @@ PyObject* pack(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "O", &a_obj)) 
         return NULL;
     a_obj = PyArray_GETCONTIGUOUS(a_obj);
-    int n = a_obj->dimensions[0];
+    int n = PyArray_DIMS(a_obj)[0];
     npy_intp dims[1] = {n * (n + 1) / 2};
-    int typenum = a_obj->descr->type_num;
+    int typenum = PyArray_DESCR(a_obj)->type_num;
     PyArrayObject* b_obj = (PyArrayObject*) PyArray_SimpleNew(1, dims,
 							      typenum);
     if (b_obj == NULL)
       return NULL;
     if (typenum == NPY_DOUBLE) {
-	double* a = (double*)a_obj->data;
-	double* b = (double*)b_obj->data;
+	double* a = (double*)PyArray_DATA(a_obj);
+	double* b = (double*)PyArray_DATA(b_obj);
 	for (int r = 0; r < n; r++) {
 	    *b++ = a[r + n * r];
 	    for (int c = r + 1; c < n; c++)
 	        *b++ = a[r + n * c] + a[c + n * r];
 	}
     } else {
-	double complex* a = (double complex*)a_obj->data;
-	double complex* b = (double complex*)b_obj->data;
+	double complex* a = (double complex*)PyArray_DATA(a_obj);
+	double complex* b = (double complex*)PyArray_DATA(b_obj);
 	for (int r = 0; r < n; r++) {
 	    *b++ = a[r + n * r];
 	    for (int c = r + 1; c < n; c++)
@@ -537,7 +538,7 @@ PyObject* unpack(PyObject *self, PyObject *args)
   PyArrayObject* a;
   if (!PyArg_ParseTuple(args, "OO", &ap, &a)) 
     return NULL;
-  int n = a->dimensions[0];
+  int n = PyArray_DIMS(a)[0];
   double* datap = DOUBLEP(ap);
   double* data = DOUBLEP(a);
   for (int r = 0; r < n; r++)
@@ -556,7 +557,7 @@ PyObject* unpack_complex(PyObject *self, PyObject *args)
   PyArrayObject* a;
   if (!PyArg_ParseTuple(args, "OO", &ap, &a)) 
     return NULL;
-  int n = a->dimensions[0];
+  int n = PyArray_DIMS(a)[0];
   double_complex* datap = COMPLEXP(ap);
   double_complex* data = COMPLEXP(a);
   for (int r = 0; r < n; r++)
@@ -578,7 +579,7 @@ PyObject* hartree(PyObject *self, PyObject *args)
   PyArrayObject* vr_array;
   if (!PyArg_ParseTuple(args, "iOdiO", &l, &nrdr_array, &b, &N, &vr_array)) 
     return NULL;
-  const int M = nrdr_array->dimensions[0];
+  const int M = PyArray_DIMS(nrdr_array)[0];
   const double* nrdr = DOUBLEP(nrdr_array);
   double* vr = DOUBLEP(vr_array);
   double p = 0.0;
@@ -611,7 +612,7 @@ PyObject* localize(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "OO", &Z_nnc, &U_nn)) 
     return NULL;
 
-  int n = U_nn->dimensions[0];
+  int n = PyArray_DIMS(U_nn)[0];
   double complex (*Z)[n][3] = (double complex (*)[n][3])COMPLEXP(Z_nnc);
   double (*U)[n] = (double (*)[n])DOUBLEP(U_nn);
 
@@ -680,19 +681,6 @@ PyObject* localize(PyObject *self, PyObject *args)
   return Py_BuildValue("d", value);
 }
 
-PyObject* swap_arrays(PyObject *self, PyObject *args)
-{
-  PyArrayObject* a;
-  PyArrayObject* b;
-  if (!PyArg_ParseTuple(args, "OO", &a, &b)) 
-    return NULL;
-
-  void *tmp = (void*) a->data;
-  a->data = b->data;
-  b->data = tmp;
-    
-  Py_RETURN_NONE;
-}
 
 PyObject* spherical_harmonics(PyObject *self, PyObject *args)
 {

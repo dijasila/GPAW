@@ -1,7 +1,5 @@
 .. _df_theory:
 
-.. default-role:: math
-
 ========================================================
 Linear dielectric response of an extended system: theory
 ========================================================

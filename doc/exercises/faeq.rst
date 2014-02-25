@@ -43,9 +43,9 @@ The = operator in Python is *not* and assignment operator, it is a
   c = 7
   d = c
   c += 42   # d is still 7, we just did
-	    # c = c + 42
-	    # creating a new object 49 and
-	    # giving it the name c
+            # c = c + 42
+            # creating a new object 49 and
+            # giving it the name c
 
 Saving plots
 ------------
@@ -53,7 +53,7 @@ Saving plots
 You can save plots made with matplotlib by pressing the floppy-disk
 icon in the bottom of the plot, and save as a .png file.
 
-You can save a picture of the atoms from ag by choosing Save, and then
+You can save a picture of the atoms from ase-gui by choosing Save, and then
 specify a .png file.
 
 You can view .png files in the databar with the command ``eog`` ("eye

@@ -1220,7 +1220,7 @@ class TipCell:
             newcell_c = tgd.cell_cv.diagonal()
             newsize2_c = np.around(newcell_c / sgd.h_cv.diagonal()).astype(int)
             theta_min = 0.0
-            origo_c = np.array([0,0,0])
+            origo_c = np.array([0.0, 0.0, 0.0])
         else:
             dointerpolate = False
             newsize2_c = tgd.N_c.copy()
@@ -1229,7 +1229,7 @@ class TipCell:
             vt_G = vt_sG[0]
             vt_G = vt_G[:, :, cell_zmin_grpt:cell_zmax_grpt]
             theta_min = 0.0
-            origo_c = np.array([0,0,0])
+            origo_c = np.array([0.0, 0.0, 0.0])
             self.vt_G = vt_G
         
         N_c_bak = self.tip.wfs.gd.N_c.copy()

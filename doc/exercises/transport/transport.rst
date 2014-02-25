@@ -4,8 +4,6 @@
 Electron transport
 ==================
 
-.. default-role:: math
-
 This exercise shows how to use the ase transport module for performing
 realistic calculations of the electron transport in nanoscale contacts.
 
@@ -197,5 +195,3 @@ TB model.
 
 Here is a script if you need some inspiration:
 :svn:`~doc/exercises/transport/pt_h2_lcao_transport.py`.
-
-.. default-role::

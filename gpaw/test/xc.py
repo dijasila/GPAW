@@ -4,14 +4,29 @@ from gpaw.xc.kernel import XCKernel, codes
 from gpaw.xc.bee import BEE1
 from gpaw.test import equal
 
-functionals = [LibXC(name) for name in short_names]
-functionals += [XCKernel(name) for name in codes]
-functionals += [BEE1()]
-#name = 'LDA'
-#name = 'PBE'
-#functionals = [LibXC('MGGA_X_TPSS')]
-#               XCKernel(name)]
-#functionals = [f for f in functionals if f.type=='MGGA']
+funcs = []
+modes = []
+for name in short_names:
+    funcs.append(name)
+    modes.append(0)
+for name in codes:
+    funcs.append(name)
+    modes.append(1)
+funcs.append('BEE1')
+modes.append(2)
+
+def create_xc(func, mode):
+    isinstance(func, str)
+    isinstance(mode, int)
+    if mode == 0:
+        xc = LibXC(func)
+    elif mode == 1:
+        xc = XCKernel(func)
+    elif mode == 2:
+        xc = BEE1()
+    else:
+        stop
+    return xc
 
 def f1(n_xg, xc):
     e_g = np.empty_like(n_xg[0])
@@ -43,7 +58,8 @@ n_xg = np.array(
      [0.01, 0.01, 0.2 ],
      [0.1, 0.3, 0.5]]).T.copy()
 
-for xc in functionals:
+for i, func in enumerate(funcs):
+    xc = create_xc(funcs[i], modes[i])
     e0_g, d0_xg = f1(n_xg, xc)
     d_xg = np.empty_like(d0_xg)
     for x, n_g in enumerate(n_xg):
@@ -62,9 +78,9 @@ for xc in functionals:
             abs(ds_xg[:2] - d0_xg[0]).max() +
             abs(ds_xg[2:5].sum(0) / 4 - d0_xg[1]).max() +
             abs(ds_xg[5:] - d0_xg[2]).max())
-    print xc.name, error
+    #print xc.name, error
     equal(error, 0, 6e-9)
-    
+    del xc
 
 # Numbers from old lxc_xc.py test:
 na = 2.0
@@ -84,7 +100,9 @@ n_xg = np.array(
      [0.1, 0.1, 0.1,  0.01, 0.01, 0.01, 0.01],
      [0.1, 0.1, 0.1,  0.15, 0.20, 0.01, 0.05]]).T.copy()
 
-for xc in functionals:
+
+for i, func in enumerate(funcs):
+    xc = create_xc(funcs[i], modes[i])
     if xc.type == 'MGGA':
         N_xg = n_xg[:, :1].copy()
     else:
@@ -97,9 +115,9 @@ for xc in functionals:
         d_xg[x] = 0.5 * f2(m_xg, xc)[0] / eps
         m_xg[x] -= 2 * eps
         d_xg[x] -= 0.5 * f2(m_xg, xc)[0] / eps
-    print xc.name, abs(d0_xg-d_xg).max()
+    #print xc.name, abs(d0_xg-d_xg).max()
     equal(abs(d0_xg-d_xg).max(), 0, 2e-8)
+    del xc
     #print d0_xg-d_xg
     #print d_xg
     #print d0_xg
-

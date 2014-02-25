@@ -4,9 +4,6 @@
 Exchange and correlation functionals
 ====================================
 
-.. default-role:: math
-
-
 .. index:: libxc
 
 

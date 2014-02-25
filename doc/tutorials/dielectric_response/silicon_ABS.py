@@ -7,7 +7,7 @@ import sys
 import numpy as np
 
 from ase.units import Bohr
-from ase.structure import bulk
+from ase.lattice import bulk
 from ase.parallel import paropen
 from gpaw import GPAW, FermiDirac
 from gpaw.mpi import serial_comm, rank, size

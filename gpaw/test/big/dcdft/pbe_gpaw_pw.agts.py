@@ -2,8 +2,10 @@ if 0:
     from gpaw.test.big.dcdft.pbe_gpaw_pw import elements_slow
 else:
     elements_slow = ['Mn']  # just test single element
+    elements_slow = []  # need major work - disable for now
 def agts(queue):
     run16 = [queue.add('pbe_gpaw_pw.py %s' % s,
+                       queueopts='-l nodes=2:ppn=8:xeon8',
                        ncpus=16,
                        walltime=30*60)
              for s in elements_slow]

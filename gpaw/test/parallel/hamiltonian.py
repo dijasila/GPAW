@@ -86,7 +86,7 @@ def run(psit_mG):
     t1 = time()
     if world.rank == 0:
         eps_n, H_nn = np.linalg.eigh(H_nn)
-        H_nn = H_nn.T
+        H_nn = np.ascontiguousarray(H_nn.T)
     t2 = time()
 
     if world.rank == 0:

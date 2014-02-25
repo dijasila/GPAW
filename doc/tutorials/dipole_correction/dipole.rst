@@ -54,8 +54,6 @@ correction:
 
 .. warning::
 
-    * The dipole correction currently does not support non-orthorhombic
-      unit cells.
     * Information about use of a dipole correction is currently not
       written to the gpw file.  See below how to restart such a
       calculation.
@@ -64,3 +62,6 @@ See the full Python script here: :download:`dipole.py`.  The script
 used to create the figures in this tutorial is shown here:
 
 .. literalinclude:: plot.py
+
+.. autoclass:: gpaw.dipole_correction.DipoleCorrection
+    :members:

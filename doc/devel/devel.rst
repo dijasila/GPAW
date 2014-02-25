@@ -22,6 +22,7 @@ start development!
 
    projects/projects
    developer_installation
+   workshop
 
 .. note --- below toctrees are defined in separate files to make sure that the line spacing doesn't get very large (which is of course a bad hack)
 
@@ -35,7 +36,21 @@ to become the next release.
 .. toctree::
    :maxdepth: 1
 
-   toc-general
+   codingstandard
+   c_extension
+   writing_documentation
+   formulas
+   debugging
+   profiling
+   coverage
+   testing
+   testsuite
+   ase_optimize/ase_optimize
+   bugs
+   newrelease
+   svn
+   technology
+   todo
 
 * The latest report_ from PyLint_ about the GPAW coding standard.
 
@@ -111,14 +126,16 @@ the `ASE project`_.  Here is the list of current committers:
 =========  =========================  ========================================
 id         real name
 =========  =========================  ========================================
-anpet      Andrew Peterson            andy,peterson:stanford,edu
+anpet      Andrew Peterson            andrew_peterson:brown,edu
 aoj        Ari Ojanperä               ari,ojanpera:tkk,fi
 askhl      Ask Hjorth Larsen          asklarsen:gmail,com
 dlandis    David Landis               dlandis:fysik,dtu,dk
+dmowbray   Duncan Mowbray             duncan,mowbray:gmail,com
 dulak      Marcin Dulak               dulak:fysik,dtu,dk
 eojons     Elvar Örn Jónsson          elvar,jonsson:fysik,dtu,dk
 falh       Falco Huser                falh:fysik,dtu,dk
-georg      Poul Georg Moses           georg:fysik,dtu,dk
+fras       Filip Anselm Rasmussen     fras:fysik,dtu,dk
+georg      Poul Georg Moses           gtritsaris:seas,harvard,edu
 getri      George Tritsaris           getri:fysik,dtu,dk
 hahansen   Heine Anton Hansen         hahansen:fysik,dtu,dk
 haiping    Haiping Lin                H,Lin1:liverpool,ac,uk
@@ -137,21 +154,29 @@ kkaa       Kristen Kaasbjerg          kkaa:fysik,dtu,dk
 ksaha      Kamal Saha                 ?
 kuismam    Mikael Kuisma              mikael,kuisma:tut,fi
 lara       Lara Ferrighi              laraf:phys,au,dk
+linli      Lin Li                     lli2010:stanford,edu
 lauri      Lauri Lethovaara           lauri,lehtovaara:iki,fi
 lopeza     Olga Lopez                 lopez:cc,jyu,fi
 marsalek   Ondrej Marsalek            ondrej,marsalek:gmail,com
 mathiasl   Mathias Ljungberg          mathiasl:physto,se
 miwalter   Michael Walter             Michael,Walter:fmf,uni-freiburg,de
+mogje      Morten Gjerding            mortengjerding:gmail,com
+mohpa      Mohnish Pandey             mohpa:fysik,dtu,dk
 moses      Poul Georg Moses           poulgeorgmoses:gmail,com
 mvanin     Marco Vanin                mvanin:fysik,dtu,dk
 naromero   Nichols Romero             naromero:alcf,anl,gov
 peterklue  Peter Kluepfel             peter:theochem,org
 s032082    Christian Glinsvad         s032082:fysik,dtu,dk
+s093017    Per Simmendefeldt Schmidt  s093017:student,dtu,dk
+sakko      Arto Sakko                 arto,sakko:aalto,fi
 schiotz    Jakob Schiotz              schiotz:fysik,dtu,dk
 shakala    Samuli Hakala              samuli,hakala:tkk,fi
-strange    Mikkel Strange             strange:fysik,dtu,dk
+simola     Simone Latini              simola:fysik,dtu,dk
+strange    Mikkel Strange             mikkel,strange:gmail,com
+thahn      Torsten Hahn               der,hahn,torsten:googlemail,com
 tjiang     Tao Jiang                  tjiang:fysik,dtu,dk
 tolsen     Thomas Olsen               tolsen:fysik,dtu,dk
+tprossi    Tuomas Rossi               tuomas,rossi:aalto,fi
 =========  =========================  ========================================
 
 

@@ -4,9 +4,6 @@
 Manual
 ======
 
-.. default-role:: math
-
-
 GPAW calculations are controlled through scripts written in the
 programming language Python_.  GPAW relies on the :ase:`Atomic
 Simulation Environment <>` (ASE), which is a Python package that helps
@@ -222,8 +219,7 @@ generalized gradient approximation (GGA) type, and the last two are
 For the list of all functionals available in GPAW see :ref:`overview_xc`.
 
 GPAW uses the functionals from libxc_ by default.
-Keywords are based on the strings from the
-:file:`gpaw/xc/libxc_functionals.py` file.
+Keywords are based on the names in the libxc :file:`'xc_funcs.h'` header file (the leading ``'XC_'`` should be removed from those names).
 Valid keywords are strings or combinations of exchange and correlation string
 joined by **+** (plus).
 For example, "the" (most common) LDA approximation in chemistry
@@ -807,6 +803,30 @@ change the number of grid points:
 
 More details can be found on the :ref:`restart_files` page.
 
+---------------------------------------
+Customizing behaviour through observers
+---------------------------------------
+
+An *observer* function can be *attached* to the calculator so that it
+will be executed every *N* iterations during a calculation.  The below
+example saves a differently named restart file every 5 iterations::
+
+  calc = GPAW(...)
+
+  occasionally = 5
+
+  class OccasionalWriter:
+      def __init__(self):
+          self.iter = 0
+
+      def write(self):
+          calc.write('filename.%03d.gpw' % self.iter)
+          self.iter += occasionally
+
+  calc.attach(OccasionalWriter().write, occasionally)
+
+See also :meth:`~gpaw.GPAW.attach`.
+
 ----------------------
 Command line arguments
 ----------------------
@@ -878,34 +898,6 @@ argument                         description
 ===============================  =============================================
 
 
-----------
-Extensions
-----------
-
-Currently available extensions:
-
- 1. :ref:`Linear response time-dependent DFT <lrtddft>`
- 2. :ref:`Time propagation time-dependent DFT <timepropagation>`
-
-
-:ref:`lrtddft`
---------------
-
-Optical photoabsorption spectrum can be simulated using :ref:`lrtddft`
-
-
-:ref:`timepropagation`
-----------------------
-
-Optical photoabsorption spectrum as well as nonlinear effects can be
-studied using :ref:`timepropagation`. This approach
-scales better than linear response, but the prefactor is so large that
-for small and moderate systems linear response is significantly
-faster.
-
-
-
-
 .. [#LDA]    J. P. Perdew and Y. Wang,
              Accurate and simple analytic representation of the
              electron-gas correlation energy
@@ -928,5 +920,3 @@ faster.
              *J. Phys. Chem.* **98** 11623-11627 (1994)
              Ab-Initio Calculation of Vibrational Absorption and Circular-Dichroism
              Spectra Using Density-Functional Force-Fields
-
-.. default-role::

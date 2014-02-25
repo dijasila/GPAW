@@ -55,24 +55,50 @@ class LrTDDFT(ExcitationList):
     filename:
     read from a file
     """
-    def __init__(self,
-                 calculator=None,
-                 nspins=None,
-                 eps=0.001,
-                 istart=0,
-                 jend=None,
-                 energy_range=None,
-                 xc='GS',
-                 derivative_level=1,
-                 numscale=0.00001,
-                 txt=None,
-                 filename=None,
-                 finegrid=2,
-                 force_ApmB=False, # for tests
-                 eh_comm=None # parallelization over eh-pairs
-                 ):
+    def __init__(self, calculator=None, **kwargs):
+        
+        self.timer = Timer()
 
-        parameters = {
+        self.set(**kwargs)
+
+        if isinstance(calculator, str):
+            ExcitationList.__init__(self, None, self.txt)
+            self.filename = calculator
+        else:
+            ExcitationList.__init__(self, calculator, self.txt)
+
+        if self.filename is not None:
+            return self.read(self.filename)
+
+        if self.eh_comm is None:
+            self.eh_comm = mpi.serial_comm
+        elif isinstance(self.eh_comm, (mpi.world.__class__,
+                                       mpi.serial_comm.__class__)):
+            # Correct type already.
+            pass
+        else:
+            # world should be a list of ranks:
+            self.eh_comm = mpi.world.new_communicator(np.asarray(eh_comm))
+ 
+        if calculator is not None and calculator.initialized:
+            if calculator.wfs.kpt_comm.size > 1:
+                err_txt = "Spin parallelization with Linear response "
+                err_txt += "TDDFT. Use parallel = {'domain' : 'domain_only'} "
+                err_txt += "calculator parameter."
+                raise NotImplementedError(err_txt)
+            if self.xc == 'GS':
+                self.xc = calculator.hamiltonian.xc.name
+            calculator.converge_wave_functions()
+            if calculator.density.nct_G is None:
+                spos_ac = calculator.initialize_positions()
+                calculator.wfs.initialize(calculator.density, 
+                                          calculator.hamiltonian, spos_ac)
+
+            self.update(calculator)
+
+    def set(self, **kwargs):
+
+        defaults = {
             'nspins' : None,
             'eps' : 0.001,
             'istart' : 0,
@@ -88,56 +114,23 @@ class LrTDDFT(ExcitationList):
             'eh_comm' : None # parallelization over eh-pairs
             }
 
-        self.timer = Timer()
+        changed = False
+        for key, value in defaults.items():
+            if hasattr(self, key):
+                value = getattr(self, key)  # do not overwrite
+            setattr(self, key, kwargs.pop(key, value))
+            if value != getattr(self, key):
+                changed = True
 
-        self.nspins = None
-        self.istart = None
-        self.jend = None
+        for key in kwargs:
+            raise KeyError('Unknown key ' + key)
 
-        if isinstance(calculator, str):
-            ExcitationList.__init__(self, None, txt)
-            return self.read(calculator)
-        else:
-            ExcitationList.__init__(self, calculator, txt)
-
-        if filename is not None:
-            return self.read(filename)
-
-        self.filename = None
-        self.calculator = None
-        self.eps = None
-        self.xc = None
-        self.derivative_level = None
-        self.numscale = numscale
-        self.finegrid = finegrid
-        self.force_ApmB = force_ApmB
-
-        if eh_comm is None:
-            eh_comm = mpi.serial_comm
-        elif isinstance(eh_comm, (mpi.world.__class__,
-                                mpi.serial_comm.__class__)):
-            # Correct type already.
-            pass
-        else:
-            # world should be a list of ranks:
-            eh_comm = mpi.world.new_communicator(np.asarray(eh_comm))
-
-        self.eh_comm = eh_comm
- 
-        if calculator is not None:
-            if xc == 'GS':
-                xc = calculator.hamiltonian.xc.name
-            calculator.converge_wave_functions()
-            if calculator.density.nct_G is None:
-                calculator.set_positions()
-
-            self.update(calculator, nspins, eps, 
-                        istart, jend, energy_range,
-                        xc, derivative_level, numscale)
+        return changed
 
     def set_calculator(self, calculator):
         self.calculator = calculator
-        self.force_ApmB = parameters['force_ApmB']
+#        self.force_ApmB = parameters['force_ApmB']
+        self.force_ApmB = None # XXX
 
     def analyse(self, what=None, out=None, min=0.1):
         """Print info about the transitions.
@@ -158,36 +151,15 @@ class LrTDDFT(ExcitationList):
         for i in what:
             print >> out, str(i) + ':', self[i].analyse(min=min)
             
-    def update(self,
-               calculator=None,
-               nspins=None,
-               eps=0.001,
-               istart=0,
-               jend=None,
-               energy_range=None,
-               xc=None,
-               derivative_level=None,
-               numscale=0.001):
+    def update(self, calculator=None, **kwargs):
 
-        changed = False
-        if self.calculator != calculator or \
-           self.nspins != nspins or \
-           self.eps != eps or \
-           self.istart != istart or \
-           self.jend != jend :
+        changed = self.set(**kwargs)
+        if calculator is not None:
             changed = True
+            self.set_calculator(calculator)
 
-        if not changed: return
-
-        self.calculator = calculator
-        self.nspins = nspins
-        self.eps = eps
-        self.istart = istart
-        self.jend = jend
-        self.energy_range = energy_range
-        self.xc = xc
-        self.derivative_level = derivative_level
-        self.numscale = numscale
+        if not changed:
+            return
 
         self.forced_update()
 
@@ -202,7 +174,7 @@ class LrTDDFT(ExcitationList):
                 if hasattr(xc, 'hybrid') and xc.hybrid > 0.0:
                     Om = ApmB
                     name = 'LrTDDFThyb'
-                    nonselfconsistent_xc = HybridXC('PBE0', alpha=5.0)
+#                    nonselfconsistent_xc = HybridXC('PBE0', alpha=5.0)
         else:
             Om = ApmB
             name = 'LrTDDFThyb'
@@ -222,10 +194,11 @@ class LrTDDFT(ExcitationList):
                      txt=self.txt)
         self.name = name
 
-    def diagonalize(self, istart=None, jend=None, energy_range=None):
+    def diagonalize(self, istart=None, jend=None, 
+                    energy_range=None, TDA=False):
         self.timer.start('diagonalize')
         self.timer.start('omega')
-        self.Om.diagonalize(istart, jend, energy_range)
+        self.Om.diagonalize(istart, jend, energy_range, TDA)
         self.timer.stop('omega')
         
         # remove old stuff
@@ -315,12 +288,14 @@ class LrTDDFT(ExcitationList):
     def singlets_triplets(self):
         """Split yourself into a singlet and triplet object"""
 
-        slr = LrTDDFT(None, self.nspins, self.eps,
-                      self.istart, self.jend, self.xc, 
-                      self.derivative_level, self.numscale)
-        tlr = LrTDDFT(None, self.nspins, self.eps,
-                      self.istart, self.jend, self.xc, 
-                      self.derivative_level, self.numscale)
+        slr = LrTDDFT(None, nspins=self.nspins, eps=self.eps,
+                      istart=self.istart, jend=self.jend, xc=self.xc, 
+                      derivative_level=self.derivative_level, 
+                      numscale=self.numscale)
+        tlr = LrTDDFT(None, nspins=self.nspins, eps=self.eps,
+                      istart=self.istart, jend=self.jend, xc=self.xc, 
+                      derivative_level=self.derivative_level, 
+                      numscale=self.numscale)
         slr.Om, tlr.Om = self.Om.singlets_triplets()
         for lr in [slr, tlr]:
             lr.kss = lr.Om.fullkss
@@ -339,7 +314,7 @@ class LrTDDFT(ExcitationList):
     def __str__(self):
         string = ExcitationList.__str__(self)
         string += '# derived from:\n'
-        string += self.kss.__str__()
+        string += self.Om.kss.__str__()
         return string
 
     def write(self, filename=None, fh=None):

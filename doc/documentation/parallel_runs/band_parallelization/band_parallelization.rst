@@ -7,8 +7,6 @@ Band parallelization
 The orthogonalization can be paralleized over **k**-points, spins,
 domains (see :ref:`orthogonalization`), and bands, described below.
 
-.. default-role:: math
-
 Let's say we split the bands in five groups and give each group of
 wave functions to one of five processes:
 
@@ -45,5 +43,3 @@ With `B` blocks, we need `(B - 1) / 2` shifts.
 Now we can calculate `\mathbf{L}^{-1}` and do the matrix product
 `\tilde{\mathbf{\Psi}}_0 \mathbf{L}^{-1}` which requires `B - 1`
 shifts of the wave functions.
-
-.. default-role::

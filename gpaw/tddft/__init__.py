@@ -76,7 +76,7 @@ class TDDFT(GPAW):
     """
     
     def __init__(self, filename, td_potential=None, propagator='SICN',
-                 propagator_kwargs=None, solver='CSCG', tolerance=1e-8,
+                 propagator_kwargs=None, solver='CSCG', tolerance=1e-8, 
                  **kwargs):
         """Create TDDFT-object.
         
@@ -248,7 +248,7 @@ class TDDFT(GPAW):
             if self.initialized and key not in ['txt']:
                 raise TypeError("Keyword argument '%s' is immutable." % key)
 
-            if key in ['txt', 'parallel', 'communicator']:
+            if key in ['txt', 'parallel', 'communicator','poissonsolver']:
                 continue
             elif key == 'mixer':
                 if not isinstance(kwargs[key], DummyMixer):

@@ -28,8 +28,9 @@ class BSE(BASECHI):
                  eshift=None,
                  ecut=10.,
                  eta=0.2,
-                 rpad=np.array([1,1,1]),
-                 vcut=None,
+                 gw_skn=None, # GW QP energies in Hartree
+                 rpad=None,
+                 vcut=None,   # Coulomb cutoff only 2D works
                  ftol=1e-5,
                  txt=None,
                  optical_limit=None,
@@ -51,6 +52,7 @@ class BSE(BASECHI):
         self.vcut = vcut
         self.nc = nc # conduction band index
         self.nv = nv # valence band index
+        self.gw_skn = gw_skn
         self.mode = mode
         self.integrate_coulomb = integrate_coulomb
         self.print_coulomb = print_coulomb
@@ -100,7 +102,7 @@ class BSE(BASECHI):
         self.Sindex_S3 = {}
         iS = 0
         kq_k = self.kq_k
-        for k1 in range(self.nkpt):
+        for k1 in range(self.kd.nbzkpts):
             ibzkpt1 = kd.bz2ibz_k[k1]
             ibzkpt2 = kd.bz2ibz_k[kq_k[k1]]
             for n1 in range(self.nv[0], self.nv[1]): 
@@ -110,8 +112,12 @@ class BSE(BASECHI):
                         check_ftol = np.abs(focc) > self.ftol
                     else:
                         check_ftol = focc > self.ftol
-                    if check_ftol:           
-                        self.e_S[iS] =self.e_skn[0][ibzkpt2,m1] - self.e_skn[0][ibzkpt1,n1]
+                    if check_ftol:
+                        if self.gw_skn is None:
+                            self.e_S[iS] = self.e_skn[0][ibzkpt2,m1] - self.e_skn[0][ibzkpt1,n1]
+                        else:
+                            self.e_S[iS] = self.gw_skn[0][ibzkpt2,m1] - self.gw_skn[0][ibzkpt1,n1]
+                            
                         focc_s[iS] = focc
                         self.Sindex_S3[iS] = (k1, n1, m1)
                         iS += 1
@@ -128,7 +134,7 @@ class BSE(BASECHI):
             (self.ibzq_qc, self.ibzq_q, self.iop_q,
              self.timerev_q, self.diff_qc) = kd.get_ibz_q_points(self.bzq_qc,
                                                                  calc.wfs.symmetry.op_scc)
-            if np.abs(self.bzq_qc - self.bzk_kc).sum() < 1e-8:
+            if np.abs(self.bzq_qc - kd.bzk_kc).sum() < 1e-8:
                 assert np.abs(self.ibzq_qc - kd.ibzk_kc).sum() < 1e-8
         self.nibzq = len(self.ibzq_qc)
 
@@ -156,8 +162,7 @@ class BSE(BASECHI):
                     if self.Gvec_Gc[iG, 0] == 0 and self.Gvec_Gc[iG, 1] == 0:
                         self.integrate_coulomb.append(iG)
             else:
-                print 'Not implemented'
-                XXX
+                raise NotImplementedError
         elif type(self.integrate_coulomb) is int:
             self.integrate_coulomb = range(self.integrate_coulomb)
         elif self.integrate_coulomb == 'all':
@@ -205,8 +210,6 @@ class BSE(BASECHI):
         calc = self.calc
         f_skn = self.f_skn
         e_skn = self.e_skn
-        ibzk_kc = self.ibzk_kc
-        bzk_kc = self.bzk_kc
         kq_k = self.kq_k
         focc_S = self.focc_S
         e_S = self.e_S
@@ -258,10 +261,9 @@ class BSE(BASECHI):
 
         # Calculate full kernel
         K_SS = np.zeros((self.nS_local, self.nS), dtype=complex)
-        W_SS = np.zeros_like(K_SS)
-        self.rhoG0_S = np.zeros((self.nS), dtype=complex)
+        self.rhoG0_S = np.zeros(self.nS, dtype=complex)
 
-        noGmap = 0
+        #noGmap = 0
         for iS in range(self.nS_start, self.nS_end):
             k1, n1, m1 = self.Sindex_S3[iS]
             rho1_G = self.density_matrix(n1,m1,k1)
@@ -276,7 +278,7 @@ class BSE(BASECHI):
                     rho4_G = self.density_matrix(m1,m2,self.kq_k[k1],
                                                  self.kq_k[k2])
 
-                    q_c = bzk_kc[k2] - bzk_kc[k1]
+                    q_c = self.kd.bzk_kc[k2] - self.kd.bzk_kc[k1]
                     q_c[np.where(q_c > 0.501)] -= 1.
                     q_c[np.where(q_c < -0.499)] += 1.
                     iq = self.kd.where_is_q(q_c, self.bzq_qc)
@@ -302,7 +304,7 @@ class BSE(BASECHI):
                             try:
                                 Gindex[iG] = np.where(tmp_G < 1e-5)[0][0]
                             except:
-                                noGmap += 1
+                                #noGmap += 1
                                 Gindex[iG] = -1
     
                         W_GG = np.zeros_like(W_GG_tmp)
@@ -315,18 +317,16 @@ class BSE(BASECHI):
                                     
                     if self.mode == 'BSE':
                         tmp_GG = np.outer(rho3_G.conj(), rho4_G) * W_GG
-                        W_SS[iS-self.nS_start, jS] = np.sum(tmp_GG)
+                        K_SS[iS-self.nS_start, jS] -= 0.5 * np.sum(tmp_GG)
                     else:
                         tmp_G = rho3_G.conj() * rho4_G * np.diag(W_GG)
-                        W_SS[iS-self.nS_start, jS] = np.sum(tmp_G)
+                        K_SS[iS-self.nS_start, jS] -= 0.5 * np.sum(tmp_G)
             self.timing(iS, t0, self.nS_local, 'pair orbital') 
  
         K_SS /= self.vol
-        if not self.mode == 'RPA':
-            K_SS -= 0.5 * W_SS / self.vol
 
         world.sum(self.rhoG0_S)
-        self.printtxt('The number of G index outside the Gvec_Gc: %d' % noGmap)
+        #self.printtxt('Number of G indices outside the Gvec_Gc: %d' % noGmap)
 
         # Get and solve Hamiltonian
         H_sS = np.zeros_like(K_SS)
@@ -474,7 +474,7 @@ class BSE(BASECHI):
             
             if optical_limit:
                 eps = 1/dfinv_GG[0,0]
-                self.printtxt('  RPA macroscopic dielectric constant is: %3.3f' %  eps.real)
+                self.printtxt('    RPA macroscopic dielectric constant is: %3.3f' %  eps.real)
             W_qGG[iq] = dfinv_GG * self.V_qGG[iq]
             self.timing(iq, t0, self.nibzq, 'iq')
             
@@ -542,7 +542,7 @@ class BSE(BASECHI):
             if N2 > N2_max:
                 N2_max = N2
         
-        nbzq = self.nkpt
+        nbzq = self.kd.nbzkpts
         nbzq, nq_local, q_start, q_end = parallel_partition(
                                    nbzq, world.rank, world.size, reshape=False)
         phimax_qaGp = np.zeros((nq_local, natoms, N1_max, N2_max), dtype=complex)
@@ -551,11 +551,11 @@ class BSE(BASECHI):
         t0 = time()
         for iq in range(nq_local):
             q_c = self.bzq_qc[iq + q_start]
-            tmp_aGp = self.get_phi_aGp(q_c)
+            tmp_aGp = self.get_phi_aGp(q_c, parallel=False)
             for id in range(natoms):
                 N1, N2 = tmp_aGp[id].shape
                 phimax_qaGp[iq, id, :N1, :N2] = tmp_aGp[id]
-            self.timing(iq*world.size, t0, nbzq, 'iq')
+            self.timing(iq*world.size, t0, nq_local, 'iq')
         world.barrier()
 
         # Write to disk
@@ -766,7 +766,7 @@ class BSE(BASECHI):
         kq_k = self.kq_k
         kd = self.kd
 
-        nx, ny, nz = self.nG[0], self.nG[1], self.nG[2]
+        nx, ny, nz = self.gd.N_c
         nR = 9
         nR2 = (nR - 1 ) // 2
         if re_c is not None:
@@ -798,7 +798,7 @@ class BSE(BASECHI):
                 tmp = A_S[iS] * psit1_g[re_c].conj() * psit2_g
                 psith_R += tmp
 
-                k_c = self.bzk_kc[k] + self.q_c
+                k_c = self.kd.bzk_kc[k] + self.q_c
                 for i in range(nR):
                     for j in range(nR):
                         R_c = np.array([i-nR2, j-nR2, 0])
@@ -810,7 +810,7 @@ class BSE(BASECHI):
                 tmp = A_S[iS] * psit1_g.conj() * psit2_g[rh_c] * self.expqr_g
                 psite_R += tmp
 
-                k_c = self.bzk_kc[k]
+                k_c = self.kd.bzk_kc[k]
                 k_v = np.dot(k_c, self.bcell_cv)
                 for i in range(nR):
                     for j in range(nR):

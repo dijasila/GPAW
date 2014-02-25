@@ -10,6 +10,8 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* Support for new libxc 2.0.1.  libxc must now be built separately from GPAW.
+
 * MGGA calculations can be done in plane-wave mode.
 
 * Calculation of the stress tensor has been implemented for plane-wave
@@ -19,6 +21,9 @@ Development version in trunk
   wave function gradient changed from 1 to 3.
 
 * New setups: Y, Sb, Xe, Hf, Re, Hg, Tl, Rn
+
+* Non self-consistent calculations with screened hybrid functionals
+  (HSE03 and HSE06) can be done in plane-wave mode.
 
 * Modified setups:
 

@@ -13,7 +13,7 @@ nearly no additional computational cost and performs very well:
 .              PBE  TPSS  vdW-DF vdW-DF2 TS09
 ============== ===  ===== ====== ======= ====
 Mean deviation 115  154   76     48      15
-RMS deviation  108  128   60     42      16
+RMS deviation  108  128   60     42      15
 ============== ===  ===== ====== ======= ====
 
 Error in energies compared to CCSD results of the S26 test set.

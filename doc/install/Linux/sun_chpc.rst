@@ -4,12 +4,11 @@
 sun.chpc.ac.za
 ==============
 
-Here you find information about the the system
-`<http://www.chpc.ac.za/sun/>`_.
+Here you find information about the the system http://www.chpc.ac.za/sun/.
 
 The installation of user's packages on SUSE 10 **login01**,
 64-bit described below uses
-`modules <http://modules.sourceforge.net/>`_, and assumes `sh` shell:
+`modules <http://modules.sourceforge.net/>`_, and assumes ``sh`` shell:
 
 - packages are installed under ``~/CAMd``::
 
@@ -35,7 +34,7 @@ The installation of user's packages on SUSE 10 **login01**,
   **Note** that every time you wish to install a new version of a package,
   and deploy new module file, better keep the old module file.
 
-- submit the test job (jobs must be submitted from under `~/scratch`)::
+- submit the test job (jobs must be submitted from under *~/scratch*)::
 
    mqsub msub_sun_chpc.sh
 

@@ -36,7 +36,7 @@ will calculate the vibrational frequencies for a water molecule.
 * Now we want to look at the modes to see how the atoms move. For this
   we use the files :file:`vib.{?}.traj` where :file:`{?}` is the number of the
   mode counted in the order they are printed out. You can look at
-  these trajectories with the :command:`ag` command - click :guilabel:`Play` 
+  these trajectories with the :command:`ase-gui` command - click :guilabel:`Play` 
   to play the movie. Do they look like you expected and what would you have
   expected (you may have learned something about symmetry groups at
   one point)?  Did you assign the modes correctly in the previous question?

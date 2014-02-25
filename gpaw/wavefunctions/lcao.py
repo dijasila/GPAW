@@ -7,7 +7,11 @@ from gpaw import debug
 from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
-
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.mpi import serial_comm
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.kpoint import KPoint
+import warnings
 
 def get_r_and_offsets(nl, spos_ac, cell_cv):
     r_and_offset_aao = {}
@@ -43,7 +47,6 @@ def add_paw_correction_to_overlap(setups, P_aqMi, S_qMM, Mstart=0,
             gemm(1.0, P_Mi, dO_ii, 0.0, dOP_iM, 'c')
             gemm(1.0, dOP_iM, P_Mi[Mstart:Mstop],
                  1.0, S_MM, 'n')
-
 
 
 class LCAOWaveFunctions(WaveFunctions):
@@ -155,7 +158,6 @@ class LCAOWaveFunctions(WaveFunctions):
             kpt.S_MM = S_qMM[q]
             kpt.T_MM = T_qMM[q]
 
-
         if (debug and self.band_comm.size == 1 and self.gd.comm.rank == 0 and
             nao > 0 and not self.ksl.using_blacs):
             # S and T are summed only on comm master, so check only there
@@ -190,7 +192,32 @@ class LCAOWaveFunctions(WaveFunctions):
             # of already by this time, so we should improve the code elsewhere
             density.calculate_normalized_charges_and_mix()
         hamiltonian.update(density)
-           
+    
+    def initialize_wave_functions_from_lcao(self):
+        """
+        Fill the calc.wfs.kpt_[u].psit_nG arrays with usefull data.
+        
+        Normally psit_nG is NOT used in lcao mode, but some extensions
+        (like ase.dft.wannier) want to have it.
+        This code is adapted from fd.py / initialize_from_lcao_coefficients()
+        and fills psit_nG with data constructed from the current lcao
+        coefficients (kpt.C_nM).
+        
+        (This may or may not work in band-parallel case!)
+        """
+        #print('initialize_wave_functions_from_lcao')
+        bfs = self.basis_functions
+        for kpt in self.kpt_u:
+            #print("kpt: {0}".format(kpt))
+            kpt.psit_nG = self.gd.zeros(self.bd.nbands, self.dtype)
+            bfs.lcao_to_grid(kpt.C_nM, kpt.psit_nG[:self.bd.mynbands], kpt.q)
+            # kpt.C_nM = None
+    #
+    def initialize_wave_functions_from_restart_file(self):
+        """Dummy function to ensure compatibility to fd mode"""
+        self.initialize_wave_functions_from_lcao()
+    #
+    
     def calculate_density_matrix(self, f_n, C_nM, rho_MM=None):
         # ATLAS can't handle uninitialized output array:
         #rho_MM.fill(42)
@@ -206,10 +233,15 @@ class LCAOWaveFunctions(WaveFunctions):
             # Although that requires knowing C_Mn and not C_nM.
             # that also conforms better to the usual conventions in literature
             Cf_Mn = C_nM.T.conj() * f_n
+            self.timer.start('gemm')
             gemm(1.0, C_nM, Cf_Mn, 0.0, rho_MM, 'n')
+            self.timer.stop('gemm')
+            self.timer.start('band comm sum')
             self.bd.comm.sum(rho_MM)
+            self.timer.stop('band comm sum')
         else:
             # Alternative suggestion. Might be faster. Someone should test this
+            from gpaw.utilities.blas import r2k
             C_Mn = C_nM.T.copy()
             r2k(0.5, C_Mn, f_n * C_Mn, 0.0, rho_MM)
             tri2full(rho_MM)
@@ -228,13 +260,12 @@ class LCAOWaveFunctions(WaveFunctions):
         occupation numbers, but ones given with argument f_n."""
         # Custom occupations are used in calculation of response potential
         # with GLLB-potential
-        Mstart = self.basis_functions.Mstart
-        Mstop = self.basis_functions.Mstop
         if kpt.rho_MM is None:
             rho_MM = self.calculate_density_matrix(f_n, kpt.C_nM)
             if hasattr(kpt, 'c_on'):
                 assert self.bd.comm.size == 1
-                d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands), dtype=kpt.C_nM.dtype)
+                d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
+                                dtype=kpt.C_nM.dtype)
                 for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                     assert abs(c_n.imag).max() < 1e-14
                     d_nn += ne * np.outer(c_n.conj(), c_n).real
@@ -260,14 +291,11 @@ class LCAOWaveFunctions(WaveFunctions):
         dtype = self.dtype
         tci = self.tci
         gd = self.gd
-        bd = self.bd
         bfs = self.basis_functions
         
         Mstart = ksl.Mstart
         Mstop = ksl.Mstop
 
-        P_aqMi = self.P_aqMi
-        
         from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
         isblacs = isinstance(ksl, BlacsOrbitalLayouts) # XXX
         
@@ -291,7 +319,7 @@ class LCAOWaveFunctions(WaveFunctions):
             def _slices(indices):
                 for a in indices:
                     M1 = bfs.M_a[a] - Mstart
-                    M2 = M1 + self.setups[a].niAO
+                    M2 = M1 + self.setups[a].nao
                     if M2 > 0:
                         yield a, max(0, M1), M2
 
@@ -346,7 +374,7 @@ class LCAOWaveFunctions(WaveFunctions):
                     tri2full(H_MM)
                     S_MM = kpt.S_MM.copy()
                     tri2full(S_MM)
-                    ET_MM = np.linalg.solve(S_MM, gemmdot(H_MM, 
+                    ET_MM = np.linalg.solve(S_MM, gemmdot(H_MM,
                                                           kpt.rho_MM)).T.copy()
                     del S_MM, H_MM
                     rhoT_MM = kpt.rho_MM.T.copy()
@@ -370,7 +398,6 @@ class LCAOWaveFunctions(WaveFunctions):
             
             # XXX should probably use bdsize x gdsize instead
             # That would be consistent with some existing grids
-            slgrid = ksl.blockgrid
             grid = BlacsGrid(ksl.block_comm, self.gd.comm.size,
                              self.bd.comm.size)
             
@@ -453,21 +480,16 @@ class LCAOWaveFunctions(WaveFunctions):
             del dThetadRE_vMM
 
         if isblacs:
-            from gpaw.lcao.overlap import OppositeDirection,\
-                 TwoCenterIntegralCalculator, AtomicDisplacement, PairFilter
-
+            from gpaw.lcao.overlap import TwoCenterIntegralCalculator
             self.timer.start('Prepare TCI loop')
             M_a = bfs.M_a
             
             Fkin2_av = np.zeros_like(F_av)
             Ftheta2_av = np.zeros_like(F_av)
-            Frho2_av = np.zeros_like(F_av)
 
             cell_cv = tci.atoms.cell
             spos_ac = tci.atoms.get_scaled_positions() % 1.0
 
-            derivativecalc = TwoCenterIntegralCalculator(self.kd.ibzk_qc,
-                                                         derivative=True)
             overlapcalc = TwoCenterIntegralCalculator(self.kd.ibzk_qc,
                                                       derivative=False)
 
@@ -487,67 +509,7 @@ class LCAOWaveFunctions(WaveFunctions):
             P_expansions = tci.P_expansions
             nq = len(self.ibzk_qc)
             
-            sendreqs = []
-            recvreqs = []
             dH_asp = hamiltonian.dH_asp
-            comm = grid.comm
-
-            ranks_bg = np.arange(self.gd.comm.size *
-                                 self.bd.comm.size).reshape(self.bd.comm.size,
-                                                            self.gd.comm.size)
-            
-            def rank2bgrank(rank):
-                b_rank, g_rank = divmod(rank, self.gd.comm.size)
-                assert ranks_bg[b_rank, g_rank] == rank, (ranks_bg[b_rank,
-                                                                   g_rank],
-                                                          rank)
-                return b_rank, g_rank
-
-##             for a2 in range(len(self.setups)):
-##             #for a2 in bfs.my_atom_indices:
-##                 I1 = P_expansions.M2_a[a2]
-##                 I2 = I1 + P_expansions.shape[1]
-
-##                 continue
-            
-##                 Pcpu_x1, Pcpu_y1 = Pdesc.index2grid(0, I1)
-##                 Pcpu_x2, Pcpu_y2 = Pdesc.index2grid(nao - 1, I2 - 1)
-
-##                 if a2 in dH_asp:# and self.bd.comm.rank == 0:
-##                     print comm.rank, a2, (Pcpu_y1, Pcpu_y2, Pcpu_x1, Pcpu_x2)
-##                     for Pcpu_y in range(Pcpu_y1, Pcpu_y2 + 1):
-##                         for Pcpu_x in range(Pcpu_x1, Pcpu_x2 + 1):
-##                             dstrank = grid.coords2rank(Pcpu_x, Pcpu_y)
-##                             b_rank, g_rank = rank2bgrank(dstrank)
-##                             if g_rank == self.gd.comm.rank:
-##                                 continue
-##                             if b_rank != self.bd.comm.rank:
-##                                 continue
-##                             print comm.rank, 'send', a2, 'to', dstrank
-##                             #sendreqs.append(comm.send(dH_asp[a2], dstrank,
-##                             #                          #tag=a2,
-##                             #                          block=False))
-
-##                 # XXXXXX this will break when Pcpu_y1 < mycol < Pcpu_y2
-##                 # (which should not really happen in practical cases though)
-##                 if Pcpu_y1 == grid.mycol or Pcpu_y2 == grid.mycol:
-##                     g_rank = bfs.sphere_a[a2].rank
-##                     b_rank = self.bd.rank # aha
-                    
-##                     srcrank = ranks_bg[b_rank, g_rank]
-                    
-##                     #b_rank, g_rank = rank2bgrank(srcrank)
-##                     if g_rank == self.gd.rank:
-##                         dH_sp = dH_asp[a2]
-##                     else:
-##                     #elif self.bd.rank == b_rank:
-##                         ni = self.setups[a2].ni
-##                         dH_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
-##                         print comm.rank, 'recv', a2, 'from', srcrank
-##                         #recvreqs.append(comm.receive(dH_sp, srcrank, #tag=a2,
-##                         #                             block=False))
-
-            #mydH_asp = {}
 
             self.timer.start('broadcast dH')
             alldH_asp = {}
@@ -562,102 +524,7 @@ class LCAOWaveFunctions(WaveFunctions):
                 # okay, now everyone gets copies of dH_sp
                 alldH_asp[a] = dH_sp
             self.timer.stop('broadcast dH')
-            #sendto = set()
-            #recvfrom = set()
-
-            #for disp in overlapcalc.iter(ProjectorPairFilter(tci.atompairs)):
-            #for disp in disps:
-            #    a1 = disp.a1
-            #    a2 = disp.a2
-            if 0: # no sending if dH_asp is broadcast
-                if a2 in self.P_aqMi and a2 >= a1:
-                    # figure out who needs dH, and send
-                    M1 = M_a[a1]
-                    P1 = P_a[a2]
-
-                    P_expansion = P_expansions.get(a1, a2)
-                    nM, nP = P_expansion.shape
-
-                    M2 = M1 + nM
-                    P2 = P1 + nP
-                    xrank1, yrank1 = Pdesc.index2grid(M1, P1)
-                    xrank2, yrank2 = Pdesc.index2grid(M2 - 1, P2 - 1)
-
-                    assert xrank2 >= xrank1, ((xrank1, xrank2), (M1, M2))
-                    assert yrank2 >= yrank1, ((yrank1, yrank2), (Pstart, Pend))
-
-                    for xrank in range(xrank1, xrank2 + 1):
-                        for yrank in range(yrank1, yrank2 + 1):
-                            rank = grid.coords2rank(xrank, yrank)
-                            b_rank, g_rank = rank2bgrank(rank)
-                            if g_rank == self.gd.comm.rank:
-                                assert a2 in self.P_aqMi
-                                continue
-                            if b_rank == self.bd.comm.rank:
-                                #assert False, (comm.rank, rank, b_rank, g_rank)
-                                if not (rank, a2) in sendto:
-                                    print self.world.rank, 'SEND'
-                                    sendto.add((rank, a2))
-
-                ### XXX this is repeated below; work something smarter out
-                m1start = M_a[a1] - M1start
-
-                if m1start >= blocksize1:
-                    continue
-
-                P_expansion = P_expansions.get(a1, a2)
-                m1stop = min(m1start + P_expansion.shape[0], m1max)
-
-                if m1stop <= 0:
-                    continue
-
-                I1 = P_expansions.M2_a[a1]
-                M1 = P_expansions.M1_a[a1]
-
-                M2 = M1 + P_expansions.shape[0]
-                I2 = I1 + P_expansions.shape[1]
-
-                P_qmi = P_expansion.zeros((nq,), dtype=dtype)
-                disp.evaluate_overlap(P_expansion, P_qmi)
-
-                if 0: # no recving if dH_asp is broadcast
-                    for a in [a2]:#[a1, a2]:
-                        if a in self.P_aqMi:
-                            mydH_asp[a] = dH_asp[a]
-                        else:
-                            src_gdrank = bfs.sphere_a[a].rank
-                            srcrank = ranks_bg[self.bd.comm.rank, src_gdrank]
-                            if not (srcrank, a) in recvfrom:
-                                print self.world.rank, 'RECV'
-                                recvfrom.add((srcrank, a))
-
-
-            if 0: # no sendrecv if dH_asp is broadcast
-                for dstrank, a2 in sendto:
-                    sendreqs.append(comm.send(dH_asp[a2], dstrank,
-                                          tag=a2,
-                                          block=False))
-                for srcrank, a2 in recvfrom:
-                    ni = self.setups[a2].ni
-                    dH_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
-                    recvreqs.append(comm.receive(dH_sp, srcrank, tag=a2,
-                                                 block=False))
-                    mydH_asp[a2] = dH_sp
-
-                self.world.barrier()
-
-                for (rank, a2) in recvfrom:
-                    assert not a2 in self.P_aqMi
-
-                a2values = [a2 for (rank, a2) in recvfrom]
-                for a2 in self.P_aqMi:
-                    assert not a2 in a2values
-
-
-                print comm.rank, 'sendto', sendto, 'recvfrom', recvfrom
-                self.world.barrier()
-                assert comm.sum(len(sendreqs)) == comm.sum(len(recvreqs))
-                comm.waitall(sendreqs + recvreqs)
+            
 
             # This will get sort of hairy.  We need to account for some
             # three-center overlaps, such as:
@@ -669,9 +536,6 @@ class LCAOWaveFunctions(WaveFunctions):
             #
             # To this end we will loop over all pairs of atoms (a1, a3),
             # and then a sub-loop over (a3, a2).
-
-
-
             from gpaw.lcao.overlap import DerivativeAtomicDisplacement
             class Displacement(DerivativeAtomicDisplacement):
                 def __init__(self, a1, a2, R_c, offset):
@@ -948,16 +812,6 @@ class LCAOWaveFunctions(WaveFunctions):
                             Fatom_av[b, v] -= dE # the "mu nu" term
             self.timer.stop('Atomic Hamiltonian force')
 
-        def printforce(F, title=None):
-            F = F.copy()
-            if title is not None:
-                if self.world.rank == 0:
-                    print title
-            self.gd.comm.sum(F)
-            self.bd.comm.sum(F)
-            if self.world.rank == 0:
-                print F*100
-
         F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
         self.timer.start('Wait for sum')
         ksl.orbital_comm.sum(F_av)
@@ -983,13 +837,16 @@ class LCAOWaveFunctions(WaveFunctions):
 
     def load_lazily(self, hamiltonian, spos_ac):
         """Horrible hack to recalculate lcao coefficients after restart."""
+        self.basis_functions.set_positions(spos_ac)
         class LazyLoader:
             def __init__(self, hamiltonian, spos_ac):
-                self.hamiltonian = hamiltonian
                 self.spos_ac = spos_ac
             
             def load(self, wfs):
-                wfs.set_positions(self.spos_ac)
+                wfs.set_positions(self.spos_ac) # this sets rank_a
+                # Now we need to pass wfs.rank_a or things to work
+                # XXX WTF why does one have to fiddle with rank_a???
+                hamiltonian.set_positions(self.spos_ac, wfs.rank_a)
                 wfs.eigensolver.iterate(hamiltonian, wfs)
                 del wfs.lazyloader
         
@@ -1014,8 +871,9 @@ class LCAOWaveFunctions(WaveFunctions):
     def read_coefficients(self, reader):
         for kpt in self.kpt_u:
             kpt.C_nM = self.bd.empty(self.setups.nao, dtype=self.dtype)
-            for n in self.bd.get_band_indices():
-                kpt.C_nM[n] = reader.get('WaveFunctionCoefficients',
+            for myn, C_M in enumerate(kpt.C_nM):
+                n = self.bd.global_index(myn)
+                C_M[:] = reader.get('WaveFunctionCoefficients',
                                          kpt.s, kpt.k, n)
 
     def estimate_memory(self, mem):

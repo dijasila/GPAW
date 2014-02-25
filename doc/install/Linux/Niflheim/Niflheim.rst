@@ -76,15 +76,15 @@ when installating GPAW for the first time:
 
     if ( "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ) then # fjorm
         module load GPAW
-        if ( ! ( `hostname -s | grep "^p"` ==  "")) then # p-node = infiniband
-            setenv GPAW_PLATFORM "linux-x86_64-opteron-infiniband-2.4"
-        else
-            setenv GPAW_PLATFORM "linux-x86_64-opteron-2.4"
-        endif
+        setenv GPAW_PLATFORM "linux-x86_64-opteron-2.4"
     endif
     if ( "`echo $FYS_PLATFORM`" == "Intel-Nehalem-el5" ) then # thul
         module load GPAW
         setenv GPAW_PLATFORM "linux-x86_64-xeon-2.4"
+    endif
+    if ( "`echo $FYS_PLATFORM`" == "x3455-el6" ) then # slid
+        module load GPAW
+        setenv GPAW_PLATFORM "linux-x86_64-x3455-2.6"
     endif
     if ( "`echo $FYS_PLATFORM`" == "dl160g6-el6" ) then # muspel
         module load GPAW
@@ -105,15 +105,15 @@ when installating GPAW for the first time:
 
     if [ "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ]; then # fjorm
         module load GPAW
-        if [ ! `hostname -s | grep "^p"` ==  "" ]; then # p-node = infiniband
-            export GPAW_PLATFORM="linux-x86_64-opteron-infiniband-2.4"
-        else
-            export GPAW_PLATFORM="linux-x86_64-opteron-2.4"
-        fi
+        export GPAW_PLATFORM="linux-x86_64-opteron-2.4"
     fi
     if [ "`echo $FYS_PLATFORM`" == "Intel-Nehalem-el5" ]; then # thul
         module load GPAW
         export GPAW_PLATFORM="linux-x86_64-xeon-2.4"
+    fi
+    if [ "`echo $FYS_PLATFORM`" == "x3455-el6" ]; then # slid
+        module load GPAW
+        export GPAW_PLATFORM="linux-x86_64-x3455-2.6"
     fi
     if [ "`echo $FYS_PLATFORM`" == "dl160g6-el6" ]; then # muspel
         module load GPAW

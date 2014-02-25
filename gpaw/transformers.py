@@ -45,8 +45,14 @@ class _Transformer:
             skip_cd[:, 0] = gdout.beg_c % 2
             skip_cd[:, 1] = gdout.end_c % 2
             self.interpolate = True
-            assert ((gdin.n_c[0] + 2 * nn - 1) * (gdin.n_c[1] + 2 * nn - 1) <=
-                    gdout.n_c[0] * gdout.n_c[1])
+
+            inpoints = (gdin.n_c[0] + 2 * nn - 1) * (gdin.n_c[1] + 2 * nn - 1)
+            outpoints = gdout.n_c[0] * gdout.n_c[1]
+            
+            if inpoints > outpoints:
+                points = ' x '.join([str(N) for N in gdin.N_c])
+                raise ValueError('Cannot construct interpolator.  Grid %s '
+                                 'may be too small' % points)
 
         assert np.alltrue(pad_cd.ravel() >= 0)
         self.ngpin = tuple(gdin.n_c)

@@ -8,8 +8,13 @@ codes = {
     'PBE': 0,
     'revPBE': 1,
     'RPBE': 2,
-    'PW91': 14}
-
+    'PW91': 14,
+    'TPSS': 20,
+    'M06L': 21,
+    'revTPSS': 22
+    }
+# NOTE: when adding MGGA functionals to the above
+# list, self.type must be set to MGGA in XCKernel:__init__
         
 class XCNull:
     type = 'LDA'
@@ -23,6 +28,8 @@ class XCKernel:
         self.name = name
         if name == 'LDA':
             self.type = 'LDA'
+        if name == 'TPSS' or name == 'M06L' or name == 'revTPSS':
+            self.type = 'MGGA'
         else:
             self.type = 'GGA'
         self.xc = _gpaw.XCFunctional(codes[name])
@@ -33,7 +40,7 @@ class XCKernel:
         if debug:
             self.check_arguments(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg,
                                  tau_sg, dedtau_sg)
-        self.xc.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
+        self.xc.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, tau_sg, dedtau_sg)
 
     def check_arguments(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg,
                         tau_sg, dedtau_sg):

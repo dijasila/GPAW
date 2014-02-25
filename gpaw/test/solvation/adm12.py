@@ -41,8 +41,7 @@ if not SKIP_VAC_CALC:
     Evac = atoms.get_potential_energy()
     print Evac
 else:
-    #Evac = -14.6154407425  # h = 0.2, vac = 4.0
-    Evac = -14.862428  # h = 0.24, vac = 4.0
+    Evac = -14.8628983897  # h = 0.24, vac = 4.0
 
 atoms.calc = SolvationGPAW(
     xc='PBE', h=h, poissonsolver=ADM12PoissonSolver(),
