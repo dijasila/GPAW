@@ -34,7 +34,7 @@ The renormalization factor is given by:
 
 :math:`\left| n \mathbf{k} \right>` denotes the Kohn-Sham wavefunction which is taken from the groundstate calculation.
 
-The self energy is expandend in plane waves, denoted by :math:`\mathbf{G}` and :math:`\mathbf{G}'`:
+The self energy is expanded in plane waves, denoted by :math:`\mathbf{G}` and :math:`\mathbf{G}'`:
 
 .. math:: \Sigma_{n \mathbf{k}} =& \left<n \mathbf{k} \middle| \Sigma(\omega) \middle|n \mathbf{k} \right>\\
  =& \frac{1}{\Omega} \sum\limits_{\mathbf{G} \mathbf{G}'} \sum\limits_{\vphantom{\mathbf{G}}\mathbf{q}}^{1. \text{BZ}} \sum\limits_{\vphantom{\mathbf{G}}m}^{\text{all}} \frac{i}{2 \pi} \int\limits_{-\infty}^\infty\!d\omega'\, W_{\mathbf{G} \mathbf{G}'}(\mathbf{q}, \omega') \, \cdot \\
@@ -202,7 +202,7 @@ keyword            type               default value        description
 ``nbands``         ``int``            equal to number of   Number of bands
                                       plane waves
 ``bands``          ``numpy.ndarray``  equal to nbands      Band indices for QP spectrum
-``kpoints``        ``numpy.ndarray``  all irreducible	   K-point indices for QP spectrum
+``kpoints``        ``numpy.ndarray``  all irreducible      K-point indices for QP spectrum
                                       k-points
 ``e_skn``          ``numpy.ndarray``  None                 User-defined starting point eigenvalues
 ``eshift``         ``float``          None                 Manual shift of unoccupied bands (in eV)
