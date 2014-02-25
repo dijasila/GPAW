@@ -1,9 +1,7 @@
-"""Module defining  ``Eigensolver`` classes."""
-
 import numpy as np
 
-from gpaw.utilities.blas import axpy, rk, r2k, gemm
-from gpaw.utilities.lapack import diagonalize, general_diagonalize
+from gpaw.utilities.blas import gemm
+from gpaw.utilities.lapack import general_diagonalize
 from gpaw.utilities import unpack
 from gpaw.hs_operators import reshape
 from gpaw.eigensolvers.eigensolver import Eigensolver
@@ -23,11 +21,17 @@ class Davidson(Eigensolver):
     * Add preconditioned residuals to the subspace and diagonalize
     """
 
-    def __init__(self, niter=2):
+    def __init__(self, niter=2, smin=None, normalize=False):
         Eigensolver.__init__(self)
         self.niter = niter
+        self.smin = smin
+        self.normalize = normalize
         self.orthonormalization_required = False
 
+    def __repr__(self):
+        return 'Davidson(niter=%d, smin=%r, normalize=%r)' % (
+            self.niter, self.smin, self.normalize)
+        
     def initialize(self, wfs):
         if wfs.bd.comm.size > 1:
             raise ValueError('CG eigensolver does not support band '
@@ -44,7 +48,6 @@ class Davidson(Eigensolver):
 
     def estimate_memory(self, mem, wfs):
         Eigensolver.estimate_memory(self, mem, wfs)
-        itemsize = mem.itemsize[wfs.dtype]
         nbands = wfs.bd.nbands
         mem.subnode('H_nn', nbands * nbands * mem.itemsize[wfs.dtype])
         mem.subnode('S_nn', nbands * nbands * mem.itemsize[wfs.dtype])
@@ -80,6 +83,7 @@ class Davidson(Eigensolver):
             H_2n2n[:] = 0.0
             S_2n2n[:] = 0.0
 
+            norm_n = np.zeros(nbands)
             error = 0.0
             for n in range(nbands):
                 if kpt.f_n is None:
@@ -93,12 +97,21 @@ class Davidson(Eigensolver):
                         weight = 0.0
                 error += weight * integrate(R_nG[n], R_nG[n])
 
-                ekin = self.preconditioner.calculate_kinetic_energy(R_nG[n:n+1], kpt)
-                psit2_nG[n] = self.preconditioner(R_nG[n:n+1], kpt, ekin)
+                ekin = self.preconditioner.calculate_kinetic_energy(
+                    psit_nG[n:n + 1], kpt)
+                psit2_nG[n] = self.preconditioner(R_nG[n:n + 1], kpt, ekin)
+
+                if self.normalize:
+                    norm_n[n] = integrate(psit2_nG[n], psit2_nG[n])
 
                 H_2n2n[n, n] = kpt.eps_n[n]
                 S_2n2n[n, n] = 1.0
 
+            if self.normalize:
+                gd.comm.sum(norm_n)
+                for norm, psit2_G in zip(norm_n, psit2_nG):
+                    psit2_G *= norm**-0.5
+        
             # Calculate projections
             P2_ani = wfs.pt.dict(nbands)
             wfs.pt.integrate(psit2_nG, P2_ani, kpt.q)
@@ -155,7 +168,20 @@ class Davidson(Eigensolver):
             S_2n2n[nbands:, nbands:] = self.S_nn
 
             if gd.comm.rank == 0:
-                general_diagonalize(H_2n2n, eps_2n, S_2n2n)
+                m = 0
+                if self.smin:
+                    s_N, U_NN = np.linalg.eigh(S_2n2n)
+                    m = int((s_N < self.smin).sum())
+
+                if m == 0:
+                    general_diagonalize(H_2n2n, eps_2n, S_2n2n)
+                else:
+                    T_Nn = np.dot(U_NN[:, m:], np.diag(s_N[m:]**-0.5))
+                    H_2n2n[:nbands, nbands:] = \
+                        H_2n2n[nbands:, :nbands].conj().T
+                    eps_2n[:-m], P_nn = np.linalg.eigh(
+                        np.dot(np.dot(T_Nn.T.conj(), H_2n2n), T_Nn))
+                    H_2n2n[:-m] = np.dot(T_Nn, P_nn).T
 
             gd.comm.broadcast(H_2n2n, 0)
             gd.comm.broadcast(eps_2n, 0)
@@ -172,12 +198,13 @@ class Davidson(Eigensolver):
             # Rotate P_uni:
             for a, P_ni in kpt.P_ani.items():
                 P2_ni = P2_ani[a]
-                gemm(1.0, P_ni.copy(), H_2n2n[:nbands, :nbands], 
+                gemm(1.0, P_ni.copy(), H_2n2n[:nbands, :nbands],
                      0.0, P_ni)
                 gemm(1.0, P2_ni, H_2n2n[:nbands, nbands:], 1.0, P_ni)
 
             if nit < niter - 1:
-                wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_nG, Htpsit_nG)
+                wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_nG,
+                                             Htpsit_nG)
                 R_nG = Htpsit_nG
                 self.calculate_residuals(kpt, wfs, hamiltonian, psit_nG,
                                          kpt.P_ani, kpt.eps_n, R_nG)
