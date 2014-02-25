@@ -96,7 +96,8 @@ class DielectricFunction:
         return chi0_wGG, np.array(chi_wGG)
 
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
-                              direction='x', wigner_seitz_truncation=False):
+                              direction='x', wigner_seitz_truncation=False, 
+                              symmetric=True):
         
         """ Returns the symmetrized dielectric matrix:
         \tilde\epsilon_GG' = v^{-1/2}_G \epsilon_GG' v^{-1/2}_G' where
@@ -152,9 +153,13 @@ class DielectricFunction:
                 P_GG = np.dot(np.linalg.inv(np.eye(nG) - 
                                             np.dot(chi0_GG, Kxc_sGG[0])),
                               chi0_GG)
-            e_GG = np.eye(nG) - P_GG * K_G * K_G[:, np.newaxis]
+            if symmetric:
+                e_GG = np.eye(nG) - P_GG * K_G * K_G[:, np.newaxis]
+            else:
+                K_GG = ((4 * pi)/ G_G**2* np.ones([nG, nG])).T
+                e_GG = np.eye(nG) - P_GG * K_GG
             chi0_GG[:] = e_GG
-        
+              
         # chi0_wGG is now the dielectric matrix
         return chi0_wGG
 
