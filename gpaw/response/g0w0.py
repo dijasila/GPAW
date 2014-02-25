@@ -47,7 +47,8 @@ class G0W0(PairDensity):
         self.kpts = kpts
         self.bands = bands
 
-        shape = (self.calc.wfs.nspins, len(kpts), bands[1] - bands[0])
+        b1, b2 = bands
+        shape = (self.calc.wfs.nspins, len(kpts), b2 - b1)
         self.sigma_sin = np.zeros(shape)   # self-energies
         self.dsigma_sin = np.zeros(shape)  # derivatives of self-energies
         self.Z_sin = np.empty(shape)       # renormalization factors
@@ -181,6 +182,29 @@ class G0W0(PairDensity):
         sigma = 0.0
         dsigma = 0.0
         
+        x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
+        domegap = self.domega0
+        assert self.alpha == 0
+        for deps, n_G, f in zip(deps_m, n_mG, f_m):
+            C_w = np.dot(np.dot(np.array(W_wGG).conj(), n_G), n_G.conj()) * 1j * x
+            #C_w = np.dot(np.dot(W_wGG, n_G), n_G.conj()) * 1j * x
+            sign = 2 * int(f < 0.5) - 1
+            x_w = (1 / (deps - self.omega_w + 1j * self.eta * sign) +
+                   1 / (deps + self.omega_w + 1j * self.eta * sign))
+            sigma += domegap * np.dot(C_w, x_w).real
+            x_w = (1 / (deps - self.omega_w + 1j * self.eta * sign)**2 +
+                   1 / (deps + self.omega_w + 1j * self.eta * sign)**2)
+            dsigma -= domegap * np.dot(C_w, x_w).real
+            #print(C_w[:4])
+            #print(deps, n_G[:3], f)
+            #print(sigma,dsigma,self.eta,sign,domegap)
+
+        return sigma, dsigma
+
+    def calculate_sigma0(self, fd, n_mG, deps_m, f_m, W_wGG):
+        sigma = 0.0
+        dsigma = 0.0
+        
         domegap = self.domega0
         assert self.alpha == 0
         for W_GG, omegap in zip(W_wGG, self.omega_w):
@@ -212,6 +236,7 @@ class G0W0(PairDensity):
                             eta=self.eta * Hartree,
                             timeordered=True,
                             hilbert=False,
+                            nbands=self.nbands,
                             real_space_derivatives=False)
                 #wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
                 #                                   self.calc.wfs.kd.N_c,
@@ -251,4 +276,5 @@ class G0W0(PairDensity):
                     W_GG[0, 1:] *= G0inv
                     
                 np.save(fd, W_GG)
+
             fd.close()

@@ -23,7 +23,7 @@ def frequency_grid(domega0, omegamax, alpha):
 class Chi0(PairDensity):
     def __init__(self, calc,
                  frequencies=None, domega0=0.1, omegamax=None, alpha=3.0,
-                 ecut=50, hilbert=False,
+                 ecut=50, hilbert=False, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6,
                  real_space_derivatives=False,
                  world=mpi.world, txt=sys.stdout):
@@ -60,6 +60,8 @@ class Chi0(PairDensity):
         self.mykpts = [self.get_k_point(s, K, n1, n2)
                        for s, K, n1, n2 in self.mysKn1n2]
 
+        self.nbands = nbands or self.calc.wfs.bd.nbands
+
         wfs = self.calc.wfs
         self.prefactor = 2 / self.vol / wfs.kd.nbzkpts / wfs.nspins
         
@@ -91,7 +93,7 @@ class Chi0(PairDensity):
 
         # Do all empty bands:
         m1 = self.nocc1
-        m2 = wfs.bd.nbands
+        m2 = self.nbands
         return self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
                                m1, m2, spins)
 
