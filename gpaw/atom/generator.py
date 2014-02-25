@@ -295,6 +295,8 @@ class Generator(AllElectron):
                     u *= 1.0 / u[gcut_l[l]]
 
         charge = Z - self.Nv - self.Nc
+        if self.tf_mode:
+            charge = 0
         t('Charge: %.1f' % charge)
         t('Core electrons: %.1f' % self.Nc)
         t('Valence electrons: %.1f' % self.Nv)
