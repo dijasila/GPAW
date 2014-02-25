@@ -86,7 +86,8 @@ class PAW(PAWTextOutput):
         self.density = None
         self.hamiltonian = None
         self.atoms = None
-
+        self.iter = 0
+        
         self.initialized = False
         self.nbands_parallelization_adjustment = None # Somehow avoid this?
 
@@ -272,9 +273,9 @@ class PAW(PAWTextOutput):
         self.timer.start('SCF-cycle')
         for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
                                  self.occupations):
+            self.iter = iter
             self.call_observers(iter)
             self.print_iteration(iter)
-            self.iter = iter
         self.timer.stop('SCF-cycle')
 
         if self.scf.converged:
@@ -609,7 +610,6 @@ class PAW(PAWTextOutput):
                 # but so will ScaLAPACK in any case
                 blocksize = min(-(-nbands // 4), 64)
                 sl_default = (nprow, npcol, blocksize)
-                par.parallel['sl_default'] = sl_default
             else:
                 sl_default = par.parallel['sl_default']
 
