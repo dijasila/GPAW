@@ -182,34 +182,11 @@ class G0W0(PairDensity):
         sigma = 0.0
         dsigma = 0.0
         
-        x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
-        domegap = self.domega0
-        assert self.alpha == 0
-        for deps, n_G, f in zip(deps_m, n_mG, f_m):
-            C_w = np.dot(np.dot(np.array(W_wGG).conj(), n_G), n_G.conj()) * 1j * x
-            #C_w = np.dot(np.dot(W_wGG, n_G), n_G.conj()) * 1j * x
-            sign = 2 * int(f < 0.5) - 1
-            x_w = (1 / (deps - self.omega_w + 1j * self.eta * sign) +
-                   1 / (deps + self.omega_w + 1j * self.eta * sign))
-            sigma += domegap * np.dot(C_w, x_w).real
-            x_w = (1 / (deps - self.omega_w + 1j * self.eta * sign)**2 +
-                   1 / (deps + self.omega_w + 1j * self.eta * sign)**2)
-            dsigma -= domegap * np.dot(C_w, x_w).real
-            #print(C_w[:4])
-            #print(deps, n_G[:3], f)
-            #print(sigma,dsigma,self.eta,sign,domegap)
-
-        return sigma, dsigma
-
-    def calculate_sigma0(self, fd, n_mG, deps_m, f_m, W_wGG):
-        sigma = 0.0
-        dsigma = 0.0
-        
         domegap = self.domega0
         assert self.alpha == 0
         for W_GG, omegap in zip(W_wGG, self.omega_w):
-            x1_m = 1 / (deps_m + omegap + 2j * self.eta * (f_m - 0.5))
-            x2_m = 1 / (deps_m - omegap + 2j * self.eta * (f_m - 0.5))
+            x1_m = 1 / (deps_m + omegap - 2j * self.eta * (f_m - 0.5))
+            x2_m = 1 / (deps_m - omegap - 2j * self.eta * (f_m - 0.5))
             x_m = x1_m + x2_m
             dx_m = x1_m**2 + x2_m**2
             nW_mG = np.dot(n_mG, W_GG)
