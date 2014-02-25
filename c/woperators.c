@@ -366,8 +366,8 @@ static PyObject * WOperator_apply(WOperatorObject *self,
     return NULL;
 
   int nin = 1;
-  if (input->nd == 4)
-    nin = input->dimensions[0];
+  if (PyArray_NDIM(input) == 4)
+    nin = PyArray_DIMS(input)[0];
 
   boundary_conditions* bc = self->bc;
   const int* size1 = bc->size1;
@@ -379,7 +379,7 @@ static PyObject * WOperator_apply(WOperatorObject *self,
   double* out = DOUBLEP(output);
   const double_complex* ph;
 
-  bool real = (input->descr->type_num == PyArray_DOUBLE);
+  bool real = (PyArray_DESCR(input)->type_num == NPY_DOUBLE);
 
   if (real)
     ph = 0;
@@ -518,8 +518,8 @@ static PyObject* WOperator_getattr(PyObject *obj, char *name)
     return Py_FindMethod(WOperator_Methods, obj, name);
 }
 
-static PyTypeObject WOperatorType = {
-  PyObject_HEAD_INIT(&PyType_Type)
+PyTypeObject WOperatorType = {
+  PyObject_HEAD_INIT(NULL)
   0,
   "WOperator",
   sizeof(WOperatorObject),
@@ -568,7 +568,7 @@ PyObject* NewWOperatorObject(PyObject *obj, PyObject *args)
       coefs = (PyArrayObject*) PyList_GetItem(coefs_list, iw);
       offsets = (PyArrayObject*) PyList_GetItem(offsets_list, iw);
       weights = (PyArrayObject*) PyList_GetItem(weights_list, iw);
-      self->stencils[iw] = bmgs_stencil(coefs->dimensions[0], DOUBLEP(coefs),
+      self->stencils[iw] = bmgs_stencil(PyArray_DIMS(coefs)[0], DOUBLEP(coefs),
                                         LONGP(offsets), range, LONGP(size));
       self->weights[iw] = DOUBLEP(weights);
     }
