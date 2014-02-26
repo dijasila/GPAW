@@ -212,7 +212,7 @@ class G0W0(PairDensity):
                             ecut=self.ecut * Hartree,
                             eta=self.eta * Hartree,
                             timeordered=True,
-                            hilbert=False,
+                            hilbert=not False,
                             nbands=self.nbands,
                             real_space_derivatives=False)
                 #wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,

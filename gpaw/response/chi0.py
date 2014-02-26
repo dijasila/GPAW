@@ -155,17 +155,21 @@ class Chi0(PairDensity):
             self.world.sum(chi0_wxvG)
             self.world.sum(chi0_wvv)
 
-        if self.eta == 0.0:
-            # Fill in upper triangle also:
+        if self.eta == 0.0 or self.hilbert:
+            # Fill in upper/lower triangle also:
             nG = pd.ngmax
             il = np.tril_indices(nG, -1)
             iu = il[::-1]
-            for chi0_GG in chi0_wGG:
-                chi0_GG[iu] = chi0_GG[il].conj()
+            if self.hilbert:
+                for chi0_GG in chi0_wGG:
+                    chi0_GG[il] = chi0_GG[iu].conj()
+            else:
+                for chi0_GG in chi0_wGG:
+                    chi0_GG[iu] = chi0_GG[il].conj()
 
-        elif self.hilbert:
-            ht = HilbertTransform(self.omega_w)
-            ht(chi0_wGG)
+        if self.hilbert:
+            ht = HilbertTransform(self.omega_w, self.eta, self.timeordered)
+            ht(chi0_wGG, chi0_wGG)
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
@@ -197,8 +201,8 @@ class Chi0(PairDensity):
                 break
             o1, o2 = self.omega_w[w:w + 2]
             assert o1 < o < o2, (o1,o,o2)
-            p = self.prefactor * abs(df) / (o2 - o1)**2
-            czher(p * (o2 - o), n_G, chi0_wGG[w])
+            p = self.prefactor * abs(df) / (o2 - o1)**2  # XXX abs()?
+            czher(p * (o2 - o), n_G, chi0_wGG[w])  # XXX ng.conj()?
             czher(p * (o - o1), n_G, chi0_wGG[w + 1])
 
     def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG,
@@ -257,63 +261,71 @@ class Chi0(PairDensity):
                 
                 for w, omega in enumerate(self.omega_w):
                     chi0_wvv[w, :, :] += x_vv / omega**2.0
+                 
                     
 class HilbertTransform:
-    def __init__(self, omega_w, blocksize=500):
+    def __init__(self, omega_w, eta, timeordered=False, blocksize=500):
         """Analytic Hilbert transformation using linear interpolation."""
-        self.omega_w = omega_w
         self.blocksize = blocksize
 
-        nw = len(omega_w)
-        self.H_ww = np.zeros((nw, nw))
-        o_w = omega_w
+        if timeordered:
+            self.H_ww = self.H(omega_w, -eta) + self.H(omega_w, -eta, -1)
+        else:
+            self.H_ww = self.H(omega_w, eta) + self.H(omega_w, -eta, -1)
+
+    def H(self, o_w, eta, sign=1):
+        nw = len(o_w)
+        H_ww = np.zeros((nw, nw), complex)
         do_w = o_w[1:] - o_w[:-1]
         for w, o in enumerate(o_w):
-            d_w = o_w - o
-            x1_w = d_w[1:] / do_w
-            x2_w = d_w[:-1] / do_w
-            d_w[w] = 1.0
-            y_w = np.log(abs(d_w[1:] / d_w[:-1]))
-            self.H_ww[w, :-1] = x1_w * y_w
-            self.H_ww[w, 1:] -= x2_w * y_w
-            d_w = o_w + o
-            x1_w = d_w[1:] / do_w
-            x2_w = d_w[:-1] / do_w
-            d_w[0] = 1.0
-            y_w = np.log(abs(d_w[1:] / d_w[:-1]))
-            self.H_ww[w, :-1] += x1_w * y_w
-            self.H_ww[w, 1:] -= x2_w * y_w
+            d_w = o_w - o * sign
+            y_w = 1j * np.arctan(d_w / eta) + 0.5 * np.log(d_w**2 + eta**2)
+            y_w = (y_w[1:] - y_w[:-1]) / do_w
+            H_ww[w, :-1] = 1 - (d_w[1:] - 1j * eta) * y_w
+            H_ww[w, 1:] -= 1 - (d_w[:-1] - 1j * eta) * y_w
+        return H_ww
     
-    def __call__(self, A_wx):
+    def __call__(self, A_wx, out=None):
+        if out is None:
+            C_wx = np.empty_like(A_wx)
+        else:
+            C_wx = out
+            
         B_wx = A_wx.reshape((len(A_wx), -1))
+        D_wx = C_wx.reshape((len(A_wx), -1))
+        
         nx = B_wx.shape[1]
         for x in range(0, nx, self.blocksize):
-            C_wx = B_wx[:, x:x + self.blocksize]
-            C_wx[:] = pi * 1j * C_wx + np.dot(self.H_ww, C_wx)
+            b_wx = B_wx[:, x:x + self.blocksize]
+            d_wx = D_wx[:, x:x + self.blocksize]
+            d_wx[:] = np.dot(self.H_ww, b_wx)
+        
+        return C_wx
         
 
 if __name__ == '__main__':
-    do = 0.05
+    do = 0.025
     eta = 0.1
-    omega_w = frequency_grid(do, 100.0, 3)
-    ht = HilbertTransform(omega_w)
+    omega_w = frequency_grid(do, 10.0, 3)
     print(len(omega_w))
     X_w = omega_w * 0j
     Xt_w = omega_w * 0j
     Xh_w = omega_w * 0j
-    for o in np.linspace(2.5, 25.0, 1000):
-        X_w -= (1 / (omega_w - o + 1j * eta) -
-                1 / (omega_w + o + 1j * eta)) / o**2
-        Xt_w -= (1 / (omega_w - o + 1j * eta) -
-                 1 / (omega_w + o - 1j * eta)) / o**2
-        w = int(o / do / (1 + 3 * o / 100))
+    for o in -np.linspace(2.5, 2.9, 10):
+        X_w += (1 / (omega_w + o + 1j * eta) -
+                1 / (omega_w - o + 1j * eta)) / o**2
+        Xt_w += (1 / (omega_w + o - 1j * eta) -
+                 1 / (omega_w - o + 1j * eta)) / o**2
+        w = int(-o / do / (1 + 3 * -o / 10))
         o1, o2 = omega_w[w:w + 2]
-        assert o1 - 1e-12 <= o <= o2 + 1e-12, (o1,o,o2)
+        assert o1 - 1e-12 <= -o <= o2 + 1e-12, (o1,-o,o2)
         p = 1 / (o2 - o1)**2 / o**2
-        Xh_w[w] += p * (o2 - o)
-        Xh_w[w + 1] += p * (o - o1)
+        Xh_w[w] += p * (o2 - -o)
+        Xh_w[w + 1] += p * (-o - o1)
         
-    ht(Xh_w)
+    ht = HilbertTransform(omega_w, eta, 1)
+    ht(Xh_w, Xh_w)
+    
     import matplotlib.pyplot as plt
     plt.plot(omega_w, X_w.imag, label='ImX')
     plt.plot(omega_w, X_w.real, label='ReX')
