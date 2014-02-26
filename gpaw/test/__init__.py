@@ -210,6 +210,10 @@ tests = [
     'diamond_eps.py',
     'gemm.py',
     'excited_state.py',
+    'solvation/pbc_pos_repeat.py',
+    'solvation/vacuum.py',
+    'solvation/pbc.py',
+    'solvation/spinpol.py',
     # > 20 sec tests start here
     'rpa_energy_Ni.py',
     'si.py',
@@ -276,6 +280,12 @@ tests = [
     'gw_ppa.py',
     'nscfsic.py',
     'gw_static.py',
+    'solvation/sss09.py',
+    'solvation/water_water.py',
+    'solvation/adm12.py',
+    'solvation/forces_symmetry.py',
+    'solvation/sfgcm06.py',
+    'solvation/swap_atoms.py',
     # > 100 sec tests start here
     'exx.py',
     'pygga.py',
@@ -330,17 +340,7 @@ tests = [
     'cmrtest/cmr_test4.py',
     'cmrtest/cmr_append.py',
     'cmrtest/Li2_atomize.py',
-    'solvation/pbc_pos_repeat.py',
-    'solvation/pbc.py',
-    'solvation/spinpol.py',
-    'solvation/vacuum.py',
-    'solvation/water_water.py',
-    'solvation/forces_symmetry.py',
     'solvation/forces.py',
-    'solvation/swap_atoms.py',
-    'solvation/adm12.py',
-    'solvation/sfgcm06.py',
-    'solvation/sss09.py',
     ]
 
 exclude = []
