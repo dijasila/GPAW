@@ -156,7 +156,7 @@ class DielectricFunction:
             if symmetric:
                 e_GG = np.eye(nG) - P_GG * K_G * K_G[:, np.newaxis]
             else:
-                K_GG = ((4 * pi)/ G_G**2* np.ones([nG, nG])).T
+                K_GG = (K_G**2* np.ones([nG, nG])).T
                 e_GG = np.eye(nG) - P_GG * K_GG
             chi0_GG[:] = e_GG
               
@@ -336,4 +336,3 @@ class DielectricFunction:
         prnt('Sum rule:', file=fd)
         nv = self.chi0.calc.wfs.nvalence
         prnt('N1 = %f, %f  %% error' %(N1, (N1 - nv) / nv * 100), file=fd)
-
