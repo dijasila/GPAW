@@ -336,3 +336,88 @@ class DielectricFunction:
         prnt('Sum rule:', file=fd)
         nv = self.chi0.calc.wfs.nvalence
         prnt('N1 = %f, %f  %% error' %(N1, (N1 - nv) / nv * 100), file=fd)
+
+    def get_eigenmodes(self, q_c = None, name = None):
+        
+        """
+        Plasmonic eigenmodes as eigenvectors of the dielectric matrix.  
+        
+        """ 
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        e_wGG = self.get_dielectric_matrix(xc = 'RPA', q_c = q_c,
+                                           wigner_seitz_truncation=True,
+                                           symmetric=False)
+
+        """ get real space grid for plasmon modes"""
+        from gpaw.utilities.gpts import get_number_of_grid_points
+        from gpaw.grid_descriptor import GridDescriptor
+        cell_cv = pd.gd.cell_cv
+        h = 0.2/Bohr
+        pbc = self.chi0.calc.atoms.pbc
+        N_c = get_number_of_grid_points(cell_cv, h = h, mode = 'fd', 
+                                        realspace = True)
+        gd = GridDescriptor(N_c, cell_cv, pbc) 
+        r = gd.get_grid_point_coordinates()
+                
+        Nw = e_wGG.shape[0]
+        nG =  e_wGG.shape[1]
+        w_w = self.chi0.omega_w * Hartree
+        dw = (self.chi0.omega_w[1]-self.chi0.omega_w[0]) * Hartree
+        eig = np.zeros([Nw, nG], dtype = complex)
+        vec = np.zeros([Nw, nG, nG], dtype = complex)
+        vec_dual = np.zeros([Nw, nG, nG], dtype = complex)
+       
+        """find eigenvalues and eigenvectors"""
+        e_GG = e_wGG[0]  
+        eig[0], vec[0] = np.linalg.eig(e_GG)
+        vec_dual[0] = np.linalg.inv(vec[0])
+        omega0 = np.array([])
+        eigen0 = np.array([], dtype = complex)
+        v_ind = np.zeros([0, r.shape[1], r.shape[2], r.shape[3]], dtype = complex)
+        n_ind = np.zeros([0, r.shape[1], r.shape[2], r.shape[3]], dtype = complex)
+        """ 
+        loop to find the eigenvalues that crosses zero 
+        from negative to positive values: """
+        for i in np.array(range(1,Nw)): 
+            e_GG = e_wGG[i]  # epsilon_GG'(omega + d-omega)
+            eig[i], vec[i] = np.linalg.eig(e_GG)       
+            vec_dual[i] = np.linalg.inv(vec[i])
+            for k in range(nG):
+                for m in range(nG):                   
+                    if eig[i-1,k] < 0 and 0 < eig[i,m]:
+                        """ check it's the same mode - 
+                        Overlap between eigenvectors should be large:""" 
+                        if abs(np.inner(vec[i-1,:,k], vec_dual[i,m,:])) > 0.95:
+                            a = np.real((eig[i,m]-eig[i-1,k]) / (w_w[i]-w_w[i-1]))
+                            w0 = np.real(-eig[i-1,k]) / a + w_w[i-1]
+                            eig0 = a*(w0-w_w[i-1])+eig[i-1,k]
+                            print('crossing found at w = %1.1f eV'%w0)
+                            omega0 = np.append(omega0, w0)
+                            eigen0 = np.append(eigen0, eig0)
+                            n_dummy = np.zeros([1, r.shape[1], r.shape[2],
+                                                r.shape[3]], dtype = complex)
+                            v_dummy = np.zeros([1, r.shape[1], r.shape[2],
+                                                r.shape[3]], dtype = complex)   
+                            
+                            for iG in range(nG):  # Fourier transform
+                                qG = np.ravel(pd.G_Qv[pd.Q_qG[0]][iG] + pd.K_qv) ### is this iG+q???
+                                coef_G = np.dot(qG, qG) / (4 * pi)
+                                qGr_R = np.inner(qG, r.T).T
+                                v_dummy += vec[i-1, iG, k] * np.exp(1j * qGr_R) 
+                                n_dummy += vec[i-1, iG, k] * np.exp(1j * qGr_R) * coef_G
+                            v_ind = np.append(v_ind, v_dummy, axis=0)
+                            n_ind = np.append(n_ind, n_dummy, axis=0)   
+                        
+                                          
+        if name is None and self.name:          
+            name = self.name + '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * pd.kd.N_c).round())          
+        elif name:
+            name = name + '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * pd.kd.N_c).round())
+        else:
+            return r*Bohr, w_w, eig, w0, eigen0, v_ind, n_ind
+
+        pickle.dump((r*Bohr, w_w, eig, w0, eigen0, v_ind, n_ind), open(name, 'wb'), 
+                        pickle.HIGHEST_PROTOCOL)
+        """Returns: real space grid, frequency grid, all eigenvalues, zero-crossing 
+        frequencies + eigenvalues, induced potential + density in real space"""
+        return r*Bohr, w_w, eig, w0, eigen0, v_ind, n_ind    
