@@ -194,9 +194,6 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
         self.rho = rho
         return SolvationPoissonSolver.solve_neutral(self, phi, rho, eps)
 
-    def load_gauss(self):
-        return PoissonSolver.load_gauss(self)
-
     def iterate2(self, step, level=0):
         if level == 0:
             epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
