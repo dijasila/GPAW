@@ -9,15 +9,15 @@ Compare results to::
 
 """
 
-from ase.data.g2_1_ref import diatomic, ex_atomization
-from ase.tasks.molecule import MoleculeTask
+import ase.db
 from ase import Atoms
+from ase.data.g2_1_ref import diatomic, ex_atomization
 
-from gpaw import PW
-from gpaw.factory import GPAWFactory
-from gpaw.xc.hybridg import HybridXC
+from gpaw import GPAW, PW
+from gpaw.xc.exx import EXX
 
 
+# Experimental bondlengths:
 bondlengths = {'H2': 0.741,
                'OH': 0.970,
                'HF': 0.9168,
@@ -54,35 +54,23 @@ extra = {
                    (0.0000, 0.0000, -1.1560)])}
 
 
-class KurthPerdewBlahaMolecules(MoleculeTask):
-    def run(self):
-        return MoleculeTask.run(self, ex_atomization.keys())
+c = ase.db.connect('results.db')
 
-    def build_system(self, name):
-        if name in extra:
-            mol = Atoms(*extra[name])
-            mol.cell = self.unit_cell
-            mol.center()
-        else:
-            self.bond_length = bondlengths.get(name, None)
-            mol = MoleculeTask.build_system(self, name)
-        return mol
+for name in ex_atomization.keys() + 'H Li B C N O F Cl P'.split():
+    if name in extra:
+        a = Atoms(*extra[name])
+    else:
+        a = molecule(name)
+        if name in bondlengths:
+            a.set_distance(0, 1, bondlengths[name])
+    a.cell = [11, 12, 13]
+    a.center()
    
-    def calculate(self, name, atoms):
-        data = MoleculeTask.calculate(self, name, atoms)
-        exx = HybridXC('EXX', alpha=5.0)
-        dexx = atoms.calc.get_xc_difference(exx)
-        data['EXX'] = dexx
-        data['EXXvc'] = exx.evc
-        return data
+    a.calc = GPAW(xc='PBE', mode=PW(500), txt=name + '.txt')
+    a.get_potential_energy()
     
+    exx = EXX(a.calc)
+    exx.calculate()
+    eexx = exx.get_total_energy()
 
-task = KurthPerdewBlahaMolecules(
-    calcfactory=GPAWFactory(xc='PBE', 
-                            mode=PW(500)),
-    tag='pw',
-    cell=(11, 12, 13),
-    atomize=True,
-    use_lock_files=True)
-
-task.run()
+    c.write(a, name=name, exx=eexx)
