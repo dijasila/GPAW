@@ -42,6 +42,12 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
     def solve(self, phi, rho, charge=None, eps=None,
               maxcharge=1e-6,
               zero_initial_phi=False):
+        if self.gd.pbc_c.all():
+            actual_charge = self.gd.integrate(rho)
+            if abs(actual_charge) > maxcharge:
+                raise NotImplementedError(
+                    'charged periodic systems are not implemented'
+                    )
         self.restrict_op_weights()
         ret = PoissonSolver.solve(self, phi, rho, charge, eps, maxcharge,
                                   zero_initial_phi)
@@ -189,6 +195,19 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
         self.rho_iter = self.gd.zeros()
         self.d_phi = self.gd.empty()
         return SolvationPoissonSolver.initialize(self, load_gauss)
+
+    def solve(self, phi, rho, charge=None, eps=None,
+              maxcharge=1e-6,
+              zero_initial_phi=False):
+        if self.gd.pbc_c.all():
+            actual_charge = self.gd.integrate(rho)
+            if abs(actual_charge) > maxcharge:
+                raise NotImplementedError(
+                    'charged periodic systems are not implemented'
+                    )
+        return PoissonSolver.solve(
+            self, phi, rho, charge, eps, maxcharge, zero_initial_phi
+            )
 
     def solve_neutral(self, phi, rho, eps=2e-10):
         self.rho = rho
