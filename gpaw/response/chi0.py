@@ -202,8 +202,8 @@ class Chi0(PairDensity):
             o1, o2 = self.omega_w[w:w + 2]
             assert o1 < o < o2, (o1,o,o2)
             p = self.prefactor * abs(df) / (o2 - o1)**2  # XXX abs()?
-            czher(p * (o2 - o), n_G, chi0_wGG[w])  # XXX ng.conj()?
-            czher(p * (o - o1), n_G, chi0_wGG[w + 1])
+            czher(p * (o2 - o), n_G.conj(), chi0_wGG[w])
+            czher(p * (o - o1), n_G.conj(), chi0_wGG[w + 1])
 
     def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG,
                              chi0_wxvG, chi0_wvv):
