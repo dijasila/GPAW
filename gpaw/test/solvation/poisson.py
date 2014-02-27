@@ -4,9 +4,22 @@ from gpaw.solvation.poisson import (
 from gpaw.solvation.dielectric import FDGradientDielectric
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.gauss import Gaussian
+from gpaw.fd_operators import Gradient
 from ase.units import Bohr
 from gpaw.test import equal
+from gpaw.utilities import erf
+from ase.parallel import parprint
 import numpy as np
+
+nn = 3
+accuracy = 2e-10
+
+
+def gradient(gd, x, nn):
+    out = gd.empty(3)
+    for i in (0, 1, 2):
+        Gradient(gd, i, 1.0, nn).apply(x, out[i])
+    return out
 
 
 def make_gd(h, box, pbc):
@@ -26,12 +39,12 @@ gd = make_gd(h=.4, box=box, pbc=False)
 
 def solve(ps, eps, rho):
     phi = gd.zeros()
-    dielectric = MockDielectric(epsinf=eps.max(), nn=3)
+    dielectric = MockDielectric(epsinf=eps.max(), nn=nn)
     dielectric.set_grid_descriptor(gd)
     dielectric.allocate()
     dielectric.eps_gradeps[0][...] = eps
     dielectric.update(None)
-    solver = ps(nn=3, relax='J', eps=2e-10)
+    solver = ps(nn=nn, relax='J', eps=accuracy)
     solver.set_dielectric(dielectric)
     solver.set_grid_descriptor(gd)
     solver.initialize()
@@ -47,6 +60,7 @@ psolvers = (
 
 
 # test neutral system with constant permittivity
+parprint('neutral, constant permittivity')
 epsinf = 80.
 eps = gd.zeros()
 eps.fill(epsinf)
@@ -62,11 +76,12 @@ for q, shift in zip(qs, shifts):
 
 for ps in psolvers:
     phi = solve(ps, eps, rho)
-    print ps, np.abs(phi - phi_expected).max()
+    parprint(ps, np.abs(phi - phi_expected).max())
     equal(phi, phi_expected, 1e-3)
 
 
 # test charged system with constant permittivity
+parprint('charged, constant permittivity')
 epsinf = 80.
 eps = gd.zeros()
 eps.fill(epsinf)
@@ -79,5 +94,51 @@ phi_expected = phi_gauss / epsinf
 
 for ps in psolvers:
     phi = solve(ps, eps, rho_gauss)
-    print ps, np.abs(phi - phi_expected).max()
+    parprint(ps, np.abs(phi - phi_expected).max())
     equal(phi, phi_expected, 1e-3)
+
+
+# test non-constant permittivity
+msgs = (
+    'neutral, non-constant permittivity',
+    'charged, non-constant permittivity'
+    )
+qss = ((-1., 1.), (2., ))
+shiftss = ((-.4, .4), (-1., ))
+epsshifts = (.0, -1.)
+
+for msg, qs, shifts, epsshift in zip(msgs, qss, shiftss, epsshifts):
+    parprint(msg)
+    epsinf = 80.
+    gauss = Gaussian(gd, center=(box / 2. + epsshift) * np.ones(3.) / Bohr)
+    eps = gauss.get_gauss(0)
+    eps = epsinf - eps / eps.max() * (epsinf - 1.)
+
+    rho = gd.zeros()
+    phi_expected = gd.zeros()
+    grad_eps = gradient(gd, eps - epsinf, nn)
+
+    for q, shift in zip(qs, shifts):
+        gauss = Gaussian(gd, center=(box / 2. + shift) * np.ones(3.) / Bohr)
+        phi_tmp = gauss.get_gauss_pot(0)
+        xyz = gauss.xyz
+        fac = 2. * np.sqrt(gauss.a) * np.exp(-gauss.a * gauss.r2)
+        fac /= np.sqrt(np.pi) * gauss.r2
+        fac -= erf(np.sqrt(gauss.a) * gauss.r) / (gauss.r2 * gauss.r)
+        fac *= 2.0 * 1.7724538509055159
+        grad_phi = fac * xyz
+        laplace_phi = -4. * np.pi * gauss.get_gauss(0)
+        rho_tmp = -1. / (4. * np.pi) * (
+            (grad_eps * grad_phi).sum(0) + eps * laplace_phi
+            )
+        norm = gd.integrate(rho_tmp)
+        rho_tmp /= norm * q
+        phi_tmp /= norm * q
+        rho += rho_tmp
+        phi_expected += phi_tmp
+
+    # PolarizationPoissonSolver does not pass this test
+    for ps in psolvers[:-1]:
+        phi = solve(ps, eps, rho)
+        parprint(ps, np.abs(phi - phi_expected).max())
+        equal(phi, phi_expected, 1e-3)
