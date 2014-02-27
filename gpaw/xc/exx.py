@@ -10,6 +10,7 @@ from ase.utils import prnt
 
 import gpaw.mpi as mpi
 from gpaw.xc import XC
+from gpaw.xc.tools import vxc
 from gpaw.xc.kernel import XCNull
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
@@ -162,7 +163,10 @@ class EXX(PairDensity):
                 ham.Etot - ham.Exc) * Hartree
         
     def get_eigenvalue_contributions(self):
-        return (self.exxvv_sin + self.exxvc_sin) * self.exx_fraction * Hartree
+        b1, b2 = self.bands
+        e_sin = vxc(self.calc, self.xc)[:, self.kpts, b1:b2] / Hartree
+        e_sin += (self.exxvv_sin + self.exxvc_sin) * self.exx_fraction 
+        return e_sin * Hartree
         
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
