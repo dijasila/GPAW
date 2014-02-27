@@ -214,6 +214,7 @@ tests = [
     'solvation/vacuum.py',
     'solvation/pbc.py',
     'solvation/spinpol.py',
+    'solvation/poisson.py',
     # > 20 sec tests start here
     'rpa_energy_Ni.py',
     'si.py',
