@@ -212,6 +212,7 @@ tests = [
     'excited_state.py',
     # > 20 sec tests start here
     'rpa_energy_Ni.py',
+    'LDA_unstable.py',
     'si.py',
     'blocked_rmm_diis.py',
     'lxc_xcatom.py',
