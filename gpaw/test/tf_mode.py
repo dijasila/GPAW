@@ -3,17 +3,24 @@ from gpaw import GPAW
 from gpaw.mixer import Mixer
 from gpaw.mixer import ExperimentalDotProd
 from gpaw.test import equal
+#from gpaw.atom.generator import Generator
+from gpaw.test import gen
 
-#Test tf_mode for H and C, assuming setups generated with 600 or more gpts.
+#Test tf_mode for H and C
 
-h = 0.1
+h = 0.2
 a = 8
 c = a/2
 d = 1.8
 
-elements = ['H', 'C']
-results = [0.082795, -0.002574]
-electrons = [1, 6]
+elements = ['C']
+results = [0.0274269160653]
+electrons = [6]
+
+
+for symbol in elements:
+	xcname = 'PXC:1.0*LDA_K_TF+1.0*LDA_X'
+	g = gen(symbol, xcname=xcname,scalarrel=False,tf_mode=True)
 
 for element, result,e in zip(elements, results,electrons):
 	atom = Atoms(element,
@@ -22,8 +29,9 @@ for element, result,e in zip(elements, results,electrons):
 
 	mixer = Mixer(0.3, 5, 1)
 	#mixer=Mixer(beta=0.05, nmaxold=2, weight=50.0)
-	calc = GPAW(h=h,nbands=1, txt='-', xc='LDA_K_TF+LDA_X', maxiter=240, eigensolver='cg',mixer=mixer, tf_mode=True)
-	#mixer.dotprod = ExperimentalDotProd(calc)
+	calc = GPAW(h=h,nbands=1, txt='-', xc=xcname, maxiter=240, 
+		    eigensolver='cg',mixer=mixer, tf_mode=True)
+	mixer.dotprod = ExperimentalDotProd(calc)
 
 	atom.set_calculator(calc)
 

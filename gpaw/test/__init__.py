@@ -9,6 +9,7 @@ import numpy as np
 
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
+from gpaw.atom.tf_configurations import tf_parameters
 from gpaw.utilities import devnull, compiled_with_sl
 from gpaw import setup_paths
 from gpaw import mpi
@@ -32,7 +33,12 @@ def gen(symbol, exx=False, name=None, **kwargs):
         if 'scalarrel' not in kwargs:
             kwargs['scalarrel'] = True
         g = Generator(symbol, **kwargs)
-        g.run(exx=exx, name=name, use_restart_file=False, **parameters[symbol])
+        if 'tf_mode' in kwargs:
+            g.run(exx=exx, name=name, use_restart_file=False,
+                  **tf_parameters[symbol])
+        else:
+            g.run(exx=exx, name=name, use_restart_file=False, 
+                  **parameters[symbol])
     mpi.world.barrier()
     if setup_paths[0] != '.':
         setup_paths.insert(0, '.')
@@ -207,6 +213,7 @@ tests = [
     'h2o_xas_recursion.py',
     'diamond_eps.py',
     'gemm.py',
+    'tf_mode.py',
     # > 20 sec tests start here
     'rpa_energy_Ni.py',
     'si.py',
@@ -321,8 +328,7 @@ tests = [
     'cmrtest/cmr_test3.py',
     'cmrtest/cmr_test4.py',
     'cmrtest/cmr_append.py',
-    'cmrtest/Li2_atomize.py',
-    'tf_mode.py'
+    'cmrtest/Li2_atomize.py'
     ]
 
 exclude = []
