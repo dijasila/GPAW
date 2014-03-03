@@ -212,9 +212,9 @@ tests = [
     'fermilevel.py',
     'h2o_xas_recursion.py',
     'diamond_eps.py',
-    'gemm.py',
     'tf_mode.py',
     # > 20 sec tests start here
+    'gemm.py',
     'rpa_energy_Ni.py',
     'si.py',
     'blocked_rmm_diis.py',
