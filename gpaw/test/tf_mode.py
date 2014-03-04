@@ -8,13 +8,13 @@ from gpaw.test import gen
 
 #Test tf_mode for H and C
 
-h = 0.2
+h = 0.3
 a = 8
 c = a/2
 d = 1.8
 
 elements = ['C']
-results = [0.0274269160653]
+results = [1.59042607826]
 electrons = [6]
 
 
@@ -31,7 +31,7 @@ for element, result,e in zip(elements, results,electrons):
 	#mixer=Mixer(beta=0.05, nmaxold=2, weight=50.0)
 	calc = GPAW(h=h,nbands=1, txt='-', xc=xcname, maxiter=240, 
 		    eigensolver='cg',mixer=mixer, tf_mode=True)
-	mixer.dotprod = ExperimentalDotProd(calc)
+	#mixer.dotprod = ExperimentalDotProd(calc)
 
 	atom.set_calculator(calc)
 
