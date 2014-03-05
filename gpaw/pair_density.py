@@ -14,6 +14,7 @@ class PairDensity2:
         self.density = density
         self.finegrid = finegrid
 
+
         if not finegrid:
             density.Ghat = LFC(density.gd,
                                [setup.ghat_l
@@ -74,9 +75,11 @@ class PairDensity:
         self.density = paw.density
         self.setups = paw.wfs.setups
         self.spos_ac = paw.atoms.get_scaled_positions()
+        self.lcao = paw.input_parameters.mode == 'lcao'
+        assert paw.wfs.dtype == float
         if self.lcao:
             self.wfs = paw.wfs
-        assert paw.wfs.dtype == float
+
         
     def initialize(self, kpt, i, j):
         """initialize yourself with the wavefunctions"""
@@ -84,6 +87,7 @@ class PairDensity:
         self.j = j
         self.spin = kpt.s
         self.P_ani = kpt.P_ani
+
         if self.lcao:
             self.q = kpt.q
             self.wfi_M = kpt.C_nM[i]
@@ -96,7 +100,6 @@ class PairDensity:
         """Get pair density"""
         # Expand the pair density as density matrix
         rho_MM = 0.5 * np.outer(self.wfi_M, self.wfj_M) + 0.5 * np.outer(self.wfj_M, self.wfi_M)
-        print "rho_MM", rho_MM.shape
 
         rho_G = self.density.gd.zeros()
         self.wfs.basis_functions.construct_density(rho_MM, rho_G, self.q)
@@ -105,18 +108,17 @@ class PairDensity:
             return rho_G
 
         # interpolate the pair density to the fine grid
-        rho_g = self.density.finegd.empty()
-        rho_g[:] = 0.0
+        rho_g = self.density.finegd.zeros()
         self.density.interpolator.apply(rho_G, rho_g)
 
         return rho_g
-
 
     def get(self, finegrid=False):
         """Get pair density"""
 
         if self.lcao:
             return self.get_lcao(finegrid)
+
 
         nijt = self.wfi * self.wfj
         if not finegrid:
