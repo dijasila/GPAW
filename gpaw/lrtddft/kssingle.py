@@ -54,6 +54,12 @@ class KSSingles(ExcitationList):
             self.read(fh=filehandle)
             return None
 
+        # LCAO calculation requires special actions
+        self.lcao = calculator.input_parameters.mode == 'lcao'
+        if self.lcao:
+            print >> txt, "LR-TDDFT calculation from LCAO orbitals"
+
+
         ExcitationList.__init__(self, calculator, txt=txt)
         
         if calculator is None:
@@ -350,6 +356,11 @@ class KSSingle(Excitation, PairDensity):
         self.mur = - ( me + ma )
 
         # velocity form .............................
+        if self.lcao:
+            # Velocity form not supported in LCAO-LR-TDDFT
+            self.muv = None
+            self.magn = None
+            return
 
         if self.lcao:
             # Velocity form not supported in LCAO-LR-TDDFT
@@ -476,10 +487,12 @@ class KSSingle(Excitation, PairDensity):
                (self.i,self.j, self.pspin,self.spin, self.energy, self.fij)
         str += '  '
         for m in self.mur: str += '%12.4e' % m
-        str += '  '
-        for m in self.muv: str += '%12.4e' % m
-        str += '  '
-        for m in self.magn: str += '%12.4e' % m
+        if self.muv is not None:
+            str += '  '
+            for m in self.muv: str += '%12.4e' % m
+        if self.magn is not None:
+            str += '  '
+            for m in self.magn: str += '%12.4e' % m
         str += '\n'
         return str
         

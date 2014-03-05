@@ -75,7 +75,8 @@ class OmegaMatrix:
         
         # handle different grid possibilities
         self.restrict = None
-        self.poisson = PoissonSolver(nn=self.paw.hamiltonian.poisson.nn)
+        #self.poisson = PoissonSolver(nn=self.paw.hamiltonian.poisson.nn)
+        self.poisson = calculator.hamiltonian.poisson
         if finegrid:
             self.poisson.set_grid_descriptor(self.paw.density.finegd)
             self.poisson.initialize()
