@@ -13,7 +13,6 @@ from gpaw.fd_operators import Gradient
 from gpaw.wavefunctions.pw import PWLFC
 from gpaw.response.math_func import two_phi_planewave_integrals
 
-
 class KPoint:
     def __init__(self, s, K, n1, n2, ut_nR, eps_n, f_n, P_ani, shift_c):
         self.s = s    # spin index
@@ -110,7 +109,8 @@ class PairDensity:
              (ns, nk, nbands),
              'over %d process%s' %
               (world.size, ['es', ''][world.size == 1]), file=self.fd)
-            
+        
+        
     def get_k_point(self, s, K, n1, n2):
         """Return wave functions for a specific k-point and spin.
         
@@ -284,15 +284,15 @@ class PairDensity:
 
     def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG):
         if self.ut_sKnvR is None:
+            print('    Calculating derivatives of occupied wavefunctions...', file=self.fd)
             self.ut_sKnvR = self.calculate_derivatives()
-            
+            print('        Done.', file=self.fd)
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
         k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]  
-      
         atomdata_a = self.calc.wfs.setups
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]

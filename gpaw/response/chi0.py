@@ -1,12 +1,15 @@
 """Todo: Hilbert transform"""
+from __future__ import print_function
 
 import sys
 from math import pi
+from time import time, ctime
 
 import numpy as np
 from ase.units import Hartree
 
 import gpaw.mpi as mpi
+from gpaw import extra_parameters
 from gpaw.utilities.blas import gemm, rk, czher
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
@@ -78,6 +81,10 @@ class Chi0(PairDensity):
         qd = KPointDescriptor([q_c])
         pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
 
+        self.print_chi(pd)
+
+        if extra_parameters.get('df_dry_run'):
+            raise SystemExit
         nG = pd.ngmax
         nw = len(self.omega_w)
         chi0_wGG = np.zeros((nw, nG, nG), complex)
@@ -88,8 +95,9 @@ class Chi0(PairDensity):
         else:
             chi0_wxvG = None
             chi0_wvv = None
-
+        
         Q_aGii = self.initialize_paw_corrections(pd)
+        print('    Initializing PAW Corrections', file=self.fd)
 
         # Do all empty bands:
         m1 = self.nocc1
@@ -110,9 +118,9 @@ class Chi0(PairDensity):
 
         q_c = pd.kd.bzk_kc[0]
         optical_limit = np.allclose(q_c, 0.0)
-        
+        print('    Starting summation', file=self.fd)
         # kpt1 occupied and kpt2 empty:
-        for kpt1 in self.mykpts:
+        for kn, kpt1 in enumerate(self.mykpts):
             if not kpt1.s in spins:
                 continue
             K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
@@ -148,8 +156,11 @@ class Chi0(PairDensity):
                 # the intraband contributions
                 if kpt1.n1 == 0: 
                     self.update_intraband(kpt2, chi0_wvv)
+            
+            if kn % (len(self.mykpts) // 10) == 1 and self.world.rank == 0:
+                print('    %s, local Kpoint no: %d / %d ' %(ctime(), kpt1.K, len(self.mykpts)), file=self.fd)
 
-        
+        print('    %s, Finished kpoint sum' %(ctime()), file=self.fd)
         self.world.sum(chi0_wGG)
         if optical_limit:
             self.world.sum(chi0_wxvG)
@@ -170,6 +181,7 @@ class Chi0(PairDensity):
         if self.hilbert:
             ht = HilbertTransform(self.omega_w, self.eta, self.timeordered)
             ht(chi0_wGG, chi0_wGG)
+            print('Hilbert transform done', file=self.fd)
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
@@ -261,8 +273,61 @@ class Chi0(PairDensity):
                 
                 for w, omega in enumerate(self.omega_w):
                     chi0_wvv[w, :, :] += x_vv / omega**2.0
-                 
-                    
+
+    def print_chi(self, pd):
+        calc = self.calc
+        gd = calc.wfs.gd
+        
+        ns = calc.wfs.nspins
+        nk = calc.wfs.kd.nbzkpts
+        nb = self.nocc2
+
+        if extra_parameters.get('df_dry_run'):
+            from gpaw.mpi import DryRunCommunicator
+            size = extra_parameters['df_dry_run']
+            world = DryRunCommunicator(size)
+        else:
+            world = self.world
+
+        nw = len(self.omega_w)
+        q_c = pd.kd.bzk_kc[0]
+        nstat = (ns * nk * nb + world.size - 1) // world.size 
+
+        print('%s' %(ctime()), file=self.fd)
+        print('Called response.chi0.calculate with', file=self.fd)
+        print('    q_c: [%f, %f, %f]' %(q_c[0], q_c[1], q_c[2]), file=self.fd)
+        print('    [min(freq), max(freq)]: [%f, %f]' 
+              %(np.min(self.omega_w) * Hartree, np.max(self.omega_w) * Hartree), file=self.fd)
+        print('    Number of frequency points   : %d' %(nw), file=self.fd)
+        print('    Planewave cutoff: %f' %(self.ecut*Hartree), file=self.fd)
+        print('    Number of spins: %d' %(ns), file=self.fd)
+        print('    Number of bands: %d' %(self.nbands), file=self.fd)
+        print('    Number of kpoints: %d' %(nk), file=self.fd)
+        print('    Number of planewaves: %d' %(pd.ngmax), file=self.fd)
+        print('    Broadening (eta): %f' %(self.eta * Hartree), file=self.fd)
+        print('', file=self.fd)
+        print('    Related to parallelization', file=self.fd)
+        print('        world.size: %d' %(world.size), file=self.fd)
+        print('        Number of completely occupied states: %d' %(self.nocc1), file=self.fd)
+        print('        Number of partially occupied states: %d' %(self.nocc2), file=self.fd)
+        print('        Number of terms handled in chi-sum by each rank: %d' %(nstat), file=self.fd)
+        print('', file=self.fd)
+        print('    Related to hilbert transform:', file=self.fd)
+        print('        Use Hilbert Transform: %s' %(self.hilbert), file=self.fd)
+        print('        Calculate time-ordered Response Function: %s' %(self.timeordered), file=self.fd)
+        print('        domega0: %f' %(self.domega0 * Hartree), file=self.fd)
+        print('        omegamax: %f' %(self.omegamax * Hartree), file=self.fd)
+        print('        alpha: %f' %(self.alpha), file=self.fd)
+        print('', file=self.fd)
+        print('    Memory estimate:', file=self.fd)
+        print('        chi0_wGG: %f M / cpu' %(nw * pd.ngmax**2 * 32. / 1024**2), file=self.fd)
+        
+        if np.allclose(q_c, 0.0):
+            print('        ut_sKnvR: %f M / cpu' %(nstat * 3 * gd.N_c[0] * gd.N_c[1] 
+                                                   * gd.N_c[2] * 32. / 1024**2), file=self.fd)
+        print('', file=self.fd)
+
+
 class HilbertTransform:
     def __init__(self, omega_w, eta, timeordered=False, blocksize=500):
         """Analytic Hilbert transformation using linear interpolation."""
