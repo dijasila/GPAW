@@ -768,15 +768,15 @@ class PAW(PAWTextOutput):
         self.txt.flush()
         raise SystemExit
 
-     def linearize_to_xc(self, newxc):
-         """Linearize Hamiltonian to difference XC functional. Used in real time TDDFT to perform calculations with 
-            various kernels. """
-         if isinstance(newxc, str):
-             newxc = XC(newxc)
-         self.txt.write('Linearizing xc-hamiltonian to '+str(newxc))
-         newxc.initialize(self.density, self.hamiltonian, self.wfs,
-                       self.occupations)
-         self.hamiltonian.linearize_to_xc(newxc, self.density)
+    def linearize_to_xc(self, newxc):
+        """Linearize Hamiltonian to difference XC functional. Used in real time TDDFT to perform calculations with 
+           various kernels. """
+        if isinstance(newxc, str):
+            newxc = XC(newxc)
+        self.txt.write('Linearizing xc-hamiltonian to '+str(newxc))
+        newxc.initialize(self.density, self.hamiltonian, self.wfs,
+                      self.occupations)
+        self.hamiltonian.linearize_to_xc(newxc, self.density)
 
 
     def restore_state(self):
