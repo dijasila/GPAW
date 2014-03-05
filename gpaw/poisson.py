@@ -8,9 +8,9 @@ import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2
 
 from ase.parallel import parprint
-
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
+from gpaw.fd_operators import Gradient
 from gpaw import PoissonConvergenceError
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
@@ -22,7 +22,6 @@ import _gpaw
 
 class PoissonSolver:
     def __init__(self, nn=3, relax='J', eps=2e-10, remove_moment=None):
-        print "PoissonSolver def __init__ remove_moment", remove_moment
         self.relax = relax
         self.nn = nn
         self.eps = eps
@@ -132,20 +131,19 @@ class PoissonSolver:
 
         if eps is None:
             eps = self.eps
-
         actual_charge = self.gd.integrate(rho)
         background = (actual_charge / self.gd.dv /
                       self.gd.get_size_of_global_array().prod())
 
-        if self.remove_moment and not self.gd.pbc_c.any():
+        if self.remove_moment:
+            assert not self.gd.pbc_c.any()
             if not hasattr(self, 'gauss'):
                 self.gauss = Gaussian(self.gd)
-       
+            print "Removing moments"
             rho_neutral = rho.copy()
             phi_cor_L = []
             for L in range(self.remove_moment):
                 phi_cor_L.append(self.gauss.remove_moment(rho_neutral, L))
-            print "Removing moment"
             # Remove multipoles for better initial guess
             for phi_cor in phi_cor_L:
                 phi -= phi_cor
@@ -156,8 +154,6 @@ class PoissonSolver:
                 phi += phi_cor
 
             return niter
-        else:
-            print "NOT Removing moment"
         if charge is None:
             charge = actual_charge
         if abs(charge) <= maxcharge:
@@ -596,4 +592,5 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
             self.gd.distribute(global_phi_g, phi_g)
         else:
             phi_g[:] = phi_g3
+
 
