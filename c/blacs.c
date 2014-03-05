@@ -399,8 +399,6 @@ PyObject* pblas_gemm(PyObject *self, PyObject *args)
 }
 
 
-//    _gpaw.pblas_hemm(side, uplo, N, M, alpha, a_MK, b_KN, beta, c_MN,
-//                     descb.asarray(), desca.asarray(), descc.asarray())
 PyObject* pblas_hemm(PyObject *self, PyObject *args)
 {
   char side;
@@ -418,7 +416,7 @@ PyObject* pblas_hemm(PyObject *self, PyObject *args)
     return NULL;
   }
 
-  if (c->descr->type_num == PyArray_DOUBLE) {
+  if (PyArray_DESCR(c)->type_num == NPY_DOUBLE) {
      pdsymm_(&side, &uplo, &n, &m, &alpha,
              (void*)DOUBLEP(a), &one, &one, INTP(desca),
              (void*)DOUBLEP(b), &one, &one, INTP(descb),
@@ -1713,7 +1711,7 @@ PyObject* scalapack_inverse(PyObject *self, PyObject *args)
 
   int n = a_n;
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
      {
       assert(1==-1);       // No double version implemented
      }
@@ -1758,7 +1756,7 @@ PyObject* scalapack_solve(PyObject *self, PyObject *args)
 
   int* pivot = GPAW_MALLOC(int, a_m+2000); // TODO: How long should this exaclty be?
 
-  if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
      {
       assert(1==-1);       // No double version implemented
      }
