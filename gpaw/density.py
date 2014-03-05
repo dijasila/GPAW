@@ -244,6 +244,7 @@ class Density:
 
     def initialize_from_wavefunctions(self, wfs):
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
+        self.timer.start("Density initialize from wavefunctions")
         self.nt_sG = self.gd.empty(self.nspins * self.ncomp**2)
         self.calculate_pseudo_density(wfs)
         self.D_asp = {}
@@ -253,6 +254,7 @@ class Density:
             self.D_asp[a] = np.empty((self.nspins, ni * (ni + 1) // 2))
         wfs.calculate_atomic_density_matrices(self.D_asp)
         self.calculate_normalized_charges_and_mix()
+        self.timer.stop("Density initialize from wavefunctions")
 
     def initialize_directly_from_arrays(self, nt_sG, D_asp):
         """Set D_asp and nt_sG directly."""
@@ -310,8 +312,14 @@ class Density:
             np.dot(self.D_asp[a][spin], setup.Delta_pL[:, 0])
             + setup.Delta0 / self.nspins)
 
-    def get_all_electron_density(self, atoms, gridrefinement=2):
-        """Return real all-electron density array."""
+    def get_all_electron_density(self, atoms=None, gridrefinement=2, spos_ac=None):
+        """Return real all-electron density array.
+
+           Usage: Either get_all_electron_density(atoms) or
+                         get_all_electron_density(spos_ac=spos_ac) """
+
+        if spos_ac is None:
+            spos_ac = atoms.get_scaled_positions() % 1.0
 
         # Refinement of coarse grid, for representation of the AE-density
         if gridrefinement == 1:
@@ -361,13 +369,12 @@ class Density:
         phit = BasisFunctions(gd, phit_aj)
         nc = LFC(gd, nc_a)
         nct = LFC(gd, nct_a)
-        spos_ac = atoms.get_scaled_positions() % 1.0
         phi.set_positions(spos_ac)
         phit.set_positions(spos_ac)
         nc.set_positions(spos_ac)
         nct.set_positions(spos_ac)
 
-        I_sa = np.zeros((self.nspins, len(atoms)))
+        I_sa = np.zeros((self.nspins, len(spos_ac)))
         a_W = np.empty(len(phi.M_W), np.intc)
         W = 0
         for a in phi.atom_indices:

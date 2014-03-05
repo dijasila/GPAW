@@ -205,6 +205,7 @@ class BlacsBandLayouts(BlacsLayouts):  #XXX should derive from BandLayouts too!
         self.buffer_size = buffer_size
         nbands = bd.nbands
         self.mynbands = mynbands = bd.mynbands
+        self.blocksize = blocksize
 
         # 1D layout - columns
         self.columngrid = BlacsGrid(self.column_comm, 1, bd.comm.size)
@@ -289,7 +290,8 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         BlacsLayouts.__init__(self, gd, bd, dtype, mcpus, ncpus, blocksize,
                               timer)
         nbands = bd.nbands
-        mynbands = bd.mynbands
+        self.blocksize = blocksize
+        self.mynbands = mynbands = bd.mynbands
         
         self.orbital_comm = self.bd.comm
         self.naoblocksize = naoblocksize = -((-nao) // self.orbital_comm.size)
