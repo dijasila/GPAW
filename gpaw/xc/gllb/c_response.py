@@ -18,13 +18,18 @@ class C_Response(Contribution):
         self.nt_sG = None
         self.D_asp = None
         self.Dresp_asp = None
+        self.just_read = False
+        self.damp = 1e-10
 
     def get_name(self):
         return "RESPONSE"
 
     def get_desc(self):
         return ""
-        
+
+    def set_damp(self, damp):
+        self.damp = damp
+
     # Initialize Response functional
     def initialize_1d(self):
         self.ae = self.nlfunc.ae
@@ -33,7 +38,7 @@ class C_Response(Contribution):
     def add_xc_potential_and_energy_1d(self, v_g):
         w_i = self.coefficients.get_coefficients_1d()
         u2_j = safe_sqr(self.ae.u_j)
-        v_g += self.weight * np.dot(w_i, u2_j) / (np.dot(self.ae.f_j, u2_j) +1e-10)
+        v_g += self.weight * np.dot(w_i, u2_j) / (np.dot(self.ae.f_j, u2_j) + self.damp)
         return 0.0 # Response part does not contribute to energy
 
     def initialize(self):
@@ -70,17 +75,33 @@ class C_Response(Contribution):
         self.Dxc_D_asp = {}
 
     def update_potentials(self, nt_sg):
+        if self.just_read:
+            if len(self.Dresp_asp) != len(self.density.D_asp):
+                for a in self.Dresp_asp.keys():
+                    if not self.density.D_asp.has_key(a):
+                        del self.Dresp_asp[a]
+                        del self.D_asp[a]
+                        print "Removed a"
+            self.just_read = False
+
+        if not self.occupations.is_ready():
+            print "No occupations calculated yet"
+            return
+
+
+        #if not hasattr(self.kpt_u[0],'orbitals_ready'):
+        #    self.kpt_u[0].orbitals_ready = True
+        #    print "not updating GLLB response"
+        #    return None
+
         nspins = len(nt_sg)
         print nspins
         w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u, nspins=nspins)
         f_kn = [ kpt.f_n for kpt in self.kpt_u ]
-
         if w_kn is not None:
             self.vt_sG[:] = 0.0
             self.nt_sG[:] = 0.0
 
-            # XXX This is terribly inefficients with LCAO basis set
-            # XXX Form a "response" density-matrix first before expanding the numerator of the response potential.
             for kpt, w_n in zip(self.kpt_u, w_kn):
                 self.wfs.add_to_density_from_k_point_with_occupation(self.vt_sG, kpt, w_n)
                 self.wfs.add_to_density_from_k_point(self.nt_sG, kpt)
@@ -100,7 +121,8 @@ class C_Response(Contribution):
             self.wfs.calculate_atomic_density_matrices_with_occupation(
                 self.D_asp, f_kn)
 
-            self.vt_sG /= self.nt_sG +1e-10
+            self.vt_sG /= self.nt_sG + self.damp
+            
         self.density.interpolate(self.vt_sG, self.vt_sg)
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
@@ -120,7 +142,7 @@ class C_Response(Contribution):
         ncresp_g = setup.extra_xc_data['core_response'] / self.nspins
         if not addcoredensity:
             ncresp_g[:] = 0.0
-        
+
         for D_p, dEdD_p, Dresp_p in zip(D_sp, H_sp, self.Dresp_asp.get(a)):
             D_Lq = np.dot(c.B_pqL.T, D_p)
             n_Lg = np.dot(D_Lq, c.n_qg) # Construct density
@@ -135,13 +157,13 @@ class C_Response(Contribution):
             for w, Y_L in zip(weight_n, c.Y_nL):
                 nt_g = np.dot(Y_L, nt_Lg)
                 nrespt_g = np.dot(Y_L, nrespt_Lg)
-                x_g = nrespt_g / (nt_g + 1e-10)
+                x_g = nrespt_g / (nt_g + self.damp)
                 dEdD_p -= self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
                                                    np.dot(c.nt_qg, x_g * c.rgd.dv_g))
 
                 n_g = np.dot(Y_L, n_Lg)
                 nresp_g = np.dot(Y_L, nresp_Lg)
-                x_g = (nresp_g+ncresp_g) / (n_g + 1e-10)
+                x_g = (nresp_g+ncresp_g) / (n_g + self.damp)
            
                 dEdD_p += self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
                                                    np.dot(c.n_qg, x_g * c.rgd.dv_g))
@@ -163,9 +185,9 @@ class C_Response(Contribution):
         nwft_Lg = np.dot(Dwf_Lq, c.nt_qg)
         E = 0.0
         for w, Y_L in zip(weight_n, c.Y_nL):
-            v = np.dot(Y_L, nwft_Lg) * np.dot(Y_L, nrespt_Lg) / (np.dot(Y_L, nt_Lg) + 1e-10)
+            v = np.dot(Y_L, nwft_Lg) * np.dot(Y_L, nrespt_Lg) / (np.dot(Y_L, nt_Lg) + self.damp)
             E -= self.weight * w * np.dot(v, c.rgd.dv_g)
-            v = np.dot(Y_L, nwf_Lg) * np.dot(Y_L, nresp_Lg) / (np.dot(Y_L, n_Lg) + 1e-10)
+            v = np.dot(Y_L, nwf_Lg) * np.dot(Y_L, nresp_Lg) / (np.dot(Y_L, n_Lg) + self.damp)
             E += self.weight * w * np.dot(v, c.rgd.dv_g)
         return E
 
@@ -178,7 +200,7 @@ class C_Response(Contribution):
             v_g += np.dot(w_n, u2_n)
             n_g += np.dot(f_n, u2_n)
                            
-        vt_g += self.weight * v_g / (n_g + 1e-10)
+        vt_g += self.weight * v_g / (n_g + self.damp)
         return 0.0 # Response part does not contribute to energy
 
     def calculate_delta_xc(self, homolumo = None):
@@ -187,10 +209,6 @@ class C_Response(Contribution):
             print "Warning: Calculating KS-gap directly from the k-points, can be inaccurate."
             #homolumo = self.occupations.get_homo_lumo(self.wfs)
 
-        #homo, lumo = homolumo
-        #Ksgap = lumo-homo
-        #print "Using KS-gap of ", Ksgap
-        
         for a in self.density.D_asp:
             ni = self.setups[a].ni
             self.Dxc_Dresp_asp[a] = np.zeros((self.nlfunc.nspins, ni * (ni + 1) // 2))
@@ -218,7 +236,7 @@ class C_Response(Contribution):
                 self.symmetry.symmetrize(nt_G, self.gd)
                 self.symmetry.symmetrize(vt_G, self.gd)
 
-        vt_sG /= nt_sG + 1e-10
+        vt_sG /= nt_sG + self.damp
         self.Dxc_vt_sG = vt_sG.copy()
 
         self.wfs.calculate_atomic_density_matrices_with_occupation(
@@ -288,6 +306,7 @@ class C_Response(Contribution):
 
     def initialize_from_atomic_orbitals(self, basis_functions):
         # Initiailze 'response-density' and density-matrices
+        print "Initializing from atomic orbitals"
         self.Dresp_asp = {}
         self.D_asp = {}
         
@@ -323,7 +342,8 @@ class C_Response(Contribution):
         basis_functions.add_to_density(self.vt_sG, w_asi)
         # Update vt_sG to correspond atomic response potential. This will be
         # used until occupations and eigenvalues are available.
-        self.vt_sG /= self.nt_sG + 1e-10
+        self.vt_sG /= self.nt_sG + self.damp
+        self.density.interpolate(self.vt_sG, self.vt_sg)
 
     def add_extra_setup_data(self, dict):
         ae = self.ae
@@ -344,7 +364,7 @@ class C_Response(Contribution):
         # For debugging purposes
         w_j = self.coefficients.get_coefficients_1d()
         u2_j = safe_sqr(self.ae.u_j)
-        v_g = self.weight * np.dot(w_j, u2_j) / (np.dot(self.ae.f_j, u2_j) +1e-10)
+        v_g = self.weight * np.dot(w_j, u2_j) / (np.dot(self.ae.f_j, u2_j) +self.damp)
         v_g[0] = v_g[1]
         dict['all_electron_response'] = v_g
 
@@ -355,7 +375,7 @@ class C_Response(Contribution):
         homo_e = max(h)
         if lumo_e < 999: # If there is unoccpied orbital
             w_j = self.coefficients.get_coefficients_1d(lumo_perturbation = True)
-            v_g = self.weight * np.dot(w_j, u2_j) / (np.dot(self.ae.f_j, u2_j) +1e-10)
+            v_g = self.weight * np.dot(w_j, u2_j) / (np.dot(self.ae.f_j, u2_j) +self.damp)
             e2 = [ e+np.dot(u2*v_g, self.ae.dr) for u2,e in zip(u2_j, self.ae.e_j) ]
             lumo_2 = min([ np.where(f<1e-3, e, 1000) for f,e in zip(self.ae.f_j, e2)])
             print "New lumo eigenvalue:", lumo_2 * 27.2107
@@ -474,6 +494,7 @@ class C_Response(Contribution):
             
         print "Integration over vt_sG", domain_comm.sum(np.sum(self.vt_sG.ravel()))
         print "Integration over Dxc_vt_sG", domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel()))
+        self.density.interpolate(self.vt_sG, self.vt_sg)
         
         # Read atomic density matrices and non-local part of hamiltonian:
         D_sp = r.get('GLLBAtomicDensityMatrices')
@@ -495,8 +516,11 @@ class C_Response(Contribution):
             self.Dresp_asp[a] = Dresp_sp[:, p1:p2].copy()
             self.Dxc_D_asp[a] = Dxc_D_sp[:, p1:p2].copy()
             self.Dxc_Dresp_asp[a] = Dxc_Dresp_sp[:, p1:p2].copy()
-            print "Proc", world.rank, " reading atom ", a
+            #print "Proc", world.rank, " reading atom ", a
             p1 = p2
+
+        # Dsp and Dresp need to be redistributed
+        self.just_read = True
 
 if __name__ == "__main__":
     from gpaw.xc_functional import XCFunctional
