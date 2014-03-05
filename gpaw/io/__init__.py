@@ -593,7 +593,13 @@ def read(paw, reader):
     hamiltonian.read(r, parallel, kd, bd)
     timer.stop('Hamiltonian')
 
-    wfs.rank_a = np.zeros(natoms, int)
+    from gpaw.utilities.partition import AtomPartition
+    atom_partition = AtomPartition(gd.comm, np.zeros(natoms, dtype=int))
+    # <sarcasm>let's set some variables directly on some objects!</sarcasm>
+    wfs.atom_partition = atom_partition # XXX
+    wfs.rank_a = np.zeros(natoms, int) # XXX
+    density.atom_partition = atom_partition # XXX
+    hamiltonian.atom_partition = atom_partition # XXX
 
     if version > 0.3:
         Etot = hamiltonian.Etot

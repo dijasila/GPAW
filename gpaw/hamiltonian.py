@@ -13,6 +13,7 @@ from gpaw.transformers import Transformer
 from gpaw.lfc import LFC
 from gpaw.utilities import pack2, unpack, unpack2
 from gpaw.io import read_atomic_matrices
+from gpaw.utilities.partition import AtomPartition
 
 
 class Hamiltonian:
@@ -74,6 +75,7 @@ class Hamiltonian:
         self.vt_sg = None
 
         self.rank_a = None
+        self.atom_partition = None
 
         self.Ekin0 = None
         self.Ekin = None
@@ -92,46 +94,35 @@ class Hamiltonian:
         fd.write('XC and Coulomb potentials evaluated on a %d*%d*%d grid\n' %
                  tuple(self.finegd.N_c))
 
-    def set_positions(self, spos_ac, rank_a=None):
+    def set_positions(self, spos_ac, rank_a):
+        atom_partition = AtomPartition(self.gd.comm, rank_a)
+        
         self.spos_ac = spos_ac
         self.vbar.set_positions(spos_ac)
-
         self.xc.set_positions(spos_ac)
         
         # If both old and new atomic ranks are present, start a blank dict if
         # it previously didn't exist but it will needed for the new atoms.
-        if (self.rank_a is not None and rank_a is not None and
+        # XXX what purpose does this serve?  In what case does it happen?
+        # How would one even go about figuring it out?  Why does it all have
+        # to be so unreadable? -Ask
+        #
+        if (self.rank_a is not None and
             self.dH_asp is None and (rank_a == self.gd.comm.rank).any()):
             self.dH_asp = {}
-
+            
         if self.rank_a is not None and self.dH_asp is not None:
             self.timer.start('Redistribute')
-            requests = []
-            flags = (self.rank_a != rank_a)
-            my_incoming_atom_indices = np.argwhere(np.bitwise_and(flags, \
-                rank_a == self.gd.comm.rank)).ravel()
-            my_outgoing_atom_indices = np.argwhere(np.bitwise_and(flags, \
-                self.rank_a == self.gd.comm.rank)).ravel()
-
-            for a in my_incoming_atom_indices:
-                # Get matrix from old domain:
+            def get_empty(a):
                 ni = self.setups[a].ni
-                dH_sp = np.empty((self.nspins * self.ncomp**2,
-                                  ni * (ni + 1) // 2))
-                requests.append(self.gd.comm.receive(dH_sp, self.rank_a[a],
-                                                     tag=a, block=False))
-                assert a not in self.dH_asp
-                self.dH_asp[a] = dH_sp
-
-            for a in my_outgoing_atom_indices:
-                # Send matrix to new domain:
-                dH_sp = self.dH_asp.pop(a)
-                requests.append(self.gd.comm.send(dH_sp, rank_a[a],
-                                                  tag=a, block=False))
-            self.gd.comm.waitall(requests)
+                return np.empty((self.nspins * self.ncomp**2,
+                                 ni * (ni + 1) // 2))
+            self.atom_partition.redistribute(atom_partition, self.dH_asp,
+                                             get_empty)
             self.timer.stop('Redistribute')
 
         self.rank_a = rank_a
+        self.atom_partition = atom_partition
 
     def aoom(self, DM, a, l, scale=1):
         """Atomic Orbital Occupation Matrix.
@@ -210,7 +201,9 @@ class Hamiltonian:
             self.update_pseudo_potential(density)
 
         self.timer.start('Atomic')
-        self.dH_asp = {}
+        self.dH_asp = None # XXXX
+
+        dH_asp = {}
         for a, D_sp in density.D_asp.items():
             W_L = W_aL[a]
             setup = self.setups[a]
@@ -240,10 +233,7 @@ class Hamiltonian:
                                           setup.Delta_pL[:, 3]])
                     dH_p += sqrt(4 * pi / 3) * np.dot(vext[1], Delta_p1)
 
-            self.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
-            self.timer.start('XC Correction')
-            Exc += self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
-            self.timer.stop('XC Correction')
+            dH_asp[a] = dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
                 assert self.collinear
@@ -254,7 +244,7 @@ class Hamiltonian:
                 nl  = np.where(np.equal(l_j,l))[0]
                 nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
                 
-                for D_p, H_p in zip(D_sp, self.dH_asp[a]):
+                for D_p, H_p in zip(D_sp, dH_asp[a]):
                     [N_mm,V] =self.aoom(unpack2(D_p),a,l)
                     N_mm = N_mm / 2 * nspins
                      
@@ -280,9 +270,34 @@ class Hamiltonian:
                     H_p[:] = pack2(Htemp)
 
             dH_sp[:self.nspins] += dH_p
+            # We are not yet done with dH_sp; still need XC correction
 
+        def get_empty(a):
+            ni = self.setups[a].ni
+            return np.empty((self.nspins * self.ncomp**2,
+                             ni * (ni + 1) // 2))
+
+        # XXX Need/want band comm also!!!!  But have to mind the spin...
+        Ddist_asp = density.D_asp.copy()
+        self.atom_partition.to_even_distribution(Ddist_asp, get_empty)
+
+        dHdist_asp = {}
+        self.timer.start('XC Correction')
+        for a, D_sp in Ddist_asp.items():
+            setup = self.setups[a]
+            dH_sp = np.zeros_like(D_sp)
+            Exc += self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
+            # XXX Exc are added on the "wrong" distribution; sum only works
+            # when gd.comm and distribution comm are the same
+            dHdist_asp[a] = dH_sp
+        self.timer.stop('XC Correction')
+        self.atom_partition.from_even_distribution(dHdist_asp, get_empty)
+
+        for a, D_sp in density.D_asp.items():
+            dH_sp = dH_asp[a]
+            dH_sp += dHdist_asp[a]
             Ekin -= (D_sp * dH_sp).sum()  # NCXXX
-
+        self.dH_asp = dH_asp
         self.timer.stop('Atomic')
 
         # Make corrections due to non-local xc:
@@ -521,7 +536,7 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         fd.write('Poisson solver: %s\n' % self.poisson.description)
 
-    def set_positions(self, spos_ac, rank_a=None):
+    def set_positions(self, spos_ac, rank_a):
         Hamiltonian.set_positions(self, spos_ac, rank_a)
         if self.vbar_g is None:
             self.vbar_g = self.finegd.empty()

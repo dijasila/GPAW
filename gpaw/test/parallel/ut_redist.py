@@ -18,6 +18,7 @@ from gpaw.wavefunctions.fd import FDWaveFunctions
 from gpaw.density import RealSpaceDensity
 from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
+from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.tools import md5_array
 from gpaw.utilities.timing import nulltimer
 
@@ -253,6 +254,7 @@ class UTProjectorFunctionSetup(UTLocalizedFunctionSetup):
                 self.bd, self.dtype, world, self.kd)
         self.wfs = FDWaveFunctions(p.stencils[0], fdksl, fdksl, lcaoksl, *args)
         self.wfs.rank_a = self.rank0_a
+        self.wfs.atom_partition = AtomPartition(self.wfs.gd.comm, self.rank0_a)
         self.allocate(self.wfs.kpt_u, self.wfs.rank_a)
         assert self.allocated
 
@@ -377,6 +379,7 @@ class UTDensityFunctionSetup(UTLocalizedFunctionSetup):
             self.atoms.get_initial_magnetic_moments(), p.hund)
         self.density.D_asp = {}
         self.density.rank_a = self.rank0_a
+        self.density.atom_partition = AtomPartition(self.gd.comm, self.rank0_a)
         self.allocate(self.density.D_asp, self.density.rank_a)
         assert self.allocated
 
@@ -442,6 +445,8 @@ class UTHamiltonianFunctionSetup(UTLocalizedFunctionSetup):
             p.poissonsolver, p.stencils[1])
         self.hamiltonian.dH_asp = {}
         self.hamiltonian.rank_a = self.rank0_a
+        self.hamiltonian.atom_partition = AtomPartition(self.gd.comm,
+                                                        self.rank0_a)
         self.allocate(self.hamiltonian.dH_asp, self.hamiltonian.rank_a)
         assert self.allocated
 

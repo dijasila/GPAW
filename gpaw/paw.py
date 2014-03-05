@@ -786,7 +786,7 @@ class PAW(PAWTextOutput):
         TODO: Is this really the most efficient way?
         """
         spos_ac = self.atoms.get_scaled_positions() % 1.0
-        self.density.set_positions(spos_ac)
+        self.density.set_positions(spos_ac, self.wfs.rank_a)
         self.density.interpolate_pseudo_density()
         self.density.calculate_pseudo_charge()
         self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)

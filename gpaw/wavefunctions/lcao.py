@@ -553,7 +553,7 @@ class LCAOWaveFunctions(WaveFunctions):
                 m1start = M_a[a1] - M1start
                 m2start = M_a[a2] - M2start
                 if m1start >= blocksize1 or m2start >= blocksize2:
-                    continue
+                    continue # (we have only one block per CPU)
 
                 T_expansion = T_expansions.get(a1, a2)
                 Theta_expansion = Theta_expansions.get(a1, a2)
@@ -613,8 +613,9 @@ class LCAOWaveFunctions(WaveFunctions):
             self.timer.start('Complicated loop')
             for a1, a3 in atompairs:
                 if a1 == a3:
+                    # Functions reside on same atom, so their overlap
+                    # does not change when atom is displaced
                     continue
-                
                 m1start = M_a[a1] - M1start
                 if m1start >= blocksize1:
                     continue

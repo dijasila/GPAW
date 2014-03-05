@@ -18,6 +18,7 @@ class C_Response(Contribution):
         self.nt_sG = None
         self.D_asp = None
         self.Dresp_asp = None
+        self.Drespdist_asp = None
         self.just_read = False
         self.damp = 1e-10
 
@@ -68,6 +69,7 @@ class C_Response(Contribution):
                 for a in self.density.D_asp:
                     self.Dresp_asp[a] = np.zeros_like(self.density.D_asp[a])
                     self.D_asp[a] = np.zeros_like(self.density.D_asp[a])
+                self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
 
         # The response discontinuity is stored here
         self.Dxc_vt_sG = None
@@ -118,6 +120,7 @@ class C_Response(Contribution):
 
             self.wfs.calculate_atomic_density_matrices_with_occupation(
                 self.Dresp_asp, w_kn)
+            self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
             self.wfs.calculate_atomic_density_matrices_with_occupation(
                 self.D_asp, f_kn)
 
@@ -135,6 +138,19 @@ class C_Response(Contribution):
         v_sg += self.weight * self.vt_sg
         return 0.0
 
+    def distribute_Dresp_asp(self, Dresp_asp):
+        # okay, this is a bit hacky since we have to call this from
+        # several different places.  Maybe Mikael can figure out something
+        # smarter.  -Ask
+        Drespdist_asp = Dresp_asp.copy()
+        def get_empty(a):
+            ni = self.setups[a].ni
+            return np.empty((self.nlfunc.nspins, ni * (ni + 1) // 2))
+
+        self.density.atom_partition.to_even_distribution(Drespdist_asp,
+                                                         get_empty)
+        return Drespdist_asp
+
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         # Get the XC-correction instance
         c = setup.xc_correction
@@ -142,8 +158,8 @@ class C_Response(Contribution):
         ncresp_g = setup.extra_xc_data['core_response'] / self.nspins
         if not addcoredensity:
             ncresp_g[:] = 0.0
-
-        for D_p, dEdD_p, Dresp_p in zip(D_sp, H_sp, self.Dresp_asp.get(a)):
+        
+        for D_p, dEdD_p, Dresp_p in zip(D_sp, H_sp, self.Drespdist_asp[a]):
             D_Lq = np.dot(c.B_pqL.T, D_p)
             n_Lg = np.dot(D_Lq, c.n_qg) # Construct density
             if addcoredensity:
@@ -305,7 +321,7 @@ class C_Response(Contribution):
             return gaps
 
     def initialize_from_atomic_orbitals(self, basis_functions):
-        # Initiailze 'response-density' and density-matrices
+        # Initialize 'response-density' and density-matrices
         print "Initializing from atomic orbitals"
         self.Dresp_asp = {}
         self.D_asp = {}
@@ -336,6 +352,7 @@ class C_Response(Contribution):
             f_asi[a] = f_si
             w_asi[a] = w_si
 
+        self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
         self.nt_sG.fill(0.0)
         basis_functions.add_to_density(self.nt_sG, f_asi)
         self.vt_sG.fill(0.0)
@@ -512,12 +529,17 @@ class C_Response(Contribution):
             ni = setup.ni
             p2 = p1 + ni * (ni + 1) // 2
             # NOTE: Distrbibutes the matrices to more processors than necessary
+            # ...except Dresp_asp where the redistribution code would
+            # raise an error.
             self.D_asp[a] = D_sp[:, p1:p2].copy()
-            self.Dresp_asp[a] = Dresp_sp[:, p1:p2].copy()
+            if a in self.density.D_asp:
+                self.Dresp_asp[a] = Dresp_sp[:, p1:p2].copy()
             self.Dxc_D_asp[a] = Dxc_D_sp[:, p1:p2].copy()
             self.Dxc_Dresp_asp[a] = Dxc_Dresp_sp[:, p1:p2].copy()
             #print "Proc", world.rank, " reading atom ", a
             p1 = p2
+
+        self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
 
         # Dsp and Dresp need to be redistributed
         self.just_read = True
