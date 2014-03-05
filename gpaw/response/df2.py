@@ -337,7 +337,7 @@ class DielectricFunction:
         nv = self.chi0.calc.wfs.nvalence
         prnt('N1 = %f, %f  %% error' %(N1, (N1 - nv) / nv * 100), file=fd)
 
-    def get_eigenmodes(self, q_c = None, name = None):
+    def get_eigenmodes(self, q_c = [0, 0, 0], w_max = None,  name = None):
         
         """
         Plasmonic eigenmodes as eigenvectors of the dielectric matrix.  
@@ -358,11 +358,15 @@ class DielectricFunction:
                                         realspace = True)
         gd = GridDescriptor(N_c, cell_cv, pbc) 
         r = gd.get_grid_point_coordinates()
-                
-        Nw = e_wGG.shape[0]
-        nG =  e_wGG.shape[1]
+              
         w_w = self.chi0.omega_w * Hartree
-        dw = (self.chi0.omega_w[1]-self.chi0.omega_w[0]) * Hartree
+        dw = w_w[1]-w_w[0]
+        if w_max is not None:
+            w_w = np.arange(0, w_max+dw, step = dw)
+        Nw = len(w_w)
+        nG =  e_wGG.shape[1]
+       
+        
         eig = np.zeros([Nw, nG], dtype = complex)
         vec = np.zeros([Nw, nG, nG], dtype = complex)
         vec_dual = np.zeros([Nw, nG, nG], dtype = complex)
@@ -414,10 +418,10 @@ class DielectricFunction:
         elif name:
             name = name + '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * pd.kd.N_c).round())
         else:
-            return r*Bohr, w_w, eig, w0, eigen0, v_ind, n_ind
+            return r*Bohr, w_w, eig, omega0, eigen0, v_ind, n_ind
 
-        pickle.dump((r*Bohr, w_w, eig, w0, eigen0, v_ind, n_ind), open(name, 'wb'), 
+        pickle.dump((r*Bohr, w_w, eig, omega0, eigen0, v_ind, n_ind), open(name, 'wb'), 
                         pickle.HIGHEST_PROTOCOL)
         """Returns: real space grid, frequency grid, all eigenvalues, zero-crossing 
         frequencies + eigenvalues, induced potential + density in real space"""
-        return r*Bohr, w_w, eig, w0, eigen0, v_ind, n_ind    
+        return r*Bohr, w_w, eig, omega0, eigen0, v_ind, n_ind    
