@@ -11,7 +11,7 @@ N = 2
 xc = 'oldLDA'
 c = 0
 h = 0.4
-b = 'sz'
+b = 'sz(dzp)'
 sy = 'H'+str(N)
 positions = []
 for i in range(N):
