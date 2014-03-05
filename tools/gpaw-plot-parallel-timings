@@ -72,9 +72,9 @@ class EntryCollection:
         tstart = min([entry.t1 for entry in entries])
         tstop = max([entry.t2 for entry in entries])
         
-        for entry in entries:
-            assert entry.level == -1
-            entry.normalize(tstart, tstop)
+        #for entry in entries:
+        #    assert entry.level == -1
+        #    entry.normalize(tstart, tstop)
         self.entries = entries
         self.totals = self.get_totals()
     
@@ -90,20 +90,37 @@ class EntryCollection:
 def get_timings(fname):
     root = Entry('root', 0.0)
     head = root
+    root.reft= 0
     for line in open(fname):
         line = line.strip()
-        part1, part2, action = line.rsplit(' ', 2)
+        content =  line.rsplit(' ', 2)
+        if len(content)<3:
+            break
+        part1, part2, action = content
         tokens = part1.split(' ', 3)
+        if len(tokens)<4:
+            break
         t = float(tokens[2])
         name = tokens[3]
 
         if action == 'started':
+            print name
+            if name.startswith('Propagate'):
+                root.reft = t
+                print "moi"
             head = head.subentry(name, t)
         else:
-            assert action == 'stopped'
-            assert name == head.name
+            if not action == 'stopped':
+                print "expected: stopped. got:", action
+            if not name == head.name:
+                print "expected:", head.name,".got:", name
             head.stop(t)
             head = head.parent
+    # Clean exit on terminated data
+    while head != root:
+        print "expected: stopped", head.name
+        head.stop(t)
+        head = head.parent
     assert head == root
     root.t1 = root.children[0].t1
     root.stop(root.children[-1].t2)
@@ -111,13 +128,12 @@ def get_timings(fname):
 
 alltimings = []
 metadata = None
-    
-for rank, fname in enumerate(fnames):
-    if fname.endswith('timings.metadata.txt'):
-        assert metadata is None
-        metadata = [line.strip() for line in open(fname)]
-    else:
-        alltimings.append(get_timings(fname))
+
+mdata = [line.strip() for line in open('timings.metadata.txt')]    
+metadata =[]
+for i in range(512, 512+15*16, 15):
+    alltimings.append(get_timings("timings.%04d.txt" % i))
+    metadata.append(mdata[i])
 
 if len(alltimings) == 0:
     p.error('no timings found')
@@ -141,9 +157,10 @@ nameax.set_xticks([])
 styles = {}
 
 
-thecolors = 'bgrcmy'
+thecolors = 'bgrcmyk'
 thehatches = ['', '//', '.', 'o', '*', r'\\']
 def getstyle(i):
+    print i
     return thecolors[i % len(thecolors)], thehatches[i // len(thecolors)]
 
 for rank, rootnode in enumerate(alltimings):
@@ -168,9 +185,9 @@ for rank, rootnode in enumerate(alltimings):
             styles[child.name] = color, hatch
         
         color, hatch = styles[child.name]
-        centerx = child.t1 + child.dt * 0.5
+        centerx = (child.t1-rootnode.reft) + child.dt * 0.5
         centery = child.level + 0.5
-        x = [child.t1, child.t2, child.t2, child.t1]
+        x = [(child.t1-rootnode.reft), (child.t2-rootnode.reft), (child.t2-rootnode.reft), (child.t1-rootnode.reft)]
         y = [child.level, child.level, child.level + 1, child.level + 1]
         # hardcoded to max 5.  Graphs will overlap if larger.
         compression = 5.0
