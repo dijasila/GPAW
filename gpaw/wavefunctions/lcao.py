@@ -170,17 +170,19 @@ class LCAOWaveFunctions(WaveFunctions):
         self.T_qMM = T_qMM
 
     def initialize(self, density, hamiltonian, spos_ac):
+        self.timer.start('LCAO WFS Initialize')
         if density.nt_sG is None:
             if self.kpt_u[0].f_n is None or self.kpt_u[0].C_nM is None:
                 density.initialize_from_atomic_densities(self.basis_functions)
-                # Initialize GLLB-potential from basis function orbitals
-                if hamiltonian.xc.type == 'GLLB':
-                    hamiltonian.xc.initialize_from_atomic_orbitals(self.basis_functions)
             else:
                 # We have the info we need for a density matrix, so initialize
                 # from that instead of from scratch.  This will be the case
                 # after set_positions() during a relaxation
                 density.initialize_from_wavefunctions(self)
+            # Initialize GLLB-potential from basis function orbitals
+            if hamiltonian.xc.type == 'GLLB':
+                hamiltonian.xc.initialize_from_atomic_orbitals(self.basis_functions)
+
         else:
             # After a restart, nt_sg doesn't exist yet, so we'll have to
             # make sure it does.  Of course, this should have been taken care
@@ -188,6 +190,7 @@ class LCAOWaveFunctions(WaveFunctions):
             density.calculate_normalized_charges_and_mix()
         print "Updating hamiltonian in LCAO initialize wfs"
         hamiltonian.update(density)
+        self.timer.stop('LCAO WFS Initialize')
            
     def calculate_density_matrix(self, f_n, C_nM, rho_MM=None):
         # ATLAS can't handle uninitialized output array:
@@ -242,6 +245,7 @@ class LCAOWaveFunctions(WaveFunctions):
                     d_nn += ne * np.outer(c_n.conj(), c_n).real
                 rho_MM += self.calculate_density_matrix_delta(d_nn, kpt.C_nM)
         else:
+            print "rho_MM not NONE"
             rho_MM = kpt.rho_MM
         self.timer.start('Construct density')
         self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.q)

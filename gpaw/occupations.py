@@ -23,6 +23,10 @@ class OccupationNumbers:
         self.nvalence = None    # number of electrons
         self.split = 0.0        # splitting of Fermi levels from fixmagmom=True
         self.niter = 0          # number of iterations for finding Fermi level
+        self.ready = False
+
+    def is_ready(self):
+        return self.ready
         
     def calculate(self, wfs):
         """Calculate everything.
@@ -62,6 +66,7 @@ class OccupationNumbers:
 
     def set_number_of_electrons(self, wfs):
         self.nvalence = wfs.nvalence
+        self.ready = True
 
     def calculate_occupation_numbers(self, wfs):
         raise NotImplementedError
