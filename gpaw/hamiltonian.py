@@ -84,6 +84,10 @@ class Hamiltonian:
         self.Etot = None
         self.S = None
 
+        self.ref_vt_sG = None
+        self.ref_dH_asp = None
+
+
     def summary(self, fd):
         fd.write('XC and Coulomb potentials evaluated on a %d*%d*%d grid\n' %
                  tuple(self.finegd.N_c))
@@ -308,6 +312,24 @@ class Hamiltonian:
                      self.Ebar + self.Exc - self.S)
 
         return self.Etot
+
+    def linearize_to_xc(self, new_xc, density):
+        # Store old hamiltonian
+        ref_vt_sG = self.vt_sG.copy()
+        ref_dH_asp = {}
+        for a, dH_sp in self.dH_asp.items():
+            ref_dH_asp[a] = dH_sp.copy()
+        self.xc = new_xc
+        self.xc.set_positions(self.spos_ac)
+        self.update(density)
+
+        ref_vt_sG -= self.vt_sG
+        for a, dH_sp in self.dH_asp.items():
+            ref_dH_asp[a] -= dH_sp
+        self.ref_vt_sG = ref_vt_sG
+        self.ref_dH_asp = ref_dH_asp
+
+
 
     def calculate_forces(self, dens, F_av):
         ghat_aLv = dens.ghat.dict(derivative=True)
@@ -543,10 +565,14 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         Ekin = 0.0
         s = 0
-        for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
+        for s, (vt_g, vt_G, nt_G) in enumerate(zip(self.vt_sg, self.vt_sG, density.nt_sG)):
             if s < self.nspins:
                 vt_g += self.vHt_g
+
             self.restrict(vt_g, vt_G)
+            if self.ref_vt_sG is not None:
+                vt_G += self.ref_vt_sG[s]
+
             if s < self.nspins:
                 Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
                                           global_integral=False)
