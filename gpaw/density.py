@@ -51,6 +51,7 @@ class Density:
 
         self.collinear = collinear
         self.ncomp = 2 - int(collinear)
+        self.ns = self.nspins * self.ncomp**2
 
         self.charge_eps = 1e-7
         
@@ -104,8 +105,7 @@ class Density:
             self.timer.start('Redistribute')
             def get_empty(a):
                 ni = self.setups[a].ni
-                return np.empty((self.nspins * self.ncomp**2,
-                                 ni * (ni + 1) // 2))
+                return np.empty((self.ns, ni * (ni + 1) // 2))
             self.atom_partition.redistribute(atom_partition, self.D_asp,
                                              get_empty)            
             self.timer.stop('Redistribute')
@@ -208,8 +208,7 @@ class Density:
             M_v = self.magmom_av[a]
             M = (M_v**2).sum()**0.5
             f_si = self.setups[a].calculate_initial_occupation_numbers(
-                    M, self.hund, charge=c,
-                    nspins=self.nspins * self.ncomp)
+                    M, self.hund, charge=c, nspins=self.nspins * self.ncomp)
 
             if self.collinear:
                 if M_v[2] < 0:
@@ -227,7 +226,7 @@ class Density:
             
             f_asi[a] = f_si
 
-        self.nt_sG = self.gd.zeros(self.nspins * self.ncomp**2)
+        self.nt_sG = self.gd.zeros(self.ns)
         basis_functions.add_to_density(self.nt_sG, f_asi)
         self.nt_sG[:self.nspins] += self.nct_G
         self.calculate_normalized_charges_and_mix()
@@ -235,7 +234,7 @@ class Density:
     def initialize_from_wavefunctions(self, wfs):
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
         self.timer.start("Density initialize from wavefunctions")
-        self.nt_sG = self.gd.empty(self.nspins * self.ncomp**2)
+        self.nt_sG = self.gd.empty(self.ns)
         self.calculate_pseudo_density(wfs)
         self.D_asp = {}
         my_atom_indices = np.argwhere(wfs.rank_a == self.gd.comm.rank).ravel()

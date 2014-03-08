@@ -142,14 +142,11 @@ class C_Response(Contribution):
         # okay, this is a bit hacky since we have to call this from
         # several different places.  Maybe Mikael can figure out something
         # smarter.  -Ask
-        Drespdist_asp = Dresp_asp.copy()
-        def get_empty(a):
-            ni = self.setups[a].ni
-            return np.empty((self.nlfunc.nspins, ni * (ni + 1) // 2))
-
-        self.density.atom_partition.to_even_distribution(Drespdist_asp,
-                                                         get_empty)
-        return Drespdist_asp
+        from gpaw.utilities.partition import AtomicMatrixDistributor
+        d = AtomicMatrixDistributor(self.density.atom_partition,
+                                    self.density.setups, self.kpt_comm,
+                                    self.band_comm, self.density.ns)
+        return d.distribute(Dresp_asp)
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         # Get the XC-correction instance

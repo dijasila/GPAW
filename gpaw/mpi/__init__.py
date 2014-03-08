@@ -873,11 +873,8 @@ class Parallelization:
             # Offset for the next communicator
             offset += communicators[name].rank * stride
 
-        # return domain_comm, kpt_comm, band_comm
         return (communicators['domain'], communicators['k-point'], 
                 communicators['band'])
-
-        return domain_comm, kpt_comm, band_comm
     
     def autofinalize(self):
         if self.kpt is None:

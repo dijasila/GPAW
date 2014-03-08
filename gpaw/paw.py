@@ -199,8 +199,6 @@ class PAW(PAWTextOutput):
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
                          'parallel', 'communicator', 'dtype', 'mode']:
-                if mpi.world.rank == 0:
-                    print "Removing density"
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
@@ -738,15 +736,17 @@ class PAW(PAWTextOutput):
             gd, finegd = self.density.gd, self.density.finegd
             if realspace:
                 self.hamiltonian = RealSpaceHamiltonian(
-                    gd, finegd, nspins, setups, self.timer, xc, par.external,
-                    collinear, par.poissonsolver, par.stencils[1], world)
+                    gd, finegd, nspins, setups, self.timer, xc, 
+                    world, self.wfs.kd.comm, self.wfs.bd.comm, par.external,
+                    collinear, par.poissonsolver, par.stencils[1])
             else:
                 self.hamiltonian = ReciprocalSpaceHamiltonian(
                     gd, finegd,
                     self.density.pd2, self.density.pd3,
-                    nspins, setups, self.timer, xc, par.external,
-                    collinear, world)
-            
+                    nspins, setups, self.timer, xc,
+                    world, self.wfs.kd.comm, self.wfs.bd.comm, 
+                    par.external, collinear)
+        
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
 

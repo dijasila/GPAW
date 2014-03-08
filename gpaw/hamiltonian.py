@@ -13,7 +13,7 @@ from gpaw.transformers import Transformer
 from gpaw.lfc import LFC
 from gpaw.utilities import pack2, unpack, unpack2
 from gpaw.io import read_atomic_matrices
-from gpaw.utilities.partition import AtomPartition
+from gpaw.utilities.partition import AtomPartition, AtomicMatrixDistributor
 
 
 class Hamiltonian:
@@ -53,7 +53,8 @@ class Hamiltonian:
     """
 
     def __init__(self, gd, finegd, nspins, setups, timer, xc,
-                 vext=None, collinear=True, world=None):
+                 world, kcomm, bcomm,
+                 vext=None, collinear=True):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -63,7 +64,10 @@ class Hamiltonian:
         self.xc = xc
         self.collinear = collinear
         self.ncomp = 2 - int(collinear)
+        self.ns = self.nspins * self.ncomp**2
         self.world = world
+        self.kcomm = kcomm
+        self.bcomm = bcomm
         
         self.dH_asp = None
 
@@ -115,14 +119,18 @@ class Hamiltonian:
             self.timer.start('Redistribute')
             def get_empty(a):
                 ni = self.setups[a].ni
-                return np.empty((self.nspins * self.ncomp**2,
-                                 ni * (ni + 1) // 2))
+                return np.empty((self.ns, ni * (ni + 1) // 2))
             self.atom_partition.redistribute(atom_partition, self.dH_asp,
                                              get_empty)
             self.timer.stop('Redistribute')
 
         self.rank_a = rank_a
         self.atom_partition = atom_partition
+        self.dh_distributor = AtomicMatrixDistributor(atom_partition,
+                                                      self.setups,
+                                                      self.kcomm, self.bcomm,
+                                                      self.ns)
+
 
     def aoom(self, DM, a, l, scale=1):
         """Atomic Orbital Occupation Matrix.
@@ -191,9 +199,9 @@ class Hamiltonian:
 
         if self.vt_sg is None:
             self.timer.start('Initialize Hamiltonian')
-            self.vt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
+            self.vt_sg = self.finegd.empty(self.ns)
             self.vHt_g = self.finegd.zeros()
-            self.vt_sG = self.gd.empty(self.nspins * self.ncomp**2)
+            self.vt_sG = self.gd.empty(self.ns)
             self.poisson.initialize()
             self.timer.stop('Initialize Hamiltonian')
 
@@ -270,28 +278,31 @@ class Hamiltonian:
                     H_p[:] = pack2(Htemp)
 
             dH_sp[:self.nspins] += dH_p
-            # We are not yet done with dH_sp; still need XC correction
+            # We are not yet done with dH_sp; still need XC correction below
 
-        def get_empty(a):
-            ni = self.setups[a].ni
-            return np.empty((self.nspins * self.ncomp**2,
-                             ni * (ni + 1) // 2))
-
-        # XXX Need/want band comm also!!!!  But have to mind the spin...
-        Ddist_asp = density.D_asp.copy()
-        self.atom_partition.to_even_distribution(Ddist_asp, get_empty)
-
+        Ddist_asp = self.dh_distributor.distribute(density.D_asp)
+        
         dHdist_asp = {}
+        Exca = 0.0
         self.timer.start('XC Correction')
         for a, D_sp in Ddist_asp.items():
             setup = self.setups[a]
             dH_sp = np.zeros_like(D_sp)
-            Exc += self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
+            Exca += self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
             # XXX Exc are added on the "wrong" distribution; sum only works
             # when gd.comm and distribution comm are the same
             dHdist_asp[a] = dH_sp
         self.timer.stop('XC Correction')
-        self.atom_partition.from_even_distribution(dHdist_asp, get_empty)
+        
+        dHdist_asp = self.dh_distributor.collect(dHdist_asp)
+
+        # Exca has contributions from all cores so modify it so it is
+        # parallel in the same way as the other energies.
+        Exca = self.world.sum(Exca)
+        if self.gd.comm.rank == 0:
+            Exc += Exca
+        
+        assert len(dHdist_asp) == len(self.atom_partition.my_indices)
 
         for a, D_sp in density.D_asp.items():
             dH_sp = dH_asp[a]
@@ -304,7 +315,7 @@ class Hamiltonian:
         #xcfunc = self.xc.xcfunc
         self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
         Ekin += self.xc.get_kinetic_energy_correction() / self.gd.comm.size
-
+        
         energies = np.array([Ekin, Epot, Ebar, Eext, Exc])
         self.timer.start('Communicate energies')
         self.gd.comm.sum(energies)
@@ -507,10 +518,12 @@ class Hamiltonian:
 
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, setups, timer, xc,
+                 world, kcomm, bcomm,
                  vext=None, collinear=True, psolver=None, 
-                 stencil=3, world=None):
+                 stencil=3):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
-                             vext, collinear, world)
+                             world, kcomm, bcomm,
+                             vext, collinear)
 
         # Solver for the Poisson equation:
         if psolver is None:
