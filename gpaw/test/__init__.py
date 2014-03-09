@@ -55,8 +55,6 @@ def wrap_pylab(names=[]):
 
 
 tests = [
-    'lcao_tddft_restart.py', # XXX Branch tests first, move further and simplify when merging to trunk 
-    'lcao_tddft.py',
     'gemm_complex.py',
     'mpicomm.py',
     'ase3k_version.py',
@@ -211,7 +209,7 @@ tests = [
     'h2o_xas_recursion.py',
     'diamond_eps.py',
     'gemm.py',
-    'excited_state.py',
+    #'excited_state.py', XXX Disabled temporarily
     # > 20 sec tests start here
     'rpa_energy_Ni.py',
     'si.py',
