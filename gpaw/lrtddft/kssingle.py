@@ -55,9 +55,10 @@ class KSSingles(ExcitationList):
             return None
 
         # LCAO calculation requires special actions
-        self.lcao = calculator.input_parameters.mode == 'lcao'
-        if self.lcao:
-            print >> txt, "LR-TDDFT calculation from LCAO orbitals"
+        if calculator is not None:
+            self.lcao = calculator.input_parameters.mode == 'lcao'
+            if self.lcao:
+                print >> txt, "LR-TDDFT calculation from LCAO orbitals"
 
 
         ExcitationList.__init__(self, calculator, txt=txt)
