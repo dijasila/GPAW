@@ -108,18 +108,17 @@ class LCAOTDDFT(GPAW):
         self.kick_strength = [0.0, 0.0, 0.0]
         self.tddft_initialized = False
         self.fxc = fxc
-
-
-        # XXX Make propagator class
-        plist = {'cn': self.linear_propagator, # Doesn't work with blacs yet
-                 'taylor': self.taylor_propagator} # Not very good, but works with blacs.
-        self.propagator_text = propagator
-        self.propagator = plist[self.propagator_text]
+        self.propagator = propagator
 
         # Restarting from a file
         if filename is not None:
             self.initialize()
             self.set_positions()
+
+    def propagate_wfs(self, sourceC_nm, targetC_nm, S_MM, H_MM, dt):
+        if self.propagator == 'cn':
+            return self.linear_propagator(sourceC_nm, targetC_nm, S_MM, H_MM, dt)
+        raise NotImplementedError
 
     def linear_propagator(self, sourceC_nM, targetC_nM, S_MM, H_MM, dt):
         self.timer.start('Linear solve')
@@ -304,7 +303,7 @@ class LCAOTDDFT(GPAW):
         for k, kpt in enumerate(self.wfs.kpt_u):
             Vkick_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(kick_hamiltonian, self.wfs, kpt, add_kinetic=False, root=-1)
             for i in range(10):
-                self.propagator(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
+                self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
         self.timer.stop('Kick')
 
     def blacs_mm_to_global(self, H_mm):
@@ -357,7 +356,7 @@ class LCAOTDDFT(GPAW):
                     scalapack_zero(self.mm_block_descriptor, kpt.S_MM,'U')
                     scalapack_zero(self.mm_block_descriptor, kpt.T_MM,'U')
 
-                if self.propagator_text == 'taylor' and self.blacs: # XXX to propagator class
+                if self.propagator == 'taylor' and self.blacs: # XXX to propagator class
                     cholS_mm = self.mm_block_descriptor.empty(dtype=complex)
                     for kpt in self.wfs.kpt_u:
                         kpt.invS_MM = kpt.S_MM.copy()
@@ -381,7 +380,7 @@ class LCAOTDDFT(GPAW):
                         self.timer.stop('Invert overlap (serial)')
                         if world.rank == 0:
                             print "XXX Overlap inverted."
-                if self.propagator_text == 'taylor' and not self.blacs:
+                if self.propagator == 'taylor' and not self.blacs:
                     tmp = inv(self.wfs.kpt_u[0].S_MM)
                     self.wfs.kpt_u[0].invS = tmp
 
@@ -466,7 +465,7 @@ class LCAOTDDFT(GPAW):
                 kpt.H0_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
                 if self.fxc is not None:
                     kpt.H0_MM += kpt.deltaXC_H_MM
-                self.propagator(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
+                self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
             # ----------------------------------------------------------------------------
             # Propagator step
             # ----------------------------------------------------------------------------
@@ -486,7 +485,7 @@ class LCAOTDDFT(GPAW):
                                              self.hamiltonian, self.wfs, kpt, root=-1)
 
                 # 3. Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt) = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
-                self.propagator(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
+                self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
 
             steps += 1
             self.time += dt
