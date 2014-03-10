@@ -19,7 +19,6 @@ from gpaw.utilities.tools import construct_reciprocal
 import gpaw.mpi as mpi
 import _gpaw
 
-
 class PoissonSolver:
     def __init__(self, nn=3, relax='J', eps=2e-10, remove_moment=None):
         self.relax = relax
@@ -338,6 +337,8 @@ class PoissonFFTSolver(PoissonSolver):
     description = 'FFT solver of the first kind'
 
     def __init__(self):
+        # Note: Not calling PoissonSolver.__init__
+        self.remove_moment = None
         self.charged_periodic_correction = None
 
     def initialize(self, gd, load_gauss=False):
@@ -370,6 +371,7 @@ class FFTPoissonSolver(PoissonSolver):
 
     def __init__(self, eps=2e-10):
         self.charged_periodic_correction = None
+        self.remove_moment = None
         self.eps = eps
 
     def set_grid_descriptor(self, gd):
