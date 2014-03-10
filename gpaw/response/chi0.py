@@ -2,8 +2,7 @@
 from __future__ import print_function
 
 import sys
-from math import pi
-from time import time, ctime
+from time import ctime
 
 import numpy as np
 from ase.units import Hartree
@@ -212,7 +211,7 @@ class Chi0(PairDensity):
             if w + 2 > len(self.omega_w):
                 break
             o1, o2 = self.omega_w[w:w + 2]
-            assert o1 < o < o2, (o1,o,o2)
+            assert o1 <= o <= o2, (o1, o, o2)
             p = self.prefactor * abs(df) / (o2 - o1)**2  # XXX abs()?
             czher(p * (o2 - o), n_G.conj(), chi0_wGG[w])
             czher(p * (o - o1), n_G.conj(), chi0_wGG[w + 1])
@@ -269,7 +268,8 @@ class Chi0(PairDensity):
                                 
             for m in range(deg):
                 velm_v = vel_mv[m]
-                x_vv = - self.prefactor * dfde_m[inds_m[m]] * np.outer(velm_v.conj(),velm_v)
+                x_vv = (-self.prefactor * dfde_m[inds_m[m]] *
+                        np.outer(velm_v.conj(), velm_v))
                 
                 for w, omega in enumerate(self.omega_w):
                     chi0_wvv[w, :, :] += x_vv / omega**2.0
@@ -296,8 +296,9 @@ class Chi0(PairDensity):
         print('%s' %(ctime()), file=self.fd)
         print('Called response.chi0.calculate with', file=self.fd)
         print('    q_c: [%f, %f, %f]' %(q_c[0], q_c[1], q_c[2]), file=self.fd)
-        print('    [min(freq), max(freq)]: [%f, %f]' 
-              %(np.min(self.omega_w) * Hartree, np.max(self.omega_w) * Hartree), file=self.fd)
+        print('    [min(freq), max(freq)]: [%f, %f]' %
+              (np.min(self.omega_w) * Hartree, np.max(self.omega_w) * Hartree),
+              file=self.fd)
         print('    Number of frequency points   : %d' %(nw), file=self.fd)
         print('    Planewave cutoff: %f' %(self.ecut*Hartree), file=self.fd)
         print('    Number of spins: %d' %(ns), file=self.fd)
@@ -308,9 +309,12 @@ class Chi0(PairDensity):
         print('', file=self.fd)
         print('    Related to parallelization', file=self.fd)
         print('        world.size: %d' %(world.size), file=self.fd)
-        print('        Number of completely occupied states: %d' %(self.nocc1), file=self.fd)
-        print('        Number of partially occupied states: %d' %(self.nocc2), file=self.fd)
-        print('        Number of terms handled in chi-sum by each rank: %d' %(nstat), file=self.fd)
+        print('        Number of completely occupied states: %d' % self.nocc1,
+              file=self.fd)
+        print('        Number of partially occupied states: %d' % self.nocc2,
+              file=self.fd)
+        print('        Number of terms handled in chi-sum by each rank: %d' %
+              nstat, file=self.fd)
         print('', file=self.fd)
         print('    Related to hilbert transform:', file=self.fd)
         print('        Use Hilbert Transform: %s' %(self.hilbert), file=self.fd)
@@ -400,4 +404,3 @@ if __name__ == '__main__':
     plt.plot(omega_w, Xh_w.real, label='ReXh')
     plt.legend()
     plt.show()
-
