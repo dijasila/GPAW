@@ -157,7 +157,7 @@ class Chi0(PairDensity):
                 if kpt1.n1 == 0: 
                     self.update_intraband(kpt2, chi0_wvv)
             
-            if kn % (len(self.mykpts) // 10) == 1 and self.world.rank == 0:
+            if len(self.mykpts) > 10 and kn % (len(self.mykpts) // 10) == 1 and self.world.rank == 0:
                 print('    %s, local Kpoint no: %d / %d ' %(ctime(), kpt1.K, len(self.mykpts)), file=self.fd)
 
         print('    %s, Finished kpoint sum' %(ctime()), file=self.fd)
