@@ -13,6 +13,7 @@ from gpaw.utilities.blas import gemm, rk, czher
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.utilities.memory import maxrss
 
 
 def frequency_grid(domega0, omegamax, alpha):
@@ -59,8 +60,7 @@ class Chi0(PairDensity):
         # Occupied states:
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
         self.distribute_k_points_and_bands(self.nocc2)
-        self.mykpts = [self.get_k_point(s, K, n1, n2)
-                       for s, K, n1, n2 in self.mysKn1n2]
+        self.mykpts = None
 
         self.nbands = nbands or self.calc.wfs.bd.nbands
 
@@ -83,7 +83,9 @@ class Chi0(PairDensity):
         self.print_chi(pd)
 
         if extra_parameters.get('df_dry_run'):
+            print('    Dry run exit', file=self.fd)
             raise SystemExit
+
         nG = pd.ngmax
         nw = len(self.omega_w)
         chi0_wGG = np.zeros((nw, nG, nG), complex)
@@ -94,9 +96,9 @@ class Chi0(PairDensity):
         else:
             chi0_wxvG = None
             chi0_wvv = None
-        
-        Q_aGii = self.initialize_paw_corrections(pd)
         print('    Initializing PAW Corrections', file=self.fd)
+        Q_aGii = self.initialize_paw_corrections(pd)
+        print('        Done.', file=self.fd)
 
         # Do all empty bands:
         m1 = self.nocc1
@@ -108,6 +110,12 @@ class Chi0(PairDensity):
                    m1, m2, spins):
         wfs = self.calc.wfs
 
+        if self.mykpts is None:
+            self.mykpts = [self.get_k_point(s, K, n1, n2)
+                           for s, K, n1, n2 in self.mysKn1n2]
+
+        numberofkpts = len(self.mykpts)
+
         if self.eta == 0.0:
             update = self.update_hermitian
         elif self.hilbert:
@@ -117,7 +125,8 @@ class Chi0(PairDensity):
 
         q_c = pd.kd.bzk_kc[0]
         optical_limit = np.allclose(q_c, 0.0)
-        print('    Starting summation', file=self.fd)
+
+        print('\n    Starting summation', file=self.fd)
         # kpt1 occupied and kpt2 empty:
         for kn, kpt1 in enumerate(self.mykpts):
             if not kpt1.s in spins:
@@ -151,15 +160,19 @@ class Chi0(PairDensity):
                 update(n_mG, deps_m, df_m, chi0_wGG)
             
             if optical_limit:
-                # Avoid that more ranks are summing up 
+                # Avoid that more ranks are summing up
                 # the intraband contributions
-                if kpt1.n1 == 0: 
+                if kpt1.n1 == 0:
                     self.update_intraband(kpt2, chi0_wvv)
             
-            if len(self.mykpts) > 10 and kn % (len(self.mykpts) // 10) == 1 and self.world.rank == 0:
-                print('    %s, local Kpoint no: %d / %d ' %(ctime(), kpt1.K, len(self.mykpts)), file=self.fd)
+            if numberofkpts > 10 and kn % (numberofkpts // 10) == 0:
+                print('    %s,' % ctime() +
+                      ' local Kpoint no: %d / %d,' % (kn, numberofkpts) +
+                      '\n        mem. used.: ' +
+                      '%f M / cpu' % (maxrss() / 1024**2),
+                      file=self.fd)
 
-        print('    %s, Finished kpoint sum' %(ctime()), file=self.fd)
+        print('    %s, Finished kpoint sum' % ctime(), file=self.fd)
         self.world.sum(chi0_wGG)
         if optical_limit:
             self.world.sum(chi0_wxvG)
@@ -212,6 +225,7 @@ class Chi0(PairDensity):
                 break
             o1, o2 = self.omega_w[w:w + 2]
             assert o1 <= o <= o2, (o1, o, o2)
+
             p = self.prefactor * abs(df) / (o2 - o1)**2  # XXX abs()?
             czher(p * (o2 - o), n_G.conj(), chi0_wGG[w])
             czher(p * (o - o1), n_G.conj(), chi0_wGG[w + 1])
@@ -237,11 +251,6 @@ class Chi0(PairDensity):
             chi0_wxvG[w, 1, :, 1:] += np.dot(x_m * n0_mv.T.conj(), n_mG[:, 1:])
 
     def update_intraband(self, kpt, chi0_wvv):
-        kd = self.calc.wfs.kd
-        gd = self.calc.wfs.gd
-        k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
-        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
-
         # Check whether there is any partly occupied bands
         width = self.calc.occupations.width
         dfde_m = - 1. / width * (kpt.f_n - kpt.f_n**2.0)
@@ -250,7 +259,7 @@ class Chi0(PairDensity):
             return
         
         # Break bands into degenerate chunks
-        deginds_cm = [] # indexing c as chunk number
+        deginds_cm = []  # indexing c as chunk number
         for m in range(kpt.n2 - kpt.n1):
             inds_m = np.nonzero(np.abs(kpt.eps_n[m] - kpt.eps_n) < 1e-5)[0]
             if m == np.min(inds_m) and partocc_m[m]:
@@ -270,7 +279,7 @@ class Chi0(PairDensity):
                 velm_v = vel_mv[m]
                 x_vv = (-self.prefactor * dfde_m[inds_m[m]] *
                         np.outer(velm_v.conj(), velm_v))
-                
+
                 for w, omega in enumerate(self.omega_w):
                     chi0_wvv[w, :, :] += x_vv / omega**2.0
 
@@ -291,44 +300,52 @@ class Chi0(PairDensity):
 
         nw = len(self.omega_w)
         q_c = pd.kd.bzk_kc[0]
-        nstat = (ns * nk * nb + world.size - 1) // world.size 
+        nstat = (ns * nk * nb + world.size - 1) // world.size
 
-        print('%s' %(ctime()), file=self.fd)
+        print('%s' % ctime(), file=self.fd)
         print('Called response.chi0.calculate with', file=self.fd)
-        print('    q_c: [%f, %f, %f]' %(q_c[0], q_c[1], q_c[2]), file=self.fd)
-        print('    [min(freq), max(freq)]: [%f, %f]' %
-              (np.min(self.omega_w) * Hartree, np.max(self.omega_w) * Hartree),
-              file=self.fd)
-        print('    Number of frequency points   : %d' %(nw), file=self.fd)
-        print('    Planewave cutoff: %f' %(self.ecut*Hartree), file=self.fd)
-        print('    Number of spins: %d' %(ns), file=self.fd)
-        print('    Number of bands: %d' %(self.nbands), file=self.fd)
-        print('    Number of kpoints: %d' %(nk), file=self.fd)
-        print('    Number of planewaves: %d' %(pd.ngmax), file=self.fd)
-        print('    Broadening (eta): %f' %(self.eta * Hartree), file=self.fd)
+        print('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]), file=self.fd)
+        print('    [min(freq), max(freq)]: [%f, %f]'
+              % (np.min(self.omega_w) * Hartree,
+                 np.max(self.omega_w) * Hartree), file=self.fd)
+        print('    Number of frequency points   : %d' % nw, file=self.fd)
+        print('    Planewave cutoff: %f' % (self.ecut * Hartree), file=self.fd)
+        print('    Number of spins: %d' % ns, file=self.fd)
+        print('    Number of bands: %d' % self.nbands, file=self.fd)
+        print('    Number of kpoints: %d' % nk, file=self.fd)
+        print('    Number of planewaves: %d' % pd.ngmax, file=self.fd)
+        print('    Broadening (eta): %f' % (self.eta * Hartree), file=self.fd)
+
         print('', file=self.fd)
         print('    Related to parallelization', file=self.fd)
-        print('        world.size: %d' %(world.size), file=self.fd)
-        print('        Number of completely occupied states: %d' % self.nocc1,
-              file=self.fd)
-        print('        Number of partially occupied states: %d' % self.nocc2,
-              file=self.fd)
-        print('        Number of terms handled in chi-sum by each rank: %d' %
-              nstat, file=self.fd)
+        print('        world.size: %d' % world.size, file=self.fd)
+        print('        Number of completely occupied states: %d'
+              % self.nocc1, file=self.fd)
+        print('        Number of partially occupied states: %d'
+              % self.nocc2, file=self.fd)
+        print('        Number of terms handled in chi-sum by each rank: %d'
+              % nstat, file=self.fd)
+
         print('', file=self.fd)
         print('    Related to hilbert transform:', file=self.fd)
-        print('        Use Hilbert Transform: %s' %(self.hilbert), file=self.fd)
-        print('        Calculate time-ordered Response Function: %s' %(self.timeordered), file=self.fd)
-        print('        domega0: %f' %(self.domega0 * Hartree), file=self.fd)
-        print('        omegamax: %f' %(self.omegamax * Hartree), file=self.fd)
-        print('        alpha: %f' %(self.alpha), file=self.fd)
+        print('        Use Hilbert Transform: %s' % self.hilbert, file=self.fd)
+        print('        Calculate time-ordered Response Function: %s'
+              % self.timeordered, file=self.fd)
+        print('        domega0: %f' % (self.domega0 * Hartree), file=self.fd)
+        print('        omegamax: %f' % (self.omegamax * Hartree), file=self.fd)
+        print('        alpha: %f' % self.alpha, file=self.fd)
+
         print('', file=self.fd)
         print('    Memory estimate:', file=self.fd)
-        print('        chi0_wGG: %f M / cpu' %(nw * pd.ngmax**2 * 32. / 1024**2), file=self.fd)
-        
+        print('        chi0_wGG: %f M / cpu'
+              % (nw * pd.ngmax**2 * 32. / 1024**2), file=self.fd)
         if np.allclose(q_c, 0.0):
-            print('        ut_sKnvR: %f M / cpu' %(nstat * 3 * gd.N_c[0] * gd.N_c[1] 
-                                                   * gd.N_c[2] * 32. / 1024**2), file=self.fd)
+            print('        ut_sKnvR: %f M / cpu'
+                  % (nstat * 3 * gd.N_c[0] * gd.N_c[1]
+                     * gd.N_c[2] * 32. / 1024**2), file=self.fd)
+        print('        Max mem sofar   : %f M / cpu'
+              % (maxrss() / 1024**2), file=self.fd)
+
         print('', file=self.fd)
 
 
@@ -387,7 +404,7 @@ if __name__ == '__main__':
                  1 / (omega_w - o + 1j * eta)) / o**2
         w = int(-o / do / (1 + 3 * -o / 10))
         o1, o2 = omega_w[w:w + 2]
-        assert o1 - 1e-12 <= -o <= o2 + 1e-12, (o1,-o,o2)
+        assert o1 - 1e-12 <= -o <= o2 + 1e-12, (o1, -o, o2)
         p = 1 / (o2 - o1)**2 / o**2
         Xh_w[w] += p * (o2 - -o)
         Xh_w[w + 1] += p * (-o - o1)

@@ -13,6 +13,7 @@ from gpaw.fd_operators import Gradient
 from gpaw.wavefunctions.pw import PWLFC
 from gpaw.response.math_func import two_phi_planewave_integrals
 
+
 class KPoint:
     def __init__(self, s, K, n1, n2, ut_nR, eps_n, f_n, P_ani, shift_c):
         self.s = s    # spin index
@@ -109,7 +110,6 @@ class PairDensity:
              (ns, nk, nbands),
              'over %d process%s' %
               (world.size, ['es', ''][world.size == 1]), file=self.fd)
-        
         
     def get_k_point(self, s, K, n1, n2):
         """Return wave functions for a specific k-point and spin.
@@ -283,16 +283,15 @@ class PairDensity:
         return Q_aGii
 
     def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG):
-        if self.ut_sKnvR is None:
-            print('    Calculating derivatives of occupied wavefunctions...', file=self.fd)
-            self.ut_sKnvR = self.calculate_derivatives()
-            print('        Done.', file=self.fd)
+        if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
+            self.ut_sKnvR = self.calculate_derivatives(kpt1)
+
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
         k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
 
-        ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]  
+        ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]
         atomdata_a = self.calc.wfs.setups
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
@@ -325,7 +324,7 @@ class PairDensity:
         nabla0_mmv = np.zeros((npartocc, npartocc, 3), dtype=complex)
         for m in range(npartocc):
             ut_vR = ut_mvR[m]
-            C_avi = [np.dot(atomdata.nabla_iiv.T, P_mi[inds_m[m]])  
+            C_avi = [np.dot(atomdata.nabla_iiv.T, P_mi[inds_m[m]])
                      for atomdata, P_mi in zip(atomdata_a, kpt.P_ani)]
 
             nabla0_mv = -self.calc.wfs.gd.integrate(ut_vR, ut_mR).T
@@ -339,11 +338,10 @@ class PairDensity:
 
         return nabla0_mmv
 
-    def calculate_derivatives(self):
+    def calculate_derivatives(self, kpt):
         ut_sKnvR = [{}, {}]
-        for s, K, n1, n2 in self.mysKn1n2:
-            ut_nvR = self.make_derivative(s, K, n1, n2)
-            ut_sKnvR[s][K] = ut_nvR
+        ut_nvR = self.make_derivative(kpt.s, kpt.K, kpt.n1, kpt.n2)
+        ut_sKnvR[kpt.s][kpt.K] = ut_nvR
             
         return ut_sKnvR
 
