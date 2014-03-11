@@ -11,6 +11,7 @@ Compare results to::
 
 import ase.db
 from ase import Atoms
+from ase.structure import molecule
 from ase.data.g2_1_ref import diatomic, ex_atomization
 
 from gpaw import GPAW, PW
@@ -34,7 +35,7 @@ extra = {
                    (-0.6276, -0.6276, 0.6276)]),
    'NH3': ('NH3', [(0.0000, 0.0000, 0.0000),
                    (0.0000, -0.9377, -0.3816),
-                   (0.8121,  0.4689, -0.3816),
+                   (0.8121, 0.4689, -0.3816),
                    (-0.8121, 0.4689, -0.3816)]),
    'H2O': ('OH2', [(0.0000, 0.0000, 0.1173),
                    (0.0000, 0.7572, -0.4692),
@@ -57,6 +58,10 @@ extra = {
 c = ase.db.connect('results.db')
 
 for name in ex_atomization.keys() + 'H Li B C N O F Cl P'.split():
+    id = c.reserve(name=name)
+    if id is None:
+        continue
+        
     if name in extra:
         a = Atoms(*extra[name])
     else:
@@ -74,3 +79,5 @@ for name in ex_atomization.keys() + 'H Li B C N O F Cl P'.split():
     eexx = exx.get_total_energy()
 
     c.write(a, name=name, exx=eexx)
+    del c[id]
+    

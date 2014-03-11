@@ -94,7 +94,7 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
 
     data = {}
     for k, point in enumerate('GXL'):
-        data[point] = [eps_kn[k, 1] - eps_kn[0, 0],
+        data[point] = [eps_kn[k][1] - eps_kn[0][0],
                        eps0_kn[k, 1] - eps0_kn[0, 0]]
         data[point] += bfb[name][2 + k * 4:6 + k * 4]
         if name == 'Ar':
