@@ -40,8 +40,9 @@ class G0W0(PairDensity):
         if ppa:
             print('Using Godby-Needs plasmon-pole approximation:',
                   file=self.fd)
-            print('    E0={%.3f}i Hartee' % self.E0, file=self.file)
-            self.omega_w = np.array([0, 1j * self.E0])
+            print('    E0 = %.3fi Hartee' % self.E0, file=self.fd)
+            # use small imaginare frequency to avoid dividing by zero:
+            self.omega_w = np.array([1e-10j, 1j * self.E0])
         else:
             self.omega_w = frequency_grid(self.domega0, self.omegamax, alpha)
         
@@ -233,9 +234,13 @@ class G0W0(PairDensity):
         
         if self.ppa:
             parameters = {'eta': 0,
+                          'hilbert': False,
+                          'timeordered': False,
                           'frequencies': self.omega_w * Hartree}
         else:
             parameters = {'eta': self.eta * Hartree,
+                          'hilbert': self.hilbert,
+                          'timeordered': True,
                           'domega0': self.omegamax * Hartree,
                           'omegamax': self.omegamax * Hartree,
                           'alpha': self.alpha}
@@ -249,8 +254,6 @@ class G0W0(PairDensity):
                 print('Calulating screened Coulomb potential:', file=self.fd)
                 # Chi_0 calculator:
                 chi0 = Chi0(self.calc,
-                            timeordered=True,
-                            hilbert=self.hilbert,
                             nbands=self.nbands,
                             real_space_derivatives=False,
                             **parameters)
