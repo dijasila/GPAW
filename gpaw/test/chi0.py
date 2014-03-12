@@ -74,7 +74,7 @@ for k in [2, 3]:
                 chi0old_wGG[:, 0] /= q0
                 chi0old_wGG[:, :, 0] /= q0
                 
-                pd, chi0_wGG, _ = chi.calculate([0, 0, 0])
+                pd, chi0_wGG, _, _ = chi.calculate([0, 0, 0])
                 
                 assert abs(chi0_wGG - chi0old_wGG).max() < 0.003
                 assert abs(chi0_wGG - chi0old_wGG)[:, 1:, 1:].max() < 1e-9

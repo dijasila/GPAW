@@ -80,10 +80,11 @@ class FXCCorrelation(RPACorrelation):
                     chi0_swGG, chi0_swxvG, Q_aGii, m1, m2, cut_G):
         if chi0_swxvG is None:
             chi0_swxvG = range(2)  # Not used
-        chi0._calculate(pd, chi0_swGG[0], chi0_swxvG[0],
+            chi0_swvv = range(2)  # Not used
+        chi0._calculate(pd, chi0_swGG[0], chi0_swxvG[0], chi0_swvv[0],
                         Q_aGii, m1, m2, [0])
         if len(chi0_swGG) == 2:
-            chi0._calculate(pd, chi0_swGG[1], chi0_swxvG[1],
+            chi0._calculate(pd, chi0_swGG[1], chi0_swxvG[1], chi0_swvv[0],
                             Q_aGii, m1, m2, [1])
         prnt('E_c(q) = ', end='', file=self.fd)
 
@@ -96,6 +97,7 @@ class FXCCorrelation(RPACorrelation):
             for v in range(3):
                 chi0_swGG[:, :, 0] = chi0_swxvG[:, :, 0, v]
                 chi0_swGG[:, :, :, 0] = chi0_swxvG[:, :, 1, v]
+                chi0_swGG[:, :, 0, 0] = chi0_swvv[:, :, v, v]
                 ev = self.calculate_energy(pd, chi0_swGG, cut_G)
                 e += ev
                 if v in [0, 1]:
