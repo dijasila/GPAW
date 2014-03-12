@@ -32,4 +32,4 @@ assert 24 <= niter1 <= 26, niter1
 equal(e2, 0.526938, energy_tolerance)
 equal(niter2, 3, niter_tolerance)
 equal(e3, 0.526245, energy_tolerance)
-equal(niter3, 11, niter_tolerance)
+equal(niter3, 4, niter_tolerance)
