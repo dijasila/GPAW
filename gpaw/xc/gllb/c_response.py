@@ -77,7 +77,9 @@ class C_Response(Contribution):
         self.Dxc_D_asp = {}
 
     def update_potentials(self, nt_sg):
+        print "In update response potential"
         if self.just_read:
+            print "Just read"
             if len(self.Dresp_asp) != len(self.density.D_asp):
                 for a in self.Dresp_asp.keys():
                     if not self.density.D_asp.has_key(a):
@@ -97,8 +99,8 @@ class C_Response(Contribution):
         #    return None
 
         nspins = len(nt_sg)
-        print nspins
         w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u, nspins=nspins)
+        print "Coefficients", w_kn
         f_kn = [ kpt.f_n for kpt in self.kpt_u ]
         if w_kn is not None:
             self.vt_sG[:] = 0.0

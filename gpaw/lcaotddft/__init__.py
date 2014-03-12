@@ -103,9 +103,9 @@ class LCAOTDDFT(GPAW):
     def __init__(self, filename=None, propagator_debug=False, 
                  propagator='cn', fxc=None, **kwargs):
         self.time = 0.0
+        self.niter = 0
         GPAW.__init__(self, filename, **kwargs)
         self.propagator_debug = propagator_debug
-        self.kick_strength = [0.0, 0.0, 0.0]
         self.tddft_initialized = False
         self.fxc = fxc
         self.propagator = propagator
@@ -293,10 +293,9 @@ class LCAOTDDFT(GPAW):
         # normalize
         direction = strength / magnitude
 
-        if world.rank == 0:
-            print "Applying absorbtion kick"
-            print "Magnitude: ", magnitude
-            print "Direction: ", direction
+        self.text("Applying absorbtion kick")
+        self.text("Magnitude: %.8f " % magnitude)
+        self.text("Direction: %.4f %.4f %.4f" % tuple(direction))
 
         # Create hamiltonian object for absorbtion kick
         kick_hamiltonian = KickHamiltonian(self, ConstantElectricField(magnitude, direction=direction))
@@ -410,25 +409,30 @@ class LCAOTDDFT(GPAW):
         self.density.update(self.wfs)
         self.hamiltonian.update(self.density)
 
-    def propagate(self, dt=10, max_steps=2000, out='lcao.dm'):
-        dt *= attosec_to_autime
-        self.dt = dt
-        
-        self.dm_file = paropen(out,'w')
+    def propagate(self, time_step=10, iterations=2000, out='lcao.dm', dump_interval=50):
+        time_step *= attosec_to_autime
+        self.time_step = time_step
+        self.dump_interval = dump_interval
+        maxiter = self.niter + iterations
+
+        if self.time < self.time_step:
+            self.dm_file = paropen(out,'w')
+            header = '# Kick = [%22.12le, %22.12le, %22.12le]\n' \
+                   % (self.kick_strength[0], self.kick_strength[1], \
+                      self.kick_strength[2])
+            header += '# %15s %15s %22s %22s %22s\n' \
+                   % ('time', 'norm', 'dmx', 'dmy', 'dmz')
+            self.dm_file.write(header)
+            self.dm_file.flush()
+            self.text("About to do %d propagation steps." % iterations)
+        else:
+            self.dm_file = paropen(out,'a')
+            self.text("About to continue from iteration %d and do %d propagation steps" % (self.niter, maxiter)) 
         self.tddft_init()
 
-        header = '# Kick = [%22.12le, %22.12le, %22.12le]\n' \
-               % (self.kick_strength[0], self.kick_strength[1], \
-                  self.kick_strength[2])
-        header += '# %15s %15s %22s %22s %22s\n' \
-               % ('time', 'norm', 'dmx', 'dmy', 'dmz')
-        self.dm_file.write(header)
-        self.dm_file.flush()
-
         dm0 = None # Initial dipole moment
-        steps = 0
         self.timer.start('Propagate')
-        while 1:
+        while self.niter < maxiter:
             dm = self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
             if dm0 is None:
                 dm0 = dm
@@ -465,7 +469,7 @@ class LCAOTDDFT(GPAW):
                 kpt.H0_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
                 if self.fxc is not None:
                     kpt.H0_MM += kpt.deltaXC_H_MM
-                self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
+                self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, self.time_step)
             # ----------------------------------------------------------------------------
             # Propagator step
             # ----------------------------------------------------------------------------
@@ -485,18 +489,16 @@ class LCAOTDDFT(GPAW):
                                              self.hamiltonian, self.wfs, kpt, root=-1)
 
                 # 3. Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt) = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
-                self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
+                self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, self.time_step)
 
-            steps += 1
-            self.time += dt
-            if steps > max_steps:
-                self.timer.stop('Propagate')
-                break
-
+            self.niter += 1
+            self.time += self.time_step
+            
             # Call registered callback functions
-            self.call_observers(steps)
+            self.call_observers(self.niter)
 
-        self.call_observers(steps, final=True)
+        self.call_observers(self.niter, final=True)
         self.dm_file.close()
+        self.timer.stop('Propagate')
 
 

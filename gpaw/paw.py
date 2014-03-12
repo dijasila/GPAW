@@ -123,7 +123,10 @@ class PAW(PAWTextOutput):
 
             self.initialize()
             self.read(reader)
-
+            if self.hamiltonian.xc.type == 'GLLB':
+                print "GLLB extra occupations calculate"
+                self.occupations.calculate(self.wfs)
+            
             self.print_cell_and_parameters()
 
         self.observers = []
@@ -746,7 +749,7 @@ class PAW(PAWTextOutput):
                     nspins, setups, self.timer, xc,
                     world, self.wfs.kd.comm, self.wfs.bd.comm, 
                     par.external, collinear)
-        
+
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
 
