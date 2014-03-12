@@ -6,7 +6,8 @@ def agts(queue):
 if __name__ == '__main__':
     import ase.db
     c = ase.db.connect('gaps.db')
-    for d in c.select():
+    for d in sorted(c.select(), key=lambda d: d.name):
         print(d.name)
         for k, e in d.data.items():
-            print(k, e.tolist())
+            r = e[:2].tolist() + (e[:2]-e[2:4]).tolist() + (e[:2]-e[4:]).tolist()
+            print(k, ' '.join(['%6.3f' % x for x in r]))
