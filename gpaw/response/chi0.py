@@ -251,7 +251,7 @@ class Chi0(PairDensity):
             chi0_wxvG[w, 1, :, 1:] += np.dot(x_m * n0_mv.T.conj(), n_mG[:, 1:])
 
     def update_intraband(self, kpt, chi0_wvv):
-        # Check whether there is any partly occupied bands
+        """Check whether there are any partly occupied bands."""
         width = self.calc.occupations.width
         dfde_m = - 1. / width * (kpt.f_n - kpt.f_n**2.0)
         partocc_m = np.abs(dfde_m) > 1e-5
