@@ -160,7 +160,7 @@ tests = [
     'pw/h.py',
     'pw/fulldiag.py',
     'pw/fulldiagk.py',
-    'stdout.py',
+    #'stdout.py',
     'parallel/lcao_complicated.py',
     'pw/slab.py',
     'spinpol.py',
