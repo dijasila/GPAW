@@ -44,20 +44,21 @@ class EXX(PairDensity):
         if xc is None:
             self.exx_fraction = 1.0
             xc = XC(XCNull())
-        if xc == 'PBE0':
+        elif xc == 'PBE0':
             self.exx_fraction = 0.25
             xc = XC('HYB_GGA_XC_PBEH')
-        if xc == 'HSE03':
+        elif xc == 'HSE03':
             omega = 0.106
             self.exx_fraction = 0.25
             xc = XC('HYB_GGA_XC_HSE03')
-        if xc == 'HSE06':
+        elif xc == 'HSE06':
             omega = 0.11
             self.exx_fraction = 0.25
             xc = XC('HYB_GGA_XC_HSE06')
         elif xc == 'B3LYP':
             self.exx_fraction = 0.2
             xc = XC('HYB_GGA_XC_B3LYP')
+            
         self.xc = xc
         self.omega = omega
         self.exc = np.nan  # density dependent part of xc-energy
