@@ -41,13 +41,19 @@ class OccupationNumbers:
         * HOMO and LUMO energies
         """
 
+        # Allow subclasses to adjust nvalence:
+        self.set_number_of_electrons(wfs)
+
+        
         # Allocate:
         for kpt in wfs.kpt_u:
             if kpt.f_n is None:
                 kpt.f_n = wfs.bd.empty()
 
-        # Allow subclasses to adjust nvalence:
-        self.set_number_of_electrons(wfs)
+            # There are no eigenvalues, might as well return
+            if kpt.eps_n is None:
+                return
+
 
         # Let the master domain do the work and broadcast results:
         data = np.empty(7)
