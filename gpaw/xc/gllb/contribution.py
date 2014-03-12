@@ -13,7 +13,7 @@ class Contribution:
     def get_name(self):
         raise NotImplementedError
 
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, atom_partition=None):
         pass
 
     def get_desc(self):

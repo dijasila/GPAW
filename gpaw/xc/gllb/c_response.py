@@ -12,11 +12,17 @@ import numpy as np
 ### XXX Work in process
 ### XXX Work in process
 ### XXX Work in process
+import getpass
+debug = getpass.getuser() == 'kuismam'
+
+def d(*args):
+    if debug:
+        print(args)
 
 class C_Response(Contribution):
     def __init__(self, nlfunc, weight, coefficients):
         Contribution.__init__(self, nlfunc, weight)
-        print "In c_Response __init__", self
+        d("In c_Response __init__", self)
         self.coefficients = coefficients
         self.vt_sg = None
         self.vt_sG = None
@@ -36,6 +42,18 @@ class C_Response(Contribution):
     def set_damp(self, damp):
         self.damp = damp
 
+    def set_positions(self, atoms, atom_partition):
+        d("Response::set_positions", len(self.Dresp_asp), "not doing anything now")
+        return
+        def get_empty(a):
+            ni = self.setups[a].ni
+            return np.empty((self.ns, ni * (ni + 1) // 2))
+        atom_partition.redistribute(atom_partition, self.Dresp_asp,
+                                    get_empty)
+        atom_partition.redistribute(atom_partition, self.D_asp,
+                                    get_empty)
+
+
     # Initialize Response functional
     def initialize_1d(self):
         self.ae = self.nlfunc.ae
@@ -48,7 +66,7 @@ class C_Response(Contribution):
         return 0.0 # Response part does not contribute to energy
 
     def initialize(self):
-        print "In C_response initialize"
+        d("In C_response initialize")
         self.gd = self.nlfunc.gd
         self.finegd = self.nlfunc.finegd
         self.wfs = self.nlfunc.wfs
@@ -77,20 +95,29 @@ class C_Response(Contribution):
         self.Dxc_D_asp = {}
 
     def update_potentials(self, nt_sg):
-        print "In update response potential"
+        d("In update response potential")
         if self.just_read:
-            print "Just read"
+            # This is very hackish.
+            # Reading GLLB-SC loads all density matrices to all cores.
+            # This code first removes them to match density.D_asp.
+            # and then further distributes the density matricies for xc-corrections.
+            d("Just read")
             if len(self.Dresp_asp) != len(self.density.D_asp):
                 for a in self.Dresp_asp.keys():
                     if not self.density.D_asp.has_key(a):
                         del self.Dresp_asp[a]
                         del self.D_asp[a]
-                        print "Removed a"
+                        d("Core ", world.rank, " removed a", a)
+                    else:
+                        d("Core ", world.rank, "keeping a", a)
             self.just_read = False
+            # Distribute load
+            self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
+            self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
             return 
 
         if not self.occupations.is_ready():
-            print "No occupations calculated yet"
+            d("No occupations calculated yet")
             return
 
         nspins = len(nt_sg)
@@ -114,9 +141,10 @@ class C_Response(Contribution):
                     self.symmetry.symmetrize(nt_G, self.gd)
                     self.symmetry.symmetrize(vt_G, self.gd)
 
+            d("response update", world.rank, self.Dresp_asp.keys(), self.D_asp.keys())
             self.wfs.calculate_atomic_density_matrices_with_occupation(
                 self.Dresp_asp, w_kn)
-            self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
+            #self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
             self.wfs.calculate_atomic_density_matrices_with_occupation(
                 self.D_asp, f_kn)
 
@@ -135,14 +163,17 @@ class C_Response(Contribution):
         return 0.0
 
     def distribute_Dresp_asp(self, Dresp_asp):
+        d("distribute_Dresp_asp")
         # okay, this is a bit hacky since we have to call this from
         # several different places.  Maybe Mikael can figure out something
         # smarter.  -Ask
         from gpaw.utilities.partition import AtomicMatrixDistributor
-        d = AtomicMatrixDistributor(self.density.atom_partition,
+        amd = AtomicMatrixDistributor(self.density.atom_partition,
                                     self.density.setups, self.kpt_comm,
                                     self.band_comm, self.density.ns)
-        return d.distribute(Dresp_asp)
+        return amd.distribute(Dresp_asp)
+
+
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         # Get the XC-correction instance
@@ -495,17 +526,17 @@ class C_Response(Contribution):
         
         self.vt_sG = wfs.gd.empty(wfs.nspins)
         self.Dxc_vt_sG = wfs.gd.empty(wfs.nspins)
-        print "Reading vt_sG"
+        d("Reading vt_sG")
         for s in range(wfs.nspins):
             self.gd.distribute(r.get('GLLBPseudoResponsePotential', s),
                               self.vt_sG[s])
-        print "Reading Dxc_vt_sG"
+        d("Reading Dxc_vt_sG")
         for s in range(wfs.nspins):
             self.gd.distribute(r.get('GLLBDxcPseudoResponsePotential', s),
                               self.Dxc_vt_sG[s])
             
-        print "Integration over vt_sG", domain_comm.sum(np.sum(self.vt_sG.ravel()))
-        print "Integration over Dxc_vt_sG", domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel()))
+        d("Integration over vt_sG", domain_comm.sum(np.sum(self.vt_sG.ravel())))
+        d("Integration over Dxc_vt_sG", domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel())))
         self.vt_sg = self.density.finegd.zeros(wfs.nspins)
         self.density.interpolate(self.vt_sG, self.vt_sg)
         
@@ -524,18 +555,13 @@ class C_Response(Contribution):
         for a, setup in enumerate(wfs.setups):
             ni = setup.ni
             p2 = p1 + ni * (ni + 1) // 2
-            # NOTE: Distrbibutes the matrices to more processors than necessary
-            # ...except Dresp_asp where the redistribution code would
-            # raise an error.
             self.D_asp[a] = D_sp[:, p1:p2].copy()
-            if a in self.density.D_asp:
-                self.Dresp_asp[a] = Dresp_sp[:, p1:p2].copy()
+            self.Dresp_asp[a] = Dresp_sp[:, p1:p2].copy()
             self.Dxc_D_asp[a] = Dxc_D_sp[:, p1:p2].copy()
             self.Dxc_Dresp_asp[a] = Dxc_Dresp_sp[:, p1:p2].copy()
-            #print "Proc", world.rank, " reading atom ", a
+            print "Proc", world.rank, " reading atom ", a
             p1 = p2
 
-        self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
 
         # Dsp and Dresp need to be redistributed
         self.just_read = True
