@@ -77,7 +77,8 @@ class FXCCorrelation(RPACorrelation):
         return e
 
     def calculate_q(self, chi0, pd,
-                    chi0_swGG, chi0_swxvG, Q_aGii, m1, m2, cut_G):
+                    chi0_swGG, chi0_swxvG, chi0_swvv,
+                    Q_aGii, m1, m2, cut_G):
         if chi0_swxvG is None:
             chi0_swxvG = range(2)  # Not used
             chi0_swvv = range(2)  # Not used
