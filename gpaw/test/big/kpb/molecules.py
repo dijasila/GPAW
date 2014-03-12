@@ -22,7 +22,6 @@ from gpaw.xc.exx import EXX
 bondlengths = {'H2': 0.741,
                'OH': 0.970,
                'HF': 0.9168,
-               'Be2': 2.460,
                'NO': 1.154,
                'P2': 1.893}
 bondlengths.update((name, d[0]) for name, d in diatomic.items())
@@ -52,12 +51,14 @@ extra = {
                      (0.0000, -0.9289, -1.2321)]),
    'HCN': ('CHN', [(0.0000, 0.0000, 0.0000),
                    (0.0000, 0.0000, 1.0640),
-                   (0.0000, 0.0000, -1.1560)])}
+                   (0.0000, 0.0000, -1.1560)]),
+   'Be2': ('Be2', [(0.0000, 0.0000, 0.0000),
+                   (0.0000, 0.0000, 2.460)])}
 
 
 c = ase.db.connect('results.db')
 
-for name in ex_atomization.keys() + 'H Li B C N O F Cl P'.split():
+for name in ex_atomization.keys() + 'H Li Be B C N O F Cl P'.split():
     id = c.reserve(name=name)
     if id is None:
         continue
@@ -71,7 +72,7 @@ for name in ex_atomization.keys() + 'H Li B C N O F Cl P'.split():
     a.cell = [11, 12, 13]
     a.center()
    
-    a.calc = GPAW(xc='PBE', mode=PW(500), txt=name + '.txt')
+    a.calc = GPAW(xc='PBE', mode=PW(500), txt=name + '.txt', dtype=complex)
     a.get_potential_energy()
     
     exx = EXX(a.calc)
