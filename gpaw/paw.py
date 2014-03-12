@@ -189,8 +189,10 @@ class PAW(PAWTextOutput):
             self.scf = None
             self.wfs.set_orthonormalized(False)
             if key in ['lmax', 'width', 'stencils', 'external', 'xc',
-                       'poissonsolver', 'occupations']:
+                       'poissonsolver']:
                 self.hamiltonian = None
+                self.occupations = None
+            elif key in ['occupations']:
                 self.occupations = None
             elif key in ['charge']:
                 self.hamiltonian = None
@@ -496,11 +498,19 @@ class PAW(PAWTextOutput):
                       'occupations=FermiDirac(width, fixmagmom=True).')
 
         if self.occupations is None:
+            print "self.occupations is None"
             if par.occupations is None:
                 # Create object for occupation numbers:
                 self.occupations = occupations.FermiDirac(width, par.fixmom)
             else:
                 self.occupations = par.occupations
+
+            # If occupation numbers are changed, and we have wave functions, 
+            # recalculate the occupation numbers
+            if self.wfs is not None and not isinstance(self.wfs, EmptyWaveFunctions):
+                self.occupations.calculate(self.wfs)
+                print "Calculating occupations"
+            print self.wfs
 
         self.occupations.magmom = M_v[2]
 

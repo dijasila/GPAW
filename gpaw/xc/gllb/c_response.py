@@ -9,9 +9,14 @@ from gpaw.mpi import world
 from ase.units import Hartree
 import numpy as np
 
+### XXX Work in process
+### XXX Work in process
+### XXX Work in process
+
 class C_Response(Contribution):
     def __init__(self, nlfunc, weight, coefficients):
         Contribution.__init__(self, nlfunc, weight)
+        print "In c_Response __init__", self
         self.coefficients = coefficients
         self.vt_sg = None
         self.vt_sG = None
@@ -43,6 +48,7 @@ class C_Response(Contribution):
         return 0.0 # Response part does not contribute to energy
 
     def initialize(self):
+        print "In C_response initialize"
         self.gd = self.nlfunc.gd
         self.finegd = self.nlfunc.finegd
         self.wfs = self.nlfunc.wfs
@@ -56,12 +62,6 @@ class C_Response(Contribution):
         self.kpt_comm = self.wfs.kpt_comm
         self.band_comm = self.wfs.band_comm
         self.grid_comm = self.gd.comm
-        if self.vt_sg is None or self.density is None \
-           or self.density.nt_sg is None or \
-            np.any(self.vt_sg.shape != self.density.nt_sg.shape):
-             self.vt_sg = self.finegd.empty(self.nlfunc.nspins)
-             self.vt_sG = self.gd.empty(self.nlfunc.nspins)
-             self.nt_sG = self.gd.empty(self.nlfunc.nspins)
         if self.Dresp_asp is None:
             self.Dresp_asp = {}
             self.D_asp = {}
@@ -87,24 +87,18 @@ class C_Response(Contribution):
                         del self.D_asp[a]
                         print "Removed a"
             self.just_read = False
+            return 
 
         if not self.occupations.is_ready():
             print "No occupations calculated yet"
             return
 
-
-        #if not hasattr(self.kpt_u[0],'orbitals_ready'):
-        #    self.kpt_u[0].orbitals_ready = True
-        #    print "not updating GLLB response"
-        #    return None
-
         nspins = len(nt_sg)
         w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u, nspins=nspins)
-        print "Coefficients", w_kn
         f_kn = [ kpt.f_n for kpt in self.kpt_u ]
         if w_kn is not None:
-            self.vt_sG[:] = 0.0
-            self.nt_sG[:] = 0.0
+            self.vt_sG = self.gd.zeros(self.nspins)
+            self.nt_sG = self.gd.zeros(self.nspins)
 
             for kpt, w_n in zip(self.kpt_u, w_kn):
                 self.wfs.add_to_density_from_k_point_with_occupation(self.vt_sG, kpt, w_n)
@@ -153,7 +147,6 @@ class C_Response(Contribution):
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         # Get the XC-correction instance
         c = setup.xc_correction
-
         ncresp_g = setup.extra_xc_data['core_response'] / self.nspins
         if not addcoredensity:
             ncresp_g[:] = 0.0
@@ -352,13 +345,14 @@ class C_Response(Contribution):
             w_asi[a] = w_si
 
         self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
-        self.nt_sG.fill(0.0)
+        self.nt_sG = self.gd.zeros(self.nspins)
         basis_functions.add_to_density(self.nt_sG, f_asi)
-        self.vt_sG.fill(0.0)
+        self.vt_sG = self.gd.zeros(self.nspins)
         basis_functions.add_to_density(self.vt_sG, w_asi)
         # Update vt_sG to correspond atomic response potential. This will be
         # used until occupations and eigenvalues are available.
         self.vt_sG /= self.nt_sG + self.damp
+        self.vt_sg = self.finegd.zeros(self.nspins)
         self.density.interpolate(self.vt_sG, self.vt_sg)
 
     def add_extra_setup_data(self, dict):
@@ -431,6 +425,7 @@ class C_Response(Contribution):
             for s in range(wfs.nspins):
                 vt_sG = wfs.gd.collect(self.vt_sG[s])
                 if master:
+                    print "vt_sG", vt_sG.shape
                     w.fill(vt_sG)
 
         if master:
@@ -441,6 +436,7 @@ class C_Response(Contribution):
             for s in range(wfs.nspins):
                 vt_sG = wfs.gd.collect(self.Dxc_vt_sG[s])
                 if master:
+                    print "vt_sG", vt_sG.shape
                     w.fill(vt_sG)
 
         print "Integration over vt_sG", domain_comm.sum(np.sum(self.vt_sG.ravel()))
@@ -510,6 +506,7 @@ class C_Response(Contribution):
             
         print "Integration over vt_sG", domain_comm.sum(np.sum(self.vt_sG.ravel()))
         print "Integration over Dxc_vt_sG", domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel()))
+        self.vt_sg = self.density.finegd.zeros(wfs.nspins)
         self.density.interpolate(self.vt_sG, self.vt_sg)
         
         # Read atomic density matrices and non-local part of hamiltonian:
