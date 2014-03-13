@@ -41,7 +41,7 @@ class G0W0(PairDensity):
             print('Using Godby-Needs plasmon-pole approximation:',
                   file=self.fd)
             print('    E0 = %.3fi Hartee' % self.E0, file=self.fd)
-            # use small imaginare frequency to avoid dividing by zero:
+            # use small imaginary frequency to avoid dividing by zero:
             self.omega_w = np.array([1e-10j, 1j * self.E0])
         else:
             self.omega_w = frequency_grid(self.domega0, self.omegamax, alpha)
@@ -185,6 +185,8 @@ class G0W0(PairDensity):
             sigma, dsigma = self.calculate_sigma(fd, n_mG, deps_m, f_m, W_wGG)
             self.sigma_sin[kpt1.s, i, n] += sigma
             self.dsigma_sin[kpt1.s, i, n] += dsigma
+            
+        fd.close()
 
     def calculate_sigma(self, fd, n_mG, deps_m, f_m, W_wGG):
         if self.ppa:
@@ -241,7 +243,7 @@ class G0W0(PairDensity):
             parameters = {'eta': self.eta * Hartree,
                           'hilbert': self.hilbert,
                           'timeordered': True,
-                          'domega0': self.omegamax * Hartree,
+                          'domega0': self.domega0 * Hartree,
                           'omegamax': self.omegamax * Hartree,
                           'alpha': self.alpha}
             
@@ -255,6 +257,7 @@ class G0W0(PairDensity):
                 # Chi_0 calculator:
                 chi0 = Chi0(self.calc,
                             nbands=self.nbands,
+                            ecut=self.ecut * Hartree,
                             real_space_derivatives=False,
                             **parameters)
                 #wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,

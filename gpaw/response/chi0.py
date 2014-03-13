@@ -1,4 +1,3 @@
-"""Todo: Hilbert transform"""
 from __future__ import print_function
 
 import sys
@@ -236,7 +235,8 @@ class Chi0(PairDensity):
                                                  deps_m, df_m, n_mG)
 
         if self.timeordered:
-            deps1_m = deps_m + 1j * self.eta * np.sign(deps_m)
+            # avoid getting a zero from np.sign():
+            deps1_m = deps_m + 1j * self.eta * np.sign(deps_m + 1e-20)
             deps2_m = deps1_m
         else:
             deps1_m = deps_m + 1j * self.eta
