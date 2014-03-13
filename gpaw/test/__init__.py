@@ -277,6 +277,7 @@ tests = [
     'nscfsic.py',
     'gw_static.py',
     # > 100 sec tests start here
+    'lcao_tdgllbsc.py',
     'exx.py',
     'pygga.py',
     'dipole.py',
