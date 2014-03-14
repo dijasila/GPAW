@@ -217,9 +217,9 @@ class G0W0(PairDensity):
         x2_mGG = 1 / (deps_mGG - omegat_GG + 1j * self.eta)
         x3_mGG = 1 / (deps_mGG + omegat_GG - 1j * self.eta * sign_mGG)
         x4_mGG = 1 / (deps_mGG - omegat_GG - 1j * self.eta * sign_mGG)
-        x_mGG = W_GG * (sign_mGG * (x1_mGG - x2_mGG) + (x3_mGG + x4_mGG))
-        dx_mGG = W_GG * (sign_mGG * (x1_mGG - x2_mGG)**2 +
-                         (x3_mGG + x4_mGG)**2)
+        x_mGG = W_GG * (sign_mGG * (x1_mGG - x2_mGG) + x3_mGG + x4_mGG)
+        dx_mGG = W_GG * (sign_mGG * (x1_mGG**2 - x2_mGG**2) +
+                         x3_mGG**2 + x4_mGG**2)
 
         sigma = 0.0
         dsigma = 0.0
@@ -294,7 +294,7 @@ class G0W0(PairDensity):
                 for chi0_GG in chi0_wGG:
                     e_GG = (delta_GG -
                             4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis])
-                    einv_wGG.append(np.linalg.inv(e_GG - delta_GG))
+                    einv_wGG.append(np.linalg.inv(e_GG) - delta_GG)
 
                 omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
                                               (einv_wGG[0] - einv_wGG[1]))
