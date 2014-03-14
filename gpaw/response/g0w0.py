@@ -40,7 +40,8 @@ class G0W0(PairDensity):
         if ppa:
             print('Using Godby-Needs plasmon-pole approximation:',
                   file=self.fd)
-            print('    E0 = %.3fi Hartee' % self.E0, file=self.fd)
+            print('    Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
+                  file=self.fd)
             # use small imaginary frequency to avoid dividing by zero:
             self.omega_w = np.array([1e-10j, 1j * self.E0])
         else:
