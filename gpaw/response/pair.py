@@ -11,6 +11,7 @@ import gpaw.mpi as mpi
 from gpaw.utilities.blas import gemm
 from gpaw.fd_operators import Gradient
 from gpaw.wavefunctions.pw import PWLFC
+from gpaw.utilities.timing import timer, Timer
 from gpaw.response.math_func import two_phi_planewave_integrals
 
 
@@ -41,6 +42,8 @@ class PairDensity:
         self.ftol = ftol
         self.real_space_derivatives = real_space_derivatives
         self.world = world
+        
+        self.timer = Timer()
         
         if isinstance(calc, str):
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
@@ -111,6 +114,7 @@ class PairDensity:
              'over %d process%s' %
               (world.size, ['es', ''][world.size == 1]), file=self.fd)
         
+    @timer('Get a k-point')
     def get_k_point(self, s, K, n1, n2):
         """Return wave functions for a specific k-point and spin.
         
@@ -145,6 +149,7 @@ class PairDensity:
         
         return KPoint(s, K, n1, n2, ut_nR, eps_n, f_n, P_ani, shift_c)
     
+    @timer('Calculate pair-densities')
     def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G):
         """Calculate FFT of pair-denities and add PAW corrections.
         

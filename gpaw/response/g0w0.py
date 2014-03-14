@@ -9,10 +9,11 @@ from ase.utils import opencew
 from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
-from gpaw.response.chi0 import Chi0, frequency_grid
+from gpaw.utilities.timing import timer
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.response.chi0 import Chi0, frequency_grid
 #from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
@@ -99,6 +100,7 @@ class G0W0(PairDensity):
         #      file=self.fd)
         #print('Number of frequencies:', len(self.omega_w), file=self.fd)
     
+    @timer('G0W0 calculation')
     def calculate(self):
         kd = self.calc.wfs.kd
 
@@ -125,7 +127,8 @@ class G0W0(PairDensity):
               file=self.fd)
         print(np.array_str(1 / (1 - self.dsigma_sin), precision=3),
               file=self.fd)
-
+        self.timer.write(self.fd)
+        
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
         qd = self.qd
@@ -171,7 +174,9 @@ class G0W0(PairDensity):
         G_G = G_N[N0_G]
         assert (G_G >= 0).all()
 
-        W_wGG = [np.load(fd).take(G_G, 0).take(G_G, 1) for x in self.omega_w]
+        with self.timer('Read W and do symmetry transform'):
+            W_wGG = [np.load(fd).take(G_G, 0).take(G_G, 1)
+                     for x in self.omega_w]
 
         Q_aGii = self.initialize_paw_corrections(pd)
         for n in range(kpt1.n2 - kpt1.n1):
@@ -189,14 +194,15 @@ class G0W0(PairDensity):
             
         fd.close()
 
+    @timer('Calculate Sigma')
     def calculate_sigma(self, fd, n_mG, deps_m, f_m, W_wGG):
         if self.ppa:
             return self.calculate_sigma_ppa(fd, n_mG, deps_m, f_m, *W_wGG)
-            
+
         sigma = 0.0
         dsigma = 0.0
         
-        domegap = self.domega0
+        x = self.domega0 / (self.qd.nbzkpts * 2 * pi * self.vol)
         assert self.alpha == 0
         for W_GG, omegap in zip(W_wGG, self.omega_w):
             x1_m = 1 / (deps_m + omegap - 2j * self.eta * (f_m - 0.5))
@@ -204,12 +210,12 @@ class G0W0(PairDensity):
             x_m = x1_m + x2_m
             dx_m = x1_m**2 + x2_m**2
             nW_mG = np.dot(n_mG, W_GG)
-            sigma += domegap * np.vdot(n_mG * x_m[:, np.newaxis], nW_mG).imag
-            dsigma -= domegap * np.vdot(n_mG * dx_m[:, np.newaxis], nW_mG).imag
+            sigma += x * np.vdot(n_mG * x_m[:, np.newaxis], nW_mG).imag
+            dsigma -= x * np.vdot(n_mG * dx_m[:, np.newaxis], nW_mG).imag
 
-        x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
-        return x * sigma, x * dsigma
+        return sigma, dsigma
 
+    @timer('Calculate Sigma using PPA')
     def calculate_sigma_ppa(self, fd, n_mG, deps_m, f_m, W_GG, omegat_GG):
         deps_mGG = deps_m[:, np.newaxis, np.newaxis]
         sign_mGG = 2 * f_m[:, np.newaxis, np.newaxis] - 1
@@ -232,6 +238,7 @@ class G0W0(PairDensity):
         x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
         return x * sigma, x * dsigma
 
+    @timer('Calculate screened potential')
     def calculate_screened_potential(self):
         chi0 = None
         
