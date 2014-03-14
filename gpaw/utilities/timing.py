@@ -102,6 +102,18 @@ class Timer:
         self.timers[names] += time.time()
     
     def __call__(self, name):
+        """Context manager for timing a block of code.
+        
+        Example (t is a timer object)::
+
+            with t('Add two numbers'):
+                x = 2 + 2
+                
+            # same as this:
+            t.start(Add two numbers')
+            x = 2 + 2
+            t.stop()
+        """
         self.start(name)
         return self
         
@@ -172,7 +184,19 @@ class Timer:
 
             
 class timer:
-    """Decorator for timing a method call."""
+    """Decorator for timing a method call.
+    
+    Example::
+        
+        class A:
+            def __init__(self):
+                self.timer = Timer()
+                
+            @timer('Add two numbers')    
+            def add(self, x, y):
+                return x + y
+                
+        """
     def __init__(self, name):
         self.name = name
     
