@@ -79,6 +79,7 @@ class KPointDescriptor:
         ``comm``              MPI-communicator for kpoint distribution.
         ``weight_k``          Weights of each k-point
         ``ibzk_kc``           Unknown
+        ``ibzk_qc``           Unknown
         ``sym_k``             Unknown
         ``time_reversal_k``   Unknown
         ``bz2ibz_k``          Unknown

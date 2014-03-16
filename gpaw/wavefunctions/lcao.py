@@ -9,6 +9,7 @@ from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 
 
+# replace by class to make data structure perhaps a bit less confusing
 def get_r_and_offsets(nl, spos_ac, cell_cv):
     r_and_offset_aao = {}
 
@@ -133,14 +134,26 @@ class LCAOWaveFunctions(WaveFunctions):
             ni = self.setups[a].ni
             self.P_aqMi[a] = np.empty((nq, nao, ni), self.dtype)
 
+        self.timer.start('TCI: Calculate S, T, P')
+        # Calculate lower triangle of S and T matrices:
+        self.tci.calculate(spos_ac, S_qMM, T_qMM, self.P_aqMi)
+
+
+        # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        from gpaw.wavefunctions.superoverlap import superoverlap
+        self.P_neighbors_a, self.P_aaqim, self.newP_aqMi \
+            = superoverlap(self, spos_ac, self.P_aqMi)
+        # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+
         for kpt in self.kpt_u:
             q = kpt.q
             kpt.P_aMi = dict([(a, P_qMi[q])
                               for a, P_qMi in self.P_aqMi.items()])
 
-        self.timer.start('TCI: Calculate S, T, P')
-        # Calculate lower triangle of S and T matrices:
-        self.tci.calculate(spos_ac, S_qMM, T_qMM, self.P_aqMi)
+            kpt.P_aaim = dict([(a1a2, P_qim[q])
+                               for a1a2, P_qim in self.P_aaqim.items()])
+
         add_paw_correction_to_overlap(self.setups, self.P_aqMi, S_qMM,
                                       self.ksl.Mstart, self.ksl.Mstop)
         self.timer.stop('TCI: Calculate S, T, P')
@@ -468,9 +481,6 @@ class LCAOWaveFunctions(WaveFunctions):
             overlapcalc = TwoCenterIntegralCalculator(self.kd.ibzk_qc,
                                                       derivative=False)
 
-            def get_phases(offset):
-                return overlapcalc.phaseclass(overlapcalc.ibzk_qc, offset)
-
             # XXX this is not parallel *AT ALL*.
             self.timer.start('Get neighbors')
             nl = tci.atompairs.pairs.neighbors
@@ -530,10 +540,10 @@ class LCAOWaveFunctions(WaveFunctions):
                 disp_o = disp_aao.get((a1, a2))
                 if disp_o is None:
                     disp_o = []
-                    for r, offset in r_and_offset_aao[(a1, a2)]:
-                        if np.linalg.norm(r) > maxdistance:
+                    for R_c, offset in r_and_offset_aao[(a1, a2)]:
+                        if np.linalg.norm(R_c) > maxdistance:
                             continue
-                        disp = Displacement(a1, a2, r, offset)
+                        disp = Displacement(a1, a2, R_c, offset)
                         disp_o.append(disp)
                     disp_aao[(a1, a2)] = disp_o
                 return [disp for disp in disp_o if disp.r < maxdistance]
@@ -557,7 +567,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
                 T_expansion = T_expansions.get(a1, a2)
                 Theta_expansion = Theta_expansions.get(a1, a2)
-                P_expansion = P_expansions.get(a1, a2)
+                #P_expansion = P_expansions.get(a1, a2)
                 nm1, nm2 = T_expansion.shape
 
                 m1stop = min(m1start + nm1, m1max)

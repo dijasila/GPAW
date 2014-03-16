@@ -215,10 +215,17 @@ class AtomPartition:
         parent_rank_a -= members[0] # yuckkk
         return AtomPartition(self.comm.parent, parent_rank_a)
 
-    def to_even_distribution(self, atomdict_ax, get_empty):
+    def to_even_distribution(self, atomdict_ax, get_empty, copy=False):
+        if copy:
+            atomdict1_ax = {}
+            for a, arr_x in atomdict_ax.items():
+                atomdict1_ax[a] = arr_x.copy() # list-style ones??
+            atomdict_ax = atomdict1_ax
+        
         even_part = EvenPartitioning(self.comm,
                                      len(self.rank_a)).as_atom_partition()
         self.redistribute(even_part, atomdict_ax, get_empty)
+        return atomdict_ax # XXX copy or not???
 
     def from_even_distribution(self, atomdict_ax, get_empty):
         even_part = EvenPartitioning(self.comm,

@@ -1288,6 +1288,8 @@ class Setups(list):
         # Construct necessary PAW-setup objects:
         self.setups = {}
         natoms = {}
+        Mcumulative = 0
+        self.M_a = []
         self.id_a = zip(Z_a, type_a, basis_a)
         for id in self.id_a:
             setup = self.setups.get(id)
@@ -1309,6 +1311,8 @@ class Setups(list):
                 natoms[id] = 0
             natoms[id] += 1
             self.append(setup)
+            self.M_a.append(Mcumulative)
+            Mcumulative += setup.nao
 
         # Sum up ...
         self.nvalence = 0       # number of valence electrons

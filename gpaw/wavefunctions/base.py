@@ -61,6 +61,7 @@ class WaveFunctions(EmptyWaveFunctions):
             
         self.gd = gd
         self.nspins = kd.nspins
+        self.ns = self.nspins * self.ncomp**2 # when is ncomp actually set? XXX
         self.nvalence = nvalence
         self.bd = bd
         #self.nbands = self.bd.nbands #XXX
@@ -177,8 +178,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 D_sp = D_asp.get(a)
                 if D_sp is None:
                     ni = setup.ni
-                    D_sp = np.empty((self.nspins * self.ncomp**2,
-                                     ni * (ni + 1) // 2))
+                    D_sp = np.empty((self.ns, ni * (ni + 1) // 2))
                 self.gd.comm.broadcast(D_sp, self.rank_a[a])
                 all_D_asp.append(D_sp)
 

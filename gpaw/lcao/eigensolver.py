@@ -34,15 +34,15 @@ class LCAO:
         # XXX document parallel stuff, particularly root parameter
         assert self.has_initialized
 
-        bf = wfs.basis_functions
+        bfs = wfs.basis_functions
         
         if Vt_xMM is None:
             wfs.timer.start('Potential matrix')
             vt_G = hamiltonian.vt_sG[kpt.s]
-            Vt_xMM = bf.calculate_potential_matrices(vt_G)
+            Vt_xMM = bfs.calculate_potential_matrices(vt_G)
             wfs.timer.stop('Potential matrix')
 
-        if bf.gamma:
+        if bfs.gamma:
             y = 1.0
             H_MM = Vt_xMM[0]
             if wfs.dtype == complex:
@@ -52,7 +52,7 @@ class LCAO:
             y = 0.5
             k_c = wfs.kd.ibzk_qc[kpt.q]
             H_MM = (0.5 + 0.0j) * Vt_xMM[0]
-            for sdisp_c, Vt_MM in zip(bf.sdisp_xc, Vt_xMM)[1:]:
+            for sdisp_c, Vt_MM in zip(bfs.sdisp_xc, Vt_xMM)[1:]:
                 H_MM += np.exp(2j * np.pi * np.dot(sdisp_c, k_c)) * Vt_MM
             wfs.timer.stop('Sum over cells')
 
@@ -63,16 +63,64 @@ class LCAO:
         #  mu nu    --   mu i  ij nu j
         #           aij
         #
-        wfs.timer.start('Atomic Hamiltonian')
         Mstart = wfs.basis_functions.Mstart
         Mstop = wfs.basis_functions.Mstop
-        for a, P_Mi in kpt.P_aMi.items():
-            dH_ii = np.asarray(unpack(hamiltonian.dH_asp[a][kpt.s]), wfs.dtype)
-            dHP_iM = np.zeros((dH_ii.shape[1], P_Mi.shape[0]), wfs.dtype)
-            # (ATLAS can't handle uninitialized output array)
-            gemm(1.0, P_Mi, dH_ii, 0.0, dHP_iM, 'c')
-            gemm(y, dHP_iM, P_Mi[Mstart:Mstop], 1.0, H_MM)
-        wfs.timer.stop('Atomic Hamiltonian')
+        
+        if wfs.bd.comm.size > 1 or wfs.ksl.using_blacs:
+            wfs.timer.start('Atomic Hamiltonian')
+            for a, P_Mi in kpt.P_aMi.items():
+                #print a, P_Mi[0, 0]
+                #err = P_Mi - wfs.newP_aqMi[a][kpt.q]
+                #print a, 'maxerr', np.abs(err).max()
+                dH_ii = np.asarray(unpack(hamiltonian.dH_asp[a][kpt.s]),
+                                   wfs.dtype)
+                dHP_iM = np.zeros((dH_ii.shape[1], P_Mi.shape[0]), wfs.dtype)
+                # (ATLAS can't handle uninitialized output array)
+                gemm(1.0, P_Mi, dH_ii, 0.0, dHP_iM, 'c')
+                gemm(y, dHP_iM, P_Mi[Mstart:Mstop], 1.0, H_MM)
+            wfs.timer.stop('Atomic Hamiltonian')
+        else:
+            wfs.timer.start('New atomic Hamiltonian')
+            def get_empty(a):
+                ni = wfs.setups[a].ni
+                return np.empty((wfs.ns, ni * (ni + 1) // 2))
+            dH_asp = wfs.atom_partition.to_even_distribution(hamiltonian.dH_asp,
+                                                             get_empty,
+                                                             copy=True)
+            
+            # overlap: a1 -> a3 -> a2
+            #
+            # specifically:
+            #   < phi[a1] | p[a3] > * dH[a3] * < p[a3] | phi[a2] >
+            #
+            # It isn't completely silly to use band parallelization
+            # to skip some of the atoms.  Maybe some day.
+            #
+            # This matrix multiplication is semi-sparse.  It works by blocks
+            # of atoms, looping only over pairs that do have nonzero
+            # overlaps.  But it might be even nicer with scipy sparse.
+            # This we will have to check at some point.
+            #
+            # Should we adapt this to normal band parallelization?
+            # Or would it be better to use some scalapack-like layout
+            # like in the force calculation? (Parallel over more CPUs)
+            # We should probably do the latter.
+            assert wfs.bd.comm.size == 1
+            for (a3, a1), P1_im in kpt.P_aaim.items():
+                #print (a3, a1), P1_im[0, 0]
+                P1_mi = np.conj(P1_im.T)
+                dH_ii = y * np.asarray(unpack(dH_asp[a3][kpt.s]), wfs.dtype)
+                a1M1 = wfs.setups.M_a[a1]
+                a1M2 = a1M1 + wfs.setups[a1].nao
+                for a2 in wfs.P_neighbors_a[a3]:
+                    a2M1 = wfs.setups.M_a[a2]
+                    a2M2 = a2M1 + wfs.setups[a2].nao
+                    P2_im = kpt.P_aaim[(a3, a2)]
+                    P1dHP2_mm = np.dot(P1_mi, np.dot(dH_ii, P2_im))
+                    # generally: must send to correct node(s) here! XXXXXXXXX
+                    H_MM[a1M1:a1M2, a2M1:a2M2] += P1dHP2_mm
+            wfs.timer.stop('New atomic Hamiltonian')
+
         wfs.timer.start('Distribute overlap matrix')
         H_MM = wfs.ksl.distribute_overlap_matrix(
             H_MM, root, add_hermitian_conjugate=(y == 0.5))
