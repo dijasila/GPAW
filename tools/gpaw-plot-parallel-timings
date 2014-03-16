@@ -20,7 +20,14 @@ p.add_option('--noxcc', action='store_true',
              help='add "XC correction" to --ignore.  XC Correction '
              'is called once for every atom in each SCF step which clutters '
              'the graph a lot.')
+p.add_option('--interval', metavar='TIME1:TIME2',
+             help='plot only timings within TIME1 and TIME2 '
+             'after start of calculation.')
+p.add_option('--unit', default='s',
+             help='time unit.  s, m or h.  Default: %default.')
 opts, fnames = p.parse_args()
+
+timeunit = {'s': 1.0, 'm': 60.0, 'h': 3600.0}[opts.unit]
 
 ignored_timers = set(opts.ignore.split(','))
 if opts.noxcc:
@@ -57,7 +64,7 @@ class Entry:
 
     def normalize(self, start, stop):
         offset = start
-        scale = 1.0 / (stop - start)
+        scale = 1.0 / timeunit
         self.transform(offset, scale)
 
     def transform(self, offset, scale):
@@ -91,20 +98,26 @@ def get_timings(fname):
     root = Entry('root', 0.0)
     head = root
     for line in open(fname):
-        line = line.strip()
-        part1, part2, action = line.rsplit(' ', 2)
-        tokens = part1.split(' ', 3)
-        t = float(tokens[2])
-        name = tokens[3]
+        try:
+            line = line.strip()
+            part1, part2, action = line.rsplit(' ', 2)
+            tokens = part1.split(' ', 3)
+            t = float(tokens[2])
+            name = tokens[3]
 
-        if action == 'started':
-            head = head.subentry(name, t)
-        else:
-            assert action == 'stopped'
-            assert name == head.name
-            head.stop(t)
-            head = head.parent
-    assert head == root
+            if action == 'started':
+                head = head.subentry(name, t)
+            else:
+                assert action == 'stopped', action
+                assert name == head.name
+                head.stop(t)
+                head = head.parent
+        except StandardError: # guard against interrupted file I/O
+            pass
+    while head != root: # If file is incomplete, cut remaining timers short
+        head.stop(t)
+        head = head.parent
+    #assert head == root
     root.t1 = root.children[0].t1
     root.stop(root.children[-1].t2)
     return root
@@ -146,12 +159,28 @@ thehatches = ['', '//', '.', 'o', '*', r'\\']
 def getstyle(i):
     return thecolors[i % len(thecolors)], thehatches[i // len(thecolors)]
 
+if opts.interval:
+    plotstarttime, plotendtime = map(float, opts.interval.split(':'))
+else:
+    plotstarttime = 0
+    plotendtime = max([t.t2 for t in alltimings])
+
+
 for rank, rootnode in enumerate(alltimings):
     nstyles_used = 0
 
     for child in rootnode.iterate():
         if child.name in ignored_timers:
             continue
+        t1 = child.t1
+        t2 = child.t2
+        if t2 < plotstarttime:
+            continue
+        if plotendtime < t1:
+            continue
+        t1 = max(t1, plotstarttime)
+        t2 = min(t2, plotendtime)
+        dt = t2 - t1
         if child.name not in styles:
             if entries.totals[child.name] < opts.threshold:
                 #color, hatch = ('k', '')
@@ -168,9 +197,9 @@ for rank, rootnode in enumerate(alltimings):
             styles[child.name] = color, hatch
         
         color, hatch = styles[child.name]
-        centerx = child.t1 + child.dt * 0.5
+        centerx = t1 + dt * 0.5
         centery = child.level + 0.5
-        x = [child.t1, child.t2, child.t2, child.t1]
+        x = [t1, t2, t2, t1]
         y = [child.level, child.level, child.level + 1, child.level + 1]
         # hardcoded to max 5.  Graphs will overlap if larger.
         compression = 5.0
@@ -185,7 +214,8 @@ ax.set_ylabel('rank')
 ax.set_yticks(range(len(metadata)))
 ax.set_yticklabels([txt.replace('=', '') for txt in metadata])
 
-ax.set_xlabel('normalized time')
+ax.set_xlabel('time / %s' % opts.unit)
+ax.axis(xmin=plotstarttime, xmax=plotendtime)
 
 for i, name in enumerate(ordered_names):
     color, hatch = styles[name]
