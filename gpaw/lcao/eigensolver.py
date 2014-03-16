@@ -66,7 +66,7 @@ class LCAO:
         Mstart = wfs.basis_functions.Mstart
         Mstop = wfs.basis_functions.Mstop
         
-        if wfs.bd.comm.size > 1 or wfs.ksl.using_blacs:
+        if wfs.bd.comm.size > 1:
             wfs.timer.start('Atomic Hamiltonian')
             for a, P_Mi in kpt.P_aMi.items():
                 #print a, P_Mi[0, 0]
