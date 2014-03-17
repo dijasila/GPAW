@@ -426,8 +426,23 @@ class SmoothDistribution(ZeroKelvin):
         if wfs.nspins == 1:
             assert spin == 0
             n = self.nvalence // 2
-            homo = wfs.world.max(max([kpt.eps_n[n - 1] for kpt in wfs.kpt_u]))
-            lumo = wfs.world.min(min([kpt.eps_n[n] for kpt in wfs.kpt_u]))
+            band_rank, myn = wfs.bd.who_has(n-1)
+            if wfs.bd.rank == band_rank:
+                homo = max([kpt.eps_n[myn] for kpt in wfs.kpt_u])
+            else:
+                homo = -1000.0
+            homo = wfs.world.max(homo)
+
+            # There are not enough bands for LUMO
+            if n >= wfs.bd.nbands:
+                return np.array([homo, np.NaN])
+
+            band_rank, myn = wfs.bd.who_has(n)
+            if wfs.bd.rank == band_rank:
+                lumo = -max([-kpt.eps_n[myn] for kpt in wfs.kpt_u])
+            else:
+                lumo = 1000.0
+            lumo= -wfs.world.max(-lumo)
             return np.array([homo, lumo])
         else:
             eps_homo = -1000.0
@@ -442,6 +457,8 @@ class SmoothDistribution(ZeroKelvin):
             
             eps_homo = wfs.kd.comm.max(eps_homo)
             eps_lumo = wfs.kd.comm.min(eps_lumo)
+            eps_homo = wfs.bd.comm.max(eps_homo)
+            eps_lumo = wfs.bd.comm.min(eps_lumo)
 
             return np.array( [eps_homo, eps_lumo] )
 
@@ -454,11 +471,8 @@ class SmoothDistribution(ZeroKelvin):
 
         if self.nvalence is None:
             self.calculate(wfs)
-
-        n = self.nvalence // 2
-        homo = wfs.world.max(max([kpt.eps_n[n - 1] for kpt in wfs.kpt_u]))
-        lumo = wfs.world.min(min([kpt.eps_n[n] for kpt in wfs.kpt_u]))
-        return np.array([homo, lumo])
+        
+        return self.get_homo_lumo_by_spin(wfs, 0)
 
     def guess_fermi_level(self, wfs):
         fermilevel = 0.0

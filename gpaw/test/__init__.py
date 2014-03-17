@@ -277,6 +277,7 @@ tests = [
     'nscfsic.py',
     'gw_static.py',
     # > 100 sec tests start here
+    'parallel/diamond_gllb.py', 
     'lcao_tdgllbsc.py',
     'exx.py',
     'pygga.py',
@@ -376,7 +377,8 @@ if mpi.size < 4:
                 'bse_diamond.py',
                 'bse_silicon.py',
                 'bse_vs_lrtddft.py',
-                'fileio/parallel.py']
+                'fileio/parallel.py',
+                'parallel/diamond_gllb.py']
 
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']
