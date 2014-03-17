@@ -17,6 +17,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 
 
 def frequency_grid(domega0, omegamax, alpha):
+    print('Using nonlinear frequency grid from 0 to %d  eV'%(omegamax*Hartree), file=self.fd)
     wmax = int(omegamax / domega0 / (1 + alpha)) + 1
     w = np.arange(wmax)
     omega_w = w * domega0 / (1 - alpha * domega0 / omegamax * w)
@@ -45,7 +46,7 @@ class Chi0(PairDensity):
         else:
             self.omega_w = np.asarray(frequencies) / Hartree
             self.domega0 = self.omega_w[1]
-            self.omegamax = -42.0
+            self.omegamax = -42.0 #np.max(self.omega_w)?
             self.alpha = 0.0
             
         self.hilbert = hilbert
