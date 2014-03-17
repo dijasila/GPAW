@@ -38,9 +38,9 @@ class NonLocalFunctional(XCFunctional):
         # Is this OK place?
         self.initialize0()
 
-    def set_positions(self, spos_ac, atom_partition):
+    def set_positions(self, spos_ac):
         for contribution in self.contributions:
-            contribution.set_positions(spos_ac, atom_partition)
+            contribution.set_positions(spos_ac)
         
     def pass_stuff_1d(self, ae):
         self.ae = ae

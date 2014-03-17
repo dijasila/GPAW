@@ -42,7 +42,7 @@ class C_Response(Contribution):
     def set_damp(self, damp):
         self.damp = damp
 
-    def set_positions(self, atoms, atom_partition):
+    def set_positions(self, atoms):
         d("Response::set_positions", len(self.Dresp_asp), "not doing anything now")
         return
         def get_empty(a):

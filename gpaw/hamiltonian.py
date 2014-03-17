@@ -103,7 +103,7 @@ class Hamiltonian:
         
         self.spos_ac = spos_ac
         self.vbar.set_positions(spos_ac)
-        self.xc.set_positions(spos_ac, atom_partition)
+        self.xc.set_positions(spos_ac)
         
         # If both old and new atomic ranks are present, start a blank dict if
         # it previously didn't exist but it will needed for the new atoms.

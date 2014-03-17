@@ -54,7 +54,6 @@ class OccupationNumbers:
             if kpt.eps_n is None:
                 return
 
-
         # Let the master domain do the work and broadcast results:
         data = np.empty(7)
         if wfs.gd.comm.rank == 0:
