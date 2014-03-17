@@ -141,10 +141,11 @@ class C_Response(Contribution):
                     self.symmetry.symmetrize(nt_G, self.gd)
                     self.symmetry.symmetrize(vt_G, self.gd)
 
-            d("response update", world.rank, self.Dresp_asp.keys(), self.D_asp.keys())
+            d("response update D_asp", world.rank, self.Dresp_asp.keys(), self.D_asp.keys())
             self.wfs.calculate_atomic_density_matrices_with_occupation(
                 self.Dresp_asp, w_kn)
-            #self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
+            self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
+            d("response update Drespdist_asp", world.rank, self.Dresp_asp.keys(), self.D_asp.keys())
             self.wfs.calculate_atomic_density_matrices_with_occupation(
                 self.D_asp, f_kn)
 
