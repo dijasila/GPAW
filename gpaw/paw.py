@@ -10,6 +10,7 @@ The central object that glues everything together!"""
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.dft.kpoints import monkhorst_pack
+from ase.calculators.calculator import kptdensity2monkhorstpack
 
 import gpaw.io
 import gpaw.mpi as mpi
@@ -87,7 +88,7 @@ class PAW(PAWTextOutput):
         self.iter = 0
         
         self.initialized = False
-        self.nbands_parallelization_adjustment = None # Somehow avoid this?
+        self.nbands_parallelization_adjustment = None  # Somehow avoid this?
 
         # Possibly read GPAW keyword arguments from file:
         if filename is not None and filename.endswith('.gkw'):
@@ -134,17 +135,6 @@ class PAW(PAWTextOutput):
 
     def set(self, **kwargs):
         p = self.input_parameters
-
-        # Prune input for things that didn't change
-        for key, value in kwargs.items():
-            if key == 'kpts':
-                oldbzk_kc = kpts2ndarray(p.kpts)
-                newbzk_kc = kpts2ndarray(value)
-                if (len(oldbzk_kc) == len(newbzk_kc) and
-                    (oldbzk_kc == newbzk_kc).all()):
-                    kwargs.pop('kpts')
-            elif np.all(p[key] == value):
-                kwargs.pop(key)
 
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
             raise TypeError("""You can't use both "gpts" and "h"!""")
@@ -388,6 +378,7 @@ class PAW(PAWTextOutput):
         if par.filter is None and not isinstance(mode, PW):
             gamma = 1.6
             hmax = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / N_c).max()
+            
             def filter(rgd, rcut, f_r, l=0):
                 gcut = np.pi / hmax - 2 / rcut / gamma
                 f_r[:] = rgd.filter(f_r, rcut * gamma, gcut, l)
@@ -427,7 +418,8 @@ class PAW(PAWTextOutput):
             ncomp = 2
 
         # K-point descriptor
-        kd = KPointDescriptor(par.kpts, nspins, collinear)
+        bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
+        kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
 
         width = par.width
         if width is None:
@@ -524,7 +516,7 @@ class PAW(PAWTextOutput):
             if parsize_domain == 'domain only':  # XXX this was silly!
                 parsize_domain = world.size
 
-            parallelization = mpi.Parallelization(world, 
+            parallelization = mpi.Parallelization(world,
                                                   nspins * kd.nibzkpts)
             ndomains = None
             if parsize_domain is not None:
@@ -572,8 +564,8 @@ class PAW(PAWTextOutput):
                 # Domain decomposition has changed, so we need to
                 # reinitialize density and hamiltonian:
                 if par.fixdensity:
-                    raise RuntimeError("Density reinitialization conflict "
-                        "with 'fixdensity' - specify domain decomposition.")
+                    raise RuntimeError('Density reinitialization conflict ' +
+                        'with "fixdensity" - specify domain decomposition.')
                 self.density = None
                 self.hamiltonian = None
 
@@ -903,10 +895,54 @@ class PAW(PAWTextOutput):
                                'are not identical!')
 
 
-def kpts2ndarray(kpts):
+def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
+                        atoms=None):
+    """Helper function for selecting k-points.
+    
+    Use either size or density.
+    
+    size: 3 ints
+        Number of k-points.
+    density: float
+        K-point density in units of k-points per Ang^-1.
+    gamma: None or bool
+        Should the Gamma-point be included?  Yes / no / don't care:
+        True / False / None.
+    gamma: None or bool
+        Should the number of k-points be even?  Yes / no / don't care:
+        True / False / None.
+    atoms: Atoms object
+        Needed for calculating k-point density.
+    
+    """
+    
+    if size is None:
+        if density is None:
+            size = [1, 1, 1]
+        else:
+            size = kptdensity2monkhorstpack(atoms, density, even)
+            
+    offsets = [0, 0, 0]
+                                                                        
+    if gamma is not None:
+        for i, s in enumerate(size):
+            if atoms.pbc[i] and s % 2 != bool(gamma):
+                offsets[i] = 0.5 / s
+                
+    return size, offsets
+    
+    
+def kpts2ndarray(kpts, atoms=None):
     """Convert kpts keyword to 2d ndarray of scaled k-points."""
+    
     if kpts is None:
         return np.zeros((1, 3))
+        
+    if isinstance(kpts, dict):
+        size, offsets = kpts2sizeandoffsets(atoms, **kpts)
+        return monkhorst_pack(size) + offsets
+        
     if isinstance(kpts[0], int):
         return monkhorst_pack(kpts)
+        
     return np.array(kpts)
