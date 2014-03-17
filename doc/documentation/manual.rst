@@ -158,16 +158,29 @@ keyword            type       default value        description
 
 .. _manual_mode:
 
-Finite Difference or LCAO mode
-------------------------------
+Finite Difference, Plane-wave or LCAO mode
+------------------------------------------
 
-The default mode (``mode='fd'``) is Finite Differece. This means that
-the wave functions will be expanded on a real space grid. The
-alternative is to expand the wave functions on a basis-set constructed
-as linear combination as atomic-like orbitals, in short LCAO. This is
-done by setting (``mode='lcao'``).
+Finite-difference:
+    The default mode (``mode='fd'``) is Finite Differece. This means that
+    the wave functions will be expanded on a real space grid.
+    
+LCAO:
+    Expand the wave functions in a basis-set constructed
+    from atomic-like orbitals, in short LCAO (linear combination of atomic
+    orbitals).  This is done by setting ``mode='lcao'``.
 
-See also the page on :ref:`lcao`.
+    See also the page on :ref:`lcao`.
+
+Plane-waves:
+    Expand the wave-functions in plane-waves.  Use ``mode='pw'`` if you want
+    to use the default plane-wave cutoff of `E_{\text{cut}}=340` eV.  The
+    plane-waves will be those with `|\bG+\bk|^2/2<E_{\text{cut}}`.  You
+    can set another cutoff like this::
+        
+        from gpaw import GPAW, PW
+        calc = GPAW(mode=PW(200))
+
 
 .. _manual_nbands:
 
@@ -890,11 +903,11 @@ argument                         description
                                  :ref:`parallel <manual_parallel>` keyword.
                                  Requires GPAW to be built with ScaLAPACK.
 ``--gpaw a=1,b=2.3,...``         
-				 Extra parameters for development work:
-				 
-				 >>> from gpaw import extra_parameters
-				 >>> print extra_parameters
-				 {'a': 1, 'b': 2.3}
+                                 Extra parameters for development work:
+                                 
+                                 >>> from gpaw import extra_parameters
+                                 >>> print extra_parameters
+                                 {'a': 1, 'b': 2.3}
 ===============================  =============================================
 
 
