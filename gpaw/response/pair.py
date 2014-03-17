@@ -250,6 +250,7 @@ class PairDensity:
 
         return U_cc, T, a_a, U_aii, shift_c, time_reversal
 
+    @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, pd, soft=False):
         wfs = self.calc.wfs
         q_v = pd.K_qv[0]
@@ -287,6 +288,7 @@ class PairDensity:
                 
         return Q_aGii
 
+    @timer('Optical limit')
     def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG):
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
@@ -315,6 +317,7 @@ class PairDensity:
 
         return n0_mv
 
+    @timer('Intraband')
     def update_intraband(self, inds_m, kpt):
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
@@ -350,6 +353,7 @@ class PairDensity:
             
         return ut_sKnvR
 
+    @timer('Derivatives')
     def make_derivative(self, s, K, n1, n2):
         wfs = self.calc.wfs
         if self.real_space_derivatives:

@@ -1,6 +1,5 @@
 from __future__ import division, print_function
 
-import sys
 from math import pi
 
 import numpy as np
@@ -9,6 +8,8 @@ from ase.utils import opencew
 from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
+from gpaw.xc.exx import EXX
+from gpaw.xc.tools import vxc
 from gpaw.utilities.timing import timer
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
@@ -22,9 +23,10 @@ class G0W0(PairDensity):
                  kpts=None, bands=None, nbands=None, ppa=False, hilbert=False,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
                  domega0=0.025, omegamax=100, alpha=3.0,
-                 world=mpi.world, txt=sys.stdout):
+                 world=mpi.world):
     
-        PairDensity.__init__(self, calc, ecut, world=world, txt=txt)
+        PairDensity.__init__(self, calc, ecut, world=world,
+                             txt=filename + '.txt')
         
         self.filename = filename
         
@@ -37,7 +39,14 @@ class G0W0(PairDensity):
         self.domega0 = domega0 / Hartree
         self.omegamax = omegamax / Hartree
         self.alpha = alpha
-        
+
+        print('  ___  _ _ _ ', file=self.fd)
+        print(' |   || | | |', file=self.fd)
+        print(' | | || | | |', file=self.fd)
+        print(' |__ ||_____|', file=self.fd)
+        print(' |___|       ', file=self.fd)
+        print(file=self.fd)
+
         if ppa:
             print('Using Godby-Needs plasmon-pole approximation:',
                   file=self.fd)
@@ -62,8 +71,9 @@ class G0W0(PairDensity):
         self.sigma_sin = np.zeros(shape)   # self-energies
         self.dsigma_sin = np.zeros(shape)  # derivatives of self-energies
         self.Z_sin = np.empty(shape)       # renormalization factors
-        self.exx_sin = np.empty(shape)     # exact exchange contributions
         self.eps_sin = np.empty(shape)     # KS-eigenvalues
+        self.exx_sin = np.empty(shape)     # exact exchange contributions
+        self.vxc_sin = np.empty(shape)     # KS XC-contributions
 
         if nbands is None:
             nbands = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
@@ -104,6 +114,8 @@ class G0W0(PairDensity):
     def calculate(self):
         kd = self.calc.wfs.kd
 
+        self.calculate_ks_xc_contribution()
+        self.calculate_exact_exchange()
         self.calculate_screened_potential()
         
         mykpts = [self.get_k_point(s, K, n1, n2)
@@ -159,7 +171,7 @@ class G0W0(PairDensity):
         N_c = pd.gd.N_c
 
         # Read W and transform from IBZ to BZ:
-        fd = open('W.q{0}.{1}.npy'.format(iq, self.filename))
+        fd = open('{0}.w.q{1}.npy'.format(self.filename, iq))
         assert (iq_c == np.load(fd)).all()
         N_G = np.load(fd)
         
@@ -256,7 +268,7 @@ class G0W0(PairDensity):
                           'alpha': self.alpha}
             
         for iq, q_c in enumerate(self.qd.ibzk_kc):
-            fd = opencew('W.q%d.%s.npy' % (iq, self.filename))
+            fd = opencew('%s.w.q%d.npy' % (self.filename, iq))
             if fd is None:
                 continue
                 
@@ -267,6 +279,7 @@ class G0W0(PairDensity):
                             nbands=self.nbands,
                             ecut=self.ecut * Hartree,
                             real_space_derivatives=False,
+                            txt=self.filename + '.w.txt',
                             **parameters)
                 #wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
                 #                                   self.calc.wfs.kd.N_c,
@@ -328,3 +341,35 @@ class G0W0(PairDensity):
                     np.save(fd, W_GG)
 
             fd.close()
+
+    @timer('Calculate Kohn-Sham XC-contribution')
+    def calculate_ks_xc_contribution(self):
+        name = self.filename + '.vxc.npy'
+        fd = opencew(name)
+        if fd is None:
+            print('Reading Kohn-Sham XC contribution from file:', name,
+                  file=self.fd)
+            with open(name) as fd:
+                self.vxc_sin = np.load(fd)
+            return
+            
+        print('Calculating Kohn-Sham XC contribution', file=self.fd)
+        vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc)
+        self.vxc_sin = vxc_skn[:, self.kpts, self.bands]
+        np.save(fd, self.vxc_sin)
+        
+    @timer('Calculate EXact eXchange')
+    def calculate_exact_exchange(self):
+        name = self.filename + '.exx.npy'
+        fd = opencew(name)
+        if fd is None:
+            print('Reading EXX contribution from file:', name, file=self.fd)
+            with open(name) as fd:
+                self.exx_sin = np.load(fd)
+            return
+            
+        print('Calculating EXX contribution', file=self.fd)
+        exx = EXX(self.calc, kpts=self.kpts, bands=self.bands, txt=self.fd)
+        exx.calculate()
+        self.exx_sin = exx.get_eigenvalue_contributions()
+        np.save(fd, self.exx_sin)

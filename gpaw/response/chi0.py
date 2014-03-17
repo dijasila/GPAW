@@ -8,11 +8,12 @@ from ase.units import Hartree
 
 import gpaw.mpi as mpi
 from gpaw import extra_parameters
-from gpaw.utilities.blas import gemm, rk, czher
+from gpaw.utilities.timing import timer
+from gpaw.utilities.memory import maxrss
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.utilities.blas import gemm, rk, czher
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.utilities.memory import maxrss
 
 
 def frequency_grid(domega0, omegamax, alpha):
@@ -105,6 +106,7 @@ class Chi0(PairDensity):
         return self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
                                m1, m2, spins)
 
+    @timer('Calculate CHI_0')
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
                    m1, m2, spins):
         wfs = self.calc.wfs
@@ -196,6 +198,7 @@ class Chi0(PairDensity):
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
+    @timer('CHI_0 update')
     def update(self, n_mG, deps_m, df_m, chi0_wGG):
         if self.timeordered:
             deps1_m = deps_m + 1j * self.eta * np.sign(deps_m)
@@ -210,12 +213,14 @@ class Chi0(PairDensity):
             gemm(self.prefactor, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_wGG[w])
 
+    @timer('CHI_0 hermetian update')
     def update_hermitian(self, n_mG, deps_m, df_m, chi0_wGG):
         for w, omega in enumerate(self.omega_w):
             x_m = (-2 * df_m * deps_m / (omega.imag**2 + deps_m**2))**0.5
             nx_mG = n_mG.conj() * x_m[:, np.newaxis]
             rk(-self.prefactor, nx_mG, 1.0, chi0_wGG[w], 'n')
 
+    @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
         for deps, df, n_G in zip(deps_m, df_m, n_mG):
             o = abs(deps)
@@ -229,6 +234,7 @@ class Chi0(PairDensity):
             czher(p * (o2 - o), n_G.conj(), chi0_wGG[w])
             czher(p * (o - o1), n_G.conj(), chi0_wGG[w + 1])
 
+    @timer('CHI_0 optical limit update')
     def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG,
                              chi0_wxvG, chi0_wvv):
         n0_mv = PairDensity.update_optical_limit(self, n, kpt1, kpt2,
@@ -250,6 +256,7 @@ class Chi0(PairDensity):
             chi0_wxvG[w, 0, :, 1:] += np.dot(x_m * n0_mv.T, n_mG[:, 1:].conj())
             chi0_wxvG[w, 1, :, 1:] += np.dot(x_m * n0_mv.T.conj(), n_mG[:, 1:])
 
+    @timer('CHI_0 intraband update')
     def update_intraband(self, kpt, chi0_wvv):
         """Check whether there are any partly occupied bands."""
         width = self.calc.occupations.width
