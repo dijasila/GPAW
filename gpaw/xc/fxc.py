@@ -9,6 +9,7 @@ from scipy.special.orthogonal import p_roots
 from scipy.special import sici
 
 from gpaw import GPAW
+from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities.blas import gemmdot, axpy
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -91,7 +92,7 @@ class FXCCorrelation(RPACorrelation):
 
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_swGG, cut_G)
-            prnt('%.3f eV' % (e * Hartree), end='', file=self.fd)
+            prnt('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
         else:
             e = 0.0
@@ -101,12 +102,13 @@ class FXCCorrelation(RPACorrelation):
                 chi0_swGG[:, :, 0, 0] = chi0_swvv[:, :, v, v]
                 ev = self.calculate_energy(pd, chi0_swGG, cut_G)
                 e += ev
-                if v in [0, 1]:
-                    prnt('%.3f/' % (ev * Hartree), end='', file=self.fd)
+		prnt('%.3f' % (ev * Hartree), end='', file=self.fd)
+                if v < 2:
+                    prnt('/', end='', file=self.fd)
                 else:
-                    prnt('%.3f eV' % (ev * Hartree), end='', file=self.fd)
+                    prnt('eV', file=self.fd)
+		    self.fd.flush()
             e /= 3
-        prnt(file=self.fd)
 
         return e
 
@@ -304,6 +306,7 @@ class Kernel:
                      ' - estimated %s seconds left' %
                      int((len(R_Rv) - 1) * (time() - t0)), 
                      file=self.fd)
+                self.fd.flush()
             if len(R_Rv) > 5:
                 if (i+1) % (len(R_Rv) / 5 + 1) == 0:
                     prnt('      Finished %s cells in %s seconds'
@@ -311,6 +314,7 @@ class Kernel:
                          + ' - estimated %s seconds left'
                          % int((len(R_Rv) - i) * (time() - t0) / i), 
                          file=self.fd)
+                    self.fd.flush()
             for g in l_g_range:
                 rx = rx_g[g] + R_v[0]
                 ry = ry_g[g] + R_v[1]
@@ -374,19 +378,19 @@ class Kernel:
 
             if mpi.world.size > 1:
                 # redistribute grid and plane waves in fhxc_qsGr[iq]
-                bg1 = BlacsGrid(world, 1, world.size)
-                bg2 = BlacsGrid(world, world.size, 1)
-                bd1 = bg1.new_descriptor(npw, nG0, npw, - (-nG0 / world.size))
-                bd2 = bg2.new_descriptor(npw, nG0, -(-npw / world.size), nG0)
+                bg1 = BlacsGrid(mpi.world, 1, mpi.world.size)
+                bg2 = BlacsGrid(mpi.world, mpi.world.size, 1)
+                bd1 = bg1.new_descriptor(npw, ng, npw, - (-ng / mpi.world.size))
+                bd2 = bg2.new_descriptor(npw, ng, -(-npw / mpi.world.size), ng)
 
-                fhxc_Glr = np.zeros((len(l_pw_range), nG0), dtype=complex)
+                fhxc_Glr = np.zeros((len(l_pw_range), ng), dtype=complex)
                 if ns == 2:
-                    Koff_Glr = np.zeros((len(l_pw_range), nG0), dtype=complex)
+                    Koff_Glr = np.zeros((len(l_pw_range), ng), dtype=complex)
 
                 r = Redistributor(bg1.comm, bd1, bd2)
-                r.redistribute(fhxc_qsGr[iq][0], fhxc_Glr, npw, nG0)
+                r.redistribute(fhxc_qsGr[iq][0], fhxc_Glr, npw, ng)
                 if ns == 2:
-                    r.redistribute(fhxc_qsGr[iq][1], Koff_Glr, npw, nG0)
+                    r.redistribute(fhxc_qsGr[iq][1], Koff_Glr, npw, ng)
             else:
                 fhxc_Glr = fhxc_qsGr[iq][0]
                 if ns == 2:
