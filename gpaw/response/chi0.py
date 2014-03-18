@@ -316,9 +316,6 @@ class Chi0(PairDensity):
         print('%s' % ctime(), file=self.fd)
         print('Called response.chi0.calculate with', file=self.fd)
         print('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]), file=self.fd)
-        print('    [min(freq), max(freq)]: [%f, %f]'
-              % (np.min(self.omega_w) * Hartree,
-                 np.max(self.omega_w) * Hartree), file=self.fd)
         print('    Number of frequency points   : %d' % nw, file=self.fd)
         print('    Planewave cutoff: %f' % (self.ecut * Hartree), file=self.fd)
         print('    Number of spins: %d' % ns, file=self.fd)
@@ -336,15 +333,6 @@ class Chi0(PairDensity):
               % self.nocc2, file=self.fd)
         print('        Number of terms handled in chi-sum by each rank: %d'
               % nstat, file=self.fd)
-
-        print('', file=self.fd)
-        print('    Related to hilbert transform:', file=self.fd)
-        print('        Use Hilbert Transform: %s' % self.hilbert, file=self.fd)
-        print('        Calculate time-ordered Response Function: %s'
-              % self.timeordered, file=self.fd)
-        print('        domega0: %f' % (self.domega0 * Hartree), file=self.fd)
-        print('        omegamax: %f' % (self.omegamax * Hartree), file=self.fd)
-        print('        alpha: %f' % self.alpha, file=self.fd)
 
         print('', file=self.fd)
         print('    Memory estimate:', file=self.fd)
