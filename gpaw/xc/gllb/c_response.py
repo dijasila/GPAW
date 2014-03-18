@@ -88,6 +88,7 @@ class C_Response(Contribution):
                     self.Dresp_asp[a] = np.zeros_like(self.density.D_asp[a])
                     self.D_asp[a] = np.zeros_like(self.density.D_asp[a])
                 self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
+                self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
 
         # The response discontinuity is stored here
         self.Dxc_vt_sG = None
@@ -111,8 +112,8 @@ class C_Response(Contribution):
                     else:
                         d("Core ", world.rank, "keeping a", a)
             self.just_read = False
-            # Distribute load
             self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
+            d("Core ", world.rank, "self.Dresp_asp", self.Dresp_asp.items(), "self.Drespdist_asp", self.Drespdist_asp.items())
             self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
             return 
 
@@ -146,6 +147,7 @@ class C_Response(Contribution):
             d("response update Drespdist_asp", world.rank, self.Dresp_asp.keys(), self.D_asp.keys())
             self.wfs.calculate_atomic_density_matrices_with_occupation(
                 self.D_asp, f_kn)
+            self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
 
             self.vt_sG /= self.nt_sG + self.damp
             
@@ -181,7 +183,7 @@ class C_Response(Contribution):
         if not addcoredensity:
             ncresp_g[:] = 0.0
         
-        for D_p, dEdD_p, Dresp_p in zip(D_sp, H_sp, self.Drespdist_asp[a]):
+        for D_p, dEdD_p, Dresp_p in zip(self.Ddist_asp[a], H_sp, self.Drespdist_asp[a]):
             D_Lq = np.dot(c.B_pqL.T, D_p)
             n_Lg = np.dot(D_Lq, c.n_qg) # Construct density
             if addcoredensity:
@@ -373,6 +375,7 @@ class C_Response(Contribution):
             w_asi[a] = w_si
 
         self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
+        self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
         self.nt_sG = self.gd.zeros(self.nspins)
         basis_functions.add_to_density(self.nt_sG, f_asi)
         self.vt_sG = self.gd.zeros(self.nspins)
