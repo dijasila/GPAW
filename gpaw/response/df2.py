@@ -16,11 +16,11 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
     def __init__(self, calc, name=None, frequencies=None,  domega0=0.1, 
-                 omegamax=20, ecut=50, hilbert=False, nbands=None,
+                 omegamax=20, alpha = 3.0, ecut=50, hilbert=False, nbands=None,
                  eta=0.2, ftol=1e-6, world=mpi.world, txt=sys.stdout):
             
         self.chi0 = Chi0(calc, frequencies, domega0 = domega0, 
-                         omegamax = omegamax, ecut=ecut, hilbert = hilbert,
+                         omegamax = omegamax, alpha = alpha, ecut=ecut, hilbert = hilbert,
                          nbands=nbands, eta=eta, ftol=ftol, world=world, txt=txt)
         
         self.name = name
@@ -346,7 +346,9 @@ class DielectricFunction:
         e_wGG = self.get_dielectric_matrix(xc = 'RPA', q_c = q_c,
                                            wigner_seitz_truncation=True,
                                            symmetric=False)
-
+        
+        kd = self.chi0.calc.wfs.kd
+        
         """ get real space grid for plasmon modes"""
         from gpaw.utilities.gpts import get_number_of_grid_points
         from gpaw.grid_descriptor import GridDescriptor
@@ -359,13 +361,9 @@ class DielectricFunction:
         r = gd.get_grid_point_coordinates()
               
         w_w = self.chi0.omega_w * Hartree
-        dw = w_w[1]-w_w[0]
-        if w_max is not None:
-            w_w = np.arange(0, w_max+dw, step = dw)
         Nw = len(w_w)
         nG =  e_wGG.shape[1]
-       
-        
+             
         eig = np.zeros([Nw, nG], dtype = complex)
         vec = np.zeros([Nw, nG, nG], dtype = complex)
         vec_dual = np.zeros([Nw, nG, nG], dtype = complex)
@@ -413,9 +411,9 @@ class DielectricFunction:
                         
                                           
         if name is None and self.name:          
-            name = self.name + '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * pd.kd.N_c).round())          
+            name = self.name + '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * kd.N_c).round())          
         elif name:
-            name = name + '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * pd.kd.N_c).round())
+            name = name + '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * kd.N_c).round())
         else:
             return r*Bohr, w_w, eig, omega0, eigen0, v_ind, n_ind
 
