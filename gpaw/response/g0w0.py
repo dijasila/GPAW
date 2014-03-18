@@ -142,6 +142,18 @@ class G0W0(PairDensity):
                                                    self.exx_sin -
                                                    self.vxc_sin)
         
+        description = ['eps:   KS-eigenvalues [eV]',
+                       'f:     Occupation numbers',
+                       'vxc:   KS vxc [eV]',
+                       'exx:   Exact exchange [eV]',
+                       'sigma: Self-energies [eV]',
+                       'Z:     Renormalization factors',
+                       'qp:    QP-energies [eV]']
+
+        print('\nResults:', file=self.fd)
+        for line in description:
+            print(line, file=self.fd)
+            
         results = {'eps': self.eps_sin * Hartree,
                    'f':     self.f_sin,
                    'vxc':   self.vxc_sin * Hartree,
@@ -149,17 +161,22 @@ class G0W0(PairDensity):
                    'sigma': self.sigma_sin * Hartree,
                    'Z':     self.Z_sin,
                    'qp':    self.qp_sin * Hartree}
-        
-        for tag, description in [('eps', 'KS-eigenvalues [eV]'),
-                                 ('f', 'Occupation numbers'),
-                                 ('vxc', 'KS vxc [eV]'),
-                                 ('exx', 'Exact exchange [eV]'),
-                                 ('sigma', 'Self-energies [eV]'),
-                                 ('Z', 'Renormalization factors'),
-                                 ('qp', 'QP-energies [eV]')]:
-            print(description + ':\n',
-                  np.array_str(results[tag], precision=3, suppress_small=True),
-                  file=self.fd)
+
+        b1, b2 = self.bands
+        names = [line.split(':', 1)[0] for line in description]
+        for s in range(self.calc.wfs.nspins):
+            for i, ik in enumerate(self.kpts):
+                print('\nk-point ' +
+                      '{0} ({1}): ({2:.3f}, {3:.3f}, {4:.3f})'.format(
+                          i, ik, *kd.ibzk_kc[ik]), file=self.fd)
+                print('band' +
+                      ''.join('{0:>8}'.format(name) for name in names),
+                      file=self.fd)
+                for n in range(b2 - b1):
+                    print('{0:4}'.format(n + b1) +
+                          ''.join('{0:8.3f}'.format(results[name][s, i, n])
+                                  for name in names),
+                          file=self.fd)
 
         self.timer.write(self.fd)
         

@@ -175,10 +175,12 @@ class Chi0(PairDensity):
                       file=self.fd)
 
         print('    %s, Finished kpoint sum' % ctime(), file=self.fd)
-        self.world.sum(chi0_wGG)
-        if optical_limit:
-            self.world.sum(chi0_wxvG)
-            self.world.sum(chi0_wvv)
+        
+        with self.timer('Sum CHI_0'):
+            self.world.sum(chi0_wGG)
+            if optical_limit:
+                self.world.sum(chi0_wxvG)
+                self.world.sum(chi0_wvv)
 
         if self.eta == 0.0 or self.hilbert:
             # Fill in upper/lower triangle also:
@@ -193,8 +195,10 @@ class Chi0(PairDensity):
                     chi0_GG[iu] = chi0_GG[il].conj()
 
         if self.hilbert:
-            ht = HilbertTransform(self.omega_w, self.eta, self.timeordered)
-            ht(chi0_wGG, chi0_wGG)
+            with self.timer('Hilbert transform'):
+                ht = HilbertTransform(self.omega_w, self.eta,
+                                      self.timeordered)
+                ht(chi0_wGG, chi0_wGG)
             print('Hilbert transform done', file=self.fd)
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
