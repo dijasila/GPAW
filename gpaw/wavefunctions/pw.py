@@ -381,7 +381,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def __init__(self, ecut, fftwflags,
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd, dtype,
-                 world, kd, timer):
+                 world, kd, kptband_comm, timer):
         self.ecut = ecut
         self.fftwflags = fftwflags
 
@@ -389,7 +389,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd, dtype,
-                                   world, kd, timer)
+                                   world, kd, kptband_comm, timer)
         
         self.orthoksl.gd = self.pd
         self.matrixoperator = MatrixOperator(self.orthoksl)
@@ -1200,11 +1200,9 @@ class ReciprocalSpaceDensity(Density):
         
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
-                 world, kcomm, bcomm,
-                 vext=None, collinear=True):
+                 world, kptband_comm, vext=None, collinear=True):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
-                             world, kcomm, bcomm,
-                             vext, collinear)
+                             world, kptband_comm, vext, collinear)
 
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
         self.pd2 = pd2

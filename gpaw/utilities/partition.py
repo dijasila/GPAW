@@ -3,11 +3,10 @@ import numpy as np
 
 class AtomicMatrixDistributor:
     """Class to distribute atomic dictionaries like dH_asp and D_asp."""
-    def __init__(self, atom_partition, setups, kcomm, bcomm, ns):
+    def __init__(self, atom_partition, setups, kptband_comm, ns):
         self.atom_partition = atom_partition
         self.setups = setups
-        self.kcomm = kcomm
-        self.bcomm = bcomm
+        self.kptband_comm = kptband_comm
         self.ns = ns
         self.new_atom_partition = self.atom_partition.to_parent_comm()
 
@@ -24,8 +23,7 @@ class AtomicMatrixDistributor:
         # this will be a one-to-one redistribution.
         Ddist_asp = {}
         for a in self.new_atom_partition.my_indices:
-            assert self.kcomm.rank == 0
-            assert self.bcomm.rank == 0
+            assert self.kptband_comm.rank == 0
             Ddist_asp[a] = D_asp[a]
         self.new_atom_partition.to_even_distribution(Ddist_asp, self.get_empty)
         return Ddist_asp
@@ -48,15 +46,13 @@ class AtomicMatrixDistributor:
         else:
             bigbuf = np.empty(0) # variable name not so descriptive
         
-        master = self.bcomm.rank == 0 and self.kcomm.rank == 0
-        if master:
+        if self.kptband_comm.rank == 0:
             i1 = 0
             for i2, a in zip(csizes, self.atom_partition.my_indices):
                 bigbuf[i1:i2] = dHdist_asp[a].ravel()
                 i1 = i2
         
-        self.bcomm.broadcast(bigbuf, 0)
-        self.kcomm.broadcast(bigbuf, 0)
+        self.kptband_comm.broadcast(bigbuf, 0)
 
         # Copy from bigbuf to reconstruct dictionary
         dH_asp = {}

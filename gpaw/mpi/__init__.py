@@ -847,7 +847,20 @@ class Parallelization:
         self.autofinalize()
         return self.kpt, self.domain, self.band
 
-    def build_communicators(self, kpt=None, domain=None, band=None):
+    def build_communicators(self, kpt=None, domain=None, band=None,
+                            order='kbd'):
+        """Construct communicators.
+
+        Returns a communicator for k-points, domains, bands and
+        k-points/bands.  The last one "unites" all ranks that are
+        responsible for the same domain.
+
+        The order must be a permutation of the characters 'kbd', each
+        corresponding to each a parallelization mode.  The last
+        character signifies the communicator that will be assigned
+        contiguous ranks, i.e. order='kbd' will yield contiguous
+        domain ranks, whereas order='kdb' will yield contiguous band
+        ranks."""
         self.set(kpt=kpt, domain=domain, band=band)
         self.autofinalize()
         
@@ -857,11 +870,13 @@ class Parallelization:
         parent_stride = self.size
         offset = 0
 
+        groups = dict(k=self.kpt, b=self.band, d=self.domain)
+
         # Build communicators in hierachical manner
         # The ranks in the first group have largest separation while
         # the ranks in the last group are next to each other
-        for group, name in zip([self.kpt, self.band, self.domain], 
-                               ['k-point', 'band', 'domain']):
+        for name in order:
+            group = groups[name]
             stride = parent_stride // group
             # First rank in this group
             r0 = rank % stride + offset
@@ -873,8 +888,19 @@ class Parallelization:
             # Offset for the next communicator
             offset += communicators[name].rank * stride
 
-        return (communicators['domain'], communicators['k-point'], 
-                communicators['band'])
+        # We want a communicator for kpts/bands, i.e. the complement of the
+        # grid comm: a communicator uniting all cores with the same domain.
+        c3, c2, c1 = [communicators[ch] for ch in order]
+        allranks = [range(c3.size), range(c2.size), range(c1.size)]
+        allranks[order.find('d')] = [communicators['d'].rank]
+        
+        kb_ranks = [r1 + c1.size * (r2 + c2.size * r3)
+                    for r3 in allranks[0]
+                    for r2 in allranks[1]
+                    for r1 in allranks[2]]
+        communicators['kb'] = comm.new_communicator(kb_ranks)
+
+        return [communicators[name] for name in ['d', 'k', 'b', 'kb']]
     
     def autofinalize(self):
         if self.kpt is None:

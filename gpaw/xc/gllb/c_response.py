@@ -131,10 +131,8 @@ class C_Response(Contribution):
                 self.wfs.add_to_density_from_k_point_with_occupation(self.vt_sG, kpt, w_n)
                 self.wfs.add_to_density_from_k_point(self.nt_sG, kpt)
 
-            self.band_comm.sum(self.nt_sG)
-            self.kpt_comm.sum(self.nt_sG)
-            self.band_comm.sum(self.vt_sG)
-            self.kpt_comm.sum(self.vt_sG)
+            self.wfs.kptband_comm.sum(self.nt_sG)
+            self.wfs.kptband_comm.sum(self.vt_sG)
 
             if self.wfs.symmetry:
                 for nt_G, vt_G in zip(self.nt_sG, self.vt_sG):
@@ -170,8 +168,8 @@ class C_Response(Contribution):
         # smarter.  -Ask
         from gpaw.utilities.partition import AtomicMatrixDistributor
         amd = AtomicMatrixDistributor(self.density.atom_partition,
-                                    self.density.setups, self.kpt_comm,
-                                    self.band_comm, self.density.ns)
+                                    self.density.setups, self.wfs.kptband_comm,
+                                    self.density.ns)
         return amd.distribute(Dresp_asp)
 
 
@@ -266,10 +264,8 @@ class C_Response(Contribution):
             self.wfs.add_to_density_from_k_point_with_occupation(vt_sG, kpt, w_n)
             self.wfs.add_to_density_from_k_point(nt_sG, kpt)
             
-        self.band_comm.sum(nt_sG)
-        self.kpt_comm.sum(nt_sG)
-        self.band_comm.sum(vt_sG)
-        self.kpt_comm.sum(vt_sG)
+        self.wfs.kptband_comm.sum(nt_sG)
+        self.wfs.kptband_comm.sum(vt_sG)
             
         if self.wfs.symmetry:
             for nt_G, vt_G in zip(nt_sG, vt_sG):

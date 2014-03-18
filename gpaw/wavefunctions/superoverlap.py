@@ -105,7 +105,7 @@ def superoverlap(wfs, spos_ac, P_aqMi=None):
                 continue
 
             maxdistance = pcutoff_a[a1] + phicutoff_a[a2]
-            expansion = P_expansions.get(a1, a2) # opposite??????
+            expansion = P_expansions.get(a1, a2)
             P_qim = expansion.zeros((nq,), dtype=wfs.dtype)
             disp = None
             for R_c, offset in R_ca_and_offset_a:

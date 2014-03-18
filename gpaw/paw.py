@@ -553,12 +553,8 @@ class PAW(PAWTextOutput):
             parallelization.set(kpt=parsize_kpt,
                                 domain=ndomains,
                                 band=parsize_bands)
-            domain_comm, kpt_comm, band_comm = \
+            domain_comm, kpt_comm, band_comm, kptband_comm = \
                 parallelization.build_communicators()
-
-            #domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(
-            #    parsize_domain, parsize_bands,
-            #    nspins, kd.nibzkpts, world, par.idiotproof, mode)
 
             kd.set_communicator(kpt_comm)
 
@@ -598,7 +594,8 @@ class PAW(PAWTextOutput):
                                             domain_comm, parsize_domain)
 
             # do k-point analysis here? XXX
-            args = (gd, nvalence, setups, bd, dtype, world, kd, self.timer)
+            args = (gd, nvalence, setups, bd, dtype, world, kd,
+                    kptband_comm, self.timer)
 
             if par.parallel['sl_auto']:
                 # Choose scalapack parallelization automatically
@@ -693,7 +690,7 @@ class PAW(PAWTextOutput):
                     from gpaw.tddft import TimeDependentWaveFunctions
                     self.wfs = TimeDependentWaveFunctions(par.stencils[0],
                         diagksl, orthoksl, initksl, gd, nvalence, setups,
-                        bd, world, kd, self.timer)
+                        bd, world, kd, kptband_comm, self.timer)
                 elif mode == 'fd':
                     self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
                                                orthoksl, initksl, *args)
@@ -750,16 +747,14 @@ class PAW(PAWTextOutput):
             if realspace:
                 self.hamiltonian = RealSpaceHamiltonian(
                     gd, finegd, nspins, setups, self.timer, xc, 
-                    world, self.wfs.kd.comm, self.wfs.bd.comm, par.external,
+                    world, self.wfs.kptband_comm, par.external,
                     collinear, par.poissonsolver, par.stencils[1])
             else:
                 self.hamiltonian = ReciprocalSpaceHamiltonian(
-                    gd, finegd,
-                    self.density.pd2, self.density.pd3,
-                    nspins, setups, self.timer, xc,
-                    world, self.wfs.kd.comm, self.wfs.bd.comm, 
-                    par.external, collinear)
-
+                    gd, finegd, self.density.pd2, self.density.pd3,
+                    nspins, setups, self.timer, xc, world,
+                    self.wfs.kptband_comm, par.external, collinear)
+        
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
 

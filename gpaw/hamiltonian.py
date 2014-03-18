@@ -53,8 +53,7 @@ class Hamiltonian:
     """
 
     def __init__(self, gd, finegd, nspins, setups, timer, xc,
-                 world, kcomm, bcomm,
-                 vext=None, collinear=True):
+                 world, kptband_comm, vext=None, collinear=True):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -66,8 +65,7 @@ class Hamiltonian:
         self.ncomp = 2 - int(collinear)
         self.ns = self.nspins * self.ncomp**2
         self.world = world
-        self.kcomm = kcomm
-        self.bcomm = bcomm
+        self.kptband_comm = kptband_comm
         
         self.dH_asp = None
 
@@ -128,7 +126,7 @@ class Hamiltonian:
         self.atom_partition = atom_partition
         self.dh_distributor = AtomicMatrixDistributor(atom_partition,
                                                       self.setups,
-                                                      self.kcomm, self.bcomm,
+                                                      self.kptband_comm,
                                                       self.ns)
 
 
@@ -469,7 +467,7 @@ class Hamiltonian:
         self.poisson.estimate_memory(mem.subnode('Poisson'))
         self.vbar.estimate_memory(mem.subnode('vbar'))
 
-    def read(self, reader, parallel, kd, bd):
+    def read(self, reader, parallel):
         self.Ekin = reader['Ekin']
         self.Epot = reader['Epot']
         self.Ebar = reader['Ebar']
@@ -489,17 +487,16 @@ class Hamiltonian:
         version = reader['version']
 
         # Read pseudo potential on the coarse grid
-        # and broadcast on kd.comm and bd.comm:
+        # and broadcast on kpt/band comm:
         if version > 0.3:
             self.vt_sG = self.gd.empty(self.nspins)
             if hdf5:
                 indices = [slice(0, self.nspins), ] + self.gd.get_slice()
-                do_read = (kd.comm.rank == 0) and (bd.comm.rank == 0)
+                do_read = (self.kptband_comm.rank == 0)
                 reader.get('PseudoPotential', out=self.vt_sG,
                            parallel=parallel,
                            read=do_read, *indices)  # XXX read=?
-                kd.comm.broadcast(self.vt_sG, 0)
-                bd.comm.broadcast(self.vt_sG, 0)
+                self.kptband_comm.broadcast(self.vt_sG, 0)
             else:
                 for s in range(self.nspins):
                     self.gd.distribute(reader.get('PseudoPotential', s),
@@ -517,13 +514,11 @@ class Hamiltonian:
 
 
 class RealSpaceHamiltonian(Hamiltonian):
-    def __init__(self, gd, finegd, nspins, setups, timer, xc,
-                 world, kcomm, bcomm,
-                 vext=None, collinear=True, psolver=None, 
+    def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
+                 kptband_comm, vext=None, collinear=True, psolver=None,
                  stencil=3):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
-                             world, kcomm, bcomm,
-                             vext, collinear)
+                             world, kptband_comm, vext, collinear)
 
         # Solver for the Poisson equation:
         if psolver is None:

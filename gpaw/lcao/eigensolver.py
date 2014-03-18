@@ -35,6 +35,17 @@ class LCAO:
         assert self.has_initialized
 
         bfs = wfs.basis_functions
+
+        #distributed_atomic_correction = True
+        distributed_atomic_correction = (wfs.bd.comm.size == 1)
+        
+        if distributed_atomic_correction:
+            def get_empty(a):
+                ni = wfs.setups[a].ni
+                return np.empty((wfs.ns, ni * (ni + 1) // 2))
+            dH_asp = wfs.atom_partition.to_even_distribution(hamiltonian.dH_asp,
+                                                             get_empty,
+                                                             copy=True)
         
         if Vt_xMM is None:
             wfs.timer.start('Potential matrix')
@@ -66,12 +77,9 @@ class LCAO:
         Mstart = wfs.basis_functions.Mstart
         Mstop = wfs.basis_functions.Mstop
         
-        if wfs.bd.comm.size > 1:
+        if not distributed_atomic_correction:
             wfs.timer.start('Atomic Hamiltonian')
             for a, P_Mi in kpt.P_aMi.items():
-                #print a, P_Mi[0, 0]
-                #err = P_Mi - wfs.newP_aqMi[a][kpt.q]
-                #print a, 'maxerr', np.abs(err).max()
                 dH_ii = np.asarray(unpack(hamiltonian.dH_asp[a][kpt.s]),
                                    wfs.dtype)
                 dHP_iM = np.zeros((dH_ii.shape[1], P_Mi.shape[0]), wfs.dtype)
@@ -81,12 +89,6 @@ class LCAO:
             wfs.timer.stop('Atomic Hamiltonian')
         else:
             wfs.timer.start('New atomic Hamiltonian')
-            def get_empty(a):
-                ni = wfs.setups[a].ni
-                return np.empty((wfs.ns, ni * (ni + 1) // 2))
-            dH_asp = wfs.atom_partition.to_even_distribution(hamiltonian.dH_asp,
-                                                             get_empty,
-                                                             copy=True)
             
             # overlap: a1 -> a3 -> a2
             #
@@ -105,13 +107,12 @@ class LCAO:
             # Or would it be better to use some scalapack-like layout
             # like in the force calculation? (Parallel over more CPUs)
             # We should probably do the latter.
-            assert wfs.bd.comm.size == 1
             for (a3, a1), P1_im in kpt.P_aaim.items():
-                #print (a3, a1), P1_im[0, 0]
-                P1_mi = np.conj(P1_im.T)
-                dH_ii = y * np.asarray(unpack(dH_asp[a3][kpt.s]), wfs.dtype)
                 a1M1 = wfs.setups.M_a[a1]
                 a1M2 = a1M1 + wfs.setups[a1].nao
+                P1_mi = np.conj(P1_im.T)
+                dH_ii = y * np.asarray(unpack(dH_asp[a3][kpt.s]), wfs.dtype)
+                assert len(wfs.P_neighbors_a[a3]) > 0
                 for a2 in wfs.P_neighbors_a[a3]:
                     a2M1 = wfs.setups.M_a[a2]
                     a2M2 = a2M1 + wfs.setups[a2].nao
@@ -120,7 +121,7 @@ class LCAO:
                     # generally: must send to correct node(s) here! XXXXXXXXX
                     H_MM[a1M1:a1M2, a2M1:a2M2] += P1dHP2_mm
             wfs.timer.stop('New atomic Hamiltonian')
-
+            
         wfs.timer.start('Distribute overlap matrix')
         H_MM = wfs.ksl.distribute_overlap_matrix(
             H_MM, root, add_hermitian_conjugate=(y == 0.5))

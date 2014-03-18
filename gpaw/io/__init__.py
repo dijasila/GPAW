@@ -586,11 +586,11 @@ def read(paw, reader):
             raise ValueError('shape mismatch: expected %s=%d' % (name, dim))
 
     timer.start('Density')
-    density.read(r, parallel, kd, bd)
+    density.read(r, parallel, wfs.kptband_comm)
     timer.stop('Density')
 
     timer.start('Hamiltonian')
-    hamiltonian.read(r, parallel, kd, bd)
+    hamiltonian.read(r, parallel)
     timer.stop('Hamiltonian')
 
     from gpaw.utilities.partition import AtomPartition

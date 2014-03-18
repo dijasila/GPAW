@@ -78,7 +78,7 @@ class FDPWWaveFunctions(WaveFunctions):
         lcaoksl, lcaobd = self.initksl, self.initksl.bd
         lcaowfs = LCAOWaveFunctions(lcaoksl, self.gd, self.nvalence,
                                     self.setups, lcaobd, self.dtype,
-                                    self.world, self.kd)
+                                    self.world, self.kd, self.kptband_comm)
         lcaowfs.basis_functions = basis_functions
         lcaowfs.timer = self.timer
         self.timer.start('Set positions (LCAO WFS)')

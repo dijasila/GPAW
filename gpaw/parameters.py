@@ -40,6 +40,7 @@ class InputParameters(dict):
             ('parallel',        {'kpt':                 None,
                                  'domain':              parsize_domain,
                                  'band':                parsize_bands,
+                                 'order':               'kdb',
                                  'stridebands':         False,
                                  'sl_auto':             False,
                                  'sl_default':          sl_default,

@@ -5,7 +5,7 @@ import numpy as np
 
 from ase.units import Bohr
 from gpaw import debug
-from gpaw.mpi import world, distribute_cpus
+from gpaw.mpi import world, Parallelization
 from gpaw.paw import kpts2ndarray
 from gpaw.parameters import InputParameters
 from gpaw.xc import XC
@@ -95,8 +95,11 @@ class UTDomainParallelSetup(TestCase):
         # Create communicators
         parsize_domain, parsize_bands = self.get_parsizes()
         assert self.nbands % np.prod(parsize_bands) == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
-            parsize_bands, self.nspins, self.kd.nibzkpts)
+        parallelization = Parallelization(world,
+                                          self.nspins * self.kd.nibzkpts)
+        domain_comm, kpt_comm, band_comm, kptband_comm = \
+            parallelization.build_communicators(domain=np.prod(parsize_domain),
+                                                band=parsize_bands)
 
         self.kd.set_communicator(kpt_comm)
         
@@ -105,6 +108,7 @@ class UTDomainParallelSetup(TestCase):
 
         # Set up grid descriptor:
         self.gd = GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize_domain)
+        self.kptband_comm = kptband_comm
 
         # Set up kpoint/spin descriptor (to be removed):
         self.kd_old = KPointDescriptorOld(self.nspins, self.kd.nibzkpts,
@@ -251,7 +255,7 @@ class UTProjectorFunctionSetup(UTLocalizedFunctionSetup):
         lcaoksl = get_KohnSham_layouts(None, 'lcao', self.gd, self.bd,
                                        self.dtype, nao=self.setups.nao)
         args = (self.gd, self.setups.nvalence, self.setups,
-                self.bd, self.dtype, world, self.kd)
+                self.bd, self.dtype, world, self.kd, self.kptband_comm)
         self.wfs = FDWaveFunctions(p.stencils[0], fdksl, fdksl, lcaoksl, *args)
         self.wfs.rank_a = self.rank0_a
         self.wfs.atom_partition = AtomPartition(self.wfs.gd.comm, self.rank0_a)

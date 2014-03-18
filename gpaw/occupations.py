@@ -81,7 +81,7 @@ class OccupationNumbers:
         e_band = 0.0
         for kpt in wfs.kpt_u:
             e_band += np.dot(kpt.f_n, kpt.eps_n)
-        self.e_band = wfs.bd.comm.sum(wfs.kpt_comm.sum(e_band))
+        self.e_band = wfs.kptband_comm.sum(e_band)
 
     def print_fermi_level(self, stream):
         pass
@@ -300,8 +300,7 @@ class ZeroKelvin(OccupationNumbers):
                 homo, lumo = occupy(f_n, eps_n, ne) 
                 fermilevels[kpt.s] = 0.5 * (homo + lumo)
             wfs.bd.distribute(f_n, kpt.f_n)
-        wfs.bd.comm.sum(fermilevels)
-        wfs.kd.comm.sum(fermilevels)
+        wfs.kptband_comm.sum(fermilevels)
         self.fermilevel = fermilevels.mean()
         self.split = fermilevels[0] - fermilevels[1]
         
@@ -505,7 +504,7 @@ class SmoothDistribution(ZeroKelvin):
                                   (f_i[i] - f_i[i - 1]))
 
         # XXX broadcast would be better!
-        return wfs.bd.comm.sum(wfs.kpt_comm.sum(fermilevel))
+        return wfs.kptband_comm.sum(fermilevel)
                     
     def find_fermi_level(self, wfs, ne, fermilevel, spins=(0, 1)):
         niter = 0
@@ -514,8 +513,7 @@ class SmoothDistribution(ZeroKelvin):
             for kpt in wfs.kpt_u:
                 if kpt.s in spins:
                     data += self.distribution(kpt, fermilevel)
-            wfs.kpt_comm.sum(data)
-            wfs.bd.comm.sum(data)
+            wfs.kptband_comm.sum(data)
             n, dnde, magmom, e_entropy = data
             dn = ne - n
             if abs(dn) < 1e-9:

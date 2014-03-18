@@ -50,7 +50,7 @@ class Density:
         self.charge = float(charge)
 
         self.collinear = collinear
-        self.ncomp = 2 - int(collinear)
+        self.ncomp = 1 if collinear else 2
         self.ns = self.nspins * self.ncomp**2
 
         self.charge_eps = 1e-7
@@ -458,7 +458,7 @@ class Density:
         dt_sg = np.where(dt_sg > 0, dt_sg, 0.0)
         return gd.integrate(dt_sg)
 
-    def read(self, reader, parallel, kd, bd):
+    def read(self, reader, parallel, kptband_comm):
         if reader['version'] > 0.3:
             density_error = reader['DensityError']
             if density_error is not None:
@@ -473,11 +473,10 @@ class Density:
             # Read pseudoelectron density on the coarse grid
             # and broadcast on kpt_comm and band_comm:
             indices = [slice(0, self.nspins)] + self.gd.get_slice()
-            do_read = (kd.comm.rank == 0) and (bd.comm.rank == 0)
+            do_read = (kptband_comm.rank == 0)
             reader.get('PseudoElectronDensity', out=nt_sG, parallel=parallel,
                        read=do_read, *indices)  # XXX read=?
-            kd.comm.broadcast(nt_sG, 0)
-            bd.comm.broadcast(nt_sG, 0)
+            kptband_comm.broadcast(nt_sG, 0)
         else:
             for s in range(self.nspins):
                 self.gd.distribute(reader.get('PseudoElectronDensity', s),

@@ -55,10 +55,7 @@ class WaveFunctions(EmptyWaveFunctions):
     ncomp = 1
     
     def __init__(self, gd, nvalence, setups, bd, dtype,
-                 world, kd, timer=None):
-        if timer is None:
-            timer = nulltimer
-            
+                 world, kd, kptband_comm, timer=None):
         self.gd = gd
         self.nspins = kd.nspins
         self.ns = self.nspins * self.ncomp**2 # when is ncomp actually set? XXX
@@ -69,7 +66,10 @@ class WaveFunctions(EmptyWaveFunctions):
         self.dtype = dtype
         self.world = world
         self.kd = kd
+        self.kptband_comm = kptband_comm
         self.band_comm = self.bd.comm #XXX
+        if timer is None:
+            timer = nulltimer
         self.timer = timer
         self.rank_a = None
         self.atom_partition = None
@@ -106,8 +106,7 @@ class WaveFunctions(EmptyWaveFunctions):
         nt_sG.fill(0.0)
         for kpt in self.kpt_u:
             self.add_to_density_from_k_point(nt_sG, kpt)
-        self.band_comm.sum(nt_sG)
-        self.kpt_comm.sum(nt_sG)
+        self.kptband_comm.sum(nt_sG)
         
         self.timer.start('Symmetrize density')
         for nt_G in nt_sG:
@@ -166,8 +165,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 self.calculate_atomic_density_matrices_k_point(D_sii, kpt, a,
                                                                f_n)
             D_sp[:] = [pack(D_ii) for D_ii in D_sii]
-            self.band_comm.sum(D_sp)
-            self.kpt_comm.sum(D_sp)
+            self.kptband_comm.sum(D_sp)
 
         self.symmetrize_atomic_density_matrices(D_asp)
 
