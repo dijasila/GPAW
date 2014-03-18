@@ -37,9 +37,10 @@ def pawexxvv(atomdata, D_ii):
         
 class EXX(PairDensity):
     def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=None,
-                 omega=None, world=mpi.world, txt=sys.stdout):
+                 omega=None, world=mpi.world, txt=sys.stdout, timer=None):
     
-        PairDensity.__init__(self, calc, ecut, world=world, txt=txt)
+        PairDensity.__init__(self, calc, ecut, world=world, txt=txt,
+                             timer=timer)
 
         if xc is None:
             self.exx_fraction = 1.0

@@ -15,12 +15,13 @@ from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0, frequency_grid
-#from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw',
                  kpts=None, bands=None, nbands=None, ppa=False, hilbert=False,
+                 wstc=False,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
                  domega0=0.025, omegamax=100, alpha=3.0,
                  world=mpi.world):
@@ -34,6 +35,7 @@ class G0W0(PairDensity):
         
         self.ppa = ppa
         self.hilbert = hilbert
+        self.wstc = wstc
         self.eta = eta / Hartree
         self.E0 = E0 / Hartree
         self.domega0 = domega0 / Hartree
@@ -70,10 +72,10 @@ class G0W0(PairDensity):
         shape = (self.calc.wfs.nspins, len(kpts), b2 - b1)
         self.eps_sin = np.empty(shape)     # KS-eigenvalues
         self.f_sin = np.empty(shape)       # occupation numbers
-        self.vxc_sin = None                # KS XC-contributions
-        self.exx_sin = None                # exact exchange contributions
         self.sigma_sin = np.zeros(shape)   # self-energies
         self.dsigma_sin = np.zeros(shape)  # derivatives of self-energies
+        self.vxc_sin = None                # KS XC-contributions
+        self.exx_sin = None                # exact exchange contributions
         self.Z_sin = None                  # renormalization factors
 
         if nbands is None:
@@ -298,34 +300,42 @@ class G0W0(PairDensity):
                 continue
                 
             if chi0 is None:
-                print('Calulating screened Coulomb potential:', file=self.fd)
+                print('Calulating screened Coulomb potential', file=self.fd)
                 # Chi_0 calculator:
                 chi0 = Chi0(self.calc,
                             nbands=self.nbands,
                             ecut=self.ecut * Hartree,
                             real_space_derivatives=False,
                             txt=self.filename + '.w.txt',
+                            timer=self.timer,
                             **parameters)
-                #wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
-                #                                   self.calc.wfs.kd.N_c,
-                #                                   self.fd)
+            
+                if self.wstc:
+                    wstc = WignerSeitzTruncatedCoulomb(
+                        self.calc.wfs.gd.cell_cv,
+                        self.calc.wfs.kd.N_c,
+                        chi0.fd)
             
             pd, chi0_wGG = chi0.calculate(q_c)[:2]
 
-            #iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
-            
-            if np.allclose(q_c, 0):
-                #chi0_wGG[:, 0] = 0.0
-                #chi0_wGG[:, :, 0] = 0.0
-                dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
-                qc = (dq3 / 4 / pi * 3)**(1 / 3)
-                G0inv = 2 * pi * qc**2 / dq3
-                G20inv = 4 * pi * qc / dq3
-                G_G = pd.G2_qG[0]**0.5
-                G_G[0] = 1
-                iG_G = 1 / G_G
+            if self.wstc:
+                iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
+                if np.allclose(q_c, 0):
+                    chi0_wGG[:, 0] = 0.0
+                    chi0_wGG[:, :, 0] = 0.0
+                    G0inv = 0.0
+                    G20inv = 0.0
             else:
-                iG_G = pd.G2_qG[0]**-0.5
+                if np.allclose(q_c, 0):
+                    dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
+                    qc = (dq3 / 4 / pi * 3)**(1 / 3)
+                    G0inv = 2 * pi * qc**2 / dq3
+                    G20inv = 4 * pi * qc / dq3
+                    G_G = pd.G2_qG[0]**0.5
+                    G_G[0] = 1
+                    iG_G = 1 / G_G
+                else:
+                    iG_G = pd.G2_qG[0]**-0.5
                 
             delta_GG = np.eye(len(iG_G))
             
@@ -339,6 +349,9 @@ class G0W0(PairDensity):
                             4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis])
                     einv_wGG.append(np.linalg.inv(e_GG) - delta_GG)
 
+                if self.wstc and np.allclose(q_c, 0):
+                    einv_wGG[0][0] = 42
+                    einv_wGG[0][:, 0] = 42
                 omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
                                               (einv_wGG[0] - einv_wGG[1]))
                 R_GG = -0.5 * omegat_GG * einv_wGG[0]
@@ -394,7 +407,7 @@ class G0W0(PairDensity):
             
         print('Calculating EXX contribution', file=self.fd)
         exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
-                  txt=self.filename + '.exx.txt')
+                  txt=self.filename + '.exx.txt', timer=self.timer)
         exx.calculate()
         self.exx_sin = exx.get_eigenvalue_contributions() / Hartree
         np.save(fd, self.exx_sin)

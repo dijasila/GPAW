@@ -34,7 +34,7 @@ class PairDensity:
     def __init__(self, calc, ecut=50,
                  ftol=1e-6,
                  real_space_derivatives=False,
-                 world=mpi.world, txt=sys.stdout):
+                 world=mpi.world, txt=sys.stdout, timer=None):
         if ecut is not None:
             ecut /= Hartree
         
@@ -43,7 +43,7 @@ class PairDensity:
         self.real_space_derivatives = real_space_derivatives
         self.world = world
         
-        self.timer = Timer()
+        self.timer = timer or Timer()
         
         if isinstance(calc, str):
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)

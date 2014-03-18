@@ -29,9 +29,9 @@ class Chi0(PairDensity):
                  ecut=50, hilbert=False, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6,
                  real_space_derivatives=False,
-                 world=mpi.world, txt=sys.stdout):
+                 world=mpi.world, txt=sys.stdout, timer=None):
         PairDensity.__init__(self, calc, ecut, ftol,
-                             real_space_derivatives, world, txt)
+                             real_space_derivatives, world, txt, timer)
 
         eta /= Hartree
         domega0 /= Hartree
