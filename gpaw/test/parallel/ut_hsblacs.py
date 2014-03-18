@@ -39,7 +39,7 @@ class UTBandParallelBlacsSetup(UTBandParallelSetup):
         cpus = self.bd.comm.size * self.gd.comm.size
         self.mcpus = int(cpus**0.5)
         self.ncpus = cpus//self.mcpus
-        return BlacsBandLayouts(self.gd, self.bd, self.dtype, self.mcpus, self.ncpus, 6)
+        return BlacsBandLayouts(self.gd, self.bd, self.block_comm, self.dtype, self.mcpus, self.ncpus, 6)
 
     # =================================
 

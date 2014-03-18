@@ -97,9 +97,11 @@ class UTDomainParallelSetup(TestCase):
         assert self.nbands % np.prod(parsize_bands) == 0
         parallelization = Parallelization(world,
                                           self.nspins * self.kd.nibzkpts)
-        domain_comm, kpt_comm, band_comm, kptband_comm = \
-            parallelization.build_communicators(domain=np.prod(parsize_domain),
-                                                band=parsize_bands)
+        comms = parallelization.build_communicators(\
+            domain=np.prod(parsize_domain), band=parsize_bands)
+        
+        domain_comm, kpt_comm, band_comm, kptband_comm, block_comm = \
+            [comms[name] for name in 'dkbDK']
 
         self.kd.set_communicator(kpt_comm)
         
@@ -109,6 +111,7 @@ class UTDomainParallelSetup(TestCase):
         # Set up grid descriptor:
         self.gd = GridDescriptor(N_c, cell_cv, pbc_c, domain_comm, parsize_domain)
         self.kptband_comm = kptband_comm
+        self.block_comm = block_comm
 
         # Set up kpoint/spin descriptor (to be removed):
         self.kd_old = KPointDescriptorOld(self.nspins, self.kd.nibzkpts,
@@ -116,7 +119,8 @@ class UTDomainParallelSetup(TestCase):
 
        
     def tearDown(self):
-        del self.atoms, self.bd, self.gd, self.kd, self.kd_old
+        del self.atoms, self.bd, self.gd, self.kd, self.kd_old, \
+            self.block_comm, self.kptband_comm
 
     def get_parsizes(self):
         # Careful, overwriting imported GPAW params may cause amnesia in Python.
@@ -251,8 +255,9 @@ class UTProjectorFunctionSetup(UTLocalizedFunctionSetup):
         UTLocalizedFunctionSetup.setUp(self)
 
         fdksl = get_KohnSham_layouts(None, 'fd', self.gd, self.bd, 
-                                     self.dtype)
+                                     self.block_comm, self.dtype)
         lcaoksl = get_KohnSham_layouts(None, 'lcao', self.gd, self.bd,
+                                       self.block_comm,
                                        self.dtype, nao=self.setups.nao)
         args = (self.gd, self.setups.nvalence, self.setups,
                 self.bd, self.dtype, world, self.kd, self.kptband_comm)

@@ -498,7 +498,7 @@ class PAW(PAWTextOutput):
                       'occupations=FermiDirac(width, fixmagmom=True).')
 
         if self.occupations is None:
-            print "self.occupations is None"
+            #print "self.occupations is None"
             if par.occupations is None:
                 # Create object for occupation numbers:
                 self.occupations = occupations.FermiDirac(width, par.fixmom)
@@ -509,8 +509,8 @@ class PAW(PAWTextOutput):
             # recalculate the occupation numbers
             if self.wfs is not None and not isinstance(self.wfs, EmptyWaveFunctions):
                 self.occupations.calculate(self.wfs)
-                print "Calculating occupations"
-            print self.wfs
+                #print "Calculating occupations"
+            #print self.wfs
 
         self.occupations.magmom = M_v[2]
 
@@ -553,9 +553,15 @@ class PAW(PAWTextOutput):
             parallelization.set(kpt=parsize_kpt,
                                 domain=ndomains,
                                 band=parsize_bands)
-            domain_comm, kpt_comm, band_comm, kptband_comm = \
-                parallelization.build_communicators()
-
+            #domain_comm, kpt_comm, band_comm, kptband_comm, domainband_comm
+            comms = parallelization.build_communicators()
+            domain_comm = comms['d']
+            kpt_comm = comms['k']
+            band_comm = comms['b']
+            kptband_comm = comms['D']
+            domainband_comm = comms['K']
+            
+            self.comms = comms
             kd.set_communicator(kpt_comm)
 
             parstride_bands = par.parallel['stridebands']
@@ -631,7 +637,7 @@ class PAW(PAWTextOutput):
                 if sl_lcao is None:
                     sl_lcao = sl_default
                 lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                               gd, bd, dtype,
+                                               gd, bd, domainband_comm, dtype,
                                                nao=nao, timer=self.timer)
 
                 if collinear:
@@ -649,7 +655,7 @@ class PAW(PAWTextOutput):
                 if sl_diagonalize is None:
                     sl_diagonalize = sl_default
                 diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',
-                                               gd, bd, dtype,
+                                               gd, bd, domainband_comm, dtype,
                                                buffer_size=buffer_size,
                                                timer=self.timer)
 
@@ -662,7 +668,7 @@ class PAW(PAWTextOutput):
                         'is not implemented.'
                     raise NotImplementedError(message)
                 orthoksl = get_KohnSham_layouts(sl_inverse_cholesky, 'fd',
-                                                gd, bd, dtype,
+                                                gd, bd, domainband_comm, dtype,
                                                 buffer_size=buffer_size,
                                                 timer=self.timer)
 
@@ -681,8 +687,8 @@ class PAW(PAWTextOutput):
                     if sl_lcao is None:
                         sl_lcao = sl_default
                     initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                                   gd, lcaobd, dtype,
-                                                   nao=nao,
+                                                   gd, lcaobd, domainband_comm,
+                                                   dtype, nao=nao,
                                                    timer=self.timer)
 
                 if hasattr(self, 'time'):

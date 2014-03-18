@@ -72,8 +72,10 @@ class UTKPointParallelSetup(TestCase):
         #parsize_domain, parsize_bands = create_parsize_minbands(self.nbands, world.size)
         parsize_domain, parsize_bands = 1, 1 #XXX
         assert self.nbands % np.prod(parsize_bands) == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
-            parsize_bands, self.nspins, self.nibzkpts)
+        comms = distribute_cpus(parsize_domain,
+                                parsize_bands, self.nspins, self.nibzkpts)
+        domain_comm, kpt_comm, band_comm = \
+            [comms[name] for name in 'dkb']
 
         # Set up band descriptor:
         self.bd = BandDescriptor(self.nbands, band_comm, p.parallel['stridebands'])

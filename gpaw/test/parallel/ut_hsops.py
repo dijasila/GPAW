@@ -69,8 +69,11 @@ class UTBandParallelSetup(TestCase):
 
         parsize_domain, parsize_bands = create_parsize_maxbands(self.nbands, world.size)
         assert self.nbands % parsize_bands == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
-            parsize_bands, self.nspins, self.nibzkpts)
+        comms = distribute_cpus(parsize_domain,
+                                parsize_bands, self.nspins, self.nibzkpts)
+        domain_comm, kpt_comm, band_comm, block_comm = \
+            [comms[name] for name in 'dkbK']
+        self.block_comm = block_comm
 
         # Set up band descriptor:
         self.bd = BandDescriptor(self.nbands, band_comm, self.parstride_bands)
@@ -88,10 +91,10 @@ class UTBandParallelSetup(TestCase):
         self.kpt_comm = kpt_comm
 
     def tearDown(self):
-        del self.bd, self.gd, self.ksl, self.kpt_comm
+        del self.bd, self.gd, self.ksl, self.kpt_comm, self.block_comm
 
     def create_kohn_sham_layouts(self):
-        return BandLayouts(self.gd, self.bd, self.dtype)
+        return BandLayouts(self.gd, self.bd, self.block_comm, self.dtype)
 
     # =================================
 

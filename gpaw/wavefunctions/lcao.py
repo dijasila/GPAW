@@ -201,7 +201,7 @@ class LCAOWaveFunctions(WaveFunctions):
             # make sure it does.  Of course, this should have been taken care
             # of already by this time, so we should improve the code elsewhere
             density.calculate_normalized_charges_and_mix()
-        print "Updating hamiltonian in LCAO initialize wfs"
+        #print "Updating hamiltonian in LCAO initialize wfs"
         hamiltonian.update(density)
         self.timer.stop('LCAO WFS Initialize')
            

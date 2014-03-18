@@ -591,10 +591,27 @@ size = world.size
 rank = world.rank
 parallel = (size > 1)
 
-
+# XXXXXXXXXX for easier transition to Parallelization class
 def distribute_cpus(parsize_domain, parsize_bands,
                     nspins, nibzkpts, comm=world,
                     idiotproof=True, mode='fd'):
+    nsk = nspins * nibzkpts
+    if mode in ['fd', 'lcao']:
+        if parsize_bands is None:
+            parsize_bands = 1
+    else:
+        # Plane wave mode:
+        ndomains = 1
+        if parsize_bands is None:
+            parsize_bands = comm.size // gcd(nsk, comm.size)
+
+    p = Parallelization(comm, nsk)
+    return p.build_communicators(domain=np.prod(parsize_domain),
+                                 band=parsize_bands)
+
+def old_distribute_cpus(parsize_domain, parsize_bands,
+                        nspins, nibzkpts, comm=world,
+                        idiotproof=True, mode='fd'):
     """Distribute k-points/spins to processors.
 
     Construct communicators for parallelization over
@@ -890,17 +907,26 @@ class Parallelization:
 
         # We want a communicator for kpts/bands, i.e. the complement of the
         # grid comm: a communicator uniting all cores with the same domain.
-        c3, c2, c1 = [communicators[ch] for ch in order]
-        allranks = [range(c3.size), range(c2.size), range(c1.size)]
-        allranks[order.find('d')] = [communicators['d'].rank]
+        c1, c2, c3 = [communicators[name] for name in order]
+        allranks = [range(c1.size), range(c2.size), range(c3.size)]
         
-        kb_ranks = [r1 + c1.size * (r2 + c2.size * r3)
-                    for r3 in allranks[0]
-                    for r2 in allranks[1]
-                    for r1 in allranks[2]]
-        communicators['kb'] = comm.new_communicator(kb_ranks)
-
-        return [communicators[name] for name in ['d', 'k', 'b', 'kb']]
+        def get_communicator_complement(name):
+            relevant_ranks = list(allranks)
+            relevant_ranks[order.find(name)] = [communicators[name].rank]
+            ranks = np.array([r3 + c3.size * (r2 + c2.size * r1)
+                              for r1 in relevant_ranks[0]
+                              for r2 in relevant_ranks[1]
+                              for r3 in relevant_ranks[2]])
+            return comm.new_communicator(ranks)
+        
+        # The communicator of all processes that share a domain, i.e.
+        # the combination of k-point and band dommunicators.
+        communicators['D'] = get_communicator_complement('d')
+        # For each k-point comm rank, a communicator of all
+        # band/domain ranks.  This is typically used with ScaLAPACK
+        # and LCAO orbital stuff.
+        communicators['K'] = get_communicator_complement('k')
+        return communicators
     
     def autofinalize(self):
         if self.kpt is None:

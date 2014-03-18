@@ -187,6 +187,7 @@ class AtomPartition:
         self.comm = comm
         self.rank_a = np.array(rank_a)
         self.my_indices = self.get_indices(comm.rank)
+        self.natoms = len(rank_a)
     
     def get_indices(self, rank):
         return np.where(self.rank_a == rank)[0]

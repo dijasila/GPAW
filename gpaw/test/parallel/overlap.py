@@ -43,9 +43,13 @@ a = h * G      # side length of box
 assert np.prod(D) * B == world.size, 'D=%s, B=%d, W=%d' % (D,B,world.size)
 
 # Set up communicators:
-domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain=D,
-                                                   parsize_bands=B,
-                                                   nspins=1, nibzkpts=1)
+comms = distribute_cpus(parsize_domain=D,
+                        parsize_bands=B,
+                        nspins=1, nibzkpts=1)
+domain_comm, kpt_comm, band_comm, block_comm = \
+    [comms[name] for name in ['d', 'k', 'b', 'K']]
+
+
 assert kpt_comm.size == 1
 if world.rank == 0:
     print 'MPI: %d domains, %d band groups' % (domain_comm.size, band_comm.size)
@@ -53,7 +57,7 @@ if world.rank == 0:
 # Set up band and grid descriptors:
 bd = BandDescriptor(N, band_comm, False)
 gd = GridDescriptor((G, G, G), (a, a, a), True, domain_comm, parsize=D)
-ksl = BandLayouts(gd, bd, float)
+ksl = BandLayouts(gd, bd, block_comm, float)
 
 # Random wave functions:
 psit_mG = gd.empty(M)
