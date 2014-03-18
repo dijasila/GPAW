@@ -68,12 +68,13 @@ class G0W0(PairDensity):
 
         b1, b2 = bands
         shape = (self.calc.wfs.nspins, len(kpts), b2 - b1)
+        self.eps_sin = np.empty(shape)     # KS-eigenvalues
+        self.f_sin = np.empty(shape)       # occupation numbers
+        self.vxc_sin = None                # KS XC-contributions
+        self.exx_sin = None                # exact exchange contributions
         self.sigma_sin = np.zeros(shape)   # self-energies
         self.dsigma_sin = np.zeros(shape)  # derivatives of self-energies
-        self.Z_sin = np.empty(shape)       # renormalization factors
-        self.eps_sin = np.empty(shape)     # KS-eigenvalues
-        self.exx_sin = np.empty(shape)     # exact exchange contributions
-        self.vxc_sin = np.empty(shape)     # KS XC-contributions
+        self.Z_sin = None                  # renormalization factors
 
         if nbands is None:
             nbands = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
@@ -126,6 +127,7 @@ class G0W0(PairDensity):
                 K1 = kd.ibz2bz_k[k1]
                 kpt1 = self.get_k_point(s, K1, *self.bands)
                 self.eps_sin[s, i] = kpt1.eps_n
+                self.f_sin[s, i] = kpt1.f_n
                 for kpt2 in mykpts:
                     if kpt2.s == s:
                         self.calculate_q(i, kpt1, kpt2)
@@ -133,13 +135,33 @@ class G0W0(PairDensity):
         self.world.sum(self.sigma_sin)
         self.world.sum(self.dsigma_sin)
         
-        print(np.array_str(self.eps_sin * Hartree, precision=3),
-              file=self.fd)
-        print(np.array_str(self.sigma_sin * Hartree, precision=3),
-              file=self.fd)
-        print(np.array_str(1 / (1 - self.dsigma_sin), precision=3),
-              file=self.fd)
+        self.Z_sin = 1 / (1 - self.dsigma_sin)
+        self.qp_sin = self.eps_sin + self.Z_sin * (self.sigma_sin +
+                                                   self.exx_sin -
+                                                   self.vxc_sin)
+        
+        results = {'eps': self.eps_sin * Hartree,
+                   'f':     self.f_sin,
+                   'vxc':   self.vxc_sin * Hartree,
+                   'exx':   self.exx_sin * Hartree,
+                   'sigma': self.sigma_sin * Hartree,
+                   'Z':     self.Z_sin,
+                   'qp':    self.qp_sin * Hartree}
+        
+        for tag, description in [('eps', 'KS-eigenvalues [eV]'),
+                                 ('f', 'Occupation numbers'),
+                                 ('vxc', 'KS vxc [eV]'),
+                                 ('exx', 'Exact exchange [eV]'),
+                                 ('sigma', 'Self-energies [eV]'),
+                                 ('Z', 'Renormalization factors'),
+                                 ('qp', 'QP-energies [eV]')]:
+            print(description + ':\n',
+                  np.array_str(results[tag], precision=3, suppress_small=True),
+                  file=self.fd)
+
         self.timer.write(self.fd)
+        
+        return results
         
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
@@ -186,9 +208,12 @@ class G0W0(PairDensity):
         G_G = G_N[N0_G]
         assert (G_G >= 0).all()
 
-        with self.timer('Read W and do symmetry transform'):
-            W_wGG = [np.load(fd).take(G_G, 0).take(G_G, 1)
-                     for x in self.omega_w]
+        W_wGG = []
+        for x in self.omega_w:
+            with self.timer('Read W'):
+                W_GG = np.load(fd)
+            with self.timer('Symmetry transform of W'):
+                W_wGG.append(W_GG.take(G_G, 0).take(G_G, 1))
 
         Q_aGii = self.initialize_paw_corrections(pd)
         for n in range(kpt1.n2 - kpt1.n1):
@@ -285,9 +310,7 @@ class G0W0(PairDensity):
                 #                                   self.calc.wfs.kd.N_c,
                 #                                   self.fd)
             
-            print(q_c, file=self.fd)
             pd, chi0_wGG = chi0.calculate(q_c)[:2]
-            print(chi0_wGG.shape, file=self.fd)
 
             #iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
             
@@ -354,8 +377,9 @@ class G0W0(PairDensity):
             return
             
         print('Calculating Kohn-Sham XC contribution', file=self.fd)
-        vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc)
-        self.vxc_sin = vxc_skn[:, self.kpts, self.bands]
+        vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Hartree
+        n1, n2 = self.bands
+        self.vxc_sin = vxc_skn[:, self.kpts, n1:n2]
         np.save(fd, self.vxc_sin)
         
     @timer('Calculate EXact eXchange')
@@ -369,7 +393,8 @@ class G0W0(PairDensity):
             return
             
         print('Calculating EXX contribution', file=self.fd)
-        exx = EXX(self.calc, kpts=self.kpts, bands=self.bands, txt=self.fd)
+        exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
+                  txt=self.filename + '.exx.txt')
         exx.calculate()
-        self.exx_sin = exx.get_eigenvalue_contributions()
+        self.exx_sin = exx.get_eigenvalue_contributions() / Hartree
         np.save(fd, self.exx_sin)
