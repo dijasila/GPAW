@@ -5,6 +5,11 @@ if test -z $GPAW_HOME;
     echo "Error: \$GPAW_HOME variable not set"
     exit 1
 fi
+if test -e $GPAW_HOME/build;
+    then
+    echo "Error: \$GPAW_HOME/build directory exists - please remove it manually in order to proceed"
+    exit 1
+fi
 
 rm -rf $GPAW_HOME/build/
 #echo "source /home/camp/modulefiles.sh&& module purge&& module load open64/4.2.3-0&& module load NUMPY&& cd $GPAW_HOME&& python setup.py --remove-default-flags --customize=./doc/install/Linux/Niflheim/el5-opteron-open64-acml-4.4.0-acml-4.4.0-hdf-SL-2.0.1.py build_ext 2>&1 | tee compile-el5-opteron-open64-acml-4.4.0-acml-4.4.0-hdf-SL-2.0.1.log" | ssh fjorm bash
