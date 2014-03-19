@@ -11,11 +11,12 @@ import numpy as np
 K_G = 0.382106112167171
 
 class C_GLLBScr(Contribution):
-    def __init__(self, nlfunc, weight, functional='GGA_X_B88', width=None, eps=0.05):
+    def __init__(self, nlfunc, weight, functional='GGA_X_B88', width=None, eps=0.05, damp=1e-15):
         Contribution.__init__(self, nlfunc, weight)
         self.functional = functional
         self.old_coeffs = None
         self.iter = 0
+        self.damp = damp
         if width is not None:
             width = width / 27.21
         self.eps = eps / 27.21
@@ -23,6 +24,9 @@ class C_GLLBScr(Contribution):
  
     def get_name(self):
         return 'SCREENING'
+
+    def set_damp(self, damp):
+        self.damp = damp
 
     def get_desc(self):
         return '(' + self.functional + ')'
@@ -40,7 +44,7 @@ class C_GLLBScr(Contribution):
         self.e_g[:] = 0.0
         self.xc.calculate_spherical(self.ae.rgd, self.ae.n.reshape((1, -1)),
                                     self.v_g.reshape((1, -1)), self.e_g)
-        v_g += 2 * self.weight * self.e_g / (self.ae.n + 1e-10)
+        v_g += 2 * self.weight * self.e_g / (self.ae.n + self.damp)
         Exc = self.weight * np.sum(self.e_g * self.ae.rgd.dv_g)
         return Exc
 
@@ -149,8 +153,8 @@ class C_GLLBScr(Contribution):
         self.vt_sg[:] = 0.0
         self.xc.calculate(self.nlfunc.finegd, n_g[None, ...], self.vt_sg,
                           self.e_g)
-        self.e_g[:] = np.where(n_g<1e-10, 0, self.e_g)
-        v_g += self.weight * 2 * self.e_g / (n_g + 1e-10)
+        self.e_g[:] = np.where(n_g<self.damp, 0, self.e_g)
+        v_g += self.weight * 2 * self.e_g / (n_g + self.damp)
         e_g += self.weight * self.e_g
 
     def calculate_spinpolarized(self, e_g, n_sg, v_sg):
@@ -159,7 +163,7 @@ class C_GLLBScr(Contribution):
 		self.e_g[:] = 0.0
 	        self.vt_sg[:] = 0.0
 	        self.xc.calculate(self.nlfunc.finegd, 2*n[None, ...], self.vt_sg, self.e_g)
-	        self.e_g[:] = np.where(n<1e-10, 0, self.e_g)
+	        self.e_g[:] = np.where(n<self.damp, 0, self.e_g)
 	        v += self.weight * 2 * self.e_g / (2 * n + 1e-9)
 	        e_g += self.weight * self.e_g / 2
 
@@ -212,7 +216,7 @@ class C_GLLBScr(Contribution):
 	                                     deda2_g.reshape((1, -1)))
 	
 	            # Calculate pseudo GLLB-potential from GGA-energy density
-	            vt_g[:] = 2 * e_g / (nt_g + 1e-10)
+	            vt_g[:] = 2 * e_g / (nt_g + self.damp)
 	
 	            dEdD_p -= self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
 	                                  np.dot(c.nt_qg, vt_g * c.rgd.dv_g))
@@ -241,7 +245,7 @@ class C_GLLBScr(Contribution):
 	                                     deda2_g.reshape((1, -1)))
 	
 	            # Calculate GLLB-potential from GGA-energy density
-	            v_g[:] = 2 * e_g / (n_g + 1e-10)
+	            v_g[:] = 2 * e_g / (n_g + self.damp)
 	            
 	            dEdD_p += self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
 	                                  np.dot(c.n_qg, v_g * c.rgd.dv_g))
@@ -254,7 +258,7 @@ class C_GLLBScr(Contribution):
         self.e_g[:] = 0.0
         self.xc.calculate_spherical(self.ae.rgd, self.ae.nt.reshape((1, -1)),
                                     self.v_g.reshape((1, -1)), self.e_g)
-        vt_g += 2 * self.weight * self.e_g / (self.ae.nt + 1e-10)
+        vt_g += 2 * self.weight * self.e_g / (self.ae.nt + self.damp)
         return self.weight * np.sum(self.e_g * self.ae.rgd.dv_g)
 
     def initialize_from_atomic_orbitals(self, basis_functions):
