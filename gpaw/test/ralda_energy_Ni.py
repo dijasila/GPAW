@@ -41,6 +41,6 @@ if rank == 0:
         system('rm fhxc_Ni_rALDA_50_%s.gpw' % i)
         system('rm fhxc_Ni_rAPBE_50_%s.gpw' % i)
 
-equal(E_rpa, -7.8271, 0.001)
-equal(E_ralda, -7.5012, 0.001)
-equal(E_rapbe, -7.4442, 0.001)
+equal(E_rpa, -7.811, 0.01)
+equal(E_ralda, -7.485, 0.01)
+equal(E_rapbe, -7.428, 0.01)

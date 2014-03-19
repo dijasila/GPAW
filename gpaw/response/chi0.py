@@ -45,7 +45,7 @@ class Chi0(PairDensity):
             self.alpha = alpha
         else:
             self.omega_w = np.asarray(frequencies) / Hartree
-            self.domega0 = self.omega_w[1]
+            self.domega0 = -117.0
             self.omegamax = -42.0 #np.max(self.omega_w)?
             self.alpha = 0.0
             

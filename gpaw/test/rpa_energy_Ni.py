@@ -29,5 +29,5 @@ E_rpa = rpa.calculate(ecut=[50])
 fxc = FXCCorrelation(calc, nlambda=16, nfrequencies=8, skip_gamma=True)
 E_fxc = fxc.calculate(ecut=[50])
 
-equal(E_rpa, -7.826, 0.001)
-equal(E_fxc, -7.826, 0.001)
+equal(E_rpa, -7.81, 0.01)
+equal(E_fxc, -7.81, 0.01)
