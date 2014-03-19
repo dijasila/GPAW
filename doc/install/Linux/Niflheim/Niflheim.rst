@@ -27,6 +27,10 @@ If you decide to install a development version of GPAW, this is what you do:
    The instructions below are given for a project called `devel`,
    i.e. the installation path will be :file:`/home/niflheim/$USER/devel/gpaw`.
 
+   **Note** that this path appears in few places in the tools described on
+   this page - make sure you change those occurences if installing
+   in under a different directory.
+
 1. On the ``servcamd`` filesystem (login on your workstation)
    go to a directory on the Niflheim filesystem.
 
@@ -35,11 +39,6 @@ If you decide to install a development version of GPAW, this is what you do:
    before running the checkout!::
 
      svn checkout https://svn.fysik.dtu.dk/projects/gpaw/trunk /home/niflheim/$USER/devel/gpaw
-
-   **Note**: if you are doing a heavy development (many svn checkins)
-   you may consider installing a special development version on workstation's
-   local disk (faster), i.e. :file:`/scratch/$USER/devel/gpaw`,
-   however this version will not be accesible from Niflheim.
 
 3. Set the :envvar:`GPAW_HOME` environment variable:
 
@@ -52,10 +51,7 @@ If you decide to install a development version of GPAW, this is what you do:
     export GPAW_HOME=/home/niflheim/$USER/devel/gpaw
 
 4. To compile the GPAW C-code, run the shell script
-   :svn:`~doc/install/Linux/Niflheim/compile.sh`:
-
-   .. literalinclude:: compile.sh
-
+   :svn:`~doc/install/Linux/Niflheim/compile.sh` 
    from your gpaw directory, i.e.::
 
      cd ${GPAW_HOME}
@@ -118,7 +114,7 @@ If you decide to install a development version of GPAW, this is what you do:
     The jobs already running are not affected.
     Consider making such changes with no jobs in the queue.
 
-    5b. Define a batch system submission function in bash (**only** bash).
+    5b. Define a batch system submission function in bash.
     This is useful for installing different GPAW versions for different projects:
 
     - create the following bash script :file:`/home/niflheim/$USER/devel/gpaw/qsub.sh`::
@@ -156,6 +152,8 @@ If you decide to install a development version of GPAW, this is what you do:
 
 	mpiexec gpaw-python "$name"
 
+      Modify this file if needed (if you need different ASE/setups, etc)!
+
     - define the corresponding function in :file:`/home/niflheim/$USER/.bashrc`::
 
 	 gpaw-qsub-devel ()
@@ -172,8 +170,7 @@ If you decide to install a development version of GPAW, this is what you do:
 6. If you prefer to use a personal setup's directory follow
    :ref:`installationguide_setup_files`.
 
-When updating the gpaw code in the future (only the `devel` version
-- don't update GPAW versions installed for a given project!):
+When updating the gpaw code in the future:
 
 - Go to the :envvar:`GPAW_HOME` directory and run::
 
