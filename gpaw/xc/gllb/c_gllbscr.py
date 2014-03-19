@@ -2,7 +2,8 @@ from gpaw.xc.gllb.contribution import Contribution
 from gpaw.xc import XC
 from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.xc.gllb import safe_sqr
-from math import sqrt, pi, erf, exp
+from math import sqrt, pi, exp
+from gpaw.utilities import erf
 from gpaw.io.tar import TarFileReference
 from gpaw.sphere.lebedev import weight_n
 import numpy as np
