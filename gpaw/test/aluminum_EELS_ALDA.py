@@ -32,13 +32,14 @@ calc = GPAW(mode=PW(200),
 
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
+calc.write('Al', 'all')
 t2 = time.time()
 
 # Excited state calculation
 q = np.array([1/4.,0.,0.])
 w = np.linspace(0, 24, 241)
 
-df = DielectricFunction(calc=calc, frequencies=w, eta=0.2, ecut=50)
+df = DielectricFunction(calc='Al', frequencies=w, eta=0.2, ecut=50)
 df.get_eels_spectrum(xc='ALDA', filename='EELS_Al_ALDA',q_c=q)
 #df.check_sum_rule()
 #df.write('Al.pckl')
@@ -67,6 +68,3 @@ else:
 if np.abs(test_Ipeak1-Ipeak1)>1e-2 or np.abs(test_Ipeak2-Ipeak2)>1e-2:
     print Ipeak1-test_Ipeak1, Ipeak2-test_Ipeak2
     raise ValueError('Please check spectrum strength ! ')
-
-
-

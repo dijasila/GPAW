@@ -648,8 +648,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 
-        if scalapack:
-            nprow, npcol, b = scalapack
+        if scalapack and bd.comm.size > 1:
+            if isinstance(scalapack, (list, tuple)):
+                nprow, npcol, b = scalapack
+            else:
+                nprow, npcol, b = 2, bd.comm.size // 2, 64
             bg = BlacsGrid(bd.comm, bd.comm.size, 1)
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
         else:

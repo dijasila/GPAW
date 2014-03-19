@@ -15,7 +15,7 @@ calc = GPAW(mode='pw', dtype=complex, xc='PBE')
 N2.set_calculator(calc)
 E_n2_pbe = N2.get_potential_energy()
 
-calc.diagonalize_full_hamiltonian(nbands=100)
+calc.diagonalize_full_hamiltonian(nbands=104, scalapack=True)
 calc.write('N2.gpw', mode='all')
 
 exx = EXX('N2.gpw')
@@ -34,7 +34,7 @@ calc = GPAW(mode='pw', dtype=complex, xc='PBE')
 N.set_calculator(calc)
 E_n_pbe = N.get_potential_energy()
 
-calc.diagonalize_full_hamiltonian(nbands=100)
+calc.diagonalize_full_hamiltonian(nbands=104, scalapack=True)
 calc.write('N.gpw', mode='all')
 
 exx = EXX('N.gpw')
