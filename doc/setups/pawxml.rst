@@ -242,53 +242,39 @@ moments `Q_{\ell m}`:
 
   \sum_{\ell m} Q_{\ell m} \tilde{g}_\ell(r) Y_{\ell m}(\theta, \phi),
 
-==========  ===================  =================================
-``type``    parameters           `k(r)`
-==========  ===================  =================================
+where `g_\ell(r) \propto r^\ell k_\ell(r)` and `k_\ell(r)` is a shape
+function.
+
+==========  ===================  =========================================
+``type``    parameters           `k_\ell(r)`
+==========  ===================  =========================================
 ``gauss``   ``rc``               `\exp(-(r/r_c)^2)`
 ``sinc``    ``rc``               `[\sin(\pi r/r_c)/(\pi r/r_c)]^2`
+``bessel``  ``rc``               `\sum_{i=1}^2 \alpha_i^\ell j_\ell(q_i^\ell r)`
 ``exp``     ``rc`` and ``lamb``  `\exp(-(r/r_c)^\lambda)`
-==========  ===================  =================================
+==========  ===================  =========================================
 
-For the ``gauss``, ``sinc`` and ``exp`` [#Hol01]_ types, we have
-`g_\ell(r) \propto r^\ell k(r)` where `k(r)` is a single shape
-function defined in the file like this::
-
-  <shape_function type="gauss" rc="3.478505426185e-01"/ grid="g1">
-    ... ... ...
-  </shape_function>
-
-Another choice would be ``type="bessel" rc="..."``, where a sum of two
-Bessel functions is used\ [#Kre99]_.  Here we need to specify `g_\ell(r)`
-for all `\ell`-values like this::
-
-  <shape_function type="bessel" l=0 a1="..." b1="..." a2="..." b2="..." grid="g1">
-    ... ... ...
-  </shape_function>
-  <shape_function type="bessel" l=1 a1="..." b1="..." a2="..." b2="..." grid="g1">
-    ... ... ...
-  </shape_function>
-  ...
-
-where
-
-.. math::
-
-  g_\ell(r) = a_{1\ell}j_\ell(b_{1\ell}r)+a_{2\ell}j_\ell(b_{2\ell}r)
-
-There is also a more general formulation:
+Example::
     
-.. math::
-    
-    ...
-    
-that can be specified like this::
-    
-  <shape_function l=0 state1="N-2s" state2="N-2s" grid="g1">
-    ... ... ...
-  </shape_function>
+    <shape_function type="gauss" rc="3.478505426185e-01">
+        ... ... ...
+    </shape_function>
 
-with one section for all combinations of ``l``, ``state1`` and ``state2``.
+For the ``gauss``, ``sinc`` and ``exp`` [#Hol01]_ types, we have a single
+`\ell`-independent shape function, wheras for ``bessel`` the four
+parameters (`\alpha_1^\ell`, `q_1^\ell`, `\alpha_2^\ell` and `q_2^\ell`)
+must be determined for each value of `\ell` as described in [#Kre99]_.
+
+There is also a more general formulation where shape functions are given in
+numerical form::
+    
+    <shape_function type="numeric" l=0 state1="N-2s" state2="N-2s" grid="g1">
+        ... ... ...
+    </shape_function>
+
+There can be several ``<shape_function>`` elements if the shape function
+depends on `\ell` and/or combinations of partial waves (specified using the
+``state1`` and ``state2`` attributes).
 
 
 Radial functions
