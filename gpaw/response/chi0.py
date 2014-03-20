@@ -38,7 +38,8 @@ class Chi0(PairDensity):
         omegamax = (omegamax or ecut) / Hartree
         
         if frequencies is None:
-            print('Using nonlinear frequency grid from 0 to %d  eV'%(omegamax*Hartree), file=self.fd)
+            print('Using nonlinear frequency grid from 0 to %.3f eV' %
+                  (omegamax * Hartree), file=self.fd)
             self.omega_w = frequency_grid(domega0, omegamax, alpha)
             self.domega0 = domega0
             self.omegamax = omegamax
@@ -46,7 +47,7 @@ class Chi0(PairDensity):
         else:
             self.omega_w = np.asarray(frequencies) / Hartree
             self.domega0 = -117.0
-            self.omegamax = -42.0 #np.max(self.omega_w)?
+            self.omegamax = -42.0
             self.alpha = 0.0
             
         self.hilbert = hilbert
@@ -198,7 +199,7 @@ class Chi0(PairDensity):
             with self.timer('Hilbert transform'):
                 ht = HilbertTransform(self.omega_w, self.eta,
                                       self.timeordered)
-                ht(chi0_wGG, chi0_wGG)
+                ht(chi0_wGG)
             print('Hilbert transform done', file=self.fd)
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
@@ -374,22 +375,15 @@ class HilbertTransform:
             H_ww[w, 1:] -= 1 - (d_w[:-1] - 1j * eta) * y_w
         return H_ww
     
-    def __call__(self, A_wx, out=None):
-        if out is None:
-            C_wx = np.empty_like(A_wx)
-        else:
-            C_wx = out
-            
+    def __call__(self, A_wx):
         B_wx = A_wx.reshape((len(A_wx), -1))
-        D_wx = C_wx.reshape((len(A_wx), -1))
-        
-        nx = B_wx.shape[1]
+        nw, nx = B_wx.shape
+        tmp_wx = np.zeros((nw, min(nx, self.blocksize)), complex)
         for x in range(0, nx, self.blocksize):
             b_wx = B_wx[:, x:x + self.blocksize]
-            d_wx = D_wx[:, x:x + self.blocksize]
-            d_wx[:] = np.dot(self.H_ww, b_wx)
-        
-        return C_wx
+            c_wx = tmp_wx[:, :b_wx.shape[1]]
+            gemm(1.0, b_wx, self.H_ww, 0.0, c_wx)
+            b_wx[:] = c_wx
         
 
 if __name__ == '__main__':
@@ -413,7 +407,7 @@ if __name__ == '__main__':
         Xh_w[w + 1] += p * (-o - o1)
         
     ht = HilbertTransform(omega_w, eta, 1)
-    ht(Xh_w, Xh_w)
+    ht(Xh_w)
     
     import matplotlib.pyplot as plt
     plt.plot(omega_w, X_w.imag, label='ImX')

@@ -142,8 +142,8 @@ class G0W0(PairDensity):
                                                    self.exx_sin -
                                                    self.vxc_sin)
         
-        description = ['eps:   KS-eigenvalues [eV]',
-                       'f:     Occupation numbers',
+        description = ['f:     Occupation numbers',
+                       'eps:   KS-eigenvalues [eV]',
                        'vxc:   KS vxc [eV]',
                        'exx:   Exact exchange [eV]',
                        'sigma: Self-energies [eV]',
@@ -154,13 +154,13 @@ class G0W0(PairDensity):
         for line in description:
             print(line, file=self.fd)
             
-        results = {'eps': self.eps_sin * Hartree,
-                   'f':     self.f_sin,
-                   'vxc':   self.vxc_sin * Hartree,
-                   'exx':   self.exx_sin * Hartree,
+        results = {'f': self.f_sin,
+                   'eps': self.eps_sin * Hartree,
+                   'vxc': self.vxc_sin * Hartree,
+                   'exx': self.exx_sin * Hartree,
                    'sigma': self.sigma_sin * Hartree,
-                   'Z':     self.Z_sin,
-                   'qp':    self.qp_sin * Hartree}
+                   'Z': self.Z_sin,
+                   'qp': self.qp_sin * Hartree}
 
         b1, b2 = self.bands
         names = [line.split(':', 1)[0] for line in description]
