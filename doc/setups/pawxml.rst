@@ -463,11 +463,8 @@ favorite plotting tool.
 .. note::
    The ``pawxml.py`` program is very primitive and is only included in
    order to demonstrates how to parse XML using SAX
-   from a Python program.  Parsing XML from Fortran_ or C code with
+   from a Python program.  Parsing XML from Fortran or C code with
    SAX should be similar.
-
-.. _Fortran: http://lcdx00.wm.lc.ehu.es/ag/xml/index.html
-
 
 Usage
 -----
