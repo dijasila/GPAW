@@ -657,7 +657,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
         else:
             nprow = npcol = 1
-
+            scalapack = False
+            
         assert bd.comm.size == nprow * npcol
 
         self.pt.set_positions(atoms.get_scaled_positions())
