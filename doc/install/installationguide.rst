@@ -10,7 +10,7 @@ Requirements
 
 1) Python 2.6 - 2.7.  Python is available from http://www.python.org.
 
-2) NumPy_ 1.3.0 or later.
+2) NumPy_ 1.3.0 or later (multithreading in numpy is not supported by GPAW).
 
 3) Atomic Simulation Environment (:ase:`ASE <>`).
 
@@ -19,7 +19,8 @@ Requirements
 5) Libxc version 2.0.1 (libxc-download_).
 
 6) BLAS and LAPACK libraries. Start with your system provided defaults or
-   e.g. acml_
+   e.g. acml_ or openblas_. Multithreading is not supported.
+
 
 Optionally:
 
@@ -38,7 +39,7 @@ Optionally:
 .. _SciPy: http://scipy.org/
 .. _libxc-download: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download
 .. _acml: http://developer.amd.com/tools-and-sdks/cpu-development/amd-core-math-library-acml/
-
+.. _openblas: http://www.openblas.net/
 
 Installation
 ============
