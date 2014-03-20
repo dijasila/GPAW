@@ -69,7 +69,7 @@ def function_timer(func, *args, **kwargs):
     print >>out, t2 - t1
     return r
 
-
+    
 class Timer:
     def __init__(self, print_levels=1000):
         self.timers = {}
@@ -110,9 +110,10 @@ class Timer:
         tot = t0 - self.t0
 
         n = max([len(names[-1]) + len(names) for names in self.timers]) + 1
-        out.write('\n%s\n' % ('=' * 60))
+        line = '=' * (n + 26) + '\n'
+        out.write(line)
         out.write('%-*s    incl.     excl.\n' % (n, 'Timing:'))
-        out.write('%s\n' % ('=' * 60))
+        out.write(line)
         tother = tot
         
         inclusive = self.timers.copy()
@@ -146,9 +147,9 @@ class Timer:
             name = (level - 1) * ' ' + names[-1] + ':'
             out.write('%-*s%9.3f %9.3f %5.1f%% %s\n' %
                       (n, name, tinclusive, t, p, bar))
-        out.write('%s\n' % ('=' * 60))
+        out.write(line)
         out.write('%-*s%9.3f %5.1f%%\n' % (n + 10, 'Total:', tot, 100.0))
-        out.write('%s\n' % ('=' * 60))
+        out.write(line)
         out.write('date: %s\n' % time.asctime())
 
     def add(self, timer):
