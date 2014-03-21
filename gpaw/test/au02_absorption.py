@@ -26,6 +26,7 @@ if ABS:
     df = DielectricFunction('Au2.gpw',
                             frequencies=np.linspace(0,14,141),
                             eta=0.1,
+                            nbands=18,
                             ecut=10)
 
     b0, b = df.get_dielectric_function(filename=None,#'au2_df.csv',
@@ -59,7 +60,7 @@ if ABS:
     # The Wigner-Seitz truncation does not give exactly the same for small cell
     w, I = findpeak(np.linspace(0, 14., 141), a_ws.imag)
     equal(w, w_, 0.2)
-    equal(I, I_, 5.0)
+    equal(I, I_, 8.0)
 
 if GS:
     if rank == 0:
