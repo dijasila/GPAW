@@ -150,12 +150,9 @@ class Chi0(PairDensity):
                 deps_m = eps1 - kpt2.eps_n
                 df_m = f1 - kpt2.f_n
 
-                # Avoid double counting if occupied and empty states
-                # overlap (metals)
-                m0 = kpt1.n1 + n - kpt2.n1
-                if m0 >= 0:
-                    df_m[:m0] = 0.0
-                    df_m[m0] *= 0.5
+                # This is not quite right for degenerate partially occupied
+                # bands, but good enough for now:
+                df_m[df_m < 0] = 0.0
                     
                 if optical_limit:
                     self.update_optical_limit(
