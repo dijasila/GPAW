@@ -189,6 +189,11 @@ class AtomPartition:
         self.my_indices = self.get_indices(comm.rank)
         self.natoms = len(rank_a)
     
+    def reorder(self, args_a):
+        # XXX use to get better load balance
+        # after creating from EvenPartition
+        return AtomPartition(self.comm, self.rank_a[args_a])
+
     def get_indices(self, rank):
         return np.where(self.rank_a == rank)[0]
 

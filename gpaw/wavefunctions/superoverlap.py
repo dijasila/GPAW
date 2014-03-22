@@ -32,11 +32,11 @@ class DistsAndOffsets:
 
 
 def superoverlap(wfs, spos_ac, P_aqMi=None):
-    even_part = EvenPartitioning(wfs.atom_partition.comm,
+    assert wfs.ksl.block_comm.size == wfs.gd.comm.size * wfs.bd.comm.size
+    even_part = EvenPartitioning(wfs.gd.comm, #wfs.ksl.block_comm,
                                  len(wfs.atom_partition.rank_a))
     atom_partition = even_part.as_atom_partition()
-
-
+    
     tci = wfs.tci
 
     gd = wfs.gd

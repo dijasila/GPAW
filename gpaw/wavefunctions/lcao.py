@@ -9,6 +9,14 @@ from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 
 
+class LCAO:
+    def __init__(self, distributed_dh=None):
+        self.distributed_dh = distributed_dh
+
+    def __call__(self, *args, **kwargs):
+        return LCAOWavefunctions(*args, distributed_dh=self.distributed_dh)
+
+
 # replace by class to make data structure perhaps a bit less confusing
 def get_r_and_offsets(nl, spos_ac, cell_cv):
     r_and_offset_aao = {}
@@ -48,7 +56,8 @@ def add_paw_correction_to_overlap(setups, P_aqMi, S_qMM, Mstart=0,
 
 class LCAOWaveFunctions(WaveFunctions):
     def __init__(self, ksl, gd, nvalence, setups, bd,
-                 dtype, world, kd, kptband_comm, timer=None):
+                 dtype, world, kd, kptband_comm, timer=None,
+                 distributed_dh=None):
         WaveFunctions.__init__(self, gd, nvalence, setups, bd,
                                dtype, world, kd, kptband_comm, timer)
         self.ksl = ksl
@@ -56,6 +65,10 @@ class LCAOWaveFunctions(WaveFunctions):
         self.T_qMM = None
         self.P_aqMi = None
         
+        if distributed_dh is None:
+            distributed_dh = ksl.using_blacs
+        self.distributed_dh = distributed_dh
+
         self.timer.start('TCI: Evaluate splines')
         self.tci = NewTCI(gd.cell_cv, gd.pbc_c, setups, kd.ibzk_qc, kd.gamma)
         self.timer.stop('TCI: Evaluate splines')

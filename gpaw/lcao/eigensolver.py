@@ -36,13 +36,23 @@ class LCAO:
 
         bfs = wfs.basis_functions
 
-        #distributed_atomic_correction = True
-        distributed_atomic_correction = (wfs.bd.comm.size == 1)
+        distributed_atomic_correction = wfs.distributed_dh
+        # distributed_atomic_correction works with ScaLAPACK/BLACS in general.
+        # If SL is not enabled, it will not work with band parallelization.
+        # But no one would want that for a practical calculation anyway.
         
-        if distributed_atomic_correction:
+        if wfs.distributed_dh:
             def get_empty(a):
                 ni = wfs.setups[a].ni
                 return np.empty((wfs.ns, ni * (ni + 1) // 2))
+
+            # just distribued over gd comm.  It's not the most aggressive
+            # we can manage but we want to make band parallelization
+            # a bit easier and it won't really be a problem.  I guess
+            #
+            # Also: This call is blocking, but we could easily do a
+            # non-blocking version as we only need this stuff after
+            # doing tons of real-space work.
             dH_asp = wfs.atom_partition.to_even_distribution(hamiltonian.dH_asp,
                                                              get_empty,
                                                              copy=True)
@@ -77,7 +87,7 @@ class LCAO:
         Mstart = wfs.basis_functions.Mstart
         Mstop = wfs.basis_functions.Mstop
         
-        if not distributed_atomic_correction:
+        if not wfs.distributed_dh:
             wfs.timer.start('Atomic Hamiltonian')
             for a, P_Mi in kpt.P_aMi.items():
                 dH_ii = np.asarray(unpack(hamiltonian.dH_asp[a][kpt.s]),
@@ -89,39 +99,65 @@ class LCAO:
             wfs.timer.stop('Atomic Hamiltonian')
         else:
             wfs.timer.start('New atomic Hamiltonian')
-            
-            # overlap: a1 -> a3 -> a2
+
+            # Now calculate basis-projector-basis overlap: a1 -> a3 -> a2
             #
             # specifically:
             #   < phi[a1] | p[a3] > * dH[a3] * < p[a3] | phi[a2] >
-            #
-            # It isn't completely silly to use band parallelization
-            # to skip some of the atoms.  Maybe some day.
             #
             # This matrix multiplication is semi-sparse.  It works by blocks
             # of atoms, looping only over pairs that do have nonzero
             # overlaps.  But it might be even nicer with scipy sparse.
             # This we will have to check at some point.
             #
-            # Should we adapt this to normal band parallelization?
-            # Or would it be better to use some scalapack-like layout
-            # like in the force calculation? (Parallel over more CPUs)
-            # We should probably do the latter.
+            # The projection arrays P_aaim are distributed over the grid,
+            # whereas the Hamiltonian is distributed over the band comm.
+            # One could choose a set of a3 to optimize the load balance.
+            # Right now the load balance will be "random" but probably
+            # not very good.
+            innerloops = 0
             for (a3, a1), P1_im in kpt.P_aaim.items():
                 a1M1 = wfs.setups.M_a[a1]
-                a1M2 = a1M1 + wfs.setups[a1].nao
-                P1_mi = np.conj(P1_im.T)
+                dM = wfs.setups[a1].nao
+                a1M2 = a1M1 + dM
+                
+                if a1M1 > Mstop or a1M2 < Mstart:
+                    continue
+
+                stickout1 = max(0, Mstart - a1M1)
+                stickout2 = max(0, a1M2 - Mstop)
+                P1_mi = np.conj(P1_im.T[stickout1:dM - stickout2])
                 dH_ii = y * np.asarray(unpack(dH_asp[a3][kpt.s]), wfs.dtype)
+                H_mM = H_MM[a1M1 + stickout1 - Mstart:a1M2 - stickout2 - Mstart]
+
+                P1dH_mi = np.dot(P1_mi, dH_ii)
+
                 assert len(wfs.P_neighbors_a[a3]) > 0
                 for a2 in wfs.P_neighbors_a[a3]:
+                    # We can use symmetry somehow.  Since the entire matrix
+                    # is symmetrized after the Hamiltonian is constructed,
+                    # at least in the non-Gamma-point case, we should do
+                    # so conditionally somehow.  Right now let's stay out
+                    # of trouble.
+
+                    # Humm.  The following works with gamma point
+                    # but not with kpts.  XXX take a look at this.
+                    # also, it doesn't work with a2 < a1 for some reason.
+                    #if a2 > a1:
+                    #    continue
                     a2M1 = wfs.setups.M_a[a2]
                     a2M2 = a2M1 + wfs.setups[a2].nao
                     P2_im = kpt.P_aaim[(a3, a2)]
-                    P1dHP2_mm = np.dot(P1_mi, np.dot(dH_ii, P2_im))
-                    # generally: must send to correct node(s) here! XXXXXXXXX
-                    H_MM[a1M1:a1M2, a2M1:a2M2] += P1dHP2_mm
+                    P1dHP2_mm = np.dot(P1dH_mi, P2_im)
+                    H_mM[:, a2M1:a2M2] += P1dHP2_mm
+                    innerloops += 1
+                    #if wfs.world.rank == 0:
+                    #    print 'y', y
+                    #if a1 != a2:
+                    #    H_MM[a2M1:a2M2, a1M1:a1M2] += P1dHP2_mm.T.conj()
             wfs.timer.stop('New atomic Hamiltonian')
-            
+        
+        #print wfs.world.rank, innerloops
         wfs.timer.start('Distribute overlap matrix')
         H_MM = wfs.ksl.distribute_overlap_matrix(
             H_MM, root, add_hermitian_conjugate=(y == 0.5))

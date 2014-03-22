@@ -28,7 +28,7 @@ from gpaw.xc.sic import SIC
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.wavefunctions.fd import FDWaveFunctions
-from gpaw.wavefunctions.lcao import LCAOWaveFunctions
+from gpaw.wavefunctions.lcao import LCAOWaveFunctions, LCAO
 from gpaw.wavefunctions.pw import PW, ReciprocalSpaceDensity, \
     ReciprocalSpaceHamiltonian
 from gpaw.utilities.memory import MemNode, maxrss
