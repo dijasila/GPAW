@@ -11,7 +11,7 @@ import numpy as np
 K_G = 0.382106112167171
 
 class C_GLLBScr(Contribution):
-    def __init__(self, nlfunc, weight, functional='GGA_X_B88', width=None, eps=0.05, damp=1e-15):
+    def __init__(self, nlfunc, weight, functional='GGA_X_B88', width=None, eps=0.05, damp=1e-10):
         Contribution.__init__(self, nlfunc, weight)
         self.functional = functional
         self.old_coeffs = None
@@ -164,7 +164,7 @@ class C_GLLBScr(Contribution):
 	        self.vt_sg[:] = 0.0
 	        self.xc.calculate(self.nlfunc.finegd, 2*n[None, ...], self.vt_sg, self.e_g)
 	        self.e_g[:] = np.where(n<self.damp, 0, self.e_g)
-	        v += self.weight * 2 * self.e_g / (2 * n + 1e-9)
+	        v += self.weight * 2 * self.e_g / (2 * n + self.damp)
 	        e_g += self.weight * self.e_g / 2
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
