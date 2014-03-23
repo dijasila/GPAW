@@ -1113,6 +1113,9 @@ class PW:
     def __ne__(self, other):
         return not self == other
 
+    def __str__(self):
+        return 'pw'
+
 
 class ReciprocalSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, collinear=True):

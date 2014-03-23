@@ -27,8 +27,8 @@ from gpaw.xc import XC
 from gpaw.xc.sic import SIC
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.base import EmptyWaveFunctions
-from gpaw.wavefunctions.fd import FDWaveFunctions
-from gpaw.wavefunctions.lcao import LCAOWaveFunctions, LCAO
+from gpaw.wavefunctions.fd import FD, FDWaveFunctions
+from gpaw.wavefunctions.lcao import LCAO, LCAOWaveFunctions
 from gpaw.wavefunctions.pw import PW, ReciprocalSpaceDensity, \
     ReciprocalSpaceHamiltonian
 from gpaw.utilities.memory import MemNode, maxrss
@@ -170,7 +170,7 @@ class PAW(PAWTextOutput):
         self.initialized = False
 
         for key in kwargs:
-            if key == 'basis' and  p['mode'] == 'fd':
+            if key == 'basis' and str(p['mode']) == 'fd': # umm what about PW?
                 continue
 
             if key == 'eigensolver':
@@ -371,14 +371,18 @@ class PAW(PAWTextOutput):
             raise NotImplementedError('LCAO mode does not support '
                                       'orbital-dependent XC functionals.')
 
+        #if mode == 'fd': # maybe some day
+        #    mode = FD()
         if mode == 'pw':
             mode = PW()
+        elif mode == 'lcao':
+            mode = LCAO()
 
         if par.realspace is None:
-            realspace = not isinstance(mode, PW)
+            realspace = (str(mode) != 'pw')
         else:
             realspace = par.realspace
-            if isinstance(mode, PW):
+            if str(mode) == 'pw':
                 assert not realspace
 
         if par.gpts is not None:
@@ -389,7 +393,7 @@ class PAW(PAWTextOutput):
                 h /= Bohr
             N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
 
-        if par.filter is None and not isinstance(mode, PW):
+        if par.filter is None and str(mode) != 'pw':
             gamma = 1.6
             hmax = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / N_c).max()
             def filter(rgd, rcut, f_r, l=0):
@@ -431,7 +435,7 @@ class PAW(PAWTextOutput):
             ncomp = 2
 
         # K-point descriptor
-        if par.dtype == complex and par.mode == 'lcao':
+        if par.dtype == complex and str(mode) == 'lcao':
             gamma = False
         else:
             gamma = None
@@ -471,7 +475,7 @@ class PAW(PAWTextOutput):
                 assert nbands_from_atom >= -(-setup.Nv // 2)
                 nbands += nbands_from_atom
             nbands = min(nao, nbands)
-        elif nbands > nao and mode == 'lcao':
+        elif nbands > nao and str(mode) == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: '
                              '%d bands and only %d atomic orbitals!' %
                              (nbands, nao))
@@ -516,7 +520,7 @@ class PAW(PAWTextOutput):
 
         cc = par.convergence
 
-        if mode == 'lcao':
+        if str(mode) == 'lcao':
             niter_fixdensity = 0
         else:
             niter_fixdensity = None
@@ -545,7 +549,7 @@ class PAW(PAWTextOutput):
             ndomains = None
             if parsize_domain is not None:
                 ndomains = np.prod(parsize_domain)
-            if isinstance(mode, PW):
+            if str(mode) == 'pw':
                 if ndomains > 1:
                     raise ValueError('Planewave mode does not support '
                                      'domain decomposition.')
@@ -631,7 +635,7 @@ class PAW(PAWTextOutput):
             else:
                 sl_default = par.parallel['sl_default']
 
-            if mode == 'lcao':
+            if str(mode) == 'lcao':
                 # Layouts used for general diagonalizer
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
@@ -640,14 +644,9 @@ class PAW(PAWTextOutput):
                                                gd, bd, domainband_comm, dtype,
                                                nao=nao, timer=self.timer)
 
-                if collinear:
-                    self.wfs = LCAOWaveFunctions(lcaoksl, *args)
-                else:
-                    from gpaw.xc.noncollinear import \
-                         NonCollinearLCAOWaveFunctions
-                    self.wfs = NonCollinearLCAOWaveFunctions(lcaoksl, *args)
+                self.wfs = mode(collinear, lcaoksl, *args)
 
-            elif mode == 'fd' or isinstance(mode, PW):
+            elif str(mode) == 'fd' or str(mode) == 'pw':
                 # buffer_size keyword only relevant for fdpw
                 buffer_size = par.parallel['buffer_size']
                 # Layouts used for diagonalizer
@@ -692,12 +691,12 @@ class PAW(PAWTextOutput):
                                                    timer=self.timer)
 
                 if hasattr(self, 'time'):
-                    assert mode == 'fd'
+                    assert str(mode) == 'fd'
                     from gpaw.tddft import TimeDependentWaveFunctions
                     self.wfs = TimeDependentWaveFunctions(par.stencils[0],
                         diagksl, orthoksl, initksl, gd, nvalence, setups,
                         bd, world, kd, kptband_comm, self.timer)
-                elif mode == 'fd':
+                elif str(mode) == 'fd':
                     self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
                                                orthoksl, initksl, *args)
                 else:

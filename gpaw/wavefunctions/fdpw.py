@@ -3,6 +3,7 @@ import numpy as np
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.overlap import Overlap
 from gpaw.utilities import unpack
+from gpaw.utilities.timing import nulltimer
 from gpaw.io import FileReference
 from gpaw.lfc import BasisFunctions
 from gpaw import extra_parameters
@@ -78,7 +79,8 @@ class FDPWWaveFunctions(WaveFunctions):
         lcaoksl, lcaobd = self.initksl, self.initksl.bd
         lcaowfs = LCAOWaveFunctions(lcaoksl, self.gd, self.nvalence,
                                     self.setups, lcaobd, self.dtype,
-                                    self.world, self.kd, self.kptband_comm)
+                                    self.world, self.kd, self.kptband_comm,
+                                    nulltimer)
         lcaowfs.basis_functions = basis_functions
         lcaowfs.timer = self.timer
         self.timer.start('Set positions (LCAO WFS)')

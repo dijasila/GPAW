@@ -7,15 +7,25 @@ from gpaw import debug
 from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
-
+from gpaw.lcao.lcao_hamiltonian import get_atomic_hamiltonian
 
 class LCAO:
-    def __init__(self, distributed_dh=None):
-        self.distributed_dh = distributed_dh
+    def __init__(self, atomic_hamiltonian=None):
+        self.atomic_hamiltonian = atomic_hamiltonian
 
-    def __call__(self, *args, **kwargs):
-        return LCAOWavefunctions(*args, distributed_dh=self.distributed_dh)
+    def __call__(self, collinear, *args, **kwargs):
+        if collinear:
+            cls = LCAOWaveFunctions
+        else:
+            from gpaw.xc.noncollinear import \
+                NonCollinearLCAOWaveFunctions
+            cls = NonCollinearLCAOWaveFunctions
+        
+        return cls(*args, atomic_hamiltonian=self.atomic_hamiltonian,
+                    **kwargs)
 
+    def __str__(self):
+        return 'lcao'
 
 # replace by class to make data structure perhaps a bit less confusing
 def get_r_and_offsets(nl, spos_ac, cell_cv):
@@ -56,18 +66,23 @@ def add_paw_correction_to_overlap(setups, P_aqMi, S_qMM, Mstart=0,
 
 class LCAOWaveFunctions(WaveFunctions):
     def __init__(self, ksl, gd, nvalence, setups, bd,
-                 dtype, world, kd, kptband_comm, timer=None,
-                 distributed_dh=None):
+                 dtype, world, kd, kptband_comm, timer,
+                 atomic_hamiltonian=None):
         WaveFunctions.__init__(self, gd, nvalence, setups, bd,
                                dtype, world, kd, kptband_comm, timer)
         self.ksl = ksl
         self.S_qMM = None
         self.T_qMM = None
         self.P_aqMi = None
-        
-        if distributed_dh is None:
-            distributed_dh = ksl.using_blacs
-        self.distributed_dh = distributed_dh
+
+        if atomic_hamiltonian is None:
+            if ksl.using_blacs:
+                atomic_hamiltonian = 'distributed'
+            else:
+                atomic_hamiltonian = 'dense'
+        if isinstance(atomic_hamiltonian, str):
+            atomic_hamiltonian = get_atomic_hamiltonian(atomic_hamiltonian)
+        self.atomic_hamiltonian = atomic_hamiltonian
 
         self.timer.start('TCI: Evaluate splines')
         self.tci = NewTCI(gd.cell_cv, gd.pbc_c, setups, kd.ibzk_qc, kd.gamma)
