@@ -27,7 +27,7 @@ from gpaw.xc import XC
 from gpaw.xc.sic import SIC
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.base import EmptyWaveFunctions
-from gpaw.wavefunctions.fd import FD, FDWaveFunctions
+from gpaw.wavefunctions.fd import FDWaveFunctions
 from gpaw.wavefunctions.lcao import LCAO, LCAOWaveFunctions
 from gpaw.wavefunctions.pw import PW, ReciprocalSpaceDensity, \
     ReciprocalSpaceHamiltonian
