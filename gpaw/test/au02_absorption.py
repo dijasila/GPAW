@@ -20,13 +20,13 @@ if GS:
     
     cluster.set_calculator(calc)
     cluster.get_potential_energy()
+    calc.diagonalize_full_hamiltonian(nbands=24, scalapack=True)
     calc.write('Au2.gpw','all')
 
 if ABS:
     df = DielectricFunction('Au2.gpw',
                             frequencies=np.linspace(0,14,141),
                             eta=0.1,
-                            nbands=18,
                             ecut=10)
 
     b0, b = df.get_dielectric_function(filename=None,#'au2_df.csv',
@@ -40,7 +40,7 @@ if ABS:
     w0_ = 5.60491055
     I0_ = 244.693028
     w_ = 5.696528390
-    I_ = 208.4
+    I_ = 207.8
     
     w, I = findpeak(np.linspace(0, 14., 141), b0.imag)
     equal(w, w0_, 0.05)

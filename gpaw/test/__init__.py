@@ -414,7 +414,8 @@ if mpi.size != 1 and not compiled_with_sl():
 
 if not compiled_with_sl():
     exclude += ['pw/fulldiag.py',
-                'pw/fulldiagk.py']
+                'pw/fulldiagk.py',
+                'au02_absorption.py']
 
 if mpi.size == 8:
     exclude += ['transport.py']
