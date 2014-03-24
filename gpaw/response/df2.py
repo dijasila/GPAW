@@ -39,7 +39,8 @@ class DielectricFunction:
                 else:
                     return pd, chi0_wGG, chi0_wxvG, chi0_wvv
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c)
-
+        self.chi0.timer.write(self.chi0.fd)
+        
         if self.name and mpi.rank == 0:
             with open(name, 'wb') as fd:
                 pickle.dump((pd, chi0_wGG, chi0_wxvG, chi0_wvv), fd,
