@@ -69,7 +69,7 @@ class G0W0(PairDensity):
         self.bands = bands
 
         b1, b2 = bands
-        shape = (self.calc.wfs.nspins, len(kpts), b2 - b1)
+        self.shape = shape = (self.calc.wfs.nspins, len(kpts), b2 - b1)
         self.eps_sin = np.empty(shape)     # KS-eigenvalues
         self.f_sin = np.empty(shape)       # occupation numbers
         self.sigma_sin = np.zeros(shape)   # self-energies
@@ -404,6 +404,7 @@ class G0W0(PairDensity):
                   file=self.fd)
             with open(name) as fd:
                 self.vxc_sin = np.load(fd)
+            assert self.vxc_sin.shape == self.shape, self.vxc_sin.shape
             return
             
         print('Calculating Kohn-Sham XC contribution', file=self.fd)
@@ -420,6 +421,7 @@ class G0W0(PairDensity):
             print('Reading EXX contribution from file:', name, file=self.fd)
             with open(name) as fd:
                 self.exx_sin = np.load(fd)
+            assert self.exx_sin.shape == self.shape, self.exx_sin.shape
             return
             
         print('Calculating EXX contribution', file=self.fd)
