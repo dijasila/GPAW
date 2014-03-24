@@ -19,9 +19,11 @@ class DielectricFunction:
                  omegamax=20, alpha = 3.0, ecut=50, hilbert=False, nbands=None,
                  eta=0.2, ftol=1e-6, world=mpi.world, txt=sys.stdout):
             
-        self.chi0 = Chi0(calc, frequencies, domega0 = domega0, 
-                         omegamax = omegamax, alpha = alpha, ecut=ecut, hilbert = hilbert,
-                         nbands=nbands, eta=eta, ftol=ftol, world=world, txt=txt)
+        self.chi0 = Chi0(calc, frequencies, domega0=domega0, 
+                         omegamax=omegamax, alpha=alpha, ecut=ecut,
+                         hilbert=hilbert,
+                         nbands=nbands, eta=eta, ftol=ftol, world=world,
+                         txt=txt)
         
         self.name = name
 
@@ -38,9 +40,10 @@ class DielectricFunction:
                     return pd, chi0_wGG, chi0_wxvG, chi0_wvv
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c)
 
-        if self.name:
-            pickle.dump((pd, chi0_wGG, chi0_wxvG, chi0_wvv), open(name, 'wb'),
-                        pickle.HIGHEST_PROTOCOL)
+        if self.name and mpi.rank == 0:
+            with open(name, 'wb') as fd:
+                pickle.dump((pd, chi0_wGG, chi0_wxvG, chi0_wvv), fd,
+                            pickle.HIGHEST_PROTOCOL)
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
 
@@ -235,10 +238,11 @@ class DielectricFunction:
         """
 
         # Calculate dielectric function
-        df_NLFC_w, df_LFC_w = self.get_dielectric_function(xc=xc, q_c=q_c,
-                                                           direction=direction,
-                                                           filename=None,
-                                                           wigner_seitz_truncation=wigner_seitz_truncation)
+        df_NLFC_w, df_LFC_w = self.get_dielectric_function(
+            xc=xc, q_c=q_c,
+            direction=direction,
+            filename=None,
+            wigner_seitz_truncation=wigner_seitz_truncation)
         Nw = df_NLFC_w.shape[0]
         
         # Calculate eels
