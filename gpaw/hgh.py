@@ -10,6 +10,7 @@ from gpaw.spline import Spline
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.configurations import configurations
+from gpaw.utilities import min_locfun_radius
 from gpaw.basis_data import Basis, BasisFunction
 
 setups = {} # Filled out during parsing below
@@ -47,7 +48,7 @@ class HGHSetup(BaseSetup):
                         for phit in self.phit_j])
 
         self.Nct = 0.0
-        self.nct = Spline(0, 1.0, [0., 0., 0.])
+        self.nct = Spline(0, min_locfun_radius, [0., 0., 0.])
 
         self.lmax = 0
 
