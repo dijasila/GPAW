@@ -481,7 +481,7 @@ def pblas_r2k(alpha, a_NK, b_NK, beta, c_NN, desca, descb, descc,
                     uplo)
 
 
-def pblas_simple_r2k(desca, descb, descc, a, b, c, uplo=None):
+def pblas_simple_r2k(desca, descb, descc, a, b, c, uplo='U'):
     alpha = 1.0
     beta = 0.0
     pblas_r2k(alpha, a, b, beta, c, 
