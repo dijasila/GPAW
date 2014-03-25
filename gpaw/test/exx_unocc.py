@@ -30,6 +30,7 @@ fname = 'Be2.gpw'
 if not load:
     xco = HybridXC(xc)
     cocc = GPAW(h=0.3,
+                eigensolver='rmm-diis',
                 xc=xco,
                 nbands=nbands,
                 convergence={'eigenstates': 1e-4},
@@ -46,6 +47,7 @@ if unocc:
     # apply Fock opeartor also to unoccupied orbitals
     xcu = HybridXC(xc, unocc=True)
     cunocc = GPAW(h=0.3,
+                  eigensolver='rmm-diis',
                   xc=xcu,
                   nbands=nbands,
                   convergence={'eigenstates': 1e-4},
@@ -55,7 +57,7 @@ if unocc:
     parprint('Energy %10.4f   %10.4f' % (cocc.get_potential_energy(),
                                          cunocc.get_potential_energy()))
     equal(cocc.get_potential_energy(),
-          cunocc.get_potential_energy(), 2.e-13)
+          cunocc.get_potential_energy(), 1.e-5)
 
     fu_n = cunocc.get_occupation_numbers()
     eu_n = cunocc.get_eigenvalues()
