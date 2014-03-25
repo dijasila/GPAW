@@ -182,13 +182,16 @@ class DielectricFunction:
         for w, e_GG in enumerate(e_wGG):
             df_NLFC_w[w] = e_GG[0, 0]
             df_LFC_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
-            if filename is not None and mpi.rank == 0:
-                fd = open(filename, 'w')
+        
+        if filename is not None and mpi.rank == 0:
+            with open(filename, 'w') as fd:
+                for omega, nlfc, lfc in zip(self.chi0.omega_w[w] * Hartree,
+                                            df_NLFC_w,
+                                            df_LFC_w):
                 prnt('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                     (self.chi0.omega_w[w]*Hartree,
-                      df_NLFC_w[w].real, df_NLFC_w[w].imag,
-                      df_LFC_w[w].real, df_LFC_w[w].imag), file=fd)
-                fd.close()
+                     (omega,
+                      nlfc.real, nlfc.imag, lfc.real, lfc.imag, file=fd)
+
         return df_NLFC_w, df_LFC_w
 
 
