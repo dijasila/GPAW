@@ -188,9 +188,9 @@ class DielectricFunction:
                 for omega, nlfc, lfc in zip(self.chi0.omega_w[w] * Hartree,
                                             df_NLFC_w,
                                             df_LFC_w):
-                prnt('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                     (omega,
-                      nlfc.real, nlfc.imag, lfc.real, lfc.imag, file=fd))
+                    prnt('%.6f, %.6f, %.6f, %.6f, %.6f' 
+                         %(omega, nlfc.real, nlfc.imag, 
+                           lfc.real, lfc.imag), file=fd)
                 
         return df_NLFC_w, df_LFC_w
 
@@ -369,7 +369,10 @@ class DielectricFunction:
         r = gd.get_grid_point_coordinates()
               
         w_w = self.chi0.omega_w * Hartree
+        if w_max:
+            w_w[np.where(w_w < w_max)]
         Nw = len(w_w)
+        print(Nw)
         nG =  e_wGG.shape[1]
              
         eig = np.zeros([Nw, nG], dtype = complex)
