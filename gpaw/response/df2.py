@@ -185,12 +185,12 @@ class DielectricFunction:
         
         if filename is not None and mpi.rank == 0:
             with open(filename, 'w') as fd:
-                for omega, nlfc, lfc in zip(self.chi0.omega_w[w] * Hartree,
+                for omega, nlfc, lfc in zip(self.chi0.omega_w * Hartree,
                                             df_NLFC_w,
                                             df_LFC_w):
-                    prnt('%.6f, %.6f, %.6f, %.6f, %.6f' 
-                         %(omega, nlfc.real, nlfc.imag, 
-                           lfc.real, lfc.imag), file=fd)
+                    prnt('%.6f, %.6f, %.6f, %.6f, %.6f' %
+                         (omega, nlfc.real, nlfc.imag, lfc.real, lfc.imag),
+                         file=fd)
                 
         return df_NLFC_w, df_LFC_w
 
