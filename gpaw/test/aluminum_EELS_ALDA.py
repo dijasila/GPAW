@@ -8,7 +8,7 @@ from gpaw import GPAW, PW
 from gpaw.test import findpeak
 from gpaw.atom.basis import BasisMaker
 from gpaw.response.df2 import DielectricFunction
-from gpaw.mpi import serial_comm, rank, size
+from gpaw.mpi import serial_comm, rank, size, world
 from gpaw.utilities import devnull
 from gpaw.wavefunctions.pw import PW
 
@@ -49,6 +49,7 @@ t3 = time.time()
 print 'For ground  state calc, it took', (t2 - t1) / 60, 'minutes'
 print 'For excited state calc, it took', (t3 - t2) / 60, 'minutes'
 
+world.barrier()
 d = np.loadtxt('EELS_Al_ALDA',delimiter=',')
 # New results are compared with test values
 wpeak1,Ipeak1 = findpeak(d[:,0],d[:,1])
