@@ -190,8 +190,8 @@ class DielectricFunction:
                                             df_LFC_w):
                 prnt('%.6f, %.6f, %.6f, %.6f, %.6f' %
                      (omega,
-                      nlfc.real, nlfc.imag, lfc.real, lfc.imag, file=fd)
-
+                      nlfc.real, nlfc.imag, lfc.real, lfc.imag, file=fd))
+                
         return df_NLFC_w, df_LFC_w
 
 
