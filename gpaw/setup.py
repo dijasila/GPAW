@@ -942,9 +942,6 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
-        if extra_parameters.get('fprojectors'):
-            return None
-
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         nabla_iiv = np.empty((self.ni, self.ni, 3))
@@ -990,8 +987,6 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
-        if extra_parameters.get('fprojectors'):
-            return None
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         rnabla_iiv = np.zeros((self.ni, self.ni, 3))
@@ -1043,11 +1038,6 @@ class Setup(BaseSetup):
                  x     dz     dy
 
         and similar for y and z."""
-
-        # f-projectors are not implemented, return None
-        # maybe error would be better
-        if extra_parameters.get('fprojectors'):
-            return None
 
         # utility functions
 
