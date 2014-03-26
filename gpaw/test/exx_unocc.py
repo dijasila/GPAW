@@ -66,4 +66,4 @@ if unocc:
     for eo, fo, eu, fu in zip(eo_n, fo_n, eu_n, fu_n):
         parprint('%8.4f %5.2f   %8.4f %5.2f' % (eo, fo, eu, fu))
         if fo > 0.01:
-            equal(eo, eu, 1.e-5)
+            equal(eo, eu, 5.e-5)
