@@ -168,9 +168,9 @@ class LCAOWaveFunctions(WaveFunctions):
 
 
         # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-        from gpaw.wavefunctions.superoverlap import superoverlap
+        from gpaw.lcao.newoverlap import newoverlap
         self.P_neighbors_a, self.P_aaqim, self.newP_aqMi \
-            = superoverlap(self, spos_ac, self.P_aqMi)
+            = newoverlap(self, spos_ac)
         # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 

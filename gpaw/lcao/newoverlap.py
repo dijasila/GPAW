@@ -11,9 +11,7 @@ class DistsAndOffsets:
         r_and_offset_aao = {}
 
         def add(a1, a2, R_c, offset):
-            if not (a1, a2) in r_and_offset_aao:
-                r_and_offset_aao[(a1, a2)] = []
-            r_and_offset_aao[(a1, a2)].append((R_c, offset))
+            r_and_offset_aao.setdefault((a1, a2), []).append((R_c, offset))
 
         for a1, spos1_c in enumerate(spos_ac):
             a2_a, offsets = nl.get_neighbors(a1)
@@ -31,7 +29,7 @@ class DistsAndOffsets:
         return R_ca_and_offset_a
 
 
-def superoverlap(wfs, spos_ac, P_aqMi=None):
+def newoverlap(wfs, spos_ac):
     assert wfs.ksl.block_comm.size == wfs.gd.comm.size * wfs.bd.comm.size
     even_part = EvenPartitioning(wfs.gd.comm, #wfs.ksl.block_comm,
                                  len(wfs.atom_partition.rank_a))
@@ -43,7 +41,7 @@ def superoverlap(wfs, spos_ac, P_aqMi=None):
     kd = wfs.kd
     nq = len(kd.ibzk_qc)
 
-    # New neighbor list because we want it "both ways", heh
+    # New neighbor list because we want it "both ways", heh.  Or do we?
     neighbors = NeighborList(tci.cutoff_a, skin=0,
                              sorted=True, self_interaction=True, bothways=False)
     atoms = Atoms('X%d' % len(tci.cutoff_a), cell=gd.cell_cv, pbc=gd.pbc_c)
@@ -57,7 +55,6 @@ def superoverlap(wfs, spos_ac, P_aqMi=None):
                    for setup in wfs.setups]
 
 
-    # Now calculate P^a_i,mu = <p_a^i | Phi_mu>.
     # Calculate the projector--basis function overlaps:
     #
     #    a1        ~a1
@@ -98,7 +95,6 @@ def superoverlap(wfs, spos_ac, P_aqMi=None):
     P_neighbors_a = {}
     
     for a1 in atom_partition.my_indices:
-        P_neighbors_a[a1] = []
         for a2 in range(len(wfs.setups)):
             R_ca_and_offset_a = dists_and_offsets.get(a1, a2)
             if R_ca_and_offset_a is None: # No overlap between a1 and a2
@@ -128,7 +124,7 @@ def superoverlap(wfs, spos_ac, P_aqMi=None):
             if disp is not None: # there was at least one non-zero overlap
                 assert (a1, a2) not in P_aaqim
                 P_aaqim[(a1, a2)] = P_qim
-                P_neighbors_a[a1].append(a2)
+                P_neighbors_a.setdefault(a1, []).append(a2)
     
     Pkeys = P_aaqim.keys()
     Pkeys.sort()
