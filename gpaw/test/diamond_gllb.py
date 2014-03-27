@@ -1,6 +1,7 @@
 from ase.lattice import bulk
 from sys import argv
 from ase.dft.kpoints import ibz_points, get_bandpath
+from gpaw.eigensolvers.davidson import Davidson
 from gpaw import *
 from ase import *
 from gpaw.test import gen
@@ -23,7 +24,8 @@ setup_paths.insert(0, '.')
 
 # Calculate ground state
 atoms = bulk('C', 'diamond', a=3.567)
-calc = GPAW(h=0.15, kpts=(4,4,4), xc=xc, nbands = 6, eigensolver='cg')
+calc = GPAW(h=0.15, kpts=(4,4,4), xc=xc, nbands = 6,
+            eigensolver=Davidson(niter=2))
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 calc.write('Cgs.gpw')
@@ -42,7 +44,7 @@ X = points['X']
 
 kpts, x, X = get_bandpath([G, X], atoms.cell, npoints=12)
 calc = GPAW('Cgs.gpw', kpts=kpts, fixdensity=True, usesymm=None,
-            convergence=dict(bands=6), eigensolver='dav')
+            convergence=dict(bands=6), eigensolver=Davidson(niter=2))
 calc.get_atoms().get_potential_energy()
 # Get the accurate KS-band gap
 homolumo = calc.occupations.get_homo_lumo(calc.wfs)
@@ -50,7 +52,8 @@ homo, lumo = homolumo
 print "band gap ",(lumo-homo)*27.2
     
 # Redo the ground state calculation
-calc = GPAW(h=0.15, kpts=(4,4,4), xc=xc, nbands = 6, eigensolver='cg')
+calc = GPAW(h=0.15, kpts=(4,4,4), xc=xc, nbands = 6,
+            eigensolver=Davidson(niter=2))
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 # And calculate the discontinuity potential with accurate band gap
@@ -60,7 +63,7 @@ calc.write('CGLLBSC.gpw')
 
 # Redo the band structure calculation
 atoms, calc = restart('CGLLBSC.gpw', kpts=kpts, fixdensity=True, usesymm=None,
-                      convergence=dict(bands=6), eigensolver='dav')
+                      convergence=dict(bands=6), eigensolver=Davidson(niter=2))
 atoms.get_potential_energy()
 response = calc.hamiltonian.xc.xcs['RESPONSE']
 KS, dxc = response.calculate_delta_xc_perturbation()

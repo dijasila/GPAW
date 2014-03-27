@@ -955,14 +955,14 @@ Did not converge!
 
 Here are some tips:
 
-1) Use less aggressive density mixing.
-2) Solve the eigenvalue problem more accurately at each scf-step.
-3) Use a smoother distribution function for the occupation numbers.
-4) Don't do spin-polarized calculation with an odd number of electrons.
-5) Make sure the geometry is physically sound.
-6) Don't let you structure optimization algorithm take too large steps.
-7) Try adding more empty states.
-8) Use enough k-points.
+1) Make sure the geometry is physically sound.
+2) Don't do spin-paired calculations with an odd number of electrons.
+3) Use less aggressive density mixing.
+4) Solve the eigenvalue problem more accurately at each scf-step.
+5) Use a smoother distribution function for the occupation numbers.
+6) Try adding more empty states.
+7) Use enough k-points.
+8) Don't let your structure optimization algorithm take too large steps.
 
 See details here:
     
