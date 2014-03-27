@@ -7,10 +7,10 @@ from gpaw.utilities import unpack
 from numpy.linalg import inv, eig
 from numpy import dot, eye, array, asarray, zeros
 from gpaw.mixer import DummyMixer
-from math import pi
+from math import pi, log
 from ase.parallel import paropen
 from gpaw.mpi import world
-from gpaw.tddft.units import attosec_to_autime
+from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
 from numpy.linalg import solve
 from gpaw.xc import XC
 
@@ -21,6 +21,7 @@ from gpaw.utilities.scalapack import pblas_simple_hemm, pblas_simple_gemm, \
 from gpaw.utilities.tools import tri2full 
 
 import sys
+from time import localtime
 
 def print_matrix(M, file=None, rank=0):
     # XXX Debugging stuff. Remove.
@@ -104,6 +105,7 @@ class LCAOTDDFT(GPAW):
                  propagator='cn', fxc=None, **kwargs):
         self.time = 0.0
         self.niter = 0
+        self.kick_strength = [0.0, 0.0, 0.0]
         GPAW.__init__(self, filename, **kwargs)
         self.propagator_debug = propagator_debug
         self.tddft_initialized = False
@@ -438,9 +440,16 @@ class LCAOTDDFT(GPAW):
                 dm0 = dm
             norm = self.density.finegd.integrate(self.density.rhot_g)
             line = '%20.8lf %20.8le %22.12le %22.12le %22.12le\n' % (self.time, norm, dm[0], dm[1], dm[2])
-            if world.rank == 0:            
-                print >>self.dm_file, line,
-                print line,
+            T = localtime()
+            if world.rank == 0:
+                print >> self.dm_file, line,
+
+            if world.rank == 0 and self.niter%10==0:
+                print 'iter: %3d  %02d:%02d:%02d %11.2f   %9.1f %12.8f' % (self.niter,
+                                                                           T[3], T[4], T[5],
+                                                                           self.time * autime_to_attosec,
+                                                                           log(abs(norm)+1e-16)/log(10),
+                                                                           np.sqrt(dm[0]**2+dm[1]**2+dm[2]**2))
                 self.dm_file.flush()
 
             # ---------------------------------------------------------------------------- 
