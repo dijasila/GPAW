@@ -197,6 +197,8 @@ class Chi0(PairDensity):
                 ht = HilbertTransform(self.omega_w, self.eta,
                                       self.timeordered)
                 ht(chi0_wGG)
+                ht(chi0_wvv)
+                ht(chi0_wxvG)
             print('Hilbert transform done', file=self.fd)
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
@@ -243,6 +245,11 @@ class Chi0(PairDensity):
         n0_mv = PairDensity.update_optical_limit(self, n, kpt1, kpt2,
                                                  deps_m, df_m, n_mG)
 
+        if self.hilbert:
+            self.update_optical_limit_hilbert(n0_mv, deps_m, df_m, n_mG,
+                                              chi0_wxvG, chi0_wvv)
+            return
+            
         if self.timeordered:
             # avoid getting a zero from np.sign():
             deps1_m = deps_m + 1j * self.eta * np.sign(deps_m + 1e-20)
@@ -259,6 +266,29 @@ class Chi0(PairDensity):
             chi0_wxvG[w, 0, :, 1:] += np.dot(x_m * n0_mv.T, n_mG[:, 1:].conj())
             chi0_wxvG[w, 1, :, 1:] += np.dot(x_m * n0_mv.T.conj(), n_mG[:, 1:])
 
+    @timer('CHI_0 optical limit hilbert-update')
+    def update_optical_limit_hilbert(self, n0_mv, deps_m, df_m, n_mG,
+                                     chi0_wxvG, chi0_wvv):
+        for deps, df, n0_v, n_G in zip(deps_m, df_m, n0_mv, n_mG):
+            o = abs(deps)
+            w = int(o / self.domega0 / (1 + self.alpha * o / self.omegamax))
+            if w + 2 > len(self.omega_w):
+                break
+            o1, o2 = self.omega_w[w:w + 2]
+            assert o1 <= o <= o2, (o1, o, o2)
+
+            p = self.prefactor * abs(df) / (o2 - o1)**2  # XXX abs()?
+            p1 = p * (o2 - o)
+            p2 = p * (o - o1)
+            x_vv = np.outer(n0_v, n0_v.conj())
+            chi0_wvv[w] += p1 * x_vv
+            chi0_wvv[w + 1] += p2 * x_vv
+            x_vG = np.outer(n0_v, n_G[1:].conj())
+            chi0_wxvG[w, 0, :, 1:] += p1 * x_vG
+            chi0_wxvG[w + 1, 0, :, 1:] += p2 * x_vG
+            chi0_wxvG[w, 1, :, 1:] += p1 * x_vG.conj()
+            chi0_wxvG[w + 1, 1, :, 1:] += p2 * x_vG.conj()
+            
     @timer('CHI_0 intraband update')
     def update_intraband(self, kpt, chi0_wvv):
         """Check whether there are any partly occupied bands."""
