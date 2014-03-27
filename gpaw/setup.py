@@ -565,7 +565,12 @@ class Setup(BaseSetup):
         self.type = data.name
         
         self.HubU = None
-        
+
+        if max(data.l_j) > 2 and not extra_parameters.get('fprojectors'):
+            msg = ('Your %s dataset has f-projectors!  ' % data.symbol +
+                   'Add --gpaw=fprojectors=1 on the command-line.')
+            raise RuntimeError(msg)
+            
         if not data.is_compatible(xc):
             raise ValueError('Cannot use %s setup with %s functional' %
                              (data.setupname, xc.get_setup_name()))
@@ -1038,6 +1043,9 @@ class Setup(BaseSetup):
                  x     dz     dy
 
         and similar for y and z."""
+        
+        if extra_parameters.get('fprojectors'):
+            return None
 
         # utility functions
 
