@@ -28,4 +28,3 @@ equal(e1, -0.531042, energy_tolerance)
 f1_ref = [-0.291893, -0.305174, -0.35329]
 for i in range(3):
     equal(f1[i], f1_ref[i], force_tolerance)
-assert 34 <= niter1 <= 35, niter1

@@ -41,7 +41,8 @@ X = points['X']
 #[W, L, G, X, W, K]
 
 kpts, x, X = get_bandpath([G, X], atoms.cell, npoints=12)
-calc = GPAW('Cgs.gpw', kpts=kpts, fixdensity=True, usesymm=None, convergence=dict(bands=6))
+calc = GPAW('Cgs.gpw', kpts=kpts, fixdensity=True, usesymm=None,
+            convergence=dict(bands=6), eigensolver='dav')
 calc.get_atoms().get_potential_energy()
 # Get the accurate KS-band gap
 homolumo = calc.occupations.get_homo_lumo(calc.wfs)
@@ -58,7 +59,8 @@ response.calculate_delta_xc(homolumo=homolumo)
 calc.write('CGLLBSC.gpw')
 
 # Redo the band structure calculation
-atoms, calc = restart('CGLLBSC.gpw', kpts=kpts, fixdensity=True, usesymm=None, convergence=dict(bands=6))
+atoms, calc = restart('CGLLBSC.gpw', kpts=kpts, fixdensity=True, usesymm=None,
+                      convergence=dict(bands=6), eigensolver='dav')
 atoms.get_potential_energy()
 response = calc.hamiltonian.xc.xcs['RESPONSE']
 KS, dxc = response.calculate_delta_xc_perturbation()

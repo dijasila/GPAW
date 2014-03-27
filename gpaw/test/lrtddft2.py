@@ -18,7 +18,7 @@ H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
             Atom('H', (a / 2, a / 2, (c + R) / 2))],
            cell=(a, a, c))
 
-calc = GPAW(xc=xc, nbands=2, spinpol=False, txt=txt)
+calc = GPAW(xc=xc, nbands=2, spinpol=False, eigensolver='rmm-diis', txt=txt)
 H2.set_calculator(calc)
 H2.get_potential_energy()
 calc.write('H2saved_wfs.gpw', 'all')
@@ -47,5 +47,6 @@ gs = GPAW('H2saved.gpw', txt=None)
 lr2 = LrTDDFT(gs, txt='-')
 lr2.diagonalize()
 # check the oscillator strrength
-assert (abs(lr2[0].get_oscillator_strength()[0] /
-           lr[0].get_oscillator_strength()[0] -1) < 1e-5)
+d = abs(lr2[0].get_oscillator_strength()[0] /
+        lr[0].get_oscillator_strength()[0] - 1)
+assert (d < 2e-3), d

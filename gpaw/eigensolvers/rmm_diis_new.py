@@ -22,8 +22,8 @@ class RMM_DIIS_new(Eigensolver):
     * Improvement of wave functions:  psi' = psi + lambda PR + lambda PR'
     * Orthonormalization"""
 
-    def __init__(self, keep_htpsit=True, blocksize=10, niter=4, rtol=1e-16,
-                 limit_lambda=False, use_rayleigh=False, trial_step=None):
+    def __init__(self, keep_htpsit=True, blocksize=10, niter=3, rtol=1e-16,
+                 limit_lambda=False, use_rayleigh=False, trial_step=0.1):
         """Initialize RMM-DIIS eigensolver.
 
         Parameters:
@@ -343,8 +343,12 @@ class RMM_DIIS_new(Eigensolver):
 
     def __repr__(self):
         repr_string = 'RMM-DIIS eigensolver\n'
+        repr_string += '       keep_htpsit: %s\n' % self.keep_htpsit
         repr_string += '       Block size: %d\n' % self.blocksize
         repr_string += '       DIIS iterations: %d\n' % self.niter
         repr_string += '       Threshold for DIIS: %5.1e\n' % self.rtol
-        repr_string += '       Limit lambda: %s' % self.limit_lambda
+        repr_string += '       Limit lambda: %s\n' % self.limit_lambda
+        repr_string += '       use_rayleigh: %s\n' % self.use_rayleigh
+        repr_string += '       trial_step: %s' % self.trial_step
         return repr_string
+

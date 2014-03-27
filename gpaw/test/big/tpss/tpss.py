@@ -62,13 +62,15 @@ for formula in systems:
     loa.center()
     width = 0.0
     calc = GPAW(h=.18,
-                      nbands=-5,
-                      xc='PBE',
-                      txt=formula + '.txt')
+                nbands=-5,
+                maxiter=333,
+                xc='PBE',
+                txt=formula + '.txt')
     if len(loa) == 1:
         calc.set(hund=True)
         calc.set(fixmom=True)
         calc.set(mixer=MixerDif())
+        calc.set(eigensolver='cg')
     else:
         calc.set(mixer=Mixer())
         pos = loa.get_positions()

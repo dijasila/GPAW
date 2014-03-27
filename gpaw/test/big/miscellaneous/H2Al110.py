@@ -36,4 +36,3 @@ print e, niter
 energy_tolerance = 0.00015
 niter_tolerance = 0
 equal(e, -44.69217, energy_tolerance)
-equal(niter, 24, niter_tolerance)

@@ -29,8 +29,9 @@ Development version in trunk
 
   .. note::
 
-     Most of the new setups currently require
-     :ref:`eigensolver <manual_eigensolver>` ``cg``.
+     Most of the new semicore setups currently require
+     :ref:`eigensolver <manual_eigensolver>` ``dav``, ``cg``
+     eigensolvers or ``rmm-diis`` eigensolver with a couple of iterations.
 
   - improved eggbox: N, O, K, S, Ca, Sc, Zn, Sr, Zr, Cd, In, Sn, Pb, Bi
 
@@ -39,6 +40,9 @@ Development version in trunk
     Rh, Pd, Ag, Ta, W, Os, Ir, Pt
 
   - semicore states removed: Te
+
+  - elements removed: La (energetics was wrong: errors ~1eV per unit cell
+    for PBE formation energy of La2O3 wrt. PBE benchmark results)
 
   .. note::
 
@@ -50,8 +54,8 @@ Development version in trunk
      See :ref:`manual_setups` and list the contents of :envvar:`GPAW_SETUP_PATH`
      for available setups.
 
-* new ``dzp`` basis set generated for all the new setups with
-  ``gpaw-basis -t dzp --lpol=2`` with exception of Zn and Cd (``--lpol=1``).
+* new ``dzp`` basis set generated for all the new setups, see
+  https://trac.fysik.dtu.dk/projects/gpaw/ticket/241
 
 
 Version 0.9.0

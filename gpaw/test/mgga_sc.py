@@ -3,20 +3,26 @@ from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 
-h=0.4
+h=0.40
 txt = None
-#txt = '-'
+txt = 'mgga_sc.txt'
 
 s = Cluster([Atom('H')])
 s.minimal_box(4., h=h)
 s.set_initial_magnetic_moments([1])
+# see https://trac.fysik.dtu.dk/projects/gpaw/ticket/244
+#s.set_cell((8.400000,8.400000,8.400001))
 
 c = GPAW(xc='TPSS', h=h, nbands=5, txt=txt, 
-#         eigensolver='cg', 
+         eigensolver='rmm-diis',
+         fixmom=True,
          maxiter=300)
 c.calculate(s)
 
-cpbe = GPAW(xc='PBE', h=h, nbands=5, txt=txt)
+cpbe = GPAW(xc='PBE', h=h, nbands=5, txt=txt,
+            eigensolver='rmm-diis',
+            fixmom=True,
+            maxiter=300)
 cpbe.calculate(s)
 cpbe.set(xc='TPSS')
 cpbe.calculate()

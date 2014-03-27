@@ -35,4 +35,3 @@ if mpi.rank == 0:
     energy_tolerance = 0.0005
     niter_tolerance = 0
     equal(e, -0.271504, energy_tolerance)
-    assert 21 <= niter <= 26, niter
