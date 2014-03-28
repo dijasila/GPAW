@@ -425,10 +425,10 @@ class PAW(PAWTextOutput):
 
         width = par.width
         if width is None:
-            if kd.gamma:
-                width = 0.0
-            else:
+            if pbc_c.any():
                 width = 0.1  # eV
+            else:
+                width = 0.0
         else:
             assert par.occupations is None
       
