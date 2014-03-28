@@ -11,7 +11,7 @@ s = Cluster([Atom('H')])
 s.minimal_box(4., h=h)
 s.set_initial_magnetic_moments([1])
 # see https://trac.fysik.dtu.dk/projects/gpaw/ticket/244
-#s.set_cell((8.400000,8.400000,8.400001))
+s.set_cell((8.400000,8.400000,8.400000))
 
 c = GPAW(xc='TPSS', h=h, nbands=5, txt=txt, 
          eigensolver='rmm-diis',
