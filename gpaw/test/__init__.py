@@ -313,7 +313,6 @@ tests = [
     'rpa_energy_Na.py',
     'coreeig.py',
     'pw/si_stress.py',
-    'P_ai.py',
     'ut_tddft.py',
     'transport.py',
     'vdw/ar2.py',
