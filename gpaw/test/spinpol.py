@@ -1,12 +1,13 @@
 from ase import Atom, Atoms
-from gpaw import GPAW
+from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 
 a = 4.0
 n = 16
 hydrogen = Atoms([Atom('H')], cell=(a, a, a), pbc=True)
 hydrogen.center()
-calc = GPAW(gpts=(n, n, n), nbands=1, convergence={'energy': 1e-5})
+calc = GPAW(gpts=(n, n, n), nbands=1, convergence={'energy': 1e-5},
+            occupations=FermiDirac(0.0))
 hydrogen.set_calculator(calc)
 e1 = hydrogen.get_potential_energy()
 niter1 = calc.get_number_of_iterations()

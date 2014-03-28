@@ -11,7 +11,7 @@ try:
 except ImportError:
     pass
 
-calc = GPAW(nbands=1)#, txt=None)
+calc = GPAW(nbands=1, occupations=FermiDirac(0.0))#, txt=None)
 atoms = Atoms('He', pbc=True, calculator=calc)
 atoms.center(vacuum=3)
 

@@ -57,7 +57,7 @@ if unocc:
     parprint('Energy %10.4f   %10.4f' % (cocc.get_potential_energy(),
                                          cunocc.get_potential_energy()))
     equal(cocc.get_potential_energy(),
-          cunocc.get_potential_energy(), 5.e-5)
+          cunocc.get_potential_energy(), 1.e-4)
 
     fu_n = cunocc.get_occupation_numbers()
     eu_n = cunocc.get_eigenvalues()

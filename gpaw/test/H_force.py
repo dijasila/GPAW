@@ -1,6 +1,6 @@
 from ase import Atom, Atoms
 from ase.calculators.test import numeric_force
-from gpaw import GPAW, Mixer
+from gpaw import GPAW, Mixer, FermiDirac
 from gpaw.test import equal
 
 a = 4.0
@@ -11,7 +11,8 @@ calc = GPAW(nbands=1,
             gpts=(n, n, n),
             txt=None,
             mixer=Mixer(0.25, 3, 1),
-            convergence={'energy': 1e-7})
+            convergence={'energy': 1e-7},
+            occupations=FermiDirac(0.0))
 atoms.set_calculator(calc)
 e1 = atoms.get_potential_energy()
 niter1 = calc.get_number_of_iterations()
