@@ -966,6 +966,6 @@ Here are some tips:
 
 See details here:
     
-    https://wiki.fysik.dtu.dk/gpaw/documentation/convergence/convergence.html
+    https://wiki.fysik.dtu.dk/gpaw/documentation/convergence.html
 
 """
