@@ -114,7 +114,7 @@ scf_dcdft_pbe_pw_calculator_steps.png
 scf_dcdft_pbe_pw_energy.csv
 """.split()
 
-get('agts-files', scf_conv_eval_stuff, target='documentation/convergence', source=agtspath)
+get('agts-files', scf_conv_eval_stuff, target='documentation/scf_conv_eval', source=agtspath)
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_gpaw_pw_stuff = """
