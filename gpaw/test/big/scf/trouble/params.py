@@ -6,4 +6,4 @@ if 1:  # example: set eigensolver/mixer
             M = MixerSum
         else:
             M = Mixer
-        atoms.calc.set(eigensolver=Davidson(), mixer=M())
+        atoms.calc.set(eigensolver=Davidson(), mixer=M(0.05, 5, 50))
