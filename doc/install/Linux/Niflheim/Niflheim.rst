@@ -40,15 +40,9 @@ If you decide to install a development version of GPAW, this is what you do:
 
      svn checkout https://svn.fysik.dtu.dk/projects/gpaw/trunk /home/niflheim/$USER/devel/gpaw
 
-3. Set the :envvar:`GPAW_HOME` environment variable:
+3. Set the :envvar:`GPAW_HOME` environment variable::
 
-- using csh/tcsh::
-
-    setenv GPAW_HOME /home/niflheim/$USER/devel/gpaw
-
-- using bash::
-
-    export GPAW_HOME=/home/niflheim/$USER/devel/gpaw
+     export GPAW_HOME=/home/niflheim/$USER/devel/gpaw
 
 4. To compile the GPAW C-code, run the shell script
    :svn:`~doc/install/Linux/Niflheim/compile.sh` 
@@ -67,26 +61,8 @@ If you decide to install a development version of GPAW, this is what you do:
    There are at least two ways to achive that:
 
     5a. **Prepend** :envvar:`PYTHONPATH` and :envvar:`PATH` environment variables in your login scripts.
-    This method provides you with a default GPAW version (`devel`):
-
-    - csh/tcsh - add to /home/niflheim/$USER/.cshrc::
-
-	if ( "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ) then # fjorm
-	    module load GPAW
-	    setenv GPAW_PLATFORM "linux-x86_64-opteron-2.4"
-	endif
-        if ( ! ( `echo $FYS_PLATFORM | grep el6` ==  "" )) then
-	    module load GPAW
-	    setenv GPAW_PLATFORM "linux-x86_64-`echo $FYS_PLATFORM | sed 's/-el6//'`-2.6"
-	endif
-	# GPAW_HOME must be set after loading the GPAW module!
-	setenv GPAW_HOME /home/niflheim/$USER/devel/gpaw
-	setenv PATH ${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
-	setenv PATH ${GPAW_HOME}/tools:${PATH}
-	setenv PYTHONPATH ${GPAW_HOME}:${PYTHONPATH}
-	setenv PYTHONPATH ${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
-
-    - bash - add to /home/niflheim/$USER/.bashrc::
+    This method provides you with a default GPAW version (`devel`).
+    Add to /home/niflheim/$USER/.bashrc::
 
 	if [ "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ]; then # fjorm
 	    module load GPAW
@@ -103,8 +79,8 @@ If you decide to install a development version of GPAW, this is what you do:
 	export PYTHONPATH=${GPAW_HOME}:${PYTHONPATH}
 	export PYTHONPATH=${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
 
-      Make sure that you add these settings above any line that
-      causes exit when run in the batch system e.g. ``if ( { tty -s } == 0 ) exit``.
+    Make sure that you add these settings above any line that
+    causes exit when run in the batch system e.g. ``if ( { tty -s } == 0 ) exit``.
 
     **Warning**: from the moment you save settings in
     :file:`/home/niflheim/$USER/.cshrc`
