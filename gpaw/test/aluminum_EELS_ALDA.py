@@ -60,12 +60,10 @@ test_Ipeak1 = 29.644489594
 test_wpeak2 = 15.5196459206 # eV
 test_Ipeak2 = 26.5680624522
 
-if np.abs(test_wpeak1-wpeak1)<1e-2 and np.abs(test_wpeak2-wpeak2)<1e-2:
-    pass
-else:
-    print test_wpeak1-wpeak1,test_wpeak2-wpeak2
+if abs(test_wpeak1 - wpeak1) > 0.02 or abs(test_wpeak2 - wpeak2) > 0.02:
+    print(test_wpeak1 - wpeak1, test_wpeak2 - wpeak2)
     raise ValueError('Plasmon peak not correct ! ')
 
-if np.abs(test_Ipeak1-Ipeak1)>1e-2 or np.abs(test_Ipeak2-Ipeak2)>1e-2:
-    print Ipeak1-test_Ipeak1, Ipeak2-test_Ipeak2
+if abs(test_Ipeak1-Ipeak1) > 1 or abs(test_Ipeak2 - Ipeak2) > 1:
+    print(Ipeak1 - test_Ipeak1, Ipeak2 - test_Ipeak2)
     raise ValueError('Please check spectrum strength ! ')

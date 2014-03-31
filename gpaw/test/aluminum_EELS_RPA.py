@@ -69,6 +69,6 @@ else:
     print test_wpeak1-wpeak1,test_wpeak2-wpeak2
     raise ValueError('Plasmon peak not correct ! ')
 
-if np.abs(test_Ipeak1-Ipeak1)>1e-2 or np.abs(test_Ipeak2-Ipeak2)>1e-2:
-    print Ipeak1-test_Ipeak1, Ipeak2-test_Ipeak2
+if abs(test_Ipeak1 - Ipeak1) > 1 or abs(test_Ipeak2 - Ipeak2) > 1:
+    print(Ipeak1 - test_Ipeak1, Ipeak2 - test_Ipeak2)
     raise ValueError('Please check spectrum strength ! ')
