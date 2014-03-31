@@ -1,7 +1,7 @@
 from ase.structure import molecule
 from ase.optimize import BFGS
 from gpaw import GPAW
-from gpaw.mixer import MixerSum
+from gpaw.mixer import MixerDif
 
 for name in ['H2', 'N2', 'O2', 'NO']:
     mol = molecule(name)
@@ -11,8 +11,7 @@ for name in ['H2', 'N2', 'O2', 'NO']:
                 txt=name + '.txt')
     if name == 'NO':
         mol.translate((0, 0.1, 0))
-        calc.set(eigensolver='dav')
-        calc.set(mixer=MixerSum(0.05,5))
+        calc.set(mixer=MixerDif(0.05,5))
     mol.set_calculator(calc)
   
     opt = BFGS(mol, logfile=name + '.log', trajectory=name + '.traj')
