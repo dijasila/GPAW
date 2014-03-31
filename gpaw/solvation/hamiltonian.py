@@ -50,7 +50,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.gradient = [
             Gradient(self.finegd, i, 1.0, self.poisson.nn) for i in (0, 1, 2)
             ]
-        self.vt_ia_g = self.finegd.empty()
+        self.vt_ia_g = self.finegd.zeros()
         self.cavity.allocate()
         self.dielectric.allocate()
         for ia in self.interactions:
@@ -85,8 +85,9 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                 if self.cavity.depends_on_el_density:
                     self.vt_ia_g += (ia.delta_E_delta_g_g *
                                      self.cavity.del_g_del_n_g)
-        for vt_g in self.vt_sg[:self.nspins]:
-            vt_g += self.vt_ia_g
+        if len(self.interactions) > 0:
+            for vt_g in self.vt_sg[:self.nspins]:
+                vt_g += self.vt_ia_g
         Eias = [ia.E for ia in self.interactions]
 
         Ekin = self.calculate_kinetic_energy(density)
