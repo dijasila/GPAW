@@ -226,10 +226,11 @@ tests = [
     'fermilevel.py',
     'h2o_xas_recursion.py',
     'diamond_eps.py',
-    'gemm.py',
     'excited_state.py',
-    # > 20 sec tests start here
+    # > 20 sec tests start here (add tests after gemm.py!)
+    'gemm.py',
     'rpa_energy_Ni.py',
+    'LDA_unstable.py',
     'si.py',
     'blocked_rmm_diis.py',
     'lxc_xcatom.py',
@@ -294,7 +295,7 @@ tests = [
     'gw_ppa.py',
     'nscfsic.py',
     'gw_static.py',
-    # > 100 sec tests start here
+    # > 100 sec tests start here (add tests after exx.py!)
     'exx.py',
     'pygga.py',
     'dipole.py',

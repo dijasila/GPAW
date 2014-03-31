@@ -565,7 +565,12 @@ class Setup(BaseSetup):
         self.type = data.name
         
         self.HubU = None
-        
+
+        if max(data.l_j) > 2 and not extra_parameters.get('fprojectors'):
+            msg = ('Your %s dataset has f-projectors!  ' % data.symbol +
+                   'Add --gpaw=fprojectors=1 on the command-line.')
+            raise RuntimeError(msg)
+            
         if not data.is_compatible(xc):
             raise ValueError('Cannot use %s setup with %s functional' %
                              (data.setupname, xc.get_setup_name()))
@@ -942,9 +947,6 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
-        if extra_parameters.get('fprojectors'):
-            return None
-
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         nabla_iiv = np.empty((self.ni, self.ni, 3))
@@ -990,8 +992,6 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
-        if extra_parameters.get('fprojectors'):
-            return None
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         rnabla_iiv = np.zeros((self.ni, self.ni, 3))
@@ -1043,9 +1043,7 @@ class Setup(BaseSetup):
                  x     dz     dy
 
         and similar for y and z."""
-
-        # f-projectors are not implemented, return None
-        # maybe error would be better
+        
         if extra_parameters.get('fprojectors'):
             return None
 

@@ -2,7 +2,7 @@
 def agts(queue):
     h2_osc = queue.add('h2_osc.py', ncpus=8, walltime=2*60)
     n2_osc = queue.add('n2_osc.py --state-parallelization=5',
-                        ncpus=5*8, walltime=8*60)
+                        ncpus=5*8, walltime=15*60)
     na2_md = queue.add('na2_md.py', ncpus=8, walltime=2*60)
     na2_osc = queue.add('na2_osc.py', ncpus=8, walltime=40*60)
     if 0:  # Disabling. See https://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2013-January/003402.html

@@ -6,6 +6,8 @@ from ase.units import Bohr
 from ase.lattice import bulk
 from gpaw import GPAW, PW
 from gpaw.test import findpeak
+from gpaw.eigensolvers.rmm_diis import RMM_DIIS
+from gpaw.mixer import Mixer
 from gpaw.atom.basis import BasisMaker
 from gpaw.response.df2 import DielectricFunction
 from gpaw.mpi import serial_comm, rank, size
@@ -25,6 +27,8 @@ a = 4.043
 atoms = bulk('Al', 'fcc', a=a)
 atoms.center()
 calc = GPAW(mode=PW(200),
+            eigensolver=RMM_DIIS(),
+            mixer=Mixer(0.1,3),
             kpts=(4,4,4),
             parallel={'band':1},
             idiotproof=False,  # allow uneven distribution of k-points

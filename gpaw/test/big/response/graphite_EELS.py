@@ -13,6 +13,7 @@ from ase.parallel import paropen
 
 from gpaw import GPAW
 from gpaw.mpi import rank
+from gpaw.mixer import Mixer
 from gpaw.response.df import DF
 from gpaw.utilities import devnull
 
@@ -51,6 +52,7 @@ if GS:
                 nbands=nband+10,
                 convergence={'bands':nband},
                 eigensolver='cg',
+                mixer=Mixer(0.1,3),
                 width=0.05, txt='out.txt')
     
     atoms.set_calculator(calc)

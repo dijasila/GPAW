@@ -16,7 +16,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import unpack2
 from gpaw.utilities.timing import nulltimer
 from gpaw.io import read_atomic_matrices
-
+from gpaw.mpi import SerialCommunicator
 
 class Density:
     """Density object.
@@ -94,7 +94,7 @@ class Density:
             self.D_asp = {}
 
         if (self.rank_a is not None and self.D_asp is not None and
-            rank_a is not None):
+            rank_a is not None and not isinstance(self.gd.comm, SerialCommunicator)):
             self.timer.start('Redistribute')
             requests = []
             flags = (self.rank_a != rank_a)
@@ -274,16 +274,18 @@ class Density:
             self.mixer = mixer
         else:
             if self.gd.pbc_c.any():
-                beta = 0.1
+                beta = 0.05
+                history = 5
                 weight = 50.0
             else:
                 beta = 0.25
+                history = 3
                 weight = 1.0
                 
             if self.nspins == 2:
-                self.mixer = MixerSum(beta=beta, weight=weight)
+                self.mixer = MixerSum(beta, history, weight)
             else:
-                self.mixer = Mixer(beta=beta, weight=weight)
+                self.mixer = Mixer(beta, history, weight)
 
         self.mixer.initialize(self)
         

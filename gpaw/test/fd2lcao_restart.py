@@ -33,7 +33,6 @@ if not os.path.isfile('Na4_fd.gpw'):
     del atoms,calc
 
     equal(etot_fd, -1.99055, energy_tolerance)
-    equal(niter_fd, 17, niter_tolerance)
 
 if os.path.isfile('Na4_fd.gpw'):
     # LCAO calculation based on grid kpts calculation
@@ -48,4 +47,3 @@ if os.path.isfile('Na4_fd.gpw'):
     del atoms, calc
 
     equal(etot_lcao, -1.9616, energy_tolerance)
-    equal(niter_lcao, 6, niter_tolerance)

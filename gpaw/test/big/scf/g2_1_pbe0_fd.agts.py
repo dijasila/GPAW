@@ -1,10 +1,10 @@
 runs = [
-    'bands05m', 'bands10m',  # 'bands20m',  # large number of bands bad
-    'm101',
-    'm102',
-    'm103', 'm105',  # 'm107',  # for Mixer nmaxold matters
+    #'bands05m', 'bands10m',  # 'bands20m',  # large number of bands bad
+    #'m101',
+    #'m102',
+    #'m103', 'm105',  # 'm107',  # for Mixer nmaxold matters
     #'m051',  # many steps, and no advantage for this set of systems
-    'm203',  # larger mixing better
+    #'m203',  # larger mixing better
     's103',
     'd103', 'd203', 'd253',  # MixerDiff best
     'dzpm103',  'dzpm203',  # 'dzpm253', # dzp guess does not help

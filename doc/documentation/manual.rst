@@ -158,16 +158,29 @@ keyword            type       default value        description
 
 .. _manual_mode:
 
-Finite Difference or LCAO mode
-------------------------------
+Finite Difference, Plane-wave or LCAO mode
+------------------------------------------
 
-The default mode (``mode='fd'``) is Finite Differece. This means that
-the wave functions will be expanded on a real space grid. The
-alternative is to expand the wave functions on a basis-set constructed
-as linear combination as atomic-like orbitals, in short LCAO. This is
-done by setting (``mode='lcao'``).
+Finite-difference:
+    The default mode (``mode='fd'``) is Finite Differece. This means that
+    the wave functions will be expanded on a real space grid.
+    
+LCAO:
+    Expand the wave functions in a basis-set constructed
+    from atomic-like orbitals, in short LCAO (linear combination of atomic
+    orbitals).  This is done by setting ``mode='lcao'``.
 
-See also the page on :ref:`lcao`.
+    See also the page on :ref:`lcao`.
+
+Plane-waves:
+    Expand the wave-functions in plane-waves.  Use ``mode='pw'`` if you want
+    to use the default plane-wave cutoff of `E_{\text{cut}}=340` eV.  The
+    plane-waves will be those with `|\bG+\bk|^2/2<E_{\text{cut}}`.  You
+    can set another cutoff like this::
+        
+        from gpaw import GPAW, PW
+        calc = GPAW(mode=PW(200))
+
 
 .. _manual_nbands:
 
@@ -260,6 +273,24 @@ This will sample the Brillouin-zone with a regular grid of ``N1``
 `\times` ``N2`` `\times` ``N3`` **k**-points.  See the
 :func:`ase.dft.kpoints.monkhorst_pack` function for more details.
 
+For more flexibility, you can use this syntax::
+    
+    kpts={'size': (4, 4, 4)}  # 4x4x4 Monkhorst-pack
+    kpts={'size': (4, 4, 4), 'gamma': True}  # shifted 4x4x4 Monkhorst-pack
+
+You can also specify the **k**-point density in units of points per Å\ `^-1`::
+    
+    kpts={'density': 2.5}  # Monkhorst-Pack with a density of 2.5 points/Ang^-1
+    kpts={'density': 2.5, 'even': True}  # round off to neares even number
+    kpts={'density': 2.5, 'gamma': True}  # include gamma-point
+    
+The **k**-point density is calculated as:
+    
+.. math:: N \frac{a}{2\pi},
+
+where `N` is then number of **k**-points and `a` is the length of the
+unit-cell along the direction of the corresponding reciprocal lattice vector.
+    
 An arbitrary set of **k**-points can be specified, by giving a
 sequence of k-point coordinates like this::
 
@@ -268,7 +299,8 @@ sequence of k-point coordinates like this::
 The **k**-point coordinates are given in scaled coordinates, relative
 to the basis vectors of the reciprocal unit cell.
 
-The above four k-points are equivalent to this:
+The above four **k**-points are equivalent to
+``kpts={'size': (1, 1, 4), 'gamma': True}`` and to this:
 
 >>> from ase.dft.kpoints import monkhorst_pack
 >>> kpts = monkhorst_pack((1, 1, 4))
@@ -890,11 +922,11 @@ argument                         description
                                  :ref:`parallel <manual_parallel>` keyword.
                                  Requires GPAW to be built with ScaLAPACK.
 ``--gpaw a=1,b=2.3,...``         
-				 Extra parameters for development work:
-				 
-				 >>> from gpaw import extra_parameters
-				 >>> print extra_parameters
-				 {'a': 1, 'b': 2.3}
+                                 Extra parameters for development work:
+                                 
+                                 >>> from gpaw import extra_parameters
+                                 >>> print extra_parameters
+                                 {'a': 1, 'b': 2.3}
 ===============================  =============================================
 
 

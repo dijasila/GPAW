@@ -62,4 +62,3 @@ print e, niter
 energy_tolerance = 0.00009
 niter_tolerance = 0
 equal(e, -17.9621, energy_tolerance)
-assert 18 <= niter <= 19, niter

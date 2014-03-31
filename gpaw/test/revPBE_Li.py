@@ -1,6 +1,6 @@
 from ase import Atoms
 from ase.units import Hartree
-from gpaw import GPAW, PoissonSolver
+from gpaw import GPAW, PoissonSolver, FermiDirac
 from gpaw.test import equal
 
 a = 5.0
@@ -9,7 +9,8 @@ li = Atoms('Li', magmoms=[1.0], cell=(a, a, a), pbc=True)
 
 calc = GPAW(gpts=(n, n, n), nbands=1, xc='PBE',
             poissonsolver=PoissonSolver(nn='M'),
-            convergence=dict(eigenstates=4.5e-8))
+            convergence=dict(eigenstates=4.5e-8),
+            occupations=FermiDirac(0.0))
 li.set_calculator(calc)
 e = li.get_potential_energy() + calc.get_reference_energy()
 niter_PBE = calc.get_number_of_iterations()
@@ -23,11 +24,7 @@ equal(erev, -7.487 * Hartree, 1.3)
 equal(e - erev, 0.025 * Hartree, 0.002 * Hartree)
 
 print e, erev
-energy_tolerance = 0.00008
+energy_tolerance = 0.0001
 niter_tolerance = 0
 equal(e, -204.381098849, energy_tolerance) # svnversion 5252
-#equal(niter_PBE, 31, niter_tolerance) # svnversion 5252 # niter depends on the number of processes
-assert 30 <= niter_PBE <= 31, niter_PBE
 equal(erev, -205.012303379, energy_tolerance) # svnversion 5252
-#equal(niter_revPBE, 19, 0) # svnversion 5252 # niter depends on the number of processes
-assert 17 <= niter_revPBE <= 19, niter_revPBE

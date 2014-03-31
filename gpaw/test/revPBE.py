@@ -20,9 +20,7 @@ equal(e1a, -2.893 * Hartree, 8e-3)
 equal(e2a, -2.908 * Hartree, 9e-3)
 equal(e1, e2, 4e-3)
 
-energy_tolerance = 0.000001
+energy_tolerance = 0.00005
 niter_tolerance = 0
 equal(e1, -0.0790449962, energy_tolerance)
-equal(niter1, 16, niter_tolerance)
 equal(e2, -0.08147563, energy_tolerance)
-equal(niter2, 11, niter_tolerance)

@@ -21,11 +21,16 @@ class Davidson(Eigensolver):
     * Add preconditioned residuals to the subspace and diagonalize
     """
 
-    def __init__(self, niter=2, smin=None, normalize=False):
+    def __init__(self, niter=1, smin=None, normalize=True):
         Eigensolver.__init__(self)
         self.niter = niter
         self.smin = smin
         self.normalize = normalize
+
+        if smin is not None:
+            raise NotImplementedError(
+                'See https://trac.fysik.dtu.dk/projects/gpaw/ticket/248')
+
         self.orthonormalization_required = False
 
     def __repr__(self):
@@ -34,7 +39,7 @@ class Davidson(Eigensolver):
         
     def initialize(self, wfs):
         if wfs.bd.comm.size > 1:
-            raise ValueError('CG eigensolver does not support band '
+            raise ValueError('Davidson eigensolver does not support band '
                              'parallelization.  This calculation parallelizes '
                              'over %d band groups.' % wfs.bd.comm.size)
         Eigensolver.initialize(self, wfs)

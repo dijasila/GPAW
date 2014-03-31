@@ -2,6 +2,8 @@ import numpy as np
 from ase.units import Bohr, Hartree
 from ase.lattice import bulk
 from gpaw import GPAW
+from gpaw.eigensolvers.rmm_diis import RMM_DIIS
+from gpaw.mixer import Mixer
 from gpaw.response.df import DF
 from gpaw.response.bse import BSE
 
@@ -15,6 +17,8 @@ if GS:
     atoms = bulk('Al', 'fcc', a=a)
     atoms.center()
     calc = GPAW(h=0.2,
+                eigensolver=RMM_DIIS(),
+                mixer=Mixer(0.1,3),
                 kpts=(4,2,2),
                 xc='LDA',
                 nbands=4,

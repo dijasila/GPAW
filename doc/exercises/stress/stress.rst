@@ -20,6 +20,16 @@ What grid spacing is needed in order to converge the total energy to within 5 me
 Optimizing the unit cell
 ------------------------
 
+**Warning**: due to difficulties in optimizing cell and positions simultaneously
+:ase:`UnitCellFilter <ase/constraints.html#module-UnitCellFilter>` may produce
+incorrect results. Always verify obtained structures by means of
+performing separate cell
+:ase:`StrainFilter <ase/constraints.html#module-StrainFilter>`
+and positions
+:ase:`QuasiNewton <ase/optimize.html#module-optimize.qn>`
+optimizations.
+Consider much more tighter fmax than the one used in this tutorial!
+
 In the :ref:`aluminium_exercise` exercise the lattice constant of bulk Al was found by calculating the total energy at various lattice distances. A nice feature e of the plane wave mode is that it allows a simple implementation of the stress tensor, which can be used to optimize unit unit cells of periodic systems directly. The following script performs such an optimization for bulk Si.
 
 .. literalinclude:: stress.py

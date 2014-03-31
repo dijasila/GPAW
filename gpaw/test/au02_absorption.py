@@ -9,14 +9,13 @@ from gpaw.test import equal, findpeak
 GS = 1
 ABS = 1
 if GS:
-    cluster = Atoms([Atom('Au', (0, 0, 0)),
-                     Atom('Au', (0, 0, 2.564))])
+    cluster = Atoms('Au2', [(0, 0, 0), (0, 0, 2.564)])
     cluster.set_cell((6, 6, 6), scale_atoms=False)
     cluster.center()
-    calc=GPAW(mode='pw',
-              dtype=complex,
-              xc='RPBE',
-              basis='dzp')
+    calc = GPAW(mode='pw',
+                dtype=complex,
+                xc='RPBE',
+                occupations=FermiDirac(0.01))
     
     cluster.set_calculator(calc)
     cluster.get_potential_energy()
@@ -29,11 +28,11 @@ if ABS:
                             eta=0.1,
                             ecut=10)
 
-    b0, b = df.get_dielectric_function(filename=None,#'au2_df.csv',
+    b0, b = df.get_dielectric_function(filename=None,
                                        direction='z')             
-    a0, a = df.get_polarizability(filename=None,#'au2_pol.csv',
+    a0, a = df.get_polarizability(filename=None,
                                  direction='z')             
-    a0_ws, a_ws = df.get_polarizability(filename=None,#'au2_pol_ws.csv',
+    a0_ws, a_ws = df.get_polarizability(filename=None,
                                         wigner_seitz_truncation=True,
                                         direction='z')
 
@@ -61,7 +60,3 @@ if ABS:
     w, I = findpeak(np.linspace(0, 14., 141), a_ws.imag)
     equal(w, w_, 0.2)
     equal(I, I_, 8.0)
-
-if GS:
-    if rank == 0:
-        system('rm Au2.gpw')

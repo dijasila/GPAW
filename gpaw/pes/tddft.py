@@ -116,25 +116,26 @@ class TDDFTPES(BasePES):
 
         for i, i_m in enumerate(self.gs_m):
             for kl, kss in enumerate(self.lr_d.kss):
-                spin = kss.pspin
- 
-                keep_row = list(self.gs_m)
-                keep_row.remove(i_m)
+                if kss.fij > self.tolerance['occupation']:
+                    spin = kss.pspin
 
-                k_d = kss.i + spin * nbands_d
-                l_d = kss.j + spin * nbands_d
-                keep_col = list(self.gs_d)
-                keep_col.remove(k_d)
-                keep_col.append(l_d)
+                    keep_row = list(self.gs_m)
+                    keep_row.remove(i_m)
 
-                d_ikl = np.zeros((len(keep_row), len(keep_col)))
+                    k_d = kss.i + spin * nbands_d
+                    l_d = kss.j + spin * nbands_d
+                    keep_col = list(self.gs_d)
+                    keep_col.remove(k_d)
+                    keep_col.append(l_d)
 
-                for col in range(len(keep_col)):
-                    for row in range(len(keep_row)):
-                        d_ikl[row, col] = self.overlap[keep_row[row],
-                                                       keep_col[col]]
-                        
-                self.singles[i, kl] = np.linalg.det(d_ikl)
+                    d_ikl = np.zeros((len(keep_row), len(keep_col)))
+
+                    for col in range(len(keep_col)):
+                        for row in range(len(keep_row)):
+                            d_ikl[row, col] = self.overlap[keep_row[row],
+                                                           keep_col[col]]
+
+                    self.singles[i, kl] = np.linalg.det(d_ikl)
 
     def gs_gs_overlaps(self):
         """Evaluate overlap matrix of mother and daughter ground states.

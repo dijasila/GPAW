@@ -2,11 +2,12 @@ import numpy as np
 from ase.structure import molecule
 
 from gpaw import GPAW
+from gpaw.eigensolvers.rmm_diis import RMM_DIIS
 from gpaw.lcao.projected_wannier import get_lcao_projections_HSP
 
 atoms = molecule('C2H2')
 atoms.center(vacuum=3.0)
-calc = GPAW(gpts=(32, 32, 48))
+calc = GPAW(gpts=(32, 32, 48), eigensolver=RMM_DIIS())
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 
