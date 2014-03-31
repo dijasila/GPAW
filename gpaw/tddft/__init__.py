@@ -409,6 +409,25 @@ class TDDFT(GPAW):
             self.dm_file.close()
             self.dm_file = None
 
+    def update_eigenvalues(self):
+        kpt_u = self.wfs.kpt_u
+        if self.hpsit is None:
+            self.hpsit = self.wfs.gd.zeros(len(kpt_u[0].psit_nG),
+                                           dtype=complex)
+        if self.eps_tmp is None:
+            self.eps_tmp = np.zeros(len(kpt_u[0].eps_n),
+                                    dtype=complex)
+
+        # self.Eband = sum_i <psi_i|H|psi_j>
+        for kpt in kpt_u:
+            self.td_hamiltonian.apply(kpt, kpt.psit_nG, self.hpsit,
+                                      calculate_P_ani=False)
+            self.mblas.multi_zdotc(self.eps_tmp, kpt.psit_nG,
+                                   self.hpsit, len(kpt_u[0].psit_nG))
+            self.eps_tmp *= self.wfs.gd.dv
+            kpt.eps_n[:] = self.eps_tmp.real
+
+
     def get_td_energy(self):
         """Calculate the time-dependent total energy"""
 
