@@ -1,7 +1,7 @@
 import numpy as np
 from os import system
 from ase import Atom, Atoms
-from gpaw import GPAW
+from gpaw import GPAW, FermiDirac
 from gpaw.mpi import rank
 from gpaw.response.df2 import DielectricFunction
 from gpaw.test import equal, findpeak
