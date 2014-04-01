@@ -21,6 +21,7 @@ atoms = bulk('C', 'diamond', a=a)
 
 calc = GPAW(mode='pw',
             kpts=(3,3,3),
+            eigensolver='rmm-diis',
             occupations=FermiDirac(0.001))
 
 atoms.set_calculator(calc)

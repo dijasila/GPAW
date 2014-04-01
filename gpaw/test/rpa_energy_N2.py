@@ -11,7 +11,7 @@ ecut = 25
 N2 = molecule('N2')
 N2.center(vacuum=2.0)
 
-calc = GPAW(mode='pw', dtype=complex, xc='PBE')
+calc = GPAW(mode='pw', dtype=complex, xc='PBE', eigensolver='rmm-diis')
 N2.set_calculator(calc)
 E_n2_pbe = N2.get_potential_energy()
 
