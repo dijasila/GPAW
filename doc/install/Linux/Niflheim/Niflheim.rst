@@ -79,8 +79,12 @@ If you decide to install a development version of GPAW, this is what you do:
 	export PYTHONPATH=${GPAW_HOME}:${PYTHONPATH}
 	export PYTHONPATH=${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
 
-    Make sure that you add these settings above any line that
-    causes exit when run in the batch system e.g. ``if ( { tty -s } == 0 ) exit``.
+	if test -n "`echo $FYS_PLATFORM | grep el6`"; then
+	# http://docs.python.org/2/using/cmdline.html#envvar-PYTHONDONTWRITEBYTECODE
+	    export PYTHONDONTWRITEBYTECODE=1  # disable creation of pyc files
+	    module load NUMPY/1.7.1-1
+	    module load SCIPY/0.12.0-1
+	fi
 
     **Warning**: from the moment you save settings in
     :file:`/home/niflheim/$USER/.bashrc`, your new jobs
