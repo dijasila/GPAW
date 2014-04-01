@@ -34,7 +34,7 @@ class PairDensity:
     def __init__(self, calc, ecut=50,
                  ftol=1e-6,
                  real_space_derivatives=False,
-                 world=mpi.world, txt=sys.stdout, timer=None):
+                 world=mpi.world, txt=sys.stdout, timer=None, nthreads=1):
         if ecut is not None:
             ecut /= Hartree
         
@@ -42,6 +42,7 @@ class PairDensity:
         self.ftol = ftol
         self.real_space_derivatives = real_space_derivatives
         self.world = world
+        self.nthreads = nthreads
         
         self.timer = timer or Timer()
         
@@ -68,6 +69,8 @@ class PairDensity:
 
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
+        print('Number of threads:', self.nthreads, file=self.fd)
+        
     def count_occupied_bands(self):
         self.nocc1 = 9999999
         self.nocc2 = 0
@@ -168,10 +171,11 @@ class PairDensity:
         
         dv = pd.gd.dv
         n_mG = pd.empty(kpt2.n2 - kpt2.n1)
+        
         for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
             n_R = ut1cc_R * ut_R
             n_G[:] = pd.fft(n_R, 0, Q_G) * dv
-        
+
         # PAW corrections:
         for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
             gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG, 't')

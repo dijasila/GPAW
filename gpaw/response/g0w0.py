@@ -85,9 +85,6 @@ class G0W0(PairDensity):
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
         self.distribute_k_points_and_bands(nbands)
         
-        #self.omega_w = None  # frequencies
-        self.initialize_frequencies()
-        
         # Find q-vectors and weights in the IBZ:
         kd = self.calc.wfs.kd
         assert -1 not in kd.bz2bz_ks
@@ -98,21 +95,6 @@ class G0W0(PairDensity):
                              usesymm=self.calc.input_parameters.usesymm,
                              N_c=self.calc.wfs.gd.N_c)
         
-    def initialize_frequencies(self):
-        self.epsmin = 10000.0
-        self.epsmax = -10000.0
-        for kpt in self.calc.wfs.kpt_u:
-            self.epsmin = min(self.epsmin, kpt.eps_n[0])
-            self.epsmax = max(self.epsmax, kpt.eps_n[self.nbands - 1])
-            
-        print('Minimum eigenvalue: %10.3f eV' % (self.epsmin * Hartree),
-              file=self.fd)
-        print('Maximum eigenvalue: %10.3f eV' % (self.epsmax * Hartree),
-              file=self.fd)
-        #print('Maximum frequency: %10.3f eV' % (self.omegamax * Hartree),
-        #      file=self.fd)
-        #print('Number of frequencies:', len(self.omega_w), file=self.fd)
-    
     @timer('G0W0 calculation')
     def calculate(self):
         kd = self.calc.wfs.kd

@@ -16,14 +16,15 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
     def __init__(self, calc, name=None, frequencies=None,  domega0=0.1, 
-                 omegamax=20, alpha = 3.0, ecut=50, hilbert=False, nbands=None,
-                 eta=0.2, ftol=1e-6, world=mpi.world, txt=sys.stdout):
+                 omegamax=None, alpha=3.0, ecut=50, hilbert=False, nbands=None,
+                 eta=0.2, ftol=1e-6, world=mpi.world, txt=sys.stdout,
+                 nthreads=1):
             
         self.chi0 = Chi0(calc, frequencies, domega0=domega0, 
                          omegamax=omegamax, alpha=alpha, ecut=ecut,
                          hilbert=hilbert,
                          nbands=nbands, eta=eta, ftol=ftol, world=world,
-                         txt=txt)
+                         txt=txt, nthreads=nthreads)
         
         self.name = name
 
