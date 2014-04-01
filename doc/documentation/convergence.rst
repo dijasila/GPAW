@@ -31,16 +31,11 @@ encountering convergence problems:
        
        from gpaw.eigensolvers.davidson import Davidson
        
-   and use three iterations per scf-step instead of the default of only one::
+   and use three iterations per scf-step instead of the default of
+   only one ``eigensolver=Davidson(3)``.
         
-       eigensolver=Davidson(3)
-
    If you need to parallelize over bands (see :ref:`manual_parallel`)
-   try the RMM-DIIS eigensolver::
-
-       eigensolver=RMM_DIIS(6)
-
-   Import it with::
+   try the RMM-DIIS eigensolver ``eigensolver=RMM_DIIS(6)``. Import it with::
 
        from gpaw.eigensolvers.rmm_diis_new import RMM_DIIS_new as RMM_DIIS
 
