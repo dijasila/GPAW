@@ -49,12 +49,13 @@ The following quantities can be optionally provided:
 ============================  ===============================================
 Quantity                      Description
 ============================  ===============================================
+`r_{PAW}`                     Radius of the PAW augmentation region (max. of matching radii)
 `v_H[\tilde{n}_{Zc}](r)`      Kresse-Joubert local ionic pseudopotential
-`\tilde{Q}_{ij}(\mathbf{r})`  State-dependent shape function for comp. charge
+`\tilde{Q}_{ij}(\mathbf{r})`  State-dependent shape function for compensation charge
 `\tau_c(r)`                   Core kinetic energy density
 `\tilde{\tau}_c(r)`           Pseudo core kinetic energy density
 `X^{\text{core-core}}`        Core-core contribution to exact exchange
-`X_{ij}^{\text{core-val}}`    Core-val exact-exchange correction matrix
+`X_{ij}^{\text{core-val}}`    Core-valence exact-exchange correction matrix
 ============================  ===============================================
 
 
@@ -181,7 +182,11 @@ Valence states
     <state       l="2"        rc="1.10" e=" 0.0000" id="N-d1"/>
   </valence_states>
 
-The ``valence_states`` element contains several ``state`` elements.
+The ``valence_states`` element contains several ``state`` elements, defined by a unique ``id``
+as well as ``l`` and ``n`` quantum numbers. For each of them it is also required to provide
+the energy ``e``, the occupation ``f``
+and the matching radius of the partial waves ``rc``.
+
 For this dataset, the first two lines describe bound eigenstates with
 occupation numbers and principal quantum numbers.  Notice, that the
 three additional unbound states should have no ``f`` and ``n``
@@ -515,6 +520,25 @@ element and as `N^2` numbers inside the ``<exact_exchange>`` element::
     <exact_exchange core="...">
       ... ... ...
     </exact_exchange>
+
+
+-----------------
+Optional elements
+-----------------
+
+::
+
+   <paw_radius rc="2.3456781234">
+
+Although not necessary, it may be helpful to provide the following item(s) in the dataset:
+
+ - Radius of the PAW augmentation region ``paw_radius``
+   
+   This radius defines the region (around the atom) outside which all pseudo quantities
+   are equal to the all-electron ones.
+   It is equal to the maximum of all the cut-off and matching radii.
+   Note that -- for better lisibility -- the ``paw_radius`` elements should be
+   provided in the header of the file. 
 
 
 ------------------
