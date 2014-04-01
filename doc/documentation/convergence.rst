@@ -14,26 +14,36 @@ encountering convergence problems:
     
    Remember that ASE uses Angstrom and not Bohr or nm!
    For spin polarized systems, make sure you have sensible initial magnetic
-   moments.
+   moments. Don't do spin-paired calculations for molecules with an odd
+   number of electrons.
 
 2) Use less aggressive density mixing.
 
    Try something like ``mixer=Mixer(0.02, 5, 100)`` or
-   ``mixer=MixerSum(0.02, 5, 100)`` for spin-polarized calculations
-   and remember to import the mixer class::
+   ``mixer=MixerSum(0.02, 5, 100)``, ``mixer=MixerDif(0.02, 5, 100)``
+   for spin-polarized calculations and remember to import the mixer classes::
        
-       from gpaw import Mixer  # or MixerSum
+       from gpaw import Mixer, MixerSum, MixerDif
 
 3) Solve the eigenvalue problem more accurately at each scf-step.
 
    Import the Davidson eigensolver::
        
-       from gpaw import Davidson
+       from gpaw.eigensolvers.davidson import Davidson
        
-    and use three iterations per scf-step instead of the default of only one::
+   and use three iterations per scf-step instead of the default of only one::
         
        eigensolver=Davidson(3)
-       
+
+   If you need to parallelize over bands (see :ref:`manual_parallel`)
+   try the RMM-DIIS eigensolver::
+
+       eigensolver=RMM_DIIS(6)
+
+   Import it with::
+
+       from gpaw.eigensolvers.rmm_diis_new import RMM_DIIS_new as RMM_DIIS
+
 4) Use a smoother distribution function for the occupation numbers.
 
    Remember that for systems without periodic boundary conditions
@@ -63,18 +73,19 @@ encountering convergence problems:
    converge nicely, but the density does not.  For such cases it can
    help to solve the Poisson equation more accurately between each SCF
    step.  Try something like ``poissonsolver=PoissonSolver(eps=1e-12)``.
+   Import the class with::
+
+       from gpaw.poisson import PoissonSolver
 
 9) Better initial guess for the wave functions.
 
    The initial guess for the wave functions is always calculated
    using the LCAO scheme, with a default single-zeta basis, i.e. one
-   orbital for each valence electron. You can try to make a better
-   initial guess by enlarging the :ref:`manual_basis`. This can be done
-   by setting ``basis='szp'`` if you want to use a
-   single-zeta-polarized basis. Note that you first need to generate
-   the basis file, as described in :ref:`LCAO mode <lcao>`. 
-   It is also possible to use ``basis='szp(dzp)'`` to extract
+   orbital for each valence electron.
+   It is possible to use ``basis='szp(dzp)'`` to extract
    the single-zeta polarization basis set from the double-zeta
    polarization basis sets that are distributed together with
-   the latest PAW datasets. 
+   the latest PAW datasets. You can also try to make a better initial guess
+   by enlarging the :ref:`manual_basis`. Note that you first need to generate
+   the basis file, as described in :ref:`LCAO mode <lcao>`. 
  
