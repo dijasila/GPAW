@@ -29,7 +29,7 @@ If you decide to install a development version of GPAW, this is what you do:
 
    **Note** that this path appears in few places in the tools described on
    this page - make sure you change those occurences if installing
-   in under a different directory.
+   in under a different directory. The instructions assume **bash**.
 
 1. On the ``servcamd`` filesystem (login on your workstation)
    go to a directory on the Niflheim filesystem.
@@ -83,8 +83,7 @@ If you decide to install a development version of GPAW, this is what you do:
     causes exit when run in the batch system e.g. ``if ( { tty -s } == 0 ) exit``.
 
     **Warning**: from the moment you save settings in
-    :file:`/home/niflheim/$USER/.cshrc`
-    or :file:`/home/niflheim/$USER/.bashrc`, your new jobs
+    :file:`/home/niflheim/$USER/.bashrc`, your new jobs
     (also those already waiting in the queue)
     will start using the new version.
     The jobs already running are not affected.
