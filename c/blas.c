@@ -229,6 +229,7 @@ PyObject* czher(PyObject *self, PyObject *args)
   PyArrayObject* a;
   if (!PyArg_ParseTuple(args, "dOO", &alpha, &x, &a))
     return NULL;
+  Py_BEGIN_ALLOW_THREADS
   int n = PyArray_DIMS(x)[0];
   for (int d = 1; d < PyArray_NDIM(x); d++)
     n *= PyArray_DIMS(x)[d];
@@ -239,6 +240,7 @@ PyObject* czher(PyObject *self, PyObject *args)
   zher_("l", &n, &(alpha), 
         (void*)COMPLEXP(x), &incx,
         (void*)COMPLEXP(a), &lda);
+  Py_END_ALLOW_THREADS
   Py_RETURN_NONE;
 }
 
