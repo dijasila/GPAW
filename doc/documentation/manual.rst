@@ -417,19 +417,13 @@ The distribution looks like this (width = `k_B T`):
 
 .. math::  f(E) = \frac{1}{1 + \exp[E / (k_B T)]}
 
-For calculations with
-**k**-points, the default value is 0.1 eV and the total energies are
-extrapolated to *T* = 0 Kelvin.  For a `\Gamma`-point calculation (no
-**k**-points) the default value is ``width=0``, which gives integer
-occupation numbers.
+For calculations with periodic boundary conditions, the default value
+is 0.1 eV and the total energies are extrapolated to *T* = 0 Kelvin.
+For a molecule (no periodic boundaries) the default value is ``width=0``,
+which gives integer occupation numbers.
 
 For a spin-polarized calculation, one can fix the magnetic moment at
 the initial value using ``FermiDirac(width, fixmagmom=True)``.
-
-.. note:: 
-
-   The ``occupations`` keyword was introduced in version 0.7.  For
-   older versions, one must use the ``width`` and ``fixmom`` keywords.
 
 
 .. _manual_lmax:
