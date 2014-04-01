@@ -4,8 +4,6 @@
 XML specification for atomic PAW datasets
 =========================================
 
-| 
-
 ------------
 Introduction
 ------------
@@ -21,7 +19,6 @@ here: `N.LDA <../N.LDA>`_.
 .. note::
    Hartree atomic units are used in the XML file (`\hbar = m = e = 1`).
 
-| 
 
 -----------------------
 What defines a dataset?
@@ -47,22 +44,19 @@ Quantity                      Description
 `\Delta E^\text{kin}_{ij}`    kinetic energy differences
 ============================  ======================================
 
-| 
-
 The following quantities can be optionally provided:
 
-============================  ==========================================
+============================  ===============================================
 Quantity                      Description
-============================  ==========================================
+============================  ===============================================
 `v_H[\tilde{n}_{Zc}](r)`      Kresse-Joubert local ionic pseudopotential
 `\tilde{Q}_{ij}(\mathbf{r})`  State-dependent shape function for comp. charge
 `\tau_c(r)`                   Core kinetic energy density
 `\tilde{\tau}_c(r)`           Pseudo core kinetic energy density
 `X^{\text{core-core}}`        Core-core contribution to exact exchange
 `X_{ij}^{\text{core-val}}`    Core-val exact-exchange correction matrix
-============================  ==========================================
+============================  ===============================================
 
-|   
 
 -----------------------------
 Specification of the elements
@@ -81,7 +75,6 @@ or for an empty element::
 
    .. _here: http://www.w3schools.com/xml/default.asp
 
-| 
 
 ----------
 The header
@@ -96,7 +89,6 @@ The first line must be present in all XML files.  Everything else is put
 inside an element with name ``paw_dataset``, and this element has an
 attribute called ``version``.  We are currently at version 0.7.
 
-| 
 
 ---------
 A comment
@@ -109,7 +101,6 @@ web page::
   <!-- Units: Hartree and Bohr radii.                            -->
   <!-- http://www.where.org/paw_dataset.html                     -->
 
-| 
 
 --------------------
 The ``atom`` element
@@ -123,7 +114,6 @@ The ``atom`` element has attributes ``symbol``, ``Z``, ``core`` and
 ``valence`` (chemical symbol, atomic number, number of core electrons and
 number of valence electrons).
 
-| 
 
 --------------------
 Exchange-correlation
@@ -144,7 +134,6 @@ and this is what PBE will look like::
 .. _libxc: http://www.tddft.org/programs/octopus/wiki/index.php/
            Libxc:manual#Available_functionals
 
-| 
 
 ---------
 Generator
@@ -161,7 +150,6 @@ This element contains *character data* describing in words how the
 dataset was generated.  The ``type`` attribute must be one of:
 ``non-relativistic``, ``scalar-relativistic`` or ``relativistic``.
 
-| 
 
 --------
 Energies
@@ -178,7 +166,6 @@ The kinetic energy of the core electrons,
 energies are convenient to have for testing purposes and can also be
 useful for checking the quality of the underlying atomic calculation.
 
-| 
 
 --------------
 Valence states
@@ -202,7 +189,6 @@ attributes.  In this way, we know that only the first two bound states
 (with ``f`` and ``n`` attributes) should be used for constructing an
 initial guess for the wave functions.
 
-| 
 
 ------------
 Radial grids
@@ -213,12 +199,12 @@ There can be one or more definitions of radial grids.
 Example::
 
   <radial_grid eq="r=d*i" d="0.1" istart="0" iend="9" id="g1"/>
-    <grid>
+    <values>
       0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9
-    </grid>
-    <derivative>
+    </values>
+    <derivatives>
       0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1
-    </derivative>
+    </derivatives>
   </radial_grid>
     
 This defines one radial grid as :math:`r_i = di` where `i` runs from 0 to 9.  Inside the ``<radial_grid>`` element we have the
@@ -269,7 +255,6 @@ should always be present.
 Although it is possible to define as radial grids as desired, it is recommended
 to minimize the number of grids in the dataset.
 
-| 
 
 ------------------------------------------
 Shape function for the compensation charge
@@ -282,8 +267,9 @@ moments `Q_{\ell m}`:
 
   g_{\ell m}(\mathbf{r}) = \sum_{\ell m} Q_{\ell m} g_\ell(r) Y_{\ell m}(\theta, \phi),
 
-| Several formulations [#Hol01]_ [#Blo94]_ define `g_\ell(r) \propto r^\ell k(r)`,
-| where `k(r)` is a `\ell`-independent shape function:
+Several formulations [#Hol01]_ [#Blo94]_ define
+`g_\ell(r) \propto r^\ell k(r)`, where `k(r)` is an `\ell`-independent
+shape function:
 
 ==========  ===================  =========================================
 ``type``    parameters           `k(r)`
@@ -299,20 +285,20 @@ Example::
 
 Another formulation [#Kre99]_ defines directly `g_\ell(r)`:
 
-==========  ===================  =========================================
-``type``    parameters           `g_\ell(r)`
-==========  ===================  =========================================
-``bessel``  ``rc``               `\sum_{i=1}^2 \alpha_i^\ell j_\ell(q_i^\ell r)`
-==========  ===================  =========================================
+==========  ==========  ===============================================
+``type``    parameters  `g_\ell(r)`
+==========  ==========  ===============================================
+``bessel``  ``rc``      `\sum_{i=1}^2 \alpha_i^\ell j_\ell(q_i^\ell r)`
+==========  ==========  ===============================================
 
-For ``bessel`` the four parameters (`\alpha_1^\ell`, `q_1^\ell`, `\alpha_2^\ell` and `q_2^\ell`)
-must be determined from ``rc`` for each value of `\ell` as described in [#Kre99]_.
+For ``bessel`` the four parameters (`\alpha_1^\ell`, `q_1^\ell`,
+`\alpha_2^\ell` and `q_2^\ell`) must be determined from ``rc`` for each
+value of `\ell` as described in [#Kre99]_.
 
 Example::
     
     <shape_function type="bessel" rc="3.478505426185e-01">
  
-| 
 
 There is also a more general formulation where shape functions are given in
 numerical form. There can be several *shape functions* (eventually depending on
@@ -320,11 +306,13 @@ combinations of partial waves):
 
 .. math::
 
-  g_{\ell m}(\mathbf{r}) = \sum_{\ell m} \tilde{Q}_{\ell m}(r) Y_{\ell m}(\theta, \phi),
+  g_{\ell m}(\mathbf{r}) =
+  \sum_{\ell m} \tilde{Q}_{\ell m}(r) Y_{\ell m}(\theta, \phi),
 
 There can be several ``<shape_function>`` elements if the shape function
-depends on `\ell` and/or combinations of partial waves (specified using the optional
-``state1`` and ``state2`` attributes). See for instance section II.C of [#Laa93]_.
+depends on `\ell` and/or combinations of partial waves
+(specified using the optional ``state1`` and ``state2`` attributes).
+See for instance section II.C of [#Laa93]_.
 
 Example 1, defining :math:`\tilde{Q}_{\ell m}(r)=Q_{\ell m} g_\ell(r)`::
     
@@ -338,13 +326,13 @@ Example 2, defining :math:`\tilde{Q}^{ij}_{\ell m}(r)` for states *i=* ``N-2s`` 
         ... ... ...
     </shape_function>
 
-| 
 
 ----------------
 Radial functions
 ----------------
 
-Continuing, we have now reached the *all-electron* (resp. *pseudo core*, *pseudo valence*) density::
+Continuing, we have now reached the *all-electron* (resp. *pseudo core*,
+*pseudo valence*) density::
 
   <ae_core_density grid="g1">
      6.801207147443e+02 6.801207147443e+02 6.665042896724e+02
@@ -394,7 +382,6 @@ element::
 Remember that the radial part of these functions must be multiplied by a spherical harmonics:
 `\phi_i(\mathbf{r}) = \phi_i(r) Y_{\ell_i m_i}(\theta, \phi)`.
 
-| 
 
 --------------------------
 Zero potential
@@ -409,7 +396,6 @@ radius of `\bar{v}(\mathbf{r})`::
      ...
   </zero_potential>
 
-| 
 
 ------------------------------
 The Kresse-Joubert formulation
@@ -460,7 +446,6 @@ The ``kresse_joubert_local_ionic_pseudopotential`` element has a ``rc`` attribut
 specifying the matching radius. This matching radius corresponds to the maximum
 of all the matching radii used in the formalism.
 
-| 
 
 --------------------------
 Kinetic energy differences
@@ -485,7 +470,6 @@ where `\hat{T}` is the kinetic energy operator used by the
 generator.  With `n` states, we have an `n \times n` matrix
 listed as `n^2` numbers.
 
-| 
 
 --------
 Meta-GGA
@@ -506,7 +490,6 @@ These densities are defined similarly to the core and valence densities (see abo
 The ``pseudo_core_kinetic_energy_density`` element has a ``rc`` attribute specifying its
 matching radius.
 
-| 
 
 ------------------------
 Exact exchange integrals
@@ -533,7 +516,6 @@ element and as `N^2` numbers inside the ``<exact_exchange>`` element::
       ... ... ...
     </exact_exchange>
 
-| 
 
 ------------------
 End of the dataset
@@ -543,7 +525,6 @@ End of the dataset
 
   </paw_dataset>
 
-| 
 
 -----------------------
 How to use the datasets
@@ -555,7 +536,6 @@ should read in the radial functions and then transform them to the
 radial grids used by the specific implementation.  After the
 transformation, some sort of normalization may be necessary.
 
-| 
 
 -----------------------------
 Plotting the radial functions
@@ -598,7 +578,6 @@ Examples::
   [~]$ pawxml.py -x pseudo_partial_wave -s N2p N.LDA > N.ps.2p 
   [~]$ xmgrace N.??.2p
 
-|   
 
 ----------
 References
