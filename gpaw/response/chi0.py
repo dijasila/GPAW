@@ -206,7 +206,8 @@ class Chi0(PairDensity):
             if optical_limit:
                 self.world.sum(chi0_wxvG)
                 self.world.sum(chi0_wvv)
-                self.world.sum(self.chi0_vv)
+                if self.hilbert:
+                    self.world.sum(self.chi0_vv)
 
         if self.eta == 0.0 or self.hilbert:
             # Fill in upper/lower triangle also:
