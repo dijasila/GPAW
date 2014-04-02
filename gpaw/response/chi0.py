@@ -244,7 +244,7 @@ class Chi0(PairDensity):
             deps1_m = deps_m + 1j * self.eta
             deps2_m = deps_m - 1j * self.eta
 
-        for omega, chi0_GG in zip(self.omega_w, self.chi0_wGG):
+        for omega, chi0_GG in zip(self.omega_w, chi0_wGG):
             x_m = df_m * (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             nx_mG = n_mG * x_m[:, np.newaxis]
             gemm(self.prefactor, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
