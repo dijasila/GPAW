@@ -29,7 +29,7 @@ class Chi0(PairDensity):
                  frequencies=None, domega0=0.1, omegamax=None, alpha=3.0,
                  ecut=50, hilbert=False, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6,
-                 real_space_derivatives=False, nthreads=1,
+                 real_space_derivatives=False, intraband=True, nthreads=1,
                  world=mpi.world, txt=sys.stdout, timer=None,
                  keep_occupied_states=False):
         PairDensity.__init__(self, calc, ecut, ftol,
@@ -42,6 +42,7 @@ class Chi0(PairDensity):
         self.nbands = nbands or self.calc.wfs.bd.nbands
         self.alpha = alpha
         self.keep_occupied_states = keep_occupied_states
+        self.intraband = intraband
         
         omax = self.find_maximum_frequency()
         
@@ -186,7 +187,7 @@ class Chi0(PairDensity):
                         n, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG, chi0_wvv)
                 update(n_mG, deps_m, df_m, chi0_wGG)
             
-            if optical_limit:
+            if optical_limit and self.intraband:
                 # Avoid that more ranks are summing up
                 # the intraband contributions
                 if kpt1.n1 == 0:
@@ -229,8 +230,9 @@ class Chi0(PairDensity):
                 if optical_limit:
                     ht(chi0_wvv)
                     ht(chi0_wxvG)
-                    for w, omega in enumerate(self.omega_w):
-                        chi0_wvv[w] += self.chi0_vv / omega**2.0
+                    if self.intraband:
+                        for w, omega in enumerate(self.omega_w):
+                            chi0_wvv[w] += self.chi0_vv / omega**2.0
                 
             print('Hilbert transform done', file=self.fd)
 

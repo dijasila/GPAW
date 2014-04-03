@@ -165,7 +165,7 @@ class RPACorrelation:
             self.world.barrier()
 
         chi0 = Chi0(self.calc, 1j * Hartree * self.myomega_w, eta=0.0,
-                    txt='response.txt', world=self.chicomm)
+                    intraband=False, txt='response.txt', world=self.chicomm)
 
         nq = len(self.energy_qi)
         for q_c in self.ibzq_qc[nq:]:
