@@ -15,6 +15,7 @@ if GS:
     calc = GPAW(mode='pw',
                 dtype=complex,
                 xc='RPBE',
+                eigensolver='rmm-diis',
                 occupations=FermiDirac(0.01))
     
     cluster.set_calculator(calc)

@@ -30,7 +30,7 @@ E_n2_rpa = rpa.calculate(ecut=[ecut])
 N = molecule('N')
 N.set_cell(N2.cell)
 
-calc = GPAW(mode='pw', dtype=complex, xc='PBE')
+calc = GPAW(mode='pw', dtype=complex, xc='PBE', eigensolver='rmm-diis')
 N.set_calculator(calc)
 E_n_pbe = N.get_potential_energy()
 
