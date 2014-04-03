@@ -10,6 +10,30 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* Default eigensolver is now the Davidson solver.
+
+* Default density mixer parameters have been changed for calculations
+  with periodic boundary conditions.  Parameters for that case:
+  ``Mixer(0.05, 5, 50)`` (or ``MixerSum(0.05, 5, 50)`` for spin-paired
+  calculations.  Old parameters: ``0.1, 3, 50``.
+  
+* Default is now ``occupations=FermiDirac(0.1)`` for
+  calculations with periodic boundaries
+  and ``FermiDirac(0.0)`` for molecules (before it was 0.1 eV for anything
+  with **k**-points).
+
+* Calculations with a plane-wave basis set are now officially supported.
+
+* :ref:`One-shot GW calculations <gw_theory>` with full frequency
+  integration or plasmon-pole approximation.
+  
+* Beyond RPA-correlation: `using renormalized LDA and PBE
+  <https://trac.fysik.dtu.dk/projects/gpaw/browser/branches/sprint2013/doc/tutorials/fxc_correlation>`_.
+
+* :ref:`bse`.
+
+* Improved RMM-DIIS eigensolver.
+
 * Support for new libxc 2.0.1.  libxc must now be built separately from GPAW.
 
 * MGGA calculations can be done in plane-wave mode.
