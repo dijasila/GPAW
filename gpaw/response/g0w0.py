@@ -14,14 +14,14 @@ from gpaw.utilities.timing import timer
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.chi0 import Chi0, frequency_grid
+from gpaw.response.chi0 import Chi0, frequency_grid, HilbertTransform
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw',
                  kpts=None, bands=None, nbands=None, ppa=False, hilbert=False,
-                 wstc=False,
+                 wstc=False, fast=False,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
                  domega0=0.025, omegamax=100, alpha=3.0,
                  world=mpi.world):
@@ -34,6 +34,7 @@ class G0W0(PairDensity):
         ecut /= Hartree
         
         self.ppa = ppa
+        self.fast = fast
         self.hilbert = hilbert
         self.wstc = wstc
         self.eta = eta / Hartree
@@ -209,8 +210,9 @@ class G0W0(PairDensity):
         G_G = G_N[N0_G]
         assert (G_G >= 0).all()
 
+        nw = len(self.omega_w) * (1 + self.fast)
         W_wGG = []
-        for x in self.omega_w:
+        for x in range(nw):
             with self.timer('Read W'):
                 W_GG = np.load(fd)
             with self.timer('Symmetry transform of W'):
@@ -236,7 +238,9 @@ class G0W0(PairDensity):
     def calculate_sigma(self, fd, n_mG, deps_m, f_m, W_wGG):
         if self.ppa:
             return self.calculate_sigma_ppa(fd, n_mG, deps_m, f_m, *W_wGG)
-
+        elif self.fast:
+            return self.calculate_sigma2(fd, n_mG, deps_m, f_m, W_wGG)
+            
         sigma = 0.0
         dsigma = 0.0
         
@@ -251,6 +255,27 @@ class G0W0(PairDensity):
             sigma += x * np.vdot(n_mG * x_m[:, np.newaxis], nW_mG).imag
             dsigma -= x * np.vdot(n_mG * dx_m[:, np.newaxis], nW_mG).imag
 
+        return sigma, dsigma
+
+    @timer('Calculate Sigma faster')
+    def calculate_sigma2(self, fd, n_mG, deps_m, f_m, C_swGG):
+        C_swGG.shape = (2, len(self.omega_w)) + C_swGG.shape[-2:]
+        o_m = abs(deps_m)
+        s_m = (np.sign(deps_m) + 1) // 2
+        w_m = (o_m / self.domega0 /
+               (1 + self.alpha * o_m / self.omegamax)).astype(int)
+        o1_m = self.omega_w[w_m]
+        o2_m = self.omega_w[w_m + 1]
+        sigma = 0.0
+        dsigma = 0.0
+        for o, o1, o2, s, w, n_G in zip(o_m, o1_m, o2_m, s_m, w_m, n_mG):
+            C1_sGG = C_swGG[:, w]
+            C2_sGG = C_swGG[:, w + 1]
+            sigma1 = np.dot(np.dot(C1_sGG[s], n_G), n_G.conj())
+            sigma2 = np.dot(np.dot(C2_sGG[s], n_G), n_G.conj())
+            sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
+            dsigma += (sigma2 - sigma1) / (o2 - o1)
+            
         return sigma, dsigma
 
     @timer('Calculate Sigma using PPA')
@@ -314,6 +339,10 @@ class G0W0(PairDensity):
                         self.calc.wfs.gd.cell_cv,
                         self.calc.wfs.kd.N_c,
                         chi0.fd)
+                
+                if self.fast:
+                    htp = HilbertTransform(self.omega_w, self.eta, True)
+                    htm = HilbertTransform(self.omega_w, -self.eta, True)
             
             pd, chi0_wGG = chi0.calculate(q_c)[:2]
 
@@ -373,8 +402,20 @@ class G0W0(PairDensity):
                         W_GG[1:, 0] *= G0inv
                         W_GG[0, 1:] *= G0inv
                     
-                    np.save(fd, W_GG)
-
+                    if self.fast:
+                        chi0_GG[:] = W_GG
+                    else:
+                        np.save(fd, W_GG)
+                        
+                if self.fast:
+                    Wp_wGG = chi0_wGG.copy()
+                    Wm_wGG = chi0_wGG
+                    htp(Wp_wGG)
+                    htm(Wm_wGG)
+                    for W_wGG in [Wp_wGG, Wm_wGG]:
+                        for W_GG in W_wGG:
+                            np.save(fd, W_GG)
+                            
             fd.close()
 
     @timer('Calculate Kohn-Sham XC-contribution')
