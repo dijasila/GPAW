@@ -15,6 +15,7 @@ if GS:
     calc = GPAW(mode='pw',
                 dtype=complex,
                 xc='RPBE',
+                nbands=16,
                 eigensolver='rmm-diis',
                 occupations=FermiDirac(0.01))
     
