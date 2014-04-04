@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 from math import pi
 
 import numpy as np
 import ase.units as units
 
+import gpaw.fftw as fftw
 from gpaw.lfc import BaseLFC
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
-import gpaw.fftw as fftw
 from gpaw.lcao.overlap import fbt
 from gpaw.spline import Spline
 from gpaw.spherical_harmonics import Y, nablarlYL
@@ -18,6 +19,7 @@ from gpaw.hamiltonian import Hamiltonian
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.band_descriptor import BandDescriptor
+from gpaw.utilities.timing import timer
 
 
 class PWDescriptor:
@@ -637,10 +639,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
         
         return H_GG, S_GG
         
+    @timer('Diagonalize full Hamiltonian')
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
                                      nbands=None,
                                      scalapack=None):
-
+        print('Diagonalizing full Hamiltonian', file=txt)
+        
         if nbands is None:
             nbands = self.pd.ngmin
 
@@ -653,6 +657,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 nprow, npcol, b = scalapack
             else:
                 nprow, npcol, b = 2, bd.comm.size // 2, 64
+            print('ScaLapack grid: {0}x{1}, block-size: {2}'.format(
+                      nprow, npcol, b), file=txt)
             bg = BlacsGrid(bd.comm, bd.comm.size, 1)
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
         else:
@@ -676,7 +682,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             else:
                 md = md2 = MatrixDescriptor(npw, npw)
 
-            H_GG, S_GG = self.hs(ham, kpt.q, kpt.s, md)
+            with self.timer('Build H and S'):
+                H_GG, S_GG = self.hs(ham, kpt.q, kpt.s, md)
 
             if scalapack:
                 r = Redistributor(bd.comm, md, md2)
@@ -685,7 +692,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
             psit_nG = md2.empty(dtype=complex)
             eps_n = np.empty(npw)
-            md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
+            with self.timer('Diagonalize'):
+                md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
             del H_GG, S_GG
 
             kpt.eps_n = eps_n[myslice].copy()
@@ -698,7 +706,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt.psit_nG = psit_nG[:bd.mynbands].copy()
             del psit_nG
 
-            self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            with self.timer('Projections'):
+                self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
             #f_n = np.zeros_like(kpt.eps_n)
             #f_n[:len(kpt.f_n)] = kpt.f_n
