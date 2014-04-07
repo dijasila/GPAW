@@ -121,18 +121,47 @@ Exchange-correlation
 --------------------
 
 The ``xc_functional`` element defines the exchange-correlation
-functional used for generating the dataset, and we take the names from
-the libxc_ library.  The correlation and exchange names are stripped
-from their ``XC_`` part and combined with a ``+``-sign.  Here is an
-example for an LDA functional::
+functional used for generating the dataset. It has the two attributes ``type`` and ``name``.
+
+The ``type`` attribute can be ``LDA``, ``GGA``, ``MGGA`` or ``HYB``.
+
+The ``name`` attribute designates the exchange-correlation functional and
+can be specified in the following ways:
+ 
+- Taking the names from the LibXC_ library. The correlation and exchange names are stripped
+  from their ``XC_`` part and combined with a ``+``-sign.  Here is an
+  example for an LDA functional::
     
-    <xc_functional type="LDA", name="LDA_X+LDA_C_PW"/>
+  <xc_functional type="LDA", name="LDA_X+LDA_C_PW"/>
 
-and this is what PBE will look like::
+  and this is what PBE will look like::
 
-    <xc_functional type="GGA", name="GGA_X_PBE+GGA_C_PBE"/>
+  <xc_functional type="GGA", name="GGA_X_PBE+GGA_C_PBE"/>
 
-.. _libxc: http://www.tddft.org/programs/octopus/wiki/index.php/
+- Using one of the following pre-defined aliases:
+
+  =========  ==========  ===============================  ===================================================================
+  ``type``    ``name``   ``LibXC equivalent``             ``Reference``
+  =========  ==========  ===============================  ===================================================================
+  ``LDA``    ``PW``      ``LDA_X+LDA_C_PW``               ``LDA exchange; Perdew, Wang, PRB 45, 13244 (1992)``
+  ``GGA``    ``PW91``    ``GGA_X_PW91+GGA_C_PW91``        ``Perdew et al PRB 46, 6671 (1992)``
+  ``GGA``    ``PBE``     ``GGA_X_PBE+GGA_C_PBE``          ``Perdew, Burke, Ernzerhof, PRL 77, 3865 (1996)``
+  ``GGA``    ``RPBE``    ``GGA_X_RPBE+GGA_C_PBE``         ``Hammer, Hansen, Nørskov, PRB 59, 7413 (1999)``
+  ``GGA``    ``revPBE``  ``GGA_X_PBE_R+GGA_C_PBE``        ``Zhang, Yang, PRL 80, 890 (1998)``
+  ``GGA``    ``PBEsol``  ``GGA_X_PBE_SOL+GGA_C_PBE_SOL``  ``Perdew et al, PRL 100, 136406 (2008)``
+  ``GGA``    ``AM05``    ``GGA_X_AM05+GGA_C_AM05``        ``Armiento, Mattsson, PRB 72, 085108 (2005)``
+  ``GGA``    ``BLYP``    ``GGA_X_B88+GGA_C_LYP``          ``Becke, PRA 38, 3098 (1988); Lee, Yang, Parr, PRB 37, 785 (1988)``
+  =========  ==========  ===============================  ===================================================================
+
+  Examples::
+  
+    <xc_functional type="LDA", name="PW"/>
+
+  ::
+
+  <xc_functional type="GGA", name="PBE"/>
+
+.. _LibXC: http://www.tddft.org/programs/octopus/wiki/index.php/
            Libxc:manual#Available_functionals
 
 
