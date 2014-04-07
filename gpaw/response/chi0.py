@@ -9,6 +9,7 @@ from ase.units import Hartree
 import gpaw.mpi as mpi
 from gpaw.parallel import run
 from gpaw import extra_parameters
+from gpaw.occupations import FermiDirac
 from gpaw.utilities.timing import timer
 from gpaw.utilities.memory import maxrss
 from gpaw.response.pair import PairDensity
@@ -334,10 +335,12 @@ class Chi0(PairDensity):
     @timer('CHI_0 intraband update')
     def update_intraband(self, kpt, chi0_wvv):
         """Check whether there are any partly occupied bands."""
+        
         width = self.calc.occupations.width
         if width == 0.0:
             return
-            
+        
+        assert isinstance(self.calc.occupations, FermiDirac)
         dfde_m = - 1. / width * (kpt.f_n - kpt.f_n**2.0)
         partocc_m = np.abs(dfde_m) > 1e-5
         if not partocc_m.any():
