@@ -429,12 +429,15 @@ class Chi0(PairDensity):
 
 
 class HilbertTransform:
-    def __init__(self, omega_w, eta, timeordered=False, blocksize=500):
+    def __init__(self, omega_w, eta, timeordered=False, gw=False,
+                 blocksize=500):
         """Analytic Hilbert transformation using linear interpolation."""
         self.blocksize = blocksize
 
         if timeordered:
             self.H_ww = self.H(omega_w, -eta) + self.H(omega_w, -eta, -1)
+        elif gw:
+            self.H_ww = self.H(omega_w, eta) + self.H(omega_w, eta, -1)
         else:
             self.H_ww = self.H(omega_w, eta) + self.H(omega_w, -eta, -1)
 

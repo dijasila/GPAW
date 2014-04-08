@@ -198,6 +198,7 @@ class G0W0(PairDensity):
         fd = open('{0}.w.q{1}.npy'.format(self.filename, iq))
         assert (iq_c == np.load(fd)).all()
         N_G = np.load(fd)
+        nG = len(N_G)
         
         n_cG = np.unravel_index(N_G, N_c)
         N3_G = np.ravel_multi_index(
@@ -206,17 +207,17 @@ class G0W0(PairDensity):
             N_c, 'wrap')
         G_N = np.empty(N_c.prod(), int)
         G_N[:] = -1
-        G_N[N3_G] = np.arange(len(N_G))
+        G_N[N3_G] = np.arange(nG)
         G_G = G_N[N0_G]
         assert (G_G >= 0).all()
 
         nw = len(self.omega_w) * (1 + self.fast)
-        W_wGG = []
-        for x in range(nw):
+        W_wGG = np.empty((nw, nG, nG), complex)
+        for w in range(nw):
             with self.timer('Read W'):
                 W_GG = np.load(fd)
             with self.timer('Symmetry transform of W'):
-                W_wGG.append(W_GG.take(G_G, 0).take(G_G, 1))
+                W_wGG[w] = W_GG.take(G_G, 0).take(G_G, 1)
 
         Q_aGii = self.initialize_paw_corrections(pd)
         for n in range(kpt1.n2 - kpt1.n1):
@@ -261,18 +262,22 @@ class G0W0(PairDensity):
     def calculate_sigma2(self, fd, n_mG, deps_m, f_m, C_swGG):
         C_swGG.shape = (2, len(self.omega_w)) + C_swGG.shape[-2:]
         o_m = abs(deps_m)
-        s_m = (np.sign(deps_m) + 1) // 2
+        sgn_m = np.sign(deps_m)
+        s_m = (1 + sgn_m * np.sign(f_m)).astype(int) // 2
         w_m = (o_m / self.domega0 /
                (1 + self.alpha * o_m / self.omegamax)).astype(int)
         o1_m = self.omega_w[w_m]
         o2_m = self.omega_w[w_m + 1]
         sigma = 0.0
         dsigma = 0.0
-        for o, o1, o2, s, w, n_G in zip(o_m, o1_m, o2_m, s_m, w_m, n_mG):
-            C1_sGG = C_swGG[:, w]
-            C2_sGG = C_swGG[:, w + 1]
-            sigma1 = np.dot(np.dot(C1_sGG[s], n_G), n_G.conj())
-            sigma2 = np.dot(np.dot(C2_sGG[s], n_G), n_G.conj())
+        x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
+        for o, o1, o2, sgn, s, w, n_G in zip(o_m, o1_m, o2_m,
+                                             sgn_m, s_m, w_m, n_mG):
+            C1_GG = C_swGG[s, w]
+            C2_GG = C_swGG[s, w + 1]
+            p = x * sgn
+            sigma1 = p * np.dot(np.dot(n_G, C1_GG), n_G.conj()).imag
+            sigma2 = p * np.dot(np.dot(n_G, C2_GG), n_G.conj()).imag
             sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
             dsigma += (sigma2 - sigma1) / (o2 - o1)
             
@@ -329,6 +334,7 @@ class G0W0(PairDensity):
                 chi0 = Chi0(self.calc,
                             nbands=self.nbands,
                             ecut=self.ecut * Hartree,
+                            intraband=False,
                             real_space_derivatives=False,
                             txt=self.filename + '.w.txt',
                             timer=self.timer,
@@ -341,8 +347,8 @@ class G0W0(PairDensity):
                         chi0.fd)
                 
                 if self.fast:
-                    htp = HilbertTransform(self.omega_w, self.eta, True)
-                    htm = HilbertTransform(self.omega_w, -self.eta, True)
+                    htp = HilbertTransform(self.omega_w, self.eta, gw=True)
+                    htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
             
             pd, chi0_wGG = chi0.calculate(q_c)[:2]
 
