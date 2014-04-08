@@ -1,7 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-version_base = '0.10.0'
+version_base = '0.11.0'
 
 ase_required_version = '3.8.1'
 

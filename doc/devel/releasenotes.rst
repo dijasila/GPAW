@@ -10,6 +10,13 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+Version 0.10.0
+==============
+
+8 April 2014: :trac:`tags/0.10.0 <../tags/0.10.0>`.
+
+* Corresponding ASE release: ase-3.8.1_
+
 * Default eigensolver is now the Davidson solver.
 
 * Default density mixer parameters have been changed for calculations
@@ -102,6 +109,7 @@ Version 0.9.0
 
 .. _new tool: https://wiki.fysik.dtu.dk/ase/ase/cmdline.html
 .. _ase-3.6: https://svn.fysik.dtu.dk/projects/ase/tags/3.6.0
+.. _ase-3.8.1: https://svn.fysik.dtu.dk/projects/ase/tags/3.8.1
 
 
 Version 0.8.0
