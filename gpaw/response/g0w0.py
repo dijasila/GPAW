@@ -263,19 +263,24 @@ class G0W0(PairDensity):
 
         return sigma, dsigma
 
-    @timer('Sigma faster')
+    @timer('Sigma2')
     def calculate_sigma2(self, fd, n_mG, deps_m, f_m, C_swGG):
         C_swGG.shape = (2, len(self.omega_w)) + C_swGG.shape[-2:]
         o_m = abs(deps_m)
-        sgn_m = np.sign(deps_m)
+        # Add small number to avoid zeros for degenerate states:
+        sgn_m = np.sign(deps_m + 1e-15)
+        
+        # Pick +i*eta or -i*eta:
         s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
+        
         w_m = (o_m / self.domega0 /
                (1 + self.alpha * o_m / self.omegamax)).astype(int)
         o1_m = self.omega_w[w_m]
         o2_m = self.omega_w[w_m + 1]
+        
+        x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
         sigma = 0.0
         dsigma = 0.0
-        x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
         for o, o1, o2, sgn, s, w, n_G in zip(o_m, o1_m, o2_m,
                                              sgn_m, s_m, w_m, n_mG):
             C1_GG = C_swGG[s, w]
