@@ -96,7 +96,7 @@ class G0W0(PairDensity):
                              usesymm=self.calc.input_parameters.usesymm,
                              N_c=self.calc.wfs.gd.N_c)
         
-    @timer('G0W0 calculation')
+    @timer('G0W0')
     def calculate(self):
         kd = self.calc.wfs.kd
 
@@ -211,13 +211,7 @@ class G0W0(PairDensity):
         G_G = G_N[N0_G]
         assert (G_G >= 0).all()
 
-        nw = len(self.omega_w) * (1 + self.fast)
-        W_wGG = np.empty((nw, nG, nG), complex)
-        for w in range(nw):
-            with self.timer('Read W'):
-                W_GG = np.load(fd)
-            with self.timer('Symmetry transform of W'):
-                W_wGG[w] = W_GG.take(G_G, 0).take(G_G, 1)
+        W_wGG = self.read_screened_potential(fd, G_G)
 
         Q_aGii = self.initialize_paw_corrections(pd)
         for n in range(kpt1.n2 - kpt1.n1):
@@ -235,7 +229,18 @@ class G0W0(PairDensity):
             
         fd.close()
 
-    @timer('Calculate Sigma')
+    def read_screened_potential(self, fd, G_G):
+        nw = len(self.omega_w) * (1 + self.fast)
+        nG = len(G_G)
+        W_wGG = np.empty((nw, nG, nG), complex)
+        for w in range(nw):
+            with self.timer('Read W'):
+                W_GG = np.load(fd)
+            with self.timer('Symmetry transform of W'):
+                W_wGG[w] = W_GG.take(G_G, 0).take(G_G, 1)
+        return W_wGG
+        
+    @timer('Sigma')
     def calculate_sigma(self, fd, n_mG, deps_m, f_m, W_wGG):
         if self.ppa:
             return self.calculate_sigma_ppa(fd, n_mG, deps_m, f_m, *W_wGG)
@@ -258,12 +263,12 @@ class G0W0(PairDensity):
 
         return sigma, dsigma
 
-    @timer('Calculate Sigma faster')
+    @timer('Sigma faster')
     def calculate_sigma2(self, fd, n_mG, deps_m, f_m, C_swGG):
         C_swGG.shape = (2, len(self.omega_w)) + C_swGG.shape[-2:]
         o_m = abs(deps_m)
         sgn_m = np.sign(deps_m)
-        s_m = (1 + sgn_m * np.sign(f_m)).astype(int) // 2
+        s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
         w_m = (o_m / self.domega0 /
                (1 + self.alpha * o_m / self.omegamax)).astype(int)
         o1_m = self.omega_w[w_m]
@@ -279,11 +284,11 @@ class G0W0(PairDensity):
             sigma1 = p * np.dot(np.dot(n_G, C1_GG), n_G.conj()).imag
             sigma2 = p * np.dot(np.dot(n_G, C2_GG), n_G.conj()).imag
             sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
-            dsigma += (sigma2 - sigma1) / (o2 - o1)
+            dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
             
         return sigma, dsigma
 
-    @timer('Calculate Sigma using PPA')
+    @timer('PPA-Sigma')
     def calculate_sigma_ppa(self, fd, n_mG, deps_m, f_m, W_GG, omegat_GG):
         deps_mGG = deps_m[:, np.newaxis, np.newaxis]
         sign_mGG = 2 * f_m[:, np.newaxis, np.newaxis] - 1
@@ -306,7 +311,7 @@ class G0W0(PairDensity):
         x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
         return x * sigma, x * dsigma
 
-    @timer('Calculate screened potential')
+    @timer('W')
     def calculate_screened_potential(self):
         chi0 = None
         
@@ -416,15 +421,16 @@ class G0W0(PairDensity):
                 if self.fast:
                     Wp_wGG = chi0_wGG.copy()
                     Wm_wGG = chi0_wGG
-                    htp(Wp_wGG)
-                    htm(Wm_wGG)
+                    with self.timer('Hilbert transform'):
+                        htp(Wp_wGG)
+                        htm(Wm_wGG)
                     for W_wGG in [Wp_wGG, Wm_wGG]:
                         for W_GG in W_wGG:
                             np.save(fd, W_GG)
                             
             fd.close()
 
-    @timer('Calculate Kohn-Sham XC-contribution')
+    @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
         name = self.filename + '.vxc.npy'
         fd = opencew(name)
@@ -442,7 +448,7 @@ class G0W0(PairDensity):
         self.vxc_sin = vxc_skn[:, self.kpts, n1:n2]
         np.save(fd, self.vxc_sin)
         
-    @timer('Calculate EXact eXchange')
+    @timer('EXX')
     def calculate_exact_exchange(self):
         name = self.filename + '.exx.npy'
         fd = opencew(name)
