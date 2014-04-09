@@ -170,14 +170,18 @@ class Chi0(PairDensity):
             
             for n in range(kpt1.n2 - kpt1.n1):
                 eps1 = kpt1.eps_n[n]
+                # Only update if there exists deps <= omegamax
+                m = [m for m, d in enumerate(eps1 - kpt2.eps_n) if abs(d)<=self.omegamax] 
+                if not len(m):
+                    continue
+                deps_m = (eps1 - kpt2.eps_n)[m]
                 f1 = kpt1.f_n[n]
                 ut1cc_R = kpt1.ut_nR[n].conj()
                 C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
                           for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
                 n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                     pd, Q_G)
-                deps_m = eps1 - kpt2.eps_n
-                df_m = f1 - kpt2.f_n
+                                                     pd, Q_G)[m]
+                df_m = (f1 - kpt2.f_n)[m]
 
                 # This is not quite right for degenerate partially occupied
                 # bands, but good enough for now:
@@ -186,8 +190,9 @@ class Chi0(PairDensity):
                 if optical_limit:
                     self.update_optical_limit(
                         n, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG, chi0_wvv)
+
                 update(n_mG, deps_m, df_m, chi0_wGG)
-            
+
             if optical_limit and self.intraband:
                 # Avoid that more ranks are summing up
                 # the intraband contributions
