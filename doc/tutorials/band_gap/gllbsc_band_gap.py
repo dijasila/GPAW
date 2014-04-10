@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from gpaw import *
 from ase import *
 import numpy as np
@@ -40,4 +42,4 @@ EKs, Dxc = response.calculate_delta_xc_perturbation()
 # Dxc = derivative discontinuity
 Gap = EKs+Dxc
 
-print "Calculated band gap:", Gap
+print("Calculated band gap:", Gap)
