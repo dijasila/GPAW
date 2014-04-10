@@ -18,11 +18,11 @@ atom = Atoms(symbols='KTaO3',
                                 ),
             )
 
+
 calc = GPAW(h=0.16,
             kpts=(10,10,10),
             xc='GLLBSC',
             txt='KTaO3.out',
-            eigensolver='cg',
             occupations=FermiDirac(width=0.05),
             )
 
