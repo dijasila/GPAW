@@ -16,15 +16,14 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
     def __init__(self, calc, name=None, frequencies=None,  domega0=0.1, 
-                 omegamax=None, alpha=3.0, ecut=50, hilbert=False, nbands=None,
-                 eta=0.2, ftol=1e-6, world=mpi.world, txt=sys.stdout,
-                 nthreads=1):
+                 omegamax=20, alpha = 3.0, ecut=50, hilbert=False, nbands=None,
+                 eta=0.2, ftol=1e-6, world=mpi.world, txt=sys.stdout):
             
         self.chi0 = Chi0(calc, frequencies, domega0=domega0, 
                          omegamax=omegamax, alpha=alpha, ecut=ecut,
                          hilbert=hilbert,
                          nbands=nbands, eta=eta, ftol=ftol, world=world,
-                         txt=txt, nthreads=nthreads)
+                         txt=txt)
         
         self.name = name
 
@@ -348,7 +347,7 @@ class DielectricFunction:
     def get_eigenmodes(self, q_c = [0, 0, 0], w_max = None,  name = None):
         
         """
-        Plasmonic eigenmodes as eigenvectors of the dielectric matrix.  
+        Plasmon eigenmodes as eigenvectors of the dielectric matrix.  
         
         """ 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
@@ -361,29 +360,22 @@ class DielectricFunction:
         """ get real space grid for plasmon modes"""
         from gpaw.utilities.gpts import get_number_of_grid_points
         from gpaw.grid_descriptor import GridDescriptor
-        cell_cv = pd.gd.cell_cv
-        h = 0.2/Bohr
-        pbc = self.chi0.calc.atoms.pbc
-        N_c = get_number_of_grid_points(cell_cv, h = h, mode = 'fd', 
-                                        realspace = True)
-        gd = GridDescriptor(N_c, cell_cv, pbc) 
-        r = gd.get_grid_point_coordinates()
-              
+
+        r = pd.gd.get_grid_point_coordinates()
         w_w = self.chi0.omega_w * Hartree
         if w_max:
-            w_w[np.where(w_w < w_max)]
+            w_w = w_w[np.where(w_w < w_max)]
         Nw = len(w_w)
-        print(Nw)
         nG =  e_wGG.shape[1]
              
         eig = np.zeros([Nw, nG], dtype = complex)
-        vec = np.zeros([Nw, nG, nG], dtype = complex)
-        vec_dual = np.zeros([Nw, nG, nG], dtype = complex)
-       
+        eig_all = np.zeros([Nw, nG], dtype = complex)
+      
         """find eigenvalues and eigenvectors"""
         e_GG = e_wGG[0]  
-        eig[0], vec[0] = np.linalg.eig(e_GG)
-        vec_dual[0] = np.linalg.inv(vec[0])
+        eig_all[0], vec = np.linalg.eig(e_GG)
+        eig[0] = eig_all[0]
+        vec_dual = np.linalg.inv(vec)
         omega0 = np.array([])
         eigen0 = np.array([], dtype = complex)
         v_ind = np.zeros([0, r.shape[1], r.shape[2], r.shape[3]], dtype = complex)
@@ -393,44 +385,107 @@ class DielectricFunction:
         from negative to positive values: """
         for i in np.array(range(1,Nw)): 
             e_GG = e_wGG[i]  # epsilon_GG'(omega + d-omega)
-            eig[i], vec[i] = np.linalg.eig(e_GG)       
-            vec_dual[i] = np.linalg.inv(vec[i])
-            for k in range(nG):
-                for m in range(nG):                   
-                    if eig[i-1,k] < 0 and 0 < eig[i,m]:
-                        """ check it's the same mode - 
-                        Overlap between eigenvectors should be large:""" 
-                        if abs(np.inner(vec[i-1,:,k], vec_dual[i,m,:])) > 0.95:
-                            a = np.real((eig[i,m]-eig[i-1,k]) / (w_w[i]-w_w[i-1]))
-                            w0 = np.real(-eig[i-1,k]) / a + w_w[i-1]
-                            eig0 = a*(w0-w_w[i-1])+eig[i-1,k]
-                            print('crossing found at w = %1.1f eV'%w0)
-                            omega0 = np.append(omega0, w0)
-                            eigen0 = np.append(eigen0, eig0)
-                            n_dummy = np.zeros([1, r.shape[1], r.shape[2],
-                                                r.shape[3]], dtype = complex)
-                            v_dummy = np.zeros([1, r.shape[1], r.shape[2],
-                                                r.shape[3]], dtype = complex)   
-                            
-                            for iG in range(nG):  # Fourier transform
-                                qG = np.ravel(pd.G_Qv[pd.Q_qG[0]][iG] + pd.K_qv) ### is this iG+q???
-                                coef_G = np.dot(qG, qG) / (4 * pi)
-                                qGr_R = np.inner(qG, r.T).T
-                                v_dummy += vec[i-1, iG, k] * np.exp(1j * qGr_R) 
-                                n_dummy += vec[i-1, iG, k] * np.exp(1j * qGr_R) * coef_G
-                            v_ind = np.append(v_ind, v_dummy, axis=0)
-                            n_ind = np.append(n_ind, n_dummy, axis=0)   
-                        
+            eig_all[i], vec_p = np.linalg.eig(e_GG)    
+            vec_dual_p = np.linalg.inv(vec_p)      
+            overlap = np.abs(np.dot(vec_dual,vec_p))
+            index = list(np.argsort(overlap)[:,-1])
+            if len(np.unique(index)) < nG: # add missing indices
+                addlist = []
+                removelist = []
+                for j in range(nG):
+                    if index.count(j) < 1:
+                        addlist.append(j)
+                    if index.count(j) > 1:
+                        for l in range(1,index.count(j)): 
+                            removelist.append(np.argwhere(np.array(index) == j)[l]) 
+                for j in range(len(addlist)):
+                    index[removelist[j]]=addlist[j]
+                # print('    Tracking fault at omega = %1.2f eV! Corrected %d index(es)' %(w_w[i],len(addlist)))
+            vec = vec_p[:,index]
+            vec_dual = vec_dual_p[index,:]            
+            eig[i] = eig_all[i,index] 
+            for k in [k for k in range(nG) if (eig[i-1,k] < 0 and eig[i,k] > 0)]:# Eigenvalue crossing
+                a = np.real((eig[i,k]-eig[i-1,k]) / (w_w[i]-w_w[i-1]))
+                w0 = np.real(-eig[i-1,k]) / a + w_w[i-1]  # linear interp for crossing point
+                eig0 = a*(w0-w_w[i-1])+eig[i-1,k]
+                print('crossing found at w = %1.2f eV'%w0)
+                omega0 = np.append(omega0, w0)
+                eigen0 = np.append(eigen0, eig0)
+                
+                #Fourier Transform
+                qG = pd.G_Qv[pd.Q_qG[0]] + pd.K_qv 
+                coef_G = np.diagonal(np.inner(qG, qG))/(4 * pi)
+                qGr_R = np.inner(qG, r.T).T
+                phase = np.exp(1j  * qGr_R)
+                v_ind = np.append(v_ind, 
+                                  np.dot(phase,vec[:,k])[np.newaxis,:],
+                                  axis = 0)
+                n_ind =  np.append(n_ind,
+                                   np.dot(phase,vec[:,k]* coef_G)[np.newaxis,:], 
+                                   axis = 0)
                                           
         if name is None and self.name:          
             name = self.name + '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * kd.N_c).round())          
         elif name:
             name = name + '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * kd.N_c).round())
         else:
-            return r*Bohr, w_w, eig, omega0, eigen0, v_ind, n_ind
+            return r*Bohr, w_w, eig_all, eig, omega0, eigen0, v_ind, n_ind
 
-        pickle.dump((r*Bohr, w_w, eig, omega0, eigen0, v_ind, n_ind), open(name, 'wb'), 
+        pickle.dump((r*Bohr, w_w, eig_all, eig, omega0, eigen0, v_ind, n_ind), open(name, 'wb'), 
                         pickle.HIGHEST_PROTOCOL)
-        """Returns: real space grid, frequency grid, all eigenvalues, zero-crossing 
+        """Returns: real space grid, frequency grid, all eigenvalues, sorted eigenvalues, zero-crossing 
         frequencies + eigenvalues, induced potential + density in real space"""
-        return r*Bohr, w_w, eig, omega0, eigen0, v_ind, n_ind    
+        return r*Bohr, w_w, eig_all, eig, omega0, eigen0, v_ind, n_ind    
+
+    def get_spatial_eels(self, q_c = [0, 0, 0], direction = 'z', 
+                            w_max = None, filename = 'eels'):
+        """
+        The spatially resolved, non-local, loss spectrum is calculated as the inverse fourier transform of
+        VChiV = (eps^{-1}-I)V:  EELS(w,r,r') = - Im [sum_{G,G'} e^{iGr} Vchi_{GG'}(w) V_G'e^{-iG'r'}]
+        Input parameters:
+            direction: 'x', 'y', or 'z'. Calculated along a single coordinate
+            w_max: maximum frequency  
+            filename: name of output
+        Returns : real space grid, frequency points, EELS_wr (local part), EELS_wrr' (total eels array)        
+        """
+
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        e_wGG = self.get_dielectric_matrix(xc = 'RPA', q_c = q_c,
+                                           wigner_seitz_truncation=True,
+                                           symmetric=False)
+      
+        w_w = self.chi0.omega_w * Hartree
+        if w_max:
+            w_w = w_w[np.where(w_w < w_max)]
+        Nw = len(w_w)
+        nG =  e_wGG.shape[1]
+        
+        qG = pd.G_Qv[pd.Q_qG[0]] + pd.K_qv
+        r = pd.gd.get_grid_point_coordinates()
+        ix = r.shape[1]/2
+        iy = r.shape[2]/2
+        iz = r.shape[3]/2
+
+        if direction == 'x' :
+            r = r[:,:,iy,iz]
+        if direction == 'y': 
+            r = r[:,ix,:,iz]
+        if direction == 'z': 
+            r = r[:,ix,iy,:]
+        
+	print(r.shape)
+        qGr = np.inner(qG,r.T).T
+        phase = np.exp(1j * qGr)
+        V_G = (4 * pi)/np.diagonal(np.inner(qG, qG))
+        phase2 = np.exp(-1j * qGr)*V_G 
+        E_wrr = np.zeros([Nw,r.shape[1],r.shape[1]])
+        E_wr = np.zeros([Nw,r.shape[1]])
+        for i in range(Nw):
+            Vchi_GG =  np.linalg.inv(e_wGG[i])-np.eye(nG) 
+            E_wrr[i] = -np.imag(np.dot(np.dot(phase, Vchi_GG),phase2.T)) #Fourier transform
+            E_wr[i] = np.diagonal(E_wrr[i])    
+        
+        pickle.dump((r*Bohr, w_w, E_wr, E_wrr), open('%s.pickle'%filename, 'wb'), 
+                    pickle.HIGHEST_PROTOCOL)
+                    
+        return r*Bohr, w_w, E_wr, E_wrr
