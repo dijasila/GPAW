@@ -24,10 +24,10 @@ Version 0.10.0
   ``Mixer(0.05, 5, 50)`` (or ``MixerSum(0.05, 5, 50)`` for spin-paired
   calculations.  Old parameters: ``0.1, 3, 50``.
   
-* Default is now ``occupations=FermiDirac(0.1)`` for
-  calculations with periodic boundaries
-  and ``FermiDirac(0.0)`` for molecules (before it was 0.1 eV for anything
-  with **k**-points).
+* Default is now ``occupations=FermiDirac(0.1)`` if a
+  calculation is periodic in at least one direction,
+  and ``FermiDirac(0.0)`` otherwise (before it was 0.1 eV for anything
+  with **k**-points, and 0 otherwise).
 
 * Calculations with a plane-wave basis set are now officially supported.
 
