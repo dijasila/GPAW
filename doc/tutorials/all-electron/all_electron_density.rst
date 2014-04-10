@@ -61,9 +61,9 @@ can be calculated with the script :svn:`~doc/tutorials/all-electron/NaCl.py`:
 The result for the integrated pseudo- and all-electron densities of
 the three systems is:
 
- .. csv-table::
-   :file: all_electron.csv
-   :header: formula,  ñ, n
+.. csv-table::
+  :file: all_electron.csv
+  :header: formula, ñ, n
 
 
 From which we see that the all-electron densities integrate to the
