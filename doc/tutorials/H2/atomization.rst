@@ -4,6 +4,12 @@
 Calculation of atomization energies
 ===================================
 
+**Warning**: mainstream DFT is unable to describe correctly the
+electronic states of isolated atoms (especially of transition metals).
+See http://dx.doi.org/10.1063/1.2723118 .
+This usually manifests itself as SCF convergence problems. Please consult
+literature before reporting such problems on the mailing lists.
+
 The following script will calculate the atomization
 energy of a hydrogen molecule:
 
@@ -11,8 +17,8 @@ energy of a hydrogen molecule:
 
 First, an ``Atoms`` object containing one hydrogen atom with a
 magnetic moment of one, is created.  Next, a GPAW calculator is
-created.  The calculator will do a calculation with one electronic
-band using the PBE exchange-correlation functional, and output from the
+created.  The calculator will do a calculation
+using the PBE exchange-correlation functional, and output from the
 calculation will be written to a file ``H.out``.  The calculator is
 hooked on to the ``atom`` object, and the energy is calculated (the
 ``e1`` variable).  Finally, the result of the calculation
