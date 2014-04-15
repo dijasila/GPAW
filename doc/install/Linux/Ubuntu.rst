@@ -14,12 +14,21 @@ following instructions are for Ubuntu 8.10 or newer.  Instructions for
 older versions can be found :ref:`further down the
 page <ubuntu_oldversions>`.
 
+**Warning** the versions of ScaLAPACK distributed by Ubuntu are old
+and known to cause problems in GPAW.
+See https://trac.fysik.dtu.dk/projects/gpaw/ticket/230 - use
+ScaLAPACK at your own risk!
 
 Required packages:
 
 * python-dev
 * python-numpy
+* openblas-dev
 * liblapack-dev
+* libxc-dev
+
+libxc-dev (Spring 2014) is available only on Debian jessie - for other
+Ubuntu/Debian versions install libxc manually.
 
 Recommended:
 
