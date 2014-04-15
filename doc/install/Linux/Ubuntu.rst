@@ -23,7 +23,7 @@ Required packages:
 
 * python-dev
 * python-numpy
-* openblas-dev
+* libopenblas-dev
 * liblapack-dev
 * libxc-dev
 
