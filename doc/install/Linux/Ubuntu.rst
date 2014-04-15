@@ -27,8 +27,12 @@ Required packages:
 * liblapack-dev
 * libxc-dev
 
-libxc-dev (Spring 2014) is available only on Debian jessie - for other
-Ubuntu/Debian versions install libxc manually.
+For Ubuntu/Debian versions where libxc is not available
+install libxc manually, or download the Ubuntu
+Trusty (14.04) deb packages and install with dpkg, e.g. for amd64::
+
+   wget http://launchpadlibrarian.net/161692443/libxc-dev_2.0.2-1ubuntu1_amd64.deb
+   wget http://launchpadlibrarian.net/161692471/libxc1_2.0.2-1ubuntu1_amd64.deb    sudo dpkg -i libxc*_amd64.deb
 
 Recommended:
 
