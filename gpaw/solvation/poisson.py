@@ -4,6 +4,7 @@ from gpaw.fd_operators import Laplace, Gradient
 from gpaw.wfd_operators import WeightedFDOperator
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities import erf
+import warnings
 import numpy as np
 
 
@@ -130,8 +131,26 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10):
+        polarization_warning = UserWarning(
+            (
+                'PolarizationPoissonSolver is not accurate enough'
+                ' and therefore not recommended for production code!'
+                )
+            )
+        warnings.warn(polarization_warning)
         SolvationPoissonSolver.__init__(self, nn, relax, eps)
         self.phi_tilde = None
+
+    def set_grid_descriptor(self, gd):
+        SolvationPoissonSolver.set_grid_descriptor(self, gd)
+        if self.relax_method == 1:
+            self.description = 'Polarization Gauss-Seidel'
+        else:
+            self.description = 'Polarization Jacobi'
+        self.description += ' solver with %d multi-grid levels' % (
+            self.levels + 1,
+            )
+        self.description += '\nStencil: ' + self.operators[0].description
 
     def solve(self, phi, rho, charge=None, eps=None,
               maxcharge=1e-6,
@@ -175,13 +194,21 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
     following Andreussi et al.
     The Journal of Chemical Physics 136, 064102 (2012)
 
-    XXX TODO : Correction for charged systems???
-               Check: Can the polarization charge introduce a monopole?
-
-               Optimize numerics
+    XXX TODO : * Correction for charged systems???
+               * Check: Can the polarization charge introduce a monopole?
+               * Convergence problems depending on eta, apparently this
+                 method works best with FFT as in the original Paper
+               * Optimize numerics
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, eta=.6):
+        adm12_warning = UserWarning(
+            (
+                'ADM12PoissonSolver is not tested thoroughly'
+                ' and therefore not recommended for production code!'
+                )
+            )
+        warnings.warn(adm12_warning)
         self.eta = eta
         SolvationPoissonSolver.__init__(self, nn, relax, eps)
 
@@ -190,6 +217,14 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
         self.gradx = Gradient(gd, 0, 1.0, self.nn)
         self.grady = Gradient(gd, 1, 1.0, self.nn)
         self.gradz = Gradient(gd, 2, 1.0, self.nn)
+        if self.relax_method == 1:
+            self.description = 'ADM12 Gauss-Seidel'
+        else:
+            self.description = 'ADM12 Jacobi'
+        self.description += ' solver with %d multi-grid levels' % (
+            self.levels + 1,
+            )
+        self.description += '\nStencil: ' + self.operators[0].description
 
     def initialize(self, load_gauss=False):
         self.rho_iter = self.gd.zeros()
