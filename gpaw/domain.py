@@ -7,6 +7,7 @@ This module contains the definition of the ``Domain`` class and some
 helper functins for parallel domain decomposition.  """
 
 import numpy as np
+from gpaw.mpi import rank
 
 UNIFORM = False# distribute grid points uniformly
                # XXX import this from gpaw.extra_parameters dict ?
@@ -105,7 +106,9 @@ class Domain:
 
     def get_rank_from_position(self, spos_c):
         """Calculate rank of domain containing scaled position."""
-        spos_c = np.asarray(spos_c) % 1
+        # np.asarray([-1.e-25]) % 1 == array([ 1.])
+        # np.asarray([-1.e-25]) % 1 % 1 == array([ 0.])
+        spos_c = np.asarray(spos_c) % 1 % 1
         # XXX just return self.get_ranks_from_positions(spos_c)
         rnk_c = np.floor(spos_c * self.parsize_c).astype(int)
         assert (rnk_c >= 0).all() and (rnk_c < self.parsize_c).all()
