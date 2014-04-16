@@ -7,7 +7,6 @@ This module contains the definition of the ``Domain`` class and some
 helper functins for parallel domain decomposition.  """
 
 import numpy as np
-from gpaw.mpi import rank
 
 UNIFORM = False# distribute grid points uniformly
                # XXX import this from gpaw.extra_parameters dict ?
