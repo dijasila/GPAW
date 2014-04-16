@@ -284,6 +284,7 @@ class Power12Potential(Potential):
         self.pos_aav = None
         self.del_u_del_r_vg = None
         self.atomic_radii_output = None
+        self.symbols = None
         self.grad_u_vg = None
 
     def estimate_memory(self, mem):
@@ -303,6 +304,7 @@ class Power12Potential(Potential):
         if atoms is None:
             return False
         self.atomic_radii_output = np.array(self.atomic_radii(atoms))
+        self.symbols = atoms.get_chemical_symbols()
         self.r12_a = (self.atomic_radii_output / Bohr) ** 12
         r_cutoff = (self.r12_a.max() * self.u0 / self.pbc_cutoff) ** (1. / 12.)
         self.pos_aav = get_pbc_positions(atoms, r_cutoff)
@@ -346,11 +348,14 @@ class Power12Potential(Potential):
         return self.del_u_del_r_vg
 
     def print_parameters(self, text):
-        if self.atomic_radii_output is None:
-            radiistr = 'not initialized (dry run)'
+        if self.symbols is None:
+            text('atomic_radii: not initialized (dry run)')
         else:
-            radiistr = str(self.atomic_radii_output)
-        text('atomic_radii: ' + radiistr)
+            text('atomic_radii:')
+            for a, (s, r) in enumerate(
+                zip(self.symbols, self.atomic_radii_output)
+                ):
+                text('%3d %-2s %10.5f' % (a, s, r))
         text('u0: %s' % (self.u0, ))
         text('pbc_cutoff: %s' % (self.pbc_cutoff, ))
         Potential.print_parameters(self, text)
@@ -492,6 +497,7 @@ class SSS09Density(Density):
         Density.__init__(self)
         self.atomic_radii = atomic_radii
         self.atomic_radii_output = None
+        self.symbols = None
         self.pbc_cutoff = float(pbc_cutoff)
         self.pos_aav = None
         self.r_vg = None
@@ -512,6 +518,7 @@ class SSS09Density(Density):
         if atoms is None:
             return False
         self.atomic_radii_output = np.array(self.atomic_radii(atoms))
+        self.symbols = atoms.get_chemical_symbols()
         r_a = self.atomic_radii_output / Bohr
         r_cutoff = r_a.max() - np.log(self.pbc_cutoff)
         self.pos_aav = get_pbc_positions(atoms, r_cutoff)
@@ -540,11 +547,14 @@ class SSS09Density(Density):
         return self.del_rho_del_r_vg
 
     def print_parameters(self, text):
-        if self.atomic_radii_output is None:
-            radiistr = 'not initialized (dry run)'
+        if self.symbols is None:
+            text('atomic_radii: not initialized (dry run)')
         else:
-            radiistr = str(self.atomic_radii_output)
-        text('atomic_radii: ' + radiistr)
+            text('atomic_radii:')
+            for a, (s, r) in enumerate(
+                zip(self.symbols, self.atomic_radii_output)
+                ):
+                text('%3d %-2s %10.5f' % (a, s, r))
         text('pbc_cutoff: %s' % (self.pbc_cutoff, ))
         Density.print_parameters(self, text)
 
