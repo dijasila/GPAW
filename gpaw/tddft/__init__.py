@@ -75,7 +75,7 @@ class TDDFT(GPAW):
     theory implementation and is the only class which a user has to use.
     """
     
-    def __init__(self, filename, td_potential=None, propagator='SICN',
+    def __init__(self, filename, td_potential=None, propagator='SICN', calculate_energy=False, 
                  propagator_kwargs=None, solver='CSCG', tolerance=1e-8, 
                  **kwargs):
         """Create TDDFT-object.
@@ -108,6 +108,8 @@ class TDDFT(GPAW):
 
         # Set initial value of iteration counter
         self.niter = 0
+
+        self.calculate_energy = calculate_energy
 
         # Override default `mixer` and `dtype` given in InputParameters
         kwargs.setdefault('mixer', DummyMixer())
@@ -409,7 +411,18 @@ class TDDFT(GPAW):
             self.dm_file.close()
             self.dm_file = None
 
-    def update_eigenvalues(self):
+    def get_td_energy(self):
+        """Calculate the time-dependent total energy"""
+
+        if not self.calculate_energy:
+            self.Etot = 0.0
+            return 0.0
+
+        self.td_overlap.update(self.wfs)
+        self.td_density.update()
+        self.td_hamiltonian.update(self.td_density.get_density(),
+                                   self.time)
+
         kpt_u = self.wfs.kpt_u
         if self.hpsit is None:
             self.hpsit = self.wfs.gd.zeros(len(kpt_u[0].psit_nG),
@@ -426,15 +439,6 @@ class TDDFT(GPAW):
                                    self.hpsit, len(kpt_u[0].psit_nG))
             self.eps_tmp *= self.wfs.gd.dv
             kpt.eps_n[:] = self.eps_tmp.real
-
-
-    def get_td_energy(self):
-        """Calculate the time-dependent total energy"""
-
-        self.td_overlap.update(self.wfs)
-        self.td_density.update()
-        self.td_hamiltonian.update(self.td_density.get_density(),
-                                   self.time)
 
         self.occupations.calculate_band_energy(self.wfs)
 
