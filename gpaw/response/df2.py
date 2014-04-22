@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import sys
 import pickle
@@ -16,14 +18,15 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
     def __init__(self, calc, name=None, frequencies=None,  domega0=0.1, 
-                 omegamax=20, alpha = 3.0, ecut=50, hilbert=False, nbands=None,
-                 eta=0.2, ftol=1e-6, world=mpi.world, txt=sys.stdout):
-            
+                 omegamax=None, alpha=3.0, ecut=50, hilbert=False, nbands=None,
+                 eta=0.2, ftol=1e-6, world=mpi.world, txt=sys.stdout,
+                 nthreads=1):
+
         self.chi0 = Chi0(calc, frequencies, domega0=domega0, 
                          omegamax=omegamax, alpha=alpha, ecut=ecut,
                          hilbert=hilbert,
                          nbands=nbands, eta=eta, ftol=ftol, world=world,
-                         txt=txt)
+                         txt=txt, nthreads=nthreads)
         
         self.name = name
 
@@ -33,18 +36,23 @@ class DielectricFunction:
             name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
             if os.path.isfile(name):
                 try:
-                    pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(open(name))
+                    omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(open(name))
+                    print('Reading from file ', name)
                 except EOFError:
                     pass
                 else:
                     return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c)
         self.chi0.timer.write(self.chi0.fd)
         
         if self.name and mpi.rank == 0:
             with open(name, 'wb') as fd:
-                pickle.dump((pd, chi0_wGG, chi0_wxvG, chi0_wvv), fd,
+                pickle.dump((self.chi0.omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv), fd,
                             pickle.HIGHEST_PROTOCOL)
+
+        mpi.world.barrier()
+        
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
 
@@ -53,7 +61,7 @@ class DielectricFunction:
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         G_G = pd.G2_qG[0]**0.5
         nG = len(G_G)
-
+        
         if pd.kd.gamma:
             G_G[0] = 1.0
             if isinstance(direction, str):
