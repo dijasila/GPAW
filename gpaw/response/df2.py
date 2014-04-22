@@ -51,8 +51,10 @@ class DielectricFunction:
                 pickle.dump((self.chi0.omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv), fd,
                             pickle.HIGHEST_PROTOCOL)
 
+        # Wait for rank 0 to save Chi
         mpi.world.barrier()
         
+        # Not returning frequencies will work for now
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
 
