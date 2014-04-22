@@ -36,7 +36,7 @@ class Chi0(PairDensity):
         PairDensity.__init__(self, calc, ecut, ftol,
                              real_space_derivatives, world, txt, timer,
                              nthreads=nthreads)
-
+        
         self.eta = eta / Hartree
         self.domega0 = domega0 / Hartree
         self.omegamax = None if omegamax is None else omegamax / Hartree
@@ -122,14 +122,14 @@ class Chi0(PairDensity):
 
         print('    Initializing PAW Corrections', file=self.fd)
         Q_aGii = self.initialize_paw_corrections(pd)
-        print('        Done.', file=self.fd)
+        print('        Done', file=self.fd)
 
         # Do all empty bands:
         m1 = self.nocc1
         m2 = self.nbands
         return self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
                                m1, m2, spins)
-
+    
     @timer('Calculate CHI_0')
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
                    m1, m2, spins):
@@ -150,7 +150,6 @@ class Chi0(PairDensity):
 
         q_c = pd.kd.bzk_kc[0]
         optical_limit = np.allclose(q_c, 0.0)
-
         print('\n    Starting summation', file=self.fd)
 
         # kpt1 occupied and kpt2 empty:
@@ -170,10 +169,15 @@ class Chi0(PairDensity):
             
             for n in range(kpt1.n2 - kpt1.n1):
                 eps1 = kpt1.eps_n[n]
+                
                 # Only update if there exists deps <= omegamax
-                m = [m for m, d in enumerate(eps1 - kpt2.eps_n) if abs(d)<=self.omegamax] 
+                if not self.omegamax is None:
+                    m = [m for m, d in enumerate(eps1 - kpt2.eps_n) if abs(d)<=self.omegamax] 
+                else:  # In case case of omegamax == None 
+                    m = [m for m, d in enumerate(eps1 - kpt2.eps_n) if abs(d)<=np.inf] 
                 if not len(m):
                     continue
+
                 deps_m = (eps1 - kpt2.eps_n)[m]
                 f1 = kpt1.f_n[n]
                 ut1cc_R = kpt1.ut_nR[n].conj()
@@ -198,23 +202,30 @@ class Chi0(PairDensity):
                 # the intraband contributions
                 if kpt1.n1 == 0:
                     self.update_intraband(kpt2, chi0_wvv)
-            
+                    
             if numberofkpts > 10 and kn % (numberofkpts // 10) == 0:
                 print('    %s,' % ctime() +
                       ' local Kpoint no: %d / %d,' % (kn, numberofkpts) +
                       '\n        mem. used.: ' +
                       '%f M / cpu' % (maxrss() / 1024**2),
                       file=self.fd)
-
-        print('    %s, Finished kpoint sum' % ctime(), file=self.fd)
+                
+        print('    %s, Finished kpoint sum' % ctime() +
+              '\n        mem. used.: ' +
+              '%f M / cpu' % (maxrss() / 1024**2), file=self.fd)
         
         with self.timer('Sum CHI_0'):
-            self.world.sum(chi0_wGG)
+            for chi0_GG, chi0_xvG in zip(chi0_wGG, chi0_wxvG):
+                self.world.sum(chi0_GG)
+                if optical_limit:
+                    self.world.sum(chi0_xvG)
+            
             if optical_limit:
-                self.world.sum(chi0_wxvG)
                 self.world.sum(chi0_wvv)
-                if self.hilbert:
-                    self.world.sum(self.chi0_vv)
+
+        print('    %s, Finished summation over ranks' % ctime() +
+              '\n        mem. used.: ' +
+              '%f M / cpu' % (maxrss() / 1024**2), file=self.fd)
 
         if self.eta == 0.0 or self.hilbert:
             # Fill in upper/lower triangle also:
@@ -371,7 +382,9 @@ class Chi0(PairDensity):
             for m in range(deg):
                 velm_v = vel_mv[m]
                 x_vv = (-self.prefactor * dfde_m[inds_m[m]] *
-                        np.outer(velm_v.conj(), velm_v))
+                         np.outer(velm_v.conj(), velm_v))
+                omega_w = self.omega_w
+                inds = (omega_w != 0.0)
 
                 if self.hilbert:
                     self.chi0_vv += x_vv
@@ -379,12 +392,16 @@ class Chi0(PairDensity):
                     for w, omega in enumerate(self.omega_w):
                         chi0_wvv[w] += x_vv / omega**2.0
 
+                if (~inds).any():
+                    chi0_wvv[~inds] = np.sign(x_vv).real * np.inf
+                
+
     def print_chi(self, pd):
         calc = self.calc
         gd = calc.wfs.gd
         
         ns = calc.wfs.nspins
-        nk = calc.wfs.kd.nbzkpts
+        nk = calc.wfs.kd.nibzkpts
         nb = self.nocc2
 
         if extra_parameters.get('df_dry_run'):
@@ -422,11 +439,10 @@ class Chi0(PairDensity):
         print('', file=self.fd)
         print('    Memory estimate:', file=self.fd)
         print('        chi0_wGG: %f M / cpu'
-              % (nw * pd.ngmax**2 * 32. / 1024**2), file=self.fd)
-        if np.allclose(q_c, 0.0):
-            print('        ut_sKnvR: %f M / cpu'
-                  % (nstat * 3 * gd.N_c[0] * gd.N_c[1]
-                     * gd.N_c[2] * 32. / 1024**2), file=self.fd)
+              % (nw * pd.ngmax**2 * 16. / 1024**2), file=self.fd)
+        print('        ut_sKvR: %f M / cpu' 
+              % (nstat * gd.N_c[0] * gd.N_c[1] * gd.N_c[2] * 16. / 1024**2),
+              file=self.fd)
         print('        Max mem sofar   : %f M / cpu'
               % (maxrss() / 1024**2), file=self.fd)
 
