@@ -21,15 +21,19 @@ from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
 from gpaw.xc.gllb.c_response import C_Response
 from gpaw.xc.gllb.c_xc import C_XC
 from gpaw.xc.gllb.nonlocalfunctional import NonLocalFunctional
+from numpy.random import rand
 
 class TimedLCAOTDDFT(LCAOTDDFT):
-    timer_class = ParallelTimer
+    pass
+    #timer_class = ParallelTimer
 
 class TimedTDDFT(TDDFT):
-    timer_class = ParallelTimer
+    pass
+    #timer_class = ParallelTimer
 
 class TimedLrTDDFT(LrTDDFT):
-    timer_class = ParallelTimer
+    pass
+    #timer_class = ParallelTimer
 
 
 def center_divisible(atoms, vacuum, h, n=4):
@@ -61,8 +65,12 @@ parser.add_option("-d", "--directory", action="store", default=None,
                   help="""Specify directory for output files""")
 parser.add_option("-n", "--name", action="store", default=None, 
                   help="""Prefix name for output files. Otherwise input name is used.""")
-parser.add_option("", "--collect_density", action="store_true", default=None,
-                  help="""Collect density""")
+parser.add_option("", "--collect_density", action="store", default=None,
+                  help="""Collect density.
+--collect density=full     collect full density
+--collect_density=10       collect bands 0-9 and 10-nbands separately.
+--collect_density=10,20,35 collect bands 0-9, 10-19, 20-34, 35-nbands separately.
+""")
 parser.add_option("", "--collect_split_density", action="store", default=None,
                   help="""Collect two densities, give orbital index which splits them""")
 parser.add_option("", "--collect_vresp", action="store_true", default=None,
@@ -115,17 +123,17 @@ class System:
         self.bandpar = None
         self.charge = 0
         self.collect_vresp = False
-        self.collect_density = False
-        self.collect_split_density = False
+        self.collect_density = None
+        #self.collect_split_density = False
  
-    def set_collect_split_density(self, split):
-        self.collect_split_density = split
+    #def set_collect_split_density(self, split):
+    #    self.collect_split_density = split
 
     def set_collect_vresp(self):
         self.collect_vresp = True
 
-    def set_collect_density(self):
-        self.collect_density = True
+    def set_collect_density(self, range_str):
+        self.collect_density = range_str
 
     def set_kick(self, kick):
         self.kick = kick
@@ -249,12 +257,12 @@ class System:
             scr = C_GLLBScr(self.xc,  1.0, 'GGA_X_PBE_SOL', width=None) # No width
             resp = C_Response(self.xc, 1.0, scr)
             xc = C_XC(self.xc, 1.0, 'GGA_C_PBE_SOL')
-            if self.hard:
-                self.xc.set_mix(0.2)
+            #if self.hard:
+            #    self.xc.set_mix(0.2)
 
         poissonsolver = PoissonSolver(eps=1e-20, remove_moment=self.remove_moment)
         calc = GPAW(mode=self.mode, maxiter=300, h=self.h, nbands=self.nbands, xc=self.xc, basis=basis, 
-                    parallel={'band':self.bandpar},
+                    parallel={'band':self.bandpar}, verbose=True, 
                     poissonsolver=poissonsolver, dtype=dtype, charge=self.charge, eigensolver=eigensolver, 
                     convergence=convergence, occupations=FermiDirac(0.05), mixer=mixer)
         atoms.set_calculator(calc)
@@ -263,10 +271,7 @@ class System:
             calc.attach(VRespCollector(self.get_full_name(), calc))
         if self.collect_density:
             from gpaw.lcaotddft.split import DensityCollector
-            calc.attach(DensityCollector(self.get_full_name(), calc))
-        #if self.collect_split_density:
-        #    from gpaw.lcaotddft.split import SplitDensityCollector
-        #    calc.attach(SplitDensityCollector(self.get_full_name(), calc, self.collect_split_density))
+            calc.attach(DensityCollector(self.get_full_name(), calc, self.collect_density))
 
         atoms.get_potential_energy()
         #if self.hard:
@@ -309,12 +314,9 @@ class System:
             if self.collect_vresp:
                 from gpaw.lcaotddft.split import VRespCollector
                 td_calc.attach(VRespCollector(self.get_full_name(), td_calc))
-            if self.collect_density:
+            if self.collect_density is not None:
                 from gpaw.lcaotddft.split import DensityCollector
-                td_calc.attach(DensityCollector(self.get_full_name(), td_calc))
-            if self.collect_split_density:
-                from gpaw.lcaotddft.split import SplitDensityCollector
-                td_calc.attach(SplitDensityCollector(self.get_full_name(), td_calc, self.collect_split_density))
+                td_calc.attach(DensityCollector(self.get_full_name(), td_calc, self.collect_density))
 
         else:
             td_calc = TimedTDDFT(self.get_gs_gpw_file(), parallel={'band': self.bandpar }, 
@@ -326,12 +328,9 @@ class System:
             if self.collect_vresp:
                 from gpaw.lcaotddft.split import VRespCollector
                 td_calc.attach(VRespCollector(self.get_full_name(), td_calc))
-            if self.collect_density:
+            if self.collect_density is not None:
                 from gpaw.lcaotddft.split import DensityCollector
-                td_calc.attach(DensityCollector(self.get_full_name(), td_calc))
-            if self.collect_split_density:
-                from gpaw.lcaotddft.split import SplitDensityCollector
-                td_calc.attach(SplitDensityCollector(self.get_full_name(), td_calc, self.collect_split_density))
+                td_calc.attach(DensityCollector(self.get_full_name(), td_calc, self.collect_density))
             
 
         td_calc.propagate(self.dt, int(1000 * self.T / self.dt), self.get_dipole_file())
@@ -351,12 +350,12 @@ def calculate(atoms, name=None):
     system.set_fxc(options.fxc)
     system.set_directory(options.directory)
     system.set_kick(map(eval, options.kick.split(',')))
+    system.set_collect_density(options.collect_density)
+
     if options.collect_split_density:
         system.set_collect_split_density(eval(options.collect_split_density))
     if options.collect_vresp:
         system.set_collect_vresp()
-    if options.collect_density:
-        system.set_collect_density()
     if options.charge:
         system.set_charge(eval(options.charge))
     if options.nodipole:
@@ -384,4 +383,5 @@ for system in args:
     name = options.name
     if name is None:
         name = system
-    calculate(read(system), name=name)
+    atoms = read(system)
+    calculate(atoms, name=name)

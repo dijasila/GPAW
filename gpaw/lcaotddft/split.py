@@ -8,6 +8,8 @@ from gpaw.mixer import Mixer
 from gpaw.analyse.observers import Observer 
 from math import sqrt, pi
 
+#TODO: Rename this file
+
 class VRespCollector(Observer):
     def __init__(self, filename, lcao):
         Observer.__init__(self)
@@ -23,35 +25,87 @@ class VRespCollector(Observer):
              x_sg.astype(np.float32).tofile(fname)
 
 class DensityCollector(Observer):
-    def __init__(self, filename, lcao):
+    def __init__(self, filename, lcao, ranges_str='full'):
         Observer.__init__(self)
         self.lcao = lcao
         self.filename = filename
-       
+        self.ranges = None
+        print "ranges-str", ranges_str
+        self.ranges_str = ranges_str
+
     def update(self):
-        self.lcao.timer.start('Dump density')
-        x_g = self.lcao.density.rhot_g
-        x_G = self.lcao.density.gd.zeros()
-        self.lcao.hamiltonian.restrict(x_g, x_G)
-        x_G = self.lcao.density.gd.collect(x_G, broadcast=False)
-        iter = self.niter
-        if world.rank==0:
-             fname = self.filename+"."+str(iter)+".density"
-             x_G.astype(np.float32).tofile(fname)
-        self.lcao.timer.stop('Dump density')
+        if self.ranges is None: # First time
+            self.ranges = []
+            self.nbands = self.lcao.wfs.bd.nbands
+            start = 0
+            if self.ranges_str != 'full':
+                for rng in self.ranges_str.split(','):
+                    print "rng", rng
+                    rng = eval(rng)
+                    self.ranges.append(range(start, rng))
+                    start += rng
+            self.ranges.append(range(start, self.nbands))
+            print self.ranges
+            self.ghat = LFC(self.lcao.wfs.gd, [setup.ghat_l for setup in self.lcao.density.setups],
+                            integral=sqrt(4 * pi), forces=False)
+            spos_ac = self.lcao.atoms.get_scaled_positions() % 1.0
+            self.ghat.set_positions(spos_ac)
+ 
+            # Clear files
+            for rid,rng in enumerate(self.ranges):
+                f = open(self.filename+'.'+str(rid)+'.density','w')
+                print >>f, "# Density file"
+                N_c = self.lcao.wfs.gd.N_c
+                print >>f, N_c[0], N_c[1], N_c[2]
+                print >>f, "# This header is 10 lines long, then single precision binary data starts."
+                for i in range(7):
+                     print >>f, "#"
+                f.close()
+            
+        #self.lcao.timer.start('Dump density')
+        for rid,rng in enumerate(self.ranges):
+            f_n = self.lcao.wfs.kpt_u[0].f_n.copy()
+            for n in range(self.lcao.wfs.bd.nbands):
+                band_rank, myn = self.lcao.wfs.bd.who_has(n)
+                if self.lcao.wfs.bd.rank == band_rank:
+                    if not n in rng:
+                        f_n[myn] = 0.0
 
+            n_sG = self.lcao.wfs.gd.zeros(1)
+            self.lcao.wfs.add_to_density_from_k_point_with_occupation(n_sG, 
+                          self.lcao.wfs.kpt_u[0], f_n)
+            D_asp={}
+            for a in self.lcao.density.D_asp:
+                ni = self.lcao.density.setups[a].ni
+                D_asp[a] = np.zeros((1, ni * (ni + 1) // 2))
+            self.lcao.wfs.calculate_atomic_density_matrices_with_occupation(D_asp, f_n)
+            Q_aL = {}
+            for a, D_sp in D_asp.items():
+                Q_aL[a] = np.dot(D_sp.sum(0),
+                                   self.lcao.density.setups[a].Delta_pL)
+            self.ghat.add(n_sG, Q_aL)
+            n_sg = self.lcao.wfs.gd.collect(n_sG, broadcast=False)
+            if world.rank == 0:
+                f = open(self.filename+'.'+str(rid)+'.density','a+')
+                n_sg.astype(np.float32).tofile(f)
+                f.close()
+                s = n_sG.shape
+                f = open(self.filename+'.info','w')
+                print >>f, s[0],s[1],s[2]
+                f.close()
 
-class SplitDensityCollector(Observer):
-    def __init__(self, filename, lcao, nsplit):
+#TODO: Remove
+class ObsoleteSplitDensityCollector(Observer):
+    def __init__(self, filename, lcao, splitstr):
         Observer.__init__(self)
         self.lcao = lcao
-        self.lcao.timer.start('Split density init')
+        #self.lcao.timer.start('Split density init')
         self.filename = filename
-        self.nsplit = nsplit
+
         # Density arrays, files, and occupation numbers
         self.n_xsg = []
-        #self.f_x = []
         self.f_xn = []
+
         #for i in range(2):
         #    if world.rank == 0:
         #        self.f_x.append(open(filename+'.'+str(i)+'.density','w'))
@@ -72,10 +126,6 @@ class SplitDensityCollector(Observer):
         self.f_xn.append(f2_n)
         #self.lcao.timer.start('Split density create LFC')
         #print "Creating lfc"
-        #self.ghat = LFC(self.lcao.wfs.gd, [setup.ghat_l for setup in self.lcao.density.setups],
-        #                integral=sqrt(4 * pi), forces=False)
-        #spos_ac = self.lcao.atoms.get_scaled_positions() % 1.0
-        #self.ghat.set_positions(spos_ac)
         #print "LFC created"
         self.lcao.timer.stop('Split density init')
 
@@ -91,7 +141,6 @@ class SplitDensityCollector(Observer):
         for i, (f_n, n_sg) in enumerate(zip(self.f_xn, self.n_xsg)):
             n_sg[:] = 0.0 # XXX n_sg just temporary here
             self.lcao.wfs.add_to_density_from_k_point_with_occupation(n_sg, kpt, f_n)
-
             D_asp={}
             for a in self.lcao.density.D_asp:
                 ni = self.lcao.density.setups[a].ni

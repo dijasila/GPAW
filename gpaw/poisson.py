@@ -138,7 +138,6 @@ class PoissonSolver:
             assert not self.gd.pbc_c.any()
             if not hasattr(self, 'gauss'):
                 self.gauss = Gaussian(self.gd)
-            print "Removing moments"
             rho_neutral = rho.copy()
             phi_cor_L = []
             for L in range(self.remove_moment):
