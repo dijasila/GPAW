@@ -9,7 +9,7 @@ from ase.data.molecules import molecule
 if len(argv) <6:
     print "Fourier transform collected density to cube file"
     print "Usage: gpaw-ft.py width geometry_file dipole_moment_file density_file omegas"
-    print "For example: gpaw-ft.py 0.1 ag55.traj ag55.dm ag55.density 2.2,3.0
+    print "For example: gpaw-ft.py 0.1 ag55.traj ag55.dm ag55.density 2.2,3.0"
     raise SystemExit
 
 dmfile = argv[3]
@@ -35,7 +35,7 @@ for c in range(3):
     if not pbc[c]:
         shape[c] -= 1
 
-for i in range(9):
+for i in range(8):
     f.readline()
 
 print shape
