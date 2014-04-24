@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+from gpaw.tddft.units import eV_to_aufrequency
+from sys import argv
+import numpy as np
+from math import sin, exp
+from ase.io import read,write
+from ase.data.molecules import molecule
+
+if len(argv) <6:
+    print "Fourier transform collected density to cube file"
+    print "Usage: gpaw-ft.py width geometry_file dipole_moment_file density_file omegas"
+    print "For example: gpaw-ft.py 0.1 ag55.traj ag55.dm ag55.density 2.2,3.0
+    raise SystemExit
+
+dmfile = argv[3]
+if not argv[2].startswith(':'):
+    atoms = read(argv[2])
+else:
+    atoms = molecule(argv[2][1:])
+    
+densityfile = argv[4]
+omegas = map(eval, argv[5].split(','))
+lines = open(dmfile).readlines()
+dt = eval(lines[4].split()[0]) - eval(lines[3].split()[0])
+print "Timestep (a.u.):", dt
+
+f = open(densityfile,'r')
+f.readline()
+shape = map(eval, f.readline().split())
+
+# Correct for zero boundary conditions (doesn't work for periodic)
+pbc = atoms.get_pbc()
+
+for c in range(3):
+    if not pbc[c]:
+        shape[c] -= 1
+
+for i in range(9):
+    f.readline()
+
+print shape
+N = shape[0]*shape[1]*shape[2]
+print shape
+d_wg = np.zeros((len(omegas),N))
+sigma = eval(argv[1]) * eV_to_aufrequency
+n0 = None
+total = len(lines[2:])
+for iter, line in enumerate(lines[2:-1]):
+    print str(iter)+'/'+str(total)
+    n = np.fromfile(f, dtype=np.float32, count=N)
+    if n0 is None:
+        n0 = n.copy()
+    for i, omega in enumerate(omegas):
+        coeff = sin(omega*dt*iter/27.21)*exp(-0.5*(dt*iter)**2 * sigma**2)
+        d_wg[i] += coeff * (n-n0)
+        print "  ", coeff
+
+for i, omega in enumerate(omegas):
+    write(densityfile+'.%.3f.cube' % omega,atoms, data=d_wg[i].reshape(shape))
+
+
