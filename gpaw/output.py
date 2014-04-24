@@ -180,12 +180,10 @@ class PAWTextOutput:
         t('Total Charge:      %.6f' % p['charge'])
         t('Fermi Temperature: %.6f' % (self.occupations.width * Hartree))
         self.wfs.summary(self.txt)
-        eigensolver = p['eigensolver']
-        if eigensolver is None:
-            if p.mode == 'lcao':
-                eigensolver = 'lcao (direct)'
-            else:
-                eigensolver = 'rmm-diis'
+        if p.mode == 'lcao':
+            eigensolver = 'lcao (direct)'
+        else:
+            eigensolver = self.wfs.eigensolver
         t('Eigensolver:       %s' % eigensolver)
 
         self.hamiltonian.summary(self.txt)

@@ -109,9 +109,9 @@ Statistics
 ==========
 
 The image below shows the development in the volume of the code as per
-January 17 2012.
+March 18 2014.
 
-.. image:: ../_static/stat.png
+.. image:: stat.png
 
 *Documentation* refers solely the contents of this homepage. Inline
 documentation is included in the other line counts.

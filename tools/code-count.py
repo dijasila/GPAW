@@ -87,7 +87,7 @@ if __name__ == '__main__':
         # Remove gui:
         os.system('rm -rf temp-gpaw/gpaw/gui')
 
-        if 0:  # revision 10429 - libxc merged
+        if 1:  # revision 10429 - libxc merged
             libxc = count('temp-gpaw/c/libxc', '\*.[ch]')
         else:
             libxc = 0

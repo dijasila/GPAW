@@ -41,6 +41,26 @@ def print_projectors(setup):
             print '%2s %s %s_%s' % (i, n, 'spdf'[l], angular[l][m])
             i += 1
 
+def number_of_projectors(setup):
+    """Returns the number of the bound state projectors.
+
+    If setup is a string, treat this as an element name.
+    """
+    if type(setup) is str:
+        setup = SetupData(setup, 'LDA', 'paw')
+        n_j = setup.n_j
+        l_j = setup.l_j
+    else:
+        n_j = setup.n_j
+        l_j = setup.l_j
+    
+    i = 0
+    for n, l in zip(n_j, l_j):
+        for m in range(2*l+1):
+            if n != -1:
+                i += 1
+    return i
+
 def get_angular_projectors(setup, angular, type='bound'):
     """Determine the projector indices which have specified angula
     quantum number.

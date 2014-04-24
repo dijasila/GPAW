@@ -22,6 +22,7 @@ N2 = molecule('N2')
 N2.set_cell((2.5, 2.5, 3.5))
 N2.center()
 calc = GPAW(mode='pw',
+            eigensolver='rmm-diis',
             dtype=complex,
             xc='LDA',
             nbands=16,
@@ -49,6 +50,7 @@ N = Atoms('N', [(0,0,0)])
 N.set_cell((2.5, 2.5, 3.5))
 N.center()
 calc = GPAW(mode='pw',
+            eigensolver='rmm-diis',
             dtype=complex,
             xc='LDA',
             basis='dzp',

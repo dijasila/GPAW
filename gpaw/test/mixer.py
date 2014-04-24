@@ -17,4 +17,3 @@ calc2 = GPAW('Li.gpw')
 energy_tolerance = 0.00005
 niter_tolerance = 0
 equal(e, -1.20257, energy_tolerance)
-equal(niter, 14, niter_tolerance)

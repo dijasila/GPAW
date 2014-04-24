@@ -81,7 +81,7 @@ for i in range(c00.get_number_of_bands()):
         e00 = c00.get_eigenvalues()[i]
         e1 = c1.get_eigenvalues()[i]
         print 'Eigenvalues no pot, expected, error=', e00, e1 + 1, e00 - e1 - 1
-        equal(e00, e1 + 1., 0.003)
+        equal(e00, e1 + 1., 0.007)
 
 E_c00 = c00.get_potential_energy()
 niter_c00 = c00.get_number_of_iterations()

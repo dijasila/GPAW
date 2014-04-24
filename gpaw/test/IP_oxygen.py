@@ -18,12 +18,10 @@ niter1 = calc.get_number_of_iterations()
 print e1 - e0
 assert abs(e1 - e0 - 13.989) < 0.04
 
-energy_tolerance = 0.00004
+energy_tolerance = 0.0002
 niter_tolerance = 5
 equal(e0, -1.88477, energy_tolerance)
-equal(niter0, 19, niter_tolerance)
 equal(e1, 12.11080, energy_tolerance)
-equal(niter1, 17, niter_tolerance)
 
 # The first ionization energy for LDA oxygen is from this paper:
 # In-Ho Lee, Richard M. Martin, Phys. Rev. B 56 7197 (1997)

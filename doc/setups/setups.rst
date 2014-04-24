@@ -6,7 +6,7 @@ Atomic PAW Setups
 
 A setup is to the PAW method what a pseudo-potential is to the
 pseudo-potential method.  All available setups are contained in this
-tar-file: gpaw-setups-0.9.9672.tar.gz_.  There are setups for the LDA,
+tar-file: gpaw-setups-0.9.11271.tar.gz_.  There are setups for the LDA,
 PBE, revPBE, RPBE and GLLBSC functionals.  Install them as described
 in the :ref:`installationguide_setup_files`.  The setups are stored as
 compressed :ref:`pawxml` files.
@@ -14,14 +14,18 @@ compressed :ref:`pawxml` files.
 Setup releases
 ==============
 
-===========  =======  ========  ============================
+===========  =======  ========  =============================
 Date         Version  Revision  Tarfile                
-===========  =======  ========  ============================
+===========  =======  ========  =============================
+Mar 27 2014  0.9      11271     gpaw-setups-0.9.11271.tar.gz_
 Oct 26 2012  0.9      9672      gpaw-setups-0.9.9672.tar.gz_
 Apr 13 2011  0.8      7929      gpaw-setups-0.8.7929.tar.gz_
 Apr 19 2010  0.6      6300      gpaw-setups-0.6.6300.tar.gz_
 Jul 22 2009  0.5      3574      gpaw-setups-0.5.3574.tar.gz_
-===========  =======  ========  ============================
+===========  =======  ========  =============================
+
+.. _gpaw-setups-0.9.11271.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.11271.tar.gz
 
 .. _gpaw-setups-0.9.9672.tar.gz:
     https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.9672.tar.gz
