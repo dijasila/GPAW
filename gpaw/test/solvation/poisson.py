@@ -10,6 +10,7 @@ from gpaw.test import equal
 from gpaw.utilities import erf
 from ase.parallel import parprint
 import numpy as np
+import warnings
 
 nn = 3
 accuracy = 2e-10
@@ -44,7 +45,10 @@ def solve(ps, eps, rho):
     dielectric.allocate()
     dielectric.eps_gradeps[0][...] = eps
     dielectric.update(None)
-    solver = ps(nn=nn, relax='J', eps=accuracy)
+    with warnings.catch_warnings():
+        # ignore production code warning for alternative psolvers
+        warnings.simplefilter("ignore")
+        solver = ps(nn=nn, relax='J', eps=accuracy)
     solver.set_dielectric(dielectric)
     solver.set_grid_descriptor(gd)
     solver.initialize()

@@ -21,6 +21,7 @@ from gpaw.solvation import (
     ElDensity
 )
 from gpaw.solvation.poisson import ADM12PoissonSolver
+import warnings
 
 SKIP_VAC_CALC = True
 
@@ -43,8 +44,13 @@ if not SKIP_VAC_CALC:
 else:
     Evac = -14.8628983897  # h = 0.24, vac = 4.0
 
+with warnings.catch_warnings():
+    # ignore production code warning for ADM12PoissonSolver
+    warnings.simplefilter("ignore")
+    psolver = ADM12PoissonSolver()
+
 atoms.calc = SolvationGPAW(
-    xc='PBE', h=h, poissonsolver=ADM12PoissonSolver(),
+    xc='PBE', h=h, poissonsolver=psolver,
     cavity=ADM12SmoothStepCavity(
         rhomin=rhomin, rhomax=rhomax, epsinf=epsinf,
         density=ElDensity(),

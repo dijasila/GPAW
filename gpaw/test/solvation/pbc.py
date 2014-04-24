@@ -8,6 +8,7 @@ from gpaw.solvation import (
     LinearDielectric
 )
 from gpaw.solvation.poisson import ADM12PoissonSolver
+import warnings
 
 h = 0.3
 vac = 3.0
@@ -21,6 +22,12 @@ atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
 atoms = Cluster(molecule('H2O'))
 atoms.minimal_box(vac, h)
 atoms.pbc = True
+
+with warnings.catch_warnings():
+    # ignore production code warning for ADM12PoissonSolver
+    warnings.simplefilter("ignore")
+    psolver = ADM12PoissonSolver(eps=1e-7)
+
 atoms.calc = SolvationGPAW(
     xc='LDA', h=h,
     cavity=EffectivePotentialCavity(
@@ -28,7 +35,7 @@ atoms.calc = SolvationGPAW(
         temperature=T
         ),
     dielectric=LinearDielectric(epsinf=epsinf),
-    poissonsolver=ADM12PoissonSolver(eps=1e-7)
+    poissonsolver=psolver
     )
 atoms.get_potential_energy()
 atoms.get_forces()
