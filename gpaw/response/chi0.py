@@ -215,12 +215,11 @@ class Chi0(PairDensity):
               '%f M / cpu' % (maxrss() / 1024**2), file=self.fd)
         
         with self.timer('Sum CHI_0'):
-            for chi0_GG, chi0_xvG in zip(chi0_wGG, chi0_wxvG):
+            for chi0_GG in chi0_wGG:
                 self.world.sum(chi0_GG)
-                if optical_limit:
-                    self.world.sum(chi0_xvG)
             
             if optical_limit:
+                self.world.sum(chi0_wxvG)
                 self.world.sum(chi0_wvv)
 
         print('    %s, Finished summation over ranks' % ctime() +
