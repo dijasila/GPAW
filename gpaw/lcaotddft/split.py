@@ -43,7 +43,7 @@ class DensityCollector(Observer):
                     print "rng", rng
                     rng = eval(rng)
                     self.ranges.append(range(start, rng))
-                    start += rng
+                    start = rng
             self.ranges.append(range(start, self.nbands))
             print self.ranges
             self.ghat = LFC(self.lcao.wfs.gd, [setup.ghat_l for setup in self.lcao.density.setups],
@@ -74,6 +74,9 @@ class DensityCollector(Observer):
             n_sG = self.lcao.wfs.gd.zeros(1)
             self.lcao.wfs.add_to_density_from_k_point_with_occupation(n_sG, 
                           self.lcao.wfs.kpt_u[0], f_n)
+
+            self.lcao.wfs.kptband_comm.sum(n_sG)
+
             D_asp={}
             for a in self.lcao.density.D_asp:
                 ni = self.lcao.density.setups[a].ni
@@ -89,7 +92,7 @@ class DensityCollector(Observer):
                 f = open(self.filename+'.'+str(rid)+'.density','a+')
                 n_sg.astype(np.float32).tofile(f)
                 f.close()
-                s = n_sG.shape
+                s = n_sg.shape
                 f = open(self.filename+'.info','w')
                 print >>f, s[0],s[1],s[2]
                 f.close()
