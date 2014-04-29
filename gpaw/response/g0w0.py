@@ -238,7 +238,7 @@ class G0W0(PairDensity):
             return W_swGG
         
         with self.timer('Read W'):
-            W_wGG = [np.load(fd) for o in self.omega_w]
+            W_wGG = np.load(fd)
         with self.timer('Symmetry transform of W'):
             for W_GG in W_wGG:
                 T(W_GG)
@@ -403,6 +403,7 @@ class G0W0(PairDensity):
             np.save(fd, pd.Q_qG[0])
 
             if self.ppa:
+                self.timer.start('PPA')
                 einv_wGG = []
                 for chi0_GG in chi0_wGG:
                     e_GG = (delta_GG -
@@ -421,9 +422,12 @@ class G0W0(PairDensity):
                     W_GG[1:, 0] *= G0inv
                     W_GG[0, 1:] *= G0inv
 
-                np.save(fd, W_GG)
-                np.save(fd, omegat_GG)
+                with self.timer('Write W'):
+                    np.save(fd, W_GG)
+                    np.save(fd, omegat_GG)
+                self.timer.stop('PPA')
             else:
+                self.timer.start('Dyson eq.')
                 for chi0_GG in chi0_wGG:
                     e_GG = (delta_GG -
                             4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis])
@@ -441,10 +445,13 @@ class G0W0(PairDensity):
                     with self.timer('Hilbert transform'):
                         htp(Wp_wGG)
                         htm(Wm_wGG)
-                    for W_wGG in [Wp_wGG, Wm_wGG]:
-                        np.save(fd, W_wGG)
+                    with self.timer('Write W'):
+                        for W_wGG in [Wp_wGG, Wm_wGG]:
+                            np.save(fd, W_wGG)
                 else:
-                    np.save(fd, chi0_wGG)
+                    with self.timer('Write W'):
+                        np.save(fd, chi0_wGG)
+                self.timer.stop('Dyson eq.')
                             
             fd.close()
 
