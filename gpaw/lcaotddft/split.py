@@ -57,7 +57,7 @@ class DensityCollector(Observer):
                 print >>f, "# Density file"
                 N_c = self.lcao.wfs.gd.N_c
                 print >>f, N_c[0], N_c[1], N_c[2]
-                print >>f, "# This header is 10 lines long, then single precision binary data starts."
+                print >>f, "# This header is 10 lines long, then double precision binary data starts."
                 for i in range(7):
                      print >>f, "#"
                 f.close()
@@ -70,7 +70,6 @@ class DensityCollector(Observer):
                 if self.lcao.wfs.bd.rank == band_rank:
                     if not n in rng:
                         f_n[myn] = 0.0
-
             n_sG = self.lcao.wfs.gd.zeros(1)
             self.lcao.wfs.add_to_density_from_k_point_with_occupation(n_sG, 
                           self.lcao.wfs.kpt_u[0], f_n)
@@ -90,7 +89,9 @@ class DensityCollector(Observer):
             n_sg = self.lcao.wfs.gd.collect(n_sG, broadcast=False)
             if world.rank == 0:
                 f = open(self.filename+'.'+str(rid)+'.density','a+')
-                n_sg.astype(np.float32).tofile(f)
+                #n_sg.astype(np.float32).tofile(f)
+                #print "max", np.max(n_sg), np.min(n_sg)
+                n_sg.tofile(f)
                 f.close()
                 s = n_sg.shape
                 f = open(self.filename+'.info','w')
