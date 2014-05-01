@@ -64,15 +64,16 @@ class DensityCollector(Observer):
             
         #self.lcao.timer.start('Dump density')
         for rid,rng in enumerate(self.ranges):
-            f_n = self.lcao.wfs.kpt_u[0].f_n.copy()
+            assert len(self.lcao.wfs.kpt_u) == 1
+            f_un = [ self.lcao.wfs.kpt_u[0].f_n.copy() ]
             for n in range(self.lcao.wfs.bd.nbands):
                 band_rank, myn = self.lcao.wfs.bd.who_has(n)
                 if self.lcao.wfs.bd.rank == band_rank:
                     if not n in rng:
-                        f_n[myn] = 0.0
+                        f_un[0][myn] = 0.0
             n_sG = self.lcao.wfs.gd.zeros(1)
             self.lcao.wfs.add_to_density_from_k_point_with_occupation(n_sG, 
-                          self.lcao.wfs.kpt_u[0], f_n)
+                          self.lcao.wfs.kpt_u[0], f_un[0])
 
             self.lcao.wfs.kptband_comm.sum(n_sG)
 
@@ -80,7 +81,7 @@ class DensityCollector(Observer):
             for a in self.lcao.density.D_asp:
                 ni = self.lcao.density.setups[a].ni
                 D_asp[a] = np.zeros((1, ni * (ni + 1) // 2))
-            self.lcao.wfs.calculate_atomic_density_matrices_with_occupation(D_asp, f_n)
+            self.lcao.wfs.calculate_atomic_density_matrices_with_occupation(D_asp, f_un)
             Q_aL = {}
             for a, D_sp in D_asp.items():
                 Q_aL[a] = np.dot(D_sp.sum(0),

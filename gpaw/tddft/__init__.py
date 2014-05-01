@@ -619,6 +619,8 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
                 print '.',
                 sys.stdout.flush()
                 
+        print "Sinc contamination", np.exp(-t[-1]**2*sigma**2/2.0)
+
         print ''
         f_file.close()
         

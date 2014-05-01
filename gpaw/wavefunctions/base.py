@@ -157,6 +157,9 @@ class WaveFunctions(EmptyWaveFunctions):
     def calculate_atomic_density_matrices_with_occupation(self, D_asp, f_un):
         """Calculate atomic density matrices from projections with
         custom occupation f_un."""
+
+        # Parameter check (if user accidentally passes f_n instead of f_un)
+        assert isinstance(f_un[0], np.ndarray) 
         # Varying f_n used in calculation of response part of GLLB-potential
         for a, D_sp in D_asp.items():
             ni = self.setups[a].ni
