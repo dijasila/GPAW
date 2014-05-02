@@ -230,7 +230,7 @@ def get_system_config(define_macros, undef_macros,
         extra_compile_args += ['-Wall', '-std=c99']
 
         atlas = False
-        for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64/atlas']:
+        for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
             if glob(join(dir, 'libatlas.so')) != []:
                 atlas = True
                 libdir = dir        
