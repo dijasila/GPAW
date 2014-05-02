@@ -25,19 +25,21 @@ encountering convergence problems:
        
        from gpaw import Mixer, MixerSum, MixerDif
 
+   For some systems (for example transition metal atoms) it is helpful to
+   reduce the number of history steps in the mixer to ``1`` (instead of ``5``).
+
 3) Solve the eigenvalue problem more accurately at each scf-step.
 
    Import the Davidson eigensolver::
        
-       from gpaw.eigensolvers.davidson import Davidson
+       from gpaw.eigensolvers import davidson
        
-   and use three iterations per scf-step instead of the default of
-   only one ``eigensolver=Davidson(3)``.
+   and increase the number iterations per scf-step ``eigensolver=Davidson(3)``.
         
    If you need to parallelize over bands (see :ref:`manual_parallel`)
-   try the RMM-DIIS eigensolver ``eigensolver=RMM_DIIS(6)``. Import it with::
+   try the RMM-DIIS eigensolver ``eigensolver=RMM_DIIS(5)``. Import it with::
 
-       from gpaw.eigensolvers.rmm_diis_new import RMM_DIIS_new as RMM_DIIS
+       from gpaw.eigensolvers import RMM_DIIS
 
 4) Use a smoother distribution function for the occupation numbers.
 
@@ -51,8 +53,7 @@ encountering convergence problems:
 
    If you are specifying the :ref:`number of bands <manual_nbands>`
    manually, try to increase the number of empty states. You might also
-   let GPAW choose the default number, which is in general large
-   enough.
+   let GPAW choose the default number, which is in general large enough.
   
 6) Use enough k-points.
 
