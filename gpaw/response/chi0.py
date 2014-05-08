@@ -173,8 +173,7 @@ class Chi0(PairDensity):
                 # Only update if there exists deps <= omegamax
                 if not self.omegamax is None:
                     m = [m for m, d in enumerate(eps1 - kpt2.eps_n) if abs(d)<=self.omegamax] 
-                else:  # In case case of omegamax == None 
-                    m = [m for m, d in enumerate(eps1 - kpt2.eps_n) if abs(d)<=np.inf] 
+
                 if not len(m):
                     continue
 
@@ -193,7 +192,7 @@ class Chi0(PairDensity):
                     
                 if optical_limit:
                     self.update_optical_limit(
-                        n, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG, chi0_wvv)
+                        n, m, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG, chi0_wvv)
 
                 update(n_mG, deps_m, df_m, chi0_wGG)
 
@@ -221,6 +220,7 @@ class Chi0(PairDensity):
             if optical_limit:
                 self.world.sum(chi0_wxvG)
                 self.world.sum(chi0_wvv)
+                self.world.sum(self.chi0_vv)
 
         print('    %s, Finished summation over ranks' % ctime() +
               '\n        mem. used.: ' +
@@ -246,11 +246,11 @@ class Chi0(PairDensity):
                 if optical_limit:
                     ht(chi0_wvv)
                     ht(chi0_wxvG)
-                    if self.intraband:
-                        for w, omega in enumerate(self.omega_w):
-                            chi0_wvv[w] += self.chi0_vv / omega**2.0
-                
             print('Hilbert transform done', file=self.fd)
+        
+        if self.intraband:  # Add intraband contribution
+            for w, omega in enumerate(self.omega_w):
+                chi0_wvv[w] += self.chi0_vv / omega**2.0
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
@@ -298,9 +298,9 @@ class Chi0(PairDensity):
             #assert w_m[n[t]:n[t + 1]].max() < w_m[n[t + 1]:n[t + 2]].min()
 
     @timer('CHI_0 optical limit update')
-    def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG,
+    def update_optical_limit(self, n, m, kpt1, kpt2, deps_m, df_m, n_mG,
                              chi0_wxvG, chi0_wvv):
-        n0_mv = PairDensity.update_optical_limit(self, n, kpt1, kpt2,
+        n0_mv = PairDensity.update_optical_limit(self, n, m, kpt1, kpt2,
                                                  deps_m, df_m, n_mG)
 
         if self.hilbert:
@@ -383,18 +383,9 @@ class Chi0(PairDensity):
                 x_vv = (-self.prefactor * dfde_m[inds_m[m]] *
                          np.outer(velm_v.conj(), velm_v))
                 omega_w = self.omega_w
-                inds = (omega_w != 0.0)
 
-                if self.hilbert:
-                    self.chi0_vv += x_vv
-                else:
-                    for w, omega in enumerate(self.omega_w):
-                        chi0_wvv[w] += x_vv / omega**2.0
-
-                if (~inds).any():
-                    chi0_wvv[~inds] = np.sign(x_vv).real * np.inf
+            self.chi0_vv += x_vv
                 
-
     def print_chi(self, pd):
         calc = self.calc
         gd = calc.wfs.gd

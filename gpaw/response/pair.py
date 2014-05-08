@@ -14,7 +14,6 @@ from gpaw.wavefunctions.pw import PWLFC
 from gpaw.utilities.timing import timer, Timer
 from gpaw.response.math_func import two_phi_planewave_integrals
 
-
 class KPoint:
     def __init__(self, s, K, n1, n2, ut_nR, eps_n, f_n, P_ani, shift_c):
         self.s = s    # spin index
@@ -44,21 +43,23 @@ class PairDensity:
         self.world = world
         self.nthreads = nthreads
         
+        if world.rank != 0:
+            txt = devnull
+        elif isinstance(txt, str):
+            txt = open(txt, 'w')
+        self.fd = txt
+
         self.timer = timer or Timer()
         
         if isinstance(calc, str):
+            print('Reading ground state calculation:\n  %s' % calc, 
+                  file=self.fd)
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         else:
             assert calc.wfs.world.size == 1
             
         self.calc = calc
 
-        if world.rank != 0:
-            txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w')
-        self.fd = txt
-        
         self.spos_ac = calc.atoms.get_scaled_positions()
         
         self.nocc1 = None  # number of completely filled bands
@@ -293,7 +294,7 @@ class PairDensity:
         return Q_aGii
 
     @timer('Optical limit')
-    def update_optical_limit(self, n, kpt1, kpt2, deps_m, df_m, n_mG):
+    def update_optical_limit(self, n, m, kpt1, kpt2, deps_m, df_m, n_mG):
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
 
@@ -307,11 +308,12 @@ class PairDensity:
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
         
-        n0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
-        nt_m = self.calc.wfs.gd.integrate(kpt1.ut_nR[n], kpt2.ut_nR)
+        n0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR[m]).T
+        nt_m = self.calc.wfs.gd.integrate(kpt1.ut_nR[n], kpt2.ut_nR[m])
         n0_mv += 1j * nt_m[:, np.newaxis] * k_v[np.newaxis, :]
 
         for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
+            P_mi = P_mi[m].copy()
             gemm(1.0, C_vi, P_mi, 1.0, n0_mv, 'c')
 
         deps_m = deps_m.copy()
@@ -322,21 +324,25 @@ class PairDensity:
         return n0_mv
 
     @timer('Intraband')
-    def update_intraband(self, inds_m, kpt):
+    def update_intraband(self, ind_m, kpt):
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
         k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
         atomdata_a = self.calc.wfs.setups
-        
-        ut_mvR = self.make_derivative(kpt.s, kpt.K, kpt.n1, kpt.n2)[inds_m]
-        npartocc = len(inds_m)
-        ut_mR = kpt.ut_nR[inds_m]
+
+        ut_mvR = self.calc.wfs.gd.zeros((len(ind_m), 3), complex)
+        for ind, ut_vR in zip(ind_m, ut_mvR):
+            ut_vR[:] = self.make_derivative(kpt.s, kpt.K, 
+                                            kpt.n1 + ind, 
+                                            kpt.n1 + ind + 1)[0]
+        npartocc = len(ind_m)
+        ut_mR = kpt.ut_nR[ind_m]
 
         nabla0_mmv = np.zeros((npartocc, npartocc, 3), dtype=complex)
         for m in range(npartocc):
             ut_vR = ut_mvR[m]
-            C_avi = [np.dot(atomdata.nabla_iiv.T, P_mi[inds_m[m]])
+            C_avi = [np.dot(atomdata.nabla_iiv.T, P_mi[ind_m[m]])
                      for atomdata, P_mi in zip(atomdata_a, kpt.P_ani)]
 
             nabla0_mv = -self.calc.wfs.gd.integrate(ut_vR, ut_mR).T
@@ -344,7 +350,7 @@ class PairDensity:
             nabla0_mv += 1j * nt_m[:, np.newaxis] * k_v[np.newaxis, :]
 
             for C_vi, P_mi in zip(C_avi, kpt.P_ani):
-                gemm(1.0, C_vi, P_mi[inds_m[0:npartocc]], 1.0, nabla0_mv, 'c')
+                gemm(1.0, C_vi, P_mi[ind_m[0:npartocc]], 1.0, nabla0_mv, 'c')
             
             nabla0_mmv[m] = nabla0_mv
 
