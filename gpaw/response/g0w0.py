@@ -199,7 +199,7 @@ class G0W0(PairDensity):
         G_G = G_N[N0_G]
         assert (G_G >= 0).all()
 
-        W = self.read_screened_potential(fd, G_G)
+        W = self.read_screened_potential(fd, G_G, sign)
         fd.close()
 
         Q_aGii = self.initialize_paw_corrections(pd)
@@ -207,7 +207,7 @@ class G0W0(PairDensity):
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
             C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
-                     for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+                      for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                  pd, N0_G)
             f_m = kpt2.f_n
@@ -216,9 +216,11 @@ class G0W0(PairDensity):
             self.sigma_sin[kpt1.s, i, n] += sigma
             self.dsigma_sin[kpt1.s, i, n] += dsigma
             
-    def read_screened_potential(self, fd, G_G):
+    def read_screened_potential(self, fd, G_G, sign):
         def T(W_GG):
             W_GG[:] = W_GG.take(G_G, 0).take(G_G, 1)
+            if sign == -1:
+                W_GG[:] = W_GG.copy().T
             return W_GG
             
         if self.ppa:
