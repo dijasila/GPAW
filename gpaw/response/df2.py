@@ -447,55 +447,62 @@ class DielectricFunction:
         frequencies + eigenvalues, induced potential + density in real space"""
         return r*Bohr, w_w, eig_all, eig, omega0, eigen0, v_ind, n_ind    
 
-    def get_spatial_eels(self, q_c = [0, 0, 0], direction = 'z', 
+   def get_spatial_eels(self, q_c = [0, 0, 0], direction = 'x', 
                             w_max = None, filename = 'eels'):
         """
-        The spatially resolved, non-local, loss spectrum is calculated as the inverse fourier transform of
-        VChiV = (eps^{-1}-I)V:  EELS(w,r,r') = - Im [sum_{G,G'} e^{iGr} Vchi_{GG'}(w) V_G'e^{-iG'r'}]
+        The spatially resolved loss spectrum is calculated as the inverse fourier
+        transform of VChiV = (eps^{-1}-I)V:  
+        EELS(w,r) = - Im [sum_{G,G'} e^{iGr} Vchi_{GG'}(w) V_G'e^{-iG'r}] \delta(w-G\dot v_e )
         Input parameters:
-            direction: 'x', 'y', or 'z'. Calculated along a single coordinate
+            direction: 'x', 'y', or 'z'. The direction for scanning acroos the structure (perpendicular to the electron beam) 
             w_max: maximum frequency  
             filename: name of output
-        Returns : real space grid, frequency points, EELS_wr (local part), EELS_wrr' (total eels array)        
+        Returns : real space grid, frequency points, EELS(w,r)   
         """
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         e_wGG = self.get_dielectric_matrix(xc = 'RPA', q_c = q_c,
                                            wigner_seitz_truncation=True,
                                            symmetric=False)
-      
-        w_w = self.chi0.omega_w * Hartree
-        if w_max:
-            w_w = w_w[np.where(w_w < w_max)]
-        Nw = len(w_w)
-        nG =  e_wGG.shape[1]
         
-        qG = pd.G_Qv[pd.Q_qG[0]] + pd.K_qv
         r = pd.gd.get_grid_point_coordinates()
         ix = r.shape[1]/2
         iy = r.shape[2]/2
         iz = r.shape[3]/2
-
         if direction == 'x' :
             r = r[:,:,iy,iz]
+            perpdir = [1,2]
         if direction == 'y': 
             r = r[:,ix,:,iz]
+            perpdir = [0,2]
         if direction == 'z': 
             r = r[:,ix,iy,:]
-        
-	print(r.shape)
+            perpdir = [0,1]
+
+        nG =  e_wGG.shape[1]
+        Gvec = pd.G_Qv[pd.Q_qG[0]]
+        Glist = []
+        # Only use G-vectors that are zero along electron beam due to \delta(w-G\dot v_e )
+        for iG in range(nG):
+            if Gvec[iG, perpdir[0]] == 0 and Gvec[iG, perpdir[1]] == 0:
+                Glist.append(iG)
+        qG = Gvec[Glist] + pd.K_qv
+        w_w = self.chi0.omega_w * Hartree
+        if w_max:
+            w_w = w_w[np.where(w_w < w_max)]
+        Nw = len(w_w)
         qGr = np.inner(qG,r.T).T
         phase = np.exp(1j * qGr)
+        
         V_G = (4 * pi)/np.diagonal(np.inner(qG, qG))
         phase2 = np.exp(-1j * qGr)*V_G 
         E_wrr = np.zeros([Nw,r.shape[1],r.shape[1]])
         E_wr = np.zeros([Nw,r.shape[1]])
         for i in range(Nw):
-            Vchi_GG =  np.linalg.inv(e_wGG[i])-np.eye(nG) 
+            Vchi_GG =  np.linalg.inv(e_wGG[i, np.array(Glist),:][:,np.array(Glist)])-np.eye(len(Glist)) 
             E_wrr[i] = -np.imag(np.dot(np.dot(phase, Vchi_GG),phase2.T)) #Fourier transform
-            E_wr[i] = np.diagonal(E_wrr[i])    
-        
-        pickle.dump((r*Bohr, w_w, E_wr, E_wrr), open('%s.pickle'%filename, 'wb'), 
+            E_wr[i] = np.diagonal(E_wrr[i])
+        pickle.dump((r*Bohr, w_w, E_wr), open('%s.pickle'%filename, 'wb'), 
                     pickle.HIGHEST_PROTOCOL)
                     
-        return r*Bohr, w_w, E_wr, E_wrr
+        return r*Bohr, w_w, E_wr
