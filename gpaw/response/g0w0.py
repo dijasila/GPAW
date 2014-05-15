@@ -157,7 +157,9 @@ class G0W0(PairDensity):
         qd = self.qd
         
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
-        
+
+        q0 = np.allclose(q_c, 0)
+            
         # Find index of q-vector:
         d_Qc = ((qd.bzk_kc - q_c) * qd.N_c).round() % qd.N_c
         Q = abs(d_Qc).sum(axis=1).argmin()
@@ -210,6 +212,12 @@ class G0W0(PairDensity):
                       for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                  pd, N0_G)
+            if q0:
+                n_mG[:, 0] = 0
+                m = n + kpt1.n1 - kpt2.n1
+                if 0 <= m < len(n_mG):
+                    n_mG[m, 0] = 1.0
+                    
             f_m = kpt2.f_n
             deps_m = eps1 - kpt2.eps_n
             sigma, dsigma = self.calculate_sigma(fd, n_mG, deps_m, f_m, W)
