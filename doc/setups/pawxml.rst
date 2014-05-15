@@ -10,7 +10,7 @@ Introduction
 
 This page contains information about the PAW-XML data format for the
 atomic datasets necessary for doing projector-augmented wave
-calculations\ [#Blo94]_.  We use the term *dataset* instead of
+calculations \ [#Blo94]_.  We use the term *dataset* instead of
 *pseudo potential* because the PAW method is not a pseudopotential method.
 
 An example XML file for nitrogen PAW dataset using LDA can be seen
@@ -294,12 +294,22 @@ to minimize the number of grids in the dataset.
 Shape function for the compensation charge
 ------------------------------------------
 
-The compensation charge for an atom is expanded using the multipole
-moments `Q_{\ell m}`:
+The general formulation of the compensation charge uses an expansion over the partial
+waves *ij* and the spherical harmonics:
 
 .. math::
 
-  g_{\ell m}(\mathbf{r}) = \sum_{\ell m} Q_{\ell m} g_\ell(r) Y_{\ell m}(\theta, \phi),
+  \sum_{\ell m} C_{\ell m \ell_i m_i \ell_j m_j} \hat{Q}^{\ell}_{i j}(r) Y_{\ell m}(\theta, \phi),
+
+
+where :math:`C_{\ell m \ell_i m_i \ell_j m_j}` is a *Gaunt coefficient*.
+
+The standard expression \ [#Blo94]_ for the *shape function* :math:`\hat{Q}^{\ell}_{i j}(\mathbf{r})`
+is a product of the multipole moment :math:`Q^{\ell}_{i j}` and a shape function :math:`g_\ell(r)`:
+
+.. math::
+
+  \hat{Q}^{\ell}_{i j}(r) = Q^{\ell}_{i j} g_\ell(r),
 
 Several formulations [#Hol01]_ [#Blo94]_ define
 `g_\ell(r) \propto r^\ell k(r)`, where `k(r)` is an `\ell`-independent
@@ -334,27 +344,22 @@ Example::
     <shape_function type="bessel" rc="3.478505426185e-01">
  
 
-There is also a more general formulation where shape functions are given in
-numerical form. There can be several *shape functions* (eventually depending on
-combinations of partial waves):
-
-.. math::
-
-  g_{\ell m}(\mathbf{r}) =
-  \sum_{\ell m} \tilde{Q}_{\ell m}(r) Y_{\ell m}(\theta, \phi),
-
-There can be several ``<shape_function>`` elements if the shape function
-depends on `\ell` and/or combinations of partial waves
-(specified using the optional ``state1`` and ``state2`` attributes).
+There is also a more general formulation where :math:`\hat{Q}^{\ell}_{i j}(r)` is given in
+a numerical form. Several *shape functions* can be set (with the ``<shape_function>`` tag),
+depending on `\ell` and/or combinations of partial waves (specified using the optional 
+``state1`` and ``state2`` attributes).
 See for instance section II.C of [#Laa93]_.
 
-Example 1, defining :math:`\tilde{Q}_{\ell m}(r)=Q_{\ell m} g_\ell(r)`::
+Example 1, defining numerically :math:`g_\ell(r)`
+in :math:`\hat{Q}^{\ell}_{i j}(r)=Q^{\ell}_{i j} g_\ell(r)`::
     
     <shape_function type="numeric" l=0 grid="g1">
         ... ... ...
     </shape_function>
 
-Example 2, defining :math:`\tilde{Q}^{ij}_{\ell m}(r)` for states *i=* ``N-2s`` and *j=* ``N-2p``::
+
+Example 2, defining directly :math:`\hat{Q}^{\ell}_{i j}(r)`
+for states *i=* ``N-2s`` and *j=* ``N-2p``, and *l=0*::
     
     <shape_function type="numeric" l=0 state1="N-2s" state2="N-2p" grid="g1">
         ... ... ...
