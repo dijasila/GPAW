@@ -276,6 +276,8 @@ class Hamiltonian:
                     H_p[:] = pack2(Htemp)
 
             dH_sp[:self.nspins] += dH_p
+            if self.ref_dH_asp:
+                dH_sp += self.ref_dH_asp[a]
             # We are not yet done with dH_sp; still need XC correction below
 
         Ddist_asp = self.dh_distributor.distribute(density.D_asp)
