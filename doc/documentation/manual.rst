@@ -540,8 +540,11 @@ See also the documentation on :ref:`density mixing <densitymix>`.
 Fixed density
 -------------
 
-XXX Missing doc
-
+When calculating band structures or when adding unoccupied states to
+calculation (and wanting to converge them) it is often useful to use existing
+density without updating it. By using ``fixdensity=True`` the initial density 
+(e.g. one read from .gpw/.hdf5 or existing from previous calculation) is used
+throughout the SCF-cycle (so called Harris calculation).
 
 
 
@@ -559,7 +562,6 @@ For a given element ``E``, setup name ``NAME``, and xc-functional
 (see :ref:`installationguide_setup_files`).
 Unless ``NAME='paw'``, in which case it will simply look for
 :file:`E.XC` (or :file:`E.XC.gz`).
-
 The ``setups`` keyword can be either a single string, or a dictionary.
 
 If specified as a string, the given name is used for all atoms.  If
@@ -569,6 +571,9 @@ or an atom number. The values state the individual setup names.
 The special key ``None`` can be used to specify the default setup
 name. Thus ``setups={None: 'paw'}`` is equivalent to ``setups='paw'``
 which is the GPAW default.
+
+As an example, the latest PAW setup of Na includes also the 6 semicore p states
+in the valence, in order to use non-default setup with only the 1 s electron in valence (:file:`Na.1.XC.gz`) one can specify ``setups={'Na': '1'}``
 
 There exist three special names, that if used, does not specify a file name:
 
