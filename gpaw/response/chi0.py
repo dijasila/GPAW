@@ -173,7 +173,9 @@ class Chi0(PairDensity):
                 # Only update if there exists deps <= omegamax
                 if not self.omegamax is None:
                     m = [m for m, d in enumerate(eps1 - kpt2.eps_n) if abs(d)<=self.omegamax] 
-
+                else:
+                    m = range(len(kpt2.eps_n))
+                
                 if not len(m):
                     continue
 
@@ -249,8 +251,10 @@ class Chi0(PairDensity):
             print('Hilbert transform done', file=self.fd)
         
         if self.intraband:  # Add intraband contribution
-            for w, omega in enumerate(self.omega_w):
-                chi0_wvv[w] += self.chi0_vv / omega**2.0
+            omega_w = self.omega_w
+            chi0_wvv += (self.chi0_vv[np.newaxis] / 
+                         (omega_w[:, np.newaxis, np.newaxis] * 
+                          (omega_w[:, np.newaxis, np.newaxis] + 1j*self.eta)))
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
@@ -382,9 +386,8 @@ class Chi0(PairDensity):
                 velm_v = vel_mv[m]
                 x_vv = (-self.prefactor * dfde_m[inds_m[m]] *
                          np.outer(velm_v.conj(), velm_v))
-                omega_w = self.omega_w
 
-            self.chi0_vv += x_vv
+                self.chi0_vv += x_vv
                 
     def print_chi(self, pd):
         calc = self.calc
