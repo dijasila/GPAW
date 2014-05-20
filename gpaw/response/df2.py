@@ -39,7 +39,6 @@ class DielectricFunction:
                     omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(open(name))
                     print('Reading from file ', name)
                 except EOFError:
-                    print('EOFError')
                     pass
                 else:
                     return pd, chi0_wGG, chi0_wxvG, chi0_wvv
@@ -48,11 +47,9 @@ class DielectricFunction:
         self.chi0.timer.write(self.chi0.fd)
         
         if self.name and mpi.rank == 0:
-            print('Printing to file ', name)
             with open(name, 'wb') as fd:
                 pickle.dump((self.chi0.omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv), fd,
                             pickle.HIGHEST_PROTOCOL)
-            print('Printed to file', name)
 
         # Wait for rank 0 to save Chi
         mpi.world.barrier()
@@ -193,10 +190,7 @@ class DielectricFunction:
 
         for w, e_GG in enumerate(e_wGG):
             df_NLFC_w[w] = e_GG[0, 0]
-            if np.isnan(e_GG[0,0]):
-                df_LFC_w[w] = np.nan
-            else:
-                df_LFC_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
+            df_LFC_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
         
         if filename is not None and mpi.rank == 0:
             with open(filename, 'w') as fd:
