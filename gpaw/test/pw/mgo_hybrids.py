@@ -23,7 +23,11 @@ if 1:
                     convergence={'eigenstates': 5.e-9},
                     kpts=monkhorst_pack((2, 2, 2)) + 0.25)
     mgo.get_potential_energy()
-    mgo.calc.write('mgo', 'all')
+    if rank < 3:
+       mgo.calc.write('mgo', 'all')
+    else:
+       mgo.calc.write('dummy_%d' % rank, 'all')
+    world.barrier()
 
 for name in ['PBE0', 'HSE03', 'HSE06']:
     calc = GPAW('mgo', setups={'Mg': '2'},
