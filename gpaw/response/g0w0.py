@@ -208,7 +208,7 @@ class G0W0(PairDensity):
             C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
                       for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                 pd, N0_G)
+                                                 pd, N0_G).conj()
             if q0:
                 n_mG[:, 0] = 0
                 m = n + kpt1.n1 - kpt2.n1
