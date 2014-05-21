@@ -33,8 +33,28 @@ def pawexxvv(atomdata, D_ii):
                     V += atomdata.M_pp[p13, p24] * D_ii[i3, i4]
             V_ii[i1, i2] = V
     return V_ii
-
-        
+    
+    
+def select_kpts(kpts, calc):
+    if kpts is None:
+        # Do all k-points in the IBZ:
+        return range(calc.wfs.kd.nibzkpts)
+    
+    kpts = np.asarray(kpts)
+    if kpts.ndim == 1:
+        return kpts
+    
+    # Find k-points:
+    bzk_kc = calc.get_bz_k_points()
+    indices = []
+    for k_c in kpts:
+        k = abs((bzk_kc - k_c) % 1).sum(1).argmin()
+        if not np.allclose((bzk_kc[k] - k_c) % 1, 0):
+            raise ValueError('Could not find k-point: {0}'.format(k_c))
+        indices.append(calc.wfs.kd.bz2ibz_k[k])
+    return indices
+    
+    
 class EXX(PairDensity):
     def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=None,
                  omega=None, world=mpi.world, txt=sys.stdout, timer=None):
@@ -64,9 +84,7 @@ class EXX(PairDensity):
         self.omega = omega
         self.exc = np.nan  # density dependent part of xc-energy
         
-        if kpts is None:
-            # Do all k-points in the IBZ:
-            kpts = range(self.calc.wfs.kd.nibzkpts)
+        self.kpts = select_kpts(kpts, self.calc)
         
         if bands is None:
             # Do all occupied bands:
@@ -77,7 +95,6 @@ class EXX(PairDensity):
         prnt('for IBZ k-points with indices:',
              ', '.join(str(i) for i in kpts), file=self.fd)
         
-        self.kpts = kpts
         self.bands = bands
 
         if self.ecut is None:
@@ -185,7 +202,7 @@ class EXX(PairDensity):
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
             C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
-                     for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+                      for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                  pd, Q_G)
             e = self.calculate_n(pd, n, n_mG, kpt2)

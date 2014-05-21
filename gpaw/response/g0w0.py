@@ -8,7 +8,7 @@ from ase.utils import opencew
 from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
-from gpaw.xc.exx import EXX
+from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.tools import vxc
 from gpaw.utilities.timing import timer
 from gpaw.response.pair import PairDensity
@@ -49,13 +49,11 @@ class G0W0(PairDensity):
         print(' |___|       ', file=self.fd)
         print(file=self.fd)
 
-        if kpts is None:
-            kpts = range(self.calc.wfs.kd.nibzkpts)
-        
+        self.kpts = select_kpts(kpts, self.calc)
+                
         if bands is None:
             bands = [0, self.nocc2]
             
-        self.kpts = kpts
         self.bands = bands
 
         b1, b2 = bands
@@ -157,9 +155,8 @@ class G0W0(PairDensity):
         qd = self.qd
         
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
-
         q0 = np.allclose(q_c, 0)
-            
+
         # Find index of q-vector:
         d_Qc = ((qd.bzk_kc - q_c) * qd.N_c).round() % qd.N_c
         Q = abs(d_Qc).sum(axis=1).argmin()
