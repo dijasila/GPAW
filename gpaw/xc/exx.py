@@ -48,8 +48,10 @@ def select_kpts(kpts, calc):
     bzk_kc = calc.get_bz_k_points()
     indices = []
     for k_c in kpts:
-        k = abs((bzk_kc - k_c) % 1).sum(1).argmin()
-        if not np.allclose((bzk_kc[k] - k_c) % 1, 0):
+        d_kc = bzk_kc - k_c
+        d_kc -= d_kc.round()
+        k = abs(d_kc).sum(1).argmin()
+        if not np.allclose(d_kc[k], 0):
             raise ValueError('Could not find k-point: {0}'.format(k_c))
         indices.append(calc.wfs.kd.bz2ibz_k[k])
     return indices
