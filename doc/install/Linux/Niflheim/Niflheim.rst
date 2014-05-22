@@ -42,7 +42,7 @@ If you decide to install a development version of GPAW, this is what you do:
 
 3. Set the :envvar:`GPAW_HOME` environment variable::
 
-     export GPAW_HOME=/home/niflheim/$USER/devel/gpaw
+     export GPAW_HOME=${HOME}/devel/gpaw
 
 4. To compile the GPAW C-code, run the shell script
    :svn:`~doc/install/Linux/Niflheim/compile.sh` 
@@ -73,7 +73,7 @@ If you decide to install a development version of GPAW, this is what you do:
 	    export GPAW_PLATFORM="linux-x86_64-`echo $FYS_PLATFORM | sed 's/-el6//'`-2.6"
 	fi
 	# GPAW_HOME must be set after loading the GPAW module!
-	export GPAW_HOME=/home/niflheim/$USER/devel/gpaw
+	export GPAW_HOME=${HOME}/devel/gpaw
 	export PATH=${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
 	export PATH=${GPAW_HOME}/tools:${PATH}
 	export PYTHONPATH=${GPAW_HOME}:${PYTHONPATH}
@@ -116,7 +116,7 @@ If you decide to install a development version of GPAW, this is what you do:
 	    export GPAW_PLATFORM="linux-x86_64-`echo $FYS_PLATFORM | sed 's/-el6//'`-2.6"
 	fi
 	# GPAW_HOME must be set after loading the GPAW module!
-	export GPAW_HOME=/home/niflheim/$USER/devel/gpaw
+	export GPAW_HOME=${HOME}/devel/gpaw
 	export PATH=${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
 	export PATH=${GPAW_HOME}/tools:${PATH}
 	export PYTHONPATH=${GPAW_HOME}:${PYTHONPATH}
@@ -139,7 +139,7 @@ If you decide to install a development version of GPAW, this is what you do:
 	 {
 	 name="$1"
 	 shift
-	 qsub $@ -v name=$name /home/niflheim/$USER/devel/gpaw/qsub.sh
+	 qsub $@ -v name=$name ${HOME}/devel/gpaw/qsub.sh
 	 }
 
     When submitting jobs specify the python script first!::

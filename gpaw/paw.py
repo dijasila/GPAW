@@ -935,13 +935,13 @@ def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
     
     
 def kpts2ndarray(kpts, atoms=None):
-    """Convert kpts keyword to 2d ndarray of scaled k-points."""
+    """Convert kpts keyword to 2-d ndarray of scaled k-points."""
     
     if kpts is None:
         return np.zeros((1, 3))
         
     if isinstance(kpts, dict):
-        size, offsets = kpts2sizeandoffsets(atoms, **kpts)
+        size, offsets = kpts2sizeandoffsets(atoms=atoms, **kpts)
         return monkhorst_pack(size) + offsets
         
     if isinstance(kpts[0], int):

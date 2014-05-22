@@ -424,7 +424,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         
         # Build array of number of plane wave coefficiants for all k-points
         # in the IBZ:
-        self.ng_k = np.zeros(self.kd.nibzkpts)
+        self.ng_k = np.zeros(self.kd.nibzkpts, dtype=int)
         for kpt in self.kpt_u:
             if kpt.s == 0:
                 self.ng_k[kpt.k] = len(self.pd.Q_qG[kpt.q])
@@ -927,7 +927,7 @@ class PWLFC(BaseLFC):
         c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
         for a, I1, I2 in self.indices:
             c_xI[..., I1:I2] = c_axi[a] * self.eikR_qa[q][a].conj()
-        c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
+        c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
 
         a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
         
@@ -947,7 +947,7 @@ class PWLFC(BaseLFC):
     def integrate(self, a_xG, c_axi=None, q=-1):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
-        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
+        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
         a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
@@ -978,7 +978,8 @@ class PWLFC(BaseLFC):
 
     def derivative(self, a_xG, c_axiv, q=-1):
         c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
-        b_vxI = c_vxI.reshape((3, np.prod(c_vxI.shape[1:-1]), self.nI))
+        b_vxI = c_vxI.reshape((3, np.prod(c_vxI.shape[1:-1], dtype=int), 
+                               self.nI))
         a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
@@ -1069,7 +1070,7 @@ class PWLFC(BaseLFC):
         
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
-        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
+        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
         a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()

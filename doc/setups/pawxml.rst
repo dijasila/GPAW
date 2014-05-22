@@ -10,7 +10,7 @@ Introduction
 
 This page contains information about the PAW-XML data format for the
 atomic datasets necessary for doing projector-augmented wave
-calculations\ [#Blo94]_.  We use the term *dataset* instead of
+calculations \ [#Blo94]_.  We use the term *dataset* instead of
 *pseudo potential* because the PAW method is not a pseudopotential method.
 
 An example XML file for nitrogen PAW dataset using LDA can be seen
@@ -49,12 +49,13 @@ The following quantities can be optionally provided:
 ============================  ===============================================
 Quantity                      Description
 ============================  ===============================================
+`r_{PAW}`                     Radius of the PAW augmentation region (max. of matching radii)
 `v_H[\tilde{n}_{Zc}](r)`      Kresse-Joubert local ionic pseudopotential
-`\tilde{Q}_{ij}(\mathbf{r})`  State-dependent shape function for comp. charge
+`\tilde{Q}_{ij}(\mathbf{r})`  State-dependent shape function for compensation charge
 `\tau_c(r)`                   Core kinetic energy density
 `\tilde{\tau}_c(r)`           Pseudo core kinetic energy density
 `X^{\text{core-core}}`        Core-core contribution to exact exchange
-`X_{ij}^{\text{core-val}}`    Core-val exact-exchange correction matrix
+`X_{ij}^{\text{core-val}}`    Core-valence exact-exchange correction matrix
 ============================  ===============================================
 
 
@@ -120,18 +121,47 @@ Exchange-correlation
 --------------------
 
 The ``xc_functional`` element defines the exchange-correlation
-functional used for generating the dataset, and we take the names from
-the libxc_ library.  The correlation and exchange names are stripped
-from their ``XC_`` part and combined with a ``+``-sign.  Here is an
-example for an LDA functional::
+functional used for generating the dataset. It has the two attributes ``type`` and ``name``.
+
+The ``type`` attribute can be ``LDA``, ``GGA``, ``MGGA`` or ``HYB``.
+
+The ``name`` attribute designates the exchange-correlation functional and
+can be specified in the following ways:
+ 
+- Taking the names from the LibXC_ library. The correlation and exchange names are stripped
+  from their ``XC_`` part and combined with a ``+``-sign.  Here is an
+  example for an LDA functional::
     
-    <xc_functional type="LDA", name="LDA_X+LDA_C_PW"/>
+  <xc_functional type="LDA", name="LDA_X+LDA_C_PW"/>
 
-and this is what PBE will look like::
+  and this is what PBE will look like::
 
-    <xc_functional type="GGA", name="GGA_X_PBE+GGA_C_PBE"/>
+  <xc_functional type="GGA", name="GGA_X_PBE+GGA_C_PBE"/>
 
-.. _libxc: http://www.tddft.org/programs/octopus/wiki/index.php/
+- Using one of the following pre-defined aliases:
+
+  =========  ==========  ===============================  ===================================================================
+  ``type``    ``name``   ``LibXC equivalent``             ``Reference``
+  =========  ==========  ===============================  ===================================================================
+  ``LDA``    ``PW``      ``LDA_X+LDA_C_PW``               ``LDA exchange; Perdew, Wang, PRB 45, 13244 (1992)``
+  ``GGA``    ``PW91``    ``GGA_X_PW91+GGA_C_PW91``        ``Perdew et al PRB 46, 6671 (1992)``
+  ``GGA``    ``PBE``     ``GGA_X_PBE+GGA_C_PBE``          ``Perdew, Burke, Ernzerhof, PRL 77, 3865 (1996)``
+  ``GGA``    ``RPBE``    ``GGA_X_RPBE+GGA_C_PBE``         ``Hammer, Hansen, Nørskov, PRB 59, 7413 (1999)``
+  ``GGA``    ``revPBE``  ``GGA_X_PBE_R+GGA_C_PBE``        ``Zhang, Yang, PRL 80, 890 (1998)``
+  ``GGA``    ``PBEsol``  ``GGA_X_PBE_SOL+GGA_C_PBE_SOL``  ``Perdew et al, PRL 100, 136406 (2008)``
+  ``GGA``    ``AM05``    ``GGA_X_AM05+GGA_C_AM05``        ``Armiento, Mattsson, PRB 72, 085108 (2005)``
+  ``GGA``    ``BLYP``    ``GGA_X_B88+GGA_C_LYP``          ``Becke, PRA 38, 3098 (1988); Lee, Yang, Parr, PRB 37, 785 (1988)``
+  =========  ==========  ===============================  ===================================================================
+
+  Examples::
+  
+    <xc_functional type="LDA", name="PW"/>
+
+  ::
+
+  <xc_functional type="GGA", name="PBE"/>
+
+.. _LibXC: http://www.tddft.org/programs/octopus/wiki/index.php/
            Libxc:manual#Available_functionals
 
 
@@ -181,7 +211,11 @@ Valence states
     <state       l="2"        rc="1.10" e=" 0.0000" id="N-d1"/>
   </valence_states>
 
-The ``valence_states`` element contains several ``state`` elements.
+The ``valence_states`` element contains several ``state`` elements, defined by a unique ``id``
+as well as ``l`` and ``n`` quantum numbers. For each of them it is also required to provide
+the energy ``e``, the occupation ``f``
+and the matching radius of the partial waves ``rc``.
+
 For this dataset, the first two lines describe bound eigenstates with
 occupation numbers and principal quantum numbers.  Notice, that the
 three additional unbound states should have no ``f`` and ``n``
@@ -260,12 +294,22 @@ to minimize the number of grids in the dataset.
 Shape function for the compensation charge
 ------------------------------------------
 
-The compensation charge for an atom is expanded using the multipole
-moments `Q_{\ell m}`:
+The general formulation of the compensation charge uses an expansion over the partial
+waves *ij* and the spherical harmonics:
 
 .. math::
 
-  g_{\ell m}(\mathbf{r}) = \sum_{\ell m} Q_{\ell m} g_\ell(r) Y_{\ell m}(\theta, \phi),
+  \sum_{\ell m} C_{\ell m \ell_i m_i \ell_j m_j} \hat{Q}^{\ell}_{i j}(r) Y_{\ell m}(\theta, \phi),
+
+
+where :math:`C_{\ell m \ell_i m_i \ell_j m_j}` is a *Gaunt coefficient*.
+
+The standard expression \ [#Blo94]_ for the *shape function* :math:`\hat{Q}^{\ell}_{i j}(\mathbf{r})`
+is a product of the multipole moment :math:`Q^{\ell}_{i j}` and a shape function :math:`g_\ell(r)`:
+
+.. math::
+
+  \hat{Q}^{\ell}_{i j}(r) = Q^{\ell}_{i j} g_\ell(r),
 
 Several formulations [#Hol01]_ [#Blo94]_ define
 `g_\ell(r) \propto r^\ell k(r)`, where `k(r)` is an `\ell`-independent
@@ -300,27 +344,22 @@ Example::
     <shape_function type="bessel" rc="3.478505426185e-01">
  
 
-There is also a more general formulation where shape functions are given in
-numerical form. There can be several *shape functions* (eventually depending on
-combinations of partial waves):
-
-.. math::
-
-  g_{\ell m}(\mathbf{r}) =
-  \sum_{\ell m} \tilde{Q}_{\ell m}(r) Y_{\ell m}(\theta, \phi),
-
-There can be several ``<shape_function>`` elements if the shape function
-depends on `\ell` and/or combinations of partial waves
-(specified using the optional ``state1`` and ``state2`` attributes).
+There is also a more general formulation where :math:`\hat{Q}^{\ell}_{i j}(r)` is given in
+a numerical form. Several *shape functions* can be set (with the ``<shape_function>`` tag),
+depending on `\ell` and/or combinations of partial waves (specified using the optional 
+``state1`` and ``state2`` attributes).
 See for instance section II.C of [#Laa93]_.
 
-Example 1, defining :math:`\tilde{Q}_{\ell m}(r)=Q_{\ell m} g_\ell(r)`::
+Example 1, defining numerically :math:`g_\ell(r)`
+in :math:`\hat{Q}^{\ell}_{i j}(r)=Q^{\ell}_{i j} g_\ell(r)`::
     
     <shape_function type="numeric" l=0 grid="g1">
         ... ... ...
     </shape_function>
 
-Example 2, defining :math:`\tilde{Q}^{ij}_{\ell m}(r)` for states *i=* ``N-2s`` and *j=* ``N-2p``::
+
+Example 2, defining directly :math:`\hat{Q}^{\ell}_{i j}(r)`
+for states *i=* ``N-2s`` and *j=* ``N-2p``, and *l=0*::
     
     <shape_function type="numeric" l=0 state1="N-2s" state2="N-2p" grid="g1">
         ... ... ...
@@ -515,6 +554,25 @@ element and as `N^2` numbers inside the ``<exact_exchange>`` element::
     <exact_exchange core="...">
       ... ... ...
     </exact_exchange>
+
+
+-----------------
+Optional elements
+-----------------
+
+::
+
+   <paw_radius rc="2.3456781234">
+
+Although not necessary, it may be helpful to provide the following item(s) in the dataset:
+
+ - Radius of the PAW augmentation region ``paw_radius``
+   
+   This radius defines the region (around the atom) outside which all pseudo quantities
+   are equal to the all-electron ones.
+   It is equal to the maximum of all the cut-off and matching radii.
+   Note that -- for better lisibility -- the ``paw_radius`` elements should be
+   provided in the header of the file. 
 
 
 ------------------
