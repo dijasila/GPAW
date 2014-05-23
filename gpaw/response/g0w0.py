@@ -57,7 +57,7 @@ class G0W0(PairDensity):
         self.bands = bands
 
         b1, b2 = bands
-        self.shape = shape = (self.calc.wfs.nspins, len(kpts), b2 - b1)
+        self.shape = shape = (self.calc.wfs.nspins, len(self.kpts), b2 - b1)
         self.eps_sin = np.empty(shape)     # KS-eigenvalues
         self.f_sin = np.empty(shape)       # occupation numbers
         self.sigma_sin = np.zeros(shape)   # self-energies
@@ -435,6 +435,7 @@ class G0W0(PairDensity):
                 self.timer.stop('PPA')
             else:
                 self.timer.start('Dyson eq.')
+                # Calculate W and store it in chi0_wGG ndarray:
                 for chi0_GG in chi0_wGG:
                     e_GG = (delta_GG -
                             4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis])

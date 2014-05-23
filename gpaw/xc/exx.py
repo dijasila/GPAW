@@ -237,7 +237,7 @@ class EXX(PairDensity):
         key = tuple((pd.kd.bzk_kc[0] * self.calc.wfs.kd.N_c).round())
         iG_G = self.iG_qG.get(key)
         if iG_G is None:
-            v_G = self.wstc.get_potential(pd).real
+            v_G = self.wstc.get_potential(pd)
             iG_G = (v_G / (4 * pi))**0.5
             self.iG_qG[key] = iG_G
         return iG_G
