@@ -222,7 +222,8 @@ class Chi0(PairDensity):
             if optical_limit:
                 self.world.sum(chi0_wxvG)
                 self.world.sum(chi0_wvv)
-                self.world.sum(self.chi0_vv)
+                if self.intraband:
+                    self.world.sum(self.chi0_vv)
 
         print('    %s, Finished summation over ranks' % ctime() +
               '\n        mem. used.: ' +
@@ -250,8 +251,11 @@ class Chi0(PairDensity):
                     ht(chi0_wxvG)
             print('Hilbert transform done', file=self.fd)
         
-        if self.intraband:  # Add intraband contribution
-            omega_w = self.omega_w
+        if optical_limit and self.intraband:  # Add intraband contribution
+            omega_w = self.omega_w.copy()
+            if omega_w[0] == 0.0:
+                omega_w[0] = 1e-14
+
             chi0_wvv += (self.chi0_vv[np.newaxis] / 
                          (omega_w[:, np.newaxis, np.newaxis] * 
                           (omega_w[:, np.newaxis, np.newaxis] + 1j*self.eta)))
