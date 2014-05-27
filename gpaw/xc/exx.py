@@ -95,7 +95,7 @@ class EXX(PairDensity):
         prnt('Calculating exact exchange contributions for band index',
              '%d-%d' % (bands[0], bands[1] - 1), file=self.fd)
         prnt('for IBZ k-points with indices:',
-             ', '.join(str(i) for i in kpts), file=self.fd)
+             ', '.join(str(i) for i in self.kpts), file=self.fd)
         
         self.bands = bands
 
@@ -104,7 +104,7 @@ class EXX(PairDensity):
         prnt('Plane-wave cutoff: %.3f eV' % (self.ecut * Hartree),
              file=self.fd)
         
-        shape = (self.calc.wfs.nspins, len(kpts), bands[1] - bands[0])
+        shape = (self.calc.wfs.nspins, len(self.kpts), bands[1] - bands[0])
         self.exxvv_sin = np.zeros(shape)   # valence-valence exchange energies
         self.exxvc_sin = np.zeros(shape)   # valence-core exchange energies
         self.f_sin = np.empty(shape)       # occupation numbers
@@ -186,7 +186,7 @@ class EXX(PairDensity):
     def get_eigenvalue_contributions(self):
         b1, b2 = self.bands
         e_sin = vxc(self.calc, self.xc)[:, self.kpts, b1:b2] / Hartree
-        e_sin += (self.exxvv_sin + self.exxvc_sin) * self.exx_fraction 
+        e_sin += (self.exxvv_sin + self.exxvc_sin) * self.exx_fraction
         return e_sin * Hartree
         
     def calculate_q(self, i, kpt1, kpt2):
