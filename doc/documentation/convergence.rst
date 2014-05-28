@@ -32,7 +32,7 @@ encountering convergence problems:
 
    Import the Davidson eigensolver::
        
-       from gpaw.eigensolvers import davidson
+       from gpaw.eigensolvers import Davidson
        
    and increase the number iterations per scf-step ``eigensolver=Davidson(3)``.
         

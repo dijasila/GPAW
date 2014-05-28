@@ -540,7 +540,7 @@ class TestRunner:
             raise
         except ImportError, ex:
             module = ex.args[0].split()[-1].split('.')[0]
-            if module in ['scipy', 'cmr', '_hdf5']:
+            if module in ['scipy', 'cmr', '_gpaw_hdf5']:
                 skip = True
             else:
                 failed = True

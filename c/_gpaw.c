@@ -8,7 +8,7 @@
 #include <numpy/arrayobject.h>
 
 #ifdef GPAW_WITH_HDF5 
-PyMODINIT_FUNC init_hdf5(void); 
+PyMODINIT_FUNC init_gpaw_hdf5(void); 
 #endif 
 
 #ifdef GPAW_HPM
@@ -383,7 +383,7 @@ main(int argc, char **argv)
   Py_INCREF(&lxcXCFunctionalType);
 
 #ifdef GPAW_WITH_HDF5 
-  init_hdf5(); 
+  init_gpaw_hdf5(); 
 #endif 
   import_array1(-1);
   MPI_Barrier(MPI_COMM_WORLD);
