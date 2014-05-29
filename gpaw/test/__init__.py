@@ -352,7 +352,7 @@ if mpi.size > 1:
                 'potential.py',
                 #'cmrtest/cmr_test3.py',
                 #'cmrtest/cmr_append.py',
-                #'cmrtest/Li2_atomize.py',
+                'cmrtest/Li2_atomize.py',  # started to hang May 2014
                 'lcao_pair_and_coulomb.py',
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
