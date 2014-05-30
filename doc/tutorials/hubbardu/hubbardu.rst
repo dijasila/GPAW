@@ -105,7 +105,7 @@ Here are the resulting 2p-splitting:
    :file: gaps.csv
 
 
-(see also `check.py <check.py>`_).
+(see also :download:`check.py`).
 
 
 References
