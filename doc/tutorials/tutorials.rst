@@ -37,6 +37,7 @@ Specialized tutorials
 
    band_gap/band_gap
    dipole_correction/dipole
+   hubbardu/hubbardu
    jellium/jellium
    hydrogen/h
    stm/stm
