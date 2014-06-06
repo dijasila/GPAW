@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
+
 """Check GW calculations.
 
 Compare to data from:
@@ -76,7 +78,7 @@ for d in c.select(calculator='gpaw'):
     if d.name not in lda:
         continue
     e1 = d.data.eps[0] - d.data.eps[0, 0, 0]
-    print d.name, e1.ravel()[1:] - lda[d.name][1:6]
+    r = list(e1.ravel()[1:] - lda[d.name][1:6])
     e2 = d.data.qp[0] - d.data.qp[0, 0, 0]
-    print d.name, e2.ravel()[1:] - gw[d.name][2:7]
-    
+    r.extend(e2.ravel()[1:] - gw[d.name][2:7])
+    print('{0:7}'.format(d.name), ' '.join('{0:5.2f}'.format(x) for x in r))
