@@ -26,17 +26,9 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
         else:
             sys.stderr.write('WARNING: %s\n' % msg)
 
-'''           
-def findpeak(y, dx=1):
-    i = y.argmax()
-    a, b, c = np.polyfit([-1, 0, 1], y[i - 1:i + 2], 2)
-    assert a < 0
-    x = -0.5 * b / a
-    return dx * (i + x), a * x**2 + b * x + c
-'''
 
-def findpeak(x,y):   
-    dx = x[1]-x[0]
+def findpeak(x, y):
+    dx = x[1] - x[0]
     i = y.argmax()
     a, b, c = np.polyfit([-1, 0, 1], y[i - 1:i + 2], 2)
     assert a < 0
@@ -254,6 +246,7 @@ tests = [
     'test_ibzqpt.py',
     'aedensity.py',
     'fd2lcao_restart.py',
+    'gwsi.py',
     #'graphene_EELS.py', disabled while work is in progress on response code
     'lcao_bsse.py',
     'pplda.py',
@@ -337,18 +330,17 @@ tests = [
     'parallel/scalapack_mpirecv_crash.py',
     'parallel/realspace_blacs.py',
     'AA_exx_enthalpy.py',
-     #'usesymm2.py',
-     #'eigh_perf.py', # Requires LAPACK 3.2.1 or later
-     # XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
-     #'parallel/scalapack_pdlasrt_hang.py',
-     #'dscf_forces.py',
-     #'stark_shift.py',
+    #'usesymm2.py',
+    #'eigh_perf.py', # Requires LAPACK 3.2.1 or later
+    # XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
+    #'parallel/scalapack_pdlasrt_hang.py',
+    #'dscf_forces.py',
+    #'stark_shift.py',
     'cmrtest/cmr_test.py',
     'cmrtest/cmr_test3.py',
     'cmrtest/cmr_test4.py',
     'cmrtest/cmr_append.py',
-    'cmrtest/Li2_atomize.py'
-    ]
+    'cmrtest/Li2_atomize.py']
 
 exclude = []
 
