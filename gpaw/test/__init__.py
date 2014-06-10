@@ -181,6 +181,7 @@ tests = [
     'pw/fftmixer.py',
     'mgga_restart.py',
     'vdw/quick.py',
+    'multipoleH2O.py',
     'bulk.py',
     'elf.py',
     'aluminum_EELS.py',
