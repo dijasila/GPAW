@@ -289,6 +289,7 @@ tests = [
     'nscfsic.py',
     'gw_static.py',
     # > 100 sec tests start here (add tests after exx.py!)
+    'response_na_plasmon.py'
     'exx.py',
     'pygga.py',
     'dipole.py',
