@@ -142,7 +142,8 @@ class G0W0(PairDensity):
                       file=self.fd)
                 for n in range(b2 - b1):
                     print('{0:4}'.format(n + b1) +
-                          ''.join('{0:8.3f}'.format(results[name][s, i, n])
+                          #  ''.join('{0:8.3f}'.format(results[name][s, i, n])
+                          ''.join('{0:11.6f}'.format(results[name][s, i, n])
                                   for name in names),
                           file=self.fd)
 
@@ -293,6 +294,24 @@ class G0W0(PairDensity):
         dsigma = 0.0
         for o, o1, o2, sgn, s, w, n_G in zip(o_m, o1_m, o2_m,
                                              sgn_m, s_m, w_m, n_mG):
+            if 0:#o * 27 < 0.001:
+                assert o1 == 0, o1
+                C1_GG = C_swGG[s][0]
+                C2_GG = C_swGG[s][1]
+                p = x * sgn
+                sigma1 = p * np.dot(np.dot(n_G, C1_GG), n_G.conj()).imag
+                sigma2 = p * np.dot(np.dot(n_G, C2_GG), n_G.conj()).imag
+                sigma += sigma1
+                d1 = sgn * (sigma2 - sigma1) / (o2 - o1)
+                C1_GG = C_swGG[1 - s][0]
+                C2_GG = C_swGG[1 - s][1]
+                p = -x * sgn
+                sigma1 = p * np.dot(np.dot(n_G, C1_GG), n_G.conj()).imag
+                sigma2 = p * np.dot(np.dot(n_G, C2_GG), n_G.conj()).imag
+                d2 = -sgn * (sigma2 - sigma1) / (o2 - o1)
+                dsigma += 0.5 * (d1 + d2)
+                #print(o, d1, d2, end='')
+                continue
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p = x * sgn
