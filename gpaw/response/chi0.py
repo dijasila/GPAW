@@ -87,7 +87,7 @@ class Chi0(PairDensity):
         print('Maximum eigenvalue: %10.3f eV' % (self.epsmax * Hartree),
               file=self.fd)
 
-        return self.epsmax - self.epsmin + 2.1
+        return self.epsmax - self.epsmin
         
     def calculate(self, q_c, spin='all'):
         wfs = self.calc.wfs
