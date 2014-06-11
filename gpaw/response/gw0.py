@@ -6,7 +6,7 @@ from gpaw.response.g0w0 import G0W0
 
 
 class GW0(G0W0):
-    def __init__(self, calc, filename, **kwargs):
+    def __init__(self, calc, filename='gw0', **kwargs):
         G0W0.__init__(self, calc, filename, **kwargs)
         try:
             self.qp_xsin = np.load(filename + '-gw0.npy')
@@ -22,8 +22,8 @@ class GW0(G0W0):
             m1 = max(b1, n1)
             m2 = min(b2, n2)
             if m2 > m1:
-                k = self.calc.wfs.kd.bzk2ibzk_k[K]
-                i = self.kpts.find(k)
+                k = self.calc.wfs.kd.bz2ibz_k[K]
+                i = self.kpts.index(k)
                 qp_n = self.qp_xsin[-1, s, i, m1 - b1:m2 - b1]
                 kpt.eps_n[m1 - n1:m2 - n1] = qp_n
                 
