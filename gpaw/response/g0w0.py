@@ -105,10 +105,7 @@ class G0W0(PairDensity):
         self.world.sum(self.sigma_sin)
         self.world.sum(self.dsigma_sin)
         
-        self.Z_sin = 1 / (1 - self.dsigma_sin)
-        self.qp_sin = self.eps_sin + self.Z_sin * (self.sigma_sin +
-                                                   self.exx_sin -
-                                                   self.vxc_sin)
+        self.update_qp_energies()
         
         description = ['f:     Occupation numbers',
                        'eps:   KS-eigenvalues [eV]',
@@ -149,6 +146,12 @@ class G0W0(PairDensity):
         self.timer.write(self.fd)
         
         return results
+        
+    def update_qp_energies(self):
+        self.Z_sin = 1 / (1 - self.dsigma_sin)
+        self.qp_sin = self.eps_sin + self.Z_sin * (self.sigma_sin +
+                                                   self.exx_sin -
+                                                   self.vxc_sin)
         
     def calculate_q(self, i, kpt1, kpt2):
         wfs = self.calc.wfs
