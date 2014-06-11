@@ -8,11 +8,13 @@ from ase.utils import devnull
 
 from gpaw import GPAW
 import gpaw.mpi as mpi
+import gpaw.fftw as fftw
 from gpaw.utilities.blas import gemm
 from gpaw.fd_operators import Gradient
 from gpaw.wavefunctions.pw import PWLFC
 from gpaw.utilities.timing import timer, Timer
 from gpaw.response.math_func import two_phi_planewave_integrals
+
 
 class KPoint:
     def __init__(self, s, K, n1, n2, ut_nR, eps_n, f_n, P_ani, shift_c):
@@ -43,6 +45,9 @@ class PairDensity:
         self.world = world
         self.nthreads = nthreads
         
+        if nthreads > 1:
+            fftw.lib.fftw_plan_with_nthreads(nthreads)
+            
         if world.rank != 0:
             txt = devnull
         elif isinstance(txt, str):
@@ -52,7 +57,7 @@ class PairDensity:
         self.timer = timer or Timer()
         
         if isinstance(calc, str):
-            print('Reading ground state calculation:\n  %s' % calc, 
+            print('Reading ground state calculation:\n  %s' % calc,
                   file=self.fd)
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         else:
@@ -82,7 +87,7 @@ class PairDensity:
         print('Number of completely filled bands:', self.nocc1, file=self.fd)
         print('Number of partially filled bands:', self.nocc2, file=self.fd)
         print('Total number of bands:', self.calc.wfs.bd.nbands,
-             file=self.fd)
+              file=self.fd)
         
     def distribute_k_points_and_bands(self, nbands):
         """Distribute spins, k-points and bands.
@@ -114,8 +119,8 @@ class PairDensity:
 
         print('BZ k-points:', self.calc.wfs.kd.description, file=self.fd)
         print('Distributing spins, k-points and bands (%d x %d x %d)' %
-             (ns, nk, nbands),
-             'over %d process%s' %
+              (ns, nk, nbands),
+              'over %d process%s' %
               (world.size, ['es', ''][world.size == 1]), file=self.fd)
         
     @timer('Get a k-point')
@@ -333,8 +338,8 @@ class PairDensity:
 
         ut_mvR = self.calc.wfs.gd.zeros((len(ind_m), 3), complex)
         for ind, ut_vR in zip(ind_m, ut_mvR):
-            ut_vR[:] = self.make_derivative(kpt.s, kpt.K, 
-                                            kpt.n1 + ind, 
+            ut_vR[:] = self.make_derivative(kpt.s, kpt.K,
+                                            kpt.n1 + ind,
                                             kpt.n1 + ind + 1)[0]
         npartocc = len(ind_m)
         ut_mR = kpt.ut_nR[ind_m]

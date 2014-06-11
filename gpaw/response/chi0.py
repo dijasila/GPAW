@@ -87,7 +87,7 @@ class Chi0(PairDensity):
         print('Maximum eigenvalue: %10.3f eV' % (self.epsmax * Hartree),
               file=self.fd)
 
-        return self.epsmax - self.epsmin
+        return self.epsmax - self.epsmin + 2.1
         
     def calculate(self, q_c, spin='all'):
         wfs = self.calc.wfs
@@ -194,7 +194,8 @@ class Chi0(PairDensity):
                     
                 if optical_limit:
                     self.update_optical_limit(
-                        n, m, kpt1, kpt2, deps_m, df_m, n_mG, chi0_wxvG, chi0_wvv)
+                        n, m, kpt1, kpt2, deps_m, df_m, n_mG,
+                        chi0_wxvG, chi0_wvv)
 
                 update(n_mG, deps_m, df_m, chi0_wGG)
 
@@ -256,9 +257,10 @@ class Chi0(PairDensity):
             if omega_w[0] == 0.0:
                 omega_w[0] = 1e-14
 
-            chi0_wvv += (self.chi0_vv[np.newaxis] / 
-                         (omega_w[:, np.newaxis, np.newaxis] * 
-                          (omega_w[:, np.newaxis, np.newaxis] + 1j*self.eta)))
+            chi0_wvv += (self.chi0_vv[np.newaxis] /
+                         (omega_w[:, np.newaxis, np.newaxis] *
+                          (omega_w[:, np.newaxis, np.newaxis] +
+                           1j * self.eta)))
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
@@ -389,7 +391,7 @@ class Chi0(PairDensity):
             for m in range(deg):
                 velm_v = vel_mv[m]
                 x_vv = (-self.prefactor * dfde_m[inds_m[m]] *
-                         np.outer(velm_v.conj(), velm_v))
+                        np.outer(velm_v.conj(), velm_v))
 
                 self.chi0_vv += x_vv
                 
@@ -437,7 +439,7 @@ class Chi0(PairDensity):
         print('    Memory estimate:', file=self.fd)
         print('        chi0_wGG: %f M / cpu'
               % (nw * pd.ngmax**2 * 16. / 1024**2), file=self.fd)
-        print('        ut_sKvR: %f M / cpu' 
+        print('        ut_sKvR: %f M / cpu'
               % (nstat * gd.N_c[0] * gd.N_c[1] * gd.N_c[2] * 16. / 1024**2),
               file=self.fd)
         print('        Max mem sofar   : %f M / cpu'
