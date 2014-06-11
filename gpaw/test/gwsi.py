@@ -52,4 +52,4 @@ assert abs(np.array(results[0]) -
            [-9.25,
             5.44, 2.39, 0.40, 0,
             6.24, 3.64, 1.39, 0]).max() < 0.01
-assert np.ptp(results, 0).max() < 0.003
+assert np.ptp(results, 0).max() < 0.006
