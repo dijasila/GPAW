@@ -6,7 +6,7 @@ from gpaw.occupations import FermiDirac, MethfesselPaxton
 class KPoint:
     eps_n = np.empty(1)
     f_n = np.empty(1)
-    weight = 1.0
+    weight = 0.2
     s = 0
     
 k = KPoint()
