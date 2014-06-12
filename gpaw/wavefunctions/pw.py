@@ -1089,7 +1089,7 @@ class PWLFC(BaseLFC):
         return stress.real
 
 
-class PsudoCoreKineticEnergyDensityLFC(PWLFC):
+class PseudoCoreKineticEnergyDensityLFC(PWLFC):
     def add(self, tauct_R):
         tauct_R += self.pd.ifft(1.0 / self.pd.gd.dv * self.expand(-1).sum(0))
 
@@ -1199,7 +1199,7 @@ class ReciprocalSpaceDensity(Density):
         self.rhot_q[0] = 0.0
 
     def get_pseudo_core_kinetic_energy_density_lfc(self):
-        return PsudoCoreKineticEnergyDensityLFC(
+        return PseudoCoreKineticEnergyDensityLFC(
             [[setup.tauct] for setup in self.setups], self.pd2)
 
     def calculate_dipole_moment(self):

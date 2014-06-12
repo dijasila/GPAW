@@ -2,6 +2,7 @@ import numpy as np
 from ase.units import Hartree
 from gpaw.occupations import FermiDirac, MethfesselPaxton
 
+
 class KPoint:
     eps_n = np.empty(1)
     f_n = np.empty(1)
@@ -10,11 +11,13 @@ class KPoint:
     
 k = KPoint()
 
+
 def f(occ, x):
     k.eps_n[0] = x
     n, dnde, x, S = occ.distribution(k, 0.0)
     return n, dnde, S
 
+    
 def test(occ):
     print occ
     for e in [-0.3 / Hartree, 0, 0.1 / Hartree, 1.2 / Hartree]:
