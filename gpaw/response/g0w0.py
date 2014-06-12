@@ -65,9 +65,11 @@ class G0W0(PairDensity):
         self.vxc_sin = None                # KS XC-contributions
         self.exx_sin = None                # exact exchange contributions
         self.Z_sin = None                  # renormalization factors
-
-        self.nbands = nbands
         
+        if nbands is None:
+            nbands = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+        self.nbands = nbands
+
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
         self.distribute_k_points_and_bands(nbands)
         
