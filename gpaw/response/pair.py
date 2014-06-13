@@ -14,7 +14,7 @@ from gpaw.fd_operators import Gradient
 from gpaw.wavefunctions.pw import PWLFC
 from gpaw.utilities.timing import timer, Timer
 from gpaw.response.math_func import two_phi_planewave_integrals
-
+from gpaw.occupations import FermiDirac
 
 class KPoint:
     def __init__(self, s, K, n1, n2, ut_nR, eps_n, f_n, P_ani, shift_c):
@@ -89,6 +89,9 @@ class PairDensity:
         """
         Shifts the Fermi-level by e * Vg. By definition e = 1.
         """
+        assert isinstance(self.calc.occupations, FermiDirac)
+        print('Shifting Fermi-level by %.2f eV' %(gate_voltage * Hartree), file=self.fd)
+
         fermi = self.calc.occupations.get_fermi_level() + gate_voltage
         width = self.calc.occupations.width
         shiftedFDdist = lambda w_w : 1 / (1 + np.exp((w_w - fermi) / width))
