@@ -35,15 +35,20 @@ class PairDensity:
     def __init__(self, calc, ecut=50,
                  ftol=1e-6,
                  real_space_derivatives=False,
-                 world=mpi.world, txt=sys.stdout, timer=None, nthreads=1):
+                 world=mpi.world, txt=sys.stdout, timer=None, nthreads=1,
+                 gate_voltage=None):
         if ecut is not None:
             ecut /= Hartree
         
+        if gate_voltage is not None:
+            gate_voltage /= Hartree
+
         self.ecut = ecut
         self.ftol = ftol
         self.real_space_derivatives = real_space_derivatives
         self.world = world
         self.nthreads = nthreads
+        self.gate_voltage = gate_voltage
         
         if nthreads > 1:
             fftw.lib.fftw_plan_with_nthreads(nthreads)
@@ -62,8 +67,11 @@ class PairDensity:
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         else:
             assert calc.wfs.world.size == 1
-            
+
         self.calc = calc
+
+        if gate_voltage is not None:
+            self.add_gate_voltage(gate_voltage)
 
         self.spos_ac = calc.atoms.get_scaled_positions()
         
@@ -77,6 +85,17 @@ class PairDensity:
 
         print('Number of threads:', self.nthreads, file=self.fd)
         
+    def add_gate_voltage(self, gate_voltage=0):
+        """
+        Shifts the Fermi-level by e * Vg. By definition e = 1.
+        """
+        fermi = self.calc.occupations.get_fermi_level() + gate_voltage
+        width = self.calc.occupations.width
+        shiftedFDdist = lambda w_w : 1 / (1 + np.exp((w_w - fermi) / width))
+        
+        for kpt in self.calc.wfs.kpt_u:
+            kpt.f_n = shiftedFDdist(kpt.eps_n) * kpt.weight
+            
     def count_occupied_bands(self):
         self.nocc1 = 9999999
         self.nocc2 = 0

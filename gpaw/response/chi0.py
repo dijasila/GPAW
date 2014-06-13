@@ -32,10 +32,11 @@ class Chi0(PairDensity):
                  timeordered=False, eta=0.2, ftol=1e-6,
                  real_space_derivatives=False, intraband=True, nthreads=1,
                  world=mpi.world, txt=sys.stdout, timer=None,
-                 keep_occupied_states=False):
+                 keep_occupied_states=False, gate_voltage=None):
+
         PairDensity.__init__(self, calc, ecut, ftol,
                              real_space_derivatives, world, txt, timer,
-                             nthreads=nthreads)
+                             nthreads=nthreads, gate_voltage=gate_voltage)
         
         self.eta = eta / Hartree
         self.domega0 = domega0 / Hartree
@@ -256,7 +257,7 @@ class Chi0(PairDensity):
             omega_w = self.omega_w.copy()
             if omega_w[0] == 0.0:
                 omega_w[0] = 1e-14
-
+            
             chi0_wvv += (self.chi0_vv[np.newaxis] /
                          (omega_w[:, np.newaxis, np.newaxis] *
                           (omega_w[:, np.newaxis, np.newaxis] +
@@ -400,7 +401,7 @@ class Chi0(PairDensity):
         gd = calc.wfs.gd
         
         ns = calc.wfs.nspins
-        nk = calc.wfs.kd.nibzkpts
+        nk = calc.wfs.kd.nbzkpts
         nb = self.nocc2
 
         if extra_parameters.get('df_dry_run'):
@@ -424,6 +425,8 @@ class Chi0(PairDensity):
         print('    Number of kpoints: %d' % nk, file=self.fd)
         print('    Number of planewaves: %d' % pd.ngmax, file=self.fd)
         print('    Broadening (eta): %f' % (self.eta * Hartree), file=self.fd)
+        print('    Keep occupied states: %s' % (str(self.keep_occupied_states)), 
+              file=self.fd)
 
         print('', file=self.fd)
         print('    Related to parallelization', file=self.fd)
@@ -439,7 +442,7 @@ class Chi0(PairDensity):
         print('    Memory estimate:', file=self.fd)
         print('        chi0_wGG: %f M / cpu'
               % (nw * pd.ngmax**2 * 16. / 1024**2), file=self.fd)
-        print('        ut_sKvR: %f M / cpu'
+        print('        Occupied states: %f M / cpu' 
               % (nstat * gd.N_c[0] * gd.N_c[1] * gd.N_c[2] * 16. / 1024**2),
               file=self.fd)
         print('        Max mem sofar   : %f M / cpu'
