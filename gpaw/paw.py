@@ -454,7 +454,10 @@ class PAW(PAWTextOutput):
                 nbands_from_atom = setup.get_default_nbands()
                 
                 # Any obscure setup errors?
-                assert nbands_from_atom >= -(-setup.Nv // 2)
+                if nbands_from_atom < -(-setup.Nv // 2):
+                    raise ValueError('Bad setup: This setup requests %d'
+                                     ' bands but has %d electrons.'
+                                     % (nbands_from_atom, setup.Nv))
                 nbands += nbands_from_atom
             nbands = min(nao, nbands)
         elif nbands > nao and mode == 'lcao':
