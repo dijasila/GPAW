@@ -3,8 +3,6 @@ from ase.data import atomic_numbers
 
 from gpaw.utilities import pack2
 from gpaw.utilities.tools import md5_new
-from gpaw.setup import BaseSetup
-from gpaw.spline import Spline
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.configurations import configurations
