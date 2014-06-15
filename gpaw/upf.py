@@ -156,10 +156,9 @@ def parse_upf(fname):
                 assert npts == len(values), (npts, len(values))
                 while values[-1] == 0.0:
                     values.pop()
-                proj = UPFProjectorSpec(int(tokens[0]),
-                                        '??',
-                                        int(tokens[1]),
-                                        np.array(values))
+
+                proj = UPFStateSpec(int(tokens[0]), '??', int(tokens[1]),
+                                    np.array(values))
 
             pp['projectors'].append(proj)
         else:
@@ -185,16 +184,32 @@ def parse_upf(fname):
 
     pswfc_element = root.find('PP_PSWFC')
     pp['states'] = []
-    for element in pswfc_element:
-        attr = element.attrib
-        name = element.tag
-        state = UPFStateSpec(int(attr['index']),
-                             attr['label'],
-                             int(attr['l']),
-                             toarray(element),
-                             float(attr['occupation']),
-                             int(attr['n']))
-        pp['states'].append(state)
+    if v201:
+        for element in pswfc_element:
+            attr = element.attrib
+            name = element.tag
+            state = UPFStateSpec(int(attr['index']),
+                                 attr['label'],
+                                 int(attr['l']),
+                                 toarray(element),
+                                 float(attr['occupation']),
+                                 int(attr['n']))
+            pp['states'].append(state)
+    else:
+        state_data = []
+        for line in pswfc_element.text.splitlines()[1:]:
+            if line.endswith('Wavefunction'):
+                values = []
+                state_data.append((line, values))
+            else:
+                values.extend(map(float, line.split()))
+        for header, values in state_data:
+            label, l, occupation, wfstring = header.split()
+            assert wfstring == 'Wavefunction'
+            state = UPFStateSpec(None, label, int(l), np.array(values),
+                                 occupation=float(occupation))
+            pp['states'].append(state)
+        #print repr(lines[0])
     #assert len(pp['states']) > 0
 
     pp['rhoatom'] = toarray(root.find('PP_RHOATOM'))
@@ -421,33 +436,6 @@ class UPFSetupData:
             b.bf_j.append(bf)
         return b
 
-    if 0:
-        def create_basis_functions(self):
-            class SimpleBasis(Basis):
-                def __init__(self, symbol, l_j):
-                    Basis.__init__(self, symbol, 'simple', readxml=False)
-                    self.generatordata = 'simple'
-                    self.d = 0.02
-                    self.ng = 160
-                    rgd = self.get_grid_descriptor()
-                    bf_j = self.bf_j
-                    rcgauss = rgd.r_g[-1] / 3.0
-                    gauss_g = np.exp(-(rgd.r_g / rcgauss)**2.0)
-                    for l in l_j:
-                        phit_g = rgd.r_g**l * gauss_g
-                        norm = (rgd.integrate(phit_g**2) / (4 * np.pi))**0.5
-                        phit_g /= norm
-                        bf = BasisFunction(l, rgd.r_g[-1], phit_g, 'gaussian')
-                        bf_j.append(bf)
-            l_orb_j = [state.l for state in self.data['states']]
-            b1 = SimpleBasis(self.symbol, range(max(l_orb_j) + 1))
-            apaw = AtomPAW(self.symbol, [self.f_ln], h=0.05, rcut=9.0,
-                           basis={self.symbol: b1},
-                           setups={self.symbol : self},
-                           lmax=0, txt=None)
-            basis = apaw.extract_basis_functions()
-            return basis
-
     def build(self, xcfunc, lmax, basis, filter=None):
         if basis is None:
             basis = self.create_basis_functions()
@@ -469,16 +457,12 @@ def upfplot(setup, show=True):
     # Maybe it is not worth keeping this version
     if isinstance(setup, dict):
         setup = UPFSetupData(setup)
-        pp = setup.data
+    pp = setup.data
     r0 = pp['r'].copy()
     r0[0] = 1e-8
     def rtrunc(array, rdividepower=0):
-        arr = array.copy()
-        r = r0[:len(arr)]
-        # XXXX use divrl
-        if rdividepower != 0:
-            arr /= r**rdividepower
-            arr[0] = arr[1]
+        r = r0[:len(array)]
+        arr = divrl(array, rdividepower, r)
         return r, arr
     
     import pylab as pl
@@ -508,17 +492,9 @@ def upfplot(setup, show=True):
         pax.plot(r, p,
                  label='p%d [l=%d]' % (j + 1, proj.l))
 
-    if 0:
-        for j, cc in enumerate(pp['compcharges']):
-            #rtmp = pp['r'][:len(cc.values)].copy()
-            #rtmp[0] = rtmp[1]
-            r, c = rtrunc(cc.values, 2)
-            rhoax.plot(r, c, label='cc%d' % j)
-
-    if 0:
-        for j, st in enumerate(pp['states']):
-            r, psi = rtrunc(st.values, 1)
-            wfsax.plot(r, psi, label='wf%d %s' % (j, st.name))
+    for j, st in enumerate(pp['states']):
+        r, psi = rtrunc(st.values, 1)
+        wfsax.plot(r, psi, label='wf%d %s' % (j, st.label))
 
     r, rho = rtrunc(pp['rhoatom'], 2)
     wfsax.plot(r, rho, label='rho')
@@ -537,6 +513,7 @@ def upfplot(setup, show=True):
     wfsax.set_ylabel('WF / density')
     rhoax.set_ylabel('Comp charges')
 
+    #fig.canvas.set_window_title(fname) remember fname in setup
     fig.subplots_adjust(wspace=0.3)
 
     if show:

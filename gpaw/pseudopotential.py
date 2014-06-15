@@ -27,7 +27,9 @@ def screen_potential(r, v, charge):
     
     err = 0.0
     i = len(vr)
-    while err < 1e-6:
+    while err < 1e-5:
+        # Things can be a bit sensitive to the threshold.  The O.pz-mt setup
+        # gets 20-30 Bohr long compensation charges if it's 1e-6.
         i -= 1
         err = abs(vr[i])
     i += 1
