@@ -14,8 +14,10 @@ from ase.data import atomic_numbers
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.basis_data import Basis, BasisFunction
-from gpaw.pseudopotential import PseudoPotential, screen_potential
-from gpaw.utilities import pack2, erf
+from gpaw.pseudopotential import PseudoPotential, screen_potential, \
+    figure_out_valence_states
+from gpaw.spline import Spline
+from gpaw.utilities import pack2, erf, divrl
 
 class UPFStateSpec:
     def __init__(self, index, label, l, values, occupation=None, n=None):
@@ -76,7 +78,7 @@ def parse_upf(fname):
 
     # v201 is the sensible version.
     # There are other files out there and we will have to deal with their
-    # inconsistencies in the most horrendous way conveivable: by if-statements.
+    # inconsistencies in the most horrendous way conceivable: by if-statements.
     v201 = (root.attrib.get('version') == '2.0.1')
 
     def toarray(element):
@@ -124,8 +126,9 @@ def parse_upf(fname):
 
     
     pp['header'] = header
-    pp['r'] = toarray(root.find('PP_MESH').find('PP_R'))
-    # skip PP_RAB for now.
+    mesh_element = root.find('PP_MESH')
+    pp['r'] = toarray(mesh_element.find('PP_R'))
+    pp['rab'] = toarray(mesh_element.find('PP_RAB'))
     
     # Convert to Hartree from Rydberg.
     pp['vlocal'] = 0.5 * toarray(root.find('PP_LOCAL'))
@@ -162,7 +165,8 @@ def parse_upf(fname):
         else:
             if v201:
                 assert element.tag == 'PP_DIJ'
-                pp['DIJ'] = toarray(element)
+                # XXX probably measured in Rydberg.
+                pp['DIJ'] = 0.5 * toarray(element)
             else:
                 lines = element.text.strip().splitlines()
                 nnonzero = int(lines[0].split()[0])
@@ -179,8 +183,6 @@ def parse_upf(fname):
                 # XXX probably measured in Rydberg.
                 pp['DIJ'] = 0.5 * D_ij
 
-    # ---- PSWFC missing -----
-
     pswfc_element = root.find('PP_PSWFC')
     pp['states'] = []
     for element in pswfc_element:
@@ -193,7 +195,7 @@ def parse_upf(fname):
                              float(attr['occupation']),
                              int(attr['n']))
         pp['states'].append(state)
-    assert len(pp['states']) > 0
+    #assert len(pp['states']) > 0
 
     pp['rhoatom'] = toarray(root.find('PP_RHOATOM'))
     return pp
@@ -229,22 +231,40 @@ class UPFSetupData:
         beta = 0.1 # XXX nice parameters?
         N = 4 * 450 # XXX
         # This is "stolen" from hgh.  Figure out something reasonable
-        rgd = AERadialGridDescriptor(beta / N, 1.0 / N, N,
-                                     default_spline_points=100)
+        #rgd = AERadialGridDescriptor(beta / N, 1.0 / N, N,
+        #                             default_spline_points=100)
+        
+        from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
+        rgd = EquidistantRadialGridDescriptor(0.02)
         self.rgd = rgd
         
-        projectors = data['projectors']
-        if not projectors:
-            projectors = [UPFStateSpec(1, 'zero', 0, np.zeros(50))]
-            
-        self.l_j = [proj.l for proj in projectors]
-        self.pt_jg = []
-        for proj in projectors:
-            pt_g = self._interp(proj.values)
-            self.pt_jg.append(pt_g)
-        self.rcgauss = 0.0 # XXX .... get right value. data['compcharges']
-        #self.nao = sum([2 * state.l + 1 for state in states]) XXX
+        # Whyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy???
+        # What abominable part of the code requires the states
+        # to be ordered like this?
+        self.jargs = self.get_jargs()
 
+        projectors = [data['projectors'][jarg] for jarg in self.jargs]
+        if projectors:
+            self.l_j = [proj.l for proj in projectors]
+            self.pt_jg = []
+            for proj in projectors:
+                val = proj.values.copy()
+                val /= 2.
+                val[1:] /= data['r'][1:len(val)]
+                val[0] = val[1]
+
+                r0 = np.linspace(0., 10., 1000)
+                
+                pt_g = self._interp(val) #* np.sqrt(4.0 * np.pi)
+                sqrnorm = (pt_g**2 * self.rgd.dr_g).sum()
+                self.pt_jg.append(pt_g)
+        
+        else:
+            self.l_j = [0]
+            gcut = self.rgd.r2g(1.0)
+            self.pt_jg = [np.zeros(gcut)] # XXX yet another "null" function
+
+        self.rcgauss = 0.0 # XXX .... what is this used for?
         self.ni = sum([2 * l + 1 for l in self.l_j])
 
         self.filename = None # remember filename?
@@ -252,29 +272,53 @@ class UPFSetupData:
         self.HubU = None # XXX
         self.lq = None # XXX
 
-        states_lmax = max([state.l for state in data['states']])
-        f_ln = [[] for _ in range(1 + states_lmax)]
-        electroncount = 0.0
-        for state in data['states']:
-            # Where should the electrons be in the inner list??
-            # This is probably wrong and will lead to bad initialization
-            f_ln[state.l].append(state.occupation)
-            electroncount += state.occupation
-        assert abs(electroncount - self.Nv) < 1e-12
-        self.f_ln = f_ln
+        #if data['states']:
+        #    states_lmax = max([state.l for state in data['states']])
+        #else:
+        #    states_lmax = 1 # XXXX
+
+        if data['states']:
+            states_lmax = max([state.l for state in data['states']])
+            f_ln = [[] for _ in range(1 + states_lmax)]
+            electroncount = 0.0
+            for state in data['states']:
+                # Where should the electrons be in the inner list??
+                # This is probably wrong and will lead to bad initialization
+                f_ln[state.l].append(state.occupation)
+                electroncount += state.occupation
+                # The Cl.pz-hgh.UPF from quantum espresso has only 6
+                # but should have 7 electrons.  Oh well....
+            err = abs(electroncount - self.Nv)
+            self.f_j = [state.occupation for state in data['states']]
+            self.n_j = [state.n for state in data['states']]
+            self.l_orb_j = [state.l for state in data['states']]
+            self.f_ln = f_ln
+        else:
+            self.n_j, self.l_orb_j, self.f_j, self.f_ln = \
+                figure_out_valence_states(self)
 
         vlocal_unscreened = data['vlocal']
-
         vbar_g, ghat_g = screen_potential(data['r'], vlocal_unscreened,
                                           self.Nv)
-        prefactor = np.sqrt(4.0 * np.pi) # ?
+        
+        self.vbar_g = self._interp(vbar_g) * np.sqrt(4.0 * np.pi)
+        self.ghat_lg = [4.0 * np.pi / self.Nv * self._interp(ghat_g)]
 
-        self.vbar_g = self._interp(vbar_g) * prefactor
-        self.ghat_lg = [4.0 * np.pi * self._interp(ghat_g)]
         # XXX Subtract Hartree energy of compensation charge as reference
 
-        self.f_j = [state.occupation for state in data['states']]
-        self.n_j = [state.n for state in data['states']]
+
+    def get_jargs(self):
+        projectors = list(self.data['projectors'])
+        jargs = []
+        
+        for n in range(4):
+            for l in range(4):
+                for i, proj in enumerate(projectors):
+                    if proj.l == l:
+                        jargs.append(proj.index - 1)
+                        projectors.pop(i)
+                        break
+        return jargs
 
     def print_info(self, txt, setup):
         txt('Hello world!\n')
@@ -283,14 +327,38 @@ class UPFSetupData:
     def expand_hamiltonian_matrix(self):
         """Construct K_p from individual h_nn for each l."""
         ni = sum([2 * l + 1 for l in self.l_j])
+        nj = len(self.l_j)
 
         H_ii = np.zeros((ni, ni))
-        # Actually let's just do zeros now.
+        if len(self.data['DIJ']) == 0:
+            return pack2(H_ii)
+        
+        # Multiply by 4.
+        # I think the factor of 4 compensates for the fact that the projectors
+        # all had square norms of 4, but we brought them back down to 1
+        # because that's more sensible.
+        H_jj = 4.0 * self.data['DIJ'].reshape((nj, nj))
+        m1start = 0
+        for j1, l1 in enumerate(self.l_j):
+            j1 = self.jargs[j1]
+            m1stop = m1start + 2 * l1 + 1
+            m2start = 0
+            for j2, l2 in enumerate(self.l_j):
+                j2 = self.jargs[j2]
+                m2stop = m2start + 2 * l2 + 1
+                if l1 == l2:
+                    dm = m1stop - m1start
+                    H_ii[m1start:m1stop, m2start:m2stop] = \
+                        np.eye(dm) * H_jj[j1, j2]
+                else:
+                    assert H_jj[j1, j2] == 0.0
+                m2start = m2stop
+            m1start = m1stop
         return pack2(H_ii)
     
     def get_local_potential(self):
-        return self.rgd.spline(self.vbar_g, self.rgd.r_g[len(self.vbar_g) - 1],
-                               l=0, points=500)
+        vbar = Spline(0, self.rgd.r_g[len(self.vbar_g) - 1], self.vbar_g)
+        return vbar
 
     # XXXXXXXXXXXXXXXXX stolen from hghsetupdata
     def get_projectors(self):
@@ -299,8 +367,9 @@ class UPFSetupData:
         pt_j = []
         for l, pt1_g in zip(self.l_j, self.pt_jg):
             pt2_g = self.rgd.zeros()[:maxlen]
-            pt2_g[:len(pt1_g)] = pt1_g
-            pt_j.append(self.rgd.spline(pt2_g, self.rgd.r_g[maxlen - 1], l))
+            pt2_g[:len(pt1_g)] = divrl(pt1_g, l, self.rgd.r_g[:len(pt1_g)])
+            spline = Spline(l, self.rgd.r_g[maxlen - 1], pt2_g)
+            pt_j.append(spline)
         return pt_j
 
     def _interp(self, func):
@@ -317,11 +386,19 @@ class UPFSetupData:
         ghat_g = self.ghat_lg[0]
         ng = len(ghat_g)
         rcutcc = self.rgd.r_g[ng - 1] # correct or not?
-        r = np.linspace(0.0, rcutcc, 100)
-        ghatnew_g = self.rgd.spline(ghat_g, rcutcc, 0).map(r)
+        r = np.linspace(0.0, rcutcc, 50)
+        ghat_g[-1] = 0.0
+        ghatnew_g = Spline(0, rcutcc, ghat_g).map(r)
         return r, [0], [ghatnew_g]
 
     def create_basis_functions(self):
+        if len(self.data['states']) > 0:
+            return self.get_stored_basis_functions()
+        else:
+            from gpaw.pseudopotential import generate_basis_functions
+            return generate_basis_functions(self)
+    
+    def get_stored_basis_functions(self, ):
         b = Basis(self.symbol, 'upf', readxml=False)
         b.generatordata = 'upf-pregenerated'
         
@@ -337,38 +414,39 @@ class UPFSetupData:
         for j, state in enumerate(states):
             val = state.values
             phit_g = np.interp(rgd.r_g, orig_r, val)
+            phit_g = divrl(phit_g, 1, rgd.r_g)
             icut = len(phit_g) - 1 # XXX correct or off-by-one?
             rcut = rgd.r_g[icut]
             bf = BasisFunction(state.l, rcut, phit_g, 'pregenerated')
             b.bf_j.append(bf)
         return b
 
-    def create_basis_functions0(self):
-        class SimpleBasis(Basis):
-            def __init__(self, symbol, l_j):
-                Basis.__init__(self, symbol, 'simple', readxml=False)
-                self.generatordata = 'simple'
-                self.d = 0.02
-                self.ng = 160
-                rgd = self.get_grid_descriptor()
-                bf_j = self.bf_j
-                rcgauss = rgd.r_g[-1] / 3.0
-                gauss_g = np.exp(-(rgd.r_g / rcgauss)**2.0)
-                for l in l_j:
-                    phit_g = rgd.r_g**l * gauss_g
-                    norm = (rgd.integrate(phit_g**2) / (4 * np.pi))**0.5
-                    phit_g /= norm
-                    bf = BasisFunction(l, rgd.r_g[-1], phit_g, 'gaussian')
-                    bf_j.append(bf)
-        l_orb_j = [state.l for state in self.data['states']]
-        b1 = SimpleBasis(self.symbol, range(max(l_orb_j) + 1))
-        apaw = AtomPAW(self.symbol, [self.f_ln], h=0.05, rcut=9.0,
-                       basis={self.symbol: b1},
-                       setups={self.symbol : self},
-                       lmax=0, txt=None)
-        basis = apaw.extract_basis_functions()
-        return basis
-
+    if 0:
+        def create_basis_functions(self):
+            class SimpleBasis(Basis):
+                def __init__(self, symbol, l_j):
+                    Basis.__init__(self, symbol, 'simple', readxml=False)
+                    self.generatordata = 'simple'
+                    self.d = 0.02
+                    self.ng = 160
+                    rgd = self.get_grid_descriptor()
+                    bf_j = self.bf_j
+                    rcgauss = rgd.r_g[-1] / 3.0
+                    gauss_g = np.exp(-(rgd.r_g / rcgauss)**2.0)
+                    for l in l_j:
+                        phit_g = rgd.r_g**l * gauss_g
+                        norm = (rgd.integrate(phit_g**2) / (4 * np.pi))**0.5
+                        phit_g /= norm
+                        bf = BasisFunction(l, rgd.r_g[-1], phit_g, 'gaussian')
+                        bf_j.append(bf)
+            l_orb_j = [state.l for state in self.data['states']]
+            b1 = SimpleBasis(self.symbol, range(max(l_orb_j) + 1))
+            apaw = AtomPAW(self.symbol, [self.f_ln], h=0.05, rcut=9.0,
+                           basis={self.symbol: b1},
+                           setups={self.symbol : self},
+                           lmax=0, txt=None)
+            basis = apaw.extract_basis_functions()
+            return basis
 
     def build(self, xcfunc, lmax, basis, filter=None):
         if basis is None:
@@ -397,6 +475,7 @@ def upfplot(setup, show=True):
     def rtrunc(array, rdividepower=0):
         arr = array.copy()
         r = r0[:len(arr)]
+        # XXXX use divrl
         if rdividepower != 0:
             arr /= r**rdividepower
             arr[0] = arr[1]
@@ -425,7 +504,7 @@ def upfplot(setup, show=True):
     rhoax.plot(r[:icut], rhocomp[:icut], label='rhocomp')
 
     for j, proj in enumerate(pp['projectors']):
-        r, p = rtrunc(proj.values, 1)
+        r, p = rtrunc(proj.values, 0)
         pax.plot(r, p,
                  label='p%d [l=%d]' % (j + 1, proj.l))
 

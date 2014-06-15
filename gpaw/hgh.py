@@ -132,6 +132,7 @@ class HGHSetupData:
         assert nj == len(n_j)
         self.nj = nj
         self.l_j = l_j
+        self.l_orb_j = l_j
         self.n_j = n_j
 
         self.rcut_j = []
@@ -252,29 +253,8 @@ class HGHSetupData:
         return pt_j
 
     def create_basis_functions(self):
-        class SimpleBasis(Basis):
-            def __init__(self, symbol, l_j):
-                Basis.__init__(self, symbol, 'simple', readxml=False)
-                self.generatordata = 'simple'
-                self.d = 0.02
-                self.ng = 160
-                rgd = self.get_grid_descriptor()
-                bf_j = self.bf_j
-                rcgauss = rgd.r_g[-1] / 3.0
-                gauss_g = np.exp(-(rgd.r_g / rcgauss)**2.0)
-                for l in l_j:
-                    phit_g = rgd.r_g**l * gauss_g
-                    norm = (rgd.integrate(phit_g**2) / (4 * np.pi))**0.5
-                    phit_g /= norm
-                    bf = BasisFunction(l, rgd.r_g[-1], phit_g, 'gaussian')
-                    bf_j.append(bf)
-        b1 = SimpleBasis(self.symbol, range(max(self.l_j) + 1))
-        apaw = AtomPAW(self.symbol, [self.f_ln], h=0.05, rcut=9.0,
-                       basis={self.symbol: b1},
-                       setups={self.symbol : self},
-                       lmax=0, txt=None)
-        basis = apaw.extract_basis_functions()
-        return basis
+        from gpaw.pseudopotential import generate_basis_functions
+        return generate_basis_functions(self)
 
     def get_compensation_charge_functions(self):
         alpha = self.rcgauss**-2
@@ -514,6 +494,12 @@ def parse_hgh_setup(lines):
         nltokens = nonlocal.split()
         r0 = float(nltokens[0])
         h_n = [float(token) for token in nltokens[1:]]
+
+        #if h_n[-1] == 0.0: # Only spin-orbit contributes.  Discard.
+        #    h_n.pop()
+        # Actually the above causes trouble.  Probably it messes up state
+        # ordering or something else that shouldn't have any effect.
+        
         vnl = VNonLocal(l, r0, h_n)
         v_l.append(vnl)
         if l > 2:
