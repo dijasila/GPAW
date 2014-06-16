@@ -7,7 +7,6 @@ import numpy as np
 from ase.units import Hartree
 
 import gpaw.mpi as mpi
-from gpaw.parallel import run
 from gpaw import extra_parameters
 from gpaw.occupations import FermiDirac
 from gpaw.utilities.timing import timer
@@ -173,7 +172,8 @@ class Chi0(PairDensity):
                 
                 # Only update if there exists deps <= omegamax
                 if not self.omegamax is None:
-                    m = [m for m, d in enumerate(eps1 - kpt2.eps_n) if abs(d)<=self.omegamax] 
+                    m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
+                         if abs(d) <= self.omegamax]
                 else:
                     m = range(len(kpt2.eps_n))
                 
@@ -298,16 +298,10 @@ class Chi0(PairDensity):
         p1_m = p_m * (o2_m - o_m)
         p2_m = p_m * (o_m - o1_m)
         
-        def task(p1, p2, n_G, w):
+        for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
             czher(p1, n_G.conj(), chi0_wGG[w])
             czher(p2, n_G.conj(), chi0_wGG[w + 1])
         
-        n = run(task, self.nthreads, p1_m, p2_m, n_mG, w_m)
-
-        for t in range(self.nthreads - 1):
-            pass
-            #assert w_m[n[t]:n[t + 1]].max() < w_m[n[t + 1]:n[t + 2]].min()
-
     @timer('CHI_0 optical limit update')
     def update_optical_limit(self, n, m, kpt1, kpt2, deps_m, df_m, n_mG,
                              chi0_wxvG, chi0_wvv):
@@ -425,7 +419,7 @@ class Chi0(PairDensity):
         print('    Number of kpoints: %d' % nk, file=self.fd)
         print('    Number of planewaves: %d' % pd.ngmax, file=self.fd)
         print('    Broadening (eta): %f' % (self.eta * Hartree), file=self.fd)
-        print('    Keep occupied states: %s' % (str(self.keep_occupied_states)), 
+        print('    Keep occupied states: %s' % self.keep_occupied_states,
               file=self.fd)
 
         print('', file=self.fd)
@@ -442,8 +436,8 @@ class Chi0(PairDensity):
         print('    Memory estimate:', file=self.fd)
         print('        chi0_wGG: %f M / cpu'
               % (nw * pd.ngmax**2 * 16. / 1024**2), file=self.fd)
-        print('        Occupied states: %f M / cpu' 
-              % (nstat * gd.N_c[0] * gd.N_c[1] * gd.N_c[2] * 16. / 1024**2),
+        print('        Occupied states: %f M / cpu' %
+              (nstat * gd.N_c[0] * gd.N_c[1] * gd.N_c[2] * 16. / 1024**2),
               file=self.fd)
         print('        Max mem sofar   : %f M / cpu'
               % (maxrss() / 1024**2), file=self.fd)
