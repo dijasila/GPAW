@@ -1,48 +1,40 @@
-import numpy as np
-import pickle as pckl
 from ase import Atoms
-from gpaw import GPAW
-from gpaw.wavefunctions.pw import PW
-from ase.dft.kpoints import monkhorst_pack
+from gpaw import GPAW, PW
 from gpaw.response.df2 import DielectricFunction
-from ase.parallel import paropen as open
 from gpaw.test import equal, findpeak
 
 # Comparing the plasmon peaks found in bulk sodium for two different
-# atomic structures. Testing for idential plasmon peaks. Not using 
-# physical sodium cell. 
+# atomic structures. Testing for idential plasmon peaks. Not using
+# physical sodium cell.
 
-a_v = 4.23/2.0
+a = 4.23 / 2.0
 a1 = Atoms('Na',
            scaled_positions=[[0, 0, 0]],
-           cell=(a_v, a_v, a_v),
+           cell=(a, a, a),
            pbc=True)
 
 # Expanding along x-direction
 a2 = Atoms('Na2',
            scaled_positions=[[0, 0, 0], [0.5, 0, 0]],
-           cell=(2*a_v, a_v, a_v),
+           cell=(2 * a, a, a),
            pbc=True)
-
-# Kpoint sampling should be halved in the expanded direction. 
-k1 = monkhorst_pack((8, 8, 8)) + np.array([1./16, 1./16, 1./16])
-k2 = monkhorst_pack((4, 8, 8)) + np.array([1./8, 1./16, 1./16])
 
 a1.calc = GPAW(gpts=(10, 10, 10),
                basis='dzp',
                mode=PW(300),
-               kpts=k1,
+               kpts={'size': (8, 8, 8), 'gamma': True},
                parallel={'band': 1},
-               )
+               txt='small.txt')
 
+# Kpoint sampling should be halved in the expanded direction.
 a2.calc = GPAW(gpts=(20, 10, 10),
                basis='dzp',
                mode=PW(300),
-               kpts=k2,
+               kpts={'size': (4, 8, 8), 'gamma': True},
                parallel={'band': 1},
-               ) 
+               txt='large.txt')
 
-a1.get_potential_energy()  
+a1.get_potential_energy()
 a2.get_potential_energy()
 
 # Use twice as many bands for expanded structure
@@ -53,7 +45,7 @@ a1.calc.write('gs_Na_small.gpw', 'all')
 a2.calc.write('gs_Na_large.gpw', 'all')
 
 # Calculate the dielectric functions
-df1 = DielectricFunction(calc='gs_Na_small.gpw',
+df1 = DielectricFunction('gs_Na_small.gpw',
                          omegamax=15,
                          domega0=0.05,
                          hilbert=True,
@@ -63,7 +55,7 @@ df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
 df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
 df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
 
-df2 = DielectricFunction(calc='gs_Na_large.gpw',
+df2 = DielectricFunction('gs_Na_large.gpw',
                          omegamax=15,
                          domega0=0.05,
                          hilbert=True,
