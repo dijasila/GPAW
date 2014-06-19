@@ -11,17 +11,22 @@ import gpaw.mpi as mpi
 import gpaw.fftw as fftw
 from gpaw.utilities.blas import gemm
 from gpaw.fd_operators import Gradient
+from gpaw.occupations import FermiDirac
 from gpaw.wavefunctions.pw import PWLFC
 from gpaw.utilities.timing import timer, Timer
 from gpaw.response.math_func import two_phi_planewave_integrals
-from gpaw.occupations import FermiDirac
+
 
 class KPoint:
-    def __init__(self, s, K, n1, n2, ut_nR, eps_n, f_n, P_ani, shift_c):
+    def __init__(self, s, K, n1, n2, blocksize, na, nb,
+                 ut_nR, eps_n, f_n, P_ani, shift_c):
         self.s = s    # spin index
         self.K = K    # BZ k-point index
         self.n1 = n1  # first band
         self.n2 = n2  # first band not included
+        self.blocksize = blocksize
+        self.na = na  # first band of block
+        self.nb = nb  # first band of block not included
         self.ut_nR = ut_nR      # periodic part of wave functions in real-space
         self.eps_n = eps_n      # eigenvalues
         self.f_n = f_n          # occupation numbers
@@ -36,6 +41,7 @@ class PairDensity:
                  ftol=1e-6,
                  real_space_derivatives=False,
                  world=mpi.world, txt=sys.stdout, timer=None, nthreads=1,
+                 nblocks=1,
                  gate_voltage=None):
         if ecut is not None:
             ecut /= Hartree
@@ -50,6 +56,16 @@ class PairDensity:
         self.nthreads = nthreads
         self.gate_voltage = gate_voltage
         
+        if nblocks == 1:
+            self.blockcomm = mpi.serial_comm
+            self.kncomm = world
+        else:
+            rank1 = world.rank // nblocks * nblocks
+            rank2 = rank1 + nblocks
+            self.blockcomm = self.world.new_communicator(range(rank1, rank2))
+            ranks = range(world.rank, world.size, nblocks)
+            self.kncomm = self.world.new_communicator(ranks)
+            
         if nthreads > 1:
             fftw.lib.fftw_plan_with_nthreads(nthreads)
             
@@ -86,15 +102,14 @@ class PairDensity:
         print('Number of threads:', self.nthreads, file=self.fd)
         
     def add_gate_voltage(self, gate_voltage=0):
-        """
-        Shifts the Fermi-level by e * Vg. By definition e = 1.
-        """
+        """Shifts the Fermi-level by e * Vg. By definition e = 1."""
         assert isinstance(self.calc.occupations, FermiDirac)
-        print('Shifting Fermi-level by %.2f eV' %(gate_voltage * Hartree), file=self.fd)
+        print('Shifting Fermi-level by %.2f eV' % (gate_voltage * Hartree),
+              file=self.fd)
 
         fermi = self.calc.occupations.get_fermi_level() + gate_voltage
         width = self.calc.occupations.width
-        shiftedFDdist = lambda w_w : 1 / (1 + np.exp((w_w - fermi) / width))
+        shiftedFDdist = lambda w_w: 1 / (1 + np.exp((w_w - fermi) / width))
         
         for kpt in self.calc.wfs.kpt_u:
             kpt.f_n = shiftedFDdist(kpt.eps_n) * kpt.weight
@@ -121,13 +136,14 @@ class PairDensity:
         tuples that this process handles.
         """
         
-        world = self.world
+        size = self.kncomm.size
+        rank = self.kncomm.rank
         wfs = self.calc.wfs
         ns = wfs.nspins
         nk = wfs.kd.nbzkpts
-        n = (ns * nk * nbands + world.size - 1) // world.size
-        i1 = world.rank * n
-        i2 = min((world.rank + 1) * n, ns * nk * nbands)
+        n = (ns * nk * nbands + size - 1) // size
+        i1 = rank * n
+        i2 = min(i1 + n, ns * nk * nbands)
 
         self.mysKn1n2 = []
         i = 0
@@ -143,10 +159,12 @@ class PairDensity:
         print('Distributing spins, k-points and bands (%d x %d x %d)' %
               (ns, nk, nbands),
               'over %d process%s' %
-              (world.size, ['es', ''][world.size == 1]), file=self.fd)
+              (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
+              file=self.fd)
+        print('Number of blocks:', self.blockcomm.size, file=self.fd)
         
     @timer('Get a k-point')
-    def get_k_point(self, s, K, n1, n2):
+    def get_k_point(self, s, K, n1, n2, block=False):
         """Return wave functions for a specific k-point and spin.
         
         s: int
@@ -158,27 +176,38 @@ class PairDensity:
         """
         wfs = self.calc.wfs
         
+        if block:
+            nblocks = self.blockcomm.size
+            rank = self.blockcomm.rank
+        else:
+            nblocks = 1
+            rank = 0
+        blocksize = (n2 - n1 + nblocks - 1) // nblocks
+        na = n1 + rank * blocksize
+        nb = min(na + blocksize, n2)
+        
         U_cc, T, a_a, U_aii, shift_c, time_reversal = \
             self.construct_symmetry_operators(K)
         ik = wfs.kd.bz2ibz_k[K]
         kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
         
         psit_nG = kpt.psit_nG
-        ut_nR = wfs.gd.empty(n2 - n1, wfs.dtype)
-        for n in range(n1, n2):
-            ut_nR[n - n1] = T(wfs.pd.ifft(psit_nG[n], ik))
+        ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
+        for n in range(na, nb):
+            ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
             
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
         
         P_ani = []
         for b, U_ii in zip(a_a, U_aii):
-            P_ni = np.dot(kpt.P_ani[b][n1:n2], U_ii)
+            P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
             if time_reversal:
                 P_ni = P_ni.conj()
             P_ani.append(P_ni)
         
-        return KPoint(s, K, n1, n2, ut_nR, eps_n, f_n, P_ani, shift_c)
+        return KPoint(s, K, n1, n2, blocksize, na, nb,
+                      ut_nR, eps_n, f_n, P_ani, shift_c)
     
     @timer('Calculate pair-densities')
     def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G):
@@ -198,7 +227,8 @@ class PairDensity:
         """
         
         dv = pd.gd.dv
-        n_mG = pd.empty(kpt2.n2 - kpt2.n1)
+        n_mG = pd.empty(kpt2.blocksize)
+        myblocksize = kpt2.nb - kpt2.na
         
         for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
             n_R = ut1cc_R * ut_R
@@ -208,9 +238,14 @@ class PairDensity:
         # PAW corrections:
         with self.timer('gemm'):
             for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
-                gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG, 't')
+                gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG[:myblocksize], 't')
         
-        return n_mG
+        if self.blockcomm.size == 1:
+            return n_mG
+        else:
+            n_MG = pd.empty(kpt2.blocksize * self.blockcomm.size)
+            self.blockcomm.all_gather(n_mG, n_MG)
+            return n_MG[:kpt2.n2 - kpt2.n1]
     
     def get_fft_indices(self, K1, K2, q_c, pd, shift0_c):
         """Get indices for G-vectors inside cutoff sphere."""

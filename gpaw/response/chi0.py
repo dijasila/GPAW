@@ -31,11 +31,13 @@ class Chi0(PairDensity):
                  timeordered=False, eta=0.2, ftol=1e-6,
                  real_space_derivatives=False, intraband=True, nthreads=1,
                  world=mpi.world, txt=sys.stdout, timer=None,
+                 nblocks=1,
                  keep_occupied_states=False, gate_voltage=None):
 
         PairDensity.__init__(self, calc, ecut, ftol,
                              real_space_derivatives, world, txt, timer,
-                             nthreads=nthreads, gate_voltage=gate_voltage)
+                             nthreads=nthreads, nblocks=nblocks,
+                             gate_voltage=gate_voltage)
         
         self.eta = eta / Hartree
         self.domega0 = domega0 / Hartree
@@ -110,8 +112,12 @@ class Chi0(PairDensity):
 
         nG = pd.ngmax
         nw = len(self.omega_w)
-        chi0_wGG = np.zeros((nw, nG, nG), complex)
-
+        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
+        chi0_wGG = np.zeros((nw, mynG, nG), complex)
+        self.Ga = self.blockcomm.rank * mynG
+        self.Gb = min(self.Ga + mynG, nG)
+        chi0_wGG = chi0_wGG[:, :self.Gb - self.Ga]
+        
         if np.allclose(q_c, 0.0):
             chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
             chi0_wvv = np.zeros((len(self.omega_w), 3, 3), complex)
@@ -163,7 +169,7 @@ class Chi0(PairDensity):
                 continue
                 
             K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(kpt1.s, K2, m1, m2)
+            kpt2 = self.get_k_point(kpt1.s, K2, m1, m2, block=True)
             Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                        kpt1.shift_c - kpt2.shift_c)
             
@@ -219,7 +225,7 @@ class Chi0(PairDensity):
         
         with self.timer('Sum CHI_0'):
             for chi0_GG in chi0_wGG:
-                self.world.sum(chi0_GG)
+                self.kncomm.sum(chi0_GG)
             
             if optical_limit:
                 self.world.sum(chi0_wxvG)
@@ -231,7 +237,7 @@ class Chi0(PairDensity):
               '\n        mem. used.: ' +
               '%f M / cpu' % (maxrss() / 1024**2), file=self.fd)
 
-        if self.eta == 0.0 or self.hilbert:
+        if self.eta == 0.0 or (self.hilbert and self.blockcomm.size == 1):
             # Fill in upper/lower triangle also:
             nG = pd.ngmax
             il = np.tril_indices(nG, -1)
@@ -297,7 +303,14 @@ class Chi0(PairDensity):
         p_m = self.prefactor * abs(df_m) / (o2_m - o1_m)**2  # XXX abs()?
         p1_m = p_m * (o2_m - o_m)
         p2_m = p_m * (o_m - o1_m)
-        
+
+        if self.blockcomm.size > 1:
+            for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
+                myn_G = n_G[self.Ga:self.Gb]
+                chi0_wGG[w] += p1 * np.outer(myn_G, n_G.conj())
+                chi0_wGG[w + 1] += p2 * np.outer(myn_G, n_G.conj())
+            return
+            
         for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
             czher(p1, n_G.conj(), chi0_wGG[w])
             czher(p2, n_G.conj(), chi0_wGG[w + 1])
