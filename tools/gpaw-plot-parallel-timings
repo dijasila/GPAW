@@ -47,6 +47,9 @@ class Entry:
         else:
             self.level = parent.level + 1
 
+    def __repr__(self):
+        return 'Entry(name=%s, t1=%s, ...)' % (self.name, self.t1)
+
     def stop(self, t2):
         self.t2 = t2
         self.dt = self.t2 - self.t1
@@ -75,14 +78,40 @@ class Entry:
         for child in self.children:
             child.transform(offset, scale)
 
+    def get_first_occurrence(self, name):
+        for child in self.iterate():
+            if child.name == name:
+                return child
+        else:
+            raise ValueError('Entry not found: %s' % name)
+
 class EntryCollection:
     def __init__(self, entries):
         tstart = min([entry.t1 for entry in entries])
         tstop = max([entry.t2 for entry in entries])
         
+        try:
+            scf_cycle_starttimes = [entry.get_first_occurrence('SCF-cycle').t1
+                                    for entry in entries]
+        except ValueError:
+            print('Warning: No "SCF-cycle" entry found.  Times may not '
+                  'be synchronized so well')
+            scf_cycle_starttimes = [0] * len(entries)
+        
+        abs_starttimes = [entry.t1 for entry in entries]
+        max_diff = max([scftime - starttime for scftime, starttime
+                        in zip(scf_cycle_starttimes, abs_starttimes)])
+
         for entry in entries:
             assert entry.level == -1
-            entry.normalize(entry.t1)
+            start_time = entry.t1
+            sync_time = entry.t1
+            for child in entry.iterate():
+                if child.name == 'SCF-cycle': # hardcoded name!
+                    sync_time = child.t1
+                    break
+            entry.normalize(sync_time - max_diff)
+            
             #entry.normalize(tstart, tstop)
         self.entries = entries
         self.totals = self.get_totals()
@@ -157,7 +186,7 @@ styles = {}
 
 
 thecolors = 'bgrcmy'
-thehatches = ['', '//', '.', 'o', '*', r'\\', '\\']
+thehatches = ['', '//', 'O', '*', 'o', r'\\', '.', '|']
 def getstyle(i):
     return thecolors[i % len(thecolors)], thehatches[i // len(thecolors)]
 
@@ -167,10 +196,8 @@ else:
     plotstarttime = 0
     plotendtime = max([timing.t2 for timing in alltimings])
 
-
+nstyles_used = 0
 for rank, rootnode in enumerate(alltimings):
-    nstyles_used = 0
-
     for child in rootnode.iterate():
         if child.name in ignored_timers:
             continue
@@ -189,6 +216,7 @@ for rank, rootnode in enumerate(alltimings):
                 continue
             else:
                 color, hatch = getstyle(nstyles_used)
+                assert (color, hatch) not in styles.values()
                 nstyles_used += 1
                 ordered_names.append(child.name)
                 #nameax[child.level].plot([], [],
@@ -196,6 +224,8 @@ for rank, rootnode in enumerate(alltimings):
                 #                        #hatch=hatch,
                 #                        marker='s', ls='',
                 #                        label=child.name)
+                assert child.name not in styles
+            
             styles[child.name] = color, hatch
         
         color, hatch = styles[child.name]
