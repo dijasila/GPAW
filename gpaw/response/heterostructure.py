@@ -12,9 +12,9 @@ from ase.units import Hartree, Bohr
 
 class Heterostructure:
 
-    def __init__(self, n_layers, q_points_abs, frequencies, interlayer_distances, chi_monopole, chi_dipole=None):
+    def __init__(self, q_points_abs, frequencies, interlayer_distances, chi_monopole, chi_dipole=None):
         
-        self.n_layers = n_layers                                          # Number of Layers in the heterostructure
+        self.n_layers = len(interlayer_distances)+1                       # Number of Layers in the heterostructure
         self.q_points_abs = q_points_abs * Bohr                           # List of the absolute values of q_points: they have to be same as the ones used for calculating chi_monopole and chi_dipole
         self.frequencies = frequencies / Hartree                          # List of frequencies: they have to be same as the ones used for calculating chi_monopole and chi_dipole
         self.chi_monopole = chi_monopole * Bohr    #check units          # List of monopole chi0 in each layer
@@ -44,7 +44,7 @@ class Heterostructure:
             return temp
 
         Nls = self.n_layers
-        d_ij = self.interlayer_distances
+        d_ij = self.interlayer_distances  # create matrix from list!
 
         if self.chi_dipole:
             kernel_ij = np.zeros((2*Nls,2*Nls))
@@ -97,7 +97,7 @@ class Heterostructure:
 
         return eps_qwij
             
-
+    
 
     def get_exciton_screened_potential(self,e_distr,h_distr):  
         v_screened_qw = np.zeros((len(self.q_points_abs),len(self.frequencies)))    
