@@ -22,11 +22,16 @@ class Heterostructure:
             self.chi_dipole = chi_dipole / Bohr        #check units          # List of dipole chi0 in each layer
         else: 
             self.chi_dipole = chi_dipole 
-        self.interlayer_distances = interlayer_distances / Bohr          # Matrix containg the distances between layer i and j
+        self.interlayer_distances = interlayer_distances / Bohr          # Distances array: element i has to contain the distance between the layer i and i+1
 
 
 
     def CoulombKernel(self, q_abs):
+ 
+        #---------------------------------
+        # Different Types of Interaction      
+        #---------------------------------
+
         def v_mm(q,d):                                                        # Monopole generates a monopole
             temp = 2*np.pi*np.exp(-q*d)/(q+1e-08)
             return temp
@@ -43,8 +48,23 @@ class Heterostructure:
             temp = 2.*np.pi*q*np.exp(-q*np.abs(d))
             return temp
 
+        #---------------------------------
+        # Building Distances Matrix
+        #---------------------------------
+
         Nls = self.n_layers
-        d_ij = self.interlayer_distances  # create matrix from list!
+        d_ij = np.zeros((Nls,Nls))
+
+        for i in range(0,Nls):
+            for j in range(i+1,Nls):
+                for l in range(i,j):
+                    t = j-i-1
+                    d_ij[i,j] = d_ij[i,j]+inter_dist[t]
+                    d_ij[j,i] = d_ij[j,i]+inter_dist[t]
+
+        #---------------------------------
+        # Calculating the Kernel
+        #---------------------------------
 
         if self.chi_dipole:
             kernel_ij = np.zeros((2*Nls,2*Nls))
@@ -65,8 +85,6 @@ class Heterostructure:
             for i in range(0,Nls):
                 for j in range(0,Nls):
                     kernel_ij[i,j] = v_mm(q_abs,d_ij[i,j])
-
-
 
         return kernel_ij
     
