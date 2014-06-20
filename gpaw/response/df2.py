@@ -107,7 +107,7 @@ class DielectricFunction:
                                                 np.dot(chi0_GG, K_GG)), 
                                   chi0_GG))
         return chi0_wGG, np.array(chi_wGG)
-
+  
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', wigner_seitz_truncation=False, 
                               symmetric=True):
@@ -353,7 +353,8 @@ class DielectricFunction:
         nv = self.chi0.calc.wfs.nvalence
         prnt('N1 = %f, %f  %% error' %(N1, (N1 - nv) / nv * 100), file=fd)
 
-    def get_eigenmodes(self, q_c = [0, 0, 0], w_max = None,  name = None):
+    def get_eigenmodes(self, q_c = [0, 0, 0], w_max = None,  name = None, 
+                       eigenvalue_only = False):
         
         """
         Plasmon eigenmodes as eigenvectors of the dielectric matrix.  
@@ -394,7 +395,9 @@ class DielectricFunction:
         from negative to positive values: """
         for i in np.array(range(1,Nw)): 
             e_GG = e_wGG[i]  # epsilon_GG'(omega + d-omega)
-            eig_all[i], vec_p = np.linalg.eig(e_GG)    
+            eig_all[i], vec_p = np.linalg.eig(e_GG)
+            if eigenvalue_only:
+                continue
             vec_dual_p = np.linalg.inv(vec_p)      
             overlap = np.abs(np.dot(vec_dual,vec_p))
             index = list(np.argsort(overlap)[:,-1])
@@ -412,7 +415,7 @@ class DielectricFunction:
                 # print('    Tracking fault at omega = %1.2f eV! Corrected %d index(es)' %(w_w[i],len(addlist)))
             vec = vec_p[:,index]
             vec_dual = vec_dual_p[index,:]            
-            eig[i] = eig_all[i,index] 
+            eig[i] = eig_all[i,index]
             for k in [k for k in range(nG) if (eig[i-1,k] < 0 and eig[i,k] > 0)]:# Eigenvalue crossing
                 a = np.real((eig[i,k]-eig[i-1,k]) / (w_w[i]-w_w[i-1]))
                 w0 = np.real(-eig[i-1,k]) / a + w_w[i-1]  # linear interp for crossing point
@@ -432,19 +435,29 @@ class DielectricFunction:
                 n_ind =  np.append(n_ind,
                                    np.dot(phase,vec[:,k]* coef_G)[np.newaxis,:], 
                                    axis = 0)
-                                          
+        
         if name is None and self.name:          
-            name = self.name + '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * kd.N_c).round())          
+            name = self.name + '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * kd.N_c).round())      
         elif name:
             name = name + '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * kd.N_c).round())
         else:
-            return r*Bohr, w_w, eig_all, eig, omega0, eigen0, v_ind, n_ind
-
-        pickle.dump((r*Bohr, w_w, eig_all, eig, omega0, eigen0, v_ind, n_ind), open(name, 'wb'), 
+            name = '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * kd.N_c).round())
+        
+        """Returns: real space grid, frequency grid, all eigenvalues, sorted eigenvalues,
+        zero-crossing frequencies + eigenvalues, induced potential + density in real space"""   
+        
+        if eigenvalue_only:
+            pickle.dump((r*Bohr, w_w, eig_all), 
+                        open(name, 'wb'), pickle.HIGHEST_PROTOCOL)
+            return r*Bohr, w_w, eig_all
+        else:
+            pickle.dump((r*Bohr, w_w, eig_all, eig, omega0, eigen0, v_ind, n_ind), 
+                        open(name, 'wb'), 
                         pickle.HIGHEST_PROTOCOL)
-        """Returns: real space grid, frequency grid, all eigenvalues, sorted eigenvalues, zero-crossing 
-        frequencies + eigenvalues, induced potential + density in real space"""
-        return r*Bohr, w_w, eig_all, eig, omega0, eigen0, v_ind, n_ind    
+            return r*Bohr, w_w, eig_all, eig, omega0, eigen0, v_ind, n_ind
+    
+           
+
 
     def get_spatial_eels(self, q_c = [0, 0, 0], direction = 'x', 
                          w_max = None, filename = 'eels'):
@@ -463,7 +476,6 @@ class DielectricFunction:
         e_wGG = self.get_dielectric_matrix(xc = 'RPA', q_c = q_c,
                                            wigner_seitz_truncation=True,
                                            symmetric=False)
-        
         r = pd.gd.get_grid_point_coordinates()
         ix = r.shape[1]/2
         iy = r.shape[2]/2
