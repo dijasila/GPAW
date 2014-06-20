@@ -90,7 +90,7 @@ get('exercises/band_structure', ['silicon_banddiagram.png'])
 get('exercises/wavefunctions', ['co_bonding.jpg'])
 
 get('tutorials/bandstructures', ['sodium_bands.png'])
-get('tutorials/ensembles', ['ensemble.png'])
+get('tutorials/H2', ['ensemble.png'])
 
 get('.', ['2sigma.png', 'co_wavefunctions.png', 'molecules.png'], '_static')
 get('exercises/lrtddft', ['spectrum.png'])
@@ -114,7 +114,7 @@ scf_dcdft_pbe_pw_calculator_steps.png
 scf_dcdft_pbe_pw_energy.csv
 """.split()
 
-get('agts-files', scf_conv_eval_stuff, target='documentation/convergence', source=agtspath)
+get('agts-files', scf_conv_eval_stuff, target='documentation/scf_conv_eval', source=agtspath)
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_gpaw_pw_stuff = """

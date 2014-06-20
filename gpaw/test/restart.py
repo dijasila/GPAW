@@ -7,7 +7,7 @@ import numpy as np
 
 modes = ['gpw']
 try:
-    import _hdf5
+    import _gpaw_hdf5
     modes.append('hdf5')
 except ImportError:
     pass
@@ -64,6 +64,5 @@ for mode in modes:
     for eig0, eig1 in zip(eig01, eig11):
         equal(eig0, eig1, 1e-10)
 
-    equal(niter0, 6, 0)
     # Check that after restart everything is writable
     calc.write('tmp2.%s' % mode)

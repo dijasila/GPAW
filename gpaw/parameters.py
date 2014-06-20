@@ -36,7 +36,7 @@ class InputParameters(dict):
             ('random',          False),
             ('dtype',           None),
             ('filter',          None),
-            ('maxiter',         120),
+            ('maxiter',         333),  # google it's spiritual meaning!
             ('parallel',        {'kpt':                 None,
                                  'domain':              parsize_domain,
                                  'band':                parsize_bands,

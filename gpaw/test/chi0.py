@@ -27,6 +27,7 @@ for k in [2, 3]:
                 print(name)
                 if 1:
                     calc = a.calc = GPAW(kpts=kpts,
+                                         eigensolver='rmm-diis',
                                          usesymm=sym,
                                          mode='pw',
                                          width=0.001,

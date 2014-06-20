@@ -122,7 +122,12 @@ class BandLayouts(KohnShamLayouts):
         # Broadcast on block_comm since result
         # is k-point and spin-dependent only
         self.block_comm.broadcast(H_NN, 0)
-        self._diagonalize(H_NN, eps_N)
+        # The result on different processor is not necessarily bit-wise
+        # identical, so only domain master performs diagonalization
+        if self.gd.comm.rank == 0:
+            self._diagonalize(H_NN, eps_N)
+        self.gd.comm.broadcast(H_NN, 0)
+        self.gd.comm.broadcast(eps_N, 0)
         self.timer.stop('Diagonalize')
 
         self.timer.start('Distribute results')
@@ -145,7 +150,11 @@ class BandLayouts(KohnShamLayouts):
         # Broadcast on block_comm since result
         # is k-point and spin-dependent only
         self.block_comm.broadcast(S_NN, 0)
-        self._inverse_cholesky(S_NN)
+        # The result on different processor is not necessarily bit-wise
+        # identical, so only domain master performs computation
+        if self.gd.comm.rank == 0:
+            self._inverse_cholesky(S_NN)
+        self.gd.comm.broadcast(S_NN, 0)
         self.timer.stop('Inverse Cholesky')
 
     def _inverse_cholesky(self, S_NN):
@@ -542,7 +551,12 @@ class OrbitalLayouts(KohnShamLayouts):
         eps_M = np.empty(C_nM.shape[-1])
         self.block_comm.broadcast(H_MM, 0)
         self.block_comm.broadcast(S_MM, 0)
-        self._diagonalize(H_MM, S_MM.copy(), eps_M)
+        # The result on different processor is not necessarily bit-wise
+        # identical, so only domain master performs computation
+        if self.gd.comm.rank == 0:
+            self._diagonalize(H_MM, S_MM.copy(), eps_M)
+        self.gd.comm.broadcast(H_MM, 0)
+        self.gd.comm.broadcast(eps_M, 0)
         eps_n[:] = eps_M[self.bd.get_slice()]
         C_nM[:] = H_MM[self.bd.get_slice()]
     

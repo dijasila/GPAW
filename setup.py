@@ -77,6 +77,7 @@ packages = ['gpaw',
             'gpaw.test.fileio',
             'gpaw.test.noncollinear',
             'gpaw.test.parallel',
+            'gpaw.test.pseudopotential',
             'gpaw.test.pw',
             'gpaw.test.vdw',
             'gpaw.testing',
@@ -210,7 +211,7 @@ if hdf5:
     get_hdf5_config(define_macros)
     msg.append('* Compiling with HDF5')
 
-    hdf5_extension = Extension('_hdf5',
+    hdf5_extension = Extension('_gpaw_hdf5',
                                hdf5_sources,
                                libraries=libraries,
                                library_dirs=library_dirs,

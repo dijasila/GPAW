@@ -28,7 +28,7 @@ xc='LDA'
 lr = LrTDDFT(calc, xc=xc)
 
 # excited state with forces
-accuracy = 0.01
+accuracy = 0.015
 exst = ExcitedState(lr, 0, d=0.01,
         parallel=2,
         txt=sys.stdout,

@@ -36,11 +36,21 @@ def create_setup(symbol, xc='LDA', lmax=0,
         xc = XC(xc)
 
     if isinstance(type, str) and ':' in type:
+        # Parse DFT+U parameters from type-string:
+        # Examples: "type:l,U" or "type:l,U,scale"
         type, lu = type.split(':')
+        if type == '':
+            type = 'paw'
         l = 'spdf'.find(lu[0])
-        U = float(lu[2:]) / units.Hartree
+        assert lu[1] == ','
+        U = lu[2:]
+        if ',' in U:
+            U, scale = U.split(',')
+        else:
+            scale = True
+        U = float(U) / units.Hartree
+        scale = int(scale)
     else:
-        l = None
         U = None
 
     if setupdata is None:
@@ -74,7 +84,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
     if hasattr(setupdata, 'build'):
         setup = LeanSetup(setupdata.build(xc, lmax, basis, filter))
         if U is not None:
-            setup.set_hubbard_u(U, l)
+            setup.set_hubbard_u(U, l, scale)
         return setup
     else:
         return setupdata
@@ -154,7 +164,7 @@ class BaseSetup:
                                2 * l_j + 1, False)
         
         # Projector function indices:
-        nj = len(self.n_j)
+        nj = len(self.n_j) # or l_j?  Seriously.
 
         # distribute to the atomic wave functions
         i = 0
@@ -162,10 +172,10 @@ class BaseSetup:
         for phit in self.phit_j:
             l = phit.get_angular_momentum_number()
 
-            # Skip projector functions not in basis set:
-            while j < nj and self.l_j[j] != l:
+            # Skip functions not in basis set:
+            while j < nj and self.l_orb_j[j] != l:
                 j += 1
-            if j < nj:
+            if j < len(f_j): # lengths of f_j and l_j may differ
                 f = f_j[j]
                 f_s = f_sj[:, j]
             else:
@@ -215,13 +225,13 @@ class BaseSetup:
 
         D_sii = np.zeros((nspins, ni, ni))
         D_sp = np.zeros((nspins, ni * (ni + 1) // 2))
-        nj = len(self.n_j)
+        nj = len(self.l_j)
         j = 0
         i = 0
         ib = 0
         for phit in self.phit_j:
             l = phit.get_angular_momentum_number()
-            # Skip projector functions not in basis set:
+            # Skip functions not in basis set:
             while j < nj and self.l_j[j] != l:
                 i += 2 * self.l_j[j] + 1
                 j += 1
@@ -390,7 +400,8 @@ class BaseSetup:
         return self.I4_pp
 
     def get_default_nbands(self):
-        return sum([2 * l + 1 for (l, n) in zip(self.l_j, self.n_j)
+        assert len(self.l_orb_j) == len(self.n_j)
+        return sum([2 * l + 1 for (l, n) in zip(self.l_orb_j, self.n_j)
                     if n > 0])
 
 
@@ -449,6 +460,7 @@ class LeanSetup(BaseSetup):
         self.f_j = s.f_j
         self.n_j = s.n_j
         self.l_j = s.l_j
+        self.l_orb_j = s.l_orb_j
         self.nj = len(s.l_j)
 
         self.data = s.data
@@ -565,7 +577,12 @@ class Setup(BaseSetup):
         self.type = data.name
         
         self.HubU = None
-        
+
+        if max(data.l_j) > 2 and not extra_parameters.get('fprojectors'):
+            msg = ('Your %s dataset has f-projectors!  ' % data.symbol +
+                   'Add --gpaw=fprojectors=1 on the command-line.')
+            raise RuntimeError(msg)
+            
         if not data.is_compatible(xc):
             raise ValueError('Cannot use %s setup with %s functional' %
                              (data.setupname, xc.get_setup_name()))
@@ -577,6 +594,7 @@ class Setup(BaseSetup):
         self.Nv = data.Nv
         self.Z = data.Z
         l_j = self.l_j = data.l_j
+        self.l_orb_j = data.l_orb_j
         n_j = self.n_j = data.n_j
         self.f_j = data.f_j
         self.eps_j = data.eps_j
@@ -942,9 +960,6 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
-        if extra_parameters.get('fprojectors'):
-            return None
-
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         nabla_iiv = np.empty((self.ni, self.ni, 3))
@@ -990,8 +1005,6 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
-        if extra_parameters.get('fprojectors'):
-            return None
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         rnabla_iiv = np.zeros((self.ni, self.ni, 3))
@@ -1043,9 +1056,7 @@ class Setup(BaseSetup):
                  x     dz     dy
 
         and similar for y and z."""
-
-        # f-projectors are not implemented, return None
-        # maybe error would be better
+        
         if extra_parameters.get('fprojectors'):
             return None
 

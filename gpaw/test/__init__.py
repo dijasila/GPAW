@@ -169,7 +169,7 @@ tests = [
     'eed.py',
     'lrtddft2.py',
     'parallel/hamiltonian.py',
-    'ah.py',
+    'pseudopotential/ah.py',
     'laplace.py',
     'pw/mgo_hybrids.py',
     'lcao_largecellforce.py',
@@ -181,7 +181,7 @@ tests = [
     'pw/fftmixer.py',
     'mgga_restart.py',
     'vdw/quick.py',
-    'partitioning.py',
+    'multipoleH2O.py',
     'bulk.py',
     'elf.py',
     'aluminum_EELS.py',
@@ -200,6 +200,7 @@ tests = [
     'ut_csh.py',
     'spin_contamination.py',
     'davidson.py',
+    'partitioning.py',
     'pw/davidson_pw.py',
     'cg.py',
     'gllbatomic.py',
@@ -208,10 +209,11 @@ tests = [
     'fermilevel.py',
     'h2o_xas_recursion.py',
     'diamond_eps.py',
+    'excited_state.py',
+    # > 20 sec tests start here (add tests after gemm.py!)
     'gemm.py',
-    #'excited_state.py', XXX Disabled temporarily
-    # > 20 sec tests start here
     'rpa_energy_Ni.py',
+    'LDA_unstable.py',
     'si.py',
     'blocked_rmm_diis.py',
     'lxc_xcatom.py',
@@ -245,7 +247,7 @@ tests = [
     'ldos.py',
     'parallel/ut_hsops.py',
     'pw/hyb.py',
-    'hgh_h2o.py',
+    'pseudopotential/hgh_h2o.py',
     'vdw/quick_spin.py',
     'scfsic_h2.py',
     'lrtddft.py',
@@ -276,7 +278,7 @@ tests = [
     'gw_ppa.py',
     'nscfsic.py',
     'gw_static.py',
-    # > 100 sec tests start here
+    # > 100 sec tests start here (add tests after exx.py!)
     'parallel/diamond_gllb.py', 
     'lcao_tdgllbsc.py',
     'exx.py',
@@ -353,7 +355,7 @@ if mpi.size > 1:
                 'potential.py',
                 #'cmrtest/cmr_test3.py',
                 #'cmrtest/cmr_append.py',
-                #'cmrtest/Li2_atomize.py',
+                #'cmrtest/Li2_atomize.py',  # started to hang May 2014
                 'lcao_pair_and_coulomb.py',
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
@@ -522,7 +524,7 @@ class TestRunner:
             raise
         except ImportError, ex:
             module = ex.args[0].split()[-1].split('.')[0]
-            if module in ['scipy', 'cmr', '_hdf5']:
+            if module in ['scipy', 'cmr', '_gpaw_hdf5']:
                 skip = True
             else:
                 failed = True

@@ -71,7 +71,7 @@ Optical photoabsorption spectrum can be obtained by applying a weak
 delta pulse of dipole electric field, and then letting the system evolve
 freely while recording the dipole moment. A time-step around 4.0-8.0
 attoseconds is reasonable. The total simulation time should be few tens
-of picoseconds depending on the desired resolution.
+of femtoseconds depending on the desired resolution.
 
 
 Example::

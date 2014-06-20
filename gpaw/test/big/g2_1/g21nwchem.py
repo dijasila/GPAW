@@ -25,7 +25,7 @@ for name in molecule_names + atom_names:
     atoms.get_forces()
     c.write(atoms, name=name, relaxed=False)
     if len(atoms) > 1:
-        opt = BFGS(atoms, logfile=name + '.log')
+        opt = BFGS(atoms, logfile=name + '.nwchem.log')
         opt.run(0.01)
         c.write(atoms, name=name, relaxed=True)
     del c[id]

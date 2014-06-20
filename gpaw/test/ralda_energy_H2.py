@@ -22,6 +22,7 @@ H2.set_pbc(True)
 H2.set_cell((2., 2., 3.))
 H2.center()
 calc = GPAW(mode=PW(210),
+            eigensolver='rmm-diis',
             dtype=complex,
             #spinpol=True,
             xc='LDA',
@@ -45,6 +46,7 @@ H.set_pbc(True)
 H.set_cell((2., 2., 3.))
 H.center()
 calc = GPAW(mode=PW(210),
+            eigensolver='rmm-diis',
             dtype=complex,
             xc='LDA',
             basis='dzp',

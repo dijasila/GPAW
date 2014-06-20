@@ -35,5 +35,5 @@ calc.scf.reset()
 calc.get_potential_energy()
 e3 = calc.get_eigenvalues(kpt=0)[0]
 
-equal(e1, e2, 1e-5)
-equal(e1, e3, 1e-5)
+equal(e1, e2, 3e-5)
+equal(e1, e3, 3e-5)

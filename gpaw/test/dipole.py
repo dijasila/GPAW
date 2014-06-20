@@ -116,5 +116,5 @@ if rank == 0:
 
     # fine grid needed to achieve convergence!
     print 'Error', err1, err2
-    assert err1 < 4e-3
-    assert err2 < 2e-4
+    assert err1 < 5e-3, err1
+    assert err2 < 2e-4, err2

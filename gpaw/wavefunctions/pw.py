@@ -415,7 +415,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         
         # Build array of number of plane wave coefficiants for all k-points
         # in the IBZ:
-        self.ng_k = np.zeros(self.kd.nibzkpts)
+        self.ng_k = np.zeros(self.kd.nibzkpts, dtype=int)
         for kpt in self.kpt_u:
             if kpt.s == 0:
                 self.ng_k[kpt.k] = len(self.pd.Q_qG[kpt.q])
@@ -482,8 +482,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             for v in range(3):
                 a_R = self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q)
                 axpy(-0.5, 1j * G_Gv[:, v] *
-                      self.pd.fft(dedtaut_R * a_R, kpt.q),
-                      Htpsit_G)
+                     self.pd.fft(dedtaut_R * a_R, kpt.q),
+                     Htpsit_G)
                 
     def _get_wave_function_array(self, u, n, realspace=True, phase=None):
         psit_G = FDPWWaveFunctions._get_wave_function_array(self, u, n,
@@ -706,7 +706,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             else:
                 k_c = self.kd.ibzk_kc[kpt.k]
                 emikr_R = np.exp(-2j * pi *
-                                  np.dot(np.indices(N_c).T, k_c / N_c).T)
+                                 np.dot(np.indices(N_c).T, k_c / N_c).T)
 
             psit_nR[:] = 0.0
             basis_functions.lcao_to_grid(kpt.C_nM, psit_nR, kpt.q)
@@ -774,7 +774,7 @@ def ft(spline):
 
 
 class PWLFC(BaseLFC):
-    def __init__(self, spline_aj, pd, blocksize=None):
+    def __init__(self, spline_aj, pd, blocksize=5000):
         """Reciprocal-space plane-wave localized function collection.
 
         spline_aj: list of list of spline objects
@@ -907,7 +907,7 @@ class PWLFC(BaseLFC):
         c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
         for a, I1, I2 in self.indices:
             c_xI[..., I1:I2] = c_axi[a] * self.eikR_qa[q][a].conj()
-        c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
+        c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
 
         a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
         
@@ -927,7 +927,7 @@ class PWLFC(BaseLFC):
     def integrate(self, a_xG, c_axi=None, q=-1):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
-        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
+        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
         a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
@@ -958,7 +958,8 @@ class PWLFC(BaseLFC):
 
     def derivative(self, a_xG, c_axiv, q=-1):
         c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
-        b_vxI = c_vxI.reshape((3, np.prod(c_vxI.shape[1:-1]), self.nI))
+        b_vxI = c_vxI.reshape((3, np.prod(c_vxI.shape[1:-1], dtype=int),
+                               self.nI))
         a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
@@ -978,9 +979,9 @@ class PWLFC(BaseLFC):
             else:
                 for v in range(3):
                     gemm(-alpha,
-                          f_IG * (G_Gv[:, v] + K_v[v]),
-                          a_xG[:, G1:G2],
-                          x, b_vxI[v], 'c')
+                         f_IG * (G_Gv[:, v] + K_v[v]),
+                         a_xG[:, G1:G2],
+                         x, b_vxI[v], 'c')
             x = 1.0
 
         for v in range(3):
@@ -1042,14 +1043,15 @@ class PWLFC(BaseLFC):
             emiGR_G = np.exp(-1j * np.dot(G_Gv, self.pos_av[a]))
             f_IG[I1:I2] = (emiGR_G * (-1.0j)**l *
                            np.exp(1j * np.dot(K_v, self.pos_av[a])) * (
-                    dfdGoG_G[G1:G2] * G_Gv[:, v1] * G_Gv[:, v2] *
-                    self.Y_qLG[q][l**2:(l + 1)**2, G1:G2] +
-                    f_G[G1:G2] * G_Gv[:, v1] * [nablarlYL(L, G_Gv.T)[v2]
-                                         for L in range(l**2, (l + 1)**2)]))
+                               dfdGoG_G[G1:G2] * G_Gv[:, v1] * G_Gv[:, v2] *
+                               self.Y_qLG[q][l**2:(l + 1)**2, G1:G2] +
+                               f_G[G1:G2] * G_Gv[:, v1] *
+                               [nablarlYL(L, G_Gv.T)[v2]
+                                for L in range(l**2, (l + 1)**2)]))
         
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
-        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1]), self.nI))
+        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
         a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
@@ -1068,7 +1070,7 @@ class PWLFC(BaseLFC):
         return stress.real
 
 
-class PsudoCoreKineticEnergyDensityLFC(PWLFC):
+class PseudoCoreKineticEnergyDensityLFC(PWLFC):
     def add(self, tauct_R):
         tauct_R += self.pd.ifft(1.0 / self.pd.gd.dv * self.expand(-1).sum(0))
 
@@ -1139,8 +1141,7 @@ class ReciprocalSpaceDensity(Density):
                 spline_aj.append([setup.nct])
         self.nct = PWLFC(spline_aj, self.pd2)
 
-        self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3,
-                          blocksize=10000)
+        self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3)
 
     def set_positions(self, spos_ac, rank_a=None):
         Density.set_positions(self, spos_ac, rank_a)
@@ -1181,7 +1182,7 @@ class ReciprocalSpaceDensity(Density):
         self.rhot_q[0] = 0.0
 
     def get_pseudo_core_kinetic_energy_density_lfc(self):
-        return PsudoCoreKineticEnergyDensityLFC(
+        return PseudoCoreKineticEnergyDensityLFC(
             [[setup.tauct] for setup in self.setups], self.pd2)
 
     def calculate_dipole_moment(self):

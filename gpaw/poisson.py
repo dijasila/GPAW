@@ -330,37 +330,6 @@ class NoInteractionPoissonSolver:
         pass
 
 
-class PoissonFFTSolver(PoissonSolver):
-    """FFT implementation of the Poisson solver."""
-
-    description = 'FFT solver of the first kind'
-
-    def __init__(self):
-        # Note: Not calling PoissonSolver.__init__
-        self.remove_moment = None
-        self.charged_periodic_correction = None
-
-    def initialize(self, gd, load_gauss=False):
-        # XXX this won't work now, but supposedly this class will be deprecated
-        # in favour of FFTPoissonSolver, no?
-        self.gd = gd
-        if self.gd.comm.size > 1:
-            raise RuntimeError('Cannot do parallel FFT.')
-        self.k2, self.N3 = construct_reciprocal(self.gd)
-        if load_gauss:
-            gauss = Gaussian(self.gd)
-            self.rho_gauss = gauss.get_gauss(0)
-            self.phi_gauss = gauss.get_gauss_pot(0)
-
-    def solve_neutral(self, phi, rho, eps=None):
-        phi[:] = np.real(ifftn(fftn(rho) * 4 * pi / self.k2))
-        return 1
-
-    def solve_screened(self, phi, rho, screening=0):
-        phi[:] = np.real(ifftn(fftn(rho) * 4 * pi / (self.k2 + screening**2)))
-        return 1
-
-
 class FFTPoissonSolver(PoissonSolver):
     """FFT Poisson solver for general unit cells."""
 

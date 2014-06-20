@@ -19,10 +19,14 @@ setup_paths.insert(0, '.')
 KSb = []
 dxcb = []
 
+eigensolver='rmm-diis'
+
 for band in [1,2,4]:
     # Calculate ground state
     atoms = bulk('C', 'diamond', a=3.567)
-    calc = GPAW(h=0.15, kpts=(4,4,4), xc=xc, nbands = 8, parallel={'band':band})
+    calc = GPAW(h=0.15, kpts=(4,4,4), xc=xc, nbands = 8,
+                eigensolver=eigensolver,
+                parallel={'band':band})
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
     calc.write('Cgs.gpw')
@@ -35,7 +39,10 @@ for band in [1,2,4]:
     X = points['X']
 
     kpts, x, X = get_bandpath([G, X], atoms.cell, npoints=12)
-    calc = GPAW('Cgs.gpw', kpts=kpts, fixdensity=True, usesymm=None, nbands=8, convergence=dict(bands=8), parallel={'band':band})
+    calc = GPAW('Cgs.gpw', kpts=kpts, fixdensity=True, usesymm=None, 
+                nbands=8, convergence=dict(bands=8), 
+                eigensolver=eigensolver,
+                parallel={'band':band})
     calc.get_atoms().get_potential_energy()
     # Get the accurate KS-band gap
     homolumo = calc.occupations.get_homo_lumo(calc.wfs)
@@ -43,7 +50,9 @@ for band in [1,2,4]:
     print "band gap ",(lumo-homo)*27.2
     
     # Redo the ground state calculation
-    calc = GPAW(h=0.15, kpts=(4,4,4), xc=xc, nbands = 8, parallel={'band':band})
+    calc = GPAW(h=0.15, kpts=(4,4,4), xc=xc, nbands = 8, 
+                eigensolver=eigensolver,
+                parallel={'band':band})
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
     # And calculate the discontinuity potential with accurate band gap

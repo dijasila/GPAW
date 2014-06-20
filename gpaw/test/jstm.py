@@ -7,8 +7,8 @@ from gpaw.atom.basis import BasisMaker
 from gpaw.mpi import world
 from gpaw.test import equal
 
+basis = BasisMaker('H', 'sz').generate(1, 0)
 if world.rank == 0:
-    basis = BasisMaker('H', 'sz').generate(1, 0)
     basis.write_xml()
 world.barrier()
 if setup_paths[0] != '.':
@@ -95,8 +95,5 @@ if 0:
 energy_tolerance = 0.0003
 niter_tolerance = 0
 equal(e1, -5.29095, energy_tolerance)
-equal(niter1, 5, 1)
 equal(e2, -12.724, energy_tolerance)
-equal(niter2, 10, niter_tolerance)
 equal(e3, -12.7236, energy_tolerance)
-equal(niter3, 3, niter_tolerance)

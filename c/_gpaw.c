@@ -8,7 +8,7 @@
 #include <numpy/arrayobject.h>
 
 #ifdef GPAW_WITH_HDF5 
-PyMODINIT_FUNC init_hdf5(void); 
+PyMODINIT_FUNC init_gpaw_hdf5(void); 
 #endif 
 
 #ifdef GPAW_HPM
@@ -283,14 +283,6 @@ PyMODINIT_FUNC init_gpaw(void)
 }
 #endif
 
-#ifdef NO_SOCKET
-/*dummy socket module for systems which do not support sockets */
-PyMODINIT_FUNC initsocket(void)
-{
-  Py_InitModule("socket", NULL);
-  return;
-}
-#endif
 
 #ifdef GPAW_INTERPRETER
 extern DL_EXPORT(int) Py_Main(int, char **);
@@ -317,6 +309,9 @@ main(int argc, char **argv)
   MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
   if(granted != MPI_THREAD_MULTIPLE) exit(1);
 #endif // GPAW_OMP
+
+// Get initial timing
+  double t0 = MPI_Wtime();
 
 #ifdef GPAW_PERFORMANCE_REPORT
   gpaw_perf_init();
@@ -350,11 +345,11 @@ main(int argc, char **argv)
   MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
 #endif
 
-  Py_Initialize();
+  // Progname seems to be needed in some circumstances to resolve
+  // correct default sys.path
+  Py_SetProgramName(argv[0]);
 
-#ifdef NO_SOCKET
-  initsocket();
-#endif
+  Py_Initialize();
 
   if (PyType_Ready(&MPIType) < 0)
     return -1;
@@ -382,6 +377,9 @@ main(int argc, char **argv)
   Py_INCREF(&MPIType);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 
+  // Add initial time to _gpaw object
+  PyModule_AddObject(m, "time0", PyFloat_FromDouble(t0));
+
   Py_INCREF(&LFCType);
   Py_INCREF(&LocalizedFunctionsType);
   Py_INCREF(&OperatorType);
@@ -391,7 +389,7 @@ main(int argc, char **argv)
   Py_INCREF(&lxcXCFunctionalType);
 
 #ifdef GPAW_WITH_HDF5 
-  init_hdf5(); 
+  init_gpaw_hdf5(); 
 #endif 
   import_array1(-1);
   MPI_Barrier(MPI_COMM_WORLD);
