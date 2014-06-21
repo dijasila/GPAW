@@ -715,7 +715,6 @@ class PAW(PAWTextOutput):
                     nbands_converge += nbands
             eigensolver = get_eigensolver(par.eigensolver, mode,
                                           par.convergence)
-            print eigensolver
             eigensolver.nbands_converge = nbands_converge
             # XXX Eigensolver class doesn't define an nbands_converge property
 
