@@ -101,6 +101,8 @@ parser.add_option("", "--hard", action="store_true", default=False,
                   help="""Try harder to converge the system""")
 parser.add_option("", "--nodipole", action="store_true", default=False,
                   help="""Do not use dipole correction is poisson equation. For expert use only.""")
+parser.add_option("", "--gsonly", action="store_true", default=False,
+                  help="""Calculate only the ground state calculation and then stop""")
 
 (options, args) = parser.parse_args()
 
@@ -210,7 +212,7 @@ class System:
             return "x"
         if self.kick[0] == 0.0 and self.kick[2] == 0.0:
             return "y"
-        return "%.6f_%.6f_%.6f" % (kick[0],kick[1],kick[2])
+        return "%.6f_%.6f_%.6f" % (self.kick[0],self.kick[1],self.kick[2])
 
     def get_td_base_name(self):
         return "%.1f_%.1f_%s_%s" % (self.dt, self.T, self.kick_str(), self.fxc)
@@ -333,7 +335,7 @@ class System:
                 td_calc.attach(DensityCollector(self.get_full_name(), td_calc, self.collect_density))
             
 
-        td_calc.propagate(self.dt, int(1000 * self.T / self.dt), self.get_dipole_file())
+        td_calc.propagate(self.dt, int(1000 * self.T / self.dt), self.get_dipole_file(), dump_interval=25)
         td_calc.write(self.get_td_gpw_file(), mode='all')
         del td_calc
 
@@ -371,6 +373,8 @@ def calculate(atoms, name=None):
         system.set_bandpar(eval(options.parallel_band))
 
     system.groundstate()
+    if options.gsonly:
+        return
     system.tddft()
 
 if options.system is not None:

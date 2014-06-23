@@ -59,7 +59,7 @@ sigma = eval(argv[1]) * eV_to_aufrequency
 n0 = None
 total = len(lines[2:])
 for iter, line in enumerate(lines[2:-1]):
-    n = np.float64(np.fromfile(f, dtype=np.float32, count=N))
+    n = np.fromfile(f, dtype=np.float64, count=N)
     print "Integral of density", calc.wfs.gd.integrate(n)
     if output_dm:
         dm = calc.wfs.gd.calculate_dipole_moment(np.reshape(n, shape))
