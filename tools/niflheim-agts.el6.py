@@ -139,7 +139,7 @@ cluster = NiflheimCluster(asepath=os.path.join(dir, 'ase'),
 
 nfailed = queue.run(cluster)
 
-gfiles = os.path.join(dir, 'gpaw-files')
+gfiles = os.path.join(dir, 'agts-files')
 if not os.path.isdir(gfiles):
     os.mkdir(gfiles)
 

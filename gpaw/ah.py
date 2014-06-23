@@ -31,6 +31,8 @@ class AppelbaumHamann(BaseSetup):
         self.pt_j = [nullspline]
         self.ni = 1
         self.l_j = [0]
+        self.f_j = [4]
+        self.n_j = [1]
         self.nct = nullspline
         self.Nct = 0.0
         rc = 4.0
@@ -71,3 +73,6 @@ class AppelbaumHamann(BaseSetup):
 
     def initialize_density_matrix(self, f_si):
         return np.zeros((len(f_si), 1))
+
+    def get_default_nbands(self):
+        return 3

@@ -121,7 +121,7 @@ class ExternalPotential:
             #   x_ij = sqrt(4pi/3) Delta_3ij
             # ...
 
-            Delta_iiL = wfs.setups[a].Delta_Lii  # XXX rename in setup.py
+            Delta_iiL = wfs.setups[a].Delta_iiL
 
             #   1_ij = sqrt(4pi) Delta_0ij
             #   y_ij = sqrt(4pi/3) Delta_1ij

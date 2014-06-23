@@ -26,13 +26,44 @@ task = Task(
     use_lock_files=True,
     )
 
-task.read()
-task.analyse()
-
-csvwriter1 = csv.writer(open('%s_raw.csv' % tag, 'wb'))
 # header
 h = ['#element', 'V0', 'B0', 'B1']
-csvwriter1.writerow(h)
+
+if not os.path.exists('%s_raw.csv' % tag):
+    # read calculated results from json file and write into csv
+    task.read()
+    task.analyse()
+
+    f1 = open('%s_raw.csv' % tag, 'wb')
+    csvwriter1 = csv.writer(f1)
+    csvwriter1.writerow(h)
+
+    for n in task.collection.names:
+        row = [n]
+        if n in task.data.keys():
+            try:
+                v = task.data[n]['dcdft volume']
+                b0 = task.data[n]['dcdft B0'] / (units.kJ * 1e-24)
+                b1 = task.data[n]['dcdft B1']
+                row.extend([v, b0, b1])
+            except KeyError: # completely failed to find eos minimum
+                row.extend(['N/A', 'N/A', 'N/A'])
+        else:
+            # element not calculated
+            row.extend(['N/A', 'N/A', 'N/A'])
+        if 'N/A' not in row:
+            csvwriter1.writerow(row)
+    f1.close()
+
+# read raw results
+csvreader1 = csv.reader(open('%s_raw.csv' % tag, 'r'))
+data = {}
+for row in csvreader1:
+    if '#' not in row[0]:
+        data[row[0]] = {'dcdft volume': float(row[1]),
+                        'dcdft B0': float(row[2]),
+                        'dcdft B1': float(row[3])}
+
 csvwriter2 = csv.writer(open('%s.csv' % tag, 'wb'))
 h2 = h + ['%' + h[1], '%' + h[2], '%' + h[3]]
 csvwriter2.writerow(h2)
@@ -41,12 +72,12 @@ rows = []
 rowserr = []
 for n in task.collection.names:
     row = [n]
-    if n in task.data.keys():
+    if n in data.keys():
         ref = task.collection.ref[n]
         try:
-            v = round(task.data[n]['dcdft volume'], 3)
-            b0 = round(task.data[n]['dcdft B0'] / (units.kJ * 1e-24), 3)
-            b1 = round(task.data[n]['dcdft B1'], 3)
+            v = round(data[n]['dcdft volume'], 3)
+            b0 = round(data[n]['dcdft B0'], 3)
+            b1 = round(data[n]['dcdft B1'], 3)
             row.extend([v, b0, b1])
         except KeyError: # completely failed to find eos minimum
                 row.extend(['N/A', 'N/A', 'N/A'])
@@ -60,12 +91,11 @@ for n in task.collection.names:
         b1e = round((b1 - b10) / b10 * 100, 1)
         rows.append(row)
         #print row + ref + [ve, b0e, b1e]
-        csvwriter1.writerow(row)
         csvwriter2.writerow(row + [ve, b0e, b1e])
 
 if 1:
     # download and create the project databases
-    src = 'http://molmod.ugent.be/sites/default/files/Delta_v1-1.zip'
+    src = 'https://molmod.ugent.be/sites/default/files/Delta_v3-0_0.zip'
     name = os.path.basename(src)
     dir = 'Delta'
     if not os.path.exists(dir): os.makedirs(dir)

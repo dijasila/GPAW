@@ -31,9 +31,46 @@ Use the compiler wrapper file :svn:`~doc/install/Linux/icc.py`
 
 .. literalinclude:: icc.py
 
-and the configuration file :svn:`~doc/install/Linux/customize_juropa_icc.py`.
+Internal libxc
+--------------
+
+Before revision 10429 libxc was internal,  
+the corresponding 
+configuration file is :svn:`~doc/install/Linux/customize_juropa_icc.py`.
 
 .. literalinclude:: customize_juropa_icc.py
+
+External libxc
+--------------
+
+After svn revision 10429 libxc has to be included as external library
+(see also the `libxc web site <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`__). To install libxc we assume that MYLIBXCDIR is set to 
+the directory where you want to install::
+
+  $ wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-2.0.2.tar.gz
+  $ tar -xzvf libxc-2.0.2.tar.gz
+  $ cd libxc-2.0.2/
+  $ mkdir install
+  $ ./configure CFLAGS="-fPIC" --prefix=$PWD/install -enable-shared
+  $ make |tee make.log
+  $ make install
+
+This will have installed the libs $MYLIBXCDIR/libxc-2.0.2/install/lib 
+and the C header
+files to $MYLIBXCDIR/libxc-2.0.2/install/include.
+
+We have to modify the file :file:`customize.py` to
+:svn:`~doc/install/Linux/customize_juropa_icc_libxc.py`
+
+.. literalinclude:: customize_juropa_icc_libxc.py
+
+Note that the location of the external libxc on runtime has to be enabled
+by setting::
+
+  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$MYLIBXCDIR/libxc-2.0.2/install/lib
+
+Compiling
+---------
 
 Now, default parastation/intel module is used so execute only::
 

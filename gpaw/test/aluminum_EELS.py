@@ -3,8 +3,10 @@ import sys
 import os
 import time
 from ase.units import Bohr
-from ase.structure import bulk
+from ase.lattice import bulk
 from gpaw import GPAW
+from gpaw.eigensolvers.rmm_diis_old import RMM_DIIS
+from gpaw.mixer import Mixer
 from gpaw.atom.basis import BasisMaker
 from gpaw.response.df import DF
 from gpaw.mpi import serial_comm, rank, size
@@ -24,6 +26,8 @@ a = 4.043
 atoms = bulk('Al', 'fcc', a=a)
 atoms.center()
 calc = GPAW(h=0.2,
+            eigensolver=RMM_DIIS(),
+            mixer=Mixer(0.1,3),
             kpts=(4,4,4),
             parallel={'domain':1,
                       'band':1},

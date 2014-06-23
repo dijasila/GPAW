@@ -86,7 +86,7 @@ def get_system_config(define_macros, undef_macros,
     # libxc
     libraries += ['xc']
 
-    machine = os.uname()[4]
+    machine = platform.uname()[4]
     if machine == 'sun4u':
 
         #  _
@@ -118,6 +118,29 @@ def get_system_config(define_macros, undef_macros,
         #define_macros.append(('NO_C99_COMPLEX', '1'))
 
         msg += ['* Using SUN high performance library']
+
+    elif sys.platform.startswith('win'):
+
+        # We compile with mingw coming from pythonyx (32-bit)
+        # on the msys command line, e.g.:
+        # LIBRARY_PATH=/c/libxc/lib:/c/OpenBLAS/lib \
+        # C_INCLUDE_PATH=/c/libxc/include python setup.py build
+        if 'LIBRARY_PATH' in os.environ:
+            library_dirs += os.environ['LIBRARY_PATH'].split(os.path.pathsep)
+
+        extra_compile_args += ['-Wall', '-std=c99']
+
+        lib = ''
+        for ld in library_dirs:
+            # OpenBLAS (includes Lapack)
+            if os.path.exists(join(ld, 'libopenblas.a')):
+                lib = 'openblas'
+                directory = ld
+                break
+        if lib == 'openblas':
+             libraries += [lib, 'gfortran']
+        if lib:
+             msg +=  ['* Using %s library from %s' % (lib, directory)]
 
     elif sys.platform in ['aix5', 'aix6']:
 
@@ -158,17 +181,39 @@ def get_system_config(define_macros, undef_macros,
             for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64/atlas']:
                 if glob(join(dir, 'libatlas.so')) != []:
                     atlas = True
+                    libdir = dir        
                     break
-            if atlas:
-                # http://math-atlas.sourceforge.net/errata.html#LINK
-                # atlas does not respect OMP_NUM_THREADS - build single-thread
-                # http://math-atlas.sourceforge.net/faq.html#tsafe
-                libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
-                library_dirs += [dir]
-                msg +=  ['* Using ATLAS library']
+            satlas = False
+            for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64/atlas']:
+                if glob(join(dir, 'libsatlas.so')) != []:
+                    satlas = True
+                    libdir = dir        
+                    break
+            openblas = False
+            for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64']:
+                if glob(join(dir, 'libopenblas.so')) != []:
+                    openblas = True
+                    libdir = dir        
+                    break
+            if openblas:  # prefer openblas
+                libraries += ['openblas']
+                library_dirs += [libdir]
+                msg +=  ['* Using OpenBLAS library']
             else:
-                libraries += ['blas', 'lapack']
-                msg +=  ['* Using standard lapack']
+                if atlas:  # then atlas
+                    # http://math-atlas.sourceforge.net/errata.html#LINK
+                    # atlas does not respect OMP_NUM_THREADS - build single-thread
+                    # http://math-atlas.sourceforge.net/faq.html#tsafe
+                    libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
+                    library_dirs += [libdir]
+                    msg +=  ['* Using ATLAS library']
+                elif satlas:  # then atlas >= 3.10 Fedora/RHEL
+                    libraries += ['satlas']
+                    library_dirs += [libdir]
+                    msg +=  ['* Using ATLAS library']
+                else:
+                    libraries += ['blas', 'lapack']
+                    msg +=  ['* Using standard lapack']
 
     elif machine =='ia64':
 
@@ -179,6 +224,48 @@ def get_system_config(define_macros, undef_macros,
 
         extra_compile_args += ['-Wall', '-std=c99']
         libraries += ['mkl','mkl_lapack64']
+
+    elif platform.machine().startswith('arm'):
+        
+        extra_compile_args += ['-Wall', '-std=c99']
+
+        atlas = False
+        for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
+            if glob(join(dir, 'libatlas.so')) != []:
+                atlas = True
+                libdir = dir        
+                break
+        satlas = False
+        for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
+            if glob(join(dir, 'libsatlas.so')) != []:
+                satlas = True
+                libdir = dir        
+                break
+        openblas = False
+        for dir in ['/usr/lib', '/usr/local/lib']:
+            if glob(join(dir, 'libopenblas.so')) != []:
+                openblas = True
+                libdir = dir        
+                break
+        if openblas:  # prefer openblas
+            libraries += ['openblas']
+            library_dirs += [libdir]
+            msg +=  ['* Using OpenBLAS library']
+        else:
+            if atlas:  # then atlas
+                # http://math-atlas.sourceforge.net/errata.html#LINK
+                # atlas does not respect OMP_NUM_THREADS - build single-thread
+                # http://math-atlas.sourceforge.net/faq.html#tsafe
+                libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
+                library_dirs += [libdir]
+                msg +=  ['* Using ATLAS library']
+            elif satlas:  # then atlas >= 3.10 Fedora/RHEL
+                libraries += ['satlas']
+                library_dirs += [libdir]
+                msg +=  ['* Using ATLAS library']
+            else:
+                libraries += ['blas', 'lapack']
+                msg +=  ['* Using standard lapack']
 
     elif machine == 'i686':
 
@@ -209,17 +296,39 @@ def get_system_config(define_macros, undef_macros,
             for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
                 if glob(join(dir, 'libatlas.so')) != []:
                     atlas = True
+                    libdir = dir        
                     break
-            if atlas:
-                # http://math-atlas.sourceforge.net/errata.html#LINK
-                # atlas does not respect OMP_NUM_THREADS - build single-thread
-                # http://math-atlas.sourceforge.net/faq.html#tsafe
-                libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
-                library_dirs += [dir]
-                msg +=  ['* Using ATLAS library']
+            satlas = False
+            for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
+                if glob(join(dir, 'libsatlas.so')) != []:
+                    satlas = True
+                    libdir = dir        
+                    break
+            openblas = False
+            for dir in ['/usr/lib', '/usr/local/lib']:
+                if glob(join(dir, 'libopenblas.so')) != []:
+                    openblas = True
+                    libdir = dir        
+                    break
+            if openblas:  # prefer openblas
+                libraries += ['openblas']
+                library_dirs += [libdir]
+                msg +=  ['* Using OpenBLAS library']
             else:
-                libraries += ['blas', 'lapack']
-                msg +=  ['* Using standard lapack']
+                if atlas:  # then atlas
+                    # http://math-atlas.sourceforge.net/errata.html#LINK
+                    # atlas does not respect OMP_NUM_THREADS - build single-thread
+                    # http://math-atlas.sourceforge.net/faq.html#tsafe
+                    libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
+                    library_dirs += [libdir]
+                    msg +=  ['* Using ATLAS library']
+                elif satlas:  # then atlas >= 3.10 Fedora/RHEL
+                    libraries += ['satlas']
+                    library_dirs += [libdir]
+                    msg +=  ['* Using ATLAS library']
+                else:
+                    libraries += ['blas', 'lapack']
+                    msg +=  ['* Using standard lapack']
 
             # add libg2c if available
             g2c=False

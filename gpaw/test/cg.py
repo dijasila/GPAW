@@ -24,11 +24,9 @@ calc = GPAW(h=h,
 bulk.set_calculator(calc)
 e1 = bulk.get_potential_energy()
 niter1 = calc.get_number_of_iterations()
-equal(e0, e1, 3.6e-5)
+equal(e0, e1, 4.e-5)
 
-energy_tolerance = 0.00004
+energy_tolerance = 0.0001
 niter_tolerance = 0
 equal(e0, -6.97626, energy_tolerance)
-assert 16 <= niter0 <= 22, niter0
 equal(e1, -6.97627, energy_tolerance)
-assert 12 <= niter1 <= 17, niter1

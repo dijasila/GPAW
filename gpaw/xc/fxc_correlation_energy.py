@@ -25,6 +25,7 @@ class FXCCorrelation:
     def __init__(self,
                  calc,
                  txt=None,
+                 tag='',
                  qsym=True,
                  xc=None,
                  num=0,
@@ -47,7 +48,8 @@ class FXCCorrelation:
             assert type(txt) is str
             from ase.parallel import paropen
             self.txt = paropen(txt, 'w')
-
+        
+        self.tag = tag
         self.qsym = qsym
         self.num = num
         self.nspins = calc.wfs.nspins
@@ -84,11 +86,9 @@ class FXCCorrelation:
    
     def get_fxc_correlation_energy(self,
                                    kcommsize=None,
-                                   serial_w=False,
                                    directions=None,
                                    skip_gamma=False,
                                    ecut=10,
-                                   smooth_cut=None,
                                    nbands=None,
                                    gauss_legendre=None,
                                    frequency_cut=None,
@@ -98,10 +98,8 @@ class FXCCorrelation:
             
         self.initialize_calculation(w,
                                     ecut,
-                                    smooth_cut,
                                     nbands,
                                     kcommsize,
-                                    serial_w,
                                     gauss_legendre,
                                     frequency_cut,
                                     frequency_scale)
@@ -110,21 +108,7 @@ class FXCCorrelation:
             directions = [[0, 1/3.], [1, 1/3.], [2, 1/3.]]
         if skip_gamma:
             directions = []
-            
-        kernel = Kernel(self.calc,
-                        self.xc,
-                        self.method,
-                        self.ibz_q_points,
-                        self.w,
-                        self.ecut,
-                        self.txt,
-                        paw_correction=self.paw_correction,
-                        unit_cells=self.unit_cells,
-                        density_cut=self.density_cut)
-        kernel.calculate_fhxc(directions=[d[0] for d in directions])
-
-        del kernel
-        
+                
         E_q = []
         if restart is not None:
             assert type(restart) is str
@@ -140,8 +124,24 @@ class FXCCorrelation:
                 print >> self.txt
             except:
                 IOError
-    
-        for index, q in enumerate(self.ibz_q_points[len(E_q):]):
+
+        if len(E_q) == 0:
+            kernel = Kernel(self.calc,
+                            self.xc,
+                            self.method,
+                            self.ibz_q_points,
+                            self.w,
+                            self.ecut,
+                            self.txt,
+                            self.tag,
+                            paw_correction=self.paw_correction,
+                            unit_cells=self.unit_cells,
+                            density_cut=self.density_cut)
+            kernel.calculate_fhxc(directions=[d[0] for d in directions])
+            del kernel
+ 
+        for index, q in zip(range(len(E_q), len(self.ibz_q_points)),
+                            self.ibz_q_points[len(E_q):]):
             if abs(np.dot(q, q))**0.5 < 1.e-5:
                 E_q0 = 0.
                 if skip_gamma:
@@ -150,20 +150,12 @@ class FXCCorrelation:
                     print >> self.txt
                 else:
                     for d in directions:
-                        if serial_w:
-                            E_q0 += self.E_q_serial_w(q,
-                                                      index=index,
-                                                      direction=d[0]) * d[1]
-                        else:
-                            E_q0 += self.E_q(q,
-                                             index=index,
-                                             direction=d[0]) * d[1]
+                        E_q0 += self.E_q(q,
+                                         index=index,
+                                         direction=d[0]) * d[1]
                 E_q.append(E_q0)
             else:
-                if serial_w:
-                    E_q.append(self.E_q_serial_w(q, index=index))
-                else:
-                    E_q.append(self.E_q(q, index=index))
+                E_q.append(self.E_q(q, index=index))
                     
             if restart is not None:
                 f = paropen(restart, 'a')
@@ -186,31 +178,27 @@ class FXCCorrelation:
 
     def get_E_q(self,
                 kcommsize=None,
-                serial_w=None,
                 index=None,
                 q=[0., 0., 0.],
                 direction=0,
                 integrated=True,
                 ecut=10,
-                smooth_cut=None,
                 nbands=None,
                 gauss_legendre=None,
                 frequency_cut=None,
                 frequency_scale=None,
                 w=None):
 
-        self.initialize_calculation(w, ecut, smooth_cut,
-                                    nbands, kcommsize, serial_w,
-                                    gauss_legendre, frequency_cut,
+        self.initialize_calculation(w,
+                                    ecut,
+                                    nbands,
+                                    kcommsize,
+                                    gauss_legendre,
+                                    frequency_cut,
                                     frequency_scale)
-        if serial_w:
-            E_q = self.E_q_serial_w(q,
-                                    direction=direction,
-                                    integrated=integrated)
-        else:
-            E_q = self.E_q(q,
-                           direction=direction,
-                           integrated=integrated)
+        E_q = self.E_q(q,
+                       direction=direction,
+                       integrated=integrated)
         
         print >> self.txt, 'Calculation completed at:  ', ctime()
         print >> self.txt
@@ -235,13 +223,13 @@ class FXCCorrelation:
         ns = self.nspins
 
         if self.xc[0] == 'r':
-            name = self.xc + '_' + self.method
-            if optical_limit:# and self.method == 'solid':
+            name = self.xc + '_' + self.method + '_' + self.tag
+            if optical_limit:
                 r = Reader('fhxc_%s_%s_0%s.gpw' % (name, self.ecut, direction))
             else:
                 r = Reader('fhxc_%s_%s_%s.gpw' % (name, self.ecut, index))
         else:
-            name = self.xc
+            name = self.xc + '_' + self.tag
             if optical_limit:
                 r = Reader('fhxc_%s_%s_0%s.gpw' % (name, self.ecut, direction))
             else:
@@ -275,7 +263,6 @@ class FXCCorrelation:
                 txt=txt,
                 w=self.w * 1j,
                 ecut=self.ecut,
-                smooth_cut=self.smooth_cut,
                 G_plus_q=True,
                 density_cut=self.density_cut,
                 kcommsize=self.kcommsize,
@@ -287,6 +274,7 @@ class FXCCorrelation:
         Nw_local = df.Nw_local
 
         Kc_G = np.zeros(npw, dtype=complex)
+
         for iG in range(npw):
             qG = np.dot(q + df.Gvec_Gc[iG], df.bcell_cv)
             Kc_G[iG] = 4 * np.pi / np.dot(qG, qG)
@@ -340,9 +328,14 @@ class FXCCorrelation:
             return E_q_w.real               
 
 
-    def initialize_calculation(self, w, ecut, smooth_cut,
-                               nbands, kcommsize, serial_w,
-                               gauss_legendre, frequency_cut, frequency_scale):
+    def initialize_calculation(self,
+                               w,
+                               ecut,
+                               nbands,
+                               kcommsize,
+                               gauss_legendre,
+                               frequency_cut,
+                               frequency_scale):
         if kcommsize is None:
             if len(self.calc.wfs.bzk_kc) == 1:
                 kcommsize = 1
@@ -381,12 +374,8 @@ class FXCCorrelation:
                    kcommsize=kcommsize)
         dummy.txt = devnull
         dummy.initialize(simple_version=True)
-        if serial_w:
-            dummy.Nw_local = 1
-            dummy.wScomm.size = 1
             
         self.ecut = ecut
-        self.smooth_cut = smooth_cut
         self.w = w
         self.gauss_legendre = gauss_legendre
         self.frequency_cut = frequency_cut
@@ -403,9 +392,6 @@ class FXCCorrelation:
               + ' with % s Gauss-Legendre points' % self.lambda_points
         print >> self.txt
         print >> self.txt, 'Planewave cutoff              : %s eV' % ecut
-        if self.smooth_cut is not None:
-            print >> self.txt, 'Smooth cutoff from            : %s x cutoff' \
-                  % self.smooth_cut
         print >> self.txt, 'Number of Planewaves at Gamma : %s' % dummy.npw
         if self.nbands is None:
             print >> self.txt, 'Response function bands       :' \
@@ -439,7 +425,7 @@ class FXCCorrelation:
         print >> self.txt
         print >> self.txt, 'Parallelization scheme'
         print >> self.txt, '     Total CPUs        : %d' % dummy.comm.size
-        if dummy.nkpt == 1:
+        if dummy.kd.nbzkpts == 1:
             print >> self.txt, '     Band parsize      : %d' % dummy.kcomm.size
         else:
             print >> self.txt, '     Kpoint parsize    : %d' % dummy.kcomm.size
@@ -520,10 +506,8 @@ class FXCCorrelation:
 
     def get_C6_coefficient(self,
                            ecut=100.,
-                           smoothcut=None,
                            nbands=None,
                            kcommsize=None,
-                           extrapolate=False,
                            gauss_legendre=None,
                            frequency_cut=None,
                            frequency_scale=None,
@@ -531,10 +515,8 @@ class FXCCorrelation:
 
         self.initialize_calculation(None,
                                     ecut,
-                                    None,
                                     nbands,
                                     kcommsize,
-                                    extrapolate,
                                     gauss_legendre,
                                     frequency_cut,
                                     frequency_scale)
@@ -545,20 +527,34 @@ class FXCCorrelation:
             if i != d:
                 d_pro.append(i)
         
-        dummy = DF(calc=self.calc,
-                   eta=0.0,
-                   w=self.w * 1j,
-                   ecut=self.ecut,
-                   hilbert_trans=False)
-        dummy.txt = devnull
-        dummy.initialize(simple_version=True)
-        npw = dummy.npw
-        del dummy
-
         q = [0.,0.,0.]
         q[d] = 1.e-5
 
-        fhxc_sGsG, Kc_G = self.get_fxc(q, True, 0, d)
+        kernel = Kernel(self.calc,
+                        self.xc,
+                        self.method,
+                        self.ibz_q_points,
+                        self.w,
+                        self.ecut,
+                        self.txt,
+                        self.tag,
+                        paw_correction=self.paw_correction,
+                        unit_cells=self.unit_cells,
+                        density_cut=self.density_cut)
+
+        kernel.calculate_fhxc(directions=[d])
+
+        del kernel
+
+        if self.xc[0] == 'r':
+            name = self.xc + '_' + self.method + '_' + self.tag
+            r = Reader('fhxc_%s_%s_0%s.gpw' % (name, self.ecut, direction))
+        else:
+            name = self.xc + '_' + self.tag
+            r = Reader('fhxc_%s_%s_0%s.gpw' % (name, self.ecut, direction))
+                
+        ns = self.nspins
+        npw = r.dimension('sG') / ns
 
         if self.nbands is None:
             nbands = npw
@@ -568,7 +564,7 @@ class FXCCorrelation:
         if self.txt is sys.stdout:
             txt = 'response.txt'
         else:
-            txt='response_'+self.txt.name
+            txt='response_' + self.txt.name
         df = DF(calc=self.calc,
                 xc=None,
                 nbands=nbands,
@@ -583,11 +579,10 @@ class FXCCorrelation:
                 kcommsize=self.kcommsize,
                 hilbert_trans=False)
         
-        print >> self.txt, 'Calculating RPA response function'
+        print >> self.txt, 'Calculating %s response function' % self.xc
         print >> self.txt, 'Polarization: %s' % d
 
         df.initialize()
-        ns = self.nspins
         Nw_local = df.Nw_local
         chi0 = np.zeros((Nw_local, ns*npw, ns*npw), dtype=complex)
 
@@ -600,7 +595,7 @@ class FXCCorrelation:
             df.calculate(seperate_spin=1)
             chi0[:, npw:2*npw, npw:2*npw] = df.chi0_wGG[:]
         del df.chi0_wGG
-
+        
         local_a0_w = np.zeros(Nw_local, dtype=complex)
         a0_w = np.empty(len(self.w), complex)
         local_a_w = np.zeros(Nw_local, dtype=complex)
@@ -623,7 +618,7 @@ class FXCCorrelation:
         print >> self.txt, 'Calculating dynamic polarizability'
 
         for i in range(Nw_local):
-            chi0_fhxc = np.dot(chi0[i], fhxc_sGsG)
+            chi0_fhxc = np.dot(chi0[i], r.get('fhxc_sGsG'))
             chi = np.linalg.solve(np.eye(npw*ns, npw*ns)
                                   - chi0_fhxc, chi0[i]).real
             for s1 in range(ns):
@@ -639,8 +634,6 @@ class FXCCorrelation:
         a0_w *= A**2 / df.vol
         a_w *= A**2 / df.vol
 
-        del df, chi0, chi0_fhxc, chi, X_ss, Kc_G, fhxc_sGsG
-        
         C06 = np.sum(a0_w**2 * self.gauss_weights
                      * self.transform) * 3 / (2*np.pi)
         C6 = np.sum(a_w**2 * self.gauss_weights
@@ -655,7 +648,7 @@ class FXCCorrelation:
 
 class Kernel:
     
-    def __init__(self, calc, xc, method, q_points, w, ecut, txt,
+    def __init__(self, calc, xc, method, q_points, w, ecut, txt, tag,
                  paw_correction=1, unit_cells=None, density_cut=None):
 
         self.calc = calc
@@ -664,6 +657,7 @@ class Kernel:
         self.q_points = q_points
         self.ecut = ecut
         self.txt = txt
+        self.tag = tag
         self.paw_correction = paw_correction
         self.unit_cells = unit_cells
         self.density_cut = density_cut
@@ -704,9 +698,9 @@ class Kernel:
             dummy.txt = devnull
             dummy.initialize(simple_version=True)
             self.Gvec_qGc[iq] = dummy.Gvec_Gc
-            self.npw_q.append(len(dummy.Gvec_Gc))            
+            self.npw_q.append(len(dummy.Gvec_Gc))
         self.gd = dummy.gd
-        self.nG = dummy.nG
+        self.nG = dummy.gd.N_c
         self.vol = dummy.vol
         self.bcell_cv = dummy.bcell_cv
         self.acell_cv = dummy.acell_cv
@@ -754,7 +748,7 @@ class Kernel:
             fhxc_sGsG = np.tile(Kc_GG, (ns, ns))
             
             if rank == 0:
-                w = Writer('fhxc_RPA_%s_%s.gpw' % (self.ecut, iq))
+                w = Writer('fhxc_RPA_%s_%s_%s.gpw' % (self.tag, self.ecut, iq))
                 w.dimension('sG', ns*npw)
                 w.add('fhxc_sGsG', ('sG', 'sG'), dtype=complex)
                 w.fill(fhxc_sGsG)
@@ -775,7 +769,7 @@ class Kernel:
             fhxc_sGsG = np.tile(Kc_GG, (ns, ns))
 
             if rank == 0:
-                w = Writer('fhxc_RPA_%s_0%s.gpw' % (self.ecut, d))
+                w = Writer('fhxc_RPA_%s_%s_0%s.gpw' % (self.tag, self.ecut, d))
                 w.dimension('sG', ns*npw)
                 w.add('fhxc_sGsG', ('sG', 'sG'), dtype=complex)
                 w.fill(fhxc_sGsG)
@@ -802,9 +796,10 @@ class Kernel:
         qc_g = (-4 * np.pi * ns / fx_g)**0.5
         flocal_g = qc_g**3 * fx_g / (6 * np.pi**2)
         #flocal_g = 4 * n_g * fx_g # LDA
-        Vlocal_g = 4 * (3 * n_g / np.pi)**(1./3.)
+        Vlocal_g = 2 * qc_g / np.pi
+        #Vlocal_g = 4 * (3 * n_g / np.pi)**(1./3.)
         
-        nG0 = nG[0] * nG[1] * nG[2]
+        nG0 = np.prod(nG)
         r_vg = gd.get_grid_point_coordinates()
         r_vgx = r_vg[0].flatten()
         r_vgy = r_vg[1].flatten()
@@ -842,7 +837,7 @@ class Kernel:
             fhxc_qsGr[iq] = np.zeros((ns, npw_q[iq], len(l_g_range)),
                                      dtype=complex)
 
-        inv_error = np.seterr()['invalid']
+        inv_error = np.seterr()
         np.seterr(invalid='ignore')
         np.seterr(divide='ignore')
 
@@ -883,10 +878,10 @@ class Kernel:
                 if (np.abs(R_i) < 0.001).all():
                     tmp_flat = f_rr.flatten()
                     tmp_flat[g] = flocal_g.flatten()[g]
-                    f_rr = tmp_flat.reshape((nG[0], nG[1], nG[2]))
+                    f_rr = tmp_flat.reshape(nG)
                     tmp_flat = V_rr.flatten()
                     tmp_flat[g] = Vlocal_g.flatten()[g]
-                    V_rr = tmp_flat.reshape((nG[0], nG[1], nG[2]))
+                    V_rr = tmp_flat.reshape(nG)
                     del tmp_flat
 
                 f_rr[np.where(n_av < self.density_cut)] = 0.0
@@ -915,6 +910,8 @@ class Kernel:
                                           tmp_V_off[f_i[0], f_i[1], f_i[2]]
         world.barrier()
         
+        np.seterr(**inv_error)
+
         for iq, q in enumerate(self.q_points):
             npw = npw_q[iq]
             Gvec_Gc = Gvec_qGc[iq]
@@ -968,10 +965,11 @@ class Kernel:
                         q0 = np.array([0., 0., 0.])
                         q0[d] = 1.e-5
 
-                        w = Writer('fhxc_%s_%s_%s_0%s.gpw' % (self.xc,
-                                                              self.method,
-                                                              self.ecut,
-                                                              d))
+                        w = Writer('fhxc_%s_%s_%s_%s_0%s.gpw' % (self.xc,
+                                                                 self.method,
+                                                                 self.tag,
+                                                                 self.ecut,
+                                                                 d))
                         w.dimension('sG', ns*npw)
                         w.add('fhxc_sGsG', ('sG', 'sG'), dtype=complex)
                         if N_R0 > 1:
@@ -984,10 +982,11 @@ class Kernel:
                             w.fill(fhxc_sGsG / vol)
                         w.close()
                 else:
-                    w = Writer('fhxc_%s_%s_%s_%s.gpw' % (self.xc,
-                                                          self.method,
-                                                          self.ecut,
-                                                          iq))
+                    w = Writer('fhxc_%s_%s_%s_%s_%s.gpw' % (self.xc,
+                                                            self.method,
+                                                            self.tag,
+                                                            self.ecut,
+                                                            iq))
                     w.dimension('sG', ns*npw)
                     w.add('fhxc_sGsG', ('sG', 'sG'), dtype=complex)
                     if N_R0 > 1:
@@ -1065,10 +1064,11 @@ class Kernel:
             world.sum(fhxc_sGsG)
 
             if rank == 0:
-                w = Writer('fhxc_%s_%s_%s_%s.gpw' % (self.xc,
-                                                     self.method,
-                                                     self.ecut,
-                                                     iq))
+                w = Writer('fhxc_%s_%s_%s_%s_%s.gpw' % (self.xc,
+                                                        self.method,
+                                                        self.tag,
+                                                        self.ecut,
+                                                        iq))
                 w.dimension('sG', ns*npw)
                 w.add('fhxc_sGsG', ('sG', 'sG'), dtype=complex)
                 w.fill(fhxc_sGsG / vol)
@@ -1115,10 +1115,11 @@ class Kernel:
             world.sum(fhxc_sGsG)
 
             if rank == 0:
-                w = Writer('fhxc_%s_%s_%s_0%s.gpw' % (self.xc,
-                                                      self.method,
-                                                      self.ecut,
-                                                      d))
+                w = Writer('fhxc_%s_%s_%s_%s_0%s.gpw' % (self.xc,
+                                                         self.method,
+                                                         self.tag,
+                                                         self.ecut,
+                                                         d))
                 w.dimension('sG', ns*npw)
                 w.add('fhxc_sGsG', ('sG', 'sG'), dtype=complex)
                 w.fill(fhxc_sGsG / vol)
@@ -1128,7 +1129,9 @@ class Kernel:
         print >> self.txt    
 
     def calculate_local_kernel(self):
-        
+        # Standard ALDA exchange kernel
+        # Use with care. Results are very difficult to converge
+        # Sensitive to densitycut
         ns = self.calc.wfs.nspins
         gd = self.gd
 
@@ -1136,7 +1139,7 @@ class Kernel:
 
         A_x = -(3/4.) * (3/np.pi)**(1/3.)
         fxc_sg = ns * (4 / 9.) * A_x * (ns*n_g)**(-2/3.)
-        fxc_sg[np.where(nt_sG < self.density_cut)] = 0.0        
+        fxc_sg[np.where(n_g < self.density_cut)] = 0.0        
 
         r_vg = gd.get_grid_point_coordinates()
 
@@ -1177,9 +1180,10 @@ class Kernel:
                     fhxc_sGsG[s*npw:(s+1)*npw, s*npw:(s+1)*npw] += f_paw_sGG[s]
 
             if rank == 0:
-                w = Writer('fhxc_%s_%s_%s.gpw' % (self.xc,
-                                                  self.ecut,
-                                                  iq))
+                w = Writer('fhxc_%s_%s_%s_%s.gpw' % (self.xc,
+                                                     self.tag,
+                                                     self.ecut,
+                                                     iq))
                 w.dimension('sG', ns*npw)
                 w.add('fhxc_sGsG', ('sG', 'sG'), dtype=complex)
                 w.fill(fhxc_sGsG / self.vol)
@@ -1190,6 +1194,7 @@ class Kernel:
 
 
     def add_paw_correction(self, npw, Gvec_Gc, bcell_cv, setups, D_asp, R_av):
+        # By default only used for ALDA
         ns = self.nspins
         A_x = -(3/4.) * (3/np.pi)**(1/3.)
         KxcPAW_sGG = np.zeros((ns, npw, npw), complex)
@@ -1306,7 +1311,8 @@ class Kernel:
         #Fgrad_vg = np.zeros_like(gradn_vg)
         #Fngrad_vg = np.zeros_like(gradn_vg)
         #for v in range(3):
-        #    axpy(1.0, mu / den_g**2 * gradn_vg[v] / (2 * kf_g**2 * n_g**2), Fgrad_vg[v])
+        #    axpy(1.0, mu / den_g**2 * gradn_vg[v] / (2 * kf_g**2 * n_g**2), 
+        #         Fgrad_vg[v])
         #    axpy(-8.0, Fgrad_vg[v] / (3 * n_g), Fngrad_vg[v])
         #    axpy(-2.0, Fgrad_vg[v] * Fn_g / kappa, Fngrad_vg[v])
 

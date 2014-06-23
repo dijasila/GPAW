@@ -1,7 +1,6 @@
 import sys
 from time import time, ctime
 import numpy as np
-import gpaw.fftw as fftw
 from math import sqrt, pi
 from ase.units import Hartree, Bohr
 from gpaw import extra_parameters
@@ -12,6 +11,7 @@ from gpaw.response.math_func import hilbert_transform
 from gpaw.response.parallel import set_communicator, \
      parallel_partition, parallel_partition_list, SliceAlongFrequency, SliceAlongOrbitals
 from gpaw.response.kernel import calculate_Kxc, calculate_Kc
+from gpaw.response.kernel import CoulombKernel
 from gpaw.utilities.memory import maxrss
 from gpaw.response.base import BASECHI
 
@@ -45,11 +45,10 @@ class CHI(BASECHI):
                  q=None,
                  eshift=None,
                  ecut=10.,
-                 smooth_cut=None,
                  density_cut=None,
                  G_plus_q=False,
                  eta=0.2,
-                 rpad=np.array([1,1,1]),
+                 rpad=None,
                  vcut=None,
                  ftol=1e-5,
                  txt=None,
@@ -61,15 +60,18 @@ class CHI(BASECHI):
                  kcommsize=None):
 
         BASECHI.__init__(self, calc=calc, nbands=nbands, w=w, q=q,
-                         eshift=eshift, ecut=ecut, smooth_cut=smooth_cut,
+                         eshift=eshift, ecut=ecut,
                          density_cut=density_cut, G_plus_q=G_plus_q, eta=eta,
                          rpad=rpad, ftol=ftol, txt=txt,
                          optical_limit=optical_limit)
         
+        #if vcut is None:
+        #    vcut = '%dD' % self.calc.wfs.gd.pbc_c.sum()
+        self.vcut = vcut
+
         self.xc = xc
         self.hilbert_trans = hilbert_trans
         self.full_hilbert_trans = time_ordered
-        self.vcut = vcut
         self.kcommsize = kcommsize
         self.comm = comm
         if self.comm is None:
@@ -97,7 +99,7 @@ class CHI(BASECHI):
             assert self.w_w.max() == self.w_w[-1]
             
             self.dw /= Hartree
-            self.w_w  /= Hartree
+            self.w_w /= Hartree
             self.wmax = self.w_w[-1] 
             self.wcut = self.wmax + 5. / Hartree
 #            self.Nw  = int(self.wmax / self.dw) + 1
@@ -153,26 +155,24 @@ class CHI(BASECHI):
             self.Kc_GG = None
             self.printtxt('RPA calculation.')
         elif self.xc == 'ALDA' or self.xc == 'ALDA_X':
-            self.Kc_GG = calculate_Kc(self.q_c,
-                                      self.Gvec_Gc,
-                                      self.acell_cv,
-                                      self.bcell_cv,
-                                      self.calc.atoms.pbc,
-                                      self.vcut)
-
-            nt_sg = calc.density.nt_sG
-            if (self.rpad > 1).any() or (self.pbc - True).any():
-                nt_sG = np.zeros([self.nspins, self.nG[0], self.nG[1], self.nG[2]])
-                for s in range(self.nspins):
-                    nt_G = self.pad(nt_sg[s])
-                    nt_sG[s] = nt_G
-            else:
-                nt_sG = nt_sg
+            #self.Kc_GG = calculate_Kc(self.q_c,
+            #                          self.Gvec_Gc,
+            #                          self.acell_cv,
+            #                          self.bcell_cv,
+            #                          self.calc.atoms.pbc,
+            #                          self.vcut)
+            # Initialize a CoulombKernel instance
+            kernel = CoulombKernel(vcut=self.vcut,
+                                   pbc=self.calc.atoms.pbc,
+                                   cell=self.acell_cv)
+            self.Kc_GG = kernel.calculate_Kc(self.q_c,
+                                             self.Gvec_Gc,
+                                             self.bcell_cv)
             
             self.Kxc_sGG = calculate_Kxc(self.gd, # global grid
-                                         nt_sG,
+                                         self.gd.zero_pad(calc.density.nt_sG),
                                          self.npw, self.Gvec_Gc,
-                                         self.nG, self.vol,
+                                         self.gd.N_c, self.vol,
                                          self.bcell_cv, R_av,
                                          calc.wfs.setups,
                                          calc.density.D_asp,
@@ -184,17 +184,31 @@ class CHI(BASECHI):
         return
 
 
+    def pawstuff(self, psit_g, k, n, spin, u, ibzkpt):
+        if not self.pwmode:
+            if self.calc.wfs.world.size > 1 or self.kd.nbzkpts == 1:
+                P_ai = self.pt.dict()
+                self.pt.integrate(psit_g, P_ai, k)
+            else:
+                P_ai = self.get_P_ai(k, n, spin)
+        else:
+            # first calculate P_ai at ibzkpt, then rotate to k
+            Ptmp_ai = self.pt.dict()
+            kpt = self.calc.wfs.kpt_u[u]
+            self.pt.integrate(kpt.psit_nG[n], Ptmp_ai, ibzkpt)
+            P_ai = self.get_P_ai(k, n, spin, Ptmp_ai)
+        return P_ai
+
+
     def calculate(self, seperate_spin=None):
         """Calculate the non-interacting density response function. """
-
         calc = self.calc
         kd = self.kd
         gd = self.gd
         sdisp_cd = gd.sdisp_cd
-        ibzk_kc = self.ibzk_kc
-        bzk_kc = self.bzk_kc
+        ibzk_kc = kd.ibzk_kc
+        bzk_kc = kd.bzk_kc
         kq_k = self.kq_k
-        pt = self.pt
         f_skn = self.f_skn
         e_skn = self.e_skn
 
@@ -216,16 +230,6 @@ class CHI(BASECHI):
             specfuncG0_wGv = np.zeros((self.NwS_local, self.npw, 3), dtype=complex)
             specfunc0G_wGv = np.zeros((self.NwS_local, self.npw, 3), dtype=complex)
             
-        # fftw init
-        fft_R = fftw.empty(self.nG, complex)
-        fft_G = fft_R
-        fftplan = fftw.FFTPlan(fft_R, fft_G, -1, fftw.ESTIMATE)
-
-        if fftw.FFTPlan is fftw.NumpyFFTPlan:
-            self.printtxt('Using Numpy FFT.')
-        else:
-            self.printtxt('Using FFTW Library.') 
-
         use_zher = False
         if self.eta < 1e-5:
             use_zher = True
@@ -245,7 +249,7 @@ class CHI(BASECHI):
 
             for k in range(self.kstart, self.kend):
                 k_pad = False
-                if k >= self.nkpt:
+                if k >= self.kd.nbzkpts:
                     k = 0
                     k_pad = True
     
@@ -263,48 +267,32 @@ class CHI(BASECHI):
                     k_c = self.kd.ibzk_kc[ibzkpt2]
                     eikr2_R = np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
                     
-                index1_g, phase1_g = kd.get_transform_wavefunction_index(self.nG, k)
-                index2_g, phase2_g = kd.get_transform_wavefunction_index(self.nG, kq_k[k])
-    
+                index1_g, phase1_g = kd.get_transform_wavefunction_index(self.gd.N_c - (self.pbc == False), k)
+                index2_g, phase2_g = kd.get_transform_wavefunction_index(self.gd.N_c - (self.pbc == False), kq_k[k])
+                
                 for n in range(self.nvalbands):
                     if self.calc.wfs.world.size == 1:
                         if (self.f_skn[spin][ibzkpt1, n] - self.ftol < 0):
                             continue
 
                     t1 = time()
-                    if not self.pwmode:
-                        psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
-                    else:
+                    if self.pwmode:
                         u = self.kd.get_rank_and_index(spin, ibzkpt1)[1]
                         psitold_g = calc.wfs._get_wave_function_array(u, n, realspace=True, phase=eikr1_R)
-    
-                    psit1new_g_tmp = kd.transform_wave_function(psitold_g,k,index1_g,phase1_g)
-    
-                    if (self.rpad > 1).any() or (self.pbc - True).any():
-                        psit1new_g = self.pad(psit1new_g_tmp)
                     else:
-                        psit1new_g = psit1new_g_tmp
+                        u = None
+                        psitold_g = self.get_wavefunction(ibzkpt1, n, True, spin=spin)
     
-                    # PAW part
-                    if not self.pwmode:
-                        if (calc.wfs.world.size > 1 or self.nkpt==1):
-                            P1_ai = pt.dict()
-                            pt.integrate(psit1new_g, P1_ai, k)
-                        else:
-                            P1_ai = self.get_P_ai(k,n,spin)
-                    else:
-                        # first calculate P_ai at ibzkpt, then rotate to k
-                        Ptmp_ai = pt.dict()
-                        kpt = calc.wfs.kpt_u[u]
-                        pt.integrate(kpt.psit_nG[n], Ptmp_ai, ibzkpt1)
-                        P1_ai = self.get_P_ai(k,n,spin,Ptmp_ai)
-                    
+                    psit1new_g = kd.transform_wave_function(psitold_g,k,index1_g,phase1_g)
+
+                    P1_ai = self.pawstuff(psit1new_g, k, n, spin, u, ibzkpt1)
+
                     psit1_g = psit1new_g.conj() * self.expqr_g
     
                     for m in self.mlist:
                         if self.nbands > 1000 and m % 200 == 0:
                             print >> self.txt, '    ', k, n, m, time() - t0
-    		    
+                    
                         check_focc = (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m]) > self.ftol
     
                         if not self.pwmode:
@@ -315,23 +303,15 @@ class CHI(BASECHI):
                                 u = self.kd.get_rank_and_index(spin, ibzkpt2)[1]
                                 psitold_g = calc.wfs._get_wave_function_array(u, m, realspace=True, phase=eikr2_R)
     
-                            psit2_g_tmp = kd.transform_wave_function(psitold_g, kq_k[k], index2_g, phase2_g)
+                            psit2_g = kd.transform_wave_function(psitold_g, kq_k[k], index2_g, phase2_g)
     
-                            if (self.rpad > 1).any() or (self.pbc - True).any():
-                                psit2_g = self.pad(psit2_g_tmp)
-                            else:
-                                psit2_g = psit2_g_tmp
-    
-                            # fft
-                            fft_R[:] = psit2_g * psit1_g
-                            fftplan.execute()
-                            fft_G *= self.vol / self.nG0
-    #                        tmp_g = np.fft.fftn(psit2_g*psit1_g) * self.vol / self.nG0
-    
-                            rho_G = fft_G.ravel()[self.Gindex_G]
+                            # zero padding is included through the FFT
+                            rho_g = np.fft.fftn(psit2_g * psit1_g, s=self.nGrpad) * self.vol / self.nG0rpad
+                            # Here, planewave cutoff is applied
+                            rho_G = rho_g.ravel()[self.Gindex_G]
     
                             if self.optical_limit:
-                                phase_cd = np.exp(2j * pi * sdisp_cd * bzk_kc[kq_k[k], :, np.newaxis])
+                                phase_cd = np.exp(2j * pi * sdisp_cd * kd.bzk_kc[kq_k[k], :, np.newaxis])
                                 for ix in range(3):
                                     d_c[ix](psit2_g, dpsit_g, phase_cd)
                                     tmp[ix] = gd.integrate(psit1_g * dpsit_g)
@@ -342,18 +322,7 @@ class CHI(BASECHI):
                                     qq2_v = np.dot(q2_c, self.bcell_cv) # summation over c
                                     rhoG0_v[ix] = -1j * np.dot(qq2_v, tmp)
 
-                            # PAW correction
-                            if not self.pwmode:
-                                if (calc.wfs.world.size > 1 or self.nkpt==1):
-                                    P2_ai = pt.dict()
-                                    pt.integrate(psit2_g, P2_ai, kq_k[k])
-                                else:
-                                    P2_ai = self.get_P_ai(kq_k[k],m,spin)                                    
-                            else:
-                                Ptmp_ai = pt.dict()
-                                kpt = calc.wfs.kpt_u[u]
-                                pt.integrate(kpt.psit_nG[m], Ptmp_ai, ibzkpt2)
-                                P2_ai = self.get_P_ai(kq_k[k],m,spin,Ptmp_ai)
+                            P2_ai = self.pawstuff(psit2_g, kq_k[k], m, spin, u, ibzkpt2)
 
                             for a, id in enumerate(calc.wfs.setups.id_a):
                                 P_p = np.outer(P1_ai[a].conj(), P2_ai[a]).ravel()
@@ -436,26 +405,26 @@ class CHI(BASECHI):
     #                            for wi in range(self.NwS_local):
     #                                if deltaw[wi + self.wS1] > 1e-8:
     #                                    specfunc_wGG[wi] += tmp_GG * deltaw[wi + self.wS1]
-                    if self.nkpt == 1:
+                    if self.kd.nbzkpts == 1:
                         if n == 0:
                             dt = time() - t0
                             totaltime = dt * self.nvalbands * self.nspins
-                            self.printtxt('Finished n 0 in %f seconds, estimated %f seconds left.' %(dt, totaltime) )
+                            self.printtxt('Finished n 0 in %d seconds, estimate %d seconds left.' %(dt, totaltime) )
                         if rank == 0 and self.nvalbands // 5 > 0:
                             if n > 0 and n % (self.nvalbands // 5) == 0:
                                 dt = time() - t0
-                                self.printtxt('Finished n %d in %f seconds, estimated %f seconds left.'%(n, dt, totaltime-dt))
+                                self.printtxt('Finished n %d in %d seconds, estimate %d seconds left.'%(n, dt, totaltime-dt))
                 if calc.wfs.world.size != 1:
                     self.kcomm.barrier()            
                 if k == 0:
                     dt = time() - t0
                     totaltime = dt * self.nkpt_local * self.nspins
-                    self.printtxt('Finished k 0 in %f seconds, estimated %f seconds left.' %(dt, totaltime))
+                    self.printtxt('Finished k 0 in %d seconds, estimate %d seconds left.' %(dt, totaltime))
                     
                 if rank == 0 and self.nkpt_local // 5 > 0:            
                     if k > 0 and k % (self.nkpt_local // 5) == 0:
                         dt =  time() - t0
-                        self.printtxt('Finished k %d in %f seconds, estimated %f seconds left.  '%(k, dt, totaltime - dt) )
+                        self.printtxt('Finished k %d in %d seconds, estimate %d seconds left.  '%(k, dt, totaltime - dt) )
         self.printtxt('Finished summation over k')
 
         self.kcomm.barrier()
@@ -538,14 +507,8 @@ class CHI(BASECHI):
         self.chi0_wGG = chi0_wGG
         self.chi0_wGG /= self.vol
 
-        if self.smooth_cut is not None:
-            for iw in range(self.Nw_local):
-                self.chi0_wGG[iw] *= np.outer(self.G_weights, self.G_weights)
-            
         self.printtxt('')
         self.printtxt('Finished chi0 !')
-
-        return
 
 
     def parallel_init(self):
@@ -589,18 +552,18 @@ class CHI(BASECHI):
 
         self.kcomm, self.wScomm, self.wcomm = set_communicator(world, rank, size, self.kcommsize)
 
-        if self.nkpt >= world.size:
-            self.nkpt_reshape = self.nkpt
+        if self.kd.nbzkpts >= world.size:
+            self.nkpt_reshape = self.kd.nbzkpts
             self.nkpt_reshape, self.nkpt_local, self.kstart, self.kend = parallel_partition(
                                self.nkpt_reshape, self.kcomm.rank, self.kcomm.size, reshape=True, positive=True)
             self.mband_local = self.nvalbands
             self.mlist = np.arange(self.nbands)
         else:
             # if number of kpoints == 1, use band parallelization
-            self.nkpt_local = self.nkpt
+            self.nkpt_local = self.kd.nbzkpts
             self.kstart = 0
-            self.kend = self.nkpt
-            self.nkpt_reshape = self.nkpt
+            self.kend = self.kd.nbzkpts
+            self.nkpt_reshape = self.kd.nbzkpts
 
             self.nbands, self.mband_local, self.mlist = parallel_partition_list(
                                self.nbands, self.kcomm.rank, self.kcomm.size)
@@ -641,12 +604,12 @@ class CHI(BASECHI):
         printtxt('')
         printtxt('Parallelization scheme:')
         printtxt('     Total cpus      : %d' %(self.comm.size))
-        if self.nkpt == 1:
+        if self.kd.nbzkpts == 1:
             printtxt('     nbands parsize  : %d' %(self.kcomm.size))
         else:
             printtxt('     kpoint parsize  : %d' %(self.kcomm.size))
-            if self.nkpt_reshape > self.nkpt:
-                self.printtxt('        kpoints (%d-%d) are padded with zeros' %(self.nkpt,self.nkpt_reshape))
+            if self.nkpt_reshape > self.kd.nbzkpts:
+                self.printtxt('        kpoints (%d-%d) are padded with zeros' % (self.kd.nbzkpts, self.nkpt_reshape))
 
         if self.hilbert_trans:
             printtxt('     specfunc parsize: %d' %(self.wScomm.size))

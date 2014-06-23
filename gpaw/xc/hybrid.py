@@ -21,7 +21,9 @@ from gpaw.gaunt import make_gaunt
 
 class HybridXCBase(XCFunctional):
     orbital_dependent = True
-    def __init__(self, name, hybrid=None, xc=None):
+    omega = None
+
+    def __init__(self, name, hybrid=None, xc=None, omega=None):
         """Mix standard functionals with exact exchange.
 
         name: str
@@ -44,12 +46,23 @@ class HybridXCBase(XCFunctional):
             assert hybrid is None and xc is None
             hybrid = 0.2
             xc = XC('HYB_GGA_XC_B3LYP')
+        elif name == 'HSE03':
+            assert hybrid is None and xc is None and omega is None
+            hybrid = 0.25
+            omega = 0.106
+            xc = XC('HYB_GGA_XC_HSE03')
+        elif name == 'HSE06':
+            assert hybrid is None and xc is None and omega is None
+            hybrid = 0.25
+            omega = 0.11
+            xc = XC('HYB_GGA_XC_HSE06')
             
         if isinstance(xc, str):
             xc = XC(xc)
 
         self.hybrid = float(hybrid)
         self.xc = xc
+        self.omega = omega
         self.type = xc.type
 
         XCFunctional.__init__(self, name)

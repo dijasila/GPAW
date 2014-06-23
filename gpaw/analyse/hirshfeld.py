@@ -20,7 +20,23 @@ class HirshfeldDensity(RealSpaceDensity):
         RealSpaceDensity.__init__(self, density.gd, density.finegd, 1, 0,
                                   stencil=par.stencils[1])
 
-    def get_density(self, atom_indicees=None):
+    def set_positions(self, spos_ac, rank_a):
+        """HirshfeldDensity builds a hack density object to calculate all electron density
+           of atoms. This methods overrides the parallel distribution of atomic density matrices
+           in density.py"""
+        self.nct.set_positions(spos_ac)
+        self.ghat.set_positions(spos_ac)
+        self.mixer.reset()
+        self.rank_a = rank_a
+        #self.nt_sG = None
+        self.nt_sg = None
+        self.nt_g = None
+        self.rhot_g = None
+        self.Q_aL = None
+        self.nct_G = self.gd.zeros()
+        self.nct.add(self.nct_G, 1.0 / self.nspins)
+
+    def get_density(self, atom_indicees=None, gridrefinement=2):
         """Get sum of atomic densities from the given atom list.
 
         All atoms are taken if the list is not given."""
@@ -30,9 +46,9 @@ class HirshfeldDensity(RealSpaceDensity):
             atom_indicees = range(len(all_atoms))
 
         density = self.calculator.density
-        spos_ac = all_atoms.get_scaled_positions() % 1.0
+        spos_ac = all_atoms.get_scaled_positions()
         rank_a = self.finegd.get_ranks_from_positions(spos_ac)
-        density.set_positions(all_atoms.get_scaled_positions() % 1.0,
+        density.set_positions(all_atoms.get_scaled_positions(),
                               rank_a
                               )
 
@@ -47,8 +63,9 @@ class HirshfeldDensity(RealSpaceDensity):
                 D_asp[len(atoms)] = all_D_asp.get(a)
             atoms.append(all_atoms[a])
             rank_a.append(all_rank_a[a])
-        atoms = Atoms(atoms, cell=all_atoms.get_cell())
-        spos_ac = atoms.get_scaled_positions() % 1.0
+        atoms = Atoms(atoms, 
+                      cell=all_atoms.get_cell(), pbc=all_atoms.get_pbc())
+        spos_ac = atoms.get_scaled_positions()
         Z_a = atoms.get_atomic_numbers()
 
         par = self.calculator.input_parameters
@@ -62,7 +79,8 @@ class HirshfeldDensity(RealSpaceDensity):
                         self.calculator.timer,
                         np.zeros((len(atoms), 3)), False)
         self.set_mixer(None)
-        self.set_positions(spos_ac, rank_a)
+        # FIXME nparray causes partitionong.py test to fail
+        self.set_positions(spos_ac, np.array(rank_a))
         basis_functions = BasisFunctions(self.gd,
                                          [setup.phit_j
                                           for setup in self.setups],
@@ -71,7 +89,7 @@ class HirshfeldDensity(RealSpaceDensity):
         self.initialize_from_atomic_densities(basis_functions)
 
         aed_sg, gd = self.get_all_electron_density(atoms, 
-                                                   gridrefinement=2)
+                                                   gridrefinement)
         return aed_sg[0], gd
 
 class HirshfeldPartitioning:

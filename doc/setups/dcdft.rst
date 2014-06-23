@@ -4,8 +4,6 @@
 Delta Codes DFT
 ===============
 
-**Warning** the results on this page are preliminary!
-
 Codes precision estimated for PBE exchange-correlation functional
 on the database of bulk systems from http://molmod.ugent.be/DeltaCodesDFT.
 
@@ -18,7 +16,7 @@ Percentage errors with respect to http://www.wien2k.at/.
 Delta factors one could for example divide them by the corresponding
 Deltas of PBE exchange-correlation functional with respect to
 experiment, available in the publication
-http://molmod.ugent.be/DeltaCodesDFT in Table IX.  This can be
+http://molmod.ugent.be/DeltaCodesDFT.  This can be
 performed using the ``calcDelta.py`` script provided at the website::
 
   python calcDelta.py VASP-relaxed.txt exp.txt --stdout | grep -E -v "#|-|np" > test.txt
@@ -34,14 +32,12 @@ EOS
 +++
 
 .. csv-table::
-   :file: dcdft_pbe_gpaw_pw.csv
+   :file: dcdft_pbe_gpaw_pw_raw.csv
 
 Delta precision measure
 +++++++++++++++++++++++
 
-Calculated accordingly to http://molmod.ugent.be/DeltaCodesDFT
-
-.. literalinclude:: dcdft_pbe_gpaw_pw_Delta.txt
+Consult http://molmod.ugent.be/DeltaCodesDFT
 
 
 Dacapo
@@ -54,14 +50,12 @@ EOS
 +++
 
 .. csv-table::
-   :file: dcdft_pbe_jacapo.csv
+   :file: dcdft_pbe_jacapo_raw.csv
 
 Delta precision measure
 +++++++++++++++++++++++
 
-Calculated accordingly to http://molmod.ugent.be/DeltaCodesDFT
-
-.. literalinclude:: dcdft_pbe_jacapo_Delta.txt
+Consult http://molmod.ugent.be/DeltaCodesDFT
 
 
 Abinit FHI
@@ -74,11 +68,9 @@ EOS
 +++
 
 .. csv-table::
-   :file: dcdft_pbe_abinit_fhi.csv
+   :file: dcdft_pbe_abinit_fhi_raw.csv
 
 Delta precision measure
 +++++++++++++++++++++++
 
-Calculated accordingly to http://molmod.ugent.be/DeltaCodesDFT
-
-.. literalinclude:: dcdft_pbe_abinit_fhi_Delta.txt
+Consult http://molmod.ugent.be/DeltaCodesDFT

@@ -1,8 +1,8 @@
 import numpy as np
-from ase.structure import bulk
+from ase.lattice import bulk
 from ase.units import Hartree, Bohr
 from gpaw import GPAW, FermiDirac
-from ase.dft import monkhorst_pack
+from ase.dft.kpoints import monkhorst_pack
 
 
 for kpt in (3, 4):

@@ -3,6 +3,7 @@ import numpy as np
 from gpaw import GPAW, FermiDirac, Mixer
 from ase import Atom, Atoms
 from ase.visualize import view
+from gpaw.mixer import Mixer
 from gpaw.response.df import DF
 
 GS = 1
@@ -16,6 +17,8 @@ if GS:
     cluster.center()
     #view(cluster)    
     calc=GPAW(xc='RPBE',
+              mixer=Mixer(0.1,3),
+              nbands=30,
               h=0.15,
               mode='lcao',
               basis='dzp',

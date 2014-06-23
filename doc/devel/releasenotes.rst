@@ -10,6 +10,37 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+Version 0.10.0
+==============
+
+8 April 2014: :trac:`tags/0.10.0 <../tags/0.10.0>`.
+
+* Corresponding ASE release: ase-3.8.1_
+
+* Default eigensolver is now the Davidson solver.
+
+* Default density mixer parameters have been changed for calculations
+  with periodic boundary conditions.  Parameters for that case:
+  ``Mixer(0.05, 5, 50)`` (or ``MixerSum(0.05, 5, 50)`` for spin-paired
+  calculations.  Old parameters: ``0.1, 3, 50``.
+  
+* Default is now ``occupations=FermiDirac(0.1)`` if a
+  calculation is periodic in at least one direction,
+  and ``FermiDirac(0.0)`` otherwise (before it was 0.1 eV for anything
+  with **k**-points, and 0 otherwise).
+
+* Calculations with a plane-wave basis set are now officially supported.
+
+* :ref:`One-shot GW calculations <gw_theory>` with full frequency
+  integration or plasmon-pole approximation.
+  
+* Beyond RPA-correlation: `using renormalized LDA and PBE
+  <https://trac.fysik.dtu.dk/projects/gpaw/browser/branches/sprint2013/doc/tutorials/fxc_correlation>`_.
+
+* :ref:`bse`.
+
+* Improved RMM-DIIS eigensolver.
+
 * Support for new libxc 2.0.1.  libxc must now be built separately from GPAW.
 
 * MGGA calculations can be done in plane-wave mode.
@@ -22,12 +53,16 @@ Development version in trunk
 
 * New setups: Y, Sb, Xe, Hf, Re, Hg, Tl, Rn
 
+* Non self-consistent calculations with screened hybrid functionals
+  (HSE03 and HSE06) can be done in plane-wave mode.
+
 * Modified setups:
 
   .. note::
 
-     Most of the new setups currently require
-     :ref:`eigensolver <manual_eigensolver>` ``cg``.
+     Most of the new semicore setups currently require
+     :ref:`eigensolver <manual_eigensolver>` ``dav``, ``cg``
+     eigensolvers or ``rmm-diis`` eigensolver with a couple of iterations.
 
   - improved eggbox: N, O, K, S, Ca, Sc, Zn, Sr, Zr, Cd, In, Sn, Pb, Bi
 
@@ -36,6 +71,9 @@ Development version in trunk
     Rh, Pd, Ag, Ta, W, Os, Ir, Pt
 
   - semicore states removed: Te
+
+  - elements removed: La (energetics was wrong: errors ~1eV per unit cell
+    for PBE formation energy of La2O3 wrt. PBE benchmark results)
 
   .. note::
 
@@ -47,8 +85,8 @@ Development version in trunk
      See :ref:`manual_setups` and list the contents of :envvar:`GPAW_SETUP_PATH`
      for available setups.
 
-* new ``dzp`` basis set generated for all the new setups with
-  ``gpaw-basis -t dzp --lpol=2`` with exception of Zn and Cd (``--lpol=1``).
+* new ``dzp`` basis set generated for all the new setups, see
+  https://trac.fysik.dtu.dk/projects/gpaw/ticket/241
 
 
 Version 0.9.0
@@ -71,6 +109,7 @@ Version 0.9.0
 
 .. _new tool: https://wiki.fysik.dtu.dk/ase/ase/cmdline.html
 .. _ase-3.6: https://svn.fysik.dtu.dk/projects/ase/tags/3.6.0
+.. _ase-3.8.1: https://svn.fysik.dtu.dk/projects/ase/tags/3.8.1
 
 
 Version 0.8.0

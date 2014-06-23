@@ -1,9 +1,9 @@
 import os
 import numpy as np
-from ase.structure import bulk
+from ase.lattice import bulk
 from gpaw import GPAW
 from gpaw.response.df import DF
-from ase.dft import monkhorst_pack
+from ase.dft.kpoints import monkhorst_pack
 from gpaw.response.bse import BSE
 from gpaw.mpi import rank, size
 

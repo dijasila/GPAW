@@ -411,8 +411,8 @@ static PyObject* localized_functions_getattr(PyObject *obj, char *name)
     return Py_FindMethod(localized_functions_methods, obj, name);
 }
 
-static PyTypeObject LocalizedFunctionsType = {
-  PyObject_HEAD_INIT(&PyType_Type)
+PyTypeObject LocalizedFunctionsType = {
+  PyObject_HEAD_INIT(NULL)
   0,
   "LocalizedFunctions",
   sizeof(LocalizedFunctionsObject),

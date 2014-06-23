@@ -1,6 +1,6 @@
 from ase import *
-from ase.structure import bulk
-from ase.dft import monkhorst_pack
+from ase.lattice import bulk
+from ase.dft.kpoints import monkhorst_pack
 from gpaw import *
 from gpaw.mpi import serial_comm, world
 from gpaw.test import equal
@@ -25,15 +25,13 @@ calc.diagonalize_full_hamiltonian(nbands=50)
 
 rpa = RPACorrelation(calc)
 E_rpa = rpa.get_rpa_correlation_energy(ecut=50,
-                                       kcommsize=world.size,
                                        skip_gamma=True,
                                        gauss_legendre=8)
 
 fxc = FXCCorrelation(calc, xc='RPA')
 E_fxc = fxc.get_fxc_correlation_energy(ecut=50,
-                                       kcommsize=world.size,
                                        skip_gamma=True,
                                        gauss_legendre=8)
 
-equal(E_rpa, -7.762, 0.01)
-equal(E_fxc, -7.764, 0.01)
+equal(E_rpa, -7.826, 0.01)
+equal(E_fxc, -7.827, 0.01)

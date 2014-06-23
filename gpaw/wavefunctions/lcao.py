@@ -7,7 +7,11 @@ from gpaw import debug
 from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
-
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.mpi import serial_comm
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.kpoint import KPoint
+import warnings
 
 def get_r_and_offsets(nl, spos_ac, cell_cv):
     r_and_offset_aao = {}
@@ -188,7 +192,32 @@ class LCAOWaveFunctions(WaveFunctions):
             # of already by this time, so we should improve the code elsewhere
             density.calculate_normalized_charges_and_mix()
         hamiltonian.update(density)
-           
+    
+    def initialize_wave_functions_from_lcao(self):
+        """
+        Fill the calc.wfs.kpt_[u].psit_nG arrays with usefull data.
+        
+        Normally psit_nG is NOT used in lcao mode, but some extensions
+        (like ase.dft.wannier) want to have it.
+        This code is adapted from fd.py / initialize_from_lcao_coefficients()
+        and fills psit_nG with data constructed from the current lcao
+        coefficients (kpt.C_nM).
+        
+        (This may or may not work in band-parallel case!)
+        """
+        #print('initialize_wave_functions_from_lcao')
+        bfs = self.basis_functions
+        for kpt in self.kpt_u:
+            #print("kpt: {0}".format(kpt))
+            kpt.psit_nG = self.gd.zeros(self.bd.nbands, self.dtype)
+            bfs.lcao_to_grid(kpt.C_nM, kpt.psit_nG[:self.bd.mynbands], kpt.q)
+            # kpt.C_nM = None
+    #
+    def initialize_wave_functions_from_restart_file(self):
+        """Dummy function to ensure compatibility to fd mode"""
+        self.initialize_wave_functions_from_lcao()
+    #
+    
     def calculate_density_matrix(self, f_n, C_nM, rho_MM=None):
         # ATLAS can't handle uninitialized output array:
         #rho_MM.fill(42)
@@ -204,8 +233,12 @@ class LCAOWaveFunctions(WaveFunctions):
             # Although that requires knowing C_Mn and not C_nM.
             # that also conforms better to the usual conventions in literature
             Cf_Mn = C_nM.T.conj() * f_n
+            self.timer.start('gemm')
             gemm(1.0, C_nM, Cf_Mn, 0.0, rho_MM, 'n')
+            self.timer.stop('gemm')
+            self.timer.start('band comm sum')
             self.bd.comm.sum(rho_MM)
+            self.timer.stop('band comm sum')
         else:
             # Alternative suggestion. Might be faster. Someone should test this
             from gpaw.utilities.blas import r2k

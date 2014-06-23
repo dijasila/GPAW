@@ -16,7 +16,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import unpack2
 from gpaw.utilities.timing import nulltimer
 from gpaw.io import read_atomic_matrices
-
+from gpaw.mpi import SerialCommunicator
 
 class Density:
     """Density object.
@@ -94,7 +94,7 @@ class Density:
             self.D_asp = {}
 
         if (self.rank_a is not None and self.D_asp is not None and
-            rank_a is not None):
+            rank_a is not None and not isinstance(self.gd.comm, SerialCommunicator)):
             self.timer.start('Redistribute')
             requests = []
             flags = (self.rank_a != rank_a)
@@ -274,16 +274,18 @@ class Density:
             self.mixer = mixer
         else:
             if self.gd.pbc_c.any():
-                beta = 0.1
+                beta = 0.05
+                history = 5
                 weight = 50.0
             else:
                 beta = 0.25
+                history = 3
                 weight = 1.0
                 
             if self.nspins == 2:
-                self.mixer = MixerSum(beta=beta, weight=weight)
+                self.mixer = MixerSum(beta, history, weight)
             else:
-                self.mixer = Mixer(beta=beta, weight=weight)
+                self.mixer = Mixer(beta, history, weight)
 
         self.mixer.initialize(self)
         
@@ -311,93 +313,6 @@ class Density:
             + setup.Delta0 / self.nspins)
 
     def get_all_electron_density(self, atoms, gridrefinement=2):
-        """Return real all-electron density array."""
-
-        # Refinement of coarse grid, for representation of the AE-density
-        if gridrefinement == 1:
-            gd = self.gd
-            n_sg = self.nt_sG.copy()
-        elif gridrefinement == 2:
-            gd = self.finegd
-            if self.nt_sg is None:
-                self.interpolate_pseudo_density()
-            n_sg = self.nt_sg.copy()
-        elif gridrefinement == 4:
-            # Extra fine grid
-            gd = self.finegd.refine()
-            
-            # Interpolation function for the density:
-            interpolator = Transformer(self.finegd, gd, 3)
-
-            # Transfer the pseudo-density to the fine grid:
-            n_sg = gd.empty(self.nspins)
-            if self.nt_sg is None:
-                self.interpolate_pseudo_density()
-            for s in range(self.nspins):
-                interpolator.apply(self.nt_sg[s], n_sg[s])
-        else:
-            raise NotImplementedError
-
-        # Add corrections to pseudo-density to get the AE-density
-        splines = {}
-        phi_aj = []
-        phit_aj = []
-        nc_a = []
-        nct_a = []
-        for a, id in enumerate(self.setups.id_a):
-            if id in splines:
-                phi_j, phit_j, nc, nct = splines[id]
-            else:
-                # Load splines:
-                phi_j, phit_j, nc, nct = self.setups[a].get_partial_waves()[:4]
-                splines[id] = (phi_j, phit_j, nc, nct)
-            phi_aj.append(phi_j)
-            phit_aj.append(phit_j)
-            nc_a.append([nc])
-            nct_a.append([nct])
-
-        # Create localized functions from splines
-        phi = LFC(gd, phi_aj)
-        phit = LFC(gd, phit_aj)
-        nc = LFC(gd, nc_a)
-        nct = LFC(gd, nct_a)
-        spos_ac = atoms.get_scaled_positions() % 1.0
-        phi.set_positions(spos_ac)
-        phit.set_positions(spos_ac)
-        nc.set_positions(spos_ac)
-        nct.set_positions(spos_ac)
-
-        all_D_asp = []
-        for a, setup in enumerate(self.setups):
-            D_sp = self.D_asp.get(a)
-            if D_sp is None:
-                ni = setup.ni
-                D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
-            if gd.comm.size > 1:
-                gd.comm.broadcast(D_sp, self.rank_a[a])
-            all_D_asp.append(D_sp)
-
-        for s in range(self.nspins):
-            I_a = np.zeros(len(atoms))
-            nc.add1(n_sg[s], 1.0 / self.nspins, I_a)
-            nct.add1(n_sg[s], -1.0 / self.nspins, I_a)
-            phi.add2(n_sg[s], all_D_asp, s, 1.0, I_a)
-            phit.add2(n_sg[s], all_D_asp, s, -1.0, I_a)
-            for a, D_sp in self.D_asp.items():
-                setup = self.setups[a]
-                I_a[a] -= ((setup.Nc - setup.Nct) / self.nspins +
-                           sqrt(4 * pi) *
-                           np.dot(D_sp[s], setup.Delta_pL[:, 0]))
-            gd.comm.sum(I_a)
-            N_c = gd.N_c
-            g_ac = np.around(N_c * spos_ac).astype(int) % N_c - gd.beg_c
-            for I, g_c in zip(I_a, g_ac):
-                if (g_c >= 0).all() and (g_c < gd.n_c).all():
-                    n_sg[s][tuple(g_c)] -= I / gd.dv
-
-        return n_sg, gd
-
-    def new_get_all_electron_density(self, atoms, gridrefinement=2):
         """Return real all-electron density array."""
 
         # Refinement of coarse grid, for representation of the AE-density
@@ -506,9 +421,6 @@ class Density:
 
         return n_sg, gd
 
-    if extra_parameters.get('usenewlfc', True):
-        get_all_electron_density = new_get_all_electron_density
-        
     def estimate_memory(self, mem):
         nspins = self.nspins
         nbytes = self.gd.bytecount()
@@ -669,3 +581,5 @@ class RealSpaceDensity(Density):
                    [[setup.tauct] for setup in self.setups],
                    forces=True, cut=True)
 
+    def calculate_dipole_moment(self):
+        return self.finegd.calculate_dipole_moment(self.rhot_g)

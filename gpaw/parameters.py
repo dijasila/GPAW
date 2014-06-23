@@ -8,7 +8,7 @@ from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.occupations import FermiDirac
 from gpaw.wavefunctions.pw import PW
 from gpaw import parsize_domain, parsize_bands, sl_default, sl_diagonalize, \
-                 sl_inverse_cholesky, sl_lcao, buffer_size
+                 sl_inverse_cholesky, sl_lcao, sl_lrtddft, buffer_size
 
 
 class InputParameters(dict):
@@ -36,7 +36,7 @@ class InputParameters(dict):
             ('random',          False),
             ('dtype',           None),
             ('filter',          None),
-            ('maxiter',         120),
+            ('maxiter',         333),  # google it's spiritual meaning!
             ('parallel',        {'kpt':                 None,
                                  'domain':              parsize_domain,
                                  'band':                parsize_bands,
@@ -46,6 +46,7 @@ class InputParameters(dict):
                                  'sl_diagonalize':      sl_diagonalize,
                                  'sl_inverse_cholesky': sl_inverse_cholesky,
                                  'sl_lcao':             sl_lcao,
+                                 'sl_lrtddft':          sl_lrtddft,
                                  'buffer_size':         buffer_size}),
             ('parsize',         None),  # don't use this
             ('parsize_bands',   None),  # don't use this

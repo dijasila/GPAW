@@ -25,7 +25,7 @@ def XC(kernel, parameters=None):
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW', 'C09-vdW']:
             from gpaw.xc.vdw import FFTVDWFunctional
             return FFTVDWFunctional(name)
-        elif name in ['EXX', 'PBE0', 'B3LYP']:
+        elif name in ['EXX', 'PBE0', 'B3LYP', 'HSE03', 'HSE06']:
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(name)
         elif name == 'BEE1':

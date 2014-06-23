@@ -67,6 +67,11 @@ more about :ref:`its features and the algorithms used
 News
 ====
 
+* :ref:`GPAW version 0.10 <releasenotes>` released (Apr 8 2014)
+
+* GPAW is part of the `PRACE Unified European Application Benchmark Suite`_
+  (October 17 2013)
+
 * May 21-23, 2013: :ref:`GPAW workshop <workshop>` at the Technical
   University of Denmark (Feb 8 2013)
 
@@ -152,4 +157,4 @@ News
 .. _Python for High Performance Computing: http://pycon.blip.tv/file/4881240/
 .. _CSC's supercomputer procurement: http://www.csc.fi/english/pages/hpc2011
 .. _18 million CPU hour grant: http://www.prace-ri.eu/PRACE-5thRegular-Call
-
+.. _PRACE Unified European Application Benchmark Suite: http://www.prace-ri.eu/ueabs

@@ -1,6 +1,6 @@
 from ase import *
-from ase.dft import monkhorst_pack
-from ase.structure import bulk
+from ase.dft.kpoints import monkhorst_pack
+from ase.lattice import bulk
 from gpaw import *
 from gpaw.test import equal
 import numpy as np
@@ -32,4 +32,4 @@ if 0:#size == 1:
 
     print E_q, E_k
     equal(E_q, E_k, 0.001)
-equal(E_k, -14.30, 0.01)
+equal(E_k, -15.6, 0.1)

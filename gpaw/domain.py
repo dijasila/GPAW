@@ -78,23 +78,13 @@ class Domain:
                                    1])
 
         if np.product(self.parsize_c) != self.comm.size:
-            raise RuntimeError('Bad domain decomposition!')
+            raise RuntimeError('Bad domain decomposition! ' 
+                               'CPU counts %s do not multiply to '
+                               'communicator size %d' % (self.parsize_c,
+                                                         self.comm.size))
 
         self.parpos_c = self.get_processor_position_from_rank()
         self.find_neighbor_processors()
-
-    def scale_position(self, pos_v):
-        """Return scaled position.
-
-        Return array with the coordinates scaled to the interval [0,
-        1)."""
-
-        spos_c = np.linalg.solve(self.cell_cv.T, pos_v)
-
-        for c in range(3):
-            if self.pbc_c[c]:
-                spos_c[c] %= 1.0
-        return spos_c
 
     def get_ranks_from_positions(self, spos_ac):
         """Calculate rank of domain containing scaled position."""
@@ -104,11 +94,7 @@ class Domain:
         return np.dot(rnk_ac, self.stride_c)
 
     def get_rank_from_position(self, spos_c):
-        """Calculate rank of domain containing scaled position."""
-        # XXX just return self.get_ranks_from_positions(spos_c)
-        rnk_c = np.floor(spos_c * self.parsize_c).astype(int)
-        assert (rnk_c >= 0).all() and (rnk_c < self.parsize_c).all()
-        return np.dot(rnk_c, self.stride_c)
+        return self.get_ranks_from_positions(np.array([spos_c]))[0]
 
     def get_processor_position_from_rank(self, rank=None):
         """Calculate position of a domain in the 3D grid of all domains."""
