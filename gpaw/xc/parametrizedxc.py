@@ -41,7 +41,7 @@ class ParametrizedKernel(XCKernel):
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg=None, dedsigma_xg=None,
                   tau_sg=None, dedtau_sg=None):
-        #e_g[:] = 0.0
+        e_g[:] = 0.0
         e_g_tmp = np.empty_like(e_g)
         dedn_sg_tmp = np.zeros_like(dedn_sg)
         dedsigma_xg_tmp = dedsigma_xg
