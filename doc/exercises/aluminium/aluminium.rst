@@ -102,10 +102,10 @@ bulk Aluminum.
 
   where *M* is the number of atoms per cubic unit cell:
   `V=Ma^3` (`M=4` for fcc).  Make the fit using your favorite math
-  package (SciPy/Mathematica/MatLab/Maple/...) or use :program:`ag`
+  package (SciPy/Mathematica/MatLab/Maple/...) or use :program:`ase-gui`
   like this::
 
-    $ ag bulk-*.txt
+    $ ase-gui bulk-*.txt
 
   Then choose :menuselection:`Tools --> Bulk Modulus`.
 
@@ -162,7 +162,7 @@ Equilibrium lattice properties for bcc
   guess closer to the right lattice constant.
 
 * Check that your structure is right by repeating the unit cell. In
-  :program:`ag` this
+  :program:`ase-gui` this
   is done by choosing :menuselection:`View --> Repeat`.
 
 * Map out the cohesive curve `E(a)` for Al(bcc) and determine

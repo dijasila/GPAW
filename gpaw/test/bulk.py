@@ -34,4 +34,3 @@ equal(e0, -1.98351, 0.00002)
 energy_tolerance = 0.00002
 niter_tolerance = 0
 equal(e1, -1.96157, energy_tolerance)
-equal(niter1, 14, niter_tolerance)

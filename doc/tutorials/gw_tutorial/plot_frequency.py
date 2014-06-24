@@ -1,4 +1,7 @@
 import pickle
+# mathtext fails to create labels with matplotlib 0.99 on el6
+import matplotlib
+matplotlib.rc('text', usetex=True)
 import matplotlib.pyplot as plt
 from ase.units import Hartree
 
@@ -12,7 +15,7 @@ for wlin in [25.,50.,75.,100.]:
     e=[]
     GW_gap=[]
 
-    for dw in [0.01,0.02,0.05,0.1,0.2,0.5]:
+    for dw in [0.02,0.05,0.1,0.2,0.5]:
 
         data=pickle.load(open('Si_GW_wlin%s_dw%s.pckl' % (wlin, dw)))
         QP_skn=data['QP_skn']
@@ -25,11 +28,11 @@ for wlin in [25.,50.,75.,100.]:
 
 plt.xlabel('$\Delta \omega$ (eV)')
 plt.ylabel('Direct band gap (eV)')
-plt.xlim([0.009, 0.6])
+plt.xlim([0.015, 0.6])
 plt.xscale('log')
 ax = plt.axes()
-ax.set_xticks((0.01, 0.02, 0.05, 0.1, 0.2, 0.5))
-ax.set_xticklabels(('0.01', '0.02', '0.05', '0.1', '0.2', '0.5'))
+ax.set_xticks((0.02, 0.05, 0.1, 0.2, 0.5))
+ax.set_xticklabels(('0.02', '0.05', '0.1', '0.2', '0.5'))
 plt.ylim([3.2, 3.9])
 plt.title('G$_0$W$_0$@LDA')
 plt.legend(loc='upper left')

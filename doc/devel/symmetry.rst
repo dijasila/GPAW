@@ -79,7 +79,7 @@ and `{-\mathbf k}` is related as:
    \tilde\psi_{-\mathbf k}(\mathbf r) = \tilde\psi^{\ast}_{\mathbf k}(\mathbf r)
 
 If in addition the crystal has inversion symmetry, then the wavefunction should 
-satisfies: 
+satisfy: 
 
 .. math::
 

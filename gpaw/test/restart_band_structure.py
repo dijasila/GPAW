@@ -55,4 +55,3 @@ for xc in ['LDA','GLLBSC']:
 
     for mode in e[xc].keys():
         equal(e[xc][mode], e_ref[xc][mode], energy_tolerance)
-        equal(niter[xc][mode], niter_ref[xc][mode], niter_tolerance)

@@ -28,7 +28,7 @@ class XCKernel:
         self.name = name
         if name == 'LDA':
             self.type = 'LDA'
-        if name == 'TPSS' or name == 'M06L' or name == 'revTPSS':
+        elif name == 'TPSS' or name == 'M06L' or name == 'revTPSS':
             self.type = 'MGGA'
         else:
             self.type = 'GGA'

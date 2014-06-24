@@ -8,6 +8,7 @@ a = Atoms('H2',
           pbc=1)
 
 a.calc = GPAW(mode='pw',
+              eigensolver='rmm-diis',
               nbands=8,
               dtype=complex,
               basis='dzp', txt=None)

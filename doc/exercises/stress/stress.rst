@@ -20,16 +20,26 @@ What grid spacing is needed in order to converge the total energy to within 5 me
 Optimizing the unit cell
 ------------------------
 
+**Warning**: due to difficulties in optimizing cell and positions simultaneously
+:ase:`UnitCellFilter <ase/constraints.html#module-UnitCellFilter>` may produce
+incorrect results. Always verify obtained structures by means of
+performing separate cell
+:ase:`StrainFilter <ase/constraints.html#module-StrainFilter>`
+and positions
+:ase:`QuasiNewton <ase/optimize.html#module-optimize.qn>`
+optimizations.
+Consider much more tighter fmax than the one used in this tutorial!
+
 In the :ref:`aluminium_exercise` exercise the lattice constant of bulk Al was found by calculating the total energy at various lattice distances. A nice feature e of the plane wave mode is that it allows a simple implementation of the stress tensor, which can be used to optimize unit unit cells of periodic systems directly. The following script performs such an optimization for bulk Si.
 
 .. literalinclude:: stress.py
 
-The calculation uses 12 iterations to find the optimal lattice constant and the relaxation can be viewed with the command line tool ag:
+The calculation uses 12 iterations to find the optimal lattice constant and the relaxation can be viewed with the command line tool ase-gui:
 
 .. highlight:: bash
 
 ::
 
-  $ ag stress.txt
+  $ ase-gui stress.txt
 
 Since we know the experimental lattice constant, we could probably have calculated the PBE lattice constant faster by fitting a parabola to five points in the vicinity of the expermental lattice constant. However, for complicated unit cells with more than one lattice parameter, the stress tensor becomes a highly valuable tool.

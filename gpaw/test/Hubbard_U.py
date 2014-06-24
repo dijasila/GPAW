@@ -61,45 +61,20 @@ calc = GPAW(
     kpts=(k, k, k),
     xc='PBE')
 
-atoms.set_pbc((1,1,1))
+atoms.set_pbc(1)
 atoms.set_calculator(calc)
 
 ##############################################################################
 ## Find the  ground-state and get the band gab
 e1 = atoms.get_potential_energy()
-niter1 = calc.get_number_of_iterations()
-Eg_non_Hub=band_gab(calc)
+Eg_non_Hub = band_gab(calc)
 
-##############################################################################
-## Setup 6eV Hubbard U on the d-orbitals (l=2) of Ni atoms (atom 0 and 1)
-## arg 3 and 4 :scaling =1 (yes scale) and store=0 (no do not store)
-
-l=2                         # d-orbitals
-U_ev=6                      # U in eV
-U_au=U_ev / Hartree   # U in atomic units
-scale=1                     # Do not scale (does not seem to matter much)
-store=0                     # Do not store (not in use yet)
-for a in np.arange(2):      # Loops though all Ni atoms
-    calc.hamiltonian.setups[a].set_hubbard_u(U_au,l,scale,store) # Apply U
-
-##############################################################################
+# Setup 6eV Hubbard U on the d-orbitals (l=2) of Ni atoms:
+calc.set(setups={'Ni': '10:d,6.0'})
 ## Make ready for scf with the DFT+U functional and converge this new system
 ## and get new band bag.....which should be much larger:
-calc.scf.reset()
 e2 = calc.get_potential_energy()
-niter2 = calc.get_number_of_iterations()
-Eg_Hub=band_gab(calc)
+Eg_Hub = band_gab(calc)
 
-##############################################################################
-## Now we expect that one effect of the Hubbard U is the opening of the band
-## gab, so the band gab shall we test parameter:
-## Let's compare the new and old band gab and require that is has opened by
-## at least 0.2 eV
-assert( Eg_Hub- Eg_non_Hub>1.9)
-
-energy_tolerance = 0.0004
-niter_tolerance = 0
-equal(e1, -29.35604, energy_tolerance) # version 0.9.1
-equal(niter1, 13, niter_tolerance) # svnversion 5252
-equal(e2, -28.63015, energy_tolerance) # version 0.9.1
-equal(niter2, 10, niter_tolerance) # version 0.9.1
+equal(Eg_Hub, 4.7, 0.2)
+equal(Eg_non_Hub, 0.8, 0.1)

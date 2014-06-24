@@ -26,7 +26,6 @@ class RPACorrelation:
         
         if txt is None:
             if rank == 0:
-                #self.txt = devnull
                 self.txt = sys.stdout
             else:
                 sys.stdout = devnull
@@ -62,21 +61,17 @@ class RPACorrelation:
                                    directions=None,
                                    skip_gamma=False,
                                    ecut=10,
-                                   smooth_cut=None,
                                    nbands=None,
                                    gauss_legendre=None,
                                    frequency_cut=None,
                                    frequency_scale=None,
                                    w=None,
-                                   extrapolate=False,
                                    restart=None):
             
         self.initialize_calculation(w,
                                     ecut,
-                                    smooth_cut,
                                     nbands,
                                     kcommsize,
-                                    extrapolate,
                                     gauss_legendre,
                                     frequency_cut,
                                     frequency_scale)
@@ -99,7 +94,8 @@ class RPACorrelation:
                 except:
                     IOError
     
-            for index, q in enumerate(self.ibz_q_points[len(E_q):]):
+            for index, q in zip(range(len(E_q), len(self.ibz_q_points)),
+                                self.ibz_q_points[len(E_q):]):
                 if abs(np.dot(q, q))**0.5 < 1.e-5:
                     E_q0 = 0.
                     if skip_gamma:
@@ -198,17 +194,18 @@ class RPACorrelation:
                 direction=0,
                 integrated=True,
                 ecut=10,
-                smooth_cut=None,
                 nbands=None,
                 gauss_legendre=None,
                 frequency_cut=None,
                 frequency_scale=None,
-                w=None,
-                extrapolate=False):
+                w=None):
 
-        self.initialize_calculation(w, ecut, smooth_cut,
-                                    nbands, kcommsize, extrapolate,
-                                    gauss_legendre, frequency_cut,
+        self.initialize_calculation(w,
+                                    ecut,
+                                    nbands,
+                                    kcommsize,
+                                    gauss_legendre,
+                                    frequency_cut,
                                     frequency_scale)
         self.dfcomm = world
         E_q = self.E_q(q,
@@ -267,7 +264,6 @@ class RPACorrelation:
                 vcut=self.vcut,
                 w=self.w * 1j,
                 ecut=self.ecut,
-                smooth_cut=self.smooth_cut,
                 G_plus_q=True,
                 kcommsize=self.kcommsize,
                 comm=self.dfcomm,
@@ -305,29 +301,6 @@ class RPACorrelation:
             dws = self.w[1:] - self.w[:-1]
             E_q = np.dot((E_q_w[:-1] + E_q_w[1:])/2., dws) / (2.*np.pi)
 
-            if self.extrapolate:
-                '''Fit tail to: Eq(w) = A**2/((w-B)**2 + C)**2'''
-                e1 = abs(E_q_w[-1])**0.5
-                e2 = abs(E_q_w[-2])**0.5
-                e3 = abs(E_q_w[-3])**0.5
-                w1 = self.w[-1]
-                w2 = self.w[-2]
-                w3 = self.w[-3]
-                B = (((e3*w3**2-e1*w1**2)/(e1-e3) -
-                      (e2*w2**2-e1*w1**2)/(e1-e2))
-                     / ((2*w3*e3-2*w1*e1)/(e1-e3) -
-                        (2*w2*e2-2*w1*e1)/(e1-e2)))
-                C = ((w2-B)**2*e2 - (w1-B)**2*e1)/(e1-e2)
-                A = e1*((w1-B)**2+C)
-                if C > 0:
-                    E_q -= A**2*(np.pi/(4*C**1.5)
-                                 - (w1-B)/((w1-B)**2+C)/(2*C)
-                                 - np.arctan((w1-B)/C**0.5)/(2*C**1.5)) \
-                                 / (2*np.pi)
-                else:
-                    E_q += A**2*((w1-B)/((w1-B)**2+C)/(2*C)
-                                 +np.log((w1-B-abs(C)**0.5)/(w1-B+abs(C)**0.5))
-                                 / (4*C*abs(C)**0.5)) / (2*np.pi)
 
         print >> self.txt, 'E_c(q) = %s eV' % E_q.real
         print >> self.txt
@@ -337,9 +310,14 @@ class RPACorrelation:
         else:
             return E_q_w.real               
 
-    def initialize_calculation(self, w, ecut, smooth_cut,
-                               nbands, kcommsize, extrapolate,
-                               gauss_legendre, frequency_cut, frequency_scale):
+    def initialize_calculation(self,
+                               w,
+                               ecut,
+                               nbands,
+                               kcommsize,
+                               gauss_legendre,
+                               frequency_cut,
+                               frequency_scale):
         if kcommsize is None:
             if len(self.calc.wfs.bzk_kc) == 1:
                 kcommsize = 1
@@ -376,25 +354,19 @@ class RPACorrelation:
                    hilbert_trans=False,
                    kcommsize=kcommsize)
         dummy.txt = devnull
-        dummy.spin = 0
         dummy.initialize(simple_version=True)
 
         self.npw = dummy.npw
         self.ecut = ecut
-        self.smooth_cut = smooth_cut
         self.w = w
         self.gauss_legendre = gauss_legendre
         self.frequency_cut = frequency_cut
         self.frequency_scale = frequency_scale
-        self.extrapolate = extrapolate
         self.kcommsize = kcommsize
         self.nbands = nbands
 
         print >> self.txt
         print >> self.txt, 'Planewave cutoff              : %s eV' % ecut
-        if self.smooth_cut is not None:
-            print >> self.txt, 'Smooth cutoff from            : %s x cutoff' \
-                  % self.smooth_cut
         print >> self.txt, 'Number of Planewaves at Gamma : %s' % self.npw
         if self.nbands is None:
             print >> self.txt, 'Response function bands       :'\
@@ -414,13 +386,10 @@ class RPACorrelation:
                   % len(self.w)
             print >> self.txt, '    Frequency cutoff is %s eV' \
                   % self.w[-1]
-            if extrapolate:
-                print >> self.txt, '    Squared Lorentzian extrapolation ' \
-                      + 'to frequencies at infinity'
         print >> self.txt
         print >> self.txt, 'Parallelization scheme'
         print >> self.txt, '     Total CPUs        : %d' % dummy.comm.size
-        if dummy.nkpt == 1:
+        if dummy.kd.nbzkpts == 1:
             print >> self.txt, '     Band parsize      : %d' % dummy.kcomm.size
         else:
             print >> self.txt, '     Kpoint parsize    : %d' % dummy.kcomm.size
@@ -440,8 +409,8 @@ class RPACorrelation:
               '------------------------------------------------------'
         print >> self.txt, 'Started at:  ', ctime()
         print >> self.txt
-#        print >> self.txt, 'Atoms                          :   %s' \
-#              % self.atoms.get_chemical_formula(mode="hill")
+        print >> self.txt, 'Atoms                          :   %s' \
+              % self.atoms.get_chemical_formula(mode="hill")
         print >> self.txt, 'Ground state XC functional     :   %s' \
               % self.calc.hamiltonian.xc.name
         print >> self.txt, 'Valence electrons              :   %s' \
@@ -477,10 +446,8 @@ class RPACorrelation:
 
     def get_C6_coefficient(self,
                            ecut=100.,
-                           smoothcut=None,
                            nbands=None,
                            kcommsize=None,
-                           extrapolate=False,
                            gauss_legendre=None,
                            frequency_cut=None,
                            frequency_scale=None,
@@ -488,10 +455,8 @@ class RPACorrelation:
 
         self.initialize_calculation(None,
                                     ecut,
-                                    None,
                                     nbands,
                                     kcommsize,
-                                    extrapolate,
                                     gauss_legendre,
                                     frequency_cut,
                                     frequency_scale)

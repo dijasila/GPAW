@@ -1,5 +1,5 @@
 from ase import Atoms
-from ase.structure import bulk
+from ase.lattice import bulk
 from gpaw import GPAW
 from gpaw import PW
 import numpy as np

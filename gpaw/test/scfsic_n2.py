@@ -10,6 +10,7 @@ atom.center()
 molecule.center()
 
 calc = GPAW(xc=SIC(),
+            eigensolver='rmm-diis',
             h=0.17,
             txt='n2.sic.new3b.txt',
             setups='hgh')

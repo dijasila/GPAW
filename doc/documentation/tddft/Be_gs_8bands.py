@@ -18,7 +18,7 @@ atoms.set_calculator(calc)
 energy = atoms.get_potential_energy()
 
 # converge also the empty states (the density is converged already)
-calc.set(convergence={'eigenstates':8}, 
+calc.set(convergence={'bands':8}, 
          fixdensity=True,
          eigensolver='cg')
 calc.calculate()

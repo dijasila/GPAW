@@ -16,6 +16,7 @@ convergence={'eigenstates':0.01, 'density':0.1, 'energy':0.1}
 
 c = GPAW(charge=q, h=h, nbands=5,
          hund=True,
+         eigensolver='rmm-diis',
          occupations=FermiDirac(width=0.1),
          convergence=convergence
          )

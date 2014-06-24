@@ -1,6 +1,6 @@
 from math import pi, sqrt
 import numpy as np
-from ase.units import Hartree, Bohr
+from ase.units import Hartree
 from ase.parallel import paropen
 from gpaw.utilities import pack
 from gpaw.analyse.wignerseitz import wignerseitz
@@ -40,6 +40,26 @@ def print_projectors(setup):
                 n = '*'
             print '%2s %s %s_%s' % (i, n, 'spdf'[l], angular[l][m])
             i += 1
+
+def number_of_projectors(setup):
+    """Returns the number of the bound state projectors.
+
+    If setup is a string, treat this as an element name.
+    """
+    if type(setup) is str:
+        setup = SetupData(setup, 'LDA', 'paw')
+        n_j = setup.n_j
+        l_j = setup.l_j
+    else:
+        n_j = setup.n_j
+        l_j = setup.l_j
+    
+    i = 0
+    for n, l in zip(n_j, l_j):
+        for m in range(2*l+1):
+            if n != -1:
+                i += 1
+    return i
 
 def get_angular_projectors(setup, angular, type='bound'):
     """Determine the projector indices which have specified angula
@@ -171,13 +191,10 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
         P_kn /= sqrt(N)
 
     else:
-        wf_k = np.array(wf_k)
         P_aui = [np.array(P_ui).conj() for P_ui in P_aui]
         for k, kpt in enumerate(paw.wfs.kpt_u[spin * nk:(spin + 1) * nk]):
-            w = np.reshape(wf_k.conj()[kpt.k], -1)
             for n in range(nb):
-                psit_nG = np.reshape(kpt.psit_nG[n], -1)
-                P_kn[k][n] = np.dot(w, psit_nG) * paw.wfs.gd.dv * Bohr**1.5
+                P_kn[k][n] = paw.wfs.integrate(wf_k[k], kpt.psit_nG[n])
                 for a, b in zip(mol, range(len(mol))):
                     atom = paw.wfs.setups[a]
                     p_i = kpt.P_ani[a][n]
@@ -185,10 +202,7 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
                         for j in range(len(p_i)):
                             P_kn[k][n] += (P_aui[b][spin*nk + k][i] *
                                            atom.dO_ii[i][j] * p_i[j])
-                #print n, abs(P_un)[u][n]**2
-
-            # XXX ??? why not print to paw.txt
-            print 'Kpoint', k, ' Sum: ',  sum(abs(P_kn[k])**2)
+            print '# k', k, ' Sum_m |<m|n>|^2 =',  sum(abs(P_kn[k])**2)
           
     energies = np.empty(nb * nk)
     weights = np.empty(nb * nk)
@@ -197,7 +211,7 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
         energies[x:x + nb] = paw.wfs.collect_eigenvalues(k=k, s=spin)
         weights[x:x + nb] = w * abs(P_kn[k])**2
         x += nb
-    #print weights
+        
     return energies, weights
 
 def get_all_electron_IPR(paw):

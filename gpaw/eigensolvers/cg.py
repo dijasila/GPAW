@@ -47,6 +47,9 @@ class CG(Eigensolver):
         else:
             self.orthonormalization_required = False
 
+    def __repr__(self):
+        return 'CG(niter=%d, rtol=%5.1e)' % (self.niter, self.rtol)
+
     def initialize(self, wfs):
         if wfs.bd.comm.size > 1:
             raise ValueError('CG eigensolver does not support band '

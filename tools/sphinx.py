@@ -42,8 +42,6 @@ def build():
     if os.system('python setup.py install --home=.. 2> error') != 0:
         raise RuntimeError('Installation of GPAW failed!')
 
-    os.system('grep -v "c/libxc/src" error 1>&2')
-
     os.system('wget --no-check-certificate --quiet ' +
               'http://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-latest.tar.gz')
 

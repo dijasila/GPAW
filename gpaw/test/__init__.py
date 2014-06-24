@@ -98,7 +98,6 @@ tests = [
     'poisson.py',
     'pw/lfc.py',
     'pw/reallfc.py',
-    'pw/moleculecg.py',
     'XC2.py',
     'multipoletest.py',
     'nabla.py',
@@ -106,6 +105,8 @@ tests = [
     'gauss_wave.py',
     'harmonic.py',
     'atoms_too_close.py',
+    'screened_poisson.py',
+    'yukawa_radial.py',
     'noncollinear/xcgrid3d.py',
     'vdwradii.py',
     'lcao_restart.py',
@@ -120,6 +121,7 @@ tests = [
     'xcatom.py',
     'maxrss.py',
     'proton.py',
+    'pw/moleculecg.py',
     'keep_htpsit.py',
     'pw/stresstest.py',
     'aeatom.py',
@@ -167,11 +169,9 @@ tests = [
     'eed.py',
     'lrtddft2.py',
     'parallel/hamiltonian.py',
-    'ah.py',
+    'pseudopotential/ah.py',
     'laplace.py',
-    'pw/mgo.py',
-    'pw/mgo_hse03.py',
-    'pw/mgo_hse06.py',
+    'pw/mgo_hybrids.py',
     'lcao_largecellforce.py',
     'restart2.py',
     'Cl_minus.py',
@@ -181,7 +181,7 @@ tests = [
     'pw/fftmixer.py',
     'mgga_restart.py',
     'vdw/quick.py',
-    'partitioning.py',
+    'multipoleH2O.py',
     'bulk.py',
     'elf.py',
     'aluminum_EELS.py',
@@ -200,6 +200,7 @@ tests = [
     'ut_csh.py',
     'spin_contamination.py',
     'davidson.py',
+    'partitioning.py',
     'pw/davidson_pw.py',
     'cg.py',
     'gllbatomic.py',
@@ -208,10 +209,12 @@ tests = [
     'fermilevel.py',
     'h2o_xas_recursion.py',
     'diamond_eps.py',
+    'excited_state.py',
+    # > 20 sec tests start here (add tests after gemm.py!)
     'gemm.py',
-    # > 20 sec tests start here
     'ed.py',
     'rpa_energy_Ni.py',
+    'LDA_unstable.py',
     'si.py',
     'blocked_rmm_diis.py',
     'lxc_xcatom.py',
@@ -235,6 +238,7 @@ tests = [
     'test_ibzqpt.py',
     'aedensity.py',
     'fd2lcao_restart.py',
+    #'graphene_EELS.py', disabled while work is in progress on response code
     'lcao_bsse.py',
     'pplda.py',
     'revPBE_Li.py',
@@ -244,12 +248,13 @@ tests = [
     'ldos.py',
     'parallel/ut_hsops.py',
     'pw/hyb.py',
-    'hgh_h2o.py',
+    'pseudopotential/hgh_h2o.py',
     'vdw/quick_spin.py',
     'scfsic_h2.py',
     'lrtddft.py',
     'dscf_lcao.py',
     'IP_oxygen.py',
+    'Al2_lrtddft.py',
     'rpa_energy_Si.py',
     '2Al.py',
     'jstm.py',
@@ -257,6 +262,7 @@ tests = [
     'be_nltd_ip.py',
     'si_xas.py',
     'atomize.py',
+    'chi0.py',
     'ralda_energy_H2.py',
     'ralda_energy_N2.py',
     'ralda_energy_Ni.py',
@@ -273,7 +279,7 @@ tests = [
     'gw_ppa.py',
     'nscfsic.py',
     'gw_static.py',
-    # > 100 sec tests start here
+    # > 100 sec tests start here (add tests after exx.py!)
     'exx.py',
     'pygga.py',
     'dipole.py',
@@ -283,14 +289,15 @@ tests = [
     'lb94.py',
     '8Si.py',
     'td_na2.py',
+    'ehrenfest_nacl.py',
     'rpa_energy_N2.py',
     'beefvdw.py',
     #'mbeef.py',
+    'nonlocalset.py',
     'wannierk.py',
     'rpa_energy_Na.py',
     'coreeig.py',
     'pw/si_stress.py',
-    'P_ai.py',
     'ut_tddft.py',
     'transport.py',
     'vdw/ar2.py',
@@ -307,7 +314,7 @@ tests = [
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
     'bse_silicon.py',
-    'bse_MoS2_cut.py',    
+    'bse_MoS2_cut.py',
     'parallel/pblas.py',
     'parallel/scalapack.py',
     'parallel/scalapack_diag_simple.py',
@@ -329,6 +336,10 @@ tests = [
 
 exclude = []
 
+# not available on Windows
+if os.name in ['ce', 'nt']:
+    exclude += ['maxrss.py']
+
 if mpi.size > 1:
     exclude += ['maxrss.py',
                 'pes.py',
@@ -343,12 +354,13 @@ if mpi.size > 1:
                 'potential.py',
                 #'cmrtest/cmr_test3.py',
                 #'cmrtest/cmr_append.py',
-                #'cmrtest/Li2_atomize.py',
+                'cmrtest/Li2_atomize.py',  # started to hang May 2014
                 'lcao_pair_and_coulomb.py',
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
                 'pw/davidson_pw.py',
-                # scipy.weave fails often in parallel due to ~/.python*_compiled
+                # scipy.weave fails often in parallel due to
+                # ~/.python*_compiled
                 # https://github.com/scipy/scipy/issues/1895
                 'scipy_test.py']
 
@@ -394,6 +406,12 @@ if mpi.size != 8:
     exclude += ['parallel/lcao_parallel_kpt.py']
     exclude += ['parallel/fd_parallel_kpt.py']
 
+if sys.version_info < (2, 6):
+    exclude.append('transport.py')
+    
+if np.__version__ < '1.6.0':
+    exclude.append('chi0.py')
+    
 for test in exclude:
     if test in tests:
         tests.remove(test)
@@ -504,7 +522,7 @@ class TestRunner:
             raise
         except ImportError, ex:
             module = ex.args[0].split()[-1].split('.')[0]
-            if module in ['scipy', 'cmr', '_hdf5']:
+            if module in ['scipy', 'cmr', '_gpaw_hdf5']:
                 skip = True
             else:
                 failed = True

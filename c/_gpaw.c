@@ -8,7 +8,7 @@
 #include <numpy/arrayobject.h>
 
 #ifdef GPAW_WITH_HDF5 
-PyMODINIT_FUNC init_hdf5(void); 
+PyMODINIT_FUNC init_gpaw_hdf5(void); 
 #endif 
 
 #ifdef GPAW_HPM
@@ -221,6 +221,14 @@ extern PyTypeObject MPIType;
 extern PyTypeObject GPAW_MPI_Request_type;
 #endif
 
+extern PyTypeObject LFCType;
+extern PyTypeObject LocalizedFunctionsType;
+extern PyTypeObject OperatorType;
+extern PyTypeObject SplineType;
+extern PyTypeObject TransformerType;
+extern PyTypeObject XCFunctionalType;
+extern PyTypeObject lxcXCFunctionalType;
+
 #ifndef GPAW_INTERPRETER
 PyMODINIT_FUNC init_gpaw(void)
 {
@@ -230,6 +238,21 @@ PyMODINIT_FUNC init_gpaw(void)
   if (PyType_Ready(&GPAW_MPI_Request_type) < 0)
     return;
 #endif
+
+  if (PyType_Ready(&LFCType) < 0)
+    return;
+  if (PyType_Ready(&LocalizedFunctionsType) < 0)
+    return;
+  if (PyType_Ready(&OperatorType) < 0)
+    return;
+  if (PyType_Ready(&SplineType) < 0)
+    return;
+  if (PyType_Ready(&TransformerType) < 0)
+    return;
+  if (PyType_Ready(&XCFunctionalType) < 0)
+    return;
+  if (PyType_Ready(&lxcXCFunctionalType) < 0)
+    return;
 
   PyObject* m = Py_InitModule3("_gpaw", functions,
              "C-extension for GPAW\n\n...\n");
@@ -242,18 +265,18 @@ PyMODINIT_FUNC init_gpaw(void)
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
 
+  Py_INCREF(&LFCType);
+  Py_INCREF(&LocalizedFunctionsType);
+  Py_INCREF(&OperatorType);
+  Py_INCREF(&SplineType);
+  Py_INCREF(&TransformerType);
+  Py_INCREF(&XCFunctionalType);
+  Py_INCREF(&lxcXCFunctionalType);
+
   import_array();
 }
 #endif
 
-#ifdef NO_SOCKET
-/*dummy socket module for systems which do not support sockets */
-PyMODINIT_FUNC initsocket(void)
-{
-  Py_InitModule("socket", NULL);
-  return;
-}
-#endif
 
 #ifdef GPAW_INTERPRETER
 extern DL_EXPORT(int) Py_Main(int, char **);
@@ -280,6 +303,9 @@ main(int argc, char **argv)
   MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
   if(granted != MPI_THREAD_MULTIPLE) exit(1);
 #endif // GPAW_OMP
+
+// Get initial timing
+  double t0 = MPI_Wtime();
 
 #ifdef GPAW_PERFORMANCE_REPORT
   gpaw_perf_init();
@@ -313,13 +339,28 @@ main(int argc, char **argv)
   MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
 #endif
 
+  // Progname seems to be needed in some circumstances to resolve
+  // correct default sys.path
+  Py_SetProgramName(argv[0]);
+
   Py_Initialize();
 
-#ifdef NO_SOCKET
-  initsocket();
-#endif
-
   if (PyType_Ready(&MPIType) < 0)
+    return -1;
+
+  if (PyType_Ready(&LFCType) < 0)
+    return -1;
+  if (PyType_Ready(&LocalizedFunctionsType) < 0)
+    return -1;
+  if (PyType_Ready(&OperatorType) < 0)
+    return -1;
+  if (PyType_Ready(&SplineType) < 0)
+    return -1;
+  if (PyType_Ready(&TransformerType) < 0)
+    return -1;
+  if (PyType_Ready(&XCFunctionalType) < 0)
+    return -1;
+  if (PyType_Ready(&lxcXCFunctionalType) < 0)
     return -1;
 
   PyObject* m = Py_InitModule3("_gpaw", functions,
@@ -329,8 +370,20 @@ main(int argc, char **argv)
 
   Py_INCREF(&MPIType);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
+
+  // Add initial time to _gpaw object
+  PyModule_AddObject(m, "time0", PyFloat_FromDouble(t0));
+
+  Py_INCREF(&LFCType);
+  Py_INCREF(&LocalizedFunctionsType);
+  Py_INCREF(&OperatorType);
+  Py_INCREF(&SplineType);
+  Py_INCREF(&TransformerType);
+  Py_INCREF(&XCFunctionalType);
+  Py_INCREF(&lxcXCFunctionalType);
+
 #ifdef GPAW_WITH_HDF5 
-  init_hdf5(); 
+  init_gpaw_hdf5(); 
 #endif 
   import_array1(-1);
   MPI_Barrier(MPI_COMM_WORLD);

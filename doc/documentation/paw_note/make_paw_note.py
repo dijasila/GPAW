@@ -3,14 +3,14 @@
 import os
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import pylab as plt
 from gpaw.atom.all_electron import AllElectron
 
 ae = AllElectron('Pt')
 ae.run()
 
-fig = plt.figure(1, figsize=(7, 4), dpi=80)
+fig = plt.figure(figsize=(7, 4), dpi=80)
 fig.subplots_adjust(left=0.05, bottom=0.11, right=0.85, top=0.95)
 for n, l, u in zip(ae.n_j, ae.l_j, ae.u_j):
     plt.plot(ae.r, u, label='%i%s' % (n, 'spdf'[l]))

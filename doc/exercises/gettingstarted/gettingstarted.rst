@@ -46,7 +46,7 @@ are in order:
 
 This will print the (decreasing) total energy for each iteration until
 it converges, leaving the file :file:`h2.emt.traj` in the working
-directory.  Use the command :command:`ag` (the ase gui) to view the
+directory.  Use the command :command:`ase-gui` to view the
 trajectory file, showing each step of the optimization.
 
 Structure optimization of :mol:`H_2O` with EMT and GPAW
@@ -90,7 +90,7 @@ is printed with the energy and convergence measures.  After the
 calculation the energy contributions, band energies and forces are
 listed.
 
-Use :command:`ag` to visualize and compare bond lenghts and bond
+Use :command:`ase-gui` to visualize and compare bond lenghts and bond
 angles to the EMT result.  Bond lengths and angles are shown
 automatically if you select two or three atoms at a time.
 

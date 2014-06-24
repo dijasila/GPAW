@@ -103,6 +103,7 @@ def calculate(element, h, vacuum, xc, magmom):
         atom.set_positions(atom.get_positions()+[0.0, 0.0, 0.0001])
 
     calc_atom = GPAW(h=h, xc=data[element][xc][2],
+                     eigensolver='rmm-diis',
                      occupations=FermiDirac(0.0, fixmagmom=True),
                      mixer=mixer,
                      nbands=-2,
@@ -117,6 +118,7 @@ def calculate(element, h, vacuum, xc, magmom):
         compound.set_initial_magnetic_moments(mms)
 
     calc = GPAW(h=h, xc=data[element][xc][2],
+                eigensolver='rmm-diis',
                 mixer=mixer,
                 txt='%s2.%s.txt' % (element, xc))
     compound.set_distance(0,1, data[element]['R_AA_B3LYP'])

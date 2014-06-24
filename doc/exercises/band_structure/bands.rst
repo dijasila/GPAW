@@ -13,7 +13,7 @@ to understand it, then use it to plot the band diagram.
 
 Modify the first script to calculate the band diagram of Silicon.
 Note that Si has a different crystal structure (diamond), either set
-it up manually as for Na, or use the :ase:`ase.structure.bulk <ase/structure.html>` function.
+it up manually as for Na, or use the :ase:`ase.lattice.bulk <ase/structure.html>` function.
 
 Compare the Si band diagram to the band diagram below (adapted from
 Cohen and Chelikowsky: "Electronic Structure and Optical Properties of

@@ -1,8 +1,10 @@
 import numpy as np
 from ase import Atom, Atoms
-from ase.structure import bulk
+from ase.lattice import bulk
 from ase.units import Hartree, Bohr
 from gpaw import GPAW, FermiDirac
+from gpaw.eigensolvers.rmm_diis_old import RMM_DIIS
+from gpaw.mixer import Mixer
 from gpaw.response.bse import BSE
 
 GS = 1
@@ -15,6 +17,8 @@ if GS:
     atoms = bulk('C', 'diamond', a=a)
 
     calc = GPAW(h=0.2,
+                eigensolver=RMM_DIIS(),
+                mixer=Mixer(0.1,3),
                 kpts=(2,2,2),
                 occupations=FermiDirac(0.001),
                 nbands=8,

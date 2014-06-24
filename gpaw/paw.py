@@ -10,6 +10,7 @@ The central object that glues everything together!"""
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.dft.kpoints import monkhorst_pack
+from ase.calculators.calculator import kptdensity2monkhorstpack
 
 import gpaw.io
 import gpaw.mpi as mpi
@@ -77,14 +78,17 @@ class PAW(PAWTextOutput):
         self.scf = None
         self.forces = ForceCalculator(self.timer)
         self.stress_vv = None
+        self.dipole_v = None
+        self.magmom_av = None
         self.wfs = EmptyWaveFunctions()
         self.occupations = None
         self.density = None
         self.hamiltonian = None
         self.atoms = None
-
+        self.iter = 0
+        
         self.initialized = False
-        self.nbands_parallelization_adjustment = None # Somehow avoid this?
+        self.nbands_parallelization_adjustment = None  # Somehow avoid this?
 
         # Possibly read GPAW keyword arguments from file:
         if filename is not None and filename.endswith('.gkw'):
@@ -131,17 +135,6 @@ class PAW(PAWTextOutput):
 
     def set(self, **kwargs):
         p = self.input_parameters
-
-        # Prune input for things that didn't change
-        for key, value in kwargs.items():
-            if key == 'kpts':
-                oldbzk_kc = kpts2ndarray(p.kpts)
-                newbzk_kc = kpts2ndarray(value)
-                if (len(oldbzk_kc) == len(newbzk_kc) and
-                    (oldbzk_kc == newbzk_kc).all()):
-                    kwargs.pop('kpts')
-            elif np.all(p[key] == value):
-                kwargs.pop(key)
 
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
             raise TypeError("""You can't use both "gpts" and "h"!""")
@@ -268,9 +261,9 @@ class PAW(PAWTextOutput):
         self.timer.start('SCF-cycle')
         for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
                                  self.occupations):
+            self.iter = iter
             self.call_observers(iter)
             self.print_iteration(iter)
-            self.iter = iter
         self.timer.stop('SCF-cycle')
 
         if self.scf.converged:
@@ -281,7 +274,9 @@ class PAW(PAWTextOutput):
         elif converge:
             if 'not_converged' in hooks:
                 hooks['not_converged'](self)
-            raise KohnShamConvergenceError('Did not converge!')
+            self.txt.write(oops)
+            raise KohnShamConvergenceError(
+                'Did not converge!  See text output for help.')
 
         return True
 
@@ -311,6 +306,8 @@ class PAW(PAWTextOutput):
         self.scf.reset()
         self.forces.reset()
         self.stress_vv = None
+        self.dipole_v = None
+        self.magmom_av = None
         self.print_positions()
 
     def initialize(self, atoms=None):
@@ -347,15 +344,20 @@ class PAW(PAWTextOutput):
         Z_a = atoms.get_atomic_numbers()
         magmom_av = atoms.get_initial_magnetic_moments()
 
-        if isinstance(par.xc, str):
-            xc = XC(par.xc)
+        # Generate new xc functional only when it is reset by set
+        if self.hamiltonian is None or self.hamiltonian.xc is None:
+            if isinstance(par.xc, str):
+                xc = XC(par.xc)
+            else:
+                xc = par.xc
         else:
-            xc = par.xc
+            xc = self.hamiltonian.xc
 
         mode = par.mode
 
-        if xc.orbital_dependent:
-            assert mode != 'lcao'
+        if xc.orbital_dependent and mode == 'lcao':
+            raise NotImplementedError('LCAO mode does not support '
+                                      'orbital-dependent XC functionals.')
 
         if mode == 'pw':
             mode = PW()
@@ -378,6 +380,7 @@ class PAW(PAWTextOutput):
         if par.filter is None and not isinstance(mode, PW):
             gamma = 1.6
             hmax = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / N_c).max()
+            
             def filter(rgd, rcut, f_r, l=0):
                 gcut = np.pi / hmax - 2 / rcut / gamma
                 f_r[:] = rgd.filter(f_r, rcut * gamma, gcut, l)
@@ -417,14 +420,15 @@ class PAW(PAWTextOutput):
             ncomp = 2
 
         # K-point descriptor
-        kd = KPointDescriptor(par.kpts, nspins, collinear)
+        bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
+        kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
 
         width = par.width
         if width is None:
-            if kd.gamma:
-                width = 0.0
-            else:
+            if pbc_c.any():
                 width = 0.1  # eV
+            else:
+                width = 0.0
         else:
             assert par.occupations is None
       
@@ -447,8 +451,14 @@ class PAW(PAWTextOutput):
         if nbands is None:
             nbands = 0
             for setup in setups:
-                nbands += max(sum([2 * l + 1 for l in setup.l_j]),
-                              -(-setup.Nv // 2))
+                nbands_from_atom = setup.get_default_nbands()
+                
+                # Any obscure setup errors?
+                if nbands_from_atom < -(-setup.Nv // 2):
+                    raise ValueError('Bad setup: This setup requests %d'
+                                     ' bands but has %d electrons.'
+                                     % (nbands_from_atom, setup.Nv))
+                nbands += nbands_from_atom
             nbands = min(nao, nbands)
         elif nbands > nao and mode == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: '
@@ -511,7 +521,7 @@ class PAW(PAWTextOutput):
             if parsize_domain == 'domain only':  # XXX this was silly!
                 parsize_domain = world.size
 
-            parallelization = mpi.Parallelization(world, 
+            parallelization = mpi.Parallelization(world,
                                                   nspins * kd.nibzkpts)
             ndomains = None
             if parsize_domain is not None:
@@ -542,6 +552,16 @@ class PAW(PAWTextOutput):
             # because we allow negative numbers)
             self.nbands_parallelization_adjustment = -nbands % band_comm.size
             nbands += self.nbands_parallelization_adjustment
+
+            # I would like to give the following error message, but apparently
+            # there are cases, e.g. gpaw/test/gw_ppa.py, which involve
+            # nbands > nao and are supposed to work that way.
+            #if nbands > nao:
+            #    raise ValueError('Number of bands %d adjusted for band '
+            #                     'parallelization %d exceeds number of atomic '
+            #                     'orbitals %d.  This problem can be fixed '
+            #                     'by reducing the number of bands a bit.'
+            #                     % (nbands, band_comm.size, nao))
             bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
             if (self.density is not None and
@@ -549,8 +569,8 @@ class PAW(PAWTextOutput):
                 # Domain decomposition has changed, so we need to
                 # reinitialize density and hamiltonian:
                 if par.fixdensity:
-                    raise RuntimeError("Density reinitialization conflict "
-                        "with 'fixdensity' - specify domain decomposition.")
+                    raise RuntimeError('Density reinitialization conflict ' +
+                        'with "fixdensity" - specify domain decomposition.')
                 self.density = None
                 self.hamiltonian = None
 
@@ -585,7 +605,6 @@ class PAW(PAWTextOutput):
                 # but so will ScaLAPACK in any case
                 blocksize = min(-(-nbands // 4), 64)
                 sl_default = (nprow, npcol, blocksize)
-                par.parallel['sl_default'] = sl_default
             else:
                 sl_default = par.parallel['sl_default']
 
@@ -639,9 +658,6 @@ class PAW(PAWTextOutput):
                 except RuntimeError:
                     initksl = None
                 else:
-                    #assert nbands <= nao or bd.comm.size == 1
-                    assert lcaobd.mynbands == min(bd.mynbands, nao)  # XXX
-
                     # Layouts used for general diagonalizer
                     # (LCAO initialization)
                     sl_lcao = par.parallel['sl_lcao']
@@ -729,9 +745,11 @@ class PAW(PAWTextOutput):
         self.print_memory_estimate(self.txt, maxdepth=memory_estimate_depth)
         self.txt.flush()
 
+        self.timer.print_info(self)
+        
         if dry_run:
             self.dry_run()
-
+        
         if realspace and self.hamiltonian.poisson.description == 'FDTD+TDDFT':
             self.hamiltonian.poisson.set_density(self.density)
 
@@ -885,10 +903,76 @@ class PAW(PAWTextOutput):
                                'are not identical!')
 
 
-def kpts2ndarray(kpts):
-    """Convert kpts keyword to 2d ndarray of scaled k-points."""
+def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
+                        atoms=None):
+    """Helper function for selecting k-points.
+    
+    Use either size or density.
+    
+    size: 3 ints
+        Number of k-points.
+    density: float
+        K-point density in units of k-points per Ang^-1.
+    gamma: None or bool
+        Should the Gamma-point be included?  Yes / no / don't care:
+        True / False / None.
+    gamma: None or bool
+        Should the number of k-points be even?  Yes / no / don't care:
+        True / False / None.
+    atoms: Atoms object
+        Needed for calculating k-point density.
+    
+    """
+    
+    if size is None:
+        if density is None:
+            size = [1, 1, 1]
+        else:
+            size = kptdensity2monkhorstpack(atoms, density, even)
+            
+    offsets = [0, 0, 0]
+                                                                        
+    if gamma is not None:
+        for i, s in enumerate(size):
+            if atoms.pbc[i] and s % 2 != bool(gamma):
+                offsets[i] = 0.5 / s
+                
+    return size, offsets
+    
+    
+def kpts2ndarray(kpts, atoms=None):
+    """Convert kpts keyword to 2-d ndarray of scaled k-points."""
+    
     if kpts is None:
         return np.zeros((1, 3))
+        
+    if isinstance(kpts, dict):
+        size, offsets = kpts2sizeandoffsets(atoms=atoms, **kpts)
+        return monkhorst_pack(size) + offsets
+        
     if isinstance(kpts[0], int):
         return monkhorst_pack(kpts)
+        
     return np.array(kpts)
+
+
+oops = """
+Did not converge!
+
+Here are some tips:
+
+1) Make sure the geometry and spin-state is physically sound.
+2) Use less aggressive density mixing.
+3) Solve the eigenvalue problem more accurately at each scf-step.
+4) Use a smoother distribution function for the occupation numbers.
+5) Try adding more empty states.
+6) Use enough k-points.
+7) Don't let your structure optimization algorithm take too large steps.
+8) Solve the Poisson equation more accurately.
+9) Better initial guess for the wave functions.
+
+See details here:
+    
+    https://wiki.fysik.dtu.dk/gpaw/documentation/convergence.html
+
+"""

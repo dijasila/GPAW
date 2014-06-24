@@ -32,7 +32,6 @@ if mpi.rank == 0:
     assert abs(e_4s_major - e_3d_minor - (-0.184013 - -0.197109)) < 0.001
 
     print e, niter
-    energy_tolerance = 0.0004
+    energy_tolerance = 0.0005
     niter_tolerance = 0
     equal(e, -0.271504, energy_tolerance)
-    assert 21 <= niter <= 26, niter

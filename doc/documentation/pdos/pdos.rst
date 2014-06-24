@@ -115,8 +115,7 @@ PDOS script::
     e, dos = calc.get_dos(spin=0, npts=2001, width=0.2)
     e_f = calc.get_fermi_level()
     plot(e-e_f, dos)
-    grid(True)
-    axis([-15, 10, None, None])
+    axis([-15, 10, None, 4])
     ylabel('DOS')
 
     molecule = range(len(slab))[-2:] 
@@ -126,15 +125,14 @@ PDOS script::
     for n in range(2,7):
         print 'Band', n
         # PDOS on the band n
-        wf_k = [c_mol.get_pseudo_wave_function(band=n, kpt=k, spin=0, pad=False)
-                for k in range(len(c_mol.wfs.weight_k))]
+	wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]	
+  		for k in range(len(c_mol.wfs.weight_k))]
         P_aui = [[kpt.P_ani[a][n] for kpt in c_mol.wfs.kpt_u]
-                 for a in range(len(molecule))]   # Inner products of pseudo wavefunctions and projectors
+                 for a in range(len(molecule))]
         e, dos = calc.get_all_electron_ldos(mol=molecule, spin=0, npts=2001,
                                             width=0.2, wf_k=wf_k, P_aui=P_aui)
         plot(e-e_f, dos, label='Band: '+str(n))
     legend()
-    grid(True)
     axis([-15, 10, None, None])
     xlabel('Energy [eV]')
     ylabel('All-Electron PDOS')
@@ -170,11 +168,12 @@ Pickle script::
     P_n = []
     for n in range(c_mol.wfs.nbands):
         print 'Band: ', n
-        wf_k = [c_mol.get_pseudo_wave_function(band=n, kpt=k, spin=0, pad=False)
-                for k in range(len(c_mol.wfs.weight_k))]
+	wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]
+      		for k in range(len(c_mol.wfs.weight_k))]
         P_aui = [[kpt.P_ani[a][n] for kpt in c_mol.wfs.kpt_u]
-                 for a in range(len(molecule))]   # Inner products of pseudo wavefu
-        e, P = calc.get_all_electron_ldos(mol=molecule, wf_k=wf_k, spin=0, P_aui=P_aui, raw=True)
+                 for a in range(len(molecule))]
+        e, P = calc.get_all_electron_ldos(mol=molecule, wf_k=wf_k, spin=0, 
+                                          P_aui=P_aui, raw=True)
         e_n.append(e)
         P_n.append(P)
     pickle.dump((e_n, P_n), open('top.pickle', 'w'))
@@ -192,12 +191,11 @@ Plot PDOS::
     e_n, P_n = pickle.load(open('top.pickle'))
     for n in range(2,7):
         e, ldos = fold(e_n[n] * Hartree, P_n[n], npts=2001, width=0.2)
-        plot(e-e_f, ldos, label='Band: '+str(n))
+        plot(e-e_f, ldos, label='Band: ' + str(n))
     legend()
     axis([-15, 10, None, None])
     xlabel('Energy [eV]')
     ylabel('PDOS')
-    grid(True)
 
     show()
 

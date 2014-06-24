@@ -39,7 +39,7 @@ understand, and run the script.
 
 .. hint::
 
-  When opening a trajectory in :program:`ag` with calculated energies, the
+  When opening a trajectory in :program:`ase-gui` with calculated energies, the
   default plot window shows the energy versus frame number.  To get a
   better feel of the energy barrier in an NEB calculation; choose
   :menuselection:`Tools --> NEB`. This will give a smooth curve

@@ -12,7 +12,7 @@ def get_eigensolver(name, mode, convergence=None):
         if mode == 'lcao':
             name = 'lcao'
         else:
-            name = 'rmm-diis'
+            name = 'dav'
     if isinstance(name, str):
         eigensolver = {'rmm-diis':  RMM_DIIS,
                        'cg':        CG,

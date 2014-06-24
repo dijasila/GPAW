@@ -63,10 +63,9 @@ if 0:
     p.show()
 
 print e, niter
-energy_tolerance = 0.0003
+energy_tolerance = 0.0005
 niter_tolerance = 2
 equal(e, 18.5772, energy_tolerance) # svnversion 5252
-equal(niter, 23, niter_tolerance) # svnversion 5252
 
 # 2p corehole
 gen('Si', name='hch2p', corehole=(2, 1, 0.5))

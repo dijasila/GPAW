@@ -46,7 +46,7 @@ problem then becomes
 
 .. math::
 
- \sum_\nu H_{\mu\nu} c_{\nu n}   = \sum_{\nu} S_{\mu\nu} c_{\nu n} \epsilon_n
+ \sum_\nu H_{\mu\nu} c_{\nu n} = \sum_{\nu} S_{\mu\nu} c_{\nu n} \epsilon_n
 
 which can be solved by directly diagonalizating the Hamiltonian in the
 basis of the atomic orbitals.
@@ -259,4 +259,3 @@ single-zeta polarized basis set for certain elements.
 
 .. [Siesta] J.M. Soler et al.,
    J. Phys. Cond. Matter 14, 2745-2779 (2002) 
-

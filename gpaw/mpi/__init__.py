@@ -654,8 +654,10 @@ def distribute_cpus(parsize_domain, parsize_bands,
 def compare_atoms(atoms, comm=world):
     """Check whether atoms objects are identical on all processors."""
     # Construct fingerprint:
+    # ASE may return slightly different atomic positions (e.g. due
+    # to MKL) so compare only first 8 decimals of positions
     fingerprint = np.array([md5_array(array, numeric=True) for array in
-                             [atoms.positions,
+                             [atoms.positions.round(8),
                               atoms.cell,
                               atoms.pbc * 1.0,
                               atoms.get_initial_magnetic_moments()]])
@@ -679,6 +681,8 @@ def compare_atoms(atoms, comm=world):
             itemdata.dump('%s_r%04d_%s.pickle' % (dumpfile, comm.rank, 
                                                   itemname))
 
+    # Use only the atomic positions from rank 0
+    comm.broadcast(atoms.positions, 0)
     return not mismatches.any()
 
 def broadcast(obj, root=0, comm=world):
@@ -722,6 +726,41 @@ def receive_string(rank, comm=world):
     string = np.empty(n, np.int8)
     comm.receive(string, rank)
     return string.tostring()
+
+def alltoallv_string(send_dict, comm=world):
+    scounts = np.zeros(comm.size, dtype=np.int)
+    sdispls = np.zeros(comm.size, dtype=np.int)
+    stotal = 0
+    for proc in range(comm.size):
+        if proc in send_dict:
+            data = np.fromstring(send_dict[proc],np.int8)
+            scounts[proc] = data.size
+            sdispls[proc] = stotal
+            stotal += scounts[proc]
+
+    rcounts = np.zeros(comm.size, dtype=np.int)
+    comm.alltoallv( scounts, np.ones(comm.size, dtype=np.int), np.arange(comm.size, dtype=np.int),
+                    rcounts, np.ones(comm.size, dtype=np.int), np.arange(comm.size, dtype=np.int) )
+    rdispls = np.zeros(comm.size, dtype=np.int)
+    rtotal = 0
+    for proc in range(comm.size):
+        rdispls[proc] = rtotal
+        rtotal += rcounts[proc]
+        rtotal += rcounts[proc]
+
+
+    sbuffer = np.zeros(stotal, dtype=np.int8)
+    for proc in range(comm.size):
+        sbuffer[sdispls[proc]:(sdispls[proc]+scounts[proc])] = np.fromstring(send_dict[proc],np.int8)
+
+    rbuffer = np.zeros(rtotal, dtype=np.int8)
+    comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls)
+
+    rdict = {}
+    for proc in range(comm.size):
+        rdict[proc] = rbuffer[rdispls[proc]:(rdispls[proc]+rcounts[proc])].tostring()
+
+    return rdict
 
 def ibarrier(timeout=None, root=0, tag=123, comm=world):
     """Non-blocking barrier returning a list of requests to wait for.
@@ -891,16 +930,13 @@ def cleanup():
     if error is not None: # else: Python script completed or raise SystemExit
         if parallel and not (dry_run_size > 1):
             sys.stdout.flush()
-            sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  ' +
-                          'Calling MPI_Abort!\n') % (world.rank, error))
+            sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  '
+                              'Calling MPI_Abort!\n') % (world.rank, error))
             sys.stderr.flush()
             # Give other nodes a moment to crash by themselves (perhaps
             # producing helpful error messages)
             time.sleep(10)
             world.abort(42)
-        else:
-            sys.stderr.write(('GPAW CLEANUP for serial binary: %s occured. ' +
-                              'Calling sys.exit()\n') % error)
 
 def exit(error='Manual exit'):
     # Note that exit must be called on *all* MPI tasks

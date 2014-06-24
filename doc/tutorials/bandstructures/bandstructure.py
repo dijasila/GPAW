@@ -45,7 +45,7 @@ e_kn = np.array([calc.get_eigenvalues(k) for k in range(len(kpts))])
 
 # Plot the band structure
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 matplotlib.rc('text', usetex=True)
 import matplotlib.pyplot as plt
 

@@ -6,12 +6,12 @@ from gpaw.test import equal
 
 modes = ['gpw']
 try:
-    import _hdf5
+    import _gpaw_hdf5
     modes.append('hdf5')
 except ImportError:
     pass
 
-calc = GPAW(nbands=1)#, txt=None)
+calc = GPAW(nbands=1, occupations=FermiDirac(0.0))#, txt=None)
 atoms = Atoms('He', pbc=True, calculator=calc)
 atoms.center(vacuum=3)
 

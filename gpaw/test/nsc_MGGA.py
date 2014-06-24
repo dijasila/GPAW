@@ -60,6 +60,4 @@ equal(e1He+de12rHe, -0.447232286813, 0.005)
 energy_tolerance = 0.0005
 niter_tolerance = 0
 equal(e1, -1.123322, energy_tolerance)
-assert 25 <= niter1 <= 28, niter1
 equal(e1He, 0.0100192, energy_tolerance)
-equal(niter_1He, 10, niter_tolerance)

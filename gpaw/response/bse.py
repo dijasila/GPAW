@@ -29,7 +29,7 @@ class BSE(BASECHI):
                  ecut=10.,
                  eta=0.2,
                  gw_skn=None, # GW QP energies in Hartree
-                 rpad=np.array([1,1,1]),
+                 rpad=None,
                  vcut=None,   # Coulomb cutoff only 2D works
                  ftol=1e-5,
                  txt=None,
@@ -102,7 +102,7 @@ class BSE(BASECHI):
         self.Sindex_S3 = {}
         iS = 0
         kq_k = self.kq_k
-        for k1 in range(self.nkpt):
+        for k1 in range(self.kd.nbzkpts):
             ibzkpt1 = kd.bz2ibz_k[k1]
             ibzkpt2 = kd.bz2ibz_k[kq_k[k1]]
             for n1 in range(self.nv[0], self.nv[1]): 
@@ -134,7 +134,7 @@ class BSE(BASECHI):
             (self.ibzq_qc, self.ibzq_q, self.iop_q,
              self.timerev_q, self.diff_qc) = kd.get_ibz_q_points(self.bzq_qc,
                                                                  calc.wfs.symmetry.op_scc)
-            if np.abs(self.bzq_qc - self.bzk_kc).sum() < 1e-8:
+            if np.abs(self.bzq_qc - kd.bzk_kc).sum() < 1e-8:
                 assert np.abs(self.ibzq_qc - kd.ibzk_kc).sum() < 1e-8
         self.nibzq = len(self.ibzq_qc)
 
@@ -162,8 +162,7 @@ class BSE(BASECHI):
                     if self.Gvec_Gc[iG, 0] == 0 and self.Gvec_Gc[iG, 1] == 0:
                         self.integrate_coulomb.append(iG)
             else:
-                print 'Not implemented'
-                XXX
+                raise NotImplementedError
         elif type(self.integrate_coulomb) is int:
             self.integrate_coulomb = range(self.integrate_coulomb)
         elif self.integrate_coulomb == 'all':
@@ -211,8 +210,6 @@ class BSE(BASECHI):
         calc = self.calc
         f_skn = self.f_skn
         e_skn = self.e_skn
-        ibzk_kc = self.ibzk_kc
-        bzk_kc = self.bzk_kc
         kq_k = self.kq_k
         focc_S = self.focc_S
         e_S = self.e_S
@@ -264,7 +261,7 @@ class BSE(BASECHI):
 
         # Calculate full kernel
         K_SS = np.zeros((self.nS_local, self.nS), dtype=complex)
-        self.rhoG0_S = np.zeros((self.nS), dtype=complex)
+        self.rhoG0_S = np.zeros(self.nS, dtype=complex)
 
         #noGmap = 0
         for iS in range(self.nS_start, self.nS_end):
@@ -281,7 +278,7 @@ class BSE(BASECHI):
                     rho4_G = self.density_matrix(m1,m2,self.kq_k[k1],
                                                  self.kq_k[k2])
 
-                    q_c = bzk_kc[k2] - bzk_kc[k1]
+                    q_c = self.kd.bzk_kc[k2] - self.kd.bzk_kc[k1]
                     q_c[np.where(q_c > 0.501)] -= 1.
                     q_c[np.where(q_c < -0.499)] += 1.
                     iq = self.kd.where_is_q(q_c, self.bzq_qc)
@@ -545,7 +542,7 @@ class BSE(BASECHI):
             if N2 > N2_max:
                 N2_max = N2
         
-        nbzq = self.nkpt
+        nbzq = self.kd.nbzkpts
         nbzq, nq_local, q_start, q_end = parallel_partition(
                                    nbzq, world.rank, world.size, reshape=False)
         phimax_qaGp = np.zeros((nq_local, natoms, N1_max, N2_max), dtype=complex)
@@ -769,7 +766,7 @@ class BSE(BASECHI):
         kq_k = self.kq_k
         kd = self.kd
 
-        nx, ny, nz = self.nG[0], self.nG[1], self.nG[2]
+        nx, ny, nz = self.gd.N_c
         nR = 9
         nR2 = (nR - 1 ) // 2
         if re_c is not None:
@@ -801,7 +798,7 @@ class BSE(BASECHI):
                 tmp = A_S[iS] * psit1_g[re_c].conj() * psit2_g
                 psith_R += tmp
 
-                k_c = self.bzk_kc[k] + self.q_c
+                k_c = self.kd.bzk_kc[k] + self.q_c
                 for i in range(nR):
                     for j in range(nR):
                         R_c = np.array([i-nR2, j-nR2, 0])
@@ -813,7 +810,7 @@ class BSE(BASECHI):
                 tmp = A_S[iS] * psit1_g.conj() * psit2_g[rh_c] * self.expqr_g
                 psite_R += tmp
 
-                k_c = self.bzk_kc[k]
+                k_c = self.kd.bzk_kc[k]
                 k_v = np.dot(k_c, self.bcell_cv)
                 for i in range(nR):
                     for j in range(nR):

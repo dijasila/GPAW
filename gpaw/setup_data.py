@@ -51,6 +51,7 @@ class SetupData:
         # Quantum numbers, energies
         self.n_j = []
         self.l_j = []
+        self.l_orb_j = self.l_j # pointer to same list!
         self.f_j = []
         self.eps_j = []
         self.e_kin_jj = None # <phi | T | phi> - <phit | T | phit>
@@ -113,6 +114,7 @@ class SetupData:
     def append(self, n, l, f, e, rcut, phi_g, phit_g, pt_g):
         self.n_j.append(n)
         self.l_j.append(l)
+        self.l_orb_j.append(l)
         self.f_j.append(f)
         self.eps_j.append(e)
         self.rcut_j.append(rcut)
@@ -142,6 +144,9 @@ class SetupData:
         else:
             text('  core   : %.1f' % self.Nc)
         text('  charge :', self.Z - self.Nv - self.Nc)
+        if setup.HubU is not None:
+            text('  Hubbard U: %f eV (l=%d, scale=%s)' %
+                 (setup.HubU * Hartree, setup.Hubl, bool(setup.Hubs)))
         text('  file   :', self.filename)
         text(('  cutoffs: %4.2f(comp), %4.2f(filt), %4.2f(core),'
               ' lmax=%d' % (sqrt(10) * self.rcgauss * Bohr,
