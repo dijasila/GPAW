@@ -495,6 +495,7 @@ class PAW(PAWTextOutput):
             if par.occupations is None:
                 # Create object for occupation numbers:
                 if self.tf_mode:
+                    width = 0.0 #even for PBC
                     self.occupations = occupations.TFOccupations(width, par.fixmom)
                 else:
                     self.occupations = occupations.FermiDirac(width, par.fixmom)

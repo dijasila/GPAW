@@ -288,7 +288,6 @@ class ZeroKelvin(OccupationNumbers):
                 ne = 0.5 * (self.nvalence + sign * self.magmom)
 
                 homo, lumo = self.occupy(f_n, eps_n, ne) 
-                #homo, lumo = occupy(f_n, eps_n, ne)
 
                 fermilevels[kpt.s] = 0.5 * (homo + lumo)
             wfs.bd.distribute(f_n, kpt.f_n)
