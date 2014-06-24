@@ -25,7 +25,6 @@ from gpaw.tddft.cscg import CSCG
 from gpaw.tddft.propagators import \
     ExplicitCrankNicolson, \
     SemiImplicitCrankNicolson, \
-    DissipativeSemiImplicitCrankNicolson, \
     EhrenfestPAWSICN,\
     EhrenfestHGHSICN,\
     EnforcedTimeReversalSymmetryCrankNicolson, \
@@ -77,7 +76,7 @@ class TDDFT(GPAW):
     """
     
     def __init__(self, filename, td_potential=None, propagator='SICN',
-                 propagator_kwargs=None, solver='CSCG', tolerance=1e-8, 
+                 propagator_kwargs=None, solver='CSCG', tolerance=1e-8,
                  **kwargs):
         """Create TDDFT-object.
         
@@ -89,7 +88,7 @@ class TDDFT(GPAW):
             Function class for the time-dependent potential. Must have a method
             'strength(time)' which returns the strength of the linear potential
             to each direction as a vector of three floats.
-        propagator:  {'SICN','DSICN', 'ETRSCN','ECN','SITE','SIKE4','SIKE5','SIKE6'}
+        propagator:  {'SICN','ETRSCN','ECN','SITE','SIKE4','SIKE5','SIKE6'}
             Name of the time propagator for the Kohn-Sham wavefunctions
         solver: {'CSCG','BiCGStab'}
             Name of the iterative linear equations solver for time propagation
@@ -185,11 +184,6 @@ class TDDFT(GPAW):
             self.propagator = SemiImplicitCrankNicolson(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
-        elif propagator == 'DSICN':
-            self.propagator = DissipativeSemiImplicitCrankNicolson(self.td_density,
-                self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
-            self.propagator.set_gs_psi(wfs.kpt_u[0].psit_nG) 
         elif propagator == 'EFSICN':
             self.propagator = EhrenfestPAWSICN(self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
@@ -285,7 +279,7 @@ class TDDFT(GPAW):
             if self.initialized and key not in ['txt']:
                 raise TypeError("Keyword argument '%s' is immutable." % key)
 
-            if key in ['txt', 'parallel', 'communicator', 'poissonsolver']:
+            if key in ['txt', 'parallel', 'communicator']:
                 continue
             elif key == 'mixer':
                 if not isinstance(kwargs[key], DummyMixer):

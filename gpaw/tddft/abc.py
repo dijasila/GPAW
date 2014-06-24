@@ -27,27 +27,13 @@ class DummyAbsorbingBoundary:
         self.v_imag = None
         self.type = None
 
-    def set_up(self, gd):
+    def set_up(self):
         pass
 
     def get_potential_matrix(self):
         return self.v_imag
 
 
-class ConstantAbsorbingBoundary(DummyAbsorbingBoundary):
-    """ V(r) = i*constant """
-
-    def __init__(self, ipot):
-        self.v_imag = None
-        self.type = "IPOT"
-        self.ipot = ipot
-
-    def set_up(self, gd):
-        self.v_imag = gd.zeros(dtype=complex) + complex(0.0, self.ipot)
-
-    def get_potential_matrix(self):
-        return self.v_imag
-    
 
 class LinearAbsorbingBoundary(DummyAbsorbingBoundary):
 
