@@ -21,7 +21,7 @@ import _gpaw
 
 
 class PoissonSolver:
-    def __init__(self, nn=3, relax='J', eps=1e-24):
+    def __init__(self, nn=3, relax='J', eps=2e-10):
         self.relax = relax
         self.nn = nn
         self.eps = eps
@@ -196,7 +196,7 @@ class PoissonSolver:
             msg += ' boundary conditions'
             raise NotImplementedError(msg)
 
-    def solve_neutral(self, phi, rho, eps=1e-24):
+    def solve_neutral(self, phi, rho, eps=2e-10):
         self.phis[0] = phi
 
         if self.B is None:
@@ -320,7 +320,7 @@ class FFTPoissonSolver(PoissonSolver):
     nn = 999
     description = 'FFT solver of the second kind'
 
-    def __init__(self, eps=1e-24):
+    def __init__(self, eps=2e-10):
         self.charged_periodic_correction = None
         self.eps = eps
 
