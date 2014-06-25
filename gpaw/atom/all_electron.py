@@ -93,7 +93,7 @@ class AllElectron:
 
         self.tf_mode = tf_mode
         self.tf_coeff = tf_coeff
-        #In tf mode we must force these numbers
+        # In tf mode we must force these numbers
         if self.tf_mode:
             self.n_j = [1]
             self.l_j = [0]
@@ -151,15 +151,16 @@ class AllElectron:
                 u[:] = r**(1 + l) * np.exp(-a * r)
                 norm = np.dot(u**2, dr)
                 u *= 1.0 / sqrt(norm)
-        #In tf mode we initialize wavefunction with hydrogen like density
+        # In tf mode we initialize wavefunction with hydrogen like density
         else:
             if self.symbol != 'H':
-                self.u_j[0][:] = r*self.nelectrons**2*np.exp(-self.nelectrons*r)/sqrt(pi)
+                self.u_j[0][:] = (r * self.nelectrons**2 *
+                                  np.exp(-self.nelectrons * r) / sqrt(pi))
             else:
-                #For hydrogen we need different initial value
-                self.u_j[0][:] = r * np.exp(-sqrt(-2.0*self.e_j[0]) * r)
+                # For hydrogen we need different initial value
+                self.u_j[0][:] = r * np.exp(-sqrt(-2.0 * self.e_j[0]) * r)
             norm = np.dot(self.u_j**2, self.dr)
-            self.u_j = 1/sqrt(norm)*self.u_j
+            self.u_j = 1 / sqrt(norm) * self.u_j
             
     def run(self, use_restart_file=True):
         #     beta g
@@ -248,7 +249,7 @@ class AllElectron:
         niter = 0
         allow_niterations = 117
         qOK = log(1e-10)
-        #tf_mode needs more iterations and coefficient
+        # tf_mode needs more iterations and coefficient
         if self.tf_mode:
             qOK = log(1e-14)
             e_j[0] /= self.tf_coeff
@@ -282,16 +283,16 @@ class AllElectron:
                 if not self.tf_mode:
                     vr[:] = 0.4 * vr + 0.6 * vrold
                 else:
-                    #In tf_mode the density mixing must be careful
-                    vr[:] = 0.001 *vr + 0.999 * vrold
+                    # In tf_mode the density mixing must be careful
+                    vr[:] = 0.001 * vr + 0.999 * vrold
             vrold = vr.copy()
 
             # solve Kohn-Sham equation and determine the density change
             self.solve()
-            #Normalization in tf_mode to N electrons
+            # Normalization in tf_mode to N electrons
             if self.tf_mode:
                 norm = np.dot(self.u_j**2, self.dr)
-                self.u_j = sqrt(self.nelectrons)/sqrt(norm)*self.u_j
+                self.u_j = sqrt(self.nelectrons) / sqrt(norm) * self.u_j
             dn = self.calculate_density() - n
             n += dn
 

@@ -23,7 +23,6 @@ class OccupationNumbers:
         self.nvalence = None    # number of electrons
         self.split = 0.0        # splitting of Fermi levels from fixmagmom=True
         self.niter = 0          # number of iterations for finding Fermi level
-        self.tf_mode = False    # if tf_mode is used then occupy only one band
         
     def calculate(self, wfs):
         """Calculate everything.
@@ -603,11 +602,12 @@ class TFOccupations(FermiDirac):
         FermiDirac.__init__(self, width, fixmagmom, maxiter)
     
     def occupy(self, f_n, eps_n, ne, weight=1):
-        """Fill in occupation numbers. 
+        """Fill in occupation numbers.
+        
         In TF mode only one band. Is guarenteed to work only
         for spin-paired case.
         
         return HOMO and LUMO energies."""
-        #Same as occupy in ZeroKelvin expect one band: weight = ne
-        return FermiDirac.occupy.im_func(self, f_n, eps_n, ne, ne)
+        # Same as occupy in FermiDirac expect one band: weight = ne
+        return FermiDirac.occupy(self, f_n, eps_n, ne, ne)
         

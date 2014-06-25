@@ -63,7 +63,7 @@ class InputParameters(dict):
                                  'eigenstates': 4.0e-8,  # eV^2
                                  'bands':       'occupied'}),
             ('realspace',       None),
-            ('tf_mode',         False) #Thomas-Fermi mode
+            ('tf_mode',         False)  # Thomas-Fermi mode
             ])
         dict.update(self, kwargs)
 

@@ -1290,7 +1290,7 @@ class Setups(list):
     """
 
     def __init__(self, Z_a, setup_types, basis_sets, lmax, xc,
-                 filter=None, world=None, tf_mode = False):
+                 filter=None, world=None, tf_mode=False):
         list.__init__(self)
         symbols = [chemical_symbols[Z] for Z in Z_a]
         type_a = types2atomtypes(symbols, setup_types, default='paw')
@@ -1332,14 +1332,15 @@ class Setups(list):
             self.core_charge += n * (setup.Z - setup.Nv - setup.Nc)
             self.nvalence += n * setup.Nv
             self.nao += n * setup.nao
-        #Corrections if tf mode is set
+        # Corrections if tf mode is set
         self.tf_mode = tf_mode
         if self.tf_mode:
-            #Currently in tf_mode we have only neutrally charged atoms
+            # Currently in tf_mode we have only neutrally charged atoms
             self.core_charge = 0
-            #Correct number of valence electrons to match neutrally charged atoms
-            self.nvalence = sum([natoms[id]*setup.Z for id,setup in self.setups.items()])
-
+            # Correct number of valence electrons to match neutrally
+            # charged atoms
+            self.nvalence = sum([natoms[id] * setup.Z
+                                 for id, setup in self.setups.items()])
 
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""

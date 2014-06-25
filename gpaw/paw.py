@@ -336,8 +336,8 @@ class PAW(PAWTextOutput):
             world = mpi.world.new_communicator(np.asarray(world))
         self.wfs.world = world
 
-        #Are we using tf_mode?
-        if bool(par.tf_mode):
+        # Are we using tf_mode?
+        if par.tf_mode:
             self.tf_mode = True
 
         self.set_text(par.txt, par.verbose)
