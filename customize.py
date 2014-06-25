@@ -70,18 +70,9 @@ if scalapack:
 # (e.g.: configure --prefix=/home/user/libxc-2.0.1-1), use:
 # - static linking:
 #include_dirs += ['/home/user/libxc-2.0.1-1/include']
-if False:
-    include_dirs += ['/localwrk/sakkoa1/Workspace/libxc/include']
-    library_dirs += ['/localwrk/sakkoa1/Workspace/libxc/lib']
-    extra_link_args += ['/localwrk/sakkoa1/Workspace/libxc/lib/libxc.a']
-else:
-    include_dirs += ['/home/sakkoa1/Programs/libxc/include']
-    library_dirs += ['/home/sakkoa1/Programs/libxc/lib']
-    extra_link_args += ['/home/sakkoa1/Programs/libxc/lib/libxc.a']
 #extra_link_args += ['/home/user/libxc-2.0.1-1/lib/libxc.a']
 #if 'xc' in libraries: libraries.remove('xc')
 # - dynamic linking (requires also setting LD_LIBRARY_PATH at runtime):
 #include_dirs += ['/home/user/libxc-2.0.1-1/include']
 #library_dirs += ['/home/user/libxc-2.0.1-1/lib']
-#library_dirs += ['/localwrk/sakkoa1/Workspace/libxc/lib']
 #if 'xc' not in libraries: libraries.append('xc')
