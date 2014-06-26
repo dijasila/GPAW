@@ -216,6 +216,7 @@ tests = [
     'h2o_xas_recursion.py',
     'diamond_eps.py',
     'tf_mode.py',
+    'tf_mode_pbc.py',
     'excited_state.py',
     # > 20 sec tests start here (add tests after gemm.py!)
     'gemm.py',
