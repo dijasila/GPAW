@@ -74,13 +74,14 @@ class PairDensity:
         self.density = paw.density
         self.setups = paw.wfs.setups
         self.spos_ac = paw.atoms.get_scaled_positions()
-        assert paw.wfs.dtype == float
+##        assert paw.wfs.dtype == float
         
     def initialize(self, kpt, i, j):
         """initialize yourself with the wavefunctions"""
         self.i = i
         self.j = j
         self.spin = kpt.s
+        self.k = kpt.k
         self.P_ani = kpt.P_ani
         
         self.wfi = kpt.psit_nG[i]
@@ -88,25 +89,25 @@ class PairDensity:
 
     def get(self, finegrid=False):
         """Get pair density"""
-        nijt = self.wfi * self.wfj
+        nijt_G = self.wfi.conj() * self.wfj
         if not finegrid:
-            return nijt 
+            return nijt_G 
 
         # interpolate the pair density to the fine grid
-        nijt_g = self.density.finegd.empty()
-        self.density.interpolator.apply(nijt, nijt_g)
+        nijt_g = self.density.finegd.empty(dtype=nijt_G.dtype)
+        self.density.interpolator.apply(nijt_G, nijt_g)
 
         return nijt_g
 
     def with_compensation_charges(self, finegrid=False):
         """Get pair densisty including the compensation charges"""
-        rhot = self.get(finegrid)
+        rhot_g = self.get(finegrid)
 
         # Determine the compensation charges for each nucleus
         Q_aL = {}
         for a, P_ni in self.P_ani.items():
             # Generate density matrix
-            Pi_i = P_ni[self.i]
+            Pi_i = P_ni[self.i].conj()
             Pj_i = P_ni[self.j]
             D_ii = np.outer(Pi_i, Pj_i)
             # allowed to pack as used in the scalar product with
@@ -118,7 +119,7 @@ class PairDensity:
 
         # Add compensation charges
         if finegrid:
-            self.density.ghat.add(rhot, Q_aL)
+            self.density.ghat.add(rhot_g, Q_aL)
         else:
             if not hasattr(self.density, 'Ghat'):
                 self.density.Ghat = LFC(self.density.gd,
@@ -126,6 +127,6 @@ class PairDensity:
                                          for setup in self.setups],
                                         integral=sqrt(4 * pi))
                 self.density.Ghat.set_positions(self.spos_ac)
-            self.density.Ghat.add(rhot, Q_aL)
+            self.density.Ghat.add(rhot_g, Q_aL)
                 
-        return rhot
+        return rhot_g

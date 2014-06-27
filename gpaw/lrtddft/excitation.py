@@ -37,7 +37,8 @@ class ExcitationList(list):
         """Evaluate the Thomas Reiche Kuhn sum rule"""
         trkm = np.zeros((3))
         for ex in self:
-            trkm += ex.get_energy() * ex.get_dipol_me()**2
+            me = ex.get_dipol_me()
+            trkm += ex.get_energy() * (me.real**2 + me.imag**2)
         return 2. * trkm # scale to get the number of electrons XXX spinpol ?
     
     def get_polarizabilities(self, lmax=7):
@@ -110,7 +111,7 @@ class Excitation:
 
         osz = [0.]
         for c in range(3):
-            val = 2. * me[c]**2
+            val = 2. * (me[c].real**2 + me[c].imag**2)
             osz.append(val)
             osz[0] += val / 3.
         
