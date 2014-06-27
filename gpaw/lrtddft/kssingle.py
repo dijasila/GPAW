@@ -10,12 +10,10 @@ from ase.units import Bohr, Hartree, alpha
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
 from gpaw.lrtddft.excitation import Excitation, ExcitationList
-from gpaw.localized_functions import create_localized_functions
 from gpaw.pair_density import PairDensity
 from gpaw.fd_operators import Gradient
-from gpaw.gaunt import gaunt as G_LLL
-from gpaw.xc.tools import vxc
 from gpaw.utilities.tools import coordinates
+
 
 class KSSingles(ExcitationList):
     """Kohn-Sham single particle excitations
@@ -57,7 +55,7 @@ class KSSingles(ExcitationList):
         ExcitationList.__init__(self, calculator, txt=txt)
         
         if calculator is None:
-            return # leave the list empty
+            return  # leave the list empty
 
         # deny hybrids as their empty states are wrong
         gsxc = calculator.hamiltonian.xc
@@ -76,12 +74,12 @@ class KSSingles(ExcitationList):
         self.select(nspins, eps, istart, jend, energy_range)
 
         trkm = self.get_trk()
-        print >> self.txt, 'KSS TRK sum %g (%g,%g,%g)' % \
-              (np.sum(trkm)/3., trkm[0], trkm[1], trkm[2])
+        self.txt.write('KSS TRK sum %g (%g,%g,%g)\n' %
+                       (np.sum(trkm) / 3., trkm[0], trkm[1], trkm[2]))
         pol = self.get_polarizabilities(lmax=3)
-        print >> self.txt, \
-              'KSS polarisabilities(l=0-3) %g, %g, %g, %g' % \
-              tuple(pol.tolist())
+        self.txt.write(
+            'KSS polarisabilities(l=0-3) %g, %g, %g, %g\n' %
+            tuple(pol.tolist()))
 
     def select(self, nspins=None, eps=0.001,
                istart=0, jend=None, energy_range=None):
@@ -136,7 +134,7 @@ class KSSingles(ExcitationList):
                     for j in range(i + 1, len(f_n)):
                         fij = fi - f_n[j]
                         epsij = eps_n[j] - eps_n[i]
-                        if (fij > eps and 
+                        if (fij > eps and
                             epsij >= emin and epsij < emax and
                             i >= self.istart and j <= self.jend):
                             # this is an accepted transition
@@ -159,7 +157,7 @@ class KSSingles(ExcitationList):
         n = int(f.readline())
         self.npspins = 1
         for i in range(n):
-            kss = KSSingle(string = f.readline())
+            kss = KSSingle(string=f.readline())
             self.append(kss)
             self.npspins = max(self.npspins, kss.pspin + 1)
         self.update()
@@ -231,7 +229,7 @@ class KSSingles(ExcitationList):
             if fh is None:
                 if filename.endswith('.gz'):
                     import gzip
-                    f = gzip.open(filename,'wb')
+                    f = gzip.open(filename, 'wb')
                 else:
                     f = open(filename, 'w')
             else:
@@ -267,7 +265,7 @@ class KSSingle(Excitation, PairDensity):
     def __init__(self, iidx=None, jidx=None, pspin=None, kpt=None,
                  paw=None, string=None, fijscale=1):
         
-        if string is not None: 
+        if string is not None:
             self.fromstring(string)
             return None
 
@@ -277,7 +275,7 @@ class KSSingle(Excitation, PairDensity):
         wfs = paw.wfs
         PairDensity.initialize(self, kpt, iidx, jidx)
 
-        self.pspin=pspin
+        self.pspin = pspin
         
         f = kpt.f_n
         self.fij = (f[iidx] - f[jidx]) * fijscale
@@ -322,9 +320,9 @@ class KSSingle(Excitation, PairDensity):
             ma += sqrt(4 * pi / 3) * ma1 + Ra * sqrt(4 * pi) * ma0
         gd.comm.sum(ma)
 
-        self.me = sqrt(self.energy * self.fij) * ( me + ma )
+        self.me = sqrt(self.energy * self.fij) * (me + ma)
 
-        self.mur = - ( me + ma )
+        self.mur = - (me + ma)
 
         # velocity form .............................
 
