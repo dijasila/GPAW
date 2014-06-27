@@ -18,7 +18,7 @@ class Heterostructure:
         self.q_points_abs = q_points_abs * Bohr                           # List of the absolute values of q_points: they have to be same as the ones used for calculating chi_monopole and chi_dipole
         self.frequencies = frequencies / Hartree                          # List of frequencies: they have to be same as the ones used for calculating chi_monopole and chi_dipole
         self.chi_monopole = chi_monopole * Bohr    #check units          # List of monopole chi0 in each layer
-        if chi_dipole:
+        if chi_dipole is not None:
             self.chi_dipole = chi_dipole / Bohr        #check units          # List of dipole chi0 in each layer
         else: 
             self.chi_dipole = chi_dipole 
@@ -59,14 +59,14 @@ class Heterostructure:
             for j in range(i+1,Nls):
                 for l in range(i,j):
                     t = j-i-1
-                    d_ij[i,j] = d_ij[i,j]+inter_dist[t]
-                    d_ij[j,i] = d_ij[j,i]+inter_dist[t]
+                    d_ij[i,j] = d_ij[i,j]+self.interlayer_distances[t]
+                    d_ij[j,i] = d_ij[j,i]+self.interlayer_distances[t]
 
         #---------------------------------
         # Calculating the Kernel
         #---------------------------------
 
-        if self.chi_dipole:
+        if self.chi_dipole is not None:
             kernel_ij = np.zeros((2*Nls,2*Nls))
 
             for i in range(0,Nls):
@@ -93,16 +93,16 @@ class Heterostructure:
         q_points_abs = self.q_points_abs
         chi_m_qwi = self.chi_monopole   
     
-        if self.chi_dipole:       
+        if self.chi_dipole is not None:       
             eps_qwij = np.zeros((len(self.q_points_abs),len(self.frequencies),2*Nls,2*Nls))
             chi_d_qwi = self.chi_dipole
        
             for iq in range(0,len(q_points_abs)):
                 kernel_ij = self.CoulombKernel(q_points_abs[iq])
                 for iw in range(0,len(self.frequencies)):
-                    chi_tot_qwi = np.insert(chi_d_qwi[iq,iw,:],np.arange(len(chi_m_qwi[iq,iw,:])))
-                    chi_tot_qwij = np.diag(chi_tot_qwi)
-                    eps_qwij[iq,iw,:,:] = np.eye(Nls,Nls)-np.dot(kernel_ij,chi_tot_ij)
+                    chi_tot_i = np.insert(chi_d_qwi[iq,iw,:],np.arange(len(chi_m_qwi[iq,iw,:])),chi_m_qwi[iq,iw,:])
+                    chi_tot_ij = np.diag(chi_tot_i)
+                    eps_qwij[iq,iw,:,:] = np.eye(2*Nls,2*Nls)-np.dot(kernel_ij,chi_tot_ij)
 
         else:
             eps_qwij = np.zeros((len(q_points_abs),len(self.frequencies),Nls,Nls))
@@ -126,9 +126,9 @@ class Heterostructure:
             kernel_ij = self.CoulombKernel(self.q_points_abs[iq])
             ext_pot = np.dot(kernel_ij,h_distr)
             for iw in range(0,len(self.frequencies)):
-                v_screened_qw[iq,iw] = np.dot(e_distr,np.dot(np.linalg.inv(eps_qwij[iq,iw,:,:]),ext_pot))   
+                v_screened_qw[iq,iw] = self.q_points_abs[iq]/2./np.pi*np.dot(e_distr,np.dot(np.linalg.inv(eps_qwij[iq,iw,:,:]),ext_pot))   
                         
-        return 1./v_screened_qw
+        return 1./(v_screened_qw)
 
 
 
