@@ -61,7 +61,7 @@ class ExcitationList(list):
             string += ', %d excitations:' % len(self)
         string += '\n'
         for ex in self:
-            string += '#  '+ex.__str__()+"\n"
+            string += '#  '+ ex.__str__() + '\n'
         return string
         
     def get_alpha(self, omega):

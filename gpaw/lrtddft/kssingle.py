@@ -112,8 +112,6 @@ class KSSingles(ExcitationList):
             self.jend = jend
         self.eps = eps
 
-        print "++++++", emin, emax
-
         # here, we need to take care of the spins also for
         # closed shell systems (Sz=0)
         # vspin is the virtual spin of the wave functions,
