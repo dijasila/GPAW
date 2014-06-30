@@ -105,7 +105,7 @@ class Excitation:
             me = self.me
         elif form == 'v':
             # velocity form
-            me = self.muv * np.sqrt(self.energy)
+            me = self.muv * np.sqrt(self.fij * self.energy)
         else:
             raise RuntimeError('Unknown form >' + form + '<')
 

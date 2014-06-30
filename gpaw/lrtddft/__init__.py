@@ -168,7 +168,6 @@ class LrTDDFT(ExcitationList):
 
     def forced_update(self):
         """Recalc yourself."""
-        nonselfconsistent_xc = None
         if not self.force_ApmB:
             Om = OmegaMatrix
             name = 'LrTDDFT'
@@ -177,14 +176,12 @@ class LrTDDFT(ExcitationList):
                 if hasattr(xc, 'hybrid') and xc.hybrid > 0.0:
                     Om = ApmB
                     name = 'LrTDDFThyb'
-#                    nonselfconsistent_xc = HybridXC('PBE0', alpha=5.0)
         else:
             Om = ApmB
             name = 'LrTDDFThyb'
 
         self.kss = KSSingles(calculator=self.calculator,
                              nspins=self.nspins,
-                             nonselfconsistent_xc=nonselfconsistent_xc,
                              eps=self.eps,
                              istart=self.istart,
                              jend=self.jend,
@@ -395,6 +392,9 @@ class LrTDDFTExcitation(Excitation):
         if string is not None: 
             self.fromstring(string)
             return None
+
+        # multiplicity comes from Kohn-Sham contributions
+        self.fij = 1
 
         # define from the diagonalized Omega matrix
         if Om is not None:

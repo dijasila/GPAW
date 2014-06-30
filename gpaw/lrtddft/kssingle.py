@@ -48,6 +48,8 @@ class KSSingles(ExcitationList):
                  filehandle=None,
                  txt=None):
 
+        self.eps = None
+
         if filehandle is not None:
             self.read(fh=filehandle)
             return None
@@ -99,14 +101,18 @@ class KSSingles(ExcitationList):
         if energy_range is not None:
             try:
                 emin, emax = energy_range
+                emin /= Hartree
+                emax /= Hartree
             except:
-                emax = energy_range
+                emax = energy_range / Hartree
         self.istart = istart
         if jend is None:
             self.jend = sys.maxint
         else:
             self.jend = jend
         self.eps = eps
+
+        print "++++++", emin, emax
 
         # here, we need to take care of the spins also for
         # closed shell systems (Sz=0)
@@ -153,11 +159,22 @@ class KSSingles(ExcitationList):
         else:
             f = fh
 
-        f.readline()
-        n = int(f.readline())
+        try:
+            assert(f.readline().strip() == '# KSSingles')
+        except:
+            raise RuntimeError(f.name + ' is not a ' + 
+                               self.__class__.__name__ + ' data file')
+        words = f.readline().split()
+        if len(words) == 1:
+            # old output style for real wave functions (finite systems)
+            self.dtype = float
+        else:
+            self.dtype = complex
+            self.eps = float(f.readline())
+        n = int(words[0])
         self.npspins = 1
         for i in range(n):
-            kss = KSSingle(string=f.readline())
+            kss = KSSingle(string=f.readline(), dtype=self.dtype)
             self.append(kss)
             self.npspins = max(self.npspins, kss.pspin + 1)
         self.update()
@@ -263,10 +280,10 @@ class KSSingle(Excitation, PairDensity):
       magn = <i|[r x nabla]|a> / (2 m_e c)
     """
     def __init__(self, iidx=None, jidx=None, pspin=None, kpt=None,
-                 paw=None, string=None, fijscale=1):
+                 paw=None, string=None, fijscale=1, dtype=float):
         
         if string is not None:
-            self.fromstring(string)
+            self.fromstring(string, dtype)
             return None
 
         # normal entry
@@ -409,12 +426,18 @@ class KSSingle(Excitation, PairDensity):
     def copy(self):
         return KSSingle(string=self.outstring())
 
-    def fromstring(self,string):
+    def fromstring(self, string, dtype=float):
         l = string.split()
         self.i = int(l.pop(0))
         self.j = int(l.pop(0))
         self.pspin = int(l.pop(0))
         self.spin = int(l.pop(0))
+        if dtype == float:
+            self.k = 0
+            self.weight = 1
+        else:
+            self.k = int(l.pop(0))
+            self.weight = float(l.pop(0))
         self.energy = float(l.pop(0))
         self.fij = float(l.pop(0))
         if len(l) == 3: # old writing style
@@ -423,11 +446,11 @@ class KSSingle(Excitation, PairDensity):
             self.muv = None
             self.magn = None
         else:
-            self.mur = np.array([float(l.pop(0)) for i in range(3)])
+            self.mur = np.array([dtype(l.pop(0)) for i in range(3)])
             self.me = - self.mur * sqrt(self.energy * self.fij)
-            self.muv = np.array([float(l.pop(0)) for i in range(3)])
+            self.muv = np.array([dtype(l.pop(0)) for i in range(3)])
             if len(l): 
-                self.magn = np.array([float(l.pop(0)) for i in range(3)])
+                self.magn = np.array([dtype(l.pop(0)) for i in range(3)])
             else:
                 self.magn = None
         return None
@@ -437,8 +460,8 @@ class KSSingle(Excitation, PairDensity):
             string = '{:d} {:d}  {:d} {:d}  {:g} {:g}'.format(
                 self.i, self.j, self.pspin, self.spin, self.energy, self.fij)
         else:
-            string = '{:d} {:d}  {:d} {:d} {:d}  {:g} {:g}'.format(
-                self.i, self.j, self.pspin, self.spin, self.k,  
+            string = '{:d} {:d}  {:d} {:d} {:d} {:g}  {:g} {:g}'.format(
+                self.i, self.j, self.pspin, self.spin, self.k, self.weight,
                 self.energy, self.fij)
         string += '  '
 
@@ -463,7 +486,16 @@ class KSSingle(Excitation, PairDensity):
         string = "# <KSSingle> %d->%d %d(%d) eji=%g[eV]" % \
             (self.i, self.j, self.pspin, self.spin,
              self.energy * Hartree)
-        string += " (%g,%g,%g)" % (self.me[0], self.me[1], self.me[2])
+        if self.me.dtype == float:
+            string += ' (%g,%g,%g)' % (self.me[0], self.me[1], self.me[2])
+        else:
+            string += ' kpt={0:d} w={1:g}'.format(self.k, self.weight)
+            string += ' ('
+            for c, m in enumerate(self.me):
+                string += '{0.real:.5e}{0.imag:+.5e}j'.format(m)
+                if c < 2:
+                    string +=','
+            string +=')'
         return string
     
     #####################
