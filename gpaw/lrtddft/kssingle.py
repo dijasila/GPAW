@@ -6,6 +6,7 @@ from math import pi, sqrt
 
 import numpy as np
 from ase.units import Bohr, Hartree, alpha
+from ase.parallel import world, parprint
 
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
@@ -63,6 +64,12 @@ class KSSingles(ExcitationList):
         gsxc = calculator.hamiltonian.xc
         hybrid = hasattr(gsxc, 'hybrid') and gsxc.hybrid > 0.0
 #        assert(not hybrid)
+
+        # parallelization over spin or k-points is not yet supported
+        if calculator.wfs.gd.comm.size != world.size:
+            raise RuntimeError(
+                """Parallelization over spin or k-points is not yet supported.
+Use parallel={'domain': world.size} in the calculator.""")
 
         # XXX is this still needed ?
         error = calculator.wfs.eigensolver.error
@@ -145,6 +152,8 @@ class KSSingles(ExcitationList):
                             ks = KSSingle(i, j, pspin, kpt, paw,
                                               fijscale=fijscale)
                             self.append(ks)
+##                            parprint(('\r' + str(len(self))), end='')
+##                            sys.stdout.flush()
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
