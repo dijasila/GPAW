@@ -86,7 +86,7 @@ class FXCCorrelation(RPACorrelation):
         chi0._calculate(pd, chi0_swGG[0], chi0_swxvG[0], chi0_swvv[0],
                         Q_aGii, m1, m2, [0])
         if len(chi0_swGG) == 2:
-            chi0._calculate(pd, chi0_swGG[1], chi0_swxvG[1], chi0_swvv[0],
+            chi0._calculate(pd, chi0_swGG[1], chi0_swxvG[1], chi0_swvv[1],
                             Q_aGii, m1, m2, [1])
         prnt('E_c(q) = ', end='', file=self.fd)
 
