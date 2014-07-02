@@ -6,7 +6,7 @@ from math import pi, sqrt
 
 import numpy as np
 from ase.units import Bohr, Hartree, alpha
-from ase.parallel import world, parprint
+from ase.parallel import paropen
 
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
@@ -62,23 +62,14 @@ class KSSingles(ExcitationList):
 
         # deny hybrids as their empty states are wrong
         gsxc = calculator.hamiltonian.xc
-        hybrid = hasattr(gsxc, 'hybrid') and gsxc.hybrid > 0.0
+#        hybrid = hasattr(gsxc, 'hybrid') and gsxc.hybrid > 0.0
 #        assert(not hybrid)
 
-        # parallelization over spin or k-points is not yet supported
-        if calculator.wfs.gd.comm.size != world.size:
-            raise RuntimeError(
-                """Parallelization over spin or k-points is not yet supported.
-Use parallel={'domain': world.size} in the calculator.""")
+        # parallelization over bands not yet supported
+        assert(calculator.wfs.band_comm.size == 1)
 
-        # XXX is this still needed ?
-        error = calculator.wfs.eigensolver.error
-        criterion = (calculator.input_parameters['convergence']['eigenstates']
-                     * calculator.wfs.nvalence)
-        if error > criterion:
-            raise RuntimeError('The wfs error is larger than ' +
-                               'the convergence criterion (' +
-                               str(error) + ' > ' + str(criterion) + ')')
+        # ensure correctly initialized wave functions
+        calculator.converge_wave_functions()
 
         self.select(nspins, eps, istart, jend, energy_range)
 
@@ -134,26 +125,35 @@ Use parallel={'domain': world.size} in the calculator.""")
                 self.npspins = nspins
                 fijscale = 0.5
                 ispins = [0, 1]
-
-        # now select
+                
+        # now select in parallel
+        kpt_comm = self.calculator.wfs.kpt_comm
+        nbands = len(self.kpt_u[0].f_n)
+        dtype = self.calculator.wfs.dtype
         for ispin in ispins:
-            for kpt in self.kpt_u:
-                pspin = max(kpt.s, ispin)
-                f_n = kpt.f_n
-                eps_n = kpt.eps_n
-                for i, fi in enumerate(f_n):
-                    for j in range(i + 1, len(f_n)):
-                        fij = fi - f_n[j]
-                        epsij = eps_n[j] - eps_n[i]
-                        if (fij > eps and
-                            epsij >= emin and epsij < emax and
-                            i >= self.istart and j <= self.jend):
-                            # this is an accepted transition
-                            ks = KSSingle(i, j, pspin, kpt, paw,
-                                              fijscale=fijscale)
-                            self.append(ks)
-##                            parprint(('\r' + str(len(self))), end='')
-##                            sys.stdout.flush()
+            for ks in range(wfs.kd.nks):
+                myks = ks - wfs.kd.ks0
+                if myks >= 0 and myks < wfs.kd.mynks:
+                    kpt = self.kpt_u[myks]
+                    pspin = max(kpt.s, ispin)
+                else:
+                    kpt = None
+                    pspin = 0
+                pspin = kpt_comm.sum(pspin)
+                for i in range(nbands):
+                    for j in range(i + 1, nbands):
+                        take = 0
+                        if kpt is not None:
+                            fij = kpt.f_n[i] - kpt.f_n[j]
+                            epsij = kpt.eps_n[j] - kpt.eps_n[i]
+                            if (fij > eps and
+                                epsij >= emin and epsij < emax and
+                                i >= self.istart and j <= self.jend):
+                                take = 1
+                        if kpt_comm.sum(take):
+                            self.append(
+                                KSSingle(i, j, pspin, kpt, paw,
+                                         fijscale=fijscale, dtype=dtype))
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
@@ -169,7 +169,7 @@ Use parallel={'domain': world.size} in the calculator.""")
         try:
             assert(f.readline().strip() == '# KSSingles')
         except:
-            raise RuntimeError(f.name + ' is not a ' + 
+            raise RuntimeError(f.name + ' is not a ' +
                                self.__class__.__name__ + ' data file')
         words = f.readline().split()
         if len(words) == 1:
@@ -249,29 +249,28 @@ Use parallel={'domain': world.size} in the calculator.""")
         'fh' is a filehandle. This can be used to write into already
         opened files.
         """
-        if mpi.rank == mpi.MASTER:
-            if fh is None:
-                if filename.endswith('.gz'):
-                    import gzip
-                    f = gzip.open(filename, 'wb')
-                else:
-                    f = open(filename, 'w')
+        if fh is None:
+            if filename.endswith('.gz') and mpi.rank == mpi.MASTER:
+                import gzip
+                f = gzip.open(filename, 'wb')
             else:
-                f = fh
+                f = paropen(filename, 'w')
+        else:
+            f = fh
 
-            f.write('# KSSingles\n')
-            if self.dtype == float:
-                f.write('{0:d}\n'.format(len(self)))
-            else:
-                f.write('{0:d} complex\n'.format(len(self)))
-                f.write('{0}\n'.format(self.eps))
-            for kss in self:
-                f.write(kss.outstring())
+        f.write('# KSSingles\n')
+        if self.dtype == float:
+            f.write('{0:d}\n'.format(len(self)))
+        else:
+            f.write('{0:d} complex\n'.format(len(self)))
+            f.write('{0}\n'.format(self.eps))
+        kpt_comm = self.calculator.wfs.kpt_comm
+        for kss in self:
+            f.write(kss.outstring())
             
-            if fh is None:
-                f.close()
+        if fh is None:
+            f.close()
 
- 
 class KSSingle(Excitation, PairDensity):
     """Single Kohn-Sham transition containing all it's indicees
 
@@ -296,109 +295,125 @@ class KSSingle(Excitation, PairDensity):
         # normal entry
         
         PairDensity.__init__(self, paw)
+        kpt_comm = paw.wfs.kpt_comm
+        PairDensity.initialize(self, kpt, iidx, jidx, kpt_comm)
+
         wfs = paw.wfs
-        PairDensity.initialize(self, kpt, iidx, jidx)
+        gd = wfs.gd
 
         self.pspin = pspin
         
-        f = kpt.f_n
-        self.fij = (f[iidx] - f[jidx]) * fijscale
-        e = kpt.eps_n
-        self.energy = e[jidx] - e[iidx]
+        if kpt is not None:
+            eps = kpt.eps_n[jidx] - kpt.eps_n[iidx]
+            fij = (kpt.f_n[iidx] - kpt.f_n[jidx]) * fijscale
+        else:
+            eps = fij = 0.0
+
+        self.energy = kpt_comm.sum(eps)
+        self.fij = kpt_comm.sum(fij)
 
         # calculate matrix elements -----------
 
-        gd = wfs.gd
-        self.gd = gd
-
         # length form ..........................
 
-        # course grid contribution
-        # <i|r|j> is the negative of the dipole moment (because of negative
-        # e- charge)
-        me = - gd.calculate_dipole_moment(self.get())
+        if kpt is not None:
+            # course grid contribution
+            # <i|r|j> is the negative of the dipole moment (because of negative
+            # e- charge)
+            me = - gd.calculate_dipole_moment(self.get())
 
-        # augmentation contributions
-        ma = np.zeros(me.shape, dtype=me.dtype)
-        pos_av = paw.atoms.get_positions() / Bohr
-        for a, P_ni in kpt.P_ani.items():
-            Ra = pos_av[a]
-            Pi_i = P_ni[self.i].conj()
-            Pj_i = P_ni[self.j]
-            Delta_pL = wfs.setups[a].Delta_pL
-            ni = len(Pi_i)
-            ma0 = 0
-            ma1 = np.zeros(me.shape, dtype=me.dtype)
-            for i in range(ni):
-                for j in range(ni):
-                    pij = Pi_i[i] * Pj_i[j]
-                    ij = packed_index(i, j, ni)
-                    # L=0 term
-                    ma0 += Delta_pL[ij, 0] * pij
-                    # L=1 terms
-                    if wfs.setups[a].lmax >= 1:
-                        # see spherical_harmonics.py for
-                        # L=1:y L=2:z; L=3:x
-                        ma1 += np.array([Delta_pL[ij, 3], Delta_pL[ij, 1],
-                                         Delta_pL[ij, 2]]) * pij
-            ma += sqrt(4 * pi / 3) * ma1 + Ra * sqrt(4 * pi) * ma0
-        gd.comm.sum(ma)
-
-        self.me = sqrt(self.energy * self.fij) * (me + ma)
-
-        self.mur = - (me + ma)
+            # augmentation contributions
+            ma = np.zeros(me.shape, dtype=dtype)
+            pos_av = paw.atoms.get_positions() / Bohr
+            for a, P_ni in kpt.P_ani.items():
+                Ra = pos_av[a]
+                Pi_i = P_ni[self.i].conj()
+                Pj_i = P_ni[self.j]
+                Delta_pL = wfs.setups[a].Delta_pL
+                ni = len(Pi_i)
+                ma0 = 0
+                ma1 = np.zeros(me.shape, dtype=me.dtype)
+                for i in range(ni):
+                    for j in range(ni):
+                        pij = Pi_i[i] * Pj_i[j]
+                        ij = packed_index(i, j, ni)
+                        # L=0 term
+                        ma0 += Delta_pL[ij, 0] * pij
+                        # L=1 terms
+                        if wfs.setups[a].lmax >= 1:
+                            # see spherical_harmonics.py for
+                            # L=1:y L=2:z; L=3:x
+                            ma1 += np.array([Delta_pL[ij, 3], Delta_pL[ij, 1],
+                                             Delta_pL[ij, 2]]) * pij
+                ma += sqrt(4 * pi / 3) * ma1 + Ra * sqrt(4 * pi) * ma0
+            gd.comm.sum(ma)
+        
+            self.me = sqrt(self.energy * self.fij) * (me + ma)
+            self.mur = - (me + ma)
+        else:
+            self.me = np.zeros((3), dtype=dtype)
+            self.mur = np.zeros((3), dtype=dtype)
+        kpt_comm.sum(self.me)
+        kpt_comm.sum(self.mur)
 
         # velocity form .............................
 
-        me = np.zeros(self.mur.shape, dtype=self.mur.dtype)
+        me = np.zeros(self.mur.shape, dtype=dtype)
+        self.muv = np.zeros(self.mur.shape, dtype=dtype)
 
-        # get derivatives
-        dtype = self.wfj.dtype
-        dwfj_cg = gd.empty((3), dtype=dtype)
-        if not hasattr(gd, 'ddr'):
-            gd.ddr = [Gradient(gd, c, dtype=dtype).apply for c in range(3)]
-        for c in range(3):
-            gd.ddr[c](self.wfj, dwfj_cg[c], kpt.phase_cd)
-            me[c] = gd.integrate(self.wfi.conj() * dwfj_cg[c])
-
-        # augmentation contributions
-        ma = np.zeros(me.shape, dtype=me.dtype)
-        for a, P_ni in kpt.P_ani.items():
-            Pi_i = P_ni[self.i].conj()
-            Pj_i = P_ni[self.j]
-            nabla_iiv = paw.wfs.setups[a].nabla_iiv
+        if kpt is not None:
+            # get derivatives
+            dtype = self.wfj.dtype
+            dwfj_cg = gd.empty((3), dtype=dtype)
+            if not hasattr(gd, 'ddr'):
+                gd.ddr = [Gradient(gd, c, dtype=dtype).apply for c in range(3)]
             for c in range(3):
-                for i1, Pi in enumerate(Pi_i):
-                    for i2, Pj in enumerate(Pj_i):
-                        ma[c] += Pi * Pj * nabla_iiv[i1, i2, c]
-        gd.comm.sum(ma)
-        
-        self.muv = - (me + ma) / self.energy
+                gd.ddr[c](self.wfj, dwfj_cg[c], kpt.phase_cd)
+                me[c] = gd.integrate(self.wfi.conj() * dwfj_cg[c])
+
+            # augmentation contributions
+            ma = np.zeros(me.shape, dtype=me.dtype)
+            for a, P_ni in kpt.P_ani.items():
+                Pi_i = P_ni[self.i].conj()
+                Pj_i = P_ni[self.j]
+                nabla_iiv = paw.wfs.setups[a].nabla_iiv
+                for c in range(3):
+                    for i1, Pi in enumerate(Pi_i):
+                        for i2, Pj in enumerate(Pj_i):
+                            ma[c] += Pi * Pj * nabla_iiv[i1, i2, c]
+            gd.comm.sum(ma)
+
+            self.muv = - (me + ma) / self.energy
+        kpt_comm.sum(self.muv)
 
         # magnetic transition dipole ................
 
-        magn = np.zeros(me.shape, dtype=me.dtype)
-        r_cg, r2_g = coordinates(gd)
+        magn = np.zeros(me.shape, dtype=dtype)
+        self.magn = np.zeros(me.shape, dtype=dtype)
 
-        wfi_g = self.wfi.conj()
-        for ci in range(3):
-            cj = (ci + 1) % 3
-            ck = (ci + 2) % 3
-            magn[ci] = gd.integrate(wfi_g * r_cg[cj] * dwfj_cg[ck] -
-                                    wfi_g * r_cg[ck] * dwfj_cg[cj]  )
-        # augmentation contributions
-        ma = np.zeros(magn.shape, dtype=magn.dtype)
-        for a, P_ni in kpt.P_ani.items():
-            Pi_i = P_ni[self.i].conj()
-            Pj_i = P_ni[self.j]
-            rnabla_iiv = paw.wfs.setups[a].rnabla_iiv
-            for c in range(3):
-                for i1, Pi in enumerate(Pi_i):
-                    for i2, Pj in enumerate(Pj_i):
-                        ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
-        gd.comm.sum(ma)
-        
-        self.magn = -alpha / 2. * (magn + ma)
+        if kpt is not None:
+            r_cg, r2_g = coordinates(gd)
+
+            wfi_g = self.wfi.conj()
+            for ci in range(3):
+                cj = (ci + 1) % 3
+                ck = (ci + 2) % 3
+                magn[ci] = gd.integrate(wfi_g * r_cg[cj] * dwfj_cg[ck] -
+                                        wfi_g * r_cg[ck] * dwfj_cg[cj]  )
+            # augmentation contributions
+            ma = np.zeros(magn.shape, dtype=magn.dtype)
+            for a, P_ni in kpt.P_ani.items():
+                Pi_i = P_ni[self.i].conj()
+                Pj_i = P_ni[self.j]
+                rnabla_iiv = paw.wfs.setups[a].rnabla_iiv
+                for c in range(3):
+                    for i1, Pi in enumerate(Pi_i):
+                        for i2, Pj in enumerate(Pj_i):
+                            ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
+            gd.comm.sum(ma)
+
+            self.magn = -alpha / 2. * (magn + ma)
+        kpt_comm.sum(self.magn)
 
     def __add__(self, other):
         """Add two KSSingles"""
@@ -447,7 +462,7 @@ class KSSingle(Excitation, PairDensity):
             self.weight = float(l.pop(0))
         self.energy = float(l.pop(0))
         self.fij = float(l.pop(0))
-        if len(l) == 3: # old writing style
+        if len(l) == 3:  # old writing style
             self.me = np.array([float(l.pop(0)) for i in range(3)])
             self.mur = - self.me / sqrt(self.energy * self.fij)
             self.muv = None
@@ -490,7 +505,7 @@ class KSSingle(Excitation, PairDensity):
         return string
         
     def __str__(self):
-        string = "# <KSSingle> %d->%d %d(%d) eji=%g[eV]" % \
+        string = '# <KSSingle> %d->%d %d(%d) eji=%g[eV]' % \
             (self.i, self.j, self.pspin, self.spin,
              self.energy * Hartree)
         if self.me.dtype == float:
@@ -501,8 +516,8 @@ class KSSingle(Excitation, PairDensity):
             for c, m in enumerate(self.me):
                 string += '{0.real:.5e}{0.imag:+.5e}j'.format(m)
                 if c < 2:
-                    string +=','
-            string +=')'
+                    string += ','
+            string += ')'
         return string
     
     #####################
@@ -511,4 +526,3 @@ class KSSingle(Excitation, PairDensity):
 
     def get_weight(self):
         return self.fij
-

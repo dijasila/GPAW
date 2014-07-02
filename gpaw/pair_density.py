@@ -1,6 +1,7 @@
 from math import sqrt, pi
 import numpy as np
 
+import gpaw.mpi as mpi
 from gpaw.utilities import pack
 from gpaw.utilities.tools import pick
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
@@ -75,17 +76,27 @@ class PairDensity:
         self.setups = paw.wfs.setups
         self.spos_ac = paw.atoms.get_scaled_positions()
 ##        assert paw.wfs.dtype == float
-        
-    def initialize(self, kpt, i, j):
+
+    def initialize(self, kpt, i, j, kpt_comm=None):
         """initialize yourself with the wavefunctions"""
         self.i = i
         self.j = j
-        self.spin = kpt.s
-        self.k = kpt.k
-        self.P_ani = kpt.P_ani
-        
-        self.wfi = kpt.psit_nG[i]
-        self.wfj = kpt.psit_nG[j]
+        if kpt is not None:
+            self.spin = kpt.s
+            self.k = kpt.k
+            self.weight = kpt.weight
+            self.P_ani = kpt.P_ani
+            self.wfi = kpt.psit_nG[i]
+            self.wfj = kpt.psit_nG[j]
+        else:
+            self.spin = 0
+            self.k = 0
+            self.weight = 0.0
+
+        if kpt_comm is not None:
+            self.spin = kpt_comm.sum(self.spin)
+            self.k = kpt_comm.sum(self.k)
+            self.weight = kpt_comm.sum(self.weight)
 
     def get(self, finegrid=False):
         """Get pair density"""
