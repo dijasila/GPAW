@@ -190,7 +190,7 @@ Memory consumption:
     PW mode uses more memory and FD a lot more.
     
 Speed:
-    For small systems with many **k**-points, PW mode beats every thing else.
+    For small systems with many **k**-points, PW mode beats everything else.
     For larger systems LCAO will be most efficient.  Whereas PW beats FD for
     smallish systems, the opposite is true for very large systems where FD
     will parallelize better.
@@ -202,8 +202,8 @@ Absolute convergence:
     plane-wave cutoff energy, respectively.
     
 Eggbox errors:
-    With LCAO and FD mode you will get a small eggbox error:  you get a
-    small and periodic energy variation as you translate atoms and the period
+    With LCAO and FD mode you will get a small eggbox error: you get a
+    small periodic energy variation as you translate atoms and the period
     of the variation will be equal to the grid-spacing used.  GPAW's PW
     implementation doesn't have this problem.
 
