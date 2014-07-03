@@ -405,10 +405,9 @@ if mpi.size != 1 and not compiled_with_sl():
                 'ralda_energy_Si.py',
                 'bse_sym.py',
                 'bse_silicon.py',
-                'gwsi.py']
-
-if not compiled_with_sl():
-    exclude += ['pw/fulldiag.py',
+                'gwsi.py',
+                'rpa_energy_N2.py',
+                'pw/fulldiag.py',
                 'pw/fulldiagk.py',
                 'au02_absorption.py']
 
