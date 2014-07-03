@@ -459,7 +459,7 @@ class DielectricFunction:
            
 
 
-    def get_spatial_eels(self, qlist = [0,0,0], direction = 'x', 
+    def get_spatial_eels(self, q_c = [0, 0, 0], direction = 'x', 
                          w_max = None, filename = 'eels'):
         """
         The spatially resolved loss spectrum is calculated as the inverse fourier
@@ -472,12 +472,10 @@ class DielectricFunction:
         Returns : real space grid, frequency points, EELS(w,r)   
         """
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(qlist[0])
-        w_w = self.chi0.omega_w * Hartree
-        if w_max:
-            w_w = w_w[np.where(w_w < w_max)]
-        Nw = len(w_w)
-
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        e_wGG = self.get_dielectric_matrix(xc = 'RPA', q_c = q_c,
+                                           wigner_seitz_truncation=True,
+                                           symmetric=False)
         r = pd.gd.get_grid_point_coordinates()
         ix = r.shape[1]/2
         iy = r.shape[2]/2
@@ -492,57 +490,29 @@ class DielectricFunction:
             r = r[:,ix,iy,:]
             perpdir = [0,1]
 
-        nG =  chi0_wGG.shape[1]
+        nG =  e_wGG.shape[1]
         Gvec = pd.G_Qv[pd.Q_qG[0]]
         Glist = []
-        Glistp = []
         # Only use G-vectors that are zero along electron beam due to \delta(w-G\dot v_e )
         for iG in range(nG):
             if Gvec[iG, perpdir[0]] == 0 and Gvec[iG, perpdir[1]] == 0:
                 Glist.append(iG)
-            if Gvec[iG, perpdir[1]] == 0:
-                Glistp.append(iG)
+        qG = Gvec[Glist] + pd.K_qv
+        w_w = self.chi0.omega_w * Hartree
+        if w_max:
+            w_w = w_w[np.where(w_w < w_max)]
+        Nw = len(w_w)
+        qGr = np.inner(qG,r.T).T
+        phase = np.exp(1j * qGr)
         
-        E_rr = np.zeros([r.shape[1],r.shape[1]])
+        V_G = (4 * pi)/np.diagonal(np.inner(qG, qG))
+        phase2 = np.exp(-1j * qGr)*V_G 
+        E_wrr = np.zeros([Nw,r.shape[1],r.shape[1]])
         E_wr = np.zeros([Nw,r.shape[1]])
-        for iq in range(1):#qlist.shape[0]):
-            pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(qlist[iq])
-            e_wGG = self.get_dielectric_matrix(xc = 'RPA', q_c = qlist[iq],
-                                               wigner_seitz_truncation=True,
-                                               symmetric=False)
-        
-            
-#            qG = Gvec[Glist] + pd.K_qv       
-#            qGr = np.inner(qG,r.T).T
-#            qGp = Gvec[Glistp] + pd.K_qv       
-#            qGpr = np.inner(qG,r.T).T
-            qG = Gvec+ pd.K_qv       
-            qGr = np.inner(qG,r.T).T
-            #qGp = Gvec + pd.K_qv       
-            #qGpr = np.inner(qG,r.T).T
-            phase = np.exp(1j * qGr)
-        
-            V_G = (4 * pi)/np.diagonal(np.inner(qG, qG))
-            phase2 = np.exp(-1j * qGr)*V_G
-            #print(phase.shape)
-            #print(phase2.shape)
-            #print(e_wGG[0,0,0].shape)
-        
-#            for i in range(Nw):
-#                Vchi_GG =  np.linalg.inv(e_wGG[i, np.array(Glist),:][:,np.array(Glistp)])-np.eye(len(Glist)) 
-#                E_rr = -np.imag(np.dot(np.dot(phase, Vchi_GG),phase2.T)) #Fourier transform
-#                E_wr[i] += np.diagonal(E_rr)
-#             E_rr = -np.imag(np.dot(np.dot(phase, Vchi_GG),phase2.T)) #Fourier transform
-#                E_wr[i] += np.diagonal(E_rr)
-             
-            for i in range(Nw):
-                print(i)
-                Vchi_GG =  np.linalg.inv(e_wGG[i])-np.eye(nG) 
-                for iG in Glist:
-                    for iGp in Glist:
-                        E_wr[i] += -np.imag(phase[:,iG]*Vchi_GG[iG,iGp]*phase2[:,iGp])
-
-         
+        for i in range(Nw):
+            Vchi_GG =  np.linalg.inv(e_wGG[i, np.array(Glist),:][:,np.array(Glist)])-np.eye(len(Glist)) 
+            E_wrr[i] = -np.imag(np.dot(np.dot(phase, Vchi_GG),phase2.T)) #Fourier transform
+            E_wr[i] = np.diagonal(E_wrr[i])
         pickle.dump((r*Bohr, w_w, E_wr), open('%s.pickle'%filename, 'wb'), 
                     pickle.HIGHEST_PROTOCOL)
                     
