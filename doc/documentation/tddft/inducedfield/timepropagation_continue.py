@@ -11,7 +11,7 @@ ind = TDDFTInducedField(filename='na2_td.ind',
 
 # Continue propagation as usual
 time_step = 20.0
-iterations = 250
+iterations = 50
 td_calc.propagate(time_step, iterations, 'na2_td_dm.dat', 'na2_td.gpw')
 
 # Save TDDFT and InducedField objects

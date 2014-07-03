@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# creates:  na2_td_spectrum.png  na2_td_Ffe.png  na2_td_Frho.png
 import numpy as np
 import matplotlib.pyplot as plt
 

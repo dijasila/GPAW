@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# creates:  na2_casida_Ffe.png  na2_casida_Frho.png
 import numpy as np
 import matplotlib.pyplot as plt
 
