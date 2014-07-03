@@ -132,6 +132,110 @@ class Heterostructure:
 
 
 
+"""TOOLS"""
+
+def get_chi0M_multipole(filenames, static_limit = False, dipole = True, name = 'chi0M.pckl'):
+    omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(open(filenames[0]))
+    nq = len(filenames)
+    nw = len(omega_w)
+    q_points_abs = []
+    chi0M_monopole_qw = np.zeros([nq, nw], dtype=complex)
+    chi0M_dipole_qw = np.zeros([nq,nw], dtype=complex)
+      
+    L= pd.gd.cell_cv[2,2]
+    npw =  chi0_wGG.shape[1]
+    
+    Gvec = pd.G_Qv[pd.Q_qG[0]]
+    Glist = []
+    
+    for iG in range(npw):
+        if Gvec[iG, 2] == 0:
+            Glist.append(iG)
+    npw2D = len(Glist)
+
+    for iq in range(nq):
+        if not iq == 0:
+            omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(open(filenames[iq]))    
+        q = pd.K_qv
+        q_abs = np.linalg.norm(q)
+        q_points_abs.append(q_abs)
+        qG2D = Gvec[Glist] + q 
+        
+        # ---------------------------------------
+        # Coulomb kernel 2D Monopole and Dipole
+        # ---------------------------------------
+        kernel2D_monopole_GG = np.zeros((npw2D, npw2D), dtype=complex)
+        kernel2D_dipole_GG = np.zeros((npw2D, npw2D), dtype=complex)
+        
+        for iG in range(npw2D):
+            qG = qG2D[iG] #= np.dot(q_points[iq] + Gvec2D_Gc[iG], rec_cell)
+            qG_abs = np.linalg.norm(qG)  
+            kernel2D_monopole_GG[iG,iG] = 2. * np.pi / qG_abs
+            kernel2D_dipole_GG[iG,iG] = 2. * np.pi * qG_abs           
+       
+        # ---- Chi0_monopole ----#
+        chi02D_monopole_wGG = np.zeros((nw, npw2D,npw2D), dtype=complex)
+        iGtemp=0
+        for iG in Glist:
+            iGtemp1=0
+            for iG1 in Glist:
+                chi02D_monopole_wGG[:,iGtemp,iGtemp1] = L*chi0_wGG[:,iG,iG1]
+                iGtemp1 += 1
+            iGtemp += 1
+     
+        # Including local field effects
+        for iw in range(nw):
+            eps2D_monopole_GG = np.eye(npw2D,npw2D) - np.dot(kernel2D_monopole_GG,chi02D_monopole_wGG[iw])
+            eps2D_monopole_inv_GG = np.linalg.inv(eps2D_monopole_GG)
+            chi0M_monopole_qw[iq,iw] = chi02D_monopole_wGG[iw,0,0]#q_abs/2./np.pi*(1.-1./eps2D_monopole_inv_GG[0,0])    
+
+        # ---------------------------------------
+        # Chi0M Dipole
+        # ---------------------------------------
+        chi02D_dipole_wGG = np.zeros((nw,npw2D,npw2D), dtype=complex)
+
+        iGtemp = 0
+        for iG in range(0,40):#npw):  
+            iGtemp1 = 0        
+            for iG1 in range(0,40):#npw):
+                G_perp = 2*np.pi*Gvec[iG,2]/L+10e-8
+                G1_perp = 2*np.pi*Gvec[iG1,2]/L+10e-8
+                factor1 = 2.*(L/2.+1j/G_perp)*np.exp(1j*G_perp*L/2.)*np.sin(G_perp*L/2.)/G_perp - 2j*L/2.*np.exp(1j*G_perp*L/2.)*np.cos(G_perp*L/2.)/G_perp
+                factor2 = 2.*(L/2.-1j/G1_perp)*np.exp(-1j*G1_perp*L/2.)*np.sin(G1_perp*L/2.)/G1_perp + 2j*L/2.*np.exp(-1j*G1_perp*L/2.)*np.cos(G_perp*L/2.)/G_perp
+                chi02D_dipole_wGG[:,iGtemp,iGtemp1] += 1./L*factor1*factor2*chi0_wGG[:,iG,iG1]          
+                if iG1 != npw-1 and Gvec[iG1+1,2] == 0:
+                    iGtemp1 += 1
+            if iG != npw-1 and Gvec[iG1+1,2] == 0:
+                iGtemp += 1
+    
+        for iw in range(nw):
+            eps2D_dipole_GG = np.eye(npw2D,npw2D) - np.dot(kernel2D_dipole_GG,chi02D_dipole_wGG[iw])
+            eps2D_dipole_inv_GG = np.linalg.inv(eps2D_dipole_GG)
+            chi0M_dipole_qw[iq,iw] = chi02D_dipole_wGG[iw,0,0]#1./q_abs/2./np.pi*(1.-1./eps2D_dipole_inv_GG[0,0])
+    
+    
+    pickle.dump((q_points_abs, omega_w*Hartree, chi0M_monopole_qw, chi0M_monopole_qw), open(name, 'w'))
+    return q_points_abs, omega_w*Hartree, chi0M_monopole_qw, chi0M_dipole_qw
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
