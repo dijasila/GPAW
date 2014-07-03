@@ -17,7 +17,7 @@ calc.write('na2_gs.gpw', mode='all')
 
 # Standard time-propagation initialization
 time_step = 10.0
-iterations = 50
+iterations = 500
 kick_strength = [1.0e-3, 0.0, 0.0]
 td_calc = TDDFT('na2_gs.gpw')
 td_calc.absorption_kick(kick_strength=kick_strength)

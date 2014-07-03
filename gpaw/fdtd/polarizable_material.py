@@ -109,7 +109,7 @@ class PolarizableMaterial():
             w['classmat.component_%i.name' % ind] = component.name
             w['classmat.component_%i.arguments' % ind] = component.arguments
             w['classmat.component_%i.eps_infty' % ind] = component.permittivity.eps_infty
-            w['classmat.component_%i.eps' % ind] = component.permittivity.data()
+            w['classmat.component_%i.eps' % ind] = component.permittivity.data_eVA()
             ind += 1
         
             
@@ -604,7 +604,7 @@ class Permittivity:
             assert(fname==None)
             self.Nj = len(data)
             for v in range(self.Nj):
-                self.oscillators.append(LorentzOscillator(data[v][0], data[v][1], data[v][2]))
+                self.oscillators.append(LorentzOscillator(data[v][0]/Hartree, data[v][1]/Hartree, data[v][2]/Hartree/Hartree))
             return
 
         # Input as filename
@@ -629,11 +629,14 @@ class Permittivity:
     
     def data(self):
         return [[osc.bar_omega, osc.alpha, osc.beta] for osc in self.oscillators]
+    
+    def data_eVA(self):
+        return [[osc.bar_omega*Hartree, osc.alpha*Hartree, osc.beta*Hartree*Hartree] for osc in self.oscillators]
 
 # Dieletric function that renormalizes the static permittivity to the requested value (usually epsZero) 
 class PermittivityPlus(Permittivity):
-    def __init__(self, fname=None, eps_infty = _eps0_au, epsZero = _eps0_au, newbar_omega = 0.01, new_alpha = 0.10 ):
-        Permittivity.__init__(self, fname=fname, data=None, eps_infty=eps_infty)
+    def __init__(self, fname=None, data=None, eps_infty = _eps0_au, epsZero = _eps0_au, newbar_omega = 0.01, new_alpha = 0.10, **kwargs):
+        Permittivity.__init__(self, fname=fname, data=data, eps_infty=eps_infty)
         parprint("Original Nj=%i and eps(0) = %12.6f + i*%12.6f" % (self.Nj, self.value(0.0).real, self.value(0.0).imag))
         
         # Convert given values from eVs to Hartrees
