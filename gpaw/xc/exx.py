@@ -45,15 +45,16 @@ def select_kpts(kpts, calc):
         return kpts
     
     # Find k-points:
-    bzk_kc = calc.get_bz_k_points()
+    bzk_Kc = calc.get_bz_k_points()
     indices = []
     for k_c in kpts:
-        d_kc = bzk_kc - k_c
-        d_kc -= d_kc.round()
-        k = abs(d_kc).sum(1).argmin()
-        if not np.allclose(d_kc[k], 0):
+        d_Kc = bzk_Kc - k_c
+        d_Kc -= d_Kc.round()
+        K = abs(d_Kc).sum(1).argmin()
+        if not np.allclose(d_Kc[K], 0):
             raise ValueError('Could not find k-point: {0}'.format(k_c))
-        indices.append(calc.wfs.kd.bz2ibz_k[k])
+        k = calc.wfs.kd.bz2ibz_k[K]
+        indices.append(k)
     return indices
     
     
@@ -117,7 +118,7 @@ class EXX(PairDensity):
         self.exxcc = 0.0     # core-core
 
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
-        self.distribute_k_points_and_bands(self.nocc2)
+        self.distribute_k_points_and_bands(0, self.nocc2)
         
         # All occupied states:
         self.mykpts = [self.get_k_point(s, K, n1, n2)

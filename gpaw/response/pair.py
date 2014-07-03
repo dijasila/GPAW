@@ -32,8 +32,7 @@ class KPoint:
         self.f_n = f_n          # occupation numbers
         self.P_ani = P_ani      # PAW projections
         self.shift_c = shift_c  # long story - see the
-                                # PairDensity.construct_symmetry_operators()
-                                # method
+        # PairDensity.construct_symmetry_operators() method
 
 
 class PairDensity:
@@ -126,7 +125,7 @@ class PairDensity:
         print('Total number of bands:', self.calc.wfs.bd.nbands,
               file=self.fd)
         
-    def distribute_k_points_and_bands(self, nbands):
+    def distribute_k_points_and_bands(self, band1, band2, kpts=None):
         """Distribute spins, k-points and bands.
         
         nbands: int
@@ -136,11 +135,16 @@ class PairDensity:
         tuples that this process handles.
         """
         
+        wfs = self.calc.wfs
+
+        if kpts is None:
+            kpts = range(wfs.kd.nbzkpts)
+            
+        nbands = band2 - band1
         size = self.kncomm.size
         rank = self.kncomm.rank
-        wfs = self.calc.wfs
         ns = wfs.nspins
-        nk = wfs.kd.nbzkpts
+        nk = len(kpts)
         n = (ns * nk * nbands + size - 1) // size
         i1 = rank * n
         i2 = min(i1 + n, ns * nk * nbands)
@@ -148,11 +152,11 @@ class PairDensity:
         self.mysKn1n2 = []
         i = 0
         for s in range(ns):
-            for K in range(nk):
+            for K in kpts:
                 n1 = min(max(0, i1 - i), nbands)
                 n2 = min(max(0, i2 - i), nbands)
                 if n1 != n2:
-                    self.mysKn1n2.append((s, K, n1, n2))
+                    self.mysKn1n2.append((s, K, n1 + band1, n2 + band1))
                 i += nbands
 
         print('BZ k-points:', self.calc.wfs.kd.description, file=self.fd)

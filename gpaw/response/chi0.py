@@ -69,7 +69,7 @@ class Chi0(PairDensity):
 
         # Occupied states:
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
-        self.distribute_k_points_and_bands(self.nocc2)
+        self.distribute_k_points_and_bands(0, self.nocc2)
         self.mykpts = None
 
         wfs = self.calc.wfs
@@ -158,6 +158,7 @@ class Chi0(PairDensity):
         optical_limit = np.allclose(q_c, 0.0)
         print('\n    Starting summation', file=self.fd)
 
+        self.timer.start('Loop')
         # kpt1 occupied and kpt2 empty:
         for kn, (s, K, n1, n2) in enumerate(self.mysKn1n2):
             if self.keep_occupied_states:
@@ -168,10 +169,13 @@ class Chi0(PairDensity):
             if not kpt1.s in spins:
                 continue
                 
-            K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(kpt1.s, K2, m1, m2, block=True)
-            Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
-                                       kpt1.shift_c - kpt2.shift_c)
+            with self.timer('k+q'):
+                K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
+            with self.timer('get k2'):
+                kpt2 = self.get_k_point(kpt1.s, K2, m1, m2, block=True)
+            with self.timer('fft-indices'):
+                Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
+                                           kpt1.shift_c - kpt2.shift_c)
             
             for n in range(kpt1.n2 - kpt1.n1):
                 eps1 = kpt1.eps_n[n]
@@ -188,9 +192,11 @@ class Chi0(PairDensity):
 
                 deps_m = (eps1 - kpt2.eps_n)[m]
                 f1 = kpt1.f_n[n]
-                ut1cc_R = kpt1.ut_nR[n].conj()
-                C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
-                          for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+                with self.timer('conj'):
+                    ut1cc_R = kpt1.ut_nR[n].conj()
+                with self.timer('paw'):
+                    C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
+                              for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
                 n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                      pd, Q_G)[m]
                 df_m = (f1 - kpt2.f_n)[m]
@@ -218,6 +224,8 @@ class Chi0(PairDensity):
                       '\n        mem. used.: ' +
                       '%f M / cpu' % (maxrss() / 1024**2),
                       file=self.fd)
+                
+        self.timer.stop('Loop')
                 
         print('    %s, Finished kpoint sum' % ctime() +
               '\n        mem. used.: ' +
@@ -295,6 +303,7 @@ class Chi0(PairDensity):
 
     @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
+        self.timer.start('prep')
         o_m = abs(deps_m)
         w_m = (o_m / self.domega0 /
                (1 + self.alpha * o_m / self.omegamax)).astype(int)
@@ -303,12 +312,14 @@ class Chi0(PairDensity):
         p_m = self.prefactor * abs(df_m) / (o2_m - o1_m)**2  # XXX abs()?
         p1_m = p_m * (o2_m - o_m)
         p2_m = p_m * (o_m - o1_m)
+        self.timer.stop('prep')
 
         if self.blockcomm.size > 1:
             for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-                myn_G = n_G[self.Ga:self.Gb]
-                chi0_wGG[w] += p1 * np.outer(myn_G, n_G.conj())
-                chi0_wGG[w + 1] += p2 * np.outer(myn_G, n_G.conj())
+                myn_G = n_G[self.Ga:self.Gb].reshape((-1, 1))
+                gemm(p1, n_G.reshape((-1, 1)), myn_G, 1.0, chi0_wGG[w], 'c')
+                gemm(p2, n_G.reshape((-1, 1)), myn_G, 1.0, chi0_wGG[w + 1], 'c')
+                #chi0_wGG[w + 1] += p2 * np.outer(myn_G, n_G.conj())
             return
             
         for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):

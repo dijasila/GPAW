@@ -71,7 +71,7 @@ class G0W0(PairDensity):
         self.nbands = nbands
 
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
-        self.distribute_k_points_and_bands(nbands)
+        self.distribute_k_points_and_bands(0, nbands)
         
         # Find q-vectors and weights in the IBZ:
         kd = self.calc.wfs.kd
