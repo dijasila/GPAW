@@ -126,34 +126,50 @@ class KSSingles(ExcitationList):
                 fijscale = 0.5
                 ispins = [0, 1]
                 
-        # now select in parallel
         kpt_comm = self.calculator.wfs.kpt_comm
         nbands = len(self.kpt_u[0].f_n)
-        dtype = self.calculator.wfs.dtype
+
+        # select
+        take = np.zeros((max(wfs.nspins, self.nvspins),
+                         wfs.kd.nks, nbands, nbands), dtype=int)
         for ispin in ispins:
             for ks in range(wfs.kd.nks):
                 myks = ks - wfs.kd.ks0
                 if myks >= 0 and myks < wfs.kd.mynks:
                     kpt = self.kpt_u[myks]
                     pspin = max(kpt.s, ispin)
-                else:
-                    kpt = None
-                    pspin = 0
-                pspin = kpt_comm.sum(pspin)
-                for i in range(nbands):
-                    for j in range(i + 1, nbands):
-                        take = 0
-                        if kpt is not None:
+                    for i in range(nbands):
+                        for j in range(i + 1, nbands):
                             fij = kpt.f_n[i] - kpt.f_n[j]
                             epsij = kpt.eps_n[j] - kpt.eps_n[i]
                             if (fij > eps and
                                 epsij >= emin and epsij < emax and
                                 i >= self.istart and j <= self.jend):
-                                take = 1
-                        if kpt_comm.sum(take):
-                            self.append(
-                                KSSingle(i, j, pspin, kpt, paw,
-                                         fijscale=fijscale, dtype=dtype))
+                                take[pspin, ks, i, j] = 1
+        kpt_comm.sum(take)
+
+        # calculate in parallel
+        for ispin in ispins:
+            for ks in range(wfs.kd.nks):
+                myks = ks - wfs.kd.ks0
+                for i in range(nbands):
+                    for j in range(i + 1, nbands):
+                        if take[pspin, ks, i, j]:
+                            if myks >= 0 and myks < wfs.kd.mynks:
+                                kpt = self.kpt_u[myks]
+                                pspin = max(kpt.s, ispin)
+                                self.append(
+                                    KSSingle(i, j, pspin, kpt, paw,
+                                             fijscale=fijscale, 
+                                             dtype=self.dtype))
+                            else:
+                                self.append(KSSingle(i, j, pspin=0, 
+                                                     kpt=None, paw=paw, 
+                                                     dtype=self.dtype))
+
+        # distribute
+        for kss in self:
+            kss.distribute()
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
@@ -295,125 +311,134 @@ class KSSingle(Excitation, PairDensity):
         # normal entry
         
         PairDensity.__init__(self, paw)
-        kpt_comm = paw.wfs.kpt_comm
-        PairDensity.initialize(self, kpt, iidx, jidx, kpt_comm)
-
-        wfs = paw.wfs
-        gd = wfs.gd
+        PairDensity.initialize(self, kpt, iidx, jidx)
 
         self.pspin = pspin
         
-        if kpt is not None:
-            eps = kpt.eps_n[jidx] - kpt.eps_n[iidx]
-            fij = (kpt.f_n[iidx] - kpt.f_n[jidx]) * fijscale
-        else:
-            eps = fij = 0.0
+        self.energy = 0.0
+        self.fij = 0.0
 
-        self.energy = kpt_comm.sum(eps)
-        self.fij = kpt_comm.sum(fij)
+        self.me = np.zeros((3), dtype=dtype)
+        self.mur = np.zeros((3), dtype=dtype)
+        self.muv = np.zeros((3), dtype=dtype)
+        self.magn = np.zeros((3), dtype=dtype)
 
+        self.kpt_comm = paw.wfs.kpt_comm
+
+        # leave empty if not my kpt
+        if kpt is None:
+            return
+        
+        wfs = paw.wfs
+        gd = wfs.gd
+
+        self.energy = kpt.eps_n[jidx] - kpt.eps_n[iidx]
+        self.fij = (kpt.f_n[iidx] - kpt.f_n[jidx]) * fijscale
+        
         # calculate matrix elements -----------
 
         # length form ..........................
 
-        if kpt is not None:
-            # course grid contribution
-            # <i|r|j> is the negative of the dipole moment (because of negative
-            # e- charge)
-            me = - gd.calculate_dipole_moment(self.get())
+        # course grid contribution
+        # <i|r|j> is the negative of the dipole moment (because of negative
+        # e- charge)
+        me = - gd.calculate_dipole_moment(self.get())
 
-            # augmentation contributions
-            ma = np.zeros(me.shape, dtype=dtype)
-            pos_av = paw.atoms.get_positions() / Bohr
-            for a, P_ni in kpt.P_ani.items():
-                Ra = pos_av[a]
-                Pi_i = P_ni[self.i].conj()
-                Pj_i = P_ni[self.j]
-                Delta_pL = wfs.setups[a].Delta_pL
-                ni = len(Pi_i)
-                ma0 = 0
-                ma1 = np.zeros(me.shape, dtype=me.dtype)
-                for i in range(ni):
-                    for j in range(ni):
-                        pij = Pi_i[i] * Pj_i[j]
-                        ij = packed_index(i, j, ni)
-                        # L=0 term
-                        ma0 += Delta_pL[ij, 0] * pij
-                        # L=1 terms
-                        if wfs.setups[a].lmax >= 1:
-                            # see spherical_harmonics.py for
-                            # L=1:y L=2:z; L=3:x
-                            ma1 += np.array([Delta_pL[ij, 3], Delta_pL[ij, 1],
-                                             Delta_pL[ij, 2]]) * pij
-                ma += sqrt(4 * pi / 3) * ma1 + Ra * sqrt(4 * pi) * ma0
-            gd.comm.sum(ma)
-        
-            self.me = sqrt(self.energy * self.fij) * (me + ma)
-            self.mur = - (me + ma)
-        else:
-            self.me = np.zeros((3), dtype=dtype)
-            self.mur = np.zeros((3), dtype=dtype)
-        kpt_comm.sum(self.me)
-        kpt_comm.sum(self.mur)
+        # augmentation contributions
+        ma = np.zeros(me.shape, dtype=dtype)
+        pos_av = paw.atoms.get_positions() / Bohr
+        for a, P_ni in kpt.P_ani.items():
+            Ra = pos_av[a]
+            Pi_i = P_ni[self.i].conj()
+            Pj_i = P_ni[self.j]
+            Delta_pL = wfs.setups[a].Delta_pL
+            ni = len(Pi_i)
+            ma0 = 0
+            ma1 = np.zeros(me.shape, dtype=me.dtype)
+            for i in range(ni):
+                for j in range(ni):
+                    pij = Pi_i[i] * Pj_i[j]
+                    ij = packed_index(i, j, ni)
+                    # L=0 term
+                    ma0 += Delta_pL[ij, 0] * pij
+                    # L=1 terms
+                    if wfs.setups[a].lmax >= 1:
+                        # see spherical_harmonics.py for
+                        # L=1:y L=2:z; L=3:x
+                        ma1 += np.array([Delta_pL[ij, 3], Delta_pL[ij, 1],
+                                         Delta_pL[ij, 2]]) * pij
+            ma += sqrt(4 * pi / 3) * ma1 + Ra * sqrt(4 * pi) * ma0
+        gd.comm.sum(ma)
+
+        self.me = sqrt(self.energy * self.fij) * (me + ma)
+        self.mur = - (me + ma)
 
         # velocity form .............................
 
         me = np.zeros(self.mur.shape, dtype=dtype)
-        self.muv = np.zeros(self.mur.shape, dtype=dtype)
 
-        if kpt is not None:
-            # get derivatives
-            dtype = self.wfj.dtype
-            dwfj_cg = gd.empty((3), dtype=dtype)
-            if not hasattr(gd, 'ddr'):
-                gd.ddr = [Gradient(gd, c, dtype=dtype).apply for c in range(3)]
+        # get derivatives
+        dtype = self.wfj.dtype
+        dwfj_cg = gd.empty((3), dtype=dtype)
+        if not hasattr(gd, 'ddr'):
+            gd.ddr = [Gradient(gd, c, dtype=dtype).apply for c in range(3)]
+        for c in range(3):
+            gd.ddr[c](self.wfj, dwfj_cg[c], kpt.phase_cd)
+            me[c] = gd.integrate(self.wfi.conj() * dwfj_cg[c])
+
+        # augmentation contributions
+        ma = np.zeros(me.shape, dtype=me.dtype)
+        for a, P_ni in kpt.P_ani.items():
+            Pi_i = P_ni[self.i].conj()
+            Pj_i = P_ni[self.j]
+            nabla_iiv = paw.wfs.setups[a].nabla_iiv
             for c in range(3):
-                gd.ddr[c](self.wfj, dwfj_cg[c], kpt.phase_cd)
-                me[c] = gd.integrate(self.wfi.conj() * dwfj_cg[c])
+                for i1, Pi in enumerate(Pi_i):
+                    for i2, Pj in enumerate(Pj_i):
+                        ma[c] += Pi * Pj * nabla_iiv[i1, i2, c]
+        gd.comm.sum(ma)
 
-            # augmentation contributions
-            ma = np.zeros(me.shape, dtype=me.dtype)
-            for a, P_ni in kpt.P_ani.items():
-                Pi_i = P_ni[self.i].conj()
-                Pj_i = P_ni[self.j]
-                nabla_iiv = paw.wfs.setups[a].nabla_iiv
-                for c in range(3):
-                    for i1, Pi in enumerate(Pi_i):
-                        for i2, Pj in enumerate(Pj_i):
-                            ma[c] += Pi * Pj * nabla_iiv[i1, i2, c]
-            gd.comm.sum(ma)
-
-            self.muv = - (me + ma) / self.energy
-        kpt_comm.sum(self.muv)
+        self.muv = - (me + ma) / self.energy
 
         # magnetic transition dipole ................
 
         magn = np.zeros(me.shape, dtype=dtype)
-        self.magn = np.zeros(me.shape, dtype=dtype)
+        r_cg, r2_g = coordinates(gd)
 
-        if kpt is not None:
-            r_cg, r2_g = coordinates(gd)
+        wfi_g = self.wfi.conj()
+        for ci in range(3):
+            cj = (ci + 1) % 3
+            ck = (ci + 2) % 3
+            magn[ci] = gd.integrate(wfi_g * r_cg[cj] * dwfj_cg[ck] -
+                                    wfi_g * r_cg[ck] * dwfj_cg[cj]  )
+        # augmentation contributions
+        ma = np.zeros(magn.shape, dtype=magn.dtype)
+        for a, P_ni in kpt.P_ani.items():
+            Pi_i = P_ni[self.i].conj()
+            Pj_i = P_ni[self.j]
+            rnabla_iiv = paw.wfs.setups[a].rnabla_iiv
+            for c in range(3):
+                for i1, Pi in enumerate(Pi_i):
+                    for i2, Pj in enumerate(Pj_i):
+                        ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
+        gd.comm.sum(ma)
 
-            wfi_g = self.wfi.conj()
-            for ci in range(3):
-                cj = (ci + 1) % 3
-                ck = (ci + 2) % 3
-                magn[ci] = gd.integrate(wfi_g * r_cg[cj] * dwfj_cg[ck] -
-                                        wfi_g * r_cg[ck] * dwfj_cg[cj]  )
-            # augmentation contributions
-            ma = np.zeros(magn.shape, dtype=magn.dtype)
-            for a, P_ni in kpt.P_ani.items():
-                Pi_i = P_ni[self.i].conj()
-                Pj_i = P_ni[self.j]
-                rnabla_iiv = paw.wfs.setups[a].rnabla_iiv
-                for c in range(3):
-                    for i1, Pi in enumerate(Pi_i):
-                        for i2, Pj in enumerate(Pj_i):
-                            ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
-            gd.comm.sum(ma)
+        self.magn = -alpha / 2. * (magn + ma)
 
-            self.magn = -alpha / 2. * (magn + ma)
-        kpt_comm.sum(self.magn)
+    def distribute(self):
+        """Distribute results to all cores."""
+        self.spin = self.kpt_comm.sum(self.spin)
+        self.pspin = self.kpt_comm.sum(self.pspin)
+        self.k = self.kpt_comm.sum(self.k)
+        self.weight = self.kpt_comm.sum(self.weight)
+        self.energy = self.kpt_comm.sum(self.energy)
+        self.fij = self.kpt_comm.sum(self.fij)
+
+        self.kpt_comm.sum(self.me)
+        self.kpt_comm.sum(self.mur)
+        self.kpt_comm.sum(self.muv)
+        self.kpt_comm.sum(self.magn)
+        
 
     def __add__(self, other):
         """Add two KSSingles"""
@@ -479,10 +504,10 @@ class KSSingle(Excitation, PairDensity):
 
     def outstring(self):
         if self.mur.dtype == float:
-            string = '{:d} {:d}  {:d} {:d}  {:g} {:g}'.format(
+            string = '{0:d} {1:d}  {2:d} {3:d}  {4:g} {5:g}'.format(
                 self.i, self.j, self.pspin, self.spin, self.energy, self.fij)
         else:
-            string = '{:d} {:d}  {:d} {:d} {:d} {:g}  {:g} {:g}'.format(
+            string = '{0:d} {1:d}  {2:d} {3:d} {4:d} {5:g}  {6:g} {7:g}'.format(
                 self.i, self.j, self.pspin, self.spin, self.k, self.weight,
                 self.energy, self.fij)
         string += '  '

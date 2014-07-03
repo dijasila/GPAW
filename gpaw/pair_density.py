@@ -75,9 +75,12 @@ class PairDensity:
         self.density = paw.density
         self.setups = paw.wfs.setups
         self.spos_ac = paw.atoms.get_scaled_positions()
-##        assert paw.wfs.dtype == float
 
-    def initialize(self, kpt, i, j, kpt_comm=None):
+        self.spin = 0
+        self.k = 0
+        self.weight = 0.0
+
+    def initialize(self, kpt, i, j):
         """initialize yourself with the wavefunctions"""
         self.i = i
         self.j = j
@@ -88,15 +91,6 @@ class PairDensity:
             self.P_ani = kpt.P_ani
             self.wfi = kpt.psit_nG[i]
             self.wfj = kpt.psit_nG[j]
-        else:
-            self.spin = 0
-            self.k = 0
-            self.weight = 0.0
-
-        if kpt_comm is not None:
-            self.spin = kpt_comm.sum(self.spin)
-            self.k = kpt_comm.sum(self.k)
-            self.weight = kpt_comm.sum(self.weight)
 
     def get(self, finegrid=False):
         """Get pair density"""
