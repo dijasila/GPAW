@@ -22,8 +22,6 @@ def run(atoms, usesymm, name):
               nbands=8,
               kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
               ecut=40,
-              hilbert=True,
-              fast=True,
               domega0=0.1,
               eta=0.2,
               bands=(3, 7)  # homo, lumo, lumo+1, lumo+2
