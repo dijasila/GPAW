@@ -120,24 +120,25 @@ class KSSingles(ExcitationList):
         self.npspins = wfs.nspins
         fijscale = 1
         ispins = [0]
+        nks = wfs.kd.nks
         if self.nvspins < 2:
             if nspins > self.nvspins:
                 self.npspins = nspins
                 fijscale = 0.5
                 ispins = [0, 1]
+                nks = 2 * wfs.kd.nks
                 
         kpt_comm = self.calculator.wfs.kpt_comm
         nbands = len(self.kpt_u[0].f_n)
 
         # select
-        take = np.zeros((max(wfs.nspins, self.nvspins),
-                         wfs.kd.nks, nbands, nbands), dtype=int)
+        take = np.zeros((nks, nbands, nbands), dtype=int)
+        u = 0
         for ispin in ispins:
             for ks in range(wfs.kd.nks):
                 myks = ks - wfs.kd.ks0
                 if myks >= 0 and myks < wfs.kd.mynks:
                     kpt = self.kpt_u[myks]
-                    pspin = max(kpt.s, ispin)
                     for i in range(nbands):
                         for j in range(i + 1, nbands):
                             fij = kpt.f_n[i] - kpt.f_n[j]
@@ -145,16 +146,18 @@ class KSSingles(ExcitationList):
                             if (fij > eps and
                                 epsij >= emin and epsij < emax and
                                 i >= self.istart and j <= self.jend):
-                                take[pspin, ks, i, j] = 1
+                                take[u, i, j] = 1
+                u += 1
         kpt_comm.sum(take)
 
         # calculate in parallel
+        u = 0
         for ispin in ispins:
             for ks in range(wfs.kd.nks):
                 myks = ks - wfs.kd.ks0
                 for i in range(nbands):
                     for j in range(i + 1, nbands):
-                        if take[pspin, ks, i, j]:
+                        if take[u, i, j]:
                             if myks >= 0 and myks < wfs.kd.mynks:
                                 kpt = self.kpt_u[myks]
                                 pspin = max(kpt.s, ispin)
@@ -166,6 +169,7 @@ class KSSingles(ExcitationList):
                                 self.append(KSSingle(i, j, pspin=0, 
                                                      kpt=None, paw=paw, 
                                                      dtype=self.dtype))
+                u += 1
 
         # distribute
         for kss in self:
