@@ -55,6 +55,31 @@ class ExcitationList(list):
     def set_calculator(self, calculator):
         self.calculator = calculator
 
+    def __div__(self, x):
+        return self.__mul__(1. / x)
+
+    def __rmul__(self, x):
+        return self.__mul__(x)
+
+    def __mul__(self, x):
+        """Multiply with a number"""
+        if type(x) == type(0.) or type(x) == type(0):
+            result = self.__class__()
+            result.dtype = self.dtype
+            for kss in self:
+                result.append(x * kss)
+            return result
+        else:
+            return RuntimeError('not a number')
+  
+    def __sub__(self, other):
+        result = self.__class__()
+        result.dtype = self.dtype
+        assert(len(self) == len(other))
+        for kss, ksso in zip(self, other):
+            result.append(kss - ksso)
+        return result
+
     def __str__(self):
         string = '# ' + str(type(self))
         if len(self) != 0:

@@ -51,6 +51,8 @@ class KSSingles(ExcitationList):
 
         self.eps = None
 
+        if isinstance(calculator, str):
+            filehandle = open(calculator)
         if filehandle is not None:
             self.read(fh=filehandle)
             return None
@@ -291,6 +293,7 @@ class KSSingles(ExcitationList):
         if fh is None:
             f.close()
 
+
 class KSSingle(Excitation, PairDensity):
     """Single Kohn-Sham transition containing all it's indicees
 
@@ -450,6 +453,7 @@ class KSSingle(Excitation, PairDensity):
         result.me = self.me + other.me
         result.mur = self.mur + other.mur
         result.muv = self.muv + other.muv
+        result.magn = self.magn - other.magn
         return result
 
     def __sub__(self, other):
@@ -458,7 +462,11 @@ class KSSingle(Excitation, PairDensity):
         result.me = self.me - other.me
         result.mur = self.mur - other.mur
         result.muv = self.muv - other.muv
+        result.magn = self.magn - other.magn
         return result
+
+    def __rmul__(self, x):
+        return self.__mul__(x)
 
     def __mul__(self, x):
         """Multiply a KSSingle with a number"""
@@ -475,7 +483,10 @@ class KSSingle(Excitation, PairDensity):
         return self.__mul__(1. / x)
 
     def copy(self):
-        return KSSingle(string=self.outstring())
+        if self.mur.dtype == complex:
+            return KSSingle(string=self.outstring(), dtype=complex)
+        else:
+            return KSSingle(string=self.outstring(), dtype=float)
 
     def fromstring(self, string, dtype=float):
         l = string.split()
@@ -542,7 +553,9 @@ class KSSingle(Excitation, PairDensity):
         else:
             string += ' kpt={0:d} w={1:g}'.format(self.k, self.weight)
             string += ' ('
-            for c, m in enumerate(self.me):
+            # use velocity form
+            s = - np.sqrt(self.energy * self.fij) 
+            for c, m in enumerate(s * self.me):
                 string += '{0.real:.5e}{0.imag:+.5e}j'.format(m)
                 if c < 2:
                     string += ','
