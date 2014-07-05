@@ -143,6 +143,6 @@ and then, again inside of virtualenv::
   pip install python-dateutil  # OS X version is outdated!
 
 The latest, precompiled versions of matplotlib (1.3.1) are missing
-backend_gdk.so, and therefore compile an older version:
+backend_gdk.so, and therefore compile an older version::
 
   pip install matplotlib==1.1.1
