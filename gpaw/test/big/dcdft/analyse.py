@@ -10,6 +10,8 @@ import zipfile
 
 import csv
 
+import numpy as np
+
 from ase.test import NotAvailable
 
 from ase import units
@@ -76,12 +78,23 @@ csvwriter2 = csv.writer(open('%s.csv' % tag, 'wb'))
 h2 = h + ['%' + h[1], '%' + h[2], '%' + h[3]]
 csvwriter2.writerow(h2)
 
+refs = np.loadtxt(reffile,
+                  dtype={'names': ('element', 'V0', 'B0', 'BP'),
+                         'formats': ('S2', np.float, np.float, np.float)})
+# convert into dict
+refsd = {}
+for e, v, b0, b1 in refs:
+    refsd[e] = [v, b0, b1]
+
 rows = []
 rowserr = []
 for n in task.collection.names:
     row = [n]
     if n in data.keys():
-        ref = task.collection.ref[n]
+        if 0:
+            ref = task.collection.ref[n]  # don't use collection data
+        else:
+            ref = refsd[n]
         try:
             v = round(data[n]['dcdft volume'], 3)
             b0 = round(data[n]['dcdft B0'], 3)
