@@ -16,10 +16,18 @@ from ase import units
 
 from ase.test.tasks.dcdft import DeltaCodesDFTTask as Task
 
+dir = 'Delta'
+
 if len(sys.argv) == 1:
     tag = None
+    reffile = os.path.join(dir, 'WIEN2k.txt')
 else:
-    tag = sys.argv[1]
+    if len(sys.argv) == 3:
+        tag = sys.argv[1]
+        reffile = sys.argv[2]
+    else:
+        tag = sys.argv[1]
+        reffile = os.path.join(dir, 'WIEN2k.txt')
 
 task = Task(
     tag=tag,
@@ -97,7 +105,6 @@ if 1:
     # download and create the project databases
     src = 'https://molmod.ugent.be/sites/default/files/Delta_v3-0_0.zip'
     name = os.path.basename(src)
-    dir = 'Delta'
     if not os.path.exists(dir): os.makedirs(dir)
     os.chdir(dir)
     try:
@@ -124,6 +131,6 @@ if 1:
         csvwriter3.writerow(r)
     f.close()
     cmd = 'python ' + os.path.join(dir, 'calcDelta.py')
-    cmd += ' ' + '%s.txt ' % tag + os.path.join(dir, 'WIEN2k.txt') + ' --stdout'
+    cmd += ' ' + '%s.txt ' % tag + reffile + ' --stdout'
     cmd += ' > ' + '%s_Delta.txt' % tag
     os.system(cmd)
