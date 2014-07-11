@@ -31,6 +31,28 @@ else:
         tag = sys.argv[1]
         reffile = os.path.join(dir, 'WIEN2k.txt')
 
+src = 'https://molmod.ugent.be/sites/default/files/Delta_v3-0_0.zip'
+name = os.path.basename(src)
+if not os.path.exists(dir): os.makedirs(dir)
+os.chdir(dir)
+if not os.path.exists('calcDelta.py'):
+    try:
+        resp = urllib2.urlopen(src)
+        urllib.urlretrieve(src, filename=name)
+        z = zipfile.ZipFile(name)
+        try:  # new in 2.6
+            z.extractall()
+        except AttributeError:
+            # http://stackoverflow.com/questions/7806563/how-to-unzip-a-zip-file-with-python-2-4
+            for f in z.namelist():
+                fd = open(f, "w")
+                fd.write(z.read(f))
+                fd.close()
+        # AttributeError if unzip not found
+    except (urllib2.HTTPError, AttributeError):
+        raise NotAvailable('Retrieval of zip failed')
+os.chdir('..')
+
 task = Task(
     tag=tag,
     use_lock_files=True,
@@ -114,36 +136,13 @@ for n in task.collection.names:
         #print row + ref + [ve, b0e, b1e]
         csvwriter2.writerow(row + [ve, b0e, b1e])
 
-if 1:
-    # download and create the project databases
-    src = 'https://molmod.ugent.be/sites/default/files/Delta_v3-0_0.zip'
-    name = os.path.basename(src)
-    if not os.path.exists(dir): os.makedirs(dir)
-    os.chdir(dir)
-    try:
-        resp = urllib2.urlopen(src)
-        urllib.urlretrieve(src, filename=name)
-        z = zipfile.ZipFile(name)
-        try:  # new in 2.6
-            z.extractall()
-        except AttributeError:
-            # http://stackoverflow.com/questions/7806563/how-to-unzip-a-zip-file-with-python-2-4
-            for f in z.namelist():
-                fd = open(f, "w")
-                fd.write(z.read(f))
-                fd.close()
-        # AttributeError if unzip not found
-    except (urllib2.HTTPError, AttributeError):
-        raise NotAvailable('Retrieval of zip failed')
-    os.chdir('..')
-
-    # calculate Delta
-    f = open('%s.txt' % tag, 'wb')
-    csvwriter3 = csv.writer(f, delimiter='\t')
-    for r in rows:
-        csvwriter3.writerow(r)
-    f.close()
-    cmd = 'python ' + os.path.join(dir, 'calcDelta.py')
-    cmd += ' ' + '%s.txt ' % tag + reffile + ' --stdout'
-    cmd += ' > ' + '%s_Delta.txt' % tag
-    os.system(cmd)
+# calculate Delta
+f = open('%s.txt' % tag, 'wb')
+csvwriter3 = csv.writer(f, delimiter='\t')
+for r in rows:
+    csvwriter3.writerow(r)
+f.close()
+cmd = 'python ' + os.path.join(dir, 'calcDelta.py')
+cmd += ' ' + '%s.txt ' % tag + reffile + ' --stdout'
+cmd += ' > ' + '%s_Delta.txt' % tag
+os.system(cmd)
