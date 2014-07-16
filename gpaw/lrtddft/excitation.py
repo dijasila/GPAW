@@ -37,7 +37,7 @@ class ExcitationList(list):
         """Evaluate the Thomas Reiche Kuhn sum rule"""
         trkm = np.zeros((3))
         for ex in self:
-            me = ex.get_dipol_me()
+            me = ex.get_dipole_me()
             trkm += ex.get_energy() * (me.real**2 + me.imag**2)
         return 2. * trkm # scale to get the number of electrons XXX spinpol ?
     
@@ -104,10 +104,17 @@ class Excitation:
         """
         return self.energy
     
-    def get_dipol_me(self):
+    def get_dipole_me(self, form='r'):
         """return the excitations dipole matrix element
-        including the occupation factor"""
-        return self.me / sqrt(self.energy)
+        including the occupation factor sqrt(fij)"""
+        if form == 'r':
+            # length form
+            return self.me / sqrt(self.energy)
+        elif form == 'v':
+            # velocity form
+            return - np.sqrt(self.fij) * self.muv
+        else:
+            raise RuntimeError('Unknown form >' + form + '<')
     
     def get_oscillator_strength(self, form='r'):
         """Return the excitations dipole oscillator strength.
