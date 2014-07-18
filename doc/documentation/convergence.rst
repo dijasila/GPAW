@@ -15,7 +15,8 @@ encountering convergence problems:
    Remember that ASE uses Angstrom and not Bohr or nm!
    For spin polarized systems, make sure you have sensible initial magnetic
    moments. Don't do spin-paired calculations for molecules with an odd
-   number of electrons.
+   number of electrons. Before performing calculations of isolated atoms
+   see :ref:`atomization_energy`.
 
 2) Use less aggressive density mixing.
 
