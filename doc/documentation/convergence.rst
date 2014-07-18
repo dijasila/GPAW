@@ -4,8 +4,7 @@
 Convergence Issues
 ==================
 
-*Try to use default parameters for the calculator. Simple but
-sometimes useful.*
+*Try to use default parameters for the calculator. Simple and often useful.*
 
 Here you find a list of suggestions that should be considered when
 encountering convergence problems:
@@ -85,4 +84,7 @@ encountering convergence problems:
    the latest PAW datasets. You can also try to make a better initial guess
    by enlarging the :ref:`manual_basis`. Note that you first need to generate
    the basis file, as described in :ref:`LCAO mode <lcao>`. 
+
+   Warning: this may in some cases worsen the convergence, and improves
+   it usually only when the number of empty states is significantly increased.
  
