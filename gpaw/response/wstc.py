@@ -38,7 +38,7 @@ class WignerSeitzTruncatedCoulomb:
              file=txt)
         
 #        nr_c = [get_efficient_fft_size(2 * int(L * self.a * 1.5))
-        nr_c = [get_efficient_fft_size(2 * int(L * self.a * 2.5))
+        nr_c = [get_efficient_fft_size(2 * int(L * self.a * 3.0))
                 for L in L_c]
         prnt('FFT size for calculating truncated Coulomb: %dx%dx%d' %
              tuple(nr_c), file=txt)
