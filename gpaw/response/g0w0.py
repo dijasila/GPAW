@@ -290,6 +290,9 @@ class G0W0(PairDensity):
                 chi0_wGG[:, :, 0] = 0.0
                 G0inv = 0.0
                 G20inv = 0.0
+            else:
+                G0inv = None
+                G20inv = None
         else:
             if np.allclose(q_c, 0):
                 dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
