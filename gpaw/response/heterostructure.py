@@ -128,7 +128,16 @@ class Heterostructure:
                 v_screened_qw[iq,iw] = self.q_points_abs[iq]/2./np.pi*np.dot(e_distr,np.dot(np.linalg.inv(eps_qwij[iq,iw,:,:]),ext_pot))   
                         
         return 1./(v_screened_qw)
-
+    
+    def get_plasmon_eigenmodes(self):
+        eps_qwij = self.get_eps_matrix()
+        Nw = len(self.frequencies)
+        Nq = len(self.q_points_abs)
+        eig = np.zeros([Nq,Nw,self.n_layers], dtype = 'complex')
+        for iq in range(Nq):
+            for iw in range(Nw):
+                eig[iq,iw],vec = np.linalg.eig(eps_qwij[iq,iw])
+        return eig
 
 
 """TOOLS"""
