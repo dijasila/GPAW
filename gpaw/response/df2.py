@@ -19,14 +19,15 @@ class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
     def __init__(self, calc, name=None, frequencies=None,  domega0=0.1, 
                  omegamax=None, alpha=3.0, ecut=50, hilbert=False, nbands=None,
-                 eta=0.2, ftol=1e-6, world=mpi.world, txt=sys.stdout,
+                 eta=0.2, ftol=1e-6, intraband=True, world=mpi.world, txt=sys.stdout,
                  nthreads=1, gate_voltage=None):
 
-        self.chi0 = Chi0(calc, frequencies, domega0=domega0, 
-                         omegamax=omegamax, alpha=alpha, ecut=ecut,
-                         hilbert=hilbert,
-                         nbands=nbands, eta=eta, ftol=ftol, world=world,
-                         txt=txt, nthreads=nthreads, gate_voltage=gate_voltage)
+        self.chi0 = Chi0(calc, frequencies, domega0=domega0, omegamax=omegamax, alpha=alpha,
+                         ecut=ecut, hilbert=hilbert, nbands=nbands, 
+                         eta=eta, ftol=ftol, 
+                         intraband=intraband, nthreads=nthreads,
+                         world=world, txt=txt,
+                         gate_voltage=gate_voltage)
         
         self.name = name
 
