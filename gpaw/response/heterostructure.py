@@ -76,7 +76,7 @@ class Heterostructure:
                         kernel_ij[2*i+1,2*i+1] = v_dd(q_abs,d_ij[i,j])
                     else:
                         kernel_ij[2*i,2*j] = v_mm(q_abs,d_ij[i,j])
-                        kernel_ij[2*i+1,2*j] = v_dm(q_abs,np.sign(j-i)*d_ij[i,j])
+                        kernel_ij[2*i+1,2*j] =  v_dm(q_abs,np.sign(j-i)*d_ij[i,j])
                         kernel_ij[2*i,2*j+1] = v_md(q_abs,np.sign(j-i)*d_ij[i,j])
                         kernel_ij[2*i+1,2*j+1] = v_dd(q_abs,d_ij[i,j])
 
@@ -91,26 +91,25 @@ class Heterostructure:
     def get_eps_matrix(self):
         Nls = self.n_layers
         q_points_abs = self.q_points_abs
-        chi_m_qwi = self.chi_monopole   
-    
+        chi_m_iqw = self.chi_monopole   # changed to chi_m_iqw from chi_m_qwi (Easier to make from seperate calculations)
         if self.chi_dipole is not None:       
-            eps_qwij = np.zeros((len(self.q_points_abs),len(self.frequencies),2*Nls,2*Nls))
-            chi_d_qwi = self.chi_dipole
+            eps_qwij = np.zeros((len(self.q_points_abs),len(self.frequencies),2*Nls,2*Nls), dtype = 'complex')
+            chi_d_iqw = self.chi_dipole
        
-            for iq in range(0,len(q_points_abs)):
+            for iq in range(len(q_points_abs)):
                 kernel_ij = self.CoulombKernel(q_points_abs[iq])
                 for iw in range(0,len(self.frequencies)):
-                    chi_tot_i = np.insert(chi_d_qwi[iq,iw,:],np.arange(len(chi_m_qwi[iq,iw,:])),chi_m_qwi[iq,iw,:])
+                    chi_tot_i = np.insert(chi_d_iqw[:,iq,iw],np.arange(len(chi_m_iqw[:,iq,iw])),chi_m_iqw[:,iq,iw])
                     chi_tot_ij = np.diag(chi_tot_i)
                     eps_qwij[iq,iw,:,:] = np.eye(2*Nls,2*Nls)-np.dot(kernel_ij,chi_tot_ij)
 
         else:
-            eps_qwij = np.zeros((len(q_points_abs),len(self.frequencies),Nls,Nls))
+            eps_qwij = np.zeros((len(q_points_abs),len(self.frequencies),Nls,Nls), dtype = 'complex')
             
-            for iq in range(0,len(q_points_abs)):
+            for iq in range(len(q_points_abs)):
                 kernel_ij = self.CoulombKernel(q_points_abs[iq])
-                for iw in range(0,len(self.frequencies)):
-                    chi_m_ij = np.diag(chi_m_qwi[iq,iw,:])
+                for iw in range(len(self.frequencies)):
+                    chi_m_ij = np.diag(chi_m_iqw[:,iq,iw])
                     eps_qwij[iq,iw,:,:] = np.eye(Nls,Nls)-np.dot(kernel_ij,chi_m_ij)
 
         return eps_qwij
@@ -187,7 +186,7 @@ def get_chi0M_multipole(filenames, static_limit = False, dipole = True, name = '
         for iw in range(nw):
             eps2D_monopole_GG = np.eye(npw2D,npw2D) - np.dot(kernel2D_monopole_GG,chi02D_monopole_wGG[iw])
             eps2D_monopole_inv_GG = np.linalg.inv(eps2D_monopole_GG)
-            chi0M_monopole_qw[iq,iw] = chi02D_monopole_wGG[iw,0,0]#q_abs/2./np.pi*(1.-1./eps2D_monopole_inv_GG[0,0])    
+            chi0M_monopole_qw[iq,iw] = q_abs/2./np.pi*(1.-1./eps2D_monopole_inv_GG[0,0])    
 
         # ---------------------------------------
         # Chi0M Dipole
@@ -195,23 +194,24 @@ def get_chi0M_multipole(filenames, static_limit = False, dipole = True, name = '
         chi02D_dipole_wGG = np.zeros((nw,npw2D,npw2D), dtype=complex)
 
         iGtemp = 0
-        for iG in range(0,40):#npw):  
+        for iG in range(0,npw):  
             iGtemp1 = 0        
-            for iG1 in range(0,40):#npw):
-                G_perp = 2*np.pi*Gvec[iG,2]/L+10e-8
-                G1_perp = 2*np.pi*Gvec[iG1,2]/L+10e-8
-                factor1 = 2.*(L/2.+1j/G_perp)*np.exp(1j*G_perp*L/2.)*np.sin(G_perp*L/2.)/G_perp - 2j*L/2.*np.exp(1j*G_perp*L/2.)*np.cos(G_perp*L/2.)/G_perp
-                factor2 = 2.*(L/2.-1j/G1_perp)*np.exp(-1j*G1_perp*L/2.)*np.sin(G1_perp*L/2.)/G1_perp + 2j*L/2.*np.exp(-1j*G1_perp*L/2.)*np.cos(G_perp*L/2.)/G_perp
-                chi02D_dipole_wGG[:,iGtemp,iGtemp1] += 1./L*factor1*factor2*chi0_wGG[:,iG,iG1]          
+            for iG1 in range(0,npw):
+                if not (Gvec[iG,2] ==0 or Gvec[iG1,2] ==0): # exlude G_perp = 0 in sum??? 
+                    G_perp = 2*np.pi*Gvec[iG,2]/L#+10e-8  Divergence for G_perp=0 will dominate chi_dipole!
+                    G1_perp = 2*np.pi*Gvec[iG1,2]/L#+10e-8
+                    factor1 = 2.*(L/2.+1j/G_perp)*np.exp(1j*G_perp*L/2.)*np.sin(G_perp*L/2.)/G_perp - 2j*L/2.*np.exp(1j*G_perp*L/2.)*np.cos(G_perp*L/2.)/G_perp
+                    factor2 = 2.*(L/2.-1j/G1_perp)*np.exp(-1j*G1_perp*L/2.)*np.sin(G1_perp*L/2.)/G1_perp + 2j*L/2.*np.exp(-1j*G1_perp*L/2.)*np.cos(G_perp*L/2.)/G_perp
+                    chi02D_dipole_wGG[:,iGtemp,iGtemp1] += 1./L*factor1*factor2*chi0_wGG[:,iG,iG1]          
                 if iG1 != npw-1 and Gvec[iG1+1,2] == 0:
                     iGtemp1 += 1
-            if iG != npw-1 and Gvec[iG1+1,2] == 0:
+            if iG != npw-1 and Gvec[iG+1,2] == 0:
                 iGtemp += 1
     
         for iw in range(nw):
             eps2D_dipole_GG = np.eye(npw2D,npw2D) - np.dot(kernel2D_dipole_GG,chi02D_dipole_wGG[iw])
             eps2D_dipole_inv_GG = np.linalg.inv(eps2D_dipole_GG)
-            chi0M_dipole_qw[iq,iw] = chi02D_dipole_wGG[iw,0,0]#1./q_abs/2./np.pi*(1.-1./eps2D_dipole_inv_GG[0,0])
+            chi0M_dipole_qw[iq,iw] = 1./q_abs/2./np.pi*(1.-1./eps2D_dipole_inv_GG[0,0])
     
     
     pickle.dump((q_points_abs, omega_w*Hartree, chi0M_monopole_qw, chi0M_monopole_qw), open(name, 'w'))
