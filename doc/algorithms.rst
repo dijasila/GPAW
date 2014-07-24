@@ -1,11 +1,13 @@
-.. _features_and_algorithms:
+.. _algorithms:
 
-=======================
-Features and algorithms
-=======================
+==========
+Algorithms
+==========
 
 This Page gives a quick overview of the algorithms used.  We have
-written a paper [Mor05]_, where *all* the details can be found.
+written some :ref:`papers <gpaw_publications>` about the implementation,
+where *all* the details can be found.
+
 
 Introduction
 ============
@@ -21,36 +23,40 @@ there is a one to one transformation between the pseudo and
 all-electron quantities.
 
 
-
 Grids
 =====
 
-Pseudo wave functions, pseudo electron densities and potentials are
-represented on uniform real-space orthorhombic grids.  Two kinds of
-grids are involved in the calculations: A coarse grid used for the
-wave functions and a fine grid (:math:`2^3=8` times higher grid point
-density) used for densities and potentials.  The pseudo electron
-density is first calculated on the coarse grid from the wave
-functions, and then interpolated to the fine grid, where compensation
-charges are added for achieving normalization.  The effective
-potential is evaluated on the fine grid (solve the Poisson equation
-and calculate the exchange-correlation potential) and then restricted
-to the coarse grid where it needs to act on the wave functions (also on
-the coarse grid).
+Pseudo wave functions can be described in three ways:
 
+Finite-difference (FD):
+    Uniform real-space orthorhombic grids.  Two kinds of grids are involved
+    in the calculations: A coarse grid used for the wave functions and a fine
+    grid (:math:`2^3=8` times higher grid point density) used for densities and
+    potentials.  The pseudo electron density is first calculated on the coarse
+    grid from the wave functions, and then interpolated to the fine grid, where
+    compensation charges are added for achieving normalization.  The effective
+    potential is evaluated on the fine grid (solve the Poisson equation and
+    calculate the exchange-correlation potential) and then restricted to the
+    coarse grid where it needs to act on the wave functions (also on the coarse
+    grid).
 
-Multi-grid techniques
-=====================
+Plane-waves (PW):
+    Expansion in plane-waves.  There is one cutoff used for the wave-functions
+    and a higher cutoff for electron densities and potentials.
+    
+Linear combination of atomic orbitals (LCAO):
+    Expansion in atom-centered basis functions.
+    
+    
+Multi-grid techniques for FD-mode
+=================================
 
 The Poisson equation is solved using a standard multi-grid solver.
-Solving the Kohn-Sham equation is done via the "residual minimization
-method - direct inversion in iterative subspace" (RMM-DIIS)
-method [Kre96]_.  A good starting guess for the wave functions is obtained
-by diagonalizing a Hamiltonian for the subspace of atomic orbitals.
-We use the multi-grid preconditioner described by Briggs *et
-al.* [Bri96]_ for the residuals, and standard Pulay
-mixing is used to update the density.
-
+Solving the Kohn-Sham equation is done via iterative multi-grid
+eigensolvers starting from a good guess for the wave functions
+obtained by diagonalizing a Hamiltonian for a subspace of atomic orbitals.
+We use the multi-grid preconditioner described by Briggs *et al.* [Bri96]_
+for the residuals, and standard Pulay mixing is used to update the density.
 
 
 Compensation charges
@@ -98,6 +104,7 @@ augmentation spheres.  The integration is done on a non-linear radial
 grid - very dense close to the nuclei and less dense away from the
 nuclei.
 
+
 Parallelization
 ===============
 
@@ -117,6 +124,7 @@ simulation environment (:ase:`ASE <>`). ASE provides:
  * Maximally localized Wannier functions.
  * Scanning tunneling microscopy images.
  * Transport calculations.
+
 
 Open Software
 =============
@@ -141,6 +149,6 @@ participate in using and :ref:`developing the code <devel>`.
    Phys. Rev. B 54, 11169 (1996)
 .. [Bri96] E. L. Briggs, D. J. Sullivan and J. Bernholc,
    Phys. Rev. B 54, 14362 (1996)
-.. [Taf06] *A general and efficient pseudopotential Fourier filtering scheme for
-   real space methods using mask functions*, Maxim Tafipolsky, Rochus
+.. [Taf06] *A general and efficient pseudopotential Fourier filtering scheme
+   for real space methods using mask functions*, Maxim Tafipolsky, Rochus
    Schmid, J Chem Phys. 2006 May 7;124:174102

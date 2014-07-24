@@ -8,7 +8,7 @@ Contents
    :maxdepth: 2
 
    index
-   overview  <features_and_algorithms>
+   algorithms
    download
    install/install
    setups/setups
