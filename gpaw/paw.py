@@ -166,7 +166,7 @@ class PAW(PAWTextOutput):
             
             if key in ['fixmom', 'mixer',
                        'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof', 'notify']:
+                       'eigensolver', 'idiotproof', 'notify', 'usefractrans']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
@@ -362,6 +362,14 @@ class PAW(PAWTextOutput):
         if mode == 'pw':
             mode = PW()
 
+        if mode == 'fd' and par.usefractrans:
+            raise NotImplementedError('FD mode does not support '
+                                      'fractional translations.')
+        
+        if mode == 'lcao' and par.usefractrans:
+            raise Warning('Fractional translations have not been tested '
+                          'with LCAO mode. Use with care!')
+
         if par.realspace is None:
             realspace = not isinstance(mode, PW)
         else:
@@ -421,7 +429,7 @@ class PAW(PAWTextOutput):
 
         # K-point descriptor
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
-        kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
+        kd = KPointDescriptor(bzkpts_kc, nspins, collinear, par.usefractrans)
 
         width = par.width
         if width is None:
@@ -440,7 +448,10 @@ class PAW(PAWTextOutput):
             else:
                 dtype = complex
 
-        kd.set_symmetry(atoms, setups, magmom_av, par.usesymm, N_c, world)
+        ## rbw: If usefractrans=True, kd.set_symmetry might overwrite N_c.
+        ## This is necessary, because N_c must be dividable by 1/(fractional translation),
+        ## f.e. fractional translations of a grid point must land on a grid point.
+        N_c = kd.set_symmetry(atoms, setups, magmom_av, par.usesymm, N_c, world)
 
         nao = setups.nao
         nvalence = setups.nvalence - par.charge

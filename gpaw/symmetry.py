@@ -1,5 +1,6 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
+# Copyright (C) 2014 R. Warmbier Materials for Energy Research Group, Wits University
 
 import numpy as np
 
@@ -9,25 +10,68 @@ import _gpaw
 
 
 class Symmetry:
+    """Interface class for determination of symmetry, point and space groups. It also provides
+    to apply symmetry operations to kpoint grids, wavefunctions and forces.
     
-    def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-11):
-        """Symmetry object.
+    In principle one should also check the fft grid dimensions... but that has time.
+    
+    """
+    
+    def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7, fractrans=False):
+        """Construct symmetry object.
 
-        Two atoms can only be identical if they have the same atomic numbers,
-        setup types and magnetic moments. If it is an LCAO type of calculation,
-        they must have the same atomic basis set also.
+        Parameters
+        ----------
+        id_a: list, integer
+	    Numbered atomic types
+        cell_cv: array(3,3), float
+	    Cartesian lattice vectors
+        pbc_c: array(3), bool
+	    Periodic boundary conditions.
+        tolerance: float
+	    Tolerance for symmetry determination.
+        fractrans: bool
+            Switch for the use of non-symmorphic symmetries aka: symmetries
+            with fractional translations. False by default (experimental!!!)
 
+        Attributes
+        ===================  =================================================
+        ``id_a``              ????
+        ``cell_cv``           Lattice vectors
+        ``pbc_c``             (bool) Periodic boundary conditions
+        ``tol``               Tolerance for symmetry detection, use with care
+        ``usefractrans``      (bool) Use fractional translations/non-symmorphic symmetries
+        ``op_scc``            Array of rotation matrices
+        ``ft_sc``             Array of fractional translation vectors
+        ``usefractrans_s``    (bool) usefractrans for each symmetry
+        ``a_sa``              Array of atomic indices after symmetry operation
+        ``inversion``         (bool) Have inversion
+        ===================  =================================================
         """
+    
+        # Notes:
+        #   - "ft" in variable names stands for fractional translation 
+
 
         self.id_a = id_a
         self.cell_cv = np.array(cell_cv, float)
         assert self.cell_cv.shape == (3, 3)
         self.pbc_c = np.array(pbc_c, bool)
         self.tol = tolerance
+        
+        self.usefractrans = fractrans
+        # disable fractional translations for non-periodic boundary conditions.
+        if not all(p == True for p in self.pbc_c):
+            self.usefractrans = False
+        #      print "Warning: Disabled fractional translations -> pbc"
+        
 
         self.op_scc = np.identity(3, int).reshape((1, 3, 3))
+        self.ft_sc = np.zeros((3),float)
+        self.usefractrans_s = self.usefractrans
         self.a_sa = np.arange(len(id_a)).reshape((1, -1))
         self.inversion = False
+
 
     def analyze(self, spos_ac):
         """Determine list of symmetry operations.
@@ -35,7 +79,14 @@ class Symmetry:
         First determine all symmetry operations of the cell. Then call
         ``prune_symmetries`` to remove those symmetries that are not satisfied
         by the atoms.
+        """
+        self.find_lattice_symmetry()
+        self.prune_symmetries_atoms(spos_ac)
+        #self.symmetrize_positions(spos_ac)
 
+
+    def find_lattice_symmetry(self):
+        """Determine list of symmetry operations.
         """
 
         # Symmetry operations as matrices in 123 basis
@@ -78,11 +129,8 @@ class Symmetry:
 
         self.op_scc = np.array(self.op_scc)
         
-        # Check if symmetry operations are also valid when taking account
-        # of atomic positions
-        self.prune_symmetries(spos_ac)
-        
-    def prune_symmetries(self, spos_ac):
+
+    def prune_symmetries_atoms(self, spos_ac):
         """Remove symmetries that are not satisfied by the atoms."""
 
         # Build lists of atom numbers for each type of atom - one
@@ -95,56 +143,141 @@ class Symmetry:
             else:
                 a_ib[id] = [a]
 
-        opok = []
-        a_sa = []
-        # Reduce point group using operation matrices
-        for op_cc in self.op_scc:
-            a_a = np.zeros(len(spos_ac), int)
-            ok = True
-            for a_b in a_ib.values():
-                spos_bc = spos_ac[a_b]
-                for a in a_b:
-                    spos_c = np.dot(spos_ac[a], op_cc)
-                    sdiff_bc = spos_c - spos_bc
-                    sdiff_bc -= np.floor(sdiff_bc + 0.5)
-                    indices = np.where((sdiff_bc**2).sum(1) < self.tol)[0]
-                    if len(indices) == 1:
-                        ok = True
-                        b = indices[0]
-                        a_a[a] = a_b[b]
-                    else:
-                        assert len(indices) == 0
-                        ok = False
-                        break
-                if not ok:
+        # if supercell disable fractional translations
+        if self.usefractrans:
+            op_cc = np.identity(3,int)
+            ftrans_sc = spos_ac[a_ib.values()[0][1:]] - spos_ac[a_ib.values()[0][0]]
+            ftrans_sc -= np.rint(ftrans_sc)
+            for ft_c in ftrans_sc:
+                ok, a_a = self.check_one_symmetry(spos_ac, op_cc, ft_c, a_ib)
+                if ok:
+                    self.usefractrans = False
+                    #print "Found supercell, deactivate fractional translations."
                     break
+
+        # empty lists for accepted symmetry operations, the fractrans ones extra
+        ok_op_scc = []
+        ok_a_sa = []
+        ok_ft_sc = []
+        
+        ok_op_scc_ft = []
+        ok_a_sa_ft = []
+        ok_ft_sc_ft = []
+        
+        # go through all possible symmetry operations
+        for i, op_cc in enumerate(self.op_scc):
+            # first ignore fractional translations
+            ft_c = np.zeros(3, float)
+            ok, a_a = self.check_one_symmetry(spos_ac, op_cc, ft_c, a_ib)
             if ok:
-                opok.append(op_cc)
-                a_sa.append(a_a)
+                ok_op_scc.append(op_cc)
+                ok_a_sa.append(a_a)
+                ok_ft_sc.append([0.,0.,0.])
+            elif self.usefractrans:
+                # check fractional translations
+                sposrot_ac = np.dot(spos_ac, op_cc)
+                ftrans_sc = sposrot_ac[a_ib.values()[0]] - spos_ac[a_ib.values()[0][0]]
+                ftrans_sc -= np.rint(ftrans_sc)
+                for ft_c in ftrans_sc:
+                    # fractional translations must commensurate with the grids
+                    # else we have nothing but trouble.
+                    # To ensure this, we only accept fractional translations,
+                    # which are rational, eg. 1/2, 1/3 etc
+                    # multiply by 6, so that 2/3, 2/5, 3/5 etc work as well
+                    #ft_c = np.where(np.abs(ft_c)-ft_c > 1e-8, ft_c + 1, ft_c) # test limit to positive translations
+                    whereft = np.where(np.abs(ft_c) > 1e-4)[0] #is 1e-4 a good theshold here?
+                    invft_c = np.zeros(3, float)
+                    invft_c[whereft] = (1. / ft_c[whereft]) * 6
+                    invft_rounded_c = np.rint(invft_c)
+                    if np.allclose(invft_c, invft_rounded_c, atol=self.tol*100.):
+                    #if np.allclose(np.abs(invft%1.0), np.rint(np.abs(invft%1.0)), atol=1e-5):
+                        ft_c = np.zeros(3, float)
+                        ft_c[whereft] = 6. / invft_rounded_c[whereft]
+                        ok, a_a = self.check_one_symmetry(spos_ac, op_cc, ft_c, a_ib)
+                        if ok:
+                            ok_op_scc_ft.append(op_cc)
+                            ok_a_sa_ft.append(a_a)
+                            ok_ft_sc_ft.append(ft_c)
+
+
+        self.a_sa = np.array(ok_a_sa)
+        self.op_scc = np.array(ok_op_scc)
+        self.ft_sc = np.array(ok_ft_sc) 
+
+        # add symmetry operations with fractional translations at the end
+        if self.usefractrans and len(ok_op_scc_ft) >= 1:
+            self.a_sa = np.concatenate((self.a_sa, np.array(ok_a_sa_ft)))
+            self.op_scc = np.concatenate((self.op_scc, np.array(ok_op_scc_ft)))
+            self.ft_sc = np.concatenate((self.ft_sc, np.array(ok_ft_sc_ft)))
+
+        self.usefractrans_s = np.sum(np.abs(self.ft_sc),axis=1) > self.tol
+        self.inversion = (self.op_scc == 
+                          -np.eye(3, dtype=int)).all(2).all(1).any()
+
+
+
+    def check_one_symmetry(self, spos_ac, op_cc, ft_c=None, a_ib=None):
+        """Checks whether atoms satisfy one given symmetry operation.
+           Allows fractional translations ft.
+        """
+        if ft_c == None:
+            ft_c = np.zeros(3, float)
+        
+        if a_ib == None:
+            # Build lists of atom numbers for each type of atom - one
+            # list for each combination of atomic number, setup type,
+            # magnetic moment and basis set
+            a_ib = {}
+            for a, id in enumerate(self.id_a):
+                if id in a_ib:
+                    a_ib[id].append(a)
+                else:
+                    a_ib[id] = [a]
+
+        # Reduce point group using operation matrices
+        a_a = np.zeros(len(spos_ac), int)
+        ok = True
+        for a_b in a_ib.values():
+            spos_bc = spos_ac[a_b]
+            for a in a_b:
+                spos_c = np.dot(spos_ac[a], op_cc)
+                sdiff_bc = spos_c - spos_bc - ft_c
+                sdiff_bc -= np.floor(sdiff_bc + 0.5)
+                indices = np.where((sdiff_bc**2).sum(1) %1.0 < self.tol)[0]
+                if len(indices) == 1:
+                    ok = True
+                    b = indices[0]
+                    a_a[a] = a_b[b]
+                else:
+                    assert len(indices) == 0
+                    ok = False
+                    break
+            if not ok:
+                break
 
         if debug:
-            for op_cc, map_a in zip(opok, a_sa):
+            for map_a in a_sa:
                 for a1, id1 in enumerate(self.id_a):
                     a2 = map_a[a1]
                     assert id1 == self.id_a[a2]
                     spos1_c = spos_ac[a1]
                     spos2_c = spos_ac[a2]
-                    sdiff = np.dot(spos1_c, op_cc) - spos2_c
+                    sdiff = np.dot(spos1_c, op_cc) - spos2_c - ft_c
                     sdiff -= np.floor(sdiff + 0.5)
+                    sdiff = sdiff % 1.0
                     assert np.dot(sdiff, sdiff) < self.tol
 
-        self.a_sa = np.array(a_sa)
-        self.op_scc = np.array(opok)
-        self.inversion = (self.op_scc ==
-                          -np.eye(3, dtype=int)).all(2).all(1).any()
+        return ok, a_a
+
 
     def check(self, spos_ac):
         """Check if positions satisfy symmetry operations."""
 
         nsymold = len(self.op_scc)
-        self.prune_symmetries(spos_ac)
+        self.prune_symmetries_atoms(spos_ac)
         if len(self.op_scc) < nsymold:
             raise RuntimeError('Broken symmetry!')
+
 
     def reduce(self, bzk_kc, comm=None):
         """Reduce k-points to irreducible part of the BZ.
@@ -198,6 +331,7 @@ class Symmetry:
         return (bzk_kc[ibz2bz_k], weight_k,
                 sym_k, time_reversal_k, bz2ibz_k, ibz2bz_k, bz2bz_ks)
 
+
     def prune_symmetries_grid(self, N_c):
         """Remove symmetries that are not satisfied by the grid."""
 
@@ -211,10 +345,52 @@ class Symmetry:
         self.a_sa = np.array(a_sa)
         self.op_scc = np.array(U_scc)
 
+
     def symmetrize(self, a, gd):
         """Symmetrize array."""
-        
         gd.symmetrize(a, self.op_scc)
+
+
+    ### Should not need that one
+    #def symmetrize_ft_no(self, a, gd):
+        #"""Symmetrize array, excluding fractional translation."""
+        #op_scc = self.op_scc[np.where(self.usefractrans_s==False)[0]]
+        #gd.symmetrize(a, op_scc)
+
+
+    def symmetrize_ft(self, a, gd):
+        """Symmetrize array, including fractional translations."""
+        if np.any(self.usefractrans_s):
+            gd.symmetrize(a, self.op_scc, self.ft_sc)
+        else:
+            gd.symmetrize(a, self.op_scc)
+
+
+    def symmetrize_positions(self, spos_ac):
+        """Symmetrizes the atomic positions.
+        
+        That routine could use some more work.
+        """
+        print "Initial positions"
+        for spos_c in spos_ac:
+            print "%19.16f %19.16f %19.16f" % (spos_c[0], spos_c[1], spos_c[2]) 
+        spos_tmp_ac = np.zeros_like(spos_ac)
+        spos_new_ac = np.zeros_like(spos_ac)
+        for i, op_cc in enumerate(self.op_scc):
+            spos_tmp_ac[:] = 0.
+            for a in range(len(spos_ac)):
+                spos_c = np.dot(spos_ac[a], op_cc)  - self.ft_sc[i]
+                #bring back the negative ones
+                spos_c = spos_c - np.floor(spos_c + 1e-5)
+                spos_tmp_ac[self.a_sa[i][a]] += spos_c
+            spos_new_ac += spos_tmp_ac
+        
+        spos_new_ac /= len(self.op_scc)
+
+        print "Symmetrized positions"
+        for spos_c in spos_new_ac:
+            print "%19.16f %19.16f %19.16f" % (spos_c[0], spos_c[1], spos_c[2]) 
+
 
     def symmetrize_wavefunction(self, a_g, kibz_c, kbz_c, op_cc,
                                 time_reversal):
@@ -257,10 +433,10 @@ class Symmetry:
                 _gpaw.symmetrize_wavefunction(a_g, b_g, op_cc.T.copy(),
                                               kibz_c, kbz_c)
                 return b_g
+
         
     def symmetrize_forces(self, F0_av):
-        """Symmetrice forces."""
-        
+        """Symmetrize forces."""
         F_ac = np.zeros_like(F0_av)
         for map_a, op_cc in zip(self.a_sa, self.op_scc):
             op_vv = np.dot(np.linalg.inv(self.cell_cv),
@@ -268,11 +444,34 @@ class Symmetry:
             for a1, a2 in enumerate(map_a):
                 F_ac[a2] += np.dot(F0_av[a1], op_vv)
         return F_ac / len(self.op_scc)
+
         
     def print_symmetries(self, text):
-        
+        """Print symmetry information."""
         n = len(self.op_scc)
-        text('Symmetries present: %s' % n)
+        if self.usefractrans:
+            nft = len(np.where(self.usefractrans_s)[0])
+            text('Symmetries present (total): %s' % n)
+            text('Symmetries with fractional translations: %s' % nft)
+            ### print more detailed information
+            text('')
+            text('    Symmetry matrizes and fractional translations in crystal coord.')
+            for s in range(n):
+                text('    Symm: %2d' % (s+1))
+                for i in range(3):
+                    text('    (%2d %2d %2d)  +  (%9.6f)' % 
+                         (self.op_scc[s][i][0],self.op_scc[s][i][1],self.op_scc[s][i][2], self.ft_sc[s][i]))
+            text('')
+        else:
+            text('Symmetries present: %s' % n)
+            ### print more detailed information
+            text('')
+            text('    Symmetry matrizes in crystal coord.')
+            for s in range(n):
+                text('    Symm: %2d' % (s+1))
+                for i in range(3):
+                    text('    (%2d %2d %2d)' % (self.op_scc[s][i][0],self.op_scc[s][i][1],self.op_scc[s][i][2]))
+            text('')
 
 
 def map_k_points(bzk_kc, U_scc, inversion, comm=None, tol=1e-11):
@@ -315,3 +514,4 @@ def map_k_points(bzk_kc, U_scc, inversion, comm=None, tol=1e-11):
                        np.ascontiguousarray(U_scc), tol, bz2bz_ks, ka, kb)
     comm.sum(bz2bz_ks)
     return bz2bz_ks
+

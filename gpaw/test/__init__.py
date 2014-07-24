@@ -143,6 +143,7 @@ tests = [
     'gauss_func.py',
     'noncollinear/h.py',
     'symmetry.py',
+    'symmetry_ft.py',
     'usesymm.py',
     'broydenmixer.py',
     'mixer.py',
@@ -212,6 +213,7 @@ tests = [
     'excited_state.py',
     # > 20 sec tests start here (add tests after gemm.py!)
     'gemm.py',
+    'fractional_translations.py',
     'rpa_energy_Ni.py',
     'LDA_unstable.py',
     'si.py',
@@ -305,6 +307,7 @@ tests = [
     'au02_absorption.py',
     'lrtddft3.py',
     'scfsic_n2.py',
+    'fractional_translations_big.py',
     'parallel/lcao_parallel.py',
     'parallel/lcao_parallel_kpt.py',
     'parallel/fd_parallel.py',
