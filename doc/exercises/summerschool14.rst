@@ -1,7 +1,7 @@
 .. _summerschool14:
 
 =======================
-CAMd Summer school 2014
+CAMd Summer School 2014
 =======================
 
 
