@@ -98,8 +98,6 @@ get('documentation/xc', 'g2test_pbe0.png  g2test_pbe.png  results.png'.split())
 get('performance', 'dacapoperf.png  goldwire.png  gridperf.png'.split(),
     '_static')
 
-get('tutorials/negfstm', ['fullscan.png', 'linescan.png'])
-
 get('tutorials/xas', ['h2o_xas_3.png', 'h2o_xas_4.png'])
 
 # workshop2013 photo
