@@ -60,7 +60,6 @@ Pick among them according to your interest.  You can also look at the :ref:`tuto
    dos/dos
    band_structure/bands
    stm/stm
-   tst/tst
    transport/transport
    lrtddft/lrtddft
 
