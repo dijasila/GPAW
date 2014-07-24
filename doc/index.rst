@@ -84,9 +84,6 @@ News
 
 * GPAW is :math:`\Psi_k` `scientific highlight of the month`_ (Apr 3 2010)
 
-* GPAW now measures :ref:`code coverage <coverage>` of the test suite
-  (Nov 5 2009)
-
 * A third GPAW code sprint was successfully hosted at CAMD (Oct 20 2009)
 
 * :ref:`GPAW version 0.6 <releasenotes>` released (Oct 9 2009)

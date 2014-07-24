@@ -42,7 +42,6 @@ to become the next release.
    formulas
    debugging
    profiling
-   coverage
    testing
    testsuite
    ase_optimize/ase_optimize
