@@ -1,5 +1,6 @@
 .. index:: DFT+U, LDA+U, Hubbard
-
+.. _hubbardu:
+    
 ============
 DFT+U theory
 ============

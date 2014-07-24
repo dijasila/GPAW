@@ -15,7 +15,6 @@ Contents
    tutorials/tutorials
    exercises/exercises
    documentation/documentation
-   performance
    devel/benchmarks
    devel/releasenotes
    faq
