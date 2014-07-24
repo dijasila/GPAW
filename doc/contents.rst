@@ -29,6 +29,7 @@ Old pages
 .. toctree::
    :maxdepth: 2
 
+   exercises/summerschool14
    exercises/summerschool12
    exercises/summerschool10
    exercises/summerschool08

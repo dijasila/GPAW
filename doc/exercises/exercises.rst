@@ -6,8 +6,8 @@ Exercises
 
 .. note::
 
-  **CAMd summer school 2012 participants**, please read
-  this :ref:`page <summerschool12>` before you start working on the
+  **CAMd summer school 2014 participants**, please read
+  this :ref:`page <summerschool14>` before you start working on the
   exercises.
 
 In order to do the exercises, it helps with a little bit of knowledge
