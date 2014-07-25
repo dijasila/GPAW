@@ -52,6 +52,7 @@ Pick among them according to your interest.  You can also look at the :ref:`tuto
 .. toctree::
    :maxdepth: 1
 
+   dcdft/dcdft
    vibrations/vibrations
    stress/stress
    neb/neb
