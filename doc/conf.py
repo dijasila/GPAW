@@ -197,7 +197,8 @@ latex_preamble = '\usepackage{amsmath}\usepackage{amsfonts}'
 #latex_use_modindex = True
 
 # Example configuration for intersphinx: refer to ase.
-intersphinx_mapping = {'http://wiki.fysik.dtu.dk/ase': None}
+intersphinx_mapping = {'http://wiki.fysik.dtu.dk/ase': None,
+                       'http://docs.enthought.com/mayavi/mayavi': None}
 
 # sphinx.ext.pngmath manual configuration
 # ---------------------------------------

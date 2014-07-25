@@ -14,31 +14,27 @@ atom and CO molecule and compare them to results from molecular orbital theory.
 
 .. highlight:: bash
 
-* In this case we modify the Pulay density mixer.  Adjusting the mixer can
-  sometimes help the calculation converge - see :ref:`densitymix`.
-
 * Towards the end, a :file:`.gpw` file is written with the Kohn-Sham
   wavefunctions by ``calc.write('O.gpw', mode='all')``.
-  At the very end we write the Kohn-Sham
-  wavefunctions to :file:`.cube` files for
-  handling with the :program:`VMD` program.
 
 * Run the script and check the output file. What are the occupation numbers
   for the free oxygen atom?
 
-* The orbitals can be visualized in :program:`VMD`. 
-  Load all of the wavefunctions into :program:`VMD`
-  simultaneously, by running :samp:`vmd O{?}.cube`. In :program:`VMD` choose
-  :menuselection:`Graphics --> Representations`, click
-  :guilabel:`Create Rep`, then choose
-  :menuselection:`Drawing Method --> isosurface`.  In the
-  :guilabel:`Data Set` field, you can then
-  choose between all the saved wavefunctions.
+* The orbitals can be visualized using Mayavi_ and its
+  :func:`mayavi.mlab.contour3d` function and the GPAW-calculators
+  :meth:`~gpaw.aseinterface.get_pseudo_wave_function` method.
+  Reload the gpw-file and look at one of the orbitals like this::
+    
+      from gpaw import GPAW
+      from mayavi import mlab
+      calc = GPAW('O.gpw', txt=None)
+      lumo = calc.get_pseudo_wave_function(band=2, spin=1)
+      mlab.contour3d(lumo)
+      mlab.show()
 
   Can you identify the highest occupied state and the lowest unoccupied state?
 
   How do your wavefunctions compare to a molecular orbital picture?
-
   
 * Make a script where a CO molecule is placed in the center of a cubic
   unit cell with non-periodic boundary conditions, e.g. of 6 Å. For
@@ -48,8 +44,8 @@ atom and CO molecule and compare them to results from molecular orbital theory.
   calculation (what is the number of valence electrons in CO?).
   You can quickly create the Atoms object with the CO molecule by::
   
-    $ from ase.structure import molecule
-    $ CO = molecule('CO')
+      from ase.structure import molecule
+      CO = molecule('CO')
   
   This will create a CO molecule with an approximately correct bond length
   and the correct magnetic moments on each atom.
@@ -70,7 +66,7 @@ atom and CO molecule and compare them to results from molecular orbital theory.
   temperature was used and what is the significance of this?
 
 * Plot the Kohn-Sham wavefunctions of the different wavefunctions of the CO
-  molecule by after writing :file:`.cube` files for handling with :program:`VMD`.
+  molecule like you did for the oxygen atom.
 
 * Can you identify the highest occupied state and the lowest unoccupied state?
 
@@ -86,4 +82,6 @@ atom and CO molecule and compare them to results from molecular orbital theory.
   .. figure:: co_bonding.jpg
      :align: center
 
-.. _The Chemogenesis Web Book: http://www.meta-synthesis.com/webbook/39_diatomics/diatomics.html#CO
+.. _Mayavi: http://docs.enthought.com/mayavi/mayavi/index.html
+.. _The Chemogenesis Web Book: http://www.meta-synthesis.com/webbook/
+                               39_diatomics/diatomics.html#CO
