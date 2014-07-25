@@ -158,7 +158,7 @@ keyword            type       default value        description
 
 .. _manual_mode:
 
-Finite Difference, Plane-wave or LCAO mode
+Finite-difference, plane-wave or LCAO mode
 ------------------------------------------
 
 Finite-difference:
@@ -196,7 +196,7 @@ Speed:
     will parallelize better.
     
 Absolute convergence:
-    With LCAO, it can be hard to reach complete basis set limit and get
+    With LCAO, it can be hard to reach the complete basis set limit and get
     absolute convergence of energies, whereas with FD and PW mode it is
     quite easy to do by decreasing the grid spacing or increasing the
     plane-wave cutoff energy, respectively.
