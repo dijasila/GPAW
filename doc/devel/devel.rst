@@ -43,7 +43,6 @@ to become the next release.
    debugging
    profiling
    testing
-   testsuite
    ase_optimize/ase_optimize
    bugs
    newrelease
