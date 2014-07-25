@@ -87,7 +87,7 @@ def build():
     if os.system('PYTHONPATH=%s/%s/python:%s/lib/python ' % \
                  (tmpdir, libdir, tmpdir) +
                  'GPAW_SETUP_PATH=%s ' % setups +
-                 'sphinx-build . _build') != 0:
+                 'sphinx-build -n . _build') != 0:
         raise RuntimeError('Sphinx failed!')
     os.system('cd _build; cp _static/searchtools.js .')
 
