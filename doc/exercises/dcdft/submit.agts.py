@@ -1,5 +1,6 @@
 def agts(queue):
     a = queue.add('dcdft_gpaw.py', ncpus=4, walltime=20)
-    queue.add('ase-db exercise_dcdft.db name=Ca -c+ecut,kpts,width,x,time,iter',
-              deps=a, ncpus=1, walltime=5)
+    queue.add('testdb.py', deps=a, ncpus=1, walltime=5)
+    queue.add('extract.py exercise_dcdft.db', deps=a, ncpus=1, walltime=5,
+              creates='exercise_dcdft.db_raw.txt')
 
