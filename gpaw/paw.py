@@ -134,6 +134,13 @@ class PAW(PAWTextOutput):
         gpaw.io.read(self, reader)
 
     def set(self, **kwargs):
+        """Change parameters for calculator.
+        
+        Examples::
+            
+            calc.set(xc='PBE')
+            calc.set(nbands=20, kpts=(4, 1, 1))
+        """
         p = self.input_parameters
 
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):

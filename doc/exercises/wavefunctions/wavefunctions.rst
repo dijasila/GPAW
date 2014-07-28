@@ -5,7 +5,7 @@ Kohn-Sham wavefunctions of the oxygen atom and CO molecule
 In this section we will look at the Kohn-Sham wavefunctions of the O
 atom and CO molecule and compare them to results from molecular orbital theory.
 
-* The first script :svn:`~doc/exercises/wavefunctions/O.py` sets up an oxygen
+* The first script :download:`O.py` sets up an oxygen
   atom in a cubic supercell with non-periodic boundary conditions and 
   calculates the total energy. A couple of extra bands (i.e. Kohn-Sham 
   states) are included in the calculation:
@@ -22,7 +22,7 @@ atom and CO molecule and compare them to results from molecular orbital theory.
 
 * The orbitals can be visualized using Mayavi_ and its
   :func:`mayavi.mlab.contour3d` function and the GPAW-calculators
-  :meth:`~gpaw.aseinterface.get_pseudo_wave_function` method.
+  :meth:`~gpaw.aseinterface.GPAW.get_pseudo_wave_function` method.
   Reload the gpw-file and look at one of the orbitals like this::
     
       from gpaw import GPAW
