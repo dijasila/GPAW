@@ -57,7 +57,7 @@ The script has generated several output files::
   *.txt
   *.traj
 
-Examine the equation of state ((see :ref:`aluminium_exercise`))
+Examine the equation of state (see :ref:`aluminium_exercise`)
 using :command:`ase-gui`::
 
   $ ase-gui Ca*.traj
