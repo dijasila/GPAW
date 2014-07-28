@@ -2,13 +2,13 @@
 
 from ase import Atoms
 from ase.visualize import view
-from gpaw import GPAW
+from gpaw import GPAW, PW
 
 k = 8
 g = 16
 for a in [3.9, 4.0, 4.1, 4.2]:
     name = 'bulk-fcc-%.1f-%d' % (a, k)
-    b = a / 2 
+    b = a / 2
 
     bulk = Atoms('Al',
                  cell=[[0, b, b],
@@ -16,7 +16,7 @@ for a in [3.9, 4.0, 4.1, 4.2]:
                        [b, b, 0]],
                  pbc=True)
 
-    calc = GPAW(gpts=(g, g, g),           # grid points
+    calc = GPAW(mode=PW(300),           # grid points
                 kpts=(k, k, k),           # k-points
                 txt=name + '.txt',        # output file
                 parallel=dict(domain=1))  # force parallelization over k-points
