@@ -48,7 +48,7 @@ the log output will be printed directly in the terminal.
 .. highlight:: python
 
 The binary file contains all information about the calculation. Try
-typing the following from the Python interpreter::
+typing the following from the Python interpreter:
 
 >>> from gpaw import GPAW
 >>> calc = GPAW('Al-fcc.gpw', txt=None)
