@@ -14,7 +14,7 @@ system.  This involves multiple calculations of the atomic forces
 respect to the atomic positions :math:`\mathbf R^a` as the atoms
 are moved downhill according to an optimization algorithm.
 
-The following script uses the :mod:`EMT calculator <~ase.calculators.emt>`
+The following script uses the :mod:`EMT calculator <ase.calculators.emt>`
 to optimize the structure of :mol:`H_2`.
 
 .. literalinclude:: h2.emt.py
