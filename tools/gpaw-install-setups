@@ -1,28 +1,17 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import os
 import sys
 import fnmatch
 import urllib2
 from StringIO import StringIO
 import tarfile
-from tarfile import TarFile
 from optparse import OptionParser
 
 usage = '%prog [OPTION] [DIR]'
 description = ('Download and install gpaw-setups into DIR if given, '
                'otherwise print current GPAW setup search paths.')
-
-baseurl = 'https://wiki.fysik.dtu.dk/gpaw-files'
-
-# This is the "safe" way but it's difficult to keep this updated
-# We could change it so it just greps filenames from the webpage
-names = {'0.9': 'gpaw-setups-0.9.9672.tar.gz',
-         '0.8': 'gpaw-setups-0.8.7929.tar.gz',
-         '0.6': 'gpaw-setups-0.6.6300.tar.gz',
-         '0.5': 'gpaw-setups-0.5.3574.tar.gz'}
-
-
 
 p = OptionParser(usage=usage, description=description)
 p.add_option('--version', metavar='VERSION',
@@ -101,8 +90,7 @@ elif len(args) != 1:
     p.error('No more than one DIR expected.  Please try --help.')
 
 targetpath = args[0]
-tarfname = url.rsplit('/', 1)[1]#names[opts.version]
-#url = '%s/%s' % (baseurl, tarfname)
+tarfname = url.rsplit('/', 1)[1]
 
 if opts.tarball:
     print('Reading local tarball %s' % opts.tarball)
@@ -152,8 +140,8 @@ if answer.lower() == 'y':
             break
     else:
         rcfd = open(rcfilepath, 'a')
-        print >> rcfd, rcline1
-        print >> rcfd, rcline2
+        print(rcline1, file=rcfd)
+        print(rcline2, file=rcfd)
         print('Setup path has been registered in %s.' % rcfilepath)
 else:
     if answer.lower() != 'n':
