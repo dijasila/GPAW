@@ -10,7 +10,7 @@ fe = Atoms('Fe2',
            cell=(a, a, a),
            pbc=True)
 
-calc = GPAW(mode=PW(550),
+calc = GPAW(mode=PW(350),
             kpts=(6, 6, 6),
             txt='non.txt')
 
