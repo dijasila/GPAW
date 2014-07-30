@@ -165,14 +165,18 @@ def setup(app):
     queue.collect()
     names = set()
     for job in queue.jobs:
-        if job.creates:
-            for name in job.creates:
-                assert name not in names, "Name '%s' clashes!" % name
-                names.add(name)
-                # the files are saved by the weekly tests under agtspath/agts-files
-                # now we are copying them back to their original run directories
-                print os.path.join(job.dir, name) + ' copied from ' + agtspath
-                get('agts-files', [name], job.dir, source=agtspath)
+        if not job.creates:
+            continue
+        for name in job.creates:
+            assert name not in names, "Name '%s' clashes!" % name
+            names.add(name)
+            # the files are saved by the weekly tests under agtspath/agts-files
+            # now we are copying them back to their original run directories
+            path = os.path.join(job.dir, name)
+            if os.path.isfile(path):
+                continue
+            print(path, 'copied from', agtspath)
+            get('agts-files', [name], job.dir, source=agtspath)
 
     # Get files that we can't generate:
     for dir, file in [
