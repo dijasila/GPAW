@@ -90,12 +90,12 @@ elif len(args) != 1:
     p.error('No more than one DIR expected.  Please try --help.')
 
 targetpath = args[0]
-tarfname = url.rsplit('/', 1)[1]
 
 if opts.tarball:
     print('Reading local tarball %s' % opts.tarball)
     targzfile = tarfile.open(opts.tarball)
 else:
+    tarfname = url.rsplit('/', 1)[1]
     print('Downloading %s' % tarfname)
     response = urllib2.urlopen(url)
     targzfile = tarfile.open(fileobj=StringIO(response.read()))
