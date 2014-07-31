@@ -920,7 +920,7 @@ def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
     gamma: None or bool
         Should the Gamma-point be included?  Yes / no / don't care:
         True / False / None.
-    gamma: None or bool
+    even: None or bool
         Should the number of k-points be even?  Yes / no / don't care:
         True / False / None.
     atoms: Atoms object
