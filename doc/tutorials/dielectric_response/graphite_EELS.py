@@ -1,10 +1,12 @@
+from __future__ import print_function
+
 from math import sqrt
 import numpy as np
 from ase import Atoms
 from ase.units import Bohr
 from ase.parallel import paropen
 from gpaw import GPAW, FermiDirac
-from gpaw.response.df import DF
+from gpaw.response.df import DielectricFunction
 
 # Part 1: Ground state calculation
 a=1.42
@@ -27,7 +29,6 @@ calc = GPAW(xc='LDA',
             basis='dzp',              # Use LCAO basis to get good initialization for unoccupied states.
             nbands=70,                # The result should also be converged with respect to bands.
             convergence={'bands':60}, # It's better NOT to converge all bands. 
-            eigensolver='cg',         # It's preferable to use 'cg' to calculate unoccupied states.
             occupations=FermiDirac(0.05),
             txt='out_gs.txt')
 
@@ -38,20 +39,21 @@ calc.write('graphite.gpw','all')
 # Part 2: Spectra calculations            
 f = paropen('graphite_q_list', 'w')     # Write down q.
 
-for i in range(1,8):                    # Loop over different q.   
-    df = DF(calc='graphite.gpw',       
-            nbands=60,                  # Use only bands that are converged in the gs calculation.
-            q=np.array([i/20., 0., 0.]),      # Gamma - M excitation
-            #q=np.array([i/20., -i/20., 0.])  # Gamma - K excitation
-            w=np.linspace(0, 40, 401),  # Spectra from 0-40 eV with 0.1 eV spacing.
-            eta=0.2,                    # Broadening parameter.
-            ecut=40+(i-1)*10,           # In general, larger q requires larger planewave cutoff energy.       # 
-            txt='out_df_%d.txt' %(i))   # Write differnt output for different q.
+for i in range(1, 8):                                   # Loop over different q.   
+    df = DielectricFunction(calc='graphite.gpw',       
+                            nbands=60,                  # Use only bands that are converged in the gs calculation.
+                            w=np.linspace(0, 40, 401),  # Spectra from 0-40 eV with 0.1 eV spacing.
+                            eta=0.2,                    # Broadening parameter.
+                            ecut=40+(i-1)*10,           # In general, larger q requires larger planewave cutoff energy.       # 
+                            txt='out_df_%d.txt' %(i))   # Write differnt output for different q.
 
-    df.get_EELS_spectrum(filename='graphite_EELS_%d' %(i)) # Use different filenames for different q
-    df.check_sum_rule()         # Check f-sum rule.
+    df.get_eels_spectrum(q_c=np.array([i/20., 0., 0.]),    # Gamma - M excitation
+                         #q=np.array([i/20., -i/20., 0.])  # Gamma - K excitation
+                         filename='graphite_EELS_%d' %(i)) # Use different filenames for different q
 
-    print >> f, sqrt(np.inner(df.qq_v / Bohr, df.qq_v / Bohr))
+    print(sqrt(np.inner(df.qq_v / Bohr, df.qq_v / Bohr)), file=f)
+
+f.close()
 
 
 
