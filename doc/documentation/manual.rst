@@ -308,7 +308,8 @@ For more flexibility, you can use this syntax::
     kpts={'size': (4, 4, 4)}  # 4x4x4 Monkhorst-pack
     kpts={'size': (4, 4, 4), 'gamma': True}  # shifted 4x4x4 Monkhorst-pack
 
-You can also specify the **k**-point density in units of points per Å\ `^-1`::
+You can also specify the **k**-point density in units of points per
+Å\ `^{-1}`::
     
     kpts={'density': 2.5}  # Monkhorst-Pack with a density of 2.5 points/Ang^-1
     kpts={'density': 2.5, 'even': True}  # round off to neares even number
