@@ -26,7 +26,7 @@ not only sharing the results with other researches is easy
 (by granting the access to the database) but also the precise
 method of performing the calculations should be shared (by presenting
 the script). Please consult the introduction to the
-:ase:`ase-db <ase/db/db.html>` module for details.
+:mod:`ase.db` module for details.
 
 You can find out more about "reproducible science" with ASE in
 the following talks:
@@ -36,7 +36,7 @@ the following talks:
 We start by estimating precision of GPAW PBE run with default settings
 (setups, planewave cutoff, k-points, temperature) against
 http://www.wien2k.at/ for K, Ca and Ti. Copy this
-:svn:`~doc/exercises/dcdft/dcdft_gpaw.py` to a place in your file area:
+:download:`dcdft_gpaw.py` to a place in your file area:
 
 .. literalinclude:: dcdft_gpaw.py
 
@@ -47,31 +47,31 @@ script by typing::
 
   $ python dcdft_gpaw.py
 
-It should take about 15 minutes on 4 cores to run the script.
+It should take about 15? minutes to run the script.
 Note that you can start several instances of the script
-simultaneously thanks to the file locking mechanism
-(try to identify which file acts in the script as a lock).
+simultaneously.
 
-The script has generated several output files::
+The script will generate ``.txt`` files and an SQLite3 database file.
+Watch the progess as the calculations run::
 
-  *.txt
-  *.traj
+    $ ase-db dcdft.db -c +x,time
 
 Examine the equation of state (see :ref:`aluminium_exercise`)
 using :command:`ase-gui`::
 
-  $ ase-gui Ca*.traj
+  $ ase-gui dcdft.db@name=Ca
 
 .. note::
 
-   The PBE reference values from https://molmod.ugent.be/deltacodesdft are:
-   K: `V` = 73.68 Å^3/atom, `B` = 3.6 GPa;
-   Ca: `V` = 42.20 Å^3/atom, `B` = 17.1 GPa;
-   Ti: `V` = 17.39 Å^3/atom, `B` = 112.2 GPa;
-
-Alternatively acess the results from the database, e.g.::
-
-  $ ase-db exercise_dcdft.db name=Ca -c+ecut,kpts,width,x,time,iter
+    The PBE reference values from https://molmod.ugent.be/deltacodesdft are:
+     
+    =======  ==================  =========
+    element  `V` [Å\ `^3`/atom]  `B` [GPa]
+    =======  ==================  =========
+    K        73.68               3.6
+    Ca       42.20               17.1
+    Ti       17.39               112.2
+    =======  ==================  =========
 
 Extract the results from the database in order to calculate
 the parameters of the equation of state:
