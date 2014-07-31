@@ -98,8 +98,6 @@ get('documentation/xc', 'g2test_pbe0.png  g2test_pbe.png  results.png'.split())
 get('performance', 'dacapoperf.png  goldwire.png  gridperf.png'.split(),
     '_static')
 
-get('tutorials/negfstm', ['fullscan.png', 'linescan.png'])
-
 get('tutorials/xas', ['h2o_xas_3.png', 'h2o_xas_4.png'])
 
 # workshop2013 photo
@@ -159,37 +157,6 @@ def setup(app):
         print 'Generating setup pages ...'
         os.system('cd setups; %s make_setup_pages.py' % executable)
 
-    # Retrieve latest code coverage pages:
-    if get('.', ['gpaw-coverage-latest.tar.gz'], '_static',
-           source='http://dcwww.camp.dtu.dk/~chlg'):
-        print 'Extracting coverage pages ...'
-        os.system('tar -C devel -xzf _static/gpaw-coverage-latest.tar.gz')
-
-    # Fallback in case coverage pages were not found
-    if not os.path.isfile('devel/testsuite.rst'):
-        open('devel/testsuite.rst', 'w').write( \
-            '\n'.join(['.. _testsuite:',
-                       '', '==========', 'Test suite', '==========',
-                       '', '.. warning::', '   Coverage files not found!']))
-    if not os.path.isdir('devel/coverage'):
-        os.mkdir('devel/coverage', 0755)
-    if not os.path.isfile('devel/coverage/index.rst'):
-        open('devel/coverage/index.rst', 'w').write( \
-            '\n'.join(['-----------------------------------',
-                       'List of files with missing coverage',
-                       '-----------------------------------',
-                       '', 'Back to :ref:`code coverage <coverage>`.',
-                       '', '.. warning::', '   Coverage files not found!']))
-    if not os.path.isfile('devel/coverage/ranking.txt'):
-        open('devel/coverage/ranking.txt', 'w').write( \
-            '\n'.join(['-------------------------------------',
-                       'Distribution of coverage by developer',
-                       '-------------------------------------',
-                       '', '.. warning::', '   Coverage files not found!']))
-    if not os.path.isfile('devel/coverage/summary.txt'):
-        open('devel/coverage/summary.txt', 'w').write( \
-            '\n'.join(['-------', 'Summary', '-------',
-                       '', '.. warning::', '   Coverage files not found!']))
 
     # Get png files and other stuff from the AGTS scripts that run
     # every weekend:
@@ -198,14 +165,18 @@ def setup(app):
     queue.collect()
     names = set()
     for job in queue.jobs:
-        if job.creates:
-            for name in job.creates:
-                assert name not in names, "Name '%s' clashes!" % name
-                names.add(name)
-                # the files are saved by the weekly tests under agtspath/agts-files
-                # now we are copying them back to their original run directories
-                print os.path.join(job.dir, name) + ' copied from ' + agtspath
-                get('agts-files', [name], job.dir, source=agtspath)
+        if not job.creates:
+            continue
+        for name in job.creates:
+            assert name not in names, "Name '%s' clashes!" % name
+            names.add(name)
+            # the files are saved by the weekly tests under agtspath/agts-files
+            # now we are copying them back to their original run directories
+            path = os.path.join(job.dir, name)
+            if os.path.isfile(path):
+                continue
+            print(path, 'copied from', agtspath)
+            get('agts-files', [name], job.dir, source=agtspath)
 
     # Get files that we can't generate:
     for dir, file in [

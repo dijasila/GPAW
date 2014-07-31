@@ -15,7 +15,7 @@ The exercise demonstrates the use of the classes:
   real systems using the GPAW DFT-LCAO mode.
 
 First-time users of the ASE transport module, should start by reading
-the methodology in the :ase:`ASE manual <ase/transport/transport.html>`.
+the methodology in the :mod:`ASE manual <ase.transport>`.
 
 Recent experiments suggests that a hydrogen molecule trapped between
 metal electrodes has a conductance close to the quantum unit of
@@ -38,7 +38,7 @@ In this part of the exercise, we illustrate the use of the ASE
 transport module, by means of a simple tight-binding (TB) model for
 the Pt-H2-Pt system, with only one TB site per atom.
 
-As explained in the :ase:`ASE manual <ase/transport/transport.html>`,
+As explained in the :mod:`ASE manual <ase.transport>`,
 we need need to define a principal layer, and a scattering region. To
 be able to describe second nearest neighbor hopping, we choose a
 principal layer of two Pt atoms. The scattering region is chosen
@@ -63,7 +63,7 @@ neighbor hopping energy of -1, and second nearest neighbor hopping of
 
     import numpy as np
     H_lead = np.array([[ 0. , -1. ,  0.2,  0. ],
-	                [-1. ,  0. , -1. ,  0.2],
+                        [-1. ,  0. , -1. ,  0.2],
                         [ 0.2, -1. ,  0. , -1. ],
                         [ 0. ,  0.2, -1. ,  0. ]])
     
@@ -128,7 +128,9 @@ the calculate the transmission function::
 You may now understand the transport behavior of the simple model
 system.  The transmission peak at -0.8 eV and 0.8 eV are due to the
 bonding and antibonding states of the TB described hydrogen molecule.
-A script containing the above can be found here: :svn:`~doc/exercises/transport/pt_h2_tb_transport.py`.
+A script containing the above can be found here:
+:download:`pt_h2_tb_transport.py`.
+
 
 DFT description
 ===============
@@ -136,14 +138,14 @@ DFT description
 We now continue to explore the Pt-H2-Pt system using a more realistic
 desciption derived from ab-initio calculations.
 
-The functions :class:`get_lcao_hamiltonian` and
-:class:`get_lead_lcao_hamiltonian` (in gpaw.lcao.tools) allows you to
-construct such a Hamiltonian within DFT in terms of pseudo atomic orbitals.
-Since real potential decay much slower than in our TB model, we increase the
-principal layers to 4 Pt atoms, and the scattering region to 5 Pt atoms on
-either side.  To obtain the matrices for the scattering region and the leads
-using DFT and pseudo atomic orbitals using a szp basis set run this
-:svn:`~doc/exercises/transport/pt_h2_lcao_manual.py`:
+The functions :func:`~gpaw.lcao.tools.get_lcao_hamiltonian` and
+:func:`~gpaw.lcao.tools.get_lead_lcao_hamiltonian` (in gpaw.lcao.tools)
+allows you to construct such a Hamiltonian within DFT in terms of pseudo
+atomic orbitals. Since real potential decay much slower than in our TB model,
+we increase the principal layers to 4 Pt atoms, and the scattering region to
+5 Pt atoms on either side.  To obtain the matrices for the scattering region
+and the leads using DFT and pseudo atomic orbitals using a szp basis set run
+this :download:`pt_h2_lcao_manual.py`:
 
 .. literalinclude:: pt_h2_lcao_manual.py
 
@@ -194,4 +196,4 @@ Try to cut the relevant orbitals from the basis set, as we did for the
 TB model.
 
 Here is a script if you need some inspiration:
-:svn:`~doc/exercises/transport/pt_h2_lcao_transport.py`.
+:download:`pt_h2_lcao_transport.py`.
