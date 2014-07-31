@@ -150,6 +150,21 @@ class TestCluster(Cluster):
         os.system('(%s)&' % cmd)
 
 
+class LocalCluster(Cluster):
+    def __init__(self):
+        self.njobs = 0
+        
+    def submit(self, job):
+        dir = os.getcwd()
+        os.chdir(job.dir)
+        self.write_pylab_wrapper(job)
+        os.system('touch %s.start;' % job.name +
+                  'python %s.py %s > %s.output;' %
+                  (job.script, job.args, job.name) +
+                  'echo $? > %s.done\n' % job.name)
+        os.chdir(dir)
+
+
 class AGTSQueue:
     def __init__(self, sleeptime=60, fd=sys.stdout):
         self.sleeptime = sleeptime
@@ -377,6 +392,8 @@ def main():
         elif opt.run == 'niflheim':
             from gpaw.test.big.niflheim import NiflheimCluster
             cluster = NiflheimCluster()
+        elif opt.run == 'local':
+            cluster = LocalCluster()
         else:
             bad
 
