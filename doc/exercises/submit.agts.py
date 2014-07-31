@@ -4,7 +4,7 @@ def agts(queue):
     queue.add('neb/neb3.py', ncpus=1)
     queue.add('aluminium/Al_fcc.py', ncpus=4)
     queue.add('aluminium/Al_bcc.py', ncpus=4)
-    queue.add('aluminium/Al_bcc_vs_fcc.py', ncpus=4)
+    queue.add('aluminium/Al_fcc_vs_bcc.py', ncpus=4)
     queue.add('aluminium/Al_fcc_modified.py', ncpus=4)
     queue.add('diffusion/initial.py', ncpus=2)
     sol = queue.add('diffusion/solution.py', ncpus=2)
