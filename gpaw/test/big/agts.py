@@ -124,6 +124,9 @@ class Cluster:
         fd.write('wrap_pylab(%s)\n' % job.show)
         fd.write('execfile(%r)\n' % job.script)
         fd.close()
+        
+    def tick(self):
+        pass
 
 
 class TestCluster(Cluster):
@@ -152,17 +155,23 @@ class TestCluster(Cluster):
 
 class LocalCluster(Cluster):
     def __init__(self):
-        self.njobs = 0
+        self.queue = []
         
     def submit(self, job):
-        dir = os.getcwd()
-        os.chdir(job.dir)
-        self.write_pylab_wrapper(job)
-        os.system('touch %s.start;' % job.name +
-                  'python %s.py %s > %s.output;' %
-                  (job.script, job.args, job.name) +
-                  'echo $? > %s.done\n' % job.name)
-        os.chdir(dir)
+        self.queue.append(job)
+        self.tick()
+        
+    def tick(self):
+        if self.queue:
+            job = self.queue.pop(0)
+            dir = os.getcwd()
+            os.chdir(job.dir)
+            self.write_pylab_wrapper(job)
+            os.system('(touch %s.start;' % job.name +
+                      'python %s.py %s > %s.output;' %
+                      (job.script, job.args, job.name) +
+                      'echo $? > %s.done)&' % job.name)
+            os.chdir(dir)
 
 
 class AGTSQueue:
@@ -276,6 +285,7 @@ class AGTSQueue:
             if done:
                 break
 
+            cluster.tick()
             time.sleep(self.sleeptime)
 
             for job in jobs:
