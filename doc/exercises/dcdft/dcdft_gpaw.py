@@ -17,9 +17,7 @@ for name in ['K', 'Ca', 'Ti']:
     cell = atoms.get_cell()
     # Loop over volumes:
     for n, x in enumerate(np.linspace(0.98, 1.02, 5)):
-        id = c.reserve(name=name, x=x,
-                       ecut=ecut, kptdensity=kptdensity, width=width)
-
+        id = c.reserve(name=name, x=x)
         if id is None:
             # This calculation has been or is being done:
             continue

@@ -4,11 +4,11 @@
 DeltaCodesDFT - Comparing Solid State DFT Codes, Basis Sets and Potentials
 ==========================================================================
 
-https://molmod.ugent.be/deltacodesdft provides a method
-for measuring precision of the given calculation method
+The webpage https://molmod.ugent.be/deltacodesdft provides a method
+for measuring the precision of a given calculation method
 against a chosen reference method (computational
 or experimental) for parameters of the equation of state
-(see :ref:`aluminium_exercise`) of elementary bulks.
+(see :ref:`aluminium_exercise`) of elementary solids.
 
 When performing any benchmark calculations, especially involving
 a large number of systems, it is important to be aware of the fact
@@ -33,10 +33,10 @@ the following talks:
 `Emacs + org-mode + python in reproducible research <http://www.youtube.com/watch?v=1-dUkyn_fZA>`_ or
 `How Python & the iPython notebook can revamp quantum chemical reseach <http://www.youtube.com/watch?v=WKoImDmYFQE>`_.
 
-We start by estimating precision of GPAW PBE run with default settings
-(setups, planewave cutoff, k-points, temperature) against
-http://www.wien2k.at/ for K, Ca and Ti. Copy this
-:download:`dcdft_gpaw.py` to a place in your file area:
+We will compare PBE numbers from GPAW with http://www.wien2k.at/ for K, Ca
+and Ti. We use default PAW-datasets, a plane-wave cutoff of 340 eV, a
+**k**-point density of 3.5 Å and a Fermi-Dirac distribution with a 0.1 eV
+temperature. Copy this :download:`dcdft_gpaw.py` to a place in your file area:
 
 .. literalinclude:: dcdft_gpaw.py
 
@@ -47,9 +47,9 @@ script by typing::
 
   $ python dcdft_gpaw.py
 
-It should take about 15? minutes to run the script.
+It should take about 15 minutes to run the script.
 Note that you can start several instances of the script
-simultaneously.
+simultaneously in order to speed things up.
 
 The script will generate ``.txt`` files and an SQLite3 database file.
 Watch the progess as the calculations run::
@@ -81,7 +81,7 @@ the parameters of the equation of state:
 and use the script available from https://molmod.ugent.be/deltacodesdft
 to calculate the Delta factors.
 
-* How well the obtained values agree with the references?
+* How well do the obtained values agree with the references?
   Do you think they can be further improved
   (hint: check out https://wiki.fysik.dtu.dk/gpaw/setups/dcdft.html)?
   Do you agree with Karl Popper?
