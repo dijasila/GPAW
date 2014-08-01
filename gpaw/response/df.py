@@ -110,18 +110,27 @@ class DielectricFunction:
         return chi0_wGG, np.array(chi_wGG)
   
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
-                              direction='x', wigner_seitz_truncation=False, 
+                              direction='x', wigner_seitz_truncation=False,
                               symmetric=True):
+        """Returns the symmetrized dielectric matrix.
         
-        """ Returns the symmetrized dielectric matrix:
-        \tilde\epsilon_GG' = v^{-1/2}_G \epsilon_GG' v^{-1/2}_G' where
-        epsilon_GG' = 1 - v_G * P_GG' and P_GG' is the polarization
+        ::
         
-        In RPA:   P = chi^0
-        In TDDFT: P = (1 - chi^0 * f_xc)^{-1} chi^0
+            \tilde\epsilon_GG' = v^{-1/2}_G \epsilon_GG' v^{-1/2}_G',
+            
+        where::
+            
+            epsilon_GG' = 1 - v_G * P_GG' and P_GG'
+            
+        is the polarization.
+        
+        ::
+            
+            In RPA:   P = chi^0
+            In TDDFT: P = (1 - chi^0 * f_xc)^{-1} chi^0
         
         The head of the inverse symmetrized dielectric matrix is equal
-        to the head of the inverse dielectric matrix (inverse dielectric 
+        to the head of the inverse dielectric matrix (inverse dielectric
         function)
         """
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
@@ -204,12 +213,13 @@ class DielectricFunction:
                 
         return df_NLFC_w, df_LFC_w
 
-
     def get_macroscopic_dielectric_constant(self, xc='RPA', direction='x',
                                             wigner_seitz_truncation=False):
-        """Calculate macroscopic dielectric constant. Returns eM_NLFC and eM_LFC
+        """Calculate macroscopic dielectric constant.
+        
+        Returns eM_NLFC and eM_LFC.
 
-        Macroscopic dielectric constant is defined as the real part 
+        Macroscopic dielectric constant is defined as the real part
         of dielectric function at w=0.
         
         Parameters:
@@ -457,20 +467,27 @@ class DielectricFunction:
                         pickle.HIGHEST_PROTOCOL)
             return r*Bohr, w_w, eig_all, eig, omega0, eigen0, v_ind, n_ind
     
-           
-
-
-    def get_spatial_eels(self, q_c = [0, 0, 0], direction = 'x', 
-                         w_max = None, filename = 'eels'):
-        """
-        The spatially resolved loss spectrum is calculated as the inverse fourier
-        transform of VChiV = (eps^{-1}-I)V:  
-        EELS(w,r) = - Im [sum_{G,G'} e^{iGr} Vchi_{GG'}(w) V_G'e^{-iG'r}] \delta(w-G\dot v_e )
+    def get_spatial_eels(self, q_c=[0, 0, 0], direction='x',
+                         w_max=None, filename='eels'):
+        """Spatially resolved loss spectrum.
+        
+        The spatially resolved loss spectrum is calculated as the inverse
+        fourier transform of ``VChiV = (eps^{-1}-I)V``::
+            
+            EELS(w,r) = - Im [sum_{G,G'} e^{iGr} Vchi_{GG'}(w) V_G'e^{-iG'r}]
+                          \delta(w-G\dot v_e )
+        
         Input parameters:
-            direction: 'x', 'y', or 'z'. The direction for scanning acroos the structure (perpendicular to the electron beam) 
-            w_max: maximum frequency  
-            filename: name of output
-        Returns : real space grid, frequency points, EELS(w,r)   
+            
+        direction: 'x', 'y', or 'z'
+            The direction for scanning acroos the structure
+            (perpendicular to the electron beam) .
+        w_max: float
+            maximum frequency
+        filename: str
+            name of output
+            
+        Returns: real space grid, frequency points, EELS(w,r)
         """
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
