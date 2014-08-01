@@ -78,8 +78,8 @@ example a linear frequency grid is specified using::
                          omegamax=15.0) # eV. Default is the maximum  
                                         #  difference between energy
                                         #  eigenvalues
+                                        
 .. note::
-    
    In general a higher value of alpha gives a more non-linear grid and less 
    frequency points. Setting :math:`\omega_\mathrm{max}` manually is usually
    not advisable, however you might want it in cases where semi-core states 
