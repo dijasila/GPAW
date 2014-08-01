@@ -41,7 +41,11 @@ Quick links to all features:
       -
       -
 
-      
+Watch us on GPAWTV
+==================
+
+.. include:: ytp.txt
+
 .. _news:
 
 News
