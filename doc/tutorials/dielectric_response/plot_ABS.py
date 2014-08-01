@@ -1,6 +1,4 @@
 import numpy as np
-from gpaw.test import wrap_pylab
-wrap_pylab()
 import pylab as pl
     
 def plot_ABS(head):    
@@ -35,4 +33,5 @@ ax.add_patch(arr4)
 ax.add_patch(arr5)
 
 pl.xlim(0,10)
+pl.savefig('silicon_ABS.png', bbox_inches='tight')
 pl.show()

@@ -1,6 +1,4 @@
 import numpy as np
-from gpaw.test import wrap_pylab
-wrap_pylab()
 import pylab as pl
 
 def plot_EELS(head):
@@ -27,5 +25,5 @@ def plot_EELS(head):
     pl.legend(loc=2)
     
 plot_EELS('graphite')
-
+pl.savefig('graphite_EELS.png', bbox_inches='tight')
 pl.show()

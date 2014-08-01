@@ -141,7 +141,7 @@ is split into different parts for illustration.
 1. Ground state calculation
 
   .. literalinclude:: silicon_ABS.py
-      :lines: 5-39
+      :lines: 1-39
   
   In this script a normal ground state calculation is performed with coarse 
   kpoint grid. The calculation is then restarted with a fixed density and the 
@@ -244,6 +244,10 @@ It comes from the bulk plasmon excitation of aluminum. You can explore the
 plasmon dispersion relation  :math:`\omega_p(\mathbf{q})` by 
 tuning :math:`\mathbf{q}` in the calculation above. 
 
+.. image:: aluminum_EELS.png
+    :height: 300 px
+    :align: center
+
 .. Note::
 
     The momentum transfer :math:`\mathbf{q}` in an EELS calculation must be 
@@ -268,10 +272,8 @@ different  :math:`\mathbf{q}`.  You can also get the script here:
 Results on graphite
 -------------------
 
-The figure shown here is generated from script:
-:svn:`~doc/tutorials/dielectric_response/graphite_EELS.py`. and
-:svn:`~doc/tutorials/dielectric_response/plot_EELS.py`.  XXX Not anymore. It
-takes 2 hours with 8 cpus on Intel Xeon X5570 2.93GHz.
+The figure shown here is generated from script: :download:`graphite_EELS.py` and 
+:download:`plot_EELS.py`
 
 .. image:: graphite_EELS.png
            :height: 500 px
