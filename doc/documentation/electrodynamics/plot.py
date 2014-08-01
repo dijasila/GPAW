@@ -25,6 +25,25 @@ plt.plot(spec[:, 0], 3.*(4./3.*np.pi*(radius/Bohr)**3)*(spec[:,0]/Hartree)/(2.*n
 plt.legend(loc=2)
 plt.xlabel('Energy [eV]', fontsize=12)
 plt.ylabel('Dipole strength [1/eV]', fontsize=12)
-plt.xlim((1, 6.0))
+plt.xlim((0, 5.0))
 plt.ylim((-1, 3500))
 plt.savefig('qsfdtd_vs_mie.png')
+
+
+# Plot spectrum with r=0nm and r=5nm
+spec0 = np.loadtxt('specCl.0.dat') # AuNP
+spec1 = np.loadtxt('specCl.1.dat') # Na2
+spec2 = np.loadtxt('specCl.2.dat') # AuNP+Na2
+
+plt.figure()
+plt.plot(spec0[:, 0], spec0[:, 1], 'r', label='Au nanoparticle')
+plt.plot(spec1[:, 0], spec1[:, 1], 'g', label='Na$_2$')
+plt.plot(spec2[:, 0], spec2[:, 1], 'b', label='Na$_2$ near Au nanoparticle')
+plt.legend(loc=1)
+plt.xlabel('Energy [eV]', fontsize=12)
+plt.ylabel('Dipole strength [1/eV]', fontsize=12)
+plt.xlim((0, 5.0))
+plt.ylim((-1, 20))
+plt.savefig('hybrid.png')
+
+

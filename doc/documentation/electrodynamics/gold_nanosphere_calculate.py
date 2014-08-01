@@ -28,14 +28,14 @@ classical_material = PolarizableMaterial()
 # Classical nanosphere
 classical_material.add_component(
         PolarizableSphere(center = 0.5*large_cell,
-                          radius=radius,
+                          radius = radius,
                           permittivity = PermittivityPlus(data=gold))
         )
 
 # Combined Poisson solver
 poissonsolver = FDTDPoissonSolver(classical_material  = classical_material,
-                                  qm_spacing          = 1.00,
-                                  cl_spacing          = 7.50,
+                                  qm_spacing          = 1.0,
+                                  cl_spacing          = 8.0,
                                   remove_moments      = (1, 4),
                                   cell                = large_cell)
 poissonsolver.set_calculation_mode('iterate')
