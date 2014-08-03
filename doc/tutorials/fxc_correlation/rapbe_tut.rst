@@ -18,9 +18,9 @@ and the RPA approximation for correlation energies is simply obtained from the R
 
   \chi^\lambda(\omega) = \chi^KS(\omega) + \chi^KS(\omega)\Big[\lambda v+f_{xc}^\lambda(\omega)\Big]\chi^\lambda(\omega).
 
-The RPA is obtained by neglecting the exchange-correlation kernel and it should be possible to improve RPA by including simply approximations for this kernel. However, if one tries to use a simple adiabatic kernel, one encounters severe convergence problems and results become worse than RPA! The reason for this is that the locality of adiabatic kernels renders the pair-correlation function divergent. As it turns out, the adiabatic correlation hole can be renormalized by a simple non-empirical procedure, which results in a density-dependent non-locality in the kernel. This can be done for any adiabatic kernel and the method has implemented for LDA and PBE. We refer to these approximations as renormalized adiabatic LDA (rALDA) and renormalized adiabatic PBE (rAPBE). We only include the exchange part of the kernel, since this part is linear in :math:`\lambda` and the kernel thus only needs to be evaluated for :math:`\lambda=1`.
+The RPA is obtained by neglecting the exchange-correlation kernel and it should be possible to improve RPA by including simple approximations for this kernel. However, if one tries to use a simple adiabatic kernel, one encounters severe convergence problems and results become worse than RPA! The reason for this is that the locality of adiabatic kernels renders the pair-correlation function divergent. As it turns out, the adiabatic correlation hole can be renormalized by a simple non-empirical procedure, which results in a density-dependent non-locality in the kernel. This can be done for any adiabatic kernel and the method has implemented for LDA and PBE. We refer to these approximations as renormalized adiabatic LDA (rALDA) and renormalized adiabatic PBE (rAPBE). We only include the exchange part of the kernel, since this part is linear in :math:`\lambda` and the kernel thus only needs to be evaluated for :math:`\lambda=1`.
 
-For more details on the theory and implementation of RPA we refer to :ref:`rpa` and the tutorial :ref:`rpa_tut`. The RPA tutorial should be studied before the present tutorial, which inherits much of the terminology from RPA. Details on the theory, implementation and benchmarking of the renormalized kernels can be found in Refs. [#Olsen1]_ and [#Olsen2]_.
+For more details on the theory and implementation of RPA we refer to :ref:`rpa` and the tutorial :ref:`rpa_tut`. The RPA tutorial should be studied before the present tutorial, which inherits much of the terminology from RPA. Details on the theory, implementation and benchmarking of the renormalized kernels can be found in Refs. [#Olsen1]_, [#Olsen2]_, and [#Olsen3]_.
 
 Below we give examples on how to calculate the correlation energy of a Hydrogen atom as well as the rAPBE atomization energy of a :math:`CO` molecule and the rAPBE cohesive energy of diamond. Note that some of the calculations in this tutorial will need a lot of CPU time and is essentially not possible without a supercomputer.
 
@@ -45,7 +45,7 @@ PBE     RPA        rAPBE
 -0.16    -0.55     -0.007
 =====   =======    ======
 
-The fact that RPA gives such a dramatic underestimation of the correlation energy is a general problem with the method, which is also seen for bulk systems. For example, for the homogeneous electron gas RPA underestimates the correlation energy by ~0.5 eV per electron for a wide range of densities [#Olsen1]_. 
+The fact that RPA gives such a dramatic underestimation of the correlation energy is a general problem with the method, which is also seen for bulk systems. For example, for the homogeneous electron gas RPA underestimates the correlation energy by ~0.5 eV per electron for a wide range of densities. 
  
 Example 2: Atomization energy of CO
 ===================================
@@ -62,7 +62,7 @@ which takes on the order of 6-7 CPU hours. The script generates CO.gpw, C.gpw an
 
 The results for various cutoffs are written to the files rpa_CO.dat and rapbe_CO.dat. We also print the correlation energies of the C atom to be used in a tutorial below. As in the case of RPA the converged result is obtained by extrapolation using the script 
 
-.. literalinclude:: extrapolate.py
+.. literalinclude:: extrapolate_CO.py
 
 If pylab is installed, the plot=False can be change to plot=True to visualize the quality of the extrapolation. The final results are displayed below
 
@@ -100,3 +100,6 @@ PBE     HF     RPA    rAPBE       Experimental
 
 .. [#Olsen2] T. Olsen and K. S. Thygesen
            *Phys. Rev. B* **88**, 115131 (2013)
+
+.. [#Olsen3] T. Olsen and K. S. Thygesen
+           *Phys. Rev. Lett* **112**, 203001 (2014)
