@@ -40,6 +40,7 @@ calc.write('si_large.gpw', 'all') # Write wavefunctions
 
 # Getting absorption spectrum
 df = DielectricFunction(calc='si_large.gpw', 
+                        domega0=0.01,
                         eta=0.1,
                         ecut=150)
 df.get_dielectric_function(filename='si_abs.csv')
