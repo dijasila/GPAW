@@ -6,7 +6,7 @@ from gpaw import GPAW, PW
 
 name = 'Al-fcc'
 a = 4.05  # fcc lattice paramter
-b = a / 2 
+b = a / 2
 
 bulk = Atoms('Al',
              cell=[[0, b, b],
