@@ -41,11 +41,11 @@ f = paropen('graphite_q_list', 'w')     # Write down q.
 
 for i in range(1, 8):                                   # Loop over different q.   
     df = DielectricFunction(calc='graphite.gpw',       
-                            nbands=60,                  # Use only bands that are converged in the gs calculation.
-                            w=np.linspace(0, 40, 401),  # Spectra from 0-40 eV with 0.1 eV spacing.
-                            eta=0.2,                    # Broadening parameter.
-                            ecut=40+(i-1)*10,           # In general, larger q requires larger planewave cutoff energy.       # 
-                            txt='out_df_%d.txt' %(i))   # Write differnt output for different q.
+                            nbands=60,                            # Use only bands that are converged in the gs calculation.
+                            frequencies=np.linspace(0, 40, 401),  # Spectra from 0-40 eV with 0.1 eV spacing.
+                            eta=0.2,                              # Broadening parameter.
+                            ecut=40+(i-1)*10,                     # In general, larger q requires larger planewave cutoff energy.
+                            txt='out_df_%d.txt' %(i))             # Write different output for different q.
 
     df.get_eels_spectrum(q_c=np.array([i/20., 0., 0.]),    # Gamma - M excitation
                          #q=np.array([i/20., -i/20., 0.])  # Gamma - K excitation

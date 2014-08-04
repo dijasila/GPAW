@@ -1,7 +1,9 @@
 def agts(queue):
     queue.add('plot_freq.py', creates='nl_freq_grid.png')
-    queue.add('silicon_ABS_simpleversion.py', 
-              creates=['df.csv', 'si_abs.png'])
+    
+    simple_si = queue.add('silicon_ABS_simpleversion.py', creates=df.csv)
+    queue.add('plot_silicon_ABS_simple.py', creates='si_abs.png',
+              deps=simple_si)
     
     si = queue.add('silicon_ABS.py', creates=['si_abs.csv', 'mac_eps.csv'],
                    ncpus=16, walltime=100)

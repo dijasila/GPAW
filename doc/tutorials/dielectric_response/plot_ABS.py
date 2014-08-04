@@ -4,7 +4,7 @@ import pylab as pl
 def plot_ABS(head):    
     # plot optical absorption specctrum
     pl.figure(figsize=(7,5))
-    d = np.loadtxt(head+'_abs.csv')
+    d = np.loadtxt(head+'_abs.csv', delimiter=',')
     pl.plot(d[:,0], d[:,3], '-k', label='$\mathrm{Re}\epsilon(\omega)$')
     pl.plot(d[:,0], d[:,4], '-r', label='$\mathrm{Im}\epsilon(\omega)$')
 
