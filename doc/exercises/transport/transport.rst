@@ -4,15 +4,13 @@
 Electron transport
 ==================
 
-This exercise shows how to use the ase transport module for performing
-realistic calculations of the electron transport in nanoscale contacts.
+This exercise shows how to use the ase transport module for performing 
+electron transport calculations in nanoscale contacts.
 
-The exercise demonstrates the use of the classes:
-
-* :class:`~ase.transport.calculators.TransportCalculator` used to
-  calculate transmission functions.
-* :class:`GPAWTransport` used to extract realistic descriptions of
-  real systems using the GPAW DFT-LCAO mode.
+:class:`~ase.transport.calculators.TransportCalculator` is used to
+  calculate transmission functions at two different levels, namely:
+* Tight-binding (TB) description: parametrize the system using tight-binding model. 
+* DFT description: extract realistic description of the system using the GPAW DFT-LCAO mode.
 
 First-time users of the ASE transport module, should start by reading
 the methodology in the :mod:`ASE manual <ase.transport>`.
@@ -37,6 +35,9 @@ Tight-binding description
 In this part of the exercise, we illustrate the use of the ASE
 transport module, by means of a simple tight-binding (TB) model for
 the Pt-H2-Pt system, with only one TB site per atom.
+The script can be found here:
+:download:`pt_h2_tb_transport.py`.
+Below we will walk through the script.
 
 As explained in the :mod:`ASE manual <ase.transport>`,
 we need need to define a principal layer, and a scattering region. To
@@ -63,9 +64,9 @@ neighbor hopping energy of -1, and second nearest neighbor hopping of
 
     import numpy as np
     H_lead = np.array([[ 0. , -1. ,  0.2,  0. ],
-                        [-1. ,  0. , -1. ,  0.2],
-                        [ 0.2, -1. ,  0. , -1. ],
-                        [ 0. ,  0.2, -1. ,  0. ]])
+                       [-1. ,  0. , -1. ,  0.2],
+                       [ 0.2, -1. ,  0. , -1. ],
+                       [ 0. ,  0.2, -1. ,  0. ]])
     
 Next, the Hamiltonian for the scattering region should be constructed.
 Assuming the Hydrogen molecule can be described by the Hamiltonian:
@@ -93,7 +94,7 @@ You are now ready to initialize the ``TransportCalculator``::
 To calculate the transmission function; first select an energy grid
 for the transmission, then run ``tcalc.get_transmission()``::
 
-    tcalc.set(energies=npy.arange(-3, 3, 0.02))
+    tcalc.set(energies=py.arange(-3, 3, 0.02))
     T_e = tcalc.get_transmission()
 
 Try to plot the transmission function (e.g. using
@@ -128,8 +129,6 @@ the calculate the transmission function::
 You may now understand the transport behavior of the simple model
 system.  The transmission peak at -0.8 eV and 0.8 eV are due to the
 bonding and antibonding states of the TB described hydrogen molecule.
-A script containing the above can be found here:
-:download:`pt_h2_tb_transport.py`.
 
 
 DFT description
@@ -150,7 +149,14 @@ this :download:`pt_h2_lcao_manual.py`:
 .. literalinclude:: pt_h2_lcao_manual.py
 
 You should now have the files scat_hs.pickle, lead1_hs.pickle and
-lead2_hs.pickle in your directory.  These can be loaded and used in
+lead2_hs.pickle in your directory. 
+
+You are now ready to initialize the ``TransportCalculator``::
+The script can be found here:
+:download:`pt_h2_lcao_transport.py`.
+Below we will work through the script.
+
+The pickle files can be loaded and used in
 the ``TransportCalculator``::
     
     from ase.transport.calculators import TransportCalculator
@@ -194,6 +200,3 @@ eV.
 Which orbital do you think is responsible for the high conductance?
 Try to cut the relevant orbitals from the basis set, as we did for the
 TB model.
-
-Here is a script if you need some inspiration:
-:download:`pt_h2_lcao_transport.py`.
