@@ -8,9 +8,12 @@ This exercise shows how to use the ase transport module for performing
 electron transport calculations in nanoscale contacts.
 
 :class:`~ase.transport.calculators.TransportCalculator` is used to
-  calculate transmission functions at two different levels, namely:
-* Tight-binding (TB) description: parametrize the system using tight-binding model. 
-* DFT description: extract realistic description of the system using the GPAW DFT-LCAO mode.
+calculate transmission functions at two different levels, namely:
+
+* Tight-binding (TB) description: parametrize the system using
+  tight-binding model. 
+* DFT description: extract realistic description of the system using
+  the GPAW DFT-LCAO mode.
 
 First-time users of the ASE transport module, should start by reading
 the methodology in the :mod:`ASE manual <ase.transport>`.
@@ -151,7 +154,7 @@ this :download:`pt_h2_lcao_manual.py`:
 You should now have the files scat_hs.pickle, lead1_hs.pickle and
 lead2_hs.pickle in your directory. 
 
-You are now ready to initialize the ``TransportCalculator``::
+You are now ready to initialize the ``TransportCalculator``:
 The script can be found here:
 :download:`pt_h2_lcao_transport.py`.
 Below we will work through the script.
