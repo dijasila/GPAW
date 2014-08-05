@@ -263,7 +263,7 @@ class PolarizableAtomisticRegion():
     
 # Sphere-shaped classical material
 class PolarizableSphere():
-    def __init__(self, permittivity, center, radius):
+    def __init__(self, center, radius, permittivity):
         self.permittivity = permittivity
         self.vector1      = np.array(center)/Bohr # from Angstroms to atomic units
         self.radius1      = radius/Bohr # from Angstroms to atomic units

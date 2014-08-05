@@ -1,11 +1,13 @@
 # Electrodynamics module, by Arto Sakko (Aalto University)
 
+from ase import Atoms
 from ase.parallel import parprint
 from ase.units import Hartree, Bohr, _eps0, _c, _aut
-from gpaw import PoissonConvergenceError
+from gpaw import GPAW, PoissonConvergenceError
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.io import open as gpaw_io_open
 from gpaw.mpi import world, serial_comm
+from gpaw.tddft import TDDFT, photoabsorption_spectrum
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
@@ -21,9 +23,120 @@ import gpaw.mpi as mpi
 import numpy as np
 import sys
 
+# Wrapper class to make things easier
+# use: qsfdtd = QSFDTD(cl, at, c, h)
+#      energy = qsfdtd.ground_state('gs.gpw')
+#      qsfdtd.time_propagation('gs.gpw', kick)
+#      photoabsorption_spectrum('dm.dat', 'spec.dat')
 
-# In atomic units, 1/(4*pi*e_0) = 1
-_maxL = 1  # 1 for monopole, 4 for dipole, 9 for quadrupole
+class QSFDTD:
+    def __init__(self, classical_material,
+                        atoms,
+                        cells,
+                        spacings,
+                        remove_moments=(1, 1),
+                        tag=""):
+                
+        self.td_calc = None
+        self.tag = tag
+        
+        # Define classical cell in one of these ways:
+        # 1. [cx, cy, cz]   -> vacuum for the quantum grid = 4.0
+        # 2. ([cx, cy, cz]) -> vacuum = 4.0
+        # 3. ([cx, cy, cz], vacuum)
+        # 4. ([cx, cy, cz], ([p1x, p1y, p1z], [p2x, p2y, p2z])) where p1 and p2 are corners of the quantum grid
+        if len(cells)==1: # (cell)
+            assert(len(cells[0])==3)
+            cell=np.array(cells[0])
+            vacuum=4.0
+        elif len(cells)==3: # [cell.x, cell.y, cell.z]
+            cell=np.array(cells)
+            vacuum=4.0
+        elif len(cells)==2: # cell + vacuum/corners
+            cell=np.array(cells[0])
+            if np.array(cells[1]).size==1:
+                vacuum=cells[1]
+                corners=None
+            else:
+                vacuum=None
+                corners=cells[1]
+        else:
+            raise Exception, 'QSFDTD: cells defined incorrectly'
+        
+        # Define spacings in in one of these ways:
+        # 1. (clh, qmh)
+        # 2. clh -> qmh=clh/4
+        if np.array(spacings).size==1: # clh
+            cl_spacing = spacings
+            qm_spacing = 0.25*cl_spacing
+        elif len(spacings)==2: # (clh, qmh)
+            cl_spacing = spacings[0]
+            qm_spacing = spacings[1]
+        else:
+            raise Exception, 'QSFDTD: spacings defined incorrectly'
+            
+        self.poissonsolver = FDTDPoissonSolver(classical_material  = classical_material,
+                                          cl_spacing          = cl_spacing,
+                                          qm_spacing          = qm_spacing,
+                                          remove_moments      = remove_moments,
+                                          dm_fname            = 'dmCl%s.dat' % tag,
+                                          cell                = cell,
+                                          tag                 = tag)
+        self.poissonsolver.set_calculation_mode('iterate')
+        
+        # Quantum system
+        if atoms != None:
+            assert(len(cells)==2)
+            assert(len(spacings)==2)
+            assert(len(remove_moments)==2)
+            self.atoms = atoms
+            self.atoms.set_cell(cell)
+            if vacuum != None: # vacuum
+                self.atoms, self.qm_spacing, self.gpts = self.poissonsolver.cut_cell(self.atoms, vacuum=vacuum)
+            else: # corners
+                self.atoms, self.qm_spacing, self.gpts = self.poissonsolver.cut_cell(self.atoms, corners=corners)
+        else: # Dummy quantum system
+            self.atoms = Atoms("H", [0.5*cell], cell=cell)
+            if vacuum != None: # vacuum
+                self.atoms, self.qm_spacing, self.gpts = self.poissonsolver.cut_cell(self.atoms, vacuum=vacuum)
+            else: # corners
+                self.atoms, self.qm_spacing, self.gpts = self.poissonsolver.cut_cell(self.atoms, corners=corners)
+            del self.atoms[:]
+            
+            
+
+    def ground_state(self, filename, **kwargs):
+        # GPAW calculator for the ground state
+        self.gs_calc = GPAW(gpts          = self.gpts,
+                            poissonsolver = self.poissonsolver,
+                            **kwargs
+                            )
+        self.atoms.set_calculator(self.gs_calc)
+        self.energy = self.atoms.get_potential_energy()
+        self.write(filename, mode='all')
+    
+    def write(self, filename, **kwargs):
+        if self.td_calc==None:
+            self.gs_calc.write(filename, **kwargs)
+        else:
+            self.td_calc.write(filename, **kwargs)
+                    
+    def time_propagation(self,
+                           filename,
+                           kick_strength=None,
+                           time_step=10.0,
+                           iterations=1000,
+                           dipole_moment_file=None,
+                           restart_file=None,
+                           dump_interval=100,
+                           **kwargs):
+        self.td_calc = TDDFT(filename, **kwargs)
+        if kick_strength != None:
+            self.td_calc.absorption_kick(kick_strength)
+            self.td_calc.hamiltonian.poisson.set_kick(kick_strength)
+        self.td_calc.propagate(time_step, iterations, dipole_moment_file, restart_file, dump_interval)
+         
+        
 
 # This helps in telling the classical quantitites from the quantum ones
 class PoissonOrganizer:
@@ -46,7 +159,7 @@ class FDTDPoissonSolver:
                        cl_spacing=1.20,
                        tag='fdtd.poisson',
                        dm_fname='dmCl.dat',
-                       remove_moments=(_maxL, 1),
+                       remove_moments=(1, 1),
                        potential_coupler='Refiner',
                        coupling_level='both',
                        communicator=serial_comm,
@@ -74,8 +187,8 @@ class FDTDPoissonSolver:
         self.description = 'FDTD+TDDFT'
         self.set_calculation_mode('solve')
         
-        self.remove_moment_qm = remove_moments[0]
-        self.remove_moment_cl = remove_moments[1]
+        self.remove_moment_cl = remove_moments[0]
+        self.remove_moment_qm = remove_moments[1]
         self.tag = tag
         self.time = 0.0
         self.time_step = 0.0
