@@ -137,5 +137,5 @@ function (can be read with :func:`numpy.save`.  Try this::
     import numpy as np
     d = np.load('densitydiff.npy')
     d2 = np.tile(d, (2, 2, 1))  # repeat 2x2 times in x,y-plane
-    mlab.countour3d(d2)
+    mlab.contour3d(d2)
     mlab.show()
