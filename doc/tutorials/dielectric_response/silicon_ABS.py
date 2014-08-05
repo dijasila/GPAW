@@ -31,7 +31,7 @@ atoms.get_potential_energy() # Get ground state density
 calc.write('si_small.gpw')
 
 # Restart Calculation with fixed density and dense kpoint sampling
-calc = GPAW('si_small.gpw',
+calc = GPAW('si_small.gpw', fixdensity=True,
             kpts={'density': 15.0, 'gamma': True},  # Dense kpoint sampling
             )
 
