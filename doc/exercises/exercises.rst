@@ -63,6 +63,7 @@ Pick among them according to your interest.  You can also look at the :ref:`tuto
    stm/stm
    transport/transport
    lrtddft/lrtddft
+   eels/eels
 
 Further information:
 
