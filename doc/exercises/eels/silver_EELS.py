@@ -31,12 +31,4 @@ p.ylabel('Loss spectrum')
 p.xlim(0,20)
 p.show()
 
-df.get_dielectric_function(q_c=q_c)   
-data = genfromtxt('eels.csv', delimiter=','  )
-omega = data[:,0]
-abs = data[:,5]
-p.plot(omega, abs)
-p.xlabel('Energy (eV)')
-p.ylabel('Absorption spectrum')
-p.xlim(0,20)
-p.show()
+
