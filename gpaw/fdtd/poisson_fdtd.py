@@ -134,7 +134,7 @@ class QSFDTD:
                            restart_file=None,
                            dump_interval=100,
                            **kwargs):
-        self.td_calc = TDDFT(filename) #, **kwargs)
+        self.td_calc = TDDFT(filename, **kwargs)
         if kick_strength != None:
             self.td_calc.absorption_kick(kick_strength)
             self.td_calc.hamiltonian.poisson.set_kick(kick_strength)
