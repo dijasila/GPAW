@@ -48,7 +48,7 @@ The calculation takes some time due to a sum over k-points. To speed up the calc
   mpirun -np 4 gpaw-python silver_EELS.py
 
 The calculation saves the file ``eels.csv`` by default, where the first column is the energy grid, and the second and third columns are the loss spectrum without and with local field corrections respectively. (The local field corrections takes into account that the system responds on the microscopic scale though the perturbation is macroscopic). You can plot the spectrum by like this::
- 
+
   from numpy import genfromtxt
   import pylab as p
   
@@ -65,7 +65,7 @@ Look at the spectrum, where is the plasmon peak? Compare the result to the exper
 
 Hopefully you will find that there is large difference between the free electron and the quantum result. The plasmon is damped and shifted down in energy due to coupling to single-particle transitions (inter-band transitions). Here the d-band of silver plays a crucial role, since transitions from here up to the Fermi level defines the onset of inter-band transitions. For example you can calculate the loss spectrum from the LDA ground state result and see what is does to the spectrum. You can also investigate the single-particle spectrum by calculating the dielectric function::
 
-  df.get_dielectric_function(q_c=q_c)
+  df.get_dielectric_function(q_c=q_c),
 
 which saves a file ``df.csv``. Try plotting the imaginary part (column 5 in the data file), which corresponds to the single-particle spectrum. Compare this to the loss spectrum to see that the plasmon peak is shifted down just below the single-particle transitions. 
 
