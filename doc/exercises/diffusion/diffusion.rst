@@ -130,8 +130,8 @@ instance adsorption reactions. Copy the script
 
 Read it and try to understand what is does. Change the necessary lines
 to look at one of your slabs with Au adsorbed. The script will write the
-density difference to a :file:`.npy` file using NumPy's :func:`numpy.save`
-function (can be read with :func:`numpy.save`.  Try this::
+density difference to a :file:`.npy` file using NumPy's :func:`~numpy.save`
+function (can be read with :func:`~numpy.load`.  Try this::
     
     from mayavi import mlab
     import numpy as np
