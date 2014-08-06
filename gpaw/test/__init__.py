@@ -213,6 +213,7 @@ tests = [
     # > 20 sec tests start here (add tests after gemm.py!)
     'gemm.py',
     'ed.py',
+    'ed_wrapper.py',
     'rpa_energy_Ni.py',
     'LDA_unstable.py',
     'si.py',
