@@ -4,7 +4,7 @@
 Electron energy loss spectrum of silver
 =======================================
 
-Electron energy loss spectroscopy (EELS) is a widely used method to obtain the excitation spectrum of materials. For metallic and semiconducting materials, the energy losses in the range 0-50 eV is primarily due collective excitations of electrons, also called plasmons, that corresponds to oscillations in the electron density.  For a free-electron metal (Drude metal), the plasmon energy is given by the electron density, n: 
+Electron energy loss spectroscopy (EELS) is a widely used method to obtain the excitation spectrum of materials. For metallic and semiconducting materials, the energy losses in the range 0-50 eV is primarily due excitations of plasmons, that are collective electronic excitations, corresponding to oscillations in the electron density.  For a free-electron metal (Drude metal), the plasmon energy is given by the electron density, n: 
 
 .. math:: \omega_p = \sqrt{\frac{ne^2}{\epsilon_0 m}}. 
 
