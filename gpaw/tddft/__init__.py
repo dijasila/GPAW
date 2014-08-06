@@ -236,6 +236,9 @@ class TDDFT(GPAW):
         # For electrodynamics mode
         if self.hamiltonian.poisson.description=='FDTD+TDDFT':
             self.initialize_FDTD()
+            self.hamiltonian.poisson.print_messages(self.text)
+            self.txt.flush()
+
 
 
     # Electrodynamics requires extra care 

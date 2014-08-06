@@ -1,6 +1,7 @@
-# Useful routines for the Electrodynamics module, by Arto Sakko (Aalto University)
+"""Part of the module for electrodynamic simulations
 
-from ase.parallel import parprint
+"""
+
 from ase.units import Hartree, Bohr, _eps0, _c, _aut
 from gpaw import PoissonConvergenceError
 from gpaw.fd_operators import Gradient
@@ -32,6 +33,7 @@ class PolarizableMaterial():
         self.gd          = None
         self.initialized = False
         self.sign        = sign
+        self.messages    = []
 
         if components==None:
             self.components = []
@@ -52,7 +54,7 @@ class PolarizableMaterial():
         if self.initialized: # double initialization leads to problems
             return
         self.initialized = True
-        parprint("Initializing Polarizable Material")
+        self.messages.append("Polarizable Material:")
         
         try:
             self.Nj = max(component.permittivity.Nj for component in self.components)
@@ -127,18 +129,18 @@ class PolarizableMaterial():
             self.beta       [j] = np.logical_not(mask) * self.beta[j]     + mask * 0.0
 
         # Print the permittivity information
-        parprint("  Permittivity data:")
-        parprint("    bar_omega         alpha          beta")
-        parprint("  ----------------------------------------")
+        self.messages.append("  Permittivity data:")
+        self.messages.append("    bar_omega         alpha          beta")
+        self.messages.append("  ----------------------------------------")
         for j in range(permittivity.Nj):
-            parprint("%12.6f  %12.6f  %12.6f" % (permittivity.oscillators[j].bar_omega,
-                                                 permittivity.oscillators[j].alpha,
-                                                 permittivity.oscillators[j].beta))
-        parprint("  ----------------------------------------")
-        parprint("...done initializing Polarizable Material")
+            self.messages.append("%12.6f  %12.6f  %12.6f" % (permittivity.oscillators[j].bar_omega,
+                                                             permittivity.oscillators[j].alpha,
+                                                             permittivity.oscillators[j].beta))
+        self.messages.append("  ----------------------------------------")
+        self.messages.append("...done initializing Polarizable Material")
         masksum  = self.gd.comm.sum(int(np.sum(mask)))
         masksize = self.gd.comm.sum(int(np.size(mask)))
-        parprint("Fill ratio: %f percent" % (100.0 * float(masksum)/float(masksize)))
+        self.messages.append("Fill ratio: %f percent" % (100.0 * float(masksum)/float(masksize)))
         
         
     # E(r) = -Grad V(r)
@@ -197,11 +199,8 @@ class PolarizableBox():
                                                                          vector2[0], vector2[1], vector2[2])        
 
     # Setup grid descriptor and the permittivity values inside the box
-    def get_mask(self, gd, verbose=True):
+    def get_mask(self, gd):
         
-        if verbose:
-            parprint("Initializing Polarizable Box")
-
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
         
@@ -245,11 +244,8 @@ class PolarizableAtomisticRegion():
         self.arguments = self.arguments[:-1] + ']'
 
     # Setup grid descriptor and the permittivity values inside the box
-    def get_mask(self, gd, verbose=True):
+    def get_mask(self, gd):
         
-        if verbose:
-            parprint("Initializing Polarizable Atomistic Region")
-
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
         
@@ -274,9 +270,7 @@ class PolarizableSphere():
         self.name = 'PolarizableSphere'
         self.arguments = 'center=[%20.12e, %20.12e, %20.12e], radius=%20.12e' % (center[0], center[1], center[2], radius)
 
-    def get_mask(self, gd, verbose=True):
-        if verbose:
-            parprint("Initializing Polarizable Sphere")
+    def get_mask(self, gd):
         
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
@@ -301,9 +295,7 @@ class PolarizableEllipsoid():
         self.arguments = 'center=[%20.12e, %20.12e, %20.12e], radii=[%20.12e, %20.12e, %20.12e]' % (center[0], center[1], center[2], radii[0], radii[1], radii[2])
         
 
-    def get_mask(self, gd, verbose=True):
-        if verbose:
-            parprint("Initializing Polarizable Ellipsoid")
+    def get_mask(self, gd):
         
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
@@ -325,9 +317,7 @@ class PolarizableRod():
         self.round_corners = round_corners
         self.permittivity = permittivity
 
-    def get_mask(self, gd, verbose=True):
-        if verbose:
-            parprint("Initializing Polarizable Rod (%i corners)" % len(self.corners))
+    def get_mask(self, gd):
         
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
@@ -404,9 +394,7 @@ class PolarizableDeepConvexPolyhedron():
             self.arguments += '[%20.12e, %20.12e, %20.12e],' % (c[0], c[1], c[2])
         self.arguments = self.arguments[:-1] + ']'
 
-    def get_mask(self, gd, verbose=False):
-        if verbose:
-            parprint("Initializing Polarizable Deep Convex Polyhedron (%i corners)" % len(self.corners))
+    def get_mask(self, gd):
         
         # Vector (perpendicular to the plane) defining the plane 
         perp_vector = np.cross(self.corners[1]-self.corners[0],
@@ -518,9 +506,7 @@ class PolarizableTetrahedron():
         mat[ind][:] = np.array([x, y, z, 1])
         return np.linalg.det(mat)
 
-    def get_mask(self, gd, verbose=True):
-        if verbose:
-            parprint("Initializing Polarizable Tetrahedron")
+    def get_mask(self, gd):
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
         ng   = r_gv.shape[0:-1]
         ngv  = r_gv.shape

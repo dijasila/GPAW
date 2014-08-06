@@ -4,7 +4,6 @@
 
 
 from ase import Atoms
-from ase.parallel import parprint
 from ase.units import Hartree, Bohr, _eps0, _c, _aut
 from gpaw import GPAW, PoissonConvergenceError
 from gpaw.grid_descriptor import GridDescriptor
@@ -279,10 +278,6 @@ class FDTDPoissonSolver:
         self.cl.poisson_solver = PoissonSolver(nn=self.nn, eps=self.eps, relax=self.relax)
         self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
         self.cl.poisson_solver.initialize()
-            
-        parprint("\n *** QSFDTD ***\n")
-        self.print_messages()
-        parprint("\n *********************\n")
         
         # Initialize classical material, its Poisson solver was generated already
         self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
@@ -291,11 +286,11 @@ class FDTDPoissonSolver:
         self.cl.phi = self.cl.gd.zeros()
         self.cl.extrapolated_qm_phi = self.cl.gd.empty()
         
-        parprint("\n *********************\n")
+        self.messages.append("\n")
 
         # Initialize potential coupler
         if self.potential_coupling_scheme == 'Multipoles':
-            parprint('Classical-quantum coupling by multipole expansion with maxL: %i and coupling level: %s' % (self.remove_moment_qm, self.coupling_level))
+            self.messages.append('Classical-quantum coupling by multipole expansion with maxL: %i and coupling level: %s' % (self.remove_moment_qm, self.coupling_level))
             self.potential_coupler = MultipolesPotentialCoupler(qm = self.qm,
                                                                 cl = self.cl,
                                                                 index_offset_1 = self.shift_indices_1,
@@ -309,7 +304,7 @@ class FDTDPoissonSolver:
                                                                 coupling_level = self.coupling_level,
                                                                 rank = self.rank)
         else:
-            parprint('Classical-quantum coupling by coarsening/refining')
+            self.messages.append('Classical-quantum coupling by coarsening/refining')
             self.potential_coupler = RefinerPotentialCoupler(qm = self.qm,
                                                              cl = self.cl,
                                                              index_offset_1 = self.shift_indices_1,
@@ -561,9 +556,14 @@ class FDTDPoissonSolver:
        
         return atoms_out, self.qm.spacing[0] * Bohr, qgpts
 
-    def print_messages(self):
+    def print_messages(self, printer_function):
+        printer_function("\n *** QSFDTD ***\n")
         for msg in self.messages:
-            parprint(msg)
+            printer_function(msg)
+        
+        for msg in self.classical_material.messages:
+            printer_function(msg)
+        printer_function("\n *********************\n")
    
     # Where the induced dipole moment is written
     def set_dipole_moment_fname(self, dm_fname):
@@ -950,7 +950,6 @@ class FDTDPoissonSolver:
         
     # Write restart data   
     def write(self, paw, writer):#                     filename='poisson'):
-        # parprint('Writing FDTDPoissonSolver data to %s' % (filename))
         rho = self.classical_material.charge_density
         world = paw.wfs.world
         domain_comm = self.cl.gd.comm
