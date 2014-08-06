@@ -94,6 +94,7 @@ PBE     HF     RPA    rAPBE       Experimental
 7.75   5.17   7.04     7.61             7.55
 ====   ====   ====   ======       ============
 
+As anticipated, RPA severly underestimates the cohesive energy, while PBE performs much better, and rAPBE comes very close to the experimental value.
 
 .. [#Olsen1] T. Olsen and K. S. Thygesen
            *Phys. Rev. B* **86**, 081103(R) (2012)

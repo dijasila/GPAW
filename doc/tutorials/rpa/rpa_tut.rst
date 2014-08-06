@@ -53,7 +53,7 @@ To calculate the atomization energy we need to obtain the correlation energy as 
 
 .. literalinclude:: rpa_N2.py
 
-which calculates the correlation part of the atomization energy with the bands and plane waved corresponding to the list of cutoff energies. Note that the default value of frequencies (16 Gauss-Legendre points) is used. The script takes on the order of two CPU hours, but can be efficiently parallelized over kpoints, spin and bands. If memory becomes and issue, it may be an advantage to specify use frequency parallelization, which is specified by wcomm=N, where N is the number of CPUs. The result is written to rpa_N2.dat and can be visualized with the script::
+which calculates the correlation part of the atomization energy with the bands and plane waved corresponding to the list of cutoff energies. Note that the default value of frequencies (16 Gauss-Legendre points) is used. The script takes on the order of two CPU hours, but can be efficiently parallelized over kpoints, spin and bands. If memory becomes and issue, it may be an advantage to specify use frequency parallelization, which is specified by wcomm=N, where N is the number of CPUs. The result is written to rpa_N2.dat and can be visualized with the script:
 
 .. literalinclude:: extrapolate.py
 
