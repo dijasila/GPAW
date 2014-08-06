@@ -7,7 +7,7 @@ from gpaw import GPAW, PW
 # Initial state:
 # 2x2-Al(001) surface with 1 layer and an
 # Au atom adsorbed in a hollow site:
-slab = fcc100('Al', size=(2, 2, 1))
+slab = fcc100('Al', size=(2, 2, 2))
 slab.center(axis=2, vacuum=3.0)
 add_adsorbate(slab, 'Au', 1.6, 'hollow')
 

@@ -93,7 +93,7 @@ from  :download:`initial.py` and make the  relevant changes.
 * You could have used this functions to calculate the energy barrier
   above.  Use it to calculate the energy in the ontop site::
 
-    e_ontop = aual100('ontop', 2.4)
+    e_ontop = aual100('ontop', 2.2)
 
 * What seems to determine the relative energetic ordering of the three sites?
 
@@ -113,12 +113,12 @@ from  :download:`initial.py` and make the  relevant changes.
 
   or::
 
-    $ ase-gui -g 'd(4,8),F[8,2]' ontop.traj
+    $ ase-gui -g 'd(4,-1),F[-1,2]' ontop.traj
 
   to plot the force in the *z*-direction on the gold atom as a
-  function of the Au-Al distance.  Try also *terminal-only-mode*::
+  function of the Au-Al distance. Note that -1 is the index of the last atom in the cell corresponding to the Au atom.  Try also *terminal-only-mode*::
  
-    $ ase-gui -t -g 'd(0,-1),F[2,2]' ontop.traj
+    $ ase-gui -t -g 'd(4,-1),F[-1,2]' ontop.traj
 
 
 Plot density differences
