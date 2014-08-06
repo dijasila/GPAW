@@ -1,4 +1,7 @@
-# Electrodynamics module, by Arto Sakko (Aalto University)
+"""Module for electrodynamic simulations
+
+"""
+
 
 from ase import Atoms
 from ase.parallel import parprint
@@ -123,9 +126,9 @@ class QSFDTD:
                     
     def time_propagation(self,
                            filename,
-                           kick_strength=None,
-                           time_step=10.0,
-                           iterations=1000,
+                           kick_strength,
+                           time_step,
+                           iterations,
                            dipole_moment_file=None,
                            restart_file=None,
                            dump_interval=100,
@@ -168,6 +171,8 @@ class FDTDPoissonSolver:
                        paw=None):
 
         self.rank = mpi.rank
+
+        self.messages = []
 
         if restart_reader != None: # restart
             assert(paw!=None)
@@ -222,7 +227,7 @@ class FDTDPoissonSolver:
         # Generate classical grid descriptor
         self.initialize_clgd()
         
-        parprint('FDTDPoissonSolver: domain parallelization with %i processes.' % self.cl.gd.comm.size)
+        self.messages.append('FDTDPoissonSolver: domain parallelization with %i processes.' % self.cl.gd.comm.size)
 
     # Generated classical GridDescriptors, after spacing and cell are known
     def initialize_clgd(self):
@@ -275,12 +280,18 @@ class FDTDPoissonSolver:
         self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
         self.cl.poisson_solver.initialize()
             
+        parprint("\n *** QSFDTD ***\n")
+        self.print_messages()
+        parprint("\n *********************\n")
+        
         # Initialize classical material, its Poisson solver was generated already
         self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
         self.classical_material.initialize(self.cl.gd)
         self.cl.extrapolated_qm_phi = self.cl.gd.zeros()
         self.cl.phi = self.cl.gd.zeros()
         self.cl.extrapolated_qm_phi = self.cl.gd.empty()
+        
+        parprint("\n *********************\n")
 
         # Initialize potential coupler
         if self.potential_coupling_scheme == 'Multipoles':
@@ -403,39 +414,39 @@ class FDTDPoissonSolver:
         atoms_out.set_cell(np.diag(self.qm.cell) * Bohr)
         atoms_out.positions = atoms_in.get_positions() - self.qm.corner1 * Bohr
         
-        parprint("Quantum box readjustment:")
-        parprint("  Given cell/atomic coordinates:")
-        parprint("             [%10.5f %10.5f %10.5f]" % tuple(np.diag(atoms_in.get_cell())))
+        self.messages.append("Quantum box readjustment:")
+        self.messages.append("  Given cell:       [%10.5f %10.5f %10.5f]" % tuple(np.diag(atoms_in.get_cell())))
+        self.messages.append("  Given atomic coordinates:")
         for s, c in zip(atoms_in.get_chemical_symbols(), atoms_in.get_positions()):
-            parprint("           %s %10.5f %10.5f %10.5f" % (s, c[0], c[1], c[2]))
-        parprint("  Readjusted cell/atomic coordinates:")
-        parprint("             [%10.5f %10.5f %10.5f]" % tuple(np.diag(atoms_out.get_cell())))
+            self.messages.append("              %s %10.5f %10.5f %10.5f" % (s, c[0], c[1], c[2]))
+        self.messages.append("  Readjusted cell:  [%10.5f %10.5f %10.5f]" % tuple(np.diag(atoms_out.get_cell())))
+        self.messages.append("  Readjusted atomic coordinates:")
         for s, c in zip(atoms_out.get_chemical_symbols(), atoms_out.get_positions()):
-            parprint("           %s %10.5f %10.5f %10.5f" % (s, c[0], c[1], c[2]))
+            self.messages.append("              %s %10.5f %10.5f %10.5f" % (s, c[0], c[1], c[2]))
         
-        parprint("  Given corner points:       (%10.5f %10.5f %10.5f) - (%10.5f %10.5f %10.5f)" %
+        self.messages.append("  Given corner points:       (%10.5f %10.5f %10.5f) - (%10.5f %10.5f %10.5f)" %
                  (tuple(np.concatenate((self.given_corner_v1, self.given_corner_v2)))))
-        parprint("  Readjusted corner points:  (%10.5f %10.5f %10.5f) - (%10.5f %10.5f %10.5f)" %
+        self.messages.append("  Readjusted corner points:  (%10.5f %10.5f %10.5f) - (%10.5f %10.5f %10.5f)" %
                  (tuple(np.concatenate((self.qm.corner1,
                                         self.qm.corner2)) * Bohr)))
-        parprint("  Indices in classical grid: (%10i %10i %10i) - (%10i %10i %10i)" %
+        self.messages.append("  Indices in classical grid: (%10i %10i %10i) - (%10i %10i %10i)" %
                  (tuple(np.concatenate((self.shift_indices_1,
                                         self.shift_indices_2)))))
-        parprint("  Grid points in classical grid: (%10i %10i %10i)" % (tuple(self.cl.gd.N_c)))
-        parprint("  Grid points in quantum grid:   (%10i %10i %10i)" % (tuple(N_c)))
+        self.messages.append("  Grid points in classical grid: (%10i %10i %10i)" % (tuple(self.cl.gd.N_c)))
+        self.messages.append("  Grid points in quantum grid:   (%10i %10i %10i)" % (tuple(N_c)))
         
-        parprint("  Spacings in quantum grid:    (%10.5f %10.5f %10.5f)" %
+        self.messages.append("  Spacings in quantum grid:    (%10.5f %10.5f %10.5f)" %
                  (tuple(np.diag(self.qm.cell) * Bohr / N_c)))
-        parprint("  Spacings in classical grid:  (%10.5f %10.5f %10.5f)" %
+        self.messages.append("  Spacings in classical grid:  (%10.5f %10.5f %10.5f)" %
                  (tuple(np.diag(self.cl.cell) * Bohr / \
                         get_number_of_grid_points(self.cl.cell, self.cl.spacing))))
-        parprint("  Ratios of cl/qm spacings:    (%10i %10i %10i)" % (tuple(self.hratios)))
-        parprint("                             = (%10.2f %10.2f %10.2f)" %
-                 (tuple((np.diag(self.cl.cell) * Bohr / \
-                         get_number_of_grid_points(self.cl.cell,
-                                                   self.cl.spacing)) / \
-                        (np.diag(self.qm.cell) * Bohr / N_c))))
-        parprint("  Needed number of refinements: %10i" % self.num_refinements)
+        #self.messages.append("  Ratios of cl/qm spacings:    (%10i %10i %10i)" % (tuple(self.hratios)))
+        #self.messages.append("                             = (%10.2f %10.2f %10.2f)" %
+        #         (tuple((np.diag(self.cl.cell) * Bohr / \
+        #                 get_number_of_grid_points(self.cl.cell,
+        #                                           self.cl.spacing)) / \
+        #                (np.diag(self.qm.cell) * Bohr / N_c))))
+        self.messages.append("  Needed number of refinements: %10i" % self.num_refinements)
         
         #   First, create the quantum grid equivalent GridDescriptor self.cl.subgd.
         #   Then coarsen it until its h_cv equals that of self.cl.gd.
@@ -446,14 +457,14 @@ class FDTDPoissonSolver:
         self.cl.subgds = []
         self.cl.subgds.append(GridDescriptor(N_c, subcell_cv, False, serial_comm, self.cl.dparsize))
 
-        parprint("  N_c/spacing of the subgrid:           %3i %3i %3i / %.4f %.4f %.4f" % 
-                  (self.cl.subgds[0].N_c[0],
-                   self.cl.subgds[0].N_c[1],
-                   self.cl.subgds[0].N_c[2],
-                   self.cl.subgds[0].h_cv[0][0] * Bohr,
-                   self.cl.subgds[0].h_cv[1][1] * Bohr,
-                   self.cl.subgds[0].h_cv[2][2] * Bohr))
-        parprint("  shape from the subgrid:           %3i %3i %3i" % (tuple(self.cl.subgds[0].empty().shape)))
+        #self.messages.append("  N_c/spacing of the subgrid:           %3i %3i %3i / %.4f %.4f %.4f" % 
+        #          (self.cl.subgds[0].N_c[0],
+        #           self.cl.subgds[0].N_c[1],
+        #           self.cl.subgds[0].N_c[2],
+        #           self.cl.subgds[0].h_cv[0][0] * Bohr,
+        #           self.cl.subgds[0].h_cv[1][1] * Bohr,
+        #           self.cl.subgds[0].h_cv[2][2] * Bohr))
+        #self.messages.append("  shape from the subgrid:           %3i %3i %3i" % (tuple(self.cl.subgds[0].empty().shape)))
 
         self.cl.coarseners = []
         self.cl.refiners = []
@@ -461,14 +472,14 @@ class FDTDPoissonSolver:
             self.cl.subgds.append(self.cl.subgds[n].refine())
             self.cl.refiners.append(Transformer(self.cl.subgds[n], self.cl.subgds[n + 1]))
             
-            parprint("  refiners[%i] can perform the transformation (%3i %3i %3i) -> (%3i %3i %3i)" % (\
-                     n,
-                     self.cl.subgds[n].empty().shape[0],
-                     self.cl.subgds[n].empty().shape[1],
-                     self.cl.subgds[n].empty().shape[2],
-                     self.cl.subgds[n + 1].empty().shape[0],
-                     self.cl.subgds[n + 1].empty().shape[1],
-                     self.cl.subgds[n + 1].empty().shape[2]))
+            #self.messages.append("  refiners[%i] can perform the transformation (%3i %3i %3i) -> (%3i %3i %3i)" % (\
+            #         n,
+            #         self.cl.subgds[n].empty().shape[0],
+            #         self.cl.subgds[n].empty().shape[1],
+            #         self.cl.subgds[n].empty().shape[2],
+            #         self.cl.subgds[n + 1].empty().shape[0],
+            #         self.cl.subgds[n + 1].empty().shape[1],
+            #         self.cl.subgds[n + 1].empty().shape[2]))
             self.cl.coarseners.append(Transformer(self.cl.subgds[n + 1], self.cl.subgds[n]))
         self.cl.coarseners[:] = self.cl.coarseners[::-1]
         
@@ -488,9 +499,9 @@ class FDTDPoissonSolver:
         self.extended_shift_indices_1 = np.round(extended_lp / self.cl.spacing)
         self.extended_shift_indices_2 = self.extended_shift_indices_1 + self.extended_num_indices
 
-        parprint('  extended_shift_indices_1: %i %i %i' % (self.extended_shift_indices_1[0],self.extended_shift_indices_1[1], self.extended_shift_indices_1[2]))
-        parprint('  extended_shift_indices_2: %i %i %i' % (self.extended_shift_indices_2[0],self.extended_shift_indices_2[1], self.extended_shift_indices_2[2]))
-        parprint('  cl.gd.N_c:                %i %i %i' % (self.cl.gd.N_c[0], self.cl.gd.N_c[1], self.cl.gd.N_c[2]))
+        #self.messages.append('  extended_shift_indices_1: %i %i %i' % (self.extended_shift_indices_1[0],self.extended_shift_indices_1[1], self.extended_shift_indices_1[2]))
+        #self.messages.append('  extended_shift_indices_2: %i %i %i' % (self.extended_shift_indices_2[0],self.extended_shift_indices_2[1], self.extended_shift_indices_2[2]))
+        #self.messages.append('  cl.gd.N_c:                %i %i %i' % (self.cl.gd.N_c[0], self.cl.gd.N_c[1], self.cl.gd.N_c[2]))
 
         # Sanity checks
         assert(all([self.extended_shift_indices_1[w] >= 0 and
@@ -515,27 +526,27 @@ class FDTDPoissonSolver:
         for n in range(self.num_refinements):
             self.cl.extended_subgds.append(self.cl.extended_subgds[n].refine())
             self.cl.extended_refiners.append(Transformer(self.cl.extended_subgds[n], self.cl.extended_subgds[n + 1]))
-            parprint("  extended_refiners[%i] can perform the transformation (%3i %3i %3i) -> (%3i %3i %3i)" %
-                    (n,
-                     self.cl.extended_subgds[n].empty().shape[0],
-                     self.cl.extended_subgds[n].empty().shape[1],
-                     self.cl.extended_subgds[n].empty().shape[2],
-                     self.cl.extended_subgds[n + 1].empty().shape[0],
-                     self.cl.extended_subgds[n + 1].empty().shape[1],
-                     self.cl.extended_subgds[n + 1].empty().shape[2]))
+            #self.messages.append("  extended_refiners[%i] can perform the transformation (%3i %3i %3i) -> (%3i %3i %3i)" %
+            #        (n,
+            #         self.cl.extended_subgds[n].empty().shape[0],
+            #         self.cl.extended_subgds[n].empty().shape[1],
+            #         self.cl.extended_subgds[n].empty().shape[2],
+            #         self.cl.extended_subgds[n + 1].empty().shape[0],
+            #         self.cl.extended_subgds[n + 1].empty().shape[1],
+            #         self.cl.extended_subgds[n + 1].empty().shape[2]))
         
-        parprint("  N_c/spacing of the refined subgrid:   %3i %3i %3i / %.4f %.4f %.4f" % 
-                  (self.cl.subgds[-1].N_c[0],
-                   self.cl.subgds[-1].N_c[1],
-                   self.cl.subgds[-1].N_c[2],
-                   self.cl.subgds[-1].h_cv[0][0] * Bohr,
-                   self.cl.subgds[-1].h_cv[1][1] * Bohr,
-                   self.cl.subgds[-1].h_cv[2][2] * Bohr))
-        parprint("  shape from the refined subgrid:       %3i %3i %3i" % 
-                 (tuple(self.cl.subgds[-1].empty().shape)))
+        #self.messages.append("  N_c/spacing of the refined subgrid:   %3i %3i %3i / %.4f %.4f %.4f" % 
+        #          (self.cl.subgds[-1].N_c[0],
+        #           self.cl.subgds[-1].N_c[1],
+        #           self.cl.subgds[-1].N_c[2],
+        #           self.cl.subgds[-1].h_cv[0][0] * Bohr,
+        #           self.cl.subgds[-1].h_cv[1][1] * Bohr,
+        #           self.cl.subgds[-1].h_cv[2][2] * Bohr))
+        #self.messages.append("  shape from the refined subgrid:       %3i %3i %3i" % 
+        #         (tuple(self.cl.subgds[-1].empty().shape)))
         
         self.extended_deltaIndex = 2 ** (self.num_refinements) * self.extend_nn
-        parprint("self.extended_deltaIndex = %i" % self.extended_deltaIndex)
+        #self.messages.append(" self.extended_deltaIndex = %i" % self.extended_deltaIndex)
         
         qgpts = self.cl.subgds[-1].coarsen().N_c
         
@@ -544,12 +555,15 @@ class FDTDPoissonSolver:
         for n in range(self.num_refinements - 1):
             dmygd = dmygd.coarsen()
         
-        parprint("  N_c/spacing of the coarsened subgrid: %3i %3i %3i / %.4f %.4f %.4f" % 
-                  (dmygd.N_c[0], dmygd.N_c[1], dmygd.N_c[2],
-                   dmygd.h_cv[0][0] * Bohr, dmygd.h_cv[1][1] * Bohr, dmygd.h_cv[2][2] * Bohr))
+        #self.messages.append("  N_c/spacing of the coarsened subgrid: %3i %3i %3i / %.4f %.4f %.4f" % 
+        #          (dmygd.N_c[0], dmygd.N_c[1], dmygd.N_c[2],
+        #           dmygd.h_cv[0][0] * Bohr, dmygd.h_cv[1][1] * Bohr, dmygd.h_cv[2][2] * Bohr))
        
         return atoms_out, self.qm.spacing[0] * Bohr, qgpts
 
+    def print_messages(self):
+        for msg in self.messages:
+            parprint(msg)
    
     # Where the induced dipole moment is written
     def set_dipole_moment_fname(self, dm_fname):

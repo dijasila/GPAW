@@ -637,7 +637,8 @@ class Permittivity:
 class PermittivityPlus(Permittivity):
     def __init__(self, fname=None, data=None, eps_infty = _eps0_au, epsZero = _eps0_au, newbar_omega = 0.01, new_alpha = 0.10, **kwargs):
         Permittivity.__init__(self, fname=fname, data=data, eps_infty=eps_infty)
-        parprint("Original Nj=%i and eps(0) = %12.6f + i*%12.6f" % (self.Nj, self.value(0.0).real, self.value(0.0).imag))
+        
+        #parprint("Original Nj=%i and eps(0) = %12.6f + i*%12.6f" % (self.Nj, self.value(0.0).real, self.value(0.0).imag))
         
         # Convert given values from eVs to Hartrees
         _newbar_omega = newbar_omega / Hartree
@@ -647,6 +648,7 @@ class PermittivityPlus(Permittivity):
         _new_beta = ((epsZero - self.value(0.0))*_newbar_omega**2.0/_eps0_au).real
         self.oscillators.append(LorentzOscillator(_newbar_omega, _new_alpha, _new_beta))
         self.Nj = len(self.oscillators)
-        parprint("Added following oscillator: (bar_omega, alpha, beta) = (%12.6f, %12.6g, %12.6f)" % (_newbar_omega*Hartree, _new_alpha*Hartree, _new_beta*Hartree*Hartree))
-        parprint("New Nj=%i and eps(0) = %12.6f + i*%12.6f" % (self.Nj, self.value(0.0).real, self.value(0.0).imag))
+        
+        #parprint("Added following oscillator: (bar_omega, alpha, beta) = (%12.6f, %12.6g, %12.6f)" % (_newbar_omega*Hartree, _new_alpha*Hartree, _new_beta*Hartree*Hartree))
+        #parprint("New Nj=%i and eps(0) = %12.6f + i*%12.6f" % (self.Nj, self.value(0.0).real, self.value(0.0).imag))
             

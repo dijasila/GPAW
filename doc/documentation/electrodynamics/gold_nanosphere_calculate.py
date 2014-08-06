@@ -1,10 +1,8 @@
 from ase import Atoms
 from ase.units import Hartree
-from gpaw import GPAW
-from gpaw.fdtd import FDTDPoissonSolver, PermittivityPlus, PolarizableMaterial, PolarizableSphere, _eps0_au
-from gpaw.tddft import TDDFT, photoabsorption_spectrum
+from gpaw.fdtd import QSFDTD, PermittivityPlus, PolarizableMaterial, PolarizableSphere
+from gpaw.tddft import photoabsorption_spectrum
 import numpy as np
-import pylab as plt
 
 # Nanosphere radius (Angstroms)
 radius = 50.0
@@ -32,40 +30,23 @@ classical_material.add_component(
                           permittivity = PermittivityPlus(data=gold))
         )
 
-# Combined Poisson solver
-poissonsolver = FDTDPoissonSolver(classical_material  = classical_material,
-                                  qm_spacing          = 1.0,
-                                  cl_spacing          = 8.0,
-                                  remove_moments      = (1, 4),
-                                  cell                = large_cell)
-poissonsolver.set_calculation_mode('iterate')
+# Quasistatic FDTD
+qsfdtd = QSFDTD(classical_material = classical_material,
+                atoms              = None,
+                cells              = large_cell,
+                spacings           = [8.0, 1.0],
+                remove_moments     = (4, 1))
 
-# Dummy quantum system
-atoms = Atoms('H', positions=[0.5*large_cell], cell=large_cell)
-atoms, qm_spacing, gpts = poissonsolver.cut_cell(atoms, vacuum=6.0)
-del atoms[:]
+# Run ground state
+energy = qsfdtd.ground_state('gs.gpw', nbands = 1)
 
-# Initialize GPAW
-gs_calc = GPAW(gpts          = gpts,
-               eigensolver   = 'cg',
-               nbands        = 1,
-               poissonsolver = poissonsolver)
-atoms.set_calculator(gs_calc)
-
-# Get the ground state
-energy = atoms.get_potential_energy()
-
-# Save the ground state
-gs_calc.write('gs.gpw', 'all')
-
-# Initialize TDDFT and QSFDTD
-td_calc = TDDFT('gs.gpw')
-td_calc.absorption_kick(kick_strength=[0.001, 0.000, 0.000])
-td_calc.hamiltonian.poisson.set_kick( [0.001, 0.000, 0.000])
-
-# Propagate TDDFT and FDTD
-td_calc.propagate(10.0, 1000, 'dm.dat')
-
+# Run time evolution
+qsfdtd.time_propagation('gs.gpw',
+                        time_step=10,
+                        iterations=1000,
+                        kick_strength=[0.001, 0.000, 0.000],
+                        dipole_moment_file='dmCl.dat')
 # Spectrum
 photoabsorption_spectrum('dmCl.dat', 'specCl.dat', width=0.0)
+
 

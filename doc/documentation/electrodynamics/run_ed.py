@@ -1,4 +1,4 @@
-# creates: qsfdtd_vs_mie.png hybrid.png
+# creates: qsfdtd_vs_mie.png hybrid.png geom.png
 import os
 from sys import executable
 assert os.system('%s gold+na2_nanosphere_calculate.py' % executable) == 0

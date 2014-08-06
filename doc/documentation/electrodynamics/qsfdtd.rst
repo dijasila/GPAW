@@ -90,22 +90,24 @@ Example: photoabsorption of gold nanosphere
 -------------------------------------------
 This example calculates the photoabsorption spectrum of a nanosphere
 that has a diameter of 10 nm, and compares the result with analytical
-Mie scattering limit. The QSFDTD is implemented in a specific Poisson
-solver. The real-space grid is defined when initializing the
-FDTDPoissonSolver, and the actual time propagation is embedded in the
-:ref:`timepropagation` routine.
+Mie scattering limit. It shows the easiest way to run electrodynamics
+simulations usin * QSFDTD * class:
 
 .. literalinclude:: gold_nanosphere_calculate.py
 
-Note that one empty KS-orbital was included in the calculation, because
-GPAW needs to propagate something. Another peculiar thing is the
-dummy quantum system, which is implemented to simplify the creation of
-the double grid. Furthermore, the permittivity was
-initialized as PermittivityPlus, where Plus indicates that a
-renormalizing Lorentzian term is included; this extra term brings
-the static limit to vacuum value, i.e.,
+QSFDTD generates a dummy quantum system that is treated using
+GPAW in *qsfdtd.ground_state*. One can pass the GPAW
+arguments, like *xc* or *nbands*, to this function: in the example
+script one empty KS-orbital was included (*nbands* =1) because GPAW
+needs to propagate something. Similarly, the arguments for TDDFT
+(such as *propagator*) can be passed to *time_propagation* method.
+
+Note that the permittivity was initialized as PermittivityPlus, where
+Plus indicates that a renormalizing Lorentzian term is included; this extra
+term brings the static limit to vacuum value, i.e.,
 :math:`\epsilon(\omega=0)=\epsilon_0`, see Ref. \ [#Sakko]_ for
 detailed explanation.
+
 The above script generates the photoabsorption spectrum and compares
 it with analytical formula of the Mie theory:
 
@@ -120,7 +122,7 @@ where *V* is the nanosphere volume:
 
 The general shape of Mie spectrum, and especially the
 localized surface plasmon resonance (LSPR) at 2.5 eV,
-is clearly reproduced by QDFDTD calculation. The shoulder
+is clearly reproduced by QSFDTD. The shoulder
 at 1.9 eV and the stronger overall intensity are examples of
 the inaccuracies of the used discretization scheme: the shoulder
 originates from spurious surface scattering, and the intensity
@@ -149,6 +151,7 @@ Limitations
   forms, such as Drude terms, should be implemented in the future. Also,
   the high-frequency limit must be vacuum permittivity. Future
   implementations should get rid of also this limitation.
+* Only the grid-mode of GPAW (not e.g. LCAO) is supported.
 
 -----------------
 Technical remarks
