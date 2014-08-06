@@ -73,13 +73,14 @@ td_calc.hamiltonian.poisson.set_kick(kick)
 
 # Propagate TDDFT and FDTD
 td_calc.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
+
 td_calc2 = TDDFT('td.gpw')
 td_calc2.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
 
 # Test
-ref_qm_dipole_moment = [ -4.45805498e-05, -4.45813902e-05, -4.95239989e-02]
-ref_cl_dipole_moment = [ -8.42450221e-05, -8.42466103e-05, -9.35867862e-02]
+ref_cl_dipole_moment = [ -5.16149623e-14, -5.89090408e-14,  3.08450150e-02]
+ref_qm_dipole_moment = [ -2.63340461e-11,  2.61812794e-12, -9.35619772e-02]
 tol = 0.0001
-equal(td_calc2.get_dipole_moment(), ref_qm_dipole_moment, tol)
-equal(td_calc2.hamiltonian.poisson.get_dipole_moment(), ref_cl_dipole_moment, tol)
+equal(td_calc2.hamiltonian.poisson.get_classical_dipole_moment(), ref_cl_dipole_moment, tol)
+equal(td_calc2.hamiltonian.poisson.get_quantum_dipole_moment(), ref_qm_dipole_moment, tol)
 

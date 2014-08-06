@@ -185,18 +185,18 @@ class PolarizableMaterial():
 
 # Box-shaped classical material
 class PolarizableBox():
-    def __init__(self, vector1, vector2, permittivity):
+    def __init__(self, corner1, corner2, permittivity):
         # sanity check
-        assert(len(vector1)==3)
-        assert(len(vector2)==3)
+        assert(len(corner1)==3)
+        assert(len(corner2)==3)
 
-        self.vector1      = np.array(vector1)/Bohr # from Angstroms to atomic units
-        self.vector2      = np.array(vector2)/Bohr # from Angstroms to atomic units
+        self.corner1      = np.array(corner1)/Bohr # from Angstroms to atomic units
+        self.corner2      = np.array(corner2)/Bohr # from Angstroms to atomic units
         self.permittivity = permittivity
         
         self.name = 'PolarizableBox'
-        self.arguments = 'vector1=[%f, %f, %f], vector2=[%f, %f, %f]' % (vector1[0], vector1[1], vector1[2],
-                                                                         vector2[0], vector2[1], vector2[2])        
+        self.arguments = 'corner1=[%f, %f, %f], corner2=[%f, %f, %f]' % (corner1[0], corner1[1], corner1[2],
+                                                                         corner2[0], corner2[1], corner2[2])        
 
     # Setup grid descriptor and the permittivity values inside the box
     def get_mask(self, gd):
@@ -208,12 +208,12 @@ class PolarizableBox():
         return np.logical_and(np.logical_and( # z
                 np.logical_and(np.logical_and( # y
                  np.logical_and( #x
-                                r_gv[:, :, :, 0] > self.vector1[0],
-                                r_gv[:, :, :, 0] < self.vector2[0]),
-                                 r_gv[:, :, :, 1] > self.vector1[1]),
-                                 r_gv[:, :, :, 1] < self.vector2[1]),
-                                  r_gv[:, :, :, 2] > self.vector1[2]),
-                                  r_gv[:, :, :, 2] < self.vector2[2])
+                                r_gv[:, :, :, 0] > self.corner1[0],
+                                r_gv[:, :, :, 0] < self.corner2[0]),
+                                 r_gv[:, :, :, 1] > self.corner1[1]),
+                                 r_gv[:, :, :, 1] < self.corner2[1]),
+                                  r_gv[:, :, :, 2] > self.corner1[2]),
+                                  r_gv[:, :, :, 2] < self.corner2[2])
 
 
 # Shape from atom positions (surrounding region)
@@ -261,11 +261,11 @@ class PolarizableAtomisticRegion():
 class PolarizableSphere():
     def __init__(self, center, radius, permittivity):
         self.permittivity = permittivity
-        self.vector1      = np.array(center)/Bohr # from Angstroms to atomic units
-        self.radius1      = radius/Bohr # from Angstroms to atomic units
+        self.center      = np.array(center)/Bohr # from Angstroms to atomic units
+        self.radius      = radius/Bohr # from Angstroms to atomic units
         
         # sanity check
-        assert(len(self.vector1)==3)
+        assert(len(self.center)==3)
         
         self.name = 'PolarizableSphere'
         self.arguments = 'center=[%20.12e, %20.12e, %20.12e], radius=%20.12e' % (center[0], center[1], center[2], radius)
@@ -276,9 +276,9 @@ class PolarizableSphere():
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
         
         # inside or outside
-        return  np.array( (r_gv[:, :, :, 0] - self.vector1[0])**2.0 +
-                          (r_gv[:, :, :, 1] - self.vector1[1])**2.0 +
-                          (r_gv[:, :, :, 2] - self.vector1[2])**2.0 < self.radius1**2)
+        return  np.array( (r_gv[:, :, :, 0] - self.center[0])**2.0 +
+                          (r_gv[:, :, :, 1] - self.center[1])**2.0 +
+                          (r_gv[:, :, :, 2] - self.center[2])**2.0 < self.radius**2)
 
 # Sphere-shaped classical material
 class PolarizableEllipsoid():
@@ -287,7 +287,7 @@ class PolarizableEllipsoid():
         assert(len(center)==3)
         assert(len(radii)==3)
         
-        self.vector1      = np.array(center)/Bohr # from Angstroms to atomic units
+        self.center       = np.array(center)/Bohr # from Angstroms to atomic units
         self.radii        = np.array(radii)/Bohr   # from Angstroms to atomic units
         self.permittivity = permittivity
         
@@ -301,9 +301,9 @@ class PolarizableEllipsoid():
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
         
         # inside or outside
-        return  np.array( (r_gv[:, :, :, 0] - self.vector1[0])**2.0/self.radii[0]**2.0 +
-                          (r_gv[:, :, :, 1] - self.vector1[1])**2.0/self.radii[1]**2.0 +
-                          (r_gv[:, :, :, 2] - self.vector1[2])**2.0/self.radii[2]**2.0 < 1.0)
+        return  np.array( (r_gv[:, :, :, 0] - self.center[0])**2.0/self.radii[0]**2.0 +
+                          (r_gv[:, :, :, 1] - self.center[1])**2.0/self.radii[1]**2.0 +
+                          (r_gv[:, :, :, 2] - self.center[2])**2.0/self.radii[2]**2.0 < 1.0)
 
  # Rod-shaped classical material
 class PolarizableRod():
@@ -311,6 +311,12 @@ class PolarizableRod():
         # sanity check
         assert(np.array(corners).shape[0]>1)  # at least two points
         assert(np.array(corners).shape[1]==3) # 3D
+        
+        self.name = 'PolarizableRod'
+        self.arguments = 'radius = %20.12e, corners=[' % radius
+        for c in corners:
+            self.arguments += '[%20.12e, %20.12e, %20.12e],' % (c[0], c[1], c[2])
+        self.arguments = self.arguments[:-1] + ']'
         
         self.corners      = np.array(corners)/Bohr # from Angstroms to atomic units
         self.radius       = radius/Bohr  # from Angstroms to atomic units
@@ -390,9 +396,9 @@ class PolarizableDeepConvexPolyhedron():
 
         self.name = 'PolarizableDeepConvexPolyhedron'
         self.arguments = 'height = %20.12e, corners=[' % height
-        for c in self.corners:
+        for c in corners:
             self.arguments += '[%20.12e, %20.12e, %20.12e],' % (c[0], c[1], c[2])
-        self.arguments = self.arguments[:-1] + ']'
+        self.arguments += ']'
 
     def get_mask(self, gd):
         
@@ -493,6 +499,12 @@ class PolarizableTetrahedron():
         # sanity check
         assert(len(corners)==4)     # exactly 4 points
         assert(len(corners[0])==3)  # 3D
+        
+        self.name = 'PolarizableTetrahedron'
+        self.arguments = 'corners=['
+        for c in corners:
+            self.arguments += '[%20.12e, %20.12e, %20.12e],' % (c[0], c[1], c[2])
+        self.arguments += ']'
         
         self.corners      = np.array(corners)/Bohr # from Angstroms to atomic units
         self.permittivity = permittivity

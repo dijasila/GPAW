@@ -26,20 +26,18 @@ qsfdtd = QSFDTD(classical_material = classical_material,
                 atoms              = atoms,
                 cells              = (cell, 2.50),
                 spacings           = [1.60, 0.40],
-                remove_moments     = (1, 4))
+                remove_moments     = (1, 4),
+                communicator       = world)
 
 # Run
 energy = qsfdtd.ground_state('gs.gpw', eigensolver = 'cg', nbands = -1)
-qsfdtd.time_propagation('gs.gpw', kick_strength=[0.000, 0.000, 0.001], time_step=10, iterations=5, dipole_moment_file='dmCl.dat')
-
-# Restart and run
-qsfdtd.write('td.gpw', mode='all')
-qsfdtd.time_propagation('td.gpw', kick_strength=None, time_step=10, iterations=5, dipole_moment_file='dmCl.dat')
+qsfdtd.time_propagation('gs.gpw', kick_strength=[0.000, 0.000, 0.001], time_step=10, iterations=5, dipole_moment_file='dm.dat', restart_file='td.gpw')
+qsfdtd.time_propagation('td.gpw', kick_strength=None, time_step=10, iterations=5, dipole_moment_file='dm.dat')
 
 # Test
-ref_qm_dipole_moment = [ -4.45805498e-05, -4.45813902e-05, -4.95239989e-02]
-ref_cl_dipole_moment = [ -8.42450221e-05, -8.42466103e-05, -9.35867862e-02]
+ref_cl_dipole_moment = [ -5.16149623e-14, -5.89090408e-14,  3.08450150e-02]
+ref_qm_dipole_moment = [ -2.63340461e-11,  2.61812794e-12, -9.35619772e-02]
 tol = 0.0001
-equal(qsfdtd.td_calc.get_dipole_moment(), ref_qm_dipole_moment, tol)
-equal(qsfdtd.td_calc.hamiltonian.poisson.get_dipole_moment(), ref_cl_dipole_moment, tol)
+equal(qsfdtd.td_calc.hamiltonian.poisson.get_classical_dipole_moment(), ref_cl_dipole_moment, tol)
+equal(qsfdtd.td_calc.hamiltonian.poisson.get_quantum_dipole_moment(), ref_qm_dipole_moment, tol)
 

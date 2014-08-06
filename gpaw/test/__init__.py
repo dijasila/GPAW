@@ -214,6 +214,7 @@ tests = [
     'gemm.py',
     'ed.py',
     'ed_wrapper.py',
+    'ed_shapes.py',
     'rpa_energy_Ni.py',
     'LDA_unstable.py',
     'si.py',

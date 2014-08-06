@@ -36,6 +36,7 @@ class QSFDTD:
                         atoms,
                         cells,
                         spacings,
+                        communicator=serial_comm,
                         remove_moments=(1, 1),
                         tag=""):
                 
@@ -81,6 +82,7 @@ class QSFDTD:
                                           cl_spacing          = cl_spacing,
                                           qm_spacing          = qm_spacing,
                                           remove_moments      = remove_moments,
+                                          communicator        = communicator,
                                           dm_fname            = 'dmCl%s.dat' % tag,
                                           cell                = cell,
                                           tag                 = tag)
@@ -132,7 +134,7 @@ class QSFDTD:
                            restart_file=None,
                            dump_interval=100,
                            **kwargs):
-        self.td_calc = TDDFT(filename, **kwargs)
+        self.td_calc = TDDFT(filename) #, **kwargs)
         if kick_strength != None:
             self.td_calc.absorption_kick(kick_strength)
             self.td_calc.hamiltonian.poisson.set_kick(kick_strength)
@@ -829,20 +831,18 @@ class FDTDPoissonSolver:
 
         return niter
 
-
-    def get_dipole_moment(self):
-        return self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
-        
-    def update_dipole_moment_file(self, rho):
-        # Classical contribution. Note the different origin.
+    # Classical contribution. Note the different origin.
+    def get_classical_dipole_moment(self):
         r_gv = self.cl.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0)) - self.qm.corner1
-        dmcl = -1.0 * self.classical_material.sign * np.array([self.cl.gd.integrate(np.multiply(r_gv[:, :, :, w] + self.qm.corner1[w], self.classical_material.charge_density)) for w in range(3)])
+        return -1.0 * self.classical_material.sign * np.array([self.cl.gd.integrate(np.multiply(r_gv[:, :, :, w] + self.qm.corner1[w], self.classical_material.charge_density)) for w in range(3)])
 
-        # Quantum contribution
-        dm = self.get_dipole_moment() + dmcl
+    # Quantum contribution
+    def get_quantum_dipole_moment(self):
+        return self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
+            
+    def update_dipole_moment_file(self, rho):
+        dm = self.get_classical_dipole_moment() + self.get_quantum_dipole_moment()
         norm = self.qm.gd.integrate(rho) + self.classical_material.sign * self.cl.gd.integrate(self.classical_material.charge_density)
-        
-        # Write 
         if self.rank == 0:
             line = '%20.8lf %20.8le %22.12le %22.12le %22.12le\n' \
                  % (self.time, norm, dm[0], dm[1], dm[2])
