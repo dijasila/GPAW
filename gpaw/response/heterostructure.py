@@ -39,12 +39,12 @@ class Heterostructure:
 
         # Dipole generates a monopole
         def v_dm(q, d):
-            temp = -2. * np.pi * np.sign(d) * np.exp(-q * np.abs(d))
+            temp = 2. * np.pi * np.sign(d) * np.exp(-q * np.abs(d))
             return temp
 
         # Monopole generates a dipole
         def v_md(q, d):
-            temp = 2. * np.pi * np.sign(d) * np.exp(-q * np.abs(d))
+            temp = -2. * np.pi * np.sign(d) * np.exp(-q * np.abs(d))
             return temp
 
         # Dipole generates a dipole
@@ -125,10 +125,7 @@ class Heterostructure:
             kernel_ij = self.CoulombKernel(self.q_points_abs[iq])
             ext_pot = np.dot(kernel_ij, h_distr)
             for iw in range(0, len(self.frequencies)):
-                v_screened_qw[iq, iw] = (
-                    self.q_points_abs[iq] / 2. / np.pi * 
-                    np.dot(e_distr, np.dot(np.linalg.inv(eps_qwij[iq, iw]),
-                                           ext_pot)))
+                v_screened_qw[iq, iw] = self.q_points_abs[iq] / 2. / np.pi * np.dot(e_distr, np.dot(np.linalg.inv(eps_qwij[iq, iw, :, :]), ext_pot))   
                         
         return 1. / (v_screened_qw)
     
@@ -145,8 +142,8 @@ class Heterostructure:
             Nd = self.n_layers
             eig = np.zeros([Nq, Nw, self.n_layers], dtype = 'complex')
             vec = np.zeros([Nq, Nw, self.n_layers, self.n_layers], dtype = 'complex')
-        omega0 = np.zeros([Nq, Nd])
-        eigen0 = np.zeros([Nq, Nd])
+        omega0 = np.zeros([Nq, 100])
+        eigen0 = np.zeros([Nq, 100])
         for iq in range(Nq):
             m = 0
             eig[iq, 0], vec[iq, 0] = np.linalg.eig(eps_qwij[iq, 0])
@@ -221,10 +218,8 @@ def get_epsilonM_2D(filenames, d=None, write_chi0 = False, name = None):
             for iG1 in Glist[1:]:
                 G_z1 = Gvec[iG1, 2]  
                 # epsilon dipole - intregrate from -d/2 to d/2 along z, and over the entire cell for z
-                factor1 = 2.*(z0+1j/G_z) * np.exp(1j*G_z*z0) * np.sin(G_z*d/2.) / G_z -
-                2j * d/2. * np.exp(1j*G_z*z0) * np.cos(G_z*d/2.) / G_z
-                factor2 = 2.*(z0-1j/G_z1) * np.exp(-1j*G_z1*z0) * np.sin(G_z1*z0) / G_z1 + 
-                2j * z0 * np.exp(-1j*G_z1*z0) * np.cos(G_z1*z0) / G_z1
+                factor1 = 2.*(z0+1j/G_z) * np.exp(1j*G_z*z0) * np.sin(G_z*d/2.) / G_z - 2j * d/2. * np.exp(1j*G_z*z0) * np.cos(G_z*d/2.) / G_z
+                factor2 = 2.*(z0-1j/G_z1) * np.exp(-1j*G_z1*z0) * np.sin(G_z1*z0) / G_z1 + 2j * z0 * np.exp(-1j*G_z1*z0) * np.cos(G_z1*z0) / G_z1
                 #epsD_2D_inv += 1./(L**2*d**2)*factor1*factor2*eps_inv_wGG[:,iG,iG1]
                 epsD_2D_inv += 12. / (d**3 * L) * factor1 * factor2 * eps_inv_wGG[:, iG, iG1]
 
