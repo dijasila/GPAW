@@ -1,4 +1,4 @@
-from gpaw import GPAW, PW 
+from gpaw import GPAW
 from ase import Atoms
 from ase.optimize import QuasiNewton
 from gpaw.lrtddft import LrTDDFT
