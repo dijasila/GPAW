@@ -28,8 +28,8 @@ Doing a PAW calculation
 -----------------------
 
 To do a PAW calculation with the GPAW code, you need an ASE
-:ase:`Atoms <ase/atoms.html>` object and a GPAW
-:class:`~gpaw.aseinterface.Calculator`::
+:class:`~ase.atoms.Atoms` object and a :class:`~gpaw.aseinterface.GPAW`
+calculator::
 
    _____________          ____________
   |             |        |            |
@@ -137,7 +137,7 @@ keyword            type       default value        description
 .. note:: 
    
    Parameters can be changed after the calculator has been constructed
-   by using the :meth:`~gpaw.paw.set` method:
+   by using the :meth:`~gpaw.aseinterface.GPAW.set` method:
 
    >>> calc.set(txt='H2.txt', charge=1)
 
@@ -158,7 +158,7 @@ keyword            type       default value        description
 
 .. _manual_mode:
 
-Finite Difference, Plane-wave or LCAO mode
+Finite-difference, plane-wave or LCAO mode
 ------------------------------------------
 
 Finite-difference:
@@ -182,6 +182,36 @@ Plane-waves:
         calc = GPAW(mode=PW(200))
 
 
+Comparing FD, LCAO and PW modes
+```````````````````````````````
+    
+Memory consumption:
+    With LCAO, you have fewer degrees of freedom so memory usage is low.
+    PW mode uses more memory and FD a lot more.
+    
+Speed:
+    For small systems with many **k**-points, PW mode beats everything else.
+    For larger systems LCAO will be most efficient.  Whereas PW beats FD for
+    smallish systems, the opposite is true for very large systems where FD
+    will parallelize better.
+    
+Absolute convergence:
+    With LCAO, it can be hard to reach the complete basis set limit and get
+    absolute convergence of energies, whereas with FD and PW mode it is
+    quite easy to do by decreasing the grid spacing or increasing the
+    plane-wave cutoff energy, respectively.
+    
+Eggbox errors:
+    With LCAO and FD mode you will get a small eggbox error: you get a
+    small periodic energy variation as you translate atoms and the period
+    of the variation will be equal to the grid-spacing used.  GPAW's PW
+    implementation doesn't have this problem.
+
+Features:
+    FD mode is the oldest and has most features.  Only PW mode can be used
+    for calculating the stress-tensor and for response function calculations.
+    
+    
 .. _manual_nbands:
 
 Number of electronic bands
@@ -278,7 +308,8 @@ For more flexibility, you can use this syntax::
     kpts={'size': (4, 4, 4)}  # 4x4x4 Monkhorst-pack
     kpts={'size': (4, 4, 4), 'gamma': True}  # shifted 4x4x4 Monkhorst-pack
 
-You can also specify the **k**-point density in units of points per Å\ `^-1`::
+You can also specify the **k**-point density in units of points per
+Å\ `^{-1}`::
     
     kpts={'density': 2.5}  # Monkhorst-Pack with a density of 2.5 points/Ang^-1
     kpts={'density': 2.5, 'even': True}  # round off to neares even number
@@ -579,9 +610,9 @@ There exist three special names, that if used, does not specify a file name:
 
 * ``'ae'`` is used for specifying all-electron mode for an
   atom. I.e. no PAW or pseudo potential is used.
-* ``'hgh'`` is used to specify a norm-conserving Hartwigsen-Goedecker-Hutter
-  pseudopotential (no file necessary).  Some elements have better
-  semicore pseudopotentials.  To use those, specify ``'hgh.sc'``
+* ``'hgh'`` is used to specify a norm-conserving Hartwigsen-Goedecker-Hutter 
+  pseudopotential (no file necessary).  Some elements have better 
+  semicore pseudopotentials.  To use those, specify ``'hgh.sc'`` 
   for the elements or atoms in question.
 * ``'ghost'`` is used to indicated a *ghost* atom in LCAO mode, 
   see :ref:`ghost-atoms`. 
@@ -861,7 +892,8 @@ example saves a differently named restart file every 5 iterations::
 
   calc.attach(OccasionalWriter().write, occasionally)
 
-See also :meth:`~gpaw.GPAW.attach`.
+See also :meth:`~gpaw.aseinterface.GPAW.attach`.
+
 
 ----------------------
 Command line arguments
