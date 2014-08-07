@@ -27,13 +27,10 @@ atoms.set_cell([(sqrt(3)*a/2.0,3/2.0*a,0),
 calc = GPAW(mode=PW(500),
             kpts=(6, 6, 3),                # The result should be converged with respect to kpoints.
             basis='dzp',                   # Use LCAO basis to get good initialization for unoccupied states.
-            occupations=FermiDirac(0.05),
-#            txt='out_gs.txt',
-            ) 
+            occupations=FermiDirac(0.05))  # Use smaller Fermi-Dirac smearing to avoid intraband transitions 
 
 atoms.set_calculator(calc)       
 atoms.get_potential_energy()          
-#calc.write('graphite_small.gpw')
 
 calc.set(kpts=(20, 20, 7), fixdensity=True)
 atoms.get_potential_energy()
@@ -45,12 +42,12 @@ f = paropen('graphite_q_list', 'w')  # Write down q.
 
 for i in range(1, 6):  # Loop over different q.   
     df = DielectricFunction(calc='graphite.gpw',       
-                            frequencies=np.linspace(0, 40, 401),  # Spectra from 0-40 eV with 0.1 eV spacing.
+                            domega0=0.01,
                             eta=0.2,  # Broadening parameter.
-                            ecut=40+(i-1)*10,  # In general, larger q requires larger planewave cutoff energy.
+                            ecut=100,  # In general, larger q requires larger planewave cutoff energy.
                             txt='out_df_%d.txt' %(i))  # Write different output for different q.
 
-    q_c = np.array([i/6., 0., 0.])  # Gamma - M excitation
+    q_c = np.array([i/20., 0., 0.])  # Gamma - M excitation
     #q_c = np.array([i/20., -i/20., 0.])  # Gamma - K excitation
     
     df.get_eels_spectrum(q_c=q_c,
