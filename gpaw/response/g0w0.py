@@ -8,6 +8,7 @@ from ase.utils import opencew
 from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
+from gpaw import debug
 from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.tools import vxc
 from gpaw.utilities.timing import timer
@@ -161,6 +162,29 @@ class G0W0(PairDensity):
         Q_aGii = [Q_Gii[G_G]
                   for Q_Gii in self.initialize_paw_corrections(pd1)]
         
+        if debug:
+            G_Gv = pd0.G_Qv[pd0.Q_qG[0]] + pd0.K_qv[0]
+            pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
+            M_vv = np.dot(pd0.gd.cell_cv.T,
+                          np.dot(self.U_cc.T,
+                                 np.linalg.inv(pd0.gd.cell_cv).T))
+            for a, Q_Gii in enumerate(self.Q_aGii):
+                x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
+                                                self.sign *
+                                                np.dot(M_vv, pos_av[a]))))
+                Q2_Gii = Q_Gii * x_G[:, None, None]
+                e = abs(Q_aGii[a][:, 0, 0] - Q2_Gii[:, 0, 0]).max()
+                if e > 1e-12:
+                    print(a, self.sign, shift0_c, shift_c,
+                          np.linalg.det(M_vv),
+                          np.linalg.det(self.U_cc), q_c,
+                          self.U_cc.flatten(),
+                          #pos_av[a] - np.dot(M_vv.T, pos_av[a]),
+                          e)
+                    2 / 0
+                    #print(pos_av,M_vv)
+                    #print(Q_aGii[a][:5, 0, 0] / Q2_Gii[:5, 0, 0])
+                
         if self.ppa:
             calculate_sigma = self.calculate_sigma_ppa
         else:
@@ -267,7 +291,7 @@ class G0W0(PairDensity):
                 wstc = None
                 
             pd, chi0_wGG = chi0.calculate(q_c)[:2]
-            #Q_aGii = self.initialize_paw_corrections(pd)  # get from chi0!!!
+            self.Q_aGii = self.initialize_paw_corrections(pd)  # get from chi0!
             W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc)
             
             Q1 = self.qd.ibz2bz_k[iq]
@@ -278,7 +302,10 @@ class G0W0(PairDensity):
                     self.U_cc = self.qd.symmetry.op_scc[s]
                     time_reversal = self.qd.time_reversal_k[Q2]
                     self.sign = 1 - 2 * time_reversal
-                    yield pd, W, self.qd.bzk_kc[Q2]
+                    Q_c = self.qd.bzk_kc[Q2]
+                    d_c = self.sign * np.dot(self.U_cc, q_c) - Q_c
+                    assert np.allclose(d_c.round(), d_c)
+                    yield pd, W, Q_c
                     done.add(Q2)
     
     @timer('WW')
