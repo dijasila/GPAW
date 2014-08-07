@@ -17,12 +17,13 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
     def __init__(self, calc, name=None, frequencies=None, domega0=0.1,
-                 omegamax=None, alpha=3.0, ecut=50, hilbert=False, nbands=None,
+                 omega2=10.0, omegamax=None, ecut=50,
+                 hilbert=False, nbands=None,
                  eta=0.2, ftol=1e-6, intraband=True, world=mpi.world,
                  txt=sys.stdout, nthreads=1, gate_voltage=None):
 
         self.chi0 = Chi0(calc, frequencies, domega0=domega0,
-                         omegamax=omegamax, alpha=alpha,
+                         omega2=omega2, omegamax=omegamax,
                          ecut=ecut, hilbert=hilbert, nbands=nbands,
                          eta=eta, ftol=ftol,
                          intraband=intraband, nthreads=nthreads,

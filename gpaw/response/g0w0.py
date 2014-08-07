@@ -24,7 +24,7 @@ class G0W0(PairDensity):
                  kpts=None, bands=None, nbands=None, ppa=False,
                  wstc=False,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
-                 domega0=0.025, alpha=3.0,
+                 domega0=0.025, omega2=10.0,
                  world=mpi.world):
     
         PairDensity.__init__(self, calc, ecut, world=world,
@@ -39,7 +39,7 @@ class G0W0(PairDensity):
         self.eta = eta / Hartree
         self.E0 = E0 / Hartree
         self.domega0 = domega0 / Hartree
-        self.alpha = alpha
+        self.omega2 = omega2 / Hartree
 
         print('  ___  _ _ _ ', file=self.fd)
         print(' |   || | | |', file=self.fd)
@@ -222,8 +222,8 @@ class G0W0(PairDensity):
         # Pick +i*eta or -i*eta:
         s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
         
-        w_m = (o_m / self.domega0 /
-               (1 + self.alpha * o_m / self.omegamax)).astype(int)
+        beta = (2**0.5 - 1) * self.domega0 / self.omega2
+        w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
         o1_m = self.omega_w[w_m]
         o2_m = self.omega_w[w_m + 1]
         
@@ -264,7 +264,7 @@ class G0W0(PairDensity):
                           'hilbert': True,
                           'timeordered': True,
                           'domega0': self.domega0 * Hartree,
-                          'alpha': self.alpha}
+                          'omega2': self.omega2 * Hartree}
             
         chi0 = Chi0(self.calc,
                     nbands=self.nbands,

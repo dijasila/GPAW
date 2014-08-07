@@ -360,11 +360,11 @@ keyword            type               default value        description
                                                            Ex: numpy.linspace(0,20,201)
 ``domega0``        ``float``          0.1                  :math:`\Delta\omega_0` for
                                                            non-linear frequency grid.
-``omegamax``       ``float``          Maximum energy       :math:`\omega_\textrm{max}` for
-                                      eigenvalue           non-linear frequencygrid.
-                                      difference.
-``alpha``          ``float``          3.0                  :math:`\alpha` for
+``omega2``         ``float``          10.0 (eV)            `\omega_2` for
                                                            non-linear frequencygrid.
+``omegamax``       ``float``          Maximum energy       Maximum frequency.
+                                      eigenvalue
+                                      difference.
 ``ecut``           ``float``          10 (eV)              Planewave energy cutoff. 
                                                            Determines the size of 
                                                            dielectric matrix. 

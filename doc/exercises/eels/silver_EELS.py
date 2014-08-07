@@ -10,11 +10,10 @@ calc.write('Ag_GLLBSC_full.gpw', 'all')
 
 # Set up dielectric function
 df = DielectricFunction(calc='Ag_GLLBSC_full.gpw',  # Ground state input
-                        alpha=0.0,
                         domega0=0.05)
 
 # Momentum transfer, must be the difference between two kpoints!
-q_c = np.array([1. / 10., 0, 0])
+q_c = [1.0 / 10, 0, 0]
 
 # By default, a file called 'eels.csv' is generated
 df.get_eels_spectrum(q_c=q_c)

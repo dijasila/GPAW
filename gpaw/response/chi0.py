@@ -17,17 +17,18 @@ from gpaw.utilities.blas import gemm, rk, czher
 from gpaw.kpt_descriptor import KPointDescriptor
 
 
-def frequency_grid(domega0, omegamax, alpha):
-    wmax = int(omegamax / domega0 / (1 + alpha)) + 2
+def frequency_grid(domega0, omega2, omegamax):
+    beta = (2**0.5 - 1) * domega0 / omega2
+    wmax = int(omegamax / (domega0 + beta * omegamax)) + 2
     w = np.arange(wmax)
-    omega_w = w * domega0 / (1 - alpha * domega0 / omegamax * w)
+    omega_w = w * domega0 / (1 - beta * w)
     return omega_w
     
 
 class Chi0(PairDensity):
     def __init__(self, calc,
-                 frequencies=None, domega0=0.1, omegamax=None, alpha=3.0,
-                 ecut=50, hilbert=False, nbands=None,
+                 frequencies=None, domega0=0.1, omega2=10.0, omegamax=None,
+                 ecut=50, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6,
                  real_space_derivatives=False, intraband=True, nthreads=1,
                  world=mpi.world, txt=sys.stdout, timer=None,
@@ -41,9 +42,9 @@ class Chi0(PairDensity):
         
         self.eta = eta / Hartree
         self.domega0 = domega0 / Hartree
+        self.omega2 = omega2 / Hartree
         self.omegamax = None if omegamax is None else omegamax / Hartree
         self.nbands = nbands or self.calc.wfs.bd.nbands
-        self.alpha = alpha
         self.keep_occupied_states = keep_occupied_states
         self.intraband = intraband
         
@@ -54,10 +55,11 @@ class Chi0(PairDensity):
                 self.omegamax = omax
             print('Using nonlinear frequency grid from 0 to %.3f eV' %
                   (self.omegamax * Hartree), file=self.fd)
-            self.omega_w = frequency_grid(self.domega0, self.omegamax,
-                                          self.alpha)
+            self.omega_w = frequency_grid(self.domega0, self.omega2,
+                                          self.omegamax)
         else:
             self.omega_w = np.asarray(frequencies) / Hartree
+            assert not hilbert
             
         self.hilbert = hilbert
         self.timeordered = bool(timeordered)
@@ -304,9 +306,9 @@ class Chi0(PairDensity):
     @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
         self.timer.start('prep')
+        beta = (2**0.5 - 1) * self.domega0 / self.omega2
         o_m = abs(deps_m)
-        w_m = (o_m / self.domega0 /
-               (1 + self.alpha * o_m / self.omegamax)).astype(int)
+        w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
         o1_m = self.omega_w[w_m]
         o2_m = self.omega_w[w_m + 1]
         p_m = self.prefactor * abs(df_m) / (o2_m - o1_m)**2  # XXX abs()?
@@ -318,7 +320,8 @@ class Chi0(PairDensity):
             for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
                 myn_G = n_G[self.Ga:self.Gb].reshape((-1, 1))
                 gemm(p1, n_G.reshape((-1, 1)), myn_G, 1.0, chi0_wGG[w], 'c')
-                gemm(p2, n_G.reshape((-1, 1)), myn_G, 1.0, chi0_wGG[w + 1], 'c')
+                gemm(p2, n_G.reshape((-1, 1)), myn_G, 1.0, chi0_wGG[w + 1],
+                     'c')
                 #chi0_wGG[w + 1] += p2 * np.outer(myn_G, n_G.conj())
             return
             
@@ -356,9 +359,10 @@ class Chi0(PairDensity):
     @timer('CHI_0 optical limit hilbert-update')
     def update_optical_limit_hilbert(self, n0_mv, deps_m, df_m, n_mG,
                                      chi0_wxvG, chi0_wvv):
+        beta = (2**0.5 - 1) * self.domega0 / self.omega2
         for deps, df, n0_v, n_G in zip(deps_m, df_m, n0_mv, n_mG):
             o = abs(deps)
-            w = int(o / self.domega0 / (1 + self.alpha * o / self.omegamax))
+            w = int(o / (self.domega0 + beta * o))
             if w + 2 > len(self.omega_w):
                 break
             o1, o2 = self.omega_w[w:w + 2]

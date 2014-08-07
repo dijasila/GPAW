@@ -13,8 +13,7 @@ atoms.get_potential_energy()            # Ground state calculation is performed
 calc.write('Al.gpw','all')              # Use 'all' option to write wavefunctions
 
 # Part 2: Spectrum calculation
-df = DielectricFunction(calc='Al.gpw',  # Ground state gpw file as input
-                        alpha=0.0)
+df = DielectricFunction(calc='Al.gpw')  # Ground state gpw file as input
 
-q_c = np.array([1./13., 0, 0])          # Momentum transfer, must be the difference between two kpoints !
+q_c = [1.0 / 13, 0, 0]          # Momentum transfer, must be the difference between two kpoints !
 df.get_eels_spectrum(q_c=q_c)           # By default, a file called 'eels.csv' is generated
