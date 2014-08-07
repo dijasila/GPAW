@@ -1,3 +1,7 @@
+"""Part of the module for electrodynamic simulations
+
+"""
+
 from gpaw.utilities.gauss import Gaussian
 import numpy as np
 

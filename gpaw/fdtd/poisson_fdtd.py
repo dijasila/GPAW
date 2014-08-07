@@ -1,4 +1,4 @@
-"""Module for electrodynamic simulations
+"""Part of the module for electrodynamic simulations
 
 """
 
@@ -38,11 +38,9 @@ class QSFDTD:
                         cells,
                         spacings,
                         communicator=serial_comm,
-                        remove_moments=(1, 1),
-                        tag=""):
+                        remove_moments=(1, 1)):
                 
         self.td_calc = None
-        self.tag = tag
         
         # Define classical cell in one of these ways:
         # 1. [cx, cy, cz]   -> vacuum for the quantum grid = 4.0
@@ -84,8 +82,7 @@ class QSFDTD:
                                           qm_spacing          = qm_spacing,
                                           remove_moments      = remove_moments,
                                           communicator        = communicator,
-                                          cell                = cell,
-                                          tag                 = tag)
+                                          cell                = cell)
         self.poissonsolver.set_calculation_mode('iterate')
         
         # Quantum system
@@ -161,11 +158,9 @@ class FDTDPoissonSolver:
                        cell=None,
                        qm_spacing=0.30,
                        cl_spacing=1.20,
-                       tag='fdtd.poisson',
                        remove_moments=(1, 1),
                        potential_coupler='Refiner',
                        communicator=serial_comm,
-                       debug_plots=0,
                        restart_reader=None,
                        paw=None):
 
@@ -191,11 +186,9 @@ class FDTDPoissonSolver:
         
         self.remove_moment_cl = remove_moments[0]
         self.remove_moment_qm = remove_moments[1]
-        self.tag = tag
         self.time = 0.0
         self.time_step = 0.0
         self.kick = np.array([0.0, 0.0, 0.0], dtype=float)
-        self.debug_plots = debug_plots
         self.maxiter = 2000
         self.eps = eps
         self.relax= relax
@@ -725,9 +718,6 @@ class FDTDPoissonSolver:
         
             
     def solve_propagate(self, **kwargs):
-        if self.debug_plots!=0 and np.floor(self.time / self.time_step) % self.debug_plots == 0:
-            from visualization import visualize_density
-            visualize_density(self, plotInduced=False)
 
         # 1) P(t) from P(t-dt) and J(t-dt/2)
         self.classical_material.propagate_polarizations(self.time_step)
@@ -829,13 +819,11 @@ class FDTDPoissonSolver:
         self.description = r['fdtd.description']
         self.remove_moment_qm = int(r['fdtd.remove_moment_qm'])
         self.remove_moment_cl = int(r['fdtd.remove_moment_cl'])
-        self.tag = r['fdtd.tag']               
         self.time = float(r['fdtd.time'])
         self.time_step = float(r['fdtd.time_step'])
         
         # Try to read time-dependent information
         self.kick = read_vector(r['fdtd.kick'])
-        self.debug_plots = r['fdtd.debug_plots']
         self.maxiter = int(r['fdtd.maxiter'])
         
         # PoissonOrganizer: classical
@@ -934,11 +922,9 @@ class FDTDPoissonSolver:
         w['fdtd.description'] = self.description
         w['fdtd.remove_moment_qm'] = self.remove_moment_qm
         w['fdtd.remove_moment_cl'] = self.remove_moment_cl
-        w['fdtd.tag'] = self.tag               
         w['fdtd.time'] = self.time
         w['fdtd.time_step'] = self.time_step
         w['fdtd.kick'] = self.kick
-        w['fdtd.debug_plots'] = self.debug_plots
         w['fdtd.maxiter'] = self.maxiter
         
         # PoissonOrganizer

@@ -36,9 +36,7 @@ poissonsolver = FDTDPoissonSolver(classical_material  = classical_material,
                                   cell                = large_cell,
                                   remove_moments      = (1, 4),
                                   communicator        = world,
-                                  debug_plots         = 0,
-                                  potential_coupler   = 'Refiner',
-                                  tag                 = 'test')
+                                  potential_coupler   = 'Refiner')
 poissonsolver.set_calculation_mode('iterate')
 
 # Combined system

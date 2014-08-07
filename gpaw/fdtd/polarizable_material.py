@@ -381,66 +381,6 @@ class PolarizableRod():
 
         return mask
 
-
- # Polyhedron with height
-class PolarizableDeepConvexPolyhedron():
-    def __init__(self, corners, height, permittivity):
-        # sanity check
-        assert(np.array(corners).shape[0] > 2)  # at least three points
-        assert(np.array(corners).shape[1] == 3) # 3D
-        assert(height > 0)
-        
-        self.corners      = np.array(corners)/Bohr # from Angstroms to atomic units
-        self.height       = height/Bohr  # from Angstroms to atomic units
-        self.permittivity = permittivity
-
-        self.name = 'PolarizableDeepConvexPolyhedron'
-        self.arguments = 'height = %20.12e, corners=[' % height
-        for c in corners:
-            self.arguments += '[%20.12e, %20.12e, %20.12e],' % (c[0], c[1], c[2])
-        self.arguments += ']'
-
-    def get_mask(self, gd):
-        
-        # Vector (perpendicular to the plane) defining the plane 
-        perp_vector = np.cross(self.corners[1]-self.corners[0],
-                               self.corners[-1]-self.corners[0])
-        perp_vector = -perp_vector/np.linalg.norm(perp_vector)
-        vector_up   = np.max(perp_vector)>0
-        
-        # Ensure that all corners are in the same plane
-        for k in range(len(self.corners)):
-            assert 0 == np.linalg.norm(np.cross(perp_vector, np.cross(self.corners[k]-self.corners[0],
-                                                                     self.corners[-1]-self.corners[0])))
-        
-        # 3D coordinates at each grid point
-        r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-        ng = r_gv.shape[0:-1]
-        ngv = r_gv.shape
-        
-        # Calculate the distances of all points to the plane
-        dists = np.sum([perp_vector[w]*(r_gv[:, :, :, w]-self.corners[0][w]) for w in range(3)], axis=0)
-        mask = np.logical_and(0.0 <= dists, dists <= self.height)
-        
-        # Then calculate the projections of all points into our 2D plane
-        projs = np.array([r_gv[:, :, :, w]-dists[:, :, :]*perp_vector[w] for w in range(3)])
-        
-        # Then check the angles between all 2D vertices and the projected points: if any is >180dgr, the point is outside.
-        # Here I use the condition that angle>180 if the points are given in clockwise order and the
-        # minimum of the cross product vector coordinates is <0. If points are given in counter-clockwise order,
-        # the maximum must be >0.
-        num = len(self.corners)
-        for p in range(num):
-            m1 = np.array([self.corners[(p  )%num][w]-projs[w, :, :, :] for w in range(3)])
-            m2 = np.array([self.corners[(p+1)%num][w]-projs[w, :, :, :] for w in range(3)])
-            
-            if vector_up:
-                mask = np.logical_and(mask, np.min(np.cross(m1, m2, axis=0), axis=0)<0)
-            else:
-                mask = np.logical_and(mask, np.max(np.cross(m1, m2, axis=0), axis=0)>0)
-
-        return mask
-
 class PolarizableTetrahedron():
     #http://steve.hollasch.net/cgindex/geometry/ptintet.html
     #obrecht@imagen.com (Doug Obrecht) writes:
@@ -635,9 +575,7 @@ class Permittivity:
 class PermittivityPlus(Permittivity):
     def __init__(self, fname=None, data=None, eps_infty = _eps0_au, epsZero = _eps0_au, newbar_omega = 0.01, new_alpha = 0.10, **kwargs):
         Permittivity.__init__(self, fname=fname, data=data, eps_infty=eps_infty)
-        
-        #parprint("Original Nj=%i and eps(0) = %12.6f + i*%12.6f" % (self.Nj, self.value(0.0).real, self.value(0.0).imag))
-        
+                
         # Convert given values from eVs to Hartrees
         _newbar_omega = newbar_omega / Hartree
         _new_alpha    = new_alpha / Hartree
@@ -647,6 +585,3 @@ class PermittivityPlus(Permittivity):
         self.oscillators.append(LorentzOscillator(_newbar_omega, _new_alpha, _new_beta))
         self.Nj = len(self.oscillators)
         
-        #parprint("Added following oscillator: (bar_omega, alpha, beta) = (%12.6f, %12.6g, %12.6f)" % (_newbar_omega*Hartree, _new_alpha*Hartree, _new_beta*Hartree*Hartree))
-        #parprint("New Nj=%i and eps(0) = %12.6f + i*%12.6f" % (self.Nj, self.value(0.0).real, self.value(0.0).imag))
-            
