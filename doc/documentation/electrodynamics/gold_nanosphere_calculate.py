@@ -2,6 +2,7 @@ from ase import Atoms
 from ase.units import Hartree
 from gpaw.fdtd import QSFDTD, PermittivityPlus, PolarizableMaterial, PolarizableSphere
 from gpaw.tddft import photoabsorption_spectrum
+from gpaw.mpi import world, serial_comm
 import numpy as np
 
 # Nanosphere radius (Angstroms)
@@ -35,10 +36,10 @@ qsfdtd = QSFDTD(classical_material = classical_material,
                 atoms              = None,
                 cells              = large_cell,
                 spacings           = [8.0, 1.0],
+                communicator       = world,
                 remove_moments     = (4, 1))
-
 # Run ground state
-energy = qsfdtd.ground_state('gs.gpw', nbands = 1)
+energy = qsfdtd.ground_state('gs.gpw', nbands = -1)
 
 # Run time evolution
 qsfdtd.time_propagation('gs.gpw',

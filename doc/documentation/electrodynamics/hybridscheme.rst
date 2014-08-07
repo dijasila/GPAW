@@ -37,8 +37,8 @@ have different spacings. The following restrictions must hold:
   is the spacing of the quantum grid and n is an integer.
 
 When these conditions hold, the potential from one subsystem can
-be transferred to the other one. An example of a hybrid grid is
-shown in the following figure:
+be transferred to the other one. The grids are automatically
+adjusted so that some grid points are common.
 
 --------------------------------------------
 Transferring the potential between two grids

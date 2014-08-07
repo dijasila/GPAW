@@ -126,9 +126,10 @@ at 1.9 eV and the stronger overall intensity are examples of
 the inaccuracies of the used discretization scheme: the shoulder
 originates from spurious surface scattering, and the intensity
 from the larger volume of the nanosphere defined in the grid.
-From the standard output (where the "Fill ratio" tells that
-18.035% of the grid points locate inside the sphere) of the
-calculation one can deduce how much the volume is overestimated:
+For a better estimate of the effective volume, you can take
+a look at the standard output where the "Fill ratio" tells that
+18.035% of the grid points locate inside the sphere. This
+means that the volume (and intensity) is roughly 16% too large:
 
  :math:`\frac{V}{V_{\text{sphere}}}\approx\frac{0.18035\times(15\text{nm})^3)}{\frac{4}{3}\pi\times(5\text{nm})^3}\approx1.16`.
 
