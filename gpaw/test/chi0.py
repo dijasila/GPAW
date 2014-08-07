@@ -45,7 +45,8 @@ for k in [2, 3]:
                 chiold.calculate()
                 chi0old_wGG = chiold.chi0_wGG
 
-                chi = Chi0(calc, omega, ecut=100, txt=name + '.log')
+                chi = Chi0(calc, omega, hilbert=False,
+                           ecut=100, txt=name + '.log')
                 pd, chi0_wGG, _, _ = chi.calculate(q_c)
 
                 assert abs(chi0_wGG - chi0old_wGG).max() < 1e-15
