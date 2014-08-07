@@ -13,7 +13,6 @@ class PotentialCoupler():
                   num_refinements,
                   remove_moment_qm,
                   remove_moment_cl,
-                  coupling_level,
                   rank):
         self.qm = qm
         self.cl = cl
@@ -25,33 +24,20 @@ class PotentialCoupler():
         self.num_refinements = num_refinements
         self.remove_moment_qm = remove_moment_qm
         self.remove_moment_cl = remove_moment_cl
-        self.coupling_level = coupling_level
         self.rank = rank
-        assert(self.coupling_level in ['both', 'qm2cl', 'cl2qm', 'none'])
 
         # These are used to remember the previous solutions
         self.old_local_phi_qm_qmgd = self.qm.gd.zeros()
         self.old_local_phi_cl_clgd = self.cl.gd.zeros()
         self.old_local_phi_qm_clgd = self.cl.gd.zeros()
     
-    # Add quantum and classical parts (usually potentials)
+    # Add quantum and classical potentials
     def couple(self, qm_qmgd,
                       qm_clgd,
                       cl_qmgd,
                       cl_clgd):
-        if self.coupling_level=='both':
-            tot_qmgd = cl_qmgd + qm_qmgd
-            tot_clgd = cl_clgd + qm_clgd
-        elif self.coupling_level=='qm2cl':
-            tot_qmgd = qm_qmgd
-            tot_clgd = cl_clgd + qm_clgd
-        elif self.coupling_level=='cl2qm':
-            tot_qmgd = cl_qmgd + qm_qmgd
-            tot_clgd = cl_clgd
-        else: # self.coupling_level=='none'
-            tot_qmgd = qm_qmgd
-            tot_clgd = cl_clgd
-         
+        tot_qmgd = cl_qmgd + qm_qmgd
+        tot_clgd = cl_clgd + qm_clgd         
         return tot_qmgd, tot_clgd
     
 # Coarsen quantum charge to suit the classical grid,
@@ -68,7 +54,6 @@ class RefinerPotentialCoupler(PotentialCoupler):
                         num_refinements,
                         remove_moment_qm,
                         remove_moment_cl,
-                        coupling_level,
                         rank):
         PotentialCoupler.__init__(self,
                                   qm,
@@ -81,7 +66,6 @@ class RefinerPotentialCoupler(PotentialCoupler):
                                   num_refinements,
                                   remove_moment_qm,
                                   remove_moment_cl,
-                                  coupling_level,
                                   rank)
 
     def getPotential(self, local_rho_qm_qmgd, local_rho_cl_clgd, **kwargs):
@@ -171,7 +155,6 @@ class MultipolesPotentialCoupler(PotentialCoupler):
                         num_refinements,
                         remove_moment_qm,
                         remove_moment_cl,
-                        coupling_level,
                         rank):
         PotentialCoupler.__init__(self,
                                   qm,
@@ -184,7 +167,6 @@ class MultipolesPotentialCoupler(PotentialCoupler):
                                   num_refinements,
                                   remove_moment_qm,
                                   remove_moment_cl,
-                                  coupling_level,
                                   rank)
 
 
