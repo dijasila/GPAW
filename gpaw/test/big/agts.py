@@ -125,7 +125,7 @@ class Cluster:
         fd.write('execfile(%r)\n' % job.script)
         fd.close()
         
-    def tick(self):
+    def tick(self, nrunning):
         pass
 
 
@@ -159,10 +159,9 @@ class LocalCluster(Cluster):
         
     def submit(self, job):
         self.queue.append(job)
-        self.tick()
         
-    def tick(self):
-        if self.queue:
+    def tick(self, nrunning):
+        if self.queue and nrunning == 0:
             job = self.queue.pop(0)
             dir = os.getcwd()
             os.chdir(job.dir)
@@ -285,16 +284,20 @@ class AGTSQueue:
             if done:
                 break
 
-            cluster.tick()
             time.sleep(self.sleeptime)
 
+            nrunning = 0
             for job in jobs:
                 newstatus = job.check_status()
                 if newstatus:
                     self.log(job)
                     if newstatus in ['TIMEOUT', 'FAILED']:
                         self.fail(job)
+                if job.status == 'running':
+                    nrunning += 1
 
+            cluster.tick(nrunning)
+                        
         t = self.get_cpu_time()
         self.fd.write('CPU time: %d:%02d:%02d\n' %
                       (t // 3600, t // 60 % 60, t % 60))
@@ -304,7 +307,8 @@ class AGTSQueue:
     def status(self):
         fd = open('status.log', 'w')
         fd.write('# job                                              ' +
-                 20*' ' + 'status      time   tmax ncpus  deps files id\n')
+                 20 * ' ' +
+                 'status      time   tmax ncpus  deps files id\n')
         for job in self.jobs:
             if job.tstop is not None:
                 t = '%5d' % round(job.tstop - job.tstart)
@@ -405,7 +409,7 @@ def main():
         elif opt.run == 'local':
             cluster = LocalCluster()
         else:
-            bad
+            1 / 0
 
         queue.run(cluster)
 
