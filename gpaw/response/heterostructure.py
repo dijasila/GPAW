@@ -125,8 +125,10 @@ class Heterostructure:
             kernel_ij = self.CoulombKernel(self.q_points_abs[iq])
             ext_pot = np.dot(kernel_ij, h_distr)
             for iw in range(0, len(self.frequencies)):
-                v_screened_qw[iq, iw] = self.q_points_abs[iq] / 2. / np.pi * 
-                np.dot(e_distr, np.dot(np.linalg.inv(eps_qwij[iq, iw, :, :]), ext_pot))   
+                v_screened_qw[iq, iw] = (
+                    self.q_points_abs[iq] / 2. / np.pi * 
+                    np.dot(e_distr, np.dot(np.linalg.inv(eps_qwij[iq, iw]),
+                                           ext_pot)))
                         
         return 1. / (v_screened_qw)
     
