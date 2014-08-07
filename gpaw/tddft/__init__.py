@@ -353,8 +353,9 @@ class TDDFT(GPAW):
 
         # Let FDTD part know the time step
         if self.hamiltonian.poisson.description=='FDTD+TDDFT':
-            self.hamiltonian.poisson.set_time_step(time_step)
-
+            self.hamiltonian.poisson.set_time(self.time)
+            self.hamiltonian.poisson.set_time_step(self.time_step)
+            
         self.timer.start('Propagate')
         while self.niter < maxiter:
             norm = self.density.finegd.integrate(self.density.rhot_g)
@@ -438,12 +439,12 @@ class TDDFT(GPAW):
                 self.dm_file.write(header)
                 self.dm_file.flush()
         
-        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
-            self.hamiltonian.poisson.set_time(time=self.time)
-            self.hamiltonian.poisson.initialize_dipole_moment_file()
 
     def update_dipole_moment_file(self, norm):
         dm = self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
+        
+        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+            dm += self.hamiltonian.poisson.get_classical_dipole_moment()
 
         if self.rank == 0:
             line = '%20.8lf %20.8le %22.12le %22.12le %22.12le\n' \

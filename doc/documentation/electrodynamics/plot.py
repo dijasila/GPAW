@@ -17,7 +17,7 @@ gold = [[0.2350, 0.1551,  95.62],
         [7.912,   1.361,  81.04]]
 
 # Plot calculated spectrum and compare with Mie theory
-spec = np.loadtxt('specCl.dat')
+spec = np.loadtxt('spec.dat')
 perm = PermittivityPlus(data=gold).value(spec[:,0]/Hartree)
 plt.figure()
 plt.plot(spec[:, 0], spec[:, 1], 'r', label='QSFDTD')
@@ -31,9 +31,9 @@ plt.savefig('qsfdtd_vs_mie.png')
 
 
 # Plot spectrum with r=0nm and r=5nm
-spec0 = np.loadtxt('specCl.1.dat') # AuNP
-spec1 = np.loadtxt('specCl.2.dat') # Na2
-spec2 = np.loadtxt('specCl.3.dat') # AuNP+Na2
+spec0 = np.loadtxt('spec.1.dat') # AuNP
+spec1 = np.loadtxt('spec.2.dat') # Na2
+spec2 = np.loadtxt('spec.3.dat') # AuNP+Na2
 
 plt.figure()
 plt.plot(spec0[:, 0], spec0[:, 1], 'r', label='Au nanoparticle')

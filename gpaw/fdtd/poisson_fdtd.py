@@ -25,8 +25,9 @@ import gpaw.mpi as mpi
 import numpy as np
 import sys
 
-# Wrapper class to make things easier
-# use: qsfdtd = QSFDTD(cl, at, c, h)
+# QSFDTD is a wrapper class to make calculations
+# easier, something like this:
+#      qsfdtd = QSFDTD(cl, at, c, h)
 #      energy = qsfdtd.ground_state('gs.gpw')
 #      qsfdtd.time_propagation('gs.gpw', kick)
 #      photoabsorption_spectrum('dm.dat', 'spec.dat')
@@ -83,7 +84,6 @@ class QSFDTD:
                                           qm_spacing          = qm_spacing,
                                           remove_moments      = remove_moments,
                                           communicator        = communicator,
-                                          dm_fname            = 'dmCl%s.dat' % tag,
                                           cell                = cell,
                                           tag                 = tag)
         self.poissonsolver.set_calculation_mode('iterate')
@@ -162,7 +162,6 @@ class FDTDPoissonSolver:
                        qm_spacing=0.30,
                        cl_spacing=1.20,
                        tag='fdtd.poisson',
-                       dm_fname='dmCl.dat',
                        remove_moments=(1, 1),
                        potential_coupler='Refiner',
                        coupling_level='both',
@@ -199,8 +198,6 @@ class FDTDPoissonSolver:
         self.time = 0.0
         self.time_step = 0.0
         self.kick = np.array([0.0, 0.0, 0.0], dtype=float)
-        self.dm_fname = dm_fname
-        self.dm_file = None
         self.debug_plots = debug_plots
         self.maxiter = 2000
         self.eps = eps
@@ -227,8 +224,6 @@ class FDTDPoissonSolver:
 
         # Generate classical grid descriptor
         self.initialize_clgd()
-        
-        self.messages.append('FDTDPoissonSolver: domain parallelization with %i processes.' % self.cl.gd.comm.size)
 
     # Generated classical GridDescriptors, after spacing and cell are known
     def initialize_clgd(self):
@@ -288,7 +283,16 @@ class FDTDPoissonSolver:
         self.cl.phi = self.cl.gd.zeros()
         self.cl.extrapolated_qm_phi = self.cl.gd.empty()
         
-        self.messages.append("\n")
+        self.messages.append('\nFDTDPoissonSolver/grid descriptors and coupler:')
+        self.messages.append(' Domain parallelization with %i processes.' % self.cl.gd.comm.size)
+        if self.cl.gd.comm==serial_comm:
+            self.messages.append(' Communicator for domain parallelization: serial_comm')
+        elif self.cl.gd.comm==world:
+            self.messages.append(' Communicator for domain parallelization: world')
+        elif self.cl.gd.comm==self.qm.gd.comm:
+            self.messages.append(' Communicator for domain parallelization: dft_domain_comm')
+        else:
+            self.messages.append(' Communicator for domain parallelization: %s' % self.cl.gd.comm)
 
         # Initialize potential coupler
         if self.potential_coupling_scheme == 'Multipoles':
@@ -567,10 +571,6 @@ class FDTDPoissonSolver:
             printer_function(msg)
         printer_function("\n *********************\n")
    
-    # Where the induced dipole moment is written
-    def set_dipole_moment_fname(self, dm_fname):
-        self.dm_fname = dm_fname
-
     # Set the time step
     def set_time_step(self, time_step):
         self.time_step = time_step
@@ -583,29 +583,8 @@ class FDTDPoissonSolver:
     def set_kick(self, kick):
         self.kick = np.array(kick)
 
-    # This must be called before propagation begins
-    def initialize_dipole_moment_file(self):
-        # dipole moment file
-        if self.rank == 0:
-            if self.dm_file is not None and not self.dm_file.closed:
-                raise RuntimeError('Dipole moment file is already open')
-            if self.time == 0.0:
-                mode = 'w'
-            else:
-                mode = 'a'
-            self.dm_file = file(self.dm_fname, mode)
-            if self.dm_file.tell() == 0:
-                header = '# Kick = [%22.12le, %22.12le, %22.12le]\n' % \
-                            (self.kick[0], self.kick[1], self.kick[2])
-                header += '# %15s %15s %22s %22s %22s\n' % \
-                            ('time', 'norm', 'dmx', 'dmy', 'dmz')
-                self.dm_file.write(header)
-                self.dm_file.flush()
-
     def finalize_propagation(self):
-        if self.rank == 0:
-            self.dm_file.close()
-            self.dm_file = None
+        pass
     
     def set_calculation_mode(self, calculation_mode):
         # Three calculation modes are available:
@@ -778,9 +757,6 @@ class FDTDPoissonSolver:
                     
         # 5) J(t+dt/2) from J(t-dt/2) and P(t)
         self.classical_material.propagate_currents(self.time_step)
-
-        # Write updated dipole moment into file
-        self.update_dipole_moment_file(self.qm.rho)
                 
         # Update timer
         self.time = self.time + self.time_step
@@ -839,15 +815,6 @@ class FDTDPoissonSolver:
     # Quantum contribution
     def get_quantum_dipole_moment(self):
         return self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
-            
-    def update_dipole_moment_file(self, rho):
-        dm = self.get_classical_dipole_moment() + self.get_quantum_dipole_moment()
-        norm = self.qm.gd.integrate(rho) + self.classical_material.sign * self.cl.gd.integrate(self.classical_material.charge_density)
-        if self.rank == 0:
-            line = '%20.8lf %20.8le %22.12le %22.12le %22.12le\n' \
-                 % (self.time, norm, dm[0], dm[1], dm[2])
-            self.dm_file.write(line)
-            self.dm_file.flush()
 
     # Read restart data
     def read(self, paw, reader):
@@ -871,8 +838,6 @@ class FDTDPoissonSolver:
         self.tag = r['fdtd.tag']               
         self.time = float(r['fdtd.time'])
         self.time_step = float(r['fdtd.time_step'])
-        self.dm_fname = r['fdtd.dm_filename']
-        self.dm_file = None
         
         # Try to read time-dependent information
         self.kick = read_vector(r['fdtd.kick'])
@@ -885,6 +850,9 @@ class FDTDPoissonSolver:
         self.cl.spacing = read_vector(r['fdtd.cl_spacing'])
         self.cl.cell = np.diag(read_vector(r['fdtd.cl_cell']))
         self.cl.dparsize = None
+        
+        # TODO: it should be possible to use different
+        #       communicator after restart
         if r['fdtd.cl_world_comm']:
             self.cl.dcomm = world
         else:
@@ -976,7 +944,6 @@ class FDTDPoissonSolver:
         w['fdtd.tag'] = self.tag               
         w['fdtd.time'] = self.time
         w['fdtd.time_step'] = self.time_step
-        w['fdtd.dm_filename'] = self.dm_fname
         w['fdtd.kick'] = self.kick
         w['fdtd.debug_plots'] = self.debug_plots
         w['fdtd.maxiter'] = self.maxiter

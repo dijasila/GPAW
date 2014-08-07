@@ -90,12 +90,11 @@ Example: photoabsorption of gold nanosphere
 -------------------------------------------
 This example calculates the photoabsorption spectrum of a nanosphere
 that has a diameter of 10 nm, and compares the result with analytical
-Mie scattering limit. It shows the easiest way to run electrodynamics
-simulations usin * QSFDTD * class:
+Mie scattering limit.
 
 .. literalinclude:: gold_nanosphere_calculate.py
 
-QSFDTD generates a dummy quantum system that is treated using
+Here the *QSFDTD* object generates a dummy quantum system that is treated using
 GPAW in *qsfdtd.ground_state*. One can pass the GPAW
 arguments, like *xc* or *nbands*, to this function: in the example
 script one empty KS-orbital was included (*nbands* =1) because GPAW
@@ -163,9 +162,11 @@ Technical remarks
   this page, the quantum subsystem contains one empty Kohn-Sham
   orbital. For more information, see the description of
   :ref:`hybridscheme` because there the double grid is very important.
-* Parallelizatility: QSFDTD calculations are always parallelized
-  over domains. It does not affect the parallelization of
-  DFT calculation.
+* Parallelizatility: QSFDTD calculations can by parallelized
+  only over domains, so use either *communicator=serial_comm* or
+  *communicator=world* when initializing *QSFDTD* (or
+  *FDTDPoissonSolver*) class. The domain parallelization of
+  QSFDTD does not affect the parallelization of DFT calculation.
 * Multipole corrections to Poissonsolver: QSFDTD module is mainly
   intended for nanoplasmonic simulations. There the charge oscillations
   are strong and the usual zero boundary conditions for the

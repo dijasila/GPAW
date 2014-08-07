@@ -45,8 +45,8 @@ qsfdtd.time_propagation('gs.gpw',
                         time_step=10,
                         iterations=1000,
                         kick_strength=[0.001, 0.000, 0.000],
-                        dipole_moment_file='dmCl.dat')
+                        dipole_moment_file='dm.dat')
 # Spectrum
-photoabsorption_spectrum('dmCl.dat', 'specCl.dat', width=0.0)
+photoabsorption_spectrum('dm.dat', 'spec.dat', width=0.0)
 
 

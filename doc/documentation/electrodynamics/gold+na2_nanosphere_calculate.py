@@ -46,9 +46,9 @@ qsfdtd.time_propagation('gs.gpw',
                         kick_strength=[0.001, 0.000, 0.000],
                         time_step=10,
                         iterations=1500,
-                        dipole_moment_file='dmCl.dat')
+                        dipole_moment_file='dm.dat')
 
-photoabsorption_spectrum('dmCl.dat', 'specCl.1.dat', width=0.15)
+photoabsorption_spectrum('dm.dat', 'spec.1.dat', width=0.15)
 
 
 # 2) Na2 only (radius=0)
@@ -69,9 +69,9 @@ qsfdtd.time_propagation('gs.gpw',
                         kick_strength=[0.001, 0.000, 0.000],
                         time_step=10,
                         iterations=1500,
-                        dipole_moment_file='dmCl.dat')
+                        dipole_moment_file='dm.dat')
 
-photoabsorption_spectrum('dmCl.dat', 'specCl.2.dat', width=0.15)
+photoabsorption_spectrum('dm.dat', 'spec.2.dat', width=0.15)
 
 # 3) Nanosphere + Na2
 classical_material = PolarizableMaterial()                            
@@ -91,6 +91,6 @@ qsfdtd.time_propagation('gs.gpw',
                         kick_strength=[0.001, 0.000, 0.000],
                         time_step=10,
                         iterations=1500,
-                        dipole_moment_file='dmCl.dat')
+                        dipole_moment_file='dm.dat')
 
-photoabsorption_spectrum('dmCl.dat', 'specCl.3.dat', width=0.15)
+photoabsorption_spectrum('dm.dat', 'spec.3.dat', width=0.15)
