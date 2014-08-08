@@ -64,6 +64,7 @@ Pick among them according to your interest.  You can also look at the :ref:`tuto
    transport/transport
    lrtddft/lrtddft
    eels/eels
+   gw/gw
 
 Further information:
 
