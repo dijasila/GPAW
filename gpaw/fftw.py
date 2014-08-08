@@ -121,3 +121,8 @@ else:
         np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
         np.ctypeslib.ndpointer(dtype=float, ndim=3),
         ctypes.c_uint]
+    try:
+        lib.fftw_plan_with_nthreads.argtypes = [ctypes.c_int]
+        assert lib.fftw_init_threads()
+    except AttributeError:
+        pass

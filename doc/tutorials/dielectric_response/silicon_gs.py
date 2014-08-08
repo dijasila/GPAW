@@ -4,7 +4,7 @@ from gpaw import GPAW, FermiDirac
 a = 5.431 
 atoms = bulk('Si', 'diamond', a=a)
 
-calc = GPAW(h=0.20,
+calc = GPAW(mode='pw',
         kpts=(12,12,12),              # The result should be converged with respect to kpoints !
         xc='LDA',                      
         basis='dzp',                  # Use LCAO basis to get good intilialization for unoocupied states.
