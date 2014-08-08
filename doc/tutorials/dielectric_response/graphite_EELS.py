@@ -26,7 +26,6 @@ atoms.set_cell([(sqrt(3)*a/2.0,3/2.0*a,0),
 # Part 2: Find ground state density and diagonalize full hamiltonian
 calc = GPAW(mode=PW(500),
             kpts=(6, 6, 3),                # The result should be converged with respect to kpoints.
-            basis='dzp',                   # Use LCAO basis to get good initialization for unoccupied states.
             occupations=FermiDirac(0.05))  # Use smaller Fermi-Dirac smearing to avoid intraband transitions 
 
 atoms.set_calculator(calc)       
