@@ -38,7 +38,7 @@ In order to carry out the GW calculation we need the wavefunctions and correspon
 
 Note that in order to use the ``diagonalize_full_hamiltonian()`` method, the calculator has to use a plane wave basis, which is done by specifying ``mode=PW()`` and correctly importing the PW class: ``from gpaw import PW``. It is a good idea to save the calculator with the ``write()`` method and remember to include the wavefunctions by setting the second argument to ``'all'``.
 
-- Write a script that calculates the ground state of silicon and all of the unoccupied bands and saves the result. Use a plane wave cut-off of say 200 eV and 3x3x3 k-point sampling. Why do we need an odd-numbered k-point sampling?
+- Write a script that calculates the ground state of silicon and all of the unoccupied bands and saves the result. Use a plane wave cut-off of say 200 eV and 4x4x4 k-point sampling that is shifted to include the :math:`\Gamma`-point (this can be done by specifying ``kpts={'size': (4, 4, 4), 'gamma': True}``. Why this k-point sampling?
 
 ----------------
 G0W0 calculation
@@ -73,5 +73,5 @@ Next, we need to make sure that we have enough plane waves to properly describe 
 
 Lastly, we also need to make sure that the calculations is converged with respect to the k-point sampling. To do this, one must make new ground state calculations with different k-point samplings to be put into the G0W0 calculator. The calculation of the quasiparticle energy of one state scales quadratically in the number of k-points, but if one want the full band structure there's an extra factor of the number of k-points, so this quickly becomes very heavy!
 
-- Make new groundstate calculations with k-point samplings 3x3x3, 5x5x5 and 7x7x7 and so on and find the DFT band gap (why do we need to have odd number of k-points?). When is it safe to say that the DFT band gap is converged?
-- Perform GW calculations (parallelize over minimum four cpus) for the different k-point samplings (3, 5 and 7 k-points only) and compare the gaps. How big is the variation in the gaps compared to the variation in the DFT result? When do you think the GW band gap is converged?
+- Make new groundstate calculations with k-point samplings 4x4x4, 6x6x6 and 8x8x8 and so on and find the DFT band gap (why do we need to have odd number of k-points?). When is it safe to say that the DFT band gap is converged?
+- Perform GW calculations (parallelize over minimum four cpus) for the different k-point samplings (4, 6 and 8 k-points only) and compare the gaps. How big is the variation in the gaps compared to the variation in the DFT result? When do you think the GW band gap is converged?
