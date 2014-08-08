@@ -1,4 +1,4 @@
-.. _gw_exercise
+.. _gw exercise:
 
 ===========================================
 G0W0 calculation of the band gap of silicon
