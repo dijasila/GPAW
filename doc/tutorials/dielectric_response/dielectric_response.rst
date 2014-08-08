@@ -50,14 +50,9 @@ and is in 3D related to the macroscopic dielectric function as,
 
 Refer to :ref:`df_theory`  for detailed documentation on theoretical part. 
 
-Example 1: Optical absorption of semiconductor: Bulk silicon
-============================================================
 
-A simple startup
-----------------
-Here is a minimum script to get an absorption spectrum.
-
-.. literalinclude:: silicon_ABS_simpleversion.py
+Frequency grid
+==============
 
 The dielectric function is evaluted on a non-linear frequency grid according 
 to the formula
@@ -69,8 +64,18 @@ to the formula
     i = 0, 1, ..., 
 
 The parameter `\Delta\omega_0` is the frequency spacing at `\omega=0` and
-`\omega_2` is the frequency atwhich the spacing has increased to
-`2\Delta\omega_0`.  The parameters can be specified using keyword arguments::
+`\omega_2` is the frequency where the spacing has increased to
+`2\Delta\omega_0`. In general a lower value of `\omega_2` gives a more non-
+linear grid and less frequency points.
+   
+Below, the frequency grid is visualized for different values of 
+`\omega_2`. You can find the script for reproducing this figure here: 
+:download:`plot_freq.py`.
+
+.. image:: nl_freq_grid.png
+    :align: center
+
+The parameters can be specified using keyword arguments::
 
     df = DielectricFunction(...,
                             domega0=0.05,   # eV. Default = 0.1
@@ -78,19 +83,21 @@ The parameter `\Delta\omega_0` is the frequency spacing at `\omega=0` and
                             omegamax=15.0)  # eV. Default is the maximum  
                                             #  difference between energy
                                             #  eigenvalues
-                                        
-.. note::
-   In general a lower value of `\omega_2` gives a more non-linear grid and less
-   frequency points. Setting `\omega_\mathrm{max}` manually is usually
-   not advisable, however you might want it in cases where semi-core states 
-   are included where very large energy eigenvalue differences appear.
-   
-   Below the frequency grid is visualized for different values of 
-   `\omega_2`. You can find the script for reproducing this figure here: 
-   :download:`plot_freq.py`.
+                     
+Setting ``omegamax`` manually is usually not advisable, however you
+might want it in cases where semi-core states  are included where very large
+energy eigenvalue differences appear.
 
-   .. image:: nl_freq_grid.png
-       :align: center
+
+Example 1: Optical absorption of semiconductor: Bulk silicon
+============================================================
+
+A simple startup
+----------------
+
+Here is a minimum script to get an absorption spectrum.
+
+.. literalinclude:: silicon_ABS_simpleversion.py
 
 This script takes less than one minute on a single cpu, and generates a file
 'df.csv' containing the optical (`\mathbf{q} = 0`) dielectric function
