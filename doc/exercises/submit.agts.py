@@ -27,4 +27,4 @@ def agts(queue):
     anti = queue.add('iron/anti.py', ncpus=4)
     non = queue.add('iron/non.py', ncpus=2)
     queue.add('iron/PBE.py', deps=[ferro, anti, non])
-    queu.add('gw/test.py')
+    queue.add('gw/test.py')
