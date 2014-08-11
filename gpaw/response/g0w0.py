@@ -172,8 +172,10 @@ class G0W0(PairDensity):
                 x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
                                                 self.sign *
                                                 np.dot(M_vv, pos_av[a]))))
-                Q2_Gii = Q_Gii * x_G[:, None, None]
-                e = abs(Q_aGii[a][:, 0, 0] - Q2_Gii[:, 0, 0]).max()
+                U_ii = self.calc.wfs.setups[a].R_sii[self.s]
+                Q2_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
+                                U_ii.T).transpose(1, 0, 2)
+                e = abs(Q_aGii[a] - Q2_Gii).max()
                 if e > 1e-12:
                     print(a, self.sign, shift0_c, shift_c,
                           np.linalg.det(M_vv),
@@ -299,6 +301,7 @@ class G0W0(PairDensity):
             for s, Q2 in enumerate(self.qd.bz2bz_ks[Q1]):
                 if Q2 >= 0 and Q2 not in done:
                     s = self.qd.sym_k[Q2]
+                    self.s = s
                     self.U_cc = self.qd.symmetry.op_scc[s]
                     time_reversal = self.qd.time_reversal_k[Q2]
                     self.sign = 1 - 2 * time_reversal
