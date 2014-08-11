@@ -4,7 +4,7 @@ from gpaw import GPAW, FermiDirac, Mixer
 from gpaw.wavefunctions.pw import PW
 from gpaw.xc.exx import EXX
 
-This calculation is too heavy to run as an exercise!!
+#This calculation is too heavy to run as an exercise!!
 
 myresults = paropen('pbe_and_exx_energies.txt', 'a')
 

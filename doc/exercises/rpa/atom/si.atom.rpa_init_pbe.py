@@ -4,7 +4,7 @@ from gpaw import GPAW, FermiDirac, Mixer
 from gpaw.wavefunctions.pw import PW
 from gpaw.xc.exx import EXX
 
-This calculation is too heavy to run as an exercise!!
+#This calculation is too heavy to run as an exercise!!
 
 # Plane wave cutoff
 pwcutoff = 600.0
@@ -29,7 +29,7 @@ isolated_calc = GPAW(
             dtype=complex,
             kpts=(1,1,1),
             xc='PBE',
-            txt='si_isolated_pbe.txt',
+#            txt='si_isolated_pbe.txt',
             occupations=FermiDirac(0.01,fixmagmom=True),
             spinpol=True,
             hund=True,
