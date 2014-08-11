@@ -14,15 +14,7 @@ In GPAW, the EELS can be calculated with the dielectric response module, where i
 
 where q is the momentum transfer. (Se the tutorial :ref:`df_tutorial` for a detailed description of the dielectric response.) 
 
-Here we will calculate the EELS for bulk silver, where band-structure effects (coupling to inter-band transitions) are seen to have a big impact on the plasmon resonance, which means that the Drude description for the plasmon energy given above is not expected to hold.
-As a first step we perform a ground-state calculation for bulk silver. It is important to get a good description of the d-band. This means that we must be careful with the choice of exchange-correlation functional, since these states are generally poorly described within LDA. (Why do you think that is?) Download the script :download:`silver_bandstructure.py` that calculates the bandstructure of silver with LDA. Read the script and try to get an idea of what it will do, and run the script by typing::
-
-  python silver_bandstructure.py
-
-The bandstructure is plotted in the end of the script. Where is the d-band located? Experimentally it's found to be approximately 4 eV below the Fermi-level. 
-Now modify the script so the bandstructure is calculated with the GLLBSC functional. Is the energy position of the d-band improved? 
-
-Now we are ready to calculate the loss spectrum. First restart the ground state calculation and converge a larger number of bands::
+Here we will calculate the EELS for bulk silver, where band-structure effects (coupling to inter-band transitions) are seen to have a big impact on the plasmon resonance, which means that the Drude description for the plasmon energy given above is not expected to hold. First restart the ground state calculation with the GLLBSC functional, calculated in the bandstructure exercise :ref:`band_exercise` and converge a larger number of bands::
 
   import numpy as np
   from gpaw import GPAW
