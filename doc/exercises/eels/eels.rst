@@ -28,50 +28,62 @@ Here we will calculate the EELS for bulk silver, where band-structure effects
 plasmon resonance, which means that the Drude description for the plasmon
 energy given above is not expected to hold. First restart the ground state
 calculation with the GLLBSC functional, calculated in the bandstructure
-exercise :ref:`band exercise` and converge a larger number of bands::
+exercise :ref:`band exercise` and converge a larger number of bands:
 
-  import numpy as np
-  from gpaw import GPAW
-  from gpaw.response.df import DielectricFunction
+.. literalinclude:: eels.py
+    :end-before: # Set up
 
-  calc = GPAW('Ag_GLLBSC.gpw')
-  calc.diagonalize_full_hamiltonian(nbands = 30) 
-  calc.write('Ag_GLLBSC_full.gpw', 'all')
+Then we can set up the dielectric function, taking the ground state as input:
 
-Then we can set up the dielectric function, taking the ground state as input::
+.. literalinclude:: eels.py
+    :start-after: # Set up
+    :end-before: # Momentum transfer
+    
+The EELS spectrum is calculated with the
+:meth:`~gpaw.response.df.DielectricFunction.get_eels_spectrum` method, that
+takes the momentum transfer q as a parameter. This parameter is restricted to
+be the difference between two k-points from the ground state calculation, so
+let's choose the smallest q possible:
 
-  df = DielectricFunction(calc='Ag_GLLBSC_full.gpw',
-                          alpha=0.0,      # use linear frequency grid
-                          domega0 = 0.05) # energy grid spacing
+.. literalinclude:: eels.py
+    :start-after: # Momentum transfer
+    :end-before: # Plot
 
-The EELS spectrum is calculated with the method ``get_eels_spectrum()``, that takes the momentum transfer q as a parameter. This parameter is restricted to be the difference between two k-points from the ground state calculation, so let's choose the smallest q possible::
-
-  q_c = np.array([1./10., 0, 0])
-  df.get_eels_spectrum(q_c=q_c)
-
-The calculation takes some time due to a sum over k-points. To speed up the calculation download the script :download:`silver_EELS.py`, and run it in parallel::
+The calculation (see :download:`eels.py`) takes some time due to a sum over
+k-points. To speed up the calculation, run it in parallel::
 
   mpirun -np 4 gpaw-python silver_EELS.py
 
-The calculation saves the file ``eels.csv`` by default, where the first column is the energy grid, and the second and third columns are the loss spectrum without and with local field corrections respectively. (The local field corrections takes into account that the system responds on the microscopic scale though the perturbation is macroscopic). You can plot the spectrum by like this::
+The calculation saves the file ``eels.csv`` by default, where the first
+column is the energy grid, and the second and third columns are the loss
+spectrum without and with local field corrections respectively. (The local
+field corrections takes into account that the system responds on the
+microscopic scale though the perturbation is macroscopic). You can plot the
+spectrum by like this:
 
-  from numpy import genfromtxt
-  import pylab as p
-  
-  data = genfromtxt('eels.csv', delimiter=','  )
-  omega = d[:,0]
-  eels = d[:,2]
-  p.plot(omega, eels)
-  p.xlabel('Energy (eV)')
-  p.ylabel('Loss spectrum')
-  p.xlim(0,20)
-  p.show()
+.. literalinclude:: eels.py
+    :start-after: # Plot
 
-Look at the spectrum, where is the plasmon peak? Compare the result to the experimental plasmon energy :math:`\omega_P \approx 3.9 \mathrm{eV}`. Also compare the result to the Drude value for the plasmon frequency given above. (Hint: For silver there is one valence s electron pr. atom, use this to calculate the free-electron density.)
+Look at the spectrum, where is the plasmon peak? Compare the result to the
+experimental plasmon energy :math:`\omega_P \approx 3.9 \mathrm{eV}`. Also
+compare the result to the Drude value for the plasmon frequency given above.
+(Hint: For silver there is one valence s electron pr. atom, use this to
+calculate the free-electron density.)
 
-Hopefully you will find that there is large difference between the free electron and the quantum result. The plasmon is damped and shifted down in energy due to coupling to single-particle transitions (inter-band transitions). Here the d-band of silver plays a crucial role, since transitions from here up to the Fermi level defines the onset of inter-band transitions. For example you can calculate the loss spectrum from the LDA ground state result and see what is does to the spectrum. You can also investigate the single-particle spectrum by calculating the dielectric function::
+Hopefully you will find that there is large difference between the free
+electron and the quantum result. The plasmon is damped and shifted down in
+energy due to coupling to single-particle transitions (inter-band
+transitions). Here the d-band of silver plays a crucial role, since
+transitions from here up to the Fermi level defines the onset of inter-band
+transitions. For example you can calculate the loss spectrum from the LDA
+ground state result and see what is does to the spectrum. You can also
+investigate the single-particle spectrum by calculating the dielectric
+function::
 
   df.get_dielectric_function(q_c=q_c),
 
-which saves a file ``df.csv``. Try plotting the imaginary part (column 5 in the data file), which corresponds to the single-particle spectrum. Compare this to the loss spectrum to see that the plasmon peak is shifted down just below the single-particle transitions. 
-
+which saves a file ``df.csv`` (see
+:meth:`~gpaw.response.df.DielectricFunction.get_dielectric_function`). Try
+plotting the imaginary part (column 5 in the data file), which corresponds to
+the single-particle spectrum. Compare this to the loss spectrum to see that
+the plasmon peak is shifted down just below the single-particle transitions.
