@@ -129,13 +129,13 @@ class Chi0(PairDensity):
             chi0_wvv = None
 
         print('    Initializing PAW Corrections', file=self.fd)
-        Q_aGii = self.initialize_paw_corrections(pd)
+        self.Q_aGii = self.initialize_paw_corrections(pd)
         print('        Done', file=self.fd)
 
         # Do all empty bands:
         m1 = self.nocc1
         m2 = self.nbands
-        return self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
+        return self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, self.Q_aGii,
                                m1, m2, spins)
     
     @timer('Calculate CHI_0')

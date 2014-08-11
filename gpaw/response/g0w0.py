@@ -148,44 +148,25 @@ class G0W0(PairDensity):
 
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
-        I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
-        qd1 = KPointDescriptor([q_c])
-        pd1 = PWDescriptor(self.ecut, wfs.gd, complex, qd1)
-        G_I = np.empty(N_c.prod(), int)
-        G_I[:] = -1
-        I1_G = pd1.Q_qG[0]
-        G_I[I1_G] = np.arange(len(I0_G))
-        G_G = G_I[I0_G]
-        assert len(I0_G) == len(I1_G)
-        assert (G_G >= 0).all()
-
-        Q_aGii = [Q_Gii[G_G]
-                  for Q_Gii in self.initialize_paw_corrections(pd1)]
         
+        G_Gv = pd0.G_Qv[pd0.Q_qG[0]] + pd0.K_qv[0]
+        pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
+        M_vv = np.dot(pd0.gd.cell_cv.T,
+                      np.dot(self.U_cc.T,
+                             np.linalg.inv(pd0.gd.cell_cv).T))
+        
+        Q_aGii = []
+        for a, Q_Gii in enumerate(self.Q_aGii):
+            x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
+                                            self.sign *
+                                            np.dot(M_vv, pos_av[a]))))
+            U_ii = self.calc.wfs.setups[a].R_sii[self.s]
+            Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
+                           U_ii.T).transpose(1, 0, 2)
+            Q_aGii.append(Q_Gii)
+
         if debug:
-            G_Gv = pd0.G_Qv[pd0.Q_qG[0]] + pd0.K_qv[0]
-            pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
-            M_vv = np.dot(pd0.gd.cell_cv.T,
-                          np.dot(self.U_cc.T,
-                                 np.linalg.inv(pd0.gd.cell_cv).T))
-            for a, Q_Gii in enumerate(self.Q_aGii):
-                x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
-                                                self.sign *
-                                                np.dot(M_vv, pos_av[a]))))
-                U_ii = self.calc.wfs.setups[a].R_sii[self.s]
-                Q2_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
-                                U_ii.T).transpose(1, 0, 2)
-                e = abs(Q_aGii[a] - Q2_Gii).max()
-                if e > 1e-12:
-                    print(a, self.sign, shift0_c, shift_c,
-                          np.linalg.det(M_vv),
-                          np.linalg.det(self.U_cc), q_c,
-                          self.U_cc.flatten(),
-                          #pos_av[a] - np.dot(M_vv.T, pos_av[a]),
-                          e)
-                    2 / 0
-                    #print(pos_av,M_vv)
-                    #print(Q_aGii[a][:5, 0, 0] / Q2_Gii[:5, 0, 0])
+            self.check(i_cG, shift0_c, N_c, q_c, Q_aGii)
                 
         if self.ppa:
             calculate_sigma = self.calculate_sigma_ppa
@@ -215,6 +196,22 @@ class G0W0(PairDensity):
             self.sigma_sin[kpt1.s, i, nn] += sigma
             self.dsigma_sin[kpt1.s, i, nn] += dsigma
             
+    def check(self, i_cG, shift0_c, N_c, q_c, Q_aGii):
+        I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
+        qd1 = KPointDescriptor([q_c])
+        pd1 = PWDescriptor(self.ecut, self.calc.wfs.gd, complex, qd1)
+        G_I = np.empty(N_c.prod(), int)
+        G_I[:] = -1
+        I1_G = pd1.Q_qG[0]
+        G_I[I1_G] = np.arange(len(I0_G))
+        G_G = G_I[I0_G]
+        assert len(I0_G) == len(I1_G)
+        assert (G_G >= 0).all()
+
+        for a, Q_Gii in enumerate(self.initialize_paw_corrections(pd1)):
+            e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
+            assert e < 1e-12
+
     @timer('Sigma')
     def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG):
         o_m = abs(deps_m)
@@ -293,7 +290,7 @@ class G0W0(PairDensity):
                 wstc = None
                 
             pd, chi0_wGG = chi0.calculate(q_c)[:2]
-            self.Q_aGii = self.initialize_paw_corrections(pd)  # get from chi0!
+            self.Q_aGii = chi0.Q_aGii
             W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc)
             
             Q1 = self.qd.ibz2bz_k[iq]
