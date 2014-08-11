@@ -6,7 +6,19 @@ G0W0 calculation of the band gap of silicon
 
 .. important:: This exercise needs the newest developer version of GPAW to run.
 
-In this exercise we will calculate the band gap of silicon. If you haven't done it yet, be sure to do the :ref:`band_exercise` exercise. In that exercise the band structure of silicon is calculated based on the Kohn-Sham eigenvalues obtained from a DFT calculation. Often one interprets the band structure as electron addition and removal energies and the difference between the conduction band minimum and valence band maximum as the band gap. With the values obtained from DFT this is however not completely correct, because DFT only finds the ground state electron density when the system is neutral. When we add or remove an electron we charge the system and the other electrons redistribute to a new configuration. Thus DFT tends to underestimate the band gap, since it does not take into account the extra energy it requires to squeeze an extra electron into the conduction band and the relieve of energy when we remove an electron from the valence band.
+In this exercise we will calculate the band gap of silicon.  Go through
+the :ref:`bandstructures` tutorial first. In that
+tutorial the band structure of silicon is calculated based on the Kohn-Sham
+eigenvalues obtained from a DFT calculation. Often one interprets the band
+structure as electron addition and removal energies and the difference
+between the conduction band minimum and valence band maximum as the band gap.
+With the values obtained from DFT this is however not completely correct,
+because DFT only finds the ground state electron density when the system is
+neutral. When we add or remove an electron we charge the system and the other
+electrons redistribute to a new configuration. Thus DFT tends to
+underestimate the band gap, since it does not take into account the extra
+energy it requires to squeeze an extra electron into the conduction band and
+the relieve of energy when we remove an electron from the valence band.
 
 - How many valence electron does silicon have? What are the band indices of the valence and conduction bands respectively? Take a look at the band structure of silicon - where are the valence band maximum and conduction band minimum located and what is the band gap obtained from DFT?
 

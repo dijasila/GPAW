@@ -4,17 +4,31 @@
 Electron energy loss spectrum of silver
 =======================================
 
-Electron energy loss spectroscopy (EELS) is a widely used method to obtain the excitation spectrum of materials. For metallic and semiconducting materials, the energy losses in the range 0-50 eV is primarily due excitations of plasmons, that are collective electronic excitations, corresponding to oscillations in the electron density.  For a free-electron metal (Drude metal), the plasmon energy is given by the electron density, n: 
+Electron energy loss spectroscopy (EELS) is a widely used method to obtain
+the excitation spectrum of materials. For metallic and semiconducting
+materials, the energy losses in the range 0-50 eV is primarily due
+excitations of plasmons, that are collective electronic excitations,
+corresponding to oscillations in the electron density.  For a free-electron
+metal (Drude metal), the plasmon energy is given by the electron density, n:
 
 .. math:: \omega_p = \sqrt{\frac{ne^2}{\epsilon_0 m}}. 
 
-In GPAW, the EELS can be calculated with the dielectric response module, where it is obtained from the macroscopic dielectric function: 
+In GPAW, the EELS can be calculated with the dielectric response module,
+where it is obtained from the macroscopic dielectric function:
 
-.. math:: \mathrm{EELS}(q, \omega) = -\mathrm{Im} \frac{1}{\epsilon_M(q,\omega)}, 
+.. math::
+    
+    \mathrm{EELS}(q, \omega) = -\mathrm{Im} \frac{1}{\epsilon_M(q,\omega)}, 
 
-where q is the momentum transfer. (Se the tutorial :ref:`df_tutorial` for a detailed description of the dielectric response.) 
+where q is the momentum transfer. (Se the tutorial :ref:`df_tutorial` for a
+detailed description of the dielectric response.)
 
-Here we will calculate the EELS for bulk silver, where band-structure effects (coupling to inter-band transitions) are seen to have a big impact on the plasmon resonance, which means that the Drude description for the plasmon energy given above is not expected to hold. First restart the ground state calculation with the GLLBSC functional, calculated in the bandstructure exercise :ref:`band_exercise` and converge a larger number of bands::
+Here we will calculate the EELS for bulk silver, where band-structure effects
+(coupling to inter-band transitions) are seen to have a big impact on the
+plasmon resonance, which means that the Drude description for the plasmon
+energy given above is not expected to hold. First restart the ground state
+calculation with the GLLBSC functional, calculated in the bandstructure
+exercise :ref:`band exercise` and converge a larger number of bands::
 
   import numpy as np
   from gpaw import GPAW
