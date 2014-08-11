@@ -10,7 +10,7 @@ silicon.  When calculating total energies, we shall split the
 exchange-correlation energy into an "exact" exchange contribution and 
 calculate the remaining correlation energy in the random-phase 
 approximation (RPA).  A comprehesive introduction to the RPA can be 
-found in [Ren et al., J. Mater. Sci. 47, 7447 (2012)].
+found in [Ren]_.
 
 .. note::
     
@@ -54,7 +54,7 @@ the electron wavefunctions), the k-point sampling of the Brillouin zone,
 and the lattice parameter of Si.  Of course, we could calculate the 
 lattice parameter ourselves from first principles, but in order to compare 
 to previous calculations, we instead choose the experimental value of 
-5.421 Ang [Harl and Kresse, Phys. Rev. B 81, 115126 (2010)].
+5.421 Ang [Harl]_.
 
 Make sure you understand what the script is doing, and then try running
 it.  Note that the calculation is not very heavy (it should take less
@@ -102,7 +102,7 @@ energy in eV.
 From the above data and your own calculations, calculate the cohesive energy 
 of silicon using the PBE functional to describe exchange-correlation.  
 Compare your result to the value of 4.55 eV reported in 
-[Olsen and Thygesen, Phys. Rev. B 87, 075111 (2013)].
+[Olsen]_.
 
 .. note::
     
@@ -123,7 +123,7 @@ which is
   E_{XC} = E_{EXX}
 
 An expression for the exact exchange energy `E_{EXX}` can be found e.g. in 
-equation (9) of [PRB 87, 075111 (2013)].  The main points to note is that:
+equation (9) of [Olsen]_.  The main points to note is that:
 
 * it is fully nonlocal - to get the energy we must integrate over `\mathbf{r}`
   and `\mathbf{r}'`, which is expensive.  
@@ -185,7 +185,7 @@ non-spin-polarized case.
 
 You now have enough information to calculate the cohesive energy in
 the EXX\@PBE approximation.  Compare your value to that of 2.82 eV given in
-[PRB 87, 075111 (2013)].  This number is dramatically different to 
+[Olsen]_.  This number is dramatically different to 
 the experimental value of 4.68 eV, and highlights the danger of 
 neglecting correlation!
 
@@ -198,7 +198,7 @@ Finally, we calculate `E_{XC}` including the correlation energy in the RPA:
 .. math::
   E_{XC} = E_{EXX} + E_{RPA}
 
-An expression for `E_{RPA}` is given as equation (8) in [PRB 87, 075111 (2013)].
+An expression for `E_{RPA}` is given as equation (8) in [Olsen]_.
 
 The main ingredient here is the response function `\chi_0`, which is nonlocal,
 energy dependent and constructed from a sum of an infinite number of
@@ -253,7 +253,7 @@ the correlation energy by over 1 eV.
 
 In order to converge the correlation energy, we should increase the plane-wave
 cutoff describing `\chi_0` (and implicitly, the number of empty states).
-However it is noted in [Phys. Rev. B 81, 115126 (2010)] that for the electron 
+However it is noted in [Harl]_ that for the electron 
 gas, one expects the correlation energy to scale as
 
 .. math::
@@ -287,7 +287,7 @@ of silicon using exact exchange and the RPA correlation energy.
 * Compare the result of using the extrapolated correlation energies with that
   at a fixed cutoff, i.e. 164 eV.
 
-* Compare your value to that of 4.32 eV given in [PRB 87, 075111 (2013)] 
+* Compare your value to that of 4.32 eV given in [Olsen]_ 
   and the experimental value, 4.68 eV.
 
 
@@ -297,7 +297,7 @@ Conclusions
 After all that work, it seems that the method that gave us the cohesive
 energy closest to experiment turns out to be the simplest we tried - the
 generalized-gradient PBE functional.  Indeed, according to table VII of
-[Phys. Rev. B 81, 115126 (2010)], PBE outperforms EXX and RPA for a wide
+[Harl]_, PBE outperforms EXX and RPA for a wide
 range of materials.  The strength of the RPA lies in its ability to  describe
 nonlocal correlation effects, e.g. in systems exhibiting van der Waals bonds.
 Unfortunately, the complexity of these systems places them out of the scope
@@ -307,3 +307,11 @@ energy for such systems remains as above.
 In order to get a consistent, high-quality description of both long-range 
 and short-range correlation it is desirable to move beyond the RPA - 
 but that's another story...
+
+
+References
+==========
+
+.. [Ren] Ren et al., J. Mater. Sci. 47, 7447 (2012)
+.. [Harl] Harl and Kresse, Phys. Rev. B 81, 115126 (2010)
+.. [Olsen] Olsen and Thygesen, Phys. Rev. B 87, 075111 (2013)
