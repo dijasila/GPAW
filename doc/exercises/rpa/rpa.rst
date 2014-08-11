@@ -83,7 +83,7 @@ data.  In the next section a sample script will be given to show how to
 generate the following numbers:
 
 ===== ===============
-L(A)  `E_PBE(eV)
+L(A)  `E_PBE(eV)`
 ===== ===============
 6.0   -0.665810338359
 7.0   -0.779861449204
@@ -113,8 +113,8 @@ Compare your result to the value of 4.55 eV reported in
     "reference = ...  in the GPAW output file.
 
 
-EXX@PBE cohesive energy - bulk
-==============================
+EXX\@PBE cohesive energy - bulk
+===============================
 
 We now try a different approximation for the exchange-correlation energy,
 which is
@@ -135,8 +135,8 @@ equation (9) of [PRB 87, 075111 (2013)].  The main points to note is that:
   that is, we use one approximation for the exchange-correlation energy 
   (PBE) to obtain the wavefunctions, then use these wavefunctions to 
   construct the exchange energy under a different
-  approximation.  As a result, this method is described as EXX@PBE; had we
-  used LDA to obtain the wavefunctions, we would have EXX@LDA etc.
+  approximation.  As a result, this method is described as EXX\@PBE; had we
+  used LDA to obtain the wavefunctions, we would have EXX\@LDA etc.
 
 * How might a self-consistent calculation of the exchange energy compare
   to the Hartree-Fock method?*
@@ -147,7 +147,7 @@ calculation of the exchange energy, while the ``get_total_energy`` method
 returns the total energy of our system according with `E_{XC}=E_{EXX}`.
 
 The script :download:`si.pbe+exx.py` calculates the total 
-energy of bulk Si in the EXX@PBE approximation.  The calculation 
+energy of bulk Si in the EXX\@PBE approximation.  The calculation 
 proceeds in two parts - first, a PBE calculation which is identical 
 to that of the previous section.  Second, the exchange
 part.  This part is much slower, and it is a good idea to run on a few
@@ -160,8 +160,8 @@ of calculating the cohesive energy the quantity returned by the
 "get_total_energy" method and printed in ``results.txt`` is more useful.
 
 
-EXX@PBE cohesive energy - atom
-==============================
+EXX\@PBE cohesive energy - atom
+===============================
 
 As before, we also need the energy of the isolated atom.  Look at (but don't
 run!) the script :download:`atom/si.atom.pbe+exx.py`, which returns the
@@ -184,14 +184,14 @@ rules, we expect a spin-polarized atom to be more stable than the
 non-spin-polarized case.
 
 You now have enough information to calculate the cohesive energy in
-the EXX@PBE approximation.  Compare your value to that of 2.82 eV given in
+the EXX\@PBE approximation.  Compare your value to that of 2.82 eV given in
 [PRB 87, 075111 (2013)].  This number is dramatically different to 
 the experimental value of 4.68 eV, and highlights the danger of 
 neglecting correlation!
 
 
-(RPA+EXX)@PBE cohesive energy - bulk
-====================================
+(RPA+EXX)\@PBE cohesive energy - bulk
+=====================================
 
 Finally, we calculate `E_{XC}` including the correlation energy in the RPA:
 
@@ -200,16 +200,16 @@ Finally, we calculate `E_{XC}` including the correlation energy in the RPA:
 
 An expression for `E_{RPA}` is given as equation (8) in [PRB 87, 075111 (2013)].
 
-The main ingredient here is the response function chi_0, which is nonlocal,
+The main ingredient here is the response function `\chi_0`, which is nonlocal,
 energy dependent and constructed from a sum of an infinite number of
 unoccupied electronic states.  Therefore like GW calculations, RPA
 calculations are expensive to perform.  We also note that, like for exact
-exchange, we construct chi_0 non-self-consistently, here using the
+exchange, we construct `\chi_0` non-self-consistently, here using the
 wavefunctions and eigenvalues obtained with the PBE functional.
 
 The good news however is that compared to exact exchange calculations,
 the RPA correlation energy tends to converge faster with respect to the number
-of k-points and also the number of plane waves used to describe chi_0, so we
+of k-points and also the number of plane waves used to describe `\chi_0`, so we
 can use a lighter computational setup.
 Furthermore, there exists an empirical fix to the problem of the unoccupied
 states which turns out to work rather well, as we describe below.
@@ -227,14 +227,14 @@ Having performed this step (which should take ~1 minute on 4 CPUs) we now
 calculate the correlation energy using :download:`si.rpa.py`, 
 which imports the ``RPACorrelation`` class from ``rpa.py``.  All the 
 computational details are read from the ``bulk.gpw`` file; the only input 
-we need specify is the number of plane waves used to describe chi_0.  
+we need specify is the number of plane waves used to describe `\chi_0`.  
 Here we give a list of values, which means that the correlation energy 
 will be calculated for each plane-wave cutoff (in eV).  The reason for 
 this procedure is described below.  Note that in principle we also need 
 to specify the number of unoccupied bands used in the construction of 
-chi_0 - however here this choice is made by the code,
+`\chi_0` - however here this choice is made by the code,
 and sets the number of bands to equal the number of plane waves.
-Now, run `~doc/exercises/rpa/si.rpa.py` (4 minutes, 4 CPUs).
+Now, run :download:`si.rpa.py` (4 minutes, 4 CPUs).
 
 Studying the output file ``rpa_output.txt``, we see that the code calculates
 the contribution from each q point sequentially.  In fact by specifying the
@@ -248,18 +248,18 @@ You should see that changing the plane wave cutoff from 80 to 164 eV changes
 the correlation energy by over 1 eV.
 
 
-(RPA+EXX)@PBE cohesive energy - convergence
-===========================================
+(RPA+EXX)\@PBE cohesive energy - convergence
+============================================
 
 In order to converge the correlation energy, we should increase the plane-wave
-cutoff describing `chi_0` (and implicitly, the number of empty states).
+cutoff describing `\chi_0` (and implicitly, the number of empty states).
 However it is noted in [Phys. Rev. B 81, 115126 (2010)] that for the electron 
 gas, one expects the correlation energy to scale as
 
 .. math::
   E_{RPA}(E_cut) = E_{RPA}(converged) + A E_cut^(-1.5)
 
-where `E_cut` is the plane-wave cutoff describing `chi_0`.  Empirically, this
+where `E_cut` is the plane-wave cutoff describing `\chi_0`.  Empirically, this
 expression seems to work beyond the electron gas. 
 
 Test this expression for silicon by plotting the correlation energy against
@@ -269,8 +269,8 @@ straight lines between pairs of points, and outputs the result under
 ``Extrapolated energies``.  How do they compare to your result?
 
 
-(RPA+EXX)@PBE cohesive energy - atom
-====================================
+(RPA+EXX)\@PBE cohesive energy - atom
+=====================================
 
 The corresponding scripts for the isolated atom are
 :download:`atom/si.atom.rpa_init_pbe.py` and
@@ -280,7 +280,7 @@ lot of effort for a single atom!   The reference output file is
 :download:`atom/si.atom.rpa_output.txt`.  Use the  data in this output file
 to obtain the extrapolated correlation energy  for the single atom.
 
-Combining the correlation energies with the EXX@PBE calculations of the
+Combining the correlation energies with the EXX\@PBE calculations of the
 previous section, you should now be able to calculate the cohesive energy
 of silicon using exact exchange and the RPA correlation energy.  
 
