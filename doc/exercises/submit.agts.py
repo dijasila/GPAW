@@ -28,3 +28,5 @@ def agts(queue):
     non = queue.add('iron/non.py', ncpus=2)
     queue.add('iron/PBE.py', deps=[ferro, anti, non])
     queue.add('gw/test.py')
+    band = queue.add('eels/silver_bandstructure_GLLBSC.py', ncpus=4)
+    queue.add('eels/silver_EELS.py', deps = band, ncpus=4)
