@@ -12,7 +12,6 @@ def agts(queue):
     h2o = queue.add('vibrations/h2o.py', ncpus=8)
     h2ovib = queue.add('vibrations/H2O_vib.py', ncpus=8, deps=[h2o])
     queue.add('vibrations/H2O_vib_2.py', ncpus=4, deps=[h2ovib])
-    na = queue.add('band_structure/Na_band.py', ncpus=8)
     si = queue.add('wannier/si.py', ncpus=8)
     queue.add('wannier/wannier-si.py', deps=[si])
     benzene = queue.add('wannier/benzene.py', ncpus=8)
