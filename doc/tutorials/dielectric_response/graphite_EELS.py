@@ -60,6 +60,3 @@ for i in range(1, 6):  # Loop over different q.
     print(sqrt(np.inner(q_v, q_v)), file=f)
 
 f.close()
-
-
-
