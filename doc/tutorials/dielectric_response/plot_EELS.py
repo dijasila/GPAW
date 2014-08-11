@@ -1,12 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 plt.figure(figsize=(5, 7))
-
 Q = np.loadtxt('graphite_q_list')
 for i, q in enumerate(Q):
-    filename = 'graphite_EELS_' + str(i) 
+    filename = 'graphite_EELS_' + str(i + 1) 
     d = np.loadtxt(filename, delimiter=',')
     plt.plot(d[:, 0], d[:, 2] + 0.4 * (4 - i), '-',
              label='%.2f Ang$^{-1}$' % q)
