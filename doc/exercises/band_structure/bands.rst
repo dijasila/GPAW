@@ -9,22 +9,7 @@ to understand what it does, then use it to construct the band diagram of bulk
 Na.  Read :download:`plot_band.py` and try to understand it, then use it to
 plot the band diagram.
 
-Modify the first script to calculate the band diagram of Silicon.
-Note that Si has a different crystal structure (diamond), either set
-it up manually as for Na, or use the :func:`ase.lattice.bulk` function.
+As a next step, calculate the bandstructure of silver. Here we should be careful with the choice of exchange-correlation functional to get a good description of the d-band, which is generally poorly described within LDA. (Why do you think that is?). Download the script :download:`silver_bandstructure.py` that calculates the bandstructure of silver with LDA. 
 
-Compare the Si band diagram to the band diagram below (adapted from
-Cohen and Chelikowsky: "Electronic Structure and Optical Properties of
-Semiconductors" Solid-State Sciences 75, Springer-Verlag 1988).  How
-does this correspond to the DOS calculation in the previous exercise?
-
-.. figure:: silicon_banddiagram.png
-   :width: 600 px
-   :align: center
-
-For a description of the symmetry labels of the Brillouin zone; see
-the figure below.
-
-.. figure:: ../../_static/bz-all.png
-   :width: 600 px
-   :align: center
+The bandstructure is plotted in the end of the script. Where is the d-band located? Experimentally it's found to be approximately 4 eV below the Fermi-level. 
+Now modify the script so the bandstructure is calculated with the GLLBSC functional. Is the energy position of the d-band improved? 
