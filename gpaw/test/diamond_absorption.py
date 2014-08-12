@@ -29,7 +29,8 @@ atoms.get_potential_energy()
 calc.write('C.gpw', 'all')
 
 # Macroscopic dielectric constant calculation
-df = DielectricFunction('C.gpw', frequencies=(0.,), eta=0.001, ecut=200)
+df = DielectricFunction('C.gpw', frequencies=(0.,), eta=0.001, ecut=200,
+                        hilbert=False)
 eM1, eM2 = df.get_macroscopic_dielectric_constant()
 
 eM1_ = 9.725
