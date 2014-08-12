@@ -32,6 +32,8 @@ atom and CO molecule and compare them to results from molecular orbital theory.
       mlab.contour3d(lumo)
       mlab.show()
 
+  For an alternative way of viewing the orbitals, see :ref:`iso`.
+  
   Can you identify the highest occupied state and the lowest unoccupied state?
 
   How do your wavefunctions compare to atomic s- and p-orbitals?
@@ -55,11 +57,14 @@ atom and CO molecule and compare them to results from molecular orbital theory.
   the final results to a :file:`.gpw` file. The wavefunctions
   are not written to the :file:`.gpw` file by default, but can again be saved by
   writing :samp:`{calc}.write('CO.gpw', mode='all')`, where :samp:`{calc}` is
-  the calculator object. Assuming you use :samp:`opt = QuasiNewton(..., trajectory='CO.traj')`, the trajectory can be viewed by::
+  the calculator object. Assuming you use
+  :samp:`opt = QuasiNewton(..., trajectory='CO.traj')`, the trajectory
+  can be viewed by::
 
     $ ase-gui CO.traj
 
-  Try looking at the file while the optimization is running and mark the two atoms to see the bond length.
+  Try looking at the file while the optimization is running and mark the
+  two atoms to see the bond length.
 
 * As this is a calculation of a molecule, one should get integer
   occupation numbers - check this in the text output.  What electronic
