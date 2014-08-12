@@ -64,6 +64,7 @@ Pick among them according to your interest.  You can also look at the :ref:`tuto
    dcdft/dcdft
    vibrations/vibrations
    stress/stress
+   bse/bse
    transport/transport
    lrtddft/lrtddft
 
