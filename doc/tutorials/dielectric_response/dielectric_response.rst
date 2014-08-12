@@ -374,7 +374,7 @@ keyword            type               default value        description
 ``ftol``           ``float``          1e-6                 The threshold for transition: 
                                                            `f_{ik} - f_{jk} > ftol`
 ``txt``            ``str``            stdout               Output filename.
-``hilbert``        ``bool``           False                Switch for hilbert transform.
+``hilbert``        ``bool``           True                 Switch for hilbert transform.
 ``nbands``         ``int``            nbands from gs calc  Number of bands from gs calc
                                                            to include.
 =================  =================  ===================  ================================
