@@ -36,6 +36,10 @@ values), you can use::
 
     $ gnuplot ...
     
+Alternatively, use this little :download:`Python script <xy.py>`:
+
+..literalinclude:: xy.py
+
     
 Square root
 -----------
