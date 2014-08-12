@@ -1,4 +1,3 @@
-import pickle
 import numpy as np
 from gpaw.response.g0w0 import G0W0
 
