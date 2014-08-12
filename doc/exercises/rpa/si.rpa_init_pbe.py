@@ -21,7 +21,7 @@ bulk_calc = GPAW(
             kpts={'size': (k, k, k), 'gamma': True},
             dtype=complex,
             xc='PBE',
-            txt='si.pbe_output.txt',
+            txt='si.rpa.pbe_output.txt',
             parallel={'band':1}
             )
 

@@ -5,7 +5,7 @@ from gpaw.xc.exx import EXX
 
 from ase.parallel import paropen
 
-resultfile = paropen('results.txt', 'a')
+resultfile = paropen('si.pbe+exx.results.txt', 'a')
 
 # Plane wave cutoff
 pwcutoff = 600.0
@@ -24,7 +24,7 @@ bulk_calc = GPAW(
             kpts={'size': (k, k, k), 'gamma': True},
             dtype=complex,
             xc='PBE',
-            txt='si.pbe_output.txt',
+            txt='si.pbe+exx.pbe_output.txt',
             parallel={'band':1}
             )
 
@@ -35,7 +35,7 @@ e0_bulk_pbe = bulk_crystal.get_potential_energy()
 bulk_calc.write('bulk.gpw',mode='all')
 
 # Now the exact exchange
-exx_bulk = EXX('bulk.gpw', txt='si.exx_output.txt')
+exx_bulk = EXX('bulk.gpw', txt='si.pbe+exx.exx_output.txt')
 exx_bulk.calculate()
 e0_bulk_exx = exx_bulk.get_total_energy()
 

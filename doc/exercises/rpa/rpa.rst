@@ -153,11 +153,11 @@ to that of the previous section.  Second, the exchange
 part.  This part is much slower, and it is a good idea to run on a few
 processors - it takes about 5 minutes on 4 CPUs.
 
-The output file ``si.exx_output.txt`` gives the details of the exchange
+The output file ``si.pbe+exx.exx_output.txt`` gives the details of the exchange
 calculation and a breakdown of the exchange energy in terms of the
 contributions from the core and valence electrons.  However for the purpose
 of calculating the cohesive energy the quantity returned by the
-"get_total_energy" method and printed in ``results.txt`` is more useful.
+"get_total_energy" method and printed in ``si.pbe+exx.results.txt`` is more useful.
 
 
 EXX\@PBE cohesive energy - atom
@@ -236,7 +236,7 @@ to specify the number of unoccupied bands used in the construction of
 and sets the number of bands to equal the number of plane waves.
 Now, run :download:`si.rpa.py` (4 minutes, 4 CPUs).
 
-Studying the output file ``rpa_output.txt``, we see that the code calculates
+Studying the output file ``si.rpa.rpa_output.txt``, we see that the code calculates
 the contribution from each q point sequentially.  In fact by specifying the
 ``filename`` attribute of the ``RPACorrelation`` object we can generate a
 restart file which allows GPAW to pick up from an interrupted calculation.
