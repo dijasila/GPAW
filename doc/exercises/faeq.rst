@@ -24,8 +24,9 @@ so that you can simply do::
     $ iso CO.cube  # plot cube file
     $ iso slab-4.gpw  # plot electron density from gpw-file
     $ iso slab-4.gpw -n 15  # plot wave function from gpw-file
-    
+    $ iso -h  # help!
 
+    
 .. _xy plot:
 
 Making x-y plots
@@ -38,7 +39,11 @@ values), you can use::
     
 Alternatively, use this little :download:`Python script <xy.py>`:
 
-..literalinclude:: xy.py
+.. literalinclude:: xy.py
+
+::
+    
+    $ python <path-to-script>/xy.py abc.csv
 
     
 Square root
