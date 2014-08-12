@@ -1,11 +1,7 @@
-import numpy as np
-from ase import Atoms
 from ase.lattice import bulk
-from ase.dft.kpoints import monkhorst_pack
-from gpaw import GPAW, FermiDirac, Mixer
+from gpaw import GPAW
 from gpaw.wavefunctions.pw import PW
 
-from ase.parallel import paropen
 
 # Plane wave cutoff
 pwcutoff = 600.0

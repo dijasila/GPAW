@@ -1,8 +1,9 @@
 from ase import Atoms
-from ase.lattice import bulk
 from gpaw import GPAW, FermiDirac, Mixer
 from gpaw.wavefunctions.pw import PW
 from gpaw.xc.exx import EXX
+
+from ase.parallel import paropen
 
 #This calculation is too heavy to run as an exercise!!
 
