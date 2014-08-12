@@ -41,7 +41,7 @@ equal(eM2, eM2_, 0.01)
 
 # Absorption spectrum calculation
 df = DielectricFunction('C.gpw', eta=0.25, ecut=200,
-                        frequencies=np.linspace(0, 24., 241)) 
+                        frequencies=np.linspace(0, 24., 241), hilbert=False) 
 b0, b = df.get_dielectric_function(filename=None,#'diamond_df.csv',
                                    )
 df.check_sum_rule(b.imag)
