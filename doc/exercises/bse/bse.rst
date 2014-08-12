@@ -70,7 +70,7 @@ this is the case.
 Now we can go on with the BSE calculation running the script
 :download:`LiF_BSE.py`:
 
-..literalinclude:: LiF_BSE.py
+.. literalinclude:: LiF_BSE.py
 
 Even if the parameter chosen are not converged, the calculation takes quite
 some time; therefore we would better submit the script to nifhleim and run it
