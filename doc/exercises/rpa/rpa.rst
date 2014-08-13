@@ -82,18 +82,18 @@ calculations on the isolated Si atom - instead just provide the numbers as
 reference data.  In the next section a sample script will be given to show how to
 generate the following numbers:
 
-======== ==================
-`L(\AA)` `E_\text{PBE}` (eV)
-======== ==================
-6.0      -0.665810338359
-7.0      -0.779861449204
-8.0      -0.825944184466
-9.0      -0.843144851642
-10.0     -0.849110419847
-11.0     -0.851370368753
-12.0     -0.852243293624
-13.0     -0.852570610869
-======== ==================
+========  ===================
+`L(\AA)`  `E_\text{PBE}` (eV)
+========  ===================
+6.0       -0.665810338359
+7.0       -0.779861449204
+8.0       -0.825944184466
+9.0       -0.843144851642
+10.0      -0.849110419847
+11.0      -0.851370368753
+12.0      -0.852243293624
+13.0      -0.852570610869
+========  ===================
 
 The first column gives the side length (in Angstroms) of the simulation cell 
 containing the isolated atom, and the second gives the total
