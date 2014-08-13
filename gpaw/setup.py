@@ -72,7 +72,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
                                   world=world)
     if hasattr(setupdata, 'build'):
         setup = LeanSetup(setupdata.build(xc, lmax, basis, filter))
-		return setup
+        return setup
     else:
         return setupdata
 
