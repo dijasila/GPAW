@@ -45,6 +45,15 @@ Alternatively, use this little :download:`Python script <xy.py>`:
     
     $ python <path-to-script>/xy.py abc.csv
 
+
+Writing 3-d data to cube files
+------------------------------
+
+This can be done from Python using the :func:`ase.io.write` function::
+    
+    from ase.io import write
+    write('abc.cube', atoms, data=data)
+    
     
 Square root
 -----------

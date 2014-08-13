@@ -15,10 +15,11 @@ atom and CO molecule and compare them to results from molecular orbital theory.
 .. highlight:: bash
 
 * Towards the end, a :file:`.gpw` file is written with the Kohn-Sham
-  wavefunctions by ``calc.write('O.gpw', mode='all')``.
+  wavefunctions by ``calc.write('O.gpw', mode='all')`` and also some cube
+  files containing individual orbatals are written.
 
-* Run the script and check the output file. What are the occupation numbers
-  for the free oxygen atom?
+* Run the script and check the text-output file. What are the occupation
+  numbers for the free oxygen atom?
 
 * The orbitals can be visualized using Mayavi_ and its
   :func:`mayavi.mlab.contour3d` function and the GPAW-calculators
