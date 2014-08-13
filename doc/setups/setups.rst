@@ -6,10 +6,38 @@ Atomic PAW Setups
 
 A setup is to the PAW method what a pseudo-potential is to the
 pseudo-potential method.  All available setups are contained in this
-tar-file: gpaw-setups-0.8.7929.tar.gz_.  There are setups for the LDA,
+tar-file: gpaw-setups-0.9.11271.tar.gz_.  There are setups for the LDA,
 PBE, revPBE, RPBE and GLLBSC functionals.  Install them as described
 in the :ref:`installationguide_setup_files`.  The setups are stored as
 compressed :ref:`pawxml` files.
+
+Setup releases
+==============
+
+===========  =======  ========  =============================
+Date         Version  Revision  Tarfile                
+===========  =======  ========  =============================
+Mar 27 2014  0.9      11271     gpaw-setups-0.9.11271.tar.gz_
+Oct 26 2012  0.9      9672      gpaw-setups-0.9.9672.tar.gz_
+Apr 13 2011  0.8      7929      gpaw-setups-0.8.7929.tar.gz_
+Apr 19 2010  0.6      6300      gpaw-setups-0.6.6300.tar.gz_
+Jul 22 2009  0.5      3574      gpaw-setups-0.5.3574.tar.gz_
+===========  =======  ========  =============================
+
+.. _gpaw-setups-0.9.11271.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.11271.tar.gz
+
+.. _gpaw-setups-0.9.9672.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.9672.tar.gz
+
+.. _gpaw-setups-0.8.7929.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.8.7929.tar.gz
+
+.. _gpaw-setups-0.6.6300.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.6.6300.tar.gz
+
+.. _gpaw-setups-0.5.3574.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.5.3574.tar.gz
 
 
 Periodic table
@@ -20,15 +48,14 @@ H_                                                                  He_
 Li_ Be_                                         B_  C_  N_  O_  F_  Ne_ 
 Na_ Mg_                                         Al_ Si_ P_  S_  Cl_ Ar_  
 K_  Ca_ Sc_ Ti_ V_  Cr_ Mn_ Fe_ Co_ Ni_ Cu_ Zn_ Ga_ Ge_ As_ Se_ Br_ Kr_
-Rb_ Sr_ Y   Zr_ Nb_ Mo_ Tc  Ru_ Rh_ Pd_ Ag_ Cd_ In_ Sn_ Sb  Te_ I_  Xe 
-Cs_ Ba_ La_ Hf  Ta_ W_  Re  Os_ Ir_ Pt_ Au_ Hg  Tl  Pb_ Bi_ Po  At  Rn_ 
+Rb_ Sr_ Y_  Zr_ Nb_ Mo_ Tc  Ru_ Rh_ Pd_ Ag_ Cd_ In_ Sn_ Sb_ Te_ I_  Xe_ 
+Cs_ Ba_ La_ Hf_ Ta_ W_  Re_ Os_ Ir_ Pt_ Au_ Hg_ Tl_ Pb_ Bi_ Po  At  Rn_ 
 === === === === === === === === === === === === === === === === === ===
 
 See also `NIST Atomic Reference Data`_, `Computational Chemistry
 Comparison and Benchmark DataBase`_, `Dacapo pseudo potentials`_, and
 `Vasp pseudo potentials`_.
 
-.. _gpaw-setups-0.8.7929.tar.gz: http://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.8.7929.tar.gz
 .. _NIST Atomic Reference Data: http://physics.nist.gov/PhysRefData/DFTdata/Tables/ptable.html
 .. _Computational Chemistry Comparison and Benchmark DataBase: http://srdata.nist.gov/cccbdb/
 .. _Dacapo pseudo potentials: https://wiki.fysik.dtu.dk/dacapo/Pseudopotential_Library
@@ -38,6 +65,8 @@ Comparison and Benchmark DataBase`_, `Dacapo pseudo potentials`_, and
 .. toctree::
    :maxdepth: 2
 
+   g2_1
+   dcdft
    molecule_tests
    bulk_tests
    generation_of_setups
@@ -96,6 +125,7 @@ Comparison and Benchmark DataBase`_, `Dacapo pseudo potentials`_, and
 .. _Kr: Kr.html
 .. _Rb: Rb.html
 .. _Sr: Sr.html
+..  _Y: Y.html
 .. _Zr: Zr.html
 .. _Nb: Nb.html
 .. _Mo: Mo.html
@@ -106,17 +136,23 @@ Comparison and Benchmark DataBase`_, `Dacapo pseudo potentials`_, and
 .. _Cd: Cd.html
 .. _In: In.html
 .. _Sn: Sn.html
+.. _Sb: Sb.html
 .. _Te: Te.html
 ..  _I:  I.html
+.. _Xe: Xe.html
 .. _Cs: Cs.html
 .. _Ba: Ba.html
 .. _La: La.html
+.. _Hf: Hf.html
 .. _Ta: Ta.html
 ..  _W:  W.html
+.. _Re: Re.html
 .. _Os: Os.html
 .. _Ir: Ir.html
 .. _Pt: Pt.html
 .. _Au: Au.html
+.. _Hg: Hg.html
+.. _Tl: Tl.html
 .. _Pb: Pb.html
 .. _Bi: Bi.html
 .. _Rn: Rn.html

@@ -14,6 +14,7 @@ tolerance = 4e-5
 parallel = dict()
 
 basekwargs = dict(mode='fd',
+                  eigensolver='rmm-diis',
                   maxiter=3,
                   nbands=6,
                   parallel=parallel)
@@ -114,6 +115,7 @@ if compiled_with_sl():
 parallel = dict()
 
 basekwargs = dict(mode='fd',
+                  eigensolver='rmm-diis',
                   maxiter=3,
                   #basis='dzp',
                   #nbands=18,

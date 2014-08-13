@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from ase.io import read
 from gpaw import GPAW
 from gpaw import dscf
@@ -15,6 +14,7 @@ c_mol = GPAW(nbands=8, h=0.2, xc='RPBE', kpts=(4,6,1),
              convergence={'bands': -2}, txt='CO.txt')
 
 calc = GPAW(nbands=120, h=0.2, xc='RPBE', kpts=(4,6,1),
+            setups={'Pt': '10'},
             eigensolver='cg', spinpol=True,
             mixer=MixerSum(nmaxold=5, beta=0.1, weight=100),
             convergence={'eigenstates': 1.0e-4,
@@ -88,4 +88,4 @@ for d in ds:
 
 F_d = (E_es[0]-E_es[2]) / 0.02 / 2
 equal(E_es[1], E_gs + 3.9, 0.1)
-equal(F_d, 4.3, 0.2)
+equal(F_d, 3.8, 0.2)

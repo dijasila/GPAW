@@ -283,7 +283,7 @@ def plot_diag(mtx, ind=1):
     pylab.show()
 
 def get_atom_indices(subatoms, setups):
-    basis_list = [setup.niAO for setup in setups]
+    basis_list = [setup.nao for setup in setups]
     index = []
     for j, lj  in zip(subatoms, range(len(subatoms))):
         begin = np.sum(np.array(basis_list[:j], int))
@@ -1016,8 +1016,8 @@ def save_bias_data_file(Lead1, Lead2, Device):
     vt_sG = ham.gd.collect(ham.vt_sG) 
     vt_sG_L = hamL.gd.collect(hamL.vt_sG)
     vt_sG_R = hamR.gd.collect(hamR.vt_sG)
-    vt_sG += (Ef_L - Ef) / Hartree
-    vt_sG_R += (Ef_L - Ef_R) / Hartree
+    vt_sG_L += (Ef - Ef_L) / Hartree
+    vt_sG_R += (Ef - Ef_R) / Hartree
     vt_sG=np.append(vt_sG_L, vt_sG,axis=3)
     vt_sG=np.append(vt_sG,vt_sG_R,axis=3)
     dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups,

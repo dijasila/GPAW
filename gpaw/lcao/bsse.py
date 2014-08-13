@@ -27,8 +27,8 @@ class GhostSetup(BaseSetup):
         self.data = data
         self.phit_j = basis.tosplines()
         self.basis = basis
-        self.niAO = sum([2 * phit.get_angular_momentum_number() + 1
-                         for phit in self.phit_j])
+        self.nao = sum([2 * phit.get_angular_momentum_number() + 1
+                        for phit in self.phit_j])
         self.HubU = None
         self.filename = None
         self.fingerprint = None
@@ -66,6 +66,7 @@ class GhostSetup(BaseSetup):
         self.f_j = [0.0]
         self.n_j = [0]
         self.l_j = [0]
+        self.l_orb_j = [0]
         self.nj = 1
         self.lq = None # XXXX
 
@@ -74,11 +75,12 @@ class GhostSetup(BaseSetup):
         self.N0_p = np.zeros(1)
         self.nabla_iiv = None
         self.rnabla_iiv = None
+        self.rxp_iiv = None
         self.phicorehole_g = None
         self.rgd = None
         self.rcut_j = [0.5]
         self.tauct = None
-        self.Delta_Lii = None
+        self.Delta_iiL = None
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None
@@ -94,7 +96,7 @@ class GhostSetupData:
         self.symbol = symbol + '.ghost'
         self.Z = atomic_numbers[symbol]
 
-    def build(self, xcfunc, lmax, basis):
+    def build(self, xcfunc, lmax, basis, filter=None):
         if basis is None:
             raise ValueError('Loading partial waves not supported right now')
         setup = GhostSetup(basis, self)

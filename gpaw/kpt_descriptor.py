@@ -68,17 +68,24 @@ class KPointDescriptor:
             Number of spins.
 
         Attributes
-        ============  ======================================================
-        ``N_c``       Number of k-points in the different directions.
-        ``nspins``    Number of spins in total.
-        ``mynspins``  Number of spins on this CPU.
-        ``nibzkpts``  Number of irreducible kpoints in 1st Brillouin zone.
-        ``nks``       Number of k-point/spin combinations in total.
-        ``mynks``     Number of k-point/spin combinations on this CPU.
-        ``gamma``     Boolean indicator for gamma point calculation.
-        ``comm``      MPI-communicator for kpoint distribution.
-        ============  ======================================================
-        
+        ===================  =================================================
+        ``N_c``               Number of k-points in the different directions.
+        ``nspins``            Number of spins in total.
+        ``mynspins``          Number of spins on this CPU.
+        ``nibzkpts``          Number of irreducible kpoints in 1st BZ.
+        ``nks``               Number of k-point/spin combinations in total.
+        ``mynks``             Number of k-point/spin combinations on this CPU.
+        ``gamma``             Boolean indicator for gamma point calculation.
+        ``comm``              MPI-communicator for kpoint distribution.
+        ``weight_k``          Weights of each k-point
+        ``ibzk_kc``           Unknown
+        ``sym_k``             Unknown
+        ``time_reversal_k``   Unknown
+        ``bz2ibz_k``          Unknown
+        ``ibz2bz_k``          Unknown
+        ``bz2bz_ks``          Unknown
+        ``symmetry``          Object representing symmetries
+        ===================  =================================================
         """
 
         if kpts is None:
@@ -103,7 +110,7 @@ class KPointDescriptor:
         self.nbzkpts = len(self.bzk_kc)
         
         # Gamma-point calculation?
-        self.gamma = self.nbzkpts == 1 and not self.bzk_kc[0].any()
+        self.gamma = (self.nbzkpts == 1 and np.allclose(self.bzk_kc[0], 0.0))
             
         self.set_symmetry(None, None, usesymm=None)
         self.set_communicator(mpi.serial_comm)
@@ -147,8 +154,9 @@ class KPointDescriptor:
         """
 
         if atoms is not None:
-            if (~atoms.pbc & self.bzk_kc.any(0)).any():
-                raise ValueError('K-points can only be used with PBCs!')
+            for c, periodic in enumerate(atoms.pbc):
+                if not periodic and not np.allclose(self.bzk_kc[:, c], 0.0):
+                    raise ValueError('K-points can only be used with PBCs!')
 
             self.cell_cv = atoms.cell / Bohr
      
@@ -313,6 +321,10 @@ class KPointDescriptor:
             b_g = np.zeros_like(psit_G)
             kbz_c = np.dot(self.symmetry.op_scc[s], kibz_c)
             if index_G is not None:
+                assert index_G.shape == psit_G.shape == phase_G.shape,\
+                    'Shape mismatch %s vs %s vs %s' % (index_G.shape,
+                                                       psit_G.shape,
+                                                       phase_G.shape)
                 _gpaw.symmetrize_with_index(psit_G, b_g, index_G, phase_G)
             else:
                 _gpaw.symmetrize_wavefunction(psit_G, b_g, op_cc.copy(),
@@ -324,18 +336,25 @@ class KPointDescriptor:
             else:
                 return b_g
 
-
     def get_transform_wavefunction_index(self, nG, k):
+        """Get the "wavefunction transform index".
+
+        This is a permutation of the numbers 1, 2, .. N which
+        associates k + q to some k, and where N is the total
+        number of grid points as specified by nG which is a
+        3D tuple.
+        
+        Returns index_G and phase_G which are one-dimensional
+        arrays on the grid."""
         
         s = self.sym_k[k]
         op_cc = np.linalg.inv(self.symmetry.op_scc[s]).round().astype(int)
 
         # General point group symmetry
-        nG0 = nG[0]*nG[1]*nG[2]
         if (np.abs(op_cc - np.eye(3, dtype=int)) < 1e-10).all():
-            index_G = np.arange(nG0)
-            phase_G = np.ones(nG0)
-            return index_G, phase_G
+            nG0 = np.prod(nG)
+            index_G = np.arange(nG0).reshape(nG)
+            phase_G = np.ones(nG)
         else:
             ik = self.bz2ibz_k[k]
             kibz_c = self.ibzk_kc[ik]
@@ -344,9 +363,9 @@ class KPointDescriptor:
 
             kbz_c = np.dot(self.symmetry.op_scc[s], kibz_c)
             _gpaw.symmetrize_return_index(index_G, phase_G, op_cc.copy(),
-                                              np.ascontiguousarray(kibz_c),
-                                              kbz_c)
-            return index_G, phase_G
+                                          np.ascontiguousarray(kibz_c),
+                                          kbz_c)
+        return index_G, phase_G
 
     #def find_k_plus_q(self, q_c, k_x=None):
     def find_k_plus_q(self, q_c, kpts_k=None):
@@ -402,14 +421,15 @@ class KPointDescriptor:
                 identity_iop = i
                 break
 
-        ibzq_q_tmp ={}
+        ibzq_q_tmp = {}
         iop_q = {}
         timerev_q = {}
         diff_qc = {}
 
-        for i in range(len(bzq_qc)-1,-1,-1): #  loop opposite to kpoint
+        for i in range(len(bzq_qc) - 1, -1, -1):  # loop opposite to kpoint
             try:
-                ibzk, iop, timerev, diff_c = self.find_ibzkpt(op_scc, ibzq_qc_tmp, bzq_qc[i])
+                ibzk, iop, timerev, diff_c = self.find_ibzkpt(
+                    op_scc, ibzq_qc_tmp, bzq_qc[i])
                 find = False
                 for ii, iop1 in enumerate(self.sym_k):
                     if iop1 == iop and self.time_reversal_k[ii] == timerev:
@@ -422,7 +442,7 @@ class KPointDescriptor:
                 weight_tmp[ibzk] += 1.
                 iop_q[i] = iop
                 timerev_q[i] = timerev
-                diff_qc[i] = diff_c                
+                diff_qc[i] = diff_c
             except ValueError:
                 ibzq_qc_tmp.append(bzq_qc[i])
                 weight_tmp.append(1.)
@@ -433,18 +453,17 @@ class KPointDescriptor:
 
         # reverse the order.
         nq = len(ibzq_qc_tmp)
-        ibzq_qc = np.zeros((nq,3))
-        ibzq_q = np.zeros(len(bzq_qc),dtype=int)
+        ibzq_qc = np.zeros((nq, 3))
+        ibzq_q = np.zeros(len(bzq_qc), dtype=int)
         for i in range(nq):
-            ibzq_qc[i] = ibzq_qc_tmp[nq-i-1]
+            ibzq_qc[i] = ibzq_qc_tmp[nq - i - 1]
         for i in range(len(bzq_qc)):
             ibzq_q[i] = nq - ibzq_q_tmp[i] - 1
         self.q_weights = np.array(weight_tmp[::-1]) / len(bzq_qc)
         return ibzq_qc, ibzq_q, iop_q, timerev_q, diff_qc
 
-
     def find_ibzkpt(self, symrel, ibzk_kc, bzk_c):
-        """Given a certain kpoint, find its index in IBZ and related symmetry operations."""
+        """Find index in IBZ and related symmetry operations."""
         find = False
         ibzkpt = 0
         iop = 0
@@ -466,10 +485,9 @@ class KPointDescriptor:
             if find == True:
                 break
 
-        if find == False:        
-            raise ValueError('Cant find corresponding IBZ kpoint!')    
+        if find == False:
+            raise ValueError('Cant find corresponding IBZ kpoint!')
         return ibzkpt, iop, timerev, diff_c.round()
-
 
     def where_is_q(self, q_c, bzq_qc):
         """Find the index of q points in BZ."""

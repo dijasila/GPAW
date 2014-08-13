@@ -9,26 +9,12 @@ h =.3
 box = 4.
 energy_tolerance = 0.0004
 
-a=0                 # Zn is the 0 index atom 
-n=3                 # third orbital
-l=2                 # d-orbitals
-U_ev=3              # U in eV
-U_au=U_ev / Hartree # U in atomic units
-scale=1             # scale (to be investigated what the influence is!)
-
-HubU_dict = {a:{
-                n:{
-                   l:{'U':U_au}
-                   }},
-            'scale': scale,
-            }
 
 s = Cluster([Atom('Zn')])
 s.minimal_box(box, h=h)
 
 E = {}
 E_U = {}
-
 for spin in [0, 1]:
     c = GPAW(h=h, spinpol=spin,
              eigensolver='cg',
@@ -36,8 +22,7 @@ for spin in [0, 1]:
              )
     s.set_calculator(c)
     E[spin] = s.get_potential_energy()
-    c.hamiltonian.set_hubbard_u(HubU_dict=HubU_dict)    
-    c.scf.reset()
+    c.set(setups=':3d,3.0,1')
     E_U[spin] = s.get_potential_energy()
 
 print "E=", E

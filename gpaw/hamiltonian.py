@@ -52,7 +52,7 @@ class Hamiltonian:
     """
 
     def __init__(self, gd, finegd, nspins, setups, timer, xc,
-                 vext=None, collinear=True):
+                 vext=None, collinear=True, world=None):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -62,6 +62,7 @@ class Hamiltonian:
         self.xc = xc
         self.collinear = collinear
         self.ncomp = 2 - int(collinear)
+        self.world = world
         
         self.dH_asp = None
 
@@ -188,7 +189,8 @@ class Hamiltonian:
             aa = (nl[0])*len(l_j)-((nl[0]-1)*(nl[0])/2)
             bb = (nl[1])*len(l_j)-((nl[1]-1)*(nl[1])/2)
             ab = aa+nl[1]-nl[0]
-            if scale == 0:
+            
+            if not scale:
                 lq_a  = lq[aa]
                 lq_ab = lq[ab]
                 lq_b  = lq[bb]
@@ -196,6 +198,7 @@ class Hamiltonian:
                 lq_a  = 1
                 lq_ab = lq[ab]/lq[aa]
                 lq_b  = lq[bb]/lq[aa]
+ 
             # and the correct entrances in the DM
             nn = (2*np.array(l_j)+1)[0:nl[0]].sum()
             mm = (2*np.array(l_j)+1)[0:nl[1]].sum()
@@ -240,9 +243,7 @@ class Hamiltonian:
 
         self.timer.start('Atomic')
         self.dH_asp = {}
-        
         for a, D_sp in density.D_asp.items():
-            
             W_L = W_aL[a]
             setup = self.setups[a]
 
@@ -272,7 +273,6 @@ class Hamiltonian:
                     dH_p += sqrt(4 * pi / 3) * np.dot(vext[1], Delta_p1)
 
             self.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
-
             self.timer.start('XC Correction')
             Exc += self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
             self.timer.stop('XC Correction')
@@ -338,20 +338,21 @@ class Hamiltonian:
                             H_p[:] = pack2(Htemp)
            
             dH_sp[:self.nspins] += dH_p
-            
+
             Ekin -= (D_sp * dH_sp).sum()  # NCXXX
+
         self.timer.stop('Atomic')
-        
+
         # Make corrections due to non-local xc:
         #xcfunc = self.xc.xcfunc
         self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
-        #print self.xc.get_kinetic_energy_correction() / self.gd.comm.size
         Ekin += self.xc.get_kinetic_energy_correction() / self.gd.comm.size
-        #kk1 = Ekin, Epot, Ebar, Eext, Exc
 
         energies = np.array([Ekin, Epot, Ebar, Eext, Exc])
         self.timer.start('Communicate energies')
         self.gd.comm.sum(energies)
+        # Make sure that all CPUs have the same energies
+        self.world.broadcast(energies, 0)
         self.timer.stop('Communicate energies')
         (self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc) = energies
 
@@ -363,6 +364,7 @@ class Hamiltonian:
     def get_energy(self, occupations):
         self.Ekin = self.Ekin0 + occupations.e_band
         self.S = occupations.e_entropy
+
         # Total free energy:
         self.Etot = (self.Ekin + self.Epot + self.Eext +
                      self.Ebar + self.Exc - self.S)
@@ -459,7 +461,7 @@ class Hamiltonian:
     def get_xc_difference(self, xc, density):
         """Calculate non-selfconsistent XC-energy difference."""
         if density.nt_sg is None:
-            density.interpolate()
+            density.interpolate_pseudo_density()
         nt_sg = density.nt_sg
         if hasattr(xc, 'hybrid'):
             xc.calculate_exx()
@@ -530,9 +532,10 @@ class Hamiltonian:
 
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, setups, timer, xc,
-                 vext=None, collinear=True, psolver=None, stencil=3):
+                 vext=None, collinear=True, psolver=None, 
+                 stencil=3, world=None):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
-                             vext, collinear)
+                             vext, collinear, world)
 
         # Solver for the Poisson equation:
         if psolver is None:
@@ -632,4 +635,3 @@ class RealSpaceHamiltonian(Hamiltonian):
         dens.ghat.derivative(self.vHt_g, ghat_aLv)
         dens.nct.derivative(vt_G, nct_av)
         self.vbar.derivative(dens.nt_g, vbar_av)
-

@@ -7,7 +7,7 @@
 # h5py code is used directly except where explicitly noted
 
 import numpy as np
-from _hdf5 import *
+from _gpaw_hdf5 import *
 
 def numpy_type_from_h5(datatype):
     """Simple conversion from HDF5 datatype to NumPy dtype"""
@@ -306,6 +306,10 @@ class Attributes:
 
     def __setitem__(self, key, data):
         # Should we delete existing attributes?
+        # Special treatment for possible None data
+        if data is None:
+            data = repr(data)
+
         data = np.asarray(data)
         dataspace = h5s_create(np.asarray(data.shape))
         datatype = h5_type_from_numpy(np.ndarray((1, ), data.dtype))

@@ -38,5 +38,5 @@ c.calculate(s)
 
 scont_s = [c.density.get_spin_contamination(s), 
            c.density.get_spin_contamination(s, 1)]
-equal(scont_s[0], scont_s[1], 1.e-4) # symmetry
-equal(scont_s[0], 0.9655, 1.e-3)
+equal(scont_s[0], scont_s[1], 2.e-4) # symmetry
+equal(scont_s[0], 0.9655, 1.5e-3)

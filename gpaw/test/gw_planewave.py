@@ -1,7 +1,7 @@
 import numpy as np
 from time import time, ctime
 from datetime import timedelta
-from ase.structure import bulk
+from ase.lattice import bulk
 from ase.units import Hartree
 from gpaw import GPAW, FermiDirac
 from gpaw.response.gw import GW

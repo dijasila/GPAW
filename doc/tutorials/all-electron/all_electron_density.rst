@@ -6,20 +6,21 @@ Getting the all-electron density
 
 The variational quantity of the PAW formalism is the pseudo-density
 :math:`\tilde{n}`. This is also the density returned by the
-:meth:`get_pseudo_density` method of the GPAW calculator. Sometimes it
-is desirable to work with the true all-electron density.  The PAW
-formalism offers a recipe for reconstructing the all-electron density
-from the pseudo-density, and in GPAW, this can be reached by the
-method :meth:`get_all_electron_density` of the GPAW
-:class:`~gpaw.aseinterface.Calculator`:
+:meth:`~gpaw.aseinterface.GPAW.get_pseudo_density` method of the GPAW
+calculator. Sometimes it is desirable to work with the true all-electron
+density.  The PAW formalism offers a recipe for reconstructing the all-electron
+density from the pseudo-density, and in GPAW, this can be reached by
+the method :meth:`~gpaw.aseinterface.GPAW.get_all_electron_density` of the GPAW
+:class:`~gpaw.aseinterface.GPAW`:
 
 .. method:: get_all_electron_density(spin=None, gridrefinement=2, pad=True)
 
     Return reconstructed all-electron density array.
 
 
-The :meth:`get_all_electron_density` method is used in the same way as
-you would normally use the :meth:`get_pseudo_density` method, i.e.:
+The :meth:`~gpaw.aseinterface.GPAW.get_all_electron_density` method is used in
+the same way as you would normally use the
+:meth:`~gpaw.aseinterface.GPAW.get_pseudo_density` method, i.e.:
 
 >>> from gpaw import GPAW
 >>> from ase.structure import molecule
@@ -48,34 +49,33 @@ resolution), while the pseudo density will integrate to some more or
 less arbitrary number. This fact is illustrated in the following
 example.
 
+
 ---------------
 Example 1: NaCl
 ---------------
 
 As an example of application, consider the three systems Na, Cl, and
 NaCl. The pseudo- and all-electron densities of these three systems
-can be calculated with the script :svn:`~doc/tutorials/all-electron/NaCl.py`:
+can be calculated with the script :download:`NaCl.py`:
 
 .. literalinclude:: NaCl.py
 
 The result for the integrated pseudo- and all-electron densities of
 the three systems is:
 
-==== ==== =====
-\    ñ    n
-Na   1.71 11.00
-Cl   7.50 17.00
-NaCl 9.18 28.00
-==== ==== =====
+.. csv-table::
+  :file: all_electron.csv
+  :header: formula, ñ, n
 
 From which we see that the all-electron densities integrate to the
 total number of electrons in the system, as expected.
+
 
 -------------------------------------------
 Example 2: Bader analysis of H\ :sub:`2`\ O
 -------------------------------------------
 
 For information on the Bader algorithm, and an example of how to do
-Bader analysis using the all-electron density; see the `ase`
+Bader analysis using the all-electron density; see the ASE
 tutorial on the H\ :sub:`2`\ O molecule :ase:`Bader
 <ase/dft/bader.html>`

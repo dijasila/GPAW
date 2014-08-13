@@ -154,7 +154,7 @@ Timing information for every Python and C function is measured. You will need to
 * C
 
 **Note**: instructions were tested with pdtoolkit-3.14.1 and tau-2.18.2p4.
-It is necessary to remove any mpi libraries from the `libraries` variable
+It is necessary to remove any mpi libraries from the *libraries* variable
 in ``customize.py``: TAU will perform linking on it's own.
 
 Simply add the following to the ``customize.py`` and run ``python setup.py build_ext --remove-default-flags``::

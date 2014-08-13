@@ -8,15 +8,17 @@
 #include <numpy/arrayobject.h>
 
 #ifdef GPAW_WITH_HDF5 
-PyMODINIT_FUNC init_hdf5(void); 
+PyMODINIT_FUNC init_gpaw_hdf5(void); 
 #endif 
 
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
 PyObject* ibm_hpm_stop(PyObject *self, PyObject *args);
+PyObject* ibm_mpi_start(PyObject *self);
+PyObject* ibm_mpi_stop(PyObject *self);
 #endif
 
-#ifdef GPAW_CRAYPAT
+#ifdef CRAYPAT
 #include <pat_api.h>
 PyObject* craypat_region_begin(PyObject *self, PyObject *args);
 PyObject* craypat_region_end(PyObject *self, PyObject *args);
@@ -68,12 +70,12 @@ PyObject* hartree(PyObject *self, PyObject *args);
 PyObject* localize(PyObject *self, PyObject *args);
 PyObject* NewXCFunctionalObject(PyObject *self, PyObject *args);
 PyObject* NewlxcXCFunctionalObject(PyObject *self, PyObject *args);
+PyObject* lxcXCFuncNum(PyObject *self, PyObject *args);
 PyObject* exterior_electron_density_region(PyObject *self, PyObject *args);
 PyObject* plane_wave_grid(PyObject *self, PyObject *args);
 PyObject* overlap(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* vdw2(PyObject *self, PyObject *args);
-PyObject* swap_arrays(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 PyObject* spline_to_grid(PyObject *self, PyObject *args);
 PyObject* NewLFCObject(PyObject *self, PyObject *args);
@@ -100,6 +102,10 @@ PyObject* pblas_gemm(PyObject *self, PyObject *args);
 PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
+#endif
+
+#ifdef GPAW_PAPI
+PyObject* papi_mem_info(PyObject *self, PyObject *args);
 #endif
 
 // Moving least squares interpolation
@@ -152,10 +158,10 @@ static PyMethodDef functions[] = {
   {"XCFunctional",    NewXCFunctionalObject,    METH_VARARGS, 0},
   /*  {"MGGAFunctional",    NewMGGAFunctionalObject,    METH_VARARGS, 0},*/
   {"lxcXCFunctional",    NewlxcXCFunctionalObject,    METH_VARARGS, 0},
+  {"lxcXCFuncNum",    lxcXCFuncNum,    METH_VARARGS, 0},
   {"overlap",       overlap,        METH_VARARGS, 0},
   {"vdw", vdw, METH_VARARGS, 0},
   {"vdw2", vdw2, METH_VARARGS, 0},
-  {"swap", swap_arrays, METH_VARARGS, 0},
   {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
   {"pc_potential", pc_potential, METH_VARARGS, 0},
   {"pc_potential_value", pc_potential_value, METH_VARARGS, 0},
@@ -196,11 +202,16 @@ static PyMethodDef functions[] = {
 #ifdef GPAW_HPM
   {"hpm_start", ibm_hpm_start, METH_VARARGS, 0},
   {"hpm_stop", ibm_hpm_stop, METH_VARARGS, 0},
+  {"mpi_start", (PyCFunction) ibm_mpi_start, METH_NOARGS, 0},
+  {"mpi_stop", (PyCFunction) ibm_mpi_stop, METH_NOARGS, 0},
 #endif // GPAW_HPM
-#ifdef GPAW_CRAYPAT
+#ifdef CRAYPAT
   {"craypat_region_begin", craypat_region_begin, METH_VARARGS, 0},
   {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
-#endif // GPAW_CRAYPAT
+#endif // CRAYPAT
+#ifdef GPAW_PAPI
+  {"papi_mem_info", papi_mem_info, METH_VARARGS, 0}, 
+#endif // GPAW_PAPI
   {"mlsqr", mlsqr, METH_VARARGS, 0}, 
   {0, 0, 0, 0}
 };
@@ -209,6 +220,14 @@ static PyMethodDef functions[] = {
 extern PyTypeObject MPIType;
 extern PyTypeObject GPAW_MPI_Request_type;
 #endif
+
+extern PyTypeObject LFCType;
+extern PyTypeObject LocalizedFunctionsType;
+extern PyTypeObject OperatorType;
+extern PyTypeObject SplineType;
+extern PyTypeObject TransformerType;
+extern PyTypeObject XCFunctionalType;
+extern PyTypeObject lxcXCFunctionalType;
 
 #ifndef GPAW_INTERPRETER
 PyMODINIT_FUNC init_gpaw(void)
@@ -219,6 +238,21 @@ PyMODINIT_FUNC init_gpaw(void)
   if (PyType_Ready(&GPAW_MPI_Request_type) < 0)
     return;
 #endif
+
+  if (PyType_Ready(&LFCType) < 0)
+    return;
+  if (PyType_Ready(&LocalizedFunctionsType) < 0)
+    return;
+  if (PyType_Ready(&OperatorType) < 0)
+    return;
+  if (PyType_Ready(&SplineType) < 0)
+    return;
+  if (PyType_Ready(&TransformerType) < 0)
+    return;
+  if (PyType_Ready(&XCFunctionalType) < 0)
+    return;
+  if (PyType_Ready(&lxcXCFunctionalType) < 0)
+    return;
 
   PyObject* m = Py_InitModule3("_gpaw", functions,
              "C-extension for GPAW\n\n...\n");
@@ -231,18 +265,18 @@ PyMODINIT_FUNC init_gpaw(void)
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
 
+  Py_INCREF(&LFCType);
+  Py_INCREF(&LocalizedFunctionsType);
+  Py_INCREF(&OperatorType);
+  Py_INCREF(&SplineType);
+  Py_INCREF(&TransformerType);
+  Py_INCREF(&XCFunctionalType);
+  Py_INCREF(&lxcXCFunctionalType);
+
   import_array();
 }
 #endif
 
-#ifdef NO_SOCKET
-/*dummy socket module for systems which do not support sockets */
-PyMODINIT_FUNC initsocket(void)
-{
-  Py_InitModule("socket", NULL);
-  return;
-}
-#endif
 
 #ifdef GPAW_INTERPRETER
 extern DL_EXPORT(int) Py_Main(int, char **);
@@ -258,7 +292,7 @@ main(int argc, char **argv)
 {
   int status;
 
-#ifdef GPAW_CRAYPAT
+#ifdef CRAYPAT
   PAT_region_begin(1, "C-Initializations");
 #endif
 
@@ -269,6 +303,9 @@ main(int argc, char **argv)
   MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
   if(granted != MPI_THREAD_MULTIPLE) exit(1);
 #endif // GPAW_OMP
+
+// Get initial timing
+  double t0 = MPI_Wtime();
 
 #ifdef GPAW_PERFORMANCE_REPORT
   gpaw_perf_init();
@@ -302,13 +339,28 @@ main(int argc, char **argv)
   MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
 #endif
 
+  // Progname seems to be needed in some circumstances to resolve
+  // correct default sys.path
+  Py_SetProgramName(argv[0]);
+
   Py_Initialize();
 
-#ifdef NO_SOCKET
-  initsocket();
-#endif
-
   if (PyType_Ready(&MPIType) < 0)
+    return -1;
+
+  if (PyType_Ready(&LFCType) < 0)
+    return -1;
+  if (PyType_Ready(&LocalizedFunctionsType) < 0)
+    return -1;
+  if (PyType_Ready(&OperatorType) < 0)
+    return -1;
+  if (PyType_Ready(&SplineType) < 0)
+    return -1;
+  if (PyType_Ready(&TransformerType) < 0)
+    return -1;
+  if (PyType_Ready(&XCFunctionalType) < 0)
+    return -1;
+  if (PyType_Ready(&lxcXCFunctionalType) < 0)
     return -1;
 
   PyObject* m = Py_InitModule3("_gpaw", functions,
@@ -318,15 +370,31 @@ main(int argc, char **argv)
 
   Py_INCREF(&MPIType);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
+
+  // Add initial time to _gpaw object
+  PyModule_AddObject(m, "time0", PyFloat_FromDouble(t0));
+
+  Py_INCREF(&LFCType);
+  Py_INCREF(&LocalizedFunctionsType);
+  Py_INCREF(&OperatorType);
+  Py_INCREF(&SplineType);
+  Py_INCREF(&TransformerType);
+  Py_INCREF(&XCFunctionalType);
+  Py_INCREF(&lxcXCFunctionalType);
+
 #ifdef GPAW_WITH_HDF5 
-  init_hdf5(); 
+  init_gpaw_hdf5(); 
 #endif 
   import_array1(-1);
   MPI_Barrier(MPI_COMM_WORLD);
-#ifdef GPAW_CRAYPAT
+#ifdef CRAYPAT
   PAT_region_end(1);
+  PAT_region_begin(2, "all other");
 #endif
   status = Py_Main(argc, argv);
+#ifdef CRAYPAT
+  PAT_region_end(2);
+#endif
 
 #ifdef GPAW_PERFORMANCE_REPORT
   gpaw_perf_finalize();

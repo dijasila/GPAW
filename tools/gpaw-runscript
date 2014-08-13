@@ -11,12 +11,14 @@ defaults = { 'err'   : None,
              'mail'  : None,
              'mem'   : None,
              'name'  : None,
+             'depth' : 1,
              'cores' : 2,
              'out'   : None,
-             'qsys'  : 'pbs',
+             'arch'  : 'pbs',
              'script': 'run.py',
              'time'  : 86400, # one day in seconds
              'wd'    : None,
+             'queue' : None,
              'smt'   : False,
              }
 
@@ -29,17 +31,19 @@ hosts = { 'batman'                   : 'pbs_batman',
           'opaali.phys.jyu.fi'       : 'sge',
           'sepeli.csc.fi'            : 'sepeli',
           'bwui.bfg.uni-freiburg.de' : 'bwg',
+          'globus.bfg.uni-freiburg.de' : 'bwg',
           'globus'                   : 'bwg',
           'ui.bfg.uni'               : 'pbs_bfg',
-          'xc2n992'                  : 'xc2',
-          'xc2n993'                  : 'xc2',
-          'xc2.rz.uni-karlsruhe.de'  : 'xc2',
-          'juropa.fz-juelich.de'     : 'juropa'
+          r'xc2(.*)'                 : 'xc2',
+          'juropa.fz-juelich.de'     : 'juropa',
+	  r'jj(.*)'                  : 'juropa',
+          r'joe*'                    : 'joe'
           }
 
 platforms = { 'aix5' : 'loadleveler' }
 
-env = {'PYTHONPATH'      : None,
+env = {'PATH'            : None,
+       'PYTHONPATH'      : None,
        'GPAW_PYTHON'     : None,
        'GPAW_SETUP_PATH' : None,
        'GPAW_MAIL'       : None
@@ -122,17 +126,17 @@ def unique_name(name):
 
 class RunScript:
     def __init__(self, set, env, name=None):
-        if not hasattr(self,set['qsys']):
-            print "unkown system >" + set['qsys'] + "<"
+        if not hasattr(self,set['arch']):
+            print "unkown system >" + set['arch'] + "<"
             list_systems(self)
             sys.exit()
         if name is None:
-            name = 'run.' + set['qsys']
-            if set['qsys'] == 'xc2':
+            name = 'run.' + set['arch']
+            if set['arch'] == 'xc2':
                 name = unique_name(name)
         self.name = name
         f = open(name, 'w')
-        call = "self." + set['qsys'] + "(f,set,env)"
+        call = "self." + set['arch'] + "(f,set,env)"
         eval(call)
         if not f.closed:
             f.close()
@@ -385,6 +389,59 @@ unset CC CFLAGS LDFLAGS
         print >> f, '>', set['out']+'_$PBS_JOBID',
         print >> f, '2>', set['err']+'_$PBS_JOBID'
 
+    def joe(self, f, set, env):
+        queue_pe_cores = {
+            # queue    pe            min.cores
+            'short' : ['openmpi_64', 64],
+            'medium': ['openmpi_8',   8],
+            'long'  : ['openmpi', 1],
+            }
+        modules_to_load = []
+        print >> f, '#!/bin/bash'
+        print >> f, '#$ -N ' + set['name']
+        print >> f, '#$ -cwd'
+        print >> f, '#$ -S /bin/bash'
+        print >> f, '#$ -j y  # join stdout and stderr'
+        print >> f, '#$ -o', set['out'] + '_$JOB_ID'
+        cores = set['cores']
+        pe = 'openmpi'
+        if set['queue']:
+            queue = set['queue']
+            if queue in queue_pe_cores:
+                pe, nodesize = queue_pe_cores[queue]
+                qcores = (cores // nodesize) * nodesize
+                if cores > qcores:
+                    qcores += nodesize
+                    print 'allocating', qcores,
+                    print 'cores in queue', queue
+        else:
+            queue = None
+            qcores = cores
+        print >> f, '#$ -pe', pe, qcores
+        if queue:
+            print >> f, '#$ -q', queue
+        print >> f, '#$ -l h_rt=' + hms_string(set['time'])
+        if set['mail'] is not None:
+            print >> f, '#$ -M',set['mail']
+        print >> f
+        print >> f, 'cd', set['wd']
+        print >> f
+        print >> f, 'export OMP_NUM_THREADS="1"'
+        print >> f, 'export PATH=$PATH:' + env['PATH']
+        print >> f, 'export PYTHONPATH=$PYTHONPATH:' + env['PYTHONPATH']
+        print >> f, 'export GPAW_SETUP_PATH='+env['GPAW_SETUP_PATH']
+        print >> f, 'export GPAW_PYTHON='+env['GPAW_PYTHON']
+        try:       
+            LD_LIBRARY_PATH = os.environ['LD_LIBRARY_PATH'] + ':'
+        except:
+            LD_LIBRARY_PATH = ''
+        print >> f, ('export LD_LIBRARY_PATH=' + LD_LIBRARY_PATH
+                     + '$LD_LIBRARY_PATH')
+        print >> f
+        print >> f, 'mpirun -np', cores, '$GPAW_PYTHON', set['script'],
+        if 'parameters' in set:
+            print >> f, set['parameters'],
+
     def juropa(self, f, set, env):
         print >> f, '#!/bin/bash'
         print >> f, '#MSUB -N '+set['name']
@@ -405,12 +462,12 @@ ormance.'
         print >> f, '#MSUB -l walltime=' + hms_string(set['time'])
         print >> f, '#MSUB -m bea'
         if set['mail'] is not None:
-            print >> f, '#MSUB -M',set['mail']
+            print >> f, '#MSUB -M', set['mail']
 #        print >> f, 'export PATH=/usr/lib/openmpi/1.2.5-gcc/bin:$PATH'
         print >> f, 'cd', set['wd']
-        print >> f, 'export PYTHONPATH=$PYTHONPATH:' + env['PYTHONPATH']
-        print >> f, 'export GPAW_SETUP_PATH='+env['GPAW_SETUP_PATH']
-        print >> f, 'export GPAW_PYTHON='+env['GPAW_PYTHON']
+        print >> f, 'export PYTHONPATH=' + env['PYTHONPATH'] + ':$PYTHONPATH'
+        print >> f, 'export GPAW_SETUP_PATH=' + env['GPAW_SETUP_PATH']
+        print >> f, 'export GPAW_PYTHON=' + env['GPAW_PYTHON']
         print >> f, 'export PSP_ONDEMAND=1'
         print >> f, 'mpiexec -np', cores, '-x', 
         print >> f, '$GPAW_PYTHON', set['script'],
@@ -519,14 +576,18 @@ parser.add_option("-M", "--Memory", action='count', default=None,
                   help='request large memory cores (host specific)')
 parser.add_option("-n", "--name", dest='name',
                   help='Name of the job (def: name of parent directory)')
+parser.add_option("-d", "--depth", dest='depth',
+                  help='depth of directories for naming (def: 1)')
 parser.add_option("-o", "--outfile", dest='outfile',
                   help='Name of the output file (def: script.out)')
 parser.add_option("-p", "--parameters", dest='parameters',
                   help='Parameters to give to the script (def: empty)')
-parser.add_option("-q", "--qsys", dest='qsys',
-                  help='queue system (def: try to guess)')
+parser.add_option("-a", "--arch", dest='arch',
+                  help='architecture (def: try to guess)')
 parser.add_option("-t", "--time", dest='time',
                   help='Time (def: 86400=1140m=24h=1d=one day)')
+parser.add_option("-q", "--queue", dest='queue',
+                  help='queue to use (host specific)')
 parser.add_option("-s", "--smt", dest='smt', action='count',
                   help='Simultaneous Multi-Threading (host specific)')
 opt, args = parser.parse_args()
@@ -542,6 +603,9 @@ if opt.Memory is not None:
 if opt.name:
     set['name'] = str(opt.name)
 
+if opt.depth:
+    set['depth'] = int(opt.depth)
+
 if opt.outfile:
     set['out'] = str(opt.outfile)
 
@@ -554,16 +618,23 @@ if opt.time:
 if opt.smt:
     set['smt'] = True
 
+if opt.queue:
+    set['queue'] = str(opt.queue)
+
 if len(args):
     set['script'] = args[0]
     if len(args) > 1:
-        set['cores'] = int(args[1])
+        try:
+            set['cores'] = int(args[1])
+        except ValueError:
+            raise ValueError('Number of cores must be integer. ' +
+                             'See gpaw-runscript -h')
 
 # ............................................................
 
 # try to determine the system
-if opt.qsys:
-    set['qsys']=opt.qsys
+if opt.arch:
+    set['arch']=opt.arch
 else:
     host = None
     if 'HOSTNAME' in os.environ.keys():
@@ -576,18 +647,24 @@ else:
             dummy, hostname = os.popen4('hostname -s')
             host = hostname.readline().split()
 
-    if hosts.has_key(host):
-        set['qsys']=hosts[host]
-        print 'hostname',host,'found,',
+    def has_key_regexp(dictionary, expression):
+        for key in dictionary:
+            if re.match(key, expression):
+                return dictionary[key]
+        return False
+
+    if has_key_regexp(hosts, host):
+        set['arch'] = has_key_regexp(hosts, host)
+        print 'hostname', host, 'found,',
     elif platforms.has_key(sys.platform):
-        set['qsys'] = platforms[sys.platform]
+        set['arch'] = platforms[sys.platform]
         print 'platform', sys.platform, 'found,',
     else:
-        print "Host " + str(host) + " unknown, try -q option."
+        print "Host " + str(host) + " unknown, try -a option."
         list_systems(RunScript)
         sys.exit()
 
-print 'using',set['qsys']
+print 'using', set['arch']
 
 # ............................................................
 # check necessary environment variables
@@ -628,7 +705,10 @@ if set['err'] is None:
 if set['wd'] is None:
     set['wd'] = os.getcwd()
 if set['name'] is None:
-    name = os.getcwd().split('/')[-1]
+    nl = os.getcwd().split('/')[-set['depth']:]
+    name = nl[0]
+    for string in nl[1:]:
+        name += '_' + string
     # avoid beginning with a number
     if name[0].isdigit():
         name = 'j' + name 

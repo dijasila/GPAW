@@ -2,6 +2,8 @@
 
 import numpy as np
 from gpaw.mpi import serial_comm
+from gpaw.mpi import rank, size, world
+from gpaw.io import open
 
 def set_communicator(world, rank, size, kcommsize=None):
     """Communicator inilialized."""
@@ -205,8 +207,6 @@ def GatherOrbitals(a_Eo, coords, comm):
 def par_write(filename, name, comm, chi0_wGG):
 
     ## support only world communicator at the moment
-    from gpaw.mpi import rank, size, world
-    from gpaw.io import open
     
     assert comm.size == size
     assert comm.rank == rank
@@ -215,11 +215,11 @@ def par_write(filename, name, comm, chi0_wGG):
     assert npw == npw1
     Nw = Nw_local * size
     
+    w = open(filename, 'w', comm)
+    w.dimension('Nw', Nw)
+    w.dimension('npw', npw)
+    w.add(name, ('Nw', 'npw', 'npw'), dtype=complex)
     if rank == 0:
-        w = open(filename, 'w', comm)
-        w.dimension('Nw', Nw)
-        w.dimension('npw', npw)
-        w.add(name, ('Nw', 'npw', 'npw'), dtype=complex)
         tmp = np.zeros_like(chi0_wGG[0])
 
     for iw in range(Nw):
@@ -239,9 +239,6 @@ def par_write(filename, name, comm, chi0_wGG):
         
 def par_read(filename, name, Nw=None):
 
-    from gpaw.mpi import world, rank, size
-    from gpaw.io import open
-
     r = open(filename, 'r')
     if Nw is None:
         Nw = r.dimension('Nw')
@@ -259,8 +256,6 @@ def par_read(filename, name, Nw=None):
     return chi0_wGG
 
 def gatherv(m, N=None):
-
-    from gpaw.mpi import world, size, rank
 
     if world.size == 1:
         return m

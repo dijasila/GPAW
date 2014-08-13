@@ -42,7 +42,7 @@ static void localized_functions_dealloc(LocalizedFunctionsObject *self)
 static PyObject * localized_functions_integrate(LocalizedFunctionsObject *self,
 						PyObject *args)
 {
-  const PyArrayObject* aa;
+  PyArrayObject* aa;
   PyArrayObject* bb;
   if (!PyArg_ParseTuple(args, "OO", &aa, &bb))
     return NULL;
@@ -50,15 +50,15 @@ static PyObject * localized_functions_integrate(LocalizedFunctionsObject *self,
   const double* a = DOUBLEP(aa);
   double* b = DOUBLEP(bb);
   int na = 1;
-  for (int d = 0; d < aa->nd - 3; d++)
-    na *= aa->dimensions[d];
+  for (int d = 0; d < PyArray_NDIM(aa) - 3; d++)
+    na *= PyArray_DIM(aa, d);
   int nf = self->nf;
   double* f = self->f;
   double* w = self->w;
   int ng = self->ng;
   int ng0 = self->ng0;
 
-  if (aa->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(aa)->type_num == NPY_DOUBLE)
     for (int n = 0; n < na; n++)
       {
 	bmgs_cut(a, self->size, self->start, w, self->size0);
@@ -88,7 +88,7 @@ static PyObject * localized_functions_integrate(LocalizedFunctionsObject *self,
 static PyObject * localized_functions_derivative(
 		      LocalizedFunctionsObject *self, PyObject *args)
 {
-  const PyArrayObject* aa;
+  PyArrayObject* aa;
   PyArrayObject* bb;
   if (!PyArg_ParseTuple(args, "OO", &aa, &bb))
     return NULL;
@@ -96,15 +96,15 @@ static PyObject * localized_functions_derivative(
   const double* a = DOUBLEP(aa);
   double* b = DOUBLEP(bb);
   int na = 1;
-  for (int d = 0; d < aa->nd - 3; d++)
-    na *= aa->dimensions[d];
+  for (int d = 0; d < PyArray_NDIM(aa) - 3; d++)
+    na *= PyArray_DIM(aa, d);
   int nf = self->nfd;
   double* f = self->fd;
   double* w = self->w;
   int ng = self->ng;
   int ng0 = self->ng0;
 
-  if (aa->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(aa)->type_num == NPY_DOUBLE)
     for (int n = 0; n < na; n++)
       {
 	bmgs_cut(a, self->size, self->start, w, self->size0);
@@ -142,15 +142,15 @@ static PyObject * localized_functions_add(LocalizedFunctionsObject *self,
   double* c = DOUBLEP(cc);
   double* a = DOUBLEP(aa);
   int na = 1;
-  for (int d = 0; d < aa->nd - 3; d++)
-    na *= aa->dimensions[d];
+  for (int d = 0; d < PyArray_NDIM(aa) - 3; d++)
+    na *= PyArray_DIM(aa, d);
   int ng = self->ng;
   int ng0 = self->ng0;
   int nf = self->nf;
   double* f = self->f;
   double* w = self->w;
 
-  if (aa->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(aa)->type_num == NPY_DOUBLE)
     for (int n = 0; n < na; n++)
       {
 	double zero = 0.0;
@@ -344,7 +344,7 @@ static PyObject * get_functions(LocalizedFunctionsObject* self,
 		      self->size0[0], self->size0[1], self->size0[2]};
   PyArrayObject* functions = (PyArrayObject*)PyArray_SimpleNew(4, dims,
 							       NPY_DOUBLE);
-  memcpy(functions->data, self->f,
+  memcpy(PyArray_DATA(functions), self->f,
 	 self->nf * self->ng0 * sizeof(double));
   return (PyObject*)functions;
 }
@@ -411,8 +411,8 @@ static PyObject* localized_functions_getattr(PyObject *obj, char *name)
     return Py_FindMethod(localized_functions_methods, obj, name);
 }
 
-static PyTypeObject LocalizedFunctionsType = {
-  PyObject_HEAD_INIT(&PyType_Type)
+PyTypeObject LocalizedFunctionsType = {
+  PyObject_HEAD_INIT(NULL)
   0,
   "LocalizedFunctions",
   sizeof(LocalizedFunctionsObject),

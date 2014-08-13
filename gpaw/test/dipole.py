@@ -59,7 +59,7 @@ convergence = dict(density=1e-5)
 
 calc1 = GPAW(mode='lcao',
              convergence=convergence,
-             gpts=h2gpts(0.3, system1.cell, idiv=8),
+             gpts=h2gpts(0.25, system1.cell, idiv=8),
              poissonsolver=DipoleCorrection(PoissonSolver(relax='GS',
                                                           eps=1e-11), 2))
 
@@ -71,7 +71,7 @@ v1 = calc1.get_effective_potential(pad=False)
 
 calc2 = GPAW(mode='lcao',
              convergence=convergence,
-             gpts=h2gpts(0.3, system2.cell, idiv=8),
+             gpts=h2gpts(0.25, system2.cell, idiv=8),
              poissonsolver=PoissonSolver(relax='GS', eps=1e-11))
 
 system2.set_calculator(calc2)
@@ -98,7 +98,7 @@ if rank == 0:
     err1 = abs(dvz1 - dvz2)
     
     # Comparison to what the values were when this test was last modified:
-    ref_value = 2.10081719137
+    ref_value = 2.07342988218
     err2 = abs(dvz1 - ref_value)
 
     if 0:
@@ -113,7 +113,8 @@ if rank == 0:
 
     print 'Ref value of previous calculation', ref_value
     print 'Value in this calculation', dvz1
-    
+
+    # fine grid needed to achieve convergence!
     print 'Error', err1, err2
-    assert err1 < 4e-3
-    assert err2 < 2e-4
+    assert err1 < 5e-3, err1
+    assert err2 < 2e-4, err2

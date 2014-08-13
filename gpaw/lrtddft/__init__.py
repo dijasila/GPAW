@@ -22,7 +22,9 @@ from gpaw.utilities import packed_index
 from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
 from gpaw.xc.hybridk import HybridXC
+from gpaw.utilities.timing import Timer, nulltimer
 from gpaw.lrtddft.spectrum import spectrum
+from gpaw.wavefunctions.fd import FDWaveFunctions
 
 __all__ = ['LrTDDFT', 'photoabsorption_spectrum', 'spectrum']
 
@@ -54,67 +56,84 @@ class LrTDDFT(ExcitationList):
     filename:
     read from a file
     """
-    def __init__(self,
-                 calculator=None,
-                 nspins=None,
-                 eps=0.001,
-                 istart=0,
-                 jend=None,
-                 energy_range=None,
-                 xc='GS',
-                 derivative_level=1,
-                 numscale=0.00001,
-                 txt=None,
-                 filename=None,
-                 finegrid=2,
-                 force_ApmB=False, # for tests
-                 eh_comm=None # parallelization over eh-pairs
-                 ):
+    def __init__(self, calculator=None, **kwargs):
+        
+        self.timer = Timer()
 
-        self.nspins = None
-        self.istart = None
-        self.jend = None
+        self.set(**kwargs)
 
         if isinstance(calculator, str):
-            ExcitationList.__init__(self, None, txt)
-            return self.read(calculator)
+            ExcitationList.__init__(self, None, self.txt)
+            self.filename = calculator
         else:
-            ExcitationList.__init__(self, calculator, txt)
+            ExcitationList.__init__(self, calculator, self.txt)
 
-        if filename is not None:
-            return self.read(filename)
+        if self.filename is not None:
+            return self.read(self.filename)
 
-        self.filename = None
-        self.calculator = None
-        self.eps = None
-        self.xc = None
-        self.derivative_level = None
-        self.numscale = numscale
-        self.finegrid = finegrid
-        self.force_ApmB = force_ApmB
-
-        if eh_comm is None:
-            eh_comm = mpi.serial_comm
-        elif isinstance(eh_comm, (mpi.world.__class__,
-                                mpi.serial_comm.__class__)):
+        if self.eh_comm is None:
+            self.eh_comm = mpi.serial_comm
+        elif isinstance(self.eh_comm, (mpi.world.__class__,
+                                       mpi.serial_comm.__class__)):
             # Correct type already.
             pass
         else:
             # world should be a list of ranks:
-            eh_comm = mpi.world.new_communicator(np.asarray(eh_comm))
-
-        self.eh_comm = eh_comm
+            self.eh_comm = mpi.world.new_communicator(np.asarray(eh_comm))
  
-        if calculator is not None:
-            if xc == 'GS':
-                xc = calculator.hamiltonian.xc.name
+        if calculator is not None and calculator.initialized:
+            if not isinstance(calculator.wfs, FDWaveFunctions):
+                raise RuntimeError('Linear response TDDFT supported only in real space mode')
+            if calculator.wfs.kpt_comm.size > 1:
+                err_txt = "Spin parallelization with Linear response "
+                err_txt += "TDDFT. Use parallel = {'domain' : 'domain_only'} "
+                err_txt += "calculator parameter."
+                raise NotImplementedError(err_txt)
+            if self.xc == 'GS':
+                self.xc = calculator.hamiltonian.xc.name
             calculator.converge_wave_functions()
             if calculator.density.nct_G is None:
-                calculator.set_positions()
+                spos_ac = calculator.initialize_positions()
+                calculator.wfs.initialize(calculator.density, 
+                                          calculator.hamiltonian, spos_ac)
 
-            self.update(calculator, nspins, eps, 
-                        istart, jend, energy_range,
-                        xc, derivative_level, numscale)
+            self.update(calculator)
+
+    def set(self, **kwargs):
+
+        defaults = {
+            'nspins' : None,
+            'eps' : 0.001,
+            'istart' : 0,
+            'jend' : None,
+            'energy_range' : None,
+            'xc' : 'GS',
+            'derivative_level' : 1,
+            'numscale' : 0.00001,
+            'txt' : None,
+            'filename' : None,
+            'finegrid' : 2,
+            'force_ApmB' : False, # for tests
+            'eh_comm' : None # parallelization over eh-pairs
+            }
+
+        changed = False
+        for key, value in defaults.items():
+            if hasattr(self, key):
+                value = getattr(self, key)  # do not overwrite
+            setattr(self, key, kwargs.pop(key, value))
+            if value != getattr(self, key):
+                changed = True
+
+        for key in kwargs:
+            raise KeyError('Unknown key ' + key)
+
+        return changed
+
+    def set_calculator(self, calculator):
+        self.calculator = calculator
+#        self.force_ApmB = parameters['force_ApmB']
+        self.force_ApmB = None # XXX
 
     def analyse(self, what=None, out=None, min=0.1):
         """Print info about the transitions.
@@ -135,36 +154,15 @@ class LrTDDFT(ExcitationList):
         for i in what:
             print >> out, str(i) + ':', self[i].analyse(min=min)
             
-    def update(self,
-               calculator=None,
-               nspins=None,
-               eps=0.001,
-               istart=0,
-               jend=None,
-               energy_range=None,
-               xc=None,
-               derivative_level=None,
-               numscale=0.001):
+    def update(self, calculator=None, **kwargs):
 
-        changed = False
-        if self.calculator != calculator or \
-           self.nspins != nspins or \
-           self.eps != eps or \
-           self.istart != istart or \
-           self.jend != jend :
+        changed = self.set(**kwargs)
+        if calculator is not None:
             changed = True
+            self.set_calculator(calculator)
 
-        if not changed: return
-
-        self.calculator = calculator
-        self.nspins = nspins
-        self.eps = eps
-        self.istart = istart
-        self.jend = jend
-        self.energy_range = energy_range
-        self.xc = xc
-        self.derivative_level = derivative_level
-        self.numscale = numscale
+        if not changed:
+            return
 
         self.forced_update()
 
@@ -179,7 +177,7 @@ class LrTDDFT(ExcitationList):
                 if hasattr(xc, 'hybrid') and xc.hybrid > 0.0:
                     Om = ApmB
                     name = 'LrTDDFThyb'
-                    nonselfconsistent_xc = HybridXC('PBE0', alpha=5.0)
+#                    nonselfconsistent_xc = HybridXC('PBE0', alpha=5.0)
         else:
             Om = ApmB
             name = 'LrTDDFThyb'
@@ -199,17 +197,25 @@ class LrTDDFT(ExcitationList):
                      txt=self.txt)
         self.name = name
 
-    def diagonalize(self, istart=None, jend=None, energy_range=None):
-        self.Om.diagonalize(istart, jend, energy_range)
+    def diagonalize(self, istart=None, jend=None, 
+                    energy_range=None, TDA=False):
+        self.timer.start('diagonalize')
+        self.timer.start('omega')
+        self.Om.diagonalize(istart, jend, energy_range, TDA)
+        self.timer.stop('omega')
         
         # remove old stuff
+        self.timer.start('clean')
         while len(self): self.pop()
+        self.timer.stop('clean')
 
         print >> self.txt, 'LrTDDFT digonalized:'
+        self.timer.start('build')
         for j in range(len(self.Om.kss)):
-            self.append(LrTDDFTExcitation(self.Om,j))
+            self.append(LrTDDFTExcitation(self.Om, j))
             print >> self.txt, ' ', str(self[-1])
-            
+        self.timer.stop('build')
+        self.timer.stop('diagonalize')
 
     def get_Om(self):
         return self.Om
@@ -265,10 +271,14 @@ class LrTDDFT(ExcitationList):
             # load the eigenvalues
             n = int(f.readline().split()[0])
             for i in range(n):
-                l = f.readline().split()
-                E = float(l[0])
-                me = np.array([float(l[1]), float(l[2]), float(l[3])])
-                self.append(LrTDDFTExcitation(e=E, m=me))
+                self.append(LrTDDFTExcitation(string=f.readline()))
+            # load the eigenvectors
+            f.readline()
+            for i in range(n):
+                values = f.readline().split()
+                weights = [float(val) for val in values]
+                self[i].f = np.array(weights)
+                self[i].kss = self.kss
 
         if fh is None:
             f.close()
@@ -281,12 +291,14 @@ class LrTDDFT(ExcitationList):
     def singlets_triplets(self):
         """Split yourself into a singlet and triplet object"""
 
-        slr = LrTDDFT(None, self.nspins, self.eps,
-                      self.istart, self.jend, self.xc, 
-                      self.derivative_level, self.numscale)
-        tlr = LrTDDFT(None, self.nspins, self.eps,
-                      self.istart, self.jend, self.xc, 
-                      self.derivative_level, self.numscale)
+        slr = LrTDDFT(None, nspins=self.nspins, eps=self.eps,
+                      istart=self.istart, jend=self.jend, xc=self.xc, 
+                      derivative_level=self.derivative_level, 
+                      numscale=self.numscale)
+        tlr = LrTDDFT(None, nspins=self.nspins, eps=self.eps,
+                      istart=self.istart, jend=self.jend, xc=self.xc, 
+                      derivative_level=self.derivative_level, 
+                      numscale=self.numscale)
         slr.Om, tlr.Om = self.Om.singlets_triplets()
         for lr in [slr, tlr]:
             lr.kss = lr.Om.fullkss
@@ -305,7 +317,7 @@ class LrTDDFT(ExcitationList):
     def __str__(self):
         string = ExcitationList.__str__(self)
         string += '# derived from:\n'
-        string += self.kss.__str__()
+        string += self.Om.kss.__str__()
         return string
 
     def write(self, filename=None, fh=None):
@@ -378,7 +390,12 @@ def d2Excdn2(den):
 
 class LrTDDFTExcitation(Excitation):
     def __init__(self, Om=None, i=None,
-                 e=None, m=None):
+                 e=None, m=None, string=None):
+
+        if string is not None: 
+            self.fromstring(string)
+            return None
+
         # define from the diagonalized Omega matrix
         if Om is not None:
             if i is None:
@@ -392,26 +409,35 @@ class LrTDDFTExcitation(Excitation):
                 self.energy = sqrt(ev)
             self.f = Om.eigenvectors[i]
             self.kss = Om.kss
-            self.me = 0.
-            self.mur = 0.
-            self.muv = 0.
-            self.magn = 0.
-            for f, k in zip(self.f, self.kss):
-                self.me += f * k.me
-                erat = np.sqrt(k.energy / self.energy)
-                wght = np.sqrt(k.fij) * f
-                self.mur += k.mur * erat * wght
-                self.muv += k.muv * erat * wght
-                self.magn += k.magn / erat * wght
+
+            self.kss.set_arrays()
+            self.me = np.dot(self.f, self.kss.me)
+            erat_k = np.sqrt(self.kss.energies / self.energy)
+            wght_k = np.sqrt(self.kss.fij) * self.f
+            ew_k = erat_k * wght_k
+            self.mur = np.dot(ew_k, self.kss.mur)
+            if self.kss.muv is not None:
+                self.muv = np.dot(ew_k, self.kss.muv)
+            else:
+                self.muv = None
+            if self.kss.magn is not None:
+                self.magn = np.dot(1. / ew_k, self.kss.magn)
+            else:
+                self.magn = None
 
             return
 
         # define from energy and matrix element
         if e is not None:
-            if m is None:
-                raise RuntimeError
             self.energy = e
-            self.me = m
+            if m is None:
+                if mur is None or muv is None or magn is None:
+                    raise RuntimeError
+                self.mur = mur
+                self.muv = muv
+                self.magn = magn
+            else:
+                self.me = m
             return
 
         raise RuntimeError
@@ -420,14 +446,28 @@ class LrTDDFTExcitation(Excitation):
         """get the density change associated with this transition"""
         raise NotImplementedError
 
+    def fromstring(self, string):
+        l = string.split()
+        self.energy = float(l.pop(0))
+        if len(l) == 3: # old writing style
+            self.me = np.array([float(l.pop(0)) for i in range(3)])
+        else:
+            self.mur = np.array([float(l.pop(0)) for i in range(3)])
+            self.me = - self.mur * sqrt(self.energy)
+            self.muv = np.array([float(l.pop(0)) for i in range(3)])
+            self.magn = np.array([float(l.pop(0)) for i in range(3)])
+
     def outstring(self):
         str = '%g ' % self.energy
         str += '  '
-        for m in self.me:
-            str += ' %g' % m
+        for m in self.mur: str += '%12.4e' % m
+        str += '  '
+        for m in self.muv: str += '%12.4e' % m
+        str += '  '
+        for m in self.magn: str += '%12.4e' % m
         str += '\n'
         return str
-        
+
     def __str__(self):
         m2 = np.sum(self.me * self.me)
         m = sqrt(m2)
@@ -441,8 +481,9 @@ class LrTDDFTExcitation(Excitation):
 
     def analyse(self,min=.1):
         """Return an analysis string of the excitation"""
-        s='E=%.3f'%(self.energy * Hartree)+' eV, f=%.3g'\
-           %(self.get_oscillator_strength()[0])+'\n'
+        s=('E=%.3f' % (self.energy * Hartree) + ' eV, ' +
+           'f=%.5g' % self.get_oscillator_strength()[0] + ', ' +
+           'R=%.5g' % self.get_rotatory_strength() + ' cgs\n')
 
         def sqr(x): return x*x
         spin = ['u','d'] 

@@ -35,11 +35,11 @@ understand, and run the script.
 
 * Can you think of a third type of diffusion process?  Hint: it is
   called an exchange process.  Find the barrier for this process, and
-  compare the energy barrier with the two other ones.
+  compare the energy barrier with the two other ones. (If you give up look at :svn:`~doc/exercises/neb/neb3.py`)
 
 .. hint::
 
-  When opening a trajectory in :program:`ag` with calculated energies, the
+  When opening a trajectory in :program:`ase-gui` with calculated energies, the
   default plot window shows the energy versus frame number.  To get a
   better feel of the energy barrier in an NEB calculation; choose
   :menuselection:`Tools --> NEB`. This will give a smooth curve

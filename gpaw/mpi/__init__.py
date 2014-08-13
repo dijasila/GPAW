@@ -654,8 +654,10 @@ def distribute_cpus(parsize_domain, parsize_bands,
 def compare_atoms(atoms, comm=world):
     """Check whether atoms objects are identical on all processors."""
     # Construct fingerprint:
+    # ASE may return slightly different atomic positions (e.g. due
+    # to MKL) so compare only first 8 decimals of positions
     fingerprint = np.array([md5_array(array, numeric=True) for array in
-                             [atoms.positions,
+                             [atoms.positions.round(8),
                               atoms.cell,
                               atoms.pbc * 1.0,
                               atoms.get_initial_magnetic_moments()]])
@@ -679,6 +681,8 @@ def compare_atoms(atoms, comm=world):
             itemdata.dump('%s_r%04d_%s.pickle' % (dumpfile, comm.rank, 
                                                   itemname))
 
+    # Use only the atomic positions from rank 0
+    comm.broadcast(atoms.positions, 0)
     return not mismatches.any()
 
 def broadcast(obj, root=0, comm=world):
@@ -722,6 +726,41 @@ def receive_string(rank, comm=world):
     string = np.empty(n, np.int8)
     comm.receive(string, rank)
     return string.tostring()
+
+def alltoallv_string(send_dict, comm=world):
+    scounts = np.zeros(comm.size, dtype=np.int)
+    sdispls = np.zeros(comm.size, dtype=np.int)
+    stotal = 0
+    for proc in range(comm.size):
+        if proc in send_dict:
+            data = np.fromstring(send_dict[proc],np.int8)
+            scounts[proc] = data.size
+            sdispls[proc] = stotal
+            stotal += scounts[proc]
+
+    rcounts = np.zeros(comm.size, dtype=np.int)
+    comm.alltoallv( scounts, np.ones(comm.size, dtype=np.int), np.arange(comm.size, dtype=np.int),
+                    rcounts, np.ones(comm.size, dtype=np.int), np.arange(comm.size, dtype=np.int) )
+    rdispls = np.zeros(comm.size, dtype=np.int)
+    rtotal = 0
+    for proc in range(comm.size):
+        rdispls[proc] = rtotal
+        rtotal += rcounts[proc]
+        rtotal += rcounts[proc]
+
+
+    sbuffer = np.zeros(stotal, dtype=np.int8)
+    for proc in range(comm.size):
+        sbuffer[sdispls[proc]:(sdispls[proc]+scounts[proc])] = np.fromstring(send_dict[proc],np.int8)
+
+    rbuffer = np.zeros(rtotal, dtype=np.int8)
+    comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls)
+
+    rdict = {}
+    for proc in range(comm.size):
+        rdict[proc] = rbuffer[rdispls[proc]:(rdispls[proc]+rcounts[proc])].tostring()
+
+    return rdict
 
 def ibarrier(timeout=None, root=0, tag=123, comm=world):
     """Non-blocking barrier returning a list of requests to wait for.
@@ -767,21 +806,137 @@ def run(iterators):
         except StopIteration:
             return results
 
+class Parallelization:
+    def __init__(self, comm, nspinkpts):
+        self.comm = comm
+        self.size = comm.size
+        self.nspinkpts = nspinkpts
+        
+        self.kpt = None
+        self.domain = None
+        self.band = None
+        
+        self.nclaimed = 1
+        self.navail = comm.size
+
+    def set(self, kpt=None, domain=None, band=None):
+        if kpt is not None:
+            self.kpt = kpt
+        if domain is not None:
+            self.domain = domain
+        if band is not None:
+            self.band = band
+        
+        nclaimed = 1
+        for group, name in zip([self.kpt, self.domain, self.band], 
+                               ['k-point', 'domain', 'band']):
+            if group is not None:
+                if self.size % group != 0:
+                    msg = ('Cannot paralllize as the '
+                           'communicator size %d is not divisible by the '
+                           'requested number %d of ranks for %s '
+                           'parallelization' % (self.size, group, name))
+                    raise ValueError(msg)
+                nclaimed *= group
+        navail = self.size // nclaimed
+        
+        assert self.size % nclaimed == 0
+        assert self.size % navail == 0
+
+        self.navail = navail
+        self.nclaimed = nclaimed        
+
+    def get_communicator_sizes(self, kpt=None, domain=None, band=None):
+        self.set(kpt=kpt, domain=domain, band=band)
+        self.autofinalize()
+        return self.kpt, self.domain, self.band
+
+    def build_communicators(self, kpt=None, domain=None, band=None):
+        self.set(kpt=kpt, domain=domain, band=band)
+        self.autofinalize()
+        
+        comm = self.comm
+        rank = comm.rank
+        communicators = {}
+        parent_stride = self.size
+        offset = 0
+
+        # Build communicators in hierachical manner
+        # The ranks in the first group have largest separation while
+        # the ranks in the last group are next to each other
+        for group, name in zip([self.kpt, self.band, self.domain], 
+                               ['k-point', 'band', 'domain']):
+            stride = parent_stride // group
+            # First rank in this group
+            r0 = rank % stride + offset
+            # Last rank in this group
+            r1 = r0 + stride * group
+            ranks = np.arange(r0, r1, stride)
+            communicators[name] = comm.new_communicator(ranks)
+            parent_stride = stride
+            # Offset for the next communicator
+            offset += communicators[name].rank * stride
+
+        # return domain_comm, kpt_comm, band_comm
+        return (communicators['domain'], communicators['k-point'], 
+                communicators['band'])
+
+        return domain_comm, kpt_comm, band_comm
+    
+    def autofinalize(self):
+        if self.kpt is None:
+            self.set(kpt=self.get_optimal_kpt_parallelization())
+        if self.domain is None:
+            self.set(domain=self.navail)
+        if self.band is None:
+            self.set(band=self.navail)
+
+        if self.navail > 1:
+            raise RuntimeError('All the CPUs must be used')
+    
+    def get_optimal_kpt_parallelization(self, kptprioritypower=1.4):
+        if self.domain and self.band:
+            # Try to use all the CPUs for k-point parallelization
+            ncpus = min(self.nspinkpts, self.navail)
+            return ncpus
+        ncpuvalues, wastevalues = self.find_kpt_parallelizations()
+        scores = ((self.navail // ncpuvalues) 
+                  * ncpuvalues**kptprioritypower)**(1.0 - wastevalues)
+        arg = np.argmax(scores)
+        ncpus = ncpuvalues[arg]
+        return ncpus
+
+    def find_kpt_parallelizations(self):
+        nspinkpts = self.nspinkpts
+        ncpuvalues = []
+        wastevalues = []
+        
+        ncpus = nspinkpts
+        while ncpus > 0:
+            if self.navail % ncpus == 0:
+                nkptsmin = nspinkpts // ncpus
+                nkptsmax = -(-nspinkpts // ncpus)
+                effort = nkptsmax * ncpus
+                efficiency = nspinkpts / float(effort)
+                waste = 1.0 - efficiency
+                wastevalues.append(waste)
+                ncpuvalues.append(ncpus)
+            ncpus -= 1
+        return np.array(ncpuvalues), np.array(wastevalues)
+
+
 def cleanup():
     error = getattr(sys, 'last_type', None)
     if error is not None: # else: Python script completed or raise SystemExit
         if parallel and not (dry_run_size > 1):
             sys.stdout.flush()
-            sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  ' +
-                          'Calling MPI_Abort!\n') % (world.rank, error))
+            sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  '
+                              'Calling MPI_Abort!\n') % (world.rank, error))
             sys.stderr.flush()
             # Give other nodes a moment to crash by themselves (perhaps
             # producing helpful error messages)
             time.sleep(10)
             world.abort(42)
-        else:
-            sys.stderr.write(('GPAW CLEANUP for serial binary: %s occured. ' +
-                              'Calling sys.exit()\n') % error)
 
 def exit(error='Manual exit'):
     # Note that exit must be called on *all* MPI tasks

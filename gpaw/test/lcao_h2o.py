@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from ase import Atom, Atoms
 from gpaw import GPAW
 from gpaw.test import equal
@@ -14,7 +13,7 @@ mol.set_calculator(calc)
 e = mol.get_potential_energy()
 niter = calc.get_number_of_iterations()
 
-eref = -10.39054
+eref = -10.266984
 err = abs(e - eref)
 
 print 'Energy', e
@@ -23,4 +22,4 @@ print 'Err', err
 
 assert err < 1e-4
 
-equal(niter, 8, 0)
+equal(niter, 8, 1)

@@ -4,6 +4,12 @@
 Time-propagation TDDFT
 ======================
 
+Optical photoabsorption spectrum as well as nonlinear effects can be
+studied using time propagation TDDFT. This approach
+scales better than linear response, but the prefactor is so large that
+for small and moderate systems linear response is significantly
+faster.
+
 
 ------------
 Ground state
@@ -65,7 +71,7 @@ Optical photoabsorption spectrum can be obtained by applying a weak
 delta pulse of dipole electric field, and then letting the system evolve
 freely while recording the dipole moment. A time-step around 4.0-8.0
 attoseconds is reasonable. The total simulation time should be few tens
-of picoseconds depending on the desired resolution.
+of femtoseconds depending on the desired resolution.
 
 
 Example::

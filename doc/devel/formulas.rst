@@ -2,8 +2,6 @@
 Formulas
 ========
 
-.. default-role:: math
-
 
 Coulomb
 =======

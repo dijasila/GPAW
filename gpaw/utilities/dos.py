@@ -1,6 +1,6 @@
 from math import pi, sqrt
 import numpy as np
-from ase.units import Hartree, Bohr
+from ase.units import Hartree
 from ase.parallel import paropen
 from gpaw.utilities import pack
 from gpaw.analyse.wignerseitz import wignerseitz
@@ -40,6 +40,26 @@ def print_projectors(setup):
                 n = '*'
             print '%2s %s %s_%s' % (i, n, 'spdf'[l], angular[l][m])
             i += 1
+
+def number_of_projectors(setup):
+    """Returns the number of the bound state projectors.
+
+    If setup is a string, treat this as an element name.
+    """
+    if type(setup) is str:
+        setup = SetupData(setup, 'LDA', 'paw')
+        n_j = setup.n_j
+        l_j = setup.l_j
+    else:
+        n_j = setup.n_j
+        l_j = setup.l_j
+    
+    i = 0
+    for n, l in zip(n_j, l_j):
+        for m in range(2*l+1):
+            if n != -1:
+                i += 1
+    return i
 
 def get_angular_projectors(setup, angular, type='bound'):
     """Determine the projector indices which have specified angula
@@ -171,13 +191,10 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
         P_kn /= sqrt(N)
 
     else:
-        wf_k = np.array(wf_k)
         P_aui = [np.array(P_ui).conj() for P_ui in P_aui]
         for k, kpt in enumerate(paw.wfs.kpt_u[spin * nk:(spin + 1) * nk]):
-            w = np.reshape(wf_k.conj()[kpt.k], -1)
             for n in range(nb):
-                psit_nG = np.reshape(kpt.psit_nG[n], -1)
-                P_kn[k][n] = np.dot(w, psit_nG) * paw.wfs.gd.dv * Bohr**1.5
+                P_kn[k][n] = paw.wfs.integrate(wf_k[k], kpt.psit_nG[n])
                 for a, b in zip(mol, range(len(mol))):
                     atom = paw.wfs.setups[a]
                     p_i = kpt.P_ani[a][n]
@@ -185,10 +202,7 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
                         for j in range(len(p_i)):
                             P_kn[k][n] += (P_aui[b][spin*nk + k][i] *
                                            atom.dO_ii[i][j] * p_i[j])
-                #print n, abs(P_un)[u][n]**2
-
-            # XXX ??? why not print to paw.txt
-            print 'Kpoint', k, ' Sum: ',  sum(abs(P_kn[k])**2)
+            print '# k', k, ' Sum_m |<m|n>|^2 =',  sum(abs(P_kn[k])**2)
           
     energies = np.empty(nb * nk)
     weights = np.empty(nb * nk)
@@ -197,7 +211,7 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
         energies[x:x + nb] = paw.wfs.collect_eigenvalues(k=k, s=spin)
         weights[x:x + nb] = w * abs(P_kn[k])**2
         x += nb
-    #print weights
+        
     return energies, weights
 
 def get_all_electron_IPR(paw):
@@ -490,3 +504,85 @@ class RawLDOS:
         """
         ldbe = self.by_element()
         self.to_file(ldbe, filename, width, shift, bound)
+
+
+class LCAODOS:
+    """Class for calculating the projected subspace DOS.
+
+    The projected subspace density of states is defined only in LCAO
+    mode.  The advantages to the PDOS based on projectors is that the
+    LCAODOS will properly take non-orthogonality and completeness into
+    account."""
+    def __init__(self, calc):
+        self.calc = calc
+
+    def get_orbital_pdos(self, M, ravel=True):
+        """Get projected DOS from LCAO basis function M."""
+        return self.get_subspace_pdos([M], ravel=ravel)
+    
+    def get_atomic_subspace_pdos(self, a, ravel=True):
+        """Get projected subspace DOS from LCAO basis on atom a."""
+        M = self.calc.wfs.basis_functions.M_a[a]
+        Mvalues = range(M, M + self.calc.wfs.setups[a].nao)
+        return self.get_subspace_pdos(Mvalues, ravel=ravel)
+
+    def get_subspace_pdos(self, Mvalues, ravel=True):
+        """Get projected subspace DOS from LCAO basis."""
+        wfs = self.calc.wfs
+        bd = wfs.bd
+        kd = wfs.kd
+        gd = wfs.gd
+        
+        for kpt in wfs.kpt_u:
+            assert not np.isnan(kpt.eps_n).any()
+
+        w_skn = np.zeros((kd.nspins, kd.nks, bd.nbands))
+        eps_skn = np.zeros((kd.nspins, kd.nks, bd.nbands))
+        for u, kpt in enumerate(wfs.kpt_u):
+            C_nM = kpt.C_nM
+            from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
+            if isinstance(wfs.ksl, BlacsOrbitalLayouts):
+                S_MM = wfs.ksl.mmdescriptor.collect_on_master(kpt.S_MM)
+                if bd.rank != 0 or gd.rank != 0:
+                    S_MM = np.empty((wfs.ksl.nao, wfs.ksl.nao),
+                                    dtype=wfs.dtype)
+                bd.comm.broadcast(S_MM, 0)
+            else:
+                S_MM = kpt.S_MM
+            
+            if gd.comm.rank == 0:
+                S_mm = S_MM[Mvalues, :][:, Mvalues].copy()
+                iS_mm = np.linalg.inv(S_mm).copy()
+                CS_nm = np.dot(C_nM, S_MM[:, Mvalues])
+                CSiS_nm = np.dot(CS_nm, iS_mm)
+                w_n = (np.conj(CS_nm) * CSiS_nm).sum(axis=1) * kpt.weight
+                w_skn[kpt.s, kpt.k, bd.beg:bd.end:bd.step] = w_n.real
+                eps_skn[kpt.s, kpt.k, bd.beg:bd.end:bd.step] = kpt.eps_n
+        
+        for arr in [eps_skn, w_skn]:
+            gd.comm.broadcast(arr, 0)
+            bd.comm.sum(arr)
+            kd.comm.sum(arr)
+
+        if ravel:
+            eps_n = eps_skn.ravel()
+            w_n = w_skn.ravel()
+            args = np.argsort(eps_n)
+            eps_n = eps_n[args]
+            w_n = w_n[args]
+            return eps_n, w_n
+        else:
+            return eps_skn, w_skn
+
+
+class RestartLCAODOS(LCAODOS):
+    """Class for calculating LCAO subspace PDOS from a restarted calculator.
+
+    Warning: This has side effects on the calculator.  The
+    operation will allocate memory to diagonalize the Hamiltonian and
+    set coefficients plus positions."""
+    def __init__(self, calc):
+        LCAODOS.__init__(self, calc)
+        system = calc.get_atoms()
+        calc.set_positions(system)
+        calc.wfs.eigensolver.iterate(calc.hamiltonian, calc.wfs)

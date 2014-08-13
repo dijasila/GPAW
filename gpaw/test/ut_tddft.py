@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 
 import os, sys, time
 import numpy as np
@@ -58,6 +57,7 @@ class UTGroundStateSetup(TestCase):
         ngpts = 16 * np.round(cell_c / (self.h * 16))
         self.gsname = 'ut_tddft_gs'
         self.gscalc = GPAW(gpts=ngpts, nbands=self.nbands, basis='dzp',
+                           setups={'Na': '1'},
                            spinpol=(self.nspins==2), parallel=self.parallel,
                            txt=self.gsname + '.txt')
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import sys
@@ -627,6 +626,8 @@ class AllElectronAtom:
                 plt.plot(self.rgd.r_g, fr_g,
                          ls=ls, lw=lw, color=colors[n + ch.l], label=name)
         plt.legend(loc='best')
+        plt.xlabel('r [Bohr]')
+        plt.ylabel('$r\\phi(r)$')
         plt.axis(xmax=rc)
         plt.show()
 

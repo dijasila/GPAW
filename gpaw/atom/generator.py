@@ -84,7 +84,6 @@ class Generator(AllElectron):
         while empty_states != '':
             n = int(empty_states[0])
             l = 'spdf'.find(empty_states[1])
-            print l_j
             assert n == 1 + l + l_j.count(l)
             n_j.append(n)
             l_j.append(l)
@@ -238,6 +237,7 @@ class Generator(AllElectron):
             t('rc(%s)=%.3f' % (s, rc))
         t('rc(vbar)=%.3f' % rcutvbar)
         t('rc(comp)=%.3f' % rcutcomp)
+        t('rc(nct)=%.3f' % rcutmax)
         t()
         t('Kinetic energy of the core states: %.6f' % Ekincore)
 
@@ -387,6 +387,7 @@ class Generator(AllElectron):
         self.gamma = gamma = 10.0
         gaussian[:gmax] = np.exp(-gamma * x[:gmax]**2)
         gt = 4 * (gamma / rcutcomp**2)**1.5 / sqrt(pi) * gaussian
+        t('Shape function alpha=%.3f' % (gamma / rcutcomp**2))
         norm = np.dot(gt, dv)
         #print norm, norm-1
         assert abs(norm - 1) < 1e-2
@@ -1022,7 +1023,7 @@ if __name__ == '__main__':
     from gpaw.atom.basis import BasisMaker
     from gpaw.atom.configurations import parameters
 
-    for xcname in ['LDA', 'PBE', 'RPBE', 'revPBE']:
+    for xcname in ['LDA', 'PBE', 'RPBE', 'revPBE', 'GLLBSC']:
         for symbol, par in parameters.items():
             filename = symbol + '.' + xcname
             if os.path.isfile(filename) or os.path.isfile(filename + '.gz'):

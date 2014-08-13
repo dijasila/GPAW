@@ -30,6 +30,7 @@ for fg in fgl:
         tstr = 'Exx on coarse grid'
     timer.start(tstr)
     calc = GPAW(h=0.3,
+                eigensolver='rmm-diis',
                 xc='PBE',
                 nbands=4,
                 convergence={'eigenstates': 1e-4},

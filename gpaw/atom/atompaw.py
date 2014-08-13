@@ -58,11 +58,15 @@ class AtomPoissonSolver:
         vHt_g[:] = 4 * pi * (p - 0.5 * dp - (q - 0.5 * dq - q[0]) / r)
         return 1
     
+
 class AtomEigensolver:
     def __init__(self, gd, f_sln):
         self.gd = gd
         self.f_sln = f_sln
         self.error = 0.0
+        self.initialized = False
+
+    def reset(self):
         self.initialized = False
         
     def initialize(self, wfs):
@@ -142,6 +146,7 @@ class AtomEigensolver:
                         i1 = i2
                     N1 = N2
                     
+
 class AtomLocalizedFunctionsCollection:
     def __init__(self, gd, spline_aj):
         self.gd = gd
@@ -164,6 +169,7 @@ class AtomLocalizedFunctionsCollection:
         c_ai[0][0] = self.gd.integrate(a_g, self.b_g)
         c_ai[0][1:] = 0.0
 
+
 class AtomBasisFunctions:
     def __init__(self, gd, phit_j):
         self.gd = gd
@@ -184,6 +190,7 @@ class AtomBasisFunctions:
         for b_g, l in self.bl_j:
             nt_sG += f_asi[0][:, i:i + 1] * (2 * l + 1) / 4 / pi * b_g**2
             i += 2 * l + 1
+
 
 class AtomGridDescriptor(EquidistantRadialGridDescriptor):
     def __init__(self, h, rcut):
@@ -216,7 +223,8 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
         pass
     def get_grid_spacings(self):
         return self.h_cv.diagonal()
-    
+    def get_size_of_global_array(self):
+        return np.array(len(self.N_c))
 
 class AtomOccupations(OccupationNumbers):
     def __init__(self, f_sln):
@@ -238,6 +246,7 @@ class AtomOccupations(OccupationNumbers):
 
     def get_fermi_level(self):
         raise ValueError
+
 
 class AtomPAW(GPAW):
     def __init__(self, symbol, f_sln, h=0.05, rcut=10.0, **kwargs):

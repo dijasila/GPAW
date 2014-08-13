@@ -12,7 +12,7 @@ ref1 = 'R. v. Leeuwen PhysRevA 49, 2421 (1994)'
 ref2 = 'Gritsenko IntJQuanChem 76, 407 (2000)'
 # HOMO energy in mHa for closed shell atoms
 e_HOMO_cs = { 'He': 851, 'Be': 321, 'Ne': 788,
-              'Ar': 577, 'Kr': 529,# 'Xe': 474,
+              'Ar': 577, 'Kr': 529, 'Xe': 474,
               'Mg' : 281 + 8 }
 #e_HOMO_cs = { 'Ne': 788 }
 txt=None
@@ -49,8 +49,9 @@ for atom in e_HOMO_cs.keys():
     
     SS = Atoms([Atom(atom)], cell=(7, 7, 7), pbc=False)
     SS.center()
-    c = GPAW(h=.3, xc='LB94',
-             nbands=-2, txt=txt)
+    c = GPAW(h=.3, xc='LB94', nbands=-2, txt=txt)
+    if atom in ['Mg']:
+        c.set(eigensolver='cg')
     c.calculate(SS)
     # find HOMO energy
     eps_n = c.get_eigenvalues(kpt=0, spin=0) / 27.211
@@ -86,8 +87,9 @@ for atom in e_HOMO_os.keys():
 
     SS = Atoms([Atom(atom, magmom=magmom)], cell=(7, 7, 7), pbc=False)
     SS.center()
-    c = GPAW(h=.3, xc='LB94', nbands=-2, spinpol=True,
-                   fixmom=True, txt=txt)
+    # fine grid needed for convergence!
+    c = GPAW(h=.2, xc='LB94', nbands=-2, spinpol=True,
+             hund=True, fixmom=True, txt=txt)
     c.calculate(SS)
     # find HOMO energy
     eps_n = c.get_eigenvalues(kpt=0, spin=0) / 27.211

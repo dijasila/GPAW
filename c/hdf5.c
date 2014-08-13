@@ -331,7 +331,7 @@ PyObject* h5s_select_hyperslab(PyObject *self, PyObject *args)
   // None can be passed to indicate use of default values e.g. NULL for
   // stride and block
   long* temp = PyArray_DATA(np_offset);
-  int rank = np_offset->dimensions[0];
+  int rank = PyArray_DIMS(np_offset)[0];
   hsize_t* offset = (hsize_t *) malloc(rank * sizeof(hsize_t));
   for (int i=0; i < rank; i++)
     offset[i] = temp[i];
@@ -672,9 +672,9 @@ static PyMethodDef functions[] = {
   {0, 0, 0, 0}
 };
 
-PyMODINIT_FUNC init_hdf5(void) 
+PyMODINIT_FUNC init_gpaw_hdf5(void) 
 { 
-  PyObject *m = Py_InitModule("_hdf5",functions); 
+  PyObject *m = Py_InitModule("_gpaw_hdf5",functions); 
   // Set some hdf5 constants as attributes
   PyModule_AddIntConstant(m, "H5T_FLOAT", H5T_FLOAT);
   PyModule_AddIntConstant(m, "H5T_INTEGER", H5T_INTEGER);

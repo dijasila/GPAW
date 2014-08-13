@@ -66,14 +66,15 @@ def gemm(alpha, a, b, beta, c, transa='n'):
     assert (a.dtype == float and b.dtype == float and c.dtype == float and
             isinstance(alpha, float) and isinstance(beta, float) or
             a.dtype == complex and b.dtype == complex and c.dtype == complex)
-    assert a.flags.contiguous
     if transa == 'n':
+        assert a.size == 0 or a[0].flags.contiguous
         assert c.flags.contiguous or c.ndim == 2 and c.strides[1] == c.itemsize
         assert b.ndim == 2
         assert b.strides[1] == b.itemsize
         assert a.shape[0] == b.shape[1]
         assert c.shape == b.shape[0:1] + a.shape[1:]
     else:
+        assert a.flags.contiguous
         assert b.size == 0 or b[0].flags.contiguous
         assert c.strides[1] == c.itemsize
         assert a.shape[1:] == b.shape[1:]
@@ -158,7 +159,7 @@ def czher(alpha, x, a):
     _gpaw.czher(alpha, x, a)
 
 
-def rk(alpha, a, beta, c):
+def rk(alpha, a, beta, c, trans='c'):
     """Rank-k update of a matrix.
 
     Performs the operation::
@@ -185,9 +186,12 @@ def rk(alpha, a, beta, c):
             a.dtype == complex and c.dtype == complex)
     assert a.flags.contiguous
     assert a.ndim > 1
-    assert c.shape == (a.shape[0], a.shape[0])
+    if trans == 'n':
+        assert c.shape == (a.shape[1], a.shape[1])
+    else:
+        assert c.shape == (a.shape[0], a.shape[0])
     assert c.strides[1] == c.itemsize
-    _gpaw.rk(alpha, a, beta, c)
+    _gpaw.rk(alpha, a, beta, c, trans)
 
     
 def r2k(alpha, a, b, beta, c):

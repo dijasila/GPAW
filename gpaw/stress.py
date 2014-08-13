@@ -13,6 +13,12 @@ def stress(calc):
     if not isinstance(wfs, PWWaveFunctions):
         raise NotImplementedError('Calculation of stress tensor is only ' +
                                   'implemented for plane-wave mode.')
+    if ham.xc.orbital_dependent:
+        raise NotImplementedError('Calculation of stress tensor is not ' +
+                                  'implemented for orbital-dependent ' +
+                                  'XC functionals such as '+ham.xc.name)
+
+    calc.timer.start('Stress tensor')
 
     s_vv = wfs.get_kinetic_stress().real
 
@@ -64,10 +70,17 @@ def stress(calc):
                       np.dot(U_cc, cell_cv)).T
         sigma_vv += np.dot(np.dot(M_vv.T, s_vv), M_vv)
     sigma_vv /= len(wfs.symmetry.op_scc)
+    
+    # Make sure all agree on the result (redundant calculation on
+    # different cores involving BLAS might give slightly different
+    # results):
+    wfs.world.broadcast(sigma_vv, 0)
 
     calc.text('Stress tensor:')
     for sigma_v in sigma_vv:
         calc.text('%12.6f %12.6f %12.6f' %
                   tuple(units.Hartree / units.Bohr**3 * sigma_v))
+
+    calc.timer.stop('Stress tensor')
 
     return sigma_vv

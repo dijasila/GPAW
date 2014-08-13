@@ -32,8 +32,9 @@ except ImportError:
 
 
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['ext', 'images', 'sitelink',
+extensions = ['ytp', 'ext', 'images', 'sitelink',
               'sphinx.ext.autodoc',
+              'sphinx.ext.viewcode',
               ext_png_math]
 
 try:
@@ -78,7 +79,7 @@ today_fmt = '%B %d, %Y'
 exclude_trees = ['_build']
 
 # The reST default role (used for this markup: `text`) to use for all documents.
-#default_role = None
+default_role = 'math'
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 #add_function_parentheses = True
@@ -196,7 +197,9 @@ latex_preamble = '\usepackage{amsmath}\usepackage{amsfonts}'
 #latex_use_modindex = True
 
 # Example configuration for intersphinx: refer to ase.
-intersphinx_mapping = {'http://wiki.fysik.dtu.dk/ase': None}
+intersphinx_mapping = {'http://wiki.fysik.dtu.dk/ase': None,
+                       'http://docs.scipy.org/doc/numpy': None,
+                       'http://docs.enthought.com/mayavi/mayavi': None}
 
 # sphinx.ext.pngmath manual configuration
 # ---------------------------------------

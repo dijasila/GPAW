@@ -1,3 +1,5 @@
+.. _projects:
+
 ================
 Ongoing Projects
 ================
@@ -9,7 +11,6 @@ Ongoing Projects
     rmmdiis
     mixing
     pw
-    stress
     response
     bse
     gw
@@ -25,3 +26,4 @@ Ongoing Projects
     dvcs
     pcm
     elph
+    hubu

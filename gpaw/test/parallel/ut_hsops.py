@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 
 import gc
 import sys
@@ -40,7 +39,7 @@ if memstats:
 
 p = InputParameters(spinpol=False)
 xc = XC(p.xc)
-p.setups = dict([(symbol, SetupData(symbol, xc.name)) for symbol in 'HO'])
+p.setups = dict([(symbol, SetupData(symbol, xc.name)) for symbol in 'HN'])
 
 class UTBandParallelSetup(TestCase):
     """

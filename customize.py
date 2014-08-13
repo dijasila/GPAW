@@ -56,6 +56,8 @@
 # Valid values for scalapack are False, or True:
 # False (the default) - no ScaLapack compiled in
 # True - ScaLapack compiled in
+# Warning! At least scalapack 2.0.1 is required!
+# See https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
 scalapack = False
 
 if scalapack:
@@ -63,3 +65,14 @@ if scalapack:
     library_dirs += []
     define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
     define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
+
+# In order to link libxc installed in a non-standard location
+# (e.g.: configure --prefix=/home/user/libxc-2.0.1-1), use:
+# - static linking:
+#include_dirs += ['/home/user/libxc-2.0.1-1/include']
+#extra_link_args += ['/home/user/libxc-2.0.1-1/lib/libxc.a']
+#if 'xc' in libraries: libraries.remove('xc')
+# - dynamic linking (requires also setting LD_LIBRARY_PATH at runtime):
+#include_dirs += ['/home/user/libxc-2.0.1-1/include']
+#library_dirs += ['/home/user/libxc-2.0.1-1/lib']
+#if 'xc' not in libraries: libraries.append('xc')

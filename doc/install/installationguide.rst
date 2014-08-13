@@ -8,29 +8,38 @@ Installation guide
 Requirements
 ============
 
-1) Python 2.4 - 2.7.  Python is available from http://www.python.org.
+1) Python 2.6 - 2.7.  Python is available from http://www.python.org.
 
-2) NumPy_ 1.1 - 1.5.
+2) NumPy_ 1.3.0 or later (multithreading in numpy is not supported by GPAW).
 
 3) Atomic Simulation Environment (:ase:`ASE <>`).
 
 4) C compiler - preferably gcc.
 
-5) BLAS and LAPACK libraries. Start with your system provided defaults or
-   e.g. http://www.amd.com/acml.
+5) Libxc version 2.0.1 (libxc-download_).
 
-6) An MPI library (required for parallel calculations).
+6) BLAS and LAPACK libraries. Start with your system provided defaults or
+   e.g. acml_ or openblas_. Multithreading is not supported.
 
-7) (Optional) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
 
+Optionally:
+
+7) an MPI library (required for parallel calculations).
+
+8) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
+
+9) SciPy_ 0.7.0 or later (required for example for transport of response calculations)
 
 .. note::
 
    In order to use the code, you need also the setups for all your
    atoms (:ref:`setups`).
 
-.. _NumPy: http://numpy.scipy.org/
-
+.. _NumPy: http://numpy.org/
+.. _SciPy: http://scipy.org/
+.. _libxc-download: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download
+.. _acml: http://developer.amd.com/tools-and-sdks/cpu-development/amd-core-math-library-acml/
+.. _openblas: http://www.openblas.net/
 
 Installation
 ============
@@ -43,6 +52,55 @@ are described, in order of preference.
    **CAMd users** installing on ``Niflheim``: please follow instructions
    for :ref:`Niflheim`.
 
+.. _installationguide_macosx:
+
+Libxc Installation
+------------------
+
+Libxc download/install instructions can be found `here <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`_.  A few extra tips:
+
+- Libxc installation requires both a C compiler and a fortran compiler.
+
+- We've tried intel and gnu compilers and haven't noticed much of a
+  performance difference.  Use whatever is easiest.
+
+- Libxc shared libraries can be built with the "--enable-shared" option
+  to configure.  This might be slightly preferred because it reduces
+  memory footprints for executables.
+
+- Typically when building GPAW one has to modify customize.py in a manner
+  similar to the following::
+
+    library_dirs += ['/my/path/to/libxc/2.0.1/install/lib']
+    include_dirs += ['/my/path/to/libxc/2.0.1/install/include']
+
+  or if you don't want to modify your customize.py, you can add these lines to
+  your .bashrc::
+  
+    export C_INCLUDE_PATH=/my/path/to/libxc/2.0.1/install/include
+    export LIBRARY_PATH=/my/path/to/libxc/2.0.1/install/lib
+    export LD_LIBRARY_PATH=/my/path/to/libxc/2.0.1/install/lib
+
+Example::
+    
+    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-2.0.2.tar.gz -O libxc-2.0.2.tar.gz
+    tar xzf libxc-2.0.2.tar.gz
+    cd libxc-2.0.2
+    ./configure --enable-shared --prefix=$HOME/xc
+    make
+    make install
+    
+    # add these to your .bashrc:
+    export C_INCLUDE_PATH=~/xc/include                                           
+    export LIBRARY_PATH=~/xc/lib                                                 
+    export LD_LIBRARY_PATH=~/xc/lib
+    
+
+Installation on OS X
+--------------------
+
+For installation with http://brew.sh/ please follow
+instructions at :ref:`homebrew`.
 
 .. _installationguide_package:
 
@@ -73,6 +131,28 @@ and install GPAW with:
 
 For the full list of supported distributions check
 https://build.opensuse.org/package/show?package=gpaw&project=home%3Adtufys
+
+Windows
+-------
+
+.. note::
+
+   GPAW is not yet fully functional on Windows! See
+   http://listserv.fysik.dtu.dk/pipermail/gpaw-users/2013-August/002264.html
+
+On Windows install ASE and dependencies as described at
+https://wiki.fysik.dtu.dk/ase/download.html#windows.
+
+Download the gpaw.win32-py2.7.msi_ installer and install with::
+
+   gpaw.win32-py2.7.msi /l*vx "%TMP%\gpaw_install.log" /passive
+
+.. _gpaw.win32-py2.7.msi:
+       https://wiki.fysik.dtu.dk/gpaw-files/gpaw.win32-py2.7.msi
+
+.. note::
+
+    Unpack gpaw-setups under C:\gpaw-setups.
 
 .. _installationguide_developer:
 
@@ -141,10 +221,12 @@ the :ref:`installationguide_developer`.
    parallel runs. See :ref:`parallel_installation` for more details about
    parallel runs.
 
-   If you have root permissions, you can install GPAW system-wide
+   Optional, NOT recommended way of installing GPAW system-wide is
    (example below assumes bash)::
 
      [gpaw]# python setup.py install 2>&1 | tee install.log
+
+   This is one of the best ways to ruin a Linux system.
 
 4) :ref:`running_tests`.
 
@@ -184,8 +266,8 @@ HDF5 support can be enabled by setting in :file:`customize.py`::
 
  hdf5 = True
 
-and, in this case, provide HDF5 `include_dirs`, `libraries`, and `library_dirs`
-as described in :ref:`install_custom_installation`.
+and, in this case, provide HDF5 ``include_dirs``, ``libraries``, and
+``library_dirs`` as described in :ref:`install_custom_installation`.
 
 
 Parallel installation
@@ -200,7 +282,7 @@ Additionally a user may want to enable ScaLAPACK, setting in
 
  scalapack = True
 
-and, in this case, provide BLACS/ScaLAPACK `libraries` and `library_dirs`
+and, in this case, provide BLACS/ScaLAPACK ``libraries`` and ``library_dirs``
 as described in :ref:`install_custom_installation`.
 
 Instructions for running parallel calculations can be found in the
@@ -261,7 +343,7 @@ Make sure that everything works by running the test suite (using bash)::
 This will a couple of hours.  If you have a multicore CPU, you
 can speed up the test by using ``gpaw-test -j <number-of-cores>``.
 This will run tests simultaneously (**not** employing MPI parallelization)
-on the requested `<number-of-cores>`.
+on the requested *<number-of-cores>*.
 Please report errors to the ``gpaw-developers`` mailing list (see
 :ref:`mailing_lists`) Send us :file:`test.log`, as well as the
 information about your environment (processor architecture, versions
@@ -277,7 +359,7 @@ If tests pass, and the parallel version is built, test the parallel code::
 
 .. note::
 
-   Many MPI versions have their own `-c` option which may
+   Many MPI versions have their own ``-c`` option which may
    invalidate python command line options. In this case
    test the parallel code as in the example below.
 
@@ -293,7 +375,7 @@ spins and the domain.
 
 If you enabled ScaLAPACK, do::
 
-  [examples]$ mpirun -np 2 gpaw-python ~/gpaw/test/CH4.py --gpaw=blacs=1 --sl_default=1,2,2
+  [examples]$ mpirun -np 2 gpaw-python ~/gpaw/test/CH4.py --sl_default=1,2,2
 
 This will enable ScaLAPACK's diagonalization on a 1x2 BLACS grid
 with the block size of 2.

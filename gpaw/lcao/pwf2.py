@@ -35,7 +35,7 @@ def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
         bfs = get_bfs(calc)
     
     if calc.density.nt_sg is None:
-        calc.density.interpolate()
+        calc.density.interpolate_pseudo_density()
     nt_sg = calc.density.nt_sg
     vxct_sg = calc.density.finegd.zeros(calc.wfs.nspins)
     calc.hamiltonian.xc.calculate(calc.density.finegd, nt_sg, vxct_sg)
@@ -60,7 +60,7 @@ def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
 
 def get_xc2(calc, w_wG, P_awi, spin=0):
     if calc.density.nt_sg is None:
-        calc.density.interpolate()
+        calc.density.interpolate_pseudo_density()
     nt_g = calc.density.nt_sg[spin]
     vxct_g = calc.density.finegd.zeros()
     calc.hamiltonian.xc.get_energy_and_potential(nt_g, vxct_g)

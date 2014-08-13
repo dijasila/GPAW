@@ -4,9 +4,6 @@
 Manual
 ======
 
-.. default-role:: math
-
-
 GPAW calculations are controlled through scripts written in the
 programming language Python_.  GPAW relies on the :ase:`Atomic
 Simulation Environment <>` (ASE), which is a Python package that helps
@@ -31,8 +28,8 @@ Doing a PAW calculation
 -----------------------
 
 To do a PAW calculation with the GPAW code, you need an ASE
-:ase:`Atoms <ase/atoms.html>` object and a GPAW
-:class:`~gpaw.aseinterface.Calculator`::
+:class:`~ase.atoms.Atoms` object and a :class:`~gpaw.aseinterface.GPAW`
+calculator::
 
    _____________          ____________
   |             |        |            |
@@ -140,7 +137,7 @@ keyword            type       default value        description
 .. note:: 
    
    Parameters can be changed after the calculator has been constructed
-   by using the :meth:`~gpaw.paw.set` method:
+   by using the :meth:`~gpaw.aseinterface.GPAW.set` method:
 
    >>> calc.set(txt='H2.txt', charge=1)
 
@@ -161,17 +158,60 @@ keyword            type       default value        description
 
 .. _manual_mode:
 
-Finite Difference or LCAO mode
-------------------------------
+Finite-difference, plane-wave or LCAO mode
+------------------------------------------
 
-The default mode (``mode='fd'``) is Finite Differece. This means that
-the wave functions will be expanded on a real space grid. The
-alternative is to expand the wave functions on a basis-set constructed
-as linear combination as atomic-like orbitals, in short LCAO. This is
-done by setting (``mode='lcao'``).
+Finite-difference:
+    The default mode (``mode='fd'``) is Finite Differece. This means that
+    the wave functions will be expanded on a real space grid.
+    
+LCAO:
+    Expand the wave functions in a basis-set constructed
+    from atomic-like orbitals, in short LCAO (linear combination of atomic
+    orbitals).  This is done by setting ``mode='lcao'``.
 
-See also the page on :ref:`lcao`.
+    See also the page on :ref:`lcao`.
 
+Plane-waves:
+    Expand the wave-functions in plane-waves.  Use ``mode='pw'`` if you want
+    to use the default plane-wave cutoff of `E_{\text{cut}}=340` eV.  The
+    plane-waves will be those with `|\bG+\bk|^2/2<E_{\text{cut}}`.  You
+    can set another cutoff like this::
+        
+        from gpaw import GPAW, PW
+        calc = GPAW(mode=PW(200))
+
+
+Comparing FD, LCAO and PW modes
+```````````````````````````````
+    
+Memory consumption:
+    With LCAO, you have fewer degrees of freedom so memory usage is low.
+    PW mode uses more memory and FD a lot more.
+    
+Speed:
+    For small systems with many **k**-points, PW mode beats everything else.
+    For larger systems LCAO will be most efficient.  Whereas PW beats FD for
+    smallish systems, the opposite is true for very large systems where FD
+    will parallelize better.
+    
+Absolute convergence:
+    With LCAO, it can be hard to reach the complete basis set limit and get
+    absolute convergence of energies, whereas with FD and PW mode it is
+    quite easy to do by decreasing the grid spacing or increasing the
+    plane-wave cutoff energy, respectively.
+    
+Eggbox errors:
+    With LCAO and FD mode you will get a small eggbox error: you get a
+    small periodic energy variation as you translate atoms and the period
+    of the variation will be equal to the grid-spacing used.  GPAW's PW
+    implementation doesn't have this problem.
+
+Features:
+    FD mode is the oldest and has most features.  Only PW mode can be used
+    for calculating the stress-tensor and for response function calculations.
+    
+    
 .. _manual_nbands:
 
 Number of electronic bands
@@ -222,8 +262,7 @@ generalized gradient approximation (GGA) type, and the last two are
 For the list of all functionals available in GPAW see :ref:`overview_xc`.
 
 GPAW uses the functionals from libxc_ by default.
-Keywords are based on the strings from the
-:file:`gpaw/xc/libxc_functionals.py` file.
+Keywords are based on the names in the libxc :file:`'xc_funcs.h'` header file (the leading ``'XC_'`` should be removed from those names).
 Valid keywords are strings or combinations of exchange and correlation string
 joined by **+** (plus).
 For example, "the" (most common) LDA approximation in chemistry
@@ -264,6 +303,25 @@ This will sample the Brillouin-zone with a regular grid of ``N1``
 `\times` ``N2`` `\times` ``N3`` **k**-points.  See the
 :func:`ase.dft.kpoints.monkhorst_pack` function for more details.
 
+For more flexibility, you can use this syntax::
+    
+    kpts={'size': (4, 4, 4)}  # 4x4x4 Monkhorst-pack
+    kpts={'size': (4, 4, 4), 'gamma': True}  # shifted 4x4x4 Monkhorst-pack
+
+You can also specify the **k**-point density in units of points per
+Å\ `^{-1}`::
+    
+    kpts={'density': 2.5}  # Monkhorst-Pack with a density of 2.5 points/Ang^-1
+    kpts={'density': 2.5, 'even': True}  # round off to neares even number
+    kpts={'density': 2.5, 'gamma': True}  # include gamma-point
+    
+The **k**-point density is calculated as:
+    
+.. math:: N \frac{a}{2\pi},
+
+where `N` is then number of **k**-points and `a` is the length of the
+unit-cell along the direction of the corresponding reciprocal lattice vector.
+    
 An arbitrary set of **k**-points can be specified, by giving a
 sequence of k-point coordinates like this::
 
@@ -272,7 +330,8 @@ sequence of k-point coordinates like this::
 The **k**-point coordinates are given in scaled coordinates, relative
 to the basis vectors of the reciprocal unit cell.
 
-The above four k-points are equivalent to this:
+The above four **k**-points are equivalent to
+``kpts={'size': (1, 1, 4), 'gamma': True}`` and to this:
 
 >>> from ase.dft.kpoints import monkhorst_pack
 >>> kpts = monkhorst_pack((1, 1, 4))
@@ -389,19 +448,13 @@ The distribution looks like this (width = `k_B T`):
 
 .. math::  f(E) = \frac{1}{1 + \exp[E / (k_B T)]}
 
-For calculations with
-**k**-points, the default value is 0.1 eV and the total energies are
-extrapolated to *T* = 0 Kelvin.  For a `\Gamma`-point calculation (no
-**k**-points) the default value is ``width=0``, which gives integer
-occupation numbers.
+For calculations with periodic boundary conditions, the default value
+is 0.1 eV and the total energies are extrapolated to *T* = 0 Kelvin.
+For a molecule (no periodic boundaries) the default value is ``width=0``,
+which gives integer occupation numbers.
 
 For a spin-polarized calculation, one can fix the magnetic moment at
 the initial value using ``FermiDirac(width, fixmagmom=True)``.
-
-.. note:: 
-
-   The ``occupations`` keyword was introduced in version 0.7.  For
-   older versions, one must use the ``width`` and ``fixmom`` keywords.
 
 
 .. _manual_lmax:
@@ -518,8 +571,11 @@ See also the documentation on :ref:`density mixing <densitymix>`.
 Fixed density
 -------------
 
-XXX Missing doc
-
+When calculating band structures or when adding unoccupied states to
+calculation (and wanting to converge them) it is often useful to use existing
+density without updating it. By using ``fixdensity=True`` the initial density 
+(e.g. one read from .gpw/.hdf5 or existing from previous calculation) is used
+throughout the SCF-cycle (so called Harris calculation).
 
 
 
@@ -537,7 +593,6 @@ For a given element ``E``, setup name ``NAME``, and xc-functional
 (see :ref:`installationguide_setup_files`).
 Unless ``NAME='paw'``, in which case it will simply look for
 :file:`E.XC` (or :file:`E.XC.gz`).
-
 The ``setups`` keyword can be either a single string, or a dictionary.
 
 If specified as a string, the given name is used for all atoms.  If
@@ -548,12 +603,17 @@ The special key ``None`` can be used to specify the default setup
 name. Thus ``setups={None: 'paw'}`` is equivalent to ``setups='paw'``
 which is the GPAW default.
 
+As an example, the latest PAW setup of Na includes also the 6 semicore p states
+in the valence, in order to use non-default setup with only the 1 s electron in valence (:file:`Na.1.XC.gz`) one can specify ``setups={'Na': '1'}``
+
 There exist three special names, that if used, does not specify a file name:
 
 * ``'ae'`` is used for specifying all-electron mode for an
   atom. I.e. no PAW or pseudo potential is used.
-* ``'hgh'`` is used to specify a Hartwigsen-Goedecker-Hutter
-  pseudopotential (no file necessary).
+* ``'hgh'`` is used to specify a norm-conserving Hartwigsen-Goedecker-Hutter 
+  pseudopotential (no file necessary).  Some elements have better 
+  semicore pseudopotentials.  To use those, specify ``'hgh.sc'`` 
+  for the elements or atoms in question.
 * ``'ghost'`` is used to indicated a *ghost* atom in LCAO mode, 
   see :ref:`ghost-atoms`. 
 
@@ -631,6 +691,15 @@ available options in FD mode are conjugate gradient method
 (``eigensolver='cg'``) and a simple Davidson method
 (``eigensolver='dav'``). From the alternatives, conjugate gradient
 seems to perform better in general.
+
+More control can be obtained by using directly the eigensolver objects::
+
+  from gpaw.eigensolvers import CG
+  calc = GPAW(eigensolver=CG(niter=5, rtol=0.20))
+
+Here, ``niter`` specifies the maximum number of conjugate gradient iterations
+for each band (within a single SCF step), and if the relative change 
+in residual is less than ``rtol``, the iteration for the band is not continued.
 
 LCAO mode has its own eigensolver, which directly diagonalizes the
 Hamiltonian matrix instead of using an iterative method.
@@ -723,8 +792,11 @@ Using Hund's rule for guessing initial magnetic moments
 
 The ``hund`` keyword can be used for single atoms only. If set to
 ``True``, the calculation will become spinpolarized, and the initial
-ocupations, and magnetic moment of the atom will be fixed to the value
-required by Hund's rule. Any user specified magnetic moment is
+ocupations, and magnetic moment of the atom will be set to the value
+required by Hund's rule.  You may further wish to specify that the
+total magnetic moment be fixed, by passing e.g.
+``occupations=FermiDirac(0.0, fixmagmom=True)``.
+Any user specified magnetic moment is
 ignored. Default is False.
 
 
@@ -798,6 +870,31 @@ change the number of grid points:
 
 More details can be found on the :ref:`restart_files` page.
 
+---------------------------------------
+Customizing behaviour through observers
+---------------------------------------
+
+An *observer* function can be *attached* to the calculator so that it
+will be executed every *N* iterations during a calculation.  The below
+example saves a differently named restart file every 5 iterations::
+
+  calc = GPAW(...)
+
+  occasionally = 5
+
+  class OccasionalWriter:
+      def __init__(self):
+          self.iter = 0
+
+      def write(self):
+          calc.write('filename.%03d.gpw' % self.iter)
+          self.iter += occasionally
+
+  calc.attach(OccasionalWriter().write, occasionally)
+
+See also :meth:`~gpaw.aseinterface.GPAW.attach`.
+
+
 ----------------------
 Command line arguments
 ----------------------
@@ -861,40 +958,12 @@ argument                         description
                                  :ref:`parallel <manual_parallel>` keyword.
                                  Requires GPAW to be built with ScaLAPACK.
 ``--gpaw a=1,b=2.3,...``         
-				 Extra parameters for development work:
-				 
-				 >>> from gpaw import extra_parameters
-				 >>> print extra_parameters
-				 {'a': 1, 'b': 2.3}
+                                 Extra parameters for development work:
+                                 
+                                 >>> from gpaw import extra_parameters
+                                 >>> print extra_parameters
+                                 {'a': 1, 'b': 2.3}
 ===============================  =============================================
-
-
-----------
-Extensions
-----------
-
-Currently available extensions:
-
- 1. :ref:`Linear response time-dependent DFT <lrtddft>`
- 2. :ref:`Time propagation time-dependent DFT <timepropagation>`
-
-
-:ref:`lrtddft`
---------------
-
-Optical photoabsorption spectrum can be simulated using :ref:`lrtddft`
-
-
-:ref:`timepropagation`
-----------------------
-
-Optical photoabsorption spectrum as well as nonlinear effects can be
-studied using :ref:`timepropagation`. This approach
-scales better than linear response, but the prefactor is so large that
-for small and moderate systems linear response is significantly
-faster.
-
-
 
 
 .. [#LDA]    J. P. Perdew and Y. Wang,
@@ -919,5 +988,3 @@ faster.
              *J. Phys. Chem.* **98** 11623-11627 (1994)
              Ab-Initio Calculation of Vibrational Absorption and Circular-Dichroism
              Spectra Using Density-Functional Force-Fields
-
-.. default-role::

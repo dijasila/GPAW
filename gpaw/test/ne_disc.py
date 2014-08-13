@@ -31,9 +31,9 @@ for xcname in ['GLLB','GLLBSC']:
     response.calculate_delta_xc()
     KS, dxc = response.calculate_delta_xc_perturbation()
     if xcname=='GLLB':
-        equal(KS+dxc, 24.71, 1e-1)
+        equal(KS+dxc, 24.71, 1.5e-1)
     else:
-        equal(KS+dxc, 27.70, 1e-2)
+        equal(KS+dxc, 27.70, 6.0e-2)
     eps3d = calc.wfs.kpt_u[0].eps_n[3]
     calc.write('Ne_temp.gpw')
 
@@ -47,4 +47,4 @@ for xcname in ['GLLB','GLLBSC']:
     if world.rank == 0:
         equal(eps, eps3d, 1e-3)
     if xcname=='GLLB':
-        equal(24.71, KS2+dxc2, 1e-1)
+        equal(24.71, KS2+dxc2, 1.2e-1)

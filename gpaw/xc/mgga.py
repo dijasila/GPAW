@@ -4,22 +4,14 @@ import numpy as np
 
 from gpaw.xc.gga import GGA
 from gpaw.utilities.blas import axpy
-from gpaw.fd_operators import Gradient
-from gpaw.lfc import LFC
 from gpaw.sphere.lebedev import weight_n
 
 
 class MGGA(GGA):
     orbital_dependent = True
 
-    def __init__(self, kernel, nn=3):
-        """Meta GGA functional.
-
-        nn: int
-            Number of neighbor grid points to use for FD stencil for
-            wave function gradient.
-        """
-        self.nn = nn
+    def __init__(self, kernel):
+        """Meta GGA functional."""
         GGA.__init__(self, kernel)
 
     def set_grid_descriptor(self, gd):
@@ -30,15 +22,11 @@ class MGGA(GGA):
 
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.wfs = wfs
-        self.tauct = LFC(wfs.gd,
-                         [[setup.tauct] for setup in wfs.setups],
-                         forces=True, cut=True)
+        self.tauct = density.get_pseudo_core_kinetic_energy_density_lfc()
         self.tauct_G = None
         self.dedtaut_sG = None
-        self.restrict = hamiltonian.restrictor.apply
-        self.interpolate = density.interpolator.apply
-        self.taugrad_v = [Gradient(wfs.gd, v, n=self.nn, dtype=wfs.dtype).apply
-                          for v in range(3)]
+        self.restrict = hamiltonian.restrict
+        self.interpolate = density.interpolate
 
     def set_positions(self, spos_ac):
         self.tauct.set_positions(spos_ac)
@@ -49,7 +37,7 @@ class MGGA(GGA):
 
     def calculate_gga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
         try:
-            taut_sG = self.wfs.calculate_kinetic_energy_density(self.taugrad_v)
+            taut_sG = self.wfs.calculate_kinetic_energy_density()
         except RuntimeError:
             nspins = self.wfs.nspins
             # Initialize with von Weizsaecker kinetic energy density
@@ -60,17 +48,19 @@ class MGGA(GGA):
                 for v in range(3):
                     self.grad_v[v](nt_sg[s], gradn_g)
                     axpy(0.125, gradn_g**2, taut_g)
-                ntinv_g = 0. * taut_g 
+                ntinv_g = 0. * taut_g
                 nt_ok = np.where(nt_sg[s] > 1e-7)
                 ntinv_g[nt_ok] = 1.0 / nt_sg[s][nt_ok]
                 taut_g *= ntinv_g
                 self.restrict(taut_g, taut_sG[s])
-            
+
         taut_sg = np.empty_like(nt_sg)
         for taut_G, taut_g in zip(taut_sG, taut_sg):
             taut_G += 1.0 / self.wfs.nspins * self.tauct_G
             self.interpolate(taut_G, taut_g)
+
         dedtaut_sg = np.empty_like(nt_sg)
+
         self.kernel.calculate(e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg,
                               taut_sg, dedtaut_sg)
         self.dedtaut_sG = self.wfs.gd.empty(self.wfs.nspins)
@@ -83,13 +73,10 @@ class MGGA(GGA):
 
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG, dH_asp):
-        a_G = self.wfs.gd.empty(dtype=psit_xG.dtype)
-        for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
-            for v in range(3):
-                self.taugrad_v[v](psit_G, a_G, kpt.phase_cd)
-                self.taugrad_v[v](self.dedtaut_sG[kpt.s] * a_G, a_G,
-                                  kpt.phase_cd)
-                axpy(-0.5, a_G, Htpsit_G)
+        self.wfs.apply_mgga_orbital_dependent_hamiltonian(
+            kpt, psit_xG,
+            Htpsit_xG, dH_asp,
+            self.dedtaut_sG[kpt.s])
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
@@ -102,7 +89,6 @@ class MGGA(GGA):
 
         if self.c.tau_npg is None:
             self.c.tau_npg, self.c.taut_npg = self.initialize_kinetic(self.c)
-            print('TODO: tau_ypg is HUGE!  There must be a better way.')
 
         E = GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp,
                                          addcoredensity, a)
@@ -138,7 +124,7 @@ class MGGA(GGA):
         dF_av = self.tauct.dict(derivative=True)
         self.tauct.derivative(self.dedtaut_sG.sum(0), dF_av)
         for a, dF_v in dF_av.items():
-            F_av[a] += dF_v[0]
+            F_av[a] += dF_v[0] / self.wfs.nspins
 
     def estimate_memory(self, mem):
         bytecount = self.wfs.gd.bytecount()
@@ -176,8 +162,6 @@ class MGGA(GGA):
 
         """
         nj = len(phi_jg)
-        ni = len(x.jlL)
-        nii = ni * (ni + 1) // 2
         dphidr_jg = np.zeros(np.shape(phi_jg))
         for j in range(nj):
             phi_g = phi_jg[j]
@@ -321,7 +305,7 @@ def transformation(x, t):
         tmp2 = (1.0 + x**3.0 + x**6.0)
         x = -1.0 * np.divide(tmp1, tmp2)
     else:
-    	raise KeyError('transformation %i unknown!' % t)
+        raise KeyError('transformation %i unknown!' % t)
     return x
 
 
@@ -388,7 +372,6 @@ def legendre_polynomial(x, orders, coefs, P=None):
     coefs_ = np.empty(max_order + 1)
     k = 0
     for i in range(len(coefs_)):
-        order = orders[k]
         if orders[k] == i:
             coefs_[i] = coefs[k]
             k += 1

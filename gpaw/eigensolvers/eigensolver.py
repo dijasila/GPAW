@@ -14,6 +14,7 @@ class Eigensolver:
         self.Htpsit_nG = None
         self.error = np.inf
         self.blocksize = blocksize
+        self.orthonormalization_required = True
         
     def initialize(self, wfs):
         self.timer = wfs.timer
@@ -42,6 +43,9 @@ class Eigensolver:
         
         self.initialized = True
 
+    def reset(self):
+        self.initialized = False
+
     def iterate(self, hamiltonian, wfs):
         """Solves eigenvalue problem iteratively
 
@@ -59,7 +63,10 @@ class Eigensolver:
                 wfs.overlap.orthonormalize(wfs, kpt)
             e, psit_nG = self.iterate_one_k_point(hamiltonian, wfs, kpt)
             error += e
-            wfs.overlap.orthonormalize(wfs, kpt, psit_nG)
+            if self.orthonormalization_required:
+                wfs.overlap.orthonormalize(wfs, kpt, psit_nG)
+            else:
+                kpt.psit_nG[:] = psit_nG[:]
 
         wfs.set_orthonormalized(True)
 

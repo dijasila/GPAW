@@ -34,11 +34,11 @@ class ExcitationList(list):
         return np.array(el)
 
     def get_trk(self):
-        """Evaluate the Thonmas Reiche Kuhn sum rule"""
+        """Evaluate the Thomas Reiche Kuhn sum rule"""
         trkm = np.zeros((3))
         for ex in self:
-            trkm += ex.get_energy()*ex.get_dipol_me()**2
-        return 2.*trkm # scale to get the number of electrons
+            trkm += ex.get_energy() * ex.get_dipol_me()**2
+        return 2. * trkm # scale to get the number of electrons XXX spinpol ?
     
     def get_polarizabilities(self, lmax=7):
         """Calculate the Polarisabilities
@@ -116,15 +116,20 @@ class Excitation:
         
         return osz
 
-    def get_rotary_strength(self, form='r', units='cgs'):
-        """Return rotary strength"""
+    def get_rotatory_strength(self, form='r', units='cgs'):
+        """Return rotatory strength"""
+        if self.magn is None:
+            raise RuntimeError('Magnetic moment not available.')
+
         if units =='cgs':
             # 10^-40 esu cm erg / G
             # = 3.33564095 * 10^-15 A^2 m^3 s
             # conversion factor after
             # T. B. Pedersen and A. E. Hansen, 
             # Chem. Phys. Lett. 246 (1995) 1
-            pre = 471.43
+            # pre = 471.43
+            # From TurboMole
+            pre = 64604.8164
         elif uints == 'a.u.':
             pre = 1.
         else:

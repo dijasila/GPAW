@@ -62,7 +62,7 @@ class KSSingles(ExcitationList):
         # deny hybrids as their empty states are wrong
         gsxc = calculator.hamiltonian.xc
         hybrid = hasattr(gsxc, 'hybrid') and gsxc.hybrid > 0.0
-        assert(not hybrid)
+#        assert(not hybrid)
 
         if nonselfconsistent_xc is None:
             self.de_skn = None
@@ -123,7 +123,11 @@ class KSSingles(ExcitationList):
             emin /= Hartree
             emax /= Hartree
             # select transitions according to transition energy
-            for kpt in self.kpt_u:
+            for ispin in range(self.npspins):
+                vspin = ispin
+                if self.nvspins < 2:
+                    vspin = 0
+                kpt = self.kpt_u[vspin]
                 f_n = kpt.f_n
                 eps_n = kpt.eps_n
                 if self.de_skn is not None:
@@ -134,14 +138,16 @@ class KSSingles(ExcitationList):
                         epsij = eps_n[j] - eps_n[i]
                         if fij > eps and epsij >= emin and epsij < emax:
                             # this is an accepted transition
-                            ks = KSSingle(i, j, kpt.s, kpt, paw,
+                            ks = KSSingle(i, j, ispin, kpt, paw,
                                           fijscale = fijscale)
                             self.append(ks)
+            self.istart = 0
+            self.jend = -1
         else:
             # select transitions according to band index
             for ispin in range(self.npspins):
                 vspin = ispin
-                if self.nvspins<2:
+                if self.nvspins < 2:
                     vspin = 0
                 f = self.kpt_u[vspin].f_n
                 if jend == None: jend = len(f)-1
@@ -173,9 +179,11 @@ class KSSingles(ExcitationList):
 
         f.readline()
         n = int(f.readline())
+        self.npspins = 1
         for i in range(n):
             kss = KSSingle(string = f.readline())
             self.append(kss)
+            self.npspins = max(self.npspins, kss.pspin + 1)
         self.update()
 
         if fh is None:
@@ -197,6 +205,40 @@ class KSSingles(ExcitationList):
         self.jend = jend
         self.npspins = npspins
         self.nvspins = nvspins
+
+        if hasattr(self, 'energies'):
+            del(self.energies)
+
+    def set_arrays(self):
+        if hasattr(self, 'energies'):
+            return
+        energies = []
+        fij = []
+        me = []
+        mur = []
+        muv = []
+        magn = []
+        for k in self:
+            energies.append(k.energy)
+            fij.append(k.fij)
+            me.append(k.me)
+            mur.append(k.mur)
+            if k.muv is not None:
+                muv.append(k.muv)
+            if k.magn is not None:
+                magn.append(k.magn)
+        self.energies = np.array(energies)
+        self.fij = np.array(fij)
+        self.me = np.array(me)
+        self.mur = np.array(mur)
+        if len(muv):
+            self.muv = np.array(muv)
+        else:
+            self.muv = None
+        if len(magn):
+            self.magn = np.array(magn)
+        else:
+            self.magn = None
 
     def write(self, filename=None, fh=None):
         """Write current state to a file.
@@ -332,7 +374,8 @@ class KSSingle(Excitation, PairDensity):
                 for i1, Pi in enumerate(Pi_i):
                     for i2, Pj in enumerate(Pj_i):
                         ma[c] += Pi * Pj * nabla_iiv[i1, i2, c]
-
+        gd.comm.sum(ma)
+        
         self.muv = - (me + ma) / self.energy
 ##        print self.mur, self.muv, self.mur - self.muv
 
@@ -357,9 +400,10 @@ class KSSingle(Excitation, PairDensity):
                 for i1, Pi in enumerate(Pi_i):
                     for i2, Pj in enumerate(Pj_i):
                         ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
-
-        self.magn = alpha / 2. * (magn + ma)
+        gd.comm.sum(ma)
         
+        self.magn = -alpha / 2. * (magn + ma)
+
     def __add__(self, other):
         """Add two KSSingles"""
         result = self.copy()
@@ -403,12 +447,17 @@ class KSSingle(Excitation, PairDensity):
         self.fij = float(l.pop(0))
         if len(l) == 3: # old writing style
             self.me = np.array([float(l.pop(0)) for i in range(3)])
+            self.mur = - self.me / sqrt(self.energy * self.fij)
+            self.muv = None
+            self.magn = None
         else:
             self.mur = np.array([float(l.pop(0)) for i in range(3)])
-            self.me = - self.mur * sqrt(self.energy*self.fij)
+            self.me = - self.mur * sqrt(self.energy * self.fij)
             self.muv = np.array([float(l.pop(0)) for i in range(3)])
             if len(l): 
                 self.magn = np.array([float(l.pop(0)) for i in range(3)])
+            else:
+                self.magn = None
         return None
 
     def outstring(self):

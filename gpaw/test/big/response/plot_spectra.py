@@ -29,7 +29,7 @@ def plot_EELS(head):
 def plot_ABS(head):    
     # plot optical absorption specctrum
     pl.figure()
-    d = np.loadtxt(head+'_abs')
+    d = np.loadtxt(head+'_abs.z')
     pl.plot(d[:,0], d[:,1], '-k', label='$\mathrm{Re}\epsilon(\omega)$')
     pl.plot(d[:,0], d[:,2], '-r', label='$\mathrm{Im}\epsilon(\omega)$')
 

@@ -75,10 +75,13 @@ class C_GLLBScr(Contribution):
         
 
     def get_coefficients_by_kpt(self, kpt_u, lumo_perturbation=False, homolumo=None, nspins=1):
-
-        if kpt_u[0].psit_nG is None or isinstance(kpt_u[0].psit_nG,
-                                                  TarFileReference): 
+        if not hasattr(kpt_u[0],'orbitals_ready'):
+            kpt_u[0].orbitals_ready = True
             return None
+        #if kpt_u[0].psit_nG is None or isinstance(kpt_u[0].psit_nG,
+        #                                          TarFileReference): 
+        #    if kpt_u[0].C_nM==None:
+        #        return None
 
         if homolumo == None:
             if self.metallic:
@@ -107,8 +110,6 @@ class C_GLLBScr(Contribution):
             ee = 0.05 / 27.21
 
         if lumo_perturbation:
-            print eref_s
-            print "lumos", eref_lumo_s
             return [np.array([
                 f * K_G * (self.f( np.where(eref_lumo_s[kpt.s] - e>ee, eref_lumo_s[kpt.s]-e,0))
                          -self.f( np.where(eref_s[kpt.s]      - e>ee, eref_s[kpt.s]-e,0)))
@@ -120,13 +121,7 @@ class C_GLLBScr(Contribution):
             coeff = [ np.array([ f * K_G * self.f( np.where(eref_s[kpt.s] - e>ee, eref_s[kpt.s]-e,0))
                      for e, f in zip(kpt.eps_n, kpt.f_n) ])
                      for kpt in kpt_u ]
-            if self.old_coeffs is None:
-                self.old_coeffs = coeff
-            else:
-                # Mix the coefficients with 25%
-                mix = 0.25
-                self.old_coeffs = np.array([ (1-mix) * old + mix * new for new, old in zip(coeff, self.old_coeffs) ])
-            return self.old_coeffs
+            return coeff
         
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
@@ -138,9 +133,9 @@ class C_GLLBScr(Contribution):
         v_g += self.weight * 2 * self.e_g / (n_g + 1e-10)
         e_g += self.weight * self.e_g
 
-    def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g):
+    def calculate_spinpolarized(self, e_g, n_sg, v_sg):
 	# Calculate spinpolarized exchange screening as two spin-paired calculations n=2*n_s
-        for n, v in [ (na_g, va_g), (nb_g, vb_g) ]:
+        for n, v in [ (n_sg[0], v_sg[0]), (n_sg[1], v_sg[1]) ]:
 		self.e_g[:] = 0.0
 	        self.vt_sg[:] = 0.0
 	        self.xc.calculate(self.nlfunc.finegd, 2*n[None, ...], self.vt_sg, self.e_g)
@@ -148,7 +143,7 @@ class C_GLLBScr(Contribution):
 	        v += self.weight * 2 * self.e_g / (2 * n + 1e-9)
 	        e_g += self.weight * self.e_g / 2
 
-    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a):
+    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         # Get the XC-correction instance
         c = setup.xc_correction
 	nspins = self.nlfunc.nspins
@@ -157,9 +152,11 @@ class C_GLLBScr(Contribution):
 	for D_p, dEdD_p in zip(D_sp, H_sp):
 	        D_Lq = np.dot(c.B_pqL.T, nspins*D_p)
 	        n_Lg = np.dot(D_Lq, c.n_qg)
-	        n_Lg[0] += c.nc_g * sqrt(4 * pi)
+                if addcoredensity:
+                     n_Lg[0] += c.nc_g * sqrt(4 * pi)
 	        nt_Lg = np.dot(D_Lq, c.nt_qg)
-	        nt_Lg[0] += c.nct_g * sqrt(4 * pi)
+                if addcoredensity:
+                     nt_Lg[0] += c.nct_g * sqrt(4 * pi)
 	        dndr_Lg = np.zeros((c.Lmax, c.ng))
 	        dntdr_Lg = np.zeros((c.Lmax, c.ng))
 	        for L in range(c.Lmax):

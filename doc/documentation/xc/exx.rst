@@ -4,6 +4,8 @@
 Exact exchange
 ==============
 
+**THIS PAGE IS OUTDATED**
+
 Inclusion of the non-local Fock operator as an exchange-correclation functional is an experimental feature in gpaw.
 
 The current implementation *lacks* the following features:

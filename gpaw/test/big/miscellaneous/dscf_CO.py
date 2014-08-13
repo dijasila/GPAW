@@ -58,9 +58,9 @@ equal(E_es1, E_es2, 0.001)
 
 energy_tolerance = 0.001
 niter_tolerance = 2
-equal(E_gs, -14.9313, energy_tolerance)
-equal(niter_gs, 20, niter_tolerance)
-equal(E_es1, -9.1067, energy_tolerance)
-equal(niter_es1, 22, niter_tolerance)
-equal(E_es2, -9.10706, energy_tolerance)
-equal(niter_es2, 23, niter_tolerance)
+print E_gs, niter_gs
+print E_es1, niter_es1
+print E_es2, niter_es2
+equal(E_gs, -15.1924620949, energy_tolerance)
+equal(E_es1, -9.36671359062, energy_tolerance)
+equal(E_es2, -9.3667912622, energy_tolerance)

@@ -18,7 +18,7 @@ import gpaw
 def equal(x, y, tolerance=0, fail=True, msg=''):
     """Compare x and y."""
 
-    if not np.isfinite(x - y) or abs(x - y) > tolerance:
+    if not np.isfinite(x - y).any() or (np.abs(x - y) > tolerance).any():
         msg = (msg + '%s != %s (error: |%s| > %.9g)' %
                (x, y, x - y, tolerance))
         if fail:
@@ -27,6 +27,15 @@ def equal(x, y, tolerance=0, fail=True, msg=''):
             sys.stderr.write('WARNING: %s\n' % msg)
 
 
+def findpeak(x, y):
+    dx = x[1] - x[0]
+    i = y.argmax()
+    a, b, c = np.polyfit([-1, 0, 1], y[i - 1:i + 2], 2)
+    assert a < 0
+    x = -0.5 * b / a
+    return dx * (i + x), a * x**2 + b * x + c
+
+    
 def gen(symbol, exx=False, name=None, **kwargs):
     if mpi.rank == 0:
         if 'scalarrel' not in kwargs:
@@ -105,8 +114,11 @@ tests = [
     'gauss_wave.py',
     'harmonic.py',
     'atoms_too_close.py',
+    'screened_poisson.py',
+    'yukawa_radial.py',
     'noncollinear/xcgrid3d.py',
     'vdwradii.py',
+    'lcao_restart.py',
     'ase3k.py',
     'parallel/ut_kptops.py',
     'fileio/idiotproof_setup.py',
@@ -118,13 +130,17 @@ tests = [
     'xcatom.py',
     'maxrss.py',
     'proton.py',
-    'gemm.py',
+    'pw/moleculecg.py',
+    'keep_htpsit.py',
     'pw/stresstest.py',
     'aeatom.py',
     'numpy_zdotc_graphite.py',
     'lcao_density.py',
     'parallel/overlap.py',
     'restart.py',
+    # numpy/scipy tests fail randomly
+    #'numpy_test.py',
+    #'scipy_test.py',
     'gemv.py',
     'ylexpand.py',
     'potential.py',
@@ -145,7 +161,6 @@ tests = [
     'refine.py',
     'revPBE.py',
     'nonselfconsistent.py',
-    'laplace.py',
     'hydrogen.py',
     'fileio/file_reference.py',
     'fixdensity.py',
@@ -154,8 +169,6 @@ tests = [
     'pw/h.py',
     'pw/fulldiag.py',
     'pw/fulldiagk.py',
-    'ut_rsh.py',
-    'ut_csh.py',
     'stdout.py',
     'parallel/lcao_complicated.py',
     'pw/slab.py',
@@ -165,20 +178,23 @@ tests = [
     'eed.py',
     'lrtddft2.py',
     'parallel/hamiltonian.py',
-    'ah.py',
-    'pw/mgo.py',
+    'pseudopotential/ah.py',
+    'laplace.py',
+    'pw/mgo_hybrids.py',
     'lcao_largecellforce.py',
     'restart2.py',
     'Cl_minus.py',
     'fileio/restart_density.py',
     'external_potential.py',
     'pw/bulk.py',
+    'pw/fftmixer.py',
     'mgga_restart.py',
     'vdw/quick.py',
-    'partitioning.py',
+    'multipoleH2O.py',
     'bulk.py',
     'elf.py',
-    'aluminum_EELS.py',
+    'aluminum_EELS_RPA.py',
+    'aluminum_EELS_ALDA.py',
     'H_force.py',
     'parallel/lcao_hamiltonian.py',
     'fermisplit.py',
@@ -190,9 +206,12 @@ tests = [
     'exx_acdf.py',
     'asewannier.py',
     'exx_q.py',
+    'ut_rsh.py',
+    'ut_csh.py',
     'spin_contamination.py',
-    'rpa_energy_Ni.py',
     'davidson.py',
+    'partitioning.py',
+    'pw/davidson_pw.py',
     'cg.py',
     'gllbatomic.py',
     'lcao_force.py',
@@ -200,6 +219,11 @@ tests = [
     'fermilevel.py',
     'h2o_xas_recursion.py',
     'diamond_eps.py',
+    'excited_state.py',
+    # > 20 sec tests start here (add tests after gemm.py!)
+    'gemm.py',
+    'rpa_energy_Ni.py',
+    'LDA_unstable.py',
     'si.py',
     'blocked_rmm_diis.py',
     'lxc_xcatom.py',
@@ -223,6 +247,8 @@ tests = [
     'test_ibzqpt.py',
     'aedensity.py',
     'fd2lcao_restart.py',
+    'gwsi.py',
+    #'graphene_EELS.py', disabled while work is in progress on response code
     'lcao_bsse.py',
     'pplda.py',
     'revPBE_Li.py',
@@ -232,46 +258,56 @@ tests = [
     'ldos.py',
     'parallel/ut_hsops.py',
     'pw/hyb.py',
-    'hgh_h2o.py',
+    'pseudopotential/hgh_h2o.py',
     'vdw/quick_spin.py',
     'scfsic_h2.py',
     'lrtddft.py',
     'dscf_lcao.py',
     'IP_oxygen.py',
+    'Al2_lrtddft.py',
     'rpa_energy_Si.py',
     '2Al.py',
-    'jstm.py',
     'tpss.py',
     'be_nltd_ip.py',
     'si_xas.py',
     'atomize.py',
+    'chi0.py',
     'ralda_energy_H2.py',
+    'ralda_energy_N2.py',
+    'ralda_energy_Ni.py',
+    'ralda_energy_Si.py',
     'Cu.py',
     'restart_band_structure.py',
     'ne_disc.py',
-    'dipole.py',
     'exx_coarse.py',
-    'nsc_MGGA.py',
+    'exx_unocc.py',
     'Hubbard_U_Zn.py',
     'muffintinpot.py',
     'diamond_gllb.py',
-    'mgga_sc.py',
     'h2o_dks.py',
-    'aluminum_EELS_lcao.py',
-    'lb94.py',
-    'exx.py',
-    'pygga.py',
     'gw_ppa.py',
     'nscfsic.py',
+    'gw_static.py',
+    # > 100 sec tests start here (add tests after exx.py!)
+    'response_na_plasmon.py',
+    'exx.py',
+    'pygga.py',
+    'dipole.py',
+    'nsc_MGGA.py',
+    'mgga_sc.py',
+    'MgO_exx_fd_vs_pw.py',
+    'lb94.py',
     '8Si.py',
     'td_na2.py',
+    'ehrenfest_nacl.py',
     'rpa_energy_N2.py',
     'beefvdw.py',
+    #'mbeef.py',
+    'nonlocalset.py',
     'wannierk.py',
-    'rpa_Na.py',
+    'rpa_energy_Na.py',
     'coreeig.py',
     'pw/si_stress.py',
-    'P_ai.py',
     'ut_tddft.py',
     'transport.py',
     'vdw/ar2.py',
@@ -288,33 +324,30 @@ tests = [
     'bse_diamond.py',
     'bse_vs_lrtddft.py',
     'bse_silicon.py',
+    'bse_MoS2_cut.py',
     'parallel/pblas.py',
     'parallel/scalapack.py',
     'parallel/scalapack_diag_simple.py',
     'parallel/scalapack_mpirecv_crash.py',
     'parallel/realspace_blacs.py',
     'AA_exx_enthalpy.py',
-    'gw_static.py',
-     #'usesymm2.py',
-     #'eigh_perf.py', # Requires LAPACK 3.2.1 or later
-     # XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
-     #'parallel/scalapack_pdlasrt_hang.py',
-     #'dscf_forces.py',
-     #'stark_shift.py',
-    ]
-
-try:
-    import cmr
-    tests.append('cmrtest/cmr_test.py')
-    tests.append('cmrtest/cmr_test3.py')
-    tests.append('cmrtest/cmr_test4.py')
-    tests.append('cmrtest/cmr_append.py')
-    tests.append('cmrtest/Li2_atomize.py')
-except:
-    pass
+    #'usesymm2.py',
+    #'eigh_perf.py', # Requires LAPACK 3.2.1 or later
+    # XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
+    #'parallel/scalapack_pdlasrt_hang.py',
+    #'dscf_forces.py',
+    #'stark_shift.py',
+    'cmrtest/cmr_test.py',
+    'cmrtest/cmr_test3.py',
+    'cmrtest/cmr_test4.py',
+    'cmrtest/cmr_append.py',
+    'cmrtest/Li2_atomize.py']
 
 exclude = []
 
+# not available on Windows
+if os.name in ['ce', 'nt']:
+    exclude += ['maxrss.py']
 
 if mpi.size > 1:
     exclude += ['maxrss.py',
@@ -330,9 +363,15 @@ if mpi.size > 1:
                 'potential.py',
                 #'cmrtest/cmr_test3.py',
                 #'cmrtest/cmr_append.py',
-                #'cmrtest/Li2_atomize.py',
-                'lcao_pair_and_coulomb.py']
-
+                'cmrtest/Li2_atomize.py',  # started to hang May 2014
+                'lcao_pair_and_coulomb.py',
+                'bse_MoS2_cut.py',
+                'pw/moleculecg.py',
+                'pw/davidson_pw.py',
+                # scipy.weave fails often in parallel due to
+                # ~/.python*_compiled
+                # https://github.com/scipy/scipy/issues/1895
+                'scipy_test.py']
 
 if mpi.size > 2:
     exclude += ['neb.py']
@@ -360,12 +399,16 @@ if mpi.size == 1 or not compiled_with_sl():
 
 if mpi.size != 1 and not compiled_with_sl():
     exclude += ['ralda_energy_H2.py',
+                'ralda_energy_N2.py',
+                'ralda_energy_Ni.py',
+                'ralda_energy_Si.py',
                 'bse_sym.py',
-                'bse_silicon.py']
-
-if not compiled_with_sl():
-    exclude += ['pw/fulldiag.py',
-                'pw/fulldiagk.py']
+                'bse_silicon.py',
+                'gwsi.py',
+                'rpa_energy_N2.py',
+                'pw/fulldiag.py',
+                'pw/fulldiagk.py',
+                'au02_absorption.py']
 
 if mpi.size == 8:
     exclude += ['transport.py']
@@ -374,34 +417,12 @@ if mpi.size != 8:
     exclude += ['parallel/lcao_parallel_kpt.py']
     exclude += ['parallel/fd_parallel_kpt.py']
 
-try:
-    import scipy
-except ImportError:
-    exclude += ['diamond_absorption.py',
-                'diamond_eps.py',
-                'aluminum_EELS.py',
-                'aluminum_EELS_lcao.py',
-                'aluminum_testcell.py',
-                'au02_absorption.py',
-                'bse_aluminum.py',
-                'bse_diamond.py',
-                'bse_vs_lrtddft.py',
-                'bse_sym.py',
-                'bse_silicon.py',
-                'aeatom.py',
-                'rpa_Na.py',
-                'rpa_energy_Si.py',
-                'rpa_energy_Ni.py',
-                'rpa_energy_N2.py',
-                'raldax_energy_H2.py',
-                'gw_test.py']
-
-try:
-    import _hdf5
-except ImportError:
-    exclude += ['fileio/hdf5_simple.py',
-                'fileio/hdf5_noncontiguous.py']
-
+if sys.version_info < (2, 6):
+    exclude.append('transport.py')
+    
+if np.__version__ < '1.6.0':
+    exclude.append('chi0.py')
+    
 for test in exclude:
     if test in tests:
         tests.remove(test)
@@ -416,6 +437,7 @@ class TestRunner:
         self.show_output = show_output
         self.tests = tests
         self.failed = []
+        self.skipped = []
         self.garbage = []
         if mpi.rank == 0:
             self.log = stream
@@ -438,7 +460,9 @@ class TestRunner:
         sys.stdout = sys.__stdout__
         self.log.write('=' * 77 + '\n')
         self.log.write('Ran %d tests out of %d in %.1f seconds\n' %
-                       (ntests - len(self.tests), ntests, time.time() - t0))
+                       (ntests - len(self.tests) - len(self.skipped),
+                        ntests, time.time() - t0))
+        self.log.write('Tests skipped: %d\n' % len(self.skipped))
         if self.failed:
             self.log.write('Tests failed: %d\n' % len(self.failed))
         else:
@@ -480,8 +504,10 @@ class TestRunner:
                         self.write_result(test, 'STOPPED', time.time())
                         self.tests.append(test)
                     break
-                if exitcode:
+                if exitcode == 512:
                     self.failed.append(pids[pid])
+                elif exitcode == 256:
+                    self.skipped.append(pids[pid])
                 del pids[pid]
                 j -= 1
 
@@ -493,6 +519,9 @@ class TestRunner:
         t0 = time.time()
         filename = gpaw.__path__[0] + '/test/' + test
 
+        failed = False
+        skip = False
+
         try:
             loc = {}
             execfile(filename, loc)
@@ -502,10 +531,14 @@ class TestRunner:
         except KeyboardInterrupt:
             self.write_result(test, 'STOPPED', t0)
             raise
-        except:
+        except ImportError, ex:
+            module = ex.args[0].split()[-1].split('.')[0]
+            if module in ['scipy', 'cmr', '_gpaw_hdf5']:
+                skip = True
+            else:
+                failed = True
+        except Exception:
             failed = True
-        else:
-            failed = False
 
         mpi.ibarrier(timeout=60.0)  # guard against parallel hangs
 
@@ -513,13 +546,20 @@ class TestRunner:
         everybody = np.empty(mpi.size, bool)
         mpi.world.all_gather(me, everybody)
         failed = everybody.any()
+        skip = mpi.world.sum(int(skip))
 
         if failed:
             self.fail(test, np.argwhere(everybody).ravel(), t0)
+            exitcode = 2
+        elif skip:
+            self.write_result(test, 'SKIPPED', t0)
+            self.skipped.append(test)
+            exitcode = 1
         else:
             self.write_result(test, 'OK', t0)
+            exitcode = 0
 
-        return failed
+        return exitcode
 
     def check_garbage(self):
         gc.collect()

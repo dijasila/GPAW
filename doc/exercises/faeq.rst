@@ -4,9 +4,57 @@
 Frequently asked exercise questions
 ===================================
 
-Python
-======
+.. contents::
+    
+    
+.. _iso:
+    
+Visualizing iso-surfaces
+------------------------
 
+Iso-surfaces from data in a cube-file or a gpw-file can be visualized using
+Mayavi from the command line like shown :mod:`here <ase.visualize.mlab>`.
+    
+It's a good idea to create a short alias like this::
+    
+    $ alias iso="python -m ase.visualize.mlab -C gpaw"
+    
+so that you can simply do::
+    
+    $ iso CO.cube  # plot cube file
+    $ iso slab-4.gpw  # plot electron density from gpw-file
+    $ iso slab-4.gpw -n 15  # plot wave function from gpw-file
+    $ iso -h  # help!
+
+    
+.. _xy plot:
+
+Making x-y plots
+----------------
+
+If you want to plot an x-y plot from data in a csv-file (comma separated
+values), you can use::
+
+    $ gnuplot ...
+    
+Alternatively, use this little :download:`Python script <xy.py>`:
+
+.. literalinclude:: xy.py
+
+::
+    
+    $ python <path-to-script>/xy.py abc.csv
+
+
+Writing 3-d data to cube files
+------------------------------
+
+This can be done from Python using the :func:`ase.io.write` function::
+    
+    from ase.io import write
+    write('abc.cube', atoms, data=data)
+    
+    
 Square root
 -----------
 
@@ -28,6 +76,7 @@ using ``//``)::
   >>> 1 / 3.0
   0.33333333333333331
 
+  
 Why does changing one variable change another one?
 --------------------------------------------------
 
@@ -43,9 +92,10 @@ The = operator in Python is *not* and assignment operator, it is a
   c = 7
   d = c
   c += 42   # d is still 7, we just did
-	    # c = c + 42
-	    # creating a new object 49 and
-	    # giving it the name c
+            # c = c + 42
+            # creating a new object 49 and
+            # giving it the name c
+
 
 Saving plots
 ------------
@@ -53,7 +103,7 @@ Saving plots
 You can save plots made with matplotlib by pressing the floppy-disk
 icon in the bottom of the plot, and save as a .png file.
 
-You can save a picture of the atoms from ag by choosing Save, and then
+You can save a picture of the atoms from ase-gui by choosing Save, and then
 specify a .png file.
 
 You can view .png files in the databar with the command ``eog`` ("eye

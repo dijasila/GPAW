@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 
 import sys
 import numpy as np
@@ -11,7 +10,7 @@ from gpaw.utilities import compiled_with_sl
 from gpaw.utilities.scalapack import scalapack_set
 from gpaw.blacs import Redistributor
 from gpaw.kohnsham_layouts import BlacsBandLayouts 
-if debug:
+if 0:  # causes numpy doctests failures - exact formatting is expected!
     np.set_printoptions(linewidth=168) #XXX large xterm width
 
 # -------------------------------------------------------------------

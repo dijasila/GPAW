@@ -41,12 +41,11 @@ class GPAW(PAW):
             # Free energy:
             return Hartree * self.hamiltonian.Etot
         else:
-            # Energy extrapolated to zero Kelvin:
-            if (isinstance(self.occupations, MethfesselPaxton) and
-                self.occupations.iter > 0):
-                raise NotImplementedError(
-                    'Extrapolation to zero width not implemeted for ' +
-                    'Methfessel-Paxton distribution with order > 0.')
+            # Energy extrapolated to zero width:
+            if isinstance(self.occupations, MethfesselPaxton):
+                return Hartree * (self.hamiltonian.Etot +
+                                  self.hamiltonian.S /
+                                  (self.occupations.iter + 2))
             return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
 
     def get_forces(self, atoms):
@@ -100,7 +99,35 @@ class GPAW(PAW):
             return True
 
         return ('forces' in quantities and self.forces.F_av is None or
-                'stress' in quantities and self.stress_vv is None)
+                'stress' in quantities and self.stress_vv is None or
+                'magmoms' in quantities and self.magmom_av is None or
+                'dipole' in quantities and self.dipole_v is None)
+
+    # XXX hack for compatibility with ASE-3.8's new calculator specification.
+    # In the future, we will get this stuff for free by inheriting from
+    # ase.calculators.calculator.Calculator.
+    name = 'GPAW'
+    nolabel = True
+    def check_state(self, atoms): return []
+    def todict(self): return {}
+    def _get_results(self):
+        results = {}
+        from ase.calculators.calculator import all_properties
+        for property in all_properties:
+            if property == 'charges':
+                continue
+            if not self.calculation_required(self.atoms, [property]):
+                name = {'energy': 'potential_energy',
+                        'dipole': 'dipole_moment',
+                        'magmom': 'magnetic_moment',
+                        'magmoms': 'magnetic_moments'}.get(property, property)
+                try:
+                    x = getattr(self, 'get_' + name)(self.atoms)
+                    results[property] = x
+                except (NotImplementedError, AttributeError):
+                    pass
+        return results
+    results = property(_get_results)
 
     def get_number_of_bands(self):
         """Return the number of bands."""
@@ -148,19 +175,19 @@ class GPAW(PAW):
             gd = self.density.gd
         elif gridrefinement == 2:
             if self.density.nt_sg is None:
-                self.density.interpolate()
+                self.density.interpolate_pseudo_density()
             nt_sG = self.density.nt_sg
             gd = self.density.finegd
         else:
             raise NotImplementedError
 
         if spin is None:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 nt_G = nt_sG[0]
             else:
                 nt_G = nt_sG.sum(axis=0)
         else:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 nt_G = 0.5 * nt_sG[0]
             else:
                 nt_G = nt_sG[spin]
@@ -205,23 +232,24 @@ class GPAW(PAW):
                              for spin in range(2)])
 
     def get_all_electron_density(self, spin=None, gridrefinement=2,
-                                 pad=True, broadcast=True):
+                                 pad=True, broadcast=True, collect=True):
         """Return reconstructed all-electron density array."""
         n_sG, gd = self.density.get_all_electron_density(
             self.atoms, gridrefinement=gridrefinement)
 
         if spin is None:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 n_G = n_sG[0]
             else:
                 n_G = n_sG.sum(axis=0)
         else:
-            if self.wfs.nspins == 1:
+            if self.density.nspins == 1:
                 n_G = 0.5 * n_sG[0]
             else:
                 n_G = n_sG[spin]
 
-        n_G = gd.collect(n_G, broadcast)
+        if collect:
+            n_G = gd.collect(n_G, broadcast)
 
         if n_G is None:
             return None
@@ -375,7 +403,7 @@ class GPAW(PAW):
         """
         if pad:
             psit_G = self.get_pseudo_wave_function(band, kpt, spin, broadcast,
-                                                 pad=False)
+                                                   pad=False)
             if psit_G is None:
                 return
             else:
@@ -469,7 +497,12 @@ class GPAW(PAW):
         assert self.wfs.kpt_comm.size == 1
 
         # If calc is a save file, read in tar references to memory
-        self.wfs.initialize_wave_functions_from_restart_file()
+        # For lcao mode just initialize the wavefunctions from the
+        # calculated lcao coefficients
+        if self.input_parameters['mode'] == 'lcao':
+            self.wfs.initialize_wave_functions_from_lcao()
+        else:
+            self.wfs.initialize_wave_functions_from_restart_file()
         
         # Get pseudo part
         Z_nn = self.wfs.gd.wannier_matrix(kpt_u[u].psit_nG,
@@ -602,8 +635,9 @@ class GPAW(PAW):
 
     def get_dipole_moment(self, atoms=None):
         """Return the total dipole moment in ASE units."""
-        rhot_g = self.density.rhot_g
-        return self.density.finegd.calculate_dipole_moment(rhot_g) * Bohr
+        if self.dipole_v is None:
+            self.dipole_v = self.density.calculate_dipole_moment()
+        return self.dipole_v * Bohr
 
     def get_magnetic_moment(self, atoms=None):
         """Return the total magnetic moment."""
@@ -611,16 +645,18 @@ class GPAW(PAW):
 
     def get_magnetic_moments(self, atoms=None):
         """Return the local magnetic moments within augmentation spheres"""
-        magmom_av = self.density.estimate_magnetic_moments()
+        if self.magmom_av is not None:
+            return self.magmom_av
+            
+        self.magmom_av = self.density.estimate_magnetic_moments()
         if self.wfs.collinear:
-            momsum = magmom_av.sum()
+            momsum = self.magmom_av.sum()
             M = self.occupations.magmom
-            if abs(M) > 1e-7 and momsum > 1e-7:
-                magmom_av *= M / momsum
+            if abs(M) > 1e-7 and abs(momsum) > 1e-7:
+                self.magmom_av *= M / momsum
             # return a contiguous array
-            return magmom_av[:, 2].copy()
-        else:
-            return magmom_av
+            self.magmom_av = self.magmom_av[:, 2].copy()
+        return self.magmom_av
         
     def get_number_of_grid_points(self):
         return self.wfs.gd.N_c
@@ -674,3 +710,16 @@ class GPAW(PAW):
             k = kpt.k
             for n, psit_G in enumerate(kpt.psit_nG):
                 psit_G[:] = read_wave_function(self.wfs.gd, s, k, n, mode)
+
+    def get_nonselfconsistent_energies(self, type='beefvdw'):
+        from gpaw.xc.bee import BEEF_Ensemble
+        if type not in ['beefvdw', 'mbeef']:
+            raise NotImplementedError('Not implemented for type = %s' % type)
+        assert self.scf.converged
+        bee = BEEF_Ensemble(self)
+        x = bee.create_xc_contributions('exch')
+        c = bee.create_xc_contributions('corr')
+        if type is 'beefvdw':
+            return np.append(x,c)
+        elif type is 'mbeef':
+            return x.flatten()

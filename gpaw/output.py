@@ -1,21 +1,21 @@
 import os
 import sys
 import time
+import platform
 from math import log
-from math import sqrt
 
 import numpy as np
 import ase
-from ase.version import version as ase_version
-from ase.data import chemical_symbols
 from ase.units import Bohr, Hartree
+from ase.data import chemical_symbols
+from ase.version import version as ase_version
 
-from gpaw.utilities import devnull
-from gpaw.version import version
-from gpaw.utilities import scalapack
-from gpaw import dry_run, extra_parameters
-from gpaw.utilities.memory import maxrss
 import gpaw
+import _gpaw
+from gpaw.version import version
+from gpaw.utilities import devnull
+from gpaw.utilities.memory import maxrss
+from gpaw import dry_run, extra_parameters
 
 
 def initialize_text_stream(txt, rank, old_txt=None):
@@ -88,16 +88,32 @@ class PAWTextOutput:
         self.text(' |___|_|             ')
         self.text()
 
-        uname = os.uname()
+        uname = platform.uname()
         self.text('User: ', os.getenv('USER', '???') + '@' + uname[1])
         self.text('Date: ', time.asctime())
         self.text('Arch: ', uname[4])
         self.text('Pid:  ', os.getpid())
-        self.text('Dir:  ', os.path.dirname(gpaw.__file__))
+        self.text('gpaw: ', os.path.dirname(gpaw.__file__))
+        
+        # Find C-code:
+        c = getattr(_gpaw, '__file__', None)
+        if not c:
+            c = sys.executable
+        self.text('_gpaw:', os.path.normpath(c))
+                  
         self.text('ase:   %s (version %s)' %
                   (os.path.dirname(ase.__file__), ase_version))
         self.text('numpy: %s (version %s)' %
                   (os.path.dirname(np.__file__), np.version.version))
+        try:
+            import scipy as sp
+            self.text('scipy: %s (version %s)' %
+                      (os.path.dirname(sp.__file__), sp.version.version))
+            # Explicitly deleting SciPy seems to remove garbage collection
+            # problem of unknown cause
+            del sp
+        except ImportError:
+            self.text('scipy: Not available')
         self.text('units: Angstrom and eV')
         self.text('cores:', self.wfs.world.size)
 
@@ -121,9 +137,10 @@ class PAWTextOutput:
                   '---------------------')
         gd = self.wfs.gd
         h_c = gd.get_grid_spacings()
+        pbc_c = self.atoms.pbc
         for c in range(3):
             self.text('  %d. axis:    %s  %10.6f  %10.6f  %10.6f   %3d   %8.4f'
-                      % ((c + 1, ['no ', 'yes'][int(gd.pbc_c[c])]) +
+                      % ((c + 1, ['no ', 'yes'][int(pbc_c[c])]) +
                          tuple(Bohr * gd.cell_cv[c]) +
                          (gd.N_c[c], Bohr * h_c[c])))
         self.text()
@@ -169,12 +186,10 @@ class PAWTextOutput:
         t('Total Charge:      %.6f' % p['charge'])
         t('Fermi Temperature: %.6f' % (self.occupations.width * Hartree))
         self.wfs.summary(self.txt)
-        eigensolver = p['eigensolver']
-        if eigensolver is None:
-            if p.mode == 'lcao':
-                eigensolver = 'lcao (direct)'
-            else:
-                eigensolver = 'rmm-diis'
+        if p.mode == 'lcao':
+            eigensolver = 'lcao (direct)'
+        else:
+            eigensolver = self.wfs.eigensolver
         t('Eigensolver:       %s' % eigensolver)
 
         self.hamiltonian.summary(self.txt)
@@ -182,24 +197,29 @@ class PAWTextOutput:
         t('Reference Energy:  %.6f' % (self.wfs.setups.Eref * Hartree))
         t()
 
+        # DFT+U
+        # Print out info about HubU values
         if self.hamiltonian.HubU_dict is not None:
             Hub_dict = self.hamiltonian.HubU_dict
-            t('Hubbard U calculation: Format: a (n,l):  [in eV]')
+            t('Hubbard U parameters: \nFormat: atom index (n, l): U [in eV]')
             hub_string = ''
             for a in Hub_dict:
-                hub_string = '%i ' % a
-                for n in Hub_dict[a]:
-                    hub_string += '(%i,' % n
-                    for l in Hub_dict[a][n]:
-                        hub_string += '%i): ' % (l)
-                        if 'U' in Hub_dict[a][n][l]:
-                            hub_string += 'U=%.2f  ' % (
-                                                        Hub_dict[a][n][l]['U']*27.2107)
-                        elif 'alpha' in Hub_dict[a][n][l]:
-                            hub_string += 'alpha=%.2f  ' % (
-                                                    Hub_dict[a][n][l]['alpha']*27.2107)
-                t(hub_string)
-                t()
+                if a == 'scale': # Print that only
+                    hub_string += '\nscale = %s  ' %bool(Hub_dict[a])
+                else: # then a contains atom Hubbard-U info
+                    hub_string = '%i ' % a
+                    for n in Hub_dict[a]:
+                        hub_string += '(n=%i, ' % n
+                        for l in Hub_dict[a][n]:
+                            hub_string += 'l=%i): ' % (l)
+                            if 'U' in Hub_dict[a][n][l]:
+                                hub_string += 'U=%.2f  ' % (
+                                    Hub_dict[a][n][l]['U'] * Hartree)
+                            elif 'alpha' in Hub_dict[a][n][l]:
+                                hub_string += 'alpha=%.2f  ' % (
+                                    Hub_dict[a][n][l]['alpha'] * Hartree)
+            t(hub_string)
+            t()
 
         nibzkpts = self.wfs.nibzkpts
 
@@ -247,8 +267,9 @@ class PAWTextOutput:
             t('Fixing the initial density')
         else:
             mixer = self.density.mixer
+            t('Mixer Type:                        %s' % mixer.__class__.__name__)
             t('Linear Mixing Parameter:           %g' % mixer.beta)
-            t('Pulay Mixing with %d Old Densities' % mixer.nmaxold)
+            t('Mixing with %d Old Densities' % mixer.nmaxold)
             if mixer.weight == 1:
                 t('No Damping of Long Wave Oscillations')
             else:
@@ -265,6 +286,9 @@ class PAWTextOutput:
           cc['eigenstates'])
         t('Number of Atoms: %d' % len(self.wfs.setups))
         t('Number of Atomic Orbitals: %d' % self.wfs.setups.nao)
+        if self.nbands_parallelization_adjustment != 0:
+            t('Adjusting Number of Bands by %+d to Match Parallelization'
+              % self.nbands_parallelization_adjustment)
         t('Number of Bands in Calculation:         %i' % self.wfs.bd.nbands)
         t('Bands to Converge:                      ', end='')
         if cc['bands'] == 'occupied':
@@ -319,7 +343,7 @@ class PAWTextOutput:
 
         try:
             dipole = self.get_dipole_moment()
-        except AttributeError:
+        except NotImplementedError:
             pass
         else:
             if self.density.charge == 0:
@@ -395,13 +419,13 @@ class PAWTextOutput:
             if eigerr == 0.0:
                 eigerr = ''
             else:
-                eigerr = '%-+5.1f' % (log(eigerr) / log(10))
+                eigerr = '%+.2f' % (log(eigerr) / log(10))
 
             denserr = self.density.mixer.get_charge_sloshing()
             if denserr is None or denserr == 0 or nvalence == 0:
                 denserr = ''
             else:
-                denserr = '%+.1f' % (log(denserr / nvalence) / log(10))
+                denserr = '%+.2f' % (log(denserr / nvalence) / log(10))
 
             niterocc = self.occupations.niter
             if niterocc == -1:
@@ -414,7 +438,7 @@ class PAWTextOutput:
             else:
                 niterpoisson = str(self.hamiltonian.npoisson)
 
-            t('iter: %3d  %02d:%02d:%02d  %-5s  %-5s    %11.6f  %-5s  %-7s' %
+            t('iter: %3d  %02d:%02d:%02d %6s %6s    %11.6f  %-5s  %-7s' %
               (iter,
                T[3], T[4], T[5],
                eigerr,

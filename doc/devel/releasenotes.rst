@@ -10,14 +10,87 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+Version 0.10.0
+==============
+
+8 April 2014: :trac:`tags/0.10.0 <../tags/0.10.0>`.
+
+* Corresponding ASE release: ase-3.8.1_
+
+* Default eigensolver is now the Davidson solver.
+
+* Default density mixer parameters have been changed for calculations
+  with periodic boundary conditions.  Parameters for that case:
+  ``Mixer(0.05, 5, 50)`` (or ``MixerSum(0.05, 5, 50)`` for spin-paired
+  calculations.  Old parameters: ``0.1, 3, 50``.
+  
+* Default is now ``occupations=FermiDirac(0.1)`` if a
+  calculation is periodic in at least one direction,
+  and ``FermiDirac(0.0)`` otherwise (before it was 0.1 eV for anything
+  with **k**-points, and 0 otherwise).
+
+* Calculations with a plane-wave basis set are now officially supported.
+
+* :ref:`One-shot GW calculations <gw_theory>` with full frequency
+  integration or plasmon-pole approximation.
+  
+* Beyond RPA-correlation: `using renormalized LDA and PBE
+  <https://trac.fysik.dtu.dk/projects/gpaw/browser/branches/sprint2013/doc/tutorials/fxc_correlation>`_.
+
+* :ref:`bse`.
+
+* Improved RMM-DIIS eigensolver.
+
+* Support for new libxc 2.0.1.  libxc must now be built separately from GPAW.
+
+* MGGA calculations can be done in plane-wave mode.
+
 * Calculation of the stress tensor has been implemented for plane-wave
-  based calculation.
+  based calculation (except MGGA).
 
 * MGGA: number of neighbor grid points to use for FD stencil for
   wave function gradient changed from 1 to 3.
 
-Version 0.9
-===========
+* New setups: Y, Sb, Xe, Hf, Re, Hg, Tl, Rn
+
+* Non self-consistent calculations with screened hybrid functionals
+  (HSE03 and HSE06) can be done in plane-wave mode.
+
+* Modified setups:
+
+  .. note::
+
+     Most of the new semicore setups currently require
+     :ref:`eigensolver <manual_eigensolver>` ``dav``, ``cg``
+     eigensolvers or ``rmm-diis`` eigensolver with a couple of iterations.
+
+  - improved eggbox: N, O, K, S, Ca, Sc, Zn, Sr, Zr, Cd, In, Sn, Pb, Bi
+
+  - semicore states included: Na, Mg, V, Mn, Ni,
+    Nb, Mo, Ru (seems to solve the Ru problem :trac:`gpaw/test/big/Ru001`),
+    Rh, Pd, Ag, Ta, W, Os, Ir, Pt
+
+  - semicore states removed: Te
+
+  - elements removed: La (energetics was wrong: errors ~1eV per unit cell
+    for PBE formation energy of La2O3 wrt. PBE benchmark results)
+
+  .. note::
+
+     For some of the setups one has now a choice of different
+     number of valence electrons, e.g.::
+
+       setups = {'Ag': '11'}
+
+     See :ref:`manual_setups` and list the contents of :envvar:`GPAW_SETUP_PATH`
+     for available setups.
+
+* new ``dzp`` basis set generated for all the new setups, see
+  https://trac.fysik.dtu.dk/projects/gpaw/ticket/241
+
+
+Version 0.9.0
+=============
 
 7 March 2012: :trac:`tags/0.9.0 <../tags/0.9.0>`.
 
@@ -36,10 +109,11 @@ Version 0.9
 
 .. _new tool: https://wiki.fysik.dtu.dk/ase/ase/cmdline.html
 .. _ase-3.6: https://svn.fysik.dtu.dk/projects/ase/tags/3.6.0
+.. _ase-3.8.1: https://svn.fysik.dtu.dk/projects/ase/tags/3.8.1
 
 
-Version 0.8
-===========
+Version 0.8.0
+=============
 
 25 May 2011: :trac:`tags/0.8.0 <../tags/0.8.0>`.
 
@@ -85,7 +159,7 @@ Version 0.7
   cells.  It may actually work now!
 * Much better use of ScaLAPACK and BLACS.  All large matrices can now
   be distributed.
-* New test coverage pages for all files: :ref:`coverage`.
+* New test coverage pages for all files.
 * New default value for Poisson solver stencil: ``PoissonSolver(nn=3)``.
 * Much improved MPI module (:ref:`communicators`).
 * Self-consistent Meta GGA.

@@ -1,5 +1,8 @@
 from math import sqrt, pi
+
 import numpy as np
+from scipy.special.specfun import sphj
+
 from gpaw.utilities.blas import gemmdot
 from gpaw.gaunt import gaunt as G_LLL
 from gpaw.spherical_harmonics import Y
@@ -30,7 +33,8 @@ def hilbert_transform(specfunc_wGG, w_w, Nw, dw, eta, fullresponse=False):
     return chi0_wGG * dw
 
 
-def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=None, Gend=None, rgd=None, phi_jg=None,
+def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
+                                rgd=None, phi_jg=None,
                                 phit_jg=None,l_j=None):
     """Calculate PAW-correction matrix elements with planewaves.
 
@@ -50,8 +54,9 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=None, Gend=None, rgd=No
           
     """
 
-    from scipy.special import sph_jn
-
+    if Gend is None:
+        Gend = len(k_Gv)
+        
     if setup is not None:
         rgd = setup.rgd
         l_j = setup.l_j
@@ -109,8 +114,8 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=None, Gend=None, rgd=No
         k = np.sqrt(np.dot(kk, kk)) # calculate length of q+G
 
         # Calculating spherical bessel function
-        for ri in range(ng):
-            j_lg[:,ri] = sph_jn(lmax - 1,  k*r_g[ri])[0]
+        for g, r in enumerate(r_g):
+            j_lg[:, g] = sphj(lmax - 1,  k * r)[1]
 
         for li in range(lmax):
             # Radial part 

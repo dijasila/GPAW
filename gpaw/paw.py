@@ -9,7 +9,9 @@ The central object that glues everything together!"""
 
 import numpy as np
 from ase.units import Bohr, Hartree
+from ase.data import atomic_numbers, atomic_names
 from ase.dft.kpoints import monkhorst_pack
+from ase.calculators.calculator import kptdensity2monkhorstpack
 
 import gpaw.io
 import gpaw.mpi as mpi
@@ -48,10 +50,10 @@ class PAW(PAWTextOutput):
     def __init__(self, filename=None, **kwargs):
         """ASE-calculator interface. 
 
-        The following parameters can be used: `nbands`, `xc`, `kpts`,
-        `spinpol`, `gpts`, `h`, `charge`, `usesymm`, `width`, `mixer`,
-        `hund`, `lmax`, `fixdensity`, `convergence`, `txt`, `parallel`,
-        `communicator`, `dtype`, `softgauss` and `stencils`.
+        The following parameters can be used: nbands, xc, kpts,
+        spinpol, gpts, h, charge, usesymm, width, mixer,
+        hund, lmax, fixdensity, convergence, txt, parallel,
+        communicator, dtype, softgauss and stencils.
 
         If you don't specify any parameters, you will get:
 
@@ -77,13 +79,17 @@ class PAW(PAWTextOutput):
         self.scf = None
         self.forces = ForceCalculator(self.timer)
         self.stress_vv = None
+        self.dipole_v = None
+        self.magmom_av = None
         self.wfs = EmptyWaveFunctions()
         self.occupations = None
         self.density = None
         self.hamiltonian = None
         self.atoms = None
-
+        self.iter = 0
+        
         self.initialized = False
+        self.nbands_parallelization_adjustment = None  # Somehow avoid this?
 
         # Possibly read GPAW keyword arguments from file:
         if filename is not None and filename.endswith('.gkw'):
@@ -129,18 +135,14 @@ class PAW(PAWTextOutput):
         gpaw.io.read(self, reader)
 
     def set(self, **kwargs):
+        """Change parameters for calculator.
+        
+        Examples::
+            
+            calc.set(xc='PBE')
+            calc.set(nbands=20, kpts=(4, 1, 1))
+        """
         p = self.input_parameters
-
-        # Prune input for things that didn't change
-        for key, value in kwargs.items():
-            if key == 'kpts':
-                oldbzk_kc = kpts2ndarray(p.kpts)
-                newbzk_kc = kpts2ndarray(value)
-                if (len(oldbzk_kc) == len(newbzk_kc) and
-                    (oldbzk_kc == newbzk_kc).all()):
-                    kwargs.pop('kpts')
-            elif np.all(p[key] == value):
-                kwargs.pop(key)
 
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
             raise TypeError("""You can't use both "gpts" and "h"!""")
@@ -195,12 +197,12 @@ class PAW(PAWTextOutput):
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
-                         'parallel', 'communicator', 'dtype']:
+                         'parallel', 'communicator', 'dtype', 'mode']:
                 self.density = None
                 self.occupations = None
                 self.hamiltonian = None
                 self.wfs = EmptyWaveFunctions()
-            elif key in ['mode', 'basis']:
+            elif key in ['basis']:
                 self.wfs = EmptyWaveFunctions()
             elif key in ['parsize', 'parsize_bands', 'parstride_bands']:
                 name = {'parsize': 'domain',
@@ -216,7 +218,9 @@ class PAW(PAWTextOutput):
 
     def calculate(self, atoms=None, converge=False,
                   force_call_to_set_positions=False):
-        """Update PAW calculaton if needed."""
+        """Update PAW calculaton if needed.
+
+        Returns True/False whether a calculation was performed or not."""
 
         self.timer.start('Initialization')
         if atoms is None:
@@ -254,20 +258,24 @@ class PAW(PAWTextOutput):
             self.set_positions(atoms)
         elif force_call_to_set_positions:
             self.set_positions(atoms)
-
+        if self.hamiltonian.HubU_dict != None:
+            # This allows setting U values individually for all atoms and orbitals
+            HubU_dict = self.hamiltonian.HubU_dict
+            self.hamiltonian.set_hubbard_u(HubU_dict=HubU_dict)
+        
         self.timer.stop('Initialization')
 
         if self.scf.converged:
-            return
+            return False
         else:
             self.print_cell_and_parameters()
 
         self.timer.start('SCF-cycle')
         for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
                                  self.occupations):
+            self.iter = iter
             self.call_observers(iter)
             self.print_iteration(iter)
-            self.iter = iter
         self.timer.stop('SCF-cycle')
 
         if self.scf.converged:
@@ -278,7 +286,11 @@ class PAW(PAWTextOutput):
         elif converge:
             if 'not_converged' in hooks:
                 hooks['not_converged'](self)
-            raise KohnShamConvergenceError('Did not converge!')
+            self.txt.write(oops)
+            raise KohnShamConvergenceError(
+                'Did not converge!  See text output for help.')
+
+        return True
 
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""
@@ -302,9 +314,12 @@ class PAW(PAWTextOutput):
         """Update the positions of the atoms and initialize wave functions."""
         spos_ac = self.initialize_positions(atoms)
         self.wfs.initialize(self.density, self.hamiltonian, spos_ac)
+        self.wfs.eigensolver.reset()
         self.scf.reset()
         self.forces.reset()
         self.stress_vv = None
+        self.dipole_v = None
+        self.magmom_av = None
         self.print_positions()
 
     def initialize(self, atoms=None):
@@ -341,12 +356,51 @@ class PAW(PAWTextOutput):
         Z_a = atoms.get_atomic_numbers()
         magmom_av = atoms.get_initial_magnetic_moments()
 
-        if isinstance(par.xc, str):
-            xc = XC(par.xc)
+        # Generate new xc functional only when it is reset by set
+        if self.hamiltonian is None or self.hamiltonian.xc is None:
+            if isinstance(par.xc, str):
+                xc = XC(par.xc)
+            else:
+                xc = par.xc
         else:
-            xc = par.xc
+            xc = self.hamiltonian.xc
 
-        setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc, world)
+        mode = par.mode
+
+        if xc.orbital_dependent and mode == 'lcao':
+            raise NotImplementedError('LCAO mode does not support '
+                                      'orbital-dependent XC functionals.')
+
+        if mode == 'pw':
+            mode = PW()
+
+        if par.realspace is None:
+            realspace = not isinstance(mode, PW)
+        else:
+            realspace = par.realspace
+            if isinstance(mode, PW):
+                assert not realspace
+
+        if par.gpts is not None:
+            N_c = np.array(par.gpts)
+        else:
+            h = par.h
+            if h is not None:
+                h /= Bohr
+            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
+
+        if par.filter is None and not isinstance(mode, PW):
+            gamma = 1.6
+            hmax = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / N_c).max()
+            
+            def filter(rgd, rcut, f_r, l=0):
+                gcut = np.pi / hmax - 2 / rcut / gamma
+                f_r[:] = rgd.filter(f_r, rcut * gamma, gcut, l)
+        else:
+            filter = par.filter
+
+        setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc,
+                        filter, world)
 
         if magmom_av.ndim == 1:
             collinear = True
@@ -378,40 +432,18 @@ class PAW(PAWTextOutput):
             ncomp = 2
 
         # K-point descriptor
-        kd = KPointDescriptor(par.kpts, nspins, collinear)
+        bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
+        kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
 
         width = par.width
         if width is None:
-            if kd.gamma:
-                width = 0.0
-            else:
+            if pbc_c.any():
                 width = 0.1  # eV
+            else:
+                width = 0.0
         else:
             assert par.occupations is None
       
-        mode = par.mode
-
-        if xc.orbital_dependent:
-            assert mode == 'fd'
-
-        if mode == 'pw':
-            mode = PW()
-
-        if par.realspace is None:
-            realspace = not isinstance(mode, PW)
-        else:
-            realspace = par.realspace
-            if isinstance(mode, PW):
-                assert not realspace
-
-        if par.gpts is not None:
-            N_c = np.array(par.gpts)
-        else:
-            h = par.h
-            if h is not None:
-                h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
-
         if hasattr(self, 'time') or par.dtype == complex:
             dtype = complex
         else:
@@ -429,9 +461,19 @@ class PAW(PAWTextOutput):
         
         nbands = par.nbands
         if nbands is None:
-            nbands = nao
+            nbands = 0
+            for setup in setups:
+                nbands_from_atom = setup.get_default_nbands()
+                
+                # Any obscure setup errors?
+                if nbands_from_atom < -(-setup.Nv // 2):
+                    raise ValueError('Bad setup: This setup requests %d'
+                                     ' bands but has %d electrons.'
+                                     % (nbands_from_atom, setup.Nv))
+                nbands += nbands_from_atom
+            nbands = min(nao, nbands)
         elif nbands > nao and mode == 'lcao':
-            raise ValueError('Too many bands for LCAO calculation: ' +
+            raise ValueError('Too many bands for LCAO calculation: '
                              '%d bands and only %d atomic orbitals!' %
                              (nbands, nao))
 
@@ -480,6 +522,7 @@ class PAW(PAWTextOutput):
                 par.maxiter, par.fixdensity,
                 niter_fixdensity)
 
+        parsize_kpt = par.parallel['kpt']
         parsize_domain = par.parallel['domain']
         parsize_bands = par.parallel['band']
 
@@ -490,13 +533,47 @@ class PAW(PAWTextOutput):
             if parsize_domain == 'domain only':  # XXX this was silly!
                 parsize_domain = world.size
 
-            domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(
-                parsize_domain, parsize_bands,
-                nspins, kd.nibzkpts, world, par.idiotproof, mode)
+            parallelization = mpi.Parallelization(world,
+                                                  nspins * kd.nibzkpts)
+            ndomains = None
+            if parsize_domain is not None:
+                ndomains = np.prod(parsize_domain)
+            if isinstance(mode, PW):
+                if ndomains > 1:
+                    raise ValueError('Planewave mode does not support '
+                                     'domain decomposition.')
+                ndomains = 1
+            parallelization.set(kpt=parsize_kpt,
+                                domain=ndomains,
+                                band=parsize_bands)
+            domain_comm, kpt_comm, band_comm = \
+                parallelization.build_communicators()
+
+            #domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(
+            #    parsize_domain, parsize_bands,
+            #    nspins, kd.nibzkpts, world, par.idiotproof, mode)
 
             kd.set_communicator(kpt_comm)
 
             parstride_bands = par.parallel['stridebands']
+
+            # Unfortunately we need to remember that we adjusted the
+            # number of bands so we can print a warning if it differs
+            # from the number specified by the user.  (The number can
+            # be inferred from the input parameters, but it's tricky
+            # because we allow negative numbers)
+            self.nbands_parallelization_adjustment = -nbands % band_comm.size
+            nbands += self.nbands_parallelization_adjustment
+
+            # I would like to give the following error message, but apparently
+            # there are cases, e.g. gpaw/test/gw_ppa.py, which involve
+            # nbands > nao and are supposed to work that way.
+            #if nbands > nao:
+            #    raise ValueError('Number of bands %d adjusted for band '
+            #                     'parallelization %d exceeds number of atomic '
+            #                     'orbitals %d.  This problem can be fixed '
+            #                     'by reducing the number of bands a bit.'
+            #                     % (nbands, band_comm.size, nao))
             bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
             if (self.density is not None and
@@ -504,8 +581,8 @@ class PAW(PAWTextOutput):
                 # Domain decomposition has changed, so we need to
                 # reinitialize density and hamiltonian:
                 if par.fixdensity:
-                    raise RuntimeError("Density reinitialization conflict "
-                        "with 'fixdensity' - specify domain decomposition.")
+                    raise RuntimeError('Density reinitialization conflict ' +
+                        'with "fixdensity" - specify domain decomposition.')
                 self.density = None
                 self.hamiltonian = None
 
@@ -540,7 +617,6 @@ class PAW(PAWTextOutput):
                 # but so will ScaLAPACK in any case
                 blocksize = min(-(-nbands // 4), 64)
                 sl_default = (nprow, npcol, blocksize)
-                par.parallel['sl_default'] = sl_default
             else:
                 sl_default = par.parallel['sl_default']
 
@@ -594,9 +670,6 @@ class PAW(PAWTextOutput):
                 except RuntimeError:
                     initksl = None
                 else:
-                    #assert nbands <= nao or bd.comm.size == 1
-                    assert lcaobd.mynbands == min(bd.mynbands, nao)  # XXX
-
                     # Layouts used for general diagonalizer
                     # (LCAO initialization)
                     sl_lcao = par.parallel['sl_lcao']
@@ -609,7 +682,7 @@ class PAW(PAWTextOutput):
 
                 if hasattr(self, 'time'):
                     assert mode == 'fd'
-                    from gpaw.tddft import TimeDependentWaveFunctions #XXX
+                    from gpaw.tddft import TimeDependentWaveFunctions
                     self.wfs = TimeDependentWaveFunctions(par.stencils[0],
                         diagksl, orthoksl, initksl, gd, nvalence, setups,
                         bd, world, kd, self.timer)
@@ -669,14 +742,105 @@ class PAW(PAWTextOutput):
             if realspace:
                 self.hamiltonian = RealSpaceHamiltonian(
                     gd, finegd, nspins, setups, self.timer, xc, par.external,
-                    collinear, par.poissonsolver, par.stencils[1])
+                    collinear, par.poissonsolver, par.stencils[1], world)
             else:
                 self.hamiltonian = ReciprocalSpaceHamiltonian(
                     gd, finegd,
                     self.density.pd2, self.density.pd3,
                     nspins, setups, self.timer, xc, par.external,
-                    collinear)
+                    collinear, world)
+
+        # Start of setting Hubbard U for all atoms of certain kind
+        # There are two possibilities: 
+        # - par.setups is a dictionary containing Atom symbol: setup-info
+        # - par.setups is a string, possibly containing Hubbard+U data
+        # Try the first possibility first, then the other.
+        # In any case, from par.setup we get the atom type to apply U, as well as
+        # what U value, what orbital, etc.
             
+        try:
+            type = par.setups.items()[0][1] # get any Hubbard+U-relevant setup info
+        except:
+            assert(isinstance(par.setups, str)), "Unexpected format of setup info"
+            # Then there is no DFT+U info in the setup info,
+            # it is only a simple string
+            type = par.setups
+        
+        if isinstance(type, str) and ':' in type:
+            # Parse DFT+U parameters from setup-string:
+            # The type-string has to include which orbital (n) 
+            # is to have a U value set.
+            # Examples: "type:nl,U" or "type:nl,U,scale"
+            # Set Hubbard U to one value for all atoms of certain type
+            if type[0] == ':':
+                # Then there is no info on atom type to set U for
+                # Then we assume that all atoms should get the same U
+                same_U_on_all_atoms = True
+            else: 
+                Hubbard_atom = par.setups.items()[0][0]
+                
+            type, nlu = type.split(':')
+            
+            # The first part of nlu must be a string for the main quantal number, which is always an integer
+            # <10
+            assert(isinstance(int(nlu[0]), int)), "You must also give the main quantal number of orbital to get Hubbard U value"
+            n = int(nlu[0])
+            l = 'spdf'.find(nlu[1])
+            
+            assert (nlu[2] == ','), "Please specify both the n and l quantum numbers of the orbital Hubbard+U-modified orbital!"  
+            U = nlu[3:]
+            if ',' in U:
+                U, scale = U.split(',')
+                U = float(U) / Hartree
+            else:
+                scale = True
+                U = float(U) / Hartree
+                scale = int(scale)
+        else:
+            # If no : then no U value is set
+            U = None
+                            
+        if U is not None:
+            # Set up same Hubbard U value on all atoms of
+            # one kind. This is to enable the usage of the format 
+            # e.g. calc.set(setups={'Ni': '10:d,6.0'}).
+            # More fine-grained control can be gained by setting 
+            # HubU_dict directly, and setting
+            # calc.hamiltonian.HubU_dict = HubU_dict
+            # directly in an input script
+                
+            #setup.set_hubbard_u(U, l, scale)  # OLD
+            
+            # First make sure that the HubU_dict is initialized
+            if self.hamiltonian.HubU_dict == None:
+                self.hamiltonian.HubU_dict = {}
+            
+            HubU_dict = self.hamiltonian.HubU_dict  # Easier to use
+                
+            # Print info about Hubbard U
+            #self.text('Hubbard+U settings:')
+            
+            # Apply Hubbard U in Hamiltonian
+            try: 
+                # Assume that there is a chosen Hubbard_atom
+                for atom_number_in_system, atom in enumerate(Z_a):
+                    if atom == atomic_numbers[Hubbard_atom]:
+                        HubU_dict[atom_number_in_system] = {n:{l:{'U': U}}}
+                
+             #   self.text('Hubbard U on %s: %f eV (n=%s, l=%d, scale=%s)' %
+             #             (Hubbard_atom, U * Hartree, n, l, bool(scale)))
+
+            except:
+                # If there is no Hubbard_atom,
+                # set exactly the same U on all atoms in system
+                for atom_number_in_system, atom in enumerate(Z_a):
+                    HubU_dict[atom_number_in_system] = {n:{l:{'U': U}}}
+                    
+              #  self.text('Hubbard U on all atoms: %f eV (n=%s, l=%d, scale=%s)' %
+               #           (U * Hartree, n, l, bool(scale)))
+                HubU_dict['scale'] = scale
+                # No matter what, always set scale if requested
+                
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
 
@@ -684,9 +848,11 @@ class PAW(PAWTextOutput):
         self.print_memory_estimate(self.txt, maxdepth=memory_estimate_depth)
         self.txt.flush()
 
+        self.timer.print_info(self)
+        
         if dry_run:
             self.dry_run()
-
+        
         self.initialized = True
 
     def dry_run(self):
@@ -703,11 +869,8 @@ class PAW(PAWTextOutput):
         TODO: Is this really the most efficient way?
         """
         spos_ac = self.atoms.get_scaled_positions() % 1.0
-        self.density.nct.set_positions(spos_ac)
-        self.density.ghat.set_positions(spos_ac)
-        self.density.nct_G = self.density.gd.zeros()
-        self.density.nct.add(self.density.nct_G, 1.0 / self.density.nspins)
-        self.density.interpolate()
+        self.density.set_positions(spos_ac)
+        self.density.interpolate_pseudo_density()
         self.density.calculate_pseudo_charge()
         self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
         self.hamiltonian.update(self.density)
@@ -809,6 +972,8 @@ class PAW(PAWTextOutput):
             self.initialize()
         else:
             self.wfs.initialize_wave_functions_from_restart_file()
+            spos_ac = self.atoms.get_scaled_positions() % 1.0
+            self.wfs.set_positions(spos_ac)
 
         no_wave_functions = (self.wfs.kpt_u[0].psit_nG is None)
         converged = self.scf.check_convergence(self.density,
@@ -838,10 +1003,76 @@ class PAW(PAWTextOutput):
                                'are not identical!')
 
 
-def kpts2ndarray(kpts):
-    """Convert kpts keyword to 2d ndarray of scaled k-points."""
+def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
+                        atoms=None):
+    """Helper function for selecting k-points.
+    
+    Use either size or density.
+    
+    size: 3 ints
+        Number of k-points.
+    density: float
+        K-point density in units of k-points per Ang^-1.
+    gamma: None or bool
+        Should the Gamma-point be included?  Yes / no / don't care:
+        True / False / None.
+    even: None or bool
+        Should the number of k-points be even?  Yes / no / don't care:
+        True / False / None.
+    atoms: Atoms object
+        Needed for calculating k-point density.
+    
+    """
+    
+    if size is None:
+        if density is None:
+            size = [1, 1, 1]
+        else:
+            size = kptdensity2monkhorstpack(atoms, density, even)
+            
+    offsets = [0, 0, 0]
+                                                                        
+    if gamma is not None:
+        for i, s in enumerate(size):
+            if atoms.pbc[i] and s % 2 != bool(gamma):
+                offsets[i] = 0.5 / s
+                
+    return size, offsets
+    
+    
+def kpts2ndarray(kpts, atoms=None):
+    """Convert kpts keyword to 2-d ndarray of scaled k-points."""
+    
     if kpts is None:
         return np.zeros((1, 3))
+        
+    if isinstance(kpts, dict):
+        size, offsets = kpts2sizeandoffsets(atoms=atoms, **kpts)
+        return monkhorst_pack(size) + offsets
+        
     if isinstance(kpts[0], int):
         return monkhorst_pack(kpts)
+        
     return np.array(kpts)
+
+
+oops = """
+Did not converge!
+
+Here are some tips:
+
+1) Make sure the geometry and spin-state is physically sound.
+2) Use less aggressive density mixing.
+3) Solve the eigenvalue problem more accurately at each scf-step.
+4) Use a smoother distribution function for the occupation numbers.
+5) Try adding more empty states.
+6) Use enough k-points.
+7) Don't let your structure optimization algorithm take too large steps.
+8) Solve the Poisson equation more accurately.
+9) Better initial guess for the wave functions.
+
+See details here:
+    
+    https://wiki.fysik.dtu.dk/gpaw/documentation/convergence.html
+
+"""

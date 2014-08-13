@@ -24,7 +24,7 @@ def get_vxc(paw, spin=0, U=None):
     gd = paw.hamiltonian.gd
     psit_nG = paw.wfs.kpt_u[spin].psit_nG[:]
     if paw.density.nt_sg is None:
-        paw.density.interpolate()
+        paw.density.interpolate_pseudo_density()
     nt_g = paw.density.nt_sg[spin]
     vxct_g = paw.density.finegd.zeros()
     paw.hamiltonian.xc.get_energy_and_potential(nt_g, vxct_g)

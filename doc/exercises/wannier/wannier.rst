@@ -1,3 +1,5 @@
+.. _wannier:
+    
 =================
 Wannier Functions
 =================
@@ -47,6 +49,6 @@ or study your own favorite molecule.
   
   To be able to see the Wannier centers, it might be necessary to
   decrease the atomic radii, so the spheres don't overlap.
-  In :program:`ag` this can be done by choosing 
+  In :program:`ase-gui` this can be done by choosing 
   :menuselection:`View --> Settings`, and
   then decrease the scaling factor of the covalent radii.

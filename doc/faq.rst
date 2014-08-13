@@ -54,6 +54,14 @@ If you use the :ref:`df_tutorial`, please cite also:
 
    __ http://link.aps.org/doi/10.1103/PhysRevB.83.245122
 
+If you use the :ref:`gw_tutorial`, please cite also:
+
+   | F. Hüser, T. Olsen, and K. S. Thygesen
+   | `Quasiparticle GW calculations for solids, molecules, and two-dimensional materials`__
+   | Physical Review B Vol. **87**, 235132, 2013
+
+   __ http://link.aps.org/doi/10.1103/PhysRevB.87.235132
+
 BibTex (:svn:`doc/GPAW.bib`):
 
 .. literalinclude:: GPAW.bib
@@ -111,32 +119,6 @@ and try again.
 Calculation does not converge
 =============================
 
-First, you can try to get more information during the calculation by
-setting the ``verbose`` parameter::
-
-  GPAW(..., verbose=True)
-
-If your (finite) system contains nearly degenerate occupied and
-unoccupied states, there can be convergence problems.  You can try to
-occupy the states with a Fermi-Dirac distribution::
-
-  from gpaw import GPAW, FermiDirac
-  GPAW(..., FermiDirac(width=0.05))
-
-However, note that this might change also the symmetry of your system
-
-Sometimes it is possible to improve the convergence by changing the
-default parameters for :ref:`manual_mixer`, try e.g.::
-
-  mixer=Mixer(0.05, 5, weight=100.0)
-  GPAW(..., mixer=mixer)
-
-In rare occasions the default :ref:`eigensolver <manual_eigensolver>`
-``rmm-diis`` does not converge, and one can try either conjugate
-gradient or Davidson eigensolvers::
-
-  GPAW(..., eigensolver='cg')
-
 Consult the :ref:`convergence` page.
 
 Poisson solver did not converge!
@@ -169,6 +151,10 @@ tool: :svn:`~doc/documentation/parallel_runs/gpaw-qsub`:
 * make sure that the corresponding :command:`gpaw-python` is used::
 
    os.system('%s gpaw-python JOB' % (mpirun))
+
+Alternatively, instead of modifying
+:svn:`~doc/documentation/parallel_runs/gpaw-qsub`
+create a bash function - see :ref:`Niflheim` for details.
 
 Tests fail!
 ===========

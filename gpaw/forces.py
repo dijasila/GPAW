@@ -19,6 +19,8 @@ class ForceCalculator:
         if self.F_av is not None:
             return self.F_av
 
+        self.timer.start('Force calculation')
+
         natoms = len(wfs.setups)
         self.F_av = np.zeros((natoms, 3))
 
@@ -39,5 +41,7 @@ class ForceCalculator:
         wfs.world.broadcast(self.F_av, 0)
         
         self.F_av = wfs.symmetry.symmetrize_forces(self.F_av)
+
+        self.timer.stop('Force calculation')
 
         return self.F_av

@@ -4,8 +4,6 @@
 Overview
 ========
 
-.. default-role:: math
-
 
 This document describes the most important objects used for a DFT calculation.
 More information can be found in the :epydoc:`API <gpaw>` or in the code.
@@ -242,8 +240,6 @@ density and pass that and the density on to the libxc kernel.
 
 Refer to :ref:`manual_xc` for other examples.
 
-Updating libxc and adding new functionals is described at :ref:`updating_libxc`.
-
 GPAW also has a few non-libxc kernels that one can use like this::
 
     from gpaw.xc.kernel import XCKernel
@@ -456,7 +452,3 @@ which in this case is equal to *mpi.world*.
 .. [1] J J. Mortensen and L. B. Hansen and K. W. Jacobsen,
        Phys. Rev. B 71 (2005) 035109.
 .. [2] C. Rostgaard, `The Projector Augmented Wave Method <../paw_note.pdf>`_.
-
-
-
-.. default-role::

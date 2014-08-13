@@ -13,9 +13,10 @@ slab = Atoms('Li2',
              pbc=True)
 k = 4
 calc = GPAW(mode=PW(200),
+            eigensolver='rmm-diis',
             parallel={'band': min(world.size, 4)},
             idiotproof=0,
             kpts=(k, k, 1))
 slab.set_calculator(calc)
 BFGS(slab).run(fmax=0.01)
-assert abs(slab.get_distance(0, 1) - 2.4594) < 0.0001
+assert abs(slab.get_distance(0, 1) - 2.4594) < 0.001, slab.get_distance(0, 1)

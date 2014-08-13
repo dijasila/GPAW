@@ -1,9 +1,9 @@
 from ase import *
 from gpaw import *
 from gpaw.wavefunctions.pw import PW
-from gpaw.xc.fxc_correlation_energy import FXCCorrelation
+from gpaw.xc.fxc import FXCCorrelation
 from gpaw.test import equal
-from gpaw.mpi import serial_comm, world, rank
+from gpaw.mpi import world, rank
 from os import system
 
 if world.size == 1:
@@ -22,6 +22,7 @@ H2.set_pbc(True)
 H2.set_cell((2., 2., 3.))
 H2.center()
 calc = GPAW(mode=PW(210),
+            eigensolver='rmm-diis',
             dtype=complex,
             xc='LDA',
             basis='dzp',
@@ -31,12 +32,12 @@ H2.set_calculator(calc)
 H2.get_potential_energy()
 calc.diagonalize_full_hamiltonian(nbands=80, scalapack=scalapack1)
 calc.write('H2.gpw', mode='all')
-calc = GPAW('H2.gpw', communicator=serial_comm, txt=None)
-ralda = FXCCorrelation(calc,
-                       xc='rALDA',
-                       lambda_points=8)
-Ec_H2 = ralda.get_fxc_correlation_energy(ecut=200,
-                                         directions=[[0, 2/3.], [2, 1/3.]])
+
+ralda = FXCCorrelation('H2.gpw', xc='rALDA')
+E_ralda_H2 = ralda.calculate(ecut=[200])
+
+rapbe = FXCCorrelation('H2.gpw', xc='rAPBE')
+E_rapbe_H2 = rapbe.calculate(ecut=[200])
 
 # H ---------------------------------------
 H = Atoms('H', [(0,0,0)])
@@ -44,6 +45,7 @@ H.set_pbc(True)
 H.set_cell((2., 2., 3.))
 H.center()
 calc = GPAW(mode=PW(210),
+            eigensolver='rmm-diis',
             dtype=complex,
             xc='LDA',
             basis='dzp',
@@ -54,16 +56,22 @@ H.set_calculator(calc)
 H.get_potential_energy()
 calc.diagonalize_full_hamiltonian(nbands=80, scalapack=scalapack2)
 calc.write('H.gpw', mode='all')
-calc = GPAW('H.gpw', communicator=serial_comm, txt=None)
-ralda = FXCCorrelation(calc,
-                       xc='rALDA',
-                       lambda_points=8)
-Ec_H = ralda.get_fxc_correlation_energy(ecut=200,
-                                        directions=[[0, 1.0]])
 
+ralda = FXCCorrelation('H.gpw', xc='rALDA')
+E_ralda_H = ralda.calculate(ecut=[200])
+
+rapbe = FXCCorrelation('H.gpw', xc='rAPBE')
+E_rapbe_H = rapbe.calculate(ecut=[200])
+                                      
 if rank == 0:
     system('rm H2.gpw')
     system('rm H.gpw')
+    system('rm fhxc_H2_rALDA_200_0.gpw')
+    system('rm fhxc_H_rALDA_200_0.gpw')
+    system('rm fhxc_H2_rAPBE_200_0.gpw')
+    system('rm fhxc_H_rAPBE_200_0.gpw')
 
-equal(Ec_H2, -0.8401, 0.001,)
-equal(Ec_H, -0.0446, 0.001)
+equal(E_ralda_H2, -0.8411, 0.001)
+equal(E_ralda_H, 0.002860, 0.00001)
+equal(E_rapbe_H2, -0.7233, 0.001)
+equal(E_rapbe_H, 0.016022, 0.00001)

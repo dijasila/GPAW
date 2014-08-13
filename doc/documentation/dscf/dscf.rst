@@ -4,8 +4,6 @@
 Delta Self-Consistent Field
 ===========================
 
-.. default-role:: math
-
 --------------------------------------------
 Linear expansion Delta Self-Consistent Field
 --------------------------------------------
@@ -95,7 +93,7 @@ Exciting the LUMO in CO::
     CO.set_calculator(calc_es)
     lumo = dscf.AEOrbital(calc_es, wf_u, p_uai)
     #lumo = dscf.MolecularOrbital(calc, weights={0: [0, 0, 0,  1],
-                                                 1: [0, 0, 0, -1]})
+    #                                            1: [0, 0, 0, -1]})
     dscf.dscf_calculation(calc_es, [[1.0, lumo, 1]], CO)
 
     E_es = CO.get_potential_energy()
@@ -151,5 +149,3 @@ corresponds to in each k-point before we start the slab calculation.
              Hot electron mediated desorption rates calculated from excited
 	     state potential energy surfaces,
              *Phys. Rev. B* **79**, 035403 (2009)
-
-.. default-role::
