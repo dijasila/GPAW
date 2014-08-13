@@ -1,6 +1,13 @@
 BSE for excitonic effects
 =========================
 
+.. important::
+    
+    This exercise needs the newest developer version of GPAW to run.
+    Use this ``.bashrc``::
+
+        cp ~jmgla/camd.bashrc ~/.bashrc
+
 Excitonic effects play a fundamental role in determining the optical spectum
 of a semiconductor. As soon as an electron from the valence band is promoted
 to the conduction band by an external electromagnetic field, it interacts

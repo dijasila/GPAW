@@ -4,8 +4,13 @@
 G0W0 calculation of the band gap of silicon
 ===========================================
 
-.. important:: This exercise needs the newest developer version of GPAW to run.
+.. important::
+    
+    This exercise needs the newest developer version of GPAW to run.
+    Use this ``.bashrc``::
 
+        cp ~jmgla/camd.bashrc ~/.bashrc
+    
 In this exercise we will calculate the band gap of silicon.  Go through
 the :ref:`bandstructures` tutorial first. In that
 tutorial the band structure of silicon is calculated based on the Kohn-Sham

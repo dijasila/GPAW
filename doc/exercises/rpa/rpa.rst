@@ -4,6 +4,12 @@
 RPA calculation of the cohesive energy of Si
 ============================================
 
+.. important::
+    
+    This exercise needs the newest developer version of GPAW to run.
+    Use this ``.bashrc``::
+
+        cp ~jmgla/camd.bashrc ~/.bashrc
 
 In this exercise we will use GPAW to calculate the cohesive energy of 
 silicon.  When calculating total energies, we shall split the 

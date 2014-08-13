@@ -4,6 +4,13 @@
 Electron energy loss spectrum of silver
 =======================================
 
+.. important::
+    
+    This exercise needs the newest developer version of GPAW to run.
+    Use this ``.bashrc``::
+
+        cp ~jmgla/camd.bashrc ~/.bashrc
+
 Electron energy loss spectroscopy (EELS) is a widely used method to obtain
 the excitation spectrum of materials. For metallic and semiconducting
 materials, the energy losses in the range 0-50 eV is primarily due
