@@ -7,7 +7,7 @@ Band structure
 Band diagrams are usefull analysis tools.  Read :ref:`bandstructures` tutorial
 and try to understand what it does.
 
-As a next step, calculate the bandstructure of silver. Here we should be
+As a next step, calculate the bandstructure of FCC silver. Here we should be
 careful with the choice of exchange-correlation functional to get a good
 description of the d-band, which is generally poorly described within LDA.
 (Why do you think that is?).  Modify the script

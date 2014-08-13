@@ -49,8 +49,9 @@ Then we can set up the dielectric function, taking the ground state as input:
 The EELS spectrum is calculated with the
 :meth:`~gpaw.response.df.DielectricFunction.get_eels_spectrum` method, that
 takes the momentum transfer q as a parameter. This parameter is restricted to
-be the difference between two k-points from the ground state calculation, so
-let's choose the smallest q possible:
+be the difference between two k-points from the ground state calculation.
+Let's choose the smallest q possible:  If you used `N\times N\times N`
+k-points then that will be ``[1.0 / N, 0, 0]``:
 
 .. literalinclude:: eels.py
     :start-after: # Momentum transfer
