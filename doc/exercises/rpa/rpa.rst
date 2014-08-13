@@ -82,9 +82,9 @@ calculations on the isolated Si atom - instead just provide the numbers as
 reference data.  In the next section a sample script will be given to show how to
 generate the following numbers:
 
-======== ===============
-`L(\AA)`  `E_\text{PBE}`(eV)
-======== ===============
+======== ==================
+`L(\AA)` `E_\text{PBE}` (eV)
+======== ==================
 6.0      -0.665810338359
 7.0      -0.779861449204
 8.0      -0.825944184466
@@ -93,7 +93,7 @@ generate the following numbers:
 11.0     -0.851370368753
 12.0     -0.852243293624
 13.0     -0.852570610869
-=======  ===============
+======== ==================
 
 The first column gives the side length (in Angstroms) of the simulation cell 
 containing the isolated atom, and the second gives the total
@@ -145,7 +145,7 @@ equation (9) of [Olsen]_.  The main points to note is that:
 In order to obtain `E_\text{EXX}` from GPAW, we need to import the ``EXX`` class
 from ``exx.py`` in our script.  The ``calculate`` method performs the
 calculation of the exchange energy, while the ``get_total_energy`` method
-returns the total energy of our system with `E_{XC}=E_{EXX}`.
+returns the total energy of our system with `E_\text{XC}=E_\text{EXX}`.
 
 The script :download:`si.pbe+exx.py` calculates the total 
 energy of bulk Si in the EXX\@PBE approximation.  The calculation 
@@ -315,5 +315,5 @@ References
 ==========
 
 .. [Ren] Ren et al., J. Mater. Sci. 47, 7447 (2012)
-.. [Harl] Harl and Kresse, Phys. Rev. B 81, 115126 (2010)
+.. [Harl] Harl, Schimka and Kresse, Phys. Rev. B 81, 115126 (2010)
 .. [Olsen] Olsen and Thygesen, Phys. Rev. B 87, 075111 (2013)
