@@ -645,7 +645,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                      scalapack=None):
         width = 40  # Dots
         print('Diagonalizing full Hamiltonian: ', file=txt)
-        print('[%s] 0.0 %%' % (' ' * width), end='\r',
+        print('[%s] 0.0 %%' % (' ' * width), end='',
               file=txt)
         txt.flush()
 
@@ -721,8 +721,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             # Print progress
             frac = (kptnum + 1.) / nkpt
             ndots = int(frac * width)
-            print('[%s%s] %1.1f %%' % ('=' * ndots, ' ' * (width - ndots),
-                                       frac * 100), end='\r', file=txt)
+            print('\r[%s%s] %1.1f %%' % ('=' * ndots, ' ' * (width - ndots),
+                                       frac * 100), end='', file=txt)
             txt.flush()
 
         print('', file=txt)
