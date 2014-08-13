@@ -2443,40 +2443,70 @@ class Transport(GPAW):
             ham.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
             Exc += ham.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
 
-            if setup.HubU is not None:
+            # Is there really no way to construct this transport calculator
+            # so that you do not have to copy code that already exists
+            # in its proper place in gpaw? 
+            if self.HubU_dict is not None and a in self.HubU_dict:
+                assert self.collinear
                 nspins = len(D_sp)
                 
                 l_j = setup.l_j
-                l   = setup.Hubl
-                nl  = np.where(np.equal(l_j,l))[0]
-                nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
+                n_j = setup.n_j
                 
-                for D_p, H_p in zip(D_sp, ham.dH_asp[a]):
-                    [N_mm,V] = ham.aoom(unpack2(D_p),a,l)
-                    N_mm = N_mm / 2 * nspins
-                     
-                    Eorb = setup.HubU / 2. * (N_mm - np.dot(N_mm,N_mm)).trace()
-                    Vorb = setup.HubU * (0.5 * np.eye(2*l+1) - N_mm)
-                    Exc += Eorb
-                    if nspins == 1:
-                        # add contribution of other spin manyfold
-                        Exc += Eorb
+                scale = 1   
+                NbP = 1  
+                if 'scale' in self.HubU_dict:
+                    scale = self.HubU_dict['scale']
+                if 'NbP' in self.HubU_dict:
+                    NbP = self.HubU_dict['NbP']
                     
-                    if len(nl)==2:
-                        mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
+                for n, HubU_n in self.HubU_dict[a].items():
+                    for l, HubU_nl in HubU_n.items(): 
+                        # Checking if non-bound projectors is on 
+                        # and that there is not any higher orbitals than n. 
+                        if (NbP and len(np.where(np.equal(l_j,l)*
+                                        np.equal(n_j,n+1))[0])==0):
+                            
+                            nl  = np.where(np.equal(l_j,l) * \
+                                           np.logical_or(np.equal(n_j,n), 
+                                                         np.equal(n_j,-1)))[0]
+                        else:
+                            nl  = np.where( np.equal(l_j,l)*np.equal(n_j,n))[0]
                         
-                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-                        V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
-                        V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
-                        V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
-                    else:
-                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-                    
-                    Htemp = unpack(H_p)
-                    Htemp += V
-                    H_p[:] = pack2(Htemp)
+                        nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
+                        
+                        for s, (D_p, H_p) in enumerate(zip(D_sp,self.dH_asp[a])):
+                            [N_mm,V] =self.aoom(unpack2(D_p),a,n,l,NbP=NbP, 
+                                                scale=scale)
+                            
+                            N_mm = N_mm / 2 * nspins
+                            Vorb = np.zeros((2*l+1,2*l+1))
+                            if 'alpha' in HubU_nl:
+                                Vorb += HubU_nl['alpha'] * \
+                                            np.eye(2*l+1) *(2 / nspins)
+                            if 'U' in HubU_nl:
+                                Hub_U_anls = HubU_nl['U']
+                                Eorb = Hub_U_anls / 2. * (N_mm - \
+                                                np.dot(N_mm,N_mm)).trace()
+                                Exc += Eorb
+                                # add contribution of other spin many-fold
+                                if nspins == 1:
+                                    Exc += Eorb
+                                Vorb += Hub_U_anls * (0.5 * np.eye(2*l+1) - N_mm)
+                                    
+                            if len(nl)==2:
+                                mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
+                                V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
+                                V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
+                                V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
+                                V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
+                            else:
+                                V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
+                            Htemp = unpack(H_p)
+                            Htemp += V
+                            H_p[:] = pack2(Htemp)
 
-            dH_sp += dH_p
+            dH_sp[:self.nspins] += dH_p
             Ekin -= (D_sp * dH_sp).sum()
 
         self.timer.stop('atomic hamiltonian')
@@ -2759,9 +2789,23 @@ class Transport(GPAW):
         self.wfs.set_positions(spos_ac0)
         if self.hubbard_parameters is not None:
             element, U_ev, scale, store = self.hubbard_parameters
+            # First make sure that the HubU_dict is initialized
+            if self.hamiltonian.HubU_dict == None:
+                self.hamiltonian.HubU_dict = {}
+            HubU_dict = self.hamiltonian.HubU_dict  # Easier to use
             for i, atom in enumerate(self.atoms):
                 if atom.symbol == element:
-                    self.hamiltonian.setups[i].set_hubbard_u(U_ev/Hartree,2,scale,store)
+                    parprint('Putting U only on 3d orbitals of chosen atom!')
+                    n = 3  #
+                    l = 2  # Putting U only on 3d orbitals
+                    HubU_dict[i] = {n:{l:{'U': U_ev/Hartree}}}
+                    # Whoever is using transport: Do you realize that it is
+                    # hardcoded to only put U on d orbitals?
+                    # Well, it is now hardcoded to put it only on 3d orbitals, too.
+                    # old way:
+                    #self.hamiltonian.setups[i].set_hubbard_u(U_ev/Hartree,2,scale,store)
+            HubU_dict['scale'] = scale
+
         self.inner_setups = self.wfs.setups
         self.inner_atom_indices = self.wfs.basis_functions.atom_indices
         self.inner_my_atom_indices = self.wfs.basis_functions.my_atom_indices

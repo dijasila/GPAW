@@ -838,8 +838,8 @@ class PAW(PAWTextOutput):
                     
               #  self.text('Hubbard U on all atoms: %f eV (n=%s, l=%d, scale=%s)' %
                #           (U * Hartree, n, l, bool(scale)))
-                HubU_dict['scale'] = scale
-                # No matter what, always set scale if requested
+            HubU_dict['scale'] = scale
+            # No matter what, always set scale if requested
                 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
