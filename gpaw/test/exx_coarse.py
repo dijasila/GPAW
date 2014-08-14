@@ -1,6 +1,6 @@
 import sys
 
-from ase import Atoms, Atom
+from ase import Atoms
 
 from gpaw import GPAW
 from gpaw.test import equal
