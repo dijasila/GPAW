@@ -45,8 +45,7 @@ Read it, try to understand what it does and run it::
 
 Before proceding with the BSE we want to calculate the single-particle
 spectrum in order to have something to compare with. We do this using the RPA
-approximation (as you probably did in the previous exercises) but this time
-we use the old DF code since the BSE is not adapted to the new version yet.
+approximation (as you probably did in the previous exercises).
 Download the script :download:`LiF_RPA.py`.
 
 .. literalinclude:: LiF_RPA.py
