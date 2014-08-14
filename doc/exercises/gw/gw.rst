@@ -90,5 +90,5 @@ Next, we need to make sure that we have enough plane waves to properly describe 
 
 Lastly, we also need to make sure that the calculations is converged with respect to the k-point sampling. To do this, one must make new ground state calculations with different k-point samplings to be put into the G0W0 calculator. The calculation of the quasiparticle energy of one state scales quadratically in the number of k-points, but if one want the full band structure there's an extra factor of the number of k-points, so this quickly becomes very heavy!
 
-- Make new groundstate calculations with k-point samplings 4x4x4, 6x6x6 and 8x8x8 and so on and find the DFT band gap (why do we need to have odd number of k-points?). When is it safe to say that the DFT band gap is converged?
+- Make new groundstate calculations with k-point samplings 4x4x4, 6x6x6 and 8x8x8 and so on and find the DFT band gap. When is it safe to say that the DFT band gap is converged?
 - Perform GW calculations (parallelize over minimum four cpus) for the different k-point samplings (4, 6 and 8 k-points only) and compare the gaps. How big is the variation in the gaps compared to the variation in the DFT result? When do you think the GW band gap is converged?
