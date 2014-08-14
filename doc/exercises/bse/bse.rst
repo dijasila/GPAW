@@ -55,19 +55,9 @@ Once you understand it run it in parallel to save time::
 
     mpirun -np 8 gpaw-python LiF_RPA.py
 
-The script produces a .txt file containing the imaginary part of the
+The script produces a .csv file containing the imaginary part of the
 dielectric function including local field effects. We can take a look to the
-absorption spectrum in the file ``Im_df_RPA_data.txt``::
-
-    import numpy as np
-    import matplotlib.pyplot as plt
-    data = np.loadtxt('Im_df_RPA_data.txt')
-    omega = data[:, 0]
-    Im_df = data[:, 1]
-    plt.plot(omega, Im_df)
-    plt.xlabel('Frequency (eV)')
-    plt.ylabel('ABS')
-    plt.show()
+absorption spectrum plotting the first and the last columns in the file ``df.csv``.
 
 The absorption spectrum just produced includes only single-particle
 transitions and therefore the onset of absorption have to correspond to the
@@ -86,22 +76,12 @@ on 24 processors typing::
     gpaw-qsub -q small -l nodes=3:ppn=8:xeon8 LiF_BSE.py
 
 The file df.dat finally contains the absorption spectrum including excitonic
-effects. Try to plot it on top of the single-particle spectrum typing::
+effects (if you do not have enough time left you can see the results directly here
 
-    import numpy as np
-    import pylab as plt
-    data_RPA = np.loadtxt('Im_df_RPA_data.txt')
-    data_BSE = np.loadtxt('df.dat')
-    omega_RPA = data_BSE[:, 0]
-    Im_df_RPA = data_BSE[:, 1]
-    omega_BSE = data_BSE[:, 0]
-    Im_df_BSE = data_BSE[:, 2]
-    plt.plot(omega_RPA, Im_df_RPA, '-g', label='RPA')
-    plt.plot(omega_BSE, Im_df_BSE, '-r', label='BSE')
-    plt.legend()
-    plt.xlabel('Frequency (eV)')
-    plt.ylabel('ABS')
-    plt.show()
+.. literalinclude:: LiF_BSE.py
+
+). Try to plot it on top of the single-particle spectrum, considering that the df.dat file contains
+the frequencies as first column and the imaginary part of the dielectric function as third.
 
 Can you tell which are the main differences? Is the onset of the optical
 transition still equal to the electronic band gap? What about the single
