@@ -75,11 +75,8 @@ on 24 processors typing::
     gpaw-qsub -q small -l nodes=3:ppn=8:xeon8 LiF_BSE.py
 
 The file df.dat finally contains the absorption spectrum including excitonic
-effects (if you do not have enough time left you can see the results directly here
-
-.. literalinclude:: LiF_BSE.py
-
-). Try to plot it on top of the single-particle spectrum, considering that the df.dat file contains
+effects (if you do not have enough time left you can see the results directly here 
+:download:`df.dat`). Try to plot it on top of the single-particle spectrum, considering that the df.dat file contains
 the frequencies as first column and the imaginary part of the dielectric function as third.
 
 Can you tell which are the main differences? Is the onset of the optical
