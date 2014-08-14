@@ -33,9 +33,10 @@ Making x-y plots
 ----------------
 
 If you want to plot an x-y plot from data in a csv-file (comma separated
-values), you can use::
+values), you can use `gnuplot <http://www.gnuplot.info/>`_::
 
-    $ gnuplot ...
+    $ gnuplot
+    gnuplot> plot "abc.csv" using 1:2
     
 Alternatively, use this little :download:`Python script <xy.py>`:
 
