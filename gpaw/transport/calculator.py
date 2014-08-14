@@ -2446,7 +2446,7 @@ class Transport(GPAW):
             # Is there really no way to construct this transport calculator
             # so that you do not have to copy code that already exists
             # in its proper place in gpaw? 
-            if self.HubU_dict is not None and a in self.HubU_dict:
+            if self.hamiltonian.HubU_dict is not None and a in self.hamiltonian.HubU_dict:
                 assert self.collinear
                 nspins = len(D_sp)
                 
