@@ -76,3 +76,9 @@ Further information:
    
 For comments and questions, write to the :ref:`mailing_lists`.  You
 can also search in the mailing list archives on the same page.
+
+.. toctree::
+    :hidden:
+        
+    bse/bse
+    
