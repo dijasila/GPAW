@@ -53,7 +53,7 @@ def get(path, names, target=None, source=None):
 literature = """
 askhl_10302_report.pdf  mortensen_gpaw-dev.pdf      rostgaard_master.pdf
 askhl_master.pdf        mortensen_mini2003talk.pdf  rostgaard_paw_notes.pdf
-marco_master.pdf        mortensen_paw.pdf
+marco_master.pdf        mortensen_paw.pdf           ss14.pdf
 """.split()
 
 logos = """
