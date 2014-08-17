@@ -84,14 +84,13 @@ generate the following numbers:
 ========  ===================
 `L(\AA)`  `E_\text{PBE}` (eV)
 ========  ===================
-6.0       -0.665810338359
-7.0       -0.779861449204
-8.0       -0.825944184466
-9.0       -0.843144851642
-10.0      -0.849110419847
-11.0      -0.851370368753
-12.0      -0.852243293624
-13.0      -0.852570610869
+6.0       -0.664402266578
+7.0       -0.778484948334
+8.0       -0.82500272946
+9.0       -0.841856681349
+10.0      -0.848092042293
+11.0      -0.850367362642
+12.0      -0.85109735188
 ========  ===================
 
 The first column gives the side length (in Angstroms) of the simulation cell 
@@ -123,7 +122,7 @@ which is
   E_\text{XC} = E_\text{EXX}
 
 An expression for the exact exchange energy `E_\text{EXX}` can be found e.g. in 
-equation (9) of [Olsen]_.  The main points to note is that:
+equation (9) of [Olsen]_.  The main points to note are that:
 
 * it is fully nonlocal - to get the energy we must integrate over `\mathbf{r}`
   and `\mathbf{r}'`, which is expensive.  
