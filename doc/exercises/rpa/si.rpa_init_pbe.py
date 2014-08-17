@@ -4,7 +4,7 @@ from gpaw.wavefunctions.pw import PW
 
 
 # Plane wave cutoff
-pwcutoff = 600.0
+pwcutoff = 400.0
 
 # NxNxN k-point sampling, gamma-centred grid
 k = 4

@@ -8,10 +8,10 @@ from ase.parallel import paropen
 resultfile = paropen('si.pbe+exx.results.txt', 'a')
 
 # Plane wave cutoff
-pwcutoff = 600.0
+pwcutoff = 400.0
 
 # NxNxN k-point sampling, gamma-centred grid
-k = 8
+k = 6
 
 # Si lattice constant
 alat = 5.421

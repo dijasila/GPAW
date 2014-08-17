@@ -1,4 +1,5 @@
 import numpy as np
+from ase.parallel import parprint
 from gpaw.response.g0w0 import G0W0
 
 # We start by setting up a G0W0 calculator object
@@ -27,5 +28,5 @@ qp_cbmin = np.amin(qp_skn[0, :, 1])  # GW conduction band minimum
 qp_vbmax = np.amax(qp_skn[0, :, 0])  # GW valence band maximum
 qp_gap = qp_cbmin - qp_vbmax         # GW band gap
 
-print 'Kohn-Sham gap = %.3f' % ks_gap
-print 'G0W0 gap = %.3f' % qp_gap
+parprint('Kohn-Sham gap = %.3f' % ks_gap)
+parprint('G0W0 gap = %.3f' % qp_gap)

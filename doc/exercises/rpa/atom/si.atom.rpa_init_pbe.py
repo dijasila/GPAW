@@ -5,7 +5,7 @@ from gpaw.wavefunctions.pw import PW
 #This calculation is too heavy to run as an exercise!!
 
 # Plane wave cutoff
-pwcutoff = 600.0
+pwcutoff = 400.0
 
 
 # box length for isolated atom
@@ -27,7 +27,7 @@ isolated_calc = GPAW(
             dtype=complex,
             kpts=(1,1,1),
             xc='PBE',
-#            txt='si_isolated_pbe.txt',
+            txt='si_isolated_rpa.init_pbe.txt',
             occupations=FermiDirac(0.01,fixmagmom=True),
             spinpol=True,
             hund=True,
@@ -38,6 +38,6 @@ isolated_calc = GPAW(
 isolated_silicon.set_calculator(isolated_calc)
 
 isolated_silicon.get_potential_energy()
-isolated_calc.diagonalize_full_hamiltonian(nbands=10000) # ouch
-isolated_calc.write('si_isolated.gpw', mode='all')
+isolated_calc.diagonalize_full_hamiltonian() # ouch
+isolated_calc.write('si.rpa.isolated.gpw', mode='all')
 

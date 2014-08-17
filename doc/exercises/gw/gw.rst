@@ -4,13 +4,6 @@
 G0W0 calculation of the band gap of silicon
 ===========================================
 
-.. important::
-    
-    This exercise needs the newest developer version of GPAW to run.
-    Use this ``.bashrc``::
-
-        cp ~jmgla/camd.bashrc ~/.bashrc
-    
 In this exercise we will calculate the band gap of silicon.  Go through
 the :ref:`bandstructures` tutorial first. In that
 tutorial the band structure of silicon is calculated based on the Kohn-Sham
@@ -25,19 +18,39 @@ underestimate the band gap, since it does not take into account the extra
 energy it requires to squeeze an extra electron into the conduction band and
 the relieve of energy when we remove an electron from the valence band.
 
-- How many valence electron does silicon have? What are the band indices of the valence and conduction bands respectively? Take a look at the band structure of silicon - where are the valence band maximum and conduction band minimum located and what is the band gap obtained from DFT?
+* How many valence electron does silicon have? What are the band indices of
+  the valence and conduction bands respectively? Take a look at the band
+  structure of silicon - where are the valence band maximum and conduction band
+  minimum located and what is the band gap obtained from DFT?
 
-The GW approximation is a method for calculating the charged states of a system based on a systematic pertubation theory approach. In its simplest version, and the one so far implemented in GPAW, we can use it to find the corrections to the DFT band structure than include the missing screening effect when we add or remove an electron. In this approximation the quasiparticle energy (electron addition/removal energies) of the state :math:`(\mathbf{k}, n)` is given by
+The GW approximation is a method for calculating the charged states of a
+system based on a systematic pertubation theory approach. In its simplest
+version, and the one so far implemented in GPAW, we can use it to find the
+corrections to the DFT band structure than include the missing screening
+effect when we add or remove an electron. In this approximation the
+quasiparticle energy (electron addition/removal energies) of the state
+:math:`(\mathbf{k}, n)` is given by
 
-.. math:: \epsilon^\text{qp}_{n \mathbf{k}} = \epsilon_{n \mathbf{k}} + Z_{n \mathbf{k}} \cdot \text{Re} \left(\Sigma_{n \mathbf{k}}^{\vphantom{\text{XC}}} + \epsilon^{\text{EXX}}_{n \mathbf{k}} - V^{\text{XC}}_{n \mathbf{k}} \right).
+.. math::
+    
+    \epsilon^\text{qp}_{n \mathbf{k}} =
+    \epsilon_{n \mathbf{k}} + Z_{n \mathbf{k}} \cdot \text{Re}
+    \left(\Sigma_{n \mathbf{k}}^{\vphantom{\text{XC}}} +
+    \epsilon^{\text{EXX}}_{n \mathbf{k}} -
+    V^{\text{XC}}_{n \mathbf{k}} \right).
 
-For more information on the theory of GW, there's a short description in the section: :ref:`gw_theory`
+For more information on the theory of GW, there's a short description in the
+section: :ref:`gw_theory`.
+
 
 ------------------------
 Ground state calculation
 ------------------------
 
-As GW is a pertubative approach on top of a ground state, lets start by calculating the ground state of Silicon. You can create a script yourself or reuse the one from the band structure calculation. Silicon has in diamond structure with a lattice constant of 5.431 Å.
+As GW is a pertubative approach on top of a ground state, lets start by
+calculating the ground state of Silicon. You can create a script yourself or
+reuse the one from the band structure calculation. Silicon has in diamond
+structure with a lattice constant of 5.431 Å.
 
 .. note:: Currently the implementation of GW in GPAW does not support magnetic systems, so make sure your ground state calculation is performed without spin polarization.
 
@@ -90,5 +103,5 @@ Next, we need to make sure that we have enough plane waves to properly describe 
 
 Lastly, we also need to make sure that the calculations is converged with respect to the k-point sampling. To do this, one must make new ground state calculations with different k-point samplings to be put into the G0W0 calculator. The calculation of the quasiparticle energy of one state scales quadratically in the number of k-points, but if one want the full band structure there's an extra factor of the number of k-points, so this quickly becomes very heavy!
 
-- Make new groundstate calculations with k-point samplings 4x4x4, 6x6x6 and 8x8x8 and so on and find the DFT band gap (why do we need to have odd number of k-points?). When is it safe to say that the DFT band gap is converged?
+- Make new groundstate calculations with k-point samplings 4x4x4, 6x6x6 and 8x8x8 and so on and find the DFT band gap. When is it safe to say that the DFT band gap is converged?
 - Perform GW calculations (parallelize over minimum four cpus) for the different k-point samplings (4, 6 and 8 k-points only) and compare the gaps. How big is the variation in the gaps compared to the variation in the DFT result? When do you think the GW band gap is converged?
