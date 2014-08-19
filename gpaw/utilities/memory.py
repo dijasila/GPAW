@@ -173,8 +173,12 @@ def monkey_patch_timer():
         t2 = time()
         m2 = maxrss()
         self.mem = [(t, m + m2 - m1) for t, m in self.mem]
-        print('%12d %14.6f %14.6f %s' % (m2 - m1, t1 - self.t0, t2 - t1,
-                                         '.'.join(names)), file=self.fd)
+        if m2 - m1 != 0:
+            print('%12d %14.6f %12d %14.6f %s' % (m2 - m1, t1 - self.t0, m2,
+                                                  t2 - t1,
+                                                  '.'.join(names)),
+                  file=self.fd)
+            self.fd.flush()
 
     Timer.__init__ = init
     Timer.start = start
