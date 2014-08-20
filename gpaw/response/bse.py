@@ -7,13 +7,12 @@ from ase.io import write
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.io.tar import Writer, Reader
 from gpaw.mpi import world, size, rank, serial_comm
-from gpaw.utilities import devnull
-from gpaw.utilities.blas import gemmdot, gemm, gemv
 from gpaw.utilities.memory import maxrss
 from gpaw.response.base import BASECHI
 from gpaw.response.parallel import parallel_partition, gatherv
 from gpaw.response.kernel import calculate_Kc, calculate_Kc_q
 from gpaw.response.df0 import DF
+
 
 class BSE(BASECHI):
     """This class defines Bethe-Salpeter equations."""
@@ -205,9 +204,6 @@ class BSE(BASECHI):
 
     def calculate(self):
         calc = self.calc
-        f_skn = self.f_skn
-        e_skn = self.e_skn
-        kq_k = self.kq_k
         focc_S = self.focc_S
         e_S = self.e_S
         op_scc = calc.wfs.symmetry.op_scc
@@ -376,7 +372,6 @@ class BSE(BASECHI):
     def par_save(self,filename, name, A_sS):
         from gpaw.io import open 
 
-        nS_local = self.nS_local
         nS = self.nS
         
         if rank == 0:
@@ -452,7 +447,6 @@ class BSE(BASECHI):
 
             if optical_limit:
                 K_GG = self.V_qGG[iq].copy()
-                q_v = np.dot(q, self.bcell_cv)
                 K0 = calculate_Kc(q,
                                   self.Gvec_Gc,
                                   self.acell_cv,
@@ -489,7 +483,6 @@ class BSE(BASECHI):
 
         V_qGG = np.zeros((self.nibzq, self.npw, self.npw), dtype=complex)
         
-        t0 = time()
         for iq in range(self.nibzq):
             q = self.ibzq_qc[iq]
 
@@ -621,7 +614,7 @@ class BSE(BASECHI):
                 self.v_SS = self.par_load('v_SS', 'v_SS')
                 self.printtxt('Finished reading v_SS.gpw')
             else:
-                XX
+                1 / 0
 
             w_S = self.w_S
             if not self.coupling:
@@ -638,7 +631,6 @@ class BSE(BASECHI):
     
             # get chi
             epsilon_w = np.zeros(self.Nw, dtype=complex)
-            t0 = time()
 
             A_S = np.dot(rhoG0_S, v_SS)
             B_S = np.dot(rhoG0_S*focc_S, v_SS)
@@ -694,7 +686,6 @@ class BSE(BASECHI):
             self.initialize()
             
         gd = self.gd
-        w_S = self.w_S
         v_SS = self.v_SS
         A_S = v_SS[:, lamda]
         kq_k = self.kq_k
@@ -755,7 +746,6 @@ class BSE(BASECHI):
             self.initialize()
             
         gd = self.gd
-        w_S = self.w_S
         v_SS = self.v_SS
         A_S = v_SS[:, lamda]
         kq_k = self.kq_k
@@ -826,7 +816,6 @@ class BSE(BASECHI):
 
                 atoms = self.calc.atoms
                 shift = atoms.cell[0:2].copy()
-                positions = atoms.positions
                 atoms.cell[0:2] *= nR2
                 atoms.positions += shift * (nR2 - 1)
                 
@@ -839,7 +828,6 @@ class BSE(BASECHI):
 
                 atoms = self.calc.atoms
 #                shift = atoms.cell[0:2].copy()
-                positions = atoms.positions
                 atoms.cell[0:2] *= nR2
 #                atoms.positions += shift * (nR2 - 1)
                 
@@ -916,6 +904,7 @@ class BSE(BASECHI):
         
         return w_S, v_sS.conj()
 
+    """
     def get_chi(self, w):
         H_SS = self.calculate()
         self.printtxt('Diagonalizing BSE matrix.')
@@ -947,3 +936,4 @@ class BSE(BASECHI):
             C_S = B_S.conj() * A_S
 
         return chi_wGG
+    """
