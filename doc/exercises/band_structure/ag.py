@@ -17,6 +17,7 @@ ef = calc.get_fermi_level()
 # Restart from ground state and fix potential:
 calc = GPAW('Ag_GLLBSC.gpw',
             nbands=16,
+            basis='dzp',
             fixdensity=True,
             usesymm=None,
             convergence={'bands': 12})
