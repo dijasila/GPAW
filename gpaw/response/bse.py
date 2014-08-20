@@ -203,9 +203,6 @@ class BSE(BASECHI):
 
         self.V_qGG = self.full_bare_interaction()
 
-        return
-
-
     def calculate(self):
         calc = self.calc
         f_skn = self.f_skn
@@ -587,11 +584,9 @@ class BSE(BASECHI):
                     world.receive(phi_aGp, qrank, q)
             if world.rank == 0:
                 w.fill(phi_aGp)
-        world.barrier()
         if world.rank == 0:
             w.close()
-        
-        return
+        world.barrier()
 
     def load_phi_aGp(self, reader, iq):
 
