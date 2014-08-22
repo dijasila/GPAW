@@ -218,7 +218,7 @@ class BSE(BASECHI):
             self.phi_aGp = self.get_phi_aGp()
         else:
             fd = opencew('phi_qaGp')
-            if fd:
+            if fd is None:
                 self.reader = Reader('phi_qaGp')
                 tmp = self.load_phi_aGp(self.reader, 0)[0]
                 assert len(tmp) == self.npw
@@ -599,7 +599,6 @@ class BSE(BASECHI):
             phi_aGp[a] = phimax_aGp[a, :N1, :N2]
 
         return phi_aGp
-
 
     def get_dielectric_function(self, filename='df.dat', readfile=None):
 
