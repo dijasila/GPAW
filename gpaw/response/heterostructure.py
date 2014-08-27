@@ -80,8 +80,8 @@ class Heterostructure:
             kernel_ij = np.zeros((2 * Nls, 2 * Nls), dtype = 'complex')
             for i in range(0, Nls):
                 if full:
-                    kernel_ij[2*i, 2*i] = v_mm(q_abs, 0)
-                    kernel_ij[2*i+1, 2*i+1] = v_dd(q_abs, 0)
+                    kernel_ij[2*i, 2*i] = self.v_monopole[i]         #v_mm(q_abs, 0)
+                    kernel_ij[2*i+1, 2*i+1] = self.v_dipole[i]       #v_dd(q_abs, 0)
 
                 for j in np.delete(range(0, Nls), i):
                     kernel_ij[2*i, 2*j] = v_mm(q_abs, d_ij[i, j])
@@ -254,17 +254,18 @@ def get_chiM_2D(filenames, filenames_chi, d=5, name=None):
             for iG1 in Glist[1:]:
                 G_z1 = Gvec[iG1, 2]
                 # intregrate over entire cell for z and z'
-                factor1 = z_factor(L, L, G_z)
-                factor2 = z_factor(L, L, G_z1, sign=-1)
-                chiD_2D += 12*1./L**2 * factor1 * factor2 * chi_wGG[:, iG, iG1]
+                factor1 = z_factor(z0, L, G_z)
+                factor2 = z_factor(z0, L, G_z1, sign=-1)
+                chiD_2D += 1./L * factor1 * factor2 * chi_wGG[:, iG, iG1]
                 # intregrate z over d for epsilon^-1
-                factor1 =  z_factor(L, d, G_z)
-                epsD_2D_inv += 12. * 1./d**3 * factor1 * factor2 * \
-                eps_inv_wGG[:, iG, iG1]
+                factor1 =  z_factor2(z0, d, G_z) 
+                epsD_2D_inv += 2j / d / L * factor1 * factor2 * eps_inv_wGG[:, iG, iG1]                                                      #average
+#                epsD_2D_inv += 1j * G_z * np.exp(1j*G_z*z0) * factor2 * eps_inv_wGG[:, iG, iG1]                                             #atz0
+#                epsD_2D_inv += 12. / d**3 / L * factor1 * factor2 * eps_inv_wGG[:, iG, iG1]                                                 #kristian
         epsM_2D_qw[iq, :] = 1. / epsM_2D_inv
         epsD_2D_qw[iq, :] = 1. / epsD_2D_inv
         chiM_2D_qw[iq, :] = L * chi_wGG[:, 0, 0] #chiM_2D#
-	chiD_2D_qw[iq, :] = chiD_2D
+        chiD_2D_qw[iq, :] = chiD_2D
         
     # Effective Coulomb interaction in 2D from eps_{2D}^{-1} = 1 + V_{eff} \chi_{2D}
     VM_eff_qw = (1. /epsM_2D_qw - 1) / chiM_2D_qw
@@ -282,8 +283,83 @@ def get_chiM_2D(filenames, filenames_chi, d=5, name=None):
         epsM_2D_qw, epsD_2D_qw
 
 
-def z_factor(L, d, G, sign = 1):
-    factor = 2.* (L/2. + sign * 1j / G) * np.exp(sign * 1j * G * L / 2.) * \
-        np.sin(G * d / 2.) / G - sign * 2j * d / 2. * \
-        np.exp(sign * 1j * G * L/2.) * np.cos(G * d / 2.) / G
+# Temporary
+def get_chiM_2D_from_old_DF(filenames_eps, filenames_chi, filename_qpoints, filename_Gvec,reciprocal_cell, d=None, write_chi0 = False, name = None):
+    rec_cell = reciprocal_cell*Bohr
+    q_points = np.loadtxt(filename_qpoints) 
+    q_points = np.dot(q_points,rec_cell)
+    Gvec = pickle.load(open(filename_Gvec %0))
+    Gvec = np.dot(Gvec,rec_cell) # the cell has to be in bohr
+    nq = len(q_points[:,0])
+    L= 2*np.pi/rec_cell[2,2] # Length of cell in Bohr
+    d /= Bohr # d in Bohr
+    z0 = L/2. # position of layer
+    npw = Gvec.shape[0]
+    nw = 1
+    omega_w = [0.]
+    q_points_abs = []
+    Glist = []   
+
+    for iG in range(npw): # List of G with Gx,Gy = 0
+        if Gvec[iG, 0] == 0 and Gvec[iG, 1] == 0:
+            Glist.append(iG)
+    epsM_2D_qw = np.zeros([nq, nw], dtype=complex)
+    epsD_2D_qw = np.zeros([nq, nw], dtype=complex)
+    chiM_2D_qw = np.zeros([nq, nw], dtype=complex)
+    chiD_2D_qw = np.zeros([nq, nw], dtype=complex)
+    VM_eff_qw = np.zeros([nq, nw], dtype=complex)
+    for iq in range(nq):
+        eps_wGG = pickle.load(open(filenames_eps %iq))  
+        chi_wGG = pickle.load(open(filenames_chi %iq))  
+        chi_wGG = np.array(chi_wGG)
+        eps_inv_wGG = np.zeros_like(eps_wGG, dtype = complex) 
+        for iw in range(nw):
+            eps_inv_wGG[iw] = np.linalg.inv(eps_wGG[iw])
+#            eps_inv_wGG[iw] = np.identity(npw)
+        q = q_points[iq]
+        q_abs = np.linalg.norm(q)        
+        q_points_abs.append(q_abs) # return q in Ang            
+        epsM_2D_inv = eps_inv_wGG[:, 0, 0]
+        epsD_2D_inv = np.zeros_like(eps_inv_wGG[:, 0, 0], dtype = 'complex')
+        chiM_2D = np.zeros_like(eps_inv_wGG[:, 0, 0], dtype = 'complex') #chi_wGG[:, 0, 0]#
+        chiD_2D = np.zeros_like(eps_inv_wGG[:, 0, 0], dtype = 'complex')
+        for iG in Glist[1:]: 
+            G_z = Gvec[iG, 2] 
+            epsM_2D_inv += 2./d * np.exp(1j*G_z*z0) * np.sin(G_z*d/2.) / G_z * eps_inv_wGG[:, iG, 0]
+            for iG1 in Glist[1:]:
+                G_z1 = Gvec[iG1, 2]
+                # intregrate over entire cell for z and z'
+                factor1 = z_factor(z0, L, G_z)
+                factor2 = z_factor(z0, L, G_z1, sign=-1)
+                chiD_2D += 1./L * factor1 * factor2 * chi_wGG[:, iG, iG1]
+                # intregrate z over d for epsilon^-1
+                factor1 =  z_factor2(z0, d, G_z) 
+                epsD_2D_inv += 2j / d / L * factor1 * factor2 * eps_inv_wGG[:, iG, iG1]                                                      #average
+#                epsD_2D_inv += 1j * G_z * np.exp(1j*G_z*z0) * factor2 * eps_inv_wGG[:, iG, iG1]                                             #atz0
+#                epsD_2D_inv += 12. / d**3 / L * factor1 * factor2 * eps_inv_wGG[:, iG, iG1]                                                 #kristian
+        epsM_2D_qw[iq, :] = 1. / epsM_2D_inv
+        epsD_2D_qw[iq, :] = 1. / epsD_2D_inv
+        chiM_2D_qw[iq, :] = L * chi_wGG[:, 0, 0] #chiM_2D#
+        chiD_2D_qw[iq, :] = chiD_2D
+
+    # Effective Coulomb interaction in 2D from eps_{2D}^{-1} = 1 + V_{eff} \chi_{2D}
+    VM_eff_qw = (1. /epsM_2D_qw - 1) / chiM_2D_qw
+    VD_eff_qw = (1. /epsD_2D_qw - 1) / chiD_2D_qw
+    chi0M_2D_qw = (1 - epsM_2D_qw) * 1. / VM_eff_qw  # Chi0 from effective Coulomb 
+    chi0D_2D_qw = (1 - epsD_2D_qw) * 1. / VD_eff_qw
+#    pickle.dump((np.array(q_points_abs), omega_w, VM_eff_qw, VD_eff_qw, 
+#                 chiM_2D_qw, chiD_2D_qw), open(name + '-chi.pckl', 'w')) 
+#    pickle.dump((np.array(q_points_abs), omega_w, VM_eff_qw, VD_eff_qw, 
+#                 chi0M_2D_qw, chi0D_2D_qw, chiM_2D_qw, chiD_2D_qw, 
+#                 epsM_2D_qw, epsD_2D_qw), open(name + '-2D.pckl', 'w')) 
+        
+    return np.array(q_points_abs), chiM_2D_qw, chiD_2D_qw, VM_eff_qw, VD_eff_qw, epsM_2D_qw, epsD_2D_qw
+
+
+def z_factor(z0, d, G, sign = 1):
+    factor= -1j*sign*np.exp(1j*sign*G*z0)*(d*G*np.cos(G*d/2.)-2.*np.sin(G*d/2.))/G**2
+    return factor
+
+def z_factor2(z0, d, G, sign = 1):
+    factor= sign * np.exp(1j*sign*G*z0) * np.sin(G * d / 2.)
     return factor
