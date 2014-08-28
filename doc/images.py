@@ -115,6 +115,15 @@ get('agts-files', scf_conv_eval_stuff, target='documentation/scf_conv_eval',
     source=agtspath)
 
 # Warning: for the moment dcdft runs are not run (files are static)!
+dcdft_pbe_aims_stuff = """
+dcdft_aims.tight.01.16.db.csv
+dcdft_aims.tight.01.16.db_raw.csv
+dcdft_aims.tight.01.16.db_Delta.txt
+""".split()
+
+get('agts-files', dcdft_pbe_aims_stuff, target='setups', source=agtspath)
+
+# Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_gpaw_pw_stuff = """
 dcdft_pbe_gpaw_pw.csv
 dcdft_pbe_gpaw_pw_raw.csv
