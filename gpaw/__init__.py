@@ -299,19 +299,19 @@ command = os.environ.get('GPAWSTARTUP')
 if command is not None:
     exec(command)
 
-    
+
 def is_parallel_environment():
     """Check if we are running in a parallel environment.
-    
+
     This function can be redefined in ~/.gpaw/rc.py.  Example::
-        
+
         def is_parallel_environment():
             import os
             return 'PBS_NODEFILE' in os.environ
     """
     return False
-    
-    
+
+
 home = os.environ.get('HOME')
 if home is not None:
     rc = os.path.join(home, '.gpaw', 'rc.py')
