@@ -56,11 +56,11 @@ for name in names:
     kpts = tuple(kpts2mp(atoms, kptdensity, even=True))
     kwargs = {}
     if relativistic == 'scalar':
-        kwargs.update({'relativistic':['atomic_zora', relativistic]})
+        kwargs.update({'relativistic': ['atomic_zora', relativistic]})
     elif relativistic == 'none':
         kwargs.update({'relativistic': 'none'})
-    else:  #  e.g. 1.0e-12
-        kwargs.update({'relativistic':['zora', relativistic]})
+    else:  # e.g. 1.0e-12
+        kwargs.update({'relativistic': ['zora', relativistic]})
     if atoms.get_initial_magnetic_moments().any():  # spin-polarization
         magmom = atoms.get_initial_magnetic_moments().sum() / len(atoms)
         kwargs.update({'default_initial_moment': magmom, 'spin': 'collinear'})
@@ -68,7 +68,8 @@ for name in names:
     for n, x in enumerate(np.linspace(linspace[0], linspace[1], linspace[2])):
         id = c.reserve(name=name, basis=basis, linspacestr=linspacestr,
                        kptdensity=kptdensity, width=width,
-                       basis_threshold=basis_threshold, relativistic=relativistic,
+                       basis_threshold=basis_threshold,
+                       relativistic=relativistic,
                        x=x)
         if id is None:
             continue
@@ -95,7 +96,8 @@ for name in names:
         c.write(atoms,
                 name=name, basis=basis, linspacestr=linspacestr,
                 kptdensity=kptdensity, width=width,
-                basis_threshold=basis_threshold, relativistic=relativistic,
+                basis_threshold=basis_threshold,
+                relativistic=relativistic,
                 x=x,
                 time=time.time()-t)
         traj.write(atoms)
