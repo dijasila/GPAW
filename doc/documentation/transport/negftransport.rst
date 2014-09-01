@@ -150,10 +150,6 @@ A spin transport example (anti-parallel junction):
 
 .. literalinclude:: spin_transport.py
  
-Do a multi_terminal calculation:
-
-.. literalinclude:: transport_multi_terminal.py
-
 Calculate transmission and DOS based on separate DFT results for electrodes and scattering region(for example
 one may want to carry out a PBE+U calculation for the scattering region):
 
