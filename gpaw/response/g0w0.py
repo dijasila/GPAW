@@ -3,6 +3,8 @@ from __future__ import division, print_function
 from math import pi
 
 import numpy as np
+import pickle
+
 from ase.units import Hartree
 from ase.utils import opencew
 from ase.dft.kpoints import monkhorst_pack
@@ -32,6 +34,7 @@ class G0W0(PairDensity):
                              txt=filename + '.txt')
         
         self.filename = filename
+        self.savew = savew
         
         ecut /= Hartree
         
