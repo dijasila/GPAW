@@ -150,10 +150,6 @@ A spin transport example (anti-parallel junction):
 
 .. literalinclude:: spin_transport.py
  
-Optimize a system under bias voltage:
-
-.. literalinclude:: transport_optimize.py
-
 Do a multi_terminal calculation:
 
 .. literalinclude:: transport_multi_terminal.py
