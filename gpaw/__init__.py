@@ -18,7 +18,6 @@ except ImportError:
     def get_platform():
         return modulepath
 
-from glob import glob
 from os.path import join, isfile
 
 import numpy as np
