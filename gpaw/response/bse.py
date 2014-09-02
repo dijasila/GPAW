@@ -1,19 +1,23 @@
-from time import time, ctime
-import numpy as np
+from __future__ import print_function
+
 import pickle
 from math import pi
-from ase.units import Hartree
+from time import time, ctime
+
+import numpy as np
 from ase.io import write
-from gpaw.blacs import BlacsGrid, Redistributor
-from gpaw.io.tar import Writer, Reader
-from gpaw.mpi import world, size, rank, serial_comm
-from gpaw.utilities import devnull
-from gpaw.utilities.blas import gemmdot, gemm, gemv
-from gpaw.utilities.memory import maxrss
-from gpaw.response.base import BASECHI
-from gpaw.response.parallel import parallel_partition, gatherv
-from gpaw.response.kernel import calculate_Kc, calculate_Kc_q
+from ase.units import Hartree
+from ase.utils import opencew
+
 from gpaw.response.df0 import DF
+from gpaw.io.tar import Writer, Reader
+from gpaw.response.base import BASECHI
+from gpaw.utilities.memory import maxrss
+from gpaw.blacs import BlacsGrid, Redistributor
+from gpaw.mpi import world, size, rank, serial_comm
+from gpaw.response.kernel import calculate_Kc, calculate_Kc_q
+from gpaw.response.parallel import parallel_partition, gatherv
+
 
 class BSE(BASECHI):
     """This class defines Bethe-Salpeter equations."""
@@ -45,7 +49,7 @@ class BSE(BASECHI):
                          eshift=eshift, ecut=ecut, eta=eta, rpad=rpad,
                          ftol=ftol, txt=txt, optical_limit=optical_limit)
 
-        assert mode is 'RPA' or 'TDHF' or 'BSE'
+        assert mode in ['RPA', 'TDHF', 'BSE']
 
         self.epsilon_w = None
         self.coupling = coupling
@@ -203,14 +207,8 @@ class BSE(BASECHI):
 
         self.V_qGG = self.full_bare_interaction()
 
-        return
-
-
     def calculate(self):
         calc = self.calc
-        f_skn = self.f_skn
-        e_skn = self.e_skn
-        kq_k = self.kq_k
         focc_S = self.focc_S
         e_S = self.e_S
         op_scc = calc.wfs.symmetry.op_scc
@@ -219,12 +217,13 @@ class BSE(BASECHI):
         if self.mode == 'RPA':
             self.phi_aGp = self.get_phi_aGp()
         else:
-            try:
+            fd = opencew('phi_qaGp')
+            if fd is None:
                 self.reader = Reader('phi_qaGp')
                 tmp = self.load_phi_aGp(self.reader, 0)[0]
                 assert len(tmp) == self.npw
                 self.printtxt('Finished reading phi_aGp')
-            except:
+            else:
                 self.printtxt('Calculating phi_qaGp')
                 self.get_phi_qaGp()
                 world.barrier()
@@ -379,7 +378,6 @@ class BSE(BASECHI):
     def par_save(self,filename, name, A_sS):
         from gpaw.io import open 
 
-        nS_local = self.nS_local
         nS = self.nS
         
         if rank == 0:
@@ -455,7 +453,6 @@ class BSE(BASECHI):
 
             if optical_limit:
                 K_GG = self.V_qGG[iq].copy()
-                q_v = np.dot(q, self.bcell_cv)
                 K0 = calculate_Kc(q,
                                   self.Gvec_Gc,
                                   self.acell_cv,
@@ -492,7 +489,6 @@ class BSE(BASECHI):
 
         V_qGG = np.zeros((self.nibzq, self.npw, self.npw), dtype=complex)
         
-        t0 = time()
         for iq in range(self.nibzq):
             q = self.ibzq_qc[iq]
 
@@ -587,11 +583,9 @@ class BSE(BASECHI):
                     world.receive(phi_aGp, qrank, q)
             if world.rank == 0:
                 w.fill(phi_aGp)
-        world.barrier()
         if world.rank == 0:
             w.close()
-        
-        return
+        world.barrier()
 
     def load_phi_aGp(self, reader, iq):
 
@@ -605,7 +599,6 @@ class BSE(BASECHI):
             phi_aGp[a] = phimax_aGp[a, :N1, :N2]
 
         return phi_aGp
-
 
     def get_dielectric_function(self, filename='df.dat', readfile=None):
 
@@ -626,7 +619,7 @@ class BSE(BASECHI):
                 self.v_SS = self.par_load('v_SS', 'v_SS')
                 self.printtxt('Finished reading v_SS.gpw')
             else:
-                XX
+                1 / 0
 
             w_S = self.w_S
             if not self.coupling:
@@ -643,7 +636,6 @@ class BSE(BASECHI):
     
             # get chi
             epsilon_w = np.zeros(self.Nw, dtype=complex)
-            t0 = time()
 
             A_S = np.dot(rhoG0_S, v_SS)
             B_S = np.dot(rhoG0_S*focc_S, v_SS)
@@ -666,12 +658,11 @@ class BSE(BASECHI):
             self.epsilon_w = epsilon_w
     
         if rank == 0:
-            f = open(filename,'w')
-            #g = open('excitons.dat', 'w')
+            f = open(filename, 'w')
             for iw in range(self.Nw):
                 energy = iw * self.dw * Hartree
-                print >> f, energy, np.real(epsilon_w[iw]), np.imag(epsilon_w[iw])
-                #print >> g, energy, np.real(C_S[iw])/max(abs(C_S))
+                print(energy, np.real(epsilon_w[iw]), np.imag(epsilon_w[iw]),
+                      file=f)
             f.close()
             #g.close()
         # Wait for I/O to finish
@@ -699,7 +690,6 @@ class BSE(BASECHI):
             self.initialize()
             
         gd = self.gd
-        w_S = self.w_S
         v_SS = self.v_SS
         A_S = v_SS[:, lamda]
         kq_k = self.kq_k
@@ -709,7 +699,7 @@ class BSE(BASECHI):
         nte_R = gd.zeros()
         
         for iS in range(self.nS_start, self.nS_end):
-            print 'electron density:', iS
+            print('electron density:', iS)
             k1, n1, m1 = self.Sindex_S3[iS]
             ibzkpt1 = kd.bz2ibz_k[k1]
             psitold_g = self.get_wavefunction(ibzkpt1, n1)
@@ -727,7 +717,7 @@ class BSE(BASECHI):
         nth_R = gd.zeros()
         
         for iS in range(self.nS_start, self.nS_end):
-            print 'hole density:', iS
+            print('hole density:', iS)
             k1, n1, m1 = self.Sindex_S3[iS]
             ibzkpt1 = kd.bz2ibz_k[kq_k[k1]]
             psitold_g = self.get_wavefunction(ibzkpt1, m1)
@@ -760,7 +750,6 @@ class BSE(BASECHI):
             self.initialize()
             
         gd = self.gd
-        w_S = self.w_S
         v_SS = self.v_SS
         A_S = v_SS[:, lamda]
         kq_k = self.kq_k
@@ -785,7 +774,7 @@ class BSE(BASECHI):
             k, n, m = self.Sindex_S3[iS]
             ibzkpt1 = kd.bz2ibz_k[k]
             ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
-            print 'hole wavefunction', iS, (k,n,m),A_S[iS]
+            print('hole wavefunction', iS, (k,n,m),A_S[iS])
             
             psitold_g = self.get_wavefunction(ibzkpt1, n)
             psit1_g = kd.transform_wave_function(psitold_g, k)
@@ -831,7 +820,6 @@ class BSE(BASECHI):
 
                 atoms = self.calc.atoms
                 shift = atoms.cell[0:2].copy()
-                positions = atoms.positions
                 atoms.cell[0:2] *= nR2
                 atoms.positions += shift * (nR2 - 1)
                 
@@ -844,7 +832,6 @@ class BSE(BASECHI):
 
                 atoms = self.calc.atoms
 #                shift = atoms.cell[0:2].copy()
-                positions = atoms.positions
                 atoms.cell[0:2] *= nR2
 #                atoms.positions += shift * (nR2 - 1)
                 
@@ -921,6 +908,7 @@ class BSE(BASECHI):
         
         return w_S, v_sS.conj()
 
+    """
     def get_chi(self, w):
         H_SS = self.calculate()
         self.printtxt('Diagonalizing BSE matrix.')
@@ -952,3 +940,4 @@ class BSE(BASECHI):
             C_S = B_S.conj() * A_S
 
         return chi_wGG
+    """

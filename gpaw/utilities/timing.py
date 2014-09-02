@@ -100,6 +100,7 @@ class Timer:
                                'Requested stopping of %s but topmost is %s'
                                % (name, running))
         self.timers[names] += time.time()
+        return names
     
     def __call__(self, name):
         """Context manager for timing a block of code.
@@ -124,7 +125,6 @@ class Timer:
         self.stop()
             
     def get_time(self, *names):
-#        print self.timers, names
         return self.timers[names]
                 
     def write(self, out=sys.stdout):
@@ -193,7 +193,7 @@ class timer:
             def __init__(self):
                 self.timer = Timer()
                 
-            @timer('Add two numbers')    
+            @timer('Add two numbers')
             def add(self, x, y):
                 return x + y
                 
@@ -370,7 +370,7 @@ class HPMTimer(Timer):
     subset of timers."""
     
     top_level = 'GPAW.calculator'  # HPM needs top level timer
-    compatible = ['Initialization', 'SCF-cycle'] 
+    compatible = ['Initialization', 'SCF-cycle']
 
     def __init__(self):
         Timer.__init__(self)

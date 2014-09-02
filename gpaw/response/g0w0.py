@@ -3,6 +3,8 @@ from __future__ import division, print_function
 from math import pi
 
 import numpy as np
+import pickle
+
 from ase.units import Hartree
 from ase.utils import opencew
 from ase.dft.kpoints import monkhorst_pack
@@ -25,12 +27,14 @@ class G0W0(PairDensity):
                  wstc=False,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
                  domega0=0.025, omega2=10.0,
+                 savew=False,
                  world=mpi.world):
     
         PairDensity.__init__(self, calc, ecut, world=world,
                              txt=filename + '.txt')
         
         self.filename = filename
+        self.savew = savew
         
         ecut /= Hartree
         
@@ -281,18 +285,30 @@ class G0W0(PairDensity):
         htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
             
         for iq, q_c in enumerate(self.qd.ibzk_kc):
-            if self.wstc:
-                wstc = WignerSeitzTruncatedCoulomb(
-                    self.calc.wfs.gd.cell_cv,
-                    self.calc.wfs.kd.N_c,
-                    chi0.fd)
+            wfilename = self.filename + '.w.q%d.pckl' % iq
+            fd = opencew(wfilename)
+            if fd is None and self.savew:
+                # Read screened potential from file
+                with open(wfilename) as fd:
+                    pd, W = pickle.load(fd)
             else:
-                wstc = None
-                
-            pd, chi0_wGG = chi0.calculate(q_c)[:2]
-            self.Q_aGii = chi0.Q_aGii
-            W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc)
+                # First time calculation
+                if self.wstc:
+                    wstc = WignerSeitzTruncatedCoulomb(
+                        self.calc.wfs.gd.cell_cv,
+                        self.calc.wfs.kd.N_c,
+                        chi0.fd)
+                else:
+                    wstc = None
             
+                    pd, chi0_wGG = chi0.calculate(q_c)[:2]
+                    self.Q_aGii = chi0.Q_aGii
+                    W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc)
+                    if self.savew:
+                        pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
+
+            # Loop over all k-points in the BZ and find those that are related
+            # to the current IBZ k-point by symmetry
             Q1 = self.qd.ibz2bz_k[iq]
             done = set()
             for s, Q2 in enumerate(self.qd.bz2bz_ks[Q1]):

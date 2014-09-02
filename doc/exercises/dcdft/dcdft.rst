@@ -30,8 +30,10 @@ the script). Please consult the introduction to the
 
 You can find out more about "reproducible science" with ASE in
 the following talks:
-`Emacs + org-mode + python in reproducible research <http://www.youtube.com/watch?v=1-dUkyn_fZA>`_ or
-`How Python & the iPython notebook can revamp quantum chemical reseach <http://www.youtube.com/watch?v=WKoImDmYFQE>`_.
+`Emacs + org-mode + python in reproducible research
+<http://www.youtube.com/watch?v=1-dUkyn_fZA>`_ or
+`How Python & the iPython notebook can revamp quantum chemical reseach
+<http://www.youtube.com/watch?v=WKoImDmYFQE>`_.
 
 We will compare PBE numbers from GPAW with http://www.wien2k.at/ for K, Ca
 and Ti. We use default PAW-datasets, a plane-wave cutoff of 340 eV, a
@@ -76,7 +78,7 @@ using :command:`ase-gui`::
 Extract the results from the database in order to calculate
 the parameters of the equation of state:
 
-.. literalinclude:: exercise_dcdft.db_raw.txt
+.. literalinclude:: dcdft.db_raw.txt
 
 and use the script available from https://molmod.ugent.be/deltacodesdft
 to calculate the Delta factors.

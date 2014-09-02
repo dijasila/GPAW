@@ -53,7 +53,7 @@ def get(path, names, target=None, source=None):
 literature = """
 askhl_10302_report.pdf  mortensen_gpaw-dev.pdf      rostgaard_master.pdf
 askhl_master.pdf        mortensen_mini2003talk.pdf  rostgaard_paw_notes.pdf
-marco_master.pdf        mortensen_paw.pdf
+marco_master.pdf        mortensen_paw.pdf           ss14.pdf
 """.split()
 
 logos = """
@@ -113,6 +113,15 @@ scf_dcdft_pbe_pw_energy.csv
 
 get('agts-files', scf_conv_eval_stuff, target='documentation/scf_conv_eval',
     source=agtspath)
+
+# Warning: for the moment dcdft runs are not run (files are static)!
+dcdft_pbe_aims_stuff = """
+dcdft_aims.tight.01.16.db.csv
+dcdft_aims.tight.01.16.db_raw.csv
+dcdft_aims.tight.01.16.db_Delta.txt
+""".split()
+
+get('agts-files', dcdft_pbe_aims_stuff, target='setups', source=agtspath)
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_gpaw_pw_stuff = """

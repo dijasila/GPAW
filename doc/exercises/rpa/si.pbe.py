@@ -2,9 +2,9 @@ from ase.lattice import bulk
 from gpaw import GPAW
 from gpaw.wavefunctions.pw import PW
 
-pwcutoff = 600.0 # Plane wave cutoff
+pwcutoff = 400.0 # Plane wave cutoff
 
-k = 8 # NxNxN k-point sampling, gamma-centred grid
+k = 6 # NxNxN k-point sampling, gamma-centred grid
 
 alat = 5.421 # Si lattice constant
 

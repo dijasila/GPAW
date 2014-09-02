@@ -24,6 +24,8 @@ Links to guides and manual pages
 Reports, presentations, and theses using gpaw
 ---------------------------------------------
 
+* Summer-school 2014 talk about `PAW and GPAW`_
+
 * A short note on the basics of PAW: `paw note`_
 
 * A master thesis on the inclusion of non-local exact exchange in the
@@ -54,6 +56,7 @@ Reports, presentations, and theses using gpaw
 .. _introduction to PAW slides: ../_static/mortensen_paw.pdf
 .. _gpaw for developers: ../_static/mortensen_gpaw-dev.pdf
 .. _early gpaw: ../_static/mortensen_mini2003talk.pdf
+.. _PAW and GPAW: ../_static/ss14.pdf
 
 
 .. _paw_papers:

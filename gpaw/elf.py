@@ -130,7 +130,7 @@ class ELF:
                 self.paw.wfs.taugrad_v[v](self.density.nt_sG[s], d_G)
                 self.nt_grad2_sG[s] += d_G**2.0
 
-        #TODO are nct from setups usable for nt_grad2_sG ?
+        # TODO are nct from setups usable for nt_grad2_sG ?
 
     def get_electronic_localization_function(self, gridrefinement=1,
                                              pad=True, broadcast=True):
