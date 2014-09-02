@@ -143,8 +143,8 @@ if compiler is not None:
     vars = get_config_vars()
     if remove_default_flags:
         for key in ['BASECFLAGS', 'CFLAGS', 'OPT', 'PY_CFLAGS',
-            'CCSHARED', 'CFLAGSFORSHARED', 'LINKFORSHARED',
-            'LIBS', 'SHLIBS']:
+                    'CCSHARED', 'CFLAGSFORSHARED', 'LINKFORSHARED',
+                    'LIBS', 'SHLIBS']:
             if key in vars:
                 value = vars[key].split()
                 # remove all gcc flags (causing problems with other compilers)
