@@ -28,17 +28,17 @@ spos_ac = np.array([(0.4778762817077312,  0.0000000000000000,  0.333333333333333
 atoms = Atoms(symbols=symbols,
               scaled_positions=spos_ac,
               cell=cell_cv,
-              pbc = True
+              pbc=True
               )
 
 ## with fractional translations
 calc = GPAW(mode=PW(),
             xc='LDA',
-            kpts=(3,3,3),
-            nbands = 42,
-            usefractrans = True,
-            gpts = (20,20,24),
-           )
+            kpts=(3, 3, 3),
+            nbands=42,
+            symmetry={'symmorphic': False},
+            gpts=(20, 20, 24))
+
 atoms.set_calculator(calc)
 energy_fractrans = atoms.get_potential_energy()
 
@@ -50,7 +50,6 @@ calc = GPAW(mode=PW(),
             xc='LDA',
             kpts=(3,3,3),
             nbands = 42,
-            usefractrans = False,
             gpts = (20,20,24),
            )
 atoms.set_calculator(calc)
