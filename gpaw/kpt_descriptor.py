@@ -114,7 +114,8 @@ class KPointDescriptor:
         
         # Gamma-point calculation?
         self.gamma = (self.nbzkpts == 1 and np.allclose(self.bzk_kc[0], 0.0))
-        self.set_symmetry(None, None, enabled=False)
+        self.set_symmetry(None, None,
+                          do_not_even_use_time_reversal_symmetry=True)
         self.set_communicator(mpi.serial_comm)
 
         if self.gamma:
@@ -140,7 +141,7 @@ class KPointDescriptor:
 
     def set_symmetry(self, atoms, setups, magmom_av=None,
                      enabled=True, symmorphic=True,
-                     use_only_time_reversal_symmetry=False, comm=None):
+                     do_not_even_use_time_reversal_symmetry=False, comm=None):
         """Create symmetry object and construct irreducible Brillouin zone.
 
         atoms: Atoms object
@@ -177,7 +178,7 @@ class KPointDescriptor:
         else:
             self.symmetry = None
         
-        if self.gamma or not enabled:
+        if self.gamma or do_not_even_use_time_reversal_symmetry:
             # Point group and time-reversal symmetry neglected
             self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
             self.ibzk_kc = self.bzk_kc.copy()
@@ -187,11 +188,10 @@ class KPointDescriptor:
             self.ibz2bz_k = np.arange(self.nbzkpts)
             self.bz2bz_ks = np.arange(self.nbzkpts)[:, np.newaxis]
         else:
-            if not use_only_time_reversal_symmetry:
-                # Find symmetry operations of atoms
+            if enabled:
+                # Find symmetry operations of atoms:
                 self.symmetry.analyze(atoms.get_scaled_positions())
               
-
             (self.ibzk_kc, self.weight_k,
              self.sym_k,
              self.time_reversal_k,

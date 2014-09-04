@@ -79,7 +79,7 @@ def get_mulliken(calc, a_list):
 
 def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
                      R_c=(0, 0, 0), direction='x', 
-                     usesymm=None):
+                     symmetry='off'):
 
     from gpaw.symmetry import Symmetry
     from ase.dft.kpoints import get_monkhorst_pack_size_and_offset, \
@@ -319,7 +319,7 @@ def get_lead_lcao_hamiltonian(calc, direction='x'):
 
 
 def lead_kspace2realspace(h_skmm, s_kmm, bzk_kc, weight_k, direction='x', 
-                          usesymm=None):
+                          symmetry='off'):
     """Convert a k-dependent Hamiltonian to tight-binding onsite and coupling.
 
     For each transverse k-point:

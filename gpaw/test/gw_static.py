@@ -22,7 +22,7 @@ calc = GPAW(
             xc='LDA',
             txt='C_gs.txt',
             occupations=FermiDirac(0.001),
-            usesymm=None,
+            symmetry='off',
             parallel={'band':1}
            )
 

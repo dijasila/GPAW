@@ -428,9 +428,13 @@ class PAW(PAWTextOutput):
                           '"usesymm" keyword')
             par.symmetry = usesymm2symmetry(par.usesymm)
             
+        symm = par.symmetry
+        if par.symmetry == 'off':
+            symm = {'enabled': False}
+        
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
         kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
-        kd.set_symmetry(atoms, setups, magmom_av, comm=world, **par.symmetry)
+        kd.set_symmetry(atoms, setups, magmom_av, comm=world, **symm)
         
         if par.gpts is not None:
             N_c = np.array(par.gpts)

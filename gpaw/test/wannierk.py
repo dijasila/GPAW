@@ -13,7 +13,7 @@ if 1:
     si.calc = GPAW(kpts=(k, k, k), txt='Si-ibz.txt')
     e1 = si.get_potential_energy()
     si.calc.write('Si-ibz', mode='all')
-    si.calc.set(usesymm=None, txt='Si-bz.txt')
+    si.calc.set(symmetry='off', txt='Si-bz.txt')
     e2 = si.get_potential_energy()
     si.calc.write('Si-bz', mode='all')
     print e1, e2
