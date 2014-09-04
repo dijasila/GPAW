@@ -11,6 +11,14 @@ from gpaw import parsize_domain, parsize_bands, sl_default, sl_diagonalize, \
                  sl_inverse_cholesky, sl_lcao, sl_lrtddft, buffer_size
 
 
+def usesymm2symmetry(usesymm):
+    if usesymm is None:
+        return {'enabled': False}
+    if usesymm:
+        return {}
+    return {'use_only_time_reversal_symmetry': True}
+
+
 class InputParameters(dict):
     def __init__(self, **kwargs):
         dict.__init__(self, [
@@ -27,7 +35,7 @@ class InputParameters(dict):
             ('width',           None),  # eV, don't use this
             ('occupations',     None),
             ('spinpol',         None),
-            ('usesymm',         True),
+            ('usesymm', 'default'),  # don't use this
             ('stencils',        (3, 3)),
             ('fixdensity',      False),
             ('mixer',           None),
@@ -63,7 +71,7 @@ class InputParameters(dict):
                                  'eigenstates': 4.0e-8,  # eV^2
                                  'bands':       'occupied'}),
             ('realspace',       None),
-            ('usefractrans',    False)
+            ('symmetry', {})
             ])
         dict.update(self, kwargs)
 
@@ -118,7 +126,8 @@ class InputParameters(dict):
         else:
             self.kpts = bzk_kc
 
-        self.usesymm = r['UseSymmetry']
+        self.symmetry = usesymm2symmetry(r['UseSymmetry'])
+
         try:
             self.basis = r['BasisSet']
         except KeyError:

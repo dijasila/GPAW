@@ -233,7 +233,7 @@ class PAWTextOutput:
             t('Orthonormalizer layout: ' + orthonormalizer_layout)
         t()
 
-        self.wfs.symmetry.print_symmetries(t)
+        self.wfs.symmetry.print_symmetries(self.txt)
 
         t(self.wfs.kd.description)
         t(('%d k-point%s in the Irreducible Part of the Brillouin Zone') %

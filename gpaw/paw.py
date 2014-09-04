@@ -33,7 +33,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.wavefunctions.pw import PW, ReciprocalSpaceDensity, \
     ReciprocalSpaceHamiltonian
 from gpaw.utilities.memory import MemNode, maxrss
-from gpaw.parameters import InputParameters
+from gpaw.parameters import InputParameters, usesymm2symmetry
 from gpaw.setup import Setups
 from gpaw.output import PAWTextOutput
 from gpaw.scf import SCFLoop
@@ -50,7 +50,7 @@ class PAW(PAWTextOutput):
         """ASE-calculator interface.
 
         The following parameters can be used: nbands, xc, kpts,
-        spinpol, gpts, h, charge, usesymm, width, mixer,
+        spinpol, gpts, h, charge, symmetry, width, mixer,
         hund, lmax, fixdensity, convergence, txt, parallel,
         communicator, dtype, softgauss and stencils.
 
@@ -165,7 +165,7 @@ class PAW(PAWTextOutput):
         self.initialized = False
 
         for key in kwargs:
-            if key == 'basis' and  p['mode'] == 'fd':
+            if key == 'basis' and p['mode'] == 'fd':
                 continue
 
             if key == 'eigensolver':
@@ -192,7 +192,7 @@ class PAW(PAWTextOutput):
                 self.density = None
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
-            elif key in ['kpts', 'nbands', 'usesymm']:
+            elif key in ['kpts', 'nbands', 'usesymm', 'symmetry']:
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
@@ -384,14 +384,6 @@ class PAW(PAWTextOutput):
             if isinstance(mode, PW):
                 assert not realspace
 
-        if par.gpts is not None:
-            N_c = np.array(par.gpts)
-        else:
-            h = par.h
-            if h is not None:
-                h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
-
         if par.filter is None and not isinstance(mode, PW):
             gamma = 1.6
             hmax = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / N_c).max()
@@ -434,9 +426,26 @@ class PAW(PAWTextOutput):
             nspins = 1
             ncomp = 2
 
-        # K-point descriptor
+        if par.usesymm != 'default':
+            raise DeprecationWarning('Use "symmetry" keyword instead of ' +
+                                     '"usesymm" keyword')
+            par.symmetry = usesymm2symmetry(par.usesymm)
+            
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
-        kd = KPointDescriptor(bzkpts_kc, nspins, collinear, par.usefractrans)
+        kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
+        kd.set_symmetry(atoms, setups, magmom_av, comm=world, **par.symmetry)
+        
+        if par.gpts is not None:
+            N_c = np.array(par.gpts)
+        else:
+            h = par.h
+            if h is not None:
+                h /= Bohr
+            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
+                                            kd.symmetry)
+            
+        if kd.symmetry is not None:
+            kd.symmetry.check_grid(N_c)
 
         width = par.width
         if width is None:
@@ -454,11 +463,6 @@ class PAW(PAWTextOutput):
                 dtype = float
             else:
                 dtype = complex
-
-        ## rbw: If usefractrans=True, kd.set_symmetry might overwrite N_c.
-        ## This is necessary, because N_c must be dividable by 1/(fractional translation),
-        ## f.e. fractional translations of a grid point must land on a grid point.
-        N_c = kd.set_symmetry(atoms, setups, magmom_av, par.usesymm, N_c, world)
 
         nao = setups.nao
         nvalence = setups.nvalence - par.charge

@@ -14,7 +14,7 @@ pbc_c = np.ones(3, bool)
 bzk_kc = monkhorst_pack((4, 4, 4))
 
 # Do check
-symm = Symmetry(id_a, cell_cv, pbc_c, fractrans=False)
+symm = Symmetry(id_a, cell_cv, pbc_c)
 symm.analyze(spos_ac)
 ibzk_kc, w_k = symm.reduce(bzk_kc)[:2]
 assert len(symm.op_scc) == 24
@@ -27,7 +27,7 @@ assert not symm.op_scc.sum(0).any()
 cell_cv = a / sqrt(2) * np.array([(1, 0, 0),
                                   (0.5, sqrt(3) / 2, 0),
                                   (0.5, sqrt(3) / 6, sqrt(2.0 / 3))])
-symm = Symmetry(id_a, cell_cv, pbc_c, fractrans=False)
+symm = Symmetry(id_a, cell_cv, pbc_c)
 symm.analyze(spos_ac)
 ibzkb_kc, wb_k = symm.reduce(bzk_kc)[:2]
 assert len(symm.op_scc) == 24
@@ -71,7 +71,7 @@ pbc_c = np.array([1, 1, 1], bool)
 bzk_kc = monkhorst_pack((2, 2, 2))
 
 # Do check
-symm = Symmetry(id_a, cell_cv, pbc_c, fractrans=False)
+symm = Symmetry(id_a, cell_cv, pbc_c)
 symm.analyze(spos_ac)
 ibzk_kc, w_k = symm.reduce(bzk_kc)[:2]
 assert len(symm.op_scc) == 12

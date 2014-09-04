@@ -33,7 +33,7 @@ calc = GPAW(mode=PW(),
             xc='LDA',
             kpts=(3,3,3),
             nbands = 28,
-            usefractrans = True,
+            symmetry={'symmorphic': False},
             gpts = (18,18,12),
            )
 
@@ -48,7 +48,6 @@ calc = GPAW(mode=PW(),
             xc='LDA',
             kpts=(3,3,3),
             nbands = 28,
-            usefractrans = False,
             gpts = (18,18,12),
            )
 atoms.set_calculator(calc)

@@ -56,7 +56,7 @@ def to1bz(bzk_kc, cell_cv):
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
-    def __init__(self, kpts, nspins=1, collinear=True, usefractrans=False):
+    def __init__(self, kpts, nspins=1, collinear=True):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
 
         Parameters
@@ -113,9 +113,8 @@ class KPointDescriptor:
         self.nbzkpts = len(self.bzk_kc)
         
         # Gamma-point calculation?
-        self.usefractrans = usefractrans
         self.gamma = (self.nbzkpts == 1 and np.allclose(self.bzk_kc[0], 0.0))
-        self.set_symmetry(None, None, usesymm=None)
+        self.set_symmetry(None, None, enabled=False)
         self.set_communicator(mpi.serial_comm)
 
         if self.gamma:
@@ -140,7 +139,8 @@ class KPointDescriptor:
         return self.mynks
 
     def set_symmetry(self, atoms, setups, magmom_av=None,
-                     usesymm=False, N_c=None, comm=None):
+                     enabled=True, symmorphic=True,
+                     use_only_time_reversal_symmetry=False, comm=None):
         """Create symmetry object and construct irreducible Brillouin zone.
 
         atoms: Atoms object
@@ -172,12 +172,12 @@ class KPointDescriptor:
 
             # Construct a Symmetry instance containing the identity operation
             # only
-            self.symmetry = Symmetry(id_a, atoms.cell / Bohr, atoms.pbc, fractrans=self.usefractrans)
-            self.usefractrans = self.symmetry.usefractrans
+            self.symmetry = Symmetry(id_a, atoms.cell / Bohr, atoms.pbc,
+                                     symmorphic=symmorphic)
         else:
             self.symmetry = None
         
-        if self.gamma or usesymm is None:
+        if self.gamma or not enabled:
             # Point group and time-reversal symmetry neglected
             self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
             self.ibzk_kc = self.bzk_kc.copy()
@@ -187,33 +187,10 @@ class KPointDescriptor:
             self.ibz2bz_k = np.arange(self.nbzkpts)
             self.bz2bz_ks = np.arange(self.nbzkpts)[:, np.newaxis]
         else:
-            if usesymm:
+            if not use_only_time_reversal_symmetry:
                 # Find symmetry operations of atoms
                 self.symmetry.analyze(atoms.get_scaled_positions())
               
-                if N_c is not None:
-                    if self.usefractrans:
-                        ## adjust N_c to symmetries
-                        # the factor (denominator) the grid must follow
-                        factor = np.ones(3, float)
-                        indexes = np.where(np.abs(self.symmetry.ft_sc) > 1e-3)
-                        for i in range(len(indexes[0])):
-                            # find smallest common denominator
-                            a = factor[indexes[1][i]]
-                            b = np.rint(1. /  self.symmetry.ft_sc[indexes[0][i]][indexes[1][i]])
-                            factor[indexes[1][i]] = a * b
-                            while b != 0:
-                                rem = a % b
-                                a = b
-                                b = rem
-                            factor[indexes[1][i]] /= a 
-                        Nnew_c = np.array(np.rint(N_c / factor) * factor, int)
-                        # make sure new grid is not less dense
-                        Nnew_c = np.array(np.where(Nnew_c >= N_c, Nnew_c, Nnew_c + factor), int)
-                        N_c = Nnew_c
-                    else:
-                        ## adjust symmetries to grid 
-                        self.symmetry.prune_symmetries_grid(N_c)
 
             (self.ibzk_kc, self.weight_k,
              self.sym_k,
@@ -231,8 +208,6 @@ class KPointDescriptor:
             self.nks = self.nibzkpts * self.nspins
         else:
             self.nks = self.nibzkpts
-
-        return N_c
 
     def set_communicator(self, comm):
         """Set k-point communicator."""
