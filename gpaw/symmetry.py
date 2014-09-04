@@ -71,9 +71,6 @@ class Symmetry:
             (bool) Have inversion
         """
 
-        # Notes:
-        #   - "ft" in variable names stands for fractional translation
-
         self.id_a = id_a
         self.cell_cv = np.array(cell_cv, float)
         assert self.cell_cv.shape == (3, 3)
@@ -81,12 +78,12 @@ class Symmetry:
         self.tol = tolerance
         self.symmorphic = symmorphic
 
-        # Disable fractional translations for non-periodic boundary conditions.
+        # Disable fractional translations for non-periodic boundary conditions:
         if not self.pbc_c.all():
             self.symmorphic = True
 
         self.op_scc = np.identity(3, int).reshape((1, 3, 3))
-        self.ft_sc = np.zeros(3, float)
+        self.ft_sc = np.zeros((1, 3))
         self.a_sa = np.arange(len(id_a)).reshape((1, -1))
         self.inversion = False
         self.gcd_c = np.ones(3, int)

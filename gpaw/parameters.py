@@ -126,7 +126,10 @@ class InputParameters(dict):
         else:
             self.kpts = bzk_kc
 
-        self.symmetry = usesymm2symmetry(r['UseSymmetry'])
+        if version < 4:
+            self.symmetry = usesymm2symmetry(r['UseSymmetry'])
+        else:
+            self.symmetry = r['Symmetry']
 
         try:
             self.basis = r['BasisSet']

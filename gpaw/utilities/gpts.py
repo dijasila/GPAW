@@ -6,7 +6,8 @@ from gpaw.wavefunctions.pw import PW
 from gpaw.fftw import get_efficient_fft_size
 
 
-def get_number_of_grid_points(cell_cv, h=None, mode=None, realspace=None):
+def get_number_of_grid_points(cell_cv, h=None, mode=None, realspace=None,
+                              symmetry=None):
     if mode == 'pw':
         mode = PW()
     elif mode is None:

@@ -369,14 +369,6 @@ class PAW(PAWTextOutput):
         if mode == 'pw':
             mode = PW()
 
-        if mode == 'fd' and par.usefractrans:
-            raise NotImplementedError('FD mode does not support '
-                                      'fractional translations.')
-        
-        if mode == 'lcao' and par.usefractrans:
-            raise Warning('Fractional translations have not been tested '
-                          'with LCAO mode. Use with care!')
-
         if par.realspace is None:
             realspace = not isinstance(mode, PW)
         else:
@@ -386,10 +378,13 @@ class PAW(PAWTextOutput):
 
         if par.filter is None and not isinstance(mode, PW):
             gamma = 1.6
-            hmax = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / N_c).max()
-            
+            if par.gpts is not None:
+                h = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / par.gpts).max()
+            else:
+                h = (par.h or 0.2) / Bohr
+                
             def filter(rgd, rcut, f_r, l=0):
-                gcut = np.pi / hmax - 2 / rcut / gamma
+                gcut = np.pi / h - 2 / rcut / gamma
                 f_r[:] = rgd.filter(f_r, rcut * gamma, gcut, l)
         else:
             filter = par.filter
