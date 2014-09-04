@@ -144,6 +144,9 @@ class Symmetry:
     def prune_symmetries_atoms(self, spos_ac):
         """Remove symmetries that are not satisfied by the atoms."""
 
+        if len(spos_ac) == 0:
+            return
+            
         # Build lists of atom numbers for each type of atom - one
         # list for each combination of atomic number, setup type,
         # magnetic moment and basis set:

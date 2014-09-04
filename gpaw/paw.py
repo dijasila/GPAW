@@ -7,6 +7,8 @@
 
 The central object that glues everything together!"""
 
+import warnings
+
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.dft.kpoints import monkhorst_pack
@@ -422,8 +424,8 @@ class PAW(PAWTextOutput):
             ncomp = 2
 
         if par.usesymm != 'default':
-            raise DeprecationWarning('Use "symmetry" keyword instead of ' +
-                                     '"usesymm" keyword')
+            warnings.warn('Use "symmetry" keyword instead of ' +
+                          '"usesymm" keyword')
             par.symmetry = usesymm2symmetry(par.usesymm)
             
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)

@@ -26,7 +26,7 @@ from gpaw.test.ut_common import ase_svnversion, shapeopt, TestCase, \
 
 # -------------------------------------------------------------------
 
-p = InputParameters(spinpol=False, usesymm=None)
+p = InputParameters(spinpol=False)
 xc = XC(p.xc)
 p.setups = dict([(symbol, SetupData(symbol, xc.name)) for symbol in 'HO'])
 
@@ -65,7 +65,6 @@ class UTKPointParallelSetup(TestCase):
 
         #primes = [i for i in xrange(50,1,-1) if ~np.any(i%np.arange(2,i)==0)]
         bzk_kc = kpts2ndarray(kpts)
-        assert p.usesymm == None
         self.nibzkpts = len(bzk_kc)
 
         #parsize_domain, parsize_bands = create_parsize_minbands(self.nbands, world.size)
@@ -93,7 +92,7 @@ class UTKPointParallelSetup(TestCase):
 
         # Set up kpoint descriptor:
         self.kd = KPointDescriptor(bzk_kc, self.nspins)
-        self.kd.set_symmetry(self.atoms, self.setups, usesymm=p.usesymm)
+        self.kd.set_symmetry(self.atoms, self.setups, enabled=False)
         self.kd.set_communicator(kpt_comm)
 
     def tearDown(self):
