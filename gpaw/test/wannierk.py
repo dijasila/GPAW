@@ -13,11 +13,13 @@ if 1:
     si.calc = GPAW(kpts=(k, k, k), txt='Si-ibz.txt')
     e1 = si.get_potential_energy()
     si.calc.write('Si-ibz', mode='all')
-    si.calc.set(symmetry='off', txt='Si-bz.txt')
+    si.calc.set(symmetry={'point_group': False, 'time_reversal': False},
+                txt='Si-bz.txt')
     e2 = si.get_potential_energy()
     si.calc.write('Si-bz', mode='all')
-    print e1, e2
+    print(e1, e2)
 
+    
 def wan(calc):
     centers = [([0.125, 0.125, 0.125], 0, 1.5),
                ([0.125, 0.625, 0.125], 0, 1.5),
@@ -51,7 +53,7 @@ calc2 = GPAW('Si-ibz.gpw', txt=None, communicator=serial_comm)
 calc2.wfs.ibz2bz(si)
 x2 = wan(calc2)
 if world.rank == 0:
-    print x1,x2
+    print(x1, x2)
 assert abs(x1 - x2) < 0.001
 assert abs(x1 - 9.71) < 0.01
 

@@ -234,7 +234,6 @@ tests = [
     'al_chain.py',
     'relax.py',
     'fixmom.py',
-    'CH4.py',
     'diamond_absorption.py',
     'simple_stm.py',
     'gw_method.py',
