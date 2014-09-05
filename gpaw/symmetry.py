@@ -39,7 +39,7 @@ class Symmetry:
     wavefunctions and forces.
     """
     def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
-                 symmorphic=True):
+                 point_group=True, time_reversal=True, symmorphic=True):
         """Construct symmetry object.
 
         Parameters:
@@ -77,7 +77,9 @@ class Symmetry:
         self.pbc_c = np.array(pbc_c, bool)
         self.tol = tolerance
         self.symmorphic = symmorphic
-
+        self.point_group = point_group
+        self.time_reversal = time_reversal
+        
         # Disable fractional translations for non-periodic boundary conditions:
         if not self.pbc_c.all():
             self.symmorphic = True
@@ -85,7 +87,7 @@ class Symmetry:
         self.op_scc = np.identity(3, int).reshape((1, 3, 3))
         self.ft_sc = np.zeros((1, 3))
         self.a_sa = np.arange(len(id_a)).reshape((1, -1))
-        self.inversion = False
+        self.has_inversion = False
         self.gcd_c = np.ones(3, int)
         
     def analyze(self, spos_ac):
@@ -95,8 +97,9 @@ class Symmetry:
         ``prune_symmetries`` to remove those symmetries that are not satisfied
         by the atoms.
         """
-        self.find_lattice_symmetry()
-        self.prune_symmetries_atoms(spos_ac)
+        if self.point_group:
+            self.find_lattice_symmetry()
+            self.prune_symmetries_atoms(spos_ac)
 
     def find_lattice_symmetry(self):
         """Determine list of symmetry operations."""
@@ -203,7 +206,7 @@ class Symmetry:
         self.a_sa = np.array([sym[2] for sym in symmetries])
 
         inv_cc = -np.eye(3, dtype=int)
-        self.inversion = (self.op_scc == inv_cc).all(2).all(1).any()
+        self.has_inversion = (self.op_scc == inv_cc).all(2).all(1).any()
 
     def check_one_symmetry(self, spos_ac, op_cc, ft_c, a_ij):
         """Checks whether atoms satisfy one given symmetry operation."""
@@ -243,7 +246,8 @@ class Symmetry:
         U_scc = self.op_scc
         nsym = len(U_scc)
 
-        bz2bz_ks = map_k_points(bzk_kc, U_scc, self.inversion, comm, self.tol)
+        time_reversal = self.time_reversal and not self.has_inversion
+        bz2bz_ks = map_k_points(bzk_kc, U_scc, time_reversal, comm, self.tol)
 
         bz2bz_k = -np.ones(nbzkpts + 1, int)
         ibz2bz_k = []
@@ -268,11 +272,11 @@ class Symmetry:
             sym_k[k] = np.where(bz2bz_ks[bz2bz_k[k]] == k)[0][0]
 
         # Time-reversal symmetry used on top of the point group operation:
-        if self.inversion:
-            time_reversal_k = np.zeros(nbzkpts, bool)
-        else:
+        if time_reversal:
             time_reversal_k = sym_k >= nsym
             sym_k %= nsym
+        else:
+            time_reversal_k = np.zeros(nbzkpts, bool)
 
         assert (ibz2bz_k[bz2ibz_k] == bz2bz_k).all()
         for k in range(nbzkpts):
@@ -387,7 +391,7 @@ class Symmetry:
             s += 1
 
                 
-def map_k_points(bzk_kc, U_scc, inversion, comm=None, tol=1e-11):
+def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
     """Find symmetry relations between k-points.
 
     This is a Python-wrapper for a C-function that does the hard work
@@ -418,7 +422,7 @@ def map_k_points(bzk_kc, U_scc, inversion, comm=None, tol=1e-11):
     kb = nbzkpts * (comm.rank + 1) // comm.size
     assert comm.sum(kb - ka) == nbzkpts
 
-    if not inversion:
+    if time_reversal:
         U_scc = np.concatenate([U_scc, -U_scc])
 
     bz2bz_ks = np.zeros((nbzkpts, len(U_scc)), int)

@@ -114,8 +114,18 @@ class KPointDescriptor:
         
         # Gamma-point calculation?
         self.gamma = (self.nbzkpts == 1 and np.allclose(self.bzk_kc[0], 0.0))
-        self.set_symmetry(None, None,
-                          do_not_even_use_time_reversal_symmetry=True)
+
+        # Point group and time-reversal symmetry neglected:
+        self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
+        self.ibzk_kc = self.bzk_kc.copy()
+        self.sym_k = np.zeros(self.nbzkpts, int)
+        self.time_reversal_k = np.zeros(self.nbzkpts, bool)
+        self.bz2ibz_k = np.arange(self.nbzkpts)
+        self.ibz2bz_k = np.arange(self.nbzkpts)
+        self.bz2bz_ks = np.arange(self.nbzkpts)[:, np.newaxis]
+        self.nibzkpts = self.nbzkpts
+        self.nks = self.nibzkpts * self.nspins
+
         self.set_communicator(mpi.serial_comm)
 
         if self.gamma:
@@ -139,9 +149,7 @@ class KPointDescriptor:
         
         return self.mynks
 
-    def set_symmetry(self, atoms, setups, magmom_av=None,
-                     enabled=True, symmorphic=True,
-                     do_not_even_use_time_reversal_symmetry=False, comm=None):
+    def set_symmetry(self, atoms, symmetry, comm=None):
         """Create symmetry object and construct irreducible Brillouin zone.
 
         atoms: Atoms object
@@ -157,51 +165,22 @@ class KPointDescriptor:
             If not None:  Check also symmetry of grid.
         """
 
-        if atoms is not None:
-            for c, periodic in enumerate(atoms.pbc):
-                if not periodic and not np.allclose(self.bzk_kc[:, c], 0.0):
-                    raise ValueError('K-points can only be used with PBCs!')
-
-            self.cell_cv = atoms.cell / Bohr
-     
-            if magmom_av is None:
-                magmom_av = np.zeros((len(atoms), 3))
-                magmom_av[:, 2] = atoms.get_initial_magnetic_moments()
-
-            magmom_av = magmom_av.round(decimals=3)  # round off
-            id_a = zip(setups.id_a, *magmom_av.T)
-
-            # Construct a Symmetry instance containing the identity operation
-            # only
-            self.symmetry = Symmetry(id_a, atoms.cell / Bohr, atoms.pbc,
-                                     symmorphic=symmorphic)
-        else:
-            self.symmetry = None
+        self.symmetry = symmetry
         
-        if self.gamma or do_not_even_use_time_reversal_symmetry:
-            # Point group and time-reversal symmetry neglected
-            self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
-            self.ibzk_kc = self.bzk_kc.copy()
-            self.sym_k = np.zeros(self.nbzkpts, int)
-            self.time_reversal_k = np.zeros(self.nbzkpts, bool)
-            self.bz2ibz_k = np.arange(self.nbzkpts)
-            self.ibz2bz_k = np.arange(self.nbzkpts)
-            self.bz2bz_ks = np.arange(self.nbzkpts)[:, np.newaxis]
-        else:
-            if enabled:
-                # Find symmetry operations of atoms:
-                self.symmetry.analyze(atoms.get_scaled_positions())
-              
-            (self.ibzk_kc, self.weight_k,
-             self.sym_k,
-             self.time_reversal_k,
-             self.bz2ibz_k,
-             self.ibz2bz_k,
-             self.bz2bz_ks) = self.symmetry.reduce(self.bzk_kc, comm)
-            
-        if setups is not None:
-            setups.set_symmetry(self.symmetry)
+        for c, periodic in enumerate(atoms.pbc):
+            if not periodic and not np.allclose(self.bzk_kc[:, c], 0.0):
+                raise ValueError('K-points can only be used with PBCs!')
 
+        # Find symmetry operations of atoms:
+        symmetry.analyze(atoms.get_scaled_positions())
+              
+        (self.ibzk_kc, self.weight_k,
+         self.sym_k,
+         self.time_reversal_k,
+         self.bz2ibz_k,
+         self.ibz2bz_k,
+         self.bz2bz_ks) = symmetry.reduce(self.bzk_kc, comm)
+            
         # Number of irreducible k-points and k-point/spin combinations.
         self.nibzkpts = len(self.ibzk_kc)
         if self.collinear:
@@ -406,7 +385,7 @@ class KPointDescriptor:
         shift_c = 0.5 * ((self.N_c + 1) % 2) / self.N_c
         bzq_qc = monkhorst_pack(self.N_c) + shift_c
         if first:
-            return to1bz(bzq_qc, self.cell_cv)
+            return to1bz(bzq_qc, self.symmetry.cell_cv)
         else:
             return bzq_qc
         

@@ -286,9 +286,10 @@ class Transport(GPAW):
         self.multi_leads = self.multi_lead_directions != None
         kpts = kw['kpts']
         if np.product(kpts) == kpts[self.d]:
-            self.gpw_kwargs['usesymm'] = None
+            self.gpw_kwargs['symmetry'] = {'time_reversal': False,
+                                           'point_group': False}
         else:
-            self.gpw_kwargs['usesymm'] = False
+            self.gpw_kwargs['symmetry'] = 'off'
         self.scat_ntk = 1
         if kpts[2] != 1:
             if self.non_sc:

@@ -230,8 +230,7 @@ class WaveFunctions(EmptyWaveFunctions):
 
         self.rank_a = rank_a
 
-        if self.symmetry is not None:
-            self.symmetry.check(spos_ac)
+        self.symmetry.check(spos_ac)
 
     def allocate_arrays_for_projections(self, my_atom_indices):
         if not self.positions_set and self.kpt_u[0].P_ani is not None:

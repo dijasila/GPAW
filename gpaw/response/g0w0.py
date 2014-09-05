@@ -84,8 +84,7 @@ class G0W0(PairDensity):
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, self.calc.wfs.setups,
-                             usesymm=self.calc.input_parameters.usesymm,
-                             N_c=self.calc.wfs.gd.N_c)
+                             **self.calc.input_parameters.symmetry)
         
         assert self.calc.wfs.nspins == 1
         

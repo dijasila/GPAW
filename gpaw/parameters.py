@@ -12,10 +12,10 @@ from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 
 def usesymm2symmetry(usesymm):
     if usesymm is None:
-        return {'do_not_even_use_time_reversal_symmetry': True}
+        return {'time_reversal': False, 'point_group': False}
     if usesymm:
-        return {}
-    return {'enabled': False}
+        return {'time_reversal': True, 'point_group': True}
+    return {'time_reversal': True, 'point_group': False}
 
 
 class InputParameters(dict):

@@ -319,7 +319,7 @@ def get_lead_lcao_hamiltonian(calc, direction='x'):
 
 
 def lead_kspace2realspace(h_skmm, s_kmm, bzk_kc, weight_k, direction='x', 
-                          symmetry='off'):
+                          symmetry={'enabled': False}):
     """Convert a k-dependent Hamiltonian to tight-binding onsite and coupling.
 
     For each transverse k-point:

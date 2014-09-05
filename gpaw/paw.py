@@ -16,31 +16,31 @@ from ase.calculators.calculator import kptdensity2monkhorstpack
 
 import gpaw.io
 import gpaw.mpi as mpi
-import gpaw.occupations as occupations
-from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
+from gpaw.xc import XC
+from gpaw.xc.sic import SIC
+from gpaw.scf import SCFLoop
 from gpaw.hooks import hooks
+from gpaw.setup import Setups
+from gpaw.symmetry import Symmetry
+import gpaw.wavefunctions.pw as pw
+from gpaw.output import PAWTextOutput
+import gpaw.occupations as occupations
+from gpaw.forces import ForceCalculator
+from gpaw.utilities.timing import Timer
 from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.kohnsham_layouts import get_KohnSham_layouts
-from gpaw.hamiltonian import RealSpaceHamiltonian
-from gpaw.utilities.timing import Timer
-from gpaw.xc import XC
-from gpaw.xc.sic import SIC
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.base import EmptyWaveFunctions
+from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.wavefunctions.fd import FDWaveFunctions
-from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.wavefunctions.pw import PW, ReciprocalSpaceDensity, \
-    ReciprocalSpaceHamiltonian
 from gpaw.utilities.memory import MemNode, maxrss
-from gpaw.parameters import InputParameters, usesymm2symmetry
-from gpaw.setup import Setups
-from gpaw.output import PAWTextOutput
-from gpaw.scf import SCFLoop
-from gpaw.forces import ForceCalculator
+from gpaw.wavefunctions.lcao import LCAOWaveFunctions
+from gpaw.kohnsham_layouts import get_KohnSham_layouts
+from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.parameters import InputParameters, usesymm2symmetry
+from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
 
 
 class PAW(PAWTextOutput):
@@ -369,16 +369,16 @@ class PAW(PAWTextOutput):
                                       'orbital-dependent XC functionals.')
 
         if mode == 'pw':
-            mode = PW()
+            mode = pw.PW()
 
         if par.realspace is None:
-            realspace = not isinstance(mode, PW)
+            realspace = not isinstance(mode, pw.PW)
         else:
             realspace = par.realspace
-            if isinstance(mode, PW):
+            if isinstance(mode, pw.PW):
                 assert not realspace
 
-        if par.filter is None and not isinstance(mode, PW):
+        if par.filter is None and not isinstance(mode, pw.PW):
             gamma = 1.6
             if par.gpts is not None:
                 h = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / par.gpts).max()
@@ -429,12 +429,16 @@ class PAW(PAWTextOutput):
             par.symmetry = usesymm2symmetry(par.usesymm)
             
         symm = par.symmetry
-        if par.symmetry == 'off':
-            symm = {'enabled': False}
+        if symm == 'off':
+            symm = {'point_group': False}
         
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
         kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
-        kd.set_symmetry(atoms, setups, magmom_av, comm=world, **symm)
+        m_av = magmom_av.round(decimals=3)  # round off
+        id_a = zip(setups.id_a, *m_av.T)
+        symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
+        kd.set_symmetry(atoms, symmetry, comm=world)
+        setups.set_symmetry(symmetry)
         
         if par.gpts is not None:
             N_c = np.array(par.gpts)
@@ -445,8 +449,7 @@ class PAW(PAWTextOutput):
             N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
                                             kd.symmetry)
             
-        if kd.symmetry is not None:
-            kd.symmetry.check_grid(N_c)
+        symmetry.check_grid(N_c)
 
         width = par.width
         if width is None:
@@ -549,7 +552,7 @@ class PAW(PAWTextOutput):
             ndomains = None
             if parsize_domain is not None:
                 ndomains = np.prod(parsize_domain)
-            if isinstance(mode, PW):
+            if isinstance(mode, pw.PW):
                 if ndomains > 1:
                     raise ValueError('Planewave mode does not support '
                                      'domain decomposition.')
@@ -647,7 +650,7 @@ class PAW(PAWTextOutput):
                          NonCollinearLCAOWaveFunctions
                     self.wfs = NonCollinearLCAOWaveFunctions(lcaoksl, *args)
 
-            elif mode == 'fd' or isinstance(mode, PW):
+            elif mode == 'fd' or isinstance(mode, pw.PW):
                 # buffer_size keyword only relevant for fdpw
                 buffer_size = par.parallel['buffer_size']
                 # Layouts used for diagonalizer
@@ -741,7 +744,7 @@ class PAW(PAWTextOutput):
                     gd, finegd, nspins, par.charge + setups.core_charge,
                     collinear, par.stencils[1])
             else:
-                self.density = ReciprocalSpaceDensity(
+                self.density = pw.ReciprocalSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
                     collinear)
 
@@ -755,7 +758,7 @@ class PAW(PAWTextOutput):
                     gd, finegd, nspins, setups, self.timer, xc, par.external,
                     collinear, par.poissonsolver, par.stencils[1], world)
             else:
-                self.hamiltonian = ReciprocalSpaceHamiltonian(
+                self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
                     gd, finegd,
                     self.density.pd2, self.density.pd3,
                     nspins, setups, self.timer, xc, par.external,

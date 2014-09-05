@@ -120,7 +120,6 @@ tests = [
     'vdwradii.py',
     'lcao_restart.py',
     'ase3k.py',
-    'parallel/ut_kptops.py',
     'fileio/idiotproof_setup.py',
     'fileio/hdf5_simple.py',
     'fileio/hdf5_noncontiguous.py',
@@ -199,7 +198,6 @@ tests = [
     'H_force.py',
     'parallel/lcao_hamiltonian.py',
     'fermisplit.py',
-    'parallel/ut_redist.py',
     'lcao_h2o.py',
     'cmrtest/cmr_test2.py',
     'h2o_xas.py',
@@ -242,7 +240,6 @@ tests = [
     'gw_method.py',
     'lcao_bulk.py',
     'constant_electric_field.py',
-    'parallel/ut_invops.py',
     'wannier_ethylene.py',
     'parallel/lcao_projections.py',
     'guc_force.py',
@@ -335,7 +332,7 @@ tests = [
     'parallel/scalapack_mpirecv_crash.py',
     'parallel/realspace_blacs.py',
     'AA_exx_enthalpy.py',
-    #'usesymm2.py',
+    'usesymm2.py',
     #'eigh_perf.py', # Requires LAPACK 3.2.1 or later
     # XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
     #'parallel/scalapack_pdlasrt_hang.py',
