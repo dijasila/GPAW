@@ -56,6 +56,12 @@ class Symmetry:
             Switch for the use of non-symmorphic symmetries aka: symmetries
             with fractional translations.  Default is to use only symmorphic
             symmetries.
+        point_group: bool
+            Use point-group symmetries.
+        time_reversal: bool
+            Use time-reversal symmetry.
+        tolerance: float
+            Relative tolerance.
 
         Attributes:
 
@@ -63,11 +69,9 @@ class Symmetry:
             Array of rotation matrices
         ft_sc:
             Array of fractional translation vectors
-        usefractrans_s:
-            (bool) usefractrans for each symmetry
         a_sa:
             Array of atomic indices after symmetry operation
-        inversion:
+        has_inversion:
             (bool) Have inversion
         """
 
