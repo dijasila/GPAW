@@ -25,7 +25,7 @@ def frac(f, n=2 * 3 * 4 * 5):
     d = gcd(x, n)
     return x // d, n // d
 
-    
+
 def sfrac(f):
     if f == 0:
         return '0'
@@ -34,7 +34,7 @@ def sfrac(f):
 
 class Symmetry:
     """Interface class for determination of symmetry, point and space groups.
-    
+
     It also provides to apply symmetry operations to kpoint grids,
     wavefunctions and forces.
     """
@@ -83,7 +83,7 @@ class Symmetry:
         self.symmorphic = symmorphic
         self.point_group = point_group
         self.time_reversal = time_reversal
-        
+
         # Disable fractional translations for non-periodic boundary conditions:
         if not self.pbc_c.all():
             self.symmorphic = True
@@ -93,7 +93,7 @@ class Symmetry:
         self.a_sa = np.arange(len(id_a)).reshape((1, -1))
         self.has_inversion = False
         self.gcd_c = np.ones(3, int)
-        
+
     def analyze(self, spos_ac):
         """Determine list of symmetry operations.
 
@@ -153,7 +153,7 @@ class Symmetry:
 
         if len(spos_ac) == 0:
             return
-            
+
         # Build lists of atom numbers for each type of atom - one
         # list for each combination of atomic number, setup type,
         # magnetic moment and basis set:
@@ -165,7 +165,7 @@ class Symmetry:
                 a_ij[id] = [a]
 
         a_j = a_ij[self.id_a[0]]  # just pick the first species
-                
+
         # if supercell disable fractional translations:
         if not self.symmorphic:
             op_cc = np.identity(3, int)
@@ -373,7 +373,7 @@ class Symmetry:
 
     def print_symmetries(self, fd):
         """Print symmetry information."""
-        
+
         p = functools.partial(print, file=fd)
 
         n = len(self.op_scc)
@@ -394,7 +394,7 @@ class Symmetry:
                     p(' + (%4s)' % sfrac(ft_c[c]))
             s += 1
 
-                
+
 def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
     """Find symmetry relations between k-points.
 

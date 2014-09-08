@@ -1,32 +1,20 @@
-from ase import Atoms
+from ase.lattice.spacegroup import crystal
 from gpaw import GPAW
 from gpaw import PW
 import numpy as np
 from gpaw.test import equal
 
 name = 'sishovite'
+# no 136 - tetragonal
 
-alat = 4.2339442838332060
-clat = 2.6932641034824649
-a1 = alat*np.array([1.0, 0.0, 0.0])
-a2 = alat*np.array([0.0, 1.0, 0.0])
-a3 = clat*np.array([0.0, 0.0, 1.0])
-cell_cv = np.array([a1,a2,a3])
+a = 4.233944
+c = 2.693264
+p0 = (0, 0, 0)
+p1 = (0.306866, 0.306866, 0.0)
 
-symbols = ['Si', 'Si','O','O', 'O','O']
+atoms =crystal(['Si', 'O'], basis=[p0, p1],
+                spacegroup=136, cellpar=[a, a, c, 90, 90, 90])
 
-spos_ac = np.array([(0.0000000000000000,  0.0000000000000000, 0.0000000000000000),
-                    (0.5000000000000000,  0.5000000000000000, 0.5000000000000000),
-                    (0.3068662447268501,  0.3068662447268501, 0.0000000000000000),
-                    (0.6931337552731499,  0.6931337552731499, 0.0000000000000000),
-                    (0.1931337552731499,  0.8068662447268501, 0.5000000000000000),
-                    (0.8068662447268501,  0.1931337552731499, 0.5000000000000000)])
-
-atoms = Atoms(symbols=symbols,
-              scaled_positions=spos_ac,
-              cell=cell_cv,
-              pbc = True
-              )
 
 ## with fractional translation
 calc = GPAW(mode=PW(),
