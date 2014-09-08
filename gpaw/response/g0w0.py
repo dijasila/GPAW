@@ -284,10 +284,13 @@ class G0W0(PairDensity):
         htp = HilbertTransform(self.omega_w, self.eta, gw=True)
         htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
             
+        fd = None
+        
         for iq, q_c in enumerate(self.qd.ibzk_kc):
-            wfilename = self.filename + '.w.q%d.pckl' % iq
-            fd = opencew(wfilename)
-            if fd is None and self.savew:
+            if self.savew:
+                wfilename = self.filename + '.w.q%d.pckl' % iq
+                fd = opencew(wfilename)
+            if fd is None:
                 # Read screened potential from file
                 with open(wfilename) as fd:
                     pd, W = pickle.load(fd)
