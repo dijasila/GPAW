@@ -425,8 +425,8 @@ short-hand notation for this::
 This will reduce the number of applied symmetries to just the time-reversal
 symmetry (implying that the Hamiltonian is invariant under **k** -> -**k**).
 For some purposes you might want to have no symmetry reduction of the
-**k**-points at all (debugging, transport calculation, band-structure
-calculations). This can be achieved by specifying::
+**k**-points at all (debugging, transport calculations, band-structure
+calculations, ...). This can be achieved by specifying::
 
     symmetry={'point_group': False, 'time_reversal': False}
 
