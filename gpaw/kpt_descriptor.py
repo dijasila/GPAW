@@ -12,10 +12,8 @@ This module contains classes for defining combinations of two indices:
 
 import numpy as np
 
-from ase.units import Bohr
 from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
 
-from gpaw.symmetry import Symmetry
 from gpaw.kpoint import KPoint
 import gpaw.mpi as mpi
 import _gpaw
@@ -66,9 +64,6 @@ class KPointDescriptor:
             ints=Monkhorst-Pack, ndarray=user specified.
         nspins: int
             Number of spins.
-        usefractrans: bool
-            Switch for the use of non-symmorphic symmetries aka: symmetries
-            with fractional translations. False by default (experimental!!!)
 
         Attributes
         ===================  =================================================
@@ -103,7 +98,7 @@ class KPointDescriptor:
             self.bzk_kc = np.array(kpts, float)
             try:
                 self.N_c, self.offset_c = \
-                          get_monkhorst_pack_size_and_offset(self.bzk_kc)
+                    get_monkhorst_pack_size_and_offset(self.bzk_kc)
             except ValueError:
                 self.N_c = None
                 self.offset_c = None
@@ -155,14 +150,8 @@ class KPointDescriptor:
         atoms: Atoms object
             Defines atom positions and types and also unit cell and
             boundary conditions.
-        setups: instance of class Setups
-            PAW setups for the atoms.
-        magmom_av: ndarray
-            Initial magnetic moments.
-        usesymm: bool
-            Symmetry flag.
-        N_c: three int's or None
-            If not None:  Check also symmetry of grid.
+        symmetry: Symmetry object
+            Symmetry object.
         """
 
         self.symmetry = symmetry
@@ -461,12 +450,12 @@ class KPointDescriptor:
                         if sign == -1:
                             timerev = True
                         break
-                if find == True:
+                if find:
                     break
-            if find == True:
+            if find:
                 break
 
-        if find == False:
+        if not find:
             raise ValueError('Cant find corresponding IBZ kpoint!')
         return ibzkpt, iop, timerev, diff_c.round()
 
@@ -568,136 +557,3 @@ class KPointDescriptor:
         
         u = k + self.nibzkpts * s
         return u
-
-    #def get_size_of_global_array(self):
-    #    return (self.nspins*self.nibzkpts,)
-    #
-    #def ...
-
-
-class KPointDescriptorOld:
-    """Descriptor-class for ordered lists of kpoint/spin combinations
-
-    TODO
-    """
-
-    def __init__(self, nspins, nibzkpts, comm=None, gamma=True, dtype=float):
-        """Construct descriptor object for kpoint/spin combinations (ks-pair).
-
-        Parameters:
-
-        nspins: int
-            Number of spins.
-        nibzkpts: int
-            Number of irreducible kpoints in 1st Brillouin zone.
-        comm: MPI-communicator
-            Communicator for kpoint-groups.
-        gamma: bool
-            More to follow.
-        dtype: NumPy dtype
-            More to follow.
-
-        Note that if comm.size is greater than the number of spins, then
-        the kpoints cannot all be located at the gamma point and therefor
-        the gamma boolean loses its significance.
-
-        Attributes:
-
-        ============  ======================================================
-        ``nspins``    Number of spins.
-        ``nibzkpts``  Number of irreducible kpoints in 1st Brillouin zone.
-        ``nks``       Number of k-point/spin combinations in total.
-        ``mynks``     Number of k-point/spin combinations on this CPU.
-        ``gamma``     Boolean indicator for gamma point calculation.
-        ``dtype``     Data type appropriate for wave functions.
-        ``beg``       Beginning of ks-pair indices in group (inclusive).
-        ``end``       End of ks-pair indices in group (exclusive).
-        ``step``      Stride for ks-pair indices between ``beg`` and ``end``.
-        ``comm``      MPI-communicator for kpoint distribution.
-        ============  ======================================================
-        """
-        
-        if comm is None:
-            comm = mpi.serial_comm
-        self.comm = comm
-        self.rank = self.comm.rank
-
-        self.nspins = nspins
-        self.nibzkpts = nibzkpts
-        self.nks = self.nibzkpts * self.nspins
-
-        # XXX Check from distribute_cpus in mpi/__init__.py line 239 rev. 4187
-        if self.nks % self.comm.size != 0:
-            raise RuntimeError('Cannot distribute %d k-point/spin ' \
-                               'combinations to %d processors' % \
-                               (self.nks, self.comm.size))
-
-        self.mynks = self.nks // self.comm.size
-
-        # TODO Move code from PAW.initialize in paw.py lines 319-328 rev. 4187
-        self.gamma = gamma
-        self.dtype = dtype
-
-        uslice = self.get_slice()
-        self.beg, self.end, self.step = uslice.indices(self.nks)
-
-    #XXX u is global kpoint index
-
-    def __len__(self):
-        return self.mynks
-
-    def get_rank_and_index(self, s, k):
-        """Find rank and local index of k-point/spin combination."""
-        u = self.where_is(s, k)
-        rank, myu = self.who_has(u)
-        return rank, myu
-
-    def get_slice(self, rank=None):
-        """Return the slice of global ks-pairs which belong to a given rank."""
-        if rank is None:
-            rank = self.comm.rank
-        assert rank in xrange(self.comm.size)
-        ks0 = rank * self.mynks
-        uslice = slice(ks0, ks0 + self.mynks)
-        return uslice
-
-    def get_indices(self, rank=None):
-        """Return the global ks-pair indices which belong to a given rank."""
-        uslice = self.get_slice(rank)
-        return np.arange(*uslice.indices(self.nks))
-
-    def get_ranks(self):
-        """Return array of ranks as a function of global ks-pair indices."""
-        ranks = np.empty(self.nks, dtype=int)
-        for rank in range(self.comm.size):
-            uslice = self.get_slice(rank)
-            ranks[uslice] = rank
-        assert (ranks >= 0).all() and (ranks < self.comm.size).all()
-        return ranks
-
-    def who_has(self, u):
-        """Convert global index to rank information and local index."""
-        rank, myu = divmod(u, self.mynks)
-        return rank, myu
-
-    def global_index(self, myu, rank=None):
-        """Convert rank information and local index to global index."""
-        if rank is None:
-            rank = self.comm.rank
-        u = rank * self.mynks + myu
-        return u
-
-    def what_is(self, u):
-        """Convert global index to corresponding kpoint/spin combination."""
-        s, k = divmod(u, self.nibzkpts)
-        return s, k
-
-    def where_is(self, s, k):
-        """Convert kpoint/spin combination to the global index thereof."""
-        u = k + self.nibzkpts * s
-        return u
-
-    #def get_size_of_global_array(self):
-    #    return (self.nspins*self.nibzkpts,)
-    #
-    #def ...
