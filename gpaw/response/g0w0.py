@@ -299,11 +299,11 @@ class G0W0(PairDensity):
                 else:
                     wstc = None
             
-                    pd, chi0_wGG = chi0.calculate(q_c)[:2]
-                    self.Q_aGii = chi0.Q_aGii
-                    W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc)
-                    if self.savew:
-                        pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
+                pd, chi0_wGG = chi0.calculate(q_c)[:2]
+                self.Q_aGii = chi0.Q_aGii
+                W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc)
+                if self.savew:
+                    pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
 
             # Loop over all k-points in the BZ and find those that are related
             # to the current IBZ k-point by symmetry

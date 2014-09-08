@@ -1,26 +1,24 @@
 """This module is used to generate atomic orbital basis sets."""
 
-import os
 import sys
 from StringIO import StringIO
 
 import numpy as np
-from numpy.linalg import solve
 from ase.units import Hartree
 
-from gpaw.spline import Spline
-from gpaw.atom.all_electron import AllElectron, ConvergenceError
-from gpaw.atom.generator import Generator
-from gpaw.atom.configurations import parameters
-from gpaw.atom.radialgd import AERadialGridDescriptor
-from gpaw.utilities import devnull, divrl
-from gpaw.basis_data import Basis, BasisFunction, parse_basis_name
 from gpaw.version import version
+from gpaw.utilities import devnull, divrl
+from gpaw.atom.generator import Generator
+from gpaw.atom.all_electron import AllElectron
+from gpaw.atom.configurations import parameters
+from gpaw.basis_data import Basis, BasisFunction
+from gpaw.atom.radialgd import AERadialGridDescriptor
 
-def get_basis_l(f_j,l_j,Nv):
+
+def get_basis_l(f_j, l_j, Nv):
     N = 0
     lvalues = []
-    j_l = [] 
+    j_l = []
     Nl_j = len(l_j)
     while N < Nv:
         Nl_j -= 1
@@ -30,7 +28,7 @@ def get_basis_l(f_j,l_j,Nv):
             j_l.append(Nl_j)
     assert N == Nv
 
-    if min(lvalues) != 0: # Always include s-orbital !
+    if min(lvalues) != 0:  # always include s-orbital !
         lvalues = lvalues + [0]
         reversed_l_j = list(l_j)
         reversed_l_j.reverse()
@@ -38,7 +36,6 @@ def get_basis_l(f_j,l_j,Nv):
         j_l.append(j)
 
     return [j_l, lvalues]
-
 
 
 def get_gaussianlike_basis_function(rgd, l, rchar, gcut):
@@ -67,11 +64,11 @@ def make_split_valence_basis_function(r_g, psi_g, l, gcut):
     differentiable at rcut.  The parameter psi should be an atomic
     orbital.
     """
-    r1 = r_g[gcut] # ensure that rcut is moved to a grid point
+    r1 = r_g[gcut]  # ensure that rcut is moved to a grid point
     r2 = r_g[gcut + 1]
     y1 = psi_g[gcut] / r_g[gcut]
     y2 = psi_g[gcut + 1] / r_g[gcut + 1]
-    b = - (y2 / r2**l - y1 / r1**l)/(r2**2 - r1**2)
+    b = - (y2 / r2**l - y1 / r1**l) / (r2**2 - r1**2)
     a = (y1 / r1**l + b * r1**2)
     psi_g2 = r_g**(l + 1) * (a - b * r_g**2)
     psi_g2[gcut:] = psi_g[gcut:]
@@ -102,7 +99,7 @@ class BasisMaker:
     """Class for creating atomic basis functions."""
     def __init__(self, generator, name=None, run=True, gtxt='-',
                  non_relativistic_guess=False, xc='PBE'):
-        if isinstance(generator, str): # treat 'generator' as symbol
+        if isinstance(generator, str):  # treat 'generator' as symbol
             generator = Generator(generator, scalarrel=True,
                                   xcname=xc, txt=gtxt,
                                   nofiles=True)
@@ -155,8 +152,8 @@ class BasisMaker:
                          i
 
         which is exact if the projectors/pseudo partial waves are complete.
-        """  
-        if np.rank(psi_mg) == 1:
+        """
+        if psi_mg.ndim == 1:
             return self.smoothify(psi_mg[None], l)[0]
 
         g = self.generator
@@ -214,10 +211,10 @@ class BasisMaker:
         #print 'e =',e
         #print '--------'
         while de < de_min or de > de_max:
-            if de < de_min: # Move rc left -> smaller cutoff, higher energy
+            if de < de_min:  # Move rc left -> smaller cutoff, higher energy
                 rmax = rc
                 rc = (rc + rmin) / 2.
-            else: # Move rc right
+            else:  # Move rc right
                 rmin = rc
                 rc = (rc + rmax) / 2.
             if vconf is not None:
@@ -227,23 +224,21 @@ class BasisMaker:
             #print 'rc = %.03f :: e = %.03f :: de = %.03f' % (rc, e*Hartree,
             #                                                 de*Hartree)
             #if rmin - rmax < 1e-
-            if g.r2g(rmax) - g.r2g(rmin) <= 1: # adjacent points
-                break # Cannot meet tolerance due to grid resolution
+            if g.r2g(rmax) - g.r2g(rmin) <= 1:  # adjacent points
+                break  # cannot meet tolerance due to grid resolution
         #print 'Done!'
         return psi_g, e, de, vconf, rc
 
-
     def generate(self, zetacount=2, polarizationcount=1,
                  tailnorm=(0.16, 0.3, 0.6), energysplit=0.1, tolerance=1.0e-3,
-                 referencefile=None, referenceindex=None, rcutpol_rel=1.0, 
-                 rcutmax=20.0, #ngaussians=None,
+                 referencefile=None, referenceindex=None, rcutpol_rel=1.0,
+                 rcutmax=20.0,
                  rcharpol_rel=None,
                  vconf_args=(12.0, 0.6), txt='-',
                  include_energy_derivatives=False,
                  #lvalues=None, # XXX clean up some of these!
                  jvalues=None,
-                 l_pol=None
-                 ):
+                 l_pol=None):
         """Generate an entire basis set.
 
         This is a high-level method which will return a basis set
@@ -275,18 +270,22 @@ class BasisMaker:
 
         if isinstance(tailnorm, float):
             tailnorm = (tailnorm,)
-        assert 1 + len(tailnorm) >= max(polarizationcount, zetacount), \
-               'Needs %d tail norm values, but only %d are specified' % \
-               (max(polarizationcount, zetacount) - 1, len(tailnorm))
+        if 1 + len(tailnorm) < max(polarizationcount, zetacount):
+            raise ValueError(
+                'Needs %d tail norm values, but only %d are specified' %
+                (max(polarizationcount, zetacount) - 1, len(tailnorm)))
 
         textbuffer = StringIO()
-        class TeeStream: # Quick hack to both write and save output
+        
+        class TeeStream:  # quick hack to both write and save output
             def __init__(self, out1, out2):
                 self.out1 = out1
                 self.out2 = out2
+                
             def write(self, string):
                 self.out1.write(string)
                 self.out2.write(string)
+                
         txt = TeeStream(txt, textbuffer)
 
         if vconf_args is not None:
@@ -333,7 +332,6 @@ class BasisMaker:
         splitvalencedescr = 'split-valence wave, fixed tail norm'
         derivativedescr = 'derivative of sz wrt. (ri/rc) of potential'
 
-
         for vj, fullj, esplit in zip(jvalues, fulljvalues, energysplit):
             l = l_j[vj]
             n = n_j[vj]
@@ -353,7 +351,7 @@ class BasisMaker:
                                                       tolerance,
                                                       vconf_args=vconf_args)
             if rc > rcutmax:
-                rc = rcutmax # scale things down
+                rc = rcutmax  # scale things down
                 if vconf is not None:
                     vconf = g.get_confinement_potential(amplitude, ri_rel * rc,
                                                         rc)
@@ -361,7 +359,7 @@ class BasisMaker:
                 print >> txt, 'using maximum cutoff'
                 print >> txt, 'rc=%.02f Bohr' % rc
             else:
-                print >> txt, 'fixed energy shift'    
+                print >> txt, 'fixed energy shift'
                 print >> txt, 'DE=%.03f eV :: rc=%.02f Bohr' % (de * Hartree,
                                                                 rc)
             if vconf is not None:
@@ -392,7 +390,7 @@ class BasisMaker:
                 bf = BasisFunction(l, rc, dphit_g, descr)
                 energy_derivative_functions.append(bf)
 
-            for i, zeta in enumerate(zetacounter): # range(zetacount - 1):
+            for i, zeta in enumerate(zetacounter):
                 print >> txt, '\nZeta %d: %s' % (zeta, splitvalencedescr)
                 # Unresolved issue:  how does the lack of normalization
                 # of the first function impact the tail norm scheme?
@@ -422,9 +420,8 @@ class BasisMaker:
             # Find the last state with l=l_pol - 1, which will be the state we
             # base the polarization function on
             for vj, fullj, bf in zip(jvalues[::-1], fulljvalues[::-1],
-                              singlezetas[::-1]):
+                                     singlezetas[::-1]):
                 if bf.l == l_pol - 1:
-                    vj_pol = vj # index of the state *which* we polarize
                     fullj_pol = fullj
                     rcut = bf.rc * rcutpol_rel
                     break
@@ -459,7 +456,7 @@ class BasisMaker:
             if rcharpol_rel is None:
                 rcharpol_rel = rchar_rels.get(l_pol, default_rchar_rel)
             rchar = rcharpol_rel * rc_fixed
-            gaussian = QuasiGaussian(1./rchar**2, rcut)
+            gaussian = QuasiGaussian(1.0 / rchar**2, rcut)
             psi_pol = gaussian(rgd.r_g) * rgd.r_g**(l_pol + 1)
             norm = np.dot(rgd.dr_g, psi_pol * psi_pol) ** .5
             psi_pol /= norm
@@ -473,7 +470,7 @@ class BasisMaker:
             polarization_functions.append(bf_pol)
             for i in range(polarizationcount - 1):
                 npol = i + 2
-                msg = '\n%s: %s' % (['Secondary', 'Tertiary', 'Quaternary', \
+                msg = '\n%s: %s' % (['Secondary', 'Tertiary', 'Quaternary',
                                      'Quintary', 'Sextary', 'Septenary'][i],
                                     splitvalencedescr)
                 print >> txt, msg
@@ -496,8 +493,8 @@ class BasisMaker:
         rcmax = max([bf.rc for bf in bf_j])
 
         # The non-equidistant grids are really only suited for AE WFs
-        d = 1./64.
-        equidistant_grid = np.arange(0., rcmax + d, d)
+        d = 1.0 / 64
+        equidistant_grid = np.arange(0.0, rcmax + d, d)
         ng = len(equidistant_grid)
 
         for bf in bf_j:
@@ -516,7 +513,7 @@ class BasisMaker:
             # not here
             
             # Quick hack to change to equidistant coordinates
-            spline = rgd.spline(bf.phit_g, rgd.r_g[rgd.floor(bf.rc)], bf.l, 
+            spline = rgd.spline(bf.phit_g, rgd.r_g[rgd.floor(bf.rc)], bf.l,
                                 points=100)
             bf.phit_g = np.array([spline(r) * r**bf.l
                                   for r in equidistant_grid[:bf.ng]])
@@ -558,7 +555,7 @@ class BasisMaker:
         if figure is not None:
             pylab.figure(figure)
         else:
-            pylab.figure() # not very elegant
+            pylab.figure()  # not very elegant
         if title is None:
             title = g.symbol
         pylab.title(title)
@@ -599,7 +596,7 @@ class QuasiGaussian:
     def __call__(self, r):
         """Evaluate function values at r, which is a numpy array."""
         condition = (r < self.rcut) & (self.alpha * r**2 < 700.)
-        r2 = np.where(condition, r**2., 0.) # prevent overflow
+        r2 = np.where(condition, r**2., 0.)  # prevent overflow
         g = np.exp(-self.alpha * r2)
         p = (self.a - self.b * r2)
         y = np.where(condition, g - p, 0.)
