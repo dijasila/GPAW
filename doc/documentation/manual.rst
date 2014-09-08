@@ -87,7 +87,8 @@ keyword            type       default value        description
 ``spinpol``        ``bool``                        :ref:`manual_spinpol`
 ``gpts``           *seq*                           :ref:`manual_gpts`
 ``h``              ``float``  ``0.2``              :ref:`manual_h`
-``usesymm``        ``bool``   ``True``             :ref:`manual_usesymm`
+``symmetry`        ``dict``   ``{}``               :ref:`manual_symmetry`
+``usesymm``        ``bool``   ``True``             :ref:`manual_symmetry`
 ``random``         ``bool``   ``False``            Use random numbers for
                                                    :ref:`manual_random`
 ``occupations``    occ. obj.                       :ref:`manual_occ`
@@ -407,7 +408,8 @@ cell accordingly. This can be achieved by::
   # and ensure a grid spacing of h=0.2
   atoms.minimal_box(4., h=.2)
 
-.. _manual_usesymm:
+
+.. _manual_symmetry:
 
 Use of symmetry
 ---------------
