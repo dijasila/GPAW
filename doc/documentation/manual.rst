@@ -412,16 +412,40 @@ cell accordingly. This can be achieved by::
 Use of symmetry
 ---------------
 
-With ``usesymm=True`` (default) the **k**-points are reduced to only
-those in the irreducible part of the Brillouin-zone.  Moving the atoms
-so that a symmetry is broken will cause an error.  This can be avoided
-by using ``usesymm=False`` which will reduce the number of applied
-symmetries to just the time-reversal symmetry (implying that the
-Hamiltonian is invariant under **k** -> -**k**). For some purposes you
-might want to have no symmetry reduction of the **k**-points at all
-(debugging, transport, wannier functions). This can be achieved be
-specifying ``usesymm=None``.
+The default behavior is to use all point-group symmetries and time-reversal
+symmetry to reduce the **k**-points to only those in the irreducible part of
+the Brillouin-zone.  Moving the atoms so that a symmetry is broken will
+cause an error.  This can be avoided by using ``symmetry='off'`` which is a
+short-hand notation for this::
+    
+    symmetry={'point_group': False}
 
+This will reduce the number of applied symmetries to just the time-reversal
+symmetry (implying that the Hamiltonian is invariant under **k** -> -**k**).
+For some purposes you might want to have no symmetry reduction of the
+**k**-points at all (debugging, transport calculation, band-structure
+calculations). This can be achieved by specifying::
+
+    symmetry={'point_group': False, 'time_reversal': False}
+
+For full control, here are all the available keys of the ``symmetry``
+dictionary:
+
+=================  ========  ===============================
+key                default   description
+=================  ========  ===============================
+``point_group``    ``True``  Use point-group symmetries
+``time_reversal``  ``True``  Use time-reversal symmetry
+``symmorphic``     ``True``  Use only symmorphic symmetries
+``tolerance``      ``1e-7``  Relative tolerance
+=================  ========  ===============================
+
+.. note::
+    
+    If you are using version 0.10 or earlier, you can use
+    ``usesymm=False`` to turn off all point-group symmetries and
+    ``usesymm=None`` to turn off also time-reversal symmetry.
+    
 
 .. _manual_random:
 
