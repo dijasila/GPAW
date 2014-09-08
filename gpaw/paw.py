@@ -175,7 +175,7 @@ class PAW(PAWTextOutput):
             
             if key in ['fixmom', 'mixer',
                        'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof', 'notify', 'usefractrans']:
+                       'eigensolver', 'idiotproof', 'notify']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
