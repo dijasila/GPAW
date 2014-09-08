@@ -58,4 +58,4 @@ energy_no_fractrans = atoms.get_potential_energy()
 assert(len(calc.wfs.kd.ibzk_kc) == 10)
 assert(len(calc.wfs.kd.symmetry.op_scc) == 2)
 
-equal(energy_fractrans, energy_no_fractrans, 1e-7)
+equal(energy_fractrans, energy_no_fractrans, 1e-3)
