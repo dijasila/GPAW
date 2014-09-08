@@ -227,7 +227,6 @@ tests = [
     'si.py',
     'blocked_rmm_diis.py',
     'lxc_xcatom.py',
-    'gw_planewave.py',
     'degeneracy.py',
     'apmb.py',
     'vdw/potential.py',
@@ -285,7 +284,6 @@ tests = [
     'h2o_dks.py',
     'gw_ppa.py',
     'nscfsic.py',
-    'gw_static.py',
     # > 100 sec tests start here (add tests after exx.py!)
     'response_na_plasmon.py',
     'exx.py',
