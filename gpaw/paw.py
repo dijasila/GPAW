@@ -88,7 +88,7 @@ class PAW(PAWTextOutput):
         self.hamiltonian = None
         self.atoms = None
         self.iter = 0
-        
+
         self.initialized = False
         self.nbands_parallelization_adjustment = None  # Somehow avoid this?
 
@@ -172,7 +172,7 @@ class PAW(PAWTextOutput):
 
             if key == 'eigensolver':
                 self.wfs.set_eigensolver(None)
-            
+
             if key in ['fixmom', 'mixer',
                        'verbose', 'txt', 'hund', 'random',
                        'eigensolver', 'idiotproof', 'notify']:
@@ -354,7 +354,7 @@ class PAW(PAWTextOutput):
         magmom_av = atoms.get_initial_magnetic_moments()
 
         self.check_atoms()
-        
+
         # Generate new xc functional only when it is reset by set
         if self.hamiltonian is None or self.hamiltonian.xc is None:
             if isinstance(par.xc, str):
@@ -429,11 +429,11 @@ class PAW(PAWTextOutput):
             warnings.warn('Use "symmetry" keyword instead of ' +
                           '"usesymm" keyword')
             par.symmetry = usesymm2symmetry(par.usesymm)
-            
+
         symm = par.symmetry
         if symm == 'off':
             symm = {'point_group': False}
-        
+
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
         kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
         m_av = magmom_av.round(decimals=3)  # round off

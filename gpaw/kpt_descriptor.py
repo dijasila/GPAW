@@ -106,7 +106,7 @@ class KPointDescriptor:
         self.collinear = collinear
         self.nspins = nspins
         self.nbzkpts = len(self.bzk_kc)
-        
+
         # Gamma-point calculation?
         self.gamma = (self.nbzkpts == 1 and np.allclose(self.bzk_kc[0], 0.0))
 
@@ -141,7 +141,7 @@ class KPointDescriptor:
 
     def __len__(self):
         """Return number of k-point/spin combinations of local CPU."""
-        
+
         return self.mynks
 
     def set_symmetry(self, atoms, symmetry, comm=None):
@@ -155,21 +155,21 @@ class KPointDescriptor:
         """
 
         self.symmetry = symmetry
-        
+
         for c, periodic in enumerate(atoms.pbc):
             if not periodic and not np.allclose(self.bzk_kc[:, c], 0.0):
                 raise ValueError('K-points can only be used with PBCs!')
 
         # Find symmetry operations of atoms:
         symmetry.analyze(atoms.get_scaled_positions())
-              
+
         (self.ibzk_kc, self.weight_k,
          self.sym_k,
          self.time_reversal_k,
          self.bz2ibz_k,
          self.ibz2bz_k,
          self.bz2bz_ks) = symmetry.reduce(self.bzk_kc, comm)
-            
+
         # Number of irreducible k-points and k-point/spin combinations.
         self.nibzkpts = len(self.ibzk_kc)
         if self.collinear:
@@ -262,7 +262,7 @@ class KPointDescriptor:
                 u1 = u2
             assert u1 == len(a_Ux)
             self.comm.waitall(requests)
-        
+
         if broadcast:
             self.comm.broadcast(a_Ux, 0)
 
@@ -273,7 +273,7 @@ class KPointDescriptor:
 
         k is the index of the desired k-point in the full BZ.
         """
-        
+
         s = self.sym_k[k]
         time_reversal = self.time_reversal_k[k]
         op_cc = np.linalg.inv(self.symmetry.op_scc[s]).round().astype(int)
@@ -313,10 +313,10 @@ class KPointDescriptor:
         associates k + q to some k, and where N is the total
         number of grid points as specified by nG which is a
         3D tuple.
-        
+
         Returns index_G and phase_G which are one-dimensional
         arrays on the grid."""
-        
+
         s = self.sym_k[k]
         op_cc = np.linalg.inv(self.symmetry.op_scc[s]).round().astype(int)
 
@@ -340,10 +340,10 @@ class KPointDescriptor:
     #def find_k_plus_q(self, q_c, k_x=None):
     def find_k_plus_q(self, q_c, kpts_k=None):
         """Find the indices of k+q for all kpoints in the Brillouin zone.
-        
+
         In case that k+q is outside the BZ, the k-point inside the BZ
         corresponding to k+q is given.
-        
+
         Parameters
         ----------
         q_c: ndarray
@@ -366,7 +366,7 @@ class KPointDescriptor:
             if d_k[i] > 1e-8:
                 raise RuntimeError('Could not find k+q!')
             i_x.append(i)
-        
+
         return i_x
 
     def get_bz_q_points(self, first=False):
@@ -377,7 +377,7 @@ class KPointDescriptor:
             return to1bz(bzq_qc, self.symmetry.cell_cv)
         else:
             return bzq_qc
-        
+
     def get_ibz_q_points(self, bzq_qc, op_scc):
         """Return ibz q points and the corresponding symmetry operations that
         work for k-mesh as well."""
@@ -385,7 +385,7 @@ class KPointDescriptor:
         ibzq_qc_tmp = []
         ibzq_qc_tmp.append(bzq_qc[-1])
         weight_tmp = [0]
-        
+
         for i, op_cc in enumerate(op_scc):
             if np.abs(op_cc - np.eye(3)).sum() < 1e-8:
                 identity_iop = i
@@ -407,7 +407,7 @@ class KPointDescriptor:
                         break
                 if find is False:
                     raise ValueError('cant find k!')
-                    
+
                 ibzq_q_tmp[i] = ibzk
                 weight_tmp[ibzk] += 1.
                 iop_q[i] = iop
@@ -494,14 +494,14 @@ class KPointDescriptor:
 
     def get_rank_and_index(self, s, k):
         """Find rank and local index of k-point/spin combination."""
-        
+
         u = self.where_is(s, k)
         rank, myu = self.who_has(u)
         return rank, myu
-   
+
     def get_slice(self, rank=None):
         """Return the slice of global ks-pairs which belong to a given rank."""
-        
+
         if rank is None:
             rank = self.comm.rank
         assert rank in xrange(self.comm.size)
@@ -511,13 +511,13 @@ class KPointDescriptor:
 
     def get_indices(self, rank=None):
         """Return the global ks-pair indices which belong to a given rank."""
-        
+
         uslice = self.get_slice(rank)
         return np.arange(*uslice.indices(self.nks))
 
     def get_ranks(self):
         """Return array of ranks as a function of global ks-pair indices."""
-        
+
         ranks = np.empty(self.nks, dtype=int)
         for rank in range(self.comm.size):
             uslice = self.get_slice(rank)
@@ -538,7 +538,7 @@ class KPointDescriptor:
 
     def global_index(self, myu, rank=None):
         """Convert rank information and local index to global index."""
-        
+
         if rank is None:
             rank = self.comm.rank
         assert rank in xrange(self.comm.size)
@@ -548,12 +548,12 @@ class KPointDescriptor:
 
     def what_is(self, u):
         """Convert global index to corresponding kpoint/spin combination."""
-        
+
         s, k = divmod(u, self.nibzkpts)
         return s, k
 
     def where_is(self, s, k):
         """Convert kpoint/spin combination to the global index thereof."""
-        
+
         u = k + self.nibzkpts * s
         return u
