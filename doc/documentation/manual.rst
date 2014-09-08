@@ -87,7 +87,7 @@ keyword            type       default value        description
 ``spinpol``        ``bool``                        :ref:`manual_spinpol`
 ``gpts``           *seq*                           :ref:`manual_gpts`
 ``h``              ``float``  ``0.2``              :ref:`manual_h`
-``symmetry`        ``dict``   ``{}``               :ref:`manual_symmetry`
+``symmetry``       ``dict``   ``{}``               :ref:`manual_symmetry`
 ``usesymm``        ``bool``   ``True``             :ref:`manual_symmetry`
 ``random``         ``bool``   ``False``            Use random numbers for
                                                    :ref:`manual_random`
@@ -371,7 +371,7 @@ gridpoints (smaller grid spacing, *h*), gives better convergence of
 the total energy.  For most elements, *h* should be 0.2 Å for
 reasonable convergence of total energies.  If a ``n1`` `\times` ``n2``
 `\times` ``n3`` grid is desired, use ``gpts=(n1, n2, n3)``, where
-``n1``, ``n2`` and ``n3`` are positive ``int``s all divisible by four.
+``n1``, ``n2`` and ``n3`` are positive ``int``'s all divisible by four.
 Alternatively, one can use something like ``h=0.25``, and the program
 will try to choose a number of grid points that gives approximately
 a grid-point density of `1/h^3`.  For more details, see :ref:`grids`.

@@ -14,7 +14,7 @@ Development version in trunk
 
 * Use non-symmorphic symmetries: combining fractional translations with
   rotations, reflections and inversion.  Use
-  ``symmetry={'symmorphic='False'}`` to turn this feature on.
+  ``symmetry={'symmorphic': False}`` to turn this feature on.
 
 
 Version 0.10.0
