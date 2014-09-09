@@ -455,13 +455,21 @@ class PAW(PAWTextOutput):
         nvalence = setups.nvalence - par.charge
         M_v = magmom_av.sum(0)
         M = np.dot(M_v, M_v)**0.5
-        
+ 
         nbands = par.nbands
+        if isinstance(nbands, basestring):
+            if nbands[-1] == '%':
+                basebands = int(nvalence + M + 0.5) // 2
+                nbands = int((float(nbands[:-1]) / 100) * basebands)
+            else:
+                raise ValueError('Integer Expected: Only use a string '
+                                 'if giving a percentage of occupied bands')
+
         if nbands is None:
             nbands = 0
             for setup in setups:
                 nbands_from_atom = setup.get_default_nbands()
-                
+
                 # Any obscure setup errors?
                 if nbands_from_atom < -(-setup.Nv // 2):
                     raise ValueError('Bad setup: This setup requests %d'
