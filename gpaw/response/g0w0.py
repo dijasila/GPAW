@@ -1,3 +1,4 @@
+# This makes sure that division works as in Python3
 from __future__ import division, print_function
 
 from math import pi
@@ -6,7 +7,7 @@ import numpy as np
 import pickle
 
 from ase.units import Hartree
-from ase.utils import opencew
+from ase.utils import opencew, devnull
 from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
@@ -26,7 +27,7 @@ class G0W0(PairDensity):
     is used to calculate the quasi particle energies through the G0W0
     approximation for a number of states.
 
-    ..note: So far the G0W0 calculation only works for spin-paired systems.
+    Note: So far the G0W0 calculation only works for spin-paired systems.
 
     Parameters:
        calc: str or PAW object
@@ -55,7 +56,8 @@ class G0W0(PairDensity):
           Minimum frequency step (in eV) used in the generation of the non-
           linear frequency grid.
        omega2: float
-          Control parameter for the non-linear frequency grid.
+          Control parameter for the non-linear frequency grid, equal to the
+          frequency where the grid spacing has doubled in size.
        wstc: bool
           Sets whether a Wigner-Seitz truncation should be used for the
           Coloumb potential.
@@ -122,11 +124,12 @@ class G0W0(PairDensity):
             print('All k-points in IBZ', file=self.fd)
         else:
             kptstxt = ', '.join(['{0:d}'.format(k) for k in self.kpts])
-            print('k-points (IBZ indices): [' + kptstxt + ']', file.self.fd)
+            print('k-points (IBZ indices): [' + kptstxt + ']', file=self.fd)
         print('Band range: ({0:d}, {1:d})'.format(b1, b2), file=self.fd)
         print(file=self.fd)
         print('Computational parameters:', file=self.fd)
-        print('Plane wave cut-off: {0:g} eV'.format(self.ecut * Hartree), file=self.fd)
+        print('Plane wave cut-off: {0:g} eV'.format(self.ecut * Hartree),
+              file=self.fd)
         print('Number of bands: {0:d}'.format(self.nbands), file=self.fd)
         print('Broadening: {0:g} eV'.format(self.eta * Hartree), file=self.fd)
 
@@ -210,6 +213,8 @@ class G0W0(PairDensity):
         return results
         
     def calculate_q(self, i, kpt1, kpt2, pd0, W0):
+        """Calculates the contribution to the self-energy and its derivative
+        for a given set of k-points, kpt1 and kpt2."""
         wfs = self.calc.wfs
         
         N_c = pd0.gd.N_c
@@ -291,6 +296,9 @@ class G0W0(PairDensity):
 
     @timer('Sigma')
     def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG):
+        """Calculates a contribution to the self-energy and its derivative for
+        a given (k, k-q)-pair from its corresponding pair-density and
+        energy."""
         o_m = abs(deps_m)
         # Add small number to avoid zeros for degenerate states:
         sgn_m = np.sign(deps_m + 1e-15)
@@ -306,6 +314,7 @@ class G0W0(PairDensity):
         x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
         sigma = 0.0
         dsigma = 0.0
+        # Performing frequency integration
         for o, o1, o2, sgn, s, w, n_G in zip(o_m, o1_m, o2_m,
                                              sgn_m, s_m, w_m, n_mG):
             C1_GG = C_swGG[s][w]
@@ -320,9 +329,16 @@ class G0W0(PairDensity):
 
     @timer('W')
     def calculate_screened_potential(self):
+        """Calculates the screened potential for each q-point in the 1st BZ.
+        Since many q-points are related by symmetry, the actual calculation is
+        only done for q-points in the IBZ and the rest are obtained by symmetry
+        transformations. Results are returned as a generator to that it is not
+        necessary to store a huge matrix for each q-point in the memory."""
+
         print('Calculating screened Coulomb potential', file=self.fd)
         if self.wstc:
-            print('Using Wigner-Seitz truncated Coloumb potential', file=self.fd)
+            print('Using Wigner-Seitz truncated Coloumb potential',
+                  file=self.fd)
             
         if self.ppa:
             print('Using Godby-Needs plasmon-pole approximation:',
@@ -339,8 +355,10 @@ class G0W0(PairDensity):
                           'frequencies': frequencies}
         else:
             print('Using full frequency integration:', file=self.fd)
-            print('  domega0: {0:g}'.format(self.domega0 * Hartree), file=self.fd)
-            print('  omega2: {0:g}'.format(self.omega2 * Hartree), file=self.fd)
+            print('  domega0: {0:g}'.format(self.domega0 * Hartree),
+                  file=self.fd)
+            print('  omega2: {0:g}'.format(self.omega2 * Hartree),
+                  file=self.fd)
 
             parameters = {'eta': self.eta * Hartree,
                           'hilbert': True,
@@ -406,6 +424,7 @@ class G0W0(PairDensity):
     
     @timer('WW')
     def calculate_w(self, pd, chi0_wGG, q_c, htp, htm, wstc):
+        """Calculates the screened potential for a specified q-point."""
         if self.wstc:
             iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
             if np.allclose(q_c, 0):
