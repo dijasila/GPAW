@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from math import pi, log
+from math import pi
 
 import numpy as np
 from numpy.linalg import eigh
@@ -13,7 +13,6 @@ from ase.data import atomic_numbers, atomic_names, chemical_symbols
 
 from gpaw.xc import XC
 from gpaw.gaunt import make_gaunt
-from gpaw.utilities import _fact as fac
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
 
@@ -101,7 +100,6 @@ class GaussianBasis:
 
 
 def coefs(rgd, l, vr_g, e, scalar_relativistic):
-    d2gdr2_g = rgd.d2gdr2()
     r_g = rgd.r_g
 
     x0_g = 2 * (e * r_g - vr_g)
@@ -494,13 +492,14 @@ class AllElectronAtom:
     def calculate_electrostatic_potential(self):
         """Calculate electrostatic potential and energy."""
         n_g = self.n_sg.sum(0)
-        self.vHr_g = self.rgd.poisson(n_g)        
+        self.vHr_g = self.rgd.poisson(n_g)
         self.eH = 0.5 * self.rgd.integrate(n_g * self.vHr_g, -1)
         self.eZ = -self.Z * self.rgd.integrate(n_g, -1)
         
     def calculate_xc_potential(self):
         self.vxc_sg = self.rgd.zeros(self.nspins)
-        self.exc = self.xc.calculate_spherical(self.rgd, self.n_sg, self.vxc_sg)
+        self.exc = self.xc.calculate_spherical(self.rgd, self.n_sg,
+                                               self.vxc_sg)
 
     def step(self):
         self.solve()
@@ -569,7 +568,7 @@ class AllElectronAtom:
         for e, ch, n in states:
             name = str(n + ch.l + 1) + ch.name
             if self.nspins == 2:
-                name += '(%s)' % '+-'[ch.s]    
+                name += '(%s)' % '+-'[ch.s]
             n_g = ch.calculate_density(n)
             rave = self.rgd.integrate(n_g, 1)
             self.log(' %-7s  %6.3f %13.6f  %13.5f %6.3f' %
@@ -613,7 +612,7 @@ class AllElectronAtom:
                 name = str(n + ch.l + 1) + ch.name
                 lw = 2
                 if self.nspins == 2:
-                    name += '(%s)' % '+-'[ch.s]    
+                    name += '(%s)' % '+-'[ch.s]
                     if ch.s == 1:
                         lw = 1
                 if self.dirac and ch.k > 0:
@@ -681,7 +680,7 @@ class AllElectronAtom:
         return exx
 
 
-def build_parser(): 
+def build_parser():
     from optparse import OptionParser
 
     parser = OptionParser(usage='%prog [options] element',
