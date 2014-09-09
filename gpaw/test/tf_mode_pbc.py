@@ -13,12 +13,12 @@ result = -224.243419
 electrons = 48
 
 xcname = 'PXC:1.0*LDA_K_TF+1.0*LDA_X'
-#g = gen(symbol, xcname=xcname,scalarrel=False,tf_mode=True)
+g = gen(symbol, xcname=xcname,scalarrel=False,tf_mode=True)
 h=0.18
 a = 2.8
 atoms = bulk(symbol, 'diamond',a=a, cubic=True)   # Generate diamond 
 mixer = Mixer(0.01, 5, 1)
-	
+        
 calc = GPAW(h=h, nbands=1,
             #txt='-',
             xc=xcname,
