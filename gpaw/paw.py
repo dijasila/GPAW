@@ -44,9 +44,7 @@ from gpaw.utilities.gpts import get_number_of_grid_points
 class PAW(PAWTextOutput):
     """This is the main calculation object for doing a PAW calculation."""
 
-    timer_class = Timer
-
-    def __init__(self, filename=None, **kwargs):
+    def __init__(self, filename=None, timer=None, **kwargs):
         """ASE-calculator interface.
 
         The following parameters can be used: nbands, xc, kpts,
@@ -73,7 +71,11 @@ class PAW(PAWTextOutput):
         PAWTextOutput.__init__(self)
         self.grid_descriptor_class = GridDescriptor
         self.input_parameters = InputParameters()
-        self.timer = self.timer_class()
+        
+        if timer is None:
+            self.timer = Timer()
+        else:
+            self.timer = timer
 
         self.scf = None
         self.forces = ForceCalculator(self.timer)
