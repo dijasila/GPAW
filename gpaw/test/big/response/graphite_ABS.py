@@ -53,7 +53,7 @@ if GS:
                 nbands=nband+10,
                 convergence={'bands':nband},
                 eigensolver='cg',
-                usesymm=None,
+                symmetry='off',
                 mixer=Mixer(0.05, 3, weight=100.0),
                 width=0.05, txt='out.txt')
     
@@ -77,7 +77,7 @@ if GS2:
                 kpts=kpts,
                 h = 0.2,
                 basis='dzp',
-                usesymm=None,
+                symmetry='off',
                 nbands=nband+10,
                 convergence={'bands':nband},
                 eigensolver = 'cg',

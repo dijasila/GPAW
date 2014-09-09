@@ -1,8 +1,7 @@
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.xc.noncollinear import NonCollinearFunctional, \
-     NonCollinearLCAOEigensolver, NonCollinearMixer
 from gpaw.xc import XC
+import gpaw.xc.noncollinear as nc
 
 a = 2.84
 fe = Atoms('Fe2',
@@ -20,10 +19,10 @@ fe.set_initial_magnetic_moments()
 fe.set_initial_magnetic_moments([(2.3, 0, 0), (2.3, 0, 0)])
 fe.calc = GPAW(txt='fenc.txt', mode='lcao', basis='dz(dzp)', kpts=(k, k, k),
                convergence=dict(energy=1e-6),
-               usesymm=False,
-               xc=NonCollinearFunctional(XC('LDA')),
-               mixer=NonCollinearMixer(),
-               eigensolver=NonCollinearLCAOEigensolver())
+               symmetry='off',
+               xc=nc.NonCollinearFunctional(XC('LDA')),
+               mixer=nc.NonCollinearMixer(),
+               eigensolver=nc.NonCollinearLCAOEigensolver())
 e = fe.get_potential_energy()
 
 assert abs(e - e0) < 7e-5

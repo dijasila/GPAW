@@ -10,6 +10,13 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* New :ref:`symmetry <manual_symmetry>` keyword.  Replaces ``usesymm``.
+
+* Use non-symmorphic symmetries: combining fractional translations with
+  rotations, reflections and inversion.  Use
+  ``symmetry={'symmorphic': False}`` to turn this feature on.
+
+
 Version 0.10.0
 ==============
 

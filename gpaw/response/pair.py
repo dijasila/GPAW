@@ -83,6 +83,8 @@ class PairDensity:
         else:
             assert calc.wfs.world.size == 1
 
+        assert calc.wfs.kd.symmetry.symmorphic
+        
         self.calc = calc
 
         if gate_voltage is not None:

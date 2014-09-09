@@ -5,8 +5,8 @@ atoms.center(vacuum=4.0, axis=2)
 from gpaw import GPAW
 calc = GPAW(mode='pw',
             kpts=(4, 4, 1),
-            usesymm=False,
+            symmetry='off',
             txt='al111.txt')
 atoms.set_calculator(calc)
-energy = atoms.get_potential_energy() 
+energy = atoms.get_potential_energy()
 calc.write('al111.gpw', 'all')

@@ -23,7 +23,7 @@ the high symmetry points of few common crystal lattices.
 
 For the band structure calculation, density is fixed to the previously
 calculated ground state density (``fixdensity=True``), and as we want to
-calculate all k-points, symmetry is not used (``usesymm=None``). The
+calculate all k-points, symmetry is not used (``symmetry='off'``). The
 unoccupied states can be sometimes converged faster with the conjugate gradient
 eigensolver.
 

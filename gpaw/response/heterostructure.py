@@ -11,7 +11,6 @@ from ase.units import Hartree, Bohr
 
 
 class Heterostructure:
-
     def __init__(self, q_points_abs, frequencies, interlayer_distances,
                  chi_monopole, chi_dipole=None, v_monopole=None,
                  v_dipole=None):
@@ -127,9 +126,13 @@ class Heterostructure:
 
         return kernel_ij
 
-    def get_chi_matrix(self):   
-        """
-        Dyson like equation for \chi: \chi_full = chi_intra + chi_intra V_inter chi_full
+    def get_chi_matrix(self):
+        """Dyson like equation.
+        
+        ::
+            
+            chi_full = chi_intra + chi_intra V_inter chi_full
+            
         """
         Nls = self.n_layers
         q_points_abs = self.q_points_abs
@@ -137,11 +140,11 @@ class Heterostructure:
         chi_d_iqw = self.chi_dipole
 
         if self.chi_dipole is not None:
-            chi_qwij = np.zeros((len(self.q_points_abs), 
-                                 len(self.frequencies), 
+            chi_qwij = np.zeros((len(self.q_points_abs),
+                                 len(self.frequencies),
                                  2 * Nls, 2 * Nls), dtype=complex)
             for iq in range(len(q_points_abs)):
-                kernel_ij = self.CoulombKernel(iq, 
+                kernel_ij = self.CoulombKernel(iq,
                                                full=False) # Diagonal is set to zero
                 for iw in range(0, len(self.frequencies)):
                     chi_intra_i = np.insert(chi_d_iqw[:, iq, iw], 

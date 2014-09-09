@@ -219,7 +219,7 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
             return np.dot(a_xg * b_xg, self.dv_g)
     def calculate_dipole_moment(self, rhot_g):
         return np.zeros(3)
-    def symmetrize(self, a_g, op_scc):
+    def symmetrize(self, a_g, op_scc, ft_sc=None):
         pass
     def get_grid_spacings(self):
         return self.h_cv.diagonal()

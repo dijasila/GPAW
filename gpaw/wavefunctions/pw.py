@@ -722,7 +722,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             frac = (kptnum + 1.) / nkpt
             ndots = int(frac * width)
             print('\r[%s%s] %1.1f %%' % ('=' * ndots, ' ' * (width - ndots),
-                                       frac * 100), end='', file=txt)
+                                         frac * 100), end='', file=txt)
             txt.flush()
 
         print('', file=txt)

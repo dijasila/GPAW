@@ -2,13 +2,14 @@
 
 Change log for version:
 
-1)
+1) ...
 
 2) GridPoints array added when gpts is used.
 
 3) Different k-points now have different number of plane-waves.  Added
    PlaneWaveIndices array.
-    
+   
+4) Removed "UseSymmetry" and added "Symmetry"
 """
 
 import os
@@ -132,7 +133,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
-    w['version'] = 3
+    w['version'] = 4
     w['lengthunit'] = 'Bohr'
     w['energyunit'] = 'Hartree'
 
@@ -213,7 +214,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['XCFunctional'] = paw.hamiltonian.xc.name
     w['Charge'] = p['charge']
     w['FixMagneticMoment'] = paw.occupations.fixmagmom
-    w['UseSymmetry'] = p['usesymm']
+    w['Symmetry'] = p.symmetry
     w['Converged'] = scf.converged
     w['FermiWidth'] = paw.occupations.width
     w['MixClass'] = density.mixer.__class__.__name__

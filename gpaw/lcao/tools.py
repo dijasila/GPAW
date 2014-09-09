@@ -1,4 +1,3 @@
-from sys import stdout
 from time import localtime
 from numpy import linalg as la
 import cPickle as pickle
@@ -79,14 +78,14 @@ def get_mulliken(calc, a_list):
 
 def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
                      R_c=(0, 0, 0), direction='x', 
-                     usesymm=None):
+                     symmetry={'enabled': False}):
 
     from gpaw.symmetry import Symmetry
     from ase.dft.kpoints import get_monkhorst_pack_size_and_offset, \
         monkhorst_pack
     
-    if usesymm is True:
-        raise NotImplementedError, 'Only None and False have been implemented'
+    if symmetry['point_group'] is True:
+        raise NotImplementedError, 'Point group symmetry not implemented'
 
     nspins, nk, nbf = h_skmm.shape[:3]
     dir = 'xyz'.index(direction)
@@ -104,19 +103,21 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
 
    # kpts in the transverse directions
     bzk_t_kc = monkhorst_pack(tuple(kpts_grid[transverse_dirs]) + (1, ))
-    if usesymm == False:
+    if not 'time_reversal' in symmetry:
+        symmetry['time_reversal'] = True
+    if symmetry['time_reversal'] is True:
         #XXX a somewhat ugly hack:
         # By default GPAW reduces inversion sym in the z direction. The steps 
         # below assure reduction in the transverse dirs.
         # For now this part seems to do the job, but it may be written
         # in a smarter way in the future.
         symmetry = Symmetry([1], np.eye(3))
-        symmetry.prune_symmetries(np.zeros((1, 3)))
+        symmetry.prune_symmetries_atoms(np.zeros((1, 3)))
         ibzk_kc, ibzweight_k = symmetry.reduce(bzk_kc)[:2]
         ibzk_t_kc, weights_t_k = symmetry.reduce(bzk_t_kc)[:2]
         ibzk_t_kc = ibzk_t_kc[:, :2]
         nkpts_t = len(ibzk_t_kc)
-    else: # usesymm = None
+    else:
         ibzk_kc = bzk_kc.copy()
         ibzk_t_kc = bzk_t_kc
         nkpts_t = len(bzk_t_kc)
@@ -313,13 +314,13 @@ def get_lead_lcao_hamiltonian(calc, direction='x'):
                                      bzk_kc=calc.wfs.bzk_kc,
                                      weight_k=calc.wfs.weight_k,
                                      direction=direction,
-                                     usesymm=calc.input_parameters['usesymm'])
+                                     symmetry=calc.input_parameters['symmetry'])
     else:
         return None, None, None, None
 
 
 def lead_kspace2realspace(h_skmm, s_kmm, bzk_kc, weight_k, direction='x', 
-                          usesymm=None):
+                          symmetry={'point_group': False}):
     """Convert a k-dependent Hamiltonian to tight-binding onsite and coupling.
 
     For each transverse k-point:
@@ -329,16 +330,16 @@ def lead_kspace2realspace(h_skmm, s_kmm, bzk_kc, weight_k, direction='x',
     """
 
     dir = 'xyz'.index(direction)
-    if usesymm is True:
+    if symmetry['point_group'] is True:
         raise NotImplementedError
 
     R_c = [0, 0, 0]
     ibz_t_kc, weight_t_k, h_skii, s_kii = get_realspace_hs(
-        h_skmm, s_kmm, bzk_kc, weight_k, R_c, direction, usesymm)
+        h_skmm, s_kmm, bzk_kc, weight_k, R_c, direction, symmetry)
 
     R_c[dir] = 1
     h_skij, s_kij = get_realspace_hs(
-        h_skmm, s_kmm, bzk_kc, weight_k, R_c, direction, usesymm)[-2:]
+        h_skmm, s_kmm, bzk_kc, weight_k, R_c, direction, symmetry)[-2:]
 
     nspins, nk, nbf = h_skii.shape[:-1]
 
@@ -452,7 +453,7 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     from gpaw import GPAW
     from gpaw.utilities import pack, unpack
     from gpaw.utilities.blas import rk, gemm
-    from gpaw.mpi import world, MASTER, serial_comm
+    from gpaw.mpi import world, MASTER
     calc = GPAW(gpwfile, txt='pairorb.txt') # XXX
     gd = calc.wfs.gd
     setups = calc.wfs.setups
@@ -631,6 +632,3 @@ def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
         log.write('Finished at %02i:%02i:%02i\n' % (
             T[3], T[4], T[5]))
         log.flush()
-
-
-

@@ -233,11 +233,24 @@ class PAWTextOutput:
             t('Orthonormalizer layout: ' + orthonormalizer_layout)
         t()
 
-        self.wfs.symmetry.print_symmetries(t)
+        self.wfs.symmetry.print_symmetries(self.txt)
 
         t(self.wfs.kd.description)
         t(('%d k-point%s in the Irreducible Part of the Brillouin Zone') %
           (nibzkpts, ' s'[1:nibzkpts]))
+        
+        kd = self.wfs.kd
+        w_k = kd.weight_k * kd.nbzkpts
+        assert np.allclose(w_k, w_k.round())
+        w_k = w_k.round()
+        
+        t()
+        t('          k-points in crystal coordinates              weights')
+        for k in range(nibzkpts):
+            if k < 10 or k == nibzkpts - 1:
+                t('%4d:   %12.8f  %12.8f  %12.8f     %6d/%d' %
+                  ((k,) + tuple(kd.ibzk_kc[k]) + (w_k[k], kd.nbzkpts)))
+        t()
 
         if self.scf.fixdensity > self.scf.maxiter:
             t('Fixing the initial density')
