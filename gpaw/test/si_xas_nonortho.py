@@ -28,8 +28,7 @@ calc = GPAW(nbands=-10,
             h=0.25,
             kpts=(2,2,2),
             occupations=FermiDirac(width=0.05),
-            setups={0: 'hch1s'},
-            usesymm=True)
+            setups={0: 'hch1s'})
 
 si_nonortho.set_calculator(calc)
 e = si_nonortho.get_potential_energy()
@@ -43,7 +42,7 @@ calc = GPAW(nbands=-10,
             kpts=(2,2,2),
             occupations=FermiDirac(width=0.05),
             setups={0: 'hch1s'},
-            usesymm=None)
+            symmetry='off')
 
 si_nonortho.set_calculator(calc)
 e = si_nonortho.get_potential_energy()

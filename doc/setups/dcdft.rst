@@ -40,6 +40,23 @@ Delta precision measure
 Consult http://molmod.ugent.be/DeltaCodesDFT
 
 
+FHI-AIMS tight
+--------------
+
+Calculated with: :svn:`gpaw/test/big/dcdft/pbe_aims.py`.
+
+EOS
++++
+
+.. csv-table::
+   :file: dcdft_aims.tight.01.16.db_raw.csv
+
+Delta precision measure
++++++++++++++++++++++++
+
+Consult http://molmod.ugent.be/DeltaCodesDFT
+
+
 Dacapo
 ------
 

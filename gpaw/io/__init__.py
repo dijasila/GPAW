@@ -2,13 +2,14 @@
 
 Change log for version:
 
-1)
+1) Initial version.
 
 2) GridPoints array added when gpts is used.
 
 3) Different k-points now have different number of plane-waves.  Added
    PlaneWaveIndices array.
-    
+   
+4) Removed "UseSymmetry" and added "Symmetry".
 """
 
 import os
@@ -127,12 +128,13 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     # - HDF-writer writes full distributed data from all task, replicated data
     #   from master, and partially replicated-data from domain_comm.rank == 0.
     #   These types of writes are call Datasets.
-    # - HDF-writer writes parameters and dimensions as Attributes, not Datasets.
+    # - HDF-writer writes parameters and dimensions as Attributes, not
+    #   Datasets.
     #   Attributes must be written by all MPI tasks.
     
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
-    w['version'] = 3
+    w['version'] = 4
     w['lengthunit'] = 'Bohr'
     w['energyunit'] = 'Hartree'
 
@@ -213,7 +215,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['XCFunctional'] = paw.hamiltonian.xc.name
     w['Charge'] = p['charge']
     w['FixMagneticMoment'] = paw.occupations.fixmagmom
-    w['UseSymmetry'] = p['usesymm']
+    w['Symmetry'] = p.symmetry
     w['Converged'] = scf.converged
     w['FermiWidth'] = paw.occupations.width
     w['MixClass'] = density.mixer.__class__.__name__
@@ -314,11 +316,13 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                         P_ani[a] = np.empty((wfs.bd.mynbands, ni),
                                             dtype=wfs.dtype)
                         requests.append(domain_comm.receive(P_ani[a],
-                            wfs.rank_a[a], 1303 + a, block=False))
+                                                            wfs.rank_a[a],
+                                                            1303 + a,
+                                                            block=False))
             else:
                 for a, P_ni in kpt.P_ani.items():
                     requests.append(domain_comm.send(P_ni, 0, 1303 + a,
-                                                      block=False))
+                                                     block=False))
             domain_comm.waitall(requests)
             if domain_comm.rank == 0:
                 for a in range(natoms):
@@ -424,7 +428,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     for s in range(wfs.nspins):
         if hdf5:
             do_write = (kpt_comm.rank == 0) and (band_comm.rank == 0)
-            indices = [s,] + wfs.gd.get_slice()
+            indices = [s] + wfs.gd.get_slice()
             w.fill(density.nt_sG[s], parallel=parallel, write=do_write,
                    *indices)
         elif kpt_comm.rank == 0:
@@ -441,7 +445,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     for s in range(wfs.nspins):
         if hdf5:
             do_write = (kpt_comm.rank == 0) and (band_comm.rank == 0)
-            indices = [s,] + wfs.gd.get_slice()
+            indices = [s] + wfs.gd.get_slice()
             w.fill(hamiltonian.vt_sG[s], parallel=parallel, write=do_write,
                    *indices)
         elif kpt_comm.rank == 0:
@@ -500,7 +504,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         if cmr_params is None:
             c = {}
         else:
-            c = cmr_params.copy() 
+            c = cmr_params.copy()
         c["ase_atoms_var"] = atoms_var
         if master:
             w.write_additional_db_params(cmr_params=c)

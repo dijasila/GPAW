@@ -6,16 +6,16 @@ from gpaw.xc.hybridg import HybridXC
 a = 2.0
 li = Atoms('Li', cell=(a, a, a), pbc=1)
 for spinpol in [False, True]:
-    for usesymm in [True, False, None]:
-        if size == 8 and not spinpol and usesymm:
+    for symm in [{}, 'off', {'time_reversal': False, 'point_group': False}]:
+        if size == 8 and not spinpol and symm == {}:
             continue
         for qparallel in [False, True]:
             if rank == 0:
-                print(spinpol, usesymm, qparallel)
+                print(spinpol, symm, qparallel)
             li.calc = GPAW(mode=PW(300),
                            kpts=(2, 3, 4),
                            spinpol=spinpol,
-                           usesymm=usesymm,
+                           symmetry=symm,
                            parallel={'band': 1},
                            txt=None,
                            idiotproof=False)

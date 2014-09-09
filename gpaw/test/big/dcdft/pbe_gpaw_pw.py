@@ -59,7 +59,7 @@ class Factory(GPAWFactory):
             # https://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2012-May/002870.html
             calculator.set(h=0.05)
         if name.split('-')[0] in ['Cs']:
-            calculator.set(usesymm=False)
+            calculator.set(symmetry='off')
             calculator.set(eigensolver='cg')
             calculator.set(parallel={'band': 1})
         if name.split('-')[0] in ['Mn']:
