@@ -22,6 +22,44 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
 class G0W0(PairDensity):
+    """This class defines the G0W0 calculator. The G0W0 calculator is used
+    is used to calculate the quasi particle energies through the G0W0
+    approximation for a number of states.
+
+    ..note: So far the G0W0 calculation only works for spin-paired systems.
+
+    Parameters:
+       calc: str or PAW object
+          GPAW calculator object or filename of saved calculator object.
+       filename: str
+          Base filename of output files.
+       kpts: list
+          List of indices of the IBZ k-points to calculate the quasi particle
+          energies for.
+       bands: tuple
+          Range of band indices, like (n1, n2+1), to calculate the quasi
+          particle energies for. Note that the second band index is not
+          included.
+       ecut: float
+          Plane wave cut-off energy in eV.
+       nbands: int
+          Number of bands to use in the calculation. If :None: the number will
+          be determined from :ecut: to yield a number close to the number of
+          plane waves used.
+       ppa: bool
+          Sets whether the Godby-Needs plasmon-pole approximation for the
+          dielectric function should be used.
+       E0: float
+          Energy (in eV) used for fitting in the plasmon-pole approximation.
+       domega0: float
+          Minimum frequency step (in eV) used in the generation of the non-
+          linear frequency grid.
+       omega2: float
+          Control parameter for the non-linear frequency grid.
+       wstc: bool
+          Sets whether a Wigner-Seitz truncation should be used for the
+          Coloumb potential.
+    """
     def __init__(self, calc, filename='gw',
                  kpts=None, bands=None, nbands=None, ppa=False,
                  wstc=False,
@@ -29,10 +67,22 @@ class G0W0(PairDensity):
                  domega0=0.025, omega2=10.0,
                  savew=False,
                  world=mpi.world):
-    
+
+        if world.rank != 0:
+            txt = devnull
+        else:
+            txt = open(filename + '.txt', 'w')
+
+        print('  ___  _ _ _ ', file=txt)
+        print(' |   || | | |', file=txt)
+        print(' | | || | | |', file=txt)
+        print(' |__ ||_____|', file=txt)
+        print(' |___|        by GPAW', file=txt)
+        print(file=txt)
+
         PairDensity.__init__(self, calc, ecut, world=world,
-                             txt=filename + '.txt')
-        
+                             txt=txt)
+
         self.filename = filename
         self.savew = savew
         
@@ -44,13 +94,6 @@ class G0W0(PairDensity):
         self.E0 = E0 / Hartree
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
-
-        print('  ___  _ _ _ ', file=self.fd)
-        print(' |   || | | |', file=self.fd)
-        print(' | | || | | |', file=self.fd)
-        print(' |__ ||_____|', file=self.fd)
-        print(' |___|       ', file=self.fd)
-        print(file=self.fd)
 
         self.kpts = select_kpts(kpts, self.calc)
                 
@@ -73,6 +116,20 @@ class G0W0(PairDensity):
             nbands = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
         self.nbands = nbands
 
+        print(file=self.fd)
+        print('Quasi particle states:', file=self.fd)
+        if kpts is None:
+            print('All k-points in IBZ', file=self.fd)
+        else:
+            kptstxt = ', '.join(['{0:d}'.format(k) for k in self.kpts])
+            print('k-points (IBZ indices): [' + kptstxt + ']', file.self.fd)
+        print('Band range: ({0:d}, {1:d})'.format(b1, b2), file=self.fd)
+        print(file=self.fd)
+        print('Computational parameters:', file=self.fd)
+        print('Plane wave cut-off: {0:g} eV'.format(self.ecut * Hartree), file=self.fd)
+        print('Number of bands: {0:d}'.format(self.nbands), file=self.fd)
+        print('Broadening: {0:g} eV'.format(self.eta * Hartree), file=self.fd)
+
         kd = self.calc.wfs.kd
 
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
@@ -89,6 +146,24 @@ class G0W0(PairDensity):
         
     @timer('G0W0')
     def calculate(self):
+        """Starts the G0W0 calculation. Returns a dict with the results with
+        the following key/value pairs:
+
+        f: (s, k, n) ndarray
+           Occupation numbers
+        eps: (s, k, n) ndarray
+           Kohn-Sham eigenvalues in eV
+        vxc: (s, k, n) ndarray
+           Exchange-correlation contributions in eV
+        exx: (s, k, n) ndarray
+           Exact exchange contributions in eV
+        sigma: (s, k, n) ndarray
+           Self-energy contributions in eV
+        Z: (s, k, n) ndarray
+           Renormalization factors
+        qp: (s, k, n) ndarray
+           Quasi particle energies in eV
+        """
         kd = self.calc.wfs.kd
 
         self.calculate_ks_xc_contribution()
@@ -245,7 +320,9 @@ class G0W0(PairDensity):
 
     @timer('W')
     def calculate_screened_potential(self):
-        print('Calulating screened Coulomb potential', file=self.fd)
+        print('Calculating screened Coulomb potential', file=self.fd)
+        if self.wstc:
+            print('Using Wigner-Seitz truncated Coloumb potential', file=self.fd)
             
         if self.ppa:
             print('Using Godby-Needs plasmon-pole approximation:',
@@ -261,6 +338,10 @@ class G0W0(PairDensity):
                           'timeordered': False,
                           'frequencies': frequencies}
         else:
+            print('Using full frequency integration:', file=self.fd)
+            print('  domega0: {0:g}'.format(self.domega0 * Hartree), file=self.fd)
+            print('  omega2: {0:g}'.format(self.omega2 * Hartree), file=self.fd)
+
             parameters = {'eta': self.eta * Hartree,
                           'hilbert': True,
                           'timeordered': True,
@@ -282,13 +363,11 @@ class G0W0(PairDensity):
         htp = HilbertTransform(self.omega_w, self.eta, gw=True)
         htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
             
-        fd = None
-        
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             if self.savew:
                 wfilename = self.filename + '.w.q%d.pckl' % iq
                 fd = opencew(wfilename)
-            if fd is None:
+            if self.savew and fd is None:
                 # Read screened potential from file
                 with open(wfilename) as fd:
                     pd, W = pickle.load(fd)

@@ -233,8 +233,13 @@ states.  For metals, more bands are needed.  Sometimes, adding more
 unoccupied bands will improve convergence.
 
 .. tip::
-   ``nbands=0`` will give zero empty bands, and ``nbands=-n`` will
-   give ``n`` empty bands.
+   
+    ``nbands=0`` will give zero empty bands, and ``nbands=-n`` will
+    give ``n`` empty bands.
+   
+.. tip::
+    
+    ``nbands='n%'`` will give ``n/100`` times the number of occupied bands.
 
 
 .. _manual_xc:
