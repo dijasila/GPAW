@@ -11,7 +11,7 @@ class Folder:
             self.func = Gauss(width)
         elif folding == 'Lorentz':
             self.func = Lorentz(width)
-        elif folding == None:
+        elif folding is None:
             self.func = None
         else:
             raise RuntimeError('unknown folding "' + folding + '"')

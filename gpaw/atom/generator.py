@@ -942,7 +942,7 @@ class Generator(AllElectron):
 
         r = self.r
 
-        if self.jcorehole != None:
+        if self.jcorehole is not None:
             print "self.jcorehole", self.jcorehole
             print >> xml, (('  <core_hole_state state="%d%s" ' +
                            'removed="%.1f" eig="%.8f" ekin="%.8f">') %

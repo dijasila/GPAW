@@ -34,7 +34,7 @@ def spectrum(exlist=None,
 
     # output
     out = sys.stdout
-    if filename != None:
+    if filename is not None:
         out = open( filename, 'w' )
     if comment:
         print >> out, '#', comment
@@ -71,7 +71,7 @@ def spectrum(exlist=None,
         print >> out, "%10.5f %12.7e %12.7e %11.7e %11.7e" % \
             (e,val[0],val[1],val[2],val[3])
 
-    if filename != None: out.close()
+    if filename is not None: out.close()
 
 def rotatory_spectrum(exlist=None,
              filename=None,
@@ -90,7 +90,7 @@ def rotatory_spectrum(exlist=None,
 
     # output
     out = sys.stdout
-    if filename != None:
+    if filename is not None:
         out = open( filename, 'w' )
     if comment:
         print >> out, '#', comment
@@ -122,7 +122,7 @@ def rotatory_spectrum(exlist=None,
         print >> out, "%10.5f %12.7e" % \
             (e, val)
 
-    if filename != None: out.close()
+    if filename is not None: out.close()
 
 class Writer(Folder):
     def __init__(self, folding=None, width=0.08, # Gauss/Lorentz width
@@ -135,7 +135,7 @@ class Writer(Folder):
               comment=None):
         
         out = sys.stdout
-        if filename != None:
+        if filename is not None:
             out = open( filename, 'w' )
  
         print >> out, '#', self.title
@@ -155,6 +155,6 @@ class Writer(Folder):
                 string += ' %12.7e' % vf
             print >> out, string
             
-        if filename != None: 
+        if filename is not None: 
             out.close()
 

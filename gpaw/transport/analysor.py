@@ -859,9 +859,9 @@ class Transport_Analysor:
 
     def collect_transmission_and_dos(self, tp, energies=None, nids=None):
         tp.log('-> collect_transmission_and_dos()')
-        if energies == None:
+        if energies is None:
             energies = self.my_energies
-        if nids == None:
+        if nids is None:
             nids = self.my_nids
       
         nlp = len(self.lead_pairs)

@@ -333,7 +333,7 @@ class Contour:
 	self.eta = eta
         self.dtype = complex
         self.comm = comm
-        if self.comm == None:
+        if self.comm is None:
             self.comm = world
         self.maxdepth = maxdepth
         self.num = 10 ** (self.maxdepth - 1)

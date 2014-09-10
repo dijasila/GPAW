@@ -346,7 +346,7 @@ def interpolate_mlsqr(dg_c, vt_g, order):
         for i, j, k in zip(x.ravel(), y.ravel(), z.ravel()):
             r = b(np.array([i, j, k])) * lsqr_weight(
                 np.sum((dg_c - np.array([i, j, k]))**2))
-            if result == None:
+            if result is None:
                 result = r
             else:
                 result = np.vstack((result, r))
