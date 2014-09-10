@@ -348,7 +348,7 @@ class STM:
                         test_overlap1.append(overlap)
                         test_overlap2.append(overlap)
                 k = np.argmax(test_overlap2)
-                if test_overlap1[k] != None:
+                if test_overlap1[k] is not None:
                     V_ts[i1:i2, j1:j2] += (t|sk[k])
                     V_ts[i1:i2, j1:j2] += (t|V_couple|sf[k])
 
@@ -529,7 +529,7 @@ class Lead_HS:
                         test_overlap1.append(overlap)
                         test_overlap2.append(overlap)
                 k = np.argmax(test_overlap2)
-                if test_overlap1[k] != None:
+                if test_overlap1[k] is not None:
                     self.H[i1:i2, j1:j2] += (s|sk[k])
                     self.H[i1:i2, j1:j2] += (s| ext_svt_G |sf[k])
                     self.S[i1:i2, j1:j2] += (s|sf[k])

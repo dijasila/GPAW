@@ -54,7 +54,7 @@ class OmegaMatrix:
             txt = calculator.txt
         self.txt, firsttime = initialize_text_stream(txt, mpi.rank)
 
-        if eh_comm == None:
+        if eh_comm is None:
             eh_comm = mpi.serial_comm
 
         self.eh_comm = eh_comm

@@ -163,7 +163,7 @@ def normalize(U):
 
 
 def get_matrix_index(ind1, ind2=None):
-    if ind2 == None:
+    if ind2 is None:
         dim1 = len(ind1)
         return np.resize(ind1, (dim1, dim1))
     else:

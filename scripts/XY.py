@@ -193,7 +193,7 @@ if __name__ == '__main__':
                     'h': spacing,
                     'txt': '-'}
                 # use widht only if requested
-                if width != None:
+                if width is not None:
                     parameters = {
                         'width': width}
                     pickle_filename = pickle_filename+'w'+get_vector_name([width], '%.3f')

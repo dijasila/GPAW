@@ -182,14 +182,14 @@ def remove_pbc(atoms, h, s=None, d=0, centers_ic=None, cutoff=None):
         mask_i = (dpos_i < cutoff).astype(dtype)
         h[i, :] *= mask_i
         h[:, i] *= mask_i
-        if s != None:
+        if s is not None:
             s[i, :] *= mask_i
             s[:, i] *= mask_i
 
 
 def dump_hamiltonian(filename, atoms, direction=None, Ef=None):
     h_skmm, s_kmm = get_hamiltonian(atoms)
-    if direction != None:
+    if direction is not None:
         d = 'xyz'.index(direction)
         for s in range(atoms.calc.nspins):
             for k in range(atoms.calc.nkpts):
@@ -228,7 +228,7 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
         may be changed into a dump to a single file in the future.
 
     """
-    if direction != None:
+    if direction is not None:
         d = 'xyz'.index(direction)
 
     calc = atoms.calc
@@ -259,7 +259,7 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
         tri2full(H_qMM[kpt.s, kpt.q])
         if kpt.s==0:
             tri2full(S_qMM[kpt.q])
-            if direction!=None:
+            if direction is not None:
                 remove_pbc(atoms, H_qMM[kpt.s, kpt.q], S_qMM[kpt.q], d)
         else:
             if direction is not None:
@@ -500,7 +500,7 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     gd.comm.sum(D_pp, MASTER)
 
     if world.rank == MASTER:
-        if S_w != None:
+        if S_w is not None:
             print 'renormalizing pairorb overlap matrix (D_pp)'
             S2 = np.sqrt(S_w)
             for pa, (wa1, wa2) in enumerate(np.ndindex(Nw, Nw)):

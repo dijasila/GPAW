@@ -150,7 +150,7 @@ class KSSingles(ExcitationList):
                 if self.nvspins < 2:
                     vspin = 0
                 f = self.kpt_u[vspin].f_n
-                if jend == None: jend = len(f)-1
+                if jend is None: jend = len(f)-1
                 else         : jend = min(jend, len(f)-1)
 
                 for i in range(istart, jend+1):

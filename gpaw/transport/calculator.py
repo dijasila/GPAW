@@ -37,7 +37,7 @@ class DBG(object):
     def __init__(self, lfiled=None, enable=False):
         super(DBG, self).__init__()
         self.enable = enable
-        if lfiled == None:
+        if lfiled is None:
             self.logfile = paropen('transport_dbg.log', 'w')
             #self.logfile = open('transport_dbg.log', 'a')
         else:
@@ -204,7 +204,7 @@ class Transport(GPAW):
             #assert self.lead_num == len(self.bias)
             
             self.lead_atoms = p['lead_atoms']
-            if self.lead_atoms == None:
+            if self.lead_atoms is None:
                 self.lead_atoms = self.pl_atoms
             self.nleadlayers = p['nleadlayers']
             self.mol_atoms = p['mol_atoms']
@@ -270,7 +270,7 @@ class Transport(GPAW):
         self.verbose = p['verbose']
         self.d = p['d']
        
-        if self.scat_restart and self.restart_file == None:
+        if self.scat_restart and self.restart_file is None:
             self.restart_file = 'bias_data1'
         
         self.master = (world.rank==0)
@@ -283,7 +283,7 @@ class Transport(GPAW):
         self.initialized_transport = False
         self.analysis_parameters = []
         self.optimize = False
-        self.multi_leads = self.multi_lead_directions != None
+        self.multi_leads = self.multi_lead_directions is not None
         kpts = kw['kpts']
         if np.product(kpts) == kpts[self.d]:
             self.gpw_kwargs['symmetry'] = {'time_reversal': False,
@@ -561,7 +561,7 @@ class Transport(GPAW):
 
         self.tio = Transport_IO(self.wfs.kpt_comm, self.gd.comm)
         if not self.restart_lead_hamiltonian:
-            if self.lead_calculators == None:
+            if self.lead_calculators is None:
                 self.calculate_leads()
             else:
                 self.init_leads_from_gpw()

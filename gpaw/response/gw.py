@@ -563,7 +563,7 @@ class GW(BASECHI):
         calc = GPAW(self.file, communicator=communicator, parallel={'domain':1, 'band':1}, txt=None)
         v_xc = vxc(calc)
 
-        if ecut == None:
+        if ecut is None:
             ecut = self.ecut.max()
         else:
             ecut /= Hartree
