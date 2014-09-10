@@ -74,7 +74,7 @@ def XC(kernel, parameters=None):
         elif name == '2D-MGGA':
             from gpaw.xc.mgga import PurePython2DMGGAKernel
             kernel = PurePython2DMGGAKernel(name, parameters)
-        elif ':' in name:
+        elif name[0].isdigit():
             from gpaw.xc.parametrizedxc import ParametrizedKernel
             kernel = ParametrizedKernel(name)
         else:

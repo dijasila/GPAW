@@ -11,7 +11,7 @@ class ParametrizedKernel(XCKernel):
         self.coefs = []
         self.type = 'LDA'
         for x in name.split('+'):
-            c, n = x.split(':')
+            c, n = x.split('_', 1)
             self.coefs.append(float(c))
             kernel = LibXC(n)
             self.kernels.append(kernel)
