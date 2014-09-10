@@ -9,7 +9,7 @@ symbol = 'C'
 result = -224.243419
 electrons = 48
 
-xcname = '1.0:LDA_K_TF+1.0:LDA_X'
+xcname = 'LDA_K_TF+LDA_X'
 g = gen(symbol, xcname=xcname, scalarrel=False, tf_mode=True)
 h = 0.18
 a = 2.8

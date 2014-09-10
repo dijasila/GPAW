@@ -18,7 +18,7 @@ electrons = [6]
 
 
 for symbol in elements:
-    xcname = '1.0:LDA_K_TF+1.0:LDA_X'
+    xcname = '1.0_LDA_K_TF+1.0_LDA_X'
     g = gen(symbol, xcname=xcname, scalarrel=False, tf_mode=True)
 
 for element, result, e in zip(elements, results, electrons):
