@@ -1,17 +1,16 @@
-
 from math import sqrt
 
 import numpy as np
 
 from ase.atoms import Atoms
 from ase.units import Bohr, Hartree
-from ase.dft.stm import STM
 from ase.io.cube import write_cube
 from ase.io.plt import write_plt, read_plt
 
 import gpaw.mpi as mpi
 from gpaw.mpi import MASTER
 from gpaw.grid_descriptor import GridDescriptor
+
 
 class SimpleStm:
     """Simple STM object to simulate STM pictures.
@@ -86,8 +85,8 @@ class SimpleStm:
                     occupied = True
                 else:
                     occupied = False
-                emin_s = np.array([emin + efermi] * 2)
-                emax_s = np.array([emax + efermi] * 2)
+                emin_s = np.array([emin + efermi_s] * 2)
+                emax_s = np.array([emax + efermi_s] * 2)
 
             emin_s /= Hartree
             emax_s /= Hartree
@@ -155,7 +154,7 @@ class SimpleStm:
                 if N_c[c] % 2 == 1:
                     pbc_c[c] = False
                     N_c[c] += 1
-            self.gd = GridDescriptor(N_c, cell.diagonal() / Bohr, pbc_c) 
+            self.gd = GridDescriptor(N_c, cell.diagonal() / Bohr, pbc_c)
             self.offset_c = [int(not a) for a in self.gd.pbc_c]
             
         else:
@@ -205,7 +204,7 @@ class SimpleStm:
             hmax = h_c[2] * self.ldos.shape[2] + h_c[2] / 2.
         else:
             hmax /= Bohr
-        ihmax = min(gd.end_c[2]-1, int(hmax / h_c[2]))
+        ihmax = min(gd.end_c[2] - 1, int(hmax / h_c[2]))
 
         for i in range(gd.beg_c[0], gd.end_c[0]):
             ii = i - gd.beg_c[0]
@@ -215,7 +214,7 @@ class SimpleStm:
                 zline = self.ldos[ii, jj]
                 
                 # check from above until you find the required density 
-                for k in range(ihmax, gd.beg_c[2]-1, -1):
+                for k in range(ihmax, gd.beg_c[2] - 1, -1):
                     kk = k - gd.beg_c[2]
                     if zline[kk] > density:
                         heights[i - self.offset_c[0], 
@@ -239,8 +238,8 @@ class SimpleStm:
                     if heights[i, j] > 0:
                         if heights[i, j] < kmax:
                             c1 = fullgrid[i, j, int(heights[i, j])]
-                            c2 = fullgrid[i, j, int(heights[i, j])+1]
-                            k = heights[i, j] + (density - c1) / (c2 -  c1)
+                            c2 = fullgrid[i, j, int(heights[i, j]) + 1]
+                            k = heights[i, j] + (density - c1) / (c2 - c1)
                         else:
                             k = kmax
 
@@ -259,7 +258,7 @@ class SimpleStm:
         nx, ny = heights.shape[:2]
 
         if file is None:
-            n, k, s = bias
+            n, k, s = self.bias
             fname = 'stm_n%dk%ds%d.dat' % (n, k, s)
         else:
             fname = file
@@ -304,4 +303,4 @@ class SimpleStm:
         heights = self.heights * Bohr
 
         # pylab interprets heights[y_i][x_i]
-        return np.array(xvals), np.array(yvals), heights.swapaxes(0,1)
+        return np.array(xvals), np.array(yvals), heights.swapaxes(0, 1)
