@@ -69,7 +69,7 @@ class Basis:
 
     def tosplines(self):
         gd = self.get_grid_descriptor()
-        return [gd.spline(bf.phit_g, bf.l) for bf in self.bf_j]
+        return [gd.spline(bf.phit_g, l=bf.l) for bf in self.bf_j]
 
     def read_xml(self, filename=None, world=None):
         parser = BasisSetXMLParser(self)

@@ -400,7 +400,7 @@ class Generator(AllElectron):
         t('Pseudo-electron charge', 4 * pi * Nt)
 
         vHt = np.zeros(N)
-        hartree(0, rhot * r * dr, self.beta, self.N, vHt)
+        hartree(0, rhot * r * dr, r, vHt)
         vHt[1:] /= r[1:]
         vHt[0] = vHt[1]
 
