@@ -70,7 +70,10 @@ class InputParameters(dict):
                              'eigenstates': 4.0e-8,  # eV^2
                              'bands': 'occupied'}),
             ('realspace', None),
-            ('symmetry', {})])
+            ('symmetry', {'point_group': True,
+                          'time_reversal': True,
+                          'symmorphic': True,
+                          'tolerance': 1e-7})])
         dict.update(self, kwargs)
 
     def __repr__(self):
@@ -127,7 +130,10 @@ class InputParameters(dict):
         if version < 4:
             self.symmetry = usesymm2symmetry(r['UseSymmetry'])
         else:
-            self.symmetry = r['Symmetry']
+            self.symmetry = {'point_group': r['SymmetryOnSwitch'],
+                             'symmorphic': r['SymmetrySymmorphicSwitch'],
+                             'time_reversal': r['SymmetryTimeReversalSwitch'],
+                             'tolerance': r['SymmetryToleranceCriterion']}
 
         try:
             self.basis = r['BasisSet']

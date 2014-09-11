@@ -9,7 +9,7 @@ Change log for version:
 3) Different k-points now have different number of plane-waves.  Added
    PlaneWaveIndices array.
    
-4) Removed "UseSymmetry" and added "Symmetry".
+4) Removed "UseSymmetry" and added "Symmetry" switches.
 """
 
 import os
@@ -215,7 +215,10 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['XCFunctional'] = paw.hamiltonian.xc.name
     w['Charge'] = p['charge']
     w['FixMagneticMoment'] = paw.occupations.fixmagmom
-    w['Symmetry'] = p['symmetry']
+    w['SymmetryOnSwitch'] = p['symmetry']['point_group']
+    w['SymmetrySymmorphicSwitch'] = p['symmetry']['symmorphic']
+    w['SymmetryTimeReversalSwitch'] = p['symmetry']['time_reversal']
+    w['SymmetryToleranceCriterion'] = p['symmetry']['tolerance']
     w['Converged'] = scf.converged
     w['FermiWidth'] = paw.occupations.width
     w['MixClass'] = density.mixer.__class__.__name__
