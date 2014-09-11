@@ -109,6 +109,9 @@ def coordinates(gd, origin=None, tiny=1e-12):
     # periodic boundary conditions, orthorhombic cell only
     for c in range(3):
         if gd.pbc_c[c]:
+            # Assert that cell is really orthorhombic
+            assert gd.cell_cv[c][c-1] == 0.0
+            assert gd.cell_cv[c][c-2] == 0.0
             r_vG[c,:,:,:] = np.where(r_vG[c,:,:,:] > 0.5 * gd.cell_cv[c,c],
                                      r_vG[c,:,:,:] - gd.cell_cv[c,c],
                                      r_vG[c,:,:,:])
@@ -160,7 +163,7 @@ def normalize(U):
 
 
 def get_matrix_index(ind1, ind2=None):
-    if ind2 == None:
+    if ind2 is None:
         dim1 = len(ind1)
         return np.resize(ind1, (dim1, dim1))
     else:

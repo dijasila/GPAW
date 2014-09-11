@@ -23,7 +23,7 @@ def scal(alpha, x):
 
     Performs the operation::
 
-      x <- alpha * x 
+      x <- alpha * x
       
     """
     if isinstance(alpha, complex):
@@ -45,7 +45,7 @@ def gemm(alpha, a, b, beta, c, transa='n'):
     If transa is "n", ``b.a`` denotes the matrix multiplication defined by::
     
                       _
-                     \  
+                     \
       (b.a)        =  ) b  * a
            ijkl...   /_  ip   pjkl...
                       p
@@ -54,10 +54,10 @@ def gemm(alpha, a, b, beta, c, transa='n'):
     defined by::
     
                       _
-                     \  
+                     \
       (b.a)        =  ) b    *    a
            ij        /_  iklm...   jklm...
-                     klm... 
+                     klm...
 
     where in case of "c" also complex conjugate of a is taken.
     """
@@ -90,7 +90,7 @@ def gemv(alpha, a, x, beta, y, trans='t'):
       y <- alpha * a.x + beta * y
 
     ``a.x`` denotes matrix multiplication, where the product-sum is
-    over the entire length of the vector x and 
+    over the entire length of the vector x and
     the first dimension of a (for trans='n'), or
     the last dimension of a (for trans='t' or 'c').
 
@@ -111,7 +111,7 @@ def gemv(alpha, a, x, beta, y, trans='t'):
     assert a.flags.contiguous
     assert y.flags.contiguous
     assert x.ndim == 1
-    assert y.ndim == a.ndim-1
+    assert y.ndim == a.ndim - 1
     if trans == 'n':
         assert a.shape[0] == x.shape[0]
         assert a.shape[1:] == y.shape
@@ -139,6 +139,7 @@ def axpy(alpha, x, y):
     assert x.shape == y.shape
     _gpaw.axpy(alpha, x, y)
 
+    
 def czher(alpha, x, a):
     """alpha x * x.conj() + a.
 
@@ -146,8 +147,8 @@ def czher(alpha, x, a):
 
       y <- alpha * x * x.conj() + a
 
-    where x is a N element vector and a is a N by N hermitian matrix, alpha is a real scalar
-      
+    where x is a N element vector and a is a N by N hermitian matrix, alpha
+    is a real scalar.
     """
 
     assert isinstance(alpha, float)
@@ -159,7 +160,7 @@ def czher(alpha, x, a):
     _gpaw.czher(alpha, x, a)
 
 
-def rk(alpha, a, beta, c):
+def rk(alpha, a, beta, c, trans='c'):
     """Rank-k update of a matrix.
 
     Performs the operation::
@@ -170,7 +171,7 @@ def rk(alpha, a, beta, c):
     where ``a.b`` denotes the matrix multiplication defined by::
 
                  _
-                \  
+                \
       (a.b)   =  ) a         * b
            ij   /_  ipklm...     pjklm...
                pklm...
@@ -186,9 +187,12 @@ def rk(alpha, a, beta, c):
             a.dtype == complex and c.dtype == complex)
     assert a.flags.contiguous
     assert a.ndim > 1
-    assert c.shape == (a.shape[0], a.shape[0])
+    if trans == 'n':
+        assert c.shape == (a.shape[1], a.shape[1])
+    else:
+        assert c.shape == (a.shape[0], a.shape[0])
     assert c.strides[1] == c.itemsize
-    _gpaw.rk(alpha, a, beta, c)
+    _gpaw.rk(alpha, a, beta, c, trans)
 
     
 def r2k(alpha, a, b, beta, c):
@@ -202,7 +206,7 @@ def r2k(alpha, a, b, beta, c):
     where ``a.b`` denotes the matrix multiplication defined by::
 
                  _
-                \ 
+                \
       (a.b)   =  ) a         * b
            ij   /_  ipklm...     pjklm...
                pklm...
@@ -219,27 +223,28 @@ def r2k(alpha, a, b, beta, c):
     assert (a.dtype == float and b.dtype == float and c.dtype == float or
             a.dtype == complex and b.dtype == complex and c.dtype == complex)
     assert a.flags.contiguous and b.flags.contiguous
-    assert np.rank(a) > 1
+    assert a.ndim > 1
     assert a.shape == b.shape
     assert c.shape == (a.shape[0], a.shape[0])
     assert c.strides[1] == c.itemsize
     _gpaw.r2k(alpha, a, b, beta, c)
 
+    
 def dotc(a, b):
     """Dot product, conjugating the first vector with complex arguments.
 
     Returns the value of the operation::
 
         _
-       \   cc   
+       \   cc
         ) a       * b
-       /_  ijk...    ijk...       
+       /_  ijk...    ijk...
        ijk...
 
     ``cc`` denotes complex conjugation.
     """
     assert ((is_contiguous(a, float) and is_contiguous(b, float)) or
-            (is_contiguous(a, complex) and is_contiguous(b,complex)))
+            (is_contiguous(a, complex) and is_contiguous(b, complex)))
     assert a.shape == b.shape
     return _gpaw.dotc(a, b)
     
@@ -250,7 +255,7 @@ def dotu(a, b):
     Returns the value of the operation::
 
         _
-       \ 
+       \
         ) a       * b
        /_  ijk...    ijk...
        ijk...
@@ -258,7 +263,7 @@ def dotu(a, b):
 
     """
     assert ((is_contiguous(a, float) and is_contiguous(b, float)) or
-            (is_contiguous(a, complex) and is_contiguous(b,complex)))
+            (is_contiguous(a, complex) and is_contiguous(b, complex)))
     assert a.shape == b.shape
     return _gpaw.dotu(a, b)
     
@@ -287,7 +292,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     if a.ndim == 1 and b.ndim == 1:
         assert out is None
         if trans == 'c':
-            return alpha * _gpaw.dotc(b, a) # dotc conjugates *first* argument
+            return alpha * _gpaw.dotc(b, a)  # dotc conjugates *first* argument
         else:
             return alpha * _gpaw.dotu(a, b)
 
@@ -302,7 +307,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     if trans == 'n':
         b = b.reshape(b.shape[0], -1)
         outshape = a.shape[0], b.shape[1]
-    else: # 't' or 'c'
+    else:  # 't' or 'c'
         b = b.reshape(-1, b.shape[-1])
     
     # Apply BLAS gemm routine
@@ -317,7 +322,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     # Determine actual shape of result array
     if trans == 'n':
         outshape = ashape[:-1] + bshape[1:]
-    else: # 't' or 'c'
+    else:  # 't' or 'c'
         outshape = ashape[:-1] + bshape[:-1]
     return out.reshape(outshape)
 

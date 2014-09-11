@@ -117,7 +117,7 @@ class AllElectronPotential:
       print "Evaluating ES Potential..."
       # Make sure that the calculation has ES potential
       # TODO
-      if self.paw.hamiltonian.vHt_g == None:
+      if self.paw.hamiltonian.vHt_g is None:
          raise "Converge tha Hartree potential first."
       
       # Interpolate the smooth electrostatic potential from fine grid to radial grid
