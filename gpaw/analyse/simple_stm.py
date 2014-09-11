@@ -7,11 +7,10 @@ from ase.atoms import Atoms
 from ase.units import Bohr, Hartree
 from ase.dft.stm import STM
 from ase.io.cube import write_cube
-from ase.io.plt import write_plt
+from ase.io.plt import write_plt, read_plt
 
 import gpaw.mpi as mpi
 from gpaw.mpi import MASTER
-from gpaw.io.plt import read_plt
 from gpaw.grid_descriptor import GridDescriptor
 
 class SimpleStm:
@@ -148,10 +147,10 @@ class SimpleStm:
         filetype.lower()
 
         if filetype == 'plt':
-            cell, grid = read_plt(file)[:2]
+            data, cell = read_plt(file)
 
             pbc_c = [True, True, True]
-            N_c = np.array(grid.shape)
+            N_c = np.array(data.shape)
             for c in range(3):
                 if N_c[c] % 2 == 1:
                     pbc_c[c] = False
@@ -163,7 +162,7 @@ class SimpleStm:
             raise NotImplementedError('unknown file type "' + filetype + '"')
 
         self.file = file
-        self.ldos = np.array(grid * Bohr**3, np.float)
+        self.ldos = np.array(data * Bohr**3, np.float)
 ##        print "read: integrated =", self.gd.integrate(self.ldos)
  
     def current_to_density(self, current):
