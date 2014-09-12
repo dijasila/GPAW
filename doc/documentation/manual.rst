@@ -422,8 +422,7 @@ Use of symmetry
 The default behavior is to use all point-group symmetries and time-reversal
 symmetry to reduce the **k**-points to only those in the irreducible part of
 the Brillouin-zone.  Moving the atoms so that a symmetry is broken will
-cause an error.  This can be avoided by using ``symmetry='off'`` which is a
-short-hand notation for this::
+cause an error.  This can be avoided by using::
     
     symmetry={'point_group': False}
 
@@ -434,6 +433,9 @@ For some purposes you might want to have no symmetry reduction of the
 calculations, ...). This can be achieved by specifying::
 
     symmetry={'point_group': False, 'time_reversal': False}
+    
+or simply ``symmetry='off'`` which is a short-hand notation for the same
+thing.
 
 For full control, here are all the available keys of the ``symmetry``
 dictionary:

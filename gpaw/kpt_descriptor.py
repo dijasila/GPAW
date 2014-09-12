@@ -163,12 +163,13 @@ class KPointDescriptor:
         # Find symmetry operations of atoms:
         symmetry.analyze(atoms.get_scaled_positions())
 
-        (self.ibzk_kc, self.weight_k,
-         self.sym_k,
-         self.time_reversal_k,
-         self.bz2ibz_k,
-         self.ibz2bz_k,
-         self.bz2bz_ks) = symmetry.reduce(self.bzk_kc, comm)
+        if symmetry.time_reversal or symmetry.point_group:
+            (self.ibzk_kc, self.weight_k,
+             self.sym_k,
+             self.time_reversal_k,
+             self.bz2ibz_k,
+             self.ibz2bz_k,
+             self.bz2bz_ks) = symmetry.reduce(self.bzk_kc, comm)
 
         # Number of irreducible k-points and k-point/spin combinations.
         self.nibzkpts = len(self.ibzk_kc)

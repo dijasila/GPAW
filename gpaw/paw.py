@@ -434,7 +434,7 @@ class PAW(PAWTextOutput):
 
         symm = par.symmetry
         if symm == 'off':
-            symm = {'point_group': False}
+            symm = {'point_group': False, 'time_reversal': False}
 
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
         kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
