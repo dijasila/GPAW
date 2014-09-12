@@ -19,7 +19,7 @@ else:
 
 def parse_basis_name(name):
     """Parse any basis type identifier: 'sz', 'dzp', 'qztp', '4z3p', ... """
-    letter2number = {'s' : 1, 'd' : 2, 't' : 3, 'q' : 4}
+    letter2number = {'s': 1, 'd': 2, 't': 3, 'q': 4}
     number2letter = 'Xsdtq56789'
 
     newchars = ['', 'z', '', 'p']
@@ -56,7 +56,7 @@ class Basis:
         if readxml:
             self.read_xml(world=world)
 
-    def nao(self): # implement as a property so we don't have to
+    def nao(self):  # implement as a property so we don't have to
         # catch all the places where Basis objects are modified without
         # updating it.  (we can do that later)
         return sum([2 * bf.l + 1 for bf in self.bf_j])
@@ -72,10 +72,10 @@ class Basis:
     def read_xml(self, filename=None, world=None):
         parser = BasisSetXMLParser(self)
         parser.parse(filename, world=world)
-            
+
     def write_xml(self):
         """Write basis functions to file.
-        
+
         Writes all basis functions in the given list of basis functions
         to the file "<symbol>.<name>.basis".
         """
@@ -85,7 +85,7 @@ class Basis:
             filename = '%s.%s.basis' % (self.symbol, self.name)
         write = open(filename, 'w').write
         write('<paw_basis version="0.1">\n')
-        
+
         generatorattrs = ' '.join(['%s="%s"' % (key, value)
                                    for key, value
                                    in self.generatorattrs.iteritems()])
@@ -105,7 +105,7 @@ class Basis:
 
         Example: basis.reduce('sz') will remove all non single-zeta
         and polarization functions."""
-        
+
         zeta, pol = parse_basis_name(name)[:2]
         newbf_j = []
         L = {0: 0, 1: 0, 2: 0, 3: 0}
@@ -140,7 +140,7 @@ class Basis:
         for bf in self.bf_j:
             line = '  %s: rc=%.4f Bohr' % (bf.name, bf.rc)
             bf_lines.append(line)
-            
+
         lines = [title, name, fileinfo, count1, count2]
         lines.extend(bf_lines)
         return '\n  '.join(lines)
@@ -189,7 +189,7 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
 
         Example of filename: N.dzp.basis.  Use sz(dzp) to read
         the sz-part from the N.dzp.basis file."""
-        
+
         from gpaw.setup_data import search_for_file
 
         basis = self.basis
@@ -270,7 +270,7 @@ class BasisPlotter:
         self.normalize = normalize
 
     def plot(self, basis, filename=None, **plot_args):
-        import pylab as pl # Should not import in module namespace
+        import pylab as pl  # Should not import in module namespace
         if plot_args is None:
             plot_args = {}
 
@@ -307,8 +307,8 @@ class BasisPlotter:
         for norm, bf in zip(norm_j, basis.bf_j):
             y_g = bf.phit_g * factor
             if self.normalize:
-                y_g /= norm**0.5
-            pl.plot(rgd.r_g, y_g, label=bf.name,
+                y_g /= norm
+            pl.plot(r_g[:bf.ng], y_g, label=bf.type[:12],
                     dashes=dashes_l[bf.l],
                     **plot_args)
         axis = pl.axis()
