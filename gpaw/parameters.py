@@ -89,19 +89,8 @@ class InputParameters(dict):
         self[key] = value
 
     def update(self, parameters):
-        assert isinstance(parameters, dict)
-
         for key, value in parameters.items():
             assert key in self
-
-            haschanged = (self[key] != value)
-
-            if isinstance(haschanged, np.ndarray):
-                haschanged = haschanged.any()
-
-            #if haschanged:
-            #    self.notify(key)
-
         dict.update(self, parameters)
 
     def read(self, reader):
