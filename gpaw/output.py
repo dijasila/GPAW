@@ -245,18 +245,20 @@ class PAWTextOutput:
         w_k = w_k.round()
         
         t()
-        t('          k-points in crystal coordinates              weights')
+        t('          k-points in crystal coordinates                weights')
         for k in range(nibzkpts):
             if k < 10 or k == nibzkpts - 1:
                 t('%4d:   %12.8f  %12.8f  %12.8f     %6d/%d' %
                   ((k,) + tuple(kd.ibzk_kc[k]) + (w_k[k], kd.nbzkpts)))
+            elif k == 10:
+                t('          ...')
         t()
 
         if self.scf.fixdensity > self.scf.maxiter:
             t('Fixing the initial density')
         else:
             mixer = self.density.mixer
-            t('Mixer Type:                        %s' % mixer.__class__.__name__)
+            t('Mixer Type:                       ', mixer.__class__.__name__)
             t('Linear Mixing Parameter:           %g' % mixer.beta)
             t('Mixing with %d Old Densities' % mixer.nmaxold)
             if mixer.weight == 1:
@@ -307,12 +309,12 @@ class PAWTextOutput:
 
         t('-------------------------')
 
-        energies = [('Kinetic:      ',  self.hamiltonian.Ekin),
-                    ('Potential:    ',  self.hamiltonian.Epot),
-                    ('External:     ',  self.hamiltonian.Eext),
-                    ('XC:           ',  self.hamiltonian.Exc),
+        energies = [('Kinetic:      ', self.hamiltonian.Ekin),
+                    ('Potential:    ', self.hamiltonian.Epot),
+                    ('External:     ', self.hamiltonian.Eext),
+                    ('XC:           ', self.hamiltonian.Exc),
                     ('Entropy (-ST):', -self.hamiltonian.S),
-                    ('Local:        ',  self.hamiltonian.Ebar)]
+                    ('Local:        ', self.hamiltonian.Ebar)]
 
         for name, e in energies:
             t('%-14s %+11.6f' % (name, Hartree * e))
