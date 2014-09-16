@@ -38,7 +38,7 @@ hosts = { 'batman'                   : 'pbs_batman',
           'juropa.fz-juelich.de'     : 'juropa',
 	  r'jj(.*)'                  : 'juropa',
           r'joe*'                    : 'joe',
-          'uc1n996'                  : 'bwUniCluster',
+          r'uc1n99*'                 : 'bwUniCluster',
           }
 
 platforms = { 'aix5' : 'loadleveler' }
@@ -467,6 +467,8 @@ ormance.'
             print >> f, '#MSUB -M', set['mail']
 #        print >> f, 'export PATH=/usr/lib/openmpi/1.2.5-gcc/bin:$PATH'
         print >> f, 'cd', set['wd']
+        print >> f, ('export LD_LIBRARY_PATH=' + env['LD_LIBRARY_PATH'] + 
+                     ':$LD_LIBRARY_PATH')
         print >> f, 'export PYTHONPATH=' + env['PYTHONPATH'] + ':$PYTHONPATH'
         print >> f, 'export GPAW_SETUP_PATH=' + env['GPAW_SETUP_PATH']
         print >> f, 'export GPAW_PYTHON=' + env['GPAW_PYTHON']
