@@ -1,10 +1,9 @@
-from ase import *
-from gpaw import *
+from ase import Atoms
+from gpaw import GPAW
 from gpaw.wavefunctions.pw import PW
 from gpaw.xc.fxc import FXCCorrelation
 from gpaw.test import equal
-from gpaw.mpi import world, rank
-from os import system
+from gpaw.mpi import world
 
 if world.size == 1:
     scalapack1 = None
