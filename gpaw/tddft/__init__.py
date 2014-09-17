@@ -229,7 +229,7 @@ class TDDFT(GPAW):
         self.mblas = MultiBlas(wfs.gd)
 
         self.calculate_energy = calculate_energy
-        if self.hamiltonian.xc.name.starts_with('GLLB'):
+        if self.hamiltonian.xc.name.startswith('GLLB'):
              self.text("GLLB model potential. Not updating energy.")
              self.calculate_energy = False
 
