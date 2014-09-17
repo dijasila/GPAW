@@ -63,13 +63,13 @@ E_ralda_H = ralda.calculate(ecut=[200])
 rapbe = FXCCorrelation('H.gpw', xc='rAPBE')
 E_rapbe_H = rapbe.calculate(ecut=[200])
                                       
-if rank == 0:
-    system('rm H2.gpw')
-    system('rm H.gpw')
-    system('rm fhxc_H2_rALDA_200_0.gpw')
-    system('rm fhxc_H_rALDA_200_0.gpw')
-    system('rm fhxc_H2_rAPBE_200_0.gpw')
-    system('rm fhxc_H_rAPBE_200_0.gpw')
+# if rank == 0:
+#    system('rm H2.gpw')
+#    system('rm H.gpw')
+#    system('rm fhxc_H2_rALDA_200_0.gpw')
+#    system('rm fhxc_H_rALDA_200_0.gpw')
+#    system('rm fhxc_H2_rAPBE_200_0.gpw')
+#    system('rm fhxc_H_rAPBE_200_0.gpw')
 
 equal(E_ralda_H2, -0.8411, 0.001)
 equal(E_ralda_H, 0.002860, 0.00001)
