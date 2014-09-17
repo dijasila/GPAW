@@ -283,10 +283,9 @@ class Transport(GPAW):
         self.optimize = False
         kpts = kw['kpts']
         if np.product(kpts) == kpts[self.d]:
-            self.gpw_kwargs['symmetry'] = {'time_reversal': False,
-                                           'point_group': False}
-        else:
             self.gpw_kwargs['symmetry'] = 'off'
+        else:
+            self.gpw_kwargs['symmetry'] = {'point_group': False}
         self.scat_ntk = 1
         if kpts[2] != 1:
             if self.non_sc:
