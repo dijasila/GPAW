@@ -66,7 +66,7 @@ The computationally-heavy RPA/rALDA/rAPBE parts can be parallelized efficiently 
 After running the scripts the LDA and PBE correlation energies may be found in the file ``H.ralda.DFT_corr_energies.txt``.
 Note that a rather small unit cell is used and the results may not be completely converged with respect 
 to cutoff and unit cell. Also note that the correlation energy is calculated at different cutoff energies up to 
-300 eV and the values based on two-point extrapolation is printed at the end (see :ref:`rpa_tut` :ref:`rpa` for a 
+300 eV and the values based on two-point extrapolation is printed at the end (see :ref:`rpa_tut` and :ref:`rpa` for a 
 discussion on extrapolation). The results in eV are summarized below.
 
 =====   =======   ======
@@ -88,19 +88,30 @@ by ~0.5 eV per electron for a wide range of densities.
 Example 2: Atomization energy of CO
 ===================================
 
-Although RPA severely underestimates absolute correlation energies in general, energy differences are often of decent quality due to extended error cancellation. Nevertheless, RPA tends to underbind and performs slightly worse than PBE for atomization energies of molecules. The following example shows that rAPBE not only corrects the absolute correlation energies, but also performs better than RPA for atomization energies.
+Although RPA severely underestimates absolute correlation energies in general, energy differences are often of decent quality 
+due to extended error cancellation. Nevertheless, RPA tends to underbind and performs slightly worse than PBE for atomization 
+energies of molecules. The following example shows that rAPBE not only corrects the absolute correlation energies, but also 
+performs better than RPA for atomization energies.
 
 First we set up a ground state calculation with lots of unoccupied bands. This is done with the script:
 
-.. literalinclude:: gs_CO.py
+.. literalinclude:: CO.ralda_01_pbe+exx.py
 
-which takes on the order of 6-7 CPU hours. The script generates CO.gpw, C.gpw and O.gpw which are the input to the rAPBE calculation. The PBE and non-selfconsistent Hartree-Fock atomization energies are also calculated and written to the file PBE_HF_CO.dat. Next we calculate the RPA and rAPBE energies with the script
+which takes on the order of 6-7 CPU hours. The script generates three gpw files containing the wavefunctions,
+which are the input to the rAPBE calculation. The PBE and non-selfconsistent Hartree-Fock atomization energies 
+are also calculated and written to the file ``CO.ralda.PBE_HF_CO.dat``. 
+Next we calculate the RPA and rAPBE energies for CO with the script
 
-.. literalinclude:: rapbe_CO.py
+.. literalinclude:: CO.ralda_02_CO_rapbe.py
 
-The results for various cutoffs are written to the files rpa_CO.dat and rapbe_CO.dat. We also print the correlation energies of the C atom to be used in a tutorial below. As in the case of RPA the converged result is obtained by extrapolation using the script 
+The energies for C and O are obtained from the corresponding scripts
+:download:`CO.ralda_03_C_rapbe.py` and :download:`CO.ralda_04_O_rapbe.py`.
+The results for various cutoffs are written to the files like ``CO.ralda_rpa_CO.dat``
+and ``CO.ralda_rapbe_CO.dat``.
+We also print the correlation energies of the C atom to be used in a tutorial below. 
+As in the case of RPA the converged result is obtained by extrapolation using the script 
 
-.. literalinclude:: extrapolate_CO.py
+.. literalinclude:: CO.ralda_05_extrapolate.py
 
 If pylab is installed, the plot=False can be change to plot=True to visualize the quality of the extrapolation. The final results are displayed below
 
@@ -112,17 +123,25 @@ PBE      HF      RPA     rAPBE        Experimental
 
 Example 3: Cohesive energy of diamond
 =====================================
-The error cancellation in RPA works best when comparing systems with similar electronic structure. In the case of cohesive energies of solids where the bulk energy is compared to the energy of isolated atoms, RPA becomes even worse than for atomization energies of molecules. Here we illustrate this for the cohesive energy of diamond and show that the rAPBE approximation corrects the problem. The initial orbitals are obtained with the script
+The error cancellation in RPA works best when comparing systems with similar electronic structure. 
+In the case of cohesive energies of solids where the bulk energy is compared to the energy of isolated atoms, 
+RPA becomes even worse than for atomization energies of molecules. Here we illustrate this for the cohesive 
+energy of diamond and show that the rAPBE approximation corrects the problem. 
+The initial orbitals are obtained with the script
 
-.. literalinclude:: gs_diamond.py
+.. literalinclude:: diamond.ralda_01_pbe.py
 
-which takes roughly 5 minutes. The script generates diamond.gpw and uses a previous calculation of the C atom to calculate the EXX and PBE cohesive energies that are written to PBE_HF_diamond.dat. The RPA and rAPBE correlation energies are obtained with the script:
+which takes roughly 5 minutes. The script generates ``diamond.ralda.pbe_wfcs.gpw``
+and uses a previous calculation of the C atom to calculate the EXX and PBE cohesive 
+energies that are written to ``diamond.ralda.PBE_HF_diamond.dat``. The RPA and rAPBE 
+correlation energies are obtained with the script:
 
-.. literalinclude:: rapbe_diamond.py
+.. literalinclude:: diamond.ralda_02_rapbe_rpa.py
 
-This takes on the order of 30 CPU hours, but can be parallelized efficiently. Finally the correlation part of the cohesive energies are obtained by extrapolation with the script
+This takes on the order of 30 CPU hours, but can be parallelized efficiently. Finally the 
+correlation part of the cohesive energies are obtained by extrapolation with the script
 
-.. literalinclude:: extrapolate_diamond.py
+.. literalinclude:: diamond.ralda_03_extrapolate.py
 
 The results are summarized below
 
@@ -135,10 +154,10 @@ PBE     HF     RPA    rAPBE       Experimental
 As anticipated, RPA severly underestimates the cohesive energy, while PBE performs much better, and rAPBE comes very close to the experimental value.
 
 .. [#Olsen1] T. Olsen and K. S. Thygesen
-           *Phys. Rev. B* **86**, 081103(R) (2012)
+              *Phys. Rev. B* **86**, 081103(R) (2012)
 
 .. [#Olsen2] T. Olsen and K. S. Thygesen
-           *Phys. Rev. B* **88**, 115131 (2013)
+              *Phys. Rev. B* **88**, 115131 (2013)
 
 .. [#Olsen3] T. Olsen and K. S. Thygesen
-           *Phys. Rev. Lett* **112**, 203001 (2014)
+              *Phys. Rev. Lett* **112**, 203001 (2014)
