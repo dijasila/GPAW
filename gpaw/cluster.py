@@ -8,6 +8,7 @@ from ase.io import read, write
 from ase.data import covalent_radii
 from ase.calculators.neighborlist import NeighborList
 
+
 class Cluster(Atoms):
     """A class for cluster structures
     to enable simplified manipulation"""
@@ -30,7 +31,7 @@ class Cluster(Atoms):
             self.read(filename, kwargs.get('filetype'))
         else:
             Atoms.__init__(self, *args, **kwargs)
-    
+
     def extreme_positions(self):
         """get the extreme positions of the structure"""
         pos = self.get_positions()
@@ -76,8 +77,8 @@ class Cluster(Atoms):
                         pass
                     else:
                         connected.append(j)
-                        isolated = False 
- 
+                        isolated = False
+
         atoms = Cluster()
         for i in connected:
             atoms.append(self[i])
@@ -92,8 +93,8 @@ class Cluster(Atoms):
         The border argument can be used to add a border of empty space
         around the structure.
 
-        If h is set, the box is extended to ensure that box/h is 
-        a multiple of 'multiple'. 
+        If h is set, the box is extended to ensure that box/h is
+        a multiple of 'multiple'.
         This ensures that GPAW uses the desired h.
 
         The shift applied to the structure is returned.
@@ -103,30 +104,30 @@ class Cluster(Atoms):
             return None
 
         extr = self.extreme_positions()
- 
+
         # add borders
-        if type(border)==type([]):
+        if isinstance(border, list):
             b = border
         else:
             b = [border, border, border]
         for c in range(3):
             extr[0][c] -= b[c]
-            extr[1][c] += b[c] - extr[0][c] # shifted already
+            extr[1][c] += b[c] - extr[0][c]  # shifted already
 
         # check for multiple of 4
         if h is not None:
             if not hasattr(h, '__len__'):
                 h = np.array([h, h, h])
             for c in range(3):
-                # apply the same as in paw.py 
-                L = extr[1][c] # shifted already
+                # apply the same as in paw.py
+                L = extr[1][c]  # shifted already
                 N = np.ceil(L / h[c] / multiple) * multiple
                 # correct L
                 dL = N * h[c] - L
                 # move accordingly
-                extr[1][c] += dL # shifted already
+                extr[1][c] += dL  # shifted already
                 extr[0][c] -= dL / 2.
-            
+
         # move lower corner to (0, 0, 0)
         shift = tuple(-1. * np.array(extr[0]))
         self.translate(shift)
@@ -139,7 +140,7 @@ class Cluster(Atoms):
         attr = 'get_' + name
         if hasattr(self, attr):
             getattr(self, attr)(data)
-        elif self.data.has_key(name):
+        elif name in self.data:
             return self.data[name]
         else:
             return None
@@ -190,5 +191,3 @@ class Cluster(Atoms):
                         out += copy
 
         write(filename, out, format)
-
-       

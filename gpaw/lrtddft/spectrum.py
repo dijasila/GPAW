@@ -13,7 +13,8 @@ def spectrum(exlist=None,
              energyunit='eV',
              folding='Gauss',
              width=0.08, # Gauss/Lorentz width
-             comment=None
+             comment=None,
+             form='r'
              ):
     """Write out a folded spectrum.
 
@@ -33,7 +34,7 @@ def spectrum(exlist=None,
 
     # output
     out = sys.stdout
-    if filename != None:
+    if filename is not None:
         out = open( filename, 'w' )
     if comment:
         print >> out, '#', comment
@@ -43,6 +44,11 @@ def spectrum(exlist=None,
     if folding is not None: # fold the spectrum
         print >> out, '# %s folded, width=%g [%s]' % (folding, width, 
                                                       energyunit)
+    if form == 'r':
+        out.write('# length form')
+    else:
+        assert(form == 'v')
+        out.write('# velocity form')
     print >> out,\
         '# om [%s]     osz          osz x       osz y       osz z'\
         % energyunit
@@ -51,7 +57,7 @@ def spectrum(exlist=None,
     y = []
     for ex in exlist:
         x.append(ex.get_energy() * Hartree)
-        y.append(ex.get_oscillator_strength())
+        y.append(ex.get_oscillator_strength(form))
 
     if energyunit == 'nm':
         # transform to experimentally used wavelength [nm]
@@ -65,7 +71,7 @@ def spectrum(exlist=None,
         print >> out, "%10.5f %12.7e %12.7e %11.7e %11.7e" % \
             (e,val[0],val[1],val[2],val[3])
 
-    if filename != None: out.close()
+    if filename is not None: out.close()
 
 def rotatory_spectrum(exlist=None,
              filename=None,
@@ -84,7 +90,7 @@ def rotatory_spectrum(exlist=None,
 
     # output
     out = sys.stdout
-    if filename != None:
+    if filename is not None:
         out = open( filename, 'w' )
     if comment:
         print >> out, '#', comment
@@ -116,7 +122,7 @@ def rotatory_spectrum(exlist=None,
         print >> out, "%10.5f %12.7e" % \
             (e, val)
 
-    if filename != None: out.close()
+    if filename is not None: out.close()
 
 class Writer(Folder):
     def __init__(self, folding=None, width=0.08, # Gauss/Lorentz width
@@ -129,7 +135,7 @@ class Writer(Folder):
               comment=None):
         
         out = sys.stdout
-        if filename != None:
+        if filename is not None:
             out = open( filename, 'w' )
  
         print >> out, '#', self.title
@@ -149,6 +155,6 @@ class Writer(Folder):
                 string += ' %12.7e' % vf
             print >> out, string
             
-        if filename != None: 
+        if filename is not None: 
             out.close()
 

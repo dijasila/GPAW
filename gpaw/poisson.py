@@ -20,12 +20,13 @@ import gpaw.mpi as mpi
 import _gpaw
 
 class PoissonSolver:
-    def __init__(self, nn=3, relax='J', eps=2e-10, remove_moment=None):
+    def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
+                 remove_moment=None):
         self.relax = relax
         self.nn = nn
         self.eps = eps
         self.charged_periodic_correction = None
-        self.maxiter = 1000
+        self.maxiter = maxiter
         self.remove_moment = remove_moment
 
         # Relaxation method

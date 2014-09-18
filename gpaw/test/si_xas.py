@@ -27,8 +27,7 @@ import numpy as np
 calc = GPAW(nbands=None,
             h=0.25,
             occupations=FermiDirac(width=0.05),
-            setups={0: 'hch1s'},
-            usesymm=True)
+            setups={0: 'hch1s'})
 si.set_calculator(calc)
 e = si.get_potential_energy()
 niter = calc.get_number_of_iterations()
@@ -72,8 +71,7 @@ gen('Si', name='hch2p', corehole=(2, 1, 0.5))
 calc = GPAW(nbands=None,
             h=0.25,
             occupations=FermiDirac(width=0.05),
-            setups={0: 'hch2p'},
-            usesymm=True)
+            setups={0: 'hch2p'})
 si.set_calculator(calc)
 e = si.get_potential_energy()
 niter = calc.get_number_of_iterations()

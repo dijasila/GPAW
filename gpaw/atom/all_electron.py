@@ -26,6 +26,7 @@ tempdir = tempfile.gettempdir()
 # fine-structure constant
 alpha = 1 / 137.036
 
+
 class AllElectron:
     """Object for doing an atomic DFT calculation."""
 
@@ -230,7 +231,7 @@ class AllElectron:
         qOK = log(1e-10)
         while True:
             # calculate hartree potential
-            hartree(0, n * r * dr, self.beta, self.N, vHr)
+            hartree(0, n * r * dr, r, vHr)
 
             # add potential from nuclear point charge (v = -Z / r)
             vHr -= Z

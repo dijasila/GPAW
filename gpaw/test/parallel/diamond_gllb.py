@@ -39,7 +39,7 @@ for band in [1,2,4]:
     X = points['X']
 
     kpts, x, X = get_bandpath([G, X], atoms.cell, npoints=12)
-    calc = GPAW('Cgs.gpw', kpts=kpts, fixdensity=True, usesymm=None, 
+    calc = GPAW('Cgs.gpw', kpts=kpts, fixdensity=True, symmetry='off',
                 nbands=8, convergence=dict(bands=8), 
                 eigensolver=eigensolver,
                 parallel={'band':band})
@@ -61,7 +61,8 @@ for band in [1,2,4]:
     calc.write('CGLLBSC.gpw')
 
     # Redo the band structure calculation
-    atoms, calc = restart('CGLLBSC.gpw', kpts=kpts, fixdensity=True, usesymm=None, convergence=dict(bands=8))
+    atoms, calc = restart('CGLLBSC.gpw', kpts=kpts, fixdensity=True,
+                          symmetry='off', convergence=dict(bands=8))
     atoms.get_potential_energy()
     response = calc.hamiltonian.xc.xcs['RESPONSE']
     KS, dxc = response.calculate_delta_xc_perturbation()

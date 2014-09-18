@@ -54,7 +54,7 @@ class Writer:
                       for dim in shape]
         self.xml2 += ['  </array>']
         self.shape = [self.dims[dim] for dim in shape]
-        size = itemsize * np.product([self.dims[dim] for dim in shape])
+        size = itemsize * int(np.product([self.dims[dim] for dim in shape]))
         self.write_header(name, size)
         if array is not None:
             self.fill(array)
@@ -198,6 +198,7 @@ class Reader(xml.sax.handler.ContentHandler):
     def close(self):
         self.tar.close()
 
+
 class TarFileReference(FileReference):
     def __init__(self, fileobj, shape, dtype, byteswap, length):
         self.fileobj = fileobj
@@ -241,4 +242,3 @@ class TarFileReference(FileReference):
         if self.length:
             array = array[..., :self.length].copy()
         return array
-

@@ -19,8 +19,7 @@ class ExternalPotential:
         self.gd = gd
         if self.gd is not None:
             assert gd.orthogonal
-            if np.alltrue(vext_g.shape ==
-                           gd.get_size_of_global_array()):
+            if np.alltrue(vext_g.shape == gd.get_size_of_global_array()):
                 # this is a global array and has to be distributed
                 self.vext_g = self.gd.zeros()
                 self.gd.distribute(vext_g, self.vext_g)
@@ -76,7 +75,7 @@ class ExternalPotential:
         """
 
         gd = wfs.gd
-        
+
         # apply local part of x to smooth wavefunctions psit_n
         for i in range(gd.n_c[0]):
             x = (i + gd.beg_c[0]) * gd.h_cv[0, 0]
@@ -141,7 +140,7 @@ class ExternalPotential:
             #                    - <phit_i| f(x,y,z) | phit_j> ) P_nj
             coef_ani[a] = (c0 * oneij +
                            cxyz[0] * xij + cxyz[1] * yij + cxyz[2] * zij)
-            
+
         # add partial wave pt_nG to psit_nG with proper coefficient
         wfs.pt.add(b_nG, coef_ani, kpt.q)
 
@@ -151,13 +150,13 @@ class ConstantPotential(ExternalPotential):
     def __init__(self, constant=1.):
         self.constant = constant
         ExternalPotential.__init__(self)
-    
+
     def get_potential(self, gd):
         if self.vext_g is None:
             self.gd = gd
             self.vext_g = gd.zeros() + self.constant
         return self.vext_g
-    
+
     def get_ion_energy_and_forces(self, atoms):
         """Return the ionic energy and force contribution."""
         forces = np.zeros((len(atoms), 3))
@@ -177,7 +176,7 @@ class ElectrostaticPotential(ExternalPotential):
         energy = 0
         for i, atom in enumerate(atoms):
             taylor = self.get_taylor(atom.position)
-##            print "pos, taylor=", atom.position, taylor
+#            print "pos, taylor=", atom.position, taylor
             Z = atom.number
             energy -= Z * taylor[0][0]
             if len(taylor) > 1:
@@ -206,7 +205,7 @@ class ConstantElectricField(ElectrostaticPotential):
         dir = np.array(direction, float)
         dir /= np.sqrt(np.dot(dir, dir))
         self.direction = dir
-        
+
     def get_potential(self, gd=None):
         """Get the potential on the grid."""
 

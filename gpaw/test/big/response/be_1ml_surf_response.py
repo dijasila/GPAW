@@ -12,7 +12,7 @@ from ase.parallel import paropen
 from gpaw import GPAW
 from gpaw.mpi import serial_comm, rank, size
 from gpaw.utilities import devnull
-from gpaw.response.df import DF
+from gpaw.response.df0 import DF
 
 if rank != 0:
   sys.stdout = devnull 
@@ -52,7 +52,7 @@ if EELS:
     for i in range(1, 2):
         w = np.linspace(0, 15, 301)
         q = np.array([-i/64., i/64., 0.]) # Gamma - K
-	ecut = 40 + i*10
+        ecut = 40 + i*10
         df = DF(calc=calc, q=q, w=w, eta=0.05, ecut = ecut,
                       txt='df_' + str(i) + '.out')  
         df.get_surface_response_function(z0=21.2/2, filename='be_EELS')  

@@ -16,7 +16,7 @@ from gpaw.xc.tools import vxc
 from gpaw.wavefunctions.pw import PWWaveFunctions
 from gpaw.response.parallel import set_communicator, parallel_partition, SliceAlongFrequency, GatherOrbitals
 from gpaw.response.base import BASECHI
-from gpaw.response.df import DF
+from gpaw.response.df0 import DF
 from gpaw.response.kernel import calculate_Kxc, calculate_Kc, calculate_Kc_q
 
 class GW(BASECHI):
@@ -563,7 +563,7 @@ class GW(BASECHI):
         calc = GPAW(self.file, communicator=communicator, parallel={'domain':1, 'band':1}, txt=None)
         v_xc = vxc(calc)
 
-        if ecut == None:
+        if ecut is None:
             ecut = self.ecut.max()
         else:
             ecut /= Hartree

@@ -7,6 +7,8 @@
 
 The central object that glues everything together!"""
 
+import warnings
+
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.dft.kpoints import monkhorst_pack
@@ -14,43 +16,41 @@ from ase.calculators.calculator import kptdensity2monkhorstpack
 
 import gpaw.io
 import gpaw.mpi as mpi
-import gpaw.occupations as occupations
-from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
+from gpaw.xc import XC
+from gpaw.xc.sic import SIC
+from gpaw.scf import SCFLoop
 from gpaw.hooks import hooks
+from gpaw.setup import Setups
+from gpaw.symmetry import Symmetry
+import gpaw.wavefunctions.pw as pw
+from gpaw.output import PAWTextOutput
+import gpaw.occupations as occupations
+from gpaw.forces import ForceCalculator
+from gpaw.utilities.timing import Timer
 from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.kohnsham_layouts import get_KohnSham_layouts
-from gpaw.hamiltonian import RealSpaceHamiltonian
-from gpaw.utilities.timing import Timer
-from gpaw.xc import XC
-from gpaw.xc.sic import SIC
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.base import EmptyWaveFunctions
+from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.wavefunctions.fd import FDWaveFunctions
 from gpaw.wavefunctions.lcao import LCAO, LCAOWaveFunctions
-from gpaw.wavefunctions.pw import PW, ReciprocalSpaceDensity, \
-    ReciprocalSpaceHamiltonian
 from gpaw.utilities.memory import MemNode, maxrss
-from gpaw.parameters import InputParameters
-from gpaw.setup import Setups
-from gpaw.output import PAWTextOutput
-from gpaw.scf import SCFLoop
-from gpaw.forces import ForceCalculator
+from gpaw.kohnsham_layouts import get_KohnSham_layouts
+from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.parameters import InputParameters, usesymm2symmetry
+from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
 
 
 class PAW(PAWTextOutput):
     """This is the main calculation object for doing a PAW calculation."""
 
-    timer_class = Timer
-
-    def __init__(self, filename=None, **kwargs):
+    def __init__(self, filename=None, timer=None, **kwargs):
         """ASE-calculator interface.
 
         The following parameters can be used: nbands, xc, kpts,
-        spinpol, gpts, h, charge, usesymm, width, mixer,
+        spinpol, gpts, h, charge, symmetry, width, mixer,
         hund, lmax, fixdensity, convergence, txt, parallel,
         communicator, dtype, softgauss and stencils.
 
@@ -73,7 +73,11 @@ class PAW(PAWTextOutput):
         PAWTextOutput.__init__(self)
         self.grid_descriptor_class = GridDescriptor
         self.input_parameters = InputParameters()
-        self.timer = self.timer_class()
+        
+        if timer is None:
+            self.timer = Timer()
+        else:
+            self.timer = timer
 
         self.scf = None
         self.forces = ForceCalculator(self.timer)
@@ -86,7 +90,7 @@ class PAW(PAWTextOutput):
         self.hamiltonian = None
         self.atoms = None
         self.iter = 0
-        
+
         self.initialized = False
         self.nbands_parallelization_adjustment = None  # Somehow avoid this?
 
@@ -137,6 +141,13 @@ class PAW(PAWTextOutput):
         gpaw.io.read(self, reader)
 
     def set(self, **kwargs):
+        """Change parameters for calculator.
+        
+        Examples::
+            
+            calc.set(xc='PBE')
+            calc.set(nbands=20, kpts=(4, 1, 1))
+        """
         p = self.input_parameters
 
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
@@ -166,7 +177,7 @@ class PAW(PAWTextOutput):
 
             if key == 'eigensolver':
                 self.wfs.set_eigensolver(None)
-            
+
             if key in ['fixmom', 'mixer',
                        'verbose', 'txt', 'hund', 'random',
                        'eigensolver', 'idiotproof', 'notify']:
@@ -190,7 +201,7 @@ class PAW(PAWTextOutput):
                 self.density = None
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
-            elif key in ['kpts', 'nbands', 'usesymm']:
+            elif key in ['kpts', 'nbands', 'usesymm', 'symmetry']:
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
@@ -349,6 +360,8 @@ class PAW(PAWTextOutput):
         Z_a = atoms.get_atomic_numbers()
         magmom_av = atoms.get_initial_magnetic_moments()
 
+        self.check_atoms()
+
         # Generate new xc functional only when it is reset by set
         if self.hamiltonian is None or self.hamiltonian.xc is None:
             if isinstance(par.xc, str):
@@ -360,16 +373,16 @@ class PAW(PAWTextOutput):
 
         mode = par.mode
 
-        if xc.orbital_dependent and mode == 'lcao':
-            raise NotImplementedError('LCAO mode does not support '
-                                      'orbital-dependent XC functionals.')
-
         #if mode == 'fd': # maybe some day
         #    mode = FD()
         if mode == 'pw':
-            mode = PW()
+            mode = pw.PW()
         elif mode == 'lcao':
             mode = LCAO()
+
+        if xc.orbital_dependent and str(mode) == 'lcao':
+            raise NotImplementedError('LCAO mode does not support '
+                                      'orbital-dependent XC functionals.')
 
         if par.realspace is None:
             realspace = (str(mode) != 'pw')
@@ -378,20 +391,15 @@ class PAW(PAWTextOutput):
             if str(mode) == 'pw':
                 assert not realspace
 
-        if par.gpts is not None:
-            N_c = np.array(par.gpts)
-        else:
-            h = par.h
-            if h is not None:
-                h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
-
         if par.filter is None and str(mode) != 'pw':
             gamma = 1.6
-            hmax = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / N_c).max()
-            
+            if par.gpts is not None:
+                h = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / par.gpts).max()
+            else:
+                h = (par.h or 0.2) / Bohr
+                
             def filter(rgd, rcut, f_r, l=0):
-                gcut = np.pi / hmax - 2 / rcut / gamma
+                gcut = np.pi / h - 2 / rcut / gamma
                 f_r[:] = rgd.filter(f_r, rcut * gamma, gcut, l)
         else:
             filter = par.filter
@@ -428,13 +436,37 @@ class PAW(PAWTextOutput):
             nspins = 1
             ncomp = 2
 
-        # K-point descriptor
+        if par.usesymm != 'default':
+            warnings.warn('Use "symmetry" keyword instead of ' +
+                          '"usesymm" keyword')
+            par.symmetry = usesymm2symmetry(par.usesymm)
+
+        symm = par.symmetry
+        if symm == 'off':
+            symm = {'point_group': False, 'time_reversal': False}
+
         if par.dtype == complex and str(mode) == 'lcao':
             gamma = False
         else:
             gamma = None
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
         kd = KPointDescriptor(bzkpts_kc, nspins, collinear, gamma=gamma)
+        m_av = magmom_av.round(decimals=3)  # round off
+        id_a = zip(setups.id_a, *m_av.T)
+        symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
+        kd.set_symmetry(atoms, symmetry, comm=world)
+        setups.set_symmetry(symmetry)
+        
+        if par.gpts is not None:
+            N_c = np.array(par.gpts)
+        else:
+            h = par.h
+            if h is not None:
+                h /= Bohr
+            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
+                                            kd.symmetry)
+            
+        symmetry.check_grid(N_c)
 
         width = par.width
         if width is None:
@@ -453,19 +485,25 @@ class PAW(PAWTextOutput):
             else:
                 dtype = complex
 
-        kd.set_symmetry(atoms, setups, magmom_av, par.usesymm, N_c, world)
-
         nao = setups.nao
         nvalence = setups.nvalence - par.charge
         M_v = magmom_av.sum(0)
         M = np.dot(M_v, M_v)**0.5
-        
+ 
         nbands = par.nbands
+        if isinstance(nbands, basestring):
+            if nbands[-1] == '%':
+                basebands = int(nvalence + M + 0.5) // 2
+                nbands = int((float(nbands[:-1]) / 100) * basebands)
+            else:
+                raise ValueError('Integer Expected: Only use a string '
+                                 'if giving a percentage of occupied bands')
+
         if nbands is None:
             nbands = 0
             for setup in setups:
                 nbands_from_atom = setup.get_default_nbands()
-                
+
                 # Any obscure setup errors?
                 if nbands_from_atom < -(-setup.Nv // 2):
                     raise ValueError('Bad setup: This setup requests %d'
@@ -737,7 +775,7 @@ class PAW(PAWTextOutput):
                     gd, finegd, nspins, par.charge + setups.core_charge,
                     collinear, par.stencils[1])
             else:
-                self.density = ReciprocalSpaceDensity(
+                self.density = pw.ReciprocalSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
                     collinear)
 
@@ -752,7 +790,7 @@ class PAW(PAWTextOutput):
                     world, self.wfs.kptband_comm, par.external,
                     collinear, par.poissonsolver, par.stencils[1])
             else:
-                self.hamiltonian = ReciprocalSpaceHamiltonian(
+                self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
                     gd, finegd, self.density.pd2, self.density.pd3,
                     nspins, setups, self.timer, xc, world,
                     self.wfs.kptband_comm, par.external, collinear)
@@ -943,7 +981,7 @@ def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
     gamma: None or bool
         Should the Gamma-point be included?  Yes / no / don't care:
         True / False / None.
-    gamma: None or bool
+    even: None or bool
         Should the number of k-points be even?  Yes / no / don't care:
         True / False / None.
     atoms: Atoms object

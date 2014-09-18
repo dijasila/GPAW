@@ -19,9 +19,10 @@ from gpaw.utilities.timing import nulltimer
 from gpaw.io import read_atomic_matrices
 from gpaw.mpi import SerialCommunicator
 
+
 class Density:
     """Density object.
-    
+
     Attributes:
      =============== =====================================================
      ``gd``          Grid descriptor for coarse grids.
@@ -39,7 +40,7 @@ class Density:
      ``nct_G``  Core electron-density on the coarse grid.
      ========== =========================================
     """
-    
+
     def __init__(self, gd, finegd, nspins, charge, collinear=True):
         """Create the Density object."""
 
@@ -53,7 +54,7 @@ class Density:
         self.ns = self.nspins * self.ncomp**2
 
         self.charge_eps = 1e-7
-        
+
         self.D_asp = None
         self.Q_aL = None
 
@@ -68,7 +69,7 @@ class Density:
 
         self.mixer = BaseMixer()
         self.timer = nulltimer
-        
+
     def initialize(self, setups, timer, magmom_av, hund):
         self.timer = timer
         self.setups = setups
@@ -132,7 +133,7 @@ class Density:
         self.timer.start('Multipole moments')
         comp_charge = self.calculate_multipole_moments()
         self.timer.stop('Multipole moments')
-        
+
         if isinstance(wfs, LCAOWaveFunctions):
             self.timer.start('Normalize')
             self.normalize(comp_charge)
@@ -147,7 +148,7 @@ class Density:
         """Normalize pseudo density."""
         if comp_charge is None:
             comp_charge = self.calculate_multipole_moments()
-        
+
         pseudo_charge = self.gd.integrate(self.nt_sG[:self.nspins]).sum()
 
         if pseudo_charge + self.charge + comp_charge != 0:
@@ -164,7 +165,7 @@ class Density:
         if not self.mixer.mix_rho:
             self.mixer.mix(self)
             comp_charge = None
-          
+
         self.interpolate_pseudo_density(comp_charge)
         self.calculate_pseudo_charge()
 
@@ -207,7 +208,7 @@ class Density:
             M_v = self.magmom_av[a]
             M = (M_v**2).sum()**0.5
             f_si = self.setups[a].calculate_initial_occupation_numbers(
-                    M, self.hund, charge=c, nspins=self.nspins * self.ncomp)
+                M, self.hund, charge=c, nspins=self.nspins * self.ncomp)
 
             if self.collinear:
                 if M_v[2] < 0:
@@ -219,10 +220,10 @@ class Density:
                 f_si[0] = f_i
                 if M > 0:
                     f_si[1:4] = np.outer(M_v / M, fm_i)
-            
+
             if a in basis_functions.my_atom_indices:
                 self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
-            
+
             f_asi[a] = f_si
 
         self.nt_sG = self.gd.zeros(self.ns)
@@ -271,14 +272,14 @@ class Density:
                 beta = 0.25
                 history = 3
                 weight = 1.0
-                
+
             if self.nspins == 2:
                 self.mixer = MixerSum(beta, history, weight)
             else:
                 self.mixer = Mixer(beta, history, weight)
 
         self.mixer.initialize(self)
-        
+
     def estimate_magnetic_moments(self):
         magmom_av = np.zeros_like(self.magmom_av)
         if self.nspins == 2 or not self.collinear:
@@ -323,7 +324,7 @@ class Density:
         elif gridrefinement == 4:
             # Extra fine grid
             gd = self.finegd.refine()
-            
+
             # Interpolation function for the density:
             interpolator = Transformer(self.finegd, gd, 3)
 
@@ -395,7 +396,7 @@ class Density:
             phi.lfc.ae_valence_density_correction(rho_MM, n_sg[s], a_W, I_a,
                                                   x_W)
             phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a,
-                                                  x_W)
+                                                   x_W)
 
         a_W = np.empty(len(nc.M_W), np.intc)
         W = 0
@@ -505,7 +506,7 @@ class RealSpaceDensity(Density):
 
         # Interpolation function for the density:
         self.interpolator = Transformer(self.gd, self.finegd, self.stencil)
-        
+
         spline_aj = []
         for setup in setups:
             if setup.nct is None:
@@ -553,7 +554,7 @@ class RealSpaceDensity(Density):
 
         a_xR = in_xR.reshape((-1,) + in_xR.shape[-ndim:])
         b_xR = out_xR.reshape((-1,) + out_xR.shape[-ndim:])
-        
+
         for in_R, out_R in zip(a_xR, b_xR):
             self.interpolator.apply(in_R, out_R)
 

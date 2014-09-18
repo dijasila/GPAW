@@ -6,7 +6,7 @@ from ase.units import Hartree, Bohr
 from gpaw import GPAW
 from gpaw.xc import XC
 from gpaw.xc.libxc import LibXC
-from gpaw.response.df import DF
+from gpaw.response.df0 import DF
 from gpaw.utilities import devnull
 from gpaw.utilities.blas import gemmdot, axpy
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -67,7 +67,7 @@ class FXCCorrelation:
                                                              op_scc)[0]
             self.q_weights = calc.wfs.kd.q_weights
         
-        if xc == None:
+        if xc is None:
             self.xc = 'RPA'
         else:
             self.xc = xc

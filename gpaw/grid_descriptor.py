@@ -140,7 +140,8 @@ class GridDescriptor(Domain):
         self.n_c = self.end_c - self.beg_c
 
         self.h_cv = self.cell_cv / self.N_c[:, np.newaxis]
-        self.dv = abs(np.linalg.det(self.cell_cv)) / self.N_c.prod()
+        self.volume = abs(np.linalg.det(self.cell_cv))
+        self.dv = self.volume / self.N_c.prod()        
 
         self.orthogonal = not (self.cell_cv -
                                np.diag(self.cell_cv.diagonal())).any()
@@ -407,15 +408,21 @@ class GridDescriptor(Domain):
         N_c = self.N_c
         return np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
 
-    def symmetrize(self, a_g, op_scc):
+    def symmetrize(self, a_g, op_scc, ft_sc=None):
         if len(op_scc) == 1:
             return
         
+        if ft_sc is not None and not ft_sc.any():
+            ft_sc = None
+            
         A_g = self.collect(a_g)
         if self.comm.rank == 0:
             B_g = np.zeros_like(A_g)
-            for op_cc in op_scc:
-                _gpaw.symmetrize(A_g, B_g, op_cc)
+            for s, op_cc in enumerate(op_scc):
+                if ft_sc is None:
+                    _gpaw.symmetrize(A_g, B_g, op_cc)
+                else:
+                    _gpaw.symmetrize_ft(A_g, B_g, op_cc, ft_sc[s])
         else:
             B_g = None
         self.distribute(B_g, a_g)

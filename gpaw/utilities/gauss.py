@@ -121,7 +121,7 @@ class Gaussian:
 
     def remove_moment(self, n, L, q=None):
         # Determine multipole moment
-        if q == None:
+        if q is None:
             q = self.get_moment(n, L)
 
         # Don't do anything if moment is less than the tolerance

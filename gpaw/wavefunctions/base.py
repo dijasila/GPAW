@@ -199,15 +199,6 @@ class WaveFunctions(EmptyWaveFunctions):
         # All the classes passing around spos_ac end up needing the ranks
         # anyway.
 
-        """
-        # If both old and new atomic ranks are present, start a blank dict if
-        # it previously didn't exist but it will needed for the new atoms.
-        if (self.rank_a is not None and rank_a is not None and
-            self.kpt_u[0].P_ani is None and (rank_a == self.gd.comm.rank).any()):
-            for kpt in self.kpt_u:
-                kpt.P_ani = {}
-        """
-
         if self.rank_a is not None and self.kpt_u[0].P_ani is not None:
             self.timer.start('Redistribute')
             mynks = len(self.kpt_u)
@@ -222,8 +213,7 @@ class WaveFunctions(EmptyWaveFunctions):
         self.rank_a = rank_a
         self.atom_partition = atom_partition
 
-        if self.symmetry is not None:
-            self.symmetry.check(spos_ac)
+        self.symmetry.check(spos_ac)
 
     def allocate_arrays_for_projections(self, my_atom_indices):
         if not self.positions_set and self.kpt_u[0].P_ani is not None:
@@ -302,7 +292,7 @@ class WaveFunctions(EmptyWaveFunctions):
             if isinstance(value, str):
                 a_o = getattr(kpt_u[u], value)
             else:
-                a_o = value[u] # assumed list
+                a_o = value[u]  # assumed list
 
             # Make sure data is a mutable object
             a_o = np.asarray(a_o)
@@ -330,13 +320,12 @@ class WaveFunctions(EmptyWaveFunctions):
 
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
 
-        natoms = len(self.rank_a) # it's a hack...
+        natoms = len(self.rank_a)  # it's a hack...
         nproj = sum([setup.ni for setup in self.setups])
 
         if self.world.rank == 0:
             if kpt_rank == 0:
                 P_ani = self.kpt_u[u].P_ani
-            mynu = len(self.kpt_u)
             all_P_ni = np.empty((self.bd.nbands, nproj), self.dtype)
             for band_rank in range(self.band_comm.size):
                 nslice = self.bd.get_slice(band_rank)
@@ -357,7 +346,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 assert i == nproj
             return all_P_ni
 
-        elif self.kpt_comm.rank == kpt_rank: # plain else works too...
+        elif self.kpt_comm.rank == kpt_rank:  # plain else works too...
             P_ani = self.kpt_u[u].P_ani
             for a in range(natoms):
                 if a in P_ani:
@@ -383,7 +372,6 @@ class WaveFunctions(EmptyWaveFunctions):
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
         band_rank, myn = self.bd.who_has(n)
 
-        size = self.world.size
         rank = self.world.rank
 
         if (self.kpt_comm.rank == kpt_rank and

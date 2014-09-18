@@ -5,7 +5,7 @@ See::
   Self-Consistent Pseudopotential for Si
   Joel A. Appelbaum and D. R. Hamann
   PRB 8, 1777 (1973)
-  
+
 """
 
 import numpy as np
@@ -16,12 +16,11 @@ from gpaw.basis_data import Basis
 
 
 class AppelbaumHamann(BaseSetup):
-
     def __init__(self, alpha=0.6102, v1=3.042, v2=-1.372):
         self.alpha = alpha
         self.v1 = v1
         self.v2 = v2
-        
+
         self.E = 0.0
         self.Z = 14
         self.Nc = 10
@@ -53,7 +52,7 @@ class AppelbaumHamann(BaseSetup):
         self.dO_ii = np.zeros((1, 1))
         self.type = 'ah'
         self.fingerprint = None
-        
+
     def build(self, basis):
         if basis is None:
             basis = Basis('Si', 'sz(dzp)')
@@ -62,10 +61,10 @@ class AppelbaumHamann(BaseSetup):
         self.basis = basis
         self.phit_j = self.basis.tosplines()
         self.nao = self.basis.nao
-    
+
     def print_info(self, text):
         text('Appelbaum-Hamann pseudo potential')
-        
+
     def calculate_initial_occupation_numbers(self, magmom, hund, charge,
                                              nspins):
         assert nspins == 1

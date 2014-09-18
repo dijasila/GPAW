@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from math import pi, log
+from math import pi
 
 import numpy as np
 from numpy.linalg import eigh
@@ -13,7 +13,6 @@ from ase.data import atomic_numbers, atomic_names, chemical_symbols
 
 from gpaw.xc import XC
 from gpaw.gaunt import make_gaunt
-from gpaw.utilities import _fact as fac
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
 
@@ -101,7 +100,6 @@ class GaussianBasis:
 
 
 def coefs(rgd, l, vr_g, e, scalar_relativistic):
-    d2gdr2_g = rgd.d2gdr2()
     r_g = rgd.r_g
 
     x0_g = 2 * (e * r_g - vr_g)
@@ -163,15 +161,17 @@ class Channel:
             iter = 0
             ok = False
             while True:
-                du1dr = self.integrate_outwards(u_g, rgd, vr_g, g0, e,
-                                                scalar_relativistic)
+                du1dr, a = self.integrate_outwards(u_g, rgd, vr_g, g0, e,
+                                                   scalar_relativistic)
                 u1 = u_g[g0]
                 du2dr = self.integrate_inwards(u_g, rgd, vr_g, g0, e,
                                                scalar_relativistic)
                 u2 = u_g[g0]
                 A = du1dr / u1 - du2dr / u2
                 u_g[g0:] *= u1 / u2
-                u_g /= (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
+                norm = rgd.integrate(u_g**2, -2) / (4 * pi)
+                u_g /= norm**0.5
+                a /= norm**0.5
 
                 if abs(A) < 1e-5:
                     ok = True
@@ -187,8 +187,7 @@ class Channel:
             if ok:
                 self.e_n[n] = e
                 self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
-                if self.l == 0:
-                    self.phi_ng[n, 0] = self.phi_ng[n, 1]
+                self.phi_ng[n, 0] = a * 0.0**self.l
             
     def calculate_density(self, n=None):
         """Calculate density."""
@@ -199,6 +198,16 @@ class Channel:
         else:
             n_g = self.phi_ng[n]**2 / (4 * pi)
         return n_g
+
+    def calculate_kinetic_energy_density(self, n):
+        """Calculate kinetic energy density."""
+        phi_g = self.phi_ng[n]
+        rgd = self.basis.rgd
+        tau_g = rgd.derivative(phi_g)**2 / (8 * pi)
+        if self.l > 0:
+            tau_g[1:] += (self.l * (self.l + 1) *
+                          (phi_g[1:] / rgd.r_g[1:])**2 / (8 * pi))
+        return tau_g
 
     def get_eigenvalue_sum(self):
         f_n = self.f_n
@@ -237,10 +246,10 @@ class Channel:
 
         u_g[:g0 + 2] = a_g * r_g[:g0 + 2]**(l + 1)
 
-        return dudr
+        return dudr, a_g[0]
 
     def integrate_inwards(self, u_g, rgd, vr_g, g0, e,
-                          scalar_relativistic=False):
+                          scalar_relativistic=False, gmax=None):
         l = self.l
         r_g = rgd.r_g
 
@@ -250,10 +259,13 @@ class Channel:
         c0_g /= -cm1_g
         cp1_g /= -cm1_g
 
-        g = len(u_g) - 2
+        if gmax is None:
+            gmax = len(u_g)
+
+        g = gmax - 2
         agp1 = 1.0
-        u_g[-1] = agp1 * r_g[-1]**(l + 1)
-        ag = np.exp(-(-2 * e)**0.5 * (rgd.r_g[-2] - rgd.r_g[-1]))
+        u_g[gmax - 1] = agp1 * r_g[gmax - 1]**(l + 1)
+        ag = np.exp(-(-2 * e)**0.5 * (rgd.r_g[gmax - 2] - rgd.r_g[gmax - 1]))
 
         while True:
             u_g[g] = ag * r_g[g]**(l + 1)
@@ -317,7 +329,7 @@ class DiracChannel(Channel):
         
 class AllElectronAtom:
     def __init__(self, symbol, xc='LDA', spinpol=False, dirac=False,
-                 log=sys.stdout):
+                 log=None):
         """All-electron calculation for spherically symmetric atom.
 
         symbol: str (or int)
@@ -347,9 +359,7 @@ class AllElectronAtom:
         else:
             self.xc = xc
 
-        if log is None:
-            log = devnull
-        self.fd = log
+        self.fd = log or sys.stdout
 
         self.vr_sg = None  # potential * r
         self.n_sg = 0.0    # density
@@ -389,6 +399,12 @@ class AllElectronAtom:
                 f0 = min(f, 2 * l + 1)
                 self.f_lsn[l][0].append(f0)
                 self.f_lsn[l][1].append(f - f0)
+                
+        if 0:
+            n = 2 + len(self.f_lsn[2][0])
+            if self.f_lsn[0][0][n] == 2:
+                self.f_lsn[0][0][n] = 1
+                self.f_lsn[2][0][n - 3] += 1
 
     def add(self, n, l, df=+1, s=None):
         """Add (remove) electrons."""
@@ -494,13 +510,14 @@ class AllElectronAtom:
     def calculate_electrostatic_potential(self):
         """Calculate electrostatic potential and energy."""
         n_g = self.n_sg.sum(0)
-        self.vHr_g = self.rgd.poisson(n_g)        
+        self.vHr_g = self.rgd.poisson(n_g)
         self.eH = 0.5 * self.rgd.integrate(n_g * self.vHr_g, -1)
         self.eZ = -self.Z * self.rgd.integrate(n_g, -1)
         
     def calculate_xc_potential(self):
         self.vxc_sg = self.rgd.zeros(self.nspins)
-        self.exc = self.xc.calculate_spherical(self.rgd, self.n_sg, self.vxc_sg)
+        self.exc = self.xc.calculate_spherical(self.rgd, self.n_sg,
+                                               self.vxc_sg)
 
     def step(self):
         self.solve()
@@ -569,7 +586,7 @@ class AllElectronAtom:
         for e, ch, n in states:
             name = str(n + ch.l + 1) + ch.name
             if self.nspins == 2:
-                name += '(%s)' % '+-'[ch.s]    
+                name += '(%s)' % '+-'[ch.s]
             n_g = ch.calculate_density(n)
             rave = self.rgd.integrate(n_g, 1)
             self.log(' %-7s  %6.3f %13.6f  %13.5f %6.3f' %
@@ -613,7 +630,7 @@ class AllElectronAtom:
                 name = str(n + ch.l + 1) + ch.name
                 lw = 2
                 if self.nspins == 2:
-                    name += '(%s)' % '+-'[ch.s]    
+                    name += '(%s)' % '+-'[ch.s]
                     if ch.s == 1:
                         lw = 1
                 if self.dirac and ch.k > 0:
@@ -638,7 +655,7 @@ class AllElectronAtom:
         logderivs = []
         for e in energies:
             dudr = ch.integrate_outwards(u_g, self.rgd, self.vr_sg[0],
-                                         gcut, e, self.scalar_relativistic)
+                                         gcut, e, self.scalar_relativistic)[0]
             logderivs.append(dudr / u_g[gcut])
         return logderivs
             
@@ -681,7 +698,7 @@ class AllElectronAtom:
         return exx
 
 
-def build_parser(): 
+def build_parser():
     from optparse import OptionParser
 
     parser = OptionParser(usage='%prog [options] element',

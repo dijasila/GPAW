@@ -244,7 +244,7 @@ class C_Response(Contribution):
         return 0.0 # Response part does not contribute to energy
 
     def calculate_delta_xc(self, homolumo = None):
-        if homolumo == None:
+        if homolumo is None:
             # Calculate band gap
             print "Warning: Calculating KS-gap directly from the k-points, can be inaccurate."
             #homolumo = self.occupations.get_homo_lumo(self.wfs)
@@ -429,7 +429,7 @@ class C_Response(Contribution):
         During the writing process, the DeltaXC is calculated (if not yet calculated)
         """
         
-        if self.Dxc_vt_sG == None:
+        if self.Dxc_vt_sG is None:
             self.calculate_delta_xc()
         
         wfs = self.wfs
