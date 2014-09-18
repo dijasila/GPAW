@@ -1,6 +1,7 @@
-from ase import *
+from ase import Atoms
 from ase.parallel import paropen
-from gpaw import *
+from gpaw import GPAW, FermiDirac
+from gpaw.mixer import MixerSum
 from gpaw.xc.exx import EXX
 from gpaw.wavefunctions.pw import PW
 
@@ -12,18 +13,18 @@ CO.center(vacuum=3.0)
 calc = GPAW(mode=PW(600),
             dtype=complex,
             xc='PBE',
-            txt='CO_pbe.txt',
+            txt='CO.ralda_01_CO_pbe.txt',
             convergence={'density': 1.e-6})
 
 CO.set_calculator(calc)
-E0_pbe= CO.get_potential_energy()
+E0_pbe = CO.get_potential_energy()
 
-exx = EXX(calc, txt='CO_exx.txt')
+exx = EXX(calc, txt='CO.ralda_01_CO_exx.txt')
 exx.calculate()
 E0_hf = exx.get_total_energy()
 
 calc.diagonalize_full_hamiltonian()
-calc.write('CO.gpw', mode='all')
+calc.write('CO.ralda.pbe_wfcs_CO.gpw', mode='all')
 
 # C -------------------------------------------
 
@@ -36,22 +37,23 @@ calc = GPAW(mode=PW(600),
             xc='PBE',
             mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),
             hund=True,
-            txt='C.txt',
+            occupations=FermiDirac(0.01, fixmagmom=True),
+            txt='CO.ralda_01_C_pbe.txt',
             convergence={'density': 1.e-6})
 
 C.set_calculator(calc)
 E1_pbe = C.get_potential_energy()
 
-exx = EXX(calc, txt='C_exx.txt')
+exx = EXX(calc, txt='CO.ralda_01_C_exx.txt')
 exx.calculate()
 E1_hf = exx.get_total_energy()
 
-f = paropen('PBE_HF_C.dat', 'w')
+f = paropen('CO.ralda.PBE_HF_C.dat', 'w')
 print >> f, E1_pbe, E1_hf
 f.close()
 
 calc.diagonalize_full_hamiltonian()
-calc.write('C.gpw', mode='all')
+calc.write('CO.ralda.pbe_wfcs_C.gpw', mode='all')
 
 # O -------------------------------------------
 
@@ -64,20 +66,20 @@ calc = GPAW(mode=PW(600),
             xc='PBE',
             mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),
             hund=True,
-            txt='O.txt',
+            txt='CO.ralda_01_O_pbe.txt',
             convergence={'density': 1.e-6})
 
 O.set_calculator(calc)
 E2_pbe = O.get_potential_energy()
 
-exx = EXX(calc, txt='O_exx.txt')
+exx = EXX(calc, txt='CO.ralda_01_O_exx.txt')
 exx.calculate()
 E2_hf = exx.get_total_energy()
 
 calc.diagonalize_full_hamiltonian()
-calc.write('O.gpw', mode='all')
+calc.write('CO.ralda.pbe_wfcs_O.gpw', mode='all')
 
-f = paropen('PBE_HF_CO.dat', 'w')
+f = paropen('CO.ralda.PBE_HF_CO.dat', 'w')
 print >> f, 'PBE: ', E0_pbe - E1_pbe - E2_pbe
 print >> f, 'HF: ', E0_hf - E1_hf - E2_hf
 f.close()
