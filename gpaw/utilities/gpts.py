@@ -14,17 +14,17 @@ def get_number_of_grid_points(cell_cv, h=None, mode=None, realspace=None,
         mode = 'fd'
 
     if realspace is None:
-        realspace = not isinstance(mode, PW)
+        realspace = str(mode) != 'pw'
 
     if h is None:
-        if isinstance(mode, PW):
+        if str(mode) == 'pw':
             h = np.pi / (4 * mode.ecut)**0.5
-        elif mode == 'lcao' and not realspace:
+        elif str(mode) == 'lcao' and not realspace:
             h = np.pi / (4 * 340 / Hartree)**0.5
         else:
             h = 0.2 / Bohr
 
-    if realspace or mode == 'fd':
+    if realspace or str(mode) == 'fd':
         N_c = h2gpts(h, cell_cv, 4)
     else:
         N_c = h2gpts(h, cell_cv, 1)

@@ -636,10 +636,10 @@ def construct_c_code(file='temp.c', lmax=3):
     
 // inserts values of f(r) r^l Y_lm(theta, phi) in elements of input array 'a'
 void bmgs_radial3(const bmgsspline* spline, int m, 
-		  const int n[3], 
-		  const double C[3],
-		  const double h[3],
-		  const double* f, double* a)
+                  const int n[3], 
+                  const double C[3],
+                  const double h[3],
+                  const double* f, double* a)
 {
   int l = spline->l;
   if (l == 0)
@@ -654,10 +654,10 @@ void bmgs_radial3(const bmgsspline* spline, int m,
 //        dq                                             dq
 // where q={x, y, z} and g(r) = 1/r*(df/dr)
 void bmgs_radiald3(const bmgsspline* spline, int m, int c, 
-		  const int n[3], 
-		  const double C[3],
-		  const double h[3],
-		  const double* f, const double* g, double* a)
+                  const int n[3], 
+                  const double C[3],
+                  const double h[3],
+                  const double* f, const double* g, double* a)
 {
   int l = spline->l;
 """
@@ -671,16 +671,16 @@ void bmgs_radiald3(const bmgsspline* spline, int m, int c,
           for (int i1 = 0; i1 < n[1]; i1++)
             {
               double z = C[2];
-	      for (int i2 = 0; i2 < n[2]; i2++, q++)
-		{
+              for (int i2 = 0; i2 < n[2]; i2++, q++)
+                {
 """
     end_case = """
                   z += h[2];
-		}
-	      y += h[1];
-	    }
-	  x += h[0];
-	}
+                }
+              y += h[1];
+            }
+          x += h[0];
+        }
     }
 """
     

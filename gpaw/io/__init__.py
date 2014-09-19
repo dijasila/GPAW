@@ -587,14 +587,20 @@ def read(paw, reader):
             raise ValueError('shape mismatch: expected %s=%d' % (name, dim))
 
     timer.start('Density')
-    density.read(r, parallel, kd, bd)
+    density.read(r, parallel, wfs.kptband_comm)
     timer.stop('Density')
 
     timer.start('Hamiltonian')
-    hamiltonian.read(r, parallel, kd, bd)
+    hamiltonian.read(r, parallel)
     timer.stop('Hamiltonian')
 
-    wfs.rank_a = np.zeros(natoms, int)
+    from gpaw.utilities.partition import AtomPartition
+    atom_partition = AtomPartition(gd.comm, np.zeros(natoms, dtype=int))
+    # <sarcasm>let's set some variables directly on some objects!</sarcasm>
+    wfs.atom_partition = atom_partition # XXX
+    wfs.rank_a = np.zeros(natoms, int) # XXX
+    density.atom_partition = atom_partition # XXX
+    hamiltonian.atom_partition = atom_partition # XXX
 
     if version > 0.3:
         Etot = hamiltonian.Etot

@@ -47,6 +47,7 @@ class InputParameters(dict):
             ('parallel', {'kpt': None,
                           'domain': gpaw.parsize_domain,
                           'band': gpaw.parsize_bands,
+                          'order': 'kdb',
                           'stridebands': False,
                           'sl_auto': False,
                           'sl_default': gpaw.sl_default,

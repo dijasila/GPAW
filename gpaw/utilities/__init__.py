@@ -38,6 +38,14 @@ def ffact(a, b):
     assert a in xrange(b+1)
     return reduce(mul, xrange(a+1, b+1), 1)
 
+# Code will crash for setups without any projectors.  Setups that have
+# no projectors therefore receive a dummy projector as a hacky
+# workaround.  The projector is assigned a certain, small size.  If
+# the grid is so coarse that no point falls within the projector's range,
+# there'll also be an error.  So this limits allowed grid spacings.
+min_locfun_radius = 0.85 # Bohr
+smallest_safe_grid_spacing = 2 * min_locfun_radius / np.sqrt(3) # ~0.52 Ang
+
 def h2gpts(h, cell_cv, idiv=4):
     """Convert grid spacing to number of grid points divisible by idiv.
 

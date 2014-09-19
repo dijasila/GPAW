@@ -330,7 +330,7 @@ class Contour:
         self.minfermi = min(self.leadfermi)
         self.maxfermi = max(self.leadfermi)
         self.plot_eta = plot_eta
-	self.eta = eta
+        self.eta = eta
         self.dtype = complex
         self.comm = comm
         if self.comm is None:

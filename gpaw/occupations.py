@@ -23,6 +23,10 @@ class OccupationNumbers:
         self.nvalence = None    # number of electrons
         self.split = 0.0        # splitting of Fermi levels from fixmagmom=True
         self.niter = 0          # number of iterations for finding Fermi level
+        self.ready = False
+
+    def is_ready(self):
+        return self.ready
         
     def calculate(self, wfs):
         """Calculate everything.
@@ -37,13 +41,18 @@ class OccupationNumbers:
         * HOMO and LUMO energies
         """
 
+        # Allow subclasses to adjust nvalence:
+        self.set_number_of_electrons(wfs)
+
+        
         # Allocate:
         for kpt in wfs.kpt_u:
             if kpt.f_n is None:
                 kpt.f_n = wfs.bd.empty()
 
-        # Allow subclasses to adjust nvalence:
-        self.set_number_of_electrons(wfs)
+            # There are no eigenvalues, might as well return
+            if kpt.eps_n is None:
+                return
 
         # Let the master domain do the work and broadcast results:
         data = np.empty(7)
@@ -62,6 +71,7 @@ class OccupationNumbers:
 
     def set_number_of_electrons(self, wfs):
         self.nvalence = wfs.nvalence
+        self.ready = True
 
     def calculate_occupation_numbers(self, wfs):
         raise NotImplementedError
@@ -71,7 +81,7 @@ class OccupationNumbers:
         e_band = 0.0
         for kpt in wfs.kpt_u:
             e_band += np.dot(kpt.f_n, kpt.eps_n)
-        self.e_band = wfs.bd.comm.sum(wfs.kpt_comm.sum(e_band))
+        self.e_band = wfs.kptband_comm.sum(e_band)
 
     def print_fermi_level(self, stream):
         pass
@@ -290,8 +300,7 @@ class ZeroKelvin(OccupationNumbers):
                 homo, lumo = occupy(f_n, eps_n, ne)
                 fermilevels[kpt.s] = 0.5 * (homo + lumo)
             wfs.bd.distribute(f_n, kpt.f_n)
-        wfs.bd.comm.sum(fermilevels)
-        wfs.kd.comm.sum(fermilevels)
+        wfs.kptband_comm.sum(fermilevels)
         self.fermilevel = fermilevels.mean()
         self.split = fermilevels[0] - fermilevels[1]
         
@@ -425,10 +434,26 @@ class SmoothDistribution(ZeroKelvin):
         if wfs.nspins == 1:
             assert spin == 0
             n = self.nvalence // 2
-            homo = wfs.world.max(max([kpt.eps_n[n - 1] for kpt in wfs.kpt_u]))
-            lumo = wfs.world.min(min([kpt.eps_n[n] for kpt in wfs.kpt_u]))
+            band_rank, myn = wfs.bd.who_has(n-1)
+            if wfs.bd.rank == band_rank:
+                homo = max([kpt.eps_n[myn] for kpt in wfs.kpt_u])
+            else:
+                homo = -1000.0
+            homo = wfs.world.max(homo)
+
+            # There are not enough bands for LUMO
+            if n >= wfs.bd.nbands:
+                return np.array([homo, np.NaN])
+
+            band_rank, myn = wfs.bd.who_has(n)
+            if wfs.bd.rank == band_rank:
+                lumo = -max([-kpt.eps_n[myn] for kpt in wfs.kpt_u])
+            else:
+                lumo = 1000.0
+            lumo= -wfs.world.max(-lumo)
             return np.array([homo, lumo])
         else:
+            assert wfs.bd.size == 1
             eps_homo = -1000.0
             eps_lumo = 1000.0
             epsilon = 1e-2
@@ -443,6 +468,8 @@ class SmoothDistribution(ZeroKelvin):
             
             eps_homo = wfs.kd.comm.max(eps_homo)
             eps_lumo = wfs.kd.comm.min(eps_lumo)
+            eps_homo = wfs.bd.comm.max(eps_homo)
+            eps_lumo = wfs.bd.comm.min(eps_lumo)
 
             return np.array([eps_homo, eps_lumo])
 
@@ -456,11 +483,8 @@ class SmoothDistribution(ZeroKelvin):
 
         if self.nvalence is None:
             self.calculate(wfs)
-
-        n = self.nvalence // 2
-        homo = wfs.world.max(max([kpt.eps_n[n - 1] for kpt in wfs.kpt_u]))
-        lumo = wfs.world.min(min([kpt.eps_n[n] for kpt in wfs.kpt_u]))
-        return np.array([homo, lumo])
+        
+        return self.get_homo_lumo_by_spin(wfs, 0)
 
     def guess_fermi_level(self, wfs):
         fermilevel = 0.0
@@ -493,7 +517,7 @@ class SmoothDistribution(ZeroKelvin):
                                   (f_i[i] - f_i[i - 1]))
 
         # XXX broadcast would be better!
-        return wfs.bd.comm.sum(wfs.kpt_comm.sum(fermilevel))
+        return wfs.kptband_comm.sum(fermilevel)
                     
     def find_fermi_level(self, wfs, ne, fermilevel, spins=(0, 1)):
         niter = 0
@@ -502,8 +526,7 @@ class SmoothDistribution(ZeroKelvin):
             for kpt in wfs.kpt_u:
                 if kpt.s in spins:
                     data += self.distribution(kpt, fermilevel)
-            wfs.kpt_comm.sum(data)
-            wfs.bd.comm.sum(data)
+            wfs.kptband_comm.sum(data)
             n, dnde, magmom, e_entropy = data
             dn = ne - n
             if abs(dn) < 1e-9:
@@ -528,7 +551,7 @@ class SmoothDistribution(ZeroKelvin):
 
 
 class FermiDirac(SmoothDistribution):
-    def __init__(self, width, fixmagmom=False, maxiter=1000):
+    def __init__(self, width, fixmagmom=False, maxiter=10000):
         SmoothDistribution.__init__(self, width, fixmagmom, maxiter)
 
     def distribution(self, kpt, fermilevel):

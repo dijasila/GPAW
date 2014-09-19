@@ -27,7 +27,7 @@ assert not np.version.version.startswith('1.6.0')
 
 __all__ = ['GPAW', 'Calculator',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
-           'CG', 'Davidson', 'RMM_DIIS', 'LCAO',
+           'CG', 'Davidson', 'RMM_DIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
            'restart']
@@ -237,9 +237,10 @@ except KeyError:
 
 from gpaw.aseinterface import GPAW
 from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
-from gpaw.eigensolvers import Davidson, RMM_DIIS, CG, LCAO
+from gpaw.eigensolvers import Davidson, RMM_DIIS, CG, DirectLCAO
 from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac, MethfesselPaxton
+from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.pw import PW
 
 

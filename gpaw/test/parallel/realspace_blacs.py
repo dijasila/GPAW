@@ -30,9 +30,11 @@ h = 0.2        # grid spacing
 a = h * G      # side length of box
 
 # Set up communicators:
-domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain=D,
-                                                   parsize_bands=B,
-                                                   nspins=1, nibzkpts=2)
+comms = distribute_cpus(parsize_domain=D,
+                        parsize_bands=B,
+                        nspins=1, nibzkpts=2)
+domain_comm, kpt_comm, band_comm, block_comm = \
+    [comms[name] for name in ['d', 'k', 'b', 'K']]
 assert world.size == D*B*kpt_comm.size
 
 if world.rank == 0:
@@ -78,7 +80,7 @@ def blacs_inverse_cholesky(ksl, S_Nn, C_nN):
     C_nN[:] = bmd.redistribute_input(C_nn)
 
 def main(seed=42, dtype=float):
-    ksl = BlacsBandLayouts(gd, bd, dtype, mcpus, ncpus, blocksize)
+    ksl = BlacsBandLayouts(gd, bd, block_comm, dtype, mcpus, ncpus, blocksize)
     nbands = bd.nbands
     mynbands = bd.mynbands
 

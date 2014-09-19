@@ -176,6 +176,7 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
             i = 0
             for ia, a in enumerate(self.atoms):
                 for ic in range(3):
+                    print "ncalcs", ncalcs, "i", i, "icalc",icalc
                     if (i % ncalcs) == icalc:
                         F_av[ia, ic] = numeric_force(
                             atoms, ia, ic, self.d) / mycomm.size

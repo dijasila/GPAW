@@ -80,7 +80,7 @@ class Banded_Sparse_Matrix:
             #ku -= 1
             #kl -= 1
             ku = dim
-	    kl = dim
+            kl = dim
    
             # storage in the tranpose, bacause column major order for zgbsv_ function
             length = (kl + ku + 1) * dim - kl * (kl + 1) / 2. - \

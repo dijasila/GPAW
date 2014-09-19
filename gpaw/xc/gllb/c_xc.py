@@ -47,6 +47,7 @@ class C_XC(Contribution):
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         E = self.xc.calculate_paw_correction(setup, D_sp, H_sp, True, a)
         E += setup.xc_correction.Exc0
+        print "E", E
         return E
 
     def add_xc_potential_and_energy_1d(self, v_g):

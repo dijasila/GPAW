@@ -3,13 +3,13 @@
 from gpaw.eigensolvers.rmm_diis import RMM_DIIS
 from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
-from gpaw.lcao.eigensolver import LCAO
+from gpaw.lcao.eigensolver import DirectLCAO
 
 
 def get_eigensolver(name, mode, convergence=None):
     """Create eigensolver object."""
     if name is None:
-        if mode == 'lcao':
+        if str(mode) == 'lcao':
             name = 'lcao'
         else:
             name = 'dav'
@@ -17,7 +17,7 @@ def get_eigensolver(name, mode, convergence=None):
         eigensolver = {'rmm-diis':  RMM_DIIS,
                        'cg':        CG,
                        'dav':       Davidson,
-                       'lcao':      LCAO
+                       'lcao':      DirectLCAO
                        }[name]()
     else:
         eigensolver = name
@@ -25,6 +25,6 @@ def get_eigensolver(name, mode, convergence=None):
     if isinstance(eigensolver, CG):
         eigensolver.tolerance = convergence['eigenstates']
 
-    assert isinstance(eigensolver, LCAO) == (mode == 'lcao')
+    assert isinstance(eigensolver, DirectLCAO) == (str(mode) == 'lcao')
 
     return eigensolver

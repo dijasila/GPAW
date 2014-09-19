@@ -34,8 +34,8 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.wavefunctions.fd import FDWaveFunctions
+from gpaw.wavefunctions.lcao import LCAO, LCAOWaveFunctions
 from gpaw.utilities.memory import MemNode, maxrss
-from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.utilities.gpts import get_number_of_grid_points
@@ -129,7 +129,10 @@ class PAW(PAWTextOutput):
 
             self.initialize()
             self.read(reader)
-
+            if self.hamiltonian.xc.type == 'GLLB':
+                print "GLLB extra occupations calculate"
+                self.occupations.calculate(self.wfs)
+            
             self.print_cell_and_parameters()
 
         self.observers = []
@@ -169,7 +172,7 @@ class PAW(PAWTextOutput):
         self.initialized = False
 
         for key in kwargs:
-            if key == 'basis' and p['mode'] == 'fd':
+            if key == 'basis' and str(p['mode']) == 'fd': # umm what about PW?
                 continue
 
             if key == 'eigensolver':
@@ -188,8 +191,10 @@ class PAW(PAWTextOutput):
             self.scf = None
             self.wfs.set_orthonormalized(False)
             if key in ['lmax', 'width', 'stencils', 'external', 'xc',
-                       'poissonsolver', 'occupations']:
+                       'poissonsolver']:
                 self.hamiltonian = None
+                self.occupations = None
+            elif key in ['occupations']:
                 self.occupations = None
             elif key in ['charge']:
                 self.hamiltonian = None
@@ -368,21 +373,25 @@ class PAW(PAWTextOutput):
 
         mode = par.mode
 
-        if xc.orbital_dependent and mode == 'lcao':
+        #if mode == 'fd': # maybe some day
+        #    mode = FD()
+        if mode == 'pw':
+            mode = pw.PW()
+        elif mode == 'lcao':
+            mode = LCAO()
+
+        if xc.orbital_dependent and str(mode) == 'lcao':
             raise NotImplementedError('LCAO mode does not support '
                                       'orbital-dependent XC functionals.')
 
-        if mode == 'pw':
-            mode = pw.PW()
-
         if par.realspace is None:
-            realspace = not isinstance(mode, pw.PW)
+            realspace = (str(mode) != 'pw')
         else:
             realspace = par.realspace
-            if isinstance(mode, pw.PW):
+            if str(mode) == 'pw':
                 assert not realspace
 
-        if par.filter is None and not isinstance(mode, pw.PW):
+        if par.filter is None and str(mode) != 'pw':
             gamma = 1.6
             if par.gpts is not None:
                 h = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / par.gpts).max()
@@ -436,8 +445,12 @@ class PAW(PAWTextOutput):
         if symm == 'off':
             symm = {'point_group': False, 'time_reversal': False}
 
+        if par.dtype == complex and str(mode) == 'lcao':
+            gamma = False
+        else:
+            gamma = None
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
-        kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
+        kd = KPointDescriptor(bzkpts_kc, nspins, collinear, gamma=gamma)
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = zip(setups.id_a, *m_av.T)
         symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
@@ -498,7 +511,7 @@ class PAW(PAWTextOutput):
                                      % (nbands_from_atom, setup.Nv))
                 nbands += nbands_from_atom
             nbands = min(nao, nbands)
-        elif nbands > nao and mode == 'lcao':
+        elif nbands > nao and str(mode) == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: '
                              '%d bands and only %d atomic orbitals!' %
                              (nbands, nao))
@@ -525,17 +538,25 @@ class PAW(PAWTextOutput):
                       'occupations=FermiDirac(width, fixmagmom=True).')
 
         if self.occupations is None:
+            #print "self.occupations is None"
             if par.occupations is None:
                 # Create object for occupation numbers:
                 self.occupations = occupations.FermiDirac(width, par.fixmom)
             else:
                 self.occupations = par.occupations
 
+            # If occupation numbers are changed, and we have wave functions, 
+            # recalculate the occupation numbers
+            if self.wfs is not None and not isinstance(self.wfs, EmptyWaveFunctions):
+                self.occupations.calculate(self.wfs)
+                #print "Calculating occupations"
+            #print self.wfs
+
         self.occupations.magmom = M_v[2]
 
         cc = par.convergence
 
-        if mode == 'lcao':
+        if str(mode) == 'lcao':
             niter_fixdensity = 0
         else:
             niter_fixdensity = None
@@ -564,7 +585,7 @@ class PAW(PAWTextOutput):
             ndomains = None
             if parsize_domain is not None:
                 ndomains = np.prod(parsize_domain)
-            if isinstance(mode, pw.PW):
+            if str(mode) == 'pw':
                 if ndomains > 1:
                     raise ValueError('Planewave mode does not support '
                                      'domain decomposition.')
@@ -572,13 +593,15 @@ class PAW(PAWTextOutput):
             parallelization.set(kpt=parsize_kpt,
                                 domain=ndomains,
                                 band=parsize_bands)
-            domain_comm, kpt_comm, band_comm = \
-                parallelization.build_communicators()
-
-            #domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(
-            #    parsize_domain, parsize_bands,
-            #    nspins, kd.nibzkpts, world, par.idiotproof, mode)
-
+            #domain_comm, kpt_comm, band_comm, kptband_comm, domainband_comm
+            comms = parallelization.build_communicators()
+            domain_comm = comms['d']
+            kpt_comm = comms['k']
+            band_comm = comms['b']
+            kptband_comm = comms['D']
+            domainband_comm = comms['K']
+            
+            self.comms = comms
             kd.set_communicator(kpt_comm)
 
             parstride_bands = par.parallel['stridebands']
@@ -617,7 +640,8 @@ class PAW(PAWTextOutput):
                                             domain_comm, parsize_domain)
 
             # do k-point analysis here? XXX
-            args = (gd, nvalence, setups, bd, dtype, world, kd, self.timer)
+            args = (gd, nvalence, setups, bd, dtype, world, kd,
+                    kptband_comm, self.timer)
 
             if par.parallel['sl_auto']:
                 # Choose scalapack parallelization automatically
@@ -646,23 +670,18 @@ class PAW(PAWTextOutput):
             else:
                 sl_default = par.parallel['sl_default']
 
-            if mode == 'lcao':
+            if str(mode) == 'lcao':
                 # Layouts used for general diagonalizer
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
                     sl_lcao = sl_default
                 lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                               gd, bd, dtype,
+                                               gd, bd, domainband_comm, dtype,
                                                nao=nao, timer=self.timer)
 
-                if collinear:
-                    self.wfs = LCAOWaveFunctions(lcaoksl, *args)
-                else:
-                    from gpaw.xc.noncollinear import \
-                         NonCollinearLCAOWaveFunctions
-                    self.wfs = NonCollinearLCAOWaveFunctions(lcaoksl, *args)
+                self.wfs = mode(collinear, lcaoksl, *args)
 
-            elif mode == 'fd' or isinstance(mode, pw.PW):
+            elif str(mode) == 'fd' or str(mode) == 'pw':
                 # buffer_size keyword only relevant for fdpw
                 buffer_size = par.parallel['buffer_size']
                 # Layouts used for diagonalizer
@@ -670,7 +689,7 @@ class PAW(PAWTextOutput):
                 if sl_diagonalize is None:
                     sl_diagonalize = sl_default
                 diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',
-                                               gd, bd, dtype,
+                                               gd, bd, domainband_comm, dtype,
                                                buffer_size=buffer_size,
                                                timer=self.timer)
 
@@ -683,7 +702,7 @@ class PAW(PAWTextOutput):
                         'is not implemented.'
                     raise NotImplementedError(message)
                 orthoksl = get_KohnSham_layouts(sl_inverse_cholesky, 'fd',
-                                                gd, bd, dtype,
+                                                gd, bd, domainband_comm, dtype,
                                                 buffer_size=buffer_size,
                                                 timer=self.timer)
 
@@ -702,17 +721,17 @@ class PAW(PAWTextOutput):
                     if sl_lcao is None:
                         sl_lcao = sl_default
                     initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                                   gd, lcaobd, dtype,
-                                                   nao=nao,
+                                                   gd, lcaobd, domainband_comm,
+                                                   dtype, nao=nao,
                                                    timer=self.timer)
 
                 if hasattr(self, 'time'):
-                    assert mode == 'fd'
+                    assert str(mode) == 'fd'
                     from gpaw.tddft import TimeDependentWaveFunctions
                     self.wfs = TimeDependentWaveFunctions(par.stencils[0],
                         diagksl, orthoksl, initksl, gd, nvalence, setups,
-                        bd, world, kd, self.timer)
-                elif mode == 'fd':
+                        bd, world, kd, kptband_comm, self.timer)
+                elif str(mode) == 'fd':
                     self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
                                                orthoksl, initksl, *args)
                 else:
@@ -767,15 +786,15 @@ class PAW(PAWTextOutput):
             gd, finegd = self.density.gd, self.density.finegd
             if realspace:
                 self.hamiltonian = RealSpaceHamiltonian(
-                    gd, finegd, nspins, setups, self.timer, xc, par.external,
-                    collinear, par.poissonsolver, par.stencils[1], world)
+                    gd, finegd, nspins, setups, self.timer, xc, 
+                    world, self.wfs.kptband_comm, par.external,
+                    collinear, par.poissonsolver, par.stencils[1])
             else:
                 self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
-                    gd, finegd,
-                    self.density.pd2, self.density.pd3,
-                    nspins, setups, self.timer, xc, par.external,
-                    collinear, world)
-            
+                    gd, finegd, self.density.pd2, self.density.pd3,
+                    nspins, setups, self.timer, xc, world,
+                    self.wfs.kptband_comm, par.external, collinear)
+        
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
 
@@ -797,6 +816,17 @@ class PAW(PAWTextOutput):
         self.txt.flush()
         raise SystemExit
 
+    def linearize_to_xc(self, newxc):
+        """Linearize Hamiltonian to difference XC functional. Used in real time TDDFT to perform calculations with 
+           various kernels. """
+        if isinstance(newxc, str):
+            newxc = XC(newxc)
+        self.txt.write('Linearizing xc-hamiltonian to '+str(newxc))
+        newxc.initialize(self.density, self.hamiltonian, self.wfs,
+                      self.occupations)
+        self.hamiltonian.linearize_to_xc(newxc, self.density)
+
+
     def restore_state(self):
         """After restart, calculate fine density and poisson solution.
 
@@ -804,7 +834,7 @@ class PAW(PAWTextOutput):
         TODO: Is this really the most efficient way?
         """
         spos_ac = self.atoms.get_scaled_positions() % 1.0
-        self.density.set_positions(spos_ac)
+        self.density.set_positions(spos_ac, self.wfs.rank_a)
         self.density.interpolate_pseudo_density()
         self.density.calculate_pseudo_charge()
         self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)

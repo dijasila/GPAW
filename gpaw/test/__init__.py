@@ -285,6 +285,8 @@ tests = [
     'gw_ppa.py',
     'nscfsic.py',
     # > 100 sec tests start here (add tests after exx.py!)
+    'parallel/diamond_gllb.py', 
+    'lcao_tdgllbsc.py',
     'response_na_plasmon.py',
     'exx.py',
     'pygga.py',
@@ -361,7 +363,7 @@ if mpi.size > 1:
                 'potential.py',
                 #'cmrtest/cmr_test3.py',
                 #'cmrtest/cmr_append.py',
-                'cmrtest/Li2_atomize.py',  # started to hang May 2014
+                #'cmrtest/Li2_atomize.py',  # started to hang May 2014
                 'lcao_pair_and_coulomb.py',
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
@@ -384,7 +386,8 @@ if mpi.size < 4:
                 'bse_diamond.py',
                 'bse_silicon.py',
                 'bse_vs_lrtddft.py',
-                'fileio/parallel.py']
+                'fileio/parallel.py',
+                'parallel/diamond_gllb.py']
 
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']

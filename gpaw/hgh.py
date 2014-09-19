@@ -6,6 +6,7 @@ from gpaw.utilities.tools import md5_new
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.configurations import configurations
+from gpaw.utilities import min_locfun_radius
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.pseudopotential import PseudoPotential
 

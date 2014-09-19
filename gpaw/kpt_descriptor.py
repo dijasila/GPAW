@@ -54,7 +54,7 @@ def to1bz(bzk_kc, cell_cv):
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
-    def __init__(self, kpts, nspins=1, collinear=True):
+    def __init__(self, kpts, nspins=1, collinear=True, gamma=None):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
 
         Parameters
@@ -77,6 +77,7 @@ class KPointDescriptor:
         ``comm``              MPI-communicator for kpoint distribution.
         ``weight_k``          Weights of each k-point
         ``ibzk_kc``           Unknown
+        ``ibzk_qc``           Unknown
         ``sym_k``             Unknown
         ``time_reversal_k``   Unknown
         ``bz2ibz_k``          Unknown
@@ -107,8 +108,13 @@ class KPointDescriptor:
         self.nspins = nspins
         self.nbzkpts = len(self.bzk_kc)
 
-        # Gamma-point calculation?
-        self.gamma = (self.nbzkpts == 1 and np.allclose(self.bzk_kc[0], 0.0))
+        if gamma is not None:
+            self.gamma = gamma
+        else:
+            # Gamma-point calculation?
+            self.gamma = self.nbzkpts == 1 and not self.bzk_kc[0].any()
+            
+        #self.set_symmetry(None, None, usesymm=None)
 
         # Point group and time-reversal symmetry neglected:
         self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
