@@ -66,11 +66,6 @@ class KSSingles(ExcitationList):
         if calculator is None:
             return # leave the list empty
 
-        # LCAO calculation requires special actions
-        self.lcao = calculator.input_parameters.mode == 'lcao'
-        if self.lcao:
-            print >> txt, "LR-TDDFT for LCAO orbitals"
-
         # deny hybrids as their empty states are wrong
         gsxc = calculator.hamiltonian.xc
         hybrid = hasattr(gsxc, 'hybrid') and gsxc.hybrid > 0.0
