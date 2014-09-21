@@ -430,7 +430,6 @@ class SmoothDistribution(ZeroKelvin):
             self.split = fermilevels[0] - fermilevels[1]
 
     def get_homo_lumo_by_spin(self, wfs, spin):
-        assert wfs.bd.comm.size == 1
         if wfs.nspins == 1:
             assert spin == 0
             n = self.nvalence // 2
@@ -468,8 +467,6 @@ class SmoothDistribution(ZeroKelvin):
             
             eps_homo = wfs.kd.comm.max(eps_homo)
             eps_lumo = wfs.kd.comm.min(eps_lumo)
-            eps_homo = wfs.bd.comm.max(eps_homo)
-            eps_lumo = wfs.bd.comm.min(eps_lumo)
 
             return np.array([eps_homo, eps_lumo])
 
