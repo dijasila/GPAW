@@ -4,14 +4,13 @@ import sys
 import numpy as np
 
 from ase.utils import prnt
-from ase.units import Bohr, Hartree
+from ase.units import Hartree
 from ase.calculators.general import Calculator
 from ase.calculators.test import numeric_force
 from gpaw import GPAW
 from gpaw.density import RealSpaceDensity
 from gpaw.output import initialize_text_stream
 from gpaw import mpi
-from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities.timing import Timer
@@ -19,11 +18,12 @@ from gpaw.version import version
 
 from ase.parallel import distribute_cpus
 
+
 class FiniteDifferenceCalculator(Calculator):
     def __init__(self, lrtddft, d=0.001, txt=None, parallel=None):
         """Finite difference calculator for LrTDDFT.
 
-        parallel: Can be used to parallelize the numerical force 
+        parallel: Can be used to parallelize the numerical force
         calculation over images
         """
         self.timer = Timer()
@@ -46,10 +46,10 @@ class FiniteDifferenceCalculator(Calculator):
                                                               
         self.d = d
         self.parallel = {
-            'world' : world, 'mycomm' : world, 'ncalcs' : 1, 'icalc' : 0 }
+            'world': world, 'mycomm': world, 'ncalcs': 1, 'icalc': 0}
         if world.size < 2:
             if parallel > 0:
-                prnt('#', (self.__class__.__name__ + ':'), 
+                prnt('#', (self.__class__.__name__ + ':'),
                      'Serial calculation, keyword parallel ignored.',
                      file=self.txt)
         elif parallel > 0:
@@ -57,19 +57,20 @@ class FiniteDifferenceCalculator(Calculator):
             if type(ncalcs) != type(1):
                 # this is ase < r3431
                 ncalcs = world.size / parallel
-            self.parallel = { 'world' : world, 'mycomm' : mycomm, 
-                              'ncalcs' : ncalcs, 'icalc' : icalc }
+            self.parallel = {'world': world, 'mycomm': mycomm,
+                              'ncalcs': ncalcs, 'icalc': icalc}
             self.calculator.set(communicator=mycomm)
 
     def set(self, **kwargs):
         self.calculator.set(**kwargs)
+
 
 class ExcitedState(FiniteDifferenceCalculator, GPAW):
     def __init__(self, lrtddft, index, d=0.001, txt=None,
                  parallel=None, name=None):
         """ExcitedState object.
 
-        parallel: Can be used to parallelize the numerical force calculation 
+        parallel: Can be used to parallelize the numerical force calculation
         over images.
         """
         FiniteDifferenceCalculator.__init__(self, lrtddft, d, txt, parallel)
@@ -88,9 +89,9 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
             prnt(('name=' + name), file=self.txt)
         prnt('# Force displacement:', self.d, file=self.txt)
         if self.parallel:
-            prnt('#', self.parallel['world'].size, 
-                 'cores in total, ', self.parallel['mycomm'].size, 
-                 'cores per energy evaluation', 
+            prnt('#', self.parallel['world'].size,
+                 'cores in total, ', self.parallel['mycomm'].size,
+                 'cores per energy evaluation',
                  file=self.txt)
 
     def set_positions(self, atoms):
@@ -114,7 +115,7 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
               (atoms.get_cell() != self.atoms.get_cell()).any() or
               (atoms.get_pbc() != self.atoms.get_pbc()).any()):
             return True
-        elif (atoms.get_positions() != 
+        elif (atoms.get_positions() !=
               self.atoms.get_positions()).any():
             return True
 
@@ -176,18 +177,18 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
             i = 0
             for ia, a in enumerate(self.atoms):
                 for ic in range(3):
-                    print "ncalcs", ncalcs, "i", i, "icalc",icalc
+##                    print "ncalcs", ncalcs, "i", i, "icalc",icalc
                     if (i % ncalcs) == icalc:
                         F_av[ia, ic] = numeric_force(
                             atoms, ia, ic, self.d) / mycomm.size
                         prnt('# rank', world.rank, '-> force',
                              (str(ia) + 'xyz'[ic]), file=txt)
                     i += 1
-            energy = np.array([0.]) # array needed for world.sum()
+            energy = np.array([0.])  # array needed for world.sum()
             if (i % ncalcs) == icalc:
                 self.energy = None
                 energy[0] = self.get_potential_energy(atoms) / mycomm.size
-                prnt('# rank', world.rank, '-> energy', 
+                prnt('# rank', world.rank, '-> energy',
                      energy[0] * mycomm.size, file=txt)
             self.set_positions(atoms)
             world.sum(F_av)
@@ -200,7 +201,7 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
                 symbols = self.atoms.get_chemical_symbols()
                 for a, symbol in enumerate(symbols):
                     prnt(('%3d %-2s %10.5f %10.5f %10.5f' %
-                          ((a, symbol) + tuple(self.F_av[a]))), 
+                          ((a, symbol) + tuple(self.F_av[a]))),
                          file=self.txt)
         return self.F_av
 
@@ -233,15 +234,19 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         method = kwargs.pop('method', 'dipole')
         self.initialize_density(method)
         return GPAW.get_all_electron_density(self, **kwargs)
+        
 
 class UnconstraintIndex:
     def __init__(self, index):
         assert(type(index) == type(1))
         self.index = index
+
     def apply(self, *argv):
         return self.index
+
     def __str__(self):
         return (self.__class__.__name__ + '(' + str(self.index) + ')')
+
 
 class MinimalOSIndex:
     """
@@ -259,7 +264,6 @@ class MinimalOSIndex:
         self.direction = direction
 
     def apply(self, lrtddft):
-        index = None
         i = 0
         fmax = 0.
         idir = 0
@@ -275,7 +279,8 @@ class MinimalOSIndex:
         error = 'The intensity constraint |f| > ' + str(self.fmin) + ' '
         error += 'can not be satisfied (max(f) = ' + str(fmax) + ').'
         raise RuntimeError(error)
-        
+
+
 class MaximalOSIndex:
     """
     Select maximal oscillator strength.
@@ -318,6 +323,7 @@ class MaximalOSIndex:
                                '[%g,%g]' % self.energy_range)
         return index
 
+
 class ExcitedStateDensity(RealSpaceDensity):
     """Approximate excited state density object."""
     def __init__(self, *args, **kwargs):
@@ -331,14 +337,13 @@ class ExcitedStateDensity(RealSpaceDensity):
         calc = lrtddft.calculator
         self.gsdensity = calc.density
         self.gd = self.gsdensity.gd
-        self.nbands =  calc.wfs.bd.nbands
+        self.nbands = calc.wfs.bd.nbands
         self.D_asp = {}
         for a, D_sp in self.gsdensity.D_asp.items():
-            self.D_asp[a] = 1. *  D_sp
+            self.D_asp[a] = 1. * D_sp
         
         # obtain weights
         ex = lrtddft[index]
-        energy = ex.energy
         wocc_sn = np.zeros((self.nspins, self.nbands))
         wunocc_sn = np.zeros((self.nspins, self.nbands))
         for f, k in zip(ex.f, ex.kss):
