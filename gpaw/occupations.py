@@ -282,7 +282,12 @@ class ZeroKelvin(OccupationNumbers):
         if self.nvalence is None:
             self.calculate(wfs)
         if np.isfinite(self.homo) and np.isfinite(self.lumo):
-            return np.array([self.homo, self.lumo])
+            if wfs.bd.comm.rank != 0:
+                homolumo = np.array([0.0, 0.0])
+            else:
+                homolumo = np.array([self.homo, self.lumo])
+            wfs.bd.comm.broadcast(homolumo, 0)
+            return homolumo
         else:
             raise ValueError("Can't find HOMO and/or LUMO!")
 
@@ -471,7 +476,6 @@ class SmoothDistribution(ZeroKelvin):
             return np.array([eps_homo, eps_lumo])
 
     def get_homo_lumo(self, wfs):
-        assert wfs.bd.comm.size == 1
         if self.width == 0:
             return ZeroKelvin.get_homo_lumo(self, wfs)
 
