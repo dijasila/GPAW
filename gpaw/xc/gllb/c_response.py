@@ -10,10 +10,7 @@ from ase.units import Hartree
 import numpy as np
 
 ### XXX Work in process
-### XXX Work in process
-### XXX Work in process
-import getpass
-debug = getpass.getuser() == 'kuismam'
+debug = False
 
 def d(*args):
     if debug:
