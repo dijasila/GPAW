@@ -285,7 +285,7 @@ tests = [
     'gw_ppa.py',
     'nscfsic.py',
     # > 100 sec tests start here (add tests after exx.py!)
-    'parallel/diamond_gllb.py', 
+    'parallel/diamond_gllb.py',
     'lcao_tdgllbsc.py',
     'response_na_plasmon.py',
     'exx.py',
@@ -307,7 +307,7 @@ tests = [
     'coreeig.py',
     'pw/si_stress.py',
     'ut_tddft.py',
-    'transport.py',
+    #'transport.py',
     'vdw/ar2.py',
     'bse_sym.py',
     'aluminum_testcell.py',
