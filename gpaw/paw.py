@@ -395,8 +395,8 @@ class PAW(PAWTextOutput):
         if par.filter is None and str(mode) != 'pw':
             gamma = 1.6
             if par.gpts is not None:
-                h = ((np.linalg.inv(cell_cv) ** 2).sum(0) ** -
-                     0.5 / par.gpts).max()
+                h = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5
+                     / par.gpts).max()
             else:
                 h = (par.h or 0.2) / Bohr
 
@@ -567,7 +567,7 @@ class PAW(PAWTextOutput):
 
         if self.scf is None:
             self.scf = SCFLoop(
-                cc['eigenstates'] / Hartree ** 2 * nvalence,
+                cc['eigenstates'] / Hartree**2 * nvalence,
                 cc['energy'] / Hartree * max(nvalence, 1),
                 cc['density'] * nvalence,
                 par.maxiter, par.fixdensity,
@@ -932,7 +932,7 @@ class PAW(PAWTextOutput):
         txt.write('---------------\n')
 
         mem_init = maxrss()  # initial overhead includes part of Hamiltonian!
-        txt.write('Process memory now: %.2f MiB\n' % (mem_init / 1024.0 ** 2))
+        txt.write('Process memory now: %.2f MiB\n' % (mem_init / 1024.0**2))
 
         mem = MemNode('Calculator', 0)
         try:
