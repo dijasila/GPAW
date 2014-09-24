@@ -19,6 +19,7 @@ from gpaw.pseudopotential import PseudoPotential, screen_potential, \
 from gpaw.spline import Spline
 from gpaw.utilities import pack2, erf, divrl
 
+
 class UPFStateSpec:
     def __init__(self, index, label, l, values, occupation=None, n=None):
         self.index = index
@@ -44,6 +45,7 @@ class UPFCompensationChargeSpec: # Not used right now.......
                                                          self.l, self.qint,
                                                          len(self.coefs))
 
+
 def trim_outer_zeros(values, threshold=0.0):
     values = list(values)
     if abs(values[-1]) <= threshold:
@@ -53,6 +55,7 @@ def trim_outer_zeros(values, threshold=0.0):
     # This will give an error if the array length becomes smaller than 2.
     # Which would be fine I guess.
     return np.array(values)
+
 
 def parse_upf(fname):
     """Parse UPF pseudopotential from file descriptor.
@@ -112,7 +115,7 @@ def parse_upf(fname):
                        in header_element.text.strip().splitlines()]
         #header['version'] = headerlines[0].split()[0]
         header['element'] = headerlines[1].split()[0]
-        #header['has_nlcc'] = {'T': True, 'F': False}[headerlines[3].split()[0]]
+        #header['has_nlcc'] = {'T': True, 'F': False} .........
         #assert not header['has_nlcc']
         # XC functional?
         header['z_valence'] = float(headerlines[5].split()[0])
@@ -124,7 +127,9 @@ def parse_upf(fname):
         header['number_of_wfc'] = int(nwfs)
         header['number_of_proj'] = int(nprojectors)
 
-    
+    info_element = root.find('PP_INFO')
+    pp['info'] = info_element.text
+
     pp['header'] = header
     mesh_element = root.find('PP_MESH')
     pp['r'] = toarray(mesh_element.find('PP_R'))
@@ -240,7 +245,7 @@ class UPFSetupData:
         self.Nv = header['z_valence']
         self.Nc = self.Z - self.Nv
         self.Delta0 = -self.Nv / np.sqrt(4.0 * np.pi) # like hgh
-        self.rcut_j = [data['r'][len(proj.values) -1]
+        self.rcut_j = [data['r'][len(proj.values) - 1]
                        for proj in data['projectors']]
 
         beta = 0.1 # XXX nice parameters?
@@ -313,14 +318,29 @@ class UPFSetupData:
                 figure_out_valence_states(self)
 
         vlocal_unscreened = data['vlocal']
+
+        # The UPF representation of HGH setups should be equal to that
+        # used with setups='hgh'.  But the UPF files do not contain
+        # info on the localization of the compensation charges!  That
+        # means the screen_potential code will choose the shape of the
+        # compensation charges, resulting in some numerical differences.
+        #
+        # One could hack that it looks up some radii to compare e.g. H2O.
+        # The results of the below comments still have some numerical error.
+        # But it's not huge.
+        #a = None
+        #if self.symbol == 'H':
+        #    a = 0.2
+        #elif self.symbol == 'O':
+        #    a = .247621
+
         vbar_g, ghat_g = screen_potential(data['r'], vlocal_unscreened,
-                                          self.Nv)
+                                          self.Nv) #, a=a)
         
         self.vbar_g = self._interp(vbar_g) * np.sqrt(4.0 * np.pi)
         self.ghat_lg = [4.0 * np.pi / self.Nv * self._interp(ghat_g)]
 
         # XXX Subtract Hartree energy of compensation charge as reference
-
 
     def get_jargs(self):
         projectors = list(self.data['projectors'])
@@ -335,8 +355,41 @@ class UPFSetupData:
                         break
         return jargs
 
+    def tostring(self):
+        lines = []
+        indent = 0
+        
+        def add(line):
+            lines.append(indent * ' ' + line)
+
+        add('Norm-conserving UPF setup:')
+        indent = 2
+        add('Element: %4s' % self.symbol)
+        add('Z:       %4s' % self.Z)
+        add('Valence: %4s' % self.Nv)
+        indent -= 2
+        add('Projectors:')
+        indent += 2
+        for j, proj in enumerate(self.data['projectors']):
+            add('l=%d rcut=%s' % (proj.l, self.rcut_j[j]))
+        indent -= 2
+        if len(self.data['states']) == 0:
+            add('No states stored on this setup')
+        else:
+            add('States:')
+            indent += 2
+            for j, state in enumerate(self.data['states']):
+                add('l=%d f=%s' % (state.l, state.occupation))
+            indent -= 2
+        add('Local potential cutoff: %s'
+            % self.get_local_potential().get_cutoff())
+        add('Comp charge cutoff:     %s'
+            % self.rgd.r_g[len(self.ghat_lg[0]) - 1])
+        add('')
+        return '\n'.join(lines)
+
     def print_info(self, txt, setup):
-        txt('Hello world!\n')
+        txt(self.tostring())
 
     # XXX something can perhaps be stolen from HGH
     def expand_hamiltonian_matrix(self):
@@ -441,6 +494,7 @@ class UPFSetupData:
             basis = self.create_basis_functions()
         return PseudoPotential(self, basis)
 
+
 def main_plot():
     p = OptionParser(usage='%prog [OPTION] [FILE...]',
                      description='plot upf pseudopotential from file.')
@@ -449,8 +503,12 @@ def main_plot():
     import pylab as pl
     for fname in args:
         pp = parse_upf(fname)
+        print('--- %s ---' % fname)
+        print(UPFSetupData(pp).tostring())
+        print(pp['info'])
         upfplot(pp, show=False)
     pl.show()
+
 
 def upfplot(setup, show=True):
     # A version of this, perhaps nicer, is in pseudopotential.py.
@@ -460,6 +518,7 @@ def upfplot(setup, show=True):
     pp = setup.data
     r0 = pp['r'].copy()
     r0[0] = 1e-8
+    
     def rtrunc(array, rdividepower=0):
         r = r0[:len(array)]
         arr = divrl(array, rdividepower, r)
