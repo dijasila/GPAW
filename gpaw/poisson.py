@@ -74,7 +74,7 @@ class PoissonSolver:
         # only used if 'J' (Jacobi) is chosen as method
         self.weights = [2.0 / 3.0]
 
-        while level < 4:
+        while level < 8:
             try:
                 gd2 = gd.coarsen()
             except ValueError:
