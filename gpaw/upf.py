@@ -11,13 +11,11 @@ from xml.etree.ElementTree import parse as xmlparse, ParseError, fromstring
 import numpy as np
 from ase.data import atomic_numbers
 
-from gpaw.atom.atompaw import AtomPAW
-from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.pseudopotential import PseudoPotential, screen_potential, \
     figure_out_valence_states
 from gpaw.spline import Spline
-from gpaw.utilities import pack2, erf, divrl
+from gpaw.utilities import pack2, divrl
 
 
 class UPFStateSpec:
@@ -75,6 +73,8 @@ def parse_upf(fname):
         # Typical!  Non-well-formed file full of probable FORTRAN output.
         # We'll try to insert our own header and see if things go well.
         root = fromstring('\n'.join(['<xml>', open(fname).read(), '</xml>']))
+
+    pp['fname'] = fname
 
     header_element = root.find('PP_HEADER')
     header = header_element.attrib
@@ -248,8 +248,8 @@ class UPFSetupData:
         self.rcut_j = [data['r'][len(proj.values) - 1]
                        for proj in data['projectors']]
 
-        beta = 0.1 # XXX nice parameters?
-        N = 4 * 450 # XXX
+        #beta = 0.1 # XXX nice parameters?
+        #N = 4 * 450 # XXX
         # This is "stolen" from hgh.  Figure out something reasonable
         #rgd = AERadialGridDescriptor(beta / N, 1.0 / N, N,
         #                             default_spline_points=100)
@@ -272,11 +272,8 @@ class UPFSetupData:
                 val /= 2.
                 val[1:] /= data['r'][1:len(val)]
                 val[0] = val[1]
-
-                r0 = np.linspace(0., 10., 1000)
-                
                 pt_g = self._interp(val) #* np.sqrt(4.0 * np.pi)
-                sqrnorm = (pt_g**2 * self.rgd.dr_g).sum()
+                #sqrnorm = (pt_g**2 * self.rgd.dr_g).sum()
                 self.pt_jg.append(pt_g)
         
         else:
@@ -308,7 +305,7 @@ class UPFSetupData:
                 electroncount += state.occupation
                 # The Cl.pz-hgh.UPF from quantum espresso has only 6
                 # but should have 7 electrons.  Oh well....
-            err = abs(electroncount - self.Nv)
+            #err = abs(electroncount - self.Nv)
             self.f_j = [state.occupation for state in data['states']]
             self.n_j = [state.n for state in data['states']]
             self.l_orb_j = [state.l for state in data['states']]
@@ -526,6 +523,9 @@ def upfplot(setup, show=True):
     
     import pylab as pl
     fig = pl.figure()
+    fig.canvas.set_window_title('%s - UPF setup for %s' % (pp['fname'],
+                                                           setup.symbol))
+
     vax = fig.add_subplot(221)
     pax = fig.add_subplot(222)
     rhoax = fig.add_subplot(223)
@@ -572,7 +572,6 @@ def upfplot(setup, show=True):
     wfsax.set_ylabel('WF / density')
     rhoax.set_ylabel('Comp charges')
 
-    #fig.canvas.set_window_title(fname) remember fname in setup
     fig.subplots_adjust(wspace=0.3)
 
     if show:
