@@ -60,7 +60,7 @@ class ProgressBar:
                 self.fd.flush()
                 self.n = n
             if x == 1:
-                p('| Time: {0:.3f}s'.format(eta), end='')
+                p('| Time: {0:.3f}s'.format(eta))
                 self.fd.flush()
                 self.done = True
                 
