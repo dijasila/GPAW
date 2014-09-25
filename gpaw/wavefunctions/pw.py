@@ -1,25 +1,27 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function
+from __future__ import print_function, division
+import functools
 from math import pi
 
 import numpy as np
 import ase.units as units
 
+from gpaw.band_descriptor import BandDescriptor
+from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
+from gpaw.density import Density
 import gpaw.fftw as fftw
-from gpaw.lfc import BaseLFC
-from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.hs_operators import MatrixOperator
+from gpaw.lfc import BaseLFC
 from gpaw.lcao.overlap import fbt
-from gpaw.spline import Spline
+from gpaw.hamiltonian import Hamiltonian
+from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
+from gpaw.spline import Spline
 from gpaw.utilities import unpack, _fact as fac
 from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
-from gpaw.density import Density
-from gpaw.hamiltonian import Hamiltonian
-from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
-from gpaw.matrix_descriptor import MatrixDescriptor
-from gpaw.band_descriptor import BandDescriptor
+from gpaw.utilities.progressbar import ProgressBar
 from gpaw.utilities.timing import timer
+from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 
 
 class PWDescriptor:
@@ -639,16 +641,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         return H_GG, S_GG
 
-    @timer('Diagonalize full Hamiltonian')
+    @timer('Full diag')
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
-                                     nbands=None,
-                                     scalapack=None):
-        width = 40  # Dots
-        print('Diagonalizing full Hamiltonian: ', file=txt)
-        print('[%s] 0.0 %%' % (' ' * width), end='',
-              file=txt)
-        txt.flush()
-
+                                     nbands=None, scalapack=None):
         if nbands is None:
             nbands = self.pd.ngmin
 
@@ -656,13 +651,17 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 
+        p = functools.partial(print, file=txt)
+        p('Diagonalizing full Hamiltonian ({0} lowest bands)'.format(nbands))
+        p('Matrix size (min, max):', self.pd.ngmin, self.pd.ngmax)
+        
         if scalapack and bd.comm.size > 1:
             if isinstance(scalapack, (list, tuple)):
                 nprow, npcol, b = scalapack
             else:
                 nprow, npcol, b = 2, bd.comm.size // 2, 64
-            print('ScaLapack grid: {0}x{1}, ' +
-                  'block-size: {2}'.format(nprow, npcol, b), file=txt)
+            p('ScaLapack grid: {0}x{1},'.format(nprow, npcol),
+              'block-size:', b)
             bg = BlacsGrid(bd.comm, bd.comm.size, 1)
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
         else:
@@ -677,8 +676,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         myslice = bd.get_slice()
 
+        pb = ProgressBar(txt)
         nkpt = len(self.kpt_u)
+        
         for kptnum, kpt in enumerate(self.kpt_u):
+            pb.update(kptnum / nkpt)
             npw = len(self.pd.Q_qG[kpt.q])
             if scalapack:
                 mynpw = -(-npw // bd.comm.size)
@@ -714,18 +716,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
             with self.timer('Projections'):
                 self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
-            #f_n = np.zeros_like(kpt.eps_n)
-            #f_n[:len(kpt.f_n)] = kpt.f_n
             kpt.f_n = None
 
-            # Print progress
-            frac = (kptnum + 1.) / nkpt
-            ndots = int(frac * width)
-            print('\r[%s%s] %1.1f %%' % ('=' * ndots, ' ' * (width - ndots),
-                                         frac * 100), end='', file=txt)
-            txt.flush()
-
-        print('', file=txt)
+        pb.finish()
+        
         occupations.calculate(self)
 
     def initialize_from_lcao_coefficients(self, basis_functions, mynbands):

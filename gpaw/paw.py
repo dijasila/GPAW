@@ -27,6 +27,7 @@ from gpaw.output import PAWTextOutput
 import gpaw.occupations as occupations
 from gpaw.forces import ForceCalculator
 from gpaw.utilities.timing import Timer
+from gpaw.wavefunctions.lcao import LCAO
 from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor
@@ -34,7 +35,6 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.wavefunctions.fd import FDWaveFunctions
-from gpaw.wavefunctions.lcao import LCAO, LCAOWaveFunctions
 from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.wavefunctions.base import EmptyWaveFunctions
@@ -832,8 +832,10 @@ class PAW(PAWTextOutput):
         raise SystemExit
 
     def linearize_to_xc(self, newxc):
-        """Linearize Hamiltonian to difference XC functional. Used in real time TDDFT to perform calculations with
-           various kernels. """
+        """Linearize Hamiltonian to difference XC functional.
+        
+        Used in real time TDDFT to perform calculations with various kernels.
+        """
         if isinstance(newxc, str):
             newxc = XC(newxc)
         self.txt.write('Linearizing xc-hamiltonian to ' + str(newxc))
