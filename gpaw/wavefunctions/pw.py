@@ -653,7 +653,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         p = functools.partial(print, file=txt)
         p('Diagonalizing full Hamiltonian ({0} lowest bands)'.format(nbands))
-        p('Matrix size (min, max):', self.pd.ngmin, self.pd.ngmax)
+        p('Matrix size (min, max): {0}, {1}'.format(self.pd.ngmin,
+                                                    self.pd.ngmax))
         
         if scalapack and bd.comm.size > 1:
             if isinstance(scalapack, (list, tuple)):
