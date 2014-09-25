@@ -75,7 +75,7 @@ def dagger(matrix):
     return np.conj(matrix.T)
 
 def get_matrix_index(ind1, ind2=None):
-    if ind2 == None:
+    if ind2 is None:
         dim1 = len(ind1)
         return np.resize(ind1, (dim1, dim1))
     else:
@@ -101,13 +101,13 @@ def k2r_hs(h_skmm, s_kmm, ibzk_kc, weight_k, R_c=(0,0,0), magnet=None):
     c_k = np.exp(1.0j * phase_k) * weight_k
     c_k.shape = (len(ibzk_kc),1,1)
 
-    if h_skmm != None:
+    if h_skmm is not None:
         nbf = h_skmm.shape[-1]
         nspins = len(h_skmm)
         h_smm = np.empty((nspins, nbf, nbf),complex)
         for s in range(nspins):
             h_smm[s] = np.sum((h_skmm[s] * c_k), axis=0)
-    if s_kmm != None:
+    if s_kmm is not None:
         nbf = s_kmm.shape[-1]
         s_mm = np.empty((nbf, nbf),complex)
         s_mm[:] = np.sum((s_kmm * c_k), axis=0)     
@@ -115,16 +115,16 @@ def k2r_hs(h_skmm, s_kmm, ibzk_kc, weight_k, R_c=(0,0,0), magnet=None):
     #    MM = magnet.trans_matrix(diag=True)
     #    assert np.sum(R_c) == R_c[2]
     #    MM = MM ** R_c[2]
-    #    if h_skmm != None:
+    #    if h_skmm is not None:
     #        for s in range(nspins):
     #            h_smm[s] *= MM
-    #    if s_kmm != None:	
+    #    if s_kmm is not None:  
     #        s_mm *= MM    
-    if h_skmm != None and s_kmm != None:
+    if h_skmm is not None and s_kmm is not None:
         return h_smm, s_mm
-    elif h_skmm == None:
+    elif h_skmm is None:
         return s_mm
-    elif s_kmm == None:
+    elif s_kmm is None:
         return h_smm
 
 def r2k_hs(h_srmm, s_rmm, R_vector, kvector=(0,0,0), magnet=None):
@@ -132,30 +132,30 @@ def r2k_hs(h_srmm, s_rmm, R_vector, kvector=(0,0,0), magnet=None):
     c_k = np.exp(-1.0j * phase_k)
     c_k.shape = (len(R_vector), 1, 1)
    
-    if h_srmm != None:
+    if h_srmm is not None:
         nbf = h_srmm.shape[-1]
         nspins = len(h_srmm)
         h_smm = np.empty((nspins, nbf, nbf), complex)
         for s in range(nspins):
             h_smm[s] = np.sum((h_srmm[s] * c_k), axis=0)
-    if s_rmm != None:
+    if s_rmm is not None:
         nbf = s_rmm.shape[-1]
         s_mm = np.empty((nbf, nbf), complex)
         s_mm[:] = np.sum((s_rmm * c_k), axis=0)
 #    if magnet is not None:
 #        MM = magnet.trans_matrix(diag=True)
-#	assert np.sum(R_vector) == R_vector[2]
+#       assert np.sum(R_vector) == R_vector[2]
 #        MM = MM ** (-R_vector[2])
-#	if h_srmm != None:
+#       if h_srmm is not None:
 #            for s in range(nspins):
-#	        h_smm[s] *= MM
-#	if s_mm != None:	
-#	    s_mm *= MM    
-    if h_srmm != None and s_rmm != None:   
+#               h_smm[s] *= MM
+#       if s_mm is not None:    
+#           s_mm *= MM    
+    if h_srmm is not None and s_rmm is not None:   
         return h_smm, s_mm
-    elif h_srmm == None:
+    elif h_srmm is None:
         return s_mm
-    elif s_rmm == None:
+    elif s_rmm is None:
         return h_smm
 
 def collect_lead_mat(lead_hsd, lead_couple_hsd, s, pk, flag='S'):
@@ -360,7 +360,7 @@ def get_pk_hsd(d, ntk, kpts, hl_skmm, sl_kmm, dl_skmm, txt=None,
     
     matmax = np.max(abs(s_test))
     if matmax > tol:
-        if txt != None:
+        if txt is not None:
             txt('Warning*: the principle layer should be larger, \
                                                       matmax=%f' % matmax)
         else:
@@ -413,18 +413,18 @@ def collect_and_distribute_atomic_matrices(D_ap, setups, setups0, rank_a, comm, 
     gD_ap = []
     D_ap0 = [None] * len(keys)
     for a, setup in enumerate(setups):
-	if a not in keys:
-	    ni = setup.ni
-	    sp = np.empty((ni * (ni + 1) // 2))
-	else:
-	    sp = D_ap[keys.index(a)]
-	if comm.size > 1:
-	    comm.broadcast(sp, rank_a[a])
+        if a not in keys:
+            ni = setup.ni
+            sp = np.empty((ni * (ni + 1) // 2))
+        else:
+            sp = D_ap[keys.index(a)]
+        if comm.size > 1:
+            comm.broadcast(sp, rank_a[a])
         gD_ap.append(sp)
     for a in range(len(setups0)):
         if a in keys:
-	    D_ap0[keys.index(a)] = gD_ap[a]
-    return D_ap0	    
+            D_ap0[keys.index(a)] = gD_ap[a]
+    return D_ap0            
 
 def generate_selfenergy_database(atoms, ntk, filename, direction=0, kt=0.1,
                                  bias=[-3,3], depth=3, comm=None):
@@ -917,19 +917,19 @@ def shtm(l):
     mtx = np.zeros([n,n], complex)
     for i in range(n):
         if i < l:
-	    #mtx[i, i] = 1.j*(-1.)**(l - i) / np.sqrt(2)
-	    #mtx[i, i + 2*(l-i)] = -1.j / np.sqrt(2)
-	    # The change is due to Condon-Shortley phase
-	    mtx[i, i] = 1.j / np.sqrt(2)
-	    mtx[i, i + 2*(l-i)] = -1.j*(-1.)**(l - i) / np.sqrt(2)
-	elif i == l:
-	    mtx[i, i] = 1.
-	else:
-	    #mtx[i, i] = 1./np.sqrt(2)
-	    #mtx[i, i + 2*(l-i)] = (-1.)**(i - l) / np.sqrt(2)
-	    mtx[i, i] = (-1.)**(i - l) /np.sqrt(2)
-	    mtx[i, i + 2*(l-i)] = 1. / np.sqrt(2)
-    return mtx.T	    
+            #mtx[i, i] = 1.j*(-1.)**(l - i) / np.sqrt(2)
+            #mtx[i, i + 2*(l-i)] = -1.j / np.sqrt(2)
+            # The change is due to Condon-Shortley phase
+            mtx[i, i] = 1.j / np.sqrt(2)
+            mtx[i, i + 2*(l-i)] = -1.j*(-1.)**(l - i) / np.sqrt(2)
+        elif i == l:
+            mtx[i, i] = 1.
+        else:
+            #mtx[i, i] = 1./np.sqrt(2)
+            #mtx[i, i + 2*(l-i)] = (-1.)**(i - l) / np.sqrt(2)
+            mtx[i, i] = (-1.)**(i - l) /np.sqrt(2)
+            mtx[i, i + 2*(l-i)] = 1. / np.sqrt(2)
+    return mtx.T            
 
 def construct_spherical_transformation_matrix(l_list):
     #construct a transformation matrix from complex harmonics to real for
@@ -939,8 +939,8 @@ def construct_spherical_transformation_matrix(l_list):
     start = 0
     for l in l_list:
         n = 2 * l + 1
-	mtx[start:start+n, start:start+n] = shtm(l)
-	start += n
+        mtx[start:start+n, start:start+n] = shtm(l)
+        start += n
     return mtx
 
 def aml(ss, l, direction):
@@ -951,22 +951,22 @@ def aml(ss, l, direction):
     for i in range(n):
         m = i - l
         # x direction=0, lx=(l+ + l-) /2
-	if direction == 0:
-	    a1 = 0.5 * np.sqrt(l*(l+1.)-m*(m+1.))
-	    a2 = 0.5 * np.sqrt(l*(l+1.)-m*(m-1.))
+        if direction == 0:
+            a1 = 0.5 * np.sqrt(l*(l+1.)-m*(m+1.))
+            a2 = 0.5 * np.sqrt(l*(l+1.)-m*(m-1.))
         # y direction=1, ly=(l+ - l-) /2i
-	if direction == 1:    
-	    a1 = -0.5 * 1.j * np.sqrt(l*(l+1.)-m*(m+1.))
-	    a2 = 0.5 * 1.j * np.sqrt(l*(l+1.)-m*(m-1.))
+        if direction == 1:    
+            a1 = -0.5 * 1.j * np.sqrt(l*(l+1.)-m*(m+1.))
+            a2 = 0.5 * 1.j * np.sqrt(l*(l+1.)-m*(m-1.))
         if direction == 0 or direction == 1:  
-	    if m + 1 <= l:
-	        amss[i] += a1 * ss[i + 1]
-	    if m - 1 >= -l:
-	        amss[i] += a2 * ss[i - 1]
-	elif direction == 2: #z direction=2
-	    amss[i] = m * ss[i]
-	else: 
-	    raise RuntimeError('unknown direction %d' % direction)
+            if m + 1 <= l:
+                amss[i] += a1 * ss[i + 1]
+            if m - 1 >= -l:
+                amss[i] += a2 * ss[i - 1]
+        elif direction == 2: #z direction=2
+            amss[i] = m * ss[i]
+        else: 
+            raise RuntimeError('unknown direction %d' % direction)
     return amss
 
 def angular_momentum_slice(overlap_slice, l, direction):
@@ -979,7 +979,7 @@ def angular_momentum_slice(overlap_slice, l, direction):
     for i in range(nao):
         ss = overlap_slice[i]
         am_slice[i] = aml(ss, l, direction)
-    return am_slice	
+    return am_slice     
 
 def cut_grids_side(array, gd, gd0):
     #abstract the grid value from a including-buffer-layer calculation
@@ -1028,7 +1028,7 @@ def save_bias_data_file(Lead1, Lead2, Device):
 def find(condition, flag=0):
     if flag == 1: # return an int
         return np.int(np.nonzero(condition)[0])
-    else: # return an array	
+    else: # return an array     
         return np.nonzero(condition)[0]
    
 def gather_ndarray_list(data, comm):

@@ -10,16 +10,17 @@ from gpaw.setup import BaseSetup
 from gpaw.setup_data import SetupData
 from gpaw.basis_data import Basis
 from gpaw.spline import Spline
+from gpaw.utilities import min_locfun_radius
 
 
 # Some splines are mandatory, but should then be zero to avoid affecting things
-zero_function = Spline(0, 0.5, [0.0, 0.0, 0.0])
+zero_function = Spline(0, min_locfun_radius, [0.0, 0.0, 0.0])
 
 # Some operations fail horribly if the splines are zero, due to weird
 # divisions and assumptions that various quantities are nonzero
 #
 # We'll use a function which is almost zero for these things
-nonzero_function = Spline(0, 0.5, [0.0, 1.0e-12, 0.0]) # XXX
+nonzero_function = Spline(0, min_locfun_radius, [0.0, 1.0e-12, 0.0]) # XXX
 
 class GhostSetup(BaseSetup):
     def __init__(self, basis, data):

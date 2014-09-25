@@ -14,10 +14,10 @@ representation is written as
 
 .. math:: \epsilon_{\mathbf{G} \mathbf{G}^{\prime}}(\mathbf{q}, \omega)
 
-where :math:`\mathbf{q}` and  :math:`\omega` are the momentum and energy 
-transfer in an excitation, and :math:`\mathbf{G}` is reciprocal lattice 
+where `\mathbf{q}` and  `\omega` are the momentum and energy 
+transfer in an excitation, and `\mathbf{G}` is reciprocal lattice 
 vector. The off-diagonal element of 
-:math:`\epsilon_{\mathbf{G} \mathbf{G}^{\prime}}` determines the local field 
+`\epsilon_{\mathbf{G} \mathbf{G}^{\prime}}` determines the local field 
 effect. 
 
 The macroscopic dielectric function is defined by (with local field correction)
@@ -41,7 +41,7 @@ Electron energy loss spectrum (EELS) is get by
               \frac{1}{\epsilon_{M}(\mathbf{q},\omega)}
 
 The macroscopic dielectric function is ill defined for systems of 
-reduced dimensionality. In these cases :math:`\epsilon_M = 1.0`. The 
+reduced dimensionality. In these cases `\epsilon_M = 1.0`. The 
 polarizability will maintain its structure for lower dimensionalities 
 and is in 3D related to the macroscopic dielectric function as,
 
@@ -50,62 +50,64 @@ and is in 3D related to the macroscopic dielectric function as,
 
 Refer to :ref:`df_theory`  for detailed documentation on theoretical part. 
 
+
+Frequency grid
+==============
+
+The dielectric function is evaluted on a non-linear frequency grid according 
+to the formula
+
+.. math::
+    
+    \omega_i = i \frac{\Delta\omega_0}
+    {1 -(\sqrt2 - 1)\frac{\Delta\omega_0}{\omega_2} i},
+    i = 0, 1, ..., 
+
+The parameter `\Delta\omega_0` is the frequency spacing at `\omega=0` and
+`\omega_2` is the frequency where the spacing has increased to
+`2\Delta\omega_0`. In general a lower value of `\omega_2` gives a more non-
+linear grid and less frequency points.
+   
+Below, the frequency grid is visualized for different values of 
+`\omega_2`. You can find the script for reproducing this figure here: 
+:download:`plot_freq.py`.
+
+.. image:: nl_freq_grid.png
+    :align: center
+
+The parameters can be specified using keyword arguments::
+
+    df = DielectricFunction(...,
+                            domega0=0.05,   # eV. Default = 0.1
+                            omega2=5.0,     # Default = 10.0
+                            omegamax=15.0)  # eV. Default is the maximum  
+                                            #  difference between energy
+                                            #  eigenvalues
+                     
+Setting ``omegamax`` manually is usually not advisable, however you
+might want it in cases where semi-core states  are included where very large
+energy eigenvalue differences appear.
+
+
 Example 1: Optical absorption of semiconductor: Bulk silicon
 ============================================================
 
 A simple startup
 ----------------
+
 Here is a minimum script to get an absorption spectrum.
 
 .. literalinclude:: silicon_ABS_simpleversion.py
 
-The dielectric function is evaluted on a non-linear frequency grid according 
-to the formula
-
-.. math:: \omega_i = i \frac{\Delta\omega_0}
-              {1 - \alpha\frac{\Delta\omega_0 \, i}{\omega_\mathrm{max}}},
-          i \in \lbrace 0, 1, ..., 
-              \mathrm{Int}(\frac{\omega_\mathrm{max}}
-                  {\Delta\omega_0(1 + \alpha)} + 2)\rbrace
-
-where the parameters :math:`\Delta\omega_0`, :math:`\alpha`, 
-:math:`\omega_\mathrm{max}` can be specified using keyword arguments. For 
-example a linear frequency grid is specified using::
-
- df = DielectricFunction(...,
-                         domega0=0.05,  # eV. Default = 0.1
-                         alpha=0.0,     # Default = 3.0
-                         omegamax=15.0) # eV. Default is the maximum  
-                                        #  difference between energy
-                                        #  eigenvalues
-                                        
-.. note::
-   In general a higher value of alpha gives a more non-linear grid and less 
-   frequency points. Setting :math:`\omega_\mathrm{max}` manually is usually
-   not advisable, however you might want it in cases where semi-core states 
-   are included where very large energy eigenvalue differences appear. It will 
-   be useful to know that the frequency grid is shifts from linear to when the 
-   frequency is on the order of 
-   :math:`\omega_\mathrm{max} / \alpha` (at this point the 
-   second order term of the expansion of the expression above is half the size 
-   of the first order term). 
-
-   Below the frequency grid is visualized for different values of 
-   :math:`\alpha`. You can find the script for reproducing this figure here: 
-   :download:`plot_freq.py`.
-
-   .. image:: nl_freq_grid.png
-       :align: center
-
 This script takes less than one minute on a single cpu, and generates a file
-'df.csv' containing the optical (:math:`\mathbf{q} = 0`) dielectric function
+'df.csv' containing the optical (`\mathbf{q} = 0`) dielectric function
 along the x-direction, which is the default direction. The file 'df.csv'
-contain five columns ordered as follows: :math:`\omega` (eV),
-:math:`\mathrm{Re}(\epsilon_{\mathrm{NLF}})`,
-:math:`\mathrm{Im}(\epsilon_{\mathrm{NLF}})`,
-:math:`\mathrm{Re}(\epsilon_{\mathrm{LF}})`,
-:math:`\mathrm{Im}(\epsilon_{\mathrm{LF}})` where
-:math:`\epsilon_{\mathrm{NLF}}` and :math:`\epsilon_{\mathrm{LF}}` is the
+contain five columns ordered as follows: `\omega` (eV),
+`\mathrm{Re}(\epsilon_{\mathrm{NLF}})`,
+`\mathrm{Im}(\epsilon_{\mathrm{NLF}})`,
+`\mathrm{Re}(\epsilon_{\mathrm{LF}})`,
+`\mathrm{Im}(\epsilon_{\mathrm{LF}})` where
+`\epsilon_{\mathrm{NLF}}` and `\epsilon_{\mathrm{LF}}` is the
 result without and with local field effects, respectively.
 
 For other directions you can specify the direction and filename like::
@@ -121,7 +123,7 @@ can then be plotted using
 .. literalinclude:: plot_silicon_ABS_simple.py
 
 The resulting figure is shown below. Note that there is significant
-absorption close to :math:`\omega=0` because of the large default
+absorption close to `\omega=0` because of the large default
 Fermi-smearing in GPAW. This will be dealt with in the following more realistic
 calculation.
 
@@ -161,7 +163,7 @@ is split into different parts for illustration.
                   ...)
    
     or larger ftol, which determines the threshold for transition  
-    in the dielectric function calculation (:math:`f_i - f_j > ftol`), not 
+    in the dielectric function calculation (`f_i - f_j > ftol`), not 
     shown in the example script)::
     
        df = DielectricFunction(...
@@ -179,8 +181,8 @@ is split into different parts for illustration.
 3. Get macroscopic dielectric constant
 
   The macroscopic dielectric constant is defined as the real part of dielectric 
-  function at :math:`\omega=0`.   In the following script, only a single 
-  point at :math:`\omega=0` is calculated without using the hilbert transform
+  function at `\omega=0`.   In the following script, only a single 
+  point at `\omega=0` is calculated without using the hilbert transform
   (which is only compatible with the non-linear frequency grid specification).
 
   .. literalinclude:: silicon_ABS.py
@@ -221,8 +223,8 @@ the energy loss of a fast electron passing by a material is defined by
 
 .. math:: \mathrm{EELS} = -\mathrm{Im} \frac{1}{\epsilon(\mathbf{q}, \omega)}
 
-and the plasmon frequency :math:`\omega_p` is defined as when 
-:math:`\epsilon(\omega_p) \rightarrow 0`. It means that an external 
+and the plasmon frequency `\omega_p` is defined as when 
+`\epsilon(\omega_p) \rightarrow 0`. It means that an external 
 perturbation at this frequency, even infinitesimal, can generate large 
 collective electronic response. 
 
@@ -241,8 +243,8 @@ generates a file 'EELS.csv'. Then you can plot the file using
 The three columns of this file correspond to energy (eV), EELS without and 
 with local field correction, respectively. You will see a 15.9 eV peak. 
 It comes from the bulk plasmon excitation of aluminum. You can explore the 
-plasmon dispersion relation  :math:`\omega_p(\mathbf{q})` by 
-tuning :math:`\mathbf{q}` in the calculation above. 
+plasmon dispersion relation  `\omega_p(\mathbf{q})` by 
+tuning `\mathbf{q}` in the calculation above. 
 
 .. image:: aluminum_EELS.png
     :height: 300 px
@@ -250,19 +252,19 @@ tuning :math:`\mathbf{q}` in the calculation above.
 
 .. Note::
 
-    The momentum transfer :math:`\mathbf{q}` in an EELS calculation must be 
+    The momentum transfer `\mathbf{q}` in an EELS calculation must be 
     the difference between two kpoints! For example, if you have an 
     kpts=(Nk1, Nk2, Nk3) Monkhorst-Pack k-sampling in the ground state 
     calculation, you have to choose 
-    :math:`\mathbf{q} = \mathrm{np.array}([i/Nk1, j/Nk2, k/Nk3])`, where  
-    :math:`i, j, k` are integers. 
+    `\mathbf{q} = \mathrm{np.array}([i/Nk1, j/Nk2, k/Nk3])`, where  
+    `i, j, k` are integers. 
     
 
 A more sophisticated example: graphite
 --------------------------------------
 
 Here is a more sophisticated example of calculating EELS of graphite with
-different  :math:`\mathbf{q}`.  You can also get the script here:
+different  `\mathbf{q}`.  You can also get the script here:
 :svn:`~doc/tutorials/dielectric_response/graphite_EELS.py`. The results
 (plot) are shown in the following section.
 
@@ -358,7 +360,7 @@ keyword            type               default value        description
                                                            left unspecified the frequency
                                                            grid will be non-linear.
                                                            Ex: numpy.linspace(0,20,201)
-``domega0``        ``float``          0.1                  :math:`\Delta\omega_0` for
+``domega0``        ``float``          0.1                  `\Delta\omega_0` for
                                                            non-linear frequency grid.
 ``omega2``         ``float``          10.0 (eV)            `\omega_2` for
                                                            non-linear frequencygrid.
@@ -370,9 +372,9 @@ keyword            type               default value        description
                                                            dielectric matrix. 
 ``eta``            ``float``          0.2 (eV)             Broadening parameter.
 ``ftol``           ``float``          1e-6                 The threshold for transition: 
-                                                           :math:`f_{ik} - f_{jk} > ftol`
+                                                           `f_{ik} - f_{jk} > ftol`
 ``txt``            ``str``            stdout               Output filename.
-``hilbert``        ``bool``           False                Switch for hilbert transform.
+``hilbert``        ``bool``           True                 Switch for hilbert transform.
 ``nbands``         ``int``            nbands from gs calc  Number of bands from gs calc
                                                            to include.
 =================  =================  ===================  ================================

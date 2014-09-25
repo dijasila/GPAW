@@ -5,7 +5,7 @@ from gpaw.utilities.blas import gemm
 import gpaw.mpi as mpi
 
 
-class LCAO:
+class DirectLCAO:
     """Eigensolver for LCAO-basis calculation"""
 
     def __init__(self, diagonalizer=None):
@@ -30,19 +30,24 @@ class LCAO:
     error = property(error)
 
     def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt, Vt_xMM=None,
-                                     root=-1):
+                                     root=-1, add_kinetic=True):
         # XXX document parallel stuff, particularly root parameter
         assert self.has_initialized
 
-        bf = wfs.basis_functions
+        bfs = wfs.basis_functions
+
+        # distributed_atomic_correction works with ScaLAPACK/BLACS in general.
+        # If SL is not enabled, it will not work with band parallelization.
+        # But no one would want that for a practical calculation anyway.
+        dH_asp = wfs.atomic_hamiltonian.redistribute(wfs, hamiltonian.dH_asp)
         
         if Vt_xMM is None:
             wfs.timer.start('Potential matrix')
             vt_G = hamiltonian.vt_sG[kpt.s]
-            Vt_xMM = bf.calculate_potential_matrices(vt_G)
+            Vt_xMM = bfs.calculate_potential_matrices(vt_G)
             wfs.timer.stop('Potential matrix')
 
-        if bf.gamma:
+        if bfs.gamma:
             y = 1.0
             H_MM = Vt_xMM[0]
             if wfs.dtype == complex:
@@ -52,10 +57,10 @@ class LCAO:
             y = 0.5
             k_c = wfs.kd.ibzk_qc[kpt.q]
             H_MM = (0.5 + 0.0j) * Vt_xMM[0]
-            for sdisp_c, Vt_MM in zip(bf.sdisp_xc, Vt_xMM)[1:]:
+            for sdisp_c, Vt_MM in zip(bfs.sdisp_xc, Vt_xMM)[1:]:
                 H_MM += np.exp(2j * np.pi * np.dot(sdisp_c, k_c)) * Vt_MM
             wfs.timer.stop('Sum over cells')
-        
+
         # Add atomic contribution
         #
         #           --   a     a  a*
@@ -63,21 +68,19 @@ class LCAO:
         #  mu nu    --   mu i  ij nu j
         #           aij
         #
-        wfs.timer.start('Atomic Hamiltonian')
-        Mstart = wfs.basis_functions.Mstart
-        Mstop = wfs.basis_functions.Mstop
-        for a, P_Mi in kpt.P_aMi.items():
-            dH_ii = np.asarray(unpack(hamiltonian.dH_asp[a][kpt.s]), wfs.dtype)
-            dHP_iM = np.zeros((dH_ii.shape[1], P_Mi.shape[0]), wfs.dtype)
-            # (ATLAS can't handle uninitialized output array)
-            gemm(1.0, P_Mi, dH_ii, 0.0, dHP_iM, 'c')
-            gemm(y, dHP_iM, P_Mi[Mstart:Mstop], 1.0, H_MM)
-        wfs.timer.stop('Atomic Hamiltonian')
+
+        name = wfs.atomic_hamiltonian.__class__.__name__
+        wfs.timer.start(name)
+        wfs.atomic_hamiltonian.calculate(wfs, kpt, dH_asp, H_MM, y)
+        wfs.timer.stop(name)
+
+        #print wfs.world.rank, innerloops
         wfs.timer.start('Distribute overlap matrix')
         H_MM = wfs.ksl.distribute_overlap_matrix(
             H_MM, root, add_hermitian_conjugate=(y == 0.5))
         wfs.timer.stop('Distribute overlap matrix')
-        H_MM += wfs.T_qMM[kpt.q]
+        if add_kinetic:
+            H_MM += wfs.T_qMM[kpt.q]
         return H_MM
 
     def iterate(self, hamiltonian, wfs):

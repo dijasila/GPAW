@@ -30,7 +30,7 @@ environment.  Run the commands:
 
   $ cd
   $ mv .bashrc old.bashrc
-  $ cp ~jasc/camd.bashrc .bashrc
+  $ cp ~jmgla/camd.bashrc .bashrc
   $ source ~/.bashrc
 
 This will set up the environment for you so that you can use ASE,

@@ -8,8 +8,8 @@ helper functins for parallel domain decomposition.  """
 
 import numpy as np
 
-UNIFORM = False# distribute grid points uniformly
-               # XXX import this from gpaw.extra_parameters dict ?
+UNIFORM = False  # distribute grid points uniformly
+                 # XXX import this from gpaw.extra_parameters dict ?
 
 
 class Domain:
@@ -45,7 +45,7 @@ class Domain:
         self.icell_cv = np.linalg.inv(self.cell_cv).T
         self.xxxucell_cv = np.array([self.cell_cv[x] / cell_c[x]
                                      for x in range(3)])
-        self.xxxiucell_cv = np.linalg.inv(self.xxxucell_cv.T) # Jacobian
+        self.xxxiucell_cv = np.linalg.inv(self.xxxucell_cv.T)  # Jacobian
 
         self.pbc_c = np.asarray(pbc, bool)
 
@@ -74,11 +74,11 @@ class Domain:
         self.parsize_c = np.array(parsize_c)
 
         self.stride_c = np.array([parsize_c[1] * parsize_c[2],
-                                   parsize_c[2],
-                                   1])
+                                  parsize_c[2],
+                                  1])
 
         if np.product(self.parsize_c) != self.comm.size:
-            raise RuntimeError('Bad domain decomposition! ' 
+            raise RuntimeError('Bad domain decomposition! '
                                'CPU counts %s do not multiply to '
                                'communicator size %d' % (self.parsize_c,
                                                          self.comm.size))
@@ -142,7 +142,7 @@ def decompose_domain(ng, p):
 
     If global variable UNIFORM is True, the returned parsize will
     result in a uniform distribution of gridpoints amongst processors.
-    
+
     If UNIFORM is False, the returned parsize may result in a variable
     number of points on each cpu.
     """
@@ -202,6 +202,7 @@ primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,
           59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113,
           127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181,
           191, 193, 197, 199]
+
 
 def prims(p):
     if p == 1:

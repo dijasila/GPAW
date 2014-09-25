@@ -61,7 +61,7 @@ fd = False
 
 if fd:
     from ase.calculators.test import numeric_forces
-    calc.set(usesymm=False)
+    calc.set(symmetry='off')
     F_ac_fd = numeric_forces(system)
     print 'Self-consistent forces'
     print F_ac

@@ -65,8 +65,10 @@ def create_random_atoms(gd, nmolecules=10, name='NH2', mindist=4.5 / Bohr):
 
     # Store the original state of the random number generator
     randstate = np.random.get_state()
-    np.random.seed(np.array([md5_array(data, numeric=True) for data
-        in [nmolecules, gd.cell_cv, gd.pbc_c, gd.N_c]]).astype(int))
+    seed = np.array([md5_array(data, numeric=True)
+                     for data in
+                     [nmolecules, gd.cell_cv, gd.pbc_c, gd.N_c]]).astype(int)
+    np.random.seed(seed % 4294967296)
 
     for m in range(nmolecules):
         amol = molecule(name)
@@ -135,4 +137,3 @@ def create_parsize_maxbands(nbands, world_size):
 def create_parsize_minbands(nbands, world_size):
     __doc__ = create_parsize_maxbands.__doc__
     return create_parsize_maxbands(1, world_size)
-

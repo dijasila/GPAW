@@ -11,7 +11,6 @@ import _gpaw
 import gpaw.mpi as mpi
 MASTER = mpi.MASTER
 from gpaw import debug
-from gpaw.poisson import PoissonSolver
 from gpaw.output import initialize_text_stream
 from gpaw.lrtddft.excitation import Excitation, ExcitationList
 from gpaw.lrtddft.kssingle import KSSingles
@@ -91,7 +90,8 @@ class LrTDDFT(ExcitationList):
                 raise NotImplementedError(err_txt)
             if self.xc == 'GS':
                 self.xc = calculator.hamiltonian.xc.name
-            calculator.converge_wave_functions()
+            if calculator.input_parameters.mode != 'lcao':
+                calculator.converge_wave_functions()
             if calculator.density.nct_G is None:
                 spos_ac = calculator.initialize_positions()
                 calculator.wfs.initialize(calculator.density, 
@@ -481,9 +481,10 @@ class LrTDDFTExcitation(Excitation):
 
     def analyse(self,min=.1):
         """Return an analysis string of the excitation"""
+        osc = self.get_oscillator_strength()
         s=('E=%.3f' % (self.energy * Hartree) + ' eV, ' +
-           'f=%.5g' % self.get_oscillator_strength()[0] + ', ' +
-           'R=%.5g' % self.get_rotatory_strength() + ' cgs\n')
+           'f=%.5g' % osc[0] + ', (%.5g,%.5g,%.5g) ' % (osc[1], osc[2], osc[3])+"\n")
+           #'R=%.5g' % self.get_rotatory_strength() + ' cgs\n')
 
         def sqr(x): return x*x
         spin = ['u','d'] 

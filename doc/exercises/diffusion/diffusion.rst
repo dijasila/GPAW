@@ -84,7 +84,7 @@ As a non-trivial example of a Python module, try to write a function:
 .. function:: aual100(site, height)
 
 The *site* argument should be one of the strings that the
-:func:`ase.lattice.surface.fcc100>` function accepts: ``'ontop'``,
+:func:`ase.lattice.surface.fcc100` function accepts: ``'ontop'``,
 ``'hollow'`` or ``'bridge'``.  The *height* argument is the height above the
 Al layer.  The function must relax a  gold atom at *site*, return the energy
 and write ``<site>.txt``,  ``<site>.traj``, and ``<site>.gpw`` files. Start

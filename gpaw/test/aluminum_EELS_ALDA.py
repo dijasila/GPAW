@@ -39,7 +39,8 @@ t2 = time.time()
 q = np.array([1/4.,0.,0.])
 w = np.linspace(0, 24, 241)
 
-df = DielectricFunction(calc='Al', frequencies=w, eta=0.2, ecut=50)
+df = DielectricFunction(calc='Al', frequencies=w, eta=0.2, ecut=50,
+                        hilbert=False)
 df.get_eels_spectrum(xc='ALDA', filename='EELS_Al_ALDA',q_c=q)
 #df.check_sum_rule()
 #df.write('Al.pckl')

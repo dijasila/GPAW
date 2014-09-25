@@ -7,12 +7,32 @@ from gpaw import debug
 from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
+from gpaw.lcao.lcao_hamiltonian import get_atomic_hamiltonian
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import serial_comm
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.kpoint import KPoint
 import warnings
 
+class LCAO:
+    def __init__(self, atomic_hamiltonian=None):
+        self.atomic_hamiltonian = atomic_hamiltonian
+
+    def __call__(self, collinear, *args, **kwargs):
+        if collinear:
+            cls = LCAOWaveFunctions
+        else:
+            from gpaw.xc.noncollinear import \
+                NonCollinearLCAOWaveFunctions
+            cls = NonCollinearLCAOWaveFunctions
+        
+        return cls(*args, atomic_hamiltonian=self.atomic_hamiltonian,
+                    **kwargs)
+
+    def __str__(self):
+        return 'lcao'
+
+# replace by class to make data structure perhaps a bit less confusing
 def get_r_and_offsets(nl, spos_ac, cell_cv):
     r_and_offset_aao = {}
 
@@ -51,14 +71,24 @@ def add_paw_correction_to_overlap(setups, P_aqMi, S_qMM, Mstart=0,
 
 class LCAOWaveFunctions(WaveFunctions):
     def __init__(self, ksl, gd, nvalence, setups, bd,
-                 dtype, world, kd, timer=None):
+                 dtype, world, kd, kptband_comm, timer,
+                 atomic_hamiltonian=None):
         WaveFunctions.__init__(self, gd, nvalence, setups, bd,
-                               dtype, world, kd, timer)
+                               dtype, world, kd, kptband_comm, timer)
         self.ksl = ksl
         self.S_qMM = None
         self.T_qMM = None
         self.P_aqMi = None
-        
+
+        if atomic_hamiltonian is None:
+            if ksl.using_blacs:
+                atomic_hamiltonian = 'distributed'
+            else:
+                atomic_hamiltonian = 'dense'
+        if isinstance(atomic_hamiltonian, str):
+            atomic_hamiltonian = get_atomic_hamiltonian(atomic_hamiltonian)
+        self.atomic_hamiltonian = atomic_hamiltonian
+
         self.timer.start('TCI: Evaluate splines')
         self.tci = NewTCI(gd.cell_cv, gd.pbc_c, setups, kd.ibzk_qc, kd.gamma)
         self.timer.stop('TCI: Evaluate splines')
@@ -137,22 +167,33 @@ class LCAOWaveFunctions(WaveFunctions):
             ni = self.setups[a].ni
             self.P_aqMi[a] = np.empty((nq, nao, ni), self.dtype)
 
+        self.timer.start('TCI: Calculate S, T, P')
+        # Calculate lower triangle of S and T matrices:
+        self.tci.calculate(spos_ac, S_qMM, T_qMM, self.P_aqMi)
+
+
+        # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        from gpaw.lcao.newoverlap import newoverlap
+        self.P_neighbors_a, self.P_aaqim, self.newP_aqMi \
+            = newoverlap(self, spos_ac)
+        # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+
         for kpt in self.kpt_u:
             q = kpt.q
             kpt.P_aMi = dict([(a, P_qMi[q])
                               for a, P_qMi in self.P_aqMi.items()])
 
-        self.timer.start('TCI: Calculate S, T, P')
-        # Calculate lower triangle of S and T matrices:
-        self.tci.calculate(spos_ac, S_qMM, T_qMM, self.P_aqMi)
+            kpt.P_aaim = dict([(a1a2, P_qim[q])
+                               for a1a2, P_qim in self.P_aaqim.items()])
+
         add_paw_correction_to_overlap(self.setups, self.P_aqMi, S_qMM,
                                       self.ksl.Mstart, self.ksl.Mstop)
         self.timer.stop('TCI: Calculate S, T, P')
 
         S_MM = None # allow garbage collection of old S_qMM after redist
-        S_qMM = self.ksl.distribute_overlap_matrix(S_qMM)
-        T_qMM = self.ksl.distribute_overlap_matrix(T_qMM)
-
+        S_qMM = self.ksl.distribute_overlap_matrix(S_qMM, root=-1) 
+        T_qMM = self.ksl.distribute_overlap_matrix(T_qMM, root=-1)
         for kpt in self.kpt_u:
             q = kpt.q
             kpt.S_MM = S_qMM[q]
@@ -175,24 +216,28 @@ class LCAOWaveFunctions(WaveFunctions):
         self.T_qMM = T_qMM
 
     def initialize(self, density, hamiltonian, spos_ac):
+        self.timer.start('LCAO WFS Initialize')
         if density.nt_sG is None:
             if self.kpt_u[0].f_n is None or self.kpt_u[0].C_nM is None:
                 density.initialize_from_atomic_densities(self.basis_functions)
-                # Initialize GLLB-potential from basis function orbitals
-                if hamiltonian.xc.type == 'GLLB':
-                    hamiltonian.xc.initialize_from_atomic_orbitals(self.basis_functions)
             else:
                 # We have the info we need for a density matrix, so initialize
                 # from that instead of from scratch.  This will be the case
                 # after set_positions() during a relaxation
                 density.initialize_from_wavefunctions(self)
+            # Initialize GLLB-potential from basis function orbitals
+            if hamiltonian.xc.type == 'GLLB':
+                hamiltonian.xc.initialize_from_atomic_orbitals(self.basis_functions)
+
         else:
             # After a restart, nt_sg doesn't exist yet, so we'll have to
             # make sure it does.  Of course, this should have been taken care
             # of already by this time, so we should improve the code elsewhere
             density.calculate_normalized_charges_and_mix()
+        #print "Updating hamiltonian in LCAO initialize wfs"
         hamiltonian.update(density)
-    
+        self.timer.stop('LCAO WFS Initialize')
+               
     def initialize_wave_functions_from_lcao(self):
         """
         Fill the calc.wfs.kpt_[u].psit_nG arrays with usefull data.
@@ -271,6 +316,7 @@ class LCAOWaveFunctions(WaveFunctions):
                     d_nn += ne * np.outer(c_n.conj(), c_n).real
                 rho_MM += self.calculate_density_matrix_delta(d_nn, kpt.C_nM)
         else:
+            print "rho_MM not NONE"
             rho_MM = kpt.rho_MM
         self.timer.start('Construct density')
         self.basis_functions.construct_density(rho_MM, nt_sG[kpt.s], kpt.q)
@@ -493,9 +539,6 @@ class LCAOWaveFunctions(WaveFunctions):
             overlapcalc = TwoCenterIntegralCalculator(self.kd.ibzk_qc,
                                                       derivative=False)
 
-            def get_phases(offset):
-                return overlapcalc.phaseclass(overlapcalc.ibzk_qc, offset)
-
             # XXX this is not parallel *AT ALL*.
             self.timer.start('Get neighbors')
             nl = tci.atompairs.pairs.neighbors
@@ -555,10 +598,10 @@ class LCAOWaveFunctions(WaveFunctions):
                 disp_o = disp_aao.get((a1, a2))
                 if disp_o is None:
                     disp_o = []
-                    for r, offset in r_and_offset_aao[(a1, a2)]:
-                        if np.linalg.norm(r) > maxdistance:
+                    for R_c, offset in r_and_offset_aao[(a1, a2)]:
+                        if np.linalg.norm(R_c) > maxdistance:
                             continue
-                        disp = Displacement(a1, a2, r, offset)
+                        disp = Displacement(a1, a2, R_c, offset)
                         disp_o.append(disp)
                     disp_aao[(a1, a2)] = disp_o
                 return [disp for disp in disp_o if disp.r < maxdistance]
@@ -578,11 +621,11 @@ class LCAOWaveFunctions(WaveFunctions):
                 m1start = M_a[a1] - M1start
                 m2start = M_a[a2] - M2start
                 if m1start >= blocksize1 or m2start >= blocksize2:
-                    continue
+                    continue # (we have only one block per CPU)
 
                 T_expansion = T_expansions.get(a1, a2)
                 Theta_expansion = Theta_expansions.get(a1, a2)
-                P_expansion = P_expansions.get(a1, a2)
+                #P_expansion = P_expansions.get(a1, a2)
                 nm1, nm2 = T_expansion.shape
 
                 m1stop = min(m1start + nm1, m1max)
@@ -638,8 +681,9 @@ class LCAOWaveFunctions(WaveFunctions):
             self.timer.start('Complicated loop')
             for a1, a3 in atompairs:
                 if a1 == a3:
+                    # Functions reside on same atom, so their overlap
+                    # does not change when atom is displaced
                     continue
-                
                 m1start = M_a[a1] - M1start
                 if m1start >= blocksize1:
                     continue

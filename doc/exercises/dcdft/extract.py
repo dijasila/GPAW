@@ -13,6 +13,7 @@ db = sys.argv[1]
 
 c = ase.db.connect(db)
 
+
 def analyse(c, collection):
 
     A = []

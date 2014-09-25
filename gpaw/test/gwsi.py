@@ -3,15 +3,16 @@
 from ase.lattice import bulk
 import numpy as np
 
+from gpaw.test import equal
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.response.g0w0 import G0W0
 
 
-def run(atoms, usesymm, name):
+def run(atoms, symm, name):
     atoms.calc = GPAW(mode=PW(250),
                       eigensolver='rmm-diis',
                       occupations=FermiDirac(0.01),
-                      usesymm=usesymm,
+                      symmetry=symm,
                       kpts={'size': (2, 2, 2), 'gamma': True},
                       txt=name + '.txt')
     e = atoms.get_potential_energy()
@@ -38,16 +39,16 @@ si2.positions -= a / 8
 i = 0
 results = []
 for si in [si1, si2]:
-    for usesymm in [True, False, None]:
-        e, r = run(si, usesymm, str(i))
+    for symm in [{}, 'off', {'time_reversal': False, 'point_group': False}]:
+        e, r = run(si, symm, str(i))
         G, X = r['eps'][0]
         results.append([e, G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]])
         G, X = r['qp'][0]
         results[-1].extend([G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]])
         i += 1
 
-assert abs(np.array(results[0]) -
-           [-9.25,
-            5.44, 2.39, 0.40, 0,
-            6.26, 3.57, 1.32, 0]).max() < 0.01
-assert np.ptp(results, 0).max() < 0.003
+equal(abs(np.array(results[0]) -
+          [-9.25,
+           5.44, 2.39, 0.40, 0,
+           6.26, 3.57, 1.32, 0]).max(), 0, 0.01)
+equal(np.ptp(results, 0).max(), 0, 0.005)

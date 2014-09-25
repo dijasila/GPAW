@@ -23,23 +23,23 @@ def frequency_grid(domega0, omega2, omegamax):
     w = np.arange(wmax)
     omega_w = w * domega0 / (1 - beta * w)
     return omega_w
-    
+
 
 class Chi0(PairDensity):
     def __init__(self, calc,
                  frequencies=None, domega0=0.1, omega2=10.0, omegamax=None,
                  ecut=50, hilbert=True, nbands=None,
-                 timeordered=False, eta=0.2, ftol=1e-6,
+                 timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
                  real_space_derivatives=False, intraband=True, nthreads=1,
                  world=mpi.world, txt=sys.stdout, timer=None,
                  nblocks=1,
                  keep_occupied_states=False, gate_voltage=None):
 
-        PairDensity.__init__(self, calc, ecut, ftol,
+        PairDensity.__init__(self, calc, ecut, ftol, threshold,
                              real_space_derivatives, world, txt, timer,
                              nthreads=nthreads, nblocks=nblocks,
                              gate_voltage=gate_voltage)
-        
+
         self.eta = eta / Hartree
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
@@ -47,9 +47,9 @@ class Chi0(PairDensity):
         self.nbands = nbands or self.calc.wfs.bd.nbands
         self.keep_occupied_states = keep_occupied_states
         self.intraband = intraband
-        
+
         omax = self.find_maximum_frequency()
-        
+
         if frequencies is None:
             if self.omegamax is None:
                 self.omegamax = omax
@@ -60,7 +60,7 @@ class Chi0(PairDensity):
         else:
             self.omega_w = np.asarray(frequencies) / Hartree
             assert not hilbert
-            
+
         self.hilbert = hilbert
         self.timeordered = bool(timeordered)
 
@@ -76,23 +76,23 @@ class Chi0(PairDensity):
 
         wfs = self.calc.wfs
         self.prefactor = 2 / self.vol / wfs.kd.nbzkpts / wfs.nspins
-        
+
         self.chi0_vv = None  # strength of intraband peak
-        
+
     def find_maximum_frequency(self):
         self.epsmin = 10000.0
         self.epsmax = -10000.0
         for kpt in self.calc.wfs.kpt_u:
             self.epsmin = min(self.epsmin, kpt.eps_n[0])
             self.epsmax = max(self.epsmax, kpt.eps_n[self.nbands - 1])
-            
+
         print('Minimum eigenvalue: %10.3f eV' % (self.epsmin * Hartree),
               file=self.fd)
         print('Maximum eigenvalue: %10.3f eV' % (self.epsmax * Hartree),
               file=self.fd)
 
         return self.epsmax - self.epsmin
-        
+
     def calculate(self, q_c, spin='all'):
         wfs = self.calc.wfs
 
@@ -119,7 +119,7 @@ class Chi0(PairDensity):
         self.Ga = self.blockcomm.rank * mynG
         self.Gb = min(self.Ga + mynG, nG)
         chi0_wGG = chi0_wGG[:, :self.Gb - self.Ga]
-        
+
         if np.allclose(q_c, 0.0):
             chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
             chi0_wvv = np.zeros((len(self.omega_w), 3, 3), complex)
@@ -129,15 +129,15 @@ class Chi0(PairDensity):
             chi0_wvv = None
 
         print('    Initializing PAW Corrections', file=self.fd)
-        Q_aGii = self.initialize_paw_corrections(pd)
+        self.Q_aGii = self.initialize_paw_corrections(pd)
         print('        Done', file=self.fd)
 
         # Do all empty bands:
         m1 = self.nocc1
         m2 = self.nbands
-        return self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
+        return self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, self.Q_aGii,
                                m1, m2, spins)
-    
+
     @timer('Calculate CHI_0')
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
                    m1, m2, spins):
@@ -170,7 +170,7 @@ class Chi0(PairDensity):
 
             if not kpt1.s in spins:
                 continue
-                
+
             with self.timer('k+q'):
                 K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
             with self.timer('get k2'):
@@ -178,17 +178,17 @@ class Chi0(PairDensity):
             with self.timer('fft-indices'):
                 Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                            kpt1.shift_c - kpt2.shift_c)
-            
+
             for n in range(kpt1.n2 - kpt1.n1):
                 eps1 = kpt1.eps_n[n]
-                
+
                 # Only update if there exists deps <= omegamax
                 if not self.omegamax is None:
                     m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
                          if abs(d) <= self.omegamax]
                 else:
                     m = range(len(kpt2.eps_n))
-                
+
                 if not len(m):
                     continue
 
@@ -206,7 +206,7 @@ class Chi0(PairDensity):
                 # This is not quite right for degenerate partially occupied
                 # bands, but good enough for now:
                 df_m[df_m < 0] = 0.0
-                    
+
                 if optical_limit:
                     self.update_optical_limit(
                         n, m, kpt1, kpt2, deps_m, df_m, n_mG,
@@ -219,24 +219,24 @@ class Chi0(PairDensity):
                 # the intraband contributions
                 if kpt1.n1 == 0:
                     self.update_intraband(kpt2, chi0_wvv)
-                    
+
             if numberofkpts > 10 and kn % (numberofkpts // 10) == 0:
                 print('    %s,' % ctime() +
                       ' local Kpoint no: %d / %d,' % (kn, numberofkpts) +
                       '\n        mem. used.: ' +
                       '%f M / cpu' % (maxrss() / 1024**2),
                       file=self.fd)
-                
+
         self.timer.stop('Loop')
-                
+
         print('    %s, Finished kpoint sum' % ctime() +
               '\n        mem. used.: ' +
               '%f M / cpu' % (maxrss() / 1024**2), file=self.fd)
-        
+
         with self.timer('Sum CHI_0'):
             for chi0_GG in chi0_wGG:
                 self.kncomm.sum(chi0_GG)
-            
+
             if optical_limit:
                 self.world.sum(chi0_wxvG)
                 self.world.sum(chi0_wvv)
@@ -268,12 +268,12 @@ class Chi0(PairDensity):
                     ht(chi0_wvv)
                     ht(chi0_wxvG)
             print('Hilbert transform done', file=self.fd)
-        
+
         if optical_limit and self.intraband:  # Add intraband contribution
             omega_w = self.omega_w.copy()
             if omega_w[0] == 0.0:
                 omega_w[0] = 1e-14
-            
+
             chi0_wvv += (self.chi0_vv[np.newaxis] /
                          (omega_w[:, np.newaxis, np.newaxis] *
                           (omega_w[:, np.newaxis, np.newaxis] +
@@ -324,11 +324,11 @@ class Chi0(PairDensity):
                      'c')
                 #chi0_wGG[w + 1] += p2 * np.outer(myn_G, n_G.conj())
             return
-            
+
         for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
             czher(p1, n_G.conj(), chi0_wGG[w])
             czher(p2, n_G.conj(), chi0_wGG[w + 1])
-        
+
     @timer('CHI_0 optical limit update')
     def update_optical_limit(self, n, m, kpt1, kpt2, deps_m, df_m, n_mG,
                              chi0_wxvG, chi0_wvv):
@@ -339,7 +339,7 @@ class Chi0(PairDensity):
             self.update_optical_limit_hilbert(n0_mv, deps_m, df_m, n_mG,
                                               chi0_wxvG, chi0_wvv)
             return
-            
+
         if self.timeordered:
             # avoid getting a zero from np.sign():
             deps1_m = deps_m + 1j * self.eta * np.sign(deps_m + 1e-20)
@@ -347,11 +347,11 @@ class Chi0(PairDensity):
         else:
             deps1_m = deps_m + 1j * self.eta
             deps2_m = deps_m - 1j * self.eta
-            
+
         for w, omega in enumerate(self.omega_w):
             x_m = self.prefactor * df_m * (1 / (omega + deps1_m) -
                                            1 / (omega - deps2_m))
-            
+
             chi0_wvv[w] += np.dot(x_m * n0_mv.T, n0_mv.conj())
             chi0_wxvG[w, 0, :, 1:] += np.dot(x_m * n0_mv.T, n_mG[:, 1:].conj())
             chi0_wxvG[w, 1, :, 1:] += np.dot(x_m * n0_mv.T.conj(), n_mG[:, 1:])
@@ -379,21 +379,21 @@ class Chi0(PairDensity):
             chi0_wxvG[w + 1, 0, :, 1:] += p2 * x_vG
             chi0_wxvG[w, 1, :, 1:] += p1 * x_vG.conj()
             chi0_wxvG[w + 1, 1, :, 1:] += p2 * x_vG.conj()
-            
+
     @timer('CHI_0 intraband update')
     def update_intraband(self, kpt, chi0_wvv):
         """Check whether there are any partly occupied bands."""
-        
+
         width = self.calc.occupations.width
         if width == 0.0:
             return
-        
+
         assert isinstance(self.calc.occupations, FermiDirac)
         dfde_m = - 1. / width * (kpt.f_n - kpt.f_n**2.0)
         partocc_m = np.abs(dfde_m) > 1e-5
         if not partocc_m.any():
             return
-        
+
         # Break bands into degenerate chunks
         deginds_cm = []  # indexing c as chunk number
         for m in range(kpt.n2 - kpt.n1):
@@ -406,22 +406,22 @@ class Chi0(PairDensity):
             deg = len(inds_m)
             vel_mmv = -1j * PairDensity.update_intraband(self, inds_m, kpt)
             vel_mv = np.zeros((deg, 3), dtype=complex)
-            
+
             for iv in range(3):
                 w, v = np.linalg.eig(vel_mmv[..., iv])
                 vel_mv[:, iv] = w
-                                
+
             for m in range(deg):
                 velm_v = vel_mv[m]
                 x_vv = (-self.prefactor * dfde_m[inds_m[m]] *
                         np.outer(velm_v.conj(), velm_v))
 
                 self.chi0_vv += x_vv
-                
+
     def print_chi(self, pd):
         calc = self.calc
         gd = calc.wfs.gd
-        
+
         ns = calc.wfs.nspins
         nk = calc.wfs.kd.nbzkpts
         nb = self.nocc2
@@ -477,31 +477,31 @@ class HilbertTransform:
     def __init__(self, omega_w, eta, timeordered=False, gw=False,
                  blocksize=500):
         """Analytic Hilbert transformation using linear interpolation.
-        
+
         Hilbert transform::
-            
+
            oo
           /           1                1
           |dw' (-------------- - --------------) S(w').
           /     w - w' + i eta   w + w' + i eta
           0
-          
+
         With timeordered=True, you get::
-            
+
            oo
           /           1                1
           |dw' (-------------- - --------------) S(w').
           /     w - w' - i eta   w + w' + i eta
           0
-          
+
         With gw=True, you get::
-            
+
            oo
           /           1                1
           |dw' (-------------- + --------------) S(w').
           /     w - w' + i eta   w + w' + i eta
           0
-          
+
         """
 
         self.blocksize = blocksize
@@ -515,21 +515,21 @@ class HilbertTransform:
 
     def H(self, o_w, eta, sign=1):
         """Calculate transformation matrix.
-        
+
         With s=sign (+1 or -1)::
-            
+
                         oo
                        /       dw'
           X (w, eta) = | ---------------- S(w').
            s           / s w - w' + i eta
                        0
-        
+
         Returns H_ij so that X_i = np.dot(H_ij, S_j), where::
-            
+
             X_i = X (omega_w[i]) and S_j = S(omega_w[j])
                    s
         """
-    
+
         nw = len(o_w)
         H_ij = np.zeros((nw, nw), complex)
         do_j = o_w[1:] - o_w[:-1]
@@ -540,7 +540,7 @@ class HilbertTransform:
             H_ij[i, :-1] = 1 - (d_j[1:] - 1j * eta) * y_j
             H_ij[i, 1:] -= 1 - (d_j[:-1] - 1j * eta) * y_j
         return H_ij
-    
+
     def __call__(self, S_wx):
         """Inplace transform"""
         B_wx = S_wx.reshape((len(S_wx), -1))
@@ -551,7 +551,7 @@ class HilbertTransform:
             c_wx = tmp_wx[:, :b_wx.shape[1]]
             gemm(1.0, b_wx, self.H_ww, 0.0, c_wx)
             b_wx[:] = c_wx
-        
+
 
 if __name__ == '__main__':
     do = 0.025
@@ -572,10 +572,10 @@ if __name__ == '__main__':
         p = 1 / (o2 - o1)**2 / o**2
         Xh_w[w] += p * (o2 - -o)
         Xh_w[w + 1] += p * (-o - o1)
-        
+
     ht = HilbertTransform(omega_w, eta, 1)
     ht(Xh_w)
-    
+
     import matplotlib.pyplot as plt
     plt.plot(omega_w, X_w.imag, label='ImX')
     plt.plot(omega_w, X_w.real, label='ReX')

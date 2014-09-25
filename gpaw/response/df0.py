@@ -53,7 +53,7 @@ class DF(CHI):
                               calc=None,
                               vcut=None,
                               dir=None):
-	if self.chi0_wGG is None and chi0_wGG is None:
+        if self.chi0_wGG is None and chi0_wGG is None:
             self.initialize()
             self.calculate()
         elif self.chi0_wGG is None and chi0_wGG is not None:
@@ -160,7 +160,7 @@ class DF(CHI):
     def get_chi(self, xc='RPA'):
         """Solve Dyson's equation."""
 
-	if self.chi0_wGG is None:
+        if self.chi0_wGG is None:
             self.initialize()
             self.calculate()
         else:
@@ -231,7 +231,7 @@ class DF(CHI):
     def get_surface_response_function(self, z0=0., filename='surf_EELS'):
         """Calculate surface response function."""
 
-	if self.chi0_wGG is None:
+        if self.chi0_wGG is None:
             self.initialize()
             self.calculate()
 
@@ -297,7 +297,7 @@ class DF(CHI):
     def check_sum_rule(self, df1_w=None, df2_w=None):
         """Check f-sum rule."""
 
-	if df1_w is None:
+        if df1_w is None:
             df1_w = self.df1_w
             df2_w = self.df2_w
 

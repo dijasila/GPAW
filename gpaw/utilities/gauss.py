@@ -9,39 +9,66 @@ from gpaw.utilities import erf, is_contiguous
 
 # computer generated code:
 # use c/bmgs/sharmonic.py::construct_gauss_code(lmax) to generate more
-Y_L = [
-  '0.28209479177387814',
-  '0.48860251190291992 * y',
-  '0.48860251190291992 * z',
-  '0.48860251190291992 * x',
-  '1.0925484305920792 * x*y',
-  '1.0925484305920792 * y*z',
-  '0.31539156525252005 * (3*z*z-r2)',
-  '1.0925484305920792 * x*z',
-  '0.54627421529603959 * (x*x-y*y)',
-]
-gauss_L = [
-  'sqrt(a**3*4)/pi * exp(-a*r2)',
-  'sqrt(a**5*5.333333333333333)/pi * y * exp(-a*r2)',
-  'sqrt(a**5*5.333333333333333)/pi * z * exp(-a*r2)',
-  'sqrt(a**5*5.333333333333333)/pi * x * exp(-a*r2)',
-  'sqrt(a**7*4.2666666666666666)/pi * x*y * exp(-a*r2)',
-  'sqrt(a**7*4.2666666666666666)/pi * y*z * exp(-a*r2)',
-  'sqrt(a**7*0.35555555555555557)/pi * (3*z*z-r2) * exp(-a*r2)',
-  'sqrt(a**7*4.2666666666666666)/pi * x*z * exp(-a*r2)',
-  'sqrt(a**7*1.0666666666666667)/pi * (x*x-y*y) * exp(-a*r2)',
-]
-gausspot_L = [
-  '2.0*1.7724538509055159*erf(sqrt(a)*r)/r',
-  '1.1547005383792515*(1.7724538509055159*erf(sqrt(a)*r)-2*sqrt(a)*r*exp(-a*r2))/r/r2*y',
-  '1.1547005383792515*(1.7724538509055159*erf(sqrt(a)*r)-2*sqrt(a)*r*exp(-a*r2))/r/r2*z',
-  '1.1547005383792515*(1.7724538509055159*erf(sqrt(a)*r)-2*sqrt(a)*r*exp(-a*r2))/r/r2*x',
-  '0.5163977794943222*(5.3173615527165481*erf(sqrt(a)*r)-(6+4*(sqrt(a)*r)**2)*sqrt(a)*r*exp(-a*r2))/r/r2**2*x*y',
-  '0.5163977794943222*(5.3173615527165481*erf(sqrt(a)*r)-(6+4*(sqrt(a)*r)**2)*sqrt(a)*r*exp(-a*r2))/r/r2**2*y*z',
-  '0.14907119849998599*(5.3173615527165481*erf(sqrt(a)*r)-(6+4*(sqrt(a)*r)**2)*sqrt(a)*r*exp(-a*r2))/r/r2**2*(3*z*z-r2)',
-  '0.5163977794943222*(5.3173615527165481*erf(sqrt(a)*r)-(6+4*(sqrt(a)*r)**2)*sqrt(a)*r*exp(-a*r2))/r/r2**2*x*z',
-  '0.2581988897471611*(5.3173615527165481*erf(sqrt(a)*r)-(6+4*(sqrt(a)*r)**2)*sqrt(a)*r*exp(-a*r2))/r/r2**2*(x*x-y*y)',
-]
+def Y_L(L, x, y, z, r2):
+    if L == 0:
+        return 0.28209479177387814
+    elif L == 1:
+        return 0.48860251190291992 * y
+    elif L == 2:
+        return 0.48860251190291992 * z
+    elif L == 3:
+        return 0.48860251190291992 * x
+    elif L == 4:
+        return 1.0925484305920792 * x*y
+    elif L == 5:
+        return 1.0925484305920792 * y*z
+    elif L == 6:
+        return 0.31539156525252005 * (3*z*z-r2)
+    elif L == 7:
+        return 1.0925484305920792 * x*z
+    elif L == 8:
+        return 0.54627421529603959 * (x*x-y*y)
+
+def gauss_L(a, L, x, y, z, r2, exp_ar2):
+    if L == 0:
+        return sqrt(a**3*4)/pi * exp_ar2
+    elif L == 1:
+        return sqrt(a**5*5.333333333333333)/pi * y * exp_ar2
+    elif L == 2:
+        return sqrt(a**5*5.333333333333333)/pi * z * exp_ar2
+    elif L == 3:
+        return sqrt(a**5*5.333333333333333)/pi * x * exp_ar2
+    elif L == 4:
+        return sqrt(a**7*4.2666666666666666)/pi * x*y * exp_ar2
+    elif L == 5:
+        return sqrt(a**7*4.2666666666666666)/pi * y*z * exp_ar2
+    elif L == 6:
+        return sqrt(a**7*0.35555555555555557)/pi * (3*z*z-r2) * exp_ar2
+    elif L == 7:
+        return sqrt(a**7*4.2666666666666666)/pi * x*z * exp_ar2
+    elif L == 8:
+        return sqrt(a**7*1.0666666666666667)/pi * (x*x-y*y) * exp_ar2
+
+def gausspot_L(a, L, x, y, z, r, r2, erf_sar, exp_ar2):
+    if L == 0:
+        return 2.0*1.7724538509055159*erf_sar/r
+    elif L == 1:
+        return 1.1547005383792515*(1.7724538509055159*erf_sar-2*sqrt(a)*r*exp_ar2)/r/r2*y
+    elif L == 2:
+        return 1.1547005383792515*(1.7724538509055159*erf_sar-2*sqrt(a)*r*exp_ar2)/r/r2*z
+    elif L == 3:
+        return 1.1547005383792515*(1.7724538509055159*erf_sar-2*sqrt(a)*r*exp_ar2)/r/r2*x
+    elif L == 4:
+        return 0.5163977794943222*(5.3173615527165481*erf_sar-(6+4*(sqrt(a)*r)**2)*sqrt(a)*r*exp_ar2)/r/r2**2*x*y
+    elif L == 5:
+        return 0.5163977794943222*(5.3173615527165481*erf_sar-(6+4*(sqrt(a)*r)**2)*sqrt(a)*r*exp_ar2)/r/r2**2*y*z
+    elif L == 6:
+        return 0.14907119849998599*(5.3173615527165481*erf_sar-(6+4*(sqrt(a)*r)**2)*sqrt(a)*r*exp_ar2)/r/r2**2*(3*z*z-r2)
+    elif L == 7:
+        return 0.5163977794943222*(5.3173615527165481*erf_sar-(6+4*(sqrt(a)*r)**2)*sqrt(a)*r*exp_ar2)/r/r2**2*x*z
+    elif L == 8:
+        return 0.2581988897471611*(5.3173615527165481*erf_sar-(6+4*(sqrt(a)*r)**2)*sqrt(a)*r*exp_ar2)/r/r2**2*(x*x-y*y)
+
 # end of computer generated code
 
 class Gaussian:
@@ -61,7 +88,11 @@ class Gaussian:
     def __init__(self, gd, a=19., center=None):
         self.gd = gd
         self.xyz, self.r2 = coordinates(gd, center)
+        self.r = np.sqrt(self.r2)
         self.set_width(a)
+        self.exp_ar2 = exp(-self.a * self.r2) 
+        self.erf_sar = erf(sqrt(self.a) * self.r)
+
 
     def set_width(self, a):
         """Set exponent of exp-function to -a on the boundary."""
@@ -71,25 +102,26 @@ class Gaussian:
         a = self.a
         x, y, z  = tuple(self.xyz)
         r2 = self.r2
-        return eval(gauss_L[L])
+        exp_ar2 = self.exp_ar2
+        return gauss_L(a, L, x, y, z, r2, exp_ar2)
     
     def get_gauss_pot(self, L):
         a = self. a
         x, y, z  = tuple(self.xyz)
         r2 = self.r2
-        if not hasattr(self, 'r'):
-            self.r = np.sqrt(r2)
         r = self.r
-        return eval(gausspot_L[L])
+        erf_sar = self.erf_sar
+        exp_ar2 = self.exp_ar2
+        return gausspot_L(a, L, x, y, z, r, r2, erf_sar, exp_ar2)
 
     def get_moment(self, n, L):
         r2 = self.r2
         x, y, z = tuple(self.xyz)
-        return self.gd.integrate(n * eval(Y_L[L]))
+        return self.gd.integrate(n * Y_L(L, x, y, z, r2))
 
     def remove_moment(self, n, L, q=None):
         # Determine multipole moment
-        if q == None:
+        if q is None:
             q = self.get_moment(n, L)
 
         # Don't do anything if moment is less than the tolerance

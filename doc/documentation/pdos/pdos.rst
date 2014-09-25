@@ -39,7 +39,7 @@ distribution gives the electron density
 
 Summing the PDOS over `i` gives the spectral weight of orbital `i`.
 
-A GPAW calculator gives access to three different kinds of projected
+A GPAW calculator gives access to four different kinds of projected
 density of states:
 
 * Total density of states.

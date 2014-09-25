@@ -15,10 +15,11 @@ atom and CO molecule and compare them to results from molecular orbital theory.
 .. highlight:: bash
 
 * Towards the end, a :file:`.gpw` file is written with the Kohn-Sham
-  wavefunctions by ``calc.write('O.gpw', mode='all')``.
+  wavefunctions by ``calc.write('O.gpw', mode='all')`` and also some cube
+  files containing individual orbatals are written.
 
-* Run the script and check the output file. What are the occupation numbers
-  for the free oxygen atom?
+* Run the script and check the text-output file. What are the occupation
+  numbers for the free oxygen atom?
 
 * The orbitals can be visualized using Mayavi_ and its
   :func:`mayavi.mlab.contour3d` function and the GPAW-calculators
@@ -32,6 +33,8 @@ atom and CO molecule and compare them to results from molecular orbital theory.
       mlab.contour3d(lumo)
       mlab.show()
 
+  For an alternative way of viewing the orbitals, see :ref:`iso`.
+  
   Can you identify the highest occupied state and the lowest unoccupied state?
 
   How do your wavefunctions compare to atomic s- and p-orbitals?
@@ -55,11 +58,14 @@ atom and CO molecule and compare them to results from molecular orbital theory.
   the final results to a :file:`.gpw` file. The wavefunctions
   are not written to the :file:`.gpw` file by default, but can again be saved by
   writing :samp:`{calc}.write('CO.gpw', mode='all')`, where :samp:`{calc}` is
-  the calculator object. Assuming you use :samp:`opt = QuasiNewton(..., trajectory='CO.traj')`, the trajectory can be viewed by::
+  the calculator object. Assuming you use
+  :samp:`opt = QuasiNewton(..., trajectory='CO.traj')`, the trajectory
+  can be viewed by::
 
     $ ase-gui CO.traj
 
-  Try looking at the file while the optimization is running and mark the two atoms to see the bond length.
+  Try looking at the file while the optimization is running and mark the
+  two atoms to see the bond length.
 
 * As this is a calculation of a molecule, one should get integer
   occupation numbers - check this in the text output.  What electronic

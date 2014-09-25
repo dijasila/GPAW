@@ -57,6 +57,13 @@ class KSSingles(ExcitationList):
             self.read(fh=filehandle)
             return None
 
+        # LCAO calculation requires special actions
+        if calculator is not None:
+            self.lcao = calculator.input_parameters.mode == 'lcao'
+            if self.lcao:
+                print >> txt, "LR-TDDFT calculation from LCAO orbitals"
+
+
         ExcitationList.__init__(self, calculator, txt=txt)
         
         if calculator is None:
@@ -92,7 +99,7 @@ class KSSingles(ExcitationList):
         self.dtype = wfs.dtype
         self.kpt_u = wfs.kpt_u
 
-        if self.kpt_u[0].psit_nG is None:
+        if not self.lcao and self.kpt_u[0].psit_nG is None:
             raise RuntimeError('No wave functions in calculator!')
 
         # criteria
@@ -381,6 +388,17 @@ class KSSingle(Excitation, PairDensity):
         self.mur = - (me + ma)
 
         # velocity form .............................
+        if self.lcao:
+            # Velocity form not supported in LCAO-LR-TDDFT
+            self.muv = None
+            self.magn = None
+            return
+
+        if self.lcao:
+            # Velocity form not supported in LCAO-LR-TDDFT
+            self.muv = None
+            self.magn = None
+            return
 
         me = np.zeros(self.mur.shape, dtype=dtype)
 

@@ -137,7 +137,7 @@ class ElectronPhononCoupling:
 ##                       convergence=dict(nbands=8),
 ##                       # basis='dzp',
 ##                       eigensolver='cg',
-##                       usesymm=None)
+##                       symmetry='off')
 ##         self.calc.get_potential_energy()
         
         # Electronic k-point descriptor

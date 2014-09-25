@@ -95,6 +95,7 @@ class KPoint:
         self.rho_MM = None
         
         self.P_aMi = None
+        self.P_aaim = None
         self.S_MM = None
         self.T_MM = None
 

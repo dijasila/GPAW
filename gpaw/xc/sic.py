@@ -369,7 +369,7 @@ class SIC(XCFunctional):
             W_mn = self.get_unitary_transformation(s)
             #
             if self.wfs.world.rank == 0:
-                if W_mn!=None:
+                if W_mn is not None:
                     writer.dimension('npart'+str(s), W_mn.shape[0])
                     writer.add('UnitaryTransformation'+str(s),
                                ('npart'+str(s),'npart'+str(s)),
@@ -382,7 +382,7 @@ class SIC(XCFunctional):
         if s in self.spin_s.keys():
             spin = self.spin_s[s]
             #
-            if spin.W_mn==None or spin.finegd.rank!=0:
+            if spin.W_mn is None or spin.finegd.rank!=0:
                 n = 0
             else:
                 n = spin.W_mn.shape[0]
@@ -401,7 +401,7 @@ class SIC(XCFunctional):
         if s in self.spin_s.keys():
             spin = self.spin_s[s]
             #
-            if spin.W_mn==None or spin.finegd.rank!=0:
+            if spin.W_mn is None or spin.finegd.rank!=0:
                 W_mn[:] = 0.0
             else:
                 W_mn[:] = spin.W_mn[:]
@@ -496,7 +496,7 @@ class SICSpin:
 
     def initialize_orbitals(self, rattle=-0.1, localize=True):
         #
-        if self.initial_W_mn!=None:
+        if self.initial_W_mn is not None:
             self.nocc = self.initial_W_mn.shape[0]
         else:
             self.nocc, x = divmod(int(self.kpt.f_n.sum()), 3 - self.nspins)
@@ -514,7 +514,7 @@ class SICSpin:
                                                     self.nocc)
         self.gd.comm.sum(Z_mmv)
 
-        if self.initial_W_mn!=None:
+        if self.initial_W_mn is not None:
             self.W_mn = self.initial_W_mn
 
         elif localize:
@@ -535,7 +535,7 @@ class SICSpin:
             U_mm = random_unitary_matrix(rattle, self.nocc)
             self.W_mn = np.dot(U_mm, self.W_mn)
         
-        if self.W_mn!=None:
+        if self.W_mn is not None:
             self.gd.comm.broadcast(self.W_mn, 0)
             
         spos_mc = -np.angle(Z_mmv.diagonal()).T / (2 * pi)
@@ -577,7 +577,7 @@ class SICSpin:
         if rattle==0.0:
             return
 
-        if self.W_mn==None:
+        if self.W_mn is None:
             return
         #
         # setup a "random" unitary matrix

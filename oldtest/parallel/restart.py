@@ -17,7 +17,7 @@ for nkpt in [4]:
     for magmom in [3.0]:
         test = 'test:  nkpt = %d magmom = %1.1f' % (nkpt, magmom)
         for nhosts in nhostswrite: 
-       	    print test
+            print test
             file_prefix = 'Fe_%d_%1.1f_par%d'%(nkpt,magmom,nhosts)
 
             fcc = Atoms([Atom('Fe', (0, 0, 0.0001) ,magmom=magmom)],
@@ -29,7 +29,7 @@ for nkpt in [4]:
                               kpts=(4, 2, 2),
                               txt=file_prefix+'.txt',
                               tolerance = 1e-10)
-	
+            
             fcc.set_calculator(calc)
             #fcc[0].set_magnetic_moment(magmom)
             e = fcc.get_potential_energy()

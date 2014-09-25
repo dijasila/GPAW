@@ -300,6 +300,38 @@ def scalapack_inverse_cholesky(desca, a, uplo):
     if info != 0:
         raise RuntimeError('scalapack_inverse_cholesky error: %d' % info)
 
+def scalapack_inverse(desca, a, uplo):
+    """Perform a hermitian matrix inversion.
+
+    """
+    desca.checkassert(a)
+    # only symmetric matrices
+    assert desca.gshape[0] == desca.gshape[1]
+    assert uplo in ['L', 'U']
+    if not desca.blacsgrid.is_active():
+        return
+    info = _gpaw.scalapack_inverse(a, desca.asarray(), switch_lu[uplo])
+    if info != 0:
+        raise RuntimeError('scalapack_inverse error: %d' % info)
+
+def scalapack_solve(desca, descb, a, b):
+    """Perform general matrix solution to Ax=b. Result will be replaces with b.
+       Equivalent to numpy.linalg.solve(a, b.T.conjugate()).T.conjugate()
+
+    """
+    desca.checkassert(a)
+    descb.checkassert(b)
+    # only symmetric matrices
+    assert desca.gshape[0] == desca.gshape[1]
+    # valid equation
+    assert desca.gshape[1] == descb.gshape[1]
+
+    if not desca.blacsgrid.is_active():
+        return
+    info = _gpaw.scalapack_solve(a.T, desca.asarray(), b.T, descb.asarray())
+    if info != 0:
+        raise RuntimeError('scalapack_solve error: %d' % info)
+
 def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc):
     desca.checkassert(a_MN)
     descc.checkassert(c_NM)
@@ -309,6 +341,31 @@ def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc):
                      desca.asarray(), descc.asarray())
 
 
+def pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
+               side='L', uplo='L'):
+    # Hermitean matrix multiply, only lower or upper diagonal of a_MK
+    # is used. By default, C = beta*C + alpha*A*B
+    # Executes PBLAS method pzhemm for complex and pdsymm for real matrices.
+    desca.checkassert(a_MK)
+    descb.checkassert(b_KN)
+    descc.checkassert(c_MN)
+    assert side in ['R','L'] and uplo in ['L','U']
+    M, Ka = desca.gshape
+    Kb, N = descb.gshape
+    if side=='R':
+        Kb, N = N, Kb
+
+    if not desca.blacsgrid.is_active():
+        return
+    fortran_side = {'L':'R', 'R':'L'}
+    fortran_uplo = {'U':'L', 'L':'U'}
+    if side=='R':
+        M, N = N, M
+
+    _gpaw.pblas_hemm(fortran_side[side], fortran_uplo[uplo], 
+                     N, M, alpha, a_MK.T, b_KN.T, beta, c_MN.T,
+                     desca.asarray(), descb.asarray(), descc.asarray())
+    
 def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
                transa='N', transb='N'):
     desca.checkassert(a_MK)
@@ -372,6 +429,10 @@ def pblas_simple_gemm(desca, descb, descc, a_MK, b_KN, c_MN,
     pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
                transa, transb)
 
+def pblas_simple_hemm(desca, descb, descc, a_MK, b_KN, c_MN, side='L', uplo='L'):
+    alpha = 1.0
+    beta = 0.0
+    pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc, side, uplo)
 
 def pblas_gemv(alpha, a, x, beta, y, desca, descx, descy,
                transa='T'):
@@ -420,11 +481,11 @@ def pblas_r2k(alpha, a_NK, b_NK, beta, c_NN, desca, descb, descc,
                     uplo)
 
 
-def pblas_simple_r2k(desca, descb, descc, a, b, c):
+def pblas_simple_r2k(desca, descb, descc, a, b, c, uplo='U'):
     alpha = 1.0
     beta = 0.0
     pblas_r2k(alpha, a, b, beta, c, 
-                desca, descb, descc)
+                desca, descb, descc, uplo)
 
 
 def pblas_rk(alpha, a_NK, beta, c_NN, desca, descc,

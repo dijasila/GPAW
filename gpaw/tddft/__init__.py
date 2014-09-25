@@ -75,8 +75,8 @@ class TDDFT(GPAW):
     theory implementation and is the only class which a user has to use.
     """
     
-    def __init__(self, filename, td_potential=None, propagator='SICN',
-                 propagator_kwargs=None, solver='CSCG', tolerance=1e-8, 
+    def __init__(self, filename, td_potential=None, propagator='SICN', calculate_energy=True, 
+                 propagator_kwargs=None, solver='CSCG', tolerance=1e-8,
                  **kwargs):
         """Create TDDFT-object.
         
@@ -227,6 +227,13 @@ class TDDFT(GPAW):
         self.hpsit = None
         self.eps_tmp = None
         self.mblas = MultiBlas(wfs.gd)
+
+        self.calculate_energy = calculate_energy
+        if self.hamiltonian.xc.name.startswith('GLLB'):
+             self.text("GLLB model potential. Not updating energy.")
+             self.calculate_energy = False
+
+
 
     def set(self, **kwargs):
         p = self.input_parameters
@@ -409,13 +416,7 @@ class TDDFT(GPAW):
             self.dm_file.close()
             self.dm_file = None
 
-    def get_td_energy(self):
-        """Calculate the time-dependent total energy"""
-
-        self.td_overlap.update(self.wfs)
-        self.td_density.update()
-        self.td_hamiltonian.update(self.td_density.get_density(),
-                                   self.time)
+    def update_eigenvalues(self):
 
         kpt_u = self.wfs.kpt_u
         if self.hpsit is None:
@@ -449,6 +450,20 @@ class TDDFT(GPAW):
         self.Ebar = H.Ebar
         self.Exc = H.Exc + self.Enlxc
         self.Etot = self.Ekin + self.Epot + self.Ebar + self.Exc
+
+
+    def get_td_energy(self):
+        """Calculate the time-dependent total energy"""
+
+        if not self.calculate_energy:
+            self.Etot = 0.0
+            return 0.0
+
+        self.td_overlap.update(self.wfs)
+        self.td_density.update()
+        self.td_hamiltonian.update(self.td_density.get_density(),
+                                   self.time)
+        self.update_eigenvalues()
 
         return self.Etot
 
@@ -613,6 +628,8 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
                 print '.',
                 sys.stdout.flush()
                 
+        print "Sinc contamination", np.exp(-t[-1]**2*sigma**2/2.0)
+
         print ''
         f_file.close()
         

@@ -175,9 +175,9 @@ class ElectronPhononCoupling(Displacement):
         # - check that gamma
         # - check that no symmetries are used
         # - ...
-        parameters = calc.input_parameters
-        assert parameters['mode'] == 'lcao', "LCAO mode required."
-        assert parameters['usesymm'] != True, "Symmetries not supported."
+        assert calc.input_parameters['mode'] == 'lcao', "LCAO mode required."
+        symmetry = calc.input_parameters['symmetry']
+        assert symmetry['point_group'] != True, "Symmetries not supported."
         
         self.calc_lcao = calc
 
