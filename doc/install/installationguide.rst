@@ -340,10 +340,7 @@ Make sure that everything works by running the test suite (using bash)::
 
   [gpaw]$ gpaw-python `which gpaw-test` 2>&1 | tee test.log
 
-This will a couple of hours.  If you have a multicore CPU, you
-can speed up the test by using ``gpaw-test -j <number-of-cores>``.
-This will run tests simultaneously (**not** employing MPI parallelization)
-on the requested *<number-of-cores>*.
+This will take a couple of hours.
 Please report errors to the ``gpaw-developers`` mailing list (see
 :ref:`mailing_lists`) Send us :file:`test.log`, as well as the
 information about your environment (processor architecture, versions
@@ -379,3 +376,8 @@ If you enabled ScaLAPACK, do::
 
 This will enable ScaLAPACK's diagonalization on a 1x2 BLACS grid
 with the block size of 2.
+
+Finally run the tests in parallel on 2, 4 and 8 cores::
+
+  [gpaw]$ mpirun -np 4 gpaw-python `which gpaw-test` 2>&1 | tee test4.log
+

@@ -102,12 +102,12 @@ class FXCCorrelation(RPACorrelation):
                 chi0_swGG[:, :, 0, 0] = chi0_swvv[:, :, v, v]
                 ev = self.calculate_energy(pd, chi0_swGG, cut_G)
                 e += ev
-		prnt('%.3f' % (ev * Hartree), end='', file=self.fd)
+                prnt('%.3f' % (ev * Hartree), end='', file=self.fd)
                 if v < 2:
                     prnt('/', end='', file=self.fd)
                 else:
                     prnt('eV', file=self.fd)
-		    self.fd.flush()
+                    self.fd.flush()
             e /= 3
 
         return e

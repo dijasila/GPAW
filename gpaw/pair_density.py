@@ -5,7 +5,7 @@ from gpaw.utilities import pack, unpack2
 from gpaw.utilities.tools import pick
 from gpaw.lfc import LocalizedFunctionsCollection as LFC, BasisFunctions
 
-
+# XXX Document what is the difference between PairDensity2 and 1.
 class PairDensity2:
     def  __init__(self, density, atoms, finegrid):
         """Initialization needs a paw instance, and whether the compensated
@@ -13,6 +13,7 @@ class PairDensity2:
 
         self.density = density
         self.finegrid = finegrid
+
 
         if not finegrid:
             density.Ghat = LFC(density.gd,
@@ -66,7 +67,6 @@ class PairDensity2:
         else:
             self.density.Ghat.add(rhot_g, Q_aL)
 
-
 class PairDensity:
     def  __init__(self, paw):
         self.set_paw(paw)
@@ -74,10 +74,15 @@ class PairDensity:
     def set_paw(self, paw):
         """basic initialisation knowing"""
         self.wfs = paw.wfs
+        self.lcao = paw.input_parameters.mode == 'lcao'
         self.density = paw.density
         self.setups = paw.wfs.setups
         self.spos_ac = paw.atoms.get_scaled_positions()
+        self.lcao = paw.input_parameters.mode == 'lcao'
         assert paw.wfs.dtype == float
+        if self.lcao:
+            self.wfs = paw.wfs
+
         
     def initialize(self, kpt, i, j):
         """initialize yourself with the wavefunctions"""
@@ -85,12 +90,39 @@ class PairDensity:
         self.j = j
         self.spin = kpt.s
         self.P_ani = kpt.P_ani
-        
-        self.wfi = kpt.psit_nG[i]
-        self.wfj = kpt.psit_nG[j]
+
+        if self.lcao:
+            self.q = kpt.q
+            self.wfi_M = kpt.C_nM[i]
+            self.wfj_M = kpt.C_nM[j]
+        else:
+            self.wfi = kpt.psit_nG[i]
+            self.wfj = kpt.psit_nG[j]
+
+    def get_lcao(self, finegrid=False):
+        """Get pair density"""
+        # Expand the pair density as density matrix
+        rho_MM = 0.5 * np.outer(self.wfi_M, self.wfj_M) + 0.5 * np.outer(self.wfj_M, self.wfi_M)
+
+        rho_G = self.density.gd.zeros()
+        self.wfs.basis_functions.construct_density(rho_MM, rho_G, self.q)
+
+        if not finegrid:
+            return rho_G
+
+        # interpolate the pair density to the fine grid
+        rho_g = self.density.finegd.zeros()
+        self.density.interpolator.apply(rho_G, rho_g)
+
+        return rho_g
 
     def get(self, finegrid=False):
         """Get pair density"""
+
+        if self.lcao:
+            return self.get_lcao(finegrid)
+
+
         nijt = self.wfi * self.wfj
         if not finegrid:
             return nijt 
@@ -221,3 +253,4 @@ class PairDensity:
 #            -rho_MM, nij_g, np.zeros(len(phit.M_W), np.intc), np.zeros(self.na))
             
         return nij_g
+

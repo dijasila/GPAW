@@ -51,6 +51,7 @@ def wrap_pylab(names=[]):
     """Use Agg backend and prevent windows from popping up."""
     import matplotlib
     matplotlib.use('Agg')
+    matplotlib.rc('text', usetex=True)
     import pylab
 
     def show(names=names):
@@ -120,7 +121,6 @@ tests = [
     'vdwradii.py',
     'lcao_restart.py',
     'ase3k.py',
-    'parallel/ut_kptops.py',
     'fileio/idiotproof_setup.py',
     'fileio/hdf5_simple.py',
     'fileio/hdf5_noncontiguous.py',
@@ -152,6 +152,7 @@ tests = [
     'gauss_func.py',
     'noncollinear/h.py',
     'symmetry.py',
+    'symmetry_ft.py',
     'usesymm.py',
     'broydenmixer.py',
     'mixer.py',
@@ -198,7 +199,6 @@ tests = [
     'H_force.py',
     'parallel/lcao_hamiltonian.py',
     'fermisplit.py',
-    'parallel/ut_redist.py',
     'lcao_h2o.py',
     'cmrtest/cmr_test2.py',
     'h2o_xas.py',
@@ -225,25 +225,23 @@ tests = [
     'ed.py',
     'ed_wrapper.py',
     'ed_shapes.py',
+    #'fractional_translations.py',
     'rpa_energy_Ni.py',
     'LDA_unstable.py',
     'si.py',
     'blocked_rmm_diis.py',
     'lxc_xcatom.py',
-    'gw_planewave.py',
     'degeneracy.py',
     'apmb.py',
     'vdw/potential.py',
     'al_chain.py',
     'relax.py',
     'fixmom.py',
-    'CH4.py',
     'diamond_absorption.py',
     'simple_stm.py',
     'gw_method.py',
     'lcao_bulk.py',
     'constant_electric_field.py',
-    'parallel/ut_invops.py',
     'wannier_ethylene.py',
     'parallel/lcao_projections.py',
     'guc_force.py',
@@ -290,8 +288,9 @@ tests = [
     'h2o_dks.py',
     'gw_ppa.py',
     'nscfsic.py',
-    'gw_static.py',
     # > 100 sec tests start here (add tests after exx.py!)
+    'parallel/diamond_gllb.py',
+    'lcao_tdgllbsc.py',
     'response_na_plasmon.py',
     'exx.py',
     'pygga.py',
@@ -319,6 +318,8 @@ tests = [
     'au02_absorption.py',
     'lrtddft3.py',
     'scfsic_n2.py',
+    #'fractional_translations_med.py',
+    #'fractional_translations_big.py',
     'parallel/lcao_parallel.py',
     'parallel/lcao_parallel_kpt.py',
     'parallel/fd_parallel.py',
@@ -334,7 +335,7 @@ tests = [
     'parallel/scalapack_mpirecv_crash.py',
     'parallel/realspace_blacs.py',
     'AA_exx_enthalpy.py',
-    #'usesymm2.py',
+    'usesymm2.py',
     #'eigh_perf.py', # Requires LAPACK 3.2.1 or later
     # XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
     #'parallel/scalapack_pdlasrt_hang.py',
@@ -366,7 +367,7 @@ if mpi.size > 1:
                 'potential.py',
                 #'cmrtest/cmr_test3.py',
                 #'cmrtest/cmr_append.py',
-                'cmrtest/Li2_atomize.py',  # started to hang May 2014
+                #'cmrtest/Li2_atomize.py',  # started to hang May 2014
                 'lcao_pair_and_coulomb.py',
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
@@ -389,7 +390,8 @@ if mpi.size < 4:
                 'bse_diamond.py',
                 'bse_silicon.py',
                 'bse_vs_lrtddft.py',
-                'fileio/parallel.py']
+                'fileio/parallel.py',
+                'parallel/diamond_gllb.py']
 
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']

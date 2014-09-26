@@ -1,10 +1,14 @@
+# This makes sure that division works as in Python3
 from __future__ import division, print_function
 
 from math import pi
+import time
 
 import numpy as np
+import pickle
+
 from ase.units import Hartree
-from ase.utils import opencew
+from ase.utils import opencew, devnull
 from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
@@ -20,17 +24,70 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
 class G0W0(PairDensity):
+    """This class defines the G0W0 calculator. The G0W0 calculator is used
+    is used to calculate the quasi particle energies through the G0W0
+    approximation for a number of states.
+
+    Note: So far the G0W0 calculation only works for spin-paired systems.
+
+    Parameters:
+       calc: str or PAW object
+          GPAW calculator object or filename of saved calculator object.
+       filename: str
+          Base filename of output files.
+       kpts: list
+          List of indices of the IBZ k-points to calculate the quasi particle
+          energies for.
+       bands: tuple
+          Range of band indices, like (n1, n2+1), to calculate the quasi
+          particle energies for. Note that the second band index is not
+          included.
+       ecut: float
+          Plane wave cut-off energy in eV.
+       nbands: int
+          Number of bands to use in the calculation. If :None: the number will
+          be determined from :ecut: to yield a number close to the number of
+          plane waves used.
+       ppa: bool
+          Sets whether the Godby-Needs plasmon-pole approximation for the
+          dielectric function should be used.
+       E0: float
+          Energy (in eV) used for fitting in the plasmon-pole approximation.
+       domega0: float
+          Minimum frequency step (in eV) used in the generation of the non-
+          linear frequency grid.
+       omega2: float
+          Control parameter for the non-linear frequency grid, equal to the
+          frequency where the grid spacing has doubled in size.
+       wstc: bool
+          Sets whether a Wigner-Seitz truncation should be used for the
+          Coloumb potential.
+    """
     def __init__(self, calc, filename='gw',
                  kpts=None, bands=None, nbands=None, ppa=False,
                  wstc=False,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
-                 domega0=0.025, omega2=10.0,
+                 domega0=0.025, omega2=10.0, omegamax=None,
+                 savew=False,
                  world=mpi.world):
-    
+
+        if world.rank != 0:
+            txt = devnull
+        else:
+            txt = open(filename + '.txt', 'w')
+
+        print('  ___  _ _ _ ', file=txt)
+        print(' |   || | | |', file=txt)
+        print(' | | || | | |', file=txt)
+        print(' |__ ||_____|', file=txt)
+        print(' |___|        by GPAW', file=txt)
+        print(file=txt)
+
         PairDensity.__init__(self, calc, ecut, world=world,
-                             txt=filename + '.txt')
-        
+                             txt=txt)
+
         self.filename = filename
+        self.savew = savew
         
         ecut /= Hartree
         
@@ -40,13 +97,7 @@ class G0W0(PairDensity):
         self.E0 = E0 / Hartree
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
-
-        print('  ___  _ _ _ ', file=self.fd)
-        print(' |   || | | |', file=self.fd)
-        print(' | | || | | |', file=self.fd)
-        print(' |__ ||_____|', file=self.fd)
-        print(' |___|       ', file=self.fd)
-        print(file=self.fd)
+        self.omegamax = None if omegamax is None else omegamax / Hartree
 
         self.kpts = select_kpts(kpts, self.calc)
                 
@@ -69,6 +120,21 @@ class G0W0(PairDensity):
             nbands = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
         self.nbands = nbands
 
+        print(file=self.fd)
+        print('Quasi particle states:', file=self.fd)
+        if kpts is None:
+            print('All k-points in IBZ', file=self.fd)
+        else:
+            kptstxt = ', '.join(['{0:d}'.format(k) for k in self.kpts])
+            print('k-points (IBZ indices): [' + kptstxt + ']', file=self.fd)
+        print('Band range: ({0:d}, {1:d})'.format(b1, b2), file=self.fd)
+        print(file=self.fd)
+        print('Computational parameters:', file=self.fd)
+        print('Plane wave cut-off: {0:g} eV'.format(self.ecut * Hartree),
+              file=self.fd)
+        print('Number of bands: {0:d}'.format(self.nbands), file=self.fd)
+        print('Broadening: {0:g} eV'.format(self.eta * Hartree), file=self.fd)
+
         kd = self.calc.wfs.kd
 
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
@@ -79,18 +145,38 @@ class G0W0(PairDensity):
         offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
-        self.qd.set_symmetry(self.calc.atoms, self.calc.wfs.setups,
-                             usesymm=self.calc.input_parameters.usesymm,
-                             N_c=self.calc.wfs.gd.N_c)
+        self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
         
         assert self.calc.wfs.nspins == 1
         
     @timer('G0W0')
     def calculate(self):
+        """Starts the G0W0 calculation. Returns a dict with the results with
+        the following key/value pairs:
+
+        f: (s, k, n) ndarray
+           Occupation numbers
+        eps: (s, k, n) ndarray
+           Kohn-Sham eigenvalues in eV
+        vxc: (s, k, n) ndarray
+           Exchange-correlation contributions in eV
+        exx: (s, k, n) ndarray
+           Exact exchange contributions in eV
+        sigma: (s, k, n) ndarray
+           Self-energy contributions in eV
+        Z: (s, k, n) ndarray
+           Renormalization factors
+        qp: (s, k, n) ndarray
+           Quasi particle energies in eV
+        """
         kd = self.calc.wfs.kd
 
         self.calculate_ks_xc_contribution()
         self.calculate_exact_exchange()
+
+        # Reset calculation
+        self.sigma_sin = np.zeros(self.shape)   # self-energies
+        self.dsigma_sin = np.zeros(self.shape)  # derivatives of self-energies
 
         # Get KS eigenvalues and occupation numbers:
         b1, b2 = self.bands
@@ -133,6 +219,8 @@ class G0W0(PairDensity):
         return results
         
     def calculate_q(self, i, kpt1, kpt2, pd0, W0):
+        """Calculates the contribution to the self-energy and its derivative
+        for a given set of k-points, kpt1 and kpt2."""
         wfs = self.calc.wfs
         
         N_c = pd0.gd.N_c
@@ -148,42 +236,25 @@ class G0W0(PairDensity):
 
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
-        I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
-        qd1 = KPointDescriptor([q_c])
-        pd1 = PWDescriptor(self.ecut, wfs.gd, complex, qd1)
-        G_I = np.empty(N_c.prod(), int)
-        G_I[:] = -1
-        I1_G = pd1.Q_qG[0]
-        G_I[I1_G] = np.arange(len(I0_G))
-        G_G = G_I[I0_G]
-        assert len(I0_G) == len(I1_G)
-        assert (G_G >= 0).all()
-
-        Q_aGii = [Q_Gii[G_G]
-                  for Q_Gii in self.initialize_paw_corrections(pd1)]
         
+        G_Gv = pd0.G_Qv[pd0.Q_qG[0]] + pd0.K_qv[0]
+        pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
+        M_vv = np.dot(pd0.gd.cell_cv.T,
+                      np.dot(self.U_cc.T,
+                             np.linalg.inv(pd0.gd.cell_cv).T))
+        
+        Q_aGii = []
+        for a, Q_Gii in enumerate(self.Q_aGii):
+            x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
+                                            self.sign *
+                                            np.dot(M_vv, pos_av[a]))))
+            U_ii = self.calc.wfs.setups[a].R_sii[self.s]
+            Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
+                           U_ii.T).transpose(1, 0, 2)
+            Q_aGii.append(Q_Gii)
+
         if debug:
-            G_Gv = pd0.G_Qv[pd0.Q_qG[0]] + pd0.K_qv[0]
-            pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
-            M_vv = np.dot(pd0.gd.cell_cv.T,
-                          np.dot(self.U_cc.T,
-                                 np.linalg.inv(pd0.gd.cell_cv).T))
-            for a, Q_Gii in enumerate(self.Q_aGii):
-                x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
-                                                self.sign *
-                                                np.dot(M_vv, pos_av[a]))))
-                Q2_Gii = Q_Gii * x_G[:, None, None]
-                e = abs(Q_aGii[a][:, 0, 0] - Q2_Gii[:, 0, 0]).max()
-                if e > 1e-12:
-                    print(a, self.sign, shift0_c, shift_c,
-                          np.linalg.det(M_vv),
-                          np.linalg.det(self.U_cc), q_c,
-                          self.U_cc.flatten(),
-                          #pos_av[a] - np.dot(M_vv.T, pos_av[a]),
-                          e)
-                    2 / 0
-                    #print(pos_av,M_vv)
-                    #print(Q_aGii[a][:5, 0, 0] / Q2_Gii[:5, 0, 0])
+            self.check(i_cG, shift0_c, N_c, q_c, Q_aGii)
                 
         if self.ppa:
             calculate_sigma = self.calculate_sigma_ppa
@@ -213,8 +284,27 @@ class G0W0(PairDensity):
             self.sigma_sin[kpt1.s, i, nn] += sigma
             self.dsigma_sin[kpt1.s, i, nn] += dsigma
             
+    def check(self, i_cG, shift0_c, N_c, q_c, Q_aGii):
+        I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
+        qd1 = KPointDescriptor([q_c])
+        pd1 = PWDescriptor(self.ecut, self.calc.wfs.gd, complex, qd1)
+        G_I = np.empty(N_c.prod(), int)
+        G_I[:] = -1
+        I1_G = pd1.Q_qG[0]
+        G_I[I1_G] = np.arange(len(I0_G))
+        G_G = G_I[I0_G]
+        assert len(I0_G) == len(I1_G)
+        assert (G_G >= 0).all()
+
+        for a, Q_Gii in enumerate(self.initialize_paw_corrections(pd1)):
+            e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
+            assert e < 1e-12
+
     @timer('Sigma')
     def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG):
+        """Calculates a contribution to the self-energy and its derivative for
+        a given (k, k-q)-pair from its corresponding pair-density and
+        energy."""
         o_m = abs(deps_m)
         # Add small number to avoid zeros for degenerate states:
         sgn_m = np.sign(deps_m + 1e-15)
@@ -230,6 +320,7 @@ class G0W0(PairDensity):
         x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
         sigma = 0.0
         dsigma = 0.0
+        # Performing frequency integration
         for o, o1, o2, sgn, s, w, n_G in zip(o_m, o1_m, o2_m,
                                              sgn_m, s_m, w_m, n_mG):
             C1_GG = C_swGG[s][w]
@@ -242,9 +333,20 @@ class G0W0(PairDensity):
             
         return sigma, dsigma
 
-    @timer('W')
+    #@timer('W')
     def calculate_screened_potential(self):
-        print('Calulating screened Coulomb potential', file=self.fd)
+        """Calculates the screened potential for each q-point in the 1st BZ.
+        Since many q-points are related by symmetry, the actual calculation is
+        only done for q-points in the IBZ and the rest are obtained by symmetry
+        transformations. Results are returned as a generator to that it is not
+        necessary to store a huge matrix for each q-point in the memory."""
+        # The decorator $timer('W') doesn't work for generators, do we will
+        # have to manually start and stop the timer here:
+        self.timer.start('W')
+        print('Calculating screened Coulomb potential', file=self.fd)
+        if self.wstc:
+            print('Using Wigner-Seitz truncated Coloumb potential',
+                  file=self.fd)
             
         if self.ppa:
             print('Using Godby-Needs plasmon-pole approximation:',
@@ -260,11 +362,19 @@ class G0W0(PairDensity):
                           'timeordered': False,
                           'frequencies': frequencies}
         else:
+            print('Using full frequency integration:', file=self.fd)
+            print('  domega0: {0:g}'.format(self.domega0 * Hartree),
+                  file=self.fd)
+            print('  omega2: {0:g}'.format(self.omega2 * Hartree),
+                  file=self.fd)
+
             parameters = {'eta': self.eta * Hartree,
                           'hilbert': True,
                           'timeordered': True,
                           'domega0': self.domega0 * Hartree,
                           'omega2': self.omega2 * Hartree}
+            if self.omegamax is not None:
+                parameters['omegamax'] = self.omegamax * Hartree
             
         chi0 = Chi0(self.calc,
                     nbands=self.nbands,
@@ -274,31 +384,50 @@ class G0W0(PairDensity):
                     txt=self.filename + '.w.txt',
                     timer=self.timer,
                     **parameters)
+
+        if self.wstc:
+            wstc = WignerSeitzTruncatedCoulomb(
+                self.calc.wfs.gd.cell_cv,
+                self.calc.wfs.kd.N_c,
+                chi0.fd)
+        else:
+            wstc = None
         
         self.omega_w = chi0.omega_w
         self.omegamax = chi0.omegamax
         
         htp = HilbertTransform(self.omega_w, self.eta, gw=True)
         htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
-            
+
+        # Need to pause the timer in between iterations
+        self.timer.stop('W')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
-            if self.wstc:
-                wstc = WignerSeitzTruncatedCoulomb(
-                    self.calc.wfs.gd.cell_cv,
-                    self.calc.wfs.kd.N_c,
-                    chi0.fd)
+            self.timer.start('W')
+            if self.savew:
+                wfilename = self.filename + '.w.q%d.pckl' % iq
+                fd = opencew(wfilename)
+            if self.savew and fd is None:
+                # Read screened potential from file
+                with open(wfilename) as fd:
+                    pd, W = pickle.load(fd)
             else:
-                wstc = None
-                
-            pd, chi0_wGG = chi0.calculate(q_c)[:2]
-            self.Q_aGii = self.initialize_paw_corrections(pd)  # get from chi0!
-            W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc)
-            
+                # First time calculation
+                pd, chi0_wGG = chi0.calculate(q_c)[:2]
+                W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc)
+                if self.savew:
+                    pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
+
+            self.Q_aGii = chi0.initialize_paw_corrections(pd)
+
+            self.timer.stop('W')
+            # Loop over all k-points in the BZ and find those that are related
+            # to the current IBZ k-point by symmetry
             Q1 = self.qd.ibz2bz_k[iq]
             done = set()
             for s, Q2 in enumerate(self.qd.bz2bz_ks[Q1]):
                 if Q2 >= 0 and Q2 not in done:
                     s = self.qd.sym_k[Q2]
+                    self.s = s
                     self.U_cc = self.qd.symmetry.op_scc[s]
                     time_reversal = self.qd.time_reversal_k[Q2]
                     self.sign = 1 - 2 * time_reversal
@@ -310,6 +439,7 @@ class G0W0(PairDensity):
     
     @timer('WW')
     def calculate_w(self, pd, chi0_wGG, q_c, htp, htm, wstc):
+        """Calculates the screened potential for a specified q-point."""
         if self.wstc:
             iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
             if np.allclose(q_c, 0):

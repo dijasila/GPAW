@@ -25,7 +25,7 @@ ef = calc.get_fermi_level()
 calc = GPAW('Si_gs.gpw',
             nbands=16,
             fixdensity=True,
-            usesymm=None,
+            symmetry='off',
             convergence={'bands': 8})
 
 # Use ase.dft module for obtaining k-points along high symmetry directions

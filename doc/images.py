@@ -21,6 +21,7 @@ srcpath = 'http://wiki.fysik.dtu.dk/gpaw-files'
 agtspath = 'http://wiki.fysik.dtu.dk'
 jjwww = 'http://dcwww.camp.dtu.dk/~jensj'  # should that be in srcpath?
 
+
 def get(path, names, target=None, source=None):
     """Get files from web-server.
 
@@ -43,7 +44,7 @@ def get(path, names, target=None, source=None):
                 sink.write(data)
                 sink.close()
                 print 'OK'
-                got_something = True                
+                got_something = True
             except HTTPError:
                 print 'HTTP Error!'
     return got_something
@@ -52,7 +53,7 @@ def get(path, names, target=None, source=None):
 literature = """
 askhl_10302_report.pdf  mortensen_gpaw-dev.pdf      rostgaard_master.pdf
 askhl_master.pdf        mortensen_mini2003talk.pdf  rostgaard_paw_notes.pdf
-marco_master.pdf        mortensen_paw.pdf
+marco_master.pdf        mortensen_paw.pdf           ss14.pdf
 """.split()
 
 logos = """
@@ -86,10 +87,8 @@ get('devel', ['bslogo.png', 'overview.png', 'stat.png'])
 # Note: bz-all.png is used both in an exercise and a tutorial.  Therefore
 # we put it in the common dir so far, rather than any of the two places
 get('.', ['bz-all.png'], '_static')
-get('exercises/band_structure', ['silicon_banddiagram.png'])
 get('exercises/wavefunctions', ['co_bonding.jpg'])
 
-get('tutorials/bandstructures', ['sodium_bands.png'])
 get('tutorials/H2', ['ensemble.png'])
 
 get('.', ['2sigma.png', 'co_wavefunctions.png', 'molecules.png'], '_static')
@@ -112,7 +111,17 @@ scf_dcdft_pbe_pw_calculator_steps.png
 scf_dcdft_pbe_pw_energy.csv
 """.split()
 
-get('agts-files', scf_conv_eval_stuff, target='documentation/scf_conv_eval', source=agtspath)
+get('agts-files', scf_conv_eval_stuff, target='documentation/scf_conv_eval',
+    source=agtspath)
+
+# Warning: for the moment dcdft runs are not run (files are static)!
+dcdft_pbe_aims_stuff = """
+dcdft_aims.tight.01.16.db.csv
+dcdft_aims.tight.01.16.db_raw.csv
+dcdft_aims.tight.01.16.db_Delta.txt
+""".split()
+
+get('agts-files', dcdft_pbe_aims_stuff, target='setups', source=agtspath)
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_gpaw_pw_stuff = """
@@ -149,6 +158,7 @@ pbe_nwchem_def2_qzvppd_opt_ea_vs.csv pbe_nwchem_def2_qzvppd_opt_distance_vs.csv
 
 get('agts-files', g2_1_stuff, target='setups', source=agtspath)
 
+
 def setup(app):
     # Generate one page for each setup:
     if get('setups', ['setups-data.tar.gz'], '_static'):
@@ -179,13 +189,12 @@ def setup(app):
             get('agts-files', [name], job.dir, source=agtspath)
 
     # Get files that we can't generate:
-    for dir, file in [
-        ('.', 'camd.png'),
-        ('tutorials/xas', 'xas_illustration.png'),
-        ('tutorials/xas', 'xas_h2o_convergence.png'),
-        ('install/BGP', 'bgp_mapping_intranode.png'),  
-        ('install/BGP', 'bgp_mapping1.png'),
-        ('install/BGP', 'bgp_mapping2.png'),
-        ('devel', 'bigpicture.png'),
-        ('_build', 'bigpicture.svg')]:
+    for dir, file in [('.', 'camd.png'),
+                      ('tutorials/xas', 'xas_illustration.png'),
+                      ('tutorials/xas', 'xas_h2o_convergence.png'),
+                      ('install/BGP', 'bgp_mapping_intranode.png'),
+                      ('install/BGP', 'bgp_mapping1.png'),
+                      ('install/BGP', 'bgp_mapping2.png'),
+                      ('devel', 'bigpicture.png'),
+                      ('_build', 'bigpicture.svg')]:
         get('gpaw-stuff', [file], dir, jjwww)

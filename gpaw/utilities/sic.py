@@ -45,7 +45,7 @@ class NSCFSIC:
                 e_g = np.zeros(g.N)
                 vHr = np.zeros(g.N)
                 Exc = xc.calculate_spherical(g.rgd, np.array([na, nb]), v_sg)
-                hartree(0, na * g.r * g.dr, g.beta, g.N, vHr)
+                hartree(0, na * g.r * g.dr, g.r, vHr)
                 EHa = 2*pi*np.dot(vHr*na*g.r , g.dr)
                 print ('%10.2f%10.2f%10.2f' % (Exc * Hartree, EHa * Hartree,
                                                -f*(EHa+Exc) * Hartree))

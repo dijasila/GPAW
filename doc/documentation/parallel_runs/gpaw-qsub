@@ -13,6 +13,7 @@ add('-l')
 add('-q')
 
 add('-n', '--threads', type=int, default=1)
+add('-m', '--module', action='store_true')
 add('-g', '--gpaw')
 add('-x', '--export')
 
@@ -38,12 +39,14 @@ qsub = '#!/usr/bin/env python\n'
 qsub += '#PBS -N %s\n' % name  # set default job name
 qsub += '#PBS -W umask=002\n'
 
-for line in open(script):
-    if line.startswith('#PBS'):
-        qsub += line
+if not opts.module:
+    for line in open(script):
+        if line.startswith('#PBS'):
+            qsub += line
 
 qsub += 'job = %r\n' % args
 qsub += 'path = %r\n' % path
+qsub += 'module = %r\n' % opts.module
 qsub += 'nthreads = %d\n' % opts.threads
 qsub += 'export = %r\n' % export
 
@@ -76,6 +79,8 @@ cmd.append(os.path.join(path,
                         'build',
                         'bin.' + os.environ['GPAW_PLATFORM'],
                         'gpaw-python'))
+if module:
+    cmd.append('-m')
 cmd += job
 print(cmd)
 print subprocess.check_call(cmd)

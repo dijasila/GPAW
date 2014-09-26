@@ -38,7 +38,7 @@ This block will then reside on the first CPU -- local_desc therefore
 represents non-distributed arrays.  Let us instantiate some arrays::
 
   H_MM = local_desc.empty()
-  
+
   if world.rank == 0:
       assert H_MM.shape == (500, 500)
       H_MM[:, :] = calculate_hamiltonian_or_something()
@@ -53,7 +53,7 @@ We can then redistribute the local H_MM into H_mm::
   from gpaw.blacs import Redistributor
   redistributor = Redistributor(world, local_desc, block_desc)
   redistributor.redistribute(H_MM, H_mm)
-  
+
 Now we can run parallel linear algebra on H_mm.  This will diagonalize
 H_mm, place the eigenvectors in C_mm and the eigenvalues globally in
 eps_M::
@@ -105,7 +105,7 @@ BLOCK_CYCLIC_2D = 1
 
 class BlacsGrid:
     """Class representing a 2D grid of processors sharing a Blacs context.
-        
+
     A BLACS grid defines a logical M by N ordering of a collection of
     CPUs.  A BLACS grid can be used to create BLACS descriptors.  On
     an npcol by nprow BLACS grid, a matrix is distributed amongst M by
@@ -114,7 +114,7 @@ class BlacsGrid:
 
     Use the method new_descriptor() to create any number of BLACS
     descriptors sharing the same CPU layout.
-    
+
     Most matrix operations require the involved matrices to all be on
     the same BlacsGrid.  Use a Redistributor to redistribute matrices
     from one BLACS grid to another if necessary.
@@ -125,7 +125,7 @@ class BlacsGrid:
         grid may use all or some of the CPUs of the communicator.
       * nprow:  Number of CPU rows.
       * npcol: Number of CPU columns.
-      * order: 'R' or 'C', meaning rows or columns.  I'm not sure what this 
+      * order: 'R' or 'C', meaning rows or columns.  I'm not sure what this
         does, it probably interchanges the meaning of rows and columns. XXX
 
     Complicated stuff
@@ -150,10 +150,10 @@ class BlacsGrid:
         context = INACTIVE
 
         # There are three cases to handle:
-        # 1. Comm is None is inactive (default). 
+        # 1. Comm is None is inactive (default).
         # 2. Comm is a legitimate communicator
         # 3. DryRun Communicator is now handled by subclass
-        if comm is not None: # MPI task is part of the communicator
+        if comm is not None:  # MPI task is part of the communicator
             if nprow * npcol > comm.size:
                 raise ValueError('Impossible: %dx%d Blacs grid with %d CPUs'
                                  % (nprow, npcol, comm.size))
@@ -162,11 +162,10 @@ class BlacsGrid:
                                               npcol, nprow, order)
             assert (context != INACTIVE) == (comm.rank < nprow * npcol)
 
-
-        self.mycol, self.myrow = _gpaw.get_blacs_gridinfo(context, 
+        self.mycol, self.myrow = _gpaw.get_blacs_gridinfo(context,
                                                           nprow,
                                                           npcol)
-        
+
         self.context = context
         self.comm = comm
         self.nprow = nprow
@@ -205,10 +204,10 @@ class BlacsGrid:
     def __str__(self):
         classname = self.__class__.__name__
         template = '%s[comm:size=%d,rank=%d; context=%d; %dx%d]'
-        string = template % (classname, self.comm.size, self.comm.rank, 
+        string = template % (classname, self.comm.size, self.comm.rank,
                              self.context, self.nprow, self.npcol)
         return string
-    
+
     def __del__(self):
         if self.is_active():
             _gpaw.blacs_destroy(self.context)
@@ -216,7 +215,7 @@ class BlacsGrid:
 
 class DryRunBlacsGrid(BlacsGrid):
     def __init__(self, comm, nprow, npcol, order='R'):
-        assert isinstance(comm, SerialCommunicator) #DryRunCommunicator is subclass
+        assert isinstance(comm, SerialCommunicator)  # DryRunCommunicator is subclass
         if nprow * npcol > comm.size:
             raise ValueError('Impossible: %dx%d Blacs grid with %d CPUs'
                              % (nprow, npcol, comm.size))
@@ -229,7 +228,7 @@ class DryRunBlacsGrid(BlacsGrid):
         self.order = order
 
 
-#XXX A MAJOR HACK HERE:
+# XXX A MAJOR HACK HERE:
 from gpaw import dry_run
 if dry_run:
     BlacsGrid = DryRunBlacsGrid
@@ -252,7 +251,7 @@ class BlacsDescriptor(MatrixDescriptor):
     each process gets a number of distinct blocks of size mb by nb.
     The blocks on one process generally reside in very different areas
     of the matrix to improve load balance.
-    
+
     The following chart describes how different ranks (there are 4
     ranks in this example, 0 through 3) divide the matrix into blocks.
     This is called 2D block cyclic distribution::
@@ -286,7 +285,7 @@ class BlacsDescriptor(MatrixDescriptor):
 
     Complicated stuff
     -----------------
-    
+
     If there is trouble with matrix shapes, the below caveats are
     probably the reason.
 
@@ -296,7 +295,7 @@ class BlacsDescriptor(MatrixDescriptor):
     first process will have 7 rows, the next will have 3, and the last
     will have 0.  The shapes in this case must still be correctly
     given to BLACS functions, which can be confusing.
-    
+
     A blacs descriptor must also give the correct local leading
     dimension (lld), which is the local array size along the
     memory-contiguous direction in the matrix, and thus equal to the
@@ -315,52 +314,51 @@ class BlacsDescriptor(MatrixDescriptor):
             nb = N
         assert 0 <= rsrc < blacsgrid.nprow
         assert 0 <= csrc < blacsgrid.npcol
-        
+
         self.blacsgrid = blacsgrid
-        self.M = M # global size 1
-        self.N = N # global size 2
-        self.mb = mb # block cyclic distr dim 1
-        self.nb = nb # and 2.  How many rows or columns are on this processor
+        self.M = M  # global size 1
+        self.N = N  # global size 2
+        self.mb = mb  # block cyclic distr dim 1
+        self.nb = nb  # and 2.  How many rows or columns are on this processor
         # more info:
         # http://www.netlib.org/scalapack/slug/node75.html
         self.rsrc = rsrc
         self.csrc = csrc
-        
+
         if blacsgrid.is_active():
             locN, locM = _gpaw.get_blacs_local_shape(self.blacsgrid.context,
                                                      self.N, self.M,
-                                                     self.nb, self.mb, 
+                                                     self.nb, self.mb,
                                                      self.csrc, self.rsrc)
-            self.lld  = max(1, locN) # max 1 is nonsensical, but appears
+            self.lld = max(1, locN)  # max 1 is nonsensical, but appears
                                      # to be required by PBLAS
-        else: 
+        else:
             # ScaLAPACK has no requirements as to what these values on an
             # inactive blacsgrid should be. This seemed reasonable to me
             # at the time.
             locN, locM = 0, 0
             self.lld = 0
-        
+
         # locM, locN is not allowed to be negative. This will cause the
         # redistributor to fail. This could happen on active blacsgrid
         # which does not contain any piece of the distribute matrix.
         # This is why there is a final check on the value of locM, locN.
         MatrixDescriptor.__init__(self, max(0, locM), max(0, locN))
-        
+
         # This is the definition of inactive descriptor; can occur
         # on an active or inactive blacs grid.
         self.active = locM > 0 and locN > 0
-        
-        self.bshape = (self.mb, self.nb) # Shape of one block
-        self.gshape = (M, N) # Global shape of array
 
+        self.bshape = (self.mb, self.nb)  # Shape of one block
+        self.gshape = (M, N)  # Global shape of array
 
     def asarray(self):
         """Return a nine-element array representing this descriptor.
-        
+
         In the C/Fortran code, a BLACS descriptor is represented by a
-        special array of arcane nature.  The value of asarray() must 
+        special array of arcane nature.  The value of asarray() must
         generally be passed to BLACS functions in the C code."""
-        arr = np.array([BLOCK_CYCLIC_2D, self.blacsgrid.context, 
+        arr = np.array([BLOCK_CYCLIC_2D, self.blacsgrid.context,
                         self.N, self.M, self.nb, self.mb, self.csrc, self.rsrc,
                         self.lld], np.intc)
         return arr
@@ -421,14 +419,14 @@ class BlacsDescriptor(MatrixDescriptor):
 
     def my_blocks(self, array_mn):
         """Yield the local blocks and their global index limits.
-        
+
         Yields tuples of the form (Mstart, Mstop, Nstart, Nstop, block),
         for each locally stored block of the array.
         """
         if not self.check(array_mn):
             raise ValueError('Bad array shape (%s vs %s)' % (self,
                                                              array_mn.shape))
-        
+
         grid = self.blacsgrid
         mb = self.mb
         nb = self.nb
@@ -450,7 +448,7 @@ class BlacsDescriptor(MatrixDescriptor):
                 Nstop = min(Nstart + nb, N)
                 block = array_mn[myMstart:myMstart + mb,
                                  myNstart:myNstart + nb]
-                
+
                 yield Mstart, Mstop, Nstart, Nstop, block
 
     def as_serial(self):
@@ -483,7 +481,7 @@ class Redistributor:
 
         Source and destination descriptors may reside on different
         BLACS grids, but the descriptors should describe arrays with
-        the same number of elements.  
+        the same number of elements.
 
         The communicators of the BLACS grid of srcdescriptor as well
         as that of dstdescriptor *must* both be subcommunicators of
@@ -496,7 +494,7 @@ class Redistributor:
         self.supercomm_bg = BlacsGrid(self.supercomm, self.supercomm.size, 1)
         self.srcdescriptor = srcdescriptor
         self.dstdescriptor = dstdescriptor
-    
+
     def redistribute(self, src_mn, dst_mn=None,
                      subM=None, subN=None,
                      ia=0, ja=0, ib=0, jb=0, uplo='G'):
@@ -511,7 +509,7 @@ class Redistributor:
         If any ia, ja, ib and jb are given, they denote the global
         index (i, j) of the origin of the submatrix inside the source
         and destination (a, b) matrices."""
-        
+
         srcdescriptor = self.srcdescriptor
         dstdescriptor = self.dstdescriptor
         dtype = src_mn.dtype
@@ -531,7 +529,7 @@ class Redistributor:
 
         assert dtype == dst_mn.dtype
         assert dtype == float or dtype == complex
-        
+
         # Check to make sure the submatrix of the source
         # matrix will fit into the destination matrix
         # plus standard BLACS matrix checks.
@@ -547,14 +545,14 @@ class Redistributor:
         assert srcdescriptor.gshape[1] >= subN
         assert dstdescriptor.gshape[0] >= subM
         assert dstdescriptor.gshape[1] >= subN
-        
+
         # Switch to Fortran conventions
         uplo = {'U': 'L', 'L': 'U', 'G': 'G'}[uplo]
-        _gpaw.scalapack_redist(srcdescriptor.asarray(), 
+        _gpaw.scalapack_redist(srcdescriptor.asarray(),
                                dstdescriptor.asarray(),
                                src_mn, dst_mn,
                                subN, subM,
-                               ja + 1, ia + 1, jb + 1, ib + 1, # 1-indexing
+                               ja + 1, ia + 1, jb + 1, ib + 1,  # 1-indexing
                                self.supercomm_bg.context, uplo)
         return dst_mn
 
@@ -568,6 +566,3 @@ def parallelprint(comm, obj):
             print
             sys.stdout.flush()
         comm.barrier()
-
-
-

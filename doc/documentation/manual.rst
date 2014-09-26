@@ -87,7 +87,8 @@ keyword            type       default value        description
 ``spinpol``        ``bool``                        :ref:`manual_spinpol`
 ``gpts``           *seq*                           :ref:`manual_gpts`
 ``h``              ``float``  ``0.2``              :ref:`manual_h`
-``usesymm``        ``bool``   ``True``             :ref:`manual_usesymm`
+``symmetry``       ``dict``   ``{}``               :ref:`manual_symmetry`
+``usesymm``        ``bool``   ``True``             :ref:`manual_symmetry`
 ``random``         ``bool``   ``False``            Use random numbers for
                                                    :ref:`manual_random`
 ``occupations``    occ. obj.                       :ref:`manual_occ`
@@ -232,8 +233,13 @@ states.  For metals, more bands are needed.  Sometimes, adding more
 unoccupied bands will improve convergence.
 
 .. tip::
-   ``nbands=0`` will give zero empty bands, and ``nbands=-n`` will
-   give ``n`` empty bands.
+   
+    ``nbands=0`` will give zero empty bands, and ``nbands=-n`` will
+    give ``n`` empty bands.
+   
+.. tip::
+    
+    ``nbands='n%'`` will give ``n/100`` times the number of occupied bands.
 
 
 .. _manual_xc:
@@ -370,7 +376,7 @@ gridpoints (smaller grid spacing, *h*), gives better convergence of
 the total energy.  For most elements, *h* should be 0.2 Å for
 reasonable convergence of total energies.  If a ``n1`` `\times` ``n2``
 `\times` ``n3`` grid is desired, use ``gpts=(n1, n2, n3)``, where
-``n1``, ``n2`` and ``n3`` are positive ``int``s all divisible by four.
+``n1``, ``n2`` and ``n3`` are positive ``int``'s all divisible by four.
 Alternatively, one can use something like ``h=0.25``, and the program
 will try to choose a number of grid points that gives approximately
 a grid-point density of `1/h^3`.  For more details, see :ref:`grids`.
@@ -407,21 +413,48 @@ cell accordingly. This can be achieved by::
   # and ensure a grid spacing of h=0.2
   atoms.minimal_box(4., h=.2)
 
-.. _manual_usesymm:
+
+.. _manual_symmetry:
 
 Use of symmetry
 ---------------
 
-With ``usesymm=True`` (default) the **k**-points are reduced to only
-those in the irreducible part of the Brillouin-zone.  Moving the atoms
-so that a symmetry is broken will cause an error.  This can be avoided
-by using ``usesymm=False`` which will reduce the number of applied
-symmetries to just the time-reversal symmetry (implying that the
-Hamiltonian is invariant under **k** -> -**k**). For some purposes you
-might want to have no symmetry reduction of the **k**-points at all
-(debugging, transport, wannier functions). This can be achieved be
-specifying ``usesymm=None``.
+The default behavior is to use all point-group symmetries and time-reversal
+symmetry to reduce the **k**-points to only those in the irreducible part of
+the Brillouin-zone.  Moving the atoms so that a symmetry is broken will
+cause an error.  This can be avoided by using::
+    
+    symmetry={'point_group': False}
 
+This will reduce the number of applied symmetries to just the time-reversal
+symmetry (implying that the Hamiltonian is invariant under **k** -> -**k**).
+For some purposes you might want to have no symmetry reduction of the
+**k**-points at all (debugging, transport calculations, band-structure
+calculations, ...). This can be achieved by specifying::
+
+    symmetry={'point_group': False, 'time_reversal': False}
+    
+or simply ``symmetry='off'`` which is a short-hand notation for the same
+thing.
+
+For full control, here are all the available keys of the ``symmetry``
+dictionary:
+
+=================  ========  ===============================
+key                default   description
+=================  ========  ===============================
+``point_group``    ``True``  Use point-group symmetries
+``time_reversal``  ``True``  Use time-reversal symmetry
+``symmorphic``     ``True``  Use only symmorphic symmetries
+``tolerance``      ``1e-7``  Relative tolerance
+=================  ========  ===============================
+
+.. note::
+    
+    If you are using version 0.10 or earlier, you can use
+    ``usesymm=False`` to turn off all point-group symmetries and
+    ``usesymm=None`` to turn off also time-reversal symmetry.
+    
 
 .. _manual_random:
 

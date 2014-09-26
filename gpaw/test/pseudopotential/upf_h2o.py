@@ -1,5 +1,6 @@
 from gpaw.upf import UPFSetupData, upfplot
 from gpaw.pseudopotential import pseudoplot, PseudoPotential
+from gpaw.eigensolvers.davidson import Davidson
 
 def get(fname):
     s = UPFSetupData(fname)
@@ -50,20 +51,21 @@ if 1:
 
     #s = UPFSetupData('/home/askhl/parse-upf/h_lda_v1.uspp.F.UPF')
 
-    upfsetups = {'H': UPFSetupData('H.pz-hgh.UPF'), 
+    upfsetups = {'H': UPFSetupData('H.pz-hgh.UPF'),
                  'O': UPFSetupData('O.pz-hgh.UPF')}
 
     system = molecule('H2O')
     system.center(vacuum=3.5)
     calc = GPAW(txt='-',
                 nbands=6,
-                #setups=upfsetups,
-                setups='paw',
+                setups=upfsetups,
+                #setups='paw',
                 #hund=True,
                 #mixer=MixerSum(0.1, 5, 20.0),
                 #eigensolver='cg',
                 #occupations=FermiDirac(0.1),
                 #charge=1-1e-12,
+                eigensolver=Davidson(2),
                 #eigensolver='rmm-diis',
                 gpts=h2gpts(0.12, system.get_cell(), idiv=8),
                 poissonsolver=PoissonSolver(relax='GS', eps=1e-7),

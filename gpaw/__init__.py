@@ -18,7 +18,6 @@ except ImportError:
     def get_platform():
         return modulepath
 
-from glob import glob
 from os.path import join, isfile
 
 import numpy as np
@@ -28,7 +27,7 @@ assert not np.version.version.startswith('1.6.0')
 
 __all__ = ['GPAW', 'Calculator',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
-           'CG', 'Davidson', 'RMM_DIIS', 'LCAO',
+           'CG', 'Davidson', 'RMM_DIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
            'restart']
@@ -238,9 +237,10 @@ except KeyError:
 
 from gpaw.aseinterface import GPAW
 from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
-from gpaw.eigensolvers import Davidson, RMM_DIIS, CG, LCAO
+from gpaw.eigensolvers import Davidson, RMM_DIIS, CG, DirectLCAO
 from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac, MethfesselPaxton
+from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.pw import PW
 
 
@@ -299,19 +299,19 @@ command = os.environ.get('GPAWSTARTUP')
 if command is not None:
     exec(command)
 
-    
+
 def is_parallel_environment():
     """Check if we are running in a parallel environment.
-    
+
     This function can be redefined in ~/.gpaw/rc.py.  Example::
-        
+
         def is_parallel_environment():
             import os
             return 'PBS_NODEFILE' in os.environ
     """
     return False
-    
-    
+
+
 home = os.environ.get('HOME')
 if home is not None:
     rc = os.path.join(home, '.gpaw', 'rc.py')

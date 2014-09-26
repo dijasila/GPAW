@@ -67,7 +67,7 @@ class FXCCorrelation:
                                                              op_scc)[0]
             self.q_weights = calc.wfs.kd.q_weights
         
-        if xc == None:
+        if xc is None:
             self.xc = 'RPA'
         else:
             self.xc = xc

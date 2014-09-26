@@ -700,7 +700,8 @@ class NewTwoCenterIntegrals:
             I_a.append(I_setup[setup])
 
         cutoff_a = [cutoff_I[I] for I in I_a]
-
+        
+        self.cutoff_a = cutoff_a # convenient for writing the new new overlap
         self.I_a = I_a
         self.setups_I = setups_I        
         self.atompairs = PairsWithSelfinteraction(NeighborPairs(cutoff_a,

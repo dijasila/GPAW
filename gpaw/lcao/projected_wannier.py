@@ -307,7 +307,7 @@ class ProjectedWannierFunctions:
                                   for Uo_ni, epso_n in zip(self.Uo_kni, 
                                                            epso_kn)])
 
-        if self.h_lcao_kii!=None and useibl:
+        if self.h_lcao_kii is not None and useibl:
             print "Using h_lcao and infinite band limit"
             Vo_kni = self.Vo_kni
             Huf_kii = [h_lcao_ii - np.dot(dagger(Vo_ni) * epso_n, Vo_ni)

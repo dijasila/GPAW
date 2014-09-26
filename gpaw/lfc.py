@@ -1,11 +1,13 @@
 from math import pi
 
 import numpy as np
+from ase.units import Bohr
 
 from gpaw import debug, extra_parameters
 from gpaw.spherical_harmonics import Y
 from gpaw.grid_descriptor import GridDescriptor, GridBoundsError
 from gpaw.mpi import serial_comm
+from gpaw.utilities import min_locfun_radius, smallest_safe_grid_spacing
 import _gpaw
 
 """
@@ -298,8 +300,9 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         # Holm-Nielsen check:
         if ((self.gd.comm.sum(float(sum(self.my_atom_indices))) !=
              natoms * (natoms - 1) // 2)):
-            raise RuntimeError('Holm-Nielsen check failed.  Grid might be '
-                               'too coarse.  Use h < 0.306 Ang.')
+            raise ValueError('Holm-Nielsen check failed.  Grid might be '
+                             'too coarse.  Use h < %.3f'
+                             % (smallest_safe_grid_spacing * Bohr))
 
         self.M_W = np.empty(nW, np.intc)
         self.G_B = np.empty(nB, np.intc)

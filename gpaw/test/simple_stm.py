@@ -32,7 +32,7 @@ def testSTM(calc):
         stm2 = SimpleStm(f3dname)
         wf2 = stm2.gd.integrate(stm2.ldos)
         print 'Integrals: written, read=', wf, wf2
-        equal(wf, wf2, 1.e-7)
+        equal(wf, wf2, 2.e-7)
 
 ##    print eigenvalue_string(calc)
     stm.write_3D(3.1, f3dname)

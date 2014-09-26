@@ -1,8 +1,6 @@
 import numpy as np
-from os import system
-from ase import Atom, Atoms
+from ase import Atoms
 from gpaw import GPAW, FermiDirac
-from gpaw.mpi import rank
 from gpaw.response.df import DielectricFunction
 from gpaw.test import equal, findpeak
 
@@ -22,18 +20,19 @@ if GS:
     cluster.set_calculator(calc)
     cluster.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=24, scalapack=True)
-    calc.write('Au2.gpw','all')
+    calc.write('Au2.gpw', 'all')
 
 if ABS:
     df = DielectricFunction('Au2.gpw',
-                            frequencies=np.linspace(0,14,141),
+                            frequencies=np.linspace(0, 14, 141),
+                            hilbert=not True,
                             eta=0.1,
                             ecut=10)
 
     b0, b = df.get_dielectric_function(filename=None,
-                                       direction='z')             
+                                       direction='z')
     a0, a = df.get_polarizability(filename=None,
-                                 direction='z')             
+                                  direction='z')
     a0_ws, a_ws = df.get_polarizability(filename=None,
                                         wigner_seitz_truncation=True,
                                         direction='z')

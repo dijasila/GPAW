@@ -52,18 +52,20 @@ Pick among them according to your interest.  You can also look at the :ref:`tuto
 .. toctree::
    :maxdepth: 1
 
-   dcdft/dcdft
-   vibrations/vibrations
-   stress/stress
    neb/neb
+   stm/stm
    wannier/wannier
-   iron/iron
    dos/dos
    band_structure/bands
-   stm/stm
+   vibrations/vibrations
+   iron/iron
+   eels/eels
+   gw/gw
+   rpa/rpa
+   dcdft/dcdft
+   stress/stress
    transport/transport
    lrtddft/lrtddft
-   eels/eels
 
 Further information:
 
@@ -74,3 +76,9 @@ Further information:
    
 For comments and questions, write to the :ref:`mailing_lists`.  You
 can also search in the mailing list archives on the same page.
+
+.. toctree::
+    :hidden:
+        
+    bse/bse
+    

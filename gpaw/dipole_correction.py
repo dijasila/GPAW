@@ -7,7 +7,7 @@ class DipoleCorrection:
     """Dipole-correcting wrapper around another PoissonSolver."""
     def __init__(self, poissonsolver, direction):
         """Construct dipole correction object.
-        
+
         poissonsolver is a GPAW Poisson solver.
         direction is 0, 1 or 2 and specifies x, y or z.
         """
@@ -60,14 +60,14 @@ class DipoleCorrector:
         Returns arrays drhot_g and dphit_g such that if rhot_g has the
         potential phit_g, then rhot_g + drhot_g has the potential
         phit_g + dphit_g, where dphit_g is an error function.
-        
+
         The error function is chosen so as to be largely constant at the
         cell boundaries and beyond.
         """
         # This implementation is not particularly economical memory-wise
-        
+
         c = self.c
-        
+
         # Right now the dipole correction must be along one coordinate
         # axis and orthogonal to the two others.  The two others need not
         # be orthogonal to each other.
@@ -76,15 +76,15 @@ class DipoleCorrector:
                 if np.vdot(gd.cell_cv[c], gd.cell_cv[c1]) > 1e-12:
                     raise ValueError('Dipole correction axis must be '
                                      'orthogonal to the two other axes.')
-        
+
         moment = gd.calculate_dipole_moment(rhot_g)[c]
         if abs(moment) < 1e-12:
             return gd.zeros(), gd.zeros()
 
         r_g = gd.get_grid_point_coordinates()[c]
         cellsize = abs(gd.cell_cv[c, c])
-        sr_g = 2.0 / cellsize * r_g - 1.0 # sr ~ 'scaled r'
-        alpha = 12.0 # should perhaps be variable
+        sr_g = 2.0 / cellsize * r_g - 1.0  # sr ~ 'scaled r'
+        alpha = 12.0  # should perhaps be variable
         drho_g = sr_g * np.exp(-alpha * sr_g**2)
         moment2 = gd.calculate_dipole_moment(drho_g)[c]
         factor = -moment / moment2

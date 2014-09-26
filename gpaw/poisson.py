@@ -8,9 +8,9 @@ import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2
 
 from ase.parallel import parprint
-
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
+from gpaw.fd_operators import Gradient
 from gpaw import PoissonConvergenceError
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
@@ -19,14 +19,15 @@ from gpaw.utilities.tools import construct_reciprocal
 import gpaw.mpi as mpi
 import _gpaw
 
-
 class PoissonSolver:
-    def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000):
+    def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
+                 remove_moment=None):
         self.relax = relax
         self.nn = nn
         self.eps = eps
         self.charged_periodic_correction = None
         self.maxiter = maxiter
+        self.remove_moment = remove_moment
 
         # Relaxation method
         if relax == 'GS':
@@ -73,7 +74,7 @@ class PoissonSolver:
         # only used if 'J' (Jacobi) is chosen as method
         self.weights = [2.0 / 3.0]
 
-        while level < 4:
+        while level < 8:
             try:
                 gd2 = gd.coarsen()
             except ValueError:
@@ -130,11 +131,28 @@ class PoissonSolver:
 
         if eps is None:
             eps = self.eps
-
         actual_charge = self.gd.integrate(rho)
         background = (actual_charge / self.gd.dv /
                       self.gd.get_size_of_global_array().prod())
 
+        if self.remove_moment:
+            assert not self.gd.pbc_c.any()
+            if not hasattr(self, 'gauss'):
+                self.gauss = Gaussian(self.gd)
+            rho_neutral = rho.copy()
+            phi_cor_L = []
+            for L in range(self.remove_moment):
+                phi_cor_L.append(self.gauss.remove_moment(rho_neutral, L))
+            # Remove multipoles for better initial guess
+            for phi_cor in phi_cor_L:
+                phi -= phi_cor
+
+            niter = self.solve_neutral(phi, rho_neutral, eps=eps)
+            # correct error introduced by removing multipoles
+            for phi_cor in phi_cor_L:
+                phi += phi_cor
+
+            return niter
         if charge is None:
             charge = actual_charge
         if abs(charge) <= maxcharge:
@@ -322,6 +340,7 @@ class FFTPoissonSolver(PoissonSolver):
 
     def __init__(self, eps=2e-10):
         self.charged_periodic_correction = None
+        self.remove_moment = None
         self.eps = eps
 
     def set_grid_descriptor(self, gd):
@@ -544,4 +563,5 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
             self.gd.distribute(global_phi_g, phi_g)
         else:
             phi_g[:] = phi_g3
+
 

@@ -16,10 +16,10 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 class FDWaveFunctions(FDPWWaveFunctions):
     def __init__(self, stencil, diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd,
-                 dtype, world, kd, timer=None):
+                 dtype, world, kd, kptband_comm, timer=None):
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd,
-                                   dtype, world, kd, timer)
+                                   dtype, world, kd, kptband_comm, timer)
 
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
@@ -130,7 +130,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         # New k-point descriptor for full BZ:
         kd = KPointDescriptor(self.kd.bzk_kc, nspins=self.nspins)
-        kd.set_symmetry(atoms, self.setups, usesymm=None)
+        #kd.set_symmetry(atoms, self.setups, enabled=False)
         kd.set_communicator(serial_comm)
 
         self.pt = LFC(self.gd, [setup.pt_j for setup in self.setups],

@@ -54,6 +54,13 @@ class KSSingles(ExcitationList):
             self.read(fh=filehandle)
             return None
 
+        # LCAO calculation requires special actions
+        if calculator is not None:
+            self.lcao = calculator.input_parameters.mode == 'lcao'
+            if self.lcao:
+                print >> txt, "LR-TDDFT calculation from LCAO orbitals"
+
+
         ExcitationList.__init__(self, calculator, txt=txt)
         
         if calculator is None:
@@ -97,7 +104,7 @@ class KSSingles(ExcitationList):
         wfs = paw.wfs
         self.kpt_u = wfs.kpt_u
 
-        if self.kpt_u[0].psit_nG is None:
+        if not self.lcao and self.kpt_u[0].psit_nG is None:
             raise RuntimeError('No wave functions in calculator!')
 
         # here, we need to take care of the spins also for
@@ -150,7 +157,7 @@ class KSSingles(ExcitationList):
                 if self.nvspins < 2:
                     vspin = 0
                 f = self.kpt_u[vspin].f_n
-                if jend == None: jend = len(f)-1
+                if jend is None: jend = len(f)-1
                 else         : jend = min(jend, len(f)-1)
 
                 for i in range(istart, jend+1):
@@ -345,6 +352,17 @@ class KSSingle(Excitation, PairDensity):
         self.mur = - ( me + ma )
 
         # velocity form .............................
+        if self.lcao:
+            # Velocity form not supported in LCAO-LR-TDDFT
+            self.muv = None
+            self.magn = None
+            return
+
+        if self.lcao:
+            # Velocity form not supported in LCAO-LR-TDDFT
+            self.muv = None
+            self.magn = None
+            return
 
         me = np.zeros(self.mur.shape)
 
@@ -465,10 +483,12 @@ class KSSingle(Excitation, PairDensity):
                (self.i,self.j, self.pspin,self.spin, self.energy, self.fij)
         str += '  '
         for m in self.mur: str += '%12.4e' % m
-        str += '  '
-        for m in self.muv: str += '%12.4e' % m
-        str += '  '
-        for m in self.magn: str += '%12.4e' % m
+        if self.muv is not None:
+            str += '  '
+            for m in self.muv: str += '%12.4e' % m
+        if self.magn is not None:
+            str += '  '
+            for m in self.magn: str += '%12.4e' % m
         str += '\n'
         return str
         
