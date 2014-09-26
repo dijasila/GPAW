@@ -713,7 +713,7 @@ class Transport_Analysor:
         gd = calc.gd
         finegd = calc.hamiltonian.finegd
 
-        if not tp.use_qzk_boundary and not tp.multi_leads:
+        if not tp.use_qzk_boundary:
             nt_sG = tp.density.nt_sG
             nt_sg = tp.density.nt_sg
         else:
@@ -745,7 +745,7 @@ class Transport_Analysor:
         data[flag + 'df'] = np.diag(tp.hsd.H[0][0].recover(True))
         data[flag + 'dd'] = np.diag(tp.hsd.D[0][0].recover(True))            
         
-        if not tp.use_qzk_boundary and not tp.multi_leads: 
+        if not tp.use_qzk_boundary: 
             gd = tp.finegd
             rhot_g = tp.density.rhot_g
             rho = aa1d(rhot_g)
@@ -791,7 +791,7 @@ class Transport_Analysor:
             contour = None
         else:
             if 'force' in tp.analysis_data_list:
-                if not tp.use_qzk_boundary and not tp.multi_leads:
+                if not tp.use_qzk_boundary:
                     force = tp.calculate_force() * Hartree / Bohr
                 else:
                     force = tp.extended_calc.get_forces(tp.extended_atoms
@@ -945,7 +945,7 @@ class Transport_Analysor:
     def abstract_d_and_v(self, tp):
         calc = tp.extended_calc
         gd = calc.gd
-        if not tp.use_qzk_boundary and not tp.multi_leads:
+        if not tp.use_qzk_boundary:
             nt_sG = tp.density.nt_sG
         else:
             nt_sG = calc.density.nt_sG            
