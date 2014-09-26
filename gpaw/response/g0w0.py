@@ -2,7 +2,6 @@
 from __future__ import division, print_function
 
 from math import pi
-import time
 
 import numpy as np
 import pickle
@@ -67,7 +66,7 @@ class G0W0(PairDensity):
                  kpts=None, bands=None, nbands=None, ppa=False,
                  wstc=False,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
-                 domega0=0.025, omega2=10.0, omegamax=None,
+                 domega0=0.025, omega2=10.0,
                  savew=False,
                  world=mpi.world):
 
@@ -97,7 +96,6 @@ class G0W0(PairDensity):
         self.E0 = E0 / Hartree
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
-        self.omegamax = None if omegamax is None else omegamax / Hartree
 
         self.kpts = select_kpts(kpts, self.calc)
                 
@@ -333,7 +331,6 @@ class G0W0(PairDensity):
             
         return sigma, dsigma
 
-    #@timer('W')
     def calculate_screened_potential(self):
         """Calculates the screened potential for each q-point in the 1st BZ.
         Since many q-points are related by symmetry, the actual calculation is
@@ -373,9 +370,7 @@ class G0W0(PairDensity):
                           'timeordered': True,
                           'domega0': self.domega0 * Hartree,
                           'omega2': self.omega2 * Hartree}
-            if self.omegamax is not None:
-                parameters['omegamax'] = self.omegamax * Hartree
-            
+        
         chi0 = Chi0(self.calc,
                     nbands=self.nbands,
                     ecut=self.ecut * Hartree,
@@ -413,11 +408,10 @@ class G0W0(PairDensity):
             else:
                 # First time calculation
                 pd, chi0_wGG = chi0.calculate(q_c)[:2]
+                self.Q_aGii = chi0.Q_aGii
                 W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc)
                 if self.savew:
                     pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
-
-            self.Q_aGii = chi0.initialize_paw_corrections(pd)
 
             self.timer.stop('W')
             # Loop over all k-points in the BZ and find those that are related
