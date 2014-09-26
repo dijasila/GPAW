@@ -505,19 +505,7 @@ class PolarizableTetrahedron():
                (np.sign(s0) == np.sign(s4) or abs(s4) < 1e-12):
                 mask[ind] = True
         return mask
-
-        
        
-class SimpleMixer():
-    def __init__(self, alpha, data):
-        self.alpha = alpha
-        self.data  = np.copy(data)
-    
-    def mix(self, data):
-        self.data = self.alpha * data + (1.0-self.alpha) * self.data
-        return np.copy(self.data)
-
-
 # Lorentzian oscillator function: L(omega) = eps0 * beta / (w**2 - i*alpha*omega - omega**2)    // Coomar2011, Eq. 2
 class LorentzOscillator:
     def __init__(self, bar_omega, alpha, beta):

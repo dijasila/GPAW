@@ -653,8 +653,9 @@ def read(paw, reader):
         use_fdtd = r['FDTD']
     except:
         use_fdtd = False
+
     if use_fdtd:
-        from gpaw.fdtd import FDTDPoissonSolver
+        from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
         # fdtd_poisson will overwrite the poisson at a later stage
         paw.hamiltonian.fdtd_poisson = FDTDPoissonSolver(restart_reader=r, paw=paw)
 

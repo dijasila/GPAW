@@ -6,6 +6,8 @@
 from ase import Atoms
 from ase.units import Hartree, Bohr, _eps0, _c, _aut
 from gpaw import GPAW, PoissonConvergenceError
+from gpaw.fdtd.polarizable_material import PolarizableMaterial
+from gpaw.fdtd.potential_couplers import PotentialCoupler, RefinerPotentialCoupler
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.io import open as gpaw_io_open
 from gpaw.mpi import world, serial_comm
@@ -14,11 +16,9 @@ from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gpts import get_number_of_grid_points
-from math import pi
 from gpaw.utilities.gauss import Gaussian
 from gpaw.poisson import PoissonSolver
-from gpaw.fdtd.polarizable_material import *
-from gpaw.fdtd.potential_couplers import *
+from math import pi
 from string import split
 import _gpaw
 import gpaw.mpi as mpi
@@ -148,6 +148,18 @@ class PoissonOrganizer:
         self.cell = None
         self.spacing_def = None
         self.spacing = None
+
+# For mixing the potential
+class SimpleMixer():
+    def __init__(self, alpha, data):
+        self.alpha = alpha
+        self.data  = np.copy(data)
+    
+    def mix(self, data):
+        self.data = self.alpha * data + (1.0-self.alpha) * self.data
+        return np.copy(self.data)
+
+
 
 # Contains one PoissonSolver for the classical and one for the quantum subsystem
 class FDTDPoissonSolver:
