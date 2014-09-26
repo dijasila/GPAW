@@ -7,7 +7,7 @@ def fulldiag(filename, nbands=None, scalapack=1, dryrun=False):
                 parallel={'band': scalapack},
                 txt=filename[:-3] + 'full.txt')
     if not dryrun:
-        calc.diagonalize_full_hamiltonian(nbands)
+        calc.diagonalize_full_hamiltonian(nbands, scalapack=True)
         calc.write(filename[:-3] + 'full.gpw', 'all')
     
     return calc.wfs.pd.ngmax
