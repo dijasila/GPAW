@@ -645,9 +645,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
                                      nbands=None, scalapack=None):
         if nbands is None:
-            nbands = self.pd.ngmin
-
-        assert nbands <= self.pd.ngmin
+            nbands = self.pd.ngmin // self.bd.comm.size * self.bd.comm.size
+        else:
+            assert nbands <= self.pd.ngmin
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 
@@ -655,7 +655,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         p('Diagonalizing full Hamiltonian ({0} lowest bands)'.format(nbands))
         p('Matrix size (min, max): {0}, {1}'.format(self.pd.ngmin,
                                                     self.pd.ngmax))
-        
+        mem = 3 * self.pd.ngmax**2 * 16 / bd.comm.size / 1024**2
+        p('Approximate memory usage per core: {0:.3f} MB'.format(mem))
         if scalapack and bd.comm.size > 1:
             if isinstance(scalapack, (list, tuple)):
                 nprow, npcol, b = scalapack
@@ -700,6 +701,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
             psit_nG = md2.empty(dtype=complex)
             eps_n = np.empty(npw)
+
             with self.timer('Diagonalize'):
                 md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
             del H_GG, S_GG
