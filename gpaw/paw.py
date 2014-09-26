@@ -131,7 +131,6 @@ class PAW(PAWTextOutput):
             self.initialize()
             self.read(reader)
             if self.hamiltonian.xc.type == 'GLLB':
-                print "GLLB extra occupations calculate"
                 self.occupations.calculate(self.wfs)
 
             self.print_cell_and_parameters()

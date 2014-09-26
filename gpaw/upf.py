@@ -168,7 +168,7 @@ def parse_upf(fname):
             pp['projectors'].append(proj)
         else:
             if v201:
-                assert element.tag == 'PP_DIJ'
+                assert element.tag == 'PP_DIJ', element.tag
                 # XXX probably measured in Rydberg.
                 pp['DIJ'] = 0.5 * toarray(element)
             else:
