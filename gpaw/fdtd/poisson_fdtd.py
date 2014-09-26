@@ -16,9 +16,9 @@ from gpaw.utilities.blas import axpy
 from gpaw.utilities.gpts import get_number_of_grid_points
 from math import pi
 from gpaw.utilities.gauss import Gaussian
-from poisson_corr import PoissonSolver
-from polarizable_material import *
-from potential_couplers import *
+from gpaw.poisson import PoissonSolver
+from gpaw.fdtd.polarizable_material import *
+from gpaw.fdtd.potential_couplers import *
 from string import split
 import _gpaw
 import gpaw.mpi as mpi
@@ -252,7 +252,10 @@ class FDTDPoissonSolver:
         self.qm.gd = qmgd
         
         # Create quantum Poisson solver
-        self.qm.poisson_solver = PoissonSolver(nn=self.nn, eps=self.eps, relax=self.relax)
+        self.qm.poisson_solver = PoissonSolver(nn=self.nn,
+                                               eps=self.eps,
+                                               relax=self.relax,
+                                               remove_moment=self.remove_moment_qm)
         self.qm.poisson_solver.set_grid_descriptor(self.qm.gd)
         self.qm.poisson_solver.initialize()
         self.qm.phi = self.qm.gd.zeros()
@@ -262,7 +265,10 @@ class FDTDPoissonSolver:
         self.qm.poisson_solver.set_grid_descriptor(qmgd)
 
         # Create classical PoissonSolver
-        self.cl.poisson_solver = PoissonSolver(nn=self.nn, eps=self.eps, relax=self.relax)
+        self.cl.poisson_solver = PoissonSolver(nn=self.nn,
+                                               eps=self.eps,
+                                               relax=self.relax,
+                                               remove_moment=self.remove_moment_cl)
         self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
         self.cl.poisson_solver.initialize()
         

@@ -2,7 +2,6 @@
 
 """
 
-from poisson_fdtd import *
-from poisson_corr import *
-from polarizable_material import _eps0_au
+from gpaw.fdtd.poisson_fdtd import *
+from gpaw.fdtd.polarizable_material import _eps0_au
 
