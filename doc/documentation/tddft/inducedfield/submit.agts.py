@@ -23,12 +23,12 @@ def agts(queue):
                       ncpus=8,
                       walltime=60)
 
-    calc6 = queue.add('casida_postprocess.py'
+    calc6 = queue.add('casida_postprocess.py',
                       ncpus=8,
                       walltime=5,
                       deps=calc5)
     
-    calc7 = queue.add('casida_plot.py'
+    calc7 = queue.add('casida_plot.py',
                       ncpus=1,
                       walltime=5,
                       deps=calc6,

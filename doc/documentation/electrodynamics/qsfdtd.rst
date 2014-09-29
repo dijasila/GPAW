@@ -61,9 +61,9 @@ when it is subject to external electric fields.
 The time-evolution for the charges in GPAW is performed with
 the leap-frog algorithm, following Ref. \ [#Gao]_.
 
-----------------
+-------------------
 Geometry components
-----------------
+-------------------
 Several routines are available to generate the basic shapes:
 
 * :math:`\text{PolarizableBox}(\mathbf{r}_1, \mathbf{r}_2, \epsilon({\mathbf{r}, \omega}))` where :math:`\mathbf{r}_1` and :math:`\mathbf{r}_2` are the corner points, and :math:`\epsilon({\mathbf{r}, \omega})` is the permittivity inside the structure

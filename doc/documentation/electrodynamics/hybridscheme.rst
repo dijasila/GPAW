@@ -18,11 +18,11 @@ and it is solved from the Poisson equation
 
 In the :ref:`qsfdtd` the electrostatic potential is solved from
 the Poisson equation as well:
- :math:`V^{\rm{cl}}(\mathbf{r}, t) = -4\pi\rho^{\rm{cl}}(\mathbf{r}, t).`
+:math:`V^{\rm{cl}}(\mathbf{r}, t) = -4\pi\rho^{\rm{cl}}(\mathbf{r}, t).`
 
 The hybrid scheme is created by replacing in both schemes the
 electrostatic (Hartree) potential by a common potential:
- :math:`\nabla^2 V^{\rm{tot}}(\mathbf{r}, t) = -4\pi\left[\rho^{\rm{cl}}(\mathbf{r}, t)+\rho^{\rm{qm}}(\mathbf{r}, t)\right].`
+:math:`\nabla^2 V^{\rm{tot}}(\mathbf{r}, t) = -4\pi\left[\rho^{\rm{cl}}(\mathbf{r}, t)+\rho^{\rm{qm}}(\mathbf{r}, t)\right].`
 
 -----------
 Double grid
