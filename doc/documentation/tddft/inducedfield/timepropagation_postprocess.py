@@ -1,5 +1,5 @@
 from gpaw.tddft import TDDFT, photoabsorption_spectrum
-from gpaw.inducedfield import TDDFTInducedField
+from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 
 # Calculate photoabsorption spectrum as usual
 folding = 'Gauss'

@@ -5,7 +5,7 @@ from ase.parallel import parprint
 from gpaw.lrtddft import LrTDDFT
 from gpaw.utilities.folder import Folder
 
-from inducedfield_base import BaseInducedField
+from gpaw.inducedfield.inducedfield_base import BaseInducedField
 
 
 class LrTDDFTInducedField(BaseInducedField):

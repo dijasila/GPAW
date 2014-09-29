@@ -8,7 +8,7 @@ from gpaw.transformers import Transformer
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack2, is_contiguous
 
-from inducedfield_base import BaseInducedField, sendreceive_dict
+from gpaw.inducedfield.inducedfield_base import BaseInducedField, sendreceive_dict
 
 
 class TDDFTInducedField(BaseInducedField, Observer):

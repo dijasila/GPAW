@@ -1,5 +1,5 @@
 from gpaw.tddft import TDDFT
-from gpaw.inducedfield import TDDFTInducedField
+from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 
 # Load TDDFT object
 td_calc = TDDFT('na2_td.gpw')

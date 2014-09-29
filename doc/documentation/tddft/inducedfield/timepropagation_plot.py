@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from gpaw.inducedfield import read_data
+from gpaw.inducedfield.inducedfield_base import read_data
 
 # Helper function
 def do_plot(d_g, ng, box, atom_a):

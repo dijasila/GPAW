@@ -1,7 +1,7 @@
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.tddft import TDDFT
-from gpaw.inducedfield import TDDFTInducedField
+from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 
 # Na2 cluster
 atoms = Atoms(symbols='Na2', 

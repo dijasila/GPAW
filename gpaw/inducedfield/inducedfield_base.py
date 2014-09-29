@@ -9,7 +9,7 @@ from gpaw.io.tar import Reader, Writer
 from gpaw.poisson import PoissonSolver
 from gpaw.fd_operators import Gradient
 
-from extend_grid import extend_grid, extend_array, deextend_array, move_atoms
+from gpaw.inducedfield.extend_grid import extend_grid, extend_array, deextend_array, move_atoms
 
 
 def sendreceive_dict(comm, a_i, dest, b_i, src_i, iitems):

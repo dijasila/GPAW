@@ -1,6 +1,6 @@
 from gpaw import GPAW
 from gpaw.lrtddft import LrTDDFT, photoabsorption_spectrum
-from gpaw.inducedfield import LrTDDFTInducedField
+from gpaw.inducedfield.inducedfield_lrtddft import LrTDDFTInducedField
 
 # Load LrTDDFT object
 lr = LrTDDFT('na2_lr.dat.gz')
