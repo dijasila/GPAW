@@ -11,7 +11,7 @@ from ase.parallel import paropen
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
 from gpaw.lrtddft.excitation import Excitation, ExcitationList
-from gpaw.pair_density import PairDensity
+from gpaw.pair_density import PairDensity, PairDensity2
 from gpaw.fd_operators import Gradient
 from gpaw.utilities.tools import coordinates
 
@@ -384,18 +384,13 @@ class KSSingle(Excitation, PairDensity):
         self.me = sqrt(self.energy * self.fij) * (me + ma)
         self.mur = - (me + ma)
 
-        # velocity form .............................
         if self.lcao:
             # Velocity form not supported in LCAO-LR-TDDFT
             self.muv = None
             self.magn = None
             return
 
-        if self.lcao:
-            # Velocity form not supported in LCAO-LR-TDDFT
-            self.muv = None
-            self.magn = None
-            return
+        # velocity form .............................
 
         me = np.zeros(self.mur.shape, dtype=dtype)
 
