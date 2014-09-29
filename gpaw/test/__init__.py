@@ -221,6 +221,7 @@ tests = [
     'diamond_eps.py',
     'excited_state.py',
     'inducedfield_lrtddft.py',
+    'inducedfield_td.py',
     # > 20 sec tests start here (add tests after gemm.py!)
     'gemm.py',
     'ed.py',
