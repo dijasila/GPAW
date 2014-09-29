@@ -7,6 +7,8 @@ from gpaw.utilities.timing import nulltimer
 
 
 class EmptyWaveFunctions:
+    mode = 'undefined'
+    
     def __nonzero__(self):
         return False
     
@@ -58,7 +60,7 @@ class WaveFunctions(EmptyWaveFunctions):
                  world, kd, kptband_comm, timer=None):
         self.gd = gd
         self.nspins = kd.nspins
-        self.ns = self.nspins * self.ncomp**2 # when is ncomp actually set? XXX
+        self.ns = self.nspins * self.ncomp**2
         self.nvalence = nvalence
         self.bd = bd
         #self.nbands = self.bd.nbands #XXX
@@ -67,7 +69,7 @@ class WaveFunctions(EmptyWaveFunctions):
         self.world = world
         self.kd = kd
         self.kptband_comm = kptband_comm
-        self.band_comm = self.bd.comm #XXX
+        self.band_comm = self.bd.comm  # XXX
         if timer is None:
             timer = nulltimer
         self.timer = timer
@@ -159,7 +161,7 @@ class WaveFunctions(EmptyWaveFunctions):
         custom occupation f_un."""
 
         # Parameter check (if user accidentally passes f_n instead of f_un)
-        if f_un[0] is not None: # special case for transport calculations...
+        if f_un[0] is not None:  # special case for transport calculations...
             assert isinstance(f_un[0], np.ndarray)
         # Varying f_n used in calculation of response part of GLLB-potential
         for a, D_sp in D_asp.items():
@@ -202,6 +204,7 @@ class WaveFunctions(EmptyWaveFunctions):
         if self.rank_a is not None and self.kpt_u[0].P_ani is not None:
             self.timer.start('Redistribute')
             mynks = len(self.kpt_u)
+            
             def get_empty(a):
                 ni = self.setups[a].ni
                 return np.empty((mynks, self.bd.mynbands, ni), self.dtype)

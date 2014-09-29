@@ -24,6 +24,46 @@ from gpaw.utilities.timing import timer
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 
 
+class PW:
+    name = 'pw'
+    
+    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None):
+        """Plane-wave basis mode.
+
+        ecut: float
+            Plane-wave cutoff in eV.
+        fftwflags: int
+            Flags for making FFTW plan (default is ESTIMATE).
+        cell: 3x3 ndarray
+            Use this unit cell to chose the planewaves."""
+
+        self.ecut = ecut / units.Hartree
+        self.fftwflags = fftwflags
+
+        if cell is None:
+            self.cell_cv = None
+        else:
+            self.cell_cv = cell / units.Bohr
+
+    def __call__(self, diagksl, orthoksl, initksl, gd, *args):
+        if self.cell_cv is None:
+            ecut = self.ecut
+        else:
+            volume = abs(np.linalg.det(gd.cell_cv))
+            volume0 = abs(np.linalg.det(self.cell_cv))
+            ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
+
+        wfs = PWWaveFunctions(ecut, self.fftwflags,
+                              diagksl, orthoksl, initksl, gd, *args)
+        return wfs
+
+    def __eq__(self, other):
+        return (isinstance(other, PW) and self.ecut == other.ecut)
+
+    def __ne__(self, other):
+        return not self == other
+
+
 class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
@@ -389,6 +429,8 @@ class Preconditioner:
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
+    mode = 'pw'
+
     def __init__(self, ecut, fftwflags,
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd, dtype,
@@ -1106,47 +1148,6 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
     def derivative(self, dedtaut_R, dF_aiv):
         PWLFC.derivative(self, self.pd.fft(dedtaut_R), dF_aiv)
-
-
-class PW:
-    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None):
-        """Plane-wave basis mode.
-
-        ecut: float
-            Plane-wave cutoff in eV.
-        fftwflags: int
-            Flags for making FFTW plan (default is ESTIMATE).
-        cell: 3x3 ndarray
-            Use this unit cell to chose the planewaves."""
-
-        self.ecut = ecut / units.Hartree
-        self.fftwflags = fftwflags
-
-        if cell is None:
-            self.cell_cv = None
-        else:
-            self.cell_cv = cell / units.Bohr
-
-    def __call__(self, diagksl, orthoksl, initksl, gd, *args):
-        if self.cell_cv is None:
-            ecut = self.ecut
-        else:
-            volume = abs(np.linalg.det(gd.cell_cv))
-            volume0 = abs(np.linalg.det(self.cell_cv))
-            ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
-
-        wfs = PWWaveFunctions(ecut, self.fftwflags,
-                              diagksl, orthoksl, initksl, gd, *args)
-        return wfs
-
-    def __eq__(self, other):
-        return (isinstance(other, PW) and self.ecut == other.ecut)
-
-    def __ne__(self, other):
-        return not self == other
-
-    def __str__(self):
-        return 'pw'
 
 
 class ReciprocalSpaceDensity(Density):

@@ -13,7 +13,19 @@ from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
 
+class FD:
+    name = 'fd'
+
+    def __init__(self):
+        pass  # Could hold parameters like FD stencils
+
+    def __call__(self, *args, **kwargs):
+        return FDWaveFunctions(*args, **kwargs)
+
+
 class FDWaveFunctions(FDPWWaveFunctions):
+    mode = 'fd'
+
     def __init__(self, stencil, diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd,
                  dtype, world, kd, kptband_comm, timer=None):

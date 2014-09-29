@@ -1,12 +1,12 @@
 import numpy as np
 
-from gpaw.eigensolvers import get_eigensolver
 from gpaw.overlap import Overlap
 from gpaw.utilities import unpack
 from gpaw.utilities.timing import nulltimer
 from gpaw.io import FileReference
 from gpaw.lfc import BasisFunctions
 from gpaw import extra_parameters
+from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
@@ -87,7 +87,7 @@ class FDPWWaveFunctions(WaveFunctions):
         lcaowfs.set_positions(spos_ac)
         self.timer.stop('Set positions (LCAO WFS)')
 
-        eigensolver = get_eigensolver('lcao', 'lcao')
+        eigensolver = DirectLCAO()
         eigensolver.initialize(self.gd, self.dtype, self.setups.nao, lcaoksl)
 
         # XXX when density matrix is properly distributed, be sure to

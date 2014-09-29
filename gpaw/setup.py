@@ -1057,9 +1057,6 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
         
-        if extra_parameters.get('fprojectors'):
-            return None
-
         # utility functions
 
         # from Y_L to Y_lm where Y_lm is a spherical harmonic and m= -l, ..., +l
