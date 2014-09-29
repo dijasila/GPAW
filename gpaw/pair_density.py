@@ -82,8 +82,8 @@ class PairDensity:
         self.weight = 0.0
 
         self.lcao = paw.input_parameters.mode == 'lcao'
-        assert paw.wfs.dtype == float
         if self.lcao:
+            assert paw.wfs.dtype == float
             self.wfs = paw.wfs
 
         
