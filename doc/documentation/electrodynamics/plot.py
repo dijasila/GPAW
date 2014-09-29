@@ -1,7 +1,7 @@
 import numpy as np
 import pylab as plt
 from ase.units import Hartree, Bohr
-from gpaw.fdtd import PermittivityPlus, _eps0_au
+from gpaw.fdtd.polarizable_material import PermittivityPlus, _eps0_au
 
 # Nanosphere radius (Angstroms)
 radius = 50.0
@@ -47,4 +47,7 @@ plt.xlim((0, 5.0))
 plt.ylim((-1, 22.5))
 plt.savefig('hybrid.png')
 
+import os
+os.system('cp qsfdtd_vs_mie.png ../../_build')
+os.system('cp hybrid.png ../../_build')
 

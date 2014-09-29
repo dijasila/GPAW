@@ -60,3 +60,5 @@ do_plot(d_g, ng, box, atom_a)
 plt.title('Imaginary part of induced potential @ %.2f eV' % freq)
 plt.savefig('na2_td_Fphi.png', bbox_inches='tight')
 
+import os
+os.system('cp na2_td_Ffe.png na2_td_Frho.png na2_td_Fphi.png ../../../_build')

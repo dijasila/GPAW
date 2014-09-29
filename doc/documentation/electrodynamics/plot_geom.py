@@ -109,3 +109,6 @@ ylabel('x [Ang]')
 tight_layout()
 savefig('geom.png')
 
+import os
+os.system('cp geom.png ../../_build')
+

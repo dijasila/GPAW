@@ -59,3 +59,6 @@ ng = d_g.shape
 do_plot(d_g, ng, box, atom_a)
 plt.title('Imaginary part of induced potential @ %.2f eV' % freq)
 plt.savefig('na2_casida_Fphi.png', bbox_inches='tight')
+
+import os
+os.system('cp na2_casida_Ffe.png na2_casida_Frho.png na2_casida_Fphi.png ../../../_build')
