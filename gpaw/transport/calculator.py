@@ -549,7 +549,7 @@ class Transport(GPAW):
         self.initialize()
         self.nspins = self.wfs.nspins
         self.npk = len(self.wfs.kd.ibzk_kc)
-        self.my_npk = len(self.wfs.ibzk_qc)
+        self.my_npk = len(self.wfs.kd.ibzk_qc)
         self.my_nspins = len(self.wfs.kpt_u) // self.my_npk
         self.ntklead = self.pl_kpts[self.d]
         self.initialize_lead_matrix()

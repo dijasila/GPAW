@@ -87,7 +87,7 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
                                   'implemented yet.')
     spos_ac = calc.atoms.get_scaled_positions() % 1.
     comm = calc.wfs.gd.comm
-    nq = len(calc.wfs.ibzk_qc)
+    nq = len(calc.wfs.kd.ibzk_qc)
     Nk = calc.wfs.kd.nibzkpts
     nao = calc.wfs.setups.nao
     dtype = calc.wfs.dtype
