@@ -13,5 +13,5 @@ for band in range(nbands):
 
     wf = calc.get_pseudo_wave_function(band=band)
     fname=basename + '_' + '%d' % (band) + '.cube'
-    print 'writing wf', band, 'to file', fname
+    print('writing wf', band, 'to file', fname)
     write(fname, atoms, data=wf)

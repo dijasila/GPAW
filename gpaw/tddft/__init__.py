@@ -2,7 +2,7 @@
 functional theory calculations.
 
 """
-
+from __future__ import print_function
 import sys
 import time
 from math import log
@@ -357,9 +357,9 @@ class TDDFT(GPAW):
             if restart_file is not None and self.niter % dump_interval == 0:
                 self.write(restart_file, 'all')
                 if self.rank == 0:
-                    print 'Wrote restart file.'
-                    print self.niter, ' iterations done. Current time is ', \
-                        self.time * autime_to_attosec, ' as.' 
+                    print('Wrote restart file.')
+                    print(self.niter, ' iterations done. Current time is ', \
+                        self.time * autime_to_attosec, ' as.') 
 
         self.timer.stop('Propagate')
 
@@ -547,8 +547,8 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
     
     
     if world.rank == 0:
-        print 'Calculating photoabsorption spectrum from file "%s"' \
-              % dipole_moment_file
+        print('Calculating photoabsorption spectrum from file "%s"' \
+              % dipole_moment_file)
 
         f_file = file(spectrum_file, 'w')
         dm_file = file(dipole_moment_file, 'r')
@@ -563,7 +563,7 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         # Remove first two lines
         lines.pop(0)
         lines.pop(0)
-        print 'Using kick strength = ', strength
+        print('Using kick strength = ', strength)
         # Continue with dipole moment data
         n = len(lines)
         dm = np.zeros((n,3),dtype=float)
@@ -625,16 +625,16 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
             f_file.write(line)
 
             if (i % 100) == 0:
-                print '.',
+                print('.', end=' ')
                 sys.stdout.flush()
                 
-        print "Sinc contamination", np.exp(-t[-1]**2*sigma**2/2.0)
+        print("Sinc contamination", np.exp(-t[-1]**2*sigma**2/2.0))
 
-        print ''
+        print('')
         f_file.close()
         
-        print 'Calculated photoabsorption spectrum saved to file "%s"' \
-              % spectrum_file
+        print('Calculated photoabsorption spectrum saved to file "%s"' \
+              % spectrum_file)
 
             
     # Make static method

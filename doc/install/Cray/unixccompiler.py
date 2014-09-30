@@ -346,5 +346,5 @@ class UnixCCompiler(CCompiler):
                                target_lang)
 
         self.static_lib_format = old_fmt
-        print "Append to Setup: ", linkline
+        print("Append to Setup: ", linkline)
 

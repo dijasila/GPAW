@@ -256,7 +256,7 @@ class PWF2:
         self.eps_kn = [calc.get_eigenvalues(kpt=q, spin=spin) - Ef
                        for q in range(self.nk)]
         self.M_k = [sum(eps_n <= fixedenergy) for eps_n in self.eps_kn]
-        print 'Fixed states:', self.M_k 
+        print('Fixed states:', self.M_k) 
         self.calc = calc
         self.dtype = self.calc.wfs.dtype
         self.spin = spin
@@ -308,7 +308,7 @@ class PWF2:
                 self.H_qww.append(pwf.rotate_matrix(self.eps_kn[q]))
 
         for S in self.S_qww:
-            print 'Condition number: %0.1e' % condition_number(S)
+            print('Condition number: %0.1e' % condition_number(S))
 
     def get_hamiltonian(self, q=0, indices=None):
         if indices is None:
@@ -393,7 +393,7 @@ class LCAOwrap:
         self.Nw = self.S_qww.shape[-1]
         
         for S in self.S_qww:
-            print 'Condition number: %0.1e' % condition_number(S)
+            print('Condition number: %0.1e' % condition_number(S))
     
     def get_hamiltonian(self, q=0, indices=None):
         if indices is None:

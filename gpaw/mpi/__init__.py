@@ -693,7 +693,7 @@ def compare_atoms(atoms, comm=world):
                         atoms.pbc * 1.0,
                         atoms.get_initial_magnetic_moments()][i]
             if comm.rank == 0:
-                print 'DEBUG: compare_atoms failed for %s' % itemname
+                print('DEBUG: compare_atoms failed for %s' % itemname)
                 itemfps.dump('%s_fps_%s.pickle' % (dumpfile, itemname))
             itemdata.dump('%s_r%04d_%s.pickle' % (dumpfile, comm.rank, 
                                                   itemname))

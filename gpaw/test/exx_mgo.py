@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase.units import Ha
 from ase.dft.kpoints import monkhorst_pack
@@ -26,7 +27,7 @@ for nk in (4,6,8):
     E = calc.get_potential_energy()
     E_exx = E + calc.get_xc_difference(HybridXC('EXX', method='acdf'))
 
-    print nk, E, E_exx
+    print(nk, E, E_exx)
 
 
  

@@ -152,5 +152,5 @@ pylab.title('Number of lines')
 pylab.savefig(dir + 'stat.png')
 """
 
-print 'Done'
+print('Done')
 os.system('cd; rm -rf ' + tmpdir)

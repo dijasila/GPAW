@@ -1,3 +1,4 @@
+from __future__ import print_function
 from math import sqrt
 
 import numpy as np
@@ -266,29 +267,29 @@ class SimpleStm:
 
         try:
             import datetime
-            print >> f, '#', datetime.datetime.now().ctime()
+            print('#', datetime.datetime.now().ctime(), file=f)
         except:
             pass
-        print >> f, '# Simulated STM picture'
+        print('# Simulated STM picture', file=f)
         if hasattr(self, 'file'):
-            print >> f, '# density read from', self.file
+            print('# density read from', self.file, file=f)
         else:
             if self.is_wf:
-                print >> f, '# pseudo-wf n=%d k=%d s=%d' % tuple(self.bias)
+                print('# pseudo-wf n=%d k=%d s=%d' % tuple(self.bias), file=f)
             else:
-                print >> f, '# bias=', self.bias, '[eV]'
-        print >> f, '#'
-        print >> f, '# density=', self.density, '[e/Angstrom^3]',
-        print >> f, '(current=', self.density_to_current(self.density), '[nA])'
-        print >> f, '# x[Angs.]   y[Angs.]     h[Angs.] (-1 is not found)'
+                print('# bias=', self.bias, '[eV]', file=f)
+        print('#', file=f)
+        print('# density=', self.density, '[e/Angstrom^3]', end=' ', file=f)
+        print('(current=', self.density_to_current(self.density), '[nA])', file=f)
+        print('# x[Angs.]   y[Angs.]     h[Angs.] (-1 is not found)', file=f)
         for i in range(nx):
             for j in range(ny):
                 if heights[i, j] == -1:
                     height = -1
                 else:
                     height = heights[i, j] * Bohr
-                print >> f, '%10g %10g %12g' % (yvals[j], xvals[i], height)
-            print >> f
+                print('%10g %10g %12g' % (yvals[j], xvals[i], height), file=f)
+            print(file=f)
         f.close()
 
     def pylab_contour(self):

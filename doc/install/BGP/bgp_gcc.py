@@ -51,5 +51,5 @@ flags_list = {1: "-g -O3 -std=c99 -fPIC",
 flags = flags_list[opt]     
 cmd = "mpicc %s %s"%(flags, cmd)
 
-print "\nexecmd: %s\n"%cmd
+print("\nexecmd: %s\n"%cmd)
 call(cmd, shell=True)

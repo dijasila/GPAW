@@ -11,11 +11,11 @@ h = 0.18
 box = 4.
 xc = 'TS09'
 f = paropen('energies_' + xc +'.dat', 'w')
-print  >> f, '# h=', h
-print  >> f, '# box=', box
-print >> f, '# molecule E[1]  E[2]  E[1+2]  E[1]+E[2]-E[1+2]'
+print('# h=', h, file=f)
+print('# box=', box, file=f)
+print('# molecule E[1]  E[2]  E[1+2]  E[1]+E[2]-E[1+2]', file=f)
 for molecule in data:
-    print >> f, molecule,
+    print(molecule, end=' ', file=f)
     ss = Cluster(Atoms(data[molecule]['symbols'],
                        data[molecule]['positions']))
     # split the structures
@@ -41,7 +41,7 @@ for molecule in data:
             E.append(ene)
         else:
             E.append(s.get_potential_energy())
-    print >> f, E[0], E[1], E[2],
-    print >> f, E[0] + E[1] - E[2]
+    print(E[0], E[1], E[2], end=' ', file=f)
+    print(E[0] + E[1] - E[2], file=f)
     f.flush()
 f.close()

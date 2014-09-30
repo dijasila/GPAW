@@ -59,7 +59,7 @@ def mpi_debug(data, ordered=True):
             mpi.world.barrier()
 
     for txt in data:
-        print '%02d-mpi%d, %s' % (msgcount, mpi.rank, txt)
+        print('%02d-mpi%d, %s' % (msgcount, mpi.rank, txt))
         if ordered:
             msgcount += 1
 

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import numpy as np
 
@@ -37,21 +38,20 @@ def spectrum(exlist=None,
     if filename is not None:
         out = open( filename, 'w' )
     if comment:
-        print >> out, '#', comment
+        print('#', comment, file=out)
 
-    print >> out, '# Photoabsorption spectrum from linear response TD-DFT'
-    print >> out, '# GPAW version:', version
+    print('# Photoabsorption spectrum from linear response TD-DFT', file=out)
+    print('# GPAW version:', version, file=out)
     if folding is not None: # fold the spectrum
-        print >> out, '# %s folded, width=%g [%s]' % (folding, width, 
-                                                      energyunit)
+        print('# %s folded, width=%g [%s]' % (folding, width, 
+                                                      energyunit), file=out)
     if form == 'r':
         out.write('# length form')
     else:
         assert(form == 'v')
         out.write('# velocity form')
-    print >> out,\
-        '# om [%s]     osz          osz x       osz y       osz z'\
-        % energyunit
+    print('# om [%s]     osz          osz x       osz y       osz z'\
+        % energyunit, file=out)
 
     x = []
     y = []
@@ -68,8 +68,8 @@ def spectrum(exlist=None,
         
     energies, values = Folder(width, folding).fold(x, y, de, emin, emax)
     for e, val in zip(energies, values):
-        print >> out, "%10.5f %12.7e %12.7e %11.7e %11.7e" % \
-            (e,val[0],val[1],val[2],val[3])
+        print("%10.5f %12.7e %12.7e %11.7e %11.7e" % \
+            (e,val[0],val[1],val[2],val[3]), file=out)
 
     if filename is not None: out.close()
 
@@ -93,16 +93,15 @@ def rotatory_spectrum(exlist=None,
     if filename is not None:
         out = open( filename, 'w' )
     if comment:
-        print >> out, '#', comment
+        print('#', comment, file=out)
 
-    print >> out, '# Rotatory spectrum from linear response TD-DFT'
-    print >> out, '# GPAW version:', version
+    print('# Rotatory spectrum from linear response TD-DFT', file=out)
+    print('# GPAW version:', version, file=out)
     if folding is not None: # fold the spectrum
-        print >> out, '# %s folded, width=%g [%s]' % (folding, width, 
-                                                      energyunit)
-    print >> out,\
-        '# om [%s]     R [cgs]'\
-        % energyunit
+        print('# %s folded, width=%g [%s]' % (folding, width, 
+                                                      energyunit), file=out)
+    print('# om [%s]     R [cgs]'\
+        % energyunit, file=out)
 
     x = []
     y = []
@@ -119,8 +118,8 @@ def rotatory_spectrum(exlist=None,
         
     energies, values = Folder(width, folding).fold(x, y, de, emin, emax)
     for e, val in zip(energies, values):
-        print >> out, "%10.5f %12.7e" % \
-            (e, val)
+        print("%10.5f %12.7e" % \
+            (e, val), file=out)
 
     if filename is not None: out.close()
 
@@ -138,14 +137,14 @@ class Writer(Folder):
         if filename is not None:
             out = open( filename, 'w' )
  
-        print >> out, '#', self.title
-        print >> out, '# GPAW version:', version
+        print('#', self.title, file=out)
+        print('# GPAW version:', version, file=out)
         if comment:
-            print >> out, '#', comment
+            print('#', comment, file=out)
         if self.folding is not None:
-            print >> out, '# %s folded, width=%g [eV]' % (self.folding,
-                                                          self.width)
-        print >> out, '#', self.fields
+            print('# %s folded, width=%g [eV]' % (self.folding,
+                                                          self.width), file=out)
+        print('#', self.fields, file=out)
 
         energies, values = self.fold(self.energies, self.values,
                                      de, emin, emax)
@@ -153,7 +152,7 @@ class Writer(Folder):
             string = '%10.5f' % e
             for vf in val:
                 string += ' %12.7e' % vf
-            print >> out, string
+            print(string, file=out)
             
         if filename is not None: 
             out.close()

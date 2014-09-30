@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 from ase import Atom, Atoms
 from gpaw import GPAW
@@ -33,7 +35,7 @@ def check(calc):
     wannier.localize()
 
     centers = wannier.get_centers()
-    print centers
+    print(centers)
     expected = [[1.950, 2.376, 3.000],
                 [1.950, 3.624, 3.000],
                 [3.000, 3.000, 2.671],

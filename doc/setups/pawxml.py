@@ -25,7 +25,7 @@ class Reader(xml.sax.handler.ContentHandler):
 
     def startElement(self, name, attrs):
         if name == 'state' and self.list:
-            print >> sys.stderr, attrs['id']
+            print(attrs['id'], file=sys.stderr)
         elif name == 'radial_grid':
             istart = int(attrs['istart'])
             iend = int(attrs['iend'])
@@ -66,7 +66,7 @@ class Reader(xml.sax.handler.ContentHandler):
     def endElement(self, name):
         if self.data is not None:
             for r, x in zip(self.r, self.data.split()):
-                print r, x
+                print(r, x)
                 
 
 op = OptionParser(usage='%prog [options] setup[.gz]',

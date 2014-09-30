@@ -15,7 +15,8 @@ from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.utilities.blas import gemm, rk, czher
 from gpaw.kpt_descriptor import KPointDescriptor
-
+from warnings import filterwarnings
+filterwarnings('error')
 
 def frequency_grid(domega0, omega2, omegamax):
     beta = (2**0.5 - 1) * domega0 / omega2
@@ -32,8 +33,8 @@ class Chi0(PairDensity):
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
                  real_space_derivatives=False, intraband=True, nthreads=1,
                  world=mpi.world, txt=sys.stdout, timer=None,
-                 nblocks=1,
-                 keep_occupied_states=False, gate_voltage=None):
+                 nblocks=1, keep_occupied_states=False, gate_voltage=None,
+                 EET=False, nmax=None):
 
         PairDensity.__init__(self, calc, ecut, ftol, threshold,
                              real_space_derivatives, world, txt, timer,
@@ -132,7 +133,6 @@ class Chi0(PairDensity):
         self.Q_aGii = self.initialize_paw_corrections(pd)
         print('        Done', file=self.fd)
 
-        # Do all empty bands:
         m1 = self.nocc1
         m2 = self.nbands
         return self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, self.Q_aGii,
@@ -142,7 +142,6 @@ class Chi0(PairDensity):
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
                    m1, m2, spins):
         wfs = self.calc.wfs
-
         if self.keep_occupied_states:
             self.mykpts = [self.get_k_point(s, K, n1, n2)
                            for s, K, n1, n2 in self.mysKn1n2]
@@ -168,7 +167,7 @@ class Chi0(PairDensity):
             else:
                 kpt1 = self.get_k_point(s, K, n1, n2)
 
-            if not kpt1.s in spins:
+            if kpt1.s not in spins:
                 continue
 
             with self.timer('k+q'):
@@ -183,7 +182,7 @@ class Chi0(PairDensity):
                 eps1 = kpt1.eps_n[n]
 
                 # Only update if there exists deps <= omegamax
-                if not self.omegamax is None:
+                if self.omegamax is not None:
                     m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
                          if abs(d) <= self.omegamax]
                 else:
@@ -278,7 +277,6 @@ class Chi0(PairDensity):
                          (omega_w[:, np.newaxis, np.newaxis] *
                           (omega_w[:, np.newaxis, np.newaxis] +
                            1j * self.eta)))
-
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     @timer('CHI_0 update')
@@ -296,7 +294,7 @@ class Chi0(PairDensity):
             gemm(self.prefactor, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_GG)
 
-    @timer('CHI_0 hermetian update')
+    @timer('CHI_0 hermitian update')
     def update_hermitian(self, n_mG, deps_m, df_m, chi0_wGG):
         for w, omega in enumerate(self.omega_w):
             x_m = (-2 * df_m * deps_m / (omega.imag**2 + deps_m**2))**0.5
@@ -491,7 +489,7 @@ class HilbertTransform:
            oo
           /           1                1
           |dw' (-------------- - --------------) S(w').
-          /     w - w' - i eta   w + w' + i eta
+          /     w - w' - i eta      w + w' + i eta
           0
 
         With gw=True, you get::
@@ -499,7 +497,7 @@ class HilbertTransform:
            oo
           /           1                1
           |dw' (-------------- + --------------) S(w').
-          /     w - w' + i eta   w + w' + i eta
+          /     w - w' + i eta      w + w' + i eta
           0
 
         """

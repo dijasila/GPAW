@@ -40,7 +40,7 @@ pylab.show()
 h_rot, s_rot, eps_n, vec_nn = tcalc.subdiagonalize_bfs([2, 3])
 tcalc.set(h=h_rot, s=s_rot) # Set the rotated matrices
 for n in range(2):
-    print "eigenvalue, eigenvector:", eps_n[n],',', vec_nn[:, n]
+    print("eigenvalue, eigenvector:", eps_n[n],',', vec_nn[:, n])
 
 pdos_rot_ne = tcalc.get_pdos()
 pylab.plot(tcalc.energies, pdos_rot_ne[0], ':')

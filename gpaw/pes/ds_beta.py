@@ -198,7 +198,7 @@ class CrossSectionBeta:
             me = me_c[0].imag
             def ds(me):
                 return self.k / omega * me**2
-            print omega, ds(me_analyt), ds(me), me_analyt, me
+            print(omega, ds(me_analyt), ds(me), me_analyt, me)
 #        print 'analyt', self.initial.get_me_c(vk, self.form)
 #        print 'num', me_c
 #        print 'analyt/num', self.initial.get_me_c(vk, self.form) / me_c

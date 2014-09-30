@@ -464,8 +464,8 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     if world.rank == MASTER:
         wglobal_wG, P_awi = pickle.load(open(orbitalfile))
         Nw = len(wglobal_wG)
-        print 'Estimated total (serial) mem usage: %0.3f GB' % (
-            np.prod(gd.N_c) * Nw**2 * 8 / 1024.**3)
+        print('Estimated total (serial) mem usage: %0.3f GB' % (
+            np.prod(gd.N_c) * Nw**2 * 8 / 1024.**3))
     else:
         wglobal_wG = None
         Nw = 0
@@ -501,7 +501,7 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
 
     if world.rank == MASTER:
         if S_w is not None:
-            print 'renormalizing pairorb overlap matrix (D_pp)'
+            print('renormalizing pairorb overlap matrix (D_pp)')
             S2 = np.sqrt(S_w)
             for pa, (wa1, wa2) in enumerate(np.ndindex(Nw, Nw)):
                 for pb, (wb1, wb2) in enumerate(np.ndindex(Nw, Nw)):

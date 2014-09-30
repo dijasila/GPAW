@@ -3,7 +3,6 @@
 # case. See the BLACS descriptor documentation 
 # in trunk/gpaw/blacs.py for some discussions of 
 # these idiosyncracies.
-
 import numpy as np
 
 from gpaw.blacs import BlacsGrid, parallelprint

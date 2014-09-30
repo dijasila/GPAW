@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Test that LCAO wavefunctions are available and equal after restarts
 # in normal as well as 'all' mode
 
@@ -24,5 +25,5 @@ for mode in ['normal', 'all']:
     calc2 = GPAW(fname, txt=None)
     wf2 = calc2.get_pseudo_wave_function(0)
     err = np.abs(wf2 - wf).max()
-    print '%s: err=%s' % (mode, repr(err))
+    print('%s: err=%s' % (mode, repr(err)))
     assert err == 0.0

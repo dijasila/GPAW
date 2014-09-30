@@ -3,7 +3,7 @@
 
 """This module provides all the classes and functions associated with the
 evaluation of exact exchange with k-point sampling."""
-
+from __future__ import print_function
 from time import time
 from math import pi, sqrt
 

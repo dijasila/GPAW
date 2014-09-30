@@ -58,5 +58,5 @@ flags = flags_list[opt]
 # as well as the libraries in customize_surveyor_xlc.py
 cmd = "mpixlc_r %s %s"%(flags, cmd)
 
-print "\nexecmd: %s\n"%cmd
+print("\nexecmd: %s\n"%cmd)
 call(cmd, shell=True)

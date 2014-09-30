@@ -24,4 +24,4 @@ relax = BFGS(uf)
 relax.run(fmax=0.05)  # Consider much tighter fmax!
 
 a = np.dot(a.get_cell()[0], a.get_cell()[0])**0.5 * 2**0.5
-print 'Relaxed lattice parameter: a = %s A' % a
+print('Relaxed lattice parameter: a = %s A' % a)

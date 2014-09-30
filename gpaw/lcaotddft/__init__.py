@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw import GPAW
 from gpaw.external_potential import ConstantElectricField
 import numpy as np
@@ -33,8 +34,8 @@ def print_matrix(M, file=None, rank=0):
         a, b = M.shape
         for i in range(a):
             for j in range(b):
-                print >>f, "%.7f" % M[i][j].real, "%.7f" % M[i][j].imag,
-            print >>f
+                print("%.7f" % M[i][j].real, "%.7f" % M[i][j].imag, end=' ', file=f)
+            print(file=f)
         if file is not None:
             f.close()
 
@@ -55,13 +56,13 @@ def verify(data1, data2, id, uplo='B'):
                     if i <= j:
                         err += abs(data1[i][j]-data2[i][j])**2
     if err > 1e-7:
-        print "verify err", err
+        print("verify err", err)
     if err > 1e-5:
-       print "Parallel assert failed: ", id, " norm: ", err
-       print "Data from proc ", world.rank
-       print "First", data1
-       print "Second", data2
-       print "Diff", data1-data2
+       print("Parallel assert failed: ", id, " norm: ", err)
+       print("Data from proc ", world.rank)
+       print("First", data1)
+       print("Second", data2)
+       print("Diff", data1-data2)
        assert False
 
 def mpiverify(data, id):
@@ -75,9 +76,9 @@ def mpiverify(data, id):
         err = sum(abs(temp).ravel()**2)
         if err > 1e-10:
             if world.rank == 0:
-                print "Parallel assert failed: ", id, " norm: ", sum(temp.ravel()**2)
-            print "Data from proc ", world.rank
-            print data
+                print("Parallel assert failed: ", id, " norm: ", sum(temp.ravel()**2))
+            print("Data from proc ", world.rank)
+            print(data)
             assert False
             
 class KickHamiltonian:
@@ -322,10 +323,10 @@ class LCAOTDDFT(GPAW):
     def tddft_init(self):
         if not self.tddft_initialized:
             if world.rank == 0:
-                print "Initializing real time LCAO TD-DFT calculation."
-                print "XXX Warning: Array use not optimal for memory."
-                print "XXX Taylor propagator probably doesn't work"
-                print "XXX ...and no arrays are listed in memory estimate yet."
+                print("Initializing real time LCAO TD-DFT calculation.")
+                print("XXX Warning: Array use not optimal for memory.")
+                print("XXX Taylor propagator probably doesn't work")
+                print("XXX ...and no arrays are listed in memory estimate yet.")
             self.blacs = self.wfs.ksl.using_blacs
             if self.blacs:
                 self.ksl = ksl = self.wfs.ksl    
@@ -336,7 +337,7 @@ class LCAOTDDFT(GPAW):
 
                 from gpaw.blacs import Redistributor
                 if world.rank == 0:
-                    print "BLACS Parallelization"
+                    print("BLACS Parallelization")
 
                 # Parallel grid descriptors
                 self.MM_descriptor = ksl.blockgrid.new_descriptor(nao, nao, nao, nao) # FOR DEBUG
@@ -364,7 +365,7 @@ class LCAOTDDFT(GPAW):
                         scalapack_inverse(self.mm_block_descriptor, kpt.invS_MM, 'L')
                     if self.propagator_debug:
                         if world.rank == 0:
-                            print "XXX Doing serial inversion of overlap matrix."
+                            print("XXX Doing serial inversion of overlap matrix.")
                         self.timer.start('Invert overlap (serial)')
                         invS2_MM = self.MM_descriptor.empty(dtype=complex)
                         for kpt in self.wfs.kpt_u:
@@ -380,7 +381,7 @@ class LCAOTDDFT(GPAW):
                             verify(kpt.invS_MM, kpt.invS2_MM, "overlap par. vs. serial", 'L')
                         self.timer.stop('Invert overlap (serial)')
                         if world.rank == 0:
-                            print "XXX Overlap inverted."
+                            print("XXX Overlap inverted.")
                 if self.propagator == 'taylor' and not self.blacs:
                     tmp = inv(self.wfs.kpt_u[0].S_MM)
                     self.wfs.kpt_u[0].invS = tmp
@@ -397,7 +398,7 @@ class LCAOTDDFT(GPAW):
         # Loop over all k-points
         for k, kpt in enumerate(self.wfs.kpt_u):
             for a, P_ni in kpt.P_ani.items():
-                print "Update projector: Rank:", world.rank, "a", a
+                print("Update projector: Rank:", world.rank, "a", a)
                 P_ni.fill(117)
                 gemm(1.0, kpt.P_aMi[a], kpt.C_nM, 0.0, P_ni, 'n')
         self.timer.stop('LCAO update projectors') 
@@ -442,14 +443,14 @@ class LCAOTDDFT(GPAW):
             line = '%20.8lf %20.8le %22.12le %22.12le %22.12le\n' % (self.time, norm, dm[0], dm[1], dm[2])
             T = localtime()
             if world.rank == 0:
-                print >> self.dm_file, line,
+                print(line, end=' ', file=self.dm_file)
 
             if world.rank == 0 and self.niter%10==0:
-                print 'iter: %3d  %02d:%02d:%02d %11.2f   %9.1f %12.8f' % (self.niter,
+                print('iter: %3d  %02d:%02d:%02d %11.2f   %9.1f %12.8f' % (self.niter,
                                                                            T[3], T[4], T[5],
                                                                            self.time * autime_to_attosec,
                                                                            log(abs(norm)+1e-16)/log(10),
-                                                                           np.sqrt(dm[0]**2+dm[1]**2+dm[2]**2))
+                                                                           np.sqrt(dm[0]**2+dm[1]**2+dm[2]**2)))
                 self.dm_file.flush()
 
             # ---------------------------------------------------------------------------- 

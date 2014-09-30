@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.io import read
 from gpaw import GPAW
 from gpaw import dscf
@@ -66,7 +67,7 @@ for d in ds:
             band_k.append(5)
         else:
             band_k.append(6)
-        print 'Kpt', k, p1, p2, 'band', band_k[-1]
+        print('Kpt', k, p1, p2, 'band', band_k[-1])
 
     #Lumo wavefunction
     wf_u = [kpt.psit_nG[band_k[kpt.k]] for kpt in c_mol.wfs.kpt_u]

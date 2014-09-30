@@ -1,3 +1,4 @@
+from __future__ import print_function
 """Test of HGH pseudopotential implementation.
 
 This is the canonical makes-sure-nothing-breaks test, which checks that the
@@ -40,18 +41,18 @@ eref = 724.479830538
 
 eerr = abs(e - eref)
 
-print 'energy', e
-print 'ref energy', eref
-print 'energy error', eerr
+print('energy', e)
+print('ref energy', eref)
+print('energy error', eerr)
 
-print 'forces'
-print F_ac
+print('forces')
+print(F_ac)
 
-print 'ref forces'
-print F_ac_ref
+print('ref forces')
+print(F_ac_ref)
 
 ferr = np.abs(F_ac - F_ac_ref).max()
-print 'max force error', ferr
+print('max force error', ferr)
 
 fdcheck = False
 
@@ -59,15 +60,15 @@ if fdcheck:
     from ase.calculators.test import numeric_forces
     F_ac_fd = numeric_forces(mol)
 
-    print 'Self-consistent forces'
-    print F_ac
-    print 'FD forces'
-    print F_ac_fd
-    print
-    print repr(F_ac_fd)
-    print
+    print('Self-consistent forces')
+    print(F_ac)
+    print('FD forces')
+    print(F_ac_fd)
+    print()
+    print(repr(F_ac_fd))
+    print()
     err = np.abs(F_ac - F_ac_fd).max()
-    print 'max err', err
+    print('max err', err)
 
 wfs = calc.wfs
 gd = wfs.gd

@@ -1,6 +1,7 @@
 # Copyright (C) 2010  CAMd
 # Copyright (C) 2010  Argonne National Laboratory
 # Please see the accompanying LICENSE file for further information.
+from __future__ import print_function
 
 """Module for high-level BLACS interface.
 

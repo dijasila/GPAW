@@ -48,8 +48,8 @@ exx.calculate()
 E2_hf = exx.get_total_energy()
 
 f = paropen('PBE_HF.dat', 'w')
-print >> f, 'PBE: ', E2_pbe - 2 * E1_pbe
-print >> f, 'HF: ', E2_hf - 2 * E1_hf
+print('PBE: ', E2_pbe - 2 * E1_pbe, file=f)
+print('HF: ', E2_hf - 2 * E1_hf, file=f)
 f.close()
 
 calc.diagonalize_full_hamiltonian(nbands=4800)

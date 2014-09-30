@@ -49,7 +49,7 @@ exx.calculate()
 E1_hf = exx.get_total_energy()
 
 f = paropen('CO.ralda.PBE_HF_C.dat', 'w')
-print >> f, E1_pbe, E1_hf
+print(E1_pbe, E1_hf, file=f)
 f.close()
 
 calc.diagonalize_full_hamiltonian()
@@ -80,6 +80,6 @@ calc.diagonalize_full_hamiltonian()
 calc.write('CO.ralda.pbe_wfcs_O.gpw', mode='all')
 
 f = paropen('CO.ralda.PBE_HF_CO.dat', 'w')
-print >> f, 'PBE: ', E0_pbe - E1_pbe - E2_pbe
-print >> f, 'HF: ', E0_hf - E1_hf - E2_hf
+print('PBE: ', E0_pbe - E1_pbe - E2_pbe, file=f)
+print('HF: ', E0_hf - E1_hf - E2_hf, file=f)
 f.close()

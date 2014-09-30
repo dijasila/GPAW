@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom, Atoms
 from gpaw import GPAW
 from gpaw.test import equal
@@ -14,7 +15,7 @@ calc.set(charge=1)
 e1 = O.get_potential_energy()
 niter1 = calc.get_number_of_iterations()
 
-print e1 - e0
+print(e1 - e0)
 assert abs(e1 - e0 - 13.989) < 0.04
 
 energy_tolerance = 0.0002

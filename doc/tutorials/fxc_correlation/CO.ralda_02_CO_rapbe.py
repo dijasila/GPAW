@@ -13,7 +13,7 @@ E0_i = fxc0.calculate(ecut=400)
 
 f = paropen('CO.ralda_rapbe_CO.dat', 'w')
 for ecut, E0 in zip(fxc0.ecut_i, E0_i):
-    print >> f, ecut * Hartree, E0
+    print(ecut * Hartree, E0, file=f)
 f.close()
 
 rpa0 = RPACorrelation('CO.ralda.pbe_wfcs_CO.gpw',
@@ -24,5 +24,5 @@ E0_i = rpa0.calculate(ecut=400)
 
 f = paropen('CO.ralda_rpa_CO.dat', 'w')
 for ecut, E0 in zip(rpa0.ecut_i, E0_i):
-    print >> f, ecut * Hartree, E0
+    print(ecut * Hartree, E0, file=f)
 f.close()

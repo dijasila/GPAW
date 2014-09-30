@@ -5,7 +5,7 @@ if num_string == "numpy":
     import numpy as num
 elif num_string == "Numeric":
     import Numeric as num
-print num.__file__
+print(num.__file__)
 
 from time import time
 
@@ -23,4 +23,4 @@ Anew = num.array(Al)
 
 t = time()
 num.dot(Anew, Anew)
-print num_string, time()-t
+print(num_string, time()-t)

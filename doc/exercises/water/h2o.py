@@ -21,7 +21,7 @@ for name in ['H2O', 'H', 'O']:
 
     energy = system.get_potential_energy()
     energies[name] = energy
-    print >> resultfile, name, energy
+    print(name, energy, file=resultfile)
 
 e_atomization = energies['H2O'] - 2 * energies['H'] - energies['O']
-print >> resultfile, e_atomization
+print(e_atomization, file=resultfile)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from gpaw.utilities.ewald import Ewald
 
@@ -23,7 +24,7 @@ if 1: #fcc
     a_this = -e * ewald.get_wigner_seitz_radius(sum(charges))
     a_ref = 1.79175
     if verbose:
-        print 'Madelung energy, fcc:', a_this, a_this-a_ref
+        print('Madelung energy, fcc:', a_this, a_this-a_ref)
     assert abs(a_this-a_ref) < 1e-5
 
 if 1: #hcp
@@ -41,7 +42,7 @@ if 1: #hcp
     a_this = -e * ewald.get_wigner_seitz_radius(sum(charges))
     a_ref = 1.79168
     if verbose:
-        print 'Madelung energy, hcp:', a_this, a_this-a_ref
+        print('Madelung energy, hcp:', a_this, a_this-a_ref)
     assert abs(a_this-a_ref) < 1e-5
     
 if 1: #Simple Cubic
@@ -55,7 +56,7 @@ if 1: #Simple Cubic
     a_this = -e*ewald.get_wigner_seitz_radius(1)
     a_ref = 1.76012
     if verbose:
-        print 'Madelung energy, sc:',  a_this, a_this-a_ref
+        print('Madelung energy, sc:',  a_this, a_this-a_ref)
     assert abs(a_this-a_ref) < 1e-5
 
 if 1: # NaCl
@@ -71,7 +72,7 @@ if 1: # NaCl
     a_this = - 0.5 * e
     a_ref = 1.7475645946331822
     if verbose:
-        print 'Madelung constant, NaCl (B1):', a_this, a_this-a_ref
+        print('Madelung constant, NaCl (B1):', a_this, a_this-a_ref)
     assert abs(a_this-a_ref) < 1e-13
 
 
@@ -93,7 +94,7 @@ if 0: # NaCl
     a_this = - 0.5 * e
     a_ref = 1.7475645946331822
     if verbose:
-        print 'Madelung constant, NaCl (B1):', a_this, a_this-a_ref
+        print('Madelung constant, NaCl (B1):', a_this, a_this-a_ref)
     assert abs(a_this-a_ref) < 1e-13
 
 if 1: # CsCl
@@ -107,7 +108,7 @@ if 1: # CsCl
     a_this = - .5 * np.sqrt(3.) * e
     a_ref = 1.76267477307099
     if verbose:
-        print 'Madelung constant, CsCl (B2):', a_this, a_this-a_ref
+        print('Madelung constant, CsCl (B2):', a_this, a_this-a_ref)
     assert abs(a_this-a_ref) < 1e-13
     
 if 1: # Zincblende, cubic ZnS
@@ -123,7 +124,7 @@ if 1: # Zincblende, cubic ZnS
     a_this = - 0.25 * np.sqrt(3) * e
     a_ref = 1.63805505338879
     if verbose:
-        print 'Madelung constant, Zincblende (B3):', a_this, a_this-a_ref
+        print('Madelung constant, Zincblende (B3):', a_this, a_this-a_ref)
     assert abs(a_this-a_ref) < 1e-13
 
 if 1: # Ideal Wurtzite, ZnS, (B4)
@@ -144,5 +145,5 @@ if 1: # Ideal Wurtzite, ZnS, (B4)
     a_this = - 1. * u * c * e
     a_ref = 1.64132162737
     if verbose:
-        print 'Madelung constant, Ideal Wurtzite (B4):', a_this, a_this-a_ref
+        print('Madelung constant, Ideal Wurtzite (B4):', a_this, a_this-a_ref)
     assert abs(a_this-a_ref) < 1e-11

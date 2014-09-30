@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import sys
 import os
@@ -72,7 +73,7 @@ error1 = (d1[1:,1] - d2[1:,1]) / d1[1:,1] * 100
 error2 = (d1[1:,2] - d2[1:,2]) / d1[1:,2] * 100
 
 if error1.max() > 0.2 or error2.max() > 0.2: # percent
-    print error1.max(), error2.max()
+    print(error1.max(), error2.max())
     raise ValueError('Pls check spectrum !')
 
 #if rank == 0:

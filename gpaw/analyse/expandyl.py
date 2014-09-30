@@ -1,3 +1,4 @@
+from __future__ import print_function
 from math import pi
 
 import numpy as np
@@ -190,19 +191,19 @@ class ExpandYl(AngularIntegral):
         else:
             nrange = bands
 
-        print >> f, '# Yl expansion','of smooth wave functions'
+        print('# Yl expansion','of smooth wave functions', file=f)
         lu = 'Angstrom'
-        print >> f, '# center =', self.center * Bohr, lu
-        print >> f, '# Rmax =', self.Rmax * Bohr, lu
-        print >> f, '# dR =', self.dR * Bohr, lu
-        print >> f, '# lmax =', self.lmax 
-        print >> f, '# s    k     n',
-        print >> f, '     e[eV]      occ',
-        print >> f, '    norm      sum   weight',
+        print('# center =', self.center * Bohr, lu, file=f)
+        print('# Rmax =', self.Rmax * Bohr, lu, file=f)
+        print('# dR =', self.dR * Bohr, lu, file=f)
+        print('# lmax =', self.lmax, file=f) 
+        print('# s    k     n', end=' ', file=f)
+        print('     e[eV]      occ', end=' ', file=f)
+        print('    norm      sum   weight', end=' ', file=f)
         spdfghi = 's p d f g h i'.split()
         for l in range(self.lmax+1):
-            print >> f, '      %'+spdfghi[l],
-        print >> f
+            print('      %'+spdfghi[l], end=' ', file=f)
+        print(file=f)
 
         for s in srange:
             for k in krange:
@@ -216,13 +217,13 @@ class ExpandYl(AngularIntegral):
                     gsum = np.sum(gl)
                     gl = 100 * gl / gsum
 
-                    print >> f, '%2d %5d %5d' % (s, k, n),
-                    print >> f, '%10.4f %8.4f' % (kpt.eps_n[n] * Hartree,
-                                                  kpt.f_n[n]),
-                    print >> f, "%8.4f %8.4f %8.4f" % (norm, gsum, weight),
+                    print('%2d %5d %5d' % (s, k, n), end=' ', file=f)
+                    print('%10.4f %8.4f' % (kpt.eps_n[n] * Hartree,
+                                                  kpt.f_n[n]), end=' ', file=f)
+                    print("%8.4f %8.4f %8.4f" % (norm, gsum, weight), end=' ', file=f)
                 
                     for g in gl:
-                        print >> f, "%8.2f" %g,
-                    print >> f
+                        print("%8.2f" %g, end=' ', file=f)
+                    print(file=f)
                     f.flush()
         f.close()

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from time import ctime
 import numpy as np
@@ -87,10 +88,10 @@ class RPACorrelation:
                     for line in lines:
                         E_q.append(eval(line))
                     f.close()
-                    print >> self.txt, 'Correlation energy obtained ' \
+                    print('Correlation energy obtained ' \
                           +'from %s q-points obtained from restart file: ' \
-                          % len(E_q), restart
-                    print >> self.txt
+                          % len(E_q), restart, file=self.txt)
+                    print(file=self.txt)
                 except:
                     IOError
     
@@ -99,9 +100,8 @@ class RPACorrelation:
                 if abs(np.dot(q, q))**0.5 < 1.e-5:
                     E_q0 = 0.
                     if skip_gamma:
-                        print >> self.txt, \
-                              'Not calculating q at the Gamma point'
-                        print >> self.txt
+                        print('Not calculating q at the Gamma point', file=self.txt)
+                        print(file=self.txt)
                     else:
                         if directions is None:
                             directions = [[0, 1/3.], [1, 1/3.], [2, 1/3.]]
@@ -115,13 +115,13 @@ class RPACorrelation:
                     
                 if restart is not None:
                     f = paropen(restart, 'a')
-                    print >> f, E_q[-1]
+                    print(E_q[-1], file=f)
                     f.close()
     
             E = np.dot(np.array(self.q_weights), np.array(E_q).real)
 
         else: # parallelzation over q points
-            print >> self.txt, 'parallelization over q point ! '
+            print('parallelization over q point ! ', file=self.txt)
             # creates q list
             qlist = []
             qweight = []
@@ -158,7 +158,7 @@ class RPACorrelation:
                 try:
                     ff = open('E_q_%s_%s.dat' %(self.tag,iq), 'r')
                     E_q[iq] = ff.readline().split()[-2]
-                    print >> self.txt, 'Reading E_q[%s] '%(iq), E_q[iq] 
+                    print('Reading E_q[%s] '%(iq), E_q[iq], file=self.txt) 
                 except:
                     E_q[iq] = self.E_q(qlist[iq][1],
                                    index=iq,
@@ -166,25 +166,24 @@ class RPACorrelation:
 
                     if self.tag is not None and self.dfcomm.rank == 0:
                         ff = open('E_q_%s_%s.dat' %(self.tag,iq), 'a')
-                        print >> ff, qlist[iq][1:4], E_q[iq], qweight[iq]
+                        print(qlist[iq][1:4], E_q[iq], qweight[iq], file=ff)
                         ff.close()
                     
             qcomm.sum(E_q)
 
-            print >> self.txt, '(q, direction, weight), E_q, qweight'
+            print('(q, direction, weight), E_q, qweight', file=self.txt)
             for iq in range(nq):
-                print >> self.txt, qlist[iq][1:4], E_q[iq], qweight[iq]
+                print(qlist[iq][1:4], E_q[iq], qweight[iq], file=self.txt)
                 
             E = np.dot(np.array(qweight), np.array(E_q))
 
-        print >> self.txt, 'RPA correlation energy:'
-        print >> self.txt, 'E_c = %s eV' % E
-        print >> self.txt
-        print >> self.txt, 'Calculation completed at:  ', ctime()
-        print >> self.txt
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt
+        print('RPA correlation energy:', file=self.txt)
+        print('E_c = %s eV' % E, file=self.txt)
+        print(file=self.txt)
+        print('Calculation completed at:  ', ctime(), file=self.txt)
+        print(file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
+        print(file=self.txt)
         return E
 
     def get_E_q(self,
@@ -212,10 +211,9 @@ class RPACorrelation:
                        direction=direction,
                        integrated=integrated)
         
-        print >> self.txt, 'Calculation completed at:  ', ctime()
-        print >> self.txt
-        print >> self.txt, \
-              '------------------------------------------------------'
+        print('Calculation completed at:  ', ctime(), file=self.txt)
+        print(file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
 
         return E_q
 
@@ -271,15 +269,15 @@ class RPACorrelation:
                 hilbert_trans=False)
 
         if index is None:
-            print >> self.txt, 'Calculating KS response function at:'
+            print('Calculating KS response function at:', file=self.txt)
         else:
-            print >> self.txt, '#', index, \
-                  '- Calculating KS response function at:'
+            print('#', index, \
+                  '- Calculating KS response function at:', file=self.txt)
         if optical_limit:
-            print >> self.txt, 'q = [0 0 0] -', 'Polarization: ', direction
+            print('q = [0 0 0] -', 'Polarization: ', direction, file=self.txt)
         else:
-            print >> self.txt, 'q = [%1.6f %1.6f %1.6f] -' \
-                  % (q[0],q[1],q[2]), '%s planewaves' % npw
+            print('q = [%1.6f %1.6f %1.6f] -' \
+                  % (q[0],q[1],q[2]), '%s planewaves' % npw, file=self.txt)
 
         e_wGG = df.get_dielectric_matrix(xc='RPA', overwritechi0=True)
         df.chi0_wGG = None
@@ -302,8 +300,8 @@ class RPACorrelation:
             E_q = np.dot((E_q_w[:-1] + E_q_w[1:])/2., dws) / (2.*np.pi)
 
 
-        print >> self.txt, 'E_c(q) = %s eV' % E_q.real
-        print >> self.txt
+        print('E_c(q) = %s eV' % E_q.real, file=self.txt)
+        print(file=self.txt)
 
         if integrated:
             return E_q.real
@@ -365,83 +363,78 @@ class RPACorrelation:
         self.kcommsize = kcommsize
         self.nbands = nbands
 
-        print >> self.txt
-        print >> self.txt, 'Planewave cutoff              : %s eV' % ecut
-        print >> self.txt, 'Number of Planewaves at Gamma : %s' % self.npw
+        print(file=self.txt)
+        print('Planewave cutoff              : %s eV' % ecut, file=self.txt)
+        print('Number of Planewaves at Gamma : %s' % self.npw, file=self.txt)
         if self.nbands is None:
-            print >> self.txt, 'Response function bands       :'\
-                  + ' Equal to number of Planewaves'
+            print('Response function bands       :'\
+                  + ' Equal to number of Planewaves', file=self.txt)
         else:
-            print >> self.txt, 'Response function bands       : %s' \
-                  % self.nbands
-        print >> self.txt, 'Frequencies'
+            print('Response function bands       : %s' \
+                  % self.nbands, file=self.txt)
+        print('Frequencies', file=self.txt)
         if self.gauss_legendre is not None:
-            print >> self.txt, '    Gauss-Legendre integration '\
-                  + 'with %s frequency points' % len(self.w)
-            print >> self.txt, '    Frequency cutoff is '\
+            print('    Gauss-Legendre integration '\
+                  + 'with %s frequency points' % len(self.w), file=self.txt)
+            print('    Frequency cutoff is '\
                   + '%s eV and scale (B) is %s' % (self.w[-1],
-                                                  self.frequency_scale)
+                                                  self.frequency_scale), file=self.txt)
         else:
-            print >> self.txt, '    %s specified frequency points' \
-                  % len(self.w)
-            print >> self.txt, '    Frequency cutoff is %s eV' \
-                  % self.w[-1]
-        print >> self.txt
-        print >> self.txt, 'Parallelization scheme'
-        print >> self.txt, '     Total CPUs        : %d' % dummy.comm.size
+            print('    %s specified frequency points' \
+                  % len(self.w), file=self.txt)
+            print('    Frequency cutoff is %s eV' \
+                  % self.w[-1], file=self.txt)
+        print(file=self.txt)
+        print('Parallelization scheme', file=self.txt)
+        print('     Total CPUs        : %d' % dummy.comm.size, file=self.txt)
         if dummy.kd.nbzkpts == 1:
-            print >> self.txt, '     Band parsize      : %d' % dummy.kcomm.size
+            print('     Band parsize      : %d' % dummy.kcomm.size, file=self.txt)
         else:
-            print >> self.txt, '     Kpoint parsize    : %d' % dummy.kcomm.size
-        print >> self.txt, '     Frequency parsize : %d' % dummy.wScomm.size
-        print >> self.txt, 'Memory usage estimate'
-        print >> self.txt, '     chi0_wGG(Q)       : %f M / cpu' \
-              % (dummy.Nw_local * self.npw**2 * 16. / 1024**2)
-        print >> self.txt
+            print('     Kpoint parsize    : %d' % dummy.kcomm.size, file=self.txt)
+        print('     Frequency parsize : %d' % dummy.wScomm.size, file=self.txt)
+        print('Memory usage estimate', file=self.txt)
+        print('     chi0_wGG(Q)       : %f M / cpu' \
+              % (dummy.Nw_local * self.npw**2 * 16. / 1024**2), file=self.txt)
+        print(file=self.txt)
         del dummy
 
     def print_initialization(self):
-        
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt, 'Non-self-consistent RPA correlation energy'
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt, 'Started at:  ', ctime()
-        print >> self.txt
-        print >> self.txt, 'Atoms                          :   %s' \
-              % self.atoms.get_chemical_formula(mode="hill")
-        print >> self.txt, 'Ground state XC functional     :   %s' \
-              % self.calc.hamiltonian.xc.name
-        print >> self.txt, 'Valence electrons              :   %s' \
-              % self.setups.nvalence
-        print >> self.txt, 'Number of Bands                :   %s' \
-              % self.calc.wfs.bd.nbands
-        print >> self.txt, 'Number of Converged Bands      :   %s' \
-              % self.calc.input_parameters['convergence']['bands']
-        print >> self.txt, 'Number of Spins                :   %s' \
-              % self.nspins
-        print >> self.txt, 'Number of k-points             :   %s' \
-              % len(self.calc.wfs.kd.bzk_kc)
-        print >> self.txt, 'Number of q-points             :   %s' \
-              % len(self.bz_q_points)
-        print >> self.txt, 'Number of Irreducible k-points :   %s' \
-              % len(self.calc.wfs.kd.ibzk_kc)
+        print('------------------------------------------------------', file=self.txt)
+        print('Non-self-consistent RPA correlation energy', file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
+        print('Started at:  ', ctime(), file=self.txt)
+        print(file=self.txt)
+        print('Atoms                          :   %s' \
+              % self.atoms.get_chemical_formula(mode="hill"), file=self.txt)
+        print('Ground state XC functional     :   %s' \
+              % self.calc.hamiltonian.xc.name, file=self.txt)
+        print('Valence electrons              :   %s' \
+              % self.setups.nvalence, file=self.txt)
+        print('Number of Bands                :   %s' \
+              % self.calc.wfs.bd.nbands, file=self.txt)
+        print('Number of Converged Bands      :   %s' \
+              % self.calc.input_parameters['convergence']['bands'], file=self.txt)
+        print('Number of Spins                :   %s' \
+              % self.nspins, file=self.txt)
+        print('Number of k-points             :   %s' \
+              % len(self.calc.wfs.bzk_kc), file=self.txt)
+        print('Number of q-points             :   %s' \
+              % len(self.bz_q_points), file=self.txt)
+        print('Number of Irreducible k-points :   %s' \
+              % len(self.calc.wfs.ibzk_kc), file=self.txt)
         if self.qsym:
-            print >> self.txt, 'Number of Irreducible q-points :   %s' \
-                  % len(self.ibz_q_points)
+            print('Number of Irreducible q-points :   %s' \
+                  % len(self.ibz_q_points), file=self.txt)
         else:
-            print >> self.txt, 'No reduction of q-points' 
-        print >> self.txt
+            print('No reduction of q-points', file=self.txt) 
+        print(file=self.txt)
         for q, weight in zip(self.ibz_q_points, self.q_weights):
-            print >> self.txt, 'q: [%1.4f %1.4f %1.4f] - weight: %1.3f' \
-                  % (q[0],q[1],q[2], weight)
-        print >> self.txt
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt
+            print('q: [%1.4f %1.4f %1.4f] - weight: %1.3f' \
+                  % (q[0],q[1],q[2], weight), file=self.txt)
+        print(file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
+        print(file=self.txt)
 
 
     def get_C6_coefficient(self,
@@ -504,8 +497,8 @@ class RPACorrelation:
                 kcommsize=self.kcommsize,
                 hilbert_trans=False)
         
-        print >> self.txt, 'Calculating RPA response function'
-        print >> self.txt, 'Polarization: %s' % d
+        print('Calculating RPA response function', file=self.txt)
+        print('Polarization: %s' % d, file=self.txt)
 
         chi_wGG = df.get_chi(xc='RPA')
         chi0_wGG = df.chi0_wGG
@@ -522,7 +515,7 @@ class RPACorrelation:
         d_d = gd.get_grid_spacings()[d]
         r_d = np.array([i*d_d for i in range(n_d)])
 
-        print >> self.txt, 'Calculating real space integrals'
+        print('Calculating real space integrals', file=self.txt)
 
         int_G = np.zeros(npw, complex)
         for iG in range(npw):
@@ -530,7 +523,7 @@ class RPACorrelation:
                 int_G[iG] = np.sum(r_d * np.exp(1j*Gvec_Gv[iG, d] * r_d))*d_d
         int2_GG = np.outer(int_G, int_G.conj())
 
-        print >> self.txt, 'Calculating dynamic polarizability'
+        print('Calculating dynamic polarizability', file=self.txt)
 
         for i in range(Nw_local):
             local_a0_w[i] = np.trace(np.dot(chi0_wGG[i], int2_GG))
@@ -549,8 +542,8 @@ class RPACorrelation:
         C6 = np.sum(a_w**2 * self.gauss_weights
                     * self.transform) * 3 / (2*np.pi)
 
-        print >> self.txt, 'C06 = %s Ha*Bohr**6' % (C06.real / Ha)
-        print >> self.txt, 'C6 = %s Ha*Bohr**6' % (C6.real / Ha)
-        print >> self.txt
+        print('C06 = %s Ha*Bohr**6' % (C06.real / Ha), file=self.txt)
+        print('C6 = %s Ha*Bohr**6' % (C6.real / Ha), file=self.txt)
+        print(file=self.txt)
 
         return C6.real / Ha, C06.real / Ha

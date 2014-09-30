@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from gpaw import GPAW
 from gpaw.dipole_correction import DipoleCorrection
@@ -93,7 +94,7 @@ if rank == 0:
     # (at the end of the array things can "oscillate" a bit)
     dvz1 = vz1[-5] - vz1[4]
     dvz2 = vz2[4] - vz2[len(vz2) // 2]
-    print dvz1, dvz2
+    print(dvz1, dvz2)
     
     err1 = abs(dvz1 - dvz2)
     
@@ -111,10 +112,10 @@ if rank == 0:
         pl.plot(vz2)
         pl.show()
 
-    print 'Ref value of previous calculation', ref_value
-    print 'Value in this calculation', dvz1
+    print('Ref value of previous calculation', ref_value)
+    print('Value in this calculation', dvz1)
 
     # fine grid needed to achieve convergence!
-    print 'Error', err1, err2
+    print('Error', err1, err2)
     assert err1 < 5e-3, err1
     assert err2 < 2e-4, err2

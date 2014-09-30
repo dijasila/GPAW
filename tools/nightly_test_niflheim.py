@@ -73,7 +73,7 @@ os.system('tar xvzf gpaw-setups-latest.tar.gz')
 setups = tmpdir + '/gpaw/' + glob.glob('gpaw-setups-[0-9]*')[0]
     
 # Run test-suite:
-print 'Run'
+print('Run')
 if os.system('source /home/camp/modulefiles.sh; ' +
              'module load NUMPY; ' +
              'module load SCIPY; ' +
@@ -105,5 +105,5 @@ else:
     subject = 'GPAW %s: ' % str(version) + subject
     fail(subject, email, 'test.out')
 
-print 'Done'
+print('Done')
 os.system('cd; rm -rf ' + tmpdir)

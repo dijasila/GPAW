@@ -1,3 +1,4 @@
+from __future__ import print_function
 """Test of BLACS Redistributor.
 
 Requires at least 8 MPI tasks.
@@ -38,7 +39,7 @@ domain_comm, kpt_comm, band_comm, block_comm = \
 assert world.size == D*B*kpt_comm.size
 
 if world.rank == 0:
-    print 'MPI: %d domains, %d band groups, %d kpts' % (domain_comm.size, band_comm.size, kpt_comm.size)
+    print('MPI: %d domains, %d band groups, %d kpts' % (domain_comm.size, band_comm.size, kpt_comm.size))
 
 # Set up band and grid descriptors:
 bd = BandDescriptor(N, band_comm, False)
@@ -96,14 +97,14 @@ def main(seed=42, dtype=float):
     else:
         assert gd.comm.rank != 0
 
-    print "H_Nn"
+    print("H_Nn")
     parallelprint(world, H_Nn)
     
     eps_n = np.zeros(bd.mynbands)
     blacs_diagonalize(ksl, H_Nn, U_nN, eps_n)
-    print "U_nN"
+    print("U_nN")
     parallelprint(world, U_nN)
-    print "eps_n"
+    print("eps_n")
     parallelprint(world, eps_n)
     
     # Inverse Cholesky
@@ -115,10 +116,10 @@ def main(seed=42, dtype=float):
     else:
         assert gd.comm.rank != 0
 
-    print "S_Nn"
+    print("S_Nn")
     parallelprint(world, S_Nn)
     blacs_inverse_cholesky(ksl, S_Nn, C_nN)
-    print "C_nN"
+    print("C_nN")
     parallelprint(world, C_nN)
 
 if __name__ in ['__main__', '__builtin__']:

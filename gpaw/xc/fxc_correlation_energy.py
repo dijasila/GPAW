@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from time import ctime, time
 import numpy as np
@@ -118,10 +119,10 @@ class FXCCorrelation:
                 for line in lines:
                     E_q.append(eval(line))
                 f.close()
-                print >> self.txt, 'Correlation energy obtained ' \
+                print('Correlation energy obtained ' \
                       +'from %s q-points obtained from restart file: ' \
-                      % len(E_q), restart
-                print >> self.txt
+                      % len(E_q), restart, file=self.txt)
+                print(file=self.txt)
             except:
                 IOError
 
@@ -145,9 +146,8 @@ class FXCCorrelation:
             if abs(np.dot(q, q))**0.5 < 1.e-5:
                 E_q0 = 0.
                 if skip_gamma:
-                    print >> self.txt, \
-                          'Not calculating q at the Gamma point'
-                    print >> self.txt
+                    print('Not calculating q at the Gamma point', file=self.txt)
+                    print(file=self.txt)
                 else:
                     for d in directions:
                         E_q0 += self.E_q(q,
@@ -159,19 +159,18 @@ class FXCCorrelation:
                     
             if restart is not None:
                 f = paropen(restart, 'a')
-                print >> f, E_q[-1]
+                print(E_q[-1], file=f)
                 f.close()
     
         E = np.dot(np.array(self.q_weights), np.array(E_q).real)
 
-        print >> self.txt, '%s correlation energy:' % self.xc
-        print >> self.txt, 'E_c = %s eV' % E
-        print >> self.txt
-        print >> self.txt, 'Calculation completed at:  ', ctime()
-        print >> self.txt
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt
+        print('%s correlation energy:' % self.xc, file=self.txt)
+        print('E_c = %s eV' % E, file=self.txt)
+        print(file=self.txt)
+        print('Calculation completed at:  ', ctime(), file=self.txt)
+        print(file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
+        print(file=self.txt)
 
         return E
 
@@ -200,10 +199,9 @@ class FXCCorrelation:
                        direction=direction,
                        integrated=integrated)
         
-        print >> self.txt, 'Calculation completed at:  ', ctime()
-        print >> self.txt
-        print >> self.txt, \
-              '------------------------------------------------------'
+        print('Calculation completed at:  ', ctime(), file=self.txt)
+        print(file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
         return E_q
 
 
@@ -238,13 +236,13 @@ class FXCCorrelation:
         npw = r.dimension('sG') / ns
 
         if index is not None:
-            print >> self.txt, '#', index
+            print('#', index, file=self.txt)
         if optical_limit:
-            print >> self.txt, 'q = [0 0 0] -', 'Polarization: ', direction
+            print('q = [0 0 0] -', 'Polarization: ', direction, file=self.txt)
         else: 
-            print >> self.txt, 'q = [%1.6f %1.6f %1.6f] -' \
-                % (q[0],q[1],q[2]), '%s planewaves' % npw
-        print >> self.txt, 'Calculating KS response function'
+            print('q = [%1.6f %1.6f %1.6f] -' \
+                % (q[0],q[1],q[2]), '%s planewaves' % npw, file=self.txt)
+        print('Calculating KS response function', file=self.txt)
 
         if self.nbands is None:
             nbands = npw
@@ -294,7 +292,7 @@ class FXCCorrelation:
         local_E_q_w = np.zeros(Nw_local, dtype=complex)
         E_q_w = np.empty(len(self.w), complex)
 
-        print >> self.txt, 'Calculating interacting response function'
+        print('Calculating interacting response function', file=self.txt)
         ls, l_ws = p_roots(self.lambda_points)
         ls = (ls + 1.0) * 0.5
         l_ws *= 0.5            
@@ -319,8 +317,8 @@ class FXCCorrelation:
             dws = self.w[1:] - self.w[:-1]
             E_q = np.dot((E_q_w[:-1] + E_q_w[1:])/2., dws) / (2 * np.pi)
 
-        print >> self.txt, 'E_c(q) = %s eV' % E_q.real
-        print >> self.txt
+        print('E_c(q) = %s eV' % E_q.real, file=self.txt)
+        print(file=self.txt)
 
         if integrated:
             return E_q.real
@@ -384,124 +382,120 @@ class FXCCorrelation:
         self.nbands = nbands
 
         if debug:
-            print >> self.txt            
-            print >> self.txt, 'DEBUG MODE'
-            print >> self.txt
+            print(file=self.txt)            
+            print('DEBUG MODE', file=self.txt)
+            print(file=self.txt)
     
-        print >> self.txt, 'Numerical coupling constant integration' \
-              + ' with % s Gauss-Legendre points' % self.lambda_points
-        print >> self.txt
-        print >> self.txt, 'Planewave cutoff              : %s eV' % ecut
-        print >> self.txt, 'Number of Planewaves at Gamma : %s' % dummy.npw
+        print('Numerical coupling constant integration' \
+              + ' with % s Gauss-Legendre points' % self.lambda_points, file=self.txt)
+        print(file=self.txt)
+        print('Planewave cutoff              : %s eV' % ecut, file=self.txt)
+        print('Number of Planewaves at Gamma : %s' % dummy.npw, file=self.txt)
         if self.nbands is None:
-            print >> self.txt, 'Response function bands       :' \
-                  + ' Equal to number of Planewaves'
+            print('Response function bands       :' \
+                  + ' Equal to number of Planewaves', file=self.txt)
         elif type(self.nbands) is float:
-            print >> self.txt, 'Response function bands       : %s' \
-                  % int(dummy.npw * self.nbands)
+            print('Response function bands       : %s' \
+                  % int(dummy.npw * self.nbands), file=self.txt)
         else:
-            print >> self.txt, 'Response function bands       : %s' \
-                  % self.nbands
+            print('Response function bands       : %s' \
+                  % self.nbands, file=self.txt)
         if self.density_cut is not None:
-            print >> self.txt
-            print >> self.txt, 'Min value of pseudo density   : %1.2e Bohr^-3'\
-                  % np.min(self.calc.density.nt_sG)
-            print >> self.txt, 'Max value of pseudo density   : %1.2e Bohr^-3'\
-                  % np.max(self.calc.density.nt_sG)
-            print >> self.txt, 'Density cutoff in fxc at      : %1.2e Bohr^-3'\
-                  % self.density_cut
-        print >> self.txt, 'Frequencies'
+            print(file=self.txt)
+            print('Min value of pseudo density   : %1.2e Bohr^-3'\
+                  % np.min(self.calc.density.nt_sG), file=self.txt)
+            print('Max value of pseudo density   : %1.2e Bohr^-3'\
+                  % np.max(self.calc.density.nt_sG), file=self.txt)
+            print('Density cutoff in fxc at      : %1.2e Bohr^-3'\
+                  % self.density_cut, file=self.txt)
+        print('Frequencies', file=self.txt)
         if self.gauss_legendre is not None:
-            print >> self.txt, '    Gauss-Legendre integration '\
-                  + 'with %s frequency points' % len(self.w)
-            print >> self.txt, '    Frequency cutoff is '\
+            print('    Gauss-Legendre integration '\
+                  + 'with %s frequency points' % len(self.w), file=self.txt)
+            print('    Frequency cutoff is '\
                   + '%s eV and scale (B) is %s' % (self.w[-1],
-                                                  self.frequency_scale)
+                                                  self.frequency_scale), file=self.txt)
         else:
-            print >> self.txt, '    %s specified frequency points' \
-                  % len(self.w)
-            print >> self.txt, '    Frequency cutoff is %s eV' \
-                  % self.w[-1]
-        print >> self.txt
-        print >> self.txt, 'Parallelization scheme'
-        print >> self.txt, '     Total CPUs        : %d' % dummy.comm.size
+            print('    %s specified frequency points' \
+                  % len(self.w), file=self.txt)
+            print('    Frequency cutoff is %s eV' \
+                  % self.w[-1], file=self.txt)
+        print(file=self.txt)
+        print('Parallelization scheme', file=self.txt)
+        print('     Total CPUs        : %d' % dummy.comm.size, file=self.txt)
         if dummy.kd.nbzkpts == 1:
-            print >> self.txt, '     Band parsize      : %d' % dummy.kcomm.size
+            print('     Band parsize      : %d' % dummy.kcomm.size, file=self.txt)
         else:
-            print >> self.txt, '     Kpoint parsize    : %d' % dummy.kcomm.size
-        print >> self.txt, '     Frequency parsize : %d' % dummy.wScomm.size
-        print >> self.txt, 'Memory usage estimate'
-        print >> self.txt, '     chi0_wGG(q)         : %6.3f MB / frequency point' \
-              % (self.nspins**2 * dummy.npw**2 * 16. / 1024**2)
-        print >> self.txt, '     Kernel_GG(q)        : %6.3f MB / CPU' \
-              % ((2*self.nspins + 3%self.nspins) * dummy.npw**2 * 16. / 1024**2)
+            print('     Kpoint parsize    : %d' % dummy.kcomm.size, file=self.txt)
+        print('     Frequency parsize : %d' % dummy.wScomm.size, file=self.txt)
+        print('Memory usage estimate', file=self.txt)
+        print('     chi0_wGG(q)         : %6.3f MB / frequency point' \
+              % (self.nspins**2 * dummy.npw**2 * 16. / 1024**2), file=self.txt)
+        print('     Kernel_GG(q)        : %6.3f MB / CPU' \
+              % ((2*self.nspins + 3%self.nspins) * dummy.npw**2 * 16. / 1024**2), file=self.txt)
         if self.method == 'standard':
             n0 = dummy.gd.N_c[0] * dummy.gd.N_c[1] * dummy.gd.N_c[2]
-            print >> self.txt, '     Kernel_rG(q) (Int.) : %6.3f MB / CPU' \
+            print('     Kernel_rG(q) (Int.) : %6.3f MB / CPU' \
                       % ((2*self.nspins + 3%self.nspins)
-                         * dummy.npw * float(n0)/world.size * 16. / 1024**2)
+                         * dummy.npw * float(n0)/world.size * 16. / 1024**2), file=self.txt)
             
-        print >> self.txt
+        print(file=self.txt)
         del dummy
 
 
     def print_initialization(self):
         
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt, 'Non-self-consistent %s correlation energy' \
-              % self.xc
+        print('------------------------------------------------------', file=self.txt)
+        print('Non-self-consistent %s correlation energy' \
+              % self.xc, file=self.txt)
         if self.xc is not 'RPA':
             if self.xc[0] == 'r':
                 if self.method == 'solid':
-                    print >> self.txt, 'Periodic average density'
+                    print('Periodic average density', file=self.txt)
                 else:
-                    print >> self.txt, 'Non-periodic two-point density'
+                    print('Non-periodic two-point density', file=self.txt)
             if self.paw_correction == 0:
-                print >> self.txt, 'Using pseudo-density with ALDA PAW corrections'
+                print('Using pseudo-density with ALDA PAW corrections', file=self.txt)
             elif self.paw_correction == 1:
-                print >> self.txt, 'Using all-electron density' 
+                print('Using all-electron density', file=self.txt) 
             elif self.paw_correction == 2:
-                print >> self.txt, 'Using pseudo-density with average ALDA PAW corrections'
+                print('Using pseudo-density with average ALDA PAW corrections', file=self.txt)
             elif self.paw_correction == 3:
-                print >> self.txt, 'Using pseudo-density'
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt, 'Started at:  ', ctime()
-        print >> self.txt
-        print >> self.txt, 'Atoms                          :   %s' \
-              % self.atoms.get_chemical_formula(mode="hill")
-        print >> self.txt, 'Ground state XC functional     :   %s' \
-              % self.calc.hamiltonian.xc.name
-        print >> self.txt, 'Valence electrons              :   %s' \
-              % self.setups.nvalence
-        print >> self.txt, 'Number of Bands                :   %s' \
-              % self.calc.wfs.bd.nbands
-        print >> self.txt, 'Number of Converged Bands      :   %s' \
-              % self.calc.input_parameters['convergence']['bands']
-        print >> self.txt, 'Number of Spins                :   %s' \
-              % self.nspins
-        print >> self.txt, 'Number of k-points             :   %s' \
-              % len(self.calc.wfs.kd.bzk_kc)
-        print >> self.txt, 'Number of q-points             :   %s' \
-              % len(self.bz_q_points)
-        print >> self.txt, 'Number of Irreducible k-points :   %s' \
-              % len(self.calc.wfs.kd.ibzk_kc)
+                print('Using pseudo-density', file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
+        print('Started at:  ', ctime(), file=self.txt)
+        print(file=self.txt)
+        print('Atoms                          :   %s' \
+              % self.atoms.get_chemical_formula(mode="hill"), file=self.txt)
+        print('Ground state XC functional     :   %s' \
+              % self.calc.hamiltonian.xc.name, file=self.txt)
+        print('Valence electrons              :   %s' \
+              % self.setups.nvalence, file=self.txt)
+        print('Number of Bands                :   %s' \
+              % self.calc.wfs.bd.nbands, file=self.txt)
+        print('Number of Converged Bands      :   %s' \
+              % self.calc.input_parameters['convergence']['bands'], file=self.txt)
+        print('Number of Spins                :   %s' \
+              % self.nspins, file=self.txt)
+        print('Number of k-points             :   %s' \
+              % len(self.calc.wfs.bzk_kc), file=self.txt)
+        print('Number of q-points             :   %s' \
+              % len(self.bz_q_points), file=self.txt)
+        print('Number of Irreducible k-points :   %s' \
+              % len(self.calc.wfs.ibzk_kc), file=self.txt)
         if self.qsym:
-            print >> self.txt, 'Number of Irreducible q-points :   %s' \
-                  % len(self.ibz_q_points)
+            print('Number of Irreducible q-points :   %s' \
+                  % len(self.ibz_q_points), file=self.txt)
         else:
-            print >> self.txt, 'No reduction of q-points' 
-        print >> self.txt
+            print('No reduction of q-points', file=self.txt) 
+        print(file=self.txt)
         for q, weight in zip(self.ibz_q_points, self.q_weights):
-            print >> self.txt, 'q: [%1.4f %1.4f %1.4f] - weight: %1.3f' \
-                  % (q[0],q[1],q[2], weight)
-        print >> self.txt
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt
+            print('q: [%1.4f %1.4f %1.4f] - weight: %1.3f' \
+                  % (q[0],q[1],q[2], weight), file=self.txt)
+        print(file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
+        print(file=self.txt)
 
 
     def get_C6_coefficient(self,
@@ -579,8 +573,8 @@ class FXCCorrelation:
                 kcommsize=self.kcommsize,
                 hilbert_trans=False)
         
-        print >> self.txt, 'Calculating %s response function' % self.xc
-        print >> self.txt, 'Polarization: %s' % d
+        print('Calculating %s response function' % self.xc, file=self.txt)
+        print('Polarization: %s' % d, file=self.txt)
 
         df.initialize()
         Nw_local = df.Nw_local
@@ -607,7 +601,7 @@ class FXCCorrelation:
         d_d = gd.get_grid_spacings()[d]
         r_d = np.array([i*d_d for i in range(n_d)])
 
-        print >> self.txt, 'Calculating real space integrals'
+        print('Calculating real space integrals', file=self.txt)
 
         int_G = np.zeros(npw, complex)
         for iG in range(npw):
@@ -615,7 +609,7 @@ class FXCCorrelation:
                 int_G[iG] = np.sum(r_d * np.exp(1j*Gvec_Gv[iG, d] * r_d))*d_d
         int2_GG = np.outer(int_G, int_G.conj())
 
-        print >> self.txt, 'Calculating dynamic polarizability'
+        print('Calculating dynamic polarizability', file=self.txt)
 
         for i in range(Nw_local):
             chi0_fhxc = np.dot(chi0[i], r.get('fhxc_sGsG'))
@@ -639,9 +633,9 @@ class FXCCorrelation:
         C6 = np.sum(a_w**2 * self.gauss_weights
                     * self.transform) * 3 / (2*np.pi)
 
-        print >> self.txt, 'C06 = %s Ha*Bohr**6' % (C06.real / Hartree)
-        print >> self.txt, 'C6 = %s Ha*Bohr**6' % (C6.real / Hartree)
-        print >> self.txt
+        print('C06 = %s Ha*Bohr**6' % (C06.real / Hartree), file=self.txt)
+        print('C6 = %s Ha*Bohr**6' % (C6.real / Hartree), file=self.txt)
+        print(file=self.txt)
 
         return C6.real / Hartree, C06.real / Hartree
 
@@ -708,7 +702,7 @@ class Kernel:
 
     def calculate_fhxc(self, directions=[0,1,2]):
 
-        print >> self.txt, 'Calculating %s kernel' % self.xc
+        print('Calculating %s kernel' % self.xc, file=self.txt)
 
         if self.xc == 'RPA':
             self.calculate_rpa_kernel(directions)
@@ -776,7 +770,7 @@ class Kernel:
                 w.close()
             world.barrier()
         
-        print >> self.txt    
+        print(file=self.txt)    
 
 
     def calculate_rkernel(self, directions=[0,1,2]):
@@ -824,9 +818,9 @@ class Kernel:
             dv = self.calc.density.gd.dv
             gc = (3.*dv/4./np.pi)**(1./3.)
             Vlocal_g -= 2*np.pi * gc**2 /dv
-            print >> self.txt, '    Lattice point sampling: ' \
+            print('    Lattice point sampling: ' \
                   + '(%s x %s x %s)^2 ' % (N_R[0], N_R[1], N_R[2]) \
-                  + ' Reduced to %s lattice points' % len(R)
+                  + ' Reduced to %s lattice points' % len(R), file=self.txt)
         
         l_g_size = -(-nG0 // world.size)
         l_g_range = range(world.rank * l_g_size,
@@ -847,10 +841,10 @@ class Kernel:
             # Loop over r'.
             # f_rr, V_rr and V_off are functions of r (dim. as r_vg[0])
             if i == 1:
-                print  >> self.txt, '      Finished 1 cell in %s seconds - estimated %s seconds left' % (int(time() - t0), int(len(R)*(time()-t0)))
+                print('      Finished 1 cell in %s seconds - estimated %s seconds left' % (int(time() - t0), int(len(R)*(time()-t0))), file=self.txt)
             if len(R) > 5:
                 if (i+1) % (len(R)/5+1) == 0:
-                    print  >> self.txt, '      Finished %s cells in %s seconds - estimated %s seconds left' % (i, int(time() - t0), int((len(R)-i)*(time() - t0)/i))
+                    print('      Finished %s cells in %s seconds - estimated %s seconds left' % (i, int(time() - t0), int((len(R)-i)*(time() - t0)/i)), file=self.txt)
             for g in l_g_range:
                 r_x = r_vgx[g] + R_i[0]
                 r_y = r_vgy[g] + R_i[1]
@@ -1000,7 +994,7 @@ class Kernel:
                     w.close()
             world.barrier()
 
-        print >> self.txt
+        print(file=self.txt)
 
         
     def calculate_rkernel_solid(self, directions=[0,1,2]):
@@ -1126,7 +1120,7 @@ class Kernel:
                 w.close()
             world.barrier()
 
-        print >> self.txt    
+        print(file=self.txt)    
 
     def calculate_local_kernel(self):
         # Standard ALDA exchange kernel
@@ -1169,7 +1163,7 @@ class Kernel:
             fhxc_sGsG += np.tile(Kc_GG, (ns, ns)) * self.vol
             
             if self.paw_correction in [0, 2]:
-                print >> self.txt, '    Calculating PAW correction'
+                print('    Calculating PAW correction', file=self.txt)
                 f_paw_sGG = self.add_paw_correction(npw,
                                                     Gvec_Gc,
                                                     bcell_cv,
@@ -1190,7 +1184,7 @@ class Kernel:
                 w.close()
             world.barrier()
 
-        print >> self.txt                
+        print(file=self.txt)                
 
 
     def add_paw_correction(self, npw, Gvec_Gc, bcell_cv, setups, D_asp, R_av):

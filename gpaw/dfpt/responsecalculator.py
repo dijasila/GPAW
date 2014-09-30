@@ -184,16 +184,16 @@ class ResponseCalculator:
             if iter == 0:
                 self.first_iteration()
             else:
-                print "iter:%3i\t" % iter,
+                print("iter:%3i\t" % iter, end=' ')
                 norm = self.iteration()
-                print "abs-norm: %6.3e\t" % norm,
-                print ("integrated density response (abs): % 5.2e (%5.2e) "
+                print("abs-norm: %6.3e\t" % norm, end=' ')
+                print(("integrated density response (abs): % 5.2e (%5.2e) "
                        % (self.gd.integrate(self.nt1_G.real),
-                          self.gd.integrate(np.absolute(self.nt1_G))))
+                          self.gd.integrate(np.absolute(self.nt1_G)))))
                        
                 if norm < tolerance:
-                    print ("self-consistent loop converged in %i iterations"
-                           % iter)
+                    print(("self-consistent loop converged in %i iterations"
+                           % iter))
                     break
                 
             if iter == max_iter:
@@ -323,7 +323,7 @@ class ResponseCalculator:
         verbose = self.parameters['verbose']
 
         if verbose:
-            print "Calculating wave function variations"
+            print("Calculating wave function variations")
 
         if self.perturbation.has_q():
             q_c = self.perturbation.get_q()
@@ -337,7 +337,7 @@ class ResponseCalculator:
             k = kpt.k
 
             if verbose:
-                print "k-point %2.1i" % k
+                print("k-point %2.1i" % k)
             
             # Index of k+q vector
             if kplusq_k is None:
@@ -384,11 +384,11 @@ class ResponseCalculator:
                                                       psit1_G, rhs_G)
                 
                 if verbose:
-                    print "\tBand %2.1i -" % n,
+                    print("\tBand %2.1i -" % n, end=' ')
                     
                 if info == 0:
                     if verbose:
-                        print "linear solver converged in %i iterations" % iter
+                        print("linear solver converged in %i iterations" % iter)
                 elif info > 0:
                     assert False, ("linear solver did not converge in maximum "
                                    "number (=%i) of iterations for "

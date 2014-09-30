@@ -285,7 +285,7 @@ class ElectronPhononCoupling(Displacement):
         
         # If gamma calculation, overlap with neighboring cell cannot be removed
         if kd.gamma:
-            print "WARNING: Gamma-point calculation."
+            print("WARNING: Gamma-point calculation.")
         else:
             # Bloch to real-space converter
             tb = TightBinding(atoms_N, calc)
@@ -732,7 +732,7 @@ class ElectronPhononCoupling(Displacement):
                 # XXX Temp
                 if np.all(q_c == 0.0):
                     # These should be real
-                    print g_qklnn[q].imag.min(), g_qklnn[q].imag.max()
+                    print(g_qklnn[q].imag.min(), g_qklnn[q].imag.max())
                     
         self.timer.write_now("Finished calculation of coupling matrix elements")
                                                 

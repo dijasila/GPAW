@@ -1353,11 +1353,11 @@ class SICSpin:
            
             if self.gd.comm.rank == 0:
                 if self.logging==1:
-                    print "           UO-%d: %2d %5.1f  %20.5f  " % (
-                        self.spin, iter, np.log10(K), ESI*Hartree)
+                    print("           UO-%d: %2d %5.1f  %20.5f  " % (
+                        self.spin, iter, np.log10(K), ESI*Hartree))
                 elif self.logging==2:
-                    print "           UO-%d: %2d %5.1f  %20.5f  " % (
-                    self.spin, iter, np.log10(K), ESI*Hartree) + lsmethod
+                    print("           UO-%d: %2d %5.1f  %20.5f  " % (
+                    self.spin, iter, np.log10(K), ESI*Hartree) + lsmethod)
                 
             if ((K<self.uomaxres or
                  K<self.wfs.eigensolver.error*self.uorelres)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.structure import molecule
 from gpaw import GPAW
 from gpaw.poisson import PoissonSolver
@@ -30,9 +31,9 @@ e_bsse = system.get_potential_energy()
 niter_bsse = calc.get_number_of_iterations()
 
 c_nM = calc.wfs.kpt_u[0].C_nM
-print 'coefs'
-print c_nM
-print 'energy', e_bsse
+print('coefs')
+print(c_nM)
+print('energy', e_bsse)
 
 # Reference system which is just a hydrogen
 sys0 = system[0:1].copy()
@@ -40,7 +41,7 @@ calc = prepare('paw')
 sys0.set_calculator(calc)
 e0 = sys0.get_potential_energy()
 niter0 = calc.get_number_of_iterations()
-print 'e0, e_bsse = ', e0, e_bsse
+print('e0, e_bsse = ', e0, e_bsse)
 
 # One coefficient should be very small (0.012), the other very large (0.99)
 assert abs(1.0 - abs(c_nM[0, 0])) < 0.02

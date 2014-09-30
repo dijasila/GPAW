@@ -47,7 +47,7 @@ if len(sys.argv) <= 2:
 else:
     calc.forces.F_av = plotter.get_info('force', sys.argv[1], sys.argv[2])
 
-print 'maximum', np.max(abs(calc.forces.F_av))
+print('maximum', np.max(abs(calc.forces.F_av)))
 va = vtkAtoms(atoms)
 va.add_cell()
 va.add_axes()

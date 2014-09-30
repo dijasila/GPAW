@@ -3,7 +3,7 @@ from gpaw import GPAW
 from gpaw.test import equal
 
 for mode in ['fd', 'pw']:
-    print mode
+    print(mode)
     hydrogen = Atoms('H',
                      cell=(2.5, 3, 3.5),
                      pbc=1,

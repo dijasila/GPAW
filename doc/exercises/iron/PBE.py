@@ -16,4 +16,4 @@ for name in ['ferro', 'anti', 'non']:
         
     eLDA -= eLDA0
     ePBE -= ePBE0
-    print('%-5s: %7.3f eV %7.3f eV' % (name, eLDA, ePBE))
+    print(('%-5s: %7.3f eV %7.3f eV' % (name, eLDA, ePBE)))

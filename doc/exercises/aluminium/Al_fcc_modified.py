@@ -29,7 +29,7 @@ for a in A:
 p = Polynomial.fit(A, E, 3)
 a0 = p.deriv(1).roots()[0]
 B = p.deriv(2)(a0) * 4 / 9 / a0 / u.J * u.m**3 * 1e-9  # GPa
-print(a0, B)
+print((a0, B))
 
 assert abs(a0 - 3.9924) < 0.001
 assert abs(B - 87.22) < 0.1

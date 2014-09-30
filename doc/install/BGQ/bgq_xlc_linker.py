@@ -56,5 +56,5 @@ flags_list = {1: "-g -O3 -qlanglvl=extc99 -qflag=w:w",
 flags = flags_list[opt]  
 cmd = "bgxlc_r %s %s"%(flags, cmd)
 
-print "\nexecmd: %s\n"%cmd
+print("\nexecmd: %s\n"%cmd)
 call(cmd, shell=True)

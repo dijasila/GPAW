@@ -118,7 +118,7 @@ class Banded_Sparse_Matrix:
         index1 ,index2 = self.band_index[-2:]
         for i in range(len(index1)):
             if index1[i] == n1 and index2[i] == n2:
-                print i
+                print(i)
                 
     def recover(self):
         index0, index1, index2 = self.band_index[-3:]
@@ -171,12 +171,12 @@ class Banded_Sparse_Matrix:
         methods = ['full_numpy', 'full_lapack', 'sparse_lapack']
         for name in methods:
             time = timer.timers[name,]
-            print name, time
+            print(name, time)
             times.append(time)
         
         mintime = np.min(times)
         self.inv_method = methods[np.argmin(times)]
-        print 'mintime', mintime
+        print('mintime', mintime)
                 
     def inv(self):
         #kl, ku, index0 = self.band_index[:3]
@@ -517,7 +517,7 @@ class Tp_Sparse_Matrix:
             mol_h += dot(tp_mat.upc_h[i][0], self.dwnc_h[i][0])
         diff = np.max(abs(mol_h - np.eye(mol_h.shape[0])))
         if diff > tol:
-            print 'warning, mol_diff', diff
+            print('warning, mol_diff', diff)
         for i in range(self.lead_num):
             for j in range(self.lead_nlayer[i] - 2):
                 diag_h = dot(tp_mat.diag_h[i][j].recover(),
@@ -526,14 +526,14 @@ class Tp_Sparse_Matrix:
                 diag_h += dot(tp_mat.upc_h[i][j + 1], self.dwnc_h[i][j + 1])                
                 diff = np.max(abs(diag_h - np.eye(diag_h.shape[0])))
                 if diff > tol:
-                    print 'warning, diag_diff', i, j, diff
+                    print('warning, diag_diff', i, j, diff)
             j = self.lead_nlayer[i] - 2
             diag_h = dot(tp_mat.diag_h[i][j].recover(),
                                                   self.diag_h[i][j].recover())
             diag_h += dot(tp_mat.dwnc_h[i][j], self.upc_h[i][j])
             diff = np.max(abs(diag_h - np.eye(diag_h.shape[0])))
             if diff > tol:
-                print 'warning, diag_diff', i, j, diff            
+                print('warning, diag_diff', i, j, diff)            
                                                 
     def inv_eq(self):
         q_mat = []
@@ -761,14 +761,14 @@ class Tp_Sparse_Matrix:
         methods = ['full_numpy', 'full_lapack', 'sparse_lapack']
         for name in methods:
             time = timer.timers[name,]
-            print name, time
+            print(name, time)
             times.append(time)
         
         mintime = np.min(times)
         self.inv_method = methods[np.argmin(times)]
-        print 'mintime', mintime
+        print('mintime', mintime)
         
-        print  'sparse_lapack_ne', timer.timers['sparse_lapack_ne',]
+        print('sparse_lapack_ne', timer.timers['sparse_lapack_ne',])
 
 class CP_Sparse_HSD:
     def __init__(self, dtype, ns, npk, index=None):
@@ -905,7 +905,7 @@ class Se_Sparse_Matrix:
         
         diff = abs(np.sum(abs(mat)) - np.sum(abs(self.spar)))
         if diff > tol * 10:
-            print 'Warning! Sparse Matrix Diff', diff
+            print('Warning! Sparse Matrix Diff', diff)
         
     def reset(self, mat, nn=None):
         if nn is not None:

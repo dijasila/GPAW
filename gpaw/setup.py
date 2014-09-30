@@ -3,12 +3,12 @@
 # Please see the accompanying LICENSE file for further information.
 
 if __name__ == '__main__':
-    print """\
+    print("""\
 You are using the wrong setup.py script!  This setup.py defines a
 Setup class used to hold the atomic data needed for a specific atom.
 For building the GPAW code you must use the setup.py distutils script
 at the root of the code tree.  Just do "cd .." and you will be at the
-right place."""
+right place.""")
     raise SystemExit
 
 import os

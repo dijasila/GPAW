@@ -99,9 +99,9 @@ def memory_bandwidth(code='gpaw', runs=7):
         t1 = time.time()
         t = t + t1 - t0
         t_runs.append(t1 - t0)
-        print 'Run: ', n, ' energy ', e, ' rank: ', str(rank), ' time: ', time.time() - t0
+        print('Run: ', n, ' energy ', e, ' rank: ', str(rank), ' time: ', time.time() - t0)
     if rank == 0:
-        print 'Rank '+str(rank)+': time [sec]: avg '+str(round(np.average(t_runs),1))+', stddev '+str(round(np.std(t_runs),1))+', min '+str(round(min(t_runs),1))+', max '+str(round(max(t_runs),1))
+        print('Rank '+str(rank)+': time [sec]: avg '+str(round(np.average(t_runs),1))+', stddev '+str(round(np.std(t_runs),1))+', min '+str(round(min(t_runs),1))+', max '+str(round(max(t_runs),1)))
 
 
 if __name__ == '__main__':

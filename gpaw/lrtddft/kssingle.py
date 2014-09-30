@@ -1,6 +1,7 @@
 """Kohn-Sham single particle excitations realated objects.
 
 """
+from __future__ import print_function
 from math import pi, sqrt
 
 import numpy as np
@@ -58,7 +59,7 @@ class KSSingles(ExcitationList):
         if calculator is not None:
             self.lcao = calculator.input_parameters.mode == 'lcao'
             if self.lcao:
-                print >> txt, "LR-TDDFT calculation from LCAO orbitals"
+                print("LR-TDDFT calculation from LCAO orbitals", file=txt)
 
 
         ExcitationList.__init__(self, calculator, txt=txt)
@@ -89,12 +90,11 @@ class KSSingles(ExcitationList):
         self.select(nspins, eps, istart, jend, energy_range)
 
         trkm = self.get_trk()
-        print >> self.txt, 'KSS TRK sum %g (%g,%g,%g)' % \
-              (np.sum(trkm)/3., trkm[0], trkm[1], trkm[2])
+        print('KSS TRK sum %g (%g,%g,%g)' % \
+              (np.sum(trkm)/3., trkm[0], trkm[1], trkm[2]), file=self.txt)
         pol = self.get_polarizabilities(lmax=3)
-        print >> self.txt, \
-              'KSS polarisabilities(l=0-3) %g, %g, %g, %g' % \
-              tuple(pol.tolist())
+        print('KSS polarisabilities(l=0-3) %g, %g, %g, %g' % \
+              tuple(pol.tolist()), file=self.txt)
 
     def select(self, nspins=None, eps=0.001,
                istart=0, jend=None, energy_range=None):
@@ -380,7 +380,7 @@ class KSSingle(Excitation, PairDensity):
             for c in range(3):
                 gd.ddr[c](self.wfi, dwfj_cg[c], kpt.phase_cd)
                 me2[c] = gd.integrate(self.wfj * dwfj_cg[c])
-            print me, -me2, me2+me
+            print(me, -me2, me2+me)
 
         # augmentation contributions
         ma = np.zeros(me.shape)

@@ -27,7 +27,7 @@ mpi_debug('data: %s' % data)
 # -------------------------------------------------------------------
 
 if world.rank == 0:
-    print '-'*16
+    print('-'*16)
 
 # Who has global index 11? The master needs it!
 i = 11
@@ -66,7 +66,7 @@ mpi_debug('idata=%d' % idata)
 # -------------------------------------------------------------------
 
 if world.rank == 0:
-    print '-'*16
+    print('-'*16)
 
 # The master just calculated auxilary data. Distribute it.
 aux = np.empty(N, dtype=float)
@@ -75,7 +75,7 @@ aux = np.empty(N, dtype=float)
 if world.rank == 0:
     np.random.seed(1234567)
     aux[:] = np.random.uniform(0,1,size=N).round(2)
-    print 'MASTER aux: %s, mean=%f' % (aux, aux.mean())
+    print('MASTER aux: %s, mean=%f' % (aux, aux.mean()))
 
 # Allocate space for my part of the auxilary data
 myaux = np.empty(M, dtype=float)
@@ -110,7 +110,7 @@ mpi_debug('myaux: %s, mean=%f' % (myaux,meanaux))
 # -------------------------------------------------------------------
 
 if world.rank == 0:
-    print '-'*16
+    print('-'*16)
 
 # We've done something to our part of the auxilary data. Master needs it all
 if world.rank == 0:

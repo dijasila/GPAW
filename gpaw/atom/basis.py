@@ -1,5 +1,5 @@
 """This module is used to generate atomic orbital basis sets."""
-
+from __future__ import print_function
 import sys
 from StringIO import StringIO
 
@@ -89,7 +89,7 @@ def rsplit_by_norm(rgd, l, u, tailnorm_squared, txt):
     rsplit = rgd.r_g[i + 1]
     msg = ('Tail norm %.03f :: rsplit=%.02f Bohr' %
            ((partial_norm_squared / norm_squared)**0.5, rsplit))
-    print >> txt, msg
+    print(msg, file=txt)
     gsplit = rgd.floor(rsplit)
     splitwave = make_split_valence_basis_function(rgd.r_g, u, l, gsplit)
     return rsplit, partial_norm_squared, splitwave
@@ -321,8 +321,8 @@ class BasisMaker:
             energysplit = [energysplit] * len(jvalues)
         
         title = '%s Basis functions for %s' % (g.xcname, g.symbol)
-        print >> txt, title
-        print >> txt, '=' * len(title)
+        print(title, file=txt)
+        print('=' * len(title), file=txt)
         
         singlezetas = []
         energy_derivative_functions = []
@@ -338,14 +338,14 @@ class BasisMaker:
             assert n > 0
             orbitaltype = str(n) + 'spdf'[l]
             msg = 'Basis functions for l=%d, n=%d' % (l, n)
-            print >> txt
-            print >> txt, msg + '\n', '-' * len(msg)
-            print >> txt
+            print(file=txt)
+            print(msg + '\n', '-' * len(msg), file=txt)
+            print(file=txt)
             if vconf_args is None:
                 adverb = 'sharply'
             else:
                 adverb = 'softly'
-            print >> txt, 'Zeta 1: %s confined pseudo wave,' % adverb,
+            print('Zeta 1: %s confined pseudo wave,' % adverb, end=' ', file=txt)
 
             u, e, de, vconf, rc = self.rcut_by_energy(fullj, esplit,
                                                       tolerance,
@@ -356,20 +356,20 @@ class BasisMaker:
                     vconf = g.get_confinement_potential(amplitude, ri_rel * rc,
                                                         rc)
                 u, e = g.solve_confined(fullj, rc, vconf)
-                print >> txt, 'using maximum cutoff'
-                print >> txt, 'rc=%.02f Bohr' % rc
+                print('using maximum cutoff', file=txt)
+                print('rc=%.02f Bohr' % rc, file=txt)
             else:
-                print >> txt, 'fixed energy shift'
-                print >> txt, 'DE=%.03f eV :: rc=%.02f Bohr' % (de * Hartree,
-                                                                rc)
+                print('fixed energy shift', file=txt)
+                print('DE=%.03f eV :: rc=%.02f Bohr' % (de * Hartree,
+                                                                rc), file=txt)
             if vconf is not None:
-                print >> txt, ('Potential amp=%.02f :: ri/rc=%.02f' %
-                               (amplitude, ri_rel))
+                print(('Potential amp=%.02f :: ri/rc=%.02f' %
+                               (amplitude, ri_rel)), file=txt)
             phit_g = self.smoothify(u, l)
             bf = BasisFunction(l, rc, phit_g,
                                '%s-sz confined orbital' % orbitaltype)
             norm = np.dot(g.dr, phit_g * phit_g)**.5
-            print >> txt, 'Norm=%.03f' % norm
+            print('Norm=%.03f' % norm, file=txt)
             singlezetas.append(bf)
 
             zetacounter = iter(xrange(2, zetacount + 1))
@@ -377,7 +377,7 @@ class BasisMaker:
             if include_energy_derivatives:
                 assert zetacount > 1
                 zeta = zetacounter.next()
-                print >> txt, '\nZeta %d: %s' % (zeta, derivativedescr)
+                print('\nZeta %d: %s' % (zeta, derivativedescr), file=txt)
                 vconf2 = g.get_confinement_potential(amplitude,
                                                      ri_rel * rc * .99, rc)
                 u2, e2 = g.solve_confined(fullj, rc, vconf2)
@@ -391,7 +391,7 @@ class BasisMaker:
                 energy_derivative_functions.append(bf)
 
             for i, zeta in enumerate(zetacounter):
-                print >> txt, '\nZeta %d: %s' % (zeta, splitvalencedescr)
+                print('\nZeta %d: %s' % (zeta, splitvalencedescr), file=txt)
                 # Unresolved issue:  how does the lack of normalization
                 # of the first function impact the tail norm scheme?
                 # Presumably not much, since most interesting stuff happens
@@ -430,8 +430,8 @@ class BasisMaker:
                                  'among valence states' % (l_pol, l_pol - 1))
             rcut = min(rcut, rcutmax)
             msg = 'Polarization function: l=%d, rc=%.02f' % (l_pol, rcut)
-            print >> txt, '\n' + msg
-            print >> txt, '-' * len(msg)
+            print('\n' + msg, file=txt)
+            print('-' * len(msg), file=txt)
             # Make a single Gaussian for polarization function.
             #
             # It is known that for given l, the sz cutoff defined
@@ -460,10 +460,10 @@ class BasisMaker:
             psi_pol = gaussian(rgd.r_g) * rgd.r_g**(l_pol + 1)
             norm = np.dot(rgd.dr_g, psi_pol * psi_pol) ** .5
             psi_pol /= norm
-            print >> txt, 'Single quasi Gaussian'
+            print('Single quasi Gaussian', file=txt)
             msg = 'Rchar = %.03f*rcut = %.03f Bohr' % (rcharpol_rel, rchar)
             adjective = 'Gaussian'
-            print >> txt, msg
+            print(msg, file=txt)
             type = '%s-type %s polarization' % ('spdfg'[l_pol], adjective)
             bf_pol = BasisFunction(l_pol, rcut, psi_pol, type)
                                    
@@ -473,7 +473,7 @@ class BasisMaker:
                 msg = '\n%s: %s' % (['Secondary', 'Tertiary', 'Quaternary',
                                      'Quintary', 'Sextary', 'Septenary'][i],
                                     splitvalencedescr)
-                print >> txt, msg
+                print(msg, file=txt)
                 rsplit, norm, splitwave = rsplit_by_norm(rgd, l_pol, psi_pol,
                                                          tailnorm[i],
                                                          txt)

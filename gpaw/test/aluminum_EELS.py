@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import sys
 import os
@@ -56,9 +57,9 @@ df.check_sum_rule(spectrum=eels_LFC_w)
 
 t3 = time.time()
 
-print ''
-print 'For ground  state calc, it took', (t2 - t1) / 60, 'minutes'
-print 'For excited state calc, it took', (t3 - t2) / 60, 'minutes'
+print('')
+print('For ground  state calc, it took', (t2 - t1) / 60, 'minutes')
+print('For excited state calc, it took', (t3 - t2) / 60, 'minutes')
 
 d = np.loadtxt('EELS_Al',delimiter=',')
 
@@ -75,11 +76,11 @@ test_Ipeak2 = 26.41 # eV
 if np.abs(test_wpeak1-wpeak1)<1e-2 and np.abs(test_wpeak2-wpeak2)<1e-2:
     pass
 else:
-    print test_wpeak1-wpeak1,test_wpeak2-wpeak2
+    print(test_wpeak1-wpeak1,test_wpeak2-wpeak2)
     raise ValueError('Plasmon peak not correct ! ')
 
 if np.abs(test_Ipeak1-Ipeak1)>1e-2 or np.abs(test_Ipeak2-Ipeak2)>1e-2:
-    print Ipeak1-test_Ipeak1, Ipeak2-test_Ipeak2
+    print(Ipeak1-test_Ipeak1, Ipeak2-test_Ipeak2)
     raise ValueError('Please check spectrum strength ! ')
 
 

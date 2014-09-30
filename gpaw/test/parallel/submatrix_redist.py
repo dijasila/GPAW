@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw.mpi import world
 from gpaw.blacs import BlacsGrid, Redistributor
 
@@ -28,8 +29,8 @@ r.redistribute(a, b, M, N, ia, ja, ib, jb)
 a0 = desc.collect_on_master(a)
 b0 = subdesc.collect_on_master(b)
 if world.rank == 0:
-    print a0
-    print b0
+    print(a0)
+    print(b0)
     xa = a0[ia:ia + M, ja:ja + N]
     xb = b0[ib:ib + M, jb:jb + N]
     assert (xa == xb).all()

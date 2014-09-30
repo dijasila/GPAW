@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import sys
 import os
@@ -47,9 +48,9 @@ df.get_eels_spectrum(xc='RPA', filename='EELS_Al', q_c=q)
 
 t3 = time.time()
 
-print ''
-print 'For ground  state calc, it took', (t2 - t1) / 60, 'minutes'
-print 'For excited state calc, it took', (t3 - t2) / 60, 'minutes'
+print('')
+print('For ground  state calc, it took', (t2 - t1) / 60, 'minutes')
+print('For excited state calc, it took', (t3 - t2) / 60, 'minutes')
 
 world.barrier()
 d = np.loadtxt('EELS_Al',delimiter=',')
@@ -67,9 +68,9 @@ test_Ipeak2 = 26.4625750021 # eV
 if np.abs(test_wpeak1-wpeak1)<1e-2 and np.abs(test_wpeak2-wpeak2)<1e-2:
     pass
 else:
-    print test_wpeak1-wpeak1,test_wpeak2-wpeak2
+    print(test_wpeak1-wpeak1,test_wpeak2-wpeak2)
     raise ValueError('Plasmon peak not correct ! ')
 
 if abs(test_Ipeak1 - Ipeak1) > 1 or abs(test_Ipeak2 - Ipeak2) > 1:
-    print(Ipeak1 - test_Ipeak1, Ipeak2 - test_Ipeak2)
+    print((Ipeak1 - test_Ipeak1, Ipeak2 - test_Ipeak2))
     raise ValueError('Please check spectrum strength ! ')

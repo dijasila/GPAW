@@ -49,7 +49,7 @@ V = V.astype(complex)
 ion_shift = ion_shift.astype(complex)
 
 if __name__=='__main__':
-    print np.around(H.real, 2)
-    print np.around(V.real ,2)
-    print np.around(ion_shift.diagonal().real, 2)
+    print(np.around(H.real, 2))
+    print(np.around(V.real ,2))
+    print(np.around(ion_shift.diagonal().real, 2))
 

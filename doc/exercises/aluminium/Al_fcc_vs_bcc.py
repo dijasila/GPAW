@@ -23,4 +23,4 @@ for kdens in [2.0, 3.0]:
         bcc.set_calculator(calc)
         ebcc = bcc.get_potential_energy()
     
-        print kdens, ecut, efcc, ebcc, efcc - ebcc
+        print(kdens, ecut, efcc, ebcc, efcc - ebcc)

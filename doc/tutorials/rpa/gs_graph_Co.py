@@ -46,7 +46,7 @@ for d in ds:
     calc.write('gs_%s.gpw' % d, mode='all')
 
     f = paropen('hf_acdf.dat', 'a')
-    print >> f, d, E, E_hf
+    print(d, E, E_hf, file=f)
     f.close()
     
     del slab[-2:]

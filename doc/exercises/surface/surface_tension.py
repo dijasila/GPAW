@@ -8,9 +8,9 @@ Ecoh = 3.34
 sigma_emt = (1 - (8 / 12.)**.5) * Ecoh / A
 sigma_dft = (N[1:] * E[:-1] - N[:-1] * E[1:]) / (2 * A)
 
-print 'EMT: %4.1f meV/A**2' % (sigma_emt * 1000)
+print('EMT: %4.1f meV/A**2' % (sigma_emt * 1000))
 for n, s in zip(N[1:], sigma_dft):
-    print ' %i %6.1f meV/A**2' % (n, s * 1000)
+    print(' %i %6.1f meV/A**2' % (n, s * 1000))
 
 ## EMT: 74.7 meV/A**2
 ##  2   77.2 meV/A**2

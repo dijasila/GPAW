@@ -25,4 +25,4 @@ bulk.set_calculator(calc)
 
 energy = bulk.get_potential_energy()
 calc.write(name + '.gpw')
-print 'Energy:', energy, 'eV'
+print('Energy:', energy, 'eV')

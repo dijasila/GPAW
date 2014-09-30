@@ -31,4 +31,4 @@ atoms[0].magmom = 1
 atoms.set_calculator(calc2)
 e2 = atoms.get_potential_energy() + calc2.get_reference_energy()
 
-print 'Energy difference' , e2 - e1
+print('Energy difference' , e2 - e1)

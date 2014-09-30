@@ -51,23 +51,23 @@ class ZerothOrder1(State):
             self.vt_G = np.where(hamiltonian.vt_sG[0] > 0,
                                  0.0, hamiltonian.vt_sG[0])
         self.intvt = self.gd.integrate(self.vt_G)
-        print "# int(vt_G)=", self.intvt, np.sometrue(self.vt_G > 0)
+        print("# int(vt_G)=", self.intvt, np.sometrue(self.vt_G > 0))
 
         self.solve()
 
     def get_grid(self, k_c, r0):
-        print "Correction:", self.gd.integrate(self.corrt_G)
+        print("Correction:", self.gd.integrate(self.corrt_G))
         if not hasattr(self, 'written'):
-            print "r0", r0, r0 * Bohr
+            print("r0", r0, r0 * Bohr)
             dR = 0.3
             AI = AngularIntegral(r0 * Bohr, self.gd, dR=dR)
             r_R = AI.radii()
             psi_R = AI.average(self.corrt_G)
             v_R =  AI.average(self.vt_G)
             f = open('radial_dR'+str(dR)+'.dat', 'w')
-            print >> f, '# R  v(R)    psi(R)'
+            print('# R  v(R)    psi(R)', file=f)
             for r, psi, v in zip(r_R, psi_R, v_R):
-                print >> f, r, psi, v
+                print(r, psi, v, file=f)
             f.close()
             self.written = True
 

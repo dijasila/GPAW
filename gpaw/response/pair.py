@@ -218,7 +218,7 @@ class PairDensity:
 
     @timer('Calculate pair-densities')
     def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G):
-        """Calculate FFT of pair-denities and add PAW corrections.
+        """Calculate FFT of pair-densities and add PAW corrections.
 
         ut1cc_R: 3-d complex ndarray
             Complex conjugate of the periodic part of the left hand side

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import pickle
 from math import log, pi, sqrt
 
@@ -36,7 +37,7 @@ class XAS:
             self.list_kpts=[]
 
             if spin is not 0 and spin is not 1:
-                print "spin",spin    
+                print("spin",spin)    
                 raise RuntimeError(
                     "use either spin=0 or spin=1")            
 
@@ -44,7 +45,7 @@ class XAS:
             for i, kpt in  enumerate(wfs.kpt_u):
                 if kpt.s == spin:
                     self.list_kpts.append(i)
-                print self.list_kpts
+                print(self.list_kpts)
             assert len(self.list_kpts) == nkpts
                         
             #find number of occupied orbitals, if no fermi smearing
@@ -52,7 +53,7 @@ class XAS:
             for i in self.list_kpts:
                 nocc += sum(wfs.kpt_u[i].f_n)
             nocc = int(nocc + 0.5)
-            print "nocc", nocc
+            print("nocc", nocc)
                  
 
         # look for the center with the corehole
@@ -99,8 +100,8 @@ class XAS:
             P_ni = kpt.P_ani[a][n_start:n_end]
             a_cn = np.inner(A_ci, P_ni)
             weight = kpt.weight * wfs.nspins / 2
-            print "weight", weight
-            print a_cn.shape, self.sigma_cn.shape
+            print("weight", weight)
+            print(a_cn.shape, self.sigma_cn.shape)
             self.sigma_cn[:, n1:n2] =  weight **0.5 * a_cn #.real
             n1 = n2
 
@@ -157,7 +158,7 @@ class XAS:
 
             for i,p in enumerate(proj_2):
                 if sum(p ** 2) ** 0.5 != 1.0:
-                    print "proj_2 %s not normalized" %i
+                    print("proj_2 %s not normalized" %i)
                     proj_2[i] /=  sum(p ** 2) ** 0.5
             
             proj_tmp = np.zeros((proj_3.shape[0] + proj_2.shape[0], 3), float)
@@ -232,7 +233,7 @@ class XAS:
                 fwhm2 = linbroad[0]
                 lin_e1 = linbroad[1]
                 lin_e2 = linbroad[2]
-                print "fwhm", fwhm, fwhm2, lin_e1, lin_e2
+                print("fwhm", fwhm, fwhm2, lin_e1, lin_e2)
                 for n, eps in enumerate(eps_n):
                     if eps < lin_e1:
                         alpha = 4*log(2) / fwhm**2
@@ -270,7 +271,7 @@ class RecursionMethod:
             self.k1 = wfs.kd.comm.rank * self.nmykpts
             self.k2 = self.k1 + self.nmykpts
             
-            print "k1", self.k1, "k2",self.k2
+            print("k1", self.k1, "k2",self.k2)
 
             # put spin and weight index in the columns corresponding
             # to this processors k-points
@@ -321,7 +322,7 @@ class RecursionMethod:
         self.b_uci = b_kci[k1:k2].copy()
 
         if self.wfs is not None and 'arrays' in data:
-            print 'reading arrays'
+            print('reading arrays')
             w_kcG, wold_kcG, y_kcG = data['arrays']
             i = [slice(k1, k2), slice(0, self.dim)] + self.wfs.gd.get_slice()
             self.w_ucG = w_kcG[i].copy()
@@ -417,7 +418,7 @@ class RecursionMethod:
             
             for i,p in enumerate(proj_2):
                 if sum(p ** 2) ** 0.5 != 1.0:
-                    print "proj_2 %s not normalized" %i
+                    print("proj_2 %s not normalized" %i)
                     proj_2[i] /=  sum(p ** 2) ** 0.5
 
             proj_tmp = []
@@ -480,7 +481,7 @@ class RecursionMethod:
                 self.step(u, ni + i)
 
     def step(self, u, i):
-        print u, i
+        print(u, i)
         integrate = self.wfs.gd.integrate
         w_cG = self.w_ucG[u]
         y_cG = self.y_ucG[u]
@@ -539,7 +540,7 @@ class RecursionMethod:
                                                        0, imax).imag
         else:
             for k in range(self.nkpts):
-                print 'kpoint', k, 'spin_k', self.spin_k[k], spin, 'weight', self.weight_k[k] 
+                print('kpoint', k, 'spin_k', self.spin_k[k], spin, 'weight', self.weight_k[k]) 
                 if self.spin_k[k] == spin:
                     weight = self.weight_k[k]
                     for c in range(self.dim):
@@ -655,13 +656,13 @@ class RecursionMethod:
 
 def write_spectrum(a,b, filename):
     f=open(filename, 'w')         
-    print f, a.shape, b.shape        
+    print(f, a.shape, b.shape)        
     
     for i in range(a.shape[0]):
-        print >>f, "%g" % a[i], b[0,i] +b[1,i] +b[2,i],
+        print("%g" % a[i], b[0,i] +b[1,i] +b[2,i], end=' ', file=f)
         for b2 in b:
-            print >> f, "%g" % b2[i],
-        print >> f
+            print("%g" % b2[i], end=' ', file=f)
+        print(file=f)
     f.close()      
 
 

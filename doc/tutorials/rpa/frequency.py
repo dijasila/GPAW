@@ -19,5 +19,5 @@ Es_w = rpa.E_w
 
 f = paropen('frequency_equidistant.dat', 'w')
 for w, E in zip(frequencies, Es_w):
-    print >> f, w, E.real
+    print(w, E.real, file=f)
 f.close()

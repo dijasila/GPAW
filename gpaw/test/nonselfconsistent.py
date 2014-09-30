@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atoms
 from ase.units import Bohr
 from gpaw import GPAW
@@ -17,9 +18,9 @@ e2 = atoms.get_potential_energy()
 niter2 = calc.get_number_of_iterations()
 e2ref = calc.get_reference_energy()
 de21 = calc.get_xc_difference('PBE')
-print e1ref + e1 + de12 - (e2ref + e2)
-print e1ref + e1 - (e2ref + e2 + de21)
-print de12, de21
+print(e1ref + e1 + de12 - (e2ref + e2))
+print(e1ref + e1 - (e2ref + e2 + de21))
+print(de12, de21)
 equal(e1ref + e1 + de12, e2ref + e2, 8e-4)
 equal(e1ref + e1, e2ref + e2 + de21, 3e-3)
 

@@ -1,6 +1,7 @@
 """This module defines a linear response TDDFT-class.
 
 """
+from __future__ import print_function
 from math import sqrt
 import sys
 
@@ -152,7 +153,7 @@ class LrTDDFT(ExcitationList):
             out = sys.stdout
             
         for i in what:
-            print >> out, str(i) + ':', self[i].analyse(min=min)
+            print(str(i) + ':', self[i].analyse(min=min), file=out)
             
     def update(self, calculator=None, **kwargs):
 
@@ -209,11 +210,11 @@ class LrTDDFT(ExcitationList):
         while len(self): self.pop()
         self.timer.stop('clean')
 
-        print >> self.txt, 'LrTDDFT digonalized:'
+        print('LrTDDFT digonalized:', file=self.txt)
         self.timer.start('build')
         for j in range(len(self.Om.kss)):
             self.append(LrTDDFTExcitation(self.Om, j))
-            print >> self.txt, ' ', str(self[-1])
+            print(' ', str(self[-1]), file=self.txt)
         self.timer.stop('build')
         self.timer.stop('diagonalize')
 

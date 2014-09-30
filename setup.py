@@ -155,10 +155,10 @@ gpawso = 'build/lib.%s/' % plat + '_gpaw.so'
 gpawbin = 'build/bin.%s/' % plat + 'gpaw-python'
 if 'clean' in sys.argv:
     if os.path.isfile(gpawso):
-        print 'removing ', gpawso
+        print('removing ', gpawso)
         os.remove(gpawso)
     if os.path.isfile(gpawbin):
-        print 'removing ', gpawbin
+        print('removing ', gpawbin)
         os.remove(gpawbin)
 
 sources = glob('c/*.c') + ['c/bmgs/bmgs.c']
@@ -257,4 +257,4 @@ else:
 # Messages make sense only when building
 if 'build' in sys.argv or 'build_ext' in sys.argv or 'install' in sys.argv:
     for line in msg:
-        print line
+        print(line)

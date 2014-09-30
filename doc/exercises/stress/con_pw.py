@@ -18,4 +18,4 @@ for x in [100, 200, 300, 400, 500, 600, 700, 800]:
 
     a.set_calculator(calc)
     
-    print x, a.get_potential_energy()
+    print(x, a.get_potential_energy())

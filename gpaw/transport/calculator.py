@@ -2427,7 +2427,7 @@ class Transport(GPAW):
         ham.Enlxc = 0.0#xcfunc.get_non_local_energy()
         ham.Enlkin = ham.xc.get_kinetic_energy_correction()
         if ham.Enlxc != 0 or ham.Enlkin != 0:
-            print 'Where should we do comm.sum() ?'
+            print('Where should we do comm.sum() ?')
         
         comm = ham.gd.comm
         ham.Ekin0 = comm.sum(Ekin)
@@ -2868,7 +2868,7 @@ class Transport(GPAW):
 
     def save_lead_hamiltonian_matrix(self):
         self.log('save_lead_hamiltonian_matrix()')
-        print 'assert self.nspins == 1'
+        print('assert self.nspins == 1')
         self.guess_steps = 1
         self.negf_prepare()
         kpt_comm = self.wfs.kd.comm
@@ -2914,7 +2914,7 @@ class Transport(GPAW):
 
     def save_scat_hamiltonian_matrix(self,n, n1=0):
         self.log('save_scat_hamiltonian_matrix()')
-        print 'run save_lead_hamiltonian_matrix before'
+        print('run save_lead_hamiltonian_matrix before')
         kpt_comm = self.wfs.kd.comm
         flag = True
         for i in range(n1, n):

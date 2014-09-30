@@ -5,7 +5,7 @@ from gpaw.wannier import LocFun
 calc = GPAW('CO.gpw', txt=None)
 locfun = LocFun()
 locfun.localize(calc, M=8, ortho=True, verbose=True)
-print around(locfun.U_nn, 1)
+print(around(locfun.U_nn, 1))
 
 # non ortho
 #        O_s  O_py O_pz O_px C_s  C_py C_pz C_px

@@ -40,7 +40,7 @@ images.append(final)
 # two bottom layers):
 mask = initial.positions[:, 2] - min(initial.positions[:, 2]) < 1.5 * h
 constraint = FixAtoms(mask=mask)
-print mask
+print(mask)
 
 for image in images:
     # Let all images use an EMT calculator:

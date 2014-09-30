@@ -1,3 +1,4 @@
+from __future__ import print_function
 
 import os, time
 import numpy as np
@@ -54,7 +55,7 @@ if __name__ == '__main__':
         time.sleep(10)
 
     while not os.path.isfile(name + '_gs.gpw'):
-        print 'Node %d waiting for %s...' % (world.rank, name + '_gs.gpw')
+        print('Node %d waiting for %s...' % (world.rank, name + '_gs.gpw'))
         time.sleep(10)
     world.barrier()
 
@@ -82,13 +83,13 @@ if __name__ == '__main__':
         dscf_calculation(calc, [[1.0, lumo, 1]], atoms)
         e2 = atoms.get_potential_energy()
         if world.rank == 0:
-            print 'e1:', e1, 'e2:', e2, 'de:', e2-e1
+            print('e1:', e1, 'e2:', e2, 'de:', e2-e1)
         calc.write(name + '_es.gpw', mode='all')
         del wf_u, p_uai, lumo, calc, atoms
         time.sleep(10)
 
     while not os.path.isfile(name + '_es.gpw'):
-        print 'Node %d waiting for %s...' % (world.rank, name + '_es.gpw')
+        print('Node %d waiting for %s...' % (world.rank, name + '_es.gpw'))
         time.sleep(10)
     world.barrier()
 
@@ -101,7 +102,7 @@ if __name__ == '__main__':
         time.sleep(10)
 
     while not os.path.isfile(name + '_esx.gpw'):
-        print 'Node %d waiting for %s...' % (world.rank, name + '_esx.gpw')
+        print('Node %d waiting for %s...' % (world.rank, name + '_esx.gpw'))
         time.sleep(10)
     world.barrier()
 
@@ -119,7 +120,7 @@ if __name__ == '__main__':
             ekin = tdcalc.atoms.get_kinetic_energy()
             epot = tdcalc.get_td_energy() * Hartree
             F_av = ehrenfest.F * Hartree / Bohr
-            print >>f, 'i=%06d (%6.2f min^-1), ekin=%13.9f, epot=%13.9f, etot=%13.9f' % (i, rate, ekin, epot, ekin+epot)
+            print('i=%06d (%6.2f min^-1), ekin=%13.9f, epot=%13.9f, etot=%13.9f' % (i, rate, ekin, epot, ekin+epot), file=f)
             t0 = time.time()
 
             # Hack to prevent calls to GPAW::get_potential_energy when saving

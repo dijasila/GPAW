@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw.tddft import *
 from ase import Atoms
 from gpaw import GPAW
@@ -18,7 +19,7 @@ for i in range(N):
     positions.append([0.00,0.00,i*0.7])
 atoms = Atoms(symbols=sy, positions = positions)
 atoms.center(vacuum=3)
-print atoms
+print(atoms)
 # LCAO-RT-TDDFT
 calc = LCAOTDDFT(mode='lcao', xc=xc, h=h, basis=b, nbands=N,
                 dtype=complex, charge=c, convergence={'density':1e-6}, 

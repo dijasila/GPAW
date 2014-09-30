@@ -12,4 +12,4 @@ atoms.center()
 
 calc = GPAW(nbands=2, txt='h2.txt')
 atoms.set_calculator(calc)
-print atoms.get_forces()
+print(atoms.get_forces())

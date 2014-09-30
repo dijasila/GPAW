@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 
 from ase import Atoms
@@ -24,7 +25,7 @@ Fref_av = None
 
 
 def run(formula='H2O', vacuum=2.0, cell=None, pbc=0, **morekwargs):
-    print formula, parallel
+    print(formula, parallel)
     system = molecule(formula)
     kwargs = dict(basekwargs)
     kwargs.update(morekwargs)
@@ -55,12 +56,12 @@ def run(formula='H2O', vacuum=2.0, cell=None, pbc=0, **morekwargs):
     ferr = abs(F_av - Fref_av).max()
 
     if calc.wfs.world.rank == 0:
-        print 'Energy', E
-        print
-        print 'Forces'
-        print F_av
-        print
-        print 'Errs', eerr, ferr
+        print('Energy', E)
+        print()
+        print('Forces')
+        print(F_av)
+        print()
+        print('Errs', eerr, ferr)
 
     if eerr > tolerance or ferr > tolerance:
         if calc.wfs.world.rank == 0:
@@ -68,22 +69,22 @@ def run(formula='H2O', vacuum=2.0, cell=None, pbc=0, **morekwargs):
         else:
             stderr = devnull
         if eerr > tolerance:
-            print >> stderr, 'Failed!'
-            print >> stderr, 'E = %f, Eref = %f' % (E, Eref)
+            print('Failed!', file=stderr)
+            print('E = %f, Eref = %f' % (E, Eref), file=stderr)
             msg = 'Energy err larger than tolerance: %f' % eerr
         if ferr > tolerance:
-            print >> stderr, 'Failed!'
-            print >> stderr, 'Forces:'
-            print >> stderr, F_av
-            print >> stderr
-            print >> stderr, 'Ref forces:'
-            print >> stderr, Fref_av
-            print >> stderr
+            print('Failed!', file=stderr)
+            print('Forces:', file=stderr)
+            print(F_av, file=stderr)
+            print(file=stderr)
+            print('Ref forces:', file=stderr)
+            print(Fref_av, file=stderr)
+            print(file=stderr)
             msg = 'Force err larger than tolerance: %f' % ferr
-        print >> stderr
-        print >> stderr, 'Args:'
-        print >> stderr, formula, vacuum, cell, pbc, morekwargs
-        print >> stderr, parallel
+        print(file=stderr)
+        print('Args:', file=stderr)
+        print(formula, vacuum, cell, pbc, morekwargs, file=stderr)
+        print(parallel, file=stderr)
         raise AssertionError(msg)
         
 # reference:

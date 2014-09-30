@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase.lattice.surface import fcc111
 
@@ -52,11 +53,11 @@ def calculate(parallel, comm=world, Eref=None, Fref=None):
     F = system.get_forces()
 
     if world.rank == 0:
-        print 'Results'
-        print '-----------'
-        print E
-        print F
-        print '-----------'
+        print('Results')
+        print('-----------')
+        print(E)
+        print(F)
+        print('-----------')
 
     if Eref is not None:
         Eerr = abs(E - Eref)

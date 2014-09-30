@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atoms
 from ase.structure import molecule
 from ase.parallel import paropen
@@ -85,16 +86,16 @@ for formula in systems:
         diffm = calc.get_xc_difference('M06L')
         energies[formula]=(energy, energy+difft, energy+diffr,energy+diffm)
     except:
-        print >>data, formula, 'Error'
+        print(formula, 'Error', file=data)
     else:
-        print >>data, formula, energy, energy+difft, energy+diffr, energy+diffm
+        print(formula, energy, energy+difft, energy+diffr, energy+diffm, file=data)
         data.flush()
     i += 1
 
 #calculate atomization energies
 ii =0
 file = paropen('atom_en.dat', 'a')
-print >>file, "# formula \t PBE \t TPSS \t revTPSS \t M06L \t Exp"
+print("# formula \t PBE \t TPSS \t revTPSS \t M06L \t Exp", file=file)
 for formula in systems[:13]:
     try:
         atoms_formula = split_formula(formula)
@@ -108,13 +109,13 @@ for formula in systems[:13]:
             de_m06l += energies[atom_formula][3]
             de_pbe += energies[atom_formula][0]
     except:
-        print >>file, formula, 'Error'
+        print(formula, 'Error', file=file)
     else:
         de_tpss *= 627.5/27.211
         de_revtpss *= 627.5/27.211
         de_m06l *= 627.5/27.211
         de_pbe *= 627.5/27.211
         out = "%s\t%.1f \t%.1f \t%.1f \t%.1f \t%.1f" %(formula, de_pbe, de_tpss, de_revtpss, de_m06l ,exp_bonds_dE[ii][2])
-        print >>file, out
+        print(out, file=file)
         file.flush()
     ii += 1

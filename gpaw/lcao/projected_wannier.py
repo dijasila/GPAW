@@ -227,14 +227,14 @@ class ProjectedWannierFunctions:
             self.fixedenergy = fixedenergy
             self.M_k = [sum(eps_n <= fixedenergy) for eps_n in self.eps_kn]
             self.L_k = [self.Nw - M for M in self.M_k]
-            print "fixedenergy =", self.fixedenergy
+            print("fixedenergy =", self.fixedenergy)
 
-        print 'N =', self.N
-        print 'skpt_kc = '
-        print self.ibzk_kc
-        print 'M_k =', self.M_k
-        print 'L_k =', self.L_k
-        print 'Nw =', self.Nw
+        print('N =', self.N)
+        print('skpt_kc = ')
+        print(self.ibzk_kc)
+        print('M_k =', self.M_k)
+        print('L_k =', self.L_k)
+        print('Nw =', self.Nw)
 
     def get_hamiltonian_and_overlap_matrix(self, useibl=True):
         self.calculate_edf(useibl=useibl)
@@ -308,7 +308,7 @@ class ProjectedWannierFunctions:
                                                            epso_kn)])
 
         if self.h_lcao_kii is not None and useibl:
-            print "Using h_lcao and infinite band limit"
+            print("Using h_lcao and infinite band limit")
             Vo_kni = self.Vo_kni
             Huf_kii = [h_lcao_ii - np.dot(dagger(Vo_ni) * epso_n, Vo_ni)
                        for h_lcao_ii, Vo_ni, epso_n in zip(self.h_lcao_kii, 
@@ -316,7 +316,7 @@ class ProjectedWannierFunctions:
                                                            epso_kn)]
             self.Huf_kii = np.asarray(Huf_kii)
         else:
-            print "Using finite band limit (not using h_lcao)"
+            print("Using finite band limit (not using h_lcao)")
             epsu_kn = [eps_n[M:self.N] 
                        for eps_n, M in zip(self.eps_kn, self.M_k)]
             Huf_kii = [np.dot(dagger(Vu_ni) * epsu_n, Vu_ni) 
