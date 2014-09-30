@@ -12,7 +12,7 @@ This must (probably) be done *after* compilation because otherwise dirs
 may not exist.
 
 """
-
+from __future__ import print_function
 from urllib2 import urlopen, HTTPError
 import os
 from sys import executable

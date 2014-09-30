@@ -82,7 +82,7 @@ cmd.append(os.path.join(path,
 if module:
     cmd.append('-m')
 cmd += job
-print(cmd)
+print cmd
 print subprocess.check_call(cmd)
 """
 

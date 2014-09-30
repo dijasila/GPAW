@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Emacs: treat this as -*- python -*-
-
+from __future__ import print_function
 from optparse import OptionParser
 
 parser = OptionParser(usage='%prog [options]',

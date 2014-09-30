@@ -1,6 +1,6 @@
 """This script calculates the atomization energy of nitrogen using two
 processes, each process working on a separate system."""
-
+from __future__ import print_function
 from gpaw import GPAW, mpi
 import numpy as np
 from ase import Atoms, Atom
