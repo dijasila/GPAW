@@ -232,8 +232,7 @@ Example::
     xc = GGA(LibXC('GGA_X_PBE+GGA_C_PBE'))
 
 
-In this example, calling the
-:meth:`~gpaw.xc.gga.XCFunctional.calculate` method of the ``xc``
+In this example, calling the ``calculate`` method of the ``xc``
 object passing in a :class:`~gpaw.grid_descriptor.GridDescriptor`, an
 input density array and an output array for the potential, the
 :class:`~gpaw.xc.gga.GGA` object will calculate the gradient of the
