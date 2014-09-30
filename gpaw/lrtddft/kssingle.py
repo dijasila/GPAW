@@ -198,13 +198,16 @@ class KSSingles(ExcitationList):
             raise RuntimeError(f.name + ' is not a ' +
                                self.__class__.__name__ + ' data file')
         words = f.readline().split()
+        n = int(words[0])
         if len(words) == 1:
             # old output style for real wave functions (finite systems)
             self.dtype = float
         else:
-            self.dtype = complex
+            if words[1].startswith('complex'):
+                self.dtype = complex
+            else:
+                self.dtype = float
             self.eps = float(f.readline())
-        n = int(words[0])
         self.npspins = 1
         for i in range(n):
             kss = KSSingle(string=f.readline(), dtype=self.dtype)
@@ -285,11 +288,8 @@ class KSSingles(ExcitationList):
             f = fh
 
         f.write('# KSSingles\n')
-        if self.dtype == float:
-            f.write('{0:d}\n'.format(len(self)))
-        else:
-            f.write('{0:d} complex\n'.format(len(self)))
-            f.write('{0}\n'.format(self.eps))
+        f.write('{0:d} {1:s}\n'.format(len(self), np.dtype(self.dtype)))
+        f.write('{0}\n'.format(self.eps))
         kpt_comm = self.calculator.wfs.kpt_comm
         for kss in self:
             f.write(kss.outstring())
@@ -385,7 +385,7 @@ class KSSingle(Excitation, PairDensity):
         self.mur = - (me + ma)
 
         if self.lcao:
-            # Velocity form not supported in LCAO-LR-TDDFT
+            # XXX Velocity form not supported in LCAO
             self.muv = None
             self.magn = None
             return
@@ -419,8 +419,8 @@ class KSSingle(Excitation, PairDensity):
 
         # magnetic transition dipole ................
 
-        magn = np.zeros(me.shape, dtype=dtype)
         try:
+            magn = np.zeros(me.shape, dtype=dtype)
             r_cg, r2_g = coordinates(gd)
 
             wfi_g = self.wfi.conj()
@@ -444,7 +444,7 @@ class KSSingle(Excitation, PairDensity):
             self.magn = -alpha / 2. * (magn + ma)
         except AssertionError:
             # XXX coordinates disabled for non-orthogonal cells
-            pass
+            self.magn = None
 
     def distribute(self):
         """Distribute results to all cores."""
@@ -516,19 +516,13 @@ class KSSingle(Excitation, PairDensity):
             self.weight = float(l.pop(0))
         self.energy = float(l.pop(0))
         self.fij = float(l.pop(0))
-        if len(l) == 3:  # old writing style
-            self.me = np.array([float(l.pop(0)) for i in range(3)])
-            self.mur = - self.me / sqrt(self.energy * self.fij)
-            self.muv = None
-            self.magn = None
-        else:
-            self.mur = np.array([dtype(l.pop(0)) for i in range(3)])
-            self.me = - self.mur * sqrt(self.energy * self.fij)
+        self.mur = np.array([dtype(l.pop(0)) for i in range(3)])
+        self.me = - self.mur * sqrt(self.energy * self.fij)
+        self.muv = self.magn = None
+        if len(l):
             self.muv = np.array([dtype(l.pop(0)) for i in range(3)])
-            if len(l): 
-                self.magn = np.array([dtype(l.pop(0)) for i in range(3)])
-            else:
-                self.magn = None
+        if len(l): 
+            self.magn = np.array([dtype(l.pop(0)) for i in range(3)])
         return None
 
     def outstring(self):
@@ -552,8 +546,10 @@ class KSSingle(Excitation, PairDensity):
             return string
                 
         string += '  ' + format_me(self.mur)
-        string += '  ' + format_me(self.muv)
-        string += '  ' + format_me(self.magn)
+        if self.muv is not None:
+            string += '  ' + format_me(self.muv)
+        if self.magn is not None:
+            string += '  ' + format_me(self.magn)
         string += '\n'
 
         return string
