@@ -420,27 +420,31 @@ class KSSingle(Excitation, PairDensity):
         # magnetic transition dipole ................
 
         magn = np.zeros(me.shape, dtype=dtype)
-        r_cg, r2_g = coordinates(gd)
+        try:
+            r_cg, r2_g = coordinates(gd)
 
-        wfi_g = self.wfi.conj()
-        for ci in range(3):
-            cj = (ci + 1) % 3
-            ck = (ci + 2) % 3
-            magn[ci] = gd.integrate(wfi_g * r_cg[cj] * dwfj_cg[ck] -
-                                    wfi_g * r_cg[ck] * dwfj_cg[cj]  )
-        # augmentation contributions
-        ma = np.zeros(magn.shape, dtype=magn.dtype)
-        for a, P_ni in kpt.P_ani.items():
-            Pi_i = P_ni[self.i].conj()
-            Pj_i = P_ni[self.j]
-            rnabla_iiv = paw.wfs.setups[a].rnabla_iiv
-            for c in range(3):
-                for i1, Pi in enumerate(Pi_i):
-                    for i2, Pj in enumerate(Pj_i):
-                        ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
-        gd.comm.sum(ma)
+            wfi_g = self.wfi.conj()
+            for ci in range(3):
+                cj = (ci + 1) % 3
+                ck = (ci + 2) % 3
+                magn[ci] = gd.integrate(wfi_g * r_cg[cj] * dwfj_cg[ck] -
+                                        wfi_g * r_cg[ck] * dwfj_cg[cj]  )
+            # augmentation contributions
+            ma = np.zeros(magn.shape, dtype=magn.dtype)
+            for a, P_ni in kpt.P_ani.items():
+                Pi_i = P_ni[self.i].conj()
+                Pj_i = P_ni[self.j]
+                rnabla_iiv = paw.wfs.setups[a].rnabla_iiv
+                for c in range(3):
+                    for i1, Pi in enumerate(Pi_i):
+                        for i2, Pj in enumerate(Pj_i):
+                            ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
+            gd.comm.sum(ma)
 
-        self.magn = -alpha / 2. * (magn + ma)
+            self.magn = -alpha / 2. * (magn + ma)
+        except AssertionError:
+            # XXX coordinates disabled for non-orthogonal cells
+            pass
 
     def distribute(self):
         """Distribute results to all cores."""
