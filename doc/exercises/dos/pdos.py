@@ -9,11 +9,9 @@ ef = calc.get_fermi_level()
 for c in 'spd':
     energies, ldos = calc.get_orbital_ldos(a=0, spin=0, angular=c, width=0.4)
     plt.plot(energies - ef, ldos, label=c + '-up')
-    
+
     energies, ldos = calc.get_orbital_ldos(a=0, spin=1, angular=c, width=0.4)
     plt.plot(energies - ef, ldos, label=c + '-down')
 
 plt.legend()
 plt.show()
-
-

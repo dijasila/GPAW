@@ -30,4 +30,3 @@ plt.xlabel('z / Angstrom')
 plt.legend(loc=0)
 # plt.savefig('workfunction.png', format='png')
 plt.show()
-

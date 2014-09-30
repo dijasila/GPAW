@@ -61,9 +61,10 @@ neb.interpolate()
 
 # Relax the NEB path:
 minimizer = MDMin(neb)
-#minimizer = QuasiNewton(neb)
+# minimizer = QuasiNewton(neb)
 minimizer.run(fmax=0.05)
 
 # Write the path to a trajectory:
-view(images) # 235 meV
+view(images)
+# 235 meV
 write('jump3.traj', images)

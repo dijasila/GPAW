@@ -15,7 +15,7 @@ from ase.calculators.emt import EMT
 a = 4.0614
 b = a / sqrt(2)
 h = b / 2
-initial = Atoms('Al2', 
+initial = Atoms('Al2',
                 positions=[(0, 0, 0),
                            (a / 2, b / 2, -h)],
                 cell=(a, b, 2 * h),
@@ -62,5 +62,6 @@ minimizer = BFGS(neb)
 minimizer.run(fmax=0.05)
 
 # Write the path to a trajectory:
-view(images) # 564 meV
+view(images)
+# 564 meV
 write('jump2.traj', images)

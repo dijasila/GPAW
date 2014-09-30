@@ -1,5 +1,5 @@
-from sys import argv
 from __future__ import print_function
+from sys import argv
 import matplotlib.pyplot as plt
 
 from ase.dft import STM
@@ -8,7 +8,7 @@ from gpaw import restart
 filename = argv[1]
 z0 = 8
 bias = 1.0
-  
+
 atoms, calc = restart(filename, txt=None)
 
 stm = STM(atoms, symmetries=[0, 1, 2])
