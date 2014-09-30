@@ -378,7 +378,7 @@ def get_pk_hsd(d, ntk, kpts, hl_skmm, sl_kmm, dl_skmm, txt=None,
    
 def get_lcao_density_matrix(calc):
     wfs = calc.wfs
-    kpts = wfs.ibzk_qc
+    kpts = wfs.kd.ibzk_qc
     nq = len(kpts)
     my_ns = len(wfs.kpt_u) // nq
     nao = wfs.setups.nao
@@ -437,11 +437,11 @@ def generate_selfenergy_database(atoms, ntk, filename, direction=0, kt=0.1,
     wfs = atoms.calc.wfs
     hl_spkmm, sl_pkmm, dl_spkmm,  \
     hl_spkcmm, sl_pkcmm, dl_spkcmm = get_pk_hsd(2, ntk,
-                                                wfs.ibzk_qc,
+                                                wfs.kd.ibzk_qc,
                                                 hl_skmm, sl_kmm, dl_skmm,
                                                 None, wfs.dtype,
                                                 direction=direction)    
-    my_npk = len(wfs.ibzk_qc) / ntk
+    my_npk = len(wfs.kd.ibzk_qc) / ntk
     my_nspins = len(wfs.kpt_u) / ( my_npk * ntk)
     
     lead_hsd = Banded_Sparse_HSD(wfs.dtype, my_nspins, my_npk)
@@ -478,11 +478,11 @@ def test_selfenergy_interpolation(atoms, ntk, filename, begin, end, base, scale,
     wfs = atoms.calc.wfs
     hl_spkmm, sl_pkmm, dl_spkmm,  \
     hl_spkcmm, sl_pkcmm, dl_spkcmm = get_pk_hsd(2, ntk,
-                                                wfs.ibzk_qc,
+                                                wfs.kd.ibzk_qc,
                                                 hl_skmm, sl_kmm, dl_skmm,
                                                 None, wfs.dtype,
                                                 direction=direction)    
-    my_npk = len(wfs.ibzk_qc) / ntk
+    my_npk = len(wfs.kd.ibzk_qc) / ntk
     my_nspins = len(wfs.kpt_u) / ( my_npk * ntk)
     
     lead_hsd = Banded_Sparse_HSD(wfs.dtype, my_nspins, my_npk)
@@ -540,11 +540,11 @@ def path_selfenergy(atoms, ntk, filename, begin, end, num= 257, direction=0):
     wfs = atoms.calc.wfs
     hl_spkmm, sl_pkmm, dl_spkmm,  \
     hl_spkcmm, sl_pkcmm, dl_spkcmm = get_pk_hsd(2, ntk,
-                                                wfs.ibzk_qc,
+                                                wfs.kd.ibzk_qc,
                                                 hl_skmm, sl_kmm, dl_skmm,
                                                 None, wfs.dtype,
                                                 direction=direction)    
-    my_npk = len(wfs.ibzk_qc) / ntk
+    my_npk = len(wfs.kd.ibzk_qc) / ntk
     my_nspins = len(wfs.kpt_u) / ( my_npk * ntk)
     
     lead_hsd = Banded_Sparse_HSD(wfs.dtype, my_nspins, my_npk)

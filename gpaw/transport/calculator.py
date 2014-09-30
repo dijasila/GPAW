@@ -976,7 +976,7 @@ class Transport(GPAW):
 
             cell_h_spkmm, cell_s_pkmm, cell_d_spkmm,  \
             cell_ch_spkmm, cell_cs_pkmm, cell_cd_spkmm = get_pk_hsd(self.d, self.ntklead,
-                                                    self.cell_atoms.calc.wfs.ibzk_qc,
+                                                    self.cell_atoms.calc.wfs.kd.ibzk_qc,
                                                     cell_h_skmm, cell_s_kmm, cell_d_skmm,
                                                     self.text, self.wfs.dtype,
                                                     direction=0)
@@ -1057,7 +1057,7 @@ class Transport(GPAW):
         h_skmm, s_kmm =  self.get_hs(calc)
         d_skmm = get_lcao_density_matrix(calc)
         ntk = self.scat_ntk
-        kpts = calc.wfs.ibzk_qc
+        kpts = calc.wfs.kd.ibzk_qc
         h_spkmm = substract_pk(self.d, self.my_npk, ntk, kpts, h_skmm, 'h')
         s_pkmm = substract_pk(self.d, self.my_npk, ntk, kpts, s_kmm)
         d_spkmm = substract_pk(self.d, self.my_npk, ntk, kpts, d_skmm, 'h')
@@ -1251,7 +1251,7 @@ class Transport(GPAW):
         lead_direction = l # character l
         hl_spkmm, sl_pkmm, dl_spkmm,  \
         hl_spkcmm, sl_pkcmm, dl_spkcmm = get_pk_hsd(self.d, self.ntklead,
-                                                calc.wfs.ibzk_qc,
+                                                calc.wfs.kd.ibzk_qc,
                                                 hl_skmm, sl_kmm, dl_skmm,
                                                 self.text, self.wfs.dtype,
                                                 direction=lead_direction)
@@ -2535,7 +2535,7 @@ class Transport(GPAW):
         if self.use_lead:
             nk = len(self.ibzk_qc_lead[0])
             nb = max(self.nblead)
-            npk = len(self.wfs.ibzk_qc)
+            npk = len(self.wfs.kd.ibzk_qc)
             unit_real = np.array(1,float).itemsize
             unit_complex = np.array(1, complex).itemsize
             
@@ -2560,7 +2560,7 @@ class Transport(GPAW):
             unit = unit_real
         else:
             unit = unit_complex
-        nk = len(self.wfs.ibzk_qc)
+        nk = len(self.wfs.kd.ibzk_qc)
         nb = self.wfs.setups.nao
         sum += (2*ns + 1) * nk * nb**2 * unit
         return tmp, (sum - tmp)
