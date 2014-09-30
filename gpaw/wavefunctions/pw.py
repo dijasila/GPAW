@@ -533,7 +533,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         taut_sR = self.gd.zeros(self.nspins)
         for kpt in self.kpt_u:
-            G_Gv = self.pd.G_Qv[self.pd.Q_qG[kpt.q]] + self.pd.K_qv[kpt.q]
+            G_Gv = self.pd.get_reciprocal_vectors(q=kpt.q)
             for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                 for v in range(3):
                     taut_sR[kpt.s] += 0.5 * f * abs(
@@ -546,7 +546,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                                  Htpsit_xG, dH_asp,
                                                  dedtaut_R):
-        G_Gv = self.pd.G_Qv[self.pd.Q_qG[kpt.q]] + self.pd.K_qv[kpt.q]
+        G_Gv = self.pd.get_reciprocal_vectors(q=kpt.q)
         for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
             for v in range(3):
                 a_R = self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q)
@@ -824,7 +824,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             dOmega *= 2
         K_qv = self.pd.K_qv
         for kpt in self.kpt_u:
-            G_Gv = pd.G_Qv[pd.Q_qG[kpt.q]]
+            G_Gv = pd.get_reciprocal_vectors(q=kpt.q, add_q=False)
             psit2_G = 0.0
             for n, f in enumerate(kpt.f_n):
                 psit2_G += f * np.abs(kpt.psit_nG[n])**2
@@ -906,7 +906,7 @@ class PWLFC(BaseLFC):
         # Spherical harmonics:
         self.Y_qLG = []
         for q, K_v in enumerate(self.pd.K_qv):
-            G_Gv = pd.G_Qv[pd.Q_qG[q]] + K_v
+            G_Gv = pd.get_reciprocal_vectors(q=q)
             Y_LG = np.empty(((lmax + 1)**2, len(G_Gv)))
             for L in range((lmax + 1)**2):
                 Y_LG[L] = Y(L, *G_Gv.T)
@@ -1105,8 +1105,7 @@ class PWLFC(BaseLFC):
         if isinstance(c_axi, float):
             c_axi = dict((a, c_axi) for a in range(len(self.pos_av)))
 
-        K_v = self.pd.K_qv[q]
-        G0_Gv = self.pd.G_Qv[self.pd.Q_qG[q]] + K_v
+        G0_Gv = self.pd.get_reciprocal_vectors(q=q)
 
         stress_vv = np.zeros((3, 3))
         for G1, G2 in self.block(q):
