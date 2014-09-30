@@ -151,7 +151,7 @@ class PWDescriptor:
 
         self.n_c = np.array([self.ngmax])  # used by hs_operators.py XXX
 
-    def get_reciprocal_vectors(self, q=0):
+    def get_reciprocal_vectors(self, q=0, add_q=True):
         """ Returns reciprocal lattice vectors plus q, G + q,
         in xyz coordinates.
         """
