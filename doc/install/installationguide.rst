@@ -182,6 +182,32 @@ It offers the following advantages:
 
 .. _installationguide_standard:
 
+Important environment variables
+-------------------------------
+The following is required for a functioning GPAW installation.
+
+.. envvar:: PATH
+
+  The ``$PATH`` environment variable should contain the paths to the
+  ``gpaw-python`` executable and the tools of gpaw located in 
+  ``$GPAW_HOME/build/bin``  and ``$GPAW_HOME/tools/``, respectively.
+
+.. envvar:: PYTHONPATH
+
+  The ``PYTHONPATH`` should contain the path to ``$GPAW_HOME``.
+
+.. envvar:: GPAW_HOME
+
+  Points to the root directory of your gpaw installation.
+
+.. envvar:: GPAW_SETUP_PATH
+
+  Points to the directory containing your PAW setups.
+
+.. envvar:: HOME
+
+  The path to your home directory.
+
 Standard installation
 ---------------------
 
