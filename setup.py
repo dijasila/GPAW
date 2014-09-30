@@ -54,12 +54,10 @@ mpi_define_macros = []
 platform_id = ''
 
 
-packages = ['gpaw']
+packages = []
 for dirname, dirnames, filenames in os.walk('gpaw'):
-    for subdirname in dirnames:
-        fullname = os.path.join(dirname, subdirname)
-        if '.svn' not in fullname:
-            packages.append(fullname.replace('/', '.'))
+        if '__init__.py' in filenames:
+            packages.append(dirname.replace('/', '.'))
 
 include_ase = False
 if '--include-ase' in sys.argv:
@@ -107,6 +105,7 @@ execfile(customize)
 
 if platform_id != '':
     my_platform = distutils.util.get_platform() + '-' + platform_id
+
     def my_get_platform():
         return my_platform
     distutils.util.get_platform = my_get_platform
