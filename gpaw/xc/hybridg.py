@@ -709,7 +709,7 @@ class HybridXC(HybridXCBase):
         self.beta = 4 * 19 * (gd.icell_cv**2).sum(1).max()
 
         # Calculate gaussian:
-        G_Gv = self.pd2.G_Qv[self.pd2.Q_qG[0]]
+        G_Gv = self.pd2.get_reciprocal_vectors()
         G2_G = self.pd2.G2_qG[0]
         C_v = gd.cell_cv.sum(0) / 2  # center of cell
         self.ngauss_G = np.exp(-1.0 / (4 * self.beta) * G2_G +
