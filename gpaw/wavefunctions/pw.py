@@ -159,7 +159,11 @@ class PWDescriptor:
         assert q < len(self.K_qv), ('Choose a q-index belonging to ' +
                                     'the irreducible Brillouin zone.')
         q_v = self.K_qv[q]
-        G_Gv = self.G_Qv[self.Q_qG[q]] + q_v
+
+        if add_q:
+            G_Gv = self.G_Qv[self.Q_qG[q]] + q_v
+        else:
+            G_Gv = self.G_Qv[self.Q_qG[q]]
 
         return G_Gv
 
