@@ -151,6 +151,18 @@ class PWDescriptor:
 
         self.n_c = np.array([self.ngmax])  # used by hs_operators.py XXX
 
+    def get_reciprocal_vectors(self, q=0):
+        """ Returns reciprocal lattice vectors plus q, G + q,
+        in xyz coordinates.
+        """
+
+        assert q < len(self.K_qv), ('Choose a q-index belonging to ' +
+                                    'the irreducible Brillouin zone.')
+        q_v = self.K_qv[q]
+        G_Gv = self.G_Qv[self.Q_qG[q]] + q_v
+
+        return G_Gv
+
     def __getstate__(self):
         return (self.ecut, self.gd, self.dtype, self.kd, self.fftwflags)
 
