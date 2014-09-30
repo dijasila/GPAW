@@ -33,9 +33,9 @@ On runtime you need the following::
 .. Note::
 
    The compute nodes have different filesystem than the front end
-   node. Especially, :envvar:`$HOME` and :envvar:`$METAWRK` are
+   node. Especially, :envvar:`HOME` and ``$METAWRK`` are
    mounted only on the frontend, so one should place gpaw on 
-   :envvar:`$WRKDIR`
+   ``$WRKDIR``
 
 A sample job script with mvapich (Infiniband) MPI::
 
