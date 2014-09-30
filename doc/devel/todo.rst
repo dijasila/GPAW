@@ -34,7 +34,7 @@ Simple tasks
 
 * Stop using ``wfs.ibzk_qc`` and other things that are in ``wfs.kd``.
 
-* Use :meth:`ase.Atoms.get_charges` instead of the ``charge`` keyword.
+* Use ``ase.Atoms.get_charges`` instead of the ``charge`` keyword.
 
 
 Questions
