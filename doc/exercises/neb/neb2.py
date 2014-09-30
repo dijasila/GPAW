@@ -1,4 +1,5 @@
 """Diffusion across rows"""
+from __future__ import print_function
 
 from math import sqrt
 

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.parallel import paropen
 from gpaw.xc.rpa import RPACorrelation
 

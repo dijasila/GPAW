@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.optimize import BFGS
 from ase.structure import molecule
 from ase.parallel import paropen

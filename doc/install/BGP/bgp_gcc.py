@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """bgp_gcc.py is a wrapper for the BGP gcc compiler,
    converting/removing incompatible gcc args.   """
-
+from __future__ import print_function
 import sys
 from subprocess import call
 from glob import glob

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import python
+from __future__ import print_function
 from optparse import OptionParser
 
 code_choices = ['gpaw', 'dacapo']

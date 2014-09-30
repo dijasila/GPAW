@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import ase.units as units
 from gpaw import restart, GPAW

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 import Numeric as num
 from gpaw import GPAW
 from gpaw.spherical_harmonics import Y

@@ -1,5 +1,5 @@
 from sys import argv
-
+from __future__ import print_function
 import matplotlib.pyplot as plt
 
 from ase.dft import STM

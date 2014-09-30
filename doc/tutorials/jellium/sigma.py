@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.io import read
 e0 = read('bulk.txt').get_potential_energy()
 e = read('surface.txt').get_potential_energy()

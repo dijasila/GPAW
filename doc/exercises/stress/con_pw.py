@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atoms
 from ase.lattice import bulk
 from gpaw import GPAW

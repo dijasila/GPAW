@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw.io.array import load_array
 
 N, E = load_array('e6x6.dat', transpose=True)
