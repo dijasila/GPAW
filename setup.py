@@ -53,40 +53,13 @@ mpi_define_macros = []
 
 platform_id = ''
 
-packages = ['gpaw',
-            'gpaw.analyse',
-            'gpaw.atom',
-            'gpaw.eigensolvers',
-            'gpaw.elph',
-            'gpaw.io',
-            'gpaw.lcao',
-            'gpaw.lcaotddft', 
-            'gpaw.lrtddft',
-            'gpaw.lrtddft2',
-            'gpaw.mpi',
-            'gpaw.pes',
-            'gpaw.response',
-            'gpaw.sphere',
-            'gpaw.tddft',
-            'gpaw.test',
-            'gpaw.test.big',
-            'gpaw.test.big.dcdft',
-            'gpaw.test.big.g2_1',
-            'gpaw.test.big.scf',
-            'gpaw.test.big.setups',
-            'gpaw.test.cmrtest',
-            'gpaw.test.fileio',
-            'gpaw.test.noncollinear',
-            'gpaw.test.parallel',
-            'gpaw.test.pseudopotential',
-            'gpaw.test.pw',
-            'gpaw.test.vdw',
-            'gpaw.testing',
-            'gpaw.transport',
-            'gpaw.utilities',
-            'gpaw.wavefunctions',
-            'gpaw.xc',
-            'gpaw.xc.gllb']
+
+packages = ['gpaw']
+for dirname, dirnames, filenames in os.walk('gpaw'):
+    for subdirname in dirnames:
+        fullname = os.path.join(dirname, subdirname)
+        if '.svn' not in fullname:
+            packages.append(fullname.replace('/', '.'))
 
 include_ase = False
 if '--include-ase' in sys.argv:
