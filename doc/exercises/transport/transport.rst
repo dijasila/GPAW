@@ -140,8 +140,8 @@ DFT description
 We now continue to explore the Pt-H2-Pt system using a more realistic
 desciption derived from ab-initio calculations.
 
-The functions :func:`~gpaw.lcao.tools.get_lcao_hamiltonian` and
-:func:`~gpaw.lcao.tools.get_lead_lcao_hamiltonian` (in gpaw.lcao.tools)
+The functions ``gpaw.lcao.tools.get_lcao_hamiltonian`` and
+``gpaw.lcao.tools.get_lead_lcao_hamiltonian`` (in gpaw.lcao.tools)
 allows you to construct such a Hamiltonian within DFT in terms of pseudo
 atomic orbitals. Since real potential decay much slower than in our TB model,
 we increase the principal layers to 4 Pt atoms, and the scattering region to
@@ -203,3 +203,9 @@ eV.
 Which orbital do you think is responsible for the high conductance?
 Try to cut the relevant orbitals from the basis set, as we did for the
 TB model.
+
+The TransportCalculator class
+-----------------------------
+
+.. autoclass:: ase.transport.calculators.TransportCalculator
+
