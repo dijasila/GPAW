@@ -17,22 +17,74 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
     def __init__(self, calc, name=None, frequencies=None, domega0=0.1,
-                 omega2=10.0, omegamax=None, ecut=50,
-                 hilbert=True, nbands=None,
-                 eta=0.2, ftol=1e-6, intraband=True, world=mpi.world,
-                 txt=sys.stdout, nthreads=1, gate_voltage=None):
+                 omega2=10.0, omegamax=None, ecut=50, hilbert=True,
+                 nbands=None, eta=0.2, ftol=1e-6, threshold=1,
+                 intraband=True, world=mpi.world, txt=sys.stdout,
+                 gate_voltage=None):
+        """Creates a DielectricFunction object.
+        
+        calc: str
+            The groundstate calculation file that the linear response
+            calculation is based on.
+        name: str
+            If defined, save the density-density response function to::
+
+                name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
+
+            where q_c is the reduced momentum and N_c is the number of
+            kpoints along each direction.
+        frequencies: np.ndarray
+            Specification of frequency grid. If not set the non-linear
+            frequency grid is used.
+        domega0: float
+            Frequency grid spacing for non-linear frequency grid at omega = 0.
+        omega2: float
+            Frequency at which the non-linear frequency grid has doubled
+            the spacing.
+        omegamax: float
+            The upper frequency bound for the non-linear frequency grid.
+        ecut: float
+            Plane-wave cut-off.
+        hilbert: bool
+            Use hilbert transform.
+        nbands: int
+            Number of bands from calc.
+        eta: float
+            Broadening parameter.
+        ftol: float
+            Threshold for including close to equally occupied orbitals,
+            f_ik - f_jk > ftol.
+        threshold: float
+            Threshold for matrix elements in optical response perturbation
+            theory.
+        intraband: bool
+            Include intraband transitions.
+        world: comm
+            mpi communicator.
+        txt: str
+            Output file.
+        gate_voltage: float
+            Shift Fermi level of ground state calculation by the
+            specified amount.
+        """
 
         self.chi0 = Chi0(calc, frequencies, domega0=domega0,
                          omega2=omega2, omegamax=omegamax,
                          ecut=ecut, hilbert=hilbert, nbands=nbands,
-                         eta=eta, ftol=ftol,
-                         intraband=intraband, nthreads=nthreads,
-                         world=world, txt=txt,
+                         eta=eta, ftol=ftol, threshold=threshold,
+                         intraband=intraband, world=world, txt=txt,
                          gate_voltage=gate_voltage)
         
         self.name = name
 
     def calculate_chi0(self, q_c):
+        """Calculates the density response function.
+
+        Calculate the density response function for a specific momentum.
+
+        q_c: [float, float, float]
+            The momentum wavevector.
+        """
         if self.name:
             kd = self.chi0.calc.wfs.kd
             name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
@@ -44,26 +96,30 @@ class DielectricFunction:
                 except EOFError:
                     pass
                 else:
-                    return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+                    return omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c)
+        omega_w = self.chi0.omega_w
         self.chi0.timer.write(self.chi0.fd)
-        
+
         if self.name and mpi.rank == 0:
             with open(name, 'wb') as fd:
-                pickle.dump((self.chi0.omega_w, pd,
-                             chi0_wGG, chi0_wxvG, chi0_wvv), fd,
-                            pickle.HIGHEST_PROTOCOL)
+                pickle.dump((omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv),
+                            fd, pickle.HIGHEST_PROTOCOL)
 
         # Wait for rank 0 to save Chi
         mpi.world.barrier()
         
         # Not returning frequencies will work for now
-        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+        return omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv
+
+    def get_frequencies(self):
+        """Return frequencies that Chi is evaluated on"""
+        return self.chi0.omega_w * Hartree
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], direction='x',
                 wigner_seitz_truncation=False):
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         G_G = pd.G2_qG[0]**0.5
         nG = len(G_G)
         
@@ -135,7 +191,7 @@ class DielectricFunction:
         to the head of the inverse dielectric matrix (inverse dielectric
         function)
         """
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         G_G = pd.G2_qG[0]**0.5
         nG = len(G_G)
 
@@ -347,6 +403,9 @@ class DielectricFunction:
         """Check f-sum rule.
         
         It takes the y of a spectrum as an entry and it check its integral.
+        
+        spectrum: np.ndarray
+            Input spectrum
         """
         
         fd = self.chi0.fd
@@ -366,20 +425,20 @@ class DielectricFunction:
         print('N1 = %f, %f  %% error' % (N1, (N1 - nv) / nv * 100), file=fd)
 
     def get_eigenmodes(self, q_c=[0, 0, 0], w_max=None, name=None,
-                       eigenvalue_only=False):
+                       eigenvalue_only=False, direction='x'):
         
         """Plasmon eigenmodes as eigenvectors of the dielectric matrix."""
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
-        e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
-                                           wigner_seitz_truncation=True,
+        omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c, direction=direction,
+                                           wigner_seitz_truncation=False,
                                            symmetric=False)
         
-        kd = self.chi0.calc.wfs.kd
+        kd = pd.kd
         
         # Get real space grid for plasmon modes:
         r = pd.gd.get_grid_point_coordinates()
-        w_w = self.chi0.omega_w * Hartree
+        w_w = omega_w * Hartree
         if w_max:
             w_w = w_w[np.where(w_w < w_max)]
         Nw = len(w_w)
@@ -496,7 +555,7 @@ class DielectricFunction:
         Returns: real space grid, frequency points, EELS(w,r)
         """
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
                                            wigner_seitz_truncation=True,
                                            symmetric=False)
@@ -523,7 +582,7 @@ class DielectricFunction:
             if Gvec[iG, perpdir[0]] == 0 and Gvec[iG, perpdir[1]] == 0:
                 Glist.append(iG)
         qG = Gvec[Glist] + pd.K_qv
-        w_w = self.chi0.omega_w * Hartree
+        w_w = omega_w * Hartree
         if w_max:
             w_w = w_w[np.where(w_w < w_max)]
         Nw = len(w_w)
