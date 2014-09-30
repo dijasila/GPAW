@@ -19,7 +19,6 @@ import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.xc.sic import SIC
 from gpaw.scf import SCFLoop
-from gpaw.hooks import hooks
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry
 import gpaw.wavefunctions.pw as pw
@@ -287,11 +286,7 @@ class PAW(PAWTextOutput):
         if self.scf.converged:
             self.call_observers(iter, final=True)
             self.print_converged(iter)
-            if 'converged' in hooks:
-                hooks['converged'](self)
         elif converge:
-            if 'not_converged' in hooks:
-                hooks['not_converged'](self)
             self.txt.write(oops)
             raise KohnShamConvergenceError(
                 'Did not converge!  See text output for help.')
