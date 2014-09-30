@@ -40,18 +40,18 @@ td_calc.propagate(time_step, iterations/2, 'na2_td_dm.dat', 'na2_td.gpw')
 td_calc.write('na2_td.gpw', mode='all')
 ind.write('na2_td.ind')
 
-# Restart and continue
+ind.paw = None
 
-# Load TDDFT object
-td_calc2 = TDDFT('na2_td.gpw')
+# Restart and continue
+td_calc = TDDFT('na2_td.gpw')
 
 # Load and attach InducedField object
 ind = TDDFTInducedField(filename='na2_td.ind',
-                        paw=td_calc2,
+                        paw=td_calc,
                         restart_file='na2_td.ind')
-
+    
 # Continue propagation as usual
-td_calc2.propagate(time_step, iterations/2, 'na2_td_dm.dat', 'na2_td.gpw')
+td_calc.propagate(time_step, iterations/2, 'na2_td_dm.dat', 'na2_td.gpw')
 
 # Calculate induced electric field
 ind.calculate_induced_field(gridrefinement=2, from_density='comp')
@@ -75,4 +75,5 @@ equal(val5, 3305.67551203, tol)
 equal(val6, 2.09421757603, tol)
 equal(val7, 2.09839122725, tol)
 equal(val8, 1.59719334563, tol)
-
+    
+ind.paw = None
