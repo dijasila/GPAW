@@ -497,7 +497,7 @@ class DielectricFunction:
                 eigen0 = np.append(eigen0, eig0)
                 
                 #Fourier Transform
-                qG = pd.G_Qv[pd.Q_qG[0]] + pd.K_qv
+                qG = pd.get_reciprocal_vectors(add_q=True)
                 coef_G = np.diagonal(np.inner(qG, qG)) / (4 * pi)
                 qGr_R = np.inner(qG, r.T).T
                 phase = np.exp(1j * qGr_R)
