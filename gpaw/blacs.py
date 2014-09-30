@@ -90,7 +90,7 @@ this module or gpaw.utilities.blacs will be renamed at some point.
 
 import numpy as np
 
-from gpaw.mpi import SerialCommunicator, serial_comm
+from gpaw.mpi import SerialCommunicator
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.utilities.scalapack import scalapack_inverse_cholesky, \
     scalapack_diagonalize_ex, scalapack_general_diagonalize_ex, \
@@ -215,7 +215,9 @@ class BlacsGrid:
 
 class DryRunBlacsGrid(BlacsGrid):
     def __init__(self, comm, nprow, npcol, order='R'):
-        assert isinstance(comm, SerialCommunicator)  # DryRunCommunicator is subclass
+        assert isinstance(comm, SerialCommunicator)
+        # DryRunCommunicator is subclass
+        
         if nprow * npcol > comm.size:
             raise ValueError('Impossible: %dx%d Blacs grid with %d CPUs'
                              % (nprow, npcol, comm.size))
@@ -561,8 +563,8 @@ def parallelprint(comm, obj):
     import sys
     for a in range(comm.size):
         if a == comm.rank:
-            print 'rank=%d' % a
-            print obj
-            print
+            print('rank=%d' % a)
+            print(obj)
+            print()
             sys.stdout.flush()
         comm.barrier()

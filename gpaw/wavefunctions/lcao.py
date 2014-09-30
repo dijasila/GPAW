@@ -547,7 +547,7 @@ class LCAOWaveFunctions(WaveFunctions):
             T_expansions = tci.T_expansions
             Theta_expansions = tci.Theta_expansions
             P_expansions = tci.P_expansions
-            nq = len(self.ibzk_qc)
+            nq = len(self.kd.ibzk_qc)
             
             dH_asp = hamiltonian.dH_asp
 
