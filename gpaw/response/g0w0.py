@@ -235,7 +235,7 @@ class G0W0(PairDensity):
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
         
-        G_Gv = pd0.G_Qv[pd0.Q_qG[0]] + pd0.K_qv[0]
+        G_Gv = pd0.get_reciprocal_vectors()
         pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
         M_vv = np.dot(pd0.gd.cell_cv.T,
                       np.dot(self.U_cc.T,
