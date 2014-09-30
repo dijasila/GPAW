@@ -208,6 +208,11 @@ The following is required for a functioning GPAW installation.
 
   The path to your home directory.
 
+.. envvar:: OMP_NUM_THREADS
+  
+  If GPAW is compiled with OpenMP this variable defines the
+  number of threads used.
+
 Standard installation
 ---------------------
 
