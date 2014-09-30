@@ -702,7 +702,7 @@ class TimeDependentWaveFunctions(FDWaveFunctions):
         self.bd.comm.sum(F_av, 0)
 
         if self.bd.comm.rank == 0:
-            self.kpt_comm.sum(F_av, 0)
+            self.kd.comm.sum(F_av, 0)
 
 
 # DummyDensity
