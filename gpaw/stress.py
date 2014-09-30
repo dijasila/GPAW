@@ -65,11 +65,11 @@ def stress(calc):
     # Symmetrize:
     sigma_vv = np.zeros((3, 3))
     cell_cv = wfs.gd.cell_cv
-    for U_cc in wfs.symmetry.op_scc:
+    for U_cc in wfs.kd.symmetry.op_scc:
         M_vv = np.dot(np.linalg.inv(cell_cv),
                       np.dot(U_cc, cell_cv)).T
         sigma_vv += np.dot(np.dot(M_vv.T, s_vv), M_vv)
-    sigma_vv /= len(wfs.symmetry.op_scc)
+    sigma_vv /= len(wfs.kd.symmetry.op_scc)
     
     # Make sure all agree on the result (redundant calculation on
     # different cores involving BLAS might give slightly different

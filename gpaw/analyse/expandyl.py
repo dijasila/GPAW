@@ -182,7 +182,7 @@ class ExpandYl(AngularIntegral):
         else:
             srange = spins
         if not kpoints:
-            krange = range(len(calculator.wfs.ibzk_kc))
+            krange = range(len(calculator.wfs.kd.ibzk_kc))
         else:
             krange = kpoints
         if not bands:

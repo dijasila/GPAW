@@ -19,7 +19,7 @@ class XAS:
         # to allow spin polarized calclulation
         #
         
-        nkpts = len(wfs.ibzk_kc)
+        nkpts = len(wfs.kd.ibzk_kc)
 
         # the following lines are to stop the user to make mistakes
         #if mode is not "xes" and spin == 1:
@@ -104,7 +104,7 @@ class XAS:
             self.sigma_cn[:, n1:n2] =  weight **0.5 * a_cn #.real
             n1 = n2
 
-        self.symmetry = wfs.symmetry
+        self.symmetry = wfs.kd.symmetry
 
     def get_spectra(self, fwhm=0.5, E_in=None, linbroad=None, N=1000, kpoint=None,
                     proj=None,  proj_xyz=True, stick=False):
@@ -264,10 +264,10 @@ class RecursionMethod:
 
             self.wfs = wfs
             self.hamiltonian = paw.hamiltonian
-            self.nkpts = len(wfs.ibzk_kc) * wfs.nspins
+            self.nkpts = len(wfs.kd.ibzk_kc) * wfs.nspins
             self.nmykpts = len(wfs.kpt_u)
 
-            self.k1 = wfs.kpt_comm.rank * self.nmykpts
+            self.k1 = wfs.kd.comm.rank * self.nmykpts
             self.k2 = self.k1 + self.nmykpts
             
             print "k1", self.k1, "k2",self.k2
@@ -282,8 +282,8 @@ class RecursionMethod:
                 self.weight_k[i] = wfs.kpt_u[n].weight
                      
             self.op_scc = None
-            if wfs.symmetry is not None:
-                self.op_scc = wfs.symmetry.op_scc
+            if wfs.kd.symmetry is not None:
+                self.op_scc = wfs.kd.symmetry.op_scc
         else:
             self.k1 = 0
             self.k2 = None
@@ -330,7 +330,7 @@ class RecursionMethod:
             
     def write(self, filename, mode=''):
         assert self.wfs is not None
-        kpt_comm = self.wfs.kpt_comm
+        kpt_comm = self.wfs.kd.comm
         gd = self.wfs.gd
 
         if gd.comm.rank == 0:

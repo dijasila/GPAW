@@ -83,7 +83,7 @@ class LrTDDFT(ExcitationList):
         if calculator is not None and calculator.initialized:
             if not isinstance(calculator.wfs, FDWaveFunctions):
                 raise RuntimeError('Linear response TDDFT supported only in real space mode')
-            if calculator.wfs.kpt_comm.size > 1:
+            if calculator.wfs.kd.comm.size > 1:
                 err_txt = "Spin parallelization with Linear response "
                 err_txt += "TDDFT. Use parallel = {'domain' : 'domain_only'} "
                 err_txt += "calculator parameter."

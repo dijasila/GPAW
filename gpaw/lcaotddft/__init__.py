@@ -237,7 +237,7 @@ class LCAOTDDFT(GPAW):
             temp2_blockC_nm = target_blockC_nm.copy()
 
             order = 4
-            assert self.wfs.kpt_comm.size == 1
+            assert self.wfs.kd.comm.size == 1
             for n in range(order):
                 # Multiply with hamiltonian
                 pblas_simple_hemm(self.mm_block_descriptor, 
@@ -266,7 +266,7 @@ class LCAOTDDFT(GPAW):
 
             self.density.gd.comm.broadcast(targetC_nM, 0)
         else:
-            assert self.wfs.kpt_comm.size == 1
+            assert self.wfs.kd.comm.size == 1
             if self.density.gd.comm.rank == 0:
                 targetC_nM[:] = sourceC_nM[:]
                 tempC_nM = sourceC_nM.copy()

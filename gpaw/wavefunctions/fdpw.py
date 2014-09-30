@@ -176,7 +176,7 @@ class FDPWWaveFunctions(WaveFunctions):
         self.bd.comm.sum(F_av, 0)
 
         if self.bd.comm.rank == 0:
-            self.kpt_comm.sum(F_av, 0)
+            self.kd.comm.sum(F_av, 0)
 
     def _get_wave_function_array(self, u, n, realspace=True):
         psit_nG = self.kpt_u[u].psit_nG

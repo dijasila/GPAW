@@ -523,7 +523,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     taut_sR[kpt.s] += 0.5 * f * abs(
                         self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q))**2
 
-        self.kpt_comm.sum(taut_sR)
+        self.kd.comm.sum(taut_sR)
         self.band_comm.sum(taut_sR)
         return taut_sR
 
@@ -581,7 +581,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                    dtype=complex)
 
         for s in range(self.nspins):
-            for k in range(self.nibzkpts):
+            for k in range(self.kd.nibzkpts):
                 for n in range(self.bd.nbands):
                     psit_G = self.get_wave_function_array(n, k, s,
                                                           realspace=False,
@@ -597,7 +597,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         Q_G = np.empty(self.pd.ngmax, np.int32)
         for r in range(self.kd.comm.size):
             for q, ks in enumerate(self.kd.get_indices(r)):
-                s, k = divmod(ks, self.nibzkpts)
+                s, k = divmod(ks, self.kd.nibzkpts)
                 ng = self.ng_k[k]
                 if s == 1:
                     return

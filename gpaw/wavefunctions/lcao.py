@@ -859,7 +859,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.start('Wait for sum')
         ksl.orbital_comm.sum(F_av)
         if self.bd.comm.rank == 0:
-            self.kpt_comm.sum(F_av, 0)
+            self.kd.comm.sum(F_av, 0)
         self.timer.stop('Wait for sum')
         self.timer.stop('LCAO forces')
 
@@ -908,7 +908,7 @@ class LCAOWaveFunctions(WaveFunctions):
                    dtype=self.dtype)
 
         for s in range(self.nspins):
-            for k in range(self.nibzkpts):
+            for k in range(self.kd.nibzkpts):
                 C_nM = self.collect_array('C_nM', k, s)
                 writer.fill(C_nM, s, k)
 

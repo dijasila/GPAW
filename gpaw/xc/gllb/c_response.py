@@ -70,11 +70,11 @@ class C_Response(Contribution):
         self.kpt_u = self.wfs.kpt_u
         self.setups = self.wfs.setups
         self.density = self.nlfunc.density
-        self.symmetry = self.wfs.symmetry
+        self.symmetry = self.wfs.kd.symmetry
         self.nspins = self.nlfunc.nspins
         self.occupations = self.nlfunc.occupations
         self.nvalence = self.nlfunc.nvalence
-        self.kpt_comm = self.wfs.kpt_comm
+        self.kpt_comm = self.wfs.kd.comm
         self.band_comm = self.wfs.band_comm
         self.grid_comm = self.gd.comm
         if self.Dresp_asp is None:
@@ -132,7 +132,7 @@ class C_Response(Contribution):
             self.wfs.kptband_comm.sum(self.nt_sG)
             self.wfs.kptband_comm.sum(self.vt_sG)
 
-            if self.wfs.symmetry:
+            if self.wfs.kd.symmetry:
                 for nt_G, vt_G in zip(self.nt_sG, self.vt_sG):
                     self.symmetry.symmetrize(nt_G, self.gd)
                     self.symmetry.symmetrize(vt_G, self.gd)
@@ -266,7 +266,7 @@ class C_Response(Contribution):
         self.wfs.kptband_comm.sum(nt_sG)
         self.wfs.kptband_comm.sum(vt_sG)
             
-        if self.wfs.symmetry:
+        if self.wfs.kd.symmetry:
             for nt_G, vt_G in zip(nt_sG, vt_sG):
                 self.symmetry.symmetrize(nt_G, self.gd)
                 self.symmetry.symmetrize(vt_G, self.gd)
@@ -432,7 +432,7 @@ class C_Response(Contribution):
         wfs = self.wfs
         world = wfs.world
         domain_comm = wfs.gd.comm
-        kpt_comm = wfs.kpt_comm
+        kpt_comm = wfs.kd.comm
         band_comm = wfs.band_comm
         
         master = (world.rank == 0)
@@ -518,7 +518,7 @@ class C_Response(Contribution):
         wfs = self.wfs
         world = wfs.world
         domain_comm = wfs.gd.comm
-        kpt_comm = wfs.kpt_comm
+        kpt_comm = wfs.kd.comm
         band_comm = wfs.band_comm
         
         self.vt_sG = wfs.gd.empty(wfs.nspins)

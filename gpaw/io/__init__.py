@@ -97,7 +97,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     world = paw.wfs.world
     domain_comm = wfs.gd.comm
-    kpt_comm = wfs.kpt_comm
+    kpt_comm = wfs.kd.comm
     band_comm = wfs.band_comm
     
     master = (world.rank == 0)
@@ -165,11 +165,11 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     if wfs.kd.N_c is not None:
         w.add('NBZKPoints', ('3'), wfs.kd.N_c, write=master)
         w.add('MonkhorstPackOffset', ('3'), wfs.kd.offset_c, write=master)
-    w.dimension('nbzkpts', len(wfs.bzk_kc))
-    w.dimension('nibzkpts', len(wfs.ibzk_kc))
-    w.add('BZKPoints', ('nbzkpts', '3'), wfs.bzk_kc, write=master)
-    w.add('IBZKPoints', ('nibzkpts', '3'), wfs.ibzk_kc, write=master)
-    w.add('IBZKPointWeights', ('nibzkpts',), wfs.weight_k, write=master)
+    w.dimension('nbzkpts', len(wfs.kd.bzk_kc))
+    w.dimension('nibzkpts', len(wfs.kd.ibzk_kc))
+    w.add('BZKPoints', ('nbzkpts', '3'), wfs.kd.bzk_kc, write=master)
+    w.add('IBZKPoints', ('nibzkpts', '3'), wfs.kd.ibzk_kc, write=master)
+    w.add('IBZKPointWeights', ('nibzkpts',), wfs.kd.weight_k, write=master)
 
     # Create dimensions for varioius netCDF variables:
     ng = wfs.gd.get_size_of_global_array()
@@ -327,7 +327,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             w.fill(all_P_ni, parallel=parallel, write=do_write, *indices)
     else:
         for s in range(wfs.nspins):
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 all_P_ni = wfs.collect_projections(k, s)
                 if master:
                     w.fill(all_P_ni, s, k)
@@ -376,7 +376,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     for name, var in [('Eigenvalues', 'eps_n'), ('OccupationNumbers', 'f_n')]:
         w.add(name, ('nspins', 'nibzkpts', 'nbands'), dtype=float)
         for s in range(wfs.nspins):
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 # if hdf5:  XXX Figure this out later
                 #     indices = [s, k]
                 #     indices.append(wfs.bd.get_slice())
@@ -402,7 +402,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         w.add('LinearExpansionOccupations', ('nspins',
               'nibzkpts', 'norbitals'), dtype=float)
         for s in range(wfs.nspins):
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 ne_o = wfs.collect_auxiliary('ne_o', k, s, shape=norbitals)
                 if master:
                     w.fill(ne_o, s, k)
@@ -410,7 +410,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         w.add('LinearExpansionCoefficients', ('nspins',
               'nibzkpts', 'norbitals', 'nbands'), dtype=complex)
         for s in range(wfs.nspins):
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 for o in range(norbitals):
                     c_n = wfs.collect_array('c_on', k, s, subset=o)
                     if master:
@@ -478,7 +478,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
         ngd = wfs.gd.get_size_of_global_array()
         for s in range(wfs.nspins):
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 for n in range(wfs.bd.nbands):
                     psit_G = wfs.get_wave_function_array(n, k, s)
                     if master:
@@ -653,7 +653,7 @@ def read(paw, reader):
     nbands = r.dimension('nbands')
     nslice = bd.get_slice()
 
-    if (nibzkpts != len(wfs.ibzk_kc) or nbands != bd.comm.size * bd.mynbands):
+    if (nibzkpts != len(wfs.kd.ibzk_kc) or nbands != bd.comm.size * bd.mynbands):
         paw.scf.reset()
     else:
         # Verify that symmetries for for k-point reduction hasn't changed:

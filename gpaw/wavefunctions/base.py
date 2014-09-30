@@ -75,17 +75,6 @@ class WaveFunctions(EmptyWaveFunctions):
         self.timer = timer
         self.rank_a = None
         self.atom_partition = None
-
-        # XXX Remember to modify aseinterface when removing the following
-        # attributes from the wfs object
-        self.gamma = kd.gamma
-        self.kpt_comm = kd.comm
-        self.bzk_kc = kd.bzk_kc
-        self.ibzk_kc = kd.ibzk_kc
-        self.ibzk_qc = kd.ibzk_qc
-        self.weight_k = kd.weight_k
-        self.symmetry = kd.symmetry
-        self.nibzkpts = kd.nibzkpts
             
         self.kpt_u = kd.create_k_points(self.gd)
 
@@ -112,7 +101,7 @@ class WaveFunctions(EmptyWaveFunctions):
         
         self.timer.start('Symmetrize density')
         for nt_G in nt_sG:
-            self.symmetry.symmetrize(nt_G, self.gd)
+            self.kd.symmetry.symmetrize(nt_G, self.gd)
         self.timer.stop('Symmetrize density')
 
     def add_to_density_from_k_point(self, nt_sG, kpt):
@@ -176,7 +165,7 @@ class WaveFunctions(EmptyWaveFunctions):
         self.symmetrize_atomic_density_matrices(D_asp)
 
     def symmetrize_atomic_density_matrices(self, D_asp):
-        if len(self.symmetry.op_scc) > 1:
+        if len(self.kd.symmetry.op_scc) > 1:
             all_D_asp = []
             for a, setup in enumerate(self.setups):
                 D_sp = D_asp.get(a)
@@ -191,7 +180,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 for a, D_sp in D_asp.items():
                     setup = self.setups[a]
                     D_sp[s] = pack(setup.symmetrize(a, D_aii,
-                                                    self.symmetry.a_sa))
+                                                    self.kd.symmetry.a_sa))
 
     def set_positions(self, spos_ac):
         self.positions_set = False
@@ -216,7 +205,7 @@ class WaveFunctions(EmptyWaveFunctions):
         self.rank_a = rank_a
         self.atom_partition = atom_partition
 
-        self.symmetry.check(spos_ac)
+        self.kd.symmetry.check(spos_ac)
 
     def allocate_arrays_for_projections(self, my_atom_indices):
         if not self.positions_set and self.kpt_u[0].P_ani is not None:
@@ -247,7 +236,7 @@ class WaveFunctions(EmptyWaveFunctions):
         kpt_u = self.kpt_u
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
 
-        if self.kpt_comm.rank == kpt_rank:
+        if self.kd.comm.rank == kpt_rank:
             a_nx = getattr(kpt_u[u], name)
 
             if subset is not None:
@@ -259,14 +248,14 @@ class WaveFunctions(EmptyWaveFunctions):
                     if kpt_rank == 0:
                         return a_nx
                     else:
-                        self.kpt_comm.ssend(a_nx, 0, 1301)
+                        self.kd.comm.ssend(a_nx, 0, 1301)
                 else:
                     b_nx = self.bd.collect(a_nx)
                     if self.band_comm.rank == 0:
                         if kpt_rank == 0:
                             return b_nx
                         else:
-                            self.kpt_comm.ssend(b_nx, 0, 1301)
+                            self.kd.comm.ssend(b_nx, 0, 1301)
 
         elif self.world.rank == 0 and kpt_rank != 0:
             # Only used to determine shape and dtype of receiving buffer:
@@ -277,7 +266,7 @@ class WaveFunctions(EmptyWaveFunctions):
 
             b_nx = np.zeros((self.bd.nbands,) + a_nx.shape[1:],
                             dtype=a_nx.dtype)
-            self.kpt_comm.receive(b_nx, kpt_rank, 1301)
+            self.kd.comm.receive(b_nx, kpt_rank, 1301)
             return b_nx
 
     def collect_auxiliary(self, value, k, s, shape=1, dtype=float):
@@ -291,7 +280,7 @@ class WaveFunctions(EmptyWaveFunctions):
         kpt_u = self.kpt_u
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
 
-        if self.kpt_comm.rank == kpt_rank:
+        if self.kd.comm.rank == kpt_rank:
             if isinstance(value, str):
                 a_o = getattr(kpt_u[u], value)
             else:
@@ -308,11 +297,11 @@ class WaveFunctions(EmptyWaveFunctions):
                 if kpt_rank == 0:
                     return a_o
                 else:
-                    self.kpt_comm.send(a_o, 0, 1302)
+                    self.kd.comm.send(a_o, 0, 1302)
 
         elif self.world.rank == 0 and kpt_rank != 0:
             b_o = np.zeros(shape, dtype=dtype)
-            self.kpt_comm.receive(b_o, kpt_rank, 1302)
+            self.kd.comm.receive(b_o, kpt_rank, 1302)
             return b_o
 
     def collect_projections(self, k, s):
@@ -349,7 +338,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 assert i == nproj
             return all_P_ni
 
-        elif self.kpt_comm.rank == kpt_rank:  # plain else works too...
+        elif self.kd.comm.rank == kpt_rank:  # plain else works too...
             P_ani = self.kpt_u[u].P_ani
             for a in range(natoms):
                 if a in P_ani:
@@ -377,7 +366,7 @@ class WaveFunctions(EmptyWaveFunctions):
 
         rank = self.world.rank
 
-        if (self.kpt_comm.rank == kpt_rank and
+        if (self.kd.comm.rank == kpt_rank and
             self.band_comm.rank == band_rank):
             psit_G = self._get_wave_function_array(u, myn, realspace)
             if realspace:

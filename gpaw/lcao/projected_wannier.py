@@ -82,13 +82,13 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
       S_qMM  = <Phi_qM|Phi_qM'>
       P_aqMi = <pt^a_qi|Phi_qM>
     """
-    if calc.wfs.kpt_comm.size != 1:
+    if calc.wfs.kd.comm.size != 1:
         raise NotImplementedError('Parallelization over spin/kpt not '
                                   'implemented yet.')
     spos_ac = calc.atoms.get_scaled_positions() % 1.
     comm = calc.wfs.gd.comm
     nq = len(calc.wfs.ibzk_qc)
-    Nk = calc.wfs.nibzkpts
+    Nk = calc.wfs.kd.nibzkpts
     nao = calc.wfs.setups.nao
     dtype = calc.wfs.dtype
     if bfs is None:
@@ -97,7 +97,7 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
                              calc.wfs.gd.pbc_c,
                              calc.wfs.setups,
                              calc.wfs.ibzk_qc,
-                             calc.wfs.gamma)
+                             calc.wfs.kd.gamma)
 
     # Calculate projector overlaps, and (lower triangle of-) S and T matrices
     S_qMM = np.zeros((nq, nao, nao), dtype)

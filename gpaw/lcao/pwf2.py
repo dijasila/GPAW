@@ -28,7 +28,7 @@ def get_rot(F_MM, V_oM, L):
     
 
 def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
-    nq = len(calc.wfs.ibzk_qc)
+    nq = len(calc.wfs.kd.ibzk_qc)
     nao = calc.wfs.setups.nao
     dtype = calc.wfs.dtype
     if bfs is None:
@@ -241,7 +241,7 @@ class PWF2:
                  projection_data=None):
         calc = GPAW(gpwfilename, txt=None, basis=basis)
         assert calc.wfs.gd.comm.size == 1
-        assert calc.wfs.kpt_comm.size == 1
+        assert calc.wfs.kd.comm.size == 1
         assert calc.wfs.band_comm.size == 1
         if zero_fermi:
             try:
@@ -378,7 +378,7 @@ class PWF2:
 class LCAOwrap:
     def __init__(self, calc, spin=0):
         assert calc.wfs.gd.comm.size == 1
-        assert calc.wfs.kpt_comm.size == 1
+        assert calc.wfs.kd.comm.size == 1
         assert calc.wfs.band_comm.size == 1
         
         from gpaw.lcao.tools import get_lcao_hamiltonian

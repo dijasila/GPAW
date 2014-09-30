@@ -160,7 +160,7 @@ class GPAW(PAW):
 
         The sum of all weights is one."""
 
-        return self.wfs.weight_k
+        return self.wfs.kd.weight_k
 
     def get_pseudo_density(self, spin=None, gridrefinement=1,
                            pad=True, broadcast=True):
@@ -322,7 +322,7 @@ class GPAW(PAW):
         if width == 0:
             width = 0.1
 
-        w_k = self.wfs.weight_k
+        w_k = self.wfs.kd.weight_k
         Nb = self.wfs.bd.nbands
         energies = np.empty(len(w_k) * Nb)
         weights = np.empty(len(w_k) * Nb)
@@ -456,8 +456,6 @@ class GPAW(PAW):
         Use initial guess for wannier orbitals to determine rotation
         matrices U and C.
         """
-        #if not self.wfs.gamma:
-        #    raise NotImplementedError
         from ase.dft.wannier import rotation_from_projection
         proj_knw = self.get_projections(initialwannier, spin)
         U_kww = []
@@ -494,7 +492,7 @@ class GPAW(PAW):
         kpt_u = self.wfs.kpt_u
 
         # XXX not for the kpoint/spin parallel case
-        assert self.wfs.kpt_comm.size == 1
+        assert self.wfs.kd.comm.size == 1
 
         # If calc is a save file, read in tar references to memory
         # For lcao mode just initialize the wavefunctions from the

@@ -121,7 +121,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     self.taugrad_v[v](psit_G, dpsit_G, kpt.phase_cd)
                     axpy(0.5 * f, abs(dpsit_G)**2, taut_sG[kpt.s])
 
-        self.kpt_comm.sum(taut_sG)
+        self.kd.comm.sum(taut_sG)
         self.band_comm.sum(taut_sG)
         return taut_sG
         
@@ -209,7 +209,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 writer.fill(kpt.psit_nG, parallel=parallel, *indices)
         else:
             for s in range(self.nspins):
-                for k in range(self.nibzkpts):
+                for k in range(self.kd.nibzkpts):
                     for n in range(self.bd.nbands):
                         psit_G = self.get_wave_function_array(n, k, s)
                         writer.fill(psit_G, s, k, n)

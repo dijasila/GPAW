@@ -52,12 +52,12 @@ for d in ds:
     lumo = reshape(lumo, -1)
 
     wf1_k = [c_mol.get_pseudo_wave_function(band=5, kpt=k, spin=1)
-             for k in range(len(c_mol.wfs.weight_k))]
+             for k in range(len(c_mol.wfs.kd.weight_k))]
     wf2_k = [c_mol.get_pseudo_wave_function(band=6, kpt=k, spin=1)
-             for k in range(len(c_mol.wfs.weight_k))]
+             for k in range(len(c_mol.wfs.kd.weight_k))]
 
     band_k = []
-    for k in range(len(c_mol.wfs.weight_k)):
+    for k in range(len(c_mol.wfs.kd.weight_k)):
         wf1 = reshape(wf1_k[k], -1)
         wf2 = reshape(wf2_k[k], -1)
         p1 = abs(dot(wf1, lumo))

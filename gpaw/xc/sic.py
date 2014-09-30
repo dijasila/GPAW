@@ -193,13 +193,13 @@ class SIC(XCFunctional):
     
     def initialize(self, density, hamiltonian, wfs, occ=None):
         
-        assert wfs.gamma
+        assert wfs.kd.gamma
         assert not wfs.gd.pbc_c.any()
 
         self.wfs = wfs
         self.dtype = float
         self.xc.initialize(density, hamiltonian, wfs, occ)
-        self.kpt_comm = wfs.kpt_comm
+        self.kpt_comm = wfs.kd.comm
         self.nspins = wfs.nspins
         self.nbands = wfs.bd.nbands
         
@@ -287,7 +287,7 @@ class SIC(XCFunctional):
        self.dF_av = np.zeros_like(F_av)
        for spin in self.spin_s.values():
            spin.add_forces(self.dF_av)
-       self.wfs.kpt_comm.sum(self.dF_av)
+       self.wfs.kd.comm.sum(self.dF_av)
         
     def add_forces(self, F_av):
        F_av += self.dF_av

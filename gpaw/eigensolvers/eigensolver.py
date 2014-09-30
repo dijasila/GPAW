@@ -19,7 +19,7 @@ class Eigensolver:
     def initialize(self, wfs):
         self.timer = wfs.timer
         self.world = wfs.world
-        self.kpt_comm = wfs.kpt_comm
+        self.kpt_comm = wfs.kd.comm
         self.band_comm = wfs.band_comm
         self.dtype = wfs.dtype
         self.bd = wfs.bd

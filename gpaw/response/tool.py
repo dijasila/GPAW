@@ -26,7 +26,7 @@ def get_orbitals(calc):
     bfs_a = [setup.phit_j for setup in calc.wfs.setups]
     
     from gpaw.lfc import BasisFunctions
-    bfs = BasisFunctions(calc.wfs.gd, bfs_a, calc.wfs.kpt_comm, cut=True)
+    bfs = BasisFunctions(calc.wfs.gd, bfs_a, calc.wfs.kd.comm, cut=True)
     spos_ac = calc.atoms.get_scaled_positions()
     bfs.set_positions(spos_ac)
 

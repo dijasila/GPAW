@@ -361,7 +361,7 @@ class Transport_Analysor:
             if wfs.dtype == float:
                 dos_mm = np.real(dos_mm).copy()
             wfs.basis_functions.construct_density(dos_mm, dosg[kpt.s], kpt.q)
-        wfs.kpt_comm.sum(dosg)
+        wfs.kd.comm.sum(dosg)
         wfs.band_comm.sum(dosg)
         global_dosg = wfs.gd.collect(dosg)        
         return global_dosg
@@ -821,8 +821,8 @@ class Transport_Analysor:
         #self.data = gather_ndarray_dict(self.data, tp.contour.comm)
         self.data['contour'] = contour
         self.data['force'] = force
-        self.data['kpt_rank'] = tp.wfs.kpt_comm.rank
-        self.data['kpt_size'] = tp.wfs.kpt_comm.size
+        self.data['kpt_rank'] = tp.wfs.kd.comm.rank
+        self.data['kpt_size'] = tp.wfs.kd.comm.size
         self.data['domain_rank'] = tp.gd.comm.rank
         self.data['domain_parpos'] = tp.gd.parpos_c
         self.data['domain_parsize'] = tp.gd.parsize_c
@@ -883,7 +883,7 @@ class Transport_Analysor:
                     local_tc_array[s, q, :, e] =  self.calculate_transmission(tp, s,
                                                             q, energy, nid)
 
-        #kpt_comm = tp.wfs.kpt_comm
+        #kpt_comm = tp.wfs.kd.comm
         #ns, npk = tp.nspins, tp.npk
         #if kpt_comm.rank == 0:
         #    tc_array = np.empty([ns, npk, nlp, ne], float)
@@ -919,10 +919,10 @@ class Transport_Analysor:
                 my_ne_contour[flag] = np.array(tp.nepathinfo[s][q].energy)
                 if not tp.ground:
                     my_loc_contour[flag] = np.array(tp.locpathinfo[s][q].energy)        
-        #eq_contour = gather_ndarray_dict(my_eq_contour, tp.wfs.kpt_comm)
-        #ne_contour = gather_ndarray_dict(my_ne_contour, tp.wfs.kpt_comm)        
+        #eq_contour = gather_ndarray_dict(my_eq_contour, tp.wfs.kd.comm)
+        #ne_contour = gather_ndarray_dict(my_ne_contour, tp.wfs.kd.comm)        
         #if not tp.ground:
-        #    loc_contour = gather_ndarray_dict(my_loc_contour, tp.wfs.kpt_comm)
+        #    loc_contour = gather_ndarray_dict(my_loc_contour, tp.wfs.kd.comm)
         #else:
         #    loc_contour = None
         contour = {'eq': my_eq_contour, 'ne': my_ne_contour, 'loc': my_loc_contour}

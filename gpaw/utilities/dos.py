@@ -122,7 +122,7 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
     projector function.
     """
     wfs = paw.wfs
-    w_k = wfs.weight_k
+    w_k = wfs.kd.weight_k
     nk = len(w_k)
     nb = wfs.bd.nbands
 
@@ -176,7 +176,7 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
        molecule can be obtained with lc=[[0,0,0,1.0],[0,0,0,-1.0]]. mol
        should be a list of atom numbers contributing to the molecule."""
 
-    w_k = paw.wfs.weight_k
+    w_k = paw.wfs.kd.weight_k
     nk = len(w_k)
     nb = paw.wfs.bd.nbands
     
@@ -270,7 +270,7 @@ def raw_wignerseitz_LDOS(paw, a, spin):
     gd = wfs.gd
     atom_index = wignerseitz(gd, paw.atoms)
 
-    w_k = wfs.weight_k
+    w_k = wfs.kd.weight_k
     nk = len(w_k)
     nb = wfs.bd.nbands
 
@@ -307,7 +307,7 @@ class RawLDOS:
     def get(self, atom):
         """Return the s,p,d weights for each state"""
         wfs = self.paw.wfs
-        nibzkpts = len(wfs.ibzk_kc)
+        nibzkpts = len(wfs.kd.ibzk_kc)
         spd = np.zeros((wfs.nspins, nibzkpts, wfs.bd.nbands, 3))
 
         if hasattr(atom, '__iter__'):
@@ -324,7 +324,7 @@ class RawLDOS:
                     spd[kpt.s, kpt.k, :, l_i[i]] += np.abs(P_n)**2
 
         wfs.gd.comm.sum(spd)
-        wfs.kpt_comm.sum(spd)
+        wfs.kd.comm.sum(spd)
         return spd
 
     def by_element(self):
@@ -386,13 +386,13 @@ class RawLDOS:
             string += ' sum'
             print >> f, fmf.data(data),
             print >> f, string
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 for s in range(wfs.nspins):
                     e_n = self.paw.get_eigenvalues(kpt=k, spin=s)
                     f_n = self.paw.get_occupation_numbers(kpt=k, spin=s)
                     if e_n is None:
                         continue
-                    w = wfs.weight_k[k]
+                    w = wfs.kd.weight_k[k]
                     for n in range(wfs.bd.nbands):
                         sum = 0.0
                         print >> f, '%10.5f %6.4f %2d %5d' % (e_n[n], f_n[n], 
@@ -423,7 +423,7 @@ class RawLDOS:
             # minimal and maximal energies
             emin = 1.e32
             emax = -1.e32
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 for s in range(wfs.nspins):
                     e_n = self.paw.get_eigenvalues(kpt=k, spin=s,
                                                    broadcast=True)
@@ -479,7 +479,7 @@ class RawLDOS:
                     val = {}
                     for key in ldbe:
                         val[key] = np.zeros((3))
-                    for k in range(wfs.nibzkpts):
+                    for k in range(wfs.kd.nibzkpts):
                         w = wfs.kpt_u[k].weight
                         e_n = self.paw.get_eigenvalues(kpt=k, spin=s,
                                                        broadcast=True)

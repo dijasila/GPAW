@@ -148,7 +148,7 @@ class G0W0(PairDensity):
         assert self.calc.wfs.nspins == 1
         
     @timer('G0W0')
-    def calculate(self):
+    def calculate(self, ecuts=None):
         """Starts the G0W0 calculation. Returns a dict with the results with
         the following key/value pairs:
 

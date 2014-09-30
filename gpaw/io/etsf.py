@@ -35,10 +35,10 @@ class ETSFWriter:
         atoms = calc.atoms
         natoms = len(atoms)
         
-        if wfs.symmetry is None:
+        if wfs.kd.symmetry is None:
             op_scc = np.eye(3, dtype=int).reshape((1, 3, 3))
         else:
-            op_scc = wfs.symmetry.op_scc
+            op_scc = wfs.kd.symmetry.op_scc
 
         specie_a = np.empty(natoms, np.int32)
         nspecies = 0

@@ -211,7 +211,7 @@ class TDDFT(GPAW):
             raise RuntimeError('Time propagator %s not supported.' % propagator)
 
         if self.rank == 0:
-            if wfs.kpt_comm.size > 1:
+            if wfs.kd.comm.size > 1:
                 if wfs.nspins == 2:
                     self.text('Parallelization Over Spin')
 

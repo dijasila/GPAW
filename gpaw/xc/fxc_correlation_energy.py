@@ -53,7 +53,7 @@ class FXCCorrelation:
         self.qsym = qsym
         self.num = num
         self.nspins = calc.wfs.nspins
-        self.bz_k_points = calc.wfs.bzk_kc
+        self.bz_k_points = calc.wfs.kd.bzk_kc
         self.atoms = calc.get_atoms()
         self.setups = calc.wfs.setups
         self.bz_q_points = calc.wfs.kd.get_bz_q_points(first=True)
@@ -337,7 +337,7 @@ class FXCCorrelation:
                                frequency_cut,
                                frequency_scale):
         if kcommsize is None:
-            if len(self.calc.wfs.bzk_kc) == 1:
+            if len(self.calc.wfs.kd.bzk_kc) == 1:
                 kcommsize = 1
             else:
                 kcommsize = world.size
@@ -482,11 +482,11 @@ class FXCCorrelation:
         print >> self.txt, 'Number of Spins                :   %s' \
               % self.nspins
         print >> self.txt, 'Number of k-points             :   %s' \
-              % len(self.calc.wfs.bzk_kc)
+              % len(self.calc.wfs.kd.bzk_kc)
         print >> self.txt, 'Number of q-points             :   %s' \
               % len(self.bz_q_points)
         print >> self.txt, 'Number of Irreducible k-points :   %s' \
-              % len(self.calc.wfs.ibzk_kc)
+              % len(self.calc.wfs.kd.ibzk_kc)
         if self.qsym:
             print >> self.txt, 'Number of Irreducible q-points :   %s' \
                   % len(self.ibz_q_points)

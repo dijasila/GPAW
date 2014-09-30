@@ -118,7 +118,7 @@ class SimpleStm:
 
         Units: [e/A^3]"""
         self.calculate_ldos(bias)
-        self.calc.wfs.kpt_comm.sum(self.ldos)
+        self.calc.wfs.kd.comm.sum(self.ldos)
         ldos = self.gd.collect(self.ldos)
 ##        print "write: integrated =", self.gd.integrate(self.ldos)
         
