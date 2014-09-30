@@ -65,7 +65,7 @@ class ZerothOrder1(State):
             psi_R = AI.average(self.corrt_G)
             v_R =  AI.average(self.vt_G)
             f = open('radial_dR'+str(dR)+'.dat', 'w')
-            print('# R  v(R)    psi(R)', file=f)
+            print("# R  v(R)    psi(R)", file=f)
             for r, psi, v in zip(r_R, psi_R, v_R):
                 print(r, psi, v, file=f)
             f.close()
