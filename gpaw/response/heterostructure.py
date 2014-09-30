@@ -257,7 +257,7 @@ def get_chiM_2D(filenames, filenames_chi, d=5, name=None):
     npw = eps_wGG.shape[1]
     nw = eps_wGG.shape[0]
     q_points_abs = []
-    Gvec = pd.G_Qv[pd.Q_qG[0]]
+    Gvec = pd.get_reciprocal_vectors()
     Glist = []   
     for iG in range(npw): # List of G with Gx,Gy = 0
         if Gvec[iG, 0] == 0 and Gvec[iG, 1] == 0:
