@@ -4,12 +4,11 @@ import ase.units as units
 from gpaw.utilities import unpack
 from gpaw.wavefunctions.pw import PWWaveFunctions
 
-
 def stress(calc):
     wfs = calc.wfs
     dens = calc.density
     ham = calc.hamiltonian
-    
+
     if not isinstance(wfs, PWWaveFunctions):
         raise NotImplementedError('Calculation of stress tensor is only ' +
                                   'implemented for plane-wave mode.')
@@ -27,7 +26,7 @@ def stress(calc):
     pd = dens.pd3
     p_G = 4 * np.pi * dens.rhot_q
     p_G[1:] /= pd.G2_qG[0][1:]**2
-    G_Gv = pd.G_Qv[pd.Q_qG[0]]
+    G_Gv = pd.get_reciprocal_vectors()
     for v1 in range(3):
         s_vv[v1,v1] -= ham.epot
         for v2 in range(3):
