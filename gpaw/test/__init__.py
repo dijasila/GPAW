@@ -285,6 +285,7 @@ tests = [
     'h2o_dks.py',
     'gw_ppa.py',
     'nscfsic.py',
+    'kssingles_Be.py',
     # > 100 sec tests start here (add tests after exx.py!)
     'parallel/diamond_gllb.py',
     'lcao_tdgllbsc.py',
