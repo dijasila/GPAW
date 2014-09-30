@@ -6,6 +6,7 @@ from gpaw.utilities import pack
 from gpaw.utilities.tools import pick
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
+
 # XXX Document what is the difference between PairDensity2 and 1.
 class PairDensity2:
     def  __init__(self, density, atoms, finegrid):
@@ -14,7 +15,6 @@ class PairDensity2:
 
         self.density = density
         self.finegrid = finegrid
-
 
         if not finegrid:
             density.Ghat = LFC(density.gd,
@@ -57,7 +57,7 @@ class PairDensity2:
             D_ii = np.outer(P1_i.conj(), P2_i)
             # allowed to pack as used in the scalar product with
             # the symmetric array Delta_pL
-            D_p  = pack(D_ii, tolerance=1e30)
+            D_p = pack(D_ii, tolerance=1e30)
             
             # Determine compensation charge coefficients:
             Q_aL[a] = np.dot(D_p, self.density.setups[a].Delta_pL)
@@ -67,6 +67,7 @@ class PairDensity2:
             self.density.ghat.add(rhot_g, Q_aL)
         else:
             self.density.Ghat.add(rhot_g, Q_aL)
+
 
 class PairDensity:
     def  __init__(self, paw):
@@ -85,32 +86,29 @@ class PairDensity:
         if self.lcao:
             assert paw.wfs.dtype == float
             self.wfs = paw.wfs
-
         
     def initialize(self, kpt, i, j):
         """initialize yourself with the wavefunctions"""
         self.i = i
         self.j = j
+        
         if kpt is not None:
             self.spin = kpt.s
             self.k = kpt.k
             self.weight = kpt.weight
             self.P_ani = kpt.P_ani
-            self.wfi = kpt.psit_nG[i]
-            self.wfj = kpt.psit_nG[j]
-
-        if self.lcao:
-            self.q = kpt.q
-            self.wfi_M = kpt.C_nM[i]
-            self.wfj_M = kpt.C_nM[j]
-        else:
-            self.wfi = kpt.psit_nG[i]
-            self.wfj = kpt.psit_nG[j]
+            if self.lcao:
+                self.q = kpt.q
+                self.wfi_M = kpt.C_nM[i]
+                self.wfj_M = kpt.C_nM[j]
+            else:
+                self.wfi = kpt.psit_nG[i]
+                self.wfj = kpt.psit_nG[j]
 
     def get_lcao(self, finegrid=False):
         """Get pair density"""
         # Expand the pair density as density matrix
-        rho_MM = (0.5 * np.outer(self.wfi_M, self.wfj_M) + 
+        rho_MM = (0.5 * np.outer(self.wfi_M, self.wfj_M) +
                   0.5 * np.outer(self.wfj_M, self.wfi_M))
 
         rho_G = self.density.gd.zeros()
@@ -131,10 +129,9 @@ class PairDensity:
         if self.lcao:
             return self.get_lcao(finegrid)
 
-
         nijt_G = self.wfi.conj() * self.wfj
         if not finegrid:
-            return nijt_G 
+            return nijt_G
 
         # interpolate the pair density to the fine grid
         nijt_g = self.density.finegd.empty(dtype=nijt_G.dtype)
@@ -155,7 +152,7 @@ class PairDensity:
             D_ii = np.outer(Pi_i, Pj_i)
             # allowed to pack as used in the scalar product with
             # the symmetric array Delta_pL
-            D_p  = pack(D_ii)
+            D_p = pack(D_ii)
             
             # Determine compensation charge coefficients:
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
