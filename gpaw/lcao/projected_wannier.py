@@ -96,7 +96,7 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
     tci = TwoCenterIntegrals(calc.wfs.gd.cell_cv,
                              calc.wfs.gd.pbc_c,
                              calc.wfs.setups,
-                             calc.wfs.ibzk_qc,
+                             calc.wfs.kd.ibzk_qc,
                              calc.wfs.kd.gamma)
 
     # Calculate projector overlaps, and (lower triangle of-) S and T matrices
