@@ -81,7 +81,7 @@ class TDDFT(GPAW):
         """Create TDDFT-object.
         
         Parameters:
-        -----------
+
         filename: string
             File containing ground state or time-dependent state to propagate
         td_potential: class, optional
@@ -283,8 +283,8 @@ class TDDFT(GPAW):
                   restart_file=None, dump_interval=100):
         """Propagates wavefunctions.
         
-        Parameters
-        ----------
+        Parameters:
+
         time_step: float
             Time step in attoseconds (10^-18 s), e.g., 4.0 or 8.0
         iterations: integer
@@ -476,8 +476,8 @@ class TDDFT(GPAW):
     def absorption_kick(self, kick_strength):
         """Delta absorption kick for photoabsorption spectrum.
 
-        Parameters
-        ----------
+        Parameters:
+
         kick_strength: [float, float, float]
             Strength of the kick, e.g., [0.0, 0.0, 1e-3]
         
@@ -508,8 +508,8 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
     """Calculates photoabsorption spectrum from the time-dependent
     dipole moment.
     
-    Parameters
-    ----------
+    Parameters:
+
     dipole_moment_file: string
         Name of the time-dependent dipole moment file from which
         the specturm is calculated
