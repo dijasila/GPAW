@@ -1,7 +1,6 @@
 def agts(queue):
     queue.add('water/h2o.py', ncpus=1)
     queue.add('wavefunctions/CO.py', ncpus=8)
-    queue.add('wavefunctions/CO.py', ncpus=8)
     queue.add('aluminium/Al_fcc.py', ncpus=2)
     queue.add('aluminium/Al_bcc.py', ncpus=2)
     queue.add('aluminium/Al_fcc_vs_bcc.py', ncpus=2)
