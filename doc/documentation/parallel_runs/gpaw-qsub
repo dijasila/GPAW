@@ -7,19 +7,21 @@ import optparse
 import subprocess
 
 
-parser = optparse.OptionParser()
+parser = optparse.OptionParser(
+    usage='Usage: %prog [options] <script> [options]')
 add = parser.add_option
 
 qsub_options = [('l', 'resource-list', 'nodes=1:ppn=1:opteron4'),
                 ('q', 'queue', 'long')]
 
 for short, long, default in qsub_options:
-    add('-' + short, '--' + long, default=default)
+    add('-' + short, '--' + long, default=default,
+        help='Default value is "{0}".'.format(default))
     
 add('-x', '--export', help='Environment variables to export.')
 add('-g', '--gpaw', help='Path to GPAW.')
 add('--module', help='Run library module as a script (terminates option list)')
-add('--cores', type=int)
+add('--cores', type=int, help='Number of cores.')
 add('-n', '--threads', type=int, default=1)
 
 args = sys.argv[1:]
