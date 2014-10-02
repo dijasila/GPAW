@@ -9,13 +9,13 @@
 
 #compiler = 'mpcc'
 #libraries = []
-#libraries += []
+#libraries += ['xc']
 
 #library_dirs = []
-#library_dirs += []
+library_dirs += ['/home/mw/phys/dft/libxc/libxc-2.0.1/install/lib']
 
 #include_dirs = []
-#include_dirs += []
+include_dirs += ['/home/mw/phys/dft/libxc/libxc-2.0.1/install/include']
 
 #extra_link_args = []
 #extra_link_args += []

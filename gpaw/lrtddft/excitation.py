@@ -37,7 +37,8 @@ class ExcitationList(list):
         """Evaluate the Thomas Reiche Kuhn sum rule"""
         trkm = np.zeros((3))
         for ex in self:
-            trkm += ex.get_energy() * ex.get_dipol_me()**2
+            me = ex.get_dipole_me()
+            trkm += ex.get_energy() * (me.real**2 + me.imag**2)
         return 2. * trkm # scale to get the number of electrons XXX spinpol ?
     
     def get_polarizabilities(self, lmax=7):
@@ -54,13 +55,38 @@ class ExcitationList(list):
     def set_calculator(self, calculator):
         self.calculator = calculator
 
+    def __div__(self, x):
+        return self.__mul__(1. / x)
+
+    def __rmul__(self, x):
+        return self.__mul__(x)
+
+    def __mul__(self, x):
+        """Multiply with a number"""
+        if type(x) == type(0.) or type(x) == type(0):
+            result = self.__class__()
+            result.dtype = self.dtype
+            for kss in self:
+                result.append(x * kss)
+            return result
+        else:
+            return RuntimeError('not a number')
+  
+    def __sub__(self, other):
+        result = self.__class__()
+        result.dtype = self.dtype
+        assert(len(self) == len(other))
+        for kss, ksso in zip(self, other):
+            result.append(kss - ksso)
+        return result
+
     def __str__(self):
         string = '# ' + str(type(self))
         if len(self) != 0:
             string += ', %d excitations:' % len(self)
         string += '\n'
         for ex in self:
-            string += '#  '+ex.__str__()+"\n"
+            string += '#  '+ ex.__str__() + '\n'
         return string
         
     def get_alpha(self, omega):
@@ -78,10 +104,17 @@ class Excitation:
         """
         return self.energy
     
-    def get_dipol_me(self):
+    def get_dipole_me(self, form='r'):
         """return the excitations dipole matrix element
-        including the occupation factor"""
-        return self.me / sqrt(self.energy)
+        including the occupation factor sqrt(fij)"""
+        if form == 'r':
+            # length form
+            return self.me / sqrt(self.energy)
+        elif form == 'v':
+            # velocity form
+            return - np.sqrt(self.fij) * self.muv
+        else:
+            raise RuntimeError('Unknown form >' + form + '<')
     
     def get_oscillator_strength(self, form='r'):
         """Return the excitations dipole oscillator strength.
@@ -104,13 +137,13 @@ class Excitation:
             me = self.me
         elif form == 'v':
             # velocity form
-            me = self.muv * np.sqrt(self.energy)
+            me = self.muv * np.sqrt(self.fij * self.energy)
         else:
             raise RuntimeError('Unknown form >' + form + '<')
 
         osz = [0.]
         for c in range(3):
-            val = 2. * me[c]**2
+            val = 2. * (me[c].real**2 + me[c].imag**2)
             osz.append(val)
             osz[0] += val / 3.
         

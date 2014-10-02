@@ -1,5 +1,7 @@
 from __future__ import print_function
 from ase import Atom, Atoms
+from ase.parallel import parprint
+
 from gpaw.test import equal
 from gpaw import GPAW, mpi
 from gpaw.lrtddft import LrTDDFT
@@ -40,12 +42,12 @@ lr.diagonalize()
 
 lr_ApmB = LrTDDFT(calc, xc=xc, force_ApmB=True)
 lr_ApmB.diagonalize()
-print('lr=', lr)
-print('ApmB=', lr_ApmB)
+parprint('lr=', lr)
+parprint('ApmB=', lr_ApmB)
 equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-10)
 
 # with spin
-print('------ with spin')
+parprint('------ with spin')
 
 if not load:
     c_spin = GPAW(xc='PBE', nbands=2, 
@@ -61,13 +63,13 @@ lr.diagonalize()
 
 lr_ApmB = LrTDDFT(c_spin, xc=xc, force_ApmB=True)
 lr_ApmB.diagonalize()
-print('lr=', lr)
-print('ApmB=', lr_ApmB)
+parprint('lr=', lr)
+parprint('ApmB=', lr_ApmB)
 equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-10)
 equal(lr[1].get_energy(), lr_ApmB[1].get_energy(), 5.e-10)
 
 # with spin virtual
-print('------ with virtual spin')
+parprint('------ with virtual spin')
 
 lr = LrTDDFT(calc, xc=xc, nspins=2)
 lr.diagonalize()
@@ -75,8 +77,8 @@ lr.diagonalize()
 # ApmB
 lr_ApmB = LrTDDFT(calc, xc=xc, nspins=2)
 lr_ApmB.diagonalize()
-print('lr=', lr)
-print('ApmB=', lr_ApmB)
+parprint('lr=', lr)
+parprint('ApmB=', lr_ApmB)
 equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-10)
 equal(lr[1].get_energy(), lr_ApmB[1].get_energy(), 5.e-10)
     
@@ -85,14 +87,14 @@ equal(lr[1].get_energy(), lr_ApmB[1].get_energy(), 5.e-10)
 
 xc='PBE0'
 
-print('------ with spin xc=', xc)
+parprint('------ with spin xc=', xc)
 lr_spin = LrTDDFT(c_spin, xc=xc)
 lr_spin.diagonalize()
-print('lr=', lr_spin)
+parprint('lr=', lr_spin)
 
-print('------ with virtual spin xc=', xc)
+parprint('------ with virtual spin xc=', xc)
 lr = LrTDDFT(calc, xc=xc, nspins=2)
 lr.diagonalize()
-print('lr=', lr)
+parprint('lr=', lr)
 equal(lr[0].get_energy(), lr_spin[0].get_energy(), 3.8e-6)
 equal(lr[1].get_energy(), lr_spin[1].get_energy(), 3.4e-6)

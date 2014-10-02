@@ -35,6 +35,11 @@ if not io_only:
     ex = ExcitedState(lr, 0)
     den = ex.get_pseudo_density() * Bohr**3
 
+    # velocity from
+    for ozr, ozv in zip(t1.get_oscillator_strength(),
+                        t1.get_oscillator_strength('v')):
+        equal(ozr, ozv, 0.1)
+
     # course grids
     for finegrid in [1,0]:
         lr = LrTDDFT(calc, xc=xc, finegrid=finegrid)

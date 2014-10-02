@@ -88,7 +88,6 @@ def construct_reciprocal(gd, q_c=None):
 
     return k2_Q, N3
 
-
 def coordinates(gd, origin=None, tiny=1e-12):
     """Constructs and returns matrices containing cartesian coordinates,
        and the square of the distance from the origin.
@@ -100,32 +99,15 @@ def coordinates(gd, origin=None, tiny=1e-12):
     
     if origin is None:
         origin = 0.5 * gd.cell_cv.sum(0)
-
     r0_v = np.array(origin)
 
-    r_vG = (gd.get_grid_point_coordinates() -
-            r0_v[:, np.newaxis, np.newaxis, np.newaxis])
-
-    # periodic boundary conditions, orthorhombic cell only
-    for c in range(3):
-        if gd.pbc_c[c]:
-            # Assert that cell is really orthorhombic
-            assert gd.cell_cv[c][c-1] == 0.0
-            assert gd.cell_cv[c][c-2] == 0.0
-            r_vG[c,:,:,:] = np.where(r_vG[c,:,:,:] > 0.5 * gd.cell_cv[c,c],
-                                     r_vG[c,:,:,:] - gd.cell_cv[c,c],
-                                     r_vG[c,:,:,:])
-            r_vG[c,:,:,:] = np.where(r_vG[c,:,:,:] < -0.5 * gd.cell_cv[c,c],
-                                     r_vG[c,:,:,:] + gd.cell_cv[c,c],
-                                     r_vG[c,:,:,:])
-
+    r_vG = gd.get_grid_point_distance_vectors(r0_v)
     r2_G = np.sum(r_vG**2, axis=0)
     # Remove singularity at origin and replace with small number
     r2_G = np.where(r2_G < tiny, tiny, r2_G)
 
     # Return r^2 matrix
     return r_vG, r2_G
-
 
 def pick(a_ix, i):
     """Take integer index of a, or a linear combination of the elements of a"""
