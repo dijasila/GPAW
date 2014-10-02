@@ -134,7 +134,7 @@ class KSSingles(ExcitationList):
                 ispins = [0, 1]
                 nks = 2 * wfs.kd.nks
                 
-        kpt_comm = self.calculator.wfs.kpt_comm
+        kpt_comm = self.calculator.wfs.kd.comm
         nbands = len(self.kpt_u[0].f_n)
 
         # select
@@ -333,7 +333,7 @@ class KSSingle(Excitation, PairDensity):
         self.muv = np.zeros((3), dtype=dtype)
         self.magn = np.zeros((3), dtype=dtype)
 
-        self.kpt_comm = paw.wfs.kpt_comm
+        self.kpt_comm = paw.wfs.kd.comm
 
         # leave empty if not my kpt
         if kpt is None:
