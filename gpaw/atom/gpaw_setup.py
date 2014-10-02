@@ -1,3 +1,4 @@
+from __future__ import print_function
 from optparse import OptionParser
 
 def build_parser():
@@ -105,7 +106,7 @@ def main():
             try:
                 a.run()
             except ConvergenceError:
-                print >> sys.stderr, bad_density_warning
+                print(bad_density_warning, file=sys.stderr)
             continue
 
         g = Generator(symbol, opt.xcfunctional, scalarrel, corehole,
@@ -150,11 +151,11 @@ def main():
                   use_restart_file=opt.use_restart_file,
                   **p)
         except ConvergenceError:
-            print >> sys.stderr, bad_density_warning
+            print(bad_density_warning, file=sys.stderr)
         except RuntimeError, m:
             if len(m.__str__()) == 0:
                 raise
-            print m
+            print(m)
 
         if opt.plot:
             from gpaw.atom.analyse_setup import analyse

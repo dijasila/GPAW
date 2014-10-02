@@ -197,7 +197,7 @@ Result
 
 The figure shown here is generated from script : 
 :download:`silicon_ABS.py` and :download:`plot_ABS.py`.
-XXX Not anymore. It takes 40 minutes with 16 cpus on Intel Xeon X5570 2.93GHz. 
+It takes 30 minutes with 16 cpus on Intel Xeon X5570 2.93GHz. 
 
 .. image:: silicon_ABS.png
     :height: 300 px
@@ -283,48 +283,30 @@ The figure shown here is generated from script: :download:`graphite_EELS.py` and
 One can compare the results with literature  \ [#Rubio]_.
 
 
-Parallelization scheme
+Technical details: 
 ======================
+There are few points about the implementation that we emphasize:
 
-XXX Rewrite. Three parallelization schemes over kpoints, spectral_function
-and frequency  are used in the response function calculation.
+* The code is parallelized over kpoints and occupied bands. The 
+  parallelization over occupied bands makes it straight-forward to utilize 
+  efficient BLAS libraries to sum un-occupied bands.
 
-Define the parsize for these three schemes as k-parsize, s-parsize and
-w-parsize and the total number of cpus as world-size. They satisfy such
-relations::
+* The code employs the Hilbert transform in which the spectral function 
+  for the density-density response function is calculated before calculating 
+  the the full density response. This speeds up the code significantly for 
+  calculations with a lot of frequencies.
 
-    world-size = k-parsize * s-parsize 
-    world-size = w-parsize (if number of w >= world_size)
-
-The parallelization over kpoints and frequency are highly efficient (close to
-100% efficiency),  while the parallelization over spectral function need more
-communications. By default,  only the first two parallelization schemes are
-used.
-
-But in case of large planewave energy cutoff, the spectral function is too
-large to be stored on  a single cpu, the parallelization over spectral
-function will be initialized automatically.
-
-There is an input parameter ``kcommsize``, but it's better NOT to specify it
-and let the  system decides the best option.
-
-You can also view the parallelization scheme in the output file. 
+* The non-linear frequency grid employed in the calculations is motivated 
+  by the fact that when using the Hilbert transform the real part of the 
+  dielectric function converges slowly with the upper bound of the frequency 
+  grid. Refer to :ref:`df_theory` for the details on the Hilbert transform.
 
 
 Useful tips
 ===========
-
 Use dry_run option to get an overview of a calculation (especially useful for heavy calculations!):: 
        
     python filename.py --gpaw=df_dry_run=8
-
-If you are only interested in the low energy excitations (Ex: around the bandgap of a semiconductor), 
-use LCAO mode can make the ground state calculation much faster without losing accuracy in the spectrum::
-
-    calc = GPAW(...
-                mode='lcao',
-                basis='dzp'
-                ...)
 
 .. Note ::
 

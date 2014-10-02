@@ -35,7 +35,7 @@ def get_KohnSham_layouts(sl, mode, gd, bd, block_comm, dtype, **kwargs):
            'OrbitalLayouts':      OrbitalLayouts,
             }[name](*args, **kwargs)
     if 0: #XXX debug
-        print('USING KSL: %s' % repr(ksl))
+        print(('USING KSL: %s' % repr(ksl)))
     assert isinstance(ksl, KohnShamLayouts)
     assert isinstance(ksl, BlacsLayouts) == (sl is not None)
     return ksl

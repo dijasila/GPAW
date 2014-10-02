@@ -262,7 +262,7 @@ if __name__ == '__main__':
 
     # Test orthogonality of the associated Legendre polynomials
     if world.rank == 0:
-        print '\n%s\nAssociated Legendre orthogonality\n%s' % ('-'*40,'-'*40)
+        print('\n%s\nAssociated Legendre orthogonality\n%s' % ('-'*40,'-'*40))
     for l1,m1 in lmiter(lmax, False, comm=world):
         p1 = legendre(l1, m1, w)
         for l2,m2 in lmiter(lmax, False):
@@ -271,10 +271,10 @@ if __name__ == '__main__':
             v = np.dot(p1,p2)*dw / scale
             if (l1,m1) == (l2,m2):
                 v0 = ilegendre(l1,m1) / scale
-                print 'l1=%2d, m1=%2d, l2=%2d, m2=%2d, v=%12.9f, err=%12.9f' % (l1,m1,l2,m2,v,abs(v-v0))
+                print('l1=%2d, m1=%2d, l2=%2d, m2=%2d, v=%12.9f, err=%12.9f' % (l1,m1,l2,m2,v,abs(v-v0)))
                 equal(v, v0, tol, 'l1=%2d, m1=%2d, l2=%2d, m=%2d: ' % (l1,m1,l2,m2))
             elif m1 == m2:
-                print 'l1=%2d, m1=%2d, l2=%2d, m2=%2d, v=%12.9f, err=%12.9f' % (l1,m1,l2,m2,v,abs(v))
+                print('l1=%2d, m1=%2d, l2=%2d, m2=%2d, v=%12.9f, err=%12.9f' % (l1,m1,l2,m2,v,abs(v)))
                 equal(v, 0, tol, 'l1=%2d, m1=%2d, l2=%2d, m=%2d: ' % (l1,m1,l2,m2))
     del nw, dw, w, tol, p1, p2, v, v0
     world.barrier()
@@ -288,14 +288,14 @@ if __name__ == '__main__':
 
     # Test theta-derivative of the associated Legendre polynomials
     if world.rank == 0:
-        print '\n%s\nAssociated Legendre theta-derivative\n%s' % ('-'*40,'-'*40)
+        print('\n%s\nAssociated Legendre theta-derivative\n%s' % ('-'*40,'-'*40))
     for l,m in lmiter(lmax, False, comm=world):
         scale = l**(-abs(m))*lmfact(l,abs(m)) # scale to fit ~ [-1; 1]
         p = legendre(l, m, w) / scale
         dpdtheta = -(1-w[1:-1]**2)**0.5*(p[2:]-p[:-2])/(2.0*dw)
         dpdtheta0 = dlegendre(l, m, w[1:-1]) / scale
         e = np.sum((dpdtheta-dpdtheta0)**2)**0.5/(nw-2.0)**0.5
-        print 'l=%2d, m=%2d, err=%12.9f, max=%12.9f' % (l,m,e,np.abs(dpdtheta-dpdtheta0).max())
+        print('l=%2d, m=%2d, err=%12.9f, max=%12.9f' % (l,m,e,np.abs(dpdtheta-dpdtheta0).max()))
         #if e > tol:
         #    import pylab as pl
         #    w, p = w[1:-1], p[1:-1]
@@ -356,7 +356,7 @@ if __name__ == '__main__':
 
     # Test truncated multi-pole expansion using Legendre polynomials
     if world.rank == 0:
-        print '\n%s\nLegendre multi-pole expansion\n%s' % ('-'*40,'-'*40)
+        print('\n%s\nLegendre multi-pole expansion\n%s' % ('-'*40,'-'*40))
     for l in range(lmax+1):
         f_g += 1/r_g * (rm_g/r_g)**l * legendre(l, 0, w_g)
 

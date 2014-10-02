@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 from ase import Atom, Atoms
 from gpaw import GPAW, PoissonSolver
@@ -39,7 +40,7 @@ for xc in [XC('PBE'),
         E += calc.get_reference_energy()
     bands = calc.get_eigenvalues()[:2] # not 3 as unocc. eig are random!? XXX
     res = (E,) + tuple(bands)
-    print xc.name, res
+    print(xc.name, res)
 
     if xc.name in current:
         for first, second in zip(current[xc.name], res):
@@ -49,5 +50,5 @@ for xc in [XC('PBE'),
 
 for name in current:
     for ref, cur in zip(ref_1871[name], current[name]):
-        print ref, cur, ref-cur
+        print(ref, cur, ref-cur)
         equal(ref, cur, 2.5e-3)

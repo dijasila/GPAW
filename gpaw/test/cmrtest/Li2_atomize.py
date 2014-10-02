@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 
 from ase.structure import molecule
@@ -165,7 +166,7 @@ if analyse_from_dir:
     all = reader.find(name_value_list=[('U_mode', 'lcao'), ('U_xc', 'LDA')],
                       keyword_list=[project_id])
     if rank == 0:
-        print 'results from cmr files in the local directory'
+        print('results from cmr files in the local directory')
     # print requested results
     # column_length=0 aligns data in the table (-1 : data unaligned is default)
     all.print_table(column_length=0,
@@ -188,8 +189,8 @@ if analyse_from_dir:
         # calculate atomization energies (ea)
         ea_LDA = 2 * r1['U_potential_energy'] - r2['U_potential_energy']
         ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
-        print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
-        print 'atomization energy [eV] PBE = ' + str(ea_PBE)
+        print('atomization energy [eV] ' + xc + ' = ' + str(ea_LDA))
+        print('atomization energy [eV] PBE = ' + str(ea_PBE))
 
         if create_group:
             # ea_LDA and ea_PBE define a group
@@ -209,7 +210,7 @@ if analyse_from_dir:
         all = reader.find(keyword_list=[project_id])
         
         if rank == 0:
-            print 'contents of the cmr files present in the local directory'
+            print('contents of the cmr files present in the local directory')
         # print requested results
         # column_length=0 aligns data in the table (-1 : data unaligned is default)
         all.print_table(column_length=0,
@@ -238,7 +239,7 @@ if analyse_from_db:
                       keyword_list=[project_id])
     
     if rank == 0:
-        print 'results from the database'
+        print('results from the database')
     # print requested results
     # column_length=0 aligns data in the table (-1 : data unaligned is default)
     all.print_table(column_length=0,
@@ -257,14 +258,14 @@ if analyse_from_db:
 
     # check if results were successfully retrieved, otherwise we have to wait
     if r1 is None or r2 is None:
-        print "Results are not yet in the database. Wait, and try again."
+        print("Results are not yet in the database. Wait, and try again.")
     else:
         # calculate atomization energies (ea)
         ea_LDA = 2 * r1['U_potential_energy'] - r2['U_potential_energy']
         ea_PBE = 2 * r1['U_potential_energy_PBE'] - r2['U_potential_energy_PBE']
         if rank == 0:
-            print 'atomization energy [eV] ' + xc + ' = ' + str(ea_LDA)
-            print 'atomization energy [eV] PBE = ' + str(ea_PBE)
+            print('atomization energy [eV] ' + xc + ' = ' + str(ea_LDA))
+            print('atomization energy [eV] PBE = ' + str(ea_PBE))
 
         if create_group:
             # ea_LDA and ea_PBE define a group
@@ -285,7 +286,7 @@ if analyse_from_db:
         all = reader.find(keyword_list=[project_id])
         
         if rank == 0:
-            print 'contents of the database'
+            print('contents of the database')
         # print requested results
         # column_length=0 aligns data in the table (-1 : data unaligned is default)
         all.print_table(column_length=0,

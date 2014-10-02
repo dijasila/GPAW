@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from math import sqrt
 import numpy as np
@@ -205,9 +206,9 @@ class OmegaMatrix:
 
         ns=self.numscale
         xc=self.xc
-        print >> self.txt, 'XC',nij,'transitions'
+        print('XC',nij,'transitions', file=self.txt)
         for ij in range(eh_comm.rank, nij, eh_comm.size):
-            print >> self.txt,'XC kss['+'%d'%ij+']' 
+            print('XC kss['+'%d'%ij+']', file=self.txt) 
 
             timer = Timer()
             timer.start('init')
@@ -370,8 +371,8 @@ class OmegaMatrix:
             timer.stop()
 ##            timer2.write()
             if ij < (nij-1):
-                print >> self.txt,'XC estimated time left',\
-                    self.time_left(timer, t0, ij, nij)
+                print('XC estimated time left',\
+                    self.time_left(timer, t0, ij, nij), file=self.txt)
 
 
     def Coulomb_integral_kss(self, kss_ij, kss_kq, phit, rhot, 
@@ -422,12 +423,12 @@ class OmegaMatrix:
         
         # calculate omega matrix
         nij = len(kss)
-        print >> self.txt,'RPA',nij,'transitions'
+        print('RPA',nij,'transitions', file=self.txt)
         
         Om = self.Om
         
         for ij in range(eh_comm.rank, nij, eh_comm.size):
-            print >> self.txt,'RPA kss['+'%d'%ij+']=', kss[ij]
+            print('RPA kss['+'%d'%ij+']=', kss[ij], file=self.txt)
 
             timer = Timer()
             timer.start('init')
@@ -482,8 +483,8 @@ class OmegaMatrix:
             if ij < (nij-1):
                 t = timer.get_time(ij) # time for nij-ij calculations
                 t = .5*t*(nij-ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
-                print >> self.txt,'RPA estimated time left',\
-                      self.timestring(t0*(nij-ij-1)+t)
+                print('RPA estimated time left',\
+                      self.timestring(t0*(nij-ij-1)+t), file=self.txt)
 
     def singlets_triplets(self):
         """Split yourself into singlet and triplet transitions"""
@@ -548,8 +549,8 @@ class OmegaMatrix:
             return None, self.fullkss
 
         # reduce the matrix
-        print >> self.txt,'# diagonalize: %d transitions original'\
-                  % len(self.fullkss)
+        print('# diagonalize: %d transitions original'\
+                  % len(self.fullkss), file=self.txt)
 
         if energy_range is None:
             if istart is None: istart = self.kss.istart
@@ -582,7 +583,7 @@ class OmegaMatrix:
                     kss.append(k)
                     map.append(ij)
         kss.update()
-        print >> self.txt, '# diagonalize: %d transitions now' % len(kss)
+        print('# diagonalize: %d transitions now' % len(kss), file=self.txt)
             
         return map, kss
 

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import gc
 import platform
@@ -8,7 +9,6 @@ import warnings
 from optparse import OptionParser
 
 import gpaw.mpi as mpi
-from gpaw.hooks import hooks
 from gpaw import debug
 from gpaw.version import version
 
@@ -106,8 +106,6 @@ def run():
                 'tasks instead.'
             warnings.warn(message, RuntimeWarning)
 
-    old_hooks = hooks.copy()
-    hooks.clear()
     if mpi.rank == 0:
         if opt.directory is None:
             tmpdir = tempfile.mkdtemp(prefix='gpaw-test-')
@@ -138,7 +136,6 @@ def run():
             open('failed-tests.txt', 'w').write('\n'.join(failed) + '\n')
         elif not opt.keep_tmpdir:
             os.system('rm -rf ' + tmpdir)
-    hooks.update(old_hooks.items())
     return len(failed)
 
 if __name__ == '__main__':

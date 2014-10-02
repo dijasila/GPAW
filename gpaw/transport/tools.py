@@ -57,7 +57,7 @@ def get_tri_type(mat):
     elif diff < 0:
         ans = 'U'
     if abs(diff) < tol:
-        print 'Warning: can not define the triangular matrix'
+        print('Warning: can not define the triangular matrix')
     return ans
     
 def tri2full(M,UL='L'):
@@ -273,9 +273,9 @@ def plot_diag(mtx, ind=1):
     import pylab
     dim = mtx.shape
     if len(dim) != 2:
-        print 'Warning! check the dimenstion of the matrix'
+        print('Warning! check the dimenstion of the matrix')
     if dim[0] != dim[1]:
-        print 'Warinng! check if the matrix is square'
+        print('Warinng! check if the matrix is square')
     diag_element = np.diag(mtx)
     y_data = pick(diag_element, ind)
     x_data = range(len(y_data))
@@ -364,8 +364,8 @@ def get_pk_hsd(d, ntk, kpts, hl_skmm, sl_kmm, dl_skmm, txt=None,
             txt('Warning*: the principle layer should be larger, \
                                                       matmax=%f' % matmax)
         else:
-            print 'Warning*: the principle layer should be larger, \
-                                                      matmax=%f' % matmax
+            print('Warning*: the principle layer should be larger, \
+                                                      matmax=%f' % matmax)
     if dtype == float:
         hl_spkmm = np.real(hl_spkmm).copy()
         sl_pkmm = np.real(sl_pkmm).copy()
@@ -378,7 +378,7 @@ def get_pk_hsd(d, ntk, kpts, hl_skmm, sl_kmm, dl_skmm, txt=None,
    
 def get_lcao_density_matrix(calc):
     wfs = calc.wfs
-    kpts = wfs.ibzk_qc
+    kpts = wfs.kd.ibzk_qc
     nq = len(kpts)
     my_ns = len(wfs.kpt_u) // nq
     nao = wfs.setups.nao
@@ -437,11 +437,11 @@ def generate_selfenergy_database(atoms, ntk, filename, direction=0, kt=0.1,
     wfs = atoms.calc.wfs
     hl_spkmm, sl_pkmm, dl_spkmm,  \
     hl_spkcmm, sl_pkcmm, dl_spkcmm = get_pk_hsd(2, ntk,
-                                                wfs.ibzk_qc,
+                                                wfs.kd.ibzk_qc,
                                                 hl_skmm, sl_kmm, dl_skmm,
                                                 None, wfs.dtype,
                                                 direction=direction)    
-    my_npk = len(wfs.ibzk_qc) / ntk
+    my_npk = len(wfs.kd.ibzk_qc) / ntk
     my_nspins = len(wfs.kpt_u) / ( my_npk * ntk)
     
     lead_hsd = Banded_Sparse_HSD(wfs.dtype, my_nspins, my_npk)
@@ -478,11 +478,11 @@ def test_selfenergy_interpolation(atoms, ntk, filename, begin, end, base, scale,
     wfs = atoms.calc.wfs
     hl_spkmm, sl_pkmm, dl_spkmm,  \
     hl_spkcmm, sl_pkcmm, dl_spkcmm = get_pk_hsd(2, ntk,
-                                                wfs.ibzk_qc,
+                                                wfs.kd.ibzk_qc,
                                                 hl_skmm, sl_kmm, dl_skmm,
                                                 None, wfs.dtype,
                                                 direction=direction)    
-    my_npk = len(wfs.ibzk_qc) / ntk
+    my_npk = len(wfs.kd.ibzk_qc) / ntk
     my_nspins = len(wfs.kpt_u) / ( my_npk * ntk)
     
     lead_hsd = Banded_Sparse_HSD(wfs.dtype, my_nspins, my_npk)
@@ -527,7 +527,7 @@ def test_selfenergy_interpolation(atoms, ntk, filename, begin, end, base, scale,
     fd.close()
     
     for i,e in enumerate(cmp_ee):
-        print e, np.max(abs(cmp_se[i] - inter_se_linear[i])), 'linear', np.max(abs(cmp_se[i]))
+        print(e, np.max(abs(cmp_se[i] - inter_se_linear[i])), 'linear', np.max(abs(cmp_se[i])))
 
 
 def path_selfenergy(atoms, ntk, filename, begin, end, num= 257, direction=0):
@@ -540,11 +540,11 @@ def path_selfenergy(atoms, ntk, filename, begin, end, num= 257, direction=0):
     wfs = atoms.calc.wfs
     hl_spkmm, sl_pkmm, dl_spkmm,  \
     hl_spkcmm, sl_pkcmm, dl_spkcmm = get_pk_hsd(2, ntk,
-                                                wfs.ibzk_qc,
+                                                wfs.kd.ibzk_qc,
                                                 hl_skmm, sl_kmm, dl_skmm,
                                                 None, wfs.dtype,
                                                 direction=direction)    
-    my_npk = len(wfs.ibzk_qc) / ntk
+    my_npk = len(wfs.kd.ibzk_qc) / ntk
     my_nspins = len(wfs.kpt_u) / ( my_npk * ntk)
     
     lead_hsd = Banded_Sparse_HSD(wfs.dtype, my_nspins, my_npk)
@@ -605,10 +605,10 @@ def fuzzy_sort(seq0, tol=1e-6):
 def cubicing(atoms):
     cell = atoms._cell
     positions = atoms.positions
-    print 'cubicing only ok to [a,0,0][a/2, b, 0],[0,0,c] type '
+    print('cubicing only ok to [a,0,0][a/2, b, 0],[0,0,c] type ')
     tol = 1e-6
     if abs(cell[1,0]*2 - cell[0,0]) < tol:
-        print 'ok, possible to get a cubic structure'
+        print('ok, possible to get a cubic structure')
         natoms = len(positions)
         new_pos = np.empty([natoms * 2, 3])
         for pos, i in zip(positions, range(natoms)):
@@ -907,7 +907,7 @@ def eig_states_norm(orbital, s_mm):
                    np.eye(nstates)) / nstates
   
     if  abs(error) > norm_error:
-        print 'Warning! Normalization error %f' % error
+        print('Warning! Normalization error %f' % error)
     return orbital
 
 def shtm(l):

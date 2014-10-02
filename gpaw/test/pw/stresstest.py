@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 
 from gpaw.grid_descriptor import GridDescriptor
@@ -61,5 +62,5 @@ for dist in [[[x, 0, 0], [0, 0, 0], [0, 0, 0]],
     e2 = pd.integrate(aa_G, b_LG)
     s2 = (e2 - e1) / x
     error = (np.array(s1) * dist).sum(1).sum(1) / x - s2
-    print s2, abs(error).max()
+    print(s2, abs(error).max())
     assert abs(error).max() < 2e-6

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom, Atoms
 from gpaw import GPAW, PoissonSolver
 from gpaw.test import equal
@@ -36,21 +37,21 @@ de2m = calc.get_xc_difference('M06L')
 de2x = calc.get_xc_difference(HybridXC('EXX', finegrid=True))
 de2xb = calc.get_xc_difference(HybridXC('EXX', finegrid=False))
 
-print 'hydrogen atom energy:     %5.2f eV' % e1
-print 'hydrogen molecule energy: %5.2f eV' % e2
-print 'atomization energy:       %5.2f eV' % (2 * e1 - e2)
-print 'atomization energy  TPSS: %5.2f eV' % (2 * (e1 + de1t) - (e2 + de2t))
-print 'atomization energy  M06L: %5.2f eV' % (2 * (e1 + de1m) - (e2 + de2m))
-print 'atomization energy   EXX: %5.2f eV' % (2 * (e1 + de1x) - (e2 + de2x))
-print 'atomization energy   EXX: %5.2f eV' % (2 * (e1 + de1xb) - (e2 + de2xb))
+print('hydrogen atom energy:     %5.2f eV' % e1)
+print('hydrogen molecule energy: %5.2f eV' % e2)
+print('atomization energy:       %5.2f eV' % (2 * e1 - e2))
+print('atomization energy  TPSS: %5.2f eV' % (2 * (e1 + de1t) - (e2 + de2t)))
+print('atomization energy  M06L: %5.2f eV' % (2 * (e1 + de1m) - (e2 + de2m)))
+print('atomization energy   EXX: %5.2f eV' % (2 * (e1 + de1x) - (e2 + de2x)))
+print('atomization energy   EXX: %5.2f eV' % (2 * (e1 + de1xb) - (e2 + de2xb)))
 PBETPSSdifference = (2 * e1 - e2) - (2 * (e1 + de1t) - (e2 + de2t))
 PBEM06Ldifference = (2 * e1 - e2) - (2 * (e1 + de1m) - (e2 + de2m))
 PBEEXXdifference = (2 * e1 - e2) - (2 * (e1 + de1x) - (e2 + de2x))
 PBEEXXbdifference = (2 * e1 - e2) - (2 * (e1 + de1xb) - (e2 + de2xb))
-print PBETPSSdifference
-print PBEM06Ldifference
-print PBEEXXdifference
-print PBEEXXbdifference
+print(PBETPSSdifference)
+print(PBEM06Ldifference)
+print(PBEEXXdifference)
+print(PBEEXXbdifference)
 # TPSS value is from JCP 120 (15) 6898, 2004
 # e.g. Table VII: DE(PBE - TPSS) = (104.6-112.9)*kcal/mol
 # EXX value is from PRL 77, 3865 (1996)

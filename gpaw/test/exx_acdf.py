@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import *
 from ase.dft.kpoints import monkhorst_pack
 from ase.lattice import bulk
@@ -30,6 +31,6 @@ if 0:#size == 1:
     exx = HybridXC('EXX')
     E_q = E + calc.get_xc_difference(exx)
 
-    print E_q, E_k
+    print(E_q, E_k)
     equal(E_q, E_k, 0.001)
 equal(E_k, -15.6, 0.1)

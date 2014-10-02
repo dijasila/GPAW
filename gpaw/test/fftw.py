@@ -1,3 +1,4 @@
+from __future__ import print_function
 import time
 
 import numpy as np
@@ -38,5 +39,5 @@ if __name__ == '__main__':
                             (fftw.FFTWPlan, fftw.PATIENT),
                             (fftw.FFTWPlan, fftw.EXHAUSTIVE)]:
             tplan, tfft = test(Plan, flags, input, output, sign)
-            print('%-12s %3d %10.6f %10.6f' %
-                  (Plan.__name__, flags, tplan, tfft))
+            print(('%-12s %3d %10.6f %10.6f' %
+                  (Plan.__name__, flags, tplan, tfft)))

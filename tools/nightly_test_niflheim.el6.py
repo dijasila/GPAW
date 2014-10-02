@@ -74,7 +74,7 @@ os.system('tar xvzf gpaw-setups-latest.tar.gz')
 setups = tmpdir + '/gpaw/' + glob.glob('gpaw-setups-[0-9]*')[0]
     
 # Run test-suite:
-print 'Run'
+print('Run')
 if os.system('source /home/opt/modulefiles/modulefiles_el6.sh&& ' +
              'export PYTHONDONTWRITEBYTECODE=1&& ' +
              'module load NUMPY/1.7.1-1&& ' +
@@ -111,5 +111,5 @@ else:
     subject = 'GPAW %s: ' % str(version) + subject
     fail(subject, email, 'test.out')
 
-print 'Done'
+print('Done')
 os.system('cd; rm -rf ' + tmpdir)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.grid_descriptor import GridDescriptor
@@ -18,7 +19,7 @@ d_avv = dict([(a, np.zeros((3, 3))) for a in c.my_atom_indices])
 c.second_derivative(psi, d_avv)
 
 if 0 in d_avv:
-    print d_avv[0]
+    print(d_avv[0])
 
 eps = 0.000001
 d_aiv = c.dict(derivative=True)
@@ -35,7 +36,7 @@ for v in range(3):
     if 0 in d_aiv:
         d0_v -= d_aiv[0][0]
         d0_v /= -2 * eps
-        print d0_v
+        print(d0_v)
         d_avv[0][v] -= d0_v
     pos_av[0, v] += eps
 if 0 in d_avv:

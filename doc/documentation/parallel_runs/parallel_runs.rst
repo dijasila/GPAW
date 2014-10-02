@@ -192,20 +192,30 @@ options in a single keyword.
 
 The default value corresponds to this Python dictionary::
 
-  {'domain':              None,
+  {'kpt':                 None,
+   'domain':              None,
    'band':                1,
+   'order':               'kdb',
    'stridebands':         False,
    'sl_auto':             False,
    'sl_default':          None,
    'sl_diagonalize':      None,
    'sl_inverse_cholesky': None,
    'sl_lcao':             None,
+   'sl_lrtddft':          None,
    'buffer_size':         None}
 
 In words:
 
-* The ``'domain'`` value specifies either an integer ``n``, or specifically a tuple
-  ``(nx,ny,nz)`` of 3 integers, for :ref:`domain decomposition <manual_parsize_domain>`.
+* ``'kpt'`` is an integer and denotes the number of groups of k-points over which to parallelize.
+  k-point parallelization is the most efficient type of parallelization for most systems
+  with many electrons and/or many k-points.
+  If uspecified, the calculator will choose a parallelization itself which maximizes the k-point
+  parallelization unless that leads to load imbalance; in that case, it may prioritize domain
+  decomposition.
+
+* The ``'domain'`` value specifies either an integer ``n`` or a tuple
+  ``(nx,ny,nz)`` of 3 integers for :ref:`domain decomposition <manual_parsize_domain>`.
   If not specified (i.e. ``None``), the calculator will try to determine the best
   domain parallelization size based on number of kpoints, spins etc.
 
@@ -213,13 +223,22 @@ In words:
   :ref:`band parallelization <manual_parsize_bands>` and defaults to one, i.e.
   no band parallelization.
 
+* ``'order'`` specifies how different parallelization modes are nested
+  within the calculator's world communicator.  Must be a permutation
+  of the characters ``'kdb'`` which is the default.  The characters
+  denote k-point, domain or band parallelization respectively.  The
+  last mode will be assigned contiguous ranks and thus, depending on
+  network layout, probably becomes more efficient.  Usually for static
+  calculations the most efficient order is ``'kdb'`` whereas for TDDFT
+  it is ``'kbd'``.
+
 * The ``'stridebands'`` value only applies when band parallelization is used, and
   can be used to toggle between grouped and strided band distribution.
 
 * If ``'sl_auto'`` is ``True``, ScaLAPACK will be enabled with automatically chosen
   parameters and using all available CPUs.
 
-* The four other ``'sl_...'`` values are for enabling ScaLAPACK with custom parameters.
+* The other ``'sl_...'`` values are for using ScaLAPACK with different parameters in different operations.
   Each can be specified as a tuple ``(m,n,mb)`` of 3 integers to
   indicate an ``m*n`` grid of CPUs and a block size of ``mb``.
   If any of the three latter keywords are not
@@ -234,7 +253,6 @@ In words:
   of the largest cache (L2 or L3) divide by the number of MPI tasks
   per CPU. Values larger than the default value are non-sensical and
   internally reset to the default value.
-
 
 .. note::
    With the exception of ``'stridebands'``, these parameters all have an

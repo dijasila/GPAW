@@ -218,7 +218,7 @@ class PairDensity:
 
     @timer('Calculate pair-densities')
     def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G):
-        """Calculate FFT of pair-denities and add PAW corrections.
+        """Calculate FFT of pair-densities and add PAW corrections.
 
         ut1cc_R: 3-d complex ndarray
             Complex conjugate of the periodic part of the left hand side
@@ -332,7 +332,7 @@ class PairDensity:
         q_v = pd.K_qv[0]
         optical_limit = np.allclose(q_v, 0)
 
-        G_Gv = pd.G_Qv[pd.Q_qG[0]] + q_v
+        G_Gv = pd.get_reciprocal_vectors()
         if optical_limit:
             G_Gv[0] = 1
 
@@ -477,7 +477,7 @@ class PairDensity:
         ik = wfs.kd.bz2ibz_k[K]
         kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
         psit_nG = kpt.psit_nG
-        iG_Gv = 1j * wfs.pd.G_Qv[wfs.pd.Q_qG[ik]]
+        iG_Gv = 1j * wfs.pd.get_reciprocal_vectors(q=ik, add_q=False)
         ut_nvR = wfs.gd.zeros((n2 - n1, 3), complex)
         for n in range(n1, n2):
             for v in range(3):

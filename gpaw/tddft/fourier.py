@@ -173,8 +173,8 @@ class DensityFourierTransform(Observer):
         # Test timestep (non-critical)
         timestep = tar['TimeStep']
         if abs(timestep - self.timestep) > 1e-12:
-            print 'Warning: Time-step has been altered. (%lf -> %lf)' \
-                % (self.timestep, timestep)
+            print('Warning: Time-step has been altered. (%lf -> %lf)' \
+                % (self.timestep, timestep))
         self.timestep = timestep
 
         # Test dimensions
@@ -192,8 +192,8 @@ class DensityFourierTransform(Observer):
         if ((sigma is None)!=(self.sigma is None) or # float <-> None
             (sigma is not None and self.sigma is not None and \
              abs(sigma - self.sigma) > 1e-12)): # float -> float
-            print 'Warning: Width has been altered. (%s -> %s)' \
-                % (self.sigma, sigma)
+            print('Warning: Width has been altered. (%s -> %s)' \
+                % (self.sigma, sigma))
         self.sigma = sigma
 
         # Read frequencies

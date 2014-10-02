@@ -5,7 +5,7 @@ The test generates random matrices A0, B0, X0, etc. on a
 BLACS grid, BLAS operations are performed in parallel, and 
 results are compared against BLAS.
 """
-
+from __future__ import print_function
 import sys
 
 import numpy as np
@@ -70,7 +70,7 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
         # C0[:] = np.dot(A0, B0)
         gemm(1.0, B0, A0, 0.0, C0)
         #gemm(1.0, A0, A0, 0.0, Z0, transa='t')
-        print A0.shape, Z0.shape
+        print(A0.shape, Z0.shape)
         Z0[:] = np.dot(A0.T, A0)
         # Y0[:] = np.dot(A0, X0)
         gemv(1.0, A0, X0.ravel(), 0.0, Y0.ravel())
@@ -85,7 +85,7 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
                if i<j:
                    HEA0[i][j] = 99999.0
         if world.rank == 0:
-            print HEA0
+            print(HEA0)
     assert globA.check(A0) and globB.check(B0) and globC.check(C0)
     assert globX.check(X0) and globY.check(Y0)
     assert globD.check(D0) and globS.check(S0) and globU.check(U0)
@@ -145,11 +145,11 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
         r2k_err  = abs(S1 - S0).max()
         rk_err   = abs(U1 - U0).max()
         hemm_err = abs(HEC1 - HEC0).max()
-        print 'gemm err', gemm_err
-        print 'gemv err', gemv_err
-        print 'r2k err' , r2k_err
-        print 'rk_err'  , rk_err
-        print 'hemm_err', hemm_err
+        print('gemm err', gemm_err)
+        print('gemv err', gemv_err)
+        print('r2k err' , r2k_err)
+        print('rk_err'  , rk_err)
+        print('hemm_err', hemm_err)
     else:
         gemm_err = 0.0
         gemv_err = 0.0

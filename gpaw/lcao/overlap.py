@@ -42,7 +42,7 @@ on the lower-level ones.
 
 """
 
-from math import sqrt, pi
+from math import pi
 
 import numpy as np
 from numpy.fft import ifft
@@ -57,7 +57,6 @@ from gpaw.spherical_harmonics import Yl, nablarlYL
 from gpaw.spline import Spline
 from gpaw.utilities import _fact
 from gpaw.utilities.tools import tri2full
-from gpaw.utilities.blas import gemm
 from gpaw import extra_parameters
 
 UL = 'L'

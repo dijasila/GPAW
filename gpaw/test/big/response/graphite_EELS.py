@@ -1,6 +1,7 @@
 # Symmetry can only be used in EELS spectra calculations for GPAW svn 6305 above.
 # Refer to A. Rubio and V. Olevano, et.al, Physical Review B 69, 245419 (2004)
 # for comparision of results
+from __future__ import print_function
 
 import os
 import sys
@@ -79,7 +80,7 @@ if EELS:
         df.get_EELS_spectrum(filename='graphite_EELS_' + str(i))
         df.check_sum_rule()
 
-        print >> f, sqrt(np.inner(df.qq_v / Bohr, df.qq_v / Bohr)), ecut
+        print(sqrt(np.inner(df.qq_v / Bohr, df.qq_v / Bohr)), ecut, file=f)
 
     if rank == 0:
         os.remove('graphite.gpw')

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 import Numeric as num
 from gpaw import GPAW
 from gpaw.spherical_harmonics import Y
@@ -28,7 +29,7 @@ C = 'g'
 for n in paw.nuclei:
     s = n.setup
     phi_j, phit_j = s.get_partial_waves()[:2]
-    print s.rcut_j[0]
+    print(s.rcut_j[0])
     r = num.arange(30) * s.rcut_j[0] / 30
     phi_i = num.empty((s.ni, 59), num.Float)
     phit_i = num.empty((s.ni, 59), num.Float)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from time import time
 import sys
 import numpy as np
@@ -52,7 +53,7 @@ domain_comm, kpt_comm, band_comm, block_comm = \
 
 assert kpt_comm.size == 1
 if world.rank == 0:
-    print 'MPI: %d domains, %d band groups' % (domain_comm.size, band_comm.size)
+    print('MPI: %d domains, %d band groups' % (domain_comm.size, band_comm.size))
 
 # Set up band and grid descriptors:
 bd = BandDescriptor(N, band_comm, False)
@@ -65,7 +66,7 @@ for m in range(M):
     np.random.seed(world.rank * M + m)
     psit_mG[m] = np.random.uniform(-0.5, 0.5, tuple(gd.n_c))
 if world.rank == 0:
-    print 'Size of wave function array:', psit_mG.shape
+    print('Size of wave function array:', psit_mG.shape)
 P_ani = {0: psit_mG[:, :2, 0, 0].copy(),
          1: psit_mG[:, -1, -1, -3:].copy()}
 if 0:
@@ -73,7 +74,7 @@ if 0:
     assert K * X == M
     if G**3 // D // K * K < G**3 // D:
         X += 1
-    print X
+    print(X)
     work1_xG = gd.empty(X)
     work2_xG = gd.empty(X)
 
@@ -92,13 +93,13 @@ def run(psit_mG):
 
     t1 = time()
     if world.rank == 0:
-        print S_nn.round(5)
+        print(S_nn.round(5))
         inverse_cholesky(S_nn)
     C_nn = S_nn
     t2 = time()
 
     if world.rank == 0:
-        print 'Cholesky Time %f' % (t2-t1)
+        print('Cholesky Time %f' % (t2-t1))
         
     # Distribute matrix:
     world.broadcast(C_nn, 0)
@@ -106,7 +107,7 @@ def run(psit_mG):
     psit_mG = overlap.matrix_multiply(C_nn, psit_mG, P_ani)
 
     if world.rank == 0:
-        print 'Made it past matrix multiply'
+        print('Made it past matrix multiply')
 
     # Check:
     S_nn = overlap.calculate_matrix_elements(psit_mG, P_ani, S, dS)
@@ -130,5 +131,5 @@ for x in range(repeats):
 tb = time()
 
 if world.rank == 0:
-    print 'Total Time %f' % (tb -ta)
+    print('Total Time %f' % (tb -ta))
     

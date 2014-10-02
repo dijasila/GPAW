@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.grid_descriptor import GridDescriptor
@@ -34,7 +35,7 @@ rgd = EquidistantRadialGridDescriptor(r[1], len(r))
 g = [np.exp(-(r / rc * b)**2) * r**l for l in range(lmax + 1)]
 d2 = TestSetup().get_derivative_integrals(rgd, g, np.zeros_like(g))
 if 0 in d1:
-    print abs(d1[0] - d2).max()
+    print(abs(d1[0] - d2).max())
     assert abs(d1[0] - d2).max() < 2e-6
 
 

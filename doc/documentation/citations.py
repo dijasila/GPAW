@@ -1,5 +1,5 @@
 # creates: citations.png citations.csv
-
+from __future__ import print_function
 import os
 import datetime
 
@@ -75,7 +75,7 @@ for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
         total[doi] = (date, title)
     fd.close()
     x = dict([(p[1], 0) for p in papers])
-    print(bib, len(papers), len(x), len(total))
+    print((bib, len(papers), len(x), len(total)))
 
 
 allpapers = [(paper[0], doi, paper[1]) for doi, paper in total.items()]

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from math import sqrt, pi
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
@@ -59,5 +60,5 @@ for i in range(m):
     for j in range(m):
         for ik in range(nkpt):
             if np.abs(d0[ik,i,j] - d1[ik,i,j]) > 1e-10:
-                print i, j, d0[ik,i,j]- d1[ik,i,j]
+                print(i, j, d0[ik,i,j]- d1[ik,i,j])
 

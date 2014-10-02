@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase import Atom, Atoms
 from ase.units import Hartree
@@ -39,9 +40,9 @@ if bse:
     bse.diagonalize(H_SS)
     
     w = np.real(bse.w_S) * Hartree
-    print np.shape(w)
+    print(np.shape(w))
     energies = np.sort(w)[len(w)/2:]
-    print 'BSE:', energies
+    print('BSE:', energies)
 
 if casida:
     from gpaw.lrtddft import LrTDDFT
@@ -54,7 +55,7 @@ if casida:
     photoabsorption_spectrum(lr, 'Na2_spectrum.dat', width=0.05)   
 
     energies_lrtddft = lr.get_energies() * Hartree
-    print 'lrTDDFT:', energies_lrtddft
+    print('lrTDDFT:', energies_lrtddft)
     
 if compare:
     assert (np.abs(energies - energies_lrtddft)).max() < 3*1e-3

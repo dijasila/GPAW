@@ -53,40 +53,11 @@ mpi_define_macros = []
 
 platform_id = ''
 
-packages = ['gpaw',
-            'gpaw.analyse',
-            'gpaw.atom',
-            'gpaw.eigensolvers',
-            'gpaw.elph',
-            'gpaw.io',
-            'gpaw.lcao',
-            'gpaw.lcaotddft', 
-            'gpaw.lrtddft',
-            'gpaw.lrtddft2',
-            'gpaw.mpi',
-            'gpaw.pes',
-            'gpaw.response',
-            'gpaw.sphere',
-            'gpaw.tddft',
-            'gpaw.test',
-            'gpaw.test.big',
-            'gpaw.test.big.dcdft',
-            'gpaw.test.big.g2_1',
-            'gpaw.test.big.scf',
-            'gpaw.test.big.setups',
-            'gpaw.test.cmrtest',
-            'gpaw.test.fileio',
-            'gpaw.test.noncollinear',
-            'gpaw.test.parallel',
-            'gpaw.test.pseudopotential',
-            'gpaw.test.pw',
-            'gpaw.test.vdw',
-            'gpaw.testing',
-            'gpaw.transport',
-            'gpaw.utilities',
-            'gpaw.wavefunctions',
-            'gpaw.xc',
-            'gpaw.xc.gllb']
+
+packages = []
+for dirname, dirnames, filenames in os.walk('gpaw'):
+        if '__init__.py' in filenames:
+            packages.append(dirname.replace('/', '.'))
 
 include_ase = False
 if '--include-ase' in sys.argv:
@@ -134,6 +105,7 @@ execfile(customize)
 
 if platform_id != '':
     my_platform = distutils.util.get_platform() + '-' + platform_id
+
     def my_get_platform():
         return my_platform
     distutils.util.get_platform = my_get_platform
@@ -182,10 +154,10 @@ gpawso = 'build/lib.%s/' % plat + '_gpaw.so'
 gpawbin = 'build/bin.%s/' % plat + 'gpaw-python'
 if 'clean' in sys.argv:
     if os.path.isfile(gpawso):
-        print 'removing ', gpawso
+        print('removing ', gpawso)
         os.remove(gpawso)
     if os.path.isfile(gpawbin):
-        print 'removing ', gpawbin
+        print('removing ', gpawbin)
         os.remove(gpawbin)
 
 sources = glob('c/*.c') + ['c/bmgs/bmgs.c']
@@ -227,8 +199,7 @@ if hdf5:
 
 scripts = [join('tools', script)
            for script in ('gpaw-run', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
-                          'gpaw-mpisim', 'gpaw-mapfile-bgp',
-                          'gpaw-mapfile-cray', 'gpaw-runscript',
+                          'gpaw-mpisim', 'gpaw-runscript',
                           'gpaw-install-setups')]
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
@@ -285,4 +256,4 @@ else:
 # Messages make sense only when building
 if 'build' in sys.argv or 'build_ext' in sys.argv or 'install' in sys.argv:
     for line in msg:
-        print line
+        print(line)

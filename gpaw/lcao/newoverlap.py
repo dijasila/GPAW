@@ -140,7 +140,7 @@ def newoverlap(wfs, spos_ac):
         for a, setup in enumerate(wfs.setups):
             oldstyle_P_aqMi[a] = np.zeros((nq, wfs.setups.nao, setup.ni),
                                           dtype=wfs.dtype)
-        print [(s.ni, s.nao) for s in wfs.setups]
+        print([(s.ni, s.nao) for s in wfs.setups])
         for a1, a2 in Pkeys:
             M1, M2 = get_M1M2(a2)
             Pconj_qmi = P_aaqim[(a1, a2)].transpose(0, 2, 1).conjugate()

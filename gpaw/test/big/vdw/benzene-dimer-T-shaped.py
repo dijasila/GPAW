@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase.structure import molecule
 from ase.constraints import FixedPlane
@@ -79,7 +80,7 @@ for i in np.linspace(-6, 6, 20):
     e_array[k] = e_int
     d_array[k] = d
     
-    print >> f, str(round(d, 3)), e_int
+    print(str(round(d, 3)), e_int, file=f)
     f.flush()
     k += 1
 
@@ -90,8 +91,8 @@ for i in range(len(e_array)):
     if e_array[i] < e_0:
         e_0 = e_array[i]
         d_0 = d_array[i]
-print >> f, '****************'
-print >> f, 'Minimum (E_int,d):', e_0, d_0 
+print('****************', file=f)
+print('Minimum (E_int,d):', e_0, d_0, file=f) 
 f.close()
 
 equal(e_0 , -0.11, 0.01)

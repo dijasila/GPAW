@@ -30,6 +30,7 @@ class ProgressBar:
         self.t = time()
         
         print('|', end='', file=fd)
+        fd.flush()
         
     def update(self, x):
         """Update progress-bar (0 <= x <= 1)."""
@@ -60,7 +61,7 @@ class ProgressBar:
                 self.fd.flush()
                 self.n = n
             if x == 1:
-                p('| Time: {0:.3f}s'.format(eta), end='')
+                p('| Time: {0:.3f}s'.format(eta))
                 self.fd.flush()
                 self.done = True
                 

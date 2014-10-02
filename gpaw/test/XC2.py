@@ -1,3 +1,4 @@
+from __future__ import print_function
 from math import pi
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.grid_descriptor import GridDescriptor
@@ -22,7 +23,7 @@ for name in ['LDA', 'PBE']:
         n[-1, i] -= 0.000002
         Em = xc.calculate_spherical(rgd, n, v)
         x2 = (Ep - Em) / 0.000002
-        print name, nspins, E, x, x2, x - x2
+        print(name, nspins, E, x, x2, x - x2)
         equal(x, x2, 1e-9)
         n[-1, i] += 0.000001
         if nspins == 1:
@@ -62,7 +63,7 @@ for name in ['LDA', 'PBE']:
         Em = xc.calculate(gd, n, v)
         x2 = (Ep - Em) / 0.000002
         if here:
-            print name, nspins, E, x, x2, x - x2
+            print(name, nspins, E, x, x2, x - x2)
             equal(x, x2, 1e-11)
             n[-1, 1, 2, 3] += 0.000001
             

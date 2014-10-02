@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase.visualize import view
 from ase.dft.kpoints import monkhorst_pack
@@ -46,7 +47,7 @@ for d in ds:
     calc.write('gs_%s.gpw' % d, mode='all')
 
     f = paropen('hf_acdf.dat', 'a')
-    print >> f, d, E, E_hf
+    print(d, E, E_hf, file=f)
     f.close()
     
     del slab[-2:]

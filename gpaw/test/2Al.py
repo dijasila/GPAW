@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom, Atoms
 from gpaw import GPAW
 from gpaw.test import equal
@@ -28,7 +29,7 @@ niter4 = calc.get_number_of_iterations()
 energy_tolerance = 0.00007
 niter_tolerance = 0
 
-print e2, e4
+print(e2, e4)
 equal(e4 / 2, e2, 48e-6)
 equal(e2, -3.41595, energy_tolerance)
 equal(e4, -6.83191, energy_tolerance)

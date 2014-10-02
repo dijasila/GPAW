@@ -1,13 +1,10 @@
-#!/homeappl/home/kuismam/appl_sisu/gpaw_lcao_trunk2/build/bin.linux-x86_64-2.7/gpaw-python 
+#!/usr/bin/env python
 
 from optparse import OptionParser
-import sys
-import os
-from ase.io import read, write
-from os import system
+from ase.io import read
+#from os import system
 import numpy as np
-from math import pi
-from gpaw import GPAW, restart
+from gpaw import GPAW
 from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac
 from gpaw.tddft import TDDFT
@@ -15,21 +12,22 @@ from gpaw.lrtddft import LrTDDFT
 from gpaw.mixer import Mixer
 from os import path
 from ase.data.molecules import molecule
-from gpaw.utilities.timing import Timer, ParallelTimer
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
 from gpaw.xc.gllb.c_response import C_Response
 from gpaw.xc.gllb.c_xc import C_XC
 from gpaw.xc.gllb.nonlocalfunctional import NonLocalFunctional
-from numpy.random import rand
+
 
 class TimedLCAOTDDFT(LCAOTDDFT):
     pass
     #timer_class = ParallelTimer
 
+
 class TimedTDDFT(TDDFT):
     pass
     #timer_class = ParallelTimer
+
 
 class TimedLrTDDFT(LrTDDFT):
     pass
@@ -42,72 +40,70 @@ def center_divisible(atoms, vacuum, h, n=4):
     for c, v in enumerate(vacuum):
         atoms.center(vacuum=v, axis=c)
     cell_c = np.diag(atoms.get_cell()) # Assume cubic !
-    print vacuum, "MOI"
     for c, vac in zip(range(3), vacuum):
         cell = cell_c[c]
         ng = int(np.ceil(cell/h))
         if ng % n != 0:
             ng += n - (ng % n) # make divisible
         vacuum_new =  (ng * h - (cell - 2*vac))/2
-        print vacuum_new
         atoms.center(vacuum=vacuum_new, axis=c)
 
 
 parser = OptionParser()
-
-parser.add_option("", "--kick", action="store", default="0,0,0.00001", 
-                  help="""Kick stengths""")
-parser.add_option("", "--charge", action="store", default=None, 
-                  help="""Charge of the systen""")
-parser.add_option("", "--parallel_band", action="store", default=None, 
-                  help="""Band parallelization""")
-parser.add_option("-d", "--directory", action="store", default=None, 
-                  help="""Specify directory for output files""")
-parser.add_option("-n", "--name", action="store", default=None, 
-                  help="""Prefix name for output files. Otherwise input name is used.""")
-parser.add_option("", "--collect_density", action="store", default=None,
-                  help="""Collect density.
---collect density=full     collect full density
---collect_density=10       collect bands 0-9 and 10-nbands separately.
---collect_density=10,20,35 collect bands 0-9, 10-19, 20-34, 35-nbands separately.
-""")
-parser.add_option("", "--collect_split_density", action="store", default=None,
-                  help="""Collect two densities, give orbital index which splits them""")
-parser.add_option("", "--collect_vresp", action="store_true", default=None,
-                  help="""Collect response potential of GLLBSC""")
-parser.add_option("-s", "--system", action="store", default=None, 
-                  help="""Input an example system. Example C6H6""")
-parser.add_option("-g", "--gridspacing", action="store", default="0.2",
-                  help="""Specify grid spacing""")
-parser.add_option("-x", "--xc", action="store", default="LDA",
-                  help="""Specify xc functional""")
-parser.add_option("-f", "--fxc", action="store", default=None,
-                  help="""Specify xc functional for time-propagation separately.""")
-parser.add_option("-v", "--vacuum", action="store", default="5",
-                  help="""Specify amount of vacuum""")
-parser.add_option("-b", "--basis", action="store", default=None,
-                  help="""Perforn LCAO calculation with basis set""")
-parser.add_option("-t", "--timestep", action="store", default="10",
-                  help="""Time step for LCAO calculation (in as)""")
-parser.add_option("-T", "--time", action="store", default="10",
-                  help="""Simulation time (in fs)""")
-parser.add_option("", "--lrtddft", action="store", default=False,  
-                  help="""Perform linear response calculation""")
-parser.add_option("", "--nbands", action="store", default="None",  
-                  help="""Number of bands""")
-parser.add_option("", "--dxc", action="store_true", default=False,  
-                  help="""Calculate dxc""")
-parser.add_option("", "--hard", action="store_true", default=False,
-                  help="""Try harder to converge the system""")
-parser.add_option("", "--nodipole", action="store_true", default=False,
-                  help="""Do not use dipole correction is poisson equation. For expert use only.""")
-parser.add_option("", "--gsonly", action="store_true", default=False,
-                  help="""Calculate only the ground state calculation and then stop""")
+parser.add_option('', '--kick', action='store', default='0,0,0.00001', 
+                  help='Kick stengths')
+parser.add_option('', '--charge', action='store', default=None, 
+                  help='Charge of the systen')
+parser.add_option('', '--parallel_band', action='store', default=None, 
+                  help='Band parallelization')
+parser.add_option('-d', '--directory', action='store', default=None, 
+                  help='Specify directory for output files')
+parser.add_option('-n', '--name', action='store', default=None, 
+                  help='Prefix name for output files. Otherwise input name is used.')
+parser.add_option('', '--collect_density', action='store', default=None,
+                  help='Collect density.\n'
+                  '--collect density=full     collect full density\n'
+                  '--collect_density=10       collect bands 0-9 and 10-nbands '
+                  'separately.\n'
+                  '--collect_density=10,20,35 collect bands '
+                  '0-9, 10-19, 20-34, 35-nbands separately.\n')
+parser.add_option('', '--collect_split_density', action='store', default=None,
+                  help='Collect two densities, give orbital index which splits them')
+parser.add_option('', '--collect_vresp', action='store_true', default=None,
+                  help='Collect response potential of GLLBSC')
+parser.add_option('-s', '--system', action='store', default=None, 
+                  help='Input an example system. Example C6H6')
+parser.add_option('-g', '--gridspacing', action='store', default='0.2',
+                  help='Specify grid spacing')
+parser.add_option('-x', '--xc', action='store', default='LDA',
+                  help='Specify xc functional')
+parser.add_option('-f', '--fxc', action='store', default=None,
+                  help='Specify xc functional for time-propagation separately.')
+parser.add_option('-v', '--vacuum', action='store', default='5',
+                  help='Specify amount of vacuum')
+parser.add_option('-b', '--basis', action='store', default=None,
+                  help='Perforn LCAO calculation with basis set')
+parser.add_option('-t', '--timestep', action='store', default='10',
+                  help='Time step for LCAO calculation (in as)')
+parser.add_option('-T', '--time', action='store', default='10',
+                  help='Simulation time (in fs)')
+parser.add_option('', '--lrtddft', action='store', default=False,  
+                  help='Perform linear response calculation')
+parser.add_option('', '--nbands', action='store', default='None',  
+                  help='Number of bands')
+parser.add_option('', '--dxc', action='store_true', default=False,  
+                  help='Calculate dxc')
+parser.add_option('', '--hard', action='store_true', default=False,
+                  help='Try harder to converge the system')
+parser.add_option('', '--nodipole', action='store_true', default=False,
+                  help='Do not use dipole correction is poisson equation. For expert use only.')
+parser.add_option('', '--gsonly', action='store_true', default=False,
+                  help='Calculate only the ground state calculation and then stop')
 
 (options, args) = parser.parse_args()
 
 class System:
-    def __init__(self, atoms, name="system"):
+    def __init__(self, atoms, name='system'):
         self.atoms = atoms
         self.name = name
         self.mode = 'fd'
@@ -168,7 +164,7 @@ class System:
     def set_directory(self, directory):
         self.directory = directory
         if self.directory == None:
-            self.directory = ""
+            self.directory = ''
     
     def set_timestep(self, dt):
         self.dt = dt
@@ -195,45 +191,45 @@ class System:
         self.remove_moment = 0 if self.nodipole else 9
 
     def get_base_name(self):
-        lr = "lr_" if self.lrtddft else ""
+        lr = 'lr_' if self.lrtddft else ''
         if isinstance(self.xc, str):
             xcname = self.xc
         else:
             xcname = self.xc.name
-        return "%s%s%.2f_%s_%s_%s" % (lr,  "_nodipole" if self.nodipole else "", self.h, xcname, self.basis, self.get_vacuum_str())
+        return '%s%s%.2f_%s_%s_%s' % (lr,  '_nodipole' if self.nodipole else '', self.h, xcname, self.basis, self.get_vacuum_str())
 
     def get_vacuum_str(self):
-        return "v%1.f%1.f%1.f" % (self.vacuum[0], self.vacuum[1], self.vacuum[2])
+        return 'v%1.f%1.f%1.f' % (self.vacuum[0], self.vacuum[1], self.vacuum[2])
 
     def kick_str(self):
         if self.kick[0] == 0.0 and self.kick[1] == 0.0:
-            return "z"
+            return 'z'
         if self.kick[1] == 0.0 and self.kick[2] == 0.0:
-            return "x"
+            return 'x'
         if self.kick[0] == 0.0 and self.kick[2] == 0.0:
-            return "y"
-        return "%.6f_%.6f_%.6f" % (self.kick[0],self.kick[1],self.kick[2])
+            return 'y'
+        return '%.6f_%.6f_%.6f' % (self.kick[0],self.kick[1],self.kick[2])
 
     def get_td_base_name(self):
-        return "%.1f_%.1f_%s_%s" % (self.dt, self.T, self.kick_str(), self.fxc)
+        return '%.1f_%.1f_%s_%s' % (self.dt, self.T, self.kick_str(), self.fxc)
 
     def get_gs_gpw_file(self):
-        return self.directory + "%s%s.gpw" % (self.name, self.get_base_name())
+        return self.directory + '%s%s.gpw' % (self.name, self.get_base_name())
     
     def get_full_name(self):
-        return self.directory + "%s_%s_td_%s" % (self.name, self.get_base_name(), self.get_td_base_name())
+        return self.directory + '%s_%s_td_%s' % (self.name, self.get_base_name(), self.get_td_base_name())
 
     def get_td_gpw_file(self):
-        return self.directory +"%s_%s_td_%s.gpw" % (self.name, self.get_base_name(), self.get_td_base_name())
+        return self.directory +'%s_%s_td_%s.gpw' % (self.name, self.get_base_name(), self.get_td_base_name())
 
     def get_dipole_file(self):
-        return self.directory +"%s_%s_td_%s.dm" % (self.name, self.get_base_name(), self.get_td_base_name())
+        return self.directory +'%s_%s_td_%s.dm' % (self.name, self.get_base_name(), self.get_td_base_name())
 
     def get_spectrum_file(self):
-        return self.directory +"%s_%s_td_%s.spec" % (self.name, self.get_base_name(), self.get_td_base_name())
+        return self.directory +'%s_%s_td_%s.spec' % (self.name, self.get_base_name(), self.get_td_base_name())
 
     def get_lrtddft_file(self):
-        return self.directory +"%s_%s_td_%s.gz" % (self.name, self.get_base_name(), self.get_td_base_name())
+        return self.directory +'%s_%s_td_%s.gz' % (self.name, self.get_base_name(), self.get_td_base_name())
  
     def groundstate(self):
         if path.exists(self.get_gs_gpw_file()):
@@ -361,7 +357,6 @@ def calculate(atoms, name=None):
     if options.charge:
         system.set_charge(eval(options.charge))
     if options.nodipole:
-        print "nodipole"
         system.set_nodipole()
     if options.dxc:
         system.set_dxc()

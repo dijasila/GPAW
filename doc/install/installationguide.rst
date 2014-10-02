@@ -182,6 +182,37 @@ It offers the following advantages:
 
 .. _installationguide_standard:
 
+Important environment variables
+-------------------------------
+The following is required for a functioning GPAW installation.
+
+.. envvar:: PATH
+
+  The ``$PATH`` environment variable should contain the paths to the
+  ``gpaw-python`` executable and the tools of gpaw located in 
+  ``$GPAW_HOME/build/bin``  and ``$GPAW_HOME/tools/``, respectively.
+
+.. envvar:: PYTHONPATH
+
+  The ``PYTHONPATH`` should contain the path to ``$GPAW_HOME``.
+
+.. envvar:: GPAW_HOME
+
+  Points to the root directory of your gpaw installation.
+
+.. envvar:: GPAW_SETUP_PATH
+
+  Points to the directory containing your PAW setups.
+
+.. envvar:: HOME
+
+  The path to your home directory.
+
+.. envvar:: OMP_NUM_THREADS
+  
+  If GPAW is compiled with OpenMP this variable defines the
+  number of threads used.
+
 Standard installation
 ---------------------
 
@@ -340,10 +371,7 @@ Make sure that everything works by running the test suite (using bash)::
 
   [gpaw]$ gpaw-python `which gpaw-test` 2>&1 | tee test.log
 
-This will a couple of hours.  If you have a multicore CPU, you
-can speed up the test by using ``gpaw-test -j <number-of-cores>``.
-This will run tests simultaneously (**not** employing MPI parallelization)
-on the requested *<number-of-cores>*.
+This will take a couple of hours.
 Please report errors to the ``gpaw-developers`` mailing list (see
 :ref:`mailing_lists`) Send us :file:`test.log`, as well as the
 information about your environment (processor architecture, versions
@@ -379,3 +407,8 @@ If you enabled ScaLAPACK, do::
 
 This will enable ScaLAPACK's diagonalization on a 1x2 BLACS grid
 with the block size of 2.
+
+Finally run the tests in parallel on 2, 4 and 8 cores::
+
+  [gpaw]$ mpirun -np 4 gpaw-python `which gpaw-test` 2>&1 | tee test4.log
+

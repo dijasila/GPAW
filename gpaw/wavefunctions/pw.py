@@ -24,6 +24,46 @@ from gpaw.utilities.timing import timer
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 
 
+class PW:
+    name = 'pw'
+    
+    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None):
+        """Plane-wave basis mode.
+
+        ecut: float
+            Plane-wave cutoff in eV.
+        fftwflags: int
+            Flags for making FFTW plan (default is ESTIMATE).
+        cell: 3x3 ndarray
+            Use this unit cell to chose the planewaves."""
+
+        self.ecut = ecut / units.Hartree
+        self.fftwflags = fftwflags
+
+        if cell is None:
+            self.cell_cv = None
+        else:
+            self.cell_cv = cell / units.Bohr
+
+    def __call__(self, diagksl, orthoksl, initksl, gd, *args):
+        if self.cell_cv is None:
+            ecut = self.ecut
+        else:
+            volume = abs(np.linalg.det(gd.cell_cv))
+            volume0 = abs(np.linalg.det(self.cell_cv))
+            ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
+
+        wfs = PWWaveFunctions(ecut, self.fftwflags,
+                              diagksl, orthoksl, initksl, gd, *args)
+        return wfs
+
+    def __eq__(self, other):
+        return (isinstance(other, PW) and self.ecut == other.ecut)
+
+    def __ne__(self, other):
+        return not self == other
+
+
 class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
@@ -110,6 +150,22 @@ class PWDescriptor:
             self.ngmax = kd.comm.max(self.ngmax)
 
         self.n_c = np.array([self.ngmax])  # used by hs_operators.py XXX
+
+    def get_reciprocal_vectors(self, q=0, add_q=True):
+        """ Returns reciprocal lattice vectors plus q, G + q,
+        in xyz coordinates.
+        """
+
+        assert q < len(self.K_qv), ('Choose a q-index belonging to ' +
+                                    'the irreducible Brillouin zone.')
+        q_v = self.K_qv[q]
+
+        if add_q:
+            G_Gv = self.G_Qv[self.Q_qG[q]] + q_v
+        else:
+            G_Gv = self.G_Qv[self.Q_qG[q]]
+
+        return G_Gv
 
     def __getstate__(self):
         return (self.ecut, self.gd, self.dtype, self.kd, self.fftwflags)
@@ -389,6 +445,8 @@ class Preconditioner:
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
+    mode = 'pw'
+
     def __init__(self, ecut, fftwflags,
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd, dtype,
@@ -475,20 +533,20 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         taut_sR = self.gd.zeros(self.nspins)
         for kpt in self.kpt_u:
-            G_Gv = self.pd.G_Qv[self.pd.Q_qG[kpt.q]] + self.pd.K_qv[kpt.q]
+            G_Gv = self.pd.get_reciprocal_vectors(q=kpt.q)
             for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                 for v in range(3):
                     taut_sR[kpt.s] += 0.5 * f * abs(
                         self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q))**2
 
-        self.kpt_comm.sum(taut_sR)
+        self.kd.comm.sum(taut_sR)
         self.band_comm.sum(taut_sR)
         return taut_sR
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                                  Htpsit_xG, dH_asp,
                                                  dedtaut_R):
-        G_Gv = self.pd.G_Qv[self.pd.Q_qG[kpt.q]] + self.pd.K_qv[kpt.q]
+        G_Gv = self.pd.get_reciprocal_vectors(q=kpt.q)
         for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
             for v in range(3):
                 a_R = self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q)
@@ -539,7 +597,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                    dtype=complex)
 
         for s in range(self.nspins):
-            for k in range(self.nibzkpts):
+            for k in range(self.kd.nibzkpts):
                 for n in range(self.bd.nbands):
                     psit_G = self.get_wave_function_array(n, k, s,
                                                           realspace=False,
@@ -555,7 +613,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         Q_G = np.empty(self.pd.ngmax, np.int32)
         for r in range(self.kd.comm.size):
             for q, ks in enumerate(self.kd.get_indices(r)):
-                s, k = divmod(ks, self.nibzkpts)
+                s, k = divmod(ks, self.kd.nibzkpts)
                 ng = self.ng_k[k]
                 if s == 1:
                     return
@@ -645,16 +703,18 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
                                      nbands=None, scalapack=None):
         if nbands is None:
-            nbands = self.pd.ngmin
-
-        assert nbands <= self.pd.ngmin
+            nbands = self.pd.ngmin // self.bd.comm.size * self.bd.comm.size
+        else:
+            assert nbands <= self.pd.ngmin
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 
         p = functools.partial(print, file=txt)
         p('Diagonalizing full Hamiltonian ({0} lowest bands)'.format(nbands))
-        p('Matrix size (min, max):', self.pd.ngmin, self.pd.ngmax)
-        
+        p('Matrix size (min, max): {0}, {1}'.format(self.pd.ngmin,
+                                                    self.pd.ngmax))
+        mem = 3 * self.pd.ngmax**2 * 16 / bd.comm.size / 1024**2
+        p('Approximate memory usage per core: {0:.3f} MB'.format(mem))
         if scalapack and bd.comm.size > 1:
             if isinstance(scalapack, (list, tuple)):
                 nprow, npcol, b = scalapack
@@ -699,6 +759,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
             psit_nG = md2.empty(dtype=complex)
             eps_n = np.empty(npw)
+
             with self.timer('Diagonalize'):
                 md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
             del H_GG, S_GG
@@ -763,7 +824,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             dOmega *= 2
         K_qv = self.pd.K_qv
         for kpt in self.kpt_u:
-            G_Gv = pd.G_Qv[pd.Q_qG[kpt.q]]
+            G_Gv = pd.get_reciprocal_vectors(q=kpt.q, add_q=False)
             psit2_G = 0.0
             for n, f in enumerate(kpt.f_n):
                 psit2_G += f * np.abs(kpt.psit_nG[n])**2
@@ -845,7 +906,7 @@ class PWLFC(BaseLFC):
         # Spherical harmonics:
         self.Y_qLG = []
         for q, K_v in enumerate(self.pd.K_qv):
-            G_Gv = pd.G_Qv[pd.Q_qG[q]] + K_v
+            G_Gv = pd.get_reciprocal_vectors(q=q)
             Y_LG = np.empty(((lmax + 1)**2, len(G_Gv)))
             for L in range((lmax + 1)**2):
                 Y_LG[L] = Y(L, *G_Gv.T)
@@ -1044,8 +1105,7 @@ class PWLFC(BaseLFC):
         if isinstance(c_axi, float):
             c_axi = dict((a, c_axi) for a in range(len(self.pos_av)))
 
-        K_v = self.pd.K_qv[q]
-        G0_Gv = self.pd.G_Qv[self.pd.Q_qG[q]] + K_v
+        G0_Gv = self.pd.get_reciprocal_vectors(q=q)
 
         stress_vv = np.zeros((3, 3))
         for G1, G2 in self.block(q):
@@ -1103,47 +1163,6 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
     def derivative(self, dedtaut_R, dF_aiv):
         PWLFC.derivative(self, self.pd.fft(dedtaut_R), dF_aiv)
-
-
-class PW:
-    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None):
-        """Plane-wave basis mode.
-
-        ecut: float
-            Plane-wave cutoff in eV.
-        fftwflags: int
-            Flags for making FFTW plan (default is ESTIMATE).
-        cell: 3x3 ndarray
-            Use this unit cell to chose the planewaves."""
-
-        self.ecut = ecut / units.Hartree
-        self.fftwflags = fftwflags
-
-        if cell is None:
-            self.cell_cv = None
-        else:
-            self.cell_cv = cell / units.Bohr
-
-    def __call__(self, diagksl, orthoksl, initksl, gd, *args):
-        if self.cell_cv is None:
-            ecut = self.ecut
-        else:
-            volume = abs(np.linalg.det(gd.cell_cv))
-            volume0 = abs(np.linalg.det(self.cell_cv))
-            ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
-
-        wfs = PWWaveFunctions(ecut, self.fftwflags,
-                              diagksl, orthoksl, initksl, gd, *args)
-        return wfs
-
-    def __eq__(self, other):
-        return (isinstance(other, PW) and self.ecut == other.ecut)
-
-    def __ne__(self, other):
-        return not self == other
-
-    def __str__(self):
-        return 'pw'
 
 
 class ReciprocalSpaceDensity(Density):

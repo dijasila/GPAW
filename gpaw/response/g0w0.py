@@ -148,7 +148,7 @@ class G0W0(PairDensity):
         assert self.calc.wfs.nspins == 1
         
     @timer('G0W0')
-    def calculate(self):
+    def calculate(self, ecuts=None):
         """Starts the G0W0 calculation. Returns a dict with the results with
         the following key/value pairs:
 
@@ -171,6 +171,10 @@ class G0W0(PairDensity):
 
         self.calculate_ks_xc_contribution()
         self.calculate_exact_exchange()
+
+        # Reset calculation
+        self.sigma_sin = np.zeros(self.shape)   # self-energies
+        self.dsigma_sin = np.zeros(self.shape)  # derivatives of self-energies
 
         # Get KS eigenvalues and occupation numbers:
         b1, b2 = self.bands
@@ -231,7 +235,7 @@ class G0W0(PairDensity):
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
         
-        G_Gv = pd0.G_Qv[pd0.Q_qG[0]] + pd0.K_qv[0]
+        G_Gv = pd0.get_reciprocal_vectors()
         pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
         M_vv = np.dot(pd0.gd.cell_cv.T,
                       np.dot(self.U_cc.T,
@@ -327,14 +331,15 @@ class G0W0(PairDensity):
             
         return sigma, dsigma
 
-    @timer('W')
     def calculate_screened_potential(self):
         """Calculates the screened potential for each q-point in the 1st BZ.
         Since many q-points are related by symmetry, the actual calculation is
         only done for q-points in the IBZ and the rest are obtained by symmetry
         transformations. Results are returned as a generator to that it is not
         necessary to store a huge matrix for each q-point in the memory."""
-
+        # The decorator $timer('W') doesn't work for generators, do we will
+        # have to manually start and stop the timer here:
+        self.timer.start('W')
         print('Calculating screened Coulomb potential', file=self.fd)
         if self.wstc:
             print('Using Wigner-Seitz truncated Coloumb potential',
@@ -365,7 +370,7 @@ class G0W0(PairDensity):
                           'timeordered': True,
                           'domega0': self.domega0 * Hartree,
                           'omega2': self.omega2 * Hartree}
-            
+        
         chi0 = Chi0(self.calc,
                     nbands=self.nbands,
                     ecut=self.ecut * Hartree,
@@ -374,14 +379,25 @@ class G0W0(PairDensity):
                     txt=self.filename + '.w.txt',
                     timer=self.timer,
                     **parameters)
+
+        if self.wstc:
+            wstc = WignerSeitzTruncatedCoulomb(
+                self.calc.wfs.gd.cell_cv,
+                self.calc.wfs.kd.N_c,
+                chi0.fd)
+        else:
+            wstc = None
         
         self.omega_w = chi0.omega_w
         self.omegamax = chi0.omegamax
         
         htp = HilbertTransform(self.omega_w, self.eta, gw=True)
         htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
-            
+
+        # Need to pause the timer in between iterations
+        self.timer.stop('W')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
+            self.timer.start('W')
             if self.savew:
                 wfilename = self.filename + '.w.q%d.pckl' % iq
                 fd = opencew(wfilename)
@@ -391,20 +407,13 @@ class G0W0(PairDensity):
                     pd, W = pickle.load(fd)
             else:
                 # First time calculation
-                if self.wstc:
-                    wstc = WignerSeitzTruncatedCoulomb(
-                        self.calc.wfs.gd.cell_cv,
-                        self.calc.wfs.kd.N_c,
-                        chi0.fd)
-                else:
-                    wstc = None
-            
                 pd, chi0_wGG = chi0.calculate(q_c)[:2]
                 self.Q_aGii = chi0.Q_aGii
                 W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc)
                 if self.savew:
                     pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
 
+            self.timer.stop('W')
             # Loop over all k-points in the BZ and find those that are related
             # to the current IBZ k-point by symmetry
             Q1 = self.qd.ibz2bz_k[iq]

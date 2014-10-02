@@ -197,19 +197,19 @@ class PAWTextOutput:
         t('Reference Energy:  %.6f' % (self.wfs.setups.Eref * Hartree))
         t()
 
-        nibzkpts = self.wfs.nibzkpts
+        nibzkpts = self.wfs.kd.nibzkpts
 
         # Print parallelization details
         t('Total number of cores used: %d' % self.wfs.world.size)
-        if self.wfs.kpt_comm.size > 1:  # kpt/spin parallization
+        if self.wfs.kd.comm.size > 1:  # kpt/spin parallization
             if self.wfs.nspins == 2 and nibzkpts == 1:
                 t('Parallelization over spin')
             elif self.wfs.nspins == 2:
                 t('Parallelization over k-points and spin: %d' %
-                  self.wfs.kpt_comm.size)
+                  self.wfs.kd.comm.size)
             else:
                 t('Parallelization over k-points: %d' %
-                  self.wfs.kpt_comm.size)
+                  self.wfs.kd.comm.size)
         if self.wfs.gd.comm.size > 1:  # domain parallelization
             t('Domain Decomposition: %d x %d x %d' %
               tuple(self.wfs.gd.parsize_c))
@@ -233,7 +233,7 @@ class PAWTextOutput:
             t('Orthonormalizer layout: ' + orthonormalizer_layout)
         t()
 
-        self.wfs.symmetry.print_symmetries(self.txt)
+        self.wfs.kd.symmetry.print_symmetries(self.txt)
 
         t(self.wfs.kd.description)
         t(('%d k-point%s in the Irreducible Part of the Brillouin Zone') %
@@ -490,7 +490,7 @@ def eigenvalue_string(paw, comment=None):
     if not comment:
         comment = ' '
 
-    if len(paw.wfs.ibzk_kc) > 1:
+    if len(paw.wfs.kd.ibzk_kc) > 1:
         # not implemented yet:
         return ''
 

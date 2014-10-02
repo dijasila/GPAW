@@ -203,10 +203,10 @@ class ZeroKelvin(OccupationNumbers):
         if wfs.nspins == 1:
             self.spin_paired(wfs)
         elif self.fixmagmom:
-            assert wfs.gamma
+            assert wfs.kd.gamma
             self.fixed_moment(wfs)
         else:
-            assert wfs.nibzkpts == 1
+            assert wfs.kd.nibzkpts == 1
             self.spin_polarized(wfs)
 
         self.e_entropy = 0.0
@@ -327,8 +327,8 @@ class ZeroKelvin(OccupationNumbers):
             wfs.bd.distribute(f_n, kpt.f_n)
 
         if wfs.bd.comm.rank == 0:
-            self.homo = wfs.kpt_comm.max(self.homo)
-            self.lumo = wfs.kpt_comm.min(self.lumo)
+            self.homo = wfs.kd.comm.max(self.homo)
+            self.lumo = wfs.kd.comm.min(self.lumo)
             self.fermilevel = 0.5 * (self.homo + self.lumo)
 
         self.magmom = 0.0
@@ -338,16 +338,16 @@ class ZeroKelvin(OccupationNumbers):
         self.fermilevel = np.nan
         nbands = wfs.bd.nbands
         if wfs.bd.comm.rank == 0:
-            if wfs.kpt_comm.size == 2:
-                if wfs.kpt_comm.rank == 1:
-                    wfs.kpt_comm.send(eps_un[0], 0)
+            if wfs.kd.comm.size == 2:
+                if wfs.kd.comm.rank == 1:
+                    wfs.kd.comm.send(eps_un[0], 0)
                 else:
                     eps_sn = [eps_un[0], np.empty(nbands)]
-                    wfs.kpt_comm.receive(eps_sn[1], 1)
+                    wfs.kd.comm.receive(eps_sn[1], 1)
             else:
                 eps_sn = eps_un
 
-            if wfs.kpt_comm.rank == 0:
+            if wfs.kd.comm.rank == 0:
                 eps_n = np.ravel(eps_sn)
                 f_n = np.empty(nbands * 2)
                 nsorted = eps_n.argsort()
@@ -357,12 +357,12 @@ class ZeroKelvin(OccupationNumbers):
                 self.magmom = f_sn[0].sum() - f_sn[1].sum()
                 self.fermilevel = 0.5 * (self.homo + self.lumo)
 
-            if wfs.kpt_comm.size == 2:
-                if wfs.kpt_comm.rank == 0:
-                    wfs.kpt_comm.send(f_sn[1], 1)
+            if wfs.kd.comm.size == 2:
+                if wfs.kd.comm.rank == 0:
+                    wfs.kd.comm.send(f_sn[1], 1)
                 else:
                     f_sn = [None, np.empty(nbands)]
-                    wfs.kpt_comm.receive(f_sn[1], 0)
+                    wfs.kd.comm.receive(f_sn[1], 0)
         else:
             f_sn = [None, None]
 

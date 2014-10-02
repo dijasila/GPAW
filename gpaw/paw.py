@@ -19,7 +19,6 @@ import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.xc.sic import SIC
 from gpaw.scf import SCFLoop
-from gpaw.hooks import hooks
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry
 import gpaw.wavefunctions.pw as pw
@@ -28,6 +27,7 @@ import gpaw.occupations as occupations
 from gpaw.forces import ForceCalculator
 from gpaw.utilities.timing import Timer
 from gpaw.wavefunctions.lcao import LCAO
+from gpaw.wavefunctions.fd import FD
 from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor
@@ -131,7 +131,6 @@ class PAW(PAWTextOutput):
             self.initialize()
             self.read(reader)
             if self.hamiltonian.xc.type == 'GLLB':
-                print "GLLB extra occupations calculate"
                 self.occupations.calculate(self.wfs)
 
             self.print_cell_and_parameters()
@@ -174,6 +173,7 @@ class PAW(PAWTextOutput):
 
         for key in kwargs:
             if key == 'basis' and str(p['mode']) == 'fd':  # umm what about PW?
+                # The second criterion seems buggy, will not touch it.  -Ask
                 continue
 
             if key == 'eigensolver':
@@ -286,11 +286,7 @@ class PAW(PAWTextOutput):
         if self.scf.converged:
             self.call_observers(iter, final=True)
             self.print_converged(iter)
-            if 'converged' in hooks:
-                hooks['converged'](self)
         elif converge:
-            if 'not_converged' in hooks:
-                hooks['not_converged'](self)
             self.txt.write(oops)
             raise KohnShamConvergenceError(
                 'Did not converge!  See text output for help.')
@@ -374,25 +370,27 @@ class PAW(PAWTextOutput):
 
         mode = par.mode
 
-        #if mode == 'fd': # maybe some day
-        #    mode = FD()
-        if mode == 'pw':
+        if mode == 'fd':
+            mode = FD()
+        elif mode == 'pw':
             mode = pw.PW()
         elif mode == 'lcao':
             mode = LCAO()
+        else:
+            assert hasattr(mode, 'name'), str(mode)
 
-        if xc.orbital_dependent and str(mode) == 'lcao':
+        if xc.orbital_dependent and mode.name == 'lcao':
             raise NotImplementedError('LCAO mode does not support '
                                       'orbital-dependent XC functionals.')
 
         if par.realspace is None:
-            realspace = (str(mode) != 'pw')
+            realspace = (mode.name != 'pw')
         else:
             realspace = par.realspace
-            if str(mode) == 'pw':
+            if mode.name == 'pw':
                 assert not realspace
 
-        if par.filter is None and str(mode) != 'pw':
+        if par.filter is None and mode.name != 'pw':
             gamma = 1.6
             if par.gpts is not None:
                 h = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5
@@ -447,7 +445,7 @@ class PAW(PAWTextOutput):
         if symm == 'off':
             symm = {'point_group': False, 'time_reversal': False}
 
-        if par.dtype == complex and str(mode) == 'lcao':
+        if par.dtype == complex and mode.name == 'lcao':
             gamma = False
         else:
             gamma = None
@@ -513,7 +511,7 @@ class PAW(PAWTextOutput):
                                      % (nbands_from_atom, setup.Nv))
                 nbands += nbands_from_atom
             nbands = min(nao, nbands)
-        elif nbands > nao and str(mode) == 'lcao':
+        elif nbands > nao and mode.name == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: '
                              '%d bands and only %d atomic orbitals!' %
                              (nbands, nao))
@@ -560,7 +558,7 @@ class PAW(PAWTextOutput):
 
         cc = par.convergence
 
-        if str(mode) == 'lcao':
+        if mode.name == 'lcao':
             niter_fixdensity = 0
         else:
             niter_fixdensity = None
@@ -589,7 +587,7 @@ class PAW(PAWTextOutput):
             ndomains = None
             if parsize_domain is not None:
                 ndomains = np.prod(parsize_domain)
-            if str(mode) == 'pw':
+            if mode.name == 'pw':
                 if ndomains > 1:
                     raise ValueError('Planewave mode does not support '
                                      'domain decomposition.')
@@ -675,7 +673,7 @@ class PAW(PAWTextOutput):
             else:
                 sl_default = par.parallel['sl_default']
 
-            if str(mode) == 'lcao':
+            if mode.name == 'lcao':
                 # Layouts used for general diagonalizer
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
@@ -686,14 +684,15 @@ class PAW(PAWTextOutput):
 
                 self.wfs = mode(collinear, lcaoksl, *args)
 
-            elif str(mode) == 'fd' or str(mode) == 'pw':
+            elif mode.name == 'fd' or mode.name == 'pw':
                 # buffer_size keyword only relevant for fdpw
                 buffer_size = par.parallel['buffer_size']
                 # Layouts used for diagonalizer
                 sl_diagonalize = par.parallel['sl_diagonalize']
                 if sl_diagonalize is None:
                     sl_diagonalize = sl_default
-                diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',
+                diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',  # XXX
+                                               # choice of key 'fd' not so nice
                                                gd, bd, domainband_comm, dtype,
                                                buffer_size=buffer_size,
                                                timer=self.timer)
@@ -731,7 +730,7 @@ class PAW(PAWTextOutput):
                                                    timer=self.timer)
 
                 if hasattr(self, 'time'):
-                    assert str(mode) == 'fd'
+                    assert mode.name == 'fd'
                     from gpaw.tddft import TimeDependentWaveFunctions
                     self.wfs = TimeDependentWaveFunctions(
                         par.stencils[0],
@@ -746,11 +745,11 @@ class PAW(PAWTextOutput):
                         kd,
                         kptband_comm,
                         self.timer)
-                elif str(mode) == 'fd':
-                    self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
-                                               orthoksl, initksl, *args)
+                elif mode.name == 'fd':
+                    self.wfs = mode(par.stencils[0], diagksl,
+                                    orthoksl, initksl, *args)
                 else:
-                    # Planewave basis:
+                    assert mode.name == 'pw'
                     self.wfs = mode(diagksl, orthoksl, initksl, *args)
             else:
                 self.wfs = mode(self, *args)

@@ -4,10 +4,7 @@ from ase.data import atomic_numbers
 from gpaw.utilities import pack2
 from gpaw.utilities.tools import md5_new
 from gpaw.atom.radialgd import AERadialGridDescriptor
-from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.configurations import configurations
-from gpaw.utilities import min_locfun_radius
-from gpaw.basis_data import Basis, BasisFunction
 from gpaw.pseudopotential import PseudoPotential
 
 setups = {}  # Filled out during parsing below
@@ -219,8 +216,6 @@ class HGHSetupData:
         rgd = self.rgd
 
         pl.subplot(211)  # vbar, compensation charge
-        rloc = self.hghdata.rloc
-        gloc = self.rgd.ceil(rloc)
         gcutvbar = len(self.vbar_g)
         pl.plot(rgd.r_g[:gcutvbar], self.vbar_g, 'r', label='vloc',
                 linewidth=3)
@@ -238,8 +233,6 @@ class HGHSetupData:
             ng = len(pt_g)
             r_g = rgd.r_g[:ng]
             pl.plot(r_g, pt_g, label=label)
-            r0 = self.hghdata.v_l[self.l_j[j]].r0
-            g0 = self.rgd.ceil(r0)
         pl.legend()
 
     def get_projectors(self):
@@ -515,7 +508,7 @@ def parse_hgh_setup(lines):
 
 
 def str2hgh(string):
-    return parse_hgh_setups(string.splitlines())
+    return parse_hgh_setup(string.splitlines())
 
 
 def hgh2str(hgh):

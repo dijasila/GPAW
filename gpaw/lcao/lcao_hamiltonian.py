@@ -38,7 +38,7 @@ class DistributedAtomicHamiltonian:
             ni = wfs.setups[a].ni
             return np.empty((wfs.ns, ni * (ni + 1) // 2))
 
-        # just distribued over gd comm.  It's not the most aggressive
+        # just distributed over gd comm.  It's not the most aggressive
         # we can manage but we want to make band parallelization
         # a bit easier and it won't really be a problem.  I guess
         #

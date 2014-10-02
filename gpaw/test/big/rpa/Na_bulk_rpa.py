@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Refer to J. Harl, et.al, PRB 81, 115126 (2010)
 #   Table III for parameter used in this calculation
 #   Fig. 2 to compare the correlation energy.
@@ -22,6 +23,6 @@ for i in range(9):
                                        kcommsize=size,
                                        dfcommsize=size)
 
-    print >> f, '%s  '%(ecut), E
+    print('%s  '%(ecut), E, file=f)
     
 f.close()

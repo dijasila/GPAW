@@ -1,3 +1,4 @@
+from __future__ import print_function
 # This tests calculates the force on the atoms of a
 # slightly distorted Silicon primitive cell.
 #
@@ -38,17 +39,17 @@ F_ac_ref = np.array([[-1.39639348, -1.39424322, -1.39424321],
 err_ac = np.abs(F_ac - F_ac_ref)
 err = err_ac.max()
 
-print 'Force'
-print F_ac
-print
-print 'Reference result'
-print F_ac_ref
-print
-print 'Error'
-print err_ac
-print
-print 'Max error'
-print err
+print('Force')
+print(F_ac)
+print()
+print('Reference result')
+print(F_ac_ref)
+print()
+print('Error')
+print(err_ac)
+print()
+print('Max error')
+print(err)
 
 # ASE uses dx = [+|-] 0.001 by default,
 # error should be around 2e-3.  In fact 4e-3 would probably be acceptable
@@ -63,11 +64,11 @@ if fd:
     from ase.calculators.test import numeric_forces
     calc.set(symmetry='off')
     F_ac_fd = numeric_forces(system)
-    print 'Self-consistent forces'
-    print F_ac
-    print 'FD'
-    print F_ac_fd
-    print repr(F_ac_fd)
-    print F_ac - F_ac_fd, np.abs(F_ac - F_ac_fd).max()
+    print('Self-consistent forces')
+    print(F_ac)
+    print('FD')
+    print(F_ac_fd)
+    print(repr(F_ac_fd))
+    print(F_ac - F_ac_fd, np.abs(F_ac - F_ac_fd).max())
 
     assert np.abs(F_ac - F_ac_fd).max() < 4e-3

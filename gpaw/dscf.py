@@ -136,7 +136,7 @@ class OccupationsDSCF(FermiDirac):
             if hasattr(kpt, 'c_on'):
                 for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                     de_band += ne * np.dot(np.abs(c_n)**2, kpt.eps_n)
-        self.e_band += wfs.band_comm.sum(wfs.kpt_comm.sum(de_band))
+        self.e_band += wfs.band_comm.sum(wfs.kd.comm.sum(de_band))
 
 
 class MolecularOrbital:
@@ -351,7 +351,7 @@ class AEOrbital:
             c_un.append(c_n)
 
         for s in range(wfs.nspins):
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 p = wfs.collect_auxiliary(p_u, k, s)
                 if wfs.world.rank == 0:
                     self.txt.write('Kpt: %d, Spin: %d, '

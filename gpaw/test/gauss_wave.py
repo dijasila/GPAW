@@ -1,3 +1,4 @@
+from __future__ import print_function
 
 import time
 import numpy as np
@@ -12,7 +13,7 @@ r_cG = np.random.normal(size=C*G**3).reshape((C,G,G,G))
 r0_c = np.random.normal(size=C)
 k_c = np.random.normal(size=C)
 A = np.random.uniform()*np.exp(1j*np.random.uniform(0,2*np.pi))
-print 'Allocation: %8.5f s' % (time.time()-t)
+print('Allocation: %8.5f s' % (time.time()-t))
 
 # -------------------------------------------------------------------
 
@@ -22,11 +23,11 @@ _gaussRGN = lambda r_cG, r0_c, sigma: 1/(sigma*np.pi**0.5)**1.5 \
 
 t = time.time()
 gs0_G = _gaussRGN(r_cG, r0_c, sigma)
-print '_gaussRGN: %8.5f s' % (time.time()-t)
+print('_gaussRGN: %8.5f s' % (time.time()-t))
 
 t = time.time()
 gs1_G = gaussian_wave(r_cG, r0_c, sigma)
-print '+gaussRGN: %8.5f s' % (time.time()-t)
+print('+gaussRGN: %8.5f s' % (time.time()-t))
 
 assert np.abs(gs0_G-gs1_G).max() < 1e-12, 'Max error %g' % np.abs(gs0_G-gs1_G).max()
 del gs0_G, gs1_G
@@ -37,11 +38,11 @@ _gaussRGA = lambda r_cG, r0_c, sigma, A: np.real(A) \
 
 t = time.time()
 gs0_G = _gaussRGA(r_cG, r0_c, sigma, A)
-print '_gaussRGA: %8.5f s' % (time.time()-t)
+print('_gaussRGA: %8.5f s' % (time.time()-t))
 
 t = time.time()
 gs1_G = gaussian_wave(r_cG, r0_c, sigma, None, A)
-print '+gaussRGA: %8.5f s' % (time.time()-t)
+print('+gaussRGA: %8.5f s' % (time.time()-t))
 
 assert np.abs(gs0_G-gs1_G).max() < 1e-12, 'Max error %g' % np.abs(gs0_G-gs1_G).max()
 del gs0_G, gs1_G
@@ -53,11 +54,11 @@ _gaussRKN = lambda r_cG, r0_c, sigma, k_c: 1/(sigma*np.pi**0.5)**1.5 \
 
 t = time.time()
 gs0_G = _gaussRKN(r_cG, r0_c, sigma, k_c)
-print '_gaussRKN: %8.5f s' % (time.time()-t)
+print('_gaussRKN: %8.5f s' % (time.time()-t))
 
 t = time.time()
 gs1_G = gaussian_wave(r_cG, r0_c, sigma, k_c)
-print '+gaussRKN: %8.5f s' % (time.time()-t)
+print('+gaussRKN: %8.5f s' % (time.time()-t))
 
 assert np.abs(gs0_G-gs1_G).max() < 1e-12, 'Max error %g' % np.abs(gs0_G-gs1_G).max()
 del gs0_G, gs1_G
@@ -69,11 +70,11 @@ _gaussRKA = lambda r_cG, r0_c, sigma, k_c, A: \
 
 t = time.time()
 gs0_G = _gaussRKA(r_cG, r0_c, sigma, k_c, A)
-print '_gaussRKA: %8.5f s' % (time.time()-t)
+print('_gaussRKA: %8.5f s' % (time.time()-t))
 
 t = time.time()
 gs1_G = gaussian_wave(r_cG, r0_c, sigma, k_c, A)
-print '+gaussRKA: %8.5f s' % (time.time()-t)
+print('+gaussRKA: %8.5f s' % (time.time()-t))
 
 assert np.abs(gs0_G-gs1_G).max() < 1e-12, 'Max error %g' % np.abs(gs0_G-gs1_G).max()
 del gs0_G, gs1_G
@@ -86,11 +87,11 @@ _gaussCGN = lambda r_cG, r0_c, sigma: (1+0j)/(sigma*np.pi**0.5)**1.5 \
 
 t = time.time()
 gs0_G = _gaussCGN(r_cG, r0_c, sigma)
-print '_gaussCGN: %8.5f s' % (time.time()-t)
+print('_gaussCGN: %8.5f s' % (time.time()-t))
 
 t = time.time()
 gs1_G = gaussian_wave(r_cG, r0_c, sigma, dtype=complex)
-print '+gaussCGN: %8.5f s' % (time.time()-t)
+print('+gaussCGN: %8.5f s' % (time.time()-t))
 
 assert np.abs(gs0_G-gs1_G).max() < 1e-12, 'Max error %g' % np.abs(gs0_G-gs1_G).max()
 del gs0_G, gs1_G
@@ -101,11 +102,11 @@ _gaussCGA = lambda r_cG, r0_c, sigma, A: A \
 
 t = time.time()
 gs0_G = _gaussCGA(r_cG, r0_c, sigma, A)
-print '_gaussCGA: %8.5f s' % (time.time()-t)
+print('_gaussCGA: %8.5f s' % (time.time()-t))
 
 t = time.time()
 gs1_G = gaussian_wave(r_cG, r0_c, sigma, None, A, dtype=complex)
-print '+gaussCGA: %8.5f s' % (time.time()-t)
+print('+gaussCGA: %8.5f s' % (time.time()-t))
 
 assert np.abs(gs0_G-gs1_G).max() < 1e-12, 'Max error %g' % np.abs(gs0_G-gs1_G).max()
 del gs0_G, gs1_G
@@ -117,11 +118,11 @@ _gaussCKN = lambda r_cG, r0_c, sigma, k_c: (1+0j)/(sigma*np.pi**0.5)**1.5 \
 
 t = time.time()
 gs0_G = _gaussCKN(r_cG, r0_c, sigma, k_c)
-print '_gaussCKN: %8.5f s' % (time.time()-t)
+print('_gaussCKN: %8.5f s' % (time.time()-t))
 
 t = time.time()
 gs1_G = gaussian_wave(r_cG, r0_c, sigma, k_c, dtype=complex)
-print '+gaussCKN: %8.5f s' % (time.time()-t)
+print('+gaussCKN: %8.5f s' % (time.time()-t))
 
 assert np.abs(gs0_G-gs1_G).max() < 1e-12, 'Max error %g' % np.abs(gs0_G-gs1_G).max()
 del gs0_G, gs1_G
@@ -133,11 +134,11 @@ _gaussCKA = lambda r_cG, r0_c, sigma, k_c, A: A \
 
 t = time.time()
 gs0_G = _gaussCKA(r_cG, r0_c, sigma, k_c, A)
-print '_gaussCKA: %8.5f s' % (time.time()-t)
+print('_gaussCKA: %8.5f s' % (time.time()-t))
 
 t = time.time()
 gs1_G = gaussian_wave(r_cG, r0_c, sigma, k_c, A, dtype=complex)
-print '+gaussCKA: %8.5f s' % (time.time()-t)
+print('+gaussCKA: %8.5f s' % (time.time()-t))
 
 assert np.abs(gs0_G-gs1_G).max() < 1e-12, 'Max error %g' % np.abs(gs0_G-gs1_G).max()
 del gs0_G, gs1_G

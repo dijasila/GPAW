@@ -193,13 +193,13 @@ class SIC(XCFunctional):
     
     def initialize(self, density, hamiltonian, wfs, occ=None):
         
-        assert wfs.gamma
+        assert wfs.kd.gamma
         assert not wfs.gd.pbc_c.any()
 
         self.wfs = wfs
         self.dtype = float
         self.xc.initialize(density, hamiltonian, wfs, occ)
-        self.kpt_comm = wfs.kpt_comm
+        self.kpt_comm = wfs.kd.comm
         self.nspins = wfs.nspins
         self.nbands = wfs.bd.nbands
         
@@ -287,7 +287,7 @@ class SIC(XCFunctional):
        self.dF_av = np.zeros_like(F_av)
        for spin in self.spin_s.values():
            spin.add_forces(self.dF_av)
-       self.wfs.kpt_comm.sum(self.dF_av)
+       self.wfs.kd.comm.sum(self.dF_av)
         
     def add_forces(self, F_av):
        F_av += self.dF_av
@@ -1353,11 +1353,11 @@ class SICSpin:
            
             if self.gd.comm.rank == 0:
                 if self.logging==1:
-                    print "           UO-%d: %2d %5.1f  %20.5f  " % (
-                        self.spin, iter, np.log10(K), ESI*Hartree)
+                    print("           UO-%d: %2d %5.1f  %20.5f  " % (
+                        self.spin, iter, np.log10(K), ESI*Hartree))
                 elif self.logging==2:
-                    print "           UO-%d: %2d %5.1f  %20.5f  " % (
-                    self.spin, iter, np.log10(K), ESI*Hartree) + lsmethod
+                    print("           UO-%d: %2d %5.1f  %20.5f  " % (
+                    self.spin, iter, np.log10(K), ESI*Hartree) + lsmethod)
                 
             if ((K<self.uomaxres or
                  K<self.wfs.eigensolver.error*self.uorelres)

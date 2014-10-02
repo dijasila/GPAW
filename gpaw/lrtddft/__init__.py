@@ -1,6 +1,7 @@
 """This module defines a linear response TDDFT-class.
 
 """
+from __future__ import print_function
 from math import sqrt
 import sys
 
@@ -83,7 +84,7 @@ class LrTDDFT(ExcitationList):
         if calculator is not None and calculator.initialized:
             if not isinstance(calculator.wfs, FDWaveFunctions):
                 raise RuntimeError('Linear response TDDFT supported only in real space mode')
-            if calculator.wfs.kpt_comm.size > 1:
+            if calculator.wfs.kd.comm.size > 1:
                 err_txt = "Spin parallelization with Linear response "
                 err_txt += "TDDFT. Use parallel = {'domain' : 'domain_only'} "
                 err_txt += "calculator parameter."
@@ -152,7 +153,7 @@ class LrTDDFT(ExcitationList):
             out = sys.stdout
             
         for i in what:
-            print >> out, str(i) + ':', self[i].analyse(min=min)
+            print(str(i) + ':', self[i].analyse(min=min), file=out)
             
     def update(self, calculator=None, **kwargs):
 
@@ -206,11 +207,11 @@ class LrTDDFT(ExcitationList):
         while len(self): self.pop()
         self.timer.stop('clean')
 
-        print >> self.txt, 'LrTDDFT digonalized:'
+        print('LrTDDFT digonalized:', file=self.txt)
         self.timer.start('build')
         for j in range(len(self.Om.kss)):
             self.append(LrTDDFTExcitation(self.Om, j))
-            print >> self.txt, ' ', str(self[-1])
+            print(' ', str(self[-1]), file=self.txt)
         self.timer.stop('build')
         self.timer.stop('diagonalize')
 

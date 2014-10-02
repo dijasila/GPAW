@@ -1,4 +1,5 @@
 ### Refer to Chulkov and Echenique, PRB 67, 245402 (2003) for comparison of results ###
+from __future__ import print_function
 import numpy as np
 import sys
 import time
@@ -76,5 +77,5 @@ if check:
 
     if (np.abs(d[Nw1, 1] - 10.1346526489) > 1e-2
         or np.abs(d[Nw2, 1] - 2.17958316492 ) > 1e-2):
-        print d[Nw1, 1], d[Nw2, 1]
+        print(d[Nw1, 1], d[Nw2, 1])
         raise ValueError('Please check spectrum strength ! ')

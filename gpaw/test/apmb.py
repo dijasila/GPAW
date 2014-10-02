@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom, Atoms
 from ase.parallel import parprint
 

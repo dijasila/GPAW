@@ -40,7 +40,7 @@ class ForceCalculator:
 
         wfs.world.broadcast(self.F_av, 0)
         
-        self.F_av = wfs.symmetry.symmetrize_forces(self.F_av)
+        self.F_av = wfs.kd.symmetry.symmetrize_forces(self.F_av)
 
         self.timer.stop('Force calculation')
 

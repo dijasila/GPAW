@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw import GPAW, restart, FermiDirac, PoissonSolver
 from ase import Atoms
 from gpaw.test import equal, gen
@@ -34,7 +35,7 @@ for xc in ['LDA','GLLBSC']:
     bulk.set_calculator(calc)
     e[xc] = {'direct': bulk.get_potential_energy()}
     niter[xc] = {'direct': calc.get_number_of_iterations()}
-    print calc.get_ibz_k_points()
+    print(calc.get_ibz_k_points())
     old_eigs = calc.get_eigenvalues(kpt=3)
     calc.write('Si_gs.gpw')
     del bulk
@@ -49,7 +50,7 @@ for xc in ['LDA','GLLBSC']:
         os.remove('Si_gs.gpw')
     diff = calc.get_eigenvalues(kpt=1)[:6]-old_eigs[:6]
     if world.rank == 0:
-        print "occ. eig. diff.", diff
+        print("occ. eig. diff.", diff)
         error = max(abs(diff))
         assert error < 5e-6
 

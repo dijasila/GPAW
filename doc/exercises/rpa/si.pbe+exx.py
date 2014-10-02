@@ -18,21 +18,20 @@ alat = 5.421
 
 # Do the bulk calculation
 
-bulk_crystal = bulk('Si', 'diamond', a=alat)   
-bulk_calc = GPAW(
-            mode = PW(pwcutoff),
-            kpts={'size': (k, k, k), 'gamma': True},
-            dtype=complex,
-            xc='PBE',
-            txt='si.pbe+exx.pbe_output.txt',
-            parallel={'band':1}
-            )
+bulk_crystal = bulk('Si', 'diamond', a=alat)
+bulk_calc = GPAW(mode=PW(pwcutoff),
+                 kpts={'size': (k, k, k), 'gamma': True},
+                 dtype=complex,
+                 xc='PBE',
+                 txt='si.pbe+exx.pbe_output.txt',
+                 parallel={'band': 1}
+                 )
 
 bulk_crystal.set_calculator(bulk_calc)
 e0_bulk_pbe = bulk_crystal.get_potential_energy()
 
 #  Write to file
-bulk_calc.write('bulk.gpw',mode='all')
+bulk_calc.write('bulk.gpw', mode='all')
 
 # Now the exact exchange
 exx_bulk = EXX('bulk.gpw', txt='si.pbe+exx.exx_output.txt')

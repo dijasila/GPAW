@@ -138,7 +138,7 @@ class Surrounding:
             self.directions = ['-', '+']
             for i in range(self.lead_num):
                 direction = self.directions[i]
-                kpt_comm = tp.wfs.kpt_comm
+                kpt_comm = tp.wfs.kd.comm
                 gd_comm = tp.gd.comm
                 side = Side('LR', direction, kpt_comm, 
                             gd_comm, tp.gd.h_cv[2,2])

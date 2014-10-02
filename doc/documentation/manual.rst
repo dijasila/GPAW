@@ -598,7 +598,6 @@ occupations one has to use :class:`~gpaw.mixer.MixerSum` instead of
 
 See also the documentation on :ref:`density mixing <densitymix>`.
 
-
 .. _manual_fixdensity:
 
 Fixed density

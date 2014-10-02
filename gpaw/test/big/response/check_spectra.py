@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 
 def check_EELS(head):
@@ -34,9 +35,9 @@ ycheck = np.array([ 0.98650367, 1.00346049, 1.03640948, 0.95599301,
 
 for i in range(xpeak.shape[0]):
     if np.abs(xpeak[i] - xcheck[i]) > 1e-2:
-        print i, xpeak[i], xcheck[i]
+        print(i, xpeak[i], xcheck[i])
         raise ValueError('Plasmon peak not correct ! ')
     if np.abs(ypeak[i] - ycheck[i]) > 1e-5:
-        print i, ypeak[i], ycheck[i]
+        print(i, ypeak[i], ycheck[i])
         raise ValueError('Please check spectrum strength ! ')
     

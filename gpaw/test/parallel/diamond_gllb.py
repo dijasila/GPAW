@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.lattice import bulk
 from sys import argv
 from ase.dft.kpoints import ibz_points, get_bandpath
@@ -47,7 +48,7 @@ for band in [1,2,4]:
     # Get the accurate KS-band gap
     homolumo = calc.occupations.get_homo_lumo(calc.wfs)
     homo, lumo = homolumo
-    print "band gap ",(lumo-homo)*27.2
+    print("band gap ",(lumo-homo)*27.2)
     
     # Redo the ground state calculation
     calc = GPAW(h=0.15, kpts=(4,4,4), xc=xc, nbands = 8, 

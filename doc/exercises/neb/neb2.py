@@ -1,4 +1,5 @@
 """Diffusion across rows"""
+from __future__ import print_function
 
 from math import sqrt
 
@@ -14,7 +15,7 @@ from ase.calculators.emt import EMT
 a = 4.0614
 b = a / sqrt(2)
 h = b / 2
-initial = Atoms('Al2', 
+initial = Atoms('Al2',
                 positions=[(0, 0, 0),
                            (a / 2, b / 2, -h)],
                 cell=(a, b, 2 * h),
@@ -38,7 +39,7 @@ images.append(final)
 # two bottom layers):
 mask = initial.positions[:, 2] - min(initial.positions[:, 2]) < 1.5 * h
 constraint = FixAtoms(mask=mask)
-print mask
+print(mask)
 
 for image in images:
     # Let all images use an EMT calculator:
@@ -61,5 +62,6 @@ minimizer = BFGS(neb)
 minimizer.run(fmax=0.05)
 
 # Write the path to a trajectory:
-view(images) # 564 meV
+view(images)
+# 564 meV
 write('jump2.traj', images)

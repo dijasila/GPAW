@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from pylab import *
 from gpaw.response.tool import linear_fit
@@ -25,7 +26,7 @@ axis([0, xscale.max(), None, None])
 
 xlabel('Response function cutoff (eV)')
 ylabel('RPA correlation energy (eV)')
-print 'RPA correlation at infinite cutoff:', para[1]
+print('RPA correlation at infinite cutoff:', para[1])
 
 equal(para[1], -1.27, 0.01)
 #show()

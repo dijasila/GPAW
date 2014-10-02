@@ -28,6 +28,6 @@ install it.  Get the Numeric-24.2 and do this::
   $ python setup.py install --home=$HOME
 
 and put the :file:`$HOME/lib/python/Numeric` directory in your
-:envvar:`$PYTHONPATH`.
+:envvar:`PYTHONPATH`.
 
 Now we are ready to :ref:`compile GPAW <installationguide>`

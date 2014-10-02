@@ -1,4 +1,4 @@
-
+from __future__ import print_function
 import os, sys, time
 import numpy as np
 
@@ -129,8 +129,8 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
 
         t0 = time.time()
         f = paropen('%s_%d.log' % (self.tdname, t), 'w')
-        print >>f, 'propagator: %s, duration: %6.1f as, timestep: %5.2f as, ' \
-            'niter: %d' % (self.propagator, self.duration, timestep, niter)
+        print('propagator: %s, duration: %6.1f as, timestep: %5.2f as, ' \
+            'niter: %d' % (self.propagator, self.duration, timestep, niter), file=f)
 
         for i in range(1, niter+1):
             # XXX bare bones propagation without all the nonsense
@@ -144,9 +144,9 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
                 ekin = self.tdcalc.atoms.get_kinetic_energy()
                 epot = self.tdcalc.get_td_energy() * Hartree
                 F_av = np.zeros((len(self.tdcalc.atoms), 3))
-                print >>f, 'i=%06d, time=%6.1f as, rate=%6.2f min^-1, ' \
+                print('i=%06d, time=%6.1f as, rate=%6.2f min^-1, ' \
                     'ekin=%13.9f eV, epot=%13.9f eV, etot=%13.9f eV' \
-                    % (i, timestep * i, rate, ekin, epot, ekin + epot)
+                    % (i, timestep * i, rate, ekin, epot, ekin + epot), file=f)
                 t0 = time.time()
 
                 # Hack to prevent calls to GPAW::get_potential_energy when saving
@@ -181,8 +181,8 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
 
         f = paropen('%s_ref.log' % self.tdname, 'w')
         niters = np.round(self.duration / self.timesteps).astype(int)
-        print >>f, 'propagator: %s, duration: %6.1f as, niters: %s, ' \
-            % (self.propagator, self.duration, niters.tolist())
+        print('propagator: %s, duration: %6.1f as, niters: %s, ' \
+            % (self.propagator, self.duration, niters.tolist()), file=f)
 
         for t,timestep in enumerate(self.timesteps):
             self.assertTrue(os.path.isfile('%s_%d.gpw' % (self.tdname, t)))
@@ -205,8 +205,8 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
             # Check loaded density and wavefunctions against reference values
             dnt = finegd.comm.max(np.abs(nt_g - nt0_g).max())
             dpsit = gd.comm.max(np.abs(psit_nG - psit0_nG).max())
-            print >>f, 't=%d, timestep: %5.2f as, dnt: %16.13f, ' \
-                'dpsit: %16.13f' % (t, timestep, dnt, dpsit)
+            print('t=%d, timestep: %5.2f as, dnt: %16.13f, ' \
+                'dpsit: %16.13f' % (t, timestep, dnt, dpsit), file=f)
             snt, spsit = {'SITE': (5,4)}.get(self.propagator, (7,5))
             #self.assertAlmostEqual(dnt, 0, snt, 't=%d, timestep: ' \
             #    '%5.2f as, dnt: %g, digits: %d' % (t, timestep, dnt, snt))

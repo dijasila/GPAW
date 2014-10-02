@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw.atom.aeatom import AllElectronAtom, c
 from gpaw.test import equal
 
@@ -15,7 +16,7 @@ for channel in aea.channels:
         e = channel.e_n[n]
         e0 = -0.5 * Z**2 / (n + channel.l + 1)**2
         errors.append(abs(e / e0 - 1))
-print max(errors)
+print(max(errors))
 equal(max(errors), 0, 2.0e-5)
 
 # Test Dirac equation:
@@ -34,5 +35,5 @@ for channel in aea.channels:
               ((channel.k**2 - (Z / c)**2)**0.5 + n)**2)**-0.5 - 1
         e0 *= c**2
         errors.append(abs(e / e0 - 1))
-print max(errors)
+print(max(errors))
 equal(max(errors), 0, 4.0e-5)

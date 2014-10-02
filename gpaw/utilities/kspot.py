@@ -1,3 +1,4 @@
+from __future__ import print_function
 from math import pi,sqrt
 from itertools import izip
 
@@ -37,9 +38,9 @@ class AllElectronPotential:
             g = AllElectron(setup.symbol, xcname='LDA', nofiles=True,
                             scalarrel=True, txt=None)
             g.run()
-            print >>f, r_g[0], vKS_g[0], g.vr[0], 0.0
+            print(r_g[0], vKS_g[0], g.vr[0], 0.0, file=f)
             for r, vKS,vr in zip(r_g[1:],vKS_g[1:], g.vr[1:]):
-                print >> f, r, vKS,vr, (vKS-vr)/r
+                print(r, vKS,vr, (vKS-vr)/r, file=f)
 
         f.close()
 
@@ -77,12 +78,12 @@ class AllElectronPotential:
     def get_spherical_ks_potential(self,a):
       #self.paw.restore_state()
 
-      print "XC:", self.paw.hamiltonian.xc.name
+      print("XC:", self.paw.hamiltonian.xc.name)
       assert self.paw.hamiltonian.xc.type == 'LDA'
 
       # If the calculation is just loaded, density needs to be interpolated
       if self.paw.density.nt_sg is None:
-         print "Interpolating density"
+         print("Interpolating density")
          self.paw.density.interpolate_pseudo_density()
          
       # Get xccorr for atom a
@@ -99,7 +100,7 @@ class AllElectronPotential:
       Y0 = 1.0/sqrt(4*pi)
 
       # Generate cartesian fine grid xc-potential
-      print "Generate cartesian fine grid xc-potential"
+      print("Generate cartesian fine grid xc-potential")
       gd = self.paw.density.finegd
       vxct_sg = gd.zeros(1)
       xc = self.paw.hamiltonian.xc
@@ -114,7 +115,7 @@ class AllElectronPotential:
       # P = Poisson solution
       # ---------------------------------------------
 
-      print "Evaluating ES Potential..."
+      print("Evaluating ES Potential...")
       # Make sure that the calculation has ES potential
       # TODO
       if self.paw.hamiltonian.vHt_g is None:
@@ -124,7 +125,7 @@ class AllElectronPotential:
       radHt_g = self.grid_to_radial(a, gd, self.paw.hamiltonian.vHt_g)
       radHt_g *= xccorr.rgd.r_g
       
-      print "D_sp", D_sp
+      print("D_sp", D_sp)
 
       # Calculate the difference in density and pseudo density
       dn_g = (Y0 * np.dot(D_sLq[0, 0], (xccorr.n_qg - xccorr.nt_qg)) +
@@ -147,7 +148,7 @@ class AllElectronPotential:
       # V_xc = Vt_xc(r) - Vt_xc^a(r) + V_xc^a(r)   
       # --------------------------------------------
 
-      print "Evaluating xc potential"
+      print("Evaluating xc potential")
       # Interpolate the smooth xc potential  from fine grid to radial grid
       radvxct_g = self.grid_to_radial(a, gd, vxct_sg[0])
 
@@ -202,7 +203,7 @@ class CoreEigenvalues(AllElectronPotential):
       # The display format is just copy paste from AllElectron class
       # TODO: Make it a method in AllElectron class, thus it can be called directly
       def t(a):
-         print a
+         print(a)
 
       t('Calculated core eigenvalues of atom '+str(a)+':'+symbol)
       t('state      eigenvalue         ekin         rmax')

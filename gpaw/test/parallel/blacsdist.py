@@ -1,3 +1,4 @@
+from __future__ import print_function
 
 import numpy as np
 
@@ -18,24 +19,24 @@ def test(comm, M, N, mcpus, ncpus, mb, nb):
 
     if comm.rank == 0:
         msg = 'Slices of global matrix indices by rank'
-        print msg
-        print '-' * len(msg)
+        print(msg)
+        print('-' * len(msg))
 
     for rank in range(comm.size):
         comm.barrier()
         if rank == comm.rank:
-            print 'Rank %d:' % rank
+            print('Rank %d:' % rank)
             last_Mstart = -1
             for Mstart, Mstop, Nstart, Nstop, block in desc1.my_blocks(B_mn):
                 if Mstart > last_Mstart and last_Mstart >= 0:
-                    print
-                print '[%3d:%3d, %3d:%3d]' % (Mstart, Mstop, Nstart, Nstop),
+                    print()
+                print('[%3d:%3d, %3d:%3d]' % (Mstart, Mstop, Nstart, Nstop), end=' ')
                 last_Mstart = Mstart
                 assert (block == comm.rank).all()
                 #print block
                 #print
-            print
-            print
+            print()
+            print()
         comm.barrier()
     
     redistributor = Redistributor(comm, desc1, desc0)
@@ -43,9 +44,9 @@ def test(comm, M, N, mcpus, ncpus, mb, nb):
 
     if comm.rank == 0:
         msg = 'Rank where each element of the global matrix is stored'
-        print msg
-        print '-' * len(msg)
-        print A_mn
+        print(msg)
+        print('-' * len(msg))
+        print(A_mn)
 
 if __name__ in ['__main__', '__builtin__']:
     if not compiled_with_sl():
@@ -57,10 +58,10 @@ if __name__ in ['__main__', '__builtin__']:
         ncpus = world.size // mcpus
 
         if world.rank == 0:
-            print 'world size:   ', world.size
-            print 'M x N:        ', M, 'x', N
-            print 'mcpus x ncpus:', mcpus, 'x', ncpus
-            print 'mb x nb:      ', mb, 'x', nb
-            print
+            print('world size:   ', world.size)
+            print('M x N:        ', M, 'x', N)
+            print('mcpus x ncpus:', mcpus, 'x', ncpus)
+            print('mb x nb:      ', mb, 'x', nb)
+            print()
 
         test(world, M, N, mcpus, ncpus, mb, nb)

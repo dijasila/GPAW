@@ -6,7 +6,7 @@ are redistributed to a mprocs-by-nprocs BLACS grid,
 diagonalized in parallel, and eigenvalues are compared
 against LAPACK. Eigenvectors are not compared.
 """
-
+from __future__ import print_function
 import sys
 
 import numpy as np
@@ -134,14 +134,14 @@ def main(N=72, seed=42, mprocs=2, nprocs=2, dtype=float):
         tri2full(Sinv_test,'L')
         inverse_err = abs(Sinv_test - S0_inv).max()
         ## print 'diagonalize ex err', diag_ex_err
-        print 'diagonalize dc err', diag_dc_err
+        print('diagonalize dc err', diag_dc_err)
         ## print 'diagonalize mr3 err', diag_mr3_err
         ## print 'general diagonalize ex err', general_diag_ex_err
-        print 'general diagonalize dc err', general_diag_dc_err
+        print('general diagonalize dc err', general_diag_dc_err)
         ## print 'general diagonalize mr3 err', general_diag_mr3_err
-        print 'inverse chol err', inverse_chol_err
+        print('inverse chol err', inverse_chol_err)
         if dtype == complex:  
-            print 'inverse err', inverse_err
+            print('inverse err', inverse_err)
     else:
         ## diag_ex_err = 0.0
         diag_dc_err = 0.0

@@ -21,7 +21,7 @@ def calculate_Kxc(pd, nt_sG, R_av, setups, D_asp, functional='ALDA',
     nG = pd.gd.N_c
     vol = pd.gd.volume
     bcell_cv = np.linalg.inv(pd.gd.cell_cv)
-    G_Gv = pd.G_Qv[pd.Q_qG[0]]
+    G_Gv = pd.get_reciprocal_vectors()
     
     # The soft part
     #assert np.abs(nt_sG[0].shape - nG).sum() == 0

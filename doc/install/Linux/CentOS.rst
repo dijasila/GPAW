@@ -16,12 +16,12 @@ Example how describes how to use
 to compile GPAW with gcc version **4.3.0** on CentOS 5.3:
 
 - starting at :ref:`developer_installation`,
-  modify :file:`customize.py` so :envvar:`extra_compile_args` reads::
+  modify :file:`customize.py` so ``extra_compile_args`` reads::
 
     opt_string = '-fprofile-generate'
     extra_compile_args =['-std=c99', opt_string]
 
-- moreover, :envvar:`mpicompiler` must be set, and :envvar:`mpilinker` read::
+- moreover, ``mpicompiler`` must be set, and ``mpilinker`` read::
 
     mpilinker = mpicompiler+' '+opt_string
 
@@ -38,7 +38,7 @@ to compile GPAW with gcc version **4.3.0** on CentOS 5.3:
    find build/temp.linux-i686-2.4/ -name "*.o" | xargs rm
    rm -f build/lib.linux-i686-2.4/_gpaw.so
 
-- change :file:`customize.py` so :envvar:`opt_string` reads::
+- change :file:`customize.py` so ``opt_string`` reads::
 
     opt_string = '-fprofile-use'
 

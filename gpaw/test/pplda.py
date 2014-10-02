@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atoms
 from gpaw import GPAW
 import numpy as np
@@ -17,8 +18,8 @@ for xc in ['LDA', 'PPLDA']:
     f = np.append(f, h2.get_forces())
     del calc
 
-print e[0], e[1], np.abs(e[0] - e[1])
-print f[0], f[1], np.sum(np.abs(f[0] - f[1]))
+print(e[0], e[1], np.abs(e[0] - e[1]))
+print(f[0], f[1], np.sum(np.abs(f[0] - f[1])))
 assert np.abs(e[0] - e[1]) < 1.e-8
 assert np.sum(np.abs(f[0] - f[1])) < 1.e-8
 
@@ -38,7 +39,7 @@ for xc in ['LDA', 'PPLDA']:
     f = np.append(f, o2.get_forces())
     del calc
 
-print e[0], e[1], np.abs(e[0] - e[1])
-print f[0], f[1], np.sum(np.abs(f[0] - f[1]))
+print(e[0], e[1], np.abs(e[0] - e[1]))
+print(f[0], f[1], np.sum(np.abs(f[0] - f[1])))
 assert np.abs(e[0] - e[1]) < 1.e-8
 assert np.sum(np.abs(f[0] - f[1])) < 1.e-4

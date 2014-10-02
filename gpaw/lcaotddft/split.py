@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw.mpi import world
 import numpy as np
 import time
@@ -30,7 +31,7 @@ class DensityCollector(Observer):
         self.lcao = lcao
         self.filename = filename
         self.ranges = None
-        print "ranges-str", ranges_str
+        print("ranges-str", ranges_str)
         self.ranges_str = ranges_str
 
     def update(self):
@@ -40,12 +41,12 @@ class DensityCollector(Observer):
             start = 0
             if self.ranges_str != 'full':
                 for rng in self.ranges_str.split(','):
-                    print "rng", rng
+                    print("rng", rng)
                     rng = eval(rng)
                     self.ranges.append(range(start, rng))
                     start = rng
             self.ranges.append(range(start, self.nbands))
-            print self.ranges
+            print(self.ranges)
             self.ghat = LFC(self.lcao.wfs.gd, [setup.ghat_l for setup in self.lcao.density.setups],
                             integral=sqrt(4 * pi), forces=False)
             spos_ac = self.lcao.atoms.get_scaled_positions() % 1.0
@@ -54,12 +55,12 @@ class DensityCollector(Observer):
             # Clear files
             for rid,rng in enumerate(self.ranges):
                 f = open(self.filename+'.'+str(rid)+'.density','w')
-                print >>f, "# Density file"
+                print("# Density file", file=f)
                 N_c = self.lcao.wfs.gd.N_c
-                print >>f, N_c[0], N_c[1], N_c[2]
-                print >>f, "# This header is 10 lines long, then double precision binary data starts."
+                print(N_c[0], N_c[1], N_c[2], file=f)
+                print("# This header is 10 lines long, then double precision binary data starts.", file=f)
                 for i in range(7):
-                     print >>f, "#"
+                     print("#", file=f)
                 f.close()
             
         #self.lcao.timer.start('Dump density')
@@ -96,7 +97,7 @@ class DensityCollector(Observer):
                 f.close()
                 s = n_sg.shape
                 f = open(self.filename+'.info','w')
-                print >>f, s[0],s[1],s[2]
+                print(s[0],s[1],s[2], file=f)
                 f.close()
 
 #TODO: Remove
@@ -163,7 +164,7 @@ class ObsoleteSplitDensityCollector(Observer):
                 n_sg.astype(np.float32).tofile(fname)
         took = time.time()-start
         if world.rank == 0:
-            print "Density dump took:", took, "s"
+            print("Density dump took:", took, "s")
         self.lcao.timer.stop('Split density dump')
 
 

@@ -60,7 +60,6 @@ class Chi0(PairDensity):
         else:
             self.omega_w = np.asarray(frequencies) / Hartree
             assert not hilbert
-
         self.hilbert = hilbert
         self.timeordered = bool(timeordered)
 

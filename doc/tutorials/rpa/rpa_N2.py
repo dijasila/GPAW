@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.parallel import paropen
 from ase.units import Hartree
 from gpaw.xc.rpa import RPACorrelation
@@ -10,5 +11,5 @@ E2_i = rpa2.calculate(ecut=400)
 
 f = paropen('rpa_N2.dat', 'w')
 for ecut, E1, E2 in zip(rpa1.ecut_i, E1_i, E2_i):
-    print >> f, ecut * Hartree, E2 - 2 * E1
+    print(ecut * Hartree, E2 - 2 * E1, file=f)
 f.close()

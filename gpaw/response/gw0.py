@@ -7,7 +7,7 @@ from gpaw.response.g0w0 import G0W0
 
 class GW0(G0W0):
     def __init__(self, calc, filename='gw0', **kwargs):
-        G0W0.__init__(self, calc, filename, **kwargs)
+        G0W0.__init__(self, calc, filename, savew=True, **kwargs)
         try:
             self.qp_xsin = np.load(filename + '-gw0.npy')
         except IOError:
@@ -38,7 +38,7 @@ class GW0(G0W0):
         self.Z_sin = 1 / (1 - self.dsigma_sin)
         self.qp_sin = self.eps_sin + self.Z_sin * (
             self.sigma_sin + self.exx_sin -
-            self.vxc_sin - self.eps_sin + self.qp_xsin[0])
+            self.vxc_sin)
         
         self.iteration += 1
         qp_xsin = np.empty((self.iteration,) + self.shape)
@@ -47,5 +47,5 @@ class GW0(G0W0):
         self.qp_xsin = qp_xsin
         
         if self.world.rank == 0:
-            with open(self.filename + '-gw0.npy', 'w') as fd:
+            with open(self.filename + '.qp.npy', 'w') as fd:
                 np.save(fd, self.qp_xsin)

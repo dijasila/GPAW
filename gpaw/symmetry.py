@@ -273,7 +273,17 @@ class Symmetry:
         sym_k = np.empty(nbzkpts, int)
         for k in range(nbzkpts):
             # We pick the first one found:
-            sym_k[k] = np.where(bz2bz_ks[bz2bz_k[k]] == k)[0][0]
+            try:
+                sym_k[k] = np.where(bz2bz_ks[bz2bz_k[k]] == k)[0][0]
+            except IndexError:
+                print(nbzkpts)
+                print(k)
+                print(bz2bz_k)
+                print(bz2bz_ks[bz2bz_k[k]])
+                print(np.shape(np.where(bz2bz_ks[bz2bz_k[k]] == k)))
+                print(bz2bz_k[k])
+                print(bz2bz_ks[bz2bz_k[k]] == k)
+                raise
 
         # Time-reversal symmetry used on top of the point group operation:
         if time_reversal:

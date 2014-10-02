@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atoms
 from gpaw import GPAW, FermiDirac
 
@@ -21,7 +22,7 @@ def energy(symm={}):
 e1 = energy()
 e2 = energy('off')
 
-print e1
-print e2
+print(e1)
+print(e2)
 
 assert abs(e2 - e1) < 1e-6

@@ -1,6 +1,7 @@
 """Kohn-Sham single particle excitations realated objects.
 
 """
+from __future__ import print_function
 import sys
 from math import pi, sqrt
 
@@ -80,12 +81,11 @@ class KSSingles(ExcitationList):
         self.select(nspins, eps, istart, jend, energy_range)
 
         trkm = self.get_trk()
-        self.txt.write('KSS TRK sum %g (%g,%g,%g)\n' %
-                       (np.sum(trkm) / 3., trkm[0], trkm[1], trkm[2]))
+        print('KSS TRK sum %g (%g,%g,%g)' % \
+              (np.sum(trkm) / 3., trkm[0], trkm[1], trkm[2]), file=self.txt)
         pol = self.get_polarizabilities(lmax=3)
-        self.txt.write(
-            'KSS polarisabilities(l=0-3) %g, %g, %g, %g\n' %
-            tuple(pol.tolist()))
+        print('KSS polarisabilities(l=0-3) %g, %g, %g, %g' % \
+              tuple(pol.tolist()), file=self.txt)
 
     def select(self, nspins=None, eps=0.001,
                istart=0, jend=None, energy_range=None):
@@ -172,8 +172,8 @@ class KSSingles(ExcitationList):
                                              fijscale=fijscale,
                                              dtype=self.dtype))
                             else:
-                                self.append(KSSingle(i, j, pspin=0, 
-                                                     kpt=None, paw=paw, 
+                                self.append(KSSingle(i, j, pspin=0,
+                                                     kpt=None, paw=paw,
                                                      dtype=self.dtype))
                 u += 1
 
@@ -400,6 +400,13 @@ class KSSingle(Excitation, PairDensity):
             gd.ddr[c](self.wfj, dwfj_cg[c], kpt.phase_cd)
             me[c] = gd.integrate(self.wfi.conj() * dwfj_cg[c])
 
+        if 0:
+            me2 = np.zeros(self.mur.shape)
+            for c in range(3):
+                gd.ddr[c](self.wfi, dwfj_cg[c], kpt.phase_cd)
+                me2[c] = gd.integrate(self.wfj * dwfj_cg[c])
+            print(me, -me2, me2 + me)
+
         # augmentation contributions
         ma = np.zeros(me.shape, dtype=me.dtype)
         for a, P_ni in kpt.P_ani.items():
@@ -513,7 +520,7 @@ class KSSingle(Excitation, PairDensity):
         self.muv = self.magn = None
         if len(l):
             self.muv = np.array([dtype(l.pop(0)) for i in range(3)])
-        if len(l): 
+        if len(l):
             self.magn = np.array([dtype(l.pop(0)) for i in range(3)])
         return None
 
@@ -524,7 +531,7 @@ class KSSingle(Excitation, PairDensity):
         else:
             string = (
                 '{0:d} {1:d}  {2:d} {3:d} {4:d} {5:g}  {6:g} {7:g}'.format(
-                    self.i, self.j, self.pspin, self.spin, self.k, 
+                    self.i, self.j, self.pspin, self.spin, self.k,
                     self.weight, self.energy, self.fij))
         string += '  '
 
@@ -557,7 +564,7 @@ class KSSingle(Excitation, PairDensity):
             string += ' kpt={0:d} w={1:g}'.format(self.k, self.weight)
             string += ' ('
             # use velocity form
-            s = - np.sqrt(self.energy * self.fij) 
+            s = - np.sqrt(self.energy * self.fij)
             for c, m in enumerate(s * self.me):
                 string += '{0.real:.5e}{0.imag:+.5e}j'.format(m)
                 if c < 2:

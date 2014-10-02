@@ -14,11 +14,11 @@ class NonLocalFunctional(XCFunctional):
         self.old_H_asp = {}
 
     def set_mix(self, mix):
-        print "mixing with", mix
+        print("mixing with", mix)
         self.mix = mix
 
     def initialize(self, density, hamiltonian, wfs, occupations):
-        print "Initializing", density, hamiltonian, wfs, occupations
+        print("Initializing", density, hamiltonian, wfs, occupations)
         self.gd = density.gd # smooth grid describtor
         self.finegd = density.finegd # fine grid describtor
         self.nt_sg = density.nt_sg # smooth density
@@ -112,7 +112,7 @@ class NonLocalFunctional(XCFunctional):
             self.old_H_asp[a][:] = H_sp.copy()
             
         if a == 0:
-            print H_sp
+            print(H_sp)
         Exc -= setup.xc_correction.Exc0
         return Exc
 
@@ -143,15 +143,15 @@ class NonLocalFunctional(XCFunctional):
     def print_functional(self):
         if world.rank is not 0:
             return
-        print
-        print "Functional being used consists of"
-        print "---------------------------------------------------"
-        print "| Weight    | Module           | Description      |"
-        print "---------------------------------------------------"
+        print()
+        print("Functional being used consists of")
+        print("---------------------------------------------------")
+        print("| Weight    | Module           | Description      |")
+        print("---------------------------------------------------")
         for contribution in self.contributions:
-            print "|%9.3f  | %-17s| %-17s|" % (contribution.weight, contribution.get_name(), contribution.get_desc())
-        print "---------------------------------------------------"
-        print
+            print("|%9.3f  | %-17s| %-17s|" % (contribution.weight, contribution.get_name(), contribution.get_desc()))
+        print("---------------------------------------------------")
+        print()
 
     def read(self, reader):
         for contribution in self.contributions:

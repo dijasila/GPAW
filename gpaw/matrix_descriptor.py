@@ -415,7 +415,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
             if q1 < Q-1: # receive from ranks >= Q
                 if debug:
                     Q2 = np.arange(Q,B-q1)
-                    print 'q1=%d, q2: %12s | recv from q1+q2:%12s -> A_bnn%s' % (q1,Q2.tolist(),(q1+Q2).tolist(),(q1+Q2).tolist())
+                    print('q1=%d, q2: %12s | recv from q1+q2:%12s -> A_bnn%s' % (q1,Q2.tolist(),(q1+Q2).tolist(),(q1+Q2).tolist()))
 
                 for q2 in range(Q, B-q1):
                     rrank = q1 + q2
@@ -424,7 +424,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
             elif q1 >= Q: # send to ranks < Q-1
                 if debug:
                     Q2 = np.arange(B-q1,B-Q+1)[::-1]
-                    print 'q1=%d, q2: %12s | send to q1+q2-B:%12s <- A_qnn%s.T.conj()' % (q1,Q2.tolist(),(q1+Q2-B).tolist(),Q2.tolist())
+                    print('q1=%d, q2: %12s | send to q1+q2-B:%12s <- A_qnn%s.T.conj()' % (q1,Q2.tolist(),(q1+Q2-B).tolist(),Q2.tolist()))
 
                 for q2 in reversed(range(B-q1, B-Q+1)): # symmetrize comm.
                     srank = q1 + q2 - B
@@ -432,7 +432,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
                     reqs.append(self.bd.comm.send(sbuf_nn, srank, block=False))
             else:
                 if debug:
-                    print 'q1=%d, do nothing...' % q1
+                    print('q1=%d, do nothing...' % q1)
 
             self.bd.comm.waitall(reqs)
 
@@ -529,7 +529,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
             self.bd.comm.all_gather(np.array([srank]), S)
             if self.bd.comm.rank == 0:
                 #print 'Q1: %s, Q2: %s' % (Q1.tolist(),Q2.tolist())
-                print 'recv(Q1): %s, send(Q1==rank): %s' % (Q1.tolist(),S.tolist())
+                print('recv(Q1): %s, send(Q1==rank): %s' % (Q1.tolist(),S.tolist()))
 
         if self.bd.strided:
             A_nbn = A_Nn.reshape((N, B, N))
