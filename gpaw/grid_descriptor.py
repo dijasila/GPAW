@@ -584,6 +584,8 @@ class GridDescriptor(Domain):
         s_Gc -= np.linalg.solve(cell_cv.T, r_v)
         
         if mic:
+            # XXX do the correction twice works better
+            s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
             s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
             # sanity check
             assert((s_Gc * self.pbc_c >= -0.5).all())
