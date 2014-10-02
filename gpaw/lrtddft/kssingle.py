@@ -55,6 +55,7 @@ class KSSingles(ExcitationList):
         if isinstance(calculator, str):
             filehandle = open(calculator)
         if filehandle is not None:
+            self.world = mpi.world
             self.read(fh=filehandle)
             return None
 
@@ -278,6 +279,9 @@ class KSSingles(ExcitationList):
         'fh' is a filehandle. This can be used to write into already
         opened files.
         """
+        if self.world.rank is not 0:
+            return
+
         if fh is None:
             if filename.endswith('.gz') and mpi.rank == mpi.MASTER:
                 import gzip

@@ -5,6 +5,7 @@ from ase import Atom, Atoms
 from ase.optimize import BFGS
 from ase.parallel import parprint
 from ase.units import Hartree
+import gpaw.mpi as mpi
 from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.lrtddft.kssingle import KSSingles
@@ -56,6 +57,7 @@ for mode in modes:
         parprint(kss)
         # I/O
         kss.write('kss.dat')
+        mpi.world.barrier()
         kss = KSSingles('kss.dat')
 
     # periodic and non-periodic should be roughly equal
