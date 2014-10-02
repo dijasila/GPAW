@@ -10,15 +10,16 @@ import subprocess
 parser = optparse.OptionParser()
 add = parser.add_option
 
-qsub_options = [('l', 'resource-list'),
-                ('q', 'queue')]
+qsub_options = [('l', 'resource-list', 'nodes=1:ppn=1:opteron4'),
+                ('q', 'queue', 'long')]
 
-for short, long in qsub_options:
-    add('-' + short, '--' + long)
+for short, long, default in qsub_options:
+    add('-' + short, '--' + long, default=default)
     
 add('-x', '--export', help='Environment variables to export.')
 add('-g', '--gpaw', help='Path to GPAW.')
 add('--module', help='Run library module as a script (terminates option list)')
+add('--cores', type=int)
 add('-n', '--threads', type=int, default=1)
 
 args = sys.argv[1:]
@@ -61,6 +62,15 @@ if not opts.module:
     for line in open(os.path.expanduser(script)):
         if line.startswith('#PBS'):
             qsub += line
+
+if opts.cores:
+    for ppn, arch in [(16, 'xeon16'), (8, 'xeon8'), (4, 'opteron4')]:
+        if opts.cores % ppn == 0:
+            nodes = opts.cores // ppn
+            break
+    else:
+        2 / 0
+    opts.resource_list = 'nodes={0}:ppn={1}:{2}'.format(nodes, ppn, arch)
 
 qsub += 'job = %r\n' % args
 qsub += 'path = %r\n' % path
@@ -107,7 +117,8 @@ if error:
 """
 
 cmd = ['qsub']
-for short, long in qsub_options:
-    cmd += ['-' + short, getattr(opts, long.replace('-', '_'))]
+for short, long, default in qsub_options:
+    opt = getattr(opts, long.replace('-', '_'))
+    cmd += ['-' + short, opt]
 
 subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(qsub)
