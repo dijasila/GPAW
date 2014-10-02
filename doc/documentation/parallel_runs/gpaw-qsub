@@ -2,6 +2,7 @@
 # Emacs: treat this as -*- python -*-
 
 import os
+import sys
 import optparse
 import subprocess
 
@@ -9,15 +10,32 @@ import subprocess
 parser = optparse.OptionParser()
 add = parser.add_option
 
-add('-l')
-add('-q')
+qsub_options = [('l', 'resource-list'),
+                ('q', 'queue')]
 
+for short, long in qsub_options:
+    add('-' + short, '--' + long)
+    
+add('-x', '--export', help='Environment variables to export.')
+add('-g', '--gpaw', help='Path to GPAW.')
+add('--module', help='Run library module as a script (terminates option list)')
 add('-n', '--threads', type=int, default=1)
-add('-m', '--module', action='store_true')
-add('-g', '--gpaw')
-add('-x', '--export')
 
-opts, args = parser.parse_args()
+args = sys.argv[1:]
+for i, arg in enumerate(args):
+    if arg.startswith('--module='):
+        module_args = args[i + 1:]
+        args = args[:i + 1]
+        break
+    if arg == '--module':
+        module_args = args[i + 2:]
+        args = args[:i + 2]
+        break
+else:
+    module_args = []
+    
+opts, args = parser.parse_args(args)
+args += module_args
 
 script = args[0]
 name = script.split('/')[-1]
@@ -40,7 +58,7 @@ qsub += '#PBS -N %s\n' % name  # set default job name
 qsub += '#PBS -W umask=002\n'
 
 if not opts.module:
-    for line in open(script):
+    for line in open(os.path.expanduser(script)):
         if line.startswith('#PBS'):
             qsub += line
 
@@ -80,15 +98,16 @@ cmd.append(os.path.join(path,
                         'bin.' + os.environ['GPAW_PLATFORM'],
                         'gpaw-python'))
 if module:
-    cmd.append('-m')
+    cmd += ['-m', module]
 cmd += job
-print cmd
-print subprocess.check_call(cmd)
+
+error = subprocess.call(cmd)
+if error:
+    raise SystemExit(error)
 """
 
 cmd = ['qsub']
-if opts.l:
-    cmd += ['-l', opts.l]
-if opts.q:
-    cmd += ['-q', opts.q]
+for short, long in qsub_options:
+    cmd += ['-' + short, getattr(opts, long.replace('-', '_'))]
+
 subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(qsub)
