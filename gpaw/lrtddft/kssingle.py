@@ -73,11 +73,12 @@ class KSSingles(ExcitationList):
 #        hybrid = hasattr(gsxc, 'hybrid') and gsxc.hybrid > 0.0
 #        assert(not hybrid)
 
-        # parallelization over bands not yet supported
-        assert(calculator.wfs.band_comm.size == 1)
-
         # ensure correctly initialized wave functions
         calculator.converge_wave_functions()
+        self.world = calculator.wfs.world
+
+        # parallelization over bands not yet supported
+        assert(calculator.wfs.band_comm.size == 1)
 
         self.select(nspins, eps, istart, jend, energy_range)
 

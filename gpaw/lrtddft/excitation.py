@@ -19,7 +19,6 @@ class ExcitationList(list):
         list.__init__(self)
 
         self.calculator = calculator
-        self.world = calculator.wfs.world
         if not txt and calculator:
             txt = calculator.txt
         self.txt, firsttime = initialize_text_stream(txt, mpi.rank)
