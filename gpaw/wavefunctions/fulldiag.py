@@ -1,8 +1,9 @@
 from __future__ import print_function, division
 
+from gpaw import GPAW
+
 
 def fulldiag(filename, nbands=None, scalapack=1, dryrun=False):
-    from gpaw import GPAW
     calc = GPAW(filename,
                 parallel={'band': scalapack},
                 txt=filename[:-3] + 'full.txt')
@@ -29,13 +30,15 @@ def main():
     add('-d', '--dry-run', action='store_true')
     
     opts, args = parser.parse_args()
-    if len(args) != 1:
+    if len(args) == 0:
         parser.error('No gpw-file!')
+    if len(args) > 1:
+        parser.error('Too many arguments!')
     assert args[0].endswith('.gpw')
     
     ng = fulldiag(args[0], opts.bands, opts.scalapack, opts.dry_run)
     mem = ng**2 * 16 / 1024**2
-    print('Maximum matrix size: {0}x{0}={1:.3f} MB'.format(ng, mem))
+    print('Maximum matrix size: {0}x{0} = {1:.3f} MB'.format(ng, mem))
 
 
 if __name__ == '__main__':
