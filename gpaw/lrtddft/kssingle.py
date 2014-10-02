@@ -11,7 +11,7 @@ from ase.parallel import paropen
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
 from gpaw.lrtddft.excitation import Excitation, ExcitationList
-from gpaw.pair_density import PairDensity, PairDensity2
+from gpaw.pair_density import PairDensity
 from gpaw.fd_operators import Gradient
 from gpaw.utilities.tools import coordinates
 
@@ -67,7 +67,7 @@ class KSSingles(ExcitationList):
             return  # leave the list empty
 
         # deny hybrids as their empty states are wrong
-        gsxc = calculator.hamiltonian.xc
+#        gsxc = calculator.hamiltonian.xc
 #        hybrid = hasattr(gsxc, 'hybrid') and gsxc.hybrid > 0.0
 #        assert(not hybrid)
 
@@ -169,7 +169,7 @@ class KSSingles(ExcitationList):
                                 pspin = max(kpt.s, ispin)
                                 self.append(
                                     KSSingle(i, j, pspin, kpt, paw,
-                                             fijscale=fijscale, 
+                                             fijscale=fijscale,
                                              dtype=self.dtype))
                             else:
                                 self.append(KSSingle(i, j, pspin=0, 
@@ -290,7 +290,6 @@ class KSSingles(ExcitationList):
         f.write('# KSSingles\n')
         f.write('{0:d} {1:s}\n'.format(len(self), np.dtype(self.dtype)))
         f.write('{0}\n'.format(self.eps))
-        kpt_comm = self.calculator.wfs.kpt_comm
         for kss in self:
             f.write(kss.outstring())
             
@@ -384,13 +383,11 @@ class KSSingle(Excitation, PairDensity):
         self.me = sqrt(self.energy * self.fij) * (me + ma)
         self.mur = - (me + ma)
 
+        # velocity form .............................
+
         if self.lcao:
             # XXX Velocity form not supported in LCAO
-            self.muv = None
-            self.magn = None
             return
-
-        # velocity form .............................
 
         me = np.zeros(self.mur.shape, dtype=dtype)
 
@@ -419,32 +416,28 @@ class KSSingle(Excitation, PairDensity):
 
         # magnetic transition dipole ................
 
-        try:
-            magn = np.zeros(me.shape, dtype=dtype)
-            r_cg, r2_g = coordinates(gd)
+        r_cg, r2_g = coordinates(gd)
+        magn = np.zeros(me.shape, dtype=dtype)
 
-            wfi_g = self.wfi.conj()
-            for ci in range(3):
-                cj = (ci + 1) % 3
-                ck = (ci + 2) % 3
-                magn[ci] = gd.integrate(wfi_g * r_cg[cj] * dwfj_cg[ck] -
-                                        wfi_g * r_cg[ck] * dwfj_cg[cj]  )
-            # augmentation contributions
-            ma = np.zeros(magn.shape, dtype=magn.dtype)
-            for a, P_ni in kpt.P_ani.items():
-                Pi_i = P_ni[self.i].conj()
-                Pj_i = P_ni[self.j]
-                rnabla_iiv = paw.wfs.setups[a].rnabla_iiv
-                for c in range(3):
-                    for i1, Pi in enumerate(Pi_i):
-                        for i2, Pj in enumerate(Pj_i):
-                            ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
-            gd.comm.sum(ma)
+        wfi_g = self.wfi.conj()
+        for ci in range(3):
+            cj = (ci + 1) % 3
+            ck = (ci + 2) % 3
+            magn[ci] = gd.integrate(wfi_g * r_cg[cj] * dwfj_cg[ck] -
+                                    wfi_g * r_cg[ck] * dwfj_cg[cj])
+        # augmentation contributions
+        ma = np.zeros(magn.shape, dtype=magn.dtype)
+        for a, P_ni in kpt.P_ani.items():
+            Pi_i = P_ni[self.i].conj()
+            Pj_i = P_ni[self.j]
+            rnabla_iiv = paw.wfs.setups[a].rnabla_iiv
+            for c in range(3):
+                for i1, Pi in enumerate(Pi_i):
+                    for i2, Pj in enumerate(Pj_i):
+                        ma[c] += Pi * Pj * rnabla_iiv[i1, i2, c]
+        gd.comm.sum(ma)
 
-            self.magn = -alpha / 2. * (magn + ma)
-        except AssertionError:
-            # XXX coordinates disabled for non-orthogonal cells
-            self.magn = None
+        self.magn = -alpha / 2. * (magn + ma)
 
     def distribute(self):
         """Distribute results to all cores."""
@@ -459,7 +452,6 @@ class KSSingle(Excitation, PairDensity):
         self.kpt_comm.sum(self.mur)
         self.kpt_comm.sum(self.muv)
         self.kpt_comm.sum(self.magn)
-        
 
     def __add__(self, other):
         """Add two KSSingles"""
@@ -530,9 +522,10 @@ class KSSingle(Excitation, PairDensity):
             string = '{0:d} {1:d}  {2:d} {3:d}  {4:g} {5:g}'.format(
                 self.i, self.j, self.pspin, self.spin, self.energy, self.fij)
         else:
-            string = '{0:d} {1:d}  {2:d} {3:d} {4:d} {5:g}  {6:g} {7:g}'.format(
-                self.i, self.j, self.pspin, self.spin, self.k, self.weight,
-                self.energy, self.fij)
+            string = (
+                '{0:d} {1:d}  {2:d} {3:d} {4:d} {5:g}  {6:g} {7:g}'.format(
+                    self.i, self.j, self.pspin, self.spin, self.k, 
+                    self.weight, self.energy, self.fij))
         string += '  '
 
         def format_me(me):
