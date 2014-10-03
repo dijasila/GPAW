@@ -280,7 +280,7 @@ class KSSingles(ExcitationList):
         'fh' is a filehandle. This can be used to write into already
         opened files.
         """
-        if self.world.rank is not 0:
+        if self.world.rank != 0:
             return
 
         if fh is None:
