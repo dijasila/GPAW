@@ -149,6 +149,8 @@ which is equivalent to
 Note that parprint has the syntax of the print statement in 
 `Python3 <http://docs.python.org/release/3.0.1/whatsnew/3.0.html>`_.
 
+.. _different_calculations_in parallel:
+
 Running different calculations in parallel
 ==========================================
 
