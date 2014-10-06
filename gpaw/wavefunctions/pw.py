@@ -413,6 +413,21 @@ class PWDescriptor:
         gemv(alpha, psit_nG, C_n, beta, newpsit_G, trans)
 
 
+def count_number_of_reciprocal_vectors(ecut, gd, q_c):
+    N_c = gd.N_c
+    i_Qc = np.indices(N_c).transpose((1, 2, 3, 0))
+    i_Qc += N_c // 2
+    i_Qc %= N_c
+    i_Qc -= N_c // 2
+
+    B_cv = 2.0 * pi * gd.icell_cv
+    i_Qc.shape = (-1, 3)
+    Gpq_Qv = np.dot(i_Qc, B_cv) + np.dot(q_c, B_cv)
+    
+    G2_Q = (Gpq_Qv**2).sum(axis=1)
+    return (G2_Q <= 2 * ecut).sum()
+
+            
 class Preconditioner:
     """Preconditioner for KS equation.
 

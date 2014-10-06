@@ -13,6 +13,7 @@ def fulldiag(filename, nbands=None, scalapack=1, dryrun=False):
     
     return calc.wfs.pd.ngmax
 
+    
 description = """\
 Set up full H and S matrices and find all or some eigenvectors/values."""
 
