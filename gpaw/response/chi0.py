@@ -92,7 +92,7 @@ class Chi0(PairDensity):
 
         return self.epsmax - self.epsmin
 
-    def calculate(self, q_c, spin='all'):
+    def calculate(self, q_c, spin='all', A_wGG=None):
         wfs = self.calc.wfs
 
         if spin == 'all':
@@ -114,7 +114,12 @@ class Chi0(PairDensity):
         nG = pd.ngmax
         nw = len(self.omega_w)
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        chi0_wGG = np.zeros((nw, mynG, nG), complex)
+        shape = (nw, mynG, nG)
+        if A_wGG is not None:
+            chi0_wGG = A_wGG[:nw * nG * nG].reshape(shape)
+            chi0_wGG[:] = 0.0
+        else:
+            chi0_wGG = np.zeros(shape, complex)
         self.Ga = self.blockcomm.rank * mynG
         self.Gb = min(self.Ga + mynG, nG)
         chi0_wGG = chi0_wGG[:, :self.Gb - self.Ga]
@@ -167,7 +172,7 @@ class Chi0(PairDensity):
             else:
                 kpt1 = self.get_k_point(s, K, n1, n2)
 
-            if not kpt1.s in spins:
+            if kpt1.s not in spins:
                 continue
 
             with self.timer('k+q'):
@@ -182,7 +187,7 @@ class Chi0(PairDensity):
                 eps1 = kpt1.eps_n[n]
 
                 # Only update if there exists deps <= omegamax
-                if not self.omegamax is None:
+                if self.omegamax is not None:
                     m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
                          if abs(d) <= self.omegamax]
                 else:

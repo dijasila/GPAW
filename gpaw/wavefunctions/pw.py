@@ -413,7 +413,7 @@ class PWDescriptor:
         gemv(alpha, psit_nG, C_n, beta, newpsit_G, trans)
 
 
-def count_number_of_reciprocal_vectors(ecut, gd, q_c):
+def count_reciprocal_vectors(ecut, gd, q_c):
     N_c = gd.N_c
     i_Qc = np.indices(N_c).transpose((1, 2, 3, 0))
     i_Qc += N_c // 2

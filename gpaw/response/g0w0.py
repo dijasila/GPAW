@@ -1,25 +1,25 @@
 # This makes sure that division works as in Python3
 from __future__ import division, print_function
 
+import functools
+import pickle
 from math import pi
 
 import numpy as np
-import pickle
-
+from ase.dft.kpoints import monkhorst_pack
 from ase.units import Hartree
 from ase.utils import opencew, devnull
-from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
 from gpaw import debug
-from gpaw.xc.exx import EXX, select_kpts
-from gpaw.xc.tools import vxc
-from gpaw.utilities.timing import timer
-from gpaw.response.pair import PairDensity
-from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0, HilbertTransform
+from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.utilities.timing import timer
+from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
+from gpaw.xc.exx import EXX, select_kpts
+from gpaw.xc.tools import vxc
 
 
 class G0W0(PairDensity):
@@ -75,12 +75,13 @@ class G0W0(PairDensity):
         else:
             txt = open(filename + '.txt', 'w')
 
-        print('  ___  _ _ _ ', file=txt)
-        print(' |   || | | |', file=txt)
-        print(' | | || | | |', file=txt)
-        print(' |__ ||_____|', file=txt)
-        print(' |___|        by GPAW', file=txt)
-        print(file=txt)
+        p = functools.partial(print, file=txt)
+        p('  ___  _ _ _ ')
+        p(' |   || | | |')
+        p(' | | || | | |')
+        p(' |__ ||_____|')
+        p(' |___|')
+        p()
 
         PairDensity.__init__(self, calc, ecut, world=world,
                              txt=txt)
@@ -118,20 +119,19 @@ class G0W0(PairDensity):
             nbands = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
         self.nbands = nbands
 
-        print(file=self.fd)
-        print('Quasi particle states:', file=self.fd)
+        p()
+        p('Quasi particle states:')
         if kpts is None:
-            print('All k-points in IBZ', file=self.fd)
+            p('All k-points in IBZ')
         else:
             kptstxt = ', '.join(['{0:d}'.format(k) for k in self.kpts])
-            print('k-points (IBZ indices): [' + kptstxt + ']', file=self.fd)
-        print('Band range: ({0:d}, {1:d})'.format(b1, b2), file=self.fd)
-        print(file=self.fd)
-        print('Computational parameters:', file=self.fd)
-        print('Plane wave cut-off: {0:g} eV'.format(self.ecut * Hartree),
-              file=self.fd)
-        print('Number of bands: {0:d}'.format(self.nbands), file=self.fd)
-        print('Broadening: {0:g} eV'.format(self.eta * Hartree), file=self.fd)
+            p('k-points (IBZ indices): [' + kptstxt + ']')
+        p('Band range: ({0:d}, {1:d})'.format(b1, b2))
+        p()
+        p('Computational parameters:')
+        p('Plane wave cut-off: {0:g} eV'.format(self.ecut * Hartree))
+        p('Number of bands: {0:d}'.format(self.nbands))
+        p('Broadening: {0:g} eV'.format(self.eta * Hartree))
 
         kd = self.calc.wfs.kd
 
@@ -262,8 +262,8 @@ class G0W0(PairDensity):
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
-            C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
-                      for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+            C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
+                      for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                  pd0, I_G)
             if self.sign == 1:
@@ -378,6 +378,7 @@ class G0W0(PairDensity):
                     real_space_derivatives=False,
                     txt=self.filename + '.w.txt',
                     timer=self.timer,
+                    keep_occupied_states=True,
                     **parameters)
 
         if self.wstc:
@@ -394,6 +395,14 @@ class G0W0(PairDensity):
         htp = HilbertTransform(self.omega_w, self.eta, gw=True)
         htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
 
+        # Find maximum size of chi-0 matrices:
+        gd = self.calc.wfs.gd
+        nGmax = max(count_reciprocal_vectors(self.ecut, gd, q_c)
+                    for q_c in self.qd.ibzk_kc)
+
+        # Allocate memory in the beginning and use for all q:
+        A1_wGG, A2_wGG = np.empty((2, len(self.omega_w) * nGmax**2), complex)
+        
         # Need to pause the timer in between iterations
         self.timer.stop('W')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
@@ -407,9 +416,10 @@ class G0W0(PairDensity):
                     pd, W = pickle.load(fd)
             else:
                 # First time calculation
-                pd, chi0_wGG = chi0.calculate(q_c)[:2]
+                pd, chi0_wGG = chi0.calculate(q_c, A_wGG=A1_wGG)[:2]
                 self.Q_aGii = chi0.Q_aGii
-                W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc)
+                Wp_wGG = A2_wGG[:chi0_wGG.size].reshape(chi0_wGG.shape)
+                W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc, Wp_wGG)
                 if self.savew:
                     pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
 
@@ -432,7 +442,7 @@ class G0W0(PairDensity):
                     done.add(Q2)
     
     @timer('WW')
-    def calculate_w(self, pd, chi0_wGG, q_c, htp, htm, wstc):
+    def calculate_w(self, pd, chi0_wGG, q_c, htp, htm, wstc, Wp_wGG):
         """Calculates the screened potential for a specified q-point."""
         if self.wstc:
             iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
@@ -476,7 +486,7 @@ class G0W0(PairDensity):
                 W_GG[1:, 0] *= G0inv
                 W_GG[0, 1:] *= G0inv
                 
-        Wp_wGG = chi0_wGG.copy()
+        Wp_wGG[:] = chi0_wGG
         Wm_wGG = chi0_wGG
         with self.timer('Hilbert transform'):
             htp(Wp_wGG)
