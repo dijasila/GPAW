@@ -83,10 +83,10 @@ class KSSingles(ExcitationList):
         self.select(nspins, eps, istart, jend, energy_range)
 
         trkm = self.get_trk()
-        print('KSS TRK sum %g (%g,%g,%g)' % \
+        print('KSS TRK sum %g (%g,%g,%g)' %
               (np.sum(trkm) / 3., trkm[0], trkm[1], trkm[2]), file=self.txt)
         pol = self.get_polarizabilities(lmax=3)
-        print('KSS polarisabilities(l=0-3) %g, %g, %g, %g' % \
+        print('KSS polarisabilities(l=0-3) %g, %g, %g, %g' %
               tuple(pol.tolist()), file=self.txt)
 
     def select(self, nspins=None, eps=0.001,
@@ -293,7 +293,7 @@ class KSSingles(ExcitationList):
             f = fh
 
         f.write('# KSSingles\n')
-        f.write('{0:d} {1:s}\n'.format(len(self), np.dtype(self.dtype)))
+        f.write('{0} {1}\n'.format(len(self), np.dtype(self.dtype)))
         f.write('{0}\n'.format(self.eps))
         for kss in self:
             f.write(kss.outstring())
@@ -488,7 +488,7 @@ class KSSingle(Excitation, PairDensity):
 
     def __mul__(self, x):
         """Multiply a KSSingle with a number"""
-        if type(x) == type(0.) or type(x) == type(0):
+        if isinstance(x, (float, int)):
             result = self.copy()
             result.me = self.me * x
             result.mur = self.mur * x
