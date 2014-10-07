@@ -192,7 +192,7 @@ class G0W0(PairDensity):
         for pd0, W0, q_c in self.calculate_screened_potential():
             for kpt1 in mykpts:
                 K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
-                kpt2 = self.get_k_point(0, K2, 0, self.nbands)
+                kpt2 = self.get_k_point(0, K2, 0, self.nbands, block=True)
                 k1 = kd.bz2ibz_k[kpt1.K]
                 i = self.kpts.index(k1)
                 self.calculate_q(i, kpt1, kpt2, pd0, W0)
@@ -227,7 +227,7 @@ class G0W0(PairDensity):
                                   np.unravel_index(pd0.Q_qG[0], N_c))
 
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
-        q0 = np.allclose(q_c, 0)
+        q0 = np.allclose(q_c, 0) and not self.wstc
 
         shift0_c = q_c - self.sign * np.dot(self.U_cc, pd0.kd.bzk_kc[0])
         assert np.allclose(shift0_c.round(), shift0_c)
@@ -325,8 +325,9 @@ class G0W0(PairDensity):
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p = x * sgn
-            sigma1 = p * np.dot(np.dot(n_G, C1_GG), n_G.conj()).imag
-            sigma2 = p * np.dot(np.dot(n_G, C2_GG), n_G.conj()).imag
+            myn_G = n_G[self.Ga:self.Gb]
+            sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
+            sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
             sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
             dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
             
@@ -380,6 +381,8 @@ class G0W0(PairDensity):
                     txt=self.filename + '.w.txt',
                     timer=self.timer,
                     keep_occupied_states=True,
+                    nblocks=self.blockcomm.size,
+                    no_optical_limit=self.wstc,
                     **parameters)
 
         if self.wstc:
@@ -425,6 +428,8 @@ class G0W0(PairDensity):
                 # First time calculation
                 pd, chi0_wGG = chi0.calculate(q_c, A_x=A1_x)[:2]
                 self.Q_aGii = chi0.Q_aGii
+                self.Ga = chi0.Ga
+                self.Gb = chi0.Gb
                 W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc, A2_x)
                 if self.savew:
                     pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
@@ -512,6 +517,16 @@ class G0W0(PairDensity):
         return [Wp_wGG, Wm_wGG]
 
     def redistribute(self, in_wGG, out_x):
+        """Redistribute array.
+        
+        Switch between two kinds of parallel distributions:
+            
+        1) parallel over G-vectors (second dimension of in_wGG)
+        2) parallel over frequency (first dimension of in_wGG)
+
+        Returns new array using the memory in the 1-d array out_x.
+        """
+        
         comm = self.blockcomm
         
         nw = len(self.omega_w)
@@ -536,7 +551,8 @@ class G0W0(PairDensity):
             shape = (nw, Gb - Ga, nG)
         
         out_wGG = out_x[:np.product(shape)].reshape(shape)
-        r.redistribute(in_wGG, out_wGG)
+        r.redistribute(in_wGG.reshape((len(in_wGG), -1)),
+                       out_wGG.reshape((len(out_wGG), -1)))
         
         return out_wGG
 

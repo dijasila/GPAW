@@ -32,7 +32,7 @@ class Chi0(PairDensity):
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
                  real_space_derivatives=False, intraband=True,
                  world=mpi.world, txt=sys.stdout, timer=None,
-                 nblocks=1,
+                 nblocks=1, no_optical_limit=False,
                  keep_occupied_states=False, gate_voltage=None):
 
         PairDensity.__init__(self, calc, ecut, ftol, threshold,
@@ -47,7 +47,8 @@ class Chi0(PairDensity):
         self.nbands = nbands or self.calc.wfs.bd.nbands
         self.keep_occupied_states = keep_occupied_states
         self.intraband = intraband
-
+        self.no_optical_limit = no_optical_limit
+        
         omax = self.find_maximum_frequency()
 
         if frequencies is None:
@@ -113,13 +114,13 @@ class Chi0(PairDensity):
 
         nG = pd.ngmax
         nw = len(self.omega_w)
+        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
+        self.Ga = self.blockcomm.rank * mynG
+        self.Gb = min(self.Ga + mynG, nG)
+        
         if A_x is not None:
-            mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-            self.Ga = self.blockcomm.rank * mynG
-            self.Gb = min(self.Ga + mynG, nG)
-            mynG = self.Gb - self.Ga
-            nx = nw * mynG * nG
-            chi0_wGG = A_x[:nx].reshape((nw, mynG, nG))
+            nx = nw * (self.Gb - self.Ga) * nG
+            chi0_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
             chi0_wGG[:] = 0.0
         else:
             chi0_wGG = np.zeros((nw, nG, nG), complex)
@@ -163,7 +164,7 @@ class Chi0(PairDensity):
             update = self.update
 
         q_c = pd.kd.bzk_kc[0]
-        optical_limit = np.allclose(q_c, 0.0)
+        optical_limit = not self.no_optical_limit and np.allclose(q_c, 0.0)
         print('\n    Starting summation', file=self.fd)
 
         self.timer.start('Loop')

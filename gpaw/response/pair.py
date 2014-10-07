@@ -57,6 +57,7 @@ class PairDensity:
             self.blockcomm = mpi.serial_comm
             self.kncomm = world
         else:
+            assert world.size % nblocks == 0, world.size
             rank1 = world.rank // nblocks * nblocks
             rank2 = rank1 + nblocks
             self.blockcomm = self.world.new_communicator(range(rank1, rank2))
