@@ -49,11 +49,19 @@ def newoverlap(wfs, spos_ac):
     neighbors.update(atoms)
     
     # XXX
-    pcutoff_a = [max([pt.get_cutoff() for pt in setup.pt_j])
-                 for setup in wfs.setups]
-    phicutoff_a = [max([phit.get_cutoff() for phit in setup.phit_j])
-                   for setup in wfs.setups]
-
+    pcutoff_a = []
+    phicutoff_a = []
+    for setup in wfs.setups:
+        if setup.pt_j:
+            pcutoff = max([pt.get_cutoff() for pt in setup.pt_j])
+        else:
+            pcutoff = 0.0
+        if setup.phit_j:
+            phicutoff = max([phit.get_cutoff() for phit in setup.phit_j])
+        else:
+            phicutoff = 0.0
+        pcutoff_a.append(pcutoff)
+        phicutoff_a.append(phicutoff)
 
     # Calculate the projector--basis function overlaps:
     #
