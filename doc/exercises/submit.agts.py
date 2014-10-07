@@ -35,6 +35,3 @@ def agts(queue):
     t1 = queue.add('transport/pt_h2_lcao_manual.py')
     queue.add('transport/pt_h2_lcao_transport.py', deps=t1)
     queue.add('lrtddft/ground_state.py', ncpus=8)
-    lif = queue.add('bse/LiF_gs.py')
-    queue.add('bse/LiF_RPA.py', deps=lif)
-    queue.add('bse/LiF_BSE.py', deps=lif, ncpus=24, walltime=3 * 60)
