@@ -6,10 +6,10 @@ from math import pi
 import numpy as np
 import ase.units as units
 
+import gpaw.fftw as fftw
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.density import Density
-import gpaw.fftw as fftw
 from gpaw.hs_operators import MatrixOperator
 from gpaw.lfc import BaseLFC
 from gpaw.lcao.overlap import fbt

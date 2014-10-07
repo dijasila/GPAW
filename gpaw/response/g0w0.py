@@ -12,6 +12,7 @@ from ase.utils import opencew, devnull
 
 import gpaw.mpi as mpi
 from gpaw import debug
+from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0, HilbertTransform
 from gpaw.response.pair import PairDensity
@@ -67,7 +68,7 @@ class G0W0(PairDensity):
                  wstc=False,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
                  domega0=0.025, omega2=10.0,
-                 savew=False,
+                 nblocks=1, savew=False,
                  world=mpi.world):
 
         if world.rank != 0:
@@ -83,7 +84,7 @@ class G0W0(PairDensity):
         p(' |___|')
         p()
 
-        PairDensity.__init__(self, calc, ecut, world=world,
+        PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
                              txt=txt)
 
         self.filename = filename
@@ -399,9 +400,15 @@ class G0W0(PairDensity):
         gd = self.calc.wfs.gd
         nGmax = max(count_reciprocal_vectors(self.ecut, gd, q_c)
                     for q_c in self.qd.ibzk_kc)
-
+        nw = len(self.omega_w)
+        
+        size = self.blockcomm.size
+        mynGmax = (nGmax + size - 1) // size
+        mynw = (nw + size - 1) // size
+        
         # Allocate memory in the beginning and use for all q:
-        A1_wGG, A2_wGG = np.empty((2, len(self.omega_w) * nGmax**2), complex)
+        A1_x = np.empty(nw * mynGmax * nGmax, complex)
+        A2_x = np.empty(max(mynw * nGmax, nw * mynGmax) * nGmax, complex)
         
         # Need to pause the timer in between iterations
         self.timer.stop('W')
@@ -416,10 +423,9 @@ class G0W0(PairDensity):
                     pd, W = pickle.load(fd)
             else:
                 # First time calculation
-                pd, chi0_wGG = chi0.calculate(q_c, A_wGG=A1_wGG)[:2]
+                pd, chi0_wGG = chi0.calculate(q_c, A_x=A1_x)[:2]
                 self.Q_aGii = chi0.Q_aGii
-                Wp_wGG = A2_wGG[:chi0_wGG.size].reshape(chi0_wGG.shape)
-                W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc, Wp_wGG)
+                W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc, A2_x)
                 if self.savew:
                     pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
 
@@ -442,8 +448,12 @@ class G0W0(PairDensity):
                     done.add(Q2)
     
     @timer('WW')
-    def calculate_w(self, pd, chi0_wGG, q_c, htp, htm, wstc, Wp_wGG):
+    def calculate_w(self, pd, chi0_wGG, q_c, htp, htm, wstc, A2_x):
         """Calculates the screened potential for a specified q-point."""
+        if self.blockcomm.size > 1:
+            A1_x = chi0_wGG.ravel()
+            chi0_wGG = self.redistribute(chi0_wGG, A2_x)
+            
         if self.wstc:
             iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
             if np.allclose(q_c, 0):
@@ -486,14 +496,49 @@ class G0W0(PairDensity):
                 W_GG[1:, 0] *= G0inv
                 W_GG[0, 1:] *= G0inv
                 
-        Wp_wGG[:] = chi0_wGG
-        Wm_wGG = chi0_wGG
+        if self.blockcomm.size > 1:
+            Wm_wGG = self.redistribute(chi0_wGG, A1_x)
+        else:
+            Wm_wGG = chi0_wGG
+            
+        Wp_wGG = A2_x[:Wm_wGG.size].reshape(Wm_wGG.shape)
+        Wp_wGG[:] = Wm_wGG
+
         with self.timer('Hilbert transform'):
             htp(Wp_wGG)
             htm(Wm_wGG)
         self.timer.stop('Dyson eq.')
         
         return [Wp_wGG, Wm_wGG]
+
+    def redistribute(self, in_wGG, out_x):
+        comm = self.blockcomm
+        
+        nw = len(self.omega_w)
+        nG = in_wGG.shape[2]
+        mynw = (nw + comm.size - 1) // comm.size
+        mynG = (nG + comm.size - 1) // comm.size
+        
+        bg1 = BlacsGrid(comm, comm.size, 1)
+        bg2 = BlacsGrid(comm, 1, comm.size)
+        md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
+        md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
+        
+        if len(in_wGG) == nw:
+            r = Redistributor(comm, md2, md1)
+            wa = comm.rank * mynw
+            wb = min(wa + mynw, nw)
+            shape = (wb - wa, nG, nG)
+        else:
+            r = Redistributor(comm, md1, md2)
+            Ga = comm.rank * mynG
+            Gb = min(Ga + mynG, nG)
+            shape = (nw, Gb - Ga, nG)
+        
+        out_wGG = out_x[:np.product(shape)].reshape(shape)
+        r.redistribute(in_wGG, out_wGG)
+        
+        return out_wGG
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):

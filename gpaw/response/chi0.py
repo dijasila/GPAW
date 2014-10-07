@@ -30,14 +30,14 @@ class Chi0(PairDensity):
                  frequencies=None, domega0=0.1, omega2=10.0, omegamax=None,
                  ecut=50, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
-                 real_space_derivatives=False, intraband=True, nthreads=1,
+                 real_space_derivatives=False, intraband=True,
                  world=mpi.world, txt=sys.stdout, timer=None,
                  nblocks=1,
                  keep_occupied_states=False, gate_voltage=None):
 
         PairDensity.__init__(self, calc, ecut, ftol, threshold,
                              real_space_derivatives, world, txt, timer,
-                             nthreads=nthreads, nblocks=nblocks,
+                             nblocks=nblocks,
                              gate_voltage=gate_voltage)
 
         self.eta = eta / Hartree
@@ -92,7 +92,7 @@ class Chi0(PairDensity):
 
         return self.epsmax - self.epsmin
 
-    def calculate(self, q_c, spin='all', A_wGG=None):
+    def calculate(self, q_c, spin='all', A_x=None):
         wfs = self.calc.wfs
 
         if spin == 'all':
@@ -113,16 +113,16 @@ class Chi0(PairDensity):
 
         nG = pd.ngmax
         nw = len(self.omega_w)
-        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        shape = (nw, mynG, nG)
-        if A_wGG is not None:
-            chi0_wGG = A_wGG[:nw * nG * nG].reshape(shape)
+        if A_x is not None:
+            mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
+            self.Ga = self.blockcomm.rank * mynG
+            self.Gb = min(self.Ga + mynG, nG)
+            mynG = self.Gb - self.Ga
+            nx = nw * mynG * nG
+            chi0_wGG = A_x[:nx].reshape((nw, mynG, nG))
             chi0_wGG[:] = 0.0
         else:
-            chi0_wGG = np.zeros(shape, complex)
-        self.Ga = self.blockcomm.rank * mynG
-        self.Gb = min(self.Ga + mynG, nG)
-        chi0_wGG = chi0_wGG[:, :self.Gb - self.Ga]
+            chi0_wGG = np.zeros((nw, nG, nG), complex)
 
         if np.allclose(q_c, 0.0):
             chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
@@ -132,15 +132,17 @@ class Chi0(PairDensity):
             chi0_wxvG = None
             chi0_wvv = None
 
-        print('    Initializing PAW Corrections', file=self.fd)
+        print('Initializing PAW Corrections', file=self.fd)
         self.Q_aGii = self.initialize_paw_corrections(pd)
-        print('        Done', file=self.fd)
 
         # Do all empty bands:
         m1 = self.nocc1
         m2 = self.nbands
-        return self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, self.Q_aGii,
-                               m1, m2, spins)
+        
+        self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, self.Q_aGii,
+                        m1, m2, spins)
+        
+        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     @timer('Calculate CHI_0')
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
@@ -326,7 +328,6 @@ class Chi0(PairDensity):
                 gemm(p1, n_G.reshape((-1, 1)), myn_G, 1.0, chi0_wGG[w], 'c')
                 gemm(p2, n_G.reshape((-1, 1)), myn_G, 1.0, chi0_wGG[w + 1],
                      'c')
-                #chi0_wGG[w + 1] += p2 * np.outer(myn_G, n_G.conj())
             return
 
         for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
