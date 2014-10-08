@@ -20,7 +20,7 @@ short_names = {
 #    'MS0':     'MGGA_X_MS0+GGA_C_VPBE',
 #    'MS1':     'MGGA_X_MS1+GGA_C_VPBE',
 #    'MS2':     'MGGA_X_MS2+GGA_C_VPBE',
-#    'mBEEF':   'MGGA_X_MBEEF+GGA_C_PBE_SOL'
+    'mBEEF':   'MGGA_X_MBEEF+GGA_C_PBE_SOL'
 }
 
 class LibXC(XCKernel):
