@@ -33,7 +33,7 @@ class PlaneWave(State):
         else:
             gd = self.gd
             _gpaw.plane_wave_grid(gd.beg_c, gd.end_c, 
-                                  gd.h_cv.diagonal(),
+                                  gd.h_cv.diagonal().copy(),
                                   k_c, r0_c, pw_G)
         pw_G /= (2 * pi)**(3./2.)
         return pw_G
