@@ -2,7 +2,6 @@ from ase.structure import molecule
 from ase.dft.bee import BEEF_Ensemble
 from ase.parallel import rank, barrier
 from gpaw import GPAW
-from gpaw.cluster import Cluster
 from gpaw.test import equal
 import numpy as np
 
