@@ -273,7 +273,17 @@ class Symmetry:
         sym_k = np.empty(nbzkpts, int)
         for k in range(nbzkpts):
             # We pick the first one found:
-            sym_k[k] = np.where(bz2bz_ks[bz2bz_k[k]] == k)[0][0]
+            try:
+                sym_k[k] = np.where(bz2bz_ks[bz2bz_k[k]] == k)[0][0]
+            except IndexError:
+                print(nbzkpts)
+                print(k)
+                print(bz2bz_k)
+                print(bz2bz_ks[bz2bz_k[k]])
+                print(np.shape(np.where(bz2bz_ks[bz2bz_k[k]] == k)))
+                print(bz2bz_k[k])
+                print(bz2bz_ks[bz2bz_k[k]] == k)
+                raise
 
         # Time-reversal symmetry used on top of the point group operation:
         if time_reversal:
@@ -382,17 +392,26 @@ class Symmetry:
         if not self.symmorphic:
             p('Symmetries with fractional translations:', nft)
 
+        # X-Y grid of symmetry matrices:
         p()
-        s = 0
-        for op_cc, ft_c in zip(self.op_scc, self.ft_sc):
-            p('%3d: ' % s)
+        nx = 6 if self.symmorphic else 3
+        y = 0
+        while True:
             for c in range(3):
-                p('    (%2d %2d %2d )' % tuple(op_cc[c]), end='')
-                if self.symmorphic:
-                    p()
-                else:
-                    p(' + (%4s)' % sfrac(ft_c[c]))
-            s += 1
+                for x in range(nx):
+                    s = x + y * nx
+                    if s == len(self.op_scc):
+                        break
+                    op_c = self.op_scc[s, c]
+                    ft = self.ft_sc[s, c]
+                    p('  (%2d %2d %2d)' % tuple(op_c), end='')
+                    if not self.symmorphic:
+                        p(' + (%4s)' % sfrac(ft), end='')
+                p()
+            p()
+            if s == len(self.op_scc):
+                break
+            y += 1
 
 
 def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):

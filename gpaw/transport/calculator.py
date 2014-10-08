@@ -548,13 +548,13 @@ class Transport(GPAW):
         self.cvg_ham_steps = 0
         self.initialize()
         self.nspins = self.wfs.nspins
-        self.npk = len(self.wfs.ibzk_kc)
-        self.my_npk = len(self.wfs.ibzk_qc)
+        self.npk = len(self.wfs.kd.ibzk_kc)
+        self.my_npk = len(self.wfs.kd.ibzk_qc)
         self.my_nspins = len(self.wfs.kpt_u) // self.my_npk
         self.ntklead = self.pl_kpts[self.d]
         self.initialize_lead_matrix()
 
-        self.tio = Transport_IO(self.wfs.kpt_comm, self.gd.comm)
+        self.tio = Transport_IO(self.wfs.kd.comm, self.gd.comm)
         if not self.restart_lead_hamiltonian:
             if self.lead_calculators is None:
                 self.calculate_leads()
@@ -574,7 +574,7 @@ class Transport(GPAW):
         self.extended_calc = calc
         self.gd1, self.finegd1 = calc.gd, calc.finegd
   
-        bzk_kc = self.wfs.bzk_kc 
+        bzk_kc = self.wfs.kd.bzk_kc 
         self.gamma = len(bzk_kc) == 1 and not bzk_kc[0].any()
         self.nbmol = self.wfs.setups.nao
 
@@ -685,14 +685,14 @@ class Transport(GPAW):
         self.ks_map = np.zeros([self.npk * self.nspins, 3], int)
         self.my_ks_map = np.zeros([self.my_npk * self.my_nspins, 3], int)
         for i, kpt in enumerate(self.wfs.kpt_u):
-            base = self.wfs.kpt_comm.rank * self.my_npk * self.my_nspins
+            base = self.wfs.kd.comm.rank * self.my_npk * self.my_nspins
             self.ks_map[i + base, 0] = kpt.s
             self.ks_map[i + base, 1] = kpt.k
-            self.ks_map[i + base, 2] = self.wfs.kpt_comm.rank
+            self.ks_map[i + base, 2] = self.wfs.kd.comm.rank
             self.my_ks_map[i, 0] = kpt.s
             self.my_ks_map[i, 1] = kpt.k
-            self.my_ks_map[i, 2] = self.wfs.kpt_comm.rank            
-        self.wfs.kpt_comm.sum(self.ks_map)
+            self.my_ks_map[i, 2] = self.wfs.kd.comm.rank            
+        self.wfs.kd.comm.sum(self.ks_map)
     
     def set_local_spin_index(self, wfs):
         self.log('set_local_spin_index()')
@@ -966,7 +966,7 @@ class Transport(GPAW):
         #assert self.cell_ham_file is not None
         #fd = file(self.cell_ham_file, 'r')
         #cell_ham_data = cPickle.load(fd)
-        #cell_s_pkmm, cell_cs_pkmm, cell_h_spkmm, cell_ch_spkmm, fermi = cell_ham_data[self.wfs.kpt_comm.rank]
+        #cell_s_pkmm, cell_cs_pkmm, cell_h_spkmm, cell_ch_spkmm, fermi = cell_ham_data[self.wfs.kd.comm.rank]
         #fd.close()
 
         if self.cell_atoms is not None:
@@ -976,7 +976,7 @@ class Transport(GPAW):
 
             cell_h_spkmm, cell_s_pkmm, cell_d_spkmm,  \
             cell_ch_spkmm, cell_cs_pkmm, cell_cd_spkmm = get_pk_hsd(self.d, self.ntklead,
-                                                    self.cell_atoms.calc.wfs.ibzk_qc,
+                                                    self.cell_atoms.calc.wfs.kd.ibzk_qc,
                                                     cell_h_skmm, cell_s_kmm, cell_d_skmm,
                                                     self.text, self.wfs.dtype,
                                                     direction=0)
@@ -1057,7 +1057,7 @@ class Transport(GPAW):
         h_skmm, s_kmm =  self.get_hs(calc)
         d_skmm = get_lcao_density_matrix(calc)
         ntk = self.scat_ntk
-        kpts = calc.wfs.ibzk_qc
+        kpts = calc.wfs.kd.ibzk_qc
         h_spkmm = substract_pk(self.d, self.my_npk, ntk, kpts, h_skmm, 'h')
         s_pkmm = substract_pk(self.d, self.my_npk, ntk, kpts, s_kmm)
         d_spkmm = substract_pk(self.d, self.my_npk, ntk, kpts, d_skmm, 'h')
@@ -1251,7 +1251,7 @@ class Transport(GPAW):
         lead_direction = l # character l
         hl_spkmm, sl_pkmm, dl_spkmm,  \
         hl_spkcmm, sl_pkcmm, dl_spkcmm = get_pk_hsd(self.d, self.ntklead,
-                                                calc.wfs.ibzk_qc,
+                                                calc.wfs.kd.ibzk_qc,
                                                 hl_skmm, sl_kmm, dl_skmm,
                                                 self.text, self.wfs.dtype,
                                                 direction=lead_direction)
@@ -1553,7 +1553,7 @@ class Transport(GPAW):
             for s in range(self.my_nspins):
                 for q in range(self.my_npk):
                     diag_ham += np.diag(self.hsd.H[s][q].recover())
-            self.wfs.kpt_comm.sum(diag_ham)
+            self.wfs.kd.comm.sum(diag_ham)
             diag_ham /= self.npk
             
             self.diff_h = 1.         
@@ -2092,7 +2092,7 @@ class Transport(GPAW):
         vHt_g = self.surround.uncapsule(self, nn, hamiltonian.vHt_g,
                                                     self.finegd1, self.finegd)
         vt_G0 = self.surround.uncapsule(self, nn / 2, vt_G, self.gd1, self.gd)  
-        if wfs.band_comm.rank == 0 and wfs.kpt_comm.rank == 0:
+        if wfs.band_comm.rank == 0 and wfs.kd.comm.rank == 0:
             # Force from compensation charges:
             dF_aLv = self.density.ghat.dict(derivative=True)
 
@@ -2118,8 +2118,8 @@ class Transport(GPAW):
         # Add non-local contributions:
         hamiltonian.xc.add_forces(self.F_av)
     
-        if wfs.symmetry:
-            self.F_av = wfs.symmetry.symmetrize_forces(self.F_av)
+        if wfs.kd.symmetry:
+            self.F_av = wfs.kd.symmetry.symmetrize_forces(self.F_av)
 
         self.forces.F_av = self.F_av[:len(self.atoms)]
         self.print_forces()
@@ -2427,7 +2427,7 @@ class Transport(GPAW):
         ham.Enlxc = 0.0#xcfunc.get_non_local_energy()
         ham.Enlkin = ham.xc.get_kinetic_energy_correction()
         if ham.Enlxc != 0 or ham.Enlkin != 0:
-            print 'Where should we do comm.sum() ?'
+            print('Where should we do comm.sum() ?')
         
         comm = ham.gd.comm
         ham.Ekin0 = comm.sum(Ekin)
@@ -2473,7 +2473,7 @@ class Transport(GPAW):
                         qr_mm += np.real(dot(D.dwnc_h[i][n + 1], S.upc_h[i][n + 1]))
                     else:
                         qr_mm += np.real(dot(D.dwnc_h[i][n], S.upc_h[i][n]))
-            self.wfs.kpt_comm.sum(qr_mm)
+            self.wfs.kd.comm.sum(qr_mm)
             boundary_charge.append(np.real(np.trace(qr_mm)))
             if i != 0:
                 print_info += '******'
@@ -2535,11 +2535,11 @@ class Transport(GPAW):
         if self.use_lead:
             nk = len(self.ibzk_qc_lead[0])
             nb = max(self.nblead)
-            npk = len(self.wfs.ibzk_qc)
+            npk = len(self.wfs.kd.ibzk_qc)
             unit_real = np.array(1,float).itemsize
             unit_complex = np.array(1, complex).itemsize
             
-            gamma = len(self.wfs.bzk_kc) == 1 and not self.wfs.bzk_kc[0].any()          
+            gamma = len(self.wfs.kd.bzk_kc) == 1 and not self.wfs.kd.bzk_kc[0].any()          
             if gamma:
                 unit = unit_real
             else:
@@ -2560,7 +2560,7 @@ class Transport(GPAW):
             unit = unit_real
         else:
             unit = unit_complex
-        nk = len(self.wfs.ibzk_qc)
+        nk = len(self.wfs.kd.ibzk_qc)
         nb = self.wfs.setups.nao
         sum += (2*ns + 1) * nk * nb**2 * unit
         return tmp, (sum - tmp)
@@ -2868,10 +2868,10 @@ class Transport(GPAW):
 
     def save_lead_hamiltonian_matrix(self):
         self.log('save_lead_hamiltonian_matrix()')
-        print 'assert self.nspins == 1'
+        print('assert self.nspins == 1')
         self.guess_steps = 1
         self.negf_prepare()
-        kpt_comm = self.wfs.kpt_comm
+        kpt_comm = self.wfs.kd.comm
         for i in range(self.lead_num):
             nb = self.nblead[i]
             if kpt_comm.rank == 0:
@@ -2914,8 +2914,8 @@ class Transport(GPAW):
 
     def save_scat_hamiltonian_matrix(self,n, n1=0):
         self.log('save_scat_hamiltonian_matrix()')
-        print 'run save_lead_hamiltonian_matrix before'
-        kpt_comm = self.wfs.kpt_comm
+        print('run save_lead_hamiltonian_matrix before')
+        kpt_comm = self.wfs.kd.comm
         flag = True
         for i in range(n1, n):
            if i > n1:

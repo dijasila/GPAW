@@ -2,22 +2,43 @@
 # Emacs: treat this as -*- python -*-
 
 import os
+import sys
 import optparse
 import subprocess
 
 
-parser = optparse.OptionParser()
+parser = optparse.OptionParser(
+    usage='Usage: %prog [options] <script> [options]')
 add = parser.add_option
 
-add('-l')
-add('-q')
+qsub_options = [('l', 'resource-list', 'nodes=1:ppn=1:opteron4'),
+                ('q', 'queue', 'long')]
 
+for short, long, default in qsub_options:
+    add('-' + short, '--' + long, default=default,
+        help='Default value is "{0}".'.format(default))
+    
+add('-x', '--export', help='Environment variables to export.')
+add('-g', '--gpaw', help='Path to GPAW.')
+add('--module', help='Run library module as a script (terminates option list)')
+add('--cores', type=int, help='Number of cores.')
 add('-n', '--threads', type=int, default=1)
-add('-m', '--module', action='store_true')
-add('-g', '--gpaw')
-add('-x', '--export')
 
-opts, args = parser.parse_args()
+args = sys.argv[1:]
+for i, arg in enumerate(args):
+    if arg.startswith('--module='):
+        module_args = args[i + 1:]
+        args = args[:i + 1]
+        break
+    if arg == '--module':
+        module_args = args[i + 2:]
+        args = args[:i + 2]
+        break
+else:
+    module_args = []
+    
+opts, args = parser.parse_args(args)
+args += module_args
 
 script = args[0]
 name = script.split('/')[-1]
@@ -40,9 +61,18 @@ qsub += '#PBS -N %s\n' % name  # set default job name
 qsub += '#PBS -W umask=002\n'
 
 if not opts.module:
-    for line in open(script):
+    for line in open(os.path.expanduser(script)):
         if line.startswith('#PBS'):
             qsub += line
+
+if opts.cores:
+    for ppn, arch in [(16, 'xeon16'), (8, 'xeon8'), (4, 'opteron4')]:
+        if opts.cores % ppn == 0:
+            nodes = opts.cores // ppn
+            break
+    else:
+        2 / 0
+    opts.resource_list = 'nodes={0}:ppn={1}:{2}'.format(nodes, ppn, arch)
 
 qsub += 'job = %r\n' % args
 qsub += 'path = %r\n' % path
@@ -80,15 +110,17 @@ cmd.append(os.path.join(path,
                         'bin.' + os.environ['GPAW_PLATFORM'],
                         'gpaw-python'))
 if module:
-    cmd.append('-m')
+    cmd += ['-m', module]
 cmd += job
-print(cmd)
-print subprocess.check_call(cmd)
+
+error = subprocess.call(cmd)
+if error:
+    raise SystemExit(error)
 """
 
 cmd = ['qsub']
-if opts.l:
-    cmd += ['-l', opts.l]
-if opts.q:
-    cmd += ['-q', opts.q]
+for short, long, default in qsub_options:
+    opt = getattr(opts, long.replace('-', '_'))
+    cmd += ['-' + short, opt]
+
 subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(qsub)

@@ -270,7 +270,7 @@ def gatherv(m, N=None):
         n = m.shape[0]
         M = np.zeros(N, dtype=complex)
     else:
-        print 'Not Implemented'
+        print('Not Implemented')
         XX
         
     n_index = np.zeros(size, dtype=int)

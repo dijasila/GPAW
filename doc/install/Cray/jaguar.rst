@@ -53,7 +53,7 @@ The following modules are loaded::
   19) fftw/3.1.1
   20) gcc/4.2.0.quadcore
 
-The recommended place for user's applications is under :envvar:`${HOME}`::
+The recommended place for user's applications is under :envvar:`HOME`::
 
   cd
   mkdir -p sw/xt5

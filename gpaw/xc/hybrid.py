@@ -90,9 +90,9 @@ class HybridXC(HybridXCBase):
                                  addcoredensity, a)
     
     def initialize(self, density, hamiltonian, wfs, occupations):
-        assert wfs.gamma
+        assert wfs.kd.gamma
         self.xc.initialize(density, hamiltonian, wfs, occupations)
-        self.kpt_comm = wfs.kpt_comm
+        self.kpt_comm = wfs.kd.comm
         self.nspins = wfs.nspins
         self.setups = wfs.setups
         self.density = density

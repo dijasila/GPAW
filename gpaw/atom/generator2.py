@@ -1354,7 +1354,7 @@ def generate_all():
         electrons = name[n:]
         if atoms and symbol not in atoms:
             continue
-        print name,symbol,electrons
+        print(name,symbol,electrons)
         for xc in functionals:
             argv = [symbol, '-swf', xc, '-e', electrons, '-t', electrons + 'e']
             if xc == 'PBE':

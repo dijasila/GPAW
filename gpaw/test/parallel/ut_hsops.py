@@ -1,4 +1,4 @@
-
+from __future__ import print_function
 import gc
 import sys
 import time
@@ -255,15 +255,15 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
 
         dm_r, dminfo = create_memory_info(MemorySingleton(), self.mem_pre)
         if world.rank == 0:
-            print 'overhead: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.)
+            print('overhead: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.))
 
         dm_r, dminfo = create_memory_info(self.mem_pre, self.mem_alloc)
         if world.rank == 0:
-            print 'allocate: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.)
+            print('allocate: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.))
 
         dm_r, dminfo = create_memory_info(self.mem_alloc, self.mem_test)
         if world.rank == 0:
-            print 'test-use: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.)
+            print('test-use: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.))
 
     def allocate(self):
         """

@@ -56,7 +56,7 @@ class GridPairOverlap(PairOverlap):
 
         if debug:
             if world.rank == 0:
-                print 'DEBUG INFO'
+                print('DEBUG INFO')
 
             mpi_debug('lfc1.lfs_a.keys(): %s' % lfc1.lfs_a.keys())
             mpi_debug('lfc2.lfs_a.keys(): %s' % lfc2.lfs_a.keys())
@@ -150,7 +150,7 @@ class GridPairOverlap(PairOverlap):
 
         if debug:
             if world.rank == 0:
-                print 'DEBUG INFO'
+                print('DEBUG INFO')
 
             mpi_debug('len(lfc1.sphere_a): %d, lfc1.atom_indices: %s' % (len(lfc1.sphere_a),lfc1.atom_indices))
             mpi_debug('len(lfc2.sphere_a): %d, lfc2.atom_indices: %s' % (len(lfc2.sphere_a),lfc2.atom_indices))

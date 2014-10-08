@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.lattice import bulk
 from gpaw import GPAW, FermiDirac
 from ase.units import Hartree
@@ -53,7 +54,7 @@ for k in range(gw.kd.nibzkpts):
 
 for k in range(gw.nkpt):
     ibzk = gw.kd.bz2ibz_k[k]
-    print np.abs(checkQp_kn[ibzk] - gw.Qp_kn[k])
+    print(np.abs(checkQp_kn[ibzk] - gw.Qp_kn[k]))
 
 # gw.Qp_kn
 #[[ 6.19522578  6.19534951]

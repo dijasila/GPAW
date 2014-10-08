@@ -175,8 +175,8 @@ class CSCG:
 
             # print if slow convergence
             if ((i+1) % slow_convergence_iters) == 0:
-                print 'R2 of proc #', rank, '  = ' , tmp, \
-                    ' after ', i+1, ' iterations'
+                print('R2 of proc #', rank, '  = ' , tmp, \
+                    ' after ', i+1, ' iterations')
 
             # finally update rho
             rhop[:] = rho

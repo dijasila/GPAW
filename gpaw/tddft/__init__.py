@@ -2,7 +2,7 @@
 functional theory calculations.
 
 """
-
+from __future__ import print_function
 import sys
 import time
 from math import log
@@ -81,7 +81,7 @@ class TDDFT(GPAW):
         """Create TDDFT-object.
         
         Parameters:
-        -----------
+
         filename: string
             File containing ground state or time-dependent state to propagate
         td_potential: class, optional
@@ -211,7 +211,7 @@ class TDDFT(GPAW):
             raise RuntimeError('Time propagator %s not supported.' % propagator)
 
         if self.rank == 0:
-            if wfs.kpt_comm.size > 1:
+            if wfs.kd.comm.size > 1:
                 if wfs.nspins == 2:
                     self.text('Parallelization Over Spin')
 
@@ -315,8 +315,8 @@ class TDDFT(GPAW):
                   restart_file=None, dump_interval=100):
         """Propagates wavefunctions.
         
-        Parameters
-        ----------
+        Parameters:
+
         time_step: float
             Time step in attoseconds (10^-18 s), e.g., 4.0 or 8.0
         iterations: integer
@@ -398,9 +398,9 @@ class TDDFT(GPAW):
             if restart_file is not None and self.niter % dump_interval == 0:
                 self.write(restart_file, 'all')
                 if self.rank == 0:
-                    print 'Wrote restart file.'
-                    print self.niter, ' iterations done. Current time is ', \
-                        self.time * autime_to_attosec, ' as.' 
+                    print('Wrote restart file.')
+                    print(self.niter, ' iterations done. Current time is ', \
+                        self.time * autime_to_attosec, ' as.') 
 
         self.timer.stop('Propagate')
 
@@ -525,8 +525,8 @@ class TDDFT(GPAW):
     def absorption_kick(self, kick_strength):
         """Delta absorption kick for photoabsorption spectrum.
 
-        Parameters
-        ----------
+        Parameters:
+
         kick_strength: [float, float, float]
             Strength of the kick, e.g., [0.0, 0.0, 1e-3]
         
@@ -563,8 +563,8 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
     """Calculates photoabsorption spectrum from the time-dependent
     dipole moment.
     
-    Parameters
-    ----------
+    Parameters:
+
     dipole_moment_file: string
         Name of the time-dependent dipole moment file from which
         the specturm is calculated
@@ -602,8 +602,8 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
     
     
     if world.rank == 0:
-        print 'Calculating photoabsorption spectrum from file "%s"' \
-              % dipole_moment_file
+        print('Calculating photoabsorption spectrum from file "%s"' \
+              % dipole_moment_file)
 
         f_file = file(spectrum_file, 'w')
         dm_file = file(dipole_moment_file, 'r')
@@ -618,7 +618,7 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         # Remove first two lines
         lines.pop(0)
         lines.pop(0)
-        print 'Using kick strength = ', strength
+        print('Using kick strength = ', strength)
         # Continue with dipole moment data
         n = len(lines)
         dm = np.zeros((n,3),dtype=float)
@@ -680,16 +680,16 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
             f_file.write(line)
 
             if (i % 100) == 0:
-                print '.',
+                print('.', end=' ')
                 sys.stdout.flush()
                 
-        print "Sinc contamination", np.exp(-t[-1]**2*sigma**2/2.0)
+        print("Sinc contamination", np.exp(-t[-1]**2*sigma**2/2.0))
 
-        print ''
+        print('')
         f_file.close()
         
-        print 'Calculated photoabsorption spectrum saved to file "%s"' \
-              % spectrum_file
+        print('Calculated photoabsorption spectrum saved to file "%s"' \
+              % spectrum_file)
 
             
     # Make static method

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom
 from ase.neb import SingleCalculatorNEB
 from ase.optimize import FIRE
@@ -29,9 +30,9 @@ images[-1].positions[2, 1] = 2 - images[0].positions[2, 1]
 neb = SingleCalculatorNEB(images)
 neb.interpolate()
 for image in images:
-    print image[2].position
+    print(image[2].position)
 set_calculators(True)
 
 dyn = FIRE(neb, trajectory='mep.traj')
 dyn.insert_observer(set_calculators)
-print dyn.run(fmax=8.)
+print(dyn.run(fmax=8.))

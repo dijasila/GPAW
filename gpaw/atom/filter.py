@@ -201,9 +201,9 @@ if __name__ == '__main__':
 
     if 0:
         for i in range(200):
-            print 5 * pi / h * i / 200, pf0_g[i], pf1_g[i], pf2_g[i]
+            print(5 * pi / h * i / 200, pf0_g[i], pf1_g[i], pf2_g[i])
     if 1:
         for r, p, pf0, pf1, pf2 in zip(r_g, p_g, pf0_g, pf1_g, pf2_g):
-            print r, p, pf0, pf1, pf2
+            print(r, p, pf0, pf1, pf2)
             if r > rc2:
                 break

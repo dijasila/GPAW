@@ -1,6 +1,6 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-
+from __future__ import print_function
 import numpy as np
 from math import pi
 
@@ -60,13 +60,13 @@ def run():
     f = open('50.xyz', 'w')
     f.write('50\n\n')
     for x, y, z in R_nv:
-        print >> f, 'H', 4*x, 4*y, 4*z
+        print('H', 4*x, 4*y, 4*z, file=f)
 
     #print np.dot(weights, Y_nL) * (4*pi)**.5
 
-    print 'weight_n = np.array(%s)' % weight_n.tolist()
-    print 'Y_nL = np.array(%s)' % Y_nL.tolist()
-    print 'R_nv = np.array(%s)' % R_nv.tolist()
+    print('weight_n = np.array(%s)' % weight_n.tolist())
+    print('Y_nL = np.array(%s)' % Y_nL.tolist())
+    print('R_nv = np.array(%s)' % R_nv.tolist())
 
     return weight_n, Y_nL, R_nv
 

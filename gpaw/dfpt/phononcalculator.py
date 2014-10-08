@@ -251,10 +251,10 @@ class PhononCalculator:
 
                     components = ['x', 'y', 'z']
                     symbols = self.atoms.get_chemical_symbols()
-                    print "q-vector index: %i" % q
-                    print "Atom index: %i" % a
-                    print "Atomic symbol: %s" % symbols[a]
-                    print "Component: %s" % components[v]
+                    print("q-vector index: %i" % q)
+                    print("Atom index: %i" % a)
+                    print("Atomic symbol: %s" % symbols[a])
+                    print("Component: %s" % components[v])
 
                     # Set atom and cartesian component of perturbation
                     self.perturbation.set_av(a, v)
@@ -432,10 +432,10 @@ class PhononCalculator:
             # Take care of imaginary frequencies
             if not np.all(omega2_n >= 0.):
                 indices = np.where(omega2_n < 0)[0]
-                print ("WARNING, %i imaginary frequencies at "
+                print(("WARNING, %i imaginary frequencies at "
                        "q = (% 5.2f, % 5.2f, % 5.2f) ; (omega_q =% 5.3e*i)"
                        % (len(indices), q_c[0], q_c[1], q_c[2],
-                          omega_n[indices][0].imag))
+                          omega_n[indices][0].imag)))
 
                 omega_n[indices] = -1 * np.sqrt(np.abs(omega2_n[indices].real))
 

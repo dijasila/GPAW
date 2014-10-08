@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw import GPAW, restart, FermiDirac
 from ase import Atoms
 from ase.calculators.test import numeric_force
@@ -30,9 +31,9 @@ calc.write('temp.gpw')
 bulk, calc = restart('temp.gpw', fixdensity=True)
 e2 = bulk.get_potential_energy()
 eigs2 = calc.get_eigenvalues(kpt=0)
-print 'Orginal', eigs
-print 'Fixdensity', eigs2
-print 'Difference', eigs2-eigs
+print('Orginal', eigs)
+print('Fixdensity', eigs2)
+print('Difference', eigs2-eigs)
 
 assert np.fabs(eigs2 - eigs)[:-1].max() < 3e-5
 equal(e1, -36.7667, 0.001)

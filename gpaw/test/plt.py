@@ -50,5 +50,5 @@ if mpi.size == 1:
     for d, do in zip(data, data_org):
         dd2 = (d - do)**2
         norm = dd2.sum() 
-        print norm
+        print(norm)
         assert(norm < 1e-10)

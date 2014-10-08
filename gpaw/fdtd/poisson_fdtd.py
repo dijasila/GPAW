@@ -921,7 +921,7 @@ class FDTDPoissonSolver:
         rho = self.classical_material.charge_density
         world = paw.wfs.world
         domain_comm = self.cl.gd.comm
-        kpt_comm = paw.wfs.kpt_comm
+        kpt_comm = paw.wfs.kd.comm
         band_comm = paw.wfs.band_comm
         master = (world.rank == 0)
         parallel = (world.size > 1)

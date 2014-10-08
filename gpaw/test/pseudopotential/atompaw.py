@@ -3,17 +3,17 @@ from gpaw.upf import UPFSetupData
 
 def check(title, calc, epsref_n, threshold):
     eps_n = calc.wfs.kpt_u[0].eps_n
-    print title
+    print(title)
     for i, epsref in enumerate(epsref_n):
         err = abs(epsref - eps_n[i])
         ok = (err <= threshold)
         status = 'ok' if ok else 'FAILED'
-        print 'state %d | eps=%f | ref=%f | err=%f | tol=%s | %s' % (i,
+        print('state %d | eps=%f | ref=%f | err=%f | tol=%s | %s' % (i,
                                                                      eps_n[i],
                                                                      epsref,
                                                                      err,
                                                                      threshold,
-                                                                     status)
+                                                                     status))
         assert ok
 
 kwargs = dict(txt=None)

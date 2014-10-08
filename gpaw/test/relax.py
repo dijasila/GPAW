@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 from ase import Atom, Atoms
 from ase.optimize import BFGS
@@ -37,14 +38,14 @@ molecule = GPAW('H2f.gpw', txt=None).get_atoms()
 f3, t3 = timer(molecule.get_forces)
 molecule = GPAW('H2fa.gpw', txt=None).get_atoms()
 f4, t4 = timer(molecule.get_forces)
-print 'timing:', t1, t2, t3, t4
+print('timing:', t1, t2, t3, t4)
 assert t2 < 0.6 * t1
 assert t3 < 0.5
 assert t4 < 0.5
-print f1
-print f2
-print f3
-print f4
+print(f1)
+print(f2)
+print(f3)
+print(f4)
 assert sum((f1 - f4).ravel()**2) < 1e-6
 assert sum((f2 - f4).ravel()**2) < 1e-6
 assert sum((f3 - f4).ravel()**2) < 1e-6
@@ -56,9 +57,9 @@ d0 = positions[1, 0] - positions[0, 0]
 #              ^                 ^
 #              second atom       first atom
 
-print 'experimental bond length:'
-print 'hydrogen molecule energy: %7.3f eV' % e1
-print 'bondlength              : %7.3f Ang' % d0
+print('experimental bond length:')
+print('hydrogen molecule energy: %7.3f eV' % e1)
+print('bondlength              : %7.3f Ang' % d0)
 
 # Find the theoretical bond length:
 relax = BFGS(molecule)
@@ -74,9 +75,9 @@ d0 = positions[1, 0] - positions[0, 0]
 #              ^                 ^
 #              second atom       first atom
 
-print 'PBE energy minimum:'
-print 'hydrogen molecule energy: %7.3f eV' % e2
-print 'bondlength              : %7.3f Ang' % d0
+print('PBE energy minimum:')
+print('hydrogen molecule energy: %7.3f eV' % e2)
+print('bondlength              : %7.3f Ang' % d0)
 
 
 molecule = GPAW('H2fa.gpw', txt='H2.txt').get_atoms()

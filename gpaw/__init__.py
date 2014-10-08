@@ -58,7 +58,7 @@ sl_inverse_cholesky = None
 sl_lcao = None
 sl_lrtddft = None
 buffer_size = None
-extra_parameters = {}
+extra_parameters = {'fprojectors': True}
 profile = False
 i = 1
 while len(sys.argv) > i:
@@ -270,8 +270,8 @@ if trace:
             return
 
         if event == 'call':
-            print('%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
-                                   frame.f_code.co_name))
+            print(('%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
+                                   frame.f_code.co_name)))
             indent += '| '
         elif event == 'return':
             indent = indent[:-2]

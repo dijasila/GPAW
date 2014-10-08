@@ -25,7 +25,7 @@ is divided into several parts:
 
     .. note::
 
-       You will access your results by :envvar:`project_id`,
+       You will access your results by ``project_id``,
        so don't forget to set it!
 
   - defining the parameters of the calculation to be stored in CMR:
@@ -34,7 +34,7 @@ is divided into several parts:
        :start-after: template
        :end-before: }
 
-2. :envvar:`calculate` part, starting with::
+2. ``calculate`` part, starting with::
 
      if calculate:
 
@@ -50,19 +50,19 @@ is divided into several parts:
 
      write(cmrfile, system, cmr_params=cmr_params)
 
-3. :envvar:`recalculate` part, starting with::
+3. ``recalculate`` part, starting with::
 
      if recalculate:
 
    performs calculation of the ``PBE`` total energy on ``LDA`` orbitals.
-   The orbitals are read from the :file:`.gpw` files saved in the :envvar:`calculate` step.
+   The orbitals are read from the :file:`.gpw` files saved in the ``calculate`` step.
    The results are appended to the corresponding cmr files:
 
    .. literalinclude:: ../../../gpaw/test/cmrtest/Li2_atomize.py
       :start-after: exists
       :end-before: del
 
-Please perform the steps up to (and including) the :envvar:`recalculate` part.
+Please perform the steps up to (and including) the ``recalculate`` part.
 
 .. note::
 
@@ -85,7 +85,7 @@ the text output files and extracting the results.
 In the next part the atomization energy is calculated based on
 the cmr files saved in the current directory.
 
-4. the :envvar:`analyse_from_dir` part, starting with::
+4. the ``analyse_from_dir`` part, starting with::
 
      if analyse_from_dir:
 
@@ -107,7 +107,7 @@ the cmr files saved in the current directory.
         clean = False
 
    In this part the contents of all cmr files in the current directory is read,
-   and restricted to our :envvar:`project_id`:
+   and restricted to our ``project_id``:
 
    .. literalinclude:: ../../../gpaw/test/cmrtest/Li2_atomize.py
       :start-after: DirectoryReader
@@ -131,7 +131,7 @@ the cmr files saved in the current directory.
    to be compared against :ref:`molecule_tests`.
 
 5. all the results can be uploaded to a database.
-   This is performed in the :envvar:`upload_to_db` part, starting with::
+   This is performed in the ``upload_to_db`` part, starting with::
 
      if upload_to_db:
 
@@ -143,5 +143,5 @@ the cmr files saved in the current directory.
       As an idication that the calculations are performed on the results
       from the database, please remove all the cmr files from the current directory!
 
-6. analysis is performed by the :envvar:`analyse_from_db` part.
+6. analysis is performed by the ``analyse_from_db`` part.
 

@@ -13,7 +13,7 @@ from gpaw.test import equal
 def band_gab(calc):
     ef = calc.get_fermi_level()
     Nb = calc.wfs.bd.nbands
-    w_k = calc.wfs.weight_k
+    w_k = calc.wfs.kd.weight_k
     x = 0
     nspin=calc.get_number_of_spins()
     energies = np.empty(len(w_k) * Nb*nspin)

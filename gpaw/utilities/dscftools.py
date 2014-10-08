@@ -16,11 +16,11 @@ def dscf_find_lumo(paw,band):
     lumo = paw.get_pseudo_wave_function(band=band, kpt=0, spin=0)
     lumo = np.reshape(lumo, -1)
 
-    wf1_k = [paw.get_pseudo_wave_function(band=5, kpt=k, spin=0) for k in range(paw.wfs.nibzkpts)]
-    wf2_k = [paw.get_pseudo_wave_function(band=6, kpt=k, spin=0) for k in range(paw.wfs.nibzkpts)]
+    wf1_k = [paw.get_pseudo_wave_function(band=5, kpt=k, spin=0) for k in range(paw.wfs.kd.nibzkpts)]
+    wf2_k = [paw.get_pseudo_wave_function(band=6, kpt=k, spin=0) for k in range(paw.wfs.kd.nibzkpts)]
 
     band_k = []
-    for k in range(paw.wfs.nibzkpts):
+    for k in range(paw.wfs.kd.nibzkpts):
         wf1 = np.reshape(wf1_k[k], -1)
         wf2 = np.reshape(wf2_k[k], -1)
         p1 = np.abs(np.dot(wf1, lumo))
@@ -59,7 +59,7 @@ def mpi_debug(data, ordered=True):
             mpi.world.barrier()
 
     for txt in data:
-        print '%02d-mpi%d, %s' % (msgcount, mpi.rank, txt)
+        print('%02d-mpi%d, %s' % (msgcount, mpi.rank, txt))
         if ordered:
             msgcount += 1
 
@@ -99,7 +99,7 @@ def dscf_kpoint_overlaps(paw, phasemod=True, broadcast=True):
     atoms = paw.get_atoms()
 
     # Find the kpoint with lowest kpt.k_c (closest to gamma point)
-    k0 = np.argmin(np.sum(paw.wfs.ibzk_kc**2,axis=1)**0.5)
+    k0 = np.argmin(np.sum(paw.wfs.kd.ibzk_kc**2,axis=1)**0.5)
 
     # Maintain list of a single global reference kpoint for each spin
     kpt0_s = []
@@ -234,7 +234,7 @@ def dscf_linear_combination(paw, molecule, bands, coefficients):
 
     P_aui = {}
     for m,a in enumerate(molecule):
-        if debug: mpi_debug('a=%d, paw.wfs.nibzkpts=%d, len(paw.wfs.kpt_u)=%d, paw.wfs.setups[%d].ni=%d' % (a,paw.wfs.nibzkpts,len(paw.wfs.kpt_u),a,paw.wfs.setups[a].ni))
+        if debug: mpi_debug('a=%d, paw.wfs.kd.nibzkpts=%d, len(paw.wfs.kpt_u)=%d, paw.wfs.setups[%d].ni=%d' % (a, paw.wfs.kd.nibzkpts, len(paw.wfs.kpt_u), a, paw.wfs.setups[a].ni))
         P_aui[m] = np.zeros((len(paw.wfs.kpt_u),paw.wfs.setups[a].ni),dtype=complex)
 
     for u,kpt in enumerate(paw.wfs.kpt_u):
@@ -280,7 +280,7 @@ def dscf_linear_combination(paw, molecule, bands, coefficients):
     if debug: mpi_debug('P_aui.shape='+str(P_aui.shape))
 
     #wf_u = [np.sum([c*paw.wfs.kpt_u[u].psit_nG[n] for (c,n) in zip(coefficients,bands)],axis=0) for u in range(0,len(paw.wfs.kpt_u))]
-    #wf_u = np.zeros((paw.wfs.nibzkpts,paw.wfs.gd.N_c[0]-1,paw.wfs.gd.N_c[1]-1,paw.wfs.gd.N_c[2]-1))#,dtype=complex)
+    #wf_u = np.zeros((paw.wfs.kd.nibzkpts,paw.wfs.gd.N_c[0]-1,paw.wfs.gd.N_c[1]-1,paw.wfs.gd.N_c[2]-1))#,dtype=complex)
     wf_u = paw.wfs.gd.zeros(len(paw.wfs.kpt_u),dtype=complex)
 
     gd_slice = paw.wfs.gd.get_slice()
@@ -288,7 +288,7 @@ def dscf_linear_combination(paw, molecule, bands, coefficients):
     if debug: mpi_debug('gd_slice='+str(gd_slice))
 
     for u,kpt in enumerate(paw.wfs.kpt_u):
-        if debug: mpi_debug('u=%d, k=%d, s=%d, paw.wfs.kpt_comm.rank=%d, paw.wfs.kpt_comm.rank=%d, gd.shape=%s, psit.shape=%s' % (u,kpt.k,kpt.s,paw.wfs.kpt_comm.rank,paw.wfs.kpt_comm.rank,str(wf_u[0].shape),str(np.array(kpt.psit_nG[0])[gd_slice].shape)))
+        if debug: mpi_debug('u=%d, k=%d, s=%d, paw.wfs.kd.comm.rank=%d, paw.wfs.kd.comm.rank=%d, gd.shape=%s, psit.shape=%s' % (u, kpt.k, kpt.s, paw.wfs.kd.comm.rank, paw.wfs.kd.comm.rank, str(wf_u[0].shape), str(np.array(kpt.psit_nG[0])[gd_slice].shape)))
 
         #wf_u[u] += np.sum([c*np.array(kpt.psit_nG[n])[gd_slice] for (c,n) in zip(coefficients,bands)],axis=0)
 

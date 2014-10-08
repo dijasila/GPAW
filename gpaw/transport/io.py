@@ -77,10 +77,10 @@ class Transport_IO:
 
     def collect_lead_data(self, obj):
         data = {}
-        data['bzk_kc'] = obj.wfs.bzk_kc
+        data['bzk_kc'] = obj.wfs.kd.bzk_kc
         #data['bzk_qc'] = obj.wfs.bzk_qc
-        data['ibzk_kc'] = obj.wfs.ibzk_kc
-        data['ibzk_qc'] = obj.wfs.ibzk_qc
+        data['ibzk_kc'] = obj.wfs.kd.ibzk_kc
+        data['ibzk_qc'] = obj.wfs.kd.ibzk_qc
         #data['setups'] = obj.wfs.setups
         data['cell_cv'] = obj.gd.cell_cv
         data['parsize_c'] = obj.gd.parsize_c

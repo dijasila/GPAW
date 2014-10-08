@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import numpy as np
 from ase import Atom, Atoms
@@ -47,11 +48,11 @@ energies, Li_wzweight = raw_wignerseitz_LDOS(calc, a=0, spin=0)
 energies, H_wzweight = raw_wignerseitz_LDOS(calc, a=1, spin=0)
 n_a = calc.get_wigner_seitz_densities(spin=0)
 
-print sweight, pdfweight
-print sweight_spin
-print Li_wzweight
-print H_wzweight
-print n_a
+print(sweight, pdfweight)
+print(sweight_spin)
+print(Li_wzweight)
+print(H_wzweight)
+print(n_a)
 
 equal(sweight[0], 1., .06)
 equal(pdfweight[0], 0., .0001)
@@ -62,8 +63,8 @@ assert ((Li_wzweight + H_wzweight).round(5) == 1).all()
 equal(n_a.sum(), 0., 1e-5)
 equal(n_a[1], .737, .001)
 
-print Li_orbitalweight
-print H_orbitalweight
+print(Li_orbitalweight)
+print(H_orbitalweight)
 #               HOMO    s   py  pz  px  *s
 Li_orbitalweight[0] -= [.5, .0, .6, .0, .0]
 H_orbitalweight[0]  -= [.7, .0, .0, .0, .0]

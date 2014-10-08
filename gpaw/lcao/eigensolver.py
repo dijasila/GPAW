@@ -1,8 +1,6 @@
 import numpy as np
 
-from gpaw.utilities import unpack
 from gpaw.utilities.blas import gemm
-import gpaw.mpi as mpi
 
 
 class DirectLCAO:
@@ -125,5 +123,5 @@ class DirectLCAO:
         wfs.timer.stop('Calculate projections')
 
     def estimate_memory(self, mem, dtype):
-        pass 
+        pass
         # self.diagonalizer.estimate_memory(mem, dtype) #XXX enable this

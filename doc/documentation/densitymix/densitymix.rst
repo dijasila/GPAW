@@ -150,6 +150,16 @@ weight used by the metric, if any.
 MixerDif seems to be a good choice for spin polarized
 molecules. MixerSum is sometimes better for bulk systems.
 
+The Mixer and MixerSum classes
+------------------------------
+
+.. autoclass:: gpaw.mixer.Mixer
+   :members:
+   :inherited-members:
+
+.. autoclass:: gpaw.mixer.MixerSum
+   :members:
+   :inherited-members:
 
 References
 ----------

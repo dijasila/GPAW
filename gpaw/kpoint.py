@@ -106,10 +106,10 @@ class GlobalKPoint(KPoint):
         """Distribute requested kpoint data across the kpoint communicator."""
 
         # Locate rank and index of requested k-point
-        nks = len(wfs.ibzk_kc)
+        nks = len(wfs.kd.ibzk_kc)
         mynu = len(wfs.kpt_u)
         kpt_rank, u = divmod(self.k + nks * self.s, mynu)
-        kpt_comm = wfs.kpt_comm
+        kpt_comm = wfs.kd.comm
 
         my_atom_indices = np.argwhere(wfs.rank_a == wfs.gd.comm.rank).ravel()
         mynproj = sum([wfs.setups[a].ni for a in my_atom_indices])

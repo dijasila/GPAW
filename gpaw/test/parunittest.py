@@ -23,7 +23,7 @@ PARTICULAR PURPOSE.  THE CODE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS,
 AND THERE IS NO OBLIGATION WHATSOEVER TO PROVIDE MAINTENANCE,
 SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 """
-
+from __future__ import print_function
 import sys
 import numpy as np
 from unittest import TestResult, TestCase, TestSuite, \
@@ -173,7 +173,7 @@ class ParallelTestCase(TestCase):
 
     def debug(self):
         """Run the test without collecting errors in a TestResult"""
-        print 'WARNING: Test case is strictly serial in debug mode!'
+        print('WARNING: Test case is strictly serial in debug mode!')
         TestCase.debug(self)
 
 

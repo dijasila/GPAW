@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.mpi import rank, size, serial_comm
@@ -11,7 +12,7 @@ for spinpol in [False, True]:
             continue
         for qparallel in [False, True]:
             if rank == 0:
-                print(spinpol, symm, qparallel)
+                print((spinpol, symm, qparallel))
             li.calc = GPAW(mode=PW(300),
                            kpts=(2, 3, 4),
                            spinpol=spinpol,
@@ -35,9 +36,9 @@ for spinpol in [False, True]:
                            bandstructure=True, bands=[0, 1])
             de2 = calc.get_xc_difference(exx)
             kd = calc.wfs.kd
-            print e, -0.56024, abs(e - -0.56024)
-            print de, -0.4520, abs(de - -0.4520)
-            print de, de2, abs(de - de2)
+            print(e, -0.56024, abs(e - -0.56024))
+            print(de, -0.4520, abs(de - -0.4520))
+            print(de, de2, abs(de - de2))
             assert abs(e - -0.56024) < 1e-5, abs(e)
             assert abs(de - -0.4520) < 3e-4, abs(de)
             assert abs(de - de2) < 1e-12

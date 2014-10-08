@@ -118,13 +118,13 @@ keyword            type       default value        description
 ``hund``           ``bool``   ``False``            :ref:`Use Hund's rule
                                                    <manual_hund>`
 ``external``       Object                          XXX Missing doc
-``verbose``        ``int``    ``0``                XXX Missing doc
+``verbose``        ``int``    ``0``                :ref:`manual_verbose`
 ``poissonsolver``  Object                          Specification of
                                                    :ref:`Poisson solver 
                                                    <manual_poissonsolver>`
                                                    or :ref:`dipole correction
                                                    <manual_dipole_correction>`
-``communicator``   Object                          XXX Missing doc
+``communicator``   Object                          :ref:`manual_communicator`
 ``idiotproof``     ``bool``   ``True``             Set to ``False`` to ignore 
                                                    setup fingerprint mismatch
                                                    (allows restart when the
@@ -598,7 +598,6 @@ occupations one has to use :class:`~gpaw.mixer.MixerSum` instead of
 
 See also the documentation on :ref:`density mixing <densitymix>`.
 
-
 .. _manual_fixdensity:
 
 Fixed density
@@ -832,6 +831,23 @@ total magnetic moment be fixed, by passing e.g.
 Any user specified magnetic moment is
 ignored. Default is False.
 
+.. _manual_verbose:
+
+Output verbosity
+----------------
+
+By default, only a limited number of information is printed out for each SCF
+step. It is possible to obtain more information (e.g. for investigating 
+convergen problems in more detail) by ``verbose=1`` keyword.
+
+.. _manual_communicator:
+
+Communicator object
+-------------------
+
+By specifying a communicator object, it is possible to use only a subset of
+processes for the calculator when calculating e.g. different atomic images 
+in parallel. See :ref:`different_calculations_in parallel` for more details.
 
 .. _manual_parallel_calculations:
 

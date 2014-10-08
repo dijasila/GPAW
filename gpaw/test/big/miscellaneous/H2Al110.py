@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom, Atoms
 from gpaw import GPAW
 from gpaw.test import equal
@@ -32,7 +33,7 @@ for i in range(1):
     slab.positions[-1, 0] += 0.01
     e = slab.get_potential_energy()
 
-print e, niter
+print(e, niter)
 energy_tolerance = 0.00015
 niter_tolerance = 0
 equal(e, -44.69217, energy_tolerance)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from time import time, ctime
 from datetime import timedelta
@@ -66,4 +67,4 @@ if not (np.abs(QP_False - QP_True) < 0.05).all():
     raise AssertionError("dynamic GW not equal to PPA")
 
 totaltime = round(time() - starttime)
-print "GW test finished in %s " %(timedelta(seconds=totaltime))
+print("GW test finished in %s " %(timedelta(seconds=totaltime)))

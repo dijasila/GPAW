@@ -1,4 +1,5 @@
 """Trajectory module with viewmol support.""" 
+from __future__ import print_function
 
 from math import sqrt
 import numpy as np
@@ -100,9 +101,9 @@ class Trajectory(PickleTrajectory):
 
         f = paropen(filename, mode)
         if mode == 'w':
-            print >> f, ' $coord', 1. / Angstrom
+            print(' $coord', 1. / Angstrom, file=f)
             self.write_viewmol_positions(f, self[0])
-            print >> f, ' $grad'
+            print(' $grad', file=f)
         else:
             raise NotImplementedError('append')
 
@@ -114,12 +115,12 @@ class Trajectory(PickleTrajectory):
     def write_viewmol_atoms(self, file, atoms, index):
         """Write current atomic position, energy and forces
         to the output file"""
-        print >> file, 'cycle=', index,
+        print('cycle=', index, end=' ', file=file)
         try:
             E = atoms.get_potential_energy() * Hartree
         except:
             E = 0
-        print >> file, 'SCF energy=', E,
+        print('SCF energy=', E, end=' ', file=file)
         try:
             forces = atoms.get_forces() * (Hartree / Angstrom)
             max_force = 0
@@ -128,14 +129,14 @@ class Trajectory(PickleTrajectory):
         except:
             forces = atoms.get_positions() * 0.
             max_force = 0
-        print >> file, '|max dE/dxyz|=', max_force
+        print('|max dE/dxyz|=', max_force, file=file)
         self.write_viewmol_positions(file, atoms)
         for atom, f in zip(atoms, forces):
-            print >> file, '%10.4g %10.4g %10.4g' % (f[0],f[1],f[2])
+            print('%10.4g %10.4g %10.4g' % (f[0],f[1],f[2]), file=file)
 
     def write_viewmol_positions(self, file, atoms):
         for c, s in zip(atoms.get_positions(), atoms.get_chemical_symbols()):
-            print  >> file, '%10.4f %10.4f %10.4f' % (c[0],c[1],c[2]), s
+            print('%10.4f %10.4f %10.4f' % (c[0],c[1],c[2]), s, file=file)
 
     def read_viewmol(self, filename):
         f = open(filename)
@@ -206,12 +207,12 @@ class ViewmolTrajectory(Trajectory):
             self.file = open(filename, mode)
         else:
             self.file = open('/dev/null', mode)
-        print >> self.file, ' $coord', 1. / Angstrom
+        print(' $coord', 1. / Angstrom, file=self.file)
         self.write_viewmol_positions(self.file, self.atoms)
-        print >> self.file, ' $grad'
+        print(' $grad', file=self.file)
     
     def __del__(self):
-        print >> self.file, ' $end'
+        print(' $end', file=self.file)
         self.file.close()
 
     def add(self, atoms=None):
@@ -219,17 +220,17 @@ class ViewmolTrajectory(Trajectory):
         if atoms is None:
             atoms = self.atoms
         self.n += 1
-        print >> self.file, 'cycle=', self.n,
-        print >> self.file, 'SCF energy=', \
-              atoms.get_potential_energy() * Hartree,
+        print('cycle=', self.n, end=' ', file=self.file)
+        print('SCF energy=', \
+              atoms.get_potential_energy() * Hartree, end=' ', file=self.file)
         forces = atoms.get_forces() * (Hartree / Angstrom)
         max_force = 0
         for f in forces:
             max_force = max(max_force, sqrt(np.sum(f * f)))
-        print >> self.file, '|max dE/dxyz|=', max_force
+        print('|max dE/dxyz|=', max_force, file=self.file)
         self.write_viewmol_positions(self.file, atoms)
         for atom, f in zip(self.atoms, forces):
-            print >> self.file, '%10.4g %10.4g %10.4g' % (f[0],f[1],f[2])
+            print('%10.4g %10.4g %10.4g' % (f[0],f[1],f[2]), file=self.file)
         self.file.flush()
        
     def read(self, filename='trajectory.vmol', position=0):

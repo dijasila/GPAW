@@ -1,6 +1,7 @@
 """Omega matrix for functionals with Hartree-Fock exchange.
 
 """
+from __future__ import print_function
 from math import sqrt
 
 import numpy as np
@@ -48,7 +49,7 @@ class ApmB(OmegaMatrix):
 
         # calculate omega matrix
         nij = len(kss)
-        print >> self.txt, 'RPAhyb', nij, 'transitions'
+        print('RPAhyb', nij, 'transitions', file=self.txt)
         
         AmB = np.zeros((nij, nij))
         ApB = self.ApB
@@ -57,7 +58,7 @@ class ApmB(OmegaMatrix):
         integrals = {}
         
         for ij in range(nij):
-            print >> self.txt,'RPAhyb kss['+'%d'%ij+']=', kss[ij]
+            print('RPAhyb kss['+'%d'%ij+']=', kss[ij], file=self.txt)
 
             timer = Timer()
             timer.start('init')
@@ -114,8 +115,8 @@ class ApmB(OmegaMatrix):
             timer.stop()
 ##            timer2.write()
             if ij < (nij - 1):
-                print >> self.txt,'RPAhyb estimated time left',\
-                      self.time_left(timer, t0, ij, nij)
+                print('RPAhyb estimated time left',\
+                      self.time_left(timer, t0, ij, nij), file=self.txt)
 
         # add HF parts and apply symmetry
         if hasattr(self.xc, 'hybrid'):
@@ -123,7 +124,7 @@ class ApmB(OmegaMatrix):
         else:
             weight = 0.0
         for ij in range(nij):
-            print >> self.txt, 'HF kss[' + '%d' % ij + ']'
+            print('HF kss[' + '%d' % ij + ']', file=self.txt)
             timer = Timer()
             timer.start('init')
             timer.stop()
@@ -147,8 +148,8 @@ class ApmB(OmegaMatrix):
 
             timer.stop()
             if ij < (nij - 1):
-                print >> self.txt,'HF estimated time left',\
-                     self.time_left(timer, t0, ij, nij)
+                print('HF estimated time left',\
+                     self.time_left(timer, t0, ij, nij), file=self.txt)
         
         return AmB
     

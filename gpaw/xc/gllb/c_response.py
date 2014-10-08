@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw.xc.gllb.contribution import Contribution
 #from gpaw.xc_functional import XCRadialGrid, XCFunctional, XC3DGrid
 #from gpaw.xc_correction import A_Liy, weights
@@ -70,11 +71,11 @@ class C_Response(Contribution):
         self.kpt_u = self.wfs.kpt_u
         self.setups = self.wfs.setups
         self.density = self.nlfunc.density
-        self.symmetry = self.wfs.symmetry
+        self.symmetry = self.wfs.kd.symmetry
         self.nspins = self.nlfunc.nspins
         self.occupations = self.nlfunc.occupations
         self.nvalence = self.nlfunc.nvalence
-        self.kpt_comm = self.wfs.kpt_comm
+        self.kpt_comm = self.wfs.kd.comm
         self.band_comm = self.wfs.band_comm
         self.grid_comm = self.gd.comm
         if self.Dresp_asp is None:
@@ -132,7 +133,7 @@ class C_Response(Contribution):
             self.wfs.kptband_comm.sum(self.nt_sG)
             self.wfs.kptband_comm.sum(self.vt_sG)
 
-            if self.wfs.symmetry:
+            if self.wfs.kd.symmetry:
                 for nt_G, vt_G in zip(self.nt_sG, self.vt_sG):
                     self.symmetry.symmetrize(nt_G, self.gd)
                     self.symmetry.symmetrize(vt_G, self.gd)
@@ -243,7 +244,7 @@ class C_Response(Contribution):
     def calculate_delta_xc(self, homolumo = None):
         if homolumo is None:
             # Calculate band gap
-            print "Warning: Calculating KS-gap directly from the k-points, can be inaccurate."
+            print("Warning: Calculating KS-gap directly from the k-points, can be inaccurate.")
             #homolumo = self.occupations.get_homo_lumo(self.wfs)
 
         for a in self.density.D_asp:
@@ -266,7 +267,7 @@ class C_Response(Contribution):
         self.wfs.kptband_comm.sum(nt_sG)
         self.wfs.kptband_comm.sum(vt_sG)
             
-        if self.wfs.symmetry:
+        if self.wfs.kd.symmetry:
             for nt_G, vt_G in zip(nt_sG, vt_sG):
                 self.symmetry.symmetrize(nt_G, self.gd)
                 self.symmetry.symmetrize(vt_G, self.gd)
@@ -301,7 +302,7 @@ class C_Response(Contribution):
                     Dresp_sp = self.Dxc_Dresp_asp[a]
                     P_ni = kpt.P_ani[a]
                     Dwf_p = pack(np.outer(P_ni[lumo_n].T.conj(), P_ni[lumo_n]).real)
-                    print "self.integrate_sphere DOES NOT SUPPORT SPIN POLARIZED? atc_response.py"
+                    print("self.integrate_sphere DOES NOT SUPPORT SPIN POLARIZED? atc_response.py")
                     E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p)
                 E = self.grid_comm.sum(E)
                 E += self.gd.integrate(nt_G*self.Dxc_vt_sG[s])
@@ -318,15 +319,15 @@ class C_Response(Contribution):
         if world.rank is not 0:
             return (Ksgap, method2_dxc)
         
-        print
-        print "\Delta XC calulation"
-        print "-----------------------------------------------"
-        print "| Method      |  KS-Gap | \Delta XC |  QP-Gap |"
-        print "-----------------------------------------------"
-        print "| Averaging   | %7.2f | %9.2f | %7.2f |" % (Ksgap, method1_dxc, Ksgap+method1_dxc)
-        print "| Lumo pert.  | %7.2f | %9.2f | %7.2f |" % (Ksgap, method2_dxc, Ksgap+method2_dxc)
-        print "-----------------------------------------------"
-        print
+        print()
+        print("\Delta XC calulation")
+        print("-----------------------------------------------")
+        print("| Method      |  KS-Gap | \Delta XC |  QP-Gap |")
+        print("-----------------------------------------------")
+        print("| Averaging   | %7.2f | %9.2f | %7.2f |" % (Ksgap, method1_dxc, Ksgap+method1_dxc))
+        print("| Lumo pert.  | %7.2f | %9.2f | %7.2f |" % (Ksgap, method2_dxc, Ksgap+method2_dxc))
+        print("-----------------------------------------------")
+        print()
         return (Ksgap, method2_dxc)
 
 
@@ -341,7 +342,7 @@ class C_Response(Contribution):
 
     def initialize_from_atomic_orbitals(self, basis_functions):
         # Initialize 'response-density' and density-matrices
-        print "Initializing from atomic orbitals"
+        print("Initializing from atomic orbitals")
         self.Dresp_asp = {}
         self.D_asp = {}
         
@@ -416,9 +417,9 @@ class C_Response(Contribution):
             v_g = self.weight * np.dot(w_j, u2_j) / (np.dot(self.ae.f_j, u2_j) +self.damp)
             e2 = [ e+np.dot(u2*v_g, self.ae.dr) for u2,e in zip(u2_j, self.ae.e_j) ]
             lumo_2 = min([ np.where(f<1e-3, e, 1000) for f,e in zip(self.ae.f_j, e2)])
-            print "New lumo eigenvalue:", lumo_2 * 27.2107
+            print("New lumo eigenvalue:", lumo_2 * 27.2107)
             self.hardness = lumo_2 - homo_e
-            print "Hardness predicted: %10.3f eV" % (self.hardness * 27.2107)
+            print("Hardness predicted: %10.3f eV" % (self.hardness * 27.2107))
             
     def write(self, w, natoms):
         """Writes response specific data to disc.
@@ -432,7 +433,7 @@ class C_Response(Contribution):
         wfs = self.wfs
         world = wfs.world
         domain_comm = wfs.gd.comm
-        kpt_comm = wfs.kpt_comm
+        kpt_comm = wfs.kd.comm
         band_comm = wfs.band_comm
         
         master = (world.rank == 0)
@@ -453,7 +454,7 @@ class C_Response(Contribution):
             for s in range(wfs.nspins):
                 vt_sG = wfs.gd.collect(self.vt_sG[s])
                 if master:
-                    print "vt_sG", vt_sG.shape
+                    print("vt_sG", vt_sG.shape)
                     w.fill(vt_sG)
 
         if master:
@@ -464,11 +465,11 @@ class C_Response(Contribution):
             for s in range(wfs.nspins):
                 vt_sG = wfs.gd.collect(self.Dxc_vt_sG[s])
                 if master:
-                    print "vt_sG", vt_sG.shape
+                    print("vt_sG", vt_sG.shape)
                     w.fill(vt_sG)
 
-        print "Integration over vt_sG", domain_comm.sum(np.sum(self.vt_sG.ravel()))
-        print "Integration over Dxc_vt_sG", domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel()))
+        print("Integration over vt_sG", domain_comm.sum(np.sum(self.vt_sG.ravel())))
+        print("Integration over Dxc_vt_sG", domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel())))
                 
         if master:
             all_D_sp = np.empty((wfs.nspins, nadm))
@@ -518,7 +519,7 @@ class C_Response(Contribution):
         wfs = self.wfs
         world = wfs.world
         domain_comm = wfs.gd.comm
-        kpt_comm = wfs.kpt_comm
+        kpt_comm = wfs.kd.comm
         band_comm = wfs.band_comm
         
         self.vt_sG = wfs.gd.empty(wfs.nspins)
@@ -556,7 +557,7 @@ class C_Response(Contribution):
             self.Dresp_asp[a] = Dresp_sp[:, p1:p2].copy()
             self.Dxc_D_asp[a] = Dxc_D_sp[:, p1:p2].copy()
             self.Dxc_Dresp_asp[a] = Dxc_Dresp_sp[:, p1:p2].copy()
-            print "Proc", world.rank, " reading atom ", a
+            print("Proc", world.rank, " reading atom ", a)
             p1 = p2
 
 
@@ -578,7 +579,7 @@ if __name__ == "__main__":
     
     f = open('response.dat','w')
     for xx, v in zip(x, vresp):
-        print >>f, xx, v
+        print(xx, v, file=f)
     f.close()
 
 

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Emacs: treat this as -*- python -*-
-
+from __future__ import print_function
 from optparse import OptionParser
 
 parser = OptionParser(usage='%prog [options] output_prefix.\nExample of call:\n'+
@@ -165,9 +165,9 @@ def analyse_benchmark(dir, pattern, output_prefix, iter, verbose=False):
     efficiency = {}
     #
     if verbose:
-        print "# p - processes, p0 - reference processes, t - time [sec], s - speedup, e - efficiency"
-        print "# GPAW version "+str(gpaw_version)+": stages: 1 - initialization, 2 - fixdensity, 3 - SCF, 4 - forces, 5 - total"
-        print "# p    "+" p/p0  "+" t1     "+" s1     "+" e1   "+" t2     "+" s2     "+" e2   "+" t3     "+" s3     "+" e3   "+" t4     "+" s4     "+" e4   "+" t5     "+" s5     "+" e5"
+        print("# p - processes, p0 - reference processes, t - time [sec], s - speedup, e - efficiency")
+        print("# GPAW version "+str(gpaw_version)+": stages: 1 - initialization, 2 - fixdensity, 3 - SCF, 4 - forces, 5 - total")
+        print("# p    "+" p/p0  "+" t1     "+" s1     "+" e1   "+" t2     "+" s2     "+" e2   "+" t3     "+" s3     "+" e3   "+" t4     "+" s4     "+" e4   "+" t5     "+" s5     "+" e5")
     for p in processes:
         time[p]['init'] = time[p]['fixdensity_start_estimate'] - time[p]['start']
         time[p]['fixdensity'] = time[p]['fixdensity_end'] - time[p]['fixdensity_start_estimate']
@@ -178,7 +178,7 @@ def analyse_benchmark(dir, pattern, output_prefix, iter, verbose=False):
         #print time[p]['init'], time[p]['fixdensity'], time[p]['SCF'], time[p]['forces']
         if verbose:
             if abs(float(tot)-float(time[p]['total'])) > 5.0:
-                print 'Warning: Sum of time entries: '+str(tot)+' does not match total time in the output: '+str(time[p]['total'])
+                print('Warning: Sum of time entries: '+str(tot)+' does not match total time in the output: '+str(time[p]['total']))
         time[p]['total'] = sum_of_entries
         # calculate
         speedup[p] = {}
@@ -190,14 +190,14 @@ def analyse_benchmark(dir, pattern, output_prefix, iter, verbose=False):
                 speedup[p][stage] = 0.0
             efficiency[p][stage] = speedup[p][stage]/p
         # print results
-        print '  %5d %6.2f %7.1f %7.1f %5.2f %7.1f %7.1f %5.2f %7.1f %7.1f %5.2f %7.1f %7.1f %5.2f %7.1f %7.1f %5.2f' %(
+        print('  %5d %6.2f %7.1f %7.1f %5.2f %7.1f %7.1f %5.2f %7.1f %7.1f %5.2f %7.1f %7.1f %5.2f %7.1f %7.1f %5.2f' %(
             p, float(p)/processes[0],
             float(time[p]['init']), speedup[p]['init'], efficiency[p]['init'],
             float(time[p]['fixdensity']), speedup[p]['fixdensity'], efficiency[p]['fixdensity'],
             float(time[p]['SCF']), speedup[p]['SCF'], efficiency[p]['SCF'],
             float(time[p]['forces']), speedup[p]['forces'], efficiency[p]['forces'],
             float(time[p]['total']), speedup[p]['total'], efficiency[p]['total'],
-            )
+            ))
 
 if __name__ == '__main__':
     from os import environ

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atoms
 from gpaw import GPAW, restart
 from gpaw.test import equal
@@ -25,5 +26,5 @@ mmax = 0
 for l in lines:
     mmax = max(abs(eval(l.split(' ')[3])), mmax)
 
-print "Max error: ", mmax
+print("Max error: ", mmax)
 assert mmax<0.009

@@ -5,6 +5,7 @@
 Atomic Density Functional Theory
 """
 
+from __future__ import print_function
 from math import pi, sqrt, log
 import tempfile
 import pickle
@@ -388,7 +389,7 @@ class AllElectron:
 
         f = open(name, 'w')
         for r, a in zip(self.r, array):
-            print >> f, r, a
+            print(r, a, file=f)
 
     def calculate_density(self):
         """Return the electron charge density divided by 4 pi"""
@@ -739,7 +740,7 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel=False, gmax=None):
             if u[g - 1] < 0.0:
                 # There should't be a node here!  Use a more negative
                 # eigenvalue:
-                print '!!!!!!',
+                print('!!!!!!', end=' ')
                 return 100, None
             if u[g - 1] > 1e100:
                 u *= 1e-100
@@ -790,12 +791,12 @@ def shoot_confined(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel=False,
         Mr = r
     c0 = l * (l + 1) + 2 * Mr * (vr - e * r)
     if gmax is None and np.alltrue(c0 > 0):
-        print """
+        print("""
 Problem with initial electron density guess!  Try to run the program
 with the '-n' option (non-scalar-relativistic calculation) and then
 try again without the '-n' option (this will generate a good initial
 guess for the density).
-"""
+""")
         raise SystemExit
     c1 = c10
     if scalarrel:
@@ -822,7 +823,7 @@ guess for the density).
             if u[g - 1] < 0.0:
                 # There should't be a node here!  Use a more negative
                 # eigenvalue:
-                print '!!!!!!',
+                print('!!!!!!', end=' ')
                 return 100, None
             if u[g - 1] > 1e100:
                 u *= 1e-100

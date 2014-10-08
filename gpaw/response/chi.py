@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from time import time, ctime
 import numpy as np
@@ -291,7 +292,7 @@ class CHI(BASECHI):
     
                     for m in self.mlist:
                         if self.nbands > 1000 and m % 200 == 0:
-                            print >> self.txt, '    ', k, n, m, time() - t0
+                            print('    ', k, n, m, time() - t0, file=self.txt)
                     
                         check_focc = (f_skn[spin][ibzkpt1, n] - f_skn[spin][ibzkpt2, m]) > self.ftol
     

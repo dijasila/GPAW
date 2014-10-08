@@ -446,7 +446,7 @@ class Kernel:
         r_vg = gd.get_grid_point_coordinates()
 
         for iq in range(len(self.ibzq_qc)):
-            Gvec_Gc = np.dot(pd.G_Qv[pd.Q_qG[iq]], cell_cv / (2 * np.pi))
+            Gvec_Gc = np.dot(pd.get_reciprocal_vectors(q=iq, add_q=False), cell_cv / (2 * np.pi))
             npw = len(Gvec_Gc)
             l_pw_size = -(-npw // mpi.world.size)
             l_pw_range = range(mpi.world.rank * l_pw_size,

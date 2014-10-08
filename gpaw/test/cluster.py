@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 
 from ase import Atoms, Atom
@@ -46,7 +47,7 @@ cc = CO.get_cell()
 for c in range(3):
 #    print "cc[c,c], cc[c,c] / h % 4 =", cc[c, c], cc[c, c] / h % 4
     for a in CO:
-        print a.symbol, b[c], a.position[c], cc[c, c] - a.position[c]
+        print(a.symbol, b[c], a.position[c], cc[c, c] - a.position[c])
         assert(a.position[c] > b[c])
     equal(cc[c, c] / h % 4, 0.0, 1e-10)
 
@@ -90,10 +91,10 @@ read_with_additional = True
 if read_with_additional:
     if rank == 0:
         f = open(fxyz, 'w')
-        print >> f, """2
+        print("""2
 
 C 0 0 0. 1 2 3
-O 0 0 1. 6. 7. 8."""
+O 0 0 1. 6. 7. 8.""", file=f)
         f.close()
 
     barrier()

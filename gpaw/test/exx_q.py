@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import *
 from ase.dft.kpoints import monkhorst_pack
 from ase.lattice import bulk
@@ -33,8 +34,8 @@ exx = HybridXC('EXX', acdf=False, etotflag=True)
 E_k2 = E + calc.get_xc_difference(exx)
 
 #print 'Hartree-Fock ACDF method (hybridq.py)   :', E_q
-print 'Hartree-Fock ACDF method (hybridk.py)   :', E_k1
-print 'Hartree-Fock Standard method            :', E_k2
+print('Hartree-Fock ACDF method (hybridk.py)   :', E_k1)
+print('Hartree-Fock Standard method            :', E_k2)
 
 equal(E_k2, E_k1, 0.001)
 #equal(E_q, E_k1, 0.001)

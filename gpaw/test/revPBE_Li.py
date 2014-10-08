@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atoms
 from ase.units import Hartree
 from gpaw import GPAW, PoissonSolver, FermiDirac
@@ -23,7 +24,7 @@ niter_revPBE = calc.get_number_of_iterations()
 equal(erev, -7.487 * Hartree, 1.3)
 equal(e - erev, 0.025 * Hartree, 0.002 * Hartree)
 
-print e, erev
+print(e, erev)
 energy_tolerance = 0.0001
 niter_tolerance = 0
 equal(e, -204.381098849, energy_tolerance) # svnversion 5252

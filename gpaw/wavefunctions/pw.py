@@ -6,10 +6,10 @@ from math import pi
 import numpy as np
 import ase.units as units
 
+import gpaw.fftw as fftw
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.density import Density
-import gpaw.fftw as fftw
 from gpaw.hs_operators import MatrixOperator
 from gpaw.lfc import BaseLFC
 from gpaw.lcao.overlap import fbt
@@ -22,6 +22,46 @@ from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.utilities.timing import timer
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
+
+
+class PW:
+    name = 'pw'
+    
+    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None):
+        """Plane-wave basis mode.
+
+        ecut: float
+            Plane-wave cutoff in eV.
+        fftwflags: int
+            Flags for making FFTW plan (default is ESTIMATE).
+        cell: 3x3 ndarray
+            Use this unit cell to chose the planewaves."""
+
+        self.ecut = ecut / units.Hartree
+        self.fftwflags = fftwflags
+
+        if cell is None:
+            self.cell_cv = None
+        else:
+            self.cell_cv = cell / units.Bohr
+
+    def __call__(self, diagksl, orthoksl, initksl, gd, *args):
+        if self.cell_cv is None:
+            ecut = self.ecut
+        else:
+            volume = abs(np.linalg.det(gd.cell_cv))
+            volume0 = abs(np.linalg.det(self.cell_cv))
+            ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
+
+        wfs = PWWaveFunctions(ecut, self.fftwflags,
+                              diagksl, orthoksl, initksl, gd, *args)
+        return wfs
+
+    def __eq__(self, other):
+        return (isinstance(other, PW) and self.ecut == other.ecut)
+
+    def __ne__(self, other):
+        return not self == other
 
 
 class PWDescriptor:
@@ -110,6 +150,22 @@ class PWDescriptor:
             self.ngmax = kd.comm.max(self.ngmax)
 
         self.n_c = np.array([self.ngmax])  # used by hs_operators.py XXX
+
+    def get_reciprocal_vectors(self, q=0, add_q=True):
+        """ Returns reciprocal lattice vectors plus q, G + q,
+        in xyz coordinates.
+        """
+
+        assert q < len(self.K_qv), ('Choose a q-index belonging to ' +
+                                    'the irreducible Brillouin zone.')
+        q_v = self.K_qv[q]
+
+        if add_q:
+            G_Gv = self.G_Qv[self.Q_qG[q]] + q_v
+        else:
+            G_Gv = self.G_Qv[self.Q_qG[q]]
+
+        return G_Gv
 
     def __getstate__(self):
         return (self.ecut, self.gd, self.dtype, self.kd, self.fftwflags)
@@ -357,6 +413,21 @@ class PWDescriptor:
         gemv(alpha, psit_nG, C_n, beta, newpsit_G, trans)
 
 
+def count_reciprocal_vectors(ecut, gd, q_c):
+    N_c = gd.N_c
+    i_Qc = np.indices(N_c).transpose((1, 2, 3, 0))
+    i_Qc += N_c // 2
+    i_Qc %= N_c
+    i_Qc -= N_c // 2
+
+    B_cv = 2.0 * pi * gd.icell_cv
+    i_Qc.shape = (-1, 3)
+    Gpq_Qv = np.dot(i_Qc, B_cv) + np.dot(q_c, B_cv)
+    
+    G2_Q = (Gpq_Qv**2).sum(axis=1)
+    return (G2_Q <= 2 * ecut).sum()
+
+            
 class Preconditioner:
     """Preconditioner for KS equation.
 
@@ -389,6 +460,8 @@ class Preconditioner:
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
+    mode = 'pw'
+
     def __init__(self, ecut, fftwflags,
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd, dtype,
@@ -475,20 +548,20 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         taut_sR = self.gd.zeros(self.nspins)
         for kpt in self.kpt_u:
-            G_Gv = self.pd.G_Qv[self.pd.Q_qG[kpt.q]] + self.pd.K_qv[kpt.q]
+            G_Gv = self.pd.get_reciprocal_vectors(q=kpt.q)
             for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
                 for v in range(3):
                     taut_sR[kpt.s] += 0.5 * f * abs(
                         self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q))**2
 
-        self.kpt_comm.sum(taut_sR)
+        self.kd.comm.sum(taut_sR)
         self.band_comm.sum(taut_sR)
         return taut_sR
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                                  Htpsit_xG, dH_asp,
                                                  dedtaut_R):
-        G_Gv = self.pd.G_Qv[self.pd.Q_qG[kpt.q]] + self.pd.K_qv[kpt.q]
+        G_Gv = self.pd.get_reciprocal_vectors(q=kpt.q)
         for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
             for v in range(3):
                 a_R = self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q)
@@ -539,7 +612,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                    dtype=complex)
 
         for s in range(self.nspins):
-            for k in range(self.nibzkpts):
+            for k in range(self.kd.nibzkpts):
                 for n in range(self.bd.nbands):
                     psit_G = self.get_wave_function_array(n, k, s,
                                                           realspace=False,
@@ -555,7 +628,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         Q_G = np.empty(self.pd.ngmax, np.int32)
         for r in range(self.kd.comm.size):
             for q, ks in enumerate(self.kd.get_indices(r)):
-                s, k = divmod(ks, self.nibzkpts)
+                s, k = divmod(ks, self.kd.nibzkpts)
                 ng = self.ng_k[k]
                 if s == 1:
                     return
@@ -766,7 +839,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             dOmega *= 2
         K_qv = self.pd.K_qv
         for kpt in self.kpt_u:
-            G_Gv = pd.G_Qv[pd.Q_qG[kpt.q]]
+            G_Gv = pd.get_reciprocal_vectors(q=kpt.q, add_q=False)
             psit2_G = 0.0
             for n, f in enumerate(kpt.f_n):
                 psit2_G += f * np.abs(kpt.psit_nG[n])**2
@@ -848,7 +921,7 @@ class PWLFC(BaseLFC):
         # Spherical harmonics:
         self.Y_qLG = []
         for q, K_v in enumerate(self.pd.K_qv):
-            G_Gv = pd.G_Qv[pd.Q_qG[q]] + K_v
+            G_Gv = pd.get_reciprocal_vectors(q=q)
             Y_LG = np.empty(((lmax + 1)**2, len(G_Gv)))
             for L in range((lmax + 1)**2):
                 Y_LG[L] = Y(L, *G_Gv.T)
@@ -1047,8 +1120,7 @@ class PWLFC(BaseLFC):
         if isinstance(c_axi, float):
             c_axi = dict((a, c_axi) for a in range(len(self.pos_av)))
 
-        K_v = self.pd.K_qv[q]
-        G0_Gv = self.pd.G_Qv[self.pd.Q_qG[q]] + K_v
+        G0_Gv = self.pd.get_reciprocal_vectors(q=q)
 
         stress_vv = np.zeros((3, 3))
         for G1, G2 in self.block(q):
@@ -1106,47 +1178,6 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
     def derivative(self, dedtaut_R, dF_aiv):
         PWLFC.derivative(self, self.pd.fft(dedtaut_R), dF_aiv)
-
-
-class PW:
-    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None):
-        """Plane-wave basis mode.
-
-        ecut: float
-            Plane-wave cutoff in eV.
-        fftwflags: int
-            Flags for making FFTW plan (default is ESTIMATE).
-        cell: 3x3 ndarray
-            Use this unit cell to chose the planewaves."""
-
-        self.ecut = ecut / units.Hartree
-        self.fftwflags = fftwflags
-
-        if cell is None:
-            self.cell_cv = None
-        else:
-            self.cell_cv = cell / units.Bohr
-
-    def __call__(self, diagksl, orthoksl, initksl, gd, *args):
-        if self.cell_cv is None:
-            ecut = self.ecut
-        else:
-            volume = abs(np.linalg.det(gd.cell_cv))
-            volume0 = abs(np.linalg.det(self.cell_cv))
-            ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
-
-        wfs = PWWaveFunctions(ecut, self.fftwflags,
-                              diagksl, orthoksl, initksl, gd, *args)
-        return wfs
-
-    def __eq__(self, other):
-        return (isinstance(other, PW) and self.ecut == other.ecut)
-
-    def __ne__(self, other):
-        return not self == other
-
-    def __str__(self):
-        return 'pw'
 
 
 class ReciprocalSpaceDensity(Density):

@@ -195,13 +195,13 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
         if filename is None:
             basis.filename, source = search_for_file(fullname, world=world)
             if source is None:
-                print """
+                print("""
 You need to set the GPAW_SETUP_PATH environment variable to point to
 the directory where the basis set files are stored.  See
 
   http://wiki.fysik.dtu.dk/gpaw/Setups
 
-for details."""
+for details.""")
 
                 raise RuntimeError('Could not find "%s" basis for "%s".' %
                                    (name, basis.symbol))
@@ -276,26 +276,26 @@ class BasisPlotter:
         rc = basis.d * (basis.ng - 1)
         r_g = np.linspace(0., rc, basis.ng)
 
-        print 'Element  :', basis.symbol
-        print 'Name     :', basis.name
-        print
-        print 'Basis functions'
-        print '---------------'
+        print('Element  :', basis.symbol)
+        print('Name     :', basis.name)
+        print()
+        print('Basis functions')
+        print('---------------')
 
         norm_j = []
         for j, bf in enumerate(basis.bf_j):
             rphit_g = r_g[:bf.ng] * bf.phit_g
             norm = (np.dot(rphit_g, rphit_g) * basis.d) ** .5
             norm_j.append(norm)
-            print bf.type, '[norm=%0.4f]' % norm
+            print(bf.type, '[norm=%0.4f]' % norm)
 
-        print
-        print 'Generator'
+        print()
+        print('Generator')
         for key, item in basis.generatorattrs.iteritems():
-            print '   ', key, ':', item
-        print
-        print 'Generator data'
-        print basis.generatordata
+            print('   ', key, ':', item)
+        print()
+        print('Generator data')
+        print(basis.generatordata)
 
         if self.premultiply:
             factor = r_g

@@ -137,8 +137,7 @@ To plot already generated basis functions, use the
 
   $ analyse-basis -f H.dzp.basis O.dzp.basis
 
-This will plot the basis functions in the specified files.  If the
-:option:`-f` option is not included, the script will look for the
+This will plot the basis functions in the specified files.  If the ``-f`` option is not included, the script will look for the
 first matching file in the GPAW setups paths, rather than the precise
 specified files.  Run ``analyse-basis --help`` for more
 options.
@@ -232,6 +231,8 @@ interface.  In particular, the basis generator relies on the *setup*
 generator to define the basis functions; therefore, any parameters
 that apply to setup generation will equally apply to basis set
 generation.
+
+.. autoclass:: gpaw.atom.basis.BasisMaker
 
 This example shows how to generate an RPBE double-zeta basis set for
 gold, in which the otherwise empty p-state is considered a valence

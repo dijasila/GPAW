@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.parallel import paropen
 from ase.units import Hartree
 from gpaw.xc.rpa import RPACorrelation
@@ -9,7 +10,7 @@ E_i = fxc.calculate(ecut=400)
 
 f = paropen('diamond.ralda.rapbe.dat', 'w')
 for ecut, E in zip(fxc.ecut_i, E_i):
-    print >> f, ecut * Hartree, E
+    print(ecut * Hartree, E, file=f)
 f.close()
 
 rpa = RPACorrelation('diamond.ralda.pbe_wfcs.gpw',
@@ -18,5 +19,5 @@ E_i = rpa.calculate(ecut=400)
 
 f = paropen('diamond.ralda.rpa.dat', 'w')
 for ecut, E in zip(rpa.ecut_i, E_i):
-    print >> f, ecut * Hartree, E
+    print(ecut * Hartree, E, file=f)
 f.close()

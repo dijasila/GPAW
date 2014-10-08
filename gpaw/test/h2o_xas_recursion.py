@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 from math import pi, cos, sin
 from ase import Atom, Atoms
@@ -47,7 +48,7 @@ if 0:
     legend()
     show()
 
-print e, niter
+print(e, niter)
 energy_tolerance = 0.0002
 niter_tolerance = 0
 equal(e, -17.9621, energy_tolerance)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom, Atoms
 from gpaw import GPAW
 from gpaw.test import equal
@@ -16,9 +17,9 @@ niter = calc.get_number_of_iterations()
 eref = -10.266984
 err = abs(e - eref)
 
-print 'Energy', e
-print 'Ref', eref
-print 'Err', err
+print('Energy', e)
+print('Ref', eref)
+print('Err', err)
 
 assert err < 1e-4
 

@@ -30,14 +30,14 @@ class Chi0(PairDensity):
                  frequencies=None, domega0=0.1, omega2=10.0, omegamax=None,
                  ecut=50, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
-                 real_space_derivatives=False, intraband=True, nthreads=1,
+                 real_space_derivatives=False, intraband=True,
                  world=mpi.world, txt=sys.stdout, timer=None,
-                 nblocks=1,
+                 nblocks=1, no_optical_limit=False,
                  keep_occupied_states=False, gate_voltage=None):
 
         PairDensity.__init__(self, calc, ecut, ftol, threshold,
                              real_space_derivatives, world, txt, timer,
-                             nthreads=nthreads, nblocks=nblocks,
+                             nblocks=nblocks,
                              gate_voltage=gate_voltage)
 
         self.eta = eta / Hartree
@@ -47,7 +47,8 @@ class Chi0(PairDensity):
         self.nbands = nbands or self.calc.wfs.bd.nbands
         self.keep_occupied_states = keep_occupied_states
         self.intraband = intraband
-
+        self.no_optical_limit = no_optical_limit
+        
         omax = self.find_maximum_frequency()
 
         if frequencies is None:
@@ -60,7 +61,6 @@ class Chi0(PairDensity):
         else:
             self.omega_w = np.asarray(frequencies) / Hartree
             assert not hilbert
-
         self.hilbert = hilbert
         self.timeordered = bool(timeordered)
 
@@ -93,7 +93,7 @@ class Chi0(PairDensity):
 
         return self.epsmax - self.epsmin
 
-    def calculate(self, q_c, spin='all'):
+    def calculate(self, q_c, spin='all', A_x=None):
         wfs = self.calc.wfs
 
         if spin == 'all':
@@ -115,10 +115,15 @@ class Chi0(PairDensity):
         nG = pd.ngmax
         nw = len(self.omega_w)
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        chi0_wGG = np.zeros((nw, mynG, nG), complex)
         self.Ga = self.blockcomm.rank * mynG
         self.Gb = min(self.Ga + mynG, nG)
-        chi0_wGG = chi0_wGG[:, :self.Gb - self.Ga]
+        
+        if A_x is not None:
+            nx = nw * (self.Gb - self.Ga) * nG
+            chi0_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
+            chi0_wGG[:] = 0.0
+        else:
+            chi0_wGG = np.zeros((nw, nG, nG), complex)
 
         if np.allclose(q_c, 0.0):
             chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
@@ -128,15 +133,17 @@ class Chi0(PairDensity):
             chi0_wxvG = None
             chi0_wvv = None
 
-        print('    Initializing PAW Corrections', file=self.fd)
+        print('Initializing PAW Corrections', file=self.fd)
         self.Q_aGii = self.initialize_paw_corrections(pd)
-        print('        Done', file=self.fd)
 
         # Do all empty bands:
         m1 = self.nocc1
         m2 = self.nbands
-        return self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, self.Q_aGii,
-                               m1, m2, spins)
+        
+        self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, self.Q_aGii,
+                        m1, m2, spins)
+        
+        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     @timer('Calculate CHI_0')
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
@@ -157,7 +164,7 @@ class Chi0(PairDensity):
             update = self.update
 
         q_c = pd.kd.bzk_kc[0]
-        optical_limit = np.allclose(q_c, 0.0)
+        optical_limit = not self.no_optical_limit and np.allclose(q_c, 0.0)
         print('\n    Starting summation', file=self.fd)
 
         self.timer.start('Loop')
@@ -168,7 +175,7 @@ class Chi0(PairDensity):
             else:
                 kpt1 = self.get_k_point(s, K, n1, n2)
 
-            if not kpt1.s in spins:
+            if kpt1.s not in spins:
                 continue
 
             with self.timer('k+q'):
@@ -183,7 +190,7 @@ class Chi0(PairDensity):
                 eps1 = kpt1.eps_n[n]
 
                 # Only update if there exists deps <= omegamax
-                if not self.omegamax is None:
+                if self.omegamax is not None:
                     m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
                          if abs(d) <= self.omegamax]
                 else:
@@ -322,7 +329,6 @@ class Chi0(PairDensity):
                 gemm(p1, n_G.reshape((-1, 1)), myn_G, 1.0, chi0_wGG[w], 'c')
                 gemm(p2, n_G.reshape((-1, 1)), myn_G, 1.0, chi0_wGG[w + 1],
                      'c')
-                #chi0_wGG[w + 1] += p2 * np.outer(myn_G, n_G.conj())
             return
 
         for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):

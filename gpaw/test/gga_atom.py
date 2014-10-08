@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import numpy.random as ra
 from gpaw.test import equal
@@ -72,5 +73,5 @@ for name in ['LDA', 'PBE']:
     E1 = (xc.calculate_paw_correction(s, D_p.reshape(1, -1))
           + s.xc_correction.Exc0)
 
-    print name, E1, E2, E1 - E2
+    print(name, E1, E2, E1 - E2)
     equal(E1, E2, 0.0013)

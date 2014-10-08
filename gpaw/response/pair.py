@@ -6,15 +6,14 @@ import numpy as np
 from ase.units import Hartree
 from ase.utils import devnull
 
-from gpaw import GPAW
 import gpaw.mpi as mpi
-import gpaw.fftw as fftw
-from gpaw.utilities.blas import gemm
+from gpaw import GPAW
 from gpaw.fd_operators import Gradient
 from gpaw.occupations import FermiDirac
-from gpaw.wavefunctions.pw import PWLFC
-from gpaw.utilities.timing import timer, Timer
 from gpaw.response.math_func import two_phi_planewave_integrals
+from gpaw.utilities.blas import gemm
+from gpaw.utilities.timing import timer, Timer
+from gpaw.wavefunctions.pw import PWLFC
 
 
 class KPoint:
@@ -39,8 +38,7 @@ class PairDensity:
     def __init__(self, calc, ecut=50,
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
-                 world=mpi.world, txt=sys.stdout, timer=None, nthreads=1,
-                 nblocks=1,
+                 world=mpi.world, txt=sys.stdout, timer=None, nblocks=1,
                  gate_voltage=None):
         if ecut is not None:
             ecut /= Hartree
@@ -53,21 +51,18 @@ class PairDensity:
         self.threshold = threshold
         self.real_space_derivatives = real_space_derivatives
         self.world = world
-        self.nthreads = nthreads
         self.gate_voltage = gate_voltage
 
         if nblocks == 1:
             self.blockcomm = mpi.serial_comm
             self.kncomm = world
         else:
+            assert world.size % nblocks == 0, world.size
             rank1 = world.rank // nblocks * nblocks
             rank2 = rank1 + nblocks
             self.blockcomm = self.world.new_communicator(range(rank1, rank2))
             ranks = range(world.rank, world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
-
-        if nthreads > 1:
-            fftw.lib.fftw_plan_with_nthreads(nthreads)
 
         if world.rank != 0:
             txt = devnull
@@ -84,7 +79,6 @@ class PairDensity:
         else:
             assert calc.wfs.world.size == 1
 
-        calc.converge_wave_functions()
         assert calc.wfs.kd.symmetry.symmorphic
         self.calc = calc
 
@@ -101,7 +95,7 @@ class PairDensity:
 
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
-        print('Number of threads:', self.nthreads, file=self.fd)
+        print('Number of blocks:', nblocks, file=self.fd)
 
     def add_gate_voltage(self, gate_voltage=0):
         """Shifts the Fermi-level by e * Vg. By definition e = 1."""
@@ -218,7 +212,7 @@ class PairDensity:
 
     @timer('Calculate pair-densities')
     def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G):
-        """Calculate FFT of pair-denities and add PAW corrections.
+        """Calculate FFT of pair-densities and add PAW corrections.
 
         ut1cc_R: 3-d complex ndarray
             Complex conjugate of the periodic part of the left hand side
@@ -332,7 +326,7 @@ class PairDensity:
         q_v = pd.K_qv[0]
         optical_limit = np.allclose(q_v, 0)
 
-        G_Gv = pd.G_Qv[pd.Q_qG[0]] + q_v
+        G_Gv = pd.get_reciprocal_vectors()
         if optical_limit:
             G_Gv[0] = 1
 
@@ -477,7 +471,7 @@ class PairDensity:
         ik = wfs.kd.bz2ibz_k[K]
         kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
         psit_nG = kpt.psit_nG
-        iG_Gv = 1j * wfs.pd.G_Qv[wfs.pd.Q_qG[ik]]
+        iG_Gv = 1j * wfs.pd.get_reciprocal_vectors(q=ik, add_q=False)
         ut_nvR = wfs.gd.zeros((n2 - n1, 3), complex)
         for n in range(n1, n2):
             for v in range(3):

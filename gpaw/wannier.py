@@ -20,7 +20,7 @@ class Wannier:
             if nbands is None:
                 nbands = calc.get_number_of_bands()
             self.Z_nnc = np.empty((nbands, nbands, 3), complex)
-            print "calculating Z_nnc"
+            print("calculating Z_nnc")
             for c in range(3):
                 G_c = np.zeros(3)
                 G_c[c] = 1
@@ -39,7 +39,7 @@ class Wannier:
         i = 0
         while i != iterations:
             value = localize(self.Z_nnc, self.U_nn)
-            print i, value
+            print(i, value)
             if value - self.value < eps:
                 break
             i += 1
@@ -154,8 +154,8 @@ def get_locfun_rotation(projections_nj, M=None, T=0, ortho=False):
     # Check for linear dependencies
     Scd = np.diagonal(np.linalg.cholesky(S_jj)).min()
     if Scd < 0.01:
-        print ('Warning: possibly near linear dependence.\n'
-               'Minimum eigenvalue of cholesky decomposition is %s' % Scd)
+        print(('Warning: possibly near linear dependence.\n'
+               'Minimum eigenvalue of cholesky decomposition is %s' % Scd))
 
     if ortho:
         lowdin(ap_nj, S_jj)
@@ -174,7 +174,7 @@ def single_zeta(paw, spin, verbose=False):
                 '5xz^2-xr^2', 'x^2z-y^2z', 'x^3-3xy^2'],
                ]
     if verbose:
-        print 'index atom orbital'
+        print('index atom orbital')
     p_jn = []
     for a, P_ni in paw.wfs.kpt_u[spin].P_ani.items():
         setup = paw.wfs.setups[a]
@@ -185,8 +185,8 @@ def single_zeta(paw, spin, verbose=False):
             for j in range(i, i + 2 * l + 1):
                 p_jn.append(P_ni[:, j])
                 if verbose:
-                    print '%5i %4i %s_%s' % (len(p_jn), a,
-                                             'spdf'[l], angular[l][j - i])
+                    print('%5i %4i %s_%s' % (len(p_jn), a,
+                                             'spdf'[l], angular[l][j - i]))
             i += 2 * l + 1
     projections_nj = dagger(np.array(p_jn))
     assert projections_nj.shape[0] >= projections_nj.shape[1]

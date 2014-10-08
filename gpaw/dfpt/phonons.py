@@ -79,8 +79,8 @@ class Phonons(phonons.Phonons):
                     try:
                         fd = open(os.path.join(self.path, filename))
                     except EOFError:
-                        print ("Redo file %s "
-                               % os.path.join(self.path, filename))
+                        print(("Redo file %s "
+                               % os.path.join(self.path, filename)))
                     C_qav_a = pickle.load(fd)
                     fd.close()
                     for a_ in self.indices:

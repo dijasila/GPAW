@@ -1,3 +1,4 @@
+from __future__ import print_function
 from math import sin, cos, pi
 import numpy as np
 from gpaw.fd_operators import GUCLaplace as Laplace
@@ -50,11 +51,11 @@ cells = [
 
 if size == 1:
     for name, D, cell in cells:
-        print '------------------'
-        print name, D
-        print cell[0]
-        print cell[1]
-        print cell[2]
+        print('------------------')
+        print(name, D)
+        print(cell[0])
+        print(cell[1])
+        print(cell[2])
         for n in range(1, 6):
             N = 2 * n + 2
             gd = GridDescriptor((N, N, N), cell)

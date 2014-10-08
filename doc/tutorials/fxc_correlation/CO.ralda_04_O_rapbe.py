@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.parallel import paropen
 from ase.units import Hartree
 from gpaw.xc.rpa import RPACorrelation
@@ -13,7 +14,7 @@ E0_i = fxc0.calculate(ecut=400)
 
 f = paropen('CO.ralda_rapbe_O.dat', 'w')
 for ecut, E0 in zip(fxc0.ecut_i, E0_i):
-    print >> f, ecut * Hartree, E0
+    print(ecut * Hartree, E0, file=f)
 f.close()
 
 rpa0 = RPACorrelation('CO.ralda.pbe_wfcs_O.gpw',
@@ -24,5 +25,5 @@ E0_i = rpa0.calculate(ecut=400)
 
 f = paropen('CO.ralda_rpa_O.dat', 'w')
 for ecut, E0 in zip(rpa0.ecut_i, E0_i):
-    print >> f, ecut * Hartree, E0
+    print(ecut * Hartree, E0, file=f)
 f.close()

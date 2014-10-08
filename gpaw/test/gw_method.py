@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from time import time, ctime
 from datetime import timedelta
@@ -67,4 +68,4 @@ if not (np.abs(QP_False - QP_True) < 0.01).all():
     raise AssertionError("method 1 not equal to method 2")
 
 totaltime = round(time() - starttime)
-print "GW test finished in %s " %(timedelta(seconds=totaltime))
+print("GW test finished in %s " %(timedelta(seconds=totaltime)))

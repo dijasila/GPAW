@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw.utilities.blas import czher, axpy
 import numpy as np
 from time import time
@@ -35,5 +36,5 @@ for i in np.arange(1000):
     axpy(alpha, xx, a)
     t_axpy += time() - t0
 
-print 't_czher:', t_czher
-print 't_axpy:', t_axpy
+print('t_czher:', t_czher)
+print('t_axpy:', t_axpy)

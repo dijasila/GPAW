@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import sys
 import time
@@ -90,7 +91,7 @@ if EELS:
         chi.get_EELS_spectrum('graphene_EELS_' + str(i))
         chi.check_sum_rule()
 
-        print >> f, sqrt(np.inner(chi.qq / Bohr, chi.qq / Bohr))
+        print(sqrt(np.inner(chi.qq / Bohr, chi.qq / Bohr)), file=f)
     
 if OpticalLimit:
     

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atoms
 from ase.lattice import bulk
 from ase.dft import monkhorst_pack
@@ -34,8 +35,8 @@ E_hf = exx.get_total_energy()
 E_C = np.loadtxt('CO.ralda.PBE_HF_C.dat')
 
 f = paropen('diamond.ralda.PBE_HF_diamond.dat', 'w')
-print >> f, 'PBE: ', E_pbe / 2 - E_C[0]
-print >> f, 'HF: ', E_hf / 2 - E_C[1]
+print('PBE: ', E_pbe / 2 - E_C[0], file=f)
+print('HF: ', E_hf / 2 - E_C[1], file=f)
 f.close()
 
 calc.diagonalize_full_hamiltonian()

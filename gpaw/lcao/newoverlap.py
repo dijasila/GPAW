@@ -49,11 +49,19 @@ def newoverlap(wfs, spos_ac):
     neighbors.update(atoms)
     
     # XXX
-    pcutoff_a = [max([pt.get_cutoff() for pt in setup.pt_j])
-                 for setup in wfs.setups]
-    phicutoff_a = [max([phit.get_cutoff() for phit in setup.phit_j])
-                   for setup in wfs.setups]
-
+    pcutoff_a = []
+    phicutoff_a = []
+    for setup in wfs.setups:
+        if setup.pt_j:
+            pcutoff = max([pt.get_cutoff() for pt in setup.pt_j])
+        else:
+            pcutoff = 0.0
+        if setup.phit_j:
+            phicutoff = max([phit.get_cutoff() for phit in setup.phit_j])
+        else:
+            phicutoff = 0.0
+        pcutoff_a.append(pcutoff)
+        phicutoff_a.append(phicutoff)
 
     # Calculate the projector--basis function overlaps:
     #
@@ -140,7 +148,7 @@ def newoverlap(wfs, spos_ac):
         for a, setup in enumerate(wfs.setups):
             oldstyle_P_aqMi[a] = np.zeros((nq, wfs.setups.nao, setup.ni),
                                           dtype=wfs.dtype)
-        print [(s.ni, s.nao) for s in wfs.setups]
+        print([(s.ni, s.nao) for s in wfs.setups])
         for a1, a2 in Pkeys:
             M1, M2 = get_M1M2(a2)
             Pconj_qmi = P_aaqim[(a1, a2)].transpose(0, 2, 1).conjugate()

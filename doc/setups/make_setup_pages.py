@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 import os
 import sys
 import pickle
@@ -95,7 +96,7 @@ def make_page(symbol):
         data = pickle.load(open(
             '../_static/setups-data/%s.pckl' % symbol, 'rb'))
     except EOFError:
-        print symbol, 'missing!'
+        print(symbol, 'missing!')
         return
 
     Z = atomic_numbers[symbol]
@@ -181,7 +182,7 @@ def make_page(symbol):
         else:
             root = roots[1]
         if isinstance(root, complex):
-            print '??????'
+            print('??????')
             root = root.real
         d0 = 1.0 / root.real
         E0 = np.polyval(energy, root)
@@ -189,9 +190,9 @@ def make_page(symbol):
         ddimer0[i] = d0
 
     if not (d[0] < d0 < d[-1]):
-        print d, d0, symbol
+        print(d, d0, symbol)
 
-    print '%2s %.3f %+7.1f %%' % (symbol, d0, 100 * (d0 / d[3] - 1))
+    print('%2s %.3f %+7.1f %%' % (symbol, d0, 100 * (d0 / d[3] - 1)))
     
     Ediss = 2 * Eegg[:, 0] - Edimer0
 

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import numpy as np
 from ase.lattice import bulk
@@ -69,6 +70,6 @@ check = 1
 if check:
     d1 = np.loadtxt('bse_nosymm.dat')
     d2 = np.loadtxt('bse_symm.dat')
-    print  np.abs(d1[:,2] - d2[:,2]).max(), np.abs(d1[:,2] - d2[:,2]).sum()
+    print(np.abs(d1[:,2] - d2[:,2]).max(), np.abs(d1[:,2] - d2[:,2]).sum())
     assert np.abs(np.abs(d1[:,2] - d2[:,2]).max() - 0.014775742) < 1e-2
     assert np.abs(np.abs(d1[:,2] - d2[:,2]).sum() - 0.210880672212) < 1e-1

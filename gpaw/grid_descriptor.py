@@ -572,6 +572,27 @@ class GridDescriptor(Domain):
         else:
             return r_vG
 
+    def get_grid_point_distance_vectors(self, r_v, mic=True, dtype=float):
+        """Return distances to a given vector in the domain.
+
+        mic: if true adopts the mininimum image convention
+        procedure by W. Smith in 'The Minimum image convention in 
+        Non-Cubic MD cells' March 29, 1989
+        """
+        s_Gc = (np.indices(self.n_c, dtype).T + self.beg_c) / self.N_c
+        cell_cv = self.N_c * self.h_cv
+        s_Gc -= np.linalg.solve(cell_cv.T, r_v)
+        
+        if mic:
+            # XXX do the correction twice works better
+            s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
+            s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
+            # sanity check
+            assert((s_Gc * self.pbc_c >= -0.5).all())
+            assert((s_Gc * self.pbc_c <= 0.5).all())
+                
+        return np.dot(s_Gc, cell_cv).T.copy()
+
     def interpolate_grid_points(self, spos_nc, vt_g, target_n, use_mlsqr=True):
         """Return interpolated values.
 

@@ -1,26 +1,26 @@
 # This makes sure that division works as in Python3
 from __future__ import division, print_function
 
+import functools
+import pickle
 from math import pi
-import time
 
 import numpy as np
-import pickle
-
+from ase.dft.kpoints import monkhorst_pack
 from ase.units import Hartree
 from ase.utils import opencew, devnull
-from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
 from gpaw import debug
-from gpaw.xc.exx import EXX, select_kpts
-from gpaw.xc.tools import vxc
-from gpaw.utilities.timing import timer
-from gpaw.response.pair import PairDensity
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0, HilbertTransform
+from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.utilities.timing import timer
+from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
+from gpaw.xc.exx import EXX, select_kpts
+from gpaw.xc.tools import vxc
 
 
 class G0W0(PairDensity):
@@ -67,8 +67,8 @@ class G0W0(PairDensity):
                  kpts=None, bands=None, nbands=None, ppa=False,
                  wstc=False,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
-                 domega0=0.025, omega2=10.0, omegamax=None,
-                 savew=False,
+                 domega0=0.025, omega2=10.0,
+                 nblocks=1, savew=False,
                  world=mpi.world):
 
         if world.rank != 0:
@@ -76,14 +76,15 @@ class G0W0(PairDensity):
         else:
             txt = open(filename + '.txt', 'w')
 
-        print('  ___  _ _ _ ', file=txt)
-        print(' |   || | | |', file=txt)
-        print(' | | || | | |', file=txt)
-        print(' |__ ||_____|', file=txt)
-        print(' |___|        by GPAW', file=txt)
-        print(file=txt)
+        p = functools.partial(print, file=txt)
+        p('  ___  _ _ _ ')
+        p(' |   || | | |')
+        p(' | | || | | |')
+        p(' |__ ||_____|')
+        p(' |___|')
+        p()
 
-        PairDensity.__init__(self, calc, ecut, world=world,
+        PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
                              txt=txt)
 
         self.filename = filename
@@ -97,7 +98,6 @@ class G0W0(PairDensity):
         self.E0 = E0 / Hartree
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
-        self.omegamax = None if omegamax is None else omegamax / Hartree
 
         self.kpts = select_kpts(kpts, self.calc)
                 
@@ -120,20 +120,19 @@ class G0W0(PairDensity):
             nbands = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
         self.nbands = nbands
 
-        print(file=self.fd)
-        print('Quasi particle states:', file=self.fd)
+        p()
+        p('Quasi particle states:')
         if kpts is None:
-            print('All k-points in IBZ', file=self.fd)
+            p('All k-points in IBZ')
         else:
             kptstxt = ', '.join(['{0:d}'.format(k) for k in self.kpts])
-            print('k-points (IBZ indices): [' + kptstxt + ']', file=self.fd)
-        print('Band range: ({0:d}, {1:d})'.format(b1, b2), file=self.fd)
-        print(file=self.fd)
-        print('Computational parameters:', file=self.fd)
-        print('Plane wave cut-off: {0:g} eV'.format(self.ecut * Hartree),
-              file=self.fd)
-        print('Number of bands: {0:d}'.format(self.nbands), file=self.fd)
-        print('Broadening: {0:g} eV'.format(self.eta * Hartree), file=self.fd)
+            p('k-points (IBZ indices): [' + kptstxt + ']')
+        p('Band range: ({0:d}, {1:d})'.format(b1, b2))
+        p()
+        p('Computational parameters:')
+        p('Plane wave cut-off: {0:g} eV'.format(self.ecut * Hartree))
+        p('Number of bands: {0:d}'.format(self.nbands))
+        p('Broadening: {0:g} eV'.format(self.eta * Hartree))
 
         kd = self.calc.wfs.kd
 
@@ -150,7 +149,7 @@ class G0W0(PairDensity):
         assert self.calc.wfs.nspins == 1
         
     @timer('G0W0')
-    def calculate(self):
+    def calculate(self, ecuts=None):
         """Starts the G0W0 calculation. Returns a dict with the results with
         the following key/value pairs:
 
@@ -193,7 +192,7 @@ class G0W0(PairDensity):
         for pd0, W0, q_c in self.calculate_screened_potential():
             for kpt1 in mykpts:
                 K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
-                kpt2 = self.get_k_point(0, K2, 0, self.nbands)
+                kpt2 = self.get_k_point(0, K2, 0, self.nbands, block=True)
                 k1 = kd.bz2ibz_k[kpt1.K]
                 i = self.kpts.index(k1)
                 self.calculate_q(i, kpt1, kpt2, pd0, W0)
@@ -228,7 +227,7 @@ class G0W0(PairDensity):
                                   np.unravel_index(pd0.Q_qG[0], N_c))
 
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
-        q0 = np.allclose(q_c, 0)
+        q0 = np.allclose(q_c, 0) and not self.wstc
 
         shift0_c = q_c - self.sign * np.dot(self.U_cc, pd0.kd.bzk_kc[0])
         assert np.allclose(shift0_c.round(), shift0_c)
@@ -237,7 +236,7 @@ class G0W0(PairDensity):
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
         
-        G_Gv = pd0.G_Qv[pd0.Q_qG[0]] + pd0.K_qv[0]
+        G_Gv = pd0.get_reciprocal_vectors()
         pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
         M_vv = np.dot(pd0.gd.cell_cv.T,
                       np.dot(self.U_cc.T,
@@ -264,8 +263,8 @@ class G0W0(PairDensity):
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
-            C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
-                      for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+            C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
+                      for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                  pd0, I_G)
             if self.sign == 1:
@@ -326,14 +325,14 @@ class G0W0(PairDensity):
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p = x * sgn
-            sigma1 = p * np.dot(np.dot(n_G, C1_GG), n_G.conj()).imag
-            sigma2 = p * np.dot(np.dot(n_G, C2_GG), n_G.conj()).imag
+            myn_G = n_G[self.Ga:self.Gb]
+            sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
+            sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
             sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
             dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
             
         return sigma, dsigma
 
-    #@timer('W')
     def calculate_screened_potential(self):
         """Calculates the screened potential for each q-point in the 1st BZ.
         Since many q-points are related by symmetry, the actual calculation is
@@ -373,9 +372,7 @@ class G0W0(PairDensity):
                           'timeordered': True,
                           'domega0': self.domega0 * Hartree,
                           'omega2': self.omega2 * Hartree}
-            if self.omegamax is not None:
-                parameters['omegamax'] = self.omegamax * Hartree
-            
+        
         chi0 = Chi0(self.calc,
                     nbands=self.nbands,
                     ecut=self.ecut * Hartree,
@@ -383,6 +380,9 @@ class G0W0(PairDensity):
                     real_space_derivatives=False,
                     txt=self.filename + '.w.txt',
                     timer=self.timer,
+                    keep_occupied_states=True,
+                    nblocks=self.blockcomm.size,
+                    no_optical_limit=self.wstc,
                     **parameters)
 
         if self.wstc:
@@ -399,6 +399,20 @@ class G0W0(PairDensity):
         htp = HilbertTransform(self.omega_w, self.eta, gw=True)
         htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
 
+        # Find maximum size of chi-0 matrices:
+        gd = self.calc.wfs.gd
+        nGmax = max(count_reciprocal_vectors(self.ecut, gd, q_c)
+                    for q_c in self.qd.ibzk_kc)
+        nw = len(self.omega_w)
+        
+        size = self.blockcomm.size
+        mynGmax = (nGmax + size - 1) // size
+        mynw = (nw + size - 1) // size
+        
+        # Allocate memory in the beginning and use for all q:
+        A1_x = np.empty(nw * mynGmax * nGmax, complex)
+        A2_x = np.empty(max(mynw * nGmax, nw * mynGmax) * nGmax, complex)
+        
         # Need to pause the timer in between iterations
         self.timer.stop('W')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
@@ -412,12 +426,13 @@ class G0W0(PairDensity):
                     pd, W = pickle.load(fd)
             else:
                 # First time calculation
-                pd, chi0_wGG = chi0.calculate(q_c)[:2]
-                W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc)
+                pd, chi0_wGG = chi0.calculate(q_c, A_x=A1_x)[:2]
+                self.Q_aGii = chi0.Q_aGii
+                self.Ga = chi0.Ga
+                self.Gb = chi0.Gb
+                W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc, A2_x)
                 if self.savew:
                     pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
-
-            self.Q_aGii = chi0.initialize_paw_corrections(pd)
 
             self.timer.stop('W')
             # Loop over all k-points in the BZ and find those that are related
@@ -438,8 +453,12 @@ class G0W0(PairDensity):
                     done.add(Q2)
     
     @timer('WW')
-    def calculate_w(self, pd, chi0_wGG, q_c, htp, htm, wstc):
+    def calculate_w(self, pd, chi0_wGG, q_c, htp, htm, wstc, A2_x):
         """Calculates the screened potential for a specified q-point."""
+        if self.blockcomm.size > 1:
+            A1_x = chi0_wGG.ravel()
+            chi0_wGG = self.redistribute(chi0_wGG, A2_x)
+            
         if self.wstc:
             iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
             if np.allclose(q_c, 0):
@@ -482,14 +501,60 @@ class G0W0(PairDensity):
                 W_GG[1:, 0] *= G0inv
                 W_GG[0, 1:] *= G0inv
                 
-        Wp_wGG = chi0_wGG.copy()
-        Wm_wGG = chi0_wGG
+        if self.blockcomm.size > 1:
+            Wm_wGG = self.redistribute(chi0_wGG, A1_x)
+        else:
+            Wm_wGG = chi0_wGG
+            
+        Wp_wGG = A2_x[:Wm_wGG.size].reshape(Wm_wGG.shape)
+        Wp_wGG[:] = Wm_wGG
+
         with self.timer('Hilbert transform'):
             htp(Wp_wGG)
             htm(Wm_wGG)
         self.timer.stop('Dyson eq.')
         
         return [Wp_wGG, Wm_wGG]
+
+    def redistribute(self, in_wGG, out_x):
+        """Redistribute array.
+        
+        Switch between two kinds of parallel distributions:
+            
+        1) parallel over G-vectors (second dimension of in_wGG)
+        2) parallel over frequency (first dimension of in_wGG)
+
+        Returns new array using the memory in the 1-d array out_x.
+        """
+        
+        comm = self.blockcomm
+        
+        nw = len(self.omega_w)
+        nG = in_wGG.shape[2]
+        mynw = (nw + comm.size - 1) // comm.size
+        mynG = (nG + comm.size - 1) // comm.size
+        
+        bg1 = BlacsGrid(comm, comm.size, 1)
+        bg2 = BlacsGrid(comm, 1, comm.size)
+        md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
+        md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
+        
+        if len(in_wGG) == nw:
+            r = Redistributor(comm, md2, md1)
+            wa = comm.rank * mynw
+            wb = min(wa + mynw, nw)
+            shape = (wb - wa, nG, nG)
+        else:
+            r = Redistributor(comm, md1, md2)
+            Ga = comm.rank * mynG
+            Gb = min(Ga + mynG, nG)
+            shape = (nw, Gb - Ga, nG)
+        
+        out_wGG = out_x[:np.product(shape)].reshape(shape)
+        r.redistribute(in_wGG.reshape((len(in_wGG), -1)),
+                       out_wGG.reshape((len(out_wGG), -1)))
+        
+        return out_wGG
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):

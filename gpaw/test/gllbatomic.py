@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import *
 from gpaw.atom.all_electron import AllElectron
 from gpaw.test import equal
@@ -26,12 +27,12 @@ for xcname in ['GLLB','GLLBSC']:
             equal(GLLB.Exc, EX[atom], tolerance=1e-2)
             equal(GLLB.e_j[-1], EHOMO[atom], tolerance=1e-2)
             
-    print "             Quanity        Method    Symbol     Ref[1]         GPAW      Unit  "
+    print("             Quanity        Method    Symbol     Ref[1]         GPAW      Unit  ")
     for a,b,c,d,e,f in data:
-        print "%20s %10s %10s   %10.3f   %10.3f   %5s" % (a,b,c,d,e,f)
+        print("%20s %10s %10s   %10.3f   %10.3f   %5s" % (a,b,c,d,e,f))
     
-print """References:
+print("""References:
 [1] Self-consistent approximation to the Kohn-Sham exchange potential
 Gritsenko, Oleg; Leeuwen, Robert van; Lenthe, Erik van; Baerends, Evert Jan
-Phys. Rev. A Vol. 51 p. 1944"""
+Phys. Rev. A Vol. 51 p. 1944""")
 

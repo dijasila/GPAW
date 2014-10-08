@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW
@@ -21,5 +22,5 @@ e1 = atom.get_potential_energy()
 molecule.set_calculator(calc)
 e2 = molecule.get_potential_energy()
 F_ac = molecule.get_forces()
-print 2 * e1 - e2
-print F_ac
+print(2 * e1 - e2)
+print(F_ac)

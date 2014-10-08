@@ -86,13 +86,13 @@ class IntCtrl:
         self.eqdelta = dkt
         nRes = 8
         if abs( nRes - (np.round((nRes - 1) // 2) * 2 + 1)) < 1e-3 :
-            print 'Warning: Residue Point too close to IntPath!'
+            print('Warning: Residue Point too close to IntPath!')
         self.eqresz = range(1, nRes, 2)
         for i in range(len(self.eqresz)):
             self.eqresz[i] *=  1.j * np.pi * self.kt
         if verbose:
-            print '--eqIntCtrl: Tol = ', self.eqinttol, 'Delta =', \
-                                          self.eqdelta, ' nRes =', self.eqresz
+            print('--eqIntCtrl: Tol = ', self.eqinttol, 'Delta =', \
+                                          self.eqdelta, ' nRes =', self.eqresz)
 
         for i in range(len(self.eqintpath)):
             self.eqintpath[i] = self.eqintpath[i] + self.minfermi
@@ -113,7 +113,7 @@ class IntCtrl:
             self.locdelta = 0
             self.locresz = 0
             if verbose:
-                print '--locInt: None'
+                print('--locInt: None')
         else:
             nkt = 4 * self.kt
             dkt = 8 * np.pi * self.kt
@@ -137,8 +137,8 @@ class IntCtrl:
                 self.locresz[0][i] += self.minfermi
                 self.locresz[1][i] += self.maxfermi
             if verbose:
-                print '--locInt: Tol =', self.locinttol, 'Delta =', \
-                               self.locdelta, 'nRes=', len(self.locresz[0])
+                print('--locInt: Tol =', self.locinttol, 'Delta =', \
+                               self.locdelta, 'nRes=', len(self.locresz[0]))
 
         #ne-Integral Path : 
         # default = [ minfermi  leadfermi  maxfermi ] 
@@ -167,15 +167,15 @@ class IntCtrl:
 
         if len(self.neintpath) == 0:
             if verbose:
-                print ' --neInt: None'
+                print(' --neInt: None')
         elif self.neintmethod == 0:
             if verbose:
-                print ' --neInt: ManualEp -> Step=', self.neintstep, 'Eta =',\
-                                              np.imag(self.neintpath[0])
+                print(' --neInt: ManualEp -> Step=', self.neintstep, 'Eta =',\
+                                              np.imag(self.neintpath[0]))
         elif self.neintmethod == 1:
             if verbose:
-                print ' --neInt: AutoEp   -> Tol =', self.neinttol,  'Eta =',\
-                                              np.imag(self.neintpath[0])
+                print(' --neInt: AutoEp   -> Tol =', self.neinttol,  'Eta =',\
+                                              np.imag(self.neintpath[0]))
 
         
 

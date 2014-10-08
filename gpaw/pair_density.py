@@ -1,9 +1,11 @@
 from math import sqrt, pi
 import numpy as np
 
+import gpaw.mpi as mpi
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.tools import pick
 from gpaw.lfc import LocalizedFunctionsCollection as LFC, BasisFunctions
+
 
 # XXX Document what is the difference between PairDensity2 and 1.
 class PairDensity2:
@@ -13,7 +15,6 @@ class PairDensity2:
 
         self.density = density
         self.finegrid = finegrid
-
 
         if not finegrid:
             density.Ghat = LFC(density.gd,
@@ -56,7 +57,7 @@ class PairDensity2:
             D_ii = np.outer(P1_i.conj(), P2_i)
             # allowed to pack as used in the scalar product with
             # the symmetric array Delta_pL
-            D_p  = pack(D_ii, tolerance=1e30)
+            D_p = pack(D_ii, tolerance=1e30)
             
             # Determine compensation charge coefficients:
             Q_aL[a] = np.dot(D_p, self.density.setups[a].Delta_pL)
@@ -66,6 +67,7 @@ class PairDensity2:
             self.density.ghat.add(rhot_g, Q_aL)
         else:
             self.density.Ghat.add(rhot_g, Q_aL)
+
 
 class PairDensity:
     def  __init__(self, paw):
@@ -78,31 +80,39 @@ class PairDensity:
         self.density = paw.density
         self.setups = paw.wfs.setups
         self.spos_ac = paw.atoms.get_scaled_positions()
-        self.lcao = paw.input_parameters.mode == 'lcao'
-        assert paw.wfs.dtype == float
-        if self.lcao:
-            self.wfs = paw.wfs
 
+        self.spin = 0
+        self.k = 0
+        self.weight = 0.0
+
+        self.lcao = paw.input_parameters.mode == 'lcao'
+        if self.lcao:
+            assert paw.wfs.dtype == float
+            self.wfs = paw.wfs
         
     def initialize(self, kpt, i, j):
         """initialize yourself with the wavefunctions"""
         self.i = i
         self.j = j
-        self.spin = kpt.s
-        self.P_ani = kpt.P_ani
-
-        if self.lcao:
-            self.q = kpt.q
-            self.wfi_M = kpt.C_nM[i]
-            self.wfj_M = kpt.C_nM[j]
-        else:
-            self.wfi = kpt.psit_nG[i]
-            self.wfj = kpt.psit_nG[j]
+        
+        if kpt is not None:
+            self.spin = kpt.s
+            self.k = kpt.k
+            self.weight = kpt.weight
+            self.P_ani = kpt.P_ani
+            if self.lcao:
+                self.q = kpt.q
+                self.wfi_M = kpt.C_nM[i]
+                self.wfj_M = kpt.C_nM[j]
+            else:
+                self.wfi = kpt.psit_nG[i]
+                self.wfj = kpt.psit_nG[j]
 
     def get_lcao(self, finegrid=False):
         """Get pair density"""
         # Expand the pair density as density matrix
-        rho_MM = 0.5 * np.outer(self.wfi_M, self.wfj_M) + 0.5 * np.outer(self.wfj_M, self.wfi_M)
+        rho_MM = (0.5 * np.outer(self.wfi_M, self.wfj_M) +
+                  0.5 * np.outer(self.wfj_M, self.wfi_M))
 
         rho_G = self.density.gd.zeros()
         self.wfs.basis_functions.construct_density(rho_MM, rho_G, self.q)
@@ -122,38 +132,37 @@ class PairDensity:
         if self.lcao:
             return self.get_lcao(finegrid)
 
-
-        nijt = self.wfi * self.wfj
+        nijt_G = self.wfi.conj() * self.wfj
         if not finegrid:
-            return nijt 
+            return nijt_G
 
         # interpolate the pair density to the fine grid
-        nijt_g = self.density.finegd.empty()
-        self.density.interpolator.apply(nijt, nijt_g)
+        nijt_g = self.density.finegd.empty(dtype=nijt_G.dtype)
+        self.density.interpolator.apply(nijt_G, nijt_g)
 
         return nijt_g
 
     def with_compensation_charges(self, finegrid=False):
         """Get pair density including the compensation charges"""
-        rhot = self.get(finegrid)
+        rhot_g = self.get(finegrid)
 
         # Determine the compensation charges for each nucleus
         Q_aL = {}
         for a, P_ni in self.P_ani.items():
             # Generate density matrix
-            Pi_i = P_ni[self.i]
+            Pi_i = P_ni[self.i].conj()
             Pj_i = P_ni[self.j]
             D_ii = np.outer(Pi_i, Pj_i)
             # allowed to pack as used in the scalar product with
             # the symmetric array Delta_pL
-            D_p  = pack(D_ii)
+            D_p = pack(D_ii)
             
             # Determine compensation charge coefficients:
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
 
         # Add compensation charges
         if finegrid:
-            self.density.ghat.add(rhot, Q_aL)
+            self.density.ghat.add(rhot_g, Q_aL)
         else:
             if not hasattr(self.density, 'Ghat'):
                 self.density.Ghat = LFC(self.density.gd,
@@ -161,9 +170,9 @@ class PairDensity:
                                          for setup in self.setups],
                                         integral=sqrt(4 * pi))
                 self.density.Ghat.set_positions(self.spos_ac)
-            self.density.Ghat.add(rhot, Q_aL)
+            self.density.Ghat.add(rhot_g, Q_aL)
                 
-        return rhot
+        return rhot_g
 
     def with_ae_corrections(self, finegrid=False):
         """Get pair density including the AE corrections"""

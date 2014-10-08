@@ -159,8 +159,8 @@ class InputParameters(dict):
         self.fixdensity = r['FixDensity']
         if version <= 0.4:
             # Old version: XXX
-            print('# Warning: Reading old version 0.3/0.4 restart files ' +
-                  'will be disabled some day in the future!')
+            print(('# Warning: Reading old version 0.3/0.4 restart files ' +
+                  'will be disabled some day in the future!'))
             self.convergence['eigenstates'] = r['Tolerance']
         else:
             nbtc = r['NumberOfBandsToConverge']
@@ -213,8 +213,8 @@ class InputParameters(dict):
             
         if version == 0.3:
             # Old version: XXX
-            print('# Warning: Reading old version 0.3 restart files is ' +
-                  'dangerous and will be disabled some day in the future!')
+            print(('# Warning: Reading old version 0.3 restart files is ' +
+                  'dangerous and will be disabled some day in the future!'))
             self.stencils = (2, 3)
             self.charge = 0.0
             fixmom = False
