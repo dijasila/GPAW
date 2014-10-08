@@ -9,7 +9,8 @@ short_names = {
     'PBEsol':  'GGA_X_PBE_SOL+GGA_C_PBE_SOL',
     'revPBE':  'GGA_X_PBE_R+GGA_C_PBE',
     'RPBE':    'GGA_X_RPBE+GGA_C_PBE',
-    'mBEEF':   'MGGA_X_MBEEF+GGA_C_PBE_SOL'
+    'BLYP':    'GGA_X_B88+GGA_C_LYP',
+    #'mBEEF':   'MGGA_X_MBEEF+GGA_C_PBE_SOL'
 }
 
 class LibXC(XCKernel):
