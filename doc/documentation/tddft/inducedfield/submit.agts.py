@@ -14,7 +14,7 @@ def agts(queue):
                       deps=calc2)
     
     calc4 = queue.add('timepropagation_plot.py',
-                      ncpus=8,
+                      ncpus=1,
                       walltime=5,
                       deps=calc3,  
                       creates=['na2_td_Ffe.png', 'na2_td_Frho.png', 'na2_td_Fphi.png'])
