@@ -108,6 +108,9 @@ class LCAOWaveFunctions(WaveFunctions):
 
     def summary(self, fd):
         fd.write('Wave functions: LCAO\n')
+        fd.write('    Diagonalizer: %s\n' % self.ksl.get_description())
+        fd.write('    Atomic Hamiltonian: %s\n'
+                 % self.atomic_hamiltonian.description)
         
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)

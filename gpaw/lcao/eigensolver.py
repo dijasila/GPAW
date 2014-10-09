@@ -122,6 +122,14 @@ class DirectLCAO:
             gemm(1.0, kpt.P_aMi[a], kpt.C_nM, 0.0, P_ni, 'n')
         wfs.timer.stop('Calculate projections')
 
+    def __repr__(self):
+        # The "diagonalizer" must be equal to the Kohn-Sham layout
+        # object presently.  That information will be printed in the
+        # text output anyway so we do not need it here.
+        #
+        # Although maybe it may be better to print it anyway...
+        return 'LCAO using direct dense diagonalizer'
+
     def estimate_memory(self, mem, dtype):
         pass
         # self.diagonalizer.estimate_memory(mem, dtype) #XXX enable this

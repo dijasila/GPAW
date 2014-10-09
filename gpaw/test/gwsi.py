@@ -39,7 +39,7 @@ si2.positions -= a / 8
 i = 0
 results = []
 for si in [si1, si2]:
-    for symm in [{}, 'off', {'time_reversal': False, 'point_group': False}]:
+    for symm in [{}, 'off', {'time_reversal': False}, {'point_group': False}]:
         e, r = run(si, symm, str(i))
         G, X = r['eps'][0]
         results.append([e, G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]])
