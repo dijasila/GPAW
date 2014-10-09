@@ -183,18 +183,14 @@ class PAWTextOutput:
                 t()
         else:
             t('Spin-Paired Calculation')
-        t('Total Charge:      %.6f' % p['charge'])
+        t('Total Charge: %.6f' % p['charge'])
         t('Fermi Temperature: %.6f' % (self.occupations.width * Hartree))
         self.wfs.summary(self.txt)
-        if p.mode == 'lcao':
-            eigensolver = 'lcao (direct)'
-        else:
-            eigensolver = self.wfs.eigensolver
-        t('Eigensolver:       %s' % eigensolver)
+        t('Eigensolver: %s' % self.wfs.eigensolver)
 
         self.hamiltonian.summary(self.txt)
 
-        t('Reference Energy:  %.6f' % (self.wfs.setups.Eref * Hartree))
+        t('Reference Energy: %.6f' % (self.wfs.setups.Eref * Hartree))
         t()
 
         nibzkpts = self.wfs.kd.nibzkpts
@@ -217,10 +213,9 @@ class PAWTextOutput:
             t('Parallelization over states: %d'
               % self.wfs.bd.comm.size)
 
-        if p['mode'] == 'lcao':
-            general_diagonalizer_layout = self.wfs.ksl.get_description()
-            t('Diagonalizer layout: ' + general_diagonalizer_layout)
-        elif p['mode'] == 'fd':
+        if self.wfs.mode == 'fd':
+            # XXX Why is this not in wfs summary? -askhl
+            # Also, why wouldn't PW mode use the diagonalizer?
             if self.wfs.diagksl.buffer_size is not None:
                 t('MatrixOperator buffer_size (KiB): %d'
                   % self.wfs.diagksl.buffer_size)
@@ -258,8 +253,8 @@ class PAWTextOutput:
             t('Fixing the initial density')
         else:
             mixer = self.density.mixer
-            t('Mixer Type:                       ', mixer.__class__.__name__)
-            t('Linear Mixing Parameter:           %g' % mixer.beta)
+            t('Mixer Type:', mixer.__class__.__name__)
+            t('Linear Mixing Parameter: %g' % mixer.beta)
             t('Mixing with %d Old Densities' % mixer.nmaxold)
             if mixer.weight == 1:
                 t('No Damping of Long Wave Oscillations')
@@ -269,26 +264,26 @@ class PAWTextOutput:
         cc = p['convergence']
         t()
         t('Convergence Criteria:')
-        t('Total Energy Change:           %g eV / electron' %
+        t('    Total Energy Change: %g eV / electron' %
           (cc['energy']))
-        t('Integral of Absolute Density Change:    %g electrons' %
+        t('    Integral of Absolute Density Change: %g electrons' %
           cc['density'])
-        t('Integral of Absolute Eigenstate Change: %g eV^2' %
+        t('    Integral of Absolute Eigenstate Change: %g eV^2' %
           cc['eigenstates'])
         t('Number of Atoms: %d' % len(self.wfs.setups))
         t('Number of Atomic Orbitals: %d' % self.wfs.setups.nao)
         if self.nbands_parallelization_adjustment != 0:
             t('Adjusting Number of Bands by %+d to Match Parallelization'
               % self.nbands_parallelization_adjustment)
-        t('Number of Bands in Calculation:         %i' % self.wfs.bd.nbands)
-        t('Bands to Converge:                      ', end='')
+        t('Number of Bands in Calculation: %d' % self.wfs.bd.nbands)
+        t('Bands to Converge: ', end='')
         if cc['bands'] == 'occupied':
             t('Occupied States Only')
         elif cc['bands'] == 'all':
             t('All')
         else:
             t('%d Lowest Bands' % cc['bands'])
-        t('Number of Valence Electrons:            %g'
+        t('Number of Valence Electrons: %g'
           % (self.wfs.setups.nvalence - p.charge))
 
     def print_converged(self, iter):
