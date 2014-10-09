@@ -220,8 +220,13 @@ tests = [
     'h2o_xas_recursion.py',
     'diamond_eps.py',
     'excited_state.py',
+    'inducedfield_lrtddft.py',
+    'inducedfield_td.py',
     # > 20 sec tests start here (add tests after gemm.py!)
     'gemm.py',
+    'ed.py',
+    'ed_wrapper.py',
+    'ed_shapes.py',
     #'fractional_translations.py',
     'rpa_energy_Ni.py',
     'LDA_unstable.py',

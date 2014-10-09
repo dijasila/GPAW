@@ -2,9 +2,9 @@ from math import sqrt, pi
 import numpy as np
 
 import gpaw.mpi as mpi
-from gpaw.utilities import pack
+from gpaw.utilities import pack, unpack2
 from gpaw.utilities.tools import pick
-from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.lfc import LocalizedFunctionsCollection as LFC, BasisFunctions
 
 
 # XXX Document what is the difference between PairDensity2 and 1.
@@ -71,8 +71,11 @@ class PairDensity2:
 
 class PairDensity:
     def  __init__(self, paw):
+        self.set_paw(paw)
+        
+    def set_paw(self, paw):
         """basic initialisation knowing"""
-
+        self.wfs = paw.wfs
         self.lcao = paw.input_parameters.mode == 'lcao'
         self.density = paw.density
         self.setups = paw.wfs.setups
@@ -140,7 +143,7 @@ class PairDensity:
         return nijt_g
 
     def with_compensation_charges(self, finegrid=False):
-        """Get pair densisty including the compensation charges"""
+        """Get pair density including the compensation charges"""
         rhot_g = self.get(finegrid)
 
         # Determine the compensation charges for each nucleus
@@ -170,3 +173,93 @@ class PairDensity:
             self.density.Ghat.add(rhot_g, Q_aL)
                 
         return rhot_g
+
+    def with_ae_corrections(self, finegrid=False):
+        """Get pair density including the AE corrections"""
+        nij_g = self.get(finegrid)
+        
+        # Generate the density matrix
+        D_ap = {}
+#        D_aii = {}
+        for a, P_ni in self.P_ani.items():
+            Pi_i = P_ni[self.i]
+            Pj_i = P_ni[self.j]
+            D_ii = np.outer(Pi_i.conj(), Pj_i)
+            # Note: D_ii is not symmetric but the products of partial waves are
+            # so that we can pack
+            D_ap[a] = pack(D_ii)
+#            D_aii[a] = D_ii
+        
+        # Load partial waves if needed
+        if ((finegrid and (not hasattr(self, 'phi'))) or
+            ((not finegrid) and (not hasattr(self, 'Phi')))):
+            
+            # Splines
+            splines = {}
+            phi_aj = []
+            phit_aj = []
+            for a, id in enumerate(self.setups.id_a):
+                if id in splines:
+                    phi_j, phit_j = splines[id]
+                else:
+                    # Load splines:
+                    phi_j, phit_j = self.setups[a].get_partial_waves()[:2]
+                    splines[id] = (phi_j, phit_j)
+                phi_aj.append(phi_j)
+                phit_aj.append(phit_j)
+            
+            # Store partial waves as class variables
+            if finegrid:
+                gd = self.density.finegd
+                self.__class__.phi = BasisFunctions(gd, phi_aj)
+                self.__class__.phit = BasisFunctions(gd, phit_aj)
+                self.__class__.phi.set_positions(self.spos_ac)
+                self.__class__.phit.set_positions(self.spos_ac)
+            else:
+                gd = self.density.gd
+                self.__class__.Phi = BasisFunctions(gd, phi_aj)
+                self.__class__.Phit = BasisFunctions(gd, phit_aj)
+                self.__class__.Phi.set_positions(self.spos_ac)
+                self.__class__.Phit.set_positions(self.spos_ac)
+        
+        # Add AE corrections
+        if finegrid:
+            phi = self.phi
+            phit = self.phit
+            gd = self.density.finegd
+        else:
+            phi = self.Phi
+            phit = self.Phit
+            gd = self.density.gd
+        
+        rho_MM = np.zeros((phi.Mmax, phi.Mmax))
+        M1 = 0
+        for a, setup in enumerate(self.setups):
+            ni = setup.ni
+            D_p = D_ap.get(a)
+            if D_p is None:
+                D_p = np.empty((ni * (ni + 1) // 2))
+            if gd.comm.size > 1:
+                gd.comm.broadcast(D_p, self.wfs.rank_a[a])
+            D_ii = unpack2(D_p)
+#            D_ii = D_aii.get(a)
+#            if D_ii is None:
+#                D_ii = np.empty((ni, ni))
+#            if gd.comm.size > 1:
+#                gd.comm.broadcast(D_ii, self.wfs.rank_a[a])
+            M2 = M1 + ni
+            rho_MM[M1:M2, M1:M2] = D_ii
+            M1 = M2
+        
+        # construct_density assumes symmetric rho_MM and
+        # takes only the upper half of it
+        phi.construct_density(rho_MM, nij_g, q=-1)
+        phit.construct_density(-rho_MM, nij_g, q=-1)
+        # TODO: use ae_valence_density_correction
+#        phi.lfc.ae_valence_density_correction(
+#            rho_MM, nij_g, np.zeros(len(phi.M_W), np.intc), np.zeros(self.na))
+#        phit.lfc.ae_valence_density_correction(
+#            -rho_MM, nij_g, np.zeros(len(phit.M_W), np.intc), np.zeros(self.na))
+            
+        return nij_g
+

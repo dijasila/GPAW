@@ -227,12 +227,44 @@ class TDDFT(GPAW):
         self.hpsit = None
         self.eps_tmp = None
         self.mblas = MultiBlas(wfs.gd)
+        
+        # Restarting an FDTD run generates hamiltonian.fdtd_poisson, which now overwrites hamiltonian.poisson
+        if hasattr(self.hamiltonian, 'fdtd_poisson'):
+            self.hamiltonian.poisson = self.hamiltonian.fdtd_poisson
+            self.hamiltonian.poisson.set_grid_descriptor(self.density.finegd)
+
+        # For electrodynamics mode
+        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+            self.initialize_FDTD()
+            self.hamiltonian.poisson.print_messages(self.text)
+            self.txt.flush()
+
+
 
         self.calculate_energy = calculate_energy
         if self.hamiltonian.xc.name.startswith('GLLB'):
              self.text("GLLB model potential. Not updating energy.")
              self.calculate_energy = False
 
+
+    # Electrodynamics requires extra care 
+    def initialize_FDTD(self):
+        
+        # Sanity check
+        assert(self.hamiltonian.poisson.description == 'FDTD+TDDFT')
+        
+        self.hamiltonian.poisson.set_density(self.density)
+
+        # The propagate calculation_mode causes classical part to evolve
+        # in time when self.hamiltonian.poisson.solve(...) is called
+        self.hamiltonian.poisson.set_calculation_mode('propagate')
+
+        # During each time step, self.hamiltonian.poisson.solve may be called several
+        # times (depending on the used propagator). Using the attached observer one
+        # ensures that actual propagation takes place only once. This is because
+        # the FDTDPoissonSolver changes the calculation_mode from propagate to
+        # something else when the propagation is finished. 
+        self.attach(self.hamiltonian.poisson.set_calculation_mode, 1, 'propagate')
 
 
     def set(self, **kwargs):
@@ -255,7 +287,7 @@ class TDDFT(GPAW):
             if self.initialized and key not in ['txt']:
                 raise TypeError("Keyword argument '%s' is immutable." % key)
 
-            if key in ['txt', 'parallel', 'communicator','poissonsolver']:
+            if key in ['txt', 'parallel', 'communicator']:
                 continue
             elif key == 'mixer':
                 if not isinstance(kwargs[key], DummyMixer):
@@ -317,9 +349,18 @@ class TDDFT(GPAW):
         if dipole_moment_file is not None:
             self.initialize_dipole_moment_file(dipole_moment_file)
 
+        # Set these as class properties for use of observers
+        self.time_step = time_step
+        self.dump_interval = dump_interval
+
         niterpropagator = 0
         maxiter = self.niter + iterations
 
+        # Let FDTD part know the time step
+        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+            self.hamiltonian.poisson.set_time(self.time)
+            self.hamiltonian.poisson.set_time_step(self.time_step)
+            
         self.timer.start('Propagate')
         while self.niter < maxiter:
             norm = self.density.finegd.integrate(self.density.rhot_g)
@@ -370,6 +411,10 @@ class TDDFT(GPAW):
             #self.finalize_dipole_moment_file(norm)
             self.finalize_dipole_moment_file()
 
+        # Finalize FDTDPoissonSolver
+        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+            self.hamiltonian.poisson.finalize_propagation()
+
         # Call registered callback functions
         self.call_observers(self.niter, final=True)
 
@@ -398,9 +443,13 @@ class TDDFT(GPAW):
                     % ('time', 'norm', 'dmx', 'dmy', 'dmz')
                 self.dm_file.write(header)
                 self.dm_file.flush()
+        
 
     def update_dipole_moment_file(self, norm):
         dm = self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
+        
+        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+            dm += self.hamiltonian.poisson.get_classical_dipole_moment()
 
         if self.rank == 0:
             line = '%20.8lf %20.8le %22.12le %22.12le %22.12le\n' \
@@ -493,6 +542,12 @@ class TDDFT(GPAW):
                                   self.td_overlap, self.solver,
                                   self.preconditioner, self.wfs.gd, self.timer)
         abs_kick.kick()
+
+        # Kick the classical part, if it is present
+        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+            self.hamiltonian.poisson.set_kick(kick = self.kick_strength)
+
+
 
     def __del__(self):
         """Destructor"""

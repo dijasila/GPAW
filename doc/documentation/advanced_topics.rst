@@ -21,6 +21,7 @@ GPAW calculator:
    transport/negftransport
    transport/keldyshgf
    tddft/tddft
+   electrodynamics/electrodynamics
    bse/bse
    gw_theory/gw_theory
    dscf/dscf
