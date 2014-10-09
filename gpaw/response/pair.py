@@ -61,7 +61,7 @@ class PairDensity:
             rank1 = world.rank // nblocks * nblocks
             rank2 = rank1 + nblocks
             self.blockcomm = self.world.new_communicator(range(rank1, rank2))
-            ranks = range(world.rank, world.size, nblocks)
+            ranks = range(world.rank % nblocks, world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
 
         if world.rank != 0:
