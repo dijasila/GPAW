@@ -55,7 +55,7 @@ class PAWTextOutput:
     """Class for handling all text output."""
 
     def __init__(self):
-        self.txt = None
+        self.txt = devnull
 
     def set_text(self, txt, verbose=True):
         """Set the stream for text output.
@@ -461,16 +461,13 @@ class PAWTextOutput:
 
     def __del__(self):
         """Destructor:  Write timing output before closing."""
-        if not hasattr(self, 'txt') or self.txt is None:
-            return
-
         if not dry_run:
             mr = maxrss()
             if mr > 0:
                 if mr < 1024.0**3:
-                    self.text('Memory usage: %.2f MB' % (mr / 1024.0**2))
+                    self.text('Memory usage: %.2f MiB' % (mr / 1024.0**2))
                 else:
-                    self.text('Memory usage: %.2f GB' % (mr / 1024.0**3))
+                    self.text('Memory usage: %.2f GiB' % (mr / 1024.0**3))
 
             self.timer.write(self.txt)
 
