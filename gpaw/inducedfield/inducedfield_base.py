@@ -513,8 +513,7 @@ def calculate_field(gd, rho_g, bgef_v,
 
 
 def zero_pad(a):
-    """
-    Add zeros to both sides of all axis on array a_...g.
+    """Add zeros to both sides of all axis on array a.
     
     Not parallel safe.
     """
