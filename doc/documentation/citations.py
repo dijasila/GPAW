@@ -3,10 +3,7 @@ from __future__ import print_function
 import os
 import datetime
 
-import matplotlib
-#matplotlib.use('Agg')
-import pylab as plt
-
+import matplotlib.pyplot as plt
 
 
 months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
@@ -17,7 +14,7 @@ def f(filename):
     papers = {}
     lines = open(filename).readlines()
     n = 0
-    dois =  set()
+    dois = set()
     while n < len(lines):
         line = lines[n]
         tag = line[:2]
@@ -71,9 +68,9 @@ for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
     fd = open(bib + '.txt', 'w')
     for date, doi, title in papers:
         fd.write('%d-%02d-%02d %s %s\n' % (date.year, date.month, date.day,
-                                       doi, title))
+                                           doi, title))
         total[doi] = (date, title)
-    #fd.close()
+    fd.close()
     x = dict([(p[1], 0) for p in papers])
     print((bib, len(papers), len(x), len(total)))
 
@@ -81,7 +78,7 @@ for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
 allpapers = [(paper[0], doi, paper[1]) for doi, paper in total.items()]
 allpapers.sort()
 plt.plot([paper[0] for paper in allpapers], range(1, len(allpapers) + 1),
-             '-o', label='total')
+         '-o', label='total')
 
 fd = open('citations.csv', 'w')
 n = len(allpapers)
