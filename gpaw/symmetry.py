@@ -395,12 +395,13 @@ class Symmetry:
         # X-Y grid of symmetry matrices:
         p()
         nx = 6 if self.symmorphic else 3
+        ns = len(self.op_scc)
         y = 0
-        while True:
+        for y in range((ns + nx - 1) // nx):
             for c in range(3):
                 for x in range(nx):
                     s = x + y * nx
-                    if s == len(self.op_scc):
+                    if s == ns:
                         break
                     op_c = self.op_scc[s, c]
                     ft = self.ft_sc[s, c]
@@ -409,9 +410,6 @@ class Symmetry:
                         p(' + (%4s)' % sfrac(ft), end='')
                 p()
             p()
-            if s == len(self.op_scc):
-                break
-            y += 1
 
 
 def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
