@@ -23,7 +23,7 @@ def agts(queue):
     anti = queue.add('iron/anti.py', ncpus=4)
     non = queue.add('iron/non.py', ncpus=2)
     queue.add('iron/PBE.py', deps=[ferro, anti, non])
-    queue.add('eels/test.py', deps=band, ncpus=4)
+    queue.add('eels/test.py', deps=band)
     queue.add('gw/test.py')
     rpa_si_exxgs = queue.add('rpa/si.pbe.py')
     queue.add('rpa/si.pbe+exx.py', deps=rpa_si_exxgs, ncpus=4)
