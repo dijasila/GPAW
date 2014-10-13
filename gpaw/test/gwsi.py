@@ -25,7 +25,7 @@ def run(atoms, symm, name):
               ecut=40,
               domega0=0.1,
               eta=0.2,
-              bands=(3, 7)  # homo, lumo, lumo+1, lumo+2
+              bands=(3, 7),  # homo, lumo, lumo+1, lumo+2
               )
     results = gw.calculate()
     return e, results

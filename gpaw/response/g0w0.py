@@ -12,7 +12,6 @@ from ase.utils import opencew, devnull
 
 import gpaw.mpi as mpi
 from gpaw import debug
-from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0, HilbertTransform
 from gpaw.response.pair import PairDensity
@@ -426,11 +425,7 @@ class G0W0(PairDensity):
                     pd, W = pickle.load(fd)
             else:
                 # First time calculation
-                pd, chi0_wGG = chi0.calculate(q_c, A_x=A1_x)[:2]
-                self.Q_aGii = chi0.Q_aGii
-                self.Ga = chi0.Ga
-                self.Gb = chi0.Gb
-                W = self.calculate_w(pd, chi0_wGG, q_c, htp, htm, wstc, A2_x)
+                pd, W = self.calculate_w(chi0, q_c, htp, htm, wstc, A1_x, A2_x)
                 if self.savew:
                     pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
 
@@ -453,11 +448,16 @@ class G0W0(PairDensity):
                     done.add(Q2)
     
     @timer('WW')
-    def calculate_w(self, pd, chi0_wGG, q_c, htp, htm, wstc, A2_x):
+    def calculate_w(self, chi0, q_c, htp, htm, wstc, A1_x, A2_x):
         """Calculates the screened potential for a specified q-point."""
+        pd, chi0_wGG = chi0.calculate(q_c, A_x=A1_x)[:2]
+        self.Q_aGii = chi0.Q_aGii
+        self.Ga = chi0.Ga
+        self.Gb = chi0.Gb
+        
         if self.blockcomm.size > 1:
             A1_x = chi0_wGG.ravel()
-            chi0_wGG = self.redistribute(chi0_wGG, A2_x)
+            chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
             
         if self.wstc:
             iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
@@ -486,7 +486,7 @@ class G0W0(PairDensity):
         delta_GG = np.eye(len(iG_G))
 
         if self.ppa:
-            return self.ppa_w(chi0_wGG, iG_G, delta_GG, G0inv, G20inv, q_c)
+            return pd, self.ppa_w(chi0_wGG, iG_G, delta_GG, G0inv, G20inv, q_c)
             
         self.timer.start('Dyson eq.')
         # Calculate W and store it in chi0_wGG ndarray:
@@ -502,7 +502,7 @@ class G0W0(PairDensity):
                 W_GG[0, 1:] *= G0inv
                 
         if self.blockcomm.size > 1:
-            Wm_wGG = self.redistribute(chi0_wGG, A1_x)
+            Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)
         else:
             Wm_wGG = chi0_wGG
             
@@ -514,47 +514,7 @@ class G0W0(PairDensity):
             htm(Wm_wGG)
         self.timer.stop('Dyson eq.')
         
-        return [Wp_wGG, Wm_wGG]
-
-    def redistribute(self, in_wGG, out_x):
-        """Redistribute array.
-        
-        Switch between two kinds of parallel distributions:
-            
-        1) parallel over G-vectors (second dimension of in_wGG)
-        2) parallel over frequency (first dimension of in_wGG)
-
-        Returns new array using the memory in the 1-d array out_x.
-        """
-        
-        comm = self.blockcomm
-        
-        nw = len(self.omega_w)
-        nG = in_wGG.shape[2]
-        mynw = (nw + comm.size - 1) // comm.size
-        mynG = (nG + comm.size - 1) // comm.size
-        
-        bg1 = BlacsGrid(comm, comm.size, 1)
-        bg2 = BlacsGrid(comm, 1, comm.size)
-        md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
-        md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
-        
-        if len(in_wGG) == nw:
-            r = Redistributor(comm, md2, md1)
-            wa = comm.rank * mynw
-            wb = min(wa + mynw, nw)
-            shape = (wb - wa, nG, nG)
-        else:
-            r = Redistributor(comm, md1, md2)
-            Ga = comm.rank * mynG
-            Gb = min(Ga + mynG, nG)
-            shape = (nw, Gb - Ga, nG)
-        
-        out_wGG = out_x[:np.product(shape)].reshape(shape)
-        r.redistribute(in_wGG.reshape((len(in_wGG), -1)),
-                       out_wGG.reshape((len(out_wGG), -1)))
-        
-        return out_wGG
+        return pd, [Wp_wGG, Wm_wGG]
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):

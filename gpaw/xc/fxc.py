@@ -1,22 +1,21 @@
 import os
 import sys
-from time import ctime, time
+from time import time
 
 import numpy as np
 from ase.units import Hartree, Bohr
 from ase.utils import prnt
-from scipy.special.orthogonal import p_roots
 from scipy.special import sici
+from scipy.special.orthogonal import p_roots
 
-from gpaw import GPAW
+import gpaw.mpi as mpi
 from gpaw.blacs import BlacsGrid, Redistributor
+from gpaw.fd_operators import Gradient
+from gpaw.io.tar import Writer, Reader
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.utilities.blas import gemmdot, axpy
 from gpaw.wavefunctions.pw import PWDescriptor
-from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.xc.rpa import RPACorrelation
-from gpaw.io.tar import Writer, Reader
-from gpaw.fd_operators import Gradient, Laplace
-import gpaw.mpi as mpi
 
 
 class FXCCorrelation(RPACorrelation):
@@ -24,7 +23,7 @@ class FXCCorrelation(RPACorrelation):
                  skip_gamma=False, qsym=True, nlambda=8,
                  nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
                  frequencies=None, weights=None, density_cut=1.e-6,
-                 wcomm=None, chicomm=None, world=mpi.world,
+                 world=mpi.world, nblocks=1,
                  unit_cells=None, tag=None,
                  txt=sys.stdout):
 
@@ -34,7 +33,7 @@ class FXCCorrelation(RPACorrelation):
                                 frequency_max=frequency_max,
                                 frequency_scale=frequency_scale,
                                 frequencies=frequencies, weights=weights,
-                                wcomm=wcomm, chicomm=chicomm, world=world,
+                                world=world, nblocks=nblocks,
                                 txt=txt)
 
         self.l_l, self.weight_l = p_roots(nlambda)
@@ -79,7 +78,7 @@ class FXCCorrelation(RPACorrelation):
 
     def calculate_q(self, chi0, pd,
                     chi0_swGG, chi0_swxvG, chi0_swvv,
-                    Q_aGii, m1, m2, cut_G):
+                    Q_aGii, m1, m2, cut_G, A2_x):
         if chi0_swxvG is None:
             chi0_swxvG = range(2)  # Not used
             chi0_swvv = range(2)  # Not used
@@ -90,6 +89,8 @@ class FXCCorrelation(RPACorrelation):
                             Q_aGii, m1, m2, [1])
         prnt('E_c(q) = ', end='', file=self.fd)
 
+        chi0_swGG = chi0.redistribute(chi0_swGG, A2_x)
+        
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_swGG, cut_G)
             prnt('%.3f eV' % (e * Hartree), file=self.fd)
@@ -159,7 +160,6 @@ class FXCCorrelation(RPACorrelation):
             G_G[0] = 1.0
 
         e_w = []
-        j = 0
         for chi0_sGG in np.swapaxes(chi0_swGG, 0, 1):
             if cut_G is not None:
                 chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
@@ -186,7 +186,7 @@ class FXCCorrelation(RPACorrelation):
             e += np.trace(chi0v.real)
             e_w.append(e)
         E_w = np.zeros_like(self.omega_w)
-        self.wcomm.all_gather(np.array(e_w), E_w)
+        self.blockcomm.all_gather(np.array(e_w), E_w)
         energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
         return energy
 
@@ -286,7 +286,7 @@ class Kernel:
 
         l_g_size = -(-ng // mpi.world.size)
         l_g_range = range(mpi.world.rank * l_g_size,
-                          min((mpi.world.rank+1) * l_g_size, ng))
+                          min((mpi.world.rank + 1) * l_g_size, ng))
 
         fhxc_qsGr = {}
         for iq in range(len(self.ibzq_qc)):
@@ -304,15 +304,15 @@ class Kernel:
             if i == 1:
                 prnt('      Finished 1 cell in %s seconds' % int(time() - t0) +
                      ' - estimated %s seconds left' %
-                     int((len(R_Rv) - 1) * (time() - t0)), 
+                     int((len(R_Rv) - 1) * (time() - t0)),
                      file=self.fd)
                 self.fd.flush()
             if len(R_Rv) > 5:
-                if (i+1) % (len(R_Rv) / 5 + 1) == 0:
+                if (i + 1) % (len(R_Rv) / 5 + 1) == 0:
                     prnt('      Finished %s cells in %s seconds'
                          % (i, int(time() - t0))
                          + ' - estimated %s seconds left'
-                         % int((len(R_Rv) - i) * (time() - t0) / i), 
+                         % int((len(R_Rv) - i) * (time() - t0) / i),
                          file=self.fd)
                     self.fd.flush()
             for g in l_g_range:
@@ -329,7 +329,7 @@ class Kernel:
                 fx_g = ns * self.get_fxc_g(n_av, index=g)
                 qc_g = (-4 * np.pi * ns / fx_g)**0.5
                 x = qc_g * rr
-                osc_x = np.sin(x) - x*np.cos(x)
+                osc_x = np.sin(x) - x * np.cos(x)
                 f_rr = fx_g * osc_x / (2 * np.pi**2 * rr**3)
                 if nR > 1:   # include only exchange part of the kernel here
                     V_rr = (sici(x)[0] * 2 / np.pi - 1) / rr
@@ -380,7 +380,7 @@ class Kernel:
                 # redistribute grid and plane waves in fhxc_qsGr[iq]
                 bg1 = BlacsGrid(mpi.world, 1, mpi.world.size)
                 bg2 = BlacsGrid(mpi.world, mpi.world.size, 1)
-                bd1 = bg1.new_descriptor(npw, ng, npw, - (-ng / mpi.world.size))
+                bd1 = bg1.new_descriptor(npw, ng, npw, -(-ng / mpi.world.size))
                 bd2 = bg2.new_descriptor(npw, ng, -(-npw / mpi.world.size), ng)
 
                 fhxc_Glr = np.zeros((len(l_pw_range), ng), dtype=complex)
@@ -446,7 +446,8 @@ class Kernel:
         r_vg = gd.get_grid_point_coordinates()
 
         for iq in range(len(self.ibzq_qc)):
-            Gvec_Gc = np.dot(pd.get_reciprocal_vectors(q=iq, add_q=False), cell_cv / (2 * np.pi))
+            Gvec_Gc = np.dot(pd.get_reciprocal_vectors(q=iq, add_q=False),
+                             cell_cv / (2 * np.pi))
             npw = len(Gvec_Gc)
             l_pw_size = -(-npw // mpi.world.size)
             l_pw_range = range(mpi.world.rank * l_pw_size,
@@ -490,7 +491,7 @@ class Kernel:
             raise '%s kernel not recognized' % self.xc
 
     def get_lda_g(self, n_g):
-        return (4. / 9.) * self.A_x * n_g**(-2./3.)
+        return (4. / 9.) * self.A_x * n_g**(-2. / 3.)
 
     def get_pbe_g(self, n_g, index=None):
         if index is None:

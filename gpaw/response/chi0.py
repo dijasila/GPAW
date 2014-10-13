@@ -8,6 +8,7 @@ from ase.units import Hartree
 
 import gpaw.mpi as mpi
 from gpaw import extra_parameters
+from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.occupations import FermiDirac
 from gpaw.utilities.timing import timer
 from gpaw.utilities.memory import maxrss
@@ -254,7 +255,7 @@ class Chi0(PairDensity):
               '\n        mem. used.: ' +
               '%f M / cpu' % (maxrss() / 1024**2), file=self.fd)
 
-        if self.eta == 0.0 or (self.hilbert and self.blockcomm.size == 1):
+        if (self.eta == 0.0 or self.hilbert) and self.blockcomm.size == 1:
             # Fill in upper/lower triangle also:
             nG = pd.ngmax
             il = np.tril_indices(nG, -1)
@@ -308,7 +309,11 @@ class Chi0(PairDensity):
         for w, omega in enumerate(self.omega_w):
             x_m = (-2 * df_m * deps_m / (omega.imag**2 + deps_m**2))**0.5
             nx_mG = n_mG.conj() * x_m[:, np.newaxis]
-            rk(-self.prefactor, nx_mG, 1.0, chi0_wGG[w], 'n')
+            if self.blockcomm.size == 1:
+                rk(-self.prefactor, nx_mG, 1.0, chi0_wGG[w], 'n')
+            else:
+                mynx_mG = nx_mG[:, self.Ga:self.Gb]
+                chi0_wGG[w] -= self.prefactor * np.dot(mynx_mG.T, nx_mG.conj())
 
     @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
@@ -423,6 +428,49 @@ class Chi0(PairDensity):
                         np.outer(velm_v.conj(), velm_v))
 
                 self.chi0_vv += x_vv
+
+    def redistribute(self, in_wGG, out_x):
+        """Redistribute array.
+        
+        Switch between two kinds of parallel distributions:
+            
+        1) parallel over G-vectors (second dimension of in_wGG)
+        2) parallel over frequency (first dimension of in_wGG)
+
+        Returns new array using the memory in the 1-d array out_x.
+        """
+        
+        comm = self.blockcomm
+        
+        if comm.size == 1:
+            return in_wGG
+            
+        nw = len(self.omega_w)
+        nG = in_wGG.shape[2]
+        mynw = (nw + comm.size - 1) // comm.size
+        mynG = (nG + comm.size - 1) // comm.size
+        
+        bg1 = BlacsGrid(comm, comm.size, 1)
+        bg2 = BlacsGrid(comm, 1, comm.size)
+        md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
+        md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
+        
+        if len(in_wGG) == nw:
+            r = Redistributor(comm, md2, md1)
+            wa = comm.rank * mynw
+            wb = min(wa + mynw, nw)
+            shape = (wb - wa, nG, nG)
+        else:
+            r = Redistributor(comm, md1, md2)
+            Ga = comm.rank * mynG
+            Gb = min(Ga + mynG, nG)
+            shape = (nw, Gb - Ga, nG)
+        
+        out_wGG = out_x[:np.product(shape)].reshape(shape)
+        r.redistribute(in_wGG.reshape((len(in_wGG), -1)),
+                       out_wGG.reshape((len(out_wGG), -1)))
+        
+        return out_wGG
 
     def print_chi(self, pd):
         calc = self.calc
