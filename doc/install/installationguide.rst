@@ -10,7 +10,7 @@ Requirements
 
 1) Python 2.6 - 2.7.  Python is available from http://www.python.org.
 
-2) NumPy_ 1.3.0 or later (multithreading in numpy is not supported by GPAW).
+2) NumPy_ 1.6.1 or later.  Earlier versions may work for basic operations.
 
 3) Atomic Simulation Environment (:ase:`ASE <>`).
 
@@ -37,9 +37,12 @@ Optionally:
 
 .. _NumPy: http://numpy.org/
 .. _SciPy: http://scipy.org/
-.. _libxc-download: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download
-.. _acml: http://developer.amd.com/tools-and-sdks/cpu-development/amd-core-math-library-acml/
+.. _libxc-download: http://www.tddft.org/programs/octopus/wiki/index.php/
+                    Libxc:download
+.. _acml: http://developer.amd.com/tools-and-sdks/cpu-development/
+          amd-core-math-library-acml/
 .. _openblas: http://www.openblas.net/
+
 
 Installation
 ============
@@ -91,8 +94,8 @@ Example::
     make install
     
     # add these to your .bashrc:
-    export C_INCLUDE_PATH=~/xc/include                                           
-    export LIBRARY_PATH=~/xc/lib                                                 
+    export C_INCLUDE_PATH=~/xc/include
+    export LIBRARY_PATH=~/xc/lib
     export LD_LIBRARY_PATH=~/xc/lib
     
 
@@ -189,7 +192,7 @@ The following is required for a functioning GPAW installation.
 .. envvar:: PATH
 
   The ``$PATH`` environment variable should contain the paths to the
-  ``gpaw-python`` executable and the tools of gpaw located in 
+  ``gpaw-python`` executable and the tools of gpaw located in
   ``$GPAW_HOME/build/bin``  and ``$GPAW_HOME/tools/``, respectively.
 
 .. envvar:: PYTHONPATH
@@ -236,7 +239,7 @@ the :ref:`installationguide_developer`.
      [gpaw]$ python setup.py install --home=<my-directory>  2>&1 | tee install.log
 
    and put :file:`{<my-directory>}/lib/python` (or
-   :file:`{<my-directory>}/lib64/python`) in your :envvar:`PYTHONPATH` 
+   :file:`{<my-directory>}/lib64/python`) in your :envvar:`PYTHONPATH`
    environment variable.
 
    .. note::
