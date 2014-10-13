@@ -147,6 +147,7 @@ class Symmetry:
             self.op_scc.append(op_cc)
 
         self.op_scc = np.array(self.op_scc)
+        self.ft_sc = np.zeros((len(self.op_scc), 3))
 
     def prune_symmetries_atoms(self, spos_ac):
         """Remove symmetries that are not satisfied by the atoms."""
