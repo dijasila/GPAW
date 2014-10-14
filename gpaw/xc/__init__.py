@@ -21,7 +21,8 @@ def XC(kernel, parameters=None):
     
     if isinstance(kernel, str):
         name = kernel
-        if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW', 'C09-vdW']:
+        if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
+                    'C09-vdW']:
             from gpaw.xc.vdw import FFTVDWFunctional
             return FFTVDWFunctional(name)
         elif name in ['EXX', 'PBE0', 'B3LYP']:
@@ -36,7 +37,7 @@ def XC(kernel, parameters=None):
         elif name == 'BEE2':
             from gpaw.xc.bee import BEE2
             kernel = BEE2(parameters)
-        elif name in ['BEEF-vdW','BEEF-1']:
+        elif name in ['BEEF-vdW', 'BEEF-1']:
             from gpaw.xc.bee import BEEVDWFunctional
             return BEEVDWFunctional('BEEF-vdW')
         elif name.startswith('GLLB'):
@@ -53,10 +54,10 @@ def XC(kernel, parameters=None):
             return ODDFunctional(name[4:])
         elif name.endswith('PZ-SIC'):
             try:
-                from ODD import PerdewZungerSIC as SIC 
+                from ODD import PerdewZungerSIC as SIC
                 return SIC(xc=name[:-7])
             except:
-                from gpaw.xc.sic import SIC 
+                from gpaw.xc.sic import SIC
                 return SIC(xc=name[:-7])
         elif name == 'TPSS' or name == 'M06L' or name == 'revTPSS':
             from gpaw.xc.kernel import XCKernel
@@ -67,7 +68,7 @@ def XC(kernel, parameters=None):
         elif name == 'PPLDA':
             from gpaw.xc.lda import PurePythonLDAKernel
             kernel = PurePythonLDAKernel()
-        elif name in ['pyPBE', 'pyPBEsol', 'pyRPBE',  'pyzvPBEsol']:
+        elif name in ['pyPBE', 'pyPBEsol', 'pyRPBE', 'pyzvPBEsol']:
             from gpaw.xc.gga import PurePythonGGAKernel
             kernel = PurePythonGGAKernel(name)
         elif name == '2D-MGGA':
@@ -81,4 +82,3 @@ def XC(kernel, parameters=None):
         return GGA(kernel)
     else:
         return MGGA(kernel)
-
