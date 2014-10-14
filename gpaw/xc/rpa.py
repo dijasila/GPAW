@@ -126,6 +126,8 @@ class RPACorrelation:
             (Only needed for beyond RPA methods that inherit this function).
         """
 
+        p = functools.partial(print, file=self.fd)
+
         if isinstance(ecut, (float, int)):
             ecut_i = [ecut]
             for i in range(5):
@@ -137,15 +139,14 @@ class RPACorrelation:
         ecutmax = max(self.ecut_i)
 
         if nbands is None:
-            print('Response function bands : Equal to number of plane waves',
-                  file=self.fd)
+            p('Response function bands : Equal to number of plane waves')
         else:
-            print('Response function bands : %s' % nbands, file=self.fd)
-        print('Plane wave cutoffs (eV) :', end='', file=self.fd)
+            p('Response function bands : %s' % nbands)
+        p('Plane wave cutoffs (eV) :', end='')
         for ecut in ecut_i:
-            print('%5d' % ecut, end='', file=self.fd)
-        print(file=self.fd)
-        print(file=self.fd)
+            p('%5d' % ecut, end='')
+        p()
+        p()
 
         if self.filename and os.path.isfile(self.filename):
             self.read()
@@ -162,6 +163,7 @@ class RPACorrelation:
         wfs = self.calc.wfs
         
         if self.wstc:
+            p('Using Wigner-Seitz truncated Coulomb potential.')
             self.wstc = WignerSeitzTruncatedCoulomb(
                 wfs.gd.cell_cv, wfs.kd.N_c, self.fd)
 
@@ -182,16 +184,18 @@ class RPACorrelation:
             if np.allclose(q_c, 0.0) and self.skip_gamma:
                 self.energy_qi.append(len(self.ecut_i) * [0.0])
                 self.write()
-                print('Not calculating E_c(q) at Gamma', file=self.fd)
-                print(file=self.fd)
+                p('Not calculating E_c(q) at Gamma')
+                p()
                 continue
 
             thisqd = KPointDescriptor([q_c])
             pd = PWDescriptor(ecutmax, wfs.gd, complex, thisqd)
             nG = pd.ngmax
             mynG = (nG + self.nblocks - 1) // self.nblocks
+            chi0.Ga = self.blockcomm.rank * mynG
+            chi0.Gb = min(chi0.Ga + mynG, nG)
             
-            shape = (1 + spin, nw, mynG, nG)
+            shape = (1 + spin, nw, chi0.Gb - chi0.Ga, nG)
             chi0_swGG = A1_x[:np.prod(shape)].reshape(shape)
             chi0_swGG[:] = 0.0
             
@@ -208,9 +212,8 @@ class RPACorrelation:
 
             # First not completely filled band:
             m1 = chi0.nocc1
-            print('# %s  -  %s' % (len(self.energy_qi), ctime().split()[-2]),
-                  file=self.fd)
-            print('q = [%1.3f %1.3f %1.3f]' % tuple(q_c), file=self.fd)
+            p('# %s  -  %s' % (len(self.energy_qi), ctime().split()[-2]))
+            p('q = [%1.3f %1.3f %1.3f]' % tuple(q_c))
 
             energy_i = []
             for ecut in self.ecut_i:
@@ -222,8 +225,8 @@ class RPACorrelation:
                     cut_G = np.arange(nG)[pd.G2_qG[0] <= 2 * ecut]
                     m2 = len(cut_G)
 
-                print('E_cut = %d eV / Bands = %d:   ' % (ecut * Hartree, m2),
-                      file=self.fd, end='')
+                p('E_cut = %d eV / Bands = %d:   ' % (ecut * Hartree, m2),
+                  end='')
                 self.fd.flush()
 
                 energy = self.calculate_q(chi0, pd,
@@ -243,25 +246,23 @@ class RPACorrelation:
 
             self.energy_qi.append(energy_i)
             self.write()
-            print(file=self.fd)
+            p()
 
         e_i = np.dot(self.weight_q, np.array(self.energy_qi))
-        print('==========================================================',
-              file=self.fd)
-        print(file=self.fd)
-        print('Total correlation energy:', file=self.fd)
+        p('==========================================================')
+        p()
+        p('Total correlation energy:')
         for e_cut, e in zip(self.ecut_i, e_i):
-            print('%6.0f:   %6.4f eV' % (e_cut * Hartree, e * Hartree),
-                  file=self.fd)
-        print(file=self.fd)
+            p('%6.0f:   %6.4f eV' % (e_cut * Hartree, e * Hartree))
+        p()
 
         self.energy_qi = []  # important if another calculation is performed
 
         if len(e_i) > 1:
             self.extrapolate(e_i)
 
-        print('Calculation completed at: ', ctime(), file=self.fd)
-        print(file=self.fd)
+        p('Calculation completed at: ', ctime())
+        p()
 
         return e_i * Hartree
 
@@ -308,7 +309,7 @@ class RPACorrelation:
         """Evaluate correlation energy from chi0."""
 
         if self.wstc:
-            invG_G = (self.wstc.get_potential() / (4 * pi))**0.5
+            invG_G = (self.wstc.get_potential(pd) / (4 * pi))**0.5
         else:
             G_G = pd.G2_qG[0]**0.5  # |G+q|
             if pd.kd.gamma:
