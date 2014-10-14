@@ -204,7 +204,7 @@ class ElectronPhononCoupling(Displacement):
             nao_a = args[1]
             
         self.basis_info = {'M_a': M_a,
-                           'niAO_a': nao_a} # XXX niAO -> nao
+                           'nao_a': nao_a}
 
     def set_log(self, log=None):
         """Set output log."""
@@ -402,7 +402,7 @@ class ElectronPhononCoupling(Displacement):
                     if kd.comm.rank == 0:
                         fd = open(fname, 'w')
                         M_a = self.basis_info['M_a']
-                        nao_a = self.basis_info['niAO_a']
+                        nao_a = self.basis_info['nao_a']
                         pickle.dump((g_NNMM, M_a, nao_a), fd, 2)
                         fd.close()
                     
@@ -502,7 +502,7 @@ class ElectronPhononCoupling(Displacement):
         
         # Make slices for orbitals on atoms
         M_a = self.basis_info['M_a']
-        nao_a = self.basis_info['niAO_a']
+        nao_a = self.basis_info['nao_a']
         slice_a = []
         for a in range(len(self.atoms)):
             start = M_a[a] ;
