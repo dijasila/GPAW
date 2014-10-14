@@ -47,7 +47,8 @@ class TimeDependentHamiltonian:
         self.vt_sG = hamiltonian.gd.zeros(hamiltonian.nspins)
 
         # Increase the accuracy of Poisson solver
-        self.hamiltonian.poisson.eps = 1e-24
+        if self.hamiltonian.poisson.eps > 1e-12: 
+           self.hamiltonian.poisson.eps = 1e-12 
 
         # external potential
         #if hamiltonian.vext_g is None:
