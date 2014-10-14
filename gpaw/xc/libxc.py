@@ -45,7 +45,9 @@ class LibXC(XCKernel):
             xc = -1
             x = _gpaw.lxcXCFuncNum(x)
             c = _gpaw.lxcXCFuncNum(c)
-
+            if x is None or c is None:
+                raise NameError('Unknown functional: "%s".' % name)
+                
         self.xc = _gpaw.lxcXCFunctional(xc, x, c, nspins)
 
         if self.xc.is_mgga():
