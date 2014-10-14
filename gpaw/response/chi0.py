@@ -308,12 +308,13 @@ class Chi0(PairDensity):
     def update_hermitian(self, n_mG, deps_m, df_m, chi0_wGG):
         for w, omega in enumerate(self.omega_w):
             x_m = (-2 * df_m * deps_m / (omega.imag**2 + deps_m**2))**0.5
-            nx_mG = n_mG.conj() * x_m[:, np.newaxis]
             if self.blockcomm.size == 1:
+                nx_mG = n_mG.conj() * x_m[:, np.newaxis]
                 rk(-self.prefactor, nx_mG, 1.0, chi0_wGG[w], 'n')
             else:
-                mynx_mG = nx_mG[:, self.Ga:self.Gb]
-                chi0_wGG[w] -= self.prefactor * np.dot(mynx_mG.T, nx_mG.conj())
+                nx_Gm = n_mG.T * x_m
+                mynx_Gm = nx_Gm[self.Ga:self.Gb]
+                gemm(-self.prefactor, nx_Gm, mynx_Gm, 1.0, chi0_wGG[w])
 
     @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
