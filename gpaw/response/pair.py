@@ -184,7 +184,7 @@ class PairDensity:
             nblocks = 1
             rank = 0
         blocksize = (n2 - n1 + nblocks - 1) // nblocks
-        na = n1 + rank * blocksize
+        na = min(n1 + rank * blocksize, n2)
         nb = min(na + blocksize, n2)
 
         U_cc, T, a_a, U_aii, shift_c, time_reversal = \

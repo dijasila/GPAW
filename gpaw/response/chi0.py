@@ -312,9 +312,9 @@ class Chi0(PairDensity):
                 nx_mG = n_mG.conj() * x_m[:, np.newaxis]
                 rk(-self.prefactor, nx_mG, 1.0, chi0_wGG[w], 'n')
             else:
-                nx_Gm = n_mG.T * x_m
+                nx_Gm = n_mG.T.copy() * x_m
                 mynx_Gm = nx_Gm[self.Ga:self.Gb]
-                gemm(-self.prefactor, nx_Gm, mynx_Gm, 1.0, chi0_wGG[w])
+                gemm(-self.prefactor, nx_Gm, mynx_Gm, 1.0, chi0_wGG[w], 'c')
 
     @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
