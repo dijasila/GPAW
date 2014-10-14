@@ -258,7 +258,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                 w[name] = value
 
     # Try to write FDTD-related data
-    use_fdtd = hasattr(paw.hamiltonian.poisson, 'description') and paw.hamiltonian.poisson.description=='FDTD+TDDFT'
+    use_fdtd = hasattr(paw.hamiltonian.poisson, 'get_description') and \
+        paw.hamiltonian.poisson.get_description() == 'FDTD+TDDFT'
     w['FDTD'] = use_fdtd
     if use_fdtd:
         paw.hamiltonian.poisson.write(paw, w)

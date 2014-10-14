@@ -18,22 +18,15 @@ class DipoleCorrection:
         return self.poissonsolver.get_stencil()
 
     def set_grid_descriptor(self, gd):
-        for c in range(3):
-            if c == self.corrector.c:
-                if gd.pbc_c[c]:
-                    raise ValueError('System must be non-periodic along '
-                                     'dipole correction axis')
-            else:
-                pass
-                # XXX why was the below restriction deemed desirable?
-                #if not gd.pbc_c[c]:
-                #    raise ValueError('System must be periodic along axes '
-                #                     'perpendicular to dipole correction')
+        if gd.pbc_c[self.corrector.c]:
+            raise ValueError('System must be non-periodic along '
+                             'dipole correction axis')
         self.poissonsolver.set_grid_descriptor(gd)
 
-        self.description = (
-            self.poissonsolver.description +
-            '\nDipole correction along %s-axis' % 'xyz'[self.corrector.c])
+    def get_description(self):
+        poissondesc = self.poissonsolver.get_description()
+        desc = 'Dipole correction along %s-axis' % 'xyz'[self.corrector.c]
+        return '\n'.join([poissondesc, desc])
 
     def initialize(self):
         self.poissonsolver.initialize()

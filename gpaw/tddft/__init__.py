@@ -234,7 +234,7 @@ class TDDFT(GPAW):
             self.hamiltonian.poisson.set_grid_descriptor(self.density.finegd)
 
         # For electrodynamics mode
-        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+        if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             self.initialize_FDTD()
             self.hamiltonian.poisson.print_messages(self.text)
             self.txt.flush()
@@ -251,7 +251,7 @@ class TDDFT(GPAW):
     def initialize_FDTD(self):
         
         # Sanity check
-        assert(self.hamiltonian.poisson.description == 'FDTD+TDDFT')
+        assert(self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT')
         
         self.hamiltonian.poisson.set_density(self.density)
 
@@ -357,7 +357,7 @@ class TDDFT(GPAW):
         maxiter = self.niter + iterations
 
         # Let FDTD part know the time step
-        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+        if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             self.hamiltonian.poisson.set_time(self.time)
             self.hamiltonian.poisson.set_time_step(self.time_step)
             
@@ -412,7 +412,7 @@ class TDDFT(GPAW):
             self.finalize_dipole_moment_file()
 
         # Finalize FDTDPoissonSolver
-        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+        if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             self.hamiltonian.poisson.finalize_propagation()
 
         # Call registered callback functions
@@ -448,7 +448,7 @@ class TDDFT(GPAW):
     def update_dipole_moment_file(self, norm):
         dm = self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
         
-        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+        if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             dm += self.hamiltonian.poisson.get_classical_dipole_moment()
 
         if self.rank == 0:
@@ -544,7 +544,7 @@ class TDDFT(GPAW):
         abs_kick.kick()
 
         # Kick the classical part, if it is present
-        if self.hamiltonian.poisson.description=='FDTD+TDDFT':
+        if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
             self.hamiltonian.poisson.set_kick(kick = self.kick_strength)
 
 

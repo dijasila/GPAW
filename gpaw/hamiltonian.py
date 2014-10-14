@@ -545,7 +545,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         fd.write('Interpolation: tri-%s ' % name +
                  '(%d. degree polynomial)\n' % degree)
 
-        fd.write('Poisson solver: %s\n' % self.poisson.description)
+        fd.write('Poisson solver: %s\n' % self.poisson.get_description())
 
     def set_positions(self, spos_ac, rank_a):
         Hamiltonian.set_positions(self, spos_ac, rank_a)

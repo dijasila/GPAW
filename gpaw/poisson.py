@@ -88,12 +88,21 @@ class PoissonSolver:
 
         self.levels = level
 
-        if self.relax_method == 1:
-            self.description = 'Gauss-Seidel'
-        else:
-            self.description = 'Jacobi'
-        self.description += ' solver with %d multi-grid levels' % (level + 1)
-        self.description += '\nStencil: ' + self.operators[0].description
+    def get_description(self):
+        name = {1: 'Gauss-Seidel', 2: 'Jacobi'}[self.relax_method]
+        coarsest_grid = self.operators[-1].gd.N_c
+        coarsest_grid_string = ' x '.join([str(N) for N in coarsest_grid])
+        assert self.levels + 1 == len(self.operators)
+        lines = ['%s solver with %d multi-grid levels'
+                 % (name, self.levels + 1),
+                 '    Coarsest grid: %s points' % coarsest_grid_string]
+        if coarsest_grid.max() > 24:
+            lines.extend(['    Warning: Coarse grid has more than 24 points.',
+                          '             More multi-grid levels recommended.'])
+        lines.extend(['    Stencil: %s' % self.operators[0].description,
+                      '    Tolerance: %e' % self.eps,
+                      '    Max iterations: %d' % self.maxiter])
+        return '\n'.join(lines)
 
     def initialize(self, load_gauss=False):
         # Should probably be renamed allocate
@@ -317,9 +326,11 @@ class PoissonSolver:
 
 
 class NoInteractionPoissonSolver:
-    description = 'No interaction'
     relax_method = 0
     nn = 1
+
+    def get_description(self):
+        return 'No interaction'
     
     def get_stencil(self):
         return 1
@@ -339,12 +350,14 @@ class FFTPoissonSolver(PoissonSolver):
 
     relax_method = 0
     nn = 999
-    description = 'FFT solver of the second kind'
 
     def __init__(self, eps=2e-10):
         self.charged_periodic_correction = None
         self.remove_moment = None
         self.eps = eps
+
+    def get_description(self):
+        return 'FFT'
 
     def set_grid_descriptor(self, gd):
         assert gd.pbc_c.all()
@@ -372,6 +385,8 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
     and with central differential method in the third direction."""
 
     def __init__(self, nn=1):
+        # XXX How can this work when it does not call __init___
+        # on PoissonSolver? -askhl
         self.nn = nn
         self.charged_periodic_correction = None
         assert self.nn == 1

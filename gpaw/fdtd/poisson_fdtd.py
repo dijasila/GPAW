@@ -193,7 +193,6 @@ class FDTDPoissonSolver:
         else:
             self.classical_material = classical_material
         
-        self.description = 'FDTD+TDDFT'
         self.set_calculation_mode('solve')
         
         self.remove_moment_cl = remove_moments[0]
@@ -226,6 +225,9 @@ class FDTDPoissonSolver:
 
         # Generate classical grid descriptor
         self.initialize_clgd()
+
+    def get_description(self):
+        return 'FDTD+TDDFT'
 
     # Generated classical GridDescriptors, after spacing and cell are known
     def initialize_clgd(self):
@@ -937,7 +939,7 @@ class FDTDPoissonSolver:
         w['fdtd.nn'] = self.nn
         w['fdtd.relax'] = self.relax
         w['fdtd.coupling_scheme'] = self.potential_coupling_scheme
-        w['fdtd.description'] = self.description
+        w['fdtd.description'] = self.get_description()
         w['fdtd.remove_moment_qm'] = self.remove_moment_qm
         w['fdtd.remove_moment_cl'] = self.remove_moment_cl
         w['fdtd.time'] = self.time
