@@ -12,6 +12,7 @@ from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.occupations import FermiDirac
 from gpaw.utilities.timing import timer
 from gpaw.utilities.memory import maxrss
+from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.utilities.blas import gemm, rk, czher
@@ -166,11 +167,13 @@ class Chi0(PairDensity):
 
         q_c = pd.kd.bzk_kc[0]
         optical_limit = not self.no_optical_limit and np.allclose(q_c, 0.0)
-        print('\n    Starting summation', file=self.fd)
+
+        pb = ProgressBar(self.fd)
 
         self.timer.start('Loop')
         # kpt1 occupied and kpt2 empty:
         for kn, (s, K, n1, n2) in enumerate(self.mysKn1n2):
+            pb.update(kn / len(self.mysKn1n2))
             if self.keep_occupied_states:
                 kpt1 = self.mykpts[kn]
             else:
@@ -228,18 +231,9 @@ class Chi0(PairDensity):
                 if kpt1.n1 == 0:
                     self.update_intraband(kpt2, chi0_wvv)
 
-            if numberofkpts > 10 and kn % (numberofkpts // 10) == 0:
-                print('    %s,' % ctime() +
-                      ' local Kpoint no: %d / %d,' % (kn, numberofkpts) +
-                      '\n        mem. used.: ' +
-                      '%f M / cpu' % (maxrss() / 1024**2),
-                      file=self.fd)
-
         self.timer.stop('Loop')
 
-        print('    %s, Finished kpoint sum' % ctime() +
-              '\n        mem. used.: ' +
-              '%f M / cpu' % (maxrss() / 1024**2), file=self.fd)
+        pb.finish()
 
         with self.timer('Sum CHI_0'):
             for chi0_GG in chi0_wGG:
@@ -251,9 +245,8 @@ class Chi0(PairDensity):
                 if self.intraband:
                     self.world.sum(self.chi0_vv)
 
-        print('    %s, Finished summation over ranks' % ctime() +
-              '\n        mem. used.: ' +
-              '%f M / cpu' % (maxrss() / 1024**2), file=self.fd)
+        print('Memory used: {0:.3f} MB / CPU'.format(maxrss() / 1024**2),
+              file=self.fd)
 
         if (self.eta == 0.0 or self.hilbert) and self.blockcomm.size == 1:
             # Fill in upper/lower triangle also:

@@ -200,20 +200,20 @@ class PoissonSolver:
             self.load_gauss()
 
             # Remove monopole moment
-            q = actual_charge / np.sqrt(4 * pi) # Monopole moment
-            rho_neutral = rho - q * self.rho_gauss # neutralized density
+            q = actual_charge / np.sqrt(4 * pi)  # Monopole moment
+            rho_neutral = rho - q * self.rho_gauss  # neutralized density
 
             # Set initial guess for potential
             if zero_initial_phi:
                 phi[:] = 0.0
             else:
-                axpy(-q, self.phi_gauss, phi) #phi -= q * self.phi_gauss
+                axpy(-q, self.phi_gauss, phi)  # phi -= q * self.phi_gauss
 
             # Determine potential from neutral density using standard solver
             niter = self.solve_neutral(phi, rho_neutral, eps=eps)
 
             # correct error introduced by removing monopole
-            axpy(q, self.phi_gauss, phi) #phi += q * self.phi_gauss
+            axpy(q, self.phi_gauss, phi)  # phi += q * self.phi_gauss
 
             return niter
         else:
@@ -304,7 +304,7 @@ class PoissonSolver:
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
             error = self.gd.comm.sum(np.dot(residual.ravel(),
-                                             residual.ravel())) * self.dv
+                                            residual.ravel())) * self.dv
             return error
 
     def estimate_memory(self, mem):
@@ -313,9 +313,9 @@ class PoissonSolver:
         # of whether it's J or GS, which is a bit strange
 
         gdbytes = self.gd.bytecount()
-        nbytes = -gdbytes # No phi on finest grid, compensate ahead
+        nbytes = -gdbytes  # No phi on finest grid, compensate ahead
         for level in range(self.levels):
-            nbytes += 3 * gdbytes # Arrays: rho, phi, residual
+            nbytes += 3 * gdbytes  # Arrays: rho, phi, residual
             gdbytes //= 8
         mem.subnode('rho, phi, residual [%d levels]' % self.levels, nbytes)
 
@@ -465,13 +465,14 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
             self.charged_periodic_correction = madelung(self.gd.cell_cv)
 
         background = (actual_charge / self.gd.dv /
-                                    self.gd.get_size_of_global_array().prod())
+                      self.gd.get_size_of_global_array().prod())
 
         self.solve_neutral(phi_g, rho_g - background)
         phi_g += actual_charge * self.charged_periodic_correction
 
     def scatter_r_distribution(self, global_rho_g, dtype=float):
-        d1, d2, d3 = self.d1, self.d2, self.d3
+        d1 = self.d1
+        d2 = self.d2
         comm = self.gd.comm
         index = self.r_distribution[comm.rank]
         if comm.rank == 0:
@@ -556,9 +557,10 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
         phi_g1 = np.zeros(rho_g3.shape, dtype=complex)
         index = self.k_distribution[self.gd.comm.rank]
         for phi, rho, rv2, bp1, bp2, i in zip(phi_g1, rho_g3,
-                                           self.k_vq2,
-                                           self.loc_b_phi1,
-                                           self.loc_b_phi2, range(len(index))):
+                                              self.k_vq2,
+                                              self.loc_b_phi1,
+                                              self.loc_b_phi2,
+                                              range(len(index))):
             A = np.zeros(self.d3, dtype=complex) + 2 + h2 * rv2
             phi = rho * np.pi * 4 * h2
             phi[0] += bp1

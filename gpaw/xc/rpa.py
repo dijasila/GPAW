@@ -16,7 +16,7 @@ from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.utilities.timing import timer
+from gpaw.utilities.timing import timer, Timer
 from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 
 
@@ -38,6 +38,8 @@ class RPACorrelation:
             txt = open(txt, 'w')
         self.fd = txt
 
+        self.timer = Timer()
+        
         if frequencies is None:
             frequencies, weights = get_gauss_legendre_points(nfrequencies,
                                                              frequency_max,
@@ -155,11 +157,10 @@ class RPACorrelation:
 
         chi0 = Chi0(self.calc, 1j * Hartree * self.omega_w, eta=0.0,
                     intraband=False, hilbert=False,
-                    txt='chi0.txt', world=self.world,
+                    txt='chi0.txt', timer=self.timer, world=self.world,
                     no_optical_limit=self.wstc,
                     nblocks=self.nblocks)
 
-        self.timer = chi0.timer
         self.blockcomm = chi0.blockcomm
         
         wfs = self.calc.wfs

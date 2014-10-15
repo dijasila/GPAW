@@ -14,6 +14,7 @@ from gpaw.fd_operators import Gradient
 from gpaw.io.tar import Writer, Reader
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.utilities.blas import gemmdot, axpy
+from gpaw.utilities.timing import timer
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.xc.rpa import RPACorrelation
 
@@ -48,8 +49,8 @@ class FXCCorrelation(RPACorrelation):
             tag = self.calc.atoms.get_chemical_formula(mode='hill')
         self.tag = tag
 
+    @timer('FXC')
     def calculate(self, ecut):
-
         if self.xc != 'RPA':
             if isinstance(ecut, (float, int)):
                 self.ecut_max = ecut
@@ -60,7 +61,7 @@ class FXCCorrelation(RPACorrelation):
                                   % (self.tag, self.xc, self.ecut_max)):
                 kernel = Kernel(self.calc, self.xc, self.ibzq_qc,
                                 self.fd, self.unit_cells, self.density_cut,
-                                self.ecut_max, self.tag)
+                                self.ecut_max, self.tag, self.timer)
                 kernel.calculate_fhxc()
                 del kernel
             else:
@@ -76,6 +77,7 @@ class FXCCorrelation(RPACorrelation):
 
         return e
 
+    @timer('Chi0(q)')
     def calculate_q(self, chi0, pd,
                     chi0_swGG, chi0_swxvG, chi0_swvv,
                     Q_aGii, m1, m2, cut_G, A2_x):
@@ -113,6 +115,7 @@ class FXCCorrelation(RPACorrelation):
 
         return e
 
+    @timer('Energy')
     def calculate_energy(self, pd, chi0_swGG, cut_G):
         """Evaluate correlation energy from chi0 and the kernel fhxc"""
 
@@ -192,9 +195,8 @@ class FXCCorrelation(RPACorrelation):
 
 
 class Kernel:
-
     def __init__(self, calc, xc, ibzq_qc, fd, unit_cells,
-                 density_cut, ecut, tag):
+                 density_cut, ecut, tag, timer):
 
         self.calc = calc
         self.gd = calc.density.gd
@@ -205,7 +207,8 @@ class Kernel:
         self.density_cut = density_cut
         self.ecut = ecut
         self.tag = tag
-
+        self.timer = timer
+        
         self.A_x = -(3 / 4.) * (3 / np.pi)**(1 / 3.)
 
         self.n_g = calc.get_all_electron_density(gridrefinement=1)
@@ -224,6 +227,7 @@ class Kernel:
         qd = KPointDescriptor(self.ibzq_qc)
         self.pd = PWDescriptor(ecut / Hartree, self.gd, complex, qd)
 
+    @timer('FHXC')
     def calculate_fhxc(self):
 
         prnt('Calculating %s kernel at %d eV cutoff' %

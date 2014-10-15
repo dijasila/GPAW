@@ -754,8 +754,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         pb = ProgressBar(txt)
         nkpt = len(self.kpt_u)
         
-        for kptnum, kpt in enumerate(self.kpt_u):
-            pb.update(kptnum / nkpt)
+        for u, kpt in enumerate(self.kpt_u):
+            pb.update(u / nkpt)
             npw = len(self.pd.Q_qG[kpt.q])
             if scalapack:
                 mynpw = -(-npw // bd.comm.size)
