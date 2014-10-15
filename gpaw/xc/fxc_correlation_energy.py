@@ -239,7 +239,7 @@ class FXCCorrelation:
             print('#', index, file=self.txt)
         if optical_limit:
             print('q = [0 0 0] -', 'Polarization: ', direction, file=self.txt)
-        else: 
+        else:
             print('q = [%1.6f %1.6f %1.6f] -' \
                 % (q[0],q[1],q[2]), '%s planewaves' % npw, file=self.txt)
         print('Calculating KS response function', file=self.txt)
@@ -280,7 +280,7 @@ class FXCCorrelation:
         chi0 = np.zeros((Nw_local, ns*npw, ns*npw), dtype=complex)
 
         df.calculate(seperate_spin=0)
-        chi0[:, :npw, :npw] = df.chi0_wGG[:] 
+        chi0[:, :npw, :npw] = df.chi0_wGG[:]
         if ns == 2:
             df.ecut *= Hartree
             df.xc = 'RPA'
@@ -295,7 +295,7 @@ class FXCCorrelation:
         print('Calculating interacting response function', file=self.txt)
         ls, l_ws = p_roots(self.lambda_points)
         ls = (ls + 1.0) * 0.5
-        l_ws *= 0.5            
+        l_ws *= 0.5
         for i in range(Nw_local):
             chi0_fhxc = np.dot(chi0[i], r.get('fhxc_sGsG'))
             for l, l_w in zip(ls, l_ws):
@@ -313,7 +313,7 @@ class FXCCorrelation:
         if self.gauss_legendre is not None:
             E_q = np.sum(E_q_w * self.gauss_weights * self.transform) \
                   / (4 * np.pi)
-        else:   
+        else:
             dws = self.w[1:] - self.w[:-1]
             E_q = np.dot((E_q_w[:-1] + E_q_w[1:])/2., dws) / (2 * np.pi)
 
@@ -323,7 +323,7 @@ class FXCCorrelation:
         if integrated:
             return E_q.real
         else:
-            return E_q_w.real               
+            return E_q_w.real
 
 
     def initialize_calculation(self,
@@ -382,7 +382,7 @@ class FXCCorrelation:
         self.nbands = nbands
 
         if debug:
-            print(file=self.txt)            
+            print(file=self.txt)
             print('DEBUG MODE', file=self.txt)
             print(file=self.txt)
     
@@ -457,7 +457,7 @@ class FXCCorrelation:
             if self.paw_correction == 0:
                 print('Using pseudo-density with ALDA PAW corrections', file=self.txt)
             elif self.paw_correction == 1:
-                print('Using all-electron density', file=self.txt) 
+                print('Using all-electron density', file=self.txt)
             elif self.paw_correction == 2:
                 print('Using pseudo-density with average ALDA PAW corrections', file=self.txt)
             elif self.paw_correction == 3:
@@ -478,16 +478,16 @@ class FXCCorrelation:
         print('Number of Spins                :   %s' \
               % self.nspins, file=self.txt)
         print('Number of k-points             :   %s' \
-              % len(self.calc.wfs.bzk_kc), file=self.txt)
+              % len(self.calc.wfs.kd.bzk_kc), file=self.txt)
         print('Number of q-points             :   %s' \
               % len(self.bz_q_points), file=self.txt)
         print('Number of Irreducible k-points :   %s' \
-              % len(self.calc.wfs.ibzk_kc), file=self.txt)
+              % len(self.calc.wfs.kd.ibzk_kc), file=self.txt)
         if self.qsym:
             print('Number of Irreducible q-points :   %s' \
                   % len(self.ibz_q_points), file=self.txt)
         else:
-            print('No reduction of q-points', file=self.txt) 
+            print('No reduction of q-points', file=self.txt)
         print(file=self.txt)
         for q, weight in zip(self.ibz_q_points, self.q_weights):
             print('q: [%1.4f %1.4f %1.4f] - weight: %1.3f' \
@@ -581,7 +581,7 @@ class FXCCorrelation:
         chi0 = np.zeros((Nw_local, ns*npw, ns*npw), dtype=complex)
 
         df.calculate(seperate_spin=0)
-        chi0[:, :npw, :npw] = df.chi0_wGG[:] 
+        chi0[:, :npw, :npw] = df.chi0_wGG[:]
         if ns == 2:
             df.ecut *= Hartree
             df.xc = 'RPA'
@@ -698,7 +698,7 @@ class Kernel:
         self.vol = dummy.vol
         self.bcell_cv = dummy.bcell_cv
         self.acell_cv = dummy.acell_cv
-        del dummy       
+        del dummy
 
     def calculate_fhxc(self, directions=[0,1,2]):
 
@@ -770,7 +770,7 @@ class Kernel:
                 w.close()
             world.barrier()
         
-        print(file=self.txt)    
+        print(file=self.txt)
 
 
     def calculate_rkernel(self, directions=[0,1,2]):
@@ -881,7 +881,7 @@ class Kernel:
                 f_rr[np.where(n_av < self.density_cut)] = 0.0
                 V_rr[np.where(n_av < self.density_cut)] = 0.0
 
-                f_rr *= R_weight[i]        
+                f_rr *= R_weight[i]
                 V_rr *= R_weight[i]
 
                 # r-r'-R_i
@@ -889,7 +889,7 @@ class Kernel:
 
                 # Fourier transform of r
                 for iq, q in enumerate(self.q_points):
-                    q_v = np.dot(q, bcell_cv) 
+                    q_v = np.dot(q, bcell_cv)
                     e_q = np.exp(-1j * gemmdot(q_v, r_r, beta=0.0))
                     tmp_fhxc = np.fft.fftn((f_rr+V_rr)*e_q) * vol / nG0
                     if ns == 2:
@@ -914,7 +914,7 @@ class Kernel:
             l_pw_range = range(world.rank * l_pw_size,
                                min((world.rank+1) * l_pw_size, npw))
 
-            if world.size > 1 : 
+            if world.size > 1 :
                 bg1 = BlacsGrid(world, 1, world.size)
                 bg2 = BlacsGrid(world, world.size, 1)
                 bd1 = bg1.new_descriptor(npw, nG0, npw, - (-nG0 / world.size))
@@ -924,7 +924,7 @@ class Kernel:
                 if ns == 2:
                     Koff_Glr = np.zeros((len(l_pw_range), nG0), dtype=complex)
 
-                r = Redistributor(bg1.comm, bd1, bd2) 
+                r = Redistributor(bg1.comm, bd1, bd2)
                 r.redistribute(fhxc_qsGr[iq][0], fhxc_Glr, npw, nG0)
                 if ns == 2:
                     r.redistribute(fhxc_qsGr[iq][1], Koff_Glr, npw, nG0)
@@ -970,7 +970,7 @@ class Kernel:
                             Gq_Gv = np.dot(Gvec_Gc + q0, bcell_cv)
                             Gq_G = (Gq_Gv[:,0]**2 + Gq_Gv[:,1]**2 + Gq_Gv[:,2]**2)**0.5
                             vq_G = 4 * np.pi / Gq_G**2
-                            w.fill(fhxc_sGsG / vol 
+                            w.fill(fhxc_sGsG / vol
                                    + np.tile(np.eye(npw) * vq_G, (ns, ns)))
                         else:
                             w.fill(fhxc_sGsG / vol)
@@ -987,7 +987,7 @@ class Kernel:
                         Gq_Gv = np.dot(Gvec_Gc + q, bcell_cv)
                         Gq_G = (Gq_Gv[:,0]**2 + Gq_Gv[:,1]**2 + Gq_Gv[:,2]**2)**0.5
                         vq_G = 4 * np.pi / Gq_G**2
-                        w.fill(fhxc_sGsG / vol 
+                        w.fill(fhxc_sGsG / vol
                                + np.tile(np.eye(npw) * vq_G, (ns, ns)))
                     else:
                         w.fill(fhxc_sGsG / vol)
@@ -1011,7 +1011,7 @@ class Kernel:
         n_g = self.n_g
 
         fx_g = ns * self.get_fxc_g(n_g)
-        fx_g[np.where(n_g < self.density_cut)] = 0.0        
+        fx_g[np.where(n_g < self.density_cut)] = 0.0
         qc_g = (-4 * np.pi * ns / fx_g)**0.5
         #kf_g = (3 * np.pi**2 * n_g)**(1./3.)
 
@@ -1120,7 +1120,7 @@ class Kernel:
                 w.close()
             world.barrier()
 
-        print(file=self.txt)    
+        print(file=self.txt)
 
     def calculate_local_kernel(self):
         # Standard ALDA exchange kernel
@@ -1133,7 +1133,7 @@ class Kernel:
 
         A_x = -(3/4.) * (3/np.pi)**(1/3.)
         fxc_sg = ns * (4 / 9.) * A_x * (ns*n_g)**(-2/3.)
-        fxc_sg[np.where(n_g < self.density_cut)] = 0.0        
+        fxc_sg[np.where(n_g < self.density_cut)] = 0.0
 
         r_vg = gd.get_grid_point_coordinates()
 
@@ -1184,7 +1184,7 @@ class Kernel:
                 w.close()
             world.barrier()
 
-        print(file=self.txt)                
+        print(file=self.txt)
 
 
     def add_paw_correction(self, npw, Gvec_Gc, bcell_cv, setups, D_asp, R_av):
@@ -1224,7 +1224,7 @@ class Kernel:
             nt_sLg[:, 0] += (4 * np.pi)**0.5 / ns * nct_g
 
             coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
-            w = weight_n    
+            w = weight_n
 
             if self.paw_correction == 2:
                 Y_nL = [Y_nL[0]]
@@ -1235,13 +1235,13 @@ class Kernel:
                 n_sg = np.dot(Y_L, n_sLg)
                 f_sg = ns * (4 / 9.) * A_x * (ns*n_sg)**(-2/3.)
                 if self.density_cut is not None:
-                    f_sg[np.where(ns*n_sg < self.density_cut)] = 0.0        
+                    f_sg[np.where(ns*n_sg < self.density_cut)] = 0.0
 
                 ft_sg[:] = 0.0
                 nt_sg = np.dot(Y_L, nt_sLg)
                 ft_sg = ns * (4 / 9.) * A_x * (ns*nt_sg)**(-2/3.)
                 if self.density_cut is not None:
-                    ft_sg[np.where(ns*nt_sg < self.density_cut)] = 0.0        
+                    ft_sg[np.where(ns*nt_sg < self.density_cut)] = 0.0
 
                 for i in range(world.rank * myng,
                                min((world.rank + 1) * myng, ng)):
@@ -1305,7 +1305,7 @@ class Kernel:
         #Fgrad_vg = np.zeros_like(gradn_vg)
         #Fngrad_vg = np.zeros_like(gradn_vg)
         #for v in range(3):
-        #    axpy(1.0, mu / den_g**2 * gradn_vg[v] / (2 * kf_g**2 * n_g**2), 
+        #    axpy(1.0, mu / den_g**2 * gradn_vg[v] / (2 * kf_g**2 * n_g**2),
         #         Fgrad_vg[v])
         #    axpy(-8.0, Fgrad_vg[v] / (3 * n_g), Fngrad_vg[v])
         #    axpy(-2.0, Fgrad_vg[v] * Fn_g / kappa, Fngrad_vg[v])
@@ -1322,7 +1322,7 @@ class Kernel:
                 #axpy(-4.0/kappa, tmp1 * e_g, fxc_g)
             #self.grad_v[v](Fngrad_vg[v], tmp)
             #axpy(-2.0, tmp * e_g, fxc_g)
-        #self.laplace(mu / den_g**2 / (2 * kf_g**2 * n_g**2), tmp)    
+        #self.laplace(mu / den_g**2 / (2 * kf_g**2 * n_g**2), tmp)
         #axpy(1.0, tmp * e_g, fxc_g)
         
         return fxc_g
