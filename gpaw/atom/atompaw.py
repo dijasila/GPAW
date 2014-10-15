@@ -40,7 +40,8 @@ class AtomWaveFunctions(WaveFunctions):
 
 
 class AtomPoissonSolver:
-    description = 'Radial equidistant'
+    def get_description(self):
+        return 'Radial equidistant'
 
     def set_grid_descriptor(self, gd):
         self.gd = gd
