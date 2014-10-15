@@ -112,10 +112,8 @@ class KPointDescriptor:
             self.gamma = gamma
         else:
             # Gamma-point calculation?
-            self.gamma = self.nbzkpts == 1 and not self.bzk_kc[0].any()
+            self.gamma = self.nbzkpts == 1 and np.allclose(self.bzk_kc, 0)
             
-        #self.set_symmetry(None, None, usesymm=None)
-
         # Point group and time-reversal symmetry neglected:
         self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
         self.ibzk_kc = self.bzk_kc.copy()
@@ -344,7 +342,6 @@ class KPointDescriptor:
                                           kbz_c)
         return index_G, phase_G
 
-    #def find_k_plus_q(self, q_c, k_x=None):
     def find_k_plus_q(self, q_c, kpts_k=None):
         """Find the indices of k+q for all kpoints in the Brillouin zone.
 

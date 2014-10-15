@@ -20,3 +20,4 @@ error_kc = bz1k_kc - np.array([[0.5, -0.5, 0],
                                [0.49999999999, -0.5, 0],
                                [0.55, -0.275, 0]])
 assert abs(error_kc).max() == 0.0
+assert KPointDescriptor(np.zeros((1, 3)) + 1e-14).gamma
