@@ -15,7 +15,7 @@ kpts += np.array([1/8., 1/8., 1/8.])
 bulk = bulk('Na', 'bcc', a=4.23)
 
 ecut = 350
-calc = GPAW(mode=PW(ecut),dtype=complex, basis='dzp', kpts=kpts, 
+calc = GPAW(mode=PW(ecut),dtype=complex, basis='dzp', kpts=kpts,
             parallel={'domain': 1}, txt='gs_occ_pw.txt', nbands=4,
             occupations=FermiDirac(0.01),
             setups={'Na': '1'},
@@ -28,9 +28,7 @@ calc = GPAW('gs_occ_pw.gpw',txt='gs_pw.txt', parallel={'band': 1})
 calc.diagonalize_full_hamiltonian(nbands=520)
 calc.write('gs_pw.gpw', 'all')
 
-ecut = 120 
+ecut = 120
 calc = GPAW('gs_pw.gpw', communicator=serial_comm, txt=None)
 rpa = RPACorrelation(calc, txt='rpa_%s.txt' %(ecut))
-E = rpa.calculate(ecut=[ecut])
-
-equal(E, -1.106, 0.005)
+E = rpa.calculate(ecut=[50, 60])

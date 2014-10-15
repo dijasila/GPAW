@@ -16,6 +16,7 @@ from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.utilities.timing import timer
 from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 
 
@@ -154,18 +155,20 @@ class RPACorrelation:
 
         chi0 = Chi0(self.calc, 1j * Hartree * self.omega_w, eta=0.0,
                     intraband=False, hilbert=False,
-                    txt=self.fd, world=self.world,
+                    txt='chi0.txt', world=self.world,
                     no_optical_limit=self.wstc,
                     nblocks=self.nblocks)
 
+        self.timer = chi0.timer
         self.blockcomm = chi0.blockcomm
         
         wfs = self.calc.wfs
         
         if self.wstc:
-            p('Using Wigner-Seitz truncated Coulomb potential.')
-            self.wstc = WignerSeitzTruncatedCoulomb(
-                wfs.gd.cell_cv, wfs.kd.N_c, self.fd)
+            with self.timer('WSTC-init'):
+                p('Using Wigner-Seitz truncated Coulomb potential.')
+                self.wstc = WignerSeitzTruncatedCoulomb(
+                    wfs.gd.cell_cv, wfs.kd.N_c, self.fd)
 
         nq = len(self.energy_qi)
         nw = len(self.omega_w)
@@ -179,6 +182,8 @@ class RPACorrelation:
             A2_x = np.empty(nx, complex)
         else:
             A2_x = None
+        
+        self.timer.start('RPA')
         
         for q_c in self.ibzq_qc[nq:]:
             if np.allclose(q_c, 0.0) and self.skip_gamma:
@@ -264,8 +269,12 @@ class RPACorrelation:
         p('Calculation completed at: ', ctime())
         p()
 
+        self.timer.stop('RPA')
+        self.timer.write(self.fd)
+        
         return e_i * Hartree
 
+    @timer('chi0(q)')
     def calculate_q(self, chi0, pd,
                     chi0_swGG, chi0_swxvG, chi0_swvv, Q_aGii, m1, m2, cut_G,
                     A2_x):
@@ -305,6 +314,7 @@ class RPACorrelation:
 
         return e
 
+    @timer('Energy')
     def calculate_energy(self, pd, chi0_wGG, cut_G):
         """Evaluate correlation energy from chi0."""
 
