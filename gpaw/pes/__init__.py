@@ -4,12 +4,13 @@ import gpaw.mpi as mpi
 from gpaw.lrtddft.spectrum import Writer
 
 ds_prefactor = {
-    'Ang': Bohr**2,
+    'Ang': Bohr ** 2,
     'a.u.': 1.0,
-    'Mb': Bohr**2 * 100}
+    'Mb': Bohr ** 2 * 100}
 
 
 class PESpectrum(Writer):
+
     def __init__(self,
                  enlist,
                  folding='Gauss',
@@ -21,14 +22,15 @@ class PESpectrum(Writer):
             self.fields += 'Spectroscopic factor'
         else:
             self.fields += 'Folded spectroscopic factor'
-   
+
         self.energies = enlist[0]
         self.values = []
         for val in enlist[1]:
             self.values.append([val])
 
-            
+
 class BasePES:
+
     def save_folded_pes(self,
                         filename=None,
                         width=0.08,  # Gauss/Lorentz width

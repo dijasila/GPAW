@@ -10,7 +10,9 @@ from gpaw.analyse.expandyl import AngularIntegral
 
 
 class PlaneWave(State):
+
     """Plane wave state."""
+
     def get_grid(self, k_c, r0=None):
         if r0 is None:
             r0_c = np.array([0., 0., 0.])
@@ -35,11 +37,12 @@ class PlaneWave(State):
             _gpaw.plane_wave_grid(gd.beg_c, gd.end_c,
                                   gd.h_cv.diagonal().copy(),
                                   k_c, r0_c, pw_G)
-        pw_G /= (2 * pi)**(3. / 2.)
+        pw_G /= (2 * pi) ** (3. / 2.)
         return pw_G
-        
+
 
 class ZerothOrder1(State):
+
     def __init__(self, calculator):
         self.calculator = calculator
         State.__init__(self, calculator.gd)
@@ -83,6 +86,6 @@ class ZerothOrder1(State):
 
         corrt_G = self.gd.empty()
         self.poisson.solve(corrt_G, self.vt_G, charge=None)
-        corrt_G /= (2 * pi)**(5. / 2)
+        corrt_G /= (2 * pi) ** (5. / 2)
 
         self.corrt_G = corrt_G

@@ -9,11 +9,12 @@ from gpaw.pes import ds_prefactor
 from gpaw.pes.state import H1s
 from gpaw.pes.continuum import PlaneWave
 
-#debug
-#from gpaw.mpi import rank
+# debug
+# from gpaw.mpi import rank
 
 
 class CrossSectionBeta:
+
     def __init__(self,
                  initial=None,
                  final=None,
@@ -44,7 +45,7 @@ class CrossSectionBeta:
 
     def calculate(self, Ekin):
         """Calculate the necessary overlaps."""
-        
+
         Ekin = Ekin / Hartree
         if self.Ekin == Ekin:
             return
@@ -52,15 +53,15 @@ class CrossSectionBeta:
 
         # photoelectron momentum
         self.k = sqrt(2 * self.Ekin)
-    
+
         for angle in ['x', 'phi', 'psi']:
             self.angle[angle] = self.gl[angle].get_x()[0]
         self.T20, self.T2m = self.gi_x()
 
         # we need the average
-        self.T20 /= 8 * pi**2
-        self.T2m /= 8 * pi**2
- 
+        self.T20 /= 8 * pi ** 2
+        self.T2m /= 8 * pi ** 2
+
     def get_omega(self):
         """Return the necessary photon energy."""
         return self.Ekin - self.initial.get_energy() / Hartree
@@ -97,14 +98,14 @@ class CrossSectionBeta:
 #        print "T2m:", T2mana, self.T2m
 
         omega = self.get_omega()
- 
+
         # integration over momentum agles
         pre *= self.k * 4 * pi
 
 #        print omega, self.initial.get_ds(self.k, omega, self.form), \
 #            (self.k * 4 * pi * (2 * pi)**2 / 137.0359895 * self.T2m / omega)
 
-        return pre * ((2 * pi)**2 * alpha * self.T2m / omega)
+        return pre * ((2 * pi) ** 2 * alpha * self.T2m / omega)
 
     def gauss_integrate(self, angle, function):
         T20 = 0.
@@ -135,7 +136,7 @@ class CrossSectionBeta:
 
         # polarisation in the direction of vk
         costh = self.angle['x']
-        sinth = sqrt(1. - costh**2)
+        sinth = sqrt(1. - costh ** 2)
         sinphi = sin(self.angle['phi'])
         cosphi = cos(self.angle['phi'])
         eps0 = np.array([sinth * cosphi,
@@ -199,7 +200,7 @@ class CrossSectionBeta:
             me = me_c[0].imag
 
             def ds(me):
-                return self.k / omega * me**2
+                return self.k / omega * me ** 2
 
             print(omega, ds(me_analyt), ds(me), me_analyt, me)
 #        print 'analyt', self.initial.get_me_c(vk, self.form)
