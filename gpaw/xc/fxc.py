@@ -553,6 +553,7 @@ class Kernel:
 
         return fxc_g
 
+"""
     def get_fxc_libxc_g(self, n_g):
         ### NOT USED AT THE MOMENT
         gd = self.calc.density.gd.refine()
@@ -635,3 +636,4 @@ class Kernel:
                             fxc_sg[s, x, y, z] = num / den
 
         return fxc_sg[:, ::2, ::2, ::2]
+"""
