@@ -14,10 +14,12 @@ from gpaw.grid_descriptor import GridDescriptor
 
 
 class SimpleStm:
+
     """Simple STM object to simulate STM pictures.
 
     The simulation uses either a single pseudo-wavefunction (PWF)
     or the PWFs inside the given bias range."""
+
     def __init__(self, atoms):
 
         self.file = None
@@ -35,7 +37,7 @@ class SimpleStm:
             else:
                 self.calc = atoms
             self.calc.converge_wave_functions()
-            
+
             self.gd = self.calc.wfs.gd
             self.offset_c = [int(not a) for a in self.gd.pbc_c]
 
@@ -64,7 +66,7 @@ class SimpleStm:
                     efermi_s = np.array([self.calc.get_fermi_level()] * 2)
             except:
                 efermi_s = np.array([self.calc.get_homo_lumo().mean()] * 2)
-                
+
             if isinstance(bias, (int, long, float)):
                 # bias given
                 if bias > 0:
@@ -91,7 +93,7 @@ class SimpleStm:
 
             emin_s /= Hartree
             emax_s /= Hartree
-                
+
             for u in range(len(self.calc.wfs.kpt_u)):
                 kpt = self.calc.wfs.kpt_u[u]
                 emin = emin_s[kpt.s]
@@ -111,7 +113,7 @@ class SimpleStm:
         w = weight
         if w is None:
             w = kpt.weight
-##        print "w=", w, kpt.weight
+# print "w=", w, kpt.weight
         self.ldos += w * (psi * np.conj(psi)).real
 
     def write_3D(self, bias, file, filetype=None):
@@ -121,8 +123,8 @@ class SimpleStm:
         self.calculate_ldos(bias)
         self.calc.wfs.kd.comm.sum(self.ldos)
         ldos = self.gd.collect(self.ldos)
-##        print "write: integrated =", self.gd.integrate(self.ldos)
-        
+# print "write: integrated =", self.gd.integrate(self.ldos)
+
         if mpi.rank != MASTER:
             return
 
@@ -132,9 +134,9 @@ class SimpleStm:
         filetype.lower()
 
         if filetype == 'cube':
-            write_cube(file, self.calc.get_atoms(), ldos / Bohr**3)
+            write_cube(file, self.calc.get_atoms(), ldos / Bohr ** 3)
         elif filetype == 'plt':
-            write_plt(file, self.calc.get_atoms(), ldos / Bohr**3)
+            write_plt(file, self.calc.get_atoms(), ldos / Bohr ** 3)
         else:
             raise NotImplementedError('unknown file type "' + filetype + '"')
 
@@ -157,14 +159,14 @@ class SimpleStm:
                     N_c[c] += 1
             self.gd = GridDescriptor(N_c, cell.diagonal() / Bohr, pbc_c)
             self.offset_c = [int(not a) for a in self.gd.pbc_c]
-            
+
         else:
             raise NotImplementedError('unknown file type "' + filetype + '"')
 
         self.file = file
-        self.ldos = np.array(data * Bohr**3, np.float)
-##        print "read: integrated =", self.gd.integrate(self.ldos)
- 
+        self.ldos = np.array(data * Bohr ** 3, np.float)
+# print "read: integrated =", self.gd.integrate(self.ldos)
+
     def current_to_density(self, current):
         """The connection between density n and current I
 
@@ -175,9 +177,9 @@ class SimpleStm:
         return 0.0002 * sqrt(current)
 
     def density_to_current(self, density):
-        return 5000. * density**2
+        return 5000. * density ** 2
 
-    def scan_const_current(self, current, bias=None, 
+    def scan_const_current(self, current, bias=None,
                            interpolate=False, hmax=None):
         """Get the height image for constant current I [nA].
 
@@ -189,7 +191,7 @@ class SimpleStm:
     def scan_const_density(self, density, bias, interpolate=False, hmax=None):
         """Get the height image for constant density [e/Angstrom^3].
         """
- 
+
         self.calculate_ldos(bias)
 
         self.density = density
@@ -211,14 +213,14 @@ class SimpleStm:
             ii = i - gd.beg_c[0]
             for j in range(gd.beg_c[1], gd.end_c[1]):
                 jj = j - gd.beg_c[1]
-                
+
                 zline = self.ldos[ii, jj]
-                
-                # check from above until you find the required density 
+
+                # check from above until you find the required density
                 for k in range(ihmax, gd.beg_c[2] - 1, -1):
                     kk = k - gd.beg_c[2]
                     if zline[kk] > density:
-                        heights[i - self.offset_c[0], 
+                        heights[i - self.offset_c[0],
                                 j - self.offset_c[1]] = k
                         break
 
@@ -245,16 +247,16 @@ class SimpleStm:
                             k = kmax
 
         self.heights = np.where(heights > 0,
-                                 (heights + self.offset_c[2]) * h_c[2], -1)
+                               (heights + self.offset_c[2]) * h_c[2], -1)
 
         return heights
-        
+
     def write(self, file=None):
         """Write STM data to a file in gnuplot readable tyle."""
 
         if mpi.rank != MASTER:
             return
-        
+
         xvals, yvals, heights = self.pylab_contour()
         nx, ny = heights.shape[:2]
 
@@ -280,7 +282,8 @@ class SimpleStm:
                 print('# bias=', self.bias, '[eV]', file=f)
         print('#', file=f)
         print('# density=', self.density, '[e/Angstrom^3]', end=' ', file=f)
-        print('(current=', self.density_to_current(self.density), '[nA])', file=f)
+        print(
+            '(current=', self.density_to_current(self.density), '[nA])', file=f)
         print('# x[Angs.]   y[Angs.]     h[Angs.] (-1 is not found)', file=f)
         for i in range(nx):
             for j in range(ny):
@@ -296,7 +299,7 @@ class SimpleStm:
         """Return the countour to be plotted using pylab."""
 
         nx, ny = self.heights.shape[:2]
-        h_c = np.array([np.linalg.norm(self.gd.h_cv[c]) 
+        h_c = np.array([np.linalg.norm(self.gd.h_cv[c])
                         for c in range(3)]) * Bohr
         # the lowest point is not stored for non-periodic BCs
         xvals = [(i + self.offset_c[0]) * h_c[0] for i in range(nx)]
