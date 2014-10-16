@@ -7,9 +7,9 @@
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #include <numpy/arrayobject.h>
 
-#ifdef GPAW_WITH_HDF5 
-PyMODINIT_FUNC init_gpaw_hdf5(void); 
-#endif 
+#ifdef GPAW_WITH_HDF5
+PyMODINIT_FUNC init_gpaw_hdf5(void);
+#endif
 
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
@@ -32,6 +32,7 @@ PyObject* symmetrize_return_index(PyObject *self, PyObject *args);
 PyObject* symmetrize_with_index(PyObject *self, PyObject *args);
 PyObject* map_k_points(PyObject *self, PyObject *args);
 PyObject* scal(PyObject *self, PyObject *args);
+PyObject* mmm(PyObject *self, PyObject *args);
 PyObject* gemm(PyObject *self, PyObject *args);
 PyObject* gemv(PyObject *self, PyObject *args);
 PyObject* axpy(PyObject *self, PyObject *args);
@@ -96,7 +97,7 @@ PyObject* scalapack_general_diagonalize_dc(PyObject *self, PyObject *args);
 PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args);
 #ifdef GPAW_MR3
 PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args);
-#endif 
+#endif
 PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args);
 PyObject* scalapack_inverse(PyObject *self, PyObject *args);
 PyObject* scalapack_solve(PyObject *self, PyObject *args);
@@ -113,7 +114,7 @@ PyObject* papi_mem_info(PyObject *self, PyObject *args);
 #endif
 
 // Moving least squares interpolation
-PyObject* mlsqr(PyObject *self, PyObject *args); 
+PyObject* mlsqr(PyObject *self, PyObject *args);
 
 static PyMethodDef functions[] = {
   {"symmetrize", symmetrize, METH_VARARGS, 0},
@@ -123,9 +124,10 @@ static PyMethodDef functions[] = {
   {"symmetrize_with_index", symmetrize_with_index, METH_VARARGS, 0},
   {"map_k_points", map_k_points, METH_VARARGS, 0},
   {"scal", scal, METH_VARARGS, 0},
+  {"mmm", mmm, METH_VARARGS, 0},
   {"gemm", gemm, METH_VARARGS, 0},
   {"gemv", gemv, METH_VARARGS, 0},
-  {"axpy", axpy, METH_VARARGS, 0}, 
+  {"axpy", axpy, METH_VARARGS, 0},
   {"czher", czher, METH_VARARGS, 0},
   {"rk",  rk,  METH_VARARGS, 0},
   {"r2k", r2k, METH_VARARGS, 0},
@@ -182,16 +184,16 @@ static PyMethodDef functions[] = {
   {"get_blacs_gridinfo", get_blacs_gridinfo, METH_VARARGS, NULL},
   {"get_blacs_local_shape", get_blacs_local_shape, METH_VARARGS, NULL},
   {"blacs_destroy",     blacs_destroy,      METH_VARARGS, 0},
-  {"scalapack_set", scalapack_set, METH_VARARGS, 0}, 
+  {"scalapack_set", scalapack_set, METH_VARARGS, 0},
   {"scalapack_redist",      scalapack_redist,     METH_VARARGS, 0},
-  {"scalapack_diagonalize_dc", scalapack_diagonalize_dc, METH_VARARGS, 0}, 
+  {"scalapack_diagonalize_dc", scalapack_diagonalize_dc, METH_VARARGS, 0},
   {"scalapack_diagonalize_ex", scalapack_diagonalize_ex, METH_VARARGS, 0},
 #ifdef GPAW_MR3
   {"scalapack_diagonalize_mr3", scalapack_diagonalize_mr3, METH_VARARGS, 0},
 #endif // GPAW_MR3
-  {"scalapack_general_diagonalize_dc", 
+  {"scalapack_general_diagonalize_dc",
    scalapack_general_diagonalize_dc, METH_VARARGS, 0},
-  {"scalapack_general_diagonalize_ex", 
+  {"scalapack_general_diagonalize_ex",
    scalapack_general_diagonalize_ex, METH_VARARGS, 0},
 #ifdef GPAW_MR3
   {"scalapack_general_diagonalize_mr3",
@@ -218,9 +220,9 @@ static PyMethodDef functions[] = {
   {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
 #endif // CRAYPAT
 #ifdef GPAW_PAPI
-  {"papi_mem_info", papi_mem_info, METH_VARARGS, 0}, 
+  {"papi_mem_info", papi_mem_info, METH_VARARGS, 0},
 #endif // GPAW_PAPI
-  {"mlsqr", mlsqr, METH_VARARGS, 0}, 
+  {"mlsqr", mlsqr, METH_VARARGS, 0},
   {0, 0, 0, 0}
 };
 
@@ -335,9 +337,9 @@ main(int argc, char **argv)
       printf("%s \n", procname);
       
       for (i = 1; i < numprocs; ++i) {
-	  MPI_Recv(&procnamesize, 1, MPI_INT, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-	  MPI_Recv(procname, procnamesize, MPI_CHAR, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-	  printf("%s \n", procname);
+          MPI_Recv(&procnamesize, 1, MPI_INT, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+          MPI_Recv(procname, procnamesize, MPI_CHAR, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+          printf("%s \n", procname);
       }
   }
 #endif // GPAW_MPI_MAP
@@ -390,9 +392,9 @@ main(int argc, char **argv)
   Py_INCREF(&XCFunctionalType);
   Py_INCREF(&lxcXCFunctionalType);
 
-#ifdef GPAW_WITH_HDF5 
-  init_gpaw_hdf5(); 
-#endif 
+#ifdef GPAW_WITH_HDF5
+  init_gpaw_hdf5();
+#endif
   import_array1(-1);
   MPI_Barrier(MPI_COMM_WORLD);
 #ifdef CRAYPAT

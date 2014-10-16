@@ -74,6 +74,7 @@ tests = [
     'dot.py',
     'lxc_fxc.py',
     'blas.py',
+    'mmm.py',
     'erf.py',
     'gp2.py',
     'kptpar.py',

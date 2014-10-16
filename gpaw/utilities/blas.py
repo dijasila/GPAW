@@ -18,6 +18,22 @@ from gpaw import debug
 import _gpaw
 
 
+def mmm(alpha, a, opa, b, opb, beta, c):
+    """Matrix-matrix multiplication using dgemm or zgemm.
+    
+    For opa='n' and opb='n', we have::
+        
+        c <- alpha * a * b + beta * c.
+        
+    Use 't' to transpose matrices and 'c' to transpose and complex conjugate.
+    """
+    
+    assert opa in 'ntc'
+    assert opb in 'ntc'
+    
+    _gpaw.mmm(alpha, a, opa, b, opb, beta, c)
+    
+    
 def scal(alpha, x):
     """alpha x
 
@@ -355,6 +371,7 @@ def _rotate(in_jj, U_ij, a=1., b=0., out_ii=None, work_ij=None):
 
 
 if not debug:
+    mmm = _gpaw.mmm
     scal = _gpaw.scal
     gemm = _gpaw.gemm
     gemv = _gpaw.gemv
