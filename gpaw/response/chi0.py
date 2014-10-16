@@ -9,14 +9,14 @@ from ase.units import Hartree
 import gpaw.mpi as mpi
 from gpaw import extra_parameters
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.occupations import FermiDirac
+from gpaw.response.pair import PairDensity
 from gpaw.utilities.timing import timer
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.response.pair import PairDensity
+from gpaw.utilities.blas import gemm, rk, czher, mmm
 from gpaw.wavefunctions.pw import PWDescriptor
-from gpaw.utilities.blas import gemm, rk, czher
-from gpaw.kpt_descriptor import KPointDescriptor
 
 
 def frequency_grid(domega0, omega2, omegamax):
@@ -298,14 +298,14 @@ class Chi0(PairDensity):
     @timer('CHI_0 hermetian update')
     def update_hermitian(self, n_mG, deps_m, df_m, chi0_wGG):
         for w, omega in enumerate(self.omega_w):
-            x_m = (-2 * df_m * deps_m / (omega.imag**2 + deps_m**2))**0.5
             if self.blockcomm.size == 1:
+                x_m = (-2 * df_m * deps_m / (omega.imag**2 + deps_m**2))**0.5
                 nx_mG = n_mG.conj() * x_m[:, np.newaxis]
                 rk(-self.prefactor, nx_mG, 1.0, chi0_wGG[w], 'n')
             else:
-                nx_Gm = n_mG.T.copy() * x_m
-                mynx_Gm = nx_Gm[self.Ga:self.Gb]
-                gemm(-self.prefactor, nx_Gm, mynx_Gm, 1.0, chi0_wGG[w], 'c')
+                x_m = 2 * df_m * deps_m / (omega.imag**2 + deps_m**2)
+                mynx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
+                mmm(self.prefactor, mynx_mG, 'c', n_mG, 'n', 1.0, chi0_wGG[w])
 
     @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
