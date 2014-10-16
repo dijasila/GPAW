@@ -20,6 +20,7 @@ from ase.parallel import distribute_cpus
 
 
 class FiniteDifferenceCalculator(Calculator):
+
     def __init__(self, lrtddft, d=0.001, txt=None, parallel=None):
         """Finite difference calculator for LrTDDFT.
 
@@ -43,7 +44,7 @@ class FiniteDifferenceCalculator(Calculator):
                 self.txt, firsttime = initialize_text_stream(
                     txt, world.rank)
         prnt('#', self.__class__.__name__, version, file=self.txt)
-                                                              
+
         self.d = d
         self.parallel = {
             'world': world, 'mycomm': world, 'ncalcs': 1, 'icalc': 0}
@@ -58,7 +59,7 @@ class FiniteDifferenceCalculator(Calculator):
                 # this is ase < r3431
                 ncalcs = world.size / parallel
             self.parallel = {'world': world, 'mycomm': mycomm,
-                              'ncalcs': ncalcs, 'icalc': icalc}
+                             'ncalcs': ncalcs, 'icalc': icalc}
             self.calculator.set(communicator=mycomm)
 
     def set(self, **kwargs):
@@ -66,6 +67,7 @@ class FiniteDifferenceCalculator(Calculator):
 
 
 class ExcitedState(FiniteDifferenceCalculator, GPAW):
+
     def __init__(self, lrtddft, index, d=0.001, txt=None,
                  parallel=None, name=None):
         """ExcitedState object.
@@ -100,7 +102,7 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         self.energy = None
         self.F_av = None
         self.atoms.set_calculator(self)
- 
+
     def calculation_required(self, atoms, quantities):
         if len(quantities) == 0:
             return False
@@ -177,7 +179,7 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
             i = 0
             for ia, a in enumerate(self.atoms):
                 for ic in range(3):
-##                    print "ncalcs", ncalcs, "i", i, "icalc",icalc
+# print "ncalcs", ncalcs, "i", i, "icalc",icalc
                     if (i % ncalcs) == icalc:
                         F_av[ia, ic] = numeric_force(
                             atoms, ia, ic, self.d) / mycomm.size
@@ -234,9 +236,10 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         method = kwargs.pop('method', 'dipole')
         self.initialize_density(method)
         return GPAW.get_all_electron_density(self, **kwargs)
-        
+
 
 class UnconstraintIndex:
+
     def __init__(self, index):
         assert(type(index) == type(1))
         self.index = index
@@ -249,6 +252,7 @@ class UnconstraintIndex:
 
 
 class MinimalOSIndex:
+
     """
     Constraint on minimal oscillator strength.
 
@@ -259,6 +263,7 @@ class MinimalOSIndex:
         None: averaged (default)
         0, 1, 2: x, y, z
     """
+
     def __init__(self, fmin=0.02, direction=None):
         self.fmin = fmin
         self.direction = direction
@@ -282,6 +287,7 @@ class MinimalOSIndex:
 
 
 class MaximalOSIndex:
+
     """
     Select maximal oscillator strength.
 
@@ -296,6 +302,7 @@ class MaximalOSIndex:
         None: averaged (default)
         0, 1, 2: x, y, z
     """
+
     def __init__(self, energy_range=None, direction=None):
         if energy_range is None:
             energy_range = np.array([0.0, 1.e32])
@@ -325,7 +332,9 @@ class MaximalOSIndex:
 
 
 class ExcitedStateDensity(RealSpaceDensity):
+
     """Approximate excited state density object."""
+
     def __init__(self, *args, **kwargs):
         self.method = kwargs.pop('method', 'dipole')
         RealSpaceDensity.__init__(self, *args, **kwargs)
@@ -341,7 +350,7 @@ class ExcitedStateDensity(RealSpaceDensity):
         self.D_asp = {}
         for a, D_sp in self.gsdensity.D_asp.items():
             self.D_asp[a] = 1. * D_sp
-        
+
         # obtain weights
         ex = lrtddft[index]
         wocc_sn = np.zeros((self.nspins, self.nbands))
@@ -355,8 +364,8 @@ class ExcitedStateDensity(RealSpaceDensity):
             else:
                 raise NotImplementedError(
                     'method should be either "dipole" or "orthogonal"')
-            wocc_sn[k.pspin, k.i] += erat * f**2
-            wunocc_sn[k.pspin, k.j] += erat * f**2
+            wocc_sn[k.pspin, k.i] += erat * f ** 2
+            wunocc_sn[k.pspin, k.j] += erat * f ** 2
         self.wocc_sn = wocc_sn
         self.wunocc_sn = wunocc_sn
 
@@ -384,7 +393,7 @@ class ExcitedStateDensity(RealSpaceDensity):
         self.timer.start('Multipole moments')
         comp_charge = self.calculate_multipole_moments()
         self.timer.stop('Multipole moments')
-        
+
         if isinstance(wfs, LCAOWaveFunctions):
             self.timer.start('Normalize')
             self.normalize(comp_charge)
@@ -409,5 +418,5 @@ class ExcitedStateDensity(RealSpaceDensity):
                     for f, psit_G in zip((f_n - self.wocc_sn[s] +
                                           self.wunocc_sn[s]),
                                          kpt.psit_nG):
-                        axpy(f, psit_G**2, self.nt_sG[s])
+                        axpy(f, psit_G ** 2, self.nt_sG[s])
         self.nt_sG[:self.nspins] += self.nct_G

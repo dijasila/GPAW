@@ -16,9 +16,11 @@ from gpaw.utilities import pack
 from gpaw.utilities.lapack import diagonalize, gemm, sqrt_matrix
 from gpaw.utilities.timing import Timer
 
+
 class ApmB(OmegaMatrix):
+
     """Omega matrix for functionals with Hartree-Fock exchange.
- 
+
     """
 
     def get_full(self):
@@ -37,7 +39,7 @@ class ApmB(OmegaMatrix):
 
         if self.xc is not None:
             self.paw.timer.start('ApmB XC')
-            self.get_xc() # inherited from OmegaMatrix
+            self.get_xc()  # inherited from OmegaMatrix
             self.paw.timer.stop()
 
     def get_rpa(self):
@@ -50,30 +52,30 @@ class ApmB(OmegaMatrix):
         # calculate omega matrix
         nij = len(kss)
         print('RPAhyb', nij, 'transitions', file=self.txt)
-        
+
         AmB = np.zeros((nij, nij))
         ApB = self.ApB
 
         # storage place for Coulomb integrals
         integrals = {}
-        
+
         for ij in range(nij):
-            print('RPAhyb kss['+'%d'%ij+']=', kss[ij], file=self.txt)
+            print('RPAhyb kss[' + '%d' % ij + ']=', kss[ij], file=self.txt)
 
             timer = Timer()
             timer.start('init')
             timer2 = Timer()
-                      
+
             # smooth density including compensation charges
             timer2.start('with_compensation_charges 0')
             rhot_p = kss[ij].with_compensation_charges(
                 finegrid is not 0)
             timer2.stop()
-            
+
             # integrate with 1/|r_1-r_2|
             timer2.start('poisson')
             phit_p = np.zeros(rhot_p.shape, rhot_p.dtype)
-            self.poisson.solve(phit_p,rhot_p, charge=None)
+            self.poisson.solve(phit_p, rhot_p, charge=None)
             timer2.stop()
 
             timer.stop()
@@ -102,20 +104,20 @@ class ApmB(OmegaMatrix):
                 if kss[ij].spin == kss[kq].spin:
                     name = self.Coulomb_integral_name(kss[ij].i, kss[ij].j,
                                                       kss[kq].i, kss[kq].j,
-                                                      kss[ij].spin         )
+                                                      kss[ij].spin)
                     integrals[name] = I
-                ApB[ij, kq]= pre * I
+                ApB[ij, kq] = pre * I
                 timer2.stop()
-                
+
                 if ij == kq:
-                    epsij =  kss[ij].get_energy() / kss[ij].get_weight()
-                    AmB[ij,kq] += epsij
-                    ApB[ij,kq] += epsij
+                    epsij = kss[ij].get_energy() / kss[ij].get_weight()
+                    AmB[ij, kq] += epsij
+                    ApB[ij, kq] += epsij
 
             timer.stop()
-##            timer2.write()
+# timer2.write()
             if ij < (nij - 1):
-                print('RPAhyb estimated time left',\
+                print('RPAhyb estimated time left',
                       self.time_left(timer, t0, ij, nij), file=self.txt)
 
         # add HF parts and apply symmetry
@@ -142,26 +144,26 @@ class ApmB(OmegaMatrix):
                     iqkj = self.Coulomb_integral_ijkq(i, q, k, j, s, integrals)
                     ApB[ij, kq] -= weight * (ikjq + iqkj)
                     AmB[ij, kq] -= weight * (ikjq - iqkj)
-                
-                ApB[kq,ij] = ApB[ij,kq]
-                AmB[kq,ij] = AmB[ij,kq]
+
+                ApB[kq, ij] = ApB[ij, kq]
+                AmB[kq, ij] = AmB[ij, kq]
 
             timer.stop()
             if ij < (nij - 1):
-                print('HF estimated time left',\
-                     self.time_left(timer, t0, ij, nij), file=self.txt)
-        
+                print('HF estimated time left',
+                      self.time_left(timer, t0, ij, nij), file=self.txt)
+
         return AmB
-    
+
     def Coulomb_integral_name(self, i, j, k, l, spin):
         """return a unique name considering the Coulomb integral
         symmetry"""
         def ij_name(i, j):
             return str(max(i, j)) + ' ' + str(min(i, j))
-        
+
         # maximal gives the first
         if max(i, j) >= max(k, l):
-            base = ij_name(i, j) + ' ' + ij_name(k, l) 
+            base = ij_name(i, j) + ' ' + ij_name(k, l)
         else:
             base = ij_name(k, l) + ' ' + ij_name(i, j)
         return base + ' ' + str(spin)
@@ -187,30 +189,30 @@ class ApmB(OmegaMatrix):
             self.restrict(phit_p, phit)
         else:
             phit = phit_p
-            
+
         rhot = kss_kq.with_compensation_charges(
             self.finegrid is 2)
 
         integrals[name] = self.Coulomb_integral_kss(kss_ij, kss_kq,
                                                     phit, rhot)
         return integrals[name]
-    
-    def timestring(self,t):
-        ti = int(t+.5)
-        td = int(ti//86400)
-        st=''
-        if td>0:
-            st+='%d'%td+'d'
-            ti-=td*86400
-        th = int(ti//3600)
-        if th>0:
-            st+='%d'%th+'h'
-            ti-=th*3600
-        tm = int(ti//60)
-        if tm>0:
-            st+='%d'%tm+'m'
-            ti-=tm*60
-        st+='%d'%ti+'s'
+
+    def timestring(self, t):
+        ti = int(t + .5)
+        td = int(ti // 86400)
+        st = ''
+        if td > 0:
+            st += '%d' % td + 'd'
+            ti -= td * 86400
+        th = int(ti // 3600)
+        if th > 0:
+            st += '%d' % th + 'h'
+            ti -= th * 3600
+        tm = int(ti // 60)
+        if tm > 0:
+            st += '%d' % tm + 'm'
+            ti -= tm * 60
+        st += '%d' % ti + 's'
         return st
 
     def map(self, istart=None, jend=None, energy_range=None):
@@ -226,8 +228,8 @@ class ApmB(OmegaMatrix):
             AmB = np.empty((nij, nij))
             for ij in range(nij):
                 for kq in range(nij):
-                    ApB[ij,kq] = self.ApB[map[ij], map[kq]]
-                    AmB[ij,kq] = self.AmB[map[ij], map[kq]]
+                    ApB[ij, kq] = self.ApB[map[ij], map[kq]]
+                    AmB[ij, kq] = self.AmB[map[ij], map[kq]]
 
         return ApB, AmB
 
@@ -243,7 +245,7 @@ class ApmB(OmegaMatrix):
             self.eigenvectors = 0.5 * (ApB + AmB)
             eigenvalues = np.zeros((nij))
             diagonalize(self.eigenvectors, eigenvalues)
-            self.eigenvalues = eigenvalues**2
+            self.eigenvalues = eigenvalues ** 2
         else:
             # the occupation matrix
             C = np.empty((nij,))
@@ -296,7 +298,7 @@ class ApmB(OmegaMatrix):
     def weight_Kijkq(self, ij, kq):
         """weight for the coupling matrix terms"""
         return 2.
-    
+
     def write(self, filename=None, fh=None):
         """Write current state to a file."""
         if mpi.rank == mpi.MASTER:
@@ -312,7 +314,7 @@ class ApmB(OmegaMatrix):
                 for kq in range(ij, nij):
                     f.write(' %g' % self.ApB[ij, kq])
                 f.write('\n')
-            
+
             f.write('# A-B\n')
             nij = len(self.fullkss)
             f.write('%d\n' % nij)
@@ -320,18 +322,15 @@ class ApmB(OmegaMatrix):
                 for kq in range(ij, nij):
                     f.write(' %g' % self.AmB[ij, kq])
                 f.write('\n')
-            
+
             if fh is None:
                 f.close()
 
     def __str__(self):
         string = '<ApmB> '
-        if hasattr(self,'eigenvalues'):
-            string += 'dimension '+ ('%d'%len(self.eigenvalues))
-            string += "\neigenvalues: "
+        if hasattr(self, 'eigenvalues'):
+            string += 'dimension ' + ('%d' % len(self.eigenvalues))
+            string += '\neigenvalues: '
             for ev in self.eigenvalues:
-                string += ' ' + ('%f'%(sqrt(ev) * Hartree))
+                string += ' ' + ('%f' % (sqrt(ev) * Hartree))
         return string
-    
-
-

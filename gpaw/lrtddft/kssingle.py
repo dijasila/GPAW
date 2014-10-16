@@ -18,13 +18,14 @@ from gpaw.utilities.tools import coordinates
 
 
 class KSSingles(ExcitationList):
+
     """Kohn-Sham single particle excitations
 
     Input parameters:
 
     calculator:
       the calculator object after a ground state calculation
-      
+
     nspins:
       number of spins considered in the calculation
       Note: Valid only for unpolarised ground state calculation
@@ -64,7 +65,7 @@ class KSSingles(ExcitationList):
             self.lcao = calculator.input_parameters.mode == 'lcao'
 
         ExcitationList.__init__(self, calculator, txt=txt)
-        
+
         if calculator is None:
             return  # leave the list empty
 
@@ -135,7 +136,7 @@ class KSSingles(ExcitationList):
                 fijscale = 0.5
                 ispins = [0, 1]
                 nks = 2 * wfs.kd.nks
-                
+
         kpt_comm = self.calculator.wfs.kd.comm
         nbands = len(self.kpt_u[0].f_n)
 
@@ -153,7 +154,7 @@ class KSSingles(ExcitationList):
                             epsij = kpt.eps_n[j] - kpt.eps_n[i]
                             if (fij > eps and
                                 epsij >= emin and epsij < emax and
-                                i >= self.istart and j <= self.jend):
+                                    i >= self.istart and j <= self.jend):
                                 take[u, i, j] = 1
                 u += 1
         kpt_comm.sum(take)
@@ -297,12 +298,13 @@ class KSSingles(ExcitationList):
         f.write('{0}\n'.format(self.eps))
         for kss in self:
             f.write(kss.outstring())
-            
+
         if fh is None:
             f.close()
 
 
 class KSSingle(Excitation, PairDensity):
+
     """Single Kohn-Sham transition containing all it's indicees
 
     ::
@@ -316,20 +318,21 @@ class KSSingle(Excitation, PairDensity):
       muv = - <i|nabla|a>/omega_ia with omega_ia>0
       magn = <i|[r x nabla]|a> / (2 m_e c)
     """
+
     def __init__(self, iidx=None, jidx=None, pspin=None, kpt=None,
                  paw=None, string=None, fijscale=1, dtype=float):
-        
+
         if string is not None:
             self.fromstring(string, dtype)
             return None
 
         # normal entry
-        
+
         PairDensity.__init__(self, paw)
         PairDensity.initialize(self, kpt, iidx, jidx)
 
         self.pspin = pspin
-        
+
         self.energy = 0.0
         self.fij = 0.0
 
@@ -343,13 +346,13 @@ class KSSingle(Excitation, PairDensity):
         # leave empty if not my kpt
         if kpt is None:
             return
-        
+
         wfs = paw.wfs
         gd = wfs.gd
 
         self.energy = kpt.eps_n[jidx] - kpt.eps_n[iidx]
         self.fij = (kpt.f_n[iidx] - kpt.f_n[jidx]) * fijscale
-        
+
         # calculate matrix elements -----------
 
         # length form ..........................
@@ -496,7 +499,7 @@ class KSSingle(Excitation, PairDensity):
             return result
         else:
             return RuntimeError('not a number')
-        
+
     def __div__(self, x):
         return self.__mul__(1. / x)
 
@@ -549,7 +552,7 @@ class KSSingle(Excitation, PairDensity):
                 for m in me:
                     string += ' {0.real:.5e}{0.imag:+.5e}j'.format(m)
             return string
-                
+
         string += '  ' + format_me(self.mur)
         if self.muv is not None:
             string += '  ' + format_me(self.muv)
@@ -558,7 +561,7 @@ class KSSingle(Excitation, PairDensity):
         string += '\n'
 
         return string
-        
+
     def __str__(self):
         string = '# <KSSingle> %d->%d %d(%d) eji=%g[eV]' % \
             (self.i, self.j, self.pspin, self.spin,
@@ -576,10 +579,10 @@ class KSSingle(Excitation, PairDensity):
                     string += ','
             string += ')'
         return string
-    
-    #####################
-    ## User interface: ##
-    #####################
+
+    #
+    # User interface: ##
+    #
 
     def get_weight(self):
         return self.fij
