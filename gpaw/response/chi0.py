@@ -156,8 +156,6 @@ class Chi0(PairDensity):
             self.mykpts = [self.get_k_point(s, K, n1, n2)
                            for s, K, n1, n2 in self.mysKn1n2]
 
-        numberofkpts = len(self.mysKn1n2)
-
         if self.eta == 0.0:
             update = self.update_hermitian
         elif self.hilbert:
@@ -216,7 +214,7 @@ class Chi0(PairDensity):
 
                 # This is not quite right for degenerate partially occupied
                 # bands, but good enough for now:
-                df_m[df_m < 0] = 0.0
+                df_m[df_m <= 1e-20] = 0.0
 
                 if optical_limit:
                     self.update_optical_limit(
