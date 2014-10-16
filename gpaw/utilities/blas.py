@@ -25,11 +25,31 @@ def mmm(alpha, a, opa, b, opb, beta, c):
         
         c <- alpha * a * b + beta * c.
         
-    Use 't' to transpose matrices and 'c' to transpose and complex conjugate.
+    Use 't' to transpose matrices and 'c' to transpose and complex conjugate
+    matrices.
     """
     
     assert opa in 'ntc'
     assert opb in 'ntc'
+    
+    if opa == 'n':
+        a1, a2 = a.shape
+    else:
+        a2, a1 = a.shape
+    if opb == 'n':
+        b1, b2 = b.shape
+    else:
+        b2, b1 = b.shape
+    assert a2 == b1
+    assert c.shape == (a1, b2)
+    
+    assert a.strides[1] == b.strides[1] == c.strides[1] == c.itemsize
+    assert a.dtype == b.dtype == c.dtype
+    if a.dtype == float:
+        assert not isinstance(alpha, complex)
+        assert not isinstance(beta, complex)
+    else:
+        assert a.dtype == complex
     
     _gpaw.mmm(alpha, a, opa, b, opb, beta, c)
     
