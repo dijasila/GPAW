@@ -87,7 +87,7 @@ Libxc download/install instructions can be found `here <http://www.tddft.org/pro
 Example::
     
     wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-2.0.2.tar.gz -O libxc-2.0.2.tar.gz
-    tar xzf libxc-2.0.2.tar.gz
+    tar -xf libxc-2.0.2.tar.gz
     cd libxc-2.0.2
     ./configure --enable-shared --prefix=$HOME/xc
     make
@@ -341,7 +341,7 @@ Installation of setup files
 1) Get the tar file :file:`gpaw-setups-{<version>}.tar.gz`
    of the <version> of setups from the :ref:`setups` page
    and unpack it somewhere, preferably in :envvar:`HOME`
-   (``cd; tar zxf gpaw-setups-<version>.tar.gz``) - it could
+   (``cd; tar -xf gpaw-setups-<version>.tar.gz``) - it could
    also be somewhere global where
    many users can access it like in :file:`/usr/share/gpaw-setups/`.
    There will now be a subdirectory :file:`gpaw-setups-{<version>}/`

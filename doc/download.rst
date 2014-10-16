@@ -121,7 +121,7 @@ After downloading create the link to the requested version, e.g.:
 - if retrieved as ``tarball``::
 
    $ cd $HOME
-   $ tar xtzf gpaw-0.9.0.8965.tar.gz
+   $ tar -xtf gpaw-0.9.0.8965.tar.gz
    $ ln -s gpaw-0.9.0.8965 gpaw
 
   .. note::
