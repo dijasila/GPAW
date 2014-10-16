@@ -417,11 +417,11 @@ class RPACorrelation:
         print('Number of Spins                :   %s' \
               % self.nspins, file=self.txt)
         print('Number of k-points             :   %s' \
-              % len(self.calc.wfs.bzk_kc), file=self.txt)
+              % len(self.calc.wfs.kd.bzk_kc), file=self.txt)
         print('Number of q-points             :   %s' \
               % len(self.bz_q_points), file=self.txt)
         print('Number of Irreducible k-points :   %s' \
-              % len(self.calc.wfs.ibzk_kc), file=self.txt)
+              % len(self.calc.wfs.kd.ibzk_kc), file=self.txt)
         if self.qsym:
             print('Number of Irreducible q-points :   %s' \
                   % len(self.ibz_q_points), file=self.txt)
