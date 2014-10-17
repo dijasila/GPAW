@@ -1040,7 +1040,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
         Overwrites the elements of the target matrix Vt_MM. """
         if self.gamma and self.dtype == float:
             Vt_xMM = np.zeros((1, self.Mstop - self.Mstart, self.Mmax))
-            self.lfc.calculate_potential_matrix(vt_G, Vt_xMM[0],
+            self.lfc.calculate_potential_matrix(vt_G, Vt_xMM[0], -1,
                                                 self.Mstart, self.Mstop)
         else:
             Vt_xMM = np.zeros((len(self.sdisp_xc),

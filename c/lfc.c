@@ -193,64 +193,109 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
 
 PyObject* calculate_potential_matrix(LFCObject *lfc, PyObject *args)
 {
-    PyArrayObject* vt_G_obj;
-    PyArrayObject* Vt_MM_obj;
-    int Mstart;
-    int Mstop;
+  PyArrayObject* vt_G_obj;
+  PyArrayObject* Vt_MM_obj;
+  int k;
+  int Mstart;
+  int Mstop;
 
-    if (!PyArg_ParseTuple(args, "OOii", &vt_G_obj, &Vt_MM_obj,
-                          &Mstart, &Mstop))
-        return NULL;
+  if (!PyArg_ParseTuple(args, "OOiii", &vt_G_obj, &Vt_MM_obj, &k,
+                        &Mstart, &Mstop))
+    return NULL;
 
-    const double* vt_G = (const double*)PyArray_DATA(vt_G_obj);
+  const double* vt_G = (const double*)PyArray_DATA(vt_G_obj);
 
-    int nM = PyArray_DIMS(Vt_MM_obj)[1];
-    double dv = lfc->dv;
-    double* work_gm = lfc->work_gm;
+  int nM = PyArray_DIMS(Vt_MM_obj)[1];
+  double dv = lfc->dv;
+  double* work_gm = lfc->work_gm;
+  if (!lfc->bloch_boundary_conditions) {
     double* Vt_MM = (double*)PyArray_DATA(Vt_MM_obj);
-    
-    GRID_LOOP_START(lfc, -1) {
-        for (int i1 = 0; i1 < ni; i1++) {
-            LFVolume* v1 = volume_i + i1;
-            int M1 = v1->M;
-            int nm1 = v1->nm;
-            int M1p = MAX(M1, Mstart);
-            int nm1p = MIN(M1 + nm1, Mstop) - M1p;
-            if (nm1p <= 0)
-                continue;
-            int gm = M1p - M1;
-            int gm1 = 0;
-            const double* A1_gm = v1->A_gm;
-            for (int G = Ga; G < Gb; G++, gm += nm1 - nm1p) {
-                double vtdv = vt_G[G] * dv;
-                for (int m1 = 0; m1 < nm1p; m1++, gm1++, gm++)
-                    work_gm[gm1] = vtdv * A1_gm[gm];
-            }
-            for (int i2 = 0; i2 < ni; i2++) {
-                LFVolume* v2 = volume_i + i2;
-                int M2 = v2->M;
-                if (M1 >= M2) {
-                    int nm2 = v2->nm;
-                    const double* A2_gm = v2->A_gm;
-                    double* Vt_mm = Vt_MM + (M1p - Mstart) * nM + M2;
-                    for (int g = 0; g < nG; g++) {
-                        int gnm1 = g * nm1p;
-                        int gnm2 = g * nm2;
-                        for (int m1 = 0; m1 < nm1p; m1++) {
-                            int m1nM = m1 * nM;
-                            for (int m2 = 0; m2 < nm2; m2++)
-                                Vt_mm[m2 + m1nM] += (A2_gm[gnm2 + m2] *
-                                                     work_gm[gnm1 + m1]);
-                        }
-                    }
-                }
-            }
+    GRID_LOOP_START(lfc, -1) { // ORDINARY/GAMMA-POINT
+      for (int i1 = 0; i1 < ni; i1++) {
+        LFVolume* v1 = volume_i + i1;
+        int M1 = v1->M;
+        int nm1 = v1->nm;
+        int M1p = MAX(M1, Mstart);
+        int nm1p = MIN(M1 + nm1, Mstop) - M1p;
+        if (nm1p <= 0)
+          continue;
+        int gm = M1p - M1;
+        int gm1 = 0;
+        const double* A1_gm = v1->A_gm;
+        for (int G = Ga; G < Gb; G++, gm += nm1 - nm1p) {
+          double vtdv = vt_G[G] * dv;
+          for (int m1 = 0; m1 < nm1p; m1++, gm1++, gm++)
+            work_gm[gm1] = vtdv * A1_gm[gm];
         }
+        for (int i2 = 0; i2 < ni; i2++) {
+          LFVolume* v2 = volume_i + i2;
+          int M2 = v2->M;
+          if (M1 >= M2) {
+            int nm2 = v2->nm;
+            const double* A2_gm = v2->A_gm;
+            double* Vt_mm = Vt_MM + (M1p - Mstart) * nM + M2;
+            for (int g = 0; g < nG; g++){
+              int gnm1 = g * nm1p;
+              int gnm2 = g * nm2;
+              for (int m1 = 0; m1 < nm1p; m1++) {
+                int m1nM = m1 * nM;
+                for (int m2 = 0; m2 < nm2; m2++)
+                  Vt_mm[m2 + m1nM] += A2_gm[gnm2 + m2] * work_gm[gnm1 + m1];
+              }
+            }
+          }
+        }
+      }
     }
     GRID_LOOP_STOP(lfc, -1);
-    Py_RETURN_NONE;
+  }
+  else {
+    complex double* Vt_MM = (complex double*)PyArray_DATA(Vt_MM_obj);
+    GRID_LOOP_START(lfc, k) {  // KPOINT CALC POT MATRIX
+      for (int i1 = 0; i1 < ni; i1++) {
+        LFVolume* v1 = volume_i + i1;
+        double complex conjphase1 = conj(phase_i[i1]);
+        int M1 = v1->M;
+        int nm1 = v1->nm;
+        int M1p = MAX(M1, Mstart);
+        int nm1p = MIN(M1 + nm1, Mstop) - M1p;
+        if (nm1p <= 0)
+          continue;
+        int gm = M1p - M1;
+        int gm1 = 0;
+        const double* A1_gm = v1->A_gm;
+        for (int G = Ga; G < Gb; G++, gm += nm1 - nm1p) {
+          double vtdv = vt_G[G] * dv;
+          for (int m1 = 0; m1 < nm1p; m1++, gm1++, gm++)
+            work_gm[gm1] = vtdv * A1_gm[gm];
+        }
+        for (int i2 = 0; i2 < ni; i2++) {
+          LFVolume* v2 = volume_i + i2;
+          const double* A2_gm = v2->A_gm;
+          int M2 = v2->M;
+          if (M1 >= M2) {
+            int nm2 = v2->nm;
+            double complex phase = conjphase1 * phase_i[i2];
+            double complex* Vt_mm = Vt_MM + (M1p - Mstart) * nM + M2;
+            for (int g = 0; g < nG; g++) {
+              int gnm1 = g * nm1p;
+              int gnm2 = g * nm2;
+              int m1nM = 0;
+              for (int m1 = 0; m1 < nm1p; m1++, m1nM += nM) {
+                complex double wphase = work_gm[gnm1 + m1] * phase;
+                for (int m2 = 0; m2 < nm2; m2++) {
+                  Vt_mm[m1nM + m2] += A2_gm[gnm2 + m2] * wphase;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    GRID_LOOP_STOP(lfc, k);
+  }
+  Py_RETURN_NONE;
 }
-
 
 PyObject* calculate_potential_matrices(LFCObject *lfc, PyObject *args)
 {
