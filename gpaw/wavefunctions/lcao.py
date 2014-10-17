@@ -90,11 +90,12 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.start('TCI: Evaluate splines')
         self.tci = NewTCI(gd.cell_cv, gd.pbc_c, setups, kd.ibzk_qc, kd.gamma)
         self.timer.stop('TCI: Evaluate splines')
-        
+
         self.basis_functions = BasisFunctions(gd,
                                               [setup.phit_j
                                                for setup in setups],
                                               kd,
+                                              dtype=dtype,
                                               cut=True)
 
     def empty(self, n=(), global_array=False, realspace=False):

@@ -45,7 +45,8 @@ class FDPWWaveFunctions(WaveFunctions):
             basis_functions = BasisFunctions(self.gd,
                                              [setup.phit_j
                                               for setup in self.setups],
-                                             self.kd, cut=True)
+                                             self.kd, dtype=self.dtype,
+                                             cut=True)
             basis_functions.set_positions(spos_ac)
         elif isinstance(self.kpt_u[0].psit_nG, FileReference):
             self.initialize_wave_functions_from_restart_file()

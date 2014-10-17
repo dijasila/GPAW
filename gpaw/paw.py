@@ -444,12 +444,8 @@ class PAW(PAWTextOutput):
         if symm == 'off':
             symm = {'point_group': False, 'time_reversal': False}
 
-        if par.dtype == complex and mode.name == 'lcao':
-            gamma = False
-        else:
-            gamma = None
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
-        kd = KPointDescriptor(bzkpts_kc, nspins, collinear, gamma=gamma)
+        kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = zip(setups.id_a, *m_av.T)
         symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
