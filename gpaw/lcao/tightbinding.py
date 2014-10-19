@@ -3,7 +3,7 @@
 from math import pi
 
 import numpy as np
-import scipy.linalg as sla
+import numpy.linalg as la
 
 import ase.units as units
 
@@ -204,12 +204,12 @@ class TightBinding:
                           axis=0)
 
             if blochstates:
-                eps_n, c_Mn = sla.eigh(H_MM, S_MM)
+                eps_n, c_Mn = la.eigh(H_MM, S_MM)
                 # Sort eigenmodes according to increasing eigenvalues
                 c_nM = c_Mn[:, eps_n.argsort()].transpose()
                 psi_kn.append(c_nM)
             else:
-                eps_n = sla.eigvalsh(H_MM, S_MM)
+                eps_n = la.eigvalsh(H_MM, S_MM)
 
             # Sort eigenvalues in increasing order
             eps_n.sort()
