@@ -18,37 +18,19 @@ from gpaw.utilities.memory import maxrss
 from gpaw import dry_run, extra_parameters
 
 
-def initialize_text_stream(txt, rank, old_txt=None):
-    """Set the stream for text output.
-
-    If `txt` is not a stream-object, then it must be one of:
-
-    * None:  Throw output away.
-    * '-':  Use standard-output (``sys.stdout``).
-    * A filename:  Open a new file.
-    """
-    firsttime = (old_txt is None or old_txt == devnull)
-
-    if txt is None or txt == devnull or rank != 0:
-        return devnull, firsttime
-    elif txt == '-':
-        return sys.stdout, firsttime
-    elif isinstance(txt, str):
-        if isinstance(old_txt, file) and old_txt.name == txt:
-            return old_txt, firsttime
+def get_txt(txt, rank):
+    if hasattr(txt, 'write'):
+        # Note: User-supplied object might write to files from many ranks.
+        return txt 
+    elif rank == 0:
+        if txt is None:
+            return devnull
+        elif txt == '-':
+            return sys.stdout
         else:
-            if not firsttime:
-                # We want every file to start with the logo, so
-                # that the ase.io.read() function will recognize
-                # it as a GPAW text file.
-                firsttime = True
-            # Open the file line buffered.
-            return open(txt, 'w', 1), firsttime
+            return open(txt, 'w', 1)
     else:
-        assert hasattr(txt, 'write'), 'Not a stream object!'
-        return txt, firsttime
-
-    return old_txt, firsttime
+        return devnull
 
 
 class PAWTextOutput:
@@ -63,23 +45,20 @@ class PAWTextOutput:
         If `txt` is not a stream-object, then it must be one of:
 
         * None:  Throw output away.
-        * '-':  Use standard-output (``sys.stdout``).
-        * A filename:  Open a new file.
+        * '-':  Use stdout (``sys.stdout``) on master, elsewhere throw away.
+        * A filename:  Open a new file on master, elsewhere throw away.
         """
 
         self.verbose = verbose
-
-        self.txt, firsttime = initialize_text_stream(txt, self.wfs.world.rank,
-                                                     self.txt)
-        if firsttime:
-            self.print_logo()
+        self.txt = get_txt(txt, self.wfs.world.rank)
+        self.print_header()
 
     def text(self, *args, **kwargs):
         self.txt.write(kwargs.get('sep', ' ').join([str(arg)
                                                     for arg in args]) +
                        kwargs.get('end', '\n'))
 
-    def print_logo(self):
+    def print_header(self):
         self.text()
         self.text('  ___ ___ ___ _ _ _  ')
         self.text(' |   |   |_  | | | | ')

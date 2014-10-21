@@ -11,7 +11,7 @@ from ase.units import Hartree
 from gpaw import debug
 import gpaw.mpi as mpi
 from gpaw.poisson import PoissonSolver
-from gpaw.output import initialize_text_stream
+from gpaw.output import get_txt
 from gpaw.lrtddft.excitation import Excitation, ExcitationList
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.transformers import Transformer
@@ -56,7 +56,7 @@ class OmegaMatrix:
 
         if not txt and calculator:
             txt = calculator.txt
-        self.txt, firsttime = initialize_text_stream(txt, mpi.rank)
+        self.txt = get_txt(txt, mpi.rank)
 
         if eh_comm is None:
             eh_comm = mpi.serial_comm

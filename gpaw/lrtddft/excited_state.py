@@ -9,7 +9,7 @@ from ase.calculators.general import Calculator
 from ase.calculators.test import numeric_force
 from gpaw import GPAW
 from gpaw.density import RealSpaceDensity
-from gpaw.output import initialize_text_stream
+from gpaw.output import get_txt
 from gpaw import mpi
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
@@ -41,8 +41,7 @@ class FiniteDifferenceCalculator(Calculator):
             if txt is None:
                 self.txt = self.lrtddft.txt
             else:
-                self.txt, firsttime = initialize_text_stream(
-                    txt, world.rank)
+                self.txt = get_txt(txt, world.rank)
         prnt('#', self.__class__.__name__, version, file=self.txt)
 
         self.d = d

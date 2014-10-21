@@ -12,7 +12,6 @@ import _gpaw
 import gpaw.mpi as mpi
 MASTER = mpi.MASTER
 from gpaw import debug
-from gpaw.output import initialize_text_stream
 from gpaw.lrtddft.excitation import Excitation, ExcitationList
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.lrtddft.omega_matrix import OmegaMatrix

@@ -30,9 +30,6 @@ from gpaw.utilities import devnull
 import _gpaw
 from gpaw.mpi import rank, alltoallv_string
 
-#from gpaw.output import initialize_text_stream
-
-
 
 #####################################################
 """Linear response TDDFT (Casida) class with indexed K-matrix storage."""

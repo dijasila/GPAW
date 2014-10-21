@@ -6,7 +6,7 @@ from math import sqrt
 import numpy as np
 
 import gpaw.mpi as mpi
-from gpaw.output import initialize_text_stream
+from gpaw.output import get_txt
 from ase.units import A, m, s, Bohr, _aut, C
 
 
@@ -24,7 +24,7 @@ class ExcitationList(list):
         self.calculator = calculator
         if not txt and calculator:
             txt = calculator.txt
-        self.txt, firsttime = initialize_text_stream(txt, mpi.rank)
+        self.txt = get_txt(txt, mpi.rank)
 
     def get_calculator(self):
         return self.calculator
