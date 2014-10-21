@@ -859,8 +859,18 @@ class PAW(PAWTextOutput):
     def attach(self, function, n=1, *args, **kwargs):
         """Register observer function.
 
-        Call *function* every *n* iterations using *args* and
-        *kwargs* as arguments."""
+        Call *function* using *args* and
+        *kwargs* as arguments.
+        
+        If *n* is positive, then
+        *function* will be called every *n* iterations + the
+        final iteration if it would not be otherwise
+        
+        If *n* is negative, then *function* will only be
+        called on iteration *abs(n)*.
+        
+        If *n* is 0, then *function* will only be called 
+        on convergence"""
 
         try:
             slf = function.im_self
@@ -877,7 +887,19 @@ class PAW(PAWTextOutput):
     def call_observers(self, iter, final=False):
         """Call all registered callback functions."""
         for function, n, args, kwargs in self.observers:
-            if ((iter % n) == 0) != final:
+            call = False
+            # Call every n iterations, including the last
+            if n > 0:
+                if ((iter % n) == 0) != final:
+                    call = True
+            # Call only on iteration n
+            elif n < 0 and not final:
+                if iter == abs(n):
+                    call = True
+            # Call only on convergence
+            elif n == 0 and final:
+                call = True
+            if call:
                 if isinstance(function, str):
                     function = getattr(self, function)
                 function(*args, **kwargs)

@@ -98,7 +98,7 @@ keyword            type       default value        description
 ``charge``         ``float``  ``0``                Total :ref:`manual_charge`
                                                    of the system
 ``convergence``    ``dict``                        :ref:`manual_convergence`
-``maxiter``        ``int``    ``120``              :ref:`manual_maxiter`
+``maxiter``        ``int``    ``333``              :ref:`manual_maxiter`
 ``txt``            ``str``,   ``'-'``              :ref:`manual_txt`
                    None, or   (``sys.stdout``)
                    file obj.
