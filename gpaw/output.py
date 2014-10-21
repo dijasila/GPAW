@@ -27,9 +27,9 @@ def initialize_text_stream(txt, rank, old_txt=None):
     * '-':  Use standard-output (``sys.stdout``).
     * A filename:  Open a new file.
     """
-    firsttime = (old_txt is None)
+    firsttime = (old_txt is None or old_txt == devnull)
 
-    if txt is None or rank != 0:
+    if txt is None or txt == devnull or rank != 0:
         return devnull, firsttime
     elif txt == '-':
         return sys.stdout, firsttime
