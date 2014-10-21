@@ -29,7 +29,7 @@ class ProgressBar:
         self.n = None
         self.t = time()
         
-        print('|', end='', file=fd)
+        print('ETA: ', end='', file=fd)
         fd.flush()
         
     def update(self, x):
@@ -38,30 +38,25 @@ class ProgressBar:
             return
         N = 50
         n = int(N * x)
-        t = time()
-        eta = (t - self.t) / x
+        t = time() - self.t
         p = functools.partial(print, file=self.fd)
         if self.tty:
-            if x < 1:
-                txt = ' ETA'
-            else:
-                txt = 'Time'
-            p('\r|{0:50}| {1}: {2:.3f}s'.format('-' * n, txt, eta), end='')
+            p('\rETA: {0:.3f}s |{1:50}| Time: {2:.3f}s'
+              .format(t / x, '-' * n, t), end='')
             if x == 1:
                 p()
                 self.done = True
             self.fd.flush()
         else:
             if self.n is None:
-                p('{0}|  ETA: {1:.3f}s\n|'.format('-' * N, eta), end='')
-                self.fd.flush()
+                p('{0:.3f}s |'.format(t / x), end='')
                 self.n = 0
             if n > self.n:
                 p('-' * (n - self.n), end='')
                 self.fd.flush()
                 self.n = n
             if x == 1:
-                p('| Time: {0:.3f}s'.format(eta))
+                p('| Time: {0:.3f}s'.format(t))
                 self.fd.flush()
                 self.done = True
                 
