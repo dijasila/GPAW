@@ -54,7 +54,7 @@ class Folder:
             self.func = ComplexGauss(width)
         elif folding == 'ComplexLorentz':
             self.func = ComplexLorentz(width)
-        elif folding == None:
+        elif folding is None:
             self.func = None
         else:
             raise RuntimeError('unknown folding "' + folding + '"')

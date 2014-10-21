@@ -86,19 +86,19 @@ class QSFDTD:
         self.poissonsolver.set_calculation_mode('iterate')
         
         # Quantum system
-        if atoms != None:
+        if atoms is not None:
             assert(len(cells)==2)
             assert(len(spacings)==2)
             assert(len(remove_moments)==2)
             self.atoms = atoms
             self.atoms.set_cell(cell)
-            if vacuum != None: # vacuum
+            if vacuum is not None: # vacuum
                 self.atoms, self.qm_spacing, self.gpts = self.poissonsolver.cut_cell(self.atoms, vacuum=vacuum)
             else: # corners
                 self.atoms, self.qm_spacing, self.gpts = self.poissonsolver.cut_cell(self.atoms, corners=corners)
         else: # Dummy quantum system
             self.atoms = Atoms("H", [0.5*cell], cell=cell)
-            if vacuum != None: # vacuum
+            if vacuum is not None: # vacuum
                 self.atoms, self.qm_spacing, self.gpts = self.poissonsolver.cut_cell(self.atoms, vacuum=vacuum)
             else: # corners
                 self.atoms, self.qm_spacing, self.gpts = self.poissonsolver.cut_cell(self.atoms, corners=corners)
@@ -117,7 +117,7 @@ class QSFDTD:
         self.write(filename, mode='all')
     
     def write(self, filename, **kwargs):
-        if self.td_calc==None:
+        if self.td_calc is None:
             self.gs_calc.write(filename, **kwargs)
         else:
             self.td_calc.write(filename, **kwargs)
@@ -132,7 +132,7 @@ class QSFDTD:
                            dump_interval=100,
                            **kwargs):
         self.td_calc = TDDFT(filename, **kwargs)
-        if kick_strength != None:
+        if kick_strength is not None:
             self.td_calc.absorption_kick(kick_strength)
             self.td_calc.hamiltonian.poisson.set_kick(kick_strength)
         self.td_calc.propagate(time_step, iterations, dipole_moment_file, restart_file, dump_interval)
@@ -180,15 +180,15 @@ class FDTDPoissonSolver:
 
         self.messages = []
 
-        if restart_reader != None: # restart
-            assert(paw!=None)
+        if restart_reader is not None: # restart
+            assert paw is not None
             self.read(paw = paw, reader=restart_reader)
             return # we are ready
             
         assert(potential_coupler in ['Multipoles', 'Refiner'])
         self.potential_coupling_scheme = potential_coupler
         
-        if classical_material == None:
+        if classical_material is None:
             self.classical_material = PolarizableMaterial()
         else:
             self.classical_material = classical_material
@@ -337,7 +337,7 @@ class FDTDPoissonSolver:
 
     def cut_cell(self, atoms_in, vacuum=5.0, corners=None, create_subsystems=True):
         qmh = self.qm.spacing_def
-        if corners != None:
+        if corners is not None:
             v1 = np.array(corners[0]).ravel() / Bohr
             v2 = np.array(corners[1]).ravel() / Bohr
         else: # Use vacuum
@@ -628,13 +628,13 @@ class FDTDPoissonSolver:
     # charge is refined there
     def get_combined_data(self, qmdata=None, cldata=None, spacing=None):
         
-        if qmdata == None:
+        if qmdata is None:
             qmdata = self.density.rhot_g
         
-        if cldata == None:
+        if cldata is None:
             cldata = self.classical_material.charge_density
         
-        if spacing == None:
+        if spacing is None:
             spacing = self.cl.gd.h_cv[0, 0]
         
         spacing_au = spacing / Bohr  # from Angstroms to a.u.
@@ -780,7 +780,7 @@ class FDTDPoissonSolver:
                     zero_initial_phi=False,
                     calculation_mode=None):
 
-        if self.density == None:
+        if self.density is None:
             print 'FDTDPoissonSolver requires a density object.' \
                   ' Use set_density routine to initialize it.'
             raise

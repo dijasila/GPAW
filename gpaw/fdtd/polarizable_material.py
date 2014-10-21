@@ -35,7 +35,7 @@ class PolarizableMaterial():
         self.sign        = sign
         self.messages    = []
 
-        if components==None:
+        if components is None:
             self.components = []
         else:
             self.components  = components
@@ -526,8 +526,8 @@ class Permittivity:
         self.oscillators = []
 
         # Input as data array
-        if data != None:
-            assert(fname==None)
+        if data is not None:
+            assert fname is None
             self.Nj = len(data)
             for v in range(self.Nj):
                 self.oscillators.append(LorentzOscillator(data[v][0]/Hartree, data[v][1]/Hartree, data[v][2]/Hartree/Hartree))

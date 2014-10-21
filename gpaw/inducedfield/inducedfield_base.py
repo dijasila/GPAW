@@ -555,7 +555,7 @@ def read_data(filename, keys=None, ws='all'):
     
     print('Reading %s' % (filename))
     
-    if keys == None:
+    if keys is None:
         keys = key_to_tarname.keys()  # all keys
     
     tar = Reader(filename)
