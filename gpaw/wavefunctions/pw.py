@@ -669,8 +669,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                        kpt.s, kpt.k, n)[..., :ng]
 
     def hs(self, ham, q=-1, s=0, md=None):
-        assert self.dtype == complex
-
         npw = len(self.pd.Q_qG[q])
         N = self.pd.tmp_R.size
 
@@ -717,6 +715,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
     @timer('Full diag')
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
                                      nbands=None, scalapack=None):
+        assert self.dtype == complex
+
         if nbands is None:
             nbands = self.pd.ngmin // self.bd.comm.size * self.bd.comm.size
         else:
