@@ -231,8 +231,7 @@ class RPACorrelation:
                     cut_G = np.arange(nG)[pd.G2_qG[0] <= 2 * ecut]
                     m2 = len(cut_G)
 
-                p('E_cut = %d eV / Bands = %d:   ' % (ecut * Hartree, m2),
-                  end='')
+                p('E_cut = %d eV / Bands = %d:' % (ecut * Hartree, m2))
                 self.fd.flush()
 
                 energy = self.calculate_q(chi0, pd,
@@ -427,3 +426,36 @@ def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
     transform = (-np.log(1 - ys))**(frequency_scale - 1) \
         / (1 - ys) * frequency_scale / alpha
     return w, weights_w * transform / 2
+
+    
+description = 'Run RPA-correlation calculation.'
+
+
+def main():
+    import optparse
+    parser = optparse.OptionParser(usage='Usage: %prog <gpw-file> [options]',
+                                   description=description)
+    add = parser.add_option
+    
+    add('-e', '--cut-off', type=float, default=100, meta='ECUT',
+        help='Plane-wave cut off energy (eV) for polarization function.')
+    add('-b', '--blocks', type=int, default=1, meta='N',
+        help='Split polarization matrix in N blocks.')
+    
+    opts, args = parser.parse_args()
+    if len(args) == 0:
+        parser.error('No gpw-file!')
+    if len(args) > 1:
+        parser.error('Too many arguments!')
+    
+    name = args[0]
+    assert name.endswith('.gpw')
+    
+    rpa = RPACorrelation(name,
+                         txt=name[:-3] + 'rpa.txt',
+                         wstc=True, nblocks=opts.blocks)
+    rpa.calculate([opts.cut_off])
+
+
+if __name__ == '__main__':
+    main()
