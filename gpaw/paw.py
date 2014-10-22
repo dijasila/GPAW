@@ -533,7 +533,6 @@ class PAW(PAWTextOutput):
                       'occupations=FermiDirac(width, fixmagmom=True).')
 
         if self.occupations is None:
-            #print "self.occupations is None"
             if par.occupations is None:
                 # Create object for occupation numbers:
                 self.occupations = occupations.FermiDirac(width, par.fixmom)
@@ -546,8 +545,6 @@ class PAW(PAWTextOutput):
                     self.wfs,
                     EmptyWaveFunctions):
                 self.occupations.calculate(self.wfs)
-                #print "Calculating occupations"
-            #print self.wfs
 
         self.occupations.magmom = M_v[2]
 
@@ -590,7 +587,6 @@ class PAW(PAWTextOutput):
             parallelization.set(kpt=parsize_kpt,
                                 domain=ndomains,
                                 band=parsize_bands)
-            #domain_comm, kpt_comm, band_comm, kptband_comm, domainband_comm
             comms = parallelization.build_communicators()
             domain_comm = comms['d']
             kpt_comm = comms['k']
@@ -869,7 +865,7 @@ class PAW(PAWTextOutput):
         If *n* is negative, then *function* will only be
         called on iteration *abs(n)*.
         
-        If *n* is 0, then *function* will only be called 
+        If *n* is 0, then *function* will only be called
         on convergence"""
 
         try:
