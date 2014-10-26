@@ -77,6 +77,7 @@ tests = [
     'mmm.py',
     'erf.py',
     'gp2.py',
+    'force_as_stop.py',
     'kptpar.py',
     'non_periodic.py',
     'parallel/blacsdist.py',
