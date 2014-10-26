@@ -226,6 +226,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['EnergyConvergenceCriterion'] = p['convergence']['energy'] / Hartree
     w['EigenstatesConvergenceCriterion'] = p['convergence']['eigenstates']
     w['NumberOfBandsToConverge'] = p['convergence']['bands']
+    w['ForcesConvergenceCriterion'] = p['convergence']['forces']
     w['Ekin'] = hamiltonian.Ekin
     w['Epot'] = hamiltonian.Epot
     w['Ebar'] = hamiltonian.Ebar
@@ -764,7 +765,7 @@ def read(paw, reader):
         timer.stop('Projections')
 
     # Manage mode change:
-    paw.scf.check_convergence(density, wfs.eigensolver)
+    paw.scf.check_convergence(density, wfs.eigensolver, wfs, hamiltonian, forces)
     newmode = paw.input_parameters.mode
     try:
         oldmode = r['Mode']
