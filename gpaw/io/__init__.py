@@ -765,7 +765,7 @@ def read(paw, reader):
         timer.stop('Projections')
 
     # Manage mode change:
-    paw.scf.check_convergence(density, wfs.eigensolver, wfs, hamiltonian, forces)
+    paw.scf.check_convergence(density, wfs.eigensolver, wfs, hamiltonian, paw.forces)
     newmode = paw.input_parameters.mode
     try:
         oldmode = r['Mode']
