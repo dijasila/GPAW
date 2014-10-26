@@ -977,7 +977,8 @@ class PAW(PAWTextOutput):
 
         no_wave_functions = (self.wfs.kpt_u[0].psit_nG is None)
         converged = self.scf.check_convergence(self.density,
-                                               self.wfs.eigensolver)
+                                               self.wfs.eigensolver, self.wfs,
+                                               self.hamiltonian, self.forces)
         if no_wave_functions or not converged:
             self.wfs.eigensolver.error = np.inf
             self.scf.converged = False
