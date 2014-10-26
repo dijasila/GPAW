@@ -21,7 +21,7 @@ from gpaw import dry_run, extra_parameters
 def get_txt(txt, rank):
     if hasattr(txt, 'write'):
         # Note: User-supplied object might write to files from many ranks.
-        return txt
+        return txt 
     elif rank == 0:
         if txt is None:
             return devnull
@@ -377,11 +377,6 @@ class PAWTextOutput:
            Time      WFS    Density  Energy       Fermi  Poisson"""
                 if self.wfs.nspins == 2:
                     header += '  MagMom'
-                if self.scf.max_force_error is not None:
-                    l1 = header.find('Total')
-                    header = header[:l1] + '       ' + header[l1:]
-                    l2 = header.find('Energy')
-                    header = header[:l2] + 'Force  ' + header[l2:]
                 t(header)
 
             T = time.localtime()
@@ -408,28 +403,19 @@ class PAWTextOutput:
             else:
                 niterpoisson = str(self.hamiltonian.npoisson)
 
-            t('iter: %3d  %02d:%02d:%02d %6s %6s  ' %
+            t('iter: %3d  %02d:%02d:%02d %6s %6s    %11.6f  %-5s  %-7s' %
               (iter,
                T[3], T[4], T[5],
                eigerr,
-               denserr), end='')
-
-            if self.scf.max_force_error is not None:
-                if self.scf.force_error is not None:
-                    t('  %+.2f' %
-                      (log(self.scf.force_error) / log(10)), end='')
-                else:
-                    t('       ', end='')
-
-            t('%11.6f    %-5s  %-7s' %
-              (Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S),
+               denserr,
+               Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S),
                niterocc,
                niterpoisson), end='')
 
             if self.wfs.nspins == 2:
-                t('  %+.4f' % self.occupations.magmom, end='')
-
-            t()
+                t('  %+.4f' % self.occupations.magmom)
+            else:
+                t()
 
         self.txt.flush()
 

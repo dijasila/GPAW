@@ -276,7 +276,7 @@ class PAW(PAWTextOutput):
 
         self.timer.start('SCF-cycle')
         for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
-                                 self.occupations, self.forces):
+                                 self.occupations):
             self.iter = iter
             self.call_observers(iter)
             self.print_iteration(iter)
@@ -561,8 +561,7 @@ class PAW(PAWTextOutput):
                 cc['energy'] / Hartree * max(nvalence, 1),
                 cc['density'] * nvalence,
                 par.maxiter, par.fixdensity,
-                niter_fixdensity,
-                cc['forces'])
+                niter_fixdensity)
 
         parsize_kpt = par.parallel['kpt']
         parsize_domain = par.parallel['domain']
