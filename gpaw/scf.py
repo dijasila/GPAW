@@ -69,7 +69,7 @@ class SCFLoop:
         self.niter_fixdensity = 0
         
     def check_convergence(self, density, eigensolver,
-                          wfs, hamiltonian, forces):
+                          wfs=None, hamiltonian=None, forces=None):
         """Check convergence of eigenstates, energy and density."""
         if self.converged:
             return True
