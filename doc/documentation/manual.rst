@@ -520,7 +520,8 @@ The default value is this Python dictionary::
   {'energy': 0.0005,  # eV / electron
    'density': 1.0e-4,
    'eigenstates': 4.0e-8,  # eV^2 / electron
-   'bands': 'occupied'}
+   'bands': 'occupied',
+   'forces': None} # eV / Ang Max 
 
 In words:
 
@@ -533,6 +534,10 @@ In words:
 * The integrated value of the square of the residuals of the Kohn-Sham
   equations should be less than :math:`4.0 \times 10^{-8}
   \mathrm{eV}^2` per valence electron (FD mode only).
+
+* The maximum change in the calculated magnitude of forces for each atom.
+  Setting this to None disables this functionality, saving computational
+  time and memory usage.
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set

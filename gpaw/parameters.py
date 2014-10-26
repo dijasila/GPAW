@@ -69,7 +69,8 @@ class InputParameters(dict):
             ('convergence', {'energy': 0.0005,  # eV / electron
                              'density': 1.0e-4,
                              'eigenstates': 4.0e-8,  # eV^2
-                             'bands': 'occupied'}),
+                             'bands': 'occupied',
+                             'forces': None}), # eV / Ang Max 
             ('realspace', None),
             ('symmetry', {'point_group': True,
                           'time_reversal': True,
