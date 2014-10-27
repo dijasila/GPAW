@@ -109,7 +109,12 @@ class PAW(PAWTextOutput):
             par = self.input_parameters
             par.read(reader)
 
+        # _changed_keywords contains those keywords that have been
+        # changed by set() since last time initialize() was called.
+        self._changed_keywords = set()
         self.set(**kwargs)
+        # Here in the beginning, effectively every keyword has been changed.
+        self._changed_keywords.update(self.input_parameters)
 
         if filename is not None:
             # Setups are not saved in the file if the setups were not loaded
@@ -148,6 +153,7 @@ class PAW(PAWTextOutput):
             calc.set(nbands=20, kpts=(4, 1, 1))
         """
         p = self.input_parameters
+        self._changed_keywords.update(kwargs)
 
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
             raise TypeError("""You can't use both "gpts" and "h"!""")
@@ -347,7 +353,9 @@ class PAW(PAWTextOutput):
             world = mpi.world.new_communicator(np.asarray(world))
         self.wfs.world = world
 
-        self.set_text(par.txt, par.verbose)
+        if 'txt' in self._changed_keywords:
+            self.set_txt(par.txt)
+        self.verbose = par.verbose
 
         natoms = len(atoms)
 
@@ -359,6 +367,7 @@ class PAW(PAWTextOutput):
         self.check_atoms()
 
         # Generate new xc functional only when it is reset by set
+        # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
             if isinstance(par.xc, str):
                 xc = XC(par.xc)
@@ -820,6 +829,7 @@ class PAW(PAWTextOutput):
             self.txt.flush()
 
         self.initialized = True
+        self._changed_keywords.clear()
 
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw

@@ -39,7 +39,7 @@ class PAWTextOutput:
     def __init__(self):
         self.txt = devnull
 
-    def set_text(self, txt, verbose=True):
+    def set_txt(self, txt):
         """Set the stream for text output.
 
         If `txt` is not a stream-object, then it must be one of:
@@ -49,7 +49,6 @@ class PAWTextOutput:
         * A filename:  Open a new file on master, elsewhere throw away.
         """
 
-        self.verbose = verbose
         self.txt = get_txt(txt, self.wfs.world.rank)
         self.print_header()
 
