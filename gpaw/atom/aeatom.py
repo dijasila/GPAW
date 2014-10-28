@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import print_function
 import sys
 from math import pi
 
 import numpy as np
 from numpy.linalg import eigh
 from scipy.special import gamma
-from scipy.linalg import solve_banded
+# from scipy.linalg import solve_banded
 import ase.units as units
-from ase.utils import devnull, prnt
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
 
 from gpaw.xc import XC
@@ -102,9 +101,9 @@ class GaussianBasis:
 def coefs(rgd, l, vr_g, e, scalar_relativistic):
     r_g = rgd.r_g
 
-    x0_g = 2 * (e * r_g - vr_g)
-    x1_g = 2 * (l + 1) / rgd.dr_g + r_g * rgd.d2gdr2()
-    x2_g = r_g / rgd.dr_g**2
+    x0_g = 2 * (e * r_g - vr_g) * r_g - 2 * l
+    x1_g = 2 * l * r_g / rgd.dr_g + r_g**2 * rgd.d2gdr2()
+    x2_g = r_g**2 / rgd.dr_g**2
 
     if scalar_relativistic:
         r_g = r_g.copy()
@@ -112,9 +111,10 @@ def coefs(rgd, l, vr_g, e, scalar_relativistic):
         v_g = vr_g / r_g
         M_g = 1 + (e - v_g) / (2 * c**2)
         kappa_g = (rgd.derivative(vr_g) - v_g) / r_g / (2 * c**2 * M_g)
+        x0_g += 2 * l
         x0_g *= M_g
-        x0_g += l * kappa_g
-        x1_g += r_g * kappa_g / rgd.dr_g
+        x0_g += (l - 1) * kappa_g * r_g - 2 * l
+        x1_g += r_g**2 * kappa_g / rgd.dr_g
 
     cm1_g = x2_g - x1_g / 2
     c0_g = x0_g - 2 * x2_g
@@ -220,33 +220,41 @@ class Channel:
 
         cm1_g, c0_g, cp1_g = coefs(rgd, l, vr_g, e, scalar_relativistic)
 
-        c_xg = np.zeros((3, g0 + 2))
-        c_xg[0, :2] = 1.0
-        c_xg[0, 2:] = cp1_g[1:g0 + 1]
-        c_xg[1, 1:-1] = c0_g[1:g0 + 1]
-        c_xg[2, :-2] = cm1_g[1:g0 + 1]
+        # c_xg = np.zeros((3, g0 + 2))
+        # c_xg[0, :2] = 1.0
+        # c_xg[0, 2:] = cp1_g[1:g0 + 1]
+        # c_xg[1, 1:-1] = c0_g[1:g0 + 1]
+        # c_xg[2, :-2] = cm1_g[1:g0 + 1]
 
-        b_g = np.zeros(g0 + 2)
+        # b_g = np.zeros(g0 + 2)
         if pt_g is not None:
-            b_g[2:] = -2 * pt_g[1:g0 + 1] * r_g[1:g0 + 1]**(1 - l)
-            a0 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
-        else:
-            a0 = 1
+            2 / 0  # Need to fix this:
+            # b_g[2:] = -2 * pt_g[1:g0 + 1] * r_g[1:g0 + 1]**(1 - l)
+            # a0 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
 
-        a1 = a0 + vr_g[0] * rgd.dr_g[0]
-        b_g[:2] = [a0, a1]
-
-        a_g = solve_banded((2, 0), c_xg, b_g,
-                           overwrite_ab=True, overwrite_b=True)
+        # b_g[:2] = [a0, a1]
+        # a_g = solve_banded((2, 0), c_xg, b_g,
+        #                    overwrite_ab=True, overwrite_b=True)
+        
+        g = 1
+        agm1 = 0.0
+        u_g[0] = 0.0
+        ag = r_g[1]
+        while True:
+            u_g[g] = ag * r_g[g]**l
+            agp1 = -(agm1 * cm1_g[g] + ag * c0_g[g]) / cp1_g[g]
+            if g == g0:
+                break
+            g += 1
+            agm1 = ag
+            ag = agp1
 
         r = r_g[g0]
         dr = rgd.dr_g[g0]
-        da = 0.5 * (a_g[g0 + 1] - a_g[g0 - 1])
-        dudr = (l + 1) * r**l * a_g[g0] + r**(l + 1) * da / dr
+        da = 0.5 * (agp1 - agm1)
+        dudr = l * r**(l - 1) * ag + r**l * da / dr
 
-        u_g[:g0 + 2] = a_g * r_g[:g0 + 2]**(l + 1)
-
-        return dudr, a_g[0]
+        return dudr, 1.0
 
     def integrate_inwards(self, u_g, rgd, vr_g, g0, e,
                           scalar_relativistic=False, gmax=None):
@@ -264,11 +272,12 @@ class Channel:
 
         g = gmax - 2
         agp1 = 1.0
-        u_g[gmax - 1] = agp1 * r_g[gmax - 1]**(l + 1)
-        ag = np.exp(-(-2 * e)**0.5 * (rgd.r_g[gmax - 2] - rgd.r_g[gmax - 1]))
+        u_g[gmax - 1] = agp1 * r_g[gmax - 1]**l
+        ag = (np.exp(-(-2 * e)**0.5 * (r_g[gmax - 2] - r_g[gmax - 1])) *
+              r_g[gmax - 2] / r_g[gmax - 1])
 
         while True:
-            u_g[g] = ag * r_g[g]**(l + 1)
+            u_g[g] = ag * r_g[g]**l
             if ag > 1e50:
                 u_g[g:] /= 1e50
                 ag = ag / 1e50
@@ -283,7 +292,7 @@ class Channel:
         r = r_g[g]
         dr = rgd.dr_g[g]
         da = 0.5 * (agp1 - agm1)
-        dudr = (l + 1) * r**l * ag + r**(l + 1) * da / dr
+        dudr = l * r**(l - 1) * ag + r**l * da / dr
 
         return dudr
 
@@ -384,7 +393,7 @@ class AllElectronAtom:
         self.method = 'Gaussian basis-set'
 
     def log(self, *args, **kwargs):
-        prnt(file=self.fd, *args, **kwargs)
+        print(file=self.fd, *args, **kwargs)
 
     def initialize_configuration(self):
         self.f_lsn = {}
