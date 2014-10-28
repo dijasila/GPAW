@@ -64,9 +64,9 @@ Now we can go on with the BSE calculation running the script
 
 Even if the parameter chosen are not converged, the calculation takes quite
 some time; therefore we would better submit the script to nifhleim and run it
-on 24 processors typing::
+on 32 processors typing::
 
-    gpaw-qsub -q small -l nodes=3:ppn=8:xeon8 LiF_BSE.py
+    gpaw-qsub -q small -l nodes=4:ppn=8:xeon8 LiF_BSE.py
 
 The file df.dat finally contains the absorption spectrum including excitonic
 effects (if you do not have enough time left you can see the results directly
