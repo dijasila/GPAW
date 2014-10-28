@@ -535,9 +535,12 @@ In words:
   equations should be less than :math:`4.0 \times 10^{-8}
   \mathrm{eV}^2` per valence electron (FD mode only).
 
-* The maximum change in the calculated magnitude of forces for each atom.
-  Setting this to None disables this functionality, saving computational
-  time and memory usage.
+* The maximum change in the magnitude of the vector representing the
+  difference in forces for each atom.  Setting this to None disables 
+  this functionality, saving computational time and memory usage.  If
+  set to a negative number,  only the magnitudes of the forces are
+  are compared.  This second method does not account for directional
+  changes in forces.
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
