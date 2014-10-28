@@ -537,10 +537,7 @@ In words:
 
 * The maximum change in the magnitude of the vector representing the
   difference in forces for each atom.  Setting this to None disables 
-  this functionality, saving computational time and memory usage.  If
-  set to a negative number,  only the magnitudes of the forces are
-  are compared.  This second method does not account for directional
-  changes in forces.
+  this functionality, saving computational time and memory usage.
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set

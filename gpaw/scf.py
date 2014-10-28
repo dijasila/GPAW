@@ -86,39 +86,20 @@ class SCFLoop:
             self.density_error = 1000000.0
 
         if self.max_force_error is not None:
-            if self.max_force_error < 0:
-                method = 2
-            else:
-                method = 1
-
             forces.reset()
             F_av = forces.calculate(wfs, density, hamiltonian)
             
-            # This method compares difference in magnitude of forces.
-            # This does not account for directional changes in forces.
-            if method == 2:
-                F_av_mag = (F_av**2).sum(axis=1)
-
-                if self.force_last is None:
-                    self.force_last = F_av_mag
-                else:
-                    self.force_error = abs(F_av_mag - self.force_last).max()
-                    self.force_last = F_av_mag
-
-            # This method compares the difference in forces as
-            # a vector, then takes the magnitude of the resulting vector.
-            elif method == 1:
-                if self.force_last is None:
-                    self.force_last = F_av
-                else:
-                    F_av_diff = ((F_av - self.force_last)**2).sum(axis=1)
-                    self.force_error = abs(F_av_diff).max()
-                    self.force_last = F_av
+            if self.force_last is None:
+                self.force_last = F_av
+            else:
+                F_av_diff = ((F_av - self.force_last)**2).sum(axis=1)
+                self.force_error = abs(F_av_diff).max()
+                self.force_last = F_av
 
         self.converged = (
             self.eigenstates_error < self.max_eigenstates_error and
             self.energy_error < self.max_energy_error and
             self.density_error < self.max_density_error and
-            (self.force_error or 0) < abs((self.max_force_error)
-                                          or float('Inf')))
+            (self.force_error or 0) < ((self.max_force_error)
+                                       or float('Inf')))
         return self.converged
