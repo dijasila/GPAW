@@ -51,7 +51,6 @@ def wrap_pylab(names=[]):
     """Use Agg backend and prevent windows from popping up."""
     import matplotlib
     matplotlib.use('Agg')
-    matplotlib.rc('text', usetex=True)
     import pylab
 
     def show(names=names):
