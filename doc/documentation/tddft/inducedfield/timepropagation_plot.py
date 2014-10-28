@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 
 from gpaw.inducedfield.inducedfield_base import read_data
 
+
 # Helper function
 def do_plot(d_g, ng, box, atom_a):
     # Take slice of data array
-    d_yx = d_g[:, ng[1]//2, :]
+    d_yx = d_g[:, ng[1] // 2, :]
     y = np.linspace(0, box[0], ng[0])
     ylabel = u'x / Å'
     x = np.linspace(0, box[2], ng[2])
@@ -59,6 +60,3 @@ ng = d_g.shape
 do_plot(d_g, ng, box, atom_a)
 plt.title('Imaginary part of induced potential @ %.2f eV' % freq)
 plt.savefig('na2_td_Fphi.png', bbox_inches='tight')
-
-import os
-os.system('cp na2_td_Ffe.png na2_td_Frho.png na2_td_Fphi.png ../../../_build')
