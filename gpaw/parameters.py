@@ -169,16 +169,18 @@ class InputParameters(dict):
                 # The string 'all' was eval'ed to the all() function!
                 nbtc = 'all'
             if version < 5:
-                f = None
+                forceVal = None
             else:
-                f = r['ForcesConvergenceCriterion']
+                forceVal = r['ForcesConvergenceCriterion']
+                if forceVal is not None:
+                    forceVal *= (Hartree / Bohr)
             self.convergence = {'density': r['DensityConvergenceCriterion'],
                                 'energy':
                                 r['EnergyConvergenceCriterion'] * Hartree,
                                 'eigenstates':
                                 r['EigenstatesConvergenceCriterion'],
                                 'bands': nbtc,
-                                'forces': f}
+                                'forces': forceVal}
 
             if version < 1:
                 # Volume per grid-point:

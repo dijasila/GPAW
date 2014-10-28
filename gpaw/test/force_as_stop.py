@@ -10,4 +10,4 @@ calc = GPAW(convergence={'forces': 1e-4,
                          'eigenstates': 100})
 H2.set_calculator(calc)
 H2.get_potential_energy()
-assert 13 < calc.iter < 17
+assert 17 < calc.iter < 23

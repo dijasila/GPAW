@@ -565,13 +565,16 @@ class PAW(PAWTextOutput):
             niter_fixdensity = None
 
         if self.scf is None:
+            forceVal = cc['forces']
+            if forceVal is not None:
+                forceVal /= Hartree / Bohr
             self.scf = SCFLoop(
                 cc['eigenstates'] / Hartree**2 * nvalence,
                 cc['energy'] / Hartree * max(nvalence, 1),
                 cc['density'] * nvalence,
                 par.maxiter, par.fixdensity,
                 niter_fixdensity,
-                cc['forces'])
+                forceVal)
 
         parsize_kpt = par.parallel['kpt']
         parsize_domain = par.parallel['domain']

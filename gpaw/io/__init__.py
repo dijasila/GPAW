@@ -229,7 +229,11 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['EnergyConvergenceCriterion'] = p.convergence['energy'] / Hartree
     w['EigenstatesConvergenceCriterion'] = p.convergence['eigenstates']
     w['NumberOfBandsToConverge'] = p.convergence['bands']
-    w['ForcesConvergenceCriterion'] = p.convergence['forces']
+    if p.convergence['forces'] is not None:
+        ForceUnit = (Hartree / Bohr)
+        w['ForcesConvergenceCriterion'] = p.convergence['forces'] / ForceUnit
+    else:
+        w['ForcesConvergenceCriterion'] = None
     w['Ekin'] = hamiltonian.Ekin
     w['Epot'] = hamiltonian.Epot
     w['Ebar'] = hamiltonian.Ebar
