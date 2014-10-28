@@ -120,5 +120,5 @@ class SCFLoop:
             self.energy_error < self.max_energy_error and
             self.density_error < self.max_density_error and
             (self.force_error or 0) < abs((self.max_force_error)
-                                           or float('Inf')))
+                                          or float('Inf')))
         return self.converged
