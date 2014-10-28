@@ -70,7 +70,7 @@ class InputParameters(dict):
                              'density': 1.0e-4,
                              'eigenstates': 4.0e-8,  # eV^2
                              'bands': 'occupied',
-                             'forces': None}), # eV / Ang Max 
+                             'forces': None}),  # eV / Ang Max
             ('realspace', None),
             ('symmetry', {'point_group': True,
                           'time_reversal': True,
@@ -168,14 +168,17 @@ class InputParameters(dict):
             if not isinstance(nbtc, (int, str)):
                 # The string 'all' was eval'ed to the all() function!
                 nbtc = 'all'
+            if version < 5:
+                f = None
+            else:
+                f = r['ForcesConvergenceCriterion']
             self.convergence = {'density': r['DensityConvergenceCriterion'],
                                 'energy':
                                 r['EnergyConvergenceCriterion'] * Hartree,
                                 'eigenstates':
                                 r['EigenstatesConvergenceCriterion'],
                                 'bands': nbtc,
-                                'forces':
-                                r['ForcesConvergenceCriterion']}
+                                'forces': f}
 
             if version < 1:
                 # Volume per grid-point:

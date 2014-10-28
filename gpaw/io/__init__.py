@@ -10,6 +10,9 @@ Change log for version:
    PlaneWaveIndices array.
 
 4) Removed "UseSymmetry" and added "Symmetry" switches.
+
+5) Added "ForcesConvergenceCriterion".
+
 """
 
 import os
@@ -128,7 +131,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
-    w['version'] = 4
+    w['version'] = 5
     w['lengthunit'] = 'Bohr'
     w['energyunit'] = 'Hartree'
 
@@ -222,11 +225,11 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['MaximumAngularMomentum'] = p.lmax
     w['SoftGauss'] = False
     w['FixDensity'] = p.fixdensity
-    w['DensityConvergenceCriterion'] = p['convergence']['density']
-    w['EnergyConvergenceCriterion'] = p['convergence']['energy'] / Hartree
-    w['EigenstatesConvergenceCriterion'] = p['convergence']['eigenstates']
-    w['NumberOfBandsToConverge'] = p['convergence']['bands']
-    w['ForcesConvergenceCriterion'] = p['convergence']['forces']
+    w['DensityConvergenceCriterion'] = p.convergence['density']
+    w['EnergyConvergenceCriterion'] = p.convergence['energy'] / Hartree
+    w['EigenstatesConvergenceCriterion'] = p.convergence['eigenstates']
+    w['NumberOfBandsToConverge'] = p.convergence['bands']
+    w['ForcesConvergenceCriterion'] = p.convergence['forces']
     w['Ekin'] = hamiltonian.Ekin
     w['Epot'] = hamiltonian.Epot
     w['Ebar'] = hamiltonian.Ebar
