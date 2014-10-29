@@ -155,35 +155,3 @@ class Cluster(Atoms):
 
         self.__init__(read(filename, format=format))
         return len(self)
-
-    def write(self, filename=None, format=None, repeat=None):
-        """Write the structure to file.
-
-        Parameters
-        ----------
-        format: string
-          can be given or it will be guessed from the filename
-        repeat: array, eg.: [1,0,1]
-          can be used to repeat the structure
-        """
-
-        if filename is None:
-            if format is None:
-                raise RuntimeError('Please specify either filename or format.')
-            else:
-                filename = self.get_name() + '.' + format
-
-        out = self
-        if repeat is None:
-            out = self
-        else:
-            out = Cluster([])
-            cell = self.get_cell().diagonal()
-            for i in range(repeat[0] + 1):
-                for j in range(repeat[1] + 1):
-                    for k in range(repeat[2] + 1):
-                        copy = self.copy()
-                        copy.translate(np.array([i, j, k]) * cell)
-                        out += copy
-
-        write(filename, out, format)
