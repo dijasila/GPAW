@@ -55,17 +55,13 @@ class Cluster(Atoms):
         if dmax is None:
             # define neighbors according to covalent radii
             radii = scale * covalent_radii[self.get_atomic_numbers()]
-            for atom in self:
-                positions = self.positions - atom.position
-                distances = np.sqrt(np.sum(positions**2, axis=1))
-                radius = scale * covalent_radii[atom.number]
-                neighborlist.append(np.where(distances < radii + radius)[0])
         else:
             # define neighbors according to distance
-            nl = NeighborList([0.5 * dmax] * len(self), skin=0)
-            nl.update(self)
-            for i, atom in enumerate(self):
-                neighborlist.append(list(nl.get_neighbors(i)[0]))
+            radii = [0.5 * dmax] * len(self)
+        nl = NeighborList(radii, skin=0)
+        nl.update(self)
+        for i, atom in enumerate(self):
+            neighborlist.append(list(nl.get_neighbors(i)[0]))
 
         connected = list(neighborlist[index])
         isolated = False
