@@ -1,7 +1,5 @@
 import numpy as np
 
-from gpaw import KohnShamConvergenceError
-
 
 class SCFLoop:
     """Self-consistent field loop.
