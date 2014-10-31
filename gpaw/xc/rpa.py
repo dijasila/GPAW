@@ -20,6 +20,26 @@ from gpaw.utilities.timing import timer, Timer
 from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 
 
+def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
+    """Calculate RPA energy.
+    
+    filename: str
+        Name of restart-file.
+    ecut: float
+        Plane-wave cutoff.
+    blocks: int
+        Split polarizability matrix in this many blocks.
+    extrapolate: int
+        Number of cutoff energies to use for extrapolation.
+    """
+    name, ext = filename.rsplit('.', 1)
+    assert ext == 'gpw'
+    from gpaw.xc.rpa import RPACorrelation
+    rpa = RPACorrelation(name, nblocks=blocks, wstc=True,
+                         txt=name + '-rpa.txt')
+    rpa.calculate(ecut=ecut * 0.8**(-np.arange(extrapolate)))
+
+    
 class RPACorrelation:
     def __init__(self, calc, xc='RPA', filename=None,
                  skip_gamma=False, qsym=True, nlambda=None,

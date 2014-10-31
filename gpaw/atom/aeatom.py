@@ -710,8 +710,7 @@ class AllElectronAtom:
 def build_parser():
     from optparse import OptionParser
 
-    parser = OptionParser(usage='%prog [options] element',
-                          version='%prog 0.1')
+    parser = OptionParser(usage='gwap atom [options] element')
     parser.add_option('-f', '--xc-functional', type='string', default='LDA',
                       help='Exchange-Correlation functional ' +
                       '(default value LDA)',
@@ -750,9 +749,9 @@ def parse_ld_str(s, energies=None, r=2.0):
     return lvalues, energies, r
 
 
-def main():
+def main(args=None):
     parser = build_parser()
-    opt, args = parser.parse_args()
+    opt, args = parser.parse_args(args)
 
     if len(args) != 1:
         parser.error('Incorrect number of arguments')

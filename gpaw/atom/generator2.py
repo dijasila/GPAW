@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 import sys
 from math import pi, exp, sqrt, log
 
 import numpy as np
 from scipy.optimize import fsolve, root
 from scipy import __version__ as scipy_version
-from ase.utils import prnt, devnull
 from ase.units import Hartree
-from ase.data import atomic_numbers, chemical_symbols
+from ase.data import atomic_numbers
 
 from gpaw.mpi import world
 from gpaw.version import version
@@ -527,15 +527,15 @@ class PAWSetupGenerator:
         self.log('----------------------------------------------------------')
         for l, waves in enumerate(self.waves_l):
             for n, e, f, ds in zip(waves.n_n, waves.e_n, waves.f_n,
-                                  waves.dS_nn.diagonal()):
+                                   waves.dS_nn.diagonal()):
                 if n == -1:
                     self.log('  %s         %10.6f %10.5f   %19.2f' %
                              ('spdf'[l], e, e * Hartree, waves.rcut))
                 else:
                     self.log(
                         ' %d%s     %2d  %10.6f %10.5f      %5.3f  %9.2f' %
-                             (n, 'spdf'[l], f, e, e * Hartree, 1 - ds,
-                              waves.rcut))
+                        (n, 'spdf'[l], f, e, e * Hartree, 1 - ds,
+                         waves.rcut))
         self.log()
 
     def find_local_potential(self, r0, P):
@@ -910,8 +910,8 @@ class PAWSetupGenerator:
 
             for n in range(N):
                 duodr_n[n], a_n[n] = ch.integrate_outwards(u_ng[n], rgd,
-                                                          vtr_g, g1, e,
-                                                          pt_g=pt_ng[n])
+                                                           vtr_g, g1, e,
+                                                           pt_g=pt_ng[n])
 
             A_nn = (dH_nn - e * dS_nn) / (4 * pi)
             B_nn = rgd.integrate(pt_ng[:, None] * u_ng, -1)
@@ -1148,8 +1148,8 @@ class PAWSetupGenerator:
                                     for mc in range(2 * lc + 1):
                                         for m in range(2 * l + 1):
                                             G_L = G_LLL[:,
-                                                lc**2 + mc,
-                                                l**2 + m]
+                                                        lc**2 + mc,
+                                                        l**2 + m]
                                             X_mm += np.outer(
                                                 G_L[l1**2:(l1 + 1)**2],
                                                 G_L[l2**2:(l2 + 1)**2]) * e
@@ -1157,11 +1157,10 @@ class PAWSetupGenerator:
                 i1 += 2 * l1 + 1
 
 
-def generate(argv=None):
+def main(argv=None):
     from optparse import OptionParser
 
-    parser = OptionParser(usage='%prog [options] element',
-                          version='%prog 0.1')
+    parser = OptionParser(usage='gwap dataset [options] element')
     add = parser.add_option
     add('-f', '--xc-functional', type='string', default='LDA',
         help='Exchange-Correlation functional (default value LDA)',
@@ -1354,13 +1353,13 @@ def generate_all():
         electrons = name[n:]
         if atoms and symbol not in atoms:
             continue
-        print(name,symbol,electrons)
+        print(name, symbol, electrons)
         for xc in functionals:
             argv = [symbol, '-swf', xc, '-e', electrons, '-t', electrons + 'e']
             if xc == 'PBE':
                 argv.append('-b')
-            generate(argv)
+            main(argv)
 
 
 if __name__ == '__main__':
-    generate()
+    main()

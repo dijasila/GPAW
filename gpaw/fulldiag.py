@@ -3,44 +3,28 @@ from __future__ import print_function, division
 from gpaw import GPAW
 
 
-def fulldiag(filename, nbands=None, scalapack=1, dryrun=False):
+def fulldiag(filename, bands=None, scalapack=1, dry_run=False):
+    """Set up full H and S matrices and find all or some eigenvectors/values.
+    
+    calc: str
+        Filename of gpw-file.
+    bands: int
+        Number of bands to calculate.  Defaults to all.
+    scalapack: int
+        Number of cores to use for ScaLapack.  Default is one.
+    dry_run: bool
+        Don't do actual calculation.
+    
+    """
+    name, ext = filename.rstrip('.', 1)
+    assert ext == 'gpw'
     calc = GPAW(filename,
                 parallel={'band': scalapack},
-                txt=filename[:-3] + 'full.txt')
-    if not dryrun:
-        calc.diagonalize_full_hamiltonian(nbands, scalapack=True)
-        calc.write(filename[:-3] + 'full.gpw', 'all')
+                txt=name + '-all.txt')
+    if not dry_run:
+        calc.diagonalize_full_hamiltonian(bands, scalapack=True)
+        calc.write(name + '-all.gpw', 'all')
     
-    return calc.wfs.pd.ngmax
-
-    
-description = """\
-Set up full H and S matrices and find all or some eigenvectors/values."""
-
-
-def main():
-    import optparse
-    parser = optparse.OptionParser(usage='Usage: %prog <gpw-file> [options]',
-                                   description=description)
-    add = parser.add_option
-    
-    add('-n', '--bands', type=int,
-        help='Number of bands to calculate.  Defaults to all.')
-    add('-s', '--scalapack', type=int, default=1,
-        help='Number of cores to use for ScaLapack.  Default is one.')
-    add('-d', '--dry-run', action='store_true')
-    
-    opts, args = parser.parse_args()
-    if len(args) == 0:
-        parser.error('No gpw-file!')
-    if len(args) > 1:
-        parser.error('Too many arguments!')
-    assert args[0].endswith('.gpw')
-    
-    ng = fulldiag(args[0], opts.bands, opts.scalapack, opts.dry_run)
+    ng = calc.wfs.pd.ngmax
     mem = ng**2 * 16 / 1024**2
     print('Maximum matrix size: {0}x{0} = {1:.3f} MB'.format(ng, mem))
-
-
-if __name__ == '__main__':
-    main()

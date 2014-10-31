@@ -67,7 +67,7 @@ class EXX(PairDensity):
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt,
                              timer=timer)
 
-        if xc is None:
+        if xc is None or xc == 'EXX':
             self.exx_fraction = 1.0
             xc = XC(XCNull())
         elif xc == 'PBE0':
