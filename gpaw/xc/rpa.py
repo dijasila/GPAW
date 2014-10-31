@@ -37,7 +37,7 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     from gpaw.xc.rpa import RPACorrelation
     rpa = RPACorrelation(name, nblocks=blocks, wstc=True,
                          txt=name + '-rpa.txt')
-    rpa.calculate(ecut=ecut * 0.8**(-np.arange(extrapolate)))
+    rpa.calculate(ecut=ecut * 0.8**np.arange(extrapolate))
 
     
 class RPACorrelation:

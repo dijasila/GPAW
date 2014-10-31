@@ -16,7 +16,7 @@ def fulldiag(filename, bands=None, scalapack=1, dry_run=False):
         Don't do actual calculation.
     
     """
-    name, ext = filename.rstrip('.', 1)
+    name, ext = filename.rsplit('.', 1)
     assert ext == 'gpw'
     calc = GPAW(filename,
                 parallel={'band': scalapack},
