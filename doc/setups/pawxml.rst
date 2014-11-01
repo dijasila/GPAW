@@ -232,7 +232,7 @@ There can be one or more definitions of radial grids.
 
 Example::
 
-  <radial_grid eq="r=d*i" d="0.1" istart="0" iend="9" id="g1"/>
+  <radial_grid eq="r=d*i" d="0.1" istart="0" iend="9" id="g1">
     <values>
       0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9
     </values>
@@ -252,8 +252,8 @@ be multiplied by a spherical harmonics:
 
 Each radial grid has a unique id::
 
-  <radial_grid eq="r=d*i" d="0.01" istart="0" iend="99" id="lin"/>
-  <radial_grid eq="r=a*exp(d*i)" a="1.056e-4" d="0.05" istart="0" iend="249" id="log"/>
+  <radial_grid eq="r=d*i" d="0.01" istart="0" iend="99" id="lin">
+  <radial_grid eq="r=a*exp(d*i)" a="1.056e-4" d="0.05" istart="0" iend="249" id="log">
 
 and each numerical function must refer to one of these ids::
 
@@ -496,7 +496,6 @@ Kinetic energy differences
        1.744042161013e+00 0.000000000000e+00 2.730637956456e+00
        ...
     <kinetic_energy_differences>
-  </paw_dataset>
 
 This element contains the symmetric `\Delta E^\text{kin}_{ij}` matrix:
 
@@ -520,7 +519,7 @@ the latters are defined with these two elements::
     
     <ae_core_kinetic_energy_density grid="g1"> 
       ... ... ...
-    </ae_core_kinetic_energy_density grid="g1"> 
+    </ae_core_kinetic_energy_density> 
     <pseudo_core_kinetic_energy_density rc="1.1" grid="g1">
       ... ... ...
     </pseudo_core_kinetic_energy_density> 
@@ -540,13 +539,15 @@ PAW-correction matrix `X_{ij}^{\text{core-valence}}` are given as:
 
 .. math::
     
-    X^{\text{core-core}} = \frac{1}{4}\sum_{cc'} \iint d\br d\br'
-    \frac{\phi_c(\br)\phi_{c'}(\br) \phi_c(\br')\phi_{c'}(\br')}{|\br-\br'|}
-    
+    X^{\text{core-core}} = \frac{1}{4}\sum_{cc'} \iint d\mathbf{r} d\mathbf{r}'
+    \frac{\phi_c(\mathbf{r})\phi_{c'}(\mathbf{r}) \phi_c(\mathbf{r}')\phi_{c'}(\mathbf{r}')}
+    {|\mathbf{r}-\mathbf{r}'|}
+
 .. math::
-    
-    X_{ij}^{\text{core-valence}} = \frac{1}{2}\sum_c \iint d\br d\br'
-    \frac{\phi_i(\br)\phi_c(\br) \phi_j(\br')\phi_c(\br')}{|\br-\br'|}
+
+    X_{ij}^{\text{core-valence}} = \frac{1}{2}\sum_c \iint d\mathbf{r} d\mathbf{r}'
+    \frac{\phi_i(\mathbf{r})\phi_c(\mathbf{r}) \phi_j(\mathbf{r}')\phi_c(\mathbf{r}')}
+    {|\mathbf{r}-\mathbf{r}'|}$$
 
 These can be specified as the ``core`` attribute of the ``<exact_exchange>``
 element and as `N^2` numbers inside the ``<exact_exchange>`` element::
@@ -601,7 +602,7 @@ Plotting the radial functions
 
 The first 10-20 lines of the XML-datasets, should be pretty much human
 readable, and should give an overview of what kind of dataset it is and
-how it was generated.  The remaining part of the files contain
+how it was generated.  The remaining part of the file contains
 numerical data for all the radial functions.  To get an overview of
 these functions, you can extract that data with the
 :trac:`~doc/setups/pawxml.py` program and then pass it on to your
