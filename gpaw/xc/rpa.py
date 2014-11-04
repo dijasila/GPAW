@@ -35,7 +35,9 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     name, ext = filename.rsplit('.', 1)
     assert ext == 'gpw'
     from gpaw.xc.rpa import RPACorrelation
-    rpa = RPACorrelation(name, nblocks=blocks, wstc=True,
+    rpa = RPACorrelation(name, name + '-rpa.dat',
+                         nblocks=blocks,
+                         wstc=True,
                          txt=name + '-rpa.txt')
     rpa.calculate(ecut=ecut * 0.8**np.arange(extrapolate))
 
