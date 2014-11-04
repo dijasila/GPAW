@@ -1,4 +1,4 @@
-"""GPAW without any Python (GWAP)."""
+"""GPAW Without Any Python (GWAP)."""
 from __future__ import print_function
 import os
 import sys
@@ -29,15 +29,17 @@ def main():
     parser1.disable_interspersed_args()
     add = parser1.add_option
     add('-v', '--verbose', action='store_true')
-    add('--web-page', action='store_true')
-    add('-P', '--parallel', type=int)
+    add('-P', '--parallel', type=int, metavar='N', default=1,
+        help="Run on N CPU's.")
     opts1, args1 = parser1.parse_args()
 
-    if opts1.parallel:
-        # Start again using gpaw-python in parallel:
-        args = ['mpiexec', '-np', str(opts1.parallel),
-                'gpaw-python'] + sys.argv
-        os.execvp('mpiexec', args)
+    if opts1.parallel > 1:
+        from gpaw.mpi import size
+        if size == 1:
+            # Start again using gpaw-python in parallel:
+            args = ['mpiexec', '-np', str(opts1.parallel),
+                    'gpaw-python'] + sys.argv
+            os.execvp('mpiexec', args)
     
     command = args1[0]
     modulename, funcname = functions.get(command, command).rsplit('.', 1)
@@ -62,8 +64,9 @@ def main():
         if opts1.verbose:
             raise
         else:
-            print('{0}: {1}'.format(x.__class__.__name__, x))
-            print('To get a full traceback, use: gwap --verbose')
+            print('{0}: {1}'.format(x.__class__.__name__, x), file=sys.stderr)
+            print('To get a full traceback, use: gwap --verbose',
+                  file=sys.stderr)
 
             
 def construct_parser(func, name):
