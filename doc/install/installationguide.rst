@@ -143,8 +143,9 @@ Windows
    GPAW is not yet fully functional on Windows! See
    http://listserv.fysik.dtu.dk/pipermail/gpaw-users/2013-August/002264.html
 
-On Windows install ASE and dependencies as described at
+On Windows install ASE dependencies as described at
 https://wiki.fysik.dtu.dk/ase/download.html#windows.
+The GPAW installer includes ASE.
 
 Download the gpaw.win32-py2.7.msi_ installer and install with::
 
@@ -155,7 +156,7 @@ Download the gpaw.win32-py2.7.msi_ installer and install with::
 
 .. note::
 
-    Unpack gpaw-setups under C:\gpaw-setups.
+    Unpack gpaw-setups under C:\gpaw-setups (see :ref:`setups`).
 
 .. _installationguide_developer:
 
