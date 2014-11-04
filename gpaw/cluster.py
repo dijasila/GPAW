@@ -58,17 +58,15 @@ class Cluster(Atoms):
         else:
             # define neighbors according to distance
             radii = [0.5 * dmax] * len(self)
-        nl = NeighborList(radii, skin=0)
+        nl = NeighborList(radii, skin=0, self_interaction=False, bothways=True)
         nl.update(self)
-        for i, atom in enumerate(self):
-            neighborlist.append(list(nl.get_neighbors(i)[0]))
 
-        connected = list(neighborlist[index])
+        connected = [index] + list(nl.get_neighbors(index)[0])
         isolated = False
         while not isolated:
             isolated = True
             for i in connected:
-                for j in neighborlist[i]:
+                for j in nl.get_neighbors(i)[0]:
                     if j in connected:
                         pass
                     else:
