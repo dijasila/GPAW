@@ -4,7 +4,7 @@
 import numpy as np
 
 from ase import Atoms
-from ase.io import read, write
+from ase.io import read
 from ase.data import covalent_radii
 from ase.calculators.neighborlist import NeighborList
 
@@ -50,8 +50,10 @@ class Cluster(Atoms):
 
         """
 
+        if index < 0:
+            index = len(self) + index
+
         # set neighbor lists
-        neighborlist = []
         if dmax is None:
             # define neighbors according to covalent radii
             radii = scale * covalent_radii[self.get_atomic_numbers()]
