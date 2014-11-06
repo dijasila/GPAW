@@ -216,6 +216,8 @@ as well as ``l`` and ``n`` quantum numbers. For each of them it is also required
 the energy ``e``, the occupation ``f``
 and the matching radius of the partial waves ``rc``.
 
+The number of valence states is noted `n_{val}` in the rest of this document.
+
 For this dataset, the first two lines describe bound eigenstates with
 occupation numbers and principal quantum numbers.  Notice, that the
 three additional unbound states should have no ``f`` and ``n``
@@ -505,8 +507,11 @@ This element contains the symmetric `\Delta E^\text{kin}_{ij}` matrix:
   - \langle \tilde{\phi}_i | \hat{T} | \tilde{\phi}_j \rangle 
 
 where `\hat{T}` is the kinetic energy operator used by the
-generator.  With `n` states, we have an `n \times n` matrix
-listed as `n^2` numbers.
+generator.
+With `n_{val}` valence states (see `n_{val}` `definition`__),
+we have a `n_{val} \times n_{val}` matrix listed as `n_{val}^2` numbers.
+
+__ `Valence states`_
 
 
 --------
@@ -534,27 +539,50 @@ Exact exchange integrals
 ------------------------
 
 The core-core contribution to the exact exchange energy
-`X^{\text{core-core}}` and the symmetric `N\times N` core-valence
+`X^{\text{core-core}}` and the symmetric core-valence
 PAW-correction matrix `X_{ij}^{\text{core-valence}}` are given as:
 
 .. math::
     
-    X^{\text{core-core}} = \frac{1}{4}\sum_{cc'} \iint d\mathbf{r} d\mathbf{r}'
+    X^{\text{core-core}} = -\frac{1}{4}\sum_{cc'} \iint d\mathbf{r} d\mathbf{r}'
     \frac{\phi_c(\mathbf{r})\phi_{c'}(\mathbf{r}) \phi_c(\mathbf{r}')\phi_{c'}(\mathbf{r}')}
     {|\mathbf{r}-\mathbf{r}'|}
 
 .. math::
 
-    X_{ij}^{\text{core-valence}} = \frac{1}{2}\sum_c \iint d\mathbf{r} d\mathbf{r}'
+    X_{ij}^{\text{core-valence}} = -\frac{1}{2}\sum_c \iint d\mathbf{r} d\mathbf{r}'
     \frac{\phi_i(\mathbf{r})\phi_c(\mathbf{r}) \phi_j(\mathbf{r}')\phi_c(\mathbf{r}')}
     {|\mathbf{r}-\mathbf{r}'|}$$
 
-These can be specified as the ``core`` attribute of the ``<exact_exchange>``
-element and as `N^2` numbers inside the ``<exact_exchange>`` element::
+The `X_{ij}^{\text{core-valence}}` coefficients depend only on pairs of the radial
+basis functions `\phi_i(\mathbf{r})` and can be evaluated by summing over radial
+integrals times **3-j** symbols according to:
+
+.. math::
+
+    X_{ij}^{\text{core-valence}} =
+    -\delta_{l_i l_j} \delta_{m_i m_j} \sum_{c L} \frac{N_c}{2}
+    {\begin{pmatrix}l_c & L & l_i \\ 0 & 0 & 0\end{pmatrix}}^2
+    \int r^2 dr \int {r'}^2 d{r'}
+    \frac{r^{L}_{<}}{r^{L+1}_{>}}
+    \phi_i(r) \phi_c(r) \phi_j(r') \phi_c(r')
+
+where `r_>` (resp. `r_<`) is the larger (resp. smaller) of `r` and `r'`.
+
+
+`X^{\text{core-core}}` can be specified in the ``core`` attribute of the
+``<exact_exchange>`` element.
+
+ 
+With `n_{val}` valence states (see `n_{val}` `definition`__),
+`X_{ij}^{\text{core-valence}}` is a `n_{val} \times n_{val}` matrix.
+It can be specified as `n_{val}^2` numbers inside the ``<exact_exchange>`` element::
     
     <exact_exchange core="...">
       ... ... ...
     </exact_exchange>
+
+__ `Valence states`_
 
 
 -----------------
@@ -572,7 +600,7 @@ Although not necessary, it may be helpful to provide the following item(s) in th
    This radius defines the region (around the atom) outside which all pseudo quantities
    are equal to the all-electron ones.
    It is equal to the maximum of all the cut-off and matching radii.
-   Note that -- for better lisibility -- the ``paw_radius`` elements should be
+   Note that -- for better lisibility -- the ``paw_radius`` element should be
    provided in the header of the file. 
 
 
