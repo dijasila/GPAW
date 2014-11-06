@@ -555,7 +555,7 @@ PAW-correction matrix `X_{ij}^{\text{core-valence}}` are given as:
     {|\mathbf{r}-\mathbf{r}'|}$$
 
 The `X_{ij}^{\text{core-valence}}` coefficients depend only on pairs of the radial
-basis functions `\phi_i(\mathbf{r})` and can be evaluated by summing over radial
+basis functions `\phi_i(r)` and can be evaluated by summing over radial
 integrals times **3-j** symbols according to:
 
 .. math::
