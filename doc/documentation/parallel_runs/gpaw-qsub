@@ -16,7 +16,6 @@ add('-x', '--export', help='Environment variables to export.')
 add('-g', '--gpaw', help='Path to GPAW.')
 add('--module', help='Run library module as a script (terminates option list)')
 add('--cores', type=int, help='Number of cores.')
-add('-n', '--threads', type=int, default=1)
 
 qsub_options = [('l', 'resource-list', 'nodes=1:ppn=1:opteron4'),
                 ('q', 'queue', 'long')]
@@ -58,7 +57,7 @@ if opts.module:
     jobname = opts.module
 else:
     script = args[0]
-    jobname = script.split('/')[-1]
+    jobname = '_'.join(args)
 
 qsub = '#!/usr/bin/env python\n'
 qsub += '#PBS -N %s\n' % jobname  # set default job name
@@ -89,7 +88,6 @@ if opts.cores:
 qsub += 'job = %r\n' % args
 qsub += 'path = %r\n' % path
 qsub += 'module = %r\n' % opts.module
-qsub += 'nthreads = %d\n' % opts.threads
 qsub += 'export = %r\n' % export
 
 qsub += """
@@ -102,17 +100,13 @@ assert c in 'abcdghinmqp'
 
 nproc = len(open(os.environ['PBS_NODEFILE']).readlines())
 
-cmd = ['mpiexec']
+cmd = ['mpiexec', '--loadbalance']
 
 export.append('PYTHONPATH=%s:%s' % (path, os.environ.get('PYTHONPATH', '')))
 
 if c in 'ghi':
     # Intel Niflheim node:
     cmd += ['--mca', 'btl', '^tcp']
-
-if nthreads > 1:
-    cmd += ['-np', str(nproc // nthreads), '--loadbalance']
-    export.append('OMP_NUM_THREADS=%d' % nthreads)
 
 for x in export:
     cmd += ['-x', x]
