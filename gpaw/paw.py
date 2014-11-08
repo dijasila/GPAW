@@ -813,7 +813,7 @@ class PAW(PAWTextOutput):
                     world, self.wfs.kptband_comm, par.external,
                     collinear, par.poissonsolver, par.stencils[1])
             else:
-                self.hamiltonian = ReciprocalSpaceHamiltonian(
+                self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
                     gd, finegd,
                     self.density.pd2, self.density.pd3,
                     nspins, setups, self.timer, xc, world, self.wfs.kptband_comm, par.external,
