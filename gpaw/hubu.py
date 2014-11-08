@@ -235,7 +235,7 @@ class HubU:
         Nanl_ref = self.get_Nocc(a, n, l, scale=scale, NbP = NbP)
         print Nanl_ref
          
-        #STOP
+        STOP
         if negative:
             alpha_range = np.linspace(-1*alpha, alpha, steps)
         else:
