@@ -242,8 +242,8 @@ class Hamiltonian:
             self.update_pseudo_potential(density)
 
         self.timer.start('Atomic')
-        self.dH_asp = None # XXXX
-
+        self.dH_asp = None  # XXXX
+        
         dH_asp = {}
         for a, D_sp in density.D_asp.items():
             W_L = W_aL[a]
@@ -305,9 +305,9 @@ class Hamiltonian:
                         
                         nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
                         
-                        for s, (D_p, H_p) in enumerate(zip(D_sp,self.dH_asp[a])):
-                            [N_mm,V] =self.aoom(unpack2(D_p),a,n,l,NbP=NbP, 
-                                                scale=scale)
+                        for s, (D_p, H_p) in enumerate(zip(D_sp, dH_asp[a])):
+                            [N_mm,V] =self.aoom(unpack2(D_p), a, n, l, NbP = NbP, 
+                                                scale = scale)
                             
                             N_mm = N_mm / 2 * nspins
                             Vorb = np.zeros((2*l+1,2*l+1))
