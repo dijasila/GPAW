@@ -926,9 +926,6 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
-        if extra_parameters.get('fprojectors'):
-            return None
-
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         nabla_iiv = np.empty((self.ni, self.ni, 3))

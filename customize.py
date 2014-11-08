@@ -7,14 +7,11 @@
 #To append use the form
 #     libraries += ['somelib','otherlib']
 
-#compiler = 'mpcc'
-#libraries = []
-#libraries += []
+compiler = 'mpicc'
+libraries = []
+library_dirs = []
 
-#library_dirs = []
-#library_dirs += []
-
-#include_dirs = []
+include_dirs = []
 #include_dirs += []
 
 #extra_link_args = []
@@ -32,8 +29,8 @@
 #define_macros = []
 #define_macros += []
 
-#mpicompiler = None
-#mpilinker = None
+mpicompiler = 'mpicc'
+mpilinker = 'mpicc'
 #mpi_libraries = []
 #mpi_libraries += []
 
@@ -51,28 +48,33 @@
 
 #platform_id = ''
 
-#hdf5 = True
+hdf5 = True
+
+if hdf5:
+    libraries += ['hdf5']
+    library_dirs += ['/lap/hdf5/1.8.11/gcc-4.6/openmpi/lib']
+    include_dirs += ['/lap/hdf5/1.8.11/gcc-4.6/openmpi/include']
 
 # Valid values for scalapack are False, or True:
 # False (the default) - no ScaLapack compiled in
 # True - ScaLapack compiled in
-# Warning! At least scalapack 2.0.1 is required!
-# See https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
-scalapack = False
+scalapack = True
 
 if scalapack:
-    libraries += ['scalapack']
-    library_dirs += []
+    libraries += ['scalapack_ompi']
+    library_dirs += ['/lap/libscalapack/2.0.2/lib/gcc']
     define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
     define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
 
-# In order to link libxc installed in a non-standard location
-# (e.g.: configure --prefix=/home/user/libxc-2.0.1-1), use:
-# - static linking:
-#include_dirs += ['/home/user/libxc-2.0.1-1/include']
-#extra_link_args += ['/home/user/libxc-2.0.1-1/lib/libxc.a']
-#if 'xc' in libraries: libraries.remove('xc')
-# - dynamic linking (requires also setting LD_LIBRARY_PATH at runtime):
-#include_dirs += ['/home/user/libxc-2.0.1-1/include']
-#library_dirs += ['/home/user/libxc-2.0.1-1/lib']
-#if 'xc' not in libraries: libraries.append('xc')
+libraries += ['lapack']
+libraries += ['openblas']
+libraries += ['gfortran']
+
+library_dirs += ['/lap/liblapack/3.4.2/lib/gcc']
+library_dirs += ['/lap/openblas/lib/gcc']
+
+# Load external libxc
+libraries += ['xc']
+LIBXCDIR='/home/r/rasmusk/Public/libxc-2.2.0/install/'
+library_dirs += [LIBXCDIR + 'lib']
+include_dirs += [LIBXCDIR + 'include']
