@@ -9,9 +9,9 @@ class SCFLoop:
     """
     
     def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, maxiter=100,
-                 fixdensity=False, niter_fixdensity=None,
+                 fixdensity=False, niter_fixdensity=None, force = None,
                  store_iter_D_asp = False,
-                 HubAlphaIO = False, force = None):
+                 HubAlphaIO = False):
         self.max_eigenstates_error = max(eigenstates, 1e-20)
         self.max_energy_error = energy
         self.max_force_error = force

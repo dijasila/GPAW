@@ -574,12 +574,13 @@ class PAW(PAWTextOutput):
             if force_crit is not None:
                 force_crit /= Hartree / Bohr
             self.scf = SCFLoop(
-                cc['eigenstates'] / Hartree**2 * nvalence,
-                cc['energy'] / Hartree * max(nvalence, 1),
-                cc['density'] * nvalence,
-                par.maxiter, par.fixdensity,
-                niter_fixdensity,
-                force_crit)
+                eigenstates = cc['eigenstates'] / Hartree**2 * nvalence,
+                energy = cc['energy'] / Hartree * max(nvalence, 1),
+                density = cc['density'] * nvalence,
+                maxiter = par.maxiter, 
+                fixdensity = par.fixdensity,
+                niter_fixdensity = niter_fixdensity,
+                force = force_crit)
 
         parsize_kpt = par.parallel['kpt']
         parsize_domain = par.parallel['domain']
