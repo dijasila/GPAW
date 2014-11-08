@@ -808,7 +808,7 @@ class PAW(PAWTextOutput):
         if self.hamiltonian is None:
             gd, finegd = self.density.gd, self.density.finegd
             if realspace:
-                self.hamiltonian = pw.RealSpaceHamiltonian(
+                self.hamiltonian = RealSpaceHamiltonian(
                     gd, finegd, nspins, setups, self.timer, xc,
                     world, self.wfs.kptband_comm, par.external,
                     collinear, par.poissonsolver, par.stencils[1])
