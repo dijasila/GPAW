@@ -1,4 +1,4 @@
-
+from __future__ import print_function
 import sys
 import re
 
@@ -82,7 +82,7 @@ if rank == 0:
 
     E = lr[n].get_energy() * Hartree
     osz = lr[n].get_oscillator_strength()
-    print 'Original object        :', E, osz[0]
+    print('Original object        :', E, osz[0])
 
     # Test the output of analyse
     origstdout = sys.stdout
@@ -93,13 +93,13 @@ if rank == 0:
     match = re.findall(r'%i: E=([0-9]*\.[0-9]*) eV, f=([0-9]*\.[0-9]*)*' % n, s)
     Eanalyse = float(match[0][0])
     oszanalyse = float(match[0][1])
-    print 'From analyse           :', Eanalyse, oszanalyse
+    print('From analyse           :', Eanalyse, oszanalyse)
     equal(E, Eanalyse, 1e-3)            # Written precision in analyse
     equal(osz[0], oszanalyse, 1e-3)
 
     E2 = lr2[n].get_energy() * Hartree
     osz2 = lr2[n].get_oscillator_strength()
-    print 'Written and read object:', E2, osz2[0]
+    print('Written and read object:', E2, osz2[0])
     
     # Compare values of original and written/read objects   
     equal(E, E2, 1e-4)
@@ -119,7 +119,7 @@ if rank == 0:
     Espec = spectrum[peak, 0]
     oszspec = spectrum[peak, 1] / weight
 
-    print 'Values from spectrum   :', Espec, oszspec
+    print('Values from spectrum   :', Espec, oszspec)
     # Compare calculated values with values written to file
     equal(E, Espec, 1e-2)           # The spectrum has a low sampling
     equal(osz[0], oszspec, 1e-2)

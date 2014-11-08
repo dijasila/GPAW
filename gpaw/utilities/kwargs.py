@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
     
@@ -130,4 +131,4 @@ def main(argv):
         out = sys.stdout
     else:
         out = open(outfilename, 'w')
-    print >> out, kwargs2str(**parameters)
+    print(kwargs2str(**parameters), file=out)

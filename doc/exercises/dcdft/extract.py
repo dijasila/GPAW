@@ -8,7 +8,7 @@ from ase.test.tasks.dcdft import DeltaCodesDFTCollection as Collection
 from ase.test.tasks.dcdft import FullEquationOfState as EquationOfState
 
 collection = Collection()
-    
+
 db = sys.argv[1]
 
 c = ase.db.connect(db)

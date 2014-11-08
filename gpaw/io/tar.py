@@ -54,7 +54,7 @@ class Writer:
                       for dim in shape]
         self.xml2 += ['  </array>']
         self.shape = [self.dims[dim] for dim in shape]
-        size = itemsize * np.product([self.dims[dim] for dim in shape])
+        size = itemsize * int(np.product([self.dims[dim] for dim in shape]))
         self.write_header(name, size)
         if array is not None:
             self.fill(array)

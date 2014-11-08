@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw import restart
 
 # J.Phys.: Condens. Matter 18 (2006) 41-54
@@ -22,9 +23,9 @@ for name in ['NO', 'O2', 'N2', 'Ru001', 'NRu001', 'ORu001']:
 for data, text in [(pbe, 'PBE'),
                    (pw91, 'PW91 (non-selfconsitent)'),
                    (pw91vasp, 'PW91 (VASP)')]:
-    print ('%22s %.3f %.3f %.3f' %
+    print(('%22s %.3f %.3f %.3f' %
            (text,
             data['NRu001'] - data['Ru001'] - data['N2'] / 2,
             data['ORu001'] - data['Ru001'] - data['O2'] / 2,
-            data['NO'] - data['N2'] / 2 - data['O2'] / 2))
+            data['NO'] - data['N2'] / 2 - data['O2'] / 2)))
 

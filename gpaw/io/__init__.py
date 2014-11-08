@@ -2,25 +2,23 @@
 
 Change log for version:
 
-1)
+1) Initial version.
 
 2) GridPoints array added when gpts is used.
 
 3) Different k-points now have different number of plane-waves.  Added
    PlaneWaveIndices array.
-    
+
+4) Removed "UseSymmetry" and added "Symmetry" switches.
+
+5) Added "ForcesConvergenceCriterion".
+
 """
 
 import os
 import warnings
 
-try:
-    from ase.units import AUT  # requires rev1839 or later
-except ImportError:
-    from ase.units import second, alpha, _hbar, _me, _c
-    AUT = second * _hbar / (alpha**2 * _me * _c**2)
-    del second, alpha, _hbar, _me, _c
-
+from ase.units import AUT
 from ase.units import Bohr, Hartree
 from ase.data import atomic_names
 from ase.atoms import Atoms
@@ -102,7 +100,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     world = paw.wfs.world
     domain_comm = wfs.gd.comm
-    kpt_comm = wfs.kpt_comm
+    kpt_comm = wfs.kd.comm
     band_comm = wfs.band_comm
     
     master = (world.rank == 0)
@@ -127,12 +125,13 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     # - HDF-writer writes full distributed data from all task, replicated data
     #   from master, and partially replicated-data from domain_comm.rank == 0.
     #   These types of writes are call Datasets.
-    # - HDF-writer writes parameters and dimensions as Attributes, not Datasets.
+    # - HDF-writer writes parameters and dimensions as Attributes, not
+    #   Datasets.
     #   Attributes must be written by all MPI tasks.
     
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
-    w['version'] = 3
+    w['version'] = 5
     w['lengthunit'] = 'Bohr'
     w['energyunit'] = 'Hartree'
 
@@ -169,11 +168,11 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     if wfs.kd.N_c is not None:
         w.add('NBZKPoints', ('3'), wfs.kd.N_c, write=master)
         w.add('MonkhorstPackOffset', ('3'), wfs.kd.offset_c, write=master)
-    w.dimension('nbzkpts', len(wfs.bzk_kc))
-    w.dimension('nibzkpts', len(wfs.ibzk_kc))
-    w.add('BZKPoints', ('nbzkpts', '3'), wfs.bzk_kc, write=master)
-    w.add('IBZKPoints', ('nibzkpts', '3'), wfs.ibzk_kc, write=master)
-    w.add('IBZKPointWeights', ('nibzkpts',), wfs.weight_k, write=master)
+    w.dimension('nbzkpts', len(wfs.kd.bzk_kc))
+    w.dimension('nibzkpts', len(wfs.kd.ibzk_kc))
+    w.add('BZKPoints', ('nbzkpts', '3'), wfs.kd.bzk_kc, write=master)
+    w.add('IBZKPoints', ('nibzkpts', '3'), wfs.kd.ibzk_kc, write=master)
+    w.add('IBZKPointWeights', ('nibzkpts',), wfs.kd.weight_k, write=master)
 
     # Create dimensions for varioius netCDF variables:
     ng = wfs.gd.get_size_of_global_array()
@@ -213,7 +212,10 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['XCFunctional'] = paw.hamiltonian.xc.name
     w['Charge'] = p['charge']
     w['FixMagneticMoment'] = paw.occupations.fixmagmom
-    w['UseSymmetry'] = p['usesymm']
+    w['SymmetryOnSwitch'] = wfs.kd.symmetry.point_group
+    w['SymmetrySymmorphicSwitch'] = wfs.kd.symmetry.symmorphic
+    w['SymmetryTimeReversalSwitch'] = wfs.kd.symmetry.time_reversal
+    w['SymmetryToleranceCriterion'] = wfs.kd.symmetry.tol
     w['Converged'] = scf.converged
     w['FermiWidth'] = paw.occupations.width
     w['MixClass'] = density.mixer.__class__.__name__
@@ -223,10 +225,15 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['MaximumAngularMomentum'] = p.lmax
     w['SoftGauss'] = False
     w['FixDensity'] = p.fixdensity
-    w['DensityConvergenceCriterion'] = p['convergence']['density']
-    w['EnergyConvergenceCriterion'] = p['convergence']['energy'] / Hartree
-    w['EigenstatesConvergenceCriterion'] = p['convergence']['eigenstates']
-    w['NumberOfBandsToConverge'] = p['convergence']['bands']
+    w['DensityConvergenceCriterion'] = p.convergence['density']
+    w['EnergyConvergenceCriterion'] = p.convergence['energy'] / Hartree
+    w['EigenstatesConvergenceCriterion'] = p.convergence['eigenstates']
+    w['NumberOfBandsToConverge'] = p.convergence['bands']
+    if p.convergence['forces'] is not None:
+        force_unit = (Hartree / Bohr)
+        w['ForcesConvergenceCriterion'] = p.convergence['forces'] / force_unit
+    else:
+        w['ForcesConvergenceCriterion'] = None
     w['Ekin'] = hamiltonian.Ekin
     w['Epot'] = hamiltonian.Epot
     w['Ebar'] = hamiltonian.Ebar
@@ -257,6 +264,13 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                 w.add(name, ('3',), value, write=master)
             else:
                 w[name] = value
+
+    # Try to write FDTD-related data
+    use_fdtd = hasattr(paw.hamiltonian.poisson, 'get_description') and \
+        paw.hamiltonian.poisson.get_description() == 'FDTD+TDDFT'
+    w['FDTD'] = use_fdtd
+    if use_fdtd:
+        paw.hamiltonian.poisson.write(paw, w)
 
     # Write fingerprint (md5-digest) for all setups:
     for setup in wfs.setups.setups.values():
@@ -314,11 +328,13 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                         P_ani[a] = np.empty((wfs.bd.mynbands, ni),
                                             dtype=wfs.dtype)
                         requests.append(domain_comm.receive(P_ani[a],
-                            wfs.rank_a[a], 1303 + a, block=False))
+                                                            wfs.rank_a[a],
+                                                            1303 + a,
+                                                            block=False))
             else:
                 for a, P_ni in kpt.P_ani.items():
                     requests.append(domain_comm.send(P_ni, 0, 1303 + a,
-                                                      block=False))
+                                                     block=False))
             domain_comm.waitall(requests)
             if domain_comm.rank == 0:
                 for a in range(natoms):
@@ -326,7 +342,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             w.fill(all_P_ni, parallel=parallel, write=do_write, *indices)
     else:
         for s in range(wfs.nspins):
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 all_P_ni = wfs.collect_projections(k, s)
                 if master:
                     w.fill(all_P_ni, s, k)
@@ -375,7 +391,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     for name, var in [('Eigenvalues', 'eps_n'), ('OccupationNumbers', 'f_n')]:
         w.add(name, ('nspins', 'nibzkpts', 'nbands'), dtype=float)
         for s in range(wfs.nspins):
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 # if hdf5:  XXX Figure this out later
                 #     indices = [s, k]
                 #     indices.append(wfs.bd.get_slice())
@@ -401,7 +417,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         w.add('LinearExpansionOccupations', ('nspins',
               'nibzkpts', 'norbitals'), dtype=float)
         for s in range(wfs.nspins):
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 ne_o = wfs.collect_auxiliary('ne_o', k, s, shape=norbitals)
                 if master:
                     w.fill(ne_o, s, k)
@@ -409,7 +425,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         w.add('LinearExpansionCoefficients', ('nspins',
               'nibzkpts', 'norbitals', 'nbands'), dtype=complex)
         for s in range(wfs.nspins):
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 for o in range(norbitals):
                     c_n = wfs.collect_array('c_on', k, s, subset=o)
                     if master:
@@ -424,7 +440,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     for s in range(wfs.nspins):
         if hdf5:
             do_write = (kpt_comm.rank == 0) and (band_comm.rank == 0)
-            indices = [s,] + wfs.gd.get_slice()
+            indices = [s] + wfs.gd.get_slice()
             w.fill(density.nt_sG[s], parallel=parallel, write=do_write,
                    *indices)
         elif kpt_comm.rank == 0:
@@ -441,7 +457,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     for s in range(wfs.nspins):
         if hdf5:
             do_write = (kpt_comm.rank == 0) and (band_comm.rank == 0)
-            indices = [s,] + wfs.gd.get_slice()
+            indices = [s] + wfs.gd.get_slice()
             w.fill(hamiltonian.vt_sG[s], parallel=parallel, write=do_write,
                    *indices)
         elif kpt_comm.rank == 0:
@@ -477,7 +493,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
         ngd = wfs.gd.get_size_of_global_array()
         for s in range(wfs.nspins):
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 for n in range(wfs.bd.nbands):
                     psit_G = wfs.get_wave_function_array(n, k, s)
                     if master:
@@ -500,7 +516,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         if cmr_params is None:
             c = {}
         else:
-            c = cmr_params.copy() 
+            c = cmr_params.copy()
         c["ase_atoms_var"] = atoms_var
         if master:
             w.write_additional_db_params(cmr_params=c)
@@ -586,14 +602,20 @@ def read(paw, reader):
             raise ValueError('shape mismatch: expected %s=%d' % (name, dim))
 
     timer.start('Density')
-    density.read(r, parallel, kd, bd)
+    density.read(r, parallel, wfs.kptband_comm)
     timer.stop('Density')
 
     timer.start('Hamiltonian')
-    hamiltonian.read(r, parallel, kd, bd)
+    hamiltonian.read(r, parallel)
     timer.stop('Hamiltonian')
 
-    wfs.rank_a = np.zeros(natoms, int)
+    from gpaw.utilities.partition import AtomPartition
+    atom_partition = AtomPartition(gd.comm, np.zeros(natoms, dtype=int))
+    # <sarcasm>let's set some variables directly on some objects!</sarcasm>
+    wfs.atom_partition = atom_partition # XXX
+    wfs.rank_a = np.zeros(natoms, int) # XXX
+    density.atom_partition = atom_partition # XXX
+    hamiltonian.atom_partition = atom_partition # XXX
 
     if version > 0.3:
         Etot = hamiltonian.Etot
@@ -635,6 +657,17 @@ def read(paw, reader):
             except KeyError:
                 pass
 
+    # Try to read FDTD-related data
+    try:
+        use_fdtd = r['FDTD']
+    except:
+        use_fdtd = False
+
+    if use_fdtd:
+        from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
+        # fdtd_poisson will overwrite the poisson at a later stage
+        paw.hamiltonian.fdtd_poisson = FDTDPoissonSolver(restart_reader=r, paw=paw)
+
     # Try to read the number of Delta SCF orbitals
     try:
         norbitals = r.dimension('norbitals')
@@ -646,13 +679,12 @@ def read(paw, reader):
     nbands = r.dimension('nbands')
     nslice = bd.get_slice()
 
-    if (nibzkpts != len(wfs.ibzk_kc) or
-        nbands != bd.comm.size * bd.mynbands):
+    if (nibzkpts != len(wfs.kd.ibzk_kc) or nbands != bd.comm.size * bd.mynbands):
         paw.scf.reset()
     else:
         # Verify that symmetries for for k-point reduction hasn't changed:
         tol = 1e-12
-        
+
         if master:
             bzk_kc = r.get('BZKPoints', read=master)
             weight_k = r.get('IBZKPointWeights', read=master)
@@ -740,7 +772,7 @@ def read(paw, reader):
         timer.stop('Projections')
 
     # Manage mode change:
-    paw.scf.check_convergence(density, wfs.eigensolver)
+    paw.scf.check_convergence(density, wfs.eigensolver, wfs, hamiltonian, paw.forces)
     newmode = paw.input_parameters.mode
     try:
         oldmode = r['Mode']

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.lattice import bulk
@@ -66,7 +67,7 @@ if check_spectrum:
         raise ValueError('Plasmon peak not correct ! ')
     
     if np.abs(d[Nw] - 27.4958893542) > 1e-5:
-        print d[Nw]
+        print(d[Nw])
         raise ValueError('Please check spectrum strength ! ')
 
     d2 = np.loadtxt('Al_df.dat')

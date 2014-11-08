@@ -80,7 +80,7 @@ all = reader.find(name_value_list=[('mode', 'lcao')],
                   keyword_list=[project_id])
 results = all.get('formula', formula)
 
-print results['formula'], results['xc'], results['ase_potential_energy']
+print(results['formula'], results['xc'], results['ase_potential_energy'])
 
 # column_length=0 aligns data in the table (-1 : data unaligned is default)
 all.print_table(column_length=0,

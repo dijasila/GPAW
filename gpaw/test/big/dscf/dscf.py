@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.io import read
 from gpaw import GPAW
 from gpaw import dscf
@@ -52,12 +53,12 @@ for d in ds:
     lumo = reshape(lumo, -1)
 
     wf1_k = [c_mol.get_pseudo_wave_function(band=5, kpt=k, spin=1)
-             for k in range(len(c_mol.wfs.weight_k))]
+             for k in range(len(c_mol.wfs.kd.weight_k))]
     wf2_k = [c_mol.get_pseudo_wave_function(band=6, kpt=k, spin=1)
-             for k in range(len(c_mol.wfs.weight_k))]
+             for k in range(len(c_mol.wfs.kd.weight_k))]
 
     band_k = []
-    for k in range(len(c_mol.wfs.weight_k)):
+    for k in range(len(c_mol.wfs.kd.weight_k)):
         wf1 = reshape(wf1_k[k], -1)
         wf2 = reshape(wf2_k[k], -1)
         p1 = abs(dot(wf1, lumo))
@@ -66,7 +67,7 @@ for d in ds:
             band_k.append(5)
         else:
             band_k.append(6)
-        print 'Kpt', k, p1, p2, 'band', band_k[-1]
+        print('Kpt', k, p1, p2, 'band', band_k[-1])
 
     #Lumo wavefunction
     wf_u = [kpt.psit_nG[band_k[kpt.k]] for kpt in c_mol.wfs.kpt_u]

@@ -1,19 +1,16 @@
+from __future__ import print_function
 import os
-import gc
 import platform
-import sys
-import time
 import tempfile
 import warnings
 from optparse import OptionParser
 
 import gpaw.mpi as mpi
-from gpaw.hooks import hooks
 from gpaw import debug
 from gpaw.version import version
 
 
-def run():
+def main(args=None):
     description = ('Run the GPAW test suite.  The test suite can be run in '
                    'parallel with MPI through gpaw-python.  The test suite '
                    'supports 1, 2, 4 or 8 CPUs although some tests are '
@@ -47,13 +44,13 @@ def run():
                       help=('Run tests in reverse order (less overhead with '
                             'multiple jobs)'))
     parser.add_option('-k', '--keep-temp-dir', action='store_true',
-                      dest='keep_tmpdir', help='Do not delete temporary files.')
+                      dest='keep_tmpdir',
+                      help='Do not delete temporary files.')
     parser.add_option('-d', '--directory', help='Run test in this directory')
     parser.add_option('-s', '--show-output', action='store_true',
                       help='Show standard output from tests.')
 
-    opt, tests = parser.parse_args()
-
+    opt, tests = parser.parse_args(args)
 
     if len(tests) == 0:
         from gpaw.test import tests
@@ -106,8 +103,6 @@ def run():
                 'tasks instead.'
             warnings.warn(message, RuntimeWarning)
 
-    old_hooks = hooks.copy()
-    hooks.clear()
     if mpi.rank == 0:
         if opt.directory is None:
             tmpdir = tempfile.mkdtemp(prefix='gpaw-test-')
@@ -131,15 +126,18 @@ def run():
         print('Running tests in %s' % tmpdir)
         print('Jobs: %d, Cores: %d, debug-mode: %r' % (opt.jobs, mpi.size,
                                                        debug))
-    failed = TestRunner(tests, jobs=opt.jobs, show_output=opt.show_output).run()
+    failed = TestRunner(tests, jobs=opt.jobs,
+                        show_output=opt.show_output).run()
     os.chdir(cwd)
     if mpi.rank == 0:
         if len(failed) > 0:
             open('failed-tests.txt', 'w').write('\n'.join(failed) + '\n')
         elif not opt.keep_tmpdir:
             os.system('rm -rf ' + tmpdir)
-    hooks.update(old_hooks.items())
     return len(failed)
 
+# Backwards compatibility:
+run = main
+
 if __name__ == '__main__':
-    run()
+    main()

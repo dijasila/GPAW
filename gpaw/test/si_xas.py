@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 from math import pi, cos, sin
 from ase import Atom, Atoms
@@ -27,8 +28,7 @@ import numpy as np
 calc = GPAW(nbands=None,
             h=0.25,
             occupations=FermiDirac(width=0.05),
-            setups={0: 'hch1s'},
-            usesymm=True)
+            setups={0: 'hch1s'})
 si.set_calculator(calc)
 e = si.get_potential_energy()
 niter = calc.get_number_of_iterations()
@@ -62,7 +62,7 @@ if 0:
     p.plot(x, z[0])
     p.show()
 
-print e, niter
+print(e, niter)
 energy_tolerance = 0.0005
 niter_tolerance = 2
 equal(e, 18.5772, energy_tolerance) # svnversion 5252
@@ -72,8 +72,7 @@ gen('Si', name='hch2p', corehole=(2, 1, 0.5))
 calc = GPAW(nbands=None,
             h=0.25,
             occupations=FermiDirac(width=0.05),
-            setups={0: 'hch2p'},
-            usesymm=True)
+            setups={0: 'hch2p'})
 si.set_calculator(calc)
 e = si.get_potential_energy()
 niter = calc.get_number_of_iterations()

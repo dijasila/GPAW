@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.parallel import paropen
 from gpaw.xc.rpa import RPACorrelation
 
@@ -11,5 +12,5 @@ for d in ds:
                           filename='restart_%s_%s.txt' % (ecut, d))
 
     f = paropen('rpa_%s.dat' % ecut, 'a')
-    print >> f, d, E_rpa
+    print(d, E_rpa, file=f)
     f.close()

@@ -43,6 +43,8 @@ computers is in an unusual place: :kbd:`Alt Graph  5`
 Running GPAW calculations
 =========================
 
+**Warning** do not use spaces in the directory/file names!
+
 GPAW calculations are written as Python scripts, which can be run with
 the command::
 

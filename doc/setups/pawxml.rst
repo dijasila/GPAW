@@ -216,6 +216,8 @@ as well as ``l`` and ``n`` quantum numbers. For each of them it is also required
 the energy ``e``, the occupation ``f``
 and the matching radius of the partial waves ``rc``.
 
+The number of valence states is noted `n_{val}` in the rest of this document.
+
 For this dataset, the first two lines describe bound eigenstates with
 occupation numbers and principal quantum numbers.  Notice, that the
 three additional unbound states should have no ``f`` and ``n``
@@ -232,7 +234,7 @@ There can be one or more definitions of radial grids.
 
 Example::
 
-  <radial_grid eq="r=d*i" d="0.1" istart="0" iend="9" id="g1"/>
+  <radial_grid eq="r=d*i" d="0.1" istart="0" iend="9" id="g1">
     <values>
       0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9
     </values>
@@ -252,8 +254,8 @@ be multiplied by a spherical harmonics:
 
 Each radial grid has a unique id::
 
-  <radial_grid eq="r=d*i" d="0.01" istart="0" iend="99" id="lin"/>
-  <radial_grid eq="r=a*exp(d*i)" a="1.056e-4" d="0.05" istart="0" iend="249" id="log"/>
+  <radial_grid eq="r=d*i" d="0.01" istart="0" iend="99" id="lin">
+  <radial_grid eq="r=a*exp(d*i)" a="1.056e-4" d="0.05" istart="0" iend="249" id="log">
 
 and each numerical function must refer to one of these ids::
 
@@ -496,7 +498,6 @@ Kinetic energy differences
        1.744042161013e+00 0.000000000000e+00 2.730637956456e+00
        ...
     <kinetic_energy_differences>
-  </paw_dataset>
 
 This element contains the symmetric `\Delta E^\text{kin}_{ij}` matrix:
 
@@ -506,8 +507,11 @@ This element contains the symmetric `\Delta E^\text{kin}_{ij}` matrix:
   - \langle \tilde{\phi}_i | \hat{T} | \tilde{\phi}_j \rangle 
 
 where `\hat{T}` is the kinetic energy operator used by the
-generator.  With `n` states, we have an `n \times n` matrix
-listed as `n^2` numbers.
+generator.
+With `n_{val}` valence states (see `n_{val}` `definition`__),
+we have a `n_{val} \times n_{val}` matrix listed as `n_{val}^2` numbers.
+
+__ `Valence states`_
 
 
 --------
@@ -520,7 +524,7 @@ the latters are defined with these two elements::
     
     <ae_core_kinetic_energy_density grid="g1"> 
       ... ... ...
-    </ae_core_kinetic_energy_density grid="g1"> 
+    </ae_core_kinetic_energy_density> 
     <pseudo_core_kinetic_energy_density rc="1.1" grid="g1">
       ... ... ...
     </pseudo_core_kinetic_energy_density> 
@@ -535,25 +539,50 @@ Exact exchange integrals
 ------------------------
 
 The core-core contribution to the exact exchange energy
-`X^{\text{core-core}}` and the symmetric `N\times N` core-valence
+`X^{\text{core-core}}` and the symmetric core-valence
 PAW-correction matrix `X_{ij}^{\text{core-valence}}` are given as:
 
 .. math::
     
-    X^{\text{core-core}} = \frac{1}{4}\sum_{cc'} \iint d\br d\br'
-    \frac{\phi_c(\br)\phi_{c'}(\br) \phi_c(\br')\phi_{c'}(\br')}{|\br-\br'|}
-    
-.. math::
-    
-    X_{ij}^{\text{core-valence}} = \frac{1}{2}\sum_c \iint d\br d\br'
-    \frac{\phi_i(\br)\phi_c(\br) \phi_j(\br')\phi_c(\br')}{|\br-\br'|}
+    X^{\text{core-core}} = -\frac{1}{4}\sum_{cc'} \iint d\mathbf{r} d\mathbf{r}'
+    \frac{\phi_c(\mathbf{r})\phi_{c'}(\mathbf{r}) \phi_c(\mathbf{r}')\phi_{c'}(\mathbf{r}')}
+    {|\mathbf{r}-\mathbf{r}'|}
 
-These can be specified as the ``core`` attribute of the ``<exact_exchange>``
-element and as `N^2` numbers inside the ``<exact_exchange>`` element::
+.. math::
+
+    X_{ij}^{\text{core-valence}} = -\frac{1}{2}\sum_c \iint d\mathbf{r} d\mathbf{r}'
+    \frac{\phi_i(\mathbf{r})\phi_c(\mathbf{r}) \phi_j(\mathbf{r}')\phi_c(\mathbf{r}')}
+    {|\mathbf{r}-\mathbf{r}'|}$$
+
+The `X_{ij}^{\text{core-valence}}` coefficients depend only on pairs of the radial
+basis functions `\phi_i(r)` and can be evaluated by summing over radial
+integrals times **3-j** symbols according to:
+
+.. math::
+
+    X_{ij}^{\text{core-valence}} =
+    -\delta_{l_i l_j} \delta_{m_i m_j} \sum_{c L} \frac{N_c}{2}
+    {\begin{pmatrix}l_c & L & l_i \\ 0 & 0 & 0\end{pmatrix}}^2
+    \int r^2 dr \int {r'}^2 d{r'}
+    \frac{r^{L}_{<}}{r^{L+1}_{>}}
+    \phi_i(r) \phi_c(r) \phi_j(r') \phi_c(r')
+
+where `r_>` (resp. `r_<`) is the larger (resp. smaller) of `r` and `r'`.
+
+
+`X^{\text{core-core}}` can be specified in the ``core`` attribute of the
+``<exact_exchange>`` element.
+
+ 
+With `n_{val}` valence states (see `n_{val}` `definition`__),
+`X_{ij}^{\text{core-valence}}` is a `n_{val} \times n_{val}` matrix.
+It can be specified as `n_{val}^2` numbers inside the ``<exact_exchange>`` element::
     
     <exact_exchange core="...">
       ... ... ...
     </exact_exchange>
+
+__ `Valence states`_
 
 
 -----------------
@@ -571,7 +600,7 @@ Although not necessary, it may be helpful to provide the following item(s) in th
    This radius defines the region (around the atom) outside which all pseudo quantities
    are equal to the all-electron ones.
    It is equal to the maximum of all the cut-off and matching radii.
-   Note that -- for better lisibility -- the ``paw_radius`` elements should be
+   Note that -- for better lisibility -- the ``paw_radius`` element should be
    provided in the header of the file. 
 
 
@@ -601,7 +630,7 @@ Plotting the radial functions
 
 The first 10-20 lines of the XML-datasets, should be pretty much human
 readable, and should give an overview of what kind of dataset it is and
-how it was generated.  The remaining part of the files contain
+how it was generated.  The remaining part of the file contains
 numerical data for all the radial functions.  To get an overview of
 these functions, you can extract that data with the
 :trac:`~doc/setups/pawxml.py` program and then pass it on to your

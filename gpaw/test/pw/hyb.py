@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.mpi import rank, size, serial_comm
@@ -6,16 +7,16 @@ from gpaw.xc.hybridg import HybridXC
 a = 2.0
 li = Atoms('Li', cell=(a, a, a), pbc=1)
 for spinpol in [False, True]:
-    for usesymm in [True, False, None]:
-        if size == 8 and not spinpol and usesymm:
+    for symm in [{}, 'off', {'time_reversal': False, 'point_group': False}]:
+        if size == 8 and not spinpol and symm == {}:
             continue
         for qparallel in [False, True]:
             if rank == 0:
-                print(spinpol, usesymm, qparallel)
+                print((spinpol, symm, qparallel))
             li.calc = GPAW(mode=PW(300),
                            kpts=(2, 3, 4),
                            spinpol=spinpol,
-                           usesymm=usesymm,
+                           symmetry=symm,
                            parallel={'band': 1},
                            txt=None,
                            idiotproof=False)
@@ -35,9 +36,9 @@ for spinpol in [False, True]:
                            bandstructure=True, bands=[0, 1])
             de2 = calc.get_xc_difference(exx)
             kd = calc.wfs.kd
-            print e, -0.56024, abs(e - -0.56024)
-            print de, -0.4520, abs(de - -0.4520)
-            print de, de2, abs(de - de2)
+            print(e, -0.56024, abs(e - -0.56024))
+            print(de, -0.4520, abs(de - -0.4520))
+            print(de, de2, abs(de - de2))
             assert abs(e - -0.56024) < 1e-5, abs(e)
             assert abs(de - -0.4520) < 3e-4, abs(de)
             assert abs(de - de2) < 1e-12

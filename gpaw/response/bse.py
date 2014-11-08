@@ -1,17 +1,22 @@
-from time import time, ctime
-import numpy as np
+from __future__ import print_function
+
 import pickle
 from math import pi
-from ase.units import Hartree
+from time import time, ctime
+
+import numpy as np
 from ase.io import write
-from gpaw.blacs import BlacsGrid, Redistributor
-from gpaw.io.tar import Writer, Reader
-from gpaw.mpi import world, size, rank, serial_comm
-from gpaw.utilities.memory import maxrss
-from gpaw.response.base import BASECHI
-from gpaw.response.parallel import parallel_partition, gatherv
-from gpaw.response.kernel import calculate_Kc, calculate_Kc_q
+from ase.units import Hartree
+from ase.utils import opencew
+
 from gpaw.response.df0 import DF
+from gpaw.io.tar import Writer, Reader
+from gpaw.response.base import BASECHI
+from gpaw.utilities.memory import maxrss
+from gpaw.blacs import BlacsGrid, Redistributor
+from gpaw.mpi import world, size, rank, serial_comm
+from gpaw.response.kernel import calculate_Kc, calculate_Kc_q
+from gpaw.response.parallel import parallel_partition, gatherv
 
 
 class BSE(BASECHI):
@@ -44,7 +49,7 @@ class BSE(BASECHI):
                          eshift=eshift, ecut=ecut, eta=eta, rpad=rpad,
                          ftol=ftol, txt=txt, optical_limit=optical_limit)
 
-        assert mode is 'RPA' or 'TDHF' or 'BSE'
+        assert mode in ['RPA', 'TDHF', 'BSE']
 
         self.epsilon_w = None
         self.coupling = coupling
@@ -132,7 +137,7 @@ class BSE(BASECHI):
         else:
             (self.ibzq_qc, self.ibzq_q, self.iop_q,
              self.timerev_q, self.diff_qc) = kd.get_ibz_q_points(self.bzq_qc,
-                                                                 calc.wfs.symmetry.op_scc)
+                                                                 calc.wfs.kd.symmetry.op_scc)
             if np.abs(self.bzq_qc - kd.bzk_kc).sum() < 1e-8:
                 assert np.abs(self.ibzq_qc - kd.ibzk_kc).sum() < 1e-8
         self.nibzq = len(self.ibzq_qc)
@@ -206,18 +211,19 @@ class BSE(BASECHI):
         calc = self.calc
         focc_S = self.focc_S
         e_S = self.e_S
-        op_scc = calc.wfs.symmetry.op_scc
+        op_scc = calc.wfs.kd.symmetry.op_scc
 
         # Get phi_qaGp
         if self.mode == 'RPA':
             self.phi_aGp = self.get_phi_aGp()
         else:
-            try:
+            fd = opencew('phi_qaGp')
+            if fd is None:
                 self.reader = Reader('phi_qaGp')
                 tmp = self.load_phi_aGp(self.reader, 0)[0]
                 assert len(tmp) == self.npw
                 self.printtxt('Finished reading phi_aGp')
-            except:
+            else:
                 self.printtxt('Calculating phi_qaGp')
                 self.get_phi_qaGp()
                 world.barrier()
@@ -594,7 +600,6 @@ class BSE(BASECHI):
 
         return phi_aGp
 
-
     def get_dielectric_function(self, filename='df.dat', readfile=None):
 
         if self.epsilon_w is None:
@@ -653,12 +658,11 @@ class BSE(BASECHI):
             self.epsilon_w = epsilon_w
     
         if rank == 0:
-            f = open(filename,'w')
-            #g = open('excitons.dat', 'w')
+            f = open(filename, 'w')
             for iw in range(self.Nw):
                 energy = iw * self.dw * Hartree
-                print >> f, energy, np.real(epsilon_w[iw]), np.imag(epsilon_w[iw])
-                #print >> g, energy, np.real(C_S[iw])/max(abs(C_S))
+                print(energy, np.real(epsilon_w[iw]), np.imag(epsilon_w[iw]),
+                      file=f)
             f.close()
             #g.close()
         # Wait for I/O to finish
@@ -695,7 +699,7 @@ class BSE(BASECHI):
         nte_R = gd.zeros()
         
         for iS in range(self.nS_start, self.nS_end):
-            print 'electron density:', iS
+            print('electron density:', iS)
             k1, n1, m1 = self.Sindex_S3[iS]
             ibzkpt1 = kd.bz2ibz_k[k1]
             psitold_g = self.get_wavefunction(ibzkpt1, n1)
@@ -713,7 +717,7 @@ class BSE(BASECHI):
         nth_R = gd.zeros()
         
         for iS in range(self.nS_start, self.nS_end):
-            print 'hole density:', iS
+            print('hole density:', iS)
             k1, n1, m1 = self.Sindex_S3[iS]
             ibzkpt1 = kd.bz2ibz_k[kq_k[k1]]
             psitold_g = self.get_wavefunction(ibzkpt1, m1)
@@ -770,7 +774,7 @@ class BSE(BASECHI):
             k, n, m = self.Sindex_S3[iS]
             ibzkpt1 = kd.bz2ibz_k[k]
             ibzkpt2 = kd.bz2ibz_k[kq_k[k]]
-            print 'hole wavefunction', iS, (k,n,m),A_S[iS]
+            print('hole wavefunction', iS, (k,n,m),A_S[iS])
             
             psitold_g = self.get_wavefunction(ibzkpt1, n)
             psit1_g = kd.transform_wave_function(psitold_g, k)

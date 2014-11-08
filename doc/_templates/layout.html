@@ -65,8 +65,9 @@
           <ul class="this-page-menu">
             <li><a href="{{ pathto('documentation/documentation') }}">Documentation</a></li>
             <li><a href="{{ pathto('documentation/manual') }}">Manual</a></li>
+            <li><a href="{{ pathto('install/installationguide') }}">Install</a></li>
             <li><a href="{{ pathto('download') }}">Download</a></li>
-            <li><a href="{{ pathto('setups/setups') }}">Setups</a></li>
+            <li><a href="{{ pathto('setups/setups') }}">PAW datasets</a></li>
             <li><a href="{{ pathto('tutorials/tutorials') }}">Tutorials</a></li>
             <li><a href="{{ pathto('exercises/exercises') }}">Exercises</a></li>
             <li><a href="{{ pathto('faq') }}">FAQ</a></li>
@@ -169,6 +170,7 @@
     {%- for scriptfile in script_files %}
     <script type="text/javascript" src="{{ pathto(scriptfile, 1) }}"></script>
     {%- endfor %}
+    <script type="text/javascript" src="{{ pathto('_static/mathconf.js', 1) }}"></script>
     {%- if use_opensearch %}
     <link rel="search" type="application/opensearchdescription+xml"
           title="Search within {{ docstitle }}"
@@ -226,11 +228,11 @@
       <div class="clearer"></div>
     </div>
 
-<!-- 
+<!--
 Remove footer.  Sphinx will actually parse anything with curly braces even if
 it is inside a comment.  The footer can be added by removing this comment
 and replacing [] by corresponding curly brackets
-[%- block relbar2 %][[ relbar() ]][% endblock %] 
+[%- block relbar2 %][[ relbar() ]][% endblock %]
 -->
 
 {%- block footer %}

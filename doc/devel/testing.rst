@@ -69,9 +69,11 @@ Use this function to check results:
 Big tests
 =========
 
-The directory in :trac:`gpaw/test/big` contains a set of longer and
-more realistic tests.  These can be submitted to a queueing system of
-a large computer.  Here is an example for Niflheim: :trac:`gpaw/test/big/niflheim.py`.
+The directory in :trac:`gpaw/test/big` contains a set of longer and more
+realistic tests that we run every weekend.  These are submitted to a
+queueing system of a large computer.  Here is an example for Niflheim:
+:trac:`gpaw/test/big/niflheim.py`.
+
 
 Adding new tests
 ----------------
@@ -108,4 +110,15 @@ Name           Type      Default value  Description
 ``ncpus``      ``int``   ``1``          Number of cpus
 ``walltime``   ``int``   ``15``         Requested walltime in minutes
 ``deps``       ``list``  ``[]``         List of jobs this job depends on
+``creates``    ``list``  ``[]``         List of files this job creates
+                                        (figures and other stuff for the
+                                        web-page) 
 =============  ========  =============  ===================================
+
+
+Creating expensive figures for the web-page
+-------------------------------------------
+
+You can also use AGTS for running long jobs that create figures for this
+web-page.  For an example, look at the source code
+:trac:`here <doc/tutorials/stm>` which will produce this: :ref:`stm tutorial`.

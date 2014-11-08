@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from time import time, ctime
 import numpy as np
@@ -219,7 +220,7 @@ class BASECHI:
 
 
     def printtxt(self, text):
-        print >> self.txt, text
+        print(text, file=self.txt)
 
 
     def print_stuff(self):
@@ -511,7 +512,7 @@ class BASECHI:
         P_ai = {}
         for a, id in enumerate(calc.wfs.setups.id_a):
             b = kd.symmetry.a_sa[s, a]
-            S_c = (np.dot(spos_ac[a], kd.symmetry.op_scc[s]) - spos_ac[b])
+            S_c = (np.dot(spos_ac[a], kd.symmetry.op_scc[s]) - kd.symmetry.ft_sc[s] - spos_ac[b])
 
             #print abs(S_c.round() - S_c).max()
             #print 'S_c', abs(S_c).max()

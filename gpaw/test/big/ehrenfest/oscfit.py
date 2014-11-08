@@ -1,3 +1,4 @@
+from __future__ import print_function
 
 import numpy as np
 
@@ -32,7 +33,7 @@ def Df(p, t):
 
 
 for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
-    print '\nAnalysing %s\n%s' % (name, '-'*32)
+    print('\nAnalysing %s\n%s' % (name, '-'*32))
 
     # Import relevant test and make sure it has the prerequisite parameters
     m = __import__(name, {}, {})
@@ -56,7 +57,7 @@ for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
         R_iav[i] = traj[i].get_positions()
         V_iav[i] = traj[i].get_velocities()
         A_iav[i] = traj[i].get_forces() / traj[i].get_masses()[:,np.newaxis]
-    print 'Read %d frames from trajectory...' % nframes
+    print('Read %d frames from trajectory...' % nframes)
     assert nframes * m.ndiv == m.niter, (nframes, m.ndiv, m.niter)
     traj.close()
 
@@ -80,15 +81,15 @@ for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
     p0 = (m.d_disp, 2 * np.pi / m.period, -m.timestep * m.ndiv, m.d_bond)
     p, cov, info, msg, status = leastsq(lambda p: f(p, t_i) - d_i, p0, \
         Dfun=lambda p: Df(p, t_i), col_deriv=True, full_output=True)
-    print 'leastsq returned %d: %s' % (status, msg.replace('\n ',''))
-    print 'p0=', np.asarray(p0)
-    print 'p =', p
+    print('leastsq returned %d: %s' % (status, msg.replace('\n ','')))
+    print('p0=', np.asarray(p0))
+    print('p =', p)
     assert status in range(1,4+1), (p, cov, info, msg, status)
 
     tol = 0.1 #TODO use m.reltol
     err = np.abs(2 * np.pi / p[1] - m.period) / m.period
-    print 'T=%13.9f fs, Tref=%13.9f fs, err=%5.2f %%, tol=%.1f %%' \
-        % (2 * np.pi / p[1] * 1e-3, m.period * 1e-3, 1e2 * err, 1e2 * tol)
+    print('T=%13.9f fs, Tref=%13.9f fs, err=%5.2f %%, tol=%.1f %%' \
+        % (2 * np.pi / p[1] * 1e-3, m.period * 1e-3, 1e2 * err, 1e2 * tol))
 
     if mpl:
         fig = Figure()
@@ -105,6 +106,6 @@ for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
         FigureCanvasAgg(fig).print_figure(name + '.png', dpi=90)
 
     if err > tol:
-        print 'Relative error %f %% > tolerance %f %%' % (1e2 * err, 1e2 * tol)
+        print('Relative error %f %% > tolerance %f %%' % (1e2 * err, 1e2 * tol))
         raise SystemExit(1)
 

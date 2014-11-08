@@ -1,5 +1,5 @@
 """Bulk Al(fcc) test"""
-
+from __future__ import print_function
 from ase import Atoms
 from ase.visualize import view
 from gpaw import GPAW, PW
@@ -25,4 +25,4 @@ bulk.set_calculator(calc)
 
 energy = bulk.get_potential_energy()
 calc.write(name + '.gpw')
-print 'Energy:', energy, 'eV'
+print('Energy:', energy, 'eV')

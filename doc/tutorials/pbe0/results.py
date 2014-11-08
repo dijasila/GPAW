@@ -1,3 +1,4 @@
+from __future__ import print_function
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,7 +14,7 @@ for k in K:
         v0, e0, B = eos.fit()
         a = (v0 * 4)**(1 / 3.0)
         B *= 1.0e24 / units.kJ
-        print('%-4s %2d %.3f %.3f %.2f' % (xcname, k, a, e0, B))
+        print(('%-4s %2d %.3f %.3f %.2f' % (xcname, k, a, e0, B)))
         results.append((a, B))
 
 results = np.array(results).reshape((-1, 3, 2))

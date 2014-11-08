@@ -36,12 +36,14 @@ def pawexxvv(atomdata, D_ii):
     
     
 def select_kpts(kpts, calc):
+    """Function to process input parameters that take a list of k-points given
+    in different format and returns a list of indices of the corresponding
+    k-points in the IBZ."""
     if kpts is None:
         # Do all k-points in the IBZ:
         return range(calc.wfs.kd.nibzkpts)
     
-    kpts = np.asarray(kpts)
-    if kpts.ndim == 1:
+    if np.asarray(kpts).ndim == 1:
         return kpts
     
     # Find k-points:
@@ -65,7 +67,7 @@ class EXX(PairDensity):
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt,
                              timer=timer)
 
-        if xc is None:
+        if xc is None or xc == 'EXX':
             self.exx_fraction = 1.0
             xc = XC(XCNull())
         elif xc == 'PBE0':

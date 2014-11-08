@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from math import sqrt, pi
 import pickle
@@ -53,7 +54,7 @@ class DF(CHI):
                               calc=None,
                               vcut=None,
                               dir=None):
-	if self.chi0_wGG is None and chi0_wGG is None:
+        if self.chi0_wGG is None and chi0_wGG is None:
             self.initialize()
             self.calculate()
         elif self.chi0_wGG is None and chi0_wGG is not None:
@@ -160,7 +161,7 @@ class DF(CHI):
     def get_chi(self, xc='RPA'):
         """Solve Dyson's equation."""
 
-	if self.chi0_wGG is None:
+        if self.chi0_wGG is None:
             self.initialize()
             self.calculate()
         else:
@@ -231,7 +232,7 @@ class DF(CHI):
     def get_surface_response_function(self, z0=0., filename='surf_EELS'):
         """Calculate surface response function."""
 
-	if self.chi0_wGG is None:
+        if self.chi0_wGG is None:
             self.initialize()
             self.calculate()
 
@@ -287,7 +288,7 @@ class DF(CHI):
             f = open(filename,'w')
             for iw in range(self.Nw):
                 energy = iw * self.dw * Hartree
-                print >> f, energy, np.imag(g_w2[iw, 0]), np.imag(g_w2[iw, 1])
+                print(energy, np.imag(g_w2[iw, 0]), np.imag(g_w2[iw, 1]), file=f)
             f.close()
 
         # Wait for I/O to finish
@@ -297,7 +298,7 @@ class DF(CHI):
     def check_sum_rule(self, df1_w=None, df2_w=None):
         """Check f-sum rule."""
 
-	if df1_w is None:
+        if df1_w is None:
             df1_w = self.df1_w
             df2_w = self.df2_w
 
@@ -398,17 +399,17 @@ class DF(CHI):
                 for iw in range(Nw):
                     energy = iw * self.dw * Hartree
                     if self.xc == 'RPA':
-                        print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
-                              np.real(df2[iw]), np.imag(df2[iw])
+                        print(energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                              np.real(df2[iw]), np.imag(df2[iw]), file=f)
                     elif self.xc == 'ALDA':
-                        print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                        print(energy, np.real(df1[iw]), np.imag(df1[iw]), \
                           np.real(df2[iw]), np.imag(df2[iw]), \
                           np.real(df3[iw]), np.imag(df3[iw]), \
-                          np.real(df4[iw]), np.imag(df4[iw])
+                          np.real(df4[iw]), np.imag(df4[iw]), file=f)
                     elif self.xc == 'Bootstrap':
-                        print >> f, energy, np.real(df1[iw]), np.imag(df1[iw]), \
+                        print(energy, np.real(df1[iw]), np.imag(df1[iw]), \
                           np.real(df2[iw]), np.imag(df2[iw]), \
-                          np.real(df3[iw]), np.imag(df3[iw])
+                          np.real(df3[iw]), np.imag(df3[iw]), file=f)
                 f.close()
     
             # Wait for I/O to finish
@@ -432,10 +433,10 @@ class DF(CHI):
             for iw in range(self.Nw):
                 energy = iw * self.dw * Hartree
                 if self.xc == 'RPA':
-                    print >> f, energy, -np.imag(1./df1[iw]), -np.imag(1./df2[iw])
+                    print(energy, -np.imag(1./df1[iw]), -np.imag(1./df2[iw]), file=f)
                 elif self.xc == 'ALDA':
-                    print >> f, energy, -np.imag(1./df1[iw]), -np.imag(1./df2[iw]), \
-                       -np.imag(1./df3[iw]), -np.imag(1./df4[iw])
+                    print(energy, -np.imag(1./df1[iw]), -np.imag(1./df2[iw]), \
+                       -np.imag(1./df3[iw]), -np.imag(1./df4[iw]), file=f)
             f.close()
 
         # Wait for I/O to finish
@@ -449,7 +450,7 @@ class DF(CHI):
         nbands = f_skn[0].shape[1]
 
         for k in range(kd.nbzkpts):
-            print k
+            print(k)
             ibzkpt1 = kd.bz2ibz_k[k]
             ibzkpt2 = kd.bz2ibz_k[kq[k]]
             for n in range(nbands):

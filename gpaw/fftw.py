@@ -39,11 +39,15 @@ def check_fft_size(n):
     return False
 
 
-def get_efficient_fft_size(n):
-    """Return the smalles efficient fft size greater than or equal to n."""
-    while not check_fft_size(n):
-        n += 1
-    return n
+def get_efficient_fft_size(N, n=1):
+    """Return smallest efficient fft size.
+    
+    Must be greater than or equal to N and divisible by n.
+    """
+    N = -(-N // n) * n
+    while not check_fft_size(N):
+        N += n
+    return N
 
 
 class FFTWPlan:

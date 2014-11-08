@@ -1,11 +1,9 @@
-from ase import *
+from ase import Atoms
 from ase.structure import molecule
-from gpaw import *
-from gpaw.wavefunctions.pw import PW
+from gpaw import GPAW
 from gpaw.xc.fxc import FXCCorrelation
 from gpaw.test import equal
-from gpaw.mpi import serial_comm, world, rank
-from os import system
+from gpaw.mpi import world
 
 if world.size == 1:
     scalapack1 = None
@@ -56,11 +54,11 @@ calc.write('N.gpw', mode='all')
 ralda = FXCCorrelation('N.gpw', xc='rALDA')
 Ec_N = ralda.calculate(ecut=[50])
 
-if rank == 0:
-   system('rm N2.gpw')
-   system('rm N.gpw')
-   system('rm fhxc_N2_rALDA_50_0.gpw')
-   system('rm fhxc_N_rALDA_50_0.gpw')
+# if rank == 0:
+#   system('rm N2.gpw')
+#   system('rm N.gpw')
+#   system('rm fhxc_N2_rALDA_50_0.gpw')
+#   system('rm fhxc_N_rALDA_50_0.gpw')
 
 equal(Ec_N2, -6.1651, 0.001,)
 equal(Ec_N, -1.1085, 0.001)

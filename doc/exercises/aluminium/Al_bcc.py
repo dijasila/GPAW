@@ -14,7 +14,7 @@ bcc.calc = GPAW()
 # Convergence with respect to k-points:
 bcc.calc.set(mode=PW(300), txt='Al-bcc-k.txt')
 
-for k in [4, 6, 8, 10]: 
+for k in [4, 6, 8, 10]:
     bcc.calc.set(kpts=(k, k, k))
     print(k, bcc.get_potential_energy())
 

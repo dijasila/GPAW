@@ -2,24 +2,44 @@
 # Emacs: treat this as -*- python -*-
 
 import os
+import sys
 import optparse
 import subprocess
 
 
-parser = optparse.OptionParser()
+parser = optparse.OptionParser(
+    usage='Usage: %prog [options] <script> [options]')
+parser.disable_interspersed_args()
+
 add = parser.add_option
-
-add('-l')
-add('-q')
-
+add('-x', '--export', help='Environment variables to export.')
+add('-g', '--gpaw', help='Path to GPAW.')
+add('--module', help='Run library module as a script (terminates option list)')
+add('--cores', type=int, help='Number of cores.')
 add('-n', '--threads', type=int, default=1)
-add('-g', '--gpaw')
-add('-x', '--export')
 
-opts, args = parser.parse_args()
+qsub_options = [('l', 'resource-list', 'nodes=1:ppn=1:opteron4'),
+                ('q', 'queue', 'long')]
 
-script = args[0]
-name = script.split('/')[-1]
+for short, long, default in qsub_options:
+    add('-' + short, '--' + long, default=default,
+        help='Default value is "{0}".'.format(default))
+    
+args = sys.argv[1:]
+for i, arg in enumerate(args):
+    if arg.startswith('--module='):
+        module_args = args[i + 1:]
+        del args[i + 1:]
+        break
+    if arg == '--module':
+        module_args = args[i + 2:]
+        del args[i + 2:]
+        break
+else:
+    module_args = []
+    
+opts, args = parser.parse_args(args)
+args += module_args
 
 if opts.gpaw:
     path = opts.gpaw
@@ -34,16 +54,41 @@ if opts.export:
 else:
     export = []
         
+if opts.module:
+    jobname = opts.module
+else:
+    script = args[0]
+    jobname = '_'.join(args)
+
 qsub = '#!/usr/bin/env python\n'
-qsub += '#PBS -N %s\n' % name  # set default job name
+qsub += '#PBS -N %s\n' % jobname  # set default job name
 qsub += '#PBS -W umask=002\n'
 
-for line in open(script):
-    if line.startswith('#PBS'):
-        qsub += line
+if not opts.module:
+    if os.path.isfile(script):
+        for line in open(os.path.expanduser(script)):
+            if line.startswith('#PBS'):
+                qsub += line
+    else:
+        p = subprocess.Popen(['which', script], stdout=subprocess.PIPE)
+        args[0] = p.communicate()[0].strip()
+
+if opts.cores:
+    for ppn, arch in [(16, 'xeon16'), (8, 'xeon8'), (4, 'opteron4')]:
+        if opts.cores % ppn == 0:
+            nodes = opts.cores // ppn
+            break
+    else:
+        if opts.cores < 4:
+            nodes = 1
+            ppn = opts.cores
+        else:
+            2 / 0
+    opts.resource_list = 'nodes={0}:ppn={1}:{2}'.format(nodes, ppn, arch)
 
 qsub += 'job = %r\n' % args
 qsub += 'path = %r\n' % path
+qsub += 'module = %r\n' % opts.module
 qsub += 'nthreads = %d\n' % opts.threads
 qsub += 'export = %r\n' % export
 
@@ -76,14 +121,18 @@ cmd.append(os.path.join(path,
                         'build',
                         'bin.' + os.environ['GPAW_PLATFORM'],
                         'gpaw-python'))
+if module:
+    cmd += ['-m', module]
 cmd += job
-print(cmd)
-print subprocess.check_call(cmd)
+
+error = subprocess.call(cmd)
+if error:
+    raise SystemExit(error)
 """
 
 cmd = ['qsub']
-if opts.l:
-    cmd += ['-l', opts.l]
-if opts.q:
-    cmd += ['-q', opts.q]
+for short, long, default in qsub_options:
+    opt = getattr(opts, long.replace('-', '_'))
+    cmd += ['-' + short, opt]
+
 subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(qsub)

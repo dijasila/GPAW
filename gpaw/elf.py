@@ -118,8 +118,8 @@ class ELF:
             self.tauct.add(taut_G, 1.0 / self.paw.wfs.nspins)
 
         # For periodic boundary conditions
-        if self.paw.wfs.symmetry is not None:
-            self.paw.wfs.symmetry.symmetrize(self.taut_sG[0], self.paw.wfs.gd)
+        if self.paw.wfs.kd.symmetry is not None:
+            self.paw.wfs.kd.symmetry.symmetrize(self.taut_sG[0], self.paw.wfs.gd)
 
         self.nt_grad2_sG[:] = 0.0
 
@@ -130,7 +130,7 @@ class ELF:
                 self.paw.wfs.taugrad_v[v](self.density.nt_sG[s], d_G)
                 self.nt_grad2_sG[s] += d_G**2.0
 
-        #TODO are nct from setups usable for nt_grad2_sG ?
+        # TODO are nct from setups usable for nt_grad2_sG ?
 
     def get_electronic_localization_function(self, gridrefinement=1,
                                              pad=True, broadcast=True):

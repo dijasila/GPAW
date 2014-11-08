@@ -78,9 +78,6 @@ image of the jump along the row. Again, read, understand and run the script.
 * What is the energy barrier? How does it compare to the one found in the NEB
   calculation?
 
-* Try to change the strength of the displacement and notice the compute time.
-  Does your initial guess have any influence on this time?
-
 * Do the same as above for the jump across the row and the exchange process by
   copying and modifying the Dimer script, while remembering that you have to
   give the relevant atoms a kick in a meaningful direction.

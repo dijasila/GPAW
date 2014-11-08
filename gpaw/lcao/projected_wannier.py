@@ -82,13 +82,13 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
       S_qMM  = <Phi_qM|Phi_qM'>
       P_aqMi = <pt^a_qi|Phi_qM>
     """
-    if calc.wfs.kpt_comm.size != 1:
+    if calc.wfs.kd.comm.size != 1:
         raise NotImplementedError('Parallelization over spin/kpt not '
                                   'implemented yet.')
     spos_ac = calc.atoms.get_scaled_positions() % 1.
     comm = calc.wfs.gd.comm
-    nq = len(calc.wfs.ibzk_qc)
-    Nk = calc.wfs.nibzkpts
+    nq = len(calc.wfs.kd.ibzk_qc)
+    Nk = calc.wfs.kd.nibzkpts
     nao = calc.wfs.setups.nao
     dtype = calc.wfs.dtype
     if bfs is None:
@@ -96,8 +96,8 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
     tci = TwoCenterIntegrals(calc.wfs.gd.cell_cv,
                              calc.wfs.gd.pbc_c,
                              calc.wfs.setups,
-                             calc.wfs.ibzk_qc,
-                             calc.wfs.gamma)
+                             calc.wfs.kd.ibzk_qc,
+                             calc.wfs.kd.gamma)
 
     # Calculate projector overlaps, and (lower triangle of-) S and T matrices
     S_qMM = np.zeros((nq, nao, nao), dtype)
@@ -227,14 +227,14 @@ class ProjectedWannierFunctions:
             self.fixedenergy = fixedenergy
             self.M_k = [sum(eps_n <= fixedenergy) for eps_n in self.eps_kn]
             self.L_k = [self.Nw - M for M in self.M_k]
-            print "fixedenergy =", self.fixedenergy
+            print("fixedenergy =", self.fixedenergy)
 
-        print 'N =', self.N
-        print 'skpt_kc = '
-        print self.ibzk_kc
-        print 'M_k =', self.M_k
-        print 'L_k =', self.L_k
-        print 'Nw =', self.Nw
+        print('N =', self.N)
+        print('skpt_kc = ')
+        print(self.ibzk_kc)
+        print('M_k =', self.M_k)
+        print('L_k =', self.L_k)
+        print('Nw =', self.Nw)
 
     def get_hamiltonian_and_overlap_matrix(self, useibl=True):
         self.calculate_edf(useibl=useibl)
@@ -307,8 +307,8 @@ class ProjectedWannierFunctions:
                                   for Uo_ni, epso_n in zip(self.Uo_kni, 
                                                            epso_kn)])
 
-        if self.h_lcao_kii!=None and useibl:
-            print "Using h_lcao and infinite band limit"
+        if self.h_lcao_kii is not None and useibl:
+            print("Using h_lcao and infinite band limit")
             Vo_kni = self.Vo_kni
             Huf_kii = [h_lcao_ii - np.dot(dagger(Vo_ni) * epso_n, Vo_ni)
                        for h_lcao_ii, Vo_ni, epso_n in zip(self.h_lcao_kii, 
@@ -316,7 +316,7 @@ class ProjectedWannierFunctions:
                                                            epso_kn)]
             self.Huf_kii = np.asarray(Huf_kii)
         else:
-            print "Using finite band limit (not using h_lcao)"
+            print("Using finite band limit (not using h_lcao)")
             epsu_kn = [eps_n[M:self.N] 
                        for eps_n, M in zip(self.eps_kn, self.M_k)]
             Huf_kii = [np.dot(dagger(Vu_ni) * epsu_n, Vu_ni) 

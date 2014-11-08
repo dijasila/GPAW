@@ -19,7 +19,7 @@ calc = GPAW('Ag_GLLBSC.gpw',
             nbands=16,
             basis='dzp',
             fixdensity=True,
-            usesymm=None,
+            symmetry='off',
             convergence={'bands': 12})
 
 # Use ase.dft module for obtaining k-points along high symmetry directions

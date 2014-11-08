@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw.fd_operators import Gradient
 import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
@@ -17,8 +18,8 @@ a = gd.zeros()
 dadx = gd.zeros()
 a[:, 0, 0] = np.arange(gd.beg_c[0], gd.end_c[0])
 gradx = Gradient(gd, v=0)
-print a.itemsize, a.dtype, a.shape
-print dadx.itemsize, dadx.dtype, dadx.shape
+print(a.itemsize, a.dtype, a.shape)
+print(dadx.itemsize, dadx.dtype, dadx.shape)
 gradx.apply(a, dadx)
 
 #   a = [ 0.  1.  2.  3.  4.  5.  6.  7.]

@@ -11,6 +11,7 @@ XC-functional.  There are two implementations:
 
 """
 
+from __future__ import print_function
 import os
 import sys
 import pickle
@@ -244,8 +245,8 @@ class VDWFunctional(GGA):
                             self.Zab / 36 / kF_g * a2_g / n_g**2, self.q0cut)
         
         if self.verbose:
-            print ('VDW: q0 (min, mean, max): (%f, %f, %f)' %
-                   (q0_g.min(), q0_g.mean(), q0_g.max()))
+            print(('VDW: q0 (min, mean, max): (%f, %f, %f)' %
+                   (q0_g.min(), q0_g.mean(), q0_g.max())))
         
         if self.soft_correction:
             dEcnl = gd.integrate(n_g**2 / q0_g**3) * 0.5 * self.C_soft
@@ -271,8 +272,8 @@ class VDWFunctional(GGA):
                  len(self.delta_i), len(self.D_j)))
         
         if 'GPAW_VDW' in os.environ:
-            print 'Use of GPAW_VDW is deprecated.'
-            print 'Put', name, 'in your GPAW_SETUP_PATH directory.'
+            print('Use of GPAW_VDW is deprecated.')
+            print('Put', name, 'in your GPAW_SETUP_PATH directory.')
             dirs = [os.environ['GPAW_VDW']]
         else:
             dirs = setup_paths + ['.']
@@ -282,20 +283,20 @@ class VDWFunctional(GGA):
             if os.path.isfile(filename):
                 self.phi_ij = pickle.load(open(filename))
                 if self.verbose:
-                    print 'VDW: using', filename
+                    print('VDW: using', filename)
                 return
             
-        print 'VDW: Could not find table file:', name
+        print('VDW: Could not find table file:', name)
         self.make_table(name)
             
     def make_table(self, name):
-        print 'VDW: Generating vdW-DF kernel ...'
-        print 'VDW:',
+        print('VDW: Generating vdW-DF kernel ...')
+        print('VDW:', end=' ')
         ndelta = len(self.delta_i)
         nD = len(self.D_j)
         self.phi_ij = np.zeros((ndelta, nD))
         for i in range(self.world.rank, ndelta, self.world.size):
-            print ndelta - i,
+            print(ndelta - i, end=' ')
             sys.stdout.flush()
             delta = self.delta_i[i]
             for j in range(nD - 1, -1, -1):
@@ -315,8 +316,8 @@ class VDWFunctional(GGA):
 
         self.world.sum(self.phi_ij)
         
-        print
-        print 'VDW: Done!'
+        print()
+        print('VDW: Done!')
         if self.world.rank == 0:
             pickle.dump(self.phi_ij, open(name, 'w'), pickle.HIGHEST_PROTOCOL)
 
@@ -409,7 +410,7 @@ class RealSpaceVDWFunctional(VDWFunctional):
         ni = len(n_i)
 
         if self.verbose:
-            print 'VDW: number of points:', ni
+            print('VDW: number of points:', ni)
             
         # Number of pairs per processor:
         world = self.world
@@ -452,7 +453,7 @@ class RealSpaceVDWFunctional(VDWFunctional):
                             self.Dhistogram, dD)
         end = time.time()
         if self.verbose:
-            print "vdW in rank ", world.rank, 'took', end-start
+            print("vdW in rank ", world.rank, 'took', end-start)
 
         self.rhistogram *= gd.dv**2 / dr
         self.Dhistogram *= gd.dv**2 / dD
@@ -533,8 +534,8 @@ class FFTVDWFunctional(VDWFunctional):
         q = q1 * (lambd**np.arange(n) - 1) / (lambd - 1)
 
         if self.verbose:
-            print ('VDW: using %d cubic splines: 0.00, %.2f, ..., %.2f, %.2f' %
-                   (n, q1, q[-2], q[-1]))
+            print(('VDW: using %d cubic splines: 0.00, %.2f, ..., %.2f, %.2f' %
+                   (n, q1, q[-2], q[-1])))
             
         y = np.eye(n)
         a = y
@@ -579,8 +580,8 @@ class FFTVDWFunctional(VDWFunctional):
         k_j = np.arange(M // 2) * (2 * pi / rcut)
 
         if self.verbose:
-            print ("VDW: cutoff for fft'ed kernel: %.3f Hartree" %
-                   (0.5 * k_j[-1]**2))
+            print(("VDW: cutoff for fft'ed kernel: %.3f Hartree" %
+                   (0.5 * k_j[-1]**2)))
             
         for a in range(self.Nalpha):
             qa = self.q_a[a]
@@ -630,10 +631,10 @@ class FFTVDWFunctional(VDWFunctional):
             self.dj_k *= 2 * pi / self.rcut
          
             if self.verbose:
-                print 'VDW: density array size:', gd.get_size_of_global_array()
-                print 'VDW: zero-padded array size:', self.shape
-                print ('VDW: maximum kinetic energy: %.3f Hartree' %
-                       (0.5 * k_k.max()**2))
+                print('VDW: density array size:', gd.get_size_of_global_array())
+                print('VDW: zero-padded array size:', self.shape)
+                print(('VDW: maximum kinetic energy: %.3f Hartree' %
+                       (0.5 * k_k.max()**2)))
             
             assert self.j_k.max() < self.Nr // 2, 'Use larger Nr than %i.' % self.Nr
         
@@ -668,7 +669,7 @@ class FFTVDWFunctional(VDWFunctional):
             dq0_g = None
         
         if self.verbose:
-            print 'VDW: fft:',
+            print('VDW: fft:', end=' ')
             
         theta_ak = {}
         p_ag = {}
@@ -690,7 +691,7 @@ class FFTVDWFunctional(VDWFunctional):
                 p_ag[a] = pa_g
             del pa_g
             if self.verbose:
-                print a,
+                print(a, end=' ')
                 sys.stdout.flush()
         
         if self.energy_only:
@@ -698,8 +699,8 @@ class FFTVDWFunctional(VDWFunctional):
             del dq0_g
         
         if self.verbose:
-            print
-            print 'VDW: convolution:',
+            print()
+            print('VDW: convolution:', end=' ')
 
         F_ak = {}
         dj_k = self.dj_k
@@ -732,13 +733,13 @@ class FFTVDWFunctional(VDWFunctional):
                                       F_k[:, :, 1:-1]).real
 
             if self.verbose:
-                print a,
+                print(a, end=' ')
                 sys.stdout.flush()
 
         del theta_ak
 
         if self.verbose:
-            print
+            print()
 
         if not self.energy_only:
             F_ag = {}

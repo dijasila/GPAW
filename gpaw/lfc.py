@@ -1,12 +1,12 @@
 from math import pi
 
 import numpy as np
+from ase.units import Bohr
 
-from gpaw import debug, extra_parameters
-from gpaw.spherical_harmonics import Y
-from gpaw.grid_descriptor import GridDescriptor, GridBoundsError
-from gpaw.mpi import serial_comm
 import _gpaw
+from gpaw import debug, extra_parameters
+from gpaw.grid_descriptor import GridDescriptor, GridBoundsError
+from gpaw.utilities import smallest_safe_grid_spacing
 
 """
 
@@ -49,7 +49,7 @@ to 7::
    -------------
 
 ~  _  ^  ~  ~
-p  v  g  n  F  
+p  v  g  n  F
  i     L  c  M
 
 i
@@ -298,15 +298,16 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         # Holm-Nielsen check:
         if ((self.gd.comm.sum(float(sum(self.my_atom_indices))) !=
              natoms * (natoms - 1) // 2)):
-            raise RuntimeError('Holm-Nielsen check failed.  Grid might be '
-                               'too coarse.  Use h < 0.306 Ang.')
+            raise ValueError('Holm-Nielsen check failed.  Grid might be '
+                             'too coarse.  Use h < %.3f'
+                             % (smallest_safe_grid_spacing * Bohr))
 
         self.M_W = np.empty(nW, np.intc)
         self.G_B = np.empty(nB, np.intc)
         self.W_B = np.empty(nB, np.intc)
         self.A_Wgm = []
         sdisp_Wc = np.empty((nW, 3), int)
-        self.pos_Wv = np.empty((nW, 3))        
+        self.pos_Wv = np.empty((nW, 3))
         
         B1 = 0
         W = 0
@@ -373,7 +374,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
     def M_to_ai(self, src_xM, dst_axi):
         xshape = src_xM.shape[:-1]
-        src_xM = src_xM.reshape(np.prod(xshape), self.Mmax)        
+        src_xM = src_xM.reshape(np.prod(xshape), self.Mmax)
         for a in self.my_atom_indices:
             M1 = self.M_a[a]
             M2 = M1 + self.sphere_a[a].Mmax
@@ -701,7 +702,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
           A     =  | dr a(r) f  (r - R ),
            lm      /          lm
 
-                    a 
+                    a
                   dA
                     lm
           c_aiv = ----,
@@ -829,7 +830,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         
         if debug:
             assert a_xG.ndim == 3
-            assert a_xG.dtype == self.dtype            
+            assert a_xG.dtype == self.dtype
             assert (np.sort(c_axivv.keys()) == self.my_atom_indices).all()
 
         dtype = a_xG.dtype
@@ -935,9 +936,8 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
     def _update(self, spos_ac):
         sdisp_Wc = NewLocalizedFunctionsCollection._update(self, spos_ac)
 
-        if not self.gamma:
+        if not self.gamma or self.dtype == complex:
             self.x_W, self.sdisp_xc = self.create_displacement_arrays(sdisp_Wc)
-        
         return sdisp_Wc
 
     def create_displacement_arrays(self, sdisp_Wc=None):
@@ -1006,10 +1006,10 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
           ~        --      *
           n(r) +=  >    Phi (r) rho     Phi (r)
                    --     M1       M1M2   M2
-                  M1,M2 
+                  M1,M2
         """
         self.lfc.construct_density(rho_MM, nt_G, q, self.Mstart, self.Mstop)
-
+        
     def integrate2(self, a_xG, c_xM, q=-1):
         """Calculate integrals of arrays times localized functions.
 
@@ -1038,7 +1038,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                       /
 
         Overwrites the elements of the target matrix Vt_MM. """
-        if self.gamma:
+        if self.gamma and self.dtype == float:
             Vt_xMM = np.zeros((1, self.Mstop - self.Mstart, self.Mmax))
             self.lfc.calculate_potential_matrix(vt_G, Vt_xMM[0], -1,
                                                 self.Mstart, self.Mstop)
@@ -1177,6 +1177,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
 from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster
 from gpaw.mpi import run
 
+
 class LocalizedFunctionsCollection(BaseLFC):
     def __init__(self, gd, spline_aj, kpt_comm=None,
                  cut=False, dtype=float,
@@ -1285,7 +1286,7 @@ class LocalizedFunctionsCollection(BaseLFC):
         return self.lfs_a[a].ni
 
     def estimate_memory(self, mem):
-        count = 0        
+        count = 0
         for spline_j in self.spline_aj:
             for spline in spline_j:
                 l = spline.get_angular_momentum_number()

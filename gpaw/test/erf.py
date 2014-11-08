@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw.utilities import erf, cerf
 
 # Mathematica says:
@@ -26,9 +27,9 @@ for test in values:
         r = z
     error = abs(res / cerf(z) - 1.)
     if error < maxerror:
-        print 'z=', z, ' ok (error=', error, ')'
+        print('z=', z, ' ok (error=', error, ')')
     else:
-        print z, res, cerf(z), erf(r), error
+        print(z, res, cerf(z), erf(r), error)
         string = ('error for erf(' + str(z) +') = ' + str(error) + 
                   ' > ' + str(maxerror)) 
         assert(error < maxerror), string

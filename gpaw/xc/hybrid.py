@@ -90,9 +90,9 @@ class HybridXC(HybridXCBase):
                                  addcoredensity, a)
     
     def initialize(self, density, hamiltonian, wfs, occupations):
-        assert wfs.gamma
+        assert wfs.kd.gamma
         self.xc.initialize(density, hamiltonian, wfs, occupations)
-        self.kpt_comm = wfs.kpt_comm
+        self.kpt_comm = wfs.kd.comm
         self.nspins = wfs.nspins
         self.setups = wfs.setups
         self.density = density
@@ -391,7 +391,7 @@ def atomic_exact_exchange(atom, type = 'all'):
             # L summation
             for l in range(l1 + l2 + 1):
                 # get potential for current l-value
-                hartree(l, nrdr, atom.beta, atom.N, vrl)
+                hartree(l, nrdr, atom.r, vrl)
 
                 # take all m1 m2 and m values of Gaunt matrix of the form
                 # G(L1,L2,L) where L = {l,m}
@@ -466,7 +466,7 @@ def constructX(gen):
                 # sum expansion in angular momenta
                 for l in range(min(lv1, lv2) + lc + 1):
                     # Int density * potential * r^2 * dr:
-                    hartree(l, n2c, beta, N, vr)
+                    hartree(l, n2c, r, vr)
                     nv = np.dot(n1c, vr)
                     
                     # expansion coefficients

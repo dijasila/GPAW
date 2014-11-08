@@ -1,3 +1,4 @@
+from __future__ import print_function
 from math import sqrt
 
 from ase import Atoms
@@ -23,7 +24,7 @@ def test():
     calc.write('Ar2.gpw')
     e2vdw = calc.get_xc_difference(vdw)
     e2vdwb = GPAW('Ar2.gpw').get_xc_difference(vdw)
-    print e2vdwb - e2vdw
+    print(e2vdwb - e2vdw)
     assert abs(e2vdwb - e2vdw) < 1e-9
     del dimer[1]
     e = dimer.get_potential_energy()
@@ -32,11 +33,11 @@ def test():
 
     E = 2 * e - e2
     Evdw = E + 2 * evdw - e2vdw
-    print E, Evdw
+    print(E, Evdw)
     assert abs(E - -0.0048) < 6e-3, abs(E)
     assert abs(Evdw - +0.0223) < 3e-2, abs(Evdw)
 
-    print e2, e
+    print(e2, e)
     equal(e2, -0.001581923, energy_tolerance)
     equal(e, -0.003224226, energy_tolerance)
 

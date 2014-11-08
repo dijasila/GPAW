@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -119,11 +120,11 @@ def main():
                             xc=opts.xcfunctional)
         except ConvergenceError:
             if opts.non_relativistic_guess:
-                print >> sys.stderr, very_bad_density_warning
+                print(very_bad_density_warning, file=sys.stderr)
                 import traceback
                 traceback.print_exc()
             else:
-                print >> sys.stderr, bad_density_warning
+                print(bad_density_warning, file=sys.stderr)
             continue
 
         tailnorm = [float(norm) for norm in opts.tailnorm.split(',')]

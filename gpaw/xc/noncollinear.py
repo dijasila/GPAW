@@ -5,7 +5,7 @@ import numpy as np
 from gpaw.xc.functional import XCFunctional
 from gpaw.xc.lda import LDA
 from gpaw.xc.libxc import LibXC
-from gpaw.lcao.eigensolver import LCAO
+from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import unpack
 from gpaw.utilities.blas import gemm
@@ -224,7 +224,7 @@ class NonCollinearFunctional(XCFunctional):
         return e_g, dedn_g, dedm_vg
 
 
-class NonCollinearLCAOEigensolver(LCAO):
+class NonCollinearLCAOEigensolver(DirectLCAO):
     def calculate_hamiltonian_matrix(self, ham, wfs, kpt, root=-1):
 
         assert self.has_initialized

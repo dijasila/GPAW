@@ -1,9 +1,7 @@
 import numpy as np
-from ase.data import atomic_numbers
 
 from gpaw.atom.atompaw import AtomPAW
-from gpaw.utilities import pack2, erf
-from gpaw.utilities.tools import md5_new
+from gpaw.utilities import erf
 from gpaw.setup import BaseSetup
 from gpaw.spline import Spline
 from gpaw.basis_data import Basis, BasisFunction
@@ -11,7 +9,7 @@ from gpaw.basis_data import Basis, BasisFunction
 null_spline = Spline(0, 1.0, [0., 0., 0.])
 
 
-def screen_potential(r, v, charge):
+def screen_potential(r, v, charge, rcut=None, a=None):
     """Split long-range potential into short-ranged contributions.
 
     The potential v is a long-ranted potential with the asymptotic form Z/r
@@ -25,20 +23,24 @@ def screen_potential(r, v, charge):
     """
     vr = v * r + charge
     
-    err = 0.0
-    i = len(vr)
-    while err < 1e-5:
-        # Things can be a bit sensitive to the threshold.  The O.pz-mt setup
-        # gets 20-30 Bohr long compensation charges if it's 1e-6.
-        i -= 1
-        err = abs(vr[i])
-    i += 1
-    
-    icut = np.searchsorted(r, r[i] * 1.1)
+    if rcut is None:
+        err = 0.0
+        i = len(vr)
+        while err < 1e-5:
+            # Things can be a bit sensitive to the threshold.  The O.pz-mt
+            # setup gets 20-30 Bohr long compensation charges if it's 1e-6.
+            i -= 1
+            err = abs(vr[i])
+        i += 1
+
+        icut = np.searchsorted(r, r[i] * 1.1)
+    else:
+        icut = np.searchsorted(r, rcut)
     rcut = r[icut]
     rshort = r[:icut]
 
-    a = rcut / 5.0 # XXX why is this so important?
+    if a is None:
+        a = rcut / 5.0 # XXX why is this so important?
     vcomp = charge * erf(rshort / (np.sqrt(2.0) * a)) / rshort
     # XXX divide by r
     rhocomp = charge * (np.sqrt(2.0 * np.pi) * a)**(-3) * \
@@ -46,12 +48,13 @@ def screen_potential(r, v, charge):
     vscreened = v[:icut] + vcomp
     return vscreened, rhocomp
 
+
 def figure_out_valence_states(ppdata):
     from gpaw.atom.configurations import configurations
     from ase.data import chemical_symbols
     # ppdata.symbol may not be a chemical symbol so use Z
     chemical_symbol = chemical_symbols[ppdata.Z]
-    Z, config  = configurations[chemical_symbol]
+    Z, config = configurations[chemical_symbol]
     assert Z == ppdata.Z
     
     # Okay, we need to figure out occupations f_ln when we don't know
@@ -72,7 +75,6 @@ def figure_out_valence_states(ppdata):
                              'on this pseudopotential.')
     
     f_ln = {}
-    nstates = 0
     l_j = []
     f_j = []
     n_j = []
@@ -84,6 +86,7 @@ def figure_out_valence_states(ppdata):
     lmax = max(f_ln.keys())
     f_ln = [f_ln.get(l, []) for l in range(lmax + 1)]
     return n_j, l_j, f_j, f_ln
+
 
 def generate_basis_functions(ppdata):
     class SimpleBasis(Basis):
@@ -106,11 +109,10 @@ def generate_basis_functions(ppdata):
     b1 = SimpleBasis(ppdata.symbol, ppdata.l_orb_j)
     apaw = AtomPAW(ppdata.symbol, [ppdata.f_ln], h=0.05, rcut=9.0,
                    basis={ppdata.symbol: b1},
-                   setups={ppdata.symbol : ppdata},
+                   setups={ppdata.symbol: ppdata},
                    lmax=0, txt=None)
     basis = apaw.extract_basis_functions()
     return basis
-
 
 
 def pseudoplot(pp, show=True):
@@ -152,6 +154,7 @@ def pseudoplot(pp, show=True):
 
     if show:
         pl.show()
+
 
 class PseudoPotential(BaseSetup):
     def __init__(self, data, basis=None):

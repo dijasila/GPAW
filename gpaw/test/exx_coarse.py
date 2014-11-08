@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 
 from ase import Atoms
@@ -44,8 +45,8 @@ for fg in fgl:
 
 timer.write(sys.stdout)
 
-print 'Total energy on the fine grid   =', E[True]
-print 'Total energy on the coarse grid =', E[False]
+print('Total energy on the fine grid   =', E[True])
+print('Total energy on the coarse grid =', E[False])
 equal(E[True], E[False], 0.01)
 
 energy_tolerance = 0.0003

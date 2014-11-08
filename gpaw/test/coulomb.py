@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from math import pi
 from gpaw.coulomb import Coulomb
@@ -18,11 +19,11 @@ def test_coulomb(N=2**6, a=20):
     if parallel:
         C.load('real')
         t0 = time.time()
-        print 'Processor %s of %s: %s Ha in %s sec' % (
+        print('Processor %s of %s: %s Ha in %s sec' % (
             gd.comm.rank + 1,
             gd.comm.size,
             -0.5 * C.coulomb(nH, method='real'),
-            time.time() - t0)
+            time.time() - t0))
         return
     else:
         C.load('recip_ewald')
@@ -41,11 +42,11 @@ def test_coulomb(N=2**6, a=20):
 analytic = -5 / 16.0
 res = test_coulomb(N=48, a=15)
 if not parallel:
-    print 'Units: Bohr and Hartree'
-    print '%12s %8s %8s' % ('Method', 'Energy', 'Time')
-    print '%12s %2.6f %6s' % ('analytic', analytic, '--')
+    print('Units: Bohr and Hartree')
+    print('%12s %8s %8s' % ('Method', 'Energy', 'Time'))
+    print('%12s %2.6f %6s' % ('analytic', analytic, '--'))
     for method, et in res.items():
-        print '%12s %2.6f %1.7f' % ((method,) + et)
+        print('%12s %2.6f %1.7f' % ((method,) + et))
 
     equal(res['real'][0],         analytic, 6e-3)
     equal(res['recip_gauss'][0],  analytic, 6e-3)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase.lattice import bulk
 from ase.dft.kpoints import monkhorst_pack
@@ -43,10 +44,10 @@ for name in ['PBE0', 'HSE03', 'HSE06']:
         de_skn_test = np.array([-2.0311, -2.0151, -2.0367, -24.324485])
 
     if rank == 0:
-        print de_skn[0, 0, 1:4], abs(de_skn[0, 0, 1:4] - de_skn_test[0]).max()
-        print de_skn[0, 1, 2:4], abs(de_skn[0, 1, 2:4] - de_skn_test[1]).max()
-        print de_skn[0, 2, 2:4], abs(de_skn[0, 2, 2:4] - de_skn_test[2]).max()
-        print hyb_calc.exx, abs(hyb_calc.exx - de_skn_test[3])
+        print(de_skn[0, 0, 1:4], abs(de_skn[0, 0, 1:4] - de_skn_test[0]).max())
+        print(de_skn[0, 1, 2:4], abs(de_skn[0, 1, 2:4] - de_skn_test[1]).max())
+        print(de_skn[0, 2, 2:4], abs(de_skn[0, 2, 2:4] - de_skn_test[2]).max())
+        print(hyb_calc.exx, abs(hyb_calc.exx - de_skn_test[3]))
         assert abs(de_skn[0, 0, 1:4] - de_skn_test[0]).max() < 0.02
         assert abs(de_skn[0, 1, 2:4] - de_skn_test[1]).max() < 0.008
         assert abs(de_skn[0, 2, 2:4] - de_skn_test[2]).max() < 0.004

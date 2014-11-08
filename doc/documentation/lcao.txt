@@ -35,4 +35,8 @@
 2013-11-15 10.1002/pssb.201349217 Quantitatively accurate calculations of conductance and thermopower of molecular junctions
 2013-11-28 10.1063/1.4829640 Interfacial oxygen under TiO2 supported Au clusters revealed by a genetic algorithm search
 2014-01-15 10.1016/j.jcat.2013.10.015 Thermochemistry and micro-kinetic analysis of methanol synthesis on ZnO (0001)
+2014-01-15 10.1039/c4cp01289e Optimizing porphyrins for dye sensitized solar cells using large-scale ab initio calculations
 2014-02-15 10.1007/s11244-013-0160-9 Genetic Algorithm Procreation Operators for Alloy Nanoparticle Catalysts
+2014-06-15 10.1021/cs500202f Identification of the Catalytic Site at the Interface Perimeter of Au Clusters on Rutile TiO2(110)
+2014-08-11 10.1103/PhysRevB.90.075115 Simultaneous description of conductance and thermopower in single-molecule junctions from many-body ab initio calculations
+2014-10-15 10.1016/j.susc.2014.06.001 Interplay of hydrogen bonding and molecule-substrate interaction in self-assembled adlayer structures of a hydroxyphenyl-substituted porphyrin

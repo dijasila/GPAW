@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.visualize import view
 from ase.constraints import FixAtoms
 from ase.optimize import QuasiNewton
@@ -16,7 +17,7 @@ view(slab)
 
 # Fix the Al atoms:
 mask = [atom.symbol == 'Al' for atom in slab]
-print mask
+print(mask)
 fixlayer = FixAtoms(mask=mask)
 slab.set_constraint(fixlayer)
 
@@ -32,5 +33,5 @@ qn.run(fmax=0.05)
 
 calc.write('hollow.gpw')  # Write gpw output after the minimization
 
-print 'energy:', slab.get_potential_energy()
-print 'height:', slab.positions[-1, 2] - slab.positions[0, 2]
+print('energy:', slab.get_potential_energy())
+print('height:', slab.positions[-1, 2] - slab.positions[0, 2])

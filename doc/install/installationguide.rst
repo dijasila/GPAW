@@ -10,7 +10,7 @@ Requirements
 
 1) Python 2.6 - 2.7.  Python is available from http://www.python.org.
 
-2) NumPy_ 1.3.0 or later (multithreading in numpy is not supported by GPAW).
+2) NumPy_ 1.6.1 or later.  Earlier versions may work for basic operations.
 
 3) Atomic Simulation Environment (:ase:`ASE <>`).
 
@@ -37,9 +37,12 @@ Optionally:
 
 .. _NumPy: http://numpy.org/
 .. _SciPy: http://scipy.org/
-.. _libxc-download: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download
-.. _acml: http://developer.amd.com/tools-and-sdks/cpu-development/amd-core-math-library-acml/
+.. _libxc-download: http://www.tddft.org/programs/octopus/wiki/index.php/
+                    Libxc:download
+.. _acml: http://developer.amd.com/tools-and-sdks/cpu-development/
+          amd-core-math-library-acml/
 .. _openblas: http://www.openblas.net/
+
 
 Installation
 ============
@@ -84,15 +87,15 @@ Libxc download/install instructions can be found `here <http://www.tddft.org/pro
 Example::
     
     wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-2.0.2.tar.gz -O libxc-2.0.2.tar.gz
-    tar xzf libxc-2.0.2.tar.gz
+    tar -xf libxc-2.0.2.tar.gz
     cd libxc-2.0.2
     ./configure --enable-shared --prefix=$HOME/xc
     make
     make install
     
     # add these to your .bashrc:
-    export C_INCLUDE_PATH=~/xc/include                                           
-    export LIBRARY_PATH=~/xc/lib                                                 
+    export C_INCLUDE_PATH=~/xc/include
+    export LIBRARY_PATH=~/xc/lib
     export LD_LIBRARY_PATH=~/xc/lib
     
 
@@ -140,8 +143,9 @@ Windows
    GPAW is not yet fully functional on Windows! See
    http://listserv.fysik.dtu.dk/pipermail/gpaw-users/2013-August/002264.html
 
-On Windows install ASE and dependencies as described at
+On Windows install ASE dependencies as described at
 https://wiki.fysik.dtu.dk/ase/download.html#windows.
+The GPAW installer includes ASE.
 
 Download the gpaw.win32-py2.7.msi_ installer and install with::
 
@@ -152,7 +156,7 @@ Download the gpaw.win32-py2.7.msi_ installer and install with::
 
 .. note::
 
-    Unpack gpaw-setups under C:\gpaw-setups.
+    Unpack gpaw-setups under C:\gpaw-setups (see :ref:`setups`).
 
 .. _installationguide_developer:
 
@@ -182,6 +186,37 @@ It offers the following advantages:
 
 .. _installationguide_standard:
 
+Important environment variables
+-------------------------------
+The following is required for a functioning GPAW installation.
+
+.. envvar:: PATH
+
+  The ``$PATH`` environment variable should contain the paths to the
+  ``gpaw-python`` executable and the tools of gpaw located in
+  ``$GPAW_HOME/build/bin``  and ``$GPAW_HOME/tools/``, respectively.
+
+.. envvar:: PYTHONPATH
+
+  The ``PYTHONPATH`` should contain the path to ``$GPAW_HOME``.
+
+.. envvar:: GPAW_HOME
+
+  Points to the root directory of your gpaw installation.
+
+.. envvar:: GPAW_SETUP_PATH
+
+  Points to the directory containing your PAW setups.
+
+.. envvar:: HOME
+
+  The path to your home directory.
+
+.. envvar:: OMP_NUM_THREADS
+  
+  If GPAW is compiled with OpenMP this variable defines the
+  number of threads used.
+
 Standard installation
 ---------------------
 
@@ -205,7 +240,7 @@ the :ref:`installationguide_developer`.
      [gpaw]$ python setup.py install --home=<my-directory>  2>&1 | tee install.log
 
    and put :file:`{<my-directory>}/lib/python` (or
-   :file:`{<my-directory>}/lib64/python`) in your :envvar:`PYTHONPATH` 
+   :file:`{<my-directory>}/lib64/python`) in your :envvar:`PYTHONPATH`
    environment variable.
 
    .. note::
@@ -307,7 +342,7 @@ Installation of setup files
 1) Get the tar file :file:`gpaw-setups-{<version>}.tar.gz`
    of the <version> of setups from the :ref:`setups` page
    and unpack it somewhere, preferably in :envvar:`HOME`
-   (``cd; tar zxf gpaw-setups-<version>.tar.gz``) - it could
+   (``cd; tar -xf gpaw-setups-<version>.tar.gz``) - it could
    also be somewhere global where
    many users can access it like in :file:`/usr/share/gpaw-setups/`.
    There will now be a subdirectory :file:`gpaw-setups-{<version>}/`
@@ -340,10 +375,7 @@ Make sure that everything works by running the test suite (using bash)::
 
   [gpaw]$ gpaw-python `which gpaw-test` 2>&1 | tee test.log
 
-This will a couple of hours.  If you have a multicore CPU, you
-can speed up the test by using ``gpaw-test -j <number-of-cores>``.
-This will run tests simultaneously (**not** employing MPI parallelization)
-on the requested *<number-of-cores>*.
+This will take a couple of hours.
 Please report errors to the ``gpaw-developers`` mailing list (see
 :ref:`mailing_lists`) Send us :file:`test.log`, as well as the
 information about your environment (processor architecture, versions
@@ -379,3 +411,8 @@ If you enabled ScaLAPACK, do::
 
 This will enable ScaLAPACK's diagonalization on a 1x2 BLACS grid
 with the block size of 2.
+
+Finally run the tests in parallel on 2, 4 and 8 cores::
+
+  [gpaw]$ mpirun -np 4 gpaw-python `which gpaw-test` 2>&1 | tee test4.log
+

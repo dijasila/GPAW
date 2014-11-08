@@ -73,7 +73,7 @@ if __name__ == '__main__':
     date2 = datetime.date.today().toordinal()
     for datenum in range(date1, date2 + 1):
         datestr = datetime.date.fromordinal(datenum).isoformat()
-        print datestr
+        print(datestr)
 
         # Checkout of relevant gpaw folders
         svn = ('svn export --revision {%s} '
@@ -103,7 +103,7 @@ if __name__ == '__main__':
         os.system('rm -rf temp-gpaw')
 
         # Dump data to stat file
-        print >> stat, datenum, libxc, ch, py, test, doc
+        print(datenum, libxc, ch, py, test, doc, file=stat)
 
     stat.close()
     plot_count('stat.dat')

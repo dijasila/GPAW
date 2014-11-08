@@ -1,5 +1,6 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
+from __future__ import print_function
 import os
 import xml.sax
 import re
@@ -254,36 +255,36 @@ class SetupData:
         l_j = self.l_j
         xml = open(self.stdfilename, 'w')
 
-        print >> xml, '<?xml version="1.0"?>'
-        print >> xml, '<paw_setup version="0.6">'
+        print('<?xml version="1.0"?>', file=xml)
+        print('<paw_setup version="0.6">', file=xml)
         name = atomic_names[self.Z].title()
         comment1 = name + ' setup for the Projector Augmented Wave method.'
         comment2 = 'Units: Hartree and Bohr radii.'
         comment2 += ' ' * (len(comment1) - len(comment2))
-        print >> xml, '  <!--', comment1, '-->'
-        print >> xml, '  <!--', comment2, '-->'
+        print('  <!--', comment1, '-->', file=xml)
+        print('  <!--', comment2, '-->', file=xml)
 
-        print >> xml, ('  <atom symbol="%s" Z="%d" core="%r" valence="%d"/>'
-                       % (self.symbol, self.Z, self.Nc, self.Nv))
+        print(('  <atom symbol="%s" Z="%d" core="%r" valence="%d"/>'
+                       % (self.symbol, self.Z, self.Nc, self.Nv)), file=xml)
         if self.setupname == 'LDA':
             type = 'LDA'
             name = 'PW'
         else:
             type = 'GGA'
             name = self.setupname
-        print >> xml, '  <xc_functional type="%s" name="%s"/>' % (type, name)
+        print('  <xc_functional type="%s" name="%s"/>' % (type, name), file=xml)
         gen_attrs = ' '.join(['%s="%s"' % (key, value) for key, value 
                               in self.generatorattrs])
-        print >> xml, '  <generator %s>' % gen_attrs
-        print >> xml, '    %s' % self.generatordata
-        print >> xml, '  </generator>'
-        print >> xml, '  <ae_energy kinetic="%r" xc="%r"' % \
-              (self.e_kinetic, self.e_xc)
-        print >> xml, '             electrostatic="%r" total="%r"/>' % \
-              (self.e_electrostatic, self.e_total)
+        print('  <generator %s>' % gen_attrs, file=xml)
+        print('    %s' % self.generatordata, file=xml)
+        print('  </generator>', file=xml)
+        print('  <ae_energy kinetic="%r" xc="%r"' % \
+              (self.e_kinetic, self.e_xc), file=xml)
+        print('             electrostatic="%r" total="%r"/>' % \
+              (self.e_electrostatic, self.e_total), file=xml)
 
-        print >> xml, '  <core_energy kinetic="%r"/>' % self.e_kinetic_core
-        print >> xml, '  <valence_states>'
+        print('  <core_energy kinetic="%r"/>' % self.e_kinetic_core, file=xml)
+        print('  <valence_states>', file=xml)
         line1 = '    <state n="%d" l="%d" f=%s rc="%r" e="%r" id="%s"/>'
         line2 = '    <state       l="%d"        rc="%r" e="%r" id="%s"/>'
 
@@ -291,15 +292,15 @@ class SetupData:
                                       self.eps_j, self.rcut_j):
             if n > 0:
                 f = '%-4s' % ('"%d"' % f)
-                print >> xml, line1 % (n, l, f, rc, e, id)
+                print(line1 % (n, l, f, rc, e, id), file=xml)
             else:
-                print >> xml, line2 % (l, rc, e, id)
-        print >> xml, '  </valence_states>'
+                print(line2 % (l, rc, e, id), file=xml)
+        print('  </valence_states>', file=xml)
 
-        print >> xml, self.rgd.xml('g1')
+        print(self.rgd.xml('g1'), file=xml)
 
-        print >> xml, ('  <shape_function type="gauss" rc="%r"/>' %
-                       self.rcgauss)
+        print(('  <shape_function type="gauss" rc="%r"/>' %
+                       self.rcgauss), file=xml)
 
         if self.r0 is None:
             # Old setups:
@@ -314,43 +315,43 @@ class SetupData:
                       ('spdfg'[self.l0], self.e0, self.nderiv0, self.r0))
             
         for x in self.vbar_g:
-            print >> xml, '%r' % x,
-        print >> xml, '\n  </zero_potential>'
+            print('%r' % x, end=' ', file=xml)
+        print('\n  </zero_potential>', file=xml)
 
         if self.has_corehole:
-            print >> xml, (('  <core_hole_state state="%d%s" ' +
+            print((('  <core_hole_state state="%d%s" ' +
                            'removed="%r" eig="%r" ekin="%r">') %
                            (self.ncorehole, 'spdf'[self.lcorehole],
                             self.fcorehole,
-                            self.core_hole_e, self.core_hole_e_kin))
+                            self.core_hole_e, self.core_hole_e_kin)), file=xml)
             for x in self.phicorehole_g:
-                print >> xml, '%r' % x,
-            print >> xml, '\n  </core_hole_state>'
+                print('%r' % x, end=' ', file=xml)
+            print('\n  </core_hole_state>', file=xml)
 
         for name, a in [('ae_core_density', self.nc_g),
                         ('pseudo_core_density', self.nct_g),
                         ('ae_core_kinetic_energy_density', self.tauc_g),
                         ('pseudo_core_kinetic_energy_density', self.tauct_g)]:
-            print >> xml, '  <%s grid="g1">\n    ' % name,
+            print('  <%s grid="g1">\n    ' % name, end=' ', file=xml)
             for x in a:
-                print >> xml, '%r' % x,
-            print >> xml, '\n  </%s>' % name
+                print('%r' % x, end=' ', file=xml)
+            print('\n  </%s>' % name, file=xml)
 
         # Print xc-specific data to setup file (used so for KLI and GLLB)
         for name, a in self.extra_xc_data.iteritems():
             newname = 'GLLB_'+name
-            print >> xml, '  <%s grid="g1">\n    ' % newname,
+            print('  <%s grid="g1">\n    ' % newname, end=' ', file=xml)
             for x in a:
-                print >> xml, '%r' % x,
-            print >> xml, '\n  </%s>' % newname
+                print('%r' % x, end=' ', file=xml)
+            print('\n  </%s>' % newname, file=xml)
 
         for id, l, u, s, q, in zip(self.id_j, l_j, self.phi_jg, self.phit_jg,
                                    self.pt_jg):
             for name, a in [('ae_partial_wave', u),
                             ('pseudo_partial_wave', s),
                             ('projector_function', q)]:
-                print >> xml, ('  <%s state="%s" grid="g1">\n    ' %
-                               (name, id)),
+                print(('  <%s state="%s" grid="g1">\n    ' %
+                               (name, id)), end=' ', file=xml)
                 #p = a.copy()
                 #p[1:] /= r[1:]
                 #if l == 0:
@@ -358,26 +359,26 @@ class SetupData:
                 #    p[0] = (p[2] +
                 #            (p[1] - p[2]) * (r[0] - r[2]) / (r[1] - r[2]))
                 for x in a:
-                    print >> xml, '%r' % x,
-                print >> xml, '\n  </%s>' % name
+                    print('%r' % x, end=' ', file=xml)
+                print('\n  </%s>' % name, file=xml)
 
-        print >> xml, '  <kinetic_energy_differences>',
+        print('  <kinetic_energy_differences>', end=' ', file=xml)
         nj = len(self.e_kin_jj)
         for j1 in range(nj):
-            print >> xml, '\n    ',
+            print('\n    ', end=' ', file=xml)
             for j2 in range(nj):
-                print >> xml, '%r' % self.e_kin_jj[j1, j2],
-        print >> xml, '\n  </kinetic_energy_differences>'
+                print('%r' % self.e_kin_jj[j1, j2], end=' ', file=xml)
+        print('\n  </kinetic_energy_differences>', file=xml)
 
         if self.X_p is not None:
-            print >> xml, '  <exact_exchange_X_matrix>\n    ',
+            print('  <exact_exchange_X_matrix>\n    ', end=' ', file=xml)
             for x in self.X_p:
-                print >> xml, '%r' % x,
-            print >> xml, '\n  </exact_exchange_X_matrix>'
+                print('%r' % x, end=' ', file=xml)
+            print('\n  </exact_exchange_X_matrix>', file=xml)
 
-            print >> xml, '  <exact_exchange core-core="%r"/>' % self.ExxC
+            print('  <exact_exchange core-core="%r"/>' % self.ExxC, file=xml)
 
-        print >> xml, '</paw_setup>'
+        print('</paw_setup>', file=xml)
 
     def build(self, xcfunc, lmax, basis, filter=None):
         from gpaw.setup import Setup
@@ -436,10 +437,10 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
                                                        world)
 
         if source is None:
-            print """
+            print("""
 You need to set the GPAW_SETUP_PATH environment variable to point to
 the directory where the setup files are stored.  See
-http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
+http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
             raise RuntimeError('Could not find %s-setup for "%s".' %
                                (setup.name + '.' + setup.setupname, 
                                 setup.symbol))

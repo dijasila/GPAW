@@ -12,7 +12,7 @@ the "typical" Unix-style command-line C compiler:
   * link static library handled by 'ar' command (possibly with 'ranlib')
   * link shared library handled by 'cc -shared'
 """
-
+from __future__ import print_function
 __revision__ = "$Id: unixccompiler.py 54954 2007-04-25 06:42:41Z neal.norwitz $"
 
 import os, sys
@@ -346,5 +346,5 @@ class UnixCCompiler(CCompiler):
                                target_lang)
 
         self.static_lib_format = old_fmt
-        print "Append to Setup: ", linkline
+        print("Append to Setup: ", linkline)
 

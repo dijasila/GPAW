@@ -1,5 +1,5 @@
 """Test read/write of restart files between fd and lcao mode"""
-
+from __future__ import print_function
 import os
 
 from ase import Atom, Atoms
@@ -28,7 +28,7 @@ if not os.path.isfile('Na4_fd.gpw'):
     atoms.set_calculator(calc)
     etot_fd = atoms.get_potential_energy()
     niter_fd = calc.get_number_of_iterations()
-    print 'Etot:', etot_fd, 'eV in fd-mode'
+    print('Etot:', etot_fd, 'eV in fd-mode')
     calc.write('Na4_fd.gpw')
     del atoms,calc
 
@@ -42,7 +42,7 @@ if os.path.isfile('Na4_fd.gpw'):
                           txt='Na4_lcao.txt')
     etot_lcao = atoms.get_potential_energy()
     niter_lcao = calc.get_number_of_iterations()
-    print 'Etot:', etot_lcao, 'eV in lcao-mode'
+    print('Etot:', etot_lcao, 'eV in lcao-mode')
     calc.write('Na4_lcao.gpw')
     del atoms, calc
 

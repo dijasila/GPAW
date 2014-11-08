@@ -7,6 +7,8 @@
 
 The central object that glues everything together!"""
 
+import warnings
+
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.data import atomic_numbers, atomic_names
@@ -15,43 +17,41 @@ from ase.calculators.calculator import kptdensity2monkhorstpack
 
 import gpaw.io
 import gpaw.mpi as mpi
+from gpaw.xc import XC
+from gpaw.xc.sic import SIC
+from gpaw.scf import SCFLoop
+from gpaw.setup import Setups
+from gpaw.symmetry import Symmetry
+import gpaw.wavefunctions.pw as pw
+from gpaw.output import PAWTextOutput
 import gpaw.occupations as occupations
-from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
-from gpaw.hooks import hooks
+from gpaw.forces import ForceCalculator
+from gpaw.utilities.timing import Timer
+from gpaw.wavefunctions.lcao import LCAO
+from gpaw.wavefunctions.fd import FD
 from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.kohnsham_layouts import get_KohnSham_layouts
-from gpaw.hamiltonian import RealSpaceHamiltonian
-from gpaw.utilities.timing import Timer
-from gpaw.xc import XC
-from gpaw.xc.sic import SIC
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.base import EmptyWaveFunctions
-from gpaw.wavefunctions.fd import FDWaveFunctions
-from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.wavefunctions.pw import PW, ReciprocalSpaceDensity, \
-    ReciprocalSpaceHamiltonian
+from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.utilities.memory import MemNode, maxrss
-from gpaw.parameters import InputParameters
-from gpaw.setup import Setups
-from gpaw.output import PAWTextOutput
-from gpaw.scf import SCFLoop
-from gpaw.forces import ForceCalculator
+from gpaw.kohnsham_layouts import get_KohnSham_layouts
+from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.parameters import InputParameters, usesymm2symmetry
+from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
 
 
 class PAW(PAWTextOutput):
+
     """This is the main calculation object for doing a PAW calculation."""
 
-    timer_class = Timer
-
-    def __init__(self, filename=None, **kwargs):
+    def __init__(self, filename=None, timer=None, **kwargs):
         """ASE-calculator interface. 
 
         The following parameters can be used: nbands, xc, kpts,
-        spinpol, gpts, h, charge, usesymm, width, mixer,
+        spinpol, gpts, h, charge, symmetry, width, mixer,
         hund, lmax, fixdensity, convergence, txt, parallel,
         communicator, dtype, softgauss and stencils.
 
@@ -74,7 +74,11 @@ class PAW(PAWTextOutput):
         PAWTextOutput.__init__(self)
         self.grid_descriptor_class = GridDescriptor
         self.input_parameters = InputParameters()
-        self.timer = self.timer_class()
+
+        if timer is None:
+            self.timer = Timer()
+        else:
+            self.timer = timer
 
         self.scf = None
         self.forces = ForceCalculator(self.timer)
@@ -87,7 +91,7 @@ class PAW(PAWTextOutput):
         self.hamiltonian = None
         self.atoms = None
         self.iter = 0
-        
+
         self.initialized = False
         self.nbands_parallelization_adjustment = None  # Somehow avoid this?
 
@@ -106,7 +110,12 @@ class PAW(PAWTextOutput):
             par = self.input_parameters
             par.read(reader)
 
+        # _changed_keywords contains those keywords that have been
+        # changed by set() since last time initialize() was called.
+        self._changed_keywords = set()
         self.set(**kwargs)
+        # Here in the beginning, effectively every keyword has been changed.
+        self._changed_keywords.update(self.input_parameters)
 
         if filename is not None:
             # Setups are not saved in the file if the setups were not loaded
@@ -126,6 +135,8 @@ class PAW(PAWTextOutput):
 
             self.initialize()
             self.read(reader)
+            if self.hamiltonian.xc.type == 'GLLB':
+                self.occupations.calculate(self.wfs)
 
             self.print_cell_and_parameters()
 
@@ -136,13 +147,14 @@ class PAW(PAWTextOutput):
 
     def set(self, **kwargs):
         """Change parameters for calculator.
-        
+
         Examples::
-            
+
             calc.set(xc='PBE')
             calc.set(nbands=20, kpts=(4, 1, 1))
         """
         p = self.input_parameters
+        self._changed_keywords.update(kwargs)
 
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
             raise TypeError("""You can't use both "gpts" and "h"!""")
@@ -156,7 +168,7 @@ class PAW(PAWTextOutput):
             if kwargs.get(name) is not None:
                 tmp = p[name]
                 for key in kwargs[name]:
-                    if not key in tmp:
+                    if key not in tmp:
                         raise KeyError('Unknown subparameter "%s" in '
                                        'dictionary parameter "%s"' % (key,
                                                                       name))
@@ -166,12 +178,13 @@ class PAW(PAWTextOutput):
         self.initialized = False
 
         for key in kwargs:
-            if key == 'basis' and  p['mode'] == 'fd':
+            if key == 'basis' and str(p['mode']) == 'fd':  # umm what about PW?
+                # The second criterion seems buggy, will not touch it.  -Ask
                 continue
 
             if key == 'eigensolver':
                 self.wfs.set_eigensolver(None)
-            
+
             if key in ['fixmom', 'mixer',
                        'verbose', 'txt', 'hund', 'random',
                        'eigensolver', 'idiotproof', 'notify']:
@@ -185,15 +198,17 @@ class PAW(PAWTextOutput):
             self.scf = None
             self.wfs.set_orthonormalized(False)
             if key in ['lmax', 'width', 'stencils', 'external', 'xc',
-                       'poissonsolver', 'occupations']:
+                       'poissonsolver']:
                 self.hamiltonian = None
+                self.occupations = None
+            elif key in ['occupations']:
                 self.occupations = None
             elif key in ['charge']:
                 self.hamiltonian = None
                 self.density = None
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
-            elif key in ['kpts', 'nbands', 'usesymm']:
+            elif key in ['kpts', 'nbands', 'usesymm', 'symmetry']:
                 self.wfs = EmptyWaveFunctions()
                 self.occupations = None
             elif key in ['h', 'gpts', 'setups', 'spinpol', 'realspace',
@@ -272,7 +287,7 @@ class PAW(PAWTextOutput):
 
         self.timer.start('SCF-cycle')
         for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
-                                 self.occupations):
+                                 self.occupations, self.forces):
             self.iter = iter
             self.call_observers(iter)
             self.print_iteration(iter)
@@ -281,11 +296,7 @@ class PAW(PAWTextOutput):
         if self.scf.converged:
             self.call_observers(iter, final=True)
             self.print_converged(iter)
-            if 'converged' in hooks:
-                hooks['converged'](self)
         elif converge:
-            if 'not_converged' in hooks:
-                hooks['not_converged'](self)
             self.txt.write(oops)
             raise KohnShamConvergenceError(
                 'Did not converge!  See text output for help.')
@@ -347,7 +358,9 @@ class PAW(PAWTextOutput):
             world = mpi.world.new_communicator(np.asarray(world))
         self.wfs.world = world
 
-        self.set_text(par.txt, par.verbose)
+        if 'txt' in self._changed_keywords:
+            self.set_txt(par.txt)
+        self.verbose = par.verbose
 
         natoms = len(atoms)
 
@@ -356,7 +369,10 @@ class PAW(PAWTextOutput):
         Z_a = atoms.get_atomic_numbers()
         magmom_av = atoms.get_initial_magnetic_moments()
 
+        self.check_atoms()
+
         # Generate new xc functional only when it is reset by set
+        # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
             if isinstance(par.xc, str):
                 xc = XC(par.xc)
@@ -367,34 +383,36 @@ class PAW(PAWTextOutput):
 
         mode = par.mode
 
-        if xc.orbital_dependent and mode == 'lcao':
+        if mode == 'fd':
+            mode = FD()
+        elif mode == 'pw':
+            mode = pw.PW()
+        elif mode == 'lcao':
+            mode = LCAO()
+        else:
+            assert hasattr(mode, 'name'), str(mode)
+
+        if xc.orbital_dependent and mode.name == 'lcao':
             raise NotImplementedError('LCAO mode does not support '
                                       'orbital-dependent XC functionals.')
 
-        if mode == 'pw':
-            mode = PW()
-
         if par.realspace is None:
-            realspace = not isinstance(mode, PW)
+            realspace = (mode.name != 'pw')
         else:
             realspace = par.realspace
-            if isinstance(mode, PW):
+            if mode.name == 'pw':
                 assert not realspace
 
-        if par.gpts is not None:
-            N_c = np.array(par.gpts)
-        else:
-            h = par.h
-            if h is not None:
-                h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
-
-        if par.filter is None and not isinstance(mode, PW):
+        if par.filter is None and mode.name != 'pw':
             gamma = 1.6
-            hmax = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / N_c).max()
-            
+            if par.gpts is not None:
+                h = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5
+                     / par.gpts).max()
+            else:
+                h = (par.h or 0.2) / Bohr
+
             def filter(rgd, rcut, f_r, l=0):
-                gcut = np.pi / hmax - 2 / rcut / gamma
+                gcut = np.pi / h - 2 / rcut / gamma
                 f_r[:] = rgd.filter(f_r, rcut * gamma, gcut, l)
         else:
             filter = par.filter
@@ -408,7 +426,7 @@ class PAW(PAWTextOutput):
             magmom_av[:, 2] = magmom_a
         else:
             collinear = False
-            
+
         magnetic = magmom_av.any()
 
         spinpol = par.spinpol
@@ -417,7 +435,7 @@ class PAW(PAWTextOutput):
                 raise ValueError('hund=True arg only valid for single atoms!')
             spinpol = True
             magmom_av[0] = (0, 0, setups[0].get_hunds_rule_moment(par.charge))
-            
+
         if spinpol is None:
             spinpol = magnetic
         elif magnetic and not spinpol:
@@ -431,9 +449,33 @@ class PAW(PAWTextOutput):
             nspins = 1
             ncomp = 2
 
-        # K-point descriptor
+        if par.usesymm != 'default':
+            warnings.warn('Use "symmetry" keyword instead of ' +
+                          '"usesymm" keyword')
+            par.symmetry = usesymm2symmetry(par.usesymm)
+
+        symm = par.symmetry
+        if symm == 'off':
+            symm = {'point_group': False, 'time_reversal': False}
+
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
         kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
+        m_av = magmom_av.round(decimals=3)  # round off
+        id_a = zip(setups.id_a, *m_av.T)
+        symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
+        kd.set_symmetry(atoms, symmetry, comm=world)
+        setups.set_symmetry(symmetry)
+
+        if par.gpts is not None:
+            N_c = np.array(par.gpts)
+        else:
+            h = par.h
+            if h is not None:
+                h /= Bohr
+            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
+                                            kd.symmetry)
+
+        symmetry.check_grid(N_c)
 
         width = par.width
         if width is None:
@@ -443,7 +485,7 @@ class PAW(PAWTextOutput):
                 width = 0.0
         else:
             assert par.occupations is None
-      
+
         if hasattr(self, 'time') or par.dtype == complex:
             dtype = complex
         else:
@@ -452,19 +494,25 @@ class PAW(PAWTextOutput):
             else:
                 dtype = complex
 
-        kd.set_symmetry(atoms, setups, magmom_av, par.usesymm, N_c, world)
-
         nao = setups.nao
         nvalence = setups.nvalence - par.charge
         M_v = magmom_av.sum(0)
-        M = np.dot(M_v, M_v)**0.5
-        
+        M = np.dot(M_v, M_v) ** 0.5
+
         nbands = par.nbands
+        if isinstance(nbands, basestring):
+            if nbands[-1] == '%':
+                basebands = int(nvalence + M + 0.5) // 2
+                nbands = int((float(nbands[:-1]) / 100) * basebands)
+            else:
+                raise ValueError('Integer Expected: Only use a string '
+                                 'if giving a percentage of occupied bands')
+
         if nbands is None:
             nbands = 0
             for setup in setups:
                 nbands_from_atom = setup.get_default_nbands()
-                
+
                 # Any obscure setup errors?
                 if nbands_from_atom < -(-setup.Nv // 2):
                     raise ValueError('Bad setup: This setup requests %d'
@@ -472,7 +520,7 @@ class PAW(PAWTextOutput):
                                      % (nbands_from_atom, setup.Nv))
                 nbands += nbands_from_atom
             nbands = min(nao, nbands)
-        elif nbands > nao and mode == 'lcao':
+        elif nbands > nao and mode.name == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: '
                              '%d bands and only %d atomic orbitals!' %
                              (nbands, nao))
@@ -505,22 +553,33 @@ class PAW(PAWTextOutput):
             else:
                 self.occupations = par.occupations
 
+            # If occupation numbers are changed, and we have wave functions,
+            # recalculate the occupation numbers
+            if self.wfs is not None and not isinstance(
+                    self.wfs,
+                    EmptyWaveFunctions):
+                self.occupations.calculate(self.wfs)
+
         self.occupations.magmom = M_v[2]
 
         cc = par.convergence
 
-        if mode == 'lcao':
+        if mode.name == 'lcao':
             niter_fixdensity = 0
         else:
             niter_fixdensity = None
 
         if self.scf is None:
+            force_crit = cc['forces']
+            if force_crit is not None:
+                force_crit /= Hartree / Bohr
             self.scf = SCFLoop(
                 cc['eigenstates'] / Hartree**2 * nvalence,
                 cc['energy'] / Hartree * max(nvalence, 1),
                 cc['density'] * nvalence,
                 par.maxiter, par.fixdensity,
-                niter_fixdensity)
+                niter_fixdensity,
+                force_crit)
 
         parsize_kpt = par.parallel['kpt']
         parsize_domain = par.parallel['domain']
@@ -538,7 +597,7 @@ class PAW(PAWTextOutput):
             ndomains = None
             if parsize_domain is not None:
                 ndomains = np.prod(parsize_domain)
-            if isinstance(mode, PW):
+            if mode.name == 'pw':
                 if ndomains > 1:
                     raise ValueError('Planewave mode does not support '
                                      'domain decomposition.')
@@ -546,13 +605,14 @@ class PAW(PAWTextOutput):
             parallelization.set(kpt=parsize_kpt,
                                 domain=ndomains,
                                 band=parsize_bands)
-            domain_comm, kpt_comm, band_comm = \
-                parallelization.build_communicators()
+            comms = parallelization.build_communicators()
+            domain_comm = comms['d']
+            kpt_comm = comms['k']
+            band_comm = comms['b']
+            kptband_comm = comms['D']
+            domainband_comm = comms['K']
 
-            #domain_comm, kpt_comm, band_comm = mpi.distribute_cpus(
-            #    parsize_domain, parsize_bands,
-            #    nspins, kd.nibzkpts, world, par.idiotproof, mode)
-
+            self.comms = comms
             kd.set_communicator(kpt_comm)
 
             parstride_bands = par.parallel['stridebands']
@@ -577,11 +637,12 @@ class PAW(PAWTextOutput):
             bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
             if (self.density is not None and
-                self.density.gd.comm.size != domain_comm.size):
+                    self.density.gd.comm.size != domain_comm.size):
                 # Domain decomposition has changed, so we need to
                 # reinitialize density and hamiltonian:
                 if par.fixdensity:
-                    raise RuntimeError('Density reinitialization conflict ' +
+                    raise RuntimeError(
+                        'Density reinitialization conflict ' +
                         'with "fixdensity" - specify domain decomposition.')
                 self.density = None
                 self.hamiltonian = None
@@ -591,20 +652,21 @@ class PAW(PAWTextOutput):
                                             domain_comm, parsize_domain)
 
             # do k-point analysis here? XXX
-            args = (gd, nvalence, setups, bd, dtype, world, kd, self.timer)
+            args = (gd, nvalence, setups, bd, dtype, world, kd,
+                    kptband_comm, self.timer)
 
             if par.parallel['sl_auto']:
                 # Choose scalapack parallelization automatically
-                
+
                 for key, val in par.parallel.items():
                     if (key.startswith('sl_') and key != 'sl_auto'
-                        and val is not None):
+                            and val is not None):
                         raise ValueError("Cannot use 'sl_auto' together "
                                          "with '%s'" % key)
                 max_scalapack_cpus = bd.comm.size * gd.comm.size
                 nprow = max_scalapack_cpus
                 npcol = 1
-                
+
                 # Get a sort of reasonable number of columns/rows
                 while npcol < nprow and nprow % 2 == 0:
                     npcol *= 2
@@ -620,31 +682,27 @@ class PAW(PAWTextOutput):
             else:
                 sl_default = par.parallel['sl_default']
 
-            if mode == 'lcao':
+            if mode.name == 'lcao':
                 # Layouts used for general diagonalizer
                 sl_lcao = par.parallel['sl_lcao']
                 if sl_lcao is None:
                     sl_lcao = sl_default
                 lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                               gd, bd, dtype,
+                                               gd, bd, domainband_comm, dtype,
                                                nao=nao, timer=self.timer)
 
-                if collinear:
-                    self.wfs = LCAOWaveFunctions(lcaoksl, *args)
-                else:
-                    from gpaw.xc.noncollinear import \
-                         NonCollinearLCAOWaveFunctions
-                    self.wfs = NonCollinearLCAOWaveFunctions(lcaoksl, *args)
+                self.wfs = mode(collinear, lcaoksl, *args)
 
-            elif mode == 'fd' or isinstance(mode, PW):
+            elif mode.name == 'fd' or mode.name == 'pw':
                 # buffer_size keyword only relevant for fdpw
                 buffer_size = par.parallel['buffer_size']
                 # Layouts used for diagonalizer
                 sl_diagonalize = par.parallel['sl_diagonalize']
                 if sl_diagonalize is None:
                     sl_diagonalize = sl_default
-                diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',
-                                               gd, bd, dtype,
+                diagksl = get_KohnSham_layouts(sl_diagonalize, 'fd',  # XXX
+                                               # choice of key 'fd' not so nice
+                                               gd, bd, domainband_comm, dtype,
                                                buffer_size=buffer_size,
                                                timer=self.timer)
 
@@ -657,7 +715,7 @@ class PAW(PAWTextOutput):
                         'is not implemented.'
                     raise NotImplementedError(message)
                 orthoksl = get_KohnSham_layouts(sl_inverse_cholesky, 'fd',
-                                                gd, bd, dtype,
+                                                gd, bd, domainband_comm, dtype,
                                                 buffer_size=buffer_size,
                                                 timer=self.timer)
 
@@ -676,21 +734,31 @@ class PAW(PAWTextOutput):
                     if sl_lcao is None:
                         sl_lcao = sl_default
                     initksl = get_KohnSham_layouts(sl_lcao, 'lcao',
-                                                   gd, lcaobd, dtype,
-                                                   nao=nao,
+                                                   gd, lcaobd, domainband_comm,
+                                                   dtype, nao=nao,
                                                    timer=self.timer)
 
                 if hasattr(self, 'time'):
-                    assert mode == 'fd'
+                    assert mode.name == 'fd'
                     from gpaw.tddft import TimeDependentWaveFunctions
-                    self.wfs = TimeDependentWaveFunctions(par.stencils[0],
-                        diagksl, orthoksl, initksl, gd, nvalence, setups,
-                        bd, world, kd, self.timer)
-                elif mode == 'fd':
-                    self.wfs = FDWaveFunctions(par.stencils[0], diagksl,
-                                               orthoksl, initksl, *args)
+                    self.wfs = TimeDependentWaveFunctions(
+                        par.stencils[0],
+                        diagksl,
+                        orthoksl,
+                        initksl,
+                        gd,
+                        nvalence,
+                        setups,
+                        bd,
+                        world,
+                        kd,
+                        kptband_comm,
+                        self.timer)
+                elif mode.name == 'fd':
+                    self.wfs = mode(par.stencils[0], diagksl,
+                                    orthoksl, initksl, *args)
                 else:
-                    # Planewave basis:
+                    assert mode.name == 'pw'
                     self.wfs = mode(diagksl, orthoksl, initksl, *args)
             else:
                 self.wfs = mode(self, *args)
@@ -730,7 +798,7 @@ class PAW(PAWTextOutput):
                     gd, finegd, nspins, par.charge + setups.core_charge,
                     collinear, par.stencils[1])
             else:
-                self.density = ReciprocalSpaceDensity(
+                self.density = pw.ReciprocalSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
                     collinear)
 
@@ -741,14 +809,15 @@ class PAW(PAWTextOutput):
             gd, finegd = self.density.gd, self.density.finegd
             if realspace:
                 self.hamiltonian = RealSpaceHamiltonian(
-                    gd, finegd, nspins, setups, self.timer, xc, par.external,
-                    collinear, par.poissonsolver, par.stencils[1], world)
+                    gd, finegd, nspins, setups, self.timer, xc,
+                    world, self.wfs.kptband_comm, par.external,
+                    collinear, par.poissonsolver, par.stencils[1])
             else:
                 self.hamiltonian = ReciprocalSpaceHamiltonian(
                     gd, finegd,
                     self.density.pd2, self.density.pd3,
-                    nspins, setups, self.timer, xc, par.external,
-                    collinear, world)
+                    nspins, setups, self.timer, xc, world, self.wfs.kptband_comm, par.external,
+                    collinear)
 
         # Start of setting Hubbard U for all atoms of certain kind
         # There are two possibilities: 
@@ -849,11 +918,18 @@ class PAW(PAWTextOutput):
         self.txt.flush()
 
         self.timer.print_info(self)
-        
+
         if dry_run:
             self.dry_run()
-        
+
+        if realspace and \
+                self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
+            self.hamiltonian.poisson.set_density(self.density)
+            self.hamiltonian.poisson.print_messages(self.text)
+            self.txt.flush()
+
         self.initialized = True
+        self._changed_keywords.clear()
 
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw
@@ -862,6 +938,18 @@ class PAW(PAWTextOutput):
         self.txt.flush()
         raise SystemExit
 
+    def linearize_to_xc(self, newxc):
+        """Linearize Hamiltonian to difference XC functional.
+        
+        Used in real time TDDFT to perform calculations with various kernels.
+        """
+        if isinstance(newxc, str):
+            newxc = XC(newxc)
+        self.txt.write('Linearizing xc-hamiltonian to ' + str(newxc))
+        newxc.initialize(self.density, self.hamiltonian, self.wfs,
+                         self.occupations)
+        self.hamiltonian.linearize_to_xc(newxc, self.density)
+
     def restore_state(self):
         """After restart, calculate fine density and poisson solution.
 
@@ -869,7 +957,7 @@ class PAW(PAWTextOutput):
         TODO: Is this really the most efficient way?
         """
         spos_ac = self.atoms.get_scaled_positions() % 1.0
-        self.density.set_positions(spos_ac)
+        self.density.set_positions(spos_ac, self.wfs.rank_a)
         self.density.interpolate_pseudo_density()
         self.density.calculate_pseudo_charge()
         self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
@@ -878,8 +966,18 @@ class PAW(PAWTextOutput):
     def attach(self, function, n=1, *args, **kwargs):
         """Register observer function.
 
-        Call *function* every *n* iterations using *args* and
-        *kwargs* as arguments."""
+        Call *function* using *args* and
+        *kwargs* as arguments.
+        
+        If *n* is positive, then
+        *function* will be called every *n* iterations + the
+        final iteration if it would not be otherwise
+        
+        If *n* is negative, then *function* will only be
+        called on iteration *abs(n)*.
+        
+        If *n* is 0, then *function* will only be called
+        on convergence"""
 
         try:
             slf = function.im_self
@@ -896,7 +994,19 @@ class PAW(PAWTextOutput):
     def call_observers(self, iter, final=False):
         """Call all registered callback functions."""
         for function, n, args, kwargs in self.observers:
-            if ((iter % n) == 0) != final:
+            call = False
+            # Call every n iterations, including the last
+            if n > 0:
+                if ((iter % n) == 0) != final:
+                    call = True
+            # Call only on iteration n
+            elif n < 0 and not final:
+                if iter == abs(n):
+                    call = True
+            # Call only on convergence
+            elif n == 0 and final:
+                call = True
+            if call:
                 if isinstance(function, str):
                     function = getattr(self, function)
                 function(*args, **kwargs)
@@ -958,7 +1068,7 @@ class PAW(PAWTextOutput):
         mem = MemNode('Calculator', 0)
         try:
             self.estimate_memory(mem)
-        except AttributeError, m:
+        except AttributeError as m:
             txt.write('Attribute error: %r' % m)
             txt.write('Some object probably lacks estimate_memory() method')
             txt.write('Memory breakdown may be incomplete')
@@ -977,7 +1087,8 @@ class PAW(PAWTextOutput):
 
         no_wave_functions = (self.wfs.kpt_u[0].psit_nG is None)
         converged = self.scf.check_convergence(self.density,
-                                               self.wfs.eigensolver)
+                                               self.wfs.eigensolver, self.wfs,
+                                               self.hamiltonian, self.forces)
         if no_wave_functions or not converged:
             self.wfs.eigensolver.error = np.inf
             self.scf.converged = False
@@ -1006,9 +1117,9 @@ class PAW(PAWTextOutput):
 def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
                         atoms=None):
     """Helper function for selecting k-points.
-    
+
     Use either size or density.
-    
+
     size: 3 ints
         Number of k-points.
     density: float
@@ -1021,38 +1132,38 @@ def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
         True / False / None.
     atoms: Atoms object
         Needed for calculating k-point density.
-    
+
     """
-    
+
     if size is None:
         if density is None:
             size = [1, 1, 1]
         else:
             size = kptdensity2monkhorstpack(atoms, density, even)
-            
+
     offsets = [0, 0, 0]
-                                                                        
+
     if gamma is not None:
         for i, s in enumerate(size):
             if atoms.pbc[i] and s % 2 != bool(gamma):
                 offsets[i] = 0.5 / s
-                
+
     return size, offsets
-    
-    
+
+
 def kpts2ndarray(kpts, atoms=None):
     """Convert kpts keyword to 2-d ndarray of scaled k-points."""
-    
+
     if kpts is None:
         return np.zeros((1, 3))
-        
+
     if isinstance(kpts, dict):
         size, offsets = kpts2sizeandoffsets(atoms=atoms, **kpts)
         return monkhorst_pack(size) + offsets
-        
+
     if isinstance(kpts[0], int):
         return monkhorst_pack(kpts)
-        
+
     return np.array(kpts)
 
 
@@ -1072,7 +1183,7 @@ Here are some tips:
 9) Better initial guess for the wave functions.
 
 See details here:
-    
+
     https://wiki.fysik.dtu.dk/gpaw/documentation/convergence.html
 
 """

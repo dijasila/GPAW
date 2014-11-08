@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom
 from ase.units import Hartree
 
@@ -25,7 +26,7 @@ for spin in [0, 1]:
     c.set(setups=':3d,3.0,1')
     E_U[spin] = s.get_potential_energy()
 
-print "E=", E
+print("E=", E)
 equal(E[0], E[1], energy_tolerance)
-print "E_U=", E_U
+print("E_U=", E_U)
 equal(E_U[0], E_U[1], energy_tolerance)

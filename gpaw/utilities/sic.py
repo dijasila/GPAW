@@ -26,8 +26,8 @@ class NSCFSIC:
             # TODO: Use XC which has been used to calculate the actual
             # calculation.
             # TODO: Loop over setups, not atoms.
-            print 'Atom core SIC for ', setup.symbol
-            print '%10s%10s%10s' %  ('E_xc[n_i]', 'E_Ha[n_i]', 'E_SIC')
+            print('Atom core SIC for ', setup.symbol)
+            print('%10s%10s%10s' %  ('E_xc[n_i]', 'E_Ha[n_i]', 'E_SIC'))
             g = Generator(setup.symbol, xcname='LDA', nofiles=True, txt=None)
             g.run(**parameters[setup.symbol])
             njcore = g.njcore
@@ -45,19 +45,19 @@ class NSCFSIC:
                 e_g = np.zeros(g.N)
                 vHr = np.zeros(g.N)
                 Exc = xc.calculate_spherical(g.rgd, np.array([na, nb]), v_sg)
-                hartree(0, na * g.r * g.dr, g.beta, g.N, vHr)
+                hartree(0, na * g.r * g.dr, g.r, vHr)
                 EHa = 2*pi*np.dot(vHr*na*g.r , g.dr)
-                print ('%10.2f%10.2f%10.2f' % (Exc * Hartree, EHa * Hartree,
-                                               -f*(EHa+Exc) * Hartree))
+                print(('%10.2f%10.2f%10.2f' % (Exc * Hartree, EHa * Hartree,
+                                               -f*(EHa+Exc) * Hartree)))
                 ESIC += -f*(EHa+Exc)
                 
         sic = SIC(finegrid=True, coulomb_factor=1, xc_factor=1)
         sic.initialize(self.paw.density, self.paw.hamiltonian, self.paw.wfs)
         sic.set_positions(self.paw.atoms.get_scaled_positions())
         
-        print 'Valence electron sic '
-        print '%10s%10s%10s%10s%10s%10s' % ('spin', 'k-point', 'band',
-                                            'E_xc[n_i]', 'E_Ha[n_i]', 'E_SIC')
+        print('Valence electron sic ')
+        print('%10s%10s%10s%10s%10s%10s' % ('spin', 'k-point', 'band',
+                                            'E_xc[n_i]', 'E_Ha[n_i]', 'E_SIC'))
         assert len(self.paw.wfs.kpt_u)==1, ('Not tested for bulk calculations')
         
         for s, spin in sic.spin_s.items():
@@ -67,17 +67,17 @@ class NSCFSIC:
 
             n = 0
             for xc, c in zip(spin.exc_m, spin.ecoulomb_m):
-                print ('%10i%10i%10i%10.2f%10.2f%10.2f' %
+                print(('%10i%10i%10i%10.2f%10.2f%10.2f' %
                        (s, 0, n, -xc * Hartree, -c * Hartree,
-                        2 * (xc + c) * Hartree))
+                        2 * (xc + c) * Hartree)))
                 n += 1
 
             ESIC += spin.esic
             
-        print 'Total correction for self-interaction energy:'
-        print '%10.2f eV' % (ESIC * Hartree)
-        print 'New total energy:'
+        print('Total correction for self-interaction energy:')
+        print('%10.2f eV' % (ESIC * Hartree))
+        print('New total energy:')
         total = (ESIC * Hartree + self.paw.get_potential_energy() +
                  self.paw.get_reference_energy())
-        print '%10.2f eV' % total
+        print('%10.2f eV' % total)
         return total

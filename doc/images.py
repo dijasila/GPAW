@@ -12,7 +12,7 @@ This must (probably) be done *after* compilation because otherwise dirs
 may not exist.
 
 """
-
+from __future__ import print_function
 from urllib2 import urlopen, HTTPError
 import os
 from sys import executable
@@ -37,16 +37,16 @@ def get(path, names, target=None, source=None):
         dst = os.path.join(target, name)
 
         if not os.path.isfile(dst):
-            print dst,
+            print(dst, end=' ')
             try:
                 data = urlopen(src).read()
                 sink = open(dst, 'w')
                 sink.write(data)
                 sink.close()
-                print 'OK'
+                print('OK')
                 got_something = True
             except HTTPError:
-                print 'HTTP Error!'
+                print('HTTP Error!')
     return got_something
 
 
@@ -115,6 +115,15 @@ get('agts-files', scf_conv_eval_stuff, target='documentation/scf_conv_eval',
     source=agtspath)
 
 # Warning: for the moment dcdft runs are not run (files are static)!
+dcdft_pbe_aims_stuff = """
+dcdft_aims.tight.01.16.db.csv
+dcdft_aims.tight.01.16.db_raw.csv
+dcdft_aims.tight.01.16.db_Delta.txt
+""".split()
+
+get('agts-files', dcdft_pbe_aims_stuff, target='setups', source=agtspath)
+
+# Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_gpaw_pw_stuff = """
 dcdft_pbe_gpaw_pw.csv
 dcdft_pbe_gpaw_pw_raw.csv
@@ -153,9 +162,9 @@ get('agts-files', g2_1_stuff, target='setups', source=agtspath)
 def setup(app):
     # Generate one page for each setup:
     if get('setups', ['setups-data.tar.gz'], '_static'):
-        print 'Extracting setup data ...'
+        print('Extracting setup data ...')
         os.system('tar -C _static -xzf _static/setups-data.tar.gz')
-        print 'Generating setup pages ...'
+        print('Generating setup pages ...')
         os.system('cd setups; %s make_setup_pages.py' % executable)
 
 
@@ -176,7 +185,7 @@ def setup(app):
             path = os.path.join(job.dir, name)
             if os.path.isfile(path):
                 continue
-            print(path, 'copied from', agtspath)
+            print((path, 'copied from', agtspath))
             get('agts-files', [name], job.dir, source=agtspath)
 
     # Get files that we can't generate:

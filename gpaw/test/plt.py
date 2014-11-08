@@ -3,11 +3,10 @@ import numpy as np
 #numpy.seterr(all='raise')
 
 from ase import Atom
-from ase.io.plt import write_plt
+from ase.io.plt import write_plt, read_plt
 from gpaw.test import equal
 from gpaw import GPAW
 from gpaw.cluster import Cluster
-from gpaw.io.plt import read_plt
 
 txt='-'
 txt='/dev/null'
@@ -43,14 +42,13 @@ aed = calc.get_pseudo_density(1, pad=False)
 #aed = calc.wfs.gd.collect(aed)
 
 if mpi.size == 1:
-    data_org = [cell, aed, np.array([0., 0., 0.])]
+    data_org = [aed, cell]
     write_plt(fname, calc.get_atoms(), aed)
     
     # check if read arrays match the written ones
     data = read_plt(fname)
-    ##print data[0], data[2]
     for d, do in zip(data, data_org):
         dd2 = (d - do)**2
         norm = dd2.sum() 
-        print norm
+        print(norm)
         assert(norm < 1e-10)

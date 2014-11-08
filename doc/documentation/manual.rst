@@ -87,7 +87,8 @@ keyword            type       default value        description
 ``spinpol``        ``bool``                        :ref:`manual_spinpol`
 ``gpts``           *seq*                           :ref:`manual_gpts`
 ``h``              ``float``  ``0.2``              :ref:`manual_h`
-``usesymm``        ``bool``   ``True``             :ref:`manual_usesymm`
+``symmetry``       ``dict``   ``{}``               :ref:`manual_symmetry`
+``usesymm``        ``bool``   ``True``             :ref:`manual_symmetry`
 ``random``         ``bool``   ``False``            Use random numbers for
                                                    :ref:`manual_random`
 ``occupations``    occ. obj.                       :ref:`manual_occ`
@@ -97,7 +98,7 @@ keyword            type       default value        description
 ``charge``         ``float``  ``0``                Total :ref:`manual_charge`
                                                    of the system
 ``convergence``    ``dict``                        :ref:`manual_convergence`
-``maxiter``        ``int``    ``120``              :ref:`manual_maxiter`
+``maxiter``        ``int``    ``333``              :ref:`manual_maxiter`
 ``txt``            ``str``,   ``'-'``              :ref:`manual_txt`
                    None, or   (``sys.stdout``)
                    file obj.
@@ -117,13 +118,13 @@ keyword            type       default value        description
 ``hund``           ``bool``   ``False``            :ref:`Use Hund's rule
                                                    <manual_hund>`
 ``external``       Object                          XXX Missing doc
-``verbose``        ``int``    ``0``                XXX Missing doc
+``verbose``        ``int``    ``0``                :ref:`manual_verbose`
 ``poissonsolver``  Object                          Specification of
                                                    :ref:`Poisson solver 
                                                    <manual_poissonsolver>`
                                                    or :ref:`dipole correction
                                                    <manual_dipole_correction>`
-``communicator``   Object                          XXX Missing doc
+``communicator``   Object                          :ref:`manual_communicator`
 ``idiotproof``     ``bool``   ``True``             Set to ``False`` to ignore 
                                                    setup fingerprint mismatch
                                                    (allows restart when the
@@ -232,8 +233,13 @@ states.  For metals, more bands are needed.  Sometimes, adding more
 unoccupied bands will improve convergence.
 
 .. tip::
-   ``nbands=0`` will give zero empty bands, and ``nbands=-n`` will
-   give ``n`` empty bands.
+   
+    ``nbands=0`` will give zero empty bands, and ``nbands=-n`` will
+    give ``n`` empty bands.
+   
+.. tip::
+    
+    ``nbands='n%'`` will give ``n/100`` times the number of occupied bands.
 
 
 .. _manual_xc:
@@ -370,7 +376,7 @@ gridpoints (smaller grid spacing, *h*), gives better convergence of
 the total energy.  For most elements, *h* should be 0.2 Å for
 reasonable convergence of total energies.  If a ``n1`` `\times` ``n2``
 `\times` ``n3`` grid is desired, use ``gpts=(n1, n2, n3)``, where
-``n1``, ``n2`` and ``n3`` are positive ``int``s all divisible by four.
+``n1``, ``n2`` and ``n3`` are positive ``int``'s all divisible by four.
 Alternatively, one can use something like ``h=0.25``, and the program
 will try to choose a number of grid points that gives approximately
 a grid-point density of `1/h^3`.  For more details, see :ref:`grids`.
@@ -407,21 +413,48 @@ cell accordingly. This can be achieved by::
   # and ensure a grid spacing of h=0.2
   atoms.minimal_box(4., h=.2)
 
-.. _manual_usesymm:
+
+.. _manual_symmetry:
 
 Use of symmetry
 ---------------
 
-With ``usesymm=True`` (default) the **k**-points are reduced to only
-those in the irreducible part of the Brillouin-zone.  Moving the atoms
-so that a symmetry is broken will cause an error.  This can be avoided
-by using ``usesymm=False`` which will reduce the number of applied
-symmetries to just the time-reversal symmetry (implying that the
-Hamiltonian is invariant under **k** -> -**k**). For some purposes you
-might want to have no symmetry reduction of the **k**-points at all
-(debugging, transport, wannier functions). This can be achieved be
-specifying ``usesymm=None``.
+The default behavior is to use all point-group symmetries and time-reversal
+symmetry to reduce the **k**-points to only those in the irreducible part of
+the Brillouin-zone.  Moving the atoms so that a symmetry is broken will
+cause an error.  This can be avoided by using::
+    
+    symmetry={'point_group': False}
 
+This will reduce the number of applied symmetries to just the time-reversal
+symmetry (implying that the Hamiltonian is invariant under **k** -> -**k**).
+For some purposes you might want to have no symmetry reduction of the
+**k**-points at all (debugging, transport calculations, band-structure
+calculations, ...). This can be achieved by specifying::
+
+    symmetry={'point_group': False, 'time_reversal': False}
+    
+or simply ``symmetry='off'`` which is a short-hand notation for the same
+thing.
+
+For full control, here are all the available keys of the ``symmetry``
+dictionary:
+
+=================  ========  ===============================
+key                default   description
+=================  ========  ===============================
+``point_group``    ``True``  Use point-group symmetries
+``time_reversal``  ``True``  Use time-reversal symmetry
+``symmorphic``     ``True``  Use only symmorphic symmetries
+``tolerance``      ``1e-7``  Relative tolerance
+=================  ========  ===============================
+
+.. note::
+    
+    If you are using version 0.10 or earlier, you can use
+    ``usesymm=False`` to turn off all point-group symmetries and
+    ``usesymm=None`` to turn off also time-reversal symmetry.
+    
 
 .. _manual_random:
 
@@ -487,7 +520,8 @@ The default value is this Python dictionary::
   {'energy': 0.0005,  # eV / electron
    'density': 1.0e-4,
    'eigenstates': 4.0e-8,  # eV^2 / electron
-   'bands': 'occupied'}
+   'bands': 'occupied',
+   'forces': None} # eV / Ang Max 
 
 In words:
 
@@ -500,6 +534,10 @@ In words:
 * The integrated value of the square of the residuals of the Kohn-Sham
   equations should be less than :math:`4.0 \times 10^{-8}
   \mathrm{eV}^2` per valence electron (FD mode only).
+
+* The maximum change in the magnitude of the vector representing the
+  difference in forces for each atom.  Setting this to None disables 
+  this functionality, saving computational time and memory usage.
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
@@ -564,7 +602,6 @@ occupations one has to use :class:`~gpaw.mixer.MixerSum` instead of
 :class:`~gpaw.mixer.Mixer`.
 
 See also the documentation on :ref:`density mixing <densitymix>`.
-
 
 .. _manual_fixdensity:
 
@@ -799,6 +836,23 @@ total magnetic moment be fixed, by passing e.g.
 Any user specified magnetic moment is
 ignored. Default is False.
 
+.. _manual_verbose:
+
+Output verbosity
+----------------
+
+By default, only a limited number of information is printed out for each SCF
+step. It is possible to obtain more information (e.g. for investigating 
+convergen problems in more detail) by ``verbose=1`` keyword.
+
+.. _manual_communicator:
+
+Communicator object
+-------------------
+
+By specifying a communicator object, it is possible to use only a subset of
+processes for the calculator when calculating e.g. different atomic images 
+in parallel. See :ref:`different_calculations_in parallel` for more details.
 
 .. _manual_parallel_calculations:
 

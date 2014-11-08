@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import pickle
 from StringIO import StringIO
@@ -189,10 +190,10 @@ w = Writer1(fd)
 w.write(a=A(), y=9)
 w.write(s='abc')
 w.close()
-print w.data
+print(w.data)
 
 
 r = Reader1(fd)
-print r.y, r.s
-print r.a.read()
-print r.a.x, r.a.read().x
+print(r.y, r.s)
+print(r.a.read())
+print(r.a.x, r.a.read().x)

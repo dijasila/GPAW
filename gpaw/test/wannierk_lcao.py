@@ -1,4 +1,5 @@
 'Test ase.dft.wannier module with k-points.'
+from __future__ import print_function
 
 from ase.lattice import bulk
 from ase.dft.wannier import Wannier
@@ -14,8 +15,8 @@ if 1:
     #si.calc = GPAW(kpts=(k, k, k), mode='lcao')
     e1 = si.get_potential_energy()
     si.calc.write('Si-ibz', mode='all')
-    #si.calc.set(usesymm=None, txt='Si-bz.txt')
-    #si.calc.set(usesymm=None)
+    #si.calc.set(symmetry='off', txt='Si-bz.txt')
+    #si.calc.set(symmetry='off')
     #e2 = si.get_potential_energy()
     #si.calc.write('Si-bz', mode='all')
     #print e1, e2

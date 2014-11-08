@@ -162,6 +162,7 @@ class EhrenfestVelocityVerlet:
         self.calc.atoms.positions = self.xn * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
+        self.calc.update_eigenvalues()
         self.calc.forces.reset()
         self.F = self.calc.forces.calculate(self.calc.wfs,
                                             self.calc.td_density.get_density(),

@@ -3,12 +3,12 @@
 # Please see the accompanying LICENSE file for further information.
 
 if __name__ == '__main__':
-    print """\
+    print("""\
 You are using the wrong setup.py script!  This setup.py defines a
 Setup class used to hold the atomic data needed for a specific atom.
 For building the GPAW code you must use the setup.py distutils script
 at the root of the code tree.  Just do "cd .." and you will be at the
-right place."""
+right place.""")
     raise SystemExit
 
 import os
@@ -1028,9 +1028,6 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
         
-        if extra_parameters.get('fprojectors'):
-            return None
-
         # utility functions
 
         # from Y_L to Y_lm where Y_lm is a spherical harmonic and m= -l, ..., +l
@@ -1270,6 +1267,8 @@ class Setups(list):
         # Construct necessary PAW-setup objects:
         self.setups = {}
         natoms = {}
+        Mcumulative = 0
+        self.M_a = []
         self.id_a = zip(Z_a, type_a, basis_a)
         for id in self.id_a:
             setup = self.setups.get(id)
@@ -1291,6 +1290,8 @@ class Setups(list):
                 natoms[id] = 0
             natoms[id] += 1
             self.append(setup)
+            self.M_a.append(Mcumulative)
+            Mcumulative += setup.nao
 
         # Sum up ...
         self.nvalence = 0       # number of valence electrons

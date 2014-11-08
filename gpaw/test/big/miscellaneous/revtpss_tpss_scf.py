@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom, Atoms
 from gpaw import GPAW
 
@@ -38,10 +39,10 @@ e_nt = b.get_potential_energy()
 b.calc.set(xc='revTPSS')
 e_nrt = b.get_potential_energy()
 
-print 'Atm. Experiment  ', -228.5
-print 'Atm. PBE         ', (e_n2-2*e_n)*23.06
-print 'Atm. TPSS(nsc)   ', ((e_n2+n2t)-2*(e_n+nt))*23.06
-print 'Atm. TPSS        ', (e_n2t-2*e_nt)*23.06
-print 'Atm. revTPSS(nsc)', ((e_n2+n2rt)-2*(e_n+nrt))*23.06
-print 'Atm. revTPSS     ', (e_n2rt-2*e_nrt)*23.06
+print('Atm. Experiment  ', -228.5)
+print('Atm. PBE         ', (e_n2-2*e_n)*23.06)
+print('Atm. TPSS(nsc)   ', ((e_n2+n2t)-2*(e_n+nt))*23.06)
+print('Atm. TPSS        ', (e_n2t-2*e_nt)*23.06)
+print('Atm. revTPSS(nsc)', ((e_n2+n2rt)-2*(e_n+nrt))*23.06)
+print('Atm. revTPSS     ', (e_n2rt-2*e_nrt)*23.06)
 

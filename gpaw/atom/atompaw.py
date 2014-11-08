@@ -13,6 +13,8 @@ import gpaw.mpi as mpi
 
 
 class MakeWaveFunctions:
+    name = 'atompaw'
+
     def __init__(self, gd):
         self.gd = gd
 
@@ -22,6 +24,8 @@ class MakeWaveFunctions:
     
 
 class AtomWaveFunctions(WaveFunctions):
+    mode = 'atompaw'
+
     def initialize(self, density, hamiltonian, spos_ac):
         setup = self.setups[0]
         bf = AtomBasisFunctions(self.gd, setup.phit_j)
@@ -36,7 +40,8 @@ class AtomWaveFunctions(WaveFunctions):
 
 
 class AtomPoissonSolver:
-    description = 'Radial equidistant'
+    def get_description(self):
+        return 'Radial equidistant'
 
     def set_grid_descriptor(self, gd):
         self.gd = gd
@@ -219,7 +224,7 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
             return np.dot(a_xg * b_xg, self.dv_g)
     def calculate_dipole_moment(self, rhot_g):
         return np.zeros(3)
-    def symmetrize(self, a_g, op_scc):
+    def symmetrize(self, a_g, op_scc, ft_sc=None):
         pass
     def get_grid_spacings(self):
         return self.h_cv.diagonal()

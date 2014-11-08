@@ -258,7 +258,7 @@ class BEEF_Ensemble:
             self.trans = [6.5124, -1.0]
             if self.exch is None and rank == 0:
                 self.calc.converge_wave_functions()
-                print 'wave functions converged'
+                print('wave functions converged')
         else:
             raise NotImplementedError('xc = %s not implemented' % self.xc)
 

@@ -120,7 +120,7 @@ class HybridXC(HybridXCBase):
         if self.acdf:
             self.exxacdf = 0.0
             self.etotflag = True
-            print 'etotflag is True'
+            print('etotflag is True')
 
         HybridXCBase.__init__(self, name, hybrid, xc)
 

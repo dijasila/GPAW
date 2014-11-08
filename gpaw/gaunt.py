@@ -81,7 +81,7 @@ if __name__ == '__main__':
     #   coefficients", Rasch and Yu,
     #   Siam J. Sci. Comput., Vol 25, No. 4, pp. 1416-1428, 2003
     # XXX
-    print 'Constructing "Gaunt.py" ...'
+    print('Constructing "Gaunt.py" ...')
     gaunt = make_gaunt(2)
-    print 'gaunt = np.array(%s)' % gaunt.tolist()
+    print('gaunt = np.array(%s)' % gaunt.tolist())
 

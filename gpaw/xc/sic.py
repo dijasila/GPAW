@@ -193,13 +193,13 @@ class SIC(XCFunctional):
     
     def initialize(self, density, hamiltonian, wfs, occ=None):
         
-        assert wfs.gamma
+        assert wfs.kd.gamma
         assert not wfs.gd.pbc_c.any()
 
         self.wfs = wfs
         self.dtype = float
         self.xc.initialize(density, hamiltonian, wfs, occ)
-        self.kpt_comm = wfs.kpt_comm
+        self.kpt_comm = wfs.kd.comm
         self.nspins = wfs.nspins
         self.nbands = wfs.bd.nbands
         
@@ -287,7 +287,7 @@ class SIC(XCFunctional):
        self.dF_av = np.zeros_like(F_av)
        for spin in self.spin_s.values():
            spin.add_forces(self.dF_av)
-       self.wfs.kpt_comm.sum(self.dF_av)
+       self.wfs.kd.comm.sum(self.dF_av)
         
     def add_forces(self, F_av):
        F_av += self.dF_av
@@ -369,7 +369,7 @@ class SIC(XCFunctional):
             W_mn = self.get_unitary_transformation(s)
             #
             if self.wfs.world.rank == 0:
-                if W_mn!=None:
+                if W_mn is not None:
                     writer.dimension('npart'+str(s), W_mn.shape[0])
                     writer.add('UnitaryTransformation'+str(s),
                                ('npart'+str(s),'npart'+str(s)),
@@ -382,7 +382,7 @@ class SIC(XCFunctional):
         if s in self.spin_s.keys():
             spin = self.spin_s[s]
             #
-            if spin.W_mn==None or spin.finegd.rank!=0:
+            if spin.W_mn is None or spin.finegd.rank!=0:
                 n = 0
             else:
                 n = spin.W_mn.shape[0]
@@ -401,7 +401,7 @@ class SIC(XCFunctional):
         if s in self.spin_s.keys():
             spin = self.spin_s[s]
             #
-            if spin.W_mn==None or spin.finegd.rank!=0:
+            if spin.W_mn is None or spin.finegd.rank!=0:
                 W_mn[:] = 0.0
             else:
                 W_mn[:] = spin.W_mn[:]
@@ -496,7 +496,7 @@ class SICSpin:
 
     def initialize_orbitals(self, rattle=-0.1, localize=True):
         #
-        if self.initial_W_mn!=None:
+        if self.initial_W_mn is not None:
             self.nocc = self.initial_W_mn.shape[0]
         else:
             self.nocc, x = divmod(int(self.kpt.f_n.sum()), 3 - self.nspins)
@@ -514,7 +514,7 @@ class SICSpin:
                                                     self.nocc)
         self.gd.comm.sum(Z_mmv)
 
-        if self.initial_W_mn!=None:
+        if self.initial_W_mn is not None:
             self.W_mn = self.initial_W_mn
 
         elif localize:
@@ -535,7 +535,7 @@ class SICSpin:
             U_mm = random_unitary_matrix(rattle, self.nocc)
             self.W_mn = np.dot(U_mm, self.W_mn)
         
-        if self.W_mn!=None:
+        if self.W_mn is not None:
             self.gd.comm.broadcast(self.W_mn, 0)
             
         spos_mc = -np.angle(Z_mmv.diagonal()).T / (2 * pi)
@@ -577,7 +577,7 @@ class SICSpin:
         if rattle==0.0:
             return
 
-        if self.W_mn==None:
+        if self.W_mn is None:
             return
         #
         # setup a "random" unitary matrix
@@ -1353,11 +1353,11 @@ class SICSpin:
            
             if self.gd.comm.rank == 0:
                 if self.logging==1:
-                    print "           UO-%d: %2d %5.1f  %20.5f  " % (
-                        self.spin, iter, np.log10(K), ESI*Hartree)
+                    print("           UO-%d: %2d %5.1f  %20.5f  " % (
+                        self.spin, iter, np.log10(K), ESI*Hartree))
                 elif self.logging==2:
-                    print "           UO-%d: %2d %5.1f  %20.5f  " % (
-                    self.spin, iter, np.log10(K), ESI*Hartree) + lsmethod
+                    print("           UO-%d: %2d %5.1f  %20.5f  " % (
+                    self.spin, iter, np.log10(K), ESI*Hartree) + lsmethod)
                 
             if ((K<self.uomaxres or
                  K<self.wfs.eigensolver.error*self.uorelres)

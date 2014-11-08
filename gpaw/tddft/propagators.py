@@ -1671,7 +1671,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         self.td_overlap.apply(self.kpt.psit_nG, self.tmp, self.wfs, self.kpt)
         self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.tmp, nvec)
         nrm2 *= self.gd.dv
-        print 'S min eig = ', nrm2
+        print('S min eig = ', nrm2)
 
 
     def overlap(self, kpt_u, degree):
@@ -1690,7 +1690,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         self.td_overlap.apply(self.kpt.psit_nG, self.tmp, self.wfs, self.kpt)
         self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.tmp, nvec)
         nrm2 *= self.gd.dv
-        print 'S max eig = ', nrm2
+        print('S max eig = ', nrm2)
 
 
     def inverse_hamiltonian(self, kpt_u, degree):
@@ -1708,7 +1708,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         self.td_hamiltonian.apply(self.kpt, self.kpt.psit_nG, self.tmp)
         self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.tmp, nvec)
         nrm2 *= self.gd.dv
-        print 'H min eig = ', nrm2
+        print('H min eig = ', nrm2)
 
 
     def hamiltonian(self, kpt_u, degree):
@@ -1727,4 +1727,4 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         self.td_hamiltonian.apply(self.kpt, self.kpt.psit_nG, self.tmp)
         self.mblas.multi_zdotc(nrm2, self.kpt.psit_nG, self.tmp, nvec)
         nrm2 *= self.gd.dv
-        print 'H max eig = ', nrm2
+        print('H max eig = ', nrm2)

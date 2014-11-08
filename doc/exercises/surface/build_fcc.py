@@ -1,9 +1,9 @@
 """Module for building atomic structures"""
 
 from math import sqrt
-
 from ase import Atoms, Atom
 from ase.visualize import view
+
 
 def fcc100(symbol, a, layers, L):
     """Build an fcc(100) surface
@@ -28,11 +28,11 @@ def fcc100(symbol, a, layers, L):
     z = a / 2.
 
     assert L > layers * z, 'Unit cell too small!'
-    
+
     # Start with an empty Atoms object:
     atoms = Atoms(cell=(d, d, L),
                   pbc=(True, True, False))
-    
+
     # Fill in the atoms:
     for n in range(layers):
         position = [d / 2 * (n % 2),

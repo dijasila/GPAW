@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom
 from gpaw import GPAW
 from gpaw.cluster import Cluster
@@ -27,6 +28,6 @@ cpbe.calculate(s)
 cpbe.set(xc='TPSS')
 cpbe.calculate()
 
-print "Energy difference", (cpbe.get_potential_energy() - 
-                            c.get_potential_energy())
+print("Energy difference", (cpbe.get_potential_energy() - 
+                            c.get_potential_energy()))
 equal(cpbe.get_potential_energy(), c.get_potential_energy(), 0.002)

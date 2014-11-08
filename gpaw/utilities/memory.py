@@ -16,7 +16,6 @@ _scale = {'kB': 1024.0, 'mB': 1024.0 * 1024.0,
 
 def _VmB(VmKey):
     """Private."""
-    global _proc_status, _scale
     # get pseudo file  /proc/<pid>/status
     try:
         t = open(_proc_status)

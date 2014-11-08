@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from time import time
 
@@ -13,7 +14,7 @@ def main(i,seed=42,dtype=float):
         epsilon = 0.1
     x = i + 1
     N = x*100
-    print "N =",N
+    print("N =",N)
     H0 = np.zeros((N,N),dtype=dtype) + gen.rand(*(N,N))
     H1 = H0 + epsilon*np.tri(N,N, k=-1)
     W0 = np.zeros((N))
@@ -21,13 +22,13 @@ def main(i,seed=42,dtype=float):
     t0 = time()
     diagonalize(H1.copy(), W0)
     t1 = time() - t0
-    print dtype
-    print "diagonalize", t1
+    print(dtype)
+    print("diagonalize", t1)
     t2 = time() 
     diagonalize_mr3(H1.copy(), W0, Z0)
     t3 = time() - t2
-    print "diagonalize_mr3",t3
-    print "---------------"
+    print("diagonalize_mr3",t3)
+    print("---------------")
     # diagonalize_mr3 must be faster than diagonalize 
     assert(t3 < t1)
 

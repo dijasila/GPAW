@@ -5,8 +5,8 @@
 #include "../extensions.h"
 
 double vdwkernel(double D, double d1, double d2, int nD, int ndelta,
-		 double dD, double ddelta,
-		 const double (*phi)[nD])
+                 double dD, double ddelta,
+                 const double (*phi)[nD])
 {
   if (D < 1e-10)
     return phi[0][0];
@@ -26,17 +26,17 @@ double vdwkernel(double D, double d1, double d2, int nD, int ndelta,
       double x = fabs(0.5 * (d1 - d2) / D) / ddelta;
       int i = (int)x;
       if (i >= ndelta - 1)
-	{
-	  i = ndelta - 2;
-	  x = 1.0;
-	}
+        {
+          i = ndelta - 2;
+          x = 1.0;
+        }
       else
-	x -= i;
+        x -= i;
       y -= j;
       e12 = ((x         * y         * phi[i + 1][j + 1] +
-	      x         * (1.0 - y) * phi[i + 1][j    ] +
-	      (1.0 - x) * y         * phi[i    ][j + 1] +
-	      (1.0 - x) * (1.0 - y) * phi[i    ][j    ]));
+              x         * (1.0 - y) * phi[i + 1][j    ] +
+              (1.0 - x) * y         * phi[i    ][j + 1] +
+              (1.0 - x) * (1.0 - y) * phi[i    ][j    ]));
     }
   return e12;
 }
@@ -59,10 +59,10 @@ PyObject * vdw(PyObject* self, PyObject *args)
   PyArrayObject* Dhistogram_obj;
   double dDhist;
   if (!PyArg_ParseTuple(args, "OOOOOOOddiiOdOd", &n_obj, &q0_obj, &R_obj,
-			&cell_obj, &pbc_obj, &repeat_obj,
-			&phi_obj, &ddelta, &dD, &iA, &iB,
-			&rhistogram_obj, &drhist,
-			&Dhistogram_obj, &dDhist))
+                        &cell_obj, &pbc_obj, &repeat_obj,
+                        &phi_obj, &ddelta, &dD, &iA, &iB,
+                        &rhistogram_obj, &drhist,
+                        &Dhistogram_obj, &dDhist))
     return NULL;
 
   int ndelta = PyArray_DIMS(phi_obj)[0];
@@ -85,18 +85,18 @@ PyObject * vdw(PyObject* self, PyObject *args)
   if (repeat[0] == 0 && repeat[1] == 0 && repeat[2] == 0)
     for (int i1 = iA; i1 < iB; i1++)
       {
-	const double* R1 = R[i1];
-	double q01 = q0[i1];
-	for (int i2 = 0; i2 <= i1; i2++)
-	  {
-	    double rr = 0.0;
-	    for (int c = 0; c < 3; c++)
-	      {
-		double f = R[i2][c] - R1[c];
-		if (pbc[c])
-		  f = fmod(f + 1.5 * cell[c], cell[c]) - 0.5 * cell[c];
-		rr += f * f;
-	      }
+        const double* R1 = R[i1];
+        double q01 = q0[i1];
+        for (int i2 = 0; i2 <= i1; i2++)
+          {
+            double rr = 0.0;
+            for (int c = 0; c < 3; c++)
+              {
+                double f = R[i2][c] - R1[c];
+                if (pbc[c])
+                  f = fmod(f + 1.5 * cell[c], cell[c]) - 0.5 * cell[c];
+                rr += f * f;
+              }
             double r = sqrt(rr);
             double d1 = r * q01;
             double d2 = r * q0[i2];
@@ -112,35 +112,35 @@ PyObject * vdw(PyObject* self, PyObject *args)
             if (bin < nbinsD)
               Dhistogram[bin] += e12; 
             energy += e12;
-	  }
+          }
       }
   else
     for (int i1 = iA; i1 < iB; i1++)
       {
-	const double* R1 = R[i1];
-	double q01 = q0[i1];
-	for (int a1 = -repeat[0]; a1 <= repeat[0]; a1++)
-	  for (int a2 = -repeat[1]; a2 <= repeat[1]; a2++)
-	    for (int a3 = -repeat[2]; a3 <= repeat[2]; a3++)
-	      {
-		double x = 0.5;
-		int i2max = ni-1;
-		if (a1 == 0 && a2 == 0 && a3 == 0)
-		  {
-		    i2max = i1;
-		    x = 1.0;
-		  }
-		double R1a[3] = {R1[0] + a1 * cell[0],
-				 R1[1] + a2 * cell[1],
-				 R1[2] + a3 * cell[2]};
-		for (int i2 = 0; i2 <= i2max; i2++)
-		  {
-		    double rr = 0.0;
-		    for (int c = 0; c < 3; c++)
-		      {
-			double f = R[i2][c] - R1a[c];
-			rr += f * f;
-		      }
+        const double* R1 = R[i1];
+        double q01 = q0[i1];
+        for (int a1 = -repeat[0]; a1 <= repeat[0]; a1++)
+          for (int a2 = -repeat[1]; a2 <= repeat[1]; a2++)
+            for (int a3 = -repeat[2]; a3 <= repeat[2]; a3++)
+              {
+                double x = 0.5;
+                int i2max = ni-1;
+                if (a1 == 0 && a2 == 0 && a3 == 0)
+                  {
+                    i2max = i1;
+                    x = 1.0;
+                  }
+                double R1a[3] = {R1[0] + a1 * cell[0],
+                                 R1[1] + a2 * cell[1],
+                                 R1[2] + a3 * cell[2]};
+                for (int i2 = 0; i2 <= i2max; i2++)
+                  {
+                    double rr = 0.0;
+                    for (int c = 0; c < 3; c++)
+                      {
+                        double f = R[i2][c] - R1a[c];
+                        rr += f * f;
+                      }
                     double r = sqrt(rr);
                     double d1 = r * q01;
                     double d2 = r * q0[i2];
@@ -155,8 +155,8 @@ PyObject * vdw(PyObject* self, PyObject *args)
                     if (bin < nbinsD)
                       Dhistogram[bin] += e12; 
                     energy += e12;
-		  }
-	      }
+                  }
+              }
       }
   return PyFloat_FromDouble(energy);
 }
@@ -169,7 +169,7 @@ PyObject * vdw2(PyObject* self, PyObject *args)
   PyArrayObject* theta_k_obj;
   PyArrayObject* F_k_obj;
   if (!PyArg_ParseTuple(args, "OOOOO", &phi_jp_obj, &j_k_obj, &dk_k_obj,
-			&theta_k_obj, &F_k_obj))
+                        &theta_k_obj, &F_k_obj))
     return NULL;
 
   const double* phi_jp = (const double*)PyArray_DATA(phi_jp_obj);

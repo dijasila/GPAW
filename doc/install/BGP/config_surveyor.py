@@ -1,6 +1,7 @@
 # Copyright (C) 2006 CSC-Scientific Computing Ltd.
 
 # Please see the accompanying LICENSE file for further information.
+from __future__ import print_function
 
 import os
 import sys
@@ -307,7 +308,7 @@ def check_dependencies(sources):
         t = mtime(path + '/', name, mtimes)
         o = 'build/temp.%s/%s.o' % (plat, source[:-2])  # object file
         if os.path.exists(o) and t > os.stat(o)[ST_MTIME]:
-            print 'removing', o
+            print('removing', o)
             os.remove(o)
             remove = True
 
@@ -331,26 +332,26 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
     try:
         out = open('configuration.log', 'w')
     except IOError, x:
-        print x
+        print(x)
         return
-    print >> out, "Current configuration"
-    print >> out, "libraries", libraries
-    print >> out, "library_dirs", library_dirs
-    print >> out, "include_dirs", include_dirs
-    print >> out, "define_macros", define_macros
-    print >> out, "extra_link_args", extra_link_args
-    print >> out, "extra_compile_args", extra_compile_args
-    print >> out, "runtime_library_dirs", runtime_library_dirs
-    print >> out, "extra_objects", extra_objects
+    print("Current configuration", file=out)
+    print("libraries", libraries, file=out)
+    print("library_dirs", library_dirs, file=out)
+    print("include_dirs", include_dirs, file=out)
+    print("define_macros", define_macros, file=out)
+    print("extra_link_args", extra_link_args, file=out)
+    print("extra_compile_args", extra_compile_args, file=out)
+    print("runtime_library_dirs", runtime_library_dirs, file=out)
+    print("extra_objects", extra_objects, file=out)
     if mpicompiler is not None:
-        print >> out
-        print >> out, "Parallel configuration"
-        print >> out,  "mpicompiler", mpicompiler
-        print >> out,  "mpi_libraries", mpi_libraries
-        print >> out, "mpi_library_dirs", mpi_library_dirs
-        print >> out, "mpi_include_dirs", mpi_include_dirs
-        print >> out, "mpi_define_macros", mpi_define_macros
-        print >> out, "mpi_runtime_library_dirs", mpi_runtime_library_dirs
+        print(file=out)
+        print("Parallel configuration", file=out)
+        print("mpicompiler", mpicompiler, file=out)
+        print("mpi_libraries", mpi_libraries, file=out)
+        print("mpi_library_dirs", mpi_library_dirs, file=out)
+        print("mpi_include_dirs", mpi_include_dirs, file=out)
+        print("mpi_define_macros", mpi_define_macros, file=out)
+        print("mpi_runtime_library_dirs", mpi_runtime_library_dirs, file=out)
     out.close()
 
 
@@ -481,7 +482,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                includes,
                obj,
                src)
-        print cmd
+        print(cmd)
         if '--dry-run' not in sys.argv:
             error=os.system(cmd)
             if error != 0:
@@ -500,7 +501,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
            ' '.join(extra_link_args))
 
     msg = ['* Building a custom interpreter']
-    print cmd
+    print(cmd)
     if '--dry-run' not in sys.argv:
         error=os.system(cmd)
         if error != 0:

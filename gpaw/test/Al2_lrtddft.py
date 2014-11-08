@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw import GPAW, FermiDirac
 from gpaw.mpi import world, size, rank
 from gpaw.lrtddft2 import LrTDDFTindexed, lr_communicators
@@ -76,9 +77,9 @@ e0_3 = np.sqrt(lr.evalues[0])
 e1_3 = np.sqrt(lr.evalues[-1])
 
 if debug and rank == 0:
-    print e0_1, e1_1
-    print e0_2, e1_2
-    print e0_3, e1_3
+    print(e0_1, e1_1)
+    print(e0_2, e1_2)
+    print(e0_3, e1_3)
 
 tol = 1.0e-8
 equal(e0_1, 0.00105074187176, tol)

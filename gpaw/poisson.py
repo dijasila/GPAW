@@ -2,13 +2,11 @@
 # Please see the accompanying LICENSE file for further information.
 
 from math import pi
-import sys
 
 import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2
 
 from ase.parallel import parprint
-
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw import PoissonConvergenceError
@@ -16,17 +14,18 @@ from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.ewald import madelung
 from gpaw.utilities.tools import construct_reciprocal
-import gpaw.mpi as mpi
 import _gpaw
 
 
 class PoissonSolver:
-    def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000):
+    def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
+                 remove_moment=None):
         self.relax = relax
         self.nn = nn
         self.eps = eps
         self.charged_periodic_correction = None
         self.maxiter = maxiter
+        self.remove_moment = remove_moment
 
         # Relaxation method
         if relax == 'GS':
@@ -73,7 +72,7 @@ class PoissonSolver:
         # only used if 'J' (Jacobi) is chosen as method
         self.weights = [2.0 / 3.0]
 
-        while level < 4:
+        while level < 8:
             try:
                 gd2 = gd.coarsen()
             except ValueError:
@@ -89,12 +88,21 @@ class PoissonSolver:
 
         self.levels = level
 
-        if self.relax_method == 1:
-            self.description = 'Gauss-Seidel'
-        else:
-            self.description = 'Jacobi'
-        self.description += ' solver with %d multi-grid levels' % (level + 1)
-        self.description += '\nStencil: ' + self.operators[0].description
+    def get_description(self):
+        name = {1: 'Gauss-Seidel', 2: 'Jacobi'}[self.relax_method]
+        coarsest_grid = self.operators[-1].gd.N_c
+        coarsest_grid_string = ' x '.join([str(N) for N in coarsest_grid])
+        assert self.levels + 1 == len(self.operators)
+        lines = ['%s solver with %d multi-grid levels'
+                 % (name, self.levels + 1),
+                 '    Coarsest grid: %s points' % coarsest_grid_string]
+        if coarsest_grid.max() > 24:
+            lines.extend(['    Warning: Coarse grid has more than 24 points.',
+                          '             More multi-grid levels recommended.'])
+        lines.extend(['    Stencil: %s' % self.operators[0].description,
+                      '    Tolerance: %e' % self.eps,
+                      '    Max iterations: %d' % self.maxiter])
+        return '\n'.join(lines)
 
     def initialize(self, load_gauss=False):
         # Should probably be renamed allocate
@@ -130,11 +138,28 @@ class PoissonSolver:
 
         if eps is None:
             eps = self.eps
-
         actual_charge = self.gd.integrate(rho)
         background = (actual_charge / self.gd.dv /
                       self.gd.get_size_of_global_array().prod())
 
+        if self.remove_moment:
+            assert not self.gd.pbc_c.any()
+            if not hasattr(self, 'gauss'):
+                self.gauss = Gaussian(self.gd)
+            rho_neutral = rho.copy()
+            phi_cor_L = []
+            for L in range(self.remove_moment):
+                phi_cor_L.append(self.gauss.remove_moment(rho_neutral, L))
+            # Remove multipoles for better initial guess
+            for phi_cor in phi_cor_L:
+                phi -= phi_cor
+
+            niter = self.solve_neutral(phi, rho_neutral, eps=eps)
+            # correct error introduced by removing multipoles
+            for phi_cor in phi_cor_L:
+                phi += phi_cor
+
+            return niter
         if charge is None:
             charge = actual_charge
         if abs(charge) <= maxcharge:
@@ -145,14 +170,15 @@ class PoissonSolver:
             # System is charged and periodic. Subtract a homogeneous
             # background charge
             if self.charged_periodic_correction is None:
-                parprint("""+-----------------------------------------------------+
+                parprint("""\
++-----------------------------------------------------+
 | Calculating charged periodic correction using the   |
 | Ewald potential from a lattice of probe charges in  |
 | a homogenous background density                     |
 +-----------------------------------------------------+""")
                 self.charged_periodic_correction = madelung(self.gd.cell_cv)
-                parprint("Potential shift will be ",
-                         self.charged_periodic_correction , "Ha.")
+                parprint('Potential shift will be ',
+                         self.charged_periodic_correction, 'Ha.')
 
             # Set initial guess for potential
             if zero_initial_phi:
@@ -174,25 +200,25 @@ class PoissonSolver:
             self.load_gauss()
 
             # Remove monopole moment
-            q = actual_charge / np.sqrt(4 * pi) # Monopole moment
-            rho_neutral = rho - q * self.rho_gauss # neutralized density
+            q = actual_charge / np.sqrt(4 * pi)  # Monopole moment
+            rho_neutral = rho - q * self.rho_gauss  # neutralized density
 
             # Set initial guess for potential
             if zero_initial_phi:
                 phi[:] = 0.0
             else:
-                axpy(-q, self.phi_gauss, phi) #phi -= q * self.phi_gauss
+                axpy(-q, self.phi_gauss, phi)  # phi -= q * self.phi_gauss
 
             # Determine potential from neutral density using standard solver
             niter = self.solve_neutral(phi, rho_neutral, eps=eps)
 
             # correct error introduced by removing monopole
-            axpy(q, self.phi_gauss, phi) #phi += q * self.phi_gauss
+            axpy(q, self.phi_gauss, phi)  # phi += q * self.phi_gauss
 
             return niter
         else:
             # System is charged with mixed boundaryconditions
-            msg = 'Charged systems with mixed periodic/zero' 
+            msg = 'Charged systems with mixed periodic/zero'
             msg += ' boundary conditions'
             raise NotImplementedError(msg)
 
@@ -209,8 +235,8 @@ class PoissonSolver:
         while self.iterate2(self.step) > eps and niter < maxiter:
             niter += 1
         if niter == maxiter:
-            charge = np.sum(rho.ravel()) * self.dv
-            print 'CHARGE, eps:', charge, eps
+            #charge = np.sum(rho.ravel()) * self.dv
+            #print 'CHARGE, eps:', charge, eps
             msg = 'Poisson solver did not converge in %d iterations!' % maxiter
             raise PoissonConvergenceError(msg)
 
@@ -278,7 +304,7 @@ class PoissonSolver:
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
             error = self.gd.comm.sum(np.dot(residual.ravel(),
-                                             residual.ravel())) * self.dv
+                                            residual.ravel())) * self.dv
             return error
 
     def estimate_memory(self, mem):
@@ -287,9 +313,9 @@ class PoissonSolver:
         # of whether it's J or GS, which is a bit strange
 
         gdbytes = self.gd.bytecount()
-        nbytes = -gdbytes # No phi on finest grid, compensate ahead
+        nbytes = -gdbytes  # No phi on finest grid, compensate ahead
         for level in range(self.levels):
-            nbytes += 3 * gdbytes # Arrays: rho, phi, residual
+            nbytes += 3 * gdbytes  # Arrays: rho, phi, residual
             gdbytes //= 8
         mem.subnode('rho, phi, residual [%d levels]' % self.levels, nbytes)
 
@@ -300,15 +326,21 @@ class PoissonSolver:
 
 
 class NoInteractionPoissonSolver:
-    description = 'No interaction'
     relax_method = 0
     nn = 1
+
+    def get_description(self):
+        return 'No interaction'
+    
     def get_stencil(self):
         return 1
+
     def solve(self, phi, rho, charge):
         return 0
+
     def set_grid_descriptor(self, gd):
         pass
+
     def initialize(self):
         pass
 
@@ -318,11 +350,14 @@ class FFTPoissonSolver(PoissonSolver):
 
     relax_method = 0
     nn = 999
-    description = 'FFT solver of the second kind'
 
     def __init__(self, eps=2e-10):
         self.charged_periodic_correction = None
+        self.remove_moment = None
         self.eps = eps
+
+    def get_description(self):
+        return 'FFT'
 
     def set_grid_descriptor(self, gd):
         assert gd.pbc_c.all()
@@ -350,6 +385,8 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
     and with central differential method in the third direction."""
 
     def __init__(self, nn=1):
+        # XXX How can this work when it does not call __init___
+        # on PoissonSolver? -askhl
         self.nn = nn
         self.charged_periodic_correction = None
         assert self.nn == 1
@@ -362,7 +399,7 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
     def initialize(self, b_phi1, b_phi2):
         distribution = np.zeros([self.gd.comm.size], int)
         if self.gd.comm.rank == 0:
-            d3 = b_phi1.shape[2]
+            #d3 = b_phi1.shape[2]
             gd = self.gd
             N_c1 = gd.N_c[:2, np.newaxis]
             i_cq = np.indices(gd.N_c[:2]).reshape((2, -1))
@@ -375,8 +412,8 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
             k_vq2 = np.sum(k_vq, axis=0)
             k_vq2 = k_vq2.reshape(-1)
 
-            b_phi1 = fft2(b_phi1, None, (0,1))
-            b_phi2 = fft2(b_phi2, None, (0,1))
+            b_phi1 = fft2(b_phi1, None, (0, 1))
+            b_phi2 = fft2(b_phi2, None, (0, 1))
 
             b_phi1 = b_phi1[:, :, -1].reshape(-1)
             b_phi2 = b_phi2[:, :, 0].reshape(-1)
@@ -408,7 +445,6 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
             self.gd.comm.receive(self.loc_b_phi2, 0, 246)
             self.gd.comm.receive(self.k_vq2, 0, 169)
 
-
         k_distribution = np.arange(np.sum(distribution))
         self.k_distribution = np.array_split(k_distribution,
                                              self.gd.comm.size)
@@ -429,13 +465,14 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
             self.charged_periodic_correction = madelung(self.gd.cell_cv)
 
         background = (actual_charge / self.gd.dv /
-                                    self.gd.get_size_of_global_array().prod())
+                      self.gd.get_size_of_global_array().prod())
 
         self.solve_neutral(phi_g, rho_g - background)
         phi_g += actual_charge * self.charged_periodic_correction
 
     def scatter_r_distribution(self, global_rho_g, dtype=float):
-        d1, d2, d3 = self.d1, self.d2, self.d3
+        d1 = self.d1
+        d2 = self.d2
         comm = self.gd.comm
         index = self.r_distribution[comm.rank]
         if comm.rank == 0:
@@ -520,9 +557,10 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
         phi_g1 = np.zeros(rho_g3.shape, dtype=complex)
         index = self.k_distribution[self.gd.comm.rank]
         for phi, rho, rv2, bp1, bp2, i in zip(phi_g1, rho_g3,
-                                           self.k_vq2,
-                                           self.loc_b_phi1,
-                                           self.loc_b_phi2, range(len(index))):
+                                              self.k_vq2,
+                                              self.loc_b_phi1,
+                                              self.loc_b_phi2,
+                                              range(len(index))):
             A = np.zeros(self.d3, dtype=complex) + 2 + h2 * rv2
             phi = rho * np.pi * 4 * h2
             phi[0] += bp1
@@ -544,4 +582,3 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
             self.gd.distribute(global_phi_g, phi_g)
         else:
             phi_g[:] = phi_g3
-
