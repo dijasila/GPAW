@@ -145,7 +145,6 @@ Windows
 
 On Windows install ASE dependencies as described at
 https://wiki.fysik.dtu.dk/ase/download.html#windows.
-The GPAW installer includes ASE.
 
 Download the gpaw.win32-py2.7.msi_ installer and install with::
 
@@ -157,6 +156,9 @@ Download the gpaw.win32-py2.7.msi_ installer and install with::
 .. note::
 
     Unpack gpaw-setups under C:\gpaw-setups (see :ref:`setups`).
+
+As the last step (this is important) install the ASE
+(see https://wiki.fysik.dtu.dk/ase/download.html#windows).
 
 .. _installationguide_developer:
 
