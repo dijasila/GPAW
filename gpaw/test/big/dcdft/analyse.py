@@ -31,7 +31,7 @@ else:
         tag = sys.argv[1]
         reffile = os.path.join(dir, 'WIEN2k.txt')
 
-src = 'https://molmod.ugent.be/sites/default/files/Delta_v3-0.zip'
+src = 'https://molmod.ugent.be/sites/default/files/Delta_v3-0_0.zip'
 name = os.path.basename(src)
 if not os.path.exists(dir): os.makedirs(dir)
 os.chdir(dir)
