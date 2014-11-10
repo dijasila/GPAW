@@ -163,12 +163,12 @@ if error:
     cmd = ['qsub']
     qsub_options = []
     if opts.queue:
-        cmd += ['-q ', opt.queue]
+        cmd += ['-q', opts.queue]
     if opts.resource_list:
         cmd += ['-l', ','.join(opts.resource_list)]
     if opts.mail_options:
-        cmd += ['-m ', opts.mail_options]
-
+        cmd += ['-m', opts.mail_options]
+    
     subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(qsub)
 
 if __name__ == '__main__':
