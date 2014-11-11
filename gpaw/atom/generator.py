@@ -21,10 +21,10 @@ class Generator(AllElectron):
     def __init__(self, symbol, xcname='LDA', scalarrel=False, corehole=None,
                  configuration=None,
                  nofiles=True, txt='-', gpernode=150,
-                 tf_mode=False, tf_coeff=1.):
+                 orbital_free=False, tf_coeff=1.):
         AllElectron.__init__(self, symbol, xcname, scalarrel, corehole,
                              configuration, nofiles, txt, gpernode,
-                             tf_mode, tf_coeff)
+                             orbital_free, tf_coeff)
 
     def run(self, core='', rcut=1.0, extra=None,
             logderiv=False, vbar=None, exx=False, name=None,
@@ -116,19 +116,19 @@ class Generator(AllElectron):
         lmaxocc = max(l_j[njcore:])
         lmax = max(l_j[njcore:])
 
-        #Parameters for tf_mode
-        if self.tf_mode:
+        #Parameters for orbital_free
+        if self.orbital_free:
             self.n_j = [1]
             self.l_j = [0]
-            self.f_j = [1]
+            self.f_j = [self.Z]
             self.e_j = [self.e_j[0]]
             n_j = self.n_j
             l_j = self.l_j
             f_j = self.f_j
             e_j = self.e_j
             nj = len(n_j)
-            lmax = max(l_j)
-            lmaxocc = max(l_j)
+            lmax = 0
+            lmaxocc = 0
 
         # Do all-electron calculation:
         AllElectron.run(self, use_restart_file)
@@ -296,8 +296,6 @@ class Generator(AllElectron):
                     u *= 1.0 / u[gcut_l[l]]
 
         charge = Z - self.Nv - self.Nc
-        if self.tf_mode:
-            charge = 0
         t('Charge: %.1f' % charge)
         t('Core electrons: %.1f' % self.Nc)
         t('Valence electrons: %.1f' % self.Nv)
@@ -758,7 +756,7 @@ class Generator(AllElectron):
             setup.core_hole_e_kin = self.Ekincorehole
             setup.fcorehole = self.fcorehole
 
-        if self.ghost and not self.tf_mode: #In tf_mode we are not interested in ghosts
+        if self.ghost and not self.orbital_free: #In orbital_free we are not interested in ghosts
             raise RuntimeError('Ghost!')
 
         if self.scalarrel:

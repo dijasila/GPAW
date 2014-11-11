@@ -13,13 +13,13 @@ c = a / 2
 d = 1.8
 
 elements = ['C']
-results = [1.59042607826]
+results = [1.65644669642]
 electrons = [6]
 
 
 for symbol in elements:
     xcname = '1.0_LDA_K_TF+1.0_LDA_X'
-    g = gen(symbol, xcname=xcname, scalarrel=False, tf_mode=True)
+    g = gen(symbol, xcname=xcname, scalarrel=False, orbital_free=True)
 
 for element, result, e in zip(elements, results, electrons):
     atom = Atoms(element,
@@ -40,5 +40,5 @@ for element, result, e in zip(elements, results, electrons):
     dv = atom.get_volume() / calc.get_number_of_grid_points().prod()
     I = n.sum() * dv / 2**3
 
-    equal(result, E, 1.0e-4)
     equal(I, e, 1.0e-6)
+    equal(result, E, 1.0e-4)

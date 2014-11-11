@@ -1234,6 +1234,17 @@ parameters_extra = {
  'Bi': {'name': 'v08',  'core': '[Xe]4f', 'rcut': [2.2, 2.4, 2.2]},  # ver. 0.8
  }
 
+tf_parameters = {
+    'B': {'rcut': 1.2},
+    'Be': {'rcut': 1.2},
+    'C': {'rcut': 1.2},
+    'F': {'rcut': 1.2},
+    'He': {'rcut': 1.2},
+    'Li': {'rcut': 1.2},
+    'N': {'rcut': 1.2},
+    'Ne': {'rcut': 1.2},
+    'O': {'rcut': 1.2}}
+
 
 class AtomicData:
     def __init__(self, name, Z, mass, radius, configuration):

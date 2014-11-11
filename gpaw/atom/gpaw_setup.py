@@ -1,11 +1,12 @@
 from optparse import OptionParser
 
+
 def build_parser():
     parser = OptionParser(usage='%prog [options] [elements]',
                           version='%prog 0.1')
     parser.add_option('-f', '--xcfunctional', type='string', default='LDA',
-                      help='Exchange-Correlation functional (default value LDA)',
-                      metavar='<XC>')
+                      help='Exchange-Correlation functional ' +
+                      '(default value LDA)', metavar='<XC>')
     parser.add_option('-n', '--non-scalar-relativistic', action='store_true',
                       default=False,
                       help='Do *not* do a scalar-relativistic calculation.')
@@ -16,10 +17,9 @@ def build_parser():
                       help='Cutoff radius or radii (comma separated).',
                       metavar='<rcut>')
     parser.add_option('-v', '--zero-potential', metavar='type,radius',
-                      help='Type of zero-potential - type must be either "poly" '
-                      'or "f".')
-    parser.add_option('--filter', #default='0.4,1.75',
-                      metavar='h,x',
+                      help='Type of zero-potential - type must be either ' +
+                      '"poly" or "f".')
+    parser.add_option('--filter', metavar='h,x',
                       help='Parameters used for Fourier-filtering and '
                       'projector functions and zero-potential. "h" is '
                       'the cutoff grid-spacing (in Bohr) and "x" is the ratio '
@@ -29,9 +29,10 @@ def build_parser():
     parser.add_option('-a', '--all-electron-only', action='store_true',
                       help='Skip generation of PAW setup.')
     parser.add_option('-e', '--extra-projectors', type='string', default=None,
-                      help='Extra projectors. Use ";" to separate s, p and d channels. '
-                      'Examples: "0.0,1.0" for two extra s-type. "0.0;1.0" for extra '
-                      's and p. ";1.0" for extra p.', metavar='0.0;0.0,1.0;0.0')
+                      help='Extra projectors. Use ";" to separate s, p and ' +
+                      'd channels.  Examples: "0.0,1.0" for two extra ' +
+                      's-type. "0.0;1.0" for extra s and p. ";1.0" for ' +
+                      'extra p.', metavar='0.0;0.0,1.0;0.0')
     parser.add_option('-c', '--core', type='string', default=None,
                       help='Frozen core.  Examples: "[Ne]", "[Ar]3d".',
                       metavar='<core>')
@@ -41,8 +42,10 @@ def build_parser():
                       help='Add core hole. Examples: "1s,0.5", "2p,1".')
     parser.add_option('--configuration', metavar='config',
                       help='Specify non-groundstate configuration. '
-                      'Na+ ion: "Ne,3s0", O2- ion: "1s2,2s2,2p6" or "He,2s2,2p6".')
-    parser.add_option('--compensation-charge-radius', metavar='rcut', type='float',
+                      'Na+ ion: "Ne,3s0", O2- ion: "1s2,2s2,2p6" or ' +
+                      '"He,2s2,2p6".')
+    parser.add_option('--compensation-charge-radius', metavar='rcut',
+                      type=float,
                       help='Cutoff radius for compensation charges.')
     parser.add_option('--name', type='string', metavar='<id>',
                       help='Name to use for setup file: <symbol>.<id>.<xc>.  '
@@ -55,17 +58,20 @@ def build_parser():
                       help='Write wave functions and other things to files.')
     parser.add_option('-p', '--plot', action='store_true',
                       help='Show plot and generate reStructuredText.')
-    parser.add_option('-g', '--points-per-node', metavar='<gpernode>', type='int',
-                      default=150, help='Number of radial grid points per node.')
+    parser.add_option('-g', '--points-per-node', metavar='<gpernode>',
+                      type=int, default=150,
+                      help='Number of radial grid points per node.')
     parser.add_option('--empty-states', type='string', default=None,
                       help='Add empty state(s).  Example: 5p.',
                       metavar='<states>')
     parser.add_option('--tf-coefficient', type='float', default=1,
-                      help='Sets value of coefficient in Thomas-Fermi calculations. Default is 1',
+                      help='Sets value of coefficient in Thomas-Fermi ' +
+                      'calculations. Default is 1',
                       metavar='<tf-coefficient>')
-    parser.add_option('-t', '--tf-mode', action='store_true', default=False,
-                      help='Generates Thomas-Fermi setup')
+    parser.add_option('--orbital-free', action='store_true',
+                      help='Generates orbital-free Thomas-Fermi setup')
     return parser
+
 
 def main():
     parser = build_parser()
@@ -74,8 +80,7 @@ def main():
     import sys
     
     from gpaw.atom.generator import Generator
-    from gpaw.atom.configurations import parameters
-    from gpaw.atom.tf_configurations import tf_parameters
+    from gpaw.atom.configurations import parameters, tf_parameters
     from gpaw.atom.all_electron import AllElectron
     from gpaw import ConvergenceError
 
@@ -83,7 +88,6 @@ def main():
         atoms = args
     else:
         atoms = parameters.keys()
-
 
     bad_density_warning = """\
     Problem with initial electron density guess!  Try to run the program
@@ -107,7 +111,7 @@ def main():
             a = AllElectron(symbol, opt.xcfunctional, scalarrel, corehole,
                             opt.configuration, not opt.write_files, '-',
                             opt.points_per_node,
-                            opt.tf_mode, opt.tf_coefficient)
+                            opt.orbital_free, opt.tf_coefficient)
             try:
                 a.run()
             except ConvergenceError:
@@ -115,14 +119,13 @@ def main():
             continue
         g = Generator(symbol, opt.xcfunctional, scalarrel, corehole,
                       opt.configuration, not opt.write_files, '-',
-                      opt.points_per_node, tf_mode=opt.tf_mode,
+                      opt.points_per_node, orbital_free=opt.orbital_free,
                       tf_coeff=opt.tf_coefficient)
 
-        if opt.tf_mode:
-          p = tf_parameters.get(symbol, {})
+        if opt.orbital_free:
+            p = tf_parameters.get(symbol, {'rcut': 0.9})
         else:
-          p = parameters.get(symbol, {})
-
+            p = parameters.get(symbol, {})
 
         if opt.core is not None:
             p['core'] = opt.core

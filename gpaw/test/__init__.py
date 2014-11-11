@@ -8,8 +8,7 @@ import traceback
 import numpy as np
 
 from gpaw.atom.generator import Generator
-from gpaw.atom.configurations import parameters
-from gpaw.atom.tf_configurations import tf_parameters
+from gpaw.atom.configurations import parameters, tf_parameters
 from gpaw.utilities import devnull, compiled_with_sl
 from gpaw import setup_paths
 from gpaw import mpi
@@ -42,11 +41,11 @@ def gen(symbol, exx=False, name=None, **kwargs):
         if 'scalarrel' not in kwargs:
             kwargs['scalarrel'] = True
         g = Generator(symbol, **kwargs)
-        if 'tf_mode' in kwargs:
+        if 'orbital_free' in kwargs:
             g.run(exx=exx, name=name, use_restart_file=False,
-                  **tf_parameters[symbol])
+                  **tf_parameters.get(symbol, {'rcut': 0.9}))
         else:
-            g.run(exx=exx, name=name, use_restart_file=False, 
+            g.run(exx=exx, name=name, use_restart_file=False,
                   **parameters[symbol])
     mpi.world.barrier()
     if setup_paths[0] != '.':

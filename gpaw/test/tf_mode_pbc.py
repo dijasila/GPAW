@@ -6,11 +6,11 @@ from gpaw.test import gen
 
 #Test tf_mode for C
 symbol = 'C'
-result = -224.243419
+result = -224.119823656
 electrons = 48
 
 xcname = 'LDA_K_TF+LDA_X'
-g = gen(symbol, xcname=xcname, scalarrel=False, tf_mode=True)
+g = gen(symbol, xcname=xcname, scalarrel=False, orbital_free=True)
 h = 0.18
 a = 2.8
 atoms = bulk(symbol, 'diamond', a=a, cubic=True)   # Generate diamond
@@ -33,5 +33,5 @@ n = calc.get_all_electron_density()
 dv = atoms.get_volume() / calc.get_number_of_grid_points().prod()
 I = n.sum() * dv / 2**3
 
-equal(result, e, 1.0e-4)
 equal(I, electrons, 1.0e-6)
+equal(result, e, 1.0e-4)
