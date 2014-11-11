@@ -401,7 +401,7 @@ class PAWSetupGenerator:
                        (self.alpha / pi)**1.5)
 
     def log(self, *args, **kwargs):
-        prnt(file=self.fd, *args, **kwargs)
+        print(file=self.fd, *args, **kwargs)
 
     def calculate_core_density(self):
         self.nc_g = self.rgd.zeros()
