@@ -1,4 +1,3 @@
-from ase import Atoms
 from ase.io import write
 from gpaw import GPAW, Mixer
 from ase.structure import molecule

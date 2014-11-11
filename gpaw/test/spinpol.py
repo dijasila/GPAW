@@ -15,7 +15,7 @@ hydrogen.set_initial_magnetic_moments([1.0])
 e2 = hydrogen.get_potential_energy()
 niter2 = calc.get_number_of_iterations()
 de = e1 - e2
-print de
+print(de)
 equal(de, 0.7871, 1.e-4)
 
 energy_tolerance = 0.00006

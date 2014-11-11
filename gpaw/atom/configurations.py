@@ -4,6 +4,7 @@
 # Computer generated code:
 # format:
 #    'element': (atomic number, [(n, l, occ, energy), ...])
+from __future__ import print_function
 
 configurations = {
  'Ac': (89,
@@ -1315,8 +1316,8 @@ if __name__ == '__main__':
             eps = epsilons[state]
             nloe.append((n, l, occ, eps))
         dftdata[symbol] = (Z, nloe)
-    print '# Computer generated code:'
-    print
-    print 'configurations = ',
+    print('# Computer generated code:')
+    print()
+    print('configurations = ', end=' ')
     pprint.pprint(dftdata)
-    print
+    print()

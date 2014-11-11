@@ -27,7 +27,7 @@ assert not np.version.version.startswith('1.6.0')
 
 __all__ = ['GPAW', 'Calculator',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
-           'CG', 'Davidson', 'RMM_DIIS', 'LCAO',
+           'CG', 'Davidson', 'RMM_DIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
            'restart']
@@ -58,7 +58,7 @@ sl_inverse_cholesky = None
 sl_lcao = None
 sl_lrtddft = None
 buffer_size = None
-extra_parameters = {}
+extra_parameters = {'fprojectors': True}
 profile = False
 i = 1
 while len(sys.argv) > i:
@@ -237,9 +237,10 @@ except KeyError:
 
 from gpaw.aseinterface import GPAW
 from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
-from gpaw.eigensolvers import Davidson, RMM_DIIS, CG, LCAO
+from gpaw.eigensolvers import Davidson, RMM_DIIS, CG, DirectLCAO
 from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac, MethfesselPaxton
+from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.pw import PW
 
 
@@ -269,8 +270,8 @@ if trace:
             return
 
         if event == 'call':
-            print('%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
-                                   frame.f_code.co_name))
+            print(('%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
+                                   frame.f_code.co_name)))
             indent += '| '
         elif event == 'return':
             indent = indent[:-2]

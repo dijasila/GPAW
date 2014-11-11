@@ -47,6 +47,7 @@ class InputParameters(dict):
             ('parallel', {'kpt': None,
                           'domain': gpaw.parsize_domain,
                           'band': gpaw.parsize_bands,
+                          'order': 'kdb',
                           'stridebands': False,
                           'sl_auto': False,
                           'sl_default': gpaw.sl_default,
@@ -68,11 +69,14 @@ class InputParameters(dict):
             ('convergence', {'energy': 0.0005,  # eV / electron
                              'density': 1.0e-4,
                              'eigenstates': 4.0e-8,  # eV^2
-                             'bands': 'occupied'}),
+                             'bands': 'occupied',
+                             'forces': None}),  # eV / Ang Max
             ('realspace', None),
-            ('symmetry', {}),
-            ('tf_mode', False)])
-
+            ('tf_mode', False),
+            ('symmetry', {'point_group': True,
+                          'time_reversal': True,
+                          'symmorphic': True,
+                          'tolerance': 1e-7})])
         dict.update(self, kwargs)
 
     def __repr__(self):
@@ -88,19 +92,8 @@ class InputParameters(dict):
         self[key] = value
 
     def update(self, parameters):
-        assert isinstance(parameters, dict)
-
         for key, value in parameters.items():
             assert key in self
-
-            haschanged = (self[key] != value)
-
-            if isinstance(haschanged, np.ndarray):
-                haschanged = haschanged.any()
-
-            #if haschanged:
-            #    self.notify(key)
-
         dict.update(self, parameters)
 
     def read(self, reader):
@@ -129,7 +122,10 @@ class InputParameters(dict):
         if version < 4:
             self.symmetry = usesymm2symmetry(r['UseSymmetry'])
         else:
-            self.symmetry = r['Symmetry']
+            self.symmetry = {'point_group': r['SymmetryOnSwitch'],
+                             'symmorphic': r['SymmetrySymmorphicSwitch'],
+                             'time_reversal': r['SymmetryTimeReversalSwitch'],
+                             'tolerance': r['SymmetryToleranceCriterion']}
 
         try:
             self.basis = r['BasisSet']
@@ -165,20 +161,27 @@ class InputParameters(dict):
         self.fixdensity = r['FixDensity']
         if version <= 0.4:
             # Old version: XXX
-            print('# Warning: Reading old version 0.3/0.4 restart files ' +
-                  'will be disabled some day in the future!')
+            print(('# Warning: Reading old version 0.3/0.4 restart files ' +
+                  'will be disabled some day in the future!'))
             self.convergence['eigenstates'] = r['Tolerance']
         else:
             nbtc = r['NumberOfBandsToConverge']
             if not isinstance(nbtc, (int, str)):
                 # The string 'all' was eval'ed to the all() function!
                 nbtc = 'all'
+            if version < 5:
+                force_crit = None
+            else:
+                force_crit = r['ForcesConvergenceCriterion']
+                if force_crit is not None:
+                    force_crit *= (Hartree / Bohr)
             self.convergence = {'density': r['DensityConvergenceCriterion'],
                                 'energy':
                                 r['EnergyConvergenceCriterion'] * Hartree,
                                 'eigenstates':
                                 r['EigenstatesConvergenceCriterion'],
-                                'bands': nbtc}
+                                'bands': nbtc,
+                                'forces': force_crit}
 
             if version < 1:
                 # Volume per grid-point:
@@ -219,8 +222,8 @@ class InputParameters(dict):
             
         if version == 0.3:
             # Old version: XXX
-            print('# Warning: Reading old version 0.3 restart files is ' +
-                  'dangerous and will be disabled some day in the future!')
+            print(('# Warning: Reading old version 0.3 restart files is ' +
+                  'dangerous and will be disabled some day in the future!'))
             self.stencils = (2, 3)
             self.charge = 0.0
             fixmom = False

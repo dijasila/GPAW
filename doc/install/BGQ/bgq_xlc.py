@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """bgp_xlc.py is a wrapper for the BGP xlc compiler,
    converting/removing incompatible gcc args.   """
-
+from __future__ import print_function
 import sys
 from subprocess import call
 from glob import glob
@@ -56,5 +56,5 @@ flags_list = {1: "-g -O3 -qlanglvl=extc99 -qflag=w:w",
 flags = flags_list[opt]  
 cmd = "mpixlc_r %s %s"%(flags, cmd)
 
-print "\nexecmd: %s\n"%cmd
+print("\nexecmd: %s\n"%cmd)
 call(cmd, shell=True)

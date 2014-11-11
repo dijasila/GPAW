@@ -243,12 +243,12 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
     S_qMM = wfs.S_qMM
    
     for kpt in wfs.kpt_u:
-        calc_data['skpt_qc'][kpt.q] = calc.wfs.ibzk_kc[kpt.k]
-        calc_data['weight_q'][kpt.q] = calc.wfs.weight_k[kpt.k]
+        calc_data['skpt_qc'][kpt.q] = calc.wfs.kd.ibzk_kc[kpt.k]
+        calc_data['weight_q'][kpt.q] = calc.wfs.kd.weight_k[kpt.k]
         calc_data['k_q'][kpt.q] = kpt.k
 ##         print ('Calc. H matrix on proc. %i: '
 ##                '(rk, rd, q, k) = (%i, %i, %i, %i)') % (
-##             wfs.world.rank, wfs.kpt_comm.rank,
+##             wfs.world.rank, wfs.kd.comm.rank,
 ##             wfs.gd.domain.comm.rank, kpt.q, kpt.k)
         H_MM = wfs.eigensolver.calculate_hamiltonian_matrix(calc.hamiltonian,
                                                             wfs, 
@@ -273,7 +273,7 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
             H_qMM[kpt.s, kpt.q] -= S_qMM[kpt.q] * Ef
     
     if wfs.gd.comm.rank == 0:
-        fd = file(filename+'%i.pckl' % wfs.kpt_comm.rank, 'wb')
+        fd = file(filename+'%i.pckl' % wfs.kd.comm.rank, 'wb')
         H_qMM *= Hartree
         pickle.dump((H_qMM, S_qMM),fd , 2)
         pickle.dump(calc_data, fd, 2) 
@@ -286,7 +286,7 @@ def get_lcao_hamiltonian(calc):
         calc.wfs.set_positions(calc.get_atoms().get_scaled_positions() % 1)
     dtype = calc.wfs.dtype
     NM = calc.wfs.eigensolver.nao
-    Nk = calc.wfs.nibzkpts
+    Nk = calc.wfs.kd.nibzkpts
     Ns = calc.wfs.nspins
     
     S_kMM = np.zeros((Nk, NM, NM), dtype)
@@ -299,8 +299,8 @@ def get_lcao_hamiltonian(calc):
             tri2full(S_kMM[kpt.k])
         H_skMM[kpt.s, kpt.k] = H_MM * Hartree
         tri2full(H_skMM[kpt.s, kpt.k])
-    calc.wfs.kpt_comm.sum(S_kMM, MASTER)
-    calc.wfs.kpt_comm.sum(H_skMM, MASTER)
+    calc.wfs.kd.comm.sum(S_kMM, MASTER)
+    calc.wfs.kd.comm.sum(H_skMM, MASTER)
     if rank == MASTER:
         return H_skMM, S_kMM
     else:
@@ -311,8 +311,8 @@ def get_lead_lcao_hamiltonian(calc, direction='x'):
     H_skMM, S_kMM = get_lcao_hamiltonian(calc)
     if rank == MASTER:
         return lead_kspace2realspace(H_skMM, S_kMM,
-                                     bzk_kc=calc.wfs.bzk_kc,
-                                     weight_k=calc.wfs.weight_k,
+                                     bzk_kc=calc.wfs.kd.bzk_kc,
+                                     weight_k=calc.wfs.kd.weight_k,
                                      direction=direction,
                                      symmetry=calc.input_parameters['symmetry'])
     else:
@@ -464,8 +464,8 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     if world.rank == MASTER:
         wglobal_wG, P_awi = pickle.load(open(orbitalfile))
         Nw = len(wglobal_wG)
-        print 'Estimated total (serial) mem usage: %0.3f GB' % (
-            np.prod(gd.N_c) * Nw**2 * 8 / 1024.**3)
+        print('Estimated total (serial) mem usage: %0.3f GB' % (
+            np.prod(gd.N_c) * Nw**2 * 8 / 1024.**3))
     else:
         wglobal_wG = None
         Nw = 0
@@ -501,7 +501,7 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
 
     if world.rank == MASTER:
         if S_w is not None:
-            print 'renormalizing pairorb overlap matrix (D_pp)'
+            print('renormalizing pairorb overlap matrix (D_pp)')
             S2 = np.sqrt(S_w)
             for pa, (wa1, wa2) in enumerate(np.ndindex(Nw, Nw)):
                 for pb, (wb1, wb2) in enumerate(np.ndindex(Nw, Nw)):

@@ -9,11 +9,13 @@ from gpaw.utilities.tools import coordinates
 
 
 class Multipole:
+
     """Expand a function on the grid in multipole moments
     relative to a given center.
 
     center: Vector [Angstrom]
     """
+
     def __init__(self, center, calculator=None, lmax=6):
 
         self.center = center / Bohr
@@ -42,12 +44,12 @@ class Multipole:
         for l in range(self.lmax + 1):
             for m in range(2 * l + 1):
                 self.y_Lg.append(
-                    np.sqrt(4 * np.pi / (2 * l + 1)) * r_g**l *
+                    np.sqrt(4 * np.pi / (2 * l + 1)) * r_g ** l *
                     npY(L, rhat_cg[0], rhat_cg[1], rhat_cg[2])
-                    )
+                )
                 self.l_L.append(l)
                 L += 1
-                
+
     def expand(self, f_g):
         """Expand a function f_g in multipole moments
         units [e * Angstrom**l]"""
@@ -57,8 +59,8 @@ class Multipole:
         q_L = []
         for L, y_g in enumerate(self.y_Lg):
             q_L.append(self.gd.integrate(f_g * y_g))
-            q_L[L] *= Bohr**self.l_L[L]
-            
+            q_L[L] *= Bohr ** self.l_L[L]
+
         return np.array(q_L)
 
     def to_file(self, calculator,

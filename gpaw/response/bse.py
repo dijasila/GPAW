@@ -137,7 +137,7 @@ class BSE(BASECHI):
         else:
             (self.ibzq_qc, self.ibzq_q, self.iop_q,
              self.timerev_q, self.diff_qc) = kd.get_ibz_q_points(self.bzq_qc,
-                                                                 calc.wfs.symmetry.op_scc)
+                                                                 calc.wfs.kd.symmetry.op_scc)
             if np.abs(self.bzq_qc - kd.bzk_kc).sum() < 1e-8:
                 assert np.abs(self.ibzq_qc - kd.ibzk_kc).sum() < 1e-8
         self.nibzq = len(self.ibzq_qc)
@@ -211,7 +211,7 @@ class BSE(BASECHI):
         calc = self.calc
         focc_S = self.focc_S
         e_S = self.e_S
-        op_scc = calc.wfs.symmetry.op_scc
+        op_scc = calc.wfs.kd.symmetry.op_scc
 
         # Get phi_qaGp
         if self.mode == 'RPA':

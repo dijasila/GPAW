@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 
@@ -30,7 +31,7 @@ try: # number of iterations needed in restart
 except: pass
 dE = c.get_xc_difference('TPSS')
 E_1 = E_PBE + dE
-print "E PBE, TPSS=", E_PBE, E_1
+print("E PBE, TPSS=", E_PBE, E_1)
 
 # no wfs
 c = GPAW(fname, txt=txt)
@@ -40,9 +41,9 @@ try: # number of iterations needed in restart
 except: pass
 dE = c.get_xc_difference('TPSS')
 E_2 = E_PBE_no_wfs + dE
-print "E PBE, TPSS=", E_PBE_no_wfs, E_2
+print("E PBE, TPSS=", E_PBE_no_wfs, E_2)
 
-print "diff=", E_1 - E_2
+print("diff=", E_1 - E_2)
 assert abs(E_1 - E_2) < 0.005
 
 energy_tolerance = 0.00008

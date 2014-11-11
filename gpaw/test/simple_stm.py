@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 
 from ase import Atom, Atoms
@@ -31,8 +32,8 @@ def testSTM(calc):
     if size == 1: # XXXX we have problem with reading plt in parallel
         stm2 = SimpleStm(f3dname)
         wf2 = stm2.gd.integrate(stm2.ldos)
-        print 'Integrals: written, read=', wf, wf2
-        equal(wf, wf2, 1.e-7)
+        print('Integrals: written, read=', wf, wf2)
+        equal(wf, wf2, 2.e-7)
 
 ##    print eigenvalue_string(calc)
     stm.write_3D(3.1, f3dname)
@@ -86,12 +87,12 @@ else:
 stmp = SimpleStm(cp)
 
 stmp.write_3D(-4., f3dname)
-print me + 'Integrals(occ): 2 * wf, bias=', 2 * wf, stmp.gd.integrate(stmp.ldos)
+print(me + 'Integrals(occ): 2 * wf, bias=', 2 * wf, stmp.gd.integrate(stmp.ldos))
 equal(2 * wf, stmp.gd.integrate(stmp.ldos), 0.02)
 
 stmp.write_3D(+4., f3dname)
-print me + 'Integrals(unocc): 2 * wf, bias=',
-print 2 * wf, stmp.gd.integrate(stmp.ldos)
+print(me + 'Integrals(unocc): 2 * wf, bias=', end=' ')
+print(2 * wf, stmp.gd.integrate(stmp.ldos))
 equal(2 * wf, stmp.gd.integrate(stmp.ldos), 0.02)
 
 energy_tolerance = 0.0007

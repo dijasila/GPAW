@@ -1,5 +1,5 @@
 """Module for linear response TDDFT class with indexed K-matrix storage."""
-
+from __future__ import print_function
 import os
 import sys
 import datetime
@@ -29,9 +29,6 @@ from gpaw.utilities import devnull
 
 import _gpaw
 from gpaw.mpi import rank, alltoallv_string
-
-#from gpaw.output import initialize_text_stream
-
 
 
 #####################################################
@@ -507,7 +504,7 @@ class LrTDDFTindexed:
         Sy = []
         Sz = []
 
-        print >> self.txt, 'Calculating transitions (', str(datetime.datetime.now()), ').',
+        print('Calculating transitions (', str(datetime.datetime.now()), ').', end=' ', file=self.txt)
         for (k, omega2) in enumerate(self.evalues):
             ww = self.get_excitation_energy(k)
             if ww < min_energy or ww > max_energy: continue
@@ -531,7 +528,7 @@ class LrTDDFTindexed:
         Sy = np.array(Sy)
         Sz = np.array(Sz)
 
-        print >> self.txt, ''
+        print('', file=self.txt)
                 
         if units == 'a.u.':
             pass
@@ -601,7 +598,7 @@ class LrTDDFTindexed:
                                                            max_energy=max_energy+5*width,
                                                            units='a.u.')
                 
-        print >> self.txt, 'Calculating spectrum (', str(datetime.datetime.now()), ').',
+        print('Calculating spectrum (', str(datetime.datetime.now()), ').', end=' ', file=self.txt)
         for (k, www) in enumerate(ww):
             #if k % 10 == 0:
             #    print >> self.txt, '.',
@@ -623,7 +620,7 @@ class LrTDDFTindexed:
             c = RR[k] / width / np.sqrt(2*np.pi)
             R += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
 
-        print >> self.txt, ''
+        print('', file=self.txt)
                 
         if units == 'a.u.':
             pass
@@ -643,7 +640,7 @@ class LrTDDFTindexed:
                 sfile.write("%12.8lf  %12.8lf  %12.8lf     %12.8lf  %12.8lf  %12.8lf\n" % (ww,SS,RR,SSx,SSy,SSz))
             sfile.close()
 
-        print >> self.txt, 'Calculating spectrum done (', str(datetime.datetime.now()), ').'
+        print('Calculating spectrum done (', str(datetime.datetime.now()), ').', file=self.txt)
         return (w,S,R, Sx,Sy,Sz)
 
 
@@ -1485,9 +1482,9 @@ class LrTDDFTindexed:
         Igh  = self.calc.density.finegd.integrate(drhot_gh)
         Igeh = self.calc.density.finegd.integrate(drhot_geh)
         if self.parent_comm.rank == 0:
-            print 'drho_ge ', Ige
-            print 'drho_gh ', Igh
-            print 'drho_geh', Igeh
+            print('drho_ge ', Ige)
+            print('drho_gh ', Igh)
+            print('drho_geh', Igeh)
 
         return (drhot_ge, drhot_gh, drhot_geh)
 
@@ -1789,7 +1786,7 @@ class LrTDDFTindexed:
         for (ip, kss) in enumerate(self.kss_list):
             self.index_map[(kss.occ_ind,kss.unocc_ind)] = ip
 
-        print >> self.txt, 'Reading data for diagonalize (', str(datetime.datetime.now()), '). ',
+        print('Reading data for diagonalize (', str(datetime.datetime.now()), '). ', end=' ', file=self.txt)
 
         ################
         # Wrong not reading K-matrix but it's "Casida form" 
@@ -1812,7 +1809,7 @@ class LrTDDFTindexed:
         # Calculate eigenvalues
         self.evalues = np.zeros(nrow)
 
-        print >> self.txt, 'Diagonalizing (', str(datetime.datetime.now()), ')'
+        print('Diagonalizing (', str(datetime.datetime.now()), ')', file=self.txt)
         
         # ScaLapack
         if sl_lrtddft is not None:
@@ -1933,8 +1930,8 @@ class LrTDDFTindexed:
 
         self.timer.stop('Calculate KS singles: merge old and new lists')
 
-        print >> self.txt, 'Number of electron-hole pairs: %d' % len(self.kss_list)    
-        print >> self.txt, 'Maximum energy difference: %6.3f' % (self.kss_list[-1].energy_diff * ase.units.Hartree)
+        print('Number of electron-hole pairs: %d' % len(self.kss_list), file=self.txt)    
+        print('Maximum energy difference: %6.3f' % (self.kss_list[-1].energy_diff * ase.units.Hartree), file=self.txt)
 
         # Prevent repeated work
         self.kss_list_ready = True
@@ -2588,21 +2585,21 @@ class LrTDDFTLayouts:
 
     def solve(self, A, b):
         if 0:
-            print 'edescr2a', rank, self.eh_descr2a.asarray() 
-            print 'edescr2b', rank, self.eh_descr2b.asarray() 
+            print('edescr2a', rank, self.eh_descr2a.asarray()) 
+            print('edescr2b', rank, self.eh_descr2b.asarray()) 
             
             sys.stdout.flush()        
             self.world.barrier()
             
-            print 'sdescr2a', rank, self.solve_descr2a.asarray() 
-            print 'sdescr2b', rank, self.solve_descr2b.asarray() 
+            print('sdescr2a', rank, self.solve_descr2a.asarray()) 
+            print('sdescr2b', rank, self.solve_descr2b.asarray()) 
             
             sys.stdout.flush()        
             self.world.barrier()
             
-            print 'A ', rank, A.shape
+            print('A ', rank, A.shape)
             if b is not None:
-                print 'b ', rank, b.shape
+                print('b ', rank, b.shape)
 
             sys.stdout.flush()        
             self.world.barrier()
@@ -2623,27 +2620,27 @@ class LrTDDFTLayouts:
 
 
         if 0:
-            print 'A_Nn ', rank, A_Nn.shape
-            print 'b_N  ', rank, b_N.shape
+            print('A_Nn ', rank, A_Nn.shape)
+            print('b_N  ', rank, b_N.shape)
             sys.stdout.flush()        
             self.world.barrier()
-            print 'A_nn ', rank, A_nn.shape
-            print 'b_n  ', rank, b_n.shape
+            print('A_nn ', rank, A_nn.shape)
+            print('b_n  ', rank, b_n.shape)
             sys.stdout.flush()        
             self.world.barrier()
             
 
-            print 'b_N  ', rank, b_N
+            print('b_N  ', rank, b_N)
             sys.stdout.flush()        
             self.world.barrier()
-            print 'b_n ', rank, b_n
+            print('b_n ', rank, b_n)
             sys.stdout.flush()        
             self.world.barrier()
 
-            print 'A_Nn  ', rank, A_Nn
+            print('A_Nn  ', rank, A_Nn)
             sys.stdout.flush()        
             self.world.barrier()
-            print 'A_nn ', rank, A_nn
+            print('A_nn ', rank, A_nn)
             sys.stdout.flush()        
             self.world.barrier()
 

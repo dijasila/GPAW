@@ -41,7 +41,7 @@ void dsyrk_(char *uplo, char *trans, int *n, int *k,
             double *alpha, double *a, int *lda, double *beta,
             double *c, int *ldc);
 void zher_(char *uplo, int *n,
-           double *alpha, void *x, int *incx, 
+           double *alpha, void *x, int *incx,
            void *a, int *lda);
 void zherk_(char *uplo, char *trans, int *n, int *k,
             double *alpha, void *a, int *lda,
@@ -143,6 +143,49 @@ PyObject* gemm(PyObject *self, PyObject *args)
 }
 
 
+PyObject* mmm(PyObject *self, PyObject *args)
+{
+    Py_complex alpha;
+    PyArrayObject* M1;
+    char trans1;
+    PyArrayObject* M2;
+    char trans2;
+    Py_complex beta;
+    PyArrayObject* M3;
+    
+    if (!PyArg_ParseTuple(args, "DOcOcDO",
+                          &alpha, &M1, &trans1, &M2, &trans2, &beta, &M3))
+        return NULL;
+        
+    int m = PyArray_DIM(M3, 1);
+    int n = PyArray_DIM(M3, 0);
+    int k;
+    
+    int bytes = PyArray_ITEMSIZE(M3);
+    int lda = MAX(1, PyArray_STRIDE(M2, 0) / bytes);
+    int ldb = MAX(1, PyArray_STRIDE(M1, 0) / bytes);
+    int ldc = MAX(1, PyArray_STRIDE(M3, 0) / bytes);
+    
+    void* a = PyArray_DATA(M2);
+    void* b = PyArray_DATA(M1);
+    void* c = PyArray_DATA(M3);
+
+    if (trans2 == 'n')
+        k = PyArray_DIM(M2, 0);
+    else
+        k = PyArray_DIM(M2, 1);
+        
+    if (bytes == 8)
+        dgemm_(&trans2, &trans1, &m, &n, &k,
+               &(alpha.real), a, &lda, b, &ldb, &(beta.real), c, &ldc);
+    else
+        zgemm_(&trans2, &trans1, &m, &n, &k,
+               &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
+        
+    Py_RETURN_NONE;
+}
+
+
 PyObject* gemv(PyObject *self, PyObject *args)
 {
   Py_complex alpha;
@@ -236,7 +279,7 @@ PyObject* czher(PyObject *self, PyObject *args)
   int incx = 1;
   int lda = MAX(1, n);
 
-  zher_("l", &n, &(alpha), 
+  zher_("l", &n, &(alpha),
         (void*)COMPLEXP(x), &incx,
         (void*)COMPLEXP(a), &lda);
   Py_RETURN_NONE;
@@ -370,7 +413,7 @@ PyObject* multi_dotu(PyObject *self, PyObject *args)
   PyArrayObject* a;
   PyArrayObject* b;
   PyArrayObject* c;
-  if (!PyArg_ParseTuple(args, "OOO", &a, &b, &c)) 
+  if (!PyArg_ParseTuple(args, "OOO", &a, &b, &c))
     return NULL;
   int n0 = PyArray_DIMS(a)[0];
   int n = PyArray_DIMS(a)[1];
@@ -386,7 +429,7 @@ PyObject* multi_dotu(PyObject *self, PyObject *args)
 
       for (int i = 0; i < n0; i++)
         {
-          cp[i] = ddot_(&n, (void*)ap, 
+          cp[i] = ddot_(&n, (void*)ap,
              &incx, (void*)bp, &incy);
           ap += n;
           bp += n;
@@ -414,7 +457,7 @@ PyObject* multi_axpy(PyObject *self, PyObject *args)
   PyArrayObject* alpha;
   PyArrayObject* x;
   PyArrayObject* y;
-  if (!PyArg_ParseTuple(args, "OOO", &alpha, &x, &y)) 
+  if (!PyArg_ParseTuple(args, "OOO", &alpha, &x, &y))
     return NULL;
   int n0 = PyArray_DIMS(x)[0];
   int n = PyArray_DIMS(x)[1];
@@ -432,7 +475,7 @@ PyObject* multi_axpy(PyObject *self, PyObject *args)
       double *yp = DOUBLEP(y);
       for (int i = 0; i < n0; i++)
         {
-          daxpy_(&n, &ap[i], 
+          daxpy_(&n, &ap[i],
                  (void*)xp, &incx,
                  (void*)yp, &incy);
           xp += n;
@@ -446,7 +489,7 @@ PyObject* multi_axpy(PyObject *self, PyObject *args)
       double_complex *yp = COMPLEXP(y);
       for (int i = 0; i < n0; i++)
         {
-          zaxpy_(&n, (void*)(&ap[i]), 
+          zaxpy_(&n, (void*)(&ap[i]),
                  (void*)xp, &incx,
                  (void*)yp, &incy);
           xp += n;

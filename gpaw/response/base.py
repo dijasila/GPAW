@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from time import time, ctime
 import numpy as np
@@ -219,7 +220,7 @@ class BASECHI:
 
 
     def printtxt(self, text):
-        print >> self.txt, text
+        print(text, file=self.txt)
 
 
     def print_stuff(self):

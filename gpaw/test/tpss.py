@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.structure import molecule
 from ase.parallel import paropen
 from gpaw import GPAW
@@ -59,12 +60,12 @@ for formula in systems:
     except:
         raise#print >> data, formula, 'Error'
     else:
-        print >> data, formula, energy, energy + diff
+        print(formula, energy, energy + diff, file=data)
     data.flush()
 
 #calculate atomization energies
 file = paropen('tpss.txt', 'w')
-print >> file, 'formula\tGPAW\tRef\tGPAW-Ref\tGPAW-exp'
+print('formula\tGPAW\tRef\tGPAW-Ref\tGPAW-exp', file=file)
 mae_ref, mae_exp, mae_pbe, count = 0.0, 0.0, 0.0, 0
 for formula in tpss_de.keys():
     try:
@@ -85,7 +86,7 @@ for formula in tpss_de.keys():
         count += 1
         out = "%s\t%.1f\t%.1f\t%.1f\t%.1f kcal/mol"%(formula,de_tpss,tpss_de[formula],
                                             de_tpss-tpss_de[formula],de_tpss-exp_bonds_dE[formula][1])
-        print >>file, out
+        print(out, file=file)
         file.flush()
 
 

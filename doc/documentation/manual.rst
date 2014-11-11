@@ -98,7 +98,7 @@ keyword            type       default value        description
 ``charge``         ``float``  ``0``                Total :ref:`manual_charge`
                                                    of the system
 ``convergence``    ``dict``                        :ref:`manual_convergence`
-``maxiter``        ``int``    ``120``              :ref:`manual_maxiter`
+``maxiter``        ``int``    ``333``              :ref:`manual_maxiter`
 ``txt``            ``str``,   ``'-'``              :ref:`manual_txt`
                    None, or   (``sys.stdout``)
                    file obj.
@@ -118,13 +118,13 @@ keyword            type       default value        description
 ``hund``           ``bool``   ``False``            :ref:`Use Hund's rule
                                                    <manual_hund>`
 ``external``       Object                          XXX Missing doc
-``verbose``        ``int``    ``0``                XXX Missing doc
+``verbose``        ``int``    ``0``                :ref:`manual_verbose`
 ``poissonsolver``  Object                          Specification of
                                                    :ref:`Poisson solver 
                                                    <manual_poissonsolver>`
                                                    or :ref:`dipole correction
                                                    <manual_dipole_correction>`
-``communicator``   Object                          XXX Missing doc
+``communicator``   Object                          :ref:`manual_communicator`
 ``idiotproof``     ``bool``   ``True``             Set to ``False`` to ignore 
                                                    setup fingerprint mismatch
                                                    (allows restart when the
@@ -422,8 +422,7 @@ Use of symmetry
 The default behavior is to use all point-group symmetries and time-reversal
 symmetry to reduce the **k**-points to only those in the irreducible part of
 the Brillouin-zone.  Moving the atoms so that a symmetry is broken will
-cause an error.  This can be avoided by using ``symmetry='off'`` which is a
-short-hand notation for this::
+cause an error.  This can be avoided by using::
     
     symmetry={'point_group': False}
 
@@ -434,6 +433,9 @@ For some purposes you might want to have no symmetry reduction of the
 calculations, ...). This can be achieved by specifying::
 
     symmetry={'point_group': False, 'time_reversal': False}
+    
+or simply ``symmetry='off'`` which is a short-hand notation for the same
+thing.
 
 For full control, here are all the available keys of the ``symmetry``
 dictionary:
@@ -518,7 +520,8 @@ The default value is this Python dictionary::
   {'energy': 0.0005,  # eV / electron
    'density': 1.0e-4,
    'eigenstates': 4.0e-8,  # eV^2 / electron
-   'bands': 'occupied'}
+   'bands': 'occupied',
+   'forces': None} # eV / Ang Max 
 
 In words:
 
@@ -531,6 +534,10 @@ In words:
 * The integrated value of the square of the residuals of the Kohn-Sham
   equations should be less than :math:`4.0 \times 10^{-8}
   \mathrm{eV}^2` per valence electron (FD mode only).
+
+* The maximum change in the magnitude of the vector representing the
+  difference in forces for each atom.  Setting this to None disables 
+  this functionality, saving computational time and memory usage.
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
@@ -595,7 +602,6 @@ occupations one has to use :class:`~gpaw.mixer.MixerSum` instead of
 :class:`~gpaw.mixer.Mixer`.
 
 See also the documentation on :ref:`density mixing <densitymix>`.
-
 
 .. _manual_fixdensity:
 
@@ -830,6 +836,23 @@ total magnetic moment be fixed, by passing e.g.
 Any user specified magnetic moment is
 ignored. Default is False.
 
+.. _manual_verbose:
+
+Output verbosity
+----------------
+
+By default, only a limited number of information is printed out for each SCF
+step. It is possible to obtain more information (e.g. for investigating 
+convergen problems in more detail) by ``verbose=1`` keyword.
+
+.. _manual_communicator:
+
+Communicator object
+-------------------
+
+By specifying a communicator object, it is possible to use only a subset of
+processes for the calculator when calculating e.g. different atomic images 
+in parallel. See :ref:`different_calculations_in parallel` for more details.
 
 .. _manual_parallel_calculations:
 

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 from math import pi, cos, sin
 from ase import Atom, Atoms
@@ -61,7 +62,7 @@ if 0:
     p.plot(x, z[0])
     p.show()
 
-print e, niter
+print(e, niter)
 energy_tolerance = 0.0005
 niter_tolerance = 2
 equal(e, 18.5772, energy_tolerance) # svnversion 5252

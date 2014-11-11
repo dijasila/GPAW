@@ -19,23 +19,23 @@ Lead1.center()
 
 Lead1.set_calculator(GPAW(h=0.3,
                           xc='LDA',
-			  basis={'Na': basis},
-			  kpts=(1,1,5),
-			  occupations=FermiDirac(0.1),
-			  mode='lcao',
-			  mixer=Mixer(0.1, 5, weight=100.0),
-			  txt='Lead1.txt'))
-Lead1.get_potential_energy()			  
-			  
+                          basis={'Na': basis},
+                          kpts=(1,1,5),
+                          occupations=FermiDirac(0.1),
+                          mode='lcao',
+                          mixer=Mixer(0.1, 5, weight=100.0),
+                          txt='Lead1.txt'))
+Lead1.get_potential_energy()
+
 Lead2 = Lead1.copy()
 Lead2.set_calculator(GPAW(h=0.3,
                           xc='LDA',
-			  basis={'Na': basis},
-			  kpts=(1,1,5),
-			  occupations=FermiDirac(0.1),
-			  mode='lcao',
-			  mixer=Mixer(0.1, 5, weight=100.0),
-			  txt='Lead2.txt'))
+                          basis={'Na': basis},
+                          kpts=(1,1,5),
+                          occupations=FermiDirac(0.1),
+                          mode='lcao',
+                          mixer=Mixer(0.1, 5, weight=100.0),
+                          txt='Lead2.txt'))
 Lead2.get_potential_energy()
 
 Device = Atoms('Na9', pbc=(1, 1, 1), cell=[L, L, 9 * a])
@@ -45,12 +45,12 @@ Device.center()
 
 Device.set_calculator(GPAW(h=0.3,
                            xc='LDA',
-			   basis={'Na': basis},
-			   kpts=(1,1,1),
-			   occupations=FermiDirac(0.1),
-			   mode='lcao',
-			   mixer=Mixer(0.1, 5, weight=100.0),
-			   txt='Device.txt'))
+                           basis={'Na': basis},
+                           kpts=(1,1,1),
+                           occupations=FermiDirac(0.1),
+                           mode='lcao',
+                           mixer=Mixer(0.1, 5, weight=100.0),
+                           txt='Device.txt'))
 Device.get_potential_energy()
 
 from gpaw.transport.tools import save_bias_data_file
@@ -67,9 +67,9 @@ t = Transport(h=0.3,
               mode='lcao',
               txt='Na_lcao.txt',
               mixer=Mixer(0.1, 5, weight=100.0),
-	      pl_atoms=[range(4), range(5,9)],
-	      pl_cells=[pl_cell1, pl_cell2],
-	      leads=[Lead1,Lead2],
+              pl_atoms=[range(4), range(5,9)],
+              pl_cells=[pl_cell1, pl_cell2],
+              leads=[Lead1,Lead2],
               pl_kpts=(1,1,5),
               analysis_mode=True)
 system.set_calculator(t)

@@ -10,10 +10,10 @@ from gpaw import GPAW, Mixer, FermiDirac
 from gpaw.lcao.tools import remove_pbc, get_lcao_hamiltonian, get_lead_lcao_hamiltonian
 import cPickle as pickle
 
-a = 2.41 # Pt binding lenght
-b = 0.90 # H2 binding lenght
-c = 1.70 # Pt-H binding lenght
-L = 7.00 # width of unit cell
+a = 2.41  # Pt binding lenght
+b = 0.90  # H2 binding lenght
+c = 1.70  # Pt-H binding lenght
+L = 7.00  # width of unit cell
 
 #####################
 # Scattering region #
@@ -35,10 +35,10 @@ calc = GPAW(h=0.3,
             mode='lcao',
             txt='pt_h2_lcao_scat.txt',
             mixer=Mixer(0.1, 5, weight=100.0),
-            symmetry='off')
+            symmetry={'point_group': False, 'time_reversal': False})
 atoms.set_calculator(calc)
 
-atoms.get_potential_energy() # Converge everything!
+atoms.get_potential_energy()  # Converge everything!
 Ef = atoms.calc.get_fermi_level()
 
 H_skMM, S_kMM = get_lcao_hamiltonian(calc)
@@ -63,14 +63,14 @@ calc = GPAW(h=0.3,
             xc='PBE',
             basis='szp(dzp)',
             occupations=FermiDirac(width=0.1),
-            kpts=(4, 1, 1), # More kpts needed as the x-direction is shorter
+            kpts=(4, 1, 1),  # More kpts needed as the x-direction is shorter
             mode='lcao',
             txt='pt_h2_lcao_llead.txt',
             mixer=Mixer(0.1, 5, weight=100.0),
-            symmetry='off')
+            symmetry={'point_group': False, 'time_reversal': False})
 atoms.set_calculator(calc)
 
-atoms.get_potential_energy() # Converge everything!
+atoms.get_potential_energy()  # Converge everything!
 Ef = atoms.calc.get_fermi_level()
 
 ibz2d_k, weight2d_k, H_skMM, S_kMM = get_lead_lcao_hamiltonian(calc)

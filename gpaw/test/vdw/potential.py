@@ -1,4 +1,5 @@
 """Test correctness of vdW-DF potential."""
+from __future__ import print_function
 from math import pi
 from gpaw.grid_descriptor import GridDescriptor
 import numpy as np
@@ -25,7 +26,7 @@ def paired():
     n2[0, i, i, i] -= 0.00004
     E2 -= xc.calculate(gd, n2, v)
     x2 = E2 / 0.00004
-    print i, x, x2, x - x2, x / x2
+    print(i, x, x2, x - x2, x / x2)
     equal(x, x2, 2e-11)
 
 
@@ -45,7 +46,7 @@ def polarized():
     n2[0, i, i, i] -= 0.00004
     E2 -= xc.calculate(gd, n2, v)
     x2 = E2 / 0.00004
-    print i, x, x2, x - x2, x / x2
+    print(i, x, x2, x - x2, x / x2)
     equal(x, x2, 1e-10)
 
 if world.size == 1:

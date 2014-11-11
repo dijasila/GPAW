@@ -16,6 +16,8 @@ Development version in trunk
   rotations, reflections and inversion.  Use
   ``symmetry={'symmorphic': False}`` to turn this feature on.
 
+* New :ref:`forces <manual_convergence>` keyword in convergence.  Can
+  be used to calculate forces to a given precision.
 
 Version 0.10.0
 ==============

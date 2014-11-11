@@ -8,7 +8,7 @@ r = RecursionMethod(calc)
 r.run(600) 
 
 r.run(1400, 
-	inverse_overlap='approximate')
+      inverse_overlap='approximate')
 
 r.write(name + '_600_1400a.rec',
-	mode='all')
+        mode='all')

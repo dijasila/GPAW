@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
@@ -86,3 +87,26 @@ def XC(kernel, parameters=None):
     else:
         return MGGA(kernel)
 
+        
+def xc(filename, xc, ecut=None):
+    """Calculate non self-consitent energy.
+    
+    filename: str
+        Name of restart-file.
+    xc: str
+        Functional
+    ecut: float
+        Plane-wave cutoff for exact exchange.
+    """
+    name, ext = filename.rsplit('.', 1)
+    assert ext == 'gpw'
+    if xc in ['EXX', 'PBE0', 'B3LYP']:
+        from gpaw.xc.exx import EXX
+        exx = EXX(filename, xc, ecut=ecut, txt=name + '-exx.txt')
+        exx.calculate()
+        e = exx.get_total_energy()
+    else:
+        from gpaw import GPAW
+        calc = GPAW(filename, txt=None)
+        e = calc.get_potential_energy() + calc.get_xc_difference(xc)
+    print(e, 'eV')

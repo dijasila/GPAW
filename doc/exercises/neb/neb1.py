@@ -1,5 +1,5 @@
 """Diffusion along rows"""
-
+from __future__ import print_function
 from math import sqrt
 
 from ase import Atoms, Atom
@@ -38,7 +38,7 @@ images.append(final)
 # two bottom layers):
 mask = initial.positions[:, 2] - min(initial.positions[:, 2]) < 1.5 * h
 constraint = FixAtoms(mask=mask)
-print mask
+print(mask)
 
 for image in images:
     # Let all images use an EMT calculator:

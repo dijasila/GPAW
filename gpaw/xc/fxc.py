@@ -5,17 +5,18 @@ from time import time
 import numpy as np
 from ase.units import Hartree, Bohr
 from ase.utils import prnt
-from scipy.special.orthogonal import p_roots
 from scipy.special import sici
+from scipy.special.orthogonal import p_roots
 
-from gpaw.blacs import BlacsGrid, Redistributor
-from gpaw.utilities.blas import gemmdot, axpy
-from gpaw.wavefunctions.pw import PWDescriptor
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.xc.rpa import RPACorrelation
-from gpaw.io.tar import Writer, Reader
-from gpaw.fd_operators import Gradient
 import gpaw.mpi as mpi
+from gpaw.blacs import BlacsGrid, Redistributor
+from gpaw.fd_operators import Gradient
+from gpaw.io.tar import Writer, Reader
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.utilities.blas import gemmdot, axpy
+from gpaw.utilities.timing import timer
+from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.xc.rpa import RPACorrelation
 
 
 class FXCCorrelation(RPACorrelation):
@@ -23,7 +24,7 @@ class FXCCorrelation(RPACorrelation):
                  skip_gamma=False, qsym=True, nlambda=8,
                  nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
                  frequencies=None, weights=None, density_cut=1.e-6,
-                 wcomm=None, chicomm=None, world=mpi.world,
+                 world=mpi.world, nblocks=1,
                  unit_cells=None, tag=None,
                  txt=sys.stdout):
 
@@ -33,7 +34,7 @@ class FXCCorrelation(RPACorrelation):
                                 frequency_max=frequency_max,
                                 frequency_scale=frequency_scale,
                                 frequencies=frequencies, weights=weights,
-                                wcomm=wcomm, chicomm=chicomm, world=world,
+                                world=world, nblocks=nblocks,
                                 txt=txt)
 
         self.l_l, self.weight_l = p_roots(nlambda)
@@ -48,8 +49,8 @@ class FXCCorrelation(RPACorrelation):
             tag = self.calc.atoms.get_chemical_formula(mode='hill')
         self.tag = tag
 
+    @timer('FXC')
     def calculate(self, ecut):
-
         if self.xc != 'RPA':
             if isinstance(ecut, (float, int)):
                 self.ecut_max = ecut
@@ -60,7 +61,7 @@ class FXCCorrelation(RPACorrelation):
                                   % (self.tag, self.xc, self.ecut_max)):
                 kernel = Kernel(self.calc, self.xc, self.ibzq_qc,
                                 self.fd, self.unit_cells, self.density_cut,
-                                self.ecut_max, self.tag)
+                                self.ecut_max, self.tag, self.timer)
                 kernel.calculate_fhxc()
                 del kernel
             else:
@@ -76,9 +77,10 @@ class FXCCorrelation(RPACorrelation):
 
         return e
 
+    @timer('Chi0(q)')
     def calculate_q(self, chi0, pd,
                     chi0_swGG, chi0_swxvG, chi0_swvv,
-                    Q_aGii, m1, m2, cut_G):
+                    Q_aGii, m1, m2, cut_G, A2_x):
         if chi0_swxvG is None:
             chi0_swxvG = range(2)  # Not used
             chi0_swvv = range(2)  # Not used
@@ -89,6 +91,8 @@ class FXCCorrelation(RPACorrelation):
                             Q_aGii, m1, m2, [1])
         prnt('E_c(q) = ', end='', file=self.fd)
 
+        chi0_swGG = chi0.redistribute(chi0_swGG, A2_x)
+        
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_swGG, cut_G)
             prnt('%.3f eV' % (e * Hartree), file=self.fd)
@@ -111,6 +115,7 @@ class FXCCorrelation(RPACorrelation):
 
         return e
 
+    @timer('Energy')
     def calculate_energy(self, pd, chi0_swGG, cut_G):
         """Evaluate correlation energy from chi0 and the kernel fhxc"""
 
@@ -184,15 +189,14 @@ class FXCCorrelation(RPACorrelation):
             e += np.trace(chi0v.real)
             e_w.append(e)
         E_w = np.zeros_like(self.omega_w)
-        self.wcomm.all_gather(np.array(e_w), E_w)
+        self.blockcomm.all_gather(np.array(e_w), E_w)
         energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
         return energy
 
 
 class Kernel:
-
     def __init__(self, calc, xc, ibzq_qc, fd, unit_cells,
-                 density_cut, ecut, tag):
+                 density_cut, ecut, tag, timer):
 
         self.calc = calc
         self.gd = calc.density.gd
@@ -203,7 +207,8 @@ class Kernel:
         self.density_cut = density_cut
         self.ecut = ecut
         self.tag = tag
-
+        self.timer = timer
+        
         self.A_x = -(3 / 4.) * (3 / np.pi)**(1 / 3.)
 
         self.n_g = calc.get_all_electron_density(gridrefinement=1)
@@ -222,6 +227,7 @@ class Kernel:
         qd = KPointDescriptor(self.ibzq_qc)
         self.pd = PWDescriptor(ecut / Hartree, self.gd, complex, qd)
 
+    @timer('FHXC')
     def calculate_fhxc(self):
 
         prnt('Calculating %s kernel at %d eV cutoff' %
@@ -444,7 +450,8 @@ class Kernel:
         r_vg = gd.get_grid_point_coordinates()
 
         for iq in range(len(self.ibzq_qc)):
-            Gvec_Gc = np.dot(pd.G_Qv[pd.Q_qG[iq]], cell_cv / (2 * np.pi))
+            Gvec_Gc = np.dot(pd.get_reciprocal_vectors(q=iq, add_q=False),
+                             cell_cv / (2 * np.pi))
             npw = len(Gvec_Gc)
             l_pw_size = -(-npw // mpi.world.size)
             l_pw_range = range(mpi.world.rank * l_pw_size,
@@ -546,6 +553,7 @@ class Kernel:
 
         return fxc_g
 
+"""
     def get_fxc_libxc_g(self, n_g):
         ### NOT USED AT THE MOMENT
         gd = self.calc.density.gd.refine()
@@ -628,3 +636,4 @@ class Kernel:
                             fxc_sg[s, x, y, z] = num / den
 
         return fxc_sg[:, ::2, ::2, ::2]
+"""

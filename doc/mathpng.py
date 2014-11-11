@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 try:
     from hashlib import md5
@@ -101,7 +102,7 @@ def latex2html(node, source):
     if not isfile(pngname):
         depth = make_png(latex, pngname, inline)
         txtfile = open(txtname, 'w')
-        print >> txtfile, depth
+        print(depth, file=txtfile)
         txtfile.close()
     else:
         depth = int(open(txtname).read().strip())
@@ -123,7 +124,7 @@ def latex2html(node, source):
 def make_png(latex, name, inline):
     """Make png file and return the depth relative to baseline."""
     # Unfortunately we have to store depth info
-    print latex,
+    print(latex, end=' ')
     f = open('math.tex', 'w')
     f.write(r"""\documentclass{article}
                 \usepackage[active]{preview}

@@ -502,9 +502,9 @@ def check_orthogonality(Lmax=10):
             I = orthogonal(L1, L2)
             passed =  abs(I - (L1 == L2)) < 3e-3
             all_passed *= passed
-            print 'L1 = %s,  L2 = %s, passed = %s, I = %s' %(L1, L2, passed, I)
-    if all_passed: print 'All tests passed'
-    else: print 'Some tests failed'
+            print('L1 = %s,  L2 = %s, passed = %s, I = %s' %(L1, L2, passed, I))
+    if all_passed: print('All tests passed')
+    else: print('Some tests failed')
 
 def symmetry1(lmax, display=True):
     """Make dictionary of format
@@ -535,7 +535,7 @@ def symmetry1(lmax, display=True):
                 unique_L.append(name + (norm.eval(), dxyzs))
     if display:
         for key, value in diff.items():
-            print str(key) + ' = ' + str(value[0]) + ' * ' + str(value[1:])
+            print(str(key) + ' = ' + str(value[0]) + ' * ' + str(value[1:]))
     else: return diff
 
 def symmetry2(l, display=True):
@@ -567,7 +567,7 @@ def symmetry2(l, display=True):
                 if dxyzs == unique[4] and qxyzs == unique[6]:
                     dnrel = dnorm.eval() / unique[3]
                     qnrel = qnorm.eval() / unique[5]
-                    print dnrel == qnrel
+                    print(dnrel == qnrel)
                     if dnrel == qnrel:
                         diff[name] = (dnrel,) + unique[0:3]
                         identical = True
@@ -577,7 +577,7 @@ def symmetry2(l, display=True):
                                         qnorm.eval(), qxyzs))
     if display:
         for key, value in diff.items():
-            print str(key) + ' = ' + str(value[0]) + ' * ' + str(value[1:])
+            print(str(key) + ' = ' + str(value[0]) + ' * ' + str(value[1:]))
     else: return diff
 
 def construct_spherical_harmonic_c_function(file, lmax, funcname,
@@ -636,10 +636,10 @@ def construct_c_code(file='temp.c', lmax=3):
     
 // inserts values of f(r) r^l Y_lm(theta, phi) in elements of input array 'a'
 void bmgs_radial3(const bmgsspline* spline, int m, 
-		  const int n[3], 
-		  const double C[3],
-		  const double h[3],
-		  const double* f, double* a)
+                  const int n[3], 
+                  const double C[3],
+                  const double h[3],
+                  const double* f, double* a)
 {
   int l = spline->l;
   if (l == 0)
@@ -654,10 +654,10 @@ void bmgs_radial3(const bmgsspline* spline, int m,
 //        dq                                             dq
 // where q={x, y, z} and g(r) = 1/r*(df/dr)
 void bmgs_radiald3(const bmgsspline* spline, int m, int c, 
-		  const int n[3], 
-		  const double C[3],
-		  const double h[3],
-		  const double* f, const double* g, double* a)
+                  const int n[3], 
+                  const double C[3],
+                  const double h[3],
+                  const double* f, const double* g, double* a)
 {
   int l = spline->l;
 """
@@ -671,16 +671,16 @@ void bmgs_radiald3(const bmgsspline* spline, int m, int c,
           for (int i1 = 0; i1 < n[1]; i1++)
             {
               double z = C[2];
-	      for (int i2 = 0; i2 < n[2]; i2++, q++)
-		{
+              for (int i2 = 0; i2 < n[2]; i2++, q++)
+                {
 """
     end_case = """
                   z += h[2];
-		}
-	      y += h[1];
-	    }
-	  x += h[0];
-	}
+                }
+              y += h[1];
+            }
+          x += h[0];
+        }
     }
 """
     
@@ -733,7 +733,7 @@ void bmgs_radiald3(const bmgsspline* spline, int m, int c,
 }
 """
     f = open(file, 'w')
-    print >>f, txt
+    print(txt, file=f)
     f.close()
     
 def construct_gauss_code(lmax=2):
@@ -757,7 +757,7 @@ def construct_gauss_code(lmax=2):
         out += '  \'' + gauss_potential_to_string(l, m, numeric=True) + '\',\n'
     out += ']'
     
-    print out
+    print(out)
 
 def construct_spherical_code(lmax=3):
     """Method for generating the code in gpaw/spherical_harmonics.py"""
@@ -769,14 +769,14 @@ def construct_spherical_code(lmax=3):
         norms.append(str(norm))
         YL.append(zip(xyzs.values(), xyzs.keys()))
 
-    print 'Y_L = ['
+    print('Y_L = [')
     for L, Y in enumerate(YL):
         l = sqrt(L)
         if l % 1 == 0:
-            print '  #' + 'spdfghijklmn'[int(l)] + ':'
-        print '  %s,' % Y
-    print ']'
-    print 'norms =', norms
+            print('  #' + 'spdfghijklmn'[int(l)] + ':')
+        print('  %s,' % Y)
+    print(']')
+    print('norms =', norms)
 
 
 if __name__ == '__main__':

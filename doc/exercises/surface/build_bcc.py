@@ -2,6 +2,7 @@
 
 from ase import Atom, Atoms
 
+
 def bcc100(symbol, a, layers, L):
     """Build a bcc(100) surface
 
@@ -16,10 +17,10 @@ def bcc100(symbol, a, layers, L):
     z = a / 2
 
     assert L > layers * z, 'Unit cell too small!'
-    
+
     # Start with an empty Atoms object with an orthorhombic unit cell:
     atoms = Atoms(pbc=(True, True, False), cell=(a, a, L))
-    
+
     # Fill in the atoms:
     for n in range(layers):
         position = [a / 2 * (n % 2), a / 2 * (n % 2), n * z]

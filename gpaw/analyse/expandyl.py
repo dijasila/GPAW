@@ -1,3 +1,4 @@
+from __future__ import print_function
 from math import pi
 
 import numpy as np
@@ -9,7 +10,9 @@ from gpaw.utilities.vector import Vector3d
 from gpaw.utilities.timing import StepTimer
 from gpaw.utilities.tools import coordinates
 
+
 class AngularIntegral:
+
     """Perform an angular integral on the grid.
 
     center:
@@ -21,6 +24,7 @@ class AngularIntegral:
     dR:
       grid spacing in the radius (Ang)
     """
+
     def __init__(self, center, gd, Rmax=None, dR=None):
         assert gd.orthogonal
         center = Vector3d(center) / Bohr
@@ -33,8 +37,8 @@ class AngularIntegral:
         if not Rmax:
             Rmax = 0
             extreme = gd.h_cv.diagonal() * gd.N_c
-            for corner in ([0,0,0],[1,0,0],[0,1,0],[1,1,0],
-                           [0,0,1],[1,0,1],[0,1,1],[1,1,1]):
+            for corner in ([0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0],
+                           [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]):
                 Rmax = max(Rmax,
                            self.center.distance(np.array(corner) * extreme))
         else:
@@ -51,7 +55,7 @@ class AngularIntegral:
 
     def initialize(self):
         """Initialize grids."""
-        
+
         center = self.center
         Rmax = self.Rmax
         dR = self.dR
@@ -74,8 +78,8 @@ class AngularIntegral:
 
         ball_g = np.where(r_g < Rmax, 1, 0)
         self.R_g = np.where(r_g < Rmax, r_g / dR, -1).astype(int)
-        
-        if hasattr(self, 'L_l'): # ExpandYl
+
+        if hasattr(self, 'L_l'):  # ExpandYl
             npY = np.vectorize(Y, (float,), 'spherical harmonic')
             nL = len(self.L_l)
             y_Lg = []
@@ -103,12 +107,12 @@ class AngularIntegral:
             # get the R shell
             R_g = np.where(self.R_g == i, 1, 0)
             int_R.append(self.gd.integrate(f_g * R_g) / self.dR)
-        return np.array(int_R) * Bohr**2
+        return np.array(int_R) * Bohr ** 2
 
     def average(self, f_g):
         """Give the angular average of a function on the grid."""
         V_R = np.where(self.V_R > 0,  self.V_R, 1.e32)
-        return self.integrate(f_g) * self.dR / V_R / Bohr**2
+        return self.integrate(f_g) * self.dR / V_R / Bohr ** 2
 
     def radii(self, model='nominal'):
         """Return the radii of the radial shells in Angstrom"""
@@ -119,7 +123,9 @@ class AngularIntegral:
         else:
             raise NonImplementedError
 
+
 class ExpandYl(AngularIntegral):
+
     """Expand the smooth wave functions in spherical harmonics
     relative to a given center.
 
@@ -134,37 +140,38 @@ class ExpandYl(AngularIntegral):
     dR:
       grid spacing in the radius (Ang)
     """
+
     def __init__(self, center, gd, lmax=6, Rmax=None, dR=None):
 
         self.lmax = lmax
         self.L_l = []
-        for l in range(lmax+1):
-            for m in range(2*l+1):
+        for l in range(lmax + 1):
+            for m in range(2 * l + 1):
                 self.L_l.append(l)
 
         AngularIntegral.__init__(self, center, gd, Rmax, dR)
 
     def expand(self, psit_g):
         """Expand a wave function"""
-      
-        gamma_l = np.zeros((self.lmax+1))
+
+        gamma_l = np.zeros((self.lmax + 1))
         nL = len(self.L_l)
         L_l = self.L_l
         dR = self.dR
-        
+
         for i, dV in enumerate(self.V_R):
             # get the R shell and it's Volume
             R_g = np.where(self.R_g == i, 1, 0)
             if dV > 0:
                 for L in range(nL):
                     psit_LR = self.gd.integrate(psit_g * R_g * self.y_Lg[L])
-                    gamma_l[L_l[L]] += 4*pi / dV * psit_LR**2
+                    gamma_l[L_l[L]] += 4 * pi / dV * psit_LR ** 2
         # weight of the wave function inside the ball
-        weight =  self.gd.integrate(psit_g**2 * self.ball_g)
-        
+        weight = self.gd.integrate(psit_g ** 2 * self.ball_g)
+
         return gamma_l, weight
 
-    def to_file(self,calculator,
+    def to_file(self, calculator,
                 filename='expandyl.dat',
                 spins=None,
                 kpoints=None,
@@ -182,7 +189,7 @@ class ExpandYl(AngularIntegral):
         else:
             srange = spins
         if not kpoints:
-            krange = range(len(calculator.wfs.ibzk_kc))
+            krange = range(len(calculator.wfs.kd.ibzk_kc))
         else:
             krange = kpoints
         if not bands:
@@ -190,39 +197,40 @@ class ExpandYl(AngularIntegral):
         else:
             nrange = bands
 
-        print >> f, '# Yl expansion','of smooth wave functions'
+        print('# Yl expansion', 'of smooth wave functions', file=f)
         lu = 'Angstrom'
-        print >> f, '# center =', self.center * Bohr, lu
-        print >> f, '# Rmax =', self.Rmax * Bohr, lu
-        print >> f, '# dR =', self.dR * Bohr, lu
-        print >> f, '# lmax =', self.lmax 
-        print >> f, '# s    k     n',
-        print >> f, '     e[eV]      occ',
-        print >> f, '    norm      sum   weight',
+        print('# center =', self.center * Bohr, lu, file=f)
+        print('# Rmax =', self.Rmax * Bohr, lu, file=f)
+        print('# dR =', self.dR * Bohr, lu, file=f)
+        print('# lmax =', self.lmax, file=f)
+        print('# s    k     n', end=' ', file=f)
+        print('     e[eV]      occ', end=' ', file=f)
+        print('    norm      sum   weight', end=' ', file=f)
         spdfghi = 's p d f g h i'.split()
-        for l in range(self.lmax+1):
-            print >> f, '      %'+spdfghi[l],
-        print >> f
+        for l in range(self.lmax + 1):
+            print('      %' + spdfghi[l], end=' ', file=f)
+        print(file=f)
 
         for s in srange:
             for k in krange:
-                u = k*calculator.wfs.nspins + s
+                u = k * calculator.wfs.nspins + s
                 for n in nrange:
                     kpt = calculator.wfs.kpt_u[u]
                     psit_G = kpt.psit_nG[n]
-                    norm = self.gd.integrate(psit_G**2)
+                    norm = self.gd.integrate(psit_G ** 2)
 
                     gl, weight = self.expand(psit_G)
                     gsum = np.sum(gl)
                     gl = 100 * gl / gsum
 
-                    print >> f, '%2d %5d %5d' % (s, k, n),
-                    print >> f, '%10.4f %8.4f' % (kpt.eps_n[n] * Hartree,
-                                                  kpt.f_n[n]),
-                    print >> f, "%8.4f %8.4f %8.4f" % (norm, gsum, weight),
-                
+                    print('%2d %5d %5d' % (s, k, n), end=' ', file=f)
+                    print('%10.4f %8.4f' % (kpt.eps_n[n] * Hartree,
+                                            kpt.f_n[n]), end=' ', file=f)
+                    print("%8.4f %8.4f %8.4f" %
+                          (norm, gsum, weight), end=' ', file=f)
+
                     for g in gl:
-                        print >> f, "%8.2f" %g,
-                    print >> f
+                        print("%8.2f" % g, end=' ', file=f)
+                    print(file=f)
                     f.flush()
         f.close()

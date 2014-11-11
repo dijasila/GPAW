@@ -13,13 +13,25 @@ from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
 
+class FD:
+    name = 'fd'
+
+    def __init__(self):
+        pass  # Could hold parameters like FD stencils
+
+    def __call__(self, *args, **kwargs):
+        return FDWaveFunctions(*args, **kwargs)
+
+
 class FDWaveFunctions(FDPWWaveFunctions):
+    mode = 'fd'
+
     def __init__(self, stencil, diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd,
-                 dtype, world, kd, timer=None):
+                 dtype, world, kd, kptband_comm, timer=None):
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd,
-                                   dtype, world, kd, timer)
+                                   dtype, world, kd, kptband_comm, timer)
 
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
@@ -109,7 +121,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     self.taugrad_v[v](psit_G, dpsit_G, kpt.phase_cd)
                     axpy(0.5 * f, abs(dpsit_G)**2, taut_sG[kpt.s])
 
-        self.kpt_comm.sum(taut_sG)
+        self.kd.comm.sum(taut_sG)
         self.band_comm.sum(taut_sG)
         return taut_sG
         
@@ -197,7 +209,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 writer.fill(kpt.psit_nG, parallel=parallel, *indices)
         else:
             for s in range(self.nspins):
-                for k in range(self.nibzkpts):
+                for k in range(self.kd.nibzkpts):
                     for n in range(self.bd.nbands):
                         psit_G = self.get_wave_function_array(n, k, s)
                         writer.fill(psit_G, s, k, n)

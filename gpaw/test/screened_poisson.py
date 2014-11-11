@@ -1,3 +1,4 @@
+from __future__ import print_function
 from math import pi, sqrt
 import numpy as np
 from gpaw.utilities.tools import coordinates
@@ -41,8 +42,8 @@ niter = solver.solve(pot, ng, charge=None, zero_initial_phi=True)
 residual = gd.integrate((pot - vg)**2)**0.5
 
     # print result
-print 'residual %s'%(
-    residual)
+print('residual %s'%(
+    residual))
 assert residual < 0.003
 
 # mpirun -np 2 python gauss_func.py --gpaw-parallel --gpaw-debug

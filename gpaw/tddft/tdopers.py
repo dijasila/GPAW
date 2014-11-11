@@ -47,8 +47,8 @@ class TimeDependentHamiltonian:
         self.vt_sG = hamiltonian.gd.zeros(hamiltonian.nspins)
 
         # Increase the accuracy of Poisson solver
-        if self.hamiltonian.poisson.eps > 1e-12:
-            self.hamiltonian.poisson.eps = 1e-12
+        if self.hamiltonian.poisson.eps > 1e-12: 
+           self.hamiltonian.poisson.eps = 1e-12 
 
         # external potential
         #if hamiltonian.vext_g is None:
@@ -617,10 +617,10 @@ class TimeDependentOverlap(Overlap):
 
 class TimeDependentWaveFunctions(FDWaveFunctions):
     def __init__(self, stencil, diagksl, orthoksl, initksl, gd, nvalence, setups,
-                 bd, world, kd, timer=None):
+                 bd, world, kd, kptband_comm, timer=None):
         FDWaveFunctions.__init__(self, stencil, diagksl, orthoksl, initksl,
                                  gd, nvalence, setups, bd, complex, world,
-                                 kd, timer)
+                                 kd, kptband_comm, timer)
 
     def make_overlap(self):
         return TimeDependentOverlap(self.orthoksl, self.timer)
@@ -702,7 +702,7 @@ class TimeDependentWaveFunctions(FDWaveFunctions):
         self.bd.comm.sum(F_av, 0)
 
         if self.bd.comm.rank == 0:
-            self.kpt_comm.sum(F_av, 0)
+            self.kd.comm.sum(F_av, 0)
 
 
 # DummyDensity

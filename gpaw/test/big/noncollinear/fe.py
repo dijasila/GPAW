@@ -19,7 +19,7 @@ fe.set_initial_magnetic_moments()
 fe.set_initial_magnetic_moments([(2.3, 0, 0), (2.3, 0, 0)])
 fe.calc = GPAW(txt='fenc.txt', mode='lcao', basis='dz(dzp)', kpts=(k, k, k),
                convergence=dict(energy=1e-6),
-               symmetry='off',
+               symmetry={'point_group': False},
                xc=nc.NonCollinearFunctional(XC('LDA')),
                mixer=nc.NonCollinearMixer(),
                eigensolver=nc.NonCollinearLCAOEigensolver())

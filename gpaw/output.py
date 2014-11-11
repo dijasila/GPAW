@@ -18,68 +18,46 @@ from gpaw.utilities.memory import maxrss
 from gpaw import dry_run, extra_parameters
 
 
-def initialize_text_stream(txt, rank, old_txt=None):
-    """Set the stream for text output.
-
-    If `txt` is not a stream-object, then it must be one of:
-
-    * None:  Throw output away.
-    * '-':  Use standard-output (``sys.stdout``).
-    * A filename:  Open a new file.
-    """
-    firsttime = (old_txt is None)
-
-    if txt is None or rank != 0:
-        return devnull, firsttime
-    elif txt == '-':
-        return sys.stdout, firsttime
-    elif isinstance(txt, str):
-        if isinstance(old_txt, file) and old_txt.name == txt:
-            return old_txt, firsttime
+def get_txt(txt, rank):
+    if hasattr(txt, 'write'):
+        # Note: User-supplied object might write to files from many ranks.
+        return txt
+    elif rank == 0:
+        if txt is None:
+            return devnull
+        elif txt == '-':
+            return sys.stdout
         else:
-            if not firsttime:
-                # We want every file to start with the logo, so
-                # that the ase.io.read() function will recognize
-                # it as a GPAW text file.
-                firsttime = True
-            # Open the file line buffered.
-            return open(txt, 'w', 1), firsttime
+            return open(txt, 'w', 1)
     else:
-        assert hasattr(txt, 'write'), 'Not a stream object!'
-        return txt, firsttime
-
-    return old_txt, firsttime
+        return devnull
 
 
 class PAWTextOutput:
     """Class for handling all text output."""
 
     def __init__(self):
-        self.txt = None
+        self.txt = devnull
 
-    def set_text(self, txt, verbose=True):
+    def set_txt(self, txt):
         """Set the stream for text output.
 
         If `txt` is not a stream-object, then it must be one of:
 
         * None:  Throw output away.
-        * '-':  Use standard-output (``sys.stdout``).
-        * A filename:  Open a new file.
+        * '-':  Use stdout (``sys.stdout``) on master, elsewhere throw away.
+        * A filename:  Open a new file on master, elsewhere throw away.
         """
 
-        self.verbose = verbose
-
-        self.txt, firsttime = initialize_text_stream(txt, self.wfs.world.rank,
-                                                     self.txt)
-        if firsttime:
-            self.print_logo()
+        self.txt = get_txt(txt, self.wfs.world.rank)
+        self.print_header()
 
     def text(self, *args, **kwargs):
         self.txt.write(kwargs.get('sep', ' ').join([str(arg)
                                                     for arg in args]) +
                        kwargs.get('end', '\n'))
 
-    def print_logo(self):
+    def print_header(self):
         self.text()
         self.text('  ___ ___ ___ _ _ _  ')
         self.text(' |   |   |_  | | | | ')
@@ -183,33 +161,29 @@ class PAWTextOutput:
                 t()
         else:
             t('Spin-Paired Calculation')
-        t('Total Charge:      %.6f' % p['charge'])
+        t('Total Charge: %.6f' % p['charge'])
         t('Fermi Temperature: %.6f' % (self.occupations.width * Hartree))
         self.wfs.summary(self.txt)
-        if p.mode == 'lcao':
-            eigensolver = 'lcao (direct)'
-        else:
-            eigensolver = self.wfs.eigensolver
-        t('Eigensolver:       %s' % eigensolver)
+        t('Eigensolver: %s' % self.wfs.eigensolver)
 
         self.hamiltonian.summary(self.txt)
 
-        t('Reference Energy:  %.6f' % (self.wfs.setups.Eref * Hartree))
+        t('Reference Energy: %.6f' % (self.wfs.setups.Eref * Hartree))
         t()
 
-        nibzkpts = self.wfs.nibzkpts
+        nibzkpts = self.wfs.kd.nibzkpts
 
         # Print parallelization details
         t('Total number of cores used: %d' % self.wfs.world.size)
-        if self.wfs.kpt_comm.size > 1:  # kpt/spin parallization
+        if self.wfs.kd.comm.size > 1:  # kpt/spin parallization
             if self.wfs.nspins == 2 and nibzkpts == 1:
                 t('Parallelization over spin')
             elif self.wfs.nspins == 2:
                 t('Parallelization over k-points and spin: %d' %
-                  self.wfs.kpt_comm.size)
+                  self.wfs.kd.comm.size)
             else:
                 t('Parallelization over k-points: %d' %
-                  self.wfs.kpt_comm.size)
+                  self.wfs.kd.comm.size)
         if self.wfs.gd.comm.size > 1:  # domain parallelization
             t('Domain Decomposition: %d x %d x %d' %
               tuple(self.wfs.gd.parsize_c))
@@ -217,10 +191,9 @@ class PAWTextOutput:
             t('Parallelization over states: %d'
               % self.wfs.bd.comm.size)
 
-        if p['mode'] == 'lcao':
-            general_diagonalizer_layout = self.wfs.ksl.get_description()
-            t('Diagonalizer layout: ' + general_diagonalizer_layout)
-        elif p['mode'] == 'fd':
+        if self.wfs.mode == 'fd':
+            # XXX Why is this not in wfs summary? -askhl
+            # Also, why wouldn't PW mode use the diagonalizer?
             if self.wfs.diagksl.buffer_size is not None:
                 t('MatrixOperator buffer_size (KiB): %d'
                   % self.wfs.diagksl.buffer_size)
@@ -233,7 +206,7 @@ class PAWTextOutput:
             t('Orthonormalizer layout: ' + orthonormalizer_layout)
         t()
 
-        self.wfs.symmetry.print_symmetries(self.txt)
+        self.wfs.kd.symmetry.print_symmetries(self.txt)
 
         t(self.wfs.kd.description)
         t(('%d k-point%s in the Irreducible Part of the Brillouin Zone') %
@@ -245,19 +218,21 @@ class PAWTextOutput:
         w_k = w_k.round()
         
         t()
-        t('          k-points in crystal coordinates              weights')
+        t('          k-points in crystal coordinates                weights')
         for k in range(nibzkpts):
             if k < 10 or k == nibzkpts - 1:
                 t('%4d:   %12.8f  %12.8f  %12.8f     %6d/%d' %
                   ((k,) + tuple(kd.ibzk_kc[k]) + (w_k[k], kd.nbzkpts)))
+            elif k == 10:
+                t('          ...')
         t()
 
         if self.scf.fixdensity > self.scf.maxiter:
             t('Fixing the initial density')
         else:
             mixer = self.density.mixer
-            t('Mixer Type:                        %s' % mixer.__class__.__name__)
-            t('Linear Mixing Parameter:           %g' % mixer.beta)
+            t('Mixer Type:', mixer.__class__.__name__)
+            t('Linear Mixing Parameter: %g' % mixer.beta)
             t('Mixing with %d Old Densities' % mixer.nmaxold)
             if mixer.weight == 1:
                 t('No Damping of Long Wave Oscillations')
@@ -267,26 +242,26 @@ class PAWTextOutput:
         cc = p['convergence']
         t()
         t('Convergence Criteria:')
-        t('Total Energy Change:           %g eV / electron' %
+        t('    Total Energy Change: %g eV / electron' %
           (cc['energy']))
-        t('Integral of Absolute Density Change:    %g electrons' %
+        t('    Integral of Absolute Density Change: %g electrons' %
           cc['density'])
-        t('Integral of Absolute Eigenstate Change: %g eV^2' %
+        t('    Integral of Absolute Eigenstate Change: %g eV^2' %
           cc['eigenstates'])
         t('Number of Atoms: %d' % len(self.wfs.setups))
         t('Number of Atomic Orbitals: %d' % self.wfs.setups.nao)
         if self.nbands_parallelization_adjustment != 0:
             t('Adjusting Number of Bands by %+d to Match Parallelization'
               % self.nbands_parallelization_adjustment)
-        t('Number of Bands in Calculation:         %i' % self.wfs.bd.nbands)
-        t('Bands to Converge:                      ', end='')
+        t('Number of Bands in Calculation: %d' % self.wfs.bd.nbands)
+        t('Bands to Converge: ', end='')
         if cc['bands'] == 'occupied':
             t('Occupied States Only')
         elif cc['bands'] == 'all':
             t('All')
         else:
             t('%d Lowest Bands' % cc['bands'])
-        t('Number of Valence Electrons:            %g'
+        t('Number of Valence Electrons: %g'
           % (self.wfs.setups.nvalence - p.charge))
 
     def print_converged(self, iter):
@@ -307,12 +282,12 @@ class PAWTextOutput:
 
         t('-------------------------')
 
-        energies = [('Kinetic:      ',  self.hamiltonian.Ekin),
-                    ('Potential:    ',  self.hamiltonian.Epot),
-                    ('External:     ',  self.hamiltonian.Eext),
-                    ('XC:           ',  self.hamiltonian.Exc),
+        energies = [('Kinetic:      ', self.hamiltonian.Ekin),
+                    ('Potential:    ', self.hamiltonian.Epot),
+                    ('External:     ', self.hamiltonian.Eext),
+                    ('XC:           ', self.hamiltonian.Exc),
                     ('Entropy (-ST):', -self.hamiltonian.S),
-                    ('Local:        ',  self.hamiltonian.Ebar)]
+                    ('Local:        ', self.hamiltonian.Ebar)]
 
         for name, e in energies:
             t('%-14s %+11.6f' % (name, Hartree * e))
@@ -401,6 +376,11 @@ class PAWTextOutput:
            Time      WFS    Density  Energy       Fermi  Poisson"""
                 if self.wfs.nspins == 2:
                     header += '  MagMom'
+                if self.scf.max_force_error is not None:
+                    l1 = header.find('Total')
+                    header = header[:l1] + '       ' + header[l1:]
+                    l2 = header.find('Energy')
+                    header = header[:l2] + 'Force  ' + header[l2:]
                 t(header)
 
             T = time.localtime()
@@ -427,19 +407,28 @@ class PAWTextOutput:
             else:
                 niterpoisson = str(self.hamiltonian.npoisson)
 
-            t('iter: %3d  %02d:%02d:%02d %6s %6s    %11.6f  %-5s  %-7s' %
+            t('iter: %3d  %02d:%02d:%02d %6s %6s  ' %
               (iter,
                T[3], T[4], T[5],
                eigerr,
-               denserr,
-               Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S),
+               denserr), end='')
+
+            if self.scf.max_force_error is not None:
+                if self.scf.force_error is not None:
+                    t('  %+.2f' %
+                      (log(self.scf.force_error) / log(10)), end='')
+                else:
+                    t('       ', end='')
+
+            t('%11.6f    %-5s  %-7s' %
+              (Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S),
                niterocc,
                niterpoisson), end='')
 
             if self.wfs.nspins == 2:
-                t('  %+.4f' % self.occupations.magmom)
-            else:
-                t()
+                t('  %+.4f' % self.occupations.magmom, end='')
+
+            t()
 
         self.txt.flush()
 
@@ -464,16 +453,13 @@ class PAWTextOutput:
 
     def __del__(self):
         """Destructor:  Write timing output before closing."""
-        if not hasattr(self, 'txt') or self.txt is None:
-            return
-
         if not dry_run:
             mr = maxrss()
             if mr > 0:
                 if mr < 1024.0**3:
-                    self.text('Memory usage: %.2f MB' % (mr / 1024.0**2))
+                    self.text('Memory usage: %.2f MiB' % (mr / 1024.0**2))
                 else:
-                    self.text('Memory usage: %.2f GB' % (mr / 1024.0**3))
+                    self.text('Memory usage: %.2f GiB' % (mr / 1024.0**3))
 
             self.timer.write(self.txt)
 
@@ -488,7 +474,7 @@ def eigenvalue_string(paw, comment=None):
     if not comment:
         comment = ' '
 
-    if len(paw.wfs.ibzk_kc) > 1:
+    if len(paw.wfs.kd.ibzk_kc) > 1:
         # not implemented yet:
         return ''
 

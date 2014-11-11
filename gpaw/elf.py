@@ -118,8 +118,8 @@ class ELF:
             self.tauct.add(taut_G, 1.0 / self.paw.wfs.nspins)
 
         # For periodic boundary conditions
-        if self.paw.wfs.symmetry is not None:
-            self.paw.wfs.symmetry.symmetrize(self.taut_sG[0], self.paw.wfs.gd)
+        if self.paw.wfs.kd.symmetry is not None:
+            self.paw.wfs.kd.symmetry.symmetrize(self.taut_sG[0], self.paw.wfs.gd)
 
         self.nt_grad2_sG[:] = 0.0
 

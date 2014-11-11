@@ -32,9 +32,9 @@ for name in ['K', 'Ca', 'Ti']:
         t1 = time()
         atoms.get_potential_energy()
         t2 = time()
-        
+
         # Write to database:
         c.write(atoms, name=name, x=x, time=t2 - t1,
                 ecut=ecut, kptdensity=kptdensity, width=width)
-        
+
         del c[id]

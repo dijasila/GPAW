@@ -13,13 +13,14 @@ from numpy import sqrt, pi
 
 
 class TDDFTPES(BasePES):
+
     def __init__(self, mother, excited_daughter, daughter=None,
                  shift=True, tolerance={}):
         self.tolerance = {
             'occupation': 1.e-10,
             'magnetic': 1.e-10,
             'grid': 0,
-            }
+        }
         for key in tolerance.keys():
             if not key in self.tolerance:
                 raise RuntimeError("Tolerance key '%s' not known."
@@ -34,14 +35,14 @@ class TDDFTPES(BasePES):
         self.c_m = mother
         self.gd = self.c_m.wfs.gd
         self.lr_d = excited_daughter
-        
+
         self.c_m.converge_wave_functions()
         self.c_d.converge_wave_functions()
         self.lr_d.diagonalize()
-        
+
         self.check_systems()
         self.lr_d.jend = self.lr_d.kss[-1].j
-        
+
         # Make good way for initialising these
 
         kmax = 0
@@ -79,13 +80,13 @@ class TDDFTPES(BasePES):
                                (len(self.gs_m), len(self.gs_d)))
 
     def _calculate(self):
- 
+
         self.ks_overlaps()
         self.single_overlaps()
         self.full_overlap_matrix()
 
         self._create_f()
- 
+
     def ks_overlaps(self):
         """Evaluate KS overlaps of mother and daughter."""
         bands_m = self.c_m.get_number_of_bands()
@@ -101,10 +102,10 @@ class TDDFTPES(BasePES):
 
                 for j_d in range(bands_d):
                     k_d = spin_d * s_m
-                        
+
                     wf_d = self.c_d.wfs.kpt_u[k_d].psit_nG[j_d]
                     me = self.gd.integrate(wf_m * wf_d)
-                    
+
                     i = s_m * bands_m + i_m
                     j = s_m * bands_d + j_d
                     self.overlap[i, j] = me + self._nuc_corr(i_m, j_d,
@@ -153,8 +154,8 @@ class TDDFTPES(BasePES):
                 for row in range(len(keep_row)):
                     d_i00[row, col] = self.overlap[keep_row[row],
                                                    keep_col[col]]
-                    
-            g0[i] = (-1)**(self.imax + i) * np.linalg.det(d_i00)
+
+            g0[i] = (-1) ** (self.imax + i) * np.linalg.det(d_i00)
         return g0
 
     def full_overlap_matrix(self):
@@ -169,7 +170,7 @@ class TDDFTPES(BasePES):
                 gi = 0
                 for kl in range(len(self.lr_d)):
                     gi += self.lr_d[I].f[kl] * self.singles[i, kl]
-                self.g_Ii[1 + I, i] = (-1.)**(self.imax + i) * gi
+                self.g_Ii[1 + I, i] = (-1.) ** (self.imax + i) * gi
 
     def _create_f(self):
         self.f = (self.g_Ii * self.g_Ii).sum(axis=1)
@@ -179,19 +180,19 @@ class TDDFTPES(BasePES):
                      self.c_m.get_potential_energy())
         else:
             shift = float(self.shift)
-            
+
         self.be = (np.array([0] + list(self.lr_d.get_energies() * Hartree)) +
                    shift)
 
     def _nuc_corr(self, i_m, j_d, k_m, k_d):
         ma = 0
-        
+
         for a, P_ni_m in self.c_m.wfs.kpt_u[k_m].P_ani.items():
             P_ni_d = self.c_d.wfs.kpt_u[k_d].P_ani[a]
             Pi_i = P_ni_m[i_m]
             Pj_i = P_ni_d[j_d]
             Delta_pL = self.c_m.wfs.setups[a].Delta_pL
-            
+
             for i in range(len(Pi_i)):
                 for j in range(len(Pj_i)):
                     pij = Pi_i[i] * Pj_i[j]
@@ -200,7 +201,7 @@ class TDDFTPES(BasePES):
 
         self.gd.comm.sum(ma)
         return sqrt(4 * pi) * ma
-        
+
     def check_systems(self):
         """Check that mother and daughter systems correspond to each other.
 
@@ -238,7 +239,7 @@ class TDDFTPES(BasePES):
                 i -= nbands * int(i >= nbands)
                 morbitals_ig.append(self.c_m.wfs.kpt_u[k].psit_nG[i])
             self.morbitals_ig = np.array(morbitals_ig)
-               
+
         dyson = State(self.gd)
         gridnn = self.gd.zeros()
         for i, g in enumerate(self.g_Ii[I]):

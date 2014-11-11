@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW
@@ -16,5 +17,5 @@ for a in A:
     e.append(bulk.get_potential_energy())
 
 a = np.roots(np.polyder(np.polyfit(A, e, 2), 1))[0]
-print 'a =', a
+print('a =', a)
 equal(a, 2.65247379609, 0.001)

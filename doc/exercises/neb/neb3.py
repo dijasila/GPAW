@@ -1,4 +1,5 @@
 """Diffusion by an exchange process"""
+from __future__ import print_function
 
 from math import sqrt
 
@@ -40,7 +41,7 @@ images.append(final)
 # two bottom layers):
 mask = initial.positions[:, 2] - min(initial.positions[:, 2]) < 1.5 * h
 constraint = FixAtoms(mask=mask)
-print mask
+print(mask)
 
 for image in images:
     # Let all images use an EMT calculator:
@@ -60,9 +61,10 @@ neb.interpolate()
 
 # Relax the NEB path:
 minimizer = MDMin(neb)
-#minimizer = QuasiNewton(neb)
+# minimizer = QuasiNewton(neb)
 minimizer.run(fmax=0.05)
 
 # Write the path to a trajectory:
-view(images) # 235 meV
+view(images)
+# 235 meV
 write('jump3.traj', images)

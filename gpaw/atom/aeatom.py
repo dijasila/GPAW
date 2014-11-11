@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import print_function
 import sys
 from math import pi
 
 import numpy as np
 from numpy.linalg import eigh
 from scipy.special import gamma
-from scipy.linalg import solve_banded
+# from scipy.linalg import solve_banded
 import ase.units as units
-from ase.utils import devnull, prnt
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
 
 from gpaw.xc import XC
@@ -102,9 +101,9 @@ class GaussianBasis:
 def coefs(rgd, l, vr_g, e, scalar_relativistic):
     r_g = rgd.r_g
 
-    x0_g = 2 * (e * r_g - vr_g)
-    x1_g = 2 * (l + 1) / rgd.dr_g + r_g * rgd.d2gdr2()
-    x2_g = r_g / rgd.dr_g**2
+    x0_g = 2 * (e * r_g - vr_g) * r_g - 2 * l
+    x1_g = 2 * l * r_g / rgd.dr_g + r_g**2 * rgd.d2gdr2()
+    x2_g = r_g**2 / rgd.dr_g**2
 
     if scalar_relativistic:
         r_g = r_g.copy()
@@ -112,9 +111,10 @@ def coefs(rgd, l, vr_g, e, scalar_relativistic):
         v_g = vr_g / r_g
         M_g = 1 + (e - v_g) / (2 * c**2)
         kappa_g = (rgd.derivative(vr_g) - v_g) / r_g / (2 * c**2 * M_g)
+        x0_g += 2 * l
         x0_g *= M_g
-        x0_g += l * kappa_g
-        x1_g += r_g * kappa_g / rgd.dr_g
+        x0_g += (l - 1) * kappa_g * r_g - 2 * l
+        x1_g += r_g**2 * kappa_g / rgd.dr_g
 
     cm1_g = x2_g - x1_g / 2
     c0_g = x0_g - 2 * x2_g
@@ -161,15 +161,17 @@ class Channel:
             iter = 0
             ok = False
             while True:
-                du1dr = self.integrate_outwards(u_g, rgd, vr_g, g0, e,
-                                                scalar_relativistic)
+                du1dr, a = self.integrate_outwards(u_g, rgd, vr_g, g0, e,
+                                                   scalar_relativistic)
                 u1 = u_g[g0]
                 du2dr = self.integrate_inwards(u_g, rgd, vr_g, g0, e,
                                                scalar_relativistic)
                 u2 = u_g[g0]
                 A = du1dr / u1 - du2dr / u2
                 u_g[g0:] *= u1 / u2
-                u_g /= (rgd.integrate(u_g**2, -2) / (4 * pi))**0.5
+                norm = rgd.integrate(u_g**2, -2) / (4 * pi)
+                u_g /= norm**0.5
+                a /= norm**0.5
 
                 if abs(A) < 1e-5:
                     ok = True
@@ -185,8 +187,7 @@ class Channel:
             if ok:
                 self.e_n[n] = e
                 self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
-                if self.l == 0:
-                    self.phi_ng[n, 0] = self.phi_ng[n, 1]
+                self.phi_ng[n, 0] = a * 0.0**self.l
             
     def calculate_density(self, n=None):
         """Calculate density."""
@@ -197,6 +198,16 @@ class Channel:
         else:
             n_g = self.phi_ng[n]**2 / (4 * pi)
         return n_g
+
+    def calculate_kinetic_energy_density(self, n):
+        """Calculate kinetic energy density."""
+        phi_g = self.phi_ng[n]
+        rgd = self.basis.rgd
+        tau_g = rgd.derivative(phi_g)**2 / (8 * pi)
+        if self.l > 0:
+            tau_g[1:] += (self.l * (self.l + 1) *
+                          (phi_g[1:] / rgd.r_g[1:])**2 / (8 * pi))
+        return tau_g
 
     def get_eigenvalue_sum(self):
         f_n = self.f_n
@@ -209,36 +220,44 @@ class Channel:
 
         cm1_g, c0_g, cp1_g = coefs(rgd, l, vr_g, e, scalar_relativistic)
 
-        c_xg = np.zeros((3, g0 + 2))
-        c_xg[0, :2] = 1.0
-        c_xg[0, 2:] = cp1_g[1:g0 + 1]
-        c_xg[1, 1:-1] = c0_g[1:g0 + 1]
-        c_xg[2, :-2] = cm1_g[1:g0 + 1]
+        # c_xg = np.zeros((3, g0 + 2))
+        # c_xg[0, :2] = 1.0
+        # c_xg[0, 2:] = cp1_g[1:g0 + 1]
+        # c_xg[1, 1:-1] = c0_g[1:g0 + 1]
+        # c_xg[2, :-2] = cm1_g[1:g0 + 1]
 
-        b_g = np.zeros(g0 + 2)
+        # b_g = np.zeros(g0 + 2)
         if pt_g is not None:
-            b_g[2:] = -2 * pt_g[1:g0 + 1] * r_g[1:g0 + 1]**(1 - l)
-            a0 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
-        else:
-            a0 = 1
+            2 / 0  # Need to fix this:
+            # b_g[2:] = -2 * pt_g[1:g0 + 1] * r_g[1:g0 + 1]**(1 - l)
+            # a0 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
 
-        a1 = a0 + vr_g[0] * rgd.dr_g[0]
-        b_g[:2] = [a0, a1]
-
-        a_g = solve_banded((2, 0), c_xg, b_g,
-                           overwrite_ab=True, overwrite_b=True)
+        # b_g[:2] = [a0, a1]
+        # a_g = solve_banded((2, 0), c_xg, b_g,
+        #                    overwrite_ab=True, overwrite_b=True)
+        
+        g = 1
+        agm1 = 0.0
+        u_g[0] = 0.0
+        ag = r_g[1]
+        while True:
+            u_g[g] = ag * r_g[g]**l
+            agp1 = -(agm1 * cm1_g[g] + ag * c0_g[g]) / cp1_g[g]
+            if g == g0:
+                break
+            g += 1
+            agm1 = ag
+            ag = agp1
 
         r = r_g[g0]
         dr = rgd.dr_g[g0]
-        da = 0.5 * (a_g[g0 + 1] - a_g[g0 - 1])
-        dudr = (l + 1) * r**l * a_g[g0] + r**(l + 1) * da / dr
+        da = 0.5 * (agp1 - agm1)
+        dudr = l * r**(l - 1) * ag + r**l * da / dr
 
-        u_g[:g0 + 2] = a_g * r_g[:g0 + 2]**(l + 1)
-
-        return dudr
+        return dudr, 1.0
 
     def integrate_inwards(self, u_g, rgd, vr_g, g0, e,
-                          scalar_relativistic=False):
+                          scalar_relativistic=False, gmax=None):
         l = self.l
         r_g = rgd.r_g
 
@@ -248,13 +267,17 @@ class Channel:
         c0_g /= -cm1_g
         cp1_g /= -cm1_g
 
-        g = len(u_g) - 2
+        if gmax is None:
+            gmax = len(u_g)
+
+        g = gmax - 2
         agp1 = 1.0
-        u_g[-1] = agp1 * r_g[-1]**(l + 1)
-        ag = np.exp(-(-2 * e)**0.5 * (rgd.r_g[-2] - rgd.r_g[-1]))
+        u_g[gmax - 1] = agp1 * r_g[gmax - 1]**l
+        ag = (np.exp(-(-2 * e)**0.5 * (r_g[gmax - 2] - r_g[gmax - 1])) *
+              r_g[gmax - 2] / r_g[gmax - 1])
 
         while True:
-            u_g[g] = ag * r_g[g]**(l + 1)
+            u_g[g] = ag * r_g[g]**l
             if ag > 1e50:
                 u_g[g:] /= 1e50
                 ag = ag / 1e50
@@ -269,7 +292,7 @@ class Channel:
         r = r_g[g]
         dr = rgd.dr_g[g]
         da = 0.5 * (agp1 - agm1)
-        dudr = (l + 1) * r**l * ag + r**(l + 1) * da / dr
+        dudr = l * r**(l - 1) * ag + r**l * da / dr
 
         return dudr
 
@@ -315,7 +338,7 @@ class DiracChannel(Channel):
         
 class AllElectronAtom:
     def __init__(self, symbol, xc='LDA', spinpol=False, dirac=False,
-                 log=sys.stdout):
+                 log=None):
         """All-electron calculation for spherically symmetric atom.
 
         symbol: str (or int)
@@ -345,9 +368,7 @@ class AllElectronAtom:
         else:
             self.xc = xc
 
-        if log is None:
-            log = devnull
-        self.fd = log
+        self.fd = log or sys.stdout
 
         self.vr_sg = None  # potential * r
         self.n_sg = 0.0    # density
@@ -372,7 +393,7 @@ class AllElectronAtom:
         self.method = 'Gaussian basis-set'
 
     def log(self, *args, **kwargs):
-        prnt(file=self.fd, *args, **kwargs)
+        print(file=self.fd, *args, **kwargs)
 
     def initialize_configuration(self):
         self.f_lsn = {}
@@ -387,6 +408,12 @@ class AllElectronAtom:
                 f0 = min(f, 2 * l + 1)
                 self.f_lsn[l][0].append(f0)
                 self.f_lsn[l][1].append(f - f0)
+                
+        if 0:
+            n = 2 + len(self.f_lsn[2][0])
+            if self.f_lsn[0][0][n] == 2:
+                self.f_lsn[0][0][n] = 1
+                self.f_lsn[2][0][n - 3] += 1
 
     def add(self, n, l, df=+1, s=None):
         """Add (remove) electrons."""
@@ -637,7 +664,7 @@ class AllElectronAtom:
         logderivs = []
         for e in energies:
             dudr = ch.integrate_outwards(u_g, self.rgd, self.vr_sg[0],
-                                         gcut, e, self.scalar_relativistic)
+                                         gcut, e, self.scalar_relativistic)[0]
             logderivs.append(dudr / u_g[gcut])
         return logderivs
             
@@ -683,8 +710,7 @@ class AllElectronAtom:
 def build_parser():
     from optparse import OptionParser
 
-    parser = OptionParser(usage='%prog [options] element',
-                          version='%prog 0.1')
+    parser = OptionParser(usage='gwap atom [options] element')
     parser.add_option('-f', '--xc-functional', type='string', default='LDA',
                       help='Exchange-Correlation functional ' +
                       '(default value LDA)',
@@ -723,9 +749,9 @@ def parse_ld_str(s, energies=None, r=2.0):
     return lvalues, energies, r
 
 
-def main():
+def main(args=None):
     parser = build_parser()
-    opt, args = parser.parse_args()
+    opt, args = parser.parse_args(args)
 
     if len(args) != 1:
         parser.error('Incorrect number of arguments')

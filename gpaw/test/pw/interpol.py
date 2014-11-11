@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from gpaw.test import equal
 from gpaw.grid_descriptor import GridDescriptor
@@ -29,7 +30,7 @@ if world.size == 1:
         [(2, 4, 4), (4, 8, 8)],
         [(2, 4, 2), (4, 8, 4)]
         ]:
-        print size1, size2
+        print(size1, size2)
         gd1 = GridDescriptor(size1, size1)
         gd2 = GridDescriptor(size2, size1)
         pd1 = PWDescriptor(1, gd1, complex)

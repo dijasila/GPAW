@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw import GPAW, restart
 from ase.structure import molecule
 from gpaw.test import equal
@@ -24,8 +25,8 @@ mol.set_calculator(calc)
 
 Eini = mol.get_potential_energy()
 Iini = calc.get_number_of_iterations()
-print ('%10s: %12.6f eV in %3d iterations' %
-       ('init(cg)', Eini, Iini))
+print(('%10s: %12.6f eV in %3d iterations' %
+       ('init(cg)', Eini, Iini)))
 equal(Eini, Eini0, 1E-8)
 
 calc.write('N2.gpw', mode='all')
@@ -48,10 +49,10 @@ for esolver in esolvers:
     E[esolver]=mol.get_potential_energy()
     I[esolver]=calc.get_number_of_iterations()
     
-    print ('%10s: %12.6f eV in %3d iterations' %
-           (esolver, E[esolver], I[esolver]))
+    print(('%10s: %12.6f eV in %3d iterations' %
+           (esolver, E[esolver], I[esolver])))
 
 for esolver in esolvers:
-    print esolver
+    print(esolver)
     equal(E[esolver], E0[esolver], 8E-5)
     

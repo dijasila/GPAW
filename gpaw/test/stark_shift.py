@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from math import sqrt, pi
 
@@ -150,9 +151,9 @@ if test1:
     alpha *= 2
 
     if rank == 0 and debug:
-        print 'From perturbation theory:'
-        print '  alpha = ', alpha, ' A**2/eV'
-        print '  alpha = ', alpha*to_au, ' Bohr**3'
+        print('From perturbation theory:')
+        print('  alpha = ', alpha, ' A**2/eV')
+        print('  alpha = ', alpha*to_au, ' Bohr**3')
 
     alpha1 = alpha
 
@@ -181,7 +182,7 @@ if test2:
     fields  = np.linspace(-maxfield, maxfield, nfs)
     for field in fields:
         if rank == 0 and debug:
-            print field
+            print(field)
         c.set(
             external  = ConstantElectricField(field * Bohr/Hartree),
             )
@@ -198,13 +199,13 @@ if test2:
     pol2, dummy1, dummy2 = np.polyfit(fields, e1s, 2)
 
     if rank == 0 and debug:
-        print 'From shift in 1s-state at constant electric field:'
-        print '  alpha = ', -pol2, ' A**2/eV'
-        print '  alpha = ', -pol2*to_au, ' Bohr**3'
+        print('From shift in 1s-state at constant electric field:')
+        print('  alpha = ', -pol2, ' A**2/eV')
+        print('  alpha = ', -pol2*to_au, ' Bohr**3')
 
-        print 'From dipole moment at constant electric field:'
-        print '  alpha = ', pol1, ' A**2/eV'
-        print '  alpha = ', pol1*to_au, ' Bohr**3'
+        print('From dipole moment at constant electric field:')
+        print('  alpha = ', pol1, ' A**2/eV')
+        print('  alpha = ', pol1*to_au, ' Bohr**3')
 
         np.savetxt('ecf.out', np.transpose( [ fields, e, e1s, d ] ))
 
@@ -241,16 +242,16 @@ if test3:
         d      += [ dip[2] ]
         field   = ex.get_taylor(position=a[0].position)[1][1]
         if rank == 0 and debug:
-            print field*to_eVA, 2*charge/((pcd/2)**2)*Hartree*Bohr
+            print(field*to_eVA, 2*charge/((pcd/2)**2)*Hartree*Bohr)
         fields += [ field*to_eVA ]
 
     pol1, dummy = np.polyfit(fields, d, 1)
     pol2, dummy1, dummy2 = np.polyfit(fields, e1s, 2)
 
     if rank == 0 and debug:
-        print 'From shift in 1s-state between two point charges:'
-        print '  alpha = ', -pol2, ' A**2/eV'
-        print '  alpha = ', -pol2*to_au, ' Bohr**3'
+        print('From shift in 1s-state between two point charges:')
+        print('  alpha = ', -pol2, ' A**2/eV')
+        print('  alpha = ', -pol2*to_au, ' Bohr**3')
 
         #print 'From dipole moment between two point charges:'
         #print '  alpha = ', pol1, ' A**2/eV'

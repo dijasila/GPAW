@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.dft.kpoints import monkhorst_pack
 from ase.lattice import bulk
 from gpaw import GPAW, FermiDirac
@@ -35,6 +36,6 @@ for mode in ('pw', 'fd'):
         exx = HybridXC('EXX', acdf=True)
         E_hf2 = E2 + calc.get_xc_difference(exx)
 
-print(E1, E2, E_hf1, E_hf2)
+print((E1, E2, E_hf1, E_hf2))
 assert abs(E1 - E2) < 0.05
 assert abs(E_hf1 - E_hf2) < 0.05

@@ -77,6 +77,7 @@ class KPointDescriptor:
         ``comm``              MPI-communicator for kpoint distribution.
         ``weight_k``          Weights of each k-point
         ``ibzk_kc``           Unknown
+        ``ibzk_qc``           Unknown
         ``sym_k``             Unknown
         ``time_reversal_k``   Unknown
         ``bz2ibz_k``          Unknown
@@ -108,8 +109,8 @@ class KPointDescriptor:
         self.nbzkpts = len(self.bzk_kc)
 
         # Gamma-point calculation?
-        self.gamma = (self.nbzkpts == 1 and np.allclose(self.bzk_kc[0], 0.0))
-
+        self.gamma = self.nbzkpts == 1 and np.allclose(self.bzk_kc, 0)
+            
         # Point group and time-reversal symmetry neglected:
         self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
         self.ibzk_kc = self.bzk_kc.copy()
@@ -163,12 +164,13 @@ class KPointDescriptor:
         # Find symmetry operations of atoms:
         symmetry.analyze(atoms.get_scaled_positions())
 
-        (self.ibzk_kc, self.weight_k,
-         self.sym_k,
-         self.time_reversal_k,
-         self.bz2ibz_k,
-         self.ibz2bz_k,
-         self.bz2bz_ks) = symmetry.reduce(self.bzk_kc, comm)
+        if symmetry.time_reversal or symmetry.point_group:
+            (self.ibzk_kc, self.weight_k,
+             self.sym_k,
+             self.time_reversal_k,
+             self.bz2ibz_k,
+             self.ibz2bz_k,
+             self.bz2bz_ks) = symmetry.reduce(self.bzk_kc, comm)
 
         # Number of irreducible k-points and k-point/spin combinations.
         self.nibzkpts = len(self.ibzk_kc)
@@ -337,7 +339,6 @@ class KPointDescriptor:
                                           kbz_c)
         return index_G, phase_G
 
-    #def find_k_plus_q(self, q_c, k_x=None):
     def find_k_plus_q(self, q_c, kpts_k=None):
         """Find the indices of k+q for all kpoints in the Brillouin zone.
 

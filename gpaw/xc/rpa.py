@@ -1,7 +1,9 @@
-from __future__ import print_function
+from __future__ import print_function, division
 
+import functools
 import os
 import sys
+from math import pi
 from time import ctime
 
 import numpy as np
@@ -9,19 +11,43 @@ from ase.units import Hartree
 from ase.utils import devnull
 from scipy.special.orthogonal import p_roots
 
-from gpaw import GPAW
 import gpaw.mpi as mpi
-from gpaw.response.chi0 import Chi0
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.response.chi0 import Chi0
+from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.utilities.timing import timer, Timer
+from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 
 
+def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
+    """Calculate RPA energy.
+    
+    filename: str
+        Name of restart-file.
+    ecut: float
+        Plane-wave cutoff.
+    blocks: int
+        Split polarizability matrix in this many blocks.
+    extrapolate: int
+        Number of cutoff energies to use for extrapolation.
+    """
+    name, ext = filename.rsplit('.', 1)
+    assert ext == 'gpw'
+    from gpaw.xc.rpa import RPACorrelation
+    rpa = RPACorrelation(name, name + '-rpa.dat',
+                         nblocks=blocks,
+                         wstc=True,
+                         txt=name + '-rpa.txt')
+    rpa.calculate(ecut=ecut * 0.8**np.arange(extrapolate))
+
+    
 class RPACorrelation:
     def __init__(self, calc, xc='RPA', filename=None,
                  skip_gamma=False, qsym=True, nlambda=None,
                  nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
                  frequencies=None, weights=None,
-                 wcomm=None, chicomm=None, world=mpi.world,
+                 world=mpi.world, nblocks=1, wstc=False,
                  txt=sys.stdout):
 
         if isinstance(calc, str):
@@ -34,6 +60,8 @@ class RPACorrelation:
             txt = open(txt, 'w')
         self.fd = txt
 
+        self.timer = Timer()
+        
         if frequencies is None:
             frequencies, weights = get_gauss_legendre_points(nfrequencies,
                                                              frequency_max,
@@ -46,29 +74,12 @@ class RPACorrelation:
         self.omega_w = frequencies / Hartree
         self.weight_w = weights / Hartree
 
-        if wcomm is None:
-            wcomm = 1
+        if nblocks > 1:
+            assert len(self.omega_w) % nblocks == 0
+            assert wstc
 
-        if isinstance(wcomm, int):
-            if wcomm == 1:
-                wcomm = mpi.serial_comm
-                chicomm = world
-            else:
-                r = world.rank
-                s = world.size
-                assert s % wcomm == 0
-                n = s // wcomm  # size of skncomm
-                wcomm = world.new_communicator(range(r % n, s, n))
-                chicomm = world.new_communicator(range(r // n * n,
-                                                       (r // n + 1) * n))
-
-        assert len(self.omega_w) % wcomm.size == 0
-        self.mynw = len(self.omega_w) // wcomm.size
-        self.w1 = wcomm.rank * self.mynw
-        self.w2 = self.w1 + self.mynw
-        self.myomega_w = self.omega_w[self.w1:self.w2]
-        self.wcomm = wcomm
-        self.chicomm = chicomm
+        self.wstc = wstc
+        self.nblocks = nblocks
         self.world = world
 
         self.skip_gamma = skip_gamma
@@ -109,7 +120,7 @@ class RPACorrelation:
                 n += 1
 
                 if (abs(q_c - (q1, q2, q3)).max() > 1e-4 or
-                               abs(int(ecut * Hartree) - ec) > 0):
+                    abs(int(ecut * Hartree) - ec) > 0):
                     self.energy_qi = []
                     return
 
@@ -128,16 +139,19 @@ class RPACorrelation:
                           (tuple(q_c) + (ecut * Hartree, energy * Hartree)),
                           file=fd)
 
-    def calculate(self, ecut, nbands=None, spin=0):
+    def calculate(self, ecut, nbands=None, spin=False):
         """Calculate RPA correlation energy for one or several cutoffs.
 
         ecut: float or list of floats
             Plane-wave cutoff(s).
         nbands: int
             Number of bands (defaults to number of plane-waves).
-        spin: separate spin in response funtion.
-            (Only needed for beyond RPA methods that inherit this function)
+        spin: bool
+            Separate spin in response funtion.
+            (Only needed for beyond RPA methods that inherit this function).
         """
+
+        p = functools.partial(print, file=self.fd)
 
         if isinstance(ecut, (float, int)):
             ecut_i = [ecut]
@@ -150,43 +164,74 @@ class RPACorrelation:
         ecutmax = max(self.ecut_i)
 
         if nbands is None:
-            print('Response function bands : Equal to number of plane waves',
-                  file=self.fd)
+            p('Response function bands : Equal to number of plane waves')
         else:
-            print('Response function bands : %s' % nbands, file=self.fd)
-        print('Plane wave cutoffs (eV) :', end='', file=self.fd)
+            p('Response function bands : %s' % nbands)
+        p('Plane wave cutoffs (eV) :', end='')
         for ecut in ecut_i:
-            print('%5d' % ecut, end='', file=self.fd)
-        print(file=self.fd)
-        print(file=self.fd)
+            p('%5d' % ecut, end='')
+        p()
+        p()
 
         if self.filename and os.path.isfile(self.filename):
             self.read()
             self.world.barrier()
 
-        chi0 = Chi0(self.calc, 1j * Hartree * self.myomega_w, eta=0.0,
+        chi0 = Chi0(self.calc, 1j * Hartree * self.omega_w, eta=0.0,
                     intraband=False, hilbert=False,
-                    txt='response.txt', world=self.chicomm)
+                    txt=self.fd, timer=self.timer, world=self.world,
+                    no_optical_limit=self.wstc,
+                    nblocks=self.nblocks)
+
+        self.blockcomm = chi0.blockcomm
+        
+        wfs = self.calc.wfs
+        
+        if self.wstc:
+            with self.timer('WSTC-init'):
+                p('Using Wigner-Seitz truncated Coulomb potential.')
+                self.wstc = WignerSeitzTruncatedCoulomb(
+                    wfs.gd.cell_cv, wfs.kd.N_c, self.fd)
 
         nq = len(self.energy_qi)
+        nw = len(self.omega_w)
+        nGmax = max(count_reciprocal_vectors(ecutmax, wfs.gd, q_c)
+                    for q_c in self.ibzq_qc[nq:])
+        mynGmax = (nGmax + self.nblocks - 1) // self.nblocks
+        
+        nx = (1 + spin) * nw * mynGmax * nGmax
+        A1_x = np.empty(nx, complex)
+        if self.nblocks > 1:
+            A2_x = np.empty(nx, complex)
+        else:
+            A2_x = None
+        
+        self.timer.start('RPA')
+        
         for q_c in self.ibzq_qc[nq:]:
             if np.allclose(q_c, 0.0) and self.skip_gamma:
                 self.energy_qi.append(len(self.ecut_i) * [0.0])
                 self.write()
-                print('Not calculating E_c(q) at Gamma', file=self.fd)
-                print(file=self.fd)
+                p('Not calculating E_c(q) at Gamma')
+                p()
                 continue
 
             thisqd = KPointDescriptor([q_c])
-            pd = PWDescriptor(ecutmax, self.calc.wfs.gd, complex, thisqd)
+            pd = PWDescriptor(ecutmax, wfs.gd, complex, thisqd)
             nG = pd.ngmax
-
-            chi0_swGG = np.zeros((1 + spin, self.mynw, nG, nG), complex)
-            if np.allclose(q_c, 0.0):
+            mynG = (nG + self.nblocks - 1) // self.nblocks
+            chi0.Ga = self.blockcomm.rank * mynG
+            chi0.Gb = min(chi0.Ga + mynG, nG)
+            
+            shape = (1 + spin, nw, chi0.Gb - chi0.Ga, nG)
+            chi0_swGG = A1_x[:np.prod(shape)].reshape(shape)
+            chi0_swGG[:] = 0.0
+            
+            if self.wstc or np.allclose(q_c, 0.0):
                 # Wings (x=0,1) and head (G=0) for optical limit and three
                 # directions (v=0,1,2):
-                chi0_swxvG = np.zeros((1 + spin, self.mynw, 2, 3, nG), complex)
-                chi0_swvv = np.zeros((1 + spin, self.mynw, 3, 3), complex)
+                chi0_swxvG = np.zeros((1 + spin, nw, 2, 3, nG), complex)
+                chi0_swvv = np.zeros((1 + spin, nw, 3, 3), complex)
             else:
                 chi0_swxvG = None
                 chi0_swvv = None
@@ -195,9 +240,8 @@ class RPACorrelation:
 
             # First not completely filled band:
             m1 = chi0.nocc1
-            print('# %s  -  %s' % (len(self.energy_qi), ctime().split()[-2]),
-                  file=self.fd)
-            print('q = [%1.3f %1.3f %1.3f]' % tuple(q_c), file=self.fd)
+            p('# %s  -  %s' % (len(self.energy_qi), ctime().split()[-2]))
+            p('q = [%1.3f %1.3f %1.3f]' % tuple(q_c))
 
             energy_i = []
             for ecut in self.ecut_i:
@@ -209,50 +253,53 @@ class RPACorrelation:
                     cut_G = np.arange(nG)[pd.G2_qG[0] <= 2 * ecut]
                     m2 = len(cut_G)
 
-                print('E_cut = %d eV / Bands = %d:   ' % (ecut * Hartree, m2),
-                      file=self.fd, end='')
+                p('E_cut = %d eV / Bands = %d:' % (ecut * Hartree, m2))
                 self.fd.flush()
 
                 energy = self.calculate_q(chi0, pd,
                                           chi0_swGG, chi0_swxvG, chi0_swvv,
-                                          Q_aGii, m1, m2, cut_G)
+                                          Q_aGii, m1, m2, cut_G, A2_x)
                 energy_i.append(energy)
                 m1 = m2
 
-                if ecut < ecutmax and self.chicomm.size > 1:
+                a = 1 / chi0.kncomm.size
+                if ecut < ecutmax and a != 1.0:
                     # Chi0 will be summed again over chicomm, so we divide
                     # by its size:
-                    chi0_swGG *= 1.0 / self.chicomm.size
+                    chi0_swGG *= a
                     if chi0_swxvG is not None:
-                        chi0_swxvG *= 1.0 / self.chicomm.size
-                        chi0_swvv *= 1.0 / self.chicomm.size
+                        chi0_swxvG *= a
+                        chi0_swvv *= a
 
             self.energy_qi.append(energy_i)
             self.write()
-            print(file=self.fd)
+            p()
 
         e_i = np.dot(self.weight_q, np.array(self.energy_qi))
-        print('==========================================================',
-              file=self.fd)
-        print(file=self.fd)
-        print('Total correlation energy:', file=self.fd)
+        p('==========================================================')
+        p()
+        p('Total correlation energy:')
         for e_cut, e in zip(self.ecut_i, e_i):
-            print('%6.0f:   %6.4f eV' % (e_cut * Hartree, e * Hartree),
-                  file=self.fd)
-        print(file=self.fd)
+            p('%6.0f:   %6.4f eV' % (e_cut * Hartree, e * Hartree))
+        p()
 
         self.energy_qi = []  # important if another calculation is performed
 
         if len(e_i) > 1:
             self.extrapolate(e_i)
 
-        print('Calculation completed at: ', ctime(), file=self.fd)
-        print(file=self.fd)
+        p('Calculation completed at: ', ctime())
+        p()
 
+        self.timer.stop('RPA')
+        self.timer.write(self.fd)
+        
         return e_i * Hartree
 
+    @timer('chi0(q)')
     def calculate_q(self, chi0, pd,
-                    chi0_swGG, chi0_swxvG, chi0_swvv, Q_aGii, m1, m2, cut_G):
+                    chi0_swGG, chi0_swxvG, chi0_swvv, Q_aGii, m1, m2, cut_G,
+                    A2_x):
         chi0_wGG = chi0_swGG[0]
         if chi0_swxvG is not None:
             chi0_wxvG = chi0_swxvG[0]
@@ -265,7 +312,9 @@ class RPACorrelation:
 
         print('E_c(q) = ', end='', file=self.fd)
 
-        if not pd.kd.gamma:
+        chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
+        
+        if not pd.kd.gamma or self.wstc:
             e = self.calculate_energy(pd, chi0_wGG, cut_G)
             print('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
@@ -287,29 +336,35 @@ class RPACorrelation:
 
         return e
 
+    @timer('Energy')
     def calculate_energy(self, pd, chi0_wGG, cut_G):
         """Evaluate correlation energy from chi0."""
 
-        G_G = pd.G2_qG[0]**0.5  # |G+q|
-        if pd.kd.gamma:
-            G_G[0] = 1.0
-
+        if self.wstc:
+            invG_G = (self.wstc.get_potential(pd) / (4 * pi))**0.5
+        else:
+            G_G = pd.G2_qG[0]**0.5  # |G+q|
+            if pd.kd.gamma:
+                G_G[0] = 1.0
+            invG_G = 1.0 / G_G
+            
         if cut_G is not None:
-            G_G = G_G[cut_G]
+            invG_G = invG_G[cut_G]
 
-        nG = len(G_G)
+        nG = len(invG_G)
 
         e_w = []
         for chi0_GG in chi0_wGG:
             if cut_G is not None:
                 chi0_GG = chi0_GG.take(cut_G, 0).take(cut_G, 1)
 
-            e_GG = np.eye(nG) - 4 * np.pi * chi0_GG / G_G / G_G[:, np.newaxis]
+            e_GG = (np.eye(nG) -
+                    4 * np.pi * chi0_GG * invG_G * invG_G[:, np.newaxis])
             e = np.log(np.linalg.det(e_GG)) + nG - np.trace(e_GG)
             e_w.append(e.real)
 
         E_w = np.zeros_like(self.omega_w)
-        self.wcomm.all_gather(np.array(e_w), E_w)
+        self.blockcomm.all_gather(np.array(e_w), E_w)
         energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
         self.E_w = E_w
         return energy
@@ -333,67 +388,53 @@ class RPACorrelation:
         return e_i * Hartree
 
     def print_initialization(self, xc, frequency_scale, nlambda, user_spec):
-        print('----------------------------------------------------------',
-              file=self.fd)
-        print('Non-self-consistent %s correlation energy' % xc, file=self.fd)
-        print('----------------------------------------------------------',
-              file=self.fd)
-        print('Started at:  ', ctime(), file=self.fd)
-        print(file=self.fd)
-        print('Atoms                          :',
-              self.calc.atoms.get_chemical_formula(mode='hill'), file=self.fd)
-        print('Ground state XC functional     :',
-              self.calc.hamiltonian.xc.name, file=self.fd)
-        print('Valence electrons              :',
-              self.calc.wfs.setups.nvalence, file=self.fd)
-        print('Number of bands                :',
-              self.calc.wfs.bd.nbands, file=self.fd)
-        print('Number of spins                :',
-              self.calc.wfs.nspins, file=self.fd)
-        print('Number of k-points             :',
-              len(self.calc.wfs.kd.bzk_kc), file=self.fd)
-        print('Number of irreducible k-points :',
-              len(self.calc.wfs.kd.ibzk_kc), file=self.fd)
-        print('Number of q-points             :',
-              len(self.bzq_qc), file=self.fd)
-        print('Number of irreducible q-points :',
-              len(self.ibzq_qc), file=self.fd)
-        print(file=self.fd)
+        p = functools.partial(print, file=self.fd)
+        p('----------------------------------------------------------')
+        p('Non-self-consistent %s correlation energy' % xc)
+        p('----------------------------------------------------------')
+        p('Started at:  ', ctime())
+        p()
+        p('Atoms                          :',
+          self.calc.atoms.get_chemical_formula(mode='hill'))
+        p('Ground state XC functional     :', self.calc.hamiltonian.xc.name)
+        p('Valence electrons              :', self.calc.wfs.setups.nvalence)
+        p('Number of bands                :', self.calc.wfs.bd.nbands)
+        p('Number of spins                :', self.calc.wfs.nspins)
+        p('Number of k-points             :', len(self.calc.wfs.kd.bzk_kc))
+        p('Number of irreducible k-points :', len(self.calc.wfs.kd.ibzk_kc))
+        p('Number of q-points             :', len(self.bzq_qc))
+        p('Number of irreducible q-points :', len(self.ibzq_qc))
+        p()
         for q, weight in zip(self.ibzq_qc, self.weight_q):
-            print('    q: [%1.4f %1.4f %1.4f] - weight: %1.3f' %
-                  (q[0], q[1], q[2], weight), file=self.fd)
-        print(file=self.fd)
-        print('----------------------------------------------------------',
-              file=self.fd)
-        print('----------------------------------------------------------',
-              file=self.fd)
-        print(file=self.fd)
+            p('    q: [%1.4f %1.4f %1.4f] - weight: %1.3f' %
+              (q[0], q[1], q[2], weight))
+        p()
+        p('----------------------------------------------------------')
+        p('----------------------------------------------------------')
+        p()
         if nlambda is None:
-            print('Analytical coupling constant integration', file=self.fd)
+            p('Analytical coupling constant integration')
         else:
-            print('Numerical coupling constant integration using', nlambda,
-                  'Gauss-Legendre points', file=self.fd)
-        print(file=self.fd)
-        print('Frequencies', file=self.fd)
+            p('Numerical coupling constant integration using', nlambda,
+              'Gauss-Legendre points')
+        p()
+        p('Frequencies')
         if not user_spec:
-            print('    Gauss-Legendre integration with %s frequency points' %
-                  len(self.omega_w), file=self.fd)
-            print('    Transformed from [0,oo] to [0,1] using e^[-aw^(1/B)]',
-                  file=self.fd)
-            print('    Highest frequency point at %5.1f eV and B=%1.1f' %
-                  (self.omega_w[-1] * Hartree, frequency_scale), file=self.fd)
+            p('    Gauss-Legendre integration with %s frequency points' %
+              len(self.omega_w))
+            p('    Transformed from [0,oo] to [0,1] using e^[-aw^(1/B)]')
+            p('    Highest frequency point at %5.1f eV and B=%1.1f' %
+              (self.omega_w[-1] * Hartree, frequency_scale))
         else:
-            print('    User specified frequency integration with',
-                  len(self.omega_w), 'frequency points', file=self.fd)
-        print(file=self.fd)
-        print('Parallelization', file=self.fd)
-        print('    Total number of CPUs          : % s' % self.world.size,
-              file=self.fd)
-        print('    Frequency decomposition       : % s' % self.wcomm.size,
-              file=self.fd)
-        print('    K-point/band decomposition    : % s' % self.chicomm.size,
-              file=self.fd)
-        print(file=self.fd)
+            p('    User specified frequency integration with',
+              len(self.omega_w), 'frequency points')
+        p()
+        p('Parallelization')
+        p('    Total number of CPUs          : % s' % self.world.size)
+        p('    G-vector decomposition       : % s' % self.nblocks)
+        p('    K-point/band decomposition    : % s' %
+          (self.world.size // self.nblocks))
+        p()
 
 
 def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
@@ -407,3 +448,36 @@ def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
     transform = (-np.log(1 - ys))**(frequency_scale - 1) \
         / (1 - ys) * frequency_scale / alpha
     return w, weights_w * transform / 2
+
+    
+description = 'Run RPA-correlation calculation.'
+
+
+def main():
+    import optparse
+    parser = optparse.OptionParser(usage='Usage: %prog <gpw-file> [options]',
+                                   description=description)
+    add = parser.add_option
+    
+    add('-e', '--cut-off', type=float, default=100, meta='ECUT',
+        help='Plane-wave cut off energy (eV) for polarization function.')
+    add('-b', '--blocks', type=int, default=1, meta='N',
+        help='Split polarization matrix in N blocks.')
+    
+    opts, args = parser.parse_args()
+    if len(args) == 0:
+        parser.error('No gpw-file!')
+    if len(args) > 1:
+        parser.error('Too many arguments!')
+    
+    name = args[0]
+    assert name.endswith('.gpw')
+    
+    rpa = RPACorrelation(name,
+                         txt=name[:-3] + 'rpa.txt',
+                         wstc=True, nblocks=opts.blocks)
+    rpa.calculate([opts.cut_off])
+
+
+if __name__ == '__main__':
+    main()

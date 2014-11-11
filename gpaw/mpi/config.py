@@ -78,7 +78,7 @@ def get_mpi_command(debug=False):
 
 
 if __name__ == '__main__':
-    print get_mpi_implementation()
-    print get_mpi_command(debug=False)
-    print get_mpi_command(debug=True)
+    print(get_mpi_implementation())
+    print(get_mpi_command(debug=False))
+    print(get_mpi_command(debug=True))
 

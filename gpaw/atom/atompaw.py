@@ -13,6 +13,8 @@ import gpaw.mpi as mpi
 
 
 class MakeWaveFunctions:
+    name = 'atompaw'
+
     def __init__(self, gd):
         self.gd = gd
 
@@ -22,6 +24,8 @@ class MakeWaveFunctions:
     
 
 class AtomWaveFunctions(WaveFunctions):
+    mode = 'atompaw'
+
     def initialize(self, density, hamiltonian, spos_ac):
         setup = self.setups[0]
         bf = AtomBasisFunctions(self.gd, setup.phit_j)
@@ -36,7 +40,8 @@ class AtomWaveFunctions(WaveFunctions):
 
 
 class AtomPoissonSolver:
-    description = 'Radial equidistant'
+    def get_description(self):
+        return 'Radial equidistant'
 
     def set_grid_descriptor(self, gd):
         self.gd = gd

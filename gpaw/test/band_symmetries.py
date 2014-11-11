@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.lattice import bulk
 from gpaw import GPAW
 from gpaw import restart
@@ -108,7 +109,7 @@ fingerprints = np.array([md5_array(row) for row in characters])
 
 fmt = "%6.4f " * nops
 for i in range(nbands):
-     print fmt % tuple([c for c in characters[i, :nops]])
+     print(fmt % tuple([c for c in characters[i, :nops]]))
 
 # Correct?!? character table
 characters_reference = np.array(((1.0, 1.0, 1.0, 1.0, 1.0),

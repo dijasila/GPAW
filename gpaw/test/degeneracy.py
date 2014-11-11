@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom, Atoms
 from gpaw import GPAW
 from gpaw.test import equal
@@ -21,7 +22,7 @@ niter = calc.get_number_of_iterations()
 
 # The three eigenvalues e[1], e[2], and e[3] must be degenerate:
 e = calc.get_eigenvalues()
-print e[1] - e[3]
+print(e[1] - e[3])
 equal(e[1], e[3], 9.3e-8)
 
 energy_tolerance = 0.0003
@@ -39,5 +40,5 @@ epbe = calc.get_eigenvalues()
 
 de = epbe[1] - epbe[0]
 de0 = epbe0[1] - epbe0[0]
-print de, de0
+print(de, de0)
 equal(de, de0, 0.001)

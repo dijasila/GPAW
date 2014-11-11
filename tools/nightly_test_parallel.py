@@ -72,7 +72,7 @@ else:
 from gpaw.version import version
 
 # Run test-suite:
-print 'Run'
+print('Run')
 if os.system('export PYTHONPATH=%s/%s/python:%s/lib/python:${PYTHONPATH}; ' % \
              (tmpdir, libdir, tmpdir) +
              'export GPAW_SETUP_PATH=%s; ' % setups +
@@ -99,5 +99,5 @@ else:
     subject = 'GPAW %s: ' % str(version) + subject
     fail(subject, email, 'test.out')
 
-print 'Done'
+print('Done')
 os.system('cd; rm -r ' + tmpdir)

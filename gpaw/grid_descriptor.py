@@ -115,7 +115,6 @@ class GridDescriptor(Domain):
         Domain.__init__(self, cell_cv, pbc_c, comm, parsize, self.N_c)
         self.rank = self.comm.rank
 
-
         parsize_c = self.parsize_c
         n_c, remainder_c = divmod(self.N_c, parsize_c)
 
@@ -124,7 +123,8 @@ class GridDescriptor(Domain):
 
         self.n_cp = []
         for c in range(3):
-            n_p = np.arange(parsize_c[c] + 1) * float(self.N_c[c]) / parsize_c[c]
+            n_p = (np.arange(parsize_c[c] + 1) * float(self.N_c[c]) /
+                   parsize_c[c])
             n_p = np.around(n_p + 0.4999).astype(int)
             
             if not self.pbc_c[c]:
@@ -141,7 +141,7 @@ class GridDescriptor(Domain):
 
         self.h_cv = self.cell_cv / self.N_c[:, np.newaxis]
         self.volume = abs(np.linalg.det(self.cell_cv))
-        self.dv = self.volume / self.N_c.prod()        
+        self.dv = self.volume / self.N_c.prod()
 
         self.orthogonal = not (self.cell_cv -
                                np.diag(self.cell_cv.diagonal())).any()
@@ -209,7 +209,7 @@ class GridDescriptor(Domain):
         return self._new_array(n, dtype, False, global_array, pad)
         
     def _new_array(self, n=(), dtype=float, zero=True,
-                  global_array=False, pad=False):
+                   global_array=False, pad=False):
         if global_array:
             shape = self.get_size_of_global_array(pad)
         else:
@@ -310,7 +310,6 @@ class GridDescriptor(Domain):
     def get_boxes(self, spos_c, rcut, cut=True):
         """Find boxes enclosing sphere."""
         N_c = self.N_c
-        #ncut = rcut / self.h_c
         ncut = rcut * (self.icell_cv**2).sum(axis=1)**0.5 * self.N_c
         npos_c = spos_c * N_c
         beg_c = np.ceil(npos_c - ncut).astype(int)
@@ -559,6 +558,17 @@ class GridDescriptor(Domain):
         return np.inner(a_nG,
                         psit_nG1[:nbands].reshape((nbands, -1))) * self.dv
 
+    def find_center(self, a_R):
+        """Calculate center of positive function."""
+        assert self.orthogonal
+        r_vR = self.get_grid_point_coordinates()
+        a_R = a_R.astype(complex)
+        center = []
+        for L, r_R in zip(self.cell_cv.diagonal(), r_vR):
+            z = self.integrate(a_R, np.exp(2j * pi / L * r_R))
+            center.append(np.angle(z) / (2 * pi) * L % L)
+        return np.array(center)
+        
     def bytecount(self, dtype=float):
         """Get the number of bytes used by a grid of specified dtype."""
         return long(np.prod(self.n_c)) * np.array(1, dtype).itemsize
@@ -571,6 +581,27 @@ class GridDescriptor(Domain):
             return self.collect(r_vG, broadcast=True)  # XXX waste!
         else:
             return r_vG
+
+    def get_grid_point_distance_vectors(self, r_v, mic=True, dtype=float):
+        """Return distances to a given vector in the domain.
+
+        mic: if true adopts the mininimum image convention
+        procedure by W. Smith in 'The Minimum image convention in
+        Non-Cubic MD cells' March 29, 1989
+        """
+        s_Gc = (np.indices(self.n_c, dtype).T + self.beg_c) / self.N_c
+        cell_cv = self.N_c * self.h_cv
+        s_Gc -= np.linalg.solve(cell_cv.T, r_v)
+        
+        if mic:
+            # XXX do the correction twice works better
+            s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
+            s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
+            # sanity check
+            assert((s_Gc * self.pbc_c >= -0.5).all())
+            assert((s_Gc * self.pbc_c <= 0.5).all())
+                
+        return np.dot(s_Gc, cell_cv).T.copy()
 
     def interpolate_grid_points(self, spos_nc, vt_g, target_n, use_mlsqr=True):
         """Return interpolated values.
@@ -587,7 +618,7 @@ class GridDescriptor(Domain):
         assert mpi.world.size == 1
 
         if use_mlsqr:
-            mlsqr(3, 2.3, spos_nc, self.N_c, self.beg_c, vt_g, target_n)     
+            mlsqr(3, 2.3, spos_nc, self.N_c, self.beg_c, vt_g, target_n)
         else:
             for n, spos_c in enumerate(spos_nc):
                 g_c = self.N_c * spos_c - self.beg_c
@@ -602,21 +633,21 @@ class GridDescriptor(Domain):
                 Bg_c %= self.N_c
 
                 target_n[n] = (
-                    vt_g[bg_c[0],bg_c[1],bg_c[2]] *
-                    (1.0 - dg_c[0]) * (1.0 - dg_c[1]) * (1.0 - dg_c[2]) + 
-                    vt_g[Bg_c[0],bg_c[1],bg_c[2]] *
-                    (0.0 + dg_c[0]) * (1.0 - dg_c[1]) * (1.0 - dg_c[2]) + 
-                    vt_g[bg_c[0],Bg_c[1],bg_c[2]] *
-                    (1.0 - dg_c[0]) * (0.0 + dg_c[1]) * (1.0 - dg_c[2]) +  
-                    vt_g[Bg_c[0],Bg_c[1],bg_c[2]] *
-                    (0.0 + dg_c[0]) * (0.0 + dg_c[1]) * (1.0 - dg_c[2]) + 
-                    vt_g[bg_c[0],bg_c[1],Bg_c[2]] *
-                    (1.0 - dg_c[0]) * (1.0 - dg_c[1]) * (0.0 + dg_c[2]) + 
-                    vt_g[Bg_c[0],bg_c[1],Bg_c[2]] *
-                    (0.0 + dg_c[0]) * (1.0 - dg_c[1]) * (0.0 + dg_c[2]) + 
-                    vt_g[bg_c[0],Bg_c[1],Bg_c[2]] *
+                    vt_g[bg_c[0], bg_c[1], bg_c[2]] *
+                    (1.0 - dg_c[0]) * (1.0 - dg_c[1]) * (1.0 - dg_c[2]) +
+                    vt_g[Bg_c[0], bg_c[1], bg_c[2]] *
+                    (0.0 + dg_c[0]) * (1.0 - dg_c[1]) * (1.0 - dg_c[2]) +
+                    vt_g[bg_c[0], Bg_c[1], bg_c[2]] *
+                    (1.0 - dg_c[0]) * (0.0 + dg_c[1]) * (1.0 - dg_c[2]) +
+                    vt_g[Bg_c[0], Bg_c[1], bg_c[2]] *
+                    (0.0 + dg_c[0]) * (0.0 + dg_c[1]) * (1.0 - dg_c[2]) +
+                    vt_g[bg_c[0], bg_c[1], Bg_c[2]] *
+                    (1.0 - dg_c[0]) * (1.0 - dg_c[1]) * (0.0 + dg_c[2]) +
+                    vt_g[Bg_c[0], bg_c[1], Bg_c[2]] *
+                    (0.0 + dg_c[0]) * (1.0 - dg_c[1]) * (0.0 + dg_c[2]) +
+                    vt_g[bg_c[0], Bg_c[1], Bg_c[2]] *
                     (1.0 - dg_c[0]) * (0.0 + dg_c[1]) * (0.0 + dg_c[2]) +
-                    vt_g[Bg_c[0],Bg_c[1],Bg_c[2]] *
+                    vt_g[Bg_c[0], Bg_c[1], Bg_c[2]] *
                     (0.0 + dg_c[0]) * (0.0 + dg_c[1]) * (0.0 + dg_c[2]))
 
     def __eq__(self, other):

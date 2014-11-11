@@ -11,8 +11,11 @@ from gpaw.utilities.tools import coordinates
 
 from gpaw.mpi import rank
 
+
 class HirshfeldDensity(RealSpaceDensity):
+
     """Density as sum of atomic densities."""
+
     def __init__(self, calculator):
         self.calculator = calculator
         density = calculator.density
@@ -28,7 +31,7 @@ class HirshfeldDensity(RealSpaceDensity):
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()
         self.rank_a = rank_a
-        #self.nt_sG = None
+        # self.nt_sG = None
         self.nt_sg = None
         self.nt_g = None
         self.rhot_g = None
@@ -40,7 +43,7 @@ class HirshfeldDensity(RealSpaceDensity):
         """Get sum of atomic densities from the given atom list.
 
         All atoms are taken if the list is not given."""
- 
+
         all_atoms = self.calculator.get_atoms()
         if atom_indicees is None:
             atom_indicees = range(len(all_atoms))
@@ -63,19 +66,19 @@ class HirshfeldDensity(RealSpaceDensity):
                 D_asp[len(atoms)] = all_D_asp.get(a)
             atoms.append(all_atoms[a])
             rank_a.append(all_rank_a[a])
-        atoms = Atoms(atoms, 
+        atoms = Atoms(atoms,
                       cell=all_atoms.get_cell(), pbc=all_atoms.get_pbc())
         spos_ac = atoms.get_scaled_positions()
         Z_a = atoms.get_atomic_numbers()
 
         par = self.calculator.input_parameters
-        setups = Setups(Z_a, par.setups, par.basis, par.lmax, 
-                        XC(par.xc), 
+        setups = Setups(Z_a, par.setups, par.basis, par.lmax,
+                        XC(par.xc),
                         self.calculator.wfs.world)
         self.D_asp = D_asp
 
-        # initialize 
-        self.initialize(setups, 
+        # initialize
+        self.initialize(setups,
                         self.calculator.timer,
                         np.zeros((len(atoms), 3)), False)
         self.set_mixer(None)
@@ -88,15 +91,18 @@ class HirshfeldDensity(RealSpaceDensity):
         basis_functions.set_positions(spos_ac)
         self.initialize_from_atomic_densities(basis_functions)
 
-        aed_sg, gd = self.get_all_electron_density(atoms, 
+        aed_sg, gd = self.get_all_electron_density(atoms,
                                                    gridrefinement)
         return aed_sg[0], gd
 
+
 class HirshfeldPartitioning:
+
     """Partion space according to the Hirshfeld method.
 
     After: F. L. Hirshfeld Theoret. Chim.Acta 44 (1977) 129-138
     """
+
     def __init__(self, calculator, density_cutoff=1.e-12):
         self.calculator = calculator
         self.density_cutoff = density_cutoff
@@ -111,7 +117,7 @@ class HirshfeldPartitioning:
 
     def get_calculator(self):
         return self.calculator
-    
+
     def get_effective_volume_ratio(self, atom_index):
         """Effective volume to free volume ratio.
 
@@ -150,7 +156,7 @@ class HirshfeldPartitioning:
         """
         self.initialize()
         finegd = self.calculator.density.finegd
-        
+
         if den_g is None:
             den_sg, gd = self.calculator.density.get_all_electron_density(
                 self.atoms)
@@ -171,4 +177,3 @@ class HirshfeldPartitioning:
         for a, atom in enumerate(self.atoms):
             ratios.append(self.get_effective_volume_ratio(a))
         return np.array(ratios)
-        

@@ -273,7 +273,7 @@ Time propagation
 
 Since the total CPU time also depends on the number of iterations performed
 by the linear solvers in each time-step, smaller time-steps around 2.0-4.0
-attoseconds might prove to be faster with the :class:`ECN` and :class:`SICN`
+attoseconds might prove to be faster with the ``ECN`` and ``SICN``
 propagators because they have an embedded Euler step in each predictor step:
 
 .. math::
@@ -295,7 +295,7 @@ desired total simulation time.
 TDDFT reference manual
 --------------------------------
 
-Keywords for :class:`TDDFT`:
+The :class:`~gpaw.tddft.TDDFT` class and keywords:
 
 ===================== =============== ============== =====================================
 Keyword               Type            Default        Description
@@ -307,7 +307,7 @@ Keyword               Type            Default        Description
 ``tolerance``         ``float``       ``1e-8``       Tolerance for linear solver
 ===================== =============== ============== =====================================
 
-Keywords for :func:`absorption_kick`:
+Keywords for :func:`~gpaw.tddft.TDDFT.absorption_kick`:
 
 ================== =============== ================== =====================================
 Keyword            Type            Default            Description
@@ -315,7 +315,7 @@ Keyword            Type            Default            Description
 ``kick_strength``  ``float[3]``    ``[0,0,1e-3]``     Kick strength
 ================== =============== ================== =====================================
 
-Keywords for :func:`propagate`:
+Keywords for :func:`~gpaw.tddft.TDDFT.propagate`:
 
 ====================== =========== =========== ================================================
 Keyword                Type        Default     Description
@@ -327,7 +327,7 @@ Keyword                Type        Default     Description
 ``dump_interal``       ``integer`` ``500``     How often restart file is written
 ====================== =========== =========== ================================================
 
-Keywords for :func:`photoabsorption_spectrum`:
+Keywords for :func:`gpaw.tddft.photoabsorption_spectrum`:
 
 ====================== ============ ============== ===============================================
 Keyword                Type         Default        Description
@@ -340,3 +340,8 @@ Keyword                Type         Default        Description
 ``e_max``              ``float``    ``30.0``       Highest energy shown in spectrum (in eV)
 ``delta_e``            ``float``    ``0.05``       Resolution of energy in spectrum (in eV)
 ====================== ============ ============== ===============================================
+
+.. autoclass:: gpaw.tddft.TDDFT
+   :members:
+
+.. autofunction:: gpaw.tddft.photoabsorption_spectrum

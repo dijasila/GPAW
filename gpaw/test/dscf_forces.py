@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 
 import numpy as np
@@ -70,9 +71,9 @@ f0 = np.sqrt(((F0[1,:] - F0[0,:])**2).sum()) * 0.5
 f0b = (E0[1] - E0[0]) / delta     # backward gradient
 f0f = (E0[2] - E0[1]) / delta     # forward gradient
 if rank == 0:
-    print 'Ground state'
-    print E0
-    print f0b, '<', f0, '<', f0f
+    print('Ground state')
+    print(E0)
+    print(f0b, '<', f0, '<', f0f)
 assert f0 > f0b
 assert f0 < f0f 
 
@@ -80,8 +81,8 @@ f1 = np.sqrt(((F1[1,:] - F1[0,:])**2).sum()) * 0.5
 f1b = (E1[1] - E1[0]) / delta     # backward gradient
 f1f = (E1[2] - E1[1]) / delta     # forward gradient 
 if rank == 0:
-    print 'Excited state'
-    print E1
-    print f1b, '<', f1, '<', f1f
+    print('Excited state')
+    print(E1)
+    print(f1b, '<', f1, '<', f1f)
 assert f1 > f1b
 assert f1 < f1f

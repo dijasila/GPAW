@@ -13,6 +13,9 @@ class Contribution:
     def get_name(self):
         raise NotImplementedError
 
+    def set_positions(self, spos_ac):
+        pass
+
     def get_desc(self):
         raise NotImplementedError
 

@@ -17,14 +17,14 @@ from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import nulltimer
 
 
-def get_KohnSham_layouts(sl, mode, gd, bd, dtype, **kwargs):
+def get_KohnSham_layouts(sl, mode, gd, bd, block_comm, dtype, **kwargs):
     """Create Kohn-Sham layouts object."""
     # Not needed for AtomPAW special mode, as usual we just provide whatever
     # happens to make the code not crash
     if not isinstance(mode, str):
         return None  #XXX
     name = {'fd': 'BandLayouts', 'lcao': 'OrbitalLayouts'}[mode]
-    args = (gd, bd, dtype)
+    args = (gd, bd, block_comm, dtype)
     if sl is not None:
         name = 'Blacs' + name
         assert len(sl) == 3
@@ -35,7 +35,7 @@ def get_KohnSham_layouts(sl, mode, gd, bd, dtype, **kwargs):
            'OrbitalLayouts':      OrbitalLayouts,
             }[name](*args, **kwargs)
     if 0: #XXX debug
-        print('USING KSL: %s' % repr(ksl))
+        print(('USING KSL: %s' % repr(ksl)))
     assert isinstance(ksl, KohnShamLayouts)
     assert isinstance(ksl, BlacsLayouts) == (sl is not None)
     return ksl
@@ -45,26 +45,20 @@ class KohnShamLayouts:
     using_blacs = False  # This is only used by a regression test
     matrix_descriptor_class = None
 
-    def __init__(self, gd, bd, dtype, timer=nulltimer):
+    def __init__(self, gd, bd, block_comm, dtype, timer=nulltimer):
         assert gd.comm.parent is bd.comm.parent  # must have same parent comm
         self.world = bd.comm.parent
         self.gd = gd
         self.bd = bd
         self.dtype = dtype
-
-        # Columncomm contains all gd.comm.rank == 0, i.e. "grid-masters"
-        # Blockcomm contains all ranks with the same k-point or spin but
-        # different subdomains and band groups
-        bcommsize = self.bd.comm.size
-        gcommsize = self.gd.comm.size
-        shiftks = self.world.rank - self.world.rank % (bcommsize * gcommsize)
-        column_ranks = shiftks + np.arange(bcommsize) * gcommsize
-        block_ranks = shiftks + np.arange(bcommsize * gcommsize)
-        self.column_comm = self.world.new_communicator(column_ranks)
-        self.block_comm = self.world.new_communicator(block_ranks)
-
+        self.block_comm = block_comm
         self.timer = timer
         self._kwargs = {'timer': timer}
+
+        if gd.comm.rank == 0:
+            self.column_comm = bd.comm
+        else:
+            self.column_comm = None
 
     def get_keywords(self):
         return self._kwargs.copy()  # just a shallow copy...
@@ -91,12 +85,14 @@ class KohnShamLayouts:
 class BlacsLayouts(KohnShamLayouts):
     using_blacs = True  # This is only used by a regression test
 
-    def __init__(self, gd, bd, dtype, mcpus, ncpus, blocksize,
-                 timer=nulltimer):
-        KohnShamLayouts.__init__(self, gd, bd, dtype, timer)
+    def __init__(self, gd, bd, block_comm, dtype, mcpus, ncpus,
+                 blocksize, timer=nulltimer):
+        KohnShamLayouts.__init__(self, gd, bd, block_comm, dtype,
+                                 timer)
         # WARNING: Do not create the BlacsGrid on a communicator which does not
         # contain block_comm.rank = 0. This will break BlacsBandLayouts which
         # assume eps_M will be broadcast over block_comm.
+        self.blocksize = blocksize
         self.blockgrid = BlacsGrid(self.block_comm, mcpus, ncpus)
 
     def get_description(self):
@@ -108,8 +104,10 @@ class BlacsLayouts(KohnShamLayouts):
 class BandLayouts(KohnShamLayouts):
     matrix_descriptor_class = BandMatrixDescriptor
 
-    def __init__(self, gd, bd, dtype, buffer_size=None, timer=nulltimer):
-        KohnShamLayouts.__init__(self, gd, bd, dtype, timer)
+    def __init__(self, gd, bd, block_comm, dtype,
+                 buffer_size=None, timer=nulltimer):
+        KohnShamLayouts.__init__(self, gd, bd, block_comm, dtype,
+                                 timer)
         self.buffer_size = buffer_size
 
     def diagonalize(self, H_NN, eps_n):
@@ -206,13 +204,14 @@ class BlacsBandLayouts(BlacsLayouts):  #XXX should derive from BandLayouts too!
     matrix_descriptor_class = BlacsBandMatrixDescriptor
 
     # This class 'describes' all the realspace Blacs-related layouts
-    def __init__(self, gd, bd, dtype, mcpus, ncpus, blocksize,
-                 buffer_size=None, timer=nulltimer):
-        BlacsLayouts.__init__(self, gd, bd, dtype, mcpus, ncpus, blocksize,
-                              timer)
+    def __init__(self, gd, bd, block_comm, dtype, mcpus, ncpus,
+                 blocksize, buffer_size=None, timer=nulltimer):
+        BlacsLayouts.__init__(self, gd, bd, block_comm, dtype,
+                              mcpus, ncpus, blocksize, timer)
         self.buffer_size = buffer_size
         nbands = bd.nbands
-        mynbands = bd.mynbands
+        self.mynbands = mynbands = bd.mynbands
+        self.blocksize = blocksize
 
         # 1D layout - columns
         self.columngrid = BlacsGrid(self.column_comm, 1, bd.comm.size)
@@ -292,14 +291,16 @@ class BlacsOrbitalLayouts(BlacsLayouts):
     # XXX rewrite this docstring a bit!
 
     # This class 'describes' all the LCAO Blacs-related layouts
-    def __init__(self, gd, bd, dtype, mcpus, ncpus, blocksize, nao,
-                 timer=nulltimer):
-        BlacsLayouts.__init__(self, gd, bd, dtype, mcpus, ncpus, blocksize,
-                              timer)
+    def __init__(self, gd, bd, block_comm, dtype, mcpus, ncpus,
+                 blocksize, nao, timer=nulltimer):
+        BlacsLayouts.__init__(self, gd, bd, block_comm, dtype,
+                              mcpus, ncpus, blocksize, timer)
         nbands = bd.nbands
-        mynbands = bd.mynbands
+        self.blocksize = blocksize
+        self.mynbands = mynbands = bd.mynbands
+        
         self.orbital_comm = self.bd.comm
-        naoblocksize = -((-nao) // self.orbital_comm.size)
+        self.naoblocksize = naoblocksize = -((-nao) // self.orbital_comm.size)
         self.nao = nao
 
         # Range of basis functions for BLACS distribution of matrices:
@@ -532,8 +533,10 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
 
 class OrbitalLayouts(KohnShamLayouts):
-    def __init__(self, gd, bd, dtype, nao, timer=nulltimer):
-        KohnShamLayouts.__init__(self, gd, bd, dtype, timer)
+    def __init__(self, gd, bd, block_comm, dtype, nao,
+                 timer=nulltimer):
+        KohnShamLayouts.__init__(self, gd, bd, block_comm, dtype,
+                                 timer)
         self.mMdescriptor = MatrixDescriptor(nao, nao)
         self.nMdescriptor = MatrixDescriptor(bd.mynbands, nao)
         

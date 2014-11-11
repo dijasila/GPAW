@@ -151,8 +151,9 @@ of *B*; only *one* of these constraints must be true:
 #) For canonical BG/P mappings which end in T, the product of T and the
 last cartesian dimension in the mapping equals *B*.
 
-#) If a canonical mapping is not suitable, the ``tools/mapfile.py``
-can be used to generate a mapfile that satisfies
+#) If a canonical mapping is not immediately suitable, the keyword
+``order`` in the ``parallel`` dictionary can be used to rectify the
+problem.  See the documentation on :ref:`parallel_runs`.
 
 
 B = 2

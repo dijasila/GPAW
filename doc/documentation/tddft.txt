@@ -20,3 +20,9 @@
 2013-09-15 10.1038/ncomms3422 All-thiol-stabilized Ag-44 and Au12Ag32 nanoparticles with single-crystal structures
 2013-11-15 10.1021/nn4046634 Birth of the Localized Surface Plasmon Resonance in Mono layer-Protected Gold Nanoclusters
 2014-01-15 10.1039/c3py00853c Soluble and stable alternating main-chain merocyanine copolymers through quantitative spiropyran-merocyanine conversion
+2014-04-02 10.1021/ja412141j Single Crystal XRD Structure and Theoretical Analysis of the Chiral Au30S(S-t-Bu)(18) Cluster
+2014-05-14 10.1063/1.4869342 A divide-conquer-recombine algorithmic paradigm for large spatiotemporal quantum molecular dynamics simulations
+2014-05-15 10.1007/s00339-013-8034-3 Atomistic approach for simulating plasmons in nanostructures
+2014-08-06 10.1088/0953-8984/26/31/315013 Dynamical coupling of plasmons and molecular excitations by hybrid quantum/classical calculations: time-domain approach
+2014-08-07 10.1021/jp505464z Ultrafast Electronic Relaxation and Vibrational Cooling Dynamics of Au-144(SC2H4Ph)(60) Nanocluster Probed by Transient Mid-IR Spectroscopy
+2014-08-28 10.1021/jp505462m TDDFT Analysis of Optical Properties of Thiol Monolayer-Protected Gold and Intermetallic Silver-Gold Au-144(SR)(60) and Au84Ag60(SR)(60) Clusters

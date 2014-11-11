@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 import time
@@ -389,7 +390,7 @@ def main():
 
     queue.count()
     for state in jobstates:
-        print('%9s %d' % (state, queue.N[state]))
+        print(('%9s %d' % (state, queue.N[state])))
 
     if opt.run:
         for job in queue.jobs:

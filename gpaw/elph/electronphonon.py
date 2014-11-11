@@ -204,7 +204,7 @@ class ElectronPhononCoupling(Displacement):
             nao_a = args[1]
             
         self.basis_info = {'M_a': M_a,
-                           'niAO_a': nao_a} # XXX niAO -> nao
+                           'nao_a': nao_a}
 
     def set_log(self, log=None):
         """Set output log."""
@@ -285,7 +285,7 @@ class ElectronPhononCoupling(Displacement):
         
         # If gamma calculation, overlap with neighboring cell cannot be removed
         if kd.gamma:
-            print "WARNING: Gamma-point calculation."
+            print("WARNING: Gamma-point calculation.")
         else:
             # Bloch to real-space converter
             tb = TightBinding(atoms_N, calc)
@@ -402,7 +402,7 @@ class ElectronPhononCoupling(Displacement):
                     if kd.comm.rank == 0:
                         fd = open(fname, 'w')
                         M_a = self.basis_info['M_a']
-                        nao_a = self.basis_info['niAO_a']
+                        nao_a = self.basis_info['nao_a']
                         pickle.dump((g_NNMM, M_a, nao_a), fd, 2)
                         fd.close()
                     
@@ -502,7 +502,7 @@ class ElectronPhononCoupling(Displacement):
         
         # Make slices for orbitals on atoms
         M_a = self.basis_info['M_a']
-        nao_a = self.basis_info['niAO_a']
+        nao_a = self.basis_info['nao_a']
         slice_a = []
         for a in range(len(self.atoms)):
             start = M_a[a] ;
@@ -732,7 +732,7 @@ class ElectronPhononCoupling(Displacement):
                 # XXX Temp
                 if np.all(q_c == 0.0):
                     # These should be real
-                    print g_qklnn[q].imag.min(), g_qklnn[q].imag.max()
+                    print(g_qklnn[q].imag.min(), g_qklnn[q].imag.max())
                     
         self.timer.write_now("Finished calculation of coupling matrix elements")
                                                 

@@ -44,7 +44,7 @@ where
     .. math::
 
         e^{i \mathbf{G} \cdot \br} =
-	4 \pi \sum_{\ell m} i^\ell j_\ell(Gr) Y_{\ell m}(\hat{\br})
+        4 \pi \sum_{\ell m} i^\ell j_\ell(Gr) Y_{\ell m}(\hat{\br})
         Y_{lm}(\hat{\mathbf{G}}).
 
 The `spherical Bessel function`_ is defined as:
@@ -140,14 +140,15 @@ radial Schrödinger equation:
    = \epsilon u.
 
 We want to solve this equation on a non-equidistant radial grid with
-`r_g=r(g)` for `g=0,1,...`.  Inserting `u(r) = a(g) r^{\ell + 1}`, we
+`r_g=r(g)` for `g=0,1,...`.  Inserting `u(r) = a(g) r^\ell`, we
 get:
 
 .. math::
 
-   \frac{d^2 a}{dg^2} (\frac{dg}{dr})^2 r +
-   \frac{da}{dg}(r \frac{d^2g}{dr^2} + 2 (\ell + 1) \frac{dg}{dr}) +
-   2 r (\epsilon - v) a = 0.
+   \frac{d^2 a}{dg^2} (\frac{dg}{dr})^2 r^2 +
+   \frac{da}{dg}(r^2 \frac{d^2g}{dr^2} + 2 \ell r \frac{dg}{dr}) -
+   2 \ell a +
+   2 r^2 (\epsilon - v) a = 0.
 
 
 Including Scalar-relativistic corrections
@@ -167,12 +168,11 @@ where the relativistic mass is:
 
    M = 1 - \frac{1}{2c^2} (v - \epsilon).
 
-With `u(r) = a(g) r^{\ell + 1}` and `\kappa = (dv/dr)/(2Mc^2)`:
+With `u(r) = a(g) r^\ell` and `\kappa = (dv/dr)/(2Mc^2)`:
 
 .. math::
 
-   \frac{d^2 a}{dg^2} (\frac{dg}{dr})^2 r +
-   \frac{da}{dg}(r \kappa \frac{dg}{dr} + r \frac{d^2g}{dr^2} +
-   2 (\ell + 1) \frac{dg}{dr}) +
-   [2 M r (\epsilon - v) + \ell \kappa] a = 0.
-
+   \frac{d^2 a}{dg^2} (\frac{dg}{dr})^2 r^2 +
+   \frac{da}{dg}(r^2 \kappa \frac{dg}{dr} + r^2 \frac{d^2g}{dr^2} +
+   2 \ell r \frac{dg}{dr}) +
+   [2 M r^2 (\epsilon - v) - 2 \ell + \kappa (\ell - 1) r] a = 0.

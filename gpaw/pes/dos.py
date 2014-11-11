@@ -7,9 +7,11 @@ from gpaw.pes import BasePES
 
 
 class DOSPES(BasePES):
+
     """PES derived from density of states with shifted KS-energies.
 
     """
+
     def __init__(self, mother, daughter=None, shift=False, vde=None, f_min=0.1):
         self.c_m = mother
         self.c_d = daughter

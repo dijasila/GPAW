@@ -78,8 +78,10 @@ tests = [
     'dot.py',
     'lxc_fxc.py',
     'blas.py',
+    'mmm.py',
     'erf.py',
     'gp2.py',
+    'force_as_stop.py',
     'kptpar.py',
     'non_periodic.py',
     'parallel/blacsdist.py',
@@ -226,8 +228,13 @@ tests = [
     'tf_mode.py',
     'tf_mode_pbc.py',
     'excited_state.py',
+    'inducedfield_lrtddft.py',
+    'inducedfield_td.py',
     # > 20 sec tests start here (add tests after gemm.py!)
     'gemm.py',
+    'ed.py',
+    'ed_wrapper.py',
+    'ed_shapes.py',
     #'fractional_translations.py',
     'rpa_energy_Ni.py',
     'LDA_unstable.py',
@@ -291,7 +298,10 @@ tests = [
     'h2o_dks.py',
     'gw_ppa.py',
     'nscfsic.py',
+    'kssingles_Be.py',
     # > 100 sec tests start here (add tests after exx.py!)
+    'parallel/diamond_gllb.py',
+    'lcao_tdgllbsc.py',
     'response_na_plasmon.py',
     'exx.py',
     'pygga.py',
@@ -368,7 +378,7 @@ if mpi.size > 1:
                 'potential.py',
                 #'cmrtest/cmr_test3.py',
                 #'cmrtest/cmr_append.py',
-                'cmrtest/Li2_atomize.py',  # started to hang May 2014
+                #'cmrtest/Li2_atomize.py',  # started to hang May 2014
                 'lcao_pair_and_coulomb.py',
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
@@ -391,7 +401,8 @@ if mpi.size < 4:
                 'bse_diamond.py',
                 'bse_silicon.py',
                 'bse_vs_lrtddft.py',
-                'fileio/parallel.py']
+                'fileio/parallel.py',
+                'parallel/diamond_gllb.py']
 
 if mpi.size != 4:
     exclude += ['parallel/lcao_parallel.py']

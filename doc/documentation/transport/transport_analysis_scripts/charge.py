@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw.transport.analysor import Transport_Plotter
 import numpy as np
 from pylab import *
@@ -68,7 +69,7 @@ for i, item in enumerate(sys.argv[2:]):
             charges.append(charge)
             biases.append(bias[0]-bias[1])
         except IOError:
-            print ' no file for bias_step', bs
+            print(' no file for bias_step', bs)
     biases = np.array(biases)       
     charges = np.array(charges)
     plot(biases, charges, flags[i])

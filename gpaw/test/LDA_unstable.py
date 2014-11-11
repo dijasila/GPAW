@@ -1,5 +1,5 @@
 # http://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2014-February/004374.html
-
+from __future__ import print_function
 from ase import Atom, Atoms
 from gpaw import GPAW
 from gpaw.test import equal
@@ -22,5 +22,5 @@ for i in range(40):
     if i == 0:
         eref = e
     if calc.wfs.world.rank == 0:
-        print repr(e)
+        print(repr(e))
     equal(e - eref, 0, 1.e-12)

@@ -6,17 +6,17 @@ def check_degenerate_bands(filename, etol):
 
     from gpaw import GPAW
     calc = GPAW(filename,txt=None)
-    print 'Number of Electrons   :', calc.get_number_of_electrons()
+    print('Number of Electrons   :', calc.get_number_of_electrons())
     nibzkpt = calc.get_ibz_k_points().shape[0]
     nbands = calc.get_number_of_bands()
-    print 'Number of Bands       :', nbands
-    print 'Number of ibz-kpoints :', nibzkpt
+    print('Number of Bands       :', nbands)
+    print('Number of ibz-kpoints :', nibzkpt)
     e_kn = np.array([calc.get_eigenvalues(k) for k in range(nibzkpt)])
     f_kn = np.array([calc.get_occupation_numbers(k) for k in range(nibzkpt)])
     for k in range(nibzkpt):
         for n in range(1,nbands):
             if (f_kn[k,n-1] - f_kn[k,n] > 1e-5) and (np.abs(e_kn[k,n] - e_kn[k,n-1]) < etol):
-                print k, n, e_kn[k,n], e_kn[k, n-1]
+                print(k, n, e_kn[k,n], e_kn[k, n-1])
     return
     
 
@@ -26,7 +26,7 @@ def get_orbitals(calc):
     bfs_a = [setup.phit_j for setup in calc.wfs.setups]
     
     from gpaw.lfc import BasisFunctions
-    bfs = BasisFunctions(calc.wfs.gd, bfs_a, calc.wfs.kpt_comm, cut=True)
+    bfs = BasisFunctions(calc.wfs.gd, bfs_a, calc.wfs.kd.comm, cut=True)
     spos_ac = calc.atoms.get_scaled_positions()
     bfs.set_positions(spos_ac)
 

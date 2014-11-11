@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 
 from ase import *
@@ -17,26 +18,26 @@ e_HOMO_cs = { 'He': 851, 'Be': 321, 'Ne': 788,
 #e_HOMO_cs = { 'Ne': 788 }
 txt=None
 
-print '--- Comparing LB94 with', ref1
-print 'and', ref2
+print('--- Comparing LB94 with', ref1)
+print('and', ref2)
 
-print '**** all electron calculations'
-print 'atom [refs] -e_homo diff   all in mHa'
+print('**** all electron calculations')
+print('atom [refs] -e_homo diff   all in mHa')
 if rank == 0:
     for atom in e_HOMO_cs.keys():
         ae = AllElectron(atom, 'LB94', txt=txt)
         ae.run()
         e_homo = int( ae.e_j[-1] * 10000 + .5 ) / 10.
         diff = e_HOMO_cs[atom] + e_homo
-        print '%2s %8g %6.1f %4.1g' % (atom, e_HOMO_cs[atom], -e_homo, diff)
+        print('%2s %8g %6.1f %4.1g' % (atom, e_HOMO_cs[atom], -e_homo, diff))
         assert abs(diff) < 6
 barrier()
 
 setup_paths.insert(0, '.')
 setups = {}
 
-print '**** 3D calculations'
-print 'atom [refs] -e_homo diff   all in mHa'
+print('**** 3D calculations')
+print('atom [refs] -e_homo diff   all in mHa')
 
 for atom in e_HOMO_cs.keys():
     e_ref = e_HOMO_cs[atom]
@@ -62,7 +63,7 @@ for atom in e_HOMO_cs.keys():
         e_homo = e
     e_homo = int( e_homo * 10000 + .5 ) / 10.
     diff = e_ref + e_homo
-    print '%2s %8g %6.1f %4.1f' % (atom, e_ref, -e_homo, diff)
+    print('%2s %8g %6.1f %4.1f' % (atom, e_ref, -e_homo, diff))
     assert abs(diff) < 7
 
 
@@ -100,5 +101,5 @@ for atom in e_HOMO_os.keys():
         e_homo = e
     e_homo = int( e_homo * 10000 + .5 ) / 10.
     diff = e_ref + e_homo
-    print '%2s %8g %6.1f %4.1f' % (atom, e_ref, -e_homo, diff)
+    print('%2s %8g %6.1f %4.1f' % (atom, e_ref, -e_homo, diff))
     assert abs(diff) < 15
