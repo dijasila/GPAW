@@ -269,9 +269,7 @@ class Heterostructure:
 """TOOLS"""
 
 def get_chi_2D(filenames, name=None):
-    
-    """
-    Calculate the monopole and dipole contribution to the
+    """Calculate the monopole and dipole contribution to the
     2D susceptibillity \chi_2D, defined as: 
     \chi^M_2D(q, \omega) = \int\int dr dr' \chi(q, \omega, r,r') \\
                         = L \chi_{G=G'=0}(q, \omega)
@@ -284,7 +282,7 @@ def get_chi_2D(filenames, name=None):
     filenames: list of chi_wGG.pckl files for different q 
     name: 'str' for writing output files  
     """
-    
+
     nq = len(filenames)
     omega_w, pd, chi_wGG = pickle.load(open(filenames[0]))
     r = pd.gd.get_grid_point_coordinates()
@@ -329,8 +327,8 @@ def get_chi_2D(filenames, name=None):
                 drho_D_qz[iq] += 1. / L * np.exp(1j * qGr_R) * chi_wGG[0,iG,iG1] * factor1 
         chiM_2D_qw[iq, :] = L * chi_wGG[:, 0, 0] 
         chiD_2D_qw[iq, :] = chiD_2D
-    """
-    Returns q array, frequency array, chi2D monopole, chi, (Now returned in Bohr)
+
+    """ Returns q array, frequency array, chi2D monopole, chi, (Now returned in Bohr)
     """
     pickle.dump((np.array(q_points_abs), omega_w, chiM_2D_qw, chiD_2D_qw, \
                      z, drho_M_qz, drho_D_qz ), open(name + '-chi.pckl', 'w'))     
