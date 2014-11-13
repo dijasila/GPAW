@@ -72,7 +72,6 @@ class InputParameters(dict):
                              'bands': 'occupied',
                              'forces': None}),  # eV / Ang Max
             ('realspace', None),
-            ('tf_mode', False),
             ('symmetry', {'point_group': True,
                           'time_reversal': True,
                           'symmorphic': True,

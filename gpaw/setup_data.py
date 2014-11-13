@@ -36,7 +36,7 @@ class SetupData:
         self.name = name
         self.zero_reference = zero_reference
 
-        # Default filename if this setup is written 
+        # Default filename if this setup is written
         if name is None or name == 'paw':
             self.stdfilename = '%s.%s' % (symbol, self.setupname)
         else:
@@ -62,7 +62,7 @@ class SetupData:
         
         # State identifier, like "X-2s" or "X-p1", where X is chemical symbol,
         # for bound and unbound states
-        self.id_j = [] 
+        self.id_j = []
         
         # Partial waves, projectors
         self.phi_jg = []
@@ -101,7 +101,7 @@ class SetupData:
         self.ncorehole = None
         self.core_hole_e = None
         self.core_hole_e_kin = None
-        self.has_corehole = False        
+        self.has_corehole = False
 
         # Parameters for zero-potential:
         self.l0 = None
@@ -109,6 +109,8 @@ class SetupData:
         self.r0 = None
         self.nderiv0 = None
 
+        self.orbital_free = False  # orbital-free DFT
+        
         if readxml:
             self.read_xml(world=world)
 
@@ -262,23 +264,26 @@ class SetupData:
         print('  <!--', comment1, '-->', file=xml)
         print('  <!--', comment2, '-->', file=xml)
 
-        print(('  <atom symbol="%s" Z="%d" core="%r" valence="%d"/>'
-                       % (self.symbol, self.Z, self.Nc, self.Nv)), file=xml)
-        if self.setupname == 'LDA':
+        print(('  <atom symbol="%s" Z="%d" core="%r" valence="%d"/>' %
+               (self.symbol, self.Z, self.Nc, self.Nv)), file=xml)
+        if self.orbital_free:
+            type = 'OFDFT'
+            name = self.setupname
+        elif self.setupname == 'LDA':
             type = 'LDA'
             name = 'PW'
         else:
             type = 'GGA'
             name = self.setupname
         print('  <xc_functional type="%s" name="%s"/>' % (type, name), file=xml)
-        gen_attrs = ' '.join(['%s="%s"' % (key, value) for key, value 
+        gen_attrs = ' '.join(['%s="%s"' % (key, value) for key, value
                               in self.generatorattrs])
         print('  <generator %s>' % gen_attrs, file=xml)
         print('    %s' % self.generatordata, file=xml)
         print('  </generator>', file=xml)
-        print('  <ae_energy kinetic="%r" xc="%r"' % \
+        print('  <ae_energy kinetic="%r" xc="%r"' %
               (self.e_kinetic, self.e_xc), file=xml)
-        print('             electrostatic="%r" total="%r"/>' % \
+        print('             electrostatic="%r" total="%r"/>' %
               (self.e_electrostatic, self.e_total), file=xml)
 
         print('  <core_energy kinetic="%r"/>' % self.e_kinetic_core, file=xml)
@@ -440,7 +445,7 @@ You need to set the GPAW_SETUP_PATH environment variable to point to
 the directory where the setup files are stored.  See
 http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
             raise RuntimeError('Could not find %s-setup for "%s".' %
-                               (setup.name + '.' + setup.setupname, 
+                               (setup.name + '.' + setup.setupname,
                                 setup.symbol))
         
         setup.fingerprint = md5_new(source).hexdigest()
@@ -456,10 +461,6 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
             setup.e_electrostatic = 0.0
             setup.e_xc = 0.0
 
-        #if not hasattr(setup, 'tauc_g'):
-        #    setup.tauc_g = setup.tauct_g = None
-
-
     def startElement(self, name, attrs):
         setup = self.setup
         if name == 'paw_setup':
@@ -473,8 +474,11 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
             if attrs['type'] == 'LDA':
                 setup.xcname = 'LDA'
             else:
-                assert attrs['type'] == 'GGA'
                 setup.xcname = attrs['name']
+                if attrs['type'] == 'OFDFT':
+                    setup.orbital_free = True
+                else:
+                    assert attrs['type'] == 'GGA'
         elif name == 'ae_energy':
             setup.e_total = float(attrs['total'])
             setup.e_kinetic = float(attrs['kinetic'])

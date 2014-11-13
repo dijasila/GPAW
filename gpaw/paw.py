@@ -91,8 +91,6 @@ class PAW(PAWTextOutput):
         self.atoms = None
         self.iter = 0
 
-        self.tf_mode = False
-
         self.initialized = False
         self.nbands_parallelization_adjustment = None  # Somehow avoid this?
 
@@ -199,7 +197,7 @@ class PAW(PAWTextOutput):
             self.scf = None
             self.wfs.set_orthonormalized(False)
             if key in ['lmax', 'width', 'stencils', 'external', 'xc',
-                       'poissonsolver', 'tf_mode']:
+                       'poissonsolver']:
                 self.hamiltonian = None
                 self.occupations = None
             elif key in ['occupations']:
@@ -355,10 +353,6 @@ class PAW(PAWTextOutput):
             world = mpi.world.new_communicator(np.asarray(world))
         self.wfs.world = world
 
-        # Are we using tf_mode?
-        if par.tf_mode:
-            self.tf_mode = True
-
         if 'txt' in self._changed_keywords:
             self.set_txt(par.txt)
         self.verbose = par.verbose
@@ -419,7 +413,7 @@ class PAW(PAWTextOutput):
             filter = par.filter
 
         setups = Setups(Z_a, par.setups, par.basis, par.lmax, xc,
-                        filter, world, par.tf_mode)
+                        filter, world)
 
         if magmom_av.ndim == 1:
             collinear = True
@@ -501,6 +495,11 @@ class PAW(PAWTextOutput):
         M = np.dot(M_v, M_v) ** 0.5
 
         nbands = par.nbands
+        
+        orbital_free = any(setup.orbital_free for setup in setups)
+        if orbital_free:
+            nbands = 1
+
         if isinstance(nbands, basestring):
             if nbands[-1] == '%':
                 basebands = int(nvalence + M + 0.5) // 2
@@ -534,7 +533,7 @@ class PAW(PAWTextOutput):
         if nbands <= 0:
             nbands = int(nvalence + M + 0.5) // 2 + (-nbands)
 
-        if nvalence > 2 * nbands and not par.tf_mode:
+        if nvalence > 2 * nbands and not orbital_free:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
@@ -550,11 +549,13 @@ class PAW(PAWTextOutput):
         if self.occupations is None:
             if par.occupations is None:
                 # Create object for occupation numbers:
-                if self.tf_mode:
-                    width = 0.0 #even for PBC
-                    self.occupations = occupations.TFOccupations(width, par.fixmom)
+                if orbital_free:
+                    width = 0.0  # even for PBC
+                    self.occupations = occupations.TFOccupations(width,
+                                                                 par.fixmom)
                 else:
-                    self.occupations = occupations.FermiDirac(width, par.fixmom)
+                    self.occupations = occupations.FermiDirac(width,
+                                                              par.fixmom)
             else:
                 self.occupations = par.occupations
 

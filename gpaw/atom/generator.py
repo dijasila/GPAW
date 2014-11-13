@@ -468,7 +468,7 @@ class Generator(AllElectron):
                           a1 * (l + 2) * (l + 3) * r2 +
                           a2 * (l + 4) * (l + 5) * r4 +
                           a3 * (l + 6) * (l + 7) * r6)
-            denominator = a0 + a1 * r2 + a2 * r4 + a3 * r6            
+            denominator = a0 + a1 * r2 + a2 * r4 + a3 * r6
             ekin_over_phit = - 0.5 * (enumerator / denominator - l * (l + 1))
             ekin_over_phit[1:] /= r2[1:]
 
@@ -769,7 +769,8 @@ class Generator(AllElectron):
 
         setup.generatorattrs = attrs
         setup.generatordata  = data
-
+        setup.orbital_free = self.orbital_free
+        
         self.id_j = []
         for l, n in zip(vl_j, vn_j):
             if n > 0:

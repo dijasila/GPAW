@@ -4,7 +4,6 @@ from gpaw.mixer import Mixer
 from gpaw.test import equal
 from gpaw.test import gen
 
-#Test tf_mode for C
 symbol = 'C'
 result = -224.119823656
 electrons = 48
@@ -16,12 +15,11 @@ a = 2.8
 atoms = bulk(symbol, 'diamond', a=a, cubic=True)   # Generate diamond
 mixer = Mixer(0.01, 5, 1)
         
-calc = GPAW(h=h, nbands=1,
-            #txt='-',
+calc = GPAW(h=h,
             xc=xcname,
-            maxiter=120, eigensolver='cg',
-            mixer=mixer,
-            tf_mode=True)
+            maxiter=120,
+            eigensolver='cg',
+            mixer=mixer)
 
 
 atoms.set_calculator(calc)

@@ -28,8 +28,8 @@ for element, result, e in zip(elements, results, electrons):
 
     mixer = Mixer(0.3, 5, 1)
     #mixer=Mixer(beta=0.05, nmaxold=2, weight=50.0)
-    calc = GPAW(h=h, nbands=1, txt='-', xc=xcname, maxiter=240,
-                eigensolver='cg', mixer=mixer, tf_mode=True)
+    calc = GPAW(h=h, txt='-', xc=xcname, maxiter=240,
+                eigensolver='cg', mixer=mixer)
     #mixer.dotprod = ExperimentalDotProd(calc)
 
     atom.set_calculator(calc)
