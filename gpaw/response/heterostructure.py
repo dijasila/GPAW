@@ -1,13 +1,9 @@
 from __future__ import print_function
 
-import sys
 import pickle
 
 import numpy as np
 from ase.units import Hartree, Bohr
-from ase.parallel import paropen
-import pylab as p
-
 
 class Heterostructure:
     def __init__(self, q_points_abs, frequencies, interlayer_distances,
@@ -26,7 +22,7 @@ class Heterostructure:
         self.interlayer_distances = interlayer_distances / Bohr  
    
 
-    def solve_poisson_1D(self, drho, q, z, Nz=5000, monopole = True, delta = None):
+    def solve_poisson_1D(self, drho, q, z, Nz=4000, monopole = True, delta = None):
         from scipy.integrate import cumtrapz
 
         def poisson_integral(drho, q, z, sign = 1):
@@ -56,7 +52,7 @@ class Heterostructure:
             c1 = (dphi[-1] - phi_model[-1])/ np.exp(q * z_grid[-1])
             c2 =  dphi[i_z0]- c1
         else:
-            c1 =  (dphi[-1] - 2 * np.pi / q * np.exp(-q * z_grid[-1]))/ np.exp(q * z_grid[-1])
+            c1 =  (dphi[-1] - 2 * np.pi / q * np.exp(-q * z_grid[-1]))/np.exp(q * z_grid[-1])
             c2 = 0
         dphi -= c1 *  np.exp(q * z_grid) - c2
         
@@ -75,7 +71,6 @@ class Heterostructure:
         #---------------------------------
         # Different Types of Interaction 
         #---------------------------------
-        from scipy.integrate import cumtrapz
         q = self.q_points_abs[iq]
         z = self.z 
         # Monopole generates a monopole
@@ -240,7 +235,6 @@ class Heterostructure:
             vec = np.zeros([Nq, Nw, self.n_layers, self.n_layers], 
                            dtype=complex)
         omega0 = [[] for i in range(Nq)]
-        eigen0 = np.zeros([Nq, 100])
         for iq in range(Nq):
             m = 0
             eig[iq, 0], vec[iq, 0] = np.linalg.eig(eps_qwij[iq, 0])
@@ -260,7 +254,7 @@ class Heterostructure:
                                 (w_w[iw]-w_w[iw-1]))
                     # linear interp for crossing point
                     w0 = np.real(-eig[iq, iw-1, k]) / a + w_w[iw-1] 
-                    eig0 = a * (w0 - w_w[iw-1]) + eig[iq, iw-1, k]
+                    #eig0 = a * (w0 - w_w[iw-1]) + eig[iq, iw-1, k]
                     #print('crossing found at w = %1.2f eV'%w0)
                     omega0[iq].append(w0)
                     m += 1
@@ -269,22 +263,25 @@ class Heterostructure:
 """TOOLS"""
 
 def get_chi_2D(filenames, name=None):
-    
-    """
-    Calculate the monopole and dipole contribution to the
-    2D susceptibillity \chi_2D, defined as: 
-    \chi^M_2D(q, \omega) = \int\int dr dr' \chi(q, \omega, r,r') \\
-                        = L \chi_{G=G'=0}(q, \omega)
-    \chi^D_2D(q, \omega) = \int\int dr dr' z \chi(q, \omega, r,r') z'
-                         = 1/L sum_{G_z,G_z'} z_factor(G_z) chi_{G_z,G_z'} z_factor(G_z'),
-    Where z_factor(G_z) =  +/- i e^{+/- i*G_z*z0} (L G_z cos(G_z L/2)-2 sin(G_z L/2))/G_z^2
+    """Calculate the monopole and dipole contribution to the
+    2D susceptibillity chi_2D, defined as
+
+    ::
+
+      \chi^M_2D(q, \omega) = \int\int dr dr' \chi(q, \omega, r,r') \\
+                          = L \chi_{G=G'=0}(q, \omega)
+      \chi^D_2D(q, \omega) = \int\int dr dr' z \chi(q, \omega, r,r') z'
+                           = 1/L sum_{G_z,G_z'} z_factor(G_z) chi_{G_z,G_z'} z_factor(G_z'),
+      Where z_factor(G_z) =  +/- i e^{+/- i*G_z*z0} (L G_z cos(G_z L/2)-2 sin(G_z L/2))/G_z^2
 
     input parameters: 
     
-    filenames: list of chi_wGG.pckl files for different q 
-    name: 'str' for writing output files  
+    filenames: list of str
+        list of chi_wGG.pckl files for different q 
+    name: str
+        name writing output files  
     """
-    
+
     nq = len(filenames)
     omega_w, pd, chi_wGG = pickle.load(open(filenames[0]))
     r = pd.gd.get_grid_point_coordinates()
@@ -310,8 +307,6 @@ def get_chi_2D(filenames, name=None):
         q = pd.K_qv
         q_abs = np.linalg.norm(q)        
         q_points_abs.append(q_abs)          
-        chiM_2D = np.zeros_like(chi_wGG[:, 0, 0], dtype=complex) 
-        chiD_2D = np.zeros_like(chi_wGG[:, 0, 0], dtype=complex)
         drho_M_qz[iq] +=  chi_wGG[0,0,0]
         for iG in Glist[1:]: 
             G_z = Gvec[iG, 2] 
@@ -329,8 +324,8 @@ def get_chi_2D(filenames, name=None):
                 drho_D_qz[iq] += 1. / L * np.exp(1j * qGr_R) * chi_wGG[0,iG,iG1] * factor1 
         chiM_2D_qw[iq, :] = L * chi_wGG[:, 0, 0] 
         chiD_2D_qw[iq, :] = chiD_2D
-    """
-    Returns q array, frequency array, chi2D monopole, chi, (Now returned in Bohr)
+
+    """ Returns q array, frequency array, chi2D monopole, chi, (Now returned in Bohr)
     """
     pickle.dump((np.array(q_points_abs), omega_w, chiM_2D_qw, chiD_2D_qw, \
                      z, drho_M_qz, drho_D_qz ), open(name + '-chi.pckl', 'w'))     
