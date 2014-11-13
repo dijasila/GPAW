@@ -3,6 +3,8 @@ from gpaw import GPAW
 from gpaw.mixer import Mixer
 from gpaw.test import equal
 from gpaw.test import gen
+from gpaw.eigensolvers import CG
+
 
 symbol = 'C'
 result = -224.119823656
@@ -14,11 +16,12 @@ h = 0.18
 a = 2.8
 atoms = bulk(symbol, 'diamond', a=a, cubic=True)   # Generate diamond
 mixer = Mixer(0.01, 5, 1)
+eigensolver = CG(rtol=0.001,niter=8)
         
 calc = GPAW(h=h,
             xc=xcname,
             maxiter=120,
-            eigensolver='cg',
+            eigensolver=eigensolver,
             mixer=mixer)
 
 
