@@ -1,7 +1,6 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 from __future__ import print_function
-import sys
 from math import pi, sqrt
 
 import numpy as np
@@ -21,9 +20,11 @@ from gpaw.atom.filter import Filter
 class Generator(AllElectron):
     def __init__(self, symbol, xcname='LDA', scalarrel=False, corehole=None,
                  configuration=None,
-                 nofiles=True, txt='-', gpernode=150):
+                 nofiles=True, txt='-', gpernode=150,
+                 orbital_free=False, tf_coeff=1.):
         AllElectron.__init__(self, symbol, xcname, scalarrel, corehole,
-                             configuration, nofiles, txt, gpernode)
+                             configuration, nofiles, txt, gpernode,
+                             orbital_free, tf_coeff)
 
     def run(self, core='', rcut=1.0, extra=None,
             logderiv=False, vbar=None, exx=False, name=None,
@@ -79,8 +80,6 @@ class Generator(AllElectron):
         njcore = j
         self.njcore = njcore
 
-        lmaxocc = max(l_j[njcore:])
-
         while empty_states != '':
             n = int(empty_states[0])
             l = 'spdf'.find(empty_states[1])
@@ -113,6 +112,23 @@ class Generator(AllElectron):
 
         self.Nv = sum(f_j[njcore:])
         self.Nc = sum(f_j[:njcore])
+
+        lmaxocc = max(l_j[njcore:])
+        lmax = max(l_j[njcore:])
+
+        #Parameters for orbital_free
+        if self.orbital_free:
+            self.n_j = [1]
+            self.l_j = [0]
+            self.f_j = [self.Z]
+            self.e_j = [self.e_j[0]]
+            n_j = self.n_j
+            l_j = self.l_j
+            f_j = self.f_j
+            e_j = self.e_j
+            nj = len(n_j)
+            lmax = 0
+            lmaxocc = 0
 
         # Do all-electron calculation:
         AllElectron.run(self, use_restart_file)
@@ -169,8 +185,6 @@ class Generator(AllElectron):
                                                       self.u_j[:njcore])
             t('Kinetic energy of the core from tauc =',
               np.dot(tauc * r * r, dr) * 4 * pi)
-
-        lmax = max(l_j[njcore:])
 
         # Order valence states with respect to angular momentum
         # quantum number:
@@ -393,7 +407,6 @@ class Generator(AllElectron):
         assert abs(norm - 1) < 1e-2
         gt /= norm
 
-
         # Calculate smooth charge density:
         Nt = np.dot(nt, dv)
         rhot = nt - (Nt + charge / (4 * pi)) * gt
@@ -455,7 +468,7 @@ class Generator(AllElectron):
                           a1 * (l + 2) * (l + 3) * r2 +
                           a2 * (l + 4) * (l + 5) * r4 +
                           a3 * (l + 6) * (l + 7) * r6)
-            denominator = a0 + a1 * r2 + a2 * r4 + a3 * r6            
+            denominator = a0 + a1 * r2 + a2 * r4 + a3 * r6
             ekin_over_phit = - 0.5 * (enumerator / denominator - l * (l + 1))
             ekin_over_phit[1:] /= r2[1:]
 
@@ -496,9 +509,9 @@ class Generator(AllElectron):
         self.dK_lnn = dK_lnn = []
         self.dH_lnn = dH_lnn = []
         self.dO_lnn = dO_lnn = []
+
         for l, (e_n, u_n, s_n, q_n) in enumerate(zip(e_ln, u_ln,
                                                      s_ln, q_ln)):
-
             A_nn = np.inner(s_n, q_n * dr)
             # Do a LU decomposition of A:
             nn = len(e_n)
@@ -546,7 +559,6 @@ class Generator(AllElectron):
 
         self.vt = vt
         self.vbar = vbar
-
 
         t('state    eigenvalue         norm')
         t('--------------------------------')
@@ -744,7 +756,7 @@ class Generator(AllElectron):
             setup.core_hole_e_kin = self.Ekincorehole
             setup.fcorehole = self.fcorehole
 
-        if self.ghost:
+        if self.ghost and not self.orbital_free: #In orbital_free we are not interested in ghosts
             raise RuntimeError('Ghost!')
 
         if self.scalarrel:
@@ -757,7 +769,8 @@ class Generator(AllElectron):
 
         setup.generatorattrs = attrs
         setup.generatordata  = data
-
+        setup.orbital_free = self.orbital_free
+        
         self.id_j = []
         for l, n in zip(vl_j, vn_j):
             if n > 0:
@@ -863,7 +876,6 @@ class Generator(AllElectron):
             xml = open('%s.%s' % (self.symbol, xcname), 'w')
         else:
             xml = open('%s.%s.%s' % (self.symbol, self.name, xcname), 'w')
-
         if self.ghost:
             raise RuntimeError('Ghost!')
 

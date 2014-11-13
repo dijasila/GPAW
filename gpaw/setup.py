@@ -11,8 +11,6 @@ at the root of the code tree.  Just do "cd .." and you will be at the
 right place.""")
     raise SystemExit
 
-import os
-import sys
 from math import pi, sqrt
 
 import numpy as np
@@ -99,6 +97,8 @@ class BaseSetup:
     Maybe this class will be removed in the future, or it could be
     made a proper base class with attributes and so on."""
     
+    orbital_free = False
+    
     def print_info(self, text):
         self.data.print_info(text, self)
 
@@ -147,7 +147,7 @@ class BaseSetup:
         if nspins == 1:
             assert magmom == 0.0
             f_sj = np.array([f_j])
-            correct_for_charge(f_sj[0], charge, 
+            correct_for_charge(f_sj[0], charge,
                                2 * (2 * l_j + 1))
         else:
             nval = f_j.sum() - charge
@@ -510,7 +510,9 @@ class LeanSetup(BaseSetup):
         # Probably empty dictionary, required by GLLB
         self.extra_xc_data = s.extra_xc_data
 
+        self.orbital_free = s.orbital_free
 
+        
 class Setup(BaseSetup):
     """Attributes:
 
@@ -604,6 +606,8 @@ class Setup(BaseSetup):
         self.ExxC = data.ExxC
         self.X_p = data.X_p
 
+        self.orbital_free = data.orbital_free
+        
         pt_jg = data.pt_jg
         phit_jg = data.phit_jg
         phi_jg = data.phi_jg
@@ -691,7 +695,7 @@ class Setup(BaseSetup):
         tauct_g = data.tauct_g
         if tauct_g is None:
             tauct_g = np.zeros(ng)
-            # FIXME: ng is not defined! 
+            # FIXME: ng is not defined!
         self.tauct = rgd.spline(tauct_g, self.rcore)
 
         self.pt_j = self.create_projectors(rcutfilter)
@@ -729,7 +733,7 @@ class Setup(BaseSetup):
             self.phicorehole_g = self.phicorehole_g[:gcut2].copy()
 
         T_Lqp = self.calculate_T_Lqp(lcut, nq, _np, nj, jlL_i)
-        (g_lg, n_qg, nt_qg, Delta_lq, self.Lmax, self.Delta_pL, Delta0, 
+        (g_lg, n_qg, nt_qg, Delta_lq, self.Lmax, self.Delta_pL, Delta0,
          self.N0_p) = self.get_compensation_charges(phi_jg, phit_jg, _np,
                                                     T_Lqp)
         self.Delta0 = Delta0
@@ -774,7 +778,7 @@ class Setup(BaseSetup):
         
         M_p, M_pp = self.calculate_coulomb_corrections(lcut, n_qg, wn_lqg,
                                                        lmax, Delta_lq,
-                                                       wnt_lqg, g_lg, 
+                                                       wnt_lqg, g_lg,
                                                        wg_lg, nt_qg,
                                                        _np, T_Lqp, nc_g,
                                                        wnc_g, rdr_g, mct_g,
@@ -1028,10 +1032,10 @@ class Setup(BaseSetup):
                         for m3 in range(0, (2 * l3 + 1)):
                             L3 = l3**2 + m3
                             try:
-                                G += np.outer(G_LLL[L3, l1**2:l1**2 + nm1, 
+                                G += np.outer(G_LLL[L3, l1**2:l1**2 + nm1,
                                                     1 + v1],
                                               Y_LLv[L3, l2**2:l2**2 + nm2, v2])
-                                G -= np.outer(G_LLL[L3, l1**2:l1**2 + nm1, 
+                                G -= np.outer(G_LLL[L3, l1**2:l1**2 + nm1,
                                                     1 + v2],
                                               Y_LLv[L3, l2**2:l2**2 + nm2, v1])
                             except IndexError:
@@ -1090,7 +1094,7 @@ class Setup(BaseSetup):
             raise RuntimeError('Error in get_magnetic_integrals_new: YL_to_Ylm not implemented for l>2 yet.')
 
         # <YL1| Lz |YL2>
-        # with help of YL_to_Ylm 
+        # with help of YL_to_Ylm
         # Lz |lm> = hbar m |lm>
         def YL1_Lz_YL2(L1,L2):
             Yl1m1 = YL_to_Ylm(L1)
@@ -1107,7 +1111,7 @@ class Setup(BaseSetup):
             return sum
 
         # <YL1| L+ |YL2>
-        # with help of YL_to_Ylm 
+        # with help of YL_to_Ylm
         # and using L+ |lm> = hbar sqrt( l(l+1) - m(m+1) ) |lm+1>
         def YL1_Lp_YL2(L1,L2):
             Yl1m1 = YL_to_Ylm(L1)
@@ -1125,7 +1129,7 @@ class Setup(BaseSetup):
             return sum
 
         # <YL1| L- |YL2>
-        # with help of YL_to_Ylm 
+        # with help of YL_to_Ylm
         # and using L- |lm> = hbar sqrt( l(l+1) - m(m-1) ) |lm-1>
         def YL1_Lm_YL2(L1,L2):
             Yl1m1 = YL_to_Ylm(L1)
@@ -1357,7 +1361,7 @@ def types2atomtypes(symbols, types, default):
     If types is a dictionary and contains None, this will be used as default
     type, otherwize input arg ``default`` is used as default.
     """
-    natoms =  len(symbols)
+    natoms = len(symbols)
     if isinstance(types, str):
         return [types] * natoms
 
@@ -1377,4 +1381,3 @@ def types2atomtypes(symbols, types, default):
             type_a[a] = type
 
     return type_a
-

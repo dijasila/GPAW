@@ -43,7 +43,7 @@ def XC(kernel, parameters=None):
             return BEEVDWFunctional('BEEF-vdW')
         elif name.startswith('GLLB'):
             from gpaw.xc.gllb.nonlocalfunctionalfactory import \
-                 NonLocalFunctionalFactory
+                NonLocalFunctionalFactory
             xc = NonLocalFunctionalFactory().get_functional_by_name(name)
             xc.print_functional()
             return xc
@@ -75,6 +75,9 @@ def XC(kernel, parameters=None):
         elif name == '2D-MGGA':
             from gpaw.xc.mgga import PurePython2DMGGAKernel
             kernel = PurePython2DMGGAKernel(name, parameters)
+        elif name[0].isdigit():
+            from gpaw.xc.parametrizedxc import ParametrizedKernel
+            kernel = ParametrizedKernel(name)
         else:
             kernel = LibXC(kernel)
     if kernel.type == 'LDA':
