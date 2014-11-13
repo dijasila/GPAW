@@ -2,10 +2,7 @@ from ase import Atoms
 from gpaw import GPAW
 from gpaw.mixer import Mixer
 from gpaw.test import equal
-#from gpaw.atom.generator import Generator
 from gpaw.test import gen
-
-#Test tf_mode for H and C
 
 h = 0.3
 a = 8
@@ -27,10 +24,8 @@ for element, result, e in zip(elements, results, electrons):
                  cell=(a, a, a))
 
     mixer = Mixer(0.3, 5, 1)
-    #mixer=Mixer(beta=0.05, nmaxold=2, weight=50.0)
     calc = GPAW(h=h, txt='-', xc=xcname, maxiter=240,
                 eigensolver='cg', mixer=mixer)
-    #mixer.dotprod = ExperimentalDotProd(calc)
 
     atom.set_calculator(calc)
 

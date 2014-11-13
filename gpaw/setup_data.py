@@ -13,7 +13,7 @@ from ase.units import Bohr, Hartree
 
 from gpaw import setup_paths
 from gpaw.spline import Spline
-from gpaw.utilities import _fact, divrl
+from gpaw.utilities import _fact
 from gpaw.utilities.tools import md5_new
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast_string
@@ -275,7 +275,8 @@ class SetupData:
         else:
             type = 'GGA'
             name = self.setupname
-        print('  <xc_functional type="%s" name="%s"/>' % (type, name), file=xml)
+        print('  <xc_functional type="%s" name="%s"/>' % (type, name),
+              file=xml)
         gen_attrs = ' '.join(['%s="%s"' % (key, value) for key, value
                               in self.generatorattrs])
         print('  <generator %s>' % gen_attrs, file=xml)
@@ -303,7 +304,7 @@ class SetupData:
         print(self.rgd.xml('g1'), file=xml)
 
         print(('  <shape_function type="gauss" rc="%r"/>' %
-                       self.rcgauss), file=xml)
+               self.rcgauss), file=xml)
 
         if self.r0 is None:
             # Old setups:
@@ -323,10 +324,10 @@ class SetupData:
 
         if self.has_corehole:
             print((('  <core_hole_state state="%d%s" ' +
-                           'removed="%r" eig="%r" ekin="%r">') %
-                           (self.ncorehole, 'spdf'[self.lcorehole],
-                            self.fcorehole,
-                            self.core_hole_e, self.core_hole_e_kin)), file=xml)
+                    'removed="%r" eig="%r" ekin="%r">') %
+                   (self.ncorehole, 'spdf'[self.lcorehole],
+                    self.fcorehole,
+                    self.core_hole_e, self.core_hole_e_kin)), file=xml)
             for x in self.phicorehole_g:
                 print('%r' % x, end=' ', file=xml)
             print('\n  </core_hole_state>', file=xml)
@@ -342,7 +343,7 @@ class SetupData:
 
         # Print xc-specific data to setup file (used so for KLI and GLLB)
         for name, a in self.extra_xc_data.iteritems():
-            newname = 'GLLB_'+name
+            newname = 'GLLB_' + name
             print('  <%s grid="g1">\n    ' % newname, end=' ', file=xml)
             for x in a:
                 print('%r' % x, end=' ', file=xml)

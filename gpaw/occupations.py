@@ -43,7 +43,6 @@ class OccupationNumbers:
 
         # Allow subclasses to adjust nvalence:
         self.set_number_of_electrons(wfs)
-
         
         # Allocate:
         for kpt in wfs.kpt_u:
@@ -301,7 +300,7 @@ class ZeroKelvin(OccupationNumbers):
                 sign = 1 - kpt.s * 2
                 ne = 0.5 * (self.nvalence + sign * self.magmom)
 
-                homo, lumo = self.occupy(f_n, eps_n, ne) 
+                homo, lumo = self.occupy(f_n, eps_n, ne)
 
                 fermilevels[kpt.s] = 0.5 * (homo + lumo)
             wfs.bd.distribute(f_n, kpt.f_n)
@@ -317,8 +316,8 @@ class ZeroKelvin(OccupationNumbers):
             if wfs.bd.comm.rank == 0:
                 f_n = wfs.bd.empty(global_array=True)
                 homo, lumo = self.occupy(f_n, eps_n,
-                                    0.5 * self.nvalence * wfs.ncomp *
-                                    kpt.weight, kpt.weight)
+                                         0.5 * self.nvalence * wfs.ncomp *
+                                         kpt.weight, kpt.weight)
                 self.homo = max(self.homo, homo)
                 self.lumo = min(self.lumo, lumo)
             else:
@@ -352,7 +351,7 @@ class ZeroKelvin(OccupationNumbers):
                 f_n = np.empty(nbands * 2)
                 nsorted = eps_n.argsort()
                 self.homo, self.lumo = self.occupy(f_n, eps_n[nsorted],
-                                              self.nvalence)
+                                                   self.nvalence)
                 f_sn = f_n[nsorted.argsort()].reshape((2, nbands))
                 self.magmom = f_sn[0].sum() - f_sn[1].sum()
                 self.fermilevel = 0.5 * (self.homo + self.lumo)
@@ -438,7 +437,7 @@ class SmoothDistribution(ZeroKelvin):
         if wfs.nspins == 1:
             assert spin == 0
             n = self.nvalence // 2
-            band_rank, myn = wfs.bd.who_has(n-1)
+            band_rank, myn = wfs.bd.who_has(n - 1)
             if wfs.bd.rank == band_rank:
                 homo = max([kpt.eps_n[myn] for kpt in wfs.kpt_u])
             else:
@@ -454,7 +453,7 @@ class SmoothDistribution(ZeroKelvin):
                 lumo = -max([-kpt.eps_n[myn] for kpt in wfs.kpt_u])
             else:
                 lumo = 1000.0
-            lumo= -wfs.world.max(-lumo)
+            lumo = -wfs.world.max(-lumo)
             return np.array([homo, lumo])
         else:
             assert wfs.bd.size == 1
@@ -582,23 +581,27 @@ class MethfesselPaxton(SmoothDistribution):
 
         z = 0.5 * (1 - erf(x))
         for i in range(self.iter):
-            z += self.coff_function(i + 1) * self.hermite_poly(2 * i + 1, x) * np.exp(-x**2)
+            z += (self.coff_function(i + 1) *
+                  self.hermite_poly(2 * i + 1, x) * np.exp(-x**2))
         kpt.f_n[:] = kpt.weight * z
         n = kpt.f_n.sum()
 
         dnde = 1 / np.sqrt(pi) * np.exp(-x**2)
         for i in range(self.iter):
-            dnde += self.coff_function(i + 1) * self.hermite_poly(2 * i + 2, x) * np.exp(-x**2)
+            dnde += (self.coff_function(i + 1) *
+                     self.hermite_poly(2 * i + 2, x) * np.exp(-x**2))
         dnde = dnde.sum()
         dnde *= kpt.weight / self.width
-        e_entropy = 0.5 * self.coff_function(self.iter) * self.hermite_poly(2 * self.iter, x)* np.exp(-x**2)
+        e_entropy = (0.5 * self.coff_function(self.iter) *
+                     self.hermite_poly(2 * self.iter, x) * np.exp(-x**2))
         e_entropy = kpt.weight * e_entropy.sum() * self.width
 
         sign = 1 - kpt.s * 2
         return np.array([n, dnde, n * sign, e_entropy])
 
     def coff_function(self, n):
-        return (-1)**n / (np.product(np.arange(1, n + 1)) * 4.** n * np.sqrt(np.pi))
+        return (-1)**n / (np.product(np.arange(1, n + 1)) *
+                          4**n * np.sqrt(np.pi))
 
     def hermite_poly(self, n, x):
         if n == 0:
@@ -606,8 +609,8 @@ class MethfesselPaxton(SmoothDistribution):
         elif n == 1:
             return 2 * x
         else:
-            return 2 * x * self.hermite_poly(n - 1, x) \
-                            - 2 * (n - 1) * self.hermite_poly(n - 2, x)
+            return (2 * x * self.hermite_poly(n - 1, x) -
+                    2 * (n - 1) * self.hermite_poly(n - 2, x))
 
                             
 class FixedOccupations(ZeroKelvin):
@@ -636,4 +639,3 @@ class TFOccupations(FermiDirac):
         return HOMO and LUMO energies."""
         # Same as occupy in FermiDirac expect one band: weight = ne
         return FermiDirac.occupy(self, f_n, eps_n, ne, ne)
-        

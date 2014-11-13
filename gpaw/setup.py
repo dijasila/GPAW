@@ -15,7 +15,7 @@ from math import pi, sqrt
 
 import numpy as np
 import ase.units as units
-from ase.data import atomic_names, chemical_symbols, atomic_numbers
+from ase.data import chemical_symbols
 
 from gpaw.setup_data import SetupData
 from gpaw.basis_data import Basis
@@ -135,7 +135,6 @@ class BaseSetup:
                 # add to the lower levels first
                 for j in range(nj):
                     f = f_j[j]
-                    l = self.l_j[j]
                     if use_complete or f > 0:
                         c = min(degeneracy_j[j] - f, -charge)
                         f_j[j] += c
@@ -268,7 +267,6 @@ class BaseSetup:
         """Return spline representation of partial waves and densities."""
 
         l_j = self.l_j
-        nj = len(l_j)
 
         # cutoffs
         rcut2 = 2 * max(self.rcut_j)
@@ -589,7 +587,7 @@ class Setup(BaseSetup):
             raise ValueError('Cannot use %s setup with %s functional' %
                              (data.setupname, xc.get_setup_name()))
         
-        self.symbol = symbol = data.symbol
+        self.symbol = data.symbol
         self.data = data
 
         self.Nc = data.Nc
@@ -693,9 +691,6 @@ class Setup(BaseSetup):
 
         # Construct splines for core kinetic energy density:
         tauct_g = data.tauct_g
-        if tauct_g is None:
-            tauct_g = np.zeros(ng)
-            # FIXME: ng is not defined!
         self.tauct = rgd.spline(tauct_g, self.rcore)
 
         self.pt_j = self.create_projectors(rcutfilter)
@@ -704,7 +699,7 @@ class Setup(BaseSetup):
             basis = self.create_basis_functions(phit_jg, rcut2, gcut2)
         phit_j = basis.tosplines()
         self.phit_j = phit_j
-        self.basis = basis #?
+        self.basis = basis
 
         self.nao = 0
         for phit in self.phit_j:
@@ -719,7 +714,6 @@ class Setup(BaseSetup):
         self.nc_g = nc_g = nc_g[:gcut2].copy()
         self.nct_g = nct_g = nct_g[:gcut2].copy()
         vbar_g = data.vbar_g[:gcut2].copy()
-        tauc_g = data.tauc_g[:gcut2].copy()
 
         extra_xc_data = dict(data.extra_xc_data)
         # Cut down the GLLB related extra data
