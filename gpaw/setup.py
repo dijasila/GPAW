@@ -606,6 +606,8 @@ class Setup(BaseSetup):
         self.ExxC = data.ExxC
         self.X_p = data.X_p
 
+        self.orbital_free = data.orbital_free
+        
         pt_jg = data.pt_jg
         phit_jg = data.phit_jg
         phi_jg = data.phi_jg
@@ -1359,7 +1361,7 @@ def types2atomtypes(symbols, types, default):
     If types is a dictionary and contains None, this will be used as default
     type, otherwize input arg ``default`` is used as default.
     """
-    natoms =  len(symbols)
+    natoms = len(symbols)
     if isinstance(types, str):
         return [types] * natoms
 
@@ -1379,4 +1381,3 @@ def types2atomtypes(symbols, types, default):
             type_a[a] = type
 
     return type_a
-
