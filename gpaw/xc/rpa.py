@@ -39,7 +39,7 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
                          nblocks=blocks,
                          wstc=True,
                          txt=name + '-rpa.txt')
-    rpa.calculate(ecut=ecut * 0.8**np.arange(extrapolate))
+    rpa.calculate(ecut=ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3))
 
     
 class RPACorrelation:
@@ -154,13 +154,8 @@ class RPACorrelation:
         p = functools.partial(print, file=self.fd)
 
         if isinstance(ecut, (float, int)):
-            ecut_i = [ecut]
-            for i in range(5):
-                ecut_i.append(ecut_i[-1] * 0.8)
-            ecut_i = np.sort(ecut_i)
-        else:
-            ecut_i = np.sort(ecut)
-        self.ecut_i = np.asarray(ecut_i) / Hartree
+            ecut = ecut * (1 + 0.5 * np.arange(6))**(-2 / 3)
+        self.ecut_i = np.asarray(np.sort(ecut)) / Hartree
         ecutmax = max(self.ecut_i)
 
         if nbands is None:
@@ -168,8 +163,8 @@ class RPACorrelation:
         else:
             p('Response function bands : %s' % nbands)
         p('Plane wave cutoffs (eV) :', end='')
-        for ecut in ecut_i:
-            p('%5d' % ecut, end='')
+        for e in self.ecut_i:
+            p('{0:.3f}'.format(e * Hartree), end='')
         p()
         p()
 
