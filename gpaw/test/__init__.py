@@ -144,9 +144,6 @@ tests = [
     'lcao_density.py',
     'parallel/overlap.py',
     'restart.py',
-    # numpy/scipy tests fail randomly
-    #'numpy_test.py',
-    #'scipy_test.py',
     'gemv.py',
     'ylexpand.py',
     'potential.py',
@@ -230,12 +227,10 @@ tests = [
     'excited_state.py',
     'inducedfield_lrtddft.py',
     'inducedfield_td.py',
-    # > 20 sec tests start here (add tests after gemm.py!)
     'gemm.py',
     'ed.py',
     'ed_wrapper.py',
     'ed_shapes.py',
-    #'fractional_translations.py',
     'rpa_energy_Ni.py',
     'LDA_unstable.py',
     'si.py',
@@ -259,7 +254,6 @@ tests = [
     'aedensity.py',
     'fd2lcao_restart.py',
     'gwsi.py',
-    #'graphene_EELS.py', disabled while work is in progress on response code
     'lcao_bsse.py',
     'pplda.py',
     'revPBE_Li.py',
@@ -299,7 +293,6 @@ tests = [
     'gw_ppa.py',
     'nscfsic.py',
     'kssingles_Be.py',
-    # > 100 sec tests start here (add tests after exx.py!)
     'parallel/diamond_gllb.py',
     'lcao_tdgllbsc.py',
     'response_na_plasmon.py',
@@ -315,7 +308,6 @@ tests = [
     'ehrenfest_nacl.py',
     'rpa_energy_N2.py',
     'beefvdw.py',
-    #'mbeef.py',
     'nonlocalset.py',
     'wannierk.py',
     'rpa_energy_Na.py',
@@ -329,8 +321,6 @@ tests = [
     'au02_absorption.py',
     'lrtddft3.py',
     'scfsic_n2.py',
-    #'fractional_translations_med.py',
-    #'fractional_translations_big.py',
     'parallel/lcao_parallel.py',
     'parallel/lcao_parallel_kpt.py',
     'parallel/fd_parallel.py',
@@ -347,16 +337,26 @@ tests = [
     'parallel/realspace_blacs.py',
     'AA_exx_enthalpy.py',
     'usesymm2.py',
+    'cmrtest/cmr_test.py',
+    'cmrtest/cmr_test3.py',
+    'cmrtest/cmr_test4.py',
+    'cmrtest/cmr_append.py',
+    'cmrtest/Li2_atomize.py',
+    ]
+
+    #'fractional_translations.py',
+    #'graphene_EELS.py', disabled while work is in progress on response code
+    #'mbeef.py',
+
+    #'fractional_translations_med.py',
+    #'fractional_translations_big.py',
+
     #'eigh_perf.py', # Requires LAPACK 3.2.1 or later
     # XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
     #'parallel/scalapack_pdlasrt_hang.py',
     #'dscf_forces.py',
     #'stark_shift.py',
-    'cmrtest/cmr_test.py',
-    'cmrtest/cmr_test3.py',
-    'cmrtest/cmr_test4.py',
-    'cmrtest/cmr_append.py',
-    'cmrtest/Li2_atomize.py']
+
 
 exclude = []
 
@@ -392,7 +392,9 @@ if mpi.size > 2:
     exclude += ['neb.py']
 
 if mpi.size < 4:
-    exclude += ['parallel/pblas.py',
+    exclude += ['parallel/fd_parallel.py',
+                'parallel/lcao_parallel.py',
+                'parallel/pblas.py',
                 'parallel/scalapack.py',
                 'parallel/scalapack_diag_simple.py',
                 'parallel/realspace_blacs.py',
@@ -402,11 +404,12 @@ if mpi.size < 4:
                 'bse_silicon.py',
                 'bse_vs_lrtddft.py',
                 'fileio/parallel.py',
-                'parallel/diamond_gllb.py']
+                'parallel/diamond_gllb.py',
+                'parallel/lcao_parallel_kpt.py',
+                'parallel/fd_parallel_kpt.py']
+
 
 if mpi.size != 4:
-    exclude += ['parallel/lcao_parallel.py']
-    exclude += ['parallel/fd_parallel.py']
     exclude += ['parallel/scalapack_mpirecv_crash.py']
     exclude += ['parallel/scalapack_pdlasrt_hang.py']
 
@@ -426,22 +429,17 @@ if mpi.size != 1 and not compiled_with_sl():
                 'pw/fulldiagk.py',
                 'au02_absorption.py']
 
-if mpi.size == 8:
-    exclude += ['transport.py']
-
-if mpi.size != 8:
-    exclude += ['parallel/lcao_parallel_kpt.py']
-    exclude += ['parallel/fd_parallel_kpt.py']
-
 if sys.version_info < (2, 6):
     exclude.append('transport.py')
     
 if np.__version__ < '1.6.0':
     exclude.append('chi0.py')
+
+exclude = set(exclude)
     
-for test in exclude:
-    if test in tests:
-        tests.remove(test)
+#for test in exclude:
+#    if test in tests:
+#        tests.remove(test)
 
 
 class TestRunner:
@@ -528,6 +526,10 @@ class TestRunner:
                 j -= 1
 
     def run_one(self, test):
+        exitcode_ok = 0
+        exitcode_skip = 1
+        exitcode_fail = 2
+
         if self.jobs == 1:
             self.log.write('%*s' % (-self.n, test))
             self.log.flush()
@@ -537,6 +539,10 @@ class TestRunner:
 
         failed = False
         skip = False
+
+        if test in exclude:
+            self.register_skipped(test, t0)
+            return exitcode_skip
 
         try:
             loc = {}
@@ -566,17 +572,20 @@ class TestRunner:
 
         if failed:
             self.fail(test, np.argwhere(everybody).ravel(), t0)
-            exitcode = 2
+            exitcode = exitcode_fail
         elif skip:
-            self.write_result(test, 'SKIPPED', t0)
-            self.skipped.append(test)
-            exitcode = 1
+            self.register_skipped(test, t0)
+            exitcode = exitcode_skip
         else:
             self.write_result(test, 'OK', t0)
-            exitcode = 0
+            exitcode = exitcode_ok
 
         return exitcode
 
+    def register_skipped(self, test, t0):
+        self.write_result(test, 'SKIPPED', t0)
+        self.skipped.append(test)
+    
     def check_garbage(self):
         gc.collect()
         n = len(gc.garbage)

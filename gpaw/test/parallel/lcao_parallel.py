@@ -5,6 +5,7 @@ from ase import Atoms
 from gpaw import GPAW
 from gpaw import KohnShamConvergenceError
 from gpaw.utilities import devnull, compiled_with_sl
+from gpaw.mpi import world
 
 from ase.structure import molecule
 
@@ -96,7 +97,7 @@ run()
 # state-parallelization = 2,
 # domain-decomposition = (1, 2, 1)
 parallel['band'] = 2
-parallel['domain'] = (1, 2, 1)
+parallel['domain'] = (1, 2, world.size // 4)
 run()
 
 if compiled_with_sl():
