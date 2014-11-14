@@ -288,6 +288,7 @@ class RPACorrelation:
 
         self.timer.stop('RPA')
         self.timer.write(self.fd)
+        self.fd.flush()
         
         return e_i * Hartree
 
