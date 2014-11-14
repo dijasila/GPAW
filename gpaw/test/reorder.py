@@ -52,5 +52,5 @@ else:
             else:
                 comment = '# duration unknown'
         print(''.join(['    ',
-                       ("'%s'," % test).ljust(maxnamelen + 4),
-                       comment]))
+                       ("'%s'," % test).ljust(maxnamelen + 5),
+                       comment]).rstrip())
