@@ -81,6 +81,7 @@ Linux:
    Linux/bwgrid
    Linux/carbon_cnm
    Linux/davinci
+   Linux/gardar.nhpc.hi.is
    Linux/huygens
    Linux/juropa
    Linux/monolith
