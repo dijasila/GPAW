@@ -344,18 +344,18 @@ tests = [
     'cmrtest/Li2_atomize.py',
     ]
 
-    #'fractional_translations.py',
-    #'graphene_EELS.py', disabled while work is in progress on response code
-    #'mbeef.py',
+#'fractional_translations.py',
+#'graphene_EELS.py', disabled while work is in progress on response code
+#'mbeef.py',
 
-    #'fractional_translations_med.py',
-    #'fractional_translations_big.py',
+#'fractional_translations_med.py',
+#'fractional_translations_big.py',
 
-    #'eigh_perf.py', # Requires LAPACK 3.2.1 or later
-    # XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
-    #'parallel/scalapack_pdlasrt_hang.py',
-    #'dscf_forces.py',
-    #'stark_shift.py',
+#'eigh_perf.py', # Requires LAPACK 3.2.1 or later
+# XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
+#'parallel/scalapack_pdlasrt_hang.py',
+#'dscf_forces.py',
+#'stark_shift.py',
 
 
 exclude = []

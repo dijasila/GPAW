@@ -1,7 +1,6 @@
 from __future__ import print_function
 import sys
 
-from ase import Atoms
 from gpaw import GPAW
 from gpaw import KohnShamConvergenceError
 from gpaw.utilities import devnull, compiled_with_sl
