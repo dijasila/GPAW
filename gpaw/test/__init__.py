@@ -278,6 +278,7 @@ tests = [
     'si_xas.py',                            # ~18s
     'mgga_sc.py',                           # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
+    # buildbot > 20 sec tests start here (add tests after lrtddft.py!) 
     'lrtddft.py',                           # ~20s
     'parallel/fd_parallel_kpt.py',          # ~21s
     'pw/hyb.py',                            # ~21s
@@ -316,6 +317,7 @@ tests = [
     'transport.py',                         # ~73s
     'lrtddft3.py',                          # ~75s
     'nonlocalset.py',                       # ~82s
+    # buildbot > 100 sec tests start here (add tests after lb94.py!) 
     'lb94.py',                              # ~84s
     'AA_exx_enthalpy.py',                   # ~119s
     'lcao_tdgllbsc.py',                     # ~132s
