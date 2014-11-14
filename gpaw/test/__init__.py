@@ -69,279 +69,279 @@ def wrap_pylab(names=[]):
 
 
 tests = [
-    'gemm_complex.py',
-    'ase3k_version.py',
-    'kpt.py',
-    'mpicomm.py',
-    'numpy_core_multiarray_dot.py',
-    'fileio/hdf5_noncontiguous.py',
-    'cg2.py',
-    'laplace.py',
-    'lapack.py',
-    'eigh.py',
-    'parallel/submatrix_redist.py',
-    'second_derivative.py',
-    'parallel/parallel_eigh.py',
-    'gp2.py',
-    'blas.py',
-    'Gauss.py',
-    'nabla.py',
-    'dot.py',
-    'mmm.py',
-    'lxc_fxc.py',
-    'pbe_pw91.py',
-    'gradient.py',
-    'erf.py',
-    'lf.py',
-    'fsbt.py',
-    'parallel/compare.py',
-    'integral4.py',
-    'zher.py',
-    'gd.py',
-    'pw/interpol.py',
-    'screened_poisson.py',
-    'xc.py',
-    'XC2.py',
-    'yukawa_radial.py',
-    'dump_chi0.py',
-    'vdw/potential.py',
-    'lebedev.py',
-    'fileio/hdf5_simple.py',
-    'occupations.py',
-    'derivatives.py',
-    'parallel/realspace_blacs.py',
-    'pw/reallfc.py',
-    'parallel/pblas.py',
-    'non_periodic.py',
-    'spectrum.py',
-    'pw/lfc.py',
-    'gauss_func.py',
-    'multipoletest.py',
-    'noncollinear/xcgrid3d.py',
-    'cluster.py',
-    'poisson.py',
-    'parallel/overlap.py',
-    'parallel/scalapack.py',
-    'gauss_wave.py',
-    'transformations.py',
-    'parallel/blacsdist.py',
-    'ut_rsh.py',
-    'pbc.py',
-    'noncollinear/xccorr.py',
-    'atoms_too_close.py',
-    'harmonic.py',
-    'proton.py',
-    'timing.py',
-    'parallel/ut_parallel.py',
-    'ut_csh.py',
-    'lcao_density.py',
-    'parallel/hamiltonian.py',
-    'pw/stresstest.py',
-    'pw/fftmixer.py',
-    'usesymm.py',
-    'coulomb.py',
-    'xcatom.py',
-    'force_as_stop.py',
-    'vdwradii.py',
-    'ase3k.py',
-    'numpy_zdotc_graphite.py',
-    'eed.py',
-    'gemv.py',
-    'fileio/idiotproof_setup.py',
-    'ylexpand.py',
-    'keep_htpsit.py',
-    'gga_atom.py',
-    'hydrogen.py',
-    'restart2.py',
-    'aeatom.py',
-    'plt.py',
-    'ds_beta.py',
-    'multipoleH2O.py',
-    'noncollinear/h.py',
-    'stdout.py',
-    'lcao_largecellforce.py',
-    'parallel/scalapack_diag_simple.py',
-    'fixdensity.py',
-    'pseudopotential/ah.py',
-    'lcao_restart.py',
-    'wfs_io.py',
-    'lrtddft2.py',
-    'fileio/file_reference.py',
-    'cmrtest/cmr_test2.py',
-    'restart.py',
-    'broydenmixer.py',
-    'pw/fulldiagk.py',
-    'external_potential.py',
-    'mixer.py',
-    'parallel/lcao_projections.py',
-    'lcao_h2o.py',
-    'h2o_xas.py',
-    'wfs_auto.py',
-    'pw/fulldiag.py',
-    'symmetry_ft.py',
-    'aluminum_EELS_RPA.py',
-    'ewald.py',
-    'symmetry.py',
-    'revPBE.py',
-    'tf_mode_pbc.py',
-    'tf_mode.py',
-    'bee1.py',
-    'nonselfconsistentLDA.py',
-    'aluminum_EELS_ALDA.py',
-    'spin_contamination.py',
-    'inducedfield_lrtddft.py',
-    'H_force.py',
-    'usesymm2.py',
-    'mgga_restart.py',
-    'fixocc.py',
-    'spinFe3plus.py',
-    'fermisplit.py',
-    'Cl_minus.py',
-    'h2o_xas_recursion.py',
-    'nonselfconsistent.py',
-    'spinpol.py',
-    'exx_acdf.py',
-    'cg.py',
-    'kptpar.py',
-    'elf.py',
-    'blocked_rmm_diis.py',
-    'pw/slab.py',
-    'si.py',
-    'lcao_bsse.py',
-    'parallel/lcao_hamiltonian.py',
-    'degeneracy.py',
-    'refine.py',
-    'gemm.py',
-    'al_chain.py',
-    'fileio/parallel.py',
-    'fixmom.py',
-    'exx_unocc.py',
-    'davidson.py',
-    'aedensity.py',
-    'pw/h.py',
-    'apmb.py',
-    'pseudopotential/hgh_h2o.py',
-    'ed_wrapper.py',
-    'pw/bulk.py',
-    'ne_gllb.py',
-    'ed.py',
-    'lcao_force.py',
-    'fileio/restart_density.py',
-    'rpa_energy_Ni.py',
-    'be_nltd_ip.py',
-    'test_ibzqpt.py',
-    'si_primitive.py',
-    'inducedfield_td.py',
-    'ehrenfest_nacl.py',
-    'fd2lcao_restart.py',
-    'gw_method.py',
-    'constant_electric_field.py',
-    'complex.py',
-    'vdw/quick.py',
-    'bse_aluminum.py',
-    'Al2_lrtddft.py',
-    'ralda_energy_N2.py',
-    'gw_ppa.py',
-    'parallel/lcao_complicated.py',
-    'bulk.py',
-    'scfsic_h2.py',
-    'lcao_bulk.py',
-    '2Al.py',
-    'kssingles_Be.py',
-    'relax.py',
-    'pw/mgo_hybrids.py',
-    'dscf_lcao.py',
-    '8Si.py',
-    'partitioning.py',
-    'lxc_xcatom.py',
-    'gllbatomic.py',
-    'guc_force.py',
-    'ralda_energy_Ni.py',
-    'simple_stm.py',
-    'ed_shapes.py',
-    'restart_band_structure.py',
-    'exx.py',
-    'Hubbard_U.py',
-    'rpa_energy_Si.py',
-    'dipole.py',
-    'IP_oxygen.py',
-    'rpa_energy_Na.py',
-    'parallel/fd_parallel.py',
-    'parallel/lcao_parallel.py',
-    'atomize.py',
-    'excited_state.py',
-    'ne_disc.py',
-    'tpss.py',
-    'td_na2.py',
-    'exx_coarse.py',
-    'pplda.py',
-    'si_xas.py',
-    'mgga_sc.py',
-    'Hubbard_U_Zn.py',
-    'lrtddft.py',
-    'parallel/fd_parallel_kpt.py',
-    'pw/hyb.py',
-    'Cu.py',
-    'response_na_plasmon.py',
-    'bse_diamond.py',
-    'fermilevel.py',
-    'parallel/ut_hsblacs.py',
-    'ralda_energy_H2.py',
-    'diamond_absorption.py',
-    'ralda_energy_Si.py',
-    'ldos.py',
-    'revPBE_Li.py',
-    'parallel/lcao_parallel_kpt.py',
-    'h2o_dks.py',
-    'nsc_MGGA.py',
-    'diamond_gllb.py',
-    'MgO_exx_fd_vs_pw.py',
-    'vdw/quick_spin.py',
-    'bse_sym.py',
-    'parallel/ut_hsops.py',
-    'LDA_unstable.py',
-    'au02_absorption.py',
-    'wannierk.py',
-    'bse_vs_lrtddft.py',
-    'aluminum_testcell.py',
-    'pygga.py',
-    'ut_tddft.py',
-    'rpa_energy_N2.py',
-    'vdw/ar2.py',
-    'parallel/diamond_gllb.py',
-    'beefvdw.py',
-    'pw/si_stress.py',
-    'chi0.py',
-    'scfsic_n2.py',
-    'transport.py',
-    'lrtddft3.py',
-    'nonlocalset.py',
-    'lb94.py',
-    'AA_exx_enthalpy.py',
-    'lcao_tdgllbsc.py',
-    'bse_silicon.py',
-    'gwsi.py',
-    'maxrss.py',
-    'pw/moleculecg.py',
-    'potential.py',
-    'pes.py',
-    'lcao_pair_and_coulomb.py',
-    'asewannier.py',
-    'exx_q.py',
-    'pw/davidson_pw.py',
-    'neb.py',
-    'diamond_eps.py',
-    'wannier_ethylene.py',
-    'muffintinpot.py',
-    'nscfsic.py',
-    'coreeig.py',
-    'bse_MoS2_cut.py',
-    'parallel/scalapack_mpirecv_crash.py',
-    'cmrtest/cmr_test.py',
-    'cmrtest/cmr_test3.py',
-    'cmrtest/cmr_test4.py',
-    'cmrtest/cmr_append.py',
-    'cmrtest/Li2_atomize.py',
+    'gemm_complex.py',                     
+    'ase3k_version.py',                    
+    'kpt.py',                              
+    'mpicomm.py',                          
+    'numpy_core_multiarray_dot.py',        
+    'fileio/hdf5_noncontiguous.py',        
+    'cg2.py',                              
+    'laplace.py',                          
+    'lapack.py',                           
+    'eigh.py',                             
+    'parallel/submatrix_redist.py',        
+    'second_derivative.py',                
+    'parallel/parallel_eigh.py',           
+    'gp2.py',                              
+    'blas.py',                             
+    'Gauss.py',                            
+    'nabla.py',                            
+    'dot.py',                              
+    'mmm.py',                              
+    'lxc_fxc.py',                          
+    'pbe_pw91.py',                         
+    'gradient.py',                         
+    'erf.py',                              
+    'lf.py',                               
+    'fsbt.py',                             
+    'parallel/compare.py',                 
+    'integral4.py',                        
+    'zher.py',                             
+    'gd.py',                               
+    'pw/interpol.py',                      
+    'screened_poisson.py',                 
+    'xc.py',                               
+    'XC2.py',                              
+    'yukawa_radial.py',                    
+    'dump_chi0.py',                        
+    'vdw/potential.py',                    
+    'lebedev.py',                          
+    'fileio/hdf5_simple.py',               
+    'occupations.py',                      
+    'derivatives.py',                      
+    'parallel/realspace_blacs.py',         
+    'pw/reallfc.py',                       
+    'parallel/pblas.py',                   
+    'non_periodic.py',                     
+    'spectrum.py',                         
+    'pw/lfc.py',                           
+    'gauss_func.py',                       
+    'multipoletest.py',                    
+    'noncollinear/xcgrid3d.py',            
+    'cluster.py',                          
+    'poisson.py',                          
+    'parallel/overlap.py',                 
+    'parallel/scalapack.py',               
+    'gauss_wave.py',                       
+    'transformations.py',                  
+    'parallel/blacsdist.py',               
+    'ut_rsh.py',                           
+    'pbc.py',                              
+    'noncollinear/xccorr.py',              
+    'atoms_too_close.py',                  
+    'harmonic.py',                         
+    'proton.py',                           
+    'timing.py',                           # ~1s
+    'parallel/ut_parallel.py',             # ~1s
+    'ut_csh.py',                           # ~1s
+    'lcao_density.py',                     # ~1s
+    'parallel/hamiltonian.py',             # ~1s
+    'pw/stresstest.py',                    # ~1s
+    'pw/fftmixer.py',                      # ~1s
+    'usesymm.py',                          # ~1s
+    'coulomb.py',                          # ~1s
+    'xcatom.py',                           # ~1s
+    'force_as_stop.py',                    # ~1s
+    'vdwradii.py',                         # ~1s
+    'ase3k.py',                            # ~1s
+    'numpy_zdotc_graphite.py',             # ~1s
+    'eed.py',                              # ~1s
+    'gemv.py',                             # ~2s
+    'fileio/idiotproof_setup.py',          # ~2s
+    'ylexpand.py',                         # ~2s
+    'keep_htpsit.py',                      # ~2s
+    'gga_atom.py',                         # ~2s
+    'hydrogen.py',                         # ~2s
+    'restart2.py',                         # ~2s
+    'aeatom.py',                           # ~2s
+    'plt.py',                              # ~2s
+    'ds_beta.py',                          # ~2s
+    'multipoleH2O.py',                     # ~2s
+    'noncollinear/h.py',                   # ~2s
+    'stdout.py',                           # ~2s
+    'lcao_largecellforce.py',              # ~2s
+    'parallel/scalapack_diag_simple.py',   # ~2s
+    'fixdensity.py',                       # ~2s
+    'pseudopotential/ah.py',               # ~2s
+    'lcao_restart.py',                     # ~2s
+    'wfs_io.py',                           # ~3s
+    'lrtddft2.py',                         # ~3s
+    'fileio/file_reference.py',            # ~3s
+    'cmrtest/cmr_test2.py',                # ~3s
+    'restart.py',                          # ~3s
+    'broydenmixer.py',                     # ~3s
+    'pw/fulldiagk.py',                     # ~3s
+    'external_potential.py',               # ~3s
+    'mixer.py',                            # ~3s
+    'parallel/lcao_projections.py',        # ~3s
+    'lcao_h2o.py',                         # ~3s
+    'h2o_xas.py',                          # ~3s
+    'wfs_auto.py',                         # ~3s
+    'pw/fulldiag.py',                      # ~3s
+    'symmetry_ft.py',                      # ~3s
+    'aluminum_EELS_RPA.py',                # ~3s
+    'ewald.py',                            # ~4s
+    'symmetry.py',                         # ~4s
+    'revPBE.py',                           # ~4s
+    'tf_mode_pbc.py',                      # ~4s
+    'tf_mode.py',                          # ~4s
+    'bee1.py',                             # ~4s
+    'nonselfconsistentLDA.py',             # ~4s
+    'aluminum_EELS_ALDA.py',               # ~4s
+    'spin_contamination.py',               # ~4s
+    'inducedfield_lrtddft.py',             # ~4s
+    'H_force.py',                          # ~4s
+    'usesymm2.py',                         # ~4s
+    'mgga_restart.py',                     # ~4s
+    'fixocc.py',                           # ~4s
+    'spinFe3plus.py',                      # ~4s
+    'fermisplit.py',                       # ~4s
+    'Cl_minus.py',                         # ~4s
+    'h2o_xas_recursion.py',                # ~5s
+    'nonselfconsistent.py',                # ~5s
+    'spinpol.py',                          # ~5s
+    'exx_acdf.py',                         # ~5s
+    'cg.py',                               # ~5s
+    'kptpar.py',                           # ~5s
+    'elf.py',                              # ~5s
+    'blocked_rmm_diis.py',                 # ~5s
+    'pw/slab.py',                          # ~5s
+    'si.py',                               # ~5s
+    'lcao_bsse.py',                        # ~5s
+    'parallel/lcao_hamiltonian.py',        # ~5s
+    'degeneracy.py',                       # ~5s
+    'refine.py',                           # ~5s
+    'gemm.py',                             # ~6s
+    'al_chain.py',                         # ~6s
+    'fileio/parallel.py',                  # ~6s
+    'fixmom.py',                           # ~6s
+    'exx_unocc.py',                        # ~6s
+    'davidson.py',                         # ~6s
+    'aedensity.py',                        # ~7s
+    'pw/h.py',                             # ~7s
+    'apmb.py',                             # ~7s
+    'pseudopotential/hgh_h2o.py',          # ~7s
+    'ed_wrapper.py',                       # ~7s
+    'pw/bulk.py',                          # ~7s
+    'ne_gllb.py',                          # ~7s
+    'ed.py',                               # ~7s
+    'lcao_force.py',                       # ~7s
+    'fileio/restart_density.py',           # ~8s
+    'rpa_energy_Ni.py',                    # ~8s
+    'be_nltd_ip.py',                       # ~8s
+    'test_ibzqpt.py',                      # ~8s
+    'si_primitive.py',                     # ~9s
+    'inducedfield_td.py',                  # ~9s
+    'ehrenfest_nacl.py',                   # ~9s
+    'fd2lcao_restart.py',                  # ~9s
+    'gw_method.py',                        # ~9s
+    'constant_electric_field.py',          # ~9s
+    'complex.py',                          # ~9s
+    'vdw/quick.py',                        # ~9s
+    'bse_aluminum.py',                     # ~10s
+    'Al2_lrtddft.py',                      # ~10s
+    'ralda_energy_N2.py',                  # ~10s
+    'gw_ppa.py',                           # ~10s
+    'parallel/lcao_complicated.py',        # ~10s
+    'bulk.py',                             # ~10s
+    'scfsic_h2.py',                        # ~10s
+    'lcao_bulk.py',                        # ~11s
+    '2Al.py',                              # ~11s
+    'kssingles_Be.py',                     # ~11s
+    'relax.py',                            # ~11s
+    'pw/mgo_hybrids.py',                   # ~11s
+    'dscf_lcao.py',                        # ~12s
+    '8Si.py',                              # ~12s
+    'partitioning.py',                     # ~12s
+    'lxc_xcatom.py',                       # ~12s
+    'gllbatomic.py',                       # ~13s
+    'guc_force.py',                        # ~13s
+    'ralda_energy_Ni.py',                  # ~13s
+    'simple_stm.py',                       # ~13s
+    'ed_shapes.py',                        # ~14s
+    'restart_band_structure.py',           # ~14s
+    'exx.py',                              # ~14s
+    'Hubbard_U.py',                        # ~15s
+    'rpa_energy_Si.py',                    # ~15s
+    'dipole.py',                           # ~15s
+    'IP_oxygen.py',                        # ~15s
+    'rpa_energy_Na.py',                    # ~15s
+    'parallel/fd_parallel.py',             # ~15s
+    'parallel/lcao_parallel.py',           # ~16s
+    'atomize.py',                          # ~16s
+    'excited_state.py',                    # ~16s
+    'ne_disc.py',                          # ~16s
+    'tpss.py',                             # ~18s
+    'td_na2.py',                           # ~18s
+    'exx_coarse.py',                       # ~18s
+    'pplda.py',                            # ~18s
+    'si_xas.py',                           # ~18s
+    'mgga_sc.py',                          # ~19s
+    'Hubbard_U_Zn.py',                     # ~20s
+    'lrtddft.py',                          # ~20s
+    'parallel/fd_parallel_kpt.py',         # ~21s
+    'pw/hyb.py',                           # ~21s
+    'Cu.py',                               # ~21s
+    'response_na_plasmon.py',              # ~22s
+    'bse_diamond.py',                      # ~23s
+    'fermilevel.py',                       # ~23s
+    'parallel/ut_hsblacs.py',              # ~23s
+    'ralda_energy_H2.py',                  # ~23s
+    'diamond_absorption.py',               # ~24s
+    'ralda_energy_Si.py',                  # ~24s
+    'ldos.py',                             # ~25s
+    'revPBE_Li.py',                        # ~26s
+    'parallel/lcao_parallel_kpt.py',       # ~29s
+    'h2o_dks.py',                          # ~30s
+    'nsc_MGGA.py',                         # ~32s
+    'diamond_gllb.py',                     # ~33s
+    'MgO_exx_fd_vs_pw.py',                 # ~37s
+    'vdw/quick_spin.py',                   # ~37s
+    'bse_sym.py',                          # ~40s
+    'parallel/ut_hsops.py',                # ~41s
+    'LDA_unstable.py',                     # ~42s
+    'au02_absorption.py',                  # ~44s
+    'wannierk.py',                         # ~45s
+    'bse_vs_lrtddft.py',                   # ~45s
+    'aluminum_testcell.py',                # ~46s
+    'pygga.py',                            # ~47s
+    'ut_tddft.py',                         # ~49s
+    'rpa_energy_N2.py',                    # ~52s
+    'vdw/ar2.py',                          # ~53s
+    'parallel/diamond_gllb.py',            # ~59s
+    'beefvdw.py',                          # ~60s
+    'pw/si_stress.py',                     # ~61s
+    'chi0.py',                             # ~71s
+    'scfsic_n2.py',                        # ~73s
+    'transport.py',                        # ~73s
+    'lrtddft3.py',                         # ~75s
+    'nonlocalset.py',                      # ~82s
+    'lb94.py',                             # ~84s
+    'AA_exx_enthalpy.py',                  # ~119s
+    'lcao_tdgllbsc.py',                    # ~132s
+    'bse_silicon.py',                      # ~143s
+    'gwsi.py',                             # ~147s
+    'maxrss.py',                           # duration unknown
+    'pw/moleculecg.py',                    # duration unknown
+    'potential.py',                        # duration unknown
+    'pes.py',                              # duration unknown
+    'lcao_pair_and_coulomb.py',            # duration unknown
+    'asewannier.py',                       # duration unknown
+    'exx_q.py',                            # duration unknown
+    'pw/davidson_pw.py',                   # duration unknown
+    'neb.py',                              # duration unknown
+    'diamond_eps.py',                      # duration unknown
+    'wannier_ethylene.py',                 # duration unknown
+    'muffintinpot.py',                     # duration unknown
+    'nscfsic.py',                          # duration unknown
+    'coreeig.py',                          # duration unknown
+    'bse_MoS2_cut.py',                     # duration unknown
+    'parallel/scalapack_mpirecv_crash.py', # duration unknown
+    'cmrtest/cmr_test.py',                 # duration unknown
+    'cmrtest/cmr_test3.py',                # duration unknown
+    'cmrtest/cmr_test4.py',                # duration unknown
+    'cmrtest/cmr_append.py',               # duration unknown
+    'cmrtest/Li2_atomize.py',              # duration unknown
     ]
 
 #'fractional_translations.py',

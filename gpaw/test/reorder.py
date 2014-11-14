@@ -43,5 +43,14 @@ if opts.pretty:
     for test, duration, result in zip(tests, durations, results):
         print('%30s %10s %10s' % (test, duration, result))
 else:
-    for test in tests:
-        print('    \'%s\',' % test)
+    maxnamelen = max([len(test) for test in tests])
+    for test, duration in zip(tests, durations):
+        comment = ''
+        if duration > 1.0:
+            if np.isfinite(duration):
+                comment = '# ~%ds' % int(duration)
+            else:
+                comment = '# duration unknown'
+        print(''.join(['    ',
+                       ("'%s'," % test).ljust(maxnamelen + 4),
+                       comment]))
