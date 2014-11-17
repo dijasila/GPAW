@@ -164,7 +164,7 @@ class RPACorrelation:
             p('Response function bands : %s' % nbands)
         p('Plane wave cutoffs (eV) :', end='')
         for e in self.ecut_i:
-            p('{0:.3f}'.format(e * Hartree), end='')
+            p(' {0:.3f}'.format(e * Hartree), end='')
         p()
         p()
 
