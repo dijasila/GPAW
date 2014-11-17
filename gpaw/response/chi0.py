@@ -226,8 +226,10 @@ class Chi0(PairDensity):
             if optical_limit and self.intraband:
                 # Avoid that more ranks are summing up
                 # the intraband contributions
-                if kpt1.n1 == 0:
+                if kpt1.n1 == 0 and self.blockcomm.rank == 0:
+                    assert self.nocc2 < kpt2.nb
                     self.update_intraband(kpt2, chi0_wvv)
+
 
         self.timer.stop('Loop')
 
@@ -238,10 +240,11 @@ class Chi0(PairDensity):
                 self.kncomm.sum(chi0_GG)
 
             if optical_limit:
-                self.world.sum(chi0_wxvG)
-                self.world.sum(chi0_wvv)
-                if self.intraband:
-                    self.world.sum(self.chi0_vv)
+                if self.blockcomm.rank == 0:
+                    self.kncomm.sum(chi0_wxvG)
+                    self.kncomm.sum(chi0_wvv)
+                    if self.intraband:
+                        self.kncomm.sum(self.chi0_vv)
 
         print('Memory used: {0:.3f} MB / CPU'.format(maxrss() / 1024**2),
               file=self.fd)
@@ -399,7 +402,7 @@ class Chi0(PairDensity):
 
         # Break bands into degenerate chunks
         deginds_cm = []  # indexing c as chunk number
-        for m in range(kpt.n2 - kpt.n1):
+        for m in range(kpt.nb - kpt.na):
             inds_m = np.nonzero(np.abs(kpt.eps_n[m] - kpt.eps_n) < 1e-5)[0]
             if m == np.min(inds_m) and partocc_m[m]:
                 deginds_cm.append((inds_m))

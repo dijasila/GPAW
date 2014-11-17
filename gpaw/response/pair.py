@@ -393,23 +393,26 @@ class PairDensity:
 
         if inds_mv.any():
             indent8 = ' ' * 8
-            print('\n    WARNING: Optical limit purtubation' +
-                  ' theory failed for:')
+            print('\n    WARNING: Optical limit perturbation' +
+                  ' theory failed for:', file=self.fd)
             print(indent8 + 'kpt_c = [%1.2f, %1.2f, %1.2f]'
-                  % (k_c[0], k_c[1], k_c[2]))
+                  % (k_c[0], k_c[1], k_c[2]), file=self.fd)
             inds_m = inds_mv.any(axis=1)
             depsi_m = deps_m[inds_m]
             n0i_mv = np.abs(n0_mv[inds_m])
             smallness_mv = smallness_mv[inds_m]
             for depsi, n0i_v, smallness_v in zip(depsi_m, n0i_mv,
                                                  smallness_mv):
-                print(indent8 + 'Energy eigenvalue difference %1.2e ' % -depsi)
+                print(indent8 + 'Energy eigenvalue difference %1.2e ' % -depsi, 
+                      file=self.fd)
                 print(indent8 + 'Matrix element' +
-                      ' %1.2e %1.2e %1.2e' % (n0i_v[0], n0i_v[1], n0i_v[2]))
+                      ' %1.2e %1.2e %1.2e' % (n0i_v[0], n0i_v[1], n0i_v[2]),
+                      file=self.fd)
                 print(indent8 + 'Smallness' +
                       ' %1.2e %1.2e %1.2e\n' % (smallness_v[0],
                                                 smallness_v[1],
-                                                smallness_v[2]))
+                                                smallness_v[2]),
+                      file=self.fd)
 
         n0_mv *= 1j / deps_m[:, np.newaxis]
         n0_mv[inds_mv] = 0
