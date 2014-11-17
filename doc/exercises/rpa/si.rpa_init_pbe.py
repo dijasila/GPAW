@@ -1,5 +1,5 @@
 from ase.lattice import bulk
-from gpaw import GPAW
+from gpaw import GPAW, FermiDirac
 from gpaw.wavefunctions.pw import PW
 
 
@@ -17,6 +17,7 @@ bulk_crystal = bulk('Si', 'diamond', a=alat)
 bulk_calc = GPAW(mode=PW(pwcutoff),
                  kpts={'size': (k, k, k), 'gamma': True},  # gamma-centred grid
                  xc='PBE',
+                 occupations=FermiDirac(0.01),
                  txt='si.rpa.pbe_output.txt',
                  parallel={'band': 1})
 
