@@ -734,7 +734,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
             if isinstance(scalapack, (list, tuple)):
                 nprow, npcol, b = scalapack
             else:
-                nprow, npcol, b = 2, bd.comm.size // 2, 64
+                nprow = int(round(bd.comm.size**0.5))
+                while bd.comm.size % nprow != 0:
+                    nprow -= 1
+                npcol = bd.comm.size // nprow
+                b = 64
             p('ScaLapack grid: {0}x{1},'.format(nprow, npcol),
               'block-size:', b)
             bg = BlacsGrid(bd.comm, bd.comm.size, 1)
