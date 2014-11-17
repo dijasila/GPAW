@@ -609,23 +609,35 @@ class G0W0(PairDensity):
     @timer('PPA-Sigma')
     def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W):
         W_GG, omegat_GG = W
-        deps_mGG = deps_m[:, np.newaxis, np.newaxis]
-        sign_mGG = 2 * f_m[:, np.newaxis, np.newaxis] - 1
-        x1_mGG = 1 / (deps_mGG + omegat_GG - 1j * self.eta)
-        x2_mGG = 1 / (deps_mGG - omegat_GG + 1j * self.eta)
-        x3_mGG = 1 / (deps_mGG + omegat_GG - 1j * self.eta * sign_mGG)
-        x4_mGG = 1 / (deps_mGG - omegat_GG - 1j * self.eta * sign_mGG)
-        x_mGG = W_GG * (sign_mGG * (x1_mGG - x2_mGG) + x3_mGG + x4_mGG)
-        dx_mGG = W_GG * (sign_mGG * (x1_mGG**2 - x2_mGG**2) +
-                         x3_mGG**2 + x4_mGG**2)
 
         sigma = 0.0
         dsigma = 0.0
+
+        # init variables (is this necessary?)
+        nG = n_mG.shape[1]
+        deps_GG = np.empty((nG, nG))
+        sign_GG = np.empty((nG, nG))
+        x1_GG = np.empty((nG, nG))
+        x2_GG = np.empty((nG, nG))
+        x3_GG = np.empty((nG, nG))
+        x4_GG = np.empty((nG, nG))
+        x_GG = np.empty((nG, nG))
+        dx_GG = np.empty((nG, nG))
+        nW_G = np.empty(nG)
         for m in range(np.shape(n_mG)[0]):
-            nW_mG = np.dot(n_mG[m], x_mGG[m])
-            sigma += np.vdot(n_mG[m], nW_mG).real
-            nW_mG = np.dot(n_mG[m], dx_mGG[m])
-            dsigma -= np.vdot(n_mG[m], nW_mG).real
+            deps_GG = deps_m[m]
+            sign_GG = 2 * f_m[m] - 1
+            x1_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta)
+            x2_GG = 1 / (deps_GG - omegat_GG + 1j * self.eta)
+            x3_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta * sign_GG)
+            x4_GG = 1 / (deps_GG - omegat_GG - 1j * self.eta * sign_GG)
+            x_GG = W_GG * (sign_GG * (x1_GG - x2_GG) + x3_GG + x4_GG)
+            dx_GG = W_GG * (sign_GG * (x1_GG**2 - x2_GG**2) +
+                        x3_GG**2 + x4_GG**2)
+            nW_G = np.dot(n_mG[m], x_GG)
+            sigma += np.vdot(n_mG[m], nW_G).real
+            nW_G = np.dot(n_mG[m], dx_GG)
+            dsigma -= np.vdot(n_mG[m], nW_G).real
         
         x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
         return x * sigma, x * dsigma
