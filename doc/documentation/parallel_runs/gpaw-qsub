@@ -38,9 +38,13 @@ def main():
     add('-g', '--gpaw', help='Path to GPAW')
     add('--module', help=('Run library module as a script ' +
                           '(terminates option list)'))
-    add('--cores', type=int, help='Number of cores')
+    add('--cores', type=int,
+        help=('Determine processor scheme automatically to give a total ' +
+              'number of cores.'))
+    add('--ncpus', type=int,
+        help=('Number of actual cpus to use.'))
     add('-n', '--threads', type=int, default=1,
-        help='Total number of threads')
+        help='Number of threads per cpu.')
 
     # qsub options:
     add('-q', '--queue')
@@ -101,7 +105,14 @@ def main():
             p = subprocess.Popen(['which', script], stdout=subprocess.PIPE)
             args[0] = p.communicate()[0].strip()
 
-    if opts.cores:
+    determine_nodes = True
+    if opts.resource_list:
+        for res in opts.resource_list:
+            if res.startswith('nodes='):
+                determine_nodes = False
+                break
+    
+    if opts.cores and determine_nodes:
         for ppn, arch in [(16, 'xeon16'), (8, 'xeon8'), (4, 'opteron4')]:
             if opts.cores % ppn == 0:
                 nodes = opts.cores // ppn
@@ -120,6 +131,10 @@ def main():
     qsub += 'job = %r\n' % args
     qsub += 'path = %r\n' % path
     qsub += 'module = %r\n' % opts.module
+    if opts.ncpus:
+        qsub += 'ncpus = %d\n' % opts.ncpus
+    else:
+        qsub += 'ncpus = None\n'
     qsub += 'nthreads = %d\n' % opts.threads
     qsub += 'export = %r\n' % export
 
@@ -141,8 +156,11 @@ if c in 'ghi':
     # Intel Niflheim node:
     cmd += ['--mca', 'btl', '^tcp']
 
-if nthreads > 1:
+if ncpus:
+    cmd += ['-np', str(ncpus), '--loadbalance']
+elif nthreads > 1:
     cmd += ['-np', str(nproc // nthreads), '--loadbalance']
+if nthreads > 1:
     export.append('OMP_NUM_THREADS=%d' % nthreads)
 
 for x in export:
