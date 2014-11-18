@@ -22,7 +22,7 @@ def fulldiag(filename, bands=None, scalapack=1, dry_run=False):
                 parallel={'band': scalapack},
                 txt=name + '-all.txt')
     if not dry_run:
-        calc.diagonalize_full_hamiltonian(bands, scalapack=True)
+        calc.diagonalize_full_hamiltonian(bands)
         calc.write(name + '-all.gpw', 'all')
     
     ng = calc.wfs.pd.ngmax

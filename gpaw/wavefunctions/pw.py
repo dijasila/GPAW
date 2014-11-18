@@ -730,7 +730,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                                     self.pd.ngmax))
         mem = 3 * self.pd.ngmax**2 * 16 / bd.comm.size / 1024**2
         p('Approximate memory usage per core: {0:.3f} MB'.format(mem))
-        if scalapack and bd.comm.size > 1:
+        if bd.comm.size > 1:
             if isinstance(scalapack, (list, tuple)):
                 nprow, npcol, b = scalapack
             else:
@@ -743,11 +743,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
               'block-size:', b)
             bg = BlacsGrid(bd.comm, bd.comm.size, 1)
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
+            scalapack = True
         else:
             nprow = npcol = 1
             scalapack = False
-
-        assert bd.comm.size == nprow * npcol
 
         self.pt.set_positions(atoms.get_scaled_positions())
         self.kpt_u[0].P_ani = None
