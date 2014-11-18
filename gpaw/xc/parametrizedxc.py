@@ -23,8 +23,7 @@ class ParametrizedKernel(XCKernel):
                   tau_sg=None, dedtau_sg=None):
         e_g[:] = 0.0
         e_g_tmp = np.empty_like(e_g)
-        dedn_sg_tmp = np.zeros_like(dedn_sg)
-        dedsigma_xg_tmp = dedsigma_xg
+        dedn_sg_tmp = np.empty_like(dedn_sg)
 
         if self.type == 'GGA':
             dedsigma_xg[:] = 0.0
@@ -33,13 +32,13 @@ class ParametrizedKernel(XCKernel):
             dedsigma_xg_tmp = None
             
         for kernel, c in zip(self.kernels, self.coefs):
+            dedn_sg_tmp[:] = 0.0
+            if self.type == 'GGA':
+                dedsigma_xg_tmp[:] = 0.0
             kernel.calculate(e_g_tmp, n_sg, dedn_sg_tmp,
                              sigma_xg, dedsigma_xg_tmp,
                              tau_sg, dedtau_sg)
             e_g += c * e_g_tmp
             dedn_sg += c * dedn_sg_tmp
-            dedn_sg_tmp[:] = 0.0
-            e_g_tmp[:] = 0.0
             if self.type == 'GGA':
                 dedsigma_xg += c * dedsigma_xg_tmp
-                dedsigma_xg_tmp[:] = 0.0
