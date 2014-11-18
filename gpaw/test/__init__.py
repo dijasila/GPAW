@@ -74,6 +74,7 @@ tests = [
     'kpt.py',
     'mpicomm.py',
     'numpy_core_multiarray_dot.py',
+    'maxrss.py',
     'fileio/hdf5_noncontiguous.py',
     'cg2.py',
     'laplace.py',
@@ -323,7 +324,6 @@ tests = [
     'lcao_tdgllbsc.py',                     # ~132s
     'bse_silicon.py',                       # ~143s
     'gwsi.py',                              # ~147s
-    'maxrss.py',                            # duration unknown
     'pw/moleculecg.py',                     # duration unknown
     'potential.py',                         # duration unknown
     'pes.py',                               # duration unknown
