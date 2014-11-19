@@ -1,12 +1,14 @@
 import numpy as np
 from types import FloatType
 from ase.parallel import rank
+from ase.units import Hartree
 
 import _gpaw
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCKernel
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.vdw import FFTVDWFunctional
+from gpaw.xc.vdw_mbeefvdw import METAFFTVDWFunctional
 from gpaw import debug
 
 
@@ -59,7 +61,7 @@ class BEE2(XCKernel):
 
 class BEEVDWKernel(XCKernel):
     """Kernel for BEEVDW functionals."""
-    def __init__(self, bee, xcoefs, ldac, pbec):
+    def __init__(self, bee, xcoefs, ldac, ggac):
         """BEEVDW kernel.
 
         parameters:
@@ -77,18 +79,29 @@ class BEEVDWKernel(XCKernel):
 
         if bee is 'BEE1':
             self.BEE = BEE1(xcoefs)
+            self.GGAc = LibXC('GGA_C_PBE')
+            self.xtype = 'GGA'
+            self.type = 'GGA'
         elif bee is 'BEE2':
             self.BEE = BEE2(xcoefs)
+            self.GGAc = LibXC('GGA_C_PBE')
+            self.xtype = 'GGA'
+            self.type = 'GGA'
+        elif bee is 'BEE3':
+            self.BEE = LibXC('MGGA_X_MBEEFVDW')
+            self.GGAc = LibXC('GGA_C_PBE_SOL')
+            self.xtype = 'MGGA'
+            self.type = 'MGGA'
         else:
             raise ValueError('Unknown BEE exchange: %s', bee)
 
         self.LDAc = LibXC('LDA_C_PW')
-        self.PBEc = LibXC('GGA_C_PBE')
         self.ldac = ldac
-        self.pbec = pbec
-
-        self.type = 'GGA'
+        self.ggac = ggac
+        if bee is 'BEE2':
+            self.ggac -= 1.0
         self.name = 'BEEVDW'
+
 
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg=None, dedsigma_xg=None,
@@ -97,19 +110,24 @@ class BEEVDWKernel(XCKernel):
             self.check_arguments(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg,
                                  tau_sg, dedtau_sg)
 
-        self.BEE.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
+        if self.xtype is 'GGA':
+            self.BEE.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
+        elif self.xtype is 'MGGA':
+            self.BEE.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, tau_sg, dedtau_sg)
+        else:
+            stop
 
         e0_g = np.empty_like(e_g)
         dedn0_sg = np.empty_like(dedn_sg)
         dedsigma0_xg = np.empty_like(dedsigma_xg)
         for coef, kernel in [
             (self.ldac, self.LDAc),
-            (self.pbec - 1.0, self.PBEc)]:
+            (self.ggac, self.GGAc)]:
             dedn0_sg[:] = 0.0
             kernel.calculate(e0_g, n_sg, dedn0_sg, sigma_xg, dedsigma0_xg)
             e_g += coef * e0_g
             dedn_sg += coef * dedn0_sg
-            if kernel.type == 'GGA':
+            if kernel.type is 'GGA':
                 dedsigma_xg += coef * dedsigma0_xg
 
 
@@ -214,6 +232,31 @@ class BEEVDWFunctional(FFTVDWFunctional):
         return t, x, o, c
 
 
+class MBEEFVDWFunctional(METAFFTVDWFunctional):
+    def __init__(self, name='mBEEF-vdW', ccoefs=(0.5, 0.5, 1.0),
+                 Nr=4096, **kwargs):
+
+        assert name == 'mBEEF-vdW'
+        bee = 'BEE3'
+        xcoefs = None
+        ccoefs = (0.405258352, 0.356642240, 0.886774972)
+        Zab = -1.887
+        soft_corr = False
+
+        assert isinstance(Nr, int)
+        assert Nr % 512 == 0
+        self.name = name
+
+        ldac, ggac, vdw = ccoefs
+        kernel = BEEVDWKernel(bee, xcoefs, ldac, ggac)
+        METAFFTVDWFunctional.__init__(self, name=name, soft_correction=soft_corr,
+                                      kernel=kernel, Zab=Zab, vdwcoef=vdw,
+                                      Nr=Nr, **kwargs)
+
+    def get_setup_name(self):
+        return 'PBEsol'
+
+
 class BEEF_Ensemble:
     """BEEF ensemble error estimation."""
     def __init__(self, calc=None, exch=None, corr=None):
@@ -259,6 +302,14 @@ class BEEF_Ensemble:
             if self.exch is None and rank == 0:
                 self.calc.converge_wave_functions()
                 print('wave functions converged')
+        elif self.xc == 'mBEEF-vdW':
+            self.bee = MBEEFVDWFunctional('mBEEF-vdW')
+            self.bee_type = 3
+            self.max_order = 5
+            self.trans = [6.5124, -1.0]
+            if self.exch is None and rank == 0:
+                self.calc.converge_wave_functions()
+                print 'wave functions converged'
         else:
             raise NotImplementedError('xc = %s not implemented' % self.xc)
 
@@ -270,7 +321,7 @@ class BEEF_Ensemble:
         if type == 'exch':
             if self.bee_type == 1:
                 out = self.beefvdw_energy_contribs_x()
-            elif self.bee_type == 2:
+            elif self.bee_type in [2,3]:
                 out = self.mbeef_exchange_energy_contribs()
             else:
                 raise NotImplementedError(err)
@@ -279,9 +330,12 @@ class BEEF_Ensemble:
                 out = self.beefvdw_energy_contribs_c()
             elif self.bee_type == 2:
                 out = np.array([])
+            elif self.bee_type == 3:
+                out = self.mbeefvdw_energy_contribs_c()
             else:
                 raise NotImplementedError(err)
         return out
+
 
     def get_non_xc_total_energies(self):
         """Compile non-XC total energy contributions"""
@@ -327,4 +381,17 @@ class BEEF_Ensemble:
         e_lda = self.e_dft + self.calc.get_xc_difference('LDA_C_PW') - self.e0
         e_pbe = self.e_dft + self.calc.get_xc_difference('GGA_C_PBE') - self.e0
         corr = np.array([e_lda, e_pbe])
+        return corr
+
+    def mbeefvdw_energy_contribs_c(self):
+        """LDA, PBEsol, and nl2 correlation contributions to mBEEF-vdW Etot"""
+        self.get_non_xc_total_energies()
+        e_lda = self.e_dft + self.calc.get_xc_difference('LDA_C_PW') - self.e0
+        e_sol = self.e_dft + self.calc.get_xc_difference('GGA_C_PBE_SOL') - self.e0
+        from gpaw.xc.vdw import FFTVDWFunctional
+        vdwdf2 = FFTVDWFunctional('vdW-DF2', Nr=4096)
+        self.calc.get_xc_difference(vdwdf2)
+        e_nl2 = vdwdf2.get_Ecnl()*Hartree
+        del vdwdf2
+        corr = np.array([e_lda, e_sol, e_nl2])
         return corr

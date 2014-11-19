@@ -41,6 +41,9 @@ def XC(kernel, parameters=None):
         elif name in ['BEEF-vdW', 'BEEF-1']:
             from gpaw.xc.bee import BEEVDWFunctional
             return BEEVDWFunctional('BEEF-vdW')
+        elif name == 'mBEEF-vdW':
+            from gpaw.xc.bee import MBEEFVDWFunctional
+            return MBEEFVDWFunctional(name)
         elif name.startswith('GLLB'):
             from gpaw.xc.gllb.nonlocalfunctionalfactory import \
                 NonLocalFunctionalFactory
