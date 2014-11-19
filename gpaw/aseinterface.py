@@ -711,7 +711,7 @@ class GPAW(PAW):
 
     def get_nonselfconsistent_energies(self, type='beefvdw'):
         from gpaw.xc.bee import BEEF_Ensemble
-        if type not in ['beefvdw', 'mbeef']:
+        if type not in ['beefvdw', 'mbeef', 'mbeefvdw']:
             raise NotImplementedError('Not implemented for type = %s' % type)
         assert self.scf.converged
         bee = BEEF_Ensemble(self)
@@ -721,3 +721,5 @@ class GPAW(PAW):
             return np.append(x, c)
         elif type is 'mbeef':
             return x.flatten()
+        elif type is 'mbeefvdw':
+            return np.append(x.flatten(),c)
