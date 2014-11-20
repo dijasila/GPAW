@@ -186,7 +186,7 @@ tests = [
     'revPBE.py',                            # ~4s
     'tf_mode_pbc.py',                       # ~4s
     'tf_mode.py',                           # ~4s
-    'bee1.py',                              # ~4s
+    # 'bee1.py',                              # ~4s
     'nonselfconsistentLDA.py',              # ~4s
     'aluminum_EELS_ALDA.py',                # ~4s
     'spin_contamination.py',                # ~4s
@@ -279,7 +279,7 @@ tests = [
     'si_xas.py',                            # ~18s
     'mgga_sc.py',                           # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
-    # buildbot > 20 sec tests start here (add tests after lrtddft.py!) 
+    # buildbot > 20 sec tests start here (add tests after lrtddft.py!)
     'lrtddft.py',                           # ~20s
     'parallel/fd_parallel_kpt.py',          # ~21s
     'pw/hyb.py',                            # ~21s
@@ -318,7 +318,7 @@ tests = [
     'transport.py',                         # ~73s
     'lrtddft3.py',                          # ~75s
     'nonlocalset.py',                       # ~82s
-    # buildbot > 100 sec tests start here (add tests after lb94.py!) 
+    # buildbot > 100 sec tests start here (add tests after lb94.py!)
     'lb94.py',                              # ~84s
     'AA_exx_enthalpy.py',                   # ~119s
     'lcao_tdgllbsc.py',                     # ~132s
@@ -439,10 +439,6 @@ if np.__version__ < '1.6.0':
 
 exclude = set(exclude)
     
-#for test in exclude:
-#    if test in tests:
-#        tests.remove(test)
-
 
 class TestRunner:
     def __init__(self, tests, stream=sys.__stdout__, jobs=1,
