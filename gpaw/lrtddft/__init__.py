@@ -109,7 +109,7 @@ class LrTDDFT(ExcitationList):
             'nspins': None,
             'eps': 0.001,
             'istart': 0,
-            'jend': None,
+            'jend': sys.maxsize,
             'energy_range': None,
             'xc': 'GS',
             'derivative_level': 1,
