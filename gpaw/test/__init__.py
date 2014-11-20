@@ -74,7 +74,7 @@ tests = [
     'kpt.py',
     'mpicomm.py',
     'numpy_core_multiarray_dot.py',
-    'maxrss.py',
+    'maxrss.py',  # verifies reported RAM allocation: fragile, don't move down
     'fileio/hdf5_noncontiguous.py',
     'cg2.py',
     'laplace.py',
