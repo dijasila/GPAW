@@ -8,7 +8,8 @@ from ase.units import Hartree
 
 import gpaw.mpi as mpi
 from gpaw import extra_parameters
-from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
+from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor,
+                        DryRunBlacsGrid)
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.occupations import FermiDirac
 from gpaw.response.pair import PairDensity
@@ -125,7 +126,7 @@ class Chi0(PairDensity):
             chi0_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
             chi0_wGG[:] = 0.0
         else:
-            chi0_wGG = np.zeros((nw, nG, nG), complex)
+            chi0_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
 
         if np.allclose(q_c, 0.0):
             chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
@@ -424,7 +425,7 @@ class Chi0(PairDensity):
 
                 self.chi0_vv += x_vv
 
-    def redistribute(self, in_wGG, out_x):
+    def redistribute(self, in_wGG, out_x=None):
         """Redistribute array.
         
         Switch between two kinds of parallel distributions:
@@ -461,9 +462,46 @@ class Chi0(PairDensity):
             Gb = min(Ga + mynG, nG)
             shape = (nw, Gb - Ga, nG)
         
-        out_wGG = out_x[:np.product(shape)].reshape(shape)
+        if out_x is None:
+            out_wGG = np.empty(shape, complex)
+        else:
+            out_wGG = out_x[:np.product(shape)].reshape(shape)
         r.redistribute(in_wGG.reshape((len(in_wGG), -1)),
                        out_wGG.reshape((len(out_wGG), -1)))
+        
+        return out_wGG
+
+    def distribute_frequencies(self, chi0_wGG):
+        """Distribute frequencies to all cores."""
+        
+        world = self.world
+        comm = self.blockcomm
+        
+        if world.size == 1:
+            return chi0_wGG
+            
+        nw = len(self.omega_w)
+        nG = chi0_wGG.shape[2]
+        mynw = (nw + world.size - 1) // world.size
+        mynG = (nG + comm.size - 1) // comm.size
+        
+        if self.kncomm.rank == 0:
+            bg1 = BlacsGrid(comm, 1, comm.size)
+            in_wGG = chi0_wGG.reshape((nw, -1))
+        else:
+            bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
+            in_wGG = np.zeros((0, 0), complex)
+        md1 = BlacsDescriptor(bg1, nw, nG**2, nw, mynG * nG)
+        
+        bg2 = BlacsGrid(world, world.size, 1)
+        md2 = BlacsDescriptor(bg2, nw, nG**2, mynw, nG**2)
+        
+        r = Redistributor(world, md1, md2)
+        wa = world.rank * mynw
+        wb = min(wa + mynw, nw)
+        shape = (wb - wa, nG, nG)
+        out_wGG = np.empty(shape, complex)
+        r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
         
         return out_wGG
 
