@@ -216,7 +216,8 @@ class BlacsGrid:
 
 class DryRunBlacsGrid(BlacsGrid):
     def __init__(self, comm, nprow, npcol, order='R'):
-        assert isinstance(comm, SerialCommunicator)
+        assert (isinstance(comm, SerialCommunicator) or
+                isinstance(comm.comm, SerialCommunicator))
         # DryRunCommunicator is subclass
         
         if nprow * npcol > comm.size:
@@ -333,8 +334,9 @@ class BlacsDescriptor(MatrixDescriptor):
                                                      self.N, self.M,
                                                      self.nb, self.mb,
                                                      self.csrc, self.rsrc)
-            self.lld = max(1, locN)  # max 1 is nonsensical, but appears
-                                     # to be required by PBLAS
+            # max 1 is nonsensical, but appears
+            # to be required by PBLAS
+            self.lld = max(1, locN)
         else:
             # ScaLAPACK has no requirements as to what these values on an
             # inactive blacsgrid should be. This seemed reasonable to me
