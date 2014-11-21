@@ -101,7 +101,7 @@ class Timer:
                                % (name, running))
         self.timers[names] += time.time()
         return names
-    
+
     def __call__(self, name):
         """Context manager for timing a block of code.
         
@@ -128,6 +128,7 @@ class Timer:
         return self.timers[names]
                 
     def write(self, out=sys.stdout):
+        were_running = list(self.running)
         while self.running:
             self.stop()
         if len(self.timers) == 0:
@@ -144,8 +145,7 @@ class Timer:
         tother = tot
         
         inclusive = self.timers.copy()
-
-        exclusive = self.timers
+        exclusive = self.timers.copy()
         keys = exclusive.keys()
         keys.sort()
         for names in keys:
@@ -178,6 +178,9 @@ class Timer:
         out.write('%-*s%9.3f %5.1f%%\n' % (n + 10, 'Total:', tot, 100.0))
         out.write(line)
         out.write('date: %s\n' % time.asctime())
+        
+        for name in were_running:
+            self.start(name)
 
     def add(self, timer):
         for name, t in timer.timers.items():
