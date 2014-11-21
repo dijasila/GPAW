@@ -19,7 +19,7 @@ class DielectricFunction:
     def __init__(self, calc, name=None, frequencies=None, domega0=0.1,
                  omega2=10.0, omegamax=None, ecut=50, hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
-                 intraband=True, world=mpi.world, txt=sys.stdout,
+                 intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  gate_voltage=None):
         """Creates a DielectricFunction object.
         
@@ -61,6 +61,9 @@ class DielectricFunction:
             Include intraband transitions.
         world: comm
             mpi communicator.
+        nblocks: int
+            Split matrices in nblocks blocks and distribute them G-vectors or
+            frequencies over processes.
         txt: str
             Output file.
         gate_voltage: float
@@ -72,10 +75,18 @@ class DielectricFunction:
                          omega2=omega2, omegamax=omegamax,
                          ecut=ecut, hilbert=hilbert, nbands=nbands,
                          eta=eta, ftol=ftol, threshold=threshold,
-                         intraband=intraband, world=world, txt=txt,
-                         gate_voltage=gate_voltage)
+                         intraband=intraband, world=world, nblocks=nblocks,
+                         txt=txt, gate_voltage=gate_voltage)
         
         self.name = name
+
+        self.omega_w = self.chi0.omega_w
+        nw = len(self.omega_w)
+        
+        world = self.chi0.world
+        self.mynw = (nw + world.size - 1) // world.size
+        self.w1 = min(self.mynw * world.rank, nw)
+        self.w2 = min(self.w1 + self.mynw, nw)
 
     def calculate_chi0(self, q_c):
         """Calculates the density response function.
@@ -89,37 +100,89 @@ class DielectricFunction:
             kd = self.chi0.calc.wfs.kd
             name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
             if os.path.isfile(name):
-                try:
-                    omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = \
-                        pickle.load(open(name))
-                    print('Reading from file ', name)
-                except EOFError:
-                    pass
-                else:
-                    return omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv
+                return self.read(name)
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c)
-        omega_w = self.chi0.omega_w
+        chi0_wGG = self.chi0.distribute_frequencies(chi0_wGG)
         self.chi0.timer.write(self.chi0.fd)
 
-        if self.name and mpi.rank == 0:
-            with open(name, 'wb') as fd:
-                pickle.dump((omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv),
-                            fd, pickle.HIGHEST_PROTOCOL)
-
-        # Wait for rank 0 to save Chi
-        mpi.world.barrier()
+        if self.name:
+            self.write(name, pd, chi0_wGG, chi0_wxvG, chi0_wvv)
         
-        # Not returning frequencies will work for now
-        return omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv
+        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+
+    def write(self, name, pd, chi0_wGG, chi0_wxvG, chi0_wvv):
+        nw = len(self.omega_w)
+        nG = pd.ngmax
+        world = self.chi0.world
+
+        if world.rank == 0:
+            fd = open(name, 'wb')
+            pickle.dump((self.omega_w, pd, None, chi0_wxvG, chi0_wvv),
+                        fd, pickle.HIGHEST_PROTOCOL)
+            for chi0_GG in chi0_wGG:
+                pickle.dump(chi0_GG, fd, pickle.HIGHEST_PROTOCOL)
+            
+            tmp_wGG = np.empty((self.mynw, nG, nG), complex)
+            w1 = self.mynw
+            for rank in range(1, world.size):
+                w2 = min(w1 + self.mynw, nw)
+                world.receive(tmp_wGG[:w2 - w1], rank)
+                for w in range(w2 - w1):
+                    pickle.dump(tmp_wGG[w], fd, pickle.HIGHEST_PROTOCOL)
+                w1 = w2
+            fd.close()
+        else:
+            world.send(chi0_wGG, 0)
+
+    def read(self, name):
+        print('Reading from', name, file=self.chi0.fd)
+        fd = open(name)
+        omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
+        assert np.allclose(omega_w, self.omega_w)
+
+        world = self.chi0.world
+        
+        nw = len(omega_w)
+        nG = pd.ngmax
+        
+        if chi0_wGG is not None:
+            # Old file format:
+            chi0_wGG = chi0_wGG[self.w1:self.w2].copy()
+        else:
+            if world.rank == 0:
+                chi0_wGG = np.empty((self.mynw, nG, nG), complex)
+                for chi0_GG in chi0_wGG:
+                    chi0_GG[:] = pickle.load(fd)
+                tmp_wGG = np.empty((self.mynw, nG, nG), complex)
+                w1 = self.mynw
+                for rank in range(1, world.size):
+                    w2 = min(w1 + self.mynw, nw)
+                    for w in range(w2 - w1):
+                        tmp_wGG[w] = pickle.load(fd)
+                    world.send(tmp_wGG[:w2 - w1], rank)
+            else:
+                chi0_wGG = np.empty((self.w2 - self.w1, nG, nG), complex)
+                world.receive(chi0_wGG, 0)
+                
+        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+        
+    def collect(self, a_w):
+        world = self.chi0.world
+        b_w = np.zeros(self.mynw, a_w.dtype)
+        b_w[:self.w2 - self.w1] = a_w
+        nw = len(self.omega_w)
+        A_w = np.empty(world.size * self.mynw, a_w.dtype)
+        world.all_gather(b_w, A_w)
+        return A_w[:nw]
 
     def get_frequencies(self):
         """Return frequencies that Chi is evaluated on"""
-        return self.chi0.omega_w * Hartree
+        return self.omega_w * Hartree
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], direction='x',
                 wigner_seitz_truncation=False):
-        omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         G_G = pd.G2_qG[0]**0.5
         nG = len(G_G)
         
@@ -132,9 +195,10 @@ class DielectricFunction:
             else:
                 d_v = direction
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[:, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[:, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv, d_v).T)
+            W = slice(self.w1, self.w2)
+            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
         
         G_G /= (4 * pi)**0.5
 
@@ -191,7 +255,7 @@ class DielectricFunction:
         to the head of the inverse dielectric matrix (inverse dielectric
         function)
         """
-        omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         G_G = pd.G2_qG[0]**0.5
         nG = len(G_G)
 
@@ -205,9 +269,10 @@ class DielectricFunction:
                 d_v = direction
 
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[:, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[:, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv, d_v).T)
+            W = slice(self.w1, self.w2)
+            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
                     
         if wigner_seitz_truncation:
             kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv,
@@ -260,9 +325,12 @@ class DielectricFunction:
             df_NLFC_w[w] = e_GG[0, 0]
             df_LFC_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
         
+        df_NLFC_w = self.collect(df_NLFC_w)
+        df_LFC_w = self.collect(df_LFC_w)
+        
         if filename is not None and mpi.rank == 0:
             with open(filename, 'w') as fd:
-                for omega, nlfc, lfc in zip(self.chi0.omega_w * Hartree,
+                for omega, nlfc, lfc in zip(self.omega_w * Hartree,
                                             df_NLFC_w,
                                             df_LFC_w):
                     print('%.6f, %.6f, %.6f, %.6f, %.6f' %
@@ -336,8 +404,8 @@ class DielectricFunction:
             print('# energy, eels_NLFC_w, eels_LFC_w', file=fd)
             for iw in range(Nw):
                 print('%.6f, %.6f, %.6f' %
-                     (self.chi0.omega_w[iw] * Hartree,
-                      eels_NLFC_w[iw], eels_LFC_w[iw]), file=fd)
+                      (self.chi0.omega_w[iw] * Hartree,
+                       eels_NLFC_w[iw], eels_LFC_w[iw]), file=fd)
             fd.close()
 
         return eels_NLFC_w, eels_LFC_w
@@ -385,6 +453,9 @@ class DielectricFunction:
             alpha_w = -V * (chi_wGG[:, 0, 0]) / (4 * pi)
             alpha0_w = -V * (chi0_wGG[:, 0, 0]) / (4 * pi)
 
+            alpha_w = self.collect(alpha_w)
+            alpha0_w = self.collect(alpha0_w)
+        
         Nw = len(alpha_w)
         if filename is not None and mpi.rank == 0:
             fd = open(filename, 'w')
@@ -408,6 +479,8 @@ class DielectricFunction:
             Input spectrum
         """
         
+        assert (self.omega_w[1:] - self.omega_w[:-1]).ptp() < 1e-10
+                
         fd = self.chi0.fd
         
         if spectrum is None:
@@ -429,8 +502,11 @@ class DielectricFunction:
         
         """Plasmon eigenmodes as eigenvectors of the dielectric matrix."""
 
-        omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
-        e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c, direction=direction,
+        assert self.chi0.world.size == 1
+
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
+                                           direction=direction,
                                            wigner_seitz_truncation=False,
                                            symmetric=False)
         
@@ -438,7 +514,7 @@ class DielectricFunction:
         
         # Get real space grid for plasmon modes:
         r = pd.gd.get_grid_point_coordinates()
-        w_w = omega_w * Hartree
+        w_w = self.omega_w * Hartree
         if w_max:
             w_w = w_w[np.where(w_w < w_max)]
         Nw = len(w_w)
@@ -496,7 +572,7 @@ class DielectricFunction:
                 omega0 = np.append(omega0, w0)
                 eigen0 = np.append(eigen0, eig0)
                 
-                #Fourier Transform
+                # Fourier Transform:
                 qG = pd.get_reciprocal_vectors(add_q=True)
                 coef_G = np.diagonal(np.inner(qG, qG)) / (4 * pi)
                 qGr_R = np.inner(qG, r.T).T
@@ -555,7 +631,8 @@ class DielectricFunction:
         Returns: real space grid, frequency points, EELS(w,r)
         """
 
-        omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        assert self.chi0.world.size == 1
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
                                            wigner_seitz_truncation=True,
                                            symmetric=False)
@@ -582,7 +659,7 @@ class DielectricFunction:
             if Gvec[iG, perpdir[0]] == 0 and Gvec[iG, perpdir[1]] == 0:
                 Glist.append(iG)
         qG = Gvec[Glist] + pd.K_qv
-        w_w = omega_w * Hartree
+        w_w = self.omega_w * Hartree
         if w_max:
             w_w = w_w[np.where(w_w < w_max)]
         Nw = len(w_w)
@@ -594,8 +671,7 @@ class DielectricFunction:
         E_wrr = np.zeros([Nw, r.shape[1], r.shape[1]])
         E_wr = np.zeros([Nw, r.shape[1]])
         for i in range(Nw):
-            Vchi_GG = (np.linalg.inv(
-                        e_wGG[i, np.array(Glist), :][:, np.array(Glist)]) -
+            Vchi_GG = (np.linalg.inv(e_wGG[i, Glist, :][:, Glist]) -
                        np.eye(len(Glist)))
             # Fourier transform:
             E_wrr[i] = -np.imag(np.dot(np.dot(phase, Vchi_GG), phase2.T))

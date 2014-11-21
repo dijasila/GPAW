@@ -54,7 +54,7 @@ class PairDensity:
         self.gate_voltage = gate_voltage
 
         if nblocks == 1:
-            self.blockcomm = mpi.serial_comm
+            self.blockcomm = self.world.new_communicator([world.rank])
             self.kncomm = world
         else:
             assert world.size % nblocks == 0, world.size
@@ -403,7 +403,7 @@ class PairDensity:
             smallness_mv = smallness_mv[inds_m]
             for depsi, n0i_v, smallness_v in zip(depsi_m, n0i_mv,
                                                  smallness_mv):
-                print(indent8 + 'Energy eigenvalue difference %1.2e ' % -depsi, 
+                print(indent8 + 'Energy eigenvalue difference %1.2e ' % -depsi,
                       file=self.fd)
                 print(indent8 + 'Matrix element' +
                       ' %1.2e %1.2e %1.2e' % (n0i_v[0], n0i_v[1], n0i_v[2]),

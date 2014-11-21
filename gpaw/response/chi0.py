@@ -231,7 +231,6 @@ class Chi0(PairDensity):
                     assert self.nocc2 < kpt2.nb
                     self.update_intraband(kpt2, chi0_wvv)
 
-
         self.timer.stop('Loop')
 
         pb.finish()
@@ -425,6 +424,7 @@ class Chi0(PairDensity):
 
                 self.chi0_vv += x_vv
 
+    @timer('redist')
     def redistribute(self, in_wGG, out_x=None):
         """Redistribute array.
         
@@ -471,6 +471,7 @@ class Chi0(PairDensity):
         
         return out_wGG
 
+    @timer('dist freq')
     def distribute_frequencies(self, chi0_wGG):
         """Distribute frequencies to all cores."""
         
@@ -497,7 +498,7 @@ class Chi0(PairDensity):
         md2 = BlacsDescriptor(bg2, nw, nG**2, mynw, nG**2)
         
         r = Redistributor(world, md1, md2)
-        wa = world.rank * mynw
+        wa = min(world.rank * mynw, nw)
         wb = min(wa + mynw, nw)
         shape = (wb - wa, nG, nG)
         out_wGG = np.empty(shape, complex)

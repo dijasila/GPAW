@@ -1,7 +1,6 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import os
 import sys
 import time
 import atexit
@@ -39,7 +38,7 @@ class _Communicator:
         self.comm = comm
         self.size = comm.size
         self.rank = comm.rank
-        self.parent = parent #XXX check C-object against comm.parent?
+        self.parent = parent  # XXX check C-object against comm.parent?
 
     def new_communicator(self, ranks):
         """Create a new MPI communicator for a subset of ranks in a group.
@@ -260,7 +259,6 @@ class _Communicator:
           comm.broadcast(data, 0)
 
         """
-        tc = a.dtype
         assert a.flags.contiguous
         assert b.flags.contiguous
         assert b.dtype == a.dtype
@@ -377,7 +375,7 @@ class _Communicator:
         assert dest != self.rank
         assert is_contiguous(a)
         if not block:
-            pass #assert sys.getrefcount(a) > 3
+            pass  # assert sys.getrefcount(a) > 3
         return self.comm.send(a, dest, tag, block)
 
     def ssend(self, a, dest, tag=123):
@@ -415,7 +413,7 @@ class _Communicator:
             Request e.g. returned from send/receive when block=False is used.
 
         """
-        return self.comm.testall(requests) # may deallocate requests!
+        return self.comm.testall(requests)  # may deallocate requests!
 
     def wait(self, request):
         """Wait for a non-blocking MPI operation to complete before returning.
@@ -567,6 +565,7 @@ try:
 except AttributeError:
     world = serial_comm
 
+    
 class DryRunCommunicator(SerialCommunicator):
     def __init__(self, size=1, parent=None):
         self.size = size
@@ -576,7 +575,7 @@ class DryRunCommunicator(SerialCommunicator):
         return DryRunCommunicator(len(ranks), parent=self)
 
     def get_c_object(self):
-        return None # won't actually be passed to C
+        return None  # won't actually be passed to C
 
 if dry_run_size > 1:
     world = DryRunCommunicator(dry_run_size)
@@ -591,6 +590,7 @@ size = world.size
 rank = world.rank
 parallel = (size > 1)
 
+
 # XXXXXXXXXX for easier transition to Parallelization class
 def distribute_cpus(parsize_domain, parsize_bands,
                     nspins, nibzkpts, comm=world,
@@ -601,7 +601,6 @@ def distribute_cpus(parsize_domain, parsize_bands,
             parsize_bands = 1
     else:
         # Plane wave mode:
-        ndomains = 1
         if parsize_bands is None:
             parsize_bands = comm.size // gcd(nsk, comm.size)
 
@@ -609,6 +608,7 @@ def distribute_cpus(parsize_domain, parsize_bands,
     return p.build_communicators(domain=np.prod(parsize_domain),
                                  band=parsize_bands)
 
+    
 def old_distribute_cpus(parsize_domain, parsize_bands,
                         nspins, nibzkpts, comm=world,
                         idiotproof=True, mode='fd'):
@@ -674,10 +674,10 @@ def compare_atoms(atoms, comm=world):
     # ASE may return slightly different atomic positions (e.g. due
     # to MKL) so compare only first 8 decimals of positions
     fingerprint = np.array([md5_array(array, numeric=True) for array in
-                             [atoms.positions.round(8),
-                              atoms.cell,
-                              atoms.pbc * 1.0,
-                              atoms.get_initial_magnetic_moments()]])
+                            [atoms.positions.round(8),
+                             atoms.cell,
+                             atoms.pbc * 1.0,
+                             atoms.get_initial_magnetic_moments()]])
     # Compare fingerprints:
     fingerprints = np.empty((comm.size, 4), fingerprint.dtype)
     comm.all_gather(fingerprint, fingerprints)
@@ -695,13 +695,14 @@ def compare_atoms(atoms, comm=world):
             if comm.rank == 0:
                 print('DEBUG: compare_atoms failed for %s' % itemname)
                 itemfps.dump('%s_fps_%s.pickle' % (dumpfile, itemname))
-            itemdata.dump('%s_r%04d_%s.pickle' % (dumpfile, comm.rank, 
+            itemdata.dump('%s_r%04d_%s.pickle' % (dumpfile, comm.rank,
                                                   itemname))
 
     # Use only the atomic positions from rank 0
     comm.broadcast(atoms.positions, 0)
     return not mismatches.any()
 
+    
 def broadcast(obj, root=0, comm=world):
     """Broadcast a Python object across an MPI communicator and return it."""
     if comm.rank == root:
@@ -716,6 +717,7 @@ def broadcast(obj, root=0, comm=world):
     else:
         return pickle.loads(string)
 
+        
 def broadcast_string(string=None, root=0, comm=world):
     """Broadcast a Python string across an MPI communicator and return it.
     NB: Strings are immutable objects in Python, so the input is unchanged."""
@@ -733,10 +735,12 @@ def broadcast_string(string=None, root=0, comm=world):
     comm.broadcast(string, root)
     return string.tostring()
 
+    
 def send_string(string, rank, comm=world):
     comm.send(np.array(len(string)), rank)
     comm.send(np.fromstring(string, np.int8), rank)
 
+    
 def receive_string(rank, comm=world):
     n = np.array(0)
     comm.receive(n, rank)
@@ -744,20 +748,23 @@ def receive_string(rank, comm=world):
     comm.receive(string, rank)
     return string.tostring()
 
+    
 def alltoallv_string(send_dict, comm=world):
     scounts = np.zeros(comm.size, dtype=np.int)
     sdispls = np.zeros(comm.size, dtype=np.int)
     stotal = 0
     for proc in range(comm.size):
         if proc in send_dict:
-            data = np.fromstring(send_dict[proc],np.int8)
+            data = np.fromstring(send_dict[proc], np.int8)
             scounts[proc] = data.size
             sdispls[proc] = stotal
             stotal += scounts[proc]
 
     rcounts = np.zeros(comm.size, dtype=np.int)
-    comm.alltoallv( scounts, np.ones(comm.size, dtype=np.int), np.arange(comm.size, dtype=np.int),
-                    rcounts, np.ones(comm.size, dtype=np.int), np.arange(comm.size, dtype=np.int) )
+    comm.alltoallv(scounts, np.ones(comm.size, dtype=np.int),
+                   np.arange(comm.size, dtype=np.int),
+                   rcounts, np.ones(comm.size, dtype=np.int),
+                   np.arange(comm.size, dtype=np.int))
     rdispls = np.zeros(comm.size, dtype=np.int)
     rtotal = 0
     for proc in range(comm.size):
@@ -765,20 +772,21 @@ def alltoallv_string(send_dict, comm=world):
         rtotal += rcounts[proc]
         rtotal += rcounts[proc]
 
-
     sbuffer = np.zeros(stotal, dtype=np.int8)
     for proc in range(comm.size):
-        sbuffer[sdispls[proc]:(sdispls[proc]+scounts[proc])] = np.fromstring(send_dict[proc],np.int8)
+        sbuffer[sdispls[proc]:(sdispls[proc] + scounts[proc])] = (
+            np.fromstring(send_dict[proc], np.int8))
 
     rbuffer = np.zeros(rtotal, dtype=np.int8)
     comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls)
 
     rdict = {}
     for proc in range(comm.size):
-        rdict[proc] = rbuffer[rdispls[proc]:(rdispls[proc]+rcounts[proc])].tostring()
+        rdict[proc] = rbuffer[rdispls[proc]:(rdispls[proc] + rcounts[proc])].tostring()
 
     return rdict
 
+    
 def ibarrier(timeout=None, root=0, tag=123, comm=world):
     """Non-blocking barrier returning a list of requests to wait for.
     An optional time-out may be given, turning the call into a blocking
@@ -786,9 +794,10 @@ def ibarrier(timeout=None, root=0, tag=123, comm=world):
     requests = []
     byte = np.ones(1, dtype=np.int8)
     if comm.rank == root:
-        for rank in range(0,root) + range(root+1,comm.size): #everybody else
+        # Everybody else:
+        for rank in range(0, root) + range(root + 1, comm.size):
             rbuf, sbuf = np.empty_like(byte), byte.copy()
-            requests.append(comm.send(sbuf, rank, tag=2 * tag + 0, 
+            requests.append(comm.send(sbuf, rank, tag=2 * tag + 0,
                                       block=False))
             requests.append(comm.receive(rbuf, rank, tag=2 * tag + 1,
                                          block=False))
@@ -801,11 +810,12 @@ def ibarrier(timeout=None, root=0, tag=123, comm=world):
         return requests
 
     t0 = time.time()
-    while not comm.testall(requests): # automatic clean-up upon success
+    while not comm.testall(requests):  # automatic clean-up upon success
         if time.time() - t0 > timeout:
             raise RuntimeError('MPI barrier timeout.')
     return []
 
+    
 def run(iterators):
     """Run through list of iterators one step at a time."""
     if not isinstance(iterators, list):
@@ -823,6 +833,7 @@ def run(iterators):
         except StopIteration:
             return results
 
+            
 class Parallelization:
     def __init__(self, comm, nspinkpts):
         self.comm = comm
@@ -845,7 +856,7 @@ class Parallelization:
             self.band = band
         
         nclaimed = 1
-        for group, name in zip([self.kpt, self.domain, self.band], 
+        for group, name in zip([self.kpt, self.domain, self.band],
                                ['k-point', 'domain', 'band']):
             if group is not None:
                 if self.size % group != 0:
@@ -861,7 +872,7 @@ class Parallelization:
         assert self.size % navail == 0
 
         self.navail = navail
-        self.nclaimed = nclaimed        
+        self.nclaimed = nclaimed
 
     def get_communicator_sizes(self, kpt=None, domain=None, band=None):
         self.set(kpt=kpt, domain=domain, band=band)
@@ -949,7 +960,7 @@ class Parallelization:
             ncpus = min(self.nspinkpts, self.navail)
             return ncpus
         ncpuvalues, wastevalues = self.find_kpt_parallelizations()
-        scores = ((self.navail // ncpuvalues) 
+        scores = ((self.navail // ncpuvalues)
                   * ncpuvalues**kptprioritypower)**(1.0 - wastevalues)
         arg = np.argmax(scores)
         ncpus = ncpuvalues[arg]
@@ -976,7 +987,7 @@ class Parallelization:
 
 def cleanup():
     error = getattr(sys, 'last_type', None)
-    if error is not None: # else: Python script completed or raise SystemExit
+    if error is not None:  # else: Python script completed or raise SystemExit
         if parallel and not (dry_run_size > 1):
             sys.stdout.flush()
             sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  '
@@ -987,9 +998,10 @@ def cleanup():
             time.sleep(10)
             world.abort(42)
 
+            
 def exit(error='Manual exit'):
     # Note that exit must be called on *all* MPI tasks
-    atexit._exithandlers = [] # not needed because we are intentially exiting
+    atexit._exithandlers = []  # not needed because we are intentially exiting
     if parallel and not (dry_run_size > 1):
         sys.stdout.flush()
         sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  ' +
@@ -997,7 +1009,7 @@ def exit(error='Manual exit'):
         sys.stderr.flush()
     else:
         cleanup(error)
-    world.barrier() # sync up before exiting
-    sys.exit() # quit for serial case, return to _gpaw.c for parallel case
+    world.barrier()  # sync up before exiting
+    sys.exit()  # quit for serial case, return to _gpaw.c for parallel case
 
 atexit.register(cleanup)
