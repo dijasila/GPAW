@@ -120,6 +120,7 @@ class Chi0(PairDensity):
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
         self.Ga = self.blockcomm.rank * mynG
         self.Gb = min(self.Ga + mynG, nG)
+        assert mynG * (self.blockcomm - 1) < nG
         
         if A_x is not None:
             nx = nw * (self.Gb - self.Ga) * nG
@@ -453,7 +454,7 @@ class Chi0(PairDensity):
         
         if len(in_wGG) == nw:
             r = Redistributor(comm, md2, md1)
-            wa = comm.rank * mynw
+            wa = min(comm.rank * mynw, nw)
             wb = min(wa + mynw, nw)
             shape = (wb - wa, nG, nG)
         else:
