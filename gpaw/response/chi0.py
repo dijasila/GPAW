@@ -120,7 +120,7 @@ class Chi0(PairDensity):
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
         self.Ga = self.blockcomm.rank * mynG
         self.Gb = min(self.Ga + mynG, nG)
-        assert mynG * (self.blockcomm - 1) < nG
+        assert mynG * (self.blockcomm.size - 1) < nG
         
         if A_x is not None:
             nx = nw * (self.Gb - self.Ga) * nG
