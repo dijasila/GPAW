@@ -192,13 +192,7 @@ class Chi0(PairDensity):
 
             for n in range(kpt1.n2 - kpt1.n1):
                 eps1 = kpt1.eps_n[n]
-
-                # Only update if there exists deps <= omegamax
-                if self.omegamax is not None:
-                    m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
-                         if abs(d) <= self.omegamax]
-                else:
-                    m = range(len(kpt2.eps_n))
+                m = range(0, kpt2.n2 - kpt2.n1)
 
                 if not len(m):
                     continue
@@ -229,7 +223,7 @@ class Chi0(PairDensity):
                 # Avoid that more ranks are summing up
                 # the intraband contributions
                 if kpt1.n1 == 0 and self.blockcomm.rank == 0:
-                    assert self.nocc2 < kpt2.nb
+                    assert self.nocc2 <= kpt2.nb, print('Error: Too few unoccupied bands')
                     self.update_intraband(kpt2, chi0_wvv)
 
         self.timer.stop('Loop')
