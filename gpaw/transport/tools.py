@@ -158,6 +158,20 @@ def r2k_hs(h_srmm, s_rmm, R_vector, kvector=(0,0,0), magnet=None):
     elif s_rmm is None:
         return h_smm
 
+def r2k2(s_rmm, R_vector, kvector=(0,0,0), symmetrize=True):
+    phase_k = np.dot(2 * np.pi * R_vector, kvector)
+    c_k = np.exp(-1.0j * phase_k)
+    c_k.shape = (len(R_vector), 1, 1)
+    nbf = s_rmm.shape[-1]
+    s_mm = np.zeros((nbf, nbf), complex)
+    for i in range(len(R_vector)):
+        tmp = s_rmm[i,:,:]*c_k[i]
+        if symmetrize and R_vector[i,:].any():
+            s_mm = s_mm + tmp + dagger(tmp)
+        else:
+            s_mm = s_mm + tmp
+    return s_mm
+
 def collect_lead_mat(lead_hsd, lead_couple_hsd, s, pk, flag='S'):
     diag_h = []
     upc_h = []
