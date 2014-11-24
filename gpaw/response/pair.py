@@ -387,9 +387,9 @@ class PairDensity:
         na = kpt2.na
         nb = kpt2.nb
         n1 = kpt2.n1
-        if not self.blockcomm.size == 1:
+        if self.blockcomm.size != 1:
             n0_Mv = np.zeros((self.nbands - self.nocc1, 3), dtype=complex)
-            n0_Mv[na - n1:nb - n1] = n0_mv  
+            n0_Mv[na - n1:nb - n1] = n0_mv
             self.blockcomm.sum(n0_Mv)
             n0_mv = n0_Mv
 

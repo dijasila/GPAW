@@ -148,7 +148,7 @@ class BlacsGrid:
         assert order in 'CcRr'
         # set a default value for the context leads to fewer
         # if statements below
-        context = INACTIVE
+        self.context = INACTIVE
 
         # There are three cases to handle:
         # 1. Comm is None is inactive (default).
@@ -159,15 +159,14 @@ class BlacsGrid:
                 raise ValueError('Impossible: %dx%d Blacs grid with %d CPUs'
                                  % (nprow, npcol, comm.size))
 
-            context = _gpaw.new_blacs_context(comm.get_c_object(),
-                                              npcol, nprow, order)
-            assert (context != INACTIVE) == (comm.rank < nprow * npcol)
+            self.context = _gpaw.new_blacs_context(comm.get_c_object(),
+                                                   npcol, nprow, order)
+            assert (self.context != INACTIVE) == (comm.rank < nprow * npcol)
 
-        self.mycol, self.myrow = _gpaw.get_blacs_gridinfo(context,
+        self.mycol, self.myrow = _gpaw.get_blacs_gridinfo(self.context,
                                                           nprow,
                                                           npcol)
 
-        self.context = context
         self.comm = comm
         self.nprow = nprow
         self.npcol = npcol

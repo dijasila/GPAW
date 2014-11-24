@@ -557,6 +557,12 @@ class TestRunner:
                 skip = True
             else:
                 failed = True
+        except AttributeError, ex:
+            if (ex.args[0] ==
+                "'module' object has no attribute 'new_blacs_context'"):
+                skip = True
+            else:
+                failed = True
         except Exception:
             failed = True
 
