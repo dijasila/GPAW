@@ -238,7 +238,7 @@ class DielectricFunction:
         
         ::
         
-            \tilde\epsilon_GG' = v^{-1/2}_G \epsilon_GG' v^{-1/2}_G',
+            \tilde\epsilon_GG' = v^{-1/2}_G \epsilon_GG' v^{1/2}_G',
             
         where::
             
