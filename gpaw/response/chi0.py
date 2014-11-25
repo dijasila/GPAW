@@ -192,12 +192,15 @@ class Chi0(PairDensity):
 
             for n in range(kpt1.n2 - kpt1.n1):
                 eps1 = kpt1.eps_n[n]
-                m = range(0, kpt2.n2 - kpt2.n1)
-
+                
+                # Only update if there exists deps <= omegamax
+                m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
+                     if abs(d) <= self.omegamax]
+                
                 if not len(m):
                     continue
 
-                deps_m = (eps1 - kpt2.eps_n)
+                deps_m = (eps1 - kpt2.eps_n)[m]
                 f1 = kpt1.f_n[n]
                 with self.timer('conj'):
                     ut1cc_R = kpt1.ut_nR[n].conj()
@@ -205,8 +208,8 @@ class Chi0(PairDensity):
                     C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
                               for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
                 n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                     pd, Q_G)
-                df_m = (f1 - kpt2.f_n)
+                                                     pd, Q_G)[m]
+                df_m = (f1 - kpt2.f_n)[m]
 
                 # This is not quite right for degenerate partially occupied
                 # bands, but good enough for now:
@@ -224,7 +227,8 @@ class Chi0(PairDensity):
                 # the intraband contributions
 
                 if kpt1.n1 == 0 and self.blockcomm.rank == 0:
-                    assert self.nocc2 <= kpt2.nb, print('Error: Too few unoccupied bands')
+                    assert self.nocc2 <= kpt2.nb, \
+                        print('Error: Too few unoccupied bands')
                     self.update_intraband(kpt2)
 
         self.timer.stop('Loop')

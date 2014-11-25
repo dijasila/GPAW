@@ -376,23 +376,27 @@ class PairDensity:
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
-
         blockbands = kpt2.nb - kpt2.na
         n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
         nt_m = np.empty(kpt2.blocksize, dtype=complex)
         n0_mv[:blockbands] = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
-        nt_m[:blockbands] = self.calc.wfs.gd.integrate(kpt1.ut_nR[n], kpt2.ut_nR)
+        nt_m[:blockbands] = self.calc.wfs.gd.integrate(kpt1.ut_nR[n],
+                                                       kpt2.ut_nR)
         n0_mv += 1j * nt_m[:, np.newaxis] * k_v[np.newaxis, :]
 
         for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
-            P_mi = P_mi.copy()            
+            P_mi = P_mi.copy()
             gemm(1.0, C_vi, P_mi, 1.0, n0_mv[:blockbands], 'c')
 
         if self.blockcomm.size != 1:
-            n0_Mv = np.empty((kpt2.blocksize * self.blockcomm.size, 3), 
+            n0_Mv = np.empty((kpt2.blocksize * self.blockcomm.size, 3),
                              dtype=complex)
             self.blockcomm.all_gather(n0_mv, n0_Mv)
             n0_mv = n0_Mv[:kpt2.n2 - kpt2.n1]
+
+        # In case not all unoccupied bands are included
+        if n0_mv.shape[0] != len(m):
+            n0_mv = n0_mv[m]
 
         deps_m = deps_m.copy()
         deps_m[deps_m >= 0.0] = np.inf
