@@ -197,7 +197,7 @@ class Chi0(PairDensity):
                 if not len(m):
                     continue
 
-                deps_m = (eps1 - kpt2.eps_n)[m]
+                deps_m = (eps1 - kpt2.eps_n)
                 f1 = kpt1.f_n[n]
                 with self.timer('conj'):
                     ut1cc_R = kpt1.ut_nR[n].conj()
@@ -205,8 +205,8 @@ class Chi0(PairDensity):
                     C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
                               for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
                 n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                     pd, Q_G)[m]
-                df_m = (f1 - kpt2.f_n)[m]
+                                                     pd, Q_G)
+                df_m = (f1 - kpt2.f_n)
 
                 # This is not quite right for degenerate partially occupied
                 # bands, but good enough for now:
@@ -222,9 +222,10 @@ class Chi0(PairDensity):
             if optical_limit and self.intraband:
                 # Avoid that more ranks are summing up
                 # the intraband contributions
+
                 if kpt1.n1 == 0 and self.blockcomm.rank == 0:
                     assert self.nocc2 <= kpt2.nb, print('Error: Too few unoccupied bands')
-                    self.update_intraband(kpt2, chi0_wvv)
+                    self.update_intraband(kpt2)
 
         self.timer.stop('Loop')
 
@@ -235,11 +236,10 @@ class Chi0(PairDensity):
                 self.kncomm.sum(chi0_GG)
 
             if optical_limit:
-                if self.blockcomm.rank == 0:
-                    self.kncomm.sum(chi0_wxvG)
-                    self.kncomm.sum(chi0_wvv)
-                    if self.intraband:
-                        self.kncomm.sum(self.chi0_vv)
+                self.kncomm.sum(chi0_wxvG)
+                self.kncomm.sum(chi0_wvv)
+                if self.intraband:
+                    self.kncomm.sum(self.chi0_vv)
 
         print('Memory used: {0:.3f} MB / CPU'.format(maxrss() / 1024**2),
               file=self.fd)
@@ -271,7 +271,10 @@ class Chi0(PairDensity):
             if omega_w[0] == 0.0:
                 omega_w[0] = 1e-14
 
-            chi0_wvv += (self.chi0_vv[np.newaxis] /
+            chi0_vv = self.chi0_vv
+            self.world.broadcast(chi0_vv, 0)
+
+            chi0_wvv += (chi0_vv[np.newaxis] /
                          (omega_w[:, np.newaxis, np.newaxis] *
                           (omega_w[:, np.newaxis, np.newaxis] +
                            1j * self.eta)))
@@ -382,7 +385,7 @@ class Chi0(PairDensity):
             chi0_wxvG[w + 1, 1, :, 1:] += p2 * x_vG.conj()
 
     @timer('CHI_0 intraband update')
-    def update_intraband(self, kpt, chi0_wvv):
+    def update_intraband(self, kpt):
         """Check whether there are any partly occupied bands."""
 
         width = self.calc.occupations.width
