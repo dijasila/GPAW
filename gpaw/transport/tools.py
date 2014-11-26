@@ -1,12 +1,14 @@
-from gpaw.utilities import unpack
-from ase.units import Hartree
+import copy
 import cPickle
 import numpy as np
+
+from ase.utils.timing import Timer
+from ase.units import Hartree
+
+from gpaw.utilities import unpack
 from gpaw.mpi import world, rank, send_string, receive_string, broadcast_string
 from gpaw.utilities.blas import gemm
-from gpaw.utilities.timing import Timer
 from gpaw.utilities.lapack import inverse_general
-import copy
 import _gpaw
 
 def tw(mat, filename):

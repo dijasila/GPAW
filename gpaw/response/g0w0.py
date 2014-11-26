@@ -9,6 +9,7 @@ import numpy as np
 from ase.dft.kpoints import monkhorst_pack
 from ase.units import Hartree
 from ase.utils import opencew, devnull
+from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
 from gpaw import debug
@@ -16,7 +17,6 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0, HilbertTransform
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.utilities.timing import timer
 from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.tools import vxc

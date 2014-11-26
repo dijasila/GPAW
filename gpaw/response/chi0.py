@@ -5,6 +5,7 @@ from time import ctime
 
 import numpy as np
 from ase.units import Hartree
+from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
 from gpaw import extra_parameters
@@ -13,7 +14,6 @@ from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor,
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.occupations import FermiDirac
 from gpaw.response.pair import PairDensity
-from gpaw.utilities.timing import timer
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.utilities.blas import gemm, rk, czher, mmm

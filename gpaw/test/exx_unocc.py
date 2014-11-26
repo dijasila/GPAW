@@ -3,10 +3,10 @@ import sys
 
 from ase import Atoms, Atom
 from ase.parallel import parprint
+from ase.utils.timing import Timer
 
 from gpaw import GPAW
 from gpaw.test import equal
-from gpaw.utilities.timing import Timer
 from gpaw.xc.hybrid import HybridXC
 
 timer = Timer()

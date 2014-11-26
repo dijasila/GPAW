@@ -7,16 +7,16 @@ from ase.utils import prnt
 from ase.units import Hartree
 from ase.calculators.general import Calculator
 from ase.calculators.test import numeric_force
+from ase.utils.timing import Timer
+from ase.parallel import distribute_cpus
+
 from gpaw import GPAW
 from gpaw.density import RealSpaceDensity
 from gpaw.output import get_txt
 from gpaw import mpi
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.utilities.timing import Timer
 from gpaw.version import version
-
-from ase.parallel import distribute_cpus
 
 
 class FiniteDifferenceCalculator(Calculator):

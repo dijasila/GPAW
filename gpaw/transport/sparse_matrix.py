@@ -1,8 +1,10 @@
-from gpaw.utilities import unpack
 import numpy as np
+
+from ase.utils.timing import Timer
+
+from gpaw.utilities import unpack
 from gpaw.mpi import world, rank
 from gpaw.utilities.blas import gemm
-from gpaw.utilities.timing import Timer
 from gpaw.utilities.lapack import inverse_general
 from gpaw.transport.tools import get_matrix_index, collect_lead_mat, dot
 import copy

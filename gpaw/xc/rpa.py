@@ -9,6 +9,7 @@ from time import ctime
 import numpy as np
 from ase.units import Hartree
 from ase.utils import devnull
+from ase.utils.timing import timer, Timer
 from scipy.special.orthogonal import p_roots
 
 import gpaw.mpi as mpi

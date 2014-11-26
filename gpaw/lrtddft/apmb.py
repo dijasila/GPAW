@@ -8,13 +8,13 @@ import numpy as np
 from numpy.linalg import inv
 
 from ase.units import Hartree
+from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
 from gpaw.lrtddft.omega_matrix import OmegaMatrix
 from gpaw.pair_density import PairDensity
 from gpaw.utilities import pack
 from gpaw.utilities.lapack import diagonalize, gemm, sqrt_matrix
-from gpaw.utilities.timing import Timer
 
 
 class ApmB(OmegaMatrix):

@@ -147,8 +147,9 @@ def monkey_patch_timer():
         $ sort -n mem.????
         
     to see where the memory is allocated."""
-    
-    from gpaw.utilities.timing import Timer
+
+    from ase.utils.timing import Timer
+
     from gpaw.mpi import rank
     from time import time
     

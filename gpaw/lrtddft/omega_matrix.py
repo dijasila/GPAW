@@ -7,6 +7,7 @@ MASTER = mpi.MASTER
 
 from ase.parallel import paropen
 from ase.units import Hartree
+from ase.utils.timing import Timer
 
 from gpaw import debug
 import gpaw.mpi as mpi
@@ -17,7 +18,6 @@ from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack, pack2, packed_index
 from gpaw.utilities.lapack import diagonalize
-from gpaw.utilities.timing import Timer
 from gpaw.xc import XC
 
 import time

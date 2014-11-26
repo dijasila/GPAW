@@ -13,6 +13,7 @@ import numpy as np
 from ase.units import Bohr, Hartree
 from ase.dft.kpoints import monkhorst_pack
 from ase.calculators.calculator import kptdensity2monkhorstpack
+from ase.utils.timing import Timer
 
 import gpaw.io
 import gpaw.mpi as mpi
@@ -25,7 +26,6 @@ import gpaw.wavefunctions.pw as pw
 from gpaw.output import PAWTextOutput
 import gpaw.occupations as occupations
 from gpaw.forces import ForceCalculator
-from gpaw.utilities.timing import Timer
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.fd import FD
 from gpaw.density import RealSpaceDensity

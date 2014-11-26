@@ -5,6 +5,7 @@ from math import pi
 import numpy as np
 from ase.units import Hartree
 from ase.utils import devnull
+from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi
 from gpaw import GPAW
@@ -12,7 +13,6 @@ from gpaw.fd_operators import Gradient
 from gpaw.occupations import FermiDirac
 from gpaw.response.math_func import two_phi_planewave_integrals
 from gpaw.utilities.blas import gemm
-from gpaw.utilities.timing import timer, Timer
 from gpaw.wavefunctions.pw import PWLFC
 
 
