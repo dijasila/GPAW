@@ -117,7 +117,6 @@ class SetupData:
     def append(self, n, l, f, e, rcut, phi_g, phit_g, pt_g):
         self.n_j.append(n)
         self.l_j.append(l)
-        self.l_orb_j.append(l)
         self.f_j.append(f)
         self.eps_j.append(e)
         self.rcut_j.append(rcut)
