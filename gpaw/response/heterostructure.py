@@ -7,201 +7,181 @@ from ase.units import Hartree, Bohr
 
 
 class Heterostructure:
-    def __init__(self, q_points_abs, frequencies, interlayer_distances,
+    def __init__(self, q_abs, frequencies, d,
                  chi_monopole, z, drho_monopole, chi_dipole=None,
                  drho_dipole=None, layer_indices=None):
-        
+        # layers and distances
         self.n_types = chi_monopole.shape[0]
-        self.n_layers = len(interlayer_distances) + 1
-        self.interlayer_distances = interlayer_distances / Bohr
-        if layer_indices:  # Only store chi for unique
+        self.n_layers = len(d) + 1
+        self.d = d / Bohr  # interlayer distances
+        if len(self.d) > 0:
+            # space for each layer
+            self.s = (np.insert(self.d, 0, self.d[0]) + \
+                          np.append(self.d, self.d[-1])) / 2.
+        else:
+            self.s = 15
+        if layer_indices is not None:  # Only store chi for unique
             self.layer_indices = layer_indices
         else:
             self.layer_indices = range(self.n_layers)
-        self.q_points_abs = q_points_abs  # * Bohr
-        self.frequencies = frequencies  # / Hartree
-        self.chi_monopole = chi_monopole  # * Bohr
-        print(chi_monopole.shape)
-        self.drho_monopole = np.array(drho_monopole) / \
-            np.repeat(chi_monopole[:, :, 0, np.newaxis], z.shape[-1], axis=2)
-        self.chi_dipole = chi_dipole   # / Bohr
-        self.drho_dipole = np.array(drho_dipole) / \
-            np.repeat(chi_dipole[:, :, 0, np.newaxis], z.shape[-1], axis=2)
+
+        # Grid stuff
         self.z = z
-        self.Nz = 8000
-      
-        self.dphi_monopole, self.dphi_dipole = self.get_induced_potentials()
+        self.poisson_lim = 100  # above this limit use potential model
+        system_size = np.sum(self.d) + 30
+        self.z_lim = system_size
+        self.dz = 0.01
+        self.z_big = np.arange(0, self.z_lim, 0.01) - 15  # master grid
+        self.z0 = np.append(np.array([0]), np.cumsum(self.d))
 
-    def get_induced_potentials(self):
-        dphi_monopole = np.zeros([self.n_types, len(self.q_points_abs),
-                                  self.Nz], dtype=complex)
-        dphi_dipole = np.zeros([self.n_types, len(self.q_points_abs),
-                                self.Nz], dtype=complex)
+        # layer quantities
+        self.q_abs = q_abs
+        self.frequencies = frequencies
+        self.chi_monopole = chi_monopole
+        self.chi_dipole = chi_dipole
+        
+        # arange potential and density
+        self.drho_monopole, self.drho_dipole, self.drho_array = \
+            self.arange_densities(drho_monopole, drho_dipole)
+        self.dphi_array = self.get_induced_potentials()
+          self.kernel_qij = None
+
+    def arange_densities(self, drhom, drhod):
+        from scipy.interpolate import interp1d
+        drhom /= np.repeat(self.chi_monopole[:, :, 0, np.newaxis],
+                           drhom.shape[-1], axis=2)
+        drhod /= np.repeat(self.chi_dipole[:, :, 0, np.newaxis],
+                           drhod.shape[-1], axis=2)
+        Nz = len(self.z_big)
+     
+        drho_array = np.zeros([self.n_layers * 2, len(self.q_abs),
+                               Nz], dtype=complex)
+        
         for i in range(self.n_types):
-            z = self.z[i]
-            for iq in range(len(self.q_points_abs)):
-                q = self.q_points_abs[iq]
-                drho_i = self.drho_monopole[i, iq].copy()
-                dphi_monopole[i, iq] = self.solve_poisson_1D(drho_i, q, z)
-                drho_i = self.drho_dipole[i, iq].copy()
-                delta = np.abs(z[np.argmax(drho_i)] - \
-                               z[np.argmin(drho_i)]) / 2.
-                dphi_dipole[i, iq] = self.solve_poisson_1D(drho_i, q, z,
-                                                           monopole=False,
-                                                           delta=delta)
+            z = self.z[i] - self.z[i, len(self.z[i]) / 2]
+            fm = interp1d(z, drhom)
+            fd = interp1d(z, drhod)
+            for k in [k for k in range(self.n_layers) \
+                          if self.layer_indices[k] == i]:
+                z_big = self.z_big - self.z0[k]
+                i_1 = np.argmin(np.abs(-self.s[0] / 2. - z_big))
+                i_2 = np.argmin(np.abs(self.s[0] / 2. - z_big))
+                drho_array[2 * k, :, i_1: i_2] = fm(z_big[i_1: i_2])
+                drho_array[2 * k + 1, :, i_1: i_2] = fd(z_big[i_1: i_2])
+            
+        return drhom, drhod, drho_array
 
-        return dphi_monopole, dphi_dipole
+    def get_induced_potentials(self, dipole=True):
+        from scipy.interpolate import interp1d
+        z = self.z[0]
+        Nz = len(self.z_big)
+        dphi_array = np.zeros([self.n_layers * 2, len(self.q_abs), Nz],
+                              dtype=complex)
 
-    def get_z_grid(self, z):
-        Nz = self.Nz
-        Nz_loc = (Nz - len(z)) / 2.
+        for i in range(self.n_types):
+            for iq in range(len(self.q_abs)):
+                q = self.q_abs[iq]
+                drho_m = self.drho_monopole[i, iq].copy()
+                drho_d = self.drho_dipole[i, iq].copy()
+                # delta = distance bewteen dipole peaks / 2
+                delta = np.abs(z[np.argmax(drho_d)] - \
+                                   z[np.argmin(drho_d)]) / 2.
+
+                poisson_m = self.solve_poisson_1D(drho_m, q, z)
+                poisson_d = self.solve_poisson_1D(drho_d, q, z, dipole=True,
+                                                  delta=delta)
+                z_poisson = self.get_z_grid(z, z_lim=self.poisson_lim)
+                fm = interp1d(z_poisson, poisson_m)
+                fd = interp1d(z_poisson, poisson_d)
+                for k in [k for k in range(self.n_layers) \
+                              if self.layer_indices[k] == i]:
+                    
+                    dphi_array[2 * k, iq] = \
+                        self.potential_model(self.q_abs[iq], self.z_big, 
+                                             self.z0[k])
+                        
+                    dphi_array[2 * k + 1, iq] = \
+                        self.potential_model(self.q_abs[iq], self.z_big,
+                                             self.z0[k], dipole=True,
+                                             delta=delta)
+    
+                    z_big = self.z_big - self.z0[k]
+                    i_1 = np.argmin(np.abs(z_poisson[0] - z_big))
+                    i_2 = np.argmin(np.abs(z_poisson[-1] - z_big))
+                    
+                    dphi_array[2 * k, iq, i_1: i_2] = fm(z_big[i_1: i_2])
+                    dphi_array[2 * k + 1, iq, i_1: i_2] = fd(z_big[i_1: i_2])
+                    
+        return dphi_array
+
+    def get_z_grid(self, z, z_lim=None):
         dz = z[1] - z[0]
-        z_grid = np.insert(z, 0, np.linspace(z[0] - (Nz_loc + 1) * dz,
-                                             z[0] - dz,
-                                             Nz_loc))
+        if z_lim is None:
+            z_lim = self.z_lim
+        z_lim = int(z_lim / dz) * dz
 
-        z_grid = np.append(z_grid, np.linspace(z[-1] + dz,
-                                               z[-1] + (Nz_loc + 1) * dz,
-                                               Nz_loc))
+        z_grid = np.insert(z, 0, np.arange(-z_lim, z[0], dz))
+        z_grid = np.append(z_grid, np.arange(z[-1] + dz, z_lim, dz))
         return z_grid
-
+    
+    def potential_model(self, q, z, z0=0, dipole=False, delta=None):
+        """
+        2D Coulomb: 2 pi / q with exponential decay in z-direction
+        """
+        if dipole:  # Two planes separated by 2*delta
+            V = np.pi / (q * delta) * \
+                (-np.exp(-q * np.abs(z - z0 + delta)) + \
+                      np.exp(-q * np.abs(z - z0 - delta)))
+        else:  # Monopole potential from single plane 
+            V = 2 * np.pi / q * np.exp(-q * np.abs(z - z0))
+        
+        return V
+    
     def solve_poisson_1D(self, drho, q, z,
-                         monopole=True, delta=None):
-        Nz = self.Nz
-        Nz_loc = (Nz - len(z)) / 2.
-        from scipy.integrate import cumtrapz
+                         dipole=False, delta=None):
         
-        def poisson_integral(drho, q, z, sign=1):
-            temp = cumtrapz(np.exp(- sign * q * z) * drho, z, initial=0)
-            return temp
-        
+        z -= z[len(z) / 2]  # center arround 0
+        z_grid = self.get_z_grid(z, z_lim=self.poisson_lim)
+        dz = z[1] - z[0]
+        Nz_loc = (len(z_grid) - len(z)) / 2
+       
         drho = np.append(np.insert(drho, 0, np.zeros([Nz_loc])),
                          np.zeros([Nz_loc]))
-        dz = z[1] - z[0]
-        z -= z[len(z) / 2]  # center arround 0
-        z_grid = self.get_z_grid(z)
-                           
-        dphi = np.exp(q * z_grid) / (2 * q) *\
-            poisson_integral(-4 * np.pi * drho, q, z_grid) -\
-            np.exp(-q * z_grid) / (2 * q) *\
-            poisson_integral(-4 * np.pi * drho, q, z_grid, sign=-1)
+        Nint = len(drho) - 1
+        
+        bc_v0 = self.potential_model(q, z_grid[0], dipole=dipole, 
+                                     delta=delta)
+        bc_vN = self.potential_model(q, z_grid[-1], dipole=dipole,
+                                     delta=delta)
+        M = np.zeros((Nint + 1, Nint + 1))
+        f_z = np.zeros(Nint + 1, dtype=complex)
+        f_z[:] = - 4 * np.pi * drho[:]
+        # Finite Difference Matrix        
+        for i in range(1, Nint):
+            M[i, i] = -2. / (dz**2) - q**2
+            M[i, i + 1] = 1. / dz**2
+            M[i, i - 1] = 1. / dz**2
+            M[0, 0] = 1.
+            M[Nint, Nint] = 1.
+    
+        f_z[0] = bc_v0
+        f_z[Nint] = bc_vN
 
-        """
-        Boundary conditions:
-        c1 * e^{q z_inf} + c2 + dphi(z_inf) = 0
-        If dipole: c1 + c2 + dphi(z=0) = 0
-        """
-        i_z0 = len(z_grid) / 2
-        
-        if not monopole:
-            phi_model = np.pi / (q * delta) * \
-                (-np.exp(-q * np.abs(z_grid + delta)) + \
-                      np.exp(-q * np.abs(z_grid - delta)))
-            c1 = (dphi[-1] - phi_model[-1]) / np.exp(q * z_grid[-1])
-            c2 = dphi[i_z0] - c1
-        else:
-            c1 = (dphi[-1] - 2 * np.pi / q * np.exp(-q * z_grid[-1])) / \
-                np.exp(q * z_grid[-1])
-            c2 = 0
-        dphi -= c1 * np.exp(q * z_grid) - c2
-        
+        # Getting the Potential
+        M_inv = np.linalg.inv(M)
+        dphi = np.dot(M_inv, f_z)  # -q**2 * np.dot(M_inv,f_z)
+   
         return dphi
     
-    def overlap(self, z_rho, z_phi, drho, dphi, d, plot=False):
-        from scipy import interpolate
-        z_rho -= z_rho[len(z_rho) / 2]
-       
-        tck = interpolate.splrep(z_phi - d, dphi)
-        dphi = interpolate.splev(z_rho, tck, der=0)
-        I = np.trapz(drho * dphi, z_rho)
-        return I
-       
-    def CoulombKernel(self, iq, full=True):
-        #---------------------------------
-        # Different Types of Interaction
-        #---------------------------------
-        q = self.q_points_abs[iq]
-        z = self.z
-        # Monopole generates a monopole
-
-        def v_mm(i, j, d):
-            k = self.layer_indices[i]
-            h = self.layer_indices[j]
-            z_grid = self.get_z_grid(z[k])
-            dphi_i = self.dphi_monopole[k, iq].copy()
-            drho_j = self.drho_monopole[h, iq].copy()
-            temp = self.overlap(z[h], z_grid, drho_j, dphi_i, d)
-            return temp
+    def get_Coulomb_Kernel(self, full=True):
         
-        def v_md(i, j, d):
-            k = self.layer_indices[i]
-            h = self.layer_indices[j]
-            z_grid = self.get_z_grid(z[k])
-            dphi_i = self.dphi_monopole[k, iq].copy()
-            drho_j = self.drho_dipole[h, iq].copy()
-            temp = self.overlap(z[h], z_grid, drho_j, dphi_i, d)
-            return temp
+        kernel_qij = np.zeros([len(self.q_abs), 2 * self.n_layers, 
+                               2 * self.n_layers], dtype=complex)
+        for iq in range(len(self.q_abs)):
+            kernel_qij[iq] = np.dot(self.drho_array[:, iq], 
+                                    self.dphi_array[:, iq].T) * self.dz
 
-        def v_dm(i, j, d):
-            k = self.layer_indices[i]
-            h = self.layer_indices[j]
-            z_grid = self.get_z_grid(z[k])
-            dphi_i = self.dphi_dipole[k, iq].copy()
-            drho_j = self.drho_monopole[h, iq].copy()
-            temp = self. overlap(z[h], z_grid, drho_j, dphi_i, d)
-            return temp
-
-        def v_dd(i, j, d):
-            k = self.layer_indices[i]
-            h = self.layer_indices[j]
-            z_grid = self.get_z_grid(z[k])
-            dphi_i = self.dphi_dipole[k, iq].copy()
-            drho_j = self.drho_dipole[h, iq].copy()
-            temp = self.overlap(z[h], z_grid, drho_j, dphi_i, d)
-            return temp
-      
-        #---------------------------------
-        # Building Distances Matrix
-        #---------------------------------
-
-        Nls = self.n_layers
-        d_ij = np.zeros((Nls, Nls))
-
-        for i in range(0, Nls):
-            for j in range(i + 1, Nls):
-                for l in range(i, j):
-                    t = j - i - 1
-                    d_ij[i, j] = d_ij[i, j] + self.interlayer_distances[t]
-                    d_ij[j, i] = d_ij[j, i] + self.interlayer_distances[t]
-
-        #---------------------------------
-        # Calculating the Kernel
-        #---------------------------------
-        if self.chi_dipole is not None:
-            kernel_ij = np.zeros((2 * Nls, 2 * Nls), dtype=complex)
-            for i in range(0, Nls):
-                if full:
-                    kernel_ij[2*i, 2*i] = v_mm(i, i, 0)
-                    kernel_ij[2*i+1, 2*i+1] = v_dd(i, i, 0)
-                if self.n_layers > 1:
-                    for j in np.delete(range(0, Nls), i):
-                        kernel_ij[2*i, 2*j] = v_mm(i, j, d_ij[i, j])
-                        kernel_ij[2*i, 2*j+1] = v_md(i, j,
-                                                     np.sign(j-i) * d_ij[i, j])
-                        kernel_ij[2*i+1, 2*j] = v_dm(i, j,
-                                                     np.sign(j-i) * d_ij[i, j])
-                        kernel_ij[2*i+1, 2*j+1] = v_dd(i, j,
-                                                       np.sign(j-i) * \
-                                                           d_ij[i, j])
-        else:
-            kernel_ij = np.zeros((Nls, Nls), dtype=complex)
-            for i in range(0, Nls):
-                if full:
-                    kernel_ij[i, i] = v_mm(i, i, 0)
-                for j in np.delete(range(0, Nls), i):
-                    kernel_ij[i, j] = v_mm(i, j, d_ij[i, j])
-       
-        return np.real(kernel_ij)
+        return kernel_qij
 
     def get_chi_matrix(self):
 
@@ -210,18 +190,20 @@ class Heterostructure:
         chi_full = chi_intra + chi_intra V_inter chi_full
         """
         Nls = self.n_layers
-        q_points_abs = self.q_points_abs
+        q_abs = self.q_abs
         chi_m_iqw = self.chi_monopole
         chi_d_iqw = self.chi_dipole
-
+        
+        if self.kernel_qij is None:
+            self.kernel_qij = self.get_Coulomb_Kernel()  
         if self.chi_dipole is not None:
-            chi_qwij = np.zeros((len(self.q_points_abs),
+            chi_qwij = np.zeros((len(self.q_abs),
                                  len(self.frequencies),
                                  2 * Nls, 2 * Nls), dtype=complex)
-            for iq in range(len(q_points_abs)):
+            for iq in range(len(q_abs)):
                 # Diagonal is set to zero
-                kernel_ij = self.CoulombKernel(iq,
-                                               full=False)
+                kernel_ij = self.kernel_qij[iq].copy()
+                np.fill_diagonal(kernel_ij, 0)
                 for iw in range(0, len(self.frequencies)):
                     chi_intra_i = np.insert(chi_d_iqw[self.layer_indices,
                                                       iq, iw],
@@ -233,11 +215,11 @@ class Heterostructure:
                             np.eye(2 * Nls) - np.dot(chi_intra_ij, kernel_ij)),
                                                     chi_intra_ij)
         else:
-            chi_qwij = np.zeros((len(self.q_points_abs),
+            chi_qwij = np.zeros((len(self.q_abs),
                                  len(self.frequencies),
                                  Nls, Nls), dtype=complex)
-            for iq in range(len(q_points_abs)):
-                kernel_ij = self.CoulombKernel(iq,
+            for iq in range(len(q_abs)):
+                kernel_ij = self.get_Coulomb_Kernel(iq,
                                                full=False)
                 for iw in range(len(self.frequencies)):
                     chi_intra_i = chi_m_iqw[self.layer_indices, iq, iw]
@@ -252,13 +234,13 @@ class Heterostructure:
         Nls = self.n_layers
         chi_qwij = self.get_chi_matrix()
         if self.chi_dipole is not None:
-            eps_qwij = np.zeros((len(self.q_points_abs), len(self.frequencies),
+            eps_qwij = np.zeros((len(self.q_abs), len(self.frequencies),
                                  2 * Nls, 2 * Nls), dtype=complex)
         else:
-            eps_qwij = np.zeros((len(self.q_points_abs), len(self.frequencies),
+            eps_qwij = np.zeros((len(self.q_abs), len(self.frequencies), 
                                  Nls, Nls), dtype=complex)
-        for iq in range(len(self.q_points_abs)):
-            kernel_ij = self.CoulombKernel(iq)
+        for iq in range(len(self.q_abs)):
+            kernel_ij = self.kernel_qij[iq]
             for iw in range(0, len(self.frequencies)):
                 eps_qwij[iq, iw, :, :] = np.linalg.inv(\
                     np.eye(kernel_ij.shape[0]) + np.dot(kernel_ij,
@@ -268,26 +250,44 @@ class Heterostructure:
         return eps_qwij
     
     def get_exciton_screened_potential(self, e_distr, h_distr):
-        v_screened_qw = np.zeros((len(self.q_points_abs),
+        v_screened_qw = np.zeros((len(self.q_abs),
                                   len(self.frequencies)))
         eps_qwij = self.get_eps_matrix()
         h_distr = h_distr.transpose()
 
-        for iq in range(0, len(self.q_points_abs)):
-            kernel_ij = self.CoulombKernel(iq)
+        for iq in range(0, len(self.q_abs)):
+            kernel_ij = self.get_Coulomb_Kernel(iq)
             ext_pot = np.dot(kernel_ij, h_distr)
             for iw in range(0, len(self.frequencies)):
-                v_screened_qw[iq, iw] = self.q_points_abs[iq] / 2. / np.pi * \
+                v_screened_qw[iq, iw] = self.q_abs[iq] / 2. / np.pi * \
                     np.dot(e_distr,
                            np.dot(np.linalg.inv(eps_qwij[iq, iw, :, :]),
                                   ext_pot))
                         
         return 1. / (v_screened_qw)
+
+    def get_macroscopic_dielectric_constant(self):  # , static=True
+        N = self.n_layers
+        monopole_potential = []
+        for n in range(self.n_layers):
+            monopole_potential.append(1)
+            if self.chi_dipole is not None:
+                monopole_potential.append(0)
+        epsM_q = []
+        eps_qij = self.get_eps_matrix()[:, 0]
+        for iq in range(len(self.q_abs)):
+            eps_ij = eps_qij[iq]
+            epsinv_ij = np.linalg.inv(eps_ij)
+            epsinv_M = 1. / N * np.dot(np.array(monopole_potential), 
+                                       np.dot(epsinv_ij, 
+                                              np.array(monopole_potential)))
+            epsM_q.append(1. / epsinv_M)
+        return epsM_q
     
     def get_plasmon_eigenmodes(self):
         eps_qwij = self.get_eps_matrix()
         Nw = len(self.frequencies)
-        Nq = len(self.q_points_abs)
+        Nq = len(self.q_abs)
         w_w = self.frequencies
         Nls = self.n_layers
         if self.chi_dipole is not None:
@@ -316,10 +316,10 @@ class Heterostructure:
                 klist = [k for k in range(Nd) if (eig[iq, iw - 1, k] < 0
                                                   and eig[iq, iw, k] > 0)]
                 for k in klist:  # Eigenvalue crossing
-                    a = np.real((eig[iq, iw, k]-eig[iq, iw-1, k]) / \
-                                (w_w[iw]-w_w[iw-1]))
+                    a = np.real((eig[iq, iw, k] - eig[iq, iw - 1, k]) / \
+                                (w_w[iw] - w_w[iw - 1]))
                     # linear interp for crossing point
-                    w0 = np.real(-eig[iq, iw-1, k]) / a + w_w[iw-1]
+                    w0 = np.real(-eig[iq, iw - 1, k]) / a + w_w[iw - 1]
                     #eig0 = a * (w0 - w_w[iw-1]) + eig[iq, iw-1, k]
                     #print('crossing found at w = %1.2f eV'%w0)
                     omega0[iq].append(w0)
@@ -356,11 +356,11 @@ def get_chi_2D(filenames, name=None):
     r = pd.gd.get_grid_point_coordinates()
     z = r[2, 0, 0, :]
     L = pd.gd.cell_cv[2, 2]  # Length of cell in Bohr
-    z0 = L/2.  # position of layer
+    z0 = L / 2.  # position of layer
     npw = chi_wGG.shape[1]
     nw = chi_wGG.shape[0]
-    q_points_abs = []
-    Gvec = pd.G_Qv[pd.Q_qG[0]]
+    q_list_abs = []
+    Gvec = pd.get_reciprocal_vectors(add_q=False)  # pd.G_Qv[pd.Q_qG[0]]
     Glist = []
     for iG in range(npw):  # List of G with Gx,Gy = 0
         if Gvec[iG, 0] == 0 and Gvec[iG, 1] == 0:
@@ -377,7 +377,7 @@ def get_chi_2D(filenames, name=None):
         drho_M_qz[iq] += chi_wGG[0, 0, 0]
         q = pd.K_qv
         q_abs = np.linalg.norm(q)
-        q_points_abs.append(q_abs)
+        q_list_abs.append(q_abs)
         for iG in Glist[1:]:
             G_z = Gvec[iG, 2]
             qGr_R = np.inner(G_z, z.T).T
@@ -394,29 +394,28 @@ def get_chi_2D(filenames, name=None):
                 # induced dipole density due to V_ext = z
                 drho_D_qz[iq] += 1. / L * np.exp(1j * qGr_R) * \
                     chi_wGG[0, iG, iG1] * factor1
-        #chiD_2D_qw[iq, :] = chiD_2D
 
-    """ Returns q array, frequency array, chi2D monopole, chi, induced
+    """ Returns q array, frequency array, chi2D monopole and dipole, induced
     densities and z array (all in Bohr)
     """
-    pickle.dump((np.array(q_points_abs), omega_w, chiM_2D_qw, chiD_2D_qw, \
+    pickle.dump((np.array(q_list_abs), omega_w, chiM_2D_qw, chiD_2D_qw, \
                      z, drho_M_qz, drho_D_qz), open(name + '-chi.pckl', 'w'))
-    return np.array(q_points_abs)/Bohr, omega_w * Hartree, chiM_2D_qw, \
+    return np.array(q_list_abs) / Bohr, omega_w * Hartree, chiM_2D_qw, \
         chiD_2D_qw, z, drho_M_qz, drho_D_qz
 
 
 def z_factor(z0, d, G, sign=1):
-    factor= -1j * sign * np.exp(1j * sign * G * z0) * \
+    factor = -1j * sign * np.exp(1j * sign * G * z0) * \
         (d * G * np.cos(G * d / 2.) - 2. * np.sin(G * d / 2.)) / G**2
     return factor
 
 
 def z_factor2(z0, d, G, sign=1):
-    factor= sign * np.exp(1j * sign * G * z0) * np.sin(G * d / 2.)
+    factor = sign * np.exp(1j * sign * G * z0) * np.sin(G * d / 2.)
     return factor
 
-# Temporary
-# Should be rewritten!!!
+
+# Temporary, or should be rewritten!!!
 def get_chiM_2D_from_old_DF(filenames_eps, read, qpoints, d=None, 
                             write_chi0 = False, name = None):
     #rec_cell = reciprocal_cell*Bohr
