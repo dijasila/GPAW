@@ -44,7 +44,7 @@ class Heterostructure:
         self.drho_monopole, self.drho_dipole, self.drho_array = \
             self.arange_densities(drho_monopole, drho_dipole)
         self.dphi_array = self.get_induced_potentials()
-          self.kernel_qij = None
+        self.kernel_qij = None
 
     def arange_densities(self, drhom, drhod):
         from scipy.interpolate import interp1d
@@ -97,7 +97,7 @@ class Heterostructure:
                               if self.layer_indices[k] == i]:
                     
                     dphi_array[2 * k, iq] = \
-                        self.potential_model(self.q_abs[iq], self.z_big, 
+                        self.potential_model(self.q_abs[iq], self.z_big,
                                              self.z0[k])
                         
                     dphi_array[2 * k + 1, iq] = \
@@ -132,7 +132,7 @@ class Heterostructure:
             V = np.pi / (q * delta) * \
                 (-np.exp(-q * np.abs(z - z0 + delta)) + \
                       np.exp(-q * np.abs(z - z0 - delta)))
-        else:  # Monopole potential from single plane 
+        else:  # Monopole potential from single plane
             V = 2 * np.pi / q * np.exp(-q * np.abs(z - z0))
         
         return V
@@ -149,14 +149,14 @@ class Heterostructure:
                          np.zeros([Nz_loc]))
         Nint = len(drho) - 1
         
-        bc_v0 = self.potential_model(q, z_grid[0], dipole=dipole, 
+        bc_v0 = self.potential_model(q, z_grid[0], dipole=dipole,
                                      delta=delta)
         bc_vN = self.potential_model(q, z_grid[-1], dipole=dipole,
                                      delta=delta)
         M = np.zeros((Nint + 1, Nint + 1))
         f_z = np.zeros(Nint + 1, dtype=complex)
         f_z[:] = - 4 * np.pi * drho[:]
-        # Finite Difference Matrix        
+        # Finite Difference Matrix
         for i in range(1, Nint):
             M[i, i] = -2. / (dz**2) - q**2
             M[i, i + 1] = 1. / dz**2
@@ -175,10 +175,10 @@ class Heterostructure:
     
     def get_Coulomb_Kernel(self, full=True):
         
-        kernel_qij = np.zeros([len(self.q_abs), 2 * self.n_layers, 
+        kernel_qij = np.zeros([len(self.q_abs), 2 * self.n_layers,
                                2 * self.n_layers], dtype=complex)
         for iq in range(len(self.q_abs)):
-            kernel_qij[iq] = np.dot(self.drho_array[:, iq], 
+            kernel_qij[iq] = np.dot(self.drho_array[:, iq],
                                     self.dphi_array[:, iq].T) * self.dz
 
         return kernel_qij
@@ -195,7 +195,7 @@ class Heterostructure:
         chi_d_iqw = self.chi_dipole
         
         if self.kernel_qij is None:
-            self.kernel_qij = self.get_Coulomb_Kernel()  
+            self.kernel_qij = self.get_Coulomb_Kernel()
         if self.chi_dipole is not None:
             chi_qwij = np.zeros((len(self.q_abs),
                                  len(self.frequencies),
@@ -237,7 +237,7 @@ class Heterostructure:
             eps_qwij = np.zeros((len(self.q_abs), len(self.frequencies),
                                  2 * Nls, 2 * Nls), dtype=complex)
         else:
-            eps_qwij = np.zeros((len(self.q_abs), len(self.frequencies), 
+            eps_qwij = np.zeros((len(self.q_abs), len(self.frequencies),
                                  Nls, Nls), dtype=complex)
         for iq in range(len(self.q_abs)):
             kernel_ij = self.kernel_qij[iq]
@@ -278,8 +278,8 @@ class Heterostructure:
         for iq in range(len(self.q_abs)):
             eps_ij = eps_qij[iq]
             epsinv_ij = np.linalg.inv(eps_ij)
-            epsinv_M = 1. / N * np.dot(np.array(monopole_potential), 
-                                       np.dot(epsinv_ij, 
+            epsinv_M = 1. / N * np.dot(np.array(monopole_potential),
+                                       np.dot(epsinv_ij,
                                               np.array(monopole_potential)))
             epsM_q.append(1. / epsinv_M)
         return epsM_q
@@ -416,10 +416,10 @@ def z_factor2(z0, d, G, sign=1):
 
 
 # Temporary, or should be rewritten!!!
-def get_chiM_2D_from_old_DF(filenames_eps, read, qpoints, d=None, 
+def get_chiM_2D_from_old_DF(filenames_eps, read, qpoints, d=None,
                             write_chi0 = False, name = None):
     #rec_cell = reciprocal_cell*Bohr
-    #q_points = np.loadtxt(filename_qpoints) 
+    #q_points = np.loadtxt(filename_qpoints)
     #q_points = np.dot(q_points,rec_cell)
     #Gvec = pickle.load(open(filename_Gvec %0))
     #Gvec = np.dot(Gvec,rec_cell) # the cell has to be in bohr
@@ -436,7 +436,7 @@ def get_chiM_2D_from_old_DF(filenames_eps, read, qpoints, d=None,
     nw = df.Nw
     omega_w = df.w_w#[0.]
     q_points_abs = []
-    Glist = []   
+    Glist = []
 
     for iG in range(npw): # List of G with Gx,Gy = 0
         if Gvec[iG, 0] == 0 and Gvec[iG, 1] == 0:
@@ -448,23 +448,23 @@ def get_chiM_2D_from_old_DF(filenames_eps, read, qpoints, d=None,
     VM_eff_qw = np.zeros([nq, nw], dtype=complex)
     for iq in range(nq):
         df.read(read + str(qpoints[iq]))
-        la,la,la,eps_wGG, chi_wGG = pickle.load(open(filenames_eps[iq])) 
-        #chi_wGG = pickle.load(open(filenames_chi %iq))  
+        la,la,la,eps_wGG, chi_wGG = pickle.load(open(filenames_eps[iq]))
+        #chi_wGG = pickle.load(open(filenames_chi %iq))
         #chi_wGG = np.array(chi_wGG)
-        eps_inv_wGG = np.zeros_like(eps_wGG, dtype = complex) 
+        eps_inv_wGG = np.zeros_like(eps_wGG, dtype = complex)
         for iw in range(nw):
             eps_inv_wGG[iw] = np.linalg.inv(eps_wGG[iw])
             eps_inv_wGG[iw] = np.identity(npw)
         del eps_wGG
         q = df.q_c#q_points[iq]
-        q_abs = np.linalg.norm(q)        
-        q_points_abs.append(q_abs) # return q in Ang            
+        q_abs = np.linalg.norm(q)
+        q_points_abs.append(q_abs) # return q in Ang
         epsM_2D_inv = eps_inv_wGG[:, 0, 0]
         epsD_2D_inv = np.zeros_like(eps_inv_wGG[:, 0, 0], dtype = complex)
         chiM_2D = np.zeros_like(eps_inv_wGG[:, 0, 0], dtype = complex) #chi_wGG[:, 0, 0]#
         chiD_2D = np.zeros_like(eps_inv_wGG[:, 0, 0], dtype = complex)
-        for iG in Glist[1:]: 
-            G_z = Gvec[iG, 2] 
+        for iG in Glist[1:]:
+            G_z = Gvec[iG, 2]
             epsM_2D_inv += 2./d * np.exp(1j*G_z*z0) * np.sin(G_z*d/2.) / G_z * eps_inv_wGG[:, iG, 0]
             
             for iG1 in Glist[1:]:
@@ -474,10 +474,10 @@ def get_chiM_2D_from_old_DF(filenames_eps, read, qpoints, d=None,
                 factor2 = z_factor(z0, L, G_z1, sign=-1)
                 chiD_2D += 1./L * factor1 * factor2 * chi_wGG[:, iG, iG1]
                 # intregrate z over d for epsilon^-1
-                #factor1 =  z_factor2(z0, d, G_z) 
+                #factor1 =  z_factor2(z0, d, G_z)
                 #epsD_2D_inv += 2j / d / L * factor1 * factor2 * eps_inv_wGG[:, iG, iG1]  #average
                 #epsD_2D_inv += 1j * G_z * np.exp(1j*G_z*z0) * factor2 * eps_inv_wGG[:, iG, iG1]  #atz0
-                factor1 =  z_factor(z0, d, G_z) 
+                factor1 =  z_factor(z0, d, G_z)
                 epsD_2D_inv += 12. / d**3 / L * factor1 * factor2 * eps_inv_wGG[:, iG, iG1]  #kristian
             
         epsM_2D_qw[iq, :] = 1. / epsM_2D_inv
@@ -487,15 +487,15 @@ def get_chiM_2D_from_old_DF(filenames_eps, read, qpoints, d=None,
         del chi_wGG,  eps_inv_wGG
 
     # Effective Coulomb interaction in 2D from eps_{2D}^{-1} = 1 + V_{eff} \chi_{2D}
-    VM_eff_qw = (1. /epsM_2D_qw - 1) / chiM_2D_qw 
+    VM_eff_qw = (1. /epsM_2D_qw - 1) / chiM_2D_qw
     VD_eff_qw = (1. /epsD_2D_qw - 1) / chiD_2D_qw
-    chi0M_2D_qw = (1 - epsM_2D_qw) * 1. / VM_eff_qw  # Chi0 from effective Coulomb 
+    chi0M_2D_qw = (1 - epsM_2D_qw) * 1. / VM_eff_qw  # Chi0 from effective Coulomb
     chi0D_2D_qw = (1 - epsD_2D_qw) * 1. / VD_eff_qw
-    pickle.dump((np.array(q_points_abs), omega_w, VM_eff_qw, VD_eff_qw, 
-                 chiM_2D_qw, chiD_2D_qw), open(name + '-chi.pckl', 'w')) 
-    pickle.dump((np.array(q_points_abs), omega_w, VM_eff_qw, VD_eff_qw, 
-                 chi0M_2D_qw, chi0D_2D_qw, chiM_2D_qw, chiD_2D_qw, 
-                 epsM_2D_qw, epsD_2D_qw), open(name + '-2D.pckl', 'w')) 
+    pickle.dump((np.array(q_points_abs), omega_w, VM_eff_qw, VD_eff_qw,
+                 chiM_2D_qw, chiD_2D_qw), open(name + '-chi.pckl', 'w'))
+    pickle.dump((np.array(q_points_abs), omega_w, VM_eff_qw, VD_eff_qw,
+                 chi0M_2D_qw, chi0D_2D_qw, chiM_2D_qw, chiD_2D_qw,
+                 epsM_2D_qw, epsD_2D_qw), open(name + '-2D.pckl', 'w'))
         
     return np.array(q_points_abs), omega_w, chiM_2D_qw, chiD_2D_qw, VM_eff_qw, VD_eff_qw, epsM_2D_qw, epsD_2D_qw
 
