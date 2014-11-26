@@ -16,7 +16,6 @@ from gpaw.fd_operators import Gradient
 from gpaw.io.tar import Writer, Reader
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.utilities.blas import gemmdot, axpy
-from gpaw.utilities.timing import timer
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.xc.rpa import RPACorrelation
 

@@ -17,7 +17,6 @@ from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.utilities.timing import timer, Timer
 from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 
 
