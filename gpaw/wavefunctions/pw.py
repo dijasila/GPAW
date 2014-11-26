@@ -5,6 +5,7 @@ from math import pi
 
 import numpy as np
 import ase.units as units
+from ase.utils.timing import timer
 
 import gpaw.fftw as fftw
 from gpaw.band_descriptor import BandDescriptor
@@ -20,7 +21,6 @@ from gpaw.spline import Spline
 from gpaw.utilities import unpack, _fact as fac
 from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.utilities.timing import timer
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 
 
