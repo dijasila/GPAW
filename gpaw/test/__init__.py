@@ -186,7 +186,7 @@ tests = [
     'revPBE.py',                            # ~4s
     'tf_mode_pbc.py',                       # ~4s
     'tf_mode.py',                           # ~4s
-    # 'bee1.py',                              # ~4s
+    'bee1.py',                              # ~4s
     'nonselfconsistentLDA.py',              # ~4s
     'aluminum_EELS_ALDA.py',                # ~4s
     'spin_contamination.py',                # ~4s
