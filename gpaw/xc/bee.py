@@ -98,7 +98,7 @@ class BEEVDWKernel(XCKernel):
         self.LDAc = LibXC('LDA_C_PW')
         self.ldac = ldac
         self.ggac = ggac
-        if bee is 'BEE2':
+        if bee in ['BEE1', 'BEE2']:
             self.ggac -= 1.0
         self.name = 'BEEVDW'
 
