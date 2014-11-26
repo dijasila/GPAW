@@ -115,7 +115,7 @@ class BEEVDWKernel(XCKernel):
         elif self.xtype is 'MGGA':
             self.BEE.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, tau_sg, dedtau_sg)
         else:
-            stop
+            raise ValueError('Unexpected value of xtype:', self.xtype)
 
         e0_g = np.empty_like(e_g)
         dedn0_sg = np.empty_like(dedn_sg)
