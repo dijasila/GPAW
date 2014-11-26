@@ -194,8 +194,11 @@ class Chi0(PairDensity):
                 eps1 = kpt1.eps_n[n]
                 
                 # Only update if there exists deps <= omegamax
-                m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
-                     if abs(d) <= self.omegamax]
+                if self.omegamax is not None:
+                    m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
+                         if abs(d) <= self.omegamax]
+                else:
+                    m = range(0, kpt2.n2 - kpt2.n1)
                 
                 if not len(m):
                     continue
