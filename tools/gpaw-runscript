@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/local/software/juropatest/Stage1/software/MPI/intel/2015.0.090/psmpi/5.1.0-1/Python/2.7.8/bin/python
 # Emacs: treat this as -*- python -*-
 
 import os
@@ -37,6 +37,7 @@ hosts = { 'batman'                   : 'pbs_batman',
           r'xc2(.*)'                 : 'xc2',
           'juropa.fz-juelich.de'     : 'juropa',
 	  r'jj(.*)'                  : 'juropa',
+	  r'j3(.*)'                  : 'juropatest',
           r'joe*'                    : 'joe',
           r'uc1n99*'                 : 'bwUniCluster',
           }
@@ -479,6 +480,38 @@ ormance.'
             print >> f, set['parameters'],
         print >> f, '>', set['out']+'_$PBS_JOBID',
         print >> f, '2>', set['err']+'_$PBS_JOBID'
+
+    def juropatest(self, f, set, env):
+        print >> f, '#!/bin/bash -x'
+        print >> f, '#SBATCH --job-name=' + set['name']
+        # nodes contain 14 cores                                             
+        cores = set['cores']
+        cores_per_node = 28
+        if set['smt']:
+            cores_per_node = 28
+        nodes = int((cores + (cores_per_node - 1)) / cores_per_node)
+        ppn = int((cores + nodes - 1) / nodes)
+        if cores != nodes * ppn:
+            print 'Note:', nodes * ppn, 'cores reserved but only', cores, 'core\
+s used.'
+            print '     Consider to use multiples of', cores_per_node,
+            print 'processors for best performance.'
+        print >> f, '#SBATCH --nodes=' + str(nodes)
+        print >> f, '#SBATCH --ntasks-per-node=' + str(ppn)
+        print >> f, '#SBATCH --time=' + hms_string(set['time'])
+        if set['mail'] is not None:
+            print >> f, '#MSUB -M', set['mail']
+        print >> f, 'cd', set['wd']
+        print >> f, ('export LD_LIBRARY_PATH=' + env['LD_LIBRARY_PATH'] + 
+                     ':$LD_LIBRARY_PATH')
+        print >> f, 'export PYTHONPATH=' + env['PYTHONPATH'] + ':$PYTHONPATH'
+        print >> f, 'export GPAW_SETUP_PATH=' + env['GPAW_SETUP_PATH']
+        print >> f, 'export GPAW_PYTHON=' + env['GPAW_PYTHON']
+        print >> f, 'srun $GPAW_PYTHON', set['script'],
+        if 'parameters' in set:
+            print >> f, set['parameters'],
+        print >> f, '>', set['out']+'_$SLURM_JOBID',
+        print >> f, '2>', set['err']+'_$SLURM_JOBID'
 
     def bwUniCluster(self, f, set, env):
         print >> f, '#!/bin/bash'
