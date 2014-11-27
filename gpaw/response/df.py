@@ -10,7 +10,7 @@ from ase.units import Hartree, Bohr
 
 import gpaw.mpi as mpi
 from gpaw.response.chi0 import Chi0
-from gpaw.response.kernel2 import calculate_Kxc
+from gpaw.response.kernel2 import calculate_Kxc, truncated_coulomb
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
@@ -20,7 +20,7 @@ class DielectricFunction:
                  omega2=10.0, omegamax=None, ecut=50, hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
-                 gate_voltage=None):
+                 gate_voltage=None, truncation=None):
         """Creates a DielectricFunction object.
         
         calc: str
@@ -69,6 +69,9 @@ class DielectricFunction:
         gate_voltage: float
             Shift Fermi level of ground state calculation by the
             specified amount.
+        truncation: str
+            'wigner_seitz' for Wigner Seitz truncated Coulomb
+            '2D' for regular truncation in the z-direction
         """
 
         self.chi0 = Chi0(calc, frequencies, domega0=domega0,
@@ -87,6 +90,7 @@ class DielectricFunction:
         self.mynw = (nw + world.size - 1) // world.size
         self.w1 = min(self.mynw * world.rank, nw)
         self.w2 = min(self.w1 + self.mynw, nw)
+        self.truncation = truncation
 
     def calculate_chi0(self, q_c):
         """Calculates the density response function.
@@ -180,8 +184,8 @@ class DielectricFunction:
         """Return frequencies that Chi is evaluated on"""
         return self.omega_w * Hartree
 
-    def get_chi(self, xc='RPA', q_c=[0, 0, 0], direction='x',
-                wigner_seitz_truncation=False):
+    def get_chi(self, xc='RPA', q_c=[0, 0, 0], direction='x'):
+        """ Returns v^1/2 chi V^1/2"""
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         G_G = pd.G2_qG[0]**0.5
         nG = len(G_G)
@@ -202,13 +206,16 @@ class DielectricFunction:
         
         G_G /= (4 * pi)**0.5
 
-        if wigner_seitz_truncation:
+        if self.truncation == 'wigner_seitz':
             kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv,
                                                  self.chi0.calc.wfs.kd.N_c)
             K_G = kernel.get_potential(pd)
             K_G *= G_G**2
             if pd.kd.gamma:
                 K_G[0] = 0.0
+        elif self.truncation == '2D':
+            K_G = truncated_coulomb(pd)
+            K_G *= G_G**2
         else:
             K_G = np.ones(nG)
 
@@ -232,8 +239,8 @@ class DielectricFunction:
         return chi0_wGG, np.array(chi_wGG)
   
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
-                              direction='x', wigner_seitz_truncation=False,
-                              symmetric=True):
+                              direction='x', symmetric=False,
+                              calculate_chi=False):
         """Returns the symmetrized dielectric matrix.
         
         ::
@@ -274,12 +281,14 @@ class DielectricFunction:
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
                     
-        if wigner_seitz_truncation:
+        if self.truncation == 'wigner_seitz':
             kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv,
                                                  self.chi0.calc.wfs.kd.N_c)
             K_G = kernel.get_potential(pd)**0.5
             if pd.kd.gamma:
                 K_G[0] = 0.0
+        elif self.truncation == '2D':
+            K_G = truncated_coulomb(pd)
         else:
             K_G = (4 * pi)**0.5 / G_G
 
@@ -290,6 +299,9 @@ class DielectricFunction:
                                     self.chi0.calc.wfs.setups,
                                     self.chi0.calc.density.D_asp,
                                     functional=xc)
+
+        if calculate_chi:
+            chi_wGG = []
 
         for chi0_GG in chi0_wGG:
             if xc == 'RPA':
@@ -303,21 +315,29 @@ class DielectricFunction:
             else:
                 K_GG = (K_G**2 * np.ones([nG, nG])).T
                 e_GG = np.eye(nG) - P_GG * K_GG
+            if calculate_chi:
+                K_GG = np.diag(K_G**2)
+                if xc != 'RPA':
+                    K_GG += Kxc_sGG[0]
+                chi_wGG.append(np.dot(np.linalg.inv(np.eye(nG) -
+                                                    np.dot(chi0_GG, K_GG)),
+                                      chi0_GG))
             chi0_GG[:] = e_GG
 
         # chi0_wGG is now the dielectric matrix
-        return chi0_wGG
+        if not calculate_chi:
+            return chi0_wGG
+        else:
+            return chi0_wGG, chi_wGG
 
     def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0],
-                                direction='x', filename='df.csv',
-                                wigner_seitz_truncation=False):
+                                direction='x', filename='df.csv'):
         """Calculate the dielectric function.
 
         Returns dielectric function without and with local field correction:
         df_NLFC_w, df_LFC_w = DielectricFunction.get_dielectric_function()
         """
-        e_wGG = self.get_dielectric_matrix(xc, q_c, direction,
-                                           wigner_seitz_truncation)
+        e_wGG = self.get_dielectric_matrix(xc, q_c, direction)
         df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
         df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
 
@@ -339,8 +359,7 @@ class DielectricFunction:
                 
         return df_NLFC_w, df_LFC_w
 
-    def get_macroscopic_dielectric_constant(self, xc='RPA', direction='x',
-                                            wigner_seitz_truncation=False):
+    def get_macroscopic_dielectric_constant(self, xc='RPA', direction='x'):
         """Calculate macroscopic dielectric constant.
         
         Returns eM_NLFC and eM_LFC.
@@ -356,7 +375,6 @@ class DielectricFunction:
             Dielectric constant with local field correction.
         """
 
-        wst = wigner_seitz_truncation
         fd = self.chi0.fd
         print('', file=fd)
         print('%s Macroscopic Dielectric Constant:' % xc, file=fd)
@@ -364,8 +382,7 @@ class DielectricFunction:
         df_NLFC_w, df_LFC_w = self.get_dielectric_function(
             xc=xc,
             filename=None,
-            direction=direction,
-            wigner_seitz_truncation=wst)
+            direction=direction)
         eps0 = np.real(df_NLFC_w[0])
         eps = np.real(df_LFC_w[0])
         print('  %s direction' % direction, file=fd)
@@ -375,8 +392,7 @@ class DielectricFunction:
         return eps0, eps
 
     def get_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0],
-                          direction='x', filename='eels.csv',
-                          wigner_seitz_truncation=False):
+                          direction='x', filename='eels.csv'):
         """Calculate EELS spectrum. By default, generate a file 'eels.csv'.
 
         EELS spectrum is obtained from the imaginary part of the inverse
@@ -390,8 +406,7 @@ class DielectricFunction:
         df_NLFC_w, df_LFC_w = self.get_dielectric_function(
             xc=xc, q_c=q_c,
             direction=direction,
-            filename=None,
-            wigner_seitz_truncation=wigner_seitz_truncation)
+            filename=None)
         Nw = df_NLFC_w.shape[0]
         
         # Calculate eels
@@ -411,7 +426,6 @@ class DielectricFunction:
         return eels_NLFC_w, eels_LFC_w
         
     def get_polarizability(self, xc='RPA', direction='x',
-                           wigner_seitz_truncation=False,
                            filename='polarizability.csv', pbc=None):
         """Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
@@ -437,7 +451,7 @@ class DielectricFunction:
         else:
             V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
 
-        if not wigner_seitz_truncation:
+        if not self.truncation:
             # Without truncation alpha is simply related to eps_M
             df0_w, df_w = self.get_dielectric_function(xc=xc, q_c=[0, 0, 0],
                                                        filename=None,
@@ -446,10 +460,9 @@ class DielectricFunction:
             alpha0_w = V * (df0_w - 1.0) / (4 * pi)
         else:
             # With truncation we need to calculate \chit = v^0.5*chi*v^0.5
-            print('Using Wigner-Seitz truncated Coulomb interaction',
+            print('Using truncated Coulomb interaction',
                   file=self.chi0.fd)
-            chi0_wGG, chi_wGG = self.get_chi(xc=xc, direction=direction,
-                                             wigner_seitz_truncation=True)
+            chi0_wGG, chi_wGG = self.get_chi(xc=xc, direction=direction)
             alpha_w = -V * (chi_wGG[:, 0, 0]) / (4 * pi)
             alpha0_w = -V * (chi0_wGG[:, 0, 0]) / (4 * pi)
 
@@ -507,7 +520,6 @@ class DielectricFunction:
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
                                            direction=direction,
-                                           wigner_seitz_truncation=False,
                                            symmetric=False)
         
         kd = pd.kd
@@ -634,7 +646,6 @@ class DielectricFunction:
         assert self.chi0.world.size == 1
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
-                                           wigner_seitz_truncation=True,
                                            symmetric=False)
         r = pd.gd.get_grid_point_coordinates()
         ix = r.shape[1] / 2
