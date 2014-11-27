@@ -77,17 +77,17 @@ class BEEVDWKernel(XCKernel):
 
         """
 
-        if bee is 'BEE1':
+        if bee == 'BEE1':
             self.BEE = BEE1(xcoefs)
             self.GGAc = LibXC('GGA_C_PBE')
             self.xtype = 'GGA'
             self.type = 'GGA'
-        elif bee is 'BEE2':
+        elif bee == 'BEE2':
             self.BEE = BEE2(xcoefs)
             self.GGAc = LibXC('GGA_C_PBE')
             self.xtype = 'GGA'
             self.type = 'GGA'
-        elif bee is 'BEE3':
+        elif bee == 'BEE3':
             self.BEE = LibXC('MGGA_X_MBEEFVDW')
             self.GGAc = LibXC('GGA_C_PBE_SOL')
             self.xtype = 'MGGA'
@@ -110,9 +110,9 @@ class BEEVDWKernel(XCKernel):
             self.check_arguments(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg,
                                  tau_sg, dedtau_sg)
 
-        if self.xtype is 'GGA':
+        if self.xtype == 'GGA':
             self.BEE.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
-        elif self.xtype is 'MGGA':
+        elif self.xtype == 'MGGA':
             self.BEE.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, tau_sg, dedtau_sg)
         else:
             raise ValueError('Unexpected value of xtype:', self.xtype)
@@ -127,7 +127,7 @@ class BEEVDWKernel(XCKernel):
             kernel.calculate(e0_g, n_sg, dedn0_sg, sigma_xg, dedsigma0_xg)
             e_g += coef * e0_g
             dedn_sg += coef * dedn0_sg
-            if kernel.type is 'GGA':
+            if kernel.type == 'GGA':
                 dedsigma_xg += coef * dedsigma0_xg
 
 
@@ -155,11 +155,11 @@ class BEEVDWFunctional(FFTVDWFunctional):
 
         """
 
-        if bee is 'BEE1':
+        if bee == 'BEE1':
             name = 'BEE1VDW'
             Zab = -0.8491
             soft_corr = False
-        elif bee is 'BEE2':
+        elif bee == 'BEE2':
             name = 'BEE2VDW'
             Zab = -1.887
             soft_corr = False

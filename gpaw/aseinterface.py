@@ -717,9 +717,9 @@ class GPAW(PAW):
         bee = BEEF_Ensemble(self)
         x = bee.create_xc_contributions('exch')
         c = bee.create_xc_contributions('corr')
-        if type is 'beefvdw':
+        if type == 'beefvdw':
             return np.append(x, c)
-        elif type is 'mbeef':
+        elif type == 'mbeef':
             return x.flatten()
-        elif type is 'mbeefvdw':
+        elif type == 'mbeefvdw':
             return np.append(x.flatten(),c)
