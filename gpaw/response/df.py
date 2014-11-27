@@ -239,7 +239,7 @@ class DielectricFunction:
         return chi0_wGG, np.array(chi_wGG)
   
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
-                              direction='x', symmetric=False,
+                              direction='x', symmetric=True,
                               calculate_chi=False):
         """Returns the symmetrized dielectric matrix.
         
