@@ -21,14 +21,14 @@ Requirements
 6) BLAS and LAPACK libraries. Start with your system provided defaults or
    e.g. acml_ or openblas_. Multithreading is not supported.
 
+7) SciPy_ 0.7.0 or later
 
 Optionally:
 
-7) an MPI library (required for parallel calculations).
+8) an MPI library (required for parallel calculations).
 
-8) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
+9) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
 
-9) SciPy_ 0.7.0 or later (required for example for transport of response calculations)
 
 .. note::
 
