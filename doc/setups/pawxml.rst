@@ -9,7 +9,7 @@ Introduction
 ------------
 
 This page contains information about the PAW-XML data format for the
-atomic datasets necessary for doing projector-augmented wave
+atomic datasets necessary for doing Projector Augmented-Wave
 calculations \ [#Blo94]_.  We use the term *dataset* instead of
 *pseudo potential* because the PAW method is not a pseudopotential method.
 
@@ -216,7 +216,10 @@ as well as ``l`` and ``n`` quantum numbers. For each of them it is also required
 the energy ``e``, the occupation ``f``
 and the matching radius of the partial waves ``rc``.
 
-The number of valence states is noted `n_{val}` in the rest of this document.
+The number of ``state`` elements determines the size of the partial wave basis.
+It is equal to the number of `radial functions`__
+(radial parts of the `\phi_i`, `\tilde{\phi}_i` and `\tilde{p}_i`)
+and is noted `n_{waves}` in the rest of this document. 
 
 For this dataset, the first two lines describe bound eigenstates with
 occupation numbers and principal quantum numbers.  Notice, that the
@@ -224,6 +227,8 @@ three additional unbound states should have no ``f`` and ``n``
 attributes.  In this way, we know that only the first two bound states
 (with ``f`` and ``n`` attributes) should be used for constructing an
 initial guess for the wave functions.
+
+__ `Radial functions`_
 
 
 ------------
@@ -460,8 +465,8 @@ transformation is necessary:
 where `N_c` is the number of core electrons, `N_v` is the number of
 valence electrons, `\tilde{N}_c` is the number of electrons contained
 in the pseudo core density and `\tilde{N}_v` is the number of
-electrons contained in the pseudo valence density.  The Hartree
-potential from the density `n` is defined as:
+electrons contained in the pseudo valence density.
+The Hartree potential from the density `n` is defined as:
 
 .. math::
 
@@ -506,10 +511,8 @@ This element contains the symmetric `\Delta E^\text{kin}_{ij}` matrix:
   \Delta E^\text{kin}_{ij} = \langle \phi_i | \hat{T} | \phi_j \rangle 
   - \langle \tilde{\phi}_i | \hat{T} | \tilde{\phi}_j \rangle 
 
-where `\hat{T}` is the kinetic energy operator used by the
-generator.
-With `n_{val}` valence states (see `n_{val}` `definition`__),
-we have a `n_{val} \times n_{val}` matrix listed as `n_{val}^2` numbers.
+| where `\hat{T}` is the kinetic energy operator used by the generator.
+| With `n_{waves}` valence states (see `n_{waves}` `definition`__), we have a `n_{waves} \times n_{waves}` matrix listed as `n_{waves}^2` numbers.
 
 __ `Valence states`_
 
@@ -567,16 +570,18 @@ integrals times **3-j** symbols according to:
     \frac{r^{L}_{<}}{r^{L+1}_{>}}
     \phi_i(r) \phi_c(r) \phi_j(r') \phi_c(r')
 
-where `r_>` (resp. `r_<`) is the larger (resp. smaller) of `r` and `r'`.
+| where
+| `N_{c}` is the number of core electrons corresponding to `l_{c}` (`N_c=2l_c+1`),  
+| `r_>` (resp. `r_<`) is the larger (resp. smaller) of `r` and `r'`.
 
 
 `X^{\text{core-core}}` can be specified in the ``core`` attribute of the
 ``<exact_exchange>`` element.
 
  
-With `n_{val}` valence states (see `n_{val}` `definition`__),
-`X_{ij}^{\text{core-valence}}` is a `n_{val} \times n_{val}` matrix.
-It can be specified as `n_{val}^2` numbers inside the ``<exact_exchange>`` element::
+With `n_{waves}` valence states (see `n_{waves}` `definition`__),
+`X_{ij}^{\text{core-valence}}` is a `n_{waves} \times n_{waves}` matrix.
+It can be specified as `n_{waves}^2` numbers inside the ``<exact_exchange>`` element::
     
     <exact_exchange core="...">
       ... ... ...
