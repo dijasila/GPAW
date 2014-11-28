@@ -55,8 +55,12 @@ if unocc:
                   txt=txt)
     cunocc.calculate(loa)
 
-    parprint('Energy %10.4f   %10.4f' % (cocc.get_potential_energy(),
-                                         cunocc.get_potential_energy()))
+    parprint('     HF occ          HF unocc      diff')
+    parprint('Energy %10.4f   %10.4f %10.4f' % 
+             (cocc.get_potential_energy(),
+              cunocc.get_potential_energy(),
+              cocc.get_potential_energy() - cunocc.get_potential_energy()
+          ))
     equal(cocc.get_potential_energy(),
           cunocc.get_potential_energy(), 1.e-4)
 
@@ -65,6 +69,8 @@ if unocc:
 
     parprint('Eigenvalues:')
     for eo, fo, eu, fu in zip(eo_n, fo_n, eu_n, fu_n):
-        parprint('%8.4f %5.2f   %8.4f %5.2f' % (eo, fo, eu, fu))
+        parprint('%8.4f %5.2f   %8.4f %5.2f  %8.4f' % 
+                 (eo, fo, eu, fu, eu - eo))
         if fo > 0.01:
+##            parprint('eo, eu, diff', eo, eu, '{0:g}'.format(eo-eu))
             equal(eo, eu, 2.e-4)
