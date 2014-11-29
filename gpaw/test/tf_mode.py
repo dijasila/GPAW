@@ -4,13 +4,13 @@ from gpaw.mixer import Mixer
 from gpaw.test import equal
 from gpaw.test import gen
 
-h = 0.3
+h = 0.18
 a = 8
 c = a / 2
 d = 1.8
 
 elements = ['C']
-results = [1.65644669642]
+results = [0.0256218846668]
 electrons = [6]
 
 
