@@ -37,10 +37,14 @@ df.check_sum_rule(b.imag)
 equal(b0[0].real, eM1_, 0.01)
 equal(b[0].real, eM2_, 0.01)
 
-a0, a = df.get_polarizability(wigner_seitz_truncation=False,
-                              filename=None)
-a0_ws, a_ws = df.get_polarizability(wigner_seitz_truncation=True,
-                                    filename=None)
+a0, a = df.get_polarizability(filename=None)
+
+df_ws = DielectricFunction('C.gpw', eta=0.25, ecut=200,
+                        frequencies=np.linspace(0, 24., 241), hilbert=False,
+                        truncation='wigner_seitz')
+
+a0_ws, a_ws = df_ws.get_polarizability(filename=None)
+
 w0_ = 10.778232265664668
 I0_ = 5.5467658790816268
 w_ = 10.9530497246

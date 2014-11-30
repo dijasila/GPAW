@@ -33,9 +33,15 @@ if ABS:
                                        direction='z')
     a0, a = df.get_polarizability(filename=None,
                                   direction='z')
-    a0_ws, a_ws = df.get_polarizability(filename=None,
-                                        wigner_seitz_truncation=True,
-                                        direction='z')
+    df_ws = DielectricFunction('Au2.gpw',
+                               frequencies=np.linspace(0, 14, 141),
+                               hilbert=not True,
+                               eta=0.1,
+                               ecut=10, 
+                               truncation='wigner_seitz')
+    
+    a0_ws, a_ws = df_ws.get_polarizability(filename=None,
+                                           direction='z')
 
     w0_ = 5.60491055
     I0_ = 244.693028
