@@ -36,4 +36,4 @@ for element, result, e in zip(elements, results, electrons):
     I = n.sum() * dv / 2**3
 
     equal(I, e, 1.0e-6)
-    equal(result, E, 1.0e-4)
+    equal(result, E, 1.0e-3)

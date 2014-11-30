@@ -7,7 +7,7 @@ from gpaw.eigensolvers import CG
 
 
 symbol = 'C'
-result = -224.21102016
+result = -224.200276535
 electrons = 48
 
 xcname = 'LDA_K_TF+LDA_X'
