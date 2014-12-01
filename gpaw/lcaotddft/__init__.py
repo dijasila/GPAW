@@ -9,8 +9,9 @@ from numpy.linalg import inv, eig
 from numpy import dot, eye, array, asarray, zeros
 from gpaw.mixer import DummyMixer
 from math import pi, log
-from ase.parallel import paropen
-from gpaw.mpi import world
+from ase.parallel import paropen # XXX function refers directly to world
+from gpaw.mpi import world # XXXXXXXX let's get rid of world and
+# use correct communicator, i.e., calc.wfs.world or similar. -askhl
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
 from numpy.linalg import solve
 from gpaw.xc import XC
@@ -412,14 +413,16 @@ class LCAOTDDFT(GPAW):
         self.density.update(self.wfs)
         self.hamiltonian.update(self.density)
 
-    def propagate(self, time_step=10, iterations=2000, out='lcao.dm', dump_interval=50):
+    def propagate(self, time_step=10, iterations=2000, out='lcao.dm',
+                  dump_interval=50):
         time_step *= attosec_to_autime
         self.time_step = time_step
         self.dump_interval = dump_interval
         maxiter = self.niter + iterations
 
         if self.time < self.time_step:
-            self.dm_file = paropen(out,'w')
+            self.dm_file = paropen(out,'w') # XXXX
+            # Bug: will fail if world != self.wfs.world.  -askhl
             header = '# Kick = [%22.12le, %22.12le, %22.12le]\n' \
                    % (self.kick_strength[0], self.kick_strength[1], \
                       self.kick_strength[2])
@@ -429,7 +432,7 @@ class LCAOTDDFT(GPAW):
             self.dm_file.flush()
             self.text("About to do %d propagation steps." % iterations)
         else:
-            self.dm_file = paropen(out,'a')
+            self.dm_file = paropen(out,'a') # XXXX
             self.text("About to continue from iteration %d and do %d propagation steps" % (self.niter, maxiter)) 
         self.tddft_init()
 
@@ -440,10 +443,10 @@ class LCAOTDDFT(GPAW):
             if dm0 is None:
                 dm0 = dm
             norm = self.density.finegd.integrate(self.density.rhot_g)
-            line = '%20.8lf %20.8le %22.12le %22.12le %22.12le\n' % (self.time, norm, dm[0], dm[1], dm[2])
+            line = '%20.8lf %20.8le %22.12le %22.12le %22.12le' % (self.time, norm, dm[0], dm[1], dm[2])
             T = localtime()
             if world.rank == 0:
-                print(line, end=' ', file=self.dm_file)
+                print(line, file=self.dm_file)
 
             if world.rank == 0 and self.niter%10==0:
                 print('iter: %3d  %02d:%02d:%02d %11.2f   %9.1f %12.8f' % (self.niter,
