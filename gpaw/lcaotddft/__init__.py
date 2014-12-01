@@ -4,13 +4,12 @@ from gpaw.external_potential import ConstantElectricField
 import numpy as np
 from math import sqrt
 from gpaw.utilities.blas import gemm
-from gpaw.utilities import unpack
-from numpy.linalg import inv, eig
-from numpy import dot, eye, array, asarray, zeros
+from numpy.linalg import inv
+from numpy import dot
 from gpaw.mixer import DummyMixer
 from math import pi, log
-from ase.parallel import paropen # XXX function refers directly to world
-from gpaw.mpi import world # XXXXXXXX let's get rid of world and
+from ase.parallel import paropen  # XXX function refers directly to world
+from gpaw.mpi import world  # XXXXXXXX let's get rid of world and
 # use correct communicator, i.e., calc.wfs.world or similar. -askhl
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
 from numpy.linalg import solve
@@ -20,22 +19,23 @@ from gpaw.utilities.scalapack import pblas_simple_hemm, pblas_simple_gemm, \
                                      scalapack_inverse, scalapack_solve, \
                                      scalapack_zero, pblas_tran, scalapack_set
                                      
-from gpaw.utilities.tools import tri2full 
+from gpaw.utilities.tools import tri2full
 
 import sys
 from time import localtime
+
 
 def print_matrix(M, file=None, rank=0):
     # XXX Debugging stuff. Remove.
     if world.rank == 0:
         if file is not None:
-            f = open(file,'w')
+            f = open(file, 'w')
         else:
             f = sys.stdout
         a, b = M.shape
         for i in range(a):
             for j in range(b):
-                print("%.7f" % M[i][j].real, "%.7f" % M[i][j].imag, end=' ', file=f)
+                print('%.7f' % M[i][j].real, '%.7f' % M[i][j].imag, end=' ', file=f)
             print(file=f)
         if file is not None:
             f.close()
@@ -43,28 +43,29 @@ def print_matrix(M, file=None, rank=0):
 
 def verify(data1, data2, id, uplo='B'):
     # Debugging stuff. Remove
-    if uplo=='B':
-        err = sum(abs(data1-data2).ravel()**2)
+    if uplo == 'B':
+        err = sum(abs(data1 - data2).ravel()**2)
     else:
         err = 0
-        N,M = data1.shape
+        N, M = data1.shape
         for i in range(N):
-            for j in range(i,M):
+            for j in range(i, M):
                 if uplo == 'L':
                     if i >= j:
-                        err += abs(data1[i][j]-data2[i][j])**2
+                        err += abs(data1[i][j] - data2[i][j])**2
                 if uplo == 'U':
                     if i <= j:
-                        err += abs(data1[i][j]-data2[i][j])**2
+                        err += abs(data1[i][j] - data2[i][j])**2
     if err > 1e-7:
-        print("verify err", err)
+        print('verify err', err)
     if err > 1e-5:
-       print("Parallel assert failed: ", id, " norm: ", err)
-       print("Data from proc ", world.rank)
-       print("First", data1)
-       print("Second", data2)
-       print("Diff", data1-data2)
-       assert False
+        print('Parallel assert failed: ', id, ' norm: ', err)
+        print('Data from proc ', world.rank)
+        print('First', data1)
+        print('Second', data2)
+        print('Diff', data1-data2)
+        assert False
+
 
 def mpiverify(data, id):
     # Do some debugging when running on two procs XXX REMOVE
@@ -77,15 +78,17 @@ def mpiverify(data, id):
         err = sum(abs(temp).ravel()**2)
         if err > 1e-10:
             if world.rank == 0:
-                print("Parallel assert failed: ", id, " norm: ", sum(temp.ravel()**2))
-            print("Data from proc ", world.rank)
+                print('Parallel assert failed: ', id, ' norm: ',
+                      sum(temp.ravel()**2))
+            print('Data from proc ', world.rank)
             print(data)
             assert False
+
             
 class KickHamiltonian:
     def __init__(self, calc, ext):
         self.ext = ext
-        self.vt_sG = [ ext.get_potential(gd=calc.density.gd) ]
+        self.vt_sG = [ext.get_potential(gd=calc.density.gd)]
         self.dH_asp = {}
 
         # This code is copy-paste from hamiltonian.update
@@ -93,7 +96,7 @@ class KickHamiltonian:
             setup = calc.hamiltonian.setups[a]
             vext = ext.get_taylor(spos_c=calc.hamiltonian.spos_ac[a, :])
             # Taylor expansion to the zeroth order
-            self.dH_asp[a] = [ vext[0][0] * sqrt(4 * pi) * setup.Delta_pL[:, 0] ]
+            self.dH_asp[a] = [vext[0][0] * sqrt(4 * pi) * setup.Delta_pL[:, 0]]
             if len(vext) > 1:
                 # Taylor expansion to the first order
                 Delta_p1 = np.array([setup.Delta_pL[:, 1],
@@ -103,7 +106,7 @@ class KickHamiltonian:
 
 
 class LCAOTDDFT(GPAW):
-    def __init__(self, filename=None, propagator_debug=False, 
+    def __init__(self, filename=None, propagator_debug=False,
                  propagator='cn', fxc=None, **kwargs):
         self.time = 0.0
         self.niter = 0
@@ -130,46 +133,47 @@ class LCAOTDDFT(GPAW):
         if self.propagator_debug:
             if self.blacs:
                 globalH_MM = self.blacs_mm_to_global(H_MM)
-                globalS_MM = self.blacs_mm_to_global(S_MM) 
+                globalS_MM = self.blacs_mm_to_global(S_MM)
                 if world.rank == 0:
                     tri2full(globalS_MM, 'L')
                     tri2full(globalH_MM, 'L')
                     U_MM = dot(inv(globalS_MM-0.5j*globalH_MM*dt), globalS_MM+0.5j*globalH_MM*dt)
                     debugC_nM = dot(sourceC_nM, U_MM.T.conjugate())
-                    #print "PASS PROPAGATOR"
+                    #print 'PASS PROPAGATOR'
                     #debugC_nM = sourceC_nM.copy()
             else:
                 if world.rank == 0:
                     U_MM = dot(inv(S_MM-0.5j*H_MM*dt), S_MM+0.5j*H_MM*dt)
                     debugC_nM = dot(sourceC_nM, U_MM.T.conjugate())
-                #print "PASS PROPAGATOR"
+                #print 'PASS PROPAGATOR'
                 #debugC_nM = sourceC_nM.copy()
 
         if self.blacs:
             target_blockC_nm = self.Cnm_block_descriptor.empty(dtype=complex) # XXX, Preallocate
             temp_blockC_nm = self.Cnm_block_descriptor.empty(dtype=complex) # XXX, Preallocate
             temp_block_mm = self.mm_block_descriptor.empty(dtype=complex)
-            if self.density.gd.comm.rank != 0: 
+            if self.density.gd.comm.rank != 0:
                 # XXX Fake blacks nbands, nao, nbands, nao grid because some weird asserts
                 # (these are 0,x or x,0 arrays)
                 sourceC_nM = self.CnM_unique_descriptor.zeros(dtype=complex)
 
             # 1. target = (S+0.5j*H*dt) * source
             # Wave functions to target
-            self.CnM2nm.redistribute(sourceC_nM, temp_blockC_nm) 
+            self.CnM2nm.redistribute(sourceC_nM, temp_blockC_nm)
 
             # XXX It can't be this f'n hard to symmetrize a matrix (tri2full)
             scalapack_zero(self.mm_block_descriptor, H_MM, 'U') # Remove upper diagonal
             temp_block_mm[:] = S_MM - (0.5j*dt) * H_MM  # Lower diagonal matrix
-            scalapack_set(self.mm_block_descriptor, temp_block_mm, 0, 0, 'U') # Not it's stricly lower diagonal matrix           
+            scalapack_set(self.mm_block_descriptor, temp_block_mm, 0, 0, 'U')
+            # Note it's stricly lower diagonal matrix
             pblas_tran(-0.5j*dt, H_MM, 1.0, temp_block_mm, self.mm_block_descriptor, self.mm_block_descriptor) # Add transpose of H
             pblas_tran(1.0, S_MM, 1.0, temp_block_mm, self.mm_block_descriptor, self.mm_block_descriptor) # Add transpose of S
 
-            pblas_simple_gemm(self.Cnm_block_descriptor, 
-                              self.mm_block_descriptor, 
-                              self.Cnm_block_descriptor, 
-                              temp_blockC_nm, 
-                              temp_block_mm, 
+            pblas_simple_gemm(self.Cnm_block_descriptor,
+                              self.mm_block_descriptor,
+                              self.Cnm_block_descriptor,
+                              temp_blockC_nm,
+                              temp_block_mm,
                               target_blockC_nm)
             # 2. target = (S-0.5j*H*dt)^-1 * target
             #temp_block_mm[:] = S_MM + (0.5j*dt) * H_MM
@@ -198,8 +202,9 @@ class LCAOTDDFT(GPAW):
         
         # XXX Debugging stuff. Remove
         if self.propagator_debug:
-             if world.rank == 0:
-                 verify(targetC_nM, debugC_nM, "Linear solver propagator vs. reference")
+            if world.rank == 0:
+                verify(targetC_nM, debugC_nM,
+                       'Linear solver propagator vs. reference')
 
         self.timer.stop('Linear solve')
 
@@ -215,13 +220,14 @@ class LCAOTDDFT(GPAW):
                     tri2full(globalH_MM, 'L')
                     U_MM = dot(inv(globalS_MM-0.5j*globalH_MM*dt), globalS_MM+0.5j*globalH_MM*dt)
                     debugC_nM = dot(sourceC_nM, U_MM.T.conjugate())
-                    #print "PASS PROPAGATOR"
+                    #print 'PASS PROPAGATOR'
                     #debugC_nM = sourceC_nM.copy()
             else:
                 if world.rank == 0:
-                    U_MM = dot(inv(S_MM-0.5j*H_MM*dt), S_MM+0.5j*H_MM*dt)
+                    U_MM = dot(inv(S_MM - 0.5j * H_MM * dt),
+                               S_MM + 0.5j * H_MM * dt)
                     debugC_nM = dot(sourceC_nM, U_MM.T.conjugate())
-                #print "PASS PROPAGATOR"
+                #print 'PASS PROPAGATOR'
                 #debugC_nM = sourceC_nM.copy()
 
         if self.blacs:
@@ -279,8 +285,9 @@ class LCAOTDDFT(GPAW):
             self.density.gd.comm.broadcast(targetC_nM, 0)
                 
         if self.propagator_debug:
-             if world.rank == 0:
-                 verify(targetC_nM, debugC_nM, "Linear solver propagator vs. reference")
+            if world.rank == 0:
+                verify(targetC_nM, debugC_nM,
+                       'Linear solver propagator vs. reference')
 
         self.timer.stop('Taylor propagator')
 
@@ -297,9 +304,9 @@ class LCAOTDDFT(GPAW):
         # normalize
         direction = strength / magnitude
 
-        self.text("Applying absorbtion kick")
-        self.text("Magnitude: %.8f " % magnitude)
-        self.text("Direction: %.4f %.4f %.4f" % tuple(direction))
+        self.text('Applying absorbtion kick')
+        self.text('Magnitude: %.8f ' % magnitude)
+        self.text('Direction: %.4f %.4f %.4f' % tuple(direction))
 
         # Create hamiltonian object for absorbtion kick
         kick_hamiltonian = KickHamiltonian(self, ConstantElectricField(magnitude, direction=direction))
@@ -324,10 +331,10 @@ class LCAOTDDFT(GPAW):
     def tddft_init(self):
         if not self.tddft_initialized:
             if world.rank == 0:
-                print("Initializing real time LCAO TD-DFT calculation.")
-                print("XXX Warning: Array use not optimal for memory.")
-                print("XXX Taylor propagator probably doesn't work")
-                print("XXX ...and no arrays are listed in memory estimate yet.")
+                print('Initializing real time LCAO TD-DFT calculation.')
+                print('XXX Warning: Array use not optimal for memory.')
+                print('XXX Taylor propagator probably doesn\'t work')
+                print('XXX ...and no arrays are listed in memory estimate yet.')
             self.blacs = self.wfs.ksl.using_blacs
             if self.blacs:
                 self.ksl = ksl = self.wfs.ksl    
@@ -338,7 +345,7 @@ class LCAOTDDFT(GPAW):
 
                 from gpaw.blacs import Redistributor
                 if world.rank == 0:
-                    print("BLACS Parallelization")
+                    print('BLACS Parallelization')
 
                 # Parallel grid descriptors
                 self.MM_descriptor = ksl.blockgrid.new_descriptor(nao, nao, nao, nao) # FOR DEBUG
@@ -349,24 +356,36 @@ class LCAOTDDFT(GPAW):
                 self.CnM_unique_descriptor = ksl.single_column_grid.new_descriptor(nbands, nao, mynbands, nao)
 
                 # Redistributors
-                self.mm2MM =  Redistributor(ksl.block_comm, self.mm_block_descriptor, self.MM_descriptor) # XXX FOR DEBUG
-                self.MM2mm =  Redistributor(ksl.block_comm, self.MM_descriptor, self.mm_block_descriptor) # XXX FOR DEBUG
-                self.Cnm2nM = Redistributor(ksl.block_comm, self.Cnm_block_descriptor, self.CnM_unique_descriptor) 
-                self.CnM2nm = Redistributor(ksl.block_comm, self.CnM_unique_descriptor, self.Cnm_block_descriptor) 
-                self.mM2mm =  Redistributor(ksl.block_comm, self.mM_column_descriptor, self.mm_block_descriptor)
+                self.mm2MM = Redistributor(ksl.block_comm,
+                                           self.mm_block_descriptor,
+                                           self.MM_descriptor) # XXX FOR DEBUG
+                self.MM2mm = Redistributor(ksl.block_comm,
+                                           self.MM_descriptor,
+                                           self.mm_block_descriptor) # XXX FOR DEBUG
+                self.Cnm2nM = Redistributor(ksl.block_comm,
+                                            self.Cnm_block_descriptor,
+                                            self.CnM_unique_descriptor) 
+                self.CnM2nm = Redistributor(ksl.block_comm,
+                                            self.CnM_unique_descriptor,
+                                            self.Cnm_block_descriptor) 
+                self.mM2mm =  Redistributor(ksl.block_comm,
+                                            self.mM_column_descriptor,
+                                            self.mm_block_descriptor)
 
                 for kpt in self.wfs.kpt_u:
                     scalapack_zero(self.mm_block_descriptor, kpt.S_MM,'U')
                     scalapack_zero(self.mm_block_descriptor, kpt.T_MM,'U')
 
-                if self.propagator == 'taylor' and self.blacs: # XXX to propagator class
-                    cholS_mm = self.mm_block_descriptor.empty(dtype=complex)
+                # XXX to propagator class
+                if self.propagator == 'taylor' and self.blacs:  
+                    # cholS_mm = self.mm_block_descriptor.empty(dtype=complex)
                     for kpt in self.wfs.kpt_u:
                         kpt.invS_MM = kpt.S_MM.copy()
-                        scalapack_inverse(self.mm_block_descriptor, kpt.invS_MM, 'L')
+                        scalapack_inverse(self.mm_block_descriptor,
+                                          kpt.invS_MM, 'L')
                     if self.propagator_debug:
                         if world.rank == 0:
-                            print("XXX Doing serial inversion of overlap matrix.")
+                            print('XXX Doing serial inversion of overlap matrix.')
                         self.timer.start('Invert overlap (serial)')
                         invS2_MM = self.MM_descriptor.empty(dtype=complex)
                         for kpt in self.wfs.kpt_u:
@@ -379,10 +398,10 @@ class LCAOTDDFT(GPAW):
                                 self.invS2_MM = invS2_MM
                             kpt.invS2_MM = ksl.mmdescriptor.empty(dtype=complex)
                             self.MM2mm.redistribute(invS2_MM, kpt.invS2_MM)
-                            verify(kpt.invS_MM, kpt.invS2_MM, "overlap par. vs. serial", 'L')
+                            verify(kpt.invS_MM, kpt.invS2_MM, 'overlap par. vs. serial', 'L')
                         self.timer.stop('Invert overlap (serial)')
                         if world.rank == 0:
-                            print("XXX Overlap inverted.")
+                            print('XXX Overlap inverted.')
                 if self.propagator == 'taylor' and not self.blacs:
                     tmp = inv(self.wfs.kpt_u[0].S_MM)
                     self.wfs.kpt_u[0].invS = tmp
@@ -399,7 +418,7 @@ class LCAOTDDFT(GPAW):
         # Loop over all k-points
         for k, kpt in enumerate(self.wfs.kpt_u):
             for a, P_ni in kpt.P_ani.items():
-                print("Update projector: Rank:", world.rank, "a", a)
+                print('Update projector: Rank:', world.rank, 'a', a)
                 P_ni.fill(117)
                 gemm(1.0, kpt.P_aMi[a], kpt.C_nM, 0.0, P_ni, 'n')
         self.timer.stop('LCAO update projectors') 
@@ -431,10 +450,10 @@ class LCAOTDDFT(GPAW):
                    % ('time', 'norm', 'dmx', 'dmy', 'dmz')
             self.dm_file.write(header)
             self.dm_file.flush()
-            self.text("About to do %d propagation steps." % iterations)
+            self.text('About to do %d propagation steps.' % iterations)
         else:
             self.dm_file = paropen(out,'a') # XXXX
-            self.text("About to continue from iteration %d and do %d propagation steps" % (self.niter, maxiter)) 
+            self.text('About to continue from iteration %d and do %d propagation steps' % (self.niter, maxiter)) 
         self.tddft_init()
 
         dm0 = None # Initial dipole moment
@@ -478,7 +497,6 @@ class LCAOTDDFT(GPAW):
 
             self.update_hamiltonian()
 
-
             for k, kpt in enumerate(self.wfs.kpt_u):
                 kpt.H0_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
                 if self.fxc is not None:
@@ -514,5 +532,3 @@ class LCAOTDDFT(GPAW):
         self.call_observers(self.niter, final=True)
         self.dm_file.close()
         self.timer.stop('Propagate')
-
-
