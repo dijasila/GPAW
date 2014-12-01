@@ -415,6 +415,7 @@ class LCAOTDDFT(GPAW):
 
     def propagate(self, time_step=10, iterations=2000, out='lcao.dm',
                   dump_interval=50):
+        assert self.wfs.dtype == complex
         time_step *= attosec_to_autime
         self.time_step = time_step
         self.dump_interval = dump_interval
