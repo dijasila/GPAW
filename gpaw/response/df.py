@@ -165,6 +165,7 @@ class DielectricFunction:
                     for w in range(w2 - w1):
                         tmp_wGG[w] = pickle.load(fd)
                     world.send(tmp_wGG[:w2 - w1], rank)
+                    w1 = w2
             else:
                 chi0_wGG = np.empty((self.w2 - self.w1, nG, nG), complex)
                 world.receive(chi0_wGG, 0)
