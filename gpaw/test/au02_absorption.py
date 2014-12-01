@@ -37,7 +37,7 @@ if ABS:
                                frequencies=np.linspace(0, 14, 141),
                                hilbert=not True,
                                eta=0.1,
-                               ecut=10, 
+                               ecut=10,
                                truncation='wigner_seitz')
     
     a0_ws, a_ws = df_ws.get_polarizability(filename=None,
