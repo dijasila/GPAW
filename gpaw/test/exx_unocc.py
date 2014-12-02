@@ -73,4 +73,4 @@ if unocc:
                  (eo, fo, eu, fu, eu - eo))
         if fo > 0.01:
 ##            parprint('eo, eu, diff', eo, eu, '{0:g}'.format(eo-eu))
-            equal(eo, eu, 2.e-4)
+            equal(eo, eu, 3.5e-4)
