@@ -1,12 +1,13 @@
+from __future__ import division
 import numpy as np
 
+from gpaw import extra_parameters
+from gpaw.io import FileReference
+from gpaw.lcao.eigensolver import DirectLCAO
+from gpaw.lfc import BasisFunctions
 from gpaw.overlap import Overlap
 from gpaw.utilities import unpack
 from gpaw.utilities.timing import nulltimer
-from gpaw.io import FileReference
-from gpaw.lfc import BasisFunctions
-from gpaw import extra_parameters
-from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
@@ -187,9 +188,11 @@ class FDPWWaveFunctions(WaveFunctions):
 
     def estimate_memory(self, mem):
         gridbytes = self.bytes_per_wave_function()
-        mem.subnode('Arrays psit_nG',
-                    len(self.kpt_u) * self.bd.mynbands * gridbytes)
+        n = len(self.kpt_u) * self.bd.mynbands
+        mem.subnode('Arrays psit_nG', n * gridbytes)
         self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self)
+        ni = sum(dataset.ni for dataset in self.setups) / self.gd.comm.size
+        mem.subnode('Projections', n * ni * np.dtype(self.dtype).itemsize)
         self.pt.estimate_memory(mem.subnode('Projectors'))
         self.matrixoperator.estimate_memory(mem.subnode('Overlap op'),
                                             self.dtype)
