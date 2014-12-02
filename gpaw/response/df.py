@@ -70,7 +70,7 @@ class DielectricFunction:
             Shift Fermi level of ground state calculation by the
             specified amount.
         truncation: str
-            'wigner_seitz' for Wigner Seitz truncated Coulomb
+            'wigner-seitz' for Wigner Seitz truncated Coulomb
             '2D' for regular truncation in the z-direction
         """
 
@@ -207,7 +207,7 @@ class DielectricFunction:
         
         G_G /= (4 * pi)**0.5
 
-        if self.truncation == 'wigner_seitz':
+        if self.truncation == 'wigner-seitz':
             kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv,
                                                  self.chi0.calc.wfs.kd.N_c)
             K_G = kernel.get_potential(pd)
@@ -282,7 +282,7 @@ class DielectricFunction:
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
                     
-        if self.truncation == 'wigner_seitz':
+        if self.truncation == 'wigner-seitz':
             kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv,
                                                  self.chi0.calc.wfs.kd.N_c)
             K_G = kernel.get_potential(pd)**0.5

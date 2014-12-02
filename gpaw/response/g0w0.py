@@ -633,7 +633,7 @@ class G0W0(PairDensity):
             x4_GG = 1 / (deps_GG - omegat_GG - 1j * self.eta * sign_GG)
             x_GG = W_GG * (sign_GG * (x1_GG - x2_GG) + x3_GG + x4_GG)
             dx_GG = W_GG * (sign_GG * (x1_GG**2 - x2_GG**2) +
-                        x3_GG**2 + x4_GG**2)
+                            x3_GG**2 + x4_GG**2)
             nW_G = np.dot(n_mG[m], x_GG)
             sigma += np.vdot(n_mG[m], nW_G).real
             nW_G = np.dot(n_mG[m], dx_GG)

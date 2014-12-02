@@ -41,7 +41,7 @@ a0, a = df.get_polarizability(filename=None)
 
 df_ws = DielectricFunction('C.gpw', eta=0.25, ecut=200,
                            frequencies=np.linspace(0, 24., 241), hilbert=False,
-                           truncation='wigner_seitz')
+                           truncation='wigner-seitz')
 
 a0_ws, a_ws = df_ws.get_polarizability(filename=None)
 

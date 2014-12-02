@@ -38,7 +38,7 @@ if ABS:
                                hilbert=not True,
                                eta=0.1,
                                ecut=10,
-                               truncation='wigner_seitz')
+                               truncation='wigner-seitz')
     
     a0_ws, a_ws = df_ws.get_polarizability(filename=None,
                                            direction='z')
