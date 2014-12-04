@@ -457,22 +457,22 @@ class Chi0(PairDensity):
         md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
         
         if len(in_wGG) == nw:
-            r = Redistributor(comm, md2, md1)
-            wa = min(comm.rank * mynw, nw)
-            wb = min(wa + mynw, nw)
-            shape = (wb - wa, nG, nG)
+            mdin = md2
+            mdout = md1
         else:
-            r = Redistributor(comm, md1, md2)
-            Ga = comm.rank * mynG
-            Gb = min(Ga + mynG, nG)
-            shape = (nw, Gb - Ga, nG)
+            mdin = md1
+            mdout = md2
+            
+        r = Redistributor(comm, mdin, mdout)
         
+        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
         if out_x is None:
-            out_wGG = np.empty(shape, complex)
+            out_wGG = np.empty(outshape, complex)
         else:
-            out_wGG = out_x[:np.product(shape)].reshape(shape)
-        r.redistribute(in_wGG.reshape((len(in_wGG), -1)),
-                       out_wGG.reshape((len(out_wGG), -1)))
+            out_wGG = out_x[:np.product(outshape)].reshape(outshape)
+
+        r.redistribute(in_wGG.reshape(mdin.shape),
+                       out_wGG.reshape(mdout.shape))
         
         return out_wGG
 
