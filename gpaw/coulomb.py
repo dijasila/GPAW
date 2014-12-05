@@ -1,13 +1,14 @@
 from math import pi, sqrt
 
+from ase.units import Hartree
 import numpy as np
 from numpy.fft import fftn
 
-from ase.units import Hartree
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.pair_density import PairDensity2 as PairDensity
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
-from gpaw.utilities import pack, unpack, packed_index, unpack2
+from gpaw.utilities import unpack, packed_index, unpack2
+from gpaw.utilities.ewald import madelung
 from gpaw.utilities.tools import construct_reciprocal, tri2full, symmetrize
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.blas import r2k
@@ -134,6 +135,7 @@ class Coulomb:
                 n2 = n1
                 Z2 = Z1
             self.solve(I, n2, charge=Z2, eps=1e-12, zero_initial_phi=True)
+            I += madelung(self.gd.cell_cv) * self.gd.integrate(n2)
             I *= n1.conj()
         elif method == 'recip_ewald':
             n1k = fftn(n1)
@@ -144,8 +146,10 @@ class Coulomb:
             I = n1k.conj() * n2k * self.ewald * 4 * pi / (self.k2 * self.N3)
         else:  # method == 'recip_gauss':
             # Determine total charges
-            if Z1 is None: Z1 = self.gd.integrate(n1)
-            if Z2 is None and n2 is not None: Z2 = self.gd.integrate(n2)
+            if Z1 is None:
+                Z1 = self.gd.integrate(n1)
+            if Z2 is None and n2 is not None:
+                Z2 = self.gd.integrate(n2)
 
             # Determine the integrand of the neutral system
             # (n1 - Z1 ng)* int dr'  (n2 - Z2 ng) / |r - r'|
@@ -220,19 +224,19 @@ class CoulombNEW:
 class HF:
     def __init__(self, paw):
         paw.initialize_positions()
-        self.nspins       = paw.wfs.nspins
-        self.nbands       = paw.wfs.bd.nbands
-        self.restrict     = paw.hamiltonian.restrict
+        self.nspins = paw.wfs.nspins
+        self.nbands = paw.wfs.bd.nbands
+        self.restrict = paw.hamiltonian.restrict
         self.pair_density = PairDensity(paw.density, paw.atoms, finegrid=True)
-        self.dv           = paw.wfs.gd.dv
-        self.dtype        = paw.wfs.dtype
-        self.setups       = paw.wfs.setups
+        self.dv = paw.wfs.gd.dv
+        self.dtype = paw.wfs.dtype
+        self.setups = paw.wfs.setups
 
         # Allocate space for matrices
-        self.nt_G   = paw.wfs.gd.empty()
+        self.nt_G = paw.wfs.gd.empty()
         self.rhot_g = paw.density.finegd.empty()
-        self.vt_G   = paw.wfs.gd.empty()
-        self.vt_g   = paw.density.finegd.empty()
+        self.vt_G = paw.wfs.gd.empty()
+        self.vt_g = paw.density.finegd.empty()
         self.poisson_solve = paw.hamiltonian.poisson.solve
 
     def apply(self, paw, u=0):
@@ -260,7 +264,6 @@ class HF:
                 if f1 < fmin and f2 < fmin:
                     continue
 
-                dc = 1 + (n1 != n2)
                 pd.initialize(kpt, n1, n2)
                 pd.get_coarse(self.nt_G)
                 pd.add_compensation_charges(self.nt_G, self.rhot_g)
@@ -279,7 +282,8 @@ class HF:
                     P_ni = kpt.P_ani[a]
                     h_nn[:, n1] += f2 * np.dot(P_ni, np.dot(v_ii, P_ni[n2]))
                     if n1 != n2:
-                        h_nn[:, n2] += f1 * np.dot(P_ni, np.dot(v_ii, P_ni[n1]))
+                        h_nn[:, n2] += f1 * np.dot(P_ni,
+                                                   np.dot(v_ii, P_ni[n1]))
 
         symmetrize(h_nn)  # Grrrr why!!! XXX
 
