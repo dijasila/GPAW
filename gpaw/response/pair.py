@@ -14,6 +14,9 @@ from gpaw.occupations import FermiDirac
 from gpaw.response.math_func import two_phi_planewave_integrals
 from gpaw.utilities.blas import gemm
 from gpaw.wavefunctions.pw import PWLFC
+import gpaw.io.tar as io
+
+import warnings
 
 
 class KPoint:
@@ -75,7 +78,9 @@ class PairDensity:
         if isinstance(calc, str):
             print('Reading ground state calculation:\n  %s' % calc,
                   file=self.fd)
+            self.reader = io.Reader(calc, comm=mpi.serial_comm)
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
+            
         else:
             assert calc.wfs.world.size == 1
 
@@ -97,18 +102,30 @@ class PairDensity:
 
         print('Number of blocks:', nblocks, file=self.fd)
 
+        # Projectors init
+        setups = calc.wfs.setups
+        spos_ac = calc.atoms.get_scaled_positions()
+        calc.wfs.pt.set_positions(spos_ac)
+
     def add_gate_voltage(self, gate_voltage=0):
         """Shifts the Fermi-level by e * Vg. By definition e = 1."""
         assert isinstance(self.calc.occupations, FermiDirac)
         print('Shifting Fermi-level by %.2f eV' % (gate_voltage * Hartree),
               file=self.fd)
 
+        for kpt in self.calc.wfs.kpt_u:
+            kpt.f_n = (self.shift_occupations(kpt.eps_n, gate_voltage)
+                       * kpt.weight)
+
+    def shift_occupations(self, eps_n, gate_voltage):
+        """Shift fermilevel."""
         fermi = self.calc.occupations.get_fermi_level() + gate_voltage
         width = self.calc.occupations.width
-        shiftedFDdist = lambda w_w: 1 / (1 + np.exp((w_w - fermi) / width))
-
-        for kpt in self.calc.wfs.kpt_u:
-            kpt.f_n = shiftedFDdist(kpt.eps_n) * kpt.weight
+        tmp = (eps_n - fermi) / width
+        f_n = np.zeros_like(eps_n)
+        f_n[tmp <= 100] = 1 / (1 + np.exp(tmp[tmp <= 100]))
+        f_n[tmp > 100] = 0.0
+        return f_n
 
     def count_occupied_bands(self):
         self.nocc1 = 9999999
@@ -192,21 +209,25 @@ class PairDensity:
         ik = wfs.kd.bz2ibz_k[K]
         kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
 
+        eps_n = kpt.eps_n[n1:n2]
+        f_n = kpt.f_n[n1:n2] / kpt.weight
+
         psit_nG = kpt.psit_nG
         ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
         for n in range(na, nb):
             ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
-
-        eps_n = kpt.eps_n[n1:n2]
-        f_n = kpt.f_n[n1:n2] / kpt.weight
-
+            
         P_ani = []
+        i1 = 0
+        P_nI = self.reader.get('Projections', kpt.s, kpt.k)
         for b, U_ii in zip(a_a, U_aii):
-            P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
+            i2 = i1 + len(U_ii)
+            P_ni = np.dot(P_nI[na:nb, i1:i2], U_ii)
             if time_reversal:
                 P_ni = P_ni.conj()
             P_ani.append(P_ni)
-
+            i1 = i2
+        
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 
