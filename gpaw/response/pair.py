@@ -104,11 +104,6 @@ class PairDensity:
 
         print('Number of blocks:', nblocks, file=self.fd)
 
-        # Projectors init
-        setups = calc.wfs.setups
-        spos_ac = calc.atoms.get_scaled_positions()
-        calc.wfs.pt.set_positions(spos_ac)
-
     def add_gate_voltage(self, gate_voltage=0):
         """Shifts the Fermi-level by e * Vg. By definition e = 1."""
         assert isinstance(self.calc.occupations, FermiDirac)
