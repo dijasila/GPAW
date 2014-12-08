@@ -78,10 +78,12 @@ class PairDensity:
         if isinstance(calc, str):
             print('Reading ground state calculation:\n  %s' % calc,
                   file=self.fd)
+            if not calc.split('.')[-1] == 'gpw':
+                calc = calc + '.gpw'
             self.reader = io.Reader(calc, comm=mpi.serial_comm)
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
-            
         else:
+            self.reader = None
             assert calc.wfs.world.size == 1
 
         assert calc.wfs.kd.symmetry.symmorphic
@@ -219,10 +221,17 @@ class PairDensity:
             
         P_ani = []
         i1 = 0
-        P_nI = self.reader.get('Projections', kpt.s, kpt.k)
+        if self.reader is not None:
+            P_nI = self.reader.get('Projections', kpt.s, kpt.k)
+        else:
+            iP_ani = kpt.P_ani
+
         for b, U_ii in zip(a_a, U_aii):
             i2 = i1 + len(U_ii)
-            P_ni = np.dot(P_nI[na:nb, i1:i2], U_ii)
+            if self.reader is not None:
+                P_ni = np.dot(P_nI[na:nb, i1:i2], U_ii)
+            else:
+                P_ni = np.dot(iP_ani[b][na:nb], U_ii)
             if time_reversal:
                 P_ni = P_ni.conj()
             P_ani.append(P_ni)
