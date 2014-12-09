@@ -466,9 +466,14 @@ def atoms2symmetry(atoms, id_a=None):
     return symmetry
 
     
-if __name__ == '__main__':
+def analyze_atoms(filename):
+    """Analyse symmetry.
+    
+    filename: str
+        filename containing atomic positions and unit cell."""
+        
     import sys
     from ase.io import read
-    atoms = read(sys.argv[1])
+    atoms = read(filename)
     symmetry = atoms2symmetry(atoms)
     symmetry.print_symmetries(sys.stdout)

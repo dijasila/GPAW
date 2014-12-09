@@ -15,7 +15,8 @@ functions = {'xc': 'gpaw.xc.xc',
              'test': 'gpaw.test.test.main',
              'atom': 'gpaw.atom.aeatom.main',
              'diag': 'gpaw.fulldiag.fulldiag',
-             'dataset': 'gpaw.atom.generator2.main'}
+             'dataset': 'gpaw.atom.generator2.main',
+             'symmetry': 'gpaw.symmetry.analyze_atoms'}
 
 
 def main():
