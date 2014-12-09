@@ -453,3 +453,22 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
                        np.ascontiguousarray(U_scc), tol, bz2bz_ks, ka, kb)
     comm.sum(bz2bz_ks)
     return bz2bz_ks
+
+
+def atoms2symmetry(atoms, id_a=None):
+    """Create symmetry object from atoms object."""
+    if id_a is None:
+        id_a = atoms.get_atomic_numbers()
+    symmetry = Symmetry(id_a, atoms.cell, atoms.pbc,
+                        symmorphic=False,
+                        time_reversal=False)
+    symmetry.analyze(atoms.get_scaled_positions())
+    return symmetry
+
+    
+if __name__ == '__main__':
+    import sys
+    from ase.io import read
+    atoms = read(sys.argv[1])
+    symmetry = atoms2symmetry(atoms)
+    symmetry.print_symmetries(sys.stdout)
