@@ -290,6 +290,8 @@ class DielectricFunction:
                 K_G[0] = 0.0
         elif self.truncation == '2D':
             K_G = truncated_coulomb(pd)
+            if pd.kd.gamma:
+                K_G[0] = 0.0
         else:
             K_G = (4 * pi)**0.5 / G_G
 
