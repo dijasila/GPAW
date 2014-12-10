@@ -701,7 +701,6 @@ class GPAW(PAW):
 
         from gpaw.io import read_wave_function
         for u, kpt in enumerate(self.wfs.kpt_u):
-            #kpt = self.kpt_u[u]
             kpt.psit_nG = self.wfs.gd.empty(self.wfs.bd.nbands, self.wfs.dtype)
             # Read band by band to save memory
             s = kpt.s
@@ -710,11 +709,11 @@ class GPAW(PAW):
                 psit_G[:] = read_wave_function(self.wfs.gd, s, k, n, mode)
 
     def get_nonselfconsistent_energies(self, type='beefvdw'):
-        from gpaw.xc.bee import BEEF_Ensemble
+        from gpaw.xc.bee import BEEFEnsemble
         if type not in ['beefvdw', 'mbeef', 'mbeefvdw']:
             raise NotImplementedError('Not implemented for type = %s' % type)
         assert self.scf.converged
-        bee = BEEF_Ensemble(self)
+        bee = BEEFEnsemble(self)
         x = bee.create_xc_contributions('exch')
         c = bee.create_xc_contributions('corr')
         if type == 'beefvdw':
@@ -722,4 +721,4 @@ class GPAW(PAW):
         elif type == 'mbeef':
             return x.flatten()
         elif type == 'mbeefvdw':
-            return np.append(x.flatten(),c)
+            return np.append(x.flatten(), c)

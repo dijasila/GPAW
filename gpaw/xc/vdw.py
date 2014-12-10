@@ -85,8 +85,7 @@ def hRPS(x, xc=1.0):
     return xc * (1.0 - y), z * y
 
     
-def vdwxc(name):
-    kwargs = {}
+def vdwxc(name, **kwargs):
     if name == 'vdW-DF':
         kernel = LibXC('GGA_X_PBE_R+LDA_C_PW')
     elif name == 'vdW-DF2':
