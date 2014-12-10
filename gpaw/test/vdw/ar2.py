@@ -1,17 +1,16 @@
-from __future__ import print_function
 from math import sqrt
 
 from ase import Atoms
 
 from gpaw import GPAW
 from gpaw.test import equal
-from gpaw.xc.vdw import FFTVDWFunctional
+from gpaw.xc.vdw import vdwxc
 
 energy_tolerance = 0.002
-niter_tolerance = 0
+
 
 def test():
-    vdw = FFTVDWFunctional('vdW-DF', verbose=1)
+    vdw = vdwxc('vdW-DF', verbose=1)
     d = 3.9
     x = d / sqrt(3)
     L = 3.0 + 2 * 4.0
@@ -20,7 +19,6 @@ def test():
     calc = GPAW(h=0.2, xc='revPBE')
     dimer.set_calculator(calc)
     e2 = dimer.get_potential_energy()
-    niter2 = calc.get_number_of_iterations()
     calc.write('Ar2.gpw')
     e2vdw = calc.get_xc_difference(vdw)
     e2vdwb = GPAW('Ar2.gpw').get_xc_difference(vdw)
@@ -28,7 +26,6 @@ def test():
     assert abs(e2vdwb - e2vdw) < 1e-9
     del dimer[1]
     e = dimer.get_potential_energy()
-    niter = calc.get_number_of_iterations()
     evdw = calc.get_xc_difference(vdw)
 
     E = 2 * e - e2
