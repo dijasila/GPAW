@@ -1,46 +1,48 @@
-from ase import *
-from ase.dft.bee import BEEF_Ensemble
+from ase import Atoms
+from ase.dft.bee import BEEFEnsemble
 from gpaw import GPAW
-from gpaw.test import equal
-import numpy as np
+from gpaw.test import equal, gen
+import _gpaw
 
-xc = 'BEEF-vdW'
+newlibxc = _gpaw.lxcXCFuncNum('MGGA_X_MBEEF') is not None
+
+c = {'energy': 0.001, 'eigenstates': 1, 'density': 1}
 d = 0.75
-tol1 = 1.e-10
-tol2 = 1.e-2
-tol3 = 1.e-1
 
-# H2 molecule
-h2 = Atoms('H2',[[0.,0.,0.],[0.,0.,d]])
-h2.center(vacuum=2.)
-cell = h2.get_cell()
-calc = GPAW(xc=xc)
-h2.set_calculator(calc)
-e_h2 = h2.get_potential_energy()
-f = h2.get_forces()
-ens = BEEF_Ensemble(calc)
-de_h2 = ens.get_ensemble_energies()
-del h2, calc, ens
+gen('H', xcname='PBEsol')
 
-# H atom
-h = Atoms('H')
-h.set_cell(cell)
-h.center()
-calc = GPAW(xc=xc, spinpol=True)
-h.set_calculator(calc)
-e_h = h.get_potential_energy()
-ens = BEEF_Ensemble(calc)
-de_h = ens.get_ensemble_energies()
+for xc, E0, dE0 in [('mBEEF', 4.86, 0.16),
+                    ('BEEF-vdW', 5.13, 0.20),
+                    ('mBEEF-vdW', 4.74, 0.36)]:
+    print(xc)
+    if not newlibxc and xc[0] == 'm':
+        print('Skipped')
+        continue
+        
+    # H2 molecule:
+    h2 = Atoms('H2', [[0, 0, 0], [0, 0, d]])
+    h2.center(vacuum=2)
+    h2.calc = GPAW(txt='H2-' + xc + '.txt', convergence=c)
+    h2.get_potential_energy()
+    h2.calc.set(xc=xc)
+    e_h2 = h2.get_potential_energy()
+    f = h2.get_forces()
+    ens = BEEFEnsemble(h2.calc)
+    de_h2 = ens.get_ensemble_energies()
 
-# forces
-f0 = f[0].sum()
-f1 = f[1].sum()
-equal(f0, -f1, tol1)
-equal(f0, 1.044, tol2)
+    # H atom:
+    h = Atoms('H', cell=h2.cell, magmoms=[1])
+    h.center()
+    h.calc = GPAW(txt='H-' + xc + '.txt', convergence=c)
+    h.get_potential_energy()
+    h.calc.set(xc=xc)
+    e_h = h.get_potential_energy()
+    ens = BEEFEnsemble(h.calc)
+    de_h = ens.get_ensemble_energies()
 
-# binding energy
-E_bind = 2*e_h - e_h2
-dE_bind = 2*de_h[:] - de_h2[:]
-dE_bind = np.std(dE_bind)
-equal(E_bind, 5.126, tol2)
-equal(dE_bind, 0.2, tol3)
+    # binding energy
+    E = 2 * e_h - e_h2
+    dE = (2 * de_h - de_h2).std()
+    print(E, dE)
+    equal(E, E0, 0.01)
+    equal(dE, dE0, 0.01)
