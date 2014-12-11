@@ -892,44 +892,15 @@ class PWLFC(BaseLFC):
             all G-vectors in one big block."""
 
         self.pd = pd
-
-        self.lf_aj = []
-        cache = {}
-        lmax = 0
-
-        self.nbytes = 0
-
-        # Fourier transform radial functions:
-        for a, spline_j in enumerate(spline_aj):
-            self.lf_aj.append([])
-            for spline in spline_j:
-                l = spline.get_angular_momentum_number()
-                if spline not in cache:
-                    f = ft(spline)
-                    f_qG = []
-                    for G2_G in self.pd.G2_qG:
-                        G_G = G2_G**0.5
-                        f_qG.append(f.map(G_G))
-                        self.nbytes += G_G.nbytes
-                    cache[spline] = f_qG
-                else:
-                    f_qG = cache[spline]
-                self.lf_aj[a].append((l, f_qG))
-                lmax = max(lmax, l)
-
         self.spline_aj = spline_aj
 
         self.dtype = pd.dtype
 
-        # Spherical harmonics:
+        self.initialized = False
+        
+        # These will be filled in later:
+        self.lf_aj = []
         self.Y_qLG = []
-        for q, K_v in enumerate(self.pd.K_qv):
-            G_Gv = pd.get_reciprocal_vectors(q=q)
-            Y_LG = np.empty(((lmax + 1)**2, len(G_Gv)))
-            for L in range((lmax + 1)**2):
-                Y_LG[L] = Y(L, *G_Gv.T)
-            self.Y_qLG.append(Y_LG)
-            self.nbytes += Y_LG.nbytes
 
         if blocksize is not None:
             if pd.ngmax <= blocksize:
@@ -944,8 +915,51 @@ class PWLFC(BaseLFC):
         self.pos_av = None
         self.nI = None
 
+    def initialize(self):
+        if self.initialized:
+            return
+            
+        cache = {}
+        lmax = -1
+
+        # Fourier transform radial functions:
+        for a, spline_j in enumerate(self.spline_aj):
+            self.lf_aj.append([])
+            for spline in spline_j:
+                l = spline.get_angular_momentum_number()
+                if spline not in cache:
+                    f = ft(spline)
+                    f_qG = []
+                    for G2_G in self.pd.G2_qG:
+                        G_G = G2_G**0.5
+                        f_qG.append(f.map(G_G))
+                    cache[spline] = f_qG
+                else:
+                    f_qG = cache[spline]
+                self.lf_aj[a].append((l, f_qG))
+                lmax = max(lmax, l)
+
+        # Spherical harmonics:
+        for q, K_v in enumerate(self.pd.K_qv):
+            G_Gv = self.pd.get_reciprocal_vectors(q=q)
+            Y_LG = np.empty(((lmax + 1)**2, len(G_Gv)))
+            for L in range((lmax + 1)**2):
+                Y_LG[L] = Y(L, *G_Gv.T)
+            self.Y_qLG.append(Y_LG)
+            
+        self.initialized = True
+
     def estimate_memory(self, mem):
-        mem.subnode('Arrays', self.nbytes)
+        splines = set()
+        lmax = -1
+        for spline_j in self.spline_aj:
+            for spline in spline_j:
+                splines.add(spline)
+                l = spline.get_angular_momentum_number()
+                lmax = max(lmax, l)
+        nbytes = ((len(splines) + (lmax + 1)**2) *
+                  sum(G2_G.nbytes for G2_G in self.pd.G2_qG))
+        mem.subnode('Arrays', nbytes)
 
     def get_function_count(self, a):
         return sum(2 * l + 1 for l, f_qG in self.lf_aj[a])
@@ -964,6 +978,7 @@ class PWLFC(BaseLFC):
                 j += 1
 
     def set_positions(self, spos_ac):
+        self.initialize()
         kd = self.pd.kd
         if kd is None or kd.gamma:
             self.eikR_qa = np.ones((1, len(spos_ac)))
@@ -1303,8 +1318,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.ebar = self.pd2.integrate(self.vbar_Q, density.nt_sQ.sum(0))
 
         self.timer.start('Poisson')
-        # npoisson is the number of iterations:
-        #self.npoisson = 0
         self.vHt_q = 4 * pi * density.rhot_q
         self.vHt_q[1:] /= self.pd3.G2_qG[0][1:]
         self.epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)
