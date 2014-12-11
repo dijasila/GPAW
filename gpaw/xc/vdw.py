@@ -27,9 +27,7 @@ from gpaw.xc.gga import GGA
 from gpaw.xc.mgga import MGGA
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.tools import construct_reciprocal
-from gpaw.fd_operators import Gradient
 from gpaw import setup_paths, extra_parameters
-from gpaw.fftw import get_efficient_fft_size
 import gpaw.mpi as mpi
 import _gpaw
  
