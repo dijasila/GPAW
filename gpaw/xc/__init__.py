@@ -23,9 +23,9 @@ def XC(kernel, parameters=None):
     if isinstance(kernel, str):
         name = kernel
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
-                    'C09-vdW']:
-            from gpaw.xc.vdw import FFTVDWFunctional
-            return FFTVDWFunctional(name)
+                    'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:
+            from gpaw.xc.vdw import VDWFunctional
+            return VDWFunctional(name)
         elif name in ['EXX', 'PBE0', 'B3LYP']:
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(name)
@@ -38,12 +38,6 @@ def XC(kernel, parameters=None):
         elif name == 'BEE2':
             from gpaw.xc.bee import BEE2
             kernel = BEE2(parameters)
-        elif name in ['BEEF-vdW', 'BEEF-1']:
-            from gpaw.xc.bee import BEEVDWFunctional
-            return BEEVDWFunctional('BEEF-vdW')
-        elif name == 'mBEEF-vdW':
-            from gpaw.xc.bee import MBEEFVDWFunctional
-            return MBEEFVDWFunctional(name)
         elif name.startswith('GLLB'):
             from gpaw.xc.gllb.nonlocalfunctionalfactory import \
                 NonLocalFunctionalFactory

@@ -186,7 +186,6 @@ tests = [
     'revPBE.py',                            # ~4s
     'tf_mode_pbc.py',                       # ~4s
     'tf_mode.py',                           # ~4s
-    'bee1.py',                              # ~4s
     'nonselfconsistentLDA.py',              # ~4s
     'aluminum_EELS_ALDA.py',                # ~4s
     'spin_contamination.py',                # ~4s
@@ -311,7 +310,7 @@ tests = [
     'rpa_energy_N2.py',                     # ~52s
     'vdw/ar2.py',                           # ~53s
     'parallel/diamond_gllb.py',             # ~59s
-    'beefvdw.py',                           # ~60s
+    'beef.py',
     'pw/si_stress.py',                      # ~61s
     'chi0.py',                              # ~71s
     'scfsic_n2.py',                         # ~73s
@@ -343,12 +342,10 @@ tests = [
     'cmrtest/cmr_test3.py',                 # duration unknown
     'cmrtest/cmr_test4.py',                 # duration unknown
     'cmrtest/cmr_append.py',                # duration unknown
-    'cmrtest/Li2_atomize.py',               # duration unknown
-    ]
+    'cmrtest/Li2_atomize.py']               # duration unknown
 
 # 'fractional_translations.py',
 # 'graphene_EELS.py', disabled while work is in progress on response code
-# 'mbeef.py',
 
 # 'fractional_translations_med.py',
 # 'fractional_translations_big.py',
@@ -378,9 +375,9 @@ if mpi.size > 1:
                 'stark_shift.py',
                 'exx_q.py',
                 'potential.py',
-                #'cmrtest/cmr_test3.py',
-                #'cmrtest/cmr_append.py',
-                #'cmrtest/Li2_atomize.py',  # started to hang May 2014
+                # 'cmrtest/cmr_test3.py',
+                # 'cmrtest/cmr_append.py',
+                # 'cmrtest/Li2_atomize.py',  # started to hang May 2014
                 'lcao_pair_and_coulomb.py',
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
