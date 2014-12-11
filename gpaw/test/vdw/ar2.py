@@ -4,13 +4,13 @@ from ase import Atoms
 
 from gpaw import GPAW
 from gpaw.test import equal
-from gpaw.xc.vdw import vdwxc
+from gpaw.xc.vdw import VDWFunctional
 
 energy_tolerance = 0.002
 
 
 def test():
-    vdw = vdwxc('vdW-DF', verbose=1)
+    vdw = VDWFunctional('vdW-DF', verbose=1)
     d = 3.9
     x = d / sqrt(3)
     L = 3.0 + 2 * 4.0

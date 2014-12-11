@@ -24,8 +24,8 @@ def XC(kernel, parameters=None):
         name = kernel
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:
-            from gpaw.xc.vdw import vdwxc
-            return vdwxc(name)
+            from gpaw.xc.vdw import VDWFunctional
+            return VDWFunctional(name)
         elif name in ['EXX', 'PBE0', 'B3LYP']:
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(name)

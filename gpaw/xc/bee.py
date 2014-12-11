@@ -7,7 +7,7 @@ import _gpaw
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCKernel
 from gpaw.xc.libxc import LibXC
-from gpaw.xc.vdw import vdwxc
+from gpaw.xc.vdw import VDWFunctional
 from gpaw import debug
 
 
@@ -232,7 +232,7 @@ class BEEFEnsemble:
         e_lda = self.e_dft + self.calc.get_xc_difference('LDA_C_PW') - self.e0
         e_sol = (self.e_dft + self.calc.get_xc_difference('GGA_C_PBE_SOL') -
                  self.e0)
-        vdwdf2 = vdwxc('vdW-DF2')
+        vdwdf2 = VDWFunctional('vdW-DF2')
         self.calc.get_xc_difference(vdwdf2)
         e_nl2 = vdwdf2.get_Ecnl() * Hartree
         corr = np.array([e_lda, e_sol, e_nl2])

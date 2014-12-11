@@ -85,7 +85,7 @@ def hRPS(x, xc=1.0):
     return xc * (1.0 - y), z * y
 
     
-def vdwxc(name, **kwargs):
+def VDWFunctional(name, fft=True, **kwargs):
     if name == 'vdW-DF':
         kernel = LibXC('GGA_X_PBE_R+LDA_C_PW')
     elif name == 'vdW-DF2':
@@ -111,13 +111,16 @@ def vdwxc(name, **kwargs):
         kwargs['vdwcoef'] = 0.886774972
         kwargs['Nr'] = 4096
         kwargs['setup_name'] = 'PBEsol'
+        assert fft
         return MGGAFFTVDWFunctional(name, kernel, **kwargs)
     else:
         2 / 0
-    return GGAFFTVDWFunctional(name, kernel, **kwargs)
+    if fft:
+        return GGAFFTVDWFunctional(name, kernel, **kwargs)
+    return GGARealSpaceVDWFunctional(name, kernel, **kwargs)
 
         
-class VDWFunctional:
+class VDWFunctionalBase:
     """Base class for vdW-DF."""
     def __init__(self, world=None, Zab=-0.8491, vdwcoef=1.0, q0cut=5.0,
                  phi0=0.5, ds=1.0, Dmax=20.0, nD=201, ndelta=21,
@@ -371,7 +374,7 @@ class VDWFunctional:
                            (1 - y) * P[i, j]))
 
 
-class RealSpaceVDWFunctional(VDWFunctional):
+class RealSpaceVDWFunctional(VDWFunctionalBase):
     """Real-space implementation of vdW-DF."""
     def __init__(self, repeat=None, ncut=0.0005, **kwargs):
         """Real-space vdW-DF.
@@ -384,7 +387,7 @@ class RealSpaceVDWFunctional(VDWFunctional):
             Density cutoff.
         """
         
-        VDWFunctional.__init__(self, **kwargs)
+        VDWFunctionalBase.__init__(self, **kwargs)
         self.repeat = repeat
         self.ncut = ncut
         
@@ -465,7 +468,7 @@ class RealSpaceVDWFunctional(VDWFunctional):
         return E_vdwnl
         
 
-class FFTVDWFunctional(VDWFunctional):
+class FFTVDWFunctional(VDWFunctionalBase):
     """FFT implementation of vdW-DF."""
     def __init__(self,
                  Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, size=None,
@@ -488,7 +491,7 @@ class FFTVDWFunctional(VDWFunctional):
            algorithm (powers of two are more efficient).  The density
            array will be zero padded to the correct size."""
 
-        VDWFunctional.__init__(self, **kwargs)
+        VDWFunctionalBase.__init__(self, **kwargs)
         self.Nalpha = Nalpha
         self.lambd = lambd
         self.rcut = rcut
