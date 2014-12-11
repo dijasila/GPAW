@@ -8,7 +8,7 @@ from ase.units import Hartree, Bohr
 
 class Heterostructure:
     def __init__(self, q_abs, frequencies, d,
-                 chi_monopole, z, drho_monopole, chi_dipole=None,
+                 chi_monopole, z, drho_monopole, d0=None, chi_dipole=None,
                  drho_dipole=None, layer_indices=None):
         # layers and distances
         self.n_types = chi_monopole.shape[0]
@@ -18,8 +18,8 @@ class Heterostructure:
         if len(d) > 0:
             self.s = (np.insert(self.d, 0, self.d[0]) + \
                       np.append(self.d, self.d[-1])) / 2.
-        else:
-            self.s = [15]
+        else:  # Monolayer calculation
+            self.s = [d0 / Bohr]  # Width of layers
 
         self.layer_indices = layer_indices
         if self.layer_indices is None:
@@ -32,53 +32,63 @@ class Heterostructure:
         # Grid stuff
         self.z = z
         self.poisson_lim = 100  # above this limit use potential model
-        system_size = np.sum(self.d) + 30
+        system_size = np.sum(self.d) + 50
         self.z_lim = system_size
         self.dz = 0.01
-        self.z_big = np.arange(0, self.z_lim, 0.01) - 15  # master grid
+        self.z_big = np.arange(0, self.z_lim, 0.01) - 25  # master grid
         self.z0 = np.append(np.array([0]), np.cumsum(self.d))
 
         # layer quantities
         self.q_abs = q_abs
         self.frequencies = frequencies
         self.chi_monopole = chi_monopole
+        print(self.chi_monopole.shape)
         self.chi_dipole = chi_dipole
         
         # arange potential and density
-        self.drho_monopole, self.drho_dipole, self.drho_array = \
-            self.arange_densities(drho_monopole, drho_dipole)
-
+        self.drho_monopole, self.drho_dipole, self.basis_array, \
+            self.drho_array = self.arange_basis(drho_monopole, drho_dipole)
+       
         self.dphi_array = self.get_induced_potentials()
         self.kernel_qij = None
 
-    def arange_densities(self, drhom, drhod=None):
+    def arange_basis(self, drhom, drhod=None):
         from scipy.interpolate import interp1d
         drhom /= np.repeat(self.chi_monopole[:, :, 0, np.newaxis],
                            drhom.shape[-1], axis=2)
+
         if drhod is not None:
             drhod /= np.repeat(self.chi_dipole[:, :, 0, np.newaxis],
                                drhod.shape[-1], axis=2)
         Nz = len(self.z_big)
         drho_array = np.zeros([self.dim, len(self.q_abs),
                                Nz], dtype=complex)
+        basis_array = np.zeros([self.dim, Nz], dtype=complex)
         
         for i in range(self.n_types):
             z = self.z[i] - self.z[i, len(self.z[i]) / 2]
-            fm = interp1d(z, drhom)
+            fm = interp1d(z, drhom[i])
             if drhod is not None:
-                fd = interp1d(z, drhod)
+                fd = interp1d(z, drhod[i])
             for k in [k for k in range(self.n_layers) \
                           if self.layer_indices[k] == i]:
                 z_big = self.z_big - self.z0[k]
-                i_1 = np.argmin(np.abs(-self.s[0] / 2. - z_big))
-                i_2 = np.argmin(np.abs(self.s[0] / 2. - z_big))
+                i_1s = np.argmin(np.abs(-self.s[i] / 2. - z_big))
+                i_2s = np.argmin(np.abs(self.s[i] / 2. - z_big))
+
+                i_1 = np.argmin(np.abs(z[0] - z_big)) + 1
+                i_2 = np.argmin(np.abs(z[-1] - z_big)) - 1
                 if drhod is not None:
                     drho_array[2 * k, :, i_1: i_2] = fm(z_big[i_1: i_2])
+                    basis_array[2 * k, i_1s: i_2s] = 1. / self.s[i]
                     drho_array[2 * k + 1, :, i_1: i_2] = fd(z_big[i_1: i_2])
+                    basis_array[2 * k + 1, i_1s: i_2s] = z_big[i_1s: i_2s] \
+                        / (1. / 12 * self.s[i]**3)
                 else:
                     drho_array[k, :, i_1: i_2] = fm(z_big[i_1: i_2])
+                    basis_array[k, i_1s: i_2s] = 1. / self.s[i]
         
-        return drhom, drhod, drho_array
+        return drhom, drhod, basis_array, drho_array
 
     def get_induced_potentials(self):
         from scipy.interpolate import interp1d
@@ -121,7 +131,7 @@ class Heterostructure:
                                                  delta=delta)
                         dphi_array[2 * k + 1, iq, i_1: i_2] = \
                             fd(z_big[i_1: i_2])
-
+        
         return dphi_array
 
     def get_z_grid(self, z, z_lim=None):
@@ -183,6 +193,22 @@ class Heterostructure:
    
         return dphi
     
+    """
+    # Offdiagonal elements of chi_tilde
+    def get_chi_tilde(self): # if density basis overlap
+        drhom_norm = np.repeat(self.chi_monopole[self.layer_indices,
+                                                      :, 0, np.newaxis],
+                                    drho_monopole.shape[-1], axis=2)
+        chi0_qij = np.zeros([len(self.q_abs), self.dim,
+                             self.dim], dtype=complex)
+        drho_array = self.drho_array.copy() * drhom_norm
+        for iq in range(len(self.q_abs)):
+            chi0_qij[iq] = np.dot(drho_array[:, iq],
+                                  self.basis_array.T) * self.dz
+            
+        return chi0_qij
+    """
+        
     def get_Coulomb_Kernel(self, full=True):
         
         kernel_qij = np.zeros([len(self.q_abs), self.dim,
@@ -190,7 +216,14 @@ class Heterostructure:
         for iq in range(len(self.q_abs)):
             kernel_qij[iq] = np.dot(self.drho_array[:, iq],
                                     self.dphi_array[:, iq].T) * self.dz
-
+            if full:  # diagonal calculated with step-function average
+                for n in range(self.dim):
+                    kernel_qij[iq, n, n] = np.dot(self.basis_array[n],
+                                                  self.dphi_array[n, iq]) \
+                                                  * self.dz
+            else:
+                np.fill_diagonal(kernel_qij[iq], 0)
+                
         return kernel_qij
 
     def get_chi_matrix(self):
@@ -340,6 +373,7 @@ def get_chi_2D(filenames, name=None):
 
     nq = len(filenames)
     omega_w, pd, chi_wGG = pickle.load(open(filenames[0]))
+    chi_wGG = np.array(chi_wGG)
     r = pd.gd.get_grid_point_coordinates()
     z = r[2, 0, 0, :]
     L = pd.gd.cell_cv[2, 2]  # Length of cell in Bohr
