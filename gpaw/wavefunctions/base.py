@@ -388,3 +388,15 @@ class WaveFunctions(EmptyWaveFunctions):
                           band_rank * self.gd.comm.size)
             self.world.receive(psit_G, world_rank, 1398)
             return psit_G
+            
+    def read_projections(self, reader):
+        nslice = self.bd.get_slice()
+        for u, kpt in enumerate(self.kpt_u):
+            P_nI = reader.get('Projections', kpt.s, kpt.k)
+            I1 = 0
+            kpt.P_ani = {}
+            for a, setup in enumerate(self.setups):
+                I2 = I1 + setup.ni
+                if self.gd.comm.rank == 0:
+                    kpt.P_ani[a] = np.array(P_nI[nslice, I1:I2], self.dtype)
+                I1 = I2

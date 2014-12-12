@@ -757,15 +757,7 @@ def read(paw, reader, read_projections=True):
 
             del all_P_ni  # delete a potentially large matrix
         elif read_projections and r.has_array('Projections'):
-            for u, kpt in enumerate(wfs.kpt_u):
-                P_ni = r.get('Projections', kpt.s, kpt.k)
-                i1 = 0
-                kpt.P_ani = {}
-                for a, setup in enumerate(wfs.setups):
-                    i2 = i1 + setup.ni
-                    if gd.comm.rank == 0:
-                        kpt.P_ani[a] = np.array(P_ni[nslice, i1:i2], wfs.dtype)
-                    i1 = i2
+            wfs.read_projections(r)
         timer.stop('Projections')
 
     # Manage mode change:
