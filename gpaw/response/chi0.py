@@ -228,7 +228,6 @@ class Chi0(PairDensity):
             if optical_limit and self.intraband:
                 # Avoid that more ranks are summing up
                 # the intraband contributions
-
                 if kpt1.n1 == 0 and self.blockcomm.rank == 0:
                     assert self.nocc2 <= kpt2.nb, \
                         print('Error: Too few unoccupied bands')
@@ -490,7 +489,13 @@ class Chi0(PairDensity):
         nG = chi0_wGG.shape[2]
         mynw = (nw + world.size - 1) // world.size
         mynG = (nG + comm.size - 1) // comm.size
-        
+  
+        wa = min(world.rank * mynw, nw)
+        wb = min(wa + mynw, nw)
+
+        if self.blockcomm.size == 1:
+            return chi0_wGG[wa:wb].copy()
+
         if self.kncomm.rank == 0:
             bg1 = BlacsGrid(comm, 1, comm.size)
             in_wGG = chi0_wGG.reshape((nw, -1))
@@ -503,8 +508,6 @@ class Chi0(PairDensity):
         md2 = BlacsDescriptor(bg2, nw, nG**2, mynw, nG**2)
         
         r = Redistributor(world, md1, md2)
-        wa = min(world.rank * mynw, nw)
-        wb = min(wa + mynw, nw)
         shape = (wb - wa, nG, nG)
         out_wGG = np.empty(shape, complex)
         r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
@@ -515,10 +518,6 @@ class Chi0(PairDensity):
         calc = self.calc
         gd = calc.wfs.gd
 
-        ns = calc.wfs.nspins
-        nk = calc.wfs.kd.nbzkpts
-        nb = self.nocc2
-
         if extra_parameters.get('df_dry_run'):
             from gpaw.mpi import DryRunCommunicator
             size = extra_parameters['df_dry_run']
@@ -526,41 +525,74 @@ class Chi0(PairDensity):
         else:
             world = self.world
 
-        nw = len(self.omega_w)
-        q_c = pd.kd.bzk_kc[0]
-        nstat = (ns * nk * nb + world.size - 1) // world.size
-
         print('%s' % ctime(), file=self.fd)
         print('Called response.chi0.calculate with', file=self.fd)
+
+        q_c = pd.kd.bzk_kc[0]
         print('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]), file=self.fd)
-        print('    Number of frequency points   : %d' % nw, file=self.fd)
-        print('    Planewave cutoff: %f' % (self.ecut * Hartree), file=self.fd)
+
+        nw = len(self.omega_w)
+        print('    Number of frequency points: %d' % nw, file=self.fd)
+
+        ecut = self.ecut * Hartree
+        print('    Planewave cutoff: %f' % ecut, file=self.fd)
+
+        ns = calc.wfs.nspins
         print('    Number of spins: %d' % ns, file=self.fd)
-        print('    Number of bands: %d' % self.nbands, file=self.fd)
+
+        nbands = self.nbands
+        print('    Number of bands: %d' % nbands, file=self.fd)
+
+        nk = calc.wfs.kd.nbzkpts
         print('    Number of kpoints: %d' % nk, file=self.fd)
-        print('    Number of planewaves: %d' % pd.ngmax, file=self.fd)
-        print('    Broadening (eta): %f' % (self.eta * Hartree), file=self.fd)
-        print('    Keep occupied states: %s' % self.keep_occupied_states,
-              file=self.fd)
+
+        nik = calc.wfs.kd.nibzkpts
+        print('    Number of irredicible kpoints: %d' % nik, file=self.fd)
+        
+        ngmax = pd.ngmax
+        print('    Number of planewaves: %d' % ngmax, file=self.fd)
+
+        eta = self.eta * Hartree
+        print('    Broadening (eta): %f' % eta, file=self.fd)
+        
+        wsize = world.size
+        print('    world.size: %d' % wsize, file=self.fd)
+
+        knsize = self.kncomm.size
+        print('    kncomm.size: %d' % knsize, file=self.fd)
+
+        bsize = self.blockcomm.size
+        print('    blockcomm.size: %d' % bsize, file=self.fd)
+        
+        nocc = self.nocc1
+        print('    Number of completely occupied states: %d'
+              % nocc, file=self.fd)
+        
+        npocc = self.nocc2
+        print('    Number of partially occupied states: %d'
+              % npocc, file=self.fd)
+
+        keep = self.keep_occupied_states
+        print('    Keep occupied states: %s' % keep, file=self.fd)
 
         print('', file=self.fd)
-        print('    Related to parallelization', file=self.fd)
-        print('        world.size: %d' % world.size, file=self.fd)
-        print('        Number of completely occupied states: %d'
-              % self.nocc1, file=self.fd)
-        print('        Number of partially occupied states: %d'
-              % self.nocc2, file=self.fd)
-        print('        Number of terms handled in chi-sum by each rank: %d'
-              % nstat, file=self.fd)
+        print('    Memory estimate of potentially large arrays:', file=self.fd)
 
-        print('', file=self.fd)
-        print('    Memory estimate:', file=self.fd)
-        print('        chi0_wGG: %f M / cpu'
-              % (nw * pd.ngmax**2 * 16. / 1024**2), file=self.fd)
-        print('        Occupied states: %f M / cpu' %
-              (nstat * gd.N_c[0] * gd.N_c[1] * gd.N_c[2] * 16. / 1024**2),
+        chisize = nw * pd.ngmax**2 * 16. / 1024**2
+        print('        chi0_wGG: %f M / cpu' % chisize, file=self.fd)
+
+        ngridpoints = gd.N_c[0] * gd.N_c[1] * gd.N_c[2]
+
+        if self.keep_occupied_states:
+            nstat = (ns * nk * npocc + world.size - 1) // world.size
+        else:
+            nstat = (ns * npocc + world.size - 1) // world.size
+
+        occsize = nstat * ngridpoints * 16. / 1024**2
+        print('        Occupied states: %f M / cpu' % occsize,
               file=self.fd)
-        print('        Max mem sofar   : %f M / cpu'
+
+        print('        Memory usage before allocation: %f M / cpu'
               % (maxrss() / 1024**2), file=self.fd)
 
         print('', file=self.fd)
