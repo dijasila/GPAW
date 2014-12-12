@@ -46,7 +46,8 @@ class PAW(PAWTextOutput):
 
     """This is the main calculation object for doing a PAW calculation."""
 
-    def __init__(self, filename=None, timer=None, **kwargs):
+    def __init__(self, filename=None, timer=None,
+                 read_projections=True, **kwargs):
         """ASE-calculator interface.
 
         The following parameters can be used: nbands, xc, kpts,
@@ -133,7 +134,7 @@ class PAW(PAWTextOutput):
                     par.basis = {}
 
             self.initialize()
-            self.read(reader)
+            self.read(reader, read_projections)
             if self.hamiltonian.xc.type == 'GLLB':
                 self.occupations.calculate(self.wfs)
 
@@ -141,8 +142,8 @@ class PAW(PAWTextOutput):
 
         self.observers = []
 
-    def read(self, reader):
-        gpaw.io.read(self, reader)
+    def read(self, reader, read_projections=True):
+        gpaw.io.read(self, reader, read_projections)
 
     def set(self, **kwargs):
         """Change parameters for calculator.

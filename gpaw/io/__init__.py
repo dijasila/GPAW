@@ -278,9 +278,6 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         if setup.type != 'paw':
             key += '(%s)' % setup.type
         w[key] = setup.fingerprint
-        
-        #key = key.replace('Fingerprint', '')
-        #w[key] = setup.parameter_string
 
     setup_types = p['setups']
     if isinstance(setup_types, str):
@@ -534,7 +531,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     timer.stop('Close')
     timer.stop('Write')
 
-   # Creates a db file for CMR, if requested
+    # Creates a db file for CMR, if requested
     if db and not filename.endswith('.db'):
         # Write a db copy to the database
         write(paw, '.db', mode='', cmr_params=cmr_params, **kwargs)
@@ -544,7 +541,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         write(paw, '.db', mode='', cmr_params=cmr_params, **kwargs)
 
 
-def read(paw, reader):
+def read(paw, reader, read_projections=True):
     r = reader
     timer = paw.timer
     timer.start('Read')
@@ -612,10 +609,10 @@ def read(paw, reader):
     from gpaw.utilities.partition import AtomPartition
     atom_partition = AtomPartition(gd.comm, np.zeros(natoms, dtype=int))
     # <sarcasm>let's set some variables directly on some objects!</sarcasm>
-    wfs.atom_partition = atom_partition # XXX
-    wfs.rank_a = np.zeros(natoms, int) # XXX
-    density.atom_partition = atom_partition # XXX
-    hamiltonian.atom_partition = atom_partition # XXX
+    wfs.atom_partition = atom_partition
+    wfs.rank_a = np.zeros(natoms, int)
+    density.atom_partition = atom_partition
+    hamiltonian.atom_partition = atom_partition
 
     if version > 0.3:
         Etot = hamiltonian.Etot
@@ -642,8 +639,6 @@ def read(paw, reader):
             'FermiLevel' in r.get_parameters()):
             paw.occupations.set_fermi_level(r['FermiLevel'])
 
-    #paw.occupations.magmom = paw.atoms.get_initial_magnetic_moments().sum()
-    
     # Try to read the current time and kick strength in time-propagation TDDFT:
     for attr, name in [('time', 'Time'), ('niter', 'TimeSteps'),
                        ('kick_strength', 'AbsorptionKick')]:
@@ -666,7 +661,8 @@ def read(paw, reader):
     if use_fdtd:
         from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
         # fdtd_poisson will overwrite the poisson at a later stage
-        paw.hamiltonian.fdtd_poisson = FDTDPoissonSolver(restart_reader=r, paw=paw)
+        paw.hamiltonian.fdtd_poisson = FDTDPoissonSolver(restart_reader=r,
+                                                         paw=paw)
 
     # Try to read the number of Delta SCF orbitals
     try:
@@ -679,7 +675,8 @@ def read(paw, reader):
     nbands = r.dimension('nbands')
     nslice = bd.get_slice()
 
-    if (nibzkpts != len(wfs.kd.ibzk_kc) or nbands != bd.comm.size * bd.mynbands):
+    if (nibzkpts != len(wfs.kd.ibzk_kc) or
+        nbands != bd.comm.size * bd.mynbands):
         paw.scf.reset()
     else:
         # Verify that symmetries for for k-point reduction hasn't changed:
@@ -737,7 +734,7 @@ def read(paw, reader):
             wfs.read_coefficients(r)
 
         timer.start('Projections')
-        if hdf5:
+        if hdf5 and read_projections:
             # Domain masters read parallel over spin, kpoints and band groups
             cumproj_a = np.cumsum([0] + [setup.ni for setup in wfs.setups])
             all_P_ni = np.empty((bd.mynbands, cumproj_a[-1]),
@@ -759,7 +756,7 @@ def read(paw, reader):
                         kpt.P_ani[a] = P_ni
 
             del all_P_ni  # delete a potentially large matrix
-        elif r.has_array('Projections'):
+        elif read_projections and r.has_array('Projections'):
             for u, kpt in enumerate(wfs.kpt_u):
                 P_ni = r.get('Projections', kpt.s, kpt.k)
                 i1 = 0
@@ -772,7 +769,8 @@ def read(paw, reader):
         timer.stop('Projections')
 
     # Manage mode change:
-    paw.scf.check_convergence(density, wfs.eigensolver, wfs, hamiltonian, paw.forces)
+    paw.scf.check_convergence(density, wfs.eigensolver, wfs, hamiltonian,
+                              paw.forces)
     newmode = paw.input_parameters.mode
     try:
         oldmode = r['Mode']
@@ -846,7 +844,6 @@ def read_wave_function(gd, s, k, n, mode):
 
     ftype, template = wave_function_name_template(mode)
     fname = template % (s, k, n) + '.' + ftype
-##    print 'fname=', fname
 
     i = gd.get_slice()
     r = open(fname, 'r')
