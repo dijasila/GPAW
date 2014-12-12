@@ -81,7 +81,8 @@ class PairDensity:
             if not calc.split('.')[-1] == 'gpw':
                 calc = calc + '.gpw'
             self.reader = io.Reader(calc, comm=mpi.serial_comm)
-            calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
+            calc = GPAW(calc, txt=None, communicator=mpi.serial_comm,
+                        read_projections=False)
         else:
             self.reader = None
             assert calc.wfs.world.size == 1
