@@ -331,7 +331,7 @@ class DielectricFunction:
         if not calculate_chi:
             return chi0_wGG
         else:
-            return chi0_wGG, chi_wGG
+            return pd, chi0_wGG, chi_wGG
 
     def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0],
                                 direction='x', filename='df.csv'):
