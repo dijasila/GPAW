@@ -162,8 +162,8 @@ class SetupData:
         j = 0
         for n, l, f, eps in zip(self.n_j, self.l_j, self.f_j, self.eps_j):
             if n > 0:
-                f = '(%d)' % f
-                text('    %d%s%-4s %7.3f   %5.3f' % (
+                f = '(%.2f)' % f
+                text('    %d%s%-5s %7.3f   %5.3f' % (
                     n, 'spdf'[l], f, eps * Hartree, self.rcut_j[j] * Bohr))
             else:
                 text('    *%s     %7.3f   %5.3f' % (
@@ -288,13 +288,12 @@ class SetupData:
 
         print('  <core_energy kinetic="%r"/>' % self.e_kinetic_core, file=xml)
         print('  <valence_states>', file=xml)
-        line1 = '    <state n="%d" l="%d" f=%s rc="%r" e="%r" id="%s"/>'
+        line1 = '    <state n="%d" l="%d" f="%r" rc="%r" e="%r" id="%s"/>'
         line2 = '    <state       l="%d"        rc="%r" e="%r" id="%s"/>'
 
         for id, l, n, f, e, rc in zip(self.id_j, l_j, self.n_j, self.f_j,
                                       self.eps_j, self.rcut_j):
             if n > 0:
-                f = '%-4s' % ('"%d"' % f)
                 print(line1 % (n, l, f, rc, e, id), file=xml)
             else:
                 print(line2 % (l, rc, e, id), file=xml)
@@ -489,7 +488,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
         elif name == 'state':
             setup.n_j.append(int(attrs.get('n', -1)))
             setup.l_j.append(int(attrs['l']))
-            setup.f_j.append(int(attrs.get('f', 0)))
+            setup.f_j.append(float(attrs.get('f', 0)))
             setup.eps_j.append(float(attrs['e']))
             setup.rcut_j.append(float(attrs.get('rc', -1)))
             setup.id_j.append(attrs['id'])

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
+import copy
 import sys
 from math import pi
 
@@ -338,6 +339,7 @@ class DiracChannel(Channel):
         
 class AllElectronAtom:
     def __init__(self, symbol, xc='LDA', spinpol=False, dirac=False,
+                 configuration=None,
                  log=None):
         """All-electron calculation for spherically symmetric atom.
 
@@ -349,6 +351,8 @@ class AllElectronAtom:
             If true, do spin-polarized calculation.  Default is spin-paired.
         dirac: bool
             Solve Dirac equation instead of Schrödinger equation.
+        configuration: list
+            Electronic configuration for symbol, format as in gpaw.atom.configurations
         log: stream
             Text output."""
 
@@ -360,6 +364,11 @@ class AllElectronAtom:
         self.nspins = 1 + int(bool(spinpol))
 
         self.dirac = bool(dirac)
+
+        if configuration is not None:
+            self.configuration = copy.deepcopy(configuration)
+        else:
+            self.configuration = None
         
         self.scalar_relativistic = False
 
@@ -371,8 +380,8 @@ class AllElectronAtom:
         self.fd = log or sys.stdout
 
         self.vr_sg = None  # potential * r
-        self.n_sg = 0.0    # density
-        self.rgd = None     # radial grid descriptor
+        self.n_sg = 0.0  # density
+        self.rgd = None  # radial grid descriptor
 
         # Energies:
         self.ekin = None
@@ -382,7 +391,7 @@ class AllElectronAtom:
 
         self.channels = None
 
-        self.initialize_configuration()
+        self.initialize_configuration(self.configuration)
 
         self.log('Z:              ', self.Z)
         self.log('Name:           ', atomic_names[self.Z])
@@ -395,9 +404,13 @@ class AllElectronAtom:
     def log(self, *args, **kwargs):
         print(file=self.fd, *args, **kwargs)
 
-    def initialize_configuration(self):
+    def initialize_configuration(self, configuration=None):
         self.f_lsn = {}
-        for n, l, f, e in configurations[self.symbol][1]:
+
+        if configuration is None:
+            configuration = configurations[self.symbol][1]
+
+        for n, l, f, e in configuration:
             
             if l not in self.f_lsn:
                 self.f_lsn[l] = [[] for s in range(self.nspins)]
@@ -651,6 +664,7 @@ class AllElectronAtom:
                 fr_g *= cmp(fr_g[gave], 0)
                 plt.plot(self.rgd.r_g, fr_g,
                          ls=ls, lw=lw, color=colors[n + ch.l], label=name)
+
         plt.legend(loc='best')
         plt.xlabel('r [Bohr]')
         plt.ylabel('$r\\phi(r)$')

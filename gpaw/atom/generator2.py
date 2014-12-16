@@ -411,7 +411,10 @@ class PAWSetupGenerator:
         self.ekincore = 0.0
         for l, ch in enumerate(self.aea.channels):
             for n, f in enumerate(ch.f_n):
-                if l <= self.lmax and n + l + 1 in self.states[l]:
+                if (l <= self.lmax and
+                    any(n + l + 1 == nn
+                        for nn in self.states[l]
+                        if isinstance(nn, int))):
                     self.nvalence += f
                 else:
                     self.nc_g += f * ch.calculate_density(n)
@@ -533,7 +536,7 @@ class PAWSetupGenerator:
                              ('spdf'[l], e, e * Hartree, waves.rcut))
                 else:
                     self.log(
-                        ' %d%s     %2d  %10.6f %10.5f      %5.3f  %9.2f' %
+                        ' %d%s   %5.2f %10.6f %10.5f      %5.3f  %9.2f' %
                         (n, 'spdf'[l], f, e, e * Hartree, 1 - ds,
                          waves.rcut))
         self.log()
@@ -1165,6 +1168,8 @@ def main(argv=None):
     add('-f', '--xc-functional', type='string', default='LDA',
         help='Exchange-Correlation functional (default value LDA)',
         metavar='<XC>')
+    add('-C', '--configuration',
+        help='e.g. for Li: "[(1, 0, 2, -1.878564), (2, 0, 1, -0.10554), (2, 1, 0, 0.0)]"')
     add('-P', '--projectors',
         help='Projector functions - use comma-separated - ' +
         'nl values, where n can be pricipal quantum number ' +
@@ -1279,6 +1284,11 @@ def get_parameters(symbol, opt):
     else:
         extra = {}
 
+    if opt.configuration:
+        configuration = eval(opt.configuration)
+    else:
+        configuration = None
+
     if opt.projectors:
         projectors = opt.projectors
 
@@ -1313,6 +1323,7 @@ def get_parameters(symbol, opt):
         
     return dict(symbol=symbol,
                 xc=opt.xc_functional,
+                configuration=configuration,
                 projectors=projectors,
                 radii=radii,
                 scalar_relativistic=opt.scalar_relativistic, alpha=opt.alpha,
@@ -1322,13 +1333,13 @@ def get_parameters(symbol, opt):
                 output=opt.output)
 
 
-def _generate(symbol, xc, projectors, radii,
+def _generate(symbol, xc, configuration, projectors, radii,
               scalar_relativistic, alpha,
               r0, nderiv0,
               pseudize, rcore, core_hole, output):
     if output is not None:
         output = open(output, 'w')
-    aea = AllElectronAtom(symbol, xc, log=output)
+    aea = AllElectronAtom(symbol, xc, configuration=configuration, log=output)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
                             fd=output)
 
