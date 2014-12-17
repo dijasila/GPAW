@@ -99,29 +99,33 @@ class GaussianBasis:
         return V_bb
 
 
-def coefs(rgd, l, vr_g, e, scalar_relativistic):
+def coefs(rgd, l, vr_g, e, scalar_relativistic=False, Z=None):
     r_g = rgd.r_g
 
-    x0_g = 2 * (e * r_g - vr_g) * r_g - 2 * l
-    x1_g = 2 * l * r_g / rgd.dr_g + r_g**2 * rgd.d2gdr2()
+    x0_g = 2 * (e * r_g - vr_g) * r_g
+    x1_g = 2 * (l + 1) * r_g / rgd.dr_g + r_g**2 * rgd.d2gdr2()
     x2_g = r_g**2 / rgd.dr_g**2
-
+    x = 1.0
+    
     if scalar_relativistic:
+        x = (1 + l + l**2 - (Z / c)**2)**0.5 - l
         r_g = r_g.copy()
         r_g[0] = 1.0
         v_g = vr_g / r_g
         M_g = 1 + (e - v_g) / (2 * c**2)
         kappa_g = (rgd.derivative(vr_g) - v_g) / r_g / (2 * c**2 * M_g)
-        x0_g += 2 * l
-        x0_g *= M_g
-        x0_g += (l - 1) * kappa_g * r_g - 2 * l
-        x1_g += r_g**2 * kappa_g / rgd.dr_g
+        x0_g = (2 * M_g * (e * r_g - vr_g) * r_g +
+                (l + x - 1) * kappa_g * r_g +
+                (l + x) * (l + x - 1) - l * (l + 1))
+        x1_g = (2 * (l + x) * r_g / rgd.dr_g +
+                r_g**2 * rgd.d2gdr2() +
+                r_g**2 * kappa_g / rgd.dr_g)
 
     cm1_g = x2_g - x1_g / 2
     c0_g = x0_g - 2 * x2_g
     cp1_g = x2_g + x1_g / 2
     
-    return cm1_g, c0_g, cp1_g
+    return cm1_g, c0_g, cp1_g, x
     
 
 class Channel:
@@ -136,7 +140,8 @@ class Channel:
         self.phi_ng = None                     # wave functions
         
         self.name = 'spdfg'[l]
-
+        self.solve2ok = False
+        
     def solve(self, vr_g):
         """Diagonalize Schrödinger equation in basis set."""
         H_bb = self.basis.calculate_potential_matrix(vr_g)
@@ -145,11 +150,12 @@ class Channel:
         self.C_nb = C_bn.T
         self.phi_ng = self.basis.expand(self.C_nb[:len(self.f_n)])
 
-    def solve2(self, vr_g, scalar_relativistic=False):
+    def solve2(self, vr_g, scalar_relativistic=False, Z=None):
         rgd = self.basis.rgd
         r_g = rgd.r_g
         l = self.l
         u_g = rgd.empty()
+        self.solve2ok = True
         for n in range(len(self.f_n)):
             e = self.e_n[n]
 
@@ -163,10 +169,10 @@ class Channel:
             ok = False
             while True:
                 du1dr, a = self.integrate_outwards(u_g, rgd, vr_g, g0, e,
-                                                   scalar_relativistic)
+                                                   scalar_relativistic, Z)
                 u1 = u_g[g0]
                 du2dr = self.integrate_inwards(u_g, rgd, vr_g, g0, e,
-                                               scalar_relativistic)
+                                               scalar_relativistic, Z)
                 u2 = u_g[g0]
                 A = du1dr / u1 - du2dr / u2
                 u_g[g0:] *= u1 / u2
@@ -174,21 +180,30 @@ class Channel:
                 u_g /= norm**0.5
                 a /= norm**0.5
 
-                if abs(A) < 1e-5:
+                nodes = (u_g[:-1] * u_g[1:] < 0).sum()
+
+                if abs(A) < 1e-5 and nodes == n:
                     ok = True
                     break
 
-                e += 0.5 * A * u_g[g0]**2
-                if e > 0:
-                    break
+                if nodes > n:
+                    e *= 1.2
+                elif nodes < n:
+                    e *= 0.8
+                else:
+                    e += 0.5 * A * u_g[g0]**2
+                    if e > 0:
+                        break
                 
                 iter += 1
                 assert iter < 400, (n, l, e)
-            
+                
             if ok:
                 self.e_n[n] = e
                 self.phi_ng[n, 1:] = u_g[1:] / r_g[1:]
-                self.phi_ng[n, 0] = a * 0.0**self.l
+                self.phi_ng[n, 0] = a
+            else:
+                self.solve2ok = False
             
     def calculate_density(self, n=None):
         """Calculate density."""
@@ -215,11 +230,11 @@ class Channel:
         return np.dot(f_n, self.e_n[:len(f_n)])
 
     def integrate_outwards(self, u_g, rgd, vr_g, g0, e,
-                           scalar_relativistic=False, pt_g=None):
+                           scalar_relativistic=False, Z=None, pt_g=None):
         l = self.l
         r_g = rgd.r_g
 
-        cm1_g, c0_g, cp1_g = coefs(rgd, l, vr_g, e, scalar_relativistic)
+        cm1_g, c0_g, cp1_g, x = coefs(rgd, l, vr_g, e, scalar_relativistic, Z)
 
         # c_xg = np.zeros((3, g0 + 2))
         # c_xg[0, :2] = 1.0
@@ -238,11 +253,11 @@ class Channel:
         #                    overwrite_ab=True, overwrite_b=True)
         
         g = 1
-        agm1 = 0.0
+        agm1 = 1.0
         u_g[0] = 0.0
-        ag = r_g[1]
+        ag = 1.0
         while True:
-            u_g[g] = ag * r_g[g]**l
+            u_g[g] = ag * r_g[g]**(l + x)
             agp1 = -(agm1 * cm1_g[g] + ag * c0_g[g]) / cp1_g[g]
             if g == g0:
                 break
@@ -253,16 +268,21 @@ class Channel:
         r = r_g[g0]
         dr = rgd.dr_g[g0]
         da = 0.5 * (agp1 - agm1)
-        dudr = l * r**(l - 1) * ag + r**l * da / dr
+        dudr = (l + x) * r**(l + x - 1) * ag + r**(l + x) * da / dr
 
-        return dudr, 1.0
+        if l - 1 + x < 0:
+            phi0 = (r_g[1] * 0.1)**(l - 1 + x)
+        else:
+            phi0 = 0.0**(l - 1 + x)
+            
+        return dudr, phi0
 
     def integrate_inwards(self, u_g, rgd, vr_g, g0, e,
-                          scalar_relativistic=False, gmax=None):
+                          scalar_relativistic=False, Z=None, gmax=None):
         l = self.l
         r_g = rgd.r_g
 
-        cm1_g, c0_g, cp1_g = coefs(rgd, l, vr_g, e, scalar_relativistic)
+        cm1_g, c0_g, cp1_g, x = coefs(rgd, l, vr_g, e, scalar_relativistic, Z)
 
         cm1_g[:g0] = 1.0  # prevent division by zero
         c0_g /= -cm1_g
@@ -273,12 +293,11 @@ class Channel:
 
         g = gmax - 2
         agp1 = 1.0
-        u_g[gmax - 1] = agp1 * r_g[gmax - 1]**l
-        ag = (np.exp(-(-2 * e)**0.5 * (r_g[gmax - 2] - r_g[gmax - 1])) *
-              r_g[gmax - 2] / r_g[gmax - 1])
+        u_g[gmax - 1] = agp1 * r_g[gmax - 1]**(l + x)
+        ag = np.exp(-(-2 * e)**0.5 * (r_g[gmax - 2] - r_g[gmax - 1]))
 
         while True:
-            u_g[g] = ag * r_g[g]**l
+            u_g[g] = ag * r_g[g]**(l + x)
             if ag > 1e50:
                 u_g[g:] /= 1e50
                 ag = ag / 1e50
@@ -293,7 +312,7 @@ class Channel:
         r = r_g[g]
         dr = rgd.dr_g[g]
         da = 0.5 * (agp1 - agm1)
-        dudr = l * r**(l - 1) * ag + r**l * da / dr
+        dudr = (l + x) * r**(l + x - 1) * ag + r**(l + x) * da / dr
 
         return dudr
 
@@ -520,7 +539,8 @@ class AllElectronAtom:
             if self.method == 'Gaussian basis-set':
                 channel.solve(self.vr_sg[channel.s])
             else:
-                channel.solve2(self.vr_sg[channel.s], self.scalar_relativistic)
+                channel.solve2(self.vr_sg[channel.s], self.scalar_relativistic,
+                               self.Z)
             self.eeig += channel.get_eigenvalue_sum()
 
     def calculate_density(self):
@@ -582,6 +602,11 @@ class AllElectronAtom:
             self.step()
 
         self.summary()
+        
+        if self.method != 'Gaussian basis-set':
+            for channel in self.channels:
+                assert channel.solve2ok
+
         if dn > dnmax:
             raise RuntimeError('Did not converge!')
 

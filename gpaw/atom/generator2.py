@@ -462,9 +462,10 @@ class PAWSetupGenerator:
                     ch = Channel(l)
                     a = ch.integrate_outwards(phi_g, self.rgd,
                                               self.aea.vr_sg[0], gc, e,
-                                              self.aea.scalar_relativistic)[1]
+                                              self.aea.scalar_relativistic,
+                                              self.aea.Z)[1]
                     phi_g[1:gc + 1] /= self.rgd.r_g[1:gc + 1]
-                    phi_g[0] = a * 0.0**l
+                    phi_g[0] = a
                     phi_g /= (self.rgd.integrate(phi_g**2) / (4 * pi))**0.5
 
                 waves.add(phi_g, n, e, f)
@@ -582,9 +583,9 @@ class PAWSetupGenerator:
         ch = Channel(l0)
         phi_g = self.rgd.zeros()
         a = ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0], gc, e0,
-                                  self.aea.scalar_relativistic)[1]
+                                  self.aea.scalar_relativistic, self.aea.Z)[1]
         phi_g[1:gc] /= self.rgd.r_g[1:gc]
-        phi_g[0] = a * 0.0**l0
+        phi_g[0] = a
 
         phit_g, c = self.rgd.pseudize(phi_g, g0, l=l0, points=P)
 
