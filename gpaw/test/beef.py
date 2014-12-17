@@ -1,5 +1,5 @@
 from ase import Atoms
-from ase.dft.bee import BEEFEnsemble
+from ase.dft.bee import BEEFEnsemble, readbee
 from gpaw import GPAW
 from gpaw.test import equal, gen
 import _gpaw
@@ -25,10 +25,10 @@ for xc, E0, dE0 in [('mBEEF', 4.86, 0.16),
     h2.calc = GPAW(txt='H2-' + xc + '.txt', convergence=c)
     h2.get_potential_energy()
     h2.calc.set(xc=xc)
-    e_h2 = h2.get_potential_energy()
-    f = h2.get_forces()
+    h2.get_potential_energy()
+    h2.get_forces()
     ens = BEEFEnsemble(h2.calc)
-    de_h2 = ens.get_ensemble_energies()
+    e_h2 = ens.get_ensemble_energies()
 
     # H atom:
     h = Atoms('H', cell=h2.cell, magmoms=[1])
@@ -36,13 +36,16 @@ for xc, E0, dE0 in [('mBEEF', 4.86, 0.16),
     h.calc = GPAW(txt='H-' + xc + '.txt', convergence=c)
     h.get_potential_energy()
     h.calc.set(xc=xc)
-    e_h = h.get_potential_energy()
+    h.get_potential_energy()
     ens = BEEFEnsemble(h.calc)
-    de_h = ens.get_ensemble_energies()
+    e_h = ens.get_ensemble_energies()
 
     # binding energy
-    E = 2 * e_h - e_h2
-    dE = (2 * de_h - de_h2).std()
-    print(E, dE)
-    equal(E, E0, 0.01)
-    equal(dE, dE0, 0.01)
+    ae = 2 * e_h - e_h2
+    print(ae.mean(), ae.std())
+    equal(ae.mean(), E0, 0.01)
+    equal(ae.std(), dE0, 0.01)
+    
+ens.write('H')
+e, de = readbee('H')
+equal(abs(e + de - e_h).max(), 0, 1e-12)
