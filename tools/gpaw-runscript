@@ -1,4 +1,4 @@
-#!/usr/local/software/juropatest/Stage1/software/MPI/intel/2015.0.090/psmpi/5.1.0-1/Python/2.7.8/bin/python
+#!/bin/env python
 # Emacs: treat this as -*- python -*-
 
 import os
