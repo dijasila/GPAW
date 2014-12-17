@@ -563,8 +563,10 @@ class PAWSetupGenerator:
             v_g = self.aea.vr_sg[0, g0 - 1:g0 + 2] / r_g[g0 - 1:g0 + 2]
             v0 = v_g[1]
             v1 = (v_g[2] - v_g[0]) / 2 / self.rgd.dr_g[g0]
+
             def f(x):
                 return x / np.tan(x) - 1 - v1 * r0 / v0
+            
             q = root(f, 2).x / r0
             A = v0 * r0 / np.sin(q * r0)
             self.vtr_g = self.aea.vr_sg[0].copy()
@@ -701,7 +703,6 @@ class PAWSetupGenerator:
         G_k, nt_k = self.rgd.fft(self.nt_g * r_g)
         rhot_k = self.rgd.fft(self.rhot_g * r_g)[1]
         ghat_k = self.rgd.fft(self.ghat_g * r_g)[1]
-        v0_k = self.rgd.fft(self.v0r_g)[1]
         vt_k = self.rgd.fft(self.vtr_g)[1]
         phi_k = self.rgd.fft(self.waves_l[0].phit_ng[0] * r_g)[1]
         eee_k = 0.5 * nt_k**2 * (4 * pi)**2 / (2 * pi)**3
@@ -1170,7 +1171,8 @@ def main(argv=None):
         help='Exchange-Correlation functional (default value LDA)',
         metavar='<XC>')
     add('-C', '--configuration',
-        help='e.g. for Li: "[(1, 0, 2, -1.878564), (2, 0, 1, -0.10554), (2, 1, 0, 0.0)]"')
+        help='e.g. for Li: "[(1, 0, 2, -1.878564), (2, 0, 1, -0.10554),'
+        '(2, 1, 0, 0.0)]"')
     add('-P', '--projectors',
         help='Projector functions - use comma-separated - ' +
         'nl values, where n can be pricipal quantum number ' +
@@ -1213,7 +1215,7 @@ def main(argv=None):
             gen.check_all()
 
         if opt.create_basis_set or opt.write:
-            #basis = gen.create_basis_set()
+            basis = None  # gen.create_basis_set()
             
             if opt.create_basis_set:
                 basis.write_xml()

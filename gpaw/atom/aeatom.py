@@ -371,7 +371,8 @@ class AllElectronAtom:
         dirac: bool
             Solve Dirac equation instead of Schrödinger equation.
         configuration: list
-            Electronic configuration for symbol, format as in gpaw.atom.configurations
+            Electronic configuration for symbol, format as in
+            gpaw.atom.configurations
         log: stream
             Text output."""
 
@@ -585,7 +586,9 @@ class AllElectronAtom:
         self.log('\nSolving %s equation using %s:' % (equation, self.method))
 
         dn = self.Z
-        
+
+        vr_old_sg = None
+        n_old_sg = None
         for iter in range(maxiter):
             self.log('.', end='')
             self.fd.flush()
