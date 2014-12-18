@@ -2,6 +2,7 @@ from ase import Atoms
 from ase.dft.bee import BEEFEnsemble, readbee
 from gpaw import GPAW
 from gpaw.test import equal, gen
+from gpaw.mpi import world
 import _gpaw
 
 newlibxc = _gpaw.lxcXCFuncNum('MGGA_X_MBEEF') is not None
@@ -47,5 +48,6 @@ for xc, E0, dE0 in [('mBEEF', 4.86, 0.16),
     equal(ae.std(), dE0, 0.01)
     
 ens.write('H')
+world.barrier()
 e, de = readbee('H')
 equal(abs(e + de - e_h).max(), 0, 1e-12)
