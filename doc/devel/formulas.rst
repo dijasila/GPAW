@@ -140,15 +140,14 @@ radial Schrödinger equation:
    = \epsilon u.
 
 We want to solve this equation on a non-equidistant radial grid with
-`r_g=r(g)` for `g=0,1,...`.  Inserting `u(r) = a(g) r^\ell`, we
+`r_g=r(g)` for `g=0,1,...`.  Inserting `u(r) = a(g) r^{\ell+1}`, we
 get:
 
 .. math::
 
    \frac{d^2 a}{dg^2} (\frac{dg}{dr})^2 r^2 +
-   \frac{da}{dg}(r^2 \frac{d^2g}{dr^2} + 2 \ell r \frac{dg}{dr}) -
-   2 \ell a +
-   2 r^2 (\epsilon - v) a = 0.
+   \frac{da}{dg}(r^2 \frac{d^2g}{dr^2} + 2 (\ell+1) r \frac{dg}{dr}) -
+   2 r^2 (v - \epsilon) a = 0.
 
 
 Including Scalar-relativistic corrections
@@ -168,11 +167,19 @@ where the relativistic mass is:
 
    M = 1 - \frac{1}{2c^2} (v - \epsilon).
 
-With `u(r) = a(g) r^\ell` and `\kappa = (dv/dr)/(2Mc^2)`:
+With `u(r) = a(g) r^\alpha`, `\kappa = (dv/dr)/(2Mc^2)` and
+
+.. math::
+    
+    \alpha = \sqrt{\ell^2 + \ell + 1 -(Z/c)^2},
+    
+we get:
 
 .. math::
 
    \frac{d^2 a}{dg^2} (\frac{dg}{dr})^2 r^2 +
    \frac{da}{dg}(r^2 \kappa \frac{dg}{dr} + r^2 \frac{d^2g}{dr^2} +
-   2 \ell r \frac{dg}{dr}) +
-   [2 M r^2 (\epsilon - v) - 2 \ell + \kappa (\ell - 1) r] a = 0.
+   2 \alpha r \frac{dg}{dr}) +
+   [2 M r^2 (\epsilon - v) +
+   \alpha (\alpha - 1) - \ell (\ell + 1)
+    + \kappa (\alpha - 1) r] a = 0.
