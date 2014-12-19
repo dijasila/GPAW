@@ -249,7 +249,7 @@ PyObject* general_diagonalize(PyObject *self, PyObject *args)
     {
       if (iu == -1)
         {
-          int lwork = MAX((NB + 2) * n, 3 * n - 1);
+          int lwork = MAX((NB + 2) * n, 3 * n + 1);
           double* work = GPAW_MALLOC(double, lwork);
           dsygv_(&itype, &jobz, &uplo, &n, DOUBLEP(a), &lda,
                  DOUBLEP(b), &ldb, DOUBLEP(w),
@@ -279,7 +279,7 @@ PyObject* general_diagonalize(PyObject *self, PyObject *args)
     {
       if (iu == -1)
         {
-          int lwork = MAX((NB + 1) * n, 2 * n - 1);
+          int lwork = MAX((NB + 1) * n, 2 * n + 1);
           int lrwork = MAX(1, 3 * n - 2);
           void* work = GPAW_MALLOC(double_complex, lwork);
           double* rwork = GPAW_MALLOC(double, lrwork);
