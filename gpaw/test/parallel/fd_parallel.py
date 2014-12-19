@@ -1,9 +1,11 @@
 from __future__ import print_function
 import sys
 
+from ase.utils import devnull
+
 from gpaw import GPAW
 from gpaw import KohnShamConvergenceError
-from gpaw.utilities import devnull, compiled_with_sl
+from gpaw.utilities import compiled_with_sl
 from gpaw.mpi import world
 
 from ase.structure import molecule

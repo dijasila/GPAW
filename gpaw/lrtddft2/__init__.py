@@ -14,6 +14,8 @@ import resource
 
 import numpy as np
 import ase.units
+from ase.utils import devnull
+
 import gpaw.mpi
 from gpaw.xc import XC
 from gpaw.poisson import PoissonSolver
@@ -24,8 +26,6 @@ from gpaw.utilities.tools import coordinates
 from gpaw.utilities.tools import pick
 from gpaw.parameters import InputParameters
 from gpaw.blacs import BlacsGrid, Redistributor
-
-from gpaw.utilities import devnull
 
 import _gpaw
 from gpaw.mpi import rank, alltoallv_string

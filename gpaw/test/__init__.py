@@ -7,9 +7,11 @@ import traceback
 
 import numpy as np
 
+from ase.utils import devnull
+
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters, tf_parameters
-from gpaw.utilities import devnull, compiled_with_sl
+from gpaw.utilities import compiled_with_sl
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw

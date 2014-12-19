@@ -9,11 +9,11 @@ import ase
 from ase.units import Bohr, Hartree
 from ase.data import chemical_symbols
 from ase.version import version as ase_version
+from ase.utils import devnull
 
 import gpaw
 import _gpaw
 from gpaw.version import version
-from gpaw.utilities import devnull
 from gpaw.utilities.memory import maxrss
 from gpaw import dry_run, extra_parameters
 

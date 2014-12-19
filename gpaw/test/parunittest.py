@@ -29,9 +29,11 @@ import numpy as np
 from unittest import TestResult, TestCase, TestSuite, \
                      _TextTestResult, TextTestRunner, TestLoader, \
                      FunctionTestCase, TestProgram, defaultTestLoader
+
+from ase.utils import devnull
+
 from gpaw import debug
 from gpaw.mpi import world, broadcast_string
-from gpaw.utilities import devnull
 
 # -------------------------------------------------------------------
 # Exported classes and functions

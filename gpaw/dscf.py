@@ -17,8 +17,9 @@ import numpy as np
 
 from ase.parallel import paropen
 from ase.units import Hartree
+from ase.utils import devnull
+
 from gpaw import mpi
-from gpaw.utilities import devnull
 from gpaw.occupations import OccupationNumbers, FermiDirac
 
 

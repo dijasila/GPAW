@@ -14,11 +14,12 @@ import os
 
 import numpy as np
 from ase.data import atomic_names
+from ase.utils import devnull
 
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC
-from gpaw.utilities import hartree, devnull
+from gpaw.utilities import hartree
 from gpaw import ConvergenceError
 
 tempdir = tempfile.gettempdir()
