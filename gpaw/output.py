@@ -10,27 +10,13 @@ from ase.units import Bohr, Hartree
 from ase.data import chemical_symbols
 from ase.version import version as ase_version
 from ase.utils import devnull
+from ase.parallel import get_txt
 
 import gpaw
 import _gpaw
 from gpaw.version import version
 from gpaw.utilities.memory import maxrss
 from gpaw import dry_run, extra_parameters
-
-
-def get_txt(txt, rank):
-    if hasattr(txt, 'write'):
-        # Note: User-supplied object might write to files from many ranks.
-        return txt
-    elif rank == 0:
-        if txt is None:
-            return devnull
-        elif txt == '-':
-            return sys.stdout
-        else:
-            return open(txt, 'w', 1)
-    else:
-        return devnull
 
 
 class PAWTextOutput:
