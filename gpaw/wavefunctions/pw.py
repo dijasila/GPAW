@@ -714,13 +714,18 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     @timer('Full diag')
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
-                                     nbands=None, scalapack=None):
+                                     nbands=None, scalapack=None, expert=False):
         assert self.dtype == complex
 
         if nbands is None:
             nbands = self.pd.ngmin // self.bd.comm.size * self.bd.comm.size
         else:
             assert nbands <= self.pd.ngmin
+
+        if expert:
+            iu = nbands
+        else:
+            iu = None
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 
@@ -779,7 +784,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             eps_n = np.empty(npw)
 
             with self.timer('Diagonalize'):
-                md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
+                md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n, 
+                                           iu=iu)
             del H_GG, S_GG
 
             kpt.eps_n = eps_n[myslice].copy()

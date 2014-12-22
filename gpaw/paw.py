@@ -1017,10 +1017,10 @@ class PAW(PAWTextOutput):
 
             self.calculate()
 
-    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None):
+    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None, expert=False):
         self.wfs.diagonalize_full_hamiltonian(self.hamiltonian, self.atoms,
                                               self.occupations, self.txt,
-                                              nbands, scalapack)
+                                              nbands, scalapack, expert)
 
     def check_atoms(self):
         """Check that atoms objects are identical on all processors."""
