@@ -784,8 +784,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
             eps_n = np.empty(npw)
 
             with self.timer('Diagonalize'):
-                md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n, 
-                                           iu=iu)
+                if not scalapack:
+                    md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n, 
+                                               iu=iu)
+                else:
+                    md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
             del H_GG, S_GG
 
             kpt.eps_n = eps_n[myslice].copy()
