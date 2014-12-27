@@ -44,10 +44,10 @@ for xc, E0, dE0 in [('mBEEF', 4.86, 0.16),
     # binding energy
     ae = 2 * e_h - e_h2
     print(ae.mean(), ae.std())
-    equal(ae.mean(), E0, 0.01)
-    equal(ae.std(), dE0, 0.01)
+    equal(ae.mean(), E0, 0.015)
+    equal(ae.std(), dE0, 0.015)
     
 ens.write('H')
 world.barrier()
-e, de = readbee('H')
-equal(abs(e + de - e_h).max(), 0, 1e-12)
+energies = readbee('H')
+equal(abs(energies - e_h).max(), 0, 1e-12)
