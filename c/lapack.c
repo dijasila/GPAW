@@ -243,7 +243,7 @@ PyObject* general_diagonalize(PyObject *self, PyObject *args)
   int info = 0;
   int ispec = 1;
   int dummy = -1;
-  int NB = ilaenv_(&ispec, "dsytrd", &uplo, &n, &dummy, &dummy, &dummy);
+  int NB = 1; //ilaenv_(&ispec, "dsytrd", &uplo, &n, &dummy, &dummy, &dummy);
 
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
