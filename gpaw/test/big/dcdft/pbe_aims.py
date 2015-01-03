@@ -34,7 +34,13 @@ relativistic = 'none'
 relativistic = 1.e-12
 relativistic = 'scalar'
 
-linspace = (0.98, 1.02, 5)  # eos numpy's linspace
+sc_accuracy_rho = 1.e-4
+sc_accuracy_eev = 5.e-3
+
+if relativistic == 'none':
+    linspace = (0.92, 1.08, 7)  # eos numpy's linspace
+else:
+    linspace = (0.98, 1.02, 5)  # eos numpy's linspace
 linspacestr = ''.join([str(t) + 'x' for t in linspace])[:-1]
 
 code = 'aims' + '-' + basis + '_e' + linspacestr
@@ -60,10 +66,25 @@ for name in names:
     elif relativistic == 'none':
         kwargs.update({'relativistic': 'none'})
     else:  # e.g. 1.0e-12
-        kwargs.update({'relativistic': ['zora', relativistic]})
+        kwargs.update({'relativistic': ['zora', 'scalar', relativistic]})
     if atoms.get_initial_magnetic_moments().any():  # spin-polarization
         magmom = atoms.get_initial_magnetic_moments().sum() / len(atoms)
-        kwargs.update({'default_initial_moment': magmom, 'spin': 'collinear'})
+        kwargs.update({'spin': 'collinear'})
+    # convergence problems for tier2
+    charge_mix_param = 0.01
+    basis_threshold = 0.00001
+    if basis in ['tier2']:
+        if name in ['Cr', 'Fe'] and relativistic == 'none':
+            basis_threshold = 0.00005
+            sc_accuracy_rho=2.5e-3
+            sc_accuracy_eev=5.e-3
+        if name in ['Mn']:
+            charge_mix_param = 0.01
+            basis_threshold = 0.00005
+            sc_accuracy_rho=2.5e-3
+            sc_accuracy_eev=5.e-3
+            if relativistic == 'none':
+                sc_accuracy_rho=3.0e-3
     # loop over EOS linspace
     for n, x in enumerate(np.linspace(linspace[0], linspace[1], linspace[2])):
         id = c.reserve(name=name, basis=basis, linspacestr=linspacestr,
@@ -82,13 +103,14 @@ for name in names:
             xc='PBE',
             kpts=kpts,
             KS_method='elpa',
-            sc_accuracy_rho=1.e-4,
-            sc_accuracy_eev=5.e-3,
+            sc_accuracy_rho=sc_accuracy_rho,
+            sc_accuracy_eev=sc_accuracy_eev,
             occupation_type=['gaussian', width],
             override_relativity=True,
             override_illconditioning=True,
             basis_threshold=basis_threshold,
-            charge_mix_param=0.01,
+            charge_mix_param=charge_mix_param,
+            sc_iter_limit=9000,
             )
         atoms.calc.set(**kwargs)  # remaining calc keywords
         t = time.time()
