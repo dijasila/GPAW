@@ -13,6 +13,7 @@ from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
 from gpaw import debug
+from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0, HilbertTransform
 from gpaw.response.pair import PairDensity
@@ -83,6 +84,7 @@ class G0W0(PairDensity):
         p(' |___|')
         p()
 
+        self.inputcalc = calc
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
                              txt=txt)
 
@@ -372,7 +374,7 @@ class G0W0(PairDensity):
                           'domega0': self.domega0 * Hartree,
                           'omega2': self.omega2 * Hartree}
         
-        chi0 = Chi0(self.calc,
+        chi0 = Chi0(self.inputcalc,
                     nbands=self.nbands,
                     ecut=self.ecut * Hartree,
                     intraband=False,
@@ -423,6 +425,8 @@ class G0W0(PairDensity):
                 # Read screened potential from file
                 with open(wfilename) as fd:
                     pd, W = pickle.load(fd)
+                # We also need to initialize the PAW corrections
+                self.Q_aGii = self.initialize_paw_corrections(pd)
             else:
                 # First time calculation
                 pd, W = self.calculate_w(chi0, q_c, htp, htm, wstc, A1_x, A2_x)
