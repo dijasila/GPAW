@@ -124,7 +124,7 @@ void zgttrs_(char* tran, int* n, int* nrhs, void* dl,
                void* d, void* du, void* du2,
                int* ipiv, void* b, int* ldb, int* info);
 int ilaenv_(int* ispec, char* name, char* opts, int* n1, 
-            int* n2, int* n3, int* n4);
+            int* n2, int* n3, int* n4, short name_len, short opts_len);
 
 PyObject* diagonalize(PyObject *self, PyObject *args)
 {
@@ -243,10 +243,13 @@ PyObject* general_diagonalize(PyObject *self, PyObject *args)
   int info = 0;
   int ispec = 1;
   int dummy = -1;
-  int NB = 1; //ilaenv_(&ispec, "dsytrd", &uplo, &n, &dummy, &dummy, &dummy);
 
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
+      // Optimal number of blocks for dsygv(x)_
+      int NB = ilaenv_(&ispec, "dsytrd", &uplo, &n, &dummy, &dummy, &dummy,
+                       6, 1);
+
       if (iu == -1)
         {
           int lwork = MAX((NB + 2) * n, 3 * n + 1);
@@ -277,6 +280,10 @@ PyObject* general_diagonalize(PyObject *self, PyObject *args)
     }
   else
     {
+      // Optimal number of blocks for zhegv(x)_
+      int NB = ilaenv_(&ispec, "zhetrd", &uplo, &n, &dummy, &dummy, &dummy, 
+                       6, 1);
+
       if (iu == -1)
         {
           int lwork = MAX((NB + 1) * n, 2 * n + 1);
