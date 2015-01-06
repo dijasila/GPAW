@@ -450,9 +450,16 @@ class Transport(GPAW):
                 _tmp = GPAW(self.lead_calculators[i])
                 pl_params = _tmp.input_parameters.copy()
                 pl_params['parallel'] = self.input_parameters['parallel'].copy()
-                self.log('  self.input_parameters[parallel] {0}'.format(pl_params['parallel']))
+                # self.log('  self.input_parameters[parallel] {0}'.format(pl_params['parallel']))
                 #pl_params['parallel'].update(band=self.wfs.bd.comm.size, domain=self.wfs.gd.parsize_c)
                 #parprint('>>> self.input_parameters[parallel] updated {0}'.format(pl_params['parallel']))
+                #parprint('>>> pl_params <<<')
+                for k,v in pl_params.iteritems():
+                    parprint(' k: {0} v: {1}'.format(k,v))
+                depricated_keys = ['parsize', 'parsize_bands', 'parstride_bands', 'filter']
+                for k in depricated_keys:
+                    if pl_params.has_key(k):    
+                        del pl_params[k]
                 _lc = Lead_Calc(self.lead_calculators[i], **pl_params)
                 #atoms = _lc.get_atoms()
                 _lc.initialize(atoms)
