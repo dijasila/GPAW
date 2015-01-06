@@ -281,9 +281,8 @@ class Chi0(PairDensity):
             self.world.broadcast(chi0_vv, 0)
 
             chi0_wvv += (chi0_vv[np.newaxis] /
-                         (omega_w[:, np.newaxis, np.newaxis] *
-                          (omega_w[:, np.newaxis, np.newaxis] +
-                           1j * self.eta)))
+                         (omega_w[:, np.newaxis, np.newaxis] 
+                          + 1j * self.eta)**2)
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
