@@ -199,6 +199,7 @@ tests = [
     'spinFe3plus.py',                       # ~4s
     'fermisplit.py',                        # ~4s
     'Cl_minus.py',                          # ~4s
+    'ts09.py',                              # ~4s
     'h2o_xas_recursion.py',                 # ~5s
     'nonselfconsistent.py',                 # ~5s
     'spinpol.py',                           # ~5s
