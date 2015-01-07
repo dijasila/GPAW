@@ -1,6 +1,7 @@
 from ase import Atoms, io
 from ase.calculators.vdwcorrection import vdWTkatchenko09prl
 from ase.structure import molecule
+from ase.parallel import barrier
 
 from gpaw import GPAW
 from gpaw.cluster import Cluster
@@ -20,6 +21,8 @@ s.set_calculator(c)
 E = s.get_potential_energy()
 F_ac = s.get_forces()
 s.write('H2.traj')
+
+barrier()
 
 s_out = io.read('H2.traj')
 ##print s_out.get_potential_energy(), E
