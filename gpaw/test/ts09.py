@@ -13,8 +13,8 @@ h = 0.4
 s = Cluster(molecule('Na2'))
 s.minimal_box(3., h=h)
 
-out_traj = 'H2.traj'
-out_txt = 'H2.txt'
+out_traj = 'Na2.traj'
+out_txt = 'Na2.txt'
                        
 cc = GPAW(h=h, xc='PBE', txt=out_txt)
 
