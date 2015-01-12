@@ -1,5 +1,4 @@
 from __future__ import division
-
 from math import pi
 
 import numpy as np
@@ -233,7 +232,7 @@ class RadialGridDescriptor:
         
         Same as pseudize() with also this constraint::
         
-            /        2  /        2
+            /  _     2  /  _     2
             | dr b(r) = | dr a(r)
             /           /
         """

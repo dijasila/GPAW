@@ -216,6 +216,8 @@ class PAWWaves:
             ps = rgd.pseudize
         elif type == 'bessel':
             ps = rgd.jpseudize
+        elif type == 'nc':
+            ps = rgd.pseudize_normalized
 
         phi_ng = self.phi_ng = np.array(self.phi_ng)
         N = len(phi_ng)
