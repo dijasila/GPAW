@@ -290,6 +290,14 @@ class NDArrayReader:
             return a[::step].copy()
         return a
 
+
+def main():
+    args = sys.argv[1:]
+    r = Reader(args[0])
+    exec('x = ' + rags[1])
+    # csv for 2d ...
+    print(x)
+    
         
 if __name__ == '__main__':
     class A:
