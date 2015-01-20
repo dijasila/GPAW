@@ -8,7 +8,7 @@ Installation guide
 Requirements
 ============
 
-1) Python 2.6 - 2.7.  Python is available from http://www.python.org.
+1) Python2 version 2.6 or later. Python3 not supported yet.  Python is available from http://www.python.org.
 
 2) NumPy_ 1.6.1 or later.  Earlier versions may work for basic operations.
 
