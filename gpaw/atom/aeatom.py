@@ -80,10 +80,10 @@ class GaussianBasis:
         # Avoid errors in debug mode from division by zero:
         old_settings = np.seterr(divide='ignore')
         self.basis_bg = (np.dot(
-                Q_Bb.T,
-                (2 * (2 * alpha_B[:, None])**(l + 1.5) /
-                 gamma(l + 1.5))**0.5 *
-                np.exp(-np.multiply.outer(alpha_B, r_g**2))) * r_g**l)
+            Q_Bb.T,
+            (2 * (2 * alpha_B[:, None])**(l + 1.5) /
+             gamma(l + 1.5))**0.5 *
+            np.exp(-np.multiply.outer(alpha_B, r_g**2))) * r_g**l)
         np.seterr(**old_settings)
         
     def __len__(self):
@@ -236,29 +236,31 @@ class Channel:
 
         cm1_g, c0_g, cp1_g, x = coefs(rgd, l, vr_g, e, scalar_relativistic, Z)
 
-        # c_xg = np.zeros((3, g0 + 2))
-        # c_xg[0, :2] = 1.0
-        # c_xg[0, 2:] = cp1_g[1:g0 + 1]
-        # c_xg[1, 1:-1] = c0_g[1:g0 + 1]
-        # c_xg[2, :-2] = cm1_g[1:g0 + 1]
-
-        # b_g = np.zeros(g0 + 2)
-        if pt_g is not None:
-            2 / 0  # Need to fix this:
-            # b_g[2:] = -2 * pt_g[1:g0 + 1] * r_g[1:g0 + 1]**(1 - l)
-            # a0 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
-
-        # b_g[:2] = [a0, a1]
-        # a_g = solve_banded((2, 0), c_xg, b_g,
-        #                    overwrite_ab=True, overwrite_b=True)
+        b_g = rgd.zeros()
         
-        g = 1
-        agm1 = 1.0
+        if Z is not None:
+            a0 = 1.0
+            if scalar_relativistic:
+                dadr = 2 * ((l + x - 1) * c**2 / Z - Z) / (1 + 2 * (l + x))
+            else:
+                dadr = -Z / (l + 1)
+            a1 = a0 + dadr * r_g[1]
+        else:
+            assert not scalar_relativistic
+            if pt_g is None:
+                a0 = 1.0
+            else:
+                b_g[1:] = 2 * pt_g[1:] * r_g[1:]**(2 - l)
+                a0 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
+            a1 = a0
+            
         u_g[0] = 0.0
-        ag = 1.0
+        g = 1
+        agm1 = a0
+        ag = a1
         while True:
             u_g[g] = ag * r_g[g]**(l + x)
-            agp1 = -(agm1 * cm1_g[g] + ag * c0_g[g]) / cp1_g[g]
+            agp1 = -(agm1 * cm1_g[g] + ag * c0_g[g] + b_g[g]) / cp1_g[g]
             if g == g0:
                 break
             g += 1
@@ -271,9 +273,9 @@ class Channel:
         dudr = (l + x) * r**(l + x - 1) * ag + r**(l + x) * da / dr
 
         if l - 1 + x < 0:
-            phi0 = (r_g[1] * 0.1)**(l - 1 + x)
+            phi0 = a0 * (r_g[1] * 0.1)**(l - 1 + x)
         else:
-            phi0 = 0.0**(l - 1 + x)
+            phi0 = a0 * 0.0**(l - 1 + x)
             
         return dudr, phi0
 
@@ -677,6 +679,7 @@ class AllElectronAtom:
         for ch in self.channels:
             for n in range(len(ch.f_n)):
                 fr_g = ch.basis.expand(ch.C_nb[n]) * self.rgd.r_g
+                # fr_g = ch.phi_ng[n]
                 name = str(n + ch.l + 1) + ch.name
                 lw = 2
                 if self.nspins == 2:
@@ -706,7 +709,8 @@ class AllElectronAtom:
         logderivs = []
         for e in energies:
             dudr = ch.integrate_outwards(u_g, self.rgd, self.vr_sg[0],
-                                         gcut, e, self.scalar_relativistic)[0]
+                                         gcut, e, self.scalar_relativistic,
+                                         self.Z)[0]
             logderivs.append(dudr / u_g[gcut])
         return logderivs
             
