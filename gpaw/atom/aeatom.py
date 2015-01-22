@@ -707,12 +707,20 @@ class AllElectronAtom:
         gcut = self.rgd.round(rcut)
         u_g = self.rgd.empty()
         logderivs = []
+        d0 = 42.0
+        offset = 0
         for e in energies:
             dudr = ch.integrate_outwards(u_g, self.rgd, self.vr_sg[0],
                                          gcut, e, self.scalar_relativistic,
                                          self.Z)[0]
-            logderivs.append(dudr / u_g[gcut])
-        return logderivs
+            d1 = np.arctan(dudr / u_g[gcut]) / pi + offset
+            if d1 > d0:
+                offset -= 1
+                d1 -= 1
+            logderivs.append(d1)
+            d0 = d1
+            
+        return np.array(logderivs)
             
     def calculate_exx(self, s=None):
         if s is None:

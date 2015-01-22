@@ -967,6 +967,8 @@ class PAWSetupGenerator:
         dudr_n = np.empty(N)
 
         logderivs = []
+        d0 = 42.0
+        offset = 0
         for e in energies:
             dudr = ch.integrate_outwards(u_g, rgd, self.vtr_g, gcut, e)[0]
             u = u_g[gcut]
@@ -985,9 +987,14 @@ class PAWSetupGenerator:
                 u -= np.dot(u_ng[:, gcut], d_n)
                 dudr -= np.dot(dudr_n, d_n)
 
-            logderivs.append(dudr / u)
+            d1 = np.arctan(dudr / u) / pi + offset
+            if d1 > d0:
+                offset -= 1
+                d1 -= 1
+            logderivs.append(d1)
+            d0 = d1
 
-        return logderivs
+        return np.array(logderivs)
 
     def make_paw_setup(self, tag=None):
         aea = self.aea
@@ -1233,31 +1240,30 @@ def main(argv=None):
                 emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
                 lvalues, energies, r = parse_ld_str(
                     opt.logarithmic_derivatives, (emin, emax, 0.05), r)
-                ldmax = 0.0
+                error = 0.0
                 for l in lvalues:
-                    ld = gen.aea.logarithmic_derivative(l, energies, r)
-                    plt.plot(energies, ld, colors[l], label='spdfg'[l])
-                    ld = gen.logarithmic_derivative(l, energies, r)
-                    plt.plot(energies, ld, '--' + colors[l])
-
+                    ld1 = gen.aea.logarithmic_derivative(l, energies, r)
+                    plt.plot(energies, ld1, colors[l], label='spdfg'[l])
+                    ld2 = gen.logarithmic_derivative(l, energies, r)
+                    plt.plot(energies, ld2, '--' + colors[l])
+                    de = energies[1] - energies[0]
+                    error = abs(ld1 - ld2).sum() * de
+                    print('Logarithmic derivative error:', l, error)
+                    
                     # Fixed points:
                     if l < len(gen.waves_l):
                         efix = gen.waves_l[l].e_n
                         ldfix = gen.logarithmic_derivative(l, efix, r)
                         plt.plot(efix, ldfix, 'x' + colors[l])
-                        ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
 
                     if l == gen.l0:
                         efix = [0.0]
                         ldfix = gen.logarithmic_derivative(l, efix, r)
                         plt.plot(efix, ldfix, 'x' + colors[l])
-                        ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
 
-                if ldmax != 0.0:
-                    plt.axis(ymin=-3 * ldmax, ymax=3 * ldmax)
                 plt.xlabel('energy [Ha]')
-                plt.ylabel(r'$d\phi_{\ell\epsilon}(r)/dr/\phi_{\ell\epsilon}' +
-                           r'(r)|_{r=r_c}$')
+                plt.ylabel(r'$\arctan(d\log\phi_{\ell\epsilon}(r)/dr)/\pi'
+                           r'|_{r=r_c}$')
                 plt.legend(loc='best')
 
             if opt.plot:
