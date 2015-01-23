@@ -526,10 +526,21 @@ class LCAODOS:
         return self.get_subspace_pdos([M], ravel=ravel)
     
     def get_atomic_subspace_pdos(self, a, ravel=True):
-        """Get projected subspace DOS from LCAO basis on atom a."""
-        M = self.calc.wfs.basis_functions.M_a[a]
-        Mvalues = range(M, M + self.calc.wfs.setups[a].nao)
+        """Get projected subspace DOS from LCAO basis on atom(s) a.
+
+        a may be an atomic index or a list of indices."""
+        Mvalues = self.get_atom_indices(a)
         return self.get_subspace_pdos(Mvalues, ravel=ravel)
+
+    def get_atom_indices(self, a):
+        """Get list of basis function indices of atom(s) a."""
+        if isinstance(a, int):
+            a = [a]
+        Mvalues = []
+        for a0 in a:
+            M = self.calc.wfs.basis_functions.M_a[a0]
+            Mvalues.extend(range(M, M + self.calc.wfs.setups[a0].nao))
+        return Mvalues
 
     def get_subspace_pdos(self, Mvalues, ravel=True):
         """Get projected subspace DOS from LCAO basis."""
@@ -547,6 +558,8 @@ class LCAODOS:
             C_nM = kpt.C_nM
             from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
             if isinstance(wfs.ksl, BlacsOrbitalLayouts):
+                raise NotImplementedError('Something not quite working.  '
+                                          'FIXME.')
                 S_MM = wfs.ksl.mmdescriptor.collect_on_master(kpt.S_MM)
                 if bd.rank != 0 or gd.rank != 0:
                     S_MM = np.empty((wfs.ksl.nao, wfs.ksl.nao),

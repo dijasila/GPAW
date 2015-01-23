@@ -15,6 +15,8 @@ from numpy import linalg
 import _gpaw
 from gpaw import debug
 
+from ase.utils import devnull
+
 elementwise_multiply_add = _gpaw.elementwise_multiply_add
 utilities_vdot = _gpaw.utilities_vdot
 utilities_vdot_self = _gpaw.utilities_vdot_self
@@ -218,21 +220,6 @@ def element_from_packed(M, i, j):
     else:
         return .5 * np.conjugate(M[p])
     
-
-class _DownTheDrain:
-    """Definition of a stream that throws away all output."""
-    
-    def write(self, string):
-        pass
-    
-    def flush(self):
-        pass
-
-    def close(self):
-        pass
-
-devnull = _DownTheDrain()
-
 
 def logfile(name, rank=0):
     """Create file object from name.

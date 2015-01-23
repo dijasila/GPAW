@@ -20,11 +20,12 @@ from ase.constraints import FixAtoms
 from ase.io import read
 import ase.units as units
 from ase.data import covalent_radii
+from ase.utils import devnull
 
 from gpaw.aseinterface import GPAW
 from gpaw.poisson import PoissonSolver
 from gpaw.mpi import world
-from gpaw.utilities import devnull, h2gpts
+from gpaw.utilities import h2gpts
 from gpaw.occupations import FermiDirac
 
 # Magnetic moments of isolated atoms:

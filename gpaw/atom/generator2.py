@@ -216,6 +216,8 @@ class PAWWaves:
             ps = rgd.pseudize
         elif type == 'bessel':
             ps = rgd.jpseudize
+        elif type == 'nc':
+            ps = rgd.pseudize_normalized
 
         phi_ng = self.phi_ng = np.array(self.phi_ng)
         N = len(phi_ng)
@@ -411,7 +413,10 @@ class PAWSetupGenerator:
         self.ekincore = 0.0
         for l, ch in enumerate(self.aea.channels):
             for n, f in enumerate(ch.f_n):
-                if l <= self.lmax and n + l + 1 in self.states[l]:
+                if (l <= self.lmax and
+                    any(n + l + 1 == nn
+                        for nn in self.states[l]
+                        if isinstance(nn, int))):
                     self.nvalence += f
                 else:
                     self.nc_g += f * ch.calculate_density(n)
@@ -459,9 +464,10 @@ class PAWSetupGenerator:
                     ch = Channel(l)
                     a = ch.integrate_outwards(phi_g, self.rgd,
                                               self.aea.vr_sg[0], gc, e,
-                                              self.aea.scalar_relativistic)[1]
+                                              self.aea.scalar_relativistic,
+                                              self.aea.Z)[1]
                     phi_g[1:gc + 1] /= self.rgd.r_g[1:gc + 1]
-                    phi_g[0] = a * 0.0**l
+                    phi_g[0] = a
                     phi_g /= (self.rgd.integrate(phi_g**2) / (4 * pi))**0.5
 
                 waves.add(phi_g, n, e, f)
@@ -533,7 +539,7 @@ class PAWSetupGenerator:
                              ('spdf'[l], e, e * Hartree, waves.rcut))
                 else:
                     self.log(
-                        ' %d%s     %2d  %10.6f %10.5f      %5.3f  %9.2f' %
+                        ' %d%s   %5.2f %10.6f %10.5f      %5.3f  %9.2f' %
                         (n, 'spdf'[l], f, e, e * Hartree, 1 - ds,
                          waves.rcut))
         self.log()
@@ -559,8 +565,10 @@ class PAWSetupGenerator:
             v_g = self.aea.vr_sg[0, g0 - 1:g0 + 2] / r_g[g0 - 1:g0 + 2]
             v0 = v_g[1]
             v1 = (v_g[2] - v_g[0]) / 2 / self.rgd.dr_g[g0]
+
             def f(x):
                 return x / np.tan(x) - 1 - v1 * r0 / v0
+            
             q = root(f, 2).x / r0
             A = v0 * r0 / np.sin(q * r0)
             self.vtr_g = self.aea.vr_sg[0].copy()
@@ -579,9 +587,9 @@ class PAWSetupGenerator:
         ch = Channel(l0)
         phi_g = self.rgd.zeros()
         a = ch.integrate_outwards(phi_g, self.rgd, self.aea.vr_sg[0], gc, e0,
-                                  self.aea.scalar_relativistic)[1]
+                                  self.aea.scalar_relativistic, self.aea.Z)[1]
         phi_g[1:gc] /= self.rgd.r_g[1:gc]
-        phi_g[0] = a * 0.0**l0
+        phi_g[0] = a
 
         phit_g, c = self.rgd.pseudize(phi_g, g0, l=l0, points=P)
 
@@ -697,7 +705,6 @@ class PAWSetupGenerator:
         G_k, nt_k = self.rgd.fft(self.nt_g * r_g)
         rhot_k = self.rgd.fft(self.rhot_g * r_g)[1]
         ghat_k = self.rgd.fft(self.ghat_g * r_g)[1]
-        v0_k = self.rgd.fft(self.v0r_g)[1]
         vt_k = self.rgd.fft(self.vtr_g)[1]
         phi_k = self.rgd.fft(self.waves_l[0].phit_ng[0] * r_g)[1]
         eee_k = 0.5 * nt_k**2 * (4 * pi)**2 / (2 * pi)**3
@@ -960,6 +967,8 @@ class PAWSetupGenerator:
         dudr_n = np.empty(N)
 
         logderivs = []
+        d0 = 42.0
+        offset = 0
         for e in energies:
             dudr = ch.integrate_outwards(u_g, rgd, self.vtr_g, gcut, e)[0]
             u = u_g[gcut]
@@ -978,9 +987,14 @@ class PAWSetupGenerator:
                 u -= np.dot(u_ng[:, gcut], d_n)
                 dudr -= np.dot(dudr_n, d_n)
 
-            logderivs.append(dudr / u)
+            d1 = np.arctan(dudr / u) / pi + offset
+            if d1 > d0:
+                offset -= 1
+                d1 -= 1
+            logderivs.append(d1)
+            d0 = d1
 
-        return logderivs
+        return np.array(logderivs)
 
     def make_paw_setup(self, tag=None):
         aea = self.aea
@@ -1165,6 +1179,9 @@ def main(argv=None):
     add('-f', '--xc-functional', type='string', default='LDA',
         help='Exchange-Correlation functional (default value LDA)',
         metavar='<XC>')
+    add('-C', '--configuration',
+        help='e.g. for Li: "[(1, 0, 2, -1.878564), (2, 0, 1, -0.10554),'
+        '(2, 1, 0, 0.0)]"')
     add('-P', '--projectors',
         help='Projector functions - use comma-separated - ' +
         'nl values, where n can be pricipal quantum number ' +
@@ -1207,7 +1224,7 @@ def main(argv=None):
             gen.check_all()
 
         if opt.create_basis_set or opt.write:
-            #basis = gen.create_basis_set()
+            basis = None  # gen.create_basis_set()
             
             if opt.create_basis_set:
                 basis.write_xml()
@@ -1223,31 +1240,30 @@ def main(argv=None):
                 emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
                 lvalues, energies, r = parse_ld_str(
                     opt.logarithmic_derivatives, (emin, emax, 0.05), r)
-                ldmax = 0.0
+                error = 0.0
                 for l in lvalues:
-                    ld = gen.aea.logarithmic_derivative(l, energies, r)
-                    plt.plot(energies, ld, colors[l], label='spdfg'[l])
-                    ld = gen.logarithmic_derivative(l, energies, r)
-                    plt.plot(energies, ld, '--' + colors[l])
-
+                    ld1 = gen.aea.logarithmic_derivative(l, energies, r)
+                    plt.plot(energies, ld1, colors[l], label='spdfg'[l])
+                    ld2 = gen.logarithmic_derivative(l, energies, r)
+                    plt.plot(energies, ld2, '--' + colors[l])
+                    de = energies[1] - energies[0]
+                    error = abs(ld1 - ld2).sum() * de
+                    print('Logarithmic derivative error:', l, error)
+                    
                     # Fixed points:
                     if l < len(gen.waves_l):
                         efix = gen.waves_l[l].e_n
                         ldfix = gen.logarithmic_derivative(l, efix, r)
                         plt.plot(efix, ldfix, 'x' + colors[l])
-                        ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
 
                     if l == gen.l0:
                         efix = [0.0]
                         ldfix = gen.logarithmic_derivative(l, efix, r)
                         plt.plot(efix, ldfix, 'x' + colors[l])
-                        ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
 
-                if ldmax != 0.0:
-                    plt.axis(ymin=-3 * ldmax, ymax=3 * ldmax)
                 plt.xlabel('energy [Ha]')
-                plt.ylabel(r'$d\phi_{\ell\epsilon}(r)/dr/\phi_{\ell\epsilon}' +
-                           r'(r)|_{r=r_c}$')
+                plt.ylabel(r'$\arctan(d\log\phi_{\ell\epsilon}(r)/dr)/\pi'
+                           r'|_{r=r_c}$')
                 plt.legend(loc='best')
 
             if opt.plot:
@@ -1278,6 +1294,11 @@ def get_parameters(symbol, opt):
         extra = par[2]
     else:
         extra = {}
+
+    if opt.configuration:
+        configuration = eval(opt.configuration)
+    else:
+        configuration = None
 
     if opt.projectors:
         projectors = opt.projectors
@@ -1313,6 +1334,7 @@ def get_parameters(symbol, opt):
         
     return dict(symbol=symbol,
                 xc=opt.xc_functional,
+                configuration=configuration,
                 projectors=projectors,
                 radii=radii,
                 scalar_relativistic=opt.scalar_relativistic, alpha=opt.alpha,
@@ -1322,13 +1344,13 @@ def get_parameters(symbol, opt):
                 output=opt.output)
 
 
-def _generate(symbol, xc, projectors, radii,
+def _generate(symbol, xc, configuration, projectors, radii,
               scalar_relativistic, alpha,
               r0, nderiv0,
               pseudize, rcore, core_hole, output):
     if output is not None:
         output = open(output, 'w')
-    aea = AllElectronAtom(symbol, xc, log=output)
+    aea = AllElectronAtom(symbol, xc, configuration=configuration, log=output)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
                             fd=output)
 
