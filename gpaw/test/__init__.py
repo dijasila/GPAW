@@ -149,6 +149,7 @@ tests = [
     'ase3k.py',                             # ~1s
     'numpy_zdotc_graphite.py',              # ~1s
     'eed.py',                               # ~1s
+    'lcao_dos.py',                          # ~1s
     'gemv.py',                              # ~2s
     'fileio/idiotproof_setup.py',           # ~2s
     'ylexpand.py',                          # ~2s
