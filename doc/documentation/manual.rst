@@ -211,6 +211,8 @@ Eggbox errors:
 Features:
     FD mode is the oldest and has most features.  Only PW mode can be used
     for calculating the stress-tensor and for response function calculations.
+    Green's function based electronic transport calculations require
+    LCAO mode.
     
     
 .. _manual_nbands:
