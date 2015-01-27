@@ -122,6 +122,7 @@ class Generator(AllElectron):
             self.l_j = [0]
             self.f_j = [self.Z]
             self.e_j = [self.e_j[0]]
+
             n_j = self.n_j
             l_j = self.l_j
             f_j = self.f_j
@@ -433,6 +434,9 @@ class Generator(AllElectron):
 
         vt = vHt + vXCt
 
+        if self.orbital_free:
+            vt /= self.tf_coeff
+
         # Construct zero potential:
         gc = 1 + int(rcutvbar * N / (rcutvbar + beta))
         if vbar_type == 'f':
@@ -504,7 +508,8 @@ class Generator(AllElectron):
         filter = Filter(r, dr, gcutfilter, hfilter).filter
 
         vbar = filter(vbar * r)
-
+        if self.orbital_free:
+            vbar *= self.tf_coeff
         # Calculate matrix elements:
         self.dK_lnn = dK_lnn = []
         self.dH_lnn = dH_lnn = []

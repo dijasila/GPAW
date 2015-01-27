@@ -27,7 +27,7 @@ class CG(Eigensolver):
     * Conjugate gradient steps
     """
 
-    def __init__(self, niter=4, rtol=0.30):
+    def __init__(self, niter=4, rtol=0.30, tf_coeff=False):
         """Construct conjugate gradient eigen solver.
 
         parameters:
@@ -46,6 +46,7 @@ class CG(Eigensolver):
             self.orthonormalization_required = True
         else:
             self.orthonormalization_required = False
+        self.tf_coeff = tf_coeff
 
     def __repr__(self):
         return 'CG(niter=%d, rtol=%5.1e)' % (self.niter, self.rtol)
@@ -58,6 +59,10 @@ class CG(Eigensolver):
         Eigensolver.initialize(self, wfs)
         self.overlap = wfs.overlap
 
+        if self.tf_coeff:
+            for setup in wfs.setups:
+                setup.K_p *= self.tf_coeff
+
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do conjugate gradient iterations for the k-point"""
 
@@ -67,8 +72,14 @@ class CG(Eigensolver):
         phi_old_G = wfs.empty(q=kpt.q)
 
         comm = wfs.gd.comm
+        if self.tf_coeff:
+            hamiltonian.vt_sG /= self.tf_coeff
+            # Assuming the ordering in dH_asp and wfs is the same
+            for a in hamiltonian.dH_asp.keys():
+                hamiltonian.dH_asp[a] /= self.tf_coeff
 
         psit_nG, Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
+
         # Note that psit_nG is now in self.operator.work1_nG and
         # Htpsit_nG is in kpt.psit_nG!
 
@@ -215,6 +226,13 @@ class CG(Eigensolver):
             total_error += weight * error
             # if nit == 3:
             #   print >> self.f, "cg:iters", n, nit+1
+        if self.tf_coeff: #undo the scaling for calculating energies
+            for i in range(len(kpt.eps_n)):
+                kpt.eps_n[i] *= self.tf_coeff
+            hamiltonian.vt_sG *= self.tf_coeff
+            # Assuming the ordering in dH_asp and wfs is the same              
+            for a in hamiltonian.dH_asp.keys():
+                hamiltonian.dH_asp[a] *= self.tf_coeff
 
         self.timer.stop('CG')
         return total_error, psit_nG
