@@ -154,9 +154,6 @@ class Chi0(PairDensity):
                    m1, m2, spins):
         wfs = self.calc.wfs
 
-        if self.keep_occupied_states:
-            self.mykpts = [self.get_k_point(s, K, n1, n2)
-                           for s, K, n1, n2 in self.mysKn1n2]
 
         if self.eta == 0.0:
             update = self.update_hermitian
@@ -172,66 +169,98 @@ class Chi0(PairDensity):
 
         self.timer.start('Loop')
         # kpt1 occupied and kpt2 empty:
-        for kn, (s, K, n1, n2) in enumerate(self.mysKn1n2):
-            pb.update(kn / len(self.mysKn1n2))
-            if self.keep_occupied_states:
-                kpt1 = self.mykpts[kn]
-            else:
-                kpt1 = self.get_k_point(s, K, n1, n2)
+        for kn, (s, ik, n1, n2) in enumerate(self.mysKn1n2):
+            pb.update(kn / len(self.mysKn1n2))  # Update progressbar
 
-            if kpt1.s not in spins:
-                continue
+            # Kpoints that can be associated with K
+            K_k = self.unfold_ibz_kpoint(ik):
 
-            with self.timer('k+q'):
-                K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            with self.timer('get k2'):
-                kpt2 = self.get_k_point(kpt1.s, K2, m1, m2, block=True)
-            with self.timer('fft-indices'):
-                Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
-                                           kpt1.shift_c - kpt2.shift_c)
+            # Group together using symmetry operations
+            # consistent with q. s_gkk[:, k1, k2] is an index marking 
+            # which symmetry operation of op_scc to use to get from
+            # k2 to k1. If q = 0 then all symmetries are allowed.
+            K_gk, s_gkk, op_scc = self.group_kpoints(K_k, q_c)
+            
+            # Handle each group of kpoints separately
+            for K_k in K_gk:
+                # Use first kpoint as representative for the group
+                # and calculate all FFT components needed with respect
+                # to the first k-point. The other kpoints can then 
+                # be related to these kpoints. G2G_kG is a map from the 
+                # set of aff G's to the Gs of a specific kpoint.
+                with self.timer('fft-indices'):
+                    allQ_G, G2G_kG = self.calculate_group_fft_indices(K_K)
 
-            for n in range(kpt1.n2 - kpt1.n1):
-                eps1 = kpt1.eps_n[n]
+                # Create kpoint objects associated with group.
+                # This will load into memory periodic parts of all
+                # kpoints in group. The memory allocated is *usually*
+                # insignificant.
+                kpt1_k = self.get_k_points(s, K_k, n1, n2)
+
+                # Find all k + q for group 
+                with self.timer('k+q'):
+                    K2_k = wfs.kd.find_k_plus_q(q_c, K_k)
+                with self.timer('get k2'):
+                    kpt2_k = self.get_multiple_k_points(kpt1.s, K2, 
+                                                        m1, m2, block=True)
                 
-                # Only update if there exists deps <= omegamax
-                if self.omegamax is not None:
-                    m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
-                         if abs(d) <= self.omegamax]
-                else:
-                    m = range(0, kpt2.n2 - kpt2.n1)
+                # To avoid saving pair-densities for multiple bands 
+                # at a time we calculate one band at a time
+                for n in range(n2 - n1):
+                    for kpt1, kpt2, Q_G in zip(kpt1_k, kpt2_k, Q_kG):
+                        # Check if this is the wanted spin component
+                        if kpt1.s not in spins:
+                            continue
+
+                        eps1 = kpt1.eps_n[n]
                 
-                if not len(m):
-                    continue
+                        # Only include unoccupied states with deps <= omegamax
+                        if self.omegamax is not None:
+                            m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
+                                 if abs(d) <= self.omegamax]
+                        else:
+                            m = range(0, kpt2.n2 - kpt2.n1)
+                
+                        if not len(m):
+                            continue
 
-                deps_m = (eps1 - kpt2.eps_n)[m]
-                f1 = kpt1.f_n[n]
-                with self.timer('conj'):
-                    ut1cc_R = kpt1.ut_nR[n].conj()
-                with self.timer('paw'):
-                    C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
-                              for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-                n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                     pd, Q_G)[m]
-                df_m = (f1 - kpt2.f_n)[m]
+                        deps_m = (eps1 - kpt2.eps_n)[m]
+                        f1 = kpt1.f_n[n]
 
-                # This is not quite right for degenerate partially occupied
-                # bands, but good enough for now:
-                df_m[df_m <= 1e-20] = 0.0
+                        # If this is the first kpoint in the group
+                        # all pair-densities are calculated
+                        if K == K_k[0]:
+                            with self.timer('conj'):
+                                ut1cc_R = kpt1.ut_nR[n].conj()
+                            with self.timer('paw'):
+                                C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
+                                          for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+                            ntmp_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
+                                                                 pd, allQ_G)[m]
 
-                if optical_limit:
-                    self.update_optical_limit(
-                        n, m, kpt1, kpt2, deps_m, df_m, n_mG,
-                        chi0_wxvG, chi0_wvv)
+                        n_mG = self.get_pair_densities(K_k[0], K, Q_G)
+                        n_mG = ntmp_mG[:, Q_G] #XXX Not right
+                        
+                        df_m = (f1 - kpt2.f_n)[m]
 
-                update(n_mG, deps_m, df_m, chi0_wGG)
+                        # This is not quite right for degenerate partially occupied
+                        # bands, but good enough for now:
+                        df_m[df_m <= 1e-20] = 0.0
 
-            if optical_limit and self.intraband:
-                # Avoid that more ranks are summing up
-                # the intraband contributions
-                if kpt1.n1 == 0 and self.blockcomm.rank == 0:
-                    assert self.nocc2 <= kpt2.nb, \
-                        print('Error: Too few unoccupied bands')
-                    self.update_intraband(kpt2)
+                        if optical_limit:
+                            self.update_optical_limit(
+                                n, m, kpt1, kpt2, deps_m, df_m, n_mG,
+                                chi0_wxvG, chi0_wvv)
+
+                        update(n_mG, deps_m, df_m, chi0_wGG)
+
+                    if optical_limit and self.intraband:
+                        # Avoid that more ranks are summing up
+                        # the intraband contributions
+                        if kpt1.n1 == 0 and self.blockcomm.rank == 0:
+                            assert self.nocc2 <= kpt2.nb, \
+                                print('Error: Too few unoccupied bands')
+                            self.update_intraband(kpt2)
 
         self.timer.stop('Loop')
 
