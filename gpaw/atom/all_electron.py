@@ -251,7 +251,7 @@ class AllElectron:
             #qOK = log(1e-14)
             e_j[0] /= self.tf_coeff
             mix = 0.01
-            nitermax = 1000
+            nitermax = 2000
             
         vrold = None
         

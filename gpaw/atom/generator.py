@@ -506,10 +506,10 @@ class Generator(AllElectron):
                 q[gcutmax:] = 0.0
 
         filter = Filter(r, dr, gcutfilter, hfilter).filter
-
-        vbar = filter(vbar * r)
         if self.orbital_free:
             vbar *= self.tf_coeff
+        vbar = filter(vbar * r)
+
         # Calculate matrix elements:
         self.dK_lnn = dK_lnn = []
         self.dH_lnn = dH_lnn = []
