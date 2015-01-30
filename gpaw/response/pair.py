@@ -216,22 +216,28 @@ class PairDensity:
             ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
             
         P_ani = []
-        i1 = 0
-        if self.reader is not None:
-            P_nI = self.reader.get('Projections', kpt.s, kpt.k)
+        if self.reader is None:
+            for b, U_ii in zip(a_a, U_aii):
+                P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
+                if time_reversal:
+                    P_ni = P_ni.conj()
+                P_ani.append(P_ni)
         else:
-            iP_ani = kpt.P_ani
-
-        for b, U_ii in zip(a_a, U_aii):
-            i2 = i1 + len(U_ii)
-            if self.reader is not None:
-                P_ni = np.dot(P_nI[na:nb, i1:i2], U_ii)
-            else:
-                P_ni = np.dot(iP_ani[b][na:nb], U_ii)
-            if time_reversal:
-                P_ni = P_ni.conj()
-            P_ani.append(P_ni)
-            i1 = i2
+            II_a = []
+            I1 = 0
+            for U_ii in U_aii:
+                I2 = I1 + len(U_ii)
+                II_a.append((I1, I2))
+                I1 = I2
+                
+            P_ani = []
+            P_nI = self.reader.get('Projections', kpt.s, kpt.k)
+            for b, U_ii in zip(a_a, U_aii):
+                I1, I2 = II_a[b]
+                P_ni = np.dot(P_nI[na:nb, I1:I2], U_ii)
+                if time_reversal:
+                    P_ni = P_ni.conj()
+                P_ani.append(P_ni)
         
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, shift_c)
