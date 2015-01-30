@@ -435,10 +435,11 @@ class PAWSetupGenerator:
         else:
             radii = rc
 
-        self.rcmax = max(radii)
-
         if self.lmax >= 0:
             radii += [radii[-1]] * (self.lmax + 1 - len(radii))
+        del radii[self.lmax + 1:]  # remove unused radii
+            
+        self.rcmax = max(radii)
 
         self.waves_l = []
         for l in range(self.lmax + 1):
