@@ -302,6 +302,7 @@ tests = [
     'diamond_gllb.py',                      # ~33s
     'MgO_exx_fd_vs_pw.py',                  # ~37s
     'vdw/quick_spin.py',                    # ~37s
+    'expert_diag.py',                       # ~37s
     'bse_sym.py',                           # ~40s
     'parallel/ut_hsops.py',                 # ~41s
     'LDA_unstable.py',                      # ~42s
