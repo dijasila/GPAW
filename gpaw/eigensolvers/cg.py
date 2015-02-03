@@ -59,10 +59,6 @@ class CG(Eigensolver):
         Eigensolver.initialize(self, wfs)
         self.overlap = wfs.overlap
 
-        if self.tf_coeff:
-            for setup in wfs.setups:
-                setup.K_p *= self.tf_coeff
-
     def iterate_one_k_point(self, hamiltonian, wfs, kpt):
         """Do conjugate gradient iterations for the k-point"""
 
@@ -230,7 +226,7 @@ class CG(Eigensolver):
             for i in range(len(kpt.eps_n)):
                 kpt.eps_n[i] *= self.tf_coeff
             hamiltonian.vt_sG *= self.tf_coeff
-            # Assuming the ordering in dH_asp and wfs is the same              
+            # Assuming the ordering in dH_asp and wfs is the same 
             for a in hamiltonian.dH_asp.keys():
                 hamiltonian.dH_asp[a] *= self.tf_coeff
 

@@ -693,6 +693,8 @@ class Generator(AllElectron):
             for n1, j1 in enumerate(j_n):
                 for n2, j2 in enumerate(j_n):
                     self.dK_jj[j1, j2] = self.dK_lnn[l][n1, n2]
+                    if self.orbital_free:
+                        self.dK_jj[j1,j2] *= self.tf_coeff
 
         if exx:
             X_p = constructX(self)
