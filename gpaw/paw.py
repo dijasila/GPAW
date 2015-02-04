@@ -307,7 +307,7 @@ class PAW(PAWTextOutput):
             # Save the state of the atoms:
             self.atoms = atoms.copy()
 
-        self.check_atoms()
+        self.synchronize_atoms()
 
         spos_ac = atoms.get_scaled_positions() % 1.0
 
@@ -365,7 +365,7 @@ class PAW(PAWTextOutput):
         Z_a = atoms.get_atomic_numbers()
         magmom_av = atoms.get_initial_magnetic_moments()
 
-        self.check_atoms()
+        self.synchronize_atoms()
 
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
@@ -1022,11 +1022,9 @@ class PAW(PAWTextOutput):
                                               self.occupations, self.txt,
                                               nbands, scalapack, expert)
 
-    def check_atoms(self):
+    def synchronize_atoms(self):
         """Check that atoms objects are identical on all processors."""
-        if not mpi.compare_atoms(self.atoms, comm=self.wfs.world):
-            raise RuntimeError('Atoms objects on different processors ' +
-                               'are not identical!')
+        mpi.synchronize_atoms(self.atoms, self.wfs.world)
 
 
 def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,

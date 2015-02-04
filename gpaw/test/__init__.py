@@ -134,6 +134,7 @@ tests = [
     'atoms_too_close.py',
     'harmonic.py',
     'proton.py',
+    'atoms_mismatch.py',
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'ut_csh.py',                            # ~1s
