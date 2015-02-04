@@ -342,6 +342,10 @@ class AllElectron:
         #e and vr are not scaled back
         #instead Ekin is scaled for total energy (printed and inside setup)
             Ekin *= self.tf_coeff
+            t()
+            t('Lambda:{0}'.format(self.tf_coeff))
+            t('Correct eigenvalue:{0}'.format(e_j[0]*self.tf_coeff))
+            t()
 
         t()
         t('Energy contributions:')
