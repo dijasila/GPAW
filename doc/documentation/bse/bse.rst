@@ -125,8 +125,8 @@ with  `K = V - W` and
    :label: W_2p
 
     W_{\begin{array}{l} n_1 n_2 \\ n_5 n_6  \end{array}} (\omega)
-    = \int d \mathbf{r} d \mathbf{r}^{\prime}
-    \psi_{n_1}(\mathbf{r}) \psi_{n_2}^{\ast}(\mathbf{r}^{\prime}) \frac{\epsilon^{-1}( \mathbf{r},  \mathbf{r}^{\prime}; \omega )}{|  \mathbf{r}-\mathbf{r}^{\prime} |}
+    = \int d \mathbf{r} d \mathbf{r}^{\prime} d \mathbf{r}^{\prime \prime}
+    \psi_{n_1}(\mathbf{r}) \psi_{n_2}^{\ast}(\mathbf{r}^{\prime}) \frac{\epsilon^{-1}( \mathbf{r},  \mathbf{r}^{\prime \prime}; \omega )}{|  \mathbf{r}^{\prime \prime}-\mathbf{r}^{\prime} |}
      \psi^{\ast}_{n_5}(\mathbf{r}) \psi_{n_6}(\mathbf{r}^{\prime})
 
 
