@@ -608,65 +608,6 @@ def distribute_cpus(parsize_domain, parsize_bands,
     return p.build_communicators(domain=np.prod(parsize_domain),
                                  band=parsize_bands)
 
-    
-def old_distribute_cpus(parsize_domain, parsize_bands,
-                        nspins, nibzkpts, comm=world,
-                        idiotproof=True, mode='fd'):
-    """Distribute k-points/spins to processors.
-
-    Construct communicators for parallelization over
-    k-points/spins and for parallelization using domain
-    decomposition."""
-
-    size = comm.size
-    rank = comm.rank
-
-    nsk = nspins * nibzkpts
-
-    if mode in ['fd', 'lcao']:
-        if parsize_bands is None:
-            parsize_bands = 1
-
-        if parsize_domain is not None:
-            if type(parsize_domain) is int:
-                ndomains = parsize_domain
-            else:
-                ndomains = (parsize_domain[0] *
-                            parsize_domain[1] *
-                            parsize_domain[2])
-            assert (size // parsize_bands) % ndomains == 0
-
-        else:
-            ntot = nsk * parsize_bands
-            ndomains = size // gcd(ntot, size)
-    else:
-        # Plane wave mode:
-        ndomains = 1
-        if parsize_bands is None:
-            parsize_bands = size // gcd(nsk, size)
-
-    assert size % parsize_bands == 0
-        
-    # How many spin/k-point combinations do we get per node:
-    nu, x = divmod(nsk, size // parsize_bands // ndomains)
-    assert x == 0 or nu >= 2 or not idiotproof, 'load imbalance!'
-
-    r0 = (rank // ndomains) * ndomains
-    ranks = np.arange(r0, r0 + ndomains)
-    domain_comm = comm.new_communicator(ranks)
-
-    r0 = rank % (ndomains * parsize_bands)
-    ranks = np.arange(r0, r0 + size, ndomains * parsize_bands)
-    kpt_comm = comm.new_communicator(ranks)
-
-    r0 = rank % ndomains + kpt_comm.rank * (ndomains * parsize_bands)
-    ranks = np.arange(r0, r0 + (ndomains * parsize_bands), ndomains)
-    band_comm = comm.new_communicator(ranks)
-
-    assert size == domain_comm.size * kpt_comm.size * band_comm.size
-
-    return domain_comm, kpt_comm, band_comm
-
 
 def broadcast(obj, root=0, comm=world):
     """Broadcast a Python object across an MPI communicator and return it."""
