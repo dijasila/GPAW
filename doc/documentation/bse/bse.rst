@@ -40,8 +40,8 @@ where
    K = V - W
    = \frac{1}{| \mathbf{r}_5 -  \mathbf{r}_7|} 
      \delta_{ \mathbf{r}_5, \mathbf{r}_6}  \delta_{ \mathbf{r}_7, \mathbf{r}_8}
-     -  \frac{\epsilon^{-1}( \mathbf{r}_5,  \mathbf{r}_6; \omega )}
-      {| \mathbf{r}_5 -  \mathbf{r}_6|} 
+     -   \int d \mathbf{r} \frac{\epsilon^{-1}( \mathbf{r}_5,  \mathbf{r}; \omega )}
+      {| \mathbf{r} -  \mathbf{r}_6|} 
      \delta_{ \mathbf{r}_5, \mathbf{r}_7}  \delta_{ \mathbf{r}_6, \mathbf{r}_8}
    
 The density response function `\chi`, defined as  `\chi(\mathrm{r}, \mathrm{r}^{\prime}) = \delta n(\mathrm{r}) / \delta V_{ext}(\mathrm{r}^{\prime})`, has a form of 
@@ -64,10 +64,10 @@ The above equation also applies for the non interacting density response functio
       \chi^0(\mathbf{r}, \mathbf{r}_5; \omega)
       \frac{1}{| \mathbf{r}_5 -  \mathbf{r}_7|}  
        \chi(\mathbf{r}_7, \mathbf{r}^{\prime}; \omega) \\
-     &+ \int d \mathbf{r}_5 d \mathbf{r}_6 
+     &+ \int d \mathbf{r}_5 d \mathbf{r}_6 d \mathbf{r}^{\prime \prime}
       \chi^0(\mathbf{r}, \mathbf{r}_5,  \mathbf{r}_6; \omega)
-        \frac{\epsilon^{-1}( \mathbf{r}_5,  \mathbf{r}_6; \omega )}
-      {| \mathbf{r}_5 -  \mathbf{r}_6|} 
+        \frac{\epsilon^{-1}( \mathbf{r}_5,  \mathbf{r}^{\prime \prime}; \omega )}
+      {| \mathbf{r}^{\prime \prime} -  \mathbf{r}_6|} 
       \chi(\mathbf{r}_5, \mathbf{r}_6, \mathbf{r}^{\prime}; \omega)      
 
 Transform using electron-hole pair basis
@@ -293,7 +293,7 @@ Employing Fourier transform
 
 .. math::
 
-   \frac{\epsilon^{-1}(\mathbf{r},\mathbf{r}^{\prime}) }{| \mathbf{r}-\mathbf{r}^{\prime} |}
+   \int d \mathbf{r}^{\prime \prime}\frac{\epsilon^{-1}(\mathbf{r},\mathbf{r}^{\prime \prime}) }{| \mathbf{r}^{\prime \prime}-\mathbf{r}^{\prime} |}
    = \frac{1}{\Omega} \sum_{\mathbf{q} \mathbf{G} \mathbf{G}^{\prime} } 
       e^{i ( \mathbf{q} + \mathbf{G}) \cdot   \mathbf{r} } 
      \frac{4\pi  \epsilon^{-1}_{\mathbf{G}  \mathbf{G}^{\prime}} (\mathbf{q}) }{ | \mathbf{q} + \mathbf{G}|^2 }
