@@ -11,7 +11,6 @@ from gpaw import debug
 from gpaw import dry_run as dry_run_size
 from gpaw.utilities import is_contiguous
 from gpaw.utilities import gcd
-from gpaw.utilities.tools import md5_array
 
 import _gpaw
 
@@ -656,7 +655,7 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
     if all_fail.any():
         err_ranks = np.arange(comm.size)[all_fail]
         if debug:
-            fd = open('synchronize_atoms_r%d.pckl' % dumpfile, comm.rank, 'w')
+            fd = open('synchronize_atoms_r%d.pckl' % comm.rank, 'w')
             pickle.dump((newatoms, atoms), fd)
             fd.close()
         raise ValueError('Mismatch of Atoms objects.  In debug '
