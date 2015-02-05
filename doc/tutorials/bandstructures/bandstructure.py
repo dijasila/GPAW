@@ -21,12 +21,14 @@ si.get_potential_energy()
 calc.write('Si_gs.gpw')
 ef = calc.get_fermi_level()
 
+nbands = 8
+
 # Restart from ground state and fix potential:
 calc = GPAW('Si_gs.gpw',
             nbands=16,
             fixdensity=True,
             symmetry='off',
-            convergence={'bands': 8})
+            convergence={'bands': nbands})
 
 # Use ase.dft module for obtaining k-points along high symmetry directions
 points = ibz_points['fcc']
@@ -45,10 +47,10 @@ import matplotlib.pyplot as plt
 
 e_kn -= ef
 emin = e_kn.min() - 1.0
-emax = e_kn[:, 8].max() + 1.0
+emax = e_kn[:, nbands].max() + 1.0
 
 plt.figure(figsize=(5, 6))
-for n in range(8):
+for n in range(nbands):
     plt.plot(x, e_kn[:, n])
 for p in X:
     plt.plot([p, p], [emin, emax], 'k-')
