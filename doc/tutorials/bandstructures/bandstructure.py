@@ -14,6 +14,7 @@ si = bulk('Si', 'diamond', 5.43)
 calc = GPAW(mode=PW(200),
             xc='PBE',
             kpts=(8, 8, 8),
+            random=True,  # random guess (needed if many onoccupied bands required)
             occupations=FermiDirac(0.01),
             txt='Si_gs.txt')
 si.set_calculator(calc)
