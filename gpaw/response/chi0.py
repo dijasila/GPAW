@@ -74,7 +74,8 @@ class Chi0(PairDensity):
 
         # Occupied states:
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
-        self.distribute_k_points_and_bands(0, self.nocc2)
+        self.distribute_k_points_and_bands(0, self.nocc2,
+                                           kpts=range(wfs.kd.nibzkpts))
         self.mykpts = None
 
         wfs = self.calc.wfs
@@ -165,103 +166,119 @@ class Chi0(PairDensity):
         q_c = pd.kd.bzk_kc[0]
         optical_limit = not self.no_optical_limit and np.allclose(q_c, 0.0)
 
+        # Get symmetries that conserve q
+        s_s, shift_sc, op_svv = self.get_momentum_symmetries(q_c, pd)
+        nsym = len(op_svv)
+        Q_sG = []
+        for s, shift_c in zip(s_s, shift_sc):
+            UQ_G = self.Q2Q(pd, s, shift_c)
+            Q2Q_s.append(UQ_G)
+
         pb = ProgressBar(self.fd)
 
         self.timer.start('Loop')
         # kpt1 occupied and kpt2 empty:
         for kn, (s, ik, n1, n2) in enumerate(self.mysKn1n2):
-            pb.update(kn / len(self.mysKn1n2))  # Update progressbar
+            pb.update(kn / len(self.mysKn1n2))
 
-            # Kpoints that can be associated with K
-            K_k = self.unfold_ibz_kpoint(ik):
-
-            # Group together using symmetry operations
-            # consistent with q. s_gkk[:, k1, k2] is an index marking 
-            # which symmetry operation of op_scc to use to get from
-            # k2 to k1. If q = 0 then all symmetries are allowed.
-            K_gk, s_gkk, op_scc = self.group_kpoints(K_k, q_c)
+            K_k = self.unfold_ibz_kpoint(ik)
+            K_gk, s_gkk = self.group_kpoints(s_s, K_k)
             
-            # Handle each group of kpoints separately
-            for K_k in K_gk:
-                # Use first kpoint as representative for the group
-                # and calculate all FFT components needed with respect
-                # to the first k-point. The other kpoints can then 
-                # be related to these kpoints. G2G_kG is a map from the 
-                # set of aff G's to the Gs of a specific kpoint.
-                with self.timer('fft-indices'):
-                    allQ_G, G2G_kG = self.calculate_group_fft_indices(K_K)
+            for K_k, s_gkk in zip(K_gk, s_gkk):
+                K1 = K_k[0]
 
-                # Create kpoint objects associated with group.
-                # This will load into memory periodic parts of all
-                # kpoints in group. The memory allocated is *usually*
-                # insignificant.
-                kpt1_k = self.get_k_points(s, K_k, n1, n2)
+                with self.timer('get k1'):
+                    kpt1 = self.get_k_point(s, K1, n1, n2)
 
-                # Find all k + q for group 
+                # Check if this is the wanted spin component
+                if kpt1.s not in spins:
+                    continue
+
                 with self.timer('k+q'):
-                    K2_k = wfs.kd.find_k_plus_q(q_c, K_k)
+                    K2 = wfs.kd.find_k_plus_q(q_c, K1)
                 with self.timer('get k2'):
-                    kpt2_k = self.get_multiple_k_points(kpt1.s, K2, 
-                                                        m1, m2, block=True)
-                
-                # To avoid saving pair-densities for multiple bands 
-                # at a time we calculate one band at a time
+                    kpt2 = self.get_k_point(kpt1.s, K2,
+                                            m1, m2, block=True)
+
+                with self.timer('fft-indices'):
+                    Q_kG = []
+                    for gk, _ in enumerate(K_k):
+                        sym = s_kk[0, gk]
+                        Q_G = self.get_fft_indices(Q_sG[sym], K1, K2, q_c, pd,
+                                                   shift1_c - shift2_c)
+                        Q_kg.append(Q_G)
+                    allQ_G = np.unique(np.concatenate(Q_kG))
+                    
                 for n in range(n2 - n1):
-                    for kpt1, kpt2, Q_G in zip(kpt1_k, kpt2_k, Q_kG):
-                        # Check if this is the wanted spin component
-                        if kpt1.s not in spins:
-                            continue
-
-                        eps1 = kpt1.eps_n[n]
-                
-                        # Only include unoccupied states with deps <= omegamax
-                        if self.omegamax is not None:
-                            m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
-                                 if abs(d) <= self.omegamax]
-                        else:
-                            m = range(0, kpt2.n2 - kpt2.n1)
-                
-                        if not len(m):
-                            continue
-
-                        deps_m = (eps1 - kpt2.eps_n)[m]
-                        f1 = kpt1.f_n[n]
-
-                        # If this is the first kpoint in the group
-                        # all pair-densities are calculated
-                        if K == K_k[0]:
-                            with self.timer('conj'):
-                                ut1cc_R = kpt1.ut_nR[n].conj()
-                            with self.timer('paw'):
-                                C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
-                                          for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-                            ntmp_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                                 pd, allQ_G)[m]
-
-                        n_mG = self.get_pair_densities(K_k[0], K, Q_G)
-                        n_mG = ntmp_mG[:, Q_G] #XXX Not right
+                    eps1 = kpt1.eps_n[n]
+                    # Only include unoccupied states with deps <= omegamax
+                    if self.omegamax is not None:
+                        m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
+                             if abs(d) <= self.omegamax]
+                    else:
+                        m = range(0, kpt2.n2 - kpt2.n1)
                         
-                        df_m = (f1 - kpt2.f_n)[m]
+                    if not len(m):
+                        continue
 
-                        # This is not quite right for degenerate partially occupied
-                        # bands, but good enough for now:
-                        df_m[df_m <= 1e-20] = 0.0
+                    deps_m = (eps1 - kpt2.eps_n)[m]
+                    f1 = kpt1.f_n[n]
 
-                        if optical_limit:
-                            self.update_optical_limit(
-                                n, m, kpt1, kpt2, deps_m, df_m, n_mG,
-                                chi0_wxvG, chi0_wvv)
+                    # If this is the first kpoint in the group
+                    # all pair-densities are calculated
+                    with self.timer('conj'):
+                        ut1cc_R = kpt1.ut_nR[n].conj()
+                    with self.timer('paw'):
+                        C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
+                                  for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+                        n0_mG = self.calculate_pair_densities(ut1cc_R, 
+                                                              C1_aGi, kpt2,
+                                                              pd, allQ_G)[m]
+                    if optical_limit:
+                        n0_mv = self.optical_pair_density(n, m, kpt1,
+                                                          kpt2, deps_m,
+                                                          df_m, n0_mG)
+                    df_m = (f1 - kpt2.f_n)[m]
+
+                    # This is not quite right for degenerate partially occupied
+                    # bands, but good enough for now:
+                    df_m[df_m <= 1e-20] = 0.0
+
+                    # Loop over equivalent k-points, map around 
+                    # reciprocal lattice vectors and update
+                    # chi
+                    for K, Q_G, sym in zip(K_k, Q_kG, s_kk[0]):                
+                        G_G = np.zeros(len(Q_G), int)
+                        for iG, Q in enumerate(Q_G):
+                            G_G[iG] = np.argwhere(allQ_G == Q)[0]
+
+                        if sym % nsym:
+                            n_mG = n0_mG[:, G_G].conj()
+                        else:
+                            n_mG = n0_mG[:, G_G]
 
                         update(n_mG, deps_m, df_m, chi0_wGG)
 
-                    if optical_limit and self.intraband:
-                        # Avoid that more ranks are summing up
-                        # the intraband contributions
-                        if kpt1.n1 == 0 and self.blockcomm.rank == 0:
-                            assert self.nocc2 <= kpt2.nb, \
-                                print('Error: Too few unoccupied bands')
-                            self.update_intraband(kpt2)
+                        # Treat optical limit
+                        if optical_limit:
+                            if sym % nsym:
+                                n_mv = np.dot(n0_mv.conj(), -op_svv[sym].T)
+                            else:
+                                n_mv = np.dot(n0_mv, op_svv[sym].T)
 
+                            self.update_optical_limit(n_mv, deps_m, 
+                                                      df_m, n_mG,
+                                                      chi0_wxvG, chi0_wvv)
+
+                            if self.intraband:
+                                # Avoid that more ranks are summing up
+                                # the intraband contributions
+                                if kpt1.n1 == 0 and self.blockcomm.rank == 0:
+                                    assert self.nocc2 <= kpt2.nb, \
+                                        print('Error: Too few' + \
+                                              ' unoccupied bands')
+                                self.update_intraband(kpt2)
+                                
         self.timer.stop('Loop')
 
         pb.finish()
@@ -368,11 +385,8 @@ class Chi0(PairDensity):
             czher(p2, n_G.conj(), chi0_wGG[w + 1])
 
     @timer('CHI_0 optical limit update')
-    def update_optical_limit(self, n, m, kpt1, kpt2, deps_m, df_m, n_mG,
+    def update_optical_limit(self, n0_mv, deps_m, df_m, n_mG,
                              chi0_wxvG, chi0_wvv):
-        n0_mv = PairDensity.update_optical_limit(self, n, m, kpt1, kpt2,
-                                                 deps_m, df_m, n_mG)
-
         if self.hilbert:
             self.update_optical_limit_hilbert(n0_mv, deps_m, df_m, n_mG,
                                               chi0_wxvG, chi0_wvv)

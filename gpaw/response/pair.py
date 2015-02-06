@@ -138,7 +138,7 @@ class PairDensity:
               file=self.fd)
 
     def distribute_k_points_and_bands(self, band1, band2, kpts=None):
-        """Distribute spins, k-points and bands.
+        """Distribute spins, irreducible k-points and bands.
 
         nbands: int
             Number of bands for each spin/k-point combination.
@@ -190,6 +190,11 @@ class PairDensity:
         n1, n2: int
             Range of bands to include.
         """
+
+        if len(K) > 1:
+            return [self.get_k_point(s, K1, n1, n2, block=block) 
+                    for K1 in K]
+        
         wfs = self.calc.wfs
 
         if block:
@@ -198,6 +203,7 @@ class PairDensity:
         else:
             nblocks = 1
             rank = 0
+
         blocksize = (n2 - n1 + nblocks - 1) // nblocks
         na = min(n1 + rank * blocksize, n2)
         nb = min(na + blocksize, n2)
@@ -214,25 +220,31 @@ class PairDensity:
         ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
         for n in range(na, nb):
             ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
-            
-        P_ani = []
-        i1 = 0
-        if self.reader is not None:
-            P_nI = self.reader.get('Projections', kpt.s, kpt.k)
-        else:
-            iP_ani = kpt.P_ani
 
-        for b, U_ii in zip(a_a, U_aii):
-            i2 = i1 + len(U_ii)
-            if self.reader is not None:
-                P_ni = np.dot(P_nI[na:nb, i1:i2], U_ii)
-            else:
-                P_ni = np.dot(iP_ani[b][na:nb], U_ii)
-            if time_reversal:
-                P_ni = P_ni.conj()
-            P_ani.append(P_ni)
-            i1 = i2
-        
+        P_ani = []
+        if self.reader is None:
+            for b, U_ii in zip(a_a, U_aii):
+                P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
+                if time_reversal:
+                    P_ni = P_ni.conj()
+                P_ani.append(P_ni)
+        else:
+            II_a = []
+            I1 = 0
+            for U_ii in U_aii:
+                I2 = I1 + len(U_ii)
+                II_a.append((I1, I2))
+                I1 = I2
+
+            P_ani = []
+            P_nI = self.reader.get('Projections', kpt.s, kpt.k)
+            for b, U_ii in zip(a_a, U_aii):
+                I1, I2 = II_a[b]
+                P_ni = np.dot(P_nI[na:nb, I1:I2], U_ii)
+                if time_reversal:
+                    P_ni = P_ni.conj()
+                P_ani.append(P_ni)
+            
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 
@@ -274,12 +286,115 @@ class PairDensity:
             self.blockcomm.all_gather(n_mG, n_MG)
             return n_MG[:kpt2.n2 - kpt2.n1]
 
-    def get_fft_indices(self, K1, K2, q_c, pd, shift0_c):
+    def get_momentum_symmetries(self, q_c, pd):
+        """Determine symmetries compatible with q.
+
+        The k-point sum can be simplified by employing
+        the symmetries listed below. The this gives a
+        reduced brilluoin zone to sum over.
+
+        Direct symmetries::
+            U q = q + G
+        Time-reversal::
+            -U q = q + G
+        """
+
+        # Shortcuts
+        B_cv = 2.0 * np.pi * pd.gd.icell_cv
+        q_c = pd.kd.bzk_kc[0]
+        G_Gc = np.dot(pd.G_Qv[pd.Q_qG[0]], np.linalg.inv(B_cv))
+        kd = self.calc.wfs.kd
+        op_scc = kd.symmetry.op_scc
+        time_reversal = kd.symmetry.time_reversal
+        nsym = len(op_scc)
+        nsymtot = nsym * (1 + time_reversal)
+        newq_sc = np.dot(op_scc, q_c)
+        
+        shift_sc = np.array((nsymtot, 3), int)
+        conserveq_s = np.zeros(nsymtot, bool)
+
+        # Direct
+        dshift_sc = (newq_sc - q_c[np.newaxis]).round().astype(int)        
+        inds_s = np.argwhere((newq_sc == q_c[np.newaxis] + dshift_sc).all(1))
+        conserveq_s[inds_s] = True
+
+        shift_sc[:nsym] = dshift_sc
+
+        # Time reversal and Umklapp
+        if time_reversal:
+            trshift_sc = (-newq_sc - q_c[np.newaxis]).round().astype(int)        
+            trinds_s = np.argwhere((-newq_sc == q_c[np.newaxis] + trshift_sc).all(1)) + nsym
+            conserveq_s[trinds_s] = True
+            shift_sc[nsym:nsymtot] = trshift_sc
+
+        s_s = np.argwhere(conserveq_s)
+
+        t_sc = [] # For later inclusion fo nonsymmorphic symmetries
+        
+        # Create cartesian operator
+        cell_cv = pd.gd.cell_cv
+        icell_cv = pd.gd.icell_cv
+        op_svv = np.zeros_like(op_scc)
+        
+        for op_cc, op_vv in zip(op_scc, op_svv):
+            op_vv[:] = np.dot(np.dot(icell_cv.T, op_cc), cell_cv)
+
+        return s_s, shift_sc, op_svv
+
+    def Q2Q(self, pd, s, shift_c):
+        B_cv = 2.0 * np.pi * pd.gd.icell_cv
+        Q_G = pd.Q_qG[0]
+        G_Gc = np.dot(pd.G_Qv[Q_G], np.linalg.inv(B_cv))
+        nsym = len(op_scc)
+        if s >= nsym:  # Time reversal symmetry
+            sign = -1
+        else:
+            sign = 1
+        op_cc = self.calc.wfs.kd.symmetry.op_scc[s % nsym]
+        UG_Gc = np.dot(G_Gc - shift_c, sign * np.linalg.inv(op_cc).T)
+        UQ_G = np.ravel_multi_index(UG_Gc.T, pd.gd.N_c, 'wrap')
+
+        return UQ_G
+
+    def unfold_ibz_point(self, ik):
+        kd = self.calc.wfs.kd
+        K_k = np.unique(kd.bz2bz_k[kd.ibz2bz_k[ik]])
+        K_k = K_k[K_k != -1]
+        return K_k
+    
+    def group_kpoints(self, s_s, K_k):
+        bz2bz_ks = self.calc.wfs.kd.bz2bz_ks
+        nk = len(bz2bz_ks)
+        sbz2sbz_ks = bz2bz_ks[K_k, s_s]  # Reduced number of symmetries
+
+        # Avoid -1 (see documentation in gpaw.symmetry)
+        sbz2sbz_ks[sbz2sbz_ks == -1] = nk
+        
+        smallest_k = np.sort(sbz2sbz_ks)[:, 0]
+        k2g_g = np.unique(smallestk_k, return_index=True)[1]
+        
+        K_gs = sbz2sbz_ks[k2g_g]
+        K_gk = [np.unique(K_s) for K_s in K_gs]
+
+        # Symmetry mapping array
+        s_gkk = []
+        for gK_k in K_gk:
+            nkg = len(gK_k)
+            s_kk = np.array((ngk, ngk), int)
+            gbz2gbz_ks = bz2bz_ks[gK_k, s_s]
+            for k1, gK in enumerate(gK_k):
+                for k2, gK in enumerate(gK_k):
+                    s_kk[k1, k2] = np.argwhere(gbz2gbz_ks[k1] == k2)[0]
+            s_gkk.append(s_kk)
+
+        return K_gk, s_gkk
+    
+    def get_fft_indices(self, N_G, K1, K2, q_c, pd, shift0_c):
         """Get indices for G-vectors inside cutoff sphere."""
         kd = self.calc.wfs.kd
-        N_G = pd.Q_qG[0]
         shift_c = (shift0_c +
                    (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
+
         if shift_c.any():
             n_cG = np.unravel_index(N_G, pd.gd.N_c)
             n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
@@ -385,7 +500,7 @@ class PairDensity:
         return Q_aGii
 
     @timer('Optical limit')
-    def update_optical_limit(self, n, m, kpt1, kpt2, deps_m, df_m, n_mG):
+    def optical_pair_density(self, n, m, kpt1, kpt2, deps_m, df_m, n_mG):
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
 
