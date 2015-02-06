@@ -138,7 +138,7 @@ class PairDensity:
               file=self.fd)
 
     def distribute_k_points_and_bands(self, band1, band2, kpts=None):
-        """Distribute spins, irreducible k-points and bands.
+        """Distribute spins, k-points and bands.
 
         nbands: int
             Number of bands for each spin/k-point combination.
@@ -191,10 +191,6 @@ class PairDensity:
             Range of bands to include.
         """
 
-        if len(K) > 1:
-            return [self.get_k_point(s, K1, n1, n2, block=block) 
-                    for K1 in K]
-        
         wfs = self.calc.wfs
 
         if block:
@@ -389,9 +385,11 @@ class PairDensity:
 
         return K_gk, s_gkk
     
-    def get_fft_indices(self, N_G, K1, K2, q_c, pd, shift0_c):
+    def get_fft_indices(self, K1, K2, q_c, pd, shift0_c, N_G=None):
         """Get indices for G-vectors inside cutoff sphere."""
         kd = self.calc.wfs.kd
+        if N_G is None:
+            N_G = pd.Q_qG[0]
         shift_c = (shift0_c +
                    (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
 

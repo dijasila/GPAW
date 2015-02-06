@@ -204,8 +204,9 @@ class Chi0(PairDensity):
                     Q_kG = []
                     for gk, _ in enumerate(K_k):
                         sym = s_kk[0, gk]
-                        Q_G = self.get_fft_indices(Q_sG[sym], K1, K2, q_c, pd,
-                                                   shift1_c - shift2_c)
+                        Q_G = self.get_fft_indices(K1, K2, q_c, pd,
+                                                   shift1_c - shift2_c,
+                                                   N_G=Q_sG[sym])
                         Q_kg.append(Q_G)
                     allQ_G = np.unique(np.concatenate(Q_kG))
                     
