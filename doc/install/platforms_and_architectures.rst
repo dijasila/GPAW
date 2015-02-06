@@ -98,6 +98,7 @@ Linux:
    Linux/uranus
    Linux/vsc.univie
    Linux/odyssey
+   Linux/curie
 
 MacOSX:
 
