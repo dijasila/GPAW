@@ -73,12 +73,12 @@ class Chi0(PairDensity):
             assert not self.omega_w.real.any()
 
         # Occupied states:
+        wfs = self.calc.wfs
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
         self.distribute_k_points_and_bands(0, self.nocc2,
                                            kpts=range(wfs.kd.nibzkpts))
         self.mykpts = None
 
-        wfs = self.calc.wfs
         self.prefactor = 2 / self.vol / wfs.kd.nbzkpts / wfs.nspins
 
         self.chi0_vv = None  # strength of intraband peak
@@ -169,10 +169,10 @@ class Chi0(PairDensity):
         # Get symmetries that conserve q
         s_s, shift_sc, op_svv = self.get_momentum_symmetries(q_c, pd)
         nsym = len(op_svv)
-        Q_sG = []
+        Q2Q_sG = []
         for s, shift_c in zip(s_s, shift_sc):
             UQ_G = self.Q2Q(pd, s, shift_c)
-            Q2Q_s.append(UQ_G)
+            Q2Q_sG.append(UQ_G)
 
         pb = ProgressBar(self.fd)
 
@@ -184,7 +184,7 @@ class Chi0(PairDensity):
             K_k = self.unfold_ibz_kpoint(ik)
             K_gk, s_gkk = self.group_kpoints(s_s, K_k)
             
-            for K_k, s_gkk in zip(K_gk, s_gkk):
+            for K_k, s_kk in zip(K_gk, s_gkk):
                 K1 = K_k[0]
 
                 with self.timer('get k1'):
@@ -195,7 +195,7 @@ class Chi0(PairDensity):
                     continue
 
                 with self.timer('k+q'):
-                    K2 = wfs.kd.find_k_plus_q(q_c, K1)
+                    K2 = wfs.kd.find_k_plus_q(q_c, [K1])[0]
                 with self.timer('get k2'):
                     kpt2 = self.get_k_point(kpt1.s, K2,
                                             m1, m2, block=True)
@@ -205,9 +205,9 @@ class Chi0(PairDensity):
                     for gk, _ in enumerate(K_k):
                         sym = s_kk[0, gk]
                         Q_G = self.get_fft_indices(K1, K2, q_c, pd,
-                                                   shift1_c - shift2_c,
-                                                   N_G=Q_sG[sym])
-                        Q_kg.append(Q_G)
+                                                   kpt1.shift_c - kpt2.shift_c,
+                                                   N_G=Q2Q_sG[sym])
+                        Q_kG.append(Q_G)
                     allQ_G = np.unique(np.concatenate(Q_kG))
                     
                 for n in range(n2 - n1):
@@ -257,8 +257,8 @@ class Chi0(PairDensity):
                             n_mG = n0_mG[:, G_G].conj()
                         else:
                             n_mG = n0_mG[:, G_G]
-
-                        update(n_mG, deps_m, df_m, chi0_wGG)
+                        update(np.ascontiguousarray(n_mG), deps_m,
+                               df_m, chi0_wGG)
 
                         # Treat optical limit
                         if optical_limit:

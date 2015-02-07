@@ -301,12 +301,14 @@ class PairDensity:
         G_Gc = np.dot(pd.G_Qv[pd.Q_qG[0]], np.linalg.inv(B_cv))
         kd = self.calc.wfs.kd
         op_scc = kd.symmetry.op_scc
-        time_reversal = kd.symmetry.time_reversal
+        time_reversal = kd.symmetry.time_reversal and \
+                        not kd.symmetry.has_inversion
+#        time_reversal = kd.symmetry.time_reversal
         nsym = len(op_scc)
         nsymtot = nsym * (1 + time_reversal)
         newq_sc = np.dot(op_scc, q_c)
         
-        shift_sc = np.array((nsymtot, 3), int)
+        shift_sc = np.zeros((nsymtot, 3), int)
         conserveq_s = np.zeros(nsymtot, bool)
 
         # Direct
@@ -318,13 +320,12 @@ class PairDensity:
 
         # Time reversal and Umklapp
         if time_reversal:
-            trshift_sc = (-newq_sc - q_c[np.newaxis]).round().astype(int)        
+            trshift_sc = (-newq_sc - q_c[np.newaxis]).round().astype(int)
             trinds_s = np.argwhere((-newq_sc == q_c[np.newaxis] + trshift_sc).all(1)) + nsym
             conserveq_s[trinds_s] = True
             shift_sc[nsym:nsymtot] = trshift_sc
 
-        s_s = np.argwhere(conserveq_s)
-
+        s_s = conserveq_s.nonzero()[0]
         t_sc = [] # For later inclusion fo nonsymmorphic symmetries
         
         # Create cartesian operator
@@ -335,52 +336,55 @@ class PairDensity:
         for op_cc, op_vv in zip(op_scc, op_svv):
             op_vv[:] = np.dot(np.dot(icell_cv.T, op_cc), cell_cv)
 
+        print(self.calc.wfs.kd.bz2bz_ks.shape, s_s,
+              shift_sc.shape, op_svv.shape)
+
         return s_s, shift_sc, op_svv
 
     def Q2Q(self, pd, s, shift_c):
+        op_scc = self.calc.wfs.kd.symmetry.op_scc
+        nsym = len(op_scc)
+        op_cc = op_scc[s % nsym]
         B_cv = 2.0 * np.pi * pd.gd.icell_cv
         Q_G = pd.Q_qG[0]
         G_Gc = np.dot(pd.G_Qv[Q_G], np.linalg.inv(B_cv))
-        nsym = len(op_scc)
         if s >= nsym:  # Time reversal symmetry
             sign = -1
         else:
             sign = 1
-        op_cc = self.calc.wfs.kd.symmetry.op_scc[s % nsym]
         UG_Gc = np.dot(G_Gc - shift_c, sign * np.linalg.inv(op_cc).T)
-        UQ_G = np.ravel_multi_index(UG_Gc.T, pd.gd.N_c, 'wrap')
+        UQ_G = np.ravel_multi_index(UG_Gc.astype(int).T, pd.gd.N_c, 'wrap')
 
         return UQ_G
 
-    def unfold_ibz_point(self, ik):
+    def unfold_ibz_kpoint(self, ik):
         kd = self.calc.wfs.kd
-        K_k = np.unique(kd.bz2bz_k[kd.ibz2bz_k[ik]])
+        K_k = np.unique(kd.bz2bz_ks[kd.ibz2bz_k[ik]])
         K_k = K_k[K_k != -1]
         return K_k
     
     def group_kpoints(self, s_s, K_k):
         bz2bz_ks = self.calc.wfs.kd.bz2bz_ks
         nk = len(bz2bz_ks)
-        sbz2sbz_ks = bz2bz_ks[K_k, s_s]  # Reduced number of symmetries
-
+        sbz2sbz_ks = bz2bz_ks[K_k][:, s_s]  # Reduced number of symmetries
         # Avoid -1 (see documentation in gpaw.symmetry)
         sbz2sbz_ks[sbz2sbz_ks == -1] = nk
         
-        smallest_k = np.sort(sbz2sbz_ks)[:, 0]
+        smallestk_k = np.sort(sbz2sbz_ks)[:, 0]
         k2g_g = np.unique(smallestk_k, return_index=True)[1]
         
         K_gs = sbz2sbz_ks[k2g_g]
-        K_gk = [np.unique(K_s) for K_s in K_gs]
+        K_gk = [np.unique(K_s[K_s != nk]) for K_s in K_gs]
 
         # Symmetry mapping array
         s_gkk = []
         for gK_k in K_gk:
-            nkg = len(gK_k)
-            s_kk = np.array((ngk, ngk), int)
-            gbz2gbz_ks = bz2bz_ks[gK_k, s_s]
+            nk = len(gK_k)
+            s_kk = np.zeros((nk, nk), int)
+            gbz2gbz_ks = bz2bz_ks[gK_k][:, s_s]
             for k1, gK in enumerate(gK_k):
                 for k2, gK in enumerate(gK_k):
-                    s_kk[k1, k2] = np.argwhere(gbz2gbz_ks[k1] == k2)[0]
+                    s_kk[k1, k2] = np.argwhere(gbz2gbz_ks[k1] == gK_k[k2])[0][0]
             s_gkk.append(s_kk)
 
         return K_gk, s_gkk
