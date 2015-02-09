@@ -81,6 +81,5 @@ calc = GPAW(h=0.18,
             )
  
 atoms.set_calculator(calc)               
-atoms.get_potential_energy()             
 
 ncpus = 16
