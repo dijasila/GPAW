@@ -529,6 +529,11 @@ class SerialCommunicator:
     def all_gather(self, a, b):
         b[:] = a
 
+    def alltoallv(self, sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls):
+        rbuffer[:] = sbuffer
+        rcounts[:] = scounts
+        rdispls[:] = sdispls
+
     def new_communicator(self, ranks):
         if self.rank not in ranks:
             return None
