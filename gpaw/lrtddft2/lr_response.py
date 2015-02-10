@@ -48,7 +48,7 @@ class LrResponse:
         C_re = self.C_re * 1.
         C_im = self.C_im * 1.
 
-        if units == 'a.u.':
+        if units == 'au':
             pass
         elif units == 'eVang':
             # FIXME: where these units come from???
@@ -128,7 +128,7 @@ class LrResponse:
             data[ip,16] = - df * C_im_ip * mm
 
 
-        if units == 'a.u.':
+        if units == 'au':
             pass
         elif units == 'eVangcgs':
             data[:,2] *= ase.units.Hartree
@@ -156,7 +156,7 @@ class LrResponse:
     # dipole should integrate to absorption spectrum
     # rotatory should integrate to CD spectrum
     def get_transition_contribution_maps(self, occ_min_energy, occ_max_energy, unocc_min_energy, unocc_max_energy, width = 0.05, energy_step = 0.05, units='eVangcgs'):
-        data = self.get_response_data(units='a.u.')
+        data = self.get_response_data(units='au')
 
         eps_i  = data[:,2]
         eps_p  = data[:,3]
@@ -192,7 +192,7 @@ class LrResponse:
 
         # FIXME: units of A, S, and R
 
-        if units == 'a.u.':
+        if units == 'au':
             pass
         elif units == 'eVangcgs':
             raise RuntimeError('Error in get_transition_contribution_maps: Unit conversion from atomic units to eV ang cgs not implemented yet.')
@@ -203,7 +203,7 @@ class LrResponse:
 
 
     #################################################################
-    def get_induced_density(self, units='a.u.', collect=False, amplitude_filter=1e-5):
+    def get_induced_density(self, units='au', collect=False, amplitude_filter=1e-5):
         # Init pair densities
         dnt_Gip = self.lrtddft2.calc.wfs.gd.empty()
         dnt_gip = self.lrtddft2.calc.density.finegd.empty()
@@ -236,7 +236,7 @@ class LrResponse:
         if collect:
             drhot_g = self.lrtddft2.calc.density.finegd.collect(drhot_g)
 
-        if units == 'a.u.':
+        if units == 'au':
             pass
         elif units == 'ang':
             drhot_g *= 1./ ase.units.Bohr**3
@@ -247,7 +247,7 @@ class LrResponse:
 
 
     ############################################################################
-    def get_approximate_electron_and_hole_densities(self, units='a.u.', collect=False, amplitude_filter=1e-4):
+    def get_approximate_electron_and_hole_densities(self, units='au', collect=False, amplitude_filter=1e-4):
         # Init pair densities
         dnt_Gip = self.lrtddft2.calc.wfs.gd.empty()
         dnt_gip = self.lrtddft2.calc.density.finegd.empty()
@@ -394,7 +394,7 @@ class LrResponse:
             drhot_geh = self.lrtddft2.calc.density.finegd.collect(drhot_geh)
 
 
-        if units == 'a.u.':
+        if units == 'au':
             pass
         elif units == 'ang':
             drhot_geh *= 1./ ase.units.Bohr**3

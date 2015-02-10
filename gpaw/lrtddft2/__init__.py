@@ -3,34 +3,13 @@
 import os
 import sys
 import datetime
-#import time
-#import pickle
-#import math
-#import glob
-#import StringIO
-#import array
-#import resource
 
 import numpy as np
 
 import ase.units
 from gpaw.xc import XC
 
-#import gpaw.mpi
-#import numpy as np
-#from gpaw.poisson import PoissonSolver
-#from gpaw.fd_operators import Gradient
-#from gpaw.utilities import pack
-#from gpaw.utilities.lapack import diagonalize
-#from gpaw.utilities.tools import coordinates
-#from gpaw.utilities.tools import pick
 from gpaw.parameters import InputParameters
-#from gpaw.blacs import BlacsGrid, Redistributor
-
-#from gpaw.utilities import devnull
-
-#import _gpaw
-#from gpaw.mpi import rank, alltoallv_string
 
 
 # a KS determinant with a single occ-uncc excitation
@@ -49,7 +28,6 @@ from gpaw.lrtddft2.lr_transitions import LrtddftTransitions
 # for a CW laser with Lorentzian width (in energy)
 from gpaw.lrtddft2.lr_response import LrResponse
 
-#from gpaw.output import initialize_text_stream
 
 
 #####################################################
@@ -117,10 +95,10 @@ class LrTDDFT2:
           | None     : do not recalculate anything if not needed (default)
 
         lr_communicators
-          FIXME: UPDATE, if None try to figure it out
-          Communicator for parallelizing over electron-hole pairs (i.e.,
-          rows of K-matrix). Note that calculator must have suitable
-          communicator, which can be assured by using lr_communicators
+          Communicators for parallelizing over electron-hole pairs (i.e.,
+          rows of K-matrix) and domain. Note that ground state calculator 
+          must have a matching (domain decomposition) communicator, which 
+          can be assured by using lr_communicators
           to create both communicators.
 
         txt
@@ -258,6 +236,25 @@ class LrTDDFT2:
 
     #################################################################
     def get_transitions(self, filename=None, min_energy=0.0, max_energy=30.0, units='eVcgs'):
+        """Get transitions: energy, dipole strength and rotatory strength.
+
+        Returns transitions as (w,S,R, Sx,Sy,Sz) where 
+        w is an array of frequencies,
+        S is an array of corresponding dipole strengths, 
+        and R is an array of corresponding rotatory strengths.
+
+        Input parameters:
+
+        min_energy
+          Minimum energy 
+
+        min_energy
+          Maximum energy
+
+        units
+          Units for spectrum: 'au' or 'eVcgs'
+        """
+
         self.calculate()
         self.txt.write('Calculating transitions (%s).\n' % str(datetime.datetime.now()))
         trans = self.lr_transitions.get_transitions(filename, min_energy, max_energy, units)
@@ -268,6 +265,29 @@ class LrTDDFT2:
     #################################################################
     def get_spectrum(self, filename=None, min_energy=0.0, max_energy=30.0,
                      energy_step=0.01, width=0.1, units='eVcgs'):
+        """Get spectrum for dipole and rotatory strength.
+
+        Returns folded spectrum as (w,S,R) where w is an array of frequencies,
+        S is an array of corresponding dipole strengths, and R is an array of
+        corresponding rotatory strengths.
+
+        Input parameters:
+
+        min_energy
+          Minimum energy 
+
+        min_energy
+          Maximum energy
+
+        energy_step
+          Spacing between calculated energies
+
+        width
+          Width of the Gaussian
+
+        units
+          Units for spectrum: 'au' or 'eVcgs'
+        """
         self.calculate()
         self.txt.write('Calculating spectrum    (%s).\n' % str(datetime.datetime.now()))
         spec = self.lr_transitions.get_spectrum(filename, min_energy, max_energy, energy_step, width, units)
@@ -300,17 +320,32 @@ class LrTDDFT2:
     #
     #################################################################
     def calculate_response(self, excitation_energy, excitation_direction, lorentzian_width, units='eVang'):
+        """Calculates and returns response using TD-DFPT.
+        
+        Input parameters:
+        
+        excitation_energy
+          Energy of the laser in give units
+
+        excitation_direction
+          Vector for direction (will be normalized)
+
+        lorentzian_width
+          Life time or width parameter. Larger width results in wider
+          energy envelope around excitation energy.
+        """
+
         # S_z(omega) = 2 * omega sum_ip n_ip C^(im)_ip(omega) * mu^(z)_ip
 
         self.calculate()
 
         omega_au = excitation_energy
         width_au = lorentzian_width
-        # always unit field in a.u. !!!
+        # always unit field in au !!!
         direction_au = np.array(excitation_direction)
         direction_au = direction_au / np.sqrt(np.vdot(direction_au,direction_au))
 
-        if units == 'a.u.':
+        if units == 'au':
             pass
         elif units == 'eVang':
             omega_au /= ase.units.Hartree
@@ -326,6 +361,12 @@ class LrTDDFT2:
 
     #################################################################
     def calculate(self):
+        """Calculates linear response matrix and properties of KS
+        electron-hole pairs.
+        
+        This is called implicitly by get_spectrum, get_transitions, etc.
+        but there is no harm for calling this explicitly.
+        """
         if not self.calc_ready:
             # Initialize wfs, paw corrections and xc, if not done yet
             # FIXME: CHECK THIS STUFF, DOES GLLB WORK???
@@ -394,6 +435,7 @@ class LrTDDFT2:
 
     #################################################################
     def read(self, basename):
+        """Does not do much at the moment."""
         info_file = open(fname,'r')
         for line in info_file:
             if line[0] == '#': continue
@@ -407,6 +449,7 @@ class LrTDDFT2:
 
     #################################################################
     def write_info(self, fname):
+        """Writes used parameters to a file."""
         f = open(fname+'.lr_info','a+')
         f.write('# LrTDDFTindexed\n')
         f.write('%20s = %s\n' % ('xc_name', self.xc_name))
