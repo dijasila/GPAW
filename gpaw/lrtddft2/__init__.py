@@ -3,17 +3,20 @@
 import os
 import sys
 import datetime
+import glob
 
 import numpy as np
 
 import ase.units
+from ase.utils import devnull
+
 from gpaw.xc import XC
 
 from gpaw.parameters import InputParameters
 
 
 # a KS determinant with a single occ-uncc excitation
-from gpaw.lrtddft2.ks_singles import KohnShamSingleExcitation
+#from gpaw.lrtddft2.ks_singles import KohnShamSingleExcitation
 
 # a list of KS determinants with single occ-uncc excitations
 from gpaw.lrtddft2.ks_singles import KohnShamSingles
@@ -27,6 +30,9 @@ from gpaw.lrtddft2.lr_transitions import LrtddftTransitions
 # a linear combination of KS single determinants
 # for a CW laser with Lorentzian width (in energy)
 from gpaw.lrtddft2.lr_response import LrResponse
+
+# communicators
+from gpaw.lrtddft2.lr_communicators import LrCommunicators
 
 
 
@@ -436,21 +442,23 @@ class LrTDDFT2:
     #################################################################
     def read(self, basename):
         """Does not do much at the moment."""
-        info_file = open(fname,'r')
+        info_file = open(basename + '.lr_info', 'r')
         for line in info_file:
-            if line[0] == '#': continue
-            if len(line.split()) <= 2: continue
-            key = line.split('=')[0]
-            value = line.split('=')[1]
+            if line[0] == '#': 
+                continue
+            if len(line.split()) <= 2: 
+                continue
+            #key = line.split('=')[0]
+            #value = line.split('=')[1]
             # .....
             # FIXME: do something, like warn if changed
             # ... 
         info_file.close()
 
     #################################################################
-    def write_info(self, fname):
+    def write_info(self, basename):
         """Writes used parameters to a file."""
-        f = open(fname+'.lr_info','a+')
+        f = open(basename + '.lr_info', 'a+')
         f.write('# LrTDDFTindexed\n')
         f.write('%20s = %s\n' % ('xc_name', self.xc_name))
         f.write('%20s = %d\n' % ('min_occ', self.min_occ))

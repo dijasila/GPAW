@@ -378,9 +378,9 @@ class LrResponse:
 
         drhot_geh = drhot_ge + drhot_gh
 
-        Ige  = self.lrtddft2.calc.density.finegd.integrate(drhot_ge)
-        Igh  = self.lrtddft2.calc.density.finegd.integrate(drhot_gh)
-        Igeh = self.lrtddft2.calc.density.finegd.integrate(drhot_geh)
+        #Ige  = self.lrtddft2.calc.density.finegd.integrate(drhot_ge)
+        #Igh  = self.lrtddft2.calc.density.finegd.integrate(drhot_gh)
+        #Igeh = self.lrtddft2.calc.density.finegd.integrate(drhot_geh)
 
         #if self.lrtddft2.lr_comms.parent_comm.rank == 0:
         #    print 'drho_ge ', Ige
