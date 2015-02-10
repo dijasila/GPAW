@@ -11,7 +11,7 @@ class Heterostructure:
                  chi_monopole, z, drho_monopole, d0=None, chi_dipole=None,
                  drho_dipole=None, layer_indices=None):
         # layers and distances
-        self.n_types = chi_monopole.shape[0]
+        self.n_types = len(chi_monopole)
         self.n_layers = len(d) + 1
         self.d = d / Bohr  # interlayer distances
         # space around each layer
@@ -35,14 +35,16 @@ class Heterostructure:
         system_size = np.sum(self.d) + 50
         self.z_lim = system_size
         self.dz = 0.01
-        self.z_big = np.arange(0, self.z_lim, 0.01) - 25  # master grid
+        self.z_big = np.arange(0, self.z_lim, self.dz) - 25  # master grid  
         self.z0 = np.append(np.array([0]), np.cumsum(self.d))
 
         # layer quantities
         self.q_abs = q_abs
         self.frequencies = frequencies
-        self.chi_monopole = chi_monopole
+        self.chi_monopole = np.array(chi_monopole)
         self.chi_dipole = chi_dipole
+        if chi_dipole is not None:
+            self.chi_dipole = np.array(chi_dipole)
         
         # arange potential and density
         self.drho_monopole, self.drho_dipole, self.basis_array, \
@@ -59,12 +61,14 @@ class Heterostructure:
         basis_array = np.zeros([self.dim, Nz], dtype=complex)
         
         for i in range(self.n_types):
-            z = self.z[i] - self.z[i, len(self.z[i]) / 2]
-            fm = interp1d(z, np.real(drhom[i]))
-            fm2 = interp1d(z, np.imag(drhom[i]))
+            z = self.z[i] - self.z[i][len(self.z[i]) / 2]
+            drhom_i = drhom[i]
+            fm = interp1d(z, np.real(drhom_i))
+            fm2 = interp1d(z, np.imag(drhom_i))
             if drhod is not None:
-                fd = interp1d(z, np.real(drhod[i]))
-                fd2 = interp1d(z, np.imag(drhod[i]))
+                drhod_i = drhod[i]
+                fd = interp1d(z, np.real(drhod_i))
+                fd2 = interp1d(z, np.imag(drhod_i))
             for k in [k for k in range(self.n_layers) \
                           if self.layer_indices[k] == i]:
                 z_big = self.z_big - self.z0[k]
@@ -90,20 +94,20 @@ class Heterostructure:
 
     def get_induced_potentials(self):
         from scipy.interpolate import interp1d
-        z = self.z[0]
         Nz = len(self.z_big)
         dphi_array = np.zeros([self.dim, len(self.q_abs), Nz], dtype=complex)
 
         for i in range(self.n_types):
+            z = self.z[i]
             for iq in range(len(self.q_abs)):
                 q = self.q_abs[iq]
-                drho_m = self.drho_monopole[i, iq].copy()
+                drho_m = self.drho_monopole[i][iq].copy()
                 poisson_m = self.solve_poisson_1D(drho_m, q, z)
                 z_poisson = self.get_z_grid(z, z_lim=self.poisson_lim)
                 fm = interp1d(z_poisson, np.real(poisson_m))
                 fm2 = interp1d(z_poisson, np.imag(poisson_m))
                 if self.chi_dipole is not None:
-                    drho_d = self.drho_dipole[i, iq].copy()
+                    drho_d = self.drho_dipole[i][iq].copy()
                     #  delta = distance bewteen dipole peaks / 2
                     delta = np.abs(z[np.argmax(drho_d)] - \
                                    z[np.argmin(drho_d)]) / 2.
@@ -287,17 +291,14 @@ class Heterostructure:
                                   len(self.frequencies)))
         eps_qwij = self.get_eps_matrix(step_potential=True)
         h_distr = h_distr.transpose()
+        kernel_qij = self.get_Coulomb_Kernel()
 
-        for iq in range(0, len(self.q_abs)):
-            kernel_ij = self.get_Coulomb_Kernel()
-            ext_pot = np.dot(kernel_ij, h_distr)
+        for iq in range(0, len(self.q_abs)):            
+            ext_pot = np.dot(kernel_qij[iq], h_distr)
             for iw in range(0, len(self.frequencies)):
-                v_screened_qw[iq, iw] = self.q_abs[iq] / 2. / np.pi * \
-                    np.dot(e_distr,
-                           np.dot(np.linalg.inv(eps_qwij[iq, iw, :, :]),
-                                  ext_pot))
+                v_screened_qw[iq, iw] = np.dot(e_distr,np.dot(np.linalg.inv(eps_qwij[iq, iw, :, :]),ext_pot))
                         
-        return 1. / (v_screened_qw)
+        return -v_screened_qw
 
     def get_macroscopic_dielectric_constant(self):  # , static=True
         N = self.n_layers
