@@ -241,7 +241,7 @@ class DielectricFunction:
   
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
-                              calculate_chi=False, q0=None, 
+                              calculate_chi=False, q0=None,
                               add_intraband=False):
         """Returns the symmetrized dielectric matrix.
         
@@ -523,7 +523,7 @@ class DielectricFunction:
         print('N1 = %f, %f  %% error' % (N1, (N1 - nv) / nv * 100), file=fd)
 
     def get_eigenmodes(self, q_c=[0, 0, 0], w_max=None, name=None,
-                       eigenvalue_only=False, direction='x', 
+                       eigenvalue_only=False, direction='x',
                        checkphase=True):
         
         """Plasmon eigenmodes as eigenvectors of the dielectric matrix."""
@@ -604,10 +604,10 @@ class DielectricFunction:
                 qGr_R = np.inner(qG, r.T).T
                 factor = np.exp(1j * qGr_R)
                 v_temp = np.dot(factor, vec[:, k])
-                n_temp = np.dot(factor, vec[:, k] *coef_G)
-                if checkphase: # rotate eigenvectors in complex plane 
+                n_temp = np.dot(factor, vec[:, k] * coef_G)
+                if checkphase:  # rotate eigenvectors in complex plane
                     integral = np.zeros([81])
-                    phases = np.linspace(0,2,81)
+                    phases = np.linspace(0, 2, 81)
                     for ip in range(81):
                         v_int = v_temp * np.exp(1j * pi * phases[ip])
                         integral[ip] = abs(np.imag(v_int)).sum()
