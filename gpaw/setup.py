@@ -817,7 +817,11 @@ class Setup(BaseSetup):
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
         self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
-        self.rxnabla_iiv = self.get_magnetic_integrals_new(rgd2, phi_jg, phit_jg)
+        try:
+            self.rxnabla_iiv = self.get_magnetic_integrals_new(rgd2, 
+                                                               phi_jg, phit_jg)
+        except NotImplementedError:
+            self.rxp_iiv = None
 
     def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,
                                       lmax, Delta_lq, wnt_lqg,
@@ -1085,7 +1089,8 @@ class Setup(BaseSetup):
                 return [ ( 1/np.sqrt(2.), 2, -2),
                          ( 1/np.sqrt(2.), 2,  2) ]
 
-            raise RuntimeError('Error in get_magnetic_integrals_new: YL_to_Ylm not implemented for l>2 yet.')
+            raise NotImplementedError('Error in get_magnetic_integrals_new: '
+                                      'YL_to_Ylm not implemented for l>2 yet.')
 
         # <YL1| Lz |YL2>
         # with help of YL_to_Ylm

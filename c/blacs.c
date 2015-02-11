@@ -1,4 +1,4 @@
-B1;2c/*  Copyright (C) 2003-2007  CAMP
+/*  Copyright (C) 2003-2007  CAMP
  *  Copyright (C) 2007-2009  CAMd
  *  Copyright (C) 2010  Argonne National Laboratory
  *  Please see the accompanying LICENSE file for further information. */
