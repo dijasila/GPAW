@@ -254,7 +254,7 @@ class _Communicator:
         assert rdispls.flags.contiguous
         assert sbuffer.dtype == rbuffer.dtype
         # FIXME: more tests
-        self.comm.alltoallv(self, sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls)
+        self.comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls)
 
     def all_gather(self, a, b):
         """Gather data from all ranks onto all processes in a group.
