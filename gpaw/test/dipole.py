@@ -1,9 +1,10 @@
 from __future__ import print_function
 import numpy as np
+from ase.structure import molecule
+from ase.units import Hartree
 from gpaw import GPAW
 from gpaw.dipole_correction import DipoleCorrection
 from gpaw.poisson import PoissonSolver
-from ase.structure import molecule
 from gpaw.mpi import rank
 from gpaw.utilities import h2gpts
 
@@ -95,8 +96,14 @@ if rank == 0:
     dvz1 = vz1[-5] - vz1[4]
     dvz2 = vz2[4] - vz2[len(vz2) // 2]
     print(dvz1, dvz2)
-    
+
     err1 = abs(dvz1 - dvz2)
+
+    correction = calc1.hamiltonian.poisson.corrector.correction
+
+    correction_err = abs(2.0 * correction * Hartree + dvz1)
+    print('correction error %s' % correction_err)
+    assert correction_err < 3e-5
     
     # Comparison to what the values were when this test was last modified:
     ref_value = 2.07342988218
