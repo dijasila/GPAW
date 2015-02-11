@@ -222,6 +222,40 @@ class _Communicator:
         assert 0 <= root < self.size
         self.comm.scatter(a, b, root)
 
+    def alltoallv(self, sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls):
+        """All-to-all in a group.
+
+        Parameters:
+
+        sbuffer: ndarray
+            Source of the data to distribute, i.e. send buffers on all rank.
+        scounts: ndarray
+            Integer array equal to the group size specifying the number of 
+            elements to send to each processor
+        sbuffer: ndarray
+            Integer array (of length group size). Entry j specifies the 
+            displacement (relative to sendbuf from which to take the 
+            outgoing data destined for process j
+        rbuffer: ndarray
+            Destination of the distributed data, i.e. local receive buffer.
+        rcounts: ndarray
+            Integer array equal to the group size specifying the maximum 
+            number of elements that can be received from each processor.
+        rdispls:
+            Integer array (of length group size). Entry i specifies the 
+            displacement (relative to recvbuf at which to place the incoming 
+            data from process i 
+        """
+        assert sbuffer.flags.contiguous
+        assert scounts.flags.contiguous
+        assert sdispls.flags.contiguous
+        assert rbuffer.flags.contiguous
+        assert rcounts.flags.contiguous
+        assert rdispls.flags.contiguous
+        assert sbuffer.dtype == rbuffer.dtype
+        # FIXME: more tests
+        self.comm.alltoallv(self, sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls)
+
     def all_gather(self, a, b):
         """Gather data from all ranks onto all processes in a group.
 
@@ -720,7 +754,7 @@ def alltoallv_string(send_dict, comm=world):
     for proc in range(comm.size):
         rdispls[proc] = rtotal
         rtotal += rcounts[proc]
-        rtotal += rcounts[proc]
+        rtotal += rcounts[proc]  # CHECK: is this correct?
 
     sbuffer = np.zeros(stotal, dtype=np.int8)
     for proc in range(comm.size):

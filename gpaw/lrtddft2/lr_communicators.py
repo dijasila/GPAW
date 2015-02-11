@@ -27,18 +27,19 @@ class LrCommunicators:
         over them.
 
 
-        Pass lrcomm.dd_comm to ground state calc when reading for LrTDDFT.
+        Pass lr_comms.dd_comm to ground state calc when reading for LrTDDFT.
 
 
         ----------------------------------------------------------------------
 
-        Example (for 8 MPI processes):
+        Example (for 8 MPI processes)::
 
-        lr_comms = LrCommunicators(gpaw.mpi.world, 4, 2)
-        txt = 'lr_%06d_%06d.txt' % (lr_comms.dd_comm.rank, 
-                                    lr_comms.eh_comm.rank)
-        lr = LrTDDFTindexed(GPAW('unocc.gpw', communicator=lr_comms.dd_comm), 
-                            lr_communicators=lr_comms, txt=txt)
+          lr_comms = LrCommunicators(gpaw.mpi.world, 4, 2)
+          txt = 'lr_%06d_%06d.txt' % (lr_comms.dd_comm.rank, 
+                                      lr_comms.eh_comm.rank)
+          lr = LrTDDFTindexed(GPAW('unocc.gpw', communicator=lr_comms.dd_comm), 
+                              lr_communicators=lr_comms, txt=txt)
+        
         """
 
         self.parent_comm = None
