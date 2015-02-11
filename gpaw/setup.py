@@ -821,7 +821,7 @@ class Setup(BaseSetup):
             self.rxnabla_iiv = self.get_magnetic_integrals_new(rgd2, 
                                                                phi_jg, phit_jg)
         except NotImplementedError:
-            self.rxp_iiv = None
+            self.rxnabla_iiv = None
 
     def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,
                                       lmax, Delta_lq, wnt_lqg,
