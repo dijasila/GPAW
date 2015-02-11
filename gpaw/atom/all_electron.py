@@ -248,10 +248,12 @@ class AllElectron:
         
         # orbital_free needs more iterations and coefficient
         if self.orbital_free:
-            #qOK = log(1e-14)
-            e_j[0] /= self.tf_coeff
             mix = 0.01
             nitermax = 2000
+            e_j[0] /= self.tf_coeff
+            if Z > 10 : #help convergence for third row elements
+                mix = 0.002
+                nitermax = 10000
             
         vrold = None
         
