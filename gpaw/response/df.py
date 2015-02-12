@@ -169,7 +169,6 @@ class DielectricFunction:
             else:
                 chi0_wGG = np.empty((self.w2 - self.w1, nG, nG), complex)
                 world.receive(chi0_wGG, 0)
-                
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
         
     def collect(self, a_w):
@@ -241,8 +240,7 @@ class DielectricFunction:
   
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
-                              calculate_chi=False, q0=None,
-                              add_intraband=False):
+                              calculate_chi=False, q0=None):
         """Returns the symmetrized dielectric matrix.
         
         ::
@@ -279,10 +277,9 @@ class DielectricFunction:
 
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             W = slice(self.w1, self.w2)
-            if add_intraband:
-                chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-                chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-                chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
             if q0 is not None:
                 print('Restoring q dependence of head and wings of chi0')
                 chi0_wGG[:, 1:, 0] *= q0
