@@ -754,7 +754,7 @@ def alltoallv_string(send_dict, comm=world):
     for proc in range(comm.size):
         rdispls[proc] = rtotal
         rtotal += rcounts[proc]
-        rtotal += rcounts[proc]  # CHECK: is this correct?
+        #rtotal += rcounts[proc]  # CHECK: is this correct?
 
     sbuffer = np.zeros(stotal, dtype=np.int8)
     for proc in range(comm.size):
