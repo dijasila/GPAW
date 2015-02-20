@@ -459,7 +459,7 @@ def get_chi_2D(filenames, name=None):
     drho_M_qz = np.zeros([nq, len(z)], dtype=complex)  # induced density
     drho_D_qz = np.zeros([nq, len(z)], dtype=complex)  # induced dipole density
     for iq in range(nq):
-        if not iq = 0:
+        if not iq == 0:
             omega_w, pd, chi_wGG, q0 = read_chi_wGG(filenames[iq])
         if q0 is not None:
             q = q0
