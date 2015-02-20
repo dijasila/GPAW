@@ -446,42 +446,31 @@ def get_chi_2D(filenames, name=None):
     name: str
         name writing output files
     """
-
     nq = len(filenames)
-    try:
-        omega_w, pd, chi_wGG = pickle.load(open(filenames[0]))
-        q0 = None
-        q = pd.K_qv
-    except:
-        q0, omega_w, pd, chi_wGG = pickle.load(open(filenames[0]))
-        q = q0
-    chi_wGG = np.array(chi_wGG)
+    q_list_abs = []
+    omega_w, pd, chi_wGG, q0 = read_chi_wGG(filenames[0])
+    nw = omega_w.shape[0]
     r = pd.gd.get_grid_point_coordinates()
     z = r[2, 0, 0, :]
     L = pd.gd.cell_cv[2, 2]  # Length of cell in Bohr
     z0 = L / 2.  # position of layer
-    npw = chi_wGG.shape[1]
-    nw = chi_wGG.shape[0]
-    q_list_abs = []
-    Gvec = pd.get_reciprocal_vectors(add_q=False)
-    Glist = []
-    for iG in range(npw):  # List of G with Gx,Gy = 0
-        if Gvec[iG, 0] == 0 and Gvec[iG, 1] == 0:
-            Glist.append(iG)
     chiM_2D_qw = np.zeros([nq, nw], dtype=complex)
     chiD_2D_qw = np.zeros([nq, nw], dtype=complex)
     drho_M_qz = np.zeros([nq, len(z)], dtype=complex)  # induced density
     drho_D_qz = np.zeros([nq, len(z)], dtype=complex)  # induced dipole density
     for iq in range(nq):
-        if not iq == 0:
-            try:
-                omega_w, pd, chi_wGG = pickle.load(open(filenames[iq]))
-                q0 = None
-                q = pd.K_qv
-            except:
-                q0, omega_w, pd, chi_wGG = pickle.load(open(filenames[iq]))
-                q = q0
-        chi_wGG = np.array(chi_wGG)
+        if not iq = 0:
+            omega_w, pd, chi_wGG, q0 = read_chi_wGG(filenames[iq])
+        if q0 is not None:
+            q = q0
+        else:
+            q = pd.K_qv
+        npw = chi_wGG.shape[1]
+        Gvec = pd.get_reciprocal_vectors(add_q=False)
+        Glist = []
+        for iG in range(npw):  # List of G with Gx,Gy = 0
+            if Gvec[iG, 0] == 0 and Gvec[iG, 1] == 0:
+                Glist.append(iG)
         chiM_2D_qw[iq] = L * chi_wGG[:, 0, 0]
         drho_M_qz[iq] += chi_wGG[0, 0, 0]
         q_abs = np.linalg.norm(q)
@@ -489,8 +478,7 @@ def get_chi_2D(filenames, name=None):
         for iG in Glist[1:]:
             G_z = Gvec[iG, 2]
             qGr_R = np.inner(G_z, z.T).T
-            # Fourier transform to get induced density,
-            # use static limit so far
+            # Fourier transform to get induced density at \omega=0
             drho_M_qz[iq] += np.exp(1j * qGr_R) * chi_wGG[0, iG, 0]
             for iG1 in Glist[1:]:
                 G_z1 = Gvec[iG1, 2]
@@ -526,6 +514,22 @@ def z_factor(z0, d, G, sign=1):
 def z_factor2(z0, d, G, sign=1):
     factor = sign * np.exp(1j * sign * G * z0) * np.sin(G * d / 2.)
     return factor
+
+
+def read_chi_wGG(name):
+    """
+    Read density response matrix calculated with the DielectricFunction
+    module in GPAW.
+    Returns frequency grid, gpaw.wavefunctions object, chi_wGG
+    """
+    fd = open(name)
+    omega_w, pd, chi_wGG, q0, chi0_wvv = pickle.load(fd)
+    nw = len(omega_w)
+    nG = pd.ngmax
+    chi_wGG = np.empty((nw, nG, nG), complex)
+    for chi_GG in chi_wGG:
+        chi_GG[:] = pickle.load(fd)
+    return omega_w, pd, chi_wGG, q0
 
 
 # Temporary, or should be rewritten!!!
