@@ -172,6 +172,8 @@ class PWSymmetryAnalyzer:
         self.Q2Q_sG = Q2Q_sG
 
     def map_G(self, K1, K2, a_MG):
+        if len(a_MG) == 0:
+            return []
         G_G, sign = self.map_G_vectors(K1, K2)
         if sign == -1:
             return a_MG[..., G_G].conj()
@@ -179,6 +181,9 @@ class PWSymmetryAnalyzer:
             return a_MG[..., G_G]
 
     def map_v(self, K1, K2, a_Mv, shift_c=True):
+        if len(a_Mv) == 0:
+            return []
+
         A_cv = self.pd.gd.cell_cv
         iA_cv = self.pd.gd.icell_cv
 
@@ -196,6 +201,7 @@ class PWSymmetryAnalyzer:
         if sign == -1:
             return np.dot(a_Mv.conj(), M_vv) - 1j * shift_v
         else:
+            print(a_Mv, shift_v)
             return np.dot(a_Mv, M_vv) - 1j * shift_v
 
     def timereversal(self, s):
@@ -217,18 +223,14 @@ class PWSymmetryAnalyzer:
         s = self.get_kpoint_mapping(K1, K2)
         op_cc, sign, shift_c = self.get_symmetry_operator(s)
         B_cv = 2.0 * np.pi * pd.gd.icell_cv
-        G_Gv = pd.get_reciprocal_vectors()
+        G_Gv = pd.get_reciprocal_vectors(add_q=False)
         G_Gc = np.dot(G_Gv, np.linalg.inv(B_cv))
         UG_Gc = np.dot(G_Gc - shift_c, 
                        sign * np.linalg.inv(op_cc).T)
+
         assert np.allclose(UG_Gc.round(), UG_Gc)
         UQ_G = np.ravel_multi_index(UG_Gc.round().astype(int).T,
                                     pd.gd.N_c, 'wrap')
-
-#        print(s, self.nsym, op_cc, sign, shift_c)
-#        print(pd.Q_qG[0][0:10])
-#        print(UQ_G[0:10])
-#        print(G_Gv[0:10])
 
         return UQ_G, sign
 
@@ -240,7 +242,6 @@ class PWSymmetryAnalyzer:
         for G, UQ in enumerate(UQ_G):
             G_G[G] = np.argwhere(Q_G == UQ)[0][0]
 
-#        print(G_G)
         return G_G, sign
 
     def unfold_ibz_kpoint(self, ik):
@@ -514,15 +515,18 @@ class PairDensity:
                     
                     for K2 in K_k:
                         n_nmG = PWSA.map_G(K1, K2, n0_nmG)
-                        n_nmv = PWSA.map_v(K1, K2, n0_nmv)
-                        n_nmG[0][:, 0] = n_nmv[0][:, 0]
+                        if optical_limit:
+                            n_nmv = PWSA.map_v(K1, K2, n0_nmv)
+                            n_nmG[0][:, 0] = n_nmv[0][:, 0]
+
+                        # Absolut test
                         kptpair2 = self.get_kpoint_pair(pd, s, K2, 
                                                         n1, n2, m1, m2)
                         n1_nmG, n1_nmv, _ = self.get_pair_density(pd, kptpair2,
                                                                   [n], m,
                                                                   intraband=False)
-                        n1_nmG[0][:, 0] = n1_nmv[0][:, 0]
-
+                        if optical_limit:
+                            n1_nmG[0][:, 0] = n1_nmv[0][:, 0]
 
                         if (abs(n_nmG[0] - n1_nmG[0]) > 1e-10).any():
                             print(K1)
