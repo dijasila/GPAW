@@ -562,10 +562,10 @@ def upfplot(setup, show=True, calculate=False):
 
     for j, st in enumerate(pp['states']):
         r, psi = rtrunc(st.values, 1)
-        wfsax.plot(r, psi, label='wf%d %s' % (j, st.label))
+        wfsax.plot(r, r * psi, label='wf%d %s' % (j, st.label))
 
     r, rho = rtrunc(pp['rhoatom'], 2)
-    wfsax.plot(r, rho, label='rho')
+    wfsax.plot(r, r * rho, label='rho')
 
     if calculate:
         calc = AtomPAW(setup.symbol,
@@ -574,14 +574,14 @@ def upfplot(setup, show=True, calculate=False):
                        setups={setup.symbol: setup},
                        h=0.08,
                        rcut=10.0)
+        r_g = calc.wfs.gd.r_g
         basis = calc.extract_basis_functions()
-        wfsax.plot(calc.wfs.gd.r_g, calc.density.nt_sg[0] * 4.0 * np.pi,
+        wfsax.plot(r_g, r_g * calc.density.nt_sg[0] * 4.0 * np.pi,
                    ls='--', label='rho [calc]', color='r')
 
         splines = basis.tosplines()
         for spline, bf in zip(splines, basis.bf_j):
-            r = calc.wfs.gd.r_g
-            wfsax.plot(r, spline.map(r), label=bf.type)
+            wfsax.plot(r_g, r_g * spline.map(r_g), label=bf.type)
 
 
     vax.legend(loc='best')
@@ -595,7 +595,7 @@ def upfplot(setup, show=True, calculate=False):
 
     vax.set_ylabel('potential')
     pax.set_ylabel('projectors')
-    wfsax.set_ylabel('WF / density')
+    wfsax.set_ylabel(r'$r \psi(r), r n(r)$')
     rhoax.set_ylabel('Comp charges')
 
     fig.subplots_adjust(wspace=0.3)
