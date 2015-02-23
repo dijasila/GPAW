@@ -11,6 +11,7 @@ from xml.etree.ElementTree import parse as xmlparse, ParseError, fromstring
 import numpy as np
 from ase.data import atomic_numbers
 
+from gpaw.atom.atompaw import AtomPAW
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.pseudopotential import PseudoPotential, screen_potential, \
     figure_out_valence_states
@@ -102,11 +103,16 @@ def parse_upf(fname):
             header[key] = val.strip() # some values have whitespace...
         for key in ['is_paw', 'is_coulomb', 'has_so', 'has_wfc', 'has_gipaw',
                     'paw_as_gipaw', 'core_correction']:
-            header[key] = {'F': False, 'T': True}[header[key]]
+            if key in header:
+                header[key] = {'F': False, 'T': True}[header[key]]
         for key in ['z_valence', 'total_psenergy', 'wfc_cutoff', 'rho_cutoff']:
+            if key not in header:
+                continue
             header[key] = float(header[key])
         for key in ['l_max', 'l_max_rho', 'mesh_size', 'number_of_wfc',
                     'number_of_proj']:
+            if key not in header:
+                continue
             header[key] = int(header[key])
     else:
         assert len(header) == 0
@@ -148,7 +154,7 @@ def parse_upf(fname):
                 assert name == 'PP_BETA'
                 attr = element.attrib
                 proj = UPFStateSpec(int(attr['index']),
-                                    attr['label'],
+                                    attr.get('label'),
                                     int(attr['angular_momentum']),
                                     toarray(element))
                 assert num == attr['index']
@@ -495,6 +501,8 @@ class UPFSetupData:
 def main_plot():
     p = OptionParser(usage='%prog [OPTION] [FILE...]',
                      description='plot upf pseudopotential from file.')
+    p.add_option('--calculate', action='store_true',
+                 help='calculate density and orbitals.')
     opts, args = p.parse_args()
 
     import pylab as pl
@@ -503,19 +511,20 @@ def main_plot():
         print('--- %s ---' % fname)
         print(UPFSetupData(pp).tostring())
         print(pp['info'])
-        upfplot(pp, show=False)
+        upfplot(pp, show=False, calculate=opts.calculate)
     pl.show()
 
 
-def upfplot(setup, show=True):
+def upfplot(setup, show=True, calculate=False):
     # A version of this, perhaps nicer, is in pseudopotential.py.
     # Maybe it is not worth keeping this version
     if isinstance(setup, dict):
         setup = UPFSetupData(setup)
+
     pp = setup.data
     r0 = pp['r'].copy()
     r0[0] = 1e-8
-    
+
     def rtrunc(array, rdividepower=0):
         r = r0[:len(array)]
         arr = divrl(array, rdividepower, r)
@@ -557,6 +566,23 @@ def upfplot(setup, show=True):
 
     r, rho = rtrunc(pp['rhoatom'], 2)
     wfsax.plot(r, rho, label='rho')
+
+    if calculate:
+        calc = AtomPAW(setup.symbol,
+                       [setup.f_ln],
+                       #xc='PBE', # XXX does not support GGAs :( :( :(
+                       setups={setup.symbol: setup},
+                       h=0.08,
+                       rcut=10.0)
+        basis = calc.extract_basis_functions()
+        wfsax.plot(calc.wfs.gd.r_g, calc.density.nt_sg[0] * 4.0 * np.pi,
+                   ls='--', label='rho [calc]', color='r')
+
+        splines = basis.tosplines()
+        for spline, bf in zip(splines, basis.bf_j):
+            r = calc.wfs.gd.r_g
+            wfsax.plot(r, spline.map(r), label=bf.type)
+
 
     vax.legend(loc='best')
     rhoax.legend(loc='best')
