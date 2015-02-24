@@ -162,13 +162,14 @@ class Chi0(PairDensity):
 
         # Sum pair-densities
         self.timer.start('Loop')
-        for n, m, f2_m, df_m, deps_m, n_mG, n_mv, vel_mv in \
+        for f2_m, df_m, deps_m, n_mG, n_mv, vel_mv in \
             self.generate_pair_densities(pd, m1, m2):
-            update(np.ascontiguousarray(n_mG), deps_m, df_m, chi0_wGG)
-            if optical_limit:
+            if n_mG is not None:
+                update(np.ascontiguousarray(n_mG), deps_m, df_m, chi0_wGG)
+            if optical_limit and n_mv is not None:
                 self.update_optical_limit(n_mv, deps_m, df_m,
                                           n_mG, chi0_wxvG, chi0_wvv)
-            if optical_limit and self.intraband:
+            if optical_limit and self.intraband and vel_mv is not None:
                 self.update_intraband(f2_m, vel_mv, self.chi0_vv)
         self.timer.stop('Loop')
 
@@ -217,7 +218,7 @@ class Chi0(PairDensity):
             self.world.broadcast(chi0_vv, 0)
 
             chi0_wvv += (chi0_vv[np.newaxis] /
-                         (omega_w[:, np.newaxis, np.newaxis] 
+                         (omega_w[:, np.newaxis, np.newaxis]
                           + 1j * self.eta)**2)
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
@@ -232,16 +233,13 @@ class Chi0(PairDensity):
             deps2_m = deps_m - 1j * self.eta
 
         for omega, chi0_GG in zip(self.omega_w, chi0_wGG):
-            x_m = df_m * (1 / (omega + deps1_m) - 1 / (omega - deps2_m))            
+            x_m = df_m * (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             nx_mG = n_mG * x_m[:, np.newaxis]
             gemm(self.prefactor, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_GG)
 
     @timer('CHI_0 hermetian update')
     def update_hermitian(self, n_mG, deps_m, df_m, chi0_wGG):
-        if not len(n_mG):
-            return
-
         for w, omega in enumerate(self.omega_w):
             if self.blockcomm.size == 1:
                 x_m = (-2 * df_m * deps_m / (omega.imag**2 + deps_m**2))**0.5
@@ -254,9 +252,6 @@ class Chi0(PairDensity):
 
     @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
-        if not len(n_mG):
-            return
-
         self.timer.start('prep')
         beta = (2**0.5 - 1) * self.domega0 / self.omega2
         o_m = abs(deps_m)
@@ -283,9 +278,6 @@ class Chi0(PairDensity):
     @timer('CHI_0 optical limit update')
     def update_optical_limit(self, n0_mv, deps_m, df_m, n_mG,
                              chi0_wxvG, chi0_wvv):
-        if not len(n0_mv):
-            return
-
         if self.hilbert:
             self.update_optical_limit_hilbert(n0_mv, deps_m, df_m, n_mG,
                                               chi0_wxvG, chi0_wvv)
@@ -333,11 +325,7 @@ class Chi0(PairDensity):
 
     @timer('CHI_0 intraband update')
     def update_intraband(self, f_m, vel_mv, chi0_vv):
-        """Check whether there are any partly occupied bands."""
-
-        if not len(vel_mv):
-            return
-            
+        """Add intraband contributions"""
         width = self.calc.occupations.width
         if width == 0.0:
             return
@@ -350,7 +338,7 @@ class Chi0(PairDensity):
 
         assert len(dfde_m) == len(vel_mv)
         for dfde, vel_v in zip(dfde_m, vel_mv):
-            x_vv = (-self.prefactor * dfde * 
+            x_vv = (-self.prefactor * dfde *
                     np.outer(vel_v.conj(), vel_v))
             chi0_vv += x_vv
                 
