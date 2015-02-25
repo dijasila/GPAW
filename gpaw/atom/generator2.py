@@ -1349,7 +1349,7 @@ def _generate(symbol, xc, configuration, projectors, radii,
               scalar_relativistic, alpha,
               r0, nderiv0,
               pseudize, rcore, core_hole, output):
-    if output is not None:
+    if isinstance(output, str):
         output = open(output, 'w')
     aea = AllElectronAtom(symbol, xc, configuration=configuration, log=output)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
