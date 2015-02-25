@@ -6,7 +6,11 @@ provide pseudopotential objects for use with GPAW.
 """
 
 from optparse import OptionParser
-from xml.etree.ElementTree import parse as xmlparse, ParseError, fromstring
+from xml.etree.ElementTree import parse as xmlparse, fromstring
+try:
+    from xml.etree.ElementTree import ParseError
+except ImportError:  # python2.6 compatibility
+    from xml.parsers.expat import ExpatError as ParseError
 
 import numpy as np
 from ase.data import atomic_numbers
