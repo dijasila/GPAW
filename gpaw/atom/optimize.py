@@ -162,7 +162,7 @@ class DatasetOptimizer:
         return error
             
     def __call__(self, n, x):
-        fd = open('{0}.{1}.txt'.format(self.symbol, n), 'w')
+        fd = open('{0}.{1:05}.txt'.format(self.symbol, n), 'w')
         
         energies = tuple(0.1 * i for i in x[:self.nenergies])
         radii = [0.05 * i for i in x[self.nenergies:-1]]
@@ -193,6 +193,8 @@ class DatasetOptimizer:
             result = getattr(self, name)(n, fd)
             results[name] = result
             
+        os.remove('datasets/{0}.ga{1}.PBE'.format(self.symbol, n))
+        
         errors = self.calculate_total_error(fd, results)
         
         return np.mean(errors)
