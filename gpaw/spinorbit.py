@@ -155,7 +155,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
         H_mm[range(2*Nn)[::2], range(2*Nn)[::2]] = e_skn[0, k, :]
         H_mm[range(2*Nn)[1::2], range(2*Nn)[1::2]] = e_skn[1, k, :]
         for ai in range(Na):
-            P_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][:Nn] 
+            P_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands] 
                      for s in range(Ns)]
             dVL_svii = dVL_asvii[ai]
             if Ns == 1:
