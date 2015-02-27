@@ -128,7 +128,9 @@ class DatasetOptimizer:
         self.reference = {'fcc': read_reference('fcc', symbol),
                           'rocksalt': read_reference('rocksalt', symbol)}
 
-        self.ecut = 450.0
+        self.ecut1 = 400.0
+        self.ecut2 = 800.0
+        
         setup_paths[:0] = ['datasets']
         
     def run(self):
@@ -150,7 +152,7 @@ class DatasetOptimizer:
             name = '{0}.{1}.PBE'.format(self.symbol, tag)
             os.rename(name, 'datasets/' + name)
         r = 1.1 * gen.rcmax
-        energies = np.linspace(-1.5, 1.5, 100)
+        energies = np.linspace(-1.5, 2.0, 100)
         de = energies[1] - energies[0]
         error = 0.0
         for l in range(4):
@@ -204,7 +206,8 @@ class DatasetOptimizer:
             result = results[name]
             maxiter = max(maxiter, result['maxiter'])
             errors.append(((result['a'] - result['a0']) / 0.02)**2)
-            errors.append((result['de80'] / 0.01)**2)
+            errors.append((result['de90'] / 0.01)**2)
+            errors.append((result['de80'] / 0.03)**2)
         
         errors.append((maxiter / 30)**2)
         errors.append((results['fcc']['convergence'] / 0.1)**2)
@@ -213,7 +216,7 @@ class DatasetOptimizer:
         errors.append((results['eggbox'][1] / 0.02)**2)
         
         E = ''.join('{0:5.1f}{1}'.format(e, c)
-                    for e, c in zip(errors, 'dFfRrICEe'))
+                    for e, c in zip(errors, 'dFffRrrICEe'))
         print('ERRORS: {0:6.1f} {1} {2:6.1f}'.format(max(*errors),
                                                      E, sum(errors)),
               file=fd)
@@ -226,7 +229,7 @@ class DatasetOptimizer:
         energies = []
         for s in sizes:
             atoms = bulk(self.symbol, 'fcc', a0r * s)
-            atoms.calc = GPAW(mode=PW(self.ecut),
+            atoms.calc = GPAW(mode=PW(self.ecut2),
                               kpts={'density': 2.0, 'even': True},
                               xc='PBE',
                               setups='ga' + str(n),
@@ -236,11 +239,13 @@ class DatasetOptimizer:
             maxiter = max(maxiter, atoms.calc.get_number_of_iterations())
             energies.append(e)
             if s == 1.0:
-                atoms.calc.set(mode=PW(2 * self.ecut))
+                atoms.calc.set(mode=PW(self.ecut1), eigensolver='rmm-diis')
                 e2 = atoms.get_potential_energy()
+                maxiter = max(maxiter, atoms.calc.get_number_of_iterations())
 
         return {'convergence': e2 - energies[2],
                 'de80': energies[0] - energies[2] - (ref[0.8] - ref[1.0]),
+                'de90': energies[1] - energies[2] - (ref[0.9] - ref[1.0]),
                 'a0': fit([ref[s] for s in [0.9, 1.0, 1.1]]) * 0.1 * a0r,
                 'a': fit(energies[1:]) * 0.1 * a0r,
                 'maxiter': maxiter}
@@ -252,7 +257,7 @@ class DatasetOptimizer:
         energies = []
         for s in sizes:
             atoms = bulk(self.symbol + 'O', 'rocksalt', a0r * s)
-            atoms.calc = GPAW(mode=PW(self.ecut),
+            atoms.calc = GPAW(mode=PW(self.ecut2),
                               kpts={'density': 2.0, 'even': True},
                               xc='PBE',
                               setups={self.symbol: 'ga' + str(n)},
@@ -263,6 +268,7 @@ class DatasetOptimizer:
             energies.append(e)
         
         return {'de80': energies[0] - energies[2] - (ref[0.8] - ref[1.0]),
+                'de90': energies[1] - energies[2] - (ref[0.9] - ref[1.0]),
                 'a0': fit([ref[s] for s in [0.9, 1.0, 1.1]]) * 0.1 * a0r,
                 'a': fit(energies[1:]) * 0.1 * a0r,
                 'maxiter': maxiter}
@@ -271,7 +277,7 @@ class DatasetOptimizer:
         a0 = self.reference['fcc']['a']
         atoms = fcc111(self.symbol, (1, 1, 7), a0, vacuum=3.5)
         assert not atoms.pbc[2]
-        atoms.calc = GPAW(mode=PW(self.ecut),
+        atoms.calc = GPAW(mode=PW(self.ecut1),
                           kpts={'density': 2.0, 'even': True},
                           xc='PBE',
                           setups='ga' + str(n),
@@ -305,5 +311,7 @@ class DatasetOptimizer:
 
         
 if __name__ == '__main__':
-    do = DatasetOptimizer()
+    # do = DatasetOptimizer()
+    do = DatasetOptimizer('Cu', projectors='4s,1.0s,4p,1.0p,3d,1.0d',
+                          radii=[2.1, 2.1, 2.0], r0=1.5)
     do.run()
