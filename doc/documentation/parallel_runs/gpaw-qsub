@@ -45,7 +45,8 @@ def main():
         help=('Number of actual cpus to use.'))
     add('-n', '--threads', type=int, default=1,
         help='Number of threads per cpu.')
-
+    add('-0', '--dry-run', action='store_true')
+    
     # qsub options:
     add('-q', '--queue')
     add('-l', '--resource-list', action='extend', type='string',
@@ -187,7 +188,12 @@ if error:
     if opts.mail_options:
         cmd += ['-m', opts.mail_options]
     
-    subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(qsub)
+    if opts.dry_run:
+        print(cmd)
+        print(qsub)
+    else:
+        subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(qsub)
+
 
 if __name__ == '__main__':
     main()
