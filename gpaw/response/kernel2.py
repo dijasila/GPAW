@@ -13,7 +13,7 @@ from gpaw.mpi import world, rank, size
 from ase.dft.kpoints import monkhorst_pack
 
 
-def truncated_coulomb(pd):
+def truncated_coulomb(pd, q0=None):
     """ Simple truncation of Coulomb kernel along z
     Rozzi, C., Varsano, D., Marini, A., Gross, E., & Rubio, A. (2006).
     Exact Coulomb cutoff technique for supercell calculations.
@@ -22,7 +22,9 @@ def truncated_coulomb(pd):
 
     qG = pd.get_reciprocal_vectors(add_q=True)
     if pd.kd.gamma:  # Set small finite q to handle divergence
-            qG += [0.0000001, 0, 0]
+        if q0 is None:
+            q0 = 0.0000001
+        qG += [q0, 0, 0]
     nG = len(qG)
     L = pd.gd.cell_cv[2, 2]
     R = L / 2.  # Truncation length is half of unit cell
