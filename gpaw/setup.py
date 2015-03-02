@@ -1299,7 +1299,36 @@ class Setups(list):
         symbols = [chemical_symbols[Z] for Z in Z_a]
         type_a = types2atomtypes(symbols, setup_types, default='paw')
         basis_a = types2atomtypes(symbols, basis_sets, default=None)
-        
+
+        for a, _type in enumerate(type_a):
+            # Make basis files correspond to setup files.
+            #
+            # If the setup has a name (i.e. non-default _type), and the
+            # basis set does not, then inherit the name from the setup
+            # by prepending it.
+            #
+            # Typically people might specify '11' as the setup but just
+            # 'dzp' for the basis set.  Here we adjust to
+            # obtain, say, '11.dzp' which loads the correct basis set.
+            #
+            # There will be no way to obtain the original 'dzp' with
+            # a custom-named setup except by loading directly from
+            # BasisData.
+            # 
+            # Due to the "szp(dzp)" syntax this is complicated!
+            # The name has to go as "szp(name.dzp)".
+            basis = basis_a[a]
+            if (isinstance(basis, basestring) and isinstance(_type, basestring)
+                and _type != 'paw' and not '.' in basis]):
+                if '(' in basis:
+                    reduced, name = basis.split('(')
+                    assert name.endswith(')')
+                    name = name[:-1]
+                    fullname = '%s(%s.%s)' % (reduced, _type, name)
+                else:
+                    fullname = '%s.%s' % (_type, basis_a[a])
+                basis_a[a] = fullname
+
         # Construct necessary PAW-setup objects:
         self.setups = {}
         natoms = {}
