@@ -1319,7 +1319,7 @@ class Setups(list):
             # The name has to go as "szp(name.dzp)".
             basis = basis_a[a]
             if (isinstance(basis, basestring) and isinstance(_type, basestring)
-                and _type != 'paw' and not '.' in basis]):
+                and _type != 'paw' and not '.' in basis):
                 if '(' in basis:
                     reduced, name = basis.split('(')
                     assert name.endswith(')')
