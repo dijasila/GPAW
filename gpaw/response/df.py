@@ -20,8 +20,8 @@ class DielectricFunction:
                  omega2=10.0, omegamax=None, ecut=50, hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
-                 gate_voltage=None, truncation=None, disable_symmetries=False,
-                 use_more_memory=1):
+                 gate_voltage=None, truncation=None, disable_point_group=False,
+                 disable_time_reversal=False, use_more_memory=1):
         """Creates a DielectricFunction object.
         
         calc: str
@@ -81,7 +81,8 @@ class DielectricFunction:
                          eta=eta, ftol=ftol, threshold=threshold,
                          intraband=intraband, world=world, nblocks=nblocks,
                          txt=txt, gate_voltage=gate_voltage,
-                         disable_symmetries=disable_symmetries,
+                         disable_point_group=disable_point_group,
+                         disable_time_reversal=disable_time_reversal,
                          use_more_memory=use_more_memory)
         
         self.name = name

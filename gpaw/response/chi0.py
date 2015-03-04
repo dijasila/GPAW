@@ -37,7 +37,8 @@ class Chi0(PairDensity):
                  world=mpi.world, txt=sys.stdout, timer=None,
                  nblocks=1, no_optical_limit=False,
                  keep_occupied_states=False, gate_voltage=None,
-                 disable_symmetries=False, use_more_memory=1):
+                 disable_point_group=False, disable_time_reversal=False,
+                 use_more_memory=1):
 
         PairDensity.__init__(self, calc, ecut, ftol, threshold,
                              real_space_derivatives, world, txt, timer,
@@ -52,7 +53,8 @@ class Chi0(PairDensity):
         self.keep_occupied_states = keep_occupied_states
         self.intraband = intraband
         self.no_optical_limit = no_optical_limit
-        self.disable_symmetries = disable_symmetries
+        self.disable_point_group = disable_point_group
+        self.disable_time_reversal = disable_time_reversal        
         self.use_more_memory = use_more_memory
 
         omax = self.find_maximum_frequency()
@@ -166,8 +168,9 @@ class Chi0(PairDensity):
         # Sum pair-densities
         self.timer.start('Loop')
         for f2_m, df_m, deps_m, n_mG, n_mv, vel_mv in \
-            self.generate_pair_densities(pd, m1, m2, 
-                                         disable_symmetries=self.disable_symmetries,
+            self.generate_pair_densities(pd, m1, m2,
+                                         disable_point_group = self.disable_point_group,
+                                         disable_time_reversal = self.disable_time_reversal,
                                          use_more_memory=self.use_more_memory):
             if n_mG is not None:
                 update(np.ascontiguousarray(n_mG), deps_m, df_m, chi0_wGG)
