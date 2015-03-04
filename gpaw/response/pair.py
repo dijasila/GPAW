@@ -100,8 +100,8 @@ class PWSymmetryAnalyzer:
         kd = self.kd
 
         U_scc = kd.symmetry.op_scc
-        time_reversal = kd.symmetry.time_reversal and \
-                        not kd.symmetry.has_inversion
+        time_reversal = False  #kd.symmetry.time_reversal and \
+                        #not kd.symmetry.has_inversion
 
         nsym = len(U_scc)
         nsymtot = nsym * (1 + time_reversal)
@@ -128,6 +128,7 @@ class PWSymmetryAnalyzer:
         s_s = conserveq_s.nonzero()[0]
         t_sc = []  # For later inclusion of nonsymmorphic symmetries
         
+
         if self.disable_symmetries:
             for s, U_cc in enumerate(U_scc):
                 if (U_cc == np.eye(3)).all():
@@ -170,6 +171,7 @@ class PWSymmetryAnalyzer:
         bz2bz_ks = self.kd.bz2bz_ks
         bzk2rbz_s = bz2bz_ks[K1][:, s_s]
         try:
+#            s = np.where(bzk2rbz_s == K2)[0][0]
             s = np.argwhere(bzk2rbz_s == K2)[0][0]
         except IndexError:
             print('K = {0} cannot be mapped into K = {1}'.format(K1, K2),
@@ -184,6 +186,7 @@ class PWSymmetryAnalyzer:
         
         shift_c = np.dot(U_cc, k1_c) - k2_c
         assert np.allclose(shift_c.round(), shift_c)
+        
         shift_c = shift_c.round().astype(int)
         
         return shift_c
@@ -192,16 +195,27 @@ class PWSymmetryAnalyzer:
     def map_G(self, K1, K2, a_MG):
         if len(a_MG) == 0:
             return []
+
+        if K1 == K2:
+            return a_MG
+
         G_G, sign = self.map_G_vectors(K1, K2)
+
+        s = self.get_kpoint_mapping(K1, K2)
+        U_cc, _, shift_c = self.get_symmetry_operator(s)
+
         if sign == -1:
             return a_MG[..., G_G].conj()
         else:
             return a_MG[..., G_G]
 
     @timer('map_v')
-    def map_v(self, K1, K2, a_Mv, shift_c=True):
+    def map_v(self, K1, K2, a_Mv, shift=False):
         if len(a_Mv) == 0:
             return []
+
+        if K1 == K2:
+            return a_Mv
 
         A_cv = self.pd.gd.cell_cv
         iA_cv = self.pd.gd.icell_cv
@@ -210,21 +224,23 @@ class PWSymmetryAnalyzer:
         s = self.get_kpoint_mapping(K1, K2)
         U_cc, sign, _ = self.get_symmetry_operator(s)
 
-        # Get potential shift
-        shift_c = self.get_shift(K1, K2, U_cc)
-        shift_v = 2 * np.pi * np.dot(iA_cv.T, shift_c)
+        # Get shift
+        if shift:
+            shift_c = self.get_shift(K1, K2, U_cc)
+            shift_v = 2 * np.pi * np.dot(iA_cv.T, shift_c)
+        else:
+            shift_v = np.array((0, 0, 0), float)
 
         # Create cartesian operator
         M_vv = sign * np.dot(np.dot(A_cv.T, U_cc.T), iA_cv)
-        
+
         if sign == -1:
-            return np.dot(a_Mv.conj(), M_vv) - 1j * shift_v
+            return np.dot(a_Mv.conj(), M_vv) - shift_v
         else:
-            return np.dot(a_Mv, M_vv) - 1j * shift_v
+            return np.dot(a_Mv, M_vv) - shift_v
 
     def timereversal(self, s):
         tr = bool(s // self.nsym)
-        assert not tr
         return tr
 
     def get_symmetry_operator(self, s):
@@ -252,10 +268,12 @@ class PWSymmetryAnalyzer:
         Q_G = pd.Q_qG[0]
 
         G_sG = [None] * self.nsym
+        UG_sGc = [None] * self.nsym
+        Q_sG = [None] * self.nsym
         for s in self.s_s:
             U_cc, sign, shift_c = self.get_symmetry_operator(s)
-            UG_Gc = np.dot(G_Gc - shift_c,
-                           sign * np.linalg.inv(U_cc).T)
+            iU_cc = np.linalg.inv(U_cc).T
+            UG_Gc = np.dot(G_Gc, sign * iU_cc)  # XXX no shift_c here
 
             assert np.allclose(UG_Gc.round(), UG_Gc)
             UQ_G = np.ravel_multi_index(UG_Gc.round().astype(int).T,
@@ -263,9 +281,18 @@ class PWSymmetryAnalyzer:
 
             G_G = len(Q_G) * [None]
             for G, UQ in enumerate(UQ_G):
-                G_G[G] = np.argwhere(Q_G == UQ)[0][0]
+                try:
+                    G_G[G] = np.argwhere(Q_G == UQ)[0][0]
+                except IndexError:
+                    print('This should not be possible but' + 
+                          'a G-vector was mapped outside the sphere')
+                    raise IndexError
+            UG_sGc[s] = UG_Gc
+            Q_sG[s] = UQ_G
             G_sG[s] = [G_G, sign, shift_c]
-
+        self.G_Gc = G_Gc
+        self.UG_sGc = UG_sGc
+        self.Q_sG = Q_sG
         self.G_sG = G_sG
 
     def unfold_ibz_kpoint(self, ik):
@@ -486,9 +513,9 @@ class PairDensity:
     def generate_pair_densities(self, pd, m1, m2, intraband=True,
                                 disable_symmetries=False,
                                 disable_optical_limit=False,
-                                save_memory=0):
+                                use_more_memory=1):
         """Generator for returning pair densities. """
-        assert 0 <= save_memory <= 1
+        assert 0 <= use_more_memory <= 1
 
         print('Initializing PAW Corrections', file=self.fd)
         self.Q_aGii = self.initialize_paw_corrections(pd)
@@ -519,7 +546,7 @@ class PairDensity:
                 # These conditions are sufficent to make sure
                 # that it still works in parallel
                 if kpt1.n1 == 0 and self.blockcomm.rank == 0 and \
-                   optical_limit and self.intraband:
+                   optical_limit and intraband:
                     assert self.nocc2 <= kpt2.nb, \
                         print('Error: Too few unoccupied bands')
                     vel0_mv = self.intraband_pair_density(kpt2)
@@ -531,11 +558,11 @@ class PairDensity:
                                        None, None, vel_mv)
 
                 n_n = range(n2 - n1)
-                if save_memory == 1:
+                if use_more_memory == 0:
                     chunksize = 1
                 else:
-                    chunksize = np.ceil(len(n_n) *
-                                        (1 - save_memory)).astype(int)
+                    chunksize = np.ceil(len(n_n) * 
+                                        use_more_memory).astype(int)
 
                 no_n = []
                 for i in range(len(n_n) // chunksize):
@@ -569,7 +596,7 @@ class PairDensity:
                     n0_mG = n0_nmG.reshape((-1, nG))
                     if optical_limit:
                         n0_mv = n0_nmv.reshape((-1, 3))
-                    
+
                     # Collect pair densities in a single array
                     # and return them
                     nm = n0_mG.shape[0]
@@ -580,14 +607,17 @@ class PairDensity:
                         n_Mv = np.empty((nm * nk, 3), complex)
                     deps_M = np.tile(deps_m, nk)
                     df_M = np.tile(df_m, nk)
+
                     for i, K2 in enumerate(K_k):
                         i1 = i * nm
                         i2 = (i + 1) * nm
                         n_mG = PWSA.map_G(K1, K2, n0_mG)
+
                         if optical_limit:
                             n_mv = PWSA.map_v(K1, K2, n0_mv)
                             n_mG[:, 0] = n_mv[:, 0]
                             n_Mv[i1:i2, :] = n_mv
+
                         n_MG[i1:i2, :] = n_mG
 
                     if optical_limit:
@@ -603,7 +633,7 @@ class PairDensity:
         q_c = pd.kd.bzk_kc[0]
         with self.timer('get k-points'):
             kpt1 = self.get_k_point(s, K, n1, n2)
-            K2 = wfs.kd.find_k_plus_q(q_c, [K])[0]
+            K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
             kpt2 = self.get_k_point(s, K2, m1, m2, block=True)
 
         with self.timer('fft indices'):
@@ -623,29 +653,27 @@ class PairDensity:
 
         n_nmG = pd.empty((len(n_n), len(m_m)))
         if optical_limit:
-            n_nmv = np.empty((len(n_n), len(m_m), 3), pd.dtype)
+            n_nmv = np.zeros((len(n_n), len(m_m), 3), pd.dtype)
         else:
             n_nmv = None
 
         for j, n in enumerate(n_n):
             eps1 = kpt1.eps_n[n]
             deps_m = (eps1 - kpt2.eps_n)[m_m]
-            Q_G = kptpair.Q_G
+            Q_G = kptpair.Q_G.copy()
             with self.timer('conj'):
                 ut1cc_R = kpt1.ut_nR[n].conj()
             with self.timer('paw'):
                 C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
                           for Q_Gii, P1_ni in zip(self.Q_aGii, kpt1.P_ani)]
-                n_mG = self.calculate_pair_densities(ut1cc_R,
-                                                     C1_aGi, kpt2,
-                                                     pd, Q_G)[m_m]
-            
+                n_nmG[j, :, :] = self.calculate_pair_densities(ut1cc_R,
+                                                               C1_aGi, kpt2,
+                                                               pd, Q_G)[m_m]
+
             if optical_limit:
                 n_nmv[j] = self.optical_pair_density(n, m_m, kpt1, kpt2,
                                                      deps_m)
                 
-            n_nmG[j] = n_mG
-
         if intraband:
             vel_mv = self.intraband_pair_density(kpt2)
         else:
