@@ -100,8 +100,8 @@ class PWSymmetryAnalyzer:
         kd = self.kd
 
         U_scc = kd.symmetry.op_scc
-        time_reversal = False  #kd.symmetry.time_reversal and \
-                        #not kd.symmetry.has_inversion
+        time_reversal = kd.symmetry.time_reversal and \
+                        not kd.symmetry.has_inversion
 
         nsym = len(U_scc)
         nsymtot = nsym * (1 + time_reversal)
@@ -763,7 +763,7 @@ class PairDensity:
         deps_m[deps_m >= 0.0] = np.inf
 
         smallness_mv = np.abs(-1e-3 * n0_mv / deps_m[:, np.newaxis])
-        inds_mv = (np.logical_and(np.inf > smallness_mv,
+        inds_mv = (np.logical_and(1e3 > smallness_mv,
                                   smallness_mv > threshold))
 
         if inds_mv.any():
