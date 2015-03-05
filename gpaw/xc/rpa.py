@@ -231,8 +231,6 @@ class RPACorrelation:
                 chi0_swxvG = None
                 chi0_swvv = None
 
-            Q_aGii = chi0.initialize_paw_corrections(pd)
-
             # First not completely filled band:
             m1 = chi0.nocc1
             p('# %s  -  %s' % (len(self.energy_qi), ctime().split()[-2]))
@@ -253,7 +251,8 @@ class RPACorrelation:
 
                 energy = self.calculate_q(chi0, pd,
                                           chi0_swGG, chi0_swxvG, chi0_swvv,
-                                          Q_aGii, m1, m2, cut_G, A2_x)
+                                          m1, m2, cut_G, A2_x)
+
                 energy_i.append(energy)
                 m1 = m2
 
@@ -293,9 +292,8 @@ class RPACorrelation:
         return e_i * Hartree
 
     @timer('chi0(q)')
-    def calculate_q(self, chi0, pd,
-                    chi0_swGG, chi0_swxvG, chi0_swvv, Q_aGii, m1, m2, cut_G,
-                    A2_x):
+    def calculate_q(self, chi0, pd, chi0_swGG, chi0_swxvG, chi0_swvv,
+                    m1, m2, cut_G, A2_x):
         chi0_wGG = chi0_swGG[0]
         if chi0_swxvG is not None:
             chi0_wxvG = chi0_swxvG[0]
@@ -304,7 +302,7 @@ class RPACorrelation:
             chi0_wxvG = None
             chi0_wvv = None
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv,
-                        Q_aGii, m1, m2, [0, 1])
+                        m1, m2, [0, 1])
 
         print('E_c(q) = ', end='', file=self.fd)
 

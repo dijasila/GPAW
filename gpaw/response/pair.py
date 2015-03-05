@@ -71,7 +71,7 @@ class PWSymmetryAnalyzer:
         # Caveats
         assert disable_non_symmorphic, \
             print('You are not allowed to use non symmorphic syms, sorry. ',
-                  file = self.fd)
+                  file=self.fd)
         
         # Settings
         self.disable_point_group = disable_point_group
@@ -79,8 +79,8 @@ class PWSymmetryAnalyzer:
         self.disable_non_symmorphic = disable_non_symmorphic
         if (kd.symmetry.has_inversion or not kd.symmetry.time_reversal) and \
            not self.disable_time_reversal:
-            print('\nThe ground calcualtion does not support time-reversal ' + 
-                  'symmetry possibly because it has an inversion center ' + 
+            print('\nThe ground calcualtion does not support time-reversal ' +
+                  'symmetry possibly because it has an inversion center ' +
                   'or that it has been manually deactivated. \n', file=self.fd)
             self.disable_time_reversal = True
 
@@ -88,7 +88,6 @@ class PWSymmetryAnalyzer:
                                   self.disable_time_reversal and \
                                   self.disable_non_symmorphic
         
-
         # Number of symmetries
         U_scc = kd.symmetry.op_scc
         self.nU = len(U_scc)
@@ -147,7 +146,8 @@ class PWSymmetryAnalyzer:
                     s = x + y * nx
                     if s == ns:
                         break
-                    op_cc, sign, TR, shift_c, ft_c = self.get_symmetry_operator(self.s_s[s])
+                    tmp = self.get_symmetry_operator(self.s_s[s])
+                    op_cc, sign, TR, shift_c, ft_c = tmp
                     op_c = sign * op_cc[c]
                     ft = ft_c[c]
                     p('  (%2d %2d %2d)' % tuple(op_c), end='')
@@ -185,7 +185,7 @@ class PWSymmetryAnalyzer:
         shift_sc = np.zeros((nsym, 3), int)
         conserveq_s = np.zeros(nsym, bool)
 
-        newq_sc = np.dot(U_scc, q_c)        
+        newq_sc = np.dot(U_scc, q_c)
         
         # Direct
         dshift_sc = (newq_sc - q_c[np.newaxis]).round().astype(int)
@@ -307,7 +307,6 @@ class PWSymmetryAnalyzer:
 
         return np.dot(TR(a_Mv), M_vv)
 
-
     def timereversal(self, s):
         tr = bool(s // self.nU)
         return tr
@@ -324,7 +323,7 @@ class PWSymmetryAnalyzer:
             sign = 1
             TR = lambda x: x
         
-        return U_scc[reds], sign, TR, self.shift_sc[s], ft_sc[reds] 
+        return U_scc[reds], sign, TR, self.shift_sc[s], ft_sc[reds]
 
     @timer('map_G_vectors')
     def map_G_vectors(self, K1, K2):
@@ -357,7 +356,7 @@ class PWSymmetryAnalyzer:
                 try:
                     G_G[G] = np.argwhere(Q_G == UQ)[0][0]
                 except IndexError:
-                    print('This should not be possible but' + 
+                    print('This should not be possible but' +
                           'a G-vector was mapped outside the sphere')
                     raise IndexError
             UG_sGc[s] = UG_Gc
@@ -583,7 +582,7 @@ class PairDensity:
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 
-    def generate_pair_densities(self, pd, m1, m2, intraband=True,
+    def generate_pair_densities(self, pd, m1, m2, spins, intraband=True,
                                 disable_point_group=True,
                                 disable_time_reversal=True,
                                 disable_non_symmorphic=True,
@@ -599,11 +598,12 @@ class PairDensity:
         optical_limit = not disable_optical_limit and np.allclose(q_c, 0.0)
 
         with self.timer('Symmetry analyzer'):
-            PWSA = PWSymmetryAnalyzer(self.calc.wfs.kd, pd,
-                                      disable_point_group=disable_point_group,
-                                      disable_time_reversal=disable_time_reversal,
-                                      disable_non_symmorphic=disable_non_symmorphic,
-                                      timer=self.timer, txt=self.fd)
+            PWSA = PWSymmetryAnalyzer  # Line too long otherwise
+            PWSA = PWSA(self.calc.wfs.kd, pd,
+                        disable_point_group=disable_point_group,
+                        disable_time_reversal=disable_time_reversal,
+                        disable_non_symmorphic=disable_non_symmorphic,
+                        timer=self.timer, txt=self.fd)
 
         pb = ProgressBar(self.fd)
         for kn, (s, ik, n1, n2) in pb.enumerate(self.mysKn1n2):
@@ -617,6 +617,9 @@ class PairDensity:
                 # memory for this particular set of kpoints
                 kptpair = self.get_kpoint_pair(pd, s, K1, n1, n2, m1, m2)
                 kpt1 = kptpair.get_k1()  # kpt1 = k
+
+                if kpt1.s not in spins:
+                    continue
                 kpt2 = kptpair.get_k2()  # kpt2 = k + q
 
                 # Use kpt2 to compute intraband transitions
@@ -638,7 +641,7 @@ class PairDensity:
                 if use_more_memory == 0:
                     chunksize = 1
                 else:
-                    chunksize = np.ceil(len(n_n) * 
+                    chunksize = np.ceil(len(n_n) *
                                         use_more_memory).astype(int)
 
                 no_n = []

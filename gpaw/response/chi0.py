@@ -37,8 +37,8 @@ class Chi0(PairDensity):
                  world=mpi.world, txt=sys.stdout, timer=None,
                  nblocks=1, no_optical_limit=False,
                  keep_occupied_states=False, gate_voltage=None,
-                 disable_point_group=False, disable_time_reversal=False,
-                 use_more_memory=1):
+                 disable_point_group=True, disable_time_reversal=True,
+                 use_more_memory=0):
 
         PairDensity.__init__(self, calc, ecut, ftol, threshold,
                              real_space_derivatives, world, txt, timer,
@@ -54,7 +54,7 @@ class Chi0(PairDensity):
         self.intraband = intraband
         self.no_optical_limit = no_optical_limit
         self.disable_point_group = disable_point_group
-        self.disable_time_reversal = disable_time_reversal        
+        self.disable_time_reversal = disable_time_reversal
         self.use_more_memory = use_more_memory
 
         omax = self.find_maximum_frequency()
@@ -164,14 +164,15 @@ class Chi0(PairDensity):
 
         q_c = pd.kd.bzk_kc[0]
         optical_limit = not self.no_optical_limit and np.allclose(q_c, 0.0)
+        generator = self.generate_pair_densities
 
         # Sum pair-densities
         self.timer.start('Loop')
         for f2_m, df_m, deps_m, n_mG, n_mv, vel_mv in \
-            self.generate_pair_densities(pd, m1, m2,
-                                         disable_point_group = self.disable_point_group,
-                                         disable_time_reversal = self.disable_time_reversal,
-                                         use_more_memory=self.use_more_memory):
+            generator(pd, m1, m2, spins,
+                      disable_point_group=self.disable_point_group,
+                      disable_time_reversal=self.disable_time_reversal,
+                      use_more_memory=self.use_more_memory):
             if n_mG is not None:
                 update(np.ascontiguousarray(n_mG), deps_m, df_m, chi0_wGG)
             if optical_limit and n_mv is not None:
