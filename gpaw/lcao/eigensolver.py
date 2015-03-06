@@ -37,7 +37,7 @@ class DirectLCAO:
         # distributed_atomic_correction works with ScaLAPACK/BLACS in general.
         # If SL is not enabled, it will not work with band parallelization.
         # But no one would want that for a practical calculation anyway.
-        dH_asp = wfs.atomic_hamiltonian.redistribute(wfs, hamiltonian.dH_asp)
+        dH_asp = wfs.atomic_correction.redistribute(wfs, hamiltonian.dH_asp)
         
         if Vt_xMM is None:
             wfs.timer.start('Potential matrix')
@@ -65,9 +65,9 @@ class DirectLCAO:
         #           aij
         #
 
-        name = wfs.atomic_hamiltonian.__class__.__name__
+        name = wfs.atomic_correction.__class__.__name__
         wfs.timer.start(name)
-        wfs.atomic_hamiltonian.calculate(wfs, kpt, dH_asp, H_MM, yy)
+        wfs.atomic_correction.calculate_hamiltonian(wfs, kpt, dH_asp, H_MM, yy)
         wfs.timer.stop(name)
 
         wfs.timer.start('Distribute overlap matrix')

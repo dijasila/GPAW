@@ -7,14 +7,14 @@ from gpaw import debug
 from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
-from gpaw.lcao.lcao_hamiltonian import get_atomic_hamiltonian
+from gpaw.lcao.atomic_correction import get_atomic_correction
 
 
 class LCAO:
     name = 'lcao'
     
-    def __init__(self, atomic_hamiltonian=None):
-        self.atomic_hamiltonian = atomic_hamiltonian
+    def __init__(self, atomic_correction=None):
+        self.atomic_correction = atomic_correction
 
     def __call__(self, collinear, *args, **kwargs):
         if collinear:
@@ -24,7 +24,7 @@ class LCAO:
                 NonCollinearLCAOWaveFunctions
             cls = NonCollinearLCAOWaveFunctions
         
-        return cls(*args, atomic_hamiltonian=self.atomic_hamiltonian,
+        return cls(*args, atomic_correction=self.atomic_correction,
                     **kwargs)
 
 
@@ -70,7 +70,7 @@ class LCAOWaveFunctions(WaveFunctions):
     
     def __init__(self, ksl, gd, nvalence, setups, bd,
                  dtype, world, kd, kptband_comm, timer,
-                 atomic_hamiltonian=None):
+                 atomic_correction=None):
         WaveFunctions.__init__(self, gd, nvalence, setups, bd,
                                dtype, world, kd, kptband_comm, timer)
         self.ksl = ksl
@@ -78,14 +78,14 @@ class LCAOWaveFunctions(WaveFunctions):
         self.T_qMM = None
         self.P_aqMi = None
 
-        if atomic_hamiltonian is None:
+        if atomic_correction is None:
             if ksl.using_blacs:
-                atomic_hamiltonian = 'distributed'
+                atomic_correction = 'distributed'
             else:
-                atomic_hamiltonian = 'dense'
-        if isinstance(atomic_hamiltonian, str):
-            atomic_hamiltonian = get_atomic_hamiltonian(atomic_hamiltonian)
-        self.atomic_hamiltonian = atomic_hamiltonian
+                atomic_correction = 'dense'
+        if isinstance(atomic_correction, str):
+            atomic_correction = get_atomic_correction(atomic_correction)
+        self.atomic_correction = atomic_correction
 
         self.timer.start('TCI: Evaluate splines')
         self.tci = NewTCI(gd.cell_cv, gd.pbc_c, setups, kd.ibzk_qc, kd.gamma)
@@ -110,8 +110,8 @@ class LCAOWaveFunctions(WaveFunctions):
     def summary(self, fd):
         fd.write('Wave functions: LCAO\n')
         fd.write('    Diagonalizer: %s\n' % self.ksl.get_description())
-        fd.write('    Atomic Hamiltonian: %s\n'
-                 % self.atomic_hamiltonian.description)
+        fd.write('    Atomic Correction: %s\n'
+                 % self.atomic_correction.description)
         
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)
@@ -177,7 +177,7 @@ class LCAOWaveFunctions(WaveFunctions):
         from gpaw.lcao.newoverlap import newoverlap
         self.P_neighbors_a, self.P_aaqim, self.newP_aqMi \
             = newoverlap(self, spos_ac)
-        self.atomic_hamiltonian.gobble_data(self)
+        self.atomic_correction.gobble_data(self)
         # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
         for kpt in self.kpt_u:
@@ -188,6 +188,8 @@ class LCAOWaveFunctions(WaveFunctions):
             kpt.P_aaim = dict([(a1a2, P_qim[q])
                                for a1a2, P_qim in self.P_aaqim.items()])
 
+        # XXX does not work yet
+        #self.atomic_correction.add_overlap_correction(self, S_qMM)
         add_paw_correction_to_overlap(self.setups, self.P_aqMi, S_qMM,
                                       self.ksl.Mstart, self.ksl.Mstop)
         self.timer.stop('TCI: Calculate S, T, P')

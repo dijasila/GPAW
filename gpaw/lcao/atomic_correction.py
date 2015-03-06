@@ -4,48 +4,70 @@ from gpaw.utilities.blas import gemm
 from gpaw.utilities import unpack
 
 
-def get_atomic_hamiltonian(name):
-    cls = dict(dense=DenseAtomicHamiltonian,
-               distributed=DistributedAtomicHamiltonian,
-               scipy=ScipyAtomicHamiltonian)[name]
+def get_atomic_correction(name):
+    cls = dict(dense=DenseAtomicCorrection,
+               distributed=DistributedAtomicCorrection,
+               scipy=ScipyAtomicCorrection)[name]
     return cls()
 
 
-class DenseAtomicHamiltonian:
-    name = 'dense'
-    description = 'dense with blas'
-    nops = 0
+class BaseAtomicCorrection:
+    name = 'base'
+    description = 'base class for atomic corrections with LCAO'
+
+    def __init__(self):
+        self.nops = 0
+
+    def redistribute(self, wfs, dX_asp):
+        return dX_asp
+
+    def calculate_hamiltonian(self, wfs, kpt, dH_asp, H_MM, yy):
+        avalues = dH_asp.keys()
+        dH_aii = [yy * np.array(unpack(dH_asp[a][kpt.s]), wfs.dtype)
+                  for a in avalues]
+        dH_aii = dict(zip(avalues, dH_aii)) # XXX this is a bit ugly
+        self.calculate(wfs, kpt.q, dH_aii, H_MM)
+
+    def add_overlap_correction(self, wfs, S_qMM):
+        avalues = wfs.P_aqMi.keys()
+        dS_aii = [np.asarray(wfs.setups[a].dO_ii, wfs.dtype)
+                  for a in avalues]
+        dS_aii = dict(zip(avalues, dS_aii))
+
+        for q, S_MM in enumerate(S_qMM):
+            self.calculate(wfs, q, dS_aii, S_MM)
 
     def gobble_data(self, wfs):
-        pass # No complex data structures
+        pass # Prepare internal data structures for calculate().
 
-    def redistribute(self, wfs, dH_asp):
-        return dH_asp
-    
-    def calculate(self, wfs, kpt, dH_asp, H_MM, yy):
+    def calculate(self, wfs, q, dX_aii, X_MM):
+        raise NotImplementedError
+
+
+class DenseAtomicCorrection(BaseAtomicCorrection):
+    name = 'dense'
+    description = 'dense with blas'
+
+    def calculate(self, wfs, q, dX_aii, X_MM):
         Mstart = wfs.ksl.Mstart
         Mstop = wfs.ksl.Mstop
         dtype = wfs.dtype
         nops = 0
-        for a, P_Mi in kpt.P_aMi.items():
-            dH_ii = np.asarray(unpack(dH_asp[a][kpt.s]), dtype)
-            dHP_iM = np.zeros((dH_ii.shape[1], P_Mi.shape[0]), dtype)
+        for a, dX_ii in dX_aii.items():
+            P_Mi = wfs.P_aqMi[a][q]
+            dXP_iM = np.zeros((dX_ii.shape[1], P_Mi.shape[0]), dtype)
             # (ATLAS can't handle uninitialized output array)
-            gemm(1.0, P_Mi, dH_ii, 0.0, dHP_iM, 'c')
-            nops += dHP_iM.size * dH_ii.shape[0]
-            gemm(yy, dHP_iM, P_Mi[Mstart:Mstop], 1.0, H_MM)
-            nops += H_MM.size * dHP_iM.shape[0]
+            gemm(1.0, P_Mi, dX_ii, 0.0, dXP_iM, 'c')
+            nops += dXP_iM.size * dX_ii.shape[0]
+            gemm(1.0, dXP_iM, P_Mi[Mstart:Mstop], 1.0, X_MM)
+            nops += X_MM.size * dXP_iM.shape[0]
         self.nops = nops
 
 
-class DistributedAtomicHamiltonian:
+class DistributedAtomicCorrection(BaseAtomicCorrection):
     name = 'distributed'
     description = 'distributed and block-sparse'
-    nops = 0
 
-    def gobble_data(self, wfs):
-        pass # XXX Move some preparation stuff here
-    
     def redistribute(self, wfs, dH_asp):
         def get_empty(a):
             ni = wfs.setups[a].ni
@@ -63,7 +85,8 @@ class DistributedAtomicHamiltonian:
                                                        get_empty,
                                                        copy=True)
 
-    def calculate(self, wfs, kpt, dH_asp, H_MM, yy):
+    #def calculate(self, wfs, kpt, dH_asp, H_MM):
+    def calculate(self, wfs, q, dX_aii, X_MM):
         # XXX reduce according to kpt.q
         dtype = wfs.dtype
         M_a = wfs.setups.M_a
@@ -74,7 +97,7 @@ class DistributedAtomicHamiltonian:
         # Now calculate basis-projector-basis overlap: a1 -> a3 -> a2
         #
         # specifically:
-        #   < phi[a1] | p[a3] > * dH[a3] * < p[a3] | phi[a2] >
+        #   < phi[a1] | p[a3] > * dX[a3] * < p[a3] | phi[a2] >
         #
         # This matrix multiplication is semi-sparse.  It works by blocks
         # of atoms, looping only over pairs that do have nonzero
@@ -82,7 +105,7 @@ class DistributedAtomicHamiltonian:
         # This we will have to check at some point.
         #
         # The projection arrays P_aaim are distributed over the grid,
-        # whereas the Hamiltonian is distributed over the band comm.
+        # whereas the X_MM is distributed over the band comm.
         # One could choose a set of a3 to optimize the load balance.
         # Right now the load balance will be "random" and probably
         # not very good.
@@ -96,7 +119,8 @@ class DistributedAtomicHamiltonian:
 
         nao_a = [setup.nao for setup in setups]
 
-        for (a3, a1), P1_im in kpt.P_aaim.items():
+        for (a3, a1), P1_qim in wfs.P_aaqim.items():
+            P1_im = P1_qim[q]
             a1M1 = M_a[a1]
             nM1 = nM_a[a1]
             a1M2 = a1M1 + nM1
@@ -107,11 +131,11 @@ class DistributedAtomicHamiltonian:
             stickout1 = max(0, Mstart - a1M1)
             stickout2 = max(0, a1M2 - Mstop)
             P1_mi = np.conj(P1_im.T[stickout1:nM1 - stickout2])
-            dH_ii = yy * np.asarray(unpack(dH_asp[a3][kpt.s]), dtype)
-            H_mM = H_MM[a1M1 + stickout1 - Mstart:a1M2 - stickout2 - Mstart]
+            dX_ii = dX_aii[a3]
+            X_mM = X_MM[a1M1 + stickout1 - Mstart:a1M2 - stickout2 - Mstart]
 
-            P1dH_mi = np.dot(P1_mi, dH_ii)
-            nops += P1dH_mi.size * dH_ii.shape[0]
+            P1dX_mi = np.dot(P1_mi, dX_ii)
+            nops += P1dX_mi.size * dX_ii.shape[0]
             outer += 1
 
             assert len(wfs.P_neighbors_a[a3]) > 0
@@ -119,7 +143,7 @@ class DistributedAtomicHamiltonian:
                 for a2 in wfs.P_neighbors_a[a3]:
                     inner += 1
                     # We can use symmetry somehow.  Since the entire matrix
-                    # is symmetrized after the Hamiltonian is constructed,
+                    # is symmetrized after the X_MM is constructed,
                     # at least in the non-Gamma-point case, we should do
                     # so conditionally somehow.  Right now let's stay out
                     # of trouble.
@@ -131,14 +155,14 @@ class DistributedAtomicHamiltonian:
                     #    continue
                     a2M1 = M_a[a2]
                     a2M2 = a2M1 + wfs.setups[a2].nao
-                    P2_im = kpt.P_aaim[(a3, a2)]
-                    P1dHP2_mm = np.dot(P1dH_mi, P2_im)
-                    H_mM[:, a2M1:a2M2] += P1dHP2_mm
+                    P2_im = wfs.P_aaqim[(a3, a2)][q]
+                    P1dXP2_mm = np.dot(P1dX_mi, P2_im)
+                    X_mM[:, a2M1:a2M2] += P1dXP2_mm
                     #innerloops += 1
                     #if wfs.world.rank == 0:
                     #    print 'y', y
                     #if a1 != a2:
-                    #    H_MM[a2M1:a2M2, a1M1:a1M2] += P1dHP2_mm.T.conj()
+                    #    X_MM[a2M1:a2M2, a1M1:a1M2] += P1dXP2_mm.T.conj()
 
             a2_a = wfs.P_neighbors_a[a3]
 
@@ -147,35 +171,36 @@ class DistributedAtomicHamiltonian:
             P2_iam = np.empty((P1_mi.shape[1], a2nao), dtype)
             m2 = 0
             for a2 in a2_a:
-                P2_im = kpt.P_aaim[(a3, a2)]
+                P2_im = wfs.P_aaqim[(a3, a2)][q]
                 nao = nao_a[a2]
                 P2_iam[:, m2:m2 + nao] = P2_im
                 m2 += nao
 
-            P1dHP2_mam = np.zeros((P1dH_mi.shape[0],
+            P1dXP2_mam = np.zeros((P1dX_mi.shape[0],
                                    P2_iam.shape[1]), dtype)
-            gemm(1.0, P2_iam, P1dH_mi, 0.0, P1dHP2_mam)
-            nops += P1dHP2_mam.size * P2_iam.shape[0]
+            gemm(1.0, P2_iam, P1dX_mi, 0.0, P1dXP2_mam)
+            nops += P1dXP2_mam.size * P2_iam.shape[0]
 
             m2 = 0
             for a2 in a2_a:
                 nao = nao_a[a2]
-                H_mM[:, M_a[a2]:M_a[a2] + setups[a2].nao] += \
-                    P1dHP2_mam[:, m2:m2 + nao]
+                X_mM[:, M_a[a2]:M_a[a2] + setups[a2].nao] += \
+                    P1dXP2_mam[:, m2:m2 + nao]
                 m2 += nao
 
         self.nops = nops
         self.inner = inner
         self.outer = outer
 
-class ScipyAtomicHamiltonian(DistributedAtomicHamiltonian):
+class ScipyAtomicCorrection(DistributedAtomicCorrection):
     name = 'scipy'
     description = 'distributed and sparse using scipy'
-    nops = 0
 
-    def __init__(self):
+    def __init__(self, tolerance=1e-12):
+        DistributedAtomicCorrection.__init__(self)
         from scipy import sparse
         self.sparse = sparse
+        self.tolerance = tolerance
 
     def gobble_data(self, wfs):
         nq = len(wfs.kd.ibzk_qc)
@@ -195,31 +220,32 @@ class ScipyAtomicHamiltonian(DistributedAtomicHamiltonian):
                        for _ in range(nq)]
 
         for (a3, a1), P_qim in wfs.P_aaqim.items():
-            P_qim = P_qim.copy()
-            approximately_zero = np.abs(P_qim) < 1e-12
-            P_qim[approximately_zero] = 0.0
+            if self.tolerance > 0:
+                P_qim = P_qim.copy()
+                approximately_zero = np.abs(P_qim) < self.tolerance
+                P_qim[approximately_zero] = 0.0
             for q in range(nq):
                 Psparse_qIM[q][I_a[a3]:I_a[a3] + ni_a[a3],
                                M_a[a1]:M_a[a1] + nao_a[a1]] = P_qim[q]
         
         self.Psparse_qIM = [x.tocsr() for x in Psparse_qIM]
 
-
-    def calculate(self, wfs, kpt, dH_asp, H_MM, yy):
+    def calculate(self, wfs, q, dX_aii, X_MM):
         Mstart = wfs.ksl.Mstart
         Mstop = wfs.ksl.Mstop
 
-        aval = dH_asp.keys()
-        aval.sort()
-        Psparse_IM = self.Psparse_qIM[kpt.q]
+        Psparse_IM = self.Psparse_qIM[q]
 
-        dHsparse_II = self.sparse.lil_matrix((self.I, self.I), dtype=wfs.dtype)
-        for a in aval:
+        dXsparse_II = self.sparse.lil_matrix((self.I, self.I), dtype=wfs.dtype)
+        avalues = dX_aii.keys()
+        avalues.sort()
+        for a in avalues:
             I1 = self.I_a[a]
             I2 = I1 + wfs.setups[a].ni
-            dHsparse_II[I1:I2, I1:I2] = yy * unpack(dH_asp[a][kpt.s])
-        dHsparse_II = dHsparse_II.tocsr()
+            dXsparse_II[I1:I2, I1:I2] = dX_aii[a]
+        dXsparse_II = dXsparse_II.tocsr()
         
         Psparse_MI = Psparse_IM[:, Mstart:Mstop].transpose().conjugate()
-        Hsparse_MM = Psparse_MI.dot(dHsparse_II.dot(Psparse_IM))
-        H_MM[:, :] += Hsparse_MM.todense()
+        Xsparse_MM = Psparse_MI.dot(dXsparse_II.dot(Psparse_IM))
+        X_MM[:, :] += Xsparse_MM.todense()
+
