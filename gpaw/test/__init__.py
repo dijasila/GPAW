@@ -177,6 +177,7 @@ tests = [
     'broydenmixer.py',                      # ~3s
     'pw/fulldiagk.py',                      # ~3s
     'external_potential.py',                # ~3s
+    'lcao_atomic_corrections.py',           # ~3s
     'mixer.py',                             # ~3s
     'parallel/lcao_projections.py',         # ~3s
     'lcao_h2o.py',                          # ~3s
