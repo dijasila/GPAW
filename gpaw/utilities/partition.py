@@ -130,8 +130,13 @@ class EvenPartitioning:
             rank = self.comm.rank
         return rank * self.nshort + max(rank - self.shortcount, 0) + i
 
-    def as_atom_partition(self):
+    def as_atom_partition(self, strided=False):
         rank_a = [self.global2local(i)[0] for i in range(self.N)]
+        if strided:
+            padded_size = self.comm.size * self.nlong
+            rank_a = np.arange(self.comm.size).repeat(self.nlong)
+            rank_a = rank_a.reshape(self.comm.size, -1).T.ravel()
+            rank_a = rank_a[self.shortcount:].copy()
         return AtomPartition(self.comm, rank_a)
 
     def get_description(self):

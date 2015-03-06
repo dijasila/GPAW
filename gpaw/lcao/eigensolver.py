@@ -46,11 +46,11 @@ class DirectLCAO:
             wfs.timer.stop('Potential matrix')
 
         if bfs.gamma and wfs.dtype == float:
-            y = 1.0
+            yy = 1.0
             H_MM = Vt_xMM[0]
         else:
             wfs.timer.start('Sum over cells')
-            y = 0.5
+            yy = 0.5
             k_c = wfs.kd.ibzk_qc[kpt.q]
             H_MM = (0.5 + 0.0j) * Vt_xMM[0]
             for sdisp_c, Vt_MM in zip(bfs.sdisp_xc, Vt_xMM)[1:]:
@@ -67,12 +67,12 @@ class DirectLCAO:
 
         name = wfs.atomic_hamiltonian.__class__.__name__
         wfs.timer.start(name)
-        wfs.atomic_hamiltonian.calculate(wfs, kpt, dH_asp, H_MM, y)
+        wfs.atomic_hamiltonian.calculate(wfs, kpt, dH_asp, H_MM, yy)
         wfs.timer.stop(name)
 
         wfs.timer.start('Distribute overlap matrix')
         H_MM = wfs.ksl.distribute_overlap_matrix(
-            H_MM, root, add_hermitian_conjugate=(y == 0.5))
+            H_MM, root, add_hermitian_conjugate=(yy == 0.5))
         wfs.timer.stop('Distribute overlap matrix')
 
         if add_kinetic:

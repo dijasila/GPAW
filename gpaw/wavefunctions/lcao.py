@@ -177,6 +177,7 @@ class LCAOWaveFunctions(WaveFunctions):
         from gpaw.lcao.newoverlap import newoverlap
         self.P_neighbors_a, self.P_aaqim, self.newP_aqMi \
             = newoverlap(self, spos_ac)
+        self.atomic_hamiltonian.gobble_data(self)
         # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
         for kpt in self.kpt_u:
