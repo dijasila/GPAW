@@ -393,10 +393,12 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         blocksize = 2**23 // Sflat_x.itemsize  # 8 MiB
         nblocks = -(-len(Sflat_x) // blocksize)
         Mstart = 0
+        self.timer.start('blocked summation')
         for i in range(nblocks):
             self.gd.comm.sum(Sflat_x[Mstart:Mstart + blocksize], root=root)
             Mstart += blocksize
         assert Mstart + blocksize >= len(Sflat_x)
+        self.timer.stop('blocked summation')
 
         xshape = S_qmM.shape[:-2]
         nm, nM = S_qmM.shape[-2:]
@@ -409,7 +411,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         if not coldesc:  # XXX ugly way to sort out inactive ranks
             S_qmM = coldesc.zeros(len(S_qmM), S_qmM.dtype)
         
-        self.timer.start('Distribute overlap matrix')
+        self.timer.start('Scalapack redistribute')
         for S_mM, S_mm in zip(S_qmM, S_qmm):
             self.mM2mm.redistribute(S_mM, S_mm)
             if add_hermitian_conjugate:
@@ -417,7 +419,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                     pblas_tran(1.0, S_mm.copy(), 1.0, S_mm,
                                blockdesc, blockdesc)
                 
-        self.timer.stop('Distribute overlap matrix')
+        self.timer.stop('Scalapack redistribute')
         return S_qmm.reshape(xshape + blockdesc.shape)
 
     def get_overlap_matrix_shape(self):
