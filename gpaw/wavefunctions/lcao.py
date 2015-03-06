@@ -50,21 +50,6 @@ def get_r_and_offsets(nl, spos_ac, cell_cv):
     return r_and_offset_aao
 
 
-def add_paw_correction_to_overlap(setups, P_aqMi, S_qMM, Mstart=0,
-                                  Mstop=None):
-    if Mstop is None:
-        Mstop = setups.nao
-    for a, P_qMi in P_aqMi.items():
-        dO_ii = np.asarray(setups[a].dO_ii, S_qMM.dtype)
-        for S_MM, P_Mi in zip(S_qMM, P_qMi):
-            dOP_iM = np.zeros((dO_ii.shape[1], setups.nao),
-                              P_Mi.dtype)
-            # (ATLAS can't handle uninitialized output array)
-            gemm(1.0, P_Mi, dO_ii, 0.0, dOP_iM, 'c')
-            gemm(1.0, dOP_iM, P_Mi[Mstart:Mstop],
-                 1.0, S_MM, 'n')
-
-
 class LCAOWaveFunctions(WaveFunctions):
     mode = 'lcao'
     
@@ -189,9 +174,7 @@ class LCAOWaveFunctions(WaveFunctions):
                                for a1a2, P_qim in self.P_aaqim.items()])
 
         # XXX does not work yet
-        #self.atomic_correction.add_overlap_correction(self, S_qMM)
-        add_paw_correction_to_overlap(self.setups, self.P_aqMi, S_qMM,
-                                      self.ksl.Mstart, self.ksl.Mstop)
+        self.atomic_correction.add_overlap_correction(self, S_qMM)
         self.timer.stop('TCI: Calculate S, T, P')
 
         S_MM = None # allow garbage collection of old S_qMM after redist

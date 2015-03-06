@@ -18,7 +18,7 @@ class BaseAtomicCorrection:
     def __init__(self):
         self.nops = 0
 
-    def redistribute(self, wfs, dX_asp):
+    def redistribute(self, wfs, dX_asp, type='H'):
         return dX_asp
 
     def calculate_hamiltonian(self, wfs, kpt, dH_asp, H_MM, yy):
@@ -30,9 +30,12 @@ class BaseAtomicCorrection:
 
     def add_overlap_correction(self, wfs, S_qMM):
         avalues = wfs.P_aqMi.keys()
-        dS_aii = [np.asarray(wfs.setups[a].dO_ii, wfs.dtype)
-                  for a in avalues]
+        dS_aii = [wfs.setups[a].dO_ii for a in avalues]
         dS_aii = dict(zip(avalues, dS_aii))
+        dS_aii = self.redistribute(wfs, dS_aii, type='S')
+
+        for a in dS_aii:
+            dS_aii[a] = np.asarray(dS_aii[a], wfs.dtype)
 
         for q, S_MM in enumerate(S_qMM):
             self.calculate(wfs, q, dS_aii, S_MM)
@@ -68,10 +71,15 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
     name = 'distributed'
     description = 'distributed and block-sparse'
 
-    def redistribute(self, wfs, dH_asp):
-        def get_empty(a):
-            ni = wfs.setups[a].ni
-            return np.empty((wfs.ns, ni * (ni + 1) // 2))
+    def redistribute(self, wfs, dH_asp, type='H'):
+        if type == 'H':
+            def get_empty(a):
+                ni = wfs.setups[a].ni
+                return np.empty((wfs.ns, ni * (ni + 1) // 2))
+        elif type == 'S':
+            def get_empty(a):
+                ni = wfs.setups[a].ni
+                return np.empty((ni, ni))
 
         # just distributed over gd comm.  It's not the most aggressive
         # we can manage but we want to make band parallelization
@@ -85,7 +93,6 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
                                                        get_empty,
                                                        copy=True)
 
-    #def calculate(self, wfs, kpt, dH_asp, H_MM):
     def calculate(self, wfs, q, dX_aii, X_MM):
         # XXX reduce according to kpt.q
         dtype = wfs.dtype
