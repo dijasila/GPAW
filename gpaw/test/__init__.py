@@ -436,6 +436,9 @@ if mpi.size != 1 and not compiled_with_sl():
                 'pw/fulldiagk.py',
                 'au02_absorption.py']
 
+if not compiled_with_sl():
+    exclude.append('lcao_atomic_corrections.py')
+
 if sys.version_info < (2, 6):
     exclude.append('transport.py')
     

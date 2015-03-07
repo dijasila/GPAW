@@ -2,7 +2,7 @@ import numpy as np
 
 from gpaw.utilities.blas import gemm
 from gpaw.utilities import unpack
-
+from gpaw.utilities.partition import EvenPartitioning
 
 def get_atomic_correction(name):
     cls = dict(dense=DenseAtomicCorrection,
@@ -18,21 +18,21 @@ class BaseAtomicCorrection:
     def __init__(self):
         self.nops = 0
 
-    def redistribute(self, wfs, dX_asp, type='H'):
+    def redistribute(self, wfs, dX_asp, type='asp'):
         return dX_asp
 
     def calculate_hamiltonian(self, wfs, kpt, dH_asp, H_MM, yy):
-        avalues = dH_asp.keys()
+        avalues = self.get_a_values()
+
         dH_aii = [yy * np.array(unpack(dH_asp[a][kpt.s]), wfs.dtype)
                   for a in avalues]
         dH_aii = dict(zip(avalues, dH_aii)) # XXX this is a bit ugly
         self.calculate(wfs, kpt.q, dH_aii, H_MM)
 
     def add_overlap_correction(self, wfs, S_qMM):
-        avalues = wfs.P_aqMi.keys()
+        avalues = self.get_a_values()
         dS_aii = [wfs.setups[a].dO_ii for a in avalues]
         dS_aii = dict(zip(avalues, dS_aii))
-        dS_aii = self.redistribute(wfs, dS_aii, type='S')
 
         for a in dS_aii:
             dS_aii[a] = np.asarray(dS_aii[a], wfs.dtype)
@@ -46,23 +46,35 @@ class BaseAtomicCorrection:
     def calculate(self, wfs, q, dX_aii, X_MM):
         raise NotImplementedError
 
+    def get_a_values(self):
+        raise NotImplementedError
 
 class DenseAtomicCorrection(BaseAtomicCorrection):
     name = 'dense'
     description = 'dense with blas'
 
+    def gobble_data(self, wfs):
+        self.initialize(wfs.P_aqMi, wfs.ksl.Mstart, wfs.ksl.Mstop)
+
+    def initialize(self, P_aqMi, Mstart, Mstop):
+        self.P_aqMi = P_aqMi
+        self.Mstart = Mstart
+        self.Mstop = Mstop
+
+    def get_a_values(self):
+        return self.P_aqMi.keys()
+
     def calculate(self, wfs, q, dX_aii, X_MM):
-        Mstart = wfs.ksl.Mstart
-        Mstop = wfs.ksl.Mstop
-        dtype = wfs.dtype
+        dtype = X_MM.dtype
         nops = 0
         for a, dX_ii in dX_aii.items():
-            P_Mi = wfs.P_aqMi[a][q]
+            P_Mi = self.P_aqMi[a][q]
+            assert dtype == P_Mi.dtype
             dXP_iM = np.zeros((dX_ii.shape[1], P_Mi.shape[0]), dtype)
             # (ATLAS can't handle uninitialized output array)
             gemm(1.0, P_Mi, dX_ii, 0.0, dXP_iM, 'c')
             nops += dXP_iM.size * dX_ii.shape[0]
-            gemm(1.0, dXP_iM, P_Mi[Mstart:Mstop], 1.0, X_MM)
+            gemm(1.0, dXP_iM, P_Mi[self.Mstart:self.Mstop], 1.0, X_MM)
             nops += X_MM.size * dXP_iM.shape[0]
         self.nops = nops
 
@@ -71,15 +83,26 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
     name = 'distributed'
     description = 'distributed and block-sparse'
 
-    def redistribute(self, wfs, dH_asp, type='H'):
-        if type == 'H':
+    def gobble_data(self, wfs):
+        self.src_partition = wfs.atom_partition
+        evenpart = EvenPartitioning(self.src_partition.comm,
+                                    self.src_partition.natoms)
+        self.dst_partition = evenpart.as_atom_partition()
+    
+    def get_a_values(self):
+        return self.dst_partition.my_indices
+
+    def redistribute(self, wfs, dX_asp, type='asp'):
+        if type == 'asp': # dX_asp is dH_asp
             def get_empty(a):
                 ni = wfs.setups[a].ni
                 return np.empty((wfs.ns, ni * (ni + 1) // 2))
-        elif type == 'S':
+        elif type == 'aii': # dX_asp is in fact dS_aii
             def get_empty(a):
                 ni = wfs.setups[a].ni
                 return np.empty((ni, ni))
+        else:
+            raise ValueError('Unknown matrix type "%s"' % type)
 
         # just distributed over gd comm.  It's not the most aggressive
         # we can manage but we want to make band parallelization
@@ -89,7 +112,7 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         # non-blocking version as we only need this stuff after
         # doing tons of real-space work.
 
-        return wfs.atom_partition.to_even_distribution(dH_asp,
+        return self.src_partition.to_even_distribution(dX_asp,
                                                        get_empty,
                                                        copy=True)
 
@@ -210,6 +233,7 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
         self.tolerance = tolerance
 
     def gobble_data(self, wfs):
+        DistributedAtomicCorrection.gobble_data(self, wfs)
         nq = len(wfs.kd.ibzk_qc)
 
         I_a = [0]
