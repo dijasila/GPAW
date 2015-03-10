@@ -18,7 +18,8 @@ class BaseAtomicCorrection:
     def __init__(self):
         self.nops = 0
 
-    def redistribute(self, wfs, dX_asp, type='asp'):
+    def redistribute(self, wfs, dX_asp, type='asp', op='forth'):
+        assert op in ['back', 'forth']
         return dX_asp
 
     def calculate_hamiltonian(self, wfs, kpt, dH_asp, H_MM, yy):
@@ -49,6 +50,15 @@ class BaseAtomicCorrection:
     def get_a_values(self):
         raise NotImplementedError
 
+    def implements_distributed_projections(self):
+        return False
+
+    def calculate_projections(self, wfs, kpt):
+        for a, P_ni in kpt.P_ani.items():
+            # ATLAS can't handle uninitialized output array:
+            P_ni.fill(117)
+            gemm(1.0, kpt.P_aMi[a], kpt.C_nM, 0.0, P_ni, 'n')
+
 class DenseAtomicCorrection(BaseAtomicCorrection):
     name = 'dense'
     description = 'dense with blas'
@@ -78,21 +88,20 @@ class DenseAtomicCorrection(BaseAtomicCorrection):
             nops += X_MM.size * dXP_iM.shape[0]
         self.nops = nops
 
-
 class DistributedAtomicCorrection(BaseAtomicCorrection):
     name = 'distributed'
     description = 'distributed and block-sparse'
 
     def gobble_data(self, wfs):
-        self.src_partition = wfs.atom_partition
-        evenpart = EvenPartitioning(self.src_partition.comm,
-                                    self.src_partition.natoms)
-        self.dst_partition = evenpart.as_atom_partition()
+        self.orig_partition = wfs.atom_partition
+        evenpart = EvenPartitioning(self.orig_partition.comm,
+                                    self.orig_partition.natoms)
+        self.even_partition = evenpart.as_atom_partition()
     
     def get_a_values(self):
-        return self.dst_partition.my_indices
+        return self.even_partition.my_indices
 
-    def redistribute(self, wfs, dX_asp, type='asp'):
+    def redistribute(self, wfs, dX_asp, type='asp', op='forth'):
         if type == 'asp': # dX_asp is dH_asp
             def get_empty(a):
                 ni = wfs.setups[a].ni
@@ -112,9 +121,16 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         # non-blocking version as we only need this stuff after
         # doing tons of real-space work.
 
-        return self.src_partition.to_even_distribution(dX_asp,
-                                                       get_empty,
-                                                       copy=True)
+        if op == 'forth':
+            src = self.orig_partition
+            dst = self.even_partition
+        else:
+            assert op == 'back'
+            src = self.even_partition
+            dst = self.orig_partition
+
+        src.redistribute(dst, dX_asp, get_empty)
+        return dX_asp
 
     def calculate(self, wfs, q, dX_aii, X_MM):
         # XXX reduce according to kpt.q
@@ -280,3 +296,14 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
         Xsparse_MM = Psparse_MI.dot(dXsparse_II.dot(Psparse_IM))
         X_MM[:, :] += Xsparse_MM.todense()
 
+    def calculate_projections(self, wfs, kpt):
+        Mstart = wfs.ksl.Mstart
+        Mstop = wfs.ksl.Mstop
+        P_In = self.Psparse_qIM[kpt.q][:, Mstart:Mstop].dot(kpt.C_nM.T)
+        for a in self.even_partition.my_indices:
+            I1 = self.I_a[a]
+            I2 = I1 + wfs.setups[a].ni
+            kpt.P_ani[a][:, :] = P_In[I1:I2, :].T.conj()
+
+    def implements_distributed_projections(self):
+        return True

@@ -146,9 +146,6 @@ class LCAOWaveFunctions(WaveFunctions):
             if kpt.C_nM is None:
                 kpt.C_nM = np.empty((mynbands, nao), self.dtype)
 
-        self.allocate_arrays_for_projections(
-            self.basis_functions.my_atom_indices)
-            
         self.P_aqMi = {}
         for a in self.basis_functions.my_atom_indices:
             ni = self.setups[a].ni
@@ -176,6 +173,12 @@ class LCAOWaveFunctions(WaveFunctions):
         # XXX does not work yet
         self.atomic_correction.add_overlap_correction(self, S_qMM)
         self.timer.stop('TCI: Calculate S, T, P')
+
+        if self.atomic_correction.implements_distributed_projections():
+            my_atom_indices = self.atomic_correction.get_a_values()
+        else:
+            my_atom_indices = self.basis_functions.my_atom_indices
+        self.allocate_arrays_for_projections(my_atom_indices)
 
         S_MM = None # allow garbage collection of old S_qMM after redist
         S_qMM = self.ksl.distribute_overlap_matrix(S_qMM, root=-1)
@@ -276,6 +279,15 @@ class LCAOWaveFunctions(WaveFunctions):
             C_Mn = C_nM.T.copy()
             r2k(0.5, C_Mn, f_n * C_Mn, 0.0, rho_MM)
             tri2full(rho_MM)
+
+    def calculate_atomic_density_matrices_with_occupation(self, D_asp, f_un):
+        parallel = self.atomic_correction.implements_distributed_projections()
+        if parallel:
+            self.atomic_correction.redistribute(self, D_asp, op='forth')
+        WaveFunctions.calculate_atomic_density_matrices_with_occupation(
+            self, D_asp, f_un)
+        if parallel:
+            self.atomic_correction.redistribute(self, D_asp, op='back')
 
     def calculate_density_matrix_delta(self, d_nn, C_nM, rho_MM=None):
         # ATLAS can't handle uninitialized output array:

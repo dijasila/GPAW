@@ -19,6 +19,7 @@ system = system.repeat((1, 1, 2))
 
 corrections = [DenseAtomicCorrection(), DistributedAtomicCorrection()]
 
+#corrections.pop() # XXXXXXXXXXXXXXXXXXXXXXXXXXXX
 try:
     import scipy
 except ImportError:
@@ -38,7 +39,7 @@ for correction in corrections:
                 h=0.35)
     def stopcalc():
         calc.scf.converged = True
-    calc.attach(stopcalc, 1)
+    calc.attach(stopcalc, 2)
     system.set_calculator(calc)
     energy = system.get_potential_energy()
     energies.append(energy)

@@ -112,12 +112,9 @@ class DirectLCAO:
 
         wfs.timer.start('Calculate projections')
         # P_ani are not strictly necessary as required quantities can be
-        # evaluated directly using P_aMi.  We should probably get rid
+        # evaluated directly using P_aMi/Paaqim.  We should perhaps get rid
         # of the places in the LCAO code using P_ani directly
-        for a, P_ni in kpt.P_ani.items():
-            # ATLAS can't handle uninitialized output array:
-            P_ni.fill(117)
-            gemm(1.0, kpt.P_aMi[a], kpt.C_nM, 0.0, P_ni, 'n')
+        wfs.atomic_correction.calculate_projections(wfs, kpt)
         wfs.timer.stop('Calculate projections')
 
     def __repr__(self):
