@@ -16,6 +16,8 @@ system = molecule('H2O')
 system.center(vacuum=3.0)
 system.pbc = (0, 0, 1)
 system = system.repeat((1, 1, 2))
+# Break symmetries so we don't get funny degeneracy effects.
+system.rattle(stdev=0.05)
 
 corrections = [DenseAtomicCorrection(), DistributedAtomicCorrection()]
 
@@ -29,12 +31,12 @@ else:
 
 energies = []
 for correction in corrections:
-    parallel = dict()
+    parallel = dict(band=1) # XXX should test this
     if correction.name != 'dense':
         parallel=dict(sl_auto=True)
     calc = GPAW(mode=LCAO(atomic_correction=correction),
                 basis='sz(dzp)',
-                poissonsolver=PoissonSolver(relax='GS', eps=1e100, nn=1),
+                poissonsolver=PoissonSolver(relax='J', eps=1e100, nn=1),
                 parallel=parallel,
                 h=0.35)
     def stopcalc():
