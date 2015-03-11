@@ -3,8 +3,10 @@
 
 import sys
 import time
+import traceback
 import atexit
 import pickle
+
 import numpy as np
 
 from gpaw import debug
@@ -844,7 +846,7 @@ class Parallelization:
                                ['k-point', 'domain', 'band']):
             if group is not None:
                 if self.size % group != 0:
-                    msg = ('Cannot paralllize as the '
+                    msg = ('Cannot parallelize as the '
                            'communicator size %d is not divisible by the '
                            'requested number %d of ranks for %s '
                            'parallelization' % (self.size, group, name))
@@ -981,6 +983,19 @@ def cleanup():
             # producing helpful error messages)
             time.sleep(10)
             world.abort(42)
+
+
+def print_mpi_stack_trace(type, value, tb):
+    exception_text = traceback.format_exception(type, value, tb)
+    ndigits = len(str(world.size - 1))
+    number = ('%%0%dd' % ndigits) % world.rank
+    
+    for line in exception_text:
+        for line1 in line.splitlines():
+            sys.stderr.write('rank=%s %s\n' % (number, line1))
+
+if world.size > 1:  # Triggers for dry-run communicators too, but we care not.
+    sys.excepthook = print_mpi_stack_trace
 
             
 def exit(error='Manual exit'):
