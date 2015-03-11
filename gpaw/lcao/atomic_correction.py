@@ -59,6 +59,7 @@ class BaseAtomicCorrection:
             P_ni.fill(117)
             gemm(1.0, kpt.P_aMi[a], kpt.C_nM, 0.0, P_ni, 'n')
 
+
 class DenseAtomicCorrection(BaseAtomicCorrection):
     name = 'dense'
     description = 'dense with blas'
@@ -87,6 +88,7 @@ class DenseAtomicCorrection(BaseAtomicCorrection):
             gemm(1.0, dXP_iM, P_Mi[self.Mstart:self.Mstop], 1.0, X_MM)
             nops += X_MM.size * dXP_iM.shape[0]
         self.nops = nops
+
 
 class DistributedAtomicCorrection(BaseAtomicCorrection):
     name = 'distributed'
@@ -121,16 +123,17 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         # non-blocking version as we only need this stuff after
         # doing tons of real-space work.
 
-        if op == 'forth':
-            src = self.orig_partition
-            dst = self.even_partition
-        else:
-            assert op == 'back'
-            src = self.even_partition
-            dst = self.orig_partition
-
-        src.redistribute(dst, dX_asp, get_empty)
-        return dX_asp
+        #if op == 'forth':
+        #    src = self.orig_partition
+        #    dst = self.even_partition
+        #else:
+        #    assert op == 'back'
+        #    src = self.even_partition
+        #    dst = self.orig_partition
+        
+        return self.orig_partition.to_even_distribution(dX_asp,
+                                                        get_empty,
+                                                        copy=True)
 
     def calculate(self, wfs, q, dX_aii, X_MM):
         # XXX reduce according to kpt.q
@@ -296,7 +299,8 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
         Xsparse_MM = Psparse_MI.dot(dXsparse_II.dot(Psparse_IM))
         X_MM[:, :] += Xsparse_MM.todense()
 
-    def calculate_projections(self, wfs, kpt):
+    # Disabled for now; work in progress
+    def calculate_projections1(self, wfs, kpt):
         Mstart = wfs.ksl.Mstart
         Mstop = wfs.ksl.Mstop
         P_In = self.Psparse_qIM[kpt.q][:, Mstart:Mstop].dot(kpt.C_nM.T)
@@ -306,4 +310,4 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
             kpt.P_ani[a][:, :] = P_In[I1:I2, :].T.conj()
 
     def implements_distributed_projections(self):
-        return True
+        return False
