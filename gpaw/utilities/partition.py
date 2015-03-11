@@ -4,6 +4,18 @@ import numpy as np
 class AtomicMatrixDistributor:
     """Class to distribute atomic dictionaries like dH_asp and D_asp."""
     def __init__(self, atom_partition, setups, kptband_comm, ns):
+        # Assumptions on communicators are as follows.
+        #
+        # atom_partition represents standard domain decomposition, and
+        # kptband_comm are the corresponding kpt/band communicators
+        # together encompassing wfs.world.
+        #
+        # Initially, dH_asp are distributed over domains according to the
+        # physical location of each atom, but duplicated across band
+        # and k-point communicators.
+        #
+        # The idea is to transfer dH_asp so they are distributed equally
+        # among all ranks on wfs.world, and back, when necessary.
         self.atom_partition = atom_partition
         self.setups = setups
         self.kptband_comm = kptband_comm
