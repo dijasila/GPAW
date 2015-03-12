@@ -66,6 +66,7 @@ class DenseAtomicCorrection(BaseAtomicCorrection):
 
     def gobble_data(self, wfs):
         self.initialize(wfs.P_aqMi, wfs.ksl.Mstart, wfs.ksl.Mstop)
+        self.orig_partition = wfs.atom_partition # XXXXXXXXXXXXXXXXXXXXX
 
     def initialize(self, P_aqMi, Mstart, Mstop):
         self.P_aqMi = P_aqMi
@@ -123,17 +124,15 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         # non-blocking version as we only need this stuff after
         # doing tons of real-space work.
 
-        #if op == 'forth':
-        #    src = self.orig_partition
-        #    dst = self.even_partition
-        #else:
-        #    assert op == 'back'
-        #    src = self.even_partition
-        #    dst = self.orig_partition
-        
-        return self.orig_partition.to_even_distribution(dX_asp,
-                                                        get_empty,
-                                                        copy=True)
+        if op == 'forth':
+            return self.orig_partition.to_even_distribution(dX_asp,
+                                                            get_empty,
+                                                            copy=True)
+        else:
+            assert op == 'back'
+            return self.orig_partition.from_even_distribution(dX_asp,
+                                                              get_empty,
+                                                              copy=True)
 
     def calculate(self, wfs, q, dX_aii, X_MM):
         # XXX reduce according to kpt.q
@@ -299,15 +298,17 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
         Xsparse_MM = Psparse_MI.dot(dXsparse_II.dot(Psparse_IM))
         X_MM[:, :] += Xsparse_MM.todense()
 
-    # Disabled for now; work in progress
-    def calculate_projections1(self, wfs, kpt):
-        Mstart = wfs.ksl.Mstart
-        Mstop = wfs.ksl.Mstop
-        P_In = self.Psparse_qIM[kpt.q][:, Mstart:Mstop].dot(kpt.C_nM.T)
-        for a in self.even_partition.my_indices:
-            I1 = self.I_a[a]
-            I2 = I1 + wfs.setups[a].ni
-            kpt.P_ani[a][:, :] = P_In[I1:I2, :].T.conj()
+    def calculate_projections(self, wfs, kpt):
+        if self.implements_distributed_projections():
+            Mstart = wfs.ksl.Mstart
+            Mstop = wfs.ksl.Mstop
+            P_In = self.Psparse_qIM[kpt.q].dot(kpt.C_nM.T)
+            for a in self.even_partition.my_indices:
+                I1 = self.I_a[a]
+                I2 = I1 + wfs.setups[a].ni
+                kpt.P_ani[a][:, :] = P_In[I1:I2, :].T.conj()
+        else:
+            DistributedAtomicCorrection.calculate_projections(self, wfs, kpt)
 
     def implements_distributed_projections(self):
-        return False
+        return True

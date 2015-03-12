@@ -281,13 +281,17 @@ class LCAOWaveFunctions(WaveFunctions):
             tri2full(rho_MM)
 
     def calculate_atomic_density_matrices_with_occupation(self, D_asp, f_un):
-        parallel = self.atomic_correction.implements_distributed_projections()
-        if parallel:
-            self.atomic_correction.redistribute(self, D_asp, op='forth')
-        WaveFunctions.calculate_atomic_density_matrices_with_occupation(
-            self, D_asp, f_un)
-        if parallel:
-            self.atomic_correction.redistribute(self, D_asp, op='back')
+        ac = self.atomic_correction
+        if ac.implements_distributed_projections():
+            D2_asp = ac.redistribute(self, D_asp, type='asp', op='forth')
+            WaveFunctions.calculate_atomic_density_matrices_with_occupation(
+                self, D2_asp, f_un)
+            D3_asp = ac.redistribute(self, D2_asp, type='asp', op='back')
+            for a in D_asp:
+                D_asp[a][:] = D3_asp[a]
+        else:
+            WaveFunctions.calculate_atomic_density_matrices_with_occupation(
+                self, D_asp, f_un)
 
     def calculate_density_matrix_delta(self, d_nn, C_nM, rho_MM=None):
         # ATLAS can't handle uninitialized output array:

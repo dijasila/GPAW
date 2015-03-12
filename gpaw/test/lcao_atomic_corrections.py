@@ -9,6 +9,7 @@ from ase.structure import molecule
 from gpaw import GPAW, LCAO, PoissonSolver
 from gpaw.lcao.atomic_correction import DenseAtomicCorrection, \
     DistributedAtomicCorrection, ScipyAtomicCorrection
+from gpaw.mpi import world
 
 # Use a cell large enough that some overlaps are zero.
 # Thus the matrices will have at least some sparsity.
@@ -31,11 +32,15 @@ else:
 
 energies = []
 for correction in corrections:
-    parallel = dict(band=1) # XXX should test this
+    parallel = {}
+    if world.size >= 4:
+        parallel['band'] = 2
     if correction.name != 'dense':
-        parallel=dict(sl_auto=True)
+        parallel['sl_auto'] = True
     calc = GPAW(mode=LCAO(atomic_correction=correction),
                 basis='sz(dzp)',
+                #kpts=(1, 1, 4),
+                #spinpol=True,
                 poissonsolver=PoissonSolver(relax='J', eps=1e100, nn=1),
                 parallel=parallel,
                 h=0.35)
@@ -54,9 +59,9 @@ eref = energies[0]
 errs = []
 for energy, c in zip(energies, corrections):
     err = abs(energy - eref)
-    errs.append(err)
     nops = calc.wfs.world.sum(c.nops)
+    errs.append(err)
     if master:
         print 'err=%e :: name=%s :: nops=%d' % (err, c.name, nops)
 
-assert max(errs) < 1e-12
+assert max(errs) < 1e-11

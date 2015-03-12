@@ -245,10 +245,17 @@ class AtomPartition:
         self.redistribute(even_part, atomdict_ax, get_empty)
         return atomdict_ax # XXX copy or not???
 
-    def from_even_distribution(self, atomdict_ax, get_empty):
+    def from_even_distribution(self, atomdict_ax, get_empty, copy=False):
+        if copy:  # XXX We should have a class for atomdicts to facilitate life
+            atomdict1_ax = {}
+            for a, arr_x in atomdict_ax.items():
+                atomdict1_ax[a] = arr_x.copy()
+            atomdict_ax = atomdict1_ax
+            
         even_part = EvenPartitioning(self.comm,
                                      len(self.rank_a)).as_atom_partition()
         even_part.redistribute(self, atomdict_ax, get_empty)
+        return atomdict_ax
 
     def redistribute(self, new_partition, atomdict_ax, get_empty):
         assert self.comm == new_partition.comm
