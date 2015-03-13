@@ -18,6 +18,7 @@ from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.utilities.blas import gemm, rk, czher, mmm
 from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.response.pair import PWSymmetryAnalyzer
 
 
 def frequency_grid(domega0, omega2, omegamax):
@@ -165,14 +166,21 @@ class Chi0(PairDensity):
         q_c = pd.kd.bzk_kc[0]
         optical_limit = not self.no_optical_limit and np.allclose(q_c, 0.0)
         generator = self.generate_pair_densities
+        unsymmetrized = True
+
+        # Use symmetries
+        PWSA = PWSymmetryAnalyzer
+        PWSA = PWSA(self.calc.wfs.kd, pd,
+                    disable_point_group=self.disable_point_group,
+                    disable_time_reversal=self.disable_time_reversal,
+                    timer=self.timer, txt=self.fd)
 
         # Sum pair-densities
         self.timer.start('Loop')
         for f2_m, df_m, deps_m, n_mG, n_mv, vel_mv in \
-            generator(pd, m1, m2, spins,
-                      disable_point_group=self.disable_point_group,
-                      disable_time_reversal=self.disable_time_reversal,
-                      use_more_memory=self.use_more_memory):
+            generator(pd, m1, m2, spins, PWSA=PWSA,
+                      use_more_memory=self.use_more_memory,
+                      unsymmetrized=unsymmetrized):
             if n_mG is not None:
                 update(np.ascontiguousarray(n_mG), deps_m, df_m, chi0_wGG)
             if optical_limit and n_mv is not None:
@@ -229,6 +237,12 @@ class Chi0(PairDensity):
             chi0_wvv += (chi0_vv[np.newaxis] /
                          (omega_w[:, np.newaxis, np.newaxis]
                           + 1j * self.eta)**2)
+
+        if unsymmetrized:
+            PWSA.symmetrize_wGG(chi0_wGG)
+            if optical_limit:
+                PWSA.symmetrize_wxvG(chi0_wxvG)
+                PWSA.symmetrize_wvv(chi0_wvv)
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
@@ -348,7 +362,7 @@ class Chi0(PairDensity):
         assert len(dfde_m) == len(vel_mv)
         for dfde, vel_v in zip(dfde_m, vel_mv):
             x_vv = (-self.prefactor * dfde *
-                    np.outer(vel_v.conj(), vel_v))
+                    np.outer(vel_v, vel_v))
             chi0_vv += x_vv
                 
     @timer('redist')

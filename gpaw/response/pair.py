@@ -42,22 +42,30 @@ class KPoint:
 
 
 class KPointPair:
+    """This class defines the kpoint-pair container object.
+
+    Used for calculating pair quantities it contains two kpoints,
+    and an associated set of Fourier components."""
     def __init__(self, kpt1, kpt2, Q_G):
         self.kpt1 = kpt1
         self.kpt2 = kpt2
         self.Q_G = Q_G
 
     def get_k1(self):
+        """ Return KPoint object 1."""
         return self.kpt1
     
     def get_k2(self):
+        """ Return KPoint object 2."""
         return self.kpt2
 
     def get_planewave_indices(self):
+        """ Return the planewave indices associated with this pair."""
         return self.Q_G
 
 
 class PWSymmetryAnalyzer:
+    """ Class for handling planewave symmetries."""
     def __init__(self, kd, pd, txt=sys.stdout,
                  disable_point_group=False,
                  disable_non_symmorphic=True,
@@ -79,7 +87,7 @@ class PWSymmetryAnalyzer:
         self.disable_non_symmorphic = disable_non_symmorphic
         if (kd.symmetry.has_inversion or not kd.symmetry.time_reversal) and \
            not self.disable_time_reversal:
-            print('\nThe ground calcualtion does not support time-reversal ' +
+            print('\nThe ground calculation does not support time-reversal ' +
                   'symmetry possibly because it has an inversion center ' +
                   'or that it has been manually deactivated. \n', file=self.fd)
             self.disable_time_reversal = True
@@ -103,6 +111,7 @@ class PWSymmetryAnalyzer:
 
     @timer('Initialize')
     def initialize(self):
+        """ Initialize relevant quantities."""
         self.infostring = ''
         if self.disable_point_group:
             self.infostring += 'Point group not included. '
@@ -132,6 +141,8 @@ class PWSymmetryAnalyzer:
         self.print_symmetries()
 
     def print_symmetries(self):
+        """Handsome print function for symmetry operations."""
+
         p = functools.partial(print, file=self.fd)
         U_scc = self.kd.symmetry.op_scc
         ft_sc = self.kd.symmetry.ft_sc
@@ -226,6 +237,10 @@ class PWSymmetryAnalyzer:
         self.infostring += 'Found {0} allowed symmetries. '.format(len(s_s))
         self.s_s = s_s
         self.shift_sc = shift_sc
+    
+    def how_many_symmetries(self):
+        """ Get number of symmetries."""
+        return len(self.s_s)
 
     @timer('Group kpoints')
     def group_kpoints(self, K_k=None):
@@ -248,7 +263,7 @@ class PWSymmetryAnalyzer:
         return K_gk
 
     def get_kpoint_mapping(self, K1, K2):
-        """Get allowed symmetry for mapping between K1 and K2"""
+        """Get index of symmetry for mapping between K1 and K2"""
         s_s = self.s_s
         bz2bz_ks = self.kd.bz2bz_ks
         bzk2rbz_s = bz2bz_ks[K1][:, s_s]
@@ -260,20 +275,22 @@ class PWSymmetryAnalyzer:
             raise
         return s_s[s]
 
-    def get_shift(self, K1, K2, U_cc):
+    def get_shift(self, K1, K2, U_cc, sign):
+        """ Get shift for mapping between K1 and K2."""
         kd = self.kd
         k1_c = kd.bzk_kc[K1]
         k2_c = kd.bzk_kc[K2]
         
-        shift_c = np.dot(U_cc, k1_c) - k2_c
+        shift_c = np.dot(U_cc, k1_c) - k2_c * sign
         assert np.allclose(shift_c.round(), shift_c)
-        
         shift_c = shift_c.round().astype(int)
         
         return shift_c
 
     @timer('map_G')
     def map_G(self, K1, K2, a_MG):
+        """Map a function of G from K1 to K2."""
+
         if len(a_MG) == 0:
             return []
 
@@ -287,8 +304,88 @@ class PWSymmetryAnalyzer:
 
         return TR(a_MG[..., G_G])
 
+    def symmetrize_wGG(self, A_wGG):
+        """ Symmetrize an array in GG."""
+        tmp_wGG = np.zeros_like(A_wGG)
+
+        if self.use_time_reversal:
+            # ::-1 corresponds to transpose in wing indices
+            AT_wGG = np.transpose(A_wGG, (0, 2, 1))
+
+        for s in self.s_s:
+            G_G, sign, shift_c = self.G_sG[s]
+            U_cc, _, TR, shift_c, ft_c = self.get_symmetry_operator(s)
+            if sign == 1:
+                tmp_wGG += A_wGG[:, G_G, :][:, :, G_G]
+            if sign == -1:
+                tmp_wGG += AT_wGG[:, G_G, :][:, :, G_G]
+
+        # Overwrite the input
+        A_wGG[:] = tmp_wGG
+        
+    def symmetrize_wxvG(self, A_wxvG):
+        A_cv = self.pd.gd.cell_cv
+        iA_cv = self.pd.gd.icell_cv
+
+        if self.use_time_reversal:
+            # ::-1 corresponds to transpose in wing indices
+            AT_wxvG = A_wxvG[:, ::-1]
+
+        tmp_wxvG = np.zeros_like(A_wxvG)
+        for s in self.s_s:
+            G_G, sign, shift_c = self.G_sG[s]
+            U_cc, _, TR, shift_c, ft_c = self.get_symmetry_operator(s)
+            M_vv = np.dot(np.dot(A_cv.T, U_cc.T), iA_cv)
+            if sign == 1:
+                tmp = sign * np.dot(M_vv.T, A_wxvG[..., G_G])
+            elif sign == -1:
+                tmp = sign * np.dot(M_vv.T, AT_wxvG[..., G_G])
+            tmp_wxvG += np.transpose(tmp, (1, 2, 0, 3))
+            
+        # Overwrite the input
+        A_wxvG[:] = tmp_wxvG
+
+    def symmetrize_wvv(self, A_wvv):
+        A_cv = self.pd.gd.cell_cv
+        iA_cv = self.pd.gd.icell_cv
+        tmp_wvv = np.zeros_like(A_wvv)
+        if self.use_time_reversal:
+            AT_wvv = np.transpose(A_wvv, (0, 2, 1))
+
+        for s in self.s_s:
+            G_G, sign, shift_c = self.G_sG[s]
+            U_cc, _, TR, shift_c, ft_c = self.get_symmetry_operator(s)
+            M_vv = np.dot(np.dot(A_cv.T, U_cc.T), iA_cv)
+            if sign == 1:
+                tmp = np.dot(np.dot(M_vv.T, A_wvv), M_vv)
+            elif sign == -1:
+                tmp = np.dot(np.dot(M_vv.T, AT_wvv), M_vv)
+            tmp_wvv += np.transpose(tmp, (1, 0, 2))
+
+        # Overwrite the input
+        A_wvv[:] = tmp_wvv
+
+    def symmetrize_vv(self, A_vv):
+        A_cv = self.pd.gd.cell_cv
+        iA_cv = self.pd.gd.icell_cv
+        tmp_vv = np.zeros_like(A_vv)
+        for s in self.s_s:
+            G_G, sign, shift_c = self.G_sG[s]
+            U_cc, _, TR, shift_c, ft_c = self.get_symmetry_operator(s)
+            M_vv = np.dot(np.dot(A_cv.T, U_cc.T), iA_cv)
+
+            if sign == 1:
+                tmp_vv += np.dot(np.dot(M_vv.T, A_vv), M_vv)
+            if sign == -1:
+                tmp_vv += np.dot(np.dot(M_vv.T, A_vv.T), M_vv)
+
+        # Overwrite the input
+        A_vv[:] = tmp_vv
+
     @timer('map_v')
-    def map_v(self, K1, K2, a_Mv, shift=False):
+    def map_v(self, K1, K2, a_Mv):
+        """Map a function of v (cartesian component) from K1 to K2."""
+
         if len(a_Mv) == 0:
             return []
 
@@ -303,9 +400,8 @@ class PWSymmetryAnalyzer:
         U_cc, sign, TR, _, ft_c = self.get_symmetry_operator(s)
 
         # Create cartesian operator
-        M_vv = sign * np.dot(np.dot(A_cv.T, U_cc.T), iA_cv)
-
-        return np.dot(TR(a_Mv), M_vv)
+        M_vv = np.dot(np.dot(A_cv.T, U_cc.T), iA_cv)
+        return sign * np.dot(TR(a_Mv), M_vv)
 
     def timereversal(self, s):
         tr = bool(s // self.nU)
@@ -368,6 +464,7 @@ class PWSymmetryAnalyzer:
         self.G_sG = G_sG
 
     def unfold_ibz_kpoint(self, ik):
+        """ Return kpoints related to irreducible kpoint."""
         kd = self.kd
         K_k = np.unique(kd.bz2bz_ks[kd.ibz2bz_k[ik]])
         K_k = K_k[K_k != -1]
@@ -583,12 +680,33 @@ class PairDensity:
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 
     def generate_pair_densities(self, pd, m1, m2, spins, intraband=True,
-                                disable_point_group=True,
-                                disable_time_reversal=True,
-                                disable_non_symmorphic=True,
-                                disable_optical_limit=False,
-                                use_more_memory=1):
-        """Generator for returning pair densities. """
+                                PWSA=None, disable_optical_limit=False,
+                                unsymmetrized=False, use_more_memory=1):
+        """Generator for returning pair densities.
+        
+        Returns the pair densities between the occupied and
+        the states in range(m1, m2).
+
+        pd: PWDescriptor
+            Plane-wave descriptor for a single q-point.
+        m1: int
+            Index of first unoccupied band.
+        m2: int
+            Index of last unoccupied band.
+        spins: list
+            List of spin indices included.
+        disable_point_group: Bool
+            Disable point group in allowed symmetry operations
+            used when calculating the optical pair densities.
+        disable_time_reversal: Bool
+            Disable time reversal in allowed symmetry operations
+            used when calculating the optical pair densities.
+        disable_non_symmorphic: Bool
+            Disable non symmorphic symmetries in allowed symmetry
+            operations used when calculating the optical pair densities.
+        use_more_memory: float
+            Group more pair densities together when returning.
+        """
         assert 0 <= use_more_memory <= 1
 
         print('Initializing PAW Corrections', file=self.fd)
@@ -597,13 +715,11 @@ class PairDensity:
         q_c = pd.kd.bzk_kc[0]
         optical_limit = not disable_optical_limit and np.allclose(q_c, 0.0)
 
-        with self.timer('Symmetry analyzer'):
-            PWSA = PWSymmetryAnalyzer  # Line too long otherwise
-            PWSA = PWSA(self.calc.wfs.kd, pd,
-                        disable_point_group=disable_point_group,
-                        disable_time_reversal=disable_time_reversal,
-                        disable_non_symmorphic=disable_non_symmorphic,
-                        timer=self.timer, txt=self.fd)
+        if PWSA is None:
+            with self.timer('Symmetry analyzer'):
+                PWSA = PWSymmetryAnalyzer  # Line too long otherwise
+                PWSA = PWSA(self.calc.wfs.kd, pd,
+                            timer=self.timer, txt=self.fd)
 
         pb = ProgressBar(self.fd)
         for kn, (s, ik, n1, n2) in pb.enumerate(self.mysKn1n2):
@@ -612,7 +728,6 @@ class PairDensity:
                 # Let the first kpoint of the group represent
                 # the rest of the kpoints
                 K1 = K_k[0]
-
                 # In this way wavefunctions are only loaded into
                 # memory for this particular set of kpoints
                 kptpair = self.get_kpoint_pair(pd, s, K1, n1, n2, m1, m2)
@@ -621,6 +736,10 @@ class PairDensity:
                 if kpt1.s not in spins:
                     continue
                 kpt2 = kptpair.get_k2()  # kpt2 = k + q
+
+                if unsymmetrized:
+                    # Number of times kpint are mapped into themselves
+                    Ndeg = np.sqrt(PWSA.how_many_symmetries() / len(K_k))
 
                 # Use kpt2 to compute intraband transitions
                 # These conditions are sufficent to make sure
@@ -632,10 +751,14 @@ class PairDensity:
                     vel0_mv = self.intraband_pair_density(kpt2)
                     with self.timer('intraband'):
                         if vel0_mv is not None:
-                            for K2 in K_k:
-                                vel_mv = PWSA.map_v(K1, K2, vel0_mv)
+                            if unsymmetrized:
                                 yield (kpt2.f_n, None, None,
-                                       None, None, vel_mv)
+                                       None, None, vel0_mv / Ndeg)
+                            else:
+                                for K2 in K_k:
+                                    vel_mv = PWSA.map_v(K1, K2, vel0_mv)
+                                    yield (kpt2.f_n, None, None,
+                                           None, None, vel_mv)
 
                 n_n = range(n2 - n1)
                 if use_more_memory == 0:
@@ -676,12 +799,22 @@ class PairDensity:
                     n0_mG = n0_nmG.reshape((-1, nG))
                     if optical_limit:
                         n0_mv = n0_nmv.reshape((-1, 3))
+                    
+                    if unsymmetrized:
+                        if optical_limit:
+                            yield (None, df_m, deps_m,
+                                   n0_mG / Ndeg, n0_mv / Ndeg, None)
+                        else:
+                            yield (None, df_m, deps_m,
+                                   n0_mG / Ndeg, None, None)
+                        continue
 
                     # Collect pair densities in a single array
                     # and return them
                     nm = n0_mG.shape[0]
                     nG = n0_mG.shape[1]
                     nk = len(K_k)
+
                     n_MG = np.empty((nm * nk, nG), complex)
                     if optical_limit:
                         n_Mv = np.empty((nm * nk, 3), complex)
@@ -843,35 +976,11 @@ class PairDensity:
         deps_m[deps_m >= 0.0] = np.inf
 
         smallness_mv = np.abs(-1e-3 * n0_mv / deps_m[:, np.newaxis])
-        inds_mv = (np.logical_and(1e3 > smallness_mv,
+        inds_mv = (np.logical_and(np.inf > smallness_mv,
                                   smallness_mv > threshold))
-
-        if inds_mv.any():
-            indent8 = ' ' * 8
-            print('\n    WARNING: Optical limit perturbation' +
-                  ' theory failed for:', file=self.fd)
-            print(indent8 + 'kpt_c = [%1.2f, %1.2f, %1.2f]'
-                  % (k_c[0], k_c[1], k_c[2]), file=self.fd)
-            inds_m = inds_mv.any(axis=1)
-            depsi_m = deps_m[inds_m]
-            n0i_mv = np.abs(n0_mv[inds_m])
-            smallness_mv = smallness_mv[inds_m]
-            for depsi, n0i_v, smallness_v in zip(depsi_m, n0i_mv,
-                                                 smallness_mv):
-                print(indent8 + 'Energy eigenvalue difference %1.2e ' % -depsi,
-                      file=self.fd)
-                print(indent8 + 'Matrix element' +
-                      ' %1.2e %1.2e %1.2e' % (n0i_v[0], n0i_v[1], n0i_v[2]),
-                      file=self.fd)
-                print(indent8 + 'Smallness' +
-                      ' %1.2e %1.2e %1.2e\n' % (smallness_v[0],
-                                                smallness_v[1],
-                                                smallness_v[2]),
-                      file=self.fd)
 
         n0_mv *= 1j / deps_m[:, np.newaxis]
         n0_mv[inds_mv] = 0
-#        n_mG[:, 0] = n0_mv[:, 0]
 
         return n0_mv
 
@@ -938,7 +1047,7 @@ class PairDensity:
             for iv in range(3):
                 vel, _ = np.linalg.eig(vel_nnv[..., iv])
                 vel_nv[ind_n, iv] = vel
-            
+                
         return vel_nv[n_n]
     
     def get_fft_indices(self, K1, K2, q_c, pd, shift0_c):
