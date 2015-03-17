@@ -9,8 +9,8 @@ Introduction
 ------------
 
 This page contains information about the PAW-XML data format for the
-atomic datasets necessary for doing projector-augmented wave
-calculations\ [#Blo94]_.  We use the term *dataset* instead of
+atomic datasets necessary for doing Projector Augmented-Wave
+calculations \ [#Blo94]_.  We use the term *dataset* instead of
 *pseudo potential* because the PAW method is not a pseudopotential method.
 
 An example XML file for nitrogen PAW dataset using LDA can be seen
@@ -216,12 +216,19 @@ as well as ``l`` and ``n`` quantum numbers. For each of them it is also required
 the energy ``e``, the occupation ``f``
 and the matching radius of the partial waves ``rc``.
 
+The number of ``state`` elements determines the size of the partial wave basis.
+It is equal to the number of `radial functions`__
+(radial parts of the `\phi_i`, `\tilde{\phi}_i` and `\tilde{p}_i`)
+and is noted `n_{waves}` in the rest of this document.
+
 For this dataset, the first two lines describe bound eigenstates with
 occupation numbers and principal quantum numbers.  Notice, that the
 three additional unbound states should have no ``f`` and ``n``
 attributes.  In this way, we know that only the first two bound states
 (with ``f`` and ``n`` attributes) should be used for constructing an
 initial guess for the wave functions.
+
+__ `Radial functions`_
 
 
 ------------
@@ -232,7 +239,7 @@ There can be one or more definitions of radial grids.
 
 Example::
 
-  <radial_grid eq="r=d*i" d="0.1" istart="0" iend="9" id="g1"/>
+  <radial_grid eq="r=d*i" d="0.1" istart="0" iend="9" id="g1">
     <values>
       0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9
     </values>
@@ -252,8 +259,8 @@ be multiplied by a spherical harmonics:
 
 Each radial grid has a unique id::
 
-  <radial_grid eq="r=d*i" d="0.01" istart="0" iend="99" id="lin"/>
-  <radial_grid eq="r=a*exp(d*i)" a="1.056e-4" d="0.05" istart="0" iend="249" id="log"/>
+  <radial_grid eq="r=d*i" d="0.01" istart="0" iend="99" id="lin">
+  <radial_grid eq="r=a*exp(d*i)" a="1.056e-4" d="0.05" istart="0" iend="249" id="log">
 
 and each numerical function must refer to one of these ids::
 
@@ -272,14 +279,14 @@ evaluate them from the ``eq`` and associated parameter attributes.
 There are currently six types of radial grids:
 
 =====================  ========================
-``eq``                 parameters              
+``eq``                 parameters
 =====================  ========================
-``r=d*i``              ``d``                   
-``r=a*exp(d*i)``       ``a`` and ``d``         
-``r=a*(exp(d*i)-1)``   ``a`` and ``d``         
-``r=a*i/(1-b*i)``      ``a`` and ``b``         
-``r=a*i/(n-i)``        ``a`` and ``n``         
-``r=(i/n+a)^5/a-a^4``  ``a`` and ``n``         
+``r=d*i``              ``d``
+``r=a*exp(d*i)``       ``a`` and ``d``
+``r=a*(exp(d*i)-1)``   ``a`` and ``d``
+``r=a*i/(1-b*i)``      ``a`` and ``b``
+``r=a*i/(n-i)``        ``a`` and ``n``
+``r=(i/n+a)^5/a-a^4``  ``a`` and ``n``
 =====================  ========================
 
 The ``istart`` and ``iend`` attributes indicating the range of `i`
@@ -294,12 +301,22 @@ to minimize the number of grids in the dataset.
 Shape function for the compensation charge
 ------------------------------------------
 
-The compensation charge for an atom is expanded using the multipole
-moments `Q_{\ell m}`:
+The general formulation of the compensation charge uses an expansion over the partial
+waves *ij* and the spherical harmonics:
 
 .. math::
 
-  g_{\ell m}(\mathbf{r}) = \sum_{\ell m} Q_{\ell m} g_\ell(r) Y_{\ell m}(\theta, \phi),
+  \sum_{\ell m} C_{\ell m \ell_i m_i \ell_j m_j} \hat{Q}^{\ell}_{i j}(r) Y_{\ell m}(\theta, \phi),
+
+
+where :math:`C_{\ell m \ell_i m_i \ell_j m_j}` is a *Gaunt coefficient*.
+
+The standard expression \ [#Blo94]_ for the *shape function* :math:`\hat{Q}^{\ell}_{i j}(\mathbf{r})`
+is a product of the multipole moment :math:`Q^{\ell}_{i j}` and a shape function :math:`g_\ell(r)`:
+
+.. math::
+
+  \hat{Q}^{\ell}_{i j}(r) = Q^{\ell}_{i j} g_\ell(r),
 
 Several formulations [#Hol01]_ [#Blo94]_ define
 `g_\ell(r) \propto r^\ell k(r)`, where `k(r)` is an `\ell`-independent
@@ -334,27 +351,22 @@ Example::
     <shape_function type="bessel" rc="3.478505426185e-01">
  
 
-There is also a more general formulation where shape functions are given in
-numerical form. There can be several *shape functions* (eventually depending on
-combinations of partial waves):
-
-.. math::
-
-  g_{\ell m}(\mathbf{r}) =
-  \sum_{\ell m} \tilde{Q}_{\ell m}(r) Y_{\ell m}(\theta, \phi),
-
-There can be several ``<shape_function>`` elements if the shape function
-depends on `\ell` and/or combinations of partial waves
-(specified using the optional ``state1`` and ``state2`` attributes).
+There is also a more general formulation where :math:`\hat{Q}^{\ell}_{i j}(r)` is given in
+a numerical form. Several *shape functions* can be set (with the ``<shape_function>`` tag),
+depending on `\ell` and/or combinations of partial waves (specified using the optional
+``state1`` and ``state2`` attributes).
 See for instance section II.C of [#Laa93]_.
 
-Example 1, defining :math:`\tilde{Q}_{\ell m}(r)=Q_{\ell m} g_\ell(r)`::
+Example 1, defining numerically :math:`g_\ell(r)`
+in :math:`\hat{Q}^{\ell}_{i j}(r)=Q^{\ell}_{i j} g_\ell(r)`::
     
     <shape_function type="numeric" l=0 grid="g1">
         ... ... ...
     </shape_function>
 
-Example 2, defining :math:`\tilde{Q}^{ij}_{\ell m}(r)` for states *i=* ``N-2s`` and *j=* ``N-2p``::
+
+Example 2, defining directly :math:`\hat{Q}^{\ell}_{i j}(r)`
+for states *i=* ``N-2s`` and *j=* ``N-2p``, and *l=0*::
     
     <shape_function type="numeric" l=0 state1="N-2s" state2="N-2p" grid="g1">
         ... ... ...
@@ -380,7 +392,7 @@ Continuing, we have now reached the *all-electron* (resp. *pseudo core*,
   </pseudo_valence_density>
 
 The numbers inside the ``ae_core_density`` (resp. ``pseudo_core_density``, ``pseudo_valence_density``)
-element defines the radial part of `n_c(\mathbf{r})` (resp. `\tilde{n}_c(\mathbf{r})`, 
+element defines the radial part of `n_c(\mathbf{r})` (resp. `\tilde{n}_c(\mathbf{r})`,
 `\tilde{n}_v(\mathbf{r})`).
 The radial part must be multiplied by `Y_{00} = (4\pi)^{-1/2}` to get the full density.
 (`Y_{00}n_c(\mathbf{r})` should integrate to the number of core electrons).
@@ -453,8 +465,8 @@ transformation is necessary:
 where `N_c` is the number of core electrons, `N_v` is the number of
 valence electrons, `\tilde{N}_c` is the number of electrons contained
 in the pseudo core density and `\tilde{N}_v` is the number of
-electrons contained in the pseudo valence density.  The Hartree
-potential from the density `n` is defined as:
+electrons contained in the pseudo valence density.
+The Hartree potential from the density `n` is defined as:
 
 .. math::
 
@@ -491,18 +503,18 @@ Kinetic energy differences
        1.744042161013e+00 0.000000000000e+00 2.730637956456e+00
        ...
     <kinetic_energy_differences>
-  </paw_dataset>
 
 This element contains the symmetric `\Delta E^\text{kin}_{ij}` matrix:
 
 .. math::
 
-  \Delta E^\text{kin}_{ij} = \langle \phi_i | \hat{T} | \phi_j \rangle 
-  - \langle \tilde{\phi}_i | \hat{T} | \tilde{\phi}_j \rangle 
+  \Delta E^\text{kin}_{ij} = \langle \phi_i | \hat{T} | \phi_j \rangle
+  - \langle \tilde{\phi}_i | \hat{T} | \tilde{\phi}_j \rangle
 
-where `\hat{T}` is the kinetic energy operator used by the
-generator.  With `n` states, we have an `n \times n` matrix
-listed as `n^2` numbers.
+| where `\hat{T}` is the kinetic energy operator used by the generator.
+| With `n_{waves}` valence states (see `n_{waves}` `definition`__), we have a `n_{waves} \times n_{waves}` matrix listed as `n_{waves}^2` numbers.
+
+__ `Valence states`_
 
 
 --------
@@ -513,12 +525,12 @@ Datasets for use with MGGA functionals must also include information on the
 *core kinetic energy density* and *pseudo core kinetic energy density* ;
 the latters are defined with these two elements::
     
-    <ae_core_kinetic_energy_density grid="g1"> 
+    <ae_core_kinetic_energy_density grid="g1">
       ... ... ...
-    </ae_core_kinetic_energy_density grid="g1"> 
+    </ae_core_kinetic_energy_density>
     <pseudo_core_kinetic_energy_density rc="1.1" grid="g1">
       ... ... ...
-    </pseudo_core_kinetic_energy_density> 
+    </pseudo_core_kinetic_energy_density>
 
 These densities are defined similarly to the core and valence densities (see above).
 The ``pseudo_core_kinetic_energy_density`` element has a ``rc`` attribute specifying its
@@ -530,25 +542,52 @@ Exact exchange integrals
 ------------------------
 
 The core-core contribution to the exact exchange energy
-`X^{\text{core-core}}` and the symmetric `N\times N` core-valence
+`X^{\text{core-core}}` and the symmetric core-valence
 PAW-correction matrix `X_{ij}^{\text{core-valence}}` are given as:
 
 .. math::
     
-    X^{\text{core-core}} = \frac{1}{4}\sum_{cc'} \iint d\br d\br'
-    \frac{\phi_c(\br)\phi_{c'}(\br) \phi_c(\br')\phi_{c'}(\br')}{|\br-\br'|}
-    
-.. math::
-    
-    X_{ij}^{\text{core-valence}} = \frac{1}{2}\sum_c \iint d\br d\br'
-    \frac{\phi_i(\br)\phi_c(\br) \phi_j(\br')\phi_c(\br')}{|\br-\br'|}
+    X^{\text{core-core}} = -\frac{1}{4}\sum_{cc'} \iint d\mathbf{r} d\mathbf{r}'
+    \frac{\phi_c(\mathbf{r})\phi_{c'}(\mathbf{r}) \phi_c(\mathbf{r}')\phi_{c'}(\mathbf{r}')}
+    {|\mathbf{r}-\mathbf{r}'|}
 
-These can be specified as the ``core`` attribute of the ``<exact_exchange>``
-element and as `N^2` numbers inside the ``<exact_exchange>`` element::
+.. math::
+
+    X_{ij}^{\text{core-valence}} = -\frac{1}{2}\sum_c \iint d\mathbf{r} d\mathbf{r}'
+    \frac{\phi_i(\mathbf{r})\phi_c(\mathbf{r}) \phi_j(\mathbf{r}')\phi_c(\mathbf{r}')}
+    {|\mathbf{r}-\mathbf{r}'|}
+
+The `X_{ij}^{\text{core-valence}}` coefficients depend only on pairs of the radial
+basis functions `\phi_i(r)` and can be evaluated by summing over radial
+integrals times **3-j** symbols according to:
+
+.. math::
+
+    X_{ij}^{\text{core-valence}} =
+    -\delta_{l_i l_j} \delta_{m_i m_j} \sum_{c L} \frac{N_c}{2}
+    {\begin{pmatrix}l_c & L & l_i \\ 0 & 0 & 0\end{pmatrix}}^2
+    \int r^2 dr \int {r'}^2 d{r'}
+    \frac{r^{L}_{<}}{r^{L+1}_{>}}
+    \phi_i(r) \phi_c(r) \phi_j(r') \phi_c(r')
+
+| where
+| `N_{c}` is the number of core electrons corresponding to `l_{c}` (`N_c=2l_c+1`),
+| `r_>` (resp. `r_<`) is the larger (resp. smaller) of `r` and `r'`.
+
+
+`X^{\text{core-core}}` can be specified in the ``core`` attribute of the
+``<exact_exchange>`` element.
+
+ 
+With `n_{waves}` valence states (see `n_{waves}` `definition`__),
+`X_{ij}^{\text{core-valence}}` is a `n_{waves} \times n_{waves}` matrix.
+It can be specified as `n_{waves}^2` numbers inside the ``<exact_exchange>`` element::
     
     <exact_exchange core="...">
       ... ... ...
     </exact_exchange>
+
+__ `Valence states`_
 
 
 -----------------
@@ -566,8 +605,8 @@ Although not necessary, it may be helpful to provide the following item(s) in th
    This radius defines the region (around the atom) outside which all pseudo quantities
    are equal to the all-electron ones.
    It is equal to the maximum of all the cut-off and matching radii.
-   Note that -- for better lisibility -- the ``paw_radius`` elements should be
-   provided in the header of the file. 
+   Note that -- for better lisibility -- the ``paw_radius`` element should be
+   provided in the header of the file.
 
 
 ------------------
@@ -596,7 +635,7 @@ Plotting the radial functions
 
 The first 10-20 lines of the XML-datasets, should be pretty much human
 readable, and should give an overview of what kind of dataset it is and
-how it was generated.  The remaining part of the files contain
+how it was generated.  The remaining part of the file contains
 numerical data for all the radial functions.  To get an overview of
 these functions, you can extract that data with the
 :trac:`~doc/setups/pawxml.py` program and then pass it on to your
@@ -627,8 +666,8 @@ Options:
 Examples::
 
   [~]$ pawxml.py -x pseudo_core_density N.LDA | xmgrace -
-  [~]$ pawxml.py -x ae_partial_wave -s N2p N.LDA > N.ae.2p 
-  [~]$ pawxml.py -x pseudo_partial_wave -s N2p N.LDA > N.ps.2p 
+  [~]$ pawxml.py -x ae_partial_wave -s N2p N.LDA > N.ae.2p
+  [~]$ pawxml.py -x pseudo_partial_wave -s N2p N.LDA > N.ps.2p
   [~]$ xmgrace N.??.2p
 
 
@@ -636,17 +675,17 @@ Examples::
 References
 ----------
 
-.. [#Blo94]  P. E. Blöchl, 
+.. [#Blo94]  P. E. Blöchl,
              Projector augmented-wave method,
              *Phys. Rev. B* **50**, 17953-19979 (1994)
 .. [#Kre99]  G. Kresse and D. Joubert,
-             Form ultrasoft pseudopotentials to the projector 
+             Form ultrasoft pseudopotentials to the projector
              augmented-wave method,
              *Phys. Rev. B* **59**, 1758-1775 (1999)
 .. [#Hol01]  N. A. W. Holzwarth, A. R. Tackett, and G. E. Matthews,
              A Projector Augmented Wave (PAW) code for electronics
              structure calculations: Part I *atompaw* for generating
-             atom-centered functions, 
+             atom-centered functions,
              *Computer Physics Communications* **135**, 329-347 (2001)
 .. [#Blo03]  P. E. Blöchl, C. J. Forst and J. Schimpl,
              Projector augmented wave method: Ab initio molecular

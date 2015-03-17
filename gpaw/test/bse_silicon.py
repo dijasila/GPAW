@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import numpy as np
 from ase import Atom, Atoms
@@ -55,6 +56,6 @@ if check:
 
     if np.abs(d[Nw1, 2] - 53.3382894891) > 1. \
         or np.abs(d[Nw2, 2] - 62.7667801949 ) > 2.:
-        print d[Nw1, 2], d[Nw2, 2]
+        print(d[Nw1, 2], d[Nw2, 2])
         raise ValueError('Please check spectrum strength ! ')
 

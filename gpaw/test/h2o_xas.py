@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import numpy as np
 from math import pi, cos, sin
@@ -42,10 +43,10 @@ if mpi.size == 1:
     w_n = np.sum(xas.sigma_cn.real**2, axis=0)
     de2 = e2_n[1] - e2_n[0]
 
-    print de2
-    print de2 - 2.0848
+    print(de2)
+    print(de2 - 2.0848)
     assert abs(de2 - 2.0848) < 0.001
-    print w_n[1] / w_n[0]
+    print(w_n[1] / w_n[0])
     assert abs(w_n[1] / w_n[0] - 2.18) < 0.01
 
     if mpi.size == 1:
@@ -58,7 +59,7 @@ if 0:
     p.plot(x, sum(y))
     p.show()
 
-print e, niter
+print(e, niter)
 energy_tolerance = 0.00009
 niter_tolerance = 0
 equal(e, -17.9621, energy_tolerance)

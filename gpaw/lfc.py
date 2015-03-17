@@ -1,12 +1,12 @@
 from math import pi
 
 import numpy as np
+from ase.units import Bohr
 
-from gpaw import debug, extra_parameters
-from gpaw.spherical_harmonics import Y
-from gpaw.grid_descriptor import GridDescriptor, GridBoundsError
-from gpaw.mpi import serial_comm
 import _gpaw
+from gpaw import debug, extra_parameters
+from gpaw.grid_descriptor import GridDescriptor, GridBoundsError
+from gpaw.utilities import smallest_safe_grid_spacing
 
 """
 
@@ -49,7 +49,7 @@ to 7::
    -------------
 
 ~  _  ^  ~  ~
-p  v  g  n  F  
+p  v  g  n  F
  i     L  c  M
 
 i
@@ -58,12 +58,13 @@ s     s
    s     s
 """
 
+
 class Sphere:
     def __init__(self, spline_j):
         self.spline_j = spline_j
         self.spos_c = None
-        self.rank = None # Rank corresponding to center
-        self.ranks = None # Ranks with at least some overlap
+        self.rank = None  # Rank corresponding to center
+        self.ranks = None  # Ranks with at least some overlap
         self.Mmax = None
         self.A_wgm = None
         self.G_wb = None
@@ -119,7 +120,8 @@ class Sphere:
                                     np.ascontiguousarray(gd.h_cv),
                                     gd.n_c, gd.beg_c)
 
-    spline_to_grid = staticmethod(spline_to_grid) # TODO This belongs in Spline!
+    # TODO This belongs in Spline!
+    spline_to_grid = staticmethod(spline_to_grid)
 
     def get_function_count(self):
         return sum([2 * spline.get_angular_momentum_number() + 1
@@ -188,6 +190,7 @@ class Sphere:
             rc = spline.get_cutoff()
             points += 4.0 * np.pi / 3.0 * rc**3 / gd.dv * (2 * l + 1)
         return points
+
         
 # Quick hack: base class to share basic functionality across LFC classes
 class BaseLFC:
@@ -215,7 +218,7 @@ class BaseLFC:
         for sphere in self.sphere_a:
             points += sphere.estimate_gridpointcount(self.gd)
         nbytes = points * mem.floatsize
-        mem.setsize(nbytes / self.gd.comm.size) # Assume equal distribution
+        mem.setsize(nbytes / self.gd.comm.size)  # Assume equal distribution
 
 
 class NewLocalizedFunctionsCollection(BaseLFC):
@@ -298,15 +301,16 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         # Holm-Nielsen check:
         if ((self.gd.comm.sum(float(sum(self.my_atom_indices))) !=
              natoms * (natoms - 1) // 2)):
-            raise RuntimeError('Holm-Nielsen check failed.  Grid might be '
-                               'too coarse.  Use h < 0.306 Ang.')
+            raise ValueError('Holm-Nielsen check failed.  Grid might be '
+                             'too coarse.  Use h < %.3f'
+                             % (smallest_safe_grid_spacing * Bohr))
 
         self.M_W = np.empty(nW, np.intc)
         self.G_B = np.empty(nB, np.intc)
         self.W_B = np.empty(nB, np.intc)
         self.A_Wgm = []
         sdisp_Wc = np.empty((nW, 3), int)
-        self.pos_Wv = np.empty((nW, 3))        
+        self.pos_Wv = np.empty((nW, 3))
         
         B1 = 0
         W = 0
@@ -362,8 +366,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             iterators = []
             for a in self.atom_indices:
                 iterator = self.sphere_a[a].normalize(self.integral_a[a], a,
-                                                       self.gd.dv,
-                                                       self.gd.comm)
+                                                      self.gd.dv,
+                                                      self.gd.comm)
                 iterators.append(iterator)
             for i in range(3):
                 for iterator in iterators:
@@ -373,7 +377,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
     def M_to_ai(self, src_xM, dst_axi):
         xshape = src_xM.shape[:-1]
-        src_xM = src_xM.reshape(np.prod(xshape), self.Mmax)        
+        src_xM = src_xM.reshape(np.prod(xshape), self.Mmax)
         for a in self.my_atom_indices:
             M1 = self.M_a[a]
             M2 = M1 + self.sphere_a[a].Mmax
@@ -508,7 +512,9 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 nm = 2 * spline.get_angular_momentum_number() + 1
                 cspline_M.extend([spline.spline] * nm)
 
-        #Temp solution - set all coefficient to zero except for those at atom a
+        # Temp solution - set all coefficient to zero except for those at
+        # atom a
+        
         # Coefficient indices for atom a
         M1 = self.M_a[a]
         M2 = M1 + self.sphere_a[a].Mmax
@@ -528,7 +534,6 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                                 gd.n_c, cspline_M,
                                 gd.beg_c, self.pos_Wv, a, v, q)
 
-            
     def integrate(self, a_xG, c_axi, q=-1):
         """Calculate integrals of arrays times localized functions.
 
@@ -701,7 +706,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
           A     =  | dr a(r) f  (r - R ),
            lm      /          lm
 
-                    a 
+                    a
                   dA
                     lm
           c_aiv = ----,
@@ -829,7 +834,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         
         if debug:
             assert a_xG.ndim == 3
-            assert a_xG.dtype == self.dtype            
+            assert a_xG.dtype == self.dtype
             assert (np.sort(c_axivv.keys()) == self.my_atom_indices).all()
 
         dtype = a_xG.dtype
@@ -935,9 +940,8 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
     def _update(self, spos_ac):
         sdisp_Wc = NewLocalizedFunctionsCollection._update(self, spos_ac)
 
-        if not self.gamma:
+        if not self.gamma or self.dtype == complex:
             self.x_W, self.sdisp_xc = self.create_displacement_arrays(sdisp_Wc)
-        
         return sdisp_Wc
 
     def create_displacement_arrays(self, sdisp_Wc=None):
@@ -1006,10 +1010,10 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
           ~        --      *
           n(r) +=  >    Phi (r) rho     Phi (r)
                    --     M1       M1M2   M2
-                  M1,M2 
+                  M1,M2
         """
         self.lfc.construct_density(rho_MM, nt_G, q, self.Mstart, self.Mstop)
-
+        
     def integrate2(self, a_xG, c_xM, q=-1):
         """Calculate integrals of arrays times localized functions.
 
@@ -1038,7 +1042,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                       /
 
         Overwrites the elements of the target matrix Vt_MM. """
-        if self.gamma:
+        if self.gamma and self.dtype == float:
             Vt_xMM = np.zeros((1, self.Mstop - self.Mstart, self.Mmax))
             self.lfc.calculate_potential_matrix(vt_G, Vt_xMM[0], -1,
                                                 self.Mstart, self.Mstop)
@@ -1115,17 +1119,16 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                 nm = 2 * spline.get_angular_momentum_number() + 1
                 cspline_M.extend([spline.spline] * nm)
         gd = self.gd
-        for c in range(3): # XXX
+        for v in range(3):
             self.lfc.calculate_potential_matrix_derivative(
-                vt_G, DVt_vMM[c],
+                vt_G, DVt_vMM[v],
                 np.ascontiguousarray(gd.h_cv),
-                gd.n_c, q, c,
+                gd.n_c, q, v,
                 np.array(cspline_M),
                 gd.beg_c,
                 self.pos_Wv,
                 self.Mstart,
                 self.Mstop)
-
 
     def calculate_force_contribution(self, vt_G, rhoT_MM, q):
         """Calculate derivatives of potential matrix elements.
@@ -1149,14 +1152,14 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
         gd = self.gd
         Mstart = self.Mstart
         Mstop = self.Mstop
-        F_cM = np.zeros((3, Mstop - Mstart))
+        F_vM = np.zeros((3, Mstop - Mstart))
         assert self.Mmax == rhoT_MM.shape[1]
         assert Mstop - Mstart == rhoT_MM.shape[0]
-        for c in range(3): # XXX
+        for v in range(3):
             self.lfc.calculate_potential_matrix_force_contribution(
-                vt_G, rhoT_MM, F_cM[c],
+                vt_G, rhoT_MM, F_vM[v],
                 np.ascontiguousarray(gd.h_cv),
-                gd.n_c, q, c,
+                gd.n_c, q, v,
                 np.array(cspline_M),
                 gd.beg_c,
                 self.pos_Wv,
@@ -1171,11 +1174,12 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
             if M2 < 0:
                 continue
             M1 = max(0, M1)
-            F_av[a, :] = 2.0 * F_cM[:, M1:M2].sum(axis=1)
+            F_av[a, :] = 2.0 * F_vM[:, M1:M2].sum(axis=1)
         return F_av
 
 from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster
 from gpaw.mpi import run
+
 
 class LocalizedFunctionsCollection(BaseLFC):
     def __init__(self, gd, spline_aj, kpt_comm=None,
@@ -1243,7 +1247,7 @@ class LocalizedFunctionsCollection(BaseLFC):
                         lfs.normalize(integral)
         self.spos_ac = spos_ac
 
-    def get_dtype(self): # old LFC uses the dtype attribute for dicts
+    def get_dtype(self):  # old LFC uses the dtype attribute for dicts
         return self.dtype
 
     def add(self, a_xG, c_axi=1.0, q=-1):
@@ -1285,7 +1289,7 @@ class LocalizedFunctionsCollection(BaseLFC):
         return self.lfs_a[a].ni
 
     def estimate_memory(self, mem):
-        count = 0        
+        count = 0
         for spline_j in self.spline_aj:
             for spline in spline_j:
                 l = spline.get_angular_momentum_number()
@@ -1327,7 +1331,6 @@ def test():
     x.set_positions([(0.5, 0.45, 0.5), (0.5, 0.55, 0.5)])
     n_G = gd.zeros()
     x.add(n_G)
-    #xy.f(np.array(([(2.0,)])), n_G)
     import pylab as plt
     plt.contourf(n_G[20, :, :])
     plt.axis('equal')

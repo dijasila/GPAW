@@ -37,10 +37,10 @@ parameters and setting up the neccesary objects for doing the actual
 work (see figure above).
 
 
-A PAW instance has the following attributes: :attr:`atoms`,
-:attr:`input_parameters`, :attr:`wfs`, :attr:`density`,
-:attr:`hamiltonian`, :attr:`scf`, :attr:`forces`, :attr:`timer`,
-:attr:`occupations`, :attr:`initialized` and :attr:`observers`.
+A PAW instance has the following attributes: ``atoms``,
+``input_parameters``, ``wfs``, ``density``,
+``hamiltonian``, ``scf``, ``forces``, ``timer``,
+``occupations``, ``initialized`` and ``observers``.
 
 
 
@@ -177,12 +177,12 @@ objects.
      +------------------+     |KineticEnergyOperator|         
                               +---------------------+         
 
-Attributes of the wave function object: :attr:`gd`, :attr:`nspins`,
-:attr:`nbands`, :attr:`mynbands`, :attr:`dtype`, :attr:`world`,
-:attr:`kpt_comm`, :attr:`band_comm`, :attr:`gamma`, :attr:`bzk_kc`,
-:attr:`ibzk_kc`, :attr:`weight_k`, :attr:`symmetry`, :attr:`kpt_comm`,
-:attr:`rank_a`, :attr:`nibzkpts`, :attr:`kpt_u`, :attr:`setups`,
-:attr:`ibzk_qc`, :attr:`eigensolver`, and :attr:`timer`.
+Attributes of the wave function object: ``gd``, ``nspins``,
+``nbands``, ``mynbands``, ``dtype``, ``world``,
+``kpt_comm``, ``band_comm``, ``gamma``, ``bzk_kc``,
+``ibzk_kc``, ``weight_k``, ``symmetry``, ``kpt_comm``,
+``rank_a``, ``nibzkpts``, ``kpt_u``, ``setups``,
+``ibzk_qc``, ``eigensolver``, and ``timer``.
         
 .. _overview_xc:
 
@@ -231,8 +231,8 @@ Example::
     # or, explicitly:
     xc = GGA(LibXC('GGA_X_PBE+GGA_C_PBE'))
 
-In this example, calling the
-:meth:`~gpaw.xc.gga.XCFunctional.calculate` method of the ``xc``
+
+In this example, calling the ``calculate`` method of the ``xc``
 object passing in a :class:`~gpaw.grid_descriptor.GridDescriptor`, an
 input density array and an output array for the potential, the
 :class:`~gpaw.xc.gga.GGA` object will calculate the gradient of the

@@ -4,11 +4,9 @@ __all__ = ["PhononCalculator"]
 
 import time
 import os
-import pickle
-from math import pi, sqrt, exp, sin
+from math import pi, sqrt, sin
 
 import numpy as np
-import numpy.random as rand
 import numpy.linalg as la
 
 import ase.units as units
@@ -24,9 +22,11 @@ from gpaw.dfpt.wavefunctions import WaveFunctions
 from gpaw.dfpt.dynamicalmatrix import DynamicalMatrix
 from gpaw.dfpt.electronphononcoupling import ElectronPhononCoupling
 
+from gpaw.symmetry import Symmetry
+
 class PhononCalculator:
     """This class defines the interface for phonon calculations."""
-    
+
     def __init__(self, calc, gamma=True, symmetry=False, e_ph=False,
                  communicator=serial_comm):
         """Inititialize class with a list of atoms.
@@ -50,24 +50,35 @@ class PhononCalculator:
         symmetry: bool
             Use symmetries to reduce the q-vectors of the dynamcial matrix
             (None, False or True). The different options are equivalent to the
-            options in a ground-state calculation.
+            old style options in a ground-state calculation (see usesymm).
         e_ph: bool
             Save the derivative of the effective potential.
         communicator: Communicator
             Communicator for parallelization over k-points and real-space
             domain.
-            
         """
 
         # XXX
         assert symmetry in [None, False], "Spatial symmetries not allowed yet"
 
-        self.symmetry = symmetry
-
         if isinstance(calc, str):
             self.calc = GPAW(calc, communicator=serial_comm, txt=None)
         else:
             self.calc = calc
+
+        cell_cv = self.calc.atoms.get_cell()
+        setups = self.calc.wfs.setups
+        # XXX - no clue how to get magmom - ignore it for the moment
+        # m_av = magmom_av.round(decimals=3)  # round off
+        # id_a = zip(setups.id_a, *m_av.T)
+        id_a = setups.id_a
+
+        if symmetry is None:
+            self.symmetry = Symmetry(id_a, cell_cv, point_group=False,
+                                     time_reversal=False)
+        else:
+            self.symmetry = Symmetry(id_a, cell_cv, point_group=False,
+                                     time_reversal=True)
 
         # Make sure localized functions are initialized
         self.calc.set_positions()
@@ -78,7 +89,7 @@ class PhononCalculator:
         self.atoms = self.calc.get_atoms()
         # Get rid of ``calc`` attribute
         self.atoms.calc = None
- 
+
         # Boundary conditions
         pbc_c = self.calc.atoms.get_pbc()
 
@@ -98,15 +109,14 @@ class PhononCalculator:
                 self.dtype = complex
                 # Get k-points from ground-state calculation
                 kpts = self.calc.input_parameters.kpts
-                
+
             # FFT Poisson solver
             poisson_solver = FFTPoissonSolver(dtype=self.dtype)
 
         # K-point descriptor for the q-vectors of the dynamical matrix
         # Note, no explicit parallelization here.
         self.kd = KPointDescriptor(kpts, 1)
-        self.kd.set_symmetry(self.atoms, self.calc.wfs.setups,
-                             usesymm=symmetry)
+        self.kd.set_symmetry(self.atoms, self.symmetry)
         self.kd.set_communicator(serial_comm)
 
         # Number of occupied bands
@@ -123,14 +133,14 @@ class PhononCalculator:
         kpt_u = self.calc.wfs.kpt_u
         setups = self.calc.wfs.setups
         dtype_gs = self.calc.wfs.dtype
-        
+
         # WaveFunctions
         wfs = WaveFunctions(nbands, kpt_u, setups, kd_gs, gd, dtype=dtype_gs)
 
         # Linear response calculator
         self.response_calc = ResponseCalculator(self.calc, wfs,
                                                 dtype=self.dtype)
-        
+
         # Phonon perturbation
         self.perturbation = PhononPerturbation(self.calc, self.kd,
                                                poisson_solver,
@@ -145,7 +155,7 @@ class PhononCalculator:
                                                dtype=self.dtype)
         else:
             self.e_ph = None
-                                               
+
         # Initialization flag
         self.initialized = False
 
@@ -162,8 +172,8 @@ class PhononCalculator:
         self.response_calc.initialize(spos_ac)
 
         self.initialized = True
-        
-    def __getstate__(self): 
+
+    def __getstate__(self):
         """Method used when pickling.
 
         Bound method attributes cannot be pickled and must therefore be deleted
@@ -177,7 +187,7 @@ class PhononCalculator:
         state.pop('calc')
         state.pop('perturbation')
         state.pop('response_calc')
-        
+
         return state
 
     def run(self, qpts_q=None, clean=False, name=None, path=None):
@@ -214,10 +224,10 @@ class PhononCalculator:
         # Ground-state contributions to the force constants
         self.dyn.density_ground_state(self.calc)
         # self.dyn.wfs_ground_state(self.calc, self.response_calc)
-        
+
         # Calculate linear response wrt q-vectors and displacements of atoms
         for q in qpts_q:
-            
+
             if not self.gamma:
                 self.perturbation.set_q(q)
 
@@ -229,7 +239,7 @@ class PhononCalculator:
                     filename = filename_str % (q, a, v)
                     # Wait for all sub-ranks to enter
                     self.comm.barrier()
-                    
+
                     if os.path.isfile(os.path.join(self.path, filename)):
                         continue
 
@@ -238,13 +248,13 @@ class PhononCalculator:
 
                     # Wait for all sub-ranks here
                     self.comm.barrier()
-                    
+
                     components = ['x', 'y', 'z']
                     symbols = self.atoms.get_chemical_symbols()
-                    print "q-vector index: %i" % q
-                    print "Atom index: %i" % a
-                    print "Atomic symbol: %s" % symbols[a]
-                    print "Component: %s" % components[v]
+                    print("q-vector index: %i" % q)
+                    print("Atom index: %i" % a)
+                    print("Atomic symbol: %s" % symbols[a])
+                    print("Component: %s" % components[v])
 
                     # Set atom and cartesian component of perturbation
                     self.perturbation.set_av(a, v)
@@ -259,11 +269,11 @@ class PhononCalculator:
                     if self.comm.rank == 0:
                         self.dyn.write(fd, q, a, v)
                         fd.close()
-                        
+
                     # Store effective potential derivative
                     if self.e_ph is not None:
                         v1_eff_G = self.perturbation.v1_G + \
-                                   self.response_calc.vHXC1_G
+                            self.response_calc.vHXC1_G
                         self.e_ph.v1_eff_qavG.append(v1_eff_G)
 
                     # Wait for the file-writing rank here
@@ -274,15 +284,15 @@ class PhononCalculator:
         # Remove the files
         if clean:
             self.clean()
-            
+
     def get_atoms(self):
         """Return atoms."""
 
         return self.atoms
-    
+
     def get_dynamical_matrix(self):
         """Return reference to ``dyn`` attribute."""
-        
+
         return self.dyn
 
     def get_filename_string(self):
@@ -292,7 +302,7 @@ class PhononCalculator:
                     'a_%%0%ii_' % len(str(len(self.atoms))) + 'v_%i' + '.pckl')
 
         return name_str
-    
+
     def set_atoms(self, atoms):
         """Set atoms to be included in the calculation.
 
@@ -300,11 +310,10 @@ class PhononCalculator:
         ----------
         atoms: list
             Can be either a list of strings, ints or ...
-            
         """
-        
+
         assert isinstance(atoms, list)
-        
+
         if isinstance(atoms[0], str):
             assert np.all([isinstance(atom, str) for atom in atoms])
             sym_a = self.atoms.get_chemical_symbols()
@@ -316,7 +325,7 @@ class PhononCalculator:
         else:
             assert np.all([isinstance(atom, int) for atom in atoms])
             indices = atoms
-            
+
         self.dyn.set_indices(indices)
 
     def set_name_and_path(self, name=None, path=None):
@@ -327,7 +336,6 @@ class PhononCalculator:
             constants will be written to.
         path: str
             Path specifying the directory where the files will be dumped.
-            
         """
 
         if name is None:
@@ -335,7 +343,7 @@ class PhononCalculator:
         else:
             self.name = name
         # self.name += '.nibzkpts_%i' % self.kd.nibzkpts
-        
+
         if path is None:
             self.path = '.'
         else:
@@ -344,19 +352,19 @@ class PhononCalculator:
         # Set corresponding attributes in the ``dyn`` attribute
         filename_str = self.get_filename_string()
         self.dyn.set_name_and_path(filename_str, self.path)
-            
+
     def clean(self):
         """Delete generated files."""
 
         filename_str = self.get_filename_string()
-        
+
         for q in range(self.kd.nibzkpts):
             for a in range(len(self.atoms)):
                 for v in [0, 1, 2]:
                     filename = filename_str % (q, a, v)
                     if os.path.isfile(os.path.join(self.path, filename)):
                         os.remove(filename)
-                        
+
     def band_structure(self, path_kc, modes=False, acoustic=True):
         """Calculate phonon dispersion along a path in the Brillouin zone.
 
@@ -374,12 +382,11 @@ class PhononCalculator:
             Returns both frequencies and modes (mass scaled) when True.
         acoustic: bool
             Restore the acoustic sum-rule in the calculated force constants.
-            
         """
 
         for k_c in path_kc:
             assert np.all(np.asarray(k_c) <= 1.0), \
-                   "Scaled coordinates must be given"
+                "Scaled coordinates must be given"
 
         # Assemble the dynanical matrix from calculated force constants
         self.dyn.assemble(acoustic=acoustic)
@@ -393,16 +400,16 @@ class PhononCalculator:
 
         # Lists for frequencies and modes along path
         omega_kn = []
-        u_kn =  []
+        u_kn = []
         # Number of atoms included
         N = len(self.dyn.get_indices())
-        
+
         # Mass prefactor for the normal modes
         m_inv_av = self.dyn.get_mass_array()
-        
+
         for q_c in path_kc:
 
-            # Evaluate fourier transform 
+            # Evaluate fourier transform
             phase_m = np.exp(-2.j * pi * np.dot(q_c, R_cm))
             # Dynamical matrix in unit of Ha / Bohr**2 / amu
             D_q = np.sum(phase_m[:, np.newaxis, np.newaxis] * DR_m, axis=0)
@@ -425,11 +432,11 @@ class PhononCalculator:
             # Take care of imaginary frequencies
             if not np.all(omega2_n >= 0.):
                 indices = np.where(omega2_n < 0)[0]
-                print ("WARNING, %i imaginary frequencies at "
+                print(("WARNING, %i imaginary frequencies at "
                        "q = (% 5.2f, % 5.2f, % 5.2f) ; (omega_q =% 5.3e*i)"
                        % (len(indices), q_c[0], q_c[1], q_c[2],
-                          omega_n[indices][0].imag))
-                
+                          omega_n[indices][0].imag)))
+
                 omega_n[indices] = -1 * np.sqrt(np.abs(omega2_n[indices].real))
 
             omega_kn.append(omega_n.real)
@@ -442,7 +449,7 @@ class PhononCalculator:
         if modes:
             u_kn = np.asarray(u_kn) * units.Bohr
             return omega_kn, u_kn
-        
+
         return omega_kn
 
     def write_modes(self, q_c, branches=0, kT=units.kB*300, repeat=(1, 1, 1),
@@ -451,7 +458,7 @@ class PhononCalculator:
 
         The classical equipartioning theorem states that each normal mode has
         an average energy::
-        
+
             <E> = 1/2 * k_B * T = 1/2 * omega^2 * Q^2
 
                 =>
@@ -459,7 +466,7 @@ class PhononCalculator:
               Q = sqrt(k_B*T) / omega
 
         at temperature T. Here, Q denotes the normal coordinate of the mode.
-        
+
         Parameters
         ----------
         q_c: ndarray
@@ -475,7 +482,7 @@ class PhononCalculator:
             phase factor given by the q-vector and the cell lattice vector R_m.
         nimages: int
             Number of images in an oscillation.
-            
+
         """
 
         if isinstance(branches, int):
@@ -484,28 +491,27 @@ class PhononCalculator:
             branch_n = list(branches)
 
         # Calculate modes
-        omega_n, u_n = self.band_structure([q_c], modes=True, acoustic=acoustic)
-        
+        omega_n, u_n = self.band_structure([q_c], modes=True,
+                                           acoustic=acoustic)
+
         # Repeat atoms
         atoms = self.atoms * repeat
         pos_mav = atoms.positions.copy()
         # Total number of unit cells
         M = np.prod(repeat)
-            
+
         # Corresponding lattice vectors R_m
         R_cm = np.indices(repeat[::-1]).reshape(3, -1)[::-1]
         # Bloch phase
         phase_m = np.exp(2.j * pi * np.dot(q_c, R_cm))
         phase_ma = phase_m.repeat(len(self.atoms))
 
-     
         for n in branch_n:
-
             omega = omega_n[0, n]
-            u_av = u_n[0, n] # .reshape((-1, 3))
+            u_av = u_n[0, n]  # .reshape((-1, 3))
             # Mean displacement at high T ?
             u_av *= sqrt(kT / abs(omega))
-            
+
             mode_av = np.zeros((len(self.atoms), 3), dtype=self.dtype)
             indices = self.dyn.get_indices()
             mode_av[indices] = u_av
@@ -517,6 +523,5 @@ class PhononCalculator:
                 # XXX Is it correct to take out the sine component here ?
                 atoms.set_positions(pos_mav + sin(x) * mode_mav)
                 traj.write(atoms)
-                
-            traj.close()
 
+            traj.close()

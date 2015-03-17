@@ -1,11 +1,13 @@
+from __future__ import division
 import numpy as np
 
-from gpaw.eigensolvers import get_eigensolver
+from gpaw import extra_parameters
+from gpaw.io import FileReference
+from gpaw.lcao.eigensolver import DirectLCAO
+from gpaw.lfc import BasisFunctions
 from gpaw.overlap import Overlap
 from gpaw.utilities import unpack
-from gpaw.io import FileReference
-from gpaw.lfc import BasisFunctions
-from gpaw import extra_parameters
+from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
@@ -44,7 +46,8 @@ class FDPWWaveFunctions(WaveFunctions):
             basis_functions = BasisFunctions(self.gd,
                                              [setup.phit_j
                                               for setup in self.setups],
-                                             self.kd, cut=True)
+                                             self.kd, dtype=self.dtype,
+                                             cut=True)
             basis_functions.set_positions(spos_ac)
         elif isinstance(self.kpt_u[0].psit_nG, FileReference):
             self.initialize_wave_functions_from_restart_file()
@@ -78,14 +81,15 @@ class FDPWWaveFunctions(WaveFunctions):
         lcaoksl, lcaobd = self.initksl, self.initksl.bd
         lcaowfs = LCAOWaveFunctions(lcaoksl, self.gd, self.nvalence,
                                     self.setups, lcaobd, self.dtype,
-                                    self.world, self.kd)
+                                    self.world, self.kd, self.kptband_comm,
+                                    nulltimer)
         lcaowfs.basis_functions = basis_functions
         lcaowfs.timer = self.timer
         self.timer.start('Set positions (LCAO WFS)')
         lcaowfs.set_positions(spos_ac)
         self.timer.stop('Set positions (LCAO WFS)')
 
-        eigensolver = get_eigensolver('lcao', 'lcao')
+        eigensolver = DirectLCAO()
         eigensolver.initialize(self.gd, self.dtype, self.setups.nao, lcaoksl)
 
         # XXX when density matrix is properly distributed, be sure to
@@ -174,7 +178,7 @@ class FDPWWaveFunctions(WaveFunctions):
         self.bd.comm.sum(F_av, 0)
 
         if self.bd.comm.rank == 0:
-            self.kpt_comm.sum(F_av, 0)
+            self.kd.comm.sum(F_av, 0)
 
     def _get_wave_function_array(self, u, n, realspace=True):
         psit_nG = self.kpt_u[u].psit_nG
@@ -184,9 +188,11 @@ class FDPWWaveFunctions(WaveFunctions):
 
     def estimate_memory(self, mem):
         gridbytes = self.bytes_per_wave_function()
-        mem.subnode('Arrays psit_nG',
-                    len(self.kpt_u) * self.bd.mynbands * gridbytes)
+        n = len(self.kpt_u) * self.bd.mynbands
+        mem.subnode('Arrays psit_nG', n * gridbytes)
         self.eigensolver.estimate_memory(mem.subnode('Eigensolver'), self)
+        ni = sum(dataset.ni for dataset in self.setups) / self.gd.comm.size
+        mem.subnode('Projections', n * ni * np.dtype(self.dtype).itemsize)
         self.pt.estimate_memory(mem.subnode('Projectors'))
         self.matrixoperator.estimate_memory(mem.subnode('Overlap op'),
                                             self.dtype)

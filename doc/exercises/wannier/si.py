@@ -7,7 +7,7 @@ si = Atoms(symbols='Si4',
            positions=[(0, 0, 0),
                       (0, b, b),
                       (b, 0, b),
-                      (b, b, 0)],           
+                      (b, b, 0)],
            cell=(a, a, a),
            pbc=True)
 si += si

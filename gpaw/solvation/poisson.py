@@ -74,7 +74,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
         self.presmooths = [2]
         self.postsmooths = [1]
         self.weights = [2. / 3.]
-        while level < 4:
+        while level < 8:
             try:
                 gd2 = gd.coarsen()
             except ValueError:
@@ -88,6 +88,13 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
             level += 1
             gd = gd2
         self.levels = level
+
+    def get_description(self):
+        if len(self.operators) == 0:
+            return 'uninitialized WeightedFDPoissonSolver'
+        else:
+            description = SolvationPoissonSolver.get_description(self)
+            return description.replace('solver with', 'weighted FD solver with dielectric and')
 
     def initialize(self, load_gauss=False):
         self.presmooths[self.levels] = 8
@@ -110,13 +117,6 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
             self.operators.append(WeightedFDOperator(weights, operators))
         if load_gauss:
             self.load_gauss()
-        if self.relax_method == 1:
-            self.description = 'Gauss-Seidel'
-        else:
-            self.description = 'Jacobi'
-        self.description += ' solver with dielectric and ' \
-                            '%d multi-grid levels' % (self.levels + 1, )
-        self.description += '\nStencil: ' + self.operators[0].description
 
 
 class PolarizationPoissonSolver(SolvationPoissonSolver):
@@ -141,16 +141,12 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
         SolvationPoissonSolver.__init__(self, nn, relax, eps)
         self.phi_tilde = None
 
-    def set_grid_descriptor(self, gd):
-        SolvationPoissonSolver.set_grid_descriptor(self, gd)
-        if self.relax_method == 1:
-            self.description = 'Polarization Gauss-Seidel'
+    def get_description(self):
+        if len(self.operators) == 0:
+            return 'uninitialized PolarizationPoissonSolver'
         else:
-            self.description = 'Polarization Jacobi'
-        self.description += ' solver with %d multi-grid levels' % (
-            self.levels + 1,
-            )
-        self.description += '\nStencil: ' + self.operators[0].description
+            description = SolvationPoissonSolver.get_description(self)
+            return description.replace('solver with', 'polarization solver with dielectric and')
 
     def solve(self, phi, rho, charge=None, eps=None,
               maxcharge=1e-6,
@@ -217,14 +213,13 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
         self.gradx = Gradient(gd, 0, 1.0, self.nn)
         self.grady = Gradient(gd, 1, 1.0, self.nn)
         self.gradz = Gradient(gd, 2, 1.0, self.nn)
-        if self.relax_method == 1:
-            self.description = 'ADM12 Gauss-Seidel'
+
+    def get_description(self):
+        if len(self.operators) == 0:
+            return 'uninitialized ADM12PoissonSolver'
         else:
-            self.description = 'ADM12 Jacobi'
-        self.description += ' solver with %d multi-grid levels' % (
-            self.levels + 1,
-            )
-        self.description += '\nStencil: ' + self.operators[0].description
+            description = SolvationPoissonSolver.get_description(self)
+            return description.replace('solver with', 'ADM12 solver with dielectric and')
 
     def initialize(self, load_gauss=False):
         self.rho_iter = self.gd.zeros()

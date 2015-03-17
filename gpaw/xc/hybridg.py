@@ -3,7 +3,7 @@
 
 """This module provides all the classes and functions associated with the
 evaluation of exact exchange with k-point sampling."""
-
+from __future__ import print_function
 from time import time
 from math import pi, sqrt
 
@@ -11,6 +11,7 @@ import numpy as np
 from ase.utils import prnt
 from ase.units import Hartree
 from ase.dft.kpoints import monkhorst_pack
+from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
 import gpaw.fftw as fftw
@@ -19,7 +20,6 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.utilities import pack, unpack2, packed_index, logfile, erf
 from gpaw.utilities.ewald import madelung
-from gpaw.utilities.timing import Timer
 
 
 class HybridXC(HybridXCBase):
@@ -709,7 +709,7 @@ class HybridXC(HybridXCBase):
         self.beta = 4 * 19 * (gd.icell_cv**2).sum(1).max()
 
         # Calculate gaussian:
-        G_Gv = self.pd2.G_Qv[self.pd2.Q_qG[0]]
+        G_Gv = self.pd2.get_reciprocal_vectors()
         G2_G = self.pd2.G2_qG[0]
         C_v = gd.cell_cv.sum(0) / 2  # center of cell
         self.ngauss_G = np.exp(-1.0 / (4 * self.beta) * G2_G +

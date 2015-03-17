@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase.lattice import bulk
 from ase.dft.kpoints import monkhorst_pack
@@ -22,16 +23,17 @@ for k in [2, 3]:
             a = bulk('Si', 'diamond')
             if center:
                 a.center()
-            for sym in [None, True]:
+            for sym in [False, True]:
                 name = 'si.k%d.g%d.c%d.s%d' % (k, gamma, center, bool(sym))
                 print(name)
                 if 1:
-                    calc = a.calc = GPAW(kpts=kpts,
-                                         eigensolver='rmm-diis',
-                                         usesymm=sym,
-                                         mode='pw',
-                                         width=0.001,
-                                         txt=name + '.txt')
+                    calc = a.calc = GPAW(
+                        kpts=kpts,
+                        eigensolver='rmm-diis',
+                        symmetry={'point_group': sym},
+                        mode='pw',
+                        width=0.001,
+                        txt=name + '.txt')
                     e = a.get_potential_energy()
                     #calc.diagonalize_full_hamiltonian(nbands=100)
                     calc.write(name, 'all')
@@ -45,18 +47,19 @@ for k in [2, 3]:
                 chiold.calculate()
                 chi0old_wGG = chiold.chi0_wGG
 
-                chi = Chi0(calc, omega, ecut=100, txt=name + '.log')
-                pd, chi0_wGG, _ = chi.calculate(q_c)
+                chi = Chi0(calc, omega, hilbert=False,
+                           ecut=100, txt=name + '.log')
+                pd, chi0_wGG, _, _ = chi.calculate(q_c)
 
                 assert abs(chi0_wGG - chi0old_wGG).max() < 1e-15
                 
-                if sym is None and not center:
+                if not sym and not center:
                     chi00_w = chi0_wGG[:, 0, 0]
                 elif -1 not in calc.wfs.kd.bz2bz_ks:
                     assert abs(chi0_wGG[:, 0, 0] - chi00_w).max() < 3e-5
                     #print abs(chi0_wGG[:, 0, 0] - chi00_w).max()
                     
-                if sym is None:
+                if not sym:
                     chi00_wGG = chi0_wGG
                 elif -1 not in calc.wfs.kd.bz2bz_ks:
                     assert abs(chi0_wGG - chi00_wGG).max() < 2e-5
@@ -75,17 +78,17 @@ for k in [2, 3]:
                 chi0old_wGG[:, 0] /= q0
                 chi0old_wGG[:, :, 0] /= q0
                 
-                pd, chi0_wGG, _ = chi.calculate([0, 0, 0])
+                pd, chi0_wGG, _, _ = chi.calculate([0, 0, 0])
                 
                 assert abs(chi0_wGG - chi0old_wGG).max() < 0.003
                 assert abs(chi0_wGG - chi0old_wGG)[:, 1:, 1:].max() < 1e-9
                 
-                if sym is None and not center:
+                if not sym and not center:
                     chi000_w = chi0_wGG[:, 0, 0]
                 elif -1 not in calc.wfs.kd.bz2bz_ks:
                     assert abs(chi0_wGG[:, 0, 0] - chi000_w).max() < 0.001
                     
-                if sym is None:
+                if not sym:
                     chi000_wGG = chi0_wGG
                 elif -1 not in calc.wfs.kd.bz2bz_ks:
                     assert abs(chi0_wGG - chi000_wGG).max() < 0.001

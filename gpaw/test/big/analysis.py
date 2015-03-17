@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+from __future__ import print_function
 import os
 import cPickle as pickle
 import numpy as np
@@ -30,7 +30,7 @@ class DatabaseHandler:
         if os.path.isfile(self.filename):
             self.data = pickle.load(file(self.filename))
         else:
-            print 'File does not exist, starting from scratch'
+            print('File does not exist, starting from scratch')
 
     def write(self, filename=None):
         if filename is None:
@@ -284,5 +284,5 @@ def analyse(queue, dbpath, outputdir=None, rev=None,
     if mailto is not None:
         mg.send_mail(mailto, mailserver, attachment)
     else:
-        print mg.generate_subject()
-        print mg.generate_mail()
+        print(mg.generate_subject())
+        print(mg.generate_mail())

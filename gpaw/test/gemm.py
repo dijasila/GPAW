@@ -1,3 +1,4 @@
+from __future__ import print_function
 from time import time
 
 import numpy as np
@@ -12,12 +13,12 @@ b = np.zeros((n, n))
 t0 = time()
 gemm(1.0, a1, a2, 0.0, b)
 tgpaw = time() - t0
-print 'gpaw.gemm  ', tgpaw 
+print('gpaw.gemm  ', tgpaw) 
 
 t0 = time()
 c = np.dot(a1, a2)
 tnumpy = time() - t0
-print 'numpy.dot  ', tnumpy
+print('numpy.dot  ', tnumpy)
 
 """
 SLID:

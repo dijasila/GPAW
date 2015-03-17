@@ -17,7 +17,7 @@ def write_svnversion(svnversion, dir):
     f = open(svnversionfile,'w')
     f.write('svnversion = "%s"\n' % svnversion)
     f.close()
-    print 'svnversion = ' +svnversion+' written to '+svnversionfile
+    print('svnversion = ' +svnversion+' written to '+svnversionfile)
     # assert svn:ignore property if the installation is under svn control
     # because svnversion.py has to be ignored by svn!
     cmd = popen3('svn propset svn:ignore svnversion.py '+dir)[1]
@@ -29,7 +29,7 @@ def get_svnversion_from_svn(dir):
     cmd = popen3('svnversion -n '+dir)[1] # assert we are in the project dir
     output = cmd.read().strip()
     cmd.close()
-    if not output[0].isdigit():
+    if not (output + ' ')[0].isdigit():
         # we build from exported source (e.g. rpmbuild)
         output = None
     return output

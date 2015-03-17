@@ -425,12 +425,12 @@ for covername in sorted(glob.glob('coverage/gpaw.*.cover')):
     # Find out which .py file in GPAW this .cover file corresponds to
     refname = namefilt.match(covername).group(1)
     rstname = 'coverage/' + refname + '.rst'
-    print 'cover:', covername, '->', rstname, 'as :ref:`%s`' % refname
+    print('cover:', covername, '->', rstname, 'as :ref:`%s`' % refname)
     filename = refname.replace('.','/')+'.py' # unmangle paths
     fileurl = os.path.join(urlbase, '%s?rev=%s' % (filename,rvs['gpaw']))
     filelink = (':ref:`%s <%s>`' % (filename,refname)).ljust(l_filelink)
     if np.any([filename.startswith(d) for d in ignoredirs]):
-         print 'Ignored...'
+         print('Ignored...')
          continue
     elif filename not in allfiles:
         raise RuntimeError('%s not in inventory of files.' % filename)

@@ -1,6 +1,7 @@
 ### Refer to G. Kresse, Phys. Rev. B 73, 045112 (2006)
 ### for comparison of macroscopic and microscopic dielectric constant 
-### and absorption peaks. 
+### and absorption peaks.
+from __future__ import print_function
 
 import os
 import sys
@@ -13,7 +14,7 @@ from gpaw.atom.basis import BasisMaker
 from gpaw import GPAW, FermiDirac
 from gpaw.mpi import serial_comm, rank, size
 from gpaw.utilities import devnull
-from gpaw.response.df import DF
+from gpaw.response.df0 import DF
 
 
 if rank != 0:
@@ -62,7 +63,7 @@ if ABS:
     df.write('df_1.pckl')
 
     if np.abs(eM1 - 13.991793) > 1e-3 or np.abs(eM2 - 12.589129) > 1e-3:
-        print eM1, eM2
+        print(eM1, eM2)
         raise ValueError('Please check dielectric constant !')
 
     #getting absorption spectrum

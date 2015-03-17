@@ -10,6 +10,18 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* New :ref:`symmetry <manual_symmetry>` keyword.  Replaces ``usesymm``.
+
+* Use non-symmorphic symmetries: combining fractional translations with
+  rotations, reflections and inversion.  Use
+  ``symmetry={'symmorphic': False}`` to turn this feature on.
+
+* New :ref:`forces <manual_convergence>` keyword in convergence.  Can
+  be used to calculate forces to a given precision.
+
+* Fixed bug in printing work functions for calculations with a
+  dipole-correction `<http://listserv.fysik.dtu.dk/pipermail/gpaw-users/2015-February/003226.html>`_.
+
 Version 0.10.0
 ==============
 
@@ -159,7 +171,7 @@ Version 0.7
   cells.  It may actually work now!
 * Much better use of ScaLAPACK and BLACS.  All large matrices can now
   be distributed.
-* New test coverage pages for all files: :ref:`coverage`.
+* New test coverage pages for all files.
 * New default value for Poisson solver stencil: ``PoissonSolver(nn=3)``.
 * Much improved MPI module (:ref:`communicators`).
 * Self-consistent Meta GGA.

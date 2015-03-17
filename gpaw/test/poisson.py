@@ -1,3 +1,4 @@
+from __future__ import print_function
 from math import sqrt
 import numpy as np
 from gpaw.spline import Spline
@@ -10,7 +11,7 @@ def f(n, p):
     N = 2 * n
     gd = GridDescriptor((N, N, N), (L, L, L))
     a = gd.zeros()
-    print a.shape
+    print(a.shape)
     #p = PoissonSolver(nn=1, relax=relax)
     p.set_grid_descriptor(gd)
     p.initialize()
@@ -34,8 +35,8 @@ b2 = f(8, PoissonSolver(nn=1, relax='GS'))
 err1 = abs(b1[0,0,0]-b1[8,8,8])
 err2 = abs(b2[0,0,0]-b2[8,8,8])
 
-print err1
-print err2
+print(err1)
+print(err2)
 
 assert err1 < 6e-16
 assert err2 < 3e-6 # XXX Shouldn't this be better?
@@ -44,5 +45,5 @@ from gpaw.mpi import size
 if size == 1:
     b3 = f(8, FFTPoissonSolver())
     err3 = abs(b3[0,0,0]-b3[8,8,8])
-    print err3
+    print(err3)
     assert err3 < 6e-16

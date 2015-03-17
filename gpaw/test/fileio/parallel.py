@@ -6,7 +6,7 @@ from ase.lattice import bulk
 
 modes = ['gpw']
 try:
-    import _hdf5
+    import _gpaw_hdf5
     modes.append('hdf5')
 except ImportError:
     pass

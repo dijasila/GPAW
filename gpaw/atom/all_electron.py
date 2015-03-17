@@ -5,6 +5,7 @@
 Atomic Density Functional Theory
 """
 
+from __future__ import print_function
 from math import pi, sqrt, log
 import tempfile
 import pickle
@@ -13,11 +14,12 @@ import os
 
 import numpy as np
 from ase.data import atomic_names
+from ase.utils import devnull
 
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC
-from gpaw.utilities import hartree, devnull
+from gpaw.utilities import hartree
 from gpaw import ConvergenceError
 
 tempdir = tempfile.gettempdir()
@@ -26,12 +28,13 @@ tempdir = tempfile.gettempdir()
 # fine-structure constant
 alpha = 1 / 137.036
 
+
 class AllElectron:
     """Object for doing an atomic DFT calculation."""
 
     def __init__(self, symbol, xcname='LDA', scalarrel=False,
                  corehole=None, configuration=None, nofiles=True,
-                 txt='-', gpernode=150):
+                 txt='-', gpernode=150, orbital_free=False, tf_coeff=1.):
         """Do an atomic DFT calculation.
 
         Example::
@@ -95,6 +98,16 @@ class AllElectron:
         self.N = (maxnodes + 1) * gpernode
         self.beta = 0.4
 
+        self.orbital_free = orbital_free
+        self.tf_coeff = tf_coeff
+
+        if self.orbital_free:
+            self.n_j = [1]
+            self.l_j = [0]
+            self.f_j = [self.Z]
+            self.e_j = [self.e_j[-1]]
+
+            
         t = self.text
         t()
         if scalarrel:
@@ -109,13 +122,14 @@ class AllElectron:
 
             # Find j for core hole and adjust occupation:
             for j in range(len(self.f_j)):
-                if self.n_j[j] == self.ncorehole and self.l_j[j] == self.lcorehole:
+                if (self.n_j[j] == self.ncorehole and
+                    self.l_j[j] == self.lcorehole):
                     assert self.f_j[j] == 2 * (2 * self.lcorehole + 1)
                     self.f_j[j] -= self.fcorehole
                     self.jcorehole = j
                     break
 
-            coreholestate='%d%s' % (self.ncorehole, 'spdf'[self.lcorehole])
+            coreholestate = '%d%s' % (self.ncorehole, 'spdf'[self.lcorehole])
             t('Core hole in %s state (%s occupation: %.1f)' % (
                 coreholestate, coreholestate, self.f_j[self.jcorehole]))
         else:
@@ -127,13 +141,13 @@ class AllElectron:
                                                     for arg in args]) +
                        kwargs.get('end', '\n'))
 
-    def intialize_wave_functions(self):
+    def initialize_wave_functions(self):
         r = self.r
         dr = self.dr
         # Initialize with Slater function:
         for l, e, u in zip(self.l_j, self.e_j, self.u_j):
-            if self.symbol in ['Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au']:
-                # For some reason this works better for these atoms:
+            if self.symbol in ['Hf', 'Ta', 'W', 'Re', 'Os',
+                               'Ir', 'Pt', 'Au']:
                 a = sqrt(-4.0 * e)
             else:
                 a = sqrt(-2.0 * e)
@@ -185,7 +199,7 @@ class AllElectron:
         l_j = self.l_j
         f_j = self.f_j
         e_j = self.e_j
-
+        
         Z = self.Z    # nuclear charge
         r = self.r    # radial coordinate
         dr = self.dr  # dr/dg
@@ -221,16 +235,31 @@ class AllElectron:
                         n *= sum(f_j) / norm
 
         if fd is None:
-            self.intialize_wave_functions()
+            self.initialize_wave_functions()
             n[:] = self.calculate_density()
 
         bar = '|------------------------------------------------|'
         t(bar)
+        
         niter = 0
+        nitermax = 117
         qOK = log(1e-10)
+        mix = 0.4
+        
+        # orbital_free needs more iterations and coefficient
+        if self.orbital_free:
+            mix = 0.01
+            nitermax = 2000
+            e_j[0] /= self.tf_coeff
+            if Z > 10 : #help convergence for third row elements
+                mix = 0.002
+                nitermax = 10000
+            
+        vrold = None
+        
         while True:
             # calculate hartree potential
-            hartree(0, n * r * dr, self.beta, self.N, vHr)
+            hartree(0, n * r * dr, r, vHr)
 
             # add potential from nuclear point charge (v = -Z / r)
             vHr -= Z
@@ -248,9 +277,14 @@ class AllElectron:
 
             # calculate new total Kohn-Sham effective potential and
             # admix with old version
-            vr[:] = vHr + self.vXC * r
+
+            vr[:] = (vHr + self.vXC * r)
+
+            if self.orbital_free: 
+                vr /= self.tf_coeff
+
             if niter > 0:
-                vr[:] = 0.4 * vr + 0.6 * vrold
+                vr[:] = mix * vr + (1 - mix) * vrold
             vrold = vr.copy()
 
             # solve Kohn-Sham equation and determine the density change
@@ -279,22 +313,10 @@ class AllElectron:
                 break
 
             niter += 1
-            if niter > 117:
-                raise RuntimeError, 'Did not converge!'
+            if niter > nitermax:
+                raise RuntimeError('Did not converge!')
 
-##         print
         tau = self.calculate_kinetic_energy_density()
-##         print "Ekin(tau)=",np.dot(tau *r**2 , dr) * 4*pi
-##         self.write(tau,'tau1')
-##         tau2 = self.calculate_kinetic_energy_density2()
-##         self.write(tau2,'tau2')
-##         self.write(tau-tau2,'tau12')
-##         print "Ekin(tau2)=",np.dot(tau2 *r**2 , dr) * 4*pi
-
-        # When iterations are over calculate the correct exchange energy
-        #if self.xc.is_non_local():
-        #    from gpaw.exx import atomic_exact_exchange
-        #    Exc = atomic_exact_exchange(self)
 
         t()
         t('Converged in %d iteration%s.' % (niter, 's'[:niter != 1]))
@@ -310,11 +332,22 @@ class AllElectron:
             except OSError:
                 pass
 
-        Epot = 2 * pi * np.dot(n * r * (vHr - Z), dr)
-        Ekin = -4 * pi * np.dot(n * vr * r, dr)
+        Ekin = 0
+        
         for f, e in zip(f_j, e_j):
             Ekin += f * e
 
+        Epot = 2 * pi * np.dot(n * r * (vHr - Z), dr)
+        Ekin += -4 * pi * np.dot(n * vr * r, dr)
+
+        if self.orbital_free:
+        #e and vr are not scaled back
+        #instead Ekin is scaled for total energy (printed and inside setup)
+            Ekin *= self.tf_coeff
+            t()
+            t('Lambda:{0}'.format(self.tf_coeff))
+            t('Correct eigenvalue:{0}'.format(e_j[0]*self.tf_coeff))
+            t()
 
         t()
         t('Energy contributions:')
@@ -331,7 +364,7 @@ class AllElectron:
         t('-----------------------------------------------')
         for m, l, f, e, u in zip(n_j, l_j, f_j, e_j, self.u_j):
             # Find kinetic energy:
-            k = e - np.sum((np.where(abs(u) < 1e-160, 0, u)**2 * #XXXNumeric!
+            k = e - np.sum((np.where(abs(u) < 1e-160, 0, u)**2 *  # XXXNumeric!
                             vr * dr)[1:] / r[1:])
 
             # Find outermost maximum:
@@ -363,11 +396,6 @@ class AllElectron:
         self.Epot = Epot
         self.Exc = Exc
 
-#mathiasl
-       # for x in range(np.size(self.r)):
-       #     print self.r[x] , self.u_j[self.jcorehole,x]
-
-
     def write(self, array, name=None, n=None, l=None):
         if self.nofiles:
             return
@@ -387,7 +415,7 @@ class AllElectron:
 
         f = open(name, 'w')
         for r, a in zip(self.r, array):
-            print >> f, r, a
+            print(r, a, file=f)
 
     def calculate_density(self):
         """Return the electron charge density divided by 4 pi"""
@@ -409,7 +437,7 @@ class AllElectron:
         dudr = np.zeros(shape)
         tau = np.zeros(shape)
         for f, l, u in zip(f_j, l_j, u_j):
-            self.rgd.derivative(u,dudr)
+            self.rgd.derivative(u, dudr)
             # contribution from angular derivatives
             if l > 0:
                 tau += f * l * (l + 1) * np.where(abs(u) < 1e-160, 0, u)**2
@@ -518,7 +546,7 @@ class AllElectron:
         vr = self.vr
 
         c2 = -(r / dr)**2
-        c10 = -self.d2gdr2 * r**2 # first part of c1 vector
+        c10 = -self.d2gdr2 * r**2  # first part of c1 vector
 
         if self.scalarrel:
             self.r2dvdr = np.zeros(self.N)
@@ -531,7 +559,7 @@ class AllElectron:
         # solve for each quantum state separately
         for j, (n, l, e, u) in enumerate(zip(self.n_j, self.l_j,
                                              self.e_j, self.u_j)):
-            nodes = n - l - 1 # analytically expected number of nodes
+            nodes = n - l - 1  # analytically expected number of nodes
             delta = -0.2 * e
             nn, A = shoot(u, l, vr, e, self.r2dvdr, r, dr, c10, c2,
                           self.scalarrel)
@@ -560,7 +588,6 @@ class AllElectron:
             self.e_j[j] = e
             u *= 1.0 / sqrt(np.dot(np.where(abs(u) < 1e-160, 0, u)**2, dr))
 
-
     def solve_confined(self, j, rc, vconf=None):
         """Solve the Schroedinger equation in a confinement potential.
         
@@ -573,7 +600,7 @@ class AllElectron:
             rc: solution cutoff. Solution will be zero outside this.
             vconf: added to the potential (use this as confinement potential)
 
-        Returns: a tuple containing the solution u and its energy e. 
+        Returns: a tuple containing the solution u and its energy e.
 
         Unlike the solve method, this method will not alter any attributes of
         this object.
@@ -585,7 +612,7 @@ class AllElectron:
             vr += vconf * r
 
         c2 = -(r / dr)**2
-        c10 = -self.d2gdr2 * r**2 # first part of c1 vector
+        c10 = -self.d2gdr2 * r**2  # first part of c1 vector
 
         if j is None:
             n, l, e, u = 3, 2, -0.15, self.u_j[-1].copy()
@@ -596,8 +623,8 @@ class AllElectron:
             u = self.u_j[j].copy()
             
         nn, A = shoot_confined(u, l, vr, e, self.r2dvdr, r, dr, c10, c2,
-                       self.scalarrel, rc=rc, beta=self.beta)
-        assert nn == n - l - 1 # run() should have been called already
+                               self.scalarrel, rc=rc, beta=self.beta)
+        assert nn == n - l - 1  # run() should have been called already
         
         # adjust eigenenergy until u is smooth at the turning point
         de = 1.0
@@ -616,7 +643,7 @@ class AllElectron:
         u *= 1.0 / sqrt(np.dot(np.where(abs(u) < 1e-160, 0, u)**2, dr))
         return u, e
 
-    def kin(self, l, u, e=None): # XXX move to Generator
+    def kin(self, l, u, e=None):  # XXX move to Generator
         r = self.r[1:]
         dr = self.dr[1:]
 
@@ -651,7 +678,7 @@ class AllElectron:
         and goes to infinity smoothly at rc, after which point it is nan.
         The potential is given by::
 
-                   alpha         /   rc - ri \ 
+                   alpha         /   rc - ri \
           V(r) = --------   exp ( - --------- )   for   ri < r < rc
                   rc - r         \    r - ri /
 
@@ -672,6 +699,7 @@ class AllElectron:
         potential[i_rc + 1:] = np.inf
 
         return alpha * potential
+
 
 def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel=False, gmax=None):
     """n, A = shoot(u, l, vr, e, ...)
@@ -708,7 +736,7 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel=False, gmax=None):
     of nodes."""
 
     if scalarrel:
-        x = 0.5 * alpha**2 # x = 1 / (2c^2)
+        x = 0.5 * alpha**2  # x = 1 / (2c^2)
         Mr = r * (1.0 + x * e) - x * vr
     else:
         Mr = r
@@ -733,12 +761,12 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel=False, gmax=None):
         # perform backwards integration from infinity to the turning point
         g = len(u) - 2
         u[-2] = u[-1] * f0[-1] / fm[-1]
-        while c0[g] > 0.0: # this defines the classical turning point
+        while c0[g] > 0.0:  # this defines the classical turning point
             u[g - 1] = (f0[g] * u[g] + fp[g] * u[g + 1]) / fm[g]
             if u[g - 1] < 0.0:
                 # There should't be a node here!  Use a more negative
                 # eigenvalue:
-                print '!!!!!!',
+                print('!!!!!!', end=' ')
                 return 100, None
             if u[g - 1] > 1e100:
                 u *= 1e-100
@@ -759,8 +787,8 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel=False, gmax=None):
     # perform forward integration from zero to the turning point
     g = 1
     nodes = 0
-    while g <= gtp: # integrate one step further than gtp
-                    # (such that dudr is defined in gtp)
+    while g <= gtp:  # integrate one step further than gtp
+                     # (such that dudr is defined in gtp)
         u[g + 1] = (fm[g] * u[g - 1] - f0[g] * u[g]) / fp[g]
         if u[g + 1] * u[g] < 0:
             nodes += 1
@@ -777,24 +805,25 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel=False, gmax=None):
 
     return nodes, A
 
+
 def shoot_confined(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel=False,
                    gmax=None, rc=10., beta=7.):
     """This method is used by the solve_confined method."""
     # XXX much of this is pasted from the ordinary shoot method
 
     if scalarrel:
-        x = 0.5 * alpha**2 # x = 1 / (2c^2)
+        x = 0.5 * alpha**2  # x = 1 / (2c^2)
         Mr = r * (1.0 + x * e) - x * vr
     else:
         Mr = r
     c0 = l * (l + 1) + 2 * Mr * (vr - e * r)
     if gmax is None and np.alltrue(c0 > 0):
-        print """
+        print("""
 Problem with initial electron density guess!  Try to run the program
 with the '-n' option (non-scalar-relativistic calculation) and then
 try again without the '-n' option (this will generate a good initial
 guess for the density).
-"""
+""")
         raise SystemExit
     c1 = c10
     if scalarrel:
@@ -809,19 +838,19 @@ guess for the density).
     if gmax is None:
         gcut = int(rc * len(r) / (beta + rc))
         # set boundary conditions at r -> oo (u(oo) = 0 is implicit)
-        u[gcut-1] = 1.
+        u[gcut - 1] = 1.
         u[gcut:] = 0.
 
         # perform backwards integration from infinity to the turning point
-        g = gcut-2
-        u[g] = u[g+1] * f0[g+1] / fm[g+1]
+        g = gcut - 2
+        u[g] = u[g + 1] * f0[g + 1] / fm[g + 1]
         
-        while c0[g] > 0.0: # this defines the classical turning point
+        while c0[g] > 0.0:  # this defines the classical turning point
             u[g - 1] = (f0[g] * u[g] + fp[g] * u[g + 1]) / fm[g]
             if u[g - 1] < 0.0:
                 # There should't be a node here!  Use a more negative
                 # eigenvalue:
-                print '!!!!!!',
+                print('!!!!!!', end=' ')
                 return 100, None
             if u[g - 1] > 1e100:
                 u *= 1e-100
@@ -842,8 +871,8 @@ guess for the density).
     # perform forward integration from zero to the turning point
     g = 1
     nodes = 0
-    while g <= gtp: # integrate one step further than gtp
-                    # (such that dudr is defined in gtp)
+    while g <= gtp:  # integrate one step further than gtp
+                     # (such that dudr is defined in gtp)
         u[g + 1] = (fm[g] * u[g - 1] - f0[g] * u[g]) / fp[g]
         if u[g + 1] * u[g] < 0:
             nodes += 1

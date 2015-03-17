@@ -14,7 +14,7 @@ atoms = Atoms('Al2',
                          (a / 2, b / 2, -h)],
               cell=(a, b, 2 * h),
               pbc=(1, 1, 0))
-              
+
 atoms *= (2, 2, 2)
 atoms.append(Atom('Al', (a / 2, b / 2, 3 * h)))
 atoms.center(vacuum=4., axis=2)
@@ -22,7 +22,8 @@ atoms.center(vacuum=4., axis=2)
 atoms *= (2, 3, 1)
 atoms.cell /= [2, 3, 1]
 rotation = '-60x, 10y'
-radii = 1.2 # single float specifies a uniform scaling of the covalent radii
+radii = 1.2
+# single float specifies a uniform scaling of the covalent radii
 colors = jmol_colors[atoms.numbers]
 colors[16::17] = [1, 0, 0]
 

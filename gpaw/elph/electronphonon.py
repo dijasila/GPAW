@@ -71,10 +71,11 @@ import numpy.linalg as la
 import ase.units as units
 from ase.phonons import Displacement, Phonons
 from ase.parallel import rank, barrier
+from ase.utils.timing import Timer
 
 from gpaw.utilities import unpack2
 from gpaw.utilities.tools import tri2full
-from gpaw.utilities.timing import StepTimer, nulltimer, Timer
+from gpaw.utilities.timing import StepTimer, nulltimer
 from gpaw.lcao.overlap import ManySiteDictionaryWrapper, \
      TwoCenterIntegralCalculator
 from gpaw.lcao.tightbinding import TightBinding
@@ -175,9 +176,9 @@ class ElectronPhononCoupling(Displacement):
         # - check that gamma
         # - check that no symmetries are used
         # - ...
-        parameters = calc.input_parameters
-        assert parameters['mode'] == 'lcao', "LCAO mode required."
-        assert parameters['usesymm'] != True, "Symmetries not supported."
+        assert calc.input_parameters['mode'] == 'lcao', "LCAO mode required."
+        symmetry = calc.input_parameters['symmetry']
+        assert symmetry['point_group'] != True, "Symmetries not supported."
         
         self.calc_lcao = calc
 
@@ -204,7 +205,7 @@ class ElectronPhononCoupling(Displacement):
             nao_a = args[1]
             
         self.basis_info = {'M_a': M_a,
-                           'niAO_a': nao_a} # XXX niAO -> nao
+                           'nao_a': nao_a}
 
     def set_log(self, log=None):
         """Set output log."""
@@ -285,7 +286,7 @@ class ElectronPhononCoupling(Displacement):
         
         # If gamma calculation, overlap with neighboring cell cannot be removed
         if kd.gamma:
-            print "WARNING: Gamma-point calculation."
+            print("WARNING: Gamma-point calculation.")
         else:
             # Bloch to real-space converter
             tb = TightBinding(atoms_N, calc)
@@ -402,7 +403,7 @@ class ElectronPhononCoupling(Displacement):
                     if kd.comm.rank == 0:
                         fd = open(fname, 'w')
                         M_a = self.basis_info['M_a']
-                        nao_a = self.basis_info['niAO_a']
+                        nao_a = self.basis_info['nao_a']
                         pickle.dump((g_NNMM, M_a, nao_a), fd, 2)
                         fd.close()
                     
@@ -502,7 +503,7 @@ class ElectronPhononCoupling(Displacement):
         
         # Make slices for orbitals on atoms
         M_a = self.basis_info['M_a']
-        nao_a = self.basis_info['niAO_a']
+        nao_a = self.basis_info['nao_a']
         slice_a = []
         for a in range(len(self.atoms)):
             start = M_a[a] ;
@@ -732,7 +733,7 @@ class ElectronPhononCoupling(Displacement):
                 # XXX Temp
                 if np.all(q_c == 0.0):
                     # These should be real
-                    print g_qklnn[q].imag.min(), g_qklnn[q].imag.max()
+                    print(g_qklnn[q].imag.min(), g_qklnn[q].imag.max())
                     
         self.timer.write_now("Finished calculation of coupling matrix elements")
                                                 

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 
 import numpy as np
@@ -8,14 +9,17 @@ from ase.data import vdw_radii
 import _gpaw
 from gpaw.io.fmf import FMF
 
+
 class ExteriorElectronDensity:
+
     """Exterior electron density to describe MIES spectra.
 
     Simple approach to describe MIES spectra after
     Y. Harada et al., Chem. Rev. 97 (1997) 1897
     """
+
     def __init__(self, gd, atoms):
-        """Find the grid points outside of the van der Waals radii 
+        """Find the grid points outside of the van der Waals radii
         of the atoms"""
 
         assert gd.orthogonal
@@ -36,11 +40,11 @@ class ExteriorElectronDensity:
     def get_weight(self, psit_G):
         """Get the weight of a wave function in the exterior region
         (outside of the van der Waals radius). The augmentation sphere
-        is assumed to be smaller than the van der Waals radius and hence 
+        is assumed to be smaller than the van der Waals radius and hence
         does not contribute."""
 
         # smooth part
-        weigth = self.gd.integrate(np.where(self.mask == 1, 
+        weigth = self.gd.integrate(np.where(self.mask == 1,
                                             (psit_G * psit_G.conj()).real,
                                             0.0))
 
@@ -54,7 +58,7 @@ class ExteriorElectronDensity:
             raise RuntimeError(msg)
         else:
             return r
-        
+
     def write_mies_weights(self, wfs, file=None):
         if file is None:
             file = 'eed_mies.dat'
@@ -66,24 +70,24 @@ class ExteriorElectronDensity:
 
         fmf = FMF(['exterior electron density weights after',
                    'Y. Harada et al., Chem. Rev. 97 (1997) 1897'])
-        print >> out, fmf.header(),
-        print >> out, fmf.data(['band index: n',
-                                'k-point index: k',
-                                'spin index: s',
-                                'k-point weight: weight',
-                                'energy: energy [eV]',
-                                'occupation number: occ',
-                                'relative EED weight: eed_weight']),
-        
-        print >> out, '#; n   k s   weight      energy         occ  eed_weight'
+        print(fmf.header(), end=' ', file=out)
+        print(fmf.data(['band index: n',
+                        'k-point index: k',
+                        'spin index: s',
+                        'k-point weight: weight',
+                        'energy: energy [eV]',
+                        'occupation number: occ',
+                        'relative EED weight: eed_weight']), end=' ', file=out)
+
+        print(
+            '#; n   k s   weight      energy         occ  eed_weight', file=out)
         for kpt in wfs.kpt_u:
             for n in range(wfs.bd.nbands):
-                print  >> out, '%4d %3d %1d %8.5f  %10.5f  %10.5f  %10.5f' % \
-                    (n, kpt.k, kpt.s, kpt.weight,
-                     kpt.eps_n[n] * Hartree,
-                     kpt.f_n[n], 
-                     self.get_weight(kpt.psit_nG[n])
-                     )
+                print('%4d %3d %1d %8.5f  %10.5f  %10.5f  %10.5f' %
+                     (n, kpt.k, kpt.s, kpt.weight,
+                      kpt.eps_n[n] * Hartree,
+                      kpt.f_n[n],
+                      self.get_weight(kpt.psit_nG[n])
+                      ), file=out)
                 if hasattr(out, 'flush'):
                     out.flush()
-                

@@ -1,5 +1,6 @@
 from ase.structure import molecule
 from ase.visualize import view
+from ase import Atoms
 from gpaw import GPAW
 from gpaw.wannier import Wannier
 

@@ -1,10 +1,11 @@
+from __future__ import print_function
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.lattice import bulk
 from gpaw import GPAW
 from gpaw.eigensolvers.rmm_diis_old import RMM_DIIS
 from gpaw.mixer import Mixer
-from gpaw.response.df import DF
+from gpaw.response.df0 import DF
 from gpaw.response.bse import BSE
 
 GS = 1
@@ -66,7 +67,7 @@ if check_spectrum:
         raise ValueError('Plasmon peak not correct ! ')
     
     if np.abs(d[Nw] - 27.4958893542) > 1e-5:
-        print d[Nw]
+        print(d[Nw])
         raise ValueError('Please check spectrum strength ! ')
 
     d2 = np.loadtxt('Al_df.dat')

@@ -53,11 +53,13 @@ class NiflheimCluster(Cluster):
         run_command = '. /home/opt/modulefiles/modulefiles_el6.sh&& '
         run_command += 'module load NUMPY/1.7.1-1&& '
         run_command += 'module load SCIPY/0.12.0-1&& '
+        run_command += 'module load MATPLOTLIB/1.4.0-1&& '
         run_command += 'module load povray&& '
         run_command += 'module load ABINIT&& '
         run_command += 'module load DACAPO&& '
         run_command += 'module load SCIENTIFICPYTHON&& '
         run_command += 'module load NWCHEM&& '
+        run_command += 'module load AIMS&& '
         # force gpaw/gpaw/fftw.py to use the right libfftw3.so
         # see https://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2012-July/003045.html
         if 0:  # libfftw3.so crashes
@@ -91,6 +93,7 @@ class NiflheimCluster(Cluster):
             run_command += ' PATH=%s/gpaw/build/bin.%s:$PATH' % (dir, arch) + '&&'
             # we run other codes with asec
             run_command += ' export ASE_ABINIT_COMMAND="mpiexec abinit < PREFIX.files > PREFIX.log"&&'
+            run_command += ' export ASE_AIMS_COMMAND="mpiexec ${AIMS_COMMAND} > aims.out"&&'
         else:
             run_command += 'module load intel-compilers&& '
             run_command += 'module load openmpi&& '

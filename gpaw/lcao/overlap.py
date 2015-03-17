@@ -42,7 +42,7 @@ on the lower-level ones.
 
 """
 
-from math import sqrt, pi
+from math import pi
 
 import numpy as np
 from numpy.fft import ifft
@@ -57,7 +57,6 @@ from gpaw.spherical_harmonics import Yl, nablarlYL
 from gpaw.spline import Spline
 from gpaw.utilities import _fact
 from gpaw.utilities.tools import tri2full
-from gpaw.utilities.blas import gemm
 from gpaw import extra_parameters
 
 UL = 'L'
@@ -700,7 +699,8 @@ class NewTwoCenterIntegrals:
             I_a.append(I_setup[setup])
 
         cutoff_a = [cutoff_I[I] for I in I_a]
-
+        
+        self.cutoff_a = cutoff_a # convenient for writing the new new overlap
         self.I_a = I_a
         self.setups_I = setups_I        
         self.atompairs = PairsWithSelfinteraction(NeighborPairs(cutoff_a,
@@ -709,7 +709,8 @@ class NewTwoCenterIntegrals:
                                                                 True))
         self.atoms = self.atompairs.pairs.atoms # XXX compatibility
 
-        cutoff_close_a = [covalent_radii[s.Z] / Bohr / 2. for s in setups]
+        scale = 0.01 # XXX minimal distance scale
+        cutoff_close_a = [covalent_radii[s.Z] / Bohr * scale for s in setups]
         self.atoms_close = NeighborPairs(cutoff_close_a, cell_cv, pbc_c, False)
 
         rcmax = max(cutoff_I + [0.001])

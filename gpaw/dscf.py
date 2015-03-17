@@ -17,9 +17,11 @@ import numpy as np
 
 from ase.parallel import paropen
 from ase.units import Hartree
+from ase.utils import devnull
+
 from gpaw import mpi
-from gpaw.utilities import devnull
 from gpaw.occupations import OccupationNumbers, FermiDirac
+
 
 def dscf_calculation(paw, orbitals, atoms):
     """Helper function to prepare a calculator for a dSCF calculation
@@ -36,7 +38,7 @@ def dscf_calculation(paw, orbitals, atoms):
 
     Example
     =======
-    
+
     >>> atoms.set_calculator(calc)
     >>> e_gs = atoms.get_potential_energy() #ground state energy
     >>> sigma_star=MolecularOrbitals(calc, molecule=[0,1],
@@ -48,7 +50,7 @@ def dscf_calculation(paw, orbitals, atoms):
 
     # If the calculator has not been initialized the occupation object
     # is None
-    if paw.occupations == None:
+    if paw.occupations is None:
         paw.initialize(atoms)
     occ = paw.occupations
     if occ.width == 0:
@@ -64,6 +66,7 @@ def dscf_calculation(paw, orbitals, atoms):
         paw.scf.niter_fixdensity = 0
         paw.scf.reset()
 
+
 class OccupationsDSCF(FermiDirac):
     """Occupation class.
 
@@ -71,7 +74,7 @@ class OccupationsDSCF(FermiDirac):
     difference is that it forces some electrons in the supplied orbitals
     in stead of placing all the electrons by a Fermi-Dirac distribution.
     """
-    
+
     def __init__(self, width, orbitals):
         FermiDirac.__init__(self, width)
         self.orbitals = orbitals
@@ -86,7 +89,7 @@ class OccupationsDSCF(FermiDirac):
 
     def calculate(self, wfs):
         FermiDirac.calculate(self, wfs)
-        
+
         # Get the expansion coefficients c_un for each dscf-orbital
         # and incorporate their respective occupations into kpt.ne_o
         c_oun = []
@@ -103,11 +106,11 @@ class OccupationsDSCF(FermiDirac):
             kpt.c_on = np.zeros((self.norbitals, len(kpt.f_n)), dtype=complex)
 
             for o, orb in enumerate(self.orbitals):
-                #TODO XXX false if orb[0]<0 since abs(c_n)**2>0
+                # TODO XXX false if orb[0]<0 since abs(c_n)**2>0
                 #kpt.c_on[o,:] = abs(orb[0])**0.5 * c_oun[o][u]
 
                 kpt.ne_o[o] = orb[0]
-                kpt.c_on[o,:] = c_oun[o][u]
+                kpt.c_on[o, :] = c_oun[o][u]
 
                 if wfs.nspins == 2:
                     assert orb[2] in range(2), 'Invalid spin index'
@@ -128,18 +131,18 @@ class OccupationsDSCF(FermiDirac):
 
     def calculate_band_energy(self, wfs):
         FermiDirac.calculate_band_energy(self, wfs)
-        
+
         de_band = 0.0
         for kpt in wfs.kpt_u:
             if hasattr(kpt, 'c_on'):
                 for ne, c_n in zip(kpt.ne_o, kpt.c_on):
                     de_band += ne * np.dot(np.abs(c_n)**2, kpt.eps_n)
-        self.e_band += wfs.band_comm.sum(wfs.kpt_comm.sum(de_band))
+        self.e_band += wfs.band_comm.sum(wfs.kd.comm.sum(de_band))
 
 
 class MolecularOrbital:
     """Class defining the orbitals that should be filled in a dSCF calculation.
-    
+
     An orbital is defined through a linear combination of the atomic
     partial waves. In each self-consistent cycle the method expand
     is called. This method take the Kohn-Sham orbitals fulfilling the
@@ -150,7 +153,7 @@ class MolecularOrbital:
     by::
 
       wfs.kpt_u[u].P_ani = <\tilde p_i^a|\tilde\psi_{un}>.
-    
+
     Parameters
     ----------
     paw: gpaw calculator instance
@@ -184,7 +187,7 @@ class MolecularOrbital:
         self.Estart = Estart
         self.Eend = Eend
         self.nos = nos
-        
+
     def expand(self, epsF, wfs):
 
         if wfs.nspins == 1:
@@ -192,16 +195,16 @@ class MolecularOrbital:
         elif not self.fixmom:
             epsF = [epsF, epsF]
 
-        if self.nos == None:
+        if self.nos is None:
             self.nos = wfs.bd.nbands
-            
+
         c_un = []
         for u, kpt in enumerate(wfs.kpt_u):
             Porb_n = np.zeros(wfs.bd.nbands, dtype=complex)
             for a, P_ni in kpt.P_ani.items():
                 if a in self.w.keys():
                     for i in range(len(self.w[a])):
-                        Porb_n += self.w[a][i] * P_ni[:,i]
+                        Porb_n += self.w[a][i] * P_ni[:, i]
             wfs.gd.comm.sum(Porb_n)
 
             # Starting from KS orbitals with largest overlap,
@@ -217,16 +220,17 @@ class MolecularOrbital:
                     nos += 1
                 if nos == self.nos:
                     break
-            
+
             # Normalize expansion coefficients
             c_n /= np.sqrt(sum(abs(c_n)**2))
             c_un.append(c_n)
 
         return c_un
-                    
+
+
 class AEOrbital:
     """Class defining the orbitals that should be filled in a dSCF calculation.
-    
+
     An orbital is defined through a linear combination of KS orbitals
     which is determined by this class as follows: For each kpoint and spin
     we calculate the quantity ``c_n = <n|a>`` where ``|n>`` is the
@@ -256,12 +260,12 @@ class AEOrbital:
         Wavefunction to be occupied on the kpts on this processor:
 
         wf_u = [kpt.psit_nG[n] for kpt in calc_mol.wfs.kpt_u]
-        
+
     p_uai: list of dictionaries
         Projector overlaps with the wavefunction to be occupied for each
         kpoint. These are used when correcting to all-electron wavefunction
         overlaps:
-        
+
         p_uai = [dict([(mol[a], P_ni[n]) for a, P_ni in kpt.P_ani.items()])
                  for kpt in paw.wfs.kpt_u]
 
@@ -271,7 +275,7 @@ class AEOrbital:
 
     def __init__(self, paw, wf_u, p_uai, Estart=0.0, Eend=1.e6, nos=None,
                  txt='-'):
-    
+
         self.fixmom = paw.input_parameters.fixmom
         self.wf_u = wf_u
         self.p_uai = p_uai
@@ -289,7 +293,7 @@ class AEOrbital:
             self.txt = txt
 
     def expand(self, epsF, wfs):
-        
+
         if wfs.nspins == 1:
             epsF = [epsF]
         elif not self.fixmom:
@@ -297,7 +301,7 @@ class AEOrbital:
 
         if self.nos is None:
             self.nos = wfs.bd.nbands
-        
+
         # Check dimension of lists
         if len(self.wf_u) == len(wfs.kpt_u):
             wf_u = self.wf_u
@@ -348,11 +352,10 @@ class AEOrbital:
             c_un.append(c_n)
 
         for s in range(wfs.nspins):
-            for k in range(wfs.nibzkpts):
+            for k in range(wfs.kd.nibzkpts):
                 p = wfs.collect_auxiliary(p_u, k, s)
                 if wfs.world.rank == 0:
-                    self.txt.write('Kpt: %d, Spin: %d, ' \
-                        'Sum_n|<orb|nks>|^2: %f\n' % (k, s, p))
-        
-        return c_un
+                    self.txt.write('Kpt: %d, Spin: %d, '
+                                   'Sum_n|<orb|nks>|^2: %f\n' % (k, s, p))
 
+        return c_un

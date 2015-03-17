@@ -3,13 +3,12 @@
 # Please see the accompanying LICENSE file for further information.
 import numpy as np
 
-from gpaw.mpi import SerialCommunicator, serial_comm
 from gpaw.matrix_descriptor import MatrixDescriptor, \
     BandMatrixDescriptor, \
     BlacsBandMatrixDescriptor
 from blacs import BlacsGrid, Redistributor
 from gpaw.utilities import uncamelcase
-from gpaw.utilities.blas import gemm, r2k, gemmdot
+from gpaw.utilities.blas import gemm, r2k
 from gpaw.utilities.lapack import diagonalize, general_diagonalize, \
     inverse_cholesky
 from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_tran
@@ -17,14 +16,14 @@ from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import nulltimer
 
 
-def get_KohnSham_layouts(sl, mode, gd, bd, dtype, **kwargs):
+def get_KohnSham_layouts(sl, mode, gd, bd, block_comm, dtype, **kwargs):
     """Create Kohn-Sham layouts object."""
     # Not needed for AtomPAW special mode, as usual we just provide whatever
     # happens to make the code not crash
     if not isinstance(mode, str):
         return None  #XXX
     name = {'fd': 'BandLayouts', 'lcao': 'OrbitalLayouts'}[mode]
-    args = (gd, bd, dtype)
+    args = (gd, bd, block_comm, dtype)
     if sl is not None:
         name = 'Blacs' + name
         assert len(sl) == 3
@@ -35,7 +34,7 @@ def get_KohnSham_layouts(sl, mode, gd, bd, dtype, **kwargs):
            'OrbitalLayouts':      OrbitalLayouts,
             }[name](*args, **kwargs)
     if 0: #XXX debug
-        print('USING KSL: %s' % repr(ksl))
+        print(('USING KSL: %s' % repr(ksl)))
     assert isinstance(ksl, KohnShamLayouts)
     assert isinstance(ksl, BlacsLayouts) == (sl is not None)
     return ksl
@@ -45,26 +44,20 @@ class KohnShamLayouts:
     using_blacs = False  # This is only used by a regression test
     matrix_descriptor_class = None
 
-    def __init__(self, gd, bd, dtype, timer=nulltimer):
+    def __init__(self, gd, bd, block_comm, dtype, timer=nulltimer):
         assert gd.comm.parent is bd.comm.parent  # must have same parent comm
         self.world = bd.comm.parent
         self.gd = gd
         self.bd = bd
         self.dtype = dtype
-
-        # Columncomm contains all gd.comm.rank == 0, i.e. "grid-masters"
-        # Blockcomm contains all ranks with the same k-point or spin but
-        # different subdomains and band groups
-        bcommsize = self.bd.comm.size
-        gcommsize = self.gd.comm.size
-        shiftks = self.world.rank - self.world.rank % (bcommsize * gcommsize)
-        column_ranks = shiftks + np.arange(bcommsize) * gcommsize
-        block_ranks = shiftks + np.arange(bcommsize * gcommsize)
-        self.column_comm = self.world.new_communicator(column_ranks)
-        self.block_comm = self.world.new_communicator(block_ranks)
-
+        self.block_comm = block_comm
         self.timer = timer
         self._kwargs = {'timer': timer}
+
+        if gd.comm.rank == 0:
+            self.column_comm = bd.comm
+        else:
+            self.column_comm = None
 
     def get_keywords(self):
         return self._kwargs.copy()  # just a shallow copy...
@@ -91,12 +84,14 @@ class KohnShamLayouts:
 class BlacsLayouts(KohnShamLayouts):
     using_blacs = True  # This is only used by a regression test
 
-    def __init__(self, gd, bd, dtype, mcpus, ncpus, blocksize,
-                 timer=nulltimer):
-        KohnShamLayouts.__init__(self, gd, bd, dtype, timer)
+    def __init__(self, gd, bd, block_comm, dtype, mcpus, ncpus,
+                 blocksize, timer=nulltimer):
+        KohnShamLayouts.__init__(self, gd, bd, block_comm, dtype,
+                                 timer)
         # WARNING: Do not create the BlacsGrid on a communicator which does not
         # contain block_comm.rank = 0. This will break BlacsBandLayouts which
         # assume eps_M will be broadcast over block_comm.
+        self.blocksize = blocksize
         self.blockgrid = BlacsGrid(self.block_comm, mcpus, ncpus)
 
     def get_description(self):
@@ -108,8 +103,10 @@ class BlacsLayouts(KohnShamLayouts):
 class BandLayouts(KohnShamLayouts):
     matrix_descriptor_class = BandMatrixDescriptor
 
-    def __init__(self, gd, bd, dtype, buffer_size=None, timer=nulltimer):
-        KohnShamLayouts.__init__(self, gd, bd, dtype, timer)
+    def __init__(self, gd, bd, block_comm, dtype,
+                 buffer_size=None, timer=nulltimer):
+        KohnShamLayouts.__init__(self, gd, bd, block_comm, dtype,
+                                 timer)
         self.buffer_size = buffer_size
 
     def diagonalize(self, H_NN, eps_n):
@@ -118,7 +115,6 @@ class BandLayouts(KohnShamLayouts):
         2. Simultaneous parallelization over domains and bands.
         """
         nbands = self.bd.nbands
-        mynbands = self.bd.mynbands
         eps_N = np.empty(nbands)
         self.timer.start('Diagonalize')
         # Broadcast on block_comm since result
@@ -206,13 +202,14 @@ class BlacsBandLayouts(BlacsLayouts):  #XXX should derive from BandLayouts too!
     matrix_descriptor_class = BlacsBandMatrixDescriptor
 
     # This class 'describes' all the realspace Blacs-related layouts
-    def __init__(self, gd, bd, dtype, mcpus, ncpus, blocksize,
-                 buffer_size=None, timer=nulltimer):
-        BlacsLayouts.__init__(self, gd, bd, dtype, mcpus, ncpus, blocksize,
-                              timer)
+    def __init__(self, gd, bd, block_comm, dtype, mcpus, ncpus,
+                 blocksize, buffer_size=None, timer=nulltimer):
+        BlacsLayouts.__init__(self, gd, bd, block_comm, dtype,
+                              mcpus, ncpus, blocksize, timer)
         self.buffer_size = buffer_size
         nbands = bd.nbands
-        mynbands = bd.mynbands
+        self.mynbands = mynbands = bd.mynbands
+        self.blocksize = blocksize
 
         # 1D layout - columns
         self.columngrid = BlacsGrid(self.column_comm, 1, bd.comm.size)
@@ -292,14 +289,16 @@ class BlacsOrbitalLayouts(BlacsLayouts):
     # XXX rewrite this docstring a bit!
 
     # This class 'describes' all the LCAO Blacs-related layouts
-    def __init__(self, gd, bd, dtype, mcpus, ncpus, blocksize, nao,
-                 timer=nulltimer):
-        BlacsLayouts.__init__(self, gd, bd, dtype, mcpus, ncpus, blocksize,
-                              timer)
+    def __init__(self, gd, bd, block_comm, dtype, mcpus, ncpus,
+                 blocksize, nao, timer=nulltimer):
+        BlacsLayouts.__init__(self, gd, bd, block_comm, dtype,
+                              mcpus, ncpus, blocksize, timer)
         nbands = bd.nbands
-        mynbands = bd.mynbands
+        self.blocksize = blocksize
+        self.mynbands = mynbands = bd.mynbands
+        
         self.orbital_comm = self.bd.comm
-        naoblocksize = -((-nao) // self.orbital_comm.size)
+        self.naoblocksize = naoblocksize = -((-nao) // self.orbital_comm.size)
         self.nao = nao
 
         # Range of basis functions for BLACS distribution of matrices:
@@ -346,7 +345,6 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         # 1. outdescriptor
         # 2. broadcast with gd.comm
         # We will does this with a dummy buffer C2_nM
-        indescriptor = self.mM2mm.srcdescriptor  # cols2blocks
         outdescriptor = self.mm2nM.dstdescriptor  # blocks2cols
         blockdescriptor = self.mM2mm.dstdescriptor  # cols2blocks
 
@@ -392,10 +390,12 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         blocksize = 2**23 // Sflat_x.itemsize  # 8 MiB
         nblocks = -(-len(Sflat_x) // blocksize)
         Mstart = 0
+        self.timer.start('blocked summation')
         for i in range(nblocks):
             self.gd.comm.sum(Sflat_x[Mstart:Mstart + blocksize], root=root)
             Mstart += blocksize
         assert Mstart + blocksize >= len(Sflat_x)
+        self.timer.stop('blocked summation')
 
         xshape = S_qmM.shape[:-2]
         nm, nM = S_qmM.shape[-2:]
@@ -408,7 +408,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         if not coldesc:  # XXX ugly way to sort out inactive ranks
             S_qmM = coldesc.zeros(len(S_qmM), S_qmM.dtype)
         
-        self.timer.start('Distribute overlap matrix')
+        self.timer.start('Scalapack redistribute')
         for S_mM, S_mm in zip(S_qmM, S_qmm):
             self.mM2mm.redistribute(S_mM, S_mm)
             if add_hermitian_conjugate:
@@ -416,7 +416,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                     pblas_tran(1.0, S_mm.copy(), 1.0, S_mm,
                                blockdesc, blockdesc)
                 
-        self.timer.stop('Distribute overlap matrix')
+        self.timer.stop('Scalapack redistribute')
         return S_qmm.reshape(xshape + blockdesc.shape)
 
     def get_overlap_matrix_shape(self):
@@ -424,7 +424,6 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
     def calculate_blocked_density_matrix(self, f_n, C_nM):
         nbands = self.bd.nbands
-        mynbands = self.bd.mynbands
         nao = self.nao
         dtype = C_nM.dtype
         
@@ -508,10 +507,6 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         # This version is parallel over the band descriptor only.
         # This is inefficient, but let's keep it for a while in case
         # there's trouble with the more efficient version
-        nbands = self.bd.nbands
-        mynbands = self.bd.mynbands
-        nao = self.nao
-        
         if rho_mM is None:
             rho_mM = self.mMdescriptor.zeros(dtype=C_nM.dtype)
         
@@ -532,8 +527,10 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
 
 class OrbitalLayouts(KohnShamLayouts):
-    def __init__(self, gd, bd, dtype, nao, timer=nulltimer):
-        KohnShamLayouts.__init__(self, gd, bd, dtype, timer)
+    def __init__(self, gd, bd, block_comm, dtype, nao,
+                 timer=nulltimer):
+        KohnShamLayouts.__init__(self, gd, bd, block_comm, dtype,
+                                 timer)
         self.mMdescriptor = MatrixDescriptor(nao, nao)
         self.nMdescriptor = MatrixDescriptor(bd.mynbands, nao)
         
@@ -564,7 +561,6 @@ class OrbitalLayouts(KohnShamLayouts):
         general_diagonalize(H_MM, eps_M, S_MM)
 
     def estimate_memory(self, mem, dtype):
-        nao = self.setups.nao
         itemsize = mem.itemsize[dtype]
         mem.subnode('eps [M]', self.nao * mem.floatsize)
         mem.subnode('H [MM]', self.nao * self.nao * itemsize)

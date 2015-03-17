@@ -31,7 +31,7 @@ class GPAW(PAW):
         Both the energy extrapolated to zero Kelvin and the energy
         consistent with the forces (the free energy) can be
         returned."""
-        
+
         if atoms is None:
             atoms = self.atoms
 
@@ -41,12 +41,11 @@ class GPAW(PAW):
             # Free energy:
             return Hartree * self.hamiltonian.Etot
         else:
-            # Energy extrapolated to zero Kelvin:
-            if (isinstance(self.occupations, MethfesselPaxton) and
-                self.occupations.iter > 0):
-                raise NotImplementedError(
-                    'Extrapolation to zero width not implemeted for ' +
-                    'Methfessel-Paxton distribution with order > 0.')
+            # Energy extrapolated to zero width:
+            if isinstance(self.occupations, MethfesselPaxton):
+                return Hartree * (self.hamiltonian.Etot +
+                                  self.hamiltonian.S /
+                                  (self.occupations.iter + 2))
             return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
 
     def get_forces(self, atoms):
@@ -64,7 +63,7 @@ class GPAW(PAW):
             force_call_to_set_positions = True
         else:
             force_call_to_set_positions = False
-            
+
         self.calculate(atoms, converge=True,
                        force_call_to_set_positions=force_call_to_set_positions)
 
@@ -76,7 +75,7 @@ class GPAW(PAW):
             F_av = self.forces.F_av
 
         return F_av * (Hartree / Bohr)
-      
+
     def get_stress(self, atoms):
         """Return the stress for the current state of the atoms."""
         self.calculate(atoms, converge=True)
@@ -133,35 +132,35 @@ class GPAW(PAW):
     def get_number_of_bands(self):
         """Return the number of bands."""
         return self.wfs.bd.nbands
-  
+
     def get_xc_functional(self):
         """Return the XC-functional identifier.
-        
+
         'LDA', 'PBE', ..."""
-        
+
         return self.hamiltonian.xc.name
- 
+
     def get_number_of_spins(self):
         return self.wfs.nspins
 
     def get_spin_polarized(self):
         """Is it a spin-polarized calculation?"""
         return self.wfs.nspins == 2
-    
+
     def get_bz_k_points(self):
         """Return the k-points."""
         return self.wfs.kd.bzk_kc.copy()
- 
+
     def get_ibz_k_points(self):
         """Return k-points in the irreducible part of the Brillouin zone."""
         return self.wfs.kd.ibzk_kc.copy()
 
     def get_k_point_weights(self):
         """Weights of the k-points.
-        
+
         The sum of all weights is one."""
-        
-        return self.wfs.weight_k
+
+        return self.wfs.kd.weight_k
 
     def get_pseudo_density(self, spin=None, gridrefinement=1,
                            pad=True, broadcast=True):
@@ -197,14 +196,14 @@ class GPAW(PAW):
 
         if nt_G is None:
             return None
-        
+
         if pad:
             nt_G = gd.zero_pad(nt_G)
 
         return nt_G / Bohr**3
 
     get_pseudo_valence_density = get_pseudo_density  # Don't use this one!
-    
+
     def get_effective_potential(self, spin=0, pad=True, broadcast=False):
         """Return pseudo effective-potential."""
         # XXX should we do a gd.collect here?
@@ -212,11 +211,11 @@ class GPAW(PAW):
                                            broadcast=broadcast)
         if vt_G is None:
             return None
-        
+
         if pad:
             vt_G = self.hamiltonian.gd.zero_pad(vt_G)
         return vt_G * Hartree
-    
+
     def get_pseudo_density_corrections(self):
         """Integrated density corrections.
 
@@ -254,7 +253,7 @@ class GPAW(PAW):
 
         if n_G is None:
             return None
-        
+
         if pad:
             n_G = gd.zero_pad(n_G)
 
@@ -306,7 +305,7 @@ class GPAW(PAW):
                                                     nt_G, 0.0))
             correction = self.density.get_correction(a, spin)
             weight_a[a] = smooth + correction
-            
+
         return weight_a
 
     def get_dos(self, spin=0, npts=201, width=None):
@@ -323,7 +322,7 @@ class GPAW(PAW):
         if width == 0:
             width = 0.1
 
-        w_k = self.wfs.weight_k
+        w_k = self.wfs.kd.weight_k
         Nb = self.wfs.bd.nbands
         energies = np.empty(len(w_k) * Nb)
         weights = np.empty(len(w_k) * Nb)
@@ -332,7 +331,7 @@ class GPAW(PAW):
             energies[x:x + Nb] = self.get_eigenvalues(k, spin)
             weights[x:x + Nb] = w
             x += Nb
-            
+
         from gpaw.utilities.dos import fold
         return fold(energies, weights, npts, width)
 
@@ -349,9 +348,10 @@ class GPAW(PAW):
         from gpaw.utilities.dos import raw_wignerseitz_LDOS, fold
         energies, weights = raw_wignerseitz_LDOS(self, a, spin)
         return fold(energies * Hartree, weights, npts, width)
-    
+
     def get_orbital_ldos(self, a,
-                         spin=0, angular='spdf', npts=201, width=None):
+                         spin=0, angular='spdf', npts=201, width=None,
+                         nbands=None):
         """The Local Density of States, using atomic orbital basis functions.
 
         Project wave functions onto an atom orbital at atom ``a``, and
@@ -362,6 +362,10 @@ class GPAW(PAW):
 
         An integer value for ``angular`` can also be used to specify a specific
         projector function to project onto.
+
+        Setting nbands limits the number of bands included. This speeds up the
+        calculation if one has many bands in the calculator but is only
+        interested in the DOS at low energies.
         """
         if width is None:
             width = self.get_electronic_temperature()
@@ -369,7 +373,7 @@ class GPAW(PAW):
             width = 0.1
 
         from gpaw.utilities.dos import raw_orbital_LDOS, fold
-        energies, weights = raw_orbital_LDOS(self, a, spin, angular)
+        energies, weights = raw_orbital_LDOS(self, a, spin, angular, nbands)
         return fold(energies * Hartree, weights, npts, width)
 
     def get_all_electron_ldos(self, mol, spin=0, npts=201, width=None,
@@ -439,7 +443,7 @@ class GPAW(PAW):
                 f_n = np.empty(self.wfs.bd.nbands)
             self.wfs.world.broadcast(f_n, 0)
         return f_n
-    
+
     def get_xc_difference(self, xc):
         if isinstance(xc, str):
             xc = XC(xc)
@@ -457,8 +461,6 @@ class GPAW(PAW):
         Use initial guess for wannier orbitals to determine rotation
         matrices U and C.
         """
-        #if not self.wfs.gamma:
-        #    raise NotImplementedError
         from ase.dft.wannier import rotation_from_projection
         proj_knw = self.get_projections(initialwannier, spin)
         U_kww = []
@@ -495,7 +497,7 @@ class GPAW(PAW):
         kpt_u = self.wfs.kpt_u
 
         # XXX not for the kpoint/spin parallel case
-        assert self.wfs.kpt_comm.size == 1
+        assert self.wfs.kd.comm.size == 1
 
         # If calc is a save file, read in tar references to memory
         # For lcao mode just initialize the wavefunctions from the
@@ -504,7 +506,7 @@ class GPAW(PAW):
             self.wfs.initialize_wave_functions_from_lcao()
         else:
             self.wfs.initialize_wave_functions_from_restart_file()
-        
+
         # Get pseudo part
         Z_nn = self.wfs.gd.wannier_matrix(kpt_u[u].psit_nG,
                                           kpt_u[u1].psit_nG, G_c, nbands)
@@ -513,7 +515,7 @@ class GPAW(PAW):
         self.add_wannier_correction(Z_nn, G_c, u, u1, nbands)
 
         self.wfs.gd.comm.sum(Z_nn)
-            
+
         return Z_nn
 
     def add_wannier_correction(self, Z_nn, G_c, u, u1, nbands=None):
@@ -524,7 +526,7 @@ class GPAW(PAW):
                           -i G.r
             Z   = <psi | e      |psi >
              nm       n             m
-                            
+
                            __                __
                    ~      \              a  \     a*   a    a
             Z    = Z    +  ) exp[-i G . R ]  )   P   dO    P
@@ -540,7 +542,7 @@ class GPAW(PAW):
 
         if nbands is None:
             nbands = self.wfs.bd.nbands
-            
+
         P_ani = self.wfs.kpt_u[u].P_ani
         P1_ani = self.wfs.kpt_u[u1].P_ani
         spos_ac = self.atoms.get_scaled_positions()
@@ -550,7 +552,7 @@ class GPAW(PAW):
             dO_ii = self.wfs.setups[a].dO_ii
             e = np.exp(-2.j * np.pi * np.dot(G_c, spos_ac[a]))
             Z_nn += e * np.dot(np.dot(P_ni.conj(), dO_ii), P1_ni.T)
-            
+
     def get_projections(self, locfun, spin=0):
         """Project wave functions onto localized functions
 
@@ -575,7 +577,7 @@ class GPAW(PAW):
         """
 
         wfs = self.wfs
-        
+
         if locfun == 'projectors':
             f_kin = []
             for kpt in wfs.kpt_u:
@@ -614,7 +616,7 @@ class GPAW(PAW):
                    np.exp(-alpha * r**2) /
                    (np.sqrt(4 * np.pi) * _fact[2 * l + 1]))
             splines_x.append([Spline(l, rmax=r[-1], f_g=f_g)])
-            
+
         lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype)
         lf.set_positions(spos_xc)
 
@@ -648,7 +650,7 @@ class GPAW(PAW):
         """Return the local magnetic moments within augmentation spheres"""
         if self.magmom_av is not None:
             return self.magmom_av
-            
+
         self.magmom_av = self.density.estimate_magnetic_moments()
         if self.wfs.collinear:
             momsum = self.magmom_av.sum()
@@ -658,7 +660,7 @@ class GPAW(PAW):
             # return a contiguous array
             self.magmom_av = self.magmom_av[:, 2].copy()
         return self.magmom_av
-        
+
     def get_number_of_grid_points(self):
         return self.wfs.gd.N_c
 
@@ -704,7 +706,6 @@ class GPAW(PAW):
 
         from gpaw.io import read_wave_function
         for u, kpt in enumerate(self.wfs.kpt_u):
-            #kpt = self.kpt_u[u]
             kpt.psit_nG = self.wfs.gd.empty(self.wfs.bd.nbands, self.wfs.dtype)
             # Read band by band to save memory
             s = kpt.s
@@ -713,14 +714,16 @@ class GPAW(PAW):
                 psit_G[:] = read_wave_function(self.wfs.gd, s, k, n, mode)
 
     def get_nonselfconsistent_energies(self, type='beefvdw'):
-        from gpaw.xc.bee import BEEF_Ensemble
-        if type not in ['beefvdw', 'mbeef']:
+        from gpaw.xc.bee import BEEFEnsemble
+        if type not in ['beefvdw', 'mbeef', 'mbeefvdw']:
             raise NotImplementedError('Not implemented for type = %s' % type)
         assert self.scf.converged
-        bee = BEEF_Ensemble(self)
+        bee = BEEFEnsemble(self)
         x = bee.create_xc_contributions('exch')
         c = bee.create_xc_contributions('corr')
-        if type is 'beefvdw':
-            return np.append(x,c)
-        elif type is 'mbeef':
+        if type == 'beefvdw':
+            return np.append(x, c)
+        elif type == 'mbeef':
             return x.flatten()
+        elif type == 'mbeefvdw':
+            return np.append(x.flatten(), c)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom, Atoms
 from ase.io import read
 from gpaw import GPAW, FermiDirac
@@ -16,4 +17,4 @@ equal(H.get_potential_energy(), e0, 1e-6)
 energy_tolerance = 0.00007
 equal(e0, -6.55685, energy_tolerance)
 
-print calc.get_xc_functional()
+print(calc.get_xc_functional())

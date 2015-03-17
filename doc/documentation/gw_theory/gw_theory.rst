@@ -36,9 +36,9 @@ The renormalization factor is given by:
 
 The self energy is expanded in plane waves, denoted by :math:`\mathbf{G}` and :math:`\mathbf{G}'`:
 
-.. math:: \Sigma_{n \mathbf{k}} =& \left<n \mathbf{k} \middle| \Sigma(\omega) \middle|n \mathbf{k} \right>\\
+.. math:: \Sigma_{n \mathbf{k}}(\omega = \epsilon_{n \mathbf{k}}) =& \left<n \mathbf{k} \middle| \Sigma(\omega) \middle|n \mathbf{k} \right>\\
  =& \frac{1}{\Omega} \sum\limits_{\mathbf{G} \mathbf{G}'} \sum\limits_{\vphantom{\mathbf{G}}\mathbf{q}}^{1. \text{BZ}} \sum\limits_{\vphantom{\mathbf{G}}m}^{\text{all}} \frac{i}{2 \pi} \int\limits_{-\infty}^\infty\!d\omega'\, W_{\mathbf{G} \mathbf{G}'}(\mathbf{q}, \omega') \, \cdot \\
- & \frac{\rho^{n \mathbf{k}}_{m \mathbf{k} - \mathbf{q}}(\mathbf{G}) \rho^{n \mathbf{k}*}_{m \mathbf{k} - \mathbf{q}}(\mathbf{G}')}{\omega + \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} + i \eta \, \text{sgn}(\epsilon_{m \, \mathbf{k} - \mathbf{q}} - \mu)}_{|\omega = \epsilon_{n \mathbf{k}}}
+ & \frac{\rho^{n \mathbf{k}}_{m \mathbf{k} - \mathbf{q}}(\mathbf{G}) \rho^{n \mathbf{k}*}_{m \mathbf{k} - \mathbf{q}}(\mathbf{G}')}{\omega + \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} + i \eta \, \text{sgn}(\epsilon_{m \, \mathbf{k} - \mathbf{q}} - \mu)}
 
 where :math:`m` runs both over occupied and unoccupied bands and :math:`\mathbf{q}` covers the differences between all k-points in the first Brillouin zone. :math:`\Omega = \Omega_\text{cell} \cdot N_\mathbf{k}` is the volume and :math:`\eta` an (artificial) broadening parameter. :math:`\mu` is the chemical potential.
 

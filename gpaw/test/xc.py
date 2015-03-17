@@ -1,33 +1,32 @@
 import numpy as np
 from gpaw.xc.libxc import LibXC, short_names
 from gpaw.xc.kernel import XCKernel, codes
-from gpaw.xc.bee import BEE1
 from gpaw.test import equal
 
 funcs = []
 modes = []
 for name in short_names:
+    try:
+        LibXC(name)
+    except NameError:
+        continue
     funcs.append(name)
     modes.append(0)
 for name in codes:
     funcs.append(name)
     modes.append(1)
-funcs.append('BEE1')
-modes.append(2)
+
 
 def create_xc(func, mode):
     isinstance(func, str)
     isinstance(mode, int)
     if mode == 0:
         xc = LibXC(func)
-    elif mode == 1:
-        xc = XCKernel(func)
-    elif mode == 2:
-        xc = BEE1()
     else:
-        stop
+        xc = XCKernel(func)
     return xc
 
+    
 def f1(n_xg, xc):
     e_g = np.empty_like(n_xg[0])
     n_sg = n_xg[:1]
@@ -39,6 +38,7 @@ def f1(n_xg, xc):
     xc.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, tau_sg, dedtau_sg)
     return e_g, np.concatenate((dedn_sg, dedsigma_xg, dedtau_sg))
 
+    
 def f2(n_xg, xc):
     e_g = np.empty_like(n_xg[0])
     n_sg = n_xg[:2]
@@ -55,7 +55,7 @@ eps = 1.0e-6
 n_xg = np.array(
     [[0.2, 0.01, 0.4],
      [0.2, 0.1, 0.5],
-     [0.01, 0.01, 0.2 ],
+     [0.01, 0.01, 0.2],
      [0.1, 0.3, 0.5]]).T.copy()
 
 for i, func in enumerate(funcs):
@@ -73,23 +73,22 @@ for i, func in enumerate(funcs):
     ns_xg[2:5] = n_xg[1] / 4
     ns_xg[5:] = n_xg[2] / 2
     es_g, ds_xg = f2(ns_xg, xc)
-    error = (abs(d0_xg-d_xg).max() +
-            abs(es_g - e0_g).max() +
-            abs(ds_xg[:2] - d0_xg[0]).max() +
-            abs(ds_xg[2:5].sum(0) / 4 - d0_xg[1]).max() +
-            abs(ds_xg[5:] - d0_xg[2]).max())
-    #print xc.name, error
+    error = (abs(d0_xg - d_xg).max() +
+             abs(es_g - e0_g).max() +
+             abs(ds_xg[:2] - d0_xg[0]).max() +
+             abs(ds_xg[2:5].sum(0) / 4 - d0_xg[1]).max() +
+             abs(ds_xg[5:] - d0_xg[2]).max())
     equal(error, 0, 6e-9)
     del xc
 
 # Numbers from old lxc_xc.py test:
 na = 2.0
 nb = 1.0
-sigma0 = 2.0 # (0.0, 1.0, 1.0)
+sigma0 = 2.0  # (0.0, 1.0, 1.0)
 sigma1 = 2.0
-sigma2 = 5.0 # (1.0, 2.0, 0.0)
-taua=(3.*np.pi**2)**(2./3.)*na**(5./3.)/2.*sigma0
-taub=(3.*np.pi**2)**(2./3.)*nb**(5./3.)/2.*sigma2
+sigma2 = 5.0  # (1.0, 2.0, 0.0)
+taua = (3 * np.pi**2)**(2. / 3.) * na**(5. / 3.) / 2 * sigma0
+taub = (3 * np.pi**2)**(2. / 3.) * nb**(5. / 3.) / 2 * sigma2
 
 n_xg = np.array(
     [[na, nb, sigma0, sigma1, sigma2, taua, taub],
@@ -97,8 +96,8 @@ n_xg = np.array(
      [0.1, 0.1, 0.125, 0.125, 0.125, 0.0025, 0.025],
      [0.1, 0.1, 0.01, 0.01, 0.01, 0.2, 0.2],
      [0.1, 0.2, 0.1, -0.08, 0.10, 0.01, 0.05],
-     [0.1, 0.1, 0.1,  0.01, 0.01, 0.01, 0.01],
-     [0.1, 0.1, 0.1,  0.15, 0.20, 0.01, 0.05]]).T.copy()
+     [0.1, 0.1, 0.1, 0.01, 0.01, 0.01, 0.01],
+     [0.1, 0.1, 0.1, 0.15, 0.20, 0.01, 0.05]]).T.copy()
 
 
 for i, func in enumerate(funcs):
@@ -115,9 +114,5 @@ for i, func in enumerate(funcs):
         d_xg[x] = 0.5 * f2(m_xg, xc)[0] / eps
         m_xg[x] -= 2 * eps
         d_xg[x] -= 0.5 * f2(m_xg, xc)[0] / eps
-    #print xc.name, abs(d0_xg-d_xg).max()
-    equal(abs(d0_xg-d_xg).max(), 0, 2e-8)
+    equal(abs(d0_xg - d_xg).max(), 0, 2e-8)
     del xc
-    #print d0_xg-d_xg
-    #print d_xg
-    #print d0_xg

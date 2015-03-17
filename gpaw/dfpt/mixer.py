@@ -427,7 +427,7 @@ class BaseMixer_Broydn:
             fmin_G = self.gd.integrate(self.d_nt_G[-1] * self.d_nt_G[-1])
             self.dNt = self.gd.integrate(np.fabs(self.d_nt_G[-1]))
             if self.verbose:
-                print 'Mixer: broydn: fmin_G = %f fmin_D = %f'% fmin_G
+                print('Mixer: broydn: fmin_G = %f fmin_D = %f'% fmin_G)
         if self.step == 0:
             self.eta_G = np.empty(nt_G.shape)
             self.eta_D = []

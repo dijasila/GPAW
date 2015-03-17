@@ -8,4 +8,4 @@ for root, subFolders, files in os.walk(rootdir):
            source = os.path.join(root, dir)
            dest = os.path.realpath(source[source.find('libxc.old')+len('libxc.old')+1:])
            shutil.copytree(source, dest)
-           print source, dest
+           print(source, dest)

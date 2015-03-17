@@ -114,10 +114,11 @@ class Gauss:
         print 'Gauss(i)=',gs.get(i)
     """
     def __init__(self, width=0.08):
+        self.dtype = float
         self.set_width(width)
         
-    def get(self,x):
-        return self.norm * np.exp(-(x * self.wm1)**2)
+    def get(self, x, x0=0):
+        return self.norm * np.exp(-((x-x0) * self.wm1)**2)
     
     def set_width(self, width=0.08):
         self.norm = 1. / width / np.sqrt(2 * np.pi)
@@ -126,10 +127,11 @@ class Gauss:
 class Lorentz:
     """Normalised Lorentz distribution"""
     def __init__(self, width=0.08):
+        self.dtype = float
         self.set_width(width)
         
-    def get(self,x):
-        return self.norm / (x**2 + self.width2)
+    def get(self, x, x0=0):
+        return self.norm / ((x-x0)**2 + self.width2)
     
     def set_width(self, width=0.08):
         self.norm = width / np.pi

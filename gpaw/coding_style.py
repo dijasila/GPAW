@@ -73,7 +73,7 @@ class SimpleExample:
 
         self.name = name
         if verbose:
-            print name
+            print(name)
         self.a = np.zeros(shape, dtype)
         self.verbose = verbose
 
@@ -109,10 +109,10 @@ class SimpleExample:
         for i in range(n):
             self.a += i
             if self.verbose:
-                print self.a
+                print(self.a)
 
         return pi * self.a / n + 1
-    
+
     def reset(self):
         """Simple method - no explanation needed."""
         self.a[:] = 0
@@ -124,5 +124,3 @@ def function(a, b):
     Long story ..."""
 
     return a + b
-
-

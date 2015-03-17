@@ -12,20 +12,21 @@ from math import pi
 import numpy as np
 from numpy.fft import fftn, ifftn
 
-from gpaw import debug, extra_parameters
-from gpaw.utilities import fact
 import _gpaw
+from gpaw import debug
+from gpaw.utilities import fact
 
 
 # Expansion coefficients for finite difference Laplacian.  The numbers are
 # from J. R. Chelikowsky et al., Phys. Rev. B 50, 11355 (1994):
 laplace = [[0],
            [-2, 1],
-           [-5/2, 4/3, -1/12],
-           [-49/18, 3/2, -3/20, 1/90],
-           [-205/72, 8/5, -1/5, 8/315, -1/560],
-           [-5269/1800, 5/3, -5/21, 5/126, -5/1008, 1/3150],
-           [-5369/1800, 12/7, -15/56, 10/189, -1/112, 2/1925, -1/16632]]
+           [-5 / 2, 4 / 3, -1 / 12],
+           [-49 / 18, 3 / 2, -3 / 20, 1 / 90],
+           [-205 / 72, 8 / 5, -1 / 5, 8 / 315, -1 / 560],
+           [-5269 / 1800, 5 / 3, -5 / 21, 5 / 126, -5 / 1008, 1 / 3150],
+           [-5369 / 1800, 12 / 7, -15 / 56, 10 / 189, -1 / 112, 2 / 1925,
+            -1 / 16632]]
 
 
 class FDOperator:
@@ -53,7 +54,7 @@ class FDOperator:
         offset_p = np.dot(offset_pc, stride_c)
         coef_p = np.ascontiguousarray(coef_p, float)
         neighbor_cd = gd.neighbor_cd
-        assert np.rank(coef_p) == 1
+        assert coef_p.ndim == 1
         assert coef_p.shape == offset_p.shape
         assert dtype in [float, complex]
         self.dtype = dtype
@@ -65,7 +66,7 @@ class FDOperator:
             comm = None
 
         assert neighbor_cd.flags.c_contiguous and offset_p.flags.c_contiguous
-        self.mp = mp # padding
+        self.mp = mp  # padding
         self.gd = gd
         self.npoints = len(coef_p)
         self.coef_p = coef_p
@@ -99,6 +100,7 @@ class FDOperator:
 
 if debug:
     _FDOperator = FDOperator
+    
     class FDOperator(_FDOperator):
         def apply(self, in_xg, out_xg, phase_cd=None):
             assert in_xg.shape == out_xg.shape
@@ -126,22 +128,22 @@ if debug:
 class Gradient(FDOperator):
     def __init__(self, gd, v, scale=1.0, n=1, dtype=float):
         h = (gd.h_cv**2).sum(1)**0.5
-        d = gd.xxxiucell_cv[:,v]
-        A=np.zeros((2*n+1,2*n+1))
-        for i,io in enumerate(range(-n,n+1)):
-            for j in range(2*n+1):
-                A[i,j]=io**j/float(fact(j))
-        A[n,0]=1.
-        coefs=np.linalg.inv(A)[1]
-        coefs=np.delete(coefs,len(coefs)//2)
-        offs=np.delete(np.arange(-n,n+1),n)
+        d = gd.xxxiucell_cv[:, v]
+        A = np.zeros((2 * n + 1, 2 * n + 1))
+        for i, io in enumerate(range(-n, n + 1)):
+            for j in range(2 * n + 1):
+                A[i, j] = io**j / float(fact(j))
+        A[n, 0] = 1.0
+        coefs = np.linalg.inv(A)[1]
+        coefs = np.delete(coefs, len(coefs) // 2)
+        offs = np.delete(np.arange(-n, n + 1), n)
         coef_p = []
         offset_pc = []
         for i in range(3):
-            if abs(d[i])>1e-11:
+            if abs(d[i]) > 1e-11:
                 coef_p.extend(list(coefs * d[i] / h[i] * scale))
-                offset = np.zeros((2*n, 3), int)
-                offset[:,i]=offs
+                offset = np.zeros((2 * n, 3), int)
+                offset[:, i] = offs
                 offset_pc.extend(offset)
 
         FDOperator.__init__(self, coef_p, offset_pc, gd, dtype,
@@ -188,7 +190,7 @@ class GUCLaplace(FDOperator):
                 break
 
         a_d *= scale
-        offsets = [(0,0,0)]
+        offsets = [(0, 0, 0)]
         coefs = [laplace[n][0] * a_d.sum()]
         for d in range(D):
             M_c = M_ic[i_d[d]]
@@ -207,7 +209,7 @@ class GUCLaplace(FDOperator):
 class LaplaceA(FDOperator):
     def __init__(self, gd, scale, dtype=float):
         assert gd.orthogonal
-        c = np.divide(-1/12, gd.h_cv.diagonal()**2) * scale  # Why divide? XXX
+        c = np.divide(-1 / 12, gd.h_cv.diagonal()**2) * scale  # Why divide?
         c0 = c[1] + c[2]
         c1 = c[0] + c[2]
         c2 = c[1] + c[0]

@@ -1,7 +1,8 @@
-#!/usr/bin/env python
 
 import sys
 import numpy as np
+
+from ase.utils import devnull
 
 from gpaw import debug
 from gpaw.mpi import world
@@ -138,7 +139,7 @@ class UTSphereParallelSetup(TestCase):
         cosv_L = np.cos(theta_L)*np.cos(thetam_L) \
             + np.sin(theta_L)*np.sin(thetam_L)*np.cos(phi_L-phim_L)
         P0_lL = np.array([legendre(l, 0, cosv_L) for l in range(lmax+1)])
-        P_lL = np.zeros_like(P0_lL)
+        P_lL = np.zeros_like(P0_lL, dtype=complex)
         for l,m in lmiter(lmax, comm=world):
             P_lL[l] += 4 * np.pi / (2*l + 1.) * Y(l, m, theta_L, phi_L) \
                 * Y(l, m, thetam_L, phim_L).conj()
@@ -181,7 +182,7 @@ class UTSphereParallelSetup(TestCase):
         rm_vg[2] = rm_g*np.cos(thetam_g)
 
         f0_g = np.sum((r_vg-rm_vg)**2, axis=0)**(-0.5)
-        f_g = np.zeros_like(f0_g)
+        f_g = np.zeros_like(f0_g, dtype=complex)
 
         for l,m in lmiter(lmax, comm=world):
             f_g += 4 * np.pi / (2*l + 1.) * r_g**(-1) * (rm_g/r_g)**l \
@@ -362,7 +363,6 @@ if __name__ in ['__main__', '__builtin__']:
     if __name__ == '__builtin__':
         testrunner = CustomTextTestRunner('ut_csh.log', verbosity=2)
     else:
-        from gpaw.utilities import devnull
         stream = (world.rank == 0) and sys.stdout or devnull
         testrunner = TextTestRunner(stream=stream, verbosity=2)
 

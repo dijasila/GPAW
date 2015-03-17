@@ -3,15 +3,17 @@
 # GPAW documentation build configuration file, created by
 # sphinx-quickstart on Fri Jun 20 09:39:26 2008.
 #
-# This file is execfile()d with the current directory set to its containing dir.
+# This file is execfile()d with the current directory set to its containing
+# dir.
 #
 # The contents of this file are pickled, so don't put values in the namespace
-# that aren't pickleable (module imports are okay, they're removed automatically).
+# that aren't pickleable (module imports are okay, they're removed
+# automatically).
 #
 # All configuration values have a default value; values that are commented out
 # serve to show the default value.
 
-import sys, os
+import sys
 
 # If your extensions are in another directory, add it here. If the directory
 # is relative to the documentation root, use os.path.abspath to make it
@@ -22,26 +24,12 @@ sys.path.append('.')
 # General configuration
 # ---------------------
 
-# Add any Sphinx extension module names here, as strings. They can be extensions
-try:
-    from sphinx.ext import pngmath
-    ext_png_math = 'sphinx.ext.pngmath'
-except ImportError:
-    ext_png_math = 'mathpng'
-    print 'Warning: sphinx uses custom mathpng.py: please update to sphinx >= 5.0'
-
-
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['ext', 'images', 'sitelink',
+extensions = ['ytp', 'ext', 'images', 'sitelink',
               'sphinx.ext.autodoc',
               'sphinx.ext.viewcode',
-              ext_png_math]
-
-try:
-    from sphinx.ext import intersphinx
-    extensions.append('sphinx.ext.intersphinx')
-except ImportError:
-    print 'Warning: no sphinx.ext.intersphinx available: please update to sphinx >= 0.5'
+              'sphinx.ext.mathjax',
+              'sphinx.ext.intersphinx']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -74,11 +62,12 @@ today_fmt = '%B %d, %Y'
 # List of documents that shouldn't be included in the build.
 #unused_docs = []
 
-# List of directories, relative to source directories, that shouldn't be searched
-# for source files.
+# List of directories, relative to source directories, that shouldn't be
+# searched for source files.
 exclude_trees = ['_build']
 
-# The reST default role (used for this markup: `text`) to use for all documents.
+# The reST default role (used for this markup: `text`) to use for all
+# documents.
 default_role = 'math'
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
@@ -127,7 +116,7 @@ html_static_path = ['_static']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
-html_last_updated_fmt = ''#'%b %d, %Y'
+html_last_updated_fmt = ''  # '%b %d, %Y'
 
 # If true, SmartyPants will be used to convert quotes and dashes to
 # typographically correct entities.
@@ -174,9 +163,10 @@ latex_paper_size = 'a4'
 #latex_font_size = '10pt'
 
 # Grouping the document tree into LaTeX files. List of tuples
-# (source start file, target name, title, author, document class [howto/manual]).
+# (source start file, target name, title, author,
+# document class [howto/manual]).
 latex_documents = [
-  ('contents', 'GPAW.tex', 'GPAW Documentation', 'CAMd et al.', 'manual'),
+    ('contents', 'GPAW.tex', 'GPAW Documentation', 'CAMd et al.', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -197,7 +187,9 @@ latex_preamble = '\usepackage{amsmath}\usepackage{amsfonts}'
 #latex_use_modindex = True
 
 # Example configuration for intersphinx: refer to ase.
-intersphinx_mapping = {'http://wiki.fysik.dtu.dk/ase': None}
+intersphinx_mapping = {'http://wiki.fysik.dtu.dk/ase': None,
+                       'http://docs.scipy.org/doc/numpy': None,
+                       'http://docs.enthought.com/mayavi/mayavi': None}
 
 # sphinx.ext.pngmath manual configuration
 # ---------------------------------------
@@ -219,8 +211,7 @@ pngmath_dvipng_args = [
     '--noghostscript',
     '-l10',
     '--depth',
-    '-D 130',
-    ]
+    '-D 130']
 
 # correctly aligns the baselines
 pngmath_use_preview = True

@@ -8,9 +8,9 @@ Installation guide
 Requirements
 ============
 
-1) Python 2.6 - 2.7.  Python is available from http://www.python.org.
+1) Python2 version 2.6 or newer. Python3 is not supported yet.  Python is available from http://www.python.org.
 
-2) NumPy_ 1.3.0 or later (multithreading in numpy is not supported by GPAW).
+2) NumPy_ 1.6.1 or later.  Earlier versions may work for basic operations.
 
 3) Atomic Simulation Environment (:ase:`ASE <>`).
 
@@ -21,14 +21,14 @@ Requirements
 6) BLAS and LAPACK libraries. Start with your system provided defaults or
    e.g. acml_ or openblas_. Multithreading is not supported.
 
+7) SciPy_ 0.7.0 or later
 
 Optionally:
 
-7) an MPI library (required for parallel calculations).
+8) an MPI library (required for parallel calculations).
 
-8) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
+9) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
 
-9) SciPy_ 0.7.0 or later (required for example for transport of response calculations)
 
 .. note::
 
@@ -37,9 +37,12 @@ Optionally:
 
 .. _NumPy: http://numpy.org/
 .. _SciPy: http://scipy.org/
-.. _libxc-download: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download
-.. _acml: http://developer.amd.com/tools-and-sdks/cpu-development/amd-core-math-library-acml/
+.. _libxc-download: http://www.tddft.org/programs/octopus/wiki/index.php/
+                    Libxc:download
+.. _acml: http://developer.amd.com/tools-and-sdks/cpu-development/
+          amd-core-math-library-acml/
 .. _openblas: http://www.openblas.net/
+
 
 Installation
 ============
@@ -52,10 +55,12 @@ are described, in order of preference.
    **CAMd users** installing on ``Niflheim``: please follow instructions
    for :ref:`Niflheim`.
 
-.. _installationguide_macosx:
-
 Libxc Installation
 ------------------
+
+Preferably install Libxc using your Linux distribution package manager,
+in which case no changes to GPAW customize.py are needed and you can
+proceed to :ref:`installationguide_developer`.
 
 Libxc download/install instructions can be found `here <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`_.  A few extra tips:
 
@@ -71,30 +76,31 @@ Libxc download/install instructions can be found `here <http://www.tddft.org/pro
 - Typically when building GPAW one has to modify customize.py in a manner
   similar to the following::
 
-    library_dirs += ['/my/path/to/libxc/2.0.1/install/lib']
-    include_dirs += ['/my/path/to/libxc/2.0.1/install/include']
+    library_dirs += ['/my/path/to/libxc/2.0.2/install/lib']
+    include_dirs += ['/my/path/to/libxc/2.0.2/install/include']
 
   or if you don't want to modify your customize.py, you can add these lines to
   your .bashrc::
   
-    export C_INCLUDE_PATH=/my/path/to/libxc/2.0.1/install/include
-    export LIBRARY_PATH=/my/path/to/libxc/2.0.1/install/lib
-    export LD_LIBRARY_PATH=/my/path/to/libxc/2.0.1/install/lib
+    export C_INCLUDE_PATH=/my/path/to/libxc/2.0.2/install/include
+    export LIBRARY_PATH=/my/path/to/libxc/2.0.2/install/lib
+    export LD_LIBRARY_PATH=/my/path/to/libxc/2.0.2/install/lib
 
 Example::
     
     wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-2.0.2.tar.gz -O libxc-2.0.2.tar.gz
-    tar xzf libxc-2.0.2.tar.gz
+    tar -xf libxc-2.0.2.tar.gz
     cd libxc-2.0.2
     ./configure --enable-shared --prefix=$HOME/xc
     make
     make install
     
     # add these to your .bashrc:
-    export C_INCLUDE_PATH=~/xc/include                                           
-    export LIBRARY_PATH=~/xc/lib                                                 
+    export C_INCLUDE_PATH=~/xc/include
+    export LIBRARY_PATH=~/xc/lib
     export LD_LIBRARY_PATH=~/xc/lib
-    
+
+.. _installationguide_macosx:
 
 Installation on OS X
 --------------------
@@ -132,6 +138,31 @@ and install GPAW with:
 For the full list of supported distributions check
 https://build.opensuse.org/package/show?package=gpaw&project=home%3Adtufys
 
+Windows
+-------
+
+.. note::
+
+   GPAW is not yet fully functional on Windows! See
+   http://listserv.fysik.dtu.dk/pipermail/gpaw-users/2013-August/002264.html
+
+On Windows install ASE dependencies as described at
+https://wiki.fysik.dtu.dk/ase/download.html#windows.
+
+Download the gpaw.win32-py2.7.msi_ installer and install with::
+
+   gpaw.win32-py2.7.msi /l*vx "%TMP%\gpaw_install.log" /passive
+
+.. _gpaw.win32-py2.7.msi:
+       https://wiki.fysik.dtu.dk/gpaw-files/gpaw.win32-py2.7.msi
+
+.. note::
+
+    Unpack gpaw-setups under C:\gpaw-setups (see :ref:`setups`).
+
+As the last step (this is important) install the ASE
+(see https://wiki.fysik.dtu.dk/ase/download.html#windows).
+
 .. _installationguide_developer:
 
 Developer installation
@@ -156,7 +187,6 @@ It offers the following advantages:
 2) Perform :ref:`installationguide_setup_files`.
 
 3) :ref:`running_tests`.
-
 
 .. _installationguide_standard:
 
@@ -183,7 +213,7 @@ the :ref:`installationguide_developer`.
      [gpaw]$ python setup.py install --home=<my-directory>  2>&1 | tee install.log
 
    and put :file:`{<my-directory>}/lib/python` (or
-   :file:`{<my-directory>}/lib64/python`) in your :envvar:`PYTHONPATH` 
+   :file:`{<my-directory>}/lib64/python`) in your :envvar:`PYTHONPATH`
    environment variable.
 
    .. note::
@@ -285,7 +315,7 @@ Installation of setup files
 1) Get the tar file :file:`gpaw-setups-{<version>}.tar.gz`
    of the <version> of setups from the :ref:`setups` page
    and unpack it somewhere, preferably in :envvar:`HOME`
-   (``cd; tar zxf gpaw-setups-<version>.tar.gz``) - it could
+   (``cd; tar -xf gpaw-setups-<version>.tar.gz``) - it could
    also be somewhere global where
    many users can access it like in :file:`/usr/share/gpaw-setups/`.
    There will now be a subdirectory :file:`gpaw-setups-{<version>}/`
@@ -318,10 +348,7 @@ Make sure that everything works by running the test suite (using bash)::
 
   [gpaw]$ gpaw-python `which gpaw-test` 2>&1 | tee test.log
 
-This will a couple of hours.  If you have a multicore CPU, you
-can speed up the test by using ``gpaw-test -j <number-of-cores>``.
-This will run tests simultaneously (**not** employing MPI parallelization)
-on the requested *<number-of-cores>*.
+This will take a couple of hours.
 Please report errors to the ``gpaw-developers`` mailing list (see
 :ref:`mailing_lists`) Send us :file:`test.log`, as well as the
 information about your environment (processor architecture, versions
@@ -357,3 +384,8 @@ If you enabled ScaLAPACK, do::
 
 This will enable ScaLAPACK's diagonalization on a 1x2 BLACS grid
 with the block size of 2.
+
+Finally run the tests in parallel on 2, 4 and 8 cores::
+
+  [gpaw]$ mpirun -np 4 gpaw-python `which gpaw-test` 2>&1 | tee test4.log
+

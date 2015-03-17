@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.lattice import bulk
 from sys import argv
 from ase.dft.kpoints import ibz_points, get_bandpath
@@ -43,13 +44,13 @@ X = points['X']
 #[W, L, G, X, W, K]
 
 kpts, x, X = get_bandpath([G, X], atoms.cell, npoints=12)
-calc = GPAW('Cgs.gpw', kpts=kpts, fixdensity=True, usesymm=None,
+calc = GPAW('Cgs.gpw', kpts=kpts, fixdensity=True, symmetry='off',
             convergence=dict(bands=6), eigensolver=Davidson(niter=2))
 calc.get_atoms().get_potential_energy()
 # Get the accurate KS-band gap
 homolumo = calc.occupations.get_homo_lumo(calc.wfs)
 homo, lumo = homolumo
-print "band gap ",(lumo-homo)*27.2
+print("band gap ",(lumo-homo)*27.2)
     
 # Redo the ground state calculation
 calc = GPAW(h=0.15, kpts=(4,4,4), xc=xc, nbands = 6,
@@ -62,7 +63,7 @@ response.calculate_delta_xc(homolumo=homolumo)
 calc.write('CGLLBSC.gpw')
 
 # Redo the band structure calculation
-atoms, calc = restart('CGLLBSC.gpw', kpts=kpts, fixdensity=True, usesymm=None,
+atoms, calc = restart('CGLLBSC.gpw', kpts=kpts, fixdensity=True, symmetry='off',
                       convergence=dict(bands=6), eigensolver=Davidson(niter=2))
 atoms.get_potential_energy()
 response = calc.hamiltonian.xc.xcs['RESPONSE']

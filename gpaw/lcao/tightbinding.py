@@ -38,7 +38,7 @@ class TightBinding:
 
         # Symmetry
         self.symmetry = kd.symmetry
-        if calc.input_parameters['usesymm'] is True:
+        if self.symmetry['point_group'] is True:
             raise NotImplementedError, "Only time-reversal symmetry supported."
 
         # Lattice vectors and number of repetitions
@@ -62,10 +62,10 @@ class TightBinding:
             self.N_c = tuple(self.Nk_c)
         else:
             self.N_c = tuple(N_c)
-            
+
         if np.any(np.asarray(self.Nk_c) < np.asarray(self.N_c)):
             print("WARNING: insufficient k-point sampling.")
-            
+
         # Lattice vectors
         R_cN = np.indices(self.N_c).reshape(3, -1)
         N_c = np.array(self.N_c)[:, np.newaxis]
@@ -89,7 +89,7 @@ class TightBinding:
         R_cN: ndarray
             Cell vectors for which the real-space matrices will be calculated
             and returned.
-            
+
         """
 
         # Include all cells per default
@@ -97,7 +97,7 @@ class TightBinding:
             R_Nc = self.R_cN.transpose()
         else:
             R_Nc = [R_c,]
-            
+
         # Real-space quantities
         A_NxMM = []
         # Reshape input array
@@ -124,10 +124,10 @@ class TightBinding:
                     A0_xMM = np.zeros_like(A_xMM)
                 # 
                 self.kd.comm.broadcast(A0_xMM, rank[0])
-                
+
                 # Add conjugate and substract double counted Gamma component
                 A_xMM += A_xMM.conj() - A0_xMM
-                    
+
             A_xMM /= np.prod(self.Nk_c)
 
             try:
@@ -138,7 +138,7 @@ class TightBinding:
             A_NxMM.append(A_xMM.real)
 
         return np.array(A_NxMM)
-    
+
     def h_and_s(self):
         """Return LCAO Hamiltonian and overlap matrix in real-space."""
 
@@ -149,7 +149,7 @@ class TightBinding:
         h = self.calc.hamiltonian
         wfs = self.calc.wfs
         kpt_u = wfs.kpt_u
-        
+
         for kpt in kpt_u:
             H_MM = wfs.eigensolver.calculate_hamiltonian_matrix(h, wfs, kpt)
             S_MM = wfs.S_qMM[kpt.q]
@@ -167,7 +167,7 @@ class TightBinding:
         S_NMM = self.bloch_to_real_space(S_kMM)
 
         return H_NMM, S_NMM
-    
+
     def band_structure(self, path_kc, blochstates=False):
         """Calculate dispersion along a path in the Brillouin zone.
 
@@ -184,7 +184,7 @@ class TightBinding:
 
         # Real-space matrices
         self.H_NMM, self.S_NMM = self.h_and_s()
-        
+
         assert self.H_NMM is not None
         assert self.S_NMM is not None
 
@@ -194,7 +194,7 @@ class TightBinding:
         # Lists for eigenvalues and eigenvectors along path
         eps_kn = []
         psi_kn = []
-        
+
         for k_c in path_kc:
             # Evaluate fourier sum
             phase_N = np.exp(-2.j * pi * np.dot(k_c, R_cN))
@@ -217,8 +217,8 @@ class TightBinding:
 
         # Convert to eV
         eps_kn = np.array(eps_kn) * units.Hartree
-        
+
         if blochstates:
             return eps_kn, np.array(psi_kn)
-        
+
         return eps_kn

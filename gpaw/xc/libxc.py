@@ -3,25 +3,19 @@ from gpaw.xc.kernel import XCKernel
 from gpaw import debug
 
 short_names = {
-    'LDA':     'LDA_X+LDA_C_PW',
-    'PW91':    'GGA_X_PW91+GGA_C_PW91',
-    'PBE':     'GGA_X_PBE+GGA_C_PBE',
-    'PBEsol':  'GGA_X_PBE_SOL+GGA_C_PBE_SOL',
-    'revPBE':  'GGA_X_PBE_R+GGA_C_PBE',
-    'RPBE':    'GGA_X_RPBE+GGA_C_PBE',
-    'BLYP':    'GGA_X_B88+GGA_C_LYP',
+    'LDA': 'LDA_X+LDA_C_PW',
+    'PW91': 'GGA_X_PW91+GGA_C_PW91',
+    'PBE': 'GGA_X_PBE+GGA_C_PBE',
+    'PBEsol': 'GGA_X_PBE_SOL+GGA_C_PBE_SOL',
+    'revPBE': 'GGA_X_PBE_R+GGA_C_PBE',
+    'RPBE': 'GGA_X_RPBE+GGA_C_PBE',
+    'BLYP': 'GGA_X_B88+GGA_C_LYP',
     'HCTH407': 'GGA_XC_HCTH_407',
-    'WC':      'GGA_X_WC+GGA_C_PBE',
-    'AM05':    'GGA_X_AM05+GGA_C_AM05',
-#    'TPSSLXC':    'MGGA_X_TPSS+MGGA_C_TPSS',
-    'M06LLXC':    'MGGA_X_M06_L+MGGA_C_M06_L',
-#    'revTPSSLXC': 'MGGA_X_REVTPSS+MGGA_C_REVTPSS',
-#    'oTPSS':   'MGGA_X_OTPSS+MGGA_C_OTPSS',
-#    'MS0':     'MGGA_X_MS0+GGA_C_VPBE',
-#    'MS1':     'MGGA_X_MS1+GGA_C_VPBE',
-#    'MS2':     'MGGA_X_MS2+GGA_C_VPBE',
-#    'mBEEF':   'MGGA_X_MBEEF+GGA_C_PBE_SOL'
-}
+    'WC': 'GGA_X_WC+GGA_C_PBE',
+    'AM05': 'GGA_X_AM05+GGA_C_AM05',
+    'M06LLXC': 'MGGA_X_M06_L+MGGA_C_M06_L',
+    'mBEEF': 'MGGA_X_MBEEF+GGA_C_PBE_SOL'}
+
 
 class LibXC(XCKernel):
     def __init__(self, name):
@@ -51,7 +45,9 @@ class LibXC(XCKernel):
             xc = -1
             x = _gpaw.lxcXCFuncNum(x)
             c = _gpaw.lxcXCFuncNum(c)
-
+            if x is None or c is None:
+                raise NameError('Unknown functional: "%s".' % name)
+                
         self.xc = _gpaw.lxcXCFunctional(xc, x, c, nspins)
 
         if self.xc.is_mgga():

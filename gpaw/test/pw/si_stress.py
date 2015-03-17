@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase.lattice import bulk
 from gpaw import GPAW, PW
@@ -31,7 +32,7 @@ for v in range(3):
     si.set_cell(np.dot(cell, x), scale_atoms=True)
     em = si.calc.get_potential_energy(si, force_consistent=True)
     s = (ep - em) / 2 / deps / si.get_volume()
-    print(v, s, abs(s - sigma_vv[v, v]))
+    print((v, s, abs(s - sigma_vv[v, v])))
     assert abs(s - sigma_vv[v, v]) < 1e-4
 for v1 in range(3):
     v2 = (v1 + 1) % 3
@@ -45,5 +46,5 @@ for v1 in range(3):
     si.set_cell(np.dot(cell, x), scale_atoms=True)
     em = si.calc.get_potential_energy(si, force_consistent=True)
     s = (ep - em) / deps / 4 / si.get_volume()
-    print(v1, v2, s, abs(s - sigma_vv[v1, v2]))
+    print((v1, v2, s, abs(s - sigma_vv[v1, v2])))
     assert abs(s - sigma_vv[v1, v2]) < 2e-4

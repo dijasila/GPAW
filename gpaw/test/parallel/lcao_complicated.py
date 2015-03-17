@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase.lattice.surface import fcc111
 
@@ -34,10 +35,10 @@ system.rattle(stdev=0.2, seed=17)
 
 #system.set_pbc(0)
 #system.center(vacuum=3.5)
-from gpaw import FermiDirac
+from gpaw import FermiDirac, LCAO
 
 def calculate(parallel, comm=world, Eref=None, Fref=None):
-    calc = GPAW(mode='lcao',
+    calc = GPAW(mode=LCAO(atomic_correction='scipy'),
                 basis=dict(O='dzp', Au='sz(dzp)'),
                 occupations=FermiDirac(0.1),
                 kpts=(4, 1, 1),
@@ -52,11 +53,11 @@ def calculate(parallel, comm=world, Eref=None, Fref=None):
     F = system.get_forces()
 
     if world.rank == 0:
-        print 'Results'
-        print '-----------'
-        print E
-        print F
-        print '-----------'
+        print('Results')
+        print('-----------')
+        print(E)
+        print(F)
+        print('-----------')
 
     if Eref is not None:
         Eerr = abs(E - Eref)

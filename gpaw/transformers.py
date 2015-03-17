@@ -8,6 +8,7 @@ differentt uniform 3D grids.
 """
 
 from __future__ import division
+from __future__ import print_function
 from math import pi
 import numpy as np
 
@@ -129,7 +130,7 @@ def multiple_transform_apply(transformerlist, inputs, outputs, phases=None):
 
 def coefs(k, p):
     for i in range(0, k * p, p):
-        print '%2d' % i,
+        print('%2d' % i, end=' ')
         for x in range((k // 2 - 1) * p, k // 2 * p + 1):
             n = 1
             d = 1
@@ -138,5 +139,5 @@ def coefs(k, p):
                     continue
                 n *= x - j
                 d *= i - j
-            print '%14.16f' % (n / d),
-        print
+            print('%14.16f' % (n / d), end=' ')
+        print()

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
@@ -21,24 +22,25 @@ def XC(kernel, parameters=None):
     
     if isinstance(kernel, str):
         name = kernel
-        if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW', 'C09-vdW']:
-            from gpaw.xc.vdw import FFTVDWFunctional
-            return FFTVDWFunctional(name)
-        elif name in ['EXX', 'PBE0', 'B3LYP', 'HSE03', 'HSE06']:
+        if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
+                    'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:
+            from gpaw.xc.vdw import VDWFunctional
+            return VDWFunctional(name)
+        elif name in ['EXX', 'PBE0', 'B3LYP']:
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(name)
+        elif name in ['HSE03', 'HSE06']:
+            from gpaw.xc.exx import EXX
+            return EXX(name)
         elif name == 'BEE1':
             from gpaw.xc.bee import BEE1
             kernel = BEE1(parameters)
         elif name == 'BEE2':
             from gpaw.xc.bee import BEE2
             kernel = BEE2(parameters)
-        elif name in ['BEEF-vdW','BEEF-1']:
-            from gpaw.xc.bee import BEEVDWFunctional
-            return BEEVDWFunctional('BEEF-vdW')
         elif name.startswith('GLLB'):
             from gpaw.xc.gllb.nonlocalfunctionalfactory import \
-                 NonLocalFunctionalFactory
+                NonLocalFunctionalFactory
             xc = NonLocalFunctionalFactory().get_functional_by_name(name)
             xc.print_functional()
             return xc
@@ -50,10 +52,10 @@ def XC(kernel, parameters=None):
             return ODDFunctional(name[4:])
         elif name.endswith('PZ-SIC'):
             try:
-                from ODD import PerdewZungerSIC as SIC 
+                from ODD import PerdewZungerSIC as SIC
                 return SIC(xc=name[:-7])
             except:
-                from gpaw.xc.sic import SIC 
+                from gpaw.xc.sic import SIC
                 return SIC(xc=name[:-7])
         elif name == 'TPSS' or name == 'M06L' or name == 'revTPSS':
             from gpaw.xc.kernel import XCKernel
@@ -64,12 +66,15 @@ def XC(kernel, parameters=None):
         elif name == 'PPLDA':
             from gpaw.xc.lda import PurePythonLDAKernel
             kernel = PurePythonLDAKernel()
-        elif name in ['pyPBE', 'pyPBEsol', 'pyRPBE',  'pyzvPBEsol']:
+        elif name in ['pyPBE', 'pyPBEsol', 'pyRPBE', 'pyzvPBEsol']:
             from gpaw.xc.gga import PurePythonGGAKernel
             kernel = PurePythonGGAKernel(name)
         elif name == '2D-MGGA':
             from gpaw.xc.mgga import PurePython2DMGGAKernel
             kernel = PurePython2DMGGAKernel(name, parameters)
+        elif name[0].isdigit():
+            from gpaw.xc.parametrizedxc import ParametrizedKernel
+            kernel = ParametrizedKernel(name)
         else:
             kernel = LibXC(kernel)
     if kernel.type == 'LDA':
@@ -79,3 +84,26 @@ def XC(kernel, parameters=None):
     else:
         return MGGA(kernel)
 
+        
+def xc(filename, xc, ecut=None):
+    """Calculate non self-consitent energy.
+    
+    filename: str
+        Name of restart-file.
+    xc: str
+        Functional
+    ecut: float
+        Plane-wave cutoff for exact exchange.
+    """
+    name, ext = filename.rsplit('.', 1)
+    assert ext == 'gpw'
+    if xc in ['EXX', 'PBE0', 'B3LYP']:
+        from gpaw.xc.exx import EXX
+        exx = EXX(filename, xc, ecut=ecut, txt=name + '-exx.txt')
+        exx.calculate()
+        e = exx.get_total_energy()
+    else:
+        from gpaw import GPAW
+        calc = GPAW(filename, txt=None)
+        e = calc.get_potential_energy() + calc.get_xc_difference(xc)
+    print(e, 'eV')

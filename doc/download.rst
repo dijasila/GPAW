@@ -100,7 +100,7 @@ After getting the code :ref:`create_links`.
 
 .. note::
 
-   The recommended checkout path is :envvar:`$HOME`.
+   The recommended checkout path is :envvar:`HOME`.
 
 See :ref:`faq` in case of problems.
 
@@ -121,11 +121,11 @@ After downloading create the link to the requested version, e.g.:
 - if retrieved as ``tarball``::
 
    $ cd $HOME
-   $ tar xtzf gpaw-0.9.0.8965.tar.gz
+   $ tar -xtf gpaw-0.9.0.8965.tar.gz
    $ ln -s gpaw-0.9.0.8965 gpaw
 
   .. note::
 
-     The recommended installation path is :envvar:`$HOME`.
+     The recommended installation path is :envvar:`HOME`.
 
 When you have the code, go back to the :ref:`installationguide_developer`.

@@ -15,6 +15,7 @@ from gpaw.mpi import serial_comm
 
 NONBLOCKING = False
 
+
 class BandDescriptor:
     """Descriptor-class for ordered lists of bands
 
@@ -49,7 +50,7 @@ class BandDescriptor:
             [ 1,  4,  7, 10],
             [ 2,  5,  8, 11]])
      """
-    
+
     def __init__(self, nbands, comm=None, strided=False):
         """Construct band-descriptor object.
 
@@ -77,7 +78,7 @@ class BandDescriptor:
         ``comm``      MPI-communicator for band distribution.
         ============  ======================================================
         """
-        
+
         if comm is None:
             comm = serial_comm
         self.comm = comm
@@ -154,9 +155,9 @@ class BandDescriptor:
         ``float``).  Extra dimensions can be added with ``n=dim``.
         A global array spanning all domains can be allocated with
         ``global_array=True``."""
-        #TODO XXX doc
+        # TODO XXX doc
         return self._new_array(n, dtype, True, global_array)
-    
+
     def empty(self, n=(), dtype=float, global_array=False):
         """Return new uninitialized 3D array for this domain.
 
@@ -164,15 +165,15 @@ class BandDescriptor:
         ``float``).  Extra dimensions can be added with ``n=dim``.
         A global array spanning all domains can be allocated with
         ``global_array=True``."""
-        #TODO XXX doc
+        # TODO XXX doc
         return self._new_array(n, dtype, False, global_array)
-        
+
     def _new_array(self, n=(), dtype=float, zero=True, global_array=False):
         if global_array:
             shape = self.get_size_of_global_array()
         else:
             shape = (self.mynbands,)
-            
+
         if isinstance(n, int):
             n = (n,)
 
@@ -257,7 +258,6 @@ class BandDescriptor:
                     requests.append((request, a_nx))
                 else:
                     b_nx[:] = B_nx[self.get_slice(), ...]
-                        
+
             for request, a_nx in requests:
                 self.comm.wait(request)
-

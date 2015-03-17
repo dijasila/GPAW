@@ -1,4 +1,3 @@
-import os
 import optparse
 import traceback
 from time import time
@@ -18,8 +17,9 @@ op = optparse.OptionParser(
 opts, args = op.parse_args()
 
 tag = args.pop(0).rstrip('/')
-execfile(tag + '/params.py')  # get the calc function
-        
+exec(open(tag + '/params.py').read())  # get the calc() function
+setup = globals()['calc']
+
 c = ase.db.connect('results.db')
 
 if args:
@@ -47,7 +47,7 @@ for name in names:
     if atoms.calc is None:
         atoms.calc = GPAW()
 
-    calc(atoms)
+    setup(atoms)
     
     atoms.calc.set(txt=tag + '/' + name + '.txt')
     

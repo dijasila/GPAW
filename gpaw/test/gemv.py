@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+from __future__ import print_function
 
 import time
 import numpy as np
@@ -35,7 +35,7 @@ mem += Q*G*itemsize #n_qg
 mem += G*itemsize #x_g
 mem += Q*itemsize #nx_q
 
-print 'Estimated memory: %8.5f MB' % (mem/1024**2.,)
+print('Estimated memory: %8.5f MB' % (mem/1024**2.,))
 
 B_pqL = getrand((P,Q,L), dtype)
 Y_L = getrand(L, dtype)
@@ -44,7 +44,7 @@ x_g = getrand(G, dtype)
 
 # -------------------------------------------------------------------
 
-print '\n%s\nBY_pq calculations\n%s\n' % ('='*40, '='*40)
+print('\n%s\nBY_pq calculations\n%s\n' % ('='*40, '='*40))
 numflop = (dtype==float and 2 or 8)*P*Q*L
 numreps = 1+int(refperf/numflop)
 
@@ -56,7 +56,7 @@ for n in range(numreps):
     BY1_pq = np.dot(B_pqL, Y_L)
 t = time.time()-t
 performance = numflop*numreps/t
-print 'dot    : %8.5f s, %8.5f Mflops' % (t,performance/1024**2.)
+print('dot    : %8.5f s, %8.5f Mflops' % (t,performance/1024**2.))
 assert np.abs(BY0_pq-BY1_pq).max()<5e-12
 del BY1_pq
 
@@ -68,7 +68,7 @@ if test_gemmdot:
         gemmdot(B_pqL, Y_L, 1.0, beta, BY2_pq)
     t = time.time()-t
     performance = numflop*numreps/t
-    print 'gemmdot: %8.5f s, %8.5f Mflops' % (t,performance/1024**2.)
+    print('gemmdot: %8.5f s, %8.5f Mflops' % (t,performance/1024**2.))
     assert np.abs(BY0_pq-BY2_pq).max()<5e-12
     del BY2_pq
 
@@ -79,7 +79,7 @@ for n in range(numreps):
     gemv(1.0, B_pqL, Y_L, beta, BY3_pq, 't')
 t = time.time()-t
 performance = numflop*numreps/t
-print 'gemvT  : %8.5f s, %8.5f Mflops' % (t,performance/1024**2.)
+print('gemvT  : %8.5f s, %8.5f Mflops' % (t,performance/1024**2.))
 assert np.abs(BY0_pq-BY3_pq).max()<5e-12
 del BY3_pq
 
@@ -91,7 +91,7 @@ for n in range(numreps):
     gemv(1.0, B_xL, Y_L, beta, BY4_x, 't')
 t = time.time()-t
 performance = numflop*numreps/t
-print 'gemvT2D: %8.5f s, %8.5f Mflops' % (t,performance/1024**2.)
+print('gemvT2D: %8.5f s, %8.5f Mflops' % (t,performance/1024**2.))
 assert np.abs(BY0_pq-BY4_x.reshape((P,Q))).max()<5e-12
 del B_xL, BY4_x
 
@@ -103,7 +103,7 @@ for n in range(numreps):
     gemv(1.0, BT_Lqp, Y_L, beta, BY5T_qp, 'n')
 t = time.time()-t
 performance = numflop*numreps/t
-print 'gemvN  : %8.5f s, %8.5f Mflops' % (t,performance/1024**2.)
+print('gemvN  : %8.5f s, %8.5f Mflops' % (t,performance/1024**2.))
 assert np.abs(BY0_pq-BY5T_qp.T).max()<5e-12
 del BT_Lqp, BY5T_qp
 
@@ -115,13 +115,13 @@ for n in range(numreps):
     gemv(1.0, BT_Lx, Y_L, beta, BY6T_x, 'n')
 t = time.time()-t
 performance = numflop*numreps/t
-print 'gemvN2D: %8.5f s, %8.5f Mflops' % (t,performance/1024**2.)
+print('gemvN2D: %8.5f s, %8.5f Mflops' % (t,performance/1024**2.))
 assert np.abs(BY0_pq-BY6T_x.reshape((Q,P)).T).max()<5e-12
 del BT_Lx, BY6T_x
 
 # -------------------------------------------------------------------
 
-print '\n%s\nnx_q calculations\n%s\n' % ('='*40, '='*40)
+print('\n%s\nnx_q calculations\n%s\n' % ('='*40, '='*40))
 numflop = (dtype==float and 2 or 8)*Q*G
 numreps = 1+int(refperf/numflop)
 
@@ -133,7 +133,7 @@ for n in range(numreps):
     nx1_q = np.dot(n_qg, x_g)
 t = time.time()-t
 performance = numflop*numreps/t
-print 'dot    : %8.5f s, %8.5f Mflops' % (t,performance/1024**2.)
+print('dot    : %8.5f s, %8.5f Mflops' % (t,performance/1024**2.))
 assert np.abs(nx0_q-nx1_q).max()<5e-12
 del nx1_q
 
@@ -145,7 +145,7 @@ if test_gemmdot:
         gemmdot(n_qg, x_g, 1.0, beta, nx2_q)
     t = time.time()-t
     performance = numflop*numreps/t
-    print 'gemmdot: %8.5f s, %8.5f Mflops' % (t,performance/1024**2.)
+    print('gemmdot: %8.5f s, %8.5f Mflops' % (t,performance/1024**2.))
     assert np.abs(nx0_q-nx2_q).max()<5e-12
     del nx2_q
 
@@ -156,7 +156,7 @@ for n in range(numreps):
     gemv(1.0, n_qg, x_g, beta, nx3_q, 't')
 t = time.time()-t
 performance = numflop*numreps/t
-print 'gemvT  : %8.5f s, %8.5f Mflops' % (t,performance/1024**2.)
+print('gemvT  : %8.5f s, %8.5f Mflops' % (t,performance/1024**2.))
 assert np.abs(nx0_q-nx3_q).max()<5e-12
 del nx3_q
 
@@ -168,7 +168,7 @@ for n in range(numreps):
     gemv(1.0, nT_gq, x_g, beta, nx4_q, 'n')
 t = time.time()-t
 performance = numflop*numreps/t
-print 'gemvN  : %8.5f s, %8.5f Mflops' % (t,performance/1024**2.)
+print('gemvN  : %8.5f s, %8.5f Mflops' % (t,performance/1024**2.))
 assert np.abs(nx0_q-nx4_q).max()<5e-12
 del nT_gq, nx4_q
 

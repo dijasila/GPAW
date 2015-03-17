@@ -7,9 +7,9 @@ import numpy as np
 class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
     def __init__(
         self, cavity, dielectric, interactions,
-        gd, finegd, nspins, setups, timer, xc,
-        vext=None, collinear=True, psolver=None,
-        stencil=3, world=None
+        gd, finegd, nspins, setups, timer, xc, world,
+        kptband_comm, vext=None, collinear=True, psolver=None,
+        stencil=3
         ):
         self.cavity = cavity
         self.dielectric = dielectric
@@ -24,9 +24,9 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.gradient = None
         RealSpaceHamiltonian.__init__(
             self,
-            gd, finegd, nspins, setups, timer, xc,
-            vext, collinear, psolver,
-            stencil, world
+            gd, finegd, nspins, setups, timer, xc, world,
+            kptband_comm, vext, collinear, psolver,
+            stencil
             )
         for ia in interactions:
             setattr(self, 'E_' + ia.subscript, None)

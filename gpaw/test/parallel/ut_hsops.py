@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-
+from __future__ import print_function
 import gc
 import sys
 import time
@@ -13,6 +12,8 @@ except (ImportError, RuntimeError):
     mpl = None
 
 from ase.units import Bohr
+from ase.utils import devnull
+
 from gpaw.mpi import world, distribute_cpus
 from gpaw.utilities.tools import tri2full, md5_array, gram_schmidt
 from gpaw.band_descriptor import BandDescriptor
@@ -69,8 +70,11 @@ class UTBandParallelSetup(TestCase):
 
         parsize_domain, parsize_bands = create_parsize_maxbands(self.nbands, world.size)
         assert self.nbands % parsize_bands == 0
-        domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain,
-            parsize_bands, self.nspins, self.nibzkpts)
+        comms = distribute_cpus(parsize_domain,
+                                parsize_bands, self.nspins, self.nibzkpts)
+        domain_comm, kpt_comm, band_comm, block_comm = \
+            [comms[name] for name in 'dkbK']
+        self.block_comm = block_comm
 
         # Set up band descriptor:
         self.bd = BandDescriptor(self.nbands, band_comm, self.parstride_bands)
@@ -88,10 +92,10 @@ class UTBandParallelSetup(TestCase):
         self.kpt_comm = kpt_comm
 
     def tearDown(self):
-        del self.bd, self.gd, self.ksl, self.kpt_comm
+        del self.bd, self.gd, self.ksl, self.kpt_comm, self.block_comm
 
     def create_kohn_sham_layouts(self):
-        return BandLayouts(self.gd, self.bd, self.dtype)
+        return BandLayouts(self.gd, self.bd, self.block_comm, self.dtype)
 
     # =================================
 
@@ -253,15 +257,15 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
 
         dm_r, dminfo = create_memory_info(MemorySingleton(), self.mem_pre)
         if world.rank == 0:
-            print 'overhead: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.)
+            print('overhead: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.))
 
         dm_r, dminfo = create_memory_info(self.mem_pre, self.mem_alloc)
         if world.rank == 0:
-            print 'allocate: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.)
+            print('allocate: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.))
 
         dm_r, dminfo = create_memory_info(self.mem_alloc, self.mem_test)
         if world.rank == 0:
-            print 'test-use: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.)
+            print('test-use: %s -> %8.4f MB' % (dminfo, dm_r.sum()/1024**2.))
 
     def allocate(self):
         """
@@ -743,7 +747,6 @@ if __name__ in ['__main__', '__builtin__']:
     if __name__ == '__builtin__':
         testrunner = CustomTextTestRunner('ut_hsops.log', verbosity=2)
     else:
-        from gpaw.utilities import devnull
         stream = (world.rank == 0) and sys.stdout or devnull
         testrunner = TextTestRunner(stream=stream, verbosity=2)
 

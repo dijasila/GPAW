@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase.structure import molecule
 
@@ -21,7 +22,7 @@ eig.sort()
 eig_ref = np.array([-17.87911292, -13.24864985, -11.43106707, -7.12558127,
                     -7.12558127, 0.59294531, 0.59294531, 3.92526888,
                     7.45117399, 26.73466374])
-print eig
+print(eig)
 assert np.allclose(eig, eig_ref)
 
 # Test V
@@ -50,4 +51,4 @@ Vref_nM = np.array(
 ## from gpaw.mpi import rank
 ## if rank == 0:
 ##     print V_qnM[0]
-print abs(V_qnM[0]) - abs(Vref_nM) # assert <--- this to zero
+print(abs(V_qnM[0]) - abs(Vref_nM)) # assert <--- this to zero

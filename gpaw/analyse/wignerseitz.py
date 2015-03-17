@@ -8,6 +8,7 @@ from gpaw.analyse.hirshfeld import HirshfeldDensity
 from gpaw.utilities.tools import coordinates
 from gpaw.mpi import MASTER
 
+
 def wignerseitz(gd, atoms, scale=None):
     """Determine which atom is closest to each grid point.
 
@@ -17,17 +18,19 @@ def wignerseitz(gd, atoms, scale=None):
     else:
         assert(len(scale) == len(atoms))
     r_vG, R2min_G = coordinates(gd, atoms[0].position / Bohr)
-    R2min_G *= scale[0]**2
+    R2min_G *= scale[0] ** 2
     index_G = gd.zeros(dtype=int)
     for a, atom in enumerate(atoms[1:]):
         r_vG, r2_G = coordinates(gd, atom.position / Bohr)
-        r2_G *= scale[a + 1]**2
+        r2_G *= scale[a + 1] ** 2
         index_G = np.where(R2min_G > r2_G, a + 1, index_G)
         R2min_G = np.where(R2min_G > r2_G, r2_G, R2min_G)
     return index_G
 
+
 class WignerSeitz:
-    def __init__(self, gd, atoms, 
+
+    def __init__(self, gd, atoms,
                  calculator=None, scale=None):
         """Find the grid points nearest to the atoms"""
 
@@ -56,7 +59,7 @@ class WignerSeitz:
         for a, nucleus in enumerate(self.atoms):
             weights_a[a] += nucleus.get_density_correction(s, nspins)
         return weights_a
-    
+
     def expand_wave_function(self, psit_G, u, n):
         """Get the weights of wave function in Wigner-Seitz cells
         around the atoms. The spin-k-point index u and band number n
@@ -64,14 +67,14 @@ class WignerSeitz:
 
         assert psit_G.dtype == float
         # smooth part
-        weigths = self.expand(psit_G**2)
+        weigths = self.expand(psit_G ** 2)
 
         # add augmentation sphere corrections
         for a, nucleus in enumerate(self.atoms):
             P_i = nucleus.P_uni[u, n]
             P_p = pack(np.outer(P_i, P_i))
             Delta_p = sqrt(4 * pi) * nucleus.setup.Delta_pL[:, 0]
-            weigths[a] += np.dot(Delta_p, P_p) 
+            weigths[a] += np.dot(Delta_p, P_p)
 
         return weigths
 
@@ -110,7 +113,7 @@ class WignerSeitz:
         denom = finegd.integrate(r3_g * denfree_g)
 
         return nom / denom
-        
+
     def get_effective_volume_ratios(self):
         """Return the list of effective volume to free volume ratios."""
         ratios = []
@@ -119,9 +122,11 @@ class WignerSeitz:
             ratios.append(self.get_effective_volume_ratio(a))
         return np.array(ratios)
 
+
 class LDOSbyBand:
+
     """Base class for a band by band LDOS"""
-    
+
     def by_element(self):
         # get element indicees
         elemi = {}
@@ -135,12 +140,15 @@ class LDOSbyBand:
             elemi[key] = self.get(elemi[key])
         return elemi
 
+
 class WignerSeitzLDOS(LDOSbyBand):
+
     """Class to get the unfolded LDOS defined by Wigner-Seitz cells"""
+
     def __init__(self, paw):
         self.paw = paw
         self.ws = WignerSeitz(paw.gd, paw.atoms)
-        
+
         nu = paw.nkpts * paw.nspins
         ldos = np.empty((nu, paw.nbands, len(paw.atoms)))
         for u, kpt in enumerate(paw.kpt_u):
@@ -153,11 +161,10 @@ class WignerSeitzLDOS(LDOSbyBand):
             f = open(filename, 'w')
 
             nn = len(paw.atoms)
-            
-            
+
             for k in range(paw.nkpts):
                 for s in range(paw.nspins):
-                    u = s*paw.nkpts + k
-                    for n in range(paw.nbands): 
+                    u = s * paw.nkpts + k
+                    for n in range(paw.nbands):
                         # avery: Added dummy loop body to make compiling work.
                         1

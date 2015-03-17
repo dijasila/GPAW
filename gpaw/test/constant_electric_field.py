@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+from __future__ import print_function
 
 import sys
 from math import sqrt, pi
@@ -53,7 +53,7 @@ if True:
     e_no_field = [ ]
     for z in z_list:
         if rank == 0 and debug:
-            print z
+            print(z)
     
         a[0].z = z
 
@@ -79,7 +79,7 @@ if True:
     e_with_field = [ ]
     for z in z_list:
         if rank == 0 and debug:
-            print z
+            print(z)
     
         a[0].z = z
 
@@ -98,7 +98,7 @@ c1, c2 = np.polyfit(z_list, e_with_field-e_no_field, 1)
 err    = abs(c1-a[0].number*field)
 
 if rank == 0 and debug:
-    print c1
-    print err
+    print(c1)
+    print(err)
 
 assert err < 0.001

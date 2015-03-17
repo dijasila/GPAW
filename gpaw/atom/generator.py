@@ -1,7 +1,6 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-
-import sys
+from __future__ import print_function
 from math import pi, sqrt
 
 import numpy as np
@@ -21,9 +20,11 @@ from gpaw.atom.filter import Filter
 class Generator(AllElectron):
     def __init__(self, symbol, xcname='LDA', scalarrel=False, corehole=None,
                  configuration=None,
-                 nofiles=True, txt='-', gpernode=150):
+                 nofiles=True, txt='-', gpernode=150,
+                 orbital_free=False, tf_coeff=1.):
         AllElectron.__init__(self, symbol, xcname, scalarrel, corehole,
-                             configuration, nofiles, txt, gpernode)
+                             configuration, nofiles, txt, gpernode,
+                             orbital_free, tf_coeff)
 
     def run(self, core='', rcut=1.0, extra=None,
             logderiv=False, vbar=None, exx=False, name=None,
@@ -79,8 +80,6 @@ class Generator(AllElectron):
         njcore = j
         self.njcore = njcore
 
-        lmaxocc = max(l_j[njcore:])
-
         while empty_states != '':
             n = int(empty_states[0])
             l = 'spdf'.find(empty_states[1])
@@ -113,6 +112,24 @@ class Generator(AllElectron):
 
         self.Nv = sum(f_j[njcore:])
         self.Nc = sum(f_j[:njcore])
+
+        lmaxocc = max(l_j[njcore:])
+        lmax = max(l_j[njcore:])
+
+        #Parameters for orbital_free
+        if self.orbital_free:
+            self.n_j = [1]
+            self.l_j = [0]
+            self.f_j = [self.Z]
+            self.e_j = [self.e_j[0]]
+
+            n_j = self.n_j
+            l_j = self.l_j
+            f_j = self.f_j
+            e_j = self.e_j
+            nj = len(n_j)
+            lmax = 0
+            lmaxocc = 0
 
         # Do all-electron calculation:
         AllElectron.run(self, use_restart_file)
@@ -169,8 +186,6 @@ class Generator(AllElectron):
                                                       self.u_j[:njcore])
             t('Kinetic energy of the core from tauc =',
               np.dot(tauc * r * r, dr) * 4 * pi)
-
-        lmax = max(l_j[njcore:])
 
         # Order valence states with respect to angular momentum
         # quantum number:
@@ -393,14 +408,13 @@ class Generator(AllElectron):
         assert abs(norm - 1) < 1e-2
         gt /= norm
 
-
         # Calculate smooth charge density:
         Nt = np.dot(nt, dv)
         rhot = nt - (Nt + charge / (4 * pi)) * gt
         t('Pseudo-electron charge', 4 * pi * Nt)
 
         vHt = np.zeros(N)
-        hartree(0, rhot * r * dr, self.beta, self.N, vHt)
+        hartree(0, rhot * r * dr, r, vHt)
         vHt[1:] /= r[1:]
         vHt[0] = vHt[1]
 
@@ -409,16 +423,19 @@ class Generator(AllElectron):
         extra_xc_data = {}
 
         if self.xc.type != 'GLLB':
-            Exct = self.xc.calculate_spherical(self.rgd,
-                                               nt.reshape((1, -1)),
-                                               vXCt.reshape((1, -1)))
+            self.xc.calculate_spherical(self.rgd,
+                                        nt.reshape((1, -1)),
+                                        vXCt.reshape((1, -1)))
         else:
-            Exct = self.xc.get_smooth_xc_potential_and_energy_1d(vXCt)
+            self.xc.get_smooth_xc_potential_and_energy_1d(vXCt)
 
             # Calculate extra-stuff for non-local functionals
             self.xc.get_extra_setup_data(extra_xc_data)
 
         vt = vHt + vXCt
+
+        if self.orbital_free:
+            vt /= self.tf_coeff
 
         # Construct zero potential:
         gc = 1 + int(rcutvbar * N / (rcutvbar + beta))
@@ -455,7 +472,7 @@ class Generator(AllElectron):
                           a1 * (l + 2) * (l + 3) * r2 +
                           a2 * (l + 4) * (l + 5) * r4 +
                           a3 * (l + 6) * (l + 7) * r6)
-            denominator = a0 + a1 * r2 + a2 * r4 + a3 * r6            
+            denominator = a0 + a1 * r2 + a2 * r4 + a3 * r6
             ekin_over_phit = - 0.5 * (enumerator / denominator - l * (l + 1))
             ekin_over_phit[1:] /= r2[1:]
 
@@ -489,16 +506,17 @@ class Generator(AllElectron):
                 q[gcutmax:] = 0.0
 
         filter = Filter(r, dr, gcutfilter, hfilter).filter
-
+        if self.orbital_free:
+            vbar *= self.tf_coeff
         vbar = filter(vbar * r)
 
         # Calculate matrix elements:
         self.dK_lnn = dK_lnn = []
         self.dH_lnn = dH_lnn = []
         self.dO_lnn = dO_lnn = []
+
         for l, (e_n, u_n, s_n, q_n) in enumerate(zip(e_ln, u_ln,
                                                      s_ln, q_ln)):
-
             A_nn = np.inner(s_n, q_n * dr)
             # Do a LU decomposition of A:
             nn = len(e_n)
@@ -547,7 +565,6 @@ class Generator(AllElectron):
         self.vt = vt
         self.vbar = vbar
 
-
         t('state    eigenvalue         norm')
         t('--------------------------------')
         for l, (n_n, f_n, e_n) in enumerate(zip(n_ln, f_ln, e_ln)):
@@ -591,7 +608,7 @@ class Generator(AllElectron):
                               self.scalarrel, gmax=gld)
                         dudr = 0.5 * (u[gld + 1] - u[gld - 1]) / dr[gld]
                         ld = dudr / u[gld] - 1.0 / r[gld]
-                        print >> fae, e, ld
+                        print(e, ld, file=fae)
                         self.logd[l][0][i] = ld
 
                         # PAW logarithmic derivative:
@@ -610,7 +627,7 @@ class Generator(AllElectron):
 
                         dsdr = 0.5 * (s[gld + 1] - s[gld - 1]) / dr[gld]
                         ld = dsdr / s[gld] - 1.0 / r[gld]
-                        print >> fps, e, ld
+                        print(e, ld, file=fps)
                         self.logd[l][1][i] = ld
 
             except KeyboardInterrupt:
@@ -676,6 +693,8 @@ class Generator(AllElectron):
             for n1, j1 in enumerate(j_n):
                 for n2, j2 in enumerate(j_n):
                     self.dK_jj[j1, j2] = self.dK_lnn[l][n1, n2]
+                    if self.orbital_free:
+                        self.dK_jj[j1,j2] *= self.tf_coeff
 
         if exx:
             X_p = constructX(self)
@@ -744,7 +763,7 @@ class Generator(AllElectron):
             setup.core_hole_e_kin = self.Ekincorehole
             setup.fcorehole = self.fcorehole
 
-        if self.ghost:
+        if self.ghost and not self.orbital_free: #In orbital_free we are not interested in ghosts
             raise RuntimeError('Ghost!')
 
         if self.scalarrel:
@@ -757,7 +776,8 @@ class Generator(AllElectron):
 
         setup.generatorattrs = attrs
         setup.generatordata  = data
-
+        setup.orbital_free = self.orbital_free
+        
         self.id_j = []
         for l, n in zip(vl_j, vn_j):
             if n > 0:
@@ -863,22 +883,21 @@ class Generator(AllElectron):
             xml = open('%s.%s' % (self.symbol, xcname), 'w')
         else:
             xml = open('%s.%s.%s' % (self.symbol, self.name, xcname), 'w')
-
         if self.ghost:
             raise RuntimeError('Ghost!')
 
-        print >> xml, '<?xml version="1.0"?>'
-        print >> xml, '<paw_setup version="0.6">'
+        print('<?xml version="1.0"?>', file=xml)
+        print('<paw_setup version="0.6">', file=xml)
 
         name = atomic_names[self.Z].title()
         comment1 = name + ' setup for the Projector Augmented Wave method.'
         comment2 = 'Units: Hartree and Bohr radii.'
         comment2 += ' ' * (len(comment1) - len(comment2))
-        print >> xml, '  <!--', comment1, '-->'
-        print >> xml, '  <!--', comment2, '-->'
+        print('  <!--', comment1, '-->', file=xml)
+        print('  <!--', comment2, '-->', file=xml)
 
-        print >> xml, ('  <atom symbol="%s" Z="%d" core="%.1f" valence="%d"/>'
-                       % (self.symbol, self.Z, self.Nc, self.Nv))
+        print(('  <atom symbol="%s" Z="%d" core="%.1f" valence="%d"/>'
+                       % (self.symbol, self.Z, self.Nc, self.Nv)), file=xml)
         if self.xcname == 'LDA':
             type = 'LDA'
             name = 'PW'
@@ -886,25 +905,25 @@ class Generator(AllElectron):
             type = 'GGA'
             name = self.xcname
 
-        print >> xml, '  <xc_functional type="%s" name="%s"/>' % (type, name)
+        print('  <xc_functional type="%s" name="%s"/>' % (type, name), file=xml)
         if self.scalarrel:
             type = 'scalar-relativistic'
         else:
             type = 'non-relativistic'
 
-        print >> xml, '  <generator type="%s" name="gpaw-%s">' % \
-              (type, version)
-        print >> xml, '    Frozen core:', self.core or 'none'
-        print >> xml, '  </generator>'
+        print('  <generator type="%s" name="gpaw-%s">' % \
+              (type, version), file=xml)
+        print('    Frozen core:', self.core or 'none', file=xml)
+        print('  </generator>', file=xml)
 
-        print >> xml, '  <ae_energy kinetic="%f" xc="%f"' % \
-              (self.Ekin, self.Exc)
-        print >> xml, '             electrostatic="%f" total="%f"/>' % \
-              (self.Epot, self.Ekin + self.Exc + self.Epot)
+        print('  <ae_energy kinetic="%f" xc="%f"' % \
+              (self.Ekin, self.Exc), file=xml)
+        print('             electrostatic="%f" total="%f"/>' % \
+              (self.Epot, self.Ekin + self.Exc + self.Epot), file=xml)
 
-        print >> xml, '  <core_energy kinetic="%f"/>' % Ekincore
+        print('  <core_energy kinetic="%f"/>' % Ekincore, file=xml)
 
-        print >> xml, '  <valence_states>'
+        print('  <valence_states>', file=xml)
         ids = []
         line1 = '    <state n="%d" l="%d" f=%s rc="%5.3f" e="%8.5f" id="%s"/>'
         line2 = '    <state       l="%d"        rc="%5.3f" e="%8.5f" id="%s"/>'
@@ -912,30 +931,30 @@ class Generator(AllElectron):
             if n > 0:
                 f = '%-4s' % ('"%d"' % f)
                 id = '%s-%d%s' % (self.symbol, n, 'spdf'[l])
-                print >> xml, line1 % (n, l, f, self.rcut_l[l], e, id)
+                print(line1 % (n, l, f, self.rcut_l[l], e, id), file=xml)
             else:
                 id = '%s-%s%d' % (self.symbol, 'spdf'[l], -n)
-                print >> xml, line2 % (l, self.rcut_l[l], e, id)
+                print(line2 % (l, self.rcut_l[l], e, id), file=xml)
             ids.append(id)
-        print >> xml, '  </valence_states>'
+        print('  </valence_states>', file=xml)
 
-        print >> xml, ('  <radial_grid eq="r=a*i/(n-i)" a="%f" n="%d" ' +
+        print(('  <radial_grid eq="r=a*i/(n-i)" a="%f" n="%d" ' +
                        'istart="0" iend="%d" id="g1"/>') % \
-                       (self.beta, self.N, self.N - 1)
+                       (self.beta, self.N, self.N - 1), file=xml)
 
         rcgauss = self.rcutcomp / sqrt(self.gamma)
-        print >> xml, ('  <shape_function type="gauss" rc="%.12e"/>' %
-                       rcgauss)
+        print(('  <shape_function type="gauss" rc="%.12e"/>' %
+                       rcgauss), file=xml)
 
         r = self.r
 
-        if self.jcorehole != None:
-            print "self.jcorehole", self.jcorehole
-            print >> xml, (('  <core_hole_state state="%d%s" ' +
+        if self.jcorehole is not None:
+            print("self.jcorehole", self.jcorehole)
+            print((('  <core_hole_state state="%d%s" ' +
                            'removed="%.1f" eig="%.8f" ekin="%.8f">') %
                            (self.ncorehole, 'spdf'[self.lcorehole],
                             self.fcorehole,
-                            self.e_j[self.jcorehole],self.Ekincorehole))
+                            self.e_j[self.jcorehole],self.Ekincorehole)), file=xml)
             #print 'normalized?', np.dot(self.dr, self.u_j[self.jcorehole]**2)
             p = self.u_j[self.jcorehole].copy()
             p[1:] /= r[1:]
@@ -943,8 +962,8 @@ class Generator(AllElectron):
                 p[0] = (p[2] +
                         (p[1] - p[2]) * (r[0] - r[2]) / (r[1] - r[2]))
             for x in p:
-                print >> xml, '%16.12e' % x,
-            print >> xml, '\n  </core_hole_state>'
+                print('%16.12e' % x, end=' ', file=xml)
+            print('\n  </core_hole_state>', file=xml)
 
         for name, a in [('ae_core_density', nc),
                         ('pseudo_core_density', nct),
@@ -952,26 +971,26 @@ class Generator(AllElectron):
                         ('zero_potential', vbar),
                         ('ae_core_kinetic_energy_density',tauc),
                         ('pseudo_core_kinetic_energy_density',tauct)]:
-            print >> xml, '  <%s grid="g1">\n    ' % name,
+            print('  <%s grid="g1">\n    ' % name, end=' ', file=xml)
             for x in a * sqrt(4 * pi):
-                print >> xml, '%16.12e' % x,
-            print >> xml, '\n  </%s>' % name
+                print('%16.12e' % x, end=' ', file=xml)
+            print('\n  </%s>' % name, file=xml)
 
         # Print xc-specific data to setup file (used so for KLI and GLLB)
         for name, a in extra_xc_data.iteritems():
             newname = 'GLLB_'+name
-            print >> xml, '  <%s grid="g1">\n    ' % newname,
+            print('  <%s grid="g1">\n    ' % newname, end=' ', file=xml)
             for x in a:
-                print >> xml, '%16.12e' % x,
-            print >> xml, '\n  </%s>' % newname
+                print('%16.12e' % x, end=' ', file=xml)
+            print('\n  </%s>' % newname, file=xml)
 
         for l, u, s, q, in zip(vl_j, vu_j, vs_j, vq_j):
             id = ids.pop(0)
             for name, a in [('ae_partial_wave', u),
                             ('pseudo_partial_wave', s),
                             ('projector_function', q)]:
-                print >> xml, ('  <%s state="%s" grid="g1">\n    ' %
-                               (name, id)),
+                print(('  <%s state="%s" grid="g1">\n    ' %
+                               (name, id)), end=' ', file=xml)
                 p = a.copy()
                 p[1:] /= r[1:]
                 if l == 0:
@@ -979,26 +998,26 @@ class Generator(AllElectron):
                     p[0] = (p[2] +
                             (p[1] - p[2]) * (r[0] - r[2]) / (r[1] - r[2]))
                 for x in p:
-                    print >> xml, '%16.12e' % x,
-                print >> xml, '\n  </%s>' % name
+                    print('%16.12e' % x, end=' ', file=xml)
+                print('\n  </%s>' % name, file=xml)
 
-        print >> xml, '  <kinetic_energy_differences>',
+        print('  <kinetic_energy_differences>', end=' ', file=xml)
         nj = len(self.dK_jj)
         for j1 in range(nj):
-            print >> xml, '\n    ',
+            print('\n    ', end=' ', file=xml)
             for j2 in range(nj):
-                print >> xml, '%16.12e' % self.dK_jj[j1, j2],
-        print >> xml, '\n  </kinetic_energy_differences>'
+                print('%16.12e' % self.dK_jj[j1, j2], end=' ', file=xml)
+        print('\n  </kinetic_energy_differences>', file=xml)
 
         if X_p is not None:
-            print >>xml, '  <exact_exchange_X_matrix>\n    ',
+            print('  <exact_exchange_X_matrix>\n    ', end=' ', file=xml)
             for x in X_p:
-                print >> xml, '%16.12e' % x,
-            print >>xml, '\n  </exact_exchange_X_matrix>'
+                print('%16.12e' % x, end=' ', file=xml)
+            print('\n  </exact_exchange_X_matrix>', file=xml)
 
-            print >> xml, '  <exact_exchange core-core="%f"/>' % ExxC
+            print('  <exact_exchange core-core="%f"/>' % ExxC, file=xml)
 
-        print >> xml, '</paw_setup>'
+        print('</paw_setup>', file=xml)
 
 def construct_smooth_wavefunction(u, l, gc, r, s):
     # Do a linear regression to a wave function

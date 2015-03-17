@@ -1,40 +1,7 @@
-\documentclass[pdftex, a4paper, twoside]{article}
-\usepackage{amsmath,amssymb,bm}
-\usepackage{caption}
-\usepackage{color}
+\documentclass[a4paper]{article}
+\usepackage{amsmath}
 \usepackage{graphicx}
-\usepackage{fancyhdr}
-\usepackage{a4wide}
-\usepackage{ae,aecompl,aeguill}
-\usepackage{microtype}
-\usepackage{hyperref}
-
-
-\definecolor{DarkBlue}{rgb}{0,0.08,0.45}
-\pdfcompresslevel=9
-\hypersetup{%
-  a4paper,
-  pdfauthor={Carsten Rostgaard},
-  pdftitle={The Projector Augmented-wave Method},
-  pdfsubject={The Projector Augmented-wave Method},
-  pdfstartpage=1,
-  colorlinks=true,
-  pdfstartview=Fit,
-  linkcolor=DarkBlue,
-  citecolor=DarkBlue,
-  urlcolor=DarkBlue,
-  bookmarksnumbered=true,
-  hypertexnames=true,
-  plainpages=false,
-  linkbordercolor={0 0 1}}
-
-\captionsetup{margin=10pt,
-              font=small,
-              labelfont=bf,
-              textfont=it,
-              labelsep=colon,
-              format=plain,
-              singlelinecheck=true}
+%\usepackage{a4wide}
 
 \newcommand{\gpaw}{\textsc{gpaw}}
 \newcommand{\trans}[1]{{#1}^{\mbox{\tiny $T$}}}
@@ -59,23 +26,10 @@
 \newcommand{\phit}{\tilde{\phi}}
 \newcommand{\pt}{\tilde{p}}
 
-\DeclareMathOperator{\tr}{Tr}
-\DeclareMathOperator{\real}{Re}
-\DeclareMathOperator{\imag}{Im}
-\DeclareMathOperator{\erf}{erf}
-\DeclareMathOperator{\erfc}{erfc}
-
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[LE,RO]{\textbf{\thepage}}
-\fancyhead[RE]{\leftmark}
-\fancyhead[LO]{\rightmark}
-
 \title{\vspace*{-21mm}%
   \textbf{The Projector Augmented-wave Method}}
 \author{Carsten Rostgaard}
-\date{February 3, 2010\footnote{%
-    Oct. 10 version available online at \url{http://arxiv.org/abs/0910.1921}.}}
+\date{February 3, 2010}
 
 \begin{document}
 \thispagestyle{empty}
@@ -160,7 +114,7 @@ band index, and a spin index.
 %
 which needs to be solved instead of the usual KS equation. Now we need
 to define $\T$ in a suitable way, such that the auxiliary wave
-functions obtained from solving \eqref{eq: paw ks equations} becomes
+functions obtained from solving \ref{eq: paw ks equations} becomes
 smooth.
 \par Since the true wave functions are already smooth at a certain
 minimum distance from the core, $\T$ should only modify the wave
@@ -189,7 +143,7 @@ require that
 for all $i,a$. This completely defines $\T$, given $\phi$ and $\s{\phi}$.
 \par Since $\T^a$
 should do nothing outside the augmentation sphere, we see from
-\eqref{eq: ta} that we must require the partial wave and its
+\ref{eq: ta} that we must require the partial wave and its
 smooth counterpart to be identical outside the augmentation sphere
 %
 \begin{equation*}
@@ -248,12 +202,12 @@ partial waves inside the augmentation sphere. There are no
 restrictions on $\s{p}_i^a$ outside the augmentation spheres, so
 for convenience we might as well define them as local functions,
 i.e. $\s{p}_i^a(\f{r})=0$ for $r>r_c^a$.
-\par Note that the completeness relation \eqref{eq: phi p
+\par Note that the completeness relation \ref{eq: phi p
 completeness} is equivalent to the requirement that $\s{p}_i^a$
-should produce the correct expansion coefficients of \eqref{eq:
-smooth psi expansion}-\eqref{eq: psi expansion}, while \eqref{eq:
+should produce the correct expansion coefficients of \ref{eq:
+smooth psi expansion}-\ref{eq: psi expansion}, while \ref{eq:
 phi p orthogonal} is merely an implication of this restriction.
-Translating \eqref{eq: phi p completeness} to an explicit
+Translating \ref{eq: phi p completeness} to an explicit
 restriction on the projector functions is a rather involved
 procedure, but according to Blöchl, \cite{Blochl1994}, the most
 general form of the projector functions is:
@@ -266,7 +220,7 @@ general form of the projector functions is:
 where $\ket{f_j^a}$ is any set of linearly independent functions.
 The projector functions will be localized if the functions
 $\ket{f_j^a}$ are localized.
-\par Using the completeness relation \eqref{eq: phi p
+\par Using the completeness relation \ref{eq: phi p
 completeness}, we see that
 %
 \begin{equation*}
@@ -275,9 +229,9 @@ completeness}, we see that
 \end{equation*}
 %
 where the first equality is true in  all of space, since
-\eqref{eq: phi p completeness} holds inside the augmentation
+\ref{eq: phi p completeness} holds inside the augmentation
 spheres and outside $\T^a$ is zero, so anything can be multiplied
-with it. The second equality is due to \eqref{eq: ta} (remember
+with it. The second equality is due to \ref{eq: ta} (remember
 that $\ket{\phi_i^a} - \ket{\s{\phi}_i^a}=0$ outside the
 augmentation sphere). Thus we conclude that
 %
@@ -296,12 +250,12 @@ $\psi_n(\f{r})=\braket{\f{r}}{\psi_n}$ from the transformation
 %
 where the smooth (and thereby numerically convenient) auxiliary wave
 function $\s{\psi}_n(\f{r})$ is obtained by solving the eigenvalue
-equation \eqref{eq: paw ks equations}.
+equation \ref{eq: paw ks equations}.
 % Note that although the double sum has been indicated by a single
 % summation symbol, the order of summation must be preserved, since
 % the number of states $i$ depends on the nature of the current atom
 % (index $a$).
-\par The transformation \eqref{eq: psi transform in r} is expressed in
+\par The transformation \ref{eq: psi transform in r} is expressed in
 terms of the three components: a) the partial waves $\phi_i^a(\f{r})$,
 b) the smooth partial waves $\s{\phi}_i^a(\f{r})$, and c) the smooth
 projector functions $\s{p}_i^a(\f{r})$.
@@ -309,8 +263,8 @@ projector functions $\s{p}_i^a(\f{r})$.
 Since the partial- and smooth partial wave functions are used to
 expand the all electron wave functions, i.e. are used as atom-specific
 basis sets, these must be complete (inside the augmentation spheres).
-b) the smooth projector functions must satisfy \eqref{eq: phi p
-  completeness}, i.e. be constructed according to \eqref{eq: projector
+b) the smooth projector functions must satisfy \ref{eq: phi p
+  completeness}, i.e. be constructed according to \ref{eq: projector
   general}.  All remaining degrees of freedom are used to make the
 expansions converge as fast as possible, and to make the functions
 termed `smooth', as smooth as possible. For a specific choice of these
@@ -343,7 +297,7 @@ In terms of these, the all electron KS wave function is
 \par So what have we achieved by this transformation? The trouble of
 the original KS wave functions, was that they displayed rapid
 oscillations in some parts of space, and smooth behavior in other
-parts of space. By the decomposition \eqref{eq: psi transform in r} we
+parts of space. By the decomposition \ref{eq: psi transform in r} we
 have separated the original wave functions into auxiliary wave
 functions which are smooth everywhere and a contribution which
 contains rapid oscillations, but only contributes in certain, small,
@@ -376,8 +330,8 @@ atomic core states
 where the index $n$ on the left hand site refers to both a specific
 atom, $a$, and an atomic state, $\alpha$.
 \par In this approximation only valence states are included in the
-expansions of $\ket{\psi_n}$, \eqref{eq: psi expansion}, and
-$\ket{\s{\psi}_n}$, \eqref{eq: smooth psi expansion}.
+expansions of $\ket{\psi_n}$, \ref{eq: psi expansion}, and
+$\ket{\s{\psi}_n}$, \ref{eq: smooth psi expansion}.
 \par Figure \ref{fig: frozen core}, shows the atomic states of
 Platinum in its ground state, obtained with an atomic DFT program at
 an LDA level, using spherical averaging, i.e. a spin-compensated
@@ -464,7 +418,7 @@ f_n|\psi_n(\f{r})|^2,
 %
 where $f_n$ are the occupation numbers.
 \par As the real-space projection operator is obviously a local
-operator, we can use the results \eqref{eq: local exp values} of the
+operator, we can use the results \ref{eq: local exp values} of the
 previous section, and immediately arrive at
 %
 \begin{equation}\label{eq: electron density}
@@ -474,7 +428,7 @@ n(\f{r}) = \sum_n^\text{val} f_n |\s{\psi}_n|^2 + \sum_a
 \sum_\alpha^\text{core} |\phi_\alpha^{a,\text{core}}|^2.
 \end{equation}
 %
-\par To ensure that \eqref{eq: electron density} reproduce the
+\par To ensure that \ref{eq: electron density} reproduce the
 correct density even though some of the core states are not
 strictly localized within the augmentation spheres, a smooth core
 density, $\s{n}_c(\f{r})$, is usually constructed, which is
@@ -509,13 +463,13 @@ In this section, the usual energy expression above, is sought
 re-expressed in terms of the PAW quantities: the smooth waves and the
 auxiliary partial waves.
 \par For the local and semi-local functionals, we can utilize
-\eqref{eq: local exp values}, while the nonlocal parts needs more
+\ref{eq: local exp values}, while the nonlocal parts needs more
 careful consideration.
 
 \subsubsection{The Semi-local Contributions}
 \par The kinetic energy functional $T_s = \sum_n f_n \bra{\psi_n}
 -\frac{1}{2}\nabla^2\ket{\psi_n}$ is obviously a (semi-) local
-functional, so we can apply \eqref{eq: local exp values} and
+functional, so we can apply \ref{eq: local exp values} and
 immediately arrive at:
 %
 \begin{equation}
@@ -539,9 +493,9 @@ expressed as
   E_{xc}[n] =   E_{xc}[\s{n}] + \sum_a \left( E_{xc}[n^a] - E_{xc}[\s{n}^a] \right).
 \end{equation}
 %
-By virtue of \eqref{eq: partial n}-\eqref{eq: smooth partial n} we can
+By virtue of \ref{eq: partial n}-\ref{eq: smooth partial n} we can
 consider the atomic corrections as functionals of the density matrix
-defined in \eqref{eq: density matrix}, i.e.
+defined in \ref{eq: density matrix}, i.e.
 %
 \begin{equation}
   E_{xc}[n] =   E_{xc}[\s{n}] + \sum_a \Delta E_{xc}^a[\{D^a_{i_1i_2}\}],
@@ -572,7 +526,7 @@ where the notation (f|g) indicates the Coulomb integral
 (f|g) = \iint d\br d\br' \frac{f^*(\br) g(\br') }{|\br-\br'|}
 \end{equation}
 %
-and I have introduced the short hand notation $((f)) = (f|f)$. In \eqref{eq: coulomb energy}, $Z^a(\br)$ is the charge density of the nucleus at atomic site $a$, which in the classical point approximation is given by
+and I have introduced the short hand notation $((f)) = (f|f)$. In \ref{eq: coulomb energy}, $Z^a(\br)$ is the charge density of the nucleus at atomic site $a$, which in the classical point approximation is given by
 %
 \begin{equation}
   Z^a(\br) = -\Z^a\delta(\br-\bR^a)
@@ -597,7 +551,7 @@ different schemes exist for making this correction. As it turns out,
 this correction is handled very naturally in the PAW formalism.
 \par For now, we will focus on the term $((\rho)) =
 ((n+\textstyle\sum_a Z^a))$. If one where to directly include the
-expansion of $n(\br)$ according to \eqref{eq: PAW density}, one would
+expansion of $n(\br)$ according to \ref{eq: PAW density}, one would
 get:
 %
 \begin{align*}
@@ -646,8 +600,8 @@ problems. None of the terms correlates functions on different grids,
 there is only a single summation over the atomic sites, and
 furthermore the only thing that has to be evaluated in the full space
 is the Hartree energy of $\s{n}(\br) + \sum_a \s{Z}^a(\br)$ which is
-charge neutral (see eq. \eqref{eq: rhot charge neutral}).
-\par Inserting the final expression in \eqref{eq: coulomb energy}, we see that
+charge neutral (see eq. \ref{eq: rhot charge neutral}).
+\par Inserting the final expression in \ref{eq: coulomb energy}, we see that
 %
 \begin{equation}
   \begin{split}
@@ -680,8 +634,8 @@ $|\br-\bR^a|<r_c^a$, satisfying
 \end{equation}
 %
 %i.e. which has only one nonzero multipole moment, and that this is unity
-\par Plugging the expansion \eqref{eq: compensation expansion} into
-equations \eqref{eq: no multipole}, we see that the expansion
+\par Plugging the expansion \ref{eq: compensation expansion} into
+equations \ref{eq: no multipole}, we see that the expansion
 coefficients $Q_L^a$ from must be chosen according to
 %
 \begin{equation}\label{eq: compensation multipoles}
@@ -701,7 +655,7 @@ and it has been used that the core densities are spherical $n_c^a(\br)
 = n_c^a(r) Y_{00}(\hat{\br})$ (we consider only closed shell frozen
 cores). This completely defines the compensation charges
 $\s{Z}^a(\br)$.
-\par Note that the special case $l=0$ of \eqref{eq: no multipole}, implies that
+\par Note that the special case $l=0$ of \ref{eq: no multipole}, implies that
 %
 \begin{align}
 \int d\f{r} &\left[ n^a - \s{n}^a +Z^a - \s{Z}^a \right] = 0\nonumber\\
@@ -736,7 +690,7 @@ Using that the potential of a spherical harmonic (times some radial
 function) is itself a spheical harmonic of the same angular momentum,
 we see that $(\s{g}_L^a|\s{g}_{L'}^a) \propto \delta_{LL'}$ and
 $(\s{n}_c^a|\s{g}_L^a) \propto \delta_{L0}$. Noting that $Q_L^a$ by
-virtue of \eqref{eq: compensation multipoles} is a functional of the
+virtue of \ref{eq: compensation multipoles} is a functional of the
 density matrix, and inserting this, we get
 %
 \begin{equation}
@@ -810,7 +764,7 @@ $\Delta C_{i_1i_2i_3i_4}^a$ are system independent tensors that can be
 pre-calculated and stored for each specie in the periodic table of
 elements.
 \par Both the Hamiltonian and the forces can be derived from the total
-energy functional \eqref{eq: PAW energy functional} as will be shown
+energy functional \ref{eq: PAW energy functional} as will be shown
 in the following two sections.
 
 \subsection{The Transformed Kohn-Sham Equation}
@@ -855,8 +809,8 @@ weight $\h{S}$.
   \end{split}
 \end{equation}
 %
-The orthogonality condition \eqref{eq: orthogonality} must be kept in
-mind when applying numerical schemes for solving \eqref{eq:
+The orthogonality condition \ref{eq: orthogonality} must be kept in
+mind when applying numerical schemes for solving \ref{eq:
   transformed KS}. For example plane waves are no longer orthogonal,
 in the sense that $\bra{\f{G}} \h{S} \ket{\f{G}'} \neq \delta_{\f{G},
   \f{G}'}$.
@@ -906,7 +860,7 @@ where the nonlocal part of the Hamiltonian is given in terms of the tensor
 \end{equation}
 %
 Note that to justify taking the derivative with respect to $D$ only,
-and not its complex conjugate, the symmetry properties \eqref{eq: C
+and not its complex conjugate, the symmetry properties \ref{eq: C
   symmetry} has been used to get $D^{a*}_{i_1i_2}
 \Delta C^a_{i_1i_2i_3i_4}D^a_{i_3i_4} = D^{a}_{i_1i_2}
 \Delta C^a_{i_1i_2i_3i_4}D^a_{i_3i_4}$.
@@ -932,8 +886,8 @@ relation
   \frac{\partial E}{\partial \bra{\s{\psi}_n}} = f_n \wh{\ws{H}} \ket{\s{\psi}_n} = f_n \epsilon_n \h{S} \ket{\s{\psi}_n}.
 \end{equation}
 %
-The last line of \eqref{eq: force} is obtained from the following
-manipulation of the orthogonality condition \eqref{eq: orthogonality}
+The last line of \ref{eq: force} is obtained from the following
+manipulation of the orthogonality condition \ref{eq: orthogonality}
 %
 \begin{equation}
   \begin{split}
@@ -943,14 +897,14 @@ manipulation of the orthogonality condition \eqref{eq: orthogonality}
   \end{split}
 \end{equation}
 %
-\par From the expression for the overlap operator \eqref{eq: overlap},
+\par From the expression for the overlap operator \ref{eq: overlap},
 it follows that
 %
 \begin{equation}
   \frac{d\h{S}}{d\bR^a} = \sum_{i_1i_2} \Delta S^a_{i_1i_2}\left(\frac{d \ket{\s{p}^a_{i_1}}}{d\bR^a}\bra{\s{p}^a_{i_2}} + h.c. \right)
 \end{equation}
 %
-which, when inserted in \eqref{eq: force}, gives the force expression
+which, when inserted in \ref{eq: force}, gives the force expression
 %
 \begin{equation}
   \f{F}^a = -\frac{\partial E}{\partial \bR^a} + \sum_n f_n \epsilon_n \sum_{i_1i_2}\Delta S^a_{i_1i_2}\left( P^{a*}_{ni_1}\braket{\frac{d \s{p}^a_{i_2}}{d\bR^a}}{\s{\psi}_n} + \braket{\s{\psi}_n}{\frac{d \s{p}^a_{i_1}}{d\bR^a}} P^a_{ni_2}\right)
@@ -1010,12 +964,12 @@ with $\Delta E^a$ given by
  \Delta E^a = T_c^a + \sum_{i_1i_2} \left( \Delta T^a_{i_1i_2} + \Delta C^a_{i_1i_2}\right) D_{i_1i_2}^a + \sum_{i_1i_2i_3i_4}D_{i_1i_2}^{a*} \Delta C_{i_1i_2i_3i_4}^a D_{i_3i_4}^a + \Delta E_{xc}^a(\{D_{i_1i_2}^a\})
 \end{equation}
 %
-\par Having solved the eigenvalue problem \eqref{eq: PAW HF-KS EVP},
+\par Having solved the eigenvalue problem \ref{eq: PAW HF-KS EVP},
 the eigenvalues are known. This can be used to determine, for example,
 the kinetic energy of the pseudo wave functions, $T_s[\s{n}]$, without
 doing the explicit (and computationally costly) computation. This can
 be seen by operating with $\sum_n f_n \bra{\s{\psi}_n}$ on eq.
-\eqref{eq: PAW Hamiltonian summary} to get:
+\ref{eq: PAW Hamiltonian summary} to get:
 %
 \begin{equation}
   \label{eq:kinetic-energy}
@@ -1143,7 +1097,7 @@ explicit form is
 \end{equation*}
 %
 where $\phi_{nl}^a(r)$ are the solutions of the radial KS Schrödinger
-equation \eqref{eq: radial KS equation}, and $Y_{lm}$ are the
+equation \ref{eq: radial KS equation}, and $Y_{lm}$ are the
 spherical harmonics. For convenience we choose $\phi_i^a(\f{r})$ to be
 real, i.e. we use the real spherical harmonics instead of the complex
 valued. This choice of partial waves implies that the smooth partial
@@ -1236,7 +1190,7 @@ true core density smoothly at the cut-off radius.
 \subsubsection*{The Localized Potential}
 An additional freedom in PAW is that for any operator $\wh{L}$,
 localized within the augmentation spheres, we can exploit the identity
-\eqref{eq: phi p completeness}
+\ref{eq: phi p completeness}
 %
 \begin{equation}
 \sum_i \ket{\s{\phi}_i^a}\bra{\s{p}_i^a} = 1 %\qquad\text{, for }|\f{r}-\f{R}^a|<r_c^a
@@ -1301,9 +1255,9 @@ only:
 \begin{enumerate}
 \item $\phi_i^a$ from radial KS equation
 \item $\s{\phi}_i^a$ by appropriate smooth continuation of $\phi_i^a$
-\item $\s{p}_i^a$ from equation \eqref{eq: construct projector}
+\item $\s{p}_i^a$ from equation \ref{eq: construct projector}
 \item $\s{g}_L^a$ localized within $r<r_c$, and satisfying $\int d\f{r} r^{l'} \s{g}_L^a(\f{r})Y_{L'}(\wh{\br - \bR^a}) = \delta_{LL'}$
-\item $n_c^a$ follows from $\phi_i^a$ by \eqref{eq: core density}
+\item $n_c^a$ follows from $\phi_i^a$ by \ref{eq: core density}
 \item $\s{n}_c^a$ by appropriate smooth continuation of $n_c^a$
 \item $\bar{v}^a$ localized within $r<r_c^a$, otherwise freely chosen to make $\s{v}_\text{eff}$ optimally smooth for the reference system
 \end{enumerate}
@@ -1559,7 +1513,7 @@ do LDA + U calculations. The \gpaw{} implementation follows the LDA + U
 implementation in VASP\cite{Rohrbach2004}, which is based on the
 particular branch of LDA + U suggested by Dudarev \emph{et
   al.}\cite{Dudarev1998}, where you set the effective (U-J) parameter.
-The key notion is that from \eqref{eq:atom_density} one can define an
+The key notion is that from \ref{eq:atom_density} one can define an
 (valence-) orbital density matrix
 \begin{equation*}
   \hat{\rho}_{i_1i_2}^a = \ket{\phi_{i_1}^a} D^a_{i_1i_2} \bra{\phi_{i_2}^a}.
@@ -1596,7 +1550,7 @@ $K_{nn',nn'}$ where both indices correspond to occupied states, are
 needed, and for GW calculations (see e.g.  \cite{Rostgaard2010}),
 where all elements are needed.
 
-Introducing the PAW transformation in \eqref{eq:coulomb-matrix}, the
+Introducing the PAW transformation in \ref{eq:coulomb-matrix}, the
 pair densities partition according to
 \begin{equation}
   \label{eq:pair density}
@@ -1607,7 +1561,7 @@ with the obvious definitions
   \s{n}_{nn'} =& \s{\psi}_n^*\s{\psi}_{n'} & n^a_{nn'} = & \sum_{i_1i_2} P^{a*}_{ni_1} P^{a}_{n'i_2} \phi^{a*}_{i_1} \phi^{a*}_{i_2} & \s{n}^a_{nn'} = & \sum_{i_1i_2} P^{a*}_{ni_1} P^{a}_{n'i_2} \s{\phi}^{a*}_{i_1} \s{\phi}^{a*}_{i_2}.
 \end{align}
 Exactly like with the Hartree potential, direct insertion of this in
-\eqref{eq:coulomb-matrix} would, due to the non-local nature of the
+\ref{eq:coulomb-matrix} would, due to the non-local nature of the
 Coulomb kernel, lead to undesired cross terms between different
 augmentation spheres. As before, such terms can be avoided by
 introducing some compensation charges, $\s{Z}^a_{nn'}$, chosen such that the
@@ -1620,7 +1574,7 @@ to be zero, and entails a compensation of the form
   \s{Z}^a_{nn'}(\br) = \sum_L Q^a_{L,nn'} \s{g}^a_L(\br), ~~ Q^a_{L,nn'} = \sum_{i_1i_2} \Delta^a_{L,i_1i_2} P^{a*}_{ni_1} P^{a}_{n'i_2}
 \end{equation}
 (the constants $\Delta^a_{L,i_1i_2}$ are identical to those in
-\eqref{eq: Delta_Lij}).
+\ref{eq: Delta_Lij}).
 
 Introduction of such compensation charges makes it possible to
 obtain the clean partitioning
@@ -1631,13 +1585,13 @@ obtain the clean partitioning
 Here the last term is a trivial functional of the expansion
 coefficients $P^a_{ni}$ involving only the constants $\Delta
 C^a_{i_1i_2i_3i_4}$ already precalculated for the atomic corrections
-to the Coulomb energy \eqref{eq:coulom tensor 2}. The only
+to the Coulomb energy \ref{eq:coulom tensor 2}. The only
 computationally demanding term relates to the Coulomb matrix element
 of the smooth compensated pair densities $\tilde{\rho}_{ij} =
 \tilde{n}_{ij} + \sum_a \tilde{Z}^a_{ij}$, which are expressible on
 coarse grids.
 
-The formally exact partitioning \eqref{eq:coulomb-matrix-partition}
+The formally exact partitioning \ref{eq:coulomb-matrix-partition}
 makes it possible, at moderate computational effort, to obtain Coulomb
 matrix elements in a representation approaching the infinite basis set
 limit. In standard implementations, such elements are usually only
@@ -1676,7 +1630,7 @@ The EXX energy functional is given by
   E_\text{xx} =  = -\frac{1}{2} \sum_{nm} f_{n} f_{m}\delta_{\sigma_n,\sigma_m}K_{nm,nm}.
 \end{equation}
 Terms where $n$ and $m$ both refer to valence states transform in
-PAW as in equation \eqref{eq:coulomb-matrix-partition}. Terms where
+PAW as in equation \ref{eq:coulomb-matrix-partition}. Terms where
 either index refers to a core orbital can be reduced to
 trivial functionals of $P^a_{ni}$, resulting in (see e.g. \cite{Paier2005})
 \begin{equation}
@@ -1737,24 +1691,24 @@ solved for all pairs of orbitals.
 As a technical consideration, note that the effect of the atomic
 corrections due to valence-valence, valence-core, and core-core
 exchange interactions can simply be incorporated into the standard
-equations by redefining equations \eqref{eq:coulom tensor 2},
-\eqref{eq:coulom tensor 1}, and \eqref{eq:coulom tensor 0}
+equations by redefining equations \ref{eq:coulom tensor 2},
+\ref{eq:coulom tensor 1}, and \ref{eq:coulom tensor 0}
 respectively, which will also take care of the last two terms in the
 Fock operator above. The introduction of the pair orbital compensation
 charges does however lead to a non-trivial correction to the Fock
 operato; the term proportional to $v^a_{nm, i_1i_2}$. This term also
 leads to a distinct contribution when calculating the kinetic energy
-via the eigenvalues as done in equation \eqref{eq:kinetic-energy}. The
-additional term (besides those related to redefining \eqref{eq:coulom
-  tensor 0}--\eqref{eq:coulom tensor 2})
+via the eigenvalues as done in equation \ref{eq:kinetic-energy}. The
+additional term (besides those related to redefining \ref{eq:coulom
+  tensor 0}--\ref{eq:coulom tensor 2})
 \begin{equation}
   \sum_{nm}f_n\left[f_{m} \delta_{\sigma_n,\sigma_{m}} \int d\br \tilde{v}_{nm}(\br) \psit_n^*(\br)\psit_{m}(\br) - \sum_a\sum_{i_1i_2} P_{ni_1}^aP_{mi_2}^a v^a_{nm,i_1i_2}\right],
 \end{equation}
-should be added to the right hand side of \eqref{eq:kinetic-energy} on
+should be added to the right hand side of \ref{eq:kinetic-energy} on
 inclusion of exact exchange.
 
 In a similar fashion, the compensation charges leads to an additional
-force contribution in equation \eqref{eq: force no exx} given by
+force contribution in equation \ref{eq: force no exx} given by
 \begin{equation}\label{eq:paw-exx-force}
   \begin{split}
     \mathbf{F}^a_{xx} = \sum_{nm} f_{n}f_{nm}\delta_{\sigma_{n} \sigma_{m}}\Bigg\{ &\int d\br' \tilde{v}_{nm}(\br') \sum_{i_1i_2} P^{a*}_{ni_1}P^{a}_{mi_2}\sum_L\Delta_{Li_1i_2}\frac{\partial \tilde{g}^a_L(\br')}{\partial \bR^a}\\
@@ -1797,8 +1751,8 @@ shift in the density has both a pseudo and an atomic part. The result is
 \end{align}
 \end{subequations}
 where $\hat{v}^\text{NL}_x$ is the non-local exchange operator of
-equation \eqref{eq: nonlocal exchange} and $\hat{v}^\text{L}_x$ is the
-local version in \eqref{eq: local exchange}.
+equation \ref{eq: nonlocal exchange} and $\hat{v}^\text{L}_x$ is the
+local version in \ref{eq: local exchange}.
 
 These can be solved iteratively starting from a local density-function
 approximation to the exchange potential in the spirit of

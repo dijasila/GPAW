@@ -1,5 +1,5 @@
 """Test automatically write out of restart files"""
-
+from __future__ import print_function
 import os
 from gpaw import GPAW
 from ase import Atom, Atoms
@@ -8,7 +8,7 @@ from gpaw.test import equal
 ##endings = ['nc']
 endings = ['gpw']
 try:
-    import _hdf5
+    import _gpaw_hdf5
     endings.append('hdf5')
 except ImportError:
     pass
@@ -36,6 +36,6 @@ for ending in endings:
     H = GPAW(restart_wf, convergence={'energy': 0.00001}).get_atoms()
     Erestart = H.get_potential_energy()
 
-    print Edirect, Erestart
+    print(Edirect, Erestart)
     # Note: the different density mixing introduces small differences 
     equal(Edirect, Erestart, 4e-5)

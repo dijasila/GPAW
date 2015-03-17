@@ -1,7 +1,8 @@
-#!/usr/bin/env python
 
 import sys
 import numpy as np
+
+from ase.utils import devnull
 
 from gpaw import debug
 from gpaw.mpi import world
@@ -39,7 +40,7 @@ class UTBandParallelBlacsSetup(UTBandParallelSetup):
         cpus = self.bd.comm.size * self.gd.comm.size
         self.mcpus = int(cpus**0.5)
         self.ncpus = cpus//self.mcpus
-        return BlacsBandLayouts(self.gd, self.bd, self.dtype, self.mcpus, self.ncpus, 6)
+        return BlacsBandLayouts(self.gd, self.bd, self.block_comm, self.dtype, self.mcpus, self.ncpus, 6)
 
     # =================================
 
@@ -354,7 +355,6 @@ if __name__ in ['__main__', '__builtin__'] and compiled_with_sl():
     if __name__ == '__builtin__':
         testrunner = CustomTextTestRunner('ut_hsblacs.log', verbosity=2)
     else:
-        from gpaw.utilities import devnull
         stream = (world.rank == 0) and sys.stdout or devnull
         testrunner = TextTestRunner(stream=stream, verbosity=2)
 

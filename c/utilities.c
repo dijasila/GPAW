@@ -90,7 +90,7 @@ struct eval {
 };
 
 static void coll_print(FILE *fp, const char *label, double val,
-		       int print_aggregate, MPI_Comm Comm){
+                       int print_aggregate, MPI_Comm Comm){
   double sum;
   struct eval in;
   struct eval out;
@@ -107,7 +107,7 @@ static void coll_print(FILE *fp, const char *label, double val,
     else
       fprintf(fp,"#%19s                %10.3f ",label,sum/numranks);
   }
- 	
+
   MPI_Reduce(&in, &out, 1, MPI_DOUBLE_INT, MPI_MINLOC, 0, Comm);
   if(rank==0){
     fprintf(fp,"%4d %10.3f ", out.rank, out.val);
@@ -195,13 +195,13 @@ void gpaw_perf_finalize()
     fp = fopen("gpaw_perf.log", "w");
   else
     fp = NULL;
- 	   
+
   if(PAPI_read_counters(papi_values, NUM_PAPI_EV) != PAPI_OK)
     error++;
- 	
+
   if(PAPI_get_dmem_info(&dmem) != PAPI_OK)
     error++;
- 	   
+ 
   rtime=(double)(papi_end_usec_r - papi_start_usec_r)/1e6;
   ptime=(double)(papi_end_usec_p - papi_start_usec_p)/1e6;
   avegflops=(double)papi_values[0]/rtime/1e9;
@@ -220,7 +220,7 @@ void gpaw_perf_finalize()
   // coll_print(fp, "L1 hit ratio (%)", l1hitratio, 0, Comm);
   coll_print(fp, "Peak mem size (MB)", (double)dmem.peak/1.0e3, 0, Comm );
   coll_print(fp, "Peak resident (MB)", (double)dmem.high_water_mark/1.0e3 ,
-	     0, Comm);
+             0, Comm);
   if(rank==0)  {
     fflush(fp);
     fclose(fp);
@@ -360,7 +360,7 @@ PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args)
   C = PyArray_DIMS(r_cG_obj)[0];
   G = PyArray_DIMS(r_cG_obj)[1];
   for (int i = 2; i < PyArray_NDIM(r_cG_obj); i++)
-	G *= PyArray_DIMS(r_cG_obj)[i];
+        G *= PyArray_DIMS(r_cG_obj)[i];
 
   double* r_cG = DOUBLEP(r_cG_obj); // XXX not ideally strided
   double* r0_c = DOUBLEP(r0_c_obj);
@@ -505,25 +505,25 @@ PyObject* pack(PyObject *self, PyObject *args)
     npy_intp dims[1] = {n * (n + 1) / 2};
     int typenum = PyArray_DESCR(a_obj)->type_num;
     PyArrayObject* b_obj = (PyArrayObject*) PyArray_SimpleNew(1, dims,
-							      typenum);
+                                                              typenum);
     if (b_obj == NULL)
       return NULL;
     if (typenum == NPY_DOUBLE) {
-	double* a = (double*)PyArray_DATA(a_obj);
-	double* b = (double*)PyArray_DATA(b_obj);
-	for (int r = 0; r < n; r++) {
-	    *b++ = a[r + n * r];
-	    for (int c = r + 1; c < n; c++)
-	        *b++ = a[r + n * c] + a[c + n * r];
-	}
+        double* a = (double*)PyArray_DATA(a_obj);
+        double* b = (double*)PyArray_DATA(b_obj);
+        for (int r = 0; r < n; r++) {
+            *b++ = a[r + n * r];
+            for (int c = r + 1; c < n; c++)
+                *b++ = a[r + n * c] + a[c + n * r];
+        }
     } else {
-	double complex* a = (double complex*)PyArray_DATA(a_obj);
-	double complex* b = (double complex*)PyArray_DATA(b_obj);
-	for (int r = 0; r < n; r++) {
-	    *b++ = a[r + n * r];
-	    for (int c = r + 1; c < n; c++)
-	        *b++ = a[r + n * c] + a[c + n * r];
-	}
+        double complex* a = (double complex*)PyArray_DATA(a_obj);
+        double complex* b = (double complex*)PyArray_DATA(b_obj);
+        for (int r = 0; r < n; r++) {
+            *b++ = a[r + n * r];
+            for (int c = r + 1; c < n; c++)
+                *b++ = a[r + n * c] + a[c + n * r];
+        }
     }
     Py_DECREF(a_obj);
     PyObject* value = Py_BuildValue("O", b_obj);
@@ -572,37 +572,39 @@ PyObject* unpack_complex(PyObject *self, PyObject *args)
 
 PyObject* hartree(PyObject *self, PyObject *args)
 {
-  int l;
-  PyArrayObject* nrdr_array;
-  double b;
-  int N;
-  PyArrayObject* vr_array;
-  if (!PyArg_ParseTuple(args, "iOdiO", &l, &nrdr_array, &b, &N, &vr_array)) 
-    return NULL;
-  const int M = PyArray_DIMS(nrdr_array)[0];
-  const double* nrdr = DOUBLEP(nrdr_array);
-  double* vr = DOUBLEP(vr_array);
-  double p = 0.0;
-  double q = 0.0;
-  for (int g = M - 1; g > 0; g--)
+    int l;
+    PyArrayObject* nrdr_obj;
+    PyArrayObject* r_obj;
+    PyArrayObject* vr_obj;
+    if (!PyArg_ParseTuple(args, "iOOO", &l, &nrdr_obj, &r_obj, &vr_obj)) 
+        return NULL;
+        
+    const int M = PyArray_DIM(nrdr_obj, 0);
+    const double* nrdr = DOUBLEP(nrdr_obj);
+    const double* r = DOUBLEP(r_obj);
+    double* vr = DOUBLEP(vr_obj);
+    
+    double p = 0.0;
+    double q = 0.0;
+    for (int g = M - 1; g > 0; g--)
     {
-      double r = b * g / (N - g);
-      double rl = pow(r, l);
-      double dp = nrdr[g] / rl;
-      double rlp1 = rl * r;
-      double dq = nrdr[g] * rlp1;
-      vr[g] = (p + 0.5 * dp) * rlp1 - (q + 0.5 * dq) / rl;
-      p += dp;
-      q += dq;
+        double R = r[g];
+        double rl = pow(R, l);
+        double dp = nrdr[g] / rl;
+        double rlp1 = rl * R;
+        double dq = nrdr[g] * rlp1;
+        vr[g] = (p + 0.5 * dp) * rlp1 - (q + 0.5 * dq) / rl;
+        p += dp;
+        q += dq;
     }
-  vr[0] = 0.0;
-  double f = 4.0 * M_PI / (2 * l + 1);
-  for (int g = 1; g < M; g++)
+    vr[0] = 0.0;
+    double f = 4.0 * M_PI / (2 * l + 1);
+    for (int g = 1; g < M; g++)
     {
-      double r = b * g / (N - g);
-      vr[g] = f * (vr[g] + q / pow(r, l));
+        double R = r[g];
+        vr[g] = f * (vr[g] + q / pow(R, l));
     }
-  Py_RETURN_NONE;
+    Py_RETURN_NONE;
 }
 
 PyObject* localize(PyObject *self, PyObject *args)
@@ -620,63 +622,63 @@ PyObject* localize(PyObject *self, PyObject *args)
   for (int a = 0; a < n; a++)
     {
       for (int b = a + 1; b < n; b++)
-	{
-	  double complex* Zaa = Z[a][a];
-	  double complex* Zab = Z[a][b];
-	  double complex* Zbb = Z[b][b];
-	  double x = 0.0;
-	  double y = 0.0;
-	  for (int c = 0; c < 3; c++)
-	    {
-	      x += (0.25 * creal(Zbb[c] * conj(Zbb[c])) +
-		    0.25 * creal(Zaa[c] * conj(Zaa[c])) -
-		    0.5 * creal(Zaa[c] * conj(Zbb[c])) -
-		    creal(Zab[c] * conj(Zab[c])));
-	      y += creal((Zaa[c] - Zbb[c]) * conj(Zab[c]));
-	    }
-	  double t = 0.25 * atan2(y, x);
-	  double C = cos(t);
-	  double S = sin(t);
-	  for (int i = 0; i < a; i++)
-	    for (int c = 0; c < 3; c++)
-	      {
-		double complex Ziac = Z[i][a][c];
-		Z[i][a][c] = C * Ziac + S * Z[i][b][c];
-		Z[i][b][c] = C * Z[i][b][c] - S * Ziac;
-	      }
-	  for (int c = 0; c < 3; c++)
-	    {
-	      double complex Zaac = Zaa[c];
-	      double complex Zabc = Zab[c];
-	      double complex Zbbc = Zbb[c];
-	      Zaa[c] = C * C * Zaac + 2 * C * S * Zabc + S * S * Zbbc;
-	      Zbb[c] = C * C * Zbbc - 2 * C * S * Zabc + S * S * Zaac;
-	      Zab[c] = S * C * (Zbbc - Zaac) + (C * C - S * S) * Zabc;
-	    }
-	  for (int i = a + 1; i < b; i++)
-	    for (int c = 0; c < 3; c++)
-	      {
-		double complex Zaic = Z[a][i][c];
-		Z[a][i][c] = C * Zaic + S * Z[i][b][c];
-		Z[i][b][c] = C * Z[i][b][c] - S * Zaic;
-	      }
-	  for (int i = b + 1; i < n; i++)
-	    for (int c = 0; c < 3; c++)
-	      {
-		double complex Zaic = Z[a][i][c];
-		Z[a][i][c] = C * Zaic + S * Z[b][i][c];
-		Z[b][i][c] = C * Z[b][i][c] - S * Zaic;
-	      }
-	  for (int i = 0; i < n; i++)
-	    {
-	      double Uia = U[i][a];
-	      U[i][a] = C * Uia + S * U[i][b];
-	      U[i][b] = C * U[i][b] - S * Uia;
-	    }
-	}
+        {
+          double complex* Zaa = Z[a][a];
+          double complex* Zab = Z[a][b];
+          double complex* Zbb = Z[b][b];
+          double x = 0.0;
+          double y = 0.0;
+          for (int c = 0; c < 3; c++)
+            {
+              x += (0.25 * creal(Zbb[c] * conj(Zbb[c])) +
+                    0.25 * creal(Zaa[c] * conj(Zaa[c])) -
+                    0.5 * creal(Zaa[c] * conj(Zbb[c])) -
+                    creal(Zab[c] * conj(Zab[c])));
+              y += creal((Zaa[c] - Zbb[c]) * conj(Zab[c]));
+            }
+          double t = 0.25 * atan2(y, x);
+          double C = cos(t);
+          double S = sin(t);
+          for (int i = 0; i < a; i++)
+            for (int c = 0; c < 3; c++)
+              {
+                double complex Ziac = Z[i][a][c];
+                Z[i][a][c] = C * Ziac + S * Z[i][b][c];
+                Z[i][b][c] = C * Z[i][b][c] - S * Ziac;
+              }
+          for (int c = 0; c < 3; c++)
+            {
+              double complex Zaac = Zaa[c];
+              double complex Zabc = Zab[c];
+              double complex Zbbc = Zbb[c];
+              Zaa[c] = C * C * Zaac + 2 * C * S * Zabc + S * S * Zbbc;
+              Zbb[c] = C * C * Zbbc - 2 * C * S * Zabc + S * S * Zaac;
+              Zab[c] = S * C * (Zbbc - Zaac) + (C * C - S * S) * Zabc;
+            }
+          for (int i = a + 1; i < b; i++)
+            for (int c = 0; c < 3; c++)
+              {
+                double complex Zaic = Z[a][i][c];
+                Z[a][i][c] = C * Zaic + S * Z[i][b][c];
+                Z[i][b][c] = C * Z[i][b][c] - S * Zaic;
+              }
+          for (int i = b + 1; i < n; i++)
+            for (int c = 0; c < 3; c++)
+              {
+                double complex Zaic = Z[a][i][c];
+                Z[a][i][c] = C * Zaic + S * Z[b][i][c];
+                Z[b][i][c] = C * Z[b][i][c] - S * Zaic;
+              }
+          for (int i = 0; i < n; i++)
+            {
+              double Uia = U[i][a];
+              U[i][a] = C * Uia + S * U[i][b];
+              U[i][b] = C * U[i][b] - S * Uia;
+            }
+        }
       double complex* Zaa = Z[a][a];
       for (int c = 0; c < 3; c++)
-	value += creal(Zaa[c] * conj(Zaa[c]));
+        value += creal(Zaa[c] * conj(Zaa[c]));
     }
   return Py_BuildValue("d", value);
 }
@@ -701,75 +703,75 @@ PyObject* spherical_harmonics(PyObject *self, PyObject *args)
       double y = R_c[1];
       double z = R_c[2];
       if (l == 1)
-	{
-	  Y_m[0] = 0.48860251190291992 * y;
-	  Y_m[1] = 0.48860251190291992 * z;
-	  Y_m[2] = 0.48860251190291992 * x;
-	}
+        {
+          Y_m[0] = 0.48860251190291992 * y;
+          Y_m[1] = 0.48860251190291992 * z;
+          Y_m[2] = 0.48860251190291992 * x;
+        }
       else
- 	{
-	  double r2 = x*x+y*y+z*z;
-	  if (l == 2)
-	    {		    
-	      Y_m[0] = 1.0925484305920792 * x*y;
-	      Y_m[1] = 1.0925484305920792 * y*z;
-	      Y_m[2] = 0.31539156525252005 * (3*z*z-r2);
-	      Y_m[3] = 1.0925484305920792 * x*z;
-	      Y_m[4] = 0.54627421529603959 * (x*x-y*y);
-	    }
-	  else if (l == 3)
-	    {
-	      Y_m[0] = 0.59004358992664352 * (-y*y*y+3*x*x*y);
-	      Y_m[1] = 2.8906114426405538 * x*y*z;
-	      Y_m[2] = 0.45704579946446577 * (-y*r2+5*y*z*z);
-	      Y_m[3] = 0.3731763325901154 * (5*z*z*z-3*z*r2);
-	      Y_m[4] = 0.45704579946446577 * (5*x*z*z-x*r2);
-	      Y_m[5] = 1.4453057213202769 * (x*x*z-y*y*z);
-	      Y_m[6] = 0.59004358992664352 * (x*x*x-3*x*y*y);
-	    }
-	  else if (l == 4)
-	    {
-	      Y_m[0] = 2.5033429417967046 * (x*x*x*y-x*y*y*y);
-	      Y_m[1] = 1.7701307697799307 * (-y*y*y*z+3*x*x*y*z);
-	      Y_m[2] = 0.94617469575756008 * (-x*y*r2+7*x*y*z*z);
-	      Y_m[3] = 0.66904654355728921 * (-3*y*z*r2+7*y*z*z*z);
-	      Y_m[4] = 0.10578554691520431 * (-30*z*z*r2+3*r2*r2+35*z*z*z*z);
-	      Y_m[5] = 0.66904654355728921 * (7*x*z*z*z-3*x*z*r2);
-	      Y_m[6] = 0.47308734787878004 * (-x*x*r2+7*x*x*z*z+y*y*r2-7*y*y*z*z);
-	      Y_m[7] = 1.7701307697799307 * (x*x*x*z-3*x*y*y*z);
-	      Y_m[8] = 0.62583573544917614 * (-6*x*x*y*y+x*x*x*x+y*y*y*y);
-	    }
-	  else if (l == 5)
-	    {
-	      Y_m[0] = 0.65638205684017015 * (y*y*y*y*y+5*x*x*x*x*y-10*x*x*y*y*y);
-	      Y_m[1] = 8.3026492595241645 * (x*x*x*y*z-x*y*y*y*z);
-	      Y_m[2] = 0.48923829943525038 * (y*y*y*r2-9*y*y*y*z*z-3*x*x*y*r2+27*x*x*y*z*z);
-	      Y_m[3] = 4.7935367849733241 * (3*x*y*z*z*z-x*y*z*r2);
-	      Y_m[4] = 0.45294665119569694 * (-14*y*z*z*r2+y*r2*r2+21*y*z*z*z*z);
-	      Y_m[5] = 0.1169503224534236 * (63*z*z*z*z*z+15*z*r2*r2-70*z*z*z*r2);
-	      Y_m[6] = 0.45294665119569694 * (x*r2*r2-14*x*z*z*r2+21*x*z*z*z*z);
-	      Y_m[7] = 2.3967683924866621 * (-3*y*y*z*z*z+y*y*z*r2+3*x*x*z*z*z-x*x*z*r2);
-	      Y_m[8] = 0.48923829943525038 * (9*x*x*x*z*z-27*x*y*y*z*z-x*x*x*r2+3*x*y*y*r2);
-	      Y_m[9] = 2.0756623148810411 * (y*y*y*y*z-6*x*x*y*y*z+x*x*x*x*z);
-	      Y_m[10] = 0.65638205684017015 * (-10*x*x*x*y*y+5*x*y*y*y*y+x*x*x*x*x);
-	    }
-	  else if (l == 6)
-	    {
-	      Y_m[0] = 1.3663682103838286 * (-10*x*x*x*y*y*y+3*x*x*x*x*x*y+3*x*y*y*y*y*y);
-	      Y_m[1] = 2.3666191622317521 * (y*y*y*y*y*z-10*x*x*y*y*y*z+5*x*x*x*x*y*z);
-	      Y_m[2] = 2.0182596029148967 * (-x*x*x*y*r2+x*y*y*y*r2-11*x*y*y*y*z*z+11*x*x*x*y*z*z);
-	      Y_m[3] = 0.92120525951492349 * (-11*y*y*y*z*z*z-9*x*x*y*z*r2+33*x*x*y*z*z*z+3*y*y*y*z*r2);
-	      Y_m[4] =0.92120525951492349 * (x*y*r2*r2+33*x*y*z*z*z*z-18*x*y*z*z*r2); 
-	      Y_m[5] = 0.58262136251873142 * (5*y*z*r2*r2+33*y*z*z*z*z*z-30*y*z*z*z*r2);
-	      Y_m[6] = 0.063569202267628425 * (231*z*z*z*z*z*z-5*r2*r2*r2+105*z*z*r2*r2-315*z*z*z*z*r2);
-	      Y_m[7] = 0.58262136251873142 * (-30*x*z*z*z*r2+33*x*z*z*z*z*z+5*x*z*r2*r2);
-	      Y_m[8] = 0.46060262975746175 * (33*x*x*z*z*z*z+x*x*r2*r2-y*y*r2*r2-18*x*x*z*z*r2+18*y*y*z*z*r2-33*y*y*z*z*z*z); 
-	      Y_m[9] = 0.92120525951492349 * (-3*x*x*x*z*r2-33*x*y*y*z*z*z+9*x*y*y*z*r2+11*x*x*x*z*z*z);
-	      Y_m[10] = 0.50456490072872417 * (11*y*y*y*y*z*z-66*x*x*y*y*z*z-x*x*x*x*r2+6*x*x*y*y*r2+11*x*x*x*x*z*z-y*y*y*y*r2);
-	      Y_m[11] = 2.3666191622317521 * (5*x*y*y*y*y*z+x*x*x*x*x*z-10*x*x*x*y*y*z); 
-	      Y_m[12] = 0.6831841051919143 * (x*x*x*x*x*x+15*x*x*y*y*y*y-15*x*x*x*x*y*y-y*y*y*y*y*y);
-	    }
-	}
+        {
+          double r2 = x*x+y*y+z*z;
+          if (l == 2)
+            {               
+              Y_m[0] = 1.0925484305920792 * x*y;
+              Y_m[1] = 1.0925484305920792 * y*z;
+              Y_m[2] = 0.31539156525252005 * (3*z*z-r2);
+              Y_m[3] = 1.0925484305920792 * x*z;
+              Y_m[4] = 0.54627421529603959 * (x*x-y*y);
+            }
+          else if (l == 3)
+            {
+              Y_m[0] = 0.59004358992664352 * (-y*y*y+3*x*x*y);
+              Y_m[1] = 2.8906114426405538 * x*y*z;
+              Y_m[2] = 0.45704579946446577 * (-y*r2+5*y*z*z);
+              Y_m[3] = 0.3731763325901154 * (5*z*z*z-3*z*r2);
+              Y_m[4] = 0.45704579946446577 * (5*x*z*z-x*r2);
+              Y_m[5] = 1.4453057213202769 * (x*x*z-y*y*z);
+              Y_m[6] = 0.59004358992664352 * (x*x*x-3*x*y*y);
+            }
+          else if (l == 4)
+            {
+              Y_m[0] = 2.5033429417967046 * (x*x*x*y-x*y*y*y);
+              Y_m[1] = 1.7701307697799307 * (-y*y*y*z+3*x*x*y*z);
+              Y_m[2] = 0.94617469575756008 * (-x*y*r2+7*x*y*z*z);
+              Y_m[3] = 0.66904654355728921 * (-3*y*z*r2+7*y*z*z*z);
+              Y_m[4] = 0.10578554691520431 * (-30*z*z*r2+3*r2*r2+35*z*z*z*z);
+              Y_m[5] = 0.66904654355728921 * (7*x*z*z*z-3*x*z*r2);
+              Y_m[6] = 0.47308734787878004 * (-x*x*r2+7*x*x*z*z+y*y*r2-7*y*y*z*z);
+              Y_m[7] = 1.7701307697799307 * (x*x*x*z-3*x*y*y*z);
+              Y_m[8] = 0.62583573544917614 * (-6*x*x*y*y+x*x*x*x+y*y*y*y);
+            }
+          else if (l == 5)
+            {
+              Y_m[0] = 0.65638205684017015 * (y*y*y*y*y+5*x*x*x*x*y-10*x*x*y*y*y);
+              Y_m[1] = 8.3026492595241645 * (x*x*x*y*z-x*y*y*y*z);
+              Y_m[2] = 0.48923829943525038 * (y*y*y*r2-9*y*y*y*z*z-3*x*x*y*r2+27*x*x*y*z*z);
+              Y_m[3] = 4.7935367849733241 * (3*x*y*z*z*z-x*y*z*r2);
+              Y_m[4] = 0.45294665119569694 * (-14*y*z*z*r2+y*r2*r2+21*y*z*z*z*z);
+              Y_m[5] = 0.1169503224534236 * (63*z*z*z*z*z+15*z*r2*r2-70*z*z*z*r2);
+              Y_m[6] = 0.45294665119569694 * (x*r2*r2-14*x*z*z*r2+21*x*z*z*z*z);
+              Y_m[7] = 2.3967683924866621 * (-3*y*y*z*z*z+y*y*z*r2+3*x*x*z*z*z-x*x*z*r2);
+              Y_m[8] = 0.48923829943525038 * (9*x*x*x*z*z-27*x*y*y*z*z-x*x*x*r2+3*x*y*y*r2);
+              Y_m[9] = 2.0756623148810411 * (y*y*y*y*z-6*x*x*y*y*z+x*x*x*x*z);
+              Y_m[10] = 0.65638205684017015 * (-10*x*x*x*y*y+5*x*y*y*y*y+x*x*x*x*x);
+            }
+          else if (l == 6)
+            {
+              Y_m[0] = 1.3663682103838286 * (-10*x*x*x*y*y*y+3*x*x*x*x*x*y+3*x*y*y*y*y*y);
+              Y_m[1] = 2.3666191622317521 * (y*y*y*y*y*z-10*x*x*y*y*y*z+5*x*x*x*x*y*z);
+              Y_m[2] = 2.0182596029148967 * (-x*x*x*y*r2+x*y*y*y*r2-11*x*y*y*y*z*z+11*x*x*x*y*z*z);
+              Y_m[3] = 0.92120525951492349 * (-11*y*y*y*z*z*z-9*x*x*y*z*r2+33*x*x*y*z*z*z+3*y*y*y*z*r2);
+              Y_m[4] =0.92120525951492349 * (x*y*r2*r2+33*x*y*z*z*z*z-18*x*y*z*z*r2); 
+              Y_m[5] = 0.58262136251873142 * (5*y*z*r2*r2+33*y*z*z*z*z*z-30*y*z*z*z*r2);
+              Y_m[6] = 0.063569202267628425 * (231*z*z*z*z*z*z-5*r2*r2*r2+105*z*z*r2*r2-315*z*z*z*z*r2);
+              Y_m[7] = 0.58262136251873142 * (-30*x*z*z*z*r2+33*x*z*z*z*z*z+5*x*z*r2*r2);
+              Y_m[8] = 0.46060262975746175 * (33*x*x*z*z*z*z+x*x*r2*r2-y*y*r2*r2-18*x*x*z*z*r2+18*y*y*z*z*r2-33*y*y*z*z*z*z); 
+              Y_m[9] = 0.92120525951492349 * (-3*x*x*x*z*r2-33*x*y*y*z*z*z+9*x*y*y*z*r2+11*x*x*x*z*z*z);
+              Y_m[10] = 0.50456490072872417 * (11*y*y*y*y*z*z-66*x*x*y*y*z*z-x*x*x*x*r2+6*x*x*y*y*r2+11*x*x*x*x*z*z-y*y*y*y*r2);
+              Y_m[11] = 2.3666191622317521 * (5*x*y*y*y*y*z+x*x*x*x*x*z-10*x*x*x*y*y*z); 
+              Y_m[12] = 0.6831841051919143 * (x*x*x*x*x*x+15*x*x*y*y*y*y-15*x*x*x*x*y*y-y*y*y*y*y*y);
+            }
+        }
     }
   Py_RETURN_NONE;
 }

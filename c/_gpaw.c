@@ -8,7 +8,7 @@
 #include <numpy/arrayobject.h>
 
 #ifdef GPAW_WITH_HDF5
-PyMODINIT_FUNC init_hdf5(void);
+PyMODINIT_FUNC init_gpaw_hdf5(void);
 #endif
 
 #ifdef GPAW_HPM
@@ -26,11 +26,13 @@ PyObject* craypat_region_end(PyObject *self, PyObject *args);
 
 
 PyObject* symmetrize(PyObject *self, PyObject *args);
+PyObject* symmetrize_ft(PyObject *self, PyObject *args);
 PyObject* symmetrize_wavefunction(PyObject *self, PyObject *args);
 PyObject* symmetrize_return_index(PyObject *self, PyObject *args);
 PyObject* symmetrize_with_index(PyObject *self, PyObject *args);
 PyObject* map_k_points(PyObject *self, PyObject *args);
 PyObject* scal(PyObject *self, PyObject *args);
+PyObject* mmm(PyObject *self, PyObject *args);
 PyObject* gemm(PyObject *self, PyObject *args);
 PyObject* gemv(PyObject *self, PyObject *args);
 PyObject* axpy(PyObject *self, PyObject *args);
@@ -98,8 +100,11 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args);
 PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args);
 #endif
 PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args);
+PyObject* scalapack_inverse(PyObject *self, PyObject *args);
+PyObject* scalapack_solve(PyObject *self, PyObject *args);
 PyObject* pblas_tran(PyObject *self, PyObject *args);
 PyObject* pblas_gemm(PyObject *self, PyObject *args);
+PyObject* pblas_hemm(PyObject *self, PyObject *args);
 PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
@@ -114,11 +119,13 @@ PyObject* mlsqr(PyObject *self, PyObject *args);
 
 static PyMethodDef functions[] = {
   {"symmetrize", symmetrize, METH_VARARGS, 0},
+  {"symmetrize_ft", symmetrize_ft, METH_VARARGS, 0},
   {"symmetrize_wavefunction", symmetrize_wavefunction, METH_VARARGS, 0},
   {"symmetrize_return_index", symmetrize_return_index, METH_VARARGS, 0},
   {"symmetrize_with_index", symmetrize_with_index, METH_VARARGS, 0},
   {"map_k_points", map_k_points, METH_VARARGS, 0},
   {"scal", scal, METH_VARARGS, 0},
+  {"mmm", mmm, METH_VARARGS, 0},
   {"gemm", gemm, METH_VARARGS, 0},
   {"gemv", gemv, METH_VARARGS, 0},
   {"axpy", axpy, METH_VARARGS, 0},
@@ -195,8 +202,11 @@ static PyMethodDef functions[] = {
    scalapack_general_diagonalize_mr3, METH_VARARGS, 0},
 #endif // GPAW_MR3
   {"scalapack_inverse_cholesky", scalapack_inverse_cholesky, METH_VARARGS, 0},
+  {"scalapack_inverse", scalapack_inverse, METH_VARARGS, 0},
+  {"scalapack_solve", scalapack_solve, METH_VARARGS, 0},
   {"pblas_tran", pblas_tran, METH_VARARGS, 0},
   {"pblas_gemm", pblas_gemm, METH_VARARGS, 0},
+  {"pblas_hemm", pblas_hemm, METH_VARARGS, 0},
   {"pblas_gemv", pblas_gemv, METH_VARARGS, 0},
   {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
   {"pblas_rk", pblas_rk, METH_VARARGS, 0},
@@ -279,14 +289,6 @@ PyMODINIT_FUNC init_gpaw(void)
 }
 #endif
 
-#ifdef NO_SOCKET
-/*dummy socket module for systems which do not support sockets */
-PyMODINIT_FUNC initsocket(void)
-{
-  Py_InitModule("socket", NULL);
-  return;
-}
-#endif
 
 #ifdef GPAW_INTERPRETER
 extern DL_EXPORT(int) Py_Main(int, char **);
@@ -314,6 +316,9 @@ main(int argc, char **argv)
   if(granted != MPI_THREAD_MULTIPLE) exit(1);
 #endif // GPAW_OMP
 
+// Get initial timing
+  double t0 = MPI_Wtime();
+
 #ifdef GPAW_PERFORMANCE_REPORT
   gpaw_perf_init();
 #endif
@@ -334,9 +339,9 @@ main(int argc, char **argv)
       printf("%s \n", procname);
 
       for (i = 1; i < numprocs; ++i) {
-	  MPI_Recv(&procnamesize, 1, MPI_INT, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-	  MPI_Recv(procname, procnamesize, MPI_CHAR, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-	  printf("%s \n", procname);
+          MPI_Recv(&procnamesize, 1, MPI_INT, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+          MPI_Recv(procname, procnamesize, MPI_CHAR, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+          printf("%s \n", procname);
       }
   }
 #endif // GPAW_MPI_MAP
@@ -346,11 +351,11 @@ main(int argc, char **argv)
   MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
 #endif
 
-  Py_Initialize();
+  // Progname seems to be needed in some circumstances to resolve
+  // correct default sys.path
+  Py_SetProgramName(argv[0]);
 
-#ifdef NO_SOCKET
-  initsocket();
-#endif
+  Py_Initialize();
 
   if (PyType_Ready(&MPIType) < 0)
     return -1;
@@ -378,6 +383,9 @@ main(int argc, char **argv)
   Py_INCREF(&MPIType);
   PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 
+  // Add initial time to _gpaw object
+  PyModule_AddObject(m, "time0", PyFloat_FromDouble(t0));
+
   Py_INCREF(&LFCType);
   Py_INCREF(&LocalizedFunctionsType);
   Py_INCREF(&OperatorType);
@@ -387,7 +395,7 @@ main(int argc, char **argv)
   Py_INCREF(&lxcXCFunctionalType);
 
 #ifdef GPAW_WITH_HDF5
-  init_hdf5();
+  init_gpaw_hdf5();
 #endif
   import_array1(-1);
   MPI_Barrier(MPI_COMM_WORLD);

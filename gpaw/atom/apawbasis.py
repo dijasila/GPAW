@@ -54,7 +54,7 @@ def get_orbitals_by_energy_shift(opts, setup, **kwargs):
     
     for i, (l, n) in enumerate(valence_states()):
         e0 = get_orbital_energy(l, n, 15.0) * 27.211 # 15Ang == infinity
-        print 'e0', e0
+        print('e0', e0)
         def obj(rcut):
             eps = get_orbital_energy(l, n, rcut) * 27.211
             de = eps - opts.energy_shift - e0
@@ -128,7 +128,7 @@ def get_orbitals_by_energy_shift(opts, setup, **kwargs):
         phit_g = get_gaussianlike_basis_function(rgd, lpol, rchar, gcut)
         N = len(phit_g)
         x = np.dot(rgd.dr_g[:N], (phit_g * rgd.r_g[:N])**2)**0.5
-        print 'x', x
+        print('x', x)
         bf = BasisFunction(lpol,
                            rc=rcut,
                            phit_g=phit_g,
@@ -199,7 +199,7 @@ def main():
                 setup = hgh_sc_setups.get(arg.split('.')[0])
             if setup is None:
                 raise ValueError('Unknown setup %s' % arg)
-            print setup
+            print(setup)
             basis = get_orbitals_by_energy_shift(opts, HGHSetupData(setup))
             basis.write_xml()
             #generate_basis(opts, HGHSetupData(setup))

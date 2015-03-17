@@ -18,7 +18,7 @@ slab.center(vacuum=3.0, axis=2)
 
 calc = GPAW(mode='lcao',
             kpts=(2, 2, 1),
-	    txt='-',
+            txt='-',
             maxiter=1,)
 
 if compiled_with_sl():

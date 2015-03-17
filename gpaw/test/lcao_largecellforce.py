@@ -1,3 +1,4 @@
+from __future__ import print_function
 # This test calculates the force on the atoms in a hydrogen chain, comparing
 # the results to finite-difference values.
 #
@@ -55,16 +56,16 @@ ref = array([[0.0, 0.0,  4.61734874],
 if fd:
     from ase.calculators.test import numeric_forces
     ref = numeric_forces(system, axes=[2], d=0.002)
-    print 'Calced'
-    print F_ac
-    print 'FD'
-    print ref
-    print repr(ref)
+    print('Calced')
+    print(F_ac)
+    print('FD')
+    print(ref)
+    print(repr(ref))
 
 err = np.abs(F_ac - ref).max()
-print 'Ref'
-print ref
-print 'Calculated'
-print F_ac
-print 'Max error', err
+print('Ref')
+print(ref)
+print('Calculated')
+print(F_ac)
+print('Max error', err)
 assert err < 6e-4

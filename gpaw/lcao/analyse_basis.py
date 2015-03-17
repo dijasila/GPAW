@@ -1,8 +1,6 @@
-#!/usr/bin/env python
 # Emacs: treat this as -*- python -*-
 
 import os
-import sys
 from optparse import OptionParser
 
 def build_parser():
@@ -39,7 +37,6 @@ def main():
         dir, filename = os.path.split(path)
         splitfilename = filename.split('.')
         symbol = splitfilename[0]
-        extension = splitfilename[-1]
         name = '.'.join(splitfilename[1:-1])
         if opts.actual_filenames:
             basis = Basis(symbol, name, False)

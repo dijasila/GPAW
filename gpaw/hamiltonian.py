@@ -13,6 +13,7 @@ from gpaw.transformers import Transformer
 from gpaw.lfc import LFC
 from gpaw.utilities import pack2, unpack, unpack2
 from gpaw.io import read_atomic_matrices
+from gpaw.utilities.partition import AtomPartition, AtomicMatrixDistributor
 
 
 class Hamiltonian:
@@ -52,7 +53,7 @@ class Hamiltonian:
     """
 
     def __init__(self, gd, finegd, nspins, setups, timer, xc,
-                 vext=None, collinear=True, world=None):
+                 world, kptband_comm, vext=None, collinear=True):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -62,8 +63,10 @@ class Hamiltonian:
         self.xc = xc
         self.collinear = collinear
         self.ncomp = 2 - int(collinear)
+        self.ns = self.nspins * self.ncomp**2
         self.world = world
-
+        self.kptband_comm = kptband_comm
+        
         self.dH_asp = None
 
         # The external potential
@@ -74,6 +77,7 @@ class Hamiltonian:
         self.vt_sg = None
 
         self.rank_a = None
+        self.atom_partition = None
 
         self.Ekin0 = None
         self.Ekin = None
@@ -84,50 +88,47 @@ class Hamiltonian:
         self.Etot = None
         self.S = None
 
+        self.ref_vt_sG = None
+        self.ref_dH_asp = None
+
+
     def summary(self, fd):
         fd.write('XC and Coulomb potentials evaluated on a %d*%d*%d grid\n' %
                  tuple(self.finegd.N_c))
 
-    def set_positions(self, spos_ac, rank_a=None):
+    def set_positions(self, spos_ac, rank_a):
+        atom_partition = AtomPartition(self.gd.comm, rank_a)
+        
         self.spos_ac = spos_ac
         self.vbar.set_positions(spos_ac)
-
         self.xc.set_positions(spos_ac)
 
         # If both old and new atomic ranks are present, start a blank dict if
         # it previously didn't exist but it will needed for the new atoms.
-        if (self.rank_a is not None and rank_a is not None and
+        # XXX what purpose does this serve?  In what case does it happen?
+        # How would one even go about figuring it out?  Why does it all have
+        # to be so unreadable? -Ask
+        #
+        if (self.rank_a is not None and
             self.dH_asp is None and (rank_a == self.gd.comm.rank).any()):
             self.dH_asp = {}
-
+            
         if self.rank_a is not None and self.dH_asp is not None:
             self.timer.start('Redistribute')
-            requests = []
-            flags = (self.rank_a != rank_a)
-            my_incoming_atom_indices = np.argwhere(np.bitwise_and(flags, \
-                rank_a == self.gd.comm.rank)).ravel()
-            my_outgoing_atom_indices = np.argwhere(np.bitwise_and(flags, \
-                self.rank_a == self.gd.comm.rank)).ravel()
-
-            for a in my_incoming_atom_indices:
-                # Get matrix from old domain:
+            def get_empty(a):
                 ni = self.setups[a].ni
-                dH_sp = np.empty((self.nspins * self.ncomp**2,
-                                  ni * (ni + 1) // 2))
-                requests.append(self.gd.comm.receive(dH_sp, self.rank_a[a],
-                                                     tag=a, block=False))
-                assert a not in self.dH_asp
-                self.dH_asp[a] = dH_sp
-
-            for a in my_outgoing_atom_indices:
-                # Send matrix to new domain:
-                dH_sp = self.dH_asp.pop(a)
-                requests.append(self.gd.comm.send(dH_sp, rank_a[a],
-                                                  tag=a, block=False))
-            self.gd.comm.waitall(requests)
+                return np.empty((self.ns, ni * (ni + 1) // 2))
+            self.atom_partition.redistribute(atom_partition, self.dH_asp,
+                                             get_empty)
             self.timer.stop('Redistribute')
 
         self.rank_a = rank_a
+        self.atom_partition = atom_partition
+        self.dh_distributor = AtomicMatrixDistributor(atom_partition,
+                                                      self.setups,
+                                                      self.kptband_comm,
+                                                      self.ns)
+
 
     def aoom(self, DM, a, l, scale=1):
         """Atomic Orbital Occupation Matrix.
@@ -154,7 +155,7 @@ class Hamiltonian:
             bb = (nl[1])*len(l_j)-((nl[1]-1)*(nl[1])/2)
             ab = aa+nl[1]-nl[0]
 
-            if(scale==0 or scale=='False' or scale =='false'):
+            if not scale:
                 lq_a  = lq[aa]
                 lq_ab = lq[ab]
                 lq_b  = lq[bb]
@@ -186,9 +187,9 @@ class Hamiltonian:
             return A,V
 
     def initialize(self):
-        self.vt_sg = self.finegd.empty(self.nspins * self.ncomp**2)
+        self.vt_sg = self.finegd.empty(self.ns)
         self.vHt_g = self.finegd.zeros()
-        self.vt_sG = self.gd.empty(self.nspins * self.ncomp**2)
+        self.vt_sG = self.gd.empty(self.ns)
         self.poisson.initialize()
 
     def update(self, density):
@@ -227,7 +228,9 @@ class Hamiltonian:
 
     def update_corrections(self, density, Ekin, Epot, Ebar, Eext, Exc, W_aL):
         self.timer.start('Atomic')
-        self.dH_asp = {}
+        self.dH_asp = None # XXXX
+
+        dH_asp = {}
         for a, D_sp in density.D_asp.items():
             W_L = W_aL[a]
             setup = self.setups[a]
@@ -257,10 +260,7 @@ class Hamiltonian:
                                           setup.Delta_pL[:, 3]])
                     dH_p += sqrt(4 * pi / 3) * np.dot(vext[1], Delta_p1)
 
-            self.dH_asp[a] = dH_sp = np.zeros_like(D_sp)
-            self.timer.start('XC Correction')
-            Exc += self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
-            self.timer.stop('XC Correction')
+            dH_asp[a] = dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
                 assert self.collinear
@@ -268,11 +268,12 @@ class Hamiltonian:
 
                 l_j = setup.l_j
                 l   = setup.Hubl
+                scale = setup.Hubs
                 nl  = np.where(np.equal(l_j,l))[0]
                 nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
 
-                for D_p, H_p in zip(D_sp, self.dH_asp[a]):
-                    [N_mm,V] =self.aoom(unpack2(D_p),a,l)
+                for D_p, H_p in zip(D_sp, dH_asp[a]):
+                    [N_mm,V] =self.aoom(unpack2(D_p),a,l, scale)
                     N_mm = N_mm / 2 * nspins
 
                     Eorb = setup.HubU / 2. * (N_mm - np.dot(N_mm,N_mm)).trace()
@@ -297,9 +298,39 @@ class Hamiltonian:
                     H_p[:] = pack2(Htemp)
 
             dH_sp[:self.nspins] += dH_p
+            if self.ref_dH_asp:
+                dH_sp += self.ref_dH_asp[a]
+            # We are not yet done with dH_sp; still need XC correction below
 
+        Ddist_asp = self.dh_distributor.distribute(density.D_asp)
+        
+        dHdist_asp = {}
+        Exca = 0.0
+        self.timer.start('XC Correction')
+        for a, D_sp in Ddist_asp.items():
+            setup = self.setups[a]
+            dH_sp = np.zeros_like(D_sp)
+            Exca += self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
+            # XXX Exc are added on the "wrong" distribution; sum only works
+            # when gd.comm and distribution comm are the same
+            dHdist_asp[a] = dH_sp
+        self.timer.stop('XC Correction')
+        
+        dHdist_asp = self.dh_distributor.collect(dHdist_asp)
+
+        # Exca has contributions from all cores so modify it so it is
+        # parallel in the same way as the other energies.
+        Exca = self.world.sum(Exca)
+        if self.gd.comm.rank == 0:
+            Exc += Exca
+        
+        assert len(dHdist_asp) == len(self.atom_partition.my_indices)
+
+        for a, D_sp in density.D_asp.items():
+            dH_sp = dH_asp[a]
+            dH_sp += dHdist_asp[a]
             Ekin -= (D_sp * dH_sp).sum()  # NCXXX
-
+        self.dH_asp = dH_asp
         self.timer.stop('Atomic')
 
         # Make corrections due to non-local xc:
@@ -317,6 +348,24 @@ class Hamiltonian:
                      self.Ebar + self.Exc - self.S)
 
         return self.Etot
+
+    def linearize_to_xc(self, new_xc, density):
+        # Store old hamiltonian
+        ref_vt_sG = self.vt_sG.copy()
+        ref_dH_asp = {}
+        for a, dH_sp in self.dH_asp.items():
+            ref_dH_asp[a] = dH_sp.copy()
+        self.xc = new_xc
+        self.xc.set_positions(self.spos_ac)
+        self.update(density)
+
+        ref_vt_sG -= self.vt_sG
+        for a, dH_sp in self.dH_asp.items():
+            ref_dH_asp[a] -= dH_sp
+        self.ref_vt_sG = ref_vt_sG
+        self.ref_dH_asp = ref_dH_asp
+
+
 
     def calculate_forces(self, dens, F_av):
         ghat_aLv = dens.ghat.dict(derivative=True)
@@ -430,7 +479,7 @@ class Hamiltonian:
         self.poisson.estimate_memory(mem.subnode('Poisson'))
         self.vbar.estimate_memory(mem.subnode('vbar'))
 
-    def read(self, reader, parallel, kd, bd):
+    def read(self, reader, parallel):
         self.Ekin = reader['Ekin']
         self.Epot = reader['Epot']
         self.Ebar = reader['Ebar']
@@ -450,17 +499,16 @@ class Hamiltonian:
         version = reader['version']
 
         # Read pseudo potential on the coarse grid
-        # and broadcast on kd.comm and bd.comm:
+        # and broadcast on kpt/band comm:
         if version > 0.3:
             self.vt_sG = self.gd.empty(self.nspins)
             if hdf5:
                 indices = [slice(0, self.nspins), ] + self.gd.get_slice()
-                do_read = (kd.comm.rank == 0) and (bd.comm.rank == 0)
+                do_read = (self.kptband_comm.rank == 0)
                 reader.get('PseudoPotential', out=self.vt_sG,
                            parallel=parallel,
                            read=do_read, *indices)  # XXX read=?
-                kd.comm.broadcast(self.vt_sG, 0)
-                bd.comm.broadcast(self.vt_sG, 0)
+                self.kptband_comm.broadcast(self.vt_sG, 0)
             else:
                 for s in range(self.nspins):
                     self.gd.distribute(reader.get('PseudoPotential', s),
@@ -478,11 +526,11 @@ class Hamiltonian:
 
 
 class RealSpaceHamiltonian(Hamiltonian):
-    def __init__(self, gd, finegd, nspins, setups, timer, xc,
-                 vext=None, collinear=True, psolver=None,
-                 stencil=3, world=None):
+    def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
+                 kptband_comm, vext=None, collinear=True, psolver=None,
+                 stencil=3):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
-                             vext, collinear, world)
+                             world, kptband_comm, vext, collinear)
 
         # Solver for the Poisson equation:
         if psolver is None:
@@ -506,9 +554,9 @@ class RealSpaceHamiltonian(Hamiltonian):
         fd.write('Interpolation: tri-%s ' % name +
                  '(%d. degree polynomial)\n' % degree)
 
-        fd.write('Poisson solver: %s\n' % self.poisson.description)
+        fd.write('Poisson solver: %s\n' % self.poisson.get_description())
 
-    def set_positions(self, spos_ac, rank_a=None):
+    def set_positions(self, spos_ac, rank_a):
         Hamiltonian.set_positions(self, spos_ac, rank_a)
         if self.vbar_g is None:
             self.vbar_g = self.finegd.empty()
@@ -562,8 +610,12 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.start('Hartree integrate/restrict')
         Ekin = 0.0
         s = 0
-        for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
+        for s, (vt_g, vt_G, nt_G) in enumerate(zip(self.vt_sg, self.vt_sG, density.nt_sG)):
+
             self.restrict(vt_g, vt_G)
+            if self.ref_vt_sG is not None:
+                vt_G += self.ref_vt_sG[s]
+
             if s < self.nspins:
                 Ekin -= self.gd.integrate(vt_G, nt_G - density.nct_G,
                                           global_integral=False)

@@ -50,8 +50,12 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 
 #define   pdpotrf_ pdpotrf
 #define   pzpotrf_ pzpotrf
+#define   pzpotri_ pzpotri
 #define   pdtrtri_ pdtrtri
 #define   pztrtri_ pztrtri
+
+#define   pzgesv_ pzgesv
+#define   pdgesv_ pdgesv
 
 #define   pdsyevd_  pdsyevd
 #define   pzheevd_  pzheevd
@@ -78,6 +82,10 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 #define   pzherk_  pzherk
 #define   pdtrsm_  pdtrsm
 #define   pztrsm_  pztrsm
+
+#define   pzhemm_  pzhemm
+#define   pdsymm_  pdsymm
+
 #endif
 
 #ifdef GPAW_NO_UNDERSCORE_CSCALAPACK
@@ -112,6 +120,11 @@ void Cpztrmr2d_(char* uplo, char* diag, int m, int n,
 
 double pdlamch_(int* ictxt, char* cmach);
 
+void pzpotri_(char* uplo, int* n, void* a, int *ia, int* ja, int* desca, int* info);
+
+void pzgetri_(int* n, void* a,
+              int *ia, int* ja, int* desca, int* info);
+
 void pdlaset_(char* uplo, int* m, int* n, double* alpha, double* beta,
 	      double* a, int* ia, int* ja, int* desca);
 
@@ -124,6 +137,15 @@ void pdpotrf_(char* uplo, int* n, double* a,
 
 void pzpotrf_(char* uplo, int* n, void* a,
               int* ia, int* ja, int* desca, int* info);
+
+void pzgesv_(int* n, int* nrhs, void* a,
+             int* ia, int* ja, int* desca, int* ipiv,
+             void* b, int* ib, int* jb, int* descb, int* info);
+
+void pdgesv_(int *n, int *nrhs, void *a, 
+             int *ia, int *ja, int* desca, int *ipiv,
+             void* b, int* ib, int* jb, int* descb, int* info);
+
 
 void pdtrtri_(char* uplo, char* diag, int* n, double* a,
               int *ia, int* ja, int* desca, int* info);
@@ -248,6 +270,20 @@ void pzgemm_(char* transa, char* transb, int* m, int* n, int* k,
              void* beta,
              void* c, int* ic, int* jc, int* descc);
 
+void pzhemm_(char* side, char* uplo, int* m, int* n,
+             void* alpha,
+             void* a, int* ia, int* ja, int* desca,
+             void* b, int* ib, int* jb, int* descb,
+             void* beta,
+             void* c, int* ic, int* jc, int* descc);
+
+void pdsymm_(char* side, char* uplo, int* m, int* n,
+             void* alpha,
+             void* a, int* ia, int* ja, int* desca,
+             void* b, int* ib, int* jb, int* descb,
+             void* beta,
+             void* c, int* ic, int* jc, int* descc);
+
 void pdgemv_(char* transa, int* m, int* n, double* alpha, 
              double* a, int* ia, int* ja, int* desca,
              double* x, int* ix, int* jx, int* descx, int* incx,
@@ -366,6 +402,41 @@ PyObject* pblas_gemm(PyObject *self, PyObject *args)
 	    (void*)COMPLEXP(c), &one, &one, INTP(descc));
 
   Py_RETURN_NONE;
+}
+
+
+PyObject* pblas_hemm(PyObject *self, PyObject *args)
+{
+  char side;
+  char uplo;
+  int m, n;
+  Py_complex alpha;
+  Py_complex beta;
+  PyArrayObject *a, *b, *c;
+  PyArrayObject *desca, *descb, *descc;
+  int one = 1;
+  if (!PyArg_ParseTuple(args, "cciiDOOdOOOO", 
+                 &side, &uplo, &n, &m,
+                 &alpha, &a, &b, &beta, 
+                 &c, &desca, &descb, &descc)) {
+    return NULL;
+  }
+
+  if (PyArray_DESCR(c)->type_num == NPY_DOUBLE) {
+     pdsymm_(&side, &uplo, &n, &m, &alpha,
+             (void*)DOUBLEP(a), &one, &one, INTP(desca),
+             (void*)DOUBLEP(b), &one, &one, INTP(descb),
+             &beta,
+             (void*)DOUBLEP(c), &one, &one, INTP(descc));
+  } else {
+     pzhemm_(&side, &uplo, &n, &m, &alpha,
+             (void*)COMPLEXP(a), &one, &one, INTP(desca),
+             (void*)COMPLEXP(b), &one, &one, INTP(descb),
+             &beta,
+             (void*)COMPLEXP(c), &one, &one, INTP(descc));
+  }
+
+ Py_RETURN_NONE;
 }
 
 PyObject* pblas_gemv(PyObject *self, PyObject *args)
@@ -1624,6 +1695,157 @@ PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args)
 	}
     }
 
+  PyObject* returnvalue = Py_BuildValue("i", info);
+  return returnvalue;
+}
+
+PyObject* scalapack_inverse(PyObject *self, PyObject *args)
+{
+  // Inverse of an hermitean matrix
+  PyArrayObject* a; // Matrix
+  PyArrayObject* desca; // Matrix description vector
+  char uplo;
+  int info;
+  int one = 1;
+  if (!PyArg_ParseTuple(args, "OOc", &a, &desca, &uplo))
+    return NULL;
+
+  int a_m      = INTP(desca)[2];
+  int a_n      = INTP(desca)[3];
+  // Only square matrices
+  assert (a_m == a_n);
+
+  int n = a_n;
+
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
+     {
+      assert(1==-1);       // No double version implemented
+     }
+  else
+    {
+      pzpotrf_(&uplo, &n, (void*)COMPLEXP(a), &one, &one, INTP(desca), &info);
+      if (info == 0)
+      {
+        pzpotri_(&uplo, &n, (void*)COMPLEXP(a), &one, &one, INTP(desca), &info);
+      }
+    }
+  PyObject* returnvalue = Py_BuildValue("i", info);
+  return returnvalue;
+}
+
+/*
+PyObject* scalapack_solve(PyObject *self, PyObject *args)
+{
+  // Solves equation Ax = B, where A is a general matrix
+  PyArrayObject* a; // Matrix
+  PyArrayObject* desca; // Matrix description vector
+  PyArrayObject* b; // Matrix
+  PyArrayObject* descb; // Matrix description vector
+  char uplo;
+  int info;
+  int one = 1;
+  if (!PyArg_ParseTuple(args, "OOOO", &a, &desca, &b, &descb))
+    return NULL;
+
+  int a_m      = INTP(desca)[2];
+  int a_n      = INTP(desca)[3];
+  // Only square matrices
+  assert (a_m == a_n);
+
+  int b_m      = INTP(descb)[2];
+  int b_n      = INTP(descb)[3];
+  // Equation valid
+  assert (a_n == b_m);
+
+  int n = a_n;
+  int nrhs = b_n;
+
+  int* pivot = GPAW_MALLOC(int, a_m+2000); // TODO: How long should this exaclty be?
+
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
+     {
+      assert(1==-1);       // No double version implemented
+     }
+  else
+    {
+       pzgesv_(&n, &nrhs,(void*)COMPLEXP(a), &one, &one, INTP(desca), pivot,
+               (void*)COMPLEXP(b), &one, &one, INTP(descb), &info);
+    }
+  free(pivot);
+  PyObject* returnvalue = Py_BuildValue("i", info);
+  return returnvalue;
+}
+*/
+
+PyObject* scalapack_solve(PyObject *self, PyObject *args) {
+  // Solves equation Ax = B, where A is a general matrix
+  PyArrayObject* a; // Matrix
+  PyArrayObject* desca; // Matrix description vector
+  PyArrayObject* b; // Matrix
+  PyArrayObject* descb; // Matrix description vector
+  char uplo;
+  int info;
+  int one = 1;
+  if (!PyArg_ParseTuple(args, "OOOO", &a, &desca, &b, &descb))
+    return NULL;
+
+  int a_ConTxt = INTP(desca)[1];
+  int a_m      = INTP(desca)[2];
+  int a_n      = INTP(desca)[3];
+  int a_mb     = INTP(desca)[4];
+  int a_nb     = INTP(desca)[5];
+  // Only square matrices
+  assert (a_m == a_n);
+
+  int b_ConTxt = INTP(descb)[1];
+  int b_m      = INTP(descb)[2];
+  int b_n      = INTP(descb)[3];
+  // Equation valid
+  assert (a_n == b_m);
+
+  int n = a_n;
+  int nrhs = b_n;
+
+  int nprow, npcol, myrow, mycol, locM;
+
+  Cblacs_gridinfo_(a_ConTxt, &nprow, &npcol, &myrow, &mycol);
+  // LOCr( M ) <= ceil( ceil(M/MB_A)/NPROW )*MB_A
+  locM = (((a_m/a_mb) + 1)/nprow + 1) * a_mb;
+
+  /*  
+   *  IPIV    (local output) INTEGER array, dimension ( LOCr(M_A)+MB_A )
+   *          This array contains the pivoting information.
+   *          IPIV(i) -> The global row local row i was swapped with.
+   *          This array is tied to the distributed matrix A.
+   
+   *  An upper bound for these quantities may be computed by:
+   *          LOCr( M ) <= ceil( ceil(M/MB_A)/NPROW )*MB_A
+   
+   *  M_A    (global) DESCA( M_ )    The number of rows in the global
+   *                                 array A.
+   
+   *  MB_A   (global) DESCA( MB_ )   The blocking factor used to distribute
+   *                                 the rows of the array.
+   
+   *  NPROW   (global input) INTEGER
+   *          NPROW specifies the number of process rows in the grid
+   *          to be created.
+   */
+
+  int* pivot = GPAW_MALLOC(int, locM + a_mb); 
+
+  //if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
+    {
+      pdgesv_(&n, &nrhs,(double*)DOUBLEP(a), &one, &one, INTP(desca), pivot,
+              (double*)DOUBLEP(b), &one, &one, INTP(descb), &info);
+    }
+  else
+    {
+      pzgesv_(&n, &nrhs,(void*)COMPLEXP(a), &one, &one, INTP(desca), pivot,
+              (void*)COMPLEXP(b), &one, &one, INTP(descb), &info);
+    }
+  free(pivot);
   PyObject* returnvalue = Py_BuildValue("i", info);
   return returnvalue;
 }

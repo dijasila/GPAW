@@ -3,18 +3,20 @@
 
 """This module provides all the classes and functions associated with the
 evaluation of exact exchange with k-point sampling."""
-
+from __future__ import print_function
 from math import pi, sqrt
 import sys
+from time import ctime
 import numpy as np
+
 from ase import Atoms
 from ase.units import Ha
-from time import ctime
+from ase.utils import devnull
 
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCNull
 from gpaw.xc.functional import XCFunctional
-from gpaw.utilities import pack, unpack2, packed_index, devnull
+from gpaw.utilities import pack, unpack2, packed_index
 from gpaw.lfc import LFC
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -252,7 +254,7 @@ class HybridXC(XCFunctional):
             ibz_kpts = [KPoint(kd, kpt)
                         for kpt in self.kpt_u if kpt.s == s]
             for ik, kpt in enumerate(kd.bzk_kc):
-                print >> self.txt, 'K %s %s ...' % (ik, kpt)
+                print('K %s %s ...' % (ik, kpt), file=self.txt)
                 for iq, q in enumerate(self.ibzq_qc):
                     kpq = kd.find_k_plus_q(q, kpts_k=[ik])
                     self.apply(ibz_kpts[kd.bz2ibz_k[ik]],
@@ -264,23 +266,21 @@ class HybridXC(XCFunctional):
 
         exx_q = np.sum(self.exx_kq, 0)
 
-        print >> self.txt
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt
-        print >> self.txt, 'Contributions: q         w        E_q (eV)' 
+        print(file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
+        print(file=self.txt)
+        print('Contributions: q         w        E_q (eV)', file=self.txt) 
         for q in range(len(exx_q)):
-            print >> self.txt, '[%1.3f %1.3f %1.3f]    %1.3f   %s' % \
+            print('[%1.3f %1.3f %1.3f]    %1.3f   %s' % \
                   (self.ibzq_qc[q][0], self.ibzq_qc[q][1], self.ibzq_qc[q][2],
                    self.q_weights[q]/len(self.bzq_qc),
-                   exx_q[q]/self.q_weights[q]*len(self.bzq_qc)*Ha)
-        print >> self.txt, 'E_EXX = %s eV' % (self.exx*Ha)
-        print >> self.txt
-        print >> self.txt, 'Calculation completed at:  ', ctime()
-        print >> self.txt
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt
+                   exx_q[q]/self.q_weights[q]*len(self.bzq_qc)*Ha), file=self.txt)
+        print('E_EXX = %s eV' % (self.exx*Ha), file=self.txt)
+        print(file=self.txt)
+        print('Calculation completed at:  ', ctime(), file=self.txt)
+        print(file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
+        print(file=self.txt)
          
     def apply(self, kpt1, kpt2, ik1, ik2, iq):
         k1_c = self.kd.bzk_kc[ik1]
@@ -399,52 +399,35 @@ class HybridXC(XCFunctional):
         return exx
 
     def print_initialization(self, xc):
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt, 'Non-self-consistent HF correlation energy'
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt, 'Started at:  ', ctime()
-        print >> self.txt
-        print >> self.txt, \
-              'Ground state XC functional     :   %s' % xc
-        print >> self.txt, \
-              'Valence electrons              :   %s' % self.setups.nvalence
-        print >> self.txt, \
-              'Number of Spins                :   %s' % self.nspins
-        print >> self.txt, \
-              'Plane wave cutoff energy       :   %4.1f eV' % (self.ecut*Ha)
-        print >> self.txt, \
-              'Gamma q-point excluded         :   %s' % self.skip_gamma
+        print('------------------------------------------------------', file=self.txt)
+        print('Non-self-consistent HF correlation energy', file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
+        print('Started at:  ', ctime(), file=self.txt)
+        print(file=self.txt)
+        print('Ground state XC functional     :   %s' % xc, file=self.txt)
+        print('Valence electrons              :   %s' % self.setups.nvalence, file=self.txt)
+        print('Number of Spins                :   %s' % self.nspins, file=self.txt)
+        print('Plane wave cutoff energy       :   %4.1f eV' % (self.ecut*Ha), file=self.txt)
+        print('Gamma q-point excluded         :   %s' % self.skip_gamma, file=self.txt)
         if not self.skip_gamma:
-            print >> self.txt, \
-                  'Alpha parameter                :   %s' % self.alpha
-            print >> self.txt, \
-                  'Gamma parameter                :   %3.3f' % self.gamma
-        print >> self.txt, \
-              'ACDF method                    :   %s' % self.acdf
-        print >> self.txt, \
-              'Number of k-points             :   %s' % len(self.kd.bzk_kc)
-        print >> self.txt, \
-              'Number of Irreducible k-points :   %s' % len(self.kd.ibzk_kc)
-        print >> self.txt, \
-              'Number of q-points             :   %s' % len(self.bzq_qc)
+            print('Alpha parameter                :   %s' % self.alpha, file=self.txt)
+            print('Gamma parameter                :   %3.3f' % self.gamma, file=self.txt)
+        print('ACDF method                    :   %s' % self.acdf, file=self.txt)
+        print('Number of k-points             :   %s' % len(self.kd.bzk_kc), file=self.txt)
+        print('Number of Irreducible k-points :   %s' % len(self.kd.ibzk_kc), file=self.txt)
+        print('Number of q-points             :   %s' % len(self.bzq_qc), file=self.txt)
         if not self.qsym:
-            print >> self.txt, \
-                  'q-point symmetry               :   %s' % self.qsym
+            print('q-point symmetry               :   %s' % self.qsym, file=self.txt)
         else:
-            print >> self.txt, \
-                  'Number of Irreducible q-points :   %s' % len(self.ibzq_qc)
+            print('Number of Irreducible q-points :   %s' % len(self.ibzq_qc), file=self.txt)
 
-        print >> self.txt
+        print(file=self.txt)
         for q, weight in zip(self.ibzq_qc, self.q_weights):
-            print >> self.txt, 'q: [%1.3f %1.3f %1.3f] - weight: %1.3f' % \
-                  (q[0],q[1],q[2], weight/len(self.bzq_qc))
-        print >> self.txt
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt, \
-              '------------------------------------------------------'
-        print >> self.txt
-        print >> self.txt, 'Looping over k-points in the full Brillouin zone'
-        print >> self.txt
+            print('q: [%1.3f %1.3f %1.3f] - weight: %1.3f' % \
+                  (q[0],q[1],q[2], weight/len(self.bzq_qc)), file=self.txt)
+        print(file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
+        print('------------------------------------------------------', file=self.txt)
+        print(file=self.txt)
+        print('Looping over k-points in the full Brillouin zone', file=self.txt)
+        print(file=self.txt)

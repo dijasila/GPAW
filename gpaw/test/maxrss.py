@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from gpaw.utilities.memory import maxrss, _VmB
 from gpaw.test import equal
@@ -44,19 +45,19 @@ for n, maxmem in enumerate(maxmems):
 
         mset = 'Matrix set No ' + str(n) + ':'
         if verbose:
-            print mset,
-            print str(mno) + ' matrices ' + str(dtype),
-            print 'of size ' + str(msize) + '**2',
-            print 'in memory of ' + str(int(mmemory*mno)) + ' bytes',
+            print(mset, end=' ')
+            print(str(mno) + ' matrices ' + str(dtype), end=' ')
+            print('of size ' + str(msize) + '**2', end=' ')
+            print('in memory of ' + str(int(mmemory*mno)) + ' bytes', end=' ')
 
-            print 'Total: ' + str(int(newmem - mem0)) + ' bytes'
+            print('Total: ' + str(int(newmem - mem0)) + ' bytes')
  
         equal(float(memused)/(float(mmemory)*float(mno)), 1.0, 0.30, msg=mset)
 
     except MemoryError:
         if verbose:
-            print mset,
-            print 'allocation failed' 
+            print(mset, end=' ')
+            print('allocation failed') 
         pass
     mem = newmem
 

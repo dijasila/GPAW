@@ -4,11 +4,12 @@ import time
 
 from ase.units import Bohr
 from ase.lattice import bulk
+from ase.utils import devnull
+
 from gpaw import GPAW, FermiDirac
 from gpaw.atom.basis import BasisMaker
-from gpaw.response.df import DF
+from gpaw.response.df0 import DF
 from gpaw.mpi import serial_comm, rank, size
-from gpaw.utilities import devnull
 
 
 if rank != 0:

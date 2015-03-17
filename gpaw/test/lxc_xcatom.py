@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import numpy.random as ra
 from gpaw.setup import create_setup
@@ -58,20 +59,20 @@ for xcname in libxc_set:
     D_p += dD_p
     dE = np.dot(H_p, dD_p) / x
     E2 = xc.calculate_paw_correction(s, D_p.reshape(1, -1))
-    print xcname, dE, (E2 - E1) / x
+    print(xcname, dE, (E2 - E1) / x)
     equal(dE, (E2 - E1) / x, 0.003)
 
     E2s = xc.calculate_paw_correction(s,
         np.array([0.5 * D_p, 0.5 * D_p]), np.array([H_p, H_p]))
-    print E2, E2s
+    print(E2, E2s)
     equal(E2, E2s, 1.0e-12)
 
     if xcname in reference: # compare with old gpaw
-        print 'A:', E2, reference[xcname]
+        print('A:', E2, reference[xcname])
         equal(E2, reference[xcname], tolerance)
 
     if xc in reference_libxc: # compare with reference libxc
-        print 'B:', E2, reference_libxc[xcname]
+        print('B:', E2, reference_libxc[xcname])
         equal(E2, reference_libxc[xcname], tolerance)
 
     D_sp = 0.1 * ra.random((2, nii)) + 0.2
@@ -82,5 +83,5 @@ for xcname in libxc_set:
     D_sp += dD_sp
     dE = np.dot(H_sp.ravel(), dD_sp.ravel()) / x
     E2 = xc.calculate_paw_correction(s, D_sp, H_sp)
-    print dE, (E2 - E1) / x
+    print(dE, (E2 - E1) / x)
     equal(dE, (E2 - E1) / x, 0.005)

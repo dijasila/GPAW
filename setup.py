@@ -53,39 +53,11 @@ mpi_define_macros = []
 
 platform_id = ''
 
-packages = ['gpaw',
-            'gpaw.analyse',
-            'gpaw.atom',
-            'gpaw.eigensolvers',
-            'gpaw.io',
-            'gpaw.lcao',
-            'gpaw.lrtddft',
-            'gpaw.lrtddft2',
-            'gpaw.mpi',
-            'gpaw.pes',
-            'gpaw.response',
-            'gpaw.solvation',
-            'gpaw.sphere',
-            'gpaw.tddft',
-            'gpaw.test',
-            'gpaw.test.big',
-            'gpaw.test.big.dcdft',
-            'gpaw.test.big.g2_1',
-            'gpaw.test.big.scf',
-            'gpaw.test.big.setups',
-            'gpaw.test.cmrtest',
-            'gpaw.test.fileio',
-            'gpaw.test.noncollinear',
-            'gpaw.test.parallel',
-            'gpaw.test.pw',
-            'gpaw.test.vdw',
-            'gpaw.test.solvation',
-            'gpaw.testing',
-            'gpaw.transport',
-            'gpaw.utilities',
-            'gpaw.wavefunctions',
-            'gpaw.xc',
-            'gpaw.xc.gllb']
+
+packages = []
+for dirname, dirnames, filenames in os.walk('gpaw'):
+        if '__init__.py' in filenames:
+            packages.append(dirname.replace('/', '.'))
 
 include_ase = False
 if '--include-ase' in sys.argv:
@@ -133,6 +105,7 @@ execfile(customize)
 
 if platform_id != '':
     my_platform = distutils.util.get_platform() + '-' + platform_id
+
     def my_get_platform():
         return my_platform
     distutils.util.get_platform = my_get_platform
@@ -143,8 +116,8 @@ if compiler is not None:
     vars = get_config_vars()
     if remove_default_flags:
         for key in ['BASECFLAGS', 'CFLAGS', 'OPT', 'PY_CFLAGS',
-            'CCSHARED', 'CFLAGSFORSHARED', 'LINKFORSHARED',
-            'LIBS', 'SHLIBS']:
+                    'CCSHARED', 'CFLAGSFORSHARED', 'LINKFORSHARED',
+                    'LIBS', 'SHLIBS']:
             if key in vars:
                 value = vars[key].split()
                 # remove all gcc flags (causing problems with other compilers)
@@ -181,10 +154,10 @@ gpawso = 'build/lib.%s/' % plat + '_gpaw.so'
 gpawbin = 'build/bin.%s/' % plat + 'gpaw-python'
 if 'clean' in sys.argv:
     if os.path.isfile(gpawso):
-        print 'removing ', gpawso
+        print('removing ', gpawso)
         os.remove(gpawso)
     if os.path.isfile(gpawbin):
-        print 'removing ', gpawbin
+        print('removing ', gpawbin)
         os.remove(gpawbin)
 
 sources = glob('c/*.c') + ['c/bmgs/bmgs.c']
@@ -211,7 +184,7 @@ if hdf5:
     get_hdf5_config(define_macros)
     msg.append('* Compiling with HDF5')
 
-    hdf5_extension = Extension('_hdf5',
+    hdf5_extension = Extension('_gpaw_hdf5',
                                hdf5_sources,
                                libraries=libraries,
                                library_dirs=library_dirs,
@@ -225,9 +198,8 @@ if hdf5:
     extensions.append(hdf5_extension)
 
 scripts = [join('tools', script)
-           for script in ('gpaw-run', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
-                          'gpaw-mpisim', 'gpaw-mapfile-bgp',
-                          'gpaw-mapfile-cray', 'gpaw-runscript',
+           for script in ('gwap', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
+                          'gpaw-mpisim', 'gpaw-runscript',
                           'gpaw-install-setups')]
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
@@ -236,19 +208,20 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     mpi_libraries, mpi_library_dirs, mpi_include_dirs,
                     mpi_runtime_library_dirs, mpi_define_macros)
 
+description = 'An electronic structure code based on the PAW method'
+
 setup(name='gpaw',
       version=version,
-      description='A grid-based real-space PAW method DFT code',
-      author='J. J. Mortensen, et.al.',
-      author_email='jensj@fysik.dtu.dk',
-      url='http://www.fysik.dtu.dk',
+      description=description,
+      maintainer='GPAW-community',
+      maintainer_email='gpaw-developers@listserv.fysik.dtu.dk',
+      url='http://wiki.fysik.dtu.dk/gpaw',
       license='GPLv3+',
       platforms=['unix'],
       packages=packages,
       ext_modules=extensions,
       scripts=scripts,
-      long_description=long_description,
-      )
+      long_description=long_description)
 
 
 if custom_interpreter:
@@ -266,17 +239,16 @@ if custom_interpreter:
     if 'install' in sys.argv and error == 0:
         setup(name='gpaw',
               version=version,
-              description='A grid-based real-space PAW method DFT code',
-              author='J. J. Mortensen, et.al.',
-              author_email='jensj@fysik.dtu.dk',
-              url='http://www.fysik.dtu.dk',
+              description=description,
+              maintainer='GPAW-community',
+              maintainer_email='gpaw-developers@listserv.fysik.dtu.dk',
+              url='http://wiki.fysik.dtu.dk/gpaw',
               license='GPLv3+',
               platforms=['unix'],
               packages=packages,
               ext_modules=[extension],
               scripts=scripts,
-              long_description=long_description,
-              )
+              long_description=long_description)
 
 else:
     msg += ['* Only a serial version of gpaw was built!']
@@ -284,4 +256,4 @@ else:
 # Messages make sense only when building
 if 'build' in sys.argv or 'build_ext' in sys.argv or 'install' in sys.argv:
     for line in msg:
-        print line
+        print(line)

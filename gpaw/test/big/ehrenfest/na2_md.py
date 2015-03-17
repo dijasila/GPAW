@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+from __future__ import print_function
 
 import os, time
 import numpy as np
@@ -36,7 +36,7 @@ class Timing:
         rate = 60 * ndiv / (time.time()-self.t0)
         ekin = atoms.get_kinetic_energy()
         epot = atoms.get_potential_energy()
-        print >>self.f, 'i=%06d (%6.2f min^-1), ekin=%13.9f, epot=%13.9f, etot=%13.9f' % (self.i, rate, ekin, epot, ekin+epot)
+        print('i=%06d (%6.2f min^-1), ekin=%13.9f, epot=%13.9f, etot=%13.9f' % (self.i, rate, ekin, epot, ekin+epot), file=self.f)
         self.t0 = time.time()
         self.i += ndiv
 
@@ -57,7 +57,7 @@ if __name__ == '__main__':
         time.sleep(10)
 
     while not os.path.isfile(name + '_gs.gpw'):
-        print 'Node %d waiting for file...' % world.rank
+        print('Node %d waiting for file...' % world.rank)
         time.sleep(10)
     world.barrier()
 

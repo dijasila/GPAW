@@ -1,11 +1,15 @@
+from __future__ import print_function
 import sys
 from time import time, ctime
 import numpy as np
 from math import sqrt, pi
 from datetime import timedelta
+
 from ase.units import Hartree, Bohr
+from ase.utils import devnull
+
 from gpaw import GPAW, extra_parameters
-from gpaw.utilities import unpack, devnull
+from gpaw.utilities import unpack
 from gpaw.utilities.blas import gemmdot, gemv
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
@@ -219,7 +223,7 @@ class BASECHI:
 
 
     def printtxt(self, text):
-        print >> self.txt, text
+        print(text, file=self.txt)
 
 
     def print_stuff(self):
@@ -511,7 +515,7 @@ class BASECHI:
         P_ai = {}
         for a, id in enumerate(calc.wfs.setups.id_a):
             b = kd.symmetry.a_sa[s, a]
-            S_c = (np.dot(spos_ac[a], kd.symmetry.op_scc[s]) - spos_ac[b])
+            S_c = (np.dot(spos_ac[a], kd.symmetry.op_scc[s]) - kd.symmetry.ft_sc[s] - spos_ac[b])
 
             #print abs(S_c.round() - S_c).max()
             #print 'S_c', abs(S_c).max()

@@ -1,3 +1,4 @@
+from __future__ import print_function
 from gpaw.xc.libxc import LibXC
 from math import pi
 import numpy as np
@@ -18,7 +19,7 @@ for name in [
         nb = 1.0
     else:
         nb = 0.0
-    print na, nb
+    print(na, nb)
     if (nb > 0.0): assert (nspins == 2)
     if nspins == 2:
         sigma0 = 2.0 # (0.0, 1.0, 1.0)
@@ -57,5 +58,5 @@ for name in [
             if de > error[0]:
                 error[0] = de
                 error[1] = E[0]
-    print name, error[0], error[1]
+    print(name, error[0], error[1])
     assert error[0] < 5.0e-7

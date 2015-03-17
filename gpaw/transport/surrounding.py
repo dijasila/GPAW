@@ -30,23 +30,23 @@ class Side:
 
         self.type = type
         self.direction = direction
-	self.kpt_comm = kpt_comm
-	self.domain_comm = domain_comm
-	self.tio = Transport_IO(kpt_comm, domain_comm)
-	self.h_cz = h
+        self.kpt_comm = kpt_comm
+        self.domain_comm = domain_comm
+        self.tio = Transport_IO(kpt_comm, domain_comm)
+        self.h_cz = h
 
     def abstract_boundary(self):
         # Abtract the effective potential, hartree potential, and average density
         #out from the electrode calculation.
         map = {'-': '0', '+': '1'}
-	data = self.tio.read_data(filename='Lead_' + 
-	                          map[self.direction], option='Lead')
+        data = self.tio.read_data(filename='Lead_' + 
+                                  map[self.direction], option='Lead')
         nn = data['fine_N_c'][2]
-	ns = data['nspins']
+        ns = data['nspins']
         N_c = data['N_c']
-	cell_cv = data['cell_cv']
-	pbc_c = data['pbc_c']
-	#parsize_c = data['parsize_c']
+        cell_cv = data['cell_cv']
+        pbc_c = data['pbc_c']
+        #parsize_c = data['parsize_c']
         if type(parsize_domain) is int:
             parsize_c = None
             assert parsize_domain == self.domain_comm.size
@@ -65,10 +65,10 @@ class Side:
         vt_sG = data['vt_sG']
         nt_sG = data['nt_sG']
         self.D_asp = data['D_asp']
-	self.dH_asp = data['dH_asp']
+        self.dH_asp = data['dH_asp']
         gd = GridDescriptor(N_c, cell_cv, pbc_c, self.domain_comm, parsize_c)
-	finegd = gd.refine()
-	
+        finegd = gd.refine()
+
         self.boundary_vHt_g = None
         self.boundary_vHt_g1 = None
         self.boundary_vt_sg_line = None
@@ -90,12 +90,12 @@ class Side:
 
             self.boundary_vHt_g = interpolate_array(b_vHt_g0,
                                                     finegd, h, 
-						    self.direction)
+                                                    self.direction)
             self.boundary_vHt_g1 = interpolate_array(b_vHt_g1,
                                                      finegd, h, 
-						     other_direction)
+                                                     other_direction)
             vt_sg = interpolate_array(vt_sg, finegd, 
-	                              h, self.direction)
+                                      h, self.direction)
             self.boundary_vt_sg_line =  aa1d(vt_sg)
             self.boundary_nt_sg = interpolate_array(self.boundary_nt_sg,
                                                     finegd, h, self.direction)
@@ -138,10 +138,10 @@ class Surrounding:
             self.directions = ['-', '+']
             for i in range(self.lead_num):
                 direction = self.directions[i]
-		kpt_comm = tp.wfs.kpt_comm
-		gd_comm = tp.gd.comm
+                kpt_comm = tp.wfs.kd.comm
+                gd_comm = tp.gd.comm
                 side = Side('LR', direction, kpt_comm, 
-		                  gd_comm, tp.gd.h_cv[2,2])
+                            gd_comm, tp.gd.h_cv[2,2])
                 self.sides[direction] = side
                 self.bias_index[direction] = tp.bias[i]
                 self.side_basis_index[direction] = tp.lead_index[i]

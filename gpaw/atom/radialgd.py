@@ -1,11 +1,32 @@
 from __future__ import division
-
 from math import pi
 
 import numpy as np
 
 from gpaw.spline import Spline
 from gpaw.utilities import hartree, divrl, _fact as fac
+
+
+def radial_grid_descriptor(eq, **kwargs):
+    if eq == 'r=d*i':
+        assert int(kwargs['istart']) == 0
+        return EquidistantRadialGridDescriptor(float(kwargs['d']),
+                                               int(kwargs['iend']) + 1)
+    if eq == 'r=a*i/(n-i)':
+        beta = float(kwargs['a'])
+        ng = int(kwargs['n'])
+        return AERadialGridDescriptor(beta / ng, 1.0 / ng, ng)
+    if eq == 'r=a*i/(1-b*i)':
+        a = float(kwargs['a'])
+        b = float(kwargs['b'])
+        N = int(kwargs['n'])
+        return AERadialGridDescriptor(a, b, N)
+    if eq == 'r=a*(exp(d*i)-1)':
+        a = float(kwargs['a'])
+        d = float(kwargs['d'])
+        N = int(kwargs['iend']) + 1
+        return AbinitRadialGridDescriptor(a, d, N)
+    raise ValueError('Unknown grid: ' + eq)
 
 
 def fsbt(l, f_g, r_g, G_k):
@@ -179,31 +200,10 @@ class RadialGridDescriptor:
 
         return f_g
 
-    def purepythonpoisson(self, n_g, l=0):
-        r_g = self.r_g
-        dr_g = self.dr_g
-        a_g = -4 * pi * n_g * r_g * dr_g
-        a_g[1:] /= r_g[1:]**l
-        A_g = np.add.accumulate(a_g)
-        vr_g = self.zeros()
-        vr_g[1:] = A_g[:-1] + 0.5 * a_g[1:]
-        vr_g -= A_g[-1]
-        vr_g *= r_g**(1 + l)
-        a_g *= r_g**(2 * l + 1)
-        A_g = np.add.accumulate(a_g)
-        vr_g[1:] -= A_g[:-1] + 0.5 * a_g[1:]
-        vr_g[1:] /= r_g[1:]**l
-        return vr_g
-    
-    def poisson(self, n_g, l=0):  # Old C version
+    def poisson(self, n_g, l=0):
         vr_g = self.zeros()
         nrdr_g = n_g * self.r_g * self.dr_g
-        beta = self.a / self.b
-        ng = int(round(1.0 / self.b))
-        assert abs(ng - 1 / self.b) < 1e-5
-        hartree(l, nrdr_g, beta, ng, vr_g)
-        #vrp_g = self.purepythonpoisson(n_g,l)
-        #assert abs(vr_g-vrp_g).max() < 1e-12
+        hartree(l, nrdr_g, self.r_g, vr_g)
         return vr_g
 
     def pseudize(self, a_g, gc, l=0, points=4):
@@ -232,7 +232,7 @@ class RadialGridDescriptor:
         
         Same as pseudize() with also this constraint::
         
-            /        2  /        2
+            /  _     2  /  _     2
             | dr b(r) = | dr a(r)
             /           /
         """
@@ -277,9 +277,9 @@ class RadialGridDescriptor:
         assert isinstance(gc, int) and gc > 10
 
         zeros_l = [[1, 2, 3, 4, 5, 6],
-                   [1.430,  2.459,  3.471,  4.477,  5.482,  6.484],
-                   [1.835,  2.895,  3.923,  4.938,  5.949,  6.956],
-                   [2.224,  3.316,  4.360,  5.387,  6.405,  7.418]]
+                   [1.430, 2.459, 3.471, 4.477, 5.482, 6.484],
+                   [1.835, 2.895, 3.923, 4.938, 5.949, 6.956],
+                   [2.224, 3.316, 4.360, 5.387, 6.405, 7.418]]
         
         # Logarithmic derivative:
         ld = np.dot([-1 / 60, 3 / 20, -3 / 4, 0, 3 / 4, -3 / 20, 1 / 60],
@@ -307,8 +307,6 @@ class RadialGridDescriptor:
             q_p[p] = q
             z1 = z2
 
-        r_g = self.r_g
-
         C_dg = [[0, 0, 0, 1, 0, 0, 0],
                 [1 / 90, -3 / 20, 3 / 2, -49 / 18, 3 / 2, -3 / 20, 1 / 90],
                 [1 / 8, -1, 13 / 8, 0, -13 / 8, 1, -1 / 8],
@@ -316,7 +314,7 @@ class RadialGridDescriptor:
         c_p = np.linalg.solve(np.dot(C_dg, j_pg[:, gc - 3:gc + 4].T),
                               np.dot(C_dg, a_g[gc - 3:gc + 4]))
         b_g = a_g.copy()
-        b_g[:gc+2] = np.dot(c_p, j_pg[:, :gc + 2])
+        b_g[:gc + 2] = np.dot(c_p, j_pg[:, :gc + 2])
         return b_g, np.dot(c_p, q_p**l) * 2**l * fac[l] / fac[2 * l + 1]
 
     def plot(self, a_g, n=0, rc=4.0, show=False):
@@ -339,9 +337,15 @@ class RadialGridDescriptor:
     def ceil(self, r):
         return np.ceil(self.r2g(r)).astype(int)
 
-    def spline(self, a_g, rcut, l=0, points=None):
+    def spline(self, a_g, rcut=None, l=0, points=None):
         if points is None:
             points = self.default_spline_points
+
+        if rcut is None:
+            g = len(a_g) - 1
+            while a_g[g] == 0.0:
+                g -= 1
+            rcut = self.r_g[g + 1]
 
         b_g = a_g.copy()
         N = len(b_g)
@@ -375,15 +379,14 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
     def r2g(self, r):
         return (r - self.r_g[0]) / (self.r_g[1] - self.r_g[0])
 
-    def spline(self, a_g, l=0):
+    def spline(self, a_g, rcut=None, l=0):
+        assert rcut is None
         b_g = a_g.copy()
         if l > 0:
             b_g = divrl(b_g, l, self.r_g[:len(a_g)])
-            #b_g[1:] /= self.r_g[1:]**l
-            #b_g[0] = b_g[1]
         return Spline(l, self.r_g[len(a_g) - 1], b_g)
 
-
+        
 class AERadialGridDescriptor(RadialGridDescriptor):
     def __init__(self, a, b, N=1000, default_spline_points=25):
         """Radial grid descriptor for all-electron calculation.
@@ -412,11 +415,32 @@ class AERadialGridDescriptor(RadialGridDescriptor):
     def xml(self, id='grid1'):
         if abs(self.N - 1 / self.b) < 1e-5:
             return (('<radial_grid eq="r=a*i/(n-i)" a="%r" n="%d" ' +
-                     'istart="0" iend="%d" id="%s"/>') %
+                     'istart="0" iend="%d" id="%s"/>\n') %
                     (self.a * self.N, self.N, self.N - 1, id))
         return (('<radial_grid eq="r=a*i/(1-b*i)" a="%r" b="%r" n="%d" ' +
-                 'istart="0" iend="%d" id="%s"/>') %
+                 'istart="0" iend="%d" id="%s"/>\n') %
                 (self.a, self.b, self.N, self.N - 1, id))
 
     def d2gdr2(self):
         return -2 * self.a * self.b / (self.b * self.r_g + self.a)**3
+
+        
+class AbinitRadialGridDescriptor(RadialGridDescriptor):
+    def __init__(self, a, d, N=1000, default_spline_points=25):
+        """Radial grid descriptor for Abinit calculations.
+
+        The radial grid is::
+
+                      dg
+            r(g) = a(e   - 1),  g = 0, 1, ..., N - 1
+        """
+
+        self.a = a
+        self.d = d
+        g = np.arange(N)
+        r_g = a * (np.exp(d * g) - 1)
+        dr_g = (r_g + a) * d
+        RadialGridDescriptor.__init__(self, r_g, dr_g, default_spline_points)
+                                      
+    def r2g(self, r):
+        return np.log(r / self.a + 1) / self.d

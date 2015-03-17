@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atom, Atoms
 from ase.calculators.test import numeric_force
 from gpaw import GPAW, Mixer, FermiDirac
@@ -19,7 +20,7 @@ niter1 = calc.get_number_of_iterations()
 f1 = atoms.get_forces()[0]
 for i in range(3):
     f2i = numeric_force(atoms, 0, i)
-    print f1[i]-f2i
+    print(f1[i]-f2i)
     equal(f1[i], f2i, 0.00025)
 
 energy_tolerance = 0.00006

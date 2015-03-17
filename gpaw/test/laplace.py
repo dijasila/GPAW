@@ -1,3 +1,4 @@
+from __future__ import print_function, division
 from math import sin, cos, pi
 import numpy as np
 from gpaw.fd_operators import GUCLaplace as Laplace
@@ -21,7 +22,7 @@ cells = [
     ('fcc-alternative', 6,
      [(1, 0, 0),
       (0.5, 3**0.5 / 2, 0),
-      (0.5, 3**0.5 / 6, (2.0 / 3)**0.5)]),
+      (0.5, 3**0.5 / 6, (2 / 3)**0.5)]),
     ('bcc', 4,
      [(-1, 1, 1),
       (1, -1, 1),
@@ -33,9 +34,9 @@ cells = [
       (0.01, 1, 0),
       (0, 0.02, 1)]),
     ('rocksalt', 6,
-     [(2 * np.sqrt(1.0 / 3), np.sqrt(1.0 / 8), -np.sqrt(1.0/ 24)),
-      (2 * np.sqrt(1.0 / 3), -np.sqrt(1.0 / 8), -np.sqrt(1.0 / 24)),
-      (2 * np.sqrt(1.0 / 3), 0, np.sqrt(1.0 / 6))]),
+     [(2 * np.sqrt(1 / 3), np.sqrt(1 / 8), -np.sqrt(1 / 24)),
+      (2 * np.sqrt(1 / 3), -np.sqrt(1 / 8), -np.sqrt(1 / 24)),
+      (2 * np.sqrt(1 / 3), 0, np.sqrt(1 / 6))]),
     ('nasty', 6,
      [(1, 0, 0),
       (0.0001, 1.03, 0),
@@ -45,16 +46,25 @@ cells = [
                    (0.0001 / 28, 5.565 / 28, 0),
                    (0.0001 / 24, 0.0001 / 24, 4.684 / 24)])),
     ('MnO', 6,
-     [(1, 0.5, 0.5), (0.5, 1, 0.5), (0.5, 0.5, 1)])
-    ]
+     [(1, 0.5, 0.5), (0.5, 1, 0.5), (0.5, 0.5, 1)]),
+    ('Jelver', 6,
+     [[6.658433626216136, 0.1711724130951983, -0.04300038284455887],
+      [3.4774564712755938, 5.843379292501022, 0.01599293966594096],
+      [-0.10777038306906983 * 0.43, 0.10850460815311265 * 0.43,
+       15.26098014321118 * 0.43]])]
+
 
 if size == 1:
     for name, D, cell in cells:
-        print '------------------'
-        print name, D
-        print cell[0]
-        print cell[1]
-        print cell[2]
+        if name == 'Jelver':
+            # Strange one!
+            continue
+            
+        print('------------------')
+        print(name, D)
+        print(cell[0])
+        print(cell[1])
+        print(cell[2])
         for n in range(1, 6):
             N = 2 * n + 2
             gd = GridDescriptor((N, N, N), cell)
@@ -84,4 +94,4 @@ if size == 1:
                             else:
                                 r = 0
                             e = b_g[n + 1, n + 1, n + 1] - r
-                            assert abs(e) < 4e-12, (n,ix,iy,iz,r,v,e)
+                            assert abs(e) < 4e-12, (n, ix, iy, iz, r, v, e)

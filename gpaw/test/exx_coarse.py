@@ -1,10 +1,11 @@
+from __future__ import print_function
 import sys
 
-from ase import Atoms, Atom
+from ase import Atoms
+from ase.utils.timing import Timer
 
 from gpaw import GPAW
 from gpaw.test import equal
-from gpaw.utilities.timing import Timer
 from gpaw.xc.hybrid import HybridXC
 
 timer = Timer()
@@ -44,12 +45,10 @@ for fg in fgl:
 
 timer.write(sys.stdout)
 
-print 'Total energy on the fine grid   =', E[True]
-print 'Total energy on the coarse grid =', E[False]
+print('Total energy on the fine grid   =', E[True])
+print('Total energy on the coarse grid =', E[False])
 equal(E[True], E[False], 0.01)
 
 energy_tolerance = 0.0003
 equal(E[False], 6.97818, energy_tolerance)
-assert 15 <= niter[False] <= 24, niter[False]
 equal(E[True], 6.97153, energy_tolerance)
-assert 15 <= niter[True] <= 24, niter[True]

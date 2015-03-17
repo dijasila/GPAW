@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-
+from __future__ import print_function
 import os, time
 import numpy as np
 
@@ -44,7 +43,7 @@ if __name__ == '__main__':
         time.sleep(10)
 
     while not os.path.isfile(name + '_gs.gpw'):
-        print 'Node %d waiting for file...' % world.rank
+        print('Node %d waiting for file...' % world.rank)
         time.sleep(10)
     world.barrier()
 
@@ -62,7 +61,7 @@ if __name__ == '__main__':
             ekin = tdcalc.atoms.get_kinetic_energy()
             epot = tdcalc.get_td_energy() * Hartree
             F_av = ehrenfest.F * Hartree / Bohr
-            print >>f, 'i=%06d (%6.2f min^-1), ekin=%13.9f, epot=%13.9f, etot=%13.9f' % (i, rate, ekin, epot, ekin+epot)
+            print('i=%06d (%6.2f min^-1), ekin=%13.9f, epot=%13.9f, etot=%13.9f' % (i, rate, ekin, epot, ekin+epot), file=f)
             t0 = time.time()
 
             # Hack to prevent calls to GPAW::get_potential_energy when saving

@@ -40,6 +40,6 @@ dscf.dscf_calculation(calc_es, [[1.0, lumo, 1]], CO)
 
 E_es = CO.get_potential_energy()
 dE = E_es - E_gs
-print dE
+print(dE)
 equal(dE, 5.7595110076, 0.011)
 

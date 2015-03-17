@@ -3,67 +3,79 @@ import numpy as np
 from ase.units import Hartree, Bohr
 from ase.dft.kpoints import monkhorst_pack
 
+import gpaw
 import gpaw.mpi as mpi
-from gpaw.poisson import PoissonSolver, FFTPoissonSolver
-from gpaw.occupations import FermiDirac
 from gpaw.wavefunctions.pw import PW
-from gpaw import parsize_domain, parsize_bands, sl_default, sl_diagonalize, \
-                 sl_inverse_cholesky, sl_lcao, sl_lrtddft, buffer_size
+from gpaw.occupations import FermiDirac
+from gpaw.poisson import PoissonSolver, FFTPoissonSolver
+
+
+def usesymm2symmetry(usesymm):
+    if usesymm is None:
+        return {'time_reversal': False, 'point_group': False}
+    if usesymm:
+        return {'time_reversal': True, 'point_group': True}
+    return {'time_reversal': True, 'point_group': False}
 
 
 class InputParameters(dict):
     def __init__(self, **kwargs):
         dict.__init__(self, [
-            ('h',               None),  # Angstrom
-            ('xc',              'LDA'),
-            ('gpts',            None),
-            ('kpts',            [(0, 0, 0)]),
-            ('lmax',            2),
-            ('charge',          0),
-            ('fixmom',          False),  # don't use this
-            ('nbands',          None),
-            ('setups',          'paw'),
-            ('basis',           {}),
-            ('width',           None),  # eV, don't use this
-            ('occupations',     None),
-            ('spinpol',         None),
-            ('usesymm',         True),
-            ('stencils',        (3, 3)),
-            ('fixdensity',      False),
-            ('mixer',           None),
-            ('txt',             '-'),
-            ('hund',            False),
-            ('random',          False),
-            ('dtype',           None),
-            ('filter',          None),
-            ('maxiter',         333),  # google it's spiritual meaning!
-            ('parallel',        {'kpt':                 None,
-                                 'domain':              parsize_domain,
-                                 'band':                parsize_bands,
-                                 'stridebands':         False,
-                                 'sl_auto':             False,
-                                 'sl_default':          sl_default,
-                                 'sl_diagonalize':      sl_diagonalize,
-                                 'sl_inverse_cholesky': sl_inverse_cholesky,
-                                 'sl_lcao':             sl_lcao,
-                                 'sl_lrtddft':          sl_lrtddft,
-                                 'buffer_size':         buffer_size}),
-            ('parsize',         None),  # don't use this
-            ('parsize_bands',   None),  # don't use this
+            ('h', None),  # Angstrom
+            ('xc', 'LDA'),
+            ('gpts', None),
+            ('kpts', [(0, 0, 0)]),
+            ('lmax', 2),
+            ('charge', 0),
+            ('fixmom', False),  # don't use this
+            ('nbands', None),
+            ('setups', 'paw'),
+            ('basis', {}),
+            ('width', None),  # eV, don't use this
+            ('occupations', None),
+            ('spinpol', None),
+            ('usesymm', 'default'),  # don't use this
+            ('stencils', (3, 3)),
+            ('fixdensity', False),
+            ('mixer', None),
+            ('txt', '-'),
+            ('hund', False),
+            ('random', False),
+            ('dtype', None),
+            ('filter', None),
+            ('maxiter', 333),  # google it's spiritual meaning!
+            ('parallel', {'kpt': None,
+                          'domain': gpaw.parsize_domain,
+                          'band': gpaw.parsize_bands,
+                          'order': 'kdb',
+                          'stridebands': False,
+                          'sl_auto': False,
+                          'sl_default': gpaw.sl_default,
+                          'sl_diagonalize': gpaw.sl_diagonalize,
+                          'sl_inverse_cholesky': gpaw.sl_inverse_cholesky,
+                          'sl_lcao': gpaw.sl_lcao,
+                          'sl_lrtddft': gpaw.sl_lrtddft,
+                          'buffer_size': gpaw.buffer_size}),
+            ('parsize', None),  # don't use this
+            ('parsize_bands', None),  # don't use this
             ('parstride_bands', False),  # don't use this
-            ('external',        None),  # eV
-            ('verbose',         0),
-            ('eigensolver',     None),
-            ('poissonsolver',   None),
-            ('communicator',    mpi.world),
-            ('idiotproof',      True),
-            ('mode',            'fd'),
-            ('convergence',     {'energy':      0.0005,  # eV / electron
-                                 'density':     1.0e-4,
-                                 'eigenstates': 4.0e-8,  # eV^2
-                                 'bands':       'occupied'}),
-            ('realspace',       None)
-            ])
+            ('external', None),  # eV
+            ('verbose', 0),
+            ('eigensolver', None),
+            ('poissonsolver', None),
+            ('communicator', mpi.world),
+            ('idiotproof', True),
+            ('mode', 'fd'),
+            ('convergence', {'energy': 0.0005,  # eV / electron
+                             'density': 1.0e-4,
+                             'eigenstates': 4.0e-8,  # eV^2
+                             'bands': 'occupied',
+                             'forces': None}),  # eV / Ang Max
+            ('realspace', None),
+            ('symmetry', {'point_group': True,
+                          'time_reversal': True,
+                          'symmorphic': True,
+                          'tolerance': 1e-7})])
         dict.update(self, kwargs)
 
     def __repr__(self):
@@ -79,19 +91,8 @@ class InputParameters(dict):
         self[key] = value
 
     def update(self, parameters):
-        assert isinstance(parameters, dict)
-
         for key, value in parameters.items():
             assert key in self
-
-            haschanged = (self[key] != value)
-
-            if isinstance(haschanged, np.ndarray):
-                haschanged = haschanged.any()
-
-            #if haschanged:
-            #    self.notify(key)
-
         dict.update(self, parameters)
 
     def read(self, reader):
@@ -117,7 +118,14 @@ class InputParameters(dict):
         else:
             self.kpts = bzk_kc
 
-        self.usesymm = r['UseSymmetry']
+        if version < 4:
+            self.symmetry = usesymm2symmetry(r['UseSymmetry'])
+        else:
+            self.symmetry = {'point_group': r['SymmetryOnSwitch'],
+                             'symmorphic': r['SymmetrySymmorphicSwitch'],
+                             'time_reversal': r['SymmetryTimeReversalSwitch'],
+                             'tolerance': r['SymmetryToleranceCriterion']}
+
         try:
             self.basis = r['BasisSet']
         except KeyError:
@@ -152,20 +160,27 @@ class InputParameters(dict):
         self.fixdensity = r['FixDensity']
         if version <= 0.4:
             # Old version: XXX
-            print('# Warning: Reading old version 0.3/0.4 restart files ' +
-                  'will be disabled some day in the future!')
+            print(('# Warning: Reading old version 0.3/0.4 restart files ' +
+                  'will be disabled some day in the future!'))
             self.convergence['eigenstates'] = r['Tolerance']
         else:
             nbtc = r['NumberOfBandsToConverge']
             if not isinstance(nbtc, (int, str)):
                 # The string 'all' was eval'ed to the all() function!
                 nbtc = 'all'
+            if version < 5:
+                force_crit = None
+            else:
+                force_crit = r['ForcesConvergenceCriterion']
+                if force_crit is not None:
+                    force_crit *= (Hartree / Bohr)
             self.convergence = {'density': r['DensityConvergenceCriterion'],
                                 'energy':
                                 r['EnergyConvergenceCriterion'] * Hartree,
                                 'eigenstates':
                                 r['EigenstatesConvergenceCriterion'],
-                                'bands': nbtc}
+                                'bands': nbtc,
+                                'forces': force_crit}
 
             if version < 1:
                 # Volume per grid-point:
@@ -206,8 +221,8 @@ class InputParameters(dict):
             
         if version == 0.3:
             # Old version: XXX
-            print('# Warning: Reading old version 0.3 restart files is ' +
-                  'dangerous and will be disabled some day in the future!')
+            print(('# Warning: Reading old version 0.3 restart files is ' +
+                  'dangerous and will be disabled some day in the future!'))
             self.stencils = (2, 3)
             self.charge = 0.0
             fixmom = False

@@ -1,7 +1,7 @@
 # Copyright (C) 2006 CSC-Scientific Computing Ltd.
 
 # Please see the accompanying LICENSE file for further information.
-
+from __future__ import print_function
 import os
 import platform
 import sys
@@ -158,7 +158,7 @@ def get_system_config(define_macros, undef_macros,
         libraries += ['f', 'lapack', 'essl']
         define_macros.append(('GPAW_AIX', '1'))
 
-    elif machine == 'x86_64':
+    elif machine in ['x86_64', 'ppc64']:
 
         #    _
         # \/|_||_    |_ |_|
@@ -183,6 +183,12 @@ def get_system_config(define_macros, undef_macros,
                     atlas = True
                     libdir = dir        
                     break
+            satlas = False
+            for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64/atlas']:
+                if glob(join(dir, 'libsatlas.so')) != []:
+                    satlas = True
+                    libdir = dir        
+                    break
             openblas = False
             for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64']:
                 if glob(join(dir, 'libopenblas.so')) != []:
@@ -190,7 +196,7 @@ def get_system_config(define_macros, undef_macros,
                     libdir = dir        
                     break
             if openblas:  # prefer openblas
-                libraries += ['openblas', 'lapack']
+                libraries += ['openblas']
                 library_dirs += [libdir]
                 msg +=  ['* Using OpenBLAS library']
             else:
@@ -199,6 +205,10 @@ def get_system_config(define_macros, undef_macros,
                     # atlas does not respect OMP_NUM_THREADS - build single-thread
                     # http://math-atlas.sourceforge.net/faq.html#tsafe
                     libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
+                    library_dirs += [libdir]
+                    msg +=  ['* Using ATLAS library']
+                elif satlas:  # then atlas >= 3.10 Fedora/RHEL
+                    libraries += ['satlas']
                     library_dirs += [libdir]
                     msg +=  ['* Using ATLAS library']
                 else:
@@ -214,6 +224,48 @@ def get_system_config(define_macros, undef_macros,
 
         extra_compile_args += ['-Wall', '-std=c99']
         libraries += ['mkl','mkl_lapack64']
+
+    elif platform.machine().startswith('arm'):
+        
+        extra_compile_args += ['-Wall', '-std=c99']
+
+        atlas = False
+        for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
+            if glob(join(dir, 'libatlas.so')) != []:
+                atlas = True
+                libdir = dir        
+                break
+        satlas = False
+        for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
+            if glob(join(dir, 'libsatlas.so')) != []:
+                satlas = True
+                libdir = dir        
+                break
+        openblas = False
+        for dir in ['/usr/lib', '/usr/local/lib']:
+            if glob(join(dir, 'libopenblas.so')) != []:
+                openblas = True
+                libdir = dir        
+                break
+        if openblas:  # prefer openblas
+            libraries += ['openblas']
+            library_dirs += [libdir]
+            msg +=  ['* Using OpenBLAS library']
+        else:
+            if atlas:  # then atlas
+                # http://math-atlas.sourceforge.net/errata.html#LINK
+                # atlas does not respect OMP_NUM_THREADS - build single-thread
+                # http://math-atlas.sourceforge.net/faq.html#tsafe
+                libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
+                library_dirs += [libdir]
+                msg +=  ['* Using ATLAS library']
+            elif satlas:  # then atlas >= 3.10 Fedora/RHEL
+                libraries += ['satlas']
+                library_dirs += [libdir]
+                msg +=  ['* Using ATLAS library']
+            else:
+                libraries += ['blas', 'lapack']
+                msg +=  ['* Using standard lapack']
 
     elif machine == 'i686':
 
@@ -246,6 +298,12 @@ def get_system_config(define_macros, undef_macros,
                     atlas = True
                     libdir = dir        
                     break
+            satlas = False
+            for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
+                if glob(join(dir, 'libsatlas.so')) != []:
+                    satlas = True
+                    libdir = dir        
+                    break
             openblas = False
             for dir in ['/usr/lib', '/usr/local/lib']:
                 if glob(join(dir, 'libopenblas.so')) != []:
@@ -253,7 +311,7 @@ def get_system_config(define_macros, undef_macros,
                     libdir = dir        
                     break
             if openblas:  # prefer openblas
-                libraries += ['openblas', 'lapack']
+                libraries += ['openblas']
                 library_dirs += [libdir]
                 msg +=  ['* Using OpenBLAS library']
             else:
@@ -262,6 +320,10 @@ def get_system_config(define_macros, undef_macros,
                     # atlas does not respect OMP_NUM_THREADS - build single-thread
                     # http://math-atlas.sourceforge.net/faq.html#tsafe
                     libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
+                    library_dirs += [libdir]
+                    msg +=  ['* Using ATLAS library']
+                elif satlas:  # then atlas >= 3.10 Fedora/RHEL
+                    libraries += ['satlas']
                     library_dirs += [libdir]
                     msg +=  ['* Using ATLAS library']
                 else:
@@ -368,7 +430,7 @@ def check_dependencies(sources):
         t = mtime(path + '/', name, mtimes)
         o = 'build/temp.%s/%s.o' % (plat, source[:-2])  # object file
         if os.path.exists(o) and t > os.stat(o)[ST_MTIME]:
-            print 'removing', o
+            print('removing', o)
             os.remove(o)
             remove = True
 
@@ -392,26 +454,26 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
     try:
         out = open('configuration.log', 'w')
     except IOError, x:
-        print x
+        print(x)
         return
-    print >> out, "Current configuration"
-    print >> out, "libraries", libraries
-    print >> out, "library_dirs", library_dirs
-    print >> out, "include_dirs", include_dirs
-    print >> out, "define_macros", define_macros
-    print >> out, "extra_link_args", extra_link_args
-    print >> out, "extra_compile_args", extra_compile_args
-    print >> out, "runtime_library_dirs", runtime_library_dirs
-    print >> out, "extra_objects", extra_objects
+    print("Current configuration", file=out)
+    print("libraries", libraries, file=out)
+    print("library_dirs", library_dirs, file=out)
+    print("include_dirs", include_dirs, file=out)
+    print("define_macros", define_macros, file=out)
+    print("extra_link_args", extra_link_args, file=out)
+    print("extra_compile_args", extra_compile_args, file=out)
+    print("runtime_library_dirs", runtime_library_dirs, file=out)
+    print("extra_objects", extra_objects, file=out)
     if mpicompiler is not None:
-        print >> out
-        print >> out, "Parallel configuration"
-        print >> out,  "mpicompiler", mpicompiler
-        print >> out,  "mpi_libraries", mpi_libraries
-        print >> out, "mpi_library_dirs", mpi_library_dirs
-        print >> out, "mpi_include_dirs", mpi_include_dirs
-        print >> out, "mpi_define_macros", mpi_define_macros
-        print >> out, "mpi_runtime_library_dirs", mpi_runtime_library_dirs
+        print(file=out)
+        print("Parallel configuration", file=out)
+        print("mpicompiler", mpicompiler, file=out)
+        print("mpi_libraries", mpi_libraries, file=out)
+        print("mpi_library_dirs", mpi_library_dirs, file=out)
+        print("mpi_include_dirs", mpi_include_dirs, file=out)
+        print("mpi_define_macros", mpi_define_macros, file=out)
+        print("mpi_runtime_library_dirs", mpi_runtime_library_dirs, file=out)
     out.close()
 
 
@@ -499,7 +561,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                includes,
                obj,
                src)
-        print cmd
+        print(cmd)
         if '--dry-run' not in sys.argv:
             error=os.system(cmd)
             if error != 0:
@@ -518,7 +580,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
            ' '.join(extra_link_args))
 
     msg = ['* Building a custom interpreter']
-    print cmd
+    print(cmd)
     if '--dry-run' not in sys.argv:
         error=os.system(cmd)
         if error != 0:

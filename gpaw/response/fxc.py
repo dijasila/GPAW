@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 
 def Bootstrap(chi0_wGG, Nw, Kc_GG, printtxt, print_bootstrap, world):
@@ -40,7 +41,7 @@ def Bootstrap(chi0_wGG, Nw, Kc_GG, printtxt, print_bootstrap, world):
             if world.rank == 0:
                 f = open('df_scf%d' %(iscf), 'w')
                 for iw in range(Nw):
-                    print >> f, np.real(df_w[iw]), np.imag(df_w[iw])
+                    print(np.real(df_w[iw]), np.imag(df_w[iw]), file=f)
                 f.close()
             world.barrier()
         

@@ -48,9 +48,10 @@ class WaveFunctions:
         self.kpt_u = []
 
         # No symmetries or only time-reversal symmetry used
-        if kd.symmetry is None:
+        assert kd.symmetry.point_group == False
+        if kd.symmetry.time_reversal == False:
             # For now, time-reversal symmetry not allowed
-            assert len(kpt_u) == kd.nbzkpts            
+            assert len(kpt_u) == kd.nbzkpts
 
             for k in range(kd.nbzkpts):
                 kpt_ = kpt_u[k]
@@ -61,7 +62,7 @@ class WaveFunctions:
                     psit_G[:] = kpt_.psit_nG[n]
                     # psit_0 = psit_G[0, 0, 0]
                     # psit_G *= psit_0.conj() / (abs(psit_0))
-                    
+
                 # Strip off KPoint attributes and store in the KPointContainer
                 # Note, only the occupied GS wave-functions are retained here !
                 kpt = KPointContainer(weight=kpt_.weight,

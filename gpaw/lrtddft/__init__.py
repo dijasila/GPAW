@@ -1,40 +1,43 @@
 """This module defines a linear response TDDFT-class.
 
 """
+from __future__ import print_function
 from math import sqrt
 import sys
 
 import numpy as np
 from ase.units import Hartree
+from ase.utils.timing import Timer
 
 import _gpaw
 import gpaw.mpi as mpi
 MASTER = mpi.MASTER
 from gpaw import debug
-from gpaw.poisson import PoissonSolver
-from gpaw.output import initialize_text_stream
 from gpaw.lrtddft.excitation import Excitation, ExcitationList
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.lrtddft.omega_matrix import OmegaMatrix
 from gpaw.lrtddft.apmb import ApmB
-##from gpaw.lrtddft.transition_density import TransitionDensity
+# from gpaw.lrtddft.transition_density import TransitionDensity
 from gpaw.utilities import packed_index
 from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
 from gpaw.xc.hybridk import HybridXC
-from gpaw.utilities.timing import Timer, nulltimer
+from gpaw.utilities.timing import nulltimer
 from gpaw.lrtddft.spectrum import spectrum
+from gpaw.wavefunctions.fd import FDWaveFunctions
 
 __all__ = ['LrTDDFT', 'photoabsorption_spectrum', 'spectrum']
 
+
 class LrTDDFT(ExcitationList):
+
     """Linear Response TDDFT excitation class
-    
+
     Input parameters:
 
     calculator:
     the calculator object after a ground state calculation
-      
+
     nspins:
     number of spins considered in the calculation
     Note: Valid only for unpolarised ground state calculation
@@ -46,7 +49,7 @@ class LrTDDFT(ExcitationList):
     First occupied state to consider
     jend:
     Last unoccupied state to consider
-      
+
     xc:
     Exchange-Correlation approximation in the Kernel
     derivative_level:
@@ -55,8 +58,9 @@ class LrTDDFT(ExcitationList):
     filename:
     read from a file
     """
+
     def __init__(self, calculator=None, **kwargs):
-        
+
         self.timer = Timer()
 
         self.set(**kwargs)
@@ -79,19 +83,23 @@ class LrTDDFT(ExcitationList):
         else:
             # world should be a list of ranks:
             self.eh_comm = mpi.world.new_communicator(np.asarray(eh_comm))
- 
+
         if calculator is not None and calculator.initialized:
-            if calculator.wfs.kpt_comm.size > 1:
-                err_txt = "Spin parallelization with Linear response "
+            if not isinstance(calculator.wfs, FDWaveFunctions):
+                raise RuntimeError(
+                    'Linear response TDDFT supported only in real space mode')
+            if calculator.wfs.kd.comm.size > 1:
+                err_txt = 'Spin parallelization with Linear response '
                 err_txt += "TDDFT. Use parallel = {'domain' : 'domain_only'} "
-                err_txt += "calculator parameter."
+                err_txt += 'calculator parameter.'
                 raise NotImplementedError(err_txt)
             if self.xc == 'GS':
                 self.xc = calculator.hamiltonian.xc.name
-            calculator.converge_wave_functions()
+            if calculator.input_parameters.mode != 'lcao':
+                calculator.converge_wave_functions()
             if calculator.density.nct_G is None:
                 spos_ac = calculator.initialize_positions()
-                calculator.wfs.initialize(calculator.density, 
+                calculator.wfs.initialize(calculator.density,
                                           calculator.hamiltonian, spos_ac)
 
             self.update(calculator)
@@ -99,20 +107,20 @@ class LrTDDFT(ExcitationList):
     def set(self, **kwargs):
 
         defaults = {
-            'nspins' : None,
-            'eps' : 0.001,
-            'istart' : 0,
-            'jend' : None,
-            'energy_range' : None,
-            'xc' : 'GS',
-            'derivative_level' : 1,
-            'numscale' : 0.00001,
-            'txt' : None,
-            'filename' : None,
-            'finegrid' : 2,
-            'force_ApmB' : False, # for tests
-            'eh_comm' : None # parallelization over eh-pairs
-            }
+            'nspins': None,
+            'eps': 0.001,
+            'istart': 0,
+            'jend': sys.maxsize,
+            'energy_range': None,
+            'xc': 'GS',
+            'derivative_level': 1,
+            'numscale': 0.00001,
+            'txt': None,
+            'filename': None,
+            'finegrid': 2,
+            'force_ApmB': False,  # for tests
+            'eh_comm': None  # parallelization over eh-pairs
+        }
 
         changed = False
         for key, value in defaults.items():
@@ -130,11 +138,11 @@ class LrTDDFT(ExcitationList):
     def set_calculator(self, calculator):
         self.calculator = calculator
 #        self.force_ApmB = parameters['force_ApmB']
-        self.force_ApmB = None # XXX
+        self.force_ApmB = None  # XXX
 
     def analyse(self, what=None, out=None, min=0.1):
         """Print info about the transitions.
-        
+
         Parameters:
           1. what: I list of excitation indicees, None means all
           2. out : I where to send the output, None means sys.stdout
@@ -147,10 +155,10 @@ class LrTDDFT(ExcitationList):
 
         if out is None:
             out = sys.stdout
-            
+
         for i in what:
-            print >> out, str(i) + ':', self[i].analyse(min=min)
-            
+            print(str(i) + ':', self[i].analyse(min=min), file=out)
+
     def update(self, calculator=None, **kwargs):
 
         changed = self.set(**kwargs)
@@ -165,7 +173,6 @@ class LrTDDFT(ExcitationList):
 
     def forced_update(self):
         """Recalc yourself."""
-        nonselfconsistent_xc = None
         if not self.force_ApmB:
             Om = OmegaMatrix
             name = 'LrTDDFT'
@@ -174,14 +181,12 @@ class LrTDDFT(ExcitationList):
                 if hasattr(xc, 'hybrid') and xc.hybrid > 0.0:
                     Om = ApmB
                     name = 'LrTDDFThyb'
-#                    nonselfconsistent_xc = HybridXC('PBE0', alpha=5.0)
         else:
             Om = ApmB
             name = 'LrTDDFThyb'
 
         self.kss = KSSingles(calculator=self.calculator,
                              nspins=self.nspins,
-                             nonselfconsistent_xc=nonselfconsistent_xc,
                              eps=self.eps,
                              istart=self.istart,
                              jend=self.jend,
@@ -194,23 +199,24 @@ class LrTDDFT(ExcitationList):
                      txt=self.txt)
         self.name = name
 
-    def diagonalize(self, istart=None, jend=None, 
+    def diagonalize(self, istart=None, jend=None,
                     energy_range=None, TDA=False):
         self.timer.start('diagonalize')
         self.timer.start('omega')
         self.Om.diagonalize(istart, jend, energy_range, TDA)
         self.timer.stop('omega')
-        
+
         # remove old stuff
         self.timer.start('clean')
-        while len(self): self.pop()
+        while len(self):
+            self.pop()
         self.timer.stop('clean')
 
-        print >> self.txt, 'LrTDDFT digonalized:'
+        print('LrTDDFT digonalized:', file=self.txt)
         self.timer.start('build')
         for j in range(len(self.Om.kss)):
             self.append(LrTDDFTExcitation(self.Om, j))
-            print >> self.txt, ' ', str(self[-1])
+            print(' ', str(self[-1]), file=self.txt)
         self.timer.stop('build')
         self.timer.stop('diagonalize')
 
@@ -235,10 +241,10 @@ class LrTDDFT(ExcitationList):
             self.filename = None
 
         # get my name
-        s = f.readline().replace('\n','')
+        s = f.readline().replace('\n', '')
         self.name = s.split()[1]
 
-        self.xc = f.readline().replace('\n','').split()[0]
+        self.xc = f.readline().replace('\n', '').split()[0]
         values = f.readline().split()
         self.eps = float(values[0])
         if len(values) > 1:
@@ -255,7 +261,7 @@ class LrTDDFT(ExcitationList):
                                   txt=self.txt)
         else:
             self.Om = ApmB(kss=self.kss, filehandle=f,
-                                  txt=self.txt)
+                           txt=self.txt)
         self.Om.Kss(self.kss)
 
         # check if already diagonalized
@@ -284,17 +290,16 @@ class LrTDDFT(ExcitationList):
         self.istart = self.Om.fullkss.istart
         self.jend = self.Om.fullkss.jend
 
-
     def singlets_triplets(self):
         """Split yourself into a singlet and triplet object"""
 
         slr = LrTDDFT(None, nspins=self.nspins, eps=self.eps,
-                      istart=self.istart, jend=self.jend, xc=self.xc, 
-                      derivative_level=self.derivative_level, 
+                      istart=self.istart, jend=self.jend, xc=self.xc,
+                      derivative_level=self.derivative_level,
                       numscale=self.numscale)
         tlr = LrTDDFT(None, nspins=self.nspins, eps=self.eps,
-                      istart=self.istart, jend=self.jend, xc=self.xc, 
-                      derivative_level=self.derivative_level, 
+                      istart=self.istart, jend=self.jend, xc=self.xc,
+                      derivative_level=self.derivative_level,
                       numscale=self.numscale)
         slr.Om, tlr.Om = self.Om.singlets_triplets()
         for lr in [slr, tlr]:
@@ -324,14 +329,14 @@ class LrTDDFT(ExcitationList):
         the file is automatically saved in compressed gzip format.
 
         'fh' is a filehandle. This can be used to write into already
-        opened files. 
+        opened files.
         """
         if mpi.rank == mpi.MASTER:
             if fh is None:
                 if filename.endswith('.gz'):
                     try:
                         import gzip
-                        f = gzip.open(filename,'wb')
+                        f = gzip.open(filename, 'wb')
                     except:
                         f = open(filename, 'w')
                 else:
@@ -341,7 +346,8 @@ class LrTDDFT(ExcitationList):
 
             f.write('# ' + self.name + '\n')
             xc = self.xc
-            if xc is None: xc = 'RPA'
+            if xc is None:
+                xc = 'RPA'
             if self.calculator is not None:
                 xc += ' ' + self.calculator.get_xc_functional()
             f.write(xc + '\n')
@@ -353,31 +359,33 @@ class LrTDDFT(ExcitationList):
             if len(self):
                 f.write('# Eigenvalues\n')
                 istart = self.istart
-                if istart is None: 
+                if istart is None:
                     istart = self.kss.istart
                 jend = self.jend
-                if jend is None: 
+                if jend is None:
                     jend = self.kss.jend
-                f.write('%d %d %d'%(len(self), istart, jend) + '\n')
+                f.write('%d %d %d' % (len(self), istart, jend) + '\n')
                 for ex in self:
                     f.write(ex.outstring())
                 f.write('# Eigenvectors\n')
                 for ex in self:
                     for w in ex.f:
-                        f.write('%g '%w)
+                        f.write('%g ' % w)
                     f.write('\n')
 
             if fh is None:
                 f.close()
+
 
 def d2Excdnsdnt(dup, ddn):
     """Second derivative of Exc polarised"""
     res = [[0, 0], [0, 0]]
     for ispin in range(2):
         for jspin in range(2):
-            res[ispin][jspin]=np.zeros(dup.shape)
+            res[ispin][jspin] = np.zeros(dup.shape)
             _gpaw.d2Excdnsdnt(dup, ddn, ispin, jspin, res[ispin][jspin])
     return res
+
 
 def d2Excdn2(den):
     """Second derivative of Exc unpolarised"""
@@ -385,13 +393,18 @@ def d2Excdn2(den):
     _gpaw.d2Excdn2(den, res)
     return res
 
+
 class LrTDDFTExcitation(Excitation):
+
     def __init__(self, Om=None, i=None,
                  e=None, m=None, string=None):
 
-        if string is not None: 
+        if string is not None:
             self.fromstring(string)
             return None
+
+        # multiplicity comes from Kohn-Sham contributions
+        self.fij = 1
 
         # define from the diagonalized Omega matrix
         if Om is not None:
@@ -439,14 +452,14 @@ class LrTDDFTExcitation(Excitation):
 
         raise RuntimeError
 
-    def density_change(self,paw):
+    def density_change(self, paw):
         """get the density change associated with this transition"""
         raise NotImplementedError
 
     def fromstring(self, string):
         l = string.split()
         self.energy = float(l.pop(0))
-        if len(l) == 3: # old writing style
+        if len(l) == 3:  # old writing style
             self.me = np.array([float(l.pop(0)) for i in range(3)])
         else:
             self.mur = np.array([float(l.pop(0)) for i in range(3)])
@@ -457,46 +470,53 @@ class LrTDDFTExcitation(Excitation):
     def outstring(self):
         str = '%g ' % self.energy
         str += '  '
-        for m in self.mur: str += '%12.4e' % m
+        for m in self.mur:
+            str += '%12.4e' % m
         str += '  '
-        for m in self.muv: str += '%12.4e' % m
+        for m in self.muv:
+            str += '%12.4e' % m
         str += '  '
-        for m in self.magn: str += '%12.4e' % m
+        for m in self.magn:
+            str += '%12.4e' % m
         str += '\n'
         return str
 
     def __str__(self):
         m2 = np.sum(self.me * self.me)
         m = sqrt(m2)
-        if m > 0: 
-            me = self.me/m
-        else:   
+        if m > 0:
+            me = self.me / m
+        else:
             me = self.me
-        str = "<LrTDDFTExcitation> om=%g[eV] |me|=%g (%.2f,%.2f,%.2f)" % \
+        str = '<LrTDDFTExcitation> om=%g[eV] |me|=%g (%.2f,%.2f,%.2f)' % \
               (self.energy * Hartree, m, me[0], me[1], me[2])
         return str
 
-    def analyse(self,min=.1):
+    def analyse(self, min=.1):
         """Return an analysis string of the excitation"""
-        s=('E=%.3f' % (self.energy * Hartree) + ' eV, ' +
-           'f=%.5g' % self.get_oscillator_strength()[0] + ', ' +
-           'R=%.5g' % self.get_rotatory_strength() + ' cgs\n')
+        osc = self.get_oscillator_strength()
+        s = ('E=%.3f' % (self.energy * Hartree) + ' eV, ' +
+             'f=%.5g' % osc[0] + ', (%.5g,%.5g,%.5g) ' %
+             (osc[1], osc[2], osc[3]) + '\n')
+           #'R=%.5g' % self.get_rotatory_strength() + ' cgs\n')
 
-        def sqr(x): return x*x
-        spin = ['u','d'] 
+        def sqr(x):
+            return x * x
+        spin = ['u', 'd']
         min2 = sqr(min)
-        rest = np.sum(self.f**2)
-        for f,k in zip(self.f,self.kss):
+        rest = np.sum(self.f ** 2)
+        for f, k in zip(self.f, self.kss):
             f2 = sqr(f)
-            if f2>min2:
-                s += '  %d->%d ' % (k.i,k.j) + spin[k.pspin] + ' ' 
-                s += '%.3g \n'%f2
+            if f2 > min2:
+                s += '  %d->%d ' % (k.i, k.j) + spin[k.pspin] + ' '
+                s += '%.3g \n' % f2
                 rest -= f2
-        s+='  rest=%.3g'%rest
+        s += '  rest=%.3g' % rest
         return s
 
+
 def photoabsorption_spectrum(excitation_list, spectrum_file=None,
-                             e_min=None, e_max=None, delta_e = None,
+                             e_min=None, e_max=None, delta_e=None,
                              folding='Gauss', width=0.1, comment=None):
     """Uniform absorption spectrum interface
 
@@ -514,8 +534,8 @@ def photoabsorption_spectrum(excitation_list, spectrum_file=None,
     all energies in [eV]
     """
 
-    spectrum(exlist=excitation_list, filename=spectrum_file, 
+    spectrum(exlist=excitation_list, filename=spectrum_file,
              emin=e_min, emax=e_max,
-             de=delta_e, energyunit='eV', 
+             de=delta_e, energyunit='eV',
              folding=folding, width=width,
              comment=comment)

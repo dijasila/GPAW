@@ -1,8 +1,10 @@
 The PAW calculator object
 =========================
 
-.. autoclass:: gpaw.paw.PAW
-   :members:
-
 .. autoclass:: gpaw.aseinterface.GPAW
    :members:
+   :inherited-members:
+
+.. autoclass:: gpaw.paw.PAW
+   :members:
+   :inherited-members:

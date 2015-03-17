@@ -1,4 +1,5 @@
 'Test ase.dft.wannier module with k-points.'
+from __future__ import print_function
 
 from ase.lattice import bulk
 from ase.dft.wannier import Wannier
@@ -14,8 +15,8 @@ if 1:
     #si.calc = GPAW(kpts=(k, k, k), mode='lcao')
     e1 = si.get_potential_energy()
     si.calc.write('Si-ibz', mode='all')
-    #si.calc.set(usesymm=None, txt='Si-bz.txt')
-    #si.calc.set(usesymm=None)
+    #si.calc.set(symmetry='off', txt='Si-bz.txt')
+    #si.calc.set(symmetry='off')
     #e2 = si.get_potential_energy()
     #si.calc.write('Si-bz', mode='all')
     #print e1, e2
@@ -47,18 +48,17 @@ def wan(calc):
         view(watoms)
     return x
 
-if world.rank == 0:
-    calc1 = GPAW('Si-bz.gpw', txt=None, communicator=serial_comm)
-    # do full lcao initialization
-    #print('Re-Init LCAO calc')
-    _s = calc1.get_atoms()
-    calc1.set_positions(_s)
-    calc1.wfs.eigensolver.iterate(calc1.hamiltonian, calc1.wfs)
-    x1 = wan(calc1)
+calc1 = GPAW('Si-bz.gpw', txt=None, communicator=serial_comm)
+# do full lcao initialization
+#print('Re-Init LCAO calc')
+_s = calc1.get_atoms()
+calc1.set_positions(_s)
+calc1.wfs.eigensolver.iterate(calc1.hamiltonian, calc1.wfs)
+x1 = wan(calc1)
     
-    #print x1
-    x2 = 5.76962685681      # from FD mode
-    assert abs(x1 - x2) < 0.001
-    #assert abs(x1 - 9.71) < 0.01
+#print x1
+x2 = 5.76962685681      # from FD mode
+assert abs(x1 - x2) < 0.001
+#assert abs(x1 - 9.71) < 0.01
 
 world.barrier()

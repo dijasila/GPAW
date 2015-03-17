@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atoms, Atom
 from ase.structure import molecule
 from ase.parallel import barrier
@@ -149,8 +150,8 @@ def calculate(element, h, vacuum, xc, magmom):
     de = dHf_298-data[element][xc][1]
     E[element][xc] = de
     if rank == 0:
-        print (xc, h, vacuum, dHf_298, data[element][xc][1], de,
-               de/data[element][xc][1])
+        print((xc, h, vacuum, dHf_298, data[element][xc][1], de,
+               de/data[element][xc][1]))
         if element == 'H':
             equal(dHf_298, data[element][xc][1], 0.25, msg=xc+': ') # kcal/mol
         elif element == 'O':

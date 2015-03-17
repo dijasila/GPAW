@@ -28,8 +28,8 @@ Doing a PAW calculation
 -----------------------
 
 To do a PAW calculation with the GPAW code, you need an ASE
-:ase:`Atoms <ase/atoms.html>` object and a GPAW
-:class:`~gpaw.aseinterface.Calculator`::
+:class:`~ase.atoms.Atoms` object and a :class:`~gpaw.aseinterface.GPAW`
+calculator::
 
    _____________          ____________
   |             |        |            |
@@ -87,7 +87,8 @@ keyword            type       default value        description
 ``spinpol``        ``bool``                        :ref:`manual_spinpol`
 ``gpts``           *seq*                           :ref:`manual_gpts`
 ``h``              ``float``  ``0.2``              :ref:`manual_h`
-``usesymm``        ``bool``   ``True``             :ref:`manual_usesymm`
+``symmetry``       ``dict``   ``{}``               :ref:`manual_symmetry`
+``usesymm``        ``bool``   ``True``             :ref:`manual_symmetry`
 ``random``         ``bool``   ``False``            Use random numbers for
                                                    :ref:`manual_random`
 ``occupations``    occ. obj.                       :ref:`manual_occ`
@@ -97,7 +98,7 @@ keyword            type       default value        description
 ``charge``         ``float``  ``0``                Total :ref:`manual_charge`
                                                    of the system
 ``convergence``    ``dict``                        :ref:`manual_convergence`
-``maxiter``        ``int``    ``120``              :ref:`manual_maxiter`
+``maxiter``        ``int``    ``333``              :ref:`manual_maxiter`
 ``txt``            ``str``,   ``'-'``              :ref:`manual_txt`
                    None, or   (``sys.stdout``)
                    file obj.
@@ -117,13 +118,13 @@ keyword            type       default value        description
 ``hund``           ``bool``   ``False``            :ref:`Use Hund's rule
                                                    <manual_hund>`
 ``external``       Object                          XXX Missing doc
-``verbose``        ``int``    ``0``                XXX Missing doc
+``verbose``        ``int``    ``0``                :ref:`manual_verbose`
 ``poissonsolver``  Object                          Specification of
                                                    :ref:`Poisson solver 
                                                    <manual_poissonsolver>`
                                                    or :ref:`dipole correction
                                                    <manual_dipole_correction>`
-``communicator``   Object                          XXX Missing doc
+``communicator``   Object                          :ref:`manual_communicator`
 ``idiotproof``     ``bool``   ``True``             Set to ``False`` to ignore 
                                                    setup fingerprint mismatch
                                                    (allows restart when the
@@ -137,7 +138,7 @@ keyword            type       default value        description
 .. note:: 
    
    Parameters can be changed after the calculator has been constructed
-   by using the :meth:`~gpaw.paw.set` method:
+   by using the :meth:`~gpaw.aseinterface.GPAW.set` method:
 
    >>> calc.set(txt='H2.txt', charge=1)
 
@@ -158,7 +159,7 @@ keyword            type       default value        description
 
 .. _manual_mode:
 
-Finite Difference, Plane-wave or LCAO mode
+Finite-difference, plane-wave or LCAO mode
 ------------------------------------------
 
 Finite-difference:
@@ -182,6 +183,38 @@ Plane-waves:
         calc = GPAW(mode=PW(200))
 
 
+Comparing FD, LCAO and PW modes
+```````````````````````````````
+    
+Memory consumption:
+    With LCAO, you have fewer degrees of freedom so memory usage is low.
+    PW mode uses more memory and FD a lot more.
+    
+Speed:
+    For small systems with many **k**-points, PW mode beats everything else.
+    For larger systems LCAO will be most efficient.  Whereas PW beats FD for
+    smallish systems, the opposite is true for very large systems where FD
+    will parallelize better.
+    
+Absolute convergence:
+    With LCAO, it can be hard to reach the complete basis set limit and get
+    absolute convergence of energies, whereas with FD and PW mode it is
+    quite easy to do by decreasing the grid spacing or increasing the
+    plane-wave cutoff energy, respectively.
+    
+Eggbox errors:
+    With LCAO and FD mode you will get a small eggbox error: you get a
+    small periodic energy variation as you translate atoms and the period
+    of the variation will be equal to the grid-spacing used.  GPAW's PW
+    implementation doesn't have this problem.
+
+Features:
+    FD mode is the oldest and has most features.  Only PW mode can be used
+    for calculating the stress-tensor and for response function calculations.
+    Green's function based electronic transport calculations require
+    LCAO mode.
+    
+    
 .. _manual_nbands:
 
 Number of electronic bands
@@ -202,8 +235,13 @@ states.  For metals, more bands are needed.  Sometimes, adding more
 unoccupied bands will improve convergence.
 
 .. tip::
-   ``nbands=0`` will give zero empty bands, and ``nbands=-n`` will
-   give ``n`` empty bands.
+   
+    ``nbands=0`` will give zero empty bands, and ``nbands=-n`` will
+    give ``n`` empty bands.
+   
+.. tip::
+    
+    ``nbands='n%'`` will give ``n/100`` times the number of occupied bands.
 
 
 .. _manual_xc:
@@ -278,7 +316,8 @@ For more flexibility, you can use this syntax::
     kpts={'size': (4, 4, 4)}  # 4x4x4 Monkhorst-pack
     kpts={'size': (4, 4, 4), 'gamma': True}  # shifted 4x4x4 Monkhorst-pack
 
-You can also specify the **k**-point density in units of points per Å\ `^-1`::
+You can also specify the **k**-point density in units of points per
+Å\ `^{-1}`::
     
     kpts={'density': 2.5}  # Monkhorst-Pack with a density of 2.5 points/Ang^-1
     kpts={'density': 2.5, 'even': True}  # round off to neares even number
@@ -339,7 +378,7 @@ gridpoints (smaller grid spacing, *h*), gives better convergence of
 the total energy.  For most elements, *h* should be 0.2 Å for
 reasonable convergence of total energies.  If a ``n1`` `\times` ``n2``
 `\times` ``n3`` grid is desired, use ``gpts=(n1, n2, n3)``, where
-``n1``, ``n2`` and ``n3`` are positive ``int``s all divisible by four.
+``n1``, ``n2`` and ``n3`` are positive ``int``'s all divisible by four.
 Alternatively, one can use something like ``h=0.25``, and the program
 will try to choose a number of grid points that gives approximately
 a grid-point density of `1/h^3`.  For more details, see :ref:`grids`.
@@ -376,21 +415,48 @@ cell accordingly. This can be achieved by::
   # and ensure a grid spacing of h=0.2
   atoms.minimal_box(4., h=.2)
 
-.. _manual_usesymm:
+
+.. _manual_symmetry:
 
 Use of symmetry
 ---------------
 
-With ``usesymm=True`` (default) the **k**-points are reduced to only
-those in the irreducible part of the Brillouin-zone.  Moving the atoms
-so that a symmetry is broken will cause an error.  This can be avoided
-by using ``usesymm=False`` which will reduce the number of applied
-symmetries to just the time-reversal symmetry (implying that the
-Hamiltonian is invariant under **k** -> -**k**). For some purposes you
-might want to have no symmetry reduction of the **k**-points at all
-(debugging, transport, wannier functions). This can be achieved be
-specifying ``usesymm=None``.
+The default behavior is to use all point-group symmetries and time-reversal
+symmetry to reduce the **k**-points to only those in the irreducible part of
+the Brillouin-zone.  Moving the atoms so that a symmetry is broken will
+cause an error.  This can be avoided by using::
+    
+    symmetry={'point_group': False}
 
+This will reduce the number of applied symmetries to just the time-reversal
+symmetry (implying that the Hamiltonian is invariant under **k** -> -**k**).
+For some purposes you might want to have no symmetry reduction of the
+**k**-points at all (debugging, transport calculations, band-structure
+calculations, ...). This can be achieved by specifying::
+
+    symmetry={'point_group': False, 'time_reversal': False}
+    
+or simply ``symmetry='off'`` which is a short-hand notation for the same
+thing.
+
+For full control, here are all the available keys of the ``symmetry``
+dictionary:
+
+=================  ========  ===============================
+key                default   description
+=================  ========  ===============================
+``point_group``    ``True``  Use point-group symmetries
+``time_reversal``  ``True``  Use time-reversal symmetry
+``symmorphic``     ``True``  Use only symmorphic symmetries
+``tolerance``      ``1e-7``  Relative tolerance
+=================  ========  ===============================
+
+.. note::
+    
+    If you are using version 0.10 or earlier, you can use
+    ``usesymm=False`` to turn off all point-group symmetries and
+    ``usesymm=None`` to turn off also time-reversal symmetry.
+    
 
 .. _manual_random:
 
@@ -456,7 +522,8 @@ The default value is this Python dictionary::
   {'energy': 0.0005,  # eV / electron
    'density': 1.0e-4,
    'eigenstates': 4.0e-8,  # eV^2 / electron
-   'bands': 'occupied'}
+   'bands': 'occupied',
+   'forces': None} # eV / Ang Max 
 
 In words:
 
@@ -469,6 +536,10 @@ In words:
 * The integrated value of the square of the residuals of the Kohn-Sham
   equations should be less than :math:`4.0 \times 10^{-8}
   \mathrm{eV}^2` per valence electron (FD mode only).
+
+* The maximum change in the magnitude of the vector representing the
+  difference in forces for each atom.  Setting this to None disables 
+  this functionality, saving computational time and memory usage.
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
@@ -534,14 +605,16 @@ occupations one has to use :class:`~gpaw.mixer.MixerSum` instead of
 
 See also the documentation on :ref:`density mixing <densitymix>`.
 
-
 .. _manual_fixdensity:
 
 Fixed density
 -------------
 
-XXX Missing doc
-
+When calculating band structures or when adding unoccupied states to
+calculation (and wanting to converge them) it is often useful to use existing
+density without updating it. By using ``fixdensity=True`` the initial density 
+(e.g. one read from .gpw/.hdf5 or existing from previous calculation) is used
+throughout the SCF-cycle (so called Harris calculation).
 
 
 
@@ -559,7 +632,6 @@ For a given element ``E``, setup name ``NAME``, and xc-functional
 (see :ref:`installationguide_setup_files`).
 Unless ``NAME='paw'``, in which case it will simply look for
 :file:`E.XC` (or :file:`E.XC.gz`).
-
 The ``setups`` keyword can be either a single string, or a dictionary.
 
 If specified as a string, the given name is used for all atoms.  If
@@ -570,12 +642,17 @@ The special key ``None`` can be used to specify the default setup
 name. Thus ``setups={None: 'paw'}`` is equivalent to ``setups='paw'``
 which is the GPAW default.
 
+As an example, the latest PAW setup of Na includes also the 6 semicore p states
+in the valence, in order to use non-default setup with only the 1 s electron in valence (:file:`Na.1.XC.gz`) one can specify ``setups={'Na': '1'}``
+
 There exist three special names, that if used, does not specify a file name:
 
 * ``'ae'`` is used for specifying all-electron mode for an
   atom. I.e. no PAW or pseudo potential is used.
-* ``'hgh'`` is used to specify a Hartwigsen-Goedecker-Hutter
-  pseudopotential (no file necessary).
+* ``'hgh'`` is used to specify a norm-conserving Hartwigsen-Goedecker-Hutter 
+  pseudopotential (no file necessary).  Some elements have better 
+  semicore pseudopotentials.  To use those, specify ``'hgh.sc'`` 
+  for the elements or atoms in question.
 * ``'ghost'`` is used to indicated a *ghost* atom in LCAO mode, 
   see :ref:`ghost-atoms`. 
 
@@ -761,6 +838,23 @@ total magnetic moment be fixed, by passing e.g.
 Any user specified magnetic moment is
 ignored. Default is False.
 
+.. _manual_verbose:
+
+Output verbosity
+----------------
+
+By default, only a limited number of information is printed out for each SCF
+step. It is possible to obtain more information (e.g. for investigating 
+convergen problems in more detail) by ``verbose=1`` keyword.
+
+.. _manual_communicator:
+
+Communicator object
+-------------------
+
+By specifying a communicator object, it is possible to use only a subset of
+processes for the calculator when calculating e.g. different atomic images 
+in parallel. See :ref:`different_calculations_in parallel` for more details.
 
 .. _manual_parallel_calculations:
 
@@ -854,7 +948,8 @@ example saves a differently named restart file every 5 iterations::
 
   calc.attach(OccasionalWriter().write, occasionally)
 
-See also :meth:`~gpaw.GPAW.attach`.
+See also :meth:`~gpaw.aseinterface.GPAW.attach`.
+
 
 ----------------------
 Command line arguments

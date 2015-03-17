@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase import Atom, Atoms
 from ase.lattice import bulk
@@ -42,7 +43,7 @@ if bse:
     bse.get_dielectric_function('C_bse.dat')
 
 if df:
-    from gpaw.response.df import DF
+    from gpaw.response.df0 import DF
     df = DF('C_kpt8.gpw',
             w=np.linspace(0,20,201),
             q=np.array([0.0001,0,0.]),
@@ -60,16 +61,16 @@ if check_spectrum:
        d[Nw2] > d[Nw2-1] and d[Nw2] > d[Nw2+1] :
         pass
     else:
-        print d[Nw1], d[Nw2]
+        print(d[Nw1], d[Nw2])
         raise ValueError('Absorption peak not correct ! ')
 
     if np.abs(d[Nw1] - 67.1975750304) > 1e-5 or \
        np.abs(d[Nw2] - 90.9851151994) > 1e-5 :
-        print d[Nw1], d[Nw2]
+        print(d[Nw1], d[Nw2])
         raise ValueError('Please check spectrum strength ! ')
 
     d2 = np.loadtxt('C.dat.x')
-    print np.abs(d - d2[:200, 4]).sum()
+    print(np.abs(d - d2[:200, 4]).sum())
     if np.abs(d - d2[:200, 4]).sum() > 1e-3:
         raise ValueError('Please compare two spectrum')
 

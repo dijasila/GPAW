@@ -15,6 +15,8 @@ from numpy import linalg
 import _gpaw
 from gpaw import debug
 
+from ase.utils import devnull
+
 elementwise_multiply_add = _gpaw.elementwise_multiply_add
 utilities_vdot = _gpaw.utilities_vdot
 utilities_vdot_self = _gpaw.utilities_vdot_self
@@ -37,6 +39,14 @@ def ffact(a, b):
     """b!/a! where 0 <= a <= b"""
     assert a in xrange(b+1)
     return reduce(mul, xrange(a+1, b+1), 1)
+
+# Code will crash for setups without any projectors.  Setups that have
+# no projectors therefore receive a dummy projector as a hacky
+# workaround.  The projector is assigned a certain, small size.  If
+# the grid is so coarse that no point falls within the projector's range,
+# there'll also be an error.  So this limits allowed grid spacings.
+min_locfun_radius = 0.85 # Bohr
+smallest_safe_grid_spacing = 2 * min_locfun_radius / np.sqrt(3) # ~0.52 Ang
 
 def h2gpts(h, cell_cv, idiv=4):
     """Convert grid spacing to number of grid points divisible by idiv.
@@ -89,7 +99,7 @@ def is_contiguous(array, dtype=None):
 #   r = max(r, r')
 #    >
 #
-def hartree(l, nrdr, beta, N, vr):
+def hartree(l, nrdr, r, vr):
     """Calculates radial Coulomb integral.
 
     The following integral is calculated::
@@ -104,21 +114,18 @@ def hartree(l, nrdr, beta, N, vr):
     where input and output arrays `nrdr` and `vr`::
 
               dr
-      n (r) r --  and  v (r) r,
+      n (r) r --  and  v (r) r.
        l      dg        l
-
-    are defined on radial grids as::
-
-          beta g
-      r = ------,  g = 0, 1, ..., N - 1.
-          N - g
-
     """
     assert is_contiguous(nrdr, float)
+    assert is_contiguous(r, float)
     assert is_contiguous(vr, float)
     assert nrdr.shape == vr.shape and len(vr.shape) == 1
-    return _gpaw.hartree(l, nrdr, beta, N, vr)
+    assert len(r.shape) == 1
+    assert len(r) >= len(vr)
+    return _gpaw.hartree(l, nrdr, r, vr)
 
+    
 def packed_index(i1, i2, ni):
     """Return a packed index"""
     if i1 > i2:
@@ -214,21 +221,6 @@ def element_from_packed(M, i, j):
         return .5 * np.conjugate(M[p])
     
 
-class _DownTheDrain:
-    """Definition of a stream that throws away all output."""
-    
-    def write(self, string):
-        pass
-    
-    def flush(self):
-        pass
-
-    def close(self):
-        pass
-
-devnull = _DownTheDrain()
-
-
 def logfile(name, rank=0):
     """Create file object from name.
 
@@ -284,14 +276,14 @@ def load_balance(paw, atoms):
     min_atoms = min(atoms_r)
     ave_atoms = atoms_r.sum()/paw.wfs.world.size
     stddev_atoms = sqrt((atoms_r**2).sum()/paw.wfs.world.size - ave_atoms**2)
-    print "Information about load balancing"
-    print "--------------------------------"
-    print "Number of atoms:", len(spos_ac)
-    print "Number of CPUs:", paw.wfs.world.size
-    print "Max. number of atoms/CPU:   ", max_atoms
-    print "Min. number of atoms/CPU:   ", min_atoms
-    print "Average number of atoms/CPU:", ave_atoms
-    print "    standard deviation:     %5.1f" % stddev_atoms
+    print("Information about load balancing")
+    print("--------------------------------")
+    print("Number of atoms:", len(spos_ac))
+    print("Number of CPUs:", paw.wfs.world.size)
+    print("Max. number of atoms/CPU:   ", max_atoms)
+    print("Min. number of atoms/CPU:   ", min_atoms)
+    print("Average number of atoms/CPU:", ave_atoms)
+    print("    standard deviation:     %5.1f" % stddev_atoms)
 
 if not debug:
     hartree = _gpaw.hartree
@@ -346,7 +338,7 @@ def interpolate_mlsqr(dg_c, vt_g, order):
         for i, j, k in zip(x.ravel(), y.ravel(), z.ravel()):
             r = b(np.array([i, j, k])) * lsqr_weight(
                 np.sum((dg_c - np.array([i, j, k]))**2))
-            if result == None:
+            if result is None:
                 result = r
             else:
                 result = np.vstack((result, r))

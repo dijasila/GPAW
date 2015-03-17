@@ -1,3 +1,4 @@
+from __future__ import print_function
 """Test of BLACS Redistributor.
 
 Requires at least 8 MPI tasks.
@@ -30,13 +31,15 @@ h = 0.2        # grid spacing
 a = h * G      # side length of box
 
 # Set up communicators:
-domain_comm, kpt_comm, band_comm = distribute_cpus(parsize_domain=D,
-                                                   parsize_bands=B,
-                                                   nspins=1, nibzkpts=2)
+comms = distribute_cpus(parsize_domain=D,
+                        parsize_bands=B,
+                        nspins=1, nibzkpts=2)
+domain_comm, kpt_comm, band_comm, block_comm = \
+    [comms[name] for name in ['d', 'k', 'b', 'K']]
 assert world.size == D*B*kpt_comm.size
 
 if world.rank == 0:
-    print 'MPI: %d domains, %d band groups, %d kpts' % (domain_comm.size, band_comm.size, kpt_comm.size)
+    print('MPI: %d domains, %d band groups, %d kpts' % (domain_comm.size, band_comm.size, kpt_comm.size))
 
 # Set up band and grid descriptors:
 bd = BandDescriptor(N, band_comm, False)
@@ -78,7 +81,7 @@ def blacs_inverse_cholesky(ksl, S_Nn, C_nN):
     C_nN[:] = bmd.redistribute_input(C_nn)
 
 def main(seed=42, dtype=float):
-    ksl = BlacsBandLayouts(gd, bd, dtype, mcpus, ncpus, blocksize)
+    ksl = BlacsBandLayouts(gd, bd, block_comm, dtype, mcpus, ncpus, blocksize)
     nbands = bd.nbands
     mynbands = bd.mynbands
 
@@ -94,14 +97,14 @@ def main(seed=42, dtype=float):
     else:
         assert gd.comm.rank != 0
 
-    print "H_Nn"
+    print("H_Nn")
     parallelprint(world, H_Nn)
     
     eps_n = np.zeros(bd.mynbands)
     blacs_diagonalize(ksl, H_Nn, U_nN, eps_n)
-    print "U_nN"
+    print("U_nN")
     parallelprint(world, U_nN)
-    print "eps_n"
+    print("eps_n")
     parallelprint(world, eps_n)
     
     # Inverse Cholesky
@@ -113,10 +116,10 @@ def main(seed=42, dtype=float):
     else:
         assert gd.comm.rank != 0
 
-    print "S_Nn"
+    print("S_Nn")
     parallelprint(world, S_Nn)
     blacs_inverse_cholesky(ksl, S_Nn, C_nN)
-    print "C_nN"
+    print("C_nN")
     parallelprint(world, C_nN)
 
 if __name__ in ['__main__', '__builtin__']:

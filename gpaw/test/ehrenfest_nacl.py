@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.tddft import TDDFT
@@ -27,7 +28,7 @@ for i in range(5):
     evv.propagate(1.0)
     evv.get_energy()
     r = evv.x[1][2] - evv.x[0][2]
-    print 'E = ', [i+1, r, evv.Etot, evv.Ekin, evv.Epot]
+    print('E = ', [i+1, r, evv.Etot, evv.Ekin, evv.Epot])
 
 equal(r, 7.558883144, 1e-7)
 equal(evv.Etot, -0.1036763317, 1e-7)

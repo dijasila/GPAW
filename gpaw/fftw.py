@@ -9,7 +9,7 @@ if 'GPAW_FFTWSO' in os.environ:
     if '' in fftwlibnames:
         fftwlibnames.remove('')  # GPAW_FFTWSO='' for numpy fallback!
 else:
-    fftwlibnames = ['libfftw3.so', 'libmkl_intel_lp64.so', 'libmkl_rt.so']
+    fftwlibnames = ['libmkl_rt.so', 'libmkl_intel_lp64.so', 'libfftw3.so']
 
 lib = None
 for libname in fftwlibnames:
@@ -39,11 +39,15 @@ def check_fft_size(n):
     return False
 
 
-def get_efficient_fft_size(n):
-    """Return the smalles efficient fft size greater than or equal to n."""
-    while not check_fft_size(n):
-        n += 1
-    return n
+def get_efficient_fft_size(N, n=1):
+    """Return smallest efficient fft size.
+    
+    Must be greater than or equal to N and divisible by n.
+    """
+    N = -(-N // n) * n
+    while not check_fft_size(N):
+        N += n
+    return N
 
 
 class FFTWPlan:
@@ -121,3 +125,8 @@ else:
         np.ctypeslib.ndpointer(dtype=complex, ndim=3, flags='C_CONTIGUOUS'),
         np.ctypeslib.ndpointer(dtype=float, ndim=3),
         ctypes.c_uint]
+    try:
+        lib.fftw_plan_with_nthreads.argtypes = [ctypes.c_int]
+        assert lib.fftw_init_threads()
+    except AttributeError:
+        pass
