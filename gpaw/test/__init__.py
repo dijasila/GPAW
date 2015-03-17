@@ -368,7 +368,7 @@ tests = [
 exclude = []
 
 # not available on Windows
-if os.name in ['ce', 'nt']:
+if os.name in ['ce', 'nt'] or sys.platform in ['darwin']:
     exclude += ['maxrss.py']
 
 if mpi.size > 1:
