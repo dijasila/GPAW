@@ -135,6 +135,18 @@ tests = [
     'harmonic.py',
     'proton.py',
     'atoms_mismatch.py',
+    'solvation/pbc_pos_repeat.py',          # duration unknown
+    'solvation/vacuum.py',                  # duration unknown
+    'solvation/pbc.py',                     # duration unknown
+    'solvation/spinpol.py',                 # duration unknown
+    'solvation/poisson.py',                 # duration unknown
+    'solvation/sss09.py',                   # duration unknown
+    'solvation/water_water.py',             # duration unknown
+    'solvation/adm12.py',                   # duration unknown
+    'solvation/forces_symmetry.py',         # duration unknown
+    'solvation/sfgcm06.py',                 # duration unknown
+    'solvation/swap_atoms.py',              # duration unknown
+    'solvation/forces.py',                  # duration unknown
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'ut_csh.py',                            # ~1s
@@ -284,11 +296,6 @@ tests = [
     'si_xas.py',                            # ~18s
     'mgga_sc.py',                           # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
-    'solvation/pbc_pos_repeat.py',          # duration unknown
-    'solvation/vacuum.py',                  # duration unknown
-    'solvation/pbc.py',                     # duration unknown
-    'solvation/spinpol.py',                 # duration unknown
-    'solvation/poisson.py',                 # duration unknown
     # buildbot > 20 sec tests start here (add tests after lrtddft.py!)
     'lrtddft.py',                           # ~20s
     'parallel/fd_parallel_kpt.py',          # ~21s
@@ -329,12 +336,6 @@ tests = [
     'transport.py',                         # ~73s
     'lrtddft3.py',                          # ~75s
     'nonlocalset.py',                       # ~82s
-    'solvation/sss09.py',                   # duration unknown
-    'solvation/water_water.py',             # duration unknown
-    'solvation/adm12.py',                   # duration unknown
-    'solvation/forces_symmetry.py',         # duration unknown
-    'solvation/sfgcm06.py',                 # duration unknown
-    'solvation/swap_atoms.py',              # duration unknown
     # buildbot > 100 sec tests start here (add tests after lb94.py!)
     'lb94.py',                              # ~84s
     'AA_exx_enthalpy.py',                   # ~119s
@@ -342,7 +343,6 @@ tests = [
     'bse_silicon.py',                       # ~143s
     'gwsi.py',                              # ~147s
     'response_symmetry.py',                 # ~300s
-    'solvation/forces.py',                  # duration unknown
     'pw/moleculecg.py',                     # duration unknown
     'potential.py',                         # duration unknown
     'pes.py',                               # duration unknown
