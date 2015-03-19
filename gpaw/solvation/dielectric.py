@@ -4,11 +4,24 @@ import numpy as np
 
 
 class Dielectric(NeedsGD):
-    def __init__(self, epsinf):
-        """Initialize paramters.
+    """Class representing a spatially varying permittivity.
 
-        Keyword arguments:
-        epsinf -- dielectric constant at infinite distance from the cavity
+    Attributes:
+    eps_gradeps     -- List [eps_g, dxeps_g, dyeps_g, dzeps_g]
+                       with
+                       eps_g:   permittivity on the fine grid
+                       dieps_g: gradient of eps_g.
+    del_eps_del_g_g -- Partial derivative with respect to
+                       the cavity. (A point-wise dependence
+                       on the cavity is assumed).
+    """
+
+    def __init__(self, epsinf):
+        """Constructor for the Dielectric class.
+
+        Arguments:
+        epsinf -- Static dielectric constant
+                  at infinite distance from the solute.
         """
         NeedsGD.__init__(self)
         self.epsinf = float(epsinf)
@@ -31,6 +44,7 @@ class Dielectric(NeedsGD):
         self.del_eps_del_g_g = self.gd.empty()
 
     def update(self, cavity):
+        """Calculate eps_gradeps and del_eps_del_g_g from the cavity."""
         raise NotImplementedError
 
     def print_parameters(self, text):
@@ -39,7 +53,14 @@ class Dielectric(NeedsGD):
 
 
 class FDGradientDielectric(Dielectric):
+    """Dielectric with finite difference gradient."""
+
     def __init__(self, epsinf, nn=3):
+        """Constructor for the FDGradientDielectric class.
+
+        Additional arguments not present in the base Dielectric class:
+        nn -- Stencil size for finite difference gradient.
+        """
         Dielectric.__init__(self, epsinf)
         self.nn = nn
         self.eps_hack_g = None
@@ -54,16 +75,27 @@ class FDGradientDielectric(Dielectric):
         self.eps_hack_g = self.gd.empty()
         self.gradient = [
             Gradient(self.gd, i, 1.0, self.nn) for i in (0, 1, 2)
-            ]
+        ]
 
     def update_gradient(self):
-        # zero on boundary, since bmgs support only zero or periodic BC
+        """Update the gradient.
+
+        Usage note:
+        Call this method at the end of the update method of a subclass.
+        """
+        # zero on boundary, since bmgs supports only zero or periodic BC
         np.subtract(self.eps_gradeps[0], self.epsinf, out=self.eps_hack_g)
         for i in (0, 1, 2):
             self.gradient[i].apply(self.eps_hack_g, self.eps_gradeps[i + 1])
 
 
 class LinearDielectric(FDGradientDielectric):
+    """Dielectric depending (affine) linearly on the cavity.
+
+    See also
+    A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
+    """
+
     def allocate(self):
         FDGradientDielectric.allocate(self)
         self.del_eps_del_g_g = self.epsinf - 1.  # frees array
@@ -75,6 +107,11 @@ class LinearDielectric(FDGradientDielectric):
 
 
 class CMDielectric(FDGradientDielectric):
+    """Clausius-Mossotti like dielectric.
+
+    Untested, use at own risk!
+    """
+
     def update(self, cavity):
         ei = self.epsinf
         t = 1. - cavity.g_g

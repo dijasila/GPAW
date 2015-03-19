@@ -5,8 +5,7 @@ import numpy as np
 
 
 def get_pbc_positions(atoms, r_max):
-    """
-    returns dict mapping atom index to positions in Bohr
+    """Return dict mapping atom index to positions in Bohr.
 
     With periodic boundary conditions, it also includes neighbouring
     cells up to a distance of r_max (in Bohr).
@@ -33,8 +32,7 @@ def get_pbc_positions(atoms, r_max):
 
 
 def divide_silently(x, y):
-    """
-    Divides numpy arrays x / y ignoring all floating point errors.
+    """Divide numpy arrays x / y ignoring all floating point errors.
 
     Use with caution!
     """
@@ -45,7 +43,24 @@ def divide_silently(x, y):
 
 
 class Cavity(NeedsGD):
+    """Base class for representing a cavity in the solvent.
+
+    Attributes:
+    g_g           -- The cavity on the fine grid. It varies from zero at the
+                     solute location to one in the bulk solvent.
+    del_g_del_n_g -- The partial derivative of the cavity with respect to
+                     the electron density on the fine grid.
+    V             -- global Volume in Bohr ** 3 or None
+    A             -- global Area in Bohr ** 2 or None
+    """
+
     def __init__(self, surface_calculator=None, volume_calculator=None):
+        """Constructor for the Cavity class.
+
+        Arguments:
+        surface_calculator -- A SurfaceCalculator instance or None
+        volume_calculator  -- A VolumeCalculator instance or None
+        """
         NeedsGD.__init__(self)
         self.g_g = None
         self.del_g_del_n_g = None
@@ -67,22 +82,23 @@ class Cavity(NeedsGD):
                 )
 
     def update(self, atoms, density):
-        """
-        Updates the cavity.
+        """Update the cavity.
 
         atoms are None, iff they have not changed.
 
-        Returns whether the cavity has changed.
+        Return whether the cavity has changed.
         """
         raise NotImplementedError()
 
     def update_vol_surf(self):
+        """Update volume and surface."""
         if self.surface_calculator is not None:
             self.surface_calculator.update(self)
         if self.volume_calculator is not None:
             self.volume_calculator.update(self)
 
     def communicate_vol_surf(self, world):
+        """Communicate global volume and surface."""
         if self.surface_calculator is not None:
             A = np.array([self.surface_calculator.A])
             self.gd.comm.sum(A)
@@ -116,20 +132,21 @@ class Cavity(NeedsGD):
             self.volume_calculator.set_grid_descriptor(gd)
 
     def get_del_r_vg(self, atom_index, density):
+        """Return spatial derivatives with respect to atomic position."""
         raise NotImplementedError()
 
     @property
     def depends_on_el_density(self):
-        """returns whether the cavity depends on the electron density"""
+        """Return whether the cavity depends on the electron density."""
         raise NotImplementedError()
 
     @property
     def depends_on_atomic_positions(self):
-        """returns whether the cavity depends explicitly on atomic positions"""
+        """Return whether the cavity depends explicitly on atomic positions."""
         raise NotImplementedError()
 
     def print_parameters(self, text):
-        """prints parameters using text function"""
+        """Print parameters using text function."""
         typ = self.surface_calculator and self.surface_calculator.__class__
         text('surface calculator: %s' % (typ, ))
         if self.surface_calculator is not None:
@@ -142,12 +159,25 @@ class Cavity(NeedsGD):
 
 
 class EffectivePotentialCavity(Cavity):
+    """A cavity built from an effective potential using the Boltzmann distribution.
+
+    See also
+    A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
+    """
+
     def __init__(
         self,
         effective_potential,
         temperature,
         surface_calculator=None, volume_calculator=None
-        ):
+    ):
+        """Constructor for the EffectivePotentialCavity class.
+
+        Additional arguments not present in base Cavity class:
+        effective_potential -- A Potential instance.
+        temperature         -- Temperature for the Boltzmann distribution
+                               in Kelvin.
+        """
         Cavity.__init__(self, surface_calculator, volume_calculator)
         self.effective_potential = effective_potential
         self.temperature = float(temperature)
@@ -157,7 +187,7 @@ class EffectivePotentialCavity(Cavity):
         Cavity.estimate_memory(self, mem)
         self.effective_potential.estimate_memory(
             mem.subnode('Effective Potential')
-            )
+        )
 
     def set_grid_descriptor(self, gd):
         Cavity.set_grid_descriptor(self, gd)
@@ -222,6 +252,13 @@ class EffectivePotentialCavity(Cavity):
 
 
 class Potential(NeedsGD):
+    """Base class for describing an effective potential.
+
+    Attributes:
+    u_g           -- The potential on the fine grid in Hartree.
+    del_u_del_n_g -- Partial derivative with respect to the electron density.
+    """
+
     def __init__(self):
         NeedsGD.__init__(self)
         self.u_g = None
@@ -229,7 +266,7 @@ class Potential(NeedsGD):
 
     @property
     def depends_on_el_density(self):
-        """returns whether the cavity depends on the electron density"""
+        """Return whether the cavity depends on the electron density."""
         raise NotImplementedError()
 
     @property
@@ -248,16 +285,16 @@ class Potential(NeedsGD):
             self.del_u_del_n_g = self.gd.empty()
 
     def update(self, atoms, density):
-        """
-        Updates the potential.
+        """Update the potential.
 
         atoms are None, iff they have not changed.
 
-        Returns whether the potential has changed.
+        Return whether the potential has changed.
         """
         raise NotImplementedError()
 
     def get_del_r_vg(self, atom_index, density):
+        """Return spatial derivatives with respect to atomic position."""
         raise NotImplementedError()
 
     def print_parameters(self, text):
@@ -265,16 +302,27 @@ class Potential(NeedsGD):
 
 
 class Power12Potential(Potential):
-    """
-    Inverse power law potential.
+    """Inverse power law potential.
 
     An 1 / r ** 12 repulsive potential
     taking the value u0 at the atomic radius.
+
+    See also
+    A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
     """
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
     def __init__(self, atomic_radii, u0, pbc_cutoff=1e-6):
+        """Constructor for the Power12Potential class.
+
+        Arguments:
+        atomic_radii -- Callable mapping an ase.Atoms object
+                        to an iterable of atomic radii in Angstroms.
+        u0           -- Strength of the potential at the atomic radius in eV.
+        pbc_cutoff   -- Cutoff in eV for including neighbor cells in
+                        a calculation with periodic boundary conditions.
+        """
         Potential.__init__(self)
         self.atomic_radii = atomic_radii
         self.u0 = float(u0)
@@ -354,7 +402,7 @@ class Power12Potential(Potential):
             text('atomic_radii:')
             for a, (s, r) in enumerate(
                 zip(self.symbols, self.atomic_radii_output)
-                ):
+            ):
                 text('%3d %-2s %10.5f' % (a, s, r))
         text('u0: %s' % (self.u0, ))
         text('pbc_cutoff: %s' % (self.pbc_cutoff, ))
@@ -362,11 +410,22 @@ class Power12Potential(Potential):
 
 
 class SmoothStepCavity(Cavity):
+    """Base class for cavities based on a smooth step function and a density.
+
+    Attributes:
+    del_g_del_rho_g -- Partial derivative with respect to the density.
+    """
+
     def __init__(
         self,
         density,
         surface_calculator=None, volume_calculator=None
-        ):
+    ):
+        """Constructor for the SmoothStepCavity class.
+
+        Additional arguments not present in the base Cavity class:
+        density -- A Density instance
+        """
         Cavity.__init__(self, surface_calculator, volume_calculator)
         self.del_g_del_rho_g = None
         self.density = density
@@ -406,7 +465,7 @@ class SmoothStepCavity(Cavity):
         return True
 
     def update_smooth_step(self, rho_g):
-        """calculates self.g_g and self.del_g_del_rho_g"""
+        """Calculate self.g_g and self.del_g_del_rho_g."""
         raise NotImplementedError()
 
     def get_del_r_vg(self, atom_index, density):
@@ -437,6 +496,13 @@ class SmoothStepCavity(Cavity):
 
 
 class Density(NeedsGD):
+    """Class representing a density for the use with a SmoothStepCavity.
+
+    Attributes:
+    rho_g           -- The density on the fine grid in 1 / Bohr ** 3.
+    del_rho_del_n_g -- Partial derivative with respect to the electron density.
+    """
+
     def __init__(self):
         NeedsGD.__init__(self)
         self.rho_g = None
@@ -470,6 +536,11 @@ class Density(NeedsGD):
 
 
 class ElDensity(Density):
+    """Wrapper class for using the electron density in a SmoothStepCavity.
+
+    (Hopefully small) negative values of the electron density are set to zero.
+    """
+
     depends_on_el_density = True
     depends_on_atomic_positions = False
 
@@ -484,16 +555,24 @@ class ElDensity(Density):
 
 
 class SSS09Density(Density):
-    """Fake density from atomic radii.
+    """Fake density from atomic radii for the use in a SmoothStepCavity.
 
-    Following Sanchez et al J. Chem. Phys. 131 (2009) 174108.
-
+    Following V. M. Sanchez, M. Sued and D. A. Scherlis,
+    J. Chem. Phys. 131, 174108 (2009).
     """
 
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
     def __init__(self, atomic_radii, pbc_cutoff=1e-3):
+        """Constructor for the SSS09Density class.
+
+        Arguments:
+        atomic_radii -- Callable mapping an ase.Atoms object
+                        to an iterable of atomic radii in Angstroms.
+        pbc_cutoff   -- Cutoff in eV for including neighbor cells in
+                        a calculation with periodic boundary conditions.
+        """
         Density.__init__(self)
         self.atomic_radii = atomic_radii
         self.atomic_radii_output = None
@@ -564,7 +643,6 @@ class ADM12SmoothStepCavity(SmoothStepCavity):
 
     Following O. Andreussi, I. Dabo, and N. Marzari,
     J. Chem. Phys. 136, 064102 (2012).
-
     """
 
     def __init__(
@@ -572,10 +650,17 @@ class ADM12SmoothStepCavity(SmoothStepCavity):
         rhomin, rhomax, epsinf,
         density,
         surface_calculator=None, volume_calculator=None
-        ):
+    ):
+        """Constructor for the ADM12SmoothStepCavity class.
+
+        Additional arguments not present in the SmoothStepCavity class:
+        rhomin -- Lower density isovalue in 1 / Angstrom ** 3.
+        rhomax -- Upper density isovalue in 1 / Angstrom ** 3.
+        epsinf -- Static dielectric constant of the solvent.
+        """
         SmoothStepCavity.__init__(
             self, density, surface_calculator, volume_calculator
-            )
+        )
         self.rhomin = float(rhomin)
         self.rhomax = float(rhomax)
         self.epsinf = float(epsinf)
@@ -586,7 +671,7 @@ class ADM12SmoothStepCavity(SmoothStepCavity):
         outside = rho_g < self.rhomin * Bohr ** 3
         transition = np.logical_not(
             np.logical_or(inside, outside)
-            )
+        )
         self.g_g[inside] = .0
         self.g_g[outside] = 1.
         self.del_g_del_rho_g.fill(.0)
@@ -600,9 +685,9 @@ class ADM12SmoothStepCavity(SmoothStepCavity):
             self.g_g[transition] = (eps_to_t - 1.) / (eps - 1.)
             self.del_g_del_rho_g[transition] = (
                 eps_to_t * np.log(eps) * dt
-                ) / (
+            ) / (
                 rho_g[transition] * (eps - 1.)
-                )
+            )
 
     def _get_t_dt(self, x):
         lnmax = np.log(self.rhomax * Bohr ** 3)
@@ -623,8 +708,7 @@ class ADM12SmoothStepCavity(SmoothStepCavity):
 class FG02SmoothStepCavity(SmoothStepCavity):
     """Cavity from smooth step function.
 
-    Following J. Fattebert, and F. Gygi, J Comput Chem 23: 662-666, 2002.
-
+    Following J. Fattebert and F. Gygi, J. Comput. Chem. 23, 662 (2002).
     """
 
     def __init__(
@@ -633,10 +717,16 @@ class FG02SmoothStepCavity(SmoothStepCavity):
         beta,
         density,
         surface_calculator=None, volume_calculator=None
-        ):
+    ):
+        """Constructor for the FG02SmoothStepCavity class.
+
+        Additional arguments not present in the SmoothStepCavity class:
+        rho0 -- Density isovalue in 1 / Angstrom ** 3.
+        beta -- Parameter controlling the steepness of the transition.
+        """
         SmoothStepCavity.__init__(
             self, density, surface_calculator, volume_calculator
-            )
+        )
         self.rho0 = float(rho0)
         self.beta = float(beta)
 
@@ -649,7 +739,7 @@ class FG02SmoothStepCavity(SmoothStepCavity):
             (-exponent / rho0) * rho_scaled_g ** (exponent - 1.),
             self.g_g ** 2,
             self.del_g_del_rho_g
-            )
+        )
 
     def print_parameters(self, text):
         text('rho0: %s' % (self.rho0, ))
@@ -658,6 +748,14 @@ class FG02SmoothStepCavity(SmoothStepCavity):
 
 
 class SurfaceCalculator(NeedsGD):
+    """Base class for surface calculators.
+
+    Attributes:
+    A                 -- Local area in Bohr ** 2.
+    delta_A_delta_g_g -- Functional derivative with respect to the cavity
+                         on the fine grid.
+    """
+
     def __init__(self):
         NeedsGD.__init__(self)
         self.A = None
@@ -674,10 +772,19 @@ class SurfaceCalculator(NeedsGD):
         pass
 
     def update(self, cavity):
+        """Calculate A and delta_A_delta_g_g."""
         raise NotImplementedError()
 
 
 class GradientSurface(SurfaceCalculator):
+    """Class for getting the surface area from the gradient of the cavity.
+
+    See also W. Im, D. Beglov and B. Roux,
+    Comput. Phys. Commun. 111, 59 (1998)
+    and
+    A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
+    """
+
     def __init__(self, nn=3):
         SurfaceCalculator.__init__(self)
         self.nn = nn
@@ -697,7 +804,7 @@ class GradientSurface(SurfaceCalculator):
         SurfaceCalculator.allocate(self)
         self.gradient = [
             Gradient(self.gd, i, 1.0, self.nn) for i in (0, 1, 2)
-            ]
+        ]
         self.gradient_in = self.gd.empty()
         self.gradient_out = self.gd.empty(3)
         self.norm_grad_out = self.gd.empty()
@@ -714,7 +821,7 @@ class GradientSurface(SurfaceCalculator):
             self.calc_grad(inner, cavity.get_inner_function_boundary_value())
         self.A = sign * self.gd.integrate(
             del_outer_del_inner * self.norm_grad_out, global_integral=False
-            )
+        )
         mask = self.norm_grad_out > 1e-12  # avoid division by zero or overflow
         imask = np.logical_not(mask)
         masked_norm_grad = self.norm_grad_out[mask]
@@ -747,6 +854,14 @@ class GradientSurface(SurfaceCalculator):
 
 
 class VolumeCalculator(NeedsGD):
+    """Base class for volume calculators.
+
+    Attributes:
+    V                 -- Local volume in Bohr ** 3.
+    delta_V_delta_g_g -- Functional derivative with respect to the cavity
+                         on the fine grid.
+    """
+
     def __init__(self):
         NeedsGD.__init__(self)
         self.V = None
@@ -763,22 +878,26 @@ class VolumeCalculator(NeedsGD):
         pass
 
     def update(self, cavity):
+        """Calculate V and delta_V_delta_g_g"""
         raise NotImplementedError()
 
 
 class KB51Volume(VolumeCalculator):
-    """
-    KB51 Volume Calculator
+    """KB51 Volume Calculator.
 
     V = Integral(1 - g) + kappa_T * k_B * T
 
-    Following
-
-    J. G. Kirkwood and F. P. Buff,
-    The Journal of Chemical Physics, vol. 19, no. 6, pp. 774--777, 1951
+    Following J. G. Kirkwood and F. P. Buff, J. Chem. Phys. 19, 6, 774 (1951).
     """
 
     def __init__(self, compressibility=.0, temperature=.0):
+        """Constructor for KB51Volume class.
+
+        Arguments:
+        compressibility -- Isothermal compressibility of the solvent
+                           in Angstrom ** 3 / eV.
+        temperature     -- Temperature in Kelvin.
+        """
         VolumeCalculator.__init__(self)
         self.compressibility = float(compressibility)
         self.temperature = float(temperature)

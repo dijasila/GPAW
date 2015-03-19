@@ -1,7 +1,6 @@
 from gpaw import GPAW
 from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from ase.units import Hartree, Bohr
-from gpaw.occupations import MethfesselPaxton
 
 
 class NIReciprocalSpaceHamiltonian:
@@ -9,16 +8,27 @@ class NIReciprocalSpaceHamiltonian:
         raise NotImplementedError(
             'SolvationGPAW does not support '
             'calculations in reciprocal space yet.'
-            )
+        )
 
 
 class SolvationGPAW(GPAW):
-    """Subclass of gpaw.GPAW calculator with continuum solvent model."""
+    """Subclass of gpaw.GPAW calculator with continuum solvent model.
+
+    See also Section III of
+    A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
+    """
 
     reciprocal_space_hamiltonian_class = NIReciprocalSpaceHamiltonian
 
     def __init__(self, cavity, dielectric, interactions=None,
                  **gpaw_kwargs):
+        """Constructor for SolvationGPAW class.
+
+        Additional arguments not present in GPAW class:
+        cavity       -- A Cavity instance.
+        dielectric   -- A Dielectric instance.
+        interactions -- A list of Interaction instances.
+        """
         if interactions is None:
             interactions = []
 
@@ -26,7 +36,7 @@ class SolvationGPAW(GPAW):
             return SolvationRealSpaceHamiltonian(
                 cavity, dielectric, interactions,
                 *args, **kwargs
-                )
+            )
 
         self.real_space_hamiltonian_class = real_space_hamiltonian_factory
         GPAW.__init__(self, **gpaw_kwargs)
@@ -56,15 +66,31 @@ class SolvationGPAW(GPAW):
             )
 
     def get_solvation_interaction_energy(self, subscript, atoms=None):
+        """Return a specific part of the solvation interaction energy.
+
+        The subscript parameter defines which part is to be returned.
+        It has to match the value of a subscript attribute of one of
+        the interactions in the interactions list.
+        """
         self.calculate(atoms, converge=True)
         return Hartree * getattr(self.hamiltonian, 'E_' + subscript)
 
     def get_cavity_volume(self, atoms=None):
+        """Return the cavity volume in Angstrom ** 3.
+
+        In case no volume calculator has been set for the cavity, None
+        is returned.
+        """
         self.calculate(atoms, converge=True)
         V = self.hamiltonian.cavity.V
         return V and V * Bohr ** 3
 
     def get_cavity_surface(self, atoms=None):
+        """Return the cavity surface area in Angstrom ** 2.
+
+        In case no surface calculator has been set for the cavity,
+        None is returned.
+        """
         self.calculate(atoms, converge=True)
         A = self.hamiltonian.cavity.A
         return A and A * Bohr ** 2

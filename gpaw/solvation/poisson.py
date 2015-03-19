@@ -9,10 +9,27 @@ import numpy as np
 
 
 class SolvationPoissonSolver(PoissonSolver):
+    """Base class for Poisson solvers with spatially varying dielectric.
+
+    The Poisson equation
+    div(epsilon(r) grad phi(r)) = -4 pi rho(r)
+    is solved.
+    """
+
     def set_dielectric(self, dielectric):
+        """Set the dielectric.
+
+        Arguments:
+        dielectric -- A Dielectric instance.
+        """
         self.dielectric = dielectric
 
     def load_gauss(self):
+        """Load compensating charge distribution for charged systems.
+
+        See Appendix B of
+        A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
+        """
         # XXX Check if update is needed (dielectric changed)?
         epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
         gauss = Gaussian(self.gd)
@@ -34,10 +51,10 @@ class SolvationPoissonSolver(PoissonSolver):
 
 
 class WeightedFDPoissonSolver(SolvationPoissonSolver):
-    """
-    Poisson solver including an electrostatic solvation model
+    """Weighted finite difference Poisson solver with dielectric.
 
-    following Sanchez et al J. Chem. Phys. 131 (2009) 174108
+    Following V. M. Sanchez, M. Sued and D. A. Scherlis,
+    J. Chem. Phys. 131, 174108 (2009).
     """
 
     def solve(self, phi, rho, charge=None, eps=None,
@@ -48,13 +65,14 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
             if abs(actual_charge) > maxcharge:
                 raise NotImplementedError(
                     'charged periodic systems are not implemented'
-                    )
+                )
         self.restrict_op_weights()
         ret = PoissonSolver.solve(self, phi, rho, charge, eps, maxcharge,
                                   zero_initial_phi)
         return ret
 
     def restrict_op_weights(self):
+        """Restric operator weights to coarse grids."""
         weights = [self.dielectric.eps_gradeps] + self.op_coarse_weights
         for i, res in enumerate(self.restrictors):
             for j in xrange(4):
@@ -102,8 +120,9 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
         self.phis = [None] + [gd.zeros() for gd in self.gds[1:]]
         self.residuals = [gd.zeros() for gd in self.gds]
         self.rhos = [gd.zeros() for gd in self.gds]
-        self.op_coarse_weights = [[g.empty() for g in (gd, ) * 4] \
-                               for gd in self.gds[1:]]
+        self.op_coarse_weights = [
+            [g.empty() for g in (gd, ) * 4] for gd in self.gds[1:]
+        ]
         scale = -0.25 / np.pi
         for i, gd in enumerate(self.gds):
             if i == 0:
@@ -120,14 +139,14 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
 
 
 class PolarizationPoissonSolver(SolvationPoissonSolver):
-    """Poisson solver including an electrostatic solvation model
+    """Poisson solver with dielectric.
 
-    calculates the polarization charges first using only the
+    Calculates the polarization charges first using only the
     vacuum poisson equation, then solves the vacuum equation
-    with polarization charges
+    with polarization charges.
 
-    warning: not exact enough, since the electric field is not exact enough
-
+    Warning: Not intended for production use, as it is not exact enough,
+             since the electric field is not exact enough!
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10):
@@ -135,8 +154,8 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
             (
                 'PolarizationPoissonSolver is not accurate enough'
                 ' and therefore not recommended for production code!'
-                )
             )
+        )
         warnings.warn(polarization_warning)
         SolvationPoissonSolver.__init__(self, nn, relax, eps)
         self.phi_tilde = None
@@ -157,7 +176,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
         niter_tilde = PoissonSolver.solve(
             self, phi_tilde, rho, None, self.eps,
             maxcharge, False
-            )
+        )
 
         epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
         dx_phi_tilde = self.gd.empty()
@@ -177,7 +196,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
         niter = PoissonSolver.solve(
             self, phi, rho_and_pol, None, eps,
             maxcharge, zero_initial_phi
-            )
+        )
         return niter_tilde + niter
 
     def load_gauss(self):
@@ -185,25 +204,33 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
 
 
 class ADM12PoissonSolver(SolvationPoissonSolver):
-    """Poisson solver including an electrostatic solvation model
+    """Poisson solver with dielectric.
 
-    following Andreussi et al.
-    The Journal of Chemical Physics 136, 064102 (2012)
+    Following O. Andreussi, I. Dabo, and N. Marzari,
+    J. Chem. Phys. 136, 064102 (2012).
+
+    Warning: Not intended for production use, as it is not tested
+             thouroughly!
 
     XXX TODO : * Correction for charged systems???
                * Check: Can the polarization charge introduce a monopole?
-               * Convergence problems depending on eta, apparently this
-                 method works best with FFT as in the original Paper
-               * Optimize numerics
+               * Convergence problems depending on eta. Apparently this
+                 method works best with FFT as in the original Paper.
+               * Optimize numerics.
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, eta=.6):
+        """Constructor for ADM12PoissonSolver.
+
+        Additional arguments not present in SolvationPoissonSolver:
+        eta -- linear mixing parameter
+        """
         adm12_warning = UserWarning(
             (
                 'ADM12PoissonSolver is not tested thoroughly'
                 ' and therefore not recommended for production code!'
-                )
             )
+        )
         warnings.warn(adm12_warning)
         self.eta = eta
         SolvationPoissonSolver.__init__(self, nn, relax, eps)
@@ -234,10 +261,10 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
             if abs(actual_charge) > maxcharge:
                 raise NotImplementedError(
                     'charged periodic systems are not implemented'
-                    )
+                )
         return PoissonSolver.solve(
             self, phi, rho, charge, eps, maxcharge, zero_initial_phi
-            )
+        )
 
     def solve_neutral(self, phi, rho, eps=2e-10):
         self.rho = rho

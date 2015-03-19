@@ -1,3 +1,9 @@
+"""The gpaw.solvation package.
+
+This packages extends GPAW to be used with different
+continuum solvent models.
+"""
+
 from gpaw.solvation.calculator import SolvationGPAW
 from gpaw.solvation.cavity import (
     EffectivePotentialCavity,

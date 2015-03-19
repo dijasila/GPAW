@@ -5,12 +5,28 @@ import numpy as np
 
 
 class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
+    """Realspace Hamiltonian with continuum solvent model.
+
+    See also Section III of
+    A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
+    """
+
     def __init__(
-        self, cavity, dielectric, interactions,
+        self,
+        # solvation related arguments:
+        cavity, dielectric, interactions,
+        # RealSpaceHamiltonian arguments:
         gd, finegd, nspins, setups, timer, xc, world,
         kptband_comm, vext=None, collinear=True, psolver=None,
         stencil=3
-        ):
+    ):
+        """Constructor of SolvationRealSpaceHamiltonian class.
+
+        Additional arguments not present in RealSpaceHamiltonian:
+        cavity       -- A Cavity instance.
+        dielectric   -- A Dielectric instance.
+        interactions -- A list of Interaction instances.
+        """
         self.cavity = cavity
         self.dielectric = dielectric
         self.interactions = interactions
@@ -27,7 +43,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
             gd, finegd, nspins, setups, timer, xc, world,
             kptband_comm, vext, collinear, psolver,
             stencil
-            )
+        )
         for ia in interactions:
             setattr(self, 'E_' + ia.subscript, None)
         self.new_atoms = None
@@ -39,8 +55,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         for name, obj in [
             ('Cavity', self.cavity),
             ('Dielectric', self.dielectric),
-            ] + \
-            [('Interaction: ' + ia.subscript, ia) for ia in self.interactions]:
+        ] + [('Interaction: ' + ia.subscript, ia) for ia in self.interactions]:
             obj.estimate_memory(solvation.subnode(name))
 
     def update_atoms(self, atoms):
@@ -49,7 +64,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
     def initialize(self):
         self.gradient = [
             Gradient(self.finegd, i, 1.0, self.poisson.nn) for i in (0, 1, 2)
-            ]
+        ]
         self.vt_ia_g = self.finegd.zeros()
         self.cavity.allocate()
         self.dielectric.allocate()
@@ -75,8 +90,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                 self.new_atoms,
                 density,
                 self.cavity if cavity_changed else None
-                ) for ia in self.interactions
-            ]
+            ) for ia in self.interactions
+        ]
         if np.any(ia_changed):
             self.vt_ia_g.fill(.0)
             for ia in self.interactions:
@@ -94,7 +109,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         W_aL = self.calculate_atomic_hamiltonians(density)
         Ekin, Epot, Ebar, Eext, Exc = self.update_corrections(
             density, Ekin, Epot, Ebar, Eext, Exc, W_aL
-            )
+        )
 
         energies = np.array([Ekin, Epot, Ebar, Eext, Exc] + Eias)
         self.timer.start('Communicate energies')
@@ -137,7 +152,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                         F_v[v] -= self.finegd.integrate(
                             ia.delta_E_delta_g_g * del_g_del_r_vg[v],
                             global_integral=False
-                            )
+                        )
             if ia.depends_on_atomic_positions:
                 for a, F_v in enumerate(F_av):
                     del_E_del_r_vg = ia.get_del_r_vg(a, dens)
@@ -145,10 +160,10 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                         F_v[v] -= self.finegd.integrate(
                             del_E_del_r_vg[v],
                             global_integral=False
-                            )
+                        )
         return RealSpaceHamiltonian.calculate_forces(
             self, dens, F_av
-            )
+        )
 
     def el_force_correction(self, dens, F_av):
         if not self.cavity.depends_on_atomic_positions:
@@ -162,7 +177,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                 F_v[v] += self.finegd.integrate(
                     fixed * del_g_del_r_vg[v],
                     global_integral=False
-                    )
+                )
 
     def get_energy(self, occupations):
         self.Ekin = self.Ekin0 + occupations.e_band

@@ -4,7 +4,19 @@ import numpy as np
 
 
 class Interaction(NeedsGD):
-    """Base class for non electrostatic solvent solute interactions."""
+    """Base class for non-electrostatic solvent solute interactions.
+
+    See also Section III of
+    A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
+
+    Attributes:
+    subscript         -- Short label used to reference the interaction.
+    E                 -- Local interaction energy in Hartree
+    delta_E_delta_n_g -- Functional derivative of the interaction energy
+                         with respect to the electron density.
+    delta_E_delta_n_g -- Functional derivative of the interaction energy
+                         with respect to the cavity.
+    """
 
     subscript = 'unnamed'
 
@@ -15,12 +27,12 @@ class Interaction(NeedsGD):
         self.delta_E_delta_g_g = None
 
     def update(self, atoms, density, cavity):
-        """Updates the Kohn-Sham potential and the energy.
+        """Update the Kohn-Sham potential and the energy.
 
         atoms and/or cavity are None iff they have not changed
         since the last call
 
-        Returns whether the interaction has changed.
+        Return whether the interaction has changed.
         """
         raise NotImplementedError
 
@@ -36,28 +48,37 @@ class Interaction(NeedsGD):
 
     @property
     def depends_on_atomic_positions(self):
-        """returns whether the ia depends explicitly on atomic positions"""
+        """Return whether the ia depends explicitly on atomic positions."""
         raise NotImplementedError
 
     @property
     def depends_on_el_density(self):
-        """returns whether the ia depends explicitly on the electron density"""
+        """Return whether the ia depends explicitly on the electron density."""
         raise NotImplementedError
 
     def get_del_r_vg(self, atomic_index, density):
+        """Return spatial derivatives with respect to atomic position."""
         raise NotImplementedError
 
     def print_parameters(self, text):
-        """Prints parameters using text function."""
+        """Print parameters using text function."""
         pass
 
 
 class SurfaceInteraction(Interaction):
+    """An interaction with energy proportional to the cavity surface area."""
+
     subscript = 'surf'
     depends_on_el_density = False
     depends_on_atomic_positions = False
 
     def __init__(self, surface_tension):
+        """Constructor for SurfaceInteraction class.
+
+        Arguments:
+        surface_tension -- Proportionality factor to calculate
+                           energy from surface area in eV / Angstrom ** 2.
+        """
         Interaction.__init__(self)
         self.surface_tension = float(surface_tension)
 
@@ -76,12 +97,19 @@ class SurfaceInteraction(Interaction):
 
 
 class VolumeInteraction(Interaction):
-    """Interaction proportional to cavity volume"""
+    """An interaction with energy proportional to the cavity volume"""
+
     subscript = 'vol'
     depends_on_el_density = False
     depends_on_atomic_positions = False
 
     def __init__(self, pressure):
+        """Constructor for VolumeInteraction class.
+
+        Arguments:
+        pressure -- Proportionality factor to calculate
+                    energy from volume in eV / Angstrom ** 3.
+        """
         Interaction.__init__(self)
         self.pressure = float(pressure)
 
@@ -100,12 +128,24 @@ class VolumeInteraction(Interaction):
 
 
 class LeakedDensityInteraction(Interaction):
-    """Interaction proportional to el. density leaking outside cavity."""
+    """Interaction proportional to charge leaking outside cavity.
+
+    The charge outside the cavity is calculated as
+    """
+
     subscript = 'leak'
     depends_on_el_density = True
     depends_on_atomic_positions = False
 
     def __init__(self, voltage):
+        """Constructor for LeakedDensityInteraction class.
+
+        Arguments:
+        voltage -- Proportionality factor to calculate
+                   energy from integrated electron density in Volts.
+                   A positive value of the voltage leads to a
+                   positive interaction energy.
+        """
         Interaction.__init__(self)
         self.voltage = float(voltage)
 
@@ -117,7 +157,7 @@ class LeakedDensityInteraction(Interaction):
         self.E = self.gd.integrate(
             density.nt_g * self.delta_E_delta_n_g,
             global_integral=False
-            )
+        )
         return True
 
     def print_parameters(self, text):
