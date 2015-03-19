@@ -1,0 +1,15 @@
+This is a rewrite based on the original DFPT code, which unfortunately was
+never finished.
+
+
+ToDo:
+2. Reduce to minimal code and introduce timers
+3. Make it work for arbitrary q, example Si_X
+4. Which modes (lcao, fd, pw) and potentials (ah, nc, paw) should it work?
+and so on
+
+
+
+Done:
+0. Start with no symmetry, no parallelization, only pbc
+1. Create Si_Gamma example and make dfpt print the phonon energy
