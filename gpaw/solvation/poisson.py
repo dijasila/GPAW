@@ -16,6 +16,15 @@ class SolvationPoissonSolver(PoissonSolver):
     is solved.
     """
 
+    def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
+                 remove_moment=None):
+        if remove_moment is not None:
+            raise NotImplementedError(
+                'Removing arbitrary multipole moments '
+                'is not implemented for SolvationPoissonSolver!'
+            )
+        PoissonSolver.__init__(nn, relax, eps, maxiter, remove_moment)
+
     def set_dielectric(self, dielectric):
         """Set the dielectric.
 
@@ -149,7 +158,8 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
              since the electric field is not exact enough!
     """
 
-    def __init__(self, nn=3, relax='J', eps=2e-10):
+    def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
+                 remove_moment=None):
         polarization_warning = UserWarning(
             (
                 'PolarizationPoissonSolver is not accurate enough'
@@ -157,7 +167,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
             )
         )
         warnings.warn(polarization_warning)
-        SolvationPoissonSolver.__init__(self, nn, relax, eps)
+        SolvationPoissonSolver.__init__(self, nn, relax, eps, maxiter, remove_moment)
         self.phi_tilde = None
 
     def get_description(self):
@@ -219,7 +229,8 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
                * Optimize numerics.
     """
 
-    def __init__(self, nn=3, relax='J', eps=2e-10, eta=.6):
+    def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
+                 remove_moment=None, eta=.6):
         """Constructor for ADM12PoissonSolver.
 
         Additional arguments not present in SolvationPoissonSolver:
@@ -233,7 +244,7 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
         )
         warnings.warn(adm12_warning)
         self.eta = eta
-        SolvationPoissonSolver.__init__(self, nn, relax, eps)
+        SolvationPoissonSolver.__init__(self, nn, relax, eps, maxiter, remove_moment)
 
     def set_grid_descriptor(self, gd):
         SolvationPoissonSolver.set_grid_descriptor(self, gd)
