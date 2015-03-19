@@ -37,8 +37,7 @@ class SolvationGPAW(GPAW):
         return spos_ac
 
     def get_electrostatic_energy(self, atoms=None, force_consistent=False):
-        """
-        Return electrostatic part of the total energy.
+        """Return electrostatic part of the total energy.
 
         The electrostatic part consists of everything except
         the short-range interactions defined in the interactions list.

@@ -26,8 +26,7 @@ class GPAW(PAW):
         pass
 
     def _extrapolate_energy_to_zero_width(self, E):
-        """
-        Return energy E extrapolated to zero width.
+        """Return energy E extrapolated to zero width.
 
         Internal method to extrapolate an energy to zero width.
         Useful e.g. for total energy or "electrostatic" part of
