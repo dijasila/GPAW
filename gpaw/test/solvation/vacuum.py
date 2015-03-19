@@ -52,6 +52,8 @@ atoms.calc = SolvationGPAW(
     dielectric=LinearDielectric(epsinf=1.0),
     )
 Etest = atoms.get_potential_energy()
+Eeltest = atoms.calc.get_electrostatic_energy()
 Ftest = atoms.get_forces()
 equal(Etest, Eref, dE)
 equal(Ftest, Fref, dF)
+equal(Eeltest, Etest)

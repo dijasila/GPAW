@@ -46,8 +46,11 @@ atoms.calc = SolvationGPAW(
     interactions=[SurfaceInteraction(surface_tension=st)]
     )
 Ewater = atoms.get_potential_energy()
+Eelwater = atoms.calc.get_electrostatic_energy()
+Esurfwater = atoms.calc.get_solvation_interaction_energy('surf')
 atoms.get_forces()
 DGSol = (Ewater - Evac) / (kcal / mol)
 print 'Delta Gsol: %s kcal / mol' % (DGSol, )
 
 equal(DGSol, -6.3, 2.)
+equal(Ewater, Eelwater + Esurfwater)

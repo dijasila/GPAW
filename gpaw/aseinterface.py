@@ -25,6 +25,20 @@ class GPAW(PAW):
     def set_atoms(self, atoms):
         pass
 
+    def _extrapolate_energy_to_zero_width(self, E):
+        """
+        Return energy E extrapolated to zero width.
+
+        Internal method to extrapolate an energy to zero width.
+        Useful e.g. for total energy or "electrostatic" part of
+        a continuum solvent calculation.
+
+        E and return value are in Hartree.
+        """
+        if isinstance(self.occupations, MethfesselPaxton):
+            return E + self.hamiltonian.S / (self.occupations.iter + 2)
+        return E + 0.5 * self.hamiltonian.S
+
     def get_potential_energy(self, atoms=None, force_consistent=False):
         """Return total energy.
 
@@ -42,11 +56,9 @@ class GPAW(PAW):
             return Hartree * self.hamiltonian.Etot
         else:
             # Energy extrapolated to zero width:
-            if isinstance(self.occupations, MethfesselPaxton):
-                return Hartree * (self.hamiltonian.Etot +
-                                  self.hamiltonian.S /
-                                  (self.occupations.iter + 2))
-            return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
+            return Hartree * self._extrapolate_energy_to_zero_width(
+                self.hamiltonian.Etot
+            )
 
     def get_forces(self, atoms):
         """Return the forces for the current state of the atoms."""
