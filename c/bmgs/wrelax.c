@@ -1,4 +1,7 @@
-/*  Copyright (C) 2003-2007  CAMP
+/*  This file (wrelax.c) is a modified copy of relax.c
+ *  with added support for nonlocal operator weights.
+ *  The original copyright note of relax.c follows:
+ *  Copyright (C) 2003-2007  CAMP
  *  Copyright (C) 2005       CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 

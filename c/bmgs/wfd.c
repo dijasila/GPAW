@@ -1,4 +1,7 @@
-/*  Copyright (C) 2003-2007  CAMP
+/*  This file (wfd.c) is a modified copy of fd.c
+ *  with added support for nonlocal operator weights.
+ *  The original copyright note of fd.c follows:
+ *  Copyright (C) 2003-2007  CAMP
  *  Please see the accompanying LICENSE file for further information. */
 
 #include "bmgs.h"
