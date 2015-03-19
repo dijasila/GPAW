@@ -324,6 +324,7 @@ tests = [
     'transport.py',                         # ~73s
     'lrtddft3.py',                          # ~75s
     'nonlocalset.py',                       # ~82s
+    'dfpt2/Si_AH_simple.py',                # duration unknown (~90s)
     # buildbot > 100 sec tests start here (add tests after lb94.py!)
     'lb94.py',                              # ~84s
     'AA_exx_enthalpy.py',                   # ~119s
@@ -390,6 +391,7 @@ if mpi.size > 1:
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
                 'pw/davidson_pw.py',
+                'dfpt2/Si_AH_simple.py',
                 # scipy.weave fails often in parallel due to
                 # ~/.python*_compiled
                 # https://github.com/scipy/scipy/issues/1895
