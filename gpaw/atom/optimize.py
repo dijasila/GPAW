@@ -38,7 +38,7 @@ class GA:
         self.n = len(self.individuals)
         self.pool = mp.Pool()
 
-    def run(self, sleep=20, mutate=1.0, size1=2, size2=100):
+    def run(self, sleep=20, mutate=3.0, size1=2, size2=100):
         results = []
         while True:
             while len(results) < mp.cpu_count():
@@ -94,7 +94,7 @@ class GA:
 
 
 def read_reference(name, symbol):
-    for line in open('../energies_aims_{0}.csv'.format(name)):
+    for line in open('../../energies_aims_{0}.csv'.format(name)):
         words = line.split(',')
         if words[0] == 'e':
             x = [float(word) for word in words[2:]]
@@ -141,7 +141,7 @@ class DatasetOptimizer:
         self.ecut1 = 400.0
         self.ecut2 = 800.0
         
-        setup_paths[:0] = ['.']
+        setup_paths[:0] = ['../..', '.']
         
     def run(self):
         ga = GA(self.symbol + '.csv', self, self.x)
@@ -185,14 +185,15 @@ class DatasetOptimizer:
         return error
             
     def __call__(self, n, x):
-        fd = open('{0}.{1:05}.txt'.format(self.symbol, n), 'w')
+        fd = open('{0}.{1}.txt'.format(self.symbol, os.getpid()), 'a')
         
         energies = tuple(0.1 * i for i in x[:self.nenergies])
         radii = [0.05 * i for i in x[self.nenergies:-1]]
         r0 = 0.05 * x[-1]
         
-        fmt = 'PARAMS: E=[{0}] R=[{1}] r={2:.2f}'
-        print(fmt.format(','.join('{0:.1f}'.format(e) for e in energies),
+        fmt = 'PARAMS {0}: E=[{1}] R=[{2}] r={3:.2f}'
+        print(fmt.format(n,
+                         ','.join('{0:.1f}'.format(e) for e in energies),
                          ','.join('{0:.2f}'.format(r) for r in radii),
                          r0), file=fd)
               
