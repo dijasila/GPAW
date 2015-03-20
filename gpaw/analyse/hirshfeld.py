@@ -4,13 +4,12 @@ from ase import Atoms
 from ase.units import Bohr
 from gpaw.density import RealSpaceDensity
 from gpaw.lfc import BasisFunctions
-from gpaw.mixer import Mixer
 from gpaw.setup import Setups
 from gpaw.xc import XC
 from gpaw.utilities.tools import coordinates
 from gpaw.utilities.partition import AtomPartition
 
-from gpaw.mpi import rank
+#from gpaw.mpi import rank
 
 
 class HirshfeldDensity(RealSpaceDensity):
@@ -25,9 +24,11 @@ class HirshfeldDensity(RealSpaceDensity):
                                   stencil=par.stencils[1])
 
     def set_positions(self, spos_ac, rank_a):
-        """HirshfeldDensity builds a hack density object to calculate all electron density
-           of atoms. This methods overrides the parallel distribution of atomic density matrices
-           in density.py"""
+        """HirshfeldDensity builds a hack density object to calculate
+        all electron density
+        of atoms. This methods overrides the parallel distribution of
+        atomic density matrices
+        in density.py"""
         self.atom_partition = AtomPartition(self.gd.comm, rank_a)
         self.nct.set_positions(spos_ac)
         self.ghat.set_positions(spos_ac)
