@@ -1,5 +1,5 @@
 import numpy as np
-
+from gpaw.arraydict import ArrayDict
 
 class AtomicMatrixDistributor:
     """Class to distribute atomic dictionaries like dH_asp and D_asp."""
@@ -284,3 +284,11 @@ class AtomPartition:
 
         general_redistribute(self.comm, self.rank_a,
                              new_partition.rank_a, Redist())
+        if isinstance(atomdict_ax, ArrayDict):
+            atomdict_ax.partition = new_partition # XXX
+            atomdict_ax.check_consistency()
+
+    def arraydict(self, shapes, dtype=float):
+        if callable(shapes):
+            shapes = [shapes(a) for a in self.natoms]
+        return ArrayDict(self, shapes, dtype)

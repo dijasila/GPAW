@@ -172,13 +172,16 @@ class OmegaMatrix:
             else:
                 nt_sg = paw.density.nt_sg
         # check if D_sp have been changed before
-        D_asp = self.paw.density.D_asp
-        for a, D_sp in D_asp.items():
+        D_asp = {}
+        for a, D_sp in self.paw.density.D_asp.items():
             if len(D_sp) != kss.npspins:
                 if len(D_sp) == 1:
+                    x = np.array([0.5 * D_sp[0], 0.5 * D_sp[0]])
                     D_asp[a] = np.array([0.5 * D_sp[0], 0.5 * D_sp[0]])
                 else:
                     D_asp[a] = np.array([D_sp[0] + D_sp[1]])
+            else:
+                D_asp[a] = D_sp.copy()
 
         # restrict the density if needed
         if fg:
@@ -252,13 +255,13 @@ class OmegaMatrix:
                     P_ii = np.outer(Pi_i, Pj_i)
                     # we need the symmetric form, hence we can pack
                     P_p = pack(P_ii)
-                    D_sp = self.paw.density.D_asp[a].copy()
+                    D_sp = D_asp[a].copy()
                     D_sp[kss[ij].pspin] -= ns * P_p
                     setup = wfs.setups[a]
                     I_sp = np.zeros_like(D_sp)
                     self.xc.calculate_paw_correction(setup, D_sp, I_sp)
                     I_sp *= -1.0
-                    D_sp = self.paw.density.D_asp[a].copy()
+                    D_sp = D_asp[a].copy()
                     D_sp[kss[ij].pspin] += ns * P_p
                     self.xc.calculate_paw_correction(setup, D_sp, I_sp)
                     I_sp /= 2.0 * ns

@@ -14,9 +14,10 @@ from gpaw.lfc import LFC
 from gpaw.utilities import pack2, unpack, unpack2
 from gpaw.io import read_atomic_matrices
 from gpaw.utilities.partition import AtomPartition, AtomicMatrixDistributor
+from gpaw.arraydict import ArrayDict
 
 
-class Hamiltonian:
+class Hamiltonian(object):
     """Hamiltonian object.
 
     Attributes:
@@ -91,6 +92,22 @@ class Hamiltonian:
         self.ref_vt_sG = None
         self.ref_dH_asp = None
 
+    @property
+    def dH_asp(self):
+        assert isinstance(self._dH_asp, ArrayDict) or self._dH_asp is None, type(self._dH_asp)
+        self._dH_asp.check_consistency()
+        return self._dH_asp
+
+    @dH_asp.setter
+    def dH_asp(self, value):
+        if isinstance(value, dict):
+            tmp = self.setups.empty_asp(self.ns, self.atom_partition)
+            tmp.update(value)
+            value = tmp
+        assert isinstance(value, ArrayDict) or value is None, type(value)
+        if value is not None:
+            value.check_consistency()
+        self._dH_asp = value
 
     def summary(self, fd):
         fd.write('XC and Coulomb potentials evaluated on a %d*%d*%d grid\n' %
@@ -505,10 +522,12 @@ class Hamiltonian:
                     self.gd.distribute(reader.get('PseudoPotential', s),
                                        self.vt_sG[s])
 
-        # Read non-local part of hamiltonian
-        self.dH_asp = {}
         natoms = len(self.setups)
         self.rank_a = np.zeros(natoms, int)
+        self.atom_partition = AtomPartition(self.gd.comm, self.rank_a)
+
+        # Read non-local part of hamiltonian
+        self.dH_asp = {}
         if version > 0.3:
             all_H_sp = reader.get('NonLocalPartOfHamiltonian', broadcast=True)
 

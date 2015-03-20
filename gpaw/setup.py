@@ -1381,6 +1381,11 @@ class Setups(list):
         for setup in self.setups.values():
             setup.calculate_rotations(R_slmm)
 
+    def empty_asp(self, ns, atom_partition):
+        Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
+                     for setup in self]
+        return atom_partition.arraydict(Dshapes_a)
+
 
 def types2atomtypes(symbols, types, default):
     """Map a types identifier to a list with a type id for each atom.

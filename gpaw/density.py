@@ -18,9 +18,9 @@ from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
 from gpaw.io import read_atomic_matrices
 from gpaw.mpi import SerialCommunicator
+from gpaw.arraydict import ArrayDict
 
-
-class Density:
+class Density(object):
     """Density object.
 
     Attributes:
@@ -95,19 +95,20 @@ class Density:
 
         # If both old and new atomic ranks are present, start a blank dict if
         # it previously didn't exist but it will needed for the new atoms.
-        assert rank_a is not None
         if (self.rank_a is not None and
             self.D_asp is None and (rank_a == self.gd.comm.rank).any()):
-            self.D_asp = {}
+            self.D_asp = self.setups.empty_asp(self.ns, self.atom_partition)
 
         if (self.rank_a is not None and self.D_asp is not None
             and not isinstance(self.gd.comm, SerialCommunicator)):
             self.timer.start('Redistribute')
-            def get_empty(a):
-                ni = self.setups[a].ni
-                return np.empty((self.ns, ni * (ni + 1) // 2))
-            self.atom_partition.redistribute(atom_partition, self.D_asp,
-                                             get_empty)            
+            #def get_empty(a):
+            #    ni = self.setups[a].ni
+            #    return np.empty((self.ns, ni * (ni + 1) // 2))
+            #self.atom_partition.redistribute(atom_partition, self.D_asp,
+            #                                 get_empty)
+            self.D_asp.redistribute(atom_partition)
+            self.D_asp.check_consistency()
             self.timer.stop('Redistribute')
         
         self.rank_a = rank_a
@@ -121,6 +122,24 @@ class Density:
         """
         wfs.calculate_density_contribution(self.nt_sG)
         self.nt_sG[:self.nspins] += self.nct_G
+
+    @property
+    def D_asp(self):
+        if self._D_asp is not None:
+            assert isinstance(self._D_asp, ArrayDict), type(self._D_asp)
+            self._D_asp.check_consistency()
+        return self._D_asp
+
+    @D_asp.setter
+    def D_asp(self, value):
+        if isinstance(value, dict):
+            tmp = self.setups.empty_asp(self.ns, self.atom_partition)
+            tmp.update(value)
+            value = tmp
+        assert isinstance(value, ArrayDict) or value is None, type(value)
+        if value is not None:
+            value.check_consistency()
+        self._D_asp = value
 
     def update(self, wfs):
         self.timer.start('Density')
@@ -201,7 +220,7 @@ class Density:
         # but is not particularly efficient (not that this is a time
         # consuming step)
 
-        self.D_asp = {}
+        self.D_asp = self.setups.empty_asp(self.ns, self.atom_partition)
         f_asi = {}
         for a in basis_functions.atom_indices:
             c = self.charge / len(self.setups)  # distribute on all atoms
@@ -236,11 +255,8 @@ class Density:
         self.timer.start("Density initialize from wavefunctions")
         self.nt_sG = self.gd.empty(self.ns)
         self.calculate_pseudo_density(wfs)
-        self.D_asp = {}
+        self.D_asp = self.setups.empty_asp(self.ns, self.atom_partition)
         my_atom_indices = np.argwhere(wfs.rank_a == self.gd.comm.rank).ravel()
-        for a in my_atom_indices:
-            ni = self.setups[a].ni
-            self.D_asp[a] = np.empty((self.nspins, ni * (ni + 1) // 2))
         wfs.calculate_atomic_density_matrices(self.D_asp)
         self.calculate_normalized_charges_and_mix()
         self.timer.stop("Density initialize from wavefunctions")
@@ -249,6 +265,7 @@ class Density:
         """Set D_asp and nt_sG directly."""
         self.nt_sG = nt_sG
         self.D_asp = D_asp
+        D_asp.check_consistency()
         #self.calculate_normalized_charges_and_mix()
         # No calculate multipole moments?  Tests will fail because of
         # improperly initialized mixer
@@ -485,12 +502,16 @@ class Density:
                                    nt_sG[s])
 
         # Read atomic density matrices
-        D_asp = {}
         natoms = len(self.setups)
+        atom_partition = AtomPartition(self.gd.comm, np.zeros(natoms, int))
+        D_asp = self.setups.empty_asp(self.ns, atom_partition)
+        self.atom_partition = atom_partition # XXXXXX
+
         self.rank_a = np.zeros(natoms, int)
         all_D_sp = reader.get('AtomicDensityMatrices', broadcast=True)
         if self.gd.comm.rank == 0:
-            D_asp = read_atomic_matrices(all_D_sp, self.setups)
+            D_asp.update(read_atomic_matrices(all_D_sp, self.setups))
+            D_asp.check_consistency()
 
         self.initialize_directly_from_arrays(nt_sG, D_asp)
 

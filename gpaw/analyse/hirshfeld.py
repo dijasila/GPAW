@@ -8,6 +8,7 @@ from gpaw.mixer import Mixer
 from gpaw.setup import Setups
 from gpaw.xc import XC
 from gpaw.utilities.tools import coordinates
+from gpaw.utilities.partition import AtomPartition
 
 from gpaw.mpi import rank
 
@@ -27,6 +28,7 @@ class HirshfeldDensity(RealSpaceDensity):
         """HirshfeldDensity builds a hack density object to calculate all electron density
            of atoms. This methods overrides the parallel distribution of atomic density matrices
            in density.py"""
+        self.atom_partition = AtomPartition(self.gd.comm, rank_a)
         self.nct.set_positions(spos_ac)
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()
@@ -75,15 +77,16 @@ class HirshfeldDensity(RealSpaceDensity):
         setups = Setups(Z_a, par.setups, par.basis, par.lmax,
                         XC(par.xc),
                         self.calculator.wfs.world)
-        self.D_asp = D_asp
 
         # initialize
         self.initialize(setups,
                         self.calculator.timer,
                         np.zeros((len(atoms), 3)), False)
         self.set_mixer(None)
+
         # FIXME nparray causes partitionong.py test to fail
         self.set_positions(spos_ac, np.array(rank_a))
+        self.D_asp = D_asp
         basis_functions = BasisFunctions(self.gd,
                                          [setup.phit_j
                                           for setup in self.setups],
