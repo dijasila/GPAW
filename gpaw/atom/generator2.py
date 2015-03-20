@@ -4,7 +4,7 @@ import sys
 from math import pi, exp, sqrt, log
 
 import numpy as np
-from scipy.optimize import fsolve, root
+from scipy.optimize import fsolve  # , root
 from scipy import __version__ as scipy_version
 from ase.units import Hartree
 from ase.data import atomic_numbers
@@ -588,8 +588,10 @@ class PAWSetupGenerator:
             v_g = self.aea.vr_sg[0, g0 - 1:g0 + 2] / r_g[g0 - 1:g0 + 2]
             v0 = v_g[1]
             v1 = (v_g[2] - v_g[0]) / 2 / self.rgd.dr_g[g0]
+            
             def f(x):
                 return x / np.tan(x) - 1 - v1 * r0 / v0
+                
             q = root(f, 2).x / r0
             A = v0 * r0 / np.sin(q * r0)
             self.vtr_g = self.aea.vr_sg[0].copy()
@@ -652,7 +654,7 @@ class PAWSetupGenerator:
             except RuntimeError:
                 self.log('Singular overlap matrix!')
                 ok = False
-                #continue  # fail here
+                # continue  # fail here
 
             nbound = (e_b < -0.05).sum()
 
