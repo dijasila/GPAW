@@ -21,14 +21,18 @@ class GA:
         self.initialvalue = initialvalue
         
         self.individuals = {}
-
+        self.errors = {}
+        
         if os.path.isfile(filename):
+            M = len(initialvalue)  # number of parameters
             for line in open(filename):
                 words = line.split(',')
-                error = float(words.pop())
                 n = int(words.pop(0))
-                x = tuple(int(word) for word in words)
+                error = float(words.pop(0))
+                x = tuple(int(word) for word in words[:M])
                 self.individuals[x] = (error, n)
+                y = tuple(float(word) for word in words[M:])
+                self.errors[n] = y
                 
         self.fd = open(filename, 'a')
         self.n = len(self.individuals)
@@ -50,9 +54,13 @@ class GA:
             else:
                 continue
             results.remove(result)
-            n, x, y = result.get()
-            self.individuals[x] = (y, n)
-            print('{0},{1},{2}'.format(n, ','.join(str(i) for i in x), y),
+            n, x, errors = result.get()
+            error = sum(errors)
+            self.individuals[x] = (error, n)
+            print('{0},{1},{2},{3}'.format(n, error,
+                                           ','.join(str(i) for i in x),
+                                           ','.join('{0:.2f}'.format(e)
+                                                    for e in errors)),
                   file=self.fd)
             self.fd.flush()
                 
@@ -63,7 +71,7 @@ class GA:
         if N == 0:
             return self.initialvalue
         if N < size1:
-            x3 = np.array(self.initialvalue)
+            x3 = np.array(self.initialvalue, dtype=float)
         else:
             parents = random.sample(all[:size1], 2)
             if N > size1:
@@ -86,7 +94,7 @@ class GA:
 
 
 def read_reference(name, symbol):
-    for line in open('energies_aims_{0}.csv'.format(name)):
+    for line in open('../energies_aims_{0}.csv'.format(name)):
         words = line.split(',')
         if words[0] == 'e':
             x = [float(word) for word in words[2:]]
@@ -105,6 +113,8 @@ def fit(E):
     
     
 class DatasetOptimizer:
+    conf = None
+    
     def __init__(self, symbol='H', projectors='1s,1.0s,0.0p,D',
                  radii=[0.9, 0.9], r0=0.8):
     
@@ -131,26 +141,39 @@ class DatasetOptimizer:
         self.ecut1 = 400.0
         self.ecut2 = 800.0
         
-        setup_paths[:0] = ['datasets']
+        setup_paths[:0] = ['.']
         
     def run(self):
         ga = GA(self.symbol + '.csv', self, self.x)
         ga.run()
         
+    def summary(self, N=10):
+        ga = GA(self.symbol + '.csv', self, self.x)
+        best = sorted((error, id, x)
+                      for x, (error, id) in ga.individuals.items())[:N]
+        print('dFffRrrICEe')
+        for error, id, x in best:
+            params = [0.1 * p for p in x[:self.nenergies]]
+            params += [0.05 * p for p in x[self.nenergies:]]
+            print('{0:5} {1:7.1f} {2} {3}'.format(
+                id, error,
+                ' '.join('{0:5.2f}'.format(p) for p in params),
+                ' '.join('{0:5.1f}'.format(e) for e in ga.errors[id])))
+            
     def generate(self, fd, xc, projectors, radii, r0,
                  scalar_relativistic=False, tag=None):
         if projectors[-1].isupper():
             nderiv0 = 5
         else:
             nderiv0 = 2
-        gen = _generate(self.symbol, xc, None, projectors, radii,
+        gen = _generate(self.symbol, xc, self.conf, projectors, radii,
                         scalar_relativistic, None, r0, nderiv0,
                         ('poly', 4), None, None, fd)
         assert gen.check_all(), xc
+
         if tag:
             gen.make_paw_setup(tag).write_xml()
-            name = '{0}.{1}.PBE'.format(self.symbol, tag)
-            os.rename(name, 'datasets/' + name)
+
         r = 1.1 * gen.rcmax
         energies = np.linspace(-1.5, 2.0, 100)
         de = energies[1] - energies[0]
@@ -176,11 +199,17 @@ class DatasetOptimizer:
         projectors = self.projectors % energies
         
         try:
-            error = self.test(n, fd, projectors, radii, r0)
+            errors = self.test(n, fd, projectors, radii, r0)
         except Exception:
             traceback.print_exc(file=fd)
-            error = np.inf
-        return n, x, error
+            errors = [np.inf] * 11
+            
+        try:
+            os.remove('{0}.ga{1}.PBE'.format(self.symbol, n))
+        except OSError:
+            pass
+        
+        return n, x, errors
         
     def test(self, n, fd, projectors, radii, r0):
         error = self.generate(fd, 'PBE', projectors, radii, r0,
@@ -193,11 +222,9 @@ class DatasetOptimizer:
             result = getattr(self, name)(n, fd)
             results[name] = result
             
-        os.remove('datasets/{0}.ga{1}.PBE'.format(self.symbol, n))
-        
         errors = self.calculate_total_error(fd, results)
         
-        return np.mean(errors)
+        return errors
 
     def calculate_total_error(self, fd, results):
         errors = [results['dataset'] / 3 / 5 / 0.1]
@@ -209,9 +236,9 @@ class DatasetOptimizer:
             maxiter = max(maxiter, result['maxiter'])
             errors.append(((result['a'] - result['a0']) / 0.02)**2)
             errors.append((result['de90'] / 0.01)**2)
-            errors.append((result['de80'] / 0.03)**2)
+            errors.append((result['de80'] / 0.1)**2)
         
-        errors.append((maxiter / 30)**2)
+        errors.append((maxiter / 40)**2)
         errors.append((results['fcc']['convergence'] / 0.1)**2)
         
         errors.append((results['eggbox'][0] / 0.001)**2)
@@ -235,7 +262,7 @@ class DatasetOptimizer:
                               kpts={'density': 2.0, 'even': True},
                               xc='PBE',
                               setups='ga' + str(n),
-                              maxiter=100,
+                              maxiter=200,
                               txt=fd)
             e = atoms.get_potential_energy()
             maxiter = max(maxiter, atoms.calc.get_number_of_iterations())
@@ -263,7 +290,7 @@ class DatasetOptimizer:
                               kpts={'density': 2.0, 'even': True},
                               xc='PBE',
                               setups={self.symbol: 'ga' + str(n)},
-                              maxiter=100,
+                              maxiter=200,
                               txt=fd)
             e = atoms.get_potential_energy()
             maxiter = max(maxiter, atoms.calc.get_number_of_iterations())
@@ -283,7 +310,7 @@ class DatasetOptimizer:
                           kpts={'density': 2.0, 'even': True},
                           xc='PBE',
                           setups='ga' + str(n),
-                          maxiter=100,
+                          maxiter=200,
                           txt=fd)
         atoms.get_potential_energy()
         itrs = atoms.calc.get_number_of_iterations()
@@ -297,7 +324,7 @@ class DatasetOptimizer:
                           xc='PBE',
                           symmetry='off',
                           setups='ga' + str(n),
-                          maxiter=100,
+                          maxiter=200,
                           txt=fd)
         e0 = atoms.get_potential_energy()
         atoms.positions += h / 6
@@ -314,6 +341,6 @@ class DatasetOptimizer:
         
 if __name__ == '__main__':
     # do = DatasetOptimizer()
-    do = DatasetOptimizer('Cu', projectors='4s,1.0s,4p,1.0p,3d,1.0d',
-                          radii=[2.1, 2.1, 2.0], r0=1.5)
+    do = DatasetOptimizer('Cu', projectors='3s,4s,3p,4p,3d,1.0d,F',
+                          radii=[1.9, 1.9, 1.9], r0=1.8)
     do.run()
