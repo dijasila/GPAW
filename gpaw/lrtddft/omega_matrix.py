@@ -1,26 +1,20 @@
 from __future__ import print_function
-import sys
 from math import sqrt
 import numpy as np
 import gpaw.mpi as mpi
 MASTER = mpi.MASTER
 
-from ase.parallel import paropen
 from ase.units import Hartree
 from ase.utils.timing import Timer
 
-from gpaw import debug
 import gpaw.mpi as mpi
-from gpaw.poisson import PoissonSolver
+#from gpaw.poisson import PoissonSolver
 from gpaw.output import get_txt
-from gpaw.lrtddft.excitation import Excitation, ExcitationList
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.transformers import Transformer
-from gpaw.utilities import pack, pack2, packed_index
+from gpaw.utilities import pack
 from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
-
-import time
 
 """This module defines a Omega Matrix class."""
 
@@ -108,12 +102,6 @@ class OmegaMatrix:
                 derivativeLevel = \
                     self.xc.get_functional().get_max_derivative_level()
             self.derivativeLevel = derivativeLevel
-            # change the setup xc functional if needed
-            # the ground state calculation may have used another xc
-            if kss.npspins > kss.nvspins:
-                spin_increased = True
-            else:
-                spin_increased = False
         else:
             self.xc = None
 
@@ -149,7 +137,6 @@ class OmegaMatrix:
         paw = self.paw
         wfs = paw.wfs
         gd = paw.density.finegd
-        comm = gd.comm
         eh_comm = self.eh_comm
 
         fg = self.finegrid is 2
@@ -176,7 +163,6 @@ class OmegaMatrix:
         for a, D_sp in self.paw.density.D_asp.items():
             if len(D_sp) != kss.npspins:
                 if len(D_sp) == 1:
-                    x = np.array([0.5 * D_sp[0], 0.5 * D_sp[0]])
                     D_asp[a] = np.array([0.5 * D_sp[0], 0.5 * D_sp[0]])
                 else:
                     D_asp[a] = np.array([D_sp[0] + D_sp[1]])
@@ -424,7 +410,6 @@ class OmegaMatrix:
         # shorthands
         kss = self.fullkss
         finegrid = self.finegrid
-        wfs = self.paw.wfs
         eh_comm = self.eh_comm
 
         # calculate omega matrix
