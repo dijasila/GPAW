@@ -14,7 +14,7 @@ a = 5.4
 atoms = bulk('Si', 'diamond', a=a)
 calc = GPAW(kpts=(k, k, k),
             setups='ah',
-            symmetry='off',
+            symmetry={'point_group': False, 'time_reversal': False},
             occupations=FermiDirac(kT),
             h=h)
 
@@ -32,8 +32,8 @@ ph = PhononCalculator(name,
                       )
 
 # Run the self-consistent calculation
-ph.get_phonons(qpts_q=[[0,0,0],])
-energies = ph.get_phonon_energies(k_c=[0,0,0])
+ph.get_phonons(qpts_q=[[0, 0, 0], ])
+energies = ph.get_phonon_energies(k_c=[0, 0, 0])
 
 # Convert from sqrt(Ha / Bohr**2 / amu) -> meV
 s = units.Hartree**0.5 * units._hbar * 1.e10 / \
@@ -45,7 +45,7 @@ reference = [-5.21660788e-07, 3.08577085e-07, 7.39654337e-07,
               4.49543403e+01, 4.49543901e+01, 4.49898951e+01]
 
 
-equal(energies, reference, 1e-4])
+equal(energies, reference, 1e-4)
 
 # reference energies for Gamma
 # [[ -5.21660788e-07   3.08577085e-07   7.39654337e-07   4.49543403e+01

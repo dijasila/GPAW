@@ -1,17 +1,17 @@
 from __future__ import print_function
-#"""This module implements a linear response calculator class."""
 
 import numpy as np
 
 from gpaw.transformers import Transformer
+
 from gpaw.dfpt2.mixer import BaseMixer
-from gpaw.dfpt2.sternheimeroperator import SternheimerOperator
-from gpaw.dfpt2.scipylinearsolver import ScipyLinearSolver
 from gpaw.dfpt2.preconditioner import ScipyPreconditioner
+from gpaw.dfpt2.scipylinearsolver import ScipyLinearSolver
+from gpaw.dfpt2.sternheimeroperator import SternheimerOperator
 
 
 class ResponseCalculator:
-    """This class is a calculator for the sc density variation.
+    """This class is a calculator for the self-consistent density variation.
 
     From the given perturbation, the set of coupled equations for the
     first-order density response is solved self-consistently.
@@ -34,7 +34,6 @@ class ResponseCalculator:
         Length of history for the mixer.
     weight: int
         Weight for the mixer metric (=1 -> no metric used).
-        
     """
 
     parameters = {'verbose':               False,
@@ -48,7 +47,7 @@ class ResponseCalculator:
                   'nmaxold':               6,
                   'weight':                50
                   }
-    
+
     def __init__(self, calc, wfs, poisson_solver=None, dtype=float, **kwargs):
         """Store calculator etc.
 
@@ -63,16 +62,14 @@ class ResponseCalculator:
         poisson_solver: PoissonSolver
             Multigrid or FFT poisson solver (not required if the
             ``Perturbation`` to be solved for has a ``solve_poisson`` member
-            function). 
+            function).
         dtype: ...
             dtype of the density response.
-            
         """
-        
+
         # Store ground-state quantities
         self.hamiltonian = calc.hamiltonian
         self.density = calc.density
-
         self.wfs = wfs
 
         # Get list of k-point containers
@@ -86,7 +83,7 @@ class ResponseCalculator:
         else:
             self.poisson = poisson_solver
             self.solve_poisson = self.poisson.solve_neutral
-       
+
         # Store grid-descriptors
         self.gd = calc.density.gd
         self.finegd = calc.density.finegd
@@ -95,7 +92,7 @@ class ResponseCalculator:
         self.gs_dtype = calc.wfs.dtype
         # dtype for the perturbing potential and density
         self.dtype = dtype
-        
+
         # Grid transformer -- convert array from coarse to fine grid
         self.interpolator = Transformer(self.gd, self.finegd, nn=3,
                                         dtype=self.dtype)
@@ -115,16 +112,16 @@ class ResponseCalculator:
 
         # Array attributes
         self.nt1_G = None
-        self.vHXC1_G = None        
+        self.vHXC1_G = None
         self.nt1_g = None
         self.vH1_g = None
 
         # Perturbation
         self.perturbation = None
-        
+
         # Number of occupied bands
         self.nbands = self.wfs.nbands
-                                  
+
         self.initialized = False
 
         self.parameters = {}

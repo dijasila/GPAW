@@ -1,15 +1,13 @@
-"""This module implements a simple wave-function class."""
-
 from math import pi
 import numpy as np
 
-from gpaw.dfpt2.kpointcontainer import KPointContainer
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
+from gpaw.dfpt2.kpointcontainer import KPointContainer
 
 
 class WaveFunctions:
-    """Class for wave-function related stuff (e.g. projectors)."""  
+    """Class for wave-function related stuff (e.g. projectors)."""
     def __init__(self, nbands, kpt_u, setups, kd, gd, dtype=float):
         """Store and initialize required attributes.
 
@@ -25,11 +23,10 @@ class WaveFunctions:
         kd: KPointDescriptor
             K-point and symmetry related stuff.
         gd: GridDescriptor
-            Descriptor for the coarse grid.            
+            Descriptor for the coarse grid.
         dtype: dtype
             This is the ``dtype`` for the wave-function derivatives (same as
             the ``dtype`` for the ground-state wave-functions).
-
         """
 
         self.dtype = dtype
@@ -48,23 +45,21 @@ class WaveFunctions:
         self.kpt_u = []
 
         # No symmetries or only time-reversal symmetry used
-        assert kd.symmetry.point_group == False
-        if kd.symmetry.time_reversal == False:
-            # For now, time-reversal symmetry not allowed
+        assert kd.symmetry.point_group is False
+        assert kd.symmetry.symmorphic is True
+
+        if kd.symmetry.time_reversal is False:
             assert len(kpt_u) == kd.nbzkpts
 
             for k in range(kd.nbzkpts):
                 kpt_ = kpt_u[k]
 
                 psit_nG = gd.empty(nbands, dtype=self.dtype)
-
                 for n, psit_G in enumerate(psit_nG):
                     psit_G[:] = kpt_.psit_nG[n]
-                    # psit_0 = psit_G[0, 0, 0]
-                    # psit_G *= psit_0.conj() / (abs(psit_0))
 
-                # Strip off KPoint attributes and store in the KPointContainer
-                # Note, only the occupied GS wave-functions are retained here !
+                # Strip off k-point attributes and store in the KPointContainer
+                # Note, only the occupied GS wave-functions are retained here!
                 kpt = KPointContainer(weight=kpt_.weight,
                                       k=kpt_.k,
                                       s=kpt_.s,
@@ -74,20 +69,22 @@ class WaveFunctions:
                                       psit1_nG=None,
                                       P_ani=None,
                                       dP_aniv=None)
-                                       # q=kpt.q,
-                                       # f_n=kpt.f_n[:nbands])
-            
-                self.kpt_u.append(kpt)
 
+                self.kpt_u.append(kpt)
         else:
+            # If the ground-state calculation used symmetries, map now every-
+            # thing back to the full BZ.
+            # XXX Actually one should rather make the rest work with the IBZ.
+            #     Later....
             assert len(kpt_u) == kd.nibzkpts
 
             for k, k_c in enumerate(kd.bzk_kc):
-
                 # Index of symmetry related point in the irreducible BZ
                 ik = kd.bz2ibz_k[k]
+
                 # Index of point group operation
                 s = kd.sym_k[k]
+
                 # Time-reversal symmetry used
                 time_reversal = kd.time_reversal_k[k]
 
@@ -95,21 +92,18 @@ class WaveFunctions:
                 ik_c = kd.ibzk_kc[ik]
                 # Point group operation
                 op_cc = kd.symmetry.op_scc[s]
-                    
-                # KPoint from ground-state calculation
+
+                # k-point from ground-state calculation
                 kpt_ = kpt_u[ik]
                 weight = 1. / kd.nbzkpts * (2 - kpt_.s)
                 phase_cd = np.exp(2j * pi * gd.sdisp_cd * k_c[:, np.newaxis])
 
                 psit_nG = gd.empty(nbands, dtype=self.dtype)
-
                 for n, psit_G in enumerate(psit_nG):
-                    #XXX Seems to corrupt my memory somehow ???
+                    # Rotate wave function of the irreducible point to the
+                    # full k-point
                     psit_G[:] = kd.symmetry.symmetrize_wavefunction(
                         kpt_.psit_nG[n], ik_c, k_c, op_cc, time_reversal)
-                    # Choose gauge
-                    # psit_0 = psit_G[0, 0, 0]
-                    # psit_G *= psit_0.conj() / (abs(psit_0))
 
                 kpt = KPointContainer(weight=weight,
                                       k=k,
@@ -120,9 +114,9 @@ class WaveFunctions:
                                       psit1_nG=None,
                                       P_ani=None,
                                       dP_aniv=None)
-                
+
                 self.kpt_u.append(kpt)
-                
+
     def initialize(self, spos_ac):
         """Initialize projectors according to the ``gamma`` attribute."""
 

@@ -13,3 +13,19 @@ and so on
 Done:
 0. Start with no symmetry, no parallelization, only pbc
 1. Create Si_Gamma example and make dfpt print the phonon energy
+
+
+
+
+
+Notes:
+- Using time_reversal in GS doesn't work. It should...
+
+
+"Cleaned"
+perturbation:       done
+phononcalculator:   init
+phononperturbation: init
+poisson.py:         done
+responsecalculator: init
+wavefunctions:      init

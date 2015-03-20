@@ -3,27 +3,19 @@
 
 from math import pi
 
-import numpy as np
-from numpy.fft import fftn, ifftn, fft2, ifft2
-
-from ase.parallel import parprint
-from gpaw.transformers import Transformer
-from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
-from gpaw import PoissonConvergenceError
-from gpaw.utilities.blas import axpy
-from gpaw.utilities.gauss import Gaussian
-from gpaw.utilities.ewald import madelung
-from gpaw.utilities.tools import construct_reciprocal
-import _gpaw
+from numpy.fft import fftn, ifftn
 
 from gpaw import poisson
+from gpaw.utilities.tools import construct_reciprocal
+
 
 class PoissonSolver(poisson.PoissonSolver):
     """Copy of GPAW Poissonsolver"""
 
+
 class FFTPoissonSolver(poisson.FFTPoissonSolver):
 
-    def __init__(self, eps=2e-10, dtype=float):
+    def __init__(self, eps=2e-10, dtype=complex):
         """Set the ``dtype`` of the source term array."""
 
         self.dtype = dtype
@@ -61,7 +53,10 @@ class FFTPoissonSolver(poisson.FFTPoissonSolver):
         if self.gd.comm.size == 1:
             # Note, implicit downcast from complex to float when the dtype of
             # phi_g is float
-            phi_g[:] = ifftn(fftn(rho_g) * 4.0 * pi / self.k2_Q)
+            if self.dtype == float:
+                phi_g[:] = ifftn(fftn(rho_g) * 4.0 * pi / self.k2_Q).real
+            else:
+                phi_g[:] = ifftn(fftn(rho_g) * 4.0 * pi / self.k2_Q)
         else:
             rho_g = self.gd.collect(rho_g)
             if self.gd.comm.rank == 0:

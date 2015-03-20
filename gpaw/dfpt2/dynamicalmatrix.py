@@ -1,6 +1,3 @@
-#"""This module provides a class for assembling the dynamical matrix."""
-
-from math import sqrt, pi
 import os
 import pickle
 
@@ -8,8 +5,9 @@ import numpy as np
 import numpy.fft as fft
 
 from gpaw import debug
-#from gpaw.mpi import serial_comm
-from gpaw.utilities import unpack, unpack2
+import gpaw.mpi as mpi
+from gpaw.utilities import unpack
+
 
 class DynamicalMatrix:
     """Class for assembling the dynamical matrix from first-order responses.
@@ -18,10 +16,9 @@ class DynamicalMatrix:
     displacements (for periodic systems collective atomic displacemnts
     characterized by a q-vector) can be obtained from an expression involving
     the first-order derivatives of the density and the wave-functions.
-    
+
     Each of the various contributions to the second order derivative of the
     total energy are implemented in separate functions.
-    
     """
     def __init__(self, atoms, kd, dtype=float):
         """Inititialize class with a list of atoms.
@@ -31,7 +28,7 @@ class DynamicalMatrix:
         atoms: Atoms
             List of atoms for the system.
         kd: KPointDescriptor
-            Descriptor for the q-vector grid.
+            Descriptor for the q-vector grid. DEPRECATED
 
         """
 
@@ -41,43 +38,37 @@ class DynamicalMatrix:
         self.dtype = dtype
         self.masses = atoms.get_masses()
         # Array with inverse sqrt of masses repeated to match shape of mode
-        # arrays        
+        # arrays
         self.m_inv_av = None
-        
+
+        # XXX Remove these files
         # String template for files with force constants
         self.name = None
         # Path to directory with force constant files
         self.path = None
-        
+
         # List of atomic indices to be included (default is all atoms)
         self.indices = range(len(self.atoms))
-        
-        # Index of the gamma point -- for the acoustic sum-rule
-        self.gamma_index = None
-        
-        if self.kd.gamma:
-            self.gamma_index = 0
-            assert dtype == float
-        else:
-            for k, k_c in enumerate(self.kd.ibzk_kc):
-                if np.all(k_c == 0.):
-                    self.gamma_index = k
 
+        # Index of the gamma point -- for the acoustic sum-rule
+        self.gamma_index = 0  # XXX HACK
+        if self.kd.gamma:
+            assert dtype == float
         assert self.gamma_index is not None
-        
+
         # Matrix of force constants -- dict of dicts in atomic indices
         # Only q-vectors in the irreducible BZ stored here
         self.C_qaavv = [dict([(a, dict([(a_, np.zeros((3, 3), dtype=dtype))
                                         for a_ in self.indices]))
                               for a in self.indices])
                         for q in range(self.kd.nibzkpts)]
-        
+
         # Force constants and dynamical matrix attributes
         # Irreducible zone -- list with array entrances C_avav
         self.C_q = None
         # Full BZ (ndarray)
         self.D_k = None
-        
+
         self.assembled = False
 
     def __getstate__(self): 
@@ -90,7 +81,7 @@ class DynamicalMatrix:
 
         # Get state of object and take care of troublesome attributes
         state = dict(self.__dict__)
-        state['kd'].__dict__['comm'] = serial_comm
+        state['kd'].__dict__['comm'] = mpi.serial_comm
 
         return state
 

@@ -1,13 +1,12 @@
-#"""This module implements a phonon perturbation."""
-
-#from math import sqrt, pi
+from math import pi
 import numpy as np
-#import numpy.linalg as la
+import numpy.linalg as la
 
-from gpaw.utilities import unpack, unpack2
-from gpaw.dfpt2.perturbation import Perturbation
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.transformers import Transformer
+from gpaw.utilities import unpack
+
+from gpaw.dfpt2.perturbation import Perturbation
 
 
 class PhononPerturbation(Perturbation):
@@ -17,41 +16,44 @@ class PhononPerturbation(Perturbation):
     displacement of an atom ``a`` in direction ``v`` with wave-vector ``q``.
     The action of the perturbing potential on a state vector is implemented in
     the ``apply`` member function.
-    
     """
-    def __init__(self, calc, kd, poisson_solver, dtype=float, **kwargs):
+    def __init__(self, calc, q_c, poisson_solver, kd, dtype=float, **kwargs):
         """Store useful objects, e.g. lfc's for the various atomic functions.
-            
-        Depending on whether the system is periodic or finite, Poisson's equation
-        is solved with FFT or multigrid techniques, respectively.
+
+        Depending on whether the system is periodic or finite, Poisson's
+        equation is solved with FFT or multigrid techniques, respectively.
 
         Parameters
         ----------
         calc: Calculator
             Ground-state calculation.
+        q_c: Array
+            Phonon q-vector
         kd: KPointDescriptor
-            Descriptor for the q-vectors of the dynamical matrix.
-     
+            Descriptor for the q-vector(s) of the dynamical matrix. DEPRECATED
+        poisson_solver: PoissonSolver
+        dtype:
         """
 
-        self.kd = kd
+        self.q_c = q_c
+        self.kd = kd  # DEPRECATED
         self.dtype = dtype
         self.poisson = poisson_solver
 
-        # Gamma wrt q-vector
-        if self.kd.gamma:
+        if np.allclose(self.q_c, [0., 0., 0.], 1e-5):
+            self.gamma = True
+        else:
+            self.gamma = False
+
+        # Get phases
+        if self.gamma:
             self.phase_cd = None
         else:
-            assert self.kd.mynks == len(self.kd.ibzk_qc)
-
             self.phase_qcd = []
             sdisp_cd = calc.wfs.gd.sdisp_cd
+            phase_cd = np.exp(2j * np.pi * sdisp_cd * self.q_c[:, np.newaxis])
+            self.phase_qcd.append(phase_cd)
 
-            for q in range(self.kd.mynks):
-                phase_cd = np.exp(2j * np.pi * \
-                                  sdisp_cd * self.kd.ibzk_qc[q, :, np.newaxis])
-                self.phase_qcd.append(phase_cd)
-            
         # Store grid-descriptors
         self.gd = calc.density.gd
         self.finegd = calc.density.finegd
@@ -61,24 +63,25 @@ class PhononPerturbation(Perturbation):
 
         # Store projector coefficients
         self.dH_asp = calc.hamiltonian.dH_asp.copy()
-        
+
         # Localized functions:
         # core corections
         self.nct = LFC(self.gd, [[setup.nct] for setup in setups],
-                       integral=[setup.Nct for setup in setups], dtype=self.dtype)
+                       integral=[setup.Nct for setup in setups],
+                       dtype=self.dtype)
         # compensation charges
-        #XXX what is the consequence of numerical errors in the integral ??
-        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups], kd,
+        # XXX what is the consequence of numerical errors in the integral ??
+        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
                         dtype=self.dtype)
-        ## self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
-        ##                 integral=sqrt(4 * pi), dtype=self.dtype)
+        # self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
+        #                 integral=sqrt(4 * pi), dtype=self.dtype)
         # vbar potential
-        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups], kd,
+        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
                         dtype=self.dtype)
 
         # Expansion coefficients for the compensation charges
         self.Q_aL = calc.density.Q_aL.copy()
-        
+
         # Grid transformer -- convert array from fine to coarse grid
         self.restrictor = Transformer(self.finegd, self.gd, nn=3,
                                       dtype=self.dtype)
@@ -86,9 +89,9 @@ class PhononPerturbation(Perturbation):
         # Atom, cartesian coordinate and q-vector of the perturbation
         self.a = None
         self.v = None
-        
+
         # Local q-vector index of the perturbation
-        if self.kd.gamma:
+        if self.gamma:
             self.q = -1
         else:
             self.q = None
@@ -101,7 +104,7 @@ class PhononPerturbation(Perturbation):
         self.ghat.set_positions(spos_ac)
         self.vbar.set_positions(spos_ac)
 
-        if not self.kd.gamma:
+        if not self.gamma:
             # Phase factor exp(iq.r) needed to obtian the periodic part of lfcs
             coor_vg = self.finegd.get_grid_point_coordinates()
             cell_cv = self.finegd.cell_cv
@@ -121,7 +124,7 @@ class PhononPerturbation(Perturbation):
     def set_q(self, q):
         """Set the index of the q-vector of the perturbation."""
 
-        assert not self.kd.gamma, "Gamma-point calculation"
+        assert not self.gamma, "Gamma-point calculation"
         
         self.q = q
 
@@ -161,12 +164,12 @@ class PhononPerturbation(Perturbation):
     def has_q(self):
         """Overwrite base class member function."""
 
-        return (not self.kd.gamma)
+        return (not self.gamma)
 
     def get_q(self):
         """Return q-vector."""
 
-        assert not self.kd.gamma, "Gamma-point calculation."
+        assert not self.gamma, "Gamma-point calculation."
         
         return self.kd.ibzk_qc[self.q]
     
@@ -189,7 +192,7 @@ class PhononPerturbation(Perturbation):
         assert self.q is not None, ("q-vector not set")
         
         # Gamma point calculation wrt the q-vector -> rho_g periodic
-        if self.kd.gamma: 
+        if self.gamma: 
             #XXX NOTICE: solve_neutral
             self.poisson.solve_neutral(phi_g, rho_g)
         else:

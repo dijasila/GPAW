@@ -1,39 +1,30 @@
-"""This module provides an interface class for phonon calculations."""
-
-import time
 import os
-from math import pi, sqrt, sin
+from math import pi
 
 import numpy as np
 import numpy.linalg as la
 
 import ase.units as units
-#from ase.io.trajectory import PickleTrajectory
 
 from gpaw import GPAW
+from gpaw.kpt_descriptor import KPointDescriptor
+import gpaw.mpi as mpi
+from gpaw.symmetry import Symmetry
+
 from gpaw.dfpt2.dynamicalmatrix import DynamicalMatrix
 from gpaw.dfpt2.phononperturbation import PhononPerturbation
-from gpaw.dfpt2.poisson import PoissonSolver, FFTPoissonSolver
+from gpaw.dfpt2.poisson import FFTPoissonSolver
 from gpaw.dfpt2.responsecalculator import ResponseCalculator
 from gpaw.dfpt2.wavefunctions import WaveFunctions
-from gpaw.mpi import serial_comm , rank
-from gpaw.kpt_descriptor import KPointDescriptor
 
-from gpaw.symmetry import Symmetry
 
 class PhononCalculator:
     """This class defines the interface for phonon calculations."""
-    def __init__(self, calc, dispersion=False, symmetry=False, q_c=[0.,0.,0.],
-                 communicator=serial_comm):
+    def __init__(self, calc, dispersion=False, symmetry=False,
+                 q_c=[0., 0., 0.], world=mpi.world):
         """Inititialize class with a list of atoms.
 
         The atoms object must contain a converged ground-state calculation.
-
-        The set of q-vectors in which the dynamical matrix will be calculated
-        is determined from the ``symmetry`` kwarg. For now, only time-reversal
-        symmetry is used to generate the irrecducible BZ.
-
-        Add a little note on parallelization strategy here.
 
         Parameters
         ----------
@@ -41,25 +32,25 @@ class PhononCalculator:
             Calculator containing a ground-state calculation.
         dispersion: bool
             If true, calculates dynamcial matrix on a grid of q-points. Else,
-            use  a single q-point. When ``False``, the Monkhorst-Pack grid from
-            the ground-state calculation is used at the moment.
+            use  a single q-point. Not implemented.
         symmetry: bool
             Use symmetries to reduce the q-vectors of the dynamcial matrix
             (None, False or True). None=off, False=time_reversal only. True
             isn't implemented yet.
         q_c: array
             If not dispersion, give q-vector for phonon calculation. Default is
-            Gamma.
-        communicator: Communicator
+            Gamma point.
+        world: Communicator
             Communicator for parallelization over k-points and real-space
             domain.
         """
 
-        ## XXX Hack for unfinished feature
+        # Asserts for unfinished and non features
         assert symmetry in [None, False], "Spatial symmetries not allowed yet"
+        assert not dispersion, "Phonon dispersion not implemented yet"
 
         if isinstance(calc, str):
-            self.calc = GPAW(calc, communicator=serial_comm, txt=None)
+            self.calc = GPAW(calc, communicator=mpi.serial_comm, txt=None)
         else:
             self.calc = calc
 
@@ -76,32 +67,28 @@ class PhononCalculator:
         # Boundary conditions
         pbc_c = self.atoms.get_pbc()
 
-        if np.all(pbc_c == False):
-            self.gamma = True
+        # Not supporting finite systems at the moment.
+        assert not np.all(pbc_c is False), "Only extended systems, please"
+
+        # Check, whether q vector is the Gamma point
+        self.q_c = np.array(q_c)
+        if np.allclose(self.q_c, [0., 0., 0.], 1e-5):
             self.dtype = float
-            kpts = None
-            # Multigrid Poisson solver
-            poisson_solver = PoissonSolver()
+            self.gamma = True
         else:
             self.dtype = complex
-            if dispersion:
-                # Get k-points from ground-state calculation, temporary
-                kpts = self.calc.input_parameters.kpts
-            else:
-                kpts = np.array([q_c,])
-                if np.allclose(q_c, [0., 0., 0.]):
-                    self.dtype = float
-            # FFT Poisson solver
-            poisson_solver = FFTPoissonSolver(dtype=self.dtype)
+            self.gamma = False
+
+        # Initialize FFT Poisson solver object for extended systems
+        poisson_solver = FFTPoissonSolver(dtype=self.dtype)
 
         # Set symmetry object
         cell_cv = self.calc.atoms.get_cell()
-        setups = self.calc.wfs.setups
-        ## XXX - no clue how to get magmom - ignore it for the moment
-        ## XXX should add assert, that we don't use magnetic calculation
-        ## m_av = magmom_av.round(decimals=3)  # round off
-        ## id_a = zip(setups.id_a, *m_av.T)
-        id_a = setups.id_a
+        # XXX - no clue how to get magmom - ignore it for the moment
+        # XXX should add assert, that we don't use magnetic calculation
+        # m_av = magmom_av.round(decimals=3)  # round off
+        # id_a = zip(setups.id_a, *m_av.T)
+        id_a = self.calc.wfs.setups.id_a
 
         if symmetry is None:
             self.symmetry = Symmetry(id_a, cell_cv, point_group=False,
@@ -112,11 +99,15 @@ class PhononCalculator:
 
         del cell_cv, id_a
 
-        # K-point descriptor for the q-vectors of the dynamical matrix
+        # XXX So, for historic reasons there is a k-point descriptor for the
+        # q-points. Now, that shouldn't be necessary. Try to get rid of it.
+
+        # K-point descriptor for the q-vector(s) of the dynamical matrix
         # Note, no explicit parallelization here.
-        self.kd = KPointDescriptor(kpts, 1)
+        # DEPRECATED
+        self.kd = KPointDescriptor([q_c, ], 1)
         self.kd.set_symmetry(self.atoms, self.symmetry)
-        self.kd.set_communicator(serial_comm)
+        self.kd.set_communicator(mpi.serial_comm)
 
         # Number of occupied bands
         nvalence = self.calc.wfs.nvalence
@@ -131,30 +122,32 @@ class PhononCalculator:
         kd_gs = self.calc.wfs.kd
         gd = self.calc.density.gd
         kpt_u = self.calc.wfs.kpt_u
-        # setups = self.calc.wfs.setups
+        setups = self.calc.wfs.setups
         dtype_gs = self.calc.wfs.dtype
 
         # WaveFunctions
         wfs = WaveFunctions(nbands, kpt_u, setups, kd_gs, gd, dtype=dtype_gs)
+        del kd_gs, gd, kpt_u, setups, dtype_gs
 
         # Linear response calculator
         self.response_calc = ResponseCalculator(self.calc, wfs,
                                                 dtype=self.dtype)
 
         # Phonon perturbation
-        self.perturbation = PhononPerturbation(self.calc, self.kd,
+        self.perturbation = PhononPerturbation(self.calc, self.q_c,
                                                poisson_solver,
+                                               kd=self.kd,  # DEPRECATED
                                                dtype=self.dtype)
 
         # Dynamical matrix
-        self.dyn = DynamicalMatrix(self.atoms, self.kd, dtype=self.dtype)
-
+        self.dyn = DynamicalMatrix(self.atoms, self.kd,  # DEPRECATED
+                                   dtype=self.dtype)
 
         # Initialization flag
         self.initialized = False
 
         # Parallel communicator for parallelization over kpts and domain
-        self.comm = communicator
+        self.comm = world
 
     def initialize(self):
         """Initialize response calculator and perturbation."""
@@ -177,7 +170,7 @@ class PhononCalculator:
 
         # Get state of object and take care of troublesome attributes
         state = dict(self.__dict__)
-        state['kd'].__dict__['comm'] = serial_comm
+        state['kd'].__dict__['comm'] = mpi.serial_comm
         state.pop('calc')
         state.pop('perturbation')
         state.pop('response_calc')
@@ -205,9 +198,6 @@ class PhononCalculator:
         # Get string template for filenames
         filename_str = self.get_filename_string()
 
-        # Delay the ranks belonging to the same k-point/domain decomposition
-        # equally
-        time.sleep(rank // self.comm.size)
 
         # XXX Make a single ground_state_contributions member function
         # Ground-state contributions to the force constants
@@ -437,77 +427,3 @@ class PhononCalculator:
             #return omega_kn, u_kn
 
         return omega_kn
-
-    def write_modes(self, q_c, branches=0, kT=units.kB*300, repeat=(1, 1, 1),
-                    nimages=30, acoustic=True):
-        """Write mode to trajectory file.
-
-        The classical equipartioning theorem states that each normal mode has
-        an average energy::
-
-            <E> = 1/2 * k_B * T = 1/2 * omega^2 * Q^2
-
-                =>
-
-              Q = sqrt(k_B*T) / omega
-
-        at temperature T. Here, Q denotes the normal coordinate of the mode.
-
-        Parameters
-        ----------
-        q_c: ndarray
-            q-vector of the modes.
-        branches: int or list
-            Branch index of calculated modes.
-        kT: float
-            Temperature in units of eV. Determines the amplitude of the atomic
-            displacements in the modes.
-        repeat: tuple
-            Repeat atoms (l, m, n) times in the directions of the lattice
-            vectors. Displacements of atoms in repeated cells carry a Bloch
-            phase factor given by the q-vector and the cell lattice vector R_m.
-        nimages: int
-            Number of images in an oscillation.
-
-        """
-
-        if isinstance(branches, int):
-            branch_n = [branches]
-        else:
-            branch_n = list(branches)
-
-        # Calculate modes
-        omega_n, u_n = self.band_structure([q_c], modes=True,
-                                           acoustic=acoustic)
-
-        # Repeat atoms
-        atoms = self.atoms * repeat
-        pos_mav = atoms.positions.copy()
-        # Total number of unit cells
-        M = np.prod(repeat)
-
-        # Corresponding lattice vectors R_m
-        R_cm = np.indices(repeat[::-1]).reshape(3, -1)[::-1]
-        # Bloch phase
-        phase_m = np.exp(2.j * pi * np.dot(q_c, R_cm))
-        phase_ma = phase_m.repeat(len(self.atoms))
-
-        for n in branch_n:
-            omega = omega_n[0, n]
-            u_av = u_n[0, n]  # .reshape((-1, 3))
-            # Mean displacement at high T ?
-            u_av *= sqrt(kT / abs(omega))
-
-            mode_av = np.zeros((len(self.atoms), 3), dtype=self.dtype)
-            indices = self.dyn.get_indices()
-            mode_av[indices] = u_av
-            mode_mav = (np.vstack([mode_av]*M) * phase_ma[:, np.newaxis]).real
-
-            traj = PickleTrajectory('%s.mode.%d.traj' % (self.name, n), 'w')
-
-            for x in np.linspace(0, 2*pi, nimages, endpoint=False):
-                # XXX Is it correct to take out the sine component here ?
-                atoms.set_positions(pos_mav + sin(x) * mode_mav)
-                traj.write(atoms)
-
-            traj.close()
