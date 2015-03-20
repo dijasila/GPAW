@@ -116,5 +116,7 @@ class CMDielectric(FDGradientDielectric):
         ei = self.epsinf
         t = 1. - cavity.g_g
         self.eps_gradeps[0][:] = (3. * (ei + 2.)) / ((ei - 1.) * t + 3.) - 2.
-        self.del_eps_del_g_g[:] = (3. * (ei - 1.) * (ei + 2.)) / ((ei - 1.) * t + 3.) ** 2
+        self.del_eps_del_g_g[:] = (
+            (3. * (ei - 1.) * (ei + 2.)) / ((ei - 1.) * t + 3.) ** 2
+        )
         self.update_gradient()

@@ -10,7 +10,8 @@ class WeightedFDOperator(FDOperator):
         A = Sum_i weights_i * operators_i
 
         Arguments:
-        weights   -- List of numpy arrays sized gd.n_c (weights are not copied).
+        weights   -- List of numpy arrays sized gd.n_c
+                     (weights are not copied).
         operators -- List of FDOperators.
 
         len(weights) has to match len(operators).

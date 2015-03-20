@@ -121,7 +121,10 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
             return 'uninitialized WeightedFDPoissonSolver'
         else:
             description = SolvationPoissonSolver.get_description(self)
-            return description.replace('solver with', 'weighted FD solver with dielectric and')
+            return description.replace(
+                'solver with',
+                'weighted FD solver with dielectric and'
+            )
 
     def initialize(self, load_gauss=False):
         self.presmooths[self.levels] = 8
@@ -167,7 +170,9 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
             )
         )
         warnings.warn(polarization_warning)
-        SolvationPoissonSolver.__init__(self, nn, relax, eps, maxiter, remove_moment)
+        SolvationPoissonSolver.__init__(
+            self, nn, relax, eps, maxiter, remove_moment
+        )
         self.phi_tilde = None
 
     def get_description(self):
@@ -175,7 +180,10 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
             return 'uninitialized PolarizationPoissonSolver'
         else:
             description = SolvationPoissonSolver.get_description(self)
-            return description.replace('solver with', 'polarization solver with dielectric and')
+            return description.replace(
+                'solver with',
+                'polarization solver with dielectric and'
+            )
 
     def solve(self, phi, rho, charge=None, eps=None,
               maxcharge=1e-6,
@@ -196,12 +204,15 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
         Gradient(self.gd, 1, 1.0, self.nn).apply(phi_tilde, dy_phi_tilde)
         Gradient(self.gd, 2, 1.0, self.nn).apply(phi_tilde, dz_phi_tilde)
 
-        scalar_product = dx_epsr * dx_phi_tilde + \
-                         dy_epsr * dy_phi_tilde + \
-                         dz_epsr * dz_phi_tilde
+        scalar_product = (
+            dx_epsr * dx_phi_tilde +
+            dy_epsr * dy_phi_tilde +
+            dz_epsr * dz_phi_tilde
+        )
 
-        rho_and_pol = rho / epsr + \
-                      scalar_product / (4. * np.pi * epsr ** 2)
+        rho_and_pol = (
+            rho / epsr + scalar_product / (4. * np.pi * epsr ** 2)
+        )
 
         niter = PoissonSolver.solve(
             self, phi, rho_and_pol, None, eps,
@@ -244,7 +255,9 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
         )
         warnings.warn(adm12_warning)
         self.eta = eta
-        SolvationPoissonSolver.__init__(self, nn, relax, eps, maxiter, remove_moment)
+        SolvationPoissonSolver.__init__(
+            self, nn, relax, eps, maxiter, remove_moment
+        )
 
     def set_grid_descriptor(self, gd):
         SolvationPoissonSolver.set_grid_descriptor(self, gd)
@@ -257,7 +270,10 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
             return 'uninitialized ADM12PoissonSolver'
         else:
             description = SolvationPoissonSolver.get_description(self)
-            return description.replace('solver with', 'ADM12 solver with dielectric and')
+            return description.replace(
+                'solver with',
+                'ADM12 solver with dielectric and'
+            )
 
     def initialize(self, load_gauss=False):
         self.rho_iter = self.gd.zeros()

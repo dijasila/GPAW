@@ -75,11 +75,11 @@ class Cavity(NeedsGD):
         if self.surface_calculator is not None:
             self.surface_calculator.estimate_memory(
                 mem.subnode('Surface Calculator')
-                )
+            )
         if self.volume_calculator is not None:
             self.volume_calculator.estimate_memory(
                 mem.subnode('Volume Calculator')
-                )
+            )
 
     def update(self, atoms, density):
         """Update the cavity.
@@ -159,7 +159,7 @@ class Cavity(NeedsGD):
 
 
 class EffectivePotentialCavity(Cavity):
-    """A cavity built from an effective potential using the Boltzmann distribution.
+    """Cavity built from effective potential and Boltzmann distribution.
 
     See also
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
@@ -461,7 +461,7 @@ class SmoothStepCavity(Cavity):
                 self.del_g_del_rho_g,
                 self.density.del_rho_del_n_g,
                 self.del_g_del_n_g
-                )
+            )
         return True
 
     def update_smooth_step(self, rho_g):
@@ -471,7 +471,7 @@ class SmoothStepCavity(Cavity):
     def get_del_r_vg(self, atom_index, density):
         return self.del_g_del_rho_g * self.density.get_del_r_vg(
             atom_index, density
-            )
+        )
 
     def print_parameters(self, text):
         text('density: %s' % (self.density.__class__))
@@ -622,7 +622,7 @@ class SSS09Density(Density):
             exponential = np.exp(r_a - norm_r_diff_g)
             self.del_rho_del_r_vg += divide_silently(
                 exponential * r_diff_vg, norm_r_diff_g
-                )
+            )
         return self.del_rho_del_r_vg
 
     def print_parameters(self, text):
@@ -632,7 +632,7 @@ class SSS09Density(Density):
             text('atomic_radii:')
             for a, (s, r) in enumerate(
                 zip(self.symbols, self.atomic_radii_output)
-                ):
+            ):
                 text('%3d %-2s %10.5f' % (a, s, r))
         text('pbc_cutoff: %s' % (self.pbc_cutoff, ))
         Density.print_parameters(self, text)

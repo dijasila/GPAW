@@ -17,7 +17,7 @@ from gpaw.solvation.cavity import (
 )
 from gpaw.solvation.dielectric import (
     LinearDielectric, CMDielectric
-    )
+)
 from gpaw.solvation.interactions import (
     SurfaceInteraction,
     VolumeInteraction,

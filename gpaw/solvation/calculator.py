@@ -99,9 +99,11 @@ class SolvationGPAW(GPAW):
         GPAW.print_parameters(self)
         t = self.text
         t()
+
         def ul(s, l):
             t(s)
             t(l * len(s))
+
         ul('Solvation Parameters:', '=')
         ul('Cavity:', '-')
         t('type: %s' % (self.hamiltonian.cavity.__class__, ))
@@ -132,4 +134,4 @@ class SolvationGPAW(GPAW):
     def write(self, *args, **kwargs):
         raise NotImplementedError(
             'IO is not implemented yet for SolvationGPAW!'
-            )
+        )

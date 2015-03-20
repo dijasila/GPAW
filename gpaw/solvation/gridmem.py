@@ -1,5 +1,5 @@
 class NeedsGD:
-    """Common base class for solvation related classes with a grid descriptor."""
+    """Common base class for classes using a grid descriptor."""
 
     def __init__(self):
         self.gd = None

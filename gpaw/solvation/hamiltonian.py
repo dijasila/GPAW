@@ -122,8 +122,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         for E, ia in zip(energies[5:], self.interactions):
             setattr(self, 'E_' + ia.subscript, E)
 
-        #self.Exc += self.Enlxc
-        #self.Ekin0 += self.Enlkin
+        # self.Exc += self.Enlxc
+        # self.Ekin0 += self.Enlkin
 
         self.new_atoms = None
         self.timer.stop('Hamiltonian')
@@ -182,8 +182,9 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
     def get_energy(self, occupations):
         self.Ekin = self.Ekin0 + occupations.e_band
         self.S = occupations.e_entropy
-        self.Eel = self.Ekin + self.Epot + self.Eext + \
-                   self.Ebar + self.Exc - self.S
+        self.Eel = (
+            self.Ekin + self.Epot + self.Eext + self.Ebar + self.Exc - self.S
+        )
         Etot = self.Eel
         for ia in self.interactions:
             Etot += getattr(self, 'E_' + ia.subscript)
