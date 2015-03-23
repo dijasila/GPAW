@@ -150,13 +150,13 @@ class DynamicalMatrix:
                     for a_ in self.indices:
                         self.C_qaavv[q][a][a_][v] = C_qav_a[a_]
 
-    def assemble(self, acoustic=True):
+    def assemble(self, dynmat=None, acoustic=True):
         """Assemble dynamical matrix from the force constants attribute.
 
         The elements of the dynamical matrix are given by::
 
             D_ij(q) = 1/(M_i + M_j) * C_ij(q) ,
-                      
+
         where i and j are collective atomic and cartesian indices.
 
         During the assembly, various symmetries of the dynamical matrix are
@@ -175,8 +175,12 @@ class DynamicalMatrix:
         """
 
         # Read force constants from files
-        self.read()
-
+        #self.read()
+       # self.C_qaavv = np.load('bla.npy')
+        if dynmat is not None:
+            self.C_qaavv = dynmat
+        else:
+            self.C_qaavv = np.load('bla.npy')
         # Number of atoms included
         N = len(self.indices)
         

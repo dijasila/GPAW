@@ -96,6 +96,9 @@ class PhononPerturbation(Perturbation):
         else:
             self.q = None
 
+        # Add a hack to replace self.kd.ibzk_qc
+        self.q_qc = [self.q_c]
+
     def initialize(self, spos_ac):
         """Prepare the various attributes for a calculation."""
 
@@ -110,13 +113,13 @@ class PhononPerturbation(Perturbation):
             cell_cv = self.finegd.cell_cv
             # Convert to scaled coordinates
             scoor_cg = np.dot(la.inv(cell_cv), coor_vg.swapaxes(0, -2))
-            scoor_cg = scoor_cg.swapaxes(1,-2)
+            scoor_cg = scoor_cg.swapaxes(1, -2)
             # Phase factor
             phase_qg = np.exp(2j * pi *
-                              np.dot(self.kd.ibzk_qc, scoor_cg.swapaxes(0,-2)))
+                              np.dot(self.q_qc, scoor_cg.swapaxes(0, -2)))
             self.phase_qg = phase_qg.swapaxes(1, -2)
 
-        #XXX To be removed from this class !!
+        # XXX To be removed from this class !!
         # Setup the Poisson solver -- to be used on the fine grid
         self.poisson.set_grid_descriptor(self.finegd)
         self.poisson.initialize()
@@ -125,7 +128,7 @@ class PhononPerturbation(Perturbation):
         """Set the index of the q-vector of the perturbation."""
 
         assert not self.gamma, "Gamma-point calculation"
-        
+
         self.q = q
 
         # Update phases and Poisson solver

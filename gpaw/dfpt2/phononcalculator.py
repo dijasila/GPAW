@@ -160,6 +160,131 @@ class PhononCalculator:
 
         self.initialized = True
 
+    def get_phonons(self, modes=False):
+       """Interface routine to calculate phonon energies for a given
+       q-vector.
+
+       At the moment this is a trivial routine. In the end it should decide
+       whether to calculate the dynamcial matrix, or to read it from a file
+       before diagonalising it.
+       Possibly one could also read in real space force constants. However,
+       calculating the force constant matrix should be done using a different
+       interface.
+
+        Parameters
+        ----------
+        modes: bool
+            Returns both frequencies and modes (mass scaled) when True.
+       """
+
+       dynmat = self.calculate_dynamicalmatrix()
+       energies = self.diagonalize_dynamicalmatrix(dynmat, modes=modes)
+
+       return energies
+
+    def calculate_dynamicalmatrix(self, name=None, path=None):
+        """Run calculation for atomic displacements and construct the dynamcial
+        matrix.
+
+        Parameters
+        ----------
+
+        """
+
+        if not self.initialized:
+            self.initialize()
+
+        # Update name and path attributes
+        self.set_name_and_path(name=name, path=path)
+        # Get string template for filenames
+        filename_str = self.get_filename_string()
+
+        # XXX Make a single ground_state_contributions member function
+        # Ground-state contributions to the force constants
+        self.dyn.density_ground_state(self.calc)
+        # self.dyn.wfs_ground_state(self.calc, self.response_calc)
+
+        # Calculate linear response wrt q-vector and displacements of atoms
+
+        if not self.gamma:
+            self.perturbation.set_q(0)
+
+        components = ['x', 'y', 'z']
+        symbols = self.atoms.get_chemical_symbols()
+
+        # First-order contributions to the force constants
+        for a in self.dyn.indices:
+            for v in [0, 1, 2]:
+                print("Atom index: %i" % a)
+                print("Atomic symbol: %s" % symbols[a])
+                print("Component: %s" % components[v])
+
+                # Set atom and cartesian component of perturbation
+                self.perturbation.set_av(a, v)
+                # Calculate linear response
+                self.response_calc(self.perturbation)
+
+                # Calculate row of the matrix of force constants
+                self.dyn.calculate_row(self.perturbation, self.response_calc)
+
+        self.comm.barrier()
+        # np.save('bla', self.dyn.C_qaavv)
+        self.dyn.assemble(dynmat=self.dyn.C_qaavv, acoustic=self.gamma)
+
+        return self.dyn.D_k[0]
+
+    def diagonalize_dynamicalmatrix(self, dynmat, modes=False):
+        """Calculates phonon energies by diagonalising the dynamcial matrix.
+
+        In case of negative eigenvalues (squared frequency), the corresponding
+        negative frequency is returned.
+
+        Parameters
+        ----------
+        dynmat: array
+            Dynamical matrix
+        modes: bool
+            Returns both frequencies and modes (mass scaled) when True.
+        """
+
+        D_q = dynmat
+        u_n = []
+
+        if modes:
+            omega2_n, u_avn = la.eigh(D_q, UPLO='L')
+            # Sort eigenmodes according to eigenvalues (see below) and
+            # multiply with mass prefactor
+            u_nav = u_avn[:, omega2_n.argsort()].T.copy() * m_inv_av
+            # Multiply with mass prefactor
+            u_n.append(u_nav.reshape((3*N, -1, 3)))
+        else:
+            omega2_n = la.eigvalsh(D_q, UPLO='L')
+            # Sort eigenvalues in increasing order
+        omega2_n.sort()
+
+        # Use dtype=complex to handle negative eigenvalues
+        omega_n = np.sqrt(omega2_n.astype(complex))
+
+        # Take care of imaginary frequencies
+        if not np.all(omega2_n >= 0.):
+            indices = np.where(omega2_n < 0)[0]
+            print(("WARNING, %i imaginary frequencies: (omega_i =% 5.3e*i)"
+                   % (len(indices), omega_n[indices][0].imag)))
+            omega_n[indices] = -1 * np.sqrt(np.abs(omega2_n[indices].real))
+
+        ## Conversion factor from sqrt(Ha / Bohr**2 / amu) -> eV
+        s = units.Hartree**0.5 * units._hbar * 1.e10 / \
+            (units._e * units._amu)**(0.5) / units.Bohr
+
+        ## Convert to eV and Ang
+        omega_n = s**2 * np.asarray(omega_n.real)
+
+        if modes:
+            u_n = np.asarray(u_n) * units.Bohr
+            return omega_n, u_n
+        else:
+            return omega_n
+
     def __getstate__(self):
         """Method used when pickling.
 
@@ -177,87 +302,6 @@ class PhononCalculator:
 
         return state
 
-    def get_phonons(self, qpts_q=None, clean=False, name=None, path=None):
-        """Run calculation for atomic displacements and update matrix.
-
-        Parameters
-        ----------
-        qpts: List
-            List of q-points indices for which the dynamical matrix will be
-            calculated (only temporary).
-
-        """
-
-        if not self.initialized:
-            self.initialize()
-
-        assert isinstance(qpts_q, list)
-
-        # Update name and path attributes
-        self.set_name_and_path(name=name, path=path)
-        # Get string template for filenames
-        filename_str = self.get_filename_string()
-
-
-        # XXX Make a single ground_state_contributions member function
-        # Ground-state contributions to the force constants
-        self.dyn.density_ground_state(self.calc)
-        # self.dyn.wfs_ground_state(self.calc, self.response_calc)
-
-        # Calculate linear response wrt q-vectors and displacements of atoms
-        for q in qpts_q:
-
-            if not np.allclose(q,[0,0,0]):
-                self.perturbation.set_q(q)
-
-            # First-order contributions to the force constants
-            for a in self.dyn.indices:
-                for v in [0, 1, 2]:
-
-                    # Check if the calculation has already been done
-                    filename = filename_str % (0, a, v)
-                    # Wait for all sub-ranks to enter
-                    self.comm.barrier()
-
-                    if os.path.isfile(os.path.join(self.path, filename)):
-                        continue
-
-                    if self.comm.rank == 0:
-                        fd = open(os.path.join(self.path, filename), 'w')
-
-                    # Wait for all sub-ranks here
-                    self.comm.barrier()
-
-                    components = ['x', 'y', 'z']
-                    symbols = self.atoms.get_chemical_symbols()
-                    print("q-vector: %d %d %d" % (q[0],q[1],q[2]))
-                    print("Atom index: %i" % a)
-                    print("Atomic symbol: %s" % symbols[a])
-                    print("Component: %s" % components[v])
-
-                    # Set atom and cartesian component of perturbation
-                    self.perturbation.set_av(a, v)
-                    # Calculate linear response
-                    self.response_calc(self.perturbation)
-
-                    # Calculate row of the matrix of force constants
-                    self.dyn.calculate_row(self.perturbation,
-                                           self.response_calc)
-
-                    # Write force constants to file
-                    if self.comm.rank == 0:
-                        self.dyn.write(fd, 0, a, v)
-                        fd.close()
-
-
-                    # Wait for the file-writing rank here
-                    self.comm.barrier()
-
-        # XXX
-        # Check that all files are valid and collect in a single file
-        # Remove the files
-        if clean:
-            self.clean()
 
     def get_atoms(self):
         """Return atoms."""
@@ -327,103 +371,3 @@ class PhononCalculator:
         filename_str = self.get_filename_string()
         self.dyn.set_name_and_path(filename_str, self.path)
 
-    def clean(self):
-        """Delete generated files."""
-
-        filename_str = self.get_filename_string()
-
-        for q in range(self.kd.nibzkpts):
-            for a in range(len(self.atoms)):
-                for v in [0, 1, 2]:
-                    filename = filename_str % (q, a, v)
-                    if os.path.isfile(os.path.join(self.path, filename)):
-                        os.remove(filename)
-
-    def get_phonon_energies(self, k_c, modes=False, acoustic=True):
-        """Calculate phonon dispersion along a path in the Brillouin zone.
-
-        The dynamical matrix at arbitrary q-vectors is obtained by Fourier
-        transforming the real-space matrix. In case of negative eigenvalues
-        (squared frequency), the corresponding negative frequency is returned.
-
-        Parameters
-        ----------
-        path_kc: ndarray
-            List of k-point coordinates (in units of the reciprocal lattice
-            vectors) specifying the path in the Brillouin zone for which the
-            dynamical matrix will be calculated.
-        modes: bool
-            Returns both frequencies and modes (mass scaled) when True.
-        acoustic: bool
-            Restore the acoustic sum-rule in the calculated force constants.
-        """
-
-        assert np.all(np.asarray(k_c) <= 1.0), \
-                "Scaled coordinates must be given"
-
-        q_c = k_c
-
-        # Assemble the dynanical matrix from calculated force constants
-        self.dyn.assemble(acoustic=acoustic)
-        print self.dyn.D_k
-        # Get the dynamical matrix in real-space
-        DR_lmn, R_clmn = self.dyn.real_space()
-
-        # Reshape for the evaluation of the fourier sums
-        shape = DR_lmn.shape
-        DR_m = DR_lmn.reshape((-1,) + shape[-2:])
-        R_cm = R_clmn.reshape((3, -1))
-
-        # Lists for frequencies and modes along path
-        omega_kn = []
-        u_kn = []
-        # Number of atoms included
-        N = len(self.dyn.get_indices())
-
-        # Mass prefactor for the normal modes
-        m_inv_av = self.dyn.get_mass_array()
-
-        # Evaluate fourier transform
-        phase_m = np.exp(-2.j * pi * np.dot(q_c, R_cm))
-        # Dynamical matrix in unit of Ha / Bohr**2 / amu
-        D_q = np.sum(phase_m[:, np.newaxis, np.newaxis] * DR_m, axis=0)
-        print D_q
-       # D_q = self.dyn.D_k[0]
-            #if modes:
-                #omega2_n, u_avn = la.eigh(D_q, UPLO='L')
-                ## Sort eigenmodes according to eigenvalues (see below) and
-                ## multiply with mass prefactor
-                #u_nav = u_avn[:, omega2_n.argsort()].T.copy() * m_inv_av
-                ## Multiply with mass prefactor
-                #u_kn.append(u_nav.reshape((3*N, -1, 3)))
-            #else:
-        omega2_n = la.eigvalsh(D_q, UPLO='L')
-        print omega2_n
-        # Sort eigenvalues in increasing order
-        omega2_n.sort()
-        # Use dtype=complex to handle negative eigenvalues
-        omega_n = np.sqrt(omega2_n.astype(complex))
-
-        # Take care of imaginary frequencies
-        if not np.all(omega2_n >= 0.):
-            indices = np.where(omega2_n < 0)[0]
-            print(("WARNING, %i imaginary frequencies at "
-                   "q = (% 5.2f, % 5.2f, % 5.2f) ; (omega_q =% 5.3e*i)"
-                   % (len(indices), q_c[0], q_c[1], q_c[2],
-                      omega_n[indices][0].imag)))
-
-            omega_n[indices] = -1 * np.sqrt(np.abs(omega2_n[indices].real))
-
-        omega_kn.append(omega_n.real)
-
-        ## Conversion factor from sqrt(Ha / Bohr**2 / amu) -> eV
-        s = units.Hartree**0.5 * units._hbar * 1.e10 / \
-            (units._e * units._amu)**(0.5) / units.Bohr
-        ## Convert to eV and Ang
-        print s*omega2_n
-        omega_kn = s * np.asarray(omega_kn)
-        #if modes:
-            #u_kn = np.asarray(u_kn) * units.Bohr
-            #return omega_kn, u_kn
-
-        return omega_kn

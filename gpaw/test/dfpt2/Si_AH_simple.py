@@ -29,16 +29,12 @@ name = 'Si_AH.gpw'
 ph = PhononCalculator(name,
                       dispersion=False,
                       symmetry=False,
+                      q_c =[0., 0., 0.]
                       )
 
 # Run the self-consistent calculation
-ph.get_phonons(qpts_q=[[0, 0, 0], ])
-energies = ph.get_phonon_energies(k_c=[0, 0, 0])
-
-# Convert from sqrt(Ha / Bohr**2 / amu) -> meV
-s = units.Hartree**0.5 * units._hbar * 1.e10 / \
-    (units._e * units._amu)**(0.5) / units.Bohr
-energies *= s * 1000
+energies = ph.get_phonons()
+energies *= 1000
 
 
 reference = [-5.21660788e-07, 3.08577085e-07, 7.39654337e-07,
