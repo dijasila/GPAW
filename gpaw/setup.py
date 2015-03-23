@@ -818,7 +818,7 @@ class Setup(BaseSetup):
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
         self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
         try:
-            self.rxnabla_iiv = self.get_magnetic_integrals_new(rgd2, 
+            self.rxnabla_iiv = self.get_magnetic_integrals_new(rgd2,
                                                                phi_jg, phit_jg)
         except NotImplementedError:
             self.rxnabla_iiv = None
@@ -1314,20 +1314,23 @@ class Setups(list):
             # There will be no way to obtain the original 'dzp' with
             # a custom-named setup except by loading directly from
             # BasisData.
-            # 
+            #
             # Due to the "szp(dzp)" syntax this is complicated!
             # The name has to go as "szp(name.dzp)".
             basis = basis_a[a]
             if (isinstance(basis, basestring) and isinstance(_type, basestring)
-                and _type != 'paw' and not '.' in basis):
-                if '(' in basis:
-                    reduced, name = basis.split('(')
-                    assert name.endswith(')')
-                    name = name[:-1]
-                    fullname = '%s(%s.%s)' % (reduced, _type, name)
-                else:
-                    fullname = '%s.%s' % (_type, basis_a[a])
-                basis_a[a] = fullname
+                and _type != 'paw' and '.' not in basis):
+                # Drop DFT+U specification from type string if it is there:
+                _type = _type.split(':')[0]
+                if _type:
+                    if '(' in basis:
+                        reduced, name = basis.split('(')
+                        assert name.endswith(')')
+                        name = name[:-1]
+                        fullname = '%s(%s.%s)' % (reduced, _type, name)
+                    else:
+                        fullname = '%s.%s' % (_type, basis_a[a])
+                    basis_a[a] = fullname
 
         # Construct necessary PAW-setup objects:
         self.setups = {}
