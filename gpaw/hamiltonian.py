@@ -77,7 +77,6 @@ class Hamiltonian(object):
         self.vHt_g = None
         self.vt_sg = None
 
-        self.rank_a = None
         self.atom_partition = None
 
         self.Ekin0 = None
@@ -113,10 +112,9 @@ class Hamiltonian(object):
         fd.write('XC and Coulomb potentials evaluated on a %d*%d*%d grid\n' %
                  tuple(self.finegd.N_c))
 
-    def set_positions(self, spos_ac, rank_a):
-        atom_partition = AtomPartition(self.gd.comm, rank_a)
-        
+    def set_positions(self, spos_ac, atom_partition):
         self.spos_ac = spos_ac
+        rank_a = atom_partition.rank_a
         self.vbar.set_positions(spos_ac)
         self.xc.set_positions(spos_ac)
         
@@ -126,16 +124,15 @@ class Hamiltonian(object):
         # How would one even go about figuring it out?  Why does it all have
         # to be so unreadable? -Ask
         #
-        if (self.rank_a is not None and
+        if (self.atom_partition is not None and
             self.dH_asp is None and (rank_a == self.gd.comm.rank).any()):
             self.dH_asp = {}
             
-        if self.rank_a is not None and self.dH_asp is not None:
+        if self.atom_partition is not None and self.dH_asp is not None:
             self.timer.start('Redistribute')
             self.dH_asp.redistribute(atom_partition)
             self.timer.stop('Redistribute')
 
-        self.rank_a = rank_a
         self.atom_partition = atom_partition
         self.dh_distributor = AtomicMatrixDistributor(atom_partition,
                                                       self.setups,
@@ -518,9 +515,8 @@ class Hamiltonian(object):
                     self.gd.distribute(reader.get('PseudoPotential', s),
                                        self.vt_sG[s])
 
-        natoms = len(self.setups)
-        self.rank_a = np.zeros(natoms, int)
-        self.atom_partition = AtomPartition(self.gd.comm, self.rank_a)
+        self.atom_partition = AtomPartition(self.gd.comm,
+                                            np.zeros(len(self.setups), int))
 
         # Read non-local part of hamiltonian
         self.dH_asp = {}

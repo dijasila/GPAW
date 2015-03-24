@@ -73,7 +73,6 @@ class WaveFunctions(EmptyWaveFunctions):
         if timer is None:
             timer = nulltimer
         self.timer = timer
-        self.rank_a = None
         self.atom_partition = None
             
         self.kpt_u = kd.create_k_points(self.gd)
@@ -185,7 +184,7 @@ class WaveFunctions(EmptyWaveFunctions):
                 if D_sp is None:
                     ni = setup.ni
                     D_sp = np.empty((self.ns, ni * (ni + 1) // 2))
-                self.gd.comm.broadcast(D_sp, self.rank_a[a])
+                self.gd.comm.broadcast(D_sp, self.atom_partition.rank_a[a])
                 all_D_asp.append(D_sp)
  
             for s in range(self.nspins):
@@ -195,15 +194,20 @@ class WaveFunctions(EmptyWaveFunctions):
                     D_sp[s] = pack(setup.symmetrize(a, D_aii,
                                                     self.kd.symmetry.a_sa))
 
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, atom_partition=None):
         self.positions_set = False
-        rank_a = self.gd.get_ranks_from_positions(spos_ac)
-        atom_partition = AtomPartition(self.gd.comm, rank_a)
+        #rank_a = self.gd.get_ranks_from_positions(spos_ac)
+        #atom_partition = AtomPartition(self.gd.comm, rank_a)
         # XXX pass AtomPartition around instead of spos_ac?
         # All the classes passing around spos_ac end up needing the ranks
         # anyway.
 
-        if self.rank_a is not None and self.kpt_u[0].P_ani is not None:
+        if atom_partition is None:
+            rank_a = self.gd.get_ranks_from_positions(spos_ac)
+            atom_partition = AtomPartition(self.gd.comm, rank_a)
+                                           
+
+        if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
             self.timer.start('Redistribute')
             mynks = len(self.kpt_u)
             
@@ -215,7 +219,6 @@ class WaveFunctions(EmptyWaveFunctions):
                                              get_empty)
             self.timer.stop('Redistribute')
 
-        self.rank_a = rank_a
         self.atom_partition = atom_partition
 
         self.kd.symmetry.check(spos_ac)
@@ -325,7 +328,7 @@ class WaveFunctions(EmptyWaveFunctions):
 
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
 
-        natoms = len(self.rank_a)  # it's a hack...
+        natoms = self.atom_partition.natoms
         nproj = sum([setup.ni for setup in self.setups])
 
         if self.world.rank == 0:
@@ -341,7 +344,8 @@ class WaveFunctions(EmptyWaveFunctions):
                         P_ni = P_ani[a]
                     else:
                         P_ni = np.empty((self.bd.mynbands, ni), self.dtype)
-                        world_rank = (self.rank_a[a] +
+                        # XXX will fail with nonstandard communicator nesting
+                        world_rank = (self.atom_partition.rank_a[a] +
                                       kpt_rank * self.gd.comm.size *
                                       self.band_comm.size +
                                       band_rank * self.gd.comm.size)

@@ -54,8 +54,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
                       self.kd, dtype=self.dtype, forces=True)
         FDPWWaveFunctions.set_setups(self, setups)
 
-    def set_positions(self, spos_ac):
-        FDPWWaveFunctions.set_positions(self, spos_ac)
+    def set_positions(self, spos_ac, atom_partition=None):
+        FDPWWaveFunctions.set_positions(self, spos_ac, atom_partition)
 
     def summary(self, fd):
         fd.write('Wave functions: Uniform real-space grid\n')

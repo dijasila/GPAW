@@ -408,7 +408,7 @@ def get_lcao_density_matrix(calc):
             wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM, d_skmm[kpt.s, kpt.q])            
     return d_skmm
 
-def collect_atomic_matrices(asp, setups, ns, comm, rank_a):
+def collect_atomic_matrices(asp, setups, ns, comm, partition):
     all_asp = []
     for a, setup in enumerate(setups):
         sp = asp.get(a)
@@ -416,7 +416,7 @@ def collect_atomic_matrices(asp, setups, ns, comm, rank_a):
             ni = setup.ni
             sp = np.empty((ns, ni * (ni + 1) // 2))
         if comm.size > 1:
-            comm.broadcast(sp, rank_a[a])
+            comm.broadcast(sp, partition.rank_a[a])
         all_asp.append(sp)      
     return all_asp
 
@@ -425,7 +425,7 @@ def distribute_atomic_matrices(all_asp, asp, setups):
         if asp.get(a) is not None:
             asp[a] = all_asp[a]    
 
-def collect_and_distribute_atomic_matrices(D_ap, setups, setups0, rank_a, comm, keys):
+def collect_and_distribute_atomic_matrices(D_ap, setups, setups0, partition, comm, keys):
     gD_ap = []
     D_ap0 = [None] * len(keys)
     for a, setup in enumerate(setups):
@@ -435,7 +435,7 @@ def collect_and_distribute_atomic_matrices(D_ap, setups, setups0, rank_a, comm, 
         else:
             sp = D_ap[keys.index(a)]
         if comm.size > 1:
-            comm.broadcast(sp, rank_a[a])
+            comm.broadcast(sp, partition.rank_a[a])
         gD_ap.append(sp)
     for a in range(len(setups0)):
         if a in keys:
@@ -1038,7 +1038,7 @@ def save_bias_data_file(Lead1, Lead2, Device):
     vt_sG=np.append(vt_sG,vt_sG_R,axis=3)
     dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups,
                                      ham.nspins, ham.gd.comm,
-                                     density.rank_a)
+                                     density.atom_partition)
     pickle.dump(([0.0,0,0], vt_sG, dH_asp), file('bias_data1','wb'),2)
 
 def find(condition, flag=0):

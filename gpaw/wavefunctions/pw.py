@@ -1231,8 +1231,8 @@ class ReciprocalSpaceDensity(Density):
 
         self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3)
 
-    def set_positions(self, spos_ac, rank_a=None):
-        Density.set_positions(self, spos_ac, rank_a)
+    def set_positions(self, spos_ac, atom_partition):
+        Density.set_positions(self, spos_ac, atom_partition)
         self.nct_q = self.pd2.zeros()
         self.nct.add(self.nct_q, 1.0 / self.nspins)
         self.nct_G = self.pd2.ifft(self.nct_q)
@@ -1318,8 +1318,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         fd.write('Interpolation: FFT\n')
         fd.write('Poisson solver: FFT\n')
 
-    def set_positions(self, spos_ac, rank_a=None):
-        Hamiltonian.set_positions(self, spos_ac, rank_a)
+    def set_positions(self, spos_ac, atom_partition):
+        Hamiltonian.set_positions(self, spos_ac, atom_partition)
         self.vbar_Q = self.pd2.zeros()
         self.vbar.add(self.vbar_Q)
 

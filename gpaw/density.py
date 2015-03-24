@@ -8,7 +8,7 @@ from math import pi, sqrt
 
 import numpy as np
 
-from gpaw import debug, extra_parameters
+from gpaw import debug
 from gpaw.mixer import BaseMixer, Mixer, MixerSum
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
@@ -64,7 +64,6 @@ class Density(object):
         self.nt_sg = None
         self.nt_g = None
 
-        self.rank_a = None
         self.atom_partition = None
 
         self.mixer = BaseMixer()
@@ -80,9 +79,8 @@ class Density(object):
         # TODO: reset other parameters?
         self.nt_sG = None
 
-    def set_positions(self, spos_ac, rank_a):
-        atom_partition = AtomPartition(self.gd.comm, rank_a)
-
+    def set_positions(self, spos_ac, atom_partition):
+        rank_a = atom_partition.rank_a
         self.nct.set_positions(spos_ac)
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()
@@ -95,17 +93,16 @@ class Density(object):
 
         # If both old and new atomic ranks are present, start a blank dict if
         # it previously didn't exist but it will needed for the new atoms.
-        if (self.rank_a is not None and
+        if (self.atom_partition is not None and
             self.D_asp is None and (rank_a == self.gd.comm.rank).any()):
             self.D_asp = self.setups.empty_asp(self.ns, self.atom_partition)
 
-        if (self.rank_a is not None and self.D_asp is not None
+        if (self.atom_partition is not None and self.D_asp is not None
             and not isinstance(self.gd.comm, SerialCommunicator)):
             self.timer.start('Redistribute')
             self.D_asp.redistribute(atom_partition)
             self.timer.stop('Redistribute')
         
-        self.rank_a = rank_a
         self.atom_partition = atom_partition
 
     def calculate_pseudo_density(self, wfs):
@@ -250,7 +247,6 @@ class Density(object):
         self.nt_sG = self.gd.empty(self.ns)
         self.calculate_pseudo_density(wfs)
         self.D_asp = self.setups.empty_asp(self.ns, self.atom_partition)
-        my_atom_indices = np.argwhere(wfs.rank_a == self.gd.comm.rank).ravel()
         wfs.calculate_atomic_density_matrices(self.D_asp)
         self.calculate_normalized_charges_and_mix()
         self.timer.stop("Density initialize from wavefunctions")
@@ -399,7 +395,7 @@ class Density(object):
                               sqrt(4 * pi) *
                               np.dot(D_sp[s], setup.Delta_pL[:, 0]))
                 if gd.comm.size > 1:
-                    gd.comm.broadcast(D_sp, self.rank_a[a])
+                    gd.comm.broadcast(D_sp, self.atom_partition.rank_a[a])
                 M2 = M1 + ni
                 rho_MM[M1:M2, M1:M2] = unpack2(D_sp[s])
                 M1 = M2
@@ -501,7 +497,6 @@ class Density(object):
         D_asp = self.setups.empty_asp(self.ns, atom_partition)
         self.atom_partition = atom_partition # XXXXXX
 
-        self.rank_a = np.zeros(natoms, int)
         all_D_sp = reader.get('AtomicDensityMatrices', broadcast=True)
         if self.gd.comm.rank == 0:
             D_asp.update(read_atomic_matrices(all_D_sp, self.setups))

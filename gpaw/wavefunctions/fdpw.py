@@ -31,8 +31,8 @@ class FDPWWaveFunctions(WaveFunctions):
     def set_orthonormalized(self, flag):
         self.orthonormalized = flag
 
-    def set_positions(self, spos_ac):
-        WaveFunctions.set_positions(self, spos_ac)
+    def set_positions(self, spos_ac, atom_partition=None):
+        WaveFunctions.set_positions(self, spos_ac, atom_partition)
         self.set_orthonormalized(False)
         self.pt.set_positions(spos_ac)
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
@@ -86,7 +86,7 @@ class FDPWWaveFunctions(WaveFunctions):
         lcaowfs.basis_functions = basis_functions
         lcaowfs.timer = self.timer
         self.timer.start('Set positions (LCAO WFS)')
-        lcaowfs.set_positions(spos_ac)
+        lcaowfs.set_positions(spos_ac, self.atom_partition)
         self.timer.stop('Set positions (LCAO WFS)')
 
         eigensolver = DirectLCAO()

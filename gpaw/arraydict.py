@@ -16,8 +16,14 @@ class ArrayDict(dict):
             self.update(d)
         self.check_consistency()
 
-    def copy(self):
-        return ArrayDict(self.partition, self.shapes_a, self.dtype, self)
+    # copy() is dangerous since redistributions write back
+    # into arrays, and redistribution of a copy could lead to bugs
+    # if the copy suffers.  I think the redistribution code does not
+    # cause such problems presently, but I have disabled to be safe for now.
+    #  -askhl
+    #
+    #def copy(self):
+    #    return ArrayDict(self.partition, self.shapes_a, self.dtype, self)
 
     def deepcopy(self):
         copy = ArrayDict(self.partition, self.shapes_a, self.dtype)
@@ -60,19 +66,27 @@ class ArrayDict(dict):
                 'array shape %s vs specified shape %s' % (array.shape,
                                                           self.shapes_a[a])
 
-    def flatten(self):
-        return np.concatenate([self[a].ravel() for a in self.my_indices])
+    def flatten_to_array(self, axis=None):
+        # We could also implement it as a contiguous buffer.
+        if axis is None:
+            return np.concatenate([self[a].ravel()
+                                   for a in self.partition.my_indices])
+        else:
+            return np.concatenate([self[a] for a in self.partition.my_indices],
+                                  axis=axis)
 
-    def unflatten(self, data):
+    def unflatten_from_array(self, data):
         M1 = 0
-        for a in self.my_indices:
+        for a in self.partition.my_indices:
             M2 = M1 + np.prod(self.shapes_a[a])
             dst = self[a].ravel()
             dst[:] = data[M1:M2]
 
-    #def broadcast(self):
-    #    buf = self.flatten()
-    #    ...........................
+    #def broadcast(self, comm, root):
+    #    serial_partition = self.as_serial()
+    #    self.redistribute(serial_partition)
+    #    buf = self.flatten_to_array()
+    #    #comm.broadcast(buf, 
 
     #def to_parent_comm(self):
     #    new_partition = self.partition.to_parent_comm()

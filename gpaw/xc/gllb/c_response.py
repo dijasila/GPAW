@@ -426,7 +426,7 @@ class C_Response(Contribution):
         
         During the writing process, the DeltaXC is calculated (if not yet calculated)
         """
-        
+
         if self.Dxc_vt_sG is None:
             self.calculate_delta_xc()
         
@@ -470,7 +470,27 @@ class C_Response(Contribution):
 
         print("Integration over vt_sG", domain_comm.sum(np.sum(self.vt_sG.ravel())))
         print("Integration over Dxc_vt_sG", domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel())))
-                
+        
+        #from gpaw.utilities.atom_partition import AtomPartition
+
+        #serial_partition = wfs.atom_partition.as_serial()
+        #D0_asp = wfs.setups.empty_asp(wfs.ns, wfs.atom_partition)
+        #Dx_asp = D0_asp.copy()
+
+        #data = {'GLLBAtomicDensityMatrices', }
+
+        #names = {'GLLBAtomicDensityMatrices': self.D_asp,
+        #         'GLLBAtomicResponseMatrices': self.Dresp_,
+        #         'GLLBDxcAtomicDensityMatrices',
+        #         'GLLBDxcAtomicResponseMatrices'}
+
+        #for name in names:
+        #Dx_asp.update(self.Dresp_asp)
+        
+        #Dx_asp.redistribute(serial_partition)
+        
+        #if master:
+
         if master:
             all_D_sp = np.empty((wfs.nspins, nadm))
             all_Dresp_sp = np.empty((wfs.nspins, nadm))
@@ -486,14 +506,15 @@ class C_Response(Contribution):
                     Dxc_D_sp = self.Dxc_D_asp[a]
                     Dxc_Dresp_sp = self.Dxc_Dresp_asp[a]
                 else:
+                    rank_a = wfs.atom_partition.rank_a
                     D_sp = np.empty((wfs.nspins, nii))
-                    domain_comm.receive(D_sp, wfs.rank_a[a], 27)
+                    domain_comm.receive(D_sp, rank_a[a], 27)
                     Dresp_sp = np.empty((wfs.nspins, nii))
-                    domain_comm.receive(Dresp_sp, wfs.rank_a[a], 271)
+                    domain_comm.receive(Dresp_sp, rank_a[a], 271)
                     Dxc_D_sp = np.empty((wfs.nspins, nii))
-                    domain_comm.receive(Dxc_D_sp, wfs.rank_a[a], 28)
+                    domain_comm.receive(Dxc_D_sp, rank_a[a], 28)
                     Dxc_Dresp_sp = np.empty((wfs.nspins, nii))
-                    domain_comm.receive(Dxc_Dresp_sp, wfs.rank_a[a], 272)
+                    domain_comm.receive(Dxc_Dresp_sp, rank_a[a], 272)
                     
                 p2 = p1 + nii
                 all_D_sp[:, p1:p2] = D_sp
