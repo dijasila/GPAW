@@ -249,7 +249,15 @@ class Chi0(PairDensity):
             if optical_limit:
                 PWSA.symmetrize_wxvG(chi0_wxvG)
                 PWSA.symmetrize_wvv(chi0_wvv)
-
+                # Since chi_wGG is nonanalytic in the head
+                # and wings we have to take care that
+                # these are handled correctly
+                if self.blockcomm.size > 1:
+                    if self.blockcomm.rank == 0:
+                        chi0_wGG[:, 0, 0] = chi0_wvv[:, 0, 0]
+                        chi0_wGG[:, 0] =  chi0_wxvG[:, 0, 0]
+                    chi0_wGG[:, : 0] = chi0_wxvG[:, 1, 0, self.Ga:self.Gb] 
+                    
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     @timer('CHI_0 update')

@@ -758,7 +758,7 @@ class PairDensity:
                 if unsymmetrized:
                     # Number of times kpoints are mapped into themselves
                     weight = np.sqrt(PWSA.how_many_symmetries() / len(K_k))
-                    
+
                 # Use kpt2 to compute intraband transitions
                 # These conditions are sufficent to make sure
                 # that it still works in parallel
@@ -811,7 +811,6 @@ class PairDensity:
                     n0_nmG, n0_nmv, _ = self.get_pair_density(pd, kptpair,
                                                               n_n, m_m,
                                                               intraband=False)
-
 
                     # Reshape nm -> m
                     nG = pd.ngmax
@@ -892,7 +891,6 @@ class PairDensity:
             n_nmv = None
 
         for j, n in enumerate(n_n):
-            eps1 = kpt1.eps_n[n]
             Q_G = kptpair.Q_G
             with self.timer('conj'):
                 ut1cc_R = kpt1.ut_nR[n].conj()
@@ -902,10 +900,10 @@ class PairDensity:
                 n_nmG[j] = self.calculate_pair_densities(ut1cc_R,
                                                          C1_aGi, kpt2,
                                                          pd, Q_G)
-            deps_m = (eps1 - kpt2.eps_n)[m_m]
             if optical_limit:
-                n_nmv[j] = self.optical_pair_density(n, m_m, kpt1, kpt2,
-                                                     deps_m)
+                n_nmv[j] = self.optical_pair_density(n, m_m, kpt1, kpt2)
+                n_nmG[..., 0] = n_nmv[..., 0]
+
         if intraband:
             vel_mv = self.intraband_pair_density(kpt2)
         else:
@@ -952,7 +950,10 @@ class PairDensity:
             return n_MG[:kpt2.n2 - kpt2.n1]
 
     @timer('Optical limit')
-    def optical_pair_density(self, n, m_m, kpt1, kpt2, deps_m):
+    def optical_pair_density(self, n, m_m, kpt1, kpt2):
+        eps1 = kpt1.eps_n[n]
+        deps_m = (eps1 - kpt2.eps_n)[m_m]
+
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
 
