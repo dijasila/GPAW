@@ -13,6 +13,7 @@ from gpaw.eigensolvers import Davidson
 from gpaw.wavefunctions.pw import PW
 from gpaw.occupations import FermiDirac
 from gpaw.response.df import DielectricFunction
+from gpaw.mpi import world
 
 # This test assures that some things that
 # should be equal, are.
@@ -47,8 +48,18 @@ DFsettings = [{'disable_point_group': True,
                'use_more_memory': 0},
               {'disable_point_group': False,
                'disable_time_reversal': False,
+               'use_more_memory': 0,
+               'unsymmetrized': False},
+              {'disable_point_group': False,
+               'disable_time_reversal': False,
                'use_more_memory': 1}]
 
+if world.size > 1:
+              DFsettings.append({'disable_point_group': False,
+                               'disable_time_reversal': False,
+                               'use_more_memory': 1,
+                               'nblocks': 2})
+              
 for GSkwargs in GSsettings:
     calc = GPAW(h=0.18,
                 mode=PW(600),
@@ -62,14 +73,20 @@ for GSkwargs in GSsettings:
     dfs = []
     for kwargs in DFsettings:
         DF = DielectricFunction(calc='gr.gpw',
-                                domega0=0.01,
+                                domega0=0.2,
                                 eta=0.2,
                                 ecut=40.0,
                                 **kwargs)
         df1, df2 = DF.get_dielectric_function()
-        dfs.append(df2)
+        if world.rank == 0:
+            dfs.append(df1)
 
     while len(dfs):
         df = dfs.pop()
         for df2 in dfs:
-            assert np.allclose(df, df2)
+            try:
+                assert np.allclose(df, df2)
+            except AssertionError:
+                print(np.max(np.abs((df - df2) / df)))
+                raise AssertionError
+

@@ -39,7 +39,7 @@ class Chi0(PairDensity):
                  nblocks=1, no_optical_limit=False,
                  keep_occupied_states=False, gate_voltage=None,
                  disable_point_group=True, disable_time_reversal=True,
-                 use_more_memory=0):
+                 use_more_memory=0, unsymmetrized=True):
 
         PairDensity.__init__(self, calc, ecut, ftol, threshold,
                              real_space_derivatives, world, txt, timer,
@@ -57,6 +57,7 @@ class Chi0(PairDensity):
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
         self.use_more_memory = use_more_memory
+        self.unsymmetrized = unsymmetrized
 
         omax = self.find_maximum_frequency()
 
@@ -156,6 +157,7 @@ class Chi0(PairDensity):
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins):
         wfs = self.calc.wfs
 
+        # Choose which update method to use
         if self.eta == 0.0:
             update = self.update_hermitian
         elif self.hilbert:
@@ -166,7 +168,6 @@ class Chi0(PairDensity):
         q_c = pd.kd.bzk_kc[0]
         optical_limit = not self.no_optical_limit and np.allclose(q_c, 0.0)
         generator = self.generate_pair_densities
-        unsymmetrized = True
 
         # Use symmetries
         PWSA = PWSymmetryAnalyzer
@@ -175,12 +176,14 @@ class Chi0(PairDensity):
                     disable_time_reversal=self.disable_time_reversal,
                     timer=self.timer, txt=self.fd)
 
-        # Sum pair-densities
+        # Calculate unsymmetrized chi or spectral function
         self.timer.start('Loop')
         for f2_m, df_m, deps_m, n_mG, n_mv, vel_mv in \
             generator(pd, m1, m2, spins, PWSA=PWSA,
                       use_more_memory=self.use_more_memory,
-                      unsymmetrized=unsymmetrized):
+                      unsymmetrized=self.unsymmetrized):
+            # If the generator returns None for a pair-density
+            # then skip updating
             if n_mG is not None:
                 update(np.ascontiguousarray(n_mG), deps_m, df_m, chi0_wGG)
             if optical_limit and n_mv is not None:
@@ -238,8 +241,11 @@ class Chi0(PairDensity):
                          (omega_w[:, np.newaxis, np.newaxis]
                           + 1j * self.eta)**2)
 
-        if unsymmetrized:
-            PWSA.symmetrize_wGG(chi0_wGG)
+        if self.unsymmetrized:
+            # Carry out symmetrization        
+            tmpchi0_wGG = self.redistribute(chi0_wGG)
+            PWSA.symmetrize_wGG(tmpchi0_wGG)
+            self.redistribute(tmpchi0_wGG, chi0_wGG)
             if optical_limit:
                 PWSA.symmetrize_wxvG(chi0_wxvG)
                 PWSA.symmetrize_wvv(chi0_wvv)
@@ -248,21 +254,27 @@ class Chi0(PairDensity):
 
     @timer('CHI_0 update')
     def update(self, n_mG, deps_m, df_m, chi0_wGG):
+        """Update chi."""
+
         if self.timeordered:
             deps1_m = deps_m + 1j * self.eta * np.sign(deps_m)
             deps2_m = deps1_m
         else:
             deps1_m = deps_m + 1j * self.eta
             deps2_m = deps_m - 1j * self.eta
-
+        
         for omega, chi0_GG in zip(self.omega_w, chi0_wGG):
             x_m = df_m * (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
-            nx_mG = n_mG * x_m[:, np.newaxis]
+            if self.blockcomm.size > 1:
+                nx_mG = n_mG[:, self.Ga:self.Gb]  * x_m[:, np.newaxis]
+            else:
+                nx_mG = n_mG * x_m[:, np.newaxis]
             gemm(self.prefactor, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_GG)
 
     @timer('CHI_0 hermetian update')
     def update_hermitian(self, n_mG, deps_m, df_m, chi0_wGG):
+        """If eta=0 use hermitian update."""
         for w, omega in enumerate(self.omega_w):
             if self.blockcomm.size == 1:
                 x_m = (-2 * df_m * deps_m / (omega.imag**2 + deps_m**2))**0.5
@@ -275,6 +287,11 @@ class Chi0(PairDensity):
 
     @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
+        """Update spectral function.
+
+        Updates spectral function A_wGG and saves it to chi0_wGG for
+        later hilbert-transform."""
+
         self.timer.start('prep')
         beta = (2**0.5 - 1) * self.domega0 / self.omega2
         o_m = abs(deps_m)
@@ -301,7 +318,9 @@ class Chi0(PairDensity):
     @timer('CHI_0 optical limit update')
     def update_optical_limit(self, n0_mv, deps_m, df_m, n_mG,
                              chi0_wxvG, chi0_wvv):
-        if self.hilbert:
+        """Optical limit update of chi."""
+
+        if self.hilbert:  # Do something special when hilbert transforming
             self.update_optical_limit_hilbert(n0_mv, deps_m, df_m, n_mG,
                                               chi0_wxvG, chi0_wvv)
             return
@@ -325,6 +344,8 @@ class Chi0(PairDensity):
     @timer('CHI_0 optical limit hilbert-update')
     def update_optical_limit_hilbert(self, n0_mv, deps_m, df_m, n_mG,
                                      chi0_wxvG, chi0_wvv):
+        """Optical limit update of chi-head and -wings."""
+
         beta = (2**0.5 - 1) * self.domega0 / self.omega2
         for deps, df, n0_v, n_G in zip(deps_m, df_m, n0_mv, n_mG):
             o = abs(deps)
@@ -349,6 +370,8 @@ class Chi0(PairDensity):
     @timer('CHI_0 intraband update')
     def update_intraband(self, f_m, vel_mv, chi0_vv):
         """Add intraband contributions"""
+        assert len(f_m) == len(vel_mv), print(len(f_m), len(vel_mv))
+
         width = self.calc.occupations.width
         if width == 0.0:
             return
@@ -359,7 +382,6 @@ class Chi0(PairDensity):
         if not partocc_m.any():
             return
 
-        assert len(dfde_m) == len(vel_mv)
         for dfde, vel_v in zip(dfde_m, vel_mv):
             x_vv = (-self.prefactor * dfde *
                     np.outer(vel_v, vel_v))
@@ -406,7 +428,7 @@ class Chi0(PairDensity):
             out_wGG = np.empty(outshape, complex)
         else:
             out_wGG = out_x[:np.product(outshape)].reshape(outshape)
-
+            
         r.redistribute(in_wGG.reshape(mdin.shape),
                        out_wGG.reshape(mdout.shape))
         
