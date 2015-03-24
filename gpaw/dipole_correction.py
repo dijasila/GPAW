@@ -83,5 +83,6 @@ class DipoleCorrector:
         factor = -moment / moment2
         drho_g *= factor
         phifactor = factor * (np.pi / alpha)**1.5 * cellsize**2 / 4.0
+        self.correction = phifactor
         dphi_g = -phifactor * erf(sr_g * np.sqrt(alpha))
         return drho_g, dphi_g

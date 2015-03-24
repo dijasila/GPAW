@@ -1,7 +1,8 @@
 from __future__ import print_function
 from gpaw import GPAW, FermiDirac
 from gpaw.mpi import world, size, rank
-from gpaw.lrtddft2 import LrTDDFTindexed, lr_communicators
+from gpaw.lrtddft2 import LrTDDFT2
+from gpaw.lrtddft2.lr_communicators import LrCommunicators
 from gpaw.test import equal
 from ase.atoms import Atoms
 from glob import glob
@@ -39,42 +40,43 @@ else:
     eh_size = 1
     domain_size = size
 
-dd_comm, eh_comm = lr_communicators(world, domain_size, eh_size)
+lr_comms = LrCommunicators(world, domain_size, eh_size)
 
 calc = GPAW(restart_file,
-            communicator=dd_comm)
+            communicator=lr_comms.dd_comm)
 de = 3.0
-lr = LrTDDFTindexed('Al2_lri',
-                    calc=calc,
-                    xc = 'PBE',
-                    max_energy_diff=de,
-                    eh_communicator=eh_comm
-                   )
-lr.calculate_excitations()
-e0_1 = np.sqrt(lr.evalues[0])
-e1_1 = np.sqrt(lr.evalues[-1])
+lr = LrTDDFT2('Al2_lri',
+              calc,
+              fxc = 'PBE',
+              max_energy_diff=de,
+              lr_communicators=lr_comms
+              )
+(w,S,R,Sx,Sy,Sz) = lr.get_transitions(max_energy=1e9, units='au')
+
+e0_1 = w[0]
+e1_1 = w[-1]
 # Continue with larger de
 de = 4.5
-lr = LrTDDFTindexed('Al2_lri',
-                    calc=calc,
-                    xc = 'PBE',
-                    max_energy_diff=de,
-                    eh_communicator=eh_comm
-                   )
-lr.calculate_excitations()
-e0_2 = np.sqrt(lr.evalues[0])
-e1_2 = np.sqrt(lr.evalues[-1])
+lr = LrTDDFT2('Al2_lri',
+              calc,
+              fxc = 'PBE',
+              max_energy_diff=de,
+              lr_communicators=lr_comms
+              )
+(w,S,R,Sx,Sy,Sz) = lr.get_transitions(max_energy=1e9, units='au')
+e0_2 = w[0]
+e1_2 = w[-1]
 # Continue with smaller de
 de = 2.5
-lr = LrTDDFTindexed('Al2_lri',
-                    calc=calc,
-                    xc = 'PBE',
-                    max_energy_diff=de,
-                    eh_communicator=eh_comm
-                   )
-lr.calculate_excitations()
-e0_3 = np.sqrt(lr.evalues[0])
-e1_3 = np.sqrt(lr.evalues[-1])
+lr = LrTDDFT2('Al2_lri',
+              calc,
+              fxc = 'PBE',
+              max_energy_diff=de,
+              lr_communicators=lr_comms
+              )
+(w,S,R,Sx,Sy,Sz) = lr.get_transitions(max_energy=1e9, units='au')
+e0_3 = w[0]
+e1_3 = w[-1]
 
 if debug and rank == 0:
     print(e0_1, e1_1)

@@ -684,7 +684,7 @@ class PairDensity:
                 I2 = I1 + len(U_ii)
                 II_a.append((I1, I2))
                 I1 = I2
-
+                
             P_ani = []
             P_nI = self.reader.get('Projections', kpt.s, kpt.k)
             for b, U_ii in zip(a_a, U_aii):
@@ -693,7 +693,7 @@ class PairDensity:
                 if time_reversal:
                     P_ni = P_ni.conj()
                 P_ani.append(P_ni)
-            
+        
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 

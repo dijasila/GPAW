@@ -785,7 +785,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
             with self.timer('Diagonalize'):
                 if not scalapack:
-                    md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n, 
+                    md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n,
                                                iu=iu)
                 else:
                     md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
@@ -1189,7 +1189,7 @@ class PWLFC(BaseLFC):
             if G1 == 0:
                 f_IG[:, 0] *= 0.5
             f_IG = f_IG.view(float)
-            a_xG = a_xG.view(float)
+            a_xG = a_xG.copy().view(float)
 
         gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
 

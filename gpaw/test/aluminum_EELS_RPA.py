@@ -21,14 +21,13 @@ if rank != 0:
 assert size <= 4**3
 
 # Ground state calculation
-
 t1 = time.time()
 
 a = 4.043
 atoms = bulk('Al', 'fcc', a=a)
 atoms.center()
 calc = GPAW(mode=PW(200),
-            kpts=(4,4,4),
+            kpts={'size': (4,4,4), 'gamma': False},
             parallel={'band':1},
             idiotproof=False,  # allow uneven distribution of k-points
             xc='LDA')
@@ -44,6 +43,7 @@ w = np.linspace(0, 24, 241)
 
 df = DielectricFunction(calc='Al', frequencies=w, eta=0.2, ecut=50,
                         hilbert=False)
+#, disable_symmetries=True)
 df.get_eels_spectrum(xc='RPA', filename='EELS_Al', q_c=q)
 #df.check_sum_rule()
 #df.write('Al.pckl')
@@ -65,7 +65,6 @@ test_wpeak1 = 15.7064968875 # eV
 test_Ipeak1 = 29.0721098689 # eV
 test_wpeak2 = 15.728889329 # eV
 test_Ipeak2 = 26.4625750021 # eV
-
 
 if np.abs(test_wpeak1-wpeak1)<1e-2 and np.abs(test_wpeak2-wpeak2)<1e-2:
     pass

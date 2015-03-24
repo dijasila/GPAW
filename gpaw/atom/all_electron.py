@@ -106,6 +106,7 @@ class AllElectron:
             self.l_j = [0]
             self.f_j = [self.Z]
             self.e_j = [self.e_j[-1]]
+
             
         t = self.text
         t()
@@ -247,10 +248,12 @@ class AllElectron:
         
         # orbital_free needs more iterations and coefficient
         if self.orbital_free:
-            #qOK = log(1e-14)
-            e_j[0] /= self.tf_coeff
             mix = 0.01
-            nitermax = 1000
+            nitermax = 2000
+            e_j[0] /= self.tf_coeff
+            if Z > 10 : #help convergence for third row elements
+                mix = 0.002
+                nitermax = 10000
             
         vrold = None
         
@@ -274,7 +277,11 @@ class AllElectron:
 
             # calculate new total Kohn-Sham effective potential and
             # admix with old version
-            vr[:] = (vHr + self.vXC * r) / self.tf_coeff
+
+            vr[:] = (vHr + self.vXC * r)
+
+            if self.orbital_free: 
+                vr /= self.tf_coeff
 
             if niter > 0:
                 vr[:] = mix * vr + (1 - mix) * vrold
@@ -326,15 +333,21 @@ class AllElectron:
                 pass
 
         Ekin = 0
-        if self.orbital_free:
-            e_j[0] *= self.tf_coeff
-            vr *= self.tf_coeff
         
         for f, e in zip(f_j, e_j):
             Ekin += f * e
 
         Epot = 2 * pi * np.dot(n * r * (vHr - Z), dr)
         Ekin += -4 * pi * np.dot(n * vr * r, dr)
+
+        if self.orbital_free:
+        #e and vr are not scaled back
+        #instead Ekin is scaled for total energy (printed and inside setup)
+            Ekin *= self.tf_coeff
+            t()
+            t('Lambda:{0}'.format(self.tf_coeff))
+            t('Correct eigenvalue:{0}'.format(e_j[0]*self.tf_coeff))
+            t()
 
         t()
         t('Energy contributions:')

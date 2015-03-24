@@ -230,6 +230,7 @@ PyObject* map_k_points(PyObject *self, PyObject *args)
 		 if (fabs(p2 - round(p2)) > tol)
 		     continue;
 		 bz2bz_ks[k1 * nsym + s] = k2;
+                 break;
 	     }
 	 }
     }

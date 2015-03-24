@@ -4,7 +4,7 @@ import sys
 from math import pi, exp, sqrt, log
 
 import numpy as np
-from scipy.optimize import fsolve, root
+from scipy.optimize import fsolve  # , root
 from scipy import __version__ as scipy_version
 from ase.units import Hartree
 from ase.data import atomic_numbers
@@ -111,9 +111,9 @@ parameters = {
     'Xe8': ('5s,s,5p,p,d,F', 2.3),
     # 55-56:
     'Cs1': ('6s,s,6p,5d', [4.3, 4.6, 4.0]),
-    'Cs9': ('5s,6s,5p,6p,5d', [1.9, 2.2]),
+    'Cs9': ('5s,6s,5p,6p,5d,0.5d,F', 3.2),
     'Ba2': ('6s,s,6p,5d', 3.9),
-    'Ba10': ('5s,6s,5p,6p,5d', [1.8, 2.2]),
+    'Ba10': ('5s,6s,5p,6p,5d,d,F', 2.2),
     # 57-71:
     'La11': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.5),
     'Ce12': ('5s,6s,5p,6p,5d,d,4f,f,G', 2.4),
@@ -155,7 +155,27 @@ parameters = {
     'Bi15': ('6s,s,6p,p,5d,d,F', 2.6),
     'Po6': ('6s,s,6p,p,d,F', 2.7),
     'At7': ('6s,s,6p,p,d,F', 2.6),
-    'Rn8': ('6s,s,6p,p,d,F', 2.6)}
+    'Rn8': ('6s,s,6p,p,d,F', 2.6),
+    # 87-88:
+    'Fr1': ('6s,s,6p,5d', 4.5),
+    'Fr9': ('6s,7s,6p,7p,6d,d,F', [2.7, 2.5]),
+    'Ra2': ('6s,s,6p,5d', 4.5),
+    'Ra10': ('6s,7s,6p,7p,6d,d,F', [2.7, 2.5]),
+    # 89-102:
+    'Ac11': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.5),
+    'Th12': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.4),
+    'Pa13': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.5),
+    'U14': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.5),
+    'Np15': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.5),
+    'Pu16': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.5),
+    'Am17': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.5),
+    'Cm18': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.5),
+    'Bk19': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.5),
+    'Cf20': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.5),
+    'Es21': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.5),
+    'Fm22': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.5),
+    'Md23': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.5),
+    'No24': ('6s,7s,6p,7p,6d,d,5f,f,G', 2.5)}
 
 
 default = [0,
@@ -166,7 +186,9 @@ default = [0,
            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 6, 7, 8,
            1, 2, 11,
            12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-           4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 6, 7, 8]
+           4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 6, 7, 8,
+           9, 10,
+           11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
 
 
 semicore = [0,
@@ -435,10 +457,11 @@ class PAWSetupGenerator:
         else:
             radii = rc
 
-        self.rcmax = max(radii)
-
         if self.lmax >= 0:
             radii += [radii[-1]] * (self.lmax + 1 - len(radii))
+        del radii[self.lmax + 1:]  # remove unused radii
+            
+        self.rcmax = max(radii)
 
         self.waves_l = []
         for l in range(self.lmax + 1):
@@ -565,10 +588,10 @@ class PAWSetupGenerator:
             v_g = self.aea.vr_sg[0, g0 - 1:g0 + 2] / r_g[g0 - 1:g0 + 2]
             v0 = v_g[1]
             v1 = (v_g[2] - v_g[0]) / 2 / self.rgd.dr_g[g0]
-
+            
             def f(x):
                 return x / np.tan(x) - 1 - v1 * r0 / v0
-            
+                
             q = root(f, 2).x / r0
             A = v0 * r0 / np.sin(q * r0)
             self.vtr_g = self.aea.vr_sg[0].copy()
@@ -631,13 +654,13 @@ class PAWSetupGenerator:
             except RuntimeError:
                 self.log('Singular overlap matrix!')
                 ok = False
-                continue
+                # continue  # fail here
 
-            nbound = (e_b < -0.002).sum()
+            nbound = (e_b < -0.05).sum()
 
             if l < len(self.aea.channels):
                 e0_b = self.aea.channels[l].e_n
-                nbound0 = (e0_b < -0.002).sum()
+                nbound0 = (e0_b < -0.05).sum()
                 extra = 6
                 for n in range(1 + l, nbound0 + 1 + l + extra):
                     if n - 1 - l < len(self.aea.channels[l].f_n):
@@ -664,7 +687,10 @@ class PAWSetupGenerator:
                 elif (abs(e_b[nbound:nbound + extra] -
                           e0_b[nbound0:nbound0 + extra]).max() > 2e-2):
                     self.log('Error in %s-states!' % 'spdf'[l])
-                    ok = False
+                    if not self.aea.scalar_relativistic:
+                        ok = False
+                    else:
+                        ok = True
             elif nbound > 0:
                 self.log('Wrong number of %s-states!' % 'spdf'[l])
                 ok = False
@@ -967,6 +993,8 @@ class PAWSetupGenerator:
         dudr_n = np.empty(N)
 
         logderivs = []
+        d0 = 42.0
+        offset = 0
         for e in energies:
             dudr = ch.integrate_outwards(u_g, rgd, self.vtr_g, gcut, e)[0]
             u = u_g[gcut]
@@ -985,9 +1013,14 @@ class PAWSetupGenerator:
                 u -= np.dot(u_ng[:, gcut], d_n)
                 dudr -= np.dot(dudr_n, d_n)
 
-            logderivs.append(dudr / u)
+            d1 = np.arctan(dudr / u) / pi + offset
+            if d1 > d0:
+                offset -= 1
+                d1 -= 1
+            logderivs.append(d1)
+            d0 = d1
 
-        return logderivs
+        return np.array(logderivs)
 
     def make_paw_setup(self, tag=None):
         aea = self.aea
@@ -1174,7 +1207,7 @@ def main(argv=None):
         metavar='<XC>')
     add('-C', '--configuration',
         help='e.g. for Li: "[(1, 0, 2, -1.878564), (2, 0, 1, -0.10554),'
-        '(2, 1, 0, 0.0)]"')
+        ' (2, 1, 0, 0.0)]"')
     add('-P', '--projectors',
         help='Projector functions - use comma-separated - ' +
         'nl values, where n can be pricipal quantum number ' +
@@ -1214,7 +1247,7 @@ def main(argv=None):
         gen = _generate(**kwargs)
 
         if not opt.no_check:
-            gen.check_all()
+            assert gen.check_all()
 
         if opt.create_basis_set or opt.write:
             basis = None  # gen.create_basis_set()
@@ -1226,39 +1259,44 @@ def main(argv=None):
                 gen.make_paw_setup(opt.tag).write_xml()
 
         if opt.logarithmic_derivatives or opt.plot:
-            import matplotlib.pyplot as plt
+            if opt.plot:
+                import matplotlib.pyplot as plt
             if opt.logarithmic_derivatives:
                 r = 1.1 * gen.rcmax
                 emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.8
                 emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
                 lvalues, energies, r = parse_ld_str(
                     opt.logarithmic_derivatives, (emin, emax, 0.05), r)
-                ldmax = 0.0
+                error = 0.0
                 for l in lvalues:
-                    ld = gen.aea.logarithmic_derivative(l, energies, r)
-                    plt.plot(energies, ld, colors[l], label='spdfg'[l])
-                    ld = gen.logarithmic_derivative(l, energies, r)
-                    plt.plot(energies, ld, '--' + colors[l])
-
+                    ld1 = gen.aea.logarithmic_derivative(l, energies, r)
+                    if opt.plot:
+                        plt.plot(energies, ld1, colors[l], label='spdfg'[l])
+                    ld2 = gen.logarithmic_derivative(l, energies, r)
+                    if opt.plot:
+                        plt.plot(energies, ld2, '--' + colors[l])
+                    de = energies[1] - energies[0]
+                    error = abs(ld1 - ld2).sum() * de
+                    print('Logarithmic derivative error:', l, error)
+                    
                     # Fixed points:
                     if l < len(gen.waves_l):
                         efix = gen.waves_l[l].e_n
                         ldfix = gen.logarithmic_derivative(l, efix, r)
-                        plt.plot(efix, ldfix, 'x' + colors[l])
-                        ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
+                        if opt.plot:
+                            plt.plot(efix, ldfix, 'x' + colors[l])
 
                     if l == gen.l0:
                         efix = [0.0]
                         ldfix = gen.logarithmic_derivative(l, efix, r)
-                        plt.plot(efix, ldfix, 'x' + colors[l])
-                        ldmax = max(ldmax, max(abs(ld) for ld in ldfix))
+                        if opt.plot:
+                            plt.plot(efix, ldfix, 'x' + colors[l])
 
-                if ldmax != 0.0:
-                    plt.axis(ymin=-3 * ldmax, ymax=3 * ldmax)
-                plt.xlabel('energy [Ha]')
-                plt.ylabel(r'$d\phi_{\ell\epsilon}(r)/dr/\phi_{\ell\epsilon}' +
-                           r'(r)|_{r=r_c}$')
-                plt.legend(loc='best')
+                if opt.plot:
+                    plt.xlabel('energy [Ha]')
+                    plt.ylabel(r'$\arctan(d\log\phi_{\ell\epsilon}(r)/dr)/\pi'
+                               r'|_{r=r_c}$')
+                    plt.legend(loc='best')
 
             if opt.plot:
                 gen.plot()
@@ -1267,10 +1305,11 @@ def main(argv=None):
                     gen.basis.generatordata = ''  # we already printed this
                     BasisPlotter(show=True).plot(gen.basis)
 
-            try:
-                plt.show()
-            except KeyboardInterrupt:
-                pass
+            if opt.plot:
+                try:
+                    plt.show()
+                except KeyboardInterrupt:
+                    pass
 
     world.barrier()
     return gen
@@ -1342,7 +1381,7 @@ def _generate(symbol, xc, configuration, projectors, radii,
               scalar_relativistic, alpha,
               r0, nderiv0,
               pseudize, rcore, core_hole, output):
-    if output is not None:
+    if isinstance(output, str):
         output = open(output, 'w')
     aea = AllElectronAtom(symbol, xc, configuration=configuration, log=output)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,

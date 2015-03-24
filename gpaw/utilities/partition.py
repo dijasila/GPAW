@@ -1,9 +1,21 @@
 import numpy as np
-
+from gpaw.arraydict import ArrayDict
 
 class AtomicMatrixDistributor:
     """Class to distribute atomic dictionaries like dH_asp and D_asp."""
     def __init__(self, atom_partition, setups, kptband_comm, ns):
+        # Assumptions on communicators are as follows.
+        #
+        # atom_partition represents standard domain decomposition, and
+        # kptband_comm are the corresponding kpt/band communicators
+        # together encompassing wfs.world.
+        #
+        # Initially, dH_asp are distributed over domains according to the
+        # physical location of each atom, but duplicated across band
+        # and k-point communicators.
+        #
+        # The idea is to transfer dH_asp so they are distributed equally
+        # among all ranks on wfs.world, and back, when necessary.
         self.atom_partition = atom_partition
         self.setups = setups
         self.kptband_comm = kptband_comm
@@ -130,8 +142,12 @@ class EvenPartitioning:
             rank = self.comm.rank
         return rank * self.nshort + max(rank - self.shortcount, 0) + i
 
-    def as_atom_partition(self):
+    def as_atom_partition(self, strided=False):
         rank_a = [self.global2local(i)[0] for i in range(self.N)]
+        if strided:
+            rank_a = np.arange(self.comm.size).repeat(self.nlong)
+            rank_a = rank_a.reshape(self.comm.size, -1).T.ravel()
+            rank_a = rank_a[self.shortcount:].copy()
         return AtomPartition(self.comm, rank_a)
 
     def get_description(self):
@@ -229,10 +245,17 @@ class AtomPartition:
         self.redistribute(even_part, atomdict_ax, get_empty)
         return atomdict_ax # XXX copy or not???
 
-    def from_even_distribution(self, atomdict_ax, get_empty):
+    def from_even_distribution(self, atomdict_ax, get_empty, copy=False):
+        if copy:  # XXX We should have a class for atomdicts to facilitate life
+            atomdict1_ax = {}
+            for a, arr_x in atomdict_ax.items():
+                atomdict1_ax[a] = arr_x.copy()
+            atomdict_ax = atomdict1_ax
+            
         even_part = EvenPartitioning(self.comm,
                                      len(self.rank_a)).as_atom_partition()
         even_part.redistribute(self, atomdict_ax, get_empty)
+        return atomdict_ax
 
     def redistribute(self, new_partition, atomdict_ax, get_empty):
         assert self.comm == new_partition.comm
@@ -261,3 +284,11 @@ class AtomPartition:
 
         general_redistribute(self.comm, self.rank_a,
                              new_partition.rank_a, Redist())
+        if isinstance(atomdict_ax, ArrayDict):
+            atomdict_ax.partition = new_partition # XXX
+            atomdict_ax.check_consistency()
+
+    def arraydict(self, shapes, dtype=float):
+        if callable(shapes):
+            shapes = [shapes(a) for a in self.natoms]
+        return ArrayDict(self, shapes, dtype)

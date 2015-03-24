@@ -476,7 +476,7 @@ class LeanSetup(BaseSetup):
         self.N0_p = s.N0_p # req. by estimate_magnetic_moments
         self.nabla_iiv = s.nabla_iiv  # req. by lrtddft
         self.rnabla_iiv = s.rnabla_iiv  # req. by lrtddft
-        self.rxp_iiv = s.rxp_iiv  # req. by lrtddft
+        self.rxnabla_iiv = s.rxnabla_iiv  # req. by lrtddft2
 
         # XAS stuff
         self.phicorehole_g = s.phicorehole_g # should be optional
@@ -817,7 +817,11 @@ class Setup(BaseSetup):
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
         self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
-        self.rxp_iiv = self.get_magnetic_integrals_new(rgd2, phi_jg, phit_jg)
+        try:
+            self.rxnabla_iiv = self.get_magnetic_integrals_new(rgd2,
+                                                               phi_jg, phit_jg)
+        except NotImplementedError:
+            self.rxnabla_iiv = None
 
     def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,
                                       lmax, Delta_lq, wnt_lqg,
@@ -1085,7 +1089,8 @@ class Setup(BaseSetup):
                 return [ ( 1/np.sqrt(2.), 2, -2),
                          ( 1/np.sqrt(2.), 2,  2) ]
 
-            raise RuntimeError('Error in get_magnetic_integrals_new: YL_to_Ylm not implemented for l>2 yet.')
+            raise NotImplementedError('Error in get_magnetic_integrals_new: '
+                                      'YL_to_Ylm not implemented for l>2 yet.')
 
         # <YL1| Lz |YL2>
         # with help of YL_to_Ylm
@@ -1151,8 +1156,8 @@ class Setup(BaseSetup):
             return -.5j * ( YL1_Lp_YL2(L1,L2) - YL1_Lm_YL2(L1,L2) )
 
 
-        # r x p for [i-index 1, i-index 2, (x,y,z)]
-        rxp_iiv = np.zeros((self.ni, self.ni, 3))
+        # r x nabla for [i-index 1, i-index 2, (x,y,z)]
+        rxnabla_iiv = np.zeros((self.ni, self.ni, 3))
 
         # loops over all j1=(l1,m1) values
         i1 = 0
@@ -1167,21 +1172,24 @@ class Setup(BaseSetup):
                     # 4 pi here?????
                     radial_part = rgd.integrate(phi_jg[j1] * phi_jg[j2] -
                                                 phit_jg[j1] * phit_jg[j2]) / (4*pi)
+
+                    # <l1m1|r x nabla|l2m2> = i/hbar <l1m1|rxp|l2m2>
                     for m2 in range(2 * l2 + 1):
                         L2 = l2**2 + m2
                         # Lx
                         Lx = (1j * YL1_Lx_YL2(L1,L2))
                         #print '%8.3lf %8.3lf | ' % (Lx.real, Lx.imag),
-                        rxp_iiv[i1,i2,0] = Lx.real * radial_part
+                        rxnabla_iiv[i1,i2,0] = Lx.real * radial_part
 
                         # Ly
                         Ly = (1j * YL1_Ly_YL2(L1,L2))
                         #print '%8.3lf %8.3lf | ' % (Ly.real, Ly.imag),
-                        rxp_iiv[i1,i2,1] = Ly.real * radial_part
+                        rxnabla_iiv[i1,i2,1] = Ly.real * radial_part
+
                         # Lz
                         Lz = (1j * YL1_Lz_YL2(L1,L2))
                         #print '%8.3lf %8.3lf | ' % (Lz.real, Lz.imag),
-                        rxp_iiv[i1,i2,2] = Lz.real * radial_part
+                        rxnabla_iiv[i1,i2,2] = Lz.real * radial_part
 
                         #print
 
@@ -1191,7 +1199,8 @@ class Setup(BaseSetup):
                 # increase index 1
                 i1 += 1
 
-        return rxp_iiv
+        return rxnabla_iiv
+
 
     def construct_core_densities(self, setupdata):
         rcore = self.data.find_core_density_cutoff(setupdata.nc_g)
@@ -1290,7 +1299,39 @@ class Setups(list):
         symbols = [chemical_symbols[Z] for Z in Z_a]
         type_a = types2atomtypes(symbols, setup_types, default='paw')
         basis_a = types2atomtypes(symbols, basis_sets, default=None)
-        
+
+        for a, _type in enumerate(type_a):
+            # Make basis files correspond to setup files.
+            #
+            # If the setup has a name (i.e. non-default _type), and the
+            # basis set does not, then inherit the name from the setup
+            # by prepending it.
+            #
+            # Typically people might specify '11' as the setup but just
+            # 'dzp' for the basis set.  Here we adjust to
+            # obtain, say, '11.dzp' which loads the correct basis set.
+            #
+            # There will be no way to obtain the original 'dzp' with
+            # a custom-named setup except by loading directly from
+            # BasisData.
+            #
+            # Due to the "szp(dzp)" syntax this is complicated!
+            # The name has to go as "szp(name.dzp)".
+            basis = basis_a[a]
+            if (isinstance(basis, basestring) and isinstance(_type, basestring)
+                and _type != 'paw' and '.' not in basis):
+                # Drop DFT+U specification from type string if it is there:
+                _type = _type.split(':')[0]
+                if _type:
+                    if '(' in basis:
+                        reduced, name = basis.split('(')
+                        assert name.endswith(')')
+                        name = name[:-1]
+                        fullname = '%s(%s.%s)' % (reduced, _type, name)
+                    else:
+                        fullname = '%s.%s' % (_type, basis_a[a])
+                    basis_a[a] = fullname
+
         # Construct necessary PAW-setup objects:
         self.setups = {}
         natoms = {}
@@ -1342,6 +1383,11 @@ class Setups(list):
         
         for setup in self.setups.values():
             setup.calculate_rotations(R_slmm)
+
+    def empty_asp(self, ns, atom_partition):
+        Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
+                     for setup in self]
+        return atom_partition.arraydict(Dshapes_a)
 
 
 def types2atomtypes(symbols, types, default):

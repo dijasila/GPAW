@@ -134,6 +134,7 @@ tests = [
     'atoms_too_close.py',
     'harmonic.py',
     'proton.py',
+    'atoms_mismatch.py',
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'ut_csh.py',                            # ~1s
@@ -149,6 +150,7 @@ tests = [
     'ase3k.py',                             # ~1s
     'numpy_zdotc_graphite.py',              # ~1s
     'eed.py',                               # ~1s
+    'lcao_dos.py',                          # ~1s
     'gemv.py',                              # ~2s
     'fileio/idiotproof_setup.py',           # ~2s
     'ylexpand.py',                          # ~2s
@@ -175,6 +177,7 @@ tests = [
     'broydenmixer.py',                      # ~3s
     'pw/fulldiagk.py',                      # ~3s
     'external_potential.py',                # ~3s
+    'lcao_atomic_corrections.py',           # ~3s
     'mixer.py',                             # ~3s
     'parallel/lcao_projections.py',         # ~3s
     'lcao_h2o.py',                          # ~3s
@@ -301,6 +304,7 @@ tests = [
     'diamond_gllb.py',                      # ~33s
     'MgO_exx_fd_vs_pw.py',                  # ~37s
     'vdw/quick_spin.py',                    # ~37s
+    'expert_diag.py',                       # ~37s
     'bse_sym.py',                           # ~40s
     'parallel/ut_hsops.py',                 # ~41s
     'LDA_unstable.py',                      # ~42s
@@ -326,6 +330,7 @@ tests = [
     'lcao_tdgllbsc.py',                     # ~132s
     'bse_silicon.py',                       # ~143s
     'gwsi.py',                              # ~147s
+    'response_symmetry.py',                 # ~300s
     'pw/moleculecg.py',                     # duration unknown
     'potential.py',                         # duration unknown
     'pes.py',                               # duration unknown
@@ -363,7 +368,7 @@ tests = [
 exclude = []
 
 # not available on Windows
-if os.name in ['ce', 'nt']:
+if os.name in ['ce', 'nt'] or sys.platform in ['darwin']:
     exclude += ['maxrss.py']
 
 if mpi.size > 1:
@@ -430,6 +435,9 @@ if mpi.size != 1 and not compiled_with_sl():
                 'pw/fulldiag.py',
                 'pw/fulldiagk.py',
                 'au02_absorption.py']
+
+if not compiled_with_sl():
+    exclude.append('lcao_atomic_corrections.py')
 
 if sys.version_info < (2, 6):
     exclude.append('transport.py')

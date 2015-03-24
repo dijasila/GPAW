@@ -302,14 +302,14 @@ class PAWTextOutput:
                 t('Center of Charge: %s' % (dipole / abs(self.density.charge)))
 
         try:
-            c = self.hamiltonian.poisson.corrector.c
+            correction = self.hamiltonian.poisson.corrector.correction
             epsF = self.occupations.fermilevel
         except AttributeError:
             pass
         else:
-            wf_a = -epsF * Hartree - dipole[c]
-            wf_b = -epsF * Hartree + dipole[c]
-            t('Dipole-corrected work function: %f, %f' % (wf_a, wf_b))
+            wf1 = (-epsF + correction) * Hartree
+            wf2 = (-epsF - correction) * Hartree
+            t('Dipole-corrected work function: %f, %f' % (wf1, wf2))
 
         if self.wfs.nspins == 2:
             t()

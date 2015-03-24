@@ -10,7 +10,6 @@ if size > 1:
     H.positions[0, 0] += 0.01 * rank
     try:
         e0 = H.get_potential_energy()
-    except RuntimeError:
-        pass
-    else:
-        assert False
+    except ValueError, e:
+        err_ranks = e[1]
+        assert (err_ranks == range(1, size)).all()

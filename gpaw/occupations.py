@@ -53,6 +53,10 @@ class OccupationNumbers:
             if kpt.eps_n is None:
                 return
 
+            # Sanity check.  This class will typically be the first to
+            # suffer if any NaNs sneak in.
+            assert not np.isnan(kpt.eps_n).any()
+
         # Let the master domain do the work and broadcast results:
         data = np.empty(7)
         if wfs.gd.comm.rank == 0:

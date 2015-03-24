@@ -8,7 +8,7 @@ Installation guide
 Requirements
 ============
 
-1) Python 2.6 - 2.7.  Python is available from http://www.python.org.
+1) Python2 version 2.6 or newer. Python3 is not supported yet.  Python is available from http://www.python.org.
 
 2) NumPy_ 1.6.1 or later.  Earlier versions may work for basic operations.
 
@@ -55,10 +55,12 @@ are described, in order of preference.
    **CAMd users** installing on ``Niflheim``: please follow instructions
    for :ref:`Niflheim`.
 
-.. _installationguide_macosx:
-
 Libxc Installation
 ------------------
+
+Preferably install Libxc using your Linux distribution package manager,
+in which case no changes to GPAW customize.py are needed and you can
+proceed to :ref:`installationguide_developer`.
 
 Libxc download/install instructions can be found `here <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`_.  A few extra tips:
 
@@ -74,15 +76,15 @@ Libxc download/install instructions can be found `here <http://www.tddft.org/pro
 - Typically when building GPAW one has to modify customize.py in a manner
   similar to the following::
 
-    library_dirs += ['/my/path/to/libxc/2.0.1/install/lib']
-    include_dirs += ['/my/path/to/libxc/2.0.1/install/include']
+    library_dirs += ['/my/path/to/libxc/2.0.2/install/lib']
+    include_dirs += ['/my/path/to/libxc/2.0.2/install/include']
 
   or if you don't want to modify your customize.py, you can add these lines to
   your .bashrc::
   
-    export C_INCLUDE_PATH=/my/path/to/libxc/2.0.1/install/include
-    export LIBRARY_PATH=/my/path/to/libxc/2.0.1/install/lib
-    export LD_LIBRARY_PATH=/my/path/to/libxc/2.0.1/install/lib
+    export C_INCLUDE_PATH=/my/path/to/libxc/2.0.2/install/include
+    export LIBRARY_PATH=/my/path/to/libxc/2.0.2/install/lib
+    export LD_LIBRARY_PATH=/my/path/to/libxc/2.0.2/install/lib
 
 Example::
     
@@ -97,7 +99,8 @@ Example::
     export C_INCLUDE_PATH=~/xc/include
     export LIBRARY_PATH=~/xc/lib
     export LD_LIBRARY_PATH=~/xc/lib
-    
+
+.. _installationguide_macosx:
 
 Installation on OS X
 --------------------
@@ -185,39 +188,7 @@ It offers the following advantages:
 
 3) :ref:`running_tests`.
 
-
 .. _installationguide_standard:
-
-Important environment variables
--------------------------------
-The following is required for a functioning GPAW installation.
-
-.. envvar:: PATH
-
-  The ``$PATH`` environment variable should contain the paths to the
-  ``gpaw-python`` executable and the tools of gpaw located in
-  ``$GPAW_HOME/build/bin``  and ``$GPAW_HOME/tools/``, respectively.
-
-.. envvar:: PYTHONPATH
-
-  The ``PYTHONPATH`` should contain the path to ``$GPAW_HOME``.
-
-.. envvar:: GPAW_HOME
-
-  Points to the root directory of your gpaw installation.
-
-.. envvar:: GPAW_SETUP_PATH
-
-  Points to the directory containing your PAW setups.
-
-.. envvar:: HOME
-
-  The path to your home directory.
-
-.. envvar:: OMP_NUM_THREADS
-  
-  If GPAW is compiled with OpenMP this variable defines the
-  number of threads used.
 
 Standard installation
 ---------------------

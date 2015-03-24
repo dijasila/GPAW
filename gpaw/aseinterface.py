@@ -350,7 +350,8 @@ class GPAW(PAW):
         return fold(energies * Hartree, weights, npts, width)
 
     def get_orbital_ldos(self, a,
-                         spin=0, angular='spdf', npts=201, width=None):
+                         spin=0, angular='spdf', npts=201, width=None,
+                         nbands=None):
         """The Local Density of States, using atomic orbital basis functions.
 
         Project wave functions onto an atom orbital at atom ``a``, and
@@ -361,6 +362,10 @@ class GPAW(PAW):
 
         An integer value for ``angular`` can also be used to specify a specific
         projector function to project onto.
+
+        Setting nbands limits the number of bands included. This speeds up the
+        calculation if one has many bands in the calculator but is only
+        interested in the DOS at low energies.
         """
         if width is None:
             width = self.get_electronic_temperature()
@@ -368,7 +373,7 @@ class GPAW(PAW):
             width = 0.1
 
         from gpaw.utilities.dos import raw_orbital_LDOS, fold
-        energies, weights = raw_orbital_LDOS(self, a, spin, angular)
+        energies, weights = raw_orbital_LDOS(self, a, spin, angular, nbands)
         return fold(energies * Hartree, weights, npts, width)
 
     def get_all_electron_ldos(self, mol, spin=0, npts=201, width=None,

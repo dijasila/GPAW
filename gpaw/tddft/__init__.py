@@ -609,17 +609,23 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         dm_file = file(dipole_moment_file, 'r')
         lines = dm_file.readlines()
         dm_file.close()
+
+        for line in lines[:2]:
+            assert line.startswith('#')
+
         # Read kick strength
         columns = lines[0].split('[')
         columns = columns[1].split(']')
         columns = columns[0].split(',')
-        kick_strength = np.array([eval(columns[0]),eval(columns[1]),eval(columns[2])], dtype=float)
+        kick_strength = np.array([float(columns[0]),
+                                  float(columns[1]),
+                                  float(columns[2])],
+                                 dtype=float)
         strength = np.array(kick_strength, dtype=float)
-        # Remove first two lines
-        lines.pop(0)
-        lines.pop(0)
+        
         print('Using kick strength = ', strength)
         # Continue with dipole moment data
+        lines = lines[2:]
         n = len(lines)
         dm = np.zeros((n,3),dtype=float)
         time = np.zeros((n,),dtype=float)

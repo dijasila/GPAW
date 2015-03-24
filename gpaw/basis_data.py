@@ -186,6 +186,7 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
 
         basis = self.basis
         if '(' in basis.name:
+            assert basis.name.endswith(')')
             reduced, name = basis.name.split('(')
             name = name[:-1]
         else:

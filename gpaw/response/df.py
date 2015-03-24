@@ -174,7 +174,6 @@ class DielectricFunction:
             else:
                 chi0_wGG = np.empty((self.w2 - self.w1, nG, nG), complex)
                 world.receive(chi0_wGG, 0)
-                
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
         
     def collect(self, a_w):
@@ -195,7 +194,7 @@ class DielectricFunction:
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         G_G = pd.G2_qG[0]**0.5
         nG = len(G_G)
-        
+
         if pd.kd.gamma:
             G_G[0] = 1.0
             if isinstance(direction, str):
@@ -246,7 +245,8 @@ class DielectricFunction:
   
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
-                              calculate_chi=False):
+                              calculate_chi=False, q0=None,
+                              add_intraband=True):
         """Returns the symmetrized dielectric matrix.
         
         ::
@@ -283,9 +283,16 @@ class DielectricFunction:
 
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             W = slice(self.w1, self.w2)
-            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+            if add_intraband:
+                chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
+                chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
+                chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+            if q0 is not None:
+                print('Restoring q dependence of head and wings of chi0')
+                chi0_wGG[:, 1:, 0] *= q0
+                chi0_wGG[:, 0, 1:] *= q0
+                chi0_wGG[:, 0, 0] *= q0**2
+                G_G[0] = q0
                     
         if self.truncation == 'wigner-seitz':
             kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv,
@@ -294,8 +301,8 @@ class DielectricFunction:
             if pd.kd.gamma:
                 K_G[0] = 0.0
         elif self.truncation == '2D':
-            K_G = truncated_coulomb(pd)
-            if pd.kd.gamma:
+            K_G = truncated_coulomb(pd, q0=q0)
+            if pd.kd.gamma and q0 is None:
                 K_G[0] = 0.0
         else:
             K_G = (4 * pi)**0.5 / G_G
@@ -336,7 +343,8 @@ class DielectricFunction:
         if not calculate_chi:
             return chi0_wGG
         else:
-            return pd, chi0_wGG, chi_wGG
+            # chi_wGG is the full density response function..
+            return pd, chi0_wGG, np.array(chi_wGG)
 
     def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0],
                                 direction='x', filename='df.csv'):
@@ -519,7 +527,8 @@ class DielectricFunction:
         print('N1 = %f, %f  %% error' % (N1, (N1 - nv) / nv * 100), file=fd)
 
     def get_eigenmodes(self, q_c=[0, 0, 0], w_max=None, name=None,
-                       eigenvalue_only=False, direction='x'):
+                       eigenvalue_only=False, direction='x',
+                       checkphase=True):
         
         """Plasmon eigenmodes as eigenvectors of the dielectric matrix."""
 
@@ -577,6 +586,7 @@ class DielectricFunction:
                                 np.argwhere(np.array(index) == j)[l])
                 for j in range(len(addlist)):
                     index[removelist[j]] = addlist[j]
+
             vec = vec_p[:, index]
             vec_dual = vec_dual_p[index, :]
             eig[i] = eig_all[i, index]
@@ -596,15 +606,22 @@ class DielectricFunction:
                 qG = pd.get_reciprocal_vectors(add_q=True)
                 coef_G = np.diagonal(np.inner(qG, qG)) / (4 * pi)
                 qGr_R = np.inner(qG, r.T).T
-                phase = np.exp(1j * qGr_R)
-                v_ind = np.append(v_ind,
-                                  np.dot(phase, vec[:, k])[np.newaxis, :],
-                                  axis=0)
-                n_ind = np.append(n_ind,
-                                  np.dot(phase, vec[:, k] *
-                                         coef_G)[np.newaxis, :],
-                                  axis=0)
+                factor = np.exp(1j * qGr_R)
+                v_temp = np.dot(factor, vec[:, k])
+                n_temp = np.dot(factor, vec[:, k] * coef_G)
+                if checkphase:  # rotate eigenvectors in complex plane
+                    integral = np.zeros([81])
+                    phases = np.linspace(0, 2, 81)
+                    for ip in range(81):
+                        v_int = v_temp * np.exp(1j * pi * phases[ip])
+                        integral[ip] = abs(np.imag(v_int)).sum()
+                    phase = phases[np.argsort(integral)][0]
+                    v_temp *= np.exp(1j * pi * phase)
+                    n_temp *= np.exp(1j * pi * phase)
+                v_ind = np.append(v_ind, v_temp[np.newaxis, :], axis=0)
+                n_ind = np.append(n_ind, n_temp[np.newaxis, :], axis=0)
         
+        kd = self.chi0.calc.wfs.kd
         if name is None and self.name:
             name = (self.name + '%+d%+d%+d-eigenmodes.pckl' %
                     tuple((q_c * kd.N_c).round()))
@@ -613,7 +630,7 @@ class DielectricFunction:
                     tuple((q_c * kd.N_c).round()))
         else:
             name = '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * kd.N_c).round())
-        
+
         # Returns: real space grid, frequency grid, all eigenvalues,
         # sorted eigenvalues, zero-crossing frequencies + eigenvalues,
         # induced potential + density in real space.
@@ -623,8 +640,7 @@ class DielectricFunction:
             return r * Bohr, w_w, eig_all
         else:
             pickle.dump((r * Bohr, w_w, eig_all, eig, omega0, eigen0,
-                         v_ind, n_ind),
-                        open(name, 'wb'),
+                         v_ind, n_ind), open(name, 'wb'),
                         pickle.HIGHEST_PROTOCOL)
             return r * Bohr, w_w, eig_all, eig, omega0, eigen0, v_ind, n_ind
     
