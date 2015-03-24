@@ -6,6 +6,7 @@
 #     libraries = ['somelib','otherlib']
 #To append use the form
 #     libraries += ['somelib','otherlib']
+
 #compiler = 'mpcc'
 #libraries = []
 #libraries += []
@@ -57,11 +58,10 @@
 # True - ScaLapack compiled in
 # Warning! At least scalapack 2.0.1 is required!
 # See https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
-scalapack = True
+scalapack = False
 
 if scalapack:
-    libraries += ['/home/niflheim/mogje/scalapack/scalapack-2.0.2']
-#    libraries += ['scalapack']
+    libraries += ['scalapack']
     library_dirs += []
     define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
     define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
