@@ -68,10 +68,16 @@ class ArrayDict(dict):
 
     def flatten_to_array(self, axis=None):
         # We could also implement it as a contiguous buffer.
+        if len(self) == 0:
+            # XXXXXX how should we deal with globally or locally empty arrays?
+            # This will probably lead to bugs unless we get all the
+            # dimensions right.
+            return np.empty(0, self.dtype)
         if axis is None:
             return np.concatenate([self[a].ravel()
                                    for a in self.partition.my_indices])
         else:
+            # XXX self[a].shape must all be consistent except along axis
             return np.concatenate([self[a] for a in self.partition.my_indices],
                                   axis=axis)
 
