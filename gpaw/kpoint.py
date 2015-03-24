@@ -5,10 +5,6 @@
 
 import numpy as np
 
-from gpaw.fd_operators import Gradient
-from gpaw.utilities.blas import axpy
-from gpaw import extra_parameters
-
 
 class KPoint:
     """Class for a single k-point.
