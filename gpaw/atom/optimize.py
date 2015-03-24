@@ -24,14 +24,13 @@ class GA:
         self.errors = {}
         
         if os.path.isfile(filename):
-            M = len(initialvalue)  # number of parameters
             for line in open(filename):
                 words = line.split(',')
                 n = int(words.pop(0))
                 error = float(words.pop(0))
-                x = tuple(int(word) for word in words[:M])
+                x = tuple(int(word) for word in words[:-11])
                 self.individuals[x] = (error, n)
-                y = tuple(float(word) for word in words[M:])
+                y = tuple(float(word) for word in words[-11:])
                 self.errors[n] = y
                 
         self.fd = open(filename, 'a')
@@ -119,7 +118,12 @@ class DatasetOptimizer:
                  radii=[0.9, 0.9], r0=0.8):
     
         self.symbol = symbol
-        
+
+        with open('parameters.txt', 'w') as fd:
+            print(projectors, ' '.join('{0:.2f}'.format(r)
+                                       for r in radii + [r0]),
+                  file=fd)
+            
         # Parse projectors string:
         pattern = r'(-?\d+\.\d)'
         energies = []
@@ -160,6 +164,14 @@ class DatasetOptimizer:
                 ' '.join('{0:5.2f}'.format(p) for p in params),
                 ' '.join('{0:5.1f}'.format(e) for e in ga.errors[id])))
             
+    def best(self, tag):
+        ga = GA(self.symbol + '.csv', self, self.x)
+        best = sorted((error, id, x)
+                      for x, (error, id) in ga.individuals.items())[0]
+        energies, radii, r0, projectors = self.parameters(best[2])
+        print(self.symbol, best, energies, radii, r0, projectors)
+        #self.generate(None, 'PBE', projectors, radii, r0, True, tag)
+        
     def generate(self, fd, xc, projectors, radii, r0,
                  scalar_relativistic=False, tag=None):
         if projectors[-1].isupper():
@@ -184,6 +196,13 @@ class DatasetOptimizer:
             error += ((ld1 - ld2)**2).sum() * de
         return error
             
+    def parameters(self, x):
+        energies = tuple(0.1 * i for i in x[:self.nenergies])
+        radii = [0.05 * i for i in x[self.nenergies:-1]]
+        r0 = 0.05 * x[-1]
+        projectors = self.projectors % energies
+        return energies, radii, r0, projectors
+        
     def __call__(self, n, x):
         fd = open('{0}.{1}.txt'.format(self.symbol, os.getpid()), 'a')
         
@@ -341,7 +360,26 @@ class DatasetOptimizer:
 
         
 if __name__ == '__main__':
-    # do = DatasetOptimizer()
-    do = DatasetOptimizer('Cu', projectors='3s,4s,3p,4p,3d,1.0d,F',
-                          radii=[1.9, 1.9, 1.9], r0=1.8)
-    do.run()
+    import optparse
+    parser = optparse.OptionParser(usage='python -m gpaw.atom.optimize '
+                                   '[options] element',
+                                   description='Optimize dataset')
+    parser.add_option('-s', '--summary', action='store_true')
+    parser.add_option('-b', '--best')
+    opts, args = parser.parse_args()
+    if opts.summary:
+        do = DatasetOptimizer(args[0])
+        do.summary()
+    elif opts.best:
+        for symbol in args:
+            try:
+                os.chdir(symbol)
+                with open('parameters.txt') as fd:
+                    words = fd.readline().split()
+                    projectors = words.pop(0)
+                    radii = [float(f) for f in words]
+                    r0 = radii.pop()
+                do = DatasetOptimizer(symbol, projectors, radii, r0)
+                do.best(opts.best)
+            finally:
+                os.chdir('..')
