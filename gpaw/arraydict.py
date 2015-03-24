@@ -1,9 +1,12 @@
 import numpy as np
 
 class ArrayDict(dict):
+    """Distributed dictionary of fixed-size arrays."""
     def __init__(self, partition, shapes_a, dtype=float, d=None):
         dict.__init__(self)
         self.partition = partition
+        if callable(shapes_a):
+            shapes_a = [shapes_a(a) for a in range(self.partition.natoms)]
         self.shapes_a = shapes_a # global
         self.dtype = dtype
         if d is None:
@@ -17,7 +20,7 @@ class ArrayDict(dict):
         return ArrayDict(self.partition, self.shapes_a, self.dtype, self)
 
     def deepcopy(self):
-        copy = Arraydict(self.partition, self.shapes_a, self.dtype)
+        copy = ArrayDict(self.partition, self.shapes_a, self.dtype)
         for a in self:
             copy[a] = self[a].copy()
         return copy
@@ -39,6 +42,7 @@ class ArrayDict(dict):
         dict.__setitem__(self, a, value)
 
     def redistribute(self, partition):
+        """Redistribute according to specified partition."""
         def get_empty(a):
             return np.empty(self.shapes_a[a])
 
@@ -55,6 +59,20 @@ class ArrayDict(dict):
             assert array.shape == self.shapes_a[a], \
                 'array shape %s vs specified shape %s' % (array.shape,
                                                           self.shapes_a[a])
+
+    def flatten(self):
+        return np.concatenate([self[a].ravel() for a in self.my_indices])
+
+    def unflatten(self, data):
+        M1 = 0
+        for a in self.my_indices:
+            M2 = M1 + np.prod(self.shapes_a[a])
+            dst = self[a].ravel()
+            dst[:] = data[M1:M2]
+
+    #def broadcast(self):
+    #    buf = self.flatten()
+    #    ...........................
 
     #def to_parent_comm(self):
     #    new_partition = self.partition.to_parent_comm()

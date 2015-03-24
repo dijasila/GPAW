@@ -4,6 +4,7 @@ from gpaw.utilities.blas import gemm
 from gpaw.utilities import unpack
 from gpaw.utilities.partition import EvenPartitioning
 
+
 def get_atomic_correction(name):
     cls = dict(dense=DenseAtomicCorrection,
                distributed=DistributedAtomicCorrection,
@@ -19,21 +20,25 @@ class BaseAtomicCorrection:
         self.nops = 0
 
     def redistribute(self, wfs, dX_asp, type='asp', op='forth'):
+        assert hasattr(dX_asp, 'redistribute'), type(dX_asp)
         assert op in ['back', 'forth']
         return dX_asp
 
     def calculate_hamiltonian(self, wfs, kpt, dH_asp, H_MM, yy):
         avalues = self.get_a_values()
 
-        dH_aii = [yy * np.array(unpack(dH_asp[a][kpt.s]), wfs.dtype)
-                  for a in avalues]
-        dH_aii = dict(zip(avalues, dH_aii)) # XXX this is a bit ugly
+        dH_aii = dH_asp.partition.arraydict([setup.dO_ii.shape
+                                             for setup in wfs.setups],
+                                            dtype=wfs.dtype)
+        
+        for a in avalues:
+            dH_aii[a][:] = yy * unpack(dH_asp[a][kpt.s])
         self.calculate(wfs, kpt.q, dH_aii, H_MM)
 
     def add_overlap_correction(self, wfs, S_qMM):
         avalues = self.get_a_values()
         dS_aii = [wfs.setups[a].dO_ii for a in avalues]
-        dS_aii = dict(zip(avalues, dS_aii))
+        dS_aii = dict(zip(avalues, dS_aii)) # XXX get rid of dict
 
         for a in dS_aii:
             dS_aii[a] = np.asarray(dS_aii[a], wfs.dtype)
@@ -105,15 +110,7 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         return self.even_partition.my_indices
 
     def redistribute(self, wfs, dX_asp, type='asp', op='forth'):
-        if type == 'asp': # dX_asp is dH_asp
-            def get_empty(a):
-                ni = wfs.setups[a].ni
-                return np.empty((wfs.ns, ni * (ni + 1) // 2))
-        elif type == 'aii': # dX_asp is in fact dS_aii
-            def get_empty(a):
-                ni = wfs.setups[a].ni
-                return np.empty((ni, ni))
-        else:
+        if not type in ['asp', 'aii']:
             raise ValueError('Unknown matrix type "%s"' % type)
 
         # just distributed over gd comm.  It's not the most aggressive
@@ -124,15 +121,14 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         # non-blocking version as we only need this stuff after
         # doing tons of real-space work.
 
+        dX_asp = dX_asp.deepcopy()
         if op == 'forth':
-            return self.orig_partition.to_even_distribution(dX_asp,
-                                                            get_empty,
-                                                            copy=True)
+            even = self.orig_partition.as_even_partition()
+            dX_asp.redistribute(even)
         else:
             assert op == 'back'
-            return self.orig_partition.from_even_distribution(dX_asp,
-                                                              get_empty,
-                                                              copy=True)
+            dX_asp.redistribute(self.orig_partition)
+        return dX_asp
 
     def calculate(self, wfs, q, dX_aii, X_MM):
         # XXX reduce according to kpt.q
@@ -300,8 +296,6 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
 
     def calculate_projections(self, wfs, kpt):
         if self.implements_distributed_projections():
-            Mstart = wfs.ksl.Mstart
-            Mstop = wfs.ksl.Mstop
             P_In = self.Psparse_qIM[kpt.q].dot(kpt.C_nM.T)
             for a in self.even_partition.my_indices:
                 I1 = self.I_a[a]

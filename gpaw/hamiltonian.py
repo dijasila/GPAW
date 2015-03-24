@@ -132,11 +132,7 @@ class Hamiltonian(object):
             
         if self.rank_a is not None and self.dH_asp is not None:
             self.timer.start('Redistribute')
-            def get_empty(a):
-                ni = self.setups[a].ni
-                return np.empty((self.ns, ni * (ni + 1) // 2))
-            self.atom_partition.redistribute(atom_partition, self.dH_asp,
-                                             get_empty)
+            self.dH_asp.redistribute(atom_partition)
             self.timer.stop('Redistribute')
 
         self.rank_a = rank_a

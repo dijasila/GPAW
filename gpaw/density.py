@@ -102,13 +102,7 @@ class Density(object):
         if (self.rank_a is not None and self.D_asp is not None
             and not isinstance(self.gd.comm, SerialCommunicator)):
             self.timer.start('Redistribute')
-            #def get_empty(a):
-            #    ni = self.setups[a].ni
-            #    return np.empty((self.ns, ni * (ni + 1) // 2))
-            #self.atom_partition.redistribute(atom_partition, self.D_asp,
-            #                                 get_empty)
             self.D_asp.redistribute(atom_partition)
-            self.D_asp.check_consistency()
             self.timer.stop('Redistribute')
         
         self.rank_a = rank_a
