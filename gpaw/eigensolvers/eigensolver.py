@@ -5,6 +5,8 @@ import numpy as np
 from gpaw.utilities.blas import axpy
 from gpaw.utilities import unpack
 from gpaw.hs_operators import reshape
+from gpaw import use_mic
+from gpaw.mic import stream
 
 
 class Eigensolver:
@@ -33,6 +35,9 @@ class Eigensolver:
 
         if self.keep_htpsit:
             self.Htpsit_nG = wfs.empty(self.nbands)
+            if use_mic:
+                self.Htpsit_nG_mic = stream.bind(self.Htpsit_nG)
+                stream.sync()
 
         # Preconditioner for the electronic gradients:
         self.preconditioner = wfs.make_preconditioner(self.blocksize)
@@ -41,6 +46,9 @@ class Eigensolver:
             if kpt.eps_n is None:
                 kpt.eps_n = np.empty(self.mynbands)
         
+        # Allocate arrays for matrix operator
+        self.operator.allocate_arrays()
+
         self.initialized = True
 
     def reset(self):
@@ -121,11 +129,19 @@ class Eigensolver:
 
         self.timer.start('Subspace diag')
 
-        psit_nG = kpt.psit_nG
+        if use_mic:
+            psit_nG = kpt.psit_nG_mic
+            # psit_nG.update_device()
+            # stream.sync()
+        else:
+            psit_nG = kpt.psit_nG
         P_ani = kpt.P_ani
 
         if self.keep_htpsit:
-            Htpsit_nG = reshape(self.Htpsit_nG, psit_nG.shape)
+            if use_mic:
+                Htpsit_nG = self.Htpsit_nG_mic
+            else:
+                Htpsit_nG = reshape(self.Htpsit_nG, psit_nG.shape)
         else:
             Htpsit_nG = None
 
@@ -133,9 +149,19 @@ class Eigensolver:
             if self.keep_htpsit:
                 result_xG = Htpsit_nG
             else:
-                result_xG = reshape(self.operator.work1_xG, psit_xG.shape)
-            wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
-                                         result_xG)
+                if use_mic:
+                    result_xG = self.operator.work1_xG_mic
+                else:
+                    result_xG = reshape(self.operator.work1_xG, psit_xG.shape)
+            if use_mic:
+                psit_xG.update_device()
+                wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG.array,
+                                             result_xG.array)
+                result_xG.update_device() 
+                stream.sync()
+            else:
+                wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
+                                             result_xG)
             hamiltonian.xc.apply_orbital_dependent_hamiltonian(
                 kpt, psit_xG, result_xG, hamiltonian.dH_asp)
             return result_xG
@@ -158,8 +184,13 @@ class Eigensolver:
         self.timer.start('rotate_psi')
         psit_nG = self.operator.matrix_multiply(H_nn, psit_nG, P_ani)
         if self.keep_htpsit:
-            Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG,
-                                                      out_nG=kpt.psit_nG)
+            if use_mic:
+                Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG,
+                                                          out_nG=kpt.psit_nG_mic)
+                 
+            else:
+                Htpsit_nG = self.operator.matrix_multiply(H_nn, Htpsit_nG,
+                                                          out_nG=kpt.psit_nG)
 
         # Rotate orbital dependent XC stuff:
         hamiltonian.xc.rotate(kpt, H_nn)
@@ -167,7 +198,17 @@ class Eigensolver:
         self.timer.stop('rotate_psi')
         self.timer.stop('Subspace diag')
 
-        return psit_nG, Htpsit_nG
+        if use_mic:
+            psit_nG.update_host()
+            stream.sync()
+            if self.keep_htpsit:
+                Htpsit_nG.update_host()
+                stream.sync()
+                return psit_nG.array, Htpsit_nG.array
+            else:
+                return psit_nG.array, Htpsit_nG
+        else:
+            return psit_nG, Htpsit_nG
 
     def estimate_memory(self, mem, wfs):
         gridmem = wfs.bytes_per_wave_function()

@@ -14,6 +14,8 @@ import numpy as np
 from gpaw.utilities.tools import lowdin, tri2full
 from gpaw import extra_parameters
 from gpaw.utilities.lapack import diagonalize
+from gpaw import use_mic
+from gpaw.mic import stream
 
 class Overlap:
     """Overlap operator S
@@ -58,6 +60,13 @@ class Overlap:
         self.timer.start('Orthonormalize')
         if psit_nG is None:
             psit_nG = kpt.psit_nG
+            if use_mic:
+                psit_nG_mic = kpt.psit_nG_mic
+        else:
+            if use_mic:
+                psit_nG_mic = stream.bind(psit_nG, update_device=False)
+                stream.sync()
+
         P_ani = kpt.P_ani
         self.timer.start('projections')
         wfs.pt.integrate(psit_nG, P_ani, kpt.q)
@@ -72,9 +81,17 @@ class Overlap:
         def dS(a, P_ni):
             return np.dot(P_ni, wfs.setups[a].dO_ii)
 
-        self.timer.start('calc_s_matrix')
-        S_nn = operator.calculate_matrix_elements(psit_nG, P_ani, S, dS)
-        self.timer.stop('calc_s_matrix')
+        if use_mic:
+            self.timer.start('calc_s_matrix')
+            psit_nG_mic.update_device()
+            stream.sync()
+            S_nn = operator.calculate_matrix_elements(psit_nG_mic, P_ani, S, dS, timer=self.timer)
+            self.timer.stop('calc_s_matrix')
+        else:
+            self.timer.start('calc_s_matrix')
+            S_nn = operator.calculate_matrix_elements(psit_nG, P_ani, S, dS, timer=self.timer)
+            self.timer.stop('calc_s_matrix')
+
 
         orthonormalization_string = repr(self.ksl)
         self.timer.start(orthonormalization_string)
@@ -97,7 +114,13 @@ class Overlap:
         self.timer.stop(orthonormalization_string)
 
         self.timer.start('rotate_psi')
-        operator.matrix_multiply(C_nn, psit_nG, P_ani, out_nG=kpt.psit_nG)
+        if use_mic:
+            operator.matrix_multiply(C_nn, psit_nG_mic, P_ani, out_nG=kpt.psit_nG_mic)
+            kpt.psit_nG_mic.update_host()
+            stream.sync()
+            # kpt.psit_nG[:] = self.psit_nG_mic.array[:]
+        else:
+            operator.matrix_multiply(C_nn, psit_nG, P_ani, out_nG=kpt.psit_nG)
         self.timer.stop('rotate_psi')
         self.timer.stop('Orthonormalize')
 

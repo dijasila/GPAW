@@ -11,6 +11,8 @@ from gpaw.fd_operators import Laplace, Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw import use_mic
+from gpaw.mic import stream
 
 
 class FD:
@@ -251,6 +253,9 @@ class FDWaveFunctions(FDPWWaveFunctions):
             basis_functions.lcao_to_grid(kpt.C_nM,
                                          kpt.psit_nG[:mynbands], kpt.q)
             kpt.C_nM = None
+            if use_mic:
+                kpt.psit_nG_mic = stream.bind(kpt.psit_nG)
+                stream.sync()
 
     def random_wave_functions(self, nao):
         """Generate random wave functions."""

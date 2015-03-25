@@ -60,6 +60,10 @@ sl_lrtddft = None
 buffer_size = None
 extra_parameters = {'fprojectors': True}
 profile = False
+use_mic = False
+
+use_mic = int(os.getenv('GPAW_OFFLOAD', 0)) == 1
+
 i = 1
 while len(sys.argv) > i:
     arg = sys.argv[i]
@@ -72,6 +76,8 @@ while len(sys.argv) > i:
         trace = True
     elif arg == '--debug':
         debug = True
+    # elif arg == '--mic':
+        # use_mic = True
     elif arg.startswith('--dry-run'):
         dry_run = 1
         if len(arg.split('=')) == 2:

@@ -7,6 +7,12 @@ import numpy as np
 
 from gpaw.utilities.blas import gemm
 
+from gpaw import use_mic
+from gpaw.mic.micblas import gemm as mic_gemm
+import pymic as mic
+from gpaw.mic import stream
+from _gpaw import offload_report
+
 
 def reshape(a_x, shape):
     """Get an ndarray of size shape from a_x buffer."""
@@ -93,6 +99,10 @@ class MatrixOperator:
         self.work1_xG = None
         self.work2_xG = None
 
+        self.mic1 = None
+        self.mic2 = None
+        self.mic3 = None
+
         mynbands = self.bd.mynbands
         ngroups = self.bd.comm.size
         G = self.gd.n_c.prod()
@@ -140,13 +150,19 @@ class MatrixOperator:
         if ngroups > 1:
             self.A_qnn = np.zeros((self.Q, mynbands, mynbands), dtype)
         self.A_nn = self.bmd.zeros(dtype=dtype)
+        if use_mic:
+            self.A_nn_mic = stream.bind(self.A_nn)
+            stream.sync()
 
         if ngroups == 1 and self.nblocks == 1:
-            self.work1_xG = self.gd.empty(self.bd.mynbands, self.dtype)
+            self.work1_xG = self.gd.empty(self.bd.mynbands, self.dtype) 
+            if use_mic:
+                self.work1_xG_mic = stream.bind(self.work1_xG)
+                stream.sync()
         else:
             self.work1_xG = self.gd.empty(self.X, self.dtype)
             self.work2_xG = self.gd.empty(self.X, self.dtype)
-
+       
     def estimate_memory(self, mem, dtype):
         ngroups = self.bd.comm.size
         count = self.Q * self.bd.mynbands**2
@@ -259,7 +275,7 @@ class MatrixOperator:
 
         return sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI
 
-    def calculate_matrix_elements(self, psit_nG, P_ani, A, dA):
+    def calculate_matrix_elements(self, psit_nG, P_ani, A, dA, timer=None):
         """Calculate matrix elements for A-operator.
 
         Results will be put in the *A_nn* array::
@@ -297,19 +313,39 @@ class MatrixOperator:
         N = self.bd.mynbands
         M = int(np.ceil(N / float(J)))
 
+        if timer:
+            timer.start('allocate')
         if self.A_nn is None:
             self.allocate_arrays()
+        if timer:
+            timer.stop('allocate')
 
         A_NN = self.A_nn
 
         if B == 1 and J == 1:
             # Simple case:
             Apsit_nG = A(psit_nG)
-            self.gd.integrate(psit_nG, Apsit_nG, hermitian=self.hermitian,
+            if use_mic:
+                if timer:
+                    timer.start('mic')
+            # offload_report(1)
+            if timer:
+                timer.start('integrate')
+            self.gd.integrate(psit_nG, Apsit_nG, hermitian=False,
                               _transposed_result=A_NN)
+                # offload_report(0)
+            if timer:
+                    timer.stop('integrate')
+            if use_mic:
+                if timer:
+                    timer.stop('mic')
+            if timer:
+                timer.start('P_ani and comm')
             for a, P_ni in P_ani.items():
                 gemm(1.0, P_ni, dA(a, P_ni), 1.0, A_NN, 'c')
             domain_comm.sum(A_NN, 0)
+            if timer:
+                timer.stop('P_ani and comm')
             return self.bmd.redistribute_output(A_NN)
         
         # Now it gets nasty! We parallelize over B groups of bands and
@@ -448,14 +484,29 @@ class MatrixOperator:
 
         if B == 1 and J == 1:
             # Simple case:
-            work_nG = reshape(self.work1_xG, psit_nG.shape)
+            if use_mic:
+                work_nG = self.work1_xG_mic
+            else:
+                work_nG = reshape(self.work1_xG, psit_nG.shape)
             if out_nG is None:
                 out_nG = work_nG
-                out_nG[:] = 117  # gemm may not like nan's
+                # out_nG[:] = 117  # gemm may not like nan's
             elif out_nG is psit_nG:
                 work_nG[:] = psit_nG
                 psit_nG = work_nG
-            self.gd.gemm(1.0, psit_nG, C_NN, 0.0, out_nG)
+
+            if use_mic:
+                if self.gd.comm.rank == 0:
+                    offload_report(1)
+                C_NN_mic = self.A_nn_mic
+                C_NN_mic.array[:] = C_NN[:]
+                C_NN_mic.update_device()
+                stream.sync()
+                mic_gemm(1.0, psit_nG, C_NN_mic, 0.0, out_nG)
+                if self.gd.comm.rank == 0:
+                    offload_report(0)
+            else:
+                self.gd.gemm(1.0, psit_nG, C_NN, 0.0, out_nG)
             if P_ani:
                 for P_ni in P_ani.values():
                     gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)

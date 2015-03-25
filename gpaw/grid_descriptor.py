@@ -18,7 +18,12 @@ import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities import mlsqr
 from gpaw.utilities.blas import rk, r2k, gemv, gemm
+from gpaw.mic.micblas import gemm as mic_gemm
+from gpaw.mic.micblas import rk as mic_rk
+from gpaw.mic.micblas import r2k as mic_r2k
+from gpaw.mic import stream
 
+import pymic as mic
 
 # Remove this:  XXX
 assert (-1) % 3 == 2
@@ -188,7 +193,7 @@ class GridDescriptor(Domain):
         return [slice(b - 1 + p, e - 1 + p) for b, e, p in
                 zip(self.beg_c, self.end_c, self.pbc_c)]
 
-    def zeros(self, n=(), dtype=float, global_array=False, pad=False):
+    def zeros(self, n=(), dtype=float, global_array=False, pad=False, usemic=False):
         """Return new zeroed 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -196,9 +201,15 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, True, global_array, pad)
+        array = self._new_array(n, dtype, True, global_array, pad)
+        if usemic:
+            oa = stream.bind(array)
+            stream.sync()
+            return oa
+        else:
+            return array
     
-    def empty(self, n=(), dtype=float, global_array=False, pad=False):
+    def empty(self, n=(), dtype=float, global_array=False, pad=False, usemic=False):
         """Return new uninitialized 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -206,7 +217,13 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, False, global_array, pad)
+        array = self._new_array(n, dtype, False, global_array, pad)
+        if usemic:
+            oa = stream.bind(array)
+            stream.sync()
+            return oa
+        else:
+            return array
         
     def _new_array(self, n=(), dtype=float, zero=True,
                    global_array=False, pad=False):
@@ -256,8 +273,13 @@ class GridDescriptor(Domain):
                     self.comm.sum(result)
             return result
 
-        A_xg = np.ascontiguousarray(a_xg.reshape((-1,) + a_xg.shape[-3:]))
-        B_yg = np.ascontiguousarray(b_yg.reshape((-1,) + b_yg.shape[-3:]))
+        if isinstance(a_xg, mic.OffloadArray):
+            # offload arrays have to be contiguous in any case
+            A_xg = a_xg
+            B_yg = b_yg
+        else:
+            A_xg = np.ascontiguousarray(a_xg.reshape((-1,) + a_xg.shape[-3:]))
+            B_yg = np.ascontiguousarray(b_yg.reshape((-1,) + b_yg.shape[-3:]))
 
         if _transposed_result is None:
             result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
@@ -265,13 +287,35 @@ class GridDescriptor(Domain):
             result_yx = _transposed_result
             global_integral = False
 
+        if isinstance(a_xg, mic.OffloadArray):
+            result_yx_mic = stream.bind(result_yx)
+            stream.sync()
+            # result_yx_mic.fillfrom(result_yx)
+            # result_yx_mic.array[:] = result_yx[:]
+            # result_yx_mic.update_device()
+
         if a_xg is b_yg:
-            rk(self.dv, A_xg, 0.0, result_yx)
+            if isinstance(a_xg, mic.OffloadArray):
+                # dsyrk performs badly in MIC so use dgemm here
+                # mic_rk(self.dv, A_xg, 0.0, result_yx_mic)
+                mic_gemm(self.dv, A_xg, A_xg, 0.0, result_yx_mic, 'c')
+            else:
+                rk(self.dv, A_xg, 0.0, result_yx)
         elif hermitian:
-            r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
+            if isinstance(a_xg, mic.OffloadArray):
+                mic_r2k(self.dv, A_xg, B_yg, 0.0, result_yx_mic)
+            else:
+                r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
         else:
-            gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
+            if isinstance(a_xg, mic.OffloadArray):
+                mic_gemm(self.dv, A_xg, B_yg, 0.0, result_yx_mic, 'c')
+            else:
+                gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
         
+        if isinstance(a_xg, mic.OffloadArray):
+            result_yx_mic.update_host()
+            stream.sync()
+
         if global_integral:
             self.comm.sum(result_yx)
 

@@ -109,6 +109,15 @@ PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
 #endif
 
+PyObject* offload_report(PyObject *self, PyObject *args)
+{
+  int n;
+  if (!PyArg_ParseTuple(args, "i", &n))
+    return NULL;
+  _Offload_report(n);
+  Py_RETURN_NONE;
+}
+
 #ifdef GPAW_PAPI
 PyObject* papi_mem_info(PyObject *self, PyObject *args);
 #endif
@@ -223,6 +232,7 @@ static PyMethodDef functions[] = {
   {"papi_mem_info", papi_mem_info, METH_VARARGS, 0},
 #endif // GPAW_PAPI
   {"mlsqr", mlsqr, METH_VARARGS, 0},
+  {"offload_report", offload_report, METH_VARARGS, 0},
   {0, 0, 0, 0}
 };
 
@@ -295,13 +305,41 @@ extern DL_EXPORT(int) Py_Main(int, char **);
 int gpaw_perf_init();
 void gpaw_perf_finalize();
 
+#include <stdio.h>
+#include <stdlib.h>
+
 #include <mpi.h>
+
+int gpaw_offload_enabled = 1;
+
+__declspec(target(mic))
+void init_openmp() {
+#ifdef __MIC__
+#pragma omp parallel
+    {
+        /* do nothing */
+    }
+#endif    
+}
 
 int
 main(int argc, char **argv)
 {
   int status;
+  char* env = NULL;
 
+  env = getenv("GPAW_OFFLOAD");
+  if (env) {
+      errno = 0;
+      gpaw_offload_enabled = strtol(env, NULL, 10);
+      if (errno) {
+        fprintf(stderr, 
+                "Wrong value for for GPAW_OFFLOAD.\nShould be either 0 or 1, but was %s\n",
+                env);
+      }
+  }
+  fprintf(stderr, "GPAW info: GPAW_OFFLOAD=%d\n", gpaw_offload_enabled);
+  
 #ifdef CRAYPAT
   PAT_region_begin(1, "C-Initializations");
 #endif
@@ -355,6 +393,11 @@ main(int argc, char **argv)
 
   Py_Initialize();
 
+#pragma offload target(mic) if(gpaw_offload_enabled)
+    {
+        init_openmp();
+    }
+  
   if (PyType_Ready(&MPIType) < 0)
     return -1;
 
