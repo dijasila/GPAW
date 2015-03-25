@@ -15,6 +15,7 @@ from gpaw.utilities import compiled_with_sl
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw
+import _gpaw
 
 
 def equal(x, y, tolerance=0, fail=True, msg=''):
@@ -345,6 +346,7 @@ tests = [
     'nscfsic.py',                           # duration unknown
     'coreeig.py',                           # duration unknown
     'bse_MoS2_cut.py',                      # duration unknown
+    'rsf_yukawa_nonselfconsistent.py',      # duration unknown
     'parallel/scalapack_mpirecv_crash.py',  # duration unknown
     'cmrtest/cmr_test.py',                  # duration unknown
     'cmrtest/cmr_test3.py',                 # duration unknown
@@ -435,6 +437,9 @@ if mpi.size != 1 and not compiled_with_sl():
                 'pw/fulldiag.py',
                 'pw/fulldiagk.py',
                 'au02_absorption.py']
+
+if _gpaw.lxcXCFuncNum('HYB_GGA_XC_LCY_PBE') is None: # non rsf libxc
+    exclude += ['rsf_yukawa_nonselfconsistent.py']
 
 if not compiled_with_sl():
     exclude.append('lcao_atomic_corrections.py')

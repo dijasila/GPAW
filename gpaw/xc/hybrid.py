@@ -11,6 +11,7 @@ from gpaw.xc import XC
 from gpaw.xc.kernel import XCNull
 from gpaw.xc.functional import XCFunctional
 from gpaw.poisson import PoissonSolver
+from gpaw.helmholtz import HelmholtzSolver  # for screened poisson
 from gpaw.utilities import hartree, pack, pack2, unpack, unpack2, packed_index
 from gpaw.utilities.tools import symmetrize
 from gpaw.atom.configurations import core_states
@@ -21,7 +22,6 @@ from gpaw.gaunt import make_gaunt
 
 class HybridXCBase(XCFunctional):
     orbital_dependent = True
-    omega = None
 
     def __init__(self, name, hybrid=None, xc=None, omega=None):
         """Mix standard functionals with exact exchange.
@@ -34,6 +34,45 @@ class HybridXCBase(XCFunctional):
             Standard DFT functional with scaled down exchange.
         """
 
+        rsf_functionals = {    # perhaps read from libxc in future
+            'CAMY_BLYP': {  # Akinaga, Ten-no CPL 462 (2008) 348-351
+                'alpha': 0.2,
+                'beta': 0.8,
+                'omega': 0.44,
+                'cam': True,
+                'rsf': 'Yukawa',
+                'xc': 'HYB_GGA_XC_CAMY_BLYP'
+                },
+            'CAMY_B3LYP': {  # Seth, Ziegler JCTC 8 (2012) 901-907
+                'alpha': 0.19,
+                'beta': 0.46,
+                'omega': 0.34,
+                'cam': True,
+                'rsf': 'Yukawa',
+                'xc': 'HYB_GGA_XC_CAMY_B3LYP'
+                },
+            'LCY_BLYP': {  # Seth, Ziegler JCTC 8 (2012) 901-907
+                'alpha': 0.0,
+                'beta': 1.0,
+                'omega': 0.75,
+                'cam': False,
+                'rsf': 'Yukawa',
+                'xc': 'HYB_GGA_XC_LCY_BLYP'
+                },
+            'LCY_PBE': {  # Seth, Ziegler JCTC 8 (2012) 901-907
+                'alpha': 0.0,
+                'beta': 1.0,
+                'omega': 0.75,
+                'cam': False,
+                'rsf': 'Yukawa',
+                'xc': 'HYB_GGA_XC_LCY_PBE'
+                }
+            }
+        self.omega = None
+        self.alpha = None
+        self.beta = None
+        self.is_cam = False
+        self.rsf = None
         if name == 'EXX':
             assert hybrid is None and xc is None
             hybrid = 1.0
@@ -56,22 +95,32 @@ class HybridXCBase(XCFunctional):
             hybrid = 0.25
             omega = 0.11
             xc = XC('HYB_GGA_XC_HSE06')
-            
+        elif name in rsf_functionals:
+            rsf_functional = rsf_functionals[name]
+            self.alpha = rsf_functional['alpha']
+            self.beta = rsf_functional['beta']
+            self.omega = rsf_functional['omega']
+            self.is_cam = rsf_functional['cam']
+            self.rsf = rsf_functional['rsf']
+            xc = XC(rsf_functional['xc'])
+            hybrid = self.alpha + self.beta
         if isinstance(xc, str):
             xc = XC(xc)
-
         self.hybrid = float(hybrid)
         self.xc = xc
-        self.omega = omega
+        if omega is not None:
+            self.omega = omega
         self.type = xc.type
-
+        if self.rsf == 'Yukawa':
+            name += '(%s)' % str(self.omega)
         XCFunctional.__init__(self, name)
 
     def get_setup_name(self):
         return 'PBE'
 
+
 class HybridXC(HybridXCBase):
-    def __init__(self, name, hybrid=None, xc=None, 
+    def __init__(self, name, hybrid=None, xc=None,
                  finegrid=False, unocc=False):
         """Mix standard functionals with exact exchange.
 
@@ -115,6 +164,15 @@ class HybridXC(HybridXCBase):
                             integral=np.sqrt(4 * np.pi), forces=True)
         self.gd = density.gd
         self.finegd = self.ghat.gd
+        if self.rsf == 'Yukawa':
+            omega2 = self.omega**2
+            self.screened_poissonsolver = HelmholtzSolver(
+                                            k2=-omega2, eps=1e-11, nn=3)
+            if not self.finegrid:
+                self.screened_poissonsolver.set_grid_descriptor(density.gd)
+            else:
+                self.screened_poissonsolver.set_grid_descriptor(self.ghat.gd)
+            self.screened_poissonsolver.initialize()
 
     def set_positions(self, spos_ac):
         if not self.finegrid:
@@ -141,9 +199,18 @@ class HybridXC(HybridXCBase):
         P_ani = kpt.P_ani
         setups = self.setups
 
+        is_cam = self.is_cam
+        if is_cam:
+            alpha = self.alpha
+            beta = self.beta
+
         vt_g = self.finegd.empty()
         if self.gd is not self.finegd:
             vt_G = self.gd.empty()
+        if self.rsf == 'Yukawa':
+            y_vt_g = self.finegd.empty()
+            if self.gd is not self.finegd:
+                y_vt_G = self.gd.empty()
 
         nocc = int(kpt.f_n.sum()) // (3 - self.nspins)
         if self.unocc:
@@ -183,6 +250,17 @@ class HybridXC(HybridXCBase):
                                                 eps=1e-12,
                                                 zero_initial_phi=True)
                 vt_g *= hybrid
+                if self.rsf == 'Yukawa':
+                    y_vt_g[:] = 0.0
+                    iter = self.screened_poissonsolver.solve(y_vt_g, -rhot_g,
+                                                charge=-float(n1 == n2),
+                                                eps=1e-12,
+                                                zero_initial_phi=True)
+                    if is_cam:  # Cam like correction
+                        y_vt_g *= beta
+                    else:
+                        y_vt_g *= hybrid
+                    vt_g -= y_vt_g
 
                 if self.gd is self.finegd:
                     vt_G = vt_g
@@ -203,7 +281,7 @@ class HybridXC(HybridXCBase):
                         Htpsit_nG[n2] += f1 * vt_G * psit1_G
 
                     # Update the vxx_uni and vxx_unii vectors of the nuclei,
-                    # used to determine the atomic hamiltonian, and the 
+                    # used to determine the atomic hamiltonian, and the
                     # residuals
                     v_aL = self.ghat.dict()
                     self.ghat.integrate(vt_g, v_aL)
@@ -221,18 +299,20 @@ class HybridXC(HybridXCBase):
 
         # Apply the atomic corrections to the energy and the Hamiltonian matrix
         for a, P_ni in P_ani.items():
+            if self.rsf == 'Yukawa':    # At this stage only merge pseudo
+                continue
             setup = setups[a]
 
             if Htpsit_nG is not None:
                 # Add non-trivial corrections the Hamiltonian matrix
-                h_nn = symmetrize(np.inner(P_ni[:nbands], 
+                h_nn = symmetrize(np.inner(P_ni[:nbands],
                                            kpt.vxx_ani[a][:nbands]))
                 ekin -= np.dot(kpt.f_n[:nbands], h_nn.diagonal())
 
                 dH_p = dH_asp[a][kpt.s]
             
             # Get atomic density and Hamiltonian matrices
-            D_p  = self.density.D_asp[a][kpt.s]
+            D_p = self.density.D_asp[a][kpt.s]
             D_ii = unpack2(D_p)
             ni = len(D_ii)
             
@@ -341,24 +421,24 @@ class HybridXC(HybridXCBase):
             gemm(1.0, v_nii.copy(), U_nn, 0.0, v_nii)
 
         
-def atomic_exact_exchange(atom, type = 'all'):
+def atomic_exact_exchange(atom, type='all'):
     """Returns the exact exchange energy of the atom defined by the
        instantiated AllElectron object 'atom'
     """
-    gaunt = make_gaunt(lmax=max(atom.l_j)) # Make gaunt coeff. list
-    Nj = len(atom.n_j)                     # The total number of orbitals
+    gaunt = make_gaunt(lmax=max(atom.l_j))  # Make gaunt coeff. list
+    Nj = len(atom.n_j)                      # The total number of orbitals
 
     # determine relevant states for chosen type of exchange contribution
     if type == 'all':
         nstates = mstates = range(Nj)
     else:
-        Njcore = core_states(atom.symbol) # The number of core orbitals
+        Njcore = core_states(atom.symbol)   # The number of core orbitals
         if type == 'val-val':
             nstates = mstates = range(Njcore, Nj)
         elif type == 'core-core':
             nstates = mstates = range(Njcore)
         elif type == 'val-core':
-            nstates = range(Njcore,Nj)
+            nstates = range(Njcore, Nj)
             mstates = range(Njcore)
         else:
             raise RuntimeError('Unknown type of exchange: ', type)
@@ -404,7 +484,8 @@ def atomic_exact_exchange(atom, type = 'all'):
             Exx += -.5 * f12 * np.dot(vr, nrdr)
 
     # double energy if mixed contribution
-    if type == 'val-core': Exx *= 2.
+    if type == 'val-core':
+        Exx *= 2.
 
     # return exchange energy
     return Exx
@@ -419,13 +500,13 @@ def constructX(gen):
     # initialize attributes
     uv_j = gen.vu_j    # soft valence states * r:
     lv_j = gen.vl_j    # their repective l quantum numbers
-    Nvi  = 0 
+    Nvi = 0
     for l in lv_j:
         Nvi += 2 * l + 1   # total number of valence states (including m)
 
     # number of core and valence orbitals (j only, i.e. not m-number)
     Njcore = gen.njcore
-    Njval  = len(lv_j)
+    Njval = len(lv_j)
 
     # core states * r:
     uc_j = gen.u_j[:Njcore]
@@ -448,7 +529,7 @@ def constructX(gen):
         # sum over first valence state index
         i1 = 0
         for jv1 in range(Njval):
-            lv1 = lv_j[jv1] 
+            lv1 = lv_j[jv1]
 
             # electron density 1 times radius times length element
             n1c = uv_j[jv1] * uc_j[jc] * dr
@@ -497,7 +578,8 @@ def H_coulomb_val_core(paw, u=0):
         ij   //       --          |r - r'|
                       k
     """
-    H_nn = np.zeros((paw.wfs.bd.nbands, paw.wfs.bd.nbands), dtype=paw.wfs.dtype)
+    H_nn = np.zeros((paw.wfs.bd.nbands, paw.wfs.bd.nbands),
+            dtype=paw.wfs.dtype)
     for a, P_ni in paw.wfs.kpt_u[u].P_ani.items():
         X_ii = unpack(paw.wfs.setups[a].X_p)
         H_nn += np.dot(P_ni.conj(), np.dot(X_ii, P_ni.T))
