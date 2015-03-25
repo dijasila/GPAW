@@ -146,24 +146,108 @@ class PhononPerturbation(Perturbation):
         ----------
         a: int
             Index of the atom.
-        v: int 
+        v: int
             Cartesian component (0, 1 or 2) of the atomic displacement.
-            
         """
 
         assert self.q is not None
-        
+
         self.a = a
         self.v = v
-        
+
         # Update derivative of local potential
         self.calculate_local_potential()
-        
+
+    def calculate_local_potential(self):
+        """Derivate of the local potential wrt an atomic displacements.
+
+        The local part of the PAW potential has contributions from the
+        compensation charges (``ghat``) and a spherical symmetric atomic
+        potential (``vbar``).
+        """
+
+        assert self.a is not None
+        assert self.v is not None
+        assert self.q is not None
+
+        a = self.a
+        v = self.v
+
+        # Expansion coefficients for the ghat functions
+        Q_aL = self.ghat.dict(zero=True)
+        # Remember sign convention for add_derivative method
+        # And be sure not to change the dtype of the arrays by assigning values
+        # to array elements.
+        Q_aL[a][:] = -1 * self.Q_aL[a]
+
+        # Grid for derivative of compensation charges
+        ghat1_g = self.finegd.zeros(dtype=self.dtype)
+        self.ghat.add_derivative(a, v, ghat1_g, c_axi=Q_aL, q=self.q)
+
+        # Solve Poisson's eq. for the potential from the periodic part of the
+        # compensation charge derivative
+        v1_g = self.finegd.zeros(dtype=self.dtype)
+        self.solve_poisson(v1_g, ghat1_g)
+
+        # Store potential from the compensation charge
+        self.vghat1_g = v1_g.copy()
+
+        # Add derivative of vbar - sign convention in add_derivative method
+        c_ai = self.vbar.dict(zero=True)
+        c_ai[a][0] = -1.
+        self.vbar.add_derivative(a, v, v1_g, c_axi=c_ai, q=self.q)
+
+        # Store potential for the evaluation of the energy derivative
+        self.v1_g = v1_g.copy()
+
+        # Transfer to coarse grid
+        v1_G = self.gd.zeros(dtype=self.dtype)
+        self.restrictor.apply(v1_g, v1_G, phases=self.phase_cd)
+
+        self.v1_G = v1_G
+
+    def solve_poisson(self, phi_g, rho_g):
+        """Solve Poisson's equation for a Bloch-type charge distribution.
+
+        More to come here ...
+
+        Parameters
+        ----------
+        phi_g: GridDescriptor
+            Grid for the solution of Poissons's equation.
+        rho_g: GridDescriptor
+            Grid with the charge distribution.
+
+        """
+
+        # assert phi_g.shape == rho_g.shape == self.phase_qg.shape[-3:], \
+        #       ("Arrays have incompatible shapes.")
+        assert self.q is not None, ("q-vector not set")
+
+        # Gamma point calculation wrt the q-vector -> rho_g periodic
+        if self.gamma:
+            # XXX NOTICE: solve_neutral
+            self.poisson.solve_neutral(phi_g, rho_g)
+        else:
+            # Divide out the phase factor to get the periodic part
+            rhot_g = rho_g/self.phase_qg[self.q]
+
+            # Solve Poisson's equation for the periodic part of the potential
+            # XXX NOTICE: solve_neutral
+            self.poisson.solve_neutral(phi_g, rhot_g)
+
+            # Return to Bloch form
+            phi_g *= self.phase_qg[self.q]
+
     def get_phase_cd(self):
         """Overwrite base class member function."""
 
         return self.phase_cd
-    
+
+
+
+
+
     def has_q(self):
         """Overwrite base class member function."""
 
@@ -176,87 +260,9 @@ class PhononPerturbation(Perturbation):
         
         return self.kd.ibzk_qc[self.q]
     
-    def solve_poisson(self, phi_g, rho_g):
-        """Solve Poisson's equation for a Bloch-type charge distribution.
 
-        More to come here ...
-        
-        Parameters
-        ----------
-        phi_g: GridDescriptor
-            Grid for the solution of Poissons's equation.
-        rho_g: GridDescriptor
-            Grid with the charge distribution.
 
-        """
 
-        #assert phi_g.shape == rho_g.shape == self.phase_qg.shape[-3:], \
-        #       ("Arrays have incompatible shapes.")
-        assert self.q is not None, ("q-vector not set")
-        
-        # Gamma point calculation wrt the q-vector -> rho_g periodic
-        if self.gamma: 
-            #XXX NOTICE: solve_neutral
-            self.poisson.solve_neutral(phi_g, rho_g)
-        else:
-            # Divide out the phase factor to get the periodic part
-            rhot_g = rho_g/self.phase_qg[self.q]
-
-            # Solve Poisson's equation for the periodic part of the potential
-            #XXX NOTICE: solve_neutral
-            self.poisson.solve_neutral(phi_g, rhot_g)
-
-            # Return to Bloch form
-            phi_g *= self.phase_qg[self.q]
-
-    def calculate_local_potential(self):
-        """Derivate of the local potential wrt an atomic displacements.
-
-        The local part of the PAW potential has contributions from the
-        compensation charges (``ghat``) and a spherical symmetric atomic
-        potential (``vbar``).
-        
-        """
-
-        assert self.a is not None
-        assert self.v is not None
-        assert self.q is not None
-        
-        a = self.a
-        v = self.v
-        
-        # Expansion coefficients for the ghat functions
-        Q_aL = self.ghat.dict(zero=True)
-        # Remember sign convention for add_derivative method
-        # And be sure not to change the dtype of the arrays by assigning values
-        # to array elements.
-        Q_aL[a][:] = -1 * self.Q_aL[a]
-
-        # Grid for derivative of compensation charges
-        ghat1_g = self.finegd.zeros(dtype=self.dtype)
-        self.ghat.add_derivative(a, v, ghat1_g, c_axi=Q_aL, q=self.q)
-        
-        # Solve Poisson's eq. for the potential from the periodic part of the
-        # compensation charge derivative
-        v1_g = self.finegd.zeros(dtype=self.dtype)
-        self.solve_poisson(v1_g, ghat1_g)
-        
-        # Store potential from the compensation charge
-        self.vghat1_g = v1_g.copy()
-        
-        # Add derivative of vbar - sign convention in add_derivative method
-        c_ai = self.vbar.dict(zero=True)
-        c_ai[a][0] = -1.
-        self.vbar.add_derivative(a, v, v1_g, c_axi=c_ai, q=self.q)
-
-        # Store potential for the evaluation of the energy derivative
-        self.v1_g = v1_g.copy()
-        
-        # Transfer to coarse grid
-        v1_G = self.gd.zeros(dtype=self.dtype)
-        self.restrictor.apply(v1_g, v1_G, phases=self.phase_cd)
-
-        self.v1_G = v1_G
         
     def apply(self, psi_nG, y_nG, wfs, k, kplusq):
         """Apply perturbation to unperturbed wave-functions.

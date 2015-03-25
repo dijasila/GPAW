@@ -1,6 +1,3 @@
-import os
-from math import pi
-
 import numpy as np
 import numpy.linalg as la
 
@@ -161,15 +158,15 @@ class PhononCalculator:
         self.initialized = True
 
     def get_phonons(self, modes=False):
-       """Interface routine to calculate phonon energies for a given
-       q-vector.
+        """Interface routine to calculate phonon energies for a given
+        q-vector.
 
-       At the moment this is a trivial routine. In the end it should decide
-       whether to calculate the dynamcial matrix, or to read it from a file
-       before diagonalising it.
-       Possibly one could also read in real space force constants. However,
-       calculating the force constant matrix should be done using a different
-       interface.
+        At the moment this is a trivial routine. In the end it should decide
+        whether to calculate the dynamcial matrix, or to read it from a file
+        before diagonalising it.
+        Possibly one could also read in real space force constants. However,
+        calculating the force constant matrix should be done using a different
+        interface.
 
         Parameters
         ----------
@@ -177,12 +174,12 @@ class PhononCalculator:
             Returns both frequencies and modes (mass scaled) when True.
        """
 
-       dynmat = self.calculate_dynamicalmatrix()
-       energies = self.diagonalize_dynamicalmatrix(dynmat, modes=modes)
+        dynmat = self.calculate_dynamicalmatrix()
+        energies = self.diagonalize_dynamicalmatrix(dynmat, modes=False)
 
-       return energies
+        return energies
 
-    def calculate_dynamicalmatrix(self, name=None, path=None):
+    def calculate_dynamicalmatrix(self):
         """Run calculation for atomic displacements and construct the dynamcial
         matrix.
 
@@ -194,19 +191,14 @@ class PhononCalculator:
         if not self.initialized:
             self.initialize()
 
-        # Update name and path attributes
-        self.set_name_and_path(name=name, path=path)
-        # Get string template for filenames
-        filename_str = self.get_filename_string()
-
         # XXX Make a single ground_state_contributions member function
         # Ground-state contributions to the force constants
         self.dyn.density_ground_state(self.calc)
-        # self.dyn.wfs_ground_state(self.calc, self.response_calc)
 
         # Calculate linear response wrt q-vector and displacements of atoms
 
         if not self.gamma:
+            # HACK
             self.perturbation.set_q(0)
 
         components = ['x', 'y', 'z']
@@ -251,6 +243,9 @@ class PhononCalculator:
         u_n = []
 
         if modes:
+            m_inv_av = self.dyn.get_mass_array()
+            N = len(self.dyn.get_indices())
+
             omega2_n, u_avn = la.eigh(D_q, UPLO='L')
             # Sort eigenmodes according to eigenvalues (see below) and
             # multiply with mass prefactor
@@ -272,11 +267,11 @@ class PhononCalculator:
                    % (len(indices), omega_n[indices][0].imag)))
             omega_n[indices] = -1 * np.sqrt(np.abs(omega2_n[indices].real))
 
-        ## Conversion factor from sqrt(Ha / Bohr**2 / amu) -> eV
+        # Conversion factor from sqrt(Ha / Bohr**2 / amu) -> eV
         s = units.Hartree**0.5 * units._hbar * 1.e10 / \
             (units._e * units._amu)**(0.5) / units.Bohr
 
-        ## Convert to eV and Ang
+        # Convert to eV and Ang
         omega_n = s**2 * np.asarray(omega_n.real)
 
         if modes:
@@ -284,90 +279,3 @@ class PhononCalculator:
             return omega_n, u_n
         else:
             return omega_n
-
-    def __getstate__(self):
-        """Method used when pickling.
-
-        Bound method attributes cannot be pickled and must therefore be deleted
-        before an instance is dumped to file.
-
-        """
-
-        # Get state of object and take care of troublesome attributes
-        state = dict(self.__dict__)
-        state['kd'].__dict__['comm'] = mpi.serial_comm
-        state.pop('calc')
-        state.pop('perturbation')
-        state.pop('response_calc')
-
-        return state
-
-
-    def get_atoms(self):
-        """Return atoms."""
-
-        return self.atoms
-
-    def get_dynamical_matrix(self):
-        """Return reference to ``dyn`` attribute."""
-
-        return self.dyn
-
-    def get_filename_string(self):
-        """Return string template for force constant filenames."""
-
-        name_str = (self.name + '.' + 'q_%%0%ii_' % len(str(self.kd.nibzkpts)) +
-                    'a_%%0%ii_' % len(str(len(self.atoms))) + 'v_%i' + '.pckl')
-
-        return name_str
-
-    def set_atoms(self, atoms):
-        """Set atoms to be included in the calculation.
-
-        Parameters
-        ----------
-        atoms: list
-            Can be either a list of strings, ints or ...
-        """
-
-        assert isinstance(atoms, list)
-
-        if isinstance(atoms[0], str):
-            assert np.all([isinstance(atom, str) for atom in atoms])
-            sym_a = self.atoms.get_chemical_symbols()
-            # List for atomic indices
-            indices = []
-            for type in atoms:
-                indices.extend([a for a, atom in enumerate(sym_a)
-                                if atom == type])
-        else:
-            assert np.all([isinstance(atom, int) for atom in atoms])
-            indices = atoms
-
-        self.dyn.set_indices(indices)
-
-    def set_name_and_path(self, name=None, path=None):
-        """Set name and path of the force constant files.
-
-        name: str
-            Base name for the files which the elements of the matrix of force
-            constants will be written to.
-        path: str
-            Path specifying the directory where the files will be dumped.
-        """
-
-        if name is None:
-            self.name = 'phonon.' + self.atoms.get_chemical_formula()
-        else:
-            self.name = name
-        # self.name += '.nibzkpts_%i' % self.kd.nibzkpts
-
-        if path is None:
-            self.path = '.'
-        else:
-            self.path = path
-
-        # Set corresponding attributes in the ``dyn`` attribute
-        filename_str = self.get_filename_string()
-        self.dyn.set_name_and_path(filename_str, self.path)
-

@@ -23,9 +23,15 @@ Notes:
 
 
 "Cleaned"
+dynamicalmatrix:    done
+kpointcontainer:
+mixer:              done
 perturbation:       done
-phononcalculator:   init
+phononcalculator:   done
 phononperturbation: init
 poisson.py:         done
-responsecalculator: init
+preconditioner:
+responsecalculator: done
+scipylinearsolver:
+sternheimeroperator:
 wavefunctions:      init
