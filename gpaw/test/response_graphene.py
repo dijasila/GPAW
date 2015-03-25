@@ -9,6 +9,7 @@ from ase.io import read
 from ase.lattice.compounds import Rocksalt
 
 from gpaw import GPAW, FermiDirac, Mixer
+from gpaw.utilities import compiled_with_sl
 from gpaw.eigensolvers import Davidson
 from gpaw.wavefunctions.pw import PW
 from gpaw.occupations import FermiDirac
@@ -54,11 +55,11 @@ DFsettings = [{'disable_point_group': True,
                'disable_time_reversal': False,
                'use_more_memory': 1}]
 
-if world.size > 1:
-              DFsettings.append({'disable_point_group': False,
-                               'disable_time_reversal': False,
-                               'use_more_memory': 1,
-                               'nblocks': 2})
+if world.size > 1 and compiled_with_sl():
+    DFsettings.append({'disable_point_group': False,
+                       'disable_time_reversal': False,
+                       'use_more_memory': 1,
+                       'nblocks': 2})
               
 for GSkwargs in GSsettings:
     calc = GPAW(h=0.18,

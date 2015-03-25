@@ -6,6 +6,7 @@ from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.mpi import world
 from gpaw.test import equal, findpeak
+from gpaw.utilities import compiled_with_sl
 from gpaw.response.df import DielectricFunction
 
 # Comparing the plasmon peaks found in bulk sodium for two different
@@ -61,8 +62,8 @@ settings = [{'disable_point_group': True, 'disable_time_reversal': True,
             {'disable_point_group': False, 'disable_time_reversal': False,
              'use_more_memory': 1}]
 
-# Test block parallelization
-if world.size > 1:
+# Test block parallelization (needs scalapack)
+if world.size > 1 and compiled_with_sl():
     settings.append({'disable_point_group': False,
                      'disable_time_reversal': False,
                      'use_more_memory': 1, 'nblocks': 2})
