@@ -103,7 +103,7 @@ class HybridXCBase(XCFunctional):
             self.is_cam = rsf_functional['cam']
             self.rsf = rsf_functional['rsf']
             xc = XC(rsf_functional['xc'])
-            hybrid = self.alpha + self.beta
+            hybrid = self.cam_alpha + self.cam_beta
         if isinstance(xc, str):
             xc = XC(xc)
         self.hybrid = float(hybrid)
