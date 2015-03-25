@@ -255,7 +255,7 @@ class Chi0(PairDensity):
                 if self.blockcomm.rank == 0:
                     chi0_wGG[:, 0, 0] = chi0_wvv[:, 0, 0]
                     chi0_wGG[:, 0] =  chi0_wxvG[:, 0, 0]
-                chi0_wGG[:, : 0] = chi0_wxvG[:, 1, 0, self.Ga:self.Gb] 
+                chi0_wGG[:, :, 0] = chi0_wxvG[:, 1, 0, self.Ga:self.Gb] 
                     
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
