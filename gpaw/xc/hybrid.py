@@ -69,8 +69,8 @@ class HybridXCBase(XCFunctional):
                 }
             }
         self.omega = None
-        self.alpha = None
-        self.beta = None
+        self.cam_alpha = None
+        self.cam_beta = None
         self.is_cam = False
         self.rsf = None
         if name == 'EXX':
@@ -97,8 +97,8 @@ class HybridXCBase(XCFunctional):
             xc = XC('HYB_GGA_XC_HSE06')
         elif name in rsf_functionals:
             rsf_functional = rsf_functionals[name]
-            self.alpha = rsf_functional['alpha']
-            self.beta = rsf_functional['beta']
+            self.cam_alpha = rsf_functional['alpha']
+            self.cam_beta = rsf_functional['beta']
             self.omega = rsf_functional['omega']
             self.is_cam = rsf_functional['cam']
             self.rsf = rsf_functional['rsf']
@@ -198,11 +198,7 @@ class HybridXC(HybridXCBase):
         
         P_ani = kpt.P_ani
         setups = self.setups
-
         is_cam = self.is_cam
-        if is_cam:
-            alpha = self.alpha
-            beta = self.beta
 
         vt_g = self.finegd.empty()
         if self.gd is not self.finegd:
@@ -257,7 +253,7 @@ class HybridXC(HybridXCBase):
                                                 eps=1e-12,
                                                 zero_initial_phi=True)
                     if is_cam:  # Cam like correction
-                        y_vt_g *= beta
+                        y_vt_g *= self.cam_beta
                     else:
                         y_vt_g *= hybrid
                     vt_g -= y_vt_g
