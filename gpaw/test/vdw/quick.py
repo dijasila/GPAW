@@ -1,10 +1,8 @@
-from __future__ import print_function
-import os
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.xc.vdw import FFTVDWFunctional
+from gpaw.xc.vdw import VDWFunctional
 
-vdw = FFTVDWFunctional('vdW-DF', verbose=1)
+vdw = VDWFunctional('vdW-DF', verbose=1)
 L = 2.5
 a = Atoms('H', cell=(L, L, L), pbc=True, calculator=GPAW(nbands=1))
 e = a.get_potential_energy()

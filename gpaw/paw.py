@@ -13,6 +13,7 @@ import numpy as np
 from ase.units import Bohr, Hartree
 from ase.dft.kpoints import monkhorst_pack
 from ase.calculators.calculator import kptdensity2monkhorstpack
+from ase.utils.timing import Timer
 
 import gpaw.io
 import gpaw.mpi as mpi
@@ -25,7 +26,6 @@ import gpaw.wavefunctions.pw as pw
 from gpaw.output import PAWTextOutput
 import gpaw.occupations as occupations
 from gpaw.forces import ForceCalculator
-from gpaw.utilities.timing import Timer
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.wavefunctions.fd import FD
 from gpaw.density import RealSpaceDensity
@@ -38,6 +38,7 @@ from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.utilities.partition import AtomPartition
 from gpaw.parameters import InputParameters, usesymm2symmetry
 from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
 
@@ -46,7 +47,8 @@ class PAW(PAWTextOutput):
 
     """This is the main calculation object for doing a PAW calculation."""
 
-    def __init__(self, filename=None, timer=None, **kwargs):
+    def __init__(self, filename=None, timer=None,
+                 read_projections=True, **kwargs):
         """ASE-calculator interface.
 
         The following parameters can be used: nbands, xc, kpts,
@@ -109,7 +111,12 @@ class PAW(PAWTextOutput):
             par = self.input_parameters
             par.read(reader)
 
+        # _changed_keywords contains those keywords that have been
+        # changed by set() since last time initialize() was called.
+        self._changed_keywords = set()
         self.set(**kwargs)
+        # Here in the beginning, effectively every keyword has been changed.
+        self._changed_keywords.update(self.input_parameters)
 
         if filename is not None:
             # Setups are not saved in the file if the setups were not loaded
@@ -128,7 +135,7 @@ class PAW(PAWTextOutput):
                     par.basis = {}
 
             self.initialize()
-            self.read(reader)
+            self.read(reader, read_projections)
             if self.hamiltonian.xc.type == 'GLLB':
                 self.occupations.calculate(self.wfs)
 
@@ -136,8 +143,8 @@ class PAW(PAWTextOutput):
 
         self.observers = []
 
-    def read(self, reader):
-        gpaw.io.read(self, reader)
+    def read(self, reader, read_projections=True):
+        gpaw.io.read(self, reader, read_projections)
 
     def set(self, **kwargs):
         """Change parameters for calculator.
@@ -148,6 +155,7 @@ class PAW(PAWTextOutput):
             calc.set(nbands=20, kpts=(4, 1, 1))
         """
         p = self.input_parameters
+        self._changed_keywords.update(kwargs)
 
         if (kwargs.get('h') is not None) and (kwargs.get('gpts') is not None):
             raise TypeError("""You can't use both "gpts" and "h"!""")
@@ -276,7 +284,7 @@ class PAW(PAWTextOutput):
 
         self.timer.start('SCF-cycle')
         for iter in self.scf.run(self.wfs, self.hamiltonian, self.density,
-                                 self.occupations):
+                                 self.occupations, self.forces):
             self.iter = iter
             self.call_observers(iter)
             self.print_iteration(iter)
@@ -300,13 +308,15 @@ class PAW(PAWTextOutput):
             # Save the state of the atoms:
             self.atoms = atoms.copy()
 
-        self.check_atoms()
+        self.synchronize_atoms()
 
         spos_ac = atoms.get_scaled_positions() % 1.0
 
-        self.wfs.set_positions(spos_ac)
-        self.density.set_positions(spos_ac, self.wfs.rank_a)
-        self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
+        rank_a = self.wfs.gd.get_ranks_from_positions(spos_ac)
+        atom_partition = AtomPartition(self.wfs.gd.comm, rank_a)
+        self.wfs.set_positions(spos_ac, atom_partition)
+        self.density.set_positions(spos_ac, atom_partition)
+        self.hamiltonian.set_positions(spos_ac, atom_partition)
 
         return spos_ac
 
@@ -347,7 +357,9 @@ class PAW(PAWTextOutput):
             world = mpi.world.new_communicator(np.asarray(world))
         self.wfs.world = world
 
-        self.set_text(par.txt, par.verbose)
+        if 'txt' in self._changed_keywords:
+            self.set_txt(par.txt)
+        self.verbose = par.verbose
 
         natoms = len(atoms)
 
@@ -356,9 +368,10 @@ class PAW(PAWTextOutput):
         Z_a = atoms.get_atomic_numbers()
         magmom_av = atoms.get_initial_magnetic_moments()
 
-        self.check_atoms()
+        self.synchronize_atoms()
 
         # Generate new xc functional only when it is reset by set
+        # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
             if isinstance(par.xc, str):
                 xc = XC(par.xc)
@@ -486,6 +499,11 @@ class PAW(PAWTextOutput):
         M = np.dot(M_v, M_v) ** 0.5
 
         nbands = par.nbands
+        
+        orbital_free = any(setup.orbital_free for setup in setups)
+        if orbital_free:
+            nbands = 1
+
         if isinstance(nbands, basestring):
             if nbands[-1] == '%':
                 basebands = int(nvalence + M + 0.5) // 2
@@ -519,7 +537,7 @@ class PAW(PAWTextOutput):
         if nbands <= 0:
             nbands = int(nvalence + M + 0.5) // 2 + (-nbands)
 
-        if nvalence > 2 * nbands:
+        if nvalence > 2 * nbands and not orbital_free:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
@@ -533,10 +551,15 @@ class PAW(PAWTextOutput):
                       'occupations=FermiDirac(width, fixmagmom=True).')
 
         if self.occupations is None:
-            #print "self.occupations is None"
             if par.occupations is None:
                 # Create object for occupation numbers:
-                self.occupations = occupations.FermiDirac(width, par.fixmom)
+                if orbital_free:
+                    width = 0.0  # even for PBC
+                    self.occupations = occupations.TFOccupations(width,
+                                                                 par.fixmom)
+                else:
+                    self.occupations = occupations.FermiDirac(width,
+                                                              par.fixmom)
             else:
                 self.occupations = par.occupations
 
@@ -546,8 +569,6 @@ class PAW(PAWTextOutput):
                     self.wfs,
                     EmptyWaveFunctions):
                 self.occupations.calculate(self.wfs)
-                #print "Calculating occupations"
-            #print self.wfs
 
         self.occupations.magmom = M_v[2]
 
@@ -559,12 +580,16 @@ class PAW(PAWTextOutput):
             niter_fixdensity = None
 
         if self.scf is None:
+            force_crit = cc['forces']
+            if force_crit is not None:
+                force_crit /= Hartree / Bohr
             self.scf = SCFLoop(
                 cc['eigenstates'] / Hartree**2 * nvalence,
                 cc['energy'] / Hartree * max(nvalence, 1),
                 cc['density'] * nvalence,
                 par.maxiter, par.fixdensity,
-                niter_fixdensity)
+                niter_fixdensity,
+                force_crit)
 
         parsize_kpt = par.parallel['kpt']
         parsize_domain = par.parallel['domain']
@@ -590,7 +615,6 @@ class PAW(PAWTextOutput):
             parallelization.set(kpt=parsize_kpt,
                                 domain=ndomains,
                                 band=parsize_bands)
-            #domain_comm, kpt_comm, band_comm, kptband_comm, domainband_comm
             comms = parallelization.build_communicators()
             domain_comm = comms['d']
             kpt_comm = comms['k']
@@ -823,6 +847,7 @@ class PAW(PAWTextOutput):
             self.txt.flush()
 
         self.initialized = True
+        self._changed_keywords.clear()
 
     def dry_run(self):
         # Can be overridden like in gpaw.atom.atompaw
@@ -850,17 +875,27 @@ class PAW(PAWTextOutput):
         TODO: Is this really the most efficient way?
         """
         spos_ac = self.atoms.get_scaled_positions() % 1.0
-        self.density.set_positions(spos_ac, self.wfs.rank_a)
+        self.density.set_positions(spos_ac, self.wfs.atom_partition)
         self.density.interpolate_pseudo_density()
         self.density.calculate_pseudo_charge()
-        self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
+        self.hamiltonian.set_positions(spos_ac, self.wfs.atom_partition)
         self.hamiltonian.update(self.density)
 
     def attach(self, function, n=1, *args, **kwargs):
         """Register observer function.
 
-        Call *function* every *n* iterations using *args* and
-        *kwargs* as arguments."""
+        Call *function* using *args* and
+        *kwargs* as arguments.
+        
+        If *n* is positive, then
+        *function* will be called every *n* iterations + the
+        final iteration if it would not be otherwise
+        
+        If *n* is negative, then *function* will only be
+        called on iteration *abs(n)*.
+        
+        If *n* is 0, then *function* will only be called
+        on convergence"""
 
         try:
             slf = function.im_self
@@ -877,7 +912,19 @@ class PAW(PAWTextOutput):
     def call_observers(self, iter, final=False):
         """Call all registered callback functions."""
         for function, n, args, kwargs in self.observers:
-            if ((iter % n) == 0) != final:
+            call = False
+            # Call every n iterations, including the last
+            if n > 0:
+                if ((iter % n) == 0) != final:
+                    call = True
+            # Call only on iteration n
+            elif n < 0 and not final:
+                if iter == abs(n):
+                    call = True
+            # Call only on convergence
+            elif n == 0 and final:
+                call = True
+            if call:
                 if isinstance(function, str):
                     function = getattr(self, function)
                 function(*args, **kwargs)
@@ -958,7 +1005,8 @@ class PAW(PAWTextOutput):
 
         no_wave_functions = (self.wfs.kpt_u[0].psit_nG is None)
         converged = self.scf.check_convergence(self.density,
-                                               self.wfs.eigensolver)
+                                               self.wfs.eigensolver, self.wfs,
+                                               self.hamiltonian, self.forces)
         if no_wave_functions or not converged:
             self.wfs.eigensolver.error = np.inf
             self.scf.converged = False
@@ -972,16 +1020,14 @@ class PAW(PAWTextOutput):
 
             self.calculate()
 
-    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None):
+    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None, expert=False):
         self.wfs.diagonalize_full_hamiltonian(self.hamiltonian, self.atoms,
                                               self.occupations, self.txt,
-                                              nbands, scalapack)
+                                              nbands, scalapack, expert)
 
-    def check_atoms(self):
+    def synchronize_atoms(self):
         """Check that atoms objects are identical on all processors."""
-        if not mpi.compare_atoms(self.atoms, comm=self.wfs.world):
-            raise RuntimeError('Atoms objects on different processors ' +
-                               'are not identical!')
+        mpi.synchronize_atoms(self.atoms, self.wfs.world)
 
 
 def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,

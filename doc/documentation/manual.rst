@@ -98,7 +98,7 @@ keyword            type       default value        description
 ``charge``         ``float``  ``0``                Total :ref:`manual_charge`
                                                    of the system
 ``convergence``    ``dict``                        :ref:`manual_convergence`
-``maxiter``        ``int``    ``120``              :ref:`manual_maxiter`
+``maxiter``        ``int``    ``333``              :ref:`manual_maxiter`
 ``txt``            ``str``,   ``'-'``              :ref:`manual_txt`
                    None, or   (``sys.stdout``)
                    file obj.
@@ -211,6 +211,8 @@ Eggbox errors:
 Features:
     FD mode is the oldest and has most features.  Only PW mode can be used
     for calculating the stress-tensor and for response function calculations.
+    Green's function based electronic transport calculations require
+    LCAO mode.
     
     
 .. _manual_nbands:
@@ -520,7 +522,8 @@ The default value is this Python dictionary::
   {'energy': 0.0005,  # eV / electron
    'density': 1.0e-4,
    'eigenstates': 4.0e-8,  # eV^2 / electron
-   'bands': 'occupied'}
+   'bands': 'occupied',
+   'forces': None} # eV / Ang Max 
 
 In words:
 
@@ -533,6 +536,10 @@ In words:
 * The integrated value of the square of the residuals of the Kohn-Sham
   equations should be less than :math:`4.0 \times 10^{-8}
   \mathrm{eV}^2` per valence electron (FD mode only).
+
+* The maximum change in the magnitude of the vector representing the
+  difference in forces for each atom.  Setting this to None disables 
+  this functionality, saving computational time and memory usage.
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set

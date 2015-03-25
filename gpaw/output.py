@@ -9,46 +9,14 @@ import ase
 from ase.units import Bohr, Hartree
 from ase.data import chemical_symbols
 from ase.version import version as ase_version
+from ase.utils import devnull
+from ase.parallel import get_txt
 
 import gpaw
 import _gpaw
 from gpaw.version import version
-from gpaw.utilities import devnull
 from gpaw.utilities.memory import maxrss
 from gpaw import dry_run, extra_parameters
-
-
-def initialize_text_stream(txt, rank, old_txt=None):
-    """Set the stream for text output.
-
-    If `txt` is not a stream-object, then it must be one of:
-
-    * None:  Throw output away.
-    * '-':  Use standard-output (``sys.stdout``).
-    * A filename:  Open a new file.
-    """
-    firsttime = (old_txt is None)
-
-    if txt is None or rank != 0:
-        return devnull, firsttime
-    elif txt == '-':
-        return sys.stdout, firsttime
-    elif isinstance(txt, str):
-        if isinstance(old_txt, file) and old_txt.name == txt:
-            return old_txt, firsttime
-        else:
-            if not firsttime:
-                # We want every file to start with the logo, so
-                # that the ase.io.read() function will recognize
-                # it as a GPAW text file.
-                firsttime = True
-            # Open the file line buffered.
-            return open(txt, 'w', 1), firsttime
-    else:
-        assert hasattr(txt, 'write'), 'Not a stream object!'
-        return txt, firsttime
-
-    return old_txt, firsttime
 
 
 class PAWTextOutput:
@@ -57,29 +25,25 @@ class PAWTextOutput:
     def __init__(self):
         self.txt = devnull
 
-    def set_text(self, txt, verbose=True):
+    def set_txt(self, txt):
         """Set the stream for text output.
 
         If `txt` is not a stream-object, then it must be one of:
 
         * None:  Throw output away.
-        * '-':  Use standard-output (``sys.stdout``).
-        * A filename:  Open a new file.
+        * '-':  Use stdout (``sys.stdout``) on master, elsewhere throw away.
+        * A filename:  Open a new file on master, elsewhere throw away.
         """
 
-        self.verbose = verbose
-
-        self.txt, firsttime = initialize_text_stream(txt, self.wfs.world.rank,
-                                                     self.txt)
-        if firsttime:
-            self.print_logo()
+        self.txt = get_txt(txt, self.wfs.world.rank)
+        self.print_header()
 
     def text(self, *args, **kwargs):
         self.txt.write(kwargs.get('sep', ' ').join([str(arg)
                                                     for arg in args]) +
                        kwargs.get('end', '\n'))
 
-    def print_logo(self):
+    def print_header(self):
         self.text()
         self.text('  ___ ___ ___ _ _ _  ')
         self.text(' |   |   |_  | | | | ')
@@ -338,14 +302,14 @@ class PAWTextOutput:
                 t('Center of Charge: %s' % (dipole / abs(self.density.charge)))
 
         try:
-            c = self.hamiltonian.poisson.corrector.c
+            correction = self.hamiltonian.poisson.corrector.correction
             epsF = self.occupations.fermilevel
         except AttributeError:
             pass
         else:
-            wf_a = -epsF * Hartree - dipole[c]
-            wf_b = -epsF * Hartree + dipole[c]
-            t('Dipole-corrected work function: %f, %f' % (wf_a, wf_b))
+            wf1 = (-epsF + correction) * Hartree
+            wf2 = (-epsF - correction) * Hartree
+            t('Dipole-corrected work function: %f, %f' % (wf1, wf2))
 
         if self.wfs.nspins == 2:
             t()
@@ -398,6 +362,11 @@ class PAWTextOutput:
            Time      WFS    Density  Energy       Fermi  Poisson"""
                 if self.wfs.nspins == 2:
                     header += '  MagMom'
+                if self.scf.max_force_error is not None:
+                    l1 = header.find('Total')
+                    header = header[:l1] + '       ' + header[l1:]
+                    l2 = header.find('Energy')
+                    header = header[:l2] + 'Force  ' + header[l2:]
                 t(header)
 
             T = time.localtime()
@@ -424,19 +393,28 @@ class PAWTextOutput:
             else:
                 niterpoisson = str(self.hamiltonian.npoisson)
 
-            t('iter: %3d  %02d:%02d:%02d %6s %6s    %11.6f  %-5s  %-7s' %
+            t('iter: %3d  %02d:%02d:%02d %6s %6s  ' %
               (iter,
                T[3], T[4], T[5],
                eigerr,
-               denserr,
-               Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S),
+               denserr), end='')
+
+            if self.scf.max_force_error is not None:
+                if self.scf.force_error is not None:
+                    t('  %+.2f' %
+                      (log(self.scf.force_error) / log(10)), end='')
+                else:
+                    t('       ', end='')
+
+            t('%11.6f    %-5s  %-7s' %
+              (Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S),
                niterocc,
                niterpoisson), end='')
 
             if self.wfs.nspins == 2:
-                t('  %+.4f' % self.occupations.magmom)
-            else:
-                t()
+                t('  %+.4f' % self.occupations.magmom, end='')
+
+            t()
 
         self.txt.flush()
 

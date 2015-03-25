@@ -3,10 +3,12 @@ import sys
 from time import time
 
 import numpy as np
-from ase.units import Hartree, Bohr
-from ase.utils import prnt
 from scipy.special import sici
 from scipy.special.orthogonal import p_roots
+
+from ase.units import Hartree, Bohr
+from ase.utils import prnt
+from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
 from gpaw.blacs import BlacsGrid, Redistributor
@@ -14,7 +16,6 @@ from gpaw.fd_operators import Gradient
 from gpaw.io.tar import Writer, Reader
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.utilities.blas import gemmdot, axpy
-from gpaw.utilities.timing import timer
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.xc.rpa import RPACorrelation
 

@@ -92,12 +92,14 @@ def build():
                  'sphinx-build -n . _build') != 0:
         raise RuntimeError('Sphinx failed!')
     assert os.system('cd _build; cp _static/searchtools.js .') == 0
-
+    # Don't serve mixed content:
+    assert os.system(
+        'cd _build; find -name "*.html" | xargs sed -i ' +
+        '"s%http://cdn.mathjax.org%https://cdn.mathjax.org%"') == 0
     if 0:
         if os.system('sphinx-build -b latex . _build') != 0:
             raise RuntimeError('Sphinx failed!')
         os.chdir('_build')
-        #os.system('cd ../..; ln -s doc/_static')
         if os.system('make gpaw-manual.pdf') != 0:
             raise RuntimeError('pdflatex failed!')
     else:

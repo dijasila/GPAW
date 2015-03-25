@@ -261,8 +261,17 @@
 2014-08-07 10.1021/jp505464z Ultrafast Electronic Relaxation and Vibrational Cooling Dynamics of Au-144(SC2H4Ph)(60) Nanocluster Probed by Transient Mid-IR Spectroscopy
 2014-08-11 10.1103/PhysRevB.90.075115 Simultaneous description of conductance and thermopower in single-molecule junctions from many-body ab initio calculations
 2014-08-15 10.1016/j.ssc.2014.04.023 MoS2 nanostructures: Semiconductors with metallic edges
+2014-08-15 10.1063/1.4893495 Bandgap calculations and trends of organometal halide perovskites
 2014-08-21 10.1039/c4dt01329h Chloride-bridged, defect-dicubane {Ln(4)} core clusters: syntheses, crystal structures and magnetic properties
 2014-08-28 10.1021/jp503494g Mechanism of Trichloroethene Hydrodehalogenation: A First-Principles Kinetic Monte Carlo Study
 2014-08-28 10.1021/jp505462m TDDFT Analysis of Optical Properties of Thiol Monolayer-Protected Gold and Intermetallic Silver-Gold Au-144(SR)(60) and Au84Ag60(SR)(60) Clusters
+2014-09-09 10.1103/PhysRevB.90.125413 Quantum interference in off-resonant transport through single molecules
+2014-09-11 10.1103/PhysRevLett.113.115501 Silicon-Carbon Bond Inversions Driven by 60-keV Electrons in Graphene
+2014-09-15 10.1021/nl502571b Controlling Catalytic Selectivity on Metal Nanoparticles by Direct Photoexcitation of Adsorbate-Metal Bonds
+2014-09-18 10.1021/jp501185q Superatomic S-2 Silver Clusters Stabilized by a Thiolate-Phosphine Monolayer: Insight into Electronic and Optical Properties of Ag-14(SC6H3F2)(12)(PPh3)(8) and Ag-16(SC6H3F2)(14)(DPPE)(4)
+2014-09-18 10.1021/jp506158c Periodic DFT Study of Benzene Adsorption on Pd(100) and Pd(110) at Medium and Saturation Coverage
+2014-09-23 10.1088/1367-2630/16/9/093029 GOLLUM: a next-generation simulation tool for electron, thermal and spin transport
 2014-10-15 10.1016/j.susc.2014.05.017 Investigating energetics of Au-8 on graphene/Ru(0001) using a genetic algorithm and density functional theory
 2014-10-15 10.1016/j.susc.2014.06.001 Interplay of hydrogen bonding and molecule-substrate interaction in self-assembled adlayer structures of a hydroxyphenyl-substituted porphyrin
+2014-10-15 10.1021/nl5029045 High-Conductive Organometallic Molecular Wires with De localized Electron Systems Strongly Coupled to Metal Electrodes
+2014-10-21 10.1039/c4cp00753k Segregation effects on the properties of (AuAg)(147)

@@ -29,14 +29,14 @@ print(('%10s: %12.6f eV in %3d iterations' %
        ('init(cg)', Eini, Iini)))
 equal(Eini, Eini0, 1E-8)
 
-calc.write('N2.gpw', mode='all')
+calc.write('N2_complex.gpw', mode='all')
 del calc, mol
 
 E = {}
 I = {}
 for esolver in esolvers:
 
-    mol, calc = restart('N2.gpw', txt=None)
+    mol, calc = restart('N2_complex.gpw', txt=None)
 
     if (calc.wfs.dtype!=complex or
         calc.wfs.kpt_u[0].psit_nG.dtype!=complex):

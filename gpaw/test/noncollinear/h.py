@@ -18,4 +18,6 @@ h.calc = GPAW(txt='nc.txt', mode='lcao', basis='dz(dzp)', h=0.25,
 e = h.get_potential_energy()
 
 assert abs(e - e0) < 2e-5, (e, e0)
+from ase.io import write
+write('h.traj', h)
 

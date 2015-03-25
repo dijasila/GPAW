@@ -1,12 +1,11 @@
 from __future__ import print_function
-import sys
 
-from ase import Atoms, Atom
+from ase import Atoms
 from ase.parallel import parprint
+from ase.utils.timing import Timer
 
 from gpaw import GPAW
 from gpaw.test import equal
-from gpaw.utilities.timing import Timer
 from gpaw.xc.hybrid import HybridXC
 
 timer = Timer()
@@ -16,14 +15,11 @@ loa = Atoms('Be2',
             cell=[5.9, 4.8, 5.0])
 loa.center()
 
-txt='-'
-txt='/dev/null'
+txt = None
 xc = 'PBE0'
 nbands = 4
 
 unocc = True
-#unocc = False
-#load = True
 load = False
 
 # usual calculation
@@ -37,7 +33,6 @@ if not load:
                 convergence={'eigenstates': 1e-4},
                 txt=txt)
     cocc.calculate(loa)
-#    cocc.write(fname)
 else:
     cocc = GPAW(fname)
     cocc.converge_wave_functions()
@@ -55,8 +50,12 @@ if unocc:
                   txt=txt)
     cunocc.calculate(loa)
 
-    parprint('Energy %10.4f   %10.4f' % (cocc.get_potential_energy(),
-                                         cunocc.get_potential_energy()))
+    parprint('     HF occ          HF unocc      diff')
+    parprint('Energy %10.4f   %10.4f %10.4f' %
+             (cocc.get_potential_energy(),
+              cunocc.get_potential_energy(),
+              cocc.get_potential_energy() - cunocc.get_potential_energy()
+              ))
     equal(cocc.get_potential_energy(),
           cunocc.get_potential_energy(), 1.e-4)
 
@@ -65,6 +64,7 @@ if unocc:
 
     parprint('Eigenvalues:')
     for eo, fo, eu, fu in zip(eo_n, fo_n, eu_n, fu_n):
-        parprint('%8.4f %5.2f   %8.4f %5.2f' % (eo, fo, eu, fu))
+        parprint('%8.4f %5.2f   %8.4f %5.2f  %8.4f' %
+                 (eo, fo, eu, fu, eu - eo))
         if fo > 0.01:
-            equal(eo, eu, 2.e-4)
+            equal(eo, eu, 3.5e-4)

@@ -3,7 +3,7 @@ from gpaw import GPAW, PW
 
 a = 4.0351  # Experimental lattice constant in Angstrom
 Ecut = 250  # Energy cut off for PW calculation
-k = 5  # Number of kpoints per each direction
+k = 4  # Number of kpoints per each direction
 
 # This gives the typical NaCl structure:
 LiF = crystal(['Li', 'F'],

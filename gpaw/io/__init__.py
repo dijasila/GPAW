@@ -10,6 +10,9 @@ Change log for version:
    PlaneWaveIndices array.
 
 4) Removed "UseSymmetry" and added "Symmetry" switches.
+
+5) Added "ForcesConvergenceCriterion".
+
 """
 
 import os
@@ -53,6 +56,14 @@ def open(filename, mode='r', comm=mpi.world):
             return DummyWriter(filename, comm)
     else:
         raise ValueError("Illegal mode!  Use 'r' or 'w'.")
+
+
+def write_atomic_matrix(writer, X_asp, name, master):
+    all_X_asp = X_asp.deepcopy()
+    all_X_asp.redistribute(all_X_asp.partition.as_serial())
+    writer.add(name, ('nspins', 'nadm'), dtype=float)
+    if master:
+        writer.fill(all_X_asp.flatten_to_array(axis=1))
 
 
 def wave_function_name_template(mode):
@@ -128,7 +139,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
-    w['version'] = 4
+    w['version'] = 5
     w['lengthunit'] = 'Bohr'
     w['energyunit'] = 'Hartree'
 
@@ -222,10 +233,15 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     w['MaximumAngularMomentum'] = p.lmax
     w['SoftGauss'] = False
     w['FixDensity'] = p.fixdensity
-    w['DensityConvergenceCriterion'] = p['convergence']['density']
-    w['EnergyConvergenceCriterion'] = p['convergence']['energy'] / Hartree
-    w['EigenstatesConvergenceCriterion'] = p['convergence']['eigenstates']
-    w['NumberOfBandsToConverge'] = p['convergence']['bands']
+    w['DensityConvergenceCriterion'] = p.convergence['density']
+    w['EnergyConvergenceCriterion'] = p.convergence['energy'] / Hartree
+    w['EigenstatesConvergenceCriterion'] = p.convergence['eigenstates']
+    w['NumberOfBandsToConverge'] = p.convergence['bands']
+    if p.convergence['forces'] is not None:
+        force_unit = (Hartree / Bohr)
+        w['ForcesConvergenceCriterion'] = p.convergence['forces'] / force_unit
+    else:
+        w['ForcesConvergenceCriterion'] = None
     w['Ekin'] = hamiltonian.Ekin
     w['Epot'] = hamiltonian.Epot
     w['Ebar'] = hamiltonian.Ebar
@@ -270,9 +286,6 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         if setup.type != 'paw':
             key += '(%s)' % setup.type
         w[key] = setup.fingerprint
-        
-        #key = key.replace('Fingerprint', '')
-        #w[key] = setup.parameter_string
 
     setup_types = p['setups']
     if isinstance(setup_types, str):
@@ -314,13 +327,14 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                 P_ani = {}
                 for a in range(natoms):
                     ni = wfs.setups[a].ni
-                    if wfs.rank_a[a] == 0:
+                    if wfs.atom_partition.rank_a[a] == 0:
                         P_ani[a] = kpt.P_ani[a]
                     else:
                         P_ani[a] = np.empty((wfs.bd.mynbands, ni),
                                             dtype=wfs.dtype)
+                        rank = wfs.atom_partition.rank_a[a]
                         requests.append(domain_comm.receive(P_ani[a],
-                                                            wfs.rank_a[a],
+                                                            rank,
                                                             1303 + a,
                                                             block=False))
             else:
@@ -344,38 +358,9 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     # Write atomic density matrices and non-local part of hamiltonian:
     timer.start('Atomic matrices')
-    if master:
-        all_D_sp = np.empty((wfs.nspins, nadm))
-        all_H_sp = np.empty((wfs.nspins, nadm))
-        p1 = 0
-        p2 = 0
-        for a in range(natoms):
-            ni = wfs.setups[a].ni
-            nii = ni * (ni + 1) // 2
-            if a in density.D_asp:
-                D_sp = density.D_asp[a]
-                dH_sp = hamiltonian.dH_asp[a]
-            else:
-                D_sp = np.empty((wfs.nspins, nii))
-                domain_comm.receive(D_sp, wfs.rank_a[a], 207)
-                dH_sp = np.empty((wfs.nspins, nii))
-                domain_comm.receive(dH_sp, wfs.rank_a[a], 2071)
-            p2 = p1 + nii
-            all_D_sp[:, p1:p2] = D_sp
-            all_H_sp[:, p1:p2] = dH_sp
-            p1 = p2
-        assert p2 == nadm
-    elif kpt_comm.rank == 0 and band_comm.rank == 0:
-        for a in range(natoms):
-            if a in density.D_asp:
-                domain_comm.send(density.D_asp[a], 0, 207)
-                domain_comm.send(hamiltonian.dH_asp[a], 0, 2071)
-    w.add('AtomicDensityMatrices', ('nspins', 'nadm'), dtype=float)
-    if master:
-        w.fill(all_D_sp)
-    w.add('NonLocalPartOfHamiltonian', ('nspins', 'nadm'), dtype=float)
-    if master:
-        w.fill(all_H_sp)
+    write_atomic_matrix(w, density.D_asp, 'AtomicDensityMatrices', master)
+    write_atomic_matrix(w, hamiltonian.dH_asp, 'NonLocalPartOfHamiltonian',
+                        master)
     timer.stop('Atomic matrices')
 
     # Write the eigenvalues and occupation numbers:
@@ -526,7 +511,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     timer.stop('Close')
     timer.stop('Write')
 
-   # Creates a db file for CMR, if requested
+    # Creates a db file for CMR, if requested
     if db and not filename.endswith('.db'):
         # Write a db copy to the database
         write(paw, '.db', mode='', cmr_params=cmr_params, **kwargs)
@@ -536,7 +521,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         write(paw, '.db', mode='', cmr_params=cmr_params, **kwargs)
 
 
-def read(paw, reader):
+def read(paw, reader, read_projections=True):
     r = reader
     timer = paw.timer
     timer.start('Read')
@@ -604,10 +589,9 @@ def read(paw, reader):
     from gpaw.utilities.partition import AtomPartition
     atom_partition = AtomPartition(gd.comm, np.zeros(natoms, dtype=int))
     # <sarcasm>let's set some variables directly on some objects!</sarcasm>
-    wfs.atom_partition = atom_partition # XXX
-    wfs.rank_a = np.zeros(natoms, int) # XXX
-    density.atom_partition = atom_partition # XXX
-    hamiltonian.atom_partition = atom_partition # XXX
+    wfs.atom_partition = atom_partition
+    density.atom_partition = atom_partition
+    hamiltonian.atom_partition = atom_partition
 
     if version > 0.3:
         Etot = hamiltonian.Etot
@@ -634,8 +618,6 @@ def read(paw, reader):
             'FermiLevel' in r.get_parameters()):
             paw.occupations.set_fermi_level(r['FermiLevel'])
 
-    #paw.occupations.magmom = paw.atoms.get_initial_magnetic_moments().sum()
-    
     # Try to read the current time and kick strength in time-propagation TDDFT:
     for attr, name in [('time', 'Time'), ('niter', 'TimeSteps'),
                        ('kick_strength', 'AbsorptionKick')]:
@@ -658,7 +640,8 @@ def read(paw, reader):
     if use_fdtd:
         from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
         # fdtd_poisson will overwrite the poisson at a later stage
-        paw.hamiltonian.fdtd_poisson = FDTDPoissonSolver(restart_reader=r, paw=paw)
+        paw.hamiltonian.fdtd_poisson = FDTDPoissonSolver(restart_reader=r,
+                                                         paw=paw)
 
     # Try to read the number of Delta SCF orbitals
     try:
@@ -671,7 +654,8 @@ def read(paw, reader):
     nbands = r.dimension('nbands')
     nslice = bd.get_slice()
 
-    if (nibzkpts != len(wfs.kd.ibzk_kc) or nbands != bd.comm.size * bd.mynbands):
+    if (nibzkpts != len(wfs.kd.ibzk_kc) or
+        nbands != bd.comm.size * bd.mynbands):
         paw.scf.reset()
     else:
         # Verify that symmetries for for k-point reduction hasn't changed:
@@ -729,7 +713,7 @@ def read(paw, reader):
             wfs.read_coefficients(r)
 
         timer.start('Projections')
-        if hdf5:
+        if hdf5 and read_projections:
             # Domain masters read parallel over spin, kpoints and band groups
             cumproj_a = np.cumsum([0] + [setup.ni for setup in wfs.setups])
             all_P_ni = np.empty((bd.mynbands, cumproj_a[-1]),
@@ -751,20 +735,13 @@ def read(paw, reader):
                         kpt.P_ani[a] = P_ni
 
             del all_P_ni  # delete a potentially large matrix
-        elif r.has_array('Projections'):
-            for u, kpt in enumerate(wfs.kpt_u):
-                P_ni = r.get('Projections', kpt.s, kpt.k)
-                i1 = 0
-                kpt.P_ani = {}
-                for a, setup in enumerate(wfs.setups):
-                    i2 = i1 + setup.ni
-                    if gd.comm.rank == 0:
-                        kpt.P_ani[a] = np.array(P_ni[nslice, i1:i2], wfs.dtype)
-                    i1 = i2
+        elif read_projections and r.has_array('Projections'):
+            wfs.read_projections(r)
         timer.stop('Projections')
 
     # Manage mode change:
-    paw.scf.check_convergence(density, wfs.eigensolver)
+    paw.scf.check_convergence(density, wfs.eigensolver, wfs, hamiltonian,
+                              paw.forces)
     newmode = paw.input_parameters.mode
     try:
         oldmode = r['Mode']
@@ -838,7 +815,6 @@ def read_wave_function(gd, s, k, n, mode):
 
     ftype, template = wave_function_name_template(mode)
     fname = template % (s, k, n) + '.' + ftype
-##    print 'fname=', fname
 
     i = gd.get_slice()
     r = open(fname, 'r')

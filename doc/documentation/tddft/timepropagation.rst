@@ -62,6 +62,7 @@ Ground state example::
   calc.write('be_gs.gpw', 'all')
 
 
+Time-propagation TDDFT is also available in :ref:`LCAO mode <lcaotddft>`.
 
 --------------------------------
 Optical photoabsorption spectrum

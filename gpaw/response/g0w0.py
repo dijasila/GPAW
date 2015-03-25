@@ -9,14 +9,15 @@ import numpy as np
 from ase.dft.kpoints import monkhorst_pack
 from ase.units import Hartree
 from ase.utils import opencew, devnull
+from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
 from gpaw import debug
+from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0, HilbertTransform
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.utilities.timing import timer
 from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.tools import vxc
@@ -83,6 +84,7 @@ class G0W0(PairDensity):
         p(' |___|')
         p()
 
+        self.inputcalc = calc
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
                              txt=txt)
 
@@ -372,7 +374,7 @@ class G0W0(PairDensity):
                           'domega0': self.domega0 * Hartree,
                           'omega2': self.omega2 * Hartree}
         
-        chi0 = Chi0(self.calc,
+        chi0 = Chi0(self.inputcalc,
                     nbands=self.nbands,
                     ecut=self.ecut * Hartree,
                     intraband=False,
@@ -423,6 +425,8 @@ class G0W0(PairDensity):
                 # Read screened potential from file
                 with open(wfilename) as fd:
                     pd, W = pickle.load(fd)
+                # We also need to initialize the PAW corrections
+                self.Q_aGii = self.initialize_paw_corrections(pd)
             else:
                 # First time calculation
                 pd, W = self.calculate_w(chi0, q_c, htp, htm, wstc, A1_x, A2_x)
@@ -529,6 +533,8 @@ class G0W0(PairDensity):
             return
             
         print('Calculating Kohn-Sham XC contribution', file=self.fd)
+        if self.reader is not None:
+            self.calc.wfs.read_projections(self.reader)
         vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Hartree
         n1, n2 = self.bands
         self.vxc_sin = vxc_skn[:, self.kpts, n1:n2]
@@ -609,23 +615,35 @@ class G0W0(PairDensity):
     @timer('PPA-Sigma')
     def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W):
         W_GG, omegat_GG = W
-        deps_mGG = deps_m[:, np.newaxis, np.newaxis]
-        sign_mGG = 2 * f_m[:, np.newaxis, np.newaxis] - 1
-        x1_mGG = 1 / (deps_mGG + omegat_GG - 1j * self.eta)
-        x2_mGG = 1 / (deps_mGG - omegat_GG + 1j * self.eta)
-        x3_mGG = 1 / (deps_mGG + omegat_GG - 1j * self.eta * sign_mGG)
-        x4_mGG = 1 / (deps_mGG - omegat_GG - 1j * self.eta * sign_mGG)
-        x_mGG = W_GG * (sign_mGG * (x1_mGG - x2_mGG) + x3_mGG + x4_mGG)
-        dx_mGG = W_GG * (sign_mGG * (x1_mGG**2 - x2_mGG**2) +
-                         x3_mGG**2 + x4_mGG**2)
 
         sigma = 0.0
         dsigma = 0.0
+
+        # init variables (is this necessary?)
+        nG = n_mG.shape[1]
+        deps_GG = np.empty((nG, nG))
+        sign_GG = np.empty((nG, nG))
+        x1_GG = np.empty((nG, nG))
+        x2_GG = np.empty((nG, nG))
+        x3_GG = np.empty((nG, nG))
+        x4_GG = np.empty((nG, nG))
+        x_GG = np.empty((nG, nG))
+        dx_GG = np.empty((nG, nG))
+        nW_G = np.empty(nG)
         for m in range(np.shape(n_mG)[0]):
-            nW_mG = np.dot(n_mG[m], x_mGG[m])
-            sigma += np.vdot(n_mG[m], nW_mG).real
-            nW_mG = np.dot(n_mG[m], dx_mGG[m])
-            dsigma -= np.vdot(n_mG[m], nW_mG).real
+            deps_GG = deps_m[m]
+            sign_GG = 2 * f_m[m] - 1
+            x1_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta)
+            x2_GG = 1 / (deps_GG - omegat_GG + 1j * self.eta)
+            x3_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta * sign_GG)
+            x4_GG = 1 / (deps_GG - omegat_GG - 1j * self.eta * sign_GG)
+            x_GG = W_GG * (sign_GG * (x1_GG - x2_GG) + x3_GG + x4_GG)
+            dx_GG = W_GG * (sign_GG * (x1_GG**2 - x2_GG**2) +
+                            x3_GG**2 + x4_GG**2)
+            nW_G = np.dot(n_mG[m], x_GG)
+            sigma += np.vdot(n_mG[m], nW_G).real
+            nW_G = np.dot(n_mG[m], dx_GG)
+            dsigma -= np.vdot(n_mG[m], nW_G).real
         
         x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
         return x * sigma, x * dsigma

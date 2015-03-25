@@ -9,6 +9,7 @@ from time import ctime
 import numpy as np
 from ase.units import Hartree
 from ase.utils import devnull
+from ase.utils.timing import timer, Timer
 from scipy.special.orthogonal import p_roots
 
 import gpaw.mpi as mpi
@@ -16,10 +17,31 @@ from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.utilities.timing import timer, Timer
 from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 
 
+def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
+    """Calculate RPA energy.
+    
+    filename: str
+        Name of restart-file.
+    ecut: float
+        Plane-wave cutoff.
+    blocks: int
+        Split polarizability matrix in this many blocks.
+    extrapolate: int
+        Number of cutoff energies to use for extrapolation.
+    """
+    name, ext = filename.rsplit('.', 1)
+    assert ext == 'gpw'
+    from gpaw.xc.rpa import RPACorrelation
+    rpa = RPACorrelation(name, name + '-rpa.dat',
+                         nblocks=blocks,
+                         wstc=True,
+                         txt=name + '-rpa.txt')
+    rpa.calculate(ecut=ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3))
+
+    
 class RPACorrelation:
     def __init__(self, calc, xc='RPA', filename=None,
                  skip_gamma=False, qsym=True, nlambda=None,
@@ -132,13 +154,8 @@ class RPACorrelation:
         p = functools.partial(print, file=self.fd)
 
         if isinstance(ecut, (float, int)):
-            ecut_i = [ecut]
-            for i in range(5):
-                ecut_i.append(ecut_i[-1] * 0.8)
-            ecut_i = np.sort(ecut_i)
-        else:
-            ecut_i = np.sort(ecut)
-        self.ecut_i = np.asarray(ecut_i) / Hartree
+            ecut = ecut * (1 + 0.5 * np.arange(6))**(-2 / 3)
+        self.ecut_i = np.asarray(np.sort(ecut)) / Hartree
         ecutmax = max(self.ecut_i)
 
         if nbands is None:
@@ -146,8 +163,8 @@ class RPACorrelation:
         else:
             p('Response function bands : %s' % nbands)
         p('Plane wave cutoffs (eV) :', end='')
-        for ecut in ecut_i:
-            p('%5d' % ecut, end='')
+        for e in self.ecut_i:
+            p(' {0:.3f}'.format(e * Hartree), end='')
         p()
         p()
 
@@ -231,8 +248,7 @@ class RPACorrelation:
                     cut_G = np.arange(nG)[pd.G2_qG[0] <= 2 * ecut]
                     m2 = len(cut_G)
 
-                p('E_cut = %d eV / Bands = %d:   ' % (ecut * Hartree, m2),
-                  end='')
+                p('E_cut = %d eV / Bands = %d:' % (ecut * Hartree, m2))
                 self.fd.flush()
 
                 energy = self.calculate_q(chi0, pd,
@@ -272,6 +288,7 @@ class RPACorrelation:
 
         self.timer.stop('RPA')
         self.timer.write(self.fd)
+        self.fd.flush()
         
         return e_i * Hartree
 
@@ -427,3 +444,36 @@ def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
     transform = (-np.log(1 - ys))**(frequency_scale - 1) \
         / (1 - ys) * frequency_scale / alpha
     return w, weights_w * transform / 2
+
+    
+description = 'Run RPA-correlation calculation.'
+
+
+def main():
+    import optparse
+    parser = optparse.OptionParser(usage='Usage: %prog <gpw-file> [options]',
+                                   description=description)
+    add = parser.add_option
+    
+    add('-e', '--cut-off', type=float, default=100, meta='ECUT',
+        help='Plane-wave cut off energy (eV) for polarization function.')
+    add('-b', '--blocks', type=int, default=1, meta='N',
+        help='Split polarization matrix in N blocks.')
+    
+    opts, args = parser.parse_args()
+    if len(args) == 0:
+        parser.error('No gpw-file!')
+    if len(args) > 1:
+        parser.error('Too many arguments!')
+    
+    name = args[0]
+    assert name.endswith('.gpw')
+    
+    rpa = RPACorrelation(name,
+                         txt=name[:-3] + 'rpa.txt',
+                         wstc=True, nblocks=opts.blocks)
+    rpa.calculate([opts.cut_off])
+
+
+if __name__ == '__main__':
+    main()

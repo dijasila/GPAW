@@ -374,7 +374,7 @@ class DF(CHI):
             df1, df2 = self.get_dielectric_function(xc='RPA', dir=dir)
             if self.xc == 'ALDA':
                 df3, df4 = self.get_dielectric_function(xc='ALDA', dir=dir)
-            if self.xc is 'ALDA_X':
+            if self.xc == 'ALDA_X':
                 df3, df4 = self.get_dielectric_function(xc='ALDA_X', dir=dir)
     
             Nw = df1.shape[0]

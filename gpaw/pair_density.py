@@ -240,13 +240,13 @@ class PairDensity:
             if D_p is None:
                 D_p = np.empty((ni * (ni + 1) // 2))
             if gd.comm.size > 1:
-                gd.comm.broadcast(D_p, self.wfs.rank_a[a])
+                gd.comm.broadcast(D_p, self.wfs.partition.rank_a[a])
             D_ii = unpack2(D_p)
 #            D_ii = D_aii.get(a)
 #            if D_ii is None:
 #                D_ii = np.empty((ni, ni))
 #            if gd.comm.size > 1:
-#                gd.comm.broadcast(D_ii, self.wfs.rank_a[a])
+#                gd.comm.broadcast(D_ii, self.wfs.atom_partition.rank_a[a])
             M2 = M1 + ni
             rho_MM[M1:M2, M1:M2] = D_ii
             M1 = M2

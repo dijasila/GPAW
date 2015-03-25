@@ -1,12 +1,14 @@
-from gpaw.utilities import unpack
-from ase.units import Hartree
+import copy
 import cPickle
 import numpy as np
+
+from ase.utils.timing import Timer
+from ase.units import Hartree
+
+from gpaw.utilities import unpack
 from gpaw.mpi import world, rank, send_string, receive_string, broadcast_string
 from gpaw.utilities.blas import gemm
-from gpaw.utilities.timing import Timer
 from gpaw.utilities.lapack import inverse_general
-import copy
 import _gpaw
 
 def tw(mat, filename):
@@ -157,6 +159,20 @@ def r2k_hs(h_srmm, s_rmm, R_vector, kvector=(0,0,0), magnet=None):
         return s_mm
     elif s_rmm is None:
         return h_smm
+
+def r2k2(s_rmm, R_vector, kvector=(0,0,0), symmetrize=True):
+    phase_k = np.dot(2 * np.pi * R_vector, kvector)
+    c_k = np.exp(-1.0j * phase_k)
+    c_k.shape = (len(R_vector), 1, 1)
+    nbf = s_rmm.shape[-1]
+    s_mm = np.zeros((nbf, nbf), complex)
+    for i in range(len(R_vector)):
+        tmp = s_rmm[i,:,:]*c_k[i]
+        if symmetrize and R_vector[i,:].any():
+            s_mm = s_mm + tmp + dagger(tmp)
+        else:
+            s_mm = s_mm + tmp
+    return s_mm
 
 def collect_lead_mat(lead_hsd, lead_couple_hsd, s, pk, flag='S'):
     diag_h = []
@@ -392,7 +408,7 @@ def get_lcao_density_matrix(calc):
             wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM, d_skmm[kpt.s, kpt.q])            
     return d_skmm
 
-def collect_atomic_matrices(asp, setups, ns, comm, rank_a):
+def collect_atomic_matrices(asp, setups, ns, comm, partition):
     all_asp = []
     for a, setup in enumerate(setups):
         sp = asp.get(a)
@@ -400,7 +416,7 @@ def collect_atomic_matrices(asp, setups, ns, comm, rank_a):
             ni = setup.ni
             sp = np.empty((ns, ni * (ni + 1) // 2))
         if comm.size > 1:
-            comm.broadcast(sp, rank_a[a])
+            comm.broadcast(sp, partition.rank_a[a])
         all_asp.append(sp)      
     return all_asp
 
@@ -409,7 +425,7 @@ def distribute_atomic_matrices(all_asp, asp, setups):
         if asp.get(a) is not None:
             asp[a] = all_asp[a]    
 
-def collect_and_distribute_atomic_matrices(D_ap, setups, setups0, rank_a, comm, keys):
+def collect_and_distribute_atomic_matrices(D_ap, setups, setups0, partition, comm, keys):
     gD_ap = []
     D_ap0 = [None] * len(keys)
     for a, setup in enumerate(setups):
@@ -419,7 +435,7 @@ def collect_and_distribute_atomic_matrices(D_ap, setups, setups0, rank_a, comm, 
         else:
             sp = D_ap[keys.index(a)]
         if comm.size > 1:
-            comm.broadcast(sp, rank_a[a])
+            comm.broadcast(sp, partition.rank_a[a])
         gD_ap.append(sp)
     for a in range(len(setups0)):
         if a in keys:
@@ -1022,7 +1038,7 @@ def save_bias_data_file(Lead1, Lead2, Device):
     vt_sG=np.append(vt_sG,vt_sG_R,axis=3)
     dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups,
                                      ham.nspins, ham.gd.comm,
-                                     density.rank_a)
+                                     density.atom_partition)
     pickle.dump(([0.0,0,0], vt_sG, dH_asp), file('bias_data1','wb'),2)
 
 def find(condition, flag=0):

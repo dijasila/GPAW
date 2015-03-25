@@ -26,3 +26,5 @@
 2014-08-06 10.1088/0953-8984/26/31/315013 Dynamical coupling of plasmons and molecular excitations by hybrid quantum/classical calculations: time-domain approach
 2014-08-07 10.1021/jp505464z Ultrafast Electronic Relaxation and Vibrational Cooling Dynamics of Au-144(SC2H4Ph)(60) Nanocluster Probed by Transient Mid-IR Spectroscopy
 2014-08-28 10.1021/jp505462m TDDFT Analysis of Optical Properties of Thiol Monolayer-Protected Gold and Intermetallic Silver-Gold Au-144(SR)(60) and Au84Ag60(SR)(60) Clusters
+2014-09-15 10.1021/nl502571b Controlling Catalytic Selectivity on Metal Nanoparticles by Direct Photoexcitation of Adsorbate-Metal Bonds
+2014-09-18 10.1021/jp501185q Superatomic S-2 Silver Clusters Stabilized by a Thiolate-Phosphine Monolayer: Insight into Electronic and Optical Properties of Ag-14(SC6H3F2)(12)(PPh3)(8) and Ag-16(SC6H3F2)(14)(DPPE)(4)

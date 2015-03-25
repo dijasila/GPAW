@@ -14,9 +14,10 @@ from gpaw.lfc import LFC
 from gpaw.utilities import pack2, unpack, unpack2
 from gpaw.io import read_atomic_matrices
 from gpaw.utilities.partition import AtomPartition, AtomicMatrixDistributor
+from gpaw.arraydict import ArrayDict
 
 
-class Hamiltonian:
+class Hamiltonian(object):
     """Hamiltonian object.
 
     Attributes:
@@ -76,7 +77,6 @@ class Hamiltonian:
         self.vHt_g = None
         self.vt_sg = None
 
-        self.rank_a = None
         self.atom_partition = None
 
         self.Ekin0 = None
@@ -91,15 +91,30 @@ class Hamiltonian:
         self.ref_vt_sG = None
         self.ref_dH_asp = None
 
+    @property
+    def dH_asp(self):
+        assert isinstance(self._dH_asp, ArrayDict) or self._dH_asp is None, type(self._dH_asp)
+        self._dH_asp.check_consistency()
+        return self._dH_asp
+
+    @dH_asp.setter
+    def dH_asp(self, value):
+        if isinstance(value, dict):
+            tmp = self.setups.empty_asp(self.ns, self.atom_partition)
+            tmp.update(value)
+            value = tmp
+        assert isinstance(value, ArrayDict) or value is None, type(value)
+        if value is not None:
+            value.check_consistency()
+        self._dH_asp = value
 
     def summary(self, fd):
         fd.write('XC and Coulomb potentials evaluated on a %d*%d*%d grid\n' %
                  tuple(self.finegd.N_c))
 
-    def set_positions(self, spos_ac, rank_a):
-        atom_partition = AtomPartition(self.gd.comm, rank_a)
-        
+    def set_positions(self, spos_ac, atom_partition):
         self.spos_ac = spos_ac
+        rank_a = atom_partition.rank_a
         self.vbar.set_positions(spos_ac)
         self.xc.set_positions(spos_ac)
         
@@ -109,20 +124,15 @@ class Hamiltonian:
         # How would one even go about figuring it out?  Why does it all have
         # to be so unreadable? -Ask
         #
-        if (self.rank_a is not None and
+        if (self.atom_partition is not None and
             self.dH_asp is None and (rank_a == self.gd.comm.rank).any()):
             self.dH_asp = {}
             
-        if self.rank_a is not None and self.dH_asp is not None:
+        if self.atom_partition is not None and self.dH_asp is not None:
             self.timer.start('Redistribute')
-            def get_empty(a):
-                ni = self.setups[a].ni
-                return np.empty((self.ns, ni * (ni + 1) // 2))
-            self.atom_partition.redistribute(atom_partition, self.dH_asp,
-                                             get_empty)
+            self.dH_asp.redistribute(atom_partition)
             self.timer.stop('Redistribute')
 
-        self.rank_a = rank_a
         self.atom_partition = atom_partition
         self.dh_distributor = AtomicMatrixDistributor(atom_partition,
                                                       self.setups,
@@ -505,10 +515,11 @@ class Hamiltonian:
                     self.gd.distribute(reader.get('PseudoPotential', s),
                                        self.vt_sG[s])
 
+        self.atom_partition = AtomPartition(self.gd.comm,
+                                            np.zeros(len(self.setups), int))
+
         # Read non-local part of hamiltonian
         self.dH_asp = {}
-        natoms = len(self.setups)
-        self.rank_a = np.zeros(natoms, int)
         if version > 0.3:
             all_H_sp = reader.get('NonLocalPartOfHamiltonian', broadcast=True)
 

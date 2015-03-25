@@ -450,9 +450,16 @@ class Transport(GPAW):
                 _tmp = GPAW(self.lead_calculators[i])
                 pl_params = _tmp.input_parameters.copy()
                 pl_params['parallel'] = self.input_parameters['parallel'].copy()
-                self.log('  self.input_parameters[parallel] {0}'.format(pl_params['parallel']))
+                # self.log('  self.input_parameters[parallel] {0}'.format(pl_params['parallel']))
                 #pl_params['parallel'].update(band=self.wfs.bd.comm.size, domain=self.wfs.gd.parsize_c)
                 #parprint('>>> self.input_parameters[parallel] updated {0}'.format(pl_params['parallel']))
+                #parprint('>>> pl_params <<<')
+                for k,v in pl_params.iteritems():
+                    parprint(' k: {0} v: {1}'.format(k,v))
+                depricated_keys = ['parsize', 'parsize_bands', 'parstride_bands', 'filter']
+                for k in depricated_keys:
+                    if pl_params.has_key(k):    
+                        del pl_params[k]
                 _lc = Lead_Calc(self.lead_calculators[i], **pl_params)
                 #atoms = _lc.get_atoms()
                 _lc.initialize(atoms)
@@ -897,7 +904,7 @@ class Transport(GPAW):
             gd0 = self.wfs.gd
             setups = calc.density.setups
             setups0 = self.density.setups
-            rank_a = calc.density.rank_a
+            rank_a = calc.density.atom_partition.rank_a
             keys = self.density.D_asp.keys()
             for mixer, mixer0 in zip(mixers, mixers0):
                 for nt_G, R_G, D_ap, dD_ap in zip(mixer.nt_iG,
@@ -1443,7 +1450,7 @@ class Transport(GPAW):
                 ham = self.extended_calc.hamiltonian                
             dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups,
                                              ham.nspins, ham.gd.comm,
-                                             density.rank_a)
+                                             density.atom_partition)
             if self.master:
                 fd = file('bias_data' + str(self.analysor.n_bias_step), 'wb')
                 cPickle.dump((self.bias, vt_sG, dH_asp), fd, 2)
@@ -2199,7 +2206,7 @@ class Transport(GPAW):
         self.perturbation_nt_sG = self.surround.uncapsule(self, nn, nt_sG, self.gd1,
                                                     self.gd)
         all_D_asp = collect_atomic_matrices(D_asp, wfs.setups, self.nspins,
-                                            self.gd.comm, wfs.rank_a)
+                                            self.gd.comm, wfs.atom_partition)
         D_asp = all_D_asp[:len(self.atoms)]
         self.perturbation_D_asp = D_asp
         #comp_charge = density.calculate_multipole_moments()
@@ -2246,12 +2253,12 @@ class Transport(GPAW):
             D_asp = self.extended_calc.density.D_asp
         self.extended_calc.wfs.calculate_atomic_density_matrices(D_asp)
         #all_D_asp = collect_D_asp2(D_asp, self.extended_calc.wfs.setups, self.nspins,
-        #                    self.gd.comm, self.extended_calc.wfs.rank_a)
+        #                    self.gd.comm, self.extended_calc.wfs.atom_partition)
         
         if not self.use_qzk_boundary:    
             wfs = self.extended_calc.wfs
             all_D_asp = collect_atomic_matrices(D_asp, wfs.setups, self.nspins,
-                                            self.gd.comm, wfs.rank_a)
+                                            self.gd.comm, wfs.atom_partition)
             D_asp = all_D_asp[:len(self.atoms)]
 
             #distribute_D_asp(D_asp, density)
@@ -2441,7 +2448,8 @@ class Transport(GPAW):
         
         #dH_asp = collect_D_asp3(ham, self.density.rank_a)
         dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups, ham.nspins,
-                                         ham.gd.comm, self.density.rank_a)
+                                         ham.gd.comm,
+                                         self.density.atom_partition)
         self.log('  collect_atomic_matrices()')
         self.surround.combine_dH_asp(self, dH_asp)
         if not self.analysis_mode:
@@ -2701,22 +2709,23 @@ class Transport(GPAW):
         self.inner_setups = self.wfs.setups
         self.inner_atom_indices = self.wfs.basis_functions.atom_indices
         self.inner_my_atom_indices = self.wfs.basis_functions.my_atom_indices
-        self.inner_rank_a = self.wfs.rank_a
+        self.inner_rank_a = self.wfs.atom_partition.rank_a
         
     def set_extended_positions(self):
         self.log('set_extended_positions()')
         spos_ac0 = self.atoms.get_scaled_positions() % 1.0
         spos_ac = self.extended_atoms.get_scaled_positions() % 1.0
         self.wfs.set_positions(spos_ac0)
-        old_extended_rank_a = self.extended_calc.wfs.rank_a
+        old_extended_atom_partition = self.extended_calc.wfs.atom_partition
         self.extended_calc.wfs.set_positions(spos_ac)
 
-        self.density.set_positions(spos_ac0, self.wfs.rank_a)
-        self.hamiltonian.set_positions(spos_ac0, self.wfs.rank_a)
-        self.extended_calc.hamiltonian.set_positions(spos_ac,
-                                                self.extended_calc.wfs.rank_a)
+        self.density.set_positions(spos_ac0, self.wfs.atom_partition)
+        self.hamiltonian.set_positions(spos_ac0, self.wfs.atom_partition)
+        self.extended_calc.hamiltonian.set_positions( \
+            spos_ac, self.extended_calc.wfs.atom_partition)
 
         if self.extended_D_asp is not None:
+            old_extended_rank_a = old_extended_atom_partition.rank_a
             requests = []
             D_asp = {}
             for a in self.extended_calc.wfs.basis_functions.my_atom_indices:
@@ -2732,7 +2741,7 @@ class Transport(GPAW):
                 
             for a, D_sp in self.extended_D_asp.items():
                 # Send matrix to new domain:
-                requests.append(self.gd.comm.send(D_sp, self.extended_calc.wfs.rank_a[a],
+                requests.append(self.gd.comm.send(D_sp, self.extended_calc.wfs.atom_partition.rank_a[a],
                                                   tag=a, block=False))
             for request in requests:
                 self.gd.comm.wait(request)
@@ -2777,8 +2786,8 @@ class Transport(GPAW):
                         ni = setup.ni
                         D_sp = np.empty((density.nspins, ni * (ni + 1) // 2))
                     if density.gd.comm.size > 1:
-                        density.gd.comm.broadcast(D_sp,
-                                     self.extended_calc.hamiltonian.rank_a[a])
+                        rank = self.extended_calc.hamiltonian.atom_partition.rank_a[a]
+                        density.gd.comm.broadcast(D_sp, rank)
                     all_D_asp.append(D_sp)      
                 
                 D_asp = all_D_asp[:len(self.atoms)]

@@ -198,7 +198,7 @@ if hdf5:
     extensions.append(hdf5_extension)
 
 scripts = [join('tools', script)
-           for script in ('gpaw-run', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
+           for script in ('gwap', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
                           'gpaw-mpisim', 'gpaw-runscript',
                           'gpaw-install-setups')]
 
@@ -208,19 +208,20 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     mpi_libraries, mpi_library_dirs, mpi_include_dirs,
                     mpi_runtime_library_dirs, mpi_define_macros)
 
+description = 'An electronic structure code based on the PAW method'
+
 setup(name='gpaw',
       version=version,
-      description='A grid-based real-space PAW method DFT code',
-      author='J. J. Mortensen, et.al.',
-      author_email='jensj@fysik.dtu.dk',
-      url='http://www.fysik.dtu.dk',
+      description=description,
+      maintainer='GPAW-community',
+      maintainer_email='gpaw-developers@listserv.fysik.dtu.dk',
+      url='http://wiki.fysik.dtu.dk/gpaw',
       license='GPLv3+',
       platforms=['unix'],
       packages=packages,
       ext_modules=extensions,
       scripts=scripts,
-      long_description=long_description,
-      )
+      long_description=long_description)
 
 
 if custom_interpreter:
@@ -238,17 +239,16 @@ if custom_interpreter:
     if 'install' in sys.argv and error == 0:
         setup(name='gpaw',
               version=version,
-              description='A grid-based real-space PAW method DFT code',
-              author='J. J. Mortensen, et.al.',
-              author_email='jensj@fysik.dtu.dk',
-              url='http://www.fysik.dtu.dk',
+              description=description,
+              maintainer='GPAW-community',
+              maintainer_email='gpaw-developers@listserv.fysik.dtu.dk',
+              url='http://wiki.fysik.dtu.dk/gpaw',
               license='GPLv3+',
               platforms=['unix'],
               packages=packages,
               ext_modules=[extension],
               scripts=scripts,
-              long_description=long_description,
-              )
+              long_description=long_description)
 
 else:
     msg += ['* Only a serial version of gpaw was built!']

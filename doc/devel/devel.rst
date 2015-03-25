@@ -121,74 +121,8 @@ Contributing to GPAW
 Getting commit access to our SVN repository works the same way as for
 the `ASE project`_.  Here is the list of current committers:
 
-=========  =========================  ========================================
-id         real name
-=========  =========================  ========================================
-anpet      Andrew Peterson            andrew_peterson:brown,edu
-aoj        Ari Ojanperä               ari,ojanpera:tkk,fi
-askhl      Ask Hjorth Larsen          asklarsen:gmail,com
-dlandis    David Landis               dlandis:fysik,dtu,dk
-dmowbray   Duncan Mowbray             duncan,mowbray:gmail,com
-dulak      Marcin Dulak               dulak:fysik,dtu,dk
-eojons     Elvar Örn Jónsson          elvar,jonsson:fysik,dtu,dk
-falh       Falco Huser                falh:fysik,dtu,dk
-fras       Filip Anselm Rasmussen     fras:fysik,dtu,dk
-georg      Poul Georg Moses           gtritsaris:seas,harvard,edu
-getri      George Tritsaris           getri:fysik,dtu,dk
-hahansen   Heine Anton Hansen         hahansen:fysik,dtu,dk
-haiping    Haiping Lin                H,Lin1:liverpool,ac,uk
-hhk05      Henrik Kristoffersen       hhk05:inano,dk
-hildur     Hildur Guõmundsdóttir      hildur,gud:gmail,com
-jensj      Jens Jørgen Mortensen      jensj:fysik,dtu,dk
-jesswe     Jess Wellendorff Pedersen  jesswe:fysik,dtu,dk
-jingzhe    Jingzhe Chen               jingzhe:fysik,dtu,dk
-jsm        Jess Stausholm-Møller      jsm:phys,au,dk
-jussie     Jussi Enkovaara            jussi,enkovaara:csc,fi
-juya       Jun Yan                    juya:fysik,dtu,dk
-kelkkane   Andre Kelkkanen            kelkkane:fysik,dtu,dk
-kelu       Keld Troen Lundgaard       kelu:fysik,dtu,dk
-kiran      Kirsten Andersen           kiran:fysik,dtu,dk
-kkaa       Kristen Kaasbjerg          kkaa:fysik,dtu,dk
-ksaha      Kamal Saha                 ?
-kuismam    Mikael Kuisma              mikael,kuisma:tut,fi
-lara       Lara Ferrighi              laraf:phys,au,dk
-linli      Lin Li                     lli2010:stanford,edu
-lauri      Lauri Lethovaara           lauri,lehtovaara:iki,fi
-lopeza     Olga Lopez                 lopez:cc,jyu,fi
-marsalek   Ondrej Marsalek            ondrej,marsalek:gmail,com
-mathiasl   Mathias Ljungberg          mathiasl:physto,se
-miwalter   Michael Walter             Michael,Walter:fmf,uni-freiburg,de
-mogje      Morten Gjerding            mortengjerding:gmail,com
-mohpa      Mohnish Pandey             mohpa:fysik,dtu,dk
-moses      Poul Georg Moses           poulgeorgmoses:gmail,com
-mvanin     Marco Vanin                mvanin:fysik,dtu,dk
-naromero   Nichols Romero             naromero:alcf,anl,gov
-peterklue  Peter Kluepfel             peter:theochem,org
-s032082    Christian Glinsvad         s032082:fysik,dtu,dk
-s093017    Per Simmendefeldt Schmidt  s093017:student,dtu,dk
-sakko      Arto Sakko                 arto,sakko:aalto,fi
-schiotz    Jakob Schiotz              schiotz:fysik,dtu,dk
-shakala    Samuli Hakala              samuli,hakala:tkk,fi
-simola     Simone Latini              simola:fysik,dtu,dk
-strange    Mikkel Strange             mikkel,strange:gmail,com
-thahn      Torsten Hahn               der,hahn,torsten:googlemail,com
-tjiang     Tao Jiang                  tjiang:fysik,dtu,dk
-tolsen     Thomas Olsen               tolsen:fysik,dtu,dk
-tprossi    Tuomas Rossi               tuomas,rossi:aalto,fi
-=========  =========================  ========================================
-
-
-Former committers:
-
-=========  =========================  ========================================
-id         real name
-=========  =========================  ========================================
-carstenr   Carsten Rostgaard          carstenr:fysik,dtu,dk 
-jstenlund  Jonathan Stenlund          jonathan,stenlund:abo,fi 
-madsbk     Mads Burgdorff Kristensen  madsbk:diku,dk 
-s042606    Janosch Michael Rauba      s042606:fysik,dtu,dk 
-s052580    Troels Kofoed Jacobsen     s052580:fysik,dtu,dk 
-=========  =========================  ========================================
-
+.. csv-table::
+    :file: committers.csv
+    :header: "real name", "user name", "email"
 
 .. _ASE project: https://wiki.fysik.dtu.dk/ase/development/contribute.html

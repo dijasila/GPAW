@@ -13,7 +13,7 @@ from ase.units import Bohr, Hartree
 
 from gpaw import setup_paths
 from gpaw.spline import Spline
-from gpaw.utilities import _fact, divrl
+from gpaw.utilities import _fact
 from gpaw.utilities.tools import md5_new
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast_string
@@ -36,7 +36,7 @@ class SetupData:
         self.name = name
         self.zero_reference = zero_reference
 
-        # Default filename if this setup is written 
+        # Default filename if this setup is written
         if name is None or name == 'paw':
             self.stdfilename = '%s.%s' % (symbol, self.setupname)
         else:
@@ -62,7 +62,7 @@ class SetupData:
         
         # State identifier, like "X-2s" or "X-p1", where X is chemical symbol,
         # for bound and unbound states
-        self.id_j = [] 
+        self.id_j = []
         
         # Partial waves, projectors
         self.phi_jg = []
@@ -101,7 +101,7 @@ class SetupData:
         self.ncorehole = None
         self.core_hole_e = None
         self.core_hole_e_kin = None
-        self.has_corehole = False        
+        self.has_corehole = False
 
         # Parameters for zero-potential:
         self.l0 = None
@@ -109,13 +109,14 @@ class SetupData:
         self.r0 = None
         self.nderiv0 = None
 
+        self.orbital_free = False  # orbital-free DFT
+        
         if readxml:
             self.read_xml(world=world)
 
     def append(self, n, l, f, e, rcut, phi_g, phit_g, pt_g):
         self.n_j.append(n)
         self.l_j.append(l)
-        self.l_orb_j.append(l)
         self.f_j.append(f)
         self.eps_j.append(e)
         self.rcut_j.append(rcut)
@@ -161,8 +162,8 @@ class SetupData:
         j = 0
         for n, l, f, eps in zip(self.n_j, self.l_j, self.f_j, self.eps_j):
             if n > 0:
-                f = '(%d)' % f
-                text('    %d%s%-4s %7.3f   %5.3f' % (
+                f = '(%.2f)' % f
+                text('    %d%s%-5s %7.3f   %5.3f' % (
                     n, 'spdf'[l], f, eps * Hartree, self.rcut_j[j] * Bohr))
             else:
                 text('    *%s     %7.3f   %5.3f' % (
@@ -262,34 +263,37 @@ class SetupData:
         print('  <!--', comment1, '-->', file=xml)
         print('  <!--', comment2, '-->', file=xml)
 
-        print(('  <atom symbol="%s" Z="%d" core="%r" valence="%d"/>'
-                       % (self.symbol, self.Z, self.Nc, self.Nv)), file=xml)
-        if self.setupname == 'LDA':
+        print(('  <atom symbol="%s" Z="%d" core="%r" valence="%d"/>' %
+               (self.symbol, self.Z, self.Nc, self.Nv)), file=xml)
+        if self.orbital_free:
+            type = 'OFDFT'
+            name = self.setupname
+        elif self.setupname == 'LDA':
             type = 'LDA'
             name = 'PW'
         else:
             type = 'GGA'
             name = self.setupname
-        print('  <xc_functional type="%s" name="%s"/>' % (type, name), file=xml)
-        gen_attrs = ' '.join(['%s="%s"' % (key, value) for key, value 
+        print('  <xc_functional type="%s" name="%s"/>' % (type, name),
+              file=xml)
+        gen_attrs = ' '.join(['%s="%s"' % (key, value) for key, value
                               in self.generatorattrs])
         print('  <generator %s>' % gen_attrs, file=xml)
         print('    %s' % self.generatordata, file=xml)
         print('  </generator>', file=xml)
-        print('  <ae_energy kinetic="%r" xc="%r"' % \
+        print('  <ae_energy kinetic="%r" xc="%r"' %
               (self.e_kinetic, self.e_xc), file=xml)
-        print('             electrostatic="%r" total="%r"/>' % \
+        print('             electrostatic="%r" total="%r"/>' %
               (self.e_electrostatic, self.e_total), file=xml)
 
         print('  <core_energy kinetic="%r"/>' % self.e_kinetic_core, file=xml)
         print('  <valence_states>', file=xml)
-        line1 = '    <state n="%d" l="%d" f=%s rc="%r" e="%r" id="%s"/>'
+        line1 = '    <state n="%d" l="%d" f="%r" rc="%r" e="%r" id="%s"/>'
         line2 = '    <state       l="%d"        rc="%r" e="%r" id="%s"/>'
 
         for id, l, n, f, e, rc in zip(self.id_j, l_j, self.n_j, self.f_j,
                                       self.eps_j, self.rcut_j):
             if n > 0:
-                f = '%-4s' % ('"%d"' % f)
                 print(line1 % (n, l, f, rc, e, id), file=xml)
             else:
                 print(line2 % (l, rc, e, id), file=xml)
@@ -298,7 +302,7 @@ class SetupData:
         print(self.rgd.xml('g1'), file=xml)
 
         print(('  <shape_function type="gauss" rc="%r"/>' %
-                       self.rcgauss), file=xml)
+               self.rcgauss), file=xml)
 
         if self.r0 is None:
             # Old setups:
@@ -318,10 +322,10 @@ class SetupData:
 
         if self.has_corehole:
             print((('  <core_hole_state state="%d%s" ' +
-                           'removed="%r" eig="%r" ekin="%r">') %
-                           (self.ncorehole, 'spdf'[self.lcorehole],
-                            self.fcorehole,
-                            self.core_hole_e, self.core_hole_e_kin)), file=xml)
+                    'removed="%r" eig="%r" ekin="%r">') %
+                   (self.ncorehole, 'spdf'[self.lcorehole],
+                    self.fcorehole,
+                    self.core_hole_e, self.core_hole_e_kin)), file=xml)
             for x in self.phicorehole_g:
                 print('%r' % x, end=' ', file=xml)
             print('\n  </core_hole_state>', file=xml)
@@ -337,7 +341,7 @@ class SetupData:
 
         # Print xc-specific data to setup file (used so for KLI and GLLB)
         for name, a in self.extra_xc_data.iteritems():
-            newname = 'GLLB_'+name
+            newname = 'GLLB_' + name
             print('  <%s grid="g1">\n    ' % newname, end=' ', file=xml)
             for x in a:
                 print('%r' % x, end=' ', file=xml)
@@ -440,7 +444,7 @@ You need to set the GPAW_SETUP_PATH environment variable to point to
 the directory where the setup files are stored.  See
 http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
             raise RuntimeError('Could not find %s-setup for "%s".' %
-                               (setup.name + '.' + setup.setupname, 
+                               (setup.name + '.' + setup.setupname,
                                 setup.symbol))
         
         setup.fingerprint = md5_new(source).hexdigest()
@@ -456,10 +460,6 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
             setup.e_electrostatic = 0.0
             setup.e_xc = 0.0
 
-        #if not hasattr(setup, 'tauc_g'):
-        #    setup.tauc_g = setup.tauct_g = None
-
-
     def startElement(self, name, attrs):
         setup = self.setup
         if name == 'paw_setup':
@@ -473,8 +473,11 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
             if attrs['type'] == 'LDA':
                 setup.xcname = 'LDA'
             else:
-                assert attrs['type'] == 'GGA'
                 setup.xcname = attrs['name']
+                if attrs['type'] == 'OFDFT':
+                    setup.orbital_free = True
+                else:
+                    assert attrs['type'] == 'GGA'
         elif name == 'ae_energy':
             setup.e_total = float(attrs['total'])
             setup.e_kinetic = float(attrs['kinetic'])
@@ -485,7 +488,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
         elif name == 'state':
             setup.n_j.append(int(attrs.get('n', -1)))
             setup.l_j.append(int(attrs['l']))
-            setup.f_j.append(int(attrs.get('f', 0)))
+            setup.f_j.append(float(attrs.get('f', 0)))
             setup.eps_j.append(float(attrs['e']))
             setup.rcut_j.append(float(attrs.get('rc', -1)))
             setup.id_j.append(attrs['id'])

@@ -2,11 +2,13 @@ from __future__ import print_function
 import sys
 from time import ctime
 import numpy as np
+
 from ase.parallel import paropen
 from ase.units import Ha
+from ase.utils import devnull
+
 from gpaw import GPAW
 from gpaw.response.df0 import DF
-from gpaw.utilities import devnull
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import rank, size, world
 from gpaw.response.parallel import parallel_partition, \

@@ -71,10 +71,11 @@ import numpy.linalg as la
 import ase.units as units
 from ase.phonons import Displacement, Phonons
 from ase.parallel import rank, barrier
+from ase.utils.timing import Timer
 
 from gpaw.utilities import unpack2
 from gpaw.utilities.tools import tri2full
-from gpaw.utilities.timing import StepTimer, nulltimer, Timer
+from gpaw.utilities.timing import StepTimer, nulltimer
 from gpaw.lcao.overlap import ManySiteDictionaryWrapper, \
      TwoCenterIntegralCalculator
 from gpaw.lcao.tightbinding import TightBinding

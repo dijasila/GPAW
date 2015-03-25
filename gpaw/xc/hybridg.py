@@ -11,6 +11,7 @@ import numpy as np
 from ase.utils import prnt
 from ase.units import Hartree
 from ase.dft.kpoints import monkhorst_pack
+from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
 import gpaw.fftw as fftw
@@ -19,7 +20,6 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.utilities import pack, unpack2, packed_index, logfile, erf
 from gpaw.utilities.ewald import madelung
-from gpaw.utilities.timing import Timer
 
 
 class HybridXC(HybridXCBase):

@@ -148,7 +148,7 @@ class BlacsGrid:
         assert order in 'CcRr'
         # set a default value for the context leads to fewer
         # if statements below
-        context = INACTIVE
+        self.context = INACTIVE
 
         # There are three cases to handle:
         # 1. Comm is None is inactive (default).
@@ -158,16 +158,23 @@ class BlacsGrid:
             if nprow * npcol > comm.size:
                 raise ValueError('Impossible: %dx%d Blacs grid with %d CPUs'
                                  % (nprow, npcol, comm.size))
+            
+            try:
+                new = _gpaw.new_blacs_context
+            except AttributeError, e:
+                raise AttributeError(
+                    'BLACS is unavailable.  '
+                    'GPAW must be compiled with BLACS/ScaLAPACK, '
+                    'and must run in MPI-enabled interpretre (gpaw-python).  '
+                    'Original error: %s' % e)
+            
+            self.context = new(comm.get_c_object(), npcol, nprow, order)
+            assert (self.context != INACTIVE) == (comm.rank < nprow * npcol)
 
-            context = _gpaw.new_blacs_context(comm.get_c_object(),
-                                              npcol, nprow, order)
-            assert (context != INACTIVE) == (comm.rank < nprow * npcol)
-
-        self.mycol, self.myrow = _gpaw.get_blacs_gridinfo(context,
+        self.mycol, self.myrow = _gpaw.get_blacs_gridinfo(self.context,
                                                           nprow,
                                                           npcol)
 
-        self.context = context
         self.comm = comm
         self.nprow = nprow
         self.npcol = npcol
@@ -216,7 +223,8 @@ class BlacsGrid:
 
 class DryRunBlacsGrid(BlacsGrid):
     def __init__(self, comm, nprow, npcol, order='R'):
-        assert isinstance(comm, SerialCommunicator)
+        assert (isinstance(comm, SerialCommunicator) or
+                isinstance(comm.comm, SerialCommunicator))
         # DryRunCommunicator is subclass
         
         if nprow * npcol > comm.size:
@@ -333,8 +341,9 @@ class BlacsDescriptor(MatrixDescriptor):
                                                      self.N, self.M,
                                                      self.nb, self.mb,
                                                      self.csrc, self.rsrc)
-            self.lld = max(1, locN)  # max 1 is nonsensical, but appears
-                                     # to be required by PBLAS
+            # max 1 is nonsensical, but appears
+            # to be required by PBLAS
+            self.lld = max(1, locN)
         else:
             # ScaLAPACK has no requirements as to what these values on an
             # inactive blacsgrid should be. This seemed reasonable to me

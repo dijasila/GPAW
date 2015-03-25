@@ -279,6 +279,7 @@
 2014-01-15 10.1039/c3ra47784c Dissociation of oxygen on pristine and nitrogen-doped carbon nanotubes: a spin-polarized density functional study
 2014-01-15 10.1039/c4cp00705k H-2 production through electro-oxidation of SO2: identifying the fundamental limitations
 2014-01-15 10.1039/c4cp03133d Designing mixed metal halide ammines for ammonia storage using density functional theory and genetic algorithms
+2014-01-15 10.1039/c4sc01646g Ultrafast structural dynamics in Rydberg excited N,N,N ',N '-tetramethylethylenediamine: conformation dependent electron lone pair interaction and charge delocalization
 2014-01-28 10.1103/PhysRevB.89.014304 Ab initio based thermal property predictions at a low cost: An error analysis
 2014-01-31 10.3762/bjnano.5.11 The role of oxygen and water on molybdenum nanoclusters for electro catalytic ammonia production
 2014-02-03 10.3762/bjnano.5.12 Core level binding energies of functionalized and defective graphene
@@ -313,8 +314,16 @@
 2014-08-01 10.1093/mnras/stu869 Do cement nanoparticles exist in space?
 2014-08-06 10.1088/0953-8984/26/31/315013 Dynamical coupling of plasmons and molecular excitations by hybrid quantum/classical calculations: time-domain approach
 2014-08-15 10.1016/j.ssc.2014.04.023 MoS2 nanostructures: Semiconductors with metallic edges
+2014-08-15 10.1063/1.4893495 Bandgap calculations and trends of organometal halide perovskites
 2014-08-21 10.1039/c4cp02204a Enhancing the hydrogen storage capacity of TiFe by utilizing clusters
 2014-08-21 10.1039/c4dt01329h Chloride-bridged, defect-dicubane {Ln(4)} core clusters: syntheses, crystal structures and magnetic properties
 2014-08-28 10.1021/jp505462m TDDFT Analysis of Optical Properties of Thiol Monolayer-Protected Gold and Intermetallic Silver-Gold Au-144(SR)(60) and Au84Ag60(SR)(60) Clusters
+2014-09-11 10.1103/PhysRevLett.113.115501 Silicon-Carbon Bond Inversions Driven by 60-keV Electrons in Graphene
+2014-09-18 10.1021/jp412360b Electronic and Vibrational Properties of meso-Tetraphenylporphyrin on Silver Substrates
+2014-09-18 10.1021/jp501185q Superatomic S-2 Silver Clusters Stabilized by a Thiolate-Phosphine Monolayer: Insight into Electronic and Optical Properties of Ag-14(SC6H3F2)(12)(PPh3)(8) and Ag-16(SC6H3F2)(14)(DPPE)(4)
+2014-09-18 10.1021/jp506158c Periodic DFT Study of Benzene Adsorption on Pd(100) and Pd(110) at Medium and Saturation Coverage
 2014-10-15 10.1016/j.carbon.2014.06.060 Atomic and electronic structure of tetrahedral amorphous carbon surfaces from density functional theory: Properties and simulation strategies
+2014-10-15 10.1016/j.ssc.2014.07.008 Physical properties of alpha-Fe upon the introduction of H, He, C, and N
 2014-10-15 10.1016/j.susc.2014.05.017 Investigating energetics of Au-8 on graphene/Ru(0001) using a genetic algorithm and density functional theory
+2014-10-15 10.1021/nl5029045 High-Conductive Organometallic Molecular Wires with De localized Electron Systems Strongly Coupled to Metal Electrodes
+2014-10-21 10.1039/c4cp00753k Segregation effects on the properties of (AuAg)(147)

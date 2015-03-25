@@ -28,7 +28,7 @@ sys.path.append('.')
 extensions = ['ytp', 'ext', 'images', 'sitelink',
               'sphinx.ext.autodoc',
               'sphinx.ext.viewcode',
-              'sphinx.ext.pngmath',
+              'sphinx.ext.mathjax',
               'sphinx.ext.intersphinx']
 
 # Add any paths that contain templates here, relative to this directory.

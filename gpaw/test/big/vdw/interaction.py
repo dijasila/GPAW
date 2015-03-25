@@ -2,13 +2,13 @@ from __future__ import print_function
 import pickle
 import numpy as np
 from gpaw import GPAW, setup_paths
-from gpaw.vdw import FFTVDWFunctional, RealSpaceVDWFunctional
+from gpaw.vdw import VDWFunctional
 
 setup_paths.insert(0, '.')
 
 d = np.linspace(3.0, 5.5, 11)
 for symbol in ['Ar', 'Kr']:
-    vdw = FFTVDWFunctional(verbose=1)
+    vdw = VDWFunctional(verbose=1)
     e = np.empty(11)
     de = np.empty(11)
     for i, r in enumerate(d):
@@ -24,7 +24,7 @@ for symbol in ['Ar', 'Kr']:
 
 e = np.empty(11)
 de = np.empty(11)
-vdw = FFTVDWFunctional(verbose=1)
+vdw = VDWFunctional(verbose=1)
 for i, r in enumerate(d):
     calc = GPAW('benzene-dimer-%.2f.gpw' % r, txt=None)
     e[i] = calc.get_atoms().get_potential_energy()

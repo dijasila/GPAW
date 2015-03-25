@@ -2,6 +2,8 @@
 import sys
 import numpy as np
 
+from ase.utils import devnull
+
 from gpaw import debug
 from gpaw.mpi import world
 from gpaw.utilities.tools import tri2full
@@ -353,7 +355,6 @@ if __name__ in ['__main__', '__builtin__'] and compiled_with_sl():
     if __name__ == '__builtin__':
         testrunner = CustomTextTestRunner('ut_hsblacs.log', verbosity=2)
     else:
-        from gpaw.utilities import devnull
         stream = (world.rank == 0) and sys.stdout or devnull
         testrunner = TextTestRunner(stream=stream, verbosity=2)
 

@@ -116,7 +116,7 @@ class BaseInducedField(object):
         self.domain_comm = paw.wfs.gd.comm
         self.band_comm = paw.wfs.band_comm
         self.kpt_comm = paw.wfs.kd.comm
-        self.rank_a = paw.wfs.rank_a
+        self.rank_a = paw.wfs.atom_partition.rank_a
         self.nspins = paw.density.nspins
         self.setups = paw.wfs.setups
         self.density = paw.density
@@ -555,7 +555,7 @@ def read_data(filename, keys=None, ws='all'):
     
     print('Reading %s' % (filename))
     
-    if keys == None:
+    if keys is None:
         keys = key_to_tarname.keys()  # all keys
     
     tar = Reader(filename)

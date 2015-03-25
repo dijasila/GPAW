@@ -113,7 +113,7 @@ def fold(energies, weights, npts, width, mode='Gauss'):
     return e, dos_e
 
     
-def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
+def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
     """Return a list of eigenvalues, and their weight on the specified atom.
 
     angular can be s, p, d, f, or a list of these.
@@ -121,11 +121,20 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
 
     An integer value for ``angular`` can also be used to specify a specific
     projector function.
+
+    Setting nbands limits the number of bands included. This speeds up the
+    calculation if one has many bands in the calculator but is only interested
+    in the DOS at low energies.
     """
     wfs = paw.wfs
     w_k = wfs.kd.weight_k
     nk = len(w_k)
-    nb = wfs.bd.nbands
+    if not nbands:
+        nb = wfs.bd.nbands
+    else:
+        nb = nbands
+        assert nb <= wfs.bd.nbands, ("nbands higher than available number" +
+                                     "of bands")
 
     if a < 0:
         # Allow list-style negative indices; we'll need the positive a for the
@@ -137,18 +146,18 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
     weights_xi = np.empty((nb * nk, setup.ni))
     x = 0
     for k, w in enumerate(w_k):
-        eps = wfs.collect_eigenvalues(k=k, s=spin)
-        print(wfs.world.rank, type(eps))
+        eps = wfs.collect_eigenvalues(k=k, s=spin)[:nb]
+        #print(wfs.world.rank, type(eps))
         if eps is not None:
             energies[x:x + nb] = eps
         u = spin * nk + k
         P_ani = wfs.kpt_u[u].P_ani
         if a in P_ani:
-            weights_xi[x:x + nb, :] = w * np.absolute(P_ani[a])**2
+            weights_xi[x:x + nb, :] = w * np.absolute(P_ani[a][:nb, :])**2
         x += nb
 
     wfs.world.broadcast(energies, 0)
-    wfs.world.broadcast(weights_xi, wfs.rank_a[a])
+    wfs.world.broadcast(weights_xi, wfs.atom_partition.rank_a[a])
 
     if angular is None:
         return energies, weights_xi
@@ -526,10 +535,21 @@ class LCAODOS:
         return self.get_subspace_pdos([M], ravel=ravel)
     
     def get_atomic_subspace_pdos(self, a, ravel=True):
-        """Get projected subspace DOS from LCAO basis on atom a."""
-        M = self.calc.wfs.basis_functions.M_a[a]
-        Mvalues = range(M, M + self.calc.wfs.setups[a].nao)
+        """Get projected subspace DOS from LCAO basis on atom(s) a.
+
+        a may be an atomic index or a list of indices."""
+        Mvalues = self.get_atom_indices(a)
         return self.get_subspace_pdos(Mvalues, ravel=ravel)
+
+    def get_atom_indices(self, a):
+        """Get list of basis function indices of atom(s) a."""
+        if isinstance(a, int):
+            a = [a]
+        Mvalues = []
+        for a0 in a:
+            M = self.calc.wfs.basis_functions.M_a[a0]
+            Mvalues.extend(range(M, M + self.calc.wfs.setups[a0].nao))
+        return Mvalues
 
     def get_subspace_pdos(self, Mvalues, ravel=True):
         """Get projected subspace DOS from LCAO basis."""
@@ -547,6 +567,8 @@ class LCAODOS:
             C_nM = kpt.C_nM
             from gpaw.kohnsham_layouts import BlacsOrbitalLayouts
             if isinstance(wfs.ksl, BlacsOrbitalLayouts):
+                raise NotImplementedError('Something not quite working.  '
+                                          'FIXME.')
                 S_MM = wfs.ksl.mmdescriptor.collect_on_master(kpt.S_MM)
                 if bd.rank != 0 or gd.rank != 0:
                     S_MM = np.empty((wfs.ksl.nao, wfs.ksl.nao),

@@ -67,7 +67,7 @@ class EXX(PairDensity):
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt,
                              timer=timer)
 
-        if xc is None:
+        if xc is None or xc == 'EXX':
             self.exx_fraction = 1.0
             xc = XC(XCNull())
         elif xc == 'PBE0':
@@ -187,6 +187,8 @@ class EXX(PairDensity):
                 ham.Etot - ham.Exc) * Hartree
         
     def get_eigenvalue_contributions(self):
+        if self.reader is not None:
+            self.calc.wfs.read_projections(self.reader)
         b1, b2 = self.bands
         e_sin = vxc(self.calc, self.xc)[:, self.kpts, b1:b2] / Hartree
         e_sin += (self.exxvv_sin + self.exxvc_sin) * self.exx_fraction

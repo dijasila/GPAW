@@ -1,7 +1,6 @@
 import numpy as np
 from gpaw.xc.libxc import LibXC, short_names
 from gpaw.xc.kernel import XCKernel, codes
-from gpaw.xc.bee import BEE1
 from gpaw.test import equal
 
 funcs = []
@@ -16,8 +15,6 @@ for name in short_names:
 for name in codes:
     funcs.append(name)
     modes.append(1)
-funcs.append('BEE1')
-modes.append(2)
 
 
 def create_xc(func, mode):
@@ -25,12 +22,8 @@ def create_xc(func, mode):
     isinstance(mode, int)
     if mode == 0:
         xc = LibXC(func)
-    elif mode == 1:
-        xc = XCKernel(func)
-    elif mode == 2:
-        xc = BEE1()
     else:
-        stop
+        xc = XCKernel(func)
     return xc
 
     
@@ -103,8 +96,8 @@ n_xg = np.array(
      [0.1, 0.1, 0.125, 0.125, 0.125, 0.0025, 0.025],
      [0.1, 0.1, 0.01, 0.01, 0.01, 0.2, 0.2],
      [0.1, 0.2, 0.1, -0.08, 0.10, 0.01, 0.05],
-     [0.1, 0.1, 0.1,  0.01, 0.01, 0.01, 0.01],
-     [0.1, 0.1, 0.1,  0.15, 0.20, 0.01, 0.05]]).T.copy()
+     [0.1, 0.1, 0.1, 0.01, 0.01, 0.01, 0.01],
+     [0.1, 0.1, 0.1, 0.15, 0.20, 0.01, 0.05]]).T.copy()
 
 
 for i, func in enumerate(funcs):

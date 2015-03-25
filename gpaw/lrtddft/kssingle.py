@@ -46,7 +46,7 @@ class KSSingles(ExcitationList):
                  nspins=None,
                  eps=0.001,
                  istart=0,
-                 jend=None,
+                 jend=sys.maxsize,
                  energy_range=None,
                  filehandle=None,
                  txt=None):
@@ -57,7 +57,7 @@ class KSSingles(ExcitationList):
             filehandle = open(calculator)
         if filehandle is not None:
             self.world = mpi.world
-            self.read(fh=filehandle)
+            self.read(fh=filehandle, istart=istart, jend=jend)
             return None
 
         # LCAO calculation requires special actions
@@ -91,7 +91,7 @@ class KSSingles(ExcitationList):
               tuple(pol.tolist()), file=self.txt)
 
     def select(self, nspins=None, eps=0.001,
-               istart=0, jend=None, energy_range=None):
+               istart=0, jend=sys.maxsize, energy_range=None):
         """Select KSSingles according to the given criterium."""
 
         paw = self.calculator
@@ -113,10 +113,7 @@ class KSSingles(ExcitationList):
             except:
                 emax = energy_range / Hartree
         self.istart = istart
-        if jend is None:
-            self.jend = sys.maxint
-        else:
-            self.jend = jend
+        self.jend = jend
         self.eps = eps
 
         # here, we need to take care of the spins also for
@@ -184,7 +181,7 @@ class KSSingles(ExcitationList):
         for kss in self:
             kss.distribute()
 
-    def read(self, filename=None, fh=None):
+    def read(self, filename=None, fh=None, istart=0, jend=sys.maxsize):
         """Read myself from a file"""
         if fh is None:
             if filename.endswith('.gz'):
@@ -214,8 +211,9 @@ class KSSingles(ExcitationList):
         self.npspins = 1
         for i in range(n):
             kss = KSSingle(string=f.readline(), dtype=self.dtype)
-            self.append(kss)
-            self.npspins = max(self.npspins, kss.pspin + 1)
+            if (kss.i >= istart) and (kss.j <= jend):
+                self.append(kss)
+                self.npspins = max(self.npspins, kss.pspin + 1)
         self.update()
 
         if fh is None:

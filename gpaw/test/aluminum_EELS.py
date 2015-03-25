@@ -3,8 +3,11 @@ import numpy as np
 import sys
 import os
 import time
+
 from ase.units import Bohr
 from ase.lattice import bulk
+from ase.utils import devnull
+
 from gpaw import GPAW, PW
 from gpaw.test import findpeak
 from gpaw.eigensolvers.rmm_diis_old import RMM_DIIS
@@ -12,7 +15,6 @@ from gpaw.mixer import Mixer
 from gpaw.atom.basis import BasisMaker
 from gpaw.response.df import DielectricFunction
 from gpaw.mpi import serial_comm, rank, size
-from gpaw.utilities import devnull
 from gpaw.wavefunctions.pw import PW
 
 if rank != 0:

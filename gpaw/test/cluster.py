@@ -78,12 +78,6 @@ offdiagonal = CO_b.get_cell().sum() - CO_b.get_cell().diagonal().sum()
 assert(offdiagonal == 0.0)
  
 barrier()
-CO.write(fxyz, repeat=[1,1,1])
-barrier()
-CO_b = Cluster(filename=fxyz)
-assert(8*len(CO) == len(CO_b)) 
- 
-barrier()
 CO.write(fpdb)
 
 # read xyz files with additional info

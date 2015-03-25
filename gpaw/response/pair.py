@@ -5,6 +5,7 @@ from math import pi
 import numpy as np
 from ase.units import Hartree
 from ase.utils import devnull
+from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi
 from gpaw import GPAW
@@ -12,8 +13,10 @@ from gpaw.fd_operators import Gradient
 from gpaw.occupations import FermiDirac
 from gpaw.response.math_func import two_phi_planewave_integrals
 from gpaw.utilities.blas import gemm
-from gpaw.utilities.timing import timer, Timer
 from gpaw.wavefunctions.pw import PWLFC
+import gpaw.io.tar as io
+
+import warnings
 
 
 class KPoint:
@@ -54,7 +57,7 @@ class PairDensity:
         self.gate_voltage = gate_voltage
 
         if nblocks == 1:
-            self.blockcomm = mpi.serial_comm
+            self.blockcomm = self.world.new_communicator([world.rank])
             self.kncomm = world
         else:
             assert world.size % nblocks == 0, world.size
@@ -75,8 +78,13 @@ class PairDensity:
         if isinstance(calc, str):
             print('Reading ground state calculation:\n  %s' % calc,
                   file=self.fd)
-            calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
+            if not calc.split('.')[-1] == 'gpw':
+                calc = calc + '.gpw'
+            self.reader = io.Reader(calc, comm=mpi.serial_comm)
+            calc = GPAW(calc, txt=None, communicator=mpi.serial_comm,
+                        read_projections=False)
         else:
+            self.reader = None
             assert calc.wfs.world.size == 1
 
         assert calc.wfs.kd.symmetry.symmorphic
@@ -103,12 +111,19 @@ class PairDensity:
         print('Shifting Fermi-level by %.2f eV' % (gate_voltage * Hartree),
               file=self.fd)
 
+        for kpt in self.calc.wfs.kpt_u:
+            kpt.f_n = (self.shift_occupations(kpt.eps_n, gate_voltage)
+                       * kpt.weight)
+
+    def shift_occupations(self, eps_n, gate_voltage):
+        """Shift fermilevel."""
         fermi = self.calc.occupations.get_fermi_level() + gate_voltage
         width = self.calc.occupations.width
-        shiftedFDdist = lambda w_w: 1 / (1 + np.exp((w_w - fermi) / width))
-
-        for kpt in self.calc.wfs.kpt_u:
-            kpt.f_n = shiftedFDdist(kpt.eps_n) * kpt.weight
+        tmp = (eps_n - fermi) / width
+        f_n = np.zeros_like(eps_n)
+        f_n[tmp <= 100] = 1 / (1 + np.exp(tmp[tmp <= 100]))
+        f_n[tmp > 100] = 0.0
+        return f_n
 
     def count_occupied_bands(self):
         self.nocc1 = 9999999
@@ -192,21 +207,38 @@ class PairDensity:
         ik = wfs.kd.bz2ibz_k[K]
         kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
 
+        eps_n = kpt.eps_n[n1:n2]
+        f_n = kpt.f_n[n1:n2] / kpt.weight
+
         psit_nG = kpt.psit_nG
         ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
         for n in range(na, nb):
             ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
-
-        eps_n = kpt.eps_n[n1:n2]
-        f_n = kpt.f_n[n1:n2] / kpt.weight
-
+            
         P_ani = []
-        for b, U_ii in zip(a_a, U_aii):
-            P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
-            if time_reversal:
-                P_ni = P_ni.conj()
-            P_ani.append(P_ni)
-
+        if self.reader is None:
+            for b, U_ii in zip(a_a, U_aii):
+                P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
+                if time_reversal:
+                    P_ni = P_ni.conj()
+                P_ani.append(P_ni)
+        else:
+            II_a = []
+            I1 = 0
+            for U_ii in U_aii:
+                I2 = I1 + len(U_ii)
+                II_a.append((I1, I2))
+                I1 = I2
+                
+            P_ani = []
+            P_nI = self.reader.get('Projections', kpt.s, kpt.k)
+            for b, U_ii in zip(a_a, U_aii):
+                I1, I2 = II_a[b]
+                P_ni = np.dot(P_nI[na:nb, I1:I2], U_ii)
+                if time_reversal:
+                    P_ni = P_ni.conj()
+                P_ani.append(P_ni)
+        
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 
@@ -376,13 +408,27 @@ class PairDensity:
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
-        n0_mv = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR[m]).T
-        nt_m = self.calc.wfs.gd.integrate(kpt1.ut_nR[n], kpt2.ut_nR[m])
+        blockbands = kpt2.nb - kpt2.na
+        n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
+        nt_m = np.empty(kpt2.blocksize, dtype=complex)
+        n0_mv[:blockbands] = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
+        nt_m[:blockbands] = self.calc.wfs.gd.integrate(kpt1.ut_nR[n],
+                                                       kpt2.ut_nR)
         n0_mv += 1j * nt_m[:, np.newaxis] * k_v[np.newaxis, :]
 
         for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
-            P_mi = P_mi[m].copy()
-            gemm(1.0, C_vi, P_mi, 1.0, n0_mv, 'c')
+            P_mi = P_mi.copy()
+            gemm(1.0, C_vi, P_mi, 1.0, n0_mv[:blockbands], 'c')
+
+        if self.blockcomm.size != 1:
+            n0_Mv = np.empty((kpt2.blocksize * self.blockcomm.size, 3),
+                             dtype=complex)
+            self.blockcomm.all_gather(n0_mv, n0_Mv)
+            n0_mv = n0_Mv[:kpt2.n2 - kpt2.n1]
+
+        # In case not all unoccupied bands are included
+        if n0_mv.shape[0] != len(m):
+            n0_mv = n0_mv[m]
 
         deps_m = deps_m.copy()
         deps_m[deps_m >= 0.0] = np.inf
@@ -393,23 +439,26 @@ class PairDensity:
 
         if inds_mv.any():
             indent8 = ' ' * 8
-            print('\n    WARNING: Optical limit purtubation' +
-                  ' theory failed for:')
+            print('\n    WARNING: Optical limit perturbation' +
+                  ' theory failed for:', file=self.fd)
             print(indent8 + 'kpt_c = [%1.2f, %1.2f, %1.2f]'
-                  % (k_c[0], k_c[1], k_c[2]))
+                  % (k_c[0], k_c[1], k_c[2]), file=self.fd)
             inds_m = inds_mv.any(axis=1)
             depsi_m = deps_m[inds_m]
             n0i_mv = np.abs(n0_mv[inds_m])
             smallness_mv = smallness_mv[inds_m]
             for depsi, n0i_v, smallness_v in zip(depsi_m, n0i_mv,
                                                  smallness_mv):
-                print(indent8 + 'Energy eigenvalue difference %1.2e ' % -depsi)
+                print(indent8 + 'Energy eigenvalue difference %1.2e ' % -depsi,
+                      file=self.fd)
                 print(indent8 + 'Matrix element' +
-                      ' %1.2e %1.2e %1.2e' % (n0i_v[0], n0i_v[1], n0i_v[2]))
+                      ' %1.2e %1.2e %1.2e' % (n0i_v[0], n0i_v[1], n0i_v[2]),
+                      file=self.fd)
                 print(indent8 + 'Smallness' +
                       ' %1.2e %1.2e %1.2e\n' % (smallness_v[0],
                                                 smallness_v[1],
-                                                smallness_v[2]))
+                                                smallness_v[2]),
+                      file=self.fd)
 
         n0_mv *= 1j / deps_m[:, np.newaxis]
         n0_mv[inds_mv] = 0
@@ -428,8 +477,8 @@ class PairDensity:
         ut_mvR = self.calc.wfs.gd.zeros((len(ind_m), 3), complex)
         for ind, ut_vR in zip(ind_m, ut_mvR):
             ut_vR[:] = self.make_derivative(kpt.s, kpt.K,
-                                            kpt.n1 + ind,
-                                            kpt.n1 + ind + 1)[0]
+                                            kpt.na + ind,
+                                            kpt.na + ind + 1)[0]
         npartocc = len(ind_m)
         ut_mR = kpt.ut_nR[ind_m]
 

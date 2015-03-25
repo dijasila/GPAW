@@ -2,13 +2,15 @@ from __future__ import print_function
 import sys
 from time import ctime, time
 import numpy as np
+
 from ase.parallel import paropen
 from ase.units import Hartree, Bohr
+from ase.utils import devnull
+
 from gpaw import GPAW
 from gpaw.xc import XC
 from gpaw.xc.libxc import LibXC
 from gpaw.response.df0 import DF
-from gpaw.utilities import devnull
 from gpaw.utilities.blas import gemmdot, axpy
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import rank, size, world, serial_comm

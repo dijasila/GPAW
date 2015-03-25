@@ -50,8 +50,8 @@ class MatrixDescriptor:
             raise AssertionError(msg)
 
     def general_diagonalize_dc(self, H_mm, S_mm, C_mm, eps_M,
-                               UL='L'):
-        general_diagonalize(H_mm, eps_M, S_mm)
+                               UL='L', iu=None):
+        general_diagonalize(H_mm, eps_M, S_mm, iu=iu)
         C_mm[:] = H_mm
 
     def my_blocks(self, array_mn):

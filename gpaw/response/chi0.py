@@ -5,14 +5,15 @@ from time import ctime
 
 import numpy as np
 from ase.units import Hartree
+from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
 from gpaw import extra_parameters
-from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
+from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor,
+                        DryRunBlacsGrid)
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.occupations import FermiDirac
 from gpaw.response.pair import PairDensity
-from gpaw.utilities.timing import timer
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.utilities.blas import gemm, rk, czher, mmm
@@ -119,13 +120,14 @@ class Chi0(PairDensity):
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
         self.Ga = self.blockcomm.rank * mynG
         self.Gb = min(self.Ga + mynG, nG)
+        assert mynG * (self.blockcomm.size - 1) < nG
         
         if A_x is not None:
             nx = nw * (self.Gb - self.Ga) * nG
             chi0_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
             chi0_wGG[:] = 0.0
         else:
-            chi0_wGG = np.zeros((nw, nG, nG), complex)
+            chi0_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
 
         if np.allclose(q_c, 0.0):
             chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
@@ -190,14 +192,14 @@ class Chi0(PairDensity):
 
             for n in range(kpt1.n2 - kpt1.n1):
                 eps1 = kpt1.eps_n[n]
-
+                
                 # Only update if there exists deps <= omegamax
                 if self.omegamax is not None:
                     m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
                          if abs(d) <= self.omegamax]
                 else:
-                    m = range(len(kpt2.eps_n))
-
+                    m = range(0, kpt2.n2 - kpt2.n1)
+                
                 if not len(m):
                     continue
 
@@ -226,8 +228,10 @@ class Chi0(PairDensity):
             if optical_limit and self.intraband:
                 # Avoid that more ranks are summing up
                 # the intraband contributions
-                if kpt1.n1 == 0:
-                    self.update_intraband(kpt2, chi0_wvv)
+                if kpt1.n1 == 0 and self.blockcomm.rank == 0:
+                    assert self.nocc2 <= kpt2.nb, \
+                        print('Error: Too few unoccupied bands')
+                    self.update_intraband(kpt2)
 
         self.timer.stop('Loop')
 
@@ -238,10 +242,10 @@ class Chi0(PairDensity):
                 self.kncomm.sum(chi0_GG)
 
             if optical_limit:
-                self.world.sum(chi0_wxvG)
-                self.world.sum(chi0_wvv)
+                self.kncomm.sum(chi0_wxvG)
+                self.kncomm.sum(chi0_wvv)
                 if self.intraband:
-                    self.world.sum(self.chi0_vv)
+                    self.kncomm.sum(self.chi0_vv)
 
         print('Memory used: {0:.3f} MB / CPU'.format(maxrss() / 1024**2),
               file=self.fd)
@@ -273,10 +277,12 @@ class Chi0(PairDensity):
             if omega_w[0] == 0.0:
                 omega_w[0] = 1e-14
 
-            chi0_wvv += (self.chi0_vv[np.newaxis] /
-                         (omega_w[:, np.newaxis, np.newaxis] *
-                          (omega_w[:, np.newaxis, np.newaxis] +
-                           1j * self.eta)))
+            chi0_vv = self.chi0_vv
+            self.world.broadcast(chi0_vv, 0)
+
+            chi0_wvv += (chi0_vv[np.newaxis] /
+                         (omega_w[:, np.newaxis, np.newaxis] 
+                          + 1j * self.eta)**2)
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
@@ -384,7 +390,7 @@ class Chi0(PairDensity):
             chi0_wxvG[w + 1, 1, :, 1:] += p2 * x_vG.conj()
 
     @timer('CHI_0 intraband update')
-    def update_intraband(self, kpt, chi0_wvv):
+    def update_intraband(self, kpt):
         """Check whether there are any partly occupied bands."""
 
         width = self.calc.occupations.width
@@ -399,7 +405,7 @@ class Chi0(PairDensity):
 
         # Break bands into degenerate chunks
         deginds_cm = []  # indexing c as chunk number
-        for m in range(kpt.n2 - kpt.n1):
+        for m in range(kpt.nb - kpt.na):
             inds_m = np.nonzero(np.abs(kpt.eps_n[m] - kpt.eps_n) < 1e-5)[0]
             if m == np.min(inds_m) and partocc_m[m]:
                 deginds_cm.append((inds_m))
@@ -421,7 +427,8 @@ class Chi0(PairDensity):
 
                 self.chi0_vv += x_vv
 
-    def redistribute(self, in_wGG, out_x):
+    @timer('redist')
+    def redistribute(self, in_wGG, out_x=None):
         """Redistribute array.
         
         Switch between two kinds of parallel distributions:
@@ -448,29 +455,67 @@ class Chi0(PairDensity):
         md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
         
         if len(in_wGG) == nw:
-            r = Redistributor(comm, md2, md1)
-            wa = comm.rank * mynw
-            wb = min(wa + mynw, nw)
-            shape = (wb - wa, nG, nG)
+            mdin = md2
+            mdout = md1
         else:
-            r = Redistributor(comm, md1, md2)
-            Ga = comm.rank * mynG
-            Gb = min(Ga + mynG, nG)
-            shape = (nw, Gb - Ga, nG)
+            mdin = md1
+            mdout = md2
+            
+        r = Redistributor(comm, mdin, mdout)
         
-        out_wGG = out_x[:np.product(shape)].reshape(shape)
-        r.redistribute(in_wGG.reshape((len(in_wGG), -1)),
-                       out_wGG.reshape((len(out_wGG), -1)))
+        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
+        if out_x is None:
+            out_wGG = np.empty(outshape, complex)
+        else:
+            out_wGG = out_x[:np.product(outshape)].reshape(outshape)
+
+        r.redistribute(in_wGG.reshape(mdin.shape),
+                       out_wGG.reshape(mdout.shape))
+        
+        return out_wGG
+
+    @timer('dist freq')
+    def distribute_frequencies(self, chi0_wGG):
+        """Distribute frequencies to all cores."""
+        
+        world = self.world
+        comm = self.blockcomm
+        
+        if world.size == 1:
+            return chi0_wGG
+            
+        nw = len(self.omega_w)
+        nG = chi0_wGG.shape[2]
+        mynw = (nw + world.size - 1) // world.size
+        mynG = (nG + comm.size - 1) // comm.size
+  
+        wa = min(world.rank * mynw, nw)
+        wb = min(wa + mynw, nw)
+
+        if self.blockcomm.size == 1:
+            return chi0_wGG[wa:wb].copy()
+
+        if self.kncomm.rank == 0:
+            bg1 = BlacsGrid(comm, 1, comm.size)
+            in_wGG = chi0_wGG.reshape((nw, -1))
+        else:
+            bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
+            in_wGG = np.zeros((0, 0), complex)
+        md1 = BlacsDescriptor(bg1, nw, nG**2, nw, mynG * nG)
+        
+        bg2 = BlacsGrid(world, world.size, 1)
+        md2 = BlacsDescriptor(bg2, nw, nG**2, mynw, nG**2)
+        
+        r = Redistributor(world, md1, md2)
+        shape = (wb - wa, nG, nG)
+        out_wGG = np.empty(shape, complex)
+        r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
         
         return out_wGG
 
     def print_chi(self, pd):
         calc = self.calc
         gd = calc.wfs.gd
-
-        ns = calc.wfs.nspins
-        nk = calc.wfs.kd.nbzkpts
-        nb = self.nocc2
 
         if extra_parameters.get('df_dry_run'):
             from gpaw.mpi import DryRunCommunicator
@@ -479,41 +524,74 @@ class Chi0(PairDensity):
         else:
             world = self.world
 
-        nw = len(self.omega_w)
-        q_c = pd.kd.bzk_kc[0]
-        nstat = (ns * nk * nb + world.size - 1) // world.size
-
         print('%s' % ctime(), file=self.fd)
         print('Called response.chi0.calculate with', file=self.fd)
+
+        q_c = pd.kd.bzk_kc[0]
         print('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]), file=self.fd)
-        print('    Number of frequency points   : %d' % nw, file=self.fd)
-        print('    Planewave cutoff: %f' % (self.ecut * Hartree), file=self.fd)
+
+        nw = len(self.omega_w)
+        print('    Number of frequency points: %d' % nw, file=self.fd)
+
+        ecut = self.ecut * Hartree
+        print('    Planewave cutoff: %f' % ecut, file=self.fd)
+
+        ns = calc.wfs.nspins
         print('    Number of spins: %d' % ns, file=self.fd)
-        print('    Number of bands: %d' % self.nbands, file=self.fd)
+
+        nbands = self.nbands
+        print('    Number of bands: %d' % nbands, file=self.fd)
+
+        nk = calc.wfs.kd.nbzkpts
         print('    Number of kpoints: %d' % nk, file=self.fd)
-        print('    Number of planewaves: %d' % pd.ngmax, file=self.fd)
-        print('    Broadening (eta): %f' % (self.eta * Hartree), file=self.fd)
-        print('    Keep occupied states: %s' % self.keep_occupied_states,
-              file=self.fd)
+
+        nik = calc.wfs.kd.nibzkpts
+        print('    Number of irredicible kpoints: %d' % nik, file=self.fd)
+        
+        ngmax = pd.ngmax
+        print('    Number of planewaves: %d' % ngmax, file=self.fd)
+
+        eta = self.eta * Hartree
+        print('    Broadening (eta): %f' % eta, file=self.fd)
+        
+        wsize = world.size
+        print('    world.size: %d' % wsize, file=self.fd)
+
+        knsize = self.kncomm.size
+        print('    kncomm.size: %d' % knsize, file=self.fd)
+
+        bsize = self.blockcomm.size
+        print('    blockcomm.size: %d' % bsize, file=self.fd)
+        
+        nocc = self.nocc1
+        print('    Number of completely occupied states: %d'
+              % nocc, file=self.fd)
+        
+        npocc = self.nocc2
+        print('    Number of partially occupied states: %d'
+              % npocc, file=self.fd)
+
+        keep = self.keep_occupied_states
+        print('    Keep occupied states: %s' % keep, file=self.fd)
 
         print('', file=self.fd)
-        print('    Related to parallelization', file=self.fd)
-        print('        world.size: %d' % world.size, file=self.fd)
-        print('        Number of completely occupied states: %d'
-              % self.nocc1, file=self.fd)
-        print('        Number of partially occupied states: %d'
-              % self.nocc2, file=self.fd)
-        print('        Number of terms handled in chi-sum by each rank: %d'
-              % nstat, file=self.fd)
+        print('    Memory estimate of potentially large arrays:', file=self.fd)
 
-        print('', file=self.fd)
-        print('    Memory estimate:', file=self.fd)
-        print('        chi0_wGG: %f M / cpu'
-              % (nw * pd.ngmax**2 * 16. / 1024**2), file=self.fd)
-        print('        Occupied states: %f M / cpu' %
-              (nstat * gd.N_c[0] * gd.N_c[1] * gd.N_c[2] * 16. / 1024**2),
+        chisize = nw * pd.ngmax**2 * 16. / 1024**2
+        print('        chi0_wGG: %f M / cpu' % chisize, file=self.fd)
+
+        ngridpoints = gd.N_c[0] * gd.N_c[1] * gd.N_c[2]
+
+        if self.keep_occupied_states:
+            nstat = (ns * nk * npocc + world.size - 1) // world.size
+        else:
+            nstat = (ns * npocc + world.size - 1) // world.size
+
+        occsize = nstat * ngridpoints * 16. / 1024**2
+        print('        Occupied states: %f M / cpu' % occsize,
               file=self.fd)
-        print('        Max mem sofar   : %f M / cpu'
+
+        print('        Memory usage before allocation: %f M / cpu'
               % (maxrss() / 1024**2), file=self.fd)
 
         print('', file=self.fd)

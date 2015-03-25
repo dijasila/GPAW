@@ -84,7 +84,8 @@ Important setup problems to fix
 
 * Improve Ru setup.  Problem with nitrogen adsorption energy on
   Ru(0001) surface: Improved f-scattering, do we need 4p semi-core
-  states?
+  states? This problem has been fixed in the 0.9 release of the
+  setups and covered by the following test :svn:`~gpaw/test/big/Ru001`.
 * Improve Mn setup.  Problem with strange states in the band-gap for
   AFM-II MnO.
 * Fine-tune Fourier filtering of projector functions.  There is still

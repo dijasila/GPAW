@@ -111,7 +111,7 @@ class GlobalKPoint(KPoint):
         kpt_rank, u = divmod(self.k + nks * self.s, mynu)
         kpt_comm = wfs.kd.comm
 
-        my_atom_indices = np.argwhere(wfs.rank_a == wfs.gd.comm.rank).ravel()
+        my_atom_indices = wfs.atom_partition.my_atom_indices
         mynproj = sum([wfs.setups[a].ni for a in my_atom_indices])
         my_P_ni = np.empty((wfs.mynbands, mynproj), wfs.dtype)
 
