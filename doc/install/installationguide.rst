@@ -125,18 +125,18 @@ Requirements
 1) Python2 version 2.6 or newer. Python3 is not supported yet.
    Python is available from http://www.python.org.
 
-2) NumPy_ 1.6.1 or later.  Earlier versions may work for basic operations.
+2) NumPy_ 1.6.1 or newer.  Earlier versions may work for basic operations.
 
 3) Atomic Simulation Environment (:ase:`ASE <>`).
 
 4) C compiler - preferably gcc.
 
-5) Libxc version 2.0.1 (libxc-download_).
+5) Libxc version 2.0.1 or newer (libxc-download_).
 
 6) BLAS and LAPACK libraries. Start with your system provided defaults or
    e.g. acml_ or openblas_. Multithreading is not supported.
 
-7) SciPy_ 0.7.0 or later
+7) SciPy_ 0.7.0 or newer
 
 Optionally:
 
