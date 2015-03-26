@@ -114,7 +114,7 @@ keyword            type       default value        description
 ``basis``          ``str``    ``{}``               Specification of
                    or                              :ref:`manual_basis`
                    ``dict``
-``eigensolver``    ``str``    ``'dav'``       :ref:`manual_eigensolver`
+``eigensolver``    ``str``    ``'dav'``            :ref:`manual_eigensolver`
 ``hund``           ``bool``   ``False``            :ref:`Use Hund's rule
                                                    <manual_hund>`
 ``external``       Object                          XXX Missing doc
@@ -721,15 +721,9 @@ Eigensolver
 -----------
 
 The default solver for iterative diagonalization of the Kohn-Sham
-Hamiltonian is RMM-DIIS (Residual minimization method - direct
-inversion in iterative subspace) which seems to perform well in most
-cases. However, some times more efficient/stable convergence can be
-obtained with a different eigensolver. Especially, when calculating
-many unoccupied states RMM-DIIS might not be optimal. Further
-available options in FD mode are conjugate gradient method
-(``eigensolver='cg'``) and a simple Davidson method
-(``eigensolver='dav'``). From the alternatives, conjugate gradient
-seems to perform better in general.
+Hamiltonian is a simple Davidson method, (``eigensolver='dav'``), which seems to perform well in most cases. Sometimes more efficient/stable convergence can be obtained with a different eigensolver. One option is the RMM-DIIS (Residual minimization method - direct inversion in iterative subspace), (``eigensolver='rmm-diis'``), which performs well when only a few unoccupied states are calculated. Another option is the conjugate gradient method (``eigensolver='cg'``), which is very stable but slower.
+
+If parallellization over bands is necessary, then RMM-DIIS must be used.
 
 More control can be obtained by using directly the eigensolver objects::
 
