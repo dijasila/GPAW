@@ -196,9 +196,6 @@ class DynamicalMatrix:
             # Indices of k and k+q
             k = kpt.k
             kplusq = kplusq_k[k]
-            # Get the irreducible ones
-            ik = kpt.ik
-            ikplusq = kpt_u[kplusq].ik
 
             # Projector coefficients
             P_ani = kpt.P_ani
@@ -209,13 +206,11 @@ class DynamicalMatrix:
 
             # Overlap between wave-function derivative and projectors
             Pdpsi_ani = pt.dict(shape=nbands, zero=True)
-            # HACK fix calculating correct rotated integral
-            pt.integrate(psit1_nG, Pdpsi_ani, q=ikplusq)
+            pt.integrate(psit1_nG, Pdpsi_ani, q=kplusq)
             # Overlap between wave-function derivative and derivative of
             # projectors
-            # HACK fix calculating correct rotated integral
             dPdpsi_aniv = pt.dict(shape=nbands, derivative=True)
-            pt.derivative(psit1_nG, dPdpsi_aniv, q=ikplusq)
+            pt.derivative(psit1_nG, dPdpsi_aniv, q=kplusq)
 
             for a_ in self.indices:
                 # Coefficients from atom a

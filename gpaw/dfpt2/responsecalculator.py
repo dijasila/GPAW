@@ -342,11 +342,9 @@ class ResponseCalculator:
             if kplusq_k is None:
                 kplusq = k
                 kplusqpt = kpt
-                ikplusq = kpt.ik
             else:
                 kplusq = kplusq_k[k]
                 kplusqpt = self.kpt_u[kplusq]
-                ikplusq = self.kpt_u[kplusq].ik
 
             # Ground-state and first-order wave-functions
             psit_nG = kpt.psit_nG
@@ -364,7 +362,7 @@ class ResponseCalculator:
             # XXX should only be done once for all k-points but maybe too cheap
             # to bother ??
             rhs_nG = self.gd.zeros(n=self.nbands, dtype=self.gs_dtype)
-            self.perturbation.apply(psit_nG, rhs_nG, self.wfs, k, ikplusq)
+            self.perturbation.apply(psit_nG, rhs_nG, self.wfs, k, kplusq)
             if self.vHXC1_G is not None:
                 rhs_nG += self.vHXC1_G * psit_nG
             # Project out occupied subspace

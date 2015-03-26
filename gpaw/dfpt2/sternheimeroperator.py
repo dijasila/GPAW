@@ -127,14 +127,13 @@ class SternheimerOperator:
         P_ani = self.pt.dict(shape=shape)
 
         # k+q 
-        # BUG ??? q in reducible or irreducible
-        self.pt.integrate(x_nG, P_ani, q=kplusqpt.ik)
+        self.pt.integrate(x_nG, P_ani, q=kplusqpt.k)
 
         for a, P_ni in P_ani.items():
             dH_ii = unpack(self.hamiltonian.dH_asp[a][kpt.s])
             P_ani[a] = np.dot(P_ni, dH_ii)
         # k+q
-        self.pt.add(y_nG, P_ani, q=kplusqpt.ik)
+        self.pt.add(y_nG, P_ani, q=kplusqpt.k)
 
         # XXX Eigenvalue term
         if self.n is not None:
