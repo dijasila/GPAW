@@ -91,7 +91,7 @@ pygments_style = 'sphinx'
 # The style sheet to use for HTML and HTML Help pages. A file of that name
 # must exist either in Sphinx' static/ path, or in one of the custom paths
 # given in html_static_path.
-html_style = 'gpaw.css'
+#html_style = 'gpaw.css'
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -102,7 +102,7 @@ html_title = 'GPAW'
 
 # The name of an image file (within the static path) to place at the top of
 # the sidebar.
-html_logo = '_static/logo-gpaw.png'
+# html_logo = '_static/gpaw-logo.svg'
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
@@ -217,3 +217,9 @@ pngmath_dvipng_args = [
 pngmath_use_preview = True
 
 autoclass_content = 'both'
+
+html_theme = 'agogo'
+
+html_theme_options = {
+    "headerbg": "white",
+}

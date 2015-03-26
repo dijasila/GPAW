@@ -1,35 +1,26 @@
 .. _toc:
 
-========
-Contents
-========
+====
+GPAW
+====
 
 .. toctree::
    :maxdepth: 2
-
-   index
-   algorithms
-   install/install
+   
+   documentation/documentation
+   install/installationguide
+   download
    setups/setups
    tutorials/tutorials
    exercises/exercises
-   documentation/documentation
-   devel/benchmarks
-   devel/releasenotes
    faq
+   devel/releasenotes
    mailinglists
+   devel/benchmarks
+   documentation/literature
 
    devel/devel
-
-Old pages
----------
-
-.. toctree::
-   :maxdepth: 2
-
-   exercises/summerschool14
-   exercises/summerschool12
-   exercises/summerschool10
-   exercises/summerschool08
-   introduction_to_paw
-   devel/grids
+   devel/projects/projects
+   epydoc/gpaw-module
+   browser/trunk/
+   gpaw/report
