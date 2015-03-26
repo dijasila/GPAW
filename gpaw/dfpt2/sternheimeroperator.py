@@ -5,7 +5,7 @@ Sternheimer equation::
        /           \             q
        | H - eps   | P      |dPsi  > = - P      dV  |Psi  > ,
        \        nk /  c,k+q      nk       c,k+q   q     nk
-   
+
 where P_c is the projection operator onto the unoccupied states. For a
 perturbation with a specific q-vector, only the projections onto states at
 k+q are needed.
@@ -14,13 +14,13 @@ k+q are needed.
 
 import numpy as np
 
+from gpaw.fd_operators import Laplace
 from gpaw.utilities import unpack
 from gpaw.utilities.blas import gemm
-from gpaw.fd_operators import Laplace
 
 class SternheimerOperator:
     """Class implementing the linear operator in the Sternheimer equation.
-    
+
     The main purpose of this class is to implement the multiplication of the
     linear operator (H - eps_nk) with a vector in the ``apply`` member
     function. An additional ``matvec`` member function has been defined so that
@@ -28,7 +28,7 @@ class SternheimerOperator:
     iterative Krylov solvers in ``scipy.sparse.linalg``.
 
     """
-    
+
     def __init__(self, hamiltonian, wfs, gd, dtype=float):
         """Save useful objects for the Sternheimer operator.
 
@@ -47,6 +47,7 @@ class SternheimerOperator:
 
         self.hamiltonian = hamiltonian
         self.kin = Laplace(gd, scale=-0.5, n=3, dtype=dtype)
+
         self.kpt_u = wfs.kpt_u
         self.pt = wfs.pt
         self.gd = gd
@@ -55,7 +56,7 @@ class SternheimerOperator:
         self.k = None
         self.n = None
         self.kplusq = None
-        
+
         # For scipy's linear solver
         N = np.prod(gd.n_c)
         self.shape = (N, N)
@@ -65,7 +66,7 @@ class SternheimerOperator:
         """Set k-vector for the Bloch-state in consideration."""
 
         self.k = k
-        
+
     def set_band(self, n):
         """Set band index for the Bloch-state in consideration.
 
@@ -94,14 +95,14 @@ class SternheimerOperator:
         For the eigenvalue term the k-point is the one of the state.
         For the other terms the k-point to be used is the one given by the k+q
         phase of the first-order of the state. Only for q=0 do the two coincide.
-        
+
         Parameters
         ----------
         x_nG: ndarray
             Vector(s) to which the Sternheimer operator is applied.
         y_nG: ndarray
             Resulting vector(s).
-            
+
         """
 
         assert x_nG.ndim in (3, 4)
@@ -126,13 +127,14 @@ class SternheimerOperator:
         P_ani = self.pt.dict(shape=shape)
 
         # k+q 
-        self.pt.integrate(x_nG, P_ani, q=kplusqpt.k)
+        # BUG ??? q in reducible or irreducible
+        self.pt.integrate(x_nG, P_ani, q=kplusqpt.ik)
 
         for a, P_ni in P_ani.items():
             dH_ii = unpack(self.hamiltonian.dH_asp[a][kpt.s])
             P_ani[a] = np.dot(P_ni, dH_ii)
         # k+q
-        self.pt.add(y_nG, P_ani, q=kplusqpt.k)
+        self.pt.add(y_nG, P_ani, q=kplusqpt.ik)
 
         # XXX Eigenvalue term
         if self.n is not None:
@@ -152,11 +154,11 @@ class SternheimerOperator:
 
         The projection operator is defined as follows::
 
-                      --                    --             
+                      --                    --
              P      = >  |Psi ><Psi | = 1 - >  |Psi ><Psi |
-              c,k+q   --     c     c        --     v     v 
+              c,k+q   --     c     c        --     v     v
                        c    k+q   k+q        v    k+q   k+q
-        
+
         """
 
         # It might be a good idea to move this functionality to its own class
@@ -180,7 +182,7 @@ class SternheimerOperator:
         ## 
         ##     proj = self.gd.integrate(psit_G.conjugate() * x_nG)
         ##     x_nG -= proj * psit_G
-        
+
     def matvec(self, x):
         """Matrix-vector multiplication for scipy's Krylov solvers.
 

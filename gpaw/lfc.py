@@ -843,6 +843,9 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         cspline_M = []
         for a in self.atom_indices:
+            # HACK: Only works for l=0 and only one function.
+            # That is of course ridicoulus
+
             # Works only for atoms with a single function
             assert len(self.sphere_a[a].spline_j) == 1
             spline = self.sphere_a[a].spline_j[0]

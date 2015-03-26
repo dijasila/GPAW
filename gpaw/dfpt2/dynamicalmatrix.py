@@ -1,5 +1,7 @@
 import numpy as np
 
+from ase.utils.timing import timer, Timer
+
 from gpaw import debug
 from gpaw.utilities import unpack
 
@@ -15,7 +17,7 @@ class DynamicalMatrix:
     Each of the various contributions to the second order derivative of the
     total energy are implemented in separate functions.
     """
-    def __init__(self, atoms, kd, dtype=float):
+    def __init__(self, atoms, kd, dtype=float, timer=None):
         """Inititialize class with a list of atoms.
 
         Parameters
@@ -31,6 +33,10 @@ class DynamicalMatrix:
         self.atoms = atoms
         self.kd = kd
         self.dtype = dtype
+        if timer is not None:
+            self.timer = timer
+        else:
+            self.timer = Timer()
         self.masses = atoms.get_masses()
         # Array with inverse sqrt of masses repeated to match shape of mode
         # arrays
@@ -66,6 +72,7 @@ class DynamicalMatrix:
 
         self.assembled = False
 
+    @timer('DYNMAT density ground state')
     def density_ground_state(self, calc):
         """Contributions involving ground-state density.
 
@@ -99,6 +106,7 @@ class DynamicalMatrix:
                 C_aavv[a][a] += d2ghat_aLvv[a] * Q_aL[a]
                 C_aavv[a][a] += d2vbar_avv[a]
 
+    @timer('DYNMAT calculate row')
     def calculate_row(self, perturbation, response_calc):
         """Calculate row of force constant matrix from first-order derivatives.
 
@@ -112,9 +120,10 @@ class DynamicalMatrix:
             the wave-functions.
 
         """
-
-        self.density_derivative(perturbation, response_calc)
-        self.wfs_derivative(perturbation, response_calc)
+        with self.timer('density derivative'):
+            self.density_derivative(perturbation, response_calc)
+        with self.timer('wfs derivative'):
+            self.wfs_derivative(perturbation, response_calc)
 
     def density_derivative(self, perturbation, response_calc):
         """Contributions involving the first-order density derivative."""
@@ -187,6 +196,9 @@ class DynamicalMatrix:
             # Indices of k and k+q
             k = kpt.k
             kplusq = kplusq_k[k]
+            # Get the irreducible ones
+            ik = kpt.ik
+            ikplusq = kpt_u[kplusq].ik
 
             # Projector coefficients
             P_ani = kpt.P_ani
@@ -197,11 +209,13 @@ class DynamicalMatrix:
 
             # Overlap between wave-function derivative and projectors
             Pdpsi_ani = pt.dict(shape=nbands, zero=True)
-            pt.integrate(psit1_nG, Pdpsi_ani, q=kplusq)
+            # HACK fix calculating correct rotated integral
+            pt.integrate(psit1_nG, Pdpsi_ani, q=ikplusq)
             # Overlap between wave-function derivative and derivative of
             # projectors
+            # HACK fix calculating correct rotated integral
             dPdpsi_aniv = pt.dict(shape=nbands, derivative=True)
-            pt.derivative(psit1_nG, dPdpsi_aniv, q=kplusq)
+            pt.derivative(psit1_nG, dPdpsi_aniv, q=ikplusq)
 
             for a_ in self.indices:
                 # Coefficients from atom a
@@ -232,6 +246,7 @@ class DynamicalMatrix:
                 else:
                     C_aavv[a][a_][v] += C_.real
 
+    @timer('DYNMAT: assemble')
     def assemble(self, dynmat=None, acoustic=True):
         """Assemble dynamical matrix from the force constants attribute.
 

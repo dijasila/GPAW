@@ -244,26 +244,6 @@ class PhononPerturbation(Perturbation):
 
         return self.phase_cd
 
-
-
-
-
-    def has_q(self):
-        """Overwrite base class member function."""
-
-        return (not self.gamma)
-
-    def get_q(self):
-        """Return q-vector."""
-
-        assert not self.gamma, "Gamma-point calculation."
-        
-        return self.kd.ibzk_qc[self.q]
-    
-
-
-
-        
     def apply(self, psi_nG, y_nG, wfs, k, kplusq):
         """Apply perturbation to unperturbed wave-functions.
 
@@ -279,7 +259,7 @@ class PhononPerturbation(Perturbation):
             Index of the k-point for the vectors.
         kplusq: int
             Index of the k+q vector.
-            
+
         """
 
         assert self.a is not None
@@ -304,34 +284,34 @@ class PhononPerturbation(Perturbation):
             Index of the k-point being operated on.
         kplusq: int
             Index of the k+q vector.
-            
+
         """
 
         assert self.a is not None
         assert self.v is not None
         assert psi_nG.ndim in (3, 4)
         assert tuple(self.gd.n_c) == psi_nG.shape[-3:]
-        
+
         if psi_nG.ndim == 3:
             n = 1
         else:
-            n = psi_nG.shape[0] 
-            
+            n = psi_nG.shape[0]
+
         a = self.a
         v = self.v
-        
+
         P_ani = wfs.kpt_u[k].P_ani
         dP_aniv = wfs.kpt_u[k].dP_aniv
         pt = wfs.pt
-        
+
         # < p_a^i | Psi_nk >
         P_ni = P_ani[a]
         # < dp_av^i | Psi_nk > - remember the sign convention of the derivative
         dP_ni = -1 * dP_aniv[a][...,v]
-        
+
         # Expansion coefficients for the projectors on atom a
         dH_ii = unpack(self.dH_asp[a][0])
-       
+
         # The derivative of the non-local PAW potential has two contributions
         # 1) Sum over projectors
         c_ni = np.dot(dP_ni, dH_ii)
@@ -347,3 +327,32 @@ class PhononPerturbation(Perturbation):
         dc_ani[a] = -1 * dc_ni
         # k+q !!
         pt.add_derivative(a, v, y_nG, dc_ani, q=kplusq)
+
+
+
+
+
+
+
+
+
+
+    def has_q(self):
+        """Overwrite base class member function."""
+
+        return (not self.gamma)
+
+    def get_q(self):
+        """Return q-vector."""
+
+        assert not self.gamma, "Gamma-point calculation."
+        
+        return self.kd.ibzk_qc[self.q]
+    
+
+
+
+        
+
+
+

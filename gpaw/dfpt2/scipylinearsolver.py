@@ -12,11 +12,11 @@ class ScipyLinearSolver:
     provided as argument in the ``solve`` method must have a ``shape``
     attribute (a tuble (M,N) where M and N give the size of the corresponding
     matrix) and a ``dtype`` attribute giving datatype of the matrix entries.
-    
+
     """
-    
+
     # Supported solvers
-    solvers = {'cg':       sla.cg,       # symmetric positive definite 
+    solvers = {'cg':       sla.cg,       # symmetric positive definite
                'minres':   sla.minres,   # symmetric indefinite
                'gmres':    sla.gmres,    # non-symmetric
                'bicg':     sla.bicg,     # non-symmetric
@@ -25,7 +25,7 @@ class ScipyLinearSolver:
                'qmr':      sla.qmr,      #
                # 'lgmres': sla.lgmres, # scipy v. 0.8.0
                }
-    
+
     def __init__(self, method='gmres', preconditioner=None, tolerance=1e-5,
                  max_iter=100):
         """Initialize the linear solver.
@@ -43,7 +43,7 @@ class ScipyLinearSolver:
 
         if method not in ScipyLinearSolver.solvers:
             raise RuntimeError("Unsupported solver %s" % method)
-                                   
+
         self.solver = ScipyLinearSolver.solvers[method]
         self.pc = preconditioner
 
@@ -52,7 +52,7 @@ class ScipyLinearSolver:
 
         # Iteration counter
         self.i = None
-        
+
     def solve(self, A, x_nG, b_nG):
         """Solve linear system Ax = b.
 
@@ -67,7 +67,7 @@ class ScipyLinearSolver:
             input).
         b_nG: ndarray
             Vector with the right-hand side of the linear equation.
-            
+
         """
 
         assert x_nG.shape == b_nG.shape
@@ -75,18 +75,18 @@ class ScipyLinearSolver:
 
         # Initialize iteration counter
         self.i = 0
-        
+
         # Reshape arrays for scipy
         x_0 = x_nG.ravel()
         b = b_nG.ravel()
-        
+
         x, info = self.solver(A, b, x0=x_0, maxiter=self.max_iter, M=self.pc,
                               tol=self.tolerance, callback=self.iteration)
 
         x_nG[:] = x.reshape(shape)
-        
+
         return self.i, info
-            
+
     def iteration(self, x_i):
         """Passed as callback function to the scipy-routine."""
 

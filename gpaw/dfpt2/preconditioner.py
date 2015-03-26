@@ -15,17 +15,17 @@ class ScipyPreconditioner:
         ----------
         gd: GridDescriptor
             Coarse grid
-            
+
         """
 
         self.project = project
         self.gd = gd
         # K-point for the preconditioner
         self.kpt = None
-        
+
         kin = Laplace(gd, scale=-0.5, n=3, dtype=dtype)
         self.pc = Preconditioner(gd, kin, dtype=dtype)
-        
+
         # For scipy's linear solver
         N = np.prod(gd.n_c)
         self.shape = (N,N)
@@ -42,7 +42,7 @@ class ScipyPreconditioner:
         """
 
         self.kpt = kpt
-        
+
     def matvec(self, x):
         """Matrix vector multiplication for ``scipy.sparse.linalg`` solvers.
 
@@ -59,7 +59,7 @@ class ScipyPreconditioner:
 
         size = x.size
         assert size == np.prod(shape)
-        
+
         x_G = x.reshape(shape)
 
         # Call gpaw preconditioner
@@ -67,7 +67,7 @@ class ScipyPreconditioner:
 
         # Project out undesired (numerical) components
         self.project(y_G)
-        
+
         y = y_G.ravel()
-        
+
         return y

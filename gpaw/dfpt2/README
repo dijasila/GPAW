@@ -19,8 +19,8 @@ Done:
 
 
 Notes:
-- Using time_reversal in GS doesn't work. It should...
-
+- There seems to be a bug in the second_derivative code in lfc.py/lfc.c
+- pt.integrate/pt.derivative hacked to allow time_reversal in GS. Probably wrong for PAW
 
 "Cleaned"
 dynamicalmatrix:    done

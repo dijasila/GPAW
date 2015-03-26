@@ -1,6 +1,7 @@
 import numpy as np
 import numpy.linalg as la
 
+from ase.utils.timing import timer, Timer
 import ase.units as units
 
 from gpaw import GPAW
@@ -45,6 +46,8 @@ class PhononCalculator:
         # Asserts for unfinished and non features
         assert symmetry in [None, False], "Spatial symmetries not allowed yet"
         assert not dispersion, "Phonon dispersion not implemented yet"
+
+        self.timer = Timer()
 
         if isinstance(calc, str):
             self.calc = GPAW(calc, communicator=mpi.serial_comm, txt=None)
@@ -123,7 +126,9 @@ class PhononCalculator:
         dtype_gs = self.calc.wfs.dtype
 
         # WaveFunctions
-        wfs = WaveFunctions(nbands, kpt_u, setups, kd_gs, gd, dtype=dtype_gs)
+        spos_ac = self.atoms.get_scaled_positions()
+        wfs = WaveFunctions(nbands, kpt_u, setups, kd_gs, gd, spos_ac,
+                            dtype=dtype_gs)
         del kd_gs, gd, kpt_u, setups, dtype_gs
 
         # Linear response calculator
@@ -138,7 +143,7 @@ class PhononCalculator:
 
         # Dynamical matrix
         self.dyn = DynamicalMatrix(self.atoms, self.kd,  # DEPRECATED
-                                   dtype=self.dtype)
+                                   dtype=self.dtype, timer=self.timer)
 
         # Initialization flag
         self.initialized = False
@@ -177,8 +182,11 @@ class PhononCalculator:
         dynmat = self.calculate_dynamicalmatrix()
         energies = self.diagonalize_dynamicalmatrix(dynmat, modes=False)
 
+        self.timer.write()
+
         return energies
 
+    @timer('PHONON calculate dynamical matrix')
     def calculate_dynamicalmatrix(self):
         """Run calculation for atomic displacements and construct the dynamcial
         matrix.
@@ -225,6 +233,7 @@ class PhononCalculator:
 
         return self.dyn.D_k[0]
 
+    @timer('PHONON diagonalise dynamicial matrix')
     def diagonalize_dynamicalmatrix(self, dynmat, modes=False):
         """Calculates phonon energies by diagonalising the dynamcial matrix.
 

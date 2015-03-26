@@ -323,20 +323,30 @@ class ResponseCalculator:
         else:
             kplusq_k = None
 
-        # Calculate wave-function variations for all k-points.
+        # Calculate wave-function variations for all k-points (full set).
         for kpt in self.kpt_u:
             k = kpt.k
 
             if verbose:
                 print("k-point %2.1i" % k)
+                print("weight", kpt.weight)
+                print("k", kpt.k)
+                print("s", kpt.s)
+                print("phase_cd", kpt.phase_cd)
+                print("eps_n", kpt.eps_n)
+                print("P_ani", kpt.P_ani)
+                print("dP_aniv", kpt.dP_aniv)
+               ## print("psit1_nG[0]", kpt.psit1_nG[0])
 
             # Index of k+q vector
             if kplusq_k is None:
                 kplusq = k
                 kplusqpt = kpt
+                ikplusq = kpt.ik
             else:
                 kplusq = kplusq_k[k]
                 kplusqpt = self.kpt_u[kplusq]
+                ikplusq = self.kpt_u[kplusq].ik
 
             # Ground-state and first-order wave-functions
             psit_nG = kpt.psit_nG
@@ -354,7 +364,7 @@ class ResponseCalculator:
             # XXX should only be done once for all k-points but maybe too cheap
             # to bother ??
             rhs_nG = self.gd.zeros(n=self.nbands, dtype=self.gs_dtype)
-            self.perturbation.apply(psit_nG, rhs_nG, self.wfs, k, kplusq)
+            self.perturbation.apply(psit_nG, rhs_nG, self.wfs, k, ikplusq)
             if self.vHXC1_G is not None:
                 rhs_nG += self.vHXC1_G * psit_nG
             # Project out occupied subspace
@@ -366,12 +376,16 @@ class ResponseCalculator:
                 self.sternheimer_operator.set_band(n)
                 # Get view of the Bloch function derivative
                 psit1_G = psit1_nG[n]
+                #print(psit1_G)
+
                 # Rhs of Sternheimer equation
                 rhs_G = -1 * rhs_nG[n]
 
                 # Solve Sternheimer equation
                 iter, info = self.linear_solver.solve(self.sternheimer_operator,
                                                       psit1_G, rhs_G)
+               # print(psit1_G)
+               # quit()
 
                 if verbose:
                     print("\tBand %2.1i -" % n, end=' ')
@@ -400,8 +414,6 @@ class ResponseCalculator:
             psit1_nG = kpt.psit1_nG
 
             for psit_G, psit1_G in zip(psit_nG, psit1_nG):
-                # NOTICE: this relies on the automatic down-cast of the complex
-                # array on the rhs to a real array when the lhs is real !!
                 # Factor 2 for time-reversal symmetry
                 nt1_G_ = 2 * w * psit_G.conj() * psit1_G
                 if self.dtype == complex:
