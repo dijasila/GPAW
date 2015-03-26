@@ -498,6 +498,10 @@ class LeanSetup(BaseSetup):
         self.X_p = s.X_p
         self.ExxC = s.ExxC
 
+        # Required by yukawa rsf
+        self.X_p = s.X_p
+        self.ExxC = s.ExxC
+
         # Required by electrostatic correction
         self.dEH0 = s.dEH0
         self.dEH_p = s.dEH_p
@@ -604,6 +608,9 @@ class Setup(BaseSetup):
         self.ExxC = data.ExxC
         self.X_p = data.X_p
 
+        self.X_gamma = data.X_gamma
+        self.X_pg = data.X_pg
+
         self.orbital_free = data.orbital_free
         
         pt_jg = data.pt_jg
@@ -618,6 +625,9 @@ class Setup(BaseSetup):
         dr_g = rgd.dr_g
 
         self.lmax = lmax
+
+        self._Mg_pp = None # Yukawa based corrections
+        self._gamma = 0
             
         rcutmax = max(rcut_j)
         rcut2 = 2 * rcutmax
@@ -726,39 +736,33 @@ class Setup(BaseSetup):
         if self.phicorehole_g is not None:
             self.phicorehole_g = self.phicorehole_g[:gcut2].copy()
 
-        T_Lqp = self.calculate_T_Lqp(lcut, nq, _np, nj, jlL_i)
-        (g_lg, n_qg, nt_qg, Delta_lq, self.Lmax, self.Delta_pL, Delta0,
-         self.N0_p) = self.get_compensation_charges(phi_jg, phit_jg, _np,
-                                                    T_Lqp)
-        self.Delta0 = Delta0
-        self.g_lg = g_lg
-
+        self.T_Lqp = self.calculate_T_Lqp(lcut, _np, nj, jlL_i)
+        #  set the attributes directly?
+        (self.g_lg, self.n_qg, self.nt_qg, self.Delta_lq, self.Lmax,
+                self.Delta_pL, self.Delta0, self.N0_p) = \
+                        self.get_compensation_charges(phi_jg, phit_jg, _np,
+                                                    self.T_Lqp)
         # Solves the radial poisson equation for density n_g
-        def H(n_g, l):
+
+        def H(self, n_g, l):
             return rgd2.poisson(n_g, l) * r_g * dr_g
 
-        wnc_g = H(nc_g, l=0)
-        wnct_g = H(nct_g, l=0)
-
-        self.wg_lg = wg_lg = [H(g_lg[l], l) for l in range(lmax + 1)]
-
-        wn_lqg = [np.array([H(n_qg[q], l) for q in range(nq)])
-                  for l in range(2 * lcut + 1)]
-        wnt_lqg = [np.array([H(nt_qg[q], l) for q in range(nq)])
-                   for l in range(2 * lcut + 1)]
+        (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
+                self.calculate_integral_potentials(H)
+        self.wg_lg = wg_lg
 
         rdr_g = r_g * dr_g
         dv_g = r_g * rdr_g
         A = 0.5 * np.dot(nc_g, wnc_g)
         A -= sqrt(4 * pi) * self.Z * np.dot(rdr_g, nc_g)
-        mct_g = nct_g + Delta0 * g_lg[0]
-        wmct_g = wnct_g + Delta0 * wg_lg[0]
+        mct_g = nct_g + self.Delta0 * self.g_lg[0]
+        # wmct_g = wnct_g + self.Delta0 * wg_lg[0]
         A -= 0.5 * np.dot(mct_g, wmct_g)
         self.M = A
         self.MB = -np.dot(dv_g * nct_g, vbar_g)
         
-        AB_q = -np.dot(nt_qg, dv_g * vbar_g)
-        self.MB_p = np.dot(AB_q, T_Lqp[0])
+        AB_q = -np.dot(self.nt_qg, dv_g * vbar_g)
+        self.MB_p = np.dot(AB_q, self.T_Lqp[0])
         
         # Correction for average electrostatic potential:
         #
@@ -767,16 +771,11 @@ class Setup(BaseSetup):
         self.dEH0 = sqrt(4 * pi) * (wnc_g - wmct_g -
                                     sqrt(4 * pi) * self.Z * r_g * dr_g).sum()
         dEh_q = (wn_lqg[0].sum(1) - wnt_lqg[0].sum(1) -
-                 Delta_lq[0] * wg_lg[0].sum())
-        self.dEH_p = np.dot(dEh_q, T_Lqp[0]) * sqrt(4 * pi)
+                 self.Delta_lq[0] * wg_lg[0].sum())
+        self.dEH_p = np.dot(dEh_q, self.T_Lqp[0]) * sqrt(4 * pi)
         
-        M_p, M_pp = self.calculate_coulomb_corrections(lcut, n_qg, wn_lqg,
-                                                       lmax, Delta_lq,
-                                                       wnt_lqg, g_lg,
-                                                       wg_lg, nt_qg,
-                                                       _np, T_Lqp, nc_g,
-                                                       wnc_g, rdr_g, mct_g,
-                                                       wmct_g)
+        M_p, M_pp = self.calculate_coulomb_corrections(wn_lqg, wnt_lqg,
+                                                       wg_lg, wnc_g, wmct_g)
         self.M_p = M_p
         self.M_pp = M_pp
 
@@ -806,8 +805,8 @@ class Setup(BaseSetup):
         for L in range(self.Lmax):
             self.Delta_iiL[:, :, L] = unpack(self.Delta_pL[:, L].copy())
 
-        self.Nct = data.get_smooth_core_density_integral(Delta0)
-        self.K_p = data.get_linear_kinetic_correction(T_Lqp[0])
+        self.Nct = data.get_smooth_core_density_integral(self.Delta0)
+        self.K_p = data.get_linear_kinetic_correction(self.T_Lqp[0])
         
         r = 0.02 * rcut2 * np.arange(51, dtype=float)
         alpha = data.rcgauss**-2
@@ -823,39 +822,118 @@ class Setup(BaseSetup):
         except NotImplementedError:
             self.rxnabla_iiv = None
 
-    def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,
-                                      lmax, Delta_lq, wnt_lqg,
-                                      g_lg, wg_lg, nt_qg, _np, T_Lqp,
-                                      nc_g, wnc_g, rdr_g, mct_g, wmct_g):
+    def calculate_coulomb_corrections(self, wn_lqg, wnt_lqg, wg_lg, wnc_g,
+                                      wmct_g):
+        """Calculate "Coulomb" energies."""
         # Can we reduce the excessive parameter passing?
-        A_q = 0.5 * (np.dot(wn_lqg[0], nc_g) + np.dot(n_qg, wnc_g))
-        A_q -= sqrt(4 * pi) * self.Z * np.dot(n_qg, rdr_g)
-        A_q -= 0.5 * (np.dot(wnt_lqg[0], mct_g) + np.dot(nt_qg, wmct_g))
+        # Seems so ....
+        # Added instance variables
+        # T_Lqp = self.T_Lqp
+        # n_qg = self.n_qg
+        # Delta_lq = self.Delta_lq
+        # nt_qg = self.nt_qg
+        # Local variables derived from instance variables
+        _np = self.ni * (self.ni + 1) // 2  # change to inst. att.?
+        mct_g = self.nct_g + self.Delta0 * self.g_lg[0]  # s.a.
+        rdr_g = self.rgd2.r_g * self.rgd2.dr_g  # change to inst. att.?
+
+        A_q = 0.5 * (np.dot(wn_lqg[0], self.nc_g) + np.dot(self.n_qg, wnc_g))
+        A_q -= sqrt(4 * pi) * self.Z * np.dot(self.n_qg, rdr_g)
+        A_q -= 0.5 * (np.dot(wnt_lqg[0], mct_g) + np.dot(self.nt_qg, wmct_g))
         A_q -= 0.5 * (np.dot(mct_g, wg_lg[0])
-                      + np.dot(g_lg[0], wmct_g)) * Delta_lq[0]
-        M_p = np.dot(A_q, T_Lqp[0])
+                      + np.dot(self.g_lg[0], wmct_g)) * self.Delta_lq[0]
+        M_p = np.dot(A_q, self.T_Lqp[0])
 
         A_lqq = []
-        for l in range(2 * lcut + 1):
-            A_qq = 0.5 * np.dot(n_qg, np.transpose(wn_lqg[l]))
-            A_qq -= 0.5 * np.dot(nt_qg, np.transpose(wnt_lqg[l]))
-            if l <= lmax:
-                A_qq -= 0.5 * np.outer(Delta_lq[l],
-                                        np.dot(wnt_lqg[l], g_lg[l]))
-                A_qq -= 0.5 * np.outer(np.dot(nt_qg, wg_lg[l]), Delta_lq[l])
-                A_qq -= 0.5 * np.dot(g_lg[l], wg_lg[l]) * \
-                        np.outer(Delta_lq[l], Delta_lq[l])
+        for l in range(2 * self.lcut + 1):
+            A_qq = 0.5 * np.dot(self.n_qg, np.transpose(wn_lqg[l]))
+            A_qq -= 0.5 * np.dot(self.nt_qg, np.transpose(wnt_lqg[l]))
+            if l <= self.lmax:
+                A_qq -= 0.5 * np.outer(self.Delta_lq[l],
+                                        np.dot(wnt_lqg[l], self.g_lg[l]))
+                A_qq -= 0.5 * np.outer(np.dot(self.nt_qg, wg_lg[l]), \
+                                        self.Delta_lq[l])
+                A_qq -= 0.5 * np.dot(self.g_lg[l], wg_lg[l]) * \
+                        np.outer(self.Delta_lq[l], self.Delta_lq[l])
             A_lqq.append(A_qq)
 
         M_pp = np.zeros((_np, _np))
         L = 0
-        for l in range(2 * lcut + 1):
-            for m in range(2 * l + 1):
-                M_pp += np.dot(np.transpose(T_Lqp[L]),
-                               np.dot(A_lqq[l], T_Lqp[L]))
+        for l in range(2 * self.lcut + 1):
+            for m in range(2 * l + 1):  # m?
+                M_pp += np.dot(np.transpose(self.T_Lqp[L]),
+                               np.dot(A_lqq[l], self.T_Lqp[L]))
                 L += 1
 
         return M_p, M_pp
+
+    def calculate_integral_potentials(self, func):
+        """Calculates a set of potentials using func."""
+        wg_lg = [func(self, self.g_lg[l], l) \
+                for l in range(self.lmax + 1)]
+        wn_lqg = [np.array([func(self, self.n_qg[q], l)
+                for q in range(self.nq)]) 
+                for l in range(2 * self.lcut + 1)]
+        wnt_lqg = [np.array([func(self, self.nt_qg[q], l) 
+                for q in range(self.nq)]) 
+                for l in range(2 * self.lcut + 1)]
+        wnc_g = func(self, self.nc_g, l=0)
+        wnct_g = func(self, self.nct_g, l=0)
+        wmct_g = wnct_g + self.Delta0 * wg_lg[0]
+        return wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g
+
+    def calculate_yukawa_interaction(self, gamma):
+        """Calculate and return the Yukawa based interaction."""
+        if self._Mg_pp is not None and gamma == self._gamma:
+            return self._Mg_pp  # Cached
+
+        # Solves the radial screened poisson equation for density n_g
+        def Yuk(self, n_g, l):
+            """Solve radial screened poisson for density n_g."""
+            gamma = self._gamma
+            return self.rgd2.yukawa(n_g, l, gamma) * \
+                    self.rgd2.r_g * self.rgd2.dr_g
+
+        self._gamma = gamma
+        (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
+                self.calculate_integral_potentials(Yuk)
+        self._Mg_pp = self.calculate_coulomb_corrections(
+                wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
+        return self._Mg_pp
+
+#    def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,
+#                                      lmax, Delta_lq, wnt_lqg,
+#                                      g_lg, wg_lg, nt_qg, _np, T_Lqp,
+#                                      nc_g, wnc_g, rdr_g, mct_g, wmct_g):
+#        # Can we reduce the excessive parameter passing?
+#        A_q = 0.5 * (np.dot(wn_lqg[0], nc_g) + np.dot(n_qg, wnc_g))
+#        A_q -= sqrt(4 * pi) * self.Z * np.dot(n_qg, rdr_g)
+#        A_q -= 0.5 * (np.dot(wnt_lqg[0], mct_g) + np.dot(nt_qg, wmct_g))
+#        A_q -= 0.5 * (np.dot(mct_g, wg_lg[0])
+#                      + np.dot(g_lg[0], wmct_g)) * Delta_lq[0]
+#        M_p = np.dot(A_q, T_Lqp[0])
+#
+#        A_lqq = []
+#        for l in range(2 * lcut + 1):
+#            A_qq = 0.5 * np.dot(n_qg, np.transpose(wn_lqg[l]))
+#            A_qq -= 0.5 * np.dot(nt_qg, np.transpose(wnt_lqg[l]))
+#            if l <= lmax:
+#                A_qq -= 0.5 * np.outer(Delta_lq[l],
+#                                        np.dot(wnt_lqg[l], g_lg[l]))
+#                A_qq -= 0.5 * np.outer(np.dot(nt_qg, wg_lg[l]), Delta_lq[l])
+#                A_qq -= 0.5 * np.dot(g_lg[l], wg_lg[l]) * \
+#                        np.outer(Delta_lq[l], Delta_lq[l])
+#            A_lqq.append(A_qq)
+#
+#        M_pp = np.zeros((_np, _np))
+#        L = 0
+#        for l in range(2 * lcut + 1):
+#            for m in range(2 * l + 1):
+#                M_pp += np.dot(np.transpose(T_Lqp[L]),
+#                               np.dot(A_lqq[l], T_Lqp[L]))
+#                L += 1
+#
+#        return M_p, M_pp
 
     def create_projectors(self, rcut):
         pt_j = []
@@ -869,9 +947,9 @@ class Setup(BaseSetup):
         xO_ii = np.dot(B_ii, dO_ii)
         return -np.dot(dO_ii, np.linalg.inv(np.identity(ni) + xO_ii))
 
-    def calculate_T_Lqp(self, lcut, nq, _np, nj, jlL_i):
+    def calculate_T_Lqp(self, lcut, _np, nj, jlL_i):
         Lcut = (2 * lcut + 1)**2
-        T_Lqp = np.zeros((Lcut, nq, _np))
+        T_Lqp = np.zeros((Lcut, self.nq, _np))
         p = 0
         i1 = 0
         for j1, l1, L1 in jlL_i:

@@ -85,10 +85,23 @@ class GhostSetup(BaseSetup):
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None
+        self.X_pg = None
         self.ExxC = None
+        self.X_gamma = None
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(1)
         self.extra_xc_data = {}
+        self.nq = None
+        self.lcut = None
+        self.n_qg = None
+        self.Delta_lq = None
+        self.nt_qg = None
+        self.T_Lqp = None
+        self.nc_g = None
+        self.rgd2 = None
+        self.nct_g = None
+        self._Mg_pp = None
+        self._gamma = None
 
 
 class GhostSetupData:
