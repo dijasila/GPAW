@@ -114,7 +114,7 @@ keyword            type       default value        description
 ``basis``          ``str``    ``{}``               Specification of
                    or                              :ref:`manual_basis`
                    ``dict``
-``eigensolver``    ``str``    ``'rmm-diis'``       :ref:`manual_eigensolver`
+``eigensolver``    ``str``    ``'dav'``       :ref:`manual_eigensolver`
 ``hund``           ``bool``   ``False``            :ref:`Use Hund's rule
                                                    <manual_hund>`
 ``external``       Object                          XXX Missing doc
