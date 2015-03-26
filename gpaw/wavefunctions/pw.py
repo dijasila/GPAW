@@ -2,6 +2,7 @@
 from __future__ import print_function, division
 import functools
 from math import pi
+from math import factorial as fac
 
 import numpy as np
 import ase.units as units
@@ -18,7 +19,7 @@ from gpaw.hamiltonian import Hamiltonian
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
-from gpaw.utilities import unpack, _fact as fac
+from gpaw.utilities import unpack
 from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
@@ -883,7 +884,7 @@ def ft(spline):
     f_q = fbt(l, f_r, r_r, k_q)
     f_q[1:] /= k_q[1:]**(2 * l + 1)
     f_q[0] = (np.dot(f_r, r_r**(2 + 2 * l)) *
-              dr * 2**l * fac[l] / fac[2 * l + 1])
+              dr * 2**l * fac(l) / fac(2 * l + 1))
 
     return Spline(l, k_q[-1], f_q)
 

@@ -7,14 +7,13 @@ This file defines a series of finite difference operators used in grid mode.
 """
 
 from __future__ import division
-from math import pi
+from math import pi, factorial as fact
 
 import numpy as np
 from numpy.fft import fftn, ifftn
 
 import _gpaw
 from gpaw import debug
-from gpaw.utilities import fact
 
 
 # Expansion coefficients for finite difference Laplacian.  The numbers are

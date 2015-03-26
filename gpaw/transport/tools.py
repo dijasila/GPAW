@@ -280,11 +280,6 @@ def dot(a, b, transa='n'):
     gemm(1.0, np.ascontiguousarray(d), np.ascontiguousarray(c), 0.0, e, transa)
     return e
 
-def gcd(m,n):
-    while n:
-        m,n=n,m%n
-    return m
-
 def plot_diag(mtx, ind=1):
     import pylab
     dim = mtx.shape
