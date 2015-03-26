@@ -153,9 +153,27 @@ Optionally:
           amd-core-math-library-acml/
 .. _openblas: http://www.openblas.net/
 
+Installation process
+--------------------
+
+After having installed the dependencies do:
+
+1) Perform :ref:`developer_installation`.
+
+   .. note::
+
+       If you install on a cluster,
+       take a look at :ref:`install_custom_installation` - it provides
+       installation instructions for different platforms.
+
+2) Perform :ref:`installationguide_setup_files`.
+
+3) :ref:`running_tests`.
+
+See below for hints how to customize your installation.
+
 Installation tricks
 -------------------
-
 
 .. _install_custom_installation:
 
@@ -260,25 +278,11 @@ Example::
     export LIBRARY_PATH=~/xc/lib
     export LD_LIBRARY_PATH=~/xc/lib
 
-After having installed the dependencies:
-
-1) Perform :ref:`developer_installation`.
-
-   .. note::
-
-       If you install on a cluster,
-       take a look at :ref:`install_custom_installation` - it provides
-       installation instructions for different platforms.
-
-2) Perform :ref:`installationguide_setup_files`.
-
-3) :ref:`running_tests`.
-
 
 .. _installationguide_setup_files:
 
-Installation of setup files
----------------------------
+Installation of PAW datasets
+============================
 
 1) Get the tar file :file:`gpaw-setups-{<version>}.tar.gz`
    of the <version> of PAW datasets from the :ref:`setups` page
