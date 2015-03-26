@@ -112,8 +112,8 @@ def test_different_sto(rgd):
             norm = sqrt((2 * l_sto + 1) / (4 * pi))  # m = 0
             radial *= norm
             wave_functions.append([radial])
-        I = rgd.integrate_yukawa(wave_functions[0], wave_functions[1], 
-                l_sto, gamma)
+        yukawa_wf = rgd.yukawa(wave_functions[1], l_sto, gamma)
+        I = rgd.integrate(wave_functions[0]*wave_functions[1], l_sto)
         scale = 16 * pi**2 / (2 * l_sto + 1)
         I *= scale
 #        print(u"{:7.5e}||{:7.5e}||{:7.5e}".format(test_sto['I'], I,
@@ -134,7 +134,8 @@ def test_same_sto(rgd):
         radial *= norm
         radial2 = radial_sto(np, zetap, l_sto, rgd.r_g)
         radial2 *= norm
-        I = rgd.integrate_yukawa(radial, radial2, l_sto, zeta)
+        yukawa_wf = rgd.yukawa(radial2, l_sto, zeta)
+        I = rgd.integrate(radial*radial2, l_sto)
         scale = 16 * pi**2 / (2 * l_sto + 1)
         I *= scale
 #        print(u"{:7.5e}||{:7.5e}||{:7.5e}".format(test_sto['I'], I,
