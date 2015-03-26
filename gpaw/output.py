@@ -461,17 +461,18 @@ def eigenvalue_string(paw, comment=None):
         comment = ' '
 
     if len(paw.wfs.kd.ibzk_kc) == 1:
-        s = '' 
+        s = ''
         if paw.wfs.nspins == 1:
             s += comment + 'Band   Eigenvalues  Occupancy\n'
-            eps_n = paw.get_eigenvalues(kpt=i, spin=0)
-            f_n = paw.get_occupation_numbers(kpt=i, spin=0)
+            eps_n = paw.get_eigenvalues(kpt=0, spin=0)
+            f_n = paw.get_occupation_numbers(kpt=0, spin=0)
             if paw.wfs.world.rank == 0:
                 for n in range(paw.wfs.bd.nbands):
                     s += ('%4d   %10.5f  %10.5f\n' % (n, eps_n[n], f_n[n]))
         else:
             s += comment + '                 Up                     Down\n'
-            s += comment + 'Band  Eigenvalues  Occupancy  Eigenvalues  Occupancy\n'     
+            s += comment + \
+            'Band  Eigenvalues  Occupancy  Eigenvalues  Occupancy\n'
             epsa_n = paw.get_eigenvalues(kpt=0, spin=0, broadcast=False)
             epsb_n = paw.get_eigenvalues(kpt=0, spin=1, broadcast=False)
             fa_n = paw.get_occupation_numbers(kpt=0, spin=0, broadcast=False)
@@ -490,12 +491,12 @@ def eigenvalue_string(paw, comment=None):
         s += 'Showing all kpts\n'
         print_range = len(paw.wfs.kd.ibzk_kc)
 
-    if paw.wfs.nvalence/2. > 10:
-        m = paw.wfs.nvalence/2. - 10
+    if paw.wfs.nvalence / 2. > 10:
+        m = paw.wfs.nvalence / 2. - 10
     else:
         m = 0
-    if paw.wfs.bd.nbands - paw.wfs.nvalence/2. > 10:
-        j = paw.wfs.nvalence/2. + 10
+    if paw.wfs.bd.nbands - paw.wfs.nvalence / 2. > 10:
+        j = paw.wfs.nvalence / 2. + 10
     else:
         j = paw.wfs.bd.nbands
 
@@ -505,20 +506,22 @@ def eigenvalue_string(paw, comment=None):
             eps_n = paw.get_eigenvalues(kpt=i, spin=0)
             f_n = paw.get_occupation_numbers(kpt=i, spin=0)
             if paw.wfs.world.rank == 0:
-                for n in range(m,j):
-                    s += (' %i  %4d   %10.5f  %10.5f\n' % (i, n, eps_n[n], f_n[n]))
+                for n in range(m, j):
+                    s += (' %i  %4d   %10.5f  %10.5f\n' %
+                      (i, n, eps_n[n], f_n[n]))
                 s += '\n'
 
     else:
         s += comment + '                     Up                     Down\n'
-        s += comment + 'Kpt  Band  Eigenvalues  Occupancy  Eigenvalues  Occupancy\n'
-        for i in range(print_range):        
+        s += comment + \
+        'Kpt  Band  Eigenvalues  Occupancy  Eigenvalues  Occupancy\n'
+        for i in range(print_range):
             epsa_n = paw.get_eigenvalues(kpt=i, spin=0, broadcast=False)
             epsb_n = paw.get_eigenvalues(kpt=i, spin=1, broadcast=False)
             fa_n = paw.get_occupation_numbers(kpt=i, spin=0, broadcast=False)
             fb_n = paw.get_occupation_numbers(kpt=i, spin=1, broadcast=False)
             if paw.wfs.world.rank == 0:
-                for n in range(m,j):
+                for n in range(m, j):
                     s += (' %i  %4d  %11.5f  %9.5f  %11.5f  %9.5f\n' %
                       (i, n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
                 s += '\n'
