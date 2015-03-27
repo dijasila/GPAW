@@ -38,7 +38,7 @@ class Chi0(PairDensity):
                  world=mpi.world, txt=sys.stdout, timer=None,
                  nblocks=1, no_optical_limit=False,
                  keep_occupied_states=False, gate_voltage=None,
-                 disable_point_group=True, disable_time_reversal=True,
+                 disable_point_group=False, disable_time_reversal=False,
                  use_more_memory=0, unsymmetrized=True):
 
         PairDensity.__init__(self, calc, ecut, ftol, threshold,

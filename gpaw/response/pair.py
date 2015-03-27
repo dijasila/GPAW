@@ -713,17 +713,20 @@ class PairDensity:
             Index of last unoccupied band.
         spins: list
             List of spin indices included.
-        disable_point_group: Bool
-            Disable point group in allowed symmetry operations
-            used when calculating the optical pair densities.
-        disable_time_reversal: Bool
-            Disable time reversal in allowed symmetry operations
-            used when calculating the optical pair densities.
-        disable_non_symmorphic: Bool
-            Disable non symmorphic symmetries in allowed symmetry
-            operations used when calculating the optical pair densities.
+        intraband: bool
+            Include intraband transitions in optical limit.
+        PWSA: PlanewaveSymmetryAnalyzer
+            If supplied uses this object to determine the symmetries
+            of the pair-densities.
+        disable_optical_limit: bool
+            Disable optical limit.
+        unsymmetrized: bool
+            Only return pair-densities from one kpoint in each
+            group of equivalent kpoints.
         use_more_memory: float
-            Group more pair densities together when returning.
+            Group more pair densities for several occupied bands
+            together before returning. Here 0 <= use_more_memory <= 1,
+            where zero is the minimal amount of memory, and 1 is the maximal.
         """
         assert 0 <= use_more_memory <= 1
 

@@ -330,6 +330,7 @@ tests = [
     'lcao_tdgllbsc.py',                     # ~132s
     'bse_silicon.py',                       # ~143s
     'gwsi.py',                              # ~147s
+    'response_graphene.py',                 # ~160s
     'response_symmetry.py',                 # ~300s
     'pw/moleculecg.py',                     # duration unknown
     'potential.py',                         # duration unknown
