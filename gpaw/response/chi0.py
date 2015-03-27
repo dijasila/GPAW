@@ -38,7 +38,7 @@ class Chi0(PairDensity):
                  world=mpi.world, txt=sys.stdout, timer=None,
                  nblocks=1, no_optical_limit=False,
                  keep_occupied_states=False, gate_voltage=None,
-                 disable_point_group=True, disable_time_reversal=True,
+                 disable_point_group=False, disable_time_reversal=False,
                  use_more_memory=0, unsymmetrized=True):
 
         PairDensity.__init__(self, calc, ecut, ftol, threshold,
@@ -242,10 +242,11 @@ class Chi0(PairDensity):
                           + 1j * self.eta)**2)
 
         if self.unsymmetrized:
-            # Carry out symmetrization        
+            # Carry out symmetrization
             tmpchi0_wGG = self.redistribute(chi0_wGG)
             PWSA.symmetrize_wGG(tmpchi0_wGG)
             self.redistribute(tmpchi0_wGG, chi0_wGG)
+
             if optical_limit:
                 PWSA.symmetrize_wxvG(chi0_wxvG)
                 PWSA.symmetrize_wvv(chi0_wvv)

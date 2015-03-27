@@ -266,6 +266,15 @@ class PWSymmetryAnalyzer:
             is_not_non_symmorphic = lambda s: not bool(ft_sc[s % nU].any())
             s_s = filter(is_not_non_symmorphic, s_s)
 
+        stmp_s = []
+        for s in s_s:
+            if self.kd.bz2bz_ks[0, s] == -1:
+                assert (self.kd.bz2bz_ks[:, s] == -1).all()
+            else:
+                stmp_s.append(s)
+        
+        s_s = stmp_s
+
         self.infostring += 'Found {0} allowed symmetries. '.format(len(s_s))
         self.s_s = s_s
         self.shift_sc = shift_sc
@@ -459,7 +468,7 @@ class PWSymmetryAnalyzer:
         for s in self.s_s:
             U_cc, sign, TR, shift_c, ft_c = self.get_symmetry_operator(s)
             iU_cc = np.linalg.inv(U_cc).T
-            UG_Gc = np.dot(G_Gc, sign * iU_cc)  # XXX no shift_c here
+            UG_Gc = np.dot(G_Gc - shift_c, sign * iU_cc)
 
             assert np.allclose(UG_Gc.round(), UG_Gc)
             UQ_G = np.ravel_multi_index(UG_Gc.round().astype(int).T,
