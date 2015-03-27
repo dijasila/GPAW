@@ -492,13 +492,13 @@ def eigenvalue_string(paw, comment=None):
         print_range = len(paw.wfs.kd.ibzk_kc)
 
     if paw.wfs.nvalence / 2. > 10:
-        m = paw.wfs.nvalence / 2. - 10
+        m = int(paw.wfs.nvalence / 2. - 10)
     else:
         m = 0
     if paw.wfs.bd.nbands - paw.wfs.nvalence / 2. > 10:
-        j = paw.wfs.nvalence / 2. + 10
+        j = int(paw.wfs.nvalence / 2. + 10)
     else:
-        j = paw.wfs.bd.nbands
+        j = int(paw.wfs.bd.nbands)
 
     if paw.wfs.nspins == 1:
         s += comment + 'Kpt   Band   Eigenvalues  Occupancy\n'
