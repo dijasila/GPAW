@@ -156,10 +156,9 @@ class DatasetOptimizer:
         Z = atomic_numbers[symbol]
         self.rc = covalent_radii[Z]
 
-        self.ga = GA(self.x)
-        
     def run(self):
-        self.ga.run(self)
+        ga = GA(self.x)
+        ga.run(self)
         
     def best(self, N=None):
         best = sorted((error, id, x)
@@ -272,7 +271,7 @@ class DatasetOptimizer:
         ref = self.reference['fcc']
         a0r = ref['a']  # scalar-relativistic minimum
         sc = 2 * self.rc * 2**0.5 / a0r
-        sc = min((abs(s - sc), s) for s in ref)[1]
+        sc = min((abs(s - sc), s) for s in ref if s != 'a')[1]
         maxiter = 0
         energies = []
         for s in [sc, 0.95, 1.0, 1.05]:
@@ -301,7 +300,7 @@ class DatasetOptimizer:
         ref = self.reference['rocksalt']
         a0r = ref['a']
         sc = (self.rc + self.rco) / a0r
-        sc = min((abs(s - sc), s) for s in ref)[1]
+        sc = min((abs(s - sc), s) for s in ref if s != 'a')[1]
         maxiter = 0
         energies = []
         for s in [sc, 0.95, 1.0, 1.05]:
