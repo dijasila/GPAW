@@ -18,6 +18,7 @@ from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.utilities.blas import gemm, rk, czher, mmm
 from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.response.pair import PWSymmetryAnalyzer
 
 
 def frequency_grid(domega0, omega2, omegamax):
@@ -36,7 +37,9 @@ class Chi0(PairDensity):
                  real_space_derivatives=False, intraband=True,
                  world=mpi.world, txt=sys.stdout, timer=None,
                  nblocks=1, no_optical_limit=False,
-                 keep_occupied_states=False, gate_voltage=None):
+                 keep_occupied_states=False, gate_voltage=None,
+                 disable_point_group=False, disable_time_reversal=False,
+                 use_more_memory=0, unsymmetrized=True):
 
         PairDensity.__init__(self, calc, ecut, ftol, threshold,
                              real_space_derivatives, world, txt, timer,
@@ -51,7 +54,11 @@ class Chi0(PairDensity):
         self.keep_occupied_states = keep_occupied_states
         self.intraband = intraband
         self.no_optical_limit = no_optical_limit
-        
+        self.disable_point_group = disable_point_group
+        self.disable_time_reversal = disable_time_reversal
+        self.use_more_memory = use_more_memory
+        self.unsymmetrized = unsymmetrized
+
         omax = self.find_maximum_frequency()
 
         if frequencies is None:
@@ -73,11 +80,12 @@ class Chi0(PairDensity):
             assert not self.omega_w.real.any()
 
         # Occupied states:
+        wfs = self.calc.wfs
         self.mysKn1n2 = None  # my (s, K, n1, n2) indices
-        self.distribute_k_points_and_bands(0, self.nocc2)
+        self.distribute_k_points_and_bands(0, self.nocc2,
+                                           kpts=range(wfs.kd.nibzkpts))
         self.mykpts = None
 
-        wfs = self.calc.wfs
         self.prefactor = 2 / self.vol / wfs.kd.nbzkpts / wfs.nspins
 
         self.chi0_vv = None  # strength of intraband peak
@@ -137,27 +145,19 @@ class Chi0(PairDensity):
             chi0_wxvG = None
             chi0_wvv = None
 
-        print('Initializing PAW Corrections', file=self.fd)
-        self.Q_aGii = self.initialize_paw_corrections(pd)
-
         # Do all empty bands:
         m1 = self.nocc1
         m2 = self.nbands
         
-        self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, self.Q_aGii,
-                        m1, m2, spins)
+        self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins)
         
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     @timer('Calculate CHI_0')
-    def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, Q_aGii,
-                   m1, m2, spins):
+    def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins):
         wfs = self.calc.wfs
 
-        if self.keep_occupied_states:
-            self.mykpts = [self.get_k_point(s, K, n1, n2)
-                           for s, K, n1, n2 in self.mysKn1n2]
-
+        # Choose which update method to use
         if self.eta == 0.0:
             update = self.update_hermitian
         elif self.hilbert:
@@ -167,76 +167,33 @@ class Chi0(PairDensity):
 
         q_c = pd.kd.bzk_kc[0]
         optical_limit = not self.no_optical_limit and np.allclose(q_c, 0.0)
+        generator = self.generate_pair_densities
 
-        pb = ProgressBar(self.fd)
+        # Use symmetries
+        PWSA = PWSymmetryAnalyzer
+        PWSA = PWSA(self.calc.wfs.kd, pd,
+                    disable_point_group=self.disable_point_group,
+                    disable_time_reversal=self.disable_time_reversal,
+                    timer=self.timer, txt=self.fd)
 
+        # Calculate unsymmetrized chi or spectral function
         self.timer.start('Loop')
-        # kpt1 occupied and kpt2 empty:
-        for kn, (s, K, n1, n2) in enumerate(self.mysKn1n2):
-            pb.update(kn / len(self.mysKn1n2))
-            if self.keep_occupied_states:
-                kpt1 = self.mykpts[kn]
-            else:
-                kpt1 = self.get_k_point(s, K, n1, n2)
-
-            if kpt1.s not in spins:
-                continue
-
-            with self.timer('k+q'):
-                K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            with self.timer('get k2'):
-                kpt2 = self.get_k_point(kpt1.s, K2, m1, m2, block=True)
-            with self.timer('fft-indices'):
-                Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
-                                           kpt1.shift_c - kpt2.shift_c)
-
-            for n in range(kpt1.n2 - kpt1.n1):
-                eps1 = kpt1.eps_n[n]
-                
-                # Only update if there exists deps <= omegamax
-                if self.omegamax is not None:
-                    m = [m for m, d in enumerate(eps1 - kpt2.eps_n)
-                         if abs(d) <= self.omegamax]
-                else:
-                    m = range(0, kpt2.n2 - kpt2.n1)
-                
-                if not len(m):
-                    continue
-
-                deps_m = (eps1 - kpt2.eps_n)[m]
-                f1 = kpt1.f_n[n]
-                with self.timer('conj'):
-                    ut1cc_R = kpt1.ut_nR[n].conj()
-                with self.timer('paw'):
-                    C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
-                              for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-                n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                     pd, Q_G)[m]
-                df_m = (f1 - kpt2.f_n)[m]
-
-                # This is not quite right for degenerate partially occupied
-                # bands, but good enough for now:
-                df_m[df_m <= 1e-20] = 0.0
-
-                if optical_limit:
-                    self.update_optical_limit(
-                        n, m, kpt1, kpt2, deps_m, df_m, n_mG,
-                        chi0_wxvG, chi0_wvv)
-
-                update(n_mG, deps_m, df_m, chi0_wGG)
-
-            if optical_limit and self.intraband:
-                # Avoid that more ranks are summing up
-                # the intraband contributions
-                if kpt1.n1 == 0 and self.blockcomm.rank == 0:
-                    assert self.nocc2 <= kpt2.nb, \
-                        print('Error: Too few unoccupied bands')
-                    self.update_intraband(kpt2)
-
+        for f2_m, df_m, deps_m, n_mG, n_mv, vel_mv in \
+            generator(pd, m1, m2, spins, PWSA=PWSA,
+                      use_more_memory=self.use_more_memory,
+                      unsymmetrized=self.unsymmetrized):
+            # If the generator returns None for a pair-density
+            # then skip updating
+            if n_mG is not None:
+                update(np.ascontiguousarray(n_mG), deps_m, df_m, chi0_wGG)
+            if optical_limit and n_mv is not None:
+                self.update_optical_limit(n_mv, deps_m, df_m,
+                                          n_mG, chi0_wxvG, chi0_wvv)
+            if optical_limit and self.intraband and vel_mv is not None:
+                self.update_intraband(f2_m, vel_mv, self.chi0_vv)
         self.timer.stop('Loop')
 
-        pb.finish()
-
+        # Sum chi
         with self.timer('Sum CHI_0'):
             for chi0_GG in chi0_wGG:
                 self.kncomm.sum(chi0_GG)
@@ -281,28 +238,51 @@ class Chi0(PairDensity):
             self.world.broadcast(chi0_vv, 0)
 
             chi0_wvv += (chi0_vv[np.newaxis] /
-                         (omega_w[:, np.newaxis, np.newaxis] 
+                         (omega_w[:, np.newaxis, np.newaxis]
                           + 1j * self.eta)**2)
 
+        if self.unsymmetrized:
+            # Carry out symmetrization        
+            tmpchi0_wGG = self.redistribute(chi0_wGG)
+            PWSA.symmetrize_wGG(tmpchi0_wGG)
+            self.redistribute(tmpchi0_wGG, chi0_wGG)
+            if optical_limit:
+                PWSA.symmetrize_wxvG(chi0_wxvG)
+                PWSA.symmetrize_wvv(chi0_wvv)
+                # Since chi_wGG is nonanalytic in the head
+                # and wings we have to take care that
+                # these are handled correctly. Note that
+                # it is important that the wings are overwritten first.
+                chi0_wGG[:, :, 0] = chi0_wxvG[:, 1, 0, self.Ga:self.Gb] 
+                if self.blockcomm.rank == 0:
+                    chi0_wGG[:, 0] =  chi0_wxvG[:, 0, 0]
+                    chi0_wGG[:, 0, 0] = chi0_wvv[:, 0, 0]
+                    
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     @timer('CHI_0 update')
     def update(self, n_mG, deps_m, df_m, chi0_wGG):
+        """Update chi."""
+
         if self.timeordered:
             deps1_m = deps_m + 1j * self.eta * np.sign(deps_m)
             deps2_m = deps1_m
         else:
             deps1_m = deps_m + 1j * self.eta
             deps2_m = deps_m - 1j * self.eta
-
+        
         for omega, chi0_GG in zip(self.omega_w, chi0_wGG):
             x_m = df_m * (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
-            nx_mG = n_mG * x_m[:, np.newaxis]
+            if self.blockcomm.size > 1:
+                nx_mG = n_mG[:, self.Ga:self.Gb]  * x_m[:, np.newaxis]
+            else:
+                nx_mG = n_mG * x_m[:, np.newaxis]
             gemm(self.prefactor, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_GG)
 
     @timer('CHI_0 hermetian update')
     def update_hermitian(self, n_mG, deps_m, df_m, chi0_wGG):
+        """If eta=0 use hermitian update."""
         for w, omega in enumerate(self.omega_w):
             if self.blockcomm.size == 1:
                 x_m = (-2 * df_m * deps_m / (omega.imag**2 + deps_m**2))**0.5
@@ -315,6 +295,11 @@ class Chi0(PairDensity):
 
     @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):
+        """Update spectral function.
+
+        Updates spectral function A_wGG and saves it to chi0_wGG for
+        later hilbert-transform."""
+
         self.timer.start('prep')
         beta = (2**0.5 - 1) * self.domega0 / self.omega2
         o_m = abs(deps_m)
@@ -339,12 +324,11 @@ class Chi0(PairDensity):
             czher(p2, n_G.conj(), chi0_wGG[w + 1])
 
     @timer('CHI_0 optical limit update')
-    def update_optical_limit(self, n, m, kpt1, kpt2, deps_m, df_m, n_mG,
+    def update_optical_limit(self, n0_mv, deps_m, df_m, n_mG,
                              chi0_wxvG, chi0_wvv):
-        n0_mv = PairDensity.update_optical_limit(self, n, m, kpt1, kpt2,
-                                                 deps_m, df_m, n_mG)
+        """Optical limit update of chi."""
 
-        if self.hilbert:
+        if self.hilbert:  # Do something special when hilbert transforming
             self.update_optical_limit_hilbert(n0_mv, deps_m, df_m, n_mG,
                                               chi0_wxvG, chi0_wvv)
             return
@@ -368,6 +352,8 @@ class Chi0(PairDensity):
     @timer('CHI_0 optical limit hilbert-update')
     def update_optical_limit_hilbert(self, n0_mv, deps_m, df_m, n_mG,
                                      chi0_wxvG, chi0_wvv):
+        """Optical limit update of chi-head and -wings."""
+
         beta = (2**0.5 - 1) * self.domega0 / self.omega2
         for deps, df, n0_v, n_G in zip(deps_m, df_m, n0_mv, n_mG):
             o = abs(deps)
@@ -390,43 +376,25 @@ class Chi0(PairDensity):
             chi0_wxvG[w + 1, 1, :, 1:] += p2 * x_vG.conj()
 
     @timer('CHI_0 intraband update')
-    def update_intraband(self, kpt):
-        """Check whether there are any partly occupied bands."""
+    def update_intraband(self, f_m, vel_mv, chi0_vv):
+        """Add intraband contributions"""
+        assert len(f_m) == len(vel_mv), print(len(f_m), len(vel_mv))
 
         width = self.calc.occupations.width
         if width == 0.0:
             return
 
         assert isinstance(self.calc.occupations, FermiDirac)
-        dfde_m = - 1. / width * (kpt.f_n - kpt.f_n**2.0)
+        dfde_m = - 1. / width * (f_m - f_m**2.0)
         partocc_m = np.abs(dfde_m) > 1e-5
         if not partocc_m.any():
             return
 
-        # Break bands into degenerate chunks
-        deginds_cm = []  # indexing c as chunk number
-        for m in range(kpt.nb - kpt.na):
-            inds_m = np.nonzero(np.abs(kpt.eps_n[m] - kpt.eps_n) < 1e-5)[0]
-            if m == np.min(inds_m) and partocc_m[m]:
-                deginds_cm.append((inds_m))
-
-        # Sum over the chunks of degenerate bands
-        for inds_m in deginds_cm:
-            deg = len(inds_m)
-            vel_mmv = -1j * PairDensity.update_intraband(self, inds_m, kpt)
-            vel_mv = np.zeros((deg, 3), dtype=complex)
-
-            for iv in range(3):
-                w, v = np.linalg.eig(vel_mmv[..., iv])
-                vel_mv[:, iv] = w
-
-            for m in range(deg):
-                velm_v = vel_mv[m]
-                x_vv = (-self.prefactor * dfde_m[inds_m[m]] *
-                        np.outer(velm_v.conj(), velm_v))
-
-                self.chi0_vv += x_vv
-
+        for dfde, vel_v in zip(dfde_m, vel_mv):
+            x_vv = (-self.prefactor * dfde *
+                    np.outer(vel_v, vel_v))
+            chi0_vv += x_vv
+                
     @timer('redist')
     def redistribute(self, in_wGG, out_x=None):
         """Redistribute array.
@@ -468,7 +436,7 @@ class Chi0(PairDensity):
             out_wGG = np.empty(outshape, complex)
         else:
             out_wGG = out_x[:np.product(outshape)].reshape(outshape)
-
+            
         r.redistribute(in_wGG.reshape(mdin.shape),
                        out_wGG.reshape(mdout.shape))
         
