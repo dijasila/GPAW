@@ -1,3 +1,23 @@
+.. toctree::
+   :hidden:
+
+   documentation/documentation
+   install/installationguide
+   download
+   setups/setups
+   tutorials/tutorials
+   exercises/exercises
+   faq
+   devel/releasenotes
+   mailinglists
+   devel/benchmarks
+   documentation/literature
+   devel/devel
+   devel/projects/projects
+   epydoc/gpaw-module
+   browser/trunk/
+   gpaw/report
+
 ====
 GPAW
 ====
@@ -11,9 +31,25 @@ Read more about the :ref:`algorithms` used.
 .. _Python: http://www.python.org
 .. _ASE: https://wiki.fysik.dtu.dk/ase
 
+
++--------------------------------+-----------------------------------+
+| Download                       | Literal block, preceded by "::":: |
+| separated by blank lines.      |                                   |
+|                                |     Indented                      |
+|     Block quotes are indented. |                                   |
++--------------------------------+ or::                              |
+| >>> print 'Doctest block'      |                                   |
+| Doctest block                  | > Quoted                          |
++--------------------------------+-----------------------------------+
+| | Line blocks preserve line breaks & indents. [new in 0.3.6]       |
+| |     Useful for addresses, verse, and adornment-free lists; long  |
+|       lines can be wrapped with continuation lines.                |
++--------------------------------------------------------------------+
+
 A small code example
 ====================
 .. literalinclude:: minimal_code_example.py
+
 
 SVN
 ===

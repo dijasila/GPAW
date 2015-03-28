@@ -1,12 +1,5 @@
-.. _toc:
-
-====
-GPAW
-====
-
 .. toctree::
-   :maxdepth: 2
-   
+   index
    documentation/documentation
    install/installationguide
    download
@@ -18,7 +11,6 @@ GPAW
    mailinglists
    devel/benchmarks
    documentation/literature
-
    devel/devel
    devel/projects/projects
    epydoc/gpaw-module
