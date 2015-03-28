@@ -347,6 +347,7 @@ tests = [
     'coreeig.py',                           # duration unknown
     'bse_MoS2_cut.py',                      # duration unknown
     'rsf_yukawa_nonselfconsistent.py',      # duration unknown
+    'rsf_yukawa_selfconsistent.py',         # duration unknown
     'parallel/scalapack_mpirecv_crash.py',  # duration unknown
     'cmrtest/cmr_test.py',                  # duration unknown
     'cmrtest/cmr_test3.py',                 # duration unknown
@@ -439,7 +440,8 @@ if mpi.size != 1 and not compiled_with_sl():
                 'au02_absorption.py']
 
 if _gpaw.lxcXCFuncNum('HYB_GGA_XC_LCY_PBE') is None: # non rsf libxc
-    exclude += ['rsf_yukawa_nonselfconsistent.py']
+    exclude += ['rsf_yukawa_nonselfconsistent.py',
+                'rsf_yukawa_selfconsistent.py']
 
 if not compiled_with_sl():
     exclude.append('lcao_atomic_corrections.py')

@@ -18,6 +18,7 @@ from gpaw.atom.configurations import core_states
 from gpaw.lfc import LFC
 from gpaw.utilities.blas import gemm
 from gpaw.gaunt import make_gaunt
+from math import exp
 
 
 class HybridXCBase(XCFunctional):
@@ -293,10 +294,32 @@ class HybridXC(HybridXCBase):
                             # XXX Check this:
                             v_nii[n1] = f1 * v_ii
 
+        def calculate_vv(ni, D_ii, M_pp, weight, addme=False):
+            """Calculate the local corrections depending on Mpp."""
+            dexx = 0
+            dekin = 0
+            dHtpsit_nG = 0
+            if not addme:
+                addsign = -2.0
+            else:
+                addsign = 2.0
+            for i1 in range(ni):
+                for i2 in range(ni):
+                    A = 0.0
+                    for i3 in range(ni):
+                        p13 = packed_index(i1, i3, ni)
+                        for i4 in range(ni):
+                            p24 = packed_index(i2, i4, ni)
+                            A += M_pp[p13, p24] * D_ii[i3, i4]
+                    p12 = packed_index(i1, i2, ni)
+                    if Htpsit_nG is not None:  # Check this out!
+                        dH_p[p12] += addsign * weight / deg * A / ((i1 != i2) + 1)
+                    dekin += 2 * weight / deg * D_ii[i1, i2] * A
+                    dexx -= weight / deg * D_ii[i1, i2] * A
+            return (dexx, dekin)
+
         # Apply the atomic corrections to the energy and the Hamiltonian matrix
         for a, P_ni in P_ani.items():
-            if self.rsf == 'Yukawa':    # At this stage only merge pseudo
-                continue
             setup = setups[a]
 
             if Htpsit_nG is not None:
@@ -316,20 +339,19 @@ class HybridXC(HybridXCBase):
             # --
             # >  D   C     D
             # --  ii  iiii  ii
-            for i1 in range(ni):
-                for i2 in range(ni):
-                    A = 0.0
-                    for i3 in range(ni):
-                        p13 = packed_index(i1, i3, ni)
-                        for i4 in range(ni):
-                            p24 = packed_index(i2, i4, ni)
-                            A += setup.M_pp[p13, p24] * D_ii[i3, i4]
-                    p12 = packed_index(i1, i2, ni)
-                    if Htpsit_nG is not None:
-                        dH_p[p12] -= 2 * hybrid / deg * A / ((i1 != i2) + 1)
-                    ekin += 2 * hybrid / deg * D_ii[i1, i2] * A
-                    exx -= hybrid / deg * D_ii[i1, i2] * A
-            
+            (dexx, dekin) = calculate_vv(ni, D_ii, setup.M_pp, hybrid)
+            ekin += dekin
+            exx += dexx
+            if self.rsf is not None:
+                Mg_pp = setup.calculate_yukawa_interaction(self.omega)
+                if is_cam:
+                    (dexx, dekin) = calculate_vv(ni, D_ii, Mg_pp,
+                            self.cam_beta, addme=True)
+                else:
+                    (dexx, dekin) = calculate_vv(ni, D_ii, Mg_pp, hybrid,
+                            addme=True)
+                ekin -= dekin
+                exx -= dexx
             # Add valence-core exchange energy
             # --
             # >  X   D
@@ -340,9 +362,33 @@ class HybridXC(HybridXCBase):
                     dH_p -= hybrid * setup.X_p
                     ekin += hybrid * np.dot(D_p, setup.X_p)
 
+                if self.rsf == 'Yukawa' and setup.X_pg is not None:
+                    if is_cam:
+                        thybrid = self.cam_beta  # 0th order
+                    else:
+                        thybrid = hybrid
+                    exx += thybrid * np.dot(D_p, setup.X_pg)
+                    if Htpsit_nG is not None:
+                        dH_p += thybrid * setup.X_pg
+                        ekin -= thybrid * np.dot(D_p, setup.X_pg)
+                elif self.rsf == 'Yukawa' and setup.X_pg is None:
+                    thybrid = exp(-3.62e-2*self.omega)
+                    if is_cam:
+                        thybrid *= self.cam_beta
+                    else:
+                        thybrid *= hybrid
+                    exx += thybrid * np.dot(D_p, setup.X_p)
+                    if Htpsit_nG is not None:
+                        dH_p += thybrid * setup.X_p
+                        ekin -= thybrid * np.dot(D_p, setup.X_p)
+
                 # Add core-core exchange energy
                 if kpt.s == 0:
-                    exx += hybrid * setup.ExxC
+                    if self.rsf is None or is_cam:
+                        if is_cam:
+                            exx += self.cam_alpha * setup.ExxC
+                        else:
+                            exx += hybrid * setup.ExxC
 
         self.exx_s[kpt.s] = self.gd.comm.sum(exx)
         self.ekin_s[kpt.s] = self.gd.comm.sum(ekin)
