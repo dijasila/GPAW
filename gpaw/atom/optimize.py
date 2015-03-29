@@ -155,28 +155,31 @@ class DatasetOptimizer:
         
         Z = atomic_numbers[symbol]
         self.rc = covalent_radii[Z]
+        self.rco = covalent_radii[8]
 
     def run(self):
         ga = GA(self.x)
         ga.run(self)
         
     def best(self, N=None):
+        ga = GA(self.x)
         best = sorted((error, id, x)
-                      for x, (error, id) in self.ga.individuals.items())
+                      for x, (error, id) in ga.individuals.items())
         if N is None:
-            return best[0]
+            return best[0] + [ga.errors[best[0][1]]]
         else:
-            return best[:N]
+            return [(error, id, x, ga.errors[id])
+                    for error, id, x in best[:N]]
         
     def summary(self, N=10):
         print('dFffRrrICEe:')
-        for error, id, x in self.best(N):
+        for error, id, x, errors in self.best(N):
             params = [0.1 * p for p in x[:self.nenergies]]
             params += [0.05 * p for p in x[self.nenergies:]]
             print('{0:5} {1:7.1f} {2} {3}'.format(
                 id, error,
                 ' '.join('{0:5.2f}'.format(p) for p in params),
-                ' '.join('{0:5.1f}'.format(e) for e in self.ga.errors[id])))
+                ' '.join('{0:8.3f}'.format(e) for e in errors)))
             
     def best1(self):
         error, id, x = self.best()
