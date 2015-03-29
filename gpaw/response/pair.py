@@ -203,9 +203,11 @@ class PWSymmetryAnalyzer:
         """Determine allowed symmetries.
 
         An direct symmetry U must fulfill::
+
           U \mathbf{q} = q + \Delta
 
         Under time-reversal (indirect) it must fulfill::
+
           -U \mathbf{q} = q + \Delta
 
         where :math:`\Delta` is a reciprocal lattice vector.
