@@ -170,6 +170,35 @@ After having installed the dependencies do:
 
 3) :ref:`running_tests`.
 
+The following environment variables are involved when installing GPAW:
+
+.. envvar:: HOME
+
+  The path to your home directory.
+
+.. envvar:: GPAW_HOME
+
+  Optional: points to the root directory of your GPAW installation, e.g.:
+  ``~/gpaw``.
+
+.. envvar:: PATH
+
+  The ``$PATH`` environment variable should contain the paths to directory
+  containing the ``gpaw-python`` executable and additional scripts.
+
+.. envvar:: PYTHONPATH
+
+  The ``PYTHONPATH`` should point to the directory containing the GPAW Python
+  module and the ``_gpaw.so`` shared library.
+
+.. envvar:: OMP_NUM_THREADS
+  
+  Currently should be set to 1.
+
+.. envvar:: GPAW_SETUP_PATH
+
+  Points to the directory containing the PAW datasets.
+
 See below for hints how to customize your installation.
 
 Installation tricks
