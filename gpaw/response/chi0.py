@@ -176,10 +176,25 @@ class Chi0(PairDensity):
                     disable_time_reversal=self.disable_time_reversal,
                     timer=self.timer, txt=self.fd)
 
+        # If chi's are are supplied it
+        # is assumed that they are symmetric
+        # and we have to divide by the number of
+        # symmetries if we are calculating
+        # the unsymmetric chi
+        if self.unsymmetrized:
+            nsym = PWSA.how_many_symmetries()
+            if nsym > 1:
+                chi0_wGG /= nsym
+                if chi0_wxvG is not None:
+                    chi0_wxvG /= nsym
+                if chi0_wvv is not None:
+                    chi0_wvv /= nsym
+
         # Calculate unsymmetrized chi or spectral function
         self.timer.start('Loop')
         for f2_m, df_m, deps_m, n_mG, n_mv, vel_mv in \
             generator(pd, m1, m2, spins, PWSA=PWSA,
+                      disable_optical_limit=not optical_limit,
                       use_more_memory=self.use_more_memory,
                       unsymmetrized=self.unsymmetrized):
             # If the generator returns None for a pair-density
@@ -243,6 +258,7 @@ class Chi0(PairDensity):
 
         if self.unsymmetrized:
             # Carry out symmetrization
+            # Redistribute if block par
             tmpchi0_wGG = self.redistribute(chi0_wGG)
             PWSA.symmetrize_wGG(tmpchi0_wGG)
             self.redistribute(tmpchi0_wGG, chi0_wGG)
@@ -254,9 +270,9 @@ class Chi0(PairDensity):
                 # and wings we have to take care that
                 # these are handled correctly. Note that
                 # it is important that the wings are overwritten first.
-                chi0_wGG[:, :, 0] = chi0_wxvG[:, 1, 0, self.Ga:self.Gb] 
+                chi0_wGG[:, :, 0] = chi0_wxvG[:, 1, 0, self.Ga:self.Gb]
                 if self.blockcomm.rank == 0:
-                    chi0_wGG[:, 0] =  chi0_wxvG[:, 0, 0]
+                    chi0_wGG[:, 0] = chi0_wxvG[:, 0, 0]
                     chi0_wGG[:, 0, 0] = chi0_wvv[:, 0, 0]
                     
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
@@ -275,7 +291,7 @@ class Chi0(PairDensity):
         for omega, chi0_GG in zip(self.omega_w, chi0_wGG):
             x_m = df_m * (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             if self.blockcomm.size > 1:
-                nx_mG = n_mG[:, self.Ga:self.Gb]  * x_m[:, np.newaxis]
+                nx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
             else:
                 nx_mG = n_mG * x_m[:, np.newaxis]
             gemm(self.prefactor, n_mG.conj(), np.ascontiguousarray(nx_mG.T),

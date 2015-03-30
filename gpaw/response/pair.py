@@ -88,7 +88,7 @@ class PWSymmetryAnalyzer:
             Output file.
         disable_point_group: bool
             Switch for disabling point group symmetries.
-        disable_non_symmorphic: 
+        disable_non_symmorphic:
             Switch for disabling non symmorphic symmetries.
         disable_time_reversal:
             Switch for disabling time reversal.
@@ -113,9 +113,9 @@ class PWSymmetryAnalyzer:
                   'or that it has been manually deactivated. \n', file=self.fd)
             self.disable_time_reversal = True
 
-        self.disable_symmetries = self.disable_point_group and \
-                                  self.disable_time_reversal and \
-                                  self.disable_non_symmorphic
+        self.disable_symmetries = (self.disable_point_group and
+                                   self.disable_time_reversal and
+                                   self.disable_non_symmorphic)
         
         # Number of symmetries
         U_scc = kd.symmetry.op_scc
@@ -808,11 +808,11 @@ class PairDensity:
                     no_n.append(n_n[i1:i2])
 
                 # n runs over occupied bands
-                for n_n in no_n:  #n_n is a list of occupied band indices
+                for n_n in no_n:  # n_n is a list of occupied band indices
                     # m over unoccupied bands
                     m_m = range(0, kpt2.n2 - kpt2.n1)
                     deps_nm = (kpt1.eps_n[n_n][:, np.newaxis] -
-                              kpt2.eps_n[m_m])
+                               kpt2.eps_n[m_m])
                     df_nm = (kpt1.f_n[n_n][:, np.newaxis] -
                              kpt2.f_n[m_m])
 
@@ -822,8 +822,10 @@ class PairDensity:
                     df_nm[df_nm <= 1e-20] = 0.0
 
                     # Get pair density for representative kpoint
+                    ol = optical_limit
                     n0_nmG, n0_nmv, _ = self.get_pair_density(pd, kptpair,
                                                               n_n, m_m,
+                                                              optical_limit=ol,
                                                               intraband=False)
 
                     # Reshape nm -> m
@@ -890,9 +892,9 @@ class PairDensity:
         return KPointPair(kpt1, kpt2, Q_G)
 
     @timer('get_pair_density')
-    def get_pair_density(self, pd, kptpair, n_n, m_m, intraband=False):
+    def get_pair_density(self, pd, kptpair, n_n, m_m,
+                         optical_limit=False, intraband=False):
         q_c = pd.kd.bzk_kc[0]
-        optical_limit = not self.no_optical_limit and np.allclose(q_c, 0.0)
 
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
@@ -991,7 +993,8 @@ class PairDensity:
         nt_m[:blockbands] = self.calc.wfs.gd.integrate(kpt1.ut_nR[n],
                                                        kpt2.ut_nR)
 
-        n0_mv[:blockbands] += 1j * nt_m[:blockbands, np.newaxis] * k_v[np.newaxis, :]
+        n0_mv[:blockbands] += (1j * nt_m[:blockbands, np.newaxis]
+                               * k_v[np.newaxis, :])
 
         for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
             gemm(1.0, C_vi, P_mi, 1.0, n0_mv[:blockbands], 'c')
@@ -1054,7 +1057,7 @@ class PairDensity:
         # Break bands into degenerate chunks
         degchunks_cn = []  # indexing c as chunk number
         for n in n_n:
-            inds_n = np.nonzero(np.abs(kpt.eps_n[n - n1] - 
+            inds_n = np.nonzero(np.abs(kpt.eps_n[n - n1] -
                                        kpt.eps_n) < 1e-5)[0] + n1
 
             # Has this chunk already been computed?
@@ -1062,8 +1065,8 @@ class PairDensity:
             if not oldchunk and \
                (partocc_n[n - n1] or not only_partially_occupied):
                 assert all([ind in n_n for ind in inds_n]), \
-                    print('\nYou are cutting over a degenerate band ' + 
-                          'using block parallelization.', 
+                    print('\nYou are cutting over a degenerate band ' +
+                          'using block parallelization.',
                           inds_n, n_n, file=self.fd)
                 degchunks_cn.append((inds_n))
 
