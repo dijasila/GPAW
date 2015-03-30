@@ -15,7 +15,6 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.occupations import FermiDirac
 from gpaw.response.pair import PairDensity
 from gpaw.utilities.memory import maxrss
-from gpaw.utilities.progressbar import ProgressBar
 from gpaw.utilities.blas import gemm, rk, czher, mmm
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.response.pair import PWSymmetryAnalyzer
@@ -155,8 +154,6 @@ class Chi0(PairDensity):
 
     @timer('Calculate CHI_0')
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins):
-        wfs = self.calc.wfs
-
         # Choose which update method to use
         if self.eta == 0.0:
             update = self.update_hermitian
@@ -176,10 +173,10 @@ class Chi0(PairDensity):
                     disable_time_reversal=self.disable_time_reversal,
                     timer=self.timer, txt=self.fd)
 
-        # If chi's are are supplied it
+        # If chi's are supplied it
         # is assumed that they are symmetric
         # and we have to divide by the number of
-        # symmetries if we are calculating
+        # symmetries if we are adding
         # the unsymmetric chi
         if self.unsymmetrized:
             nsym = PWSA.how_many_symmetries()
@@ -195,6 +192,7 @@ class Chi0(PairDensity):
         for f2_m, df_m, deps_m, n_mG, n_mv, vel_mv in \
             generator(pd, m1, m2, spins, PWSA=PWSA,
                       disable_optical_limit=not optical_limit,
+                      intraband=self.intraband,
                       use_more_memory=self.use_more_memory,
                       unsymmetrized=self.unsymmetrized):
             # If the generator returns None for a pair-density

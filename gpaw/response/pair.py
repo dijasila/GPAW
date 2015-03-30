@@ -20,8 +20,6 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.pw import PWLFC
 import gpaw.io.tar as io
 
-import warnings
-
 
 class KPoint:
     def __init__(self, s, K, n1, n2, blocksize, na, nb,
@@ -165,8 +163,6 @@ class PWSymmetryAnalyzer:
         """Handsome print function for symmetry operations."""
 
         p = functools.partial(print, file=self.fd)
-        U_scc = self.kd.symmetry.op_scc
-        ft_sc = self.kd.symmetry.ft_sc
 
         p()
         nx = 6 if self.disable_non_symmorphic else 3
@@ -183,8 +179,6 @@ class PWSymmetryAnalyzer:
                     op_c = sign * op_cc[c]
                     ft = ft_c[c]
                     p('  (%2d %2d %2d)' % tuple(op_c), end='')
-                    if not self.disable_non_symmorphic:
-                        p(' + (%4s)' % sfrac(ft), end='')
                 p()
             p()
 
@@ -219,7 +213,6 @@ class PWSymmetryAnalyzer:
         
         q_c = pd.kd.bzk_kc[0]
         G_Gv = pd.get_reciprocal_vectors()
-        G_Gc = np.dot(G_Gv, np.linalg.inv(B_cv))
         kd = self.kd
 
         U_scc = kd.symmetry.op_scc
@@ -248,12 +241,6 @@ class PWSymmetryAnalyzer:
 
         # The indices of the allowed symmetries
         s_s = conserveq_s.nonzero()[0]
-
-        # Find the eye
-        for s, U_cc in enumerate(U_scc):
-                if (U_cc == np.eye(3)).all():
-                    eyes = s
-                    break
 
         # Filter out disabled symmetries
         if self.disable_point_group:
@@ -673,6 +660,8 @@ class PairDensity:
         ik = wfs.kd.bz2ibz_k[K]
         kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
 
+        assert n2 <= len(kpt.eps_n), \
+            'Increase GS-nbands or decrease chi0-nbands!'
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
 
@@ -894,8 +883,6 @@ class PairDensity:
     @timer('get_pair_density')
     def get_pair_density(self, pd, kptpair, n_n, m_m,
                          optical_limit=False, intraband=False):
-        q_c = pd.kd.bzk_kc[0]
-
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
         Q_G = kptpair.Q_G  # Fourier components of kpoint pair
