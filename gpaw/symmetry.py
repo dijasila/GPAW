@@ -6,11 +6,11 @@ from __future__ import print_function, division
 
 import functools
 
+from fractions import gcd
 import numpy as np
 
 import _gpaw
 import gpaw.mpi as mpi
-from gpaw.utilities import gcd
 
 
 def frac(f, n=2 * 3 * 4 * 5):

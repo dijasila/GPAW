@@ -1,7 +1,7 @@
 """Small test for local parts using yukawa potential"""
 
+from math import factorial as fac
 from numpy import exp, sqrt, pi, absolute
-from gpaw.utilities import fact
 from gpaw.atom.radialgd import AERadialGridDescriptor
 
 #Values from Rico, Lopez, Ramirez, Ema, Theor Chem Acc (2013) 132:1304
@@ -96,7 +96,7 @@ def radial_sto(n, zeta, l, r):
     assert n > 0
     radial = r**(n + l + 0.5)
     radial *= exp(-zeta * r)
-    N = (2 * zeta)**(n + l) * sqrt(2 * zeta / fact(2 * (n + l)))
+    N = (2 * zeta)**(n + l) * sqrt(2 * zeta / fac(2 * (n + l)))
     radial *= N  # perhaps also do Y_l^m normalization
     return radial
 

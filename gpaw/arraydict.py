@@ -57,9 +57,9 @@ class ArrayDict(dict):
         self.check_consistency()
 
     def check_consistency(self):
-        k1 = set(self.keys())
-        k2 = set(self.partition.my_indices)
-        assert k1 == k2, 'Inconsistent keys %s vs from %s' % (k1, k2)
+        k1 = set(self.partition.my_indices)
+        k2 = set(self.keys())
+        assert k1 == k2, 'Required keys %s different from actual %s' % (k1, k2)
         for a, array in self.items():
             assert array.dtype == self.dtype
             assert array.shape == self.shapes_a[a], \

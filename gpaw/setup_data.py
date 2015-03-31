@@ -5,7 +5,7 @@ import os
 import xml.sax
 import re
 from cStringIO import StringIO
-from math import sqrt, pi
+from math import sqrt, pi, factorial as fac
 
 import numpy as np
 from ase.data import atomic_names
@@ -13,7 +13,6 @@ from ase.units import Bohr, Hartree
 
 from gpaw import setup_paths
 from gpaw.spline import Spline
-from gpaw.utilities import _fact
 from gpaw.utilities.tools import md5_new
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast_string
@@ -203,7 +202,7 @@ class SetupData:
         return K_p
 
     def get_ghat(self, lmax, alpha, r, rcut):
-        d_l = [_fact[l] * 2**(2 * l + 2) / sqrt(pi) / _fact[2 * l + 1]
+        d_l = [fac(l) * 2**(2 * l + 2) / sqrt(pi) / fac(2 * l + 1)
                for l in range(lmax + 1)]
         g = alpha**1.5 * np.exp(-alpha * r**2)
         g[-1] = 0.0
