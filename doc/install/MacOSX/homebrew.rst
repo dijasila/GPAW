@@ -113,8 +113,8 @@ Install the dependencies::
   pip install python-ase
   pip install numpy
 
-and install GPAW (still inside of the virtualenv) accordingly to
-:ref:`installationguide_standard` (``python setup.py install``).
+and install GPAW (still inside of the virtualenv)
+with ``python setup.py install``.
 
 Installing ASE requirements
 ---------------------------
