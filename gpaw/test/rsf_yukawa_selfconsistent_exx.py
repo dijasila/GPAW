@@ -1,4 +1,4 @@
-"""Test selfconsistent RSF calculation with Yukawa potential. No EXX local corr."""
+"""Test selfconsistent RSF calculation with Yukawa potential and EXX."""
 from ase import Atoms
 from ase.units import kcal, mol
 from gpaw import GPAW
@@ -9,6 +9,10 @@ from gpaw.eigensolvers import RMM_DIIS
 import _gpaw
 
 newlibxc = _gpaw.lxcXCFuncNum('HYB_GGA_XC_LCY_PBE') is not None
+
+if newlibxc:
+    for atom in ['Ti', 'O']:
+        gen(atom, xcname='PBE', scalarrel=False, exx=True)
 
 work_atoms = [
     Atoms('TiO2', [(0, 0, 0), (0.66, 0.66, 1.34), (0.66, 0.66, -1.34)]),
@@ -27,9 +31,9 @@ c = {'energy': 0.001, 'eigenstates': 3, 'density': 3}
 
 calculator = GPAW(convergence=c, eigensolver=RMM_DIIS(),
         occupations=FermiDirac(width=0.0, fixmagmom=True))
-for xc, dE, ediff in [('LCY_BLYP', 143.3, 0.50),
-               ('LCY_PBE', 149.2, 0.5),
-               ('CAMY_B3LYP', 147.1, 0.4)
+for xc, dE, ediff in [('LCY_BLYP', 143.3, 0.35),
+               ('LCY_PBE', 149.2, 0.4),
+               ('CAMY_B3LYP', 147.1, 0.2)
                 ]:
     if not newlibxc:
         print('Skipped')

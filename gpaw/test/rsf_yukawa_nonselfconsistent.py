@@ -9,10 +9,13 @@ from gpaw.test import equal
 tio2 = Atoms('TiO2', positions=[(0, 0, 0), (0.66, 0.66, 1.34),
     (0.66, 0.66, -1.34)])
 tio2.center(vacuum=4)
+tio2.translate([0.01, 0.02, 0.03])
 ti = Atoms('Ti', [(0, 0, 0)])
 ti.center(vacuum=4)
+ti.translate([0.01, 0.02, 0.03])
 o = Atoms('O', [(0, 0, 0)])
 o.center(vacuum=4)
+o.translate([0.01, 0.02, 0.03])
 
 c = {'energy': 0.001, 'eigenstates': 4, 'density': 3}
 
@@ -31,16 +34,16 @@ o.set_initial_magnetic_moments([2.0])
 e_o = o.get_potential_energy()
 tio2.calc = GPAW(txt='TiO2-' + xc + '.txt', xc=xc, convergence=c,
         occupations=FermiDirac(width=0.0, fixmagmom=True))
-tio2.set_initial_magnetic_moments([4.0, -2.0, -2.0])
+tio2.set_initial_magnetic_moments([1.0, -0.5, -0.5])
 e_tio2 = tio2.get_potential_energy()
 
-for xc, dE in [('CAMY_B3LYP', 147.1),
-                    ('LCY_BLYP', 143.3),
-                    ('LCY_PBE', 149.2)]:
+for xc, dE, ediff in [('CAMY_B3LYP', 147.1, 0.2),
+                    ('LCY_BLYP', 143.3, 0.5),
+                    ('LCY_PBE', 149.2, 0.5)]:
     de_ti = e_ti + ti.calc.get_xc_difference(HybridXC(xc))
     de_o = e_o + o.calc.get_xc_difference(HybridXC(xc))
     de_tio2 = e_tio2 + tio2.calc.get_xc_difference(HybridXC(xc))
     # dissoziation energy
     e_diss = (de_ti + 2 * de_o - de_tio2) / 2.0
     print(xc, e_diss, dE * kcal / mol)
-    equal(e_diss, dE * kcal / mol, 0.50)
+    equal(e_diss, dE * kcal / mol, ediff)

@@ -245,6 +245,7 @@ tests = [
     'constant_electric_field.py',           # ~9s
     'complex.py',                           # ~9s
     'vdw/quick.py',                         # ~9s
+    'rsf_yukawa_nonselfconsistent.py',      # duration unknown
     'bse_aluminum.py',                      # ~10s
     'Al2_lrtddft.py',                       # ~10s
     'ralda_energy_N2.py',                   # ~10s
@@ -347,8 +348,10 @@ tests = [
     'nscfsic.py',                           # duration unknown
     'coreeig.py',                           # duration unknown
     'bse_MoS2_cut.py',                      # duration unknown
-    'rsf_yukawa_nonselfconsistent.py',      # duration unknown
+    # 'rsf_yukawa_nonselfconsistent.py',    # duration unknown
     'rsf_yukawa_selfconsistent.py',         # duration unknown
+    'rsf_yukawa_selfconsistent_exx.py',     # duration unknown
+    'rsf_yukawa_camy_broken_symmetry.py',   # duration unknown
     'parallel/scalapack_mpirecv_crash.py',  # duration unknown
     'cmrtest/cmr_test.py',                  # duration unknown
     'cmrtest/cmr_test3.py',                 # duration unknown
@@ -442,7 +445,9 @@ if mpi.size != 1 and not compiled_with_sl():
 
 if _gpaw.lxcXCFuncNum('HYB_GGA_XC_LCY_PBE') is None: # non rsf libxc
     exclude += ['rsf_yukawa_nonselfconsistent.py',
-                'rsf_yukawa_selfconsistent.py']
+                'rsf_yukawa_selfconsistent.py',
+                'rsf_yukawa_selfconsistent_exx.py',
+                'rsf_yukawa_camy_broken_symmetry.py']
 
 if not compiled_with_sl():
     exclude.append('lcao_atomic_corrections.py')
