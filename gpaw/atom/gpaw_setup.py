@@ -14,6 +14,8 @@ def build_parser():
     parser.add_option('-x', '--exact-exchange', action='store_true',
                       default=False,
                       help='Calculate exact exchange integrals.')
+    parser.add_option('--gamma', type='float',
+                      help='Set gamma for Yukawa dampening.')
     parser.add_option('-r', '--radius', type='string', default=None,
                       help='Cutoff radius or radii (comma separated).',
                       metavar='<rcut>')
@@ -157,6 +159,9 @@ def main():
 
         if opt.empty_states is not None:
             p['empty_states'] = opt.empty_states
+
+        if opt.gamma is not None:
+            p['yuk_gamma'] = opt.gamma
 
         try:
             g.run(logderiv=opt.logarithmic_derivatives,

@@ -228,6 +228,7 @@ class HybridXC(HybridXCBase):
         exx = 0.0
         ekin = 0.0
 
+        yiter = 0
         # Determine pseudo-exchange
         for n1 in range(nbands):
             psit1_G = psit_nG[n1]
@@ -242,14 +243,14 @@ class HybridXC(HybridXCBase):
                 nt_G, rhot_g = self.calculate_pair_density(n1, n2, psit_nG,
                                                            P_ani)
                 vt_g[:] = 0.0
-                iter = self.poissonsolver.solve(vt_g, -rhot_g,
+                piter = self.poissonsolver.solve(vt_g, -rhot_g,
                                                 charge=-float(n1 == n2),
                                                 eps=1e-12,
                                                 zero_initial_phi=True)
                 vt_g *= hybrid
                 if self.rsf == 'Yukawa':
                     y_vt_g[:] = 0.0
-                    iter = self.screened_poissonsolver.solve(y_vt_g, -rhot_g,
+                    yiter = self.screened_poissonsolver.solve(y_vt_g, -rhot_g,
                                                 charge=-float(n1 == n2),
                                                 eps=1e-12,
                                                 zero_initial_phi=True)
@@ -513,6 +514,7 @@ def atomic_exact_exchange(atom, type='all'):
             # L summation
             for l in range(l1 + l2 + 1):
                 # get potential for current l-value
+                # TODO: Change this
                 hartree(l, nrdr, atom.r, vrl)
 
                 # take all m1 m2 and m values of Gaunt matrix of the form
@@ -533,7 +535,7 @@ def atomic_exact_exchange(atom, type='all'):
     return Exx
 
 
-def constructX(gen):
+def constructX(gen, gamma=0):
     """Construct the X_p^a matrix for the given atom.
 
     The X_p^a matrix describes the valence-core interactions of the
@@ -553,6 +555,7 @@ def constructX(gen):
     # core states * r:
     uc_j = gen.u_j[:Njcore]
     r, dr, N, beta = gen.r, gen.dr, gen.N, gen.beta
+    r2 = r**2
 
     # potential times radius
     vr = np.zeros(N)
@@ -583,13 +586,17 @@ def constructX(gen):
                 lv2 = lv_j[jv2]
                 
                 # electron density 2
-                n2c = uv_j[jv2] * uc_j[jc] * dr
-                n2c[1:] /= r[1:]
+                n2c = uv_j[jv2] * uc_j[jc]
+                n2c[1:] /= r2[1:]
             
                 # sum expansion in angular momenta
                 for l in range(min(lv1, lv2) + lc + 1):
                     # Int density * potential * r^2 * dr:
-                    hartree(l, n2c, r, vr)
+                    if gamma == 0:
+                        vr = gen.rgd.poisson(n2c, l)
+                    else:
+                        vr = gen.rgd.yukawa(n2c, l, gamma)
+                    # hartree(l, n2c, r, vr)
                     nv = np.dot(n1c, vr)
                     
                     # expansion coefficients

@@ -12,7 +12,8 @@ newlibxc = _gpaw.lxcXCFuncNum('HYB_GGA_XC_LCY_PBE') is not None
 
 if newlibxc:
     for atom in ['Ti', 'O']:
-        gen(atom, xcname='PBE', scalarrel=False, exx=True)
+        gen(atom, xcname='PBE', scalarrel=False, exx=True, yukawa_gamma=0.9,
+                gpernode=149)  # magic ... - with corrected beta no prob.
 
 work_atoms = [
     Atoms('TiO2', [(0, 0, 0), (0.66, 0.66, 1.34), (0.66, 0.66, -1.34)]),
@@ -46,7 +47,7 @@ for xc, dE, ediff in [('LCY_BLYP', 143.3, 0.35),
         work_atom.calc = calculator
         if name == 'O2Ti':
             work_atom.set_initial_magnetic_moments([2.0, -1.0, -1.0])
-            if xc == 'CAMY_B3LYP':
+            if xc == 'CAMY_B3LYP':  # Workaround for CAMY-B3LYP problem
                 work_atom.center(vacuum=4)
         else:
             work_atom.set_initial_magnetic_moments([2.0])

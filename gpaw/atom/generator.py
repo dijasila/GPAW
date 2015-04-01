@@ -30,7 +30,7 @@ class Generator(AllElectron):
             logderiv=False, vbar=None, exx=False, name=None,
             normconserving='', filter=(0.4, 1.75), rcutcomp=None,
             write_xml=True, use_restart_file=True,
-            empty_states=''):
+            empty_states='', yukawa_gamma=0):
 
         self.name = name
 
@@ -696,11 +696,18 @@ class Generator(AllElectron):
                     if self.orbital_free:
                         self.dK_jj[j1,j2] *= self.tf_coeff
 
+        X_gamma = yukawa_gamma
         if exx:
             X_p = constructX(self)
+            if yukawa_gamma > 0:
+                t('Build Yukawa')
+                X_pg = constructX(self, yukawa_gamma)
+            else:
+                X_pg = None
             ExxC = atomic_exact_exchange(self, 'core-core')
         else:
             X_p = None
+            X_pg = None
             ExxC = None
 
         sqrt4pi = sqrt(4 * pi)
@@ -752,6 +759,8 @@ class Generator(AllElectron):
         setup.phit_jg = divide_all_by_r(vs_j)
         setup.pt_jg = divide_all_by_r(vq_j)
         setup.X_p = X_p
+        setup.X_pg = X_pg
+        setup.X_gamma = X_gamma
 
         if self.jcorehole is not None:
             setup.has_corehole = True
@@ -876,7 +885,7 @@ class Generator(AllElectron):
 
     def write_xml(self, vl_j, vn_j, vf_j, ve_j, vu_j, vs_j, vq_j,
                   nc, nct, nt, Ekincore, X_p, ExxC, vbar,
-                  tauc, tauct, extra_xc_data):
+                  tauc, tauct, extra_xc_data, X_pg, X_gamma):
         raise DeprecationWarning('use gpaw/setup_data.py')
         xcname = self.xc.name
         if self.name is None:
@@ -1017,6 +1026,12 @@ class Generator(AllElectron):
 
             print('  <exact_exchange core-core="%f"/>' % ExxC, file=xml)
 
+        if self.X_pg is not None:
+            print('  <yukawa_exchange_X_matrix>\n    ', end=' ', file=xml)
+            for x in self.X_pg:
+                print('%16.12e' % x, end=' ', file=xml)
+            print('\n  </yukawa_exchange_X_matrix>', file=xml)
+            print('  <yukawa_exchange gamma="%f"/>' % self.X_gamma, file=xml)
         print('</paw_setup>', file=xml)
 
 def construct_smooth_wavefunction(u, l, gc, r, s):

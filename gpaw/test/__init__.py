@@ -39,17 +39,18 @@ def findpeak(x, y):
     return dx * (i + x), a * x**2 + b * x + c
 
     
-def gen(symbol, exx=False, name=None, **kwargs):
+def gen(symbol, exx=False, name=None, yukawa_gamma=None, **kwargs):
     if mpi.rank == 0:
         if 'scalarrel' not in kwargs:
             kwargs['scalarrel'] = True
         g = Generator(symbol, **kwargs)
         if 'orbital_free' in kwargs:
-            g.run(exx=exx, name=name, use_restart_file=False,
+            g.run(exx=exx, name=name, yukawa_gamma=yukawa_gamma, 
+                  use_restart_file=False,
                   **tf_parameters.get(symbol, {'rcut': 0.9}))
         else:
-            g.run(exx=exx, name=name, use_restart_file=False,
-                  **parameters[symbol])
+            g.run(exx=exx, name=name, yukawa_gamma=yukawa_gamma,
+                  use_restart_file=False, **parameters[symbol])
     mpi.world.barrier()
     if setup_paths[0] != '.':
         setup_paths.insert(0, '.')
@@ -349,7 +350,7 @@ tests = [
     'bse_MoS2_cut.py',                      # duration unknown
     'rsf_yukawa_nonselfconsistent.py',      # duration unknown
     'rsf_yukawa_selfconsistent.py',         # duration unknown
-    'rsf_yukawa_selfconsistent_exx.py',     # duration unknown
+    'rsf_yukawa_selfconsistent_yuk.py',     # duration unknown
     'rsf_yukawa_camy_broken_symmetry.py',   # duration unknown
     'parallel/scalapack_mpirecv_crash.py',  # duration unknown
     'cmrtest/cmr_test.py',                  # duration unknown
@@ -445,7 +446,7 @@ if mpi.size != 1 and not compiled_with_sl():
 if _gpaw.lxcXCFuncNum('HYB_GGA_XC_LCY_PBE') is None: # non rsf libxc
     exclude += ['rsf_yukawa_nonselfconsistent.py',
                 'rsf_yukawa_selfconsistent.py',
-                'rsf_yukawa_selfconsistent_exx.py',
+                'rsf_yukawa_selfconsistent_yuk.py',
                 'rsf_yukawa_camy_broken_symmetry.py']
 
 if not compiled_with_sl():
