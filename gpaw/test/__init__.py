@@ -352,6 +352,7 @@ tests = [
     'rsf_yukawa_change_gamma.py',           # duration unknown
     'rsf_yukawa_selfconsistent.py',         # duration unknown
     'rsf_yukawa_selfconsistent_yuk.py',     # duration unknown
+    'rsf_yukawa_lrtddft.py',                # duration unknown
     'rsf_yukawa_camy_broken_symmetry.py',   # duration unknown
     'parallel/scalapack_mpirecv_crash.py',  # duration unknown
     'cmrtest/cmr_test.py',                  # duration unknown
@@ -449,6 +450,7 @@ if _gpaw.lxcXCFuncNum('HYB_GGA_XC_LCY_PBE') is None: # non rsf libxc
                 'rsf_yukawa_change_gamma.py',
                 'rsf_yukawa_selfconsistent.py',
                 'rsf_yukawa_selfconsistent_yuk.py',
+                'rsf_yukawa_lrtddft.py',
                 'rsf_yukawa_camy_broken_symmetry.py']
 
 if not compiled_with_sl():

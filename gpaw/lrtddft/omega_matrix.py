@@ -93,7 +93,10 @@ class OmegaMatrix:
         if xc == 'RPA':
             xc = None  # enable RPA as keyword
         if xc is not None:
-            self.xc = XC(xc)
+            if isinstance(xc, basestring):
+                self.xc = XC(xc)
+            else:
+                self.xc = xc
             self.xc.initialize(self.paw.density, self.paw.hamiltonian,
                                wfs, self.paw.occupations)
 
@@ -368,7 +371,7 @@ class OmegaMatrix:
                       self.time_left(timer, t0, ij, nij), file=self.txt)
 
     def Coulomb_integral_kss(self, kss_ij, kss_kq, phit, rhot,
-                             timer=None):
+                             timer=None, yukawa=False):
         # smooth part
         if timer:
             timer.start('integrate')
@@ -392,7 +395,11 @@ class OmegaMatrix:
             Pq_i = Pkq_ani[a][kss_kq.j]
             Dkq_ii = np.outer(Pk_i, Pq_i)
             Dkq_p = pack(Dkq_ii)
-            C_pp = wfs.setups[a].M_pp
+            if yukawa and hasattr(self.xc, 'omega') and self.xc.omega > 0:
+                C_pp = wfs.setups[a].calculate_yukawa_interaction(
+                        self.xc.omega)
+            else:
+                C_pp = wfs.setups[a].M_pp
             #   ----
             # 2 >      P   P  C    P  P
             #   ----    ip  jr prst ks qt

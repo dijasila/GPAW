@@ -177,7 +177,11 @@ class LrTDDFT(ExcitationList):
             Om = OmegaMatrix
             name = 'LrTDDFT'
             if self.xc:
-                xc = XC(self.xc)
+                if isinstance(self.xc, basestring):
+                    xc = XC(self.xc)
+                else:
+                    xc = self.xc
+                    # self.xc = xc.name
                 if hasattr(xc, 'hybrid') and xc.hybrid > 0.0:
                     Om = ApmB
                     name = 'LrTDDFThyb'
@@ -345,7 +349,10 @@ class LrTDDFT(ExcitationList):
                 f = fh
 
             f.write('# ' + self.name + '\n')
-            xc = self.xc
+            if isinstance(self.xc, basestring):
+                xc = self.xc
+            else:
+                xc = self.xc.name
             if xc is None:
                 xc = 'RPA'
             if self.calculator is not None:

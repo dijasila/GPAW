@@ -13,6 +13,7 @@ from ase.utils.timing import Timer
 import gpaw.mpi as mpi
 from gpaw.lrtddft.omega_matrix import OmegaMatrix
 from gpaw.pair_density import PairDensity
+from gpaw.helmholtz import HelmholtzSolver  # Yukawa
 from gpaw.utilities import pack
 from gpaw.utilities.lapack import diagonalize, gemm, sqrt_matrix
 
@@ -32,6 +33,11 @@ class ApmB(OmegaMatrix):
             raise RuntimeError('Does not work spin-unpolarized ' +
                                'with hybrids (use nspins=2)')
 
+        if hasattr(self.xc, 'rsf') and (self.xc.rsf == 'Yukawa'):
+            self.screened_poissonsolver = HelmholtzSolver(
+                    k2=-self.xc.omega**2, eps=1e-11, nn=3)
+            self.screened_poissonsolver.set_grid_descriptor(self.gd)
+            self.screened_poissonsolver.initialize()
         self.paw.timer.start('ApmB RPA')
         self.ApB = self.Om
         self.AmB = self.get_rpa()
@@ -48,6 +54,7 @@ class ApmB(OmegaMatrix):
         # shorthands
         kss = self.fullkss
         finegrid = self.finegrid
+        yukawa = hasattr(self.xc, 'rsf') and (self.xc.rsf == 'Yukawa')
 
         # calculate omega matrix
         nij = len(kss)
@@ -58,6 +65,8 @@ class ApmB(OmegaMatrix):
 
         # storage place for Coulomb integrals
         integrals = {}
+        if yukawa:
+            rsf_integrals = {}
 
         for ij in range(nij):
             print('RPAhyb kss[' + '%d' % ij + ']=', kss[ij], file=self.txt)
@@ -142,6 +151,11 @@ class ApmB(OmegaMatrix):
                     q = kss[kq].j
                     ikjq = self.Coulomb_integral_ijkq(i, k, j, q, s, integrals)
                     iqkj = self.Coulomb_integral_ijkq(i, q, k, j, s, integrals)
+                    if yukawa:  # Yukawa integrals might be caches
+                        ikjq -= self.Coulomb_integral_ijkq(i, k, j, q, s,
+                                    rsf_integrals, yukawa)
+                        iqkj -= self.Coulomb_integral_ijkq(i, q, k, j, s,
+                                    rsf_integrals, yukawa)
                     ApB[ij, kq] -= weight * (ikjq + iqkj)
                     AmB[ij, kq] -= weight * (ikjq - iqkj)
 
@@ -168,7 +182,7 @@ class ApmB(OmegaMatrix):
             base = ij_name(k, l) + ' ' + ij_name(i, j)
         return base + ' ' + str(spin)
 
-    def Coulomb_integral_ijkq(self, i, j, k, q, spin, integrals):
+    def Coulomb_integral_ijkq(self, i, j, k, q, spin, integrals, yukawa=False):
         name = self.Coulomb_integral_name(i, j, k, q, spin)
         if name in integrals:
             return integrals[name]
@@ -182,7 +196,10 @@ class ApmB(OmegaMatrix):
         rhot_p = kss_ij.with_compensation_charges(
             self.finegrid is not 0)
         phit_p = np.zeros(rhot_p.shape, rhot_p.dtype)
-        self.poisson.solve(phit_p, rhot_p, charge=None)
+        if yukawa:
+            self.screened_poissonsolver.solve(phit_p, rhot_p, charge=None)
+        else:
+            self.poisson.solve(phit_p, rhot_p, charge=None)
 
         if self.finegrid == 1:
             phit = self.gd.zeros()
@@ -194,7 +211,8 @@ class ApmB(OmegaMatrix):
             self.finegrid is 2)
 
         integrals[name] = self.Coulomb_integral_kss(kss_ij, kss_kq,
-                                                    phit, rhot)
+                                                    phit, rhot,
+                                                    yukawa=yukawa)
         return integrals[name]
 
     def timestring(self, t):
