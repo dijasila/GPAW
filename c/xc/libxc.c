@@ -216,6 +216,30 @@ lxcXCFunctional_is_mgga(lxcXCFunctionalObject *self, PyObject *args)
 }
 
 static PyObject*
+lxcXCFunctional_set_omega(lxcXCFunctionalObject *self, PyObject *args)
+{
+  int success = 0; /* Assume we don't use sfat */
+  int i = 0;
+  float omega = 0.0;
+  XC(func_type) *test_functional;
+
+  if (!PyArg_ParseTuple(args, "f", &omega)) {
+    return NULL;
+  }
+
+  if (self->functional[0]->info->family == XC_FAMILY_HYB_GGA) {
+    for (i=0; i<self->functional[0]->n_func_aux; i++) {
+      test_functional = self->functional[0]->func_aux[i];
+      if (test_functional->info->number == XC_GGA_X_SFAT) {
+        XC(gga_x_sfat_set_params)(test_functional, -1, omega);
+        success = 1;
+      }
+    }
+  }
+  return Py_BuildValue("i", success);
+}
+
+static PyObject*
 lxcXCFunctional_CalculateFXC_FD_SpinPaired(lxcXCFunctionalObject *self, PyObject *args)
 {
   PyArrayObject* n_array;              /* rho */
@@ -791,6 +815,8 @@ static PyMethodDef lxcXCFunctional_Methods[] = {
    (PyCFunction)lxcXCFunctional_is_gga, METH_VARARGS, 0},
   {"is_mgga",
    (PyCFunction)lxcXCFunctional_is_mgga, METH_VARARGS, 0},
+  {"set_omega",
+   (PyCFunction)lxcXCFunctional_set_omega, METH_VARARGS, 0},
   {"calculate_fxc_fd_spinpaired",
    (PyCFunction)lxcXCFunctional_CalculateFXC_FD_SpinPaired, METH_VARARGS, 0},
   {"calculate",

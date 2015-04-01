@@ -26,9 +26,14 @@ def XC(kernel, parameters=None):
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:
             from gpaw.xc.vdw import VDWFunctional
             return VDWFunctional(name)
-        elif name in ['EXX', 'PBE0', 'B3LYP']:
+        elif name in ['EXX', 'PBE0', 'B3LYP',
+                'CAMY_BLYP', 'CAMY_B3LYP', 'LCY_BLYP', 'LCY_PBE']:
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(name)
+        elif name.startswith ('LCY_') or name.startswith('CAMY_'):
+            parts = name.split('(')
+            from gpaw.xc.hybrid import HybridXC
+            return HybridXC(parts[0], omega=float(parts[1][:-1]))
         elif name in ['HSE03', 'HSE06']:
             from gpaw.xc.exx import EXX
             return EXX(name)

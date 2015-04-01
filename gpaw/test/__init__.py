@@ -349,6 +349,7 @@ tests = [
     'coreeig.py',                           # duration unknown
     'bse_MoS2_cut.py',                      # duration unknown
     'rsf_yukawa_nonselfconsistent.py',      # duration unknown
+    'rsf_yukawa_change_gamma.py',           # duration unknown
     'rsf_yukawa_selfconsistent.py',         # duration unknown
     'rsf_yukawa_selfconsistent_yuk.py',     # duration unknown
     'rsf_yukawa_camy_broken_symmetry.py',   # duration unknown
@@ -445,6 +446,7 @@ if mpi.size != 1 and not compiled_with_sl():
 
 if _gpaw.lxcXCFuncNum('HYB_GGA_XC_LCY_PBE') is None: # non rsf libxc
     exclude += ['rsf_yukawa_nonselfconsistent.py',
+                'rsf_yukawa_change_gamma.py',
                 'rsf_yukawa_selfconsistent.py',
                 'rsf_yukawa_selfconsistent_yuk.py',
                 'rsf_yukawa_camy_broken_symmetry.py']

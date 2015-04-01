@@ -110,6 +110,9 @@ class HybridXCBase(XCFunctional):
         self.hybrid = float(hybrid)
         self.xc = xc
         if omega is not None:
+            if self.omega is not None and self.omega != omega:
+                self.xc.kernel.set_omega(omega)
+                # Needed to tune omega for RSF
             self.omega = omega
         self.type = xc.type
         if self.rsf == 'Yukawa':
@@ -122,7 +125,7 @@ class HybridXCBase(XCFunctional):
 
 class HybridXC(HybridXCBase):
     def __init__(self, name, hybrid=None, xc=None,
-                 finegrid=False, unocc=False):
+                 finegrid=False, unocc=False, omega=None):
         """Mix standard functionals with exact exchange.
 
         finegrid: boolean
@@ -132,7 +135,7 @@ class HybridXC(HybridXCBase):
         """
         self.finegrid = finegrid
         self.unocc = unocc
-        HybridXCBase.__init__(self, name, hybrid, xc)
+        HybridXCBase.__init__(self, name, hybrid, xc, omega=omega)
         
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
