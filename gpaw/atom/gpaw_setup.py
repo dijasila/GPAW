@@ -161,7 +161,7 @@ def main():
             p['empty_states'] = opt.empty_states
 
         if opt.gamma is not None:
-            p['yuk_gamma'] = opt.gamma
+            p['yukawa_gamma'] = opt.gamma
 
         try:
             g.run(logderiv=opt.logarithmic_derivatives,
