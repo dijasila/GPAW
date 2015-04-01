@@ -245,7 +245,6 @@ tests = [
     'constant_electric_field.py',           # ~9s
     'complex.py',                           # ~9s
     'vdw/quick.py',                         # ~9s
-    'rsf_yukawa_nonselfconsistent.py',      # duration unknown
     'bse_aluminum.py',                      # ~10s
     'Al2_lrtddft.py',                       # ~10s
     'ralda_energy_N2.py',                   # ~10s
@@ -348,7 +347,7 @@ tests = [
     'nscfsic.py',                           # duration unknown
     'coreeig.py',                           # duration unknown
     'bse_MoS2_cut.py',                      # duration unknown
-    # 'rsf_yukawa_nonselfconsistent.py',    # duration unknown
+    'rsf_yukawa_nonselfconsistent.py',      # duration unknown
     'rsf_yukawa_selfconsistent.py',         # duration unknown
     'rsf_yukawa_selfconsistent_exx.py',     # duration unknown
     'rsf_yukawa_camy_broken_symmetry.py',   # duration unknown

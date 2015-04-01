@@ -37,9 +37,9 @@ tio2.calc = GPAW(txt='TiO2-' + xc + '.txt', xc=xc, convergence=c,
 tio2.set_initial_magnetic_moments([1.0, -0.5, -0.5])
 e_tio2 = tio2.get_potential_energy()
 
-for xc, dE, ediff in [('CAMY_B3LYP', 147.1, 0.2),
-                    ('LCY_BLYP', 143.3, 0.5),
-                    ('LCY_PBE', 149.2, 0.5)]:
+for xc, dE, ediff in [('CAMY_B3LYP', 147.1, 0.25),
+                    ('LCY_BLYP', 143.3, 0.45),
+                    ('LCY_PBE', 149.2, 0.55)]:
     de_ti = e_ti + ti.calc.get_xc_difference(HybridXC(xc))
     de_o = e_o + o.calc.get_xc_difference(HybridXC(xc))
     de_tio2 = e_tio2 + tio2.calc.get_xc_difference(HybridXC(xc))

@@ -30,5 +30,5 @@ try:
 except KohnShamConvergenceError:
     pass
 # dissoziation energy
-print(tio2.calc.scf.converged())
-tio2.calc.scf.converged()
+print(tio2.calc.scf.converged)
+assert tio2.calc.scf.converged
