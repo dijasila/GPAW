@@ -33,8 +33,8 @@ c = {'energy': 0.001, 'eigenstates': 3, 'density': 3}
 calculator = GPAW(convergence=c, eigensolver=RMM_DIIS(),
         occupations=FermiDirac(width=0.0, fixmagmom=True))
 for xc, dE, ediff in [('LCY_BLYP', 143.3, 0.35),
-               ('LCY_PBE', 149.2, 0.4),
-               ('CAMY_B3LYP', 147.1, 0.2)
+#               ('LCY_PBE', 149.2, 0.4),
+#               ('CAMY_B3LYP', 147.1, 0.2)
                 ]:
     if not newlibxc:
         print('Skipped')

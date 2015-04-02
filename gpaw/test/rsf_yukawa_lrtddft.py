@@ -38,7 +38,7 @@ e_H2O_plus = H2O_plus.get_potential_energy()
 e_ion = e_H2O_plus - e_H2O
 
 print(e_ion, 12.62)
-equal(e_ion, 12.62, 0.1)
+equal(e_ion, 12.62, 0.3)
 lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_H2O.log')
 lr.diagonalize()
 
