@@ -79,7 +79,7 @@ class KPointPair:
         return df_nm
 
 
-class PWSymmetryAnalyzer: 
+class PWSymmetryAnalyzer:
     """Class for handling planewave symmetries."""
     def __init__(self, kd, pd, txt=sys.stdout,
                  disable_point_group=False,
@@ -194,7 +194,6 @@ class PWSymmetryAnalyzer:
                     tmp = self.get_symmetry_operator(self.s_s[s])
                     op_cc, sign, TR, shift_c, ft_c = tmp
                     op_c = sign * op_cc[c]
-                    ft = ft_c[c]
                     p('  (%2d %2d %2d)' % tuple(op_c), end='')
                 p()
             p()
@@ -226,10 +225,7 @@ class PWSymmetryAnalyzer:
         pd = self.pd
 
         # Shortcuts
-        B_cv = 2.0 * np.pi * pd.gd.icell_cv
-        
         q_c = pd.kd.bzk_kc[0]
-        G_Gv = pd.get_reciprocal_vectors()
         kd = self.kd
 
         U_scc = kd.symmetry.op_scc
@@ -261,16 +257,13 @@ class PWSymmetryAnalyzer:
 
         # Filter out disabled symmetries
         if self.disable_point_group:
-            is_not_point_group = lambda s: (U_scc[s % nU] == np.eye(3)).all()
-            s_s = filter(is_not_point_group, s_s)
+            s_s = filter(self.is_not_point_group, s_s)
 
         if self.disable_time_reversal:
-            is_not_time_reversal = lambda s: not bool(s // nU)
-            s_s = filter(is_not_time_reversal, s_s)
+            s_s = filter(self.is_not_time_reversal, s_s)
 
         if self.disable_non_symmorphic:
-            is_not_non_symmorphic = lambda s: not bool(ft_sc[s % nU].any())
-            s_s = filter(is_not_non_symmorphic, s_s)
+            s_s = filter(self.is_not_non_symmorphic, s_s)
 
         stmp_s = []
         for s in s_s:
@@ -284,7 +277,21 @@ class PWSymmetryAnalyzer:
         self.infostring += 'Found {0} allowed symmetries. '.format(len(s_s))
         self.s_s = s_s
         self.shift_sc = shift_sc
+
+    def is_not_point_group(self, s):
+        U_scc = self.kd.symmetry.op_scc
+        nU = self.nU
+        return (U_scc[s % nU] == np.eye(3)).all()
     
+    def is_not_time_reversal(self, s):
+        nU = self.nU
+        return not bool(s // nU)
+
+    def is_not_non_symmorphic(self, s):
+        ft_sc = self.kd.symmetry.ft_sc
+        nU = self.nU
+        return not bool(ft_sc[s % nU].any())
+
     def how_many_symmetries(self):
         """Return number of symmetries."""
         return len(self.s_s)
@@ -962,15 +969,14 @@ class PairDensity:
             List of right-band indices (m).
         """
         wfs = self.calc.wfs
-        atomdata_a = wfs.setups
 
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
         Q_G = kptpair.Q_G  # Fourier components of kpoint pair
 
         # For the same band we
-        kd = self.calc.wfs.kd
-        gd = self.calc.wfs.gd
+        kd = wfs.kd
+        gd = wfs.gd
         k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
 
@@ -1011,14 +1017,13 @@ class PairDensity:
                                                       Cv1_aGi, kpt2,
                                                       pd, Q_G)
 
-
                 n_nmvG[j, :, v] += nv_mG
 
         # We want the momentum operator
         n_nmvG *= -1j
 
         return n_nmvG
-        
+
     @timer('Calculate pair-densities')
     def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G):
         """Calculate FFT of pair-densities and add PAW corrections.

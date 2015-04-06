@@ -398,7 +398,8 @@ if mpi.size > 1:
                 'scipy_test.py']
 
 if mpi.size > 2:
-    exclude += ['neb.py']
+    exclude += ['neb.py',
+                'response_pair.py']
 
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',

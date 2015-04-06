@@ -1,7 +1,6 @@
 import numpy as np
 
 from ase import Atoms
-from ase.lattice import bulk
 
 from gpaw import GPAW, PW
 from gpaw.test import equal
@@ -16,13 +15,14 @@ nb = 6
 
 a = Atoms('H', cell=(3 * np.eye(3)), pbc=True)
 
-calc = GPAW(mode=PW(800), kpts=[[0, 0, 0], [0.25, 0, 0]])
+calc = GPAW(mode=PW(600), kpts=[[0, 0, 0], [0.25, 0, 0]])
 a.calc = calc
 a.get_potential_energy()
 calc.diagonalize_full_hamiltonian(nbands=nb, expert=True)
 calc.write('a.gpw', 'all')
 
 pair = PairDensity('a.gpw', ecut=100)
+
 # Check continuity eq.
 for q_c in [[0, 0, 0], [1. / 4, 0, 0]]:
     ol = np.allclose(q_c, 0.0)
@@ -32,7 +32,8 @@ for q_c in [[0, 0, 0], [1. / 4, 0, 0]]:
     deps_nm = kptpair.get_transition_energies(range(0, nb), range(0, nb))
 
     n_nmG, n_nmv, _ = pair.get_pair_density(pd, kptpair, range(0, nb),
-                                        range(0, nb), optical_limit=ol)
+                                            range(0, nb), optical_limit=ol)
+
     n_nmvG = pair.get_pair_momentum(pd, kptpair, range(0, nb),
                                     range(0, nb))
 
