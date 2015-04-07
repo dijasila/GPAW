@@ -14,7 +14,8 @@ import gpaw.mpi as mpi
 from gpaw import GPAW
 from gpaw.fd_operators import Gradient
 from gpaw.occupations import FermiDirac
-from gpaw.response.math_func import two_phi_planewave_integrals
+from gpaw.response.math_func import (two_phi_planewave_integrals,
+                                     two_phi_nabla_planewave_integrals)
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.pw import PWLFC
@@ -60,6 +61,22 @@ class KPointPair:
     def get_planewave_indices(self):
         """ Return the planewave indices associated with this pair."""
         return self.Q_G
+
+    def get_transition_energies(self, n_n, m_m):
+        """Return the energy difference for specified bands."""
+        kpt1 = self.kpt1
+        kpt2 = self.kpt2
+        deps_nm = (kpt1.eps_n[n_n][:, np.newaxis] -
+                   kpt2.eps_n[m_m])
+        return deps_nm
+
+    def get_occupation_differences(self, n_n, m_m):
+        """Get difference in occupation factor between specified bands."""
+        kpt1 = self.kpt1
+        kpt2 = self.kpt2
+        df_nm = (kpt1.f_n[n_n][:, np.newaxis] -
+                 kpt2.f_n[m_m])
+        return df_nm
 
 
 class PWSymmetryAnalyzer:
@@ -177,7 +194,6 @@ class PWSymmetryAnalyzer:
                     tmp = self.get_symmetry_operator(self.s_s[s])
                     op_cc, sign, TR, shift_c, ft_c = tmp
                     op_c = sign * op_cc[c]
-                    ft = ft_c[c]
                     p('  (%2d %2d %2d)' % tuple(op_c), end='')
                 p()
             p()
@@ -209,10 +225,7 @@ class PWSymmetryAnalyzer:
         pd = self.pd
 
         # Shortcuts
-        B_cv = 2.0 * np.pi * pd.gd.icell_cv
-        
         q_c = pd.kd.bzk_kc[0]
-        G_Gv = pd.get_reciprocal_vectors()
         kd = self.kd
 
         U_scc = kd.symmetry.op_scc
@@ -244,16 +257,13 @@ class PWSymmetryAnalyzer:
 
         # Filter out disabled symmetries
         if self.disable_point_group:
-            is_not_point_group = lambda s: (U_scc[s % nU] == np.eye(3)).all()
-            s_s = filter(is_not_point_group, s_s)
+            s_s = filter(self.is_not_point_group, s_s)
 
         if self.disable_time_reversal:
-            is_not_time_reversal = lambda s: not bool(s // nU)
-            s_s = filter(is_not_time_reversal, s_s)
+            s_s = filter(self.is_not_time_reversal, s_s)
 
         if self.disable_non_symmorphic:
-            is_not_non_symmorphic = lambda s: not bool(ft_sc[s % nU].any())
-            s_s = filter(is_not_non_symmorphic, s_s)
+            s_s = filter(self.is_not_non_symmorphic, s_s)
 
         stmp_s = []
         for s in s_s:
@@ -267,7 +277,21 @@ class PWSymmetryAnalyzer:
         self.infostring += 'Found {0} allowed symmetries. '.format(len(s_s))
         self.s_s = s_s
         self.shift_sc = shift_sc
+
+    def is_not_point_group(self, s):
+        U_scc = self.kd.symmetry.op_scc
+        nU = self.nU
+        return (U_scc[s % nU] == np.eye(3)).all()
     
+    def is_not_time_reversal(self, s):
+        nU = self.nU
+        return not bool(s // nU)
+
+    def is_not_non_symmorphic(self, s):
+        ft_sc = self.kd.symmetry.ft_sc
+        nU = self.nU
+        return not bool(ft_sc[s % nU].any())
+
     def how_many_symmetries(self):
         """Return number of symmetries."""
         return len(self.s_s)
@@ -296,7 +320,7 @@ class PWSymmetryAnalyzer:
         """Get index of symmetry for mapping between K1 and K2"""
         s_s = self.s_s
         bz2bz_ks = self.kd.bz2bz_ks
-        bzk2rbz_s = bz2bz_ks[K1][:, s_s]
+        bzk2rbz_s = bz2bz_ks[K1][s_s]
         try:
             s = np.argwhere(bzk2rbz_s == K2)[0][0]
         except IndexError:
@@ -730,11 +754,11 @@ class PairDensity:
         """
         assert 0 <= use_more_memory <= 1
 
-        print('Initializing PAW Corrections', file=self.fd)
-        self.Q_aGii = self.initialize_paw_corrections(pd)
-
         q_c = pd.kd.bzk_kc[0]
         optical_limit = not disable_optical_limit and np.allclose(q_c, 0.0)
+
+        Q_aGii = self.initialize_paw_corrections(pd)
+        self.Q_aGii = Q_aGii  # This is used in g0w0
 
         if PWSA is None:
             with self.timer('Symmetry analyzer'):
@@ -800,10 +824,8 @@ class PairDensity:
                 for n_n in no_n:  # n_n is a list of occupied band indices
                     # m over unoccupied bands
                     m_m = range(0, kpt2.n2 - kpt2.n1)
-                    deps_nm = (kpt1.eps_n[n_n][:, np.newaxis] -
-                               kpt2.eps_n[m_m])
-                    df_nm = (kpt1.f_n[n_n][:, np.newaxis] -
-                             kpt2.f_n[m_m])
+                    deps_nm = kptpair.get_transition_energies(n_n, m_m)
+                    df_nm = kptpair.get_occupation_differences(n_n, m_m)
 
                     # This is not quite right for
                     # degenerate partially occupied
@@ -815,7 +837,12 @@ class PairDensity:
                     n0_nmG, n0_nmv, _ = self.get_pair_density(pd, kptpair,
                                                               n_n, m_m,
                                                               optical_limit=ol,
-                                                              intraband=False)
+                                                              intraband=False,
+                                                              Q_aGii=Q_aGii)
+
+                    n0_nmG[deps_nm >= 0.0] = 0.0
+                    if optical_limit:
+                        n0_nmv[deps_nm >= 0.0] = 0.0
 
                     # Reshape nm -> m
                     nG = pd.ngmax
@@ -882,7 +909,15 @@ class PairDensity:
 
     @timer('get_pair_density')
     def get_pair_density(self, pd, kptpair, n_n, m_m,
-                         optical_limit=False, intraband=False):
+                         optical_limit=False, intraband=False,
+                         Q_aGii=None):
+        """Get pair density for a kpoint pair."""
+        if optical_limit:
+            assert np.allclose(pd.kd.bzk_kc[0], 0.0)
+
+        if Q_aGii is None:
+            Q_aGii = self.initialize_paw_corrections(pd)
+            
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
         Q_G = kptpair.Q_G  # Fourier components of kpoint pair
@@ -899,7 +934,7 @@ class PairDensity:
                 ut1cc_R = kpt1.ut_nR[n].conj()
             with self.timer('paw'):
                 C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
-                          for Q_Gii, P1_ni in zip(self.Q_aGii, kpt1.P_ani)]
+                          for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
                 n_nmG[j] = self.calculate_pair_densities(ut1cc_R,
                                                          C1_aGi, kpt2,
                                                          pd, Q_G)
@@ -913,7 +948,83 @@ class PairDensity:
             vel_mv = None
 
         return n_nmG, n_nmv, vel_mv
+
+    @timer('get_pair_momentum')
+    def get_pair_momentum(self, pd, kptpair, n_n, m_m, Q_avGii=None):
+        """Calculate matrix elements of the momentum operator.
+
+        Calculates::
+                                               
+          n_{nm\mathrm{k}}\int_{\Omega_{\mathrm{cell}}}\mathrm{d}\mathbf{r}
+          \psi_{n\mathrm{k}}^*(\mathbf{r})
+          e^{-i\,(\mathrm{q} + \mathrm{G})\cdot\mathbf{r}}
+          \nabla\psi_{m\mathrm{k} + \mathrm{q}}(\mathbf{r})
+
+        pd: PlaneWaveDescriptor
+            Plane wave descriptor of a single q_c.
+        kptpair: KPointPair
+            KpointPair object containing the two kpoints.
+        n_n: list
+            List of left-band indices (n).
+        m_m:
+            List of right-band indices (m).
+        """
+        wfs = self.calc.wfs
+
+        kpt1 = kptpair.kpt1
+        kpt2 = kptpair.kpt2
+        Q_G = kptpair.Q_G  # Fourier components of kpoint pair
+
+        # For the same band we
+        kd = wfs.kd
+        gd = wfs.gd
+        k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
+        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
+
+        # Calculate k + G
+        G_Gv = pd.get_reciprocal_vectors(add_q=True)
+        kqG_Gv = k_v[np.newaxis] + G_Gv
+
+        # Pair velocities
+        n_nmvG = pd.empty((len(n_n), len(m_m), 3))
+        n_nmvG *= 0
+
+        # Calculate derivatives of left-wavefunction
+        # (there will typically be fewer of these)
+        ut_nvR = self.make_derivative(kpt1.s, kpt1.K, kpt1.n1, kpt1.n2)
+
+        # PAW-corrections
+        if Q_avGii is None:
+            Q_avGii = self.initialize_paw_nabla_corrections(pd)
         
+        # Iterate over occupied bands
+        for j, n in enumerate(n_n):
+            ut1cc_R = kpt1.ut_nR[n].conj()
+
+            n_mG = self.calculate_pair_densities(ut1cc_R,
+                                                 [], kpt2,
+                                                 pd, Q_G)
+
+            n_nmvG[j] += 1j * kqG_Gv.T[np.newaxis] * n_mG[:, np.newaxis]
+
+            # Treat each cartesian component at a time
+            for v in range(3):
+                # Minus from integration by parts
+                utvcc_R = -ut_nvR[n, v].conj()
+                Cv1_aGi = [np.dot(P1_ni[n].conj(), Q_vGii[v])
+                           for Q_vGii, P1_ni in zip(Q_avGii, kpt1.P_ani)]
+                
+                nv_mG = self.calculate_pair_densities(utvcc_R,
+                                                      Cv1_aGi, kpt2,
+                                                      pd, Q_G)
+
+                n_nmvG[j, :, v] += nv_mG
+
+        # We want the momentum operator
+        n_nmvG *= -1j
+
+        return n_nmvG
+
     @timer('Calculate pair-densities')
     def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G):
         """Calculate FFT of pair-densities and add PAW corrections.
@@ -953,15 +1064,9 @@ class PairDensity:
             return n_MG[:kpt2.n2 - kpt2.n1]
 
     @timer('Optical limit')
-    def optical_pair_density(self, n, m_m, kpt1, kpt2):
-        eps1 = kpt1.eps_n[n]
-        deps_m = (eps1 - kpt2.eps_n)[m_m]
-
+    def optical_pair_velocity(self, n, m_m, kpt1, kpt2):
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
-
-        # Relative threshold for perturbation theory
-        threshold = self.threshold
 
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
@@ -992,14 +1097,25 @@ class PairDensity:
             self.blockcomm.all_gather(n0_mv, n0_Mv)
             n0_mv = n0_Mv[:kpt2.n2 - kpt2.n1]
 
+        return -1j * n0_mv
+
+    def optical_pair_density(self, n, m_m, kpt1, kpt2):
+        # Relative threshold for perturbation theory
+        threshold = self.threshold
+
+        eps1 = kpt1.eps_n[n]
+        deps_m = (eps1 - kpt2.eps_n)[m_m]
+        
+        n0_mv = self.optical_pair_velocity(n, m_m, kpt1, kpt2)
+
         deps_m = deps_m.copy()
-        deps_m[deps_m >= 0.0] = np.inf
+        deps_m[deps_m == 0.0] = np.inf
 
         smallness_mv = np.abs(-1e-3 * n0_mv / deps_m[:, np.newaxis])
         inds_mv = (np.logical_and(np.inf > smallness_mv,
                                   smallness_mv > threshold))
 
-        n0_mv *= 1j / deps_m[:, np.newaxis]
+        n0_mv *= - 1 / deps_m[:, np.newaxis]
         n0_mv[inds_mv] = 0
 
         return n0_mv
@@ -1165,6 +1281,7 @@ class PairDensity:
 
     @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, pd, soft=False):
+        print('Initializing PAW Corrections', file=self.fd)
         wfs = self.calc.wfs
         q_v = pd.K_qv[0]
         optical_limit = np.allclose(q_v, 0)
@@ -1200,6 +1317,34 @@ class PairDensity:
                 Q_aGii[a][0] = atomdata.dO_ii
 
         return Q_aGii
+
+    @timer('Initialize PAW corrections')
+    def initialize_paw_nabla_corrections(self, pd, soft=False):
+        print('Initializing nabla PAW Corrections', file=self.fd)
+        wfs = self.calc.wfs
+        G_Gv = pd.get_reciprocal_vectors()
+        pos_av = np.dot(self.spos_ac, pd.gd.cell_cv)
+
+        # Collect integrals for all species:
+        Q_xvGii = {}
+        for id, atomdata in wfs.setups.setups.items():
+            if soft:
+                raise NotImplementedError
+            else:
+                Q_vGii = two_phi_nabla_planewave_integrals(G_Gv, atomdata)
+                ni = atomdata.ni
+                Q_vGii.shape = (3, -1, ni, ni)
+
+            Q_xvGii[id] = Q_vGii
+
+        Q_avGii = []
+        for a, atomdata in enumerate(wfs.setups):
+            id = wfs.setups.id_a[a]
+            Q_vGii = Q_xvGii[id]
+            x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
+            Q_avGii.append(x_G[np.newaxis, :, np.newaxis, np.newaxis] * Q_vGii)
+
+        return Q_avGii
 
     def calculate_derivatives(self, kpt):
         ut_sKnvR = [{}, {}]

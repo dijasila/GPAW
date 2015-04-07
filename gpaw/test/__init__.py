@@ -316,6 +316,7 @@ tests = [
     'aluminum_testcell.py',                 # ~46s
     'pygga.py',                             # ~47s
     'ut_tddft.py',                          # ~49s
+    'response_pair.py',                     # ~50s
     'rpa_energy_N2.py',                     # ~52s
     'vdw/ar2.py',                           # ~53s
     'parallel/diamond_gllb.py',             # ~59s
@@ -405,7 +406,8 @@ if mpi.size > 1:
                 'scipy_test.py']
 
 if mpi.size > 2:
-    exclude += ['neb.py']
+    exclude += ['neb.py',
+                'response_pair.py']
 
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',
