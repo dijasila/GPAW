@@ -1,10 +1,10 @@
-"""Test selfconsistent RSF calculation with Yukawa potential. No EXX local corr."""
+"""Test selfconsistent RSF calculation with Yukawa potential."""
 from ase import Atoms
 from ase.units import kcal, mol
 from gpaw import GPAW
 from gpaw.xc.hybrid import HybridXC
 from gpaw.occupations import FermiDirac
-from gpaw.test import equal, gen
+from gpaw.test import equal
 from gpaw.eigensolvers import RMM_DIIS
 import _gpaw
 

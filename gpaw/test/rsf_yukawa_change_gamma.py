@@ -1,4 +1,4 @@
-"""Test non-selfconsistent RSF calculation with Yukawa potential."""
+"""Check for tunability of gamma for yukawa potential."""
 from ase import Atoms
 from ase.units import kcal, mol
 from gpaw import GPAW
@@ -21,8 +21,6 @@ c = {'energy': 0.001, 'eigenstates': 4, 'density': 3}
 
 # Dissoziation energies from M. Seth, T. Ziegler, JCTC 8, 901-907
 # dx.doi.org/10.1021/ct300006h
-# The LCY-PBE value is the same as the PBE0 value, so this might be an
-# error.
 xc = 'PBE'
 ti.calc = GPAW(txt='Ti-' + xc + '.txt', xc=xc, convergence=c,
             occupations=FermiDirac(width=0.0, fixmagmom=True))

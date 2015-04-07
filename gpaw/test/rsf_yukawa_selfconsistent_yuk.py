@@ -1,4 +1,4 @@
-"""Test selfconsistent RSF calculation with Yukawa potential and EXX."""
+"""Test selfconsistent RSF calculation with Yukawa potential including vc."""
 from ase import Atoms
 from ase.units import kcal, mol
 from gpaw import GPAW
@@ -10,7 +10,7 @@ import _gpaw
 
 newlibxc = _gpaw.lxcXCFuncNum('HYB_GGA_XC_LCY_PBE') is not None
 
-if newlibxc:
+if newlibxc:    # generate setups with local yukawa parts
     for atom in ['Ti', 'O']:
         gen(atom, xcname='PBE', scalarrel=False, exx=True, yukawa_gamma=0.9,
                 gpernode=149)  # magic ... - with corrected beta no prob.

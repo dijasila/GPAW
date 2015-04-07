@@ -1,9 +1,9 @@
+"""Document unfriendly behaviour for calculations with broken box sym."""
 from ase import Atoms
 from gpaw import GPAW, KohnShamConvergenceError
 from gpaw.xc.hybrid import HybridXC
 from gpaw.occupations import FermiDirac
-from gpaw.mixer import Mixer, MixerDif, MixerSum
-from gpaw.test import equal
+from gpaw.mixer import MixerDif
 from gpaw.eigensolvers import RMM_DIIS
 import _gpaw
 
@@ -15,8 +15,6 @@ tio2.translate([0.01, 0.02, 0.03])
 
 c = {'energy': 0.001, 'eigenstates': 3, 'density': 3}
 
-# Atomization energies are from M. Seth, T. Ziegler, JCTC 8, 901-907
-# dx.doi.org/10.1021/ct300006h
 # For broken symmetry calculations MixerSum, MixerSum2 fail,
 # Mixer sometimes fail (went to wrong direction)
 # MixerDifs work (in this case)
