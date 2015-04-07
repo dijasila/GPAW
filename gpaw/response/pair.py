@@ -758,6 +758,7 @@ class PairDensity:
         optical_limit = not disable_optical_limit and np.allclose(q_c, 0.0)
 
         Q_aGii = self.initialize_paw_corrections(pd)
+        self.Q_aGii = Q_aGii  # This is used in g0w0
 
         if PWSA is None:
             with self.timer('Symmetry analyzer'):
