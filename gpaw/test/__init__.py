@@ -262,7 +262,7 @@ tests = [
     'guc_force.py',                         # ~13s
     'ralda_energy_Ni.py',                   # ~13s
     'simple_stm.py',                        # ~13s
-    'ofdft_pbc.py'                          # ~13s
+    'ofdft_pbc.py',                         # ~13s
     'ed_shapes.py',                         # ~14s
     'restart_band_structure.py',            # ~14s
     'exx.py',                               # ~14s
@@ -276,7 +276,7 @@ tests = [
     'atomize.py',                           # ~16s
     'excited_state.py',                     # ~16s
     'ne_disc.py',                           # ~16s
-    'ofdft.py'                              # ~17s
+    'ofdft.py',                             # ~17s
     'tpss.py',                              # ~18s
     'td_na2.py',                            # ~18s
     'exx_coarse.py',                        # ~18s
@@ -298,7 +298,7 @@ tests = [
     'ralda_energy_Si.py',                   # ~24s
     'ldos.py',                              # ~25s
     'revPBE_Li.py',                         # ~26s
-    'ofdft_scale.py'                        # ~26s
+    'ofdft_scale.py',                       # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
     'h2o_dks.py',                           # ~30s
     'nsc_MGGA.py',                          # ~32s
