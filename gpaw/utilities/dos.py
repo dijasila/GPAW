@@ -157,7 +157,7 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
         x += nb
 
     wfs.world.broadcast(energies, 0)
-    wfs.world.broadcast(weights_xi, wfs.rank_a[a])
+    wfs.world.broadcast(weights_xi, wfs.atom_partition.rank_a[a])
 
     if angular is None:
         return energies, weights_xi

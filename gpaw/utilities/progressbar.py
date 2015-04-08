@@ -91,10 +91,15 @@ class ProgressBar:
     def format_time(self, seconds):
         m, s = divmod(seconds, 60)
         h, m = divmod(m, 60)
-        return "{0:.0f}h{1:.0f}m{2:.0f}s".format(h, m, s)
+        return '{0:.0f}h{1:.0f}m{2:.0f}s'.format(h, m, s)
                 
     def finish(self):
         self.update(1)
+
+    def enumerate(self, items):
+        for i, item in enumerate(items):
+            self.update(i / len(items))
+            yield i, item
 
 
 def test():

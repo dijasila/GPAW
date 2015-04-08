@@ -4,7 +4,6 @@
 # Please see the accompanying LICENSE file for further information.
 
 """ASE-calculator interface."""
-
 import numpy as np
 from ase.units import Bohr, Hartree
 
@@ -597,7 +596,7 @@ class GPAW(PAW):
 
         from gpaw.lfc import LocalizedFunctionsCollection as LFC
         from gpaw.spline import Spline
-        from gpaw.utilities import _fact
+        from math import factorial as fac
 
         nkpts = len(wfs.kd.ibzk_kc)
         nbf = np.sum([2 * l + 1 for pos, l, a in locfun])
@@ -612,9 +611,9 @@ class GPAW(PAW):
             spos_xc.append(spos_c)
             alpha = .5 * Bohr**2 / sigma**2
             r = np.linspace(0, 10. * sigma, 500)
-            f_g = (_fact[l] * (4 * alpha)**(l + 3 / 2.) *
+            f_g = (fac(l) * (4 * alpha)**(l + 3 / 2.) *
                    np.exp(-alpha * r**2) /
-                   (np.sqrt(4 * np.pi) * _fact[2 * l + 1]))
+                   (np.sqrt(4 * np.pi) * fac(2 * l + 1)))
             splines_x.append([Spline(l, rmax=r[-1], f_g=f_g)])
 
         lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype)

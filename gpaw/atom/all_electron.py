@@ -34,7 +34,7 @@ class AllElectron:
 
     def __init__(self, symbol, xcname='LDA', scalarrel=False,
                  corehole=None, configuration=None, nofiles=True,
-                 txt='-', gpernode=150, orbital_free=False, tf_coeff=1.):
+                 txt='-', gpernode=150, orbital_free=False, tw_coeff=1.):
         """Do an atomic DFT calculation.
 
         Example::
@@ -99,7 +99,7 @@ class AllElectron:
         self.beta = 0.4
 
         self.orbital_free = orbital_free
-        self.tf_coeff = tf_coeff
+        self.tw_coeff = tw_coeff
 
         if self.orbital_free:
             self.n_j = [1]
@@ -250,7 +250,7 @@ class AllElectron:
         if self.orbital_free:
             mix = 0.01
             nitermax = 2000
-            e_j[0] /= self.tf_coeff
+            e_j[0] /= self.tw_coeff
             if Z > 10 : #help convergence for third row elements
                 mix = 0.002
                 nitermax = 10000
@@ -281,7 +281,7 @@ class AllElectron:
             vr[:] = (vHr + self.vXC * r)
 
             if self.orbital_free: 
-                vr /= self.tf_coeff
+                vr /= self.tw_coeff
 
             if niter > 0:
                 vr[:] = mix * vr + (1 - mix) * vrold
@@ -343,10 +343,10 @@ class AllElectron:
         if self.orbital_free:
         #e and vr are not scaled back
         #instead Ekin is scaled for total energy (printed and inside setup)
-            Ekin *= self.tf_coeff
+            Ekin *= self.tw_coeff
             t()
-            t('Lambda:{0}'.format(self.tf_coeff))
-            t('Correct eigenvalue:{0}'.format(e_j[0]*self.tf_coeff))
+            t('Lambda:{0}'.format(self.tw_coeff))
+            t('Correct eigenvalue:{0}'.format(e_j[0]*self.tw_coeff))
             t()
 
         t()

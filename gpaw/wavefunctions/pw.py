@@ -2,6 +2,7 @@
 from __future__ import print_function, division
 import functools
 from math import pi
+from math import factorial as fac
 
 import numpy as np
 import ase.units as units
@@ -18,7 +19,7 @@ from gpaw.hamiltonian import Hamiltonian
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
-from gpaw.utilities import unpack, _fact as fac
+from gpaw.utilities import unpack
 from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
@@ -883,7 +884,7 @@ def ft(spline):
     f_q = fbt(l, f_r, r_r, k_q)
     f_q[1:] /= k_q[1:]**(2 * l + 1)
     f_q[0] = (np.dot(f_r, r_r**(2 + 2 * l)) *
-              dr * 2**l * fac[l] / fac[2 * l + 1])
+              dr * 2**l * fac(l) / fac(2 * l + 1))
 
     return Spline(l, k_q[-1], f_q)
 
@@ -1231,8 +1232,8 @@ class ReciprocalSpaceDensity(Density):
 
         self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3)
 
-    def set_positions(self, spos_ac, rank_a=None):
-        Density.set_positions(self, spos_ac, rank_a)
+    def set_positions(self, spos_ac, atom_partition):
+        Density.set_positions(self, spos_ac, atom_partition)
         self.nct_q = self.pd2.zeros()
         self.nct.add(self.nct_q, 1.0 / self.nspins)
         self.nct_G = self.pd2.ifft(self.nct_q)
@@ -1318,8 +1319,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         fd.write('Interpolation: FFT\n')
         fd.write('Poisson solver: FFT\n')
 
-    def set_positions(self, spos_ac, rank_a=None):
-        Hamiltonian.set_positions(self, spos_ac, rank_a)
+    def set_positions(self, spos_ac, atom_partition):
+        Hamiltonian.set_positions(self, spos_ac, atom_partition)
         self.vbar_Q = self.pd2.zeros()
         self.vbar.add(self.vbar_Q)
 

@@ -1,14 +1,18 @@
 from __future__ import print_function
-from gpaw.xc.gllb.contribution import Contribution
-#from gpaw.xc_functional import XCRadialGrid, XCFunctional, XC3DGrid
-#from gpaw.xc_correction import A_Liy, weights
+
+from math import sqrt, pi
+
+import numpy as np
+from ase.units import Hartree
+
+from gpaw.io import write_atomic_matrix
+from gpaw.mpi import world
 from gpaw.sphere.lebedev import weight_n
 from gpaw.utilities import pack
 from gpaw.xc.gllb import safe_sqr
-from math import sqrt, pi
-from gpaw.mpi import world
-from ase.units import Hartree
-import numpy as np
+from gpaw.xc.gllb.contribution import Contribution
+#from gpaw.xc_functional import XCRadialGrid, XCFunctional, XC3DGrid
+#from gpaw.xc_correction import A_Liy, weights
 
 ### XXX Work in process
 debug = False
@@ -426,7 +430,7 @@ class C_Response(Contribution):
         
         During the writing process, the DeltaXC is calculated (if not yet calculated)
         """
-        
+
         if self.Dxc_vt_sG is None:
             self.calculate_delta_xc()
         
@@ -470,50 +474,21 @@ class C_Response(Contribution):
 
         print("Integration over vt_sG", domain_comm.sum(np.sum(self.vt_sG.ravel())))
         print("Integration over Dxc_vt_sG", domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel())))
-                
-        if master:
-            all_D_sp = np.empty((wfs.nspins, nadm))
-            all_Dresp_sp = np.empty((wfs.nspins, nadm))
-            all_Dxc_D_sp = np.empty((wfs.nspins, nadm))
-            all_Dxc_Dresp_sp = np.empty((wfs.nspins, nadm))
-            p1 = 0
-            for a in range(natoms):
-                ni = wfs.setups[a].ni
-                nii = ni * (ni + 1) // 2
-                if a in self.D_asp:
-                    D_sp = self.D_asp[a]
-                    Dresp_sp = self.Dresp_asp[a]
-                    Dxc_D_sp = self.Dxc_D_asp[a]
-                    Dxc_Dresp_sp = self.Dxc_Dresp_asp[a]
-                else:
-                    D_sp = np.empty((wfs.nspins, nii))
-                    domain_comm.receive(D_sp, wfs.rank_a[a], 27)
-                    Dresp_sp = np.empty((wfs.nspins, nii))
-                    domain_comm.receive(Dresp_sp, wfs.rank_a[a], 271)
-                    Dxc_D_sp = np.empty((wfs.nspins, nii))
-                    domain_comm.receive(Dxc_D_sp, wfs.rank_a[a], 28)
-                    Dxc_Dresp_sp = np.empty((wfs.nspins, nii))
-                    domain_comm.receive(Dxc_Dresp_sp, wfs.rank_a[a], 272)
-                    
-                p2 = p1 + nii
-                all_D_sp[:, p1:p2] = D_sp
-                all_Dresp_sp[:, p1:p2] = Dresp_sp
-                all_Dxc_D_sp[:, p1:p2] = Dxc_D_sp
-                all_Dxc_Dresp_sp[:, p1:p2] = Dxc_Dresp_sp
-                
-                p1 = p2
-            assert p2 == nadm
-            w.add('GLLBAtomicDensityMatrices', ('nspins', 'nadm'), all_D_sp)
-            w.add('GLLBAtomicResponseMatrices', ('nspins', 'nadm'), all_Dresp_sp)
-            w.add('GLLBDxcAtomicDensityMatrices', ('nspins', 'nadm'), all_Dxc_D_sp)
-            w.add('GLLBDxcAtomicResponseMatrices', ('nspins', 'nadm'), all_Dxc_Dresp_sp)
-        elif kpt_comm.rank == 0 and band_comm.rank == 0:
-            for a in range(natoms):
-                if a in self.density.D_asp:
-                    domain_comm.send(self.D_asp[a], 0, 27)
-                    domain_comm.send(self.Dresp_asp[a], 0, 271)
-                    domain_comm.send(self.Dxc_D_asp[a], 0, 28)
-                    domain_comm.send(self.Dxc_Dresp_asp[a], 0, 272)
+        
+        def _write_atomic_matrix(X0_asp, name):
+            X_asp = self.wfs.setups.empty_asp(self.wfs.ns,
+                                              self.wfs.atom_partition)
+            # XXX some of the provided X0_asp contain strangely duplicated
+            # elements.  Take only the minimal set:
+            for a in X_asp:
+                X_asp[a][:] = X0_asp[a]
+            write_atomic_matrix(w, X_asp, name, master)
+        
+        _write_atomic_matrix(self.D_asp, 'GLLBAtomicDensityMatrices')
+        _write_atomic_matrix(self.Dresp_asp, 'GLLBAtomicResponseMatrices')
+        _write_atomic_matrix(self.Dxc_D_asp, 'GLLBDxcAtomicDensityMatrices')
+        _write_atomic_matrix(self.Dxc_Dresp_asp,
+                             'GLLBDxcAtomicResponseMatrices')
 
     def read(self, r):
         wfs = self.wfs

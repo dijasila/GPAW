@@ -89,14 +89,16 @@ class KickHamiltonian:
     def __init__(self, calc, ext):
         self.ext = ext
         self.vt_sG = [ext.get_potential(gd=calc.density.gd)]
-        self.dH_asp = {}
+        #self.dH_asp = {}
+        self.dH_asp = calc.density.D_asp.deepcopy()
 
         # This code is copy-paste from hamiltonian.update
         for a, D_sp in calc.density.D_asp.items():
             setup = calc.hamiltonian.setups[a]
             vext = ext.get_taylor(spos_c=calc.hamiltonian.spos_ac[a, :])
             # Taylor expansion to the zeroth order
-            self.dH_asp[a] = [vext[0][0] * sqrt(4 * pi) * setup.Delta_pL[:, 0]]
+            self.dH_asp[a][:] = [vext[0][0] * sqrt(4 * pi)
+                                 * setup.Delta_pL[:, 0]]
             if len(vext) > 1:
                 # Taylor expansion to the first order
                 Delta_p1 = np.array([setup.Delta_pL[:, 1],

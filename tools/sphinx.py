@@ -83,7 +83,7 @@ def build():
     from gpaw.version import version
 
     os.chdir('doc')
-    assert os.system('sed -i s/gpaw-snapshot/gpaw-%s/ download.rst' %
+    assert os.system('sed -i s/gpaw-snapshot/gpaw-%s/ install/download.rst' %
                      version) == 0
     os.mkdir('_build')
     if os.system('PYTHONPATH=%s/%s/python:%s/lib/python ' %

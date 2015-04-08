@@ -38,6 +38,7 @@ from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.utilities.partition import AtomPartition
 from gpaw.parameters import InputParameters, usesymm2symmetry
 from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
 
@@ -311,9 +312,11 @@ class PAW(PAWTextOutput):
 
         spos_ac = atoms.get_scaled_positions() % 1.0
 
-        self.wfs.set_positions(spos_ac)
-        self.density.set_positions(spos_ac, self.wfs.rank_a)
-        self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
+        rank_a = self.wfs.gd.get_ranks_from_positions(spos_ac)
+        atom_partition = AtomPartition(self.wfs.gd.comm, rank_a)
+        self.wfs.set_positions(spos_ac, atom_partition)
+        self.density.set_positions(spos_ac, atom_partition)
+        self.hamiltonian.set_positions(spos_ac, atom_partition)
 
         return spos_ac
 
@@ -872,10 +875,10 @@ class PAW(PAWTextOutput):
         TODO: Is this really the most efficient way?
         """
         spos_ac = self.atoms.get_scaled_positions() % 1.0
-        self.density.set_positions(spos_ac, self.wfs.rank_a)
+        self.density.set_positions(spos_ac, self.wfs.atom_partition)
         self.density.interpolate_pseudo_density()
         self.density.calculate_pseudo_charge()
-        self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
+        self.hamiltonian.set_positions(spos_ac, self.wfs.atom_partition)
         self.hamiltonian.update(self.density)
 
     def attach(self, function, n=1, *args, **kwargs):

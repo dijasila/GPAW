@@ -1,5 +1,5 @@
 import numpy as np
-
+from gpaw.arraydict import ArrayDict
 
 class AtomicMatrixDistributor:
     """Class to distribute atomic dictionaries like dH_asp and D_asp."""
@@ -204,7 +204,10 @@ class AtomPartition:
         self.rank_a = np.array(rank_a)
         self.my_indices = self.get_indices(comm.rank)
         self.natoms = len(rank_a)
-    
+
+    def as_serial(self):
+        return AtomPartition(self.comm, np.zeros(self.natoms, int))
+
     def reorder(self, args_a):
         # XXX use to get better load balance
         # after creating from EvenPartition
@@ -233,7 +236,12 @@ class AtomPartition:
         parent_rank_a -= members[0] # yuckkk
         return AtomPartition(self.comm.parent, parent_rank_a)
 
+    def as_even_partition(self):
+        even_part = EvenPartitioning(self.comm, len(self.rank_a))
+        return even_part.as_atom_partition()
+
     def to_even_distribution(self, atomdict_ax, get_empty, copy=False):
+        # XXXXXXXXX get rid of these.
         if copy:
             atomdict1_ax = {}
             for a, arr_x in atomdict_ax.items():
@@ -258,7 +266,11 @@ class AtomPartition:
         return atomdict_ax
 
     def redistribute(self, new_partition, atomdict_ax, get_empty):
-        assert self.comm == new_partition.comm
+        # XXX we the two communicators to be equal according to
+        # some proper criterion like MPI_Comm_compare -> MPI_IDENT.
+        # But that is not implemented, so we don't.
+        #assert self.comm == new_partition.comm
+
         # atomdict_ax may be a dictionary or a list of dictionaries
 
         has_many = not hasattr(atomdict_ax, 'items')
@@ -284,3 +296,11 @@ class AtomPartition:
 
         general_redistribute(self.comm, self.rank_a,
                              new_partition.rank_a, Redist())
+        if isinstance(atomdict_ax, ArrayDict):
+            atomdict_ax.partition = new_partition # XXX
+            atomdict_ax.check_consistency()
+
+    def arraydict(self, shapes, dtype=float):
+        if callable(shapes):
+            shapes = [shapes(a) for a in self.natoms]
+        return ArrayDict(self, shapes, dtype)

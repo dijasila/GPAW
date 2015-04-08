@@ -189,8 +189,6 @@ tests = [
     'ewald.py',                             # ~4s
     'symmetry.py',                          # ~4s
     'revPBE.py',                            # ~4s
-    'tf_mode_pbc.py',                       # ~4s
-    'tf_mode.py',                           # ~4s
     'nonselfconsistentLDA.py',              # ~4s
     'aluminum_EELS_ALDA.py',                # ~4s
     'spin_contamination.py',                # ~4s
@@ -264,6 +262,7 @@ tests = [
     'guc_force.py',                         # ~13s
     'ralda_energy_Ni.py',                   # ~13s
     'simple_stm.py',                        # ~13s
+    'ofdft_pbc.py'                          # ~13s
     'ed_shapes.py',                         # ~14s
     'restart_band_structure.py',            # ~14s
     'exx.py',                               # ~14s
@@ -277,6 +276,7 @@ tests = [
     'atomize.py',                           # ~16s
     'excited_state.py',                     # ~16s
     'ne_disc.py',                           # ~16s
+    'ofdft.py'                              # ~17s
     'tpss.py',                              # ~18s
     'td_na2.py',                            # ~18s
     'exx_coarse.py',                        # ~18s
@@ -298,6 +298,7 @@ tests = [
     'ralda_energy_Si.py',                   # ~24s
     'ldos.py',                              # ~25s
     'revPBE_Li.py',                         # ~26s
+    'ofdft_scale.py'                        # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
     'h2o_dks.py',                           # ~30s
     'nsc_MGGA.py',                          # ~32s
@@ -314,6 +315,7 @@ tests = [
     'aluminum_testcell.py',                 # ~46s
     'pygga.py',                             # ~47s
     'ut_tddft.py',                          # ~49s
+    'response_pair.py',                     # ~50s
     'rpa_energy_N2.py',                     # ~52s
     'vdw/ar2.py',                           # ~53s
     'parallel/diamond_gllb.py',             # ~59s
@@ -331,6 +333,7 @@ tests = [
     'lcao_tdgllbsc.py',                     # ~132s
     'bse_silicon.py',                       # ~143s
     'gwsi.py',                              # ~147s
+    'response_graphene.py',                 # ~160s
     'response_symmetry.py',                 # ~300s
     'pw/moleculecg.py',                     # duration unknown
     'potential.py',                         # duration unknown
@@ -398,7 +401,8 @@ if mpi.size > 1:
                 'scipy_test.py']
 
 if mpi.size > 2:
-    exclude += ['neb.py']
+    exclude += ['neb.py',
+                'response_pair.py']
 
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',
