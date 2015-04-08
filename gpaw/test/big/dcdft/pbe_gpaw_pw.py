@@ -30,7 +30,8 @@ mode = 'pw'
 e = 0.08  # h -> gpts
 e = round(100 * Rydberg, 0)
 
-kptdensity = 16.0
+kptdensity = 16.0  # this is converged
+kptdensity = 6.0  # just for testing
 width = 0.01
 
 relativistic = True

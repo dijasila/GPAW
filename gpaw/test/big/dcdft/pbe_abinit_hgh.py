@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 
 import numpy as np
@@ -22,7 +23,8 @@ c = ase.db.connect('dcdft_abinit_hgh.db')
 
 ecut = 250
 
-kptdensity = 16.0
+kptdensity = 16.0  # this is converged
+kptdensity = 6.0  # just for testing
 width = 0.01
 ecutsm = 0.0
 fband = 1.5

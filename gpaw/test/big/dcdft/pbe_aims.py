@@ -26,7 +26,8 @@ basis = 'light'
 #basis = 'really_tight'
 #basis = 'tier2'
 
-kptdensity = 16.0
+kptdensity = 16.0  # this is converged
+kptdensity = 6.0  # just for testing
 width = 0.01
 
 basis_threshold = 0.00001

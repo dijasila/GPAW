@@ -1,6 +1,6 @@
 def agts(queue):
-    run = queue.add('pbe_gpaw_pw.py Al',
-                    queueopts='-l nodes=1:ppn=8:xeon8', walltime=40)
+    run = queue.add('pbe_gpaw_pw.py Al', ncpus=4,
+                    queueopts='-l nodes=1:ppn=4:opteron4', walltime=60)
     if 0:  # run when new setups ready
         analyse = queue.add('analyse.py dcdft_pbe_gpaw_pw',
                             ncpus=1, walltime=10, deps=run,
