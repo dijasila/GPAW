@@ -7,11 +7,11 @@ import ase.units as units
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 import gpaw.mpi as mpi
+from gpaw.poisson import FFTPoissonSolver
 from gpaw.symmetry import Symmetry
 
 from gpaw.dfpt2.dynamicalmatrix import DynamicalMatrix
 from gpaw.dfpt2.phononperturbation import PhononPerturbation
-from gpaw.dfpt2.poisson import FFTPoissonSolver
 from gpaw.dfpt2.responsecalculator import ResponseCalculator
 from gpaw.dfpt2.wavefunctions import WaveFunctions
 

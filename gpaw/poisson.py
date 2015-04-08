@@ -335,10 +335,14 @@ class FFTPoissonSolver(PoissonSolver):
     relax_method = 0
     nn = 999
 
-    def __init__(self, eps=2e-10):
+    def __init__(self, eps=2e-10, dtype=None):
         self.charged_periodic_correction = None
         self.remove_moment = None
         self.eps = eps
+        if dtype is None:
+          self.dtype = float
+        else:
+          self.dtype = dtype
 
     def get_description(self):
         return 'FFT'
@@ -351,13 +355,23 @@ class FFTPoissonSolver(PoissonSolver):
         if self.gd.comm.rank == 0:
             self.k2_Q, self.N3 = construct_reciprocal(self.gd)
 
+    def set_q(self, q_c):
+        if self.gd.comm.rank == 0:
+            self.k2_Q, self.N3 = construct_reciprocal(self.gd, q_c=q_c)
+
     def solve_neutral(self, phi_g, rho_g, eps=None):
+        assert phi_g.dtype == self.dtype
+        assert rho_g.dtype == self.dtype
+
         if self.gd.comm.size == 1:
-            phi_g[:] = ifftn(fftn(rho_g) * 4.0 * pi / self.k2_Q).real
+            if self.dtype == float:
+                phi_g[:] = ifftn(fftn(rho_g) * 4.0 * pi / self.k2_Q).real
+            else:
+                phi_g[:] = ifftn(fftn(rho_g) * 4.0 * pi / self.k2_Q)
         else:
             rho_g = self.gd.collect(rho_g)
             if self.gd.comm.rank == 0:
-                globalphi_g = ifftn(fftn(rho_g) * 4.0 * pi / self.k2_Q).real
+                globalphi_g = ifftn(fftn(rho_g) * 4.0 * pi / self.k2_Q)
             else:
                 globalphi_g = None
             self.gd.distribute(globalphi_g, phi_g)
