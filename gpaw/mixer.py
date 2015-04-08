@@ -16,7 +16,8 @@ from gpaw.utilities.tools import construct_reciprocal
 class BaseMixer:
     """Pulay density mixer."""
     
-    def __init__(self, beta=0.1, nmaxold=3, weight=50.0, dotprod=None):
+    def __init__(self, beta=0.1, nmaxold=3, weight=50.0, dotprod=None,
+                 dtype=None):
         """Construct density-mixer object.
 
         Parameters:
@@ -39,9 +40,14 @@ class BaseMixer:
         self.dNt = None
 
         self.mix_rho = False
-        
+
         if dotprod is not None:  # slightly ugly way to override
             self.dotprod = dotprod
+
+        if dtype is None:
+            self.dtype = float
+        else:
+            self.dtype = dtype
 
     def initialize_metric(self, gd):
         self.gd = gd
@@ -69,9 +75,9 @@ class BaseMixer:
                                       (1, 1, 1), (1, 1, -1), (1, -1, 1),  # d
                                       (-1, 1, 1), (1, -1, -1), (-1, -1, 1),
                                       (-1, 1, -1), (-1, -1, -1)],
-                                     gd, float).apply
-            self.mR_G = gd.empty()
-        
+                                     gd, self.dtype).apply
+            self.mR_G = gd.empty(dtype=self.dtype)
+
     def initialize(self, density):
         self.initialize_metric(density.gd)
 
@@ -106,7 +112,7 @@ class BaseMixer:
     def set_charge_sloshing(self, dNt):
         self.dNt = dNt
         
-    def mix(self, nt_G, D_ap):
+    def mix(self, nt_G, D_ap, phase_cd=None):
         iold = len(self.nt_iG)
         if iold > 0:
             if iold > self.nmaxold:
@@ -137,8 +143,11 @@ class BaseMixer:
                 mR_G = R_G
             else:
                 mR_G = self.mR_G
-                self.metric(R_G, mR_G)
-                
+                if phase_cd is None:
+                    self.metric(R_G, mR_G)
+                else:
+                    self.metric(R_G, mR_G, phase_cd=phase_cd)
+
             for i1, R_1G in enumerate(self.R_iG):
                 a = self.gd.comm.sum(self.dotprod(R_1G, mR_G, self.dD_iap[i1],
                                                   self.dD_iap[-1]))
