@@ -72,7 +72,7 @@ class DynamicalMatrix:
 
         self.assembled = False
 
-    @timer('DYNMAT density ground state')
+    @timer('Density ground state')
     def density_ground_state(self, calc):
         """Contributions involving ground-state density.
 
@@ -106,7 +106,7 @@ class DynamicalMatrix:
                 C_aavv[a][a] += d2ghat_aLvv[a] * Q_aL[a]
                 C_aavv[a][a] += d2vbar_avv[a]
 
-    @timer('DYNMAT calculate row')
+    @timer('Calculate row')
     def calculate_row(self, perturbation, response_calc):
         """Calculate row of force constant matrix from first-order derivatives.
 
@@ -120,11 +120,10 @@ class DynamicalMatrix:
             the wave-functions.
 
         """
-        with self.timer('density derivative'):
-            self.density_derivative(perturbation, response_calc)
-        with self.timer('wfs derivative'):
-            self.wfs_derivative(perturbation, response_calc)
+        self.density_derivative(perturbation, response_calc)
+        self.wfs_derivative(perturbation, response_calc)
 
+    @timer('Density derivative')
     def density_derivative(self, perturbation, response_calc):
         """Contributions involving the first-order density derivative."""
 
@@ -165,6 +164,7 @@ class DynamicalMatrix:
             C_aavv[a][a_][v] -= np.dot(Q_aL[a_], dghat_aLv[a_])
             C_aavv[a][a_][v] -= dvbar_av[a_][0]
 
+    @timer('Wave function derivative')
     def wfs_derivative(self, perturbation, response_calc):
         """Contributions from the non-local part of the PAW potential."""
 
@@ -241,7 +241,7 @@ class DynamicalMatrix:
                 else:
                     C_aavv[a][a_][v] += C_.real
 
-    @timer('DYNMAT: assemble')
+    @timer('Assemble')
     def assemble(self, dynmat=None, acoustic=True):
         """Assemble dynamical matrix from the force constants attribute.
 
@@ -292,9 +292,10 @@ class DynamicalMatrix:
             C += C.conj().T
 
         # Get matrix of force constants in the Gamma-point (is real!)
-        C_gamma = self.C_q[self.gamma_index].real
-        # Make Gamma-component real
-        self.C_q[self.gamma_index] = C_gamma.copy()
+        if acoustic:
+            C_gamma = self.C_q[self.gamma_index].real
+            # Make Gamma-component real
+            self.C_q[self.gamma_index] = C_gamma.copy()
 
         # Apply acoustic sum-rule if requested
         if acoustic:

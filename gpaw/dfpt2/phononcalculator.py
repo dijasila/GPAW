@@ -186,7 +186,7 @@ class PhononCalculator:
 
         return energies
 
-    @timer('PHONON calculate dynamical matrix')
+    @timer('Calculate dynamical matrix')
     def calculate_dynamicalmatrix(self):
         """Run calculation for atomic displacements and construct the dynamcial
         matrix.
@@ -206,7 +206,7 @@ class PhononCalculator:
         # Calculate linear response wrt q-vector and displacements of atoms
 
         if not self.gamma:
-            # HACK
+            # HACK: Index always 0, because we only have a single point
             self.perturbation.set_q(0)
 
         components = ['x', 'y', 'z']
@@ -233,7 +233,7 @@ class PhononCalculator:
 
         return self.dyn.D_k[0]
 
-    @timer('PHONON diagonalise dynamicial matrix')
+    @timer('Diagonalise dynamicial matrix')
     def diagonalize_dynamicalmatrix(self, dynmat, modes=False):
         """Calculates phonon energies by diagonalising the dynamcial matrix.
 
