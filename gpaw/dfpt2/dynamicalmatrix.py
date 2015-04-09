@@ -2,7 +2,6 @@ import numpy as np
 
 from ase.utils.timing import timer, Timer
 
-from gpaw import debug
 from gpaw.utilities import unpack
 
 
@@ -17,60 +16,98 @@ class DynamicalMatrix:
     Each of the various contributions to the second order derivative of the
     total energy are implemented in separate functions.
     """
-    def __init__(self, atoms, kd, dtype=float, timer=None):
+    def __init__(self, atoms, dtype=float, timer=None):
         """Inititialize class with a list of atoms.
 
         Parameters
         ----------
         atoms: Atoms
             List of atoms for the system.
-        kd: KPointDescriptor
-            Descriptor for the q-vector grid. DEPRECATED
+        dtype: float or complex
+            Molecules and Gamma-point calculations have real dynamical
+            matrices, the rest has complex ones.
+        timer:
 
         """
 
-        # Store useful objects
         self.atoms = atoms
-        self.kd = kd
         self.dtype = dtype
         if timer is not None:
             self.timer = timer
         else:
             self.timer = Timer()
-        self.masses = atoms.get_masses()
-        # Array with inverse sqrt of masses repeated to match shape of mode
-        # arrays
-        self.m_inv_av = None
-
-        # XXX Remove these files
-        # String template for files with force constants
-        self.name = None
-        # Path to directory with force constant files
-        self.path = None
 
         # List of atomic indices to be included (default is all atoms)
         self.indices = range(len(self.atoms))
 
-        # Index of the gamma point -- for the acoustic sum-rule
-        self.gamma_index = 0  # XXX HACK
-        if self.kd.gamma:
-            assert dtype == float
-        assert self.gamma_index is not None
+        masses = atoms.get_masses()
+        # Array with inverse sqrt of masses repeated to match shape of mode
+        # arrays
+        self.m_inv_av = np.repeat(masses[self.indices]**-0.5, 3)
 
         # Matrix of force constants -- dict of dicts in atomic indices
-        # Only q-vectors in the irreducible BZ stored here
-        self.C_qaavv = [dict([(a, dict([(a_, np.zeros((3, 3), dtype=dtype))
-                                        for a_ in self.indices]))
-                              for a in self.indices])
-                        for q in range(self.kd.nibzkpts)]
+        self.C_aavv = [dict([(a_, np.zeros((3, 3), dtype=dtype))
+                             for a_ in self.indices]) for a in self.indices]
 
-        # Force constants and dynamical matrix attributes
-        # Irreducible zone -- list with array entrances C_avav
-        self.C_q = None
-        # Full BZ (ndarray)
-        self.D_k = None
+        # Dynamical matrix (3N,3N)
+        self.D_nn = None
 
         self.assembled = False
+
+    @timer('Assemble')
+    def assemble(self):
+        """Assemble dynamical matrix from the force constants attribute.
+
+        The elements of the dynamical matrix are given by::
+
+            D_ij(q) = 1/(M_i + M_j) * C_ij(q) ,
+
+        where i and j are collective atomic and cartesian indices.
+
+        During the assembly, various symmetries of the dynamical matrix are
+        enforced::
+
+            1) Hermiticity
+           ### 2) Acoustic sum-rule
+           ### 3) D(q) = D*(-q)
+
+        """
+        # Number of atoms included
+        N = len(self.indices)
+
+        # Assemble matrix of force constants
+        C_avav = np.zeros((3*N, 3*N), dtype=self.dtype)
+        for i, a in enumerate(self.indices):
+            for j, a_ in enumerate(self.indices):
+                C_avav[3*i: 3*i + 3, 3*j: 3*j + 3] += self.C_aavv[a][a_]
+
+        # Make C(q) Hermitian
+        C_avav *= 0.5
+        C_avav += C_avav.conj().T
+
+        # Mass prefactor for the dynamical matrix
+        M_avav = self.m_inv_av[:, np.newaxis] * self.m_inv_av
+
+        self.D_nn = C_avav * M_avav
+
+        self.assembled = True
+
+    @timer('Calculate row')
+    def calculate_row(self, perturbation, response_calc):
+        """Calculate row of force constant matrix from first-order derivatives.
+
+        Parameters
+        ----------
+        perturbation: PhononPerturbation
+            The perturbation which holds the derivative of the
+            pseudo-potential.
+        response_calc: ResponseCalculator
+            Calculator with the corresponding derivatives of the density and
+            the wave-functions.
+
+        """
+        self.density_derivative(perturbation, response_calc)
+        self.wfs_derivative(perturbation, response_calc)
 
     @timer('Density ground state')
     def density_ground_state(self, calc):
@@ -79,6 +116,8 @@ class DynamicalMatrix:
         These terms contains second-order derivaties of the localized functions
         ghat and vbar. They are therefore diagonal in the atomic indices.
         """
+
+        # ATTENTION This routine may be wrong or incomplete.
 
         # Use the GS LFC's to integrate with the ground-state quantities!
         ghat = calc.density.ghat
@@ -99,42 +138,23 @@ class DynamicalMatrix:
         vbar.second_derivative(nt_g, d2vbar_avv)
 
         # Matrix of force constants to be updated; q=-1 for Gamma calculation!
-        for C_aavv in self.C_qaavv:
-            for a in self.indices:
-                # XXX: HGH has only one ghat pr atoms -> generalize when
-                # implementing PAW
-                C_aavv[a][a] += d2ghat_aLvv[a] * Q_aL[a]
-                C_aavv[a][a] += d2vbar_avv[a]
-
-    @timer('Calculate row')
-    def calculate_row(self, perturbation, response_calc):
-        """Calculate row of force constant matrix from first-order derivatives.
-
-        Parameters
-        ----------
-        perturbation: PhononPerturbation
-            The perturbation which holds the derivative of the
-            pseudo-potential.
-        response_calc: ResponseCalculator
-            Calculator with the corresponding derivatives of the density and
-            the wave-functions.
-
-        """
-        self.density_derivative(perturbation, response_calc)
-        self.wfs_derivative(perturbation, response_calc)
+        for a in self.indices:
+            # XXX: HGH has only one ghat per atom -> generalize when
+            # implementing PAW
+            self.C_aavv[a][a] += d2ghat_aLvv[a] * Q_aL[a]
+            self.C_aavv[a][a] += d2vbar_avv[a]
 
     @timer('Density derivative')
     def density_derivative(self, perturbation, response_calc):
         """Contributions involving the first-order density derivative."""
+
+        # ATTENTION This routine has not been checked.
 
         # Get attributes from the phononperturbation
         a = perturbation.a
         v = perturbation.v
         # XXX careful here, Gamma calculation has q=-1
         q = perturbation.q
-
-        # Matrix of force constants to be updated; q=-1 for Gamma calculation!
-        C_aavv = self.C_qaavv[q]
 
         # Localized functions
         ghat = perturbation.ghat
@@ -161,20 +181,19 @@ class DynamicalMatrix:
         # Add to force constant matrix attribute
         for a_ in self.indices:
             # Minus sign comes from lfc member function derivative
-            C_aavv[a][a_][v] -= np.dot(Q_aL[a_], dghat_aLv[a_])
-            C_aavv[a][a_][v] -= dvbar_av[a_][0]
+            self.C_aavv[a][a_][v] -= np.dot(Q_aL[a_], dghat_aLv[a_])
+            self.C_aavv[a][a_][v] -= dvbar_av[a_][0]
 
     @timer('Wave function derivative')
     def wfs_derivative(self, perturbation, response_calc):
         """Contributions from the non-local part of the PAW potential."""
 
+        # ATTENTION This routine has not been checked.
+
         # Get attributes from the phononperturbation
         a = perturbation.a
         v = perturbation.v
-        q = perturbation.q
-
-        # Matrix of force constants to be updated
-        C_aavv = self.C_qaavv[q]
+        # q = perturbation.q
 
         # Projector functions
         pt = response_calc.wfs.pt
@@ -237,97 +256,9 @@ class DynamicalMatrix:
                 # Factor of 2 from time-reversal symmetry
                 C_ = 2 * (A_v + B_v)
                 if self.dtype == complex:
-                    C_aavv[a][a_][v] += C_
+                    self.C_aavv[a][a_][v] += C_
                 else:
-                    C_aavv[a][a_][v] += C_.real
-
-    @timer('Assemble')
-    def assemble(self, dynmat=None, acoustic=True):
-        """Assemble dynamical matrix from the force constants attribute.
-
-        The elements of the dynamical matrix are given by::
-
-            D_ij(q) = 1/(M_i + M_j) * C_ij(q) ,
-
-        where i and j are collective atomic and cartesian indices.
-
-        During the assembly, various symmetries of the dynamical matrix are
-        enforced::
-
-            1) Hermiticity
-            2) Acoustic sum-rule
-            3) D(q) = D*(-q)
-
-        Parameters
-        ----------
-        acoustic: bool
-            When True, the diagonal of the matrix of force constants is
-            corrected to ensure that the acoustic sum-rule is fulfilled.
-        """
-
-        # Read force constants from files
-        if dynmat is not None:
-            self.C_qaavv = dynmat
-        else:
-            # HACK
-            self.C_qaavv = np.load('bla.npy')
-
-        # Number of atoms included
-        N = len(self.indices)
-
-        # Assemble matrix of force constants
-        self.C_q = []
-        for q, C_aavv in enumerate(self.C_qaavv):
-            C_avav = np.zeros((3*N, 3*N), dtype=self.dtype)
-            for i, a in enumerate(self.indices):
-                for j, a_ in enumerate(self.indices):
-                    C_avav[3*i: 3*i + 3, 3*j: 3*j + 3] += C_aavv[a][a_]
-
-            self.C_q.append(C_avav)
-
-        # XXX Figure out in which order the corrections should be done
-        # Make C(q) Hermitian
-        for C in self.C_q:
-            C *= 0.5
-            C += C.conj().T
-
-        # Get matrix of force constants in the Gamma-point (is real!)
-        if acoustic:
-            C_gamma = self.C_q[self.gamma_index].real
-            # Make Gamma-component real
-            self.C_q[self.gamma_index] = C_gamma.copy()
-
-        # Apply acoustic sum-rule if requested
-        if acoustic:
-            # Correct atomic diagonal for each q-vector
-            for C in self.C_q:
-                for a in range(N):
-                    for a_ in range(N):
-                        C[3*a: 3*a + 3, 3*a: 3*a + 3] -= \
-                              C_gamma[3*a: 3*a+3, 3*a_: 3*a_+3]
-
-            # Check sum-rule for Gamma-component in debug mode
-            if debug:
-                C = self.C_q[self.gamma_index]
-                assert np.all(np.sum(C.reshape((3*N, N, 3)), axis=1) < 1e-15)
-
-        # Move this bit to an ``unfold`` member function
-        # XXX Time-reversal symmetry
-        C_q = np.asarray(self.C_q)
-        if self.kd.nibzkpts != self.kd.nbzkpts:
-            self.D_k = np.concatenate((C_q[:0:-1].conjugate(), C_q))
-        else:
-            self.D_k = 0.5 * C_q
-            self.D_k += self.D_k[::-1].conjugate()
-
-        # Mass prefactor for the dynamical matrix
-        self.m_inv_av = np.repeat(self.masses[self.indices]**-0.5, 3)
-        M_avav = self.m_inv_av[:, np.newaxis] * self.m_inv_av
-
-        for C in self.D_k:
-            C *= M_avav
-
-        self.assembled = True
+                    self.C_aavv[a][a_][v] += C_.real
 
     def get_mass_array(self):
         """Return inverse sqrt of masses (matches shape of mode array)."""

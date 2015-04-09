@@ -142,8 +142,8 @@ class PhononCalculator:
                                                dtype=self.dtype)
 
         # Dynamical matrix
-        self.dyn = DynamicalMatrix(self.atoms, self.kd,  # DEPRECATED
-                                   dtype=self.dtype, timer=self.timer)
+        self.dyn = DynamicalMatrix(self.atoms, dtype=self.dtype,
+                                   timer=self.timer)
 
         # Initialization flag
         self.initialized = False
@@ -228,10 +228,9 @@ class PhononCalculator:
                 self.dyn.calculate_row(self.perturbation, self.response_calc)
 
         self.comm.barrier()
-        # np.save('bla', self.dyn.C_qaavv)
-        self.dyn.assemble(dynmat=self.dyn.C_qaavv, acoustic=self.gamma)
+        self.dyn.assemble()
 
-        return self.dyn.D_k[0]
+        return self.dyn.D_nn
 
     @timer('Diagonalise dynamicial matrix')
     def diagonalize_dynamicalmatrix(self, dynmat, modes=False):

@@ -71,12 +71,12 @@ class PhononPerturbation(Perturbation):
                        dtype=self.dtype)
         # compensation charges
         # XXX what is the consequence of numerical errors in the integral ??
-        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
+        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups], kd,
                         dtype=self.dtype)
         # self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
         #                 integral=sqrt(4 * pi), dtype=self.dtype)
         # vbar potential
-        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
+        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups], kd,
                         dtype=self.dtype)
 
         # Expansion coefficients for the compensation charges
