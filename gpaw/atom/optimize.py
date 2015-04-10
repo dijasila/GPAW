@@ -11,6 +11,7 @@ from ase import Atoms
 from ase.data import covalent_radii, atomic_numbers
 from ase.lattice import bulk
 from ase.lattice.surface import fcc111
+from ase.units import Bohr
 
 from gpaw import GPAW, PW, setup_paths, ConvergenceError
 from gpaw.atom.generator2 import _generate, DatasetGenerationError
@@ -231,7 +232,7 @@ class DatasetOptimizer:
         
         energies, radii, r0, projectors = self.parameters(x)
         
-        if not all(r0 <= r <= self.rc for r in radii):
+        if not all(r0 <= r <= self.rc / Bohr for r in radii):
             return n, x, [np.inf] * 9, np.inf
             
         try:
