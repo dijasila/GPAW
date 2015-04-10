@@ -19,6 +19,9 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
     GaussianBasis
 
 
+class DatasetGenerationError(Exception):
+    pass
+    
 parameters = {
     # 1-2:
     'H1': ('1s,s,p', 0.9),
@@ -1247,7 +1250,8 @@ def main(argv=None):
         gen = _generate(**kwargs)
 
         if not opt.no_check:
-            assert gen.check_all()
+            if not gen.check_all():
+                raise DatasetGenerationError
 
         if opt.create_basis_set or opt.write:
             basis = None  # gen.create_basis_set()
