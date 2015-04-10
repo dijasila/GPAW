@@ -29,16 +29,16 @@ class GA:
                 words = line.split(',')
                 n = int(words.pop(0))
                 error = float(words.pop(0))
-                x = tuple(int(word) for word in words[:-9])
+                x = tuple(int(word) for word in words[:-10])
                 self.individuals[x] = (error, n)
-                y = tuple(float(word) for word in words[-9:])
+                y = tuple(float(word) for word in words[-10:])
                 self.errors[n] = y
                 
         self.fd = open('pool.csv', 'a')  # pool of genes
         self.n = len(self.individuals)
         self.pool = mp.Pool()  # process pool
 
-    def run(self, func, sleep=20, mutate=3.0, size1=2, size2=100):
+    def run(self, func, sleep=20, mutate=2.0, size1=2, size2=100):
         results = []
         while True:
             while len(results) < mp.cpu_count():
@@ -112,7 +112,12 @@ def fit(E):
     
     
 class DatasetOptimizer:
-    tolerances = np.array([0.1, 0.01, 0.1, 0.01, 0.1, 40, 0.2, 0.001, 0.02])
+    tolerances = np.array([0.1,
+                           0.01, 0.1,
+                           0.01, 0.1,
+                           40, 0.2,
+                           0.001, 0.02,
+                           0.1])
     
     def __init__(self, symbol='H', projectors=None,
                  radii=None, r0=None):
@@ -173,7 +178,7 @@ class DatasetOptimizer:
                     for error, id, x in best[:N]]
         
     def summary(self, N=10):
-        print('dFffRrrICEe:')
+        print('dFfRrICEer:')
         for error, id, x, errors in self.best(N):
             params = [0.1 * p for p in x[:self.nenergies]]
             params += [0.05 * p for p in x[self.nenergies:]]
@@ -204,7 +209,8 @@ class DatasetOptimizer:
         gen = _generate(self.symbol, xc, None, projectors, radii,
                         scalar_relativistic, None, r0, nderiv0,
                         ('poly', 4), None, None, fd)
-        assert gen.check_all(), xc
+        if not gen.check_all():
+            raise DatasetGenerationError(xc)
 
         if tag is not None:
             gen.make_paw_setup(tag or None).write_xml()
@@ -232,14 +238,14 @@ class DatasetOptimizer:
         
         energies, radii, r0, projectors = self.parameters(x)
         
-        if not all(r0 <= r <= self.rc / Bohr for r in radii):
-            return n, x, [np.inf] * 9, np.inf
+        if any(r < r0 for r in radii):
+            return n, x, [np.inf] * 10, np.inf
             
         try:
             errors = self.test(n, fd, projectors, radii, r0)
         except (ConvergenceError, DatasetGenerationError):
             traceback.print_exc(file=fd)
-            errors = [np.inf] * 9
+            errors = [np.inf] * 10
             
         try:
             os.remove('{0}.ga{1}.PBE'.format(self.symbol, n))
@@ -255,10 +261,14 @@ class DatasetOptimizer:
             error += self.generate(fd, xc, projectors, radii, r0,
                                    scalar_relativistic=True)
         results = {'dataset': error}
+        
         for name in ['slab', 'fcc', 'rocksalt', 'eggbox']:
             result = getattr(self, name)(n, fd)
             results[name] = result
             
+        rc = self.rc / Bohr
+        results['radii'] = sum(r - rc for r in radii if r > rc)
+        
         errors = self.calculate_total_error(fd, results)
         
         return errors
@@ -278,6 +288,8 @@ class DatasetOptimizer:
         
         errors.append(results['eggbox'][0])
         errors.append(results['eggbox'][1])
+        
+        errors.append(results['radii'])
         
         return errors
         
