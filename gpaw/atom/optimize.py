@@ -12,8 +12,8 @@ from ase.data import covalent_radii, atomic_numbers
 from ase.lattice import bulk
 from ase.lattice.surface import fcc111
 
-from gpaw import GPAW, PW, setup_paths
-from gpaw.atom.generator2 import _generate
+from gpaw import GPAW, PW, setup_paths, ConvergenceError
+from gpaw.atom.generator2 import _generate, DatasetGenerationError
 
 
 class GA:
@@ -111,7 +111,7 @@ def fit(E):
     
     
 class DatasetOptimizer:
-    tolerances = np.array([0.1, 0.01, 0.1, 0.01, 0.1, 40, 0.1, 0.001, 0.02])
+    tolerances = np.array([0.1, 0.01, 0.1, 0.01, 0.1, 40, 0.2, 0.001, 0.02])
     
     def __init__(self, symbol='H', projectors=None,
                  radii=None, r0=None):
@@ -166,7 +166,7 @@ class DatasetOptimizer:
         best = sorted((error, id, x)
                       for x, (error, id) in ga.individuals.items())
         if N is None:
-            return best[0] + [ga.errors[best[0][1]]]
+            return best[0] + (ga.errors[best[0][1]],)
         else:
             return [(error, id, x, ga.errors[id])
                     for error, id, x in best[:N]]
@@ -182,10 +182,17 @@ class DatasetOptimizer:
                 ' '.join('{0:8.3f}'.format(e) for e in errors)))
             
     def best1(self):
-        error, id, x = self.best()
+        error, id, x, errors = self.best()
         energies, radii, r0, projectors = self.parameters(x)
-        print(self.symbol, error)
-        self.generate(None, 'PBE', projectors, radii, r0, True, logderiv=False)
+        print('ERROR:', self.symbol, error)
+        print('ERRORS:', self.symbol, errors)
+        print('PARAMS:', self.symbol, energies, radii, r0, projectors)
+        print(self.symbol, self.rc / 0.53,
+              ''.join('{0:7.2f}'.format(r * 0.53 / self.rc)
+                      for r in radii + [r0]))
+        if 0:
+            self.generate(None, 'PBE', projectors, radii, r0, not True, '',
+                          logderivs=False)
         
     def generate(self, fd, xc, projectors, radii, r0,
                  scalar_relativistic=False, tag=None, logderivs=True):
@@ -198,8 +205,8 @@ class DatasetOptimizer:
                         ('poly', 4), None, None, fd)
         assert gen.check_all(), xc
 
-        if tag:
-            gen.make_paw_setup(tag).write_xml()
+        if tag is not None:
+            gen.make_paw_setup(tag or None).write_xml()
 
         r = 1.1 * gen.rcmax
         energies = np.linspace(-1.5, 2.0, 100)
@@ -220,13 +227,16 @@ class DatasetOptimizer:
         return energies, radii, r0, projectors
         
     def __call__(self, n, x):
-        fd = open('{0}.txt'.format(os.getpid()), 'a')
+        fd = open('{0}.txt'.format(os.getpid()), 'w')
         
         energies, radii, r0, projectors = self.parameters(x)
         
+        if not all(r0 <= r <= self.rc for r in radii):
+            return n, x, [np.inf] * 9, np.inf
+            
         try:
             errors = self.test(n, fd, projectors, radii, r0)
-        except Exception:
+        except (ConvergenceError, DatasetGenerationError):
             traceback.print_exc(file=fd)
             errors = [np.inf] * 9
             
@@ -240,7 +250,7 @@ class DatasetOptimizer:
     def test(self, n, fd, projectors, radii, r0):
         error = self.generate(fd, 'PBE', projectors, radii, r0,
                               tag='ga{0}'.format(n))
-        for xc in ['LDA', 'PBEsol']:
+        for xc in ['PBE', 'LDA', 'PBEsol']:
             error += self.generate(fd, xc, projectors, radii, r0,
                                    scalar_relativistic=True)
         results = {'dataset': error}
@@ -273,7 +283,7 @@ class DatasetOptimizer:
     def fcc(self, n, fd):
         ref = self.reference['fcc']
         a0r = ref['a']  # scalar-relativistic minimum
-        sc = 2 * self.rc * 2**0.5 / a0r
+        sc = min(0.8, 2 * self.rc * 2**0.5 / a0r)
         sc = min((abs(s - sc), s) for s in ref if s != 'a')[1]
         maxiter = 0
         energies = []
@@ -302,7 +312,7 @@ class DatasetOptimizer:
     def rocksalt(self, n, fd):
         ref = self.reference['rocksalt']
         a0r = ref['a']
-        sc = (self.rc + self.rco) / a0r
+        sc = min(0.8, (self.rc + self.rco) / a0r)
         sc = min((abs(s - sc), s) for s in ref if s != 'a')[1]
         maxiter = 0
         energies = []
@@ -393,5 +403,5 @@ if __name__ == '__main__':
             if opts.summary:
                 do.summary()
             elif opts.best:
-                do.best()
+                do.best1()
             os.chdir('..')
