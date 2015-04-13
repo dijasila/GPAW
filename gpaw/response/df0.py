@@ -732,8 +732,7 @@ class DF(CHI):
                eig_right, vec_modes[1:], vec_modes_dual[1:], v_ind[1:], n_ind[1:]
             
         else:
-            return rrr, self.w_w, eig_all[1:], w_0, eig_0, w_left, eig_left, \
-               eig_right, v_ind[1:], n_ind[1:]
+            return rrr, self.w_w, eig_all[1:], w_0, eig_0, v_ind[1:], n_ind[1:]
                         
         
     def project_chi_to_LCAO_pair_orbital(self, orb_MG):
