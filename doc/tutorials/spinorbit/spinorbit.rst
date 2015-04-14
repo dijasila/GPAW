@@ -51,3 +51,5 @@ Band structure of bulf Fe
 =========================
 
 The last example is bcc Fe. Here the spin-orbit coupling breaks the symmetry between Brillouin zone points that are otherwise equivalent. We thus consider two different `\Gamma-H` paths. One along the spin projection axis and one orthogonal to it. The scripts for the groundstate :download:`Fe_gs.py` bandstructure :download:`Fe_bands.py` and plotting :download:`plot_Fe_bands.py` are smlar to the previous examples. The results i shown below.
+
+.. image:: Fe_bands.png
