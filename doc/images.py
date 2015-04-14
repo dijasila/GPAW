@@ -180,7 +180,7 @@ def setup(app):
             path = os.path.join(job.dir, name)
             if os.path.isfile(path):
                 continue
-            print((path, 'copied from', agtspath))
+            print(path, 'copied from', agtspath)
             get('agts-files', [name], job.dir, source=agtspath)
 
     # Get files that we can't generate:
