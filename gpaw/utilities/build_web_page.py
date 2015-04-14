@@ -3,7 +3,6 @@ import os
 import subprocess
 
 from ase.utils.build_web_page import build, svn_update, main
-from gpaw.version import version
 
 
 def build_gpaw_web_page(force_build):
@@ -19,7 +18,7 @@ def build_gpaw_web_page(force_build):
         subprocess.check_call(
             'tar xf gpaw-setups-latest.tar.gz', shell=True)
         path = os.path.abspath(glob.glob('gpaw-setups-[0-9]*')[0])
-        build(True, 'gpaw', 'GPAW_SETUP_PATH=' + path, version)
+        build(True, 'gpaw', 'GPAW_SETUP_PATH=' + path, 'bla-bla')
         
         
 if __name__ == '__main__':
