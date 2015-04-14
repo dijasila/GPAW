@@ -13,7 +13,7 @@ from ase.lattice import bulk
 from ase.lattice.surface import fcc111
 from ase.units import Bohr
 
-from gpaw import GPAW, PW, setup_paths, ConvergenceError
+from gpaw import GPAW, PW, setup_paths  # , ConvergenceError
 from gpaw.atom.generator2 import _generate, DatasetGenerationError
 
 
@@ -38,7 +38,7 @@ class GA:
         self.n = len(self.individuals)
         self.pool = mp.Pool()  # process pool
 
-    def run(self, func, sleep=20, mutate=2.0, size1=2, size2=100):
+    def run(self, func, sleep=5, mutate=2.0, size1=2, size2=100):
         results = []
         while True:
             while len(results) < mp.cpu_count():
@@ -113,8 +113,8 @@ def fit(E):
     
 class DatasetOptimizer:
     tolerances = np.array([0.1,
-                           0.01, 0.1,
-                           0.01, 0.1,
+                           0.01, 0.05,
+                           0.01, 0.05,
                            40, 0.2,
                            0.001, 0.02,
                            0.1])
@@ -190,14 +190,13 @@ class DatasetOptimizer:
     def best1(self):
         error, id, x, errors = self.best()
         energies, radii, r0, projectors = self.parameters(x)
-        print('ERROR:', self.symbol, error)
-        print('ERRORS:', self.symbol, errors)
-        print('PARAMS:', self.symbol, energies, radii, r0, projectors)
-        print(self.symbol, self.rc / 0.53,
-              ''.join('{0:7.2f}'.format(r * 0.53 / self.rc)
-                      for r in radii + [r0]))
         if 0:
-            self.generate(None, 'PBE', projectors, radii, r0, not True, '',
+            with open('parameters.txt', 'w') as fd:
+                print(projectors, ' '.join('{0:.2f}'.format(r)
+                                           for r in radii + [r0]),
+                      file=fd)
+        if 1:
+            self.generate(None, 'PBE', projectors, radii, r0, True, '',
                           logderivs=False)
         
     def generate(self, fd, xc, projectors, radii, r0,
@@ -243,7 +242,7 @@ class DatasetOptimizer:
             
         try:
             errors = self.test(n, fd, projectors, radii, r0)
-        except (ConvergenceError, DatasetGenerationError):
+        except Exception:  # (ConvergenceError, DatasetGenerationError):
             traceback.print_exc(file=fd)
             errors = [np.inf] * 10
             
@@ -395,8 +394,8 @@ if __name__ == '__main__':
     if opts.run:
         symbol = args[0]
         if os.path.isdir(symbol):
-            do = DatasetOptimizer(symbol)
             os.chdir(symbol)
+            do = DatasetOptimizer(symbol)
         else:
             os.mkdir(symbol)
             os.chdir(symbol)
@@ -411,6 +410,7 @@ if __name__ == '__main__':
             args.append(symbol)
             os.chdir('..')
         for symbol in args:
+            print(symbol)
             os.chdir(symbol)
             do = DatasetOptimizer(symbol)
             if opts.summary:
