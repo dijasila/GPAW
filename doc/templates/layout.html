@@ -34,7 +34,7 @@
         {%- endfor %}
 
         {%- block rootrellink %}
-        <li><a href="{{ pathto('index') }}"><img class="logo" src="{{ pathto('_static/' + logo, 1) }}" alt="GPAW logo"/></a></li>
+        <li><a href="{{ pathto('index') }}"><img class="logo" src="{{ pathto('static/' + logo, 1) }}" alt="GPAW logo"/></a></li>
         {%- endblock %}
 
         <!-- <li> {{ reldelim1 }} <a href="{{ pathto('download') }}">Download</a>{{ reldelim1 }}</li> -->
@@ -154,8 +154,8 @@
     <link rel="alternate" type="{{ type|e(true) }}" title="{{ title|e(true) }}" href="{{ link|e(true) }}" />
     {%- endfor %}
     {%- else %}
-    <link rel="stylesheet" href="{{ pathto('_static/' + style, 1) }}" type="text/css" />
-    <link rel="stylesheet" href="{{ pathto('_static/pygments.css', 1) }}" type="text/css" />
+    <link rel="stylesheet" href="{{ pathto('static/' + style, 1) }}" type="text/css" />
+    <link rel="stylesheet" href="{{ pathto('static/pygments.css', 1) }}" type="text/css" />
     {%- endif %}
     {%- if builder != 'htmlhelp' %}
     <script type="text/javascript">
@@ -169,14 +169,14 @@
     {%- for scriptfile in script_files %}
     <script type="text/javascript" src="{{ pathto(scriptfile, 1) }}"></script>
     {%- endfor %}
-    <script type="text/javascript" src="{{ pathto('_static/mathconf.js', 1) }}"></script>
+    <script type="text/javascript" src="{{ pathto('static/mathconf.js', 1) }}"></script>
     {%- if use_opensearch %}
     <link rel="search" type="application/opensearchdescription+xml"
           title="Search within {{ docstitle }}"
-          href="{{ pathto('_static/opensearch.xml', 1) }}"/>
+          href="{{ pathto('static/opensearch.xml', 1) }}"/>
     {%- endif %}
     {%- if favicon %}
-    <link rel="shortcut icon" href="{{ pathto('_static/' + favicon, 1) }}"/>
+    <link rel="shortcut icon" href="{{ pathto('static/' + favicon, 1) }}"/>
     {%- endif %}
     {%- endif %}
 {%- block rellinks %}

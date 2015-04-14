@@ -66,11 +66,10 @@ to become the next release.
 Code Overview
 =============
 
-Keep this picture under your pillow:
-
+Keep this :download:`picture <bigpicture.svg>` under your pillow:
 
 .. image:: bigpicture.png
-   :target: ../bigpicture.svg
+   :target: ../_downloads/bigpicture.svg
 
 The developer guide provides an overview of the PAW quantities and how
 the corresponding objects are defined in the code:
@@ -99,8 +98,8 @@ gpaw-logo.odg_, gpaw-logo.svg_
 
 .. _odg: http://www.openoffice.org/product/draw.html
 .. _svg: http://en.wikipedia.org/wiki/Scalable_Vector_Graphics
-.. _gpaw-logo.odg: ../_static/gpaw-logo.odg
-.. _gpaw-logo.svg: ../_static/gpaw-logo.svg
+.. _gpaw-logo.odg: ../static/gpaw-logo.odg
+.. _gpaw-logo.svg: ../static/gpaw-logo.svg
 
 
 Statistics

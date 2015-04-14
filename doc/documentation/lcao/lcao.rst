@@ -53,8 +53,8 @@ basis of the atomic orbitals.
 
 Some detailed information can be found in the master theses `1`_ and `2`_.  
 
-.. _1: ../../_static/askhl_master.pdf
-.. _2: ../../_static/marco_master.pdf
+.. _1: ../../static/askhl_master.pdf
+.. _2: ../../static/marco_master.pdf
 
 Below we discuss aspects of grounds-state LCAO calculations.
 For time-propagation TDDFT with LCAO, please see

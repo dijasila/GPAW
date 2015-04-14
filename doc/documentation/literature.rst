@@ -49,14 +49,14 @@ Reports, presentations, and theses using gpaw
 * Slides from a mini symposium during early development stage: `early gpaw`_
 
 .. _paw note: ../paw_note.pdf
-.. _exact exchange: ../_static/rostgaard_master.pdf
-.. _lcao: ../_static/marco_master.pdf
-.. _localized basis sets: ../_static/askhl_master.pdf
-.. _setup optimization: ../_static/askhl_10302_report.pdf
-.. _introduction to PAW slides: ../_static/mortensen_paw.pdf
-.. _gpaw for developers: ../_static/mortensen_gpaw-dev.pdf
-.. _early gpaw: ../_static/mortensen_mini2003talk.pdf
-.. _PAW and GPAW: ../_static/ss14.pdf
+.. _exact exchange: ../static/rostgaard_master.pdf
+.. _lcao: ../static/marco_master.pdf
+.. _localized basis sets: ../static/askhl_master.pdf
+.. _setup optimization: ../static/askhl_10302_report.pdf
+.. _introduction to PAW slides: ../static/mortensen_paw.pdf
+.. _gpaw for developers: ../static/mortensen_gpaw-dev.pdf
+.. _early gpaw: ../static/mortensen_mini2003talk.pdf
+.. _PAW and GPAW: ../static/ss14.pdf
 
 
 .. _paw_papers:
