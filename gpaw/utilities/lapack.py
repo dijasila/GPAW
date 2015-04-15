@@ -59,13 +59,25 @@ def diagonalize_mr3(a, w, z):
         raise RuntimeError('diagonalize_mr3 error: %d' % info)
 
 
-def general_diagonalize(a, w, b):
-    """Diagonalize a generalized symmetric/hermitian matrix.
+def general_diagonalize(a, w, b, iu=None):
+    """Diagonalize a generalized symmetric/hermitian matrix
+    
+    A * x = (lambda) * B * x,
 
+    where `lambda` is the eigenvalue and `A` and `B` are the 
+    matrices corresponding to `a` and `b`, respectively.
+
+    If `iu` is `None`:
     Uses dsygvd/zhegvd to diagonalize symmetric/hermitian matrix
     `a`. The eigenvectors are returned in the rows of `a`, and the
     eigenvalues in `w` in ascending order. Only the lower triangle of
-    `a` is considered."""
+    `a` is considered.
+
+    If `iu` is not `None`:
+    Uses dsygvx/zhegvx to find the eigenvalues of 1 through `iu`.
+    Stores the eigenvectors in `z` and the eigenvalues in `w` in
+    ascending order.
+    """
 
     assert a.flags.contiguous
     assert w.flags.contiguous
@@ -78,8 +90,18 @@ def general_diagonalize(a, w, b):
     assert b.dtype == a.dtype
     assert b.shape == a.shape
 
+    if iu is not None:
+        z = np.zeros((n, n), dtype=a.dtype)
+        assert z.flags.contiguous
+
     w[:1] = 42
-    info = _gpaw.general_diagonalize(a, w, b)
+
+    if iu is None:
+        info = _gpaw.general_diagonalize(a, w, b)
+    else:
+        info = _gpaw.general_diagonalize(a, w, b, z, iu)
+        a[:] = z
+
     if info != 0 or n > 0 and w[0] == 42:
         raise RuntimeError('general_diagonalize error: %d' % info)
 

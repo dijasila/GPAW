@@ -1,10 +1,12 @@
 from __future__ import print_function
 import sys
 
-from ase import Atoms
+from ase.utils import devnull
+
 from gpaw import GPAW
 from gpaw import KohnShamConvergenceError
-from gpaw.utilities import devnull, compiled_with_sl
+from gpaw.utilities import compiled_with_sl
+from gpaw.mpi import world
 
 from ase.structure import molecule
 
@@ -95,7 +97,7 @@ run()
 # state-parallelization = 2,
 # domain-decomposition = (1, 2, 1)
 parallel['band'] = 2
-parallel['domain'] = (1, 2, 1)
+parallel['domain'] = (1, 2, world.size // 4)
 run()
 
 if compiled_with_sl():

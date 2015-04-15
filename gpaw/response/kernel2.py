@@ -12,6 +12,38 @@ from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.mpi import world, rank, size
 from ase.dft.kpoints import monkhorst_pack
 
+
+def truncated_coulomb(pd, q0=None):
+    """ Simple truncation of Coulomb kernel along z
+    Rozzi, C., Varsano, D., Marini, A., Gross, E., & Rubio, A. (2006).
+    Exact Coulomb cutoff technique for supercell calculations.
+    Physical Review B, 73(20), 205119. doi:10.1103/PhysRevB.73.205119
+    """
+
+    qG = pd.get_reciprocal_vectors(add_q=True)
+    if pd.kd.gamma:  # Set small finite q to handle divergence
+        if q0 is None:
+            q0 = 0.0000001
+        qG += [q0, 0, 0]
+    nG = len(qG)
+    L = pd.gd.cell_cv[2, 2]
+    R = L / 2.  # Truncation length is half of unit cell
+    qG_par = ((qG[:, 0])**2 + (qG[:, 1]**2))**0.5
+    qG_z = qG[:, 2]
+    
+    K_G = 4 * np.pi / (qG**2).sum(axis=1)
+
+    # K_G *= 1. + np.exp(-qG_par * R) * (qG_z / qG_par * np.sin(qG_z * R)\
+    #                                     - np.cos(qG_z * R))
+    # sin(qG_z * R) = 0 when R = L/2
+
+    K_G *= 1. - np.exp(-qG_par * R) * np.cos(qG_z * R)
+    
+    K_G **= 0.5
+
+    return K_G.astype(complex)
+
+
 def calculate_Kxc(pd, nt_sG, R_av, setups, D_asp, functional='ALDA',
                   density_cut=None):
     """ALDA kernel"""

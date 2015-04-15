@@ -1,11 +1,9 @@
-"""creates: bigpicture.svg bigpicture.png"""
+# creates: bigpicture.svg, bigpicture.png
 
 import os
 from math import pi, cos, sin
 
 import numpy as np
-import matplotlib
-#matplotlib.use('Agg')
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 
@@ -82,7 +80,6 @@ class MPL:
         self.fig.canvas.mpl_connect('draw_event', self.on_draw)
         plt.savefig('bigpicture.png', dpi=50)
         plt.savefig('bigpicture.svg')
-        os.system('cp bigpicture.svg ../_build')
 
     def on_draw(self, event):
         for b in self.boxes:
@@ -115,6 +112,7 @@ class MPL:
 
 boxes = []
 
+
 def box(*args, **kwargs):
     b = Box(*args, **kwargs)
     boxes.append(b)
@@ -124,14 +122,14 @@ atoms = box('Atoms', [''], ['positions, numbers, cell, pbc'],
             color='white')
 paw = box('PAW', [], [], 'green')
 scf = box('SCFLoop', [])
-density = box('Density', 
+density = box('Density',
               [r'$\tilde{n}_\sigma = \sum_{\mathbf{k}n}' +
                r'|\tilde{\psi}_{\sigma\mathbf{k}n}|^2' +
                r'+\frac{1}{2}\sum_a \tilde{n}_c^a$',
                r'$\tilde{\rho}(\mathbf{r}) = ' +
                r'\sum_\sigma\tilde{n}_\sigma + \sum_{aL}Q_L^a \hat{g}_L^a$'],
               ['nspins, nt_sG, nt_sg,', 'rhot_g, Q_aL, D_asp'])
-mixer = box('Mixer')#, color='blue')
+mixer = box('Mixer')
 hamiltonian = box('Hamiltonian',
                   [r'$-\frac{1}{2}\nabla^2 + \tilde{v} + ' +
                    r'\sum_a \sum_{i_1i_2} |\tilde{p}_{i_1}^a \rangle ' +

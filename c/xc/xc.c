@@ -30,37 +30,34 @@ void calc_mgga(void** params, int nspin, int ng,
                double *e_g, double *v_g, double *dedsigma_g, double *dedtau_g);
 
 double pbe_exchange(const xc_parameters* par,
-		    double n, double rs, double a2,
-		    double* dedrs, double* deda2);
-double pbe_correlation(double n, double rs, double zeta, double a2, 
-		       bool gga, bool spinpol,
-		       double* dedrs, double* dedzeta, double* deda2);
+                    double n, double rs, double a2,
+                    double* dedrs, double* deda2);
+double pbe_correlation(double n, double rs, double zeta, double a2,
+                       bool gga, bool spinpol,
+                       double* dedrs, double* dedzeta, double* deda2);
 double pw91_exchange(const xc_parameters* par,
-		     double n, double rs, double a2,
-		     double* dedrs, double* deda2);
-double pw91_correlation(double n, double rs, double zeta, double a2, 
-			bool gga, bool spinpol,
-			double* dedrs, double* dedzeta, double* deda2);
+                     double n, double rs, double a2,
+                     double* dedrs, double* deda2);
+double pw91_correlation(double n, double rs, double zeta, double a2,
+                        bool gga, bool spinpol,
+                        double* dedrs, double* dedzeta, double* deda2);
 double rpbe_exchange(const xc_parameters* par,
-		     double n, double rs, double a2,
-		     double* dedrs, double* deda2);
-double bee1_exchange(const xc_parameters* par,
-		     double n, double rs, double a2,
-		     double* dedrs, double* deda2);
+                     double n, double rs, double a2,
+                     double* dedrs, double* deda2);
 double beefvdw_exchange(const xc_parameters* par,
                         double n, double rs, double a2,
                         double* dedrs, double* deda2);
 
-// 
-typedef struct 
+//
+typedef struct
 {
   PyObject_HEAD
   double (*exchange)(const xc_parameters* par,
-		     double n, double rs, double a2,
-		     double* dedrs, double* deda2);
-  double (*correlation)(double n, double rs, double zeta, double a2, 
-			bool gga, bool spinpol,
-			double* dedrs, double* dedzeta, double* deda2);
+                     double n, double rs, double a2,
+                     double* dedrs, double* deda2);
+  double (*correlation)(double n, double rs, double zeta, double a2,
+                        bool gga, bool spinpol,
+                        double* dedrs, double* dedzeta, double* deda2);
   xc_parameters par;
   // below added by cpo for mgga functionals outside of libxc (TPSS, M06L, etc.)
   void* mgga;
@@ -71,7 +68,7 @@ static void XCFunctional_dealloc(XCFunctionalObject *self)
   PyObject_DEL(self);
 }
 
-static PyObject* 
+static PyObject*
 XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
 {
   PyArrayObject* e_array;
@@ -83,7 +80,7 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
   PyArrayObject* dedtau_array = 0;
 
   if (!PyArg_ParseTuple(args, "OOO|OOOO", &e_array, &n_array, &v_array,
-			&sigma_array, &dedsigma_array, &tau_array, &dedtau_array))
+                        &sigma_array, &dedsigma_array, &tau_array, &dedtau_array))
     return NULL;
 
   int ng = 1;
@@ -201,7 +198,7 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
               exb = self->exchange(par, nb, rsb, 4.0 * sigma2_g[g],
                                    &dexbdrs, &dexbda2);
               double a2 = sigma0_g[g] + 2 * sigma1_g[g] + sigma2_g[g];
-              ec = self->correlation(n, rs, zeta, a2, 1, 1, 
+              ec = self->correlation(n, rs, zeta, a2, 1, 1,
                                      &decdrs, &decdzeta, &decda2);
               dedsigma0_g[g] = 2 * na * dexada2 + n * decda2;
               dedsigma1_g[g] = 2 * n * decda2;
@@ -211,7 +208,7 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
             {
               exa = self->exchange(par, na, rsa, 0.0, &dexadrs, 0);
               exb = self->exchange(par, nb, rsb, 0.0, &dexbdrs, 0);
-              ec = self->correlation(n, rs, zeta, 0.0, 0, 1, 
+              ec = self->correlation(n, rs, zeta, 0.0, 0, 1,
                                      &decdrs, &decdzeta, 0);
             }
           e_g[g] = 0.5 * (na * exa + nb * exb) + n * ec;
@@ -227,7 +224,7 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
 }
 
 static PyMethodDef XCFunctional_Methods[] = {
-    {"calculate", 
+    {"calculate",
      (PyCFunction)XCFunctional_calculate, METH_VARARGS, 0},
     {NULL, NULL, 0, NULL}
 };
@@ -256,7 +253,7 @@ PyObject * NewXCFunctionalObject(PyObject *obj, PyObject *args)
     return NULL;
 
   XCFunctionalObject *self = PyObject_NEW(XCFunctionalObject,
-					  &XCFunctionalType);
+                                          &XCFunctionalType);
   if (self == NULL)
     return NULL;
 
@@ -277,7 +274,7 @@ PyObject * NewXCFunctionalObject(PyObject *obj, PyObject *args)
   }
   else if (code == 1) {
     // revPBE
-    self->par.kappa = 1.245; 
+    self->par.kappa = 1.245;
   }
   else if (code == 2) {
     // RPBE
@@ -292,20 +289,10 @@ PyObject * NewXCFunctionalObject(PyObject *obj, PyObject *args)
     const int nspin = 1; // a guess, perhaps corrected later in calc_mgga
     init_mgga(&self->mgga,code,nspin);
   }
-  else if (code == 17) {
+  else {
+    assert (code == 17);
     // BEEF-vdW
     self->exchange = beefvdw_exchange;
-    int n = PyArray_DIM(parameters, 0);
-    assert(n <= 110);
-    double* p = (double*)PyArray_BYTES(parameters);
-    for (int i = 0; i < n; i++)
-      self->par.parameters[i] = p[i];
-    self->par.nparameters = n / 2;
-  }
-  else {
-    // BEE1
-    assert(code == 18);
-    self->exchange = bee1_exchange;
     int n = PyArray_DIM(parameters, 0);
     assert(n <= 110);
     double* p = (double*)PyArray_BYTES(parameters);

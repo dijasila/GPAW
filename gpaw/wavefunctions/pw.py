@@ -2,9 +2,11 @@
 from __future__ import print_function, division
 import functools
 from math import pi
+from math import factorial as fac
 
 import numpy as np
 import ase.units as units
+from ase.utils.timing import timer
 
 import gpaw.fftw as fftw
 from gpaw.band_descriptor import BandDescriptor
@@ -17,10 +19,9 @@ from gpaw.hamiltonian import Hamiltonian
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
-from gpaw.utilities import unpack, _fact as fac
+from gpaw.utilities import unpack
 from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.utilities.timing import timer
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 
 
@@ -714,13 +715,18 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     @timer('Full diag')
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
-                                     nbands=None, scalapack=None):
+                                     nbands=None, scalapack=None, expert=False):
         assert self.dtype == complex
 
         if nbands is None:
             nbands = self.pd.ngmin // self.bd.comm.size * self.bd.comm.size
         else:
             assert nbands <= self.pd.ngmin
+
+        if expert:
+            iu = nbands
+        else:
+            iu = None
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
 
@@ -730,20 +736,23 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                                     self.pd.ngmax))
         mem = 3 * self.pd.ngmax**2 * 16 / bd.comm.size / 1024**2
         p('Approximate memory usage per core: {0:.3f} MB'.format(mem))
-        if scalapack and bd.comm.size > 1:
+        if bd.comm.size > 1:
             if isinstance(scalapack, (list, tuple)):
                 nprow, npcol, b = scalapack
             else:
-                nprow, npcol, b = 2, bd.comm.size // 2, 64
+                nprow = int(round(bd.comm.size**0.5))
+                while bd.comm.size % nprow != 0:
+                    nprow -= 1
+                npcol = bd.comm.size // nprow
+                b = 64
             p('ScaLapack grid: {0}x{1},'.format(nprow, npcol),
               'block-size:', b)
             bg = BlacsGrid(bd.comm, bd.comm.size, 1)
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
+            scalapack = True
         else:
             nprow = npcol = 1
             scalapack = False
-
-        assert bd.comm.size == nprow * npcol
 
         self.pt.set_positions(atoms.get_scaled_positions())
         self.kpt_u[0].P_ani = None
@@ -776,7 +785,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
             eps_n = np.empty(npw)
 
             with self.timer('Diagonalize'):
-                md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
+                if not scalapack:
+                    md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n,
+                                               iu=iu)
+                else:
+                    md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
             del H_GG, S_GG
 
             kpt.eps_n = eps_n[myslice].copy()
@@ -871,7 +884,7 @@ def ft(spline):
     f_q = fbt(l, f_r, r_r, k_q)
     f_q[1:] /= k_q[1:]**(2 * l + 1)
     f_q[0] = (np.dot(f_r, r_r**(2 + 2 * l)) *
-              dr * 2**l * fac[l] / fac[2 * l + 1])
+              dr * 2**l * fac(l) / fac(2 * l + 1))
 
     return Spline(l, k_q[-1], f_q)
 
@@ -889,44 +902,15 @@ class PWLFC(BaseLFC):
             all G-vectors in one big block."""
 
         self.pd = pd
-
-        self.lf_aj = []
-        cache = {}
-        lmax = 0
-
-        self.nbytes = 0
-
-        # Fourier transform radial functions:
-        for a, spline_j in enumerate(spline_aj):
-            self.lf_aj.append([])
-            for spline in spline_j:
-                l = spline.get_angular_momentum_number()
-                if spline not in cache:
-                    f = ft(spline)
-                    f_qG = []
-                    for G2_G in self.pd.G2_qG:
-                        G_G = G2_G**0.5
-                        f_qG.append(f.map(G_G))
-                        self.nbytes += G_G.nbytes
-                    cache[spline] = f_qG
-                else:
-                    f_qG = cache[spline]
-                self.lf_aj[a].append((l, f_qG))
-                lmax = max(lmax, l)
-
         self.spline_aj = spline_aj
 
         self.dtype = pd.dtype
 
-        # Spherical harmonics:
+        self.initialized = False
+        
+        # These will be filled in later:
+        self.lf_aj = []
         self.Y_qLG = []
-        for q, K_v in enumerate(self.pd.K_qv):
-            G_Gv = pd.get_reciprocal_vectors(q=q)
-            Y_LG = np.empty(((lmax + 1)**2, len(G_Gv)))
-            for L in range((lmax + 1)**2):
-                Y_LG[L] = Y(L, *G_Gv.T)
-            self.Y_qLG.append(Y_LG)
-            self.nbytes += Y_LG.nbytes
 
         if blocksize is not None:
             if pd.ngmax <= blocksize:
@@ -941,8 +925,51 @@ class PWLFC(BaseLFC):
         self.pos_av = None
         self.nI = None
 
+    def initialize(self):
+        if self.initialized:
+            return
+            
+        cache = {}
+        lmax = -1
+
+        # Fourier transform radial functions:
+        for a, spline_j in enumerate(self.spline_aj):
+            self.lf_aj.append([])
+            for spline in spline_j:
+                l = spline.get_angular_momentum_number()
+                if spline not in cache:
+                    f = ft(spline)
+                    f_qG = []
+                    for G2_G in self.pd.G2_qG:
+                        G_G = G2_G**0.5
+                        f_qG.append(f.map(G_G))
+                    cache[spline] = f_qG
+                else:
+                    f_qG = cache[spline]
+                self.lf_aj[a].append((l, f_qG))
+                lmax = max(lmax, l)
+
+        # Spherical harmonics:
+        for q, K_v in enumerate(self.pd.K_qv):
+            G_Gv = self.pd.get_reciprocal_vectors(q=q)
+            Y_LG = np.empty(((lmax + 1)**2, len(G_Gv)))
+            for L in range((lmax + 1)**2):
+                Y_LG[L] = Y(L, *G_Gv.T)
+            self.Y_qLG.append(Y_LG)
+            
+        self.initialized = True
+
     def estimate_memory(self, mem):
-        mem.subnode('Arrays', self.nbytes)
+        splines = set()
+        lmax = -1
+        for spline_j in self.spline_aj:
+            for spline in spline_j:
+                splines.add(spline)
+                l = spline.get_angular_momentum_number()
+                lmax = max(lmax, l)
+        nbytes = ((len(splines) + (lmax + 1)**2) *
+                  sum(G2_G.nbytes for G2_G in self.pd.G2_qG))
+        mem.subnode('Arrays', nbytes)
 
     def get_function_count(self, a):
         return sum(2 * l + 1 for l, f_qG in self.lf_aj[a])
@@ -961,6 +988,7 @@ class PWLFC(BaseLFC):
                 j += 1
 
     def set_positions(self, spos_ac):
+        self.initialize()
         kd = self.pd.kd
         if kd is None or kd.gamma:
             self.eikR_qa = np.ones((1, len(spos_ac)))
@@ -1162,7 +1190,7 @@ class PWLFC(BaseLFC):
             if G1 == 0:
                 f_IG[:, 0] *= 0.5
             f_IG = f_IG.view(float)
-            a_xG = a_xG.view(float)
+            a_xG = a_xG.copy().view(float)
 
         gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
 
@@ -1204,8 +1232,8 @@ class ReciprocalSpaceDensity(Density):
 
         self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3)
 
-    def set_positions(self, spos_ac, rank_a=None):
-        Density.set_positions(self, spos_ac, rank_a)
+    def set_positions(self, spos_ac, atom_partition):
+        Density.set_positions(self, spos_ac, atom_partition)
         self.nct_q = self.pd2.zeros()
         self.nct.add(self.nct_q, 1.0 / self.nspins)
         self.nct_G = self.pd2.ifft(self.nct_q)
@@ -1291,8 +1319,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         fd.write('Interpolation: FFT\n')
         fd.write('Poisson solver: FFT\n')
 
-    def set_positions(self, spos_ac, rank_a=None):
-        Hamiltonian.set_positions(self, spos_ac, rank_a)
+    def set_positions(self, spos_ac, atom_partition):
+        Hamiltonian.set_positions(self, spos_ac, atom_partition)
         self.vbar_Q = self.pd2.zeros()
         self.vbar.add(self.vbar_Q)
 
@@ -1300,8 +1328,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.ebar = self.pd2.integrate(self.vbar_Q, density.nt_sQ.sum(0))
 
         self.timer.start('Poisson')
-        # npoisson is the number of iterations:
-        #self.npoisson = 0
         self.vHt_q = 4 * pi * density.rhot_q
         self.vHt_q[1:] /= self.pd3.G2_qG[0][1:]
         self.epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)

@@ -46,8 +46,3 @@ plt.ylabel('Dipole strength [1/eV]', fontsize=12)
 plt.xlim((0, 5.0))
 plt.ylim((-1, 22.5))
 plt.savefig('hybrid.png')
-
-import os
-os.system('cp qsfdtd_vs_mie.png ../../_build')
-os.system('cp hybrid.png ../../_build')
-

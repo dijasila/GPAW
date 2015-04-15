@@ -7,6 +7,7 @@ import sys
 
 import numpy as np
 from ase.units import Hartree
+from ase.utils.timing import Timer
 
 import _gpaw
 import gpaw.mpi as mpi
@@ -21,7 +22,7 @@ from gpaw.utilities import packed_index
 from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
 from gpaw.xc.hybridk import HybridXC
-from gpaw.utilities.timing import Timer, nulltimer
+from gpaw.utilities.timing import nulltimer
 from gpaw.lrtddft.spectrum import spectrum
 from gpaw.wavefunctions.fd import FDWaveFunctions
 
@@ -109,7 +110,7 @@ class LrTDDFT(ExcitationList):
             'nspins': None,
             'eps': 0.001,
             'istart': 0,
-            'jend': None,
+            'jend': sys.maxsize,
             'energy_range': None,
             'xc': 'GS',
             'derivative_level': 1,

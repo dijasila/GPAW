@@ -4,9 +4,12 @@ from time import time, ctime
 import numpy as np
 from math import sqrt, pi
 from datetime import timedelta
+
 from ase.units import Hartree, Bohr
+from ase.utils import devnull
+
 from gpaw import GPAW, extra_parameters
-from gpaw.utilities import unpack, devnull
+from gpaw.utilities import unpack
 from gpaw.utilities.blas import gemmdot, gemv
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.lfc import LocalizedFunctionsCollection as LFC

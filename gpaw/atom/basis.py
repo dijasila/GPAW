@@ -5,9 +5,10 @@ from StringIO import StringIO
 
 import numpy as np
 from ase.units import Hartree
+from ase.utils import devnull
 
 from gpaw.version import version
-from gpaw.utilities import devnull, divrl
+from gpaw.utilities import divrl
 from gpaw.atom.generator import Generator
 from gpaw.atom.all_electron import AllElectron
 from gpaw.atom.configurations import parameters

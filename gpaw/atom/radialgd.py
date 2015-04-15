@@ -1,11 +1,10 @@
 from __future__ import division
-
-from math import pi
+from math import pi, factorial as fac
 
 import numpy as np
 
 from gpaw.spline import Spline
-from gpaw.utilities import hartree, divrl, _fact as fac
+from gpaw.utilities import hartree, divrl
 
 
 def radial_grid_descriptor(eq, **kwargs):
@@ -48,7 +47,7 @@ def fsbt(l, f_g, r_g, G_k):
     F_g = f_g * r_g
     for n in range(l + 1):
         f_k += (r_g[1] * (1j)**(l + 1 - n) *
-                fac[l + n] / fac[l - n] / fac[n] / 2**n *
+                fac(l + n) / fac(l - n) / fac(n) / 2**n *
                 np.fft.rfft(F_g, N)).real * G_k**(l - n)
         F_g[1:] /= r_g[1:]
 
@@ -168,7 +167,7 @@ class RadialGridDescriptor:
         r2_x = r_x**2
         m_x = np.exp(-alpha * r2_x)
         for n in range(2):
-            m_x -= (alpha * (rcut**2 - r2_x))**n * (mcut / fac[n])
+            m_x -= (alpha * (rcut**2 - r2_x))**n * (mcut / fac(n))
         xcut = int(np.ceil(rcut / r_x[1]))
         m_x[xcut:] = 0.0
 
@@ -233,7 +232,7 @@ class RadialGridDescriptor:
         
         Same as pseudize() with also this constraint::
         
-            /        2  /        2
+            /  _     2  /  _     2
             | dr b(r) = | dr a(r)
             /           /
         """
@@ -316,7 +315,7 @@ class RadialGridDescriptor:
                               np.dot(C_dg, a_g[gc - 3:gc + 4]))
         b_g = a_g.copy()
         b_g[:gc + 2] = np.dot(c_p, j_pg[:, :gc + 2])
-        return b_g, np.dot(c_p, q_p**l) * 2**l * fac[l] / fac[2 * l + 1]
+        return b_g, np.dot(c_p, q_p**l) * 2**l * fac(l) / fac(2 * l + 1)
 
     def plot(self, a_g, n=0, rc=4.0, show=False):
         import matplotlib.pyplot as plt

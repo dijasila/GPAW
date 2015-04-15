@@ -9,6 +9,7 @@ from time import ctime
 import numpy as np
 from ase.units import Hartree
 from ase.utils import devnull
+from ase.utils.timing import timer, Timer
 from scipy.special.orthogonal import p_roots
 
 import gpaw.mpi as mpi
@@ -16,7 +17,6 @@ from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.utilities.timing import timer, Timer
 from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 
 
@@ -39,7 +39,7 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
                          nblocks=blocks,
                          wstc=True,
                          txt=name + '-rpa.txt')
-    rpa.calculate(ecut=ecut * 0.8**np.arange(extrapolate))
+    rpa.calculate(ecut=ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3))
 
     
 class RPACorrelation:
@@ -154,13 +154,8 @@ class RPACorrelation:
         p = functools.partial(print, file=self.fd)
 
         if isinstance(ecut, (float, int)):
-            ecut_i = [ecut]
-            for i in range(5):
-                ecut_i.append(ecut_i[-1] * 0.8)
-            ecut_i = np.sort(ecut_i)
-        else:
-            ecut_i = np.sort(ecut)
-        self.ecut_i = np.asarray(ecut_i) / Hartree
+            ecut = ecut * (1 + 0.5 * np.arange(6))**(-2 / 3)
+        self.ecut_i = np.asarray(np.sort(ecut)) / Hartree
         ecutmax = max(self.ecut_i)
 
         if nbands is None:
@@ -168,8 +163,8 @@ class RPACorrelation:
         else:
             p('Response function bands : %s' % nbands)
         p('Plane wave cutoffs (eV) :', end='')
-        for ecut in ecut_i:
-            p('%5d' % ecut, end='')
+        for e in self.ecut_i:
+            p(' {0:.3f}'.format(e * Hartree), end='')
         p()
         p()
 
@@ -236,8 +231,6 @@ class RPACorrelation:
                 chi0_swxvG = None
                 chi0_swvv = None
 
-            Q_aGii = chi0.initialize_paw_corrections(pd)
-
             # First not completely filled band:
             m1 = chi0.nocc1
             p('# %s  -  %s' % (len(self.energy_qi), ctime().split()[-2]))
@@ -258,7 +251,8 @@ class RPACorrelation:
 
                 energy = self.calculate_q(chi0, pd,
                                           chi0_swGG, chi0_swxvG, chi0_swvv,
-                                          Q_aGii, m1, m2, cut_G, A2_x)
+                                          m1, m2, cut_G, A2_x)
+
                 energy_i.append(energy)
                 m1 = m2
 
@@ -293,13 +287,13 @@ class RPACorrelation:
 
         self.timer.stop('RPA')
         self.timer.write(self.fd)
+        self.fd.flush()
         
         return e_i * Hartree
 
     @timer('chi0(q)')
-    def calculate_q(self, chi0, pd,
-                    chi0_swGG, chi0_swxvG, chi0_swvv, Q_aGii, m1, m2, cut_G,
-                    A2_x):
+    def calculate_q(self, chi0, pd, chi0_swGG, chi0_swxvG, chi0_swvv,
+                    m1, m2, cut_G, A2_x):
         chi0_wGG = chi0_swGG[0]
         if chi0_swxvG is not None:
             chi0_wxvG = chi0_swxvG[0]
@@ -308,7 +302,7 @@ class RPACorrelation:
             chi0_wxvG = None
             chi0_wvv = None
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv,
-                        Q_aGii, m1, m2, [0, 1])
+                        m1, m2, [0, 1])
 
         print('E_c(q) = ', end='', file=self.fd)
 

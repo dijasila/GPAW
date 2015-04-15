@@ -55,6 +55,7 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 #define   pztrtri_ pztrtri
 
 #define   pzgesv_ pzgesv
+#define   pdgesv_ pdgesv
 
 #define   pdsyevd_  pdsyevd
 #define   pzheevd_  pzheevd
@@ -140,6 +141,11 @@ void pzpotrf_(char* uplo, int* n, void* a,
 void pzgesv_(int* n, int* nrhs, void* a,
              int* ia, int* ja, int* desca, int* ipiv,
              void* b, int* ib, int* jb, int* descb, int* info);
+
+void pdgesv_(int *n, int *nrhs, void *a, 
+             int *ia, int *ja, int* desca, int *ipiv,
+             void* b, int* ib, int* jb, int* descb, int* info);
+
 
 void pdtrtri_(char* uplo, char* diag, int* n, double* a,
               int *ia, int* ja, int* desca, int* info);
@@ -1727,7 +1733,7 @@ PyObject* scalapack_inverse(PyObject *self, PyObject *args)
   return returnvalue;
 }
 
-
+/*
 PyObject* scalapack_solve(PyObject *self, PyObject *args)
 {
   // Solves equation Ax = B, where A is a general matrix
@@ -1764,6 +1770,80 @@ PyObject* scalapack_solve(PyObject *self, PyObject *args)
     {
        pzgesv_(&n, &nrhs,(void*)COMPLEXP(a), &one, &one, INTP(desca), pivot,
                (void*)COMPLEXP(b), &one, &one, INTP(descb), &info);
+    }
+  free(pivot);
+  PyObject* returnvalue = Py_BuildValue("i", info);
+  return returnvalue;
+}
+*/
+
+PyObject* scalapack_solve(PyObject *self, PyObject *args) {
+  // Solves equation Ax = B, where A is a general matrix
+  PyArrayObject* a; // Matrix
+  PyArrayObject* desca; // Matrix description vector
+  PyArrayObject* b; // Matrix
+  PyArrayObject* descb; // Matrix description vector
+  char uplo;
+  int info;
+  int one = 1;
+  if (!PyArg_ParseTuple(args, "OOOO", &a, &desca, &b, &descb))
+    return NULL;
+
+  int a_ConTxt = INTP(desca)[1];
+  int a_m      = INTP(desca)[2];
+  int a_n      = INTP(desca)[3];
+  int a_mb     = INTP(desca)[4];
+  int a_nb     = INTP(desca)[5];
+  // Only square matrices
+  assert (a_m == a_n);
+
+  int b_ConTxt = INTP(descb)[1];
+  int b_m      = INTP(descb)[2];
+  int b_n      = INTP(descb)[3];
+  // Equation valid
+  assert (a_n == b_m);
+
+  int n = a_n;
+  int nrhs = b_n;
+
+  int nprow, npcol, myrow, mycol, locM;
+
+  Cblacs_gridinfo_(a_ConTxt, &nprow, &npcol, &myrow, &mycol);
+  // LOCr( M ) <= ceil( ceil(M/MB_A)/NPROW )*MB_A
+  locM = (((a_m/a_mb) + 1)/nprow + 1) * a_mb;
+
+  /*  
+   *  IPIV    (local output) INTEGER array, dimension ( LOCr(M_A)+MB_A )
+   *          This array contains the pivoting information.
+   *          IPIV(i) -> The global row local row i was swapped with.
+   *          This array is tied to the distributed matrix A.
+   
+   *  An upper bound for these quantities may be computed by:
+   *          LOCr( M ) <= ceil( ceil(M/MB_A)/NPROW )*MB_A
+   
+   *  M_A    (global) DESCA( M_ )    The number of rows in the global
+   *                                 array A.
+   
+   *  MB_A   (global) DESCA( MB_ )   The blocking factor used to distribute
+   *                                 the rows of the array.
+   
+   *  NPROW   (global input) INTEGER
+   *          NPROW specifies the number of process rows in the grid
+   *          to be created.
+   */
+
+  int* pivot = GPAW_MALLOC(int, locM + a_mb); 
+
+  //if (a->descr->type_num == PyArray_DOUBLE)
+  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
+    {
+      pdgesv_(&n, &nrhs,(double*)DOUBLEP(a), &one, &one, INTP(desca), pivot,
+              (double*)DOUBLEP(b), &one, &one, INTP(descb), &info);
+    }
+  else
+    {
+      pzgesv_(&n, &nrhs,(void*)COMPLEXP(a), &one, &one, INTP(desca), pivot,
+              (void*)COMPLEXP(b), &one, &one, INTP(descb), &info);
     }
   free(pivot);
   PyObject* returnvalue = Py_BuildValue("i", info);

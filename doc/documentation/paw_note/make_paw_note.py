@@ -1,10 +1,10 @@
-# creates: Pt.png paw_note.pdf
+# creates: paw_note.pdf
 
 import os
-import numpy as np
+
 import matplotlib
-#matplotlib.use('Agg')
-import pylab as plt
+import matplotlib.pyplot as plt
+
 from gpaw.atom.all_electron import AllElectron
 
 ae = AllElectron('Pt')
@@ -31,7 +31,6 @@ plt.xlabel(r'$r$ [Bohr]')
 plt.text(rcut + 0.05, lim[2] + 0.05, '$r_c$', ha='left', va='bottom')
 plt.text(0.6, 2, '[Pt] = [Xe]4f$^{14}$5d$^9$6s$^1$')
 plt.savefig('Pt.png', dpi=80)
-#plt.show()
 
 
 error = 0
@@ -39,6 +38,4 @@ error += os.system('pdflatex -interaction=nonstopmode paw_note > /dev/null')
 error += os.system('bibtex paw_note > /dev/null')
 error += os.system('pdflatex -interaction=nonstopmode paw_note > /dev/null')
 error += os.system('pdflatex -interaction=nonstopmode paw_note > /dev/null')
-error += os.system('cp paw_note.pdf ../../_build')
-
-#assert error == 0
+error += os.system('cp paw_note.pdf ..')

@@ -6,15 +6,17 @@ evaluation of exact exchange with k-point sampling."""
 from __future__ import print_function
 from math import pi, sqrt
 import sys
+from time import ctime
 import numpy as np
+
 from ase import Atoms
 from ase.units import Ha
-from time import ctime
+from ase.utils import devnull
 
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCNull
 from gpaw.xc.functional import XCFunctional
-from gpaw.utilities import pack, unpack2, packed_index, devnull
+from gpaw.utilities import pack, unpack2, packed_index
 from gpaw.lfc import LFC
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor

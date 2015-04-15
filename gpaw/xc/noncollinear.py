@@ -317,8 +317,8 @@ class NonCollinearLCAOWaveFunctions(LCAOWaveFunctions):
     collinear = False
     ncomp = 2
 
-    def set_positions(self, spos_ac):
-        LCAOWaveFunctions.set_positions(self, spos_ac)
+    def set_positions(self, spos_ac, atom_partition):
+        LCAOWaveFunctions.set_positions(self, spos_ac, atom_partition)
         for kpt in self.kpt_u:
             kpt.C_nM = None
             kpt.C_nsM = np.empty((self.bd.mynbands, 2, self.ksl.nao), complex)

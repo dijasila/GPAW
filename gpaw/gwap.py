@@ -15,7 +15,8 @@ functions = {'xc': 'gpaw.xc.xc',
              'test': 'gpaw.test.test.main',
              'atom': 'gpaw.atom.aeatom.main',
              'diag': 'gpaw.fulldiag.fulldiag',
-             'dataset': 'gpaw.atom.generator2.main'}
+             'dataset': 'gpaw.atom.generator2.main',
+             'symmetry': 'gpaw.symmetry.analyze_atoms'}
 
 
 def main():
@@ -30,7 +31,7 @@ def main():
     add = parser1.add_option
     add('-v', '--verbose', action='store_true')
     add('-P', '--parallel', type=int, metavar='N', default=1,
-        help="Run on N CPU's.")
+        help="Run on N CPUs.")
     opts1, args1 = parser1.parse_args()
 
     if opts1.parallel > 1:
@@ -41,6 +42,9 @@ def main():
                     'gpaw-python'] + sys.argv
             os.execvp('mpiexec', args)
     
+    if len(args1) == 0:
+        parser1.print_help()
+        raise SystemExit
     command = args1[0]
     modulename, funcname = functions.get(command, command).rsplit('.', 1)
     module = __import__(modulename, globals(), locals(), [funcname])

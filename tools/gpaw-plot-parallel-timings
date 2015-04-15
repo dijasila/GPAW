@@ -25,6 +25,9 @@ p.add_option('--interval', metavar='TIME1:TIME2',
              'after start of calculation.')
 p.add_option('--unit', default='s',
              help='time unit.  s, m or h.  Default: %default.')
+p.add_option('--align', default='SCF-cycle', metavar='TIMER',
+             help='align timings of all processes to first call of '
+             'TIMER[=%default].')
 opts, fnames = p.parse_args()
 
 timeunit = {'s': 1.0, 'm': 60.0, 'h': 3600.0}[opts.unit]
@@ -91,11 +94,11 @@ class EntryCollection:
         tstop = max([entry.t2 for entry in entries])
         
         try:
-            scf_cycle_starttimes = [entry.get_first_occurrence('SCF-cycle').t1
+            scf_cycle_starttimes = [entry.get_first_occurrence(opts.align).t1
                                     for entry in entries]
         except ValueError:
-            print('Warning: No "SCF-cycle" entry found.  Times may not '
-                  'be synchronized so well')
+            print('Warning: No "%s" entry found.  Times may not '
+                  'be synchronized so well' % opts.align)
             scf_cycle_starttimes = [0] * len(entries)
         
         abs_starttimes = [entry.t1 for entry in entries]

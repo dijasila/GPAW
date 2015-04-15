@@ -9,28 +9,14 @@ import ase
 from ase.units import Bohr, Hartree
 from ase.data import chemical_symbols
 from ase.version import version as ase_version
+from ase.utils import devnull
+from ase.parallel import get_txt
 
 import gpaw
 import _gpaw
 from gpaw.version import version
-from gpaw.utilities import devnull
 from gpaw.utilities.memory import maxrss
 from gpaw import dry_run, extra_parameters
-
-
-def get_txt(txt, rank):
-    if hasattr(txt, 'write'):
-        # Note: User-supplied object might write to files from many ranks.
-        return txt
-    elif rank == 0:
-        if txt is None:
-            return devnull
-        elif txt == '-':
-            return sys.stdout
-        else:
-            return open(txt, 'w', 1)
-    else:
-        return devnull
 
 
 class PAWTextOutput:
@@ -340,14 +326,14 @@ class PAWTextOutput:
                 t('Center of Charge: %s' % (dipole / abs(self.density.charge)))
 
         try:
-            c = self.hamiltonian.poisson.corrector.c
+            correction = self.hamiltonian.poisson.corrector.correction
             epsF = self.occupations.fermilevel
         except AttributeError:
             pass
         else:
-            wf_a = -epsF * Hartree - dipole[c]
-            wf_b = -epsF * Hartree + dipole[c]
-            t('Dipole-corrected work function: %f, %f' % (wf_a, wf_b))
+            wf1 = (-epsF + correction) * Hartree
+            wf2 = (-epsF - correction) * Hartree
+            t('Dipole-corrected work function: %f, %f' % (wf1, wf2))
 
         if self.wfs.nspins == 2:
             t()
@@ -498,29 +484,71 @@ def eigenvalue_string(paw, comment=None):
     if not comment:
         comment = ' '
 
-    if len(paw.wfs.kd.ibzk_kc) > 1:
-        # not implemented yet:
-        return ''
+    if len(paw.wfs.kd.ibzk_kc) == 1:
+        s = ''
+        if paw.wfs.nspins == 1:
+            s += comment + 'Band   Eigenvalues  Occupancy\n'
+            eps_n = paw.get_eigenvalues(kpt=0, spin=0)
+            f_n = paw.get_occupation_numbers(kpt=0, spin=0)
+            if paw.wfs.world.rank == 0:
+                for n in range(paw.wfs.bd.nbands):
+                    s += ('%4d   %10.5f  %10.5f\n' % (n, eps_n[n], f_n[n]))
+        else:
+            s += comment + '                 Up                     Down\n'
+            s += comment + \
+            'Band  Eigenvalues  Occupancy  Eigenvalues  Occupancy\n'
+            epsa_n = paw.get_eigenvalues(kpt=0, spin=0, broadcast=False)
+            epsb_n = paw.get_eigenvalues(kpt=0, spin=1, broadcast=False)
+            fa_n = paw.get_occupation_numbers(kpt=0, spin=0, broadcast=False)
+            fb_n = paw.get_occupation_numbers(kpt=0, spin=1, broadcast=False)
+            if paw.wfs.world.rank == 0:
+                for n in range(paw.wfs.bd.nbands):
+                    s += (' %4d  %11.5f  %9.5f  %11.5f  %9.5f\n' %
+                      (n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
+        return s
 
     s = ''
-    if paw.wfs.nspins == 1:
-        s += comment + 'Band   Eigenvalues  Occupancy\n'
-        eps_n = paw.get_eigenvalues(kpt=0, spin=0)
-        f_n = paw.get_occupation_numbers(kpt=0, spin=0)
-        if paw.wfs.world.rank == 0:
-            for n in range(paw.wfs.bd.nbands):
-                s += ('%4d   %10.5f  %10.5f\n' % (n, eps_n[n], f_n[n]))
+    if len(paw.wfs.kd.ibzk_kc) > 10:
+        s += 'Warning: Showing only first 10 kpts\n'
+        print_range = 10
     else:
-        s += comment + '                 Up                     Down\n'
-        s += comment + 'Band  Eigenvalues  Occupancy  Eigenvalues  Occupancy\n'
-        epsa_n = paw.get_eigenvalues(kpt=0, spin=0, broadcast=False)
-        epsb_n = paw.get_eigenvalues(kpt=0, spin=1, broadcast=False)
-        fa_n = paw.get_occupation_numbers(kpt=0, spin=0, broadcast=False)
-        fb_n = paw.get_occupation_numbers(kpt=0, spin=1, broadcast=False)
-        if paw.wfs.world.rank == 0:
-            for n in range(paw.wfs.bd.nbands):
-                s += (' %4d  %11.5f  %9.5f  %11.5f  %9.5f\n' %
-                      (n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
+        s += 'Showing all kpts\n'
+        print_range = len(paw.wfs.kd.ibzk_kc)
+
+    if paw.wfs.nvalence / 2. > 10:
+        m = int(paw.wfs.nvalence / 2. - 10)
+    else:
+        m = 0
+    if paw.wfs.bd.nbands - paw.wfs.nvalence / 2. > 10:
+        j = int(paw.wfs.nvalence / 2. + 10)
+    else:
+        j = int(paw.wfs.bd.nbands)
+
+    if paw.wfs.nspins == 1:
+        s += comment + 'Kpt   Band   Eigenvalues  Occupancy\n'
+        for i in range(print_range):
+            eps_n = paw.get_eigenvalues(kpt=i, spin=0)
+            f_n = paw.get_occupation_numbers(kpt=i, spin=0)
+            if paw.wfs.world.rank == 0:
+                for n in range(m, j):
+                    s += (' %i  %4d   %10.5f  %10.5f\n' %
+                      (i, n, eps_n[n], f_n[n]))
+                s += '\n'
+
+    else:
+        s += comment + '                     Up                     Down\n'
+        s += comment + \
+        'Kpt  Band  Eigenvalues  Occupancy  Eigenvalues  Occupancy\n'
+        for i in range(print_range):
+            epsa_n = paw.get_eigenvalues(kpt=i, spin=0, broadcast=False)
+            epsb_n = paw.get_eigenvalues(kpt=i, spin=1, broadcast=False)
+            fa_n = paw.get_occupation_numbers(kpt=i, spin=0, broadcast=False)
+            fb_n = paw.get_occupation_numbers(kpt=i, spin=1, broadcast=False)
+            if paw.wfs.world.rank == 0:
+                for n in range(m, j):
+                    s += (' %i  %4d  %11.5f  %9.5f  %11.5f  %9.5f\n' %
+                      (i, n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
+                s += '\n'
     return s
 
 

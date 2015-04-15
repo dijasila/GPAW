@@ -7,16 +7,16 @@ from ase.utils import prnt
 from ase.units import Hartree
 from ase.calculators.general import Calculator
 from ase.calculators.test import numeric_force
+from ase.utils.timing import Timer
+from ase.parallel import distribute_cpus
+
 from gpaw import GPAW
 from gpaw.density import RealSpaceDensity
 from gpaw.output import get_txt
 from gpaw import mpi
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.utilities.timing import Timer
 from gpaw.version import version
-
-from ase.parallel import distribute_cpus
 
 
 class FiniteDifferenceCalculator(Calculator):
@@ -346,9 +346,6 @@ class ExcitedStateDensity(RealSpaceDensity):
         self.gsdensity = calc.density
         self.gd = self.gsdensity.gd
         self.nbands = calc.wfs.bd.nbands
-        self.D_asp = {}
-        for a, D_sp in self.gsdensity.D_asp.items():
-            self.D_asp[a] = 1. * D_sp
 
         # obtain weights
         ex = lrtddft[index]
@@ -372,7 +369,14 @@ class ExcitedStateDensity(RealSpaceDensity):
             self, calc.wfs.setups, calc.timer, None, False)
 
         spos_ac = calc.get_atoms().get_scaled_positions() % 1.0
-        self.set_positions(spos_ac, calc.wfs.rank_a)
+        self.set_positions(spos_ac, calc.wfs.atom_partition)
+
+        D_asp = {}
+        for a, D_sp in self.gsdensity.D_asp.items():
+            repeats = self.ns // self.gsdensity.ns
+            # XXX does this work always?
+            D_asp[a] = (1. * D_sp).repeat(repeats, axis=0)
+        self.D_asp = D_asp
 
     def update(self, wfs):
         self.timer.start('Density')

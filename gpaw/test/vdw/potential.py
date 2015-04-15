@@ -1,5 +1,4 @@
 """Test correctness of vdW-DF potential."""
-from __future__ import print_function
 from math import pi
 from gpaw.grid_descriptor import GridDescriptor
 import numpy as np

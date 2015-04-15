@@ -6,11 +6,11 @@ from __future__ import print_function, division
 
 import functools
 
+from fractions import gcd
 import numpy as np
 
 import _gpaw
 import gpaw.mpi as mpi
-from gpaw.utilities import gcd
 
 
 def frac(f, n=2 * 3 * 4 * 5):
@@ -453,3 +453,27 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
                        np.ascontiguousarray(U_scc), tol, bz2bz_ks, ka, kb)
     comm.sum(bz2bz_ks)
     return bz2bz_ks
+
+
+def atoms2symmetry(atoms, id_a=None):
+    """Create symmetry object from atoms object."""
+    if id_a is None:
+        id_a = atoms.get_atomic_numbers()
+    symmetry = Symmetry(id_a, atoms.cell, atoms.pbc,
+                        symmorphic=False,
+                        time_reversal=False)
+    symmetry.analyze(atoms.get_scaled_positions())
+    return symmetry
+
+    
+def analyze_atoms(filename):
+    """Analyse symmetry.
+    
+    filename: str
+        filename containing atomic positions and unit cell."""
+        
+    import sys
+    from ase.io import read
+    atoms = read(filename)
+    symmetry = atoms2symmetry(atoms)
+    symmetry.print_symmetries(sys.stdout)

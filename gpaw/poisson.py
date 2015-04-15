@@ -6,7 +6,6 @@ from math import pi
 import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2
 
-from ase.parallel import parprint
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw import PoissonConvergenceError
@@ -169,25 +168,12 @@ class PoissonSolver:
         elif abs(charge) > maxcharge and self.gd.pbc_c.all():
             # System is charged and periodic. Subtract a homogeneous
             # background charge
-            if self.charged_periodic_correction is None:
-                parprint("""\
-+-----------------------------------------------------+
-| Calculating charged periodic correction using the   |
-| Ewald potential from a lattice of probe charges in  |
-| a homogenous background density                     |
-+-----------------------------------------------------+""")
-                self.charged_periodic_correction = madelung(self.gd.cell_cv)
-                parprint('Potential shift will be ',
-                         self.charged_periodic_correction, 'Ha.')
 
             # Set initial guess for potential
             if zero_initial_phi:
                 phi[:] = 0.0
-            else:
-                phi -= charge * self.charged_periodic_correction
 
             iters = self.solve_neutral(phi, rho - background, eps=eps)
-            phi += charge * self.charged_periodic_correction
             return iters
 
         elif abs(charge) > maxcharge and not self.gd.pbc_c.any():
@@ -235,8 +221,6 @@ class PoissonSolver:
         while self.iterate2(self.step) > eps and niter < maxiter:
             niter += 1
         if niter == maxiter:
-            #charge = np.sum(rho.ravel()) * self.dv
-            #print 'CHARGE, eps:', charge, eps
             msg = 'Poisson solver did not converge in %d iterations!' % maxiter
             raise PoissonConvergenceError(msg)
 
@@ -399,7 +383,6 @@ class FixedBoundaryPoissonSolver(PoissonSolver):
     def initialize(self, b_phi1, b_phi2):
         distribution = np.zeros([self.gd.comm.size], int)
         if self.gd.comm.rank == 0:
-            #d3 = b_phi1.shape[2]
             gd = self.gd
             N_c1 = gd.N_c[:2, np.newaxis]
             i_cq = np.indices(gd.N_c[:2]).reshape((2, -1))

@@ -55,10 +55,13 @@ for mode in modes:
             [ks.get_oscillator_strength()[0] for ks in kss]).sum()
 
         parprint(kss)
+
         # I/O
         kss.write('kss.dat')
         mpi.world.barrier()
         kss = KSSingles('kss.dat')
+        kss1 = KSSingles('kss.dat', jend=1)
+        assert(len(kss1) == 1)
 
     # periodic and non-periodic should be roughly equal
     equal(energy['zero bc'], energy['periodic'], 1.e-2)

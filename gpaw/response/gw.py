@@ -5,12 +5,14 @@ import numpy as np
 from math import pi, sqrt
 from time import time, ctime
 from datetime import timedelta
+
 from ase.parallel import paropen
 from ase.units import Hartree, Bohr
+from ase.utils import devnull
+
 from gpaw import GPAW
 from gpaw.version import version
 from gpaw.mpi import world, rank, size, serial_comm
-from gpaw.utilities import devnull
 from gpaw.utilities.blas import gemmdot
 from gpaw.xc.tools import vxc
 from gpaw.wavefunctions.pw import PWWaveFunctions

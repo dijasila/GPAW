@@ -77,7 +77,7 @@ class Writer:
         self.write(np.asarray(array, self.dtype).tostring())
 
     def write_header(self, name, size):
-        assert name not in self.files.keys()
+        assert name not in self.files.keys(), name
         tarinfo = tarfile.TarInfo(name)
         tarinfo.mtime = self.mtime
         tarinfo.size = size

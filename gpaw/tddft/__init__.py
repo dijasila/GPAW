@@ -75,7 +75,7 @@ class TDDFT(GPAW):
     theory implementation and is the only class which a user has to use.
     """
     
-    def __init__(self, filename, td_potential=None, propagator='SICN', calculate_energy=True, 
+    def __init__(self, filename, td_potential=None, propagator='SICN', calculate_energy=True,
                  propagator_kwargs=None, solver='CSCG', tolerance=1e-8,
                  **kwargs):
         """Create TDDFT-object.
@@ -128,7 +128,7 @@ class TDDFT(GPAW):
         # Prepare for dipole moment file handle
         self.dm_file = None
 
-        # Initialize wavefunctions and density 
+        # Initialize wavefunctions and density
         # (necessary after restarting from file)
         self.set_positions()
 
@@ -247,7 +247,7 @@ class TDDFT(GPAW):
              self.calculate_energy = False
 
 
-    # Electrodynamics requires extra care 
+    # Electrodynamics requires extra care
     def initialize_FDTD(self):
         
         # Sanity check
@@ -263,7 +263,7 @@ class TDDFT(GPAW):
         # times (depending on the used propagator). Using the attached observer one
         # ensures that actual propagation takes place only once. This is because
         # the FDTDPoissonSolver changes the calculation_mode from propagate to
-        # something else when the propagation is finished. 
+        # something else when the propagation is finished.
         self.attach(self.hamiltonian.poisson.set_calculation_mode, 1, 'propagate')
 
 
@@ -307,9 +307,9 @@ class TDDFT(GPAW):
 
         p.update(kwargs)
 
-    def read(self, reader):
+    def read(self, reader, read_projections=True):
         assert reader.has_array('PseudoWaveFunctions')
-        GPAW.read(self, reader)
+        GPAW.read(self, reader, read_projections)
 
     def propagate(self, time_step, iterations, dipole_moment_file=None,
                   restart_file=None, dump_interval=100):
@@ -369,7 +369,7 @@ class TDDFT(GPAW):
             if dipole_moment_file is not None:
                 self.update_dipole_moment_file(norm)
 
-            # print output (energy etc.) every 10th iteration 
+            # print output (energy etc.) every 10th iteration
             if self.niter % 10 == 0:
                 self.get_td_energy()
                 
@@ -377,7 +377,7 @@ class TDDFT(GPAW):
                 if self.rank == 0:
                     iter_text = 'iter: %3d  %02d:%02d:%02d %11.2f' \
                                 '   %13.6f %9.1f %10d'
-                    self.text(iter_text % 
+                    self.text(iter_text %
                               (self.niter, T[3], T[4], T[5],
                                self.time * autime_to_attosec,
                                self.Etot, log(abs(norm)+1e-16)/log(10),
@@ -400,7 +400,7 @@ class TDDFT(GPAW):
                 if self.rank == 0:
                     print('Wrote restart file.')
                     print(self.niter, ' iterations done. Current time is ', \
-                        self.time * autime_to_attosec, ' as.') 
+                        self.time * autime_to_attosec, ' as.')
 
         self.timer.stop('Propagate')
 
@@ -609,17 +609,23 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         dm_file = file(dipole_moment_file, 'r')
         lines = dm_file.readlines()
         dm_file.close()
+
+        for line in lines[:2]:
+            assert line.startswith('#')
+
         # Read kick strength
         columns = lines[0].split('[')
         columns = columns[1].split(']')
         columns = columns[0].split(',')
-        kick_strength = np.array([eval(columns[0]),eval(columns[1]),eval(columns[2])], dtype=float)
+        kick_strength = np.array([float(columns[0]),
+                                  float(columns[1]),
+                                  float(columns[2])],
+                                 dtype=float)
         strength = np.array(kick_strength, dtype=float)
-        # Remove first two lines
-        lines.pop(0)
-        lines.pop(0)
+        
         print('Using kick strength = ', strength)
         # Continue with dipole moment data
+        lines = lines[2:]
         n = len(lines)
         dm = np.zeros((n,3),dtype=float)
         time = np.zeros((n,),dtype=float)

@@ -40,17 +40,3 @@ assert abs(f0(pbe, 2, 3) - 1.58) < 0.01
 assert abs(f1(pbe, 2, 3) - 1.88) < 0.01
 assert abs(f0(pw91, 2, 3) - 1.60) < 0.01
 assert abs(f1(pw91, 2, 3) - 1.90) < 0.01
-
-if 0:
-    from pylab import *
-
-    f = f0
-    #f= f1
-
-    s = linspace(0, 3, 16)
-    t = '-'
-    for xc in [pbe_1, pw91_1]:
-        for rs in [0.0001, 2, 10]:
-            plot(s, [f(xc, rs, x) for x in s], t)
-        t = 'o'
-    show()

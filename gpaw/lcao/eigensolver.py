@@ -37,7 +37,7 @@ class DirectLCAO:
         # distributed_atomic_correction works with ScaLAPACK/BLACS in general.
         # If SL is not enabled, it will not work with band parallelization.
         # But no one would want that for a practical calculation anyway.
-        dH_asp = wfs.atomic_hamiltonian.redistribute(wfs, hamiltonian.dH_asp)
+        dH_asp = wfs.atomic_correction.redistribute(wfs, hamiltonian.dH_asp)
         
         if Vt_xMM is None:
             wfs.timer.start('Potential matrix')
@@ -46,11 +46,11 @@ class DirectLCAO:
             wfs.timer.stop('Potential matrix')
 
         if bfs.gamma and wfs.dtype == float:
-            y = 1.0
+            yy = 1.0
             H_MM = Vt_xMM[0]
         else:
             wfs.timer.start('Sum over cells')
-            y = 0.5
+            yy = 0.5
             k_c = wfs.kd.ibzk_qc[kpt.q]
             H_MM = (0.5 + 0.0j) * Vt_xMM[0]
             for sdisp_c, Vt_MM in zip(bfs.sdisp_xc, Vt_xMM)[1:]:
@@ -65,14 +65,14 @@ class DirectLCAO:
         #           aij
         #
 
-        name = wfs.atomic_hamiltonian.__class__.__name__
+        name = wfs.atomic_correction.__class__.__name__
         wfs.timer.start(name)
-        wfs.atomic_hamiltonian.calculate(wfs, kpt, dH_asp, H_MM, y)
+        wfs.atomic_correction.calculate_hamiltonian(wfs, kpt, dH_asp, H_MM, yy)
         wfs.timer.stop(name)
 
         wfs.timer.start('Distribute overlap matrix')
         H_MM = wfs.ksl.distribute_overlap_matrix(
-            H_MM, root, add_hermitian_conjugate=(y == 0.5))
+            H_MM, root, add_hermitian_conjugate=(yy == 0.5))
         wfs.timer.stop('Distribute overlap matrix')
 
         if add_kinetic:
@@ -112,12 +112,9 @@ class DirectLCAO:
 
         wfs.timer.start('Calculate projections')
         # P_ani are not strictly necessary as required quantities can be
-        # evaluated directly using P_aMi.  We should probably get rid
+        # evaluated directly using P_aMi/Paaqim.  We should perhaps get rid
         # of the places in the LCAO code using P_ani directly
-        for a, P_ni in kpt.P_ani.items():
-            # ATLAS can't handle uninitialized output array:
-            P_ni.fill(117)
-            gemm(1.0, kpt.P_aMi[a], kpt.C_nM, 0.0, P_ni, 'n')
+        wfs.atomic_correction.calculate_projections(wfs, kpt)
         wfs.timer.stop('Calculate projections')
 
     def __repr__(self):

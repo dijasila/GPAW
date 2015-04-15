@@ -1,11 +1,8 @@
 from __future__ import print_function
-import os
-from math import pi, cos, sin
 from ase import Atom, Atoms
-from ase.parallel import rank, barrier
 from gpaw import GPAW, FermiDirac
-from gpaw.test import equal, gen
 from gpaw.xas import XAS, RecursionMethod
+from gpaw.test import gen
 
 # Generate setup for oxygen with half a core-hole:
 gen('Si', name='hch1s', corehole=(1, 0, 0.5))
@@ -61,11 +58,6 @@ if 0:
     p.plot(x, sum(y))
     p.plot(x, z[0])
     p.show()
-
-print(e, niter)
-energy_tolerance = 0.0005
-niter_tolerance = 2
-equal(e, 18.5772, energy_tolerance) # svnversion 5252
 
 # 2p corehole
 gen('Si', name='hch2p', corehole=(2, 1, 0.5))

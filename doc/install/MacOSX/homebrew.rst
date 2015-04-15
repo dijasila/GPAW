@@ -9,12 +9,12 @@ Mountain Lion
 
 Install https://developer.apple.com/xcode/ and activate it from a terminal::
 
-  xcodebuild -license
+  sudo xcodebuild -license
 
-After installing xcode install also its *Command-Line Tools* (provides
-*llvm-gcc compiler* on the command line).
-After launching Xcode, in the top menubar, close to the *Apple*, choose
-Xcode -> Preferences -> Downloads).
+After installing xcode install also its *Command Line Developer Tools*
+(provides *llvm-gcc compiler* on the command line)::
+
+  sudo xcode-select --install
 
 Make sure the compilers are in place::
 
@@ -23,7 +23,7 @@ Make sure the compilers are in place::
 Follow the instructions for installing Homebrew http://brew.sh/
 the famous::
 
-  ruby -e "$(curl -fsSL https://raw.github.com/Homebrew/homebrew/go/install)"
+  ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 
 and configure your init scripts *~/.bash_profile*::
 
@@ -42,7 +42,7 @@ and configure your init scripts *~/.bash_profile*::
 
   # homebrew
   # Ensure user-installed binaries take precedence
-  export PATH=/usr/local/share/python:/usr/local/bin:$PATH
+  export PATH=/usr/local/bin:$PATH
   export PYTHONPATH=/usr/local/lib/python${pyver}/site-packages:$PYTHONPATH
   # hack gtk-2.0
   export PYTHONPATH=/usr/local/lib/python${pyver}/site-packages/gtk-2.0:$PYTHONPATH
@@ -82,9 +82,8 @@ having them configured in different virtualenvs.
 It is a convenient way of keeping GPAW with its corresponding
 ASE version isolated form the globally installed python modules.
 
-Install virtualenv (you don't need ``--user`` if installing with homebrew python)::
+Create directory for virtualenvs::
 
-  PIP_REQUIRE_VIRTUALENV=false pip install --user virtualenv
   mkdir ~/Virtualenvs
 
 If you are only installing ASE skip the next section.
@@ -114,8 +113,8 @@ Install the dependencies::
   pip install python-ase
   pip install numpy
 
-and install GPAW (still inside of the virtualenv) accordingly to
-:ref:`installationguide_standard` (``python setup.py install``).
+and install GPAW (still inside of the virtualenv)
+with ``python setup.py install``.
 
 Installing ASE requirements
 ---------------------------
@@ -124,6 +123,11 @@ If you prefer to have matplotlib available you need to
 install http://xquartz.macosforge.org, reboot, and additionally::
 
   brew install pygtk
+
+**Note** with recent brew (March 2015) pygtk seems is pulling
+homebrew python as a dependency and we don't want that.
+This means the instructions below concerning matplotlib installation
+do not work anymore. Numpy/ASE instructions should work still.
 
 Configure a virtualenv for the latest stable release of ASE::
 

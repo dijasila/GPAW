@@ -26,7 +26,7 @@ def screen_potential(r, v, charge, rcut=None, a=None):
     if rcut is None:
         err = 0.0
         i = len(vr)
-        while err < 1e-5:
+        while err < 1e-4:
             # Things can be a bit sensitive to the threshold.  The O.pz-mt
             # setup gets 20-30 Bohr long compensation charges if it's 1e-6.
             i -= 1
@@ -41,7 +41,9 @@ def screen_potential(r, v, charge, rcut=None, a=None):
 
     if a is None:
         a = rcut / 5.0 # XXX why is this so important?
-    vcomp = charge * erf(rshort / (np.sqrt(2.0) * a)) / rshort
+    vcomp = np.zeros_like(rshort)
+    vcomp = charge * erf(rshort / (np.sqrt(2.0) * a)) / rshort.clip(1e-10,
+                                                                    np.inf)
     # XXX divide by r
     rhocomp = charge * (np.sqrt(2.0 * np.pi) * a)**(-3) * \
         np.exp(-0.5 * (rshort / a)**2)
@@ -64,15 +66,23 @@ def figure_out_valence_states(ppdata):
     # number of valence electrons "remain".
     nelectrons = 0
     ncore = ppdata.Z - ppdata.Nv
+
+    energies = [c[3] for c in config]
+    args = np.argsort(energies)
+    config = list(np.array(config, dtype=object)[args])
+
+    nelectrons = 0
+    ncore = ppdata.Z - ppdata.Nv
     assert ppdata.Nv > 0
     iterconfig = iter(config)
-    for n, l, occ, eps in iterconfig:
-        nelectrons += occ
-        if nelectrons == ncore:
-            break
-        elif nelectrons >= ncore:
-            raise ValueError('Cannot figure out what states should exist '
-                             'on this pseudopotential.')
+    if ncore > 0:
+        for n, l, occ, eps in iterconfig:
+            nelectrons += occ
+            if nelectrons == ncore:
+                break
+            elif nelectrons >= ncore:
+                raise ValueError('Cannot figure out what states should exist '
+                                 'on this pseudopotential.')
     
     f_ln = {}
     l_j = []
@@ -110,6 +120,7 @@ def generate_basis_functions(ppdata):
     apaw = AtomPAW(ppdata.symbol, [ppdata.f_ln], h=0.05, rcut=9.0,
                    basis={ppdata.symbol: b1},
                    setups={ppdata.symbol: ppdata},
+                   maxiter=60,
                    lmax=0, txt=None)
     basis = apaw.extract_basis_functions()
     return basis
@@ -230,7 +241,7 @@ class PseudoPotential(BaseSetup):
         self.N0_p = np.zeros(_np) # not really implemented
         self.nabla_iiv = None
         self.rnabla_iiv = None
-        self.rxp_iiv = None
+        self.rxnabla_iiv = None
         self.phicorehole_g = None
         self.rgd = data.rgd
         self.rcut_j = data.rcut_j

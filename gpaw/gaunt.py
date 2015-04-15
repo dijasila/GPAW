@@ -19,9 +19,9 @@ def make_gaunt(lmax=2):
     L2max = (2 * lmax + 1)**2
 
     from gpaw.spherical_harmonics import YL, gam
-    G_LLL = np.zeros((Lmax, Lmax, L2max))
+    G_LLL = np.zeros((Lmax, L2max, L2max))
     for L1 in range(Lmax):
-        for L2 in range(Lmax):
+        for L2 in range(L2max):
             for L in range(L2max):
                 r = 0.0
                 for c1, n1 in YL[L1]:

@@ -24,38 +24,37 @@ import time
 from gpaw.utilities.timing import nulltimer
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.gga import GGA
+from gpaw.xc.mgga import MGGA
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.tools import construct_reciprocal
-from gpaw.fd_operators import Gradient
 from gpaw import setup_paths, extra_parameters
-from gpaw.fftw import get_efficient_fft_size
 import gpaw.mpi as mpi
 import _gpaw
  
  
-def T(w, x, y, z): 
-    return 0.5 * ((1.0 / (w + x) + 1.0 / (y + z)) * 
-                  (1.0 / ((w + y) * (x + z)) + 1.0 / ((w + z) * (y + x)))) 
+def T(w, x, y, z):
+    return 0.5 * ((1.0 / (w + x) + 1.0 / (y + z)) *
+                  (1.0 / ((w + y) * (x + z)) + 1.0 / ((w + z) * (y + x))))
 
-def W(a, b): 
-    return 2 * ((3 - a**2) * b * cos(b) * sin(a) + 
-                (3 - b**2) * a * cos(a) * sin(b) + 
-                (a**2 + b**2 - 3) * sin(a) * sin(b) - 
-                3 * a * b * cos(a) * cos(b)) / (a * b)**3 
-eta = 8 * pi / 9 
-def nu(y, d): 
+def W(a, b):
+    return 2 * ((3 - a**2) * b * cos(b) * sin(a) +
+                (3 - b**2) * a * cos(a) * sin(b) +
+                (a**2 + b**2 - 3) * sin(a) * sin(b) -
+                3 * a * b * cos(a) * cos(b)) / (a * b)**3
+eta = 8 * pi / 9
+def nu(y, d):
     return 0.5 * y**2 / (1 - exp(-0.5 * eta * (y / d)**2))
 
-def f(a, b, d, dp): 
-    va = nu(a, d) 
-    vb = nu(b, d) 
-    vpa = nu(a, dp) 
-    vpb = nu(b, dp) 
+def f(a, b, d, dp):
+    va = nu(a, d)
+    vb = nu(b, d)
+    vpa = nu(a, dp)
+    vpb = nu(b, dp)
     return 2 * (a * b)**2 * W(a, b) * T(va, vb, vpa, vpb) / pi**2
 
 def phi(d, dp):
     """vdW-DF kernel."""
-    from scipy.integrate import quad 
+    from scipy.integrate import quad
     kwargs = dict(epsabs=1.0e-6, epsrel=1.0e-6, limit=400)
     cut = 35
     return quad(lambda y: quad(f, 0, cut, (y, d, dp), **kwargs)[0],
@@ -66,7 +65,7 @@ def phi_asymptotic(d, dp):
     """Asymptotic behavior of vdW-DF kernel."""
     d2 = d**2
     dp2 = dp**2
-    return -C / (d2 * dp2 * (d2 + dp2)) 
+    return -C / (d2 * dp2 * (d2 + dp2))
 
 def hRPS(x, xc=1.0):
     """Cutoff function from Román-Péres-Soler paper."""
@@ -83,14 +82,47 @@ def hRPS(x, xc=1.0):
     y = np.exp(y)
     return xc * (1.0 - y), z * y
 
+    
+def VDWFunctional(name, fft=True, **kwargs):
+    if name == 'vdW-DF':
+        kernel = LibXC('GGA_X_PBE_R+LDA_C_PW')
+    elif name == 'vdW-DF2':
+        kernel = LibXC('GGA_X_RPW86+LDA_C_PW')
+        kwargs['Zab'] = -1.887
+    elif name == 'optPBE-vdW':
+        kernel = LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW')
+    elif name == 'optB88-vdW':
+        kernel = LibXC('GGA_X_OPTB88_VDW+LDA_C_PW')
+    elif name == 'C09-vdW':
+        kernel = LibXC('GGA_X_C09X+LDA_C_PW')
+    elif name == 'BEEF-vdW':
+        from gpaw.xc.bee import BEEVDWKernel
+        kernel = BEEVDWKernel('BEE2', None,
+                              0.600166476948828631066,
+                              0.399833523051171368934)
+        kwargs['Zab'] = -1.887
+        kwargs['setup_name'] = 'PBE'
+    elif name == 'mBEEF-vdW':
+        from gpaw.xc.bee import BEEVDWKernel
+        kernel = BEEVDWKernel('BEE3', None, 0.405258352, 0.356642240)
+        kwargs['Zab'] = -1.887
+        kwargs['vdwcoef'] = 0.886774972
+        kwargs['Nr'] = 4096
+        kwargs['setup_name'] = 'PBEsol'
+        assert fft
+        return MGGAFFTVDWFunctional(name, kernel, **kwargs)
+    else:
+        2 / 0
+    if fft:
+        return GGAFFTVDWFunctional(name, kernel, **kwargs)
+    return GGARealSpaceVDWFunctional(name, kernel, **kwargs)
 
-class VDWFunctional(GGA):
+        
+class VDWFunctionalBase:
     """Base class for vdW-DF."""
-    def __init__(self, name, world=None, q0cut=5.0,
+    def __init__(self, world=None, Zab=-0.8491, vdwcoef=1.0, q0cut=5.0,
                  phi0=0.5, ds=1.0, Dmax=20.0, nD=201, ndelta=21,
-                 soft_correction=False,
-                 kernel=None, Zab=None,
-                 vdwcoef=1.0,
+                 soft_correction=False, setup_name='revPBE',
                  verbose=False, energy_only=False):
         """vdW-DF.
 
@@ -129,6 +161,8 @@ class VDWFunctional(GGA):
         else:
             self.world = world
 
+        self.Zab = Zab
+        self.vdwcoef = vdwcoef
         self.q0cut = q0cut
         self.phi0 = phi0
         self.ds = ds
@@ -149,47 +183,16 @@ class VDWFunctional(GGA):
         self.energy_only = energy_only
         self.timer = nulltimer
 
-        if name == 'vdW-DF':
-            assert kernel is None and Zab is None
-            kernel = LibXC('GGA_X_PBE_R+LDA_C_PW')
-            Zab = -0.8491
-        elif name == 'vdW-DF2':
-            assert kernel is None and Zab is None
-            kernel = LibXC('GGA_X_RPW86+LDA_C_PW')
-            Zab = -1.887
-        elif name == 'optPBE-vdW':
-            assert kernel is None and Zab is None
-            kernel = LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW')
-            Zab = -0.8491
-        elif name == 'optB88-vdW':
-            assert kernel is None and Zab is None
-            kernel = LibXC('GGA_X_OPTB88_VDW+LDA_C_PW')
-            Zab = -0.8491
-        elif name == 'C09-vdW':
-            assert kernel is None and Zab is None
-            kernel = LibXC('GGA_X_C09X+LDA_C_PW')
-            Zab = -0.8491
-        else:
-            assert kernel is not None and Zab is not None
-
-        self.Zab = Zab
-        GGA.__init__(self, kernel)
-        self.vdwcoef = vdwcoef
-        self.name = name
         self.LDAc = LibXC('LDA_C_PW')
-
+        self.setup_name = setup_name
+        
     def get_setup_name(self):
-        return 'revPBE'
+        return self.setup_name
     
-    def initialize(self, density, hamiltonian, wfs, occupations):
-        self.timer = wfs.timer
-
     def get_Ecnl(self):
         return self.Ecnl
 
     def calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
-        GGA.calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
-
         eLDAc_g = self.gd.empty()
         vLDAc_sg = self.gd.zeros(1)
 
@@ -215,7 +218,7 @@ class VDWFunctional(GGA):
             dedsigma_xg[0] += self.vdwcoef * deda2nl_g
             dedsigma_xg[1] += self.vdwcoef * 2 * deda2nl_g
             dedsigma_xg[2] += self.vdwcoef * deda2nl_g
-            dedn_sg += self.vdwcoef * v_g 
+            dedn_sg += self.vdwcoef * v_g
 
         if self.gd.comm.rank == 0:
             e_g[0, 0, 0] += self.vdwcoef * e / self.gd.dv
@@ -331,7 +334,7 @@ class VDWFunctional(GGA):
                 y *= 4 * pi * x**2
             plt.plot(x, y, label=r'$\delta=%.1f$' % delta)
         plt.legend(loc='best')
-        plt.plot(x, np.zeros(len(x)), 'k-')       
+        plt.plot(x, np.zeros(len(x)), 'k-')
         plt.xlabel('D')
         plt.ylabel(r'$4\pi D^2 \phi(\rm{Hartree})$')
         plt.show()
@@ -369,9 +372,9 @@ class VDWFunctional(GGA):
                            (1 - y) * P[i, j]))
 
 
-class RealSpaceVDWFunctional(VDWFunctional):
+class RealSpaceVDWFunctional(VDWFunctionalBase):
     """Real-space implementation of vdW-DF."""
-    def __init__(self, name='vdW-DF', repeat=None, ncut=0.0005, **kwargs):
+    def __init__(self, repeat=None, ncut=0.0005, **kwargs):
         """Real-space vdW-DF.
 
         parameters:
@@ -382,7 +385,7 @@ class RealSpaceVDWFunctional(VDWFunctional):
             Density cutoff.
         """
         
-        VDWFunctional.__init__(self, name, **kwargs)
+        VDWFunctionalBase.__init__(self, **kwargs)
         self.repeat = repeat
         self.ncut = ncut
         
@@ -417,9 +420,9 @@ class RealSpaceVDWFunctional(VDWFunctional):
         p = ni * (ni - 1) // 2 // world.size
 
         # When doing supercell, the pairs are not that important
-        if np.any(self.repeat): # XXX This can be further optimized
-            iA = world.rank * (ni // world.size)        
-            iB = (world.rank+1) * (ni // world.size)
+        if np.any(self.repeat):  # XXX This can be further optimized
+            iA = world.rank * (ni // world.size)
+            iB = (world.rank + 1) * (ni // world.size)
         else:
             iA = 0
             for r in range(world.size):
@@ -453,7 +456,7 @@ class RealSpaceVDWFunctional(VDWFunctional):
                             self.Dhistogram, dD)
         end = time.time()
         if self.verbose:
-            print("vdW in rank ", world.rank, 'took', end-start)
+            print("vdW in rank ", world.rank, 'took', end - start)
 
         self.rhistogram *= gd.dv**2 / dr
         self.Dhistogram *= gd.dv**2 / dD
@@ -461,11 +464,11 @@ class RealSpaceVDWFunctional(VDWFunctional):
         self.world.sum(self.Dhistogram)
         E_vdwnl = self.world.sum(E_vdwnl * gd.dv**2)
         return E_vdwnl
+        
 
-
-class FFTVDWFunctional(VDWFunctional):
+class FFTVDWFunctional(VDWFunctionalBase):
     """FFT implementation of vdW-DF."""
-    def __init__(self, name='vdW-DF',
+    def __init__(self,
                  Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, size=None,
                  **kwargs):
         """FFT vdW-DF.
@@ -481,12 +484,12 @@ class FFTVDWFunctional(VDWFunctional):
         Nr: int
             Number of real-space points for kernel function.
         size: 3-tuple
-           Size of FFT-grid.  Use only  for zero boundary conditions in
+           Size of FFT-grid.  Use only for zero boundary conditions in
            order to get a grid-size that works well with the FFT
            algorithm (powers of two are more efficient).  The density
            array will be zero padded to the correct size."""
 
-        VDWFunctional.__init__(self, name, **kwargs)
+        VDWFunctionalBase.__init__(self, **kwargs)
         self.Nalpha = Nalpha
         self.lambd = lambd
         self.rcut = rcut
@@ -499,8 +502,7 @@ class FFTVDWFunctional(VDWFunctional):
         self.get_alphas()
         
     def initialize(self, density, hamiltonian, wfs, occupations):
-        self.timer = wfs.timer # would be neater to do this with super()
-
+        self.timer = wfs.timer
         self.world = wfs.world
         self.get_alphas()
 
@@ -595,18 +597,11 @@ class FFTVDWFunctional(VDWFunctional):
                 phi_aajp[a, b] = phi_aajp[b, a] = spline(k_j, phi_j)
 
     def set_grid_descriptor(self, gd):
-        if (self.gd is not None and
-            (self.gd.N_c == gd.N_c).all() and
-            (self.gd.pbc_c == gd.pbc_c).all() and
-            (self.gd.cell_cv == gd.cell_cv).all()):
-            return
-
-        VDWFunctional.set_grid_descriptor(self, gd)
         if self.size is None:
             self.shape = gd.N_c.copy()
             for c, n in enumerate(self.shape):
                 if not gd.pbc_c[c]:
-                    #self.shape[c] = get_efficient_fft_size(n)
+                    # self.shape[c] = get_efficient_fft_size(n)
                     self.shape[c] = int(2**ceil(log(n) / log(2)))
         else:
             self.shape = np.array(self.size)
@@ -624,14 +619,14 @@ class FFTVDWFunctional(VDWFunctional):
                                                  :self.shape[2] // 2 + 1]**0.5
             k_k[0, 0, 0] = 0.0
     
-    
             self.dj_k = k_k / (2 * pi / self.rcut)
             self.j_k = self.dj_k.astype(int)
             self.dj_k -= self.j_k
             self.dj_k *= 2 * pi / self.rcut
          
             if self.verbose:
-                print('VDW: density array size:', gd.get_size_of_global_array())
+                print('VDW: density array size:',
+                      gd.get_size_of_global_array())
                 print('VDW: zero-padded array size:', self.shape)
                 print(('VDW: maximum kinetic energy: %.3f Hartree' %
                        (0.5 * k_k.max()**2)))
@@ -721,7 +716,6 @@ class FFTVDWFunctional(VDWFunctional):
                 self.timer.start('gather')
                 for F in F_k:
                     vdwcomm.sum(F, vdw_ranka)
-                #vdwcomm.sum(F_k, vdw_ranka)
                 self.timer.stop('gather')
 
             if vdwcomm is not None and vdwcomm.rank == vdw_ranka:
@@ -761,7 +755,6 @@ class FFTVDWFunctional(VDWFunctional):
 
     def calculate_potential(self, n_g, a2_g, i_g, dq0_g, p_ag, F_ag,
                             e_LDAc_g, v_LDAc_g, v_g, deda2_g):
-        N = self.Nalpha
         world = self.world
 
         self.timer.start('collect')
@@ -804,6 +797,61 @@ class FFTVDWFunctional(VDWFunctional):
         slice = self.gd.get_slice()
         v_g += v0_g[slice]
         deda2_g += deda20_g[slice]
+
+
+class GGAFFTVDWFunctional(FFTVDWFunctional, GGA):
+    def __init__(self, name, kernel, **kwargs):
+        FFTVDWFunctional.__init__(self, **kwargs)
+        GGA.__init__(self, kernel)
+        self.name = name
+        
+    def calculate_gga(self, *args):
+        GGA.calculate_gga(self, *args)
+        FFTVDWFunctional.calculate_gga(self, *args)
+
+    def set_grid_descriptor(self, gd):
+        GGA.set_grid_descriptor(self, gd)
+        FFTVDWFunctional.set_grid_descriptor(self, gd)
+
+
+class GGARealSpaceVDWFunctional(RealSpaceVDWFunctional, GGA):
+    def __init__(self, name, kernel, **kwargs):
+        RealSpaceVDWFunctional.__init__(self, **kwargs)
+        GGA.__init__(self, kernel)
+        self.name = name
+        
+    def calculate_gga(self, *args):
+        GGA.calculate_gga(self, *args)
+        RealSpaceVDWFunctional.calculate_gga(self, *args)
+
+    def set_grid_descriptor(self, gd):
+        GGA.set_grid_descriptor(self, gd)
+        RealSpaceVDWFunctional.set_grid_descriptor(self, gd)
+
+
+class MGGAFFTVDWFunctional(FFTVDWFunctional, MGGA):
+    def __init__(self, name, kernel, **kwargs):
+        FFTVDWFunctional.__init__(self, **kwargs)
+        MGGA.__init__(self, kernel)
+        self.name = name
+        
+    def calculate_gga(self, *args):
+        MGGA.calculate_gga(self, *args)
+        FFTVDWFunctional.calculate_gga(self, *args)
+
+    def initialize(self, *args):
+        MGGA.initialize(self, *args)
+        FFTVDWFunctional.initialize(self, *args)
+
+    def set_grid_descriptor(self, gd):
+        if (self.gd is not None and
+            (self.gd.N_c == gd.N_c).all() and
+            (self.gd.pbc_c == gd.pbc_c).all() and
+            (self.gd.cell_cv == gd.cell_cv).all()):
+            return
+
+        MGGA.set_grid_descriptor(self, gd)
+        FFTVDWFunctional.set_grid_descriptor(self, gd)
 
 
 def spline(x, y):

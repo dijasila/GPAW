@@ -15,6 +15,8 @@ from ase.parallel import paropen
 from ase.units import Bohr, Hartree
 from ase.io.trajectory import PickleTrajectory
 from ase.calculators.singlepoint import SinglePointCalculator
+from ase.utils import devnull
+
 from gpaw import GPAW, debug
 from gpaw.mpi import world
 from gpaw.tddft import TDDFT
@@ -241,7 +243,6 @@ if __name__ in ['__main__', '__builtin__']:
     if __name__ == '__builtin__':
         testrunner = CustomTextTestRunner('ut_tddft.log', verbosity=2)
     else:
-        from gpaw.utilities import devnull
         stream = (world.rank == 0) and sys.stdout or devnull
         testrunner = TextTestRunner(stream=stream, verbosity=2)
 

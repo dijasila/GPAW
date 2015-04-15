@@ -19,6 +19,9 @@ Development version in trunk
 * New :ref:`forces <manual_convergence>` keyword in convergence.  Can
   be used to calculate forces to a given precision.
 
+* Fixed bug in printing work functions for calculations with a
+  dipole-correction `<http://listserv.fysik.dtu.dk/pipermail/gpaw-users/2015-February/003226.html>`_.
+
 Version 0.10.0
 ==============
 

@@ -2,7 +2,6 @@ import numpy as np
 import numpy.linalg as la
 from ase.units import Hartree
 
-from gpaw.wavefunctions.lcao import add_paw_correction_to_overlap
 from gpaw.lcao.overlap import NewTwoCenterIntegrals as TwoCenterIntegrals
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
@@ -108,7 +107,15 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
         ni = calc.wfs.setups[a].ni
         P_aqMi[a] = np.zeros((nq, nao, ni), dtype)
     tci.calculate(spos_ac, S_qMM, T_qMM, P_aqMi)
-    add_paw_correction_to_overlap(calc.wfs.setups, P_aqMi, S_qMM)
+
+    from gpaw.lcao.atomic_correction import DenseAtomicCorrection
+    atomic_correction = DenseAtomicCorrection()
+    atomic_correction.initialize(P_aqMi, 0, nao)
+    atomic_correction.add_overlap_correction(calc.wfs, S_qMM)
+    #calc.wfs.P_aqMi = P_aqMi
+    #for q, S_MM in enumerate(S_qMM):
+    #    atomic_correction.calculate_manual(wfs, q, 
+    #atomic_correction.add_overlap_correction(calc.wfs, S_qMM)
     calc.wfs.gd.comm.sum(S_qMM)
     calc.wfs.gd.comm.sum(T_qMM)
     

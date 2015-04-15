@@ -1,4 +1,3 @@
-from ase import Atoms
 from ase.lattice import bulk
 from gpaw import GPAW, FermiDirac
 from gpaw.mpi import serial_comm
@@ -6,9 +5,7 @@ from gpaw.test import equal
 from gpaw.xc.rpa import RPACorrelation
 
 a0 = 5.43
-cell = bulk('Si', 'fcc', a=a0).get_cell()
-Si = Atoms('Si2', cell=cell, pbc=True,
-           scaled_positions=((0,0,0), (0.25,0.25,0.25)))
+Si = bulk('Si', a=a0)
 
 calc = GPAW(mode='pw',
             kpts={'size': (2, 2, 2), 'gamma': True},
