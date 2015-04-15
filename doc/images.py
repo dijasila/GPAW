@@ -189,7 +189,5 @@ def setup(app):
                       ('tutorials/xas', 'xas_h2o_convergence.png'),
                       ('install/BGP', 'bgp_mapping_intranode.png'),
                       ('install/BGP', 'bgp_mapping1.png'),
-                      ('install/BGP', 'bgp_mapping2.png'),
-                      ('devel', 'bigpicture.png'),
-                      ('build', 'bigpicture.svg')]:
+                      ('install/BGP', 'bgp_mapping2.png')]:
         get('gpaw-stuff', [file], dir, jjwww)

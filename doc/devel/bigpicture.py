@@ -80,7 +80,6 @@ class MPL:
         self.fig.canvas.mpl_connect('draw_event', self.on_draw)
         plt.savefig('bigpicture.png', dpi=50)
         plt.savefig('bigpicture.svg')
-        os.system('cp bigpicture.svg ../_build')
 
     def on_draw(self, event):
         for b in self.boxes:

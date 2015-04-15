@@ -48,7 +48,7 @@ Reports, presentations, and theses using gpaw
 
 * Slides from a mini symposium during early development stage: `early gpaw`_
 
-.. _paw note: ../paw_note.pdf
+.. _paw note: paw_note.pdf
 .. _exact exchange: ../static/rostgaard_master.pdf
 .. _lcao: ../static/marco_master.pdf
 .. _localized basis sets: ../static/askhl_master.pdf
@@ -137,10 +137,10 @@ gpaw2:
     V. Petzold, N. A. Romero, J. Stausholm, M. Strange, G. A. Tritsaris,
     M. Vanin, M. Walter, B. Hammer, H. Häkkinen, G. K. H. Madsen,
     R. M. Nieminen, J. K. Nørskov, M. Puska, T. T. Rantala,
-    J. Schiøtz, K. S. Thygesen, and K. W. Jacobsen   
+    J. Schiøtz, K. S. Thygesen, and K. W. Jacobsen
 
     `Electronic structure calculations with GPAW: a real-space
-    implementation of the projector augmented-wave method`__ 
+    implementation of the projector augmented-wave method`__
 
     \J. Phys.: Condens. Matter **22**, 253202 (2010)
 

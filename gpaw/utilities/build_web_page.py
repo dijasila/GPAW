@@ -12,7 +12,7 @@ def build_gpaw_web_page(force_build):
         subprocess.check_call('python setup.py install --home=..', shell=True)
         os.chdir('..')
         subprocess.check_call(
-            'wget --no-check-certificate --quiet '
+            'wget --no-check-certificate --quiet --timestamping'
             'http://wiki.fysik.dtu.dk/gpaw-files/'
             'gpaw-setups-latest.tar.gz', shell=True)
         subprocess.check_call(
