@@ -122,6 +122,17 @@ class Hamiltonian(object):
         """
         self.HubU_dict = HubU_dict;
 
+    @dH_asp.setter
+    def dH_asp(self, value):
+        if isinstance(value, dict):
+            tmp = self.setups.empty_asp(self.ns, self.atom_partition)
+            tmp.update(value)
+            value = tmp
+        assert isinstance(value, ArrayDict) or value is None, type(value)
+        if value is not None:
+            value.check_consistency()
+        self._dH_asp = value
+
     def summary(self, fd):
         fd.write('XC and Coulomb potentials evaluated on a %d*%d*%d grid\n' %
                  tuple(self.finegd.N_c))
@@ -241,8 +252,8 @@ class Hamiltonian(object):
             self.update_pseudo_potential(density)
 
         self.timer.start('Atomic')
-        self.dH_asp = None  # XXXX
-        
+        self.dH_asp = None # XXXX
+
         dH_asp = {}
         for a, D_sp in density.D_asp.items():
             W_L = W_aL[a]
