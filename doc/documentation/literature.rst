@@ -26,7 +26,7 @@ Reports, presentations, and theses using gpaw
 
 * Summer-school 2014 talk about `PAW and GPAW`_
 
-* A short note on the basics of PAW: `paw note`_
+* A short note on the basics of PAW: :download:`paw_note.pdf`
 
 * A master thesis on the inclusion of non-local exact exchange in the
   PAW formalism, and the implementation in gpaw: `exact exchange`_
@@ -48,15 +48,14 @@ Reports, presentations, and theses using gpaw
 
 * Slides from a mini symposium during early development stage: `early gpaw`_
 
-.. _paw note: paw_note.pdf
-.. _exact exchange: ../static/rostgaard_master.pdf
-.. _lcao: ../static/marco_master.pdf
-.. _localized basis sets: ../static/askhl_master.pdf
-.. _setup optimization: ../static/askhl_10302_report.pdf
-.. _introduction to PAW slides: ../static/mortensen_paw.pdf
-.. _gpaw for developers: ../static/mortensen_gpaw-dev.pdf
-.. _early gpaw: ../static/mortensen_mini2003talk.pdf
-.. _PAW and GPAW: ../static/ss14.pdf
+.. _exact exchange: ../_static/rostgaard_master.pdf
+.. _lcao: ../_static/marco_master.pdf
+.. _localized basis sets: ../_static/askhl_master.pdf
+.. _setup optimization: ../_static/askhl_10302_report.pdf
+.. _introduction to PAW slides: ../_static/mortensen_paw.pdf
+.. _gpaw for developers: ../_static/mortensen_gpaw-dev.pdf
+.. _early gpaw: ../_static/mortensen_mini2003talk.pdf
+.. _PAW and GPAW: ../_static/ss14.pdf
 
 
 .. _paw_papers:
