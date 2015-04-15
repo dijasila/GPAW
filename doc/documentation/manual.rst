@@ -41,7 +41,7 @@ calculator::
 In Python code, it looks like this:
 
 .. literalinclude:: h2.py
-    :startafter: from __future__
+    :start-after: from __future__
     
 If the above code was executed, a calculation for a single `\rm{H}_2`
 molecule would be started.  The calculation would be done using a
