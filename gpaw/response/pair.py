@@ -527,8 +527,11 @@ class PairDensity:
         self.ftol = ftol
         self.threshold = threshold
         self.real_space_derivatives = real_space_derivatives
-        self.world = world
         self.gate_voltage = gate_voltage
+
+        self.timer = timer or Timer()
+
+        self.world = world
 
         if nblocks == 1:
             self.blockcomm = self.world.new_communicator([world.rank])
@@ -546,8 +549,6 @@ class PairDensity:
         elif isinstance(txt, str):
             txt = open(txt, 'w')
         self.fd = txt
-
-        self.timer = timer or Timer()
 
         with self.timer('Read ground state'):
             if isinstance(calc, str):
@@ -574,9 +575,8 @@ class PairDensity:
         self.nocc2 = None  # number of non-empty bands
         self.count_occupied_bands()
 
-        self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
-
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
+        self.fermi_level = self.calc.occupations.get_fermi_level()
 
         print('Number of blocks:', nblocks, file=self.fd)
 
@@ -592,7 +592,8 @@ class PairDensity:
 
     def shift_occupations(self, eps_n, gate_voltage):
         """Shift fermilevel."""
-        fermi = self.calc.occupations.get_fermi_level() + gate_voltage
+        self.fermi_level += gate_voltage
+        fermi = self.fermi_level
         width = self.calc.occupations.width
         tmp = (eps_n - fermi) / width
         f_n = np.zeros_like(eps_n)
@@ -891,6 +892,29 @@ class PairDensity:
                         yield (None, df_M, deps_M, n_MG, None, None)
                         
         pb.finish()
+
+    def integrate_pair_densities(self, k_c, pd, m1, m2, spins):
+        """A function that can be integrated."""
+        wfs = self.calc.wfs
+        K1 = wfs.where_is_q(k_c, wfs.kd.bzk_kc)        
+        q_c = pd.kd.bzk_kc[0]
+        Q_aGii = self.initialize_paw_corrections(pd)
+        self.Q_aGii = Q_aGii
+        
+        kptpair = self.get_kpoint_pair(pd, s, K1, n1, n2, m1, m2)
+        kpt1 = kptpair.get_k1()
+        kpt2 = kptpair.get_k2()
+        n_n = range(n2 - n1)
+        eps_n = kpt1.eps_n - self.fermi_level
+        eps_m = kpt2.eps_n - self.fermi_level
+
+        m_m = range(0, kpt2.n2 - kpt2.n1)
+        deps_nm = kptpair.get_transition_energies(n_n, m_m)
+        n_nmG, _, _ = self.get_pair_density(pd, kptpair, n_n, m_m)
+        n_nmG[deps_nm >= 0.0] = 0.0
+
+        return (eps_n, eps_m, n_nmG)
+        
 
     @timer('Get kpoint pair')
     def get_kpoint_pair(self, pd, s, K, n1, n2, m1, m2):
