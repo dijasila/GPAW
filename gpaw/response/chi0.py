@@ -122,7 +122,7 @@ class Chi0:
 
         self.Q_aGii = None
 
-        self.prefactor = 2 / self.vol / wfs.kd.nbzkpts / wfs.nspins
+        self.prefactor = 1.0
 
     def find_maximum_frequency(self):
         self.epsmin = 10000.0
@@ -191,9 +191,14 @@ class Chi0:
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins):
         # The method of integration is determined
         # by the choice of integrator class
-        integrator = BroadeningIntegrator(self.eta, self.calc.wfs.kd, 0, 
-                                          self.nocc2, m1, m2, spins,
-                                          comm=self.kncomm)
+        if False:
+            integrator = BroadeningIntegrator(self.eta, self.calc.wfs.kd, 0, 
+                                              self.nocc2, m1, m2, spins,
+                                              comm=self.kncomm)
+        else:
+            integrator = TetrahedronIntegrator(self.calc.wfs.kd, self.calc.wfs.gd, 0, 
+                                               self.nocc2, m1, m2, spins,
+                                               comm=self.kncomm)
 
         # The kind of integral we want to make
         kind = 'response_function'
@@ -207,11 +212,14 @@ class Chi0:
         integrand = partial(self.integrand, pd)
 
         # Integrate function
-        integrate(integrand, self.omega_w,
-                  hilbert=self.hilbert,
-                  timeordered=self.timeordered,
-                  hermitian=(self.eta == 0),
-                  out_wxx=chi0_wGG)
+        if False:
+            integrate(integrand, self.omega_w,
+                      hilbert=self.hilbert,
+                      timeordered=self.timeordered,
+                      hermitian=(self.eta == 0),
+                      out_wxx=chi0_wGG)
+        else:
+            integrate(integrand, self.omega_w, out_wxx=chi0_wGG)
 
         # Remember the prefactor
         chi0_wGG *= self.prefactor
@@ -247,7 +255,7 @@ class Chi0:
                                                  Q_aGii=self.Q_aGii)
         n_nmG[deps_nm >= 0.0] = 0.0
 
-        return (n_nmG, eps_n, eps_m, f_n, f_m)
+        return n_nmG, eps_n, eps_m, f_n, f_m
                 
     @timer('redist')
     def redistribute(self, in_wGG, out_x=None):

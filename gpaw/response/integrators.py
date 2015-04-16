@@ -18,14 +18,20 @@ from gpaw.utilities.memory import maxrss
 from gpaw.utilities.blas import gemm, rk, czher, mmm
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.response.pair import PWSymmetryAnalyzer
+from gpaw.utilities.progressbar import ProgressBar
 from functools import partial
 
-def theta(self, x):
+# Levi-civita
+e_kkk = np.zeros((3, 3, 3))
+e_kkk[0, 1, 2] = e_kkk[1, 2, 0] = e_kkk[2, 0, 1] = 1
+e_kkk[0, 2, 1] = e_kkk[2, 1, 0] = e_kkk[1, 0, 2] = -1
+
+def theta(x):
     """Heaviside step function."""
     return 0.5 * (np.sign(x) + 1)
 
 class Integrator():
-    def __init__(self, kd, n1, n2, m1, m2, ns, comm=mpi.world,
+    def __init__(self, kd, gd, n1, n2, m1, m2, ns, comm=mpi.world,
                  txt=sys.stdout, timer=None,  nblocks=1):
         """Baseclass for Brillouin zone integration and band summation.
         
@@ -49,6 +55,7 @@ class Integrator():
         self.ns = ns
         self.comm = comm
         self.nblocks = nblocks
+        self.gd = gd
 
         if nblocks == 1:
             self.blockcomm = self.comm.new_communicator([comm.rank])
@@ -68,15 +75,21 @@ class Integrator():
         self.fd = txt
 
         self.timer = timer or Timer()
+        self.A_cv = self.gd.cell_cv
+        self.iA_cv = self.gd.icell_cv
+        self.vol = abs(np.linalg.det(self.A_cv))
+        self.prefactor = 2 / self.vol / self.kd.nbzkpts / len(self.ns)
 
-    def distribute_integration(self):
+    def distribute_integral(self, kpts=None):
         """Distribute spins, k-points and bands.
 
         The attribute self.mysKn1n2 will be set to a list of (s, K, n1, n2)
         tuples that this process handles.
         """
 
-        kpts = range(self.kd.nbzkpts)
+        if kpts is None:
+            kpts = range(self.kd.nbzkpts)
+
         band1 = self.n1
         band2 = self.n2
         nbands = band2 - band1
@@ -158,7 +171,8 @@ class BroadeningIntegrator(Integrator):
 
         Integrator.__init__(self, *args, **kwargs)
         self.eta = eta
-        self.distribute_integration()
+        self.distribute_integral()
+        self.prefactor = 2 / self.vol / self.kd.nbzkpts / len(self.ns)
 
     def get_integration_function(self, kind=None):
         if kind is None:
@@ -371,6 +385,10 @@ class TetrahedronIntegrator(Integrator):
         Integrator.__init__(self, *args, **kwargs)
         self.indices_t = self.tetrahedralize()
 
+        # Parallelize over tetrahedrons
+        self.distribute_integral(kpts=range(len(self.indices_t)))
+        self.prefactor = 2 / (len(self.ns) * (2 * np.pi)**3)
+
     def tetrahedralize(self):
         """Determine kpoint indices for tetrahedrons.
 
@@ -382,6 +400,7 @@ class TetrahedronIntegrator(Integrator):
 
         # Storing indices in this
         indices_t = []
+
         # Iterating through submesh unit cell
         for i in range(N_c[0] - 1):
             for j in range(N_c[1] - 1):
@@ -390,128 +409,128 @@ class TetrahedronIntegrator(Integrator):
                                for v in range(2) for u in range(2)
                                for t in range(2)]
 
-                    # There are six tetrahedrons in each cell
-                    indices_t.append([K_k[0], K_k[1], K_k[2], K_k[5]].sort())
-                    indices_t.append([K_k[0], K_k[4], K_k[2], K_k[5]].sort())
-                    indices_t.append([K_k[2], K_k[4], K_k[5], K_k[6]].sort())
-                    indices_t.append([K_k[1], K_k[2], K_k[3], K_k[5]].sort())
-                    indices_t.append([K_k[2], K_k[3], K_k[5], K_k[7]].sort())
-                    indices_t.append([K_k[2], K_k[5], K_k[6], K_k[7]].sort())
+                    # The six tetrahedrons of this microcell
+                    K_tk = [sorted([K_k[0], K_k[1], K_k[2], K_k[5]]),
+                            sorted([K_k[0], K_k[4], K_k[2], K_k[5]]),
+                            sorted([K_k[2], K_k[4], K_k[5], K_k[6]]),
+                            sorted([K_k[1], K_k[2], K_k[3], K_k[5]]),
+                            sorted([K_k[2], K_k[3], K_k[5], K_k[7]]),
+                            sorted([K_k[2], K_k[5], K_k[6], K_k[7]])]
+                           
+                    for K_k in K_tk:
+                        k_kc = self.kd.bzk_kc[K_k]
+                        k_kv = np.dot(k_kc, self.iA_cv) * 2 * np.pi
+                        vol = np.abs(np.linalg.det(k_kv[1:] - k_kv[0])) / 6.
+                        indices_t.append((K_k, vol))
                     
         return indices_t
 
-    def integrate(self, func):
-        bzk_kc = self.kd.bzk_kc
-        oldindices_k = []
-        funcvals_k = []
-        for indices_k in indices_t:
-            # Calculate new function values
-            for i, index in enumerate(indices_k):
-                if index in oldindices_k:
-                    continue
-                k_c = bzk_kc[index]
-                funcvals_k[i] = func(k_c)
-
-            self.integrate_single_tetrahedron(indices_k, funcvals_k)
+    def get_integration_function(self, kind=None):
+        if kind is None:
+            return self.pointwise_integration
+        elif kind is 'response_function':
+            return self.response_function_integration
+        else:
+            raise NotImplementedError
             
-    def integrate_single_tetrahedron(self):
-        raise NotImplementedError
-
-    def integrate_spectral_function(self, func, omega_w):
+    def response_function_integration(self, func, omega_w, out_wxx, cy=False):
         bzk_kc = self.kd.bzk_kc
         funcvals_k = {}
-        for indices_k in self.indices_t:
+        pb = ProgressBar(self.fd)
+        for _, (s, T, n1, n2) in pb.enumerate(self.mysKn1n2):
+            indices_k, vol = self.indices_t[T]
+
             # Calculate new function values
             for index in indices_k:
                 if index not in funcvals_k:
                     k_c = bzk_kc[index]
-                    funcvals_k[index] = func(k_c)
+                    n_nmG, e_n, e_m, f_n, f_m = func(s, k_c, n1, n2, self.m1, self.m2)
+
+                    nG = n_nmG.shape[-1]
+                    de_M = np.ascontiguousarray(np.ravel(e_m[np.newaxis, :]
+                                                         - e_n[:, np.newaxis]))
+                    df_M = np.ascontiguousarray(np.ravel(f_n[np.newaxis, :]
+                                                         - f_m[:, np.newaxis]))
+                    n_MG = np.ascontiguousarray(n_nmG.reshape((-1, nG)))
+                    funcvals_k[index] = (n_MG, de_M, df_M)
 
             # Function vales at tetrahedron vertices
             tetfuncvals_k = {}
             for i, index in enumerate(indices_k):
-                tetfuncvals_k[i] = funcvals[index]
+                tetfuncvals_k[i] = funcvals_k[index]
 
-            self.charlesworth_yeung_integrate(tetfuncvals_k, omega_w)
-
-    def charlesworth_yeung_integrate(self, funcvals_k, omega):
-        """Integrate a single tetrahedron using the CY-formula.
-
-        Analytical tetrahedron integration using average matrix elements.
-        
-        [1] Charlesworth and Yeung, Phys. Rev. B. 53, 5, Feb. 1996.
-        [2] Charlesworth and Yeung, Comp. phys. Comm. 88, 186-194.
-
-        Use the average matrix elements and apply analytical
-        formula from the authors. Valid for T != 0. Get contribution
-        to tetrahedron for a single tetrahdron.
-        
-        funcvals_k: dict
-            Dictionary containing the values of
-            a function evaluated at the vertices of
-            the tetrahedron.
-        omega_w: list or np.ndarray
-            Frequency hbar * omega.
-        """
-
-        e_k = [funcvals_k[i][0] for i in range(4)]
-        ekq_k = [funcvals_k[i][1] for i in range(4)]
-        M_kGG = [funcvals_k[i][2] for i in range(4)]
-
-        Mavg_GG = M_kGG[0]
-        for i in range(1, 4):
-            Mavg_GG += M_kGG[i]
-        
-        Mavg_GG /= 4.
-        
-        # Quantities needed for later
-        D_k = e_k - ekq_k + omega
-        a = D_k[0]
-        b_k = D_k[1:] - D_k[0]
-        c = e_k[0]
-        d_k = e_k[1:] - e_k[0]
-
-        # Levi-civita
-        e_kkk = np.zeros((3, 3, 3))
-        e_kkk[0, 1, 2] = e_kkk[1, 2, 0] = e_kkk[2, 0, 1] = 1
-        e_kkk[0, 2, 1] = e_kkk[2, 1, 0] = e_kkk[1, 0, 2] = -1
-
-        mu_k = (np.sum(np.tensordot(e_kkk, b_k, axes=[1, 0]), axis=1)
-                / np.sum(np.tensordot(e_kkk, d_k, axes=[1, 0]), axis=1))
-
-        zeta = 1. / ((b_k[0] - b_k[1]) * (b_k[1] - b_k[2]) * (b_k[2] - b_k[0]))
-        xi = 1. / ((d_k[0] - d_k[1]) * (d_k[1] - d_k[2]) * (d_k[2] - d_k[0]))
-        nu = 1. / ((b_k[0] / d_k[0] - b_k[1] - d_k[1]) *
-                   (b_k[1] / d_k[1] - b_k[2] - d_k[2]) *
-                   (b_k[2] / d_k[2] - b_k[0] - d_k[0]))
-
-        sum1 = 0
-        sum2 = 0
-        sum3 = 0        
-        for t in range(3):
-            for u in range(3):
-                for v in range(3):
-                    sum1 += (e_kkk[t, u, v] * (b_k[u] / b_k[t])
-                             * (a ** 2 * self.theta(c) * np.sign(a)
-                                - (a + b_k[t])**2 * self.theta(c + d_k[t])
-                                * np.sign(a + b_k[t])))        
-
-                    sum2 += (e_kkk[t, u ,v] * mu_k[v] * mu_k[t] / mu_k[u] /
-                             (b_k[t] - mu_k[u] * d_k[t]) *
-                             ((d_k[u] - d_k[v]) / (mu_k[u] - mu_k[v])) * self.theta(c + d_k[t]) *
-                             (a + b_k[t] - mu_k[u] * (c + d_k[t]))**2 *
-                             np.sign(a + b_k[t] - mu_k[u] * (c + d_k[t])))
-        
-                    sum3 += (e_kkk[t, u, v] * d_k[t] / b_k[t] * b_k[u] / d_k[u] *
-                             (self.theta(c) - self.theta(c + d_k[t]))
-                             * (a - c * b_k[t] / d_k[t])**2
-                             * np.sign(a - c * b_k[t] / d_k[t]))
-
-        I1 = (xi / np.prod(mu_k) * sum1 
-              - xi * sum2 - nu / np.prod(d_k) * sum3) / 4
+            if cy:
+                self.charlesworth_yeung_integrate(tetfuncvals_k, omega_w, out_wxx)
+            else:
+                self.tetrahedron_integration(tetfuncvals_k, omega_w, vol, out_wxx)
                 
-        return I1
+        self.kncomm.sum(out_wxx)
 
+        with self.timer('Kramers-Kronig transform'):
+            ht = HilbertTransform(omega_w, 1e-4)
+            ht(out_wxx)
+
+        out_wxx *= self.prefactor
+
+    def tetrahedron_integration(self, funcvals_k, omega_w, vol, out_wxx):
+        """Tetrahedron integration."""
+
+        n_kMG = np.array([funcvals_k[i][0] for i in range(4)])
+        de_kM = np.array([funcvals_k[i][1] for i in range(4)])
+        df_kM = np.array([funcvals_k[i][2] for i in range(4)])
+
+        nM = len(de_kM[0])
+        nw = len(omega_w)
+        # sort energies
+        for M in range(nM):
+            permute = np.argsort(de_kM[:, M])
+            de_kM[:, M] = de_kM[permute, M]
+            n_kMG[:, M] = n_kMG[permute, M]
+            df_kM[:, M] = df_kM[permute, M]
+
+        inds0_wM = np.argwhere((de_kM[0][np.newaxis, :] < omega_w[:, np.newaxis]) &
+                              (omega_w[:, np.newaxis] < de_kM[1][np.newaxis, :]))
+        inds1_wM = np.argwhere((de_kM[1][np.newaxis, :] < omega_w[:, np.newaxis]) &
+                               (omega_w[:, np.newaxis] < de_kM[2][np.newaxis, :]))
+        inds2_wM = np.argwhere((de_kM[2][np.newaxis, :] < omega_w[:, np.newaxis]) &
+                               (omega_w[:, np.newaxis] < de_kM[3][np.newaxis, :]))
+
+        I_wkM = np.zeros((nw, 4, nM), float)
+
+        for case, inds_wm in enumerate([inds0_wM, inds1_wM, inds2_wM]):
+            for iw, M in inds_wm:
+                omega = omega_w[iw]
+                f_kk = ((omega - de_kM[:, M][np.newaxis]) /
+                        (de_kM[:, M][:, np.newaxis] - de_kM[:, M][np.newaxis]))
+
+                if case == 0:
+                    ni = f_kk[1, 0] * f_kk[2, 0] * f_kk[3, 0]
+                    gi = 3 * ni / (omega - de_kM[0, M])
+                    I_wkM[iw, 0, M] = 1. / 3 * (f_kk[0, 1] + f_kk[0, 2] + f_kk[0, 3])
+                    I_wkM[iw, 1:, M] = 1. / 3 * f_kk[1:, 0]
+                elif case == 1:
+                    delta_kk =  (de_kM[:, np.newaxis, M] - de_kM[np.newaxis, :, M])
+                    gi = 3. / delta_kk[3, 0] * (f_kk[1, 2] * f_kk[2, 0] +
+                                                f_kk[2, 1] * f_kk[1, 3])
+                    I_wkM[iw, :, M] = (f_kk[([0, 1, 2, 3], [3, 2, 1, 0])] / 3. +
+                                       f_kk[([0, 1, 2, 3], [2, 3, 0, 1])] * 
+                                       f_kk[([2, 1, 2, 1], [0, 3, 0, 3])] *
+                                       f_kk[([1, 2, 1, 2], [2, 1, 2, 1])] *
+                                       (gi * delta_kk[3, 0])) * gi
+                elif case == 2:
+                    ni = (1 - f_kk[0, 3] * f_kk[1, 3] * f_kk[2, 3])
+                    gi = 3. * (1 - ni) / (de_kM[3, M] - omega)
+                    I_wkM[iw, :, M] = f_kk[:, 3] * gi
+                    I_wkM[iw, 3, M] = (f_kk[3, 0] + f_kk[3, 1] + f_kk[3,2]) / 3. * gi
+
+        for ik in range(4):
+            n_MG = n_kMG[ik]
+            df_M = df_kM[ik]
+            for iw in range(nw):
+                I_M = I_wkM[iw, ik]
+                nx_MG = (df_M * I_M)[:, np.newaxis] * n_MG
+                mmm(vol, nx_MG, 'c', n_MG, 'n', 1.0, out_wxx[iw])
+        
 
 class HilbertTransform:
     def __init__(self, omega_w, eta, timeordered=False, gw=False,
