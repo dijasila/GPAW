@@ -477,7 +477,7 @@ class HybridXC(HybridXCBase):
         if kpt.f_n is None:
             return
 
-        if self.excitation:
+        if self.excitation is not None:
             nbands = len(kpt.vt_nG)
         else:
             nbands = self.nocc_s[kpt.s]
