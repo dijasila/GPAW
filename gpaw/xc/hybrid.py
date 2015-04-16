@@ -165,7 +165,6 @@ class HybridXC(HybridXCBase):
         self.exx_s = np.zeros(self.nspins)
         self.ekin_s = np.zeros(self.nspins)
         self.nocc_s = np.empty(self.nspins, int)
-        self.lumo_pot = None
         
         if self.finegrid:
             self.poissonsolver = hamiltonian.poisson
@@ -254,7 +253,6 @@ class HybridXC(HybridXCBase):
         exx = 0.0
         ekin = 0.0
 
-        yiter = 0
         # Determine pseudo-exchange
         for n1 in range(nocc):
             psit1_G = psit_nG[n1]
@@ -479,7 +477,6 @@ class HybridXC(HybridXCBase):
         if kpt.f_n is None:
             return
 
-        # nbands = self.nocc_s[kpt.s]
         if self.excitation:
             nbands = len(kpt.vt_nG)
         else:
