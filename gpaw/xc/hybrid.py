@@ -125,16 +125,28 @@ class HybridXCBase(XCFunctional):
 
 class HybridXC(HybridXCBase):
     def __init__(self, name, hybrid=None, xc=None,
-                 finegrid=False, unocc=False, omega=None):
+                 finegrid=False, unocc=False, omega=None,
+                 excitation=None, excited=0):
         """Mix standard functionals with exact exchange.
 
         finegrid: boolean
             Use fine grid for energy functional evaluations ?
         unocc: boolean
             Apply vxx also to unoccupied states ?
+        excitation: string
+            Apply vxx suitable for excitations to unocc. states?
+            Possible modes:
+                singlet: excitations to singlets (-J_ex + 2 K_ex)
+                triplet: excitations to triplets (-J_ex)
+                average (everything else): average between singlet
+                    and triplett excitations (-J_ex + K_ex)
+        excited: number
+            Band to excite from - counted from HOMO downwards?
         """
         self.finegrid = finegrid
         self.unocc = unocc
+        self.excitation = excitation
+        self.excited = excited
         HybridXCBase.__init__(self, name, hybrid, xc, omega=omega)
         
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
@@ -153,6 +165,7 @@ class HybridXC(HybridXCBase):
         self.exx_s = np.zeros(self.nspins)
         self.ekin_s = np.zeros(self.nspins)
         self.nocc_s = np.empty(self.nspins, int)
+        self.lumo_pot = None
         
         if self.finegrid:
             self.poissonsolver = hamiltonian.poisson
@@ -212,8 +225,18 @@ class HybridXC(HybridXCBase):
             if self.gd is not self.finegd:
                 y_vt_G = self.gd.empty()
 
+        self.lumo_pot = self.gd.empty()
         nocc = int(kpt.f_n.sum()) // (3 - self.nspins)
-        if self.unocc:
+        if self.excitation is not None:
+            homo = nocc - self.excited - 1  # not my homo
+            if self.excitation == 'singlet':
+                ex_weight = -1
+            elif self.excitation == 'triplet':
+                ex_weight = +1
+            else:
+                ex_weight = 0
+
+        if self.unocc or self.excitation is not None:
             nbands = len(kpt.f_n)
         else:
             nbands = nocc
@@ -233,7 +256,7 @@ class HybridXC(HybridXCBase):
 
         yiter = 0
         # Determine pseudo-exchange
-        for n1 in range(nbands):
+        for n1 in range(nocc):
             psit1_G = psit_nG[n1]
             f1 = kpt.f_n[n1] / deg
             for n2 in range(n1, nbands):
@@ -278,8 +301,14 @@ class HybridXC(HybridXCBase):
                     Htpsit_nG[n1] += f2 * vt_G * psit2_G
                     if n1 == n2:
                         kpt.vt_nG[n1] = f1 * vt_G
+                        if self.excitation is not None and n1 == homo:
+                            # remove J_k
+                            Htpsit_nG[nocc:] += f1 * vt_G * psit_nG[nocc:]
                     else:
-                        Htpsit_nG[n2] += f1 * vt_G * psit1_G
+                        if self.excitation is None or n1 != homo or n2 < nocc:
+                            Htpsit_nG[n2] += f1 * vt_G * psit1_G
+                        else:   # "add" K_k
+                            Htpsit_nG[n2] += f1 * ex_weight * vt_G * psit1_G
 
                     # Update the vxx_uni and vxx_unii vectors of the nuclei,
                     # used to determine the atomic hamiltonian, and the
@@ -293,10 +322,18 @@ class HybridXC(HybridXCBase):
                         P_ni = P_ani[a]
                         v_ni[n1] += f2 * np.dot(v_ii, P_ni[n2])
                         if n1 != n2:
-                            v_ni[n2] += f1 * np.dot(v_ii, P_ni[n1])
+                            if self.excitation is None or n1 != homo or \
+                                    n2 < nocc:
+                                v_ni[n2] += f1 * np.dot(v_ii, P_ni[n1])
+                            else:
+                                v_ni[n2] += f1 * ex_weight * \
+                                        np.dot(v_ii, P_ni[n1])
                         else:
                             # XXX Check this:
                             v_nii[n1] = f1 * v_ii
+                            if self.excitation is not None and n1 == homo:
+                                for nuoc in xrange(nocc, nbands):
+                                    v_ni[nuoc] += f1 * np.dot(v_ii, P_ni[nuoc])
 
         def calculate_vv(ni, D_ii, M_pp, weight, addme=False):
             """Calculate the local corrections depending on Mpp."""
@@ -316,8 +353,9 @@ class HybridXC(HybridXCBase):
                             p24 = packed_index(i2, i4, ni)
                             A += M_pp[p13, p24] * D_ii[i3, i4]
                     p12 = packed_index(i1, i2, ni)
-                    if Htpsit_nG is not None:  # Check this out!
-                        dH_p[p12] += addsign * weight / deg * A / ((i1 != i2) + 1)
+                    if Htpsit_nG is not None:
+                        dH_p[p12] += addsign * weight / \
+                                deg * A / ((i1 != i2) + 1)
                     dekin += 2 * weight / deg * D_ii[i1, i2] * A
                     dexx -= weight / deg * D_ii[i1, i2] * A
             return (dexx, dekin)
@@ -411,8 +449,8 @@ class HybridXC(HybridXCBase):
                                                           kpt.vxx_ani[a]))
         self.gd.comm.sum(H_nn)
         
-        H_nn[:nocc, nocc:] = 0.0
-        H_nn[nocc:, :nocc] = 0.0
+        H_nn[:nocc, nocc:] = 0.0  #
+        H_nn[nocc:, :nocc] = 0.0  #
 
     def calculate_pair_density(self, n1, n2, psit_nG, P_ani):
         Q_aL = {}
@@ -441,17 +479,21 @@ class HybridXC(HybridXCBase):
         if kpt.f_n is None:
             return
 
-        nocc = self.nocc_s[kpt.s]
+        # nbands = self.nocc_s[kpt.s]
+        if self.unocc or self.excitation:
+            nbands = len(kpt.vt_nG)
+        else:
+            nbands = self.nocc_s[kpt.s]
         
         if calculate_change:
             for x, n in enumerate(n_x):
-                if n < nocc:
+                if n < nbands:
                     Htpsit_xG[x] += kpt.vt_nG[n] * psit_xG[x]
                     for a, P_xi in P_axi.items():
                         c_axi[a][x] += np.dot(kpt.vxx_anii[a][n], P_xi[x])
         else:
             for a, c_xi in c_axi.items():
-                c_xi[:nocc] += kpt.vxx_ani[a][:nocc]
+                c_xi[:nbands] += kpt.vxx_ani[a][:nbands]
         
     def rotate(self, kpt, U_nn):
         if kpt.f_n is None:
