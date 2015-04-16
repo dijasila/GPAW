@@ -95,7 +95,7 @@ The latest revision can be obtained from svn::
 
   $ svn checkout https://svn.fysik.dtu.dk/projects/gpaw/trunk gpaw
 
-or from the daily snapshot: `<../snapshot.tar.gz>`_.
+or from the daily snapshot: `snapshot.tar.gz <../snapshot.tar.gz>`_.
 
 After getting the code :ref:`create_links`.
 
