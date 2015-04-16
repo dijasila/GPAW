@@ -480,7 +480,7 @@ class HybridXC(HybridXCBase):
             return
 
         # nbands = self.nocc_s[kpt.s]
-        if self.unocc or self.excitation:
+        if self.excitation:
             nbands = len(kpt.vt_nG)
         else:
             nbands = self.nocc_s[kpt.s]
