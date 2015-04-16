@@ -10,13 +10,13 @@ ef = GPAW('Pt_gs.gpw').get_fermi_level()
 
 points = ibz_points['fcc']
 G = points['Gamma']
-X= points['X']
+X = points['X']
 W = points['W']
 L = points['L']
 K = points['K']
-kpts, x, X = get_bandpath([G,X,W,L,G,K,X], calc.atoms.cell, npoints=200)
+kpts, x, X = get_bandpath([G, X, W, L, G, K, X], calc.atoms.cell, npoints=200)
 
-e_kn = np.array([calc.get_eigenvalues(kpt=k)[:20] 
+e_kn = np.array([calc.get_eigenvalues(kpt=k)[:20]
                  for k in range(len(calc.get_ibz_k_points()))])
 e_nk = e_kn.T
 e_nk -= ef
@@ -39,5 +39,5 @@ pl.plot([0.0, x[-1]], 2*[0.0], c='0.5')
 
 pl.ylabel(r'$\varepsilon_n(k)$ [eV]', size=24)
 pl.axis([0, x[-1], -11, 13])
-#pl.show()
+# pl.show()
 pl.savefig('Pt_bands.png')
