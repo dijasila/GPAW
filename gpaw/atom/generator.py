@@ -21,10 +21,10 @@ class Generator(AllElectron):
     def __init__(self, symbol, xcname='LDA', scalarrel=False, corehole=None,
                  configuration=None,
                  nofiles=True, txt='-', gpernode=150,
-                 orbital_free=False, tf_coeff=1.):
+                 orbital_free=False, tw_coeff=1.):
         AllElectron.__init__(self, symbol, xcname, scalarrel, corehole,
                              configuration, nofiles, txt, gpernode,
-                             orbital_free, tf_coeff)
+                             orbital_free, tw_coeff)
 
     def run(self, core='', rcut=1.0, extra=None,
             logderiv=False, vbar=None, exx=False, name=None,
@@ -435,7 +435,7 @@ class Generator(AllElectron):
         vt = vHt + vXCt
 
         if self.orbital_free:
-            vt /= self.tf_coeff
+            vt /= self.tw_coeff
 
         # Construct zero potential:
         gc = 1 + int(rcutvbar * N / (rcutvbar + beta))
@@ -507,7 +507,7 @@ class Generator(AllElectron):
 
         filter = Filter(r, dr, gcutfilter, hfilter).filter
         if self.orbital_free:
-            vbar *= self.tf_coeff
+            vbar *= self.tw_coeff
         vbar = filter(vbar * r)
 
         # Calculate matrix elements:
@@ -694,7 +694,7 @@ class Generator(AllElectron):
                 for n2, j2 in enumerate(j_n):
                     self.dK_jj[j1, j2] = self.dK_lnn[l][n1, n2]
                     if self.orbital_free:
-                        self.dK_jj[j1,j2] *= self.tf_coeff
+                        self.dK_jj[j1,j2] *= self.tw_coeff
 
         X_gamma = yukawa_gamma
         if exx:

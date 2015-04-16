@@ -11,9 +11,10 @@ from ase import Atoms
 from ase.data import covalent_radii, atomic_numbers
 from ase.lattice import bulk
 from ase.lattice.surface import fcc111
+from ase.units import Bohr
 
-from gpaw import GPAW, PW, setup_paths
-from gpaw.atom.generator2 import _generate
+from gpaw import GPAW, PW, setup_paths  # , ConvergenceError
+from gpaw.atom.generator2 import _generate, DatasetGenerationError
 
 
 class GA:
@@ -28,16 +29,16 @@ class GA:
                 words = line.split(',')
                 n = int(words.pop(0))
                 error = float(words.pop(0))
-                x = tuple(int(word) for word in words[:-9])
+                x = tuple(int(word) for word in words[:-10])
                 self.individuals[x] = (error, n)
-                y = tuple(float(word) for word in words[-9:])
+                y = tuple(float(word) for word in words[-10:])
                 self.errors[n] = y
                 
         self.fd = open('pool.csv', 'a')  # pool of genes
         self.n = len(self.individuals)
         self.pool = mp.Pool()  # process pool
 
-    def run(self, func, sleep=20, mutate=3.0, size1=2, size2=100):
+    def run(self, func, sleep=5, mutate=2.0, size1=2, size2=100):
         results = []
         while True:
             while len(results) < mp.cpu_count():
@@ -111,7 +112,12 @@ def fit(E):
     
     
 class DatasetOptimizer:
-    tolerances = np.array([0.1, 0.01, 0.1, 0.01, 0.1, 40, 0.1, 0.001, 0.02])
+    tolerances = np.array([0.1,
+                           0.01, 0.05,
+                           0.01, 0.05,
+                           40, 0.2,
+                           0.001, 0.02,
+                           0.1])
     
     def __init__(self, symbol='H', projectors=None,
                  radii=None, r0=None):
@@ -166,13 +172,13 @@ class DatasetOptimizer:
         best = sorted((error, id, x)
                       for x, (error, id) in ga.individuals.items())
         if N is None:
-            return best[0] + [ga.errors[best[0][1]]]
+            return best[0] + (ga.errors[best[0][1]],)
         else:
             return [(error, id, x, ga.errors[id])
                     for error, id, x in best[:N]]
         
     def summary(self, N=10):
-        print('dFffRrrICEe:')
+        print('dFfRrICEer:')
         for error, id, x, errors in self.best(N):
             params = [0.1 * p for p in x[:self.nenergies]]
             params += [0.05 * p for p in x[self.nenergies:]]
@@ -182,10 +188,16 @@ class DatasetOptimizer:
                 ' '.join('{0:8.3f}'.format(e) for e in errors)))
             
     def best1(self):
-        error, id, x = self.best()
+        error, id, x, errors = self.best()
         energies, radii, r0, projectors = self.parameters(x)
-        print(self.symbol, error)
-        self.generate(None, 'PBE', projectors, radii, r0, True, logderiv=False)
+        if 0:
+            with open('parameters.txt', 'w') as fd:
+                print(projectors, ' '.join('{0:.2f}'.format(r)
+                                           for r in radii + [r0]),
+                      file=fd)
+        if 1:
+            self.generate(None, 'PBE', projectors, radii, r0, True, '',
+                          logderivs=False)
         
     def generate(self, fd, xc, projectors, radii, r0,
                  scalar_relativistic=False, tag=None, logderivs=True):
@@ -196,10 +208,11 @@ class DatasetOptimizer:
         gen = _generate(self.symbol, xc, None, projectors, radii,
                         scalar_relativistic, None, r0, nderiv0,
                         ('poly', 4), None, None, fd)
-        assert gen.check_all(), xc
+        if not gen.check_all():
+            raise DatasetGenerationError(xc)
 
-        if tag:
-            gen.make_paw_setup(tag).write_xml()
+        if tag is not None:
+            gen.make_paw_setup(tag or None).write_xml()
 
         r = 1.1 * gen.rcmax
         energies = np.linspace(-1.5, 2.0, 100)
@@ -220,15 +233,18 @@ class DatasetOptimizer:
         return energies, radii, r0, projectors
         
     def __call__(self, n, x):
-        fd = open('{0}.txt'.format(os.getpid()), 'a')
+        fd = open('{0}.txt'.format(os.getpid()), 'w')
         
         energies, radii, r0, projectors = self.parameters(x)
         
+        if any(r < r0 for r in radii):
+            return n, x, [np.inf] * 10, np.inf
+            
         try:
             errors = self.test(n, fd, projectors, radii, r0)
-        except Exception:
+        except Exception:  # (ConvergenceError, DatasetGenerationError):
             traceback.print_exc(file=fd)
-            errors = [np.inf] * 9
+            errors = [np.inf] * 10
             
         try:
             os.remove('{0}.ga{1}.PBE'.format(self.symbol, n))
@@ -240,14 +256,18 @@ class DatasetOptimizer:
     def test(self, n, fd, projectors, radii, r0):
         error = self.generate(fd, 'PBE', projectors, radii, r0,
                               tag='ga{0}'.format(n))
-        for xc in ['LDA', 'PBEsol']:
+        for xc in ['PBE', 'LDA', 'PBEsol']:
             error += self.generate(fd, xc, projectors, radii, r0,
                                    scalar_relativistic=True)
         results = {'dataset': error}
+        
         for name in ['slab', 'fcc', 'rocksalt', 'eggbox']:
             result = getattr(self, name)(n, fd)
             results[name] = result
             
+        rc = self.rc / Bohr
+        results['radii'] = sum(r - rc for r in radii if r > rc)
+        
         errors = self.calculate_total_error(fd, results)
         
         return errors
@@ -268,12 +288,14 @@ class DatasetOptimizer:
         errors.append(results['eggbox'][0])
         errors.append(results['eggbox'][1])
         
+        errors.append(results['radii'])
+        
         return errors
         
     def fcc(self, n, fd):
         ref = self.reference['fcc']
         a0r = ref['a']  # scalar-relativistic minimum
-        sc = 2 * self.rc * 2**0.5 / a0r
+        sc = min(0.8, 2 * self.rc * 2**0.5 / a0r)
         sc = min((abs(s - sc), s) for s in ref if s != 'a')[1]
         maxiter = 0
         energies = []
@@ -302,7 +324,7 @@ class DatasetOptimizer:
     def rocksalt(self, n, fd):
         ref = self.reference['rocksalt']
         a0r = ref['a']
-        sc = (self.rc + self.rco) / a0r
+        sc = min(0.8, (self.rc + self.rco) / a0r)
         sc = min((abs(s - sc), s) for s in ref if s != 'a')[1]
         maxiter = 0
         energies = []
@@ -372,8 +394,8 @@ if __name__ == '__main__':
     if opts.run:
         symbol = args[0]
         if os.path.isdir(symbol):
-            do = DatasetOptimizer(symbol)
             os.chdir(symbol)
+            do = DatasetOptimizer(symbol)
         else:
             os.mkdir(symbol)
             os.chdir(symbol)
@@ -388,10 +410,11 @@ if __name__ == '__main__':
             args.append(symbol)
             os.chdir('..')
         for symbol in args:
+            print(symbol)
             os.chdir(symbol)
             do = DatasetOptimizer(symbol)
             if opts.summary:
                 do.summary()
             elif opts.best:
-                do.best()
+                do.best1()
             os.chdir('..')

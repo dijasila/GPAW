@@ -27,7 +27,7 @@ class CG(Eigensolver):
     * Conjugate gradient steps
     """
 
-    def __init__(self, niter=4, rtol=0.30, tf_coeff=False):
+    def __init__(self, niter=4, rtol=0.30, tw_coeff=False):
         """Construct conjugate gradient eigen solver.
 
         parameters:
@@ -46,7 +46,7 @@ class CG(Eigensolver):
             self.orthonormalization_required = True
         else:
             self.orthonormalization_required = False
-        self.tf_coeff = tf_coeff
+        self.tw_coeff = tw_coeff
 
     def __repr__(self):
         return 'CG(niter=%d, rtol=%5.1e)' % (self.niter, self.rtol)
@@ -68,11 +68,11 @@ class CG(Eigensolver):
         phi_old_G = wfs.empty(q=kpt.q)
 
         comm = wfs.gd.comm
-        if self.tf_coeff:
-            hamiltonian.vt_sG /= self.tf_coeff
+        if self.tw_coeff:
+            hamiltonian.vt_sG /= self.tw_coeff
             # Assuming the ordering in dH_asp and wfs is the same
             for a in hamiltonian.dH_asp.keys():
-                hamiltonian.dH_asp[a] /= self.tf_coeff
+                hamiltonian.dH_asp[a] /= self.tw_coeff
 
         psit_nG, Htpsit_nG = self.subspace_diagonalize(hamiltonian, wfs, kpt)
 
@@ -222,13 +222,13 @@ class CG(Eigensolver):
             total_error += weight * error
             # if nit == 3:
             #   print >> self.f, "cg:iters", n, nit+1
-        if self.tf_coeff: #undo the scaling for calculating energies
+        if self.tw_coeff: #undo the scaling for calculating energies
             for i in range(len(kpt.eps_n)):
-                kpt.eps_n[i] *= self.tf_coeff
-            hamiltonian.vt_sG *= self.tf_coeff
+                kpt.eps_n[i] *= self.tw_coeff
+            hamiltonian.vt_sG *= self.tw_coeff
             # Assuming the ordering in dH_asp and wfs is the same 
             for a in hamiltonian.dH_asp.keys():
-                hamiltonian.dH_asp[a] *= self.tf_coeff
+                hamiltonian.dH_asp[a] *= self.tw_coeff
 
         self.timer.stop('CG')
         return total_error, psit_nG
