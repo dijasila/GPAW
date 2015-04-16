@@ -85,6 +85,7 @@ To check out the latest stable version from SVN, do this::
 
 After getting the code :ref:`create_links`.
 
+
 .. _latest_development_release:
 
 Latest development release
@@ -94,7 +95,7 @@ The latest revision can be obtained from svn::
 
   $ svn checkout https://svn.fysik.dtu.dk/projects/gpaw/trunk gpaw
 
-or from the daily snapshot: `<snapshot.tar.gz>`_.
+or from the daily snapshot: `<../snapshot.tar.gz>`_.
 
 After getting the code :ref:`create_links`.
 
