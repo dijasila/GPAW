@@ -442,13 +442,23 @@ class HybridXC(HybridXCBase):
             
         nocc = self.nocc_s[kpt.s]
         nbands = len(kpt.vt_nG)
+        # if self.excitation is not None:
+        #     for i in range(nocc):
+        #         for j in range (nocc, nbands):
+        #             H_nn[i, j] = H_nn[j, i]
+
         for a, P_ni in kpt.P_ani.items():
             H_nn[:nbands, :nbands] += symmetrize(np.inner(P_ni[:nbands],
                                                           kpt.vxx_ani[a]))
         self.gd.comm.sum(H_nn)
+        # if self.excitation is not None:
+        #     for i in range(nocc):
+        #         for j in range (nocc, nbands):
+        #             H_nn[i, j] = H_nn[j, i]
         
-        H_nn[:nocc, nocc:] = 0.0  #
-        H_nn[nocc:, :nocc] = 0.0  #
+        if not self.unocc and self.excitation is None:
+            H_nn[:nocc, nocc:] = 0.0  #
+            H_nn[nocc:, :nocc] = 0.0  #
 
     def calculate_pair_density(self, n1, n2, psit_nG, P_ani):
         Q_aL = {}
@@ -477,7 +487,8 @@ class HybridXC(HybridXCBase):
         if kpt.f_n is None:
             return
 
-        if self.excitation is not None:
+        nbands = self.nocc_s[kpt.s]
+        if self.excitation is not None or self.unocc:
             nbands = len(kpt.vt_nG)
         else:
             nbands = self.nocc_s[kpt.s]
