@@ -1,5 +1,6 @@
 from __future__ import print_function, division
 import multiprocessing as mp
+import glob
 import os
 import random
 import re
@@ -62,6 +63,14 @@ class GA:
                                                     for e in errors)),
                   file=self.fd)
             self.fd.flush()
+            
+            best = sorted(self.individuals.values())[:20]
+            for f in glob.glob('[0-9]*.txt'):
+                if int(f[:-4]) not in best:
+                    os.remove(f)
+                    
+            if len(self.individuals) > 40 and best[0][0] == np.inf:
+                raise RuntimeError
                 
     def new(self, mutate, size1, size2):
         all = sorted((y, x) for x, y in self.individuals.items()
@@ -119,6 +128,8 @@ class DatasetOptimizer:
                            0.001, 0.02,
                            0.1])
     
+    conf = None
+    
     def __init__(self, symbol='H', projectors=None,
                  radii=None, r0=None):
     
@@ -127,6 +138,8 @@ class DatasetOptimizer:
         if os.path.isfile('parameters.txt'):
             with open('parameters.txt') as fd:
                 words = fd.readline().split()
+                if words[-1].startswith('['):
+                    self.conf = eval(words.pop())
                 projectors = words.pop(0)
                 radii = [float(f) for f in words]
                 r0 = radii.pop()
@@ -172,7 +185,7 @@ class DatasetOptimizer:
         best = sorted((error, id, x)
                       for x, (error, id) in ga.individuals.items())
         if N is None:
-            return best[0] + (ga.errors[best[0][1]],)
+            return len(best), best[0] + (ga.errors[best[0][1]],)
         else:
             return [(error, id, x, ga.errors[id])
                     for error, id, x in best[:N]]
@@ -188,14 +201,16 @@ class DatasetOptimizer:
                 ' '.join('{0:8.3f}'.format(e) for e in errors)))
             
     def best1(self):
-        error, id, x, errors = self.best()
+        n, (error, id, x, errors) = self.best()
         energies, radii, r0, projectors = self.parameters(x)
+        if 1:
+            print(self.symbol, n, error)
         if 0:
             with open('parameters.txt', 'w') as fd:
                 print(projectors, ' '.join('{0:.2f}'.format(r)
                                            for r in radii + [r0]),
                       file=fd)
-        if 1:
+        if 0:
             self.generate(None, 'PBE', projectors, radii, r0, True, '',
                           logderivs=False)
         
@@ -205,7 +220,7 @@ class DatasetOptimizer:
             nderiv0 = 5
         else:
             nderiv0 = 2
-        gen = _generate(self.symbol, xc, None, projectors, radii,
+        gen = _generate(self.symbol, xc, self.conf, projectors, radii,
                         scalar_relativistic, None, r0, nderiv0,
                         ('poly', 4), None, None, fd)
         if not gen.check_all():
@@ -233,8 +248,7 @@ class DatasetOptimizer:
         return energies, radii, r0, projectors
         
     def __call__(self, n, x):
-        fd = open('{0}.txt'.format(os.getpid()), 'w')
-        
+        fd = open('{0}.txt'.format(n), 'w')
         energies, radii, r0, projectors = self.parameters(x)
         
         if any(r < r0 for r in radii):
@@ -242,7 +256,7 @@ class DatasetOptimizer:
             
         try:
             errors = self.test(n, fd, projectors, radii, r0)
-        except Exception:  # (ConvergenceError, DatasetGenerationError):
+        except Exception:
             traceback.print_exc(file=fd)
             errors = [np.inf] * 10
             
@@ -410,7 +424,6 @@ if __name__ == '__main__':
             args.append(symbol)
             os.chdir('..')
         for symbol in args:
-            print(symbol)
             os.chdir(symbol)
             do = DatasetOptimizer(symbol)
             if opts.summary:
