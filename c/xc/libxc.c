@@ -650,14 +650,9 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
           noutcopy = 3; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         case XC_FAMILY_MGGA:
-          if (func->info->flags & XC_FLAGS_HAVE_EXC)
-            xc_mgga_exc_vxc(func, blocksize, n_sg, sigma_xg, scratch_lapl,
-                            tau_sg, e_g, dedn_sg, dedsigma_xg, scratch_vlapl,
-                            dedtau_sg);
-          else
-            xc_mgga_vxc(func, blocksize, n_sg, sigma_xg, scratch_lapl,
-                        tau_sg, dedn_sg, dedsigma_xg, scratch_vlapl,
-                        dedtau_sg);
+          xc_mgga_exc_vxc(func, blocksize, n_sg, sigma_xg, scratch_lapl,
+                          tau_sg, e_g, dedn_sg, dedsigma_xg, scratch_vlapl,
+                          dedtau_sg);
           noutcopy = 4; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         }
@@ -794,13 +789,28 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
 
 
 static PyObject*
-lxcXCFunctional_set_tb09_parameter(lxcXCFunctionalObject *self,
-                                   PyObject *args)
+lxcXCFunctional_tb09(lxcXCFunctionalObject *self, PyObject *args)
 {
     double c;
-    if (!PyArg_ParseTuple(args, "d", &c))
+    PyArrayObject* n_g;
+    PyArrayObject* sigma_g;
+    PyArrayObject* lapl_g;
+    PyArrayObject* tau_g;
+    PyArrayObject* v_g;
+    PyArrayObject* vx_g;  // for vsigma, vtau, vlapl
+    if (!PyArg_ParseTuple(args, "dOOOOOO",
+                          &c, &n_g, &sigma_g, &lapl_g, &tau_g, &v_g, &vx_g))
         return NULL;
-    XC(mgga_x_tb09_set_params)(self->functional[0], c);
+    xc_mgga_x_tb09_set_params(self->functional[0], c);
+    xc_mgga_vxc(self->functional[0], PyArray_DIM(n_g, 0),
+                PyArray_DATA(n_g),
+                PyArray_DATA(sigma_g),
+                PyArray_DATA(lapl_g),
+                PyArray_DATA(tau_g),
+                PyArray_DATA(v_g),
+                PyArray_DATA(vx_g),
+                PyArray_DATA(vx_g),
+                PyArray_DATA(vx_g));
     Py_RETURN_NONE;
 }
 
@@ -815,8 +825,8 @@ static PyMethodDef lxcXCFunctional_Methods[] = {
    (PyCFunction)lxcXCFunctional_Calculate, METH_VARARGS, 0},
   {"calculate_fxc_spinpaired",
    (PyCFunction)lxcXCFunctional_CalculateFXC, METH_VARARGS, 0},
-  {"set_tb09_parameter",
-   (PyCFunction)lxcXCFunctional_set_tb09_parameter, METH_VARARGS, 0},
+  {"tb09",
+   (PyCFunction)lxcXCFunctional_tb09, METH_VARARGS, 0},
   {NULL, NULL, 0, NULL}
 };
 
