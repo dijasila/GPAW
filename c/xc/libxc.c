@@ -650,8 +650,14 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
           noutcopy = 3; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         case XC_FAMILY_MGGA:
-          xc_mgga_exc_vxc(func, blocksize, n_sg, sigma_xg, scratch_lapl, tau_sg,
-                          e_g, dedn_sg, dedsigma_xg, scratch_vlapl, dedtau_sg);
+          if (func->info->flags & XC_FLAGS_HAVE_EXC)
+            xc_mgga_exc_vxc(func, blocksize, n_sg, sigma_xg, scratch_lapl,
+                            tau_sg, e_g, dedn_sg, dedsigma_xg, scratch_vlapl,
+                            dedtau_sg);
+          else
+            xc_mgga_vxc(func, blocksize, n_sg, sigma_xg, scratch_lapl,
+                        tau_sg, dedn_sg, dedsigma_xg, scratch_vlapl,
+                        dedtau_sg);
           noutcopy = 4; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         }
@@ -786,6 +792,18 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+
+static PyObject*
+lxcXCFunctional_set_tb09_parameter(lxcXCFunctionalObject *self,
+                                   PyObject *args)
+{
+    double c;
+    if (!PyArg_ParseTuple(args, "d", &c))
+        return NULL;
+    XC(mgga_x_tb09_set_params)(self->functional[0], c);
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef lxcXCFunctional_Methods[] = {
   {"is_gga",
    (PyCFunction)lxcXCFunctional_is_gga, METH_VARARGS, 0},
@@ -797,6 +815,8 @@ static PyMethodDef lxcXCFunctional_Methods[] = {
    (PyCFunction)lxcXCFunctional_Calculate, METH_VARARGS, 0},
   {"calculate_fxc_spinpaired",
    (PyCFunction)lxcXCFunctional_CalculateFXC, METH_VARARGS, 0},
+  {"set_tb09_parameter",
+   (PyCFunction)lxcXCFunctional_set_tb09_parameter, METH_VARARGS, 0},
   {NULL, NULL, 0, NULL}
 };
 
@@ -837,7 +857,7 @@ PyObject * NewlxcXCFunctionalObject(PyObject *obj, PyObject *args)
   /* checking if the numbers xc x c are valid is done at python level */
 
   lxcXCFunctionalObject *self = PyObject_NEW(lxcXCFunctionalObject,
-					     &lxcXCFunctionalType);
+                                             &lxcXCFunctionalType);
 
   if (self == NULL){
     return NULL;
