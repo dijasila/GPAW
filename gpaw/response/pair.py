@@ -939,7 +939,9 @@ class PairDensity:
                                                          pd, Q_G)
             if optical_limit:
                 n_nmv[j] = self.optical_pair_density(n, m_m, kpt1, kpt2)
-                n_nmG[..., 0] = n_nmv[..., 0]
+
+        if optical_limit:
+            n_nmG[..., 0] = n_nmv[..., 0]
 
         if intraband:
             vel_mv = self.intraband_pair_density(kpt2)
