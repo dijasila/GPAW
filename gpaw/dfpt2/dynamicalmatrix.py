@@ -270,3 +270,28 @@ class DynamicalMatrix:
         """Return indices of included atoms."""
 
         return self.indices
+
+    def acoustic_sum_rule(self, D_nn):
+        """Applies acoustic sum rules to q=0 dynamical matrix.
+
+        Currently this is only a simple version for the 3 translational degrees
+        of freedom of crystals.
+
+        """
+
+        # NOTE All this needs to be done much nicer
+
+        D_new = D_nn.copy()
+        for i in range(3):
+            for j in range(3):
+                for ni in self.indices:
+                    a = 3*ni + i
+                    tmp = 0
+                    for nj in self.indices:
+                        b = 3*nj + j
+                        if ni != nj:
+                            tmp += D_nn[a, b]
+                    D_new[a, 3*ni+j] = -tmp
+
+        return D_new
+

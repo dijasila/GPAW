@@ -34,18 +34,40 @@ ph = PhononCalculator(name,
 
 # Run the self-consistent calculation
 energies = ph.get_phonons()
-energies *= 1000
+energies *= 1000  # Conversion to meV
 
+# This was without acoustic sum rule
 
-reference = [-5.21660788e-07, 3.08577085e-07, 7.39654337e-07,
-              4.49543403e+01, 4.49543901e+01, 4.49898951e+01]
-
-
+reference = [8.406736, 8.407219, 8.413146, 45.733691, 45.733730, 45.769766]
 equal(energies, reference, 1e-4)
 
+# Now check with acoustic sum rule
+
+dynmat = ph.dyn.D_nn
+dynmat_new = ph.dyn.acoustic_sum_rule(dynmat)
+energies = ph.diagonalize_dynamicalmatrix(dynmat_new, modes=False)
+
+energies *= 1000
+
+print energies
+reference = [0.000000, 0.000000, 0.000000, 44.954340, 44.954390, 44.989895]
+equal(energies, reference, 1e-4)
+
+
+# reference energies with acoustic sum rule
+
 # reference energies for Gamma
-# [[ -5.21660788e-07   3.08577085e-07   7.39654337e-07   4.49543403e+01
-#    4.49543901e+01   4.49898951e+01]
+# [0.000000, 0.000000, 0.000000, 44.954340, 44.954390, 44.989895]
+# reference energies for (1/3, 0, 1/3)
+# [16.859100, 16.860130, 24.181116, 36.081396, 36.108222, 39.722383]
 # reference energies for X
-# [  1.91104820e+01   2.23700901e+01   3.07891199e+01   3.14599239e+01
-#    3.26732813e+01   3.31591576e+01]]
+# [19.110482, 22.370090, 30.789119, 31.459923, 32.673281, 33.159157]
+
+# reference energies without acoustic sum rule
+
+# reference energies for Gamma
+# [8.406736, 8.407219, 8.413146, 45.733691, 45.733730, 45.769766]
+# reference energies for (1/3, 0, 1/3)
+# [18.838915, 18.841651, 25.601615, 37.047843, 37.074885, 40.602762]
+# reference energies for X
+# [20.877886, 23.899050, 31.917282, 32.563820, 33.738102, 34.208868]
