@@ -254,13 +254,14 @@ class HybridXC(HybridXCBase):
         ekin = 0.0
 
         # Determine pseudo-exchange
-        for n1 in range(nocc):
+        for n1 in range(nbands):
             psit1_G = psit_nG[n1]
             f1 = kpt.f_n[n1] / deg
             for n2 in range(n1, nbands):
                 psit2_G = psit_nG[n2]
                 f2 = kpt.f_n[n2] / deg
-
+                if n1 != n2 and f1 == 0 and f1 == f2:
+                    continue    # Don't work on double unocc. bands
                 # Double count factor:
                 dc = (1 + (n1 != n2)) * deg
                 
