@@ -382,6 +382,9 @@ class MixerDif(BaseMixer):
             return None
         return self.mixer.dNt
 
+    def set_charge_sloshing(self, dNt):
+        self.mixer.dNt = dNt
+
 
 class MixerRho(BaseMixer):
     def initialize(self, density):
