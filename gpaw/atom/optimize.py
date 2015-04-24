@@ -30,9 +30,9 @@ class GA:
                 words = line.split(',')
                 n = int(words.pop(0))
                 error = float(words.pop(0))
-                x = tuple(int(word) for word in words[:-10])
+                x = tuple(int(word) for word in words[:-12])
                 self.individuals[x] = (error, n)
-                y = tuple(float(word) for word in words[-10:])
+                y = tuple(float(word) for word in words[-12:])
                 self.errors[n] = y
                 
         self.fd = open('pool.csv', 'a')  # pool of genes
@@ -122,8 +122,8 @@ def fit(E):
     
 class DatasetOptimizer:
     tolerances = np.array([0.1,
-                           0.01, 0.05,
-                           0.01, 0.05,
+                           0.01, 0.05, 0.05,
+                           0.01, 0.05, 0.05,
                            40, 0.2,
                            0.001, 0.02,
                            0.1])
@@ -252,13 +252,13 @@ class DatasetOptimizer:
         energies, radii, r0, projectors = self.parameters(x)
         
         if any(r < r0 for r in radii):
-            return n, x, [np.inf] * 10, np.inf
+            return n, x, [np.inf] * 12, np.inf
             
         try:
             errors = self.test(n, fd, projectors, radii, r0)
         except Exception:
             traceback.print_exc(file=fd)
-            errors = [np.inf] * 10
+            errors = [np.inf] * 12
             
         try:
             os.remove('{0}.ga{1}.PBE'.format(self.symbol, n))
@@ -294,7 +294,8 @@ class DatasetOptimizer:
             result = results[name]
             maxiter = max(maxiter, result['maxiter'])
             errors.append(result['a'] - result['a0'])
-            errors.append(result['de'])
+            errors.append(result['c90'] - result['c90ref'])
+            errors.append(result['c80'] - result['c80ref'])
         
         errors.append(maxiter)
         errors.append(results['fcc']['convergence'])
@@ -313,7 +314,7 @@ class DatasetOptimizer:
         sc = min((abs(s - sc), s) for s in ref if s != 'a')[1]
         maxiter = 0
         energies = []
-        for s in [sc, 0.95, 1.0, 1.05]:
+        for s in [sc, 0.9, 1.0, 1.1]:
             atoms = bulk(self.symbol, 'fcc', a0r * s)
             atoms.calc = GPAW(mode=PW(self.ecut2),
                               kpts={'density': 2.0, 'even': True},
@@ -330,9 +331,12 @@ class DatasetOptimizer:
                 maxiter = max(maxiter, atoms.calc.get_number_of_iterations())
 
         return {'convergence': e2 - energies[2],
-                'de': energies[0] - energies[2] - (ref[sc] - ref[1.0]),
-                'a0': fit([ref[s] for s in [0.95, 1.0, 1.05]]) * 0.05 * a0r,
-                'a': fit(energies[1:]) * 0.05 * a0r,
+                'c90': energies[1] - energies[2],
+                'c80': energies[0] - energies[2],
+                'c90ref': ref[0.9] - ref[1.0],
+                'c80ref': ref[sc] - ref[1.0],
+                'a0': fit([ref[s] for s in [0.9, 1.0, 1.1]]) * 0.1 * a0r,
+                'a': fit(energies[1:]) * 0.1 * a0r,
                 'maxiter': maxiter}
         
     def rocksalt(self, n, fd):
@@ -342,7 +346,7 @@ class DatasetOptimizer:
         sc = min((abs(s - sc), s) for s in ref if s != 'a')[1]
         maxiter = 0
         energies = []
-        for s in [sc, 0.95, 1.0, 1.05]:
+        for s in [sc, 0.9, 1.0, 1.1]:
             atoms = bulk(self.symbol + 'O', 'rocksalt', a0r * s)
             atoms.calc = GPAW(mode=PW(self.ecut2),
                               kpts={'density': 2.0, 'even': True},
@@ -354,9 +358,12 @@ class DatasetOptimizer:
             maxiter = max(maxiter, atoms.calc.get_number_of_iterations())
             energies.append(e)
         
-        return {'de': energies[0] - energies[2] - (ref[sc] - ref[1.0]),
-                'a0': fit([ref[s] for s in [0.95, 1.0, 1.05]]) * 0.05 * a0r,
-                'a': fit(energies[1:]) * 0.05 * a0r,
+        return {'c90': energies[1] - energies[2],
+                'c80': energies[0] - energies[2],
+                'c90ref': ref[0.9] - ref[1.0],
+                'c80ref': ref[sc] - ref[1.0],
+                'a0': fit([ref[s] for s in [0.9, 1.0, 1.1]]) * 0.1 * a0r,
+                'a': fit(energies[1:]) * 0.1 * a0r,
                 'maxiter': maxiter}
         
     def slab(self, n, fd):
