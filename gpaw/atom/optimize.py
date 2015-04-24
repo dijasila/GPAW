@@ -39,7 +39,7 @@ class GA:
         self.n = len(self.individuals)
         self.pool = mp.Pool()  # process pool
 
-    def run(self, func, sleep=5, mutate=2.0, size1=2, size2=100):
+    def run(self, func, sleep=5, mutate=3.0, size1=2, size2=100):
         results = []
         while True:
             while len(results) < mp.cpu_count():
@@ -65,19 +65,20 @@ class GA:
             self.fd.flush()
             
             best = sorted(self.individuals.values())[:20]
+            nbest = [N for error, N in best]
             for f in glob.glob('[0-9]*.txt'):
-                if int(f[:-4]) not in best:
+                if int(f[:-4]) not in nbest:
                     os.remove(f)
                     
             if len(self.individuals) > 40 and best[0][0] == np.inf:
                 raise RuntimeError
                 
     def new(self, mutate, size1, size2):
-        all = sorted((y, x) for x, y in self.individuals.items()
-                     if y is not None)
-        N = len(all)
-        if N == 0:
+        if len(self.individuals) == 0:
             return self.initialvalue
+        all = sorted((y, x) for x, y in self.individuals.items()
+                     if y is not None and y != np.inf)
+        N = len(all)
         if N < size1:
             x3 = np.array(self.initialvalue, dtype=float)
         else:
@@ -176,14 +177,20 @@ class DatasetOptimizer:
         self.rc = covalent_radii[Z]
         self.rco = covalent_radii[8]
 
-    def run(self):
+    def run(self, mu, n1, n2):
+        mu = float(mu)
+        n1 = int(n1)
+        n2 = int(n2)
         ga = GA(self.x)
-        ga.run(self)
+        ga.run(self, mutate=mu, size1=n1, size2=n2)
         
     def best(self, N=None):
         ga = GA(self.x)
         best = sorted((error, id, x)
                       for x, (error, id) in ga.individuals.items())
+        if 1:
+            import pickle
+            pickle.dump(sorted(ga.individuals.values()), open('Zn.pckl', 'w'))
         if N is None:
             return len(best), best[0] + (ga.errors[best[0][1]],)
         else:
@@ -201,7 +208,10 @@ class DatasetOptimizer:
                 ' '.join('{0:8.3f}'.format(e) for e in errors)))
             
     def best1(self):
-        n, (error, id, x, errors) = self.best()
+        try:
+            n, (error, id, x, errors) = self.best()
+        except IndexError:
+            return
         energies, radii, r0, projectors = self.parameters(x)
         if 1:
             print(self.symbol, n, error)
@@ -424,7 +434,7 @@ if __name__ == '__main__':
             radii = [float(r) for r in radii.split(',')]
             r0 = float(r0)
             do = DatasetOptimizer(symbol, projectors, radii, r0)
-        do.run()
+        do.run(*args[1:])
     else:
         if len(args) == 0:
             symbol = os.getcwd().rsplit('/', 1)[1]
