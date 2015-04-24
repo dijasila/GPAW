@@ -299,7 +299,7 @@ class HybridXC(HybridXCBase):
                 if Htpsit_nG is not None:
                     Htpsit_nG[n1] += f2 * vt_G * psit2_G
                     if n1 == n2:
-                        kpt.vt_nG[n1] = f1 * vt_G
+                        kpt.vt_nG[n1] = vt_G
                         if self.excitation is not None and n1 == homo:
                             # remove J_k
                             Htpsit_nG[nocc:] += f1 * vt_G * psit_nG[nocc:]
@@ -329,7 +329,7 @@ class HybridXC(HybridXCBase):
                                         np.dot(v_ii, P_ni[n1])
                         else:
                             # XXX Check this:
-                            v_nii[n1] = f1 * v_ii
+                            v_nii[n1] = v_ii
                             if self.excitation is not None and n1 == homo:
                                 for nuoc in xrange(nocc, nbands):
                                     v_ni[nuoc] += f1 * np.dot(v_ii, P_ni[nuoc])
@@ -478,7 +478,7 @@ class HybridXC(HybridXCBase):
         if kpt.f_n is None:
             return
 
-        if self.excitation is not None:
+        if self.excitation is not None or self.unocc:
             nbands = len(kpt.vt_nG)
         else:
             nbands = self.nocc_s[kpt.s]
