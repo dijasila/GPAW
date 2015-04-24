@@ -1,23 +1,23 @@
-"""...
+"""Tran-Blaha potential.
 
-PRL ...
+From:
+    
+    Accurate Band Gaps of Semiconductors and Insulators
+    with a Semilocal Exchange-Correlation Potential
+
+    Fabien Tran and Peter Blaha
+
+    PRL 102, 226401 (2009)
+
+    DOI: 10.1103/PhysRevLett.102.226401
+  
 """
-
-from contextlib import contextmanager
-
 import numpy as np
+from ase.utils import seterr
 
 from gpaw.xc.mgga import MGGA, weight_n
 from gpaw.xc.libxc import LibXC
 from gpaw.fd_operators import Laplace
-
-
-# Move to ASE:
-@contextmanager
-def seterr(**kwargs):
-    old = np.seterr(**kwargs)
-    yield
-    np.seterr(**old)
 
 
 class TB09Kernel:
@@ -31,7 +31,7 @@ class TB09Kernel:
         self.ldac = LibXC('LDA_C_PW')
         
         self.c = None  # amount of "exact exchange"
-        self.n = 0  # Lebbedev quadrature point number (0-49)
+        self.n = 0  # Lebedev quadrature point number (0-49)
         self.sign = 1.0  # sign of PAW correction: +1 for AE and -1 for PS
         self.I = None  # integral from Eq. (3)
         
