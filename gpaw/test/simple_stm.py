@@ -35,6 +35,7 @@ def testSTM(calc):
         print('Integrals: written, read=', wf, wf2)
         equal(wf, wf2, 2.e-7)
 
+    stm.scan_const_current(0.02, 5)
 ##    print eigenvalue_string(calc)
     stm.write_3D(3.1, f3dname)
     wf2 = stm.gd.integrate(stm.ldos)

@@ -185,14 +185,11 @@ class SimpleStm(STM):
     def density_to_current(self, density):
         return 5000. * density ** 2
 
-    def scan_const_current(self, current, bias=None,
-                           interpolate=False, hmax=None):
+    def scan_const_current(self, current, bias):
         """Get the height image for constant current I [nA].
-
-        hmax is the maximal height to consider
         """
         return self.scan_const_density(self.current_to_density(current),
-                                       bias, interpolate, hmax)
+                                       bias)
  
     def scan_const_density(self, density, bias):
         """Get the height image for constant density [e/Angstrom^3].
