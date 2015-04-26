@@ -212,12 +212,12 @@ class C_Response(Contribution):
             
         return 0.0
 
-    def integrate_sphere(self, a, Dresp_sp, D_sp, Dwf_p):
+    def integrate_sphere(self, a, Dresp_sp, D_sp, Dwf_p, spin=0):
         c = self.nlfunc.setups[a].xc_correction
-        Dresp_p, D_p = Dresp_sp[0], D_sp[0]
+        Dresp_p, D_p = Dresp_sp[spin], D_sp[spin]
         D_Lq = np.dot(c.B_pqL.T, D_p)
         n_Lg = np.dot(D_Lq, c.n_qg) # Construct density
-        n_Lg[0] += c.nc_g * sqrt(4 * pi)
+        n_Lg[0] += c.nc_g * sqrt(4 * pi) / len(D_sp)
         nt_Lg = np.dot(D_Lq, c.nt_qg) # Construct smooth density (without smooth core)
         Dresp_Lq = np.dot(c.B_pqL.T, Dresp_p) # Construct response
         nresp_Lg = np.dot(Dresp_Lq, c.n_qg) # Construct 'response density'
@@ -306,8 +306,7 @@ class C_Response(Contribution):
                     Dresp_sp = self.Dxc_Dresp_asp[a]
                     P_ni = kpt.P_ani[a]
                     Dwf_p = pack(np.outer(P_ni[lumo_n].T.conj(), P_ni[lumo_n]).real)
-                    print("self.integrate_sphere DOES NOT SUPPORT SPIN POLARIZED? atc_response.py")
-                    E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p)
+                    E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p, spin=s)
                 E = self.grid_comm.sum(E)
                 E += self.gd.integrate(nt_G*self.Dxc_vt_sG[s])
                 E += kpt.eps_n[lumo_n]

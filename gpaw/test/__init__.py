@@ -286,6 +286,7 @@ tests = [
     'Hubbard_U_Zn.py',                      # ~20s
     # buildbot > 20 sec tests start here (add tests after lrtddft.py!)
     'lrtddft.py',                           # ~20s
+    'gllbspin.py',                          # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s
     'pw/hyb.py',                            # ~21s
     'Cu.py',                                # ~21s
