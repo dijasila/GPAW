@@ -14,12 +14,12 @@ class Heterostructure:
         """Creates a Heterostructure object.
         
         structure: list of str
-            Heterostructure set up. Each entry should number of layers +
-            chemical formula. For example: ['3H-MoS2', graphene', '10H-WS2']
-            gives 3 layers of H-MoS2, 1 layer of graphene and 10 layers
-            of H-WS2.
-        d: array of float
-            interlayer distances between neighboring layers in Ang
+            Heterostructure set up. Each entry should consist of number of
+            layers + chemical formula.
+            For example: ['3H-MoS2', graphene', '10H-WS2'] gives 3 layers of
+            H-MoS2, 1 layer of graphene and 10 layers of H-WS2.
+        d: array of floats
+            Interlayer distances for neighboring layers in Ang.
             Length of array = number of layers - 1
         d0: float
             The width of a single layer in Ang, only used for monolayer
@@ -28,7 +28,7 @@ class Heterostructure:
         include_dipole: Bool
             Includes dipole contribution if True
         wmax: float
-            Cutoff for energy grid (eV)
+            Cutoff for frequency grid (eV)
         qmax: float
             Cutoff for wave-vector grid (1/Ang)
         """
@@ -87,7 +87,7 @@ class Heterostructure:
         self.d = np.array(d) / Bohr  # interlayer distances
         if self.n_layers > 1:
             # space around each layer
-            self.s = (np.insert(self.d, 0, self.d[0]) + \
+            self.s = (np.insert(self.d, 0, self.d[0]) +
                       np.append(self.d, self.d[-1])) / 2.
         else:  # Monolayer calculation
             self.s = [d0 / Bohr]  # Width of single layer
@@ -133,8 +133,8 @@ class Heterostructure:
                 drhod_i = drhod[i]
                 fd = interp1d(z, np.real(drhod_i))
                 fd2 = interp1d(z, np.imag(drhod_i))
-            for k in [k for k in range(self.n_layers) \
-                          if self.layer_indices[k] == i]:
+            for k in [k for k in range(self.n_layers)
+                      if self.layer_indices[k] == i]:
                 z_big = self.z_big - self.z0[k]
                 i_1s = np.argmin(np.abs(-self.s[i] / 2. - z_big))
                 i_2s = np.argmin(np.abs(self.s[i] / 2. - z_big))
@@ -176,15 +176,15 @@ class Heterostructure:
                 if self.chi_dipole is not None:
                     drho_d = self.drho_dipole[i][iq].copy()
                     #  delta is the distance between dipole peaks / 2
-                    delta = np.abs(z[np.argmax(drho_d)] - \
+                    delta = np.abs(z[np.argmax(drho_d)] -
                                    z[np.argmin(drho_d)]) / 2.
                     poisson_d = self.solve_poisson_1D(drho_d, q, z,
                                                       dipole=True,
                                                       delta=delta)
                     fd = interp1d(z_poisson, np.real(poisson_d))
 
-                for k in [k for k in range(self.n_layers) \
-                              if self.layer_indices[k] == i]:
+                for k in [k for k in range(self.n_layers)
+                          if self.layer_indices[k] == i]:
                     z_big = self.z_big - self.z0[k]
                     i_1 = np.argmin(np.abs(z_poisson[0] - z_big)) + 1
                     i_2 = np.argmin(np.abs(z_poisson[-1] - z_big)) - 1
@@ -220,8 +220,8 @@ class Heterostructure:
         """
         if dipole:  # Two planes separated by 2 * delta
             V = np.pi / (q * delta) * \
-                (-np.exp(-q * np.abs(z - z0 + delta)) + \
-                      np.exp(-q * np.abs(z - z0 - delta)))
+                (-np.exp(-q * np.abs(z - z0 + delta)) +
+                  np.exp(-q * np.abs(z - z0 - delta)))
         else:  # Monopole potential from single plane
             V = 2 * np.pi / q * np.exp(-q * np.abs(z - z0))
         
@@ -270,7 +270,6 @@ class Heterostructure:
     def get_Coulomb_Kernel(self, step_potential=False):
         kernel_qij = np.zeros([len(self.q_abs), self.dim, self.dim],
                               dtype=complex)
-        factor = self.dim / self.n_layers
         for iq in range(len(self.q_abs)):
             if step_potential:
                 # Use step-function average for monopole contribution
@@ -295,7 +294,7 @@ class Heterostructure:
         if self.kernel_qij is None:
             self.kernel_qij = self.get_Coulomb_Kernel()
         chi_qwij = np.zeros((len(self.q_abs), len(self.frequencies),
-                                 self.dim, self.dim), dtype=complex)
+                             self.dim, self.dim), dtype=complex)
 
         for iq in range(len(q_abs)):
             kernel_ij = self.kernel_qij[iq].copy()
@@ -308,8 +307,8 @@ class Heterostructure:
                                                       iq, iw])
                 chi_intra_ij = np.diag(chi_intra_i)
                 chi_qwij[iq, iw, :, :] = np.dot(np.linalg.inv(
-                        np.eye(self.dim) - np.dot(chi_intra_ij, kernel_ij)),
-                                                chi_intra_ij)
+                        np.eye(self.dim) - np.dot(chi_intra_ij,
+                                                  kernel_ij)), chi_intra_ij)
   
         return chi_qwij
 
@@ -317,7 +316,6 @@ class Heterostructure:
         """
         Get dielectric matrix as: eps^{-1} = 1 + V chi_full
         """
-        Nls = self.n_layers
         self.kernel_qij =\
             self.get_Coulomb_Kernel(step_potential=step_potential)
         chi_qwij = self.get_chi_matrix()
@@ -327,7 +325,7 @@ class Heterostructure:
         for iq in range(len(self.q_abs)):
             kernel_ij = self.kernel_qij[iq]
             for iw in range(0, len(self.frequencies)):
-                eps_qwij[iq, iw, :, :] = np.linalg.inv(\
+                eps_qwij[iq, iw, :, :] = np.linalg.inv(
                     np.eye(kernel_ij.shape[0]) + np.dot(kernel_ij,
                                                         chi_qwij[iq, iw,
                                                                  :, :]))
@@ -353,9 +351,15 @@ class Heterostructure:
 
     def get_macroscopic_dielectric_function(self, layers=None):
         """
-        Average the dielectric matrix over the structure.
+        Calculates the averaged  dielectric matrix over the structure in the
+        static limit \omega = 0
         
-        layers: list with index of layers to include in the average
+        Parameters:
+        layers: array of integers
+            list with index of specific layers to include in the average
+
+        Returns:
+            list of q-points, dielectri function
         """
         constant_perturbation = np.ones([self.n_layers])
         layer_weight = self.s / np.sum(self.s) * self.n_layers
@@ -388,8 +392,8 @@ class Heterostructure:
 
     def get_response(self, iw=0, dipole=False):
         """
-        Induced density and potential due to constant perturbation, V_ext
-        obtained as: rho_ind = chi_full V_ext.
+        Get the induced density and potential due to constant perturbation
+        obtained as: rho_ind(r) = \int chi(r,r') dr'
         """
         constant_perturbation = np.ones([self.n_layers])
         if self.chi_dipole is not None:
@@ -421,7 +425,11 @@ class Heterostructure:
     def get_plasmon_eigenmodes(self):
         """
         Diagonalize the dieletric matrix to get the plasmon eigenresonances
-        of the system
+        of the system.
+
+        Returns:
+            Eigenvalue array (shape Nq x nw x dim), z-grid, induced densities, 
+            induced potentials, energies at zero crossings. 
         """
         eps_qwij = self.get_eps_matrix()
         Nw = len(self.frequencies)
@@ -458,10 +466,10 @@ class Heterostructure:
                 vec[iq, iw] = vec_p[:, index]
                 vec_dual = vec_dual_p[index, :]
                 eig[iq, iw, :] = eig[iq, iw, index]
-                klist = [k for k in range(self.dim) \
+                klist = [k for k in range(self.dim)
                          if (eig[iq, iw - 1, k] < 0 and eig[iq, iw, k] > 0)]
                 for k in klist:  # Eigenvalue crossing
-                    a = np.real((eig[iq, iw, k] - eig[iq, iw - 1, k]) / \
+                    a = np.real((eig[iq, iw, k] - eig[iq, iw - 1, k]) /
                                 (w_w[iw] - w_w[iw - 1]))
                     # linear interp for crossing point
                     w0 = np.real(-eig[iq, iw - 1, k]) / a + w_w[iw - 1]
@@ -559,8 +567,8 @@ def get_chi_2D(filenames=None, name=None):
     """ Returns q array, frequency array, chi2D monopole and dipole, induced
     densities and z array (all in Bohr)
     """
-    pickle.dump((np.array(q_list_abs), omega_w, chiM_2D_qw, chiD_2D_qw, \
-                     z, drho_M_qz, drho_D_qz), open(name + '-chi.pckl', 'w'))
+    pickle.dump((np.array(q_list_abs), omega_w, chiM_2D_qw, chiD_2D_qw,
+                 z, drho_M_qz, drho_D_qz), open(name + '-chi.pckl', 'w'))
     return np.array(q_list_abs) / Bohr, omega_w * Hartree, chiM_2D_qw, \
         chiD_2D_qw, z, drho_M_qz, drho_D_qz
 
@@ -590,4 +598,3 @@ def read_chi_wGG(name):
     for chi_GG in chi_wGG:
         chi_GG[:] = pickle.load(fd)
     return omega_w, pd, chi_wGG, q0
-
