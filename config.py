@@ -551,6 +551,8 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     else:
         extra_link_args.append(cfgDict['LINKFORSHARED'])
 
+    extra_compile_args.append('-fPIC')
+    
     # Compile the parallel sources
     for src in sources:
         obj = 'build/temp.%s/' % plat + src[:-1] + 'o'
