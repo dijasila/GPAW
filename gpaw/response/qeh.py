@@ -352,14 +352,14 @@ class Heterostructure:
     def get_macroscopic_dielectric_function(self, layers=None):
         """
         Calculates the averaged  dielectric matrix over the structure in the
-        static limit \omega = 0
+        static limit omega = 0.
         
         Parameters:
+            
         layers: array of integers
-            list with index of specific layers to include in the average
+            list with index of specific layers to include in the average.
 
-        Returns:
-            list of q-points, dielectri function
+        Returns list of q-points, dielectric function.
         """
         constant_perturbation = np.ones([self.n_layers])
         layer_weight = self.s / np.sum(self.s) * self.n_layers
@@ -428,8 +428,8 @@ class Heterostructure:
         of the system.
 
         Returns:
-            Eigenvalue array (shape Nq x nw x dim), z-grid, induced densities, 
-            induced potentials, energies at zero crossings. 
+            Eigenvalue array (shape Nq x nw x dim), z-grid, induced densities,
+            induced potentials, energies at zero crossings.
         """
         eps_qwij = self.get_eps_matrix()
         Nw = len(self.frequencies)
