@@ -100,13 +100,13 @@ class TB09(MGGA):
 
     def initialize(self, dens, ham, wfs, occ):
         MGGA.initialize(self, dens, ham, wfs, occ)
-        self.kernel.rgd = wfs.setups[0].xc_correction.rgd
         self.kernel.gd = dens.finegd
         self.kernel.lapl = Laplace(dens.finegd)
         
     def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
         self.kernel.n_Lg = n_sLg[0]
         self.kernel.Y_L = Y_L
+        self.kernel.rgd = rgd
         return MGGA.calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg,
                                      rnablaY_Lv)
         
