@@ -23,7 +23,7 @@ class SolvationPoissonSolver(PoissonSolver):
                 'Removing arbitrary multipole moments '
                 'is not implemented for SolvationPoissonSolver!'
             )
-        PoissonSolver.__init__(nn, relax, eps, maxiter, remove_moment)
+        PoissonSolver.__init__(self, nn, relax, eps, maxiter, remove_moment)
 
     def set_dielectric(self, dielectric):
         """Set the dielectric.
