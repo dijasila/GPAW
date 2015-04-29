@@ -41,6 +41,7 @@ Specialized tutorials
    jellium/jellium
    hydrogen/h
    stm/stm
+   bader/bader
    all-electron/all_electron_density
    neb/neb
    pbe0/pbe0
