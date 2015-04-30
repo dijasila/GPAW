@@ -124,14 +124,12 @@ class RadialGridDescriptor:
 
         from scipy.special import iv, kv
         vr_g = self.zeros()
-        nrdr_g = n_g * self.r_g * self.dr_g
+        nrdr_g = n_g * self.r_g**1.5 * self.dr_g
         p = 0
         q = 0
         k_rgamma = kv(l + 0.5, self.r_g * gamma)      # K(>)
         i_rgamma = iv(l + 0.5, self.r_g * gamma)      # I(<)
         k_rgamma[0] = kv(l + 0.5, self.r_g[1] * gamma * 1e-5)
-        k_rgamma *= self.r_g**(0.5)
-        i_rgamma *= self.r_g**(0.5)
         # We have two integrals: one for r< and one for r>
         # This loop-technique helps calculate them in once
         for g_ind in xrange(len(nrdr_g) - 1, -1, -1):
@@ -141,8 +139,9 @@ class RadialGridDescriptor:
                     (q + 0.5 * dq) * k_rgamma[g_ind]
             p += dp
             q += dq
-        vr_g += q * k_rgamma
+        vr_g[:] += q * k_rgamma[:]
         vr_g *= 4 * pi
+        vr_g[:] *= self.r_g[:]**0.5 
         return vr_g
 
     def derivative(self, n_g, dndr_g=None):
