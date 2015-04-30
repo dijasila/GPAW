@@ -39,7 +39,7 @@ class GA:
         self.n = len(self.individuals)
         self.pool = mp.Pool()  # process pool
 
-    def run(self, func, sleep=5, mutate=3.0, size1=2, size2=100):
+    def run(self, func, sleep=5, mutate=15.0, size1=4, size2=1000):
         results = []
         while True:
             while len(results) < mp.cpu_count():
@@ -65,33 +65,41 @@ class GA:
             self.fd.flush()
             
             best = sorted(self.individuals.values())[:20]
-            nbest = [N for error, N in best]
+            nbest = [N for e, N in best]
             for f in glob.glob('[0-9]*.txt'):
                 if int(f[:-4]) not in nbest:
                     os.remove(f)
                     
             if len(self.individuals) > 40 and best[0][0] == np.inf:
-                raise RuntimeError
+                for result in results:
+                    result.wait()
+                return
                 
     def new(self, mutate, size1, size2):
         if len(self.individuals) == 0:
             return self.initialvalue
-        all = sorted((y, x) for x, y in self.individuals.items()
-                     if y is not None and y != np.inf)
-        N = len(all)
-        if N < size1:
+
+        if len(self.individuals) < 32:
             x3 = np.array(self.initialvalue, dtype=float)
+            mutate *= 2.5
         else:
-            parents = random.sample(all[:size1], 2)
-            if N > size1:
-                i = random.randint(size1, min(N, size2) - 1)
-                parents.append(all[i])
-                del parents[random.randint(0, 2)]
-                
-            x1 = parents[0][1]
-            x2 = parents[1][1]
-            r = np.random.rand(len(x1))
-            x3 = r * x1 + (1 - r) * x2
+            all = sorted((y, x)
+                         for x, y in self.individuals.items()
+                         if y is not None)  # and y != np.inf)
+            S = len(all)
+            if S < size1:
+                x3 = np.array(self.initialvalue, dtype=float)
+            else:
+                parents = random.sample(all[:size1], 2)
+                if S > size1:
+                    i = random.randint(size1, min(S, size2) - 1)
+                    parents.append(all[i])
+                    del parents[random.randint(0, 2)]
+                    
+                x1 = parents[0][1]
+                x2 = parents[1][1]
+                r = np.random.rand(len(x1))
+                x3 = r * x1 + (1 - r) * x2
 
         while True:
             x3 += np.random.normal(0, mutate, len(x3))
@@ -122,33 +130,27 @@ def fit(E):
     
     
 class DatasetOptimizer:
-    tolerances = np.array([0.1,
-                           0.01, 0.05, 0.05,
-                           0.01, 0.05, 0.05,
+    tolerances = np.array([0.01,
+                           0.01, 0.03, 0.05,
+                           0.01, 0.03, 0.05,
                            40, 0.2,
                            0.001, 0.02,
                            0.1])
     
     conf = None
     
-    def __init__(self, symbol='H', projectors=None,
-                 radii=None, r0=None):
+    def __init__(self, symbol='H'):
     
         self.symbol = symbol
 
-        if os.path.isfile('parameters.txt'):
-            with open('parameters.txt') as fd:
-                words = fd.readline().split()
-                if words[-1].startswith('['):
-                    self.conf = eval(words.pop())
-                projectors = words.pop(0)
-                radii = [float(f) for f in words]
-                r0 = radii.pop()
-        else:
-            with open('parameters.txt', 'w') as fd:
-                print(projectors, ' '.join('{0:.2f}'.format(r)
-                                           for r in radii + [r0]),
-                      file=fd)
+        with open('../start.txt') as fd:
+            for line in fd:
+                words = line.split()
+                if words[1] == symbol:
+                    projectors = words[3]
+                    radii = [float(f) for f in words[5].split(',')]
+                    r0 = float(words[7].split(',')[1])
+                    break
             
         # Parse projectors string:
         pattern = r'(-?\d+\.\d)'
@@ -158,10 +160,15 @@ class DatasetOptimizer:
         self.projectors = re.sub(pattern, '%.1f', projectors)
         self.nenergies = len(energies)
         
+        if 'f' in self.projectors:
+            self.lmax = 2
+        else:
+            self.lmax = 3
+            
         # Round to integers:
-        x = ([e / 0.1 for e in energies] +
-             [r / 0.05 for r in radii] +
-             [r0 / 0.05])
+        x = ([e / 0.05 for e in energies] +
+             [r / 0.01 for r in radii] +
+             [r0 / 0.01])
         self.x = tuple(int(round(f)) for f in x)
         
         # Read FHI-Aims data:
@@ -177,18 +184,18 @@ class DatasetOptimizer:
         self.rc = covalent_radii[Z]
         self.rco = covalent_radii[8]
 
-    def run(self, mu, n1, n2):
-        mu = float(mu)
-        n1 = int(n1)
-        n2 = int(n2)
+    def run(self):  # , mu, n1, n2):
+        # mu = float(mu)
+        # n1 = int(n1)
+        # n2 = int(n2)
         ga = GA(self.x)
-        ga.run(self, mutate=mu, size1=n1, size2=n2)
+        ga.run(self)  # , mutate=mu, size1=n1, size2=n2)
         
     def best(self, N=None):
         ga = GA(self.x)
         best = sorted((error, id, x)
                       for x, (error, id) in ga.individuals.items())
-        if 1:
+        if 0:
             import pickle
             pickle.dump(sorted(ga.individuals.values()), open('Zn.pckl', 'w'))
         if N is None:
@@ -198,10 +205,10 @@ class DatasetOptimizer:
                     for error, id, x in best[:N]]
         
     def summary(self, N=10):
-        print('dFfRrICEer:')
+        print('dFffRrrICEer:')
         for error, id, x, errors in self.best(N):
-            params = [0.1 * p for p in x[:self.nenergies]]
-            params += [0.05 * p for p in x[self.nenergies:]]
+            params = [0.05 * p for p in x[:self.nenergies]]
+            params += [0.01 * p for p in x[self.nenergies:]]
             print('{0:5} {1:7.1f} {2} {3}'.format(
                 id, error,
                 ' '.join('{0:5.2f}'.format(p) for p in params),
@@ -213,16 +220,30 @@ class DatasetOptimizer:
         except IndexError:
             return
         energies, radii, r0, projectors = self.parameters(x)
+        Z = atomic_numbers[self.symbol]
+        if 0:
+            print(error, self.symbol, n)
         if 1:
-            print(self.symbol, n, error)
+            if projectors[-1].isupper():
+                nderiv0 = 5
+            else:
+                nderiv0 = 2
+            fmt = '{0:2} {1:2} -P {2:31} -r {3:20} -0 {4},{5:.2f} # {6:10.3f}'
+            print(fmt.format(Z,
+                             self.symbol,
+                             projectors,
+                             ','.join('{0:.2f}'.format(r) for r in radii),
+                             nderiv0,
+                             r0,
+                             error))
         if 0:
             with open('parameters.txt', 'w') as fd:
                 print(projectors, ' '.join('{0:.2f}'.format(r)
                                            for r in radii + [r0]),
                       file=fd)
         if 0:
-            self.generate(None, 'PBE', projectors, radii, r0, True, '',
-                          logderivs=False)
+            self.generate(None, 'PBE', projectors, radii, r0, not True, '',
+                          logderivs=not False)
         
     def generate(self, fd, xc, projectors, radii, r0,
                  scalar_relativistic=False, tag=None, logderivs=True):
@@ -251,9 +272,9 @@ class DatasetOptimizer:
         return error
             
     def parameters(self, x):
-        energies = tuple(0.1 * i for i in x[:self.nenergies])
-        radii = [0.05 * i for i in x[self.nenergies:-1]]
-        r0 = 0.05 * x[-1]
+        energies = tuple(0.05 * i for i in x[:self.nenergies])
+        radii = [0.01 * i for i in x[self.nenergies:-1]]
+        r0 = 0.01 * x[-1]
         projectors = self.projectors % energies
         return energies, radii, r0, projectors
         
@@ -329,6 +350,7 @@ class DatasetOptimizer:
             atoms.calc = GPAW(mode=PW(self.ecut2),
                               kpts={'density': 2.0, 'even': True},
                               xc='PBE',
+                              lmax=self.lmax,
                               setups='ga' + str(n),
                               maxiter=200,
                               txt=fd)
@@ -361,6 +383,7 @@ class DatasetOptimizer:
             atoms.calc = GPAW(mode=PW(self.ecut2),
                               kpts={'density': 2.0, 'even': True},
                               xc='PBE',
+                              lmax=self.lmax,
                               setups={self.symbol: 'ga' + str(n)},
                               maxiter=200,
                               txt=fd)
@@ -383,8 +406,9 @@ class DatasetOptimizer:
         atoms.calc = GPAW(mode=PW(self.ecut1),
                           kpts={'density': 2.0, 'even': True},
                           xc='PBE',
+                          lmax=self.lmax,
                           setups='ga' + str(n),
-                          maxiter=200,
+                          maxiter=900,
                           txt=fd)
         atoms.get_potential_energy()
         itrs = atoms.calc.get_number_of_iterations()
@@ -396,6 +420,7 @@ class DatasetOptimizer:
         atoms = Atoms(self.symbol, cell=(a0, a0, a0), pbc=True)
         atoms.calc = GPAW(h=h,
                           xc='PBE',
+                          lmax=self.lmax,
                           symmetry='off',
                           setups='ga' + str(n),
                           maxiter=200,
@@ -430,11 +455,8 @@ if __name__ == '__main__':
         else:
             os.mkdir(symbol)
             os.chdir(symbol)
-            projectors, radii, r0 = args[1:]
-            radii = [float(r) for r in radii.split(',')]
-            r0 = float(r0)
-            do = DatasetOptimizer(symbol, projectors, radii, r0)
-        do.run(*args[1:])
+            do = DatasetOptimizer(symbol)
+        do.run()  # *args[1:])
     else:
         if len(args) == 0:
             symbol = os.getcwd().rsplit('/', 1)[1]
