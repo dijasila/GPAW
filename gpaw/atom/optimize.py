@@ -14,7 +14,7 @@ from ase.lattice import bulk
 from ase.lattice.surface import fcc111
 from ase.units import Bohr
 
-from gpaw import GPAW, PW, setup_paths  # , ConvergenceError
+from gpaw import GPAW, PW, setup_paths, Mixer  # , ConvergenceError
 from gpaw.atom.generator2 import _generate, DatasetGenerationError
 
 
@@ -91,10 +91,12 @@ class GA:
                 x3 = np.array(self.initialvalue, dtype=float)
             else:
                 parents = random.sample(all[:size1], 2)
-                if S > size1:
+                if S > size1 and random.random() < 0.33:
                     i = random.randint(size1, min(S, size2) - 1)
                     parents.append(all[i])
-                    del parents[random.randint(0, 2)]
+                    del parents[random.randint(0, 1)]
+                else:
+                    mutate /= 3
                     
                 x1 = parents[0][1]
                 x2 = parents[1][1]
@@ -161,9 +163,9 @@ class DatasetOptimizer:
         self.nenergies = len(energies)
         
         if 'f' in self.projectors:
-            self.lmax = 2
-        else:
             self.lmax = 3
+        else:
+            self.lmax = 2
             
         # Round to integers:
         x = ([e / 0.05 for e in energies] +
@@ -175,7 +177,7 @@ class DatasetOptimizer:
         self.reference = {'fcc': read_reference('fcc', symbol),
                           'rocksalt': read_reference('rocksalt', symbol)}
 
-        self.ecut1 = 400.0
+        self.ecut1 = 450.0
         self.ecut2 = 800.0
         
         setup_paths[:0] = ['../..', '.']
@@ -205,7 +207,7 @@ class DatasetOptimizer:
                     for error, id, x in best[:N]]
         
     def summary(self, N=10):
-        print('dFffRrrICEer:')
+        #print('dFffRrrICEer:')
         for error, id, x, errors in self.best(N):
             params = [0.05 * p for p in x[:self.nenergies]]
             params += [0.01 * p for p in x[self.nenergies:]]
@@ -282,7 +284,7 @@ class DatasetOptimizer:
         fd = open('{0}.txt'.format(n), 'w')
         energies, radii, r0, projectors = self.parameters(x)
         
-        if any(r < r0 for r in radii):
+        if any(r < r0 for r in radii) or any(e <= 0.0 for e in energies):
             return n, x, [np.inf] * 12, np.inf
             
         try:
@@ -403,13 +405,18 @@ class DatasetOptimizer:
         a0 = self.reference['fcc']['a']
         atoms = fcc111(self.symbol, (1, 1, 7), a0, vacuum=3.5)
         assert not atoms.pbc[2]
+        if self.lmax == 3:
+            mixer = {'mixer': Mixer(0.002, 3)}
+        else:
+            mixer = {}
         atoms.calc = GPAW(mode=PW(self.ecut1),
                           kpts={'density': 2.0, 'even': True},
                           xc='PBE',
                           lmax=self.lmax,
                           setups='ga' + str(n),
                           maxiter=900,
-                          txt=fd)
+                          txt=fd,
+                          **mixer)
         atoms.get_potential_energy()
         itrs = atoms.calc.get_number_of_iterations()
         return itrs
