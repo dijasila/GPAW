@@ -6,7 +6,7 @@ def agts(queue):
     
     WS2_gs = queue.add('WS2_gs.py', ncpus=4, walltime=20)
     WS2_bands = queue.add('WS2_bands.py', deps=WS2_gs, ncpus=32,
-                          walltime=100)
+                          walltime=200)
     queue.add('plot_WS2_bands.py', ncpus=1, deps=WS2_bands,
               walltime=10, creates='WS2_bands.png')
     
