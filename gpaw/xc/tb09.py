@@ -45,6 +45,7 @@ class TB09Kernel:
                 # We don't have the integral yet - just use 1.0:
                 self.c = 1.0
             else:
+                self.I = self.world.sum(self.I)
                 self.c = (self.alpha + self.beta *
                           (self.I / self.gd.volume)**0.5)
                 
@@ -54,6 +55,8 @@ class TB09Kernel:
             # Start calculation the integral for use in the next SCF step:
             self.I = self.gd.integrate(sigma_xg[0]**0.5 / n_sg[0])
             
+            # The domain is not distributed like the PAW corrections:
+            self.I /= self.world.size  
         else:
             rgd = self.rgd
             lapl_g = rgd.laplace(np.dot(self.Y_L, self.n_Lg))
@@ -100,6 +103,7 @@ class TB09(MGGA):
 
     def initialize(self, dens, ham, wfs, occ):
         MGGA.initialize(self, dens, ham, wfs, occ)
+        self.kernel.world = wfs.world
         self.kernel.gd = dens.finegd
         self.kernel.lapl = Laplace(dens.finegd)
         
