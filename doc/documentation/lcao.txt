@@ -40,3 +40,10 @@
 2014-06-15 10.1021/cs500202f Identification of the Catalytic Site at the Interface Perimeter of Au Clusters on Rutile TiO2(110)
 2014-08-11 10.1103/PhysRevB.90.075115 Simultaneous description of conductance and thermopower in single-molecule junctions from many-body ab initio calculations
 2014-10-15 10.1016/j.susc.2014.06.001 Interplay of hydrogen bonding and molecule-substrate interaction in self-assembled adlayer structures of a hydroxyphenyl-substituted porphyrin
+2014-11-10 10.1016/j.electacta.2014.09.056 Ti atoms in Ru0.3Ti0.7O2 mixed oxides form active and selective sites for electrochemical chlorine evolution
+2014-12-07 10.1063/1.4902249 Nucleation and growth of Pt nanoparticles on reduced and oxidized rutile TiO2 (110)
+2015-01-15 10.1039/c4nr06371f Surface-confined 2D polymerization of a brominated copper-tetraphenylporphyrin on Au(111)
+2015-03-07 10.1063/1.4913739 Nanoplasmonics simulations at the basis set limit through completeness-optimized, local numerical basis sets
+2015-03-14 10.1063/1.4906048 Chemical insight from density functional modeling of molecular adsorption: Tracking the bonding and diffusion of anthracene derivatives on Cu(111) with molecular orbitals
+2015-03-18 10.1002/adfm.201404388 Molecular Heterojunctions of Oligo(phenylene ethynylene)s with Linear to Cruciform Framework
+2015-04-05 10.1002/jcc.23834 van der Waals Interactions are Critical in Car-Parrinello Molecular Dynamics Simulations of Porphyrin-Fullerene Dyads
