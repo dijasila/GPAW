@@ -95,6 +95,10 @@ Citations of the GPAW method papers
 
 (updated on May 18, 2013)
 
+The total number of citations above is the number of publications
+citing at least one of the other papers, not the sum of all citation
+counts.
+
 The five method papers are:
 
 gpaw1:
