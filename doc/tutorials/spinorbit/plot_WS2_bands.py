@@ -4,7 +4,7 @@ from gpaw import GPAW
 from gpaw.spinorbit import get_spinorbit_eigenvalues
 pl.rc('text', usetex=True)
 
-calc = GPAW('../bands.gpw', txt=None)
+calc = GPAW('../WS2_bands.gpw', txt=None)
 
 x = np.loadtxt('../kpath.dat')
 X = np.loadtxt('../highsym.dat')
