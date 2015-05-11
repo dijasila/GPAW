@@ -9,7 +9,6 @@ Contents
 
    index
    algorithms
-   download
    install/install
    setups/setups
    tutorials/tutorials

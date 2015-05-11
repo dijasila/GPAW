@@ -123,6 +123,7 @@ The calculated value for the solvation Gibbs energy should be about
 about the usage of the :class:`~gpaw.solvation.SolvationGPAW`
 calculator class or model specific parts.
 
+
 References
 ==========
 
@@ -132,7 +133,7 @@ References
 
 .. [#SSS09] V. M. Sanchez, M. Sued and D. A. Scherlis,
             `First-principles molecular dynamics simulations at solid-liquid interfaces with a continuum solvent <http://dx.doi.org/10.1063/1.3254385>`_,
-	    *J. Chem. Phys.* **131** 174108 (2009).
+            *J. Chem. Phys.* **131** 174108 (2009).
 
 .. [#IBR98] W. Im, D. Beglov and B. Roux,
             `Continuum solvation model: Computation of electrostatic forces from numerical solutions to the Poisson-Boltzmann equation <http://dx.doi.org/10.1016/S0010-4655(98)00016-2>`_,

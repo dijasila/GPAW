@@ -6,13 +6,13 @@ import time
 import traceback
 import atexit
 import pickle
+from fractions import gcd
 
 import numpy as np
 
 from gpaw import debug
 from gpaw import dry_run as dry_run_size
 from gpaw.utilities import is_contiguous
-from gpaw.utilities import gcd
 
 import _gpaw
 

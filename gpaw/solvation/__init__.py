@@ -13,13 +13,9 @@ from gpaw.solvation.cavity import (
     ADM12SmoothStepCavity,
     FG02SmoothStepCavity,
     GradientSurface,
-    KB51Volume,
-)
-from gpaw.solvation.dielectric import (
-    LinearDielectric, CMDielectric
-)
+    KB51Volume)
+from gpaw.solvation.dielectric import LinearDielectric, CMDielectric
 from gpaw.solvation.interactions import (
     SurfaceInteraction,
     VolumeInteraction,
-    LeakedDensityInteraction,
-)
+    LeakedDensityInteraction)

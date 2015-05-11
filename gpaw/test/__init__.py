@@ -190,8 +190,6 @@ tests = [
     'ewald.py',                             # ~4s
     'symmetry.py',                          # ~4s
     'revPBE.py',                            # ~4s
-    'tf_mode_pbc.py',                       # ~4s
-    'tf_mode.py',                           # ~4s
     'nonselfconsistentLDA.py',              # ~4s
     'aluminum_EELS_ALDA.py',                # ~4s
     'spin_contamination.py',                # ~4s
@@ -266,6 +264,7 @@ tests = [
     'ralda_energy_Ni.py',                   # ~13s
     'simple_stm.py',                        # ~13s
     'solvation/vacuum.py',                  # ~13s
+    'ofdft_pbc.py',                         # ~13s
     'ed_shapes.py',                         # ~14s
     'restart_band_structure.py',            # ~14s
     'exx.py',                               # ~14s
@@ -279,6 +278,7 @@ tests = [
     'atomize.py',                           # ~16s
     'excited_state.py',                     # ~16s
     'ne_disc.py',                           # ~16s
+    'ofdft.py',                             # ~17s
     'tpss.py',                              # ~18s
     'td_na2.py',                            # ~18s
     'exx_coarse.py',                        # ~18s
@@ -289,6 +289,7 @@ tests = [
     'Hubbard_U_Zn.py',                      # ~20s
     # buildbot > 20 sec tests start here (add tests after lrtddft.py!)
     'lrtddft.py',                           # ~20s
+    'gllbspin.py',                          # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s
     'pw/hyb.py',                            # ~21s
     'Cu.py',                                # ~21s
@@ -302,6 +303,7 @@ tests = [
     'ldos.py',                              # ~25s
     'revPBE_Li.py',                         # ~26s
     'solvation/poisson.py',                 # ~28s
+    'ofdft_scale.py',                       # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
     'h2o_dks.py',                           # ~30s
     'nsc_MGGA.py',                          # ~32s
@@ -319,6 +321,7 @@ tests = [
     'aluminum_testcell.py',                 # ~46s
     'pygga.py',                             # ~47s
     'ut_tddft.py',                          # ~49s
+    'response_pair.py',                     # ~50s
     'rpa_energy_N2.py',                     # ~52s
     'vdw/ar2.py',                           # ~53s
     'parallel/diamond_gllb.py',             # ~59s
@@ -342,6 +345,7 @@ tests = [
     'bse_silicon.py',                       # ~143s
     'gwsi.py',                              # ~147s
     'solvation/forces.py',                  # ~289s
+    'response_graphene.py',                 # ~160s
     'response_symmetry.py',                 # ~300s
     'pw/moleculecg.py',                     # duration unknown
     'potential.py',                         # duration unknown
@@ -408,7 +412,8 @@ if mpi.size > 1:
                 'scipy_test.py']
 
 if mpi.size > 2:
-    exclude += ['neb.py']
+    exclude += ['neb.py',
+                'response_pair.py']
 
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',

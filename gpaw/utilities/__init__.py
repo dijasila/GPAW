@@ -27,14 +27,6 @@ erf = np.vectorize(_gpaw.erf, (float,), 'Error function')
 cerf = np.vectorize(_gpaw.cerf, (complex,), 'Complex error function')
 
 # Factorials:
-_fact = [1, 1, 2, 6, 24, 120, 720, 5040, 40320,
-         362880, 3628800, 39916800, 479001600]
-
-def fact(x):
-    if x in xrange(len(_fact)):
-        return _fact[x]
-    return reduce(mul, xrange(2, x+1), 1)
-
 def ffact(a, b):
     """b!/a! where 0 <= a <= b"""
     assert a in xrange(b+1)
@@ -61,16 +53,6 @@ def h2gpts(h, cell_cv, idiv=4):
 
     L_c = (np.linalg.inv(cell_cv)**2).sum(0)**-0.5
     return np.maximum(idiv, (L_c / h / idiv + 0.5).astype(int) * idiv)
-
-
-def gcd(a, b):
-    """Return greatest common divisor of a and b, using the
-    euclidian algorithm.
-    """
-    while b != 0:
-        a, b = b, a % b
-    return a
-
 
 def is_contiguous(array, dtype=None):
     """Check for contiguity and type."""

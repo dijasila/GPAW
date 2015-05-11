@@ -12,13 +12,13 @@ are saved to a *.gpw* file. As we are dealing with small bulk system,
 plane wave mode is the most appropriate here.
 
 .. literalinclude:: bandstructure.py
-    :lines: 7-22
+    :lines: 7-23
 
 Next, :mod:`ase.dft.kpoints` module is used for generating k-points along
 the high symmetry directions in the Brillouin zone. The below figure shows 
 the high symmetry points of few common crystal lattices. 
 
-.. figure:: ../../_static/bz-all.png
+.. figure:: ../../static/bz-all.png
    :width: 600 px
 
 For the band structure calculation, density is fixed to the previously

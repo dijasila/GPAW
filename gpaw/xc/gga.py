@@ -92,7 +92,7 @@ class GGA(LDA):
             w = weight_n[n]
             rnablaY_Lv = rnablaY_nLv[n, :Lmax]
             e_g, dedn_sg, b_vsg, dedsigma_xg = \
-                 self.calculate_radial(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
+                self.calculate_radial(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
             dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                                n_qg.T)[:, :, np.newaxis] * (w * Y_L)
             dedsigma_xg *= rgd.dr_g
@@ -201,19 +201,19 @@ class PurePythonGGAKernel:
 
             # exchange
             exa, rsa, dexadrs, dexada2 = gga_x(
-                   self.name, 1, na, 4.0 * sigma_xg[0], self.kappa, self.mu)
+                self.name, 1, na, 4.0 * sigma_xg[0], self.kappa, self.mu)
             exb, rsb, dexbdrs, dexbda2 = gga_x(
-                   self.name, 1, nb, 4.0 * sigma_xg[2], self.kappa, self.mu)
+                self.name, 1, nb, 4.0 * sigma_xg[2], self.kappa, self.mu)
             a2 = sigma_xg[0] + 2.0 * sigma_xg[1] + sigma_xg[2]
             # correlation
             ec, rs, decdrs, decda2, decdzeta = gga_c(
-                   self.name, 1, n, a2, zeta, self.beta)
+                self.name, 1, n, a2, zeta, self.beta)
 
             e_g[:] += 0.5 * (na * exa + nb * exb) + n * ec
             dedn_sg[0][:] += (exa + ec - (rsa * dexadrs + rs * decdrs) / 3.0
-                            - (zeta - 1.0) * decdzeta)
+                              - (zeta - 1.0) * decdzeta)
             dedn_sg[1][:] += (exb + ec - (rsb * dexbdrs + rs * decdrs) / 3.0
-                            - (zeta + 1.0) * decdzeta)
+                              - (zeta + 1.0) * decdzeta)
             dedsigma_xg[0][:] += 2.0 * na * dexada2 + n * decda2
             dedsigma_xg[1][:] += 2.0 * n * decda2
             dedsigma_xg[2][:] += 2.0 * nb * dexbda2 + n * decda2
@@ -296,7 +296,7 @@ def gga_c(name, spin, n, a2, zeta, BETA):
         e1, decdrs_1 = G(rs**0.5, 0.015545, 0.20548, 14.1189,
                          6.1977, 3.3662, 0.62517)
         alpha, dalphadrs = G(rs**0.5, 0.016887, 0.11125, 10.357,
-                         3.6231, 0.88026, 0.49671)
+                             3.6231, 0.88026, 0.49671)
         alpha *= -1.
         dalphadrs *= -1.
         zp = 1.0 + zeta
@@ -312,7 +312,7 @@ def gga_c(name, spin, n, a2, zeta, BETA):
                   decdrs_1 * f * zeta4 +
                   dalphadrs * f * x * IF2)
         decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
-                   f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
+                    f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
         ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
 
     # gga part
@@ -363,10 +363,11 @@ def gga_c(name, spin, n, a2, zeta, BETA):
         dphidzeta[ind2] -= 1.0 / (3.0 * xm[ind2])
         dAdzeta = tmp2 * (decdzeta - 3.0 * ec * dphidzeta / phi) / phi3
         decdzeta += ((3.0 * H / phi - dHdt2 * 2.0 * t2 / phi) * dphidzeta
-                      + dHdA * dAdzeta)
+                     + dHdA * dAdzeta)
         decda2 /= phi2
         if name == 'zvPBEsol':
-            u3_ = t2**(3. / 2.) * phi3 * rs**(-3. * zv_x - 1.) / 3.**(-3. * zv_x)
+            u3_ = (t2**(3. / 2.) *
+                   phi3 * rs**(-3. * zv_x - 1.) / 3.**(-3. * zv_x))
             zvarg_ = -zv_a * u3_ * abs(zeta)**zv_o
             dzvfdrs = -3. * zv_x * zvf * zvarg_
             decdrs *= zvf
@@ -374,7 +375,7 @@ def gga_c(name, spin, n, a2, zeta, BETA):
 
             dt2da2 = C3 * rs / n2
             assert np.shape(dt2da2) == np.shape(t2)
-            dzvfda2 =  dt2da2 * zvf * zvarg * 3. / (2. * t2)
+            dzvfda2 = dt2da2 * zvf * zvarg * 3. / (2. * t2)
             decda2 *= zvf
             decda2 += H_ * dzvfda2
 

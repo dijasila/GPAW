@@ -4,8 +4,6 @@
 Homebrew
 ========
 
-Mountain Lion
-=============
 
 Install https://developer.apple.com/xcode/ and activate it from a terminal::
 
@@ -61,13 +59,14 @@ and configure your init scripts *~/.bash_profile*::
   # cache pip-installed packages to avoid re-downloading
   export PIP_DOWNLOAD_CACHE=$HOME/.pip/cache
 
-Verify your homebrew::
+Now you should source your new *~/.bash_profile* file::
 
-  brew doctor
-
-Update with::
+  source ~/.bash_profile
+ 
+Update and verify your homebrew::
 
   brew update
+  brew doctor
 
 If you prefer to use OS X python (recommended!), install ``pip``::
 
@@ -82,6 +81,10 @@ having them configured in different virtualenvs.
 It is a convenient way of keeping GPAW with its corresponding
 ASE version isolated form the globally installed python modules.
 
+Install virtualenv::
+
+  PIP_REQUIRE_VIRTUALENV=false pip install --user virtualenv
+
 Create directory for virtualenvs::
 
   mkdir ~/Virtualenvs
@@ -93,7 +96,6 @@ Installing GPAW requirements
 
 Install the following homebrew packages::
 
-  brew install gfortran
   brew install gcc
   brew install openmpi
   brew install libxc
@@ -113,8 +115,8 @@ Install the dependencies::
   pip install python-ase
   pip install numpy
 
-and install GPAW (still inside of the virtualenv) accordingly to
-:ref:`installationguide_standard` (``python setup.py install``).
+and install GPAW (still inside of the virtualenv)
+with ``python setup.py install``.
 
 Installing ASE requirements
 ---------------------------

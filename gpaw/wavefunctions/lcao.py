@@ -97,14 +97,22 @@ class LCAOWaveFunctions(WaveFunctions):
         fd.write('    Diagonalizer: %s\n' % self.ksl.get_description())
         fd.write('    Atomic Correction: %s\n'
                  % self.atomic_correction.description)
+        if self.dtype == complex:
+            typestr = "complex"
+        elif self.dtype == float:
+            typestr = "float"
+        else:
+            typestr = "unknown"
+        fd.write("    Datatype: %s\n" % typestr)
+        
         
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)
         eigensolver.initialize(self.gd, self.dtype, self.setups.nao, self.ksl)
 
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, atom_partition=None):
         self.timer.start('Basic WFS set positions')
-        WaveFunctions.set_positions(self, spos_ac)
+        WaveFunctions.set_positions(self, spos_ac, atom_partition)
         self.timer.stop('Basic WFS set positions')
         self.timer.start('Basis functions set positions')
         self.basis_functions.set_positions(spos_ac)
@@ -894,9 +902,10 @@ class LCAOWaveFunctions(WaveFunctions):
             
             def load(self, wfs):
                 wfs.set_positions(self.spos_ac) # this sets rank_a
-                # Now we need to pass wfs.rank_a or things to work
-                # XXX WTF why does one have to fiddle with rank_a???
-                hamiltonian.set_positions(self.spos_ac, wfs.rank_a)
+                # Now we need to pass atom_partition or things to work
+                # XXX WTF why does one have to fiddle with atom_partition???
+                hamiltonian.set_positions(self.spos_ac,
+                                          wfs.atom_partition)
                 wfs.eigensolver.iterate(hamiltonian, wfs)
                 del wfs.lazyloader
         

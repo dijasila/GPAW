@@ -217,7 +217,7 @@ class AGTSQueue:
 
     def locate_tests(self):
         for root, dirs, files in os.walk('.'):
-            if root.startswith('./_'):
+            if root.startswith('./build'):
                 continue
             for fname in files:
                 if fname.endswith('.agts.py'):

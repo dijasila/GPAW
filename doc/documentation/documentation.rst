@@ -33,4 +33,4 @@ Developers should consult the :ref:`devel` pages.
 If you can not find what you are looking for in any of the above,
 please consult the :ref:`mailing_lists`.
 
-.. _pdf file on PAW theory: ../paw_note.pdf
+.. _pdf file on PAW theory: paw_note.pdf

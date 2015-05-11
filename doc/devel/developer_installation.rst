@@ -4,13 +4,6 @@
 Developer installation
 ======================
 
-The :ref:`installationguide_standard` will copy all the
-Python files to the standard place for Python modules (something like
-:file:`/usr/lib/python2.5/site-packages/gpaw`) or to
-:file:`{<my-directory>}/lib/python/gpaw` if you used the
-:file:`--home={<my-directory>}` option.  As a developer, you will want
-Python to use the files from the svn checkout that you are hacking on.
-
 Do the following:
 
   * Checkout the :ref:`latest_development_release` (if you

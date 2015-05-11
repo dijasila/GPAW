@@ -65,10 +65,10 @@ def build_parser():
     parser.add_option('--empty-states', type='string', default=None,
                       help='Add empty state(s).  Example: 5p.',
                       metavar='<states>')
-    parser.add_option('--tf-coefficient', type='float', default=1,
+    parser.add_option('--tw-coefficient', type='float', default=1,
                       help='Sets value of coefficient in Thomas-Fermi ' +
                       'calculations. Default is 1',
-                      metavar='<tf-coefficient>')
+                      metavar='<tw-coefficient>')
     parser.add_option('--orbital-free', action='store_true',
                       help='Generates orbital-free Thomas-Fermi setup')
     return parser
@@ -112,7 +112,7 @@ def main():
             a = AllElectron(symbol, opt.xcfunctional, scalarrel, corehole,
                             opt.configuration, not opt.write_files, '-',
                             opt.points_per_node,
-                            opt.orbital_free, opt.tf_coefficient)
+                            opt.orbital_free, opt.tw_coefficient)
             try:
                 a.run()
             except ConvergenceError:
@@ -121,7 +121,7 @@ def main():
         g = Generator(symbol, opt.xcfunctional, scalarrel, corehole,
                       opt.configuration, not opt.write_files, '-',
                       opt.points_per_node, orbital_free=opt.orbital_free,
-                      tf_coeff=opt.tf_coefficient)
+                      tw_coeff=opt.tw_coefficient)
 
         if opt.orbital_free:
             p = tf_parameters.get(symbol, {'rcut': 0.9})

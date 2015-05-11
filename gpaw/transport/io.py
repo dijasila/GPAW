@@ -110,10 +110,10 @@ class Transport_IO:
 
         D_asp = collect_atomic_matrices(den.D_asp, den.setups,
                                         den.nspins, den.gd.comm,
-                                        den.rank_a)
+                                        den.atom_partition)
         dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups,
                                          ham.nspins, ham.gd.comm,
-                                         ham.rank_a)
+                                         ham.atom_partition)
         data['D_asp'] = D_asp
         data['dH_asp'] = dH_asp
         return data

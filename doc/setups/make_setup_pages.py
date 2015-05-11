@@ -41,7 +41,7 @@ Convergence tests
 The energy of %(aname)s dimer (`E_d`) and %(aname)s atom (`E_a`) is
 calculated at diferent grid-spacings (`h`).
 
-.. image:: ../_static/setups-data/%(symbol)s-dimer-eggbox.png
+.. image:: ../static/setups-data/%(symbol)s-dimer-eggbox.png
 
 
 Setup details
@@ -81,7 +81,7 @@ Total      %(Etot).4f Ha
 Wave functions, projectors, ...
 -------------------------------
 
-.. image:: ../_static/setups-data/%(symbol)s-setup.png
+.. image:: ../static/setups-data/%(symbol)s-setup.png
 
 
 
@@ -94,7 +94,7 @@ def make_page(symbol):
     filename = symbol + '.rst'
     try:
         data = pickle.load(open(
-            '../_static/setups-data/%s.pckl' % symbol, 'rb'))
+            '../static/setups-data/%s.pckl' % symbol, 'rb'))
     except EOFError:
         print(symbol, 'missing!')
         return
@@ -232,7 +232,7 @@ def make_page(symbol):
     plt.axis(ymin=d * 0.98, ymax=d * 1.02)
     plt.ylabel(r'bond length [\AA]')
 
-    plt.savefig('../_static/setups-data/%s-dimer-eggbox.png' % symbol, dpi=dpi)
+    plt.savefig('../static/setups-data/%s-dimer-eggbox.png' % symbol, dpi=dpi)
     #plt.show()
 
 args = sys.argv[1:]

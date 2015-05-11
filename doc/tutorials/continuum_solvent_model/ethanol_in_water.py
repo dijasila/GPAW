@@ -22,8 +22,8 @@ vac = 5.0
 u0 = 0.180  # eV
 epsinf = 78.36  # dimensionless
 gamma = 18.4 * 1e-3 * Pascal * m  # convert from dyne / cm to eV / Angstrom ** 2
-T = 298.15 # Kelvin
-vdw_radii = vdw_radii[:]
+T = 298.15  # Kelvin
+vdw_radii = vdw_radii.copy()
 vdw_radii[1] = 1.09
 # atomic_radii expected by gpaw.solvation.Power12Potential have to be a callable
 # mapping an Atoms object to an iterable of floats representing the atomic radii of
@@ -44,11 +44,9 @@ atoms.calc = SolvationGPAW(
     cavity=EffectivePotentialCavity(
         effective_potential=Power12Potential(atomic_radii, u0),
         temperature=T,
-        surface_calculator=GradientSurface()
-        ),
+        surface_calculator=GradientSurface()),
     dielectric=LinearDielectric(epsinf=epsinf),
-    interactions=[SurfaceInteraction(surface_tension=gamma)]
-    )
+    interactions=[SurfaceInteraction(surface_tension=gamma)])
 Ewater = atoms.get_potential_energy()
 
 # calculate solvation Gibbs energy in various units
@@ -56,4 +54,5 @@ DGSol_eV = Ewater - Egasphase
 DGSol_kJ_per_mol = DGSol_eV / (kJ / mol)
 DGSol_kcal_per_mol = DGSol_eV / (kcal / mol)
 
-parprint('calculated Delta Gsol = %.0f meV = %.1f kJ / mol = %.1f kcal / mol' % (DGSol_eV * 1000., DGSol_kJ_per_mol, DGSol_kcal_per_mol))
+parprint('calculated Delta Gsol = %.0f meV = %.1f kJ / mol = %.1f kcal / mol' %
+         (DGSol_eV * 1000., DGSol_kJ_per_mol, DGSol_kcal_per_mol))
