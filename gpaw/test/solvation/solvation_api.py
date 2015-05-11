@@ -69,7 +69,7 @@ kappa_T = 4.53e-10 / Pascal
 # effective potential cavity params (examples)
 # --------------------------------------------
 u0 = 0.180  # eV
-vdw_radii = vdw_radii[:]
+vdw_radii = vdw_radii.copy()
 vdw_radii[1] = 1.09
 atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
 

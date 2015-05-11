@@ -15,7 +15,7 @@ vac = 3.0
 u0 = .180
 epsinf = 80.
 T = 298.15
-vdw_radii = vdw_radii[:]
+vdw_radii = vdw_radii.copy()
 vdw_radii[1] = 1.09
 atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
 
