@@ -4,10 +4,10 @@ from gpaw import GPAW
 from gpaw.spinorbit import get_spinorbit_eigenvalues
 pl.rc('text', usetex=True)
 
-calc = GPAW('../WS2_bands.gpw', txt=None)
+calc = GPAW('WS2_bands.gpw', txt=None)
 
-x = np.loadtxt('../kpath.dat')
-X = np.loadtxt('../highsym.dat')
+x = np.loadtxt('WS2_kpath.dat')
+X = np.loadtxt('WS2_highsym.dat')
 e_kn = np.array([calc.get_eigenvalues(kpt=k)[:20]
                  for k in range(len(calc.get_ibz_k_points()))])
 e_nk = e_kn.T
