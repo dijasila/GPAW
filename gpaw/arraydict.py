@@ -1,7 +1,12 @@
 import numpy as np
 
 class ArrayDict(dict):
-    """Distributed dictionary of fixed-size arrays."""
+    """Distributed dictionary of fixed-size, fixed-dtype arrays.
+
+    Elements are initialized as empty numpy arrays.
+
+    Unlike a normal dictionary, this class implements a strict loop ordering
+    which is consistent with that of the underlying atom partition."""
     def __init__(self, partition, shapes_a, dtype=float, d=None):
         dict.__init__(self)
         self.partition = partition
@@ -58,7 +63,7 @@ class ArrayDict(dict):
 
     def check_consistency(self):
         k1 = set(self.partition.my_indices)
-        k2 = set(self.keys())
+        k2 = set(dict.keys(self))
         assert k1 == k2, 'Required keys %s different from actual %s' % (k1, k2)
         for a, array in self.items():
             assert array.dtype == self.dtype
@@ -87,6 +92,25 @@ class ArrayDict(dict):
             M2 = M1 + np.prod(self.shapes_a[a])
             dst = self[a].ravel()
             dst[:] = data[M1:M2]
+
+    # These functions enforce the same ordering as self.partition
+    # when looping.
+    def keys(self):
+        return self.partition.my_indices
+
+    def __iter__(self):
+        for key in self.partition.my_indices:
+            yield key
+
+    def values(self):
+        return [self[key] for key in self]
+
+    def iteritems(self):
+        for key in self:
+            yield key, self[key]
+
+    def items(self):
+        return list(self.iteritems())
 
     #def broadcast(self, comm, root):
     #    serial_partition = self.as_serial()
