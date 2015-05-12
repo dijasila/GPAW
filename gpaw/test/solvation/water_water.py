@@ -53,4 +53,4 @@ DGSol = (Ewater - Evac) / (kcal / mol)
 print 'Delta Gsol: %s kcal / mol' % (DGSol, )
 
 equal(DGSol, -6.3, 2.)
-equal(Ewater, Eelwater + Esurfwater)
+equal(Ewater, Eelwater + Esurfwater, 1e-14)
