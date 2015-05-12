@@ -220,7 +220,7 @@ class AGTSQueue:
             if root.startswith('./build'):
                 continue
             for fname in files:
-                if fname.endswith('.agts.py'):
+                if fname.endswith('agts.py') and root != './gpaw/test/big':
                     yield root, fname
 
     def collect(self):
