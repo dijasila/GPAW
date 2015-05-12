@@ -35,12 +35,12 @@ atoms = molecule('CH3CH2OH')
 atoms.center(vacuum=vac)
 
 # perform gas phase calculation
-atoms.calc = GPAW(xc='PBE', h=h)
+atoms.calc = GPAW(xc='PBE', h=h, txt='gasphase.txt')
 Egasphase = atoms.get_potential_energy()
 
 # perform calculation with continuum solvent model from J. Chem. Phys. 141, 174108 (2014)
 atoms.calc = SolvationGPAW(
-    xc='PBE', h=h,
+    xc='PBE', h=h, txt='water.txt',
     cavity=EffectivePotentialCavity(
         effective_potential=Power12Potential(atomic_radii, u0),
         temperature=T,
