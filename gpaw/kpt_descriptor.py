@@ -15,8 +15,259 @@ import numpy as np
 from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
 
 from gpaw.kpoint import KPoint
+from gpaw.symmetry import Symmetry
 import gpaw.mpi as mpi
 import _gpaw
+
+
+def inbz(G_xv, k_v, tol=1e-5):
+    cond_x = ((G_xv**2).sum(1) / 2 + tol >=
+              np.dot(G_xv, k_v))
+
+    return cond_x.all()
+
+
+def unique_rows(a):
+    order = np.lexsort(a.T)
+    a = a[order]
+    diff = np.diff(a, axis=0)
+    ui = np.ones(len(a), 'bool')
+    ui[1:] = (diff != 0).any(axis=1)
+    return a[ui]
+
+
+def get_BZ_vertices(cell_cv):
+    B_cv = 2.0 * np.pi * np.linalg.inv(cell_cv).T
+    A_cv = np.linalg.inv(B_cv).T
+    N_xc = np.indices((3, 3, 3)).reshape((3, 27)).T - 1
+    G_xv = np.dot(N_xc, B_cv)
+    G_xv = np.delete(G_xv, (13), axis=0)
+
+    bzk_kc = []
+    bzedges_lkc = []
+    bzfaces_fkc = []
+
+    # Find all vertices, edges
+    # and faces of BZ
+    ones_c = np.ones(3)
+
+    for i, G1_v in enumerate(G_xv):
+        new_face_vertices = 0
+        for j, G2_v in enumerate(G_xv):
+            new_vertices = 0
+            for k, G3_v in enumerate(G_xv):
+                G_cv = np.array([G1_v, G2_v, G3_v])
+                G2_c = (G_cv**2).sum(1)
+                G_cv *= (2 / G2_c)[:, np.newaxis]
+
+                if np.abs(np.linalg.det(G_cv)) > 1e-10:
+                    # Find vertices
+                    iG_vc = np.linalg.inv(G_cv)
+                    k_v = np.dot(iG_vc, ones_c)
+                    k_c = np.dot(A_cv, k_v)
+
+                    # Test if point is in BZ
+                    if inbz(G_xv, k_v):
+                        bzk_kc.append(list(k_c.round(6)))
+                        new_vertices += 1
+
+            # All vertices for G1, G2
+            # have been found
+            new_face_vertices += new_vertices
+            if new_vertices > 1:
+                # Order with respect to
+                # reduced coordinates
+                k_kc = np.array(bzk_kc[-new_vertices:]).copy()
+                k_kc = unique_rows(k_kc)
+                if len(k_kc) < 2:
+                    continue
+
+                for i in [2, 1, 0]:
+                    delta = k_kc[0, i] - k_kc[1, i]
+                    if np.abs(delta) > 1e-10:
+                        sign = np.sign(delta)
+                        if sign == -1:
+                            k_kc[[0, 1]] = k_kc[[1, 0]]
+                        break
+
+                bzedges_lkc.append(k_kc.tolist())
+
+        if new_face_vertices > 2:
+            # For plotting purposes
+            # and finding unique_rows faces
+            # it is important that
+            # the face kpoints are ordered
+            k_kc = unique_rows(np.array(bzk_kc[-new_face_vertices:]))
+            k_kv = np.dot(k_kc, B_cv)
+
+            if len(k_kv) < 3:
+                continue
+
+            ktmp_kv = k_kv.copy()
+
+            # Find the starting vertex
+            for i in [2, 1, 0]:
+                i_v = np.argmax(ktmp_kv, axis=0)
+                kmax = ktmp_kv[i_v[i], i]
+                i_k = np.nonzero(np.abs(ktmp_kv[:, i] - kmax) < 1e-10)[0]
+
+                if len(i_k) == 1:
+                    k0_v = ktmp_kv[i_k[0]]
+                    break
+                else:
+                    ktmp_kv = ktmp_kv[i_k]
+
+            ktmp_kv = k_kv.copy()
+            ktmp_kv[0] = k0_v
+            nk = len(k_kv)
+            for i1 in range(1, nk):
+                e_kv = k_kv - ktmp_kv[i1 - 1]
+
+                # Orientation of path
+                for ik in range(nk):
+                    if np.allclose(e_kv[ik], 0.0):
+                        continue
+
+                    ndotv_k = np.dot(np.cross(e_kv[ik], e_kv),
+                                     ktmp_kv[0])
+                    sign_k = np.sign(ndotv_k)
+                    if (sign_k >= 0).all():
+                        ktmp_kv[i1] = k_kv[ik]
+                        break
+
+                    assert ik != nk - 1
+
+            k_kc = np.dot(ktmp_kv, A_cv.T)
+
+            bzfaces_fkc.append(k_kc.round(6).tolist())
+
+    # Unique vertices
+    bzk_kc = unique_rows(np.array(bzk_kc)).tolist()
+
+    # Unique edges
+    bzedges_lK = np.array(bzedges_lkc).reshape(-1, 6)
+    bzedges_lkc = unique_rows(bzedges_lK).reshape(-1, 2, 3).tolist()
+
+    return bzk_kc, bzedges_lkc, bzfaces_fkc
+
+
+def get_IBZ_vertices(cell_cv, bzk_kc, bzedges_lkc,
+                     bzfaces_fkc, U_scc, time_reversal):
+
+    inv_cc = -np.eye(3, dtype=int)
+    has_inversion = (U_scc == inv_cc).all(2).all(1).any()
+    bzedges_lkc = np.array(bzedges_lkc).tolist()
+
+    bzk_kc = np.array(bzk_kc).tolist()
+    icell_cv = np.linalg.inv(cell_cv).T
+    B_cv = icell_cv * 2 * np.pi
+    A_cv = np.linalg.inv(B_cv).T
+    N_xc = np.indices((3, 3, 3)).reshape((3, 27)).T - 1
+    G_xv = np.dot(N_xc, B_cv)
+    G_xv = np.delete(G_xv, (13), axis=0)
+
+    if time_reversal and not has_inversion:
+        Utmp_scc = np.concatenate([U_scc, -U_scc])
+    else:
+        Utmp_scc = U_scc
+
+    for U_cc in Utmp_scc:
+        MT_vv = np.dot(icell_cv.T, np.dot(U_cc, cell_cv))
+        # Find invariant directions
+        eig_w, vec_vw = np.linalg.eig(MT_vv)
+
+        zeroeigs_w = np.abs(eig_w - 1.0) < 1e-5
+
+        inds_w = np.nonzero(zeroeigs_w)[0]
+        count = np.count_nonzero(zeroeigs_w)
+
+        if count == 2:
+            # Invariant plane
+            inv_vw = vec_vw[:, inds_w].real
+
+            # Calculate intersection with edges
+            for line_kc in bzedges_lkc:
+                n_v = np.cross(inv_vw[:, 0], inv_vw[:, 1])
+
+                line_kv = np.dot(line_kc, B_cv)
+                k0_v = line_kv[0]
+                k1_v = line_kv[1]
+                vec_v = k1_v - k0_v
+
+                ndotv = np.dot(n_v, vec_v)
+
+                if np.abs(ndotv) > 1e-5:
+                    ki_v = (k0_v - np.dot(n_v, k0_v) / ndotv * vec_v)
+                    if inbz(G_xv, ki_v):
+                        k_c = np.dot(A_cv, ki_v)
+                        bzk_kc.append(k_c.tolist())
+        elif count == 1:
+            # Invariant line
+            inv_v = vec_vw[:, inds_w][:, 0].real
+
+            # Calculate intersection with edges
+            for face_kc in bzfaces_fkc:
+                face_kv = np.dot(face_kc, B_cv)
+                k0_v = face_kv[0]
+                k1_v = face_kv[1]
+                k2_v = face_kv[2]
+
+                n_v = np.cross(k1_v - k0_v, k2_v - k0_v)
+                ndotv = np.dot(n_v, inv_v)
+
+                if np.abs(ndotv) > 1e-10:
+                    ki_v = (np.dot(n_v, face_kv[0]) / ndotv * inv_v)
+                    if inbz(G_xv, ki_v, tol=1e-3):
+                        k_c = np.dot(A_cv, ki_v)
+                        bzk_kc.append(k_c.tolist())
+        elif count == 0:
+            bzk_kc.append([.0, .0, .0])
+
+    bzk_kc = unique_rows(np.array(bzk_kc).round(6))
+
+    from gpaw.symmetry import map_k_points
+    bz2bz_ks = map_k_points(bzk_kc * .99, U_scc, time_reversal, tol=1e-3)
+
+    nbzkpts = len(bzk_kc)
+    bz2bz_k = -np.ones(nbzkpts + 1, int)
+    ibz2bz_k = []
+    for k in range(nbzkpts - 1):
+        # Reverse order looks more natural
+        if bz2bz_k[k] == -1:
+            b2b_k = bz2bz_ks[k]
+            kstar_kc = unique_rows(bzk_kc[b2b_k].round(6))
+            kstar_kv = np.dot(kstar_kc, B_cv)
+
+            # Find the point closest to the
+            # first octant
+            for v in range(3):
+                kval = kstar_kv[:, v].max()
+                kstar_kv = kstar_kv[kstar_kv[:, v] == kval]
+
+            assert len(kstar_kv) == 1
+
+            kmax_v = kstar_kv[0]
+            kmax_c = np.dot(A_cv, kmax_v).round(6)
+            ik = np.argwhere((bzk_kc == kmax_c[np.newaxis]).all(1))[0][0]
+
+            bz2bz_k[b2b_k] = ik
+            ibz2bz_k.append(ik)
+
+    ibzk_kc = bzk_kc[ibz2bz_k].tolist()
+    return ibzk_kc
+
+
+def get_BZ(cell_cv):
+    symmetry = Symmetry([0], cell_cv)
+    symmetry.find_lattice_symmetry()
+    bzk_kc, bzedges_lkc, bzfaces_fkc = get_BZ_vertices(cell_cv)
+    ibzk_kc = get_IBZ_vertices(cell_cv, bzk_kc,
+                               bzedges_lkc,
+                               bzfaces_fkc,
+                               symmetry.op_scc,
+                               symmetry.time_reversal)
+
+    return bzk_kc, ibzk_kc, bzedges_lkc, bzfaces_fkc
 
 
 def to1bz(bzk_kc, cell_cv):
@@ -44,8 +295,8 @@ def to1bz(bzk_kc, cell_cv):
         # basis of numerical noise, so we round off the differences
         # between the shortest distances to 6 decimals and chose the
         # one with the lowest index.
-        d = ((G_xv - K_v)**2).sum(1)
-        x = (d - d.min()).round(6).argmin()
+        d_x = ((G_xv - K_v)**2).sum(1)
+        x = (d_x - d_x.min()).round(6).argmin()
         bz1k_kc[k] -= N_xc[x]
 
     return bz1k_kc
@@ -110,7 +361,7 @@ class KPointDescriptor:
 
         # Gamma-point calculation?
         self.gamma = self.nbzkpts == 1 and np.allclose(self.bzk_kc, 0)
-            
+
         # Point group and time-reversal symmetry neglected:
         self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
         self.ibzk_kc = self.bzk_kc.copy()
