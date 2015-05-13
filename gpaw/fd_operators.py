@@ -58,7 +58,7 @@ class FDOperator:
         assert dtype in [float, complex]
         self.dtype = dtype
         self.shape = tuple(n_c)
-        
+
         if gd.comm.size > 1:
             comm = gd.comm.get_c_object()
         else:
@@ -68,11 +68,15 @@ class FDOperator:
         self.mp = mp  # padding
         self.gd = gd
         self.npoints = len(coef_p)
+        self.coef_p = coef_p
+        self.offset_p = offset_p
+        self.comm = comm
+        self.cfd = cfd
 
         self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
                                        neighbor_cd, dtype == float,
                                        comm, cfd)
-        
+
         if description is None:
             description = '%d point finite-difference stencil' % self.npoints
         self.description = description
@@ -195,7 +199,7 @@ class GUCLaplace(FDOperator):
             coefs.extend(a_d[d] * np.array(laplace[n][1:]))
 
         FDOperator.__init__(self, coefs, offsets, gd, dtype)
-        
+
         self.description = (
             '%d*%d+1=%d point O(h^%d) finite-difference Laplacian' %
             ((self.npoints - 1) // n, n, self.npoints, 2 * n))
@@ -242,7 +246,7 @@ class LaplaceB(FDOperator):
                              (0, 0, -1), (0, 0, 1)],
                             gd, dtype,
                             'O(h^4) Mehrstellen Laplacian (B)')
-                            
+
 
 class FTLaplace:
     def __init__(self, gd, scale, dtype):
@@ -260,7 +264,7 @@ class FTLaplace:
         self.k2_Q *= -scale
         self.d = 6.0 / gd.h_cv[0, 0]**2
         self.npoints = 1000
-        
+
     def apply(self, in_xg, out_xg, phase_cd=None):
         if in_xg.ndim > 3:
             for in_g, out_g in zip(in_xg, out_xg):

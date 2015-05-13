@@ -38,7 +38,7 @@ Quick links to all features:
       - :ref:`GW <gw_theory>`
       - :ref:`BSE <bse>`
     * - :ref:`Parallelization <parallel_runs>`
-      -
+      - :ref:`Continuum Solvent Model <continuum_solvent_model>`
       -
 
 Watch us on GPAWTV
