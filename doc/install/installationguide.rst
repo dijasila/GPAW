@@ -40,7 +40,7 @@ and install GPAW with:
 
 - on RHEL/CentOS/Fedora::
 
-    yum -u install gpaw
+    yum -y install gpaw
 
 - on openSUSE::
 
