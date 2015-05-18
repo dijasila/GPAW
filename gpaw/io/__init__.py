@@ -63,7 +63,7 @@ def write_atomic_matrix(writer, X_asp, name, master):
     all_X_asp.redistribute(all_X_asp.partition.as_serial())
     writer.add(name, ('nspins', 'nadm'), dtype=float)
     if master:
-        writer.fill(all_X_asp.flatten_to_array(axis=1))
+        writer.fill(all_X_asp.toarray(axis=1))
 
 
 def wave_function_name_template(mode):

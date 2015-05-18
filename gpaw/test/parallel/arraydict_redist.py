@@ -25,7 +25,7 @@ even_partition = partition.as_even_partition()
 
 def check(atomdict, title):
     if world.rank == world.size // 2 or world.rank == 0:
-        print 'rank %d %s: %s' % (world.rank, title.rjust(10), atomdict)
+        print('rank %d %s: %s' % (world.rank, title.rjust(10), atomdict))
 
     # Create a normal, "well-behaved" dict against which to test arraydict.
     ref = dict(atomdict)
@@ -55,12 +55,12 @@ def check(atomdict, title):
 ad = ArrayDict(partition, shape, float)
 for key in ad:
     ad[key][:] = key
-array0 = ad.flatten_to_array()
+array0 = ad.toarray()
 
 ad0 = dict(ad)
 check(ad, 'new')
 ad.redistribute(even_partition)
-array1 = ad.flatten_to_array()
+array1 = ad.toarray()
 if world.rank > 1:
     assert array1.shape != array0.shape
 check(ad, 'even')
@@ -69,5 +69,5 @@ check(ad, 'serial')
 ad.redistribute(partition)
 check(ad, 'back')
 
-array2 = ad.flatten_to_array()
+array2 = ad.toarray()
 assert (array0 == array2).all()

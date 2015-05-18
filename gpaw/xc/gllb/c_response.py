@@ -105,14 +105,16 @@ class C_Response(Contribution):
             # This code first removes them to match density.D_asp.
             # and then further distributes the density matricies for xc-corrections.
             d("Just read")
-            if len(self.Dresp_asp) != len(self.density.D_asp):
-                for a in self.Dresp_asp.keys():
-                    if not self.density.D_asp.has_key(a):
-                        del self.Dresp_asp[a]
-                        del self.D_asp[a]
-                        d("Core ", world.rank, " removed a", a)
-                    else:
-                        d("Core ", world.rank, "keeping a", a)
+
+            Dresp_asp = self.empty_asp()
+            D_asp = self.empty_asp()
+            for a in self.density.D_asp:
+                Dresp_asp[a][:] = self.Dresp_asp[a]
+                D_asp[a][:] = self.D_asp[a]
+            self.Dresp_asp = Dresp_asp
+            self.D_asp = D_asp
+
+            assert len(self.Dresp_asp) == len(self.density.D_asp)
             self.just_read = False
             self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
             d("Core ", world.rank, "self.Dresp_asp", self.Dresp_asp.items(), "self.Drespdist_asp", self.Drespdist_asp.items())
@@ -488,6 +490,10 @@ class C_Response(Contribution):
         _write_atomic_matrix(self.Dxc_D_asp, 'GLLBDxcAtomicDensityMatrices')
         _write_atomic_matrix(self.Dxc_Dresp_asp,
                              'GLLBDxcAtomicResponseMatrices')
+
+    def empty_asp(self):
+        return self.setups.empty_asp(self.density.ns,
+                                     self.density.atom_partition)
 
     def read(self, r):
         wfs = self.wfs

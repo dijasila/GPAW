@@ -123,7 +123,7 @@ tests = [
     'noncollinear/xcgrid3d.py',
     'cluster.py',
     'poisson.py',
-    'parallel/parallel_dict.py',
+    'parallel/arraydict_redist.py',
     'parallel/overlap.py',
     'parallel/scalapack.py',
     'gauss_wave.py',
