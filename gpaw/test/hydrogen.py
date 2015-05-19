@@ -25,6 +25,8 @@ equal(e1, e2 + log(2) * kT, 3.0e-7)
 
 # Test ase.db a bit:
 from ase.db import connect
+# Note: This test will fail if run twice in same directory without
+# cleaning these files.
 for name in ['h2.json', 'h2.db']:
     con = connect(name)
     con.write(hydrogen)
