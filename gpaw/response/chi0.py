@@ -2,6 +2,7 @@ from __future__ import print_function, division
 
 import sys
 from time import ctime
+from math import ceil
 
 import numpy as np
 from ase.units import Hartree
@@ -124,10 +125,11 @@ class Chi0(PairDensity):
 
         nG = pd.ngmax
         nw = len(self.omega_w)
-        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
+        mynG = nG // self.blockcomm.size
         self.Ga = self.blockcomm.rank * mynG
-        self.Gb = min(self.Ga + mynG, nG)
-        assert mynG * (self.blockcomm.size - 1) < nG
+        self.Gb = self.Ga + mynG
+        if self.blockcomm.rank == self.blockcomm.size - 1:
+            self.Gb = nG
         
         if A_x is not None:
             nx = nw * (self.Gb - self.Ga) * nG
