@@ -1,3 +1,4 @@
+from __future__ import print_function
 """Tran-Blaha potential.
 
 From:
@@ -37,7 +38,7 @@ class TB09Kernel:
         
     def calculate(self, e_g, n_sg, dedn_sg, sigma_xg,
                   dedsigma_xg, tau_sg, dedtau_sg):
-        assert len(n_sg) == 1
+        ns = len(n_sg)
         n_sg[n_sg < 1e-6] = 1e-6
         
         if n_sg.ndim == 4:
@@ -48,32 +49,42 @@ class TB09Kernel:
                 self.I = self.world.sum(self.I)
                 self.c = (self.alpha + self.beta *
                           (self.I / self.gd.volume)**0.5)
-                
-            lapl_g = self.gd.empty()
-            self.lapl.apply(n_sg[0], lapl_g)
+            lapl_sg = self.gd.empty(ns)
+            for n_g, lapl_g in zip(n_sg, lapl_sg):
+                self.lapl.apply(n_g, lapl_g)
             
-            # Start calculation the integral for use in the next SCF step:
-            self.I = self.gd.integrate(sigma_xg[0]**0.5 / n_sg[0])
-            
+            # Start calculation of the integral for use in the next SCF step:
+            if ns == 1:
+                gradn_g = sigma_xg[0]**0.5
+            else:
+                gradn_g = (sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2])**0.5
+            self.I = self.gd.integrate(gradn_g / n_sg.sum(0))
             # The domain is not distributed like the PAW corrections:
-            self.I /= self.world.size  
+            self.I /= self.world.size
         else:
             rgd = self.rgd
-            lapl_g = rgd.laplace(np.dot(self.Y_L, self.n_Lg))
-            l = 0
-            L1 = 0
-            while L1 < len(self.Y_L):
-                L2 = L1 + 2 * l + 1
-                n_g = np.dot(self.Y_L[L1:L2], self.n_Lg[L1:L2])
-                with seterr(divide='ignore', invalid='ignore'):
-                    lapl_g -= l * (l + 1) * n_g / rgd.r_g**2
-                lapl_g[0] = 0.0
-                L1 = L2
-                l += 1
+            lapl_sg = []
+            for n_Lg in self.n_sLg:
+                lapl_g = rgd.laplace(np.dot(self.Y_L, n_Lg))
+                l = 0
+                L1 = 0
+                while L1 < len(self.Y_L):
+                    L2 = L1 + 2 * l + 1
+                    n_g = np.dot(self.Y_L[L1:L2], n_Lg[L1:L2])
+                    with seterr(divide='ignore', invalid='ignore'):
+                        lapl_g -= l * (l + 1) * n_g / rgd.r_g**2
+                    lapl_g[0] = 0.0
+                    L1 = L2
+                    l += 1
+                lapl_sg.append(lapl_g)
 
             # PAW corrections to integral:
             w = self.sign * weight_n[self.n]
-            self.I += w * rgd.integrate(sigma_xg[0]**0.5 / n_sg[0])
+            if ns == 1:
+                gradn_g = sigma_xg[0]**0.5
+            else:
+                gradn_g = (sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2])**0.5
+            self.I += w * rgd.integrate(gradn_g / n_sg.sum(0))
             
             self.n += 1
             if self.n == len(weight_n):
@@ -84,11 +95,13 @@ class TB09Kernel:
         sigma_xg[sigma_xg < 1e-10] = 1e-10
         tau_sg[tau_sg < 1e-10] = 1e-10
         
-        self.tb09(self.c, n_sg.ravel(), sigma_xg, lapl_g, tau_sg, dedn_sg,
-                  dedsigma_xg)
+        for n_g, sigma_g, lapl_g, tau_g, v_g in zip(n_sg, sigma_xg[::2],
+                                                    lapl_sg, tau_sg, dedn_sg):
+            self.tb09(self.c, n_g.ravel(), sigma_g, lapl_g, tau_g, v_g,
+                      dedsigma_xg)
         
         self.ldac.calculate(e_g, n_sg, dedn_sg)
-        # e_g[:] = 0.0
+        e_g[:] = 0.0
         
         dedsigma_xg[:] = 0.0
         dedtau_sg[:] = 0.0
@@ -108,7 +121,7 @@ class TB09(MGGA):
         self.kernel.lapl = Laplace(dens.finegd)
         
     def calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
-        self.kernel.n_Lg = n_sLg[0]
+        self.kernel.n_sLg = n_sLg
         self.kernel.Y_L = Y_L
         self.kernel.rgd = rgd
         return MGGA.calculate_radial(self, rgd, n_sLg, Y_L, dndr_sLg,
