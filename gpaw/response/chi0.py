@@ -2,7 +2,6 @@ from __future__ import print_function, division
 
 import sys
 from time import ctime
-from math import ceil
 
 import numpy as np
 from ase.units import Hartree
