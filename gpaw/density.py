@@ -95,7 +95,8 @@ class Density(object):
         # it previously didn't exist but it will needed for the new atoms.
         if (self.atom_partition is not None and
             self.D_asp is None and (rank_a == self.gd.comm.rank).any()):
-            self.D_asp = self.setups.empty_asp(self.ns, self.atom_partition)
+            self.D_asp = self.setups.empty_atomic_matrix(self.ns,
+                                                         self.atom_partition)
 
         if (self.atom_partition is not None and self.D_asp is not None
             and not isinstance(self.gd.comm, SerialCommunicator)):
@@ -124,7 +125,7 @@ class Density(object):
     @D_asp.setter
     def D_asp(self, value):
         if isinstance(value, dict):
-            tmp = self.setups.empty_asp(self.ns, self.atom_partition)
+            tmp = self.setups.empty_atomic_matrix(self.ns, self.atom_partition)
             tmp.update(value)
             value = tmp
         assert isinstance(value, ArrayDict) or value is None, type(value)
@@ -211,7 +212,8 @@ class Density(object):
         # but is not particularly efficient (not that this is a time
         # consuming step)
 
-        self.D_asp = self.setups.empty_asp(self.ns, self.atom_partition)
+        self.D_asp = self.setups.empty_atomic_matrix(self.ns,
+                                                     self.atom_partition)
         f_asi = {}
         for a in basis_functions.atom_indices:
             c = self.charge / len(self.setups)  # distribute on all atoms
@@ -246,7 +248,8 @@ class Density(object):
         self.timer.start("Density initialize from wavefunctions")
         self.nt_sG = self.gd.empty(self.ns)
         self.calculate_pseudo_density(wfs)
-        self.D_asp = self.setups.empty_asp(self.ns, self.atom_partition)
+        self.D_asp = self.setups.empty_atomic_matrix(self.ns,
+                                                     self.atom_partition)
         wfs.calculate_atomic_density_matrices(self.D_asp)
         self.calculate_normalized_charges_and_mix()
         self.timer.stop("Density initialize from wavefunctions")
@@ -494,7 +497,7 @@ class Density(object):
         # Read atomic density matrices
         natoms = len(self.setups)
         atom_partition = AtomPartition(self.gd.comm, np.zeros(natoms, int))
-        D_asp = self.setups.empty_asp(self.ns, atom_partition)
+        D_asp = self.setups.empty_atomic_matrix(self.ns, atom_partition)
         self.atom_partition = atom_partition # XXXXXX
 
         all_D_sp = reader.get('AtomicDensityMatrices', broadcast=True)

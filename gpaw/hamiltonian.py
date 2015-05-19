@@ -100,7 +100,7 @@ class Hamiltonian(object):
     @dH_asp.setter
     def dH_asp(self, value):
         if isinstance(value, dict):
-            tmp = self.setups.empty_asp(self.ns, self.atom_partition)
+            tmp = self.setups.empty_atomic_matrix(self.ns, self.atom_partition)
             tmp.update(value)
             value = tmp
         assert isinstance(value, ArrayDict) or value is None, type(value)
@@ -314,7 +314,8 @@ class Hamiltonian(object):
 
         Ddist_asp = self.dh_distributor.distribute(density.D_asp)
         
-        dHdist_asp = self.setups.empty_asp(self.ns, Ddist_asp.partition)
+        dHdist_asp = self.setups.empty_atomic_matrix(self.ns,
+                                                     Ddist_asp.partition)
         Exca = 0.0
         self.timer.start('XC Correction')
         for a, D_sp in Ddist_asp.items():

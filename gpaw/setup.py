@@ -1384,7 +1384,7 @@ class Setups(list):
         for setup in self.setups.values():
             setup.calculate_rotations(R_slmm)
 
-    def empty_asp(self, ns, atom_partition):
+    def empty_atomic_matrix(self, ns, atom_partition):
         Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
                      for setup in self]
         return atom_partition.arraydict(Dshapes_a)

@@ -56,7 +56,8 @@ class AtomicMatrixDistributor:
         # we can redistribute one-to-one to the larger work_partition.
         #assert D_asp.partition == self.grid_partition
         
-        Ddist_asp = self.setups.empty_asp(self.ns, self.grid_unique_partition)
+        Ddist_asp = self.setups.empty_atomic_matrix(self.ns,
+                                                    self.grid_unique_partition)
         if self.kptband_comm.rank != 0:
             assert len(Ddist_asp) == 0
         for a in Ddist_asp:
@@ -73,7 +74,7 @@ class AtomicMatrixDistributor:
         #assert dHdist_asp.partition == self.work_partition
         dHdist_asp.redistribute(self.grid_unique_partition)
 
-        dH_asp = self.setups.empty_asp(self.ns, self.grid_partition)
+        dH_asp = self.setups.empty_atomic_matrix(self.ns, self.grid_partition)
         if self.kptband_comm.rank == 0:
             buf = dHdist_asp.toarray()
             assert not np.isnan(buf).any()

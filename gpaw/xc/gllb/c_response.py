@@ -106,8 +106,8 @@ class C_Response(Contribution):
             # and then further distributes the density matricies for xc-corrections.
             d("Just read")
 
-            Dresp_asp = self.empty_asp()
-            D_asp = self.empty_asp()
+            Dresp_asp = self.empty_atomic_matrix()
+            D_asp = self.empty_atomic_matrix()
             for a in self.density.D_asp:
                 Dresp_asp[a][:] = self.Dresp_asp[a]
                 D_asp[a][:] = self.D_asp[a]
@@ -477,8 +477,8 @@ class C_Response(Contribution):
         print("Integration over Dxc_vt_sG", domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel())))
         
         def _write_atomic_matrix(X0_asp, name):
-            X_asp = self.wfs.setups.empty_asp(self.wfs.ns,
-                                              self.wfs.atom_partition)
+            X_asp = self.wfs.setups.empty_atomic_matrix(self.wfs.ns,
+                                                        self.wfs.atom_partition)
             # XXX some of the provided X0_asp contain strangely duplicated
             # elements.  Take only the minimal set:
             for a in X_asp:
@@ -491,9 +491,9 @@ class C_Response(Contribution):
         _write_atomic_matrix(self.Dxc_Dresp_asp,
                              'GLLBDxcAtomicResponseMatrices')
 
-    def empty_asp(self):
-        return self.setups.empty_asp(self.density.ns,
-                                     self.density.atom_partition)
+    def empty_atomic_matrix(self):
+        return self.setups.empty_atomic_matrix(self.density.ns,
+                                               self.density.atom_partition)
 
     def read(self, r):
         wfs = self.wfs
