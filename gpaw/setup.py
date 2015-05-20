@@ -17,7 +17,7 @@ import numpy as np
 import ase.units as units
 from ase.data import chemical_symbols
 
-from gpaw.setup_data import SetupData
+from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt as G_LLL, Y_LLv
 from gpaw.utilities import unpack, pack
@@ -75,6 +75,16 @@ def create_setup(symbol, xc='LDA', lmax=0,
         elif type == 'ghost':
             from gpaw.lcao.bsse import GhostSetupData
             setupdata = GhostSetupData(symbol)
+        elif type == 'sg15':
+            from gpaw.upf import UPFSetupData
+            upfname = '%s_ONCV_PBE-1.0.upf' % symbol
+            upfpath, source = search_for_file(upfname, world=world)
+            if source is None:
+                raise IOError('Could not find pseudopotential file %s '
+                              'in any GPAW search path.  '
+                              'Please install the SG15 setups using, '
+                              'e.g., \'gpaw-install-setups\'.' % upfname)
+            setupdata = UPFSetupData(upfpath)
         else:
             setupdata = SetupData(symbol, xc.get_setup_name(),
                                   type, True,
