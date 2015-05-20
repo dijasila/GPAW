@@ -3,7 +3,7 @@
 
 from __future__ import print_function
 from ase.structure import molecule
-from gpaw import GPAW, PoissonSolver, Mixer
+from gpaw import GPAW, PoissonSolver
 from gpaw.utilities import h2gpts
 from gpaw import setup_paths
 setup_paths.insert(0, '.')
@@ -35,4 +35,3 @@ err = eps2[0] - eps1[0]
 # are not completely messed up.
 print('Error', err)
 assert abs(err) < 0.008  # 0.0055.... as of current test.
-
