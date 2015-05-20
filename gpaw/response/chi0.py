@@ -124,11 +124,10 @@ class Chi0(PairDensity):
 
         nG = pd.ngmax
         nw = len(self.omega_w)
-        mynG = nG // self.blockcomm.size
+        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
         self.Ga = self.blockcomm.rank * mynG
-        self.Gb = self.Ga + mynG
-        if self.blockcomm.rank == self.blockcomm.size - 1:
-            self.Gb = nG
+        self.Gb = min(self.Ga + mynG, nG)
+        assert mynG * (self.blockcomm.size - 1) < nG
         
         if A_x is not None:
             nx = nw * (self.Gb - self.Ga) * nG
@@ -427,7 +426,7 @@ class Chi0(PairDensity):
         
         if comm.size == 1:
             return in_wGG
-            
+        
         nw = len(self.omega_w)
         nG = in_wGG.shape[2]
         mynw = (nw + comm.size - 1) // comm.size
@@ -444,7 +443,7 @@ class Chi0(PairDensity):
         else:
             mdin = md1
             mdout = md2
-            
+        
         r = Redistributor(comm, mdin, mdout)
         
         outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
@@ -452,7 +451,7 @@ class Chi0(PairDensity):
             out_wGG = np.empty(outshape, complex)
         else:
             out_wGG = out_x[:np.product(outshape)].reshape(outshape)
-            
+        
         r.redistribute(in_wGG.reshape(mdin.shape),
                        out_wGG.reshape(mdout.shape))
         
@@ -470,11 +469,17 @@ class Chi0(PairDensity):
             
         nw = len(self.omega_w)
         nG = chi0_wGG.shape[2]
-        mynw = (nw + world.size - 1) // world.size
-        mynG = (nG + comm.size - 1) // comm.size
+        #mynw = (nw + world.size - 1) // world.size
+        mynw = nw // world.size
+        mynG = self.Gb - self.Ga
+        
+        #mynG = (nG + comm.size - 1) // comm.size
   
         wa = min(world.rank * mynw, nw)
-        wb = min(wa + mynw, nw)
+        #wb = min(wa + mynw, nw)
+        wb = wa + mynw
+        if world.rank == world.size - 1:
+            wb = nw
 
         if self.blockcomm.size == 1:
             return chi0_wGG[wa:wb].copy()
