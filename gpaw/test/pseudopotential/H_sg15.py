@@ -1,4 +1,5 @@
-<UPF version="2.0.1">
+# This file contains data for the test sg15_hydrogen.py.
+pp_text = """<UPF version="2.0.1">
   <PP_INFO>
 
  This pseudopotential file has been produced using the code
@@ -894,4 +895,4 @@
     2.9972227375E-03    2.9581421546E-03    2.9195492532E-03    2.8814496160E-03
     2.8438387299E-03    2.8067108257E-03
  </PP_RHOATOM>
-</UPF>
+</UPF>"""
