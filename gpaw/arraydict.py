@@ -180,7 +180,7 @@ class ArrayDict(dict):
     def items(self):
         return list(self.iteritems())
 
-    def __str__(self):
+    def __repr__(self):
         tokens = []
         for key in sorted(self.keys()):
             shapestr = 'x'.join(map(str, self.shapes_a[key]))

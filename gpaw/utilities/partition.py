@@ -259,5 +259,12 @@ class AtomPartition:
             atomdict_ax.partition = new_partition # XXX
             atomdict_ax.check_consistency()
 
+    def __repr__(self):
+        indextext = ', '.join(map(str, self.my_indices))
+        return '%s@rank%d/%d (%d/%d): [%s]' % (self.__class__.__name__,
+                                               self.comm.rank, self.comm.size,
+                                               len(self.my_indices),
+                                               self.natoms, indextext)
+
     def arraydict(self, shapes, dtype=float):
         return ArrayDict(self, shapes, dtype)
