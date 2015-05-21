@@ -6,6 +6,7 @@ import xml.sax
 import re
 from cStringIO import StringIO
 from math import sqrt, pi, factorial as fac
+from glob import glob
 
 import numpy as np
 from ase.data import atomic_names
@@ -390,8 +391,8 @@ class SetupData:
 def search_for_file(name, world=None):
     """Traverse gpaw setup paths to find file.
 
-    Returns the file path and file contents.  If the file is not found,
-    contents will be None."""
+    Returns the file path and file contents.  If the file is not
+    found, contents will be None."""
 
     if world is not None and world.size > 1:
         if world.rank == 0:
@@ -409,18 +410,21 @@ def search_for_file(name, world=None):
     source = None
     filename = None
     for path in setup_paths:
-        filename = os.path.join(path, name)
-        if os.path.isfile(filename):
-            source = open(filename).read()
+        pattern = os.path.join(path, name)
+        filenames = glob(pattern) + glob('%s.gz' % pattern)
+        if filenames:
+            # The globbing is a hack to grab the 'newest' version if
+            # the files are somehow version numbered; then we want the
+            # last/newest of the results (used with SG15).  (User must
+            # instantiate (UPF)SetupData directly to override.)
+            filename = max(filenames)
+            assert has_gzip  # Which systems do not have the gzip module?
+            if filename.endswith('.gz'):
+                fd = gzip.open(filename)
+            else:
+                fd = open(filename)
+            source = fd.read()
             break
-        else:
-            filename += '.gz'
-            if os.path.isfile(filename):
-                if has_gzip:
-                    source = gzip.open(filename).read()
-                else:
-                    source = os.popen('gunzip -c ' + filename, 'r').read()
-                break
     return filename, source
 
 

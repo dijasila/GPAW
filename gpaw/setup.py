@@ -77,7 +77,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
             setupdata = GhostSetupData(symbol)
         elif type == 'sg15':
             from gpaw.upf import UPFSetupData
-            upfname = '%s_ONCV_PBE-1.0.upf' % symbol
+            upfname = '%s_ONCV_PBE-*.upf' % symbol
             upfpath, source = search_for_file(upfname, world=world)
             if source is None:
                 raise IOError('Could not find pseudopotential file %s '
