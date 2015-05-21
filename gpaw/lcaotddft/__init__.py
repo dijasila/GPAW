@@ -422,7 +422,7 @@ class LCAOTDDFT(GPAW):
             for a, P_ni in kpt.P_ani.items():
                 print('Update projector: Rank:', world.rank, 'a', a)
                 P_ni.fill(117)
-                gemm(1.0, kpt.P_aMi[a], kpt.C_nM, 0.0, P_ni, 'n')
+                gemm(1.0, self.wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
         self.timer.stop('LCAO update projectors') 
 
     def save_wfs(self):
