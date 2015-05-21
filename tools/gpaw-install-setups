@@ -7,6 +7,7 @@ import urllib2
 from StringIO import StringIO
 import tarfile
 from optparse import OptionParser
+import re
 
 
 usage = '%prog [OPTION] [DIR]'
@@ -16,19 +17,21 @@ description = ('Download and install gpaw-setups into '
 
 
 p = OptionParser(usage=usage, description=description)
-p.add_option('--package', metavar='URL',
-             help='download PACKAGE of setups or pseudopotentials.  '
+p.add_option('--version', metavar='VERSION',
+             help='download VERSION of setups or pseudopotentials.  '
              'Run without arguments to display a list of versions.  '
              'VERSION can be the full URL or a part such as  '
-             '\'0.8\', \'0.6.6300\', or \'sg15\'.')
+             '\'0.8\' or \'0.6.6300\'')
 p.add_option('--tarball', metavar='FILENAME',
              help='unpack and install from local tarball FILENAME '
-             'instead of downloading from the GPAW website')
+             'instead of downloading')
+p.add_option('--sg15', action='store_true',
+             help='install SG15 pseudopotentials rather than PAW setups.')
 opts, args = p.parse_args()
 nargs = len(args)
 
 
-def get_setup_file_urls():
+def get_gpaw_setup_file_urls():
     setups_page = 'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.txt'
     response = urllib2.urlopen(setups_page)
     pattern = 'https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-*.tar.gz'
@@ -36,17 +39,30 @@ def get_setup_file_urls():
             if fnmatch.fnmatch(line.strip(), pattern)]
     return urls
 
+
 sg15_page = 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/'
-sg15_file = 'sg15_oncv_upf_2015-01-24.tar.gz'
-sg15_url = ''.join([sg15_page, sg15_file])
+
+def get_sg15_file_urls():
+    response = urllib2.urlopen(sg15_page)
+    # (This primitive way actually produces two hits per file)
+    pattern = re.compile(r'sg15_oncv_upf_\d\d\d\d-\d\d-\d\d.tar.gz')
+    matches = pattern.findall(response.read())
+    sg15_files = list(set(matches))
+    sg15_files.sort(reverse=True)
+    sg15_urls = [''.join([sg15_page, fname])
+                 for fname in sg15_files]
+    return sg15_urls
+
 
 # The sg15 file is a tarbomb.  We will later defuse it by untarring
 # into a subdirectory, so we don't leave a ghastly mess on the
 # unsuspecting user's system.
 
 if not opts.tarball:
-    urls = get_setup_file_urls()
-    urls.append(sg15_url)
+    if opts.sg15:
+        urls = get_sg15_file_urls()
+    else:
+        urls = get_gpaw_setup_file_urls()
 
     def print_urls(urls, marked=None):
         for url in urls:
@@ -55,25 +71,24 @@ if not opts.tarball:
             domain = pageurl.split('//', 1)[1].split('/', 1)[0]
             if url == marked:
                 marking = ' [*]'
-                #print(' [*] %s [%s]' % (fname, domain))
             else:
                 marking = '    '
-            print(' %s %s [%s]' % (marking, fname, domain))
+            print(' %s %s' % (marking, url))
 
     if len(urls) == 0:
         p.error('For some reason, no setup packages were found.  Probably'
                 'this script is out of date.  Please rummage around GPAW '
                 'web page until solution is found.')
 
-    if opts.package:
-        matching_urls = [url for url in urls if opts.package in url]
+    if opts.version:
+        matching_urls = [url for url in urls if opts.version in url]
         if len(matching_urls) > 1:
             p.error('More than one setup file matches version "%s":\n'
-                    '%s' % (opts.package, '\n'.join(matching_urls)))
+                    '%s' % (opts.version, '\n'.join(matching_urls)))
         elif len(matching_urls) == 0:
             p.error('\nNo setup matched the specified version "%s".\n'
                     'Available setups are:\n'
-                    '%s' % (opts.package, '\n'.join(urls)))
+                    '%s' % (opts.version, '\n'.join(urls)))
         assert len(matching_urls) == 1
         url = matching_urls[0]
     else:
@@ -102,7 +117,7 @@ if nargs == 0:
     print()
     progname = p.get_prog_name()
     print('Run %s DIR to install newest setups into DIR.' % progname)
-    print('Run %s DIR --package=PACKAGE to install PACKAGE (from above).'
+    print('Run %s DIR --version=VERSION to install VERSION (from above).'
           % progname)
     print('See %s --help for more info.' % progname)
     raise SystemExit
@@ -127,11 +142,13 @@ else:
 if not os.path.exists(targetpath):
     os.makedirs(targetpath)
 
+assert tarfname.endswith('.tar.gz')
 setup_dirname = tarfname.rsplit('.', 2)[0]  # remove .tar.gz ending
 setup_path = os.path.abspath(os.path.join(targetpath, setup_dirname))
-if tarfname == sg15_file and not os.path.isdir(setup_path):
+if tarfname.startswith('sg15'):
     # Defuse tarbomb
-    os.mkdir(setup_path)
+    if not os.path.isdir(setup_path):
+        os.mkdir(setup_path)
     targetpath = os.path.join(targetpath, setup_dirname)
 
 print('Extracting tarball into %s' % targetpath)
