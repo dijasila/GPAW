@@ -1,8 +1,7 @@
 
 import numpy as np
-from gpaw import debug, dry_run
-from gpaw.mpi import world, serial_comm, _Communicator, \
-                     SerialCommunicator, DryRunCommunicator
+from gpaw import debug
+from gpaw.mpi import world, serial_comm, _Communicator, SerialCommunicator
 
 even_comm = world.new_communicator(np.arange(0, world.size, 2))
 if world.size > 1:
