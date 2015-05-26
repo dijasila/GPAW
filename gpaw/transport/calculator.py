@@ -522,9 +522,11 @@ class Transport(GPAW):
             
     def parameters_test(self):
         self.log('parameters_test()')
+        self.nblead = []
         for i in range(self.lead_num):
             atoms = self.get_lead_atoms(i)
             atoms.calc.initialize(atoms)
+            self.nblead.append(atoms.calc.wfs.setups.nao)
         self.initialize()    
 
     def define_leads_related_variables(self):
@@ -1366,10 +1368,11 @@ class Transport(GPAW):
                 p['setups'] = setups
         p['nbands'] = None
         p['kpts'] = self.pl_kpts
-        p['parallel'] = self.input_parameters['parallel'].copy()
-        p['parallel'].update(band=self.wfs.bd.comm.size,
-                             # kpt=self.wfs.kd.comm.size
-                             domain=self.wfs.gd.parsize_c)
+
+        #p['parallel'] = self.input_parameters['parallel'].copy()
+        #p['parallel'].update(band=self.wfs.bd.comm.size,
+        #                     kpt=self.wfs.kd.comm.size
+        #                    domain=self.wfs.gd.parsize_c)
         if 'mixer' in p:
             if not self.spinpol:
                 p['mixer'] = Mixer(0.1, 5, weight=100.0)
@@ -2541,9 +2544,10 @@ class Transport(GPAW):
         sum = 0
         ns = self.wfs.nspins
         if self.use_lead:
-            nk = len(self.ibzk_qc_lead[0])
             nb = max(self.nblead)
             npk = len(self.wfs.kd.ibzk_qc)
+            nk = npk*self.pl_kpts[self.d]
+
             unit_real = np.array(1,float).itemsize
             unit_complex = np.array(1, complex).itemsize
             
