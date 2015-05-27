@@ -241,35 +241,55 @@ extern PyTypeObject TransformerType;
 extern PyTypeObject XCFunctionalType;
 extern PyTypeObject lxcXCFunctionalType;
 
+#if PY_MAJOR_VERSION >= 3
+    static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "_gpaw",
+        "C-extension for GPAW",
+        -1,
+        functions,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+    };
+#endif
+
 #ifndef GPAW_INTERPRETER
-PyMODINIT_FUNC init_gpaw(void)
+
+static PyObject* moduleinit(void)
 {
 #ifdef PARALLEL
   if (PyType_Ready(&MPIType) < 0)
-    return;
+    return NULL;
   if (PyType_Ready(&GPAW_MPI_Request_type) < 0)
-    return;
+    return NULL;
 #endif
 
   if (PyType_Ready(&LFCType) < 0)
-    return;
+    return NULL;
   if (PyType_Ready(&LocalizedFunctionsType) < 0)
-    return;
+    return NULL;
   if (PyType_Ready(&OperatorType) < 0)
-    return;
+    return NULL;
   if (PyType_Ready(&SplineType) < 0)
-    return;
+    return NULL;
   if (PyType_Ready(&TransformerType) < 0)
-    return;
+    return NULL;
   if (PyType_Ready(&XCFunctionalType) < 0)
-    return;
+    return NULL;
   if (PyType_Ready(&lxcXCFunctionalType) < 0)
-    return;
+    return NULL;
 
+#if PY_MAJOR_VERSION >= 3
+  PyObject* m = PyModule_Create(&moduledef);
+#else
   PyObject* m = Py_InitModule3("_gpaw", functions,
              "C-extension for GPAW\n\n...\n");
+#endif
+
   if (m == NULL)
-    return;
+    return NULL;
 
 #ifdef PARALLEL
   Py_INCREF(&MPIType);
@@ -286,11 +306,24 @@ PyMODINIT_FUNC init_gpaw(void)
   Py_INCREF(&lxcXCFunctionalType);
 
   import_array();
+  
+  return m;
 }
+
+
+#if PY_MAJOR_VERSION >= 3
+    PyMODINIT_FUNC PyInit__gpaw(void)
+    {
+        return moduleinit();
+    }
+#else
+    PyMODINIT_FUNC init_gpaw(void)
+    {
+        moduleinit();
 #endif
 
+#else // ifndef GPAW_INTERPRETER
 
-#ifdef GPAW_INTERPRETER
 extern DL_EXPORT(int) Py_Main(int, char **);
 
 // Performance measurement

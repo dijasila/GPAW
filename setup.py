@@ -18,11 +18,11 @@ from config import (check_packages, get_system_config, get_parallel_config,
 
 # Get the current version number:
 try:
-    execfile('gpaw/svnversion_io.py')  # write gpaw/svnversion.py and get
-                                       # svnversion
-except ValueError:
+    # Write gpaw/svnversion.py and get svnversion:
+    exec(open('gpaw/svnversion_io.py').read())
+except (ValueError, TypeError):
     svnversion = ''
-execfile('gpaw/version.py')        # get version_base
+exec(open('gpaw/version.py').read())        # get version_base
 if svnversion:
     version = version_base + '.' + svnversion
 else:
@@ -101,7 +101,7 @@ scalapack = False
 hdf5 = False
 
 # User provided customizations:
-execfile(customize)
+exec(open(customize).read())
 
 if platform_id != '':
     my_platform = distutils.util.get_platform() + '-' + platform_id

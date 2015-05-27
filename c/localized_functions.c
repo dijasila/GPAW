@@ -406,20 +406,18 @@ static PyMethodDef localized_functions_methods[] = {
     {NULL, NULL, 0, NULL}
 };
 
-static PyObject* localized_functions_getattr(PyObject *obj, char *name)
-{
-    return Py_FindMethod(localized_functions_methods, obj, name);
-}
 
 PyTypeObject LocalizedFunctionsType = {
-  PyObject_HEAD_INIT(NULL)
-  0,
-  "LocalizedFunctions",
-  sizeof(LocalizedFunctionsObject),
-  0,
-  (destructor)localized_functions_dealloc,
-  0,
-  localized_functions_getattr
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "LocalizedFunctions",
+    sizeof(LocalizedFunctionsObject),
+    0,
+    (destructor)localized_functions_dealloc,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    "LF object",
+    0, 0, 0, 0, 0, 0,
+    localized_functions_methods
 };
 
 PyObject * NewLocalizedFunctionsObject(PyObject *obj, PyObject *args)

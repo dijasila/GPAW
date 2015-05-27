@@ -92,8 +92,8 @@ def coordinates(gd, origin=None, tiny=1e-12):
     """Constructs and returns matrices containing cartesian coordinates,
        and the square of the distance from the origin.
 
-       The origin can be given explicitely (in Bohr units, not Anstroms). 
-       Otherwise the origin is placed in the center of the box described 
+       The origin can be given explicitely (in Bohr units, not Anstroms).
+       Otherwise the origin is placed in the center of the box described
        by the given grid-descriptor 'gd'.
     """
     
@@ -262,9 +262,9 @@ def tridiag(a, b, c, r, u):
     [          ... 0 an-1 bn  ] [un]   [rn]
     """
     n = len(b)
-    tmp = np.zeros(n-1) # necessary temporary array
+    tmp = np.zeros(n - 1)  # necessary temporary array
     if b[0] == 0:
-        raise RuntimeError, 'System is effectively order N-1'
+        raise RuntimeError('System is effectively order N-1')
 
     beta = b[0]
     u[0] = r[0] / beta
@@ -273,7 +273,7 @@ def tridiag(a, b, c, r, u):
         tmp[i-1] = c[i-1] / beta
         beta = b[i] - a[i-1] * tmp[i-1]
         if beta == 0:
-            raise RuntimeError, 'Method failure'
+            raise RuntimeError('Method failure')
         u[i] = (r[i] - a[i-1] * u[i-1]) / beta
 
     for i in range(n-1, 0, -1):

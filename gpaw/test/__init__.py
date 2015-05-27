@@ -578,13 +578,13 @@ class TestRunner:
         except KeyboardInterrupt:
             self.write_result(test, 'STOPPED', t0)
             raise
-        except ImportError, ex:
+        except ImportError as ex:
             module = ex.args[0].split()[-1].split('.')[0]
             if module in ['scipy', 'cmr', '_gpaw_hdf5']:
                 skip = True
             else:
                 failed = True
-        except AttributeError, ex:
+        except AttributeError as ex:
             if (ex.args[0] ==
                 "'module' object has no attribute 'new_blacs_context'"):
                 skip = True

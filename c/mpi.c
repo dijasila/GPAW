@@ -139,8 +139,7 @@ static PyMethodDef mpi_request_methods[] = {
 };
 
 PyTypeObject GPAW_MPI_Request_type = {
-    PyObject_HEAD_INIT(NULL)
-    0,                         /*ob_size*/
+    PyVarObject_HEAD_INIT(NULL, 0)
     "MPI_Request",             /*tp_name*/
     sizeof(GPAW_MPI_Request),             /*tp_basicsize*/
     0,                         /*tp_itemsize*/
@@ -420,7 +419,7 @@ static PyObject * mpi_testall(MPIObject *self, PyObject *requests)
       PyObject *o = PySequence_GetItem(requests, i);
       if (o == NULL)
         return NULL;
-      if (o->ob_type != &GPAW_MPI_Request_type)
+      if (Py_TYPE(o) != &GPAW_MPI_Request_type)
         {
           Py_DECREF(o);
           free(rqs);
@@ -492,7 +491,7 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
       PyObject *o = PySequence_GetItem(requests, i);
       if (o == NULL)
         return NULL;
-      if (o->ob_type != &GPAW_MPI_Request_type)
+      if (Py_TYPE(o) != &GPAW_MPI_Request_type)
         {
           Py_DECREF(o);
           free(rqs);
@@ -586,6 +585,12 @@ static MPI_Datatype get_mpi_datatype(PyArrayObject *a)
   PyErr_SetString(PyExc_ValueError, "Cannot communicate data of this type.");
   return 0;
 }
+
+#if PY_MAJOR_VERSION >= 3
+    #define PyInt_FromLong PyLong_FromLong
+    #define PyInt_Check PyLong_Check
+    #define PyInt_AS_LONG PyLong_AS_LONG
+#endif
 
 static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
                              MPI_Op operation, int allowcomplex)
@@ -1000,8 +1005,7 @@ static int InitMPIObject(MPIObject* self, PyObject *args, PyObject *kwds)
 
 
 PyTypeObject MPIType = {
-  PyObject_HEAD_INIT(NULL)
-  0,                         /*ob_size*/
+  PyVarObject_HEAD_INIT(NULL, 0)
   "MPI",                     /*tp_name*/
   sizeof(MPIObject),         /*tp_basicsize*/
   0,                         /*tp_itemsize*/

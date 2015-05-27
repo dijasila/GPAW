@@ -89,20 +89,18 @@ static PyMethodDef lfc_methods[] = {
     {NULL, NULL, 0, NULL}
 };
 
-static PyObject* lfc_getattr(PyObject *obj, char *name)
-{
-  return Py_FindMethod(lfc_methods, obj, name);
-}
 
 PyTypeObject LFCType = {
-  PyObject_HEAD_INIT(NULL)
-  0,
-  "LocalizedFunctionsCollection",
-  sizeof(LFCObject),
-  0,
-  (destructor)lfc_dealloc,
-  0,
-  lfc_getattr
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "LocalizedFunctionsCollection",
+    sizeof(LFCObject),
+    0,
+    (destructor)lfc_dealloc,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    "LFC object",
+    0, 0, 0, 0, 0, 0,
+    lfc_methods
 };
 
 PyObject * NewLFCObject(PyObject *obj, PyObject *args)

@@ -280,7 +280,7 @@ class AllElectron:
 
             vr[:] = (vHr + self.vXC * r)
 
-            if self.orbital_free: 
+            if self.orbital_free:
                 vr /= self.tw_coeff
 
             if niter > 0:
@@ -328,7 +328,7 @@ class AllElectron:
         else:
             pickle.dump(n, fd)
             try:
-                os.chmod(restartfile, 0666)
+                os.chmod(restartfile, 0o666)
             except OSError:
                 pass
 

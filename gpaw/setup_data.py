@@ -4,7 +4,7 @@ from __future__ import print_function
 import os
 import xml.sax
 import re
-from cStringIO import StringIO
+from io import StringIO
 from math import sqrt, pi, factorial as fac
 from glob import glob
 

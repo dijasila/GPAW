@@ -265,7 +265,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         for a, (spos_c, sphere) in enumerate(zip(spos_ac, self.sphere_a)):
             try:
                 movement |= sphere.set_position(spos_c, self.gd, self.cut)
-            except GridBoundsError, e:
+            except GridBoundsError as e:
                 e.args = ['Atom %d too close to edge: %s' % (a, str(e))]
                 raise
 

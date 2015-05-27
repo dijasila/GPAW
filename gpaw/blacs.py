@@ -161,7 +161,7 @@ class BlacsGrid:
             
             try:
                 new = _gpaw.new_blacs_context
-            except AttributeError, e:
+            except AttributeError as e:
                 raise AttributeError(
                     'BLACS is unavailable.  '
                     'GPAW must be compiled with BLACS/ScaLAPACK, '
