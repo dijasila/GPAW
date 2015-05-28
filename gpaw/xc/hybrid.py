@@ -448,8 +448,9 @@ class HybridXC(HybridXCBase):
                                                           kpt.vxx_ani[a]))
         self.gd.comm.sum(H_nn)
         
-        H_nn[:nocc, nocc:] = 0.0  #
-        H_nn[nocc:, :nocc] = 0.0  #
+        if not self.unocc:
+            H_nn[:nocc, nocc:] = 0.0  #
+            H_nn[nocc:, :nocc] = 0.0  #
 
     def calculate_pair_density(self, n1, n2, psit_nG, P_ani):
         Q_aL = {}
