@@ -438,8 +438,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
     def parse(self, source=None, world=None):
         setup = self.setup
         if source is None:
-            (setup.filename, source) = search_for_file(setup.stdfilename,
-                                                       world)
+            setup.filename, source = search_for_file(setup.stdfilename, world)
 
         if source is None:
             print("""
@@ -454,9 +453,9 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
         
         # XXXX There must be a better way!
         # We don't want to look at the dtd now.  Remove it:
-        source = re.compile(r'<!DOCTYPE .*?>', re.DOTALL).sub('', source, 1)
-        xml.sax.parse(StringIO(source), self) # XXX There is a special parse
-                                              # function that takes a string
+        source = re.compile(rb'<!DOCTYPE .*?>', re.DOTALL).sub(b'', source, 1)
+        xml.sax.parseString(source, self)
+        
         if setup.zero_reference:
             setup.e_total = 0.0
             setup.e_kinetic = 0.0
@@ -511,7 +510,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
             else:
                 raise ValueError('Unknown grid:' + attrs['eq'])
         elif name == 'shape_function':
-            if attrs.has_key('rc'):
+            if 'rc' in attrs:
                 assert attrs['type'] == 'gauss'
                 setup.rcgauss = float(attrs['rc'])
             else:
@@ -541,7 +540,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
             setup.core_hole_e_kin = float(attrs['ekin'])
             self.data = []
         elif name == 'zero_potential':
-            if attrs.has_key('type'):
+            if 'type' in attrs:
                 setup.r0 = float(attrs['r0'])
                 setup.nderiv0 = int(attrs['nderiv'])
                 if attrs['type'] == 'polynomial':

@@ -16,6 +16,7 @@ from math import pi, sqrt
 import numpy as np
 import ase.units as units
 from ase.data import chemical_symbols
+from ase.utils import basestring
 
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
@@ -731,7 +732,7 @@ class Setup(BaseSetup):
 
         extra_xc_data = dict(data.extra_xc_data)
         # Cut down the GLLB related extra data
-        for key, item in extra_xc_data.iteritems():
+        for key, item in extra_xc_data.items():
             if len(item) == rgd.N:
                 extra_xc_data[key] = item[:gcut2].copy()
         self.extra_xc_data = extra_xc_data
