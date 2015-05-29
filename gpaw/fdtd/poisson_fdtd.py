@@ -63,7 +63,7 @@ class QSFDTD:
                 vacuum=None
                 corners=cells[1]
         else:
-            raise Exception, 'QSFDTD: cells defined incorrectly'
+            raise Exception('QSFDTD: cells defined incorrectly')
         
         # Define spacings in in one of these ways:
         # 1. (clh, qmh)
@@ -75,7 +75,7 @@ class QSFDTD:
             cl_spacing = spacings[0]
             qm_spacing = spacings[1]
         else:
-            raise Exception, 'QSFDTD: spacings defined incorrectly'
+            raise Exception('QSFDTD: spacings defined incorrectly')
             
         self.poissonsolver = FDTDPoissonSolver(classical_material  = classical_material,
                                           cl_spacing          = cl_spacing,

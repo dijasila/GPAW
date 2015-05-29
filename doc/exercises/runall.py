@@ -43,13 +43,12 @@ for dir, script in [
     ('lrtddft', 'ground_state.py'),
     ('transport', 'pt_h2_tb_transport.py'),
     ('transport', 'pt_h2_lcao.py'),
-    ('transport', 'pt_h2_lcao_transport.py')
-    ]:
-    execfile('../' + dir + '/' + script, {'k': 6, 'N': 5})
+    ('transport', 'pt_h2_lcao_transport.py')]:
+    exec(open('../' + dir + '/' + script).read(), {'k': 6, 'N': 5})
 for dir, script, args in [
     ('stm', 'stm.py', ['HAl100.gpw']),
     ('dos', 'dos.py', ['Al-fcc.gpw', 'si.gpw', 'CO.gpw',
                        'ferro.gpw', 'anti.gpw', 'non.gpw'])]:
     for arg in args:
         sys.argv = ['', arg]
-        execfile('../' + dir + '/' + script)
+        exec(open('../' + dir + '/' + script).read())

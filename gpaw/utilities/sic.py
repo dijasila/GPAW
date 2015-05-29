@@ -1,5 +1,5 @@
 from math import pi
-from itertools import izip
+
 
 import numpy as np
 from ase.units import Hartree

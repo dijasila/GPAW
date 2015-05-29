@@ -22,9 +22,9 @@ def get_pbc_positions(atoms, r_max):
         pos_aav[index1] = np.empty((np.prod(ncells_c * 2 - 1), 3))
         # loops over neighbour cells
         index2 = 0
-        for ix in xrange(-ncells_c[0] + 1, ncells_c[0]):
-            for iy in xrange(-ncells_c[1] + 1, ncells_c[1]):
-                for iz in xrange(-ncells_c[2] + 1, ncells_c[2]):
+        for ix in range(-ncells_c[0] + 1, ncells_c[0]):
+            for iy in range(-ncells_c[1] + 1, ncells_c[1]):
+                for iz in range(-ncells_c[2] + 1, ncells_c[2]):
                     i_c = np.array([ix, iy, iz])
                     pos_aav[index1][index2, :] = pos + np.dot(i_c, cell_cv)
                     index2 += 1

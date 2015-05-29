@@ -132,7 +132,7 @@ class LDOSbyBand:
         elemi = {}
         for i, nucleus in enumerate(self.paw.atoms):
             symbol = nucleus.setup.symbol
-            if elemi.has_key(symbol):
+            if symbol in elemi:
                 elemi[symbol].append(i)
             else:
                 elemi[symbol] = [i]

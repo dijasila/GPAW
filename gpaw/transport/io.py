@@ -1,5 +1,5 @@
 #This module is used to store and read some temperary data.
-import cPickle
+import pickle
 import os
 from gpaw.mpi import world
 from gpaw.transport.tools import collect_atomic_matrices, gather_ndarray_dict
@@ -33,13 +33,13 @@ class Transport_IO:
             if filename is None:
                 filename = self.filenames[option]
             fd = file(self.dir_name + '/' + filename, 'r')
-            data = cPickle.load(fd)
+            data = pickle.load(fd)
             fd.close()
         elif option == 'Analysis':
             name = 'KC_' + str(self.kpt_comm.rank) + '_DC_' + \
                 str(self.domain_comm.rank) +'AD'
             fd = file(self.dir_name + '/' + self.filenames[name] + '_bias_' + str(bias_step), 'r')
-            data = cPickle.load(fd)
+            data = pickle.load(fd)
             fd.close()
         else:
             raise NotImplementError
@@ -55,13 +55,13 @@ class Transport_IO:
                 if filename is None:
                     filename = self.filenames[option]
                 fd = file(self.dir_name + '/' + filename, 'wb')
-                cPickle.dump(data, fd, 2)
+                pickle.dump(data, fd, 2)
                 fd.close()
         elif option == 'Analysis':
             name = 'KC_' + str(self.kpt_comm.rank) + '_DC_' + \
                 str(self.domain_comm.rank) +'AD'
             fd = file(self.dir_name + '/' + self.filenames[name] + '_bias_' + str(bias_step), 'wb')
-            cPickle.dump(data, fd, 2)
+            pickle.dump(data, fd, 2)
             fd.close()
         else:
             raise NotImplementError()
@@ -172,7 +172,7 @@ class Transport_IO:
                 filename = '/bias_step_' + str(n_bias_step)
             fd = file('analysis_data/ionic_step_' + str(n_ion_step)
                       + filename, 'wb')
-            cPickle.dump(global_data, fd, 2)
+            pickle.dump(global_data, fd, 2)
             fd.close()
             for root, dirs, files in os.walk('temperary_data'):
                 for name in files:

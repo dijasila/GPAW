@@ -371,7 +371,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 iterators.append(iterator)
             for i in range(3):
                 for iterator in iterators:
-                    iterator.next()
+                    next(iterator)
 
         return sdisp_Wc
 

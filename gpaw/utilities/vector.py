@@ -22,7 +22,7 @@ class Vector3d(list):
         return Vector3d(np.array(self) / other)
 
     def __mul__(self, x):
-        if type(x) == type(self):
+        if isinstance(x, type(self)):
             return np.dot( self, x )
         else:
             return Vector3d(x * np.array(self))
@@ -58,7 +58,7 @@ class Vector3d(list):
         return Vector3d(self)
 
     def distance(self,vector):
-        if type(vector) is not type(self):
+        if not isinstance(vector, type(self)):
             vector=Vector3d(vector)
         dv = self - vector
         return (self - vector).length()

@@ -2,6 +2,7 @@ import numpy as np
 
 from ase.units import Hartree, Bohr
 
+
 def L_to_lm(L):
     """Convert L index to (l, m) index."""
     l = int(np.sqrt(L))
@@ -26,7 +27,7 @@ def split_formula(formula):
         elif c.islower():
             res[-1] += c
         else:
-            res.extend([res[-1],] * (eval(c) - 1))
+            res.extend([res[-1]] * (eval(c) - 1))
     return res
 
 
@@ -57,8 +58,8 @@ def construct_reciprocal(gd, q_c=None):
 
     # Check q_c
     if q_c is not None:
-        assert q_c.shape in [(3,), (3,1)]
-        q_c = q_c.reshape((3,1))
+        assert q_c.shape in [(3,), (3, 1)]
+        q_c = q_c.reshape((3, 1))
         
     # Calculate reciprocal lattice vectors
     N_c1 = gd.N_c[:, np.newaxis]
@@ -88,6 +89,7 @@ def construct_reciprocal(gd, q_c=None):
 
     return k2_Q, N3
 
+    
 def coordinates(gd, origin=None, tiny=1e-12):
     """Constructs and returns matrices containing cartesian coordinates,
        and the square of the distance from the origin.
@@ -109,6 +111,7 @@ def coordinates(gd, origin=None, tiny=1e-12):
     # Return r^2 matrix
     return r_vG, r2_G
 
+    
 def pick(a_ix, i):
     """Take integer index of a, or a linear combination of the elements of a"""
     if isinstance(i, int):
@@ -214,7 +217,6 @@ def tri2full(H_nn, UL='L', map=np.conj):
     """
     N, tmp = H_nn.shape
     assert N == tmp, 'Matrix must be square'
-    #assert np.isreal(H_nn.diagonal()).all(), 'Diagonal should be real'
     if UL != 'L':
         H_nn = H_nn.T
 
@@ -230,7 +232,8 @@ def apply_subspace_mask(H_nn, f_n):
     """
     occ = 0
     nbands = len(f_n)
-    while occ < nbands and f_n[occ] > 1e-3: occ += 1
+    while occ < nbands and f_n[occ] > 1e-3:
+        occ += 1
     H_nn[occ:, :occ] = H_nn[:occ, occ:] = 0
 
 

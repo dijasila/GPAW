@@ -134,8 +134,7 @@ def newoverlap(wfs, spos_ac):
                 P_aaqim[(a1, a2)] = P_qim
                 P_neighbors_a.setdefault(a1, []).append(a2)
     
-    Pkeys = P_aaqim.keys()
-    Pkeys.sort()
+    Pkeys = sorted(P_aaqim.keys())
 
     def get_M1M2(a):
         M1 = wfs.setups.M_a[a]

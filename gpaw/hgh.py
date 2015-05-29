@@ -518,10 +518,10 @@ def hgh2str(hgh):
 def parse_setups(lines):
     """Read HGH data from file."""
     setups = {}
-    entry_lines = [i for i in xrange(len(lines))
+    entry_lines = [i for i in range(len(lines))
                    if lines[i][0].isalpha()]
     lines_by_element = [lines[entry_lines[i]:entry_lines[i + 1]]
-                        for i in xrange(len(entry_lines) - 1)]
+                        for i in range(len(entry_lines) - 1)]
     lines_by_element.append(lines[entry_lines[-1]:])
 
     for elines in lines_by_element:

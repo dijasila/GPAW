@@ -2,7 +2,7 @@ from gpaw.transport.tools import dagger, dot
 from gpaw.transport.sparse_matrix import Banded_Sparse_Matrix, Se_Sparse_Matrix
 import copy
 import numpy as np
-import cPickle
+import pickle
 
 class LeadSelfEnergy:
     #This object use the sparse_matrix object Banded_Sparse_HSD
@@ -29,7 +29,7 @@ class LeadSelfEnergy:
             flag = str(flag[:2]) + str(nid)
             fd = file(self.data_path[self.direction] + '/' +
                       self.direction + '/' + flag, 'r')
-            data = cPickle.load(fd)
+            data = pickle.load(fd)
             return data
         else:
             if self.energy is None or abs(energy - self.energy) > self.tol:

@@ -108,8 +108,8 @@ class GridPairOverlap(PairOverlap):
                             assert self.setups[a2].ni == lfs2.ni, 'setups[%d].ni=%d, lfc2.lfs_a[%d].ni=%d' % (a2,self.setups[a2].ni,a2,lfs2.ni)
 
                         # Find the intersection of the two boxes
-                        beg_c = np.array([map(max, zip(beg1_c, beg2_c))]).ravel()
-                        end_c = np.array([map(min, zip(end1_c, end2_c))]).ravel()
+                        beg_c = np.max((beg1_c, beg2_c), axis=0)
+                        end_c = np.min((end1_c, end2_c), axis=0)
 
                         if debug: mpi_debug('        beg_c=%s, end_c=%s, size_c=%s' % (beg_c, end_c, tuple(end_c-beg_c)), ordered=False)
 
@@ -187,8 +187,8 @@ class GridPairOverlap(PairOverlap):
                         if debug: mpi_debug('      b2=%d, beg2_c=%s, end2_c=%s, sdisp2_c=%s' % (b2,beg2_c,end2_c,sdisp2_c), ordered=False)
 
                         # Find the intersection of the two boxes
-                        beg_c = np.array([map(max, zip(beg1_c, beg2_c))]).ravel()
-                        end_c = np.array([map(min, zip(end1_c, end2_c))]).ravel()
+                        beg_c = np.max((beg1_c, beg2_c), axis=0)
+                        end_c = np.min((end1_c, end2_c), axis=0)
 
                         if debug: mpi_debug('        beg_c=%s, end_c=%s, size_c=%s' % (beg_c, end_c, tuple(end_c-beg_c)), ordered=False)
 

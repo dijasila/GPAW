@@ -2,7 +2,7 @@ import os
 import glob
 import time
 import datetime
-import StringIO
+import io
 
 import numpy as np
 
@@ -52,7 +52,7 @@ class Kmatrix:
                     data += open(ready_file,'r',1024*1024).read()
 
         data = gpaw.mpi.broadcast_string(data, root=0, comm=self.lr_comms.parent_comm)
-        for line in StringIO.StringIO(data):
+        for line in io.StringIO(data):
             line = line.split()
             self.ready_indices.append([int(line[0]),int(line[1])])
         #self.timer.stop('Init read ready rows')
@@ -93,7 +93,7 @@ class Kmatrix:
             
 
             # for each file
-            for line in StringIO.StringIO(open(K_fn,'r', 1024*1024).read()):
+            for line in io.StringIO(open(K_fn,'r', 1024*1024).read()):
                 #self.timer.start('Read K-matrix: elem')
                 if line[0] == '#':
                     if line.startswith('# K-matrix file'):
@@ -197,7 +197,7 @@ class Kmatrix:
         K_matrix = np.zeros((nlrow,nlcol))
         K_matrix[:,:] = np.NAN # fill with NaNs to detect problems
         # Read ALL K_matrix files                        
-        for line in StringIO.StringIO(local_elem_list):
+        for line in io.StringIO(local_elem_list):
             line = line.split()
             ipkey = (int(line[0]), int(line[1]))
             jqkey = (int(line[2]), int(line[3]))

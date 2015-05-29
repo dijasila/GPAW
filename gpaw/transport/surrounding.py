@@ -47,7 +47,7 @@ class Side:
         cell_cv = data['cell_cv']
         pbc_c = data['pbc_c']
         #parsize_c = data['parsize_c']
-        if type(parsize_domain) is int:
+        if isinstance(parsize_domain, int):
             parsize_c = None
             assert parsize_domain == self.domain_comm.size
         else:

@@ -1,7 +1,7 @@
 """This module is used to generate atomic orbital basis sets."""
 from __future__ import print_function
 import sys
-from StringIO import StringIO
+from io import StringIO
 
 import numpy as np
 from ase.units import Hartree
@@ -373,11 +373,11 @@ class BasisMaker:
             print('Norm=%.03f' % norm, file=txt)
             singlezetas.append(bf)
 
-            zetacounter = iter(xrange(2, zetacount + 1))
+            zetacounter = iter(range(2, zetacount + 1))
 
             if include_energy_derivatives:
                 assert zetacount > 1
-                zeta = zetacounter.next()
+                zeta = next(zetacounter)
                 print('\nZeta %d: %s' % (zeta, derivativedescr), file=txt)
                 vconf2 = g.get_confinement_potential(amplitude,
                                                      ri_rel * rc * .99, rc)

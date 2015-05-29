@@ -21,8 +21,7 @@ functions = {'xc': 'gpaw.xc.xc',
 
 
 def main():
-    commands = functions.keys()
-    commands.sort()
+    commands = sorted(functions.keys())
     parser1 = optparse.OptionParser(
         usage='Usage: gwap [options] command [more options]\n' +
         '       gwap command --help  (for help on individual commands)',
@@ -86,7 +85,7 @@ def construct_parser(func, name):
     else:
         optnames = []
         defaults = {}
-    doc = func.func_doc
+    doc = func.__doc__
     headline, doc = doc.split('\n', 1)
     lines = textwrap.dedent(doc).splitlines()
     description = None

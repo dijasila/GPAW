@@ -1,4 +1,5 @@
 import numpy as np
+import collections
 
 
 class DefaultKeyMapping:
@@ -33,7 +34,7 @@ class ArrayDict(dict):
                  keymap=None):
         dict.__init__(self)
         self.partition = partition
-        if callable(shapes_a):
+        if isinstance(shapes_a, collections.Callable):
             shapes_a = [shapes_a(a) for a in range(self.partition.natoms)]
         self.shapes_a = shapes_a # global
         assert len(shapes_a) == partition.natoms

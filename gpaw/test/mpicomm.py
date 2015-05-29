@@ -20,7 +20,7 @@ hasmpi = False
 try:
     import _gpaw
     hasmpi = hasattr(_gpaw, 'Communicator')
-except ImportError, AttributeError:
+except (ImportError, AttributeError):
     pass
 
 assert world.parent is None

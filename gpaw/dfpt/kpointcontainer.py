@@ -12,5 +12,5 @@ class KPointContainer:
 
         for key, value in kwargs.iteritems():
             
-            assert type(key) == str
+            assert isinstance(key, str)
             setattr(self, key, value)

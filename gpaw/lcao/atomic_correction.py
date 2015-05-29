@@ -38,7 +38,7 @@ class BaseAtomicCorrection:
     def add_overlap_correction(self, wfs, S_qMM):
         avalues = self.get_a_values()
         dS_aii = [wfs.setups[a].dO_ii for a in avalues]
-        dS_aii = dict(zip(avalues, dS_aii)) # XXX get rid of dict
+        dS_aii = dict(zip(avalues, dS_aii))  # XXX get rid of dict
 
         for a in dS_aii:
             dS_aii[a] = np.asarray(dS_aii[a], wfs.dtype)
@@ -47,7 +47,7 @@ class BaseAtomicCorrection:
             self.calculate(wfs, q, dS_aii, S_MM)
 
     def gobble_data(self, wfs):
-        pass # Prepare internal data structures for calculate().
+        pass  # Prepare internal data structures for calculate().
 
     def calculate(self, wfs, q, dX_aii, X_MM):
         raise NotImplementedError
@@ -71,7 +71,7 @@ class DenseAtomicCorrection(BaseAtomicCorrection):
 
     def gobble_data(self, wfs):
         self.initialize(wfs.P_aqMi, wfs.ksl.Mstart, wfs.ksl.Mstop)
-        self.orig_partition = wfs.atom_partition # XXXXXXXXXXXXXXXXXXXXX
+        self.orig_partition = wfs.atom_partition  # XXXXXXXXXXXXXXXXXXXXX
 
     def initialize(self, P_aqMi, Mstart, Mstop):
         self.P_aqMi = P_aqMi
@@ -110,7 +110,7 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         return self.even_partition.my_indices
 
     def redistribute(self, wfs, dX_asp, type='asp', op='forth'):
-        if not type in ['asp', 'aii']:
+        if type not in ['asp', 'aii']:
             raise ValueError('Unknown matrix type "%s"' % type)
 
         # just distributed over gd comm.  It's not the most aggressive
@@ -236,6 +236,7 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         self.inner = inner
         self.outer = outer
 
+        
 class ScipyAtomicCorrection(DistributedAtomicCorrection):
     name = 'scipy'
     description = 'distributed and sparse using scipy'
@@ -282,8 +283,7 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
         Psparse_IM = self.Psparse_qIM[q]
 
         dXsparse_II = self.sparse.lil_matrix((self.I, self.I), dtype=wfs.dtype)
-        avalues = dX_aii.keys()
-        avalues.sort()
+        avalues = sorted(dX_aii.keys())
         for a in avalues:
             I1 = self.I_a[a]
             I2 = I1 + wfs.setups[a].ni

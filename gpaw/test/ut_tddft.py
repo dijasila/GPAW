@@ -250,7 +250,7 @@ if __name__ in ['__main__', '__builtin__']:
     for test in [UTGroundStateSetup]:
         info = ['', test.__name__, test.__doc__.strip('\n'), '']
         testsuite = initialTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         assert testresult.wasSuccessful(), 'Initial verification failed!'
         parinfo.extend(['    Parallelization options: %s' % tci._parinfo for \
@@ -268,7 +268,7 @@ if __name__ in ['__main__', '__builtin__']:
     for test in testcases:
         info = ['', test.__name__, test.__doc__.strip('\n')] + parinfo + ['']
         testsuite = defaultTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         # Provide feedback on failed tests if imported by test.py
         if __name__ == '__builtin__' and not testresult.wasSuccessful():

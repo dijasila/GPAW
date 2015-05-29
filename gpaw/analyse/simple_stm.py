@@ -73,7 +73,7 @@ class SimpleStm(STM):
             except:
                 efermi_s = np.array([self.calc.get_homo_lumo().mean()] * 2)
 
-            if isinstance(bias, (int, long, float)):
+            if isinstance(bias, (int, float)):
                 # bias given
                 if bias > 0:
                     # positive bias = negative tip

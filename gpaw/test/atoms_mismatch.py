@@ -17,7 +17,7 @@ expected_err_ranks = {1: [], 2: [1]}.get(world.size, [1, 2])
 
 try:
     synchronize_atoms(system, world, tolerance=1e-9)
-except ValueError, e:
+except ValueError as e:
     assert (expected_err_ranks == e[1]).all()
 else:
     assert world.size == 1

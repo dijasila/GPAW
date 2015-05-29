@@ -13,7 +13,7 @@ from gpaw.test import equal
 from gpaw.gauss import Gauss
 from gpaw.lrtddft import LrTDDFT, photoabsorption_spectrum
 from gpaw.lrtddft.kssingle import KSSingles
-from cStringIO import StringIO
+from io import StringIO
 
 L = 10.0
 txt=None

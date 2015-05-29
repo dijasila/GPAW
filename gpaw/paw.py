@@ -13,6 +13,7 @@ import numpy as np
 from ase.units import Bohr, Hartree
 from ase.dft.kpoints import monkhorst_pack
 from ase.calculators.calculator import kptdensity2monkhorstpack
+from ase.utils import basestring
 from ase.utils.timing import Timer
 
 import gpaw.io
@@ -463,7 +464,7 @@ class PAW(PAWTextOutput):
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
         kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
         m_av = magmom_av.round(decimals=3)  # round off
-        id_a = zip(setups.id_a, *m_av.T)
+        id_a = list(zip(setups.id_a, *m_av.T))
         symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
         kd.set_symmetry(atoms, symmetry, comm=world)
         setups.set_symmetry(symmetry)
@@ -507,7 +508,7 @@ class PAW(PAWTextOutput):
         if orbital_free:
             nbands = 1
 
-        if isinstance(nbands, basestring):
+        if isinstance(nbands, str):
             if nbands[-1] == '%':
                 basebands = int(nvalence + M + 0.5) // 2
                 nbands = int((float(nbands[:-1]) / 100) * basebands)
@@ -901,14 +902,14 @@ class PAW(PAWTextOutput):
         on convergence"""
 
         try:
-            slf = function.im_self
+            slf = function.__self__
         except AttributeError:
             pass
         else:
             if slf is self:
                 # function is a bound method of self.  Store the name
                 # of the method and avoid circular reference:
-                function = function.im_func.func_name
+                function = function.__func__.__name__
 
         self.observers.append((function, n, args, kwargs))
 

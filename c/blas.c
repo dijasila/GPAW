@@ -100,7 +100,7 @@ PyObject* gemm(PyObject *self, PyObject *args)
   Py_complex beta;
   PyArrayObject* c;
   char transa = 'n';
-  if (!PyArg_ParseTuple(args, "DOODO|c", &alpha, &a, &b, &beta, &c, &transa))
+  if (!PyArg_ParseTuple(args, "DOODO|C", &alpha, &a, &b, &beta, &c, &transa))
     return NULL;
   int m, k, lda, ldb, ldc;
   if (transa == 'n')

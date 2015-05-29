@@ -55,7 +55,7 @@ def check_convergence(lr,             # LrTDDFT object
         emax_gpl = '*'
     else:
         emax_gpl = str(emax)
-    print('set xrange [' + emin_gpl + ':' + emax_gpl + ']', file=fgpl)
+    print('set range [' + emin_gpl + ':' + emax_gpl + ']', file=fgpl)
     if title:
         print('set title "' + str(title) + '"', file=fgpl)
 

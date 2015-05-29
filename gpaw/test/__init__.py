@@ -571,7 +571,7 @@ class TestRunner:
 
         try:
             loc = {}
-            execfile(filename, loc)
+            exec(open(filename).read(), loc)
             loc.clear()
             del loc
             self.check_garbage()

@@ -1,5 +1,5 @@
 import copy
-import cPickle
+import pickle
 import numpy as np
 
 from ase.utils.timing import Timer
@@ -13,12 +13,12 @@ import _gpaw
 
 def tw(mat, filename):
     fd = file(filename, 'wb')
-    cPickle.dump(mat, fd, 2)
+    pickle.dump(mat, fd, 2)
     fd.close()
 
 def tr(filename):
     fd = file(filename, 'r')
-    mat = cPickle.load(fd)
+    mat = pickle.load(fd)
     fd.close()
     return mat
 
@@ -476,7 +476,7 @@ def generate_selfenergy_database(atoms, ntk, filename, direction=0, kt=0.1,
                     lead_se.pk = kpt.q // ntk
                     data = lead_se(energy)
                     fd = file(flag, 'w')    
-                    cPickle.dump(data, fd, 2)
+                    pickle.dump(data, fd, 2)
                     fd.close()    
 
 def test_selfenergy_interpolation(atoms, ntk, filename, begin, end, base, scale, direction=0):
@@ -534,7 +534,7 @@ def test_selfenergy_interpolation(atoms, ntk, filename, begin, end, base, scale,
         cmp_se.append(lead_se(e).recover())
     
     fd = file(filename, 'w')
-    cPickle.dump((cmp_se, inter_se_linear, ee, cmp_ee), fd, 2)
+    pickle.dump((cmp_se, inter_se_linear, ee, cmp_ee), fd, 2)
     fd.close()
     
     for i,e in enumerate(cmp_ee):
@@ -580,7 +580,7 @@ def path_selfenergy(atoms, ntk, filename, begin, end, num= 257, direction=0):
     se = np.array(se)
     
     fd = file(filename + '_' + str(world.rank), 'w')
-    cPickle.dump((se, ee), fd, 2)
+    pickle.dump((se, ee), fd, 2)
     fd.close()
 
 def sort_atoms(atoms):

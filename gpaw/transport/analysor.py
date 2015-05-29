@@ -10,7 +10,7 @@ from ase.units import Hartree, Bohr
 from gpaw.utilities.memory import maxrss
 import numpy as np
 import copy
-import cPickle
+import pickle
 import os
 
 class Transport_Analysor:
@@ -113,7 +113,7 @@ class Transport_Analysor:
         if world.rank == 0:
             fd = file('analysis_overhead', 'wb')
             tp.log('   cPickle.dump()')
-            cPickle.dump((atoms, basis_information, contour_parameters), fd, 2)
+            pickle.dump((atoms, basis_information, contour_parameters), fd, 2)
             fd.close()
         tp.log('<- save_overhead_data()')
            
@@ -242,7 +242,7 @@ class Transport_Analysor:
             else:
                 p['mixer'] = MixerDif(0.1, 5, weight=100.0)
         p['poissonsolver'] = PoissonSolver(nn=2)
-        if type(p['basis']) is dict and len(p['basis']) == len(tp.atoms):
+        if isinstance(p['basis'], dict) and len(p['basis']) == len(tp.atoms):
             p['basis'] = 'dzp'
             raise Warning('the dict basis is not surpported in isolate atoms')
         if 'txt' in p and p['txt'] != '-':
@@ -703,7 +703,7 @@ class Transport_Analysor:
             sample = Tp_Sparse_Matrix(complex, tp.hsd.ll_index)
             sample.reset_from_others(tp.hsd.S[0], tp.hsd.H[0][0], 1.,
                                                       -1.j, init=True)
-            cPickle.dump(sample, fd, 2)
+            pickle.dump(sample, fd, 2)
             fd.close()
             self.matrix_foot_print = True
         #selfconsistent calculation: extended_calc ---> extended_atoms
@@ -932,7 +932,7 @@ class Transport_Analysor:
         if world.rank == 0:
             fd = file('analysis_data/ionic_step_' +
                   str(self.n_ion_step) +'/positions', 'wb')
-            cPickle.dump(tp.atoms.positions, fd, 2)
+            pickle.dump(tp.atoms.positions, fd, 2)
             fd.close()
         self.n_bias_step = 0
         self.n_ion_step += 1
@@ -1020,7 +1020,7 @@ class Transport_Plotter:
 
     def read_overhead(self):
         fd = file('analysis_overhead', 'r')
-        atoms, basis_information, contour_information = cPickle.load(fd)
+        atoms, basis_information, contour_information = pickle.load(fd)
         fd.close()
         self.atoms = atoms
         self.basis = basis_information
@@ -1043,7 +1043,7 @@ class Transport_Plotter:
         else:
             fd = file('analysis_data/ionic_step_' + str(ion_step) +
                   '/abias_step_' + str(bias_step), 'r')            
-        data = cPickle.load(fd)
+        data = pickle.load(fd)
         fd.close()        
         return data
     
@@ -1159,8 +1159,8 @@ class Transport_Plotter:
             output = np.array(dos)
             output.shape = (ns, npk, nb, ne)
         elif name == 'charge':
-            data = cPickle.load(file('temperary_data/KC_0_DC_0AD_bias_0','r'))
-            data1 = cPickle.load(file('temperary_data/KC_1_DC_0AD_bias_0','r'))
+            data = pickle.load(file('temperary_data/KC_0_DC_0AD_bias_0','r'))
+            data1 = pickle.load(file('temperary_data/KC_1_DC_0AD_bias_0','r'))
             output = [data['charge'], data1['charge']]
             output=np.sum(output,axis=1)
         elif name == 'current':
@@ -1199,7 +1199,7 @@ class Transport_Plotter:
 
     def get_positions(self, ion_step=0):
         fd = file('analysis_data/ionic_step_' + str(ion_step) + '/positions', 'r')
-        positions = cPickle.load(fd)
+        positions = pickle.load(fd)
         fd.close()
         return positions
 

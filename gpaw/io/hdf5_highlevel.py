@@ -1,9 +1,9 @@
-"""Light weight Python interface to HDF5""" 
+"""Light weight Python interface to HDF5"""
 
 #  Copyright (C) 2010-2011     CSC - IT Center for Science Ltd.
 #  Please see the accompanying LICENSE file for further information.
 
-# The module is heavily inspired by h5py, however, no 
+# The module is heavily inspired by h5py, however, no
 # h5py code is used directly except where explicitly noted
 
 import numpy as np
@@ -39,7 +39,7 @@ class Iterator:
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         if self.idx == self.nobj:
             self.obj = None
             raise StopIteration
@@ -48,7 +48,9 @@ class Iterator:
         self.idx += 1
         return key
 
-
+    next = __next__  # for Python 2
+    
+    
 class Group:
     """This class defines a HDF5 group."""
     def __init__(self, loc_id, name, create=False):
@@ -122,7 +124,7 @@ class File(Group):
     """This class defines a HDF5 file."""
 
     def __init__(self, name, mode='r', comm=None):
-        """If a communicator is passed as an argument, file is 
+        """If a communicator is passed as an argument, file is
            created or opened for parallel IO."""
 
         if comm is None:
@@ -189,7 +191,7 @@ class Dataset(object):
         """Write NumPy array data into the dataset.
 
            selection can be a hyperslab instance for writing to a part
-           of the dataset or None for no reading 
+           of the dataset or None for no reading
            collective specifies the use of collective IO."""
 
         if collective:
@@ -222,8 +224,8 @@ class Dataset(object):
     def read(self, data, selection='all', collective=False):
         """Read the dataset into NumPy array data
 
-           selection can be a hyperslab instance for reading part 
-           of the dataset or None for no reading 
+           selection can be a hyperslab instance for reading part
+           of the dataset or None for no reading
            collective specifies the use of collective IO."""
 
         if collective:
@@ -243,12 +245,12 @@ class Dataset(object):
         if isinstance(selection, HyperslabSelection):
             selection.select(self)
 
-        # data array has to be contiguous, if not, create a 
-        # temporary array 
+        # data array has to be contiguous, if not, create a
+        # temporary array
         if not data.flags.contiguous:
             data_buf = data.copy()
         else:
-            data_buf = data 
+            data_buf = data
         h5d_read(self.id, memtype, memspace, filespace, data_buf, plist)
 
         if not data.flags.contiguous:
@@ -294,9 +296,9 @@ class Attributes:
 
        and read with the::
 
-          value = attrs['name'] 
+          value = attrs['name']
 
-       syntax. 
+       syntax.
        Values are returned always as NumPy arrays.
 
     """
@@ -342,7 +344,7 @@ class Attributes:
     def __contains__(self, name):
         return h5a_exists_by_name(self.loc_id, name)
 
-# The following four functions 
+# The following four functions
 # _expand_ellipsis, _translate_int, _translate_slice and _handle_simple
 # are direct copy-paste from h5py
 # Copyright (C) 2008 Andrew Collette
@@ -462,7 +464,7 @@ def _handle_simple(shape, args):
 class HyperslabSelection:
     """This class defines a simple hyperslab selection for a HDF5 dataspace.
 
-    In HDF5, hyperslab is defined by offset, stride, count, and block 
+    In HDF5, hyperslab is defined by offset, stride, count, and block
     arguments, in the Python side simple indeces or slices are used
     (start, stop, step). The block argument of HDF5 is not used here. """
    

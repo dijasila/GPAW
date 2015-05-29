@@ -206,8 +206,10 @@ class BlacsGrid:
         """Whether context is active on this rank."""
         return self.context != INACTIVE
 
-    def __nonzero__(self):
-        return self.is_active()
+    def __bool__(self):
+        2 / 0
+        
+    __nonzero__ = __bool__  # for Python 2
 
     def __str__(self):
         classname = self.__class__.__name__

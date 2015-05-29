@@ -474,7 +474,7 @@ class KPointDescriptor:
 
         if rank is None:
             rank = self.comm.rank
-        assert rank in xrange(self.comm.size)
+        assert rank in range(self.comm.size)
         mynks0 = self.nks // self.comm.size
         mynks = mynks0
         if rank >= self.rank0:
@@ -486,7 +486,7 @@ class KPointDescriptor:
 
         if rank is None:
             rank = self.comm.rank
-        assert rank in xrange(self.comm.size)
+        assert rank in range(self.comm.size)
         mynks0 = self.nks // self.comm.size
         ks0 = rank * mynks0
         if rank >= self.rank0:
@@ -505,7 +505,7 @@ class KPointDescriptor:
 
         if rank is None:
             rank = self.comm.rank
-        assert rank in xrange(self.comm.size)
+        assert rank in range(self.comm.size)
         mynks, ks0 = self.get_count(rank), self.get_offset(rank)
         uslice = slice(ks0, ks0 + mynks)
         return uslice
@@ -542,7 +542,7 @@ class KPointDescriptor:
 
         if rank is None:
             rank = self.comm.rank
-        assert rank in xrange(self.comm.size)
+        assert rank in range(self.comm.size)
         ks0 = self.get_offset(rank)
         u = ks0 + myu
         return u

@@ -48,7 +48,7 @@ class FXCCorrelation:
                 sys.stdout = devnull
                 self.txt = devnull
         else:
-            assert type(txt) is str
+            assert isinstance(txt, str)
             from ase.parallel import paropen
             self.txt = paropen(txt, 'w')
         
@@ -114,7 +114,7 @@ class FXCCorrelation:
                 
         E_q = []
         if restart is not None:
-            assert type(restart) is str
+            assert isinstance(restart, str)
             try:
                 f = paropen(restart, 'r')
                 lines = f.readlines()
@@ -396,7 +396,7 @@ class FXCCorrelation:
         if self.nbands is None:
             print('Response function bands       :' \
                   + ' Equal to number of Planewaves', file=self.txt)
-        elif type(self.nbands) is float:
+        elif isinstance(self.nbands, float):
             print('Response function bands       : %s' \
                   % int(dummy.npw * self.nbands), file=self.txt)
         else:

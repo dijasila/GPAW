@@ -49,7 +49,7 @@ class Domain:
 
         self.pbc_c = np.asarray(pbc, bool)
 
-        if type(parsize) is int:
+        if isinstance(parsize, int):
             parsize_c = None
             assert parsize == comm.size
         else:

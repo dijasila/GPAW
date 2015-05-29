@@ -8,7 +8,7 @@
 Gauss-Legendre Integration
 """
 
-from itertools import izip
+
 import numpy as np
 
 _nodes = (
@@ -344,7 +344,7 @@ class GaussLegendre:
             ns = _nodes[ng-1]
             ws = _weights[ng-1]
         except:
-            raise RuntimeError, ('Gauss-Legendre only possible for n=' +
+            raise RuntimeError('Gauss-Legendre only possible for n=' +
                                  str(_NGMIN) + '-' + str(_NGMAX))
         dx = xmax - xmin
         self.x = np.array([(dx * y + xmin + xmax)/2. for y in ns])
@@ -370,7 +370,7 @@ def gauss(xmin, xmax, funct, ng=10):
     ws = _weights[ng-1]
     dx = xmax - xmin
     xs = [(dx*y + xmin + xmax)/2. for y in ns]
-    return 0.5*dx*sum(funct(x)*w for x,w in izip(xs,ws))
+    return 0.5*dx*sum(funct(x)*w for x,w in zip(xs,ws))
 
 def gaussLog(xmin, xmax, funct, ng=10):
     """
@@ -384,7 +384,7 @@ def gaussLog(xmin, xmax, funct, ng=10):
     ws = _weightsLog[ng-1];
     dx = xmax - xmin
     xs = [(dx*y + xmin) for y in ns]
-    return dx*sum(funct(x)*w for x,w in izip(xs,ws))
+    return dx*sum(funct(x)*w for x,w in zip(xs,ws))
 
 ####
 

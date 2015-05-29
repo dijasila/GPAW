@@ -66,7 +66,7 @@ class ExcitationList(list):
 
     def __mul__(self, x):
         """Multiply with a number"""
-        if type(x) == type(0.) or type(x) == type(0):
+        if isinstance(x, (float, int)):
             result = self.__class__()
             result.dtype = self.dtype
             for kss in self:

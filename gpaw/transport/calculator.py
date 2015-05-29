@@ -29,7 +29,7 @@ from gpaw.utilities import pack2,unpack,unpack2
 
 import gpaw
 import numpy as np
-import cPickle
+import pickle
 import time
 
 class DBG(object):
@@ -458,7 +458,7 @@ class Transport(GPAW):
                     parprint(' k: {0} v: {1}'.format(k,v))
                 depricated_keys = ['parsize', 'parsize_bands', 'parstride_bands', 'filter']
                 for k in depricated_keys:
-                    if pl_params.has_key(k):    
+                    if k in pl_params:    
                         del pl_params[k]
                 _lc = Lead_Calc(self.lead_calculators[i], **pl_params)
                 #atoms = _lc.get_atoms()
@@ -856,7 +856,7 @@ class Transport(GPAW):
         self.log('get_hamiltonian_initial_guess3()')
         #get hamiltonian_guess from a hamiltonian file
         fd = file(self.restart_file, 'r')
-        self.bias, vt_sG, dH_asp = cPickle.load(fd)
+        self.bias, vt_sG, dH_asp = pickle.load(fd)
         fd.close()
         self.surround.combine_dH_asp(self, dH_asp)
         self.gd1.distribute(vt_sG, self.extended_calc.hamiltonian.vt_sG) 
@@ -1355,13 +1355,13 @@ class Transport(GPAW):
     def get_lead_calc(self, l):
         self.log('get_lead_calc()')
         p = self.gpw_kwargs.copy()
-        if type(p['basis']) is dict and len(p['basis'])==len(self.atoms):
+        if isinstance(p['basis'], dict) and len(p['basis'])==len(self.atoms):
             basis = {}
             for i, a in enumerate(self.pl_atoms[l]):
                 basis[i] = p['basis'][a]
             p['basis'] = basis
         if 'setups' in p:
-            if type(p['setups']) is dict and len(p['setups'])==len(self.atoms):
+            if isinstance(p['setups'], dict) and len(p['setups'])==len(self.atoms):
                 setups = {}
                 for i, a in enumerate(self.pl_atoms[l]):
                     setups[i] = p['setups'][a]
@@ -1456,7 +1456,7 @@ class Transport(GPAW):
                                              density.atom_partition)
             if self.master:
                 fd = file('bias_data' + str(self.analysor.n_bias_step), 'wb')
-                cPickle.dump((self.bias, vt_sG, dH_asp), fd, 2)
+                pickle.dump((self.bias, vt_sG, dH_asp), fd, 2)
                 fd.close()
                 
         self.ground = False
@@ -1482,7 +1482,7 @@ class Transport(GPAW):
         #self.analysor.save_ele_step()            
         self.analysor.save_bias_step(self)
         fd = file('eq_hsd', 'w')
-        cPickle.dump(self.hsd, fd, 2)
+        pickle.dump(self.hsd, fd, 2)
         fd.close()
 
     def get_density_matrix(self):
@@ -1815,9 +1815,9 @@ class Transport(GPAW):
         stepintcnt = 50
         nbmol = self.nbmol_inner
                 
-        if type(zp) == list:
+        if isinstance(zp, list):
             pass
-        elif type(zp) == np.ndarray:
+        elif isinstance(zp, np.ndarray):
             pass
         else:
             zp = [zp]
@@ -2680,7 +2680,7 @@ class Transport(GPAW):
                 else:
                     p['mixer'] = MixerDif(self.density.mixer.beta, 5, weight=100.0)
             p['poissonsolver'] = PoissonSolver(nn=2)        
-            if type(p['basis']) is dict and len(p['basis']) == len(self.atoms):
+            if isinstance(p['basis'], dict) and len(p['basis']) == len(self.atoms):
                 basis = {}
                 for i, btype in enumerate(range(len(self.atoms))):
                     basis[i] = p['basis'][i]
@@ -2848,7 +2848,7 @@ class Transport(GPAW):
                 flag = False
             self.analysor.n_bias_step = i
             fd = file('bias_data' + str(i + 1), 'r')
-            self.bias, vt_sG, dH_asp = cPickle.load(fd)
+            self.bias, vt_sG, dH_asp = pickle.load(fd)
             fd.close()
           
             for j in range(self.lead_num):
@@ -2918,7 +2918,7 @@ class Transport(GPAW):
             kpt_comm.gather(local_lead_coupling_hamiltonian_matrix, 0, lead_coupling_hamiltonian_matrix)
             if world.rank == 0:
                 fd = file('lead_hs_matrix' + str(i), 'wb')
-                cPickle.dump((lead_overlap_matrix,
+                pickle.dump((lead_overlap_matrix,
                              lead_coupling_overlap_matrix,
                              lead_hamiltonian_matrix,
                              lead_coupling_hamiltonian_matrix),
@@ -2934,7 +2934,7 @@ class Transport(GPAW):
            if i > n1:
                flag = False
            fd = file('bias_data' + str(i + 1), 'r')
-           self.bias, vt_sG, dH_asp = cPickle.load(fd)
+           self.bias, vt_sG, dH_asp = pickle.load(fd)
            fd.close()
            self.surround.combine_dH_asp(dH_asp)
            self.gd1.distribute(vt_sG, self.extended_calc.hamiltonian.vt_sG) 
@@ -2963,7 +2963,7 @@ class Transport(GPAW):
            kpt_comm.gather(local_scat_hamiltonian_matrix, 0, scat_hamiltonian_matrix)
            if world.rank ==0:
                fd = file('scat_hs_matrix' + str(i), 'wb')
-               cPickle.dump((scat_overlap_matrix,
+               pickle.dump((scat_overlap_matrix,
                              scat_hamiltonian_matrix),
                              fd, 2)
                fd.close()
@@ -2971,7 +2971,7 @@ class Transport(GPAW):
     def analysis_prepare(self, bias_step):
         self.log('analysis_prepare()')
         fd = file('lead_hs', 'r')
-        lead_s00, lead_s01, lead_h00, lead_h01 = cPickle.load(fd)
+        lead_s00, lead_s01, lead_h00, lead_h01 = pickle.load(fd)
         fd.close()
         plotter = Transport_Plotter('bias', 'bias_plot_data')
         s00 = plotter.bias_steps[bias_step].s00

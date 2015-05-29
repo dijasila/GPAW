@@ -226,12 +226,12 @@ class BaseInducedField(object):
         self.Ffe_wg = Ffe_wg
         
     def _parse_readwritemode(self, mode):
-        if type(mode) == str:
+        if isinstance(mode, str):
             try:
                 readwrites = self.readwritemode_str_to_list[mode]
             except KeyError:
                 raise IOError('unknown readwrite mode string')
-        elif type(mode) == list:
+        elif isinstance(mode, list):
             readwrites = mode
         else:
             raise IOError('unknown readwrite mode type')
