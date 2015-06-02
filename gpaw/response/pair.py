@@ -231,7 +231,6 @@ class PWSymmetryAnalyzer:
         U_scc = kd.symmetry.op_scc
         nU = self.nU
         nsym = self.nsym
-        ft_sc = kd.symmetry.ft_sc
 
         shift_sc = np.zeros((nsym, 3), int)
         conserveq_s = np.zeros(nsym, bool)
@@ -940,7 +939,9 @@ class PairDensity:
                                                          pd, Q_G)
             if optical_limit:
                 n_nmv[j] = self.optical_pair_density(n, m_m, kpt1, kpt2)
-                n_nmG[..., 0] = n_nmv[..., 0]
+
+        if optical_limit:
+            n_nmG[..., 0] = n_nmv[..., 0]
 
         if intraband:
             vel_mv = self.intraband_pair_density(kpt2)
@@ -986,8 +987,7 @@ class PairDensity:
         kqG_Gv = k_v[np.newaxis] + G_Gv
 
         # Pair velocities
-        n_nmvG = pd.empty((len(n_n), len(m_m), 3))
-        n_nmvG *= 0
+        n_nmvG = pd.zeros((len(n_n), len(m_m), 3))
 
         # Calculate derivatives of left-wavefunction
         # (there will typically be fewer of these)
@@ -996,7 +996,7 @@ class PairDensity:
         # PAW-corrections
         if Q_avGii is None:
             Q_avGii = self.initialize_paw_nabla_corrections(pd)
-        
+
         # Iterate over occupied bands
         for j, n in enumerate(n_n):
             ut1cc_R = kpt1.ut_nR[n].conj()
@@ -1005,7 +1005,7 @@ class PairDensity:
                                                  [], kpt2,
                                                  pd, Q_G)
 
-            n_nmvG[j] += 1j * kqG_Gv.T[np.newaxis] * n_mG[:, np.newaxis]
+            n_nmvG[j] = 1j * kqG_Gv.T[np.newaxis] * n_mG[:, np.newaxis]
 
             # Treat each cartesian component at a time
             for v in range(3):

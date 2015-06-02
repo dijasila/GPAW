@@ -47,6 +47,9 @@ class PAW(PAWTextOutput):
 
     """This is the main calculation object for doing a PAW calculation."""
 
+    real_space_hamiltonian_class = RealSpaceHamiltonian
+    reciprocal_space_hamiltonian_class = pw.ReciprocalSpaceHamiltonian
+
     def __init__(self, filename=None, timer=None,
                  read_projections=True, **kwargs):
         """ASE-calculator interface.
@@ -499,7 +502,7 @@ class PAW(PAWTextOutput):
         M = np.dot(M_v, M_v) ** 0.5
 
         nbands = par.nbands
-        
+
         orbital_free = any(setup.orbital_free for setup in setups)
         if orbital_free:
             nbands = 1
@@ -818,12 +821,12 @@ class PAW(PAWTextOutput):
         if self.hamiltonian is None:
             gd, finegd = self.density.gd, self.density.finegd
             if realspace:
-                self.hamiltonian = RealSpaceHamiltonian(
+                self.hamiltonian = self.real_space_hamiltonian_class(
                     gd, finegd, nspins, setups, self.timer, xc,
                     world, self.wfs.kptband_comm, par.external,
                     collinear, par.poissonsolver, par.stencils[1])
             else:
-                self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
+                self.hamiltonian = self.reciprocal_space_hamiltonian_class(
                     gd, finegd, self.density.pd2, self.density.pd3,
                     nspins, setups, self.timer, xc, world,
                     self.wfs.kptband_comm, par.external, collinear)

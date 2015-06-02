@@ -270,6 +270,7 @@ class AtomPAW(GPAW):
                       **kwargs)
         self.occupations = AtomOccupations(f_sln)
         self.initialize(Atoms(symbol, calculator=self))
+        self.density.charge_eps = 1e-3
         self.calculate(converge=True)
 
     def dry_run(self):

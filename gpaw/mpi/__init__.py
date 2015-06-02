@@ -1,6 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
+import os
 import sys
 import time
 import traceback
@@ -232,21 +233,21 @@ class _Communicator:
         sbuffer: ndarray
             Source of the data to distribute, i.e. send buffers on all rank.
         scounts: ndarray
-            Integer array equal to the group size specifying the number of 
+            Integer array equal to the group size specifying the number of
             elements to send to each processor
         sbuffer: ndarray
-            Integer array (of length group size). Entry j specifies the 
-            displacement (relative to sendbuf from which to take the 
+            Integer array (of length group size). Entry j specifies the
+            displacement (relative to sendbuf from which to take the
             outgoing data destined for process j
         rbuffer: ndarray
             Destination of the distributed data, i.e. local receive buffer.
         rcounts: ndarray
-            Integer array equal to the group size specifying the maximum 
+            Integer array equal to the group size specifying the maximum
             number of elements that can be received from each processor.
         rdispls:
-            Integer array (of length group size). Entry i specifies the 
-            displacement (relative to recvbuf at which to place the incoming 
-            data from process i 
+            Integer array (of length group size). Entry i specifies the
+            displacement (relative to recvbuf at which to place the incoming
+            data from process i
         """
         assert sbuffer.flags.contiguous
         assert scounts.flags.contiguous
@@ -600,10 +601,18 @@ class SerialCommunicator:
 
 serial_comm = SerialCommunicator()
 
-try:
+libmpi = os.environ.get('GPAW_MPI')
+if libmpi:
+    import ctypes
+    ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
     world = _gpaw.Communicator()
-except AttributeError:
-    world = serial_comm
+    if world.size == 1:
+        world = serial_comm
+else:
+    try:
+        world = _gpaw.Communicator()
+    except AttributeError:
+        world = serial_comm
 
     
 class DryRunCommunicator(SerialCommunicator):
@@ -986,13 +995,28 @@ def cleanup():
 
 
 def print_mpi_stack_trace(type, value, tb):
+    """Format exceptions nicely when running in parallel.
+
+    Use this function as an except hook.  Adds rank
+    and line number to each line of the exception.  Lines will
+    still be printed from different ranks in random order, but
+    one can grep for a rank or run 'sort' on the output to obtain
+    readable data."""
+    
     exception_text = traceback.format_exception(type, value, tb)
     ndigits = len(str(world.size - 1))
-    number = ('%%0%dd' % ndigits) % world.rank
+    rankstring = ('%%0%dd' % ndigits) % world.rank
     
-    for line in exception_text:
-        for line1 in line.splitlines():
-            sys.stderr.write('rank=%s %s\n' % (number, line1))
+    lines = []
+    # The exception elements may contain newlines themselves
+    for element in exception_text:
+        lines.extend(element.splitlines())
+
+    line_ndigits = len(str(len(lines) - 1))
+
+    for lineno, line in enumerate(lines):
+        lineno = ('%%0%dd' % line_ndigits) % lineno
+        sys.stderr.write('rank=%s L%s: %s\n' % (rankstring, lineno, line))
 
 if world.size > 1:  # Triggers for dry-run communicators too, but we care not.
     sys.excepthook = print_mpi_stack_trace

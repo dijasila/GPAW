@@ -117,7 +117,7 @@ class WaveFunctions(EmptyWaveFunctions):
     
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
         if kpt.rho_MM is not None:
-            P_Mi = kpt.P_aMi[a]
+            P_Mi = self.P_aqMi[a][kpt.q]
             #P_Mi = kpt.P_aMi_sparse[a]
             #ind = get_matrix_index(kpt.P_aMi_index[a])
             #D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
@@ -205,7 +205,6 @@ class WaveFunctions(EmptyWaveFunctions):
         if atom_partition is None:
             rank_a = self.gd.get_ranks_from_positions(spos_ac)
             atom_partition = AtomPartition(self.gd.comm, rank_a)
-                                           
 
         if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
             self.timer.start('Redistribute')

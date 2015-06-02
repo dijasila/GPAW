@@ -238,7 +238,10 @@ class UPFSetupData:
         # Maybe just a symbol would also be fine if we know the
         # filename to look for.
         if isinstance(data, basestring):
+            self.filename = data
             data = parse_upf(data)
+        else:
+            self.filename = '[N/A]'
         
         assert isinstance(data, dict)
         self.data = data # more or less "raw" data from the file
@@ -294,7 +297,6 @@ class UPFSetupData:
         self.rcgauss = 0.0 # XXX .... what is this used for?
         self.ni = sum([2 * l + 1 for l in self.l_j])
 
-        self.filename = None # remember filename?
         self.fingerprint = None # XXX hexdigest the file?
         self.HubU = None # XXX
         self.lq = None # XXX
@@ -392,6 +394,7 @@ class UPFSetupData:
             % self.get_local_potential().get_cutoff())
         add('Comp charge cutoff:     %s'
             % self.rgd.r_g[len(self.ghat_lg[0]) - 1])
+        add('File: %s' % self.filename)
         add('')
         return '\n'.join(lines)
 

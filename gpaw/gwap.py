@@ -15,6 +15,7 @@ functions = {'xc': 'gpaw.xc.xc',
              'test': 'gpaw.test.test.main',
              'atom': 'gpaw.atom.aeatom.main',
              'diag': 'gpaw.fulldiag.fulldiag',
+             'quick': 'gpaw.gwap.quick',
              'dataset': 'gpaw.atom.generator2.main',
              'symmetry': 'gpaw.symmetry.analyze_atoms'}
 
@@ -94,8 +95,7 @@ def construct_parser(func, name):
     i = 0
     while i < len(lines):
         words = lines[i].split(':')
-        if (len(words) > 1 and
-            i + 1 < len(lines) and
+        if (len(words) > 1 and i + 1 < len(lines) and
             lines[i + 1].startswith('    ')):
             if description is None:
                 description = ' '.join([headline] + lines[:i])
@@ -176,3 +176,35 @@ def dos(filename, plot=False, output='dos.csv', width=0.1):
         for y in D:
             plt.plot(dos.energies, y)
         plt.show()
+
+    
+def quick(project='bulk', system=None):
+    """Create Python script to get going quickly.
+    
+    project: str
+        Must be 'bulk' or 'molecule'.
+    system: str
+        A string representing the system ('H2', 'Si').
+    """
+    if project == 'bulk':
+        template = """\
+from ase.lattice import bulk
+from gpaw import GPAW
+
+atoms = bulk('{0}')
+atoms.calc = GPAW(kpts={{'size': (4, 4, 4)}},
+                  txt='{0}.txt')
+e = atoms.get_potential_energy()
+f = atoms.get_forces()"""
+    else:
+        template = """\
+from ase.structure import molecule
+from ase.optimize import QuasiNewton
+from gpaw import GPAW
+
+atoms = molecule('{0}')
+atoms.calc = GPAW(txt='{0}.txt')
+e = atoms.get_potential_energy()
+opt = QuasiNewton(atoms, traj='{0}.traj')
+opt.run(fmax=0.05)"""
+    print(template.format(system))

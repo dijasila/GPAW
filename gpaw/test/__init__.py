@@ -123,6 +123,7 @@ tests = [
     'noncollinear/xcgrid3d.py',
     'cluster.py',
     'poisson.py',
+    'parallel/arraydict_redist.py',
     'parallel/overlap.py',
     'parallel/scalapack.py',
     'gauss_wave.py',
@@ -151,6 +152,7 @@ tests = [
     'numpy_zdotc_graphite.py',              # ~1s
     'eed.py',                               # ~1s
     'lcao_dos.py',                          # ~1s
+    'solvation/pbc_pos_repeat.py',          # ~1s
     'gemv.py',                              # ~2s
     'fileio/idiotproof_setup.py',           # ~2s
     'ylexpand.py',                          # ~2s
@@ -186,6 +188,7 @@ tests = [
     'pw/fulldiag.py',                       # ~3s
     'symmetry_ft.py',                       # ~3s
     'aluminum_EELS_RPA.py',                 # ~3s
+    'pseudopotential/sg15_hydrogen.py',     # ~4s
     'ewald.py',                             # ~4s
     'symmetry.py',                          # ~4s
     'revPBE.py',                            # ~4s
@@ -262,7 +265,8 @@ tests = [
     'guc_force.py',                         # ~13s
     'ralda_energy_Ni.py',                   # ~13s
     'simple_stm.py',                        # ~13s
-    'ofdft_pbc.py'                          # ~13s
+    'solvation/vacuum.py',                  # ~13s
+    'ofdft_pbc.py',                         # ~13s
     'ed_shapes.py',                         # ~14s
     'restart_band_structure.py',            # ~14s
     'exx.py',                               # ~14s
@@ -276,16 +280,18 @@ tests = [
     'atomize.py',                           # ~16s
     'excited_state.py',                     # ~16s
     'ne_disc.py',                           # ~16s
-    'ofdft.py'                              # ~17s
+    'ofdft.py',                             # ~17s
     'tpss.py',                              # ~18s
     'td_na2.py',                            # ~18s
     'exx_coarse.py',                        # ~18s
     'pplda.py',                             # ~18s
     'si_xas.py',                            # ~18s
     'mgga_sc.py',                           # ~19s
+    'solvation/pbc.py',                     # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
     # buildbot > 20 sec tests start here (add tests after lrtddft.py!)
     'lrtddft.py',                           # ~20s
+    'gllbspin.py',                          # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s
     'pw/hyb.py',                            # ~21s
     'Cu.py',                                # ~21s
@@ -298,7 +304,8 @@ tests = [
     'ralda_energy_Si.py',                   # ~24s
     'ldos.py',                              # ~25s
     'revPBE_Li.py',                         # ~26s
-    'ofdft_scale.py'                        # ~26s
+    'solvation/poisson.py',                 # ~28s
+    'ofdft_scale.py',                       # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
     'h2o_dks.py',                           # ~30s
     'nsc_MGGA.py',                          # ~32s
@@ -312,6 +319,7 @@ tests = [
     'au02_absorption.py',                   # ~44s
     'wannierk.py',                          # ~45s
     'bse_vs_lrtddft.py',                    # ~45s
+    'solvation/spinpol.py',                 # ~45s
     'aluminum_testcell.py',                 # ~46s
     'pygga.py',                             # ~47s
     'ut_tddft.py',                          # ~49s
@@ -326,13 +334,20 @@ tests = [
     'transport.py',                         # ~73s
     'lrtddft3.py',                          # ~75s
     'nonlocalset.py',                       # ~82s
+    'solvation/water_water.py',             # ~83s
+    'solvation/sfgcm06.py',                 # ~86s
+    'solvation/sss09.py',                   # ~87s
+    'solvation/adm12.py',                   # ~87s
     'dfpt2/Si_AH_simple.py',                # duration unknown (~90s)
     # buildbot > 100 sec tests start here (add tests after lb94.py!)
     'lb94.py',                              # ~84s
+    'solvation/swap_atoms.py',              # ~114s
     'AA_exx_enthalpy.py',                   # ~119s
+    'solvation/forces_symmetry.py',         # ~119s
     'lcao_tdgllbsc.py',                     # ~132s
     'bse_silicon.py',                       # ~143s
     'gwsi.py',                              # ~147s
+    'solvation/forces.py',                  # ~289s
     'response_graphene.py',                 # ~160s
     'response_symmetry.py',                 # ~300s
     'pw/moleculecg.py',                     # duration unknown
@@ -445,9 +460,6 @@ if mpi.size != 1 and not compiled_with_sl():
 if not compiled_with_sl():
     exclude.append('lcao_atomic_corrections.py')
 
-if sys.version_info < (2, 6):
-    exclude.append('transport.py')
-    
 if np.__version__ < '1.6.0':
     exclude.append('chi0.py')
 

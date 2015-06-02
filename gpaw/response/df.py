@@ -631,18 +631,18 @@ class DielectricFunction:
         else:
             name = '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * kd.N_c).round())
 
-        # Returns: real space grid, frequency grid, all eigenvalues,
+        # Returns: real space grid, frequency grid,
         # sorted eigenvalues, zero-crossing frequencies + eigenvalues,
         # induced potential + density in real space.
         if eigenvalue_only:
-            pickle.dump((r * Bohr, w_w, eig_all),
+            pickle.dump((r * Bohr, w_w, eig),
                         open(name, 'wb'), pickle.HIGHEST_PROTOCOL)
-            return r * Bohr, w_w, eig_all
+            return r * Bohr, w_w, eig
         else:
-            pickle.dump((r * Bohr, w_w, eig_all, eig, omega0, eigen0,
+            pickle.dump((r * Bohr, w_w, eig, omega0, eigen0,
                          v_ind, n_ind), open(name, 'wb'),
                         pickle.HIGHEST_PROTOCOL)
-            return r * Bohr, w_w, eig_all, eig, omega0, eigen0, v_ind, n_ind
+            return r * Bohr, w_w, eig, omega0, eigen0, v_ind, n_ind
     
     def get_spatial_eels(self, q_c=[0, 0, 0], direction='x',
                          w_max=None, filename='eels'):

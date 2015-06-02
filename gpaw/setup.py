@@ -17,7 +17,7 @@ import numpy as np
 import ase.units as units
 from ase.data import chemical_symbols
 
-from gpaw.setup_data import SetupData
+from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt as G_LLL, Y_LLv
 from gpaw.utilities import unpack, pack
@@ -75,6 +75,20 @@ def create_setup(symbol, xc='LDA', lmax=0,
         elif type == 'ghost':
             from gpaw.lcao.bsse import GhostSetupData
             setupdata = GhostSetupData(symbol)
+        elif type == 'sg15':
+            from gpaw.upf import UPFSetupData
+            upfname = '%s_ONCV_PBE-*.upf' % symbol
+            upfpath, source = search_for_file(upfname, world=world)
+            if source is None:
+                raise IOError('Could not find pseudopotential file %s '
+                              'in any GPAW search path.  '
+                              'Please install the SG15 setups using, '
+                              'e.g., \'gpaw-install-setups\'.' % upfname)
+            setupdata = UPFSetupData(upfpath)
+            if xc.name != 'PBE':
+                raise ValueError('SG15 pseudopotentials support only the PBE '
+                                 'functional.  This calculation would use '
+                                 'the %s functional.' % xc.name)
         else:
             setupdata = SetupData(symbol, xc.get_setup_name(),
                                   type, True,
@@ -1384,7 +1398,7 @@ class Setups(list):
         for setup in self.setups.values():
             setup.calculate_rotations(R_slmm)
 
-    def empty_asp(self, ns, atom_partition):
+    def empty_atomic_matrix(self, ns, atom_partition):
         Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
                      for setup in self]
         return atom_partition.arraydict(Dshapes_a)

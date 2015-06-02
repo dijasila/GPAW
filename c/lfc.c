@@ -86,10 +86,6 @@ static PyMethodDef lfc_methods[] = {
      (PyCFunction)second_derivative, METH_VARARGS, 0},
     {"add_derivative",
      (PyCFunction)add_derivative, METH_VARARGS, 0},
-#ifdef PARALLEL
-    {"broadcast",
-     (PyCFunction)localized_functions_broadcast, METH_VARARGS, 0},
-#endif
     {NULL, NULL, 0, NULL}
 };
 

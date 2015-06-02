@@ -22,3 +22,19 @@ kT = 0.001
 hydrogen.calc.set(occupations=FermiDirac(width=kT))
 e2 = hydrogen.get_potential_energy()
 equal(e1, e2 + log(2) * kT, 3.0e-7)
+
+# Test ase.db a bit:
+from ase.db import connect
+# Note: This test will fail if run twice in same directory without
+# cleaning these files.
+for name in ['h2.json', 'h2.db']:
+    con = connect(name)
+    con.write(hydrogen)
+    id = con.write(hydrogen, foo='bar', data={'abc': [1, 2, 3]})
+    assert id == 2
+    assert con.reserve(foo='bar') is None
+    row = con.get(foo='bar')
+    assert row.energy == e2
+    assert sum(row.data.abc) == 6
+    del con[1]
+    assert con.reserve(x=42) == 3

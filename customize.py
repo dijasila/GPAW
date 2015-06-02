@@ -7,6 +7,13 @@
 #To append use the form
 #     libraries += ['somelib','otherlib']
 
+import os
+if 'GPAW_MPI' in os.environ:
+    # Build MPI-interface into _gpaw.so:
+    compiler = 'mpicc'
+    define_macros += [('PARALLEL', '1')]
+    mpicompiler = None
+    
 #compiler = 'mpcc'
 #libraries = []
 #libraries += []

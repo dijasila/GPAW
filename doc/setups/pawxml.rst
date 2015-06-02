@@ -14,7 +14,7 @@ calculations \ [#Blo94]_.  We use the term *dataset* instead of
 *pseudo potential* because the PAW method is not a pseudopotential method.
 
 An example XML file for nitrogen PAW dataset using LDA can be seen
-here: `N.LDA <../N.LDA>`_.
+here: :download:`N.LDA`.
 
 .. note::
    Hartree atomic units are used in the XML file (`\hbar = m = e = 1`).
@@ -571,7 +571,7 @@ integrals times **3-j** symbols according to:
     \phi_i(r) \phi_c(r) \phi_j(r') \phi_c(r')
 
 | where
-| `N_{c}` is the number of core electrons corresponding to `l_{c}` (`N_c=2l_c+1`),
+| `N_{c}` is the number of core electrons corresponding to `l_{c}`, namely `N_c=2(2l_c+1)`,
 | `r_>` (resp. `r_<`) is the larger (resp. smaller) of `r` and `r'`.
 
 

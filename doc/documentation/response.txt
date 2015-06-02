@@ -23,3 +23,11 @@
 2014-05-21 10.1103/PhysRevLett.112.203001 Accurate Ground-State Energies of Solids and Molecules from Time-Dependent Density-Functional Theory
 2014-07-15 10.1117/1.OE.53.7.071808 Optical and other material properties of SiO2 from ab initio studies
 2014-08-15 10.1016/j.ssc.2014.04.023 MoS2 nanostructures: Semiconductors with metallic edges
+2014-10-29 10.1103/PhysRevB.90.161410 Plasmons on the edge of MoS2 nanostructures
+2014-12-15 10.1002/pssb.201451171 PFO-BPy solubilizers for SWNTs: Modelling of polymers from oligomers
+2014-12-15 10.1002/pssb.201451174 Theoretical electron energy loss spectroscopy of isolated graphene
+2014-12-15 10.1364/OE.22.030725 Effects of exchange correlation functional on optical permittivity of gold and electromagnetic responses
+2014-12-17 10.1088/0953-8984/26/50/505302 Quantum size effect on dielectric function of ultrathin metal film: a first-principles study of Al(111)
+2015-01-13 10.1103/PhysRevB.91.045418 pi-plasmon dispersion in free-standing graphene by momentum-resolved electron energy-loss spectroscopy
+2015-01-15 10.1002/cpe.3199 Design and performance characterization of electronic structure calculations on massively parallel supercomputers: a case study of GPAW on the Blue Gene/P architecture
+2015-05-15 10.1016/j.progsurf.2014.12.002 The influence of electron confinement, quantum size effects, and film morphology on the dispersion and the damping of plasmonic modes in Ag and Au thin films

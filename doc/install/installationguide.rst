@@ -40,7 +40,7 @@ and install GPAW with:
 
 - on RHEL/CentOS/Fedora::
 
-    yum -u install gpaw
+    yum -y install gpaw
 
 - on openSUSE::
 
@@ -346,9 +346,15 @@ Installation of PAW datasets
 Run the tests
 =============
 
-Make sure that everything works by running the test suite (using bash)::
+Make sure that everything works by running the test suite
+in serial (using bash)::
 
-  [gpaw]$ gpaw-python `which gpaw-test` 2>&1 | tee test.log
+  [gpaw]$ python `which gpaw-test` 2>&1 | tee test.log
+
+If you compiled the custom interpreter (needed to running calculations
+in parallel), test it too, in serial::
+
+  [gpaw]$ gpaw-python `which gpaw-test` 2>&1 | tee test1.log
 
 This will take a couple of hours.
 Please report errors to the ``gpaw-developers`` mailing list (see
