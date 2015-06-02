@@ -293,6 +293,16 @@ class Transport(GPAW):
             else:
                 self.scat_ntk = 1
         self.gpw_kwargs['kpts'] = kpts[:2] + (1,)
+        if 'parallel' in self.gpw_kwargs:
+            pass
+        else:
+            npk = np.product(kpts[:2])
+            nibpzk = (npk + npk % 2) / 2
+            from fractions import gcd 
+            n_kpt_comm = gcd(nibpzk, world.size)
+            self.gpw_kwargs['parallel']= {'kpt': n_kpt_comm, 
+                                          'domain': None,
+                                          'band': 1}
         # ! THa: Hack: 
         # ! Also save the the parameters
         # !'plot_energy_range' and for later analysis 'plot_energy_point_num'
@@ -522,12 +532,10 @@ class Transport(GPAW):
             
     def parameters_test(self):
         self.log('parameters_test()')
-        self.nblead = []
+        self.initialize()    
         for i in range(self.lead_num):
             atoms = self.get_lead_atoms(i)
             atoms.calc.initialize(atoms)
-            self.nblead.append(atoms.calc.wfs.setups.nao)
-        self.initialize()    
 
     def define_leads_related_variables(self):
         self.log('define_leads_related_variables()')
@@ -1369,10 +1377,10 @@ class Transport(GPAW):
         p['nbands'] = None
         p['kpts'] = self.pl_kpts
 
-        #p['parallel'] = self.input_parameters['parallel'].copy()
-        #p['parallel'].update(band=self.wfs.bd.comm.size,
-        #                     kpt=self.wfs.kd.comm.size
-        #                    domain=self.wfs.gd.parsize_c)
+        p['parallel'] = self.input_parameters['parallel'].copy()
+        p['parallel'].update(band=self.wfs.bd.comm.size,
+                             kpt=self.wfs.kd.comm.size,
+                            domain=self.wfs.gd.parsize_c)
         if 'mixer' in p:
             if not self.spinpol:
                 p['mixer'] = Mixer(0.1, 5, weight=100.0)
@@ -2625,9 +2633,12 @@ class Transport(GPAW):
                           ('Hamiltonian', self.hamiltonian),
                           ('Wavefunctions', self.wfs)]:
             obj.estimate_memory(mem.subnode(name))
-        #for i in range(self.lead_num):
-        #    atoms = self.get_lead_atoms(i)
-        #    atoms.calc.estimate_memory(mem.subnode('Leads' + str(i), 0))
+        self.nblead = []
+        for i in range(self.lead_num):
+            atoms = self.get_lead_atoms(i)
+            atoms.calc.initialize(atoms)
+            self.nblead.append(atoms.calc.wfs.setups.nao)
+            #atoms.calc.estimate_memory(mem.subnode('Leads' + str(i), 0))
         se_mem, mat_mem = self.estimate_transport_matrix_memory()
         mem.subnode('Matrix', mat_mem)
         mem.subnode('Selfenergy', se_mem)
