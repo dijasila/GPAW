@@ -53,7 +53,7 @@ class DirectLCAO:
             yy = 0.5
             k_c = wfs.kd.ibzk_qc[kpt.q]
             H_MM = (0.5 + 0.0j) * Vt_xMM[0]
-            for sdisp_c, Vt_MM in zip(bfs.sdisp_xc, Vt_xMM)[1:]:
+            for sdisp_c, Vt_MM in zip(bfs.sdisp_xc[1:], Vt_xMM[1:]):
                 H_MM += np.exp(2j * np.pi * np.dot(sdisp_c, k_c)) * Vt_MM
             wfs.timer.stop('Sum over cells')
 

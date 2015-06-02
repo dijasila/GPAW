@@ -417,7 +417,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         if debug:
             assert a_xG.ndim >= 3
-            assert (np.sort(c_axi.keys()) == self.my_atom_indices).all()
+            assert sorted(c_axi.keys()) == self.my_atom_indices
             for c_xi in c_axi.values():
                 assert c_xi.dtype == dtype
 
@@ -502,7 +502,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             assert a_xG.ndim >= 3
             assert dtype == self.dtype
             if isinstance(c_axi, dict):
-                assert (np.sort(c_axi.keys()) == self.my_atom_indices).all()
+                assert sorted(c_axi.keys()) == self.my_atom_indices
             for c_xi in c_axi.values():
                 assert c_xi.dtype == dtype
 
@@ -552,7 +552,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         if debug:
             assert a_xG.ndim >= 3
-            assert (np.sort(c_axi.keys()) == self.my_atom_indices).all()
+            assert sorted(c_axi.keys()) == self.my_atom_indices
             for c_xi in c_axi.values():
                 assert c_xi.shape[:-1] == xshape
 
@@ -630,7 +630,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         if debug:
             assert a_xG.ndim >= 3
-            assert (np.sort(c_axiv.keys()) == self.my_atom_indices).all()
+            assert sorted(c_axiv.keys()) == self.my_atom_indices
 
         if self.integral_a is not None:
             assert q == -1
@@ -835,7 +835,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         if debug:
             assert a_xG.ndim == 3
             assert a_xG.dtype == self.dtype
-            assert (np.sort(c_axivv.keys()) == self.my_atom_indices).all()
+            assert sorted(c_axivv.keys()) == self.my_atom_indices
 
         dtype = a_xG.dtype
 

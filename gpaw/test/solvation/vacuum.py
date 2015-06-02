@@ -7,8 +7,7 @@ from gpaw.solvation import (
     SolvationGPAW,
     EffectivePotentialCavity,
     Power12Potential,
-    LinearDielectric
-)
+    LinearDielectric)
 import numpy as np
 
 SKIP_REF_CALC = True
@@ -29,9 +28,9 @@ atoms.minimal_box(vac, h)
 if not SKIP_REF_CALC:
     atoms.calc = GPAW(xc='LDA', h=h)
     Eref = atoms.get_potential_energy()
-    print Eref
+    print(Eref)
     Fref = atoms.get_forces()
-    print Fref
+    print(Fref)
 else:
     Eref = -11.9879787262  # h=0.3, vac=3.0, setups: 0.9.9672
     Fref = np.array(

@@ -16,8 +16,7 @@ from gpaw.solvation import (
     LinearDielectric,
     GradientSurface,
     SurfaceInteraction,
-    SSS09Density
-)
+    SSS09Density)
 
 SKIP_VAC_CALC = True
 
@@ -36,7 +35,7 @@ atoms.minimal_box(vac, h)
 if not SKIP_VAC_CALC:
     atoms.calc = GPAW(xc='PBE', h=h, charge=-1)
     Evac = atoms.get_potential_energy()
-    print Evac
+    print(Evac)
 else:
     Evac = -3.82381881936  # h = 0.24, vac = 4.0
 
@@ -54,6 +53,6 @@ Ewater = atoms.get_potential_energy()
 assert atoms.calc.get_number_of_iterations() < 40
 atoms.get_forces()
 DGSol = (Ewater - Evac) / (kcal / mol)
-print 'Delta Gsol: %s kcal / mol' % (DGSol, )
+print('Delta Gsol: %s kcal / mol' % DGSol)
 
 equal(DGSol, -75., 10.)

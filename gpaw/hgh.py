@@ -487,9 +487,9 @@ def parse_hgh_setup(lines):
             yield lines.next(), lines.next()
 
     v_l = []
-    for l, (nonlocal, spinorbit) in enumerate(pair_up_nonlocal_lines(lines)):
+    for l, (non_local, spinorbit) in enumerate(pair_up_nonlocal_lines(lines)):
         # we discard the spinorbit 'k_n' data so far
-        nltokens = nonlocal.split()
+        nltokens = non_local.split()
         r0 = float(nltokens[0])
         h_n = [float(token) for token in nltokens[1:]]
 

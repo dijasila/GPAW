@@ -65,7 +65,7 @@ for cell in cells:
 
     # mixed bc, cutoff > 2 * cell size should repeat three times
     for i in range(8):
-        pbc = [int(p) for p in np.binary_repr(i, 3)]
+        pbc = np.array([int(p) for p in np.binary_repr(i, 3)])
         atoms.pbc = pbc
         pos_aav = get_pbc_positions(atoms, 2.01 * Rcell_c.max())
         check(pos_av, pos_aav, pbc * 3, cell_cv)

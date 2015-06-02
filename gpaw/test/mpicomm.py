@@ -19,7 +19,7 @@ else:
 hasmpi = False
 try:
     import _gpaw
-    hasmpi = hasattr(_gpaw, 'Communicator')
+    hasmpi = hasattr(_gpaw, 'Communicator') and world.size > 1
 except (ImportError, AttributeError):
     pass
 

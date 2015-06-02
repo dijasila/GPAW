@@ -4,7 +4,6 @@ from __future__ import print_function
 import os
 import xml.sax
 import re
-from io import StringIO
 from math import sqrt, pi, factorial as fac
 from glob import glob
 
@@ -453,7 +452,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
         
         # XXXX There must be a better way!
         # We don't want to look at the dtd now.  Remove it:
-        source = re.compile(rb'<!DOCTYPE .*?>', re.DOTALL).sub(b'', source, 1)
+        source = re.compile(b'<!DOCTYPE .*?>', re.DOTALL).sub(b'', source, 1)
         xml.sax.parseString(source, self)
         
         if setup.zero_reference:

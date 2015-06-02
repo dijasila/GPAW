@@ -60,9 +60,9 @@ for atoms in atomss:
     Fs.append(atoms.get_forces())
 
 # compare to expected difference of a gas phase calc
-print 'difference E: ', Es[0] - Es[1]
+print('difference E: ', Es[0] - Es[1])
 equal(Es[0], Es[1], 0.0002)
-print 'difference F: ', np.abs(Fs[0] - Fs[1]).max()
+print('difference F: ', np.abs(Fs[0] - Fs[1]).max())
 equal(Fs[0], Fs[1], 0.003)
 
 

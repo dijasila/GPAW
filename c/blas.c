@@ -99,11 +99,12 @@ PyObject* gemm(PyObject *self, PyObject *args)
   PyArrayObject* b;
   Py_complex beta;
   PyArrayObject* c;
-  char transa = 'n';
-  if (!PyArg_ParseTuple(args, "DOODO|C", &alpha, &a, &b, &beta, &c, &transa))
+  char t = 'n';
+  char* transa = &t;
+  if (!PyArg_ParseTuple(args, "DOODO|s", &alpha, &a, &b, &beta, &c, &transa))
     return NULL;
   int m, k, lda, ldb, ldc;
-  if (transa == 'n')
+  if (*transa == 'n')
     {
       m = PyArray_DIMS(a)[1];
       for (int i = 2; i < PyArray_NDIM(a); i++)
@@ -126,14 +127,14 @@ PyObject* gemm(PyObject *self, PyObject *args)
     }
   int n = PyArray_DIMS(b)[0];
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
-    dgemm_(&transa, "n", &m, &n, &k,
+    dgemm_(transa, "n", &m, &n, &k,
            &(alpha.real),
            DOUBLEP(a), &lda,
            DOUBLEP(b), &ldb,
            &(beta.real),
            DOUBLEP(c), &ldc);
   else
-    zgemm_(&transa, "n", &m, &n, &k,
+    zgemm_(transa, "n", &m, &n, &k,
            &alpha,
            (void*)COMPLEXP(a), &lda,
            (void*)COMPLEXP(b), &ldb,
@@ -147,13 +148,13 @@ PyObject* mmm(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
     PyArrayObject* M1;
-    char trans1;
+    char* trans1;
     PyArrayObject* M2;
-    char trans2;
+    char* trans2;
     Py_complex beta;
     PyArrayObject* M3;
     
-    if (!PyArg_ParseTuple(args, "DOcOcDO",
+    if (!PyArg_ParseTuple(args, "DOsOsDO",
                           &alpha, &M1, &trans1, &M2, &trans2, &beta, &M3))
         return NULL;
         
@@ -170,16 +171,16 @@ PyObject* mmm(PyObject *self, PyObject *args)
     void* b = PyArray_DATA(M1);
     void* c = PyArray_DATA(M3);
 
-    if (trans2 == 'n')
+    if (*trans2 == 'n')
         k = PyArray_DIM(M2, 0);
     else
         k = PyArray_DIM(M2, 1);
         
     if (bytes == 8)
-        dgemm_(&trans2, &trans1, &m, &n, &k,
+        dgemm_(trans2, trans1, &m, &n, &k,
                &(alpha.real), a, &lda, b, &ldb, &(beta.real), c, &ldc);
     else
-        zgemm_(&trans2, &trans1, &m, &n, &k,
+        zgemm_(trans2, trans1, &m, &n, &k,
                &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
         
     Py_RETURN_NONE;
@@ -193,13 +194,14 @@ PyObject* gemv(PyObject *self, PyObject *args)
   PyArrayObject* x;
   Py_complex beta;
   PyArrayObject* y;
-  char trans = 't';
-  if (!PyArg_ParseTuple(args, "DOODO|c", &alpha, &a, &x, &beta, &y, &trans))
+  char t = 't';
+  char* trans = &t;
+  if (!PyArg_ParseTuple(args, "DOODO|s", &alpha, &a, &x, &beta, &y, &trans))
     return NULL;
 
   int m, n, lda, itemsize, incx, incy;
 
-  if (trans == 'n')
+  if (*trans == 'n')
     {
       m = PyArray_DIMS(a)[1];
       for (int i = 2; i < PyArray_NDIM(a); i++)
@@ -225,14 +227,14 @@ PyObject* gemv(PyObject *self, PyObject *args)
   incy = 1;
 
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
-    dgemv_(&trans, &m, &n,
+    dgemv_(trans, &m, &n,
            &(alpha.real),
            DOUBLEP(a), &lda,
            DOUBLEP(x), &incx,
            &(beta.real),
            DOUBLEP(y), &incy);
   else
-    zgemv_(&trans, &m, &n,
+    zgemv_(trans, &m, &n,
            &alpha,
            (void*)COMPLEXP(a), &lda,
            (void*)COMPLEXP(x), &incx,
@@ -291,15 +293,16 @@ PyObject* rk(PyObject *self, PyObject *args)
     PyArrayObject* a;
     double beta;
     PyArrayObject* c;
-    char trans = 'c';
-    if (!PyArg_ParseTuple(args, "dOdO|c", &alpha, &a, &beta, &c, &trans))
+    char t = 'c';
+    char* trans = &t;
+    if (!PyArg_ParseTuple(args, "dOdO|s", &alpha, &a, &beta, &c, &trans))
         return NULL;
 
     int n = PyArray_DIMS(c)[0];
     
     int k, lda;
     
-    if (trans == 'c') {
+    if (*trans == 'c') {
         k = PyArray_DIMS(a)[1];
         for (int d = 2; d < PyArray_NDIM(a); d++)
             k *= PyArray_DIMS(a)[d];
@@ -312,11 +315,11 @@ PyObject* rk(PyObject *self, PyObject *args)
     
     int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
     if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
-        dsyrk_("u", &trans, &n, &k,
+        dsyrk_("u", trans, &n, &k,
                &alpha, DOUBLEP(a), &lda, &beta,
                DOUBLEP(c), &ldc);
     else
-        zherk_("u", &trans, &n, &k,
+        zherk_("u", trans, &n, &k,
                &alpha, (void*)COMPLEXP(a), &lda, &beta,
                (void*)COMPLEXP(c), &ldc);
     Py_RETURN_NONE;

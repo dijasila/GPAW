@@ -1,6 +1,5 @@
 from math import pi
 
-
 import numpy as np
 from ase.units import Hartree
 
@@ -27,7 +26,7 @@ class NSCFSIC:
             # calculation.
             # TODO: Loop over setups, not atoms.
             print('Atom core SIC for ', setup.symbol)
-            print('%10s%10s%10s' %  ('E_xc[n_i]', 'E_Ha[n_i]', 'E_SIC'))
+            print('%10s%10s%10s' % ('E_xc[n_i]', 'E_Ha[n_i]', 'E_SIC'))
             g = Generator(setup.symbol, xcname='LDA', nofiles=True, txt=None)
             g.run(**parameters[setup.symbol])
             njcore = g.njcore
@@ -41,7 +40,7 @@ class NSCFSIC:
                 na[1:] /= g.r[1:]**2
                 na[0] = na[1]
                 nb = np.zeros(g.N)
-                v_sg = np.zeros((2, g.N)) 
+                v_sg = np.zeros((2, g.N))
                 e_g = np.zeros(g.N)
                 vHr = np.zeros(g.N)
                 Exc = xc.calculate_spherical(g.rgd, np.array([na, nb]), v_sg)

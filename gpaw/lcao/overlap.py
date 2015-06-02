@@ -5,7 +5,7 @@ Contains classes for evaluating integrals of the form::
              /
             |   _   _a    _   _b   _
     Theta = | f(r - R ) g(r - R ) dr ,
-            | 
+            |
            /
 
 with f and g each being given as a radial function times a spherical
@@ -359,7 +359,7 @@ class SimpleAtomIter:
 class NeighborPairs:
     """Class for looping over pairs of atoms using a neighbor list."""
     def __init__(self, cutoff_a, cell_cv, pbc_c, self_interaction):
-        self.neighbors = NeighborList(cutoff_a, skin=0, sorted=True, 
+        self.neighbors = NeighborList(cutoff_a, skin=0, sorted=True,
                                       self_interaction=self_interaction)
         self.atoms = Atoms('X%d' % len(cutoff_a), cell=cell_cv, pbc=pbc_c)
         # Warning: never use self.atoms.get_scaled_positions() for
@@ -701,7 +701,7 @@ class NewTwoCenterIntegrals:
         
         self.cutoff_a = cutoff_a # convenient for writing the new new overlap
         self.I_a = I_a
-        self.setups_I = setups_I        
+        self.setups_I = setups_I
         self.atompairs = PairsWithSelfinteraction(NeighborPairs(cutoff_a,
                                                                 cell_cv,
                                                                 pbc_c,
@@ -738,7 +738,7 @@ class NewTwoCenterIntegrals:
             l_Ij.append([phit.get_angular_momentum_number()
                          for phit in phit_j])
         
-        pt_l_Ij = [setup.l_j for setup in self.setups_I]        
+        pt_l_Ij = [setup.l_j for setup in self.setups_I]
         pt_Ij = [setup.pt_j for setup in self.setups_I]
         phit_Ijq = self.msoc.transform(phit_Ij)
         pt_Ijq = self.msoc.transform(pt_Ij)
@@ -752,8 +752,10 @@ class NewTwoCenterIntegrals:
                                                       pt_l_Ij, pt_Ijq)
 
     def _calculate(self, calc, spos_ac, Theta_qxMM, T_qxMM, P_aqxMi):
-        for X_xMM in [Theta_qxMM, T_qxMM] + P_aqxMi.values():
-            X_xMM.fill(0.0)
+        Theta_qxMM.fill(0.0)
+        T_qxMM.fill(0.0)
+        for P_qxMi in P_aqxMi.values():
+            P_qxMi.fill(0.0)
 
         if 1: # XXX
             self.atoms_close.set_positions(spos_ac)
@@ -798,7 +800,7 @@ class NewTwoCenterIntegrals:
         self._calculate(calc, spos_ac, dThetadR_qcMM, dTdR_qcMM, dPdR_aqcMi)
 
         def antihermitian(src, dst):
-            np.conj(-src, dst)        
+            np.conj(-src, dst)
 
         if not self.blacs:
             for X_cMM in list(dThetadR_qcMM) + list(dTdR_qcMM):

@@ -612,7 +612,7 @@ class PAW(PAWTextOutput):
             if parsize_domain is not None:
                 ndomains = np.prod(parsize_domain)
             if mode.name == 'pw':
-                if ndomains > 1:
+                if ndomains is not None and ndomains > 1:
                     raise ValueError('Planewave mode does not support '
                                      'domain decomposition.')
                 ndomains = 1

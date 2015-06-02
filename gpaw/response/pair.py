@@ -256,13 +256,13 @@ class PWSymmetryAnalyzer:
 
         # Filter out disabled symmetries
         if self.disable_point_group:
-            s_s = [self.is_not_point_group(s) for s in s_s]
+            s_s = [s for s in s_s if self.is_not_point_group(s)]
 
         if self.disable_time_reversal:
-            s_s = [self.is_not_time_reversal(s) for s in s_s]
+            s_s = [s for s in s_s if self.is_not_time_reversal(s)]
 
         if self.disable_non_symmorphic:
-            s_s = [self.is_not_non_symmorphic(s) for s in s_s]
+            s_s = [s for s in s_s if self.is_not_non_symmorphic(s)]
 
         stmp_s = []
         for s in s_s:

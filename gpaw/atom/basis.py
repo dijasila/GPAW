@@ -1,7 +1,10 @@
 """This module is used to generate atomic orbital basis sets."""
 from __future__ import print_function
 import sys
-from io import StringIO
+try:
+    from StringIO import StringIO  # Python 2
+except ImportError:
+    from io import StringIO
 
 import numpy as np
 from ase.units import Hartree

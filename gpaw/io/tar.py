@@ -19,20 +19,20 @@ itemsizes = {'int': intsize, 'float': floatsize, 'complex': complexsize}
     
 class Writer:
     def __init__(self, name, comm=world):
-        self.comm = comm # for possible future use
+        self.comm = comm  # for possible future use
         self.dims = {}
         self.files = {}
         self.xml1 = ['<gpaw_io version="0.1" endianness="%s">' %
                      ('big', 'little')[int(np.little_endian)]]
         self.xml2 = []
         if os.path.isfile(name):
-            os.rename(name, name[:-4] + '.old'+name[-4:])
+            os.rename(name, name[:-4] + '.old' + name[-4:])
         self.tar = tarfile.open(name, 'w')
         self.mtime = int(time.time())
         
     def dimension(self, name, value):
         if name in self.dims.keys() and self.dims[name] != value:
-            raise Warning('Dimension %s changed from %s to %s' % \
+            raise Warning('Dimension %s changed from %s to %s' %
                           (name, self.dims[name], value))
         self.dims[name] = value
 
@@ -92,13 +92,13 @@ class Writer:
         if self.n == self.size:
             blocks, remainder = divmod(self.size, tarfile.BLOCKSIZE)
             if remainder > 0:
-                self.tar.fileobj.write('\0' * (tarfile.BLOCKSIZE - remainder))
+                self.tar.fileobj.write(b'\0' * (tarfile.BLOCKSIZE - remainder))
                 blocks += 1
             self.tar.offset += blocks * tarfile.BLOCKSIZE
         
     def close(self):
         self.xml2 += ['</gpaw_io>\n']
-        string = '\n'.join(self.xml1 + self.xml2)
+        string = '\n'.join(self.xml1 + self.xml2).encode()
         self.write_header('info.xml', len(string))
         self.write(string)
         self.tar.close()
@@ -106,7 +106,7 @@ class Writer:
 
 class Reader(xml.sax.handler.ContentHandler):
     def __init__(self, name, comm=world):
-        self.comm = comm # used for broadcasting replicated data
+        self.comm = comm  # used for broadcasting replicated data
         self.master = (self.comm.rank == 0)
         self.dims = {}
         self.shapes = {}
@@ -222,7 +222,7 @@ class TarFileReference(FileReference):
                 indices = ()
         elif isinstance(indices, int):
             indices = (indices,)
-        else: # Probably tuple or ellipsis
+        else:  # Probably tuple or ellipsis
             raise NotImplementedError('You can only slice a TarReference '
                                       'with [:] or [int]')
             

@@ -320,6 +320,7 @@ static PyObject* moduleinit(void)
     PyMODINIT_FUNC init_gpaw(void)
     {
         moduleinit();
+    }
 #endif
 
 #else // ifndef GPAW_INTERPRETER

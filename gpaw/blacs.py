@@ -27,7 +27,7 @@ the 8 CPUs of the BLACS grid in blocks of 64 by 64 elements (which is
 a sensible block size).  That means each CPU has many blocks located
 all over the array::
 
-  print world.rank, block_desc.shape, block_desc.gshape
+  print(world.rank, block_desc.shape, block_desc.gshape)
 
 Here block_desc.shape is the local array shape while gshape is the
 global shape.  The local array shape varies a bit on each CPU as the
@@ -47,7 +47,7 @@ represents non-distributed arrays.  Let us instantiate some arrays::
       assert H_MM.shape[0] == 0 or H_MM.shape[1] == 0
 
   H_mm = block_desc.empty()
-  print H_mm.shape # many elements on all CPUs
+  print(H_mm.shape)  # many elements on all CPUs
 
 We can then redistribute the local H_MM into H_mm::
 

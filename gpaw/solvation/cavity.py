@@ -359,7 +359,7 @@ class Power12Potential(Potential):
         self.u_g.fill(.0)
         self.grad_u_vg.fill(.0)
         na = np.newaxis
-        for index, pos_av in self.pos_aav.iteritems():
+        for index, pos_av in self.pos_aav.items():
             r12 = self.r12_a[index]
             for pos_v in pos_av:
                 origin_vg = pos_v[:, na, na, na]
@@ -603,7 +603,7 @@ class SSS09Density(Density):
         self.pos_aav = get_pbc_positions(atoms, r_cutoff)
         self.rho_g.fill(.0)
         na = np.newaxis
-        for index, pos_av in self.pos_aav.iteritems():
+        for index, pos_av in self.pos_aav.items():
             for pos_v in pos_av:
                 origin_vg = pos_v[:, na, na, na]
                 r_diff_vg = self.r_vg - origin_vg

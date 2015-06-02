@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 import time
@@ -39,9 +40,7 @@ class PAWTextOutput:
         self.print_header()
 
     def text(self, *args, **kwargs):
-        self.txt.write(kwargs.get('sep', ' ').join([str(arg)
-                                                    for arg in args]) +
-                       kwargs.get('end', '\n'))
+        print(*args, file=self.txt, **kwargs)
 
     def print_header(self):
         self.text()
@@ -458,6 +457,7 @@ def eigenvalue_string(paw, comment=' '):
     """
 
     tokens = []
+    
     def add(*line):
         for token in line:
             tokens.append(token)
@@ -531,11 +531,11 @@ def eigenvalue_string(paw, comment=' '):
 def plot(atoms):
     """Ascii-art plot of the atoms."""
 
-##   y
-##   |
-##   .-- x
-##  /
-## z
+#   y
+#   |
+#   .-- x
+#  /
+# z
 
     cell_cv = atoms.get_cell()
     if (cell_cv - np.diag(cell_cv.diagonal())).any():

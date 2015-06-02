@@ -662,15 +662,15 @@ def broadcast(obj, root=0, comm=world):
     """Broadcast a Python object across an MPI communicator and return it."""
     if comm.rank == root:
         assert obj is not None
-        string = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
+        b = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
     else:
         assert obj is None
-        string = None
-    string = broadcast_string(string, root, comm)
+        b = None
+    b = broadcast_bytes(b, root, comm)
     if comm.rank == root:
         return obj
     else:
-        return pickle.loads(string)
+        return pickle.loads(b)
 
 
 def synchronize_atoms(atoms, comm, tolerance=1e-8):
@@ -714,21 +714,26 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
 
         
 def broadcast_string(string=None, root=0, comm=world):
-    """Broadcast a Python string across an MPI communicator and return it.
-    NB: Strings are immutable objects in Python, so the input is unchanged."""
     if comm.rank == root:
-        assert isinstance(string, bytes)
-        n = np.array(len(string), int)
+        string = string.encode()
+    return broadcast_bytes(string, root, comm).decode()
+    
+    
+def broadcast_bytes(b=None, root=0, comm=world):
+    """Broadcast a bytes across an MPI communicator and return it."""
+    if comm.rank == root:
+        assert isinstance(b, bytes)
+        n = np.array(len(b), int)
     else:
-        assert string is None
+        assert b is None
         n = np.zeros(1, int)
     comm.broadcast(n, root)
     if comm.rank == root:
-        string = np.fromstring(string, np.int8)
+        b = np.fromstring(b, np.int8)
     else:
-        string = np.zeros(n, np.int8)
-    comm.broadcast(string, root)
-    return string.tostring()
+        b = np.zeros(n, np.int8)
+    comm.broadcast(b, root)
+    return b.tostring()
 
     
 def send_string(string, rank, comm=world):
@@ -790,7 +795,9 @@ def ibarrier(timeout=None, root=0, tag=123, comm=world):
     byte = np.ones(1, dtype=np.int8)
     if comm.rank == root:
         # Everybody else:
-        for rank in range(0, root) + range(root + 1, comm.size):
+        for rank in range(comm.size):
+            if rank == root:
+                continue
             rbuf, sbuf = np.empty_like(byte), byte.copy()
             requests.append(comm.send(sbuf, rank, tag=2 * tag + 0,
                                       block=False))

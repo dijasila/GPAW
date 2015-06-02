@@ -31,7 +31,7 @@ atoms.minimal_box(vac, h)
 if not SKIP_VAC_CALC:
     atoms.calc = GPAW(xc='PBE', h=h)
     Evac = atoms.get_potential_energy()
-    print Evac
+    print(Evac)
 else:
     Evac = -14.8628983897  # h = 0.24, vac = 4.0
 
@@ -40,17 +40,15 @@ atoms.calc = SolvationGPAW(
     cavity=EffectivePotentialCavity(
         effective_potential=Power12Potential(atomic_radii, u0),
         temperature=T,
-        surface_calculator=GradientSurface()
-        ),
+        surface_calculator=GradientSurface()),
     dielectric=LinearDielectric(epsinf=epsinf),
-    interactions=[SurfaceInteraction(surface_tension=st)]
-    )
+    interactions=[SurfaceInteraction(surface_tension=st)])
 Ewater = atoms.get_potential_energy()
 Eelwater = atoms.calc.get_electrostatic_energy()
 Esurfwater = atoms.calc.get_solvation_interaction_energy('surf')
 atoms.get_forces()
 DGSol = (Ewater - Evac) / (kcal / mol)
-print 'Delta Gsol: %s kcal / mol' % (DGSol, )
+print('Delta Gsol: %s kcal / mol' % DGSol)
 
 equal(DGSol, -6.3, 2.)
 equal(Ewater, Eelwater + Esurfwater, 1e-14)

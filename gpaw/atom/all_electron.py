@@ -322,7 +322,7 @@ class AllElectron:
         t('Converged in %d iteration%s.' % (niter, 's'[:niter != 1]))
 
         try:
-            fd = open(restartfile, 'w')
+            fd = open(restartfile, 'wb')
         except IOError:
             pass
         else:
