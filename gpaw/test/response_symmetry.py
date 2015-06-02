@@ -4,9 +4,7 @@ from ase import Atoms
 from ase.parallel import paropen
 
 from gpaw import GPAW, FermiDirac
-from gpaw.mpi import world
 from gpaw.wavefunctions.pw import PW
-from gpaw.xc.exx import EXX
 from gpaw.response.chi0 import Chi0
 from gpaw.test import equal
 
@@ -63,4 +61,4 @@ while len(data_s):
         for dat1, dat2 in zip(data1, data2):
             if dat1 is not None:
                 equal(np.abs(dat1 - dat2).max(),
-                      0, 1e-10, msg=msg)
+                      0, 1e-5, msg=msg)
