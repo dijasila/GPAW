@@ -13,6 +13,7 @@ from ase.utils.timing import timer, Timer
 import gpaw.mpi as mpi
 from gpaw import GPAW
 from gpaw.fd_operators import Gradient
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.occupations import FermiDirac
 from gpaw.response.math_func import (two_phi_planewave_integrals,
                                      two_phi_nabla_planewave_integrals)
@@ -265,14 +266,14 @@ class PWSymmetryAnalyzer:
         if self.disable_non_symmorphic:
             s_s = filter(self.is_not_non_symmorphic, s_s)
 
-        stmp_s = []
-        for s in s_s:
-            if self.kd.bz2bz_ks[0, s] == -1:
-                assert (self.kd.bz2bz_ks[:, s] == -1).all()
-            else:
-                stmp_s.append(s)
+#        stmp_s = []
+#        for s in s_s:
+#            if self.kd.bz2bz_ks[0, s] == -1:
+#                assert (self.kd.bz2bz_ks[:, s] == -1).all()
+#            else:
+#                stmp_s.append(s)
         
-        s_s = stmp_s
+#        s_s = stmp_s
 
         self.infostring += 'Found {0} allowed symmetries. '.format(len(s_s))
         self.s_s = s_s
@@ -315,6 +316,28 @@ class PWSymmetryAnalyzer:
         K_gk = [np.unique(K_s[K_s != nk]) for K_s in K_gs]
 
         return K_gk
+
+    def get_reduced_kd(self):
+        K_gK = self.group_kpoints()
+        
+        # XXX The smallest index is the best one, I think...
+        iK_k = []
+        for K_k in K_gK:
+            iK_k.append(np.min(K_k))
+            
+        ik_kc = self.kd.bzk_kc[iK_k]
+        
+        return KPointDescriptor(ik_kc)
+
+    def get_kpoint_weight(self, k_c):
+        K = self.kd.where_is_q(k_c, self.kd.bzk_kc)
+        iK = self.kd.bz2ibz_k[K]
+        K_k = self.unfold_ibz_kpoint(iK)
+        K_gK = self.group_kpoints(K_k)
+
+        for K_k in K_gK:
+            if K in K_k:
+                return len(K_k)
 
     def get_kpoint_mapping(self, K1, K2):
         """Get index of symmetry for mapping between K1 and K2"""
@@ -373,6 +396,8 @@ class PWSymmetryAnalyzer:
 
         # Inplace overwriting
         A_wGG[:] = tmp_wGG
+
+        A_wGG /= self.how_many_symmetries()
         
     def symmetrize_wxvG(self, A_wxvG):
         """Symmetrize chi0_wxvG"""
@@ -656,7 +681,7 @@ class PairDensity:
         print('Number of blocks:', self.blockcomm.size, file=self.fd)
 
     @timer('Get a k-point')
-    def get_k_point(self, s, K, n1, n2, block=False):
+    def get_k_point(self, s, K, n1, n2, load_wfs=True, block=False):
         """Return wave functions for a specific k-point and spin.
 
         s: int
@@ -689,6 +714,11 @@ class PairDensity:
             'Increase GS-nbands or decrease chi0-nbands!'
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
+
+        if not load_wfs:
+            return KPoint(s, K, n1, n2, blocksize, na, nb,
+                          None, eps_n, f_n, None, shift_c)
+
 
         psit_nG = kpt.psit_nG
         ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
@@ -892,38 +922,18 @@ class PairDensity:
                         yield (None, df_M, deps_M, n_MG, None, None)
                         
         pb.finish()
-
-    def integrate_pair_densities(self, k_c, pd, m1, m2, spins):
-        """A function that can be integrated."""
-        wfs = self.calc.wfs
-        K1 = wfs.where_is_q(k_c, wfs.kd.bzk_kc)        
-        q_c = pd.kd.bzk_kc[0]
-        Q_aGii = self.initialize_paw_corrections(pd)
-        self.Q_aGii = Q_aGii
-        
-        kptpair = self.get_kpoint_pair(pd, s, K1, n1, n2, m1, m2)
-        kpt1 = kptpair.get_k1()
-        kpt2 = kptpair.get_k2()
-        n_n = range(n2 - n1)
-        eps_n = kpt1.eps_n - self.fermi_level
-        eps_m = kpt2.eps_n - self.fermi_level
-
-        m_m = range(0, kpt2.n2 - kpt2.n1)
-        deps_nm = kptpair.get_transition_energies(n_n, m_m)
-        n_nmG, _, _ = self.get_pair_density(pd, kptpair, n_n, m_m)
-        n_nmG[deps_nm >= 0.0] = 0.0
-
-        return (eps_n, eps_m, n_nmG)
         
 
     @timer('Get kpoint pair')
-    def get_kpoint_pair(self, pd, s, K, n1, n2, m1, m2):
+    def get_kpoint_pair(self, pd, s, K, n1, n2, m1, m2,
+                        load_wfs=True, block=True):
         wfs = self.calc.wfs
         q_c = pd.kd.bzk_kc[0]
         with self.timer('get k-points'):
-            kpt1 = self.get_k_point(s, K, n1, n2)
+            kpt1 = self.get_k_point(s, K, n1, n2, load_wfs=load_wfs)
             K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(s, K2, m1, m2, block=True)
+            kpt2 = self.get_k_point(s, K2, m1, m2,
+                                    load_wfs=load_wfs, block=block)
 
         with self.timer('fft indices'):
             Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
@@ -936,8 +946,10 @@ class PairDensity:
                          optical_limit=False, intraband=False,
                          Q_aGii=None):
         """Get pair density for a kpoint pair."""
-        if optical_limit:
-            assert np.allclose(pd.kd.bzk_kc[0], 0.0)
+        ol = optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0)
+        cpd = self.calculate_pair_densities  # General pair densities
+        opd = self.optical_pair_density  # Interband pair densities / q
+        ipd = self.intraband_pair_density  # Intraband pair densities / q 
 
         if Q_aGii is None:
             Q_aGii = self.initialize_paw_corrections(pd)
@@ -945,33 +957,30 @@ class PairDensity:
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
         Q_G = kptpair.Q_G  # Fourier components of kpoint pair
+        nG = len(Q_G)
 
-        n_nmG = pd.empty((len(n_n), len(m_m)))
-        if optical_limit:
-            n_nmv = np.zeros((len(n_n), len(m_m), 3), pd.dtype)
-        else:
-            n_nmv = None
-
+        n_nmG = np.zeros((len(n_n), len(m_m), nG + 2 * ol), pd.dtype)
         for j, n in enumerate(n_n):
             Q_G = kptpair.Q_G
             with self.timer('conj'):
-                ut1cc_R = kpt1.ut_nR[n].conj()
+                ut1cc_R = kpt1.ut_nR[n - kpt1.na].conj()
             with self.timer('paw'):
-                C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
+                C1_aGi = [np.dot(Q_Gii, P1_ni[n - kpt1.na].conj())
                           for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-                n_nmG[j] = self.calculate_pair_densities(ut1cc_R,
-                                                         C1_aGi, kpt2,
-                                                         pd, Q_G)
+                n_nmG[j, :, 2 * ol:] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G)
+
             if optical_limit:
-                n_nmv[j] = self.optical_pair_density(n, m_m, kpt1, kpt2)
-                n_nmG[..., 0] = n_nmv[..., 0]
+                n_nmG[j, :, 0:3] = opd(n, m_m, kpt1, kpt2)
 
-        if intraband:
-            vel_mv = self.intraband_pair_density(kpt2)
-        else:
-            vel_mv = None
+        if intraband and optical_limit:
+            diagnm_n = filter(lambda x: x in n_n, m_m)
+            if len(diagnm_n):
+                vel_nv = ipd(kpt1, diagnm_n)
+                nm_n = [diagnm_n - np.min(n_n),
+                        diagnm_n - np.min(m_m)]
+                n_nmG[nm_n, 0:3] = vel_nv
 
-        return n_nmG, n_nmv, vel_mv
+        return n_nmG
 
     @timer('get_pair_momentum')
     def get_pair_momentum(self, pd, kptpair, n_n, m_m, Q_avGii=None):
@@ -1097,16 +1106,16 @@ class PairDensity:
         k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
 
-        ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n]
+        ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
         atomdata_a = self.calc.wfs.setups
-        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n])
+        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
         blockbands = kpt2.nb - kpt2.na
         n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
         nt_m = np.empty(kpt2.blocksize, dtype=complex)
         n0_mv[:blockbands] = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
-        nt_m[:blockbands] = self.calc.wfs.gd.integrate(kpt1.ut_nR[n],
+        nt_m[:blockbands] = self.calc.wfs.gd.integrate(kpt1.ut_nR[n - kpt1.na],
                                                        kpt2.ut_nR)
 
         n0_mv[:blockbands] += (1j * nt_m[:blockbands, np.newaxis]
@@ -1127,8 +1136,8 @@ class PairDensity:
         # Relative threshold for perturbation theory
         threshold = self.threshold
 
-        eps1 = kpt1.eps_n[n]
-        deps_m = (eps1 - kpt2.eps_n)[m_m]
+        eps1 = kpt1.eps_n[n - kpt1.na]
+        deps_m = (eps1 - kpt2.eps_n)[m_m - kpt2.na]
         
         n0_mv = self.optical_pair_velocity(n, m_m, kpt1, kpt2)
 
@@ -1146,15 +1155,19 @@ class PairDensity:
 
     @timer('Intraband')
     def intraband_pair_density(self, kpt, n_n=None,
-                               only_partially_occupied=True):
+                               only_partially_occupied=False):
         """Calculate intraband matrix elements of nabla"""
         # Bands and check for block parallelization
         na, nb, n1 = kpt.na, kpt.nb, kpt.n1
         vel_nv = np.zeros((nb - na, 3), dtype=complex)
         if n_n is None:
             n_n = range(na, nb)
-        assert np.max(n_n) < nb, print('This is too many bands')
-        
+
+        try:
+            assert np.max(n_n) < nb, print('This is too many bands')
+        except:
+            print(n_n, nb)
+            raise
         # Load kpoints
         kd = self.calc.wfs.kd
         gd = self.calc.wfs.gd
@@ -1165,8 +1178,6 @@ class PairDensity:
 
         # No carriers when T=0
         width = self.calc.occupations.width
-        if width == 0.0:
-            return None
 
         # Only works with Fermi-Dirac distribution
         assert isinstance(self.calc.occupations, FermiDirac)

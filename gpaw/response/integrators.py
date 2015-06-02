@@ -2,9 +2,13 @@ from __future__ import print_function, division
 
 import sys
 from time import ctime
+import itertools
 
 import numpy as np
+from scipy.spatial import Delaunay
+
 from ase.units import Hartree
+from ase.utils import devnull
 from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi
@@ -31,31 +35,20 @@ def theta(x):
     return 0.5 * (np.sign(x) + 1)
 
 class Integrator():
-    def __init__(self, kd, gd, n1, n2, m1, m2, ns, comm=mpi.world,
+    def __init__(self, gd, comm=mpi.world,
                  txt=sys.stdout, timer=None,  nblocks=1):
         """Baseclass for Brillouin zone integration and band summation.
         
         Simple class to calculate integrals over Brilloun zones
         and summation of bands.
         
-        kd: KPointDescriptor
-        n1: int
-        n2: int
-        m1: int
-        m2: int
         comm: mpi.communicator
         nblocks: block parallelization
         """
 
-        self.n1 = n1
-        self.n2 = n2
-        self.m1 = m1
-        self.m2 = m2
-        self.kd = kd
-        self.ns = ns
+        self.gd = gd
         self.comm = comm
         self.nblocks = nblocks
-        self.gd = gd
 
         if nblocks == 1:
             self.blockcomm = self.comm.new_communicator([comm.rank])
@@ -78,46 +71,70 @@ class Integrator():
         self.A_cv = self.gd.cell_cv
         self.iA_cv = self.gd.icell_cv
         self.vol = abs(np.linalg.det(self.A_cv))
-        self.prefactor = 2 / self.vol / self.kd.nbzkpts / len(self.ns)
 
-    def distribute_integral(self, kpts=None):
+    def distribute_domain(self, domain_dl):
+        """Distribute integration domain. """
+        domainsize = [len(domain_l) for domain_l in domain_dl]
+        nterms = np.prod(domainsize)
+        size = self.kncomm.size
+        rank = self.kncomm.rank
+
+        n = (nterms + size - 1) // size
+        i1 = rank * n
+        i2 = min(i1 + n, nterms)
+        mydomain = []
+        for i in range(i1, i2):
+            unravelled_d = np.unravel_index(i, domainsize)
+            arguments = []
+            for domain_l, index in zip(domain_dl, unravelled_d):
+                arguments.append(domain_l[index])
+            mydomain.append(tuple(arguments))
+
+        print('Distributing domain %s' % (domainsize, ),
+              'over %d process%s' %
+              (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
+              file=self.fd)
+        print('Number of blocks:', self.blockcomm.size, file=self.fd)
+
+        return mydomain
+
+    def distribute_integral(self, spins, kpts, n1, n2):
         """Distribute spins, k-points and bands.
 
         The attribute self.mysKn1n2 will be set to a list of (s, K, n1, n2)
         tuples that this process handles.
         """
 
-        if kpts is None:
-            kpts = range(self.kd.nbzkpts)
-
-        band1 = self.n1
-        band2 = self.n2
+        band1 = n1
+        band2 = n2
         nbands = band2 - band1
         size = self.kncomm.size
         rank = self.kncomm.rank
-        ns = len(self.ns)
+        ns = len(spins)
         nk = len(kpts)
         n = (ns * nk * nbands + size - 1) // size
         i1 = rank * n
         i2 = min(i1 + n, ns * nk * nbands)
 
-        self.mysKn1n2 = []
+        mysKn1n2 = []
         i = 0
         for s in range(ns):
             for K in kpts:
-                n1 = min(max(0, i1 - i), nbands)
-                n2 = min(max(0, i2 - i), nbands)
-                if n1 != n2:
-                    self.mysKn1n2.append((s, K, n1 + band1, n2 + band1))
+                n1tmp = min(max(0, i1 - i), nbands)
+                n2tmp = min(max(0, i2 - i), nbands)
+                if n1tmp != n2tmp:
+                    mysKn1n2.append((s, K, n1tmp + band1,
+                                     n2tmp + band1))
                 i += nbands
 
-        print('BZ k-points:', self.kd.description, file=self.fd)
         print('Distributing spins, k-points and bands (%d x %d x %d)' %
               (ns, nk, nbands),
               'over %d process%s' %
               (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
               file=self.fd)
         print('Number of blocks:', self.blockcomm.size, file=self.fd)
+
+        return mysKn1n2
     
     def integrate(self, driver=None, *args, **kwargs):
         """Integration method wrapper."""
@@ -171,7 +188,7 @@ class BroadeningIntegrator(Integrator):
 
         Integrator.__init__(self, *args, **kwargs)
         self.eta = eta
-        self.distribute_integral()
+        self.mysKn1n2 = self.distribute_integral()
         self.prefactor = 2 / self.vol / self.kd.nbzkpts / len(self.ns)
 
     def get_integration_function(self, kind=None):
@@ -383,154 +400,187 @@ class TetrahedronIntegrator(Integrator):
     between the vertices of the tetrahedron."""
     def __init__(self, *args, **kwargs):
         Integrator.__init__(self, *args, **kwargs)
-        self.indices_t = self.tetrahedralize()
 
-        # Parallelize over tetrahedrons
-        self.distribute_integral(kpts=range(len(self.indices_t)))
-        self.prefactor = 2 / (len(self.ns) * (2 * np.pi)**3)
+    def tesselate(self, vertices):
+        """Get tesselation descriptor."""
 
-    def tetrahedralize(self):
-        """Determine kpoint indices for tetrahedrons.
+        td = Delaunay(vertices)
 
-        Assumes monkhorst pack grid! """
+        return td
 
-        bzk_kc = self.kd.bzk_kc
-        N_c = self.kd.N_c
-        k_kkkc = np.reshape(bzk_kc, (N_c[0], N_c[1], N_c[2], 3))
+    def get_simplex_volume(self, td, S):
+        """Get volume of simplex S"""
+        
+        K_k = td.simplices[S]
+        k_kc = td.points[K_k]
+        k_kv = np.dot(k_kc, self.iA_cv) * 2 * np.pi
+        vol = np.abs(np.linalg.det(k_kv[1:] - k_kv[0])) / 6.
 
-        # Storing indices in this
-        indices_t = []
+        return vol
 
-        # Iterating through submesh unit cell
-        for i in range(N_c[0] - 1):
-            for j in range(N_c[1] - 1):
-                for l in range(N_c[2] - 1):
-                    K_k = [np.ravel_multi_index((i + t, j + u, l + v), N_c)
-                               for v in range(2) for u in range(2)
-                               for t in range(2)]
-
-                    # The six tetrahedrons of this microcell
-                    K_tk = [sorted([K_k[0], K_k[1], K_k[2], K_k[5]]),
-                            sorted([K_k[0], K_k[4], K_k[2], K_k[5]]),
-                            sorted([K_k[2], K_k[4], K_k[5], K_k[6]]),
-                            sorted([K_k[1], K_k[2], K_k[3], K_k[5]]),
-                            sorted([K_k[2], K_k[3], K_k[5], K_k[7]]),
-                            sorted([K_k[2], K_k[5], K_k[6], K_k[7]])]
-                           
-                    for K_k in K_tk:
-                        k_kc = self.kd.bzk_kc[K_k]
-                        k_kv = np.dot(k_kc, self.iA_cv) * 2 * np.pi
-                        vol = np.abs(np.linalg.det(k_kv[1:] - k_kv[0])) / 6.
-                        indices_t.append((K_k, vol))
-                    
-        return indices_t
-
-    def get_integration_function(self, kind=None):
-        if kind is None:
-            return self.pointwise_integration
-        elif kind is 'response_function':
-            return self.response_function_integration
+    def integrate(self, kind, *args, **kwargs):
+        if kind is 'response_function':
+            return self.response_function_integration(*args, **kwargs)
         else:
             raise NotImplementedError
-            
-    def response_function_integration(self, func, omega_w, out_wxx, cy=False):
-        bzk_kc = self.kd.bzk_kc
-        funcvals_k = {}
+
+    @timer('Response function integration')
+    def response_function_integration(self, domain, functions, wd,
+                                      kwargs=None, out_wxx=None):
+        """Integrate response function.
+        
+        Assume that the integral has the
+        form of a response function. For the linear tetrahedron
+        method it is possible calculate frequency dependent weights
+        and do a point summation using these weights."""
+
+        # Input domain
+        td = domain[0]
+        args = domain[1:]
+        get_matrix_element, get_eigenvalues = functions
+
+        # The kwargs contain any constant
+        # arguments provided by the user
+        if kwargs is not None:
+            get_matrix_element = partial(get_matrix_element, **kwargs[0])
+            get_eigenvalues = partial(get_eigenvalues, **kwargs[1])
+        
+        # Relevant quantities
+        bzk_kc = td.points
+        nk = len(bzk_kc)
+        nw = len(wd)
+
+        # Distribute integral summation
+        myterms = self.distribute_domain([range(nk)] + list(args))
+
+        # Calculate integrations weight
         pb = ProgressBar(self.fd)
-        for _, (s, T, n1, n2) in pb.enumerate(self.mysKn1n2):
-            indices_k, vol = self.indices_t[T]
 
-            # Calculate new function values
-            for index in indices_k:
-                if index not in funcvals_k:
-                    k_c = bzk_kc[index]
-                    n_nmG, e_n, e_m, f_n, f_m = func(s, k_c, n1, n2, self.m1, self.m2)
+        # Treat each terms by itself
+        for _, arguments in pb.enumerate(myterms):
+            # Assuming calculation of weights is cheap
+            K = arguments[0]
 
-                    nG = n_nmG.shape[-1]
-                    de_M = np.ascontiguousarray(np.ravel(e_m[np.newaxis, :]
-                                                         - e_n[:, np.newaxis]))
-                    df_M = np.ascontiguousarray(np.ravel(f_n[np.newaxis, :]
-                                                         - f_m[:, np.newaxis]))
-                    n_MG = np.ascontiguousarray(n_nmG.reshape((-1, nG)))
-                    funcvals_k[index] = (n_MG, de_M, df_M)
+            with self.timer('Calculate weights'):
+                I_SMw = []
+                for S in range(td.nsimplex):
+                    K_k = td.simplices[S]
+                    if K not in K_k:
+                        continue
 
-            # Function vales at tetrahedron vertices
-            tetfuncvals_k = {}
-            for i, index in enumerate(indices_k):
-                tetfuncvals_k[i] = funcvals_k[index]
+                    vol = self.get_simplex_volume(td, S)
+                    deps_kM = []
 
-            if cy:
-                self.charlesworth_yeung_integrate(tetfuncvals_k, omega_w, out_wxx)
-            else:
-                self.tetrahedron_integration(tetfuncvals_k, omega_w, vol, out_wxx)
-                
+                    with self.timer('get_eigenvalues'):
+                        for Ks in K_k:
+                            k_c = bzk_kc[Ks]
+                            deps_M = get_eigenvalues(k_c, *arguments[1:])
+                            deps_kM.append(deps_M)
+
+                    Itmp_KMw = self.calculate_integration_weights(wd,
+                                                                  deps_kM,
+                                                                  vol)
+                    for ik, I_Mw in enumerate(Itmp_KMw):
+                        if K_k[ik] == K:
+                            I_SMw.append(I_Mw)
+
+
+            with self.timer('Integrate'):
+                # Integrate values
+                k_c = bzk_kc[K]
+                n_MG = get_matrix_element(k_c, *arguments[1:])
+
+                for I_Mw in I_SMw:
+                    for n_G, I_w in zip(n_MG, I_Mw):
+                        i0 = I_w[0]
+                        weight_w = I_w[1]
+                        for iw, weight in enumerate(weight_w):
+                            czher(weight, n_G.conj(), out_wxx[i0 + iw])
+
         self.kncomm.sum(out_wxx)
 
-        with self.timer('Kramers-Kronig transform'):
-            ht = HilbertTransform(omega_w, 1e-4)
-            ht(out_wxx)
+        prefactor = 1 / (2 * np.pi)**3
+        out_wxx *= prefactor
 
-        out_wxx *= self.prefactor
+        self.timer.write()
 
-    def tetrahedron_integration(self, funcvals_k, omega_w, vol, out_wxx):
-        """Tetrahedron integration."""
+    @timer('Single simplex weight')
+    def calculate_integration_weights(self, wd, deps_kM, vol):
+        """Calculate the integration weights."""
+        nM = len(deps_kM[0])
+        nw = len(wd)
+        omega_w = wd.get_data()
 
-        n_kMG = np.array([funcvals_k[i][0] for i in range(4)])
-        de_kM = np.array([funcvals_k[i][1] for i in range(4)])
-        df_kM = np.array([funcvals_k[i][2] for i in range(4)])
+        f = lambda o, de1, de2: (o - de2) / (de1 - de2)
 
-        nM = len(de_kM[0])
-        nw = len(omega_w)
-        # sort energies
+        I_KMw = [[] for j in range(4)]
         for M in range(nM):
-            permute = np.argsort(de_kM[:, M])
-            de_kM[:, M] = de_kM[permute, M]
-            n_kMG[:, M] = n_kMG[permute, M]
-            df_kM[:, M] = df_kM[permute, M]
+            de_k = np.array([deps_kM[ik][M] for ik in range(4)])
+            permute = np.argsort(de_k)
+            de_k = de_k[permute]
 
-        inds0_wM = np.argwhere((de_kM[0][np.newaxis, :] < omega_w[:, np.newaxis]) &
-                              (omega_w[:, np.newaxis] < de_kM[1][np.newaxis, :]))
-        inds1_wM = np.argwhere((de_kM[1][np.newaxis, :] < omega_w[:, np.newaxis]) &
-                               (omega_w[:, np.newaxis] < de_kM[2][np.newaxis, :]))
-        inds2_wM = np.argwhere((de_kM[2][np.newaxis, :] < omega_w[:, np.newaxis]) &
-                               (omega_w[:, np.newaxis] < de_kM[3][np.newaxis, :]))
+            # Frequency ranges from i0 to i3
+            i0 = wd.get_closest_index(de_k[0])
+            i3 = wd.get_closest_index(de_k[3]) + 1
 
-        I_wkM = np.zeros((nw, 4, nM), float)
+            I_wk = np.zeros((i3 - i0, 4), float)
 
-        for case, inds_wm in enumerate([inds0_wM, inds1_wM, inds2_wM]):
-            for iw, M in inds_wm:
+            for iw in range(i0, i3):
                 omega = omega_w[iw]
-                f_kk = ((omega - de_kM[:, M][np.newaxis]) /
-                        (de_kM[:, M][:, np.newaxis] - de_kM[:, M][np.newaxis]))
 
-                if case == 0:
-                    ni = f_kk[1, 0] * f_kk[2, 0] * f_kk[3, 0]
-                    gi = 3 * ni / (omega - de_kM[0, M])
-                    I_wkM[iw, 0, M] = 1. / 3 * (f_kk[0, 1] + f_kk[0, 2] + f_kk[0, 3])
-                    I_wkM[iw, 1:, M] = 1. / 3 * f_kk[1:, 0]
-                elif case == 1:
-                    delta_kk =  (de_kM[:, np.newaxis, M] - de_kM[np.newaxis, :, M])
-                    gi = 3. / delta_kk[3, 0] * (f_kk[1, 2] * f_kk[2, 0] +
-                                                f_kk[2, 1] * f_kk[1, 3])
-                    I_wkM[iw, :, M] = (f_kk[([0, 1, 2, 3], [3, 2, 1, 0])] / 3. +
-                                       f_kk[([0, 1, 2, 3], [2, 3, 0, 1])] * 
-                                       f_kk[([2, 1, 2, 1], [0, 3, 0, 3])] *
-                                       f_kk[([1, 2, 1, 2], [2, 1, 2, 1])] *
-                                       (gi * delta_kk[3, 0])) * gi
-                elif case == 2:
-                    ni = (1 - f_kk[0, 3] * f_kk[1, 3] * f_kk[2, 3])
-                    gi = 3. * (1 - ni) / (de_kM[3, M] - omega)
-                    I_wkM[iw, :, M] = f_kk[:, 3] * gi
-                    I_wkM[iw, 3, M] = (f_kk[3, 0] + f_kk[3, 1] + f_kk[3,2]) / 3. * gi
+                if de_k[0] < omega <= de_k[1]:
+                    case = 0
+                elif de_k[1] < omega <= de_k[2]:
+                    case = 1
+                elif de_k[2] < omega < de_k[3]:
+                    case = 2
+                else:
+                    continue
 
-        for ik in range(4):
-            n_MG = n_kMG[ik]
-            df_M = df_kM[ik]
-            for iw in range(nw):
-                I_M = I_wkM[iw, ik]
-                nx_MG = (df_M * I_M)[:, np.newaxis] * n_MG
-                mmm(vol, nx_MG, 'c', n_MG, 'n', 1.0, out_wxx[iw])
-        
+                gi, I_k = self.get_kpoint_weight(omega, de_k, case)
+                I_wk[iw - i0, permute] = vol * gi * I_k
+
+            with self.timer('append'):
+                for K in range(4):
+                    I_KMw[K].append((i0, I_wk[:, K]))
+
+        return I_KMw
+
+    @timer('get_kpoint_weight')
+    def get_kpoint_weight(self, omega, de_k, case):
+        I_k = np.empty(4, float)
+        f_kk = np.empty((4, 4), float)
+
+        if case == 0:
+            f_kk[1:, 0] = (omega - de_k[0]) / (de_k[1:] - de_k[0])
+            f_kk[0, 1:] = 1 - f_kk[1:, 0]
+            ni = f_kk[1, 0] * f_kk[2, 0] * f_kk[3, 0]
+            gi = 3 * ni / (omega - de_k[0])
+            I_k[0] = 1. / 3 * (f_kk[0, 1] + f_kk[0, 2] + f_kk[0, 3])
+            I_k[1:] = 1. / 3 * f_kk[1:, 0]
+        elif case == 1:
+            f_kk[2:, :2] = ((omega - de_k[:2][np.newaxis]) /
+                            (de_k[2:][:, np.newaxis]
+                             - de_k[:2][np.newaxis]))
+            f_kk[:2, 2:] = 1 - f_kk[2:, :2].T
+            delta = de_k[3] - de_k[0]
+            gi = 3. / delta * (f_kk[1, 2] * f_kk[2, 0] +
+                               f_kk[2, 1] * f_kk[1, 3])
+            I_k[:] = (f_kk[([0, 1, 2, 3], [3, 2, 1, 0])] / 3. +
+                      f_kk[([0, 1, 2, 3], [2, 3, 0, 1])] *
+                      f_kk[([2, 1, 2, 1], [0, 3, 0, 3])] *
+                      f_kk[([1, 2, 1, 2], [2, 1, 2, 1])] *
+                      (gi * delta))
+        elif case == 2:
+            f_kk[:3, 3] = (omega - de_k[3]) / (de_k[:3] - de_k[3])
+            f_kk[3, :3] = 1 - f_kk[:3, 3]
+            ni = (1 - f_kk[0, 3] * f_kk[1, 3] * f_kk[2, 3])
+            gi = 3. * (1 - ni) / (de_k[3] - omega)
+            I_k[:3] = f_kk[:3, 3]
+            I_k[3] = (f_kk[3, 0] + f_kk[3, 1] + f_kk[3,2]) / 3.
+
+        return gi, I_k
+
 
 class HilbertTransform:
     def __init__(self, omega_w, eta, timeordered=False, gw=False,

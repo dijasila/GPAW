@@ -205,9 +205,9 @@ class DielectricFunction:
                 d_v = direction
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             W = slice(self.w1, self.w2)
-            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+#            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
+#            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
+#            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
         
         G_G /= (4 * pi)**0.5
 
@@ -283,10 +283,10 @@ class DielectricFunction:
 
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             W = slice(self.w1, self.w2)
-            if add_intraband:
-                chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-                chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-                chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+#            if add_intraband:
+#                chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
+#                chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
+#                chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
             if q0 is not None:
                 print('Restoring q dependence of head and wings of chi0')
                 chi0_wGG[:, 1:, 0] *= q0
