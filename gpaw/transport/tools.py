@@ -1027,14 +1027,15 @@ def save_bias_data_file(Lead1, Lead2, Device):
     vt_sG = ham.gd.collect(ham.vt_sG) 
     vt_sG_L = hamL.gd.collect(hamL.vt_sG)
     vt_sG_R = hamR.gd.collect(hamR.vt_sG)
-    vt_sG_L += (Ef - Ef_L) / Hartree
-    vt_sG_R += (Ef - Ef_R) / Hartree
-    vt_sG=np.append(vt_sG_L, vt_sG,axis=3)
-    vt_sG=np.append(vt_sG,vt_sG_R,axis=3)
     dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups,
                                      ham.nspins, ham.gd.comm,
                                      density.atom_partition)
-    pickle.dump(([0.0,0,0], vt_sG, dH_asp), file('bias_data1','wb'),2)
+    if world.rank == 0:
+        vt_sG_L += (Ef - Ef_L) / Hartree
+        vt_sG_R += (Ef - Ef_R) / Hartree
+        vt_sG=np.append(vt_sG_L, vt_sG,axis=3)
+        vt_sG=np.append(vt_sG,vt_sG_R,axis=3)
+        pickle.dump(([0.0,0,0], vt_sG, dH_asp), file('bias_data1','wb'),2)
 
 def find(condition, flag=0):
     if flag == 1: # return an int
