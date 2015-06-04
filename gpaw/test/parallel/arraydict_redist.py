@@ -44,7 +44,7 @@ def check(atomdict, title):
 
     items = atomdict.items()
 
-    for i, (key, item) in enumerate(atomdict.iteritems()):
+    for i, (key, item) in enumerate(atomdict.items()):
         assert item is atomdict[key]
         assert item is ref[key]
         assert items[i][0] == key

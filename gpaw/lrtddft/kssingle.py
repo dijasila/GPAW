@@ -128,7 +128,7 @@ class KSSingles(ExcitationList):
         ispins = [0]
         nks = wfs.kd.nks
         if self.nvspins < 2:
-            if nspins > self.nvspins:
+            if nspins or 0 > self.nvspins:
                 self.npspins = nspins
                 fijscale = 0.5
                 ispins = [0, 1]

@@ -1,15 +1,14 @@
+import numbers
 import os
-import time
 import tarfile
+import time
 import xml.sax
 
 import numpy as np
 
+from gpaw.io import FileReference
 from gpaw.mpi import broadcast as mpi_broadcast
 from gpaw.mpi import world
-
-from gpaw.io import FileReference
-
 
 intsize = 4
 floatsize = np.array([1], float).itemsize
@@ -220,7 +219,7 @@ class TarFileReference(FileReference):
                                           'with [:] or [int]')
             else:
                 indices = ()
-        elif isinstance(indices, int):
+        elif isinstance(indices, numbers.Integral):
             indices = (indices,)
         else:  # Probably tuple or ellipsis
             raise NotImplementedError('You can only slice a TarReference '

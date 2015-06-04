@@ -148,10 +148,10 @@ def parse_upf(fname):
     # Convert to Hartree from Rydberg.
     pp['vlocal'] = 0.5 * toarray(root.find('PP_LOCAL'))
     
-    nonlocal = root.find('PP_NONLOCAL')
+    non_local = root.find('PP_NONLOCAL')
     
     pp['projectors'] = []
-    for element in nonlocal:
+    for element in non_local:
         if element.tag.startswith('PP_BETA'):
             if '.' in element.tag:
                 name, num = element.tag.split('.')

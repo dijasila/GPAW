@@ -90,7 +90,7 @@ class Basis:
 
         generatorattrs = ' '.join(['%s="%s"' % (key, value)
                                    for key, value
-                                   in self.generatorattrs.iteritems()])
+                                   in self.generatorattrs.items()])
         write('  <generator %s>' % generatorattrs)
         for line in self.generatordata.split('\n'):
             write('\n    '+line)
@@ -292,7 +292,7 @@ class BasisPlotter:
 
         print()
         print('Generator')
-        for key, item in basis.generatorattrs.iteritems():
+        for key, item in basis.generatorattrs.items():
             print('   ', key, ':', item)
         print()
         print('Generator data')

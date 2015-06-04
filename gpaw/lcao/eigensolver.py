@@ -29,7 +29,7 @@ class DirectLCAO:
         
     @error.setter
     def error(self, e):
-        assert e == 0.0
+        pass
         
     def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt, Vt_xMM=None,
                                      root=-1, add_kinetic=True):

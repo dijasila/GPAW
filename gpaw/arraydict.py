@@ -1,10 +1,10 @@
 import numpy as np
-import collections
 
 
 class DefaultKeyMapping:
     def a2key(self, a):
         return a
+
     def key2a(self, key):
         return key
 
@@ -36,7 +36,7 @@ class ArrayDict(dict):
         self.partition = partition
         if callable(shapes_a):
             shapes_a = [shapes_a(a) for a in range(self.partition.natoms)]
-        self.shapes_a = shapes_a # global
+        self.shapes_a = shapes_a  # global
         assert len(shapes_a) == partition.natoms
         self.dtype = dtype
 
@@ -144,7 +144,6 @@ class ArrayDict(dict):
         
         #assert subpartition.comm.parent == self.partition.comm
         from gpaw.utilities.partition import AtomPartition
-        from gpaw.mpi import world
 
         newrank_a = self.partition.rank_a % dist_comm.size
         masters_only_partition = AtomPartition(self.partition.comm, newrank_a)
@@ -174,12 +173,9 @@ class ArrayDict(dict):
     def values(self):
         return [self[key] for key in self]
 
-    def iteritems(self):
+    def items(self):
         for key in self:
             yield key, self[key]
-
-    def items(self):
-        return list(self.iteritems())
 
     def __repr__(self):
         tokens = []

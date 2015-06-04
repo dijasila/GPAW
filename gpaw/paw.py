@@ -1015,7 +1015,7 @@ class PAW(PAWTextOutput):
             self.scf.converged = False
 
             # is the density ok ?
-            error = self.density.mixer.get_charge_sloshing()
+            error = self.density.mixer.get_charge_sloshing() or 0.0
             criterion = (self.input_parameters['convergence']['density']
                          * self.wfs.nvalence)
             if error < criterion and not self.hamiltonian.xc.orbital_dependent:
@@ -1023,7 +1023,8 @@ class PAW(PAWTextOutput):
 
             self.calculate()
 
-    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None, expert=False):
+    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None,
+                                     expert=False):
         self.wfs.diagonalize_full_hamiltonian(self.hamiltonian, self.atoms,
                                               self.occupations, self.txt,
                                               nbands, scalapack, expert)

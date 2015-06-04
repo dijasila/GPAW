@@ -464,7 +464,7 @@ class Transport(GPAW):
                 #pl_params['parallel'].update(band=self.wfs.bd.comm.size, domain=self.wfs.gd.parsize_c)
                 #parprint('>>> self.input_parameters[parallel] updated {0}'.format(pl_params['parallel']))
                 #parprint('>>> pl_params <<<')
-                for k,v in pl_params.iteritems():
+                for k,v in pl_params.items():
                     parprint(' k: {0} v: {1}'.format(k,v))
                 depricated_keys = ['parsize', 'parsize_bands', 'parstride_bands', 'filter']
                 for k in depricated_keys:

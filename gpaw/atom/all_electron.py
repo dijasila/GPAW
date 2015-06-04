@@ -565,8 +565,8 @@ class AllElectron:
                           self.scalarrel)
             # adjust eigenenergy until u has the correct number of nodes
             while nn != nodes:
-                diff = cmp(nn, nodes)
-                while diff == cmp(nn, nodes):
+                diff = np.sign(nn - nodes)
+                while diff == np.sign(nn - nodes):
                     e -= diff * delta
                     nn, A = shoot(u, l, vr, e, self.r2dvdr, r, dr, c10, c2,
                                   self.scalarrel)

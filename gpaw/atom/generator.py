@@ -977,7 +977,7 @@ class Generator(AllElectron):
             print('\n  </%s>' % name, file=xml)
 
         # Print xc-specific data to setup file (used so for KLI and GLLB)
-        for name, a in extra_xc_data.iteritems():
+        for name, a in extra_xc_data.items():
             newname = 'GLLB_'+name
             print('  <%s grid="g1">\n    ' % newname, end=' ', file=xml)
             for x in a:

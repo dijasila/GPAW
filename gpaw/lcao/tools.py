@@ -461,7 +461,7 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
 
     # Load orbitals on master and distribute to slaves
     if world.rank == MASTER:
-        wglobal_wG, P_awi = pickle.load(open(orbitalfile))
+        wglobal_wG, P_awi = pickle.load(open(orbitalfile, 'rb'))
         Nw = len(wglobal_wG)
         print('Estimated total (serial) mem usage: %0.3f GB' % (
             np.prod(gd.N_c) * Nw**2 * 8 / 1024.**3))
@@ -552,8 +552,8 @@ def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     calc = GPAW(gpwfile, txt=None, communicator=serial_comm)
     spos_ac = calc.get_atoms().get_scaled_positions() % 1.0
     coulomb = Coulomb(calc.wfs.gd, calc.wfs.setups, spos_ac, fft)
-    w_wG, P_awi = pickle.load(open(orbitalfile))
-    eps_q, U_pq = pickle.load(open(rotationfile))
+    w_wG, P_awi = pickle.load(open(orbitalfile, 'rb'))
+    eps_q, U_pq = pickle.load(open(rotationfile, 'rb'))
     del calc
 
     # Make rotation matrix divided by sqrt of norm

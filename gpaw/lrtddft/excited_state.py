@@ -52,7 +52,7 @@ class FiniteDifferenceCalculator(Calculator):
                 prnt('#', (self.__class__.__name__ + ':'),
                      'Serial calculation, keyword parallel ignored.',
                      file=self.txt)
-        elif parallel > 0:
+        elif parallel:
             mycomm, ncalcs, icalc = distribute_cpus(parallel, world)
             if not isinstance(ncalcs, int):
                 # this is ase < r3431

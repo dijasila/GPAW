@@ -10,7 +10,7 @@ class KPointContainer:
     def set(self, **kwargs):
         """Set attributes from the provided keyword arguments."""
 
-        for key, value in kwargs.iteritems():
+        for key, value in kwargs.items():
             
             assert isinstance(key, str)
             setattr(self, key, value)

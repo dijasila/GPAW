@@ -557,7 +557,7 @@ def plot_many(*symbols):
 
 
 def parse_default_setups():
-    from hgh_parameters import parameters
+    from gpaw.hgh_parameters import parameters
     lines = parameters.splitlines()
     setups0 = parse_setups(lines)
     for key, value in setups0.items():
