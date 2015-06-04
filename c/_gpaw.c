@@ -236,6 +236,7 @@ extern PyTypeObject GPAW_MPI_Request_type;
 extern PyTypeObject LFCType;
 extern PyTypeObject LocalizedFunctionsType;
 extern PyTypeObject OperatorType;
+extern PyTypeObject WOperatorType;
 extern PyTypeObject SplineType;
 extern PyTypeObject TransformerType;
 extern PyTypeObject XCFunctionalType;
@@ -272,6 +273,8 @@ static PyObject* moduleinit(void)
     return NULL;
   if (PyType_Ready(&OperatorType) < 0)
     return NULL;
+  if (PyType_Ready(&WOperatorType) < 0)
+    return NULL;
   if (PyType_Ready(&SplineType) < 0)
     return NULL;
   if (PyType_Ready(&TransformerType) < 0)
@@ -300,6 +303,7 @@ static PyObject* moduleinit(void)
   Py_INCREF(&LFCType);
   Py_INCREF(&LocalizedFunctionsType);
   Py_INCREF(&OperatorType);
+  Py_INCREF(&WOperatorType);
   Py_INCREF(&SplineType);
   Py_INCREF(&TransformerType);
   Py_INCREF(&XCFunctionalType);
