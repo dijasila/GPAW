@@ -135,7 +135,7 @@ class Reader(xml.sax.handler.ContentHandler):
             try:
                 value = eval(attrs['value'], {})
             except (SyntaxError, NameError):
-                value = attrs['value'].encode()
+                value = str(attrs['value'])
             self.parameters[attrs['name']] = value
 
     def dimension(self, name):

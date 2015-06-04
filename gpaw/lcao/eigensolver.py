@@ -23,10 +23,14 @@ class DirectLCAO:
     def reset(self):
         pass
 
+    @property
     def error(self):
         return 0.0
-    error = property(error)
-
+        
+    @error.setter
+    def error(self, e):
+        assert e == 0.0
+        
     def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt, Vt_xMM=None,
                                      root=-1, add_kinetic=True):
         # XXX document parallel stuff, particularly root parameter

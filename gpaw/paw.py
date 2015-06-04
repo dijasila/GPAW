@@ -13,7 +13,6 @@ import numpy as np
 from ase.units import Bohr, Hartree
 from ase.dft.kpoints import monkhorst_pack
 from ase.calculators.calculator import kptdensity2monkhorstpack
-from ase.utils import basestring
 from ase.utils.timing import Timer
 
 import gpaw.io

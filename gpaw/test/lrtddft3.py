@@ -4,7 +4,6 @@ import re
 
 import numpy as np
 
-from ase.visualize import view
 from ase.structure import molecule
 from ase.units import Hartree
 from gpaw import GPAW
@@ -13,7 +12,10 @@ from gpaw.test import equal
 from gpaw.gauss import Gauss
 from gpaw.lrtddft import LrTDDFT, photoabsorption_spectrum
 from gpaw.lrtddft.kssingle import KSSingles
-from io import StringIO
+try:
+    from StringIO import StringIO  # Python 2
+except ImportError:
+    from io import StringIO
 
 L = 10.0
 txt=None
@@ -25,8 +27,8 @@ N2.set_cell([L, L, L])
 N2.center()
 
 try:
-    calc = GPAW('N2_wfs.gpw', 
-                txt=txt, 
+    calc = GPAW('N2_wfs.gpw',
+                txt=txt,
                 parallel={'domain': world.size})
     calc.converge_wave_functions()
 except:
@@ -88,7 +90,7 @@ if rank == 0:
     origstdout = sys.stdout
     sys.stdout = sio = StringIO()
     lr.analyse(n)
-    s = sio.getvalue() 
+    s = sio.getvalue()
     sys.stdout = origstdout
     match = re.findall(r'%i: E=([0-9]*\.[0-9]*) eV, f=([0-9]*\.[0-9]*)*' % n, s)
     Eanalyse = float(match[0][0])
@@ -101,14 +103,14 @@ if rank == 0:
     osz2 = lr2[n].get_oscillator_strength()
     print('Written and read object:', E2, osz2[0])
     
-    # Compare values of original and written/read objects   
+    # Compare values of original and written/read objects
     equal(E, E2, 1e-4)
     for i in range(len(osz)):
         equal(osz[i], osz2[i], 1.7e-4)
 
     width = 0.05
-    photoabsorption_spectrum(lr, 
-                             spectrum_file = 'lrtddft3-spectrum.dat', 
+    photoabsorption_spectrum(lr,
+                             spectrum_file = 'lrtddft3-spectrum.dat',
                              width = width)
     # We need to be able to check the heights in the spectrum
     weight = Gauss(width).get(0)

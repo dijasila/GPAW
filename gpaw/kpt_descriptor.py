@@ -91,18 +91,20 @@ class KPointDescriptor:
             self.bzk_kc = np.zeros((1, 3))
             self.N_c = np.array((1, 1, 1), dtype=int)
             self.offset_c = np.zeros(3)
-        elif isinstance(kpts[0], int):
-            self.bzk_kc = monkhorst_pack(kpts)
-            self.N_c = np.array(kpts, dtype=int)
-            self.offset_c = np.zeros(3)
         else:
-            self.bzk_kc = np.array(kpts, float)
-            try:
-                self.N_c, self.offset_c = \
-                    get_monkhorst_pack_size_and_offset(self.bzk_kc)
-            except ValueError:
-                self.N_c = None
-                self.offset_c = None
+            kpts = np.array(kpts)
+            if kpts.ndim == 1:
+                self.N_c = kpts.astype(int)
+                self.bzk_kc = monkhorst_pack(self.N_c)
+                self.offset_c = np.zeros(3)
+            else:
+                self.bzk_kc = kpts
+                try:
+                    self.N_c, self.offset_c = \
+                        get_monkhorst_pack_size_and_offset(self.bzk_kc)
+                except ValueError:
+                    self.N_c = None
+                    self.offset_c = None
 
         self.collinear = collinear
         self.nspins = nspins

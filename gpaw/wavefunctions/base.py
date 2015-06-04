@@ -93,6 +93,8 @@ class WaveFunctions(EmptyWaveFunctions):
     def __bool__(self):
         return True
 
+    __nonzero__ = __bool__  # for Python 2
+
     def calculate_density_contribution(self, nt_sG):
         """Calculate contribution to pseudo density from wave functions."""
         nt_sG.fill(0.0)
