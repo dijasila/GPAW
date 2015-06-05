@@ -5,7 +5,6 @@ from itertools import product
 from scipy.spatial import Delaunay, Voronoi
 
 from gpaw import GPAW
-from gpaw.symmetry import Symmetry
 
 
 def generate_convex_coeff(NK, N=1):
@@ -130,24 +129,11 @@ def get_IBZ_vertices(cell_cv, origin_c=None, U_scc=None,
                  * N_xv[np.newaxis])
     points_xv = (point_sv[:, np.newaxis] - 2 * delta_sxv).reshape((-1, 3))
     points_xv = np.concatenate([point_sv, points_xv])
-    points_xv = unique_rows(points_xv)
-
     voronoi = Voronoi(points_xv)
-    # Find relevant region
-    ibzregions = []
-    for region in voronoi.regions:
-        if len(region) and (np.array(region) != -1).all():
-            try:
-                tess = Delaunay(voronoi.vertices[region])
-            except:
-                continue
-            simplices = tess.find_simplex(np.array([0, 0, 0]))
-            if simplices == -1:
-                continue
-            ibzregions.append(region)
+    ibzregions = voronoi.point_region[0:len(point_sv)]
 
     ibzregion = ibzregions[0]
-    ibzk_kv = voronoi.vertices[ibzregion]
+    ibzk_kv = voronoi.vertices[voronoi.regions[ibzregion]]
     ibzk_kc = np.dot(ibzk_kv, A_cv.T)
 
     return ibzk_kc
@@ -162,14 +148,12 @@ def get_BZ(calc):
     
     # The BZ is just the IBZ
     # without symmetries
-    print('Find BZ.')
     bzk_kc = get_IBZ_vertices(cell_cv, tol=1e-7)
 
     # Use the symmetries to find
     # the IBZ
-    print('Find IBZ.')
     ibzk_kc = get_IBZ_vertices(cell_cv,
-                               origin_c=np.array([3, 2, 1.1]) * 1e-3,
+                               origin_c=np.array([2.9, 2, 1.1]) * 1e-3,
                                U_scc=symmetry.op_scc,
                                time_reversal=symmetry.time_reversal)
 
