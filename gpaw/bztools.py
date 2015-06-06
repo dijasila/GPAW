@@ -5,6 +5,7 @@ from itertools import product
 from scipy.spatial import Delaunay, Voronoi
 
 from gpaw import GPAW
+from gpaw.symmetry import Symmetry
 
 
 def generate_convex_coeff(NK, N=1):
@@ -56,7 +57,7 @@ def tesselate_brillouin_zone(calc, N=5):
     """Refine kpoint grid of previously calculated ground state."""
     if isinstance(calc, str):
         calc = GPAW(calc)
-    bzk_kc, ibzk_kc, bzedges_lkc, bzfaces_fkc = get_BZ(calc)
+    bzk_kc, ibzk_kc = get_BZ(calc)
     cell_cv = calc.wfs.gd.cell_cv
     B_cv = np.linalg.inv(cell_cv).T * 2 * np.pi
     A_cv = cell_cv / (2 * np.pi)
@@ -87,11 +88,7 @@ def get_smallest_Gvecs(cell_cv, n=5):
     return G_xv
 
 
-def get_IBZ_vertices(cell_cv, origin_c=None, U_scc=None,
-                     time_reversal=None, tol=1e-7):
-    if origin_c is None:
-        origin_c = np.array([0, 0, 0], float)
-
+def get_symmetry_operations(U_scc, time_reversal):
     if U_scc is None:
         U_scc = np.array([np.eye(3)])
 
@@ -105,6 +102,23 @@ def get_IBZ_vertices(cell_cv, origin_c=None, U_scc=None,
         Utmp_scc = np.concatenate([U_scc, -U_scc])
     else:
         Utmp_scc = U_scc
+        
+    return Utmp_scc
+
+
+def get_IBZ_vertices(cell_cv, U_scc=None,
+                     time_reversal=None, tol=1e-7):
+    
+    # Choose an origin
+    origin_c = np.array([0.12, 0.22, 0.21], float)
+
+    if U_scc is None:
+        U_scc = np.array([np.eye(3)])
+
+    if time_reversal is None:
+        time_reversal = False
+
+    Utmp_scc = get_symmetry_operations(U_scc, time_reversal)
 
     icell_cv = np.linalg.inv(cell_cv).T
     B_cv = icell_cv * 2 * np.pi
@@ -113,7 +127,6 @@ def get_IBZ_vertices(cell_cv, origin_c=None, U_scc=None,
     # Map a random point around
     point_sc = np.dot(origin_c, Utmp_scc.transpose((0, 2, 1)))
     assert len(point_sc) == len(unique_rows(point_sc))
-    
     point_sv = np.dot(point_sc, B_cv)
     
     # Translate the points
@@ -144,7 +157,6 @@ def get_BZ(calc):
         calc = GPAW(calc)
     symmetry = calc.wfs.kd.symmetry
     cell_cv = calc.wfs.gd.cell_cv
-    get_IBZ_vertices(cell_cv)
     
     # The BZ is just the IBZ
     # without symmetries
@@ -152,11 +164,45 @@ def get_BZ(calc):
 
     # Use the symmetries to find
     # the IBZ
+    latsym = Symmetry([0], cell_cv)
+    latsym.find_lattice_symmetry()
+    cU_scc = get_symmetry_operations(symmetry.op_scc,
+                                     symmetry.time_reversal)
+    lU_scc = get_symmetry_operations(latsym.op_scc,
+                                     latsym.time_reversal)
+    
     ibzk_kc = get_IBZ_vertices(cell_cv,
-                               origin_c=np.array([2.9, 2, 1.1]) * 1e-3,
-                               U_scc=symmetry.op_scc,
-                               time_reversal=symmetry.time_reversal)
+                               U_scc=latsym.op_scc,
+                               time_reversal=latsym.time_reversal)
+
+    # Find right cosets
+    cosets = []
+    Utmp_scc = lU_scc.copy()
+    while len(Utmp_scc):
+        U1_cc = Utmp_scc[0]
+        Utmp_scc = np.delete(Utmp_scc, 0, axis=0)
+        j = 0
+        new_coset = [U1_cc]
+        while j < len(Utmp_scc):
+            U2_cc = Utmp_scc[j]
+            U3_cc = np.dot(U1_cc, np.linalg.inv(U2_cc))
+            if (U3_cc == cU_scc).all(2).all(1).any():
+                new_coset.append(U2_cc)
+                Utmp_scc = np.delete(Utmp_scc, j, axis=0)
+                j -= 1
+            j += 1
+        cosets.append(new_coset)
+
+    nibzk_ikc = []
+    for U_scc in cosets:
+        ibzk_ksc = np.dot(ibzk_kc, np.array(U_scc).transpose((0, 2, 1)))
+        dist_ks = ((ibzk_ksc -
+                    ibzk_kc[:, np.newaxis])**2).sum(-1)**0.5
+        dist_s = dist_ks.sum(0)
+        s = np.argmin(dist_s)
+        U_cc = U_scc[s]
+        nibzk_ikc.append(np.dot(ibzk_kc, U_cc.T))
+
+    ibzk_kc = unique_rows(np.concatenate(nibzk_ikc))
 
     return bzk_kc, ibzk_kc
-
-
