@@ -160,7 +160,7 @@ class ExpandYl(AngularIntegral):
         dR = self.dR
 
         def abs2(z):
-            return (z * z.conj()).real
+            return z.real**2 + z.imag**2
 
         for i, dV in enumerate(self.V_R):
             # get the R shell and it's Volume
@@ -170,7 +170,7 @@ class ExpandYl(AngularIntegral):
                     psit_LR = self.gd.integrate(psit_g * R_g * self.y_Lg[L])
                     gamma_l[L_l[L]] += 4 * pi / dV * abs2(psit_LR)
         # weight of the wave function inside the ball
-        weight = self.gd.integrate(abs2(psit_g) * self.ball_g)
+        weight = self.gd.integrate((psit_g * psit_g.conj()).real * self.ball_g)
 
         return gamma_l, weight
 
