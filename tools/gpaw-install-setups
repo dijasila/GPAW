@@ -13,7 +13,7 @@ import re
 usage = '%prog [OPTION]\n  or:  %prog [OPTION] INSTALLDIR'
 description = ('In first form, show available setups and GPAW setup paths.  '
                'In second form, download and install gpaw-setups into '
-               'INSTALLDIR/gpaw-setups-[version].')
+               'INSTALLDIR/[setups-package-name-and-version].')
 
 
 p = OptionParser(usage=usage, description=description)
@@ -190,9 +190,9 @@ if interactive_mode:
     if answer.lower() in ['y', 'yes']:
         register_path = True
     elif answer.lower() in ['n', 'no']:
-        print('What do you mean by "%s"?  Assuming "n".' % answer)
-    else:
         print('As you wish.')
+    else:
+        print('What do you mean by "%s"?  Assuming "n".' % answer)
 else:
     if opts.register:
         assert not opts.no_register
