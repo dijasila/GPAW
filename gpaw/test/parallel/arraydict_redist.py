@@ -5,8 +5,9 @@ from gpaw.arraydict import ArrayDict
 
 gen = np.random.RandomState(0)
 
+
 def shape(a):
-    return (a, a // 2) # Shapes: (0, 0), (1, 0), (2, 1), ...
+    return (a, a // 2)  # Shapes: (0, 0), (1, 0), (2, 1), ...
 
 natoms = 33
 
@@ -23,6 +24,7 @@ serial = AtomPartition(world, np.zeros(natoms, int))
 partition = AtomPartition(world, rank_a)
 even_partition = partition.as_even_partition()
 
+
 def check(atomdict, title):
     if world.rank == world.size // 2 or world.rank == 0:
         print('rank %d %s: %s' % (world.rank, title.rjust(10), atomdict))
@@ -30,8 +32,8 @@ def check(atomdict, title):
     # Create a normal, "well-behaved" dict against which to test arraydict.
     ref = dict(atomdict)
     #print atomdict
-    assert set(atomdict.keys()) == set(ref.keys()) # check keys()
-    for a in atomdict: # check __iter__, __getitem__
+    assert set(atomdict.keys()) == set(ref.keys())  # check keys()
+    for a in atomdict:  # check __iter__, __getitem__
         #print ref[a].shape, atomdict[a].shape #ref[a].shape, atomdict[a].shape
         #print ref[a], atomdict[a]
         #assert 1#ref[a] is atomdict[a]
@@ -42,7 +44,7 @@ def check(atomdict, title):
         # values() ordering is consistent with loop ordering:
         assert values[i] is atomdict[key]
 
-    items = atomdict.items()
+    items = list(atomdict.items())
 
     for i, (key, item) in enumerate(atomdict.items()):
         assert item is atomdict[key]
