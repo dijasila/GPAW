@@ -1,6 +1,6 @@
 import os
 import time
-from gpaw.hdf5_highlevel import File, HyperslabSelection
+from gpaw.io.hdf5_highlevel import File, HyperslabSelection
 
 from gpaw.io import FileReference
 

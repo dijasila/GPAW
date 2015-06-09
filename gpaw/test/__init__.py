@@ -574,10 +574,10 @@ class TestRunner:
             self.write_result(test, 'STOPPED', t0)
             raise
         except ImportError as ex:
-            try:
+            if sys.version_info[0] >= '3':
                 module = ex.name
-            except AttributeError:
-                module = ex.args[0].split()[-1].split('.')[0]  # Python 2
+            else:
+                module = ex.args[0].split()[-1].split('.')[0]
             if module in ['scipy', 'cmr', '_gpaw_hdf5']:
                 skip = True
             else:

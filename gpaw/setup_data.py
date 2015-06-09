@@ -4,6 +4,7 @@ from __future__ import print_function
 import hashlib
 import os
 import re
+import sys
 import xml.sax
 from glob import glob
 from math import sqrt, pi, factorial as fac
@@ -451,6 +452,9 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
             setup.e_xc = 0.0
 
     def startElement(self, name, attrs):
+        if sys.version_info[0] < '3':
+            attrs.__contains__ = attrs.has_key
+            
         setup = self.setup
         if name == 'paw_setup':
             setup.version = attrs['version']
