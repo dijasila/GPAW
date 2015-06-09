@@ -124,6 +124,17 @@ class LCAOTDDFT(GPAW):
             self.initialize()
             self.set_positions()
 
+    def set(self, **kwargs):
+        if not 'mode' in kwargs:
+            kwargs['mode'] = 'lcao'
+        else:
+            modevar = kwargs['mode']
+            if hasattr(modevar, 'name'):
+                assert modevar.name == 'lcao' # LCAO mode required
+            else:
+                assert modevar == 'lcao' # LCAO mode required             
+        GPAW.set(self, **kwargs)
+
     def propagate_wfs(self, sourceC_nm, targetC_nm, S_MM, H_MM, dt):
         if self.propagator == 'cn':
             return self.linear_propagator(sourceC_nm, targetC_nm, S_MM, H_MM, dt)
