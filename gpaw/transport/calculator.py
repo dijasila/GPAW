@@ -862,7 +862,7 @@ class Transport(GPAW):
     def get_hamiltonian_initial_guess3(self):
         self.log('get_hamiltonian_initial_guess3()')
         #get hamiltonian_guess from a hamiltonian file
-        fd = file(self.restart_file, 'r')
+        fd = open(self.restart_file, 'rb')
         self.bias, vt_sG, dH_asp = pickle.load(fd)
         fd.close()
         self.surround.combine_dH_asp(self, dH_asp)
@@ -1462,7 +1462,7 @@ class Transport(GPAW):
                                              ham.nspins, ham.gd.comm,
                                              density.atom_partition)
             if self.master:
-                fd = file('bias_data' + str(self.analysor.n_bias_step), 'wb')
+                fd = open('bias_data' + str(self.analysor.n_bias_step), 'wb')
                 pickle.dump((self.bias, vt_sG, dH_asp), fd, 2)
                 fd.close()
                 
@@ -1488,7 +1488,7 @@ class Transport(GPAW):
             
         #self.analysor.save_ele_step()
         self.analysor.save_bias_step(self)
-        fd = file('eq_hsd', 'w')
+        fd = open('eq_hsd', 'wb')
         pickle.dump(self.hsd, fd, 2)
         fd.close()
 
@@ -2107,8 +2107,8 @@ class Transport(GPAW):
 
         nn = self.surround.nn * 2
         vHt_g = self.surround.uncapsule(self, nn, hamiltonian.vHt_g,
-                                                    self.finegd1, self.finegd)
-        vt_G0 = self.surround.uncapsule(self, nn / 2, vt_G, self.gd1, self.gd)
+                                        self.finegd1, self.finegd)
+        vt_G0 = self.surround.uncapsule(self, nn // 2, vt_G, self.gd1, self.gd)
         if wfs.band_comm.rank == 0 and wfs.kd.comm.rank == 0:
             # Force from compensation charges:
             dF_aLv = self.density.ghat.dict(derivative=True)
@@ -2857,7 +2857,7 @@ class Transport(GPAW):
             if i > n1:
                 flag = False
             self.analysor.n_bias_step = i
-            fd = file('bias_data' + str(i + 1), 'r')
+            fd = open('bias_data' + str(i + 1), 'rb')
             self.bias, vt_sG, dH_asp = pickle.load(fd)
             fd.close()
           
@@ -2927,7 +2927,7 @@ class Transport(GPAW):
             kpt_comm.gather(local_lead_hamiltonian_matrix, 0, lead_hamiltonian_matrix)
             kpt_comm.gather(local_lead_coupling_hamiltonian_matrix, 0, lead_coupling_hamiltonian_matrix)
             if world.rank == 0:
-                fd = file('lead_hs_matrix' + str(i), 'wb')
+                fd = open('lead_hs_matrix' + str(i), 'wb')
                 pickle.dump((lead_overlap_matrix,
                              lead_coupling_overlap_matrix,
                              lead_hamiltonian_matrix,
@@ -2943,7 +2943,7 @@ class Transport(GPAW):
         for i in range(n1, n):
            if i > n1:
                flag = False
-           fd = file('bias_data' + str(i + 1), 'r')
+           fd = open('bias_data' + str(i + 1), 'rb')
            self.bias, vt_sG, dH_asp = pickle.load(fd)
            fd.close()
            self.surround.combine_dH_asp(dH_asp)
@@ -2972,7 +2972,7 @@ class Transport(GPAW):
            kpt_comm.gather(local_scat_overlap_matrix, 0, scat_overlap_matrix)
            kpt_comm.gather(local_scat_hamiltonian_matrix, 0, scat_hamiltonian_matrix)
            if world.rank ==0:
-               fd = file('scat_hs_matrix' + str(i), 'wb')
+               fd = open('scat_hs_matrix' + str(i), 'wb')
                pickle.dump((scat_overlap_matrix,
                              scat_hamiltonian_matrix),
                              fd, 2)
@@ -2980,7 +2980,7 @@ class Transport(GPAW):
             
     def analysis_prepare(self, bias_step):
         self.log('analysis_prepare()')
-        fd = file('lead_hs', 'r')
+        fd = open('lead_hs', 'rb')
         lead_s00, lead_s01, lead_h00, lead_h01 = pickle.load(fd)
         fd.close()
         plotter = Transport_Plotter('bias', 'bias_plot_data')

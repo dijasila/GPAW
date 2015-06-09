@@ -269,7 +269,7 @@ class HGHSetupData:
         if basis is None:
             basis = self.create_basis_functions()
         setup = PseudoPotential(self, basis)
-        setup.fingerprint = hashlib.md5(str(self.hghdata)).hexdigest()
+        setup.fingerprint = hashlib.md5(str(self.hghdata).encode()).hexdigest()
         return setup
 
 
@@ -461,11 +461,11 @@ class HGHParameterSet:
 def parse_local_part(string):
     """Create HGHParameterSet object with local part initialized."""
     tokens = iter(string.split())
-    symbol = tokens.next()
+    symbol = next(tokens)
     actual_chemical_symbol = symbol.split('.')[0]
     Z = atomic_numbers[actual_chemical_symbol]
-    Nv = int(tokens.next())
-    rloc = float(tokens.next())
+    Nv = int(next(tokens))
+    rloc = float(next(tokens))
     c_n = [float(token) for token in tokens]
     return symbol, Z, Nv, rloc, c_n
 

@@ -1,3 +1,4 @@
+import numpy as np
 from ase import Atoms
 from gpaw import FermiDirac, Mixer
 from gpaw.transport.calculator import Transport
@@ -13,8 +14,8 @@ atoms = Atoms('Na12', pbc=(1, 1, 1), cell=[L, L, 12 * a])
 atoms.positions[:12, 2] = [i * a for i in range(12)]
 atoms.positions[:, :2] = L / 2.
 atoms.center()
-pl_atoms1 = range(4)
-pl_atoms2 = range(8, 12)
+pl_atoms1 = np.arange(4)
+pl_atoms2 = np.arange(8, 12)
 pl_cell1 = (L, L, 4 * a)
 pl_cell2 = pl_cell1
 
@@ -33,6 +34,6 @@ t = Transport(h=0.3,
               pl_kpts=(2, 2, 15),
               analysis_data_list=['tc', 'force'],
               edge_atoms=[[0, 3], [0, 11]],
-              mol_atoms=range(4, 8))
+              mol_atoms=np.arange(4, 8))
 atoms.set_calculator(t)
 t.calculate_iv(0.5, 2)

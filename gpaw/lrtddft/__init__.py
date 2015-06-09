@@ -230,7 +230,7 @@ class LrTDDFT(ExcitationList):
             if filename.endswith('.gz'):
                 try:
                     import gzip
-                    f = gzip.open(filename, 'r')
+                    f = gzip.open(filename, 'rt')
                 except:
                     f = open(filename, 'r')
             else:

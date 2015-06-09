@@ -216,9 +216,6 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
             #    '%5.2f as, dpsit=%g, digits: %d' % (t, timestep, dpsit, spsit))
         f.close()
 
-# -------------------------------------------------------------------
-
-import new
 
 def UTStaticPropagatorFactory(timesteps, propagator):
     sep = '_'

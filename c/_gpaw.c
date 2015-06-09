@@ -404,6 +404,8 @@ main(int argc, char **argv)
     return -1;
   if (PyType_Ready(&OperatorType) < 0)
     return -1;
+  if (PyType_Ready(&WOperatorType) < 0)
+    return -1;
   if (PyType_Ready(&SplineType) < 0)
     return -1;
   if (PyType_Ready(&TransformerType) < 0)
@@ -427,6 +429,7 @@ main(int argc, char **argv)
   Py_INCREF(&LFCType);
   Py_INCREF(&LocalizedFunctionsType);
   Py_INCREF(&OperatorType);
+  Py_INCREF(&WOperatorType);
   Py_INCREF(&SplineType);
   Py_INCREF(&TransformerType);
   Py_INCREF(&XCFunctionalType);

@@ -2,7 +2,7 @@ from time import localtime
 import pickle
 import numpy as np
 
-from gpaw.utilities import pack, unpack
+from gpaw.utilities import pack
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.blas import rk, gemm
 from gpaw.basis_data import Basis
@@ -198,7 +198,7 @@ def dump_hamiltonian(filename, atoms, direction=None, Ef=None):
                     remove_pbc(atoms, h_skmm[s, k], None, d)
     
     if atoms.calc.master:
-        fd = file(filename,'wb')
+        fd = open(filename, 'wb')
         pickle.dump((h_skmm, s_kmm), fd, 2)
         atoms_data = {'cell':atoms.cell, 'positions':atoms.positions,
                       'numbers':atoms.numbers, 'pbc':atoms.pbc}
@@ -450,8 +450,6 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     # Tolerance is used for truncation of optimized pairorbitals
     #calc = GPAW(gpwfile, txt=None)
     from gpaw import GPAW
-    from gpaw.utilities import pack, unpack
-    from gpaw.utilities.blas import rk, gemm
     from gpaw.mpi import world, MASTER
     calc = GPAW(gpwfile, txt='pairorb.txt') # XXX
     gd = calc.wfs.gd
