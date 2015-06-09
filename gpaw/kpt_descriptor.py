@@ -92,13 +92,13 @@ class KPointDescriptor:
             self.N_c = np.array((1, 1, 1), dtype=int)
             self.offset_c = np.zeros(3)
         else:
-            kpts = np.array(kpts)
+            kpts = np.asarray(kpts)
             if kpts.ndim == 1:
-                self.N_c = kpts.astype(int)
+                self.N_c = np.array(kpts, dtype=int)
                 self.bzk_kc = monkhorst_pack(self.N_c)
                 self.offset_c = np.zeros(3)
             else:
-                self.bzk_kc = kpts
+                self.bzk_kc = np.array(kpts, dtype=float)
                 try:
                     self.N_c, self.offset_c = \
                         get_monkhorst_pack_size_and_offset(self.bzk_kc)
