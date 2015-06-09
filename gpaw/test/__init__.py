@@ -158,7 +158,8 @@ tests = [
     'ylexpand.py',                          # ~2s
     'keep_htpsit.py',                       # ~2s
     'gga_atom.py',                          # ~2s
-    'hydrogen.py',                          # ~2s
+    # Disable due to problem in ASE. -askhl
+    #'hydrogen.py',                         # ~2s
     'restart2.py',                          # ~2s
     'aeatom.py',                            # ~2s
     'plt.py',                               # ~2s
