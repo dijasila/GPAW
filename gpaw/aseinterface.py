@@ -648,8 +648,7 @@ class GPAW(PAW):
 
     def get_dipole_moment(self, atoms=None):
         """Return the total dipole moment in ASE units."""
-        if self.dipole_v is None:
-            self.dipole_v = self.density.calculate_dipole_moment()
+        self.dipole_v = self.density.calculate_dipole_moment()
         return self.dipole_v * Bohr
 
     def get_magnetic_moment(self, atoms=None):
@@ -658,9 +657,6 @@ class GPAW(PAW):
 
     def get_magnetic_moments(self, atoms=None):
         """Return the local magnetic moments within augmentation spheres"""
-        if self.magmom_av is not None:
-            return self.magmom_av
-
         self.magmom_av = self.density.estimate_magnetic_moments()
         if self.wfs.collinear:
             momsum = self.magmom_av.sum()
