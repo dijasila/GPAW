@@ -706,7 +706,7 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
     if all_fail.any():
         err_ranks = np.arange(comm.size)[all_fail]
         if debug:
-            fd = open('synchronize_atoms_r%d.pckl' % comm.rank, 'w')
+            fd = open('synchronize_atoms_r%d.pckl' % comm.rank, 'wb')
             pickle.dump((newatoms, atoms), fd)
             fd.close()
         raise ValueError('Mismatch of Atoms objects.  In debug '
@@ -747,7 +747,7 @@ def receive_string(rank, comm=world):
     comm.receive(n, rank)
     string = np.empty(n, np.int8)
     comm.receive(string, rank)
-    return string.tostring()
+    return string.tostring().decode()
 
     
 def alltoallv_string(send_dict, comm=world):

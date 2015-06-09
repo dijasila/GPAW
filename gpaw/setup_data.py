@@ -15,7 +15,7 @@ from ase.units import Bohr, Hartree
 from gpaw import setup_paths
 from gpaw.spline import Spline
 from gpaw.xc.pawcorrection import PAWXCCorrection
-from gpaw.mpi import broadcast_string
+from gpaw.mpi import broadcast
 from gpaw.atom.radialgd import AERadialGridDescriptor
 
 try:
@@ -390,14 +390,9 @@ def search_for_file(name, world=None):
     if world is not None and world.size > 1:
         if world.rank == 0:
             filename, source = search_for_file(name)
-            if source is None:
-                source = ''
-            string = filename + '|' + source
+            broadcast((filename, source), 0, world)
         else:
-            string = None
-        filename, source = broadcast_string(string, 0, world).split('|', 1)
-        if source == '':
-            source = None
+            filename, source = broadcast(None, 0, world)
         return filename, source
 
     source = None
