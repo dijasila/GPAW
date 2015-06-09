@@ -116,13 +116,8 @@ class KohnShamSingles:
                     kss.pop_diff = df_ip
                     self.kss_list.append(kss)
 
-        # Sort by energy diff
-        def energy_diff_cmp(kss_ip,kss_jq):
-            ediff = kss_ip.energy_diff - kss_jq.energy_diff
-            if ediff < 0: return -1
-            elif ediff > 0: return 1
-            return 0
-        self.kss_list = sorted(self.kss_list, cmp=energy_diff_cmp)
+        # Sort by energy diff:
+        self.kss_list = sorted(self.kss_list, key=lambda x: x.energy_diff)
 
 
         # Remove old transitions and add new

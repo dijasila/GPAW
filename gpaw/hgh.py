@@ -1,8 +1,9 @@
+import hashlib
+
 import numpy as np
 from ase.data import atomic_numbers
 
 from gpaw.utilities import pack2
-from gpaw.utilities.tools import md5_new
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.atom.configurations import configurations
 from gpaw.pseudopotential import PseudoPotential
@@ -268,7 +269,7 @@ class HGHSetupData:
         if basis is None:
             basis = self.create_basis_functions()
         setup = PseudoPotential(self, basis)
-        setup.fingerprint = md5_new(str(self.hghdata)).hexdigest()
+        setup.fingerprint = hashlib.md5(str(self.hghdata)).hexdigest()
         return setup
 
 
@@ -479,12 +480,12 @@ class HGHBogusNumbersError(ValueError):
 def parse_hgh_setup(lines):
     """Initialize HGHParameterSet object from text representation."""
     lines = iter(lines)
-    symbol, Z, Nv, rloc, c_n = parse_local_part(lines.next())
+    symbol, Z, Nv, rloc, c_n = parse_local_part(next(lines))
 
     def pair_up_nonlocal_lines(lines):
-        yield lines.next(), ''
+        yield next(lines), ''
         while True:
-            yield lines.next(), lines.next()
+            yield next(lines), next(lines)
 
     v_l = []
     for l, (non_local, spinorbit) in enumerate(pair_up_nonlocal_lines(lines)):

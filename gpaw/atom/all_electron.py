@@ -218,7 +218,7 @@ class AllElectron:
             fd = None
         else:
             try:
-                fd = open(restartfile, 'r')
+                fd = open(restartfile, 'rb')
             except IOError:
                 fd = None
             else:

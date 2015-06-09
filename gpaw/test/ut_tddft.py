@@ -230,7 +230,7 @@ def UTStaticPropagatorFactory(timesteps, propagator):
         propagator = propagator
     for t,timestep in enumerate(timesteps):
         func = lambda _self, _t=t: _self._test_timestepping(_t)
-        method = new.instancemethod(func, None, MetaPrototype)
+        method = func#new.instancemethod(func, None, MetaPrototype)
         method_name = 'test_timestepping_%02.0fas' % timestep
         setattr(MetaPrototype, method_name, method)
     MetaPrototype.__name__ = classname

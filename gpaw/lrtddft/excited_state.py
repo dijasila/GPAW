@@ -48,7 +48,7 @@ class FiniteDifferenceCalculator(Calculator):
         self.parallel = {
             'world': world, 'mycomm': world, 'ncalcs': 1, 'icalc': 0}
         if world.size < 2:
-            if parallel > 0:
+            if parallel:
                 prnt('#', (self.__class__.__name__ + ':'),
                      'Serial calculation, keyword parallel ignored.',
                      file=self.txt)

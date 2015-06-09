@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, division
 import functools
+import numbers
 from math import pi
 from math import factorial as fac
 
@@ -188,7 +189,7 @@ class PWDescriptor:
     def empty(self, x=(), dtype=None, q=-1):
         if dtype is not None:
             assert dtype == self.dtype
-        if isinstance(x, int):
+        if isinstance(x, numbers.Integral):
             x = (x,)
         if q == -1:
             shape = x + (self.ngmax,)

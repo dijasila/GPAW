@@ -58,9 +58,11 @@ class ExcitationList(list):
     def set_calculator(self, calculator):
         self.calculator = calculator
 
-    def __div__(self, x):
+    def __truediv__(self, x):
         return self.__mul__(1. / x)
 
+    __div__ = __truediv__
+    
     def __rmul__(self, x):
         return self.__mul__(x)
 

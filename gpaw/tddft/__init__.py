@@ -601,8 +601,8 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         print('Calculating photoabsorption spectrum from file "%s"' \
               % dipole_moment_file)
 
-        f_file = file(spectrum_file, 'w')
-        dm_file = file(dipole_moment_file, 'r')
+        f_file = open(spectrum_file, 'w')
+        dm_file = open(dipole_moment_file, 'r')
         lines = dm_file.readlines()
         dm_file.close()
 

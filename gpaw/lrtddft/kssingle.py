@@ -498,8 +498,10 @@ class KSSingle(Excitation, PairDensity):
         else:
             return RuntimeError('not a number')
 
-    def __div__(self, x):
+    def __truediv__(self, x):
         return self.__mul__(1. / x)
+
+    __div__ = __truediv__
 
     def copy(self):
         if self.mur.dtype == complex:

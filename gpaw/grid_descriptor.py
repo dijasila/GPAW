@@ -9,6 +9,7 @@ This module contains classes defining two kinds of grids:
 * Radial grids.
 """
 
+import numbers
 from math import pi
 
 import numpy as np
@@ -215,7 +216,7 @@ class GridDescriptor(Domain):
         else:
             shape = self.n_c
             
-        if isinstance(n, int):
+        if isinstance(n, numbers.Integral):
             n = (n,)
 
         shape = n + tuple(shape)

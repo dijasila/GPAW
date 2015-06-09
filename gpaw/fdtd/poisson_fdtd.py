@@ -14,16 +14,10 @@ from gpaw.mpi import world, serial_comm
 from gpaw.tddft import TDDFT, photoabsorption_spectrum
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
 from gpaw.transformers import Transformer
-from gpaw.utilities.blas import axpy
 from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.utilities.gauss import Gaussian
 from gpaw.poisson import PoissonSolver
-from math import pi
-from string import split
-import _gpaw
 import gpaw.mpi as mpi
 import numpy as np
-import sys
 
 # QSFDTD is a wrapper class to make calculations
 # easier, something like this:

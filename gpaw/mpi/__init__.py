@@ -257,7 +257,8 @@ class _Communicator:
         assert rdispls.flags.contiguous
         assert sbuffer.dtype == rbuffer.dtype
         # FIXME: more tests
-        self.comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls)
+        self.comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts,
+                            rdispls)
 
     def all_gather(self, a, b):
         """Gather data from all ranks onto all processes in a group.
@@ -770,7 +771,7 @@ def alltoallv_string(send_dict, comm=world):
     for proc in range(comm.size):
         rdispls[proc] = rtotal
         rtotal += rcounts[proc]
-        #rtotal += rcounts[proc]  # CHECK: is this correct?
+        # rtotal += rcounts[proc]  # CHECK: is this correct?
 
     sbuffer = np.zeros(stotal, dtype=np.int8)
     for proc in range(comm.size):
@@ -782,7 +783,8 @@ def alltoallv_string(send_dict, comm=world):
 
     rdict = {}
     for proc in range(comm.size):
-        rdict[proc] = rbuffer[rdispls[proc]:(rdispls[proc] + rcounts[proc])].tostring()
+        i = rdispls[proc]
+        rdict[proc] = rbuffer[i:i + rcounts[proc]].tostring().decode()
 
     return rdict
 
@@ -976,7 +978,6 @@ class Parallelization:
         ncpus = nspinkpts
         while ncpus > 0:
             if self.navail % ncpus == 0:
-                nkptsmin = nspinkpts // ncpus
                 nkptsmax = -(-nspinkpts // ncpus)
                 effort = nkptsmax * ncpus
                 efficiency = nspinkpts / float(effort)

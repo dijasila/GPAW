@@ -1,3 +1,5 @@
+import hashlib
+
 import numpy as np
 
 from ase.units import Hartree, Bohr
@@ -308,14 +310,6 @@ def signtrim(data, decimals=None):
     return data.reshape(shape)
 
 
-try:
-    from hashlib import md5 as md5_new
-    import hashlib as md5
-except ImportError:
-    from md5 import new as md5_new
-    import md5
-
-
 def md5_array(data, numeric=False):
     """Create MD5 hex digest from NumPy array.
 
@@ -344,7 +338,7 @@ def md5_array(data, numeric=False):
         data.dtype not in [bool, np.bool, np.bool_]):
         raise TypeError('MD5 hex digest only accepts numeric/boolean arrays.')
 
-    datahash = md5.md5(data.tostring())
+    datahash = hashlib.md5(data.tostring())
 
     if numeric:
         xor = lambda a,b: chr(ord(a)^ord(b)) # bitwise xor on 2 bytes -> 1 byte

@@ -14,6 +14,7 @@ except ImportError:  # python2.6 compatibility
 
 import numpy as np
 from ase.data import atomic_numbers
+from ase.utils import basestring
 
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.basis_data import Basis, BasisFunction
@@ -33,7 +34,7 @@ class UPFStateSpec:
         self.n = n
 
 
-class UPFCompensationChargeSpec: # Not used right now.......
+class UPFCompensationChargeSpec:  # Not used right now.......
     def __init__(self, i, j, l, qint, values, coefs):
         self.i = i
         self.j = j
@@ -244,7 +245,7 @@ class UPFSetupData:
             self.filename = '[N/A]'
         
         assert isinstance(data, dict)
-        self.data = data # more or less "raw" data from the file
+        self.data = data  # more or less "raw" data from the file
 
         self.name = 'upf'
 
@@ -344,7 +345,7 @@ class UPFSetupData:
         #    a = .247621
 
         vbar_g, ghat_g = screen_potential(data['r'], vlocal_unscreened,
-                                          self.Nv) #, a=a)
+                                          self.Nv)
         
         self.vbar_g = self._interp(vbar_g) * np.sqrt(4.0 * np.pi)
         self.ghat_lg = [4.0 * np.pi / self.Nv * self._interp(ghat_g)]
@@ -589,7 +590,6 @@ def upfplot(setup, show=True, calculate=False):
         splines = basis.tosplines()
         for spline, bf in zip(splines, basis.bf_j):
             wfsax.plot(r_g, r_g * spline.map(r_g), label=bf.type)
-
 
     vax.legend(loc='best')
     rhoax.legend(loc='best')

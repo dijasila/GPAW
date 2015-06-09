@@ -1,11 +1,12 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 from __future__ import print_function
+import hashlib
 import os
-import xml.sax
 import re
-from math import sqrt, pi, factorial as fac
+import xml.sax
 from glob import glob
+from math import sqrt, pi, factorial as fac
 
 import numpy as np
 from ase.data import atomic_names
@@ -13,7 +14,6 @@ from ase.units import Bohr, Hartree
 
 from gpaw import setup_paths
 from gpaw.spline import Spline
-from gpaw.utilities.tools import md5_new
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast_string
 from gpaw.atom.radialgd import AERadialGridDescriptor
@@ -41,8 +41,8 @@ class SetupData:
         else:
             self.stdfilename = '%s.%s.%s' % (symbol, name, self.setupname)
 
-        self.filename = None # full path if this setup was loaded from file
-        self.fingerprint = None # hash value of file data if applicable
+        self.filename = None  # full path if this setup was loaded from file
+        self.fingerprint = None  # hash value of file data if applicable
 
         self.Z = None
         self.Nc = None
@@ -51,13 +51,13 @@ class SetupData:
         # Quantum numbers, energies
         self.n_j = []
         self.l_j = []
-        self.l_orb_j = self.l_j # pointer to same list!
+        self.l_orb_j = self.l_j  # pointer to same list!
         self.f_j = []
         self.eps_j = []
-        self.e_kin_jj = None # <phi | T | phi> - <phit | T | phit>
+        self.e_kin_jj = None  # <phi | T | phi> - <phit | T | phit>
         
         self.rgd = None
-        self.rcgauss = None # For compensation charge expansion functions
+        self.rcgauss = None  # For compensation charge expansion functions
         
         # State identifier, like "X-2s" or "X-p1", where X is chemical symbol,
         # for bound and unbound states
@@ -351,14 +351,8 @@ class SetupData:
             for name, a in [('ae_partial_wave', u),
                             ('pseudo_partial_wave', s),
                             ('projector_function', q)]:
-                print(('  <%s state="%s" grid="g1">\n    ' %
-                               (name, id)), end=' ', file=xml)
-                #p = a.copy()
-                #p[1:] /= r[1:]
-                #if l == 0:
-                #    # XXXXX go to higher order!!!!!
-                #    p[0] = (p[2] +
-                #            (p[1] - p[2]) * (r[0] - r[2]) / (r[1] - r[2]))
+                print('  <%s state="%s" grid="g1">\n    ' % (name, id),
+                      end=' ', file=xml)
                 for x in a:
                     print('%r' % x, end=' ', file=xml)
                 print('\n  </%s>' % name, file=xml)
@@ -421,7 +415,7 @@ def search_for_file(name, world=None):
             if filename.endswith('.gz'):
                 fd = gzip.open(filename)
             else:
-                fd = open(filename)
+                fd = open(filename, 'rb')
             source = fd.read()
             break
     return filename, source
@@ -448,7 +442,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
                                (setup.name + '.' + setup.setupname,
                                 setup.symbol))
         
-        setup.fingerprint = md5_new(source).hexdigest()
+        setup.fingerprint = hashlib.md5(source).hexdigest()
         
         # XXXX There must be a better way!
         # We don't want to look at the dtd now.  Remove it:
@@ -576,10 +570,11 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
             setup.nvt_g = x_g
         elif name == 'pseudo_core_kinetic_energy_density':
             setup.tauct_g = x_g
-        elif name in ['localized_potential', 'zero_potential']: # XXX
+        elif name in ['localized_potential', 'zero_potential']:  # XXX
             setup.vbar_g = x_g
         elif name.startswith('GLLB_'):
-            # Add setup tags starting with GLLB_ to extra_xc_data. Remove GLLB_ from front of string.
+            # Add setup tags starting with GLLB_ to extra_xc_data. Remove
+            # GLLB_ from front of string:
             setup.extra_xc_data[name[5:]] = x_g
         elif name == 'ae_partial_wave':
             j = len(setup.phi_jg)

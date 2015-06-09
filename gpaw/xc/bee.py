@@ -1,5 +1,4 @@
 import numpy as np
-from types import FloatType
 from ase.parallel import rank
 from ase.units import Hartree
 
@@ -185,8 +184,8 @@ class BEEFEnsemble:
             from gpaw.xc.kernel import XCNull
             xc_null = XC(XCNull())
             self.e0 = self.e_dft + self.calc.get_xc_difference(xc_null)
-        assert isinstance(self.e_dft, FloatType)
-        assert isinstance(self.e0, FloatType)
+        assert isinstance(self.e_dft, float)
+        assert isinstance(self.e0, float)
 
     def mbeef_exchange_energy_contribs(self):
         """Legendre polynomial exchange contributions to mBEEF Etot"""

@@ -256,7 +256,7 @@ class GW(BASECHI):
             world.barrier()
             exxfile='EXX.pckl'
             self.printtxt('EXX takes %s ' %(timedelta(seconds=round(time()-t0))))
-        data = pickle.load(open(exxfile))
+        data = pickle.load(open(exxfile, 'rb'))
         vxc_skn = data['vxc_skn'] # in Hartree
         exx_skn = data['exx_skn'] # in Hartree
         f_skn = data['f_skn']
