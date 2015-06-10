@@ -79,7 +79,6 @@ class TDDFPT(GPAW):
     def calculate(self):
         pass
 
-
 class HamiltonianCollector(Observer):
 
     def __init__(self, filename, lcao):
@@ -95,11 +94,12 @@ class HamiltonianCollector(Observer):
 
         if self.first_iteration:
             self.first_iteration = False
-            # Create an empty file
-            f = open(self.filename, 'w')
-            f.close()
-            f = open(self.H_asp_filename, 'w')
-            f.close()
+            if hamiltonian.world.rank == 0:
+                # Create an empty file
+                f = open(self.filename, 'w')
+                f.close()
+                f = open(self.H_asp_filename, 'w')
+                f.close()
 
         vt_sG = hamiltonian.gd.collect(hamiltonian.vt_sG, broadcast=False)
 
