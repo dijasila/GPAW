@@ -574,7 +574,7 @@ class TestRunner:
             self.write_result(test, 'STOPPED', t0)
             raise
         except ImportError as ex:
-            if sys.version_info[0] >= '3':
+            if sys.version_info[0] >= 3:
                 module = ex.name
             else:
                 module = ex.args[0].split()[-1].split('.')[0]

@@ -452,7 +452,7 @@ http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
             setup.e_xc = 0.0
 
     def startElement(self, name, attrs):
-        if sys.version_info[0] < '3':
+        if sys.version_info[0] < 3:
             attrs.__contains__ = attrs.has_key
             
         setup = self.setup
