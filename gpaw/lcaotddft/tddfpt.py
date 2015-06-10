@@ -1,12 +1,13 @@
 from gpaw.analyse.observers import Observer
 from gpaw import GPAW
+import ase.io
 from ase.units import Hartree
 from gpaw.mpi import world
 import numpy as np
 
 # Time dependent density functional perturbation theory
 
-def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omega=None, eta=0.1):
+def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omega=None, eta=0.1, write_cube=False, cube_scale=1e5):
     assert world.size == 1
     assert gpw_file is not None
     assert tdop_file is not None
@@ -93,6 +94,10 @@ def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omeg
         for H in dH_sp.ravel():
             print >>fqaf, H.real, H.imag,
         print >>fqaf
+
+    ase.io.write(fqop_file+'.real.cube', calc.atoms, data=cube_scale*Fq_G.real)
+    ase.io.write(fqop_file+'.imag.cube', calc.atoms, data=cube_scale*Fq_G.imag)
+
 
 
 class TDDFPT(GPAW):
