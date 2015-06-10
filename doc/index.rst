@@ -41,11 +41,12 @@ Quick links to all features:
       - :ref:`Continuum Solvent Model <continuum_solvent_model>`
       -
 
-Watch us on GPAWTV
-==================
+.. Watch us on GPAWTV
+   ==================
 
-.. include:: ytp.txt
+   .. include:: ytp.txt
 
+   
 .. _news:
 
 News
@@ -59,7 +60,7 @@ News
 * May 21-23, 2013: :ref:`GPAW workshop <workshop>` at the Technical
   University of Denmark (Feb 8 2013)
 
-* Prof. Häkkinen has received `18 million CPU hour grant`_ for GPAW based 
+* Prof. Häkkinen has received `18 million CPU hour grant`_ for GPAW based
   research project (Nov 20 2012)
 
 * A new :ref:`setups` bundle released (Oct 26 2012)
@@ -71,7 +72,7 @@ News
  
 * :ref:`GPAW version 0.8 <releasenotes>` released (May 25 2011)
 
-* GPAW is part of benchmark suite for `CSC's supercomputer procurement`_ 
+* GPAW is part of benchmark suite for `CSC's supercomputer procurement`_
   (Apr 19 2011)
 
 * New features: Calculation of the linear :ref:`dielectric response
