@@ -15,7 +15,7 @@ def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omeg
     omega /= Hartree
     eta /= Hartree
 
-    tdf = open(tdop_file,'.sG','r')
+    tdf = open(tdop_file+'.sG','r')
     tdaf = open(tdop_file+'.asp','r')
     calc = GPAW(gpw_file)
 
