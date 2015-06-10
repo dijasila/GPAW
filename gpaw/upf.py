@@ -251,8 +251,7 @@ class UPFSetupData:
 
         header = data['header']
         
-        keys = header.keys()
-        keys.sort()
+        keys = sorted(header)
 
         self.symbol = header['element']
         self.Z = atomic_numbers[self.symbol]
