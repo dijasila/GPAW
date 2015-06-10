@@ -6,17 +6,17 @@ import numpy as np
 
 # Time dependent density functional perturbation theory
 
-def transform_local_operator(gpw_file=None, TdHam_file=None, FqHam_file=None, omega=None, eta=0.1):
+def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omega=None, eta=0.1):
     assert world.size == 1
     assert gpw_file is not None
-    assert TdHam_file is not None
-    assert FqHam_file is not None
+    assert tdop_file is not None
+    assert fqop_file is not None
     assert omega is not None
     omega /= Hartree
     eta /= Hartree
 
-    tdf = open(TdHam_file,'.sG','r')
-    tdaf = open(TdHam_file+'.asp','r')
+    tdf = open(tdop_file,'.sG','r')
+    tdaf = open(tdop_file+'.asp','r')
     calc = GPAW(gpw_file)
 
     Fq_G = calc.hamiltonian.gd.zeros(dtype=complex)
@@ -63,12 +63,12 @@ def transform_local_operator(gpw_file=None, TdHam_file=None, FqHam_file=None, om
     tdf.close() 
     tdaf.close()
     
-    fqf = open(FqHam_file+'.sG','w')
+    fqf = open(fqop_file+'.sG','w')
     Fq_G.tofile(fqf)
     fqf.close()
 
     # Output the Fourier transformed Hamiltonian
-    fqaf = open(FqHam_file+'.asp','w')
+    fqaf = open(fqop_file+'.asp','w')
     print >>fqaf, "%.10f %.10f %d" % (omega, eta, len(Fq_dH_asp))
     for a, dH_sp in Fq_dH_asp.iteritems():
         print >>fqaf, a,
@@ -78,7 +78,7 @@ def transform_local_operator(gpw_file=None, TdHam_file=None, FqHam_file=None, om
 
 
 class TDDFPT(GPAW):
-    def __init__(self, gpw_filename, FqHam_filename, **kwargs):
+    def __init__(self, gpw_filename, fqop_filename, **kwargs):
         GPAW.__init__(self, gpw_filename, **kwargs)
     
     def calculate(self):
