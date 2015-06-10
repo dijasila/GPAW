@@ -124,51 +124,16 @@ class LCAOTDDFT(GPAW):
             self.initialize()
             self.set_positions()
 
-        # Restarting an FDTD run generates hamiltonian.fdtd_poisson, which now overwrites hamiltonian.poisson
-        if hasattr(self.hamiltonian, 'fdtd_poisson'):
-            print("Restarting poisson")
-            self.hamiltonian.poisson = self.hamiltonian.fdtd_poisson
-            self.hamiltonian.poisson.set_grid_descriptor(self.density.finegd)
-        else:
-            print("HERE!!!!!!!!!!!!!!!!!!!!")
-
-        # For electrodynamics mode
-        if self.hamiltonian is not None and self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
-            print("Initializing FDTD+TDDFT")
-            self.initialize_FDTD()
-            self.hamiltonian.poisson.print_messages(self.text)
-            self.txt.flush()
-
     def set(self, **kwargs):
-        if not 'mode' in kwargs:    
+        if not 'mode' in kwargs:
             kwargs['mode'] = 'lcao'
         else:
             modevar = kwargs['mode']
             if hasattr(modevar, 'name'):
                 assert modevar.name == 'lcao' # LCAO mode required
             else:
-                assert modevar == 'lcao' # LCAO mode required
+                assert modevar == 'lcao' # LCAO mode required             
         GPAW.set(self, **kwargs)
-
-    # Electrodynamics requires extra care
-    def initialize_FDTD(self):
-
-        # Sanity check
-        assert(self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT')
-
-        self.hamiltonian.poisson.set_density(self.density)
-
-        # The propagate calculation_mode causes classical part to evolve
-        # in time when self.hamiltonian.poisson.solve(...) is called
-        self.hamiltonian.poisson.set_calculation_mode('propagate')
-
-        # During each time step, self.hamiltonian.poisson.solve may be called several
-        # times (depending on the used propagator). Using the attached observer one
-        # ensures that actual propagation takes place only once. This is because
-        # the FDTDPoissonSolver changes the calculation_mode from propagate to
-        # something else when the propagation is finished.
-        self.attach(self.hamiltonian.poisson.set_calculation_mode, 1, 'propagate')
-
 
     def propagate_wfs(self, sourceC_nm, targetC_nm, S_MM, H_MM, dt):
         if self.propagator == 'cn':
@@ -339,9 +304,6 @@ class LCAOTDDFT(GPAW):
 
         self.timer.stop('Taylor propagator')
 
-    def absorption_kick(self, strength):
-        self.kick(strength)
-
     def kick(self, strength):
         self.tddft_init()
         self.timer.start('Kick')
@@ -383,6 +345,9 @@ class LCAOTDDFT(GPAW):
         if not self.tddft_initialized:
             if world.rank == 0:
                 print('Initializing real time LCAO TD-DFT calculation.')
+                print('XXX Warning: Array use not optimal for memory.')
+                print('XXX Taylor propagator probably doesn\'t work')
+                print('XXX ...and no arrays are listed in memory estimate yet.')
             self.blacs = self.wfs.ksl.using_blacs
             if self.blacs:
                 self.ksl = ksl = self.wfs.ksl    
@@ -466,6 +431,7 @@ class LCAOTDDFT(GPAW):
         # Loop over all k-points
         for k, kpt in enumerate(self.wfs.kpt_u):
             for a, P_ni in kpt.P_ani.items():
+                #print('Update projector: Rank:', world.rank, 'a', a)
                 P_ni.fill(117)
                 gemm(1.0, self.wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
         self.timer.stop('LCAO update projectors') 
@@ -503,23 +469,12 @@ class LCAOTDDFT(GPAW):
             self.text('About to continue from iteration %d and do %d propagation steps' % (self.niter, maxiter)) 
         self.tddft_init()
 
-        # Let FDTD part know the time step
-        if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
-            self.hamiltonian.poisson.set_time(self.time)
-            self.hamiltonian.poisson.set_time_step(self.time_step)
-
         dm0 = None # Initial dipole moment
         self.timer.start('Propagate')
-        print("Starting propagate", self.niter, maxiter)
         while self.niter < maxiter:
-
-
             dm = self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
-            if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
-                dm += self.hamiltonian.poisson.get_classical_dipole_moment()
             if dm0 is None:
                 dm0 = dm
-
             norm = self.density.finegd.integrate(self.density.rhot_g)
             line = '%20.8lf %20.8le %22.12le %22.12le %22.12le' % (self.time, norm, dm[0], dm[1], dm[2])
             T = localtime()
@@ -555,9 +510,6 @@ class LCAOTDDFT(GPAW):
 
             self.update_hamiltonian()
 
-            # Call registered callback functions
-            self.call_observers(self.niter)
-
             for k, kpt in enumerate(self.wfs.kpt_u):
                 kpt.H0_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
                 if self.fxc is not None:
@@ -583,10 +535,13 @@ class LCAOTDDFT(GPAW):
 
                 # 3. Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt) = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
                 self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, self.time_step)
-                print(kpt.C_nM, "CNM")
+
             self.niter += 1
             self.time += self.time_step
             
+            # Call registered callback functions
+            self.call_observers(self.niter)
+
         self.call_observers(self.niter, final=True)
         self.dm_file.close()
         self.timer.stop('Propagate')
