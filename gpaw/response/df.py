@@ -22,7 +22,7 @@ class DielectricFunction:
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  gate_voltage=None, truncation=None, disable_point_group=False,
                  disable_time_reversal=False, use_more_memory=1,
-                 unsymmetrized=True):
+                 unsymmetrized=True, chi0=None):
         """Creates a DielectricFunction object.
         
         calc: str
@@ -76,7 +76,10 @@ class DielectricFunction:
             '2D' for regular truncation in the z-direction
         """
 
-        self.chi0 = Chi0(calc, frequencies, domega0=domega0,
+        if chi0 is None:
+            chi0 = Chi0
+
+        self.chi0 = chi0(calc, frequencies, domega0=domega0,
                          omega2=omega2, omegamax=omegamax,
                          ecut=ecut, hilbert=hilbert, nbands=nbands,
                          eta=eta, ftol=ftol, threshold=threshold,

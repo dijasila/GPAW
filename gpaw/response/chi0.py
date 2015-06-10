@@ -13,17 +13,15 @@ from gpaw import extra_parameters
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor,
                         DryRunBlacsGrid)
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.occupations import FermiDirac
 from gpaw.response.pair import PairDensity
 from gpaw.utilities.memory import maxrss
-from gpaw.utilities.blas import gemm, rk, czher, mmm
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.response.pair import PWSymmetryAnalyzer
-from gpaw.response.integrators import (TetrahedronIntegrator,
-                                       BroadeningIntegrator)
+from gpaw.response.integrators import (TetrahedronIntegrator, HilbertTransform)
+
 from functools import partial
 
-        
+
 class ArrayDescriptor:
     """Describes a single dimensional array."""
     def __init__(self, data_x):
@@ -41,7 +39,16 @@ class ArrayDescriptor:
         
         Get closest index approximating scalar from below."""
         diff_x = scalar - self.data_x
-        return np.argmin(np.abs(diff_x))
+        return np.argmin(diff_x)
+
+    def get_index_range(self, lim1, lim2):
+        """Get closest index.
+        
+        Get closest index approximating scalar from below."""
+        i_x = np.nonzero(np.logical_and(lim1 <= self.data_x,
+                                        self.data_x <= lim2))[0]
+        return i_x
+
 
 class FrequencyDescriptor(ArrayDescriptor):
     def __init__(self, domega0, omega2, omegamax):
@@ -164,9 +171,6 @@ class Chi0:
             assert not timeordered
             assert not self.omega_w.real.any()
 
-        # Occupied states:
-        wfs = self.calc.wfs
-
         self.nocc1 = self.pair.nocc1  # number of completely filled bands
         self.nocc2 = self.pair.nocc2  # number of non-empty bands
 
@@ -215,7 +219,7 @@ class Chi0:
         self.Ga = self.blockcomm.rank * mynG
         self.Gb = min(self.Ga + mynG, nG)
         assert mynG * (self.blockcomm.size - 1) < nG
-        
+
         if A_x is not None:
             nx = nw * (self.Gb - self.Ga) * nG
             chi0_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
@@ -230,7 +234,7 @@ class Chi0:
         else:
             chi0_wxvG = None
             chi0_wvv = None
-            plasmafreq_vv = None
+            self.plasmafreq_vv = None
 
         # Do all empty bands:
         m1 = self.nocc1
@@ -248,18 +252,20 @@ class Chi0:
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins):
         # Use symmetries
         PWSA = PWSymmetryAnalyzer
-        PWSA = PWSA(self.calc.wfs.kd, pd, timer=self.timer, txt=self.fd)
-        kd = PWSA.get_reduced_kd()
-        
+        PWSA = PWSA(self.calc.wfs.kd, pd,
+                    timer=self.timer, txt=self.fd)
+        bzk_kc = PWSA.get_reduced_kd().bzk_kc
+        bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
+
         # Initialize integrator
-        integrator = TetrahedronIntegrator(self.calc.wfs.gd,
-                                           comm=self.kncomm)
-        td = integrator.tesselate(kd.bzk_kc)
+        integrator = TetrahedronIntegrator(comm=self.kncomm)
+        td = integrator.tesselate(bzk_kv)
 
         # Integrate interband response
-        mat_kwargs = {'kd': kd, 'pd': pd, 'm1': m1,
+        kd2 = self.calc.wfs.kd
+        mat_kwargs = {'kd': kd2, 'pd': pd, 'm1': m1,
                       'm2': m2, 'symmetry': PWSA}
-        eig_kwargs = {'kd': kd, 'm1': m1, 'm2': m2, 'pd': pd}
+        eig_kwargs = {'kd': kd2, 'm1': m1, 'm2': m2, 'pd': pd}
         domain = (td, spins, range(0, self.nocc2))
         integrator.integrate('response_function', domain,
                              (self.get_matrix_element,
@@ -268,48 +274,54 @@ class Chi0:
                              kwargs=(mat_kwargs, eig_kwargs),
                              out_wxx=chi0_wGG)
 
-        from gpaw.response.integrators import HilbertTransform
-
-        with self.timer('Kramers-Kronig transform'):
+        with self.timer('Hilbert transform'):
             omega_w = self.wd.get_data()
             ht = HilbertTransform(np.array(omega_w), 0.001 / Hartree)
             ht(chi0_wGG)
 
         if chi0_wxvG is not None:
-            chi0_wxvG[:, 0] = np.transpose(chi0_wGG[:, :, 0:3], (0, 2, 1))
-            chi0_wxvG[:, 1] = chi0_wGG[:, 0:3]
-            chi0_wvv = chi0_wGG[:, 0:3, 0:3]
-            chi0_wGG = chi0_wGG[:, 2:, 2:]
-
             if self.nocc1 != self.nocc2:
                 # Determine plasma frequency
-                mat_kwargs = {'kd': kd, 'symmetry': PWSA,
-                              'n1': self.nocc1, 'n2': self.nocc2}
+                mat_kwargs = {'kd': kd2, 'symmetry': PWSA,
+                              'n1': self.nocc1, 'n2': self.nocc2,
+                              'pd': pd}
 
-                eig_kwargs = {'kd': kd, 'n1': self.nocc1, 'n2': self.nocc2}
+                eig_kwargs = {'kd': kd2, 'n1': max(0, self.nocc1 - 1),
+                              'n2': self.nocc2, 'pd': pd}
                 domain = (td, spins)
+                fermi_level = self.pair.fermi_level
+                plasmafreq_wvv = np.zeros((1, 3, 3), complex)
                 integrator.integrate('response_function', domain,
                                      (self.get_intraband_response,
                                       self.get_intraband_eigenvalue),
-                                     ArrayDescriptor([0]),
+                                     ArrayDescriptor([fermi_level]),
                                      kwargs=(mat_kwargs, eig_kwargs),
-                                     out_wxx=self.plasmafreq_vv[np.newaxis])
-                chi0_wvv += (self.plasmafreq_vv[np.newaxis] / 
-                             self.omega_w[:, np.newaxis, np.newaxis]**2)
+                                     out_wxx=plasmafreq_wvv)
+                self.plasmafreq_vv = plasmafreq_wvv[0]
+                chi0_wGG[:, 0:3, 0:3] += (self.plasmafreq_vv[np.newaxis] /
+                                          (self.omega_w[:, np.newaxis,
+                                                        np.newaxis]**2 +
+                                           1e-10))
 
-                print(np.sqrt(self.plasmafreq_vv))
+        # Symmetrize chi the results
+        chi0_wGG *= (2 * PWSA.how_many_symmetries() /
+                     (len(spins) * (2 * np.pi)**3))  # Remember prefactor
 
-
-        # Symmetrize chi
         tmpchi0_wGG = self.redistribute(chi0_wGG)
-        PWSA.symmetrize_wGG(tmpchi0_wGG)
+        PWSA.symmetrize_wxx(tmpchi0_wGG)
         self.redistribute(tmpchi0_wGG, chi0_wGG)
+
+        chi0_wxvG[:, 0] = np.transpose(chi0_wGG[:, :, 0:3], (0, 2, 1))
+        chi0_wxvG[:, 1] = chi0_wGG[:, 0:3]
+        chi0_wxvG = chi0_wxvG[..., 2:]
+        chi0_wvv = chi0_wGG[:, 0:3, 0:3]
+        chi0_wGG = chi0_wGG[:, 2:, 2:]
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
-    def get_matrix_element(self, k_c, s, n,
+    def get_matrix_element(self, k_v, s, n,
                            m1=None, m2=None,
-                           pd=None, kd=None, 
+                           pd=None, kd=None,
                            symmetry=None):
         """A function that returns pair-densities.
 
@@ -319,25 +331,23 @@ class Chi0:
 
         where s is spin, n and m are band indices, k is
         the kpoint and q is the momentum transfer."""
-
-        weight = symmetry.get_kpoint_weight(k_c)
-        K1 = kd.where_is_q(k_c, kd.bzk_kc)
-        q_c = pd.kd.bzk_kc[0]
+        k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
         if self.Q_aGii is None:
             self.Q_aGii = self.pair.initialize_paw_corrections(pd)
 
-        kptpair = self.pair.get_kpoint_pair(pd, s, K1, n, n + 1, m1, m2)
-        kpt1 = kptpair.kpt1
-        kpt2 = kptpair.kpt2
+        kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n, n + 1, m1, m2)
         m_m = range(m1, m2)
         n_mG = self.pair.get_pair_density(pd, kptpair, [n], m_m,
                                           Q_aGii=self.Q_aGii)[0]
-
-        n_mG *= weight
+        deps_nm = kptpair.get_transition_energies([n], m_m)
+        df_nm = kptpair.get_occupation_differences([n], m_m)
+        df_nm[df_nm <= 1e-20] = 0.0
+        n_mG[deps_nm[0] >= 0.0] = 0
+        n_mG *= df_nm[0][:, np.newaxis]
         return n_mG
 
-    def get_eigenvalues(self, k_c, s, n,
+    def get_eigenvalues(self, k_v, s, n,
                         m1=None, m2=None,
                         kd=None, pd=None):
         """A function that can return the eigenvalues.
@@ -346,47 +356,37 @@ class Chi0:
         the response function which gives an output that
         is compatible with the gpaw k-point integration
         routines."""
+        k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
-        K1 = kd.where_is_q(k_c, kd.bzk_kc)
-
-        kptpair = self.pair.get_kpoint_pair(pd, s, K1, n, n + 1, m1, m2,
+        kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n, n + 1, m1, m2,
                                             load_wfs=False)
         kpt1 = kptpair.get_k1()
         kpt2 = kptpair.get_k2()
-        eps_n = kpt1.eps_n
-        eps_m = kpt2.eps_n
         m_m = range(m1, m2)
         deps_m = (kpt2.eps_n[m_m - kpt2.n1] -
                   kpt1.eps_n[n - kpt1.n1])
 
         return deps_m
 
-    def get_intraband_response(self, k_c, s, n1=None, n2=None,
-                               kd=None, symmetry=None):
-
-        weight = symmetry.get_kpoint_weight(k_c)
-
-        K1 = kd.where_is_q(k_c, kd.bzk_kc)
-
-        kpt1 = self.pair.get_k_point(s, K1, n1, n2)
+    def get_intraband_response(self, k_v, s, n1=None, n2=None,
+                               kd=None, symmetry=None, pd=None):
+        k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+        kpt1 = self.pair.get_k_point(s, k_c, n1, n2)
         n_n = range(n1, n2)
 
         vel_nv = self.pair.intraband_pair_density(kpt1, n_n)
-        vel_nv *= weight
-
         return vel_nv
 
-    def get_intraband_eigenvalue(self, k_c, s,
-                                 n1=None, n2=None, kd=None):
+    def get_intraband_eigenvalue(self, k_v, s,
+                                 n1=None, n2=None, kd=None, pd=None):
         """A function that can return the eigenvalues.
 
         A simple function describing the integrand of
         the response function which gives an output that
         is compatible with the gpaw k-point integration
         routines."""
-
-        K1 = kd.where_is_q(k_c, kd.bzk_kc)
-        kpt1 = self.pair.get_k_point(s, K1, n1, n2, load_wfs=False)
+        k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+        kpt1 = self.pair.get_k_point(s, k_c, n1, n2, load_wfs=False)
         return kpt1.eps_n
 
     @timer('redist')
@@ -493,7 +493,7 @@ class Chi0:
         nbands = self.nbands
         nk = calc.wfs.kd.nbzkpts
         nik = calc.wfs.kd.nibzkpts
-        ngmax = pd.ngmax        
+        ngmax = pd.ngmax
         eta = self.eta * Hartree
         wsize = world.size
         knsize = self.kncomm.size

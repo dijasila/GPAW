@@ -30,12 +30,14 @@ e_kkk = np.zeros((3, 3, 3))
 e_kkk[0, 1, 2] = e_kkk[1, 2, 0] = e_kkk[2, 0, 1] = 1
 e_kkk[0, 2, 1] = e_kkk[2, 1, 0] = e_kkk[1, 0, 2] = -1
 
+
 def theta(x):
     """Heaviside step function."""
     return 0.5 * (np.sign(x) + 1)
 
+
 class Integrator():
-    def __init__(self, gd, comm=mpi.world,
+    def __init__(self, comm=mpi.world,
                  txt=sys.stdout, timer=None,  nblocks=1):
         """Baseclass for Brillouin zone integration and band summation.
         
@@ -46,7 +48,6 @@ class Integrator():
         nblocks: block parallelization
         """
 
-        self.gd = gd
         self.comm = comm
         self.nblocks = nblocks
 
@@ -68,9 +69,6 @@ class Integrator():
         self.fd = txt
 
         self.timer = timer or Timer()
-        self.A_cv = self.gd.cell_cv
-        self.iA_cv = self.gd.icell_cv
-        self.vol = abs(np.linalg.det(self.A_cv))
 
     def distribute_domain(self, domain_dl):
         """Distribute integration domain. """
@@ -175,7 +173,7 @@ class Integrator():
 
         self.kncomm.sum(out_x)
 
-        return out_x        
+        return out_x
 
 
 class BroadeningIntegrator(Integrator):
@@ -396,7 +394,7 @@ class TetrahedronIntegrator(Integrator):
     """Integrate brillouin zone using tetrahedron integration.
 
     Tetrahedron integration uses linear interpolation of
-    the eigenenergies and of the matrix elements 
+    the eigenenergies and of the matrix elements
     between the vertices of the tetrahedron."""
     def __init__(self, *args, **kwargs):
         Integrator.__init__(self, *args, **kwargs)
@@ -407,14 +405,14 @@ class TetrahedronIntegrator(Integrator):
         td = Delaunay(vertices)
 
         return td
-
+        
+    @timer('get volume')
     def get_simplex_volume(self, td, S):
         """Get volume of simplex S"""
         
         K_k = td.simplices[S]
         k_kc = td.points[K_k]
-        k_kv = np.dot(k_kc, self.iA_cv) * 2 * np.pi
-        vol = np.abs(np.linalg.det(k_kv[1:] - k_kv[0])) / 6.
+        vol = np.abs(np.linalg.det(k_kc[1:] - k_kc[0])) / 6.
 
         return vol
 
@@ -448,70 +446,150 @@ class TetrahedronIntegrator(Integrator):
         # Relevant quantities
         bzk_kc = td.points
         nk = len(bzk_kc)
-        nw = len(wd)
 
         # Distribute integral summation
-        myterms = self.distribute_domain([range(nk)] + list(args))
+        myterms = self.distribute_domain(list(args) + [range(nk)])
 
         # Calculate integrations weight
         pb = ProgressBar(self.fd)
 
         # Treat each terms by itself
+        oldargs = None
         for _, arguments in pb.enumerate(myterms):
             # Assuming calculation of weights is cheap
-            K = arguments[0]
+            K = arguments[-1]
+            arguments = arguments[:-1]
 
-            with self.timer('Calculate weights'):
-                I_SMw = []
-                for S in range(td.nsimplex):
-                    K_k = td.simplices[S]
-                    if K not in K_k:
-                        continue
+            if not oldargs == arguments:
+                W_MK = self.get_integration_weights(get_eigenvalues, wd, td,
+                                                    arguments)
+                oldargs = arguments
 
-                    vol = self.get_simplex_volume(td, S)
-                    deps_kM = []
+            # Integrate values
+            k_c = bzk_kc[K]
+            n_MG = get_matrix_element(k_c, *arguments)
+            for n_G, W_K in zip(n_MG, W_MK):
+                i0 = W_K[K][0]
 
-                    with self.timer('get_eigenvalues'):
-                        for Ks in K_k:
-                            k_c = bzk_kc[Ks]
-                            deps_M = get_eigenvalues(k_c, *arguments[1:])
-                            deps_kM.append(deps_M)
+                if i0 is None:
+                    continue
 
-                    Itmp_KMw = self.calculate_integration_weights(wd,
-                                                                  deps_kM,
-                                                                  vol)
-                    for ik, I_Mw in enumerate(Itmp_KMw):
-                        if K_k[ik] == K:
-                            I_SMw.append(I_Mw)
-
-
-            with self.timer('Integrate'):
-                # Integrate values
-                k_c = bzk_kc[K]
-                n_MG = get_matrix_element(k_c, *arguments[1:])
-
-                for I_Mw in I_SMw:
-                    for n_G, I_w in zip(n_MG, I_Mw):
-                        i0 = I_w[0]
-                        weight_w = I_w[1]
-                        for iw, weight in enumerate(weight_w):
-                            czher(weight, n_G.conj(), out_wxx[i0 + iw])
+                W_w = W_K[K][1]
+                for iw, weight in enumerate(W_w):
+                    czher(weight, n_G.conj(), out_wxx[i0 + iw])
 
         self.kncomm.sum(out_wxx)
-
-        prefactor = 1 / (2 * np.pi)**3
-        out_wxx *= prefactor
-
         self.timer.write()
+    
+    @timer('Get integration weight')
+    def get_integration_weights(self, g, wd, td, arguments):
+        # The data format for the weights
+        W_MK = None
+
+        for S, K_k in enumerate(td.simplices):
+            vol = self.get_simplex_volume(td, S)
+            g_Mk = None
+
+            for i, K in enumerate(K_k):
+                k_c = td.points[K]
+                g_M = g(k_c, *arguments)
+                if g_Mk is None:
+                    g_Mk = np.zeros((len(g_M), 4), float)
+                g_Mk[..., i] = g_M
+
+            if W_MK is None:
+                W_MK = [[[None, None] for k in range(len(td.points))]
+                        for m in range(len(g_M))]
+
+            for g_k, W_K in zip(g_Mk, W_MK):
+                istart, gi_w, I_kw = self.single_simplex_weight(wd, g_k)
+                if I_kw is None:
+                    continue
+                W_kw = I_kw * gi_w * vol
+
+                for K, W_w in zip(K_k, W_kw):
+                    tmpistart = W_K[K][0]
+                    if tmpistart is None:
+                        W_K[K][0] = istart
+                        W_K[K][1] = W_w
+                    else:
+                        tmpW_w = W_K[K][1]
+                        tmpiend = tmpistart + len(tmpW_w)
+                        iend = istart + len(W_w)
+                        if tmpistart <= istart and iend <= tmpiend:
+                            i0 = istart - tmpistart
+                            i1 = iend - tmpistart
+                            W_K[K][1][i0:i1] += W_w
+                        elif istart <= tmpistart and tmpiend <= iend:
+                            i0 = tmpistart - istart
+                            i1 = tmpiend - istart
+                            W_w[i0:i1] += tmpW_w
+                            W_K[K][1] = W_w
+                            W_K[K][0] = istart
+                        elif istart < tmpistart and iend < tmpiend:
+                            Wnew_w = np.zeros((tmpiend - istart,), float)
+                            i0 = tmpistart - istart
+                            i1 = iend - istart
+                            Wnew_w[i0:] += tmpW_w
+                            Wnew_w[:i1] += W_w
+                            W_K[K][0] = istart
+                            W_K[K][1] = Wnew_w
+                        elif tmpistart < istart and tmpiend < iend:
+                            Wnew_w = np.zeros((iend - tmpistart,),
+                                              float)
+                            i0 = istart - tmpistart
+                            i1 = tmpiend - tmpistart
+                            Wnew_w[i0:] += W_w
+                            Wnew_w[:i1] += tmpW_w
+                            W_K[K][1] = Wnew_w
+                        else:
+                            print(istart, iend, tmpistart, tmpiend)
+                            raise AssertionError
+
+        return W_MK
+
+    @timer('Single simplex weight')
+    def single_simplex_weight(self, wd, de_k):
+        """Calculate the integration weights."""
+        omega_w = wd.get_data()
+
+        permute = np.argsort(de_k)
+        de_k = de_k[permute]
+
+        # Frequency ranges from i0 to i3
+        i0 = wd.get_closest_index(de_k[0])
+        i3 = wd.get_closest_index(de_k[3]) + 1
+
+        I_kw = None
+        gi_w = None
+        
+        for iw in range(i0, i3):
+            omega = omega_w[iw]
+
+            if de_k[0] < omega < de_k[1]:
+                case = 0
+            elif de_k[1] <= omega <= de_k[2]:
+                case = 1
+            elif de_k[2] < omega < de_k[3]:
+                case = 2
+            else:
+                continue
+
+            if I_kw is None:
+                I_kw = np.zeros((4, i3 - i0), float)
+                gi_w = np.zeros((i3 - i0), float)
+
+            gi, I_k = self.get_kpoint_weight(omega, de_k, case)
+            I_kw[permute, iw - i0] = I_k
+            gi_w[iw - i0] = gi
+
+        return i0, gi_w, I_kw
 
     @timer('Single simplex weight')
     def calculate_integration_weights(self, wd, deps_kM, vol):
         """Calculate the integration weights."""
         nM = len(deps_kM[0])
-        nw = len(wd)
         omega_w = wd.get_data()
-
-        f = lambda o, de1, de2: (o - de2) / (de1 - de2)
 
         I_KMw = [[] for j in range(4)]
         for M in range(nM):
@@ -528,9 +606,9 @@ class TetrahedronIntegrator(Integrator):
             for iw in range(i0, i3):
                 omega = omega_w[iw]
 
-                if de_k[0] < omega <= de_k[1]:
+                if de_k[0] < omega < de_k[1]:
                     case = 0
-                elif de_k[1] < omega <= de_k[2]:
+                elif de_k[1] <= omega <= de_k[2]:
                     case = 1
                 elif de_k[2] < omega < de_k[3]:
                     case = 2
@@ -548,37 +626,37 @@ class TetrahedronIntegrator(Integrator):
 
     @timer('get_kpoint_weight')
     def get_kpoint_weight(self, omega, de_k, case):
-        I_k = np.empty(4, float)
-        f_kk = np.empty((4, 4), float)
+        I_k = np.zeros(4, float)
+        f_kk = np.zeros((4, 4), float)
 
         if case == 0:
             f_kk[1:, 0] = (omega - de_k[0]) / (de_k[1:] - de_k[0])
             f_kk[0, 1:] = 1 - f_kk[1:, 0]
             ni = f_kk[1, 0] * f_kk[2, 0] * f_kk[3, 0]
             gi = 3 * ni / (omega - de_k[0])
-            I_k[0] = 1. / 3 * (f_kk[0, 1] + f_kk[0, 2] + f_kk[0, 3])
-            I_k[1:] = 1. / 3 * f_kk[1:, 0]
+            I_k[0] = (f_kk[0, 1] + f_kk[0, 2] + f_kk[0, 3]) / 3
+            I_k[1:] = f_kk[1:, 0] / 3
         elif case == 1:
             f_kk[2:, :2] = ((omega - de_k[:2][np.newaxis]) /
                             (de_k[2:][:, np.newaxis]
                              - de_k[:2][np.newaxis]))
             f_kk[:2, 2:] = 1 - f_kk[2:, :2].T
             delta = de_k[3] - de_k[0]
-            gi = 3. / delta * (f_kk[1, 2] * f_kk[2, 0] +
-                               f_kk[2, 1] * f_kk[1, 3])
-            I_k[:] = (f_kk[([0, 1, 2, 3], [3, 2, 1, 0])] / 3. +
+            gi = 3 / delta * (f_kk[1, 2] * f_kk[2, 0] +
+                              f_kk[2, 1] * f_kk[1, 3])
+            I_k[:] = (f_kk[([0, 1, 2, 3], [3, 2, 1, 0])] / 3 +
                       f_kk[([0, 1, 2, 3], [2, 3, 0, 1])] *
                       f_kk[([2, 1, 2, 1], [0, 3, 0, 3])] *
-                      f_kk[([1, 2, 1, 2], [2, 1, 2, 1])] *
+                      f_kk[([1, 2, 1, 2], [2, 1, 2, 1])] /
                       (gi * delta))
         elif case == 2:
             f_kk[:3, 3] = (omega - de_k[3]) / (de_k[:3] - de_k[3])
             f_kk[3, :3] = 1 - f_kk[:3, 3]
             ni = (1 - f_kk[0, 3] * f_kk[1, 3] * f_kk[2, 3])
             gi = 3. * (1 - ni) / (de_k[3] - omega)
-            I_k[:3] = f_kk[:3, 3]
-            I_k[3] = (f_kk[3, 0] + f_kk[3, 1] + f_kk[3,2]) / 3.
-
+            I_k[:3] = f_kk[:3, 3] / 3.
+            I_k[3] = (f_kk[3, 0] + f_kk[3, 1] + f_kk[3, 2]) / 3.
+            
         return gi, I_k
 
 
