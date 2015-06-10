@@ -55,7 +55,6 @@ class AngularIntegral:
     def initialize(self):
         """Initialize grids."""
 
-        center = self.center
         Rmax = self.Rmax
         dR = self.dR
         gd = self.gd
@@ -110,7 +109,7 @@ class AngularIntegral:
 
     def average(self, f_g):
         """Give the angular average of a function on the grid."""
-        V_R = np.where(self.V_R > 0,  self.V_R, 1.e32)
+        V_R = np.where(self.V_R > 0, self.V_R, 1.e32)
         return self.integrate(f_g) * self.dR / V_R / Bohr ** 2
 
     def radii(self, model='nominal'):
@@ -120,7 +119,7 @@ class AngularIntegral:
         elif model == 'mean':
             return self.R_R * Bohr
         else:
-            raise NonImplementedError
+            raise NotImplementedError
 
 
 class ExpandYl(AngularIntegral):
@@ -156,7 +155,6 @@ class ExpandYl(AngularIntegral):
         gamma_l = np.zeros((self.lmax + 1))
         nL = len(self.L_l)
         L_l = self.L_l
-        dR = self.dR
 
         def abs2(z):
             return z.real**2 + z.imag**2
@@ -206,7 +204,7 @@ class ExpandYl(AngularIntegral):
         print('# dR =', self.dR * Bohr, lu, file=f)
         print('# lmax =', self.lmax, file=f)
         print('# s    k     n', end=' ', file=f)
-        print('     e[eV]      occ', end=' ', file=f)
+        print('kpt-wght    e[eV]      occ', end=' ', file=f)
         print('    norm      sum   weight', end=' ', file=f)
         spdfghi = 's p d f g h i'.split()
         for l in range(self.lmax + 1):
@@ -226,13 +224,15 @@ class ExpandYl(AngularIntegral):
                     gl = 100 * gl / gsum
 
                     print('%2d %5d %5d' % (s, k, n), end=' ', file=f)
-                    print('%10.4f %8.4f' % (kpt.eps_n[n] * Hartree,
-                                            kpt.f_n[n]), end=' ', file=f)
-                    print("%8.4f %8.4f %8.4f" %
+                    print('%6.4f %10.4f %8.4f' % (kpt.weight,
+                                                  kpt.eps_n[n] * Hartree,
+                                                  kpt.f_n[n]),
+                          end=' ', file=f)
+                    print('%8.4f %8.4f %8.4f' %
                           (norm, gsum, weight), end=' ', file=f)
 
                     for g in gl:
-                        print("%8.2f" % g, end=' ', file=f)
+                        print('%8.2f' % g, end=' ', file=f)
                     print(file=f)
                     f.flush()
         f.close()
@@ -314,45 +314,6 @@ class Vector3d(list):
     def norm(self):
         #return np.sum( self*self )
         return self*self  #  XXX drop this class and use numpy arrays ...
-
-    def rotation_axis(self, other):
-        """Return the rotation axis to rotate yourself to the direction
-        of the other vector. The length of the axis gives the rotation angle
-        (in radians)."""
-        other = Vector3d(other)
-        angle = self.angle(other)
-        if angle is None:
-            return None
-        axis = self.vprod(other)
-        axis.length(angle)
-        return axis
-
-    def rotate(self, axis, angle=None):
-        """Rotate the vector about the given axis with the given angle.
-        Note, that the right hand rule applies: If your right thumb points
-        into the direction of the axis, the other fingers show the rotation
-        direction."""
-        axis=Vector3d(axis)
-        if angle is None:
-            angle=axis.length()
-        axis.length(1.)
-        res = (cos(angle) * self - sin(angle) * self.vprod(axis) +
-               ((self * axis) * (1. - cos(angle))) * axis          )
-        for c in range(3):
-            self[c] = res[c]
-            
-    def vprod(self, a, b=None):
-        """vector product"""
-        if b is None:
-            # [self x a]
-            return Vector3d([self[1]*a[2]-self[2]*a[1],
-                             self[2]*a[0]-self[0]*a[2],
-                             self[0]*a[1]-self[1]*a[0]])
-        else:
-            # [a x b]
-            return Vector3d([a[1]*b[2]-a[2]*b[1],
-                             a[2]*b[0]-a[0]*b[2],
-                             a[0]*b[1]-a[1]*b[0]])
                          
     def x(self):
         return self[0]

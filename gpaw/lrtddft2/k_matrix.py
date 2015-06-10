@@ -309,9 +309,10 @@ class Kmatrix:
             self.Kfile.write('# K-matrix file\n')
 
         # Init Poisson solver
-        self.poisson = PoissonSolver(nn=self.calc.hamiltonian.poisson.nn)
-        self.poisson.set_grid_descriptor(self.calc.density.finegd)
-        self.poisson.initialize()
+        #self.poisson = PoissonSolver(nn=self.calc.hamiltonian.poisson.nn)
+        #self.poisson.set_grid_descriptor(self.calc.density.finegd)
+        #self.poisson.initialize()
+        self.poisson = self.calc.hamiltonian.poisson
 
         # Allocate grids for densities and potentials
         dnt_Gip = self.calc.wfs.gd.empty()
