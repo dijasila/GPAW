@@ -6,7 +6,7 @@ import numpy as np
 
 # Time dependent density functional perturbation theory
 
-def transform_hamiltonian(gpw_file=None, TdHam_file=None, FqHam_file=None, omega=None, eta=0.1):
+def transform_local_operator(gpw_file=None, TdHam_file=None, FqHam_file=None, omega=None, eta=0.1):
     assert world.size == 1
     assert gpw_file is not None
     assert TdHam_file is not None
@@ -15,8 +15,8 @@ def transform_hamiltonian(gpw_file=None, TdHam_file=None, FqHam_file=None, omega
     omega /= Hartree
     eta /= Hartree
 
-    tdf = open(TdHam_file,'r')
-    tdaf = open(TdHam_file+'.H_asp','r')
+    tdf = open(TdHam_file,'.sG','r')
+    tdaf = open(TdHam_file+'.asp','r')
     calc = GPAW(gpw_file)
 
     Fq_G = calc.hamiltonian.gd.zeros(dtype=complex)
@@ -63,18 +63,19 @@ def transform_hamiltonian(gpw_file=None, TdHam_file=None, FqHam_file=None, omega
     tdf.close() 
     tdaf.close()
     
-    fqf = open(FqHam_file,'w')
+    fqf = open(FqHam_file+'.sG','w')
     Fq_G.tofile(fqf)
     fqf.close()
 
     # Output the Fourier transformed Hamiltonian
-    fqaf = open(FqHam_file+'.H_asp','w')
+    fqaf = open(FqHam_file+'.asp','w')
     print >>fqaf, "%.10f %.10f %d" % (omega, eta, len(Fq_dH_asp))
     for a, dH_sp in Fq_dH_asp.iteritems():
         print >>fqaf, a,
         for H in dH_sp.ravel():
             print >>fqaf, H.real, H.imag,
         print >>fqaf
+
 
 class TDDFPT(GPAW):
     def __init__(self, gpw_filename, FqHam_filename, **kwargs):
@@ -88,8 +89,8 @@ class HamiltonianCollector(Observer):
     def __init__(self, filename, lcao):
         Observer.__init__(self)        
         self.lcao = lcao               
-        self.filename = filename+'.vt_sG'
-        self.H_asp_filename = filename+'.H_asp'
+        self.filename = filename+'.sG'
+        self.H_asp_filename = filename+'.asp'
         self.first_iteration = True
 
     def update(self):
@@ -133,8 +134,8 @@ class DensityCollector(Observer):
     def __init__(self, filename, lcao):
         Observer.__init__(self)        
         self.lcao = lcao               
-        self.filename = filename+'.nt_sG'
-        self.D_asp_filename = filename+'.D_asp'
+        self.filename = filename+'.sG'
+        self.D_asp_filename = filename+'.asp'
         self.first_iteration = True
 
     def update(self):
@@ -253,7 +254,7 @@ if 0:
     td_calc.kick([1e-5, 0.0, 0.0])
     td_calc.propagate(10, 500, 'Na2.dm')
 
-transform_hamiltonian(gpw_file='Na_gs.gpw', TdHam_file='Na.TdHam', FqHam_file='Na.FqHam', omega=2.5, eta=0.4)
+transform_local_operator(gpw_file='Na_gs.gpw', TdHam_file='Na.TdHam', FqHam_file='Na.FqHam', omega=2.5, eta=0.4)
 
 
 """
