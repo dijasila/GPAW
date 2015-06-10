@@ -67,6 +67,12 @@ def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omeg
     Fq_G.tofile(fqf)
     fqf.close()
 
+    # Make sure we know how to read it
+    fqf = open(fqop_file+'.sG','r')
+    Fq2_G = np.fromfile(fqf, dtype=np.complex128, count=NG).reshape(Fq_G.shape)
+    fqf.close()
+    assert np.abs(Fq2_G-Fq_G).sum() <1e-10# XXX
+
     # Output the Fourier transformed Hamiltonian
     fqaf = open(fqop_file+'.asp','w')
     print >>fqaf, "%.10f %.10f %d" % (omega, eta, len(Fq_dH_asp))
@@ -78,11 +84,57 @@ def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omeg
 
 
 class TDDFPT(GPAW):
-    def __init__(self, gpw_filename, fqop_filename, **kwargs):
+    def __init__(self, gpw_filename, Vop_filename, **kwargs):
         GPAW.__init__(self, gpw_filename, **kwargs)
-    
+
+        # Read the complex smooth potential
+        tdf = open(Vop_filename+'.sG','r')
+        NG = np.prod(self.hamiltonian.vt_sG.shape)
+        self.cvt_sG = np.fromfile(tdf, dtype=np.complex128, count=NG).reshape(self.hamiltonian.vt_sG.shape)
+
+        # Read the complex PAW corrections
+        tdaf = open(Vop_filename+'.asp','r')
+        header = tdaf.readline().split()
+        assert len(header) == 3
+        self.omega = float(header[0])
+        self.eta = float(header[1])
+        NA = int(header[2])
+
+        print "TDDFPT"
+        print "Omega: %.4f eV" % (self.omega * Hartree)
+        print "Eta: %.4f eV" % (self.omega * Hartree)
+
+        self.cH_asp = {}
+        for a, dH_sp in self.hamiltonian.dH_asp.iteritems():
+            data = tdaf.readline().split()
+            a = int(data[0])
+            self.cH_asp[a] = np.zeros_like(dH_sp, dtype=complex)
+            self.cH_asp[a][:] = np.array(map(float, data[1::2]))
+            self.cH_asp[a][:] += 1j*np.array(map(float, data[2::2]))
+
     def calculate(self):
-        pass
+        self.initialize(self.atoms)
+        self.set_positions(self.atoms)
+
+        # Real part 
+        self.hamiltonian.vt_sG[:] = self.cvt_sG.real
+        for a, dH_sp in self.hamiltonian.dH_asp.iteritems():
+            self.hamiltonian.dH_asp[a][:] = self.cH_asp[a].real
+        
+        print self.hamiltonian.vt_sG, np.sum(self.hamiltonian.vt_sG)
+        print self.hamiltonian.dH_asp[0]
+        print self.hamiltonian.dH_asp[1]
+        Hp_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(\
+                     self.hamiltonian, self.wfs, self.wfs.kpt_u[0], root=-1)
+        print "Hp_MM", Hp_MM
+
+        # Imag part 
+        self.hamiltonian.vt_sG[:] = self.cvt_sG.imag
+        for a, dH_sp in self.hamiltonian.dH_asp.iteritems():
+            self.hamiltonian.dH_asp[a][:] = self.cH_asp[a].imag
+        Hm_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(\
+                     self.hamiltonian, self.wfs, self.wfs.kpt_u[0], root=-1)
+        print "Hm_MM", Hm_MM
 
 class HamiltonianCollector(Observer):
 
