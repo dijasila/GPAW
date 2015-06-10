@@ -32,7 +32,7 @@ Note: Unfortunately, spin is not implemented yet. For now, use 'lrtddft'.
 Restarting, recalculating and analyzing spectrum
 ================================================
 
-.. literalinclude:: Oxirane_lrddft2_lr2.py
+.. literalinclude:: Oxirane_lrtddft2_lr2.py
 
 
 Quick reference
@@ -49,6 +49,7 @@ keyword           type               default value        description
                                                           decomposition
 ``eh_size``        `int``            None                 Number of groups for parallelization
                                                           over e-h -pairs
+================  =================  ===================  ========================================
 
 Note: world.size = dd_size x eh_size
 
