@@ -510,6 +510,9 @@ class LCAOTDDFT(GPAW):
 
             self.update_hamiltonian()
 
+            # Call registered callback functions
+            self.call_observers(self.niter)
+
             for k, kpt in enumerate(self.wfs.kpt_u):
                 kpt.H0_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
                 if self.fxc is not None:
@@ -539,9 +542,6 @@ class LCAOTDDFT(GPAW):
             self.niter += 1
             self.time += self.time_step
             
-            # Call registered callback functions
-            self.call_observers(self.niter)
-
         self.call_observers(self.niter, final=True)
         self.dm_file.close()
         self.timer.stop('Propagate')
