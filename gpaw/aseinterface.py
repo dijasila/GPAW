@@ -123,17 +123,21 @@ class GPAW(PAW):
     def _get_results(self):
         results = {}
         from ase.calculators.calculator import all_properties
-        for property in all_properties:
-            if property == 'charges':
+        for prop in all_properties:
+            if prop == 'charges':
                 continue
-            if not self.calculation_required(self.atoms, [property]):
+            if not self.calculation_required(self.atoms, [prop]):
+                if prop == 'magmoms':
+                    results[prop] = self.magmom_av
+                    continue
+                if prop == 'dipole':
+                    results[prop] = self.dipole_v * Bohr
+                    continue
                 name = {'energy': 'potential_energy',
-                        'dipole': 'dipole_moment',
-                        'magmom': 'magnetic_moment',
-                        'magmoms': 'magnetic_moments'}.get(property, property)
+                        'magmom': 'magnetic_moment'}.get(prop, prop)
                 try:
                     x = getattr(self, 'get_' + name)(self.atoms)
-                    results[property] = x
+                    results[prop] = x
                 except (NotImplementedError, AttributeError):
                     pass
         return results
