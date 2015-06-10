@@ -22,11 +22,17 @@ def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omeg
     Fq_G = calc.hamiltonian.gd.zeros(dtype=complex)
     NG = np.prod(Fq_G.shape)
 
+    # Reference values, taken from t=0 value
+    ref_dH_asp = {}
     Fq_dH_asp = {}
     for a, dH_sp in calc.hamiltonian.dH_asp.iteritems():
+        ref_dH_asp[a] = np.zeros_like(dH_sp, dtype=complex)
         Fq_dH_asp[a] = np.zeros_like(dH_sp, dtype=complex)
 
+    ref_sG = None
+
     iteration = 0
+
     while True:
         # Read pseudo potential and spherical corrections
         Td_G = np.fromfile(tdf, dtype=np.float64, count=NG)
@@ -34,6 +40,8 @@ def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omeg
             break
 
         Td_G = Td_G.reshape(Fq_G.shape)
+        if ref_sG is None:
+            ref_sG = Td_G.copy()
 
         header = tdaf.readline().split()
         print header
@@ -46,17 +54,21 @@ def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omeg
         for n in range(natoms):
             data = tdaf.readline().split()
             a = int(data[0])
-            Td_dH_asp[a] = np.zeros_like(Fq_dH_asp[a])
+            Td_dH_asp[a] = np.zeros_like(calc.hamiltonian.dH_asp[a])
             Td_dH_asp[a][:] = map(float, data[1:])
+
+        if ref_dH_asp is None:
+            ref_dH_asp = Td_dH_asp[a].deepcopy()
+
         if iteration == 0:
             print time
             assert time == 0.0
         c = np.exp(1j * time * omega - eta * time)
         print "Iteration", iteration, c
         # Add to fourier transform
-        Fq_G += c * Td_G
-        for a, dH_sp in Fq_dH_asp.iteritems():
-            Fq_dH_asp[a] += c * (Td_dH_asp[a] - calc.hamiltonian.dH_asp[a])
+        Fq_G += c * (Td_G-ref_sG)
+        for a, dH_sp in ref_dH_asp.iteritems():
+            Fq_dH_asp[a] += c * (Td_dH_asp[a] - ref_dH_asp[a])
 
         iteration += 1
 
@@ -136,6 +148,17 @@ class TDDFPT(GPAW):
                      self.hamiltonian, self.wfs, self.wfs.kpt_u[0], root=-1)
         print "Hm_MM", Hm_MM
 
+        S_MM = self.wfs.S_qMM[0]
+        C0_nM = self.wfs.kpt_u[0].C_nM.copy()
+        
+        d_m = np.dot(np.dot(S_MM, Hm_MM), S_MM.T)
+        Hm_nn = np.dot(np.dot(C0_nM, d_m), C0_nM.T.conjugate())
+        print "Hm_nn", Hm_nn
+
+        d_p = np.dot(np.dot(S_MM, Hp_MM), S_MM.T)
+        Hp_nn = np.dot(np.dot(C0_nM, d_p), C0_nM.T.conjugate())
+        print "Hp_nn", Hp_nn
+
 class HamiltonianCollector(Observer):
 
     def __init__(self, filename, lcao):
@@ -147,7 +170,6 @@ class HamiltonianCollector(Observer):
 
     def update(self):
         hamiltonian = self.lcao.hamiltonian
-        iter = self.niter
 
         if self.first_iteration:
             self.first_iteration = False
