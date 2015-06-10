@@ -431,7 +431,7 @@ class LCAOTDDFT(GPAW):
         # Loop over all k-points
         for k, kpt in enumerate(self.wfs.kpt_u):
             for a, P_ni in kpt.P_ani.items():
-                print('Update projector: Rank:', world.rank, 'a', a)
+                #print('Update projector: Rank:', world.rank, 'a', a)
                 P_ni.fill(117)
                 gemm(1.0, self.wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
         self.timer.stop('LCAO update projectors') 

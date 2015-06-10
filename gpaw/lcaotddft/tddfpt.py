@@ -84,7 +84,7 @@ class HamiltonianCollector(Observer):
     def __init__(self, filename, lcao):
         Observer.__init__(self)        
         self.lcao = lcao               
-        self.filename = filename
+        self.filename = filename+'.vt_sG'
         self.H_asp_filename = filename+'.H_asp'
         self.first_iteration = True
 
@@ -119,6 +119,53 @@ class HamiltonianCollector(Observer):
                 print >>f, a,
                 for dH in dH_sp.ravel():
                     print >>f, dH,
+                print >>f
+            f.close()
+
+
+
+class DensityCollector(Observer):
+
+    def __init__(self, filename, lcao):
+        Observer.__init__(self)        
+        self.lcao = lcao               
+        self.filename = filename+'.nt_sG'
+        self.D_asp_filename = filename+'.D_asp'
+        self.first_iteration = True
+
+    def update(self):
+        hamiltonian = self.lcao.hamiltonian
+        density = self.lcao.density
+        iter = self.niter
+
+        if self.first_iteration:
+            self.first_iteration = False
+            if hamiltonian.world.rank == 0:
+                # Create an empty file
+                f = open(self.filename, 'w')
+                f.close()
+                f = open(self.D_asp_filename, 'w')
+                f.close()
+
+        nt_sG = density.gd.collect(density.nt_sG, broadcast=False)
+
+        if hamiltonian.world.rank == 0:
+            f = open(self.filename,'a+')
+            nt_sG.tofile(f)
+            print(nt_sG.sum())
+            f.close()
+
+        D_asp = density.D_asp.deepcopy()
+        serial_partition = D_asp.partition.as_serial()
+        D_asp.redistribute(serial_partition)
+
+        if serial_partition.comm.rank == 0 and self.lcao.wfs.bd.comm.rank == 0:
+            f = open(self.D_asp_filename,'a+')
+            print >>f, self.lcao.time, len(D_asp)
+            for a, D_sp in D_asp.iteritems():
+                print >>f, a,
+                for D in D_sp.ravel():
+                    print >>f, D,
                 print >>f
             f.close()
 
