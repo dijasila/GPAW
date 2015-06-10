@@ -18,7 +18,6 @@ def transform_hamiltonian(gpw_file=None, TdHam_file=None, FqHam_file=None, omega
     tdf = open(TdHam_file,'r')
     tdaf = open(TdHam_file+'.H_asp','r')
     calc = GPAW(gpw_file)
-    print "Hasp", calc.hamiltonian.dH_asp
 
     Fq_G = calc.hamiltonian.gd.zeros(dtype=complex)
     NG = np.prod(Fq_G.shape)
@@ -26,13 +25,18 @@ def transform_hamiltonian(gpw_file=None, TdHam_file=None, FqHam_file=None, omega
     Fq_dH_asp = {}
     for a, dH_sp in calc.hamiltonian.dH_asp.iteritems():
         Fq_dH_asp[a] = np.zeros_like(dH_sp, dtype=complex)
-    
+
     iteration = 0
     while True:
         # Read pseudo potential and spherical corrections
         Td_G = np.fromfile(tdf, dtype=np.float64, count=NG)
+        if np.prod(Td_G.shape) < NG:
+            break
+
+        Td_G = Td_G.reshape(Fq_G.shape)
 
         header = tdaf.readline().split()
+        print header
         if len(header) == 0:
             break
         assert len(header) == 2
@@ -51,7 +55,7 @@ def transform_hamiltonian(gpw_file=None, TdHam_file=None, FqHam_file=None, omega
         print "Iteration", iteration, c
         # Add to fourier transform
         Fq_G += c * Td_G
-        for a, dH_sp in Fq_dH_asp:
+        for a, dH_sp in Fq_dH_asp.iteritems():
             Fq_dH_asp[a] += c * (Td_dH_asp[a] - calc.hamiltonian.dH_asp[a])
 
         iteration += 1
@@ -66,11 +70,11 @@ def transform_hamiltonian(gpw_file=None, TdHam_file=None, FqHam_file=None, omega
     # Output the Fourier transformed Hamiltonian
     fqaf = open(FqHam_file+'.H_asp','w')
     print >>fqaf, "%.10f %.10f %d" % (omega, eta, len(Fq_dH_asp))
-    for a, dH_sp in Fq_dH_asp:
+    for a, dH_sp in Fq_dH_asp.iteritems():
         print >>fqaf, a,
         for H in dH_sp.ravel():
-            print >>fqaf, H,
-        print >>faqf
+            print >>fqaf, H.real, H.imag,
+        print >>fqaf
 
 class TDDFPT(GPAW):
     def __init__(self, gpw_filename, FqHam_filename, **kwargs):
@@ -170,3 +174,86 @@ class DensityCollector(Observer):
             f.close()
 
 
+"""
+
+# Simplest example of use of LCAO-TDDFPT code
+
+from ase import Atoms
+from gpaw import GPAW
+from ase.optimize import BFGS
+from gpaw.tddft import photoabsorption_spectrum
+from gpaw import PoissonSolver
+from gpaw.lcaotddft.tddfpt import HamiltonianCollector, transform_hamiltonian
+
+# Sodium dimer
+atoms = Atoms('Na2', positions=[[0.0,0.0,0.0],[3.0,0.0,0.0]])
+atoms.center(vacuum=5.0)
+
+from gpaw.lcaotddft import LCAOTDDFT
+
+# Increase accuragy of density for ground state
+convergence = {'density':1e-7}
+
+# Increase accuracy of Poisson Solver and apply multipole corrections up to l=2
+poissonsolver = PoissonSolver(eps=1e-20, remove_moment=1+3+5)
+
+if 0:
+    # Calculate all bands
+    td_calc = LCAOTDDFT(setups={'Na':'1'}, basis='1.dzp', xc='oldLDA', h=0.3,
+                        convergence=convergence, poissonsolver=poissonsolver)
+
+    atoms.set_calculator(td_calc)
+    atoms.get_potential_energy()
+    td_calc.write('Na_gs.gpw',mode='all')
+
+if 0:
+    td_calc = LCAOTDDFT('Na_gs.gpw', poissonsolver=poissonsolver)
+    td_calc.attach(HamiltonianCollector('Na.TdHam', td_calc))
+    td_calc.kick([1e-5, 0.0, 0.0])
+    td_calc.propagate(10, 500, 'Na2.dm')
+
+
+
+[juhanim@glenn lcaotddft]$ cat test.
+cat: test.: No such file or directory
+[juhanim@glenn lcaotddft]$ cat test.py 
+# Simplest example of use of LCAO-TDDFPT code
+
+from ase import Atoms
+from gpaw import GPAW
+from ase.optimize import BFGS
+from gpaw.tddft import photoabsorption_spectrum
+from gpaw import PoissonSolver
+from gpaw.lcaotddft.tddfpt import HamiltonianCollector, transform_hamiltonian
+
+# Sodium dimer
+atoms = Atoms('Na2', positions=[[0.0,0.0,0.0],[3.0,0.0,0.0]])
+atoms.center(vacuum=5.0)
+
+from gpaw.lcaotddft import LCAOTDDFT
+
+# Increase accuragy of density for ground state
+convergence = {'density':1e-7}
+
+# Increase accuracy of Poisson Solver and apply multipole corrections up to l=2
+poissonsolver = PoissonSolver(eps=1e-20, remove_moment=1+3+5)
+
+if 0:
+    # Calculate all bands
+    td_calc = LCAOTDDFT(setups={'Na':'1'}, basis='1.dzp', xc='oldLDA', h=0.3, 
+                        convergence=convergence, poissonsolver=poissonsolver)
+
+    atoms.set_calculator(td_calc)
+    atoms.get_potential_energy()
+    td_calc.write('Na_gs.gpw',mode='all')
+
+if 0:
+    td_calc = LCAOTDDFT('Na_gs.gpw', poissonsolver=poissonsolver)
+    td_calc.attach(HamiltonianCollector('Na.TdHam', td_calc))
+    td_calc.kick([1e-5, 0.0, 0.0])
+    td_calc.propagate(10, 500, 'Na2.dm')
+
+transform_hamiltonian(gpw_file='Na_gs.gpw', TdHam_file='Na.TdHam', FqHam_file='Na.FqHam', omega=2.5, eta=0.4)
+
+
+"""
