@@ -2,12 +2,10 @@ import numpy as np
 
 import ase.units
 
-from ks_singles import KohnShamSingleExcitation
+from gpaw.lrtddft2.ks_singles import KohnShamSingleExcitation
+from gpaw.lrtddft2.lr_layouts import LrTDDFPTSolveLayout
 
-from lr_layouts import LrTDDFPTSolveLayout
 
-
-################################################################################
 class LrResponse:
     def __init__(self, lrtddft2, excitation_energy, field_vector, lorentzian_width, sl_lrtddft = None):
         self.lrtddft2 = lrtddft2
@@ -27,7 +25,7 @@ class LrResponse:
 
     # TD-DFPT:
     #
-    # A C = -Vext 
+    # A C = -Vext
     #
     # ( E+KN+w    KN     -eta     0    ) ( C_+w,Re )   ( -dm_laser )
     # (   KN    E+KN-w    0      -eta  ) ( C_-w,Re ) = ( -dm_laser )
@@ -52,13 +50,13 @@ class LrResponse:
             pass
         elif units == 'eVang':
             # FIXME: where these units come from???
-            # S = 2 omega detla n C_im dm 
+            # S = 2 omega detla n C_im dm
             # units: 1/eV = eV * e ang * C
-            # => units of C: 1/(eV * eV * e ang) 
+            # => units of C: 1/(eV * eV * e ang)
             # maybe
-            # psi(w) = psi0(w) + E(w).mu psi1(w) + ... 
+            # psi(w) = psi0(w) + E(w).mu psi1(w) + ...
             # E(w).mu units = V/ang e ang = eV ?
-            # nope... 
+            # nope...
             C_re *= 1./(ase.units.Hartree**2 * ase.units.Bohr)
             C_im *= 1./(ase.units.Hartree**2 * ase.units.Bohr)
         else:
@@ -74,7 +72,7 @@ class LrResponse:
         Returns matrix where transitions are in rows and columns are
         occupied index, unoccupied index, occupied KS eigenvalue, unoccupied
         KS eigenvalue, occupied occupation number, unoccupied occupation number,
-        real part of response coefficent, imaginary part of response 
+        real part of response coefficent, imaginary part of response
         coefficient, dipole moment x, y, and z-components, magnetic moment x, y,
         and z-components.
         """
@@ -173,11 +171,11 @@ class LrResponse:
         S = np.outer(wx,wy) * 0.
         R = np.outer(wx,wy) * 0.
 
-        # A(omega_x, omega_y) = 
-        #   sum_ip delta n_ip |C^(im)_ip|**2 
+        # A(omega_x, omega_y) =
+        #   sum_ip delta n_ip |C^(im)_ip|**2
         #            * g(omega_x - eps_i) g(omega_y - eps_p)
         #
-        # D(omega_x, omega_y) = 
+        # D(omega_x, omega_y) =
         #   sum_ip 2 * delta n_ip C^(im)_ip * mu_ip
         #            * g(omega_x - eps_i) g(omega_y - eps_p)
         #
@@ -221,7 +219,7 @@ class LrResponse:
             # distribute ips over eh comm
             if self.lrtddft2.lr_comms.get_local_eh_index(ip) is None:
                 continue
-            if abs(C_im[ip]) < amplitude_filter * maxC: 
+            if abs(C_im[ip]) < amplitude_filter * maxC:
                 continue
             dnt_Gip[:] = 0.0
             dnt_gip[:] = 0.0
@@ -243,7 +241,7 @@ class LrResponse:
         else:
             raise RuntimeError('Error in get_induced_density: Invalid units.')
 
-        return drhot_g 
+        return drhot_g
 
 
     ############################################################################
@@ -271,8 +269,8 @@ class LrResponse:
         
         # occupations for electron and hole
         f_n  = self.lrtddft2.calc.wfs.kpt_u[self.lrtddft2.kpt_ind].f_n
-        fe_n = np.zeros(len(f_n)) 
-        fh_n = np.zeros(len(f_n)) 
+        fe_n = np.zeros(len(f_n))
+        fh_n = np.zeros(len(f_n))
 
         C_im = self.C_im
 
@@ -282,7 +280,7 @@ class LrResponse:
         for (ip,kss_ip) in enumerate(self.lrtddft2.ks_singles.kss_list):
             if self.lrtddft2.lr_comms.get_local_eh_index(ip) is None:
                 continue
-            if abs(C_im[ip]) < amplitude_filter * maxC: 
+            if abs(C_im[ip]) < amplitude_filter * maxC:
                 continue
 
             # decrease in density
@@ -300,7 +298,7 @@ class LrResponse:
             dnt_gip[:] = 0.0
             drhot_gip[:] = 0.0
 
-            kss_ip = KohnShamSingleExcitation( self.lrtddft2.calc, 
+            kss_ip = KohnShamSingleExcitation( self.lrtddft2.calc,
                                                self.lrtddft2.kpt_ind,
                                                k, k )
             kss_ip.calculate_pair_density( dnt_Gip, dnt_gip, drhot_gip )
@@ -311,7 +309,7 @@ class LrResponse:
             drhot_ge += fe_n[k] * drhot_gip
 
             #if self.parent_comm.rank == 0:
-            #    print '%03d => %03d : %03d=>%03d | %12.6lf  %12.6lf %12.6lf' % (kss_ip.occ_ind, kss_ip.unocc_ind, kss_ip.occ_ind, kss_ip.unocc_ind, C_im[ip], C_im[ip], C_im[ip] * C_im[ip]) 
+            #    print '%03d => %03d : %03d=>%03d | %12.6lf  %12.6lf %12.6lf' % (kss_ip.occ_ind, kss_ip.unocc_ind, kss_ip.occ_ind, kss_ip.unocc_ind, C_im[ip], C_im[ip], C_im[ip] * C_im[ip])
             #    sys.stdout.flush()
 
 
@@ -319,7 +317,7 @@ class LrResponse:
         for (ip,kss_ip) in enumerate(self.lrtddft2.ks_singles.kss_list):
             if self.lrtddft2.lr_comms.get_local_eh_index(ip) is None:
                 continue
-            if abs(C_im[ip]) < amplitude_filter * maxC: 
+            if abs(C_im[ip]) < amplitude_filter * maxC:
                 continue
             
             for (jq,kss_jq) in enumerate(self.lrtddft2.ks_singles.kss_list):
@@ -346,9 +344,9 @@ class LrResponse:
                     dnt_gip[:] = 0.0
                     drhot_gip[:] = 0.0
 
-                    kss_pq = KohnShamSingleExcitation( self.lrtddft2.calc, 
+                    kss_pq = KohnShamSingleExcitation( self.lrtddft2.calc,
                                                        self.lrtddft2.kpt_ind,
-                                                       kss_ip.unocc_ind, 
+                                                       kss_ip.unocc_ind,
                                                        kss_jq.unocc_ind )
                     kss_pq.calculate_pair_density( dnt_Gip, dnt_gip, drhot_gip )
 
@@ -363,9 +361,9 @@ class LrResponse:
                     dnt_Gip[:] = 0.0
                     dnt_gip[:] = 0.0
                     drhot_gip[:] = 0.0
-                    kss_ij = KohnShamSingleExcitation( self.lrtddft2.calc, 
+                    kss_ij = KohnShamSingleExcitation( self.lrtddft2.calc,
                                                        self.lrtddft2.kpt_ind,
-                                                       kss_ip.occ_ind, 
+                                                       kss_ip.occ_ind,
                                                        kss_jq.occ_ind )
                     kss_ij.calculate_pair_density( dnt_Gip, dnt_gip, drhot_gip )
                     
@@ -493,7 +491,7 @@ class LrResponse:
         # dn- = phi+**h phi0 + phi0**h phi- = phi0 (phi+**h + phi-) = dn+**h
         #
         # 2 cos(wt)
-        # dn_2cos =    dn+ + dn-      =     dn+ + dn+**h  = Re[dn+] + Re[dn-]  
+        # dn_2cos =    dn+ + dn-      =     dn+ + dn+**h  = Re[dn+] + Re[dn-]
         # 2 sin(wt)
         # dn_2sin = -i(dn+ - dn-)     = -i (dn+ - dn-**h) = Im[dn+] - Im[dn-]
 
@@ -511,8 +509,8 @@ class LrResponse:
         self.C_im *= 1./np.pi
 
         # anyway, you can check that
-        # 
-        # osc_z(omega) / (pi eta) = 
+        #
+        # osc_z(omega) / (pi eta) =
         #    2 * omega * sum_ip n_ip C^(im)_ip(omega) * mu^(z)_ip
         #
         # where osc_z, you can get from Casida
@@ -526,7 +524,7 @@ class LrResponse:
 
     ###########################################################################
     def solve_parallel(self):
-        # total rows       
+        # total rows
         nrows = len(self.lrtddft2.ks_singles.kss_list)
         # local
         nlrows = self.lrtddft2.K_matrix.values.shape[0]
@@ -546,7 +544,7 @@ class LrResponse:
         KN_matrix_T[:] = K_matrix.T
         for (jq, kss_jq) in enumerate(self.lrtddft2.ks_singles.kss_list):
             ljq = self.lrtddft2.lr_comms.get_local_dd_index(jq)
-            if ljq is None: 
+            if ljq is None:
                 continue
             KN_matrix_T[ljq,:] = K_matrix[:,ljq] * kss_jq.pop_diff
 
@@ -620,7 +618,7 @@ class LrResponse:
         #            ljq = self.lrtddft2.lr_comms.get_local_dd_index(jq)
         #            if lip is None or ljq is None:
         #                continue
-        #        
+        #
         #            if ip == jq:
         #                A_matrix_T[ljq*4+0,lip*4+0] += (ip+1)*100 + (jq+1)
         #                A_matrix_T[ljq*4+1,lip*4+1] += (ip+1)*100 + (jq+1)
@@ -637,8 +635,8 @@ class LrResponse:
         #             len(A_matrix_T.ravel()) > 0 ):
         #            print('%d / %d : %d / %d  = %lf => %lf' % (self.lrtddft2.lr_comms.eh_comm.rank,
         #                                                       self.lrtddft2.lr_comms.eh_comm.size,
-        #                                                       self.lrtddft2.lr_comms.dd_comm.rank, 
-        #                                                       self.lrtddft2.lr_comms.dd_comm.size, 
+        #                                                       self.lrtddft2.lr_comms.dd_comm.rank,
+        #                                                       self.lrtddft2.lr_comms.dd_comm.size,
         #                                                       A_matrix_T[0,0], A_matrix_T[-1,-1] ) )
         #        self.lrtddft2.lr_comms.parent_comm.barrier()
         #

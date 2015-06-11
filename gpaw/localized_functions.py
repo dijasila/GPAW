@@ -181,14 +181,14 @@ class LocFuncs:
             result_xi = np.zeros(shape, self.dtype)
             
         isum = self.isum(result_xi)
-        isum.next()
+        next(isum)
         yield None
                     
         if k is None or self.phase_kb is None:
             # No k-points:
             for box in self.box_b:
                 box.integrate(a_xg, tmp_xi)
-                result_xi += tmp_xi                
+                result_xi += tmp_xi
         else:
             # K-points:
             for box, phase in zip(self.box_b, self.phase_kb[k]):
@@ -196,9 +196,9 @@ class LocFuncs:
                 result_xi += phase * tmp_xi
 
 
-        isum.next()
+        next(isum)
         yield None
-        isum.next()
+        next(isum)
         yield None
 
     def sum(self, a_x, broadcast=False):
@@ -296,23 +296,23 @@ class LocFuncs:
             result_xic = np.zeros(shape, self.dtype)
             
         isum = self.isum(result_xic)
-        isum.next()
+        next(isum)
         yield None
 
         if k is None or self.phase_kb is None:
             # No k-points:
             for box in self.box_b:
                 box.derivative(a_xg, tmp_xic)
-                result_xic += tmp_xic                
+                result_xic += tmp_xic
         else:
             # K-points:
             for box, phase in zip(self.box_b, self.phase_kb[k]):
                 box.derivative(a_xg, tmp_xic)
                 result_xic += phase * tmp_xic
                
-        isum.next()
+        next(isum)
         yield None
-        isum.next()
+        next(isum)
         yield None
 
     def add_density(self, n_G, f_i):
@@ -388,7 +388,7 @@ class LocalizedFunctionsWrapper:
         else:
             # One of the CPU's in the k-point communicator does it,
             # and will later broadcast to the others:
-            compute = locfuncbcaster.next()
+            compute = next(locfuncbcaster)
             
         size_c = end_c - beg_c
         corner_c = beg_c - gd.beg_c
@@ -405,7 +405,7 @@ class LocalizedFunctionsWrapper:
         self.ni = 0   # number of functions
         for function in functions:
             l = function.get_angular_momentum_number()
-            self.ni += 2 * l + 1; 
+            self.ni += 2 * l + 1;
 
         self.shape = tuple(gd.n_c)
         self.dtype = dtype
@@ -537,7 +537,7 @@ class LocFuncBroadcaster:
         self.lfs = []
         self.root = 0
 
-    def next(self):
+    def __next__(self):
         """Distribute work.
 
         Return True if this CPU should do anything.
@@ -547,6 +547,8 @@ class LocFuncBroadcaster:
         self.root = (self.root + 1) % self.size
         return compute
 
+    next = __next__  # for Python 2
+    
     def add(self, lf):
         """Add localized functions to pool."""
         self.lfs.append(lf)

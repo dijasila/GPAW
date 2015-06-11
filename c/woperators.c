@@ -516,20 +516,17 @@ static PyMethodDef WOperator_Methods[] = {
 };
 
 
-static PyObject* WOperator_getattr(PyObject *obj, char *name)
-{
-    return Py_FindMethod(WOperator_Methods, obj, name);
-}
-
 PyTypeObject WOperatorType = {
-  PyObject_HEAD_INIT(NULL)
-  0,
-  "WOperator",
-  sizeof(WOperatorObject),
-  0,
-  (destructor)WOperator_dealloc,
-  0,
-  WOperator_getattr
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "WOperator",
+    sizeof(WOperatorObject),
+    0,
+    (destructor)WOperator_dealloc,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    "FDW-operator object",
+    0, 0, 0, 0, 0, 0,
+    WOperator_Methods
 };
 
 PyObject* NewWOperatorObject(PyObject *obj, PyObject *args)

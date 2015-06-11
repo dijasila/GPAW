@@ -1,6 +1,5 @@
 import numpy as np
 
-from ase.parallel import parprint
 
 from ase.units import Bohr, Hartree
 from gpaw.tddft import eV_to_aufrequency, aufrequency_to_eV  # TODO: remove
@@ -226,12 +225,12 @@ class BaseInducedField(object):
         self.Ffe_wg = Ffe_wg
         
     def _parse_readwritemode(self, mode):
-        if type(mode) == str:
+        if isinstance(mode, str):
             try:
                 readwrites = self.readwritemode_str_to_list[mode]
             except KeyError:
                 raise IOError('unknown readwrite mode string')
-        elif type(mode) == list:
+        elif isinstance(mode, list):
             readwrites = mode
         else:
             raise IOError('unknown readwrite mode type')
@@ -253,7 +252,7 @@ class BaseInducedField(object):
         # Actual read
         self.nw = tar.dimension('nw')
         if ws == 'all':
-            ws = range(self.nw)
+            ws = np.arange(self.nw)
         self.nw = len(ws)
         self._read(tar, reads, ws)
 
@@ -349,7 +348,7 @@ class BaseInducedField(object):
         writes = self._parse_readwritemode(mode)
 
         if ws == 'all':
-            ws = range(self.nw)
+            ws = np.arange(self.nw)
 
         if 'field' in writes and self.fieldgd is None:
             raise IOError('field variables cannot be written ' +
@@ -571,7 +570,7 @@ def read_data(filename, keys=None, ws='all'):
     
     try:
         nspins = tar.dimension('nspins')
-    except  KeyError:
+    except KeyError:
         nspins = None
     
     na = tar['na']

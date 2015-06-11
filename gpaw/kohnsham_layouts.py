@@ -6,7 +6,7 @@ import numpy as np
 from gpaw.matrix_descriptor import MatrixDescriptor, \
     BandMatrixDescriptor, \
     BlacsBandMatrixDescriptor
-from blacs import BlacsGrid, Redistributor
+from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities import uncamelcase
 from gpaw.utilities.blas import gemm, r2k
 from gpaw.utilities.lapack import diagonalize, general_diagonalize, \

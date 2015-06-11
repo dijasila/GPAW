@@ -1,22 +1,17 @@
 import os
 import glob
-import time
 import datetime
-import StringIO
 
 import numpy as np
 
 import gpaw.mpi
-
 from gpaw.poisson import PoissonSolver
-
 from gpaw.utilities import pack
-
 from gpaw.lrtddft2.eta import QuadraticETA
 
-################################################################################
+
 class Kmatrix:
-    def __init__(self, ks_singles, xc, deriv_scale = 1e-5):
+    def __init__(self, ks_singles, xc, deriv_scale=1e-5):
         self.basefilename = ks_singles.basefilename
         self.ks_singles = ks_singles
         self.lr_comms = self.ks_singles.lr_comms
@@ -52,7 +47,7 @@ class Kmatrix:
                     data += open(ready_file,'r',1024*1024).read()
 
         data = gpaw.mpi.broadcast_string(data, root=0, comm=self.lr_comms.parent_comm)
-        for line in StringIO.StringIO(data):
+        for line in data.splitlines():
             line = line.split()
             self.ready_indices.append([int(line[0]),int(line[1])])
         #self.timer.stop('Init read ready rows')
@@ -93,7 +88,7 @@ class Kmatrix:
             
 
             # for each file
-            for line in StringIO.StringIO(open(K_fn,'r', 1024*1024).read()):
+            for line in open(K_fn, 'r', 1024 * 1024).read().splitlines():
                 #self.timer.start('Read K-matrix: elem')
                 if line[0] == '#':
                     if line.startswith('# K-matrix file'):
@@ -117,7 +112,7 @@ class Kmatrix:
                 # where to send
                 #self.timer.start('Read K-matrix: line')
                 (proc, ehproc, ddproc, lip, ljq) = self.lr_comms.get_matrix_elem_proc_and_index(ip, jq)
-                elem_lists[proc].append( line )
+                elem_lists[proc].append( line + '\n')
                 #self.timer.stop('Read K-matrix: line')
 
                 if ip == jq: continue
@@ -125,7 +120,7 @@ class Kmatrix:
                 # where to send transposed
                 #self.timer.start('Read K-matrix: line')
                 (proc, ehproc, ddproc, lip, ljq) = self.lr_comms.get_matrix_elem_proc_and_index(jq, ip)
-                elem_lists[proc].append( line )
+                elem_lists[proc].append( line + '\n')
                 #self.timer.stop('Read K-matrix: line')
 
 
@@ -133,7 +128,7 @@ class Kmatrix:
         #    print '-------------- READING K-MATRIX done --------------------', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         #    print 'elem_list sizes:',
         #    for proc in range(self.parent_comm.size):
-        #        print len(elem_lists[proc]), 
+        #        print len(elem_lists[proc]),
         #    print
                 
 
@@ -182,7 +177,7 @@ class Kmatrix:
         #            elist = gpaw.mpi.receive_string( sending_proc,
         #                                             comm=self.parent_comm )
         #            local_elem_list += elist
-        # 
+        #
 
 
         #print self.parent_comm.rank, '- local_elem_list -', local_elem_list[0:120].replace('\n', ' | ')
@@ -196,8 +191,8 @@ class Kmatrix:
         # Matrix build
         K_matrix = np.zeros((nlrow,nlcol))
         K_matrix[:,:] = np.NAN # fill with NaNs to detect problems
-        # Read ALL K_matrix files                        
-        for line in StringIO.StringIO(local_elem_list):
+        # Read ALL K_matrix files
+        for line in local_elem_list.splitlines():
             line = line.split()
             ipkey = (int(line[0]), int(line[1]))
             jqkey = (int(line[2]), int(line[3]))
@@ -252,9 +247,9 @@ class Kmatrix:
         #for ((i,p), ip) in self.index_map.items():
         #    for ((j,q), jq) in self.index_map.items():
         #        lip = self.get_local_eh_index(ip)
-        #        ljq = self.get_local_dd_index(jq) 
+        #        ljq = self.get_local_dd_index(jq)
         #        if ( lip is not None and ljq is not None ):
-        #            print 'proc #', self.parent_comm.rank, ' dd #', self.dd_comm.rank, ' eh #', self.eh_comm.rank, ': ',ip,'(', i, ',', p,') ',jq,'(', j, ',', q,')  = ', K_matrix[lip,ljq] 
+        #            print 'proc #', self.parent_comm.rank, ' dd #', self.dd_comm.rank, ' eh #', self.eh_comm.rank, ': ',ip,'(', i, ',', p,') ',jq,'(', j, ',', q,')  = ', K_matrix[lip,ljq]
                     
 
         # If any NaNs found, we did not read all matrix elements... BAD
@@ -285,7 +280,7 @@ class Kmatrix:
                 continue
             # if already calculated, skip it
             if [i,p] in self.ready_indices:
-                continue                          
+                continue
 
             self.K_matrix_ready = False  # something not calculated, must do it
             nrows += 1
@@ -343,10 +338,10 @@ class Kmatrix:
 
             # if not mine, skip it
             if self.lr_comms.get_local_eh_index(ip) is None:
-                continue                          
+                continue
             # if already calculated, skip it
             if [kss_ip.occ_ind,kss_ip.unocc_ind] in self.ready_indices:
-                continue                          
+                continue
 
             # ETA
             if self.lr_comms.dd_comm.rank == 0:
@@ -366,7 +361,7 @@ class Kmatrix:
             #self.timer.stop('Pair density')
             
 
-            # Smooth Hartree "pair" potential 
+            # Smooth Hartree "pair" potential
             # for compensated pair density drhot_gip
             #self.timer.start('Poisson')
             dVht_gip[:] = 0.0
@@ -380,7 +375,7 @@ class Kmatrix:
 
 
             #################################################################
-            # Inner loop over KS singles            
+            # Inner loop over KS singles
             K = [] # storage for row before writing to file
             for (jq,kss_jq) in enumerate(self.ks_singles.kss_list):
                 i = kss_ip.occ_ind
@@ -470,7 +465,7 @@ class Kmatrix:
         s = kss_ip.spin_ind
 
         #self.timer.start('Smooth XC')
-        # finite difference plus,  vxc+ = vxc(n + deriv_scale * dn) 
+        # finite difference plus,  vxc+ = vxc(n + deriv_scale * dn)
         self.nt_g[s][:] = self.deriv_scale * dnt_gip
         self.nt_g[s][:] += self.calc.density.nt_sg[s]
         dVxct_gip[:] = 0.0

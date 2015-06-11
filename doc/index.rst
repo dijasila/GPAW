@@ -46,7 +46,7 @@ Quick links to all features:
 
    .. include:: ytp.txt
 
-   
+
 .. _news:
 
 News

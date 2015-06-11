@@ -35,8 +35,7 @@ def wan(calc):
     c = (centers - 0.125) * 2
     print(w.get_radii())  # broken! XXX
     assert abs(c.round() - c).max() < 0.03
-    c = c.round().astype(int).tolist()
-    c.sort()
+    c = sorted(c.round().astype(int).tolist())
     assert c == [[0, 0, 0], [0, 0, 1], [0, 1, 0], [1, 0, 0]]
     if 0:
         from ase.visualize import view

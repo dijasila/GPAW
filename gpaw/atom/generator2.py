@@ -518,7 +518,7 @@ class PAWSetupGenerator:
             self.tauct_g = self.rgd.zeros()
         else:
             # Make sure pseudo density is monotonically decreasing:
-            while 1:
+            while True:
                 gcore = self.rgd.round(rcore)
                 self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
                 nt_g = self.nt_g + self.nct_g

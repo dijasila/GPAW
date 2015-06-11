@@ -96,9 +96,9 @@ class RadialGridDescriptor:
         k_rgamma[0] = kv(l + 0.5, r[1] * gamma * 1e-5)
         matrix_ik = np.outer(n1 * dr, n2 * dr)
         len_vec = len(k_rgamma)
-        for i in xrange(len_vec):
+        for i in range(len_vec):
             k_rgi = k_rgamma[i]
-            for k in xrange(i):
+            for k in range(i):
                 modified_bessels = i_rgamma[k] * k_rgi
                 matrix_ik[i, k] *= modified_bessels
                 matrix_ik[k, i] *= modified_bessels

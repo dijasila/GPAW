@@ -129,7 +129,6 @@ tests = [
     'gauss_wave.py',
     'transformations.py',
     'parallel/blacsdist.py',
-    'ut_rsh.py',
     'pbc.py',
     'noncollinear/xccorr.py',
     'atoms_too_close.py',
@@ -138,7 +137,6 @@ tests = [
     'atoms_mismatch.py',
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
-    'ut_csh.py',                            # ~1s
     'lcao_density.py',                      # ~1s
     'parallel/hamiltonian.py',              # ~1s
     'pw/stresstest.py',                     # ~1s
@@ -559,7 +557,7 @@ class TestRunner:
         t0 = time.time()
         filename = gpaw.__path__[0] + '/test/' + test
 
-        failed = False
+        tb = ''
         skip = False
 
         if test in exclude:
@@ -568,38 +566,41 @@ class TestRunner:
 
         try:
             loc = {}
-            execfile(filename, loc)
+            exec(compile(open(filename).read(), filename, 'exec'), loc)
             loc.clear()
             del loc
             self.check_garbage()
         except KeyboardInterrupt:
             self.write_result(test, 'STOPPED', t0)
             raise
-        except ImportError, ex:
-            module = ex.args[0].split()[-1].split('.')[0]
+        except ImportError as ex:
+            if sys.version_info[0] >= 3:
+                module = ex.name
+            else:
+                module = ex.args[0].split()[-1].split('.')[0]
             if module in ['scipy', 'cmr', '_gpaw_hdf5']:
                 skip = True
             else:
-                failed = True
-        except AttributeError, ex:
+                tb = traceback.format_exc()
+        except AttributeError as ex:
             if (ex.args[0] ==
                 "'module' object has no attribute 'new_blacs_context'"):
                 skip = True
             else:
-                failed = True
+                tb = traceback.format_exc()
         except Exception:
-            failed = True
+            tb = traceback.format_exc()
 
         mpi.ibarrier(timeout=60.0)  # guard against parallel hangs
 
-        me = np.array(failed)
+        me = np.array(tb != '')
         everybody = np.empty(mpi.size, bool)
         mpi.world.all_gather(me, everybody)
         failed = everybody.any()
         skip = mpi.world.sum(int(skip))
 
         if failed:
-            self.fail(test, np.argwhere(everybody).ravel(), t0)
+            self.fail(test, np.argwhere(everybody).ravel(), tb, t0)
             exitcode = exitcode_fail
         elif skip:
             self.register_skipped(test, t0)
@@ -622,15 +623,7 @@ class TestRunner:
         assert n == 0, ('Leak: Uncollectable garbage (%d object%s) %s' %
                         (n, 's'[:n > 1], self.garbage))
 
-    def fail(self, test, ranks, t0):
-        if mpi.rank in ranks:
-            if sys.version_info >= (2, 4, 0, 'final', 0):
-                tb = traceback.format_exc()
-            else:  # Python 2.3! XXX
-                tb = ''
-                traceback.print_exc()
-        else:
-            tb = ''
+    def fail(self, test, ranks, tb, t0):
         if mpi.size == 1:
             text = 'FAILED!\n%s\n%s%s' % ('#' * 77, tb, '#' * 77)
             self.write_result(test, text, t0)

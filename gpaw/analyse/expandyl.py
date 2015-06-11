@@ -1,12 +1,12 @@
 from __future__ import print_function
-from math import pi
+from math import pi, acos, cos, sin, sqrt
 
 import numpy as np
+from ase.atoms import string2vector
 from ase.units import Bohr, Hartree
 
 import gpaw.mpi as mpi
 from gpaw.spherical_harmonics import Y
-from gpaw.utilities.vector import Vector3d
 from gpaw.utilities.tools import coordinates
 
 
@@ -224,9 +224,9 @@ class ExpandYl(AngularIntegral):
                     gl = 100 * gl / gsum
 
                     print('%2d %5d %5d' % (s, k, n), end=' ', file=f)
-                    print('%6.4f %10.4f %8.4f' % (kpt.weight, 
+                    print('%6.4f %10.4f %8.4f' % (kpt.weight,
                                                   kpt.eps_n[n] * Hartree,
-                                                  kpt.f_n[n]), 
+                                                  kpt.f_n[n]),
                           end=' ', file=f)
                     print('%8.4f %8.4f %8.4f' %
                           (norm, gsum, weight), end=' ', file=f)
@@ -236,3 +236,90 @@ class ExpandYl(AngularIntegral):
                     print(file=f)
                     f.flush()
         f.close()
+
+
+class Vector3d(list):
+    def __init__(self,vector=None):
+        if vector is None or vector == []:
+            vector = [0,0,0]
+        vector = string2vector(vector)
+        list.__init__(self)
+        for c in range(3):
+            self.append(float(vector[c]))
+        self.l = False
+
+    def __add__(self, other):
+        result = self.copy()
+        for c in range(3):
+            result[c] += other[c]
+        return result
+
+    def __truediv__(self,other):
+        return Vector3d(np.array(self) / other)
+
+    __div__ = __truediv__
+    
+    def __mul__(self, x):
+        if isinstance(x, type(self)):
+            return np.dot( self, x )
+        else:
+            return Vector3d(x * np.array(self))
+        
+    def __rmul__(self, x):
+        return self.__mul__(x)
+        
+    def __lmul__(self, x):
+        return self.__mul__(x)
+
+    def __neg__(self):
+        return -1 * self
+        
+    def __str__(self):
+        return "(%g,%g,%g)" % tuple(self)
+
+    def __sub__(self, other):
+        result = self.copy()
+        for c in range(3):
+            result[c] -= other[c]
+        return result
+
+    def angle(self, other):
+        """Return the angle between the directions of yourself and the
+        other vector in radians."""
+        other = Vector3d(other)
+        ll = self.length() * other.length()
+        if not ll > 0:
+            return None
+        return acos((self * other) / ll)
+        
+    def copy(self):
+        return Vector3d(self)
+
+    def distance(self,vector):
+        if not isinstance(vector, type(self)):
+            vector=Vector3d(vector)
+        dv = self - vector
+        return (self - vector).length()
+
+    def length(self,value=None):
+        if value:
+            fac = value / self.length()
+            for c in range(3):
+                self[c] *= fac
+            self.l = False
+        if not self.l:
+            self.l = sqrt(self.norm())
+        return self.l
+
+    def norm(self):
+        #return np.sum( self*self )
+        return self*self  #  XXX drop this class and use numpy arrays ...
+                         
+    def x(self):
+        return self[0]
+
+    def y(self):
+        return self[1]
+
+    def z(self):
+        return self[2]

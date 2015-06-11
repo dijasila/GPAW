@@ -66,7 +66,7 @@ def _darwin_compiler_fixup(compiler_so, cc_args):
         stripSysroot = '-isysroot' in cc_args
 
     if stripArch:
-        while 1:
+        while True:
             try:
                 index = compiler_so.index('-arch')
                 # Strip this argument and the next one:
@@ -162,8 +162,8 @@ class UnixCCompiler(CCompiler):
                 self.mkpath(os.path.dirname(output_file))
             try:
                 self.spawn(pp_args)
-            except DistutilsExecError, msg:
-                raise CompileError, msg
+            except DistutilsExecError as msg:
+                raise CompileError(msg)
 
     def _compile(self, obj, src, ext, cc_args, extra_postargs, pp_opts):
         compiler_so = self.compiler_so
@@ -172,8 +172,8 @@ class UnixCCompiler(CCompiler):
         try:
             self.spawn(compiler_so + cc_args + [src, '-o', obj] +
                        extra_postargs)
-        except DistutilsExecError, msg:
-            raise CompileError, msg
+        except DistutilsExecError as msg:
+            raise CompileError(msg)
 
     def create_static_lib(self, objects, output_libname,
                           output_dir=None, debug=0, target_lang=None):
@@ -196,8 +196,8 @@ class UnixCCompiler(CCompiler):
             if self.ranlib:
                 try:
                     self.spawn(self.ranlib + [output_filename])
-                except DistutilsExecError, msg:
-                    raise LibError, msg
+                except DistutilsExecError as msg:
+                    raise LibError(msg)
         else:
             log.debug("skipping %s (up-to-date)", output_filename)
 
@@ -213,7 +213,7 @@ class UnixCCompiler(CCompiler):
         lib_opts = gen_lib_options(self, library_dirs, runtime_library_dirs,
                                    libraries)
         if type(output_dir) not in (StringType, NoneType):
-            raise TypeError, "'output_dir' must be a string or None"
+            raise TypeError("'output_dir' must be a string or None")
         if output_dir is not None:
             output_filename = os.path.join(output_dir, output_filename)
 
@@ -250,8 +250,8 @@ class UnixCCompiler(CCompiler):
                     linker = _darwin_compiler_fixup(linker, ld_args)
 
                 self.spawn(linker + ld_args)
-            except DistutilsExecError, msg:
-                raise LinkError, msg
+            except DistutilsExecError as msg:
+                raise LinkError(msg)
         else:
             log.debug("skipping %s (up-to-date)", output_filename)
 

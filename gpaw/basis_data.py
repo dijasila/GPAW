@@ -1,12 +1,10 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import os
 import xml.sax
 
 import numpy as np
 
-from gpaw import setup_paths
 from gpaw.setup_data import search_for_file
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 
@@ -90,10 +88,10 @@ class Basis:
 
         generatorattrs = ' '.join(['%s="%s"' % (key, value)
                                    for key, value
-                                   in self.generatorattrs.iteritems()])
+                                   in self.generatorattrs.items()])
         write('  <generator %s>' % generatorattrs)
         for line in self.generatordata.split('\n'):
-            write('\n    '+line)
+            write('\n    ' + line)
         write('\n  </generator>\n')
         write(('  <radial_grid eq="r=d*i" d="%f" istart="0" iend="%d" ' +
                'id="lingrid"/>\n') % (self.d, self.ng - 1))
@@ -208,7 +206,7 @@ for details.""")
                                    (name, basis.symbol))
         else:
             basis.filename = filename
-            source = open(filename).read()
+            source = open(filename, 'rb').read()
 
         self.data = None
         xml.sax.parseString(source, self)
@@ -292,7 +290,7 @@ class BasisPlotter:
 
         print()
         print('Generator')
-        for key, item in basis.generatorattrs.iteritems():
+        for key, item in basis.generatorattrs.items():
             print('   ', key, ':', item)
         print()
         print('Generator data')

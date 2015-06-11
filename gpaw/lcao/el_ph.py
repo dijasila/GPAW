@@ -1,21 +1,17 @@
-import cPickle as pickle
+import pickle
 import numpy as np
 from os.path import isfile
-from ase.vibrations import Vibrations
 from ase.parallel import rank, barrier
 from gpaw.utilities import unpack2
-from gpaw.lcao.pwf2 import PWF2
-from gpaw.utilities.blas import r2k, gemm
-from gpaw import GPAW
 from gpaw.lcao.projected_wannier import dots
 from gpaw.utilities.tools import tri2full
-from ase import Bohr
 from gpaw.lfc import NewLocalizedFunctionsCollection as LFC
 from ase.units import Bohr, Hartree
 from gpaw.utilities.timing import StepTimer, nulltimer
 
 """This module is used to calculate the electron-phonon coupling matrix,
     expressed in terms of GPAW LCAO orbitals."""
+
 
 class ElectronPhononCouplingMatrix:
     """Class for calculating the electron-phonon coupling matrix, defined
@@ -39,7 +35,7 @@ class ElectronPhononCouplingMatrix:
     
     def __init__(self, atoms, indices=None, name='v', delta=0.005, nfree=2,
                  derivativemethod='tci'):
-        assert nfree in [2,4]
+        assert nfree in [2, 4]
         self.nfree = nfree
         self.delta = delta
         
@@ -100,7 +96,7 @@ class ElectronPhononCouplingMatrix:
         for a in self.indices:
             for j in range(3):
                 for sign in [-1,1]:
-                    for ndis in range(1,self.nfree/2+1):       
+                    for ndis in range(1,self.nfree/2+1):
                         name = '.%d%s%s.pckl' % (a, 'xyz'[j], ndis * ' +-'[sign])
                         if isfile(self.name + name):
                             continue
@@ -137,8 +133,8 @@ class ElectronPhononCouplingMatrix:
         """Calculates gradient"""
         nx = len(self.indices) * 3
         veqt_G, dHeq_asp = pickle.load(open(self.name + '.eq.pckl'))
-        gpts = veqt_G.shape 
-        dvt_Gx = np.zeros(gpts + (nx, )) 
+        gpts = veqt_G.shape
+        dvt_Gx = np.zeros(gpts + (nx, ))
         ddH_aspx = {}
         for a, dH_sp in dHeq_asp.items():
             ddH_aspx[a] = np.empty(dH_sp.shape + (nx,))
@@ -220,7 +216,7 @@ class ElectronPhononCouplingMatrix:
         amu = 1.6605402e-27 # atomic unit mass [Kg]
         me = 9.1093897e-31  # electron mass    [Kg]
         modes = {}
-        for k in modes1.keys():        
+        for k in modes1.keys():
             modes[k / Hartree] = modes1[k] / np.sqrt(amu / me)
 
         dvt_Gx, ddH_aspx = self.get_gradient()
@@ -241,15 +237,15 @@ class ElectronPhononCouplingMatrix:
         M_lii = {}
         timer.write_now('Starting gradient of pseudo part')
         for f, mode in modes.items():
-            mo = []    
+            mo = []
             M_ii = np.zeros((nao, nao), dtype)
             for a in self.indices:
                 mo.append(mode[a])
             mode = np.asarray(mo).flatten()
-            dvtdP_G = np.dot(dvt_Gx, mode)   
+            dvtdP_G = np.dot(dvt_Gx, mode)
             bfs.calculate_potential_matrix(dvtdP_G, M_ii, q=q)
             tri2full(M_ii, 'L')
-            M_lii[f] = M_ii               
+            M_lii[f] = M_ii
         timer.write_now('Finished gradient of pseudo part')
 
         P_aqMi = calc.wfs.P_aqMi
@@ -291,9 +287,9 @@ class ElectronPhononCouplingMatrix:
         for f, mode in modes.items():
             for a, dP_Mix in dP_aMix.items():
                 dPdP_Mi = np.dot(dP_Mix, mode[a])
-                dH_ii = unpack2(dH_asp[a][spin])    
+                dH_ii = unpack2(dH_asp[a][spin])
                 dPdP_MM = dots(dPdP_Mi, dH_ii, P_aqMi[a][q].T)
-                Mb_lii[f] -= dPdP_MM + dPdP_MM.T 
+                Mb_lii[f] -= dPdP_MM + dPdP_MM.T
                 # XXX The minus sign here is quite subtle.
                 # It is related to how the derivative of projector
                 # functions in GPAW is calculated.
@@ -326,7 +322,7 @@ def get_grid_dP_aMix(spos_ac, wfs, q, timer=nulltimer): # XXXXXX q
     dP_aMix = {} # XXX In the future use the New Two-Center integrals
                  # to evaluate this
     for a, setup in enumerate(wfs.setups):
-        ni = 0 
+        ni = 0
         dP_Mix = np.zeros((nao, setup.ni, 3))
         pt = LFC(wfs.gd, [setup.pt_j],
                  wfs.kd.comm, dtype=wfs.dtype, forces=True)
@@ -340,7 +336,7 @@ def get_grid_dP_aMix(spos_ac, wfs, q, timer=nulltimer): # XXXXXX q
             wfs.basis_functions.lcao_to_grid(C_MM[ni:ni + nao], phi_MG, q)
             dP_bMix = pt.dict(len(phi_MG), derivative=True)
             pt.derivative(phi_MG, dP_bMix, q=q)
-            dP_Mix[ni:ni + nao] = dP_bMix[0]            
+            dP_Mix[ni:ni + nao] = dP_bMix[0]
             ni += nao
             timer.write_now('projector grad. doing atoms (%s, %s) ' %
                             (a, b))

@@ -9,8 +9,10 @@ from gpaw.utilities.timing import nulltimer
 class EmptyWaveFunctions:
     mode = 'undefined'
     
-    def __nonzero__(self):
+    def __bool__(self):
         return False
+
+    __nonzero__ = __bool__  # for Python 2
     
     def set_eigensolver(self, eigensolver):
         pass
@@ -88,8 +90,10 @@ class WaveFunctions(EmptyWaveFunctions):
     def set_eigensolver(self, eigensolver):
         self.eigensolver = eigensolver
 
-    def __nonzero__(self):
+    def __bool__(self):
         return True
+
+    __nonzero__ = __bool__  # for Python 2
 
     def calculate_density_contribution(self, nt_sG):
         """Calculate contribution to pseudo density from wave functions."""

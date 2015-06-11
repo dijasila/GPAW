@@ -26,7 +26,7 @@ def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omeg
     # Reference values, taken from t=0 value
     Fq_dH_asp = {}
     ref_dH_asp = {}
-    for a, dH_sp in calc.hamiltonian.dH_asp.iteritems():
+    for a, dH_sp in calc.hamiltonian.dH_asp.items():
         ref_dH_asp[a] = np.zeros_like(dH_sp, dtype=complex)
         Fq_dH_asp[a] = np.zeros_like(dH_sp, dtype=complex)
 
@@ -61,7 +61,7 @@ def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omeg
         if ref_sG is None:
             ref_sG = Td_G.copy()
             ref_dH_asp = {}
-            for a, dH_sp in Td_dH_asp.iteritems():
+            for a, dH_sp in Td_dH_asp.items():
                 ref_dH_asp[a] = Td_dH_asp[a].copy()
 
         if iteration == 0:
@@ -71,11 +71,11 @@ def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omeg
         print "Iteration", iteration, c
         # Add to fourier transform
         Fq_G += c * (Td_G-ref_sG)
-        for a, dH_sp in ref_dH_asp.iteritems():
+        for a, dH_sp in ref_dH_asp.items():
             Fq_dH_asp[a] += c * (Td_dH_asp[a] - ref_dH_asp[a])
         iteration += 1
 
-    tdf.close() 
+    tdf.close()
     tdaf.close()
     
     fqf = open(fqop_file+'.sG','w')
@@ -91,7 +91,7 @@ def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None, omeg
     # Output the Fourier transformed Hamiltonian
     fqaf = open(fqop_file+'.asp','w')
     print >>fqaf, "%.10f %.10f %d" % (omega, eta, len(Fq_dH_asp))
-    for a, dH_sp in Fq_dH_asp.iteritems():
+    for a, dH_sp in Fq_dH_asp.items():
         print >>fqaf, a,
         for H in dH_sp.ravel():
             print >>fqaf, H.real, H.imag,
@@ -124,7 +124,7 @@ class TDDFPT(GPAW):
         print "Eta: %.4f eV" % (self.omega * Hartree)
 
         self.cH_asp = {}
-        for a, dH_sp in self.hamiltonian.dH_asp.iteritems():
+        for a, dH_sp in self.hamiltonian.dH_asp.items():
             data = tdaf.readline().split()
             a = int(data[0])
             self.cH_asp[a] = np.zeros_like(dH_sp, dtype=complex)
@@ -135,9 +135,9 @@ class TDDFPT(GPAW):
         self.initialize(self.atoms)
         self.set_positions(self.atoms)
 
-        # Real part 
+        # Real part
         self.hamiltonian.vt_sG[:] = self.cvt_sG.real
-        for a, dH_sp in self.hamiltonian.dH_asp.iteritems():
+        for a, dH_sp in self.hamiltonian.dH_asp.items():
             self.hamiltonian.dH_asp[a][:] = self.cH_asp[a].real
 
 
@@ -146,9 +146,9 @@ class TDDFPT(GPAW):
         Hp_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(\
                      self.hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False, root=-1)
 
-        # Imag part 
+        # Imag part
         self.hamiltonian.vt_sG[:] = self.cvt_sG.imag
-        for a, dH_sp in self.hamiltonian.dH_asp.iteritems():
+        for a, dH_sp in self.hamiltonian.dH_asp.items():
             self.hamiltonian.dH_asp[a][:] = self.cH_asp[a].imag
         Hm_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(\
                      self.hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False, root=-1)
@@ -167,8 +167,8 @@ class TDDFPT(GPAW):
 class HamiltonianCollector(Observer):
 
     def __init__(self, filename, lcao):
-        Observer.__init__(self)        
-        self.lcao = lcao               
+        Observer.__init__(self)
+        self.lcao = lcao
         self.filename = filename+'.sG'
         self.H_asp_filename = filename+'.asp'
         self.first_iteration = True
@@ -199,7 +199,7 @@ class HamiltonianCollector(Observer):
         if serial_partition.comm.rank == 0 and self.lcao.wfs.bd.comm.rank == 0:
             f = open(self.H_asp_filename,'a+')
             print >>f, self.lcao.time, len(dH_asp)
-            for a, dH_sp in dH_asp.iteritems():
+            for a, dH_sp in dH_asp.items():
                 print >>f, a,
                 for dH in dH_sp.ravel():
                     print >>f, dH,
@@ -211,8 +211,8 @@ class HamiltonianCollector(Observer):
 class DensityCollector(Observer):
 
     def __init__(self, filename, lcao):
-        Observer.__init__(self)        
-        self.lcao = lcao               
+        Observer.__init__(self)
+        self.lcao = lcao
         self.filename = filename+'.sG'
         self.D_asp_filename = filename+'.asp'
         self.first_iteration = True
@@ -246,7 +246,7 @@ class DensityCollector(Observer):
         if serial_partition.comm.rank == 0 and self.lcao.wfs.bd.comm.rank == 0:
             f = open(self.D_asp_filename,'a+')
             print >>f, self.lcao.time, len(D_asp)
-            for a, D_sp in D_asp.iteritems():
+            for a, D_sp in D_asp.items():
                 print >>f, a,
                 for D in D_sp.ravel():
                     print >>f, D,
@@ -278,7 +278,7 @@ poissonsolver = PoissonSolver(eps=1e-20, remove_moment=1+3+5)
 
 if 1:
     # Calculate all bands
-    td_calc = LCAOTDDFT(basis='sz', xc='oldLDA', h=0.3, 
+    td_calc = LCAOTDDFT(basis='sz', xc='oldLDA', h=0.3,
                         convergence=convergence, poissonsolver=poissonsolver)
 
     atoms.set_calculator(td_calc)

@@ -545,8 +545,7 @@ class LCAOWaveFunctions(WaveFunctions):
             self.timer.start('Get neighbors')
             nl = tci.atompairs.pairs.neighbors
             r_and_offset_aao = get_r_and_offsets(nl, spos_ac, cell_cv)
-            atompairs = r_and_offset_aao.keys()
-            atompairs.sort()
+            atompairs = sorted(r_and_offset_aao.keys())
             self.timer.stop('Get neighbors')
 
             T_expansions = tci.T_expansions

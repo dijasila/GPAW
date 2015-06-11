@@ -84,7 +84,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
         """Restric operator weights to coarse grids."""
         weights = [self.dielectric.eps_gradeps] + self.op_coarse_weights
         for i, res in enumerate(self.restrictors):
-            for j in xrange(4):
+            for j in range(4):
                 res.apply(weights[i][j], weights[i + 1][j])
         self.step = 0.66666666 / self.operators[0].get_diagonal_element()
 
