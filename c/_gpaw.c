@@ -24,6 +24,10 @@ PyObject* craypat_region_begin(PyObject *self, PyObject *args);
 PyObject* craypat_region_end(PyObject *self, PyObject *args);
 #endif
 
+/* For QM/MM */
+PyObject* pc_potential(PyObject *self, PyObject *args);
+PyObject* pc_potential_value(PyObject *self, PyObject *args);
+PyObject* pc_der_potential(PyObject *self, PyObject *args);
 
 PyObject* symmetrize(PyObject *self, PyObject *args);
 PyObject* symmetrize_ft(PyObject *self, PyObject *args);
@@ -176,6 +180,9 @@ static PyMethodDef functions[] = {
   {"pc_potential_value", pc_potential_value, METH_VARARGS, 0},
   {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
   {"LFC", NewLFCObject, METH_VARARGS, 0},
+  {"pc_potential", pc_potential, METH_VARARGS, 0},
+  {"pc_potential_value", pc_potential_value, METH_VARARGS, 0},
+  {"pc_der_potential", pc_der_potential, METH_VARARGS, 0},
   /*
   {"calculate_potential_matrix", calculate_potential_matrix, METH_VARARGS, 0},
   {"construct_density", construct_density, METH_VARARGS, 0},
@@ -310,7 +317,7 @@ static PyObject* moduleinit(void)
   Py_INCREF(&lxcXCFunctionalType);
 
   import_array1(NULL);
-  
+ 
   return m;
 }
 
