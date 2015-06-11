@@ -272,7 +272,7 @@ class KohnShamSingles:
         #
         # See:
         # WIREs Comput Mol Sci 2012, 2: 150-166 doi: 10.1002/wcms.55
-        # J. Chem. Phys., Vol. 116, No. 16, 22 April 2002
+        # J. Chem. Phys., Vol. 116, 6930 (2002)
         for kss_ip in self.kss_list:
             # If have dipole moment and magnetic moment, already done and skip
             if (kss_ip.dip_mom_r is not None and

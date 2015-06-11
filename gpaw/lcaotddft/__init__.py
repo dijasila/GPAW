@@ -431,7 +431,7 @@ class LCAOTDDFT(GPAW):
         # Loop over all k-points
         for k, kpt in enumerate(self.wfs.kpt_u):
             for a, P_ni in kpt.P_ani.items():
-                print('Update projector: Rank:', world.rank, 'a', a)
+                #print('Update projector: Rank:', world.rank, 'a', a)
                 P_ni.fill(117)
                 gemm(1.0, self.wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
         self.timer.stop('LCAO update projectors') 
@@ -510,6 +510,9 @@ class LCAOTDDFT(GPAW):
 
             self.update_hamiltonian()
 
+            # Call registered callback functions
+            self.call_observers(self.niter)
+
             for k, kpt in enumerate(self.wfs.kpt_u):
                 kpt.H0_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
                 if self.fxc is not None:
@@ -539,9 +542,6 @@ class LCAOTDDFT(GPAW):
             self.niter += 1
             self.time += self.time_step
             
-            # Call registered callback functions
-            self.call_observers(self.niter)
-
         self.call_observers(self.niter, final=True)
         self.dm_file.close()
         self.timer.stop('Propagate')
