@@ -186,6 +186,7 @@ tests = [
     'pw/fulldiag.py',                       # ~3s
     'symmetry_ft.py',                       # ~3s
     'aluminum_EELS_RPA.py',                 # ~3s
+    'poisson_extended.py',                  # ~3s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'ewald.py',                             # ~4s
     'symmetry.py',                          # ~4s

@@ -8,7 +8,8 @@ from gpaw.io.tar import Reader, Writer
 from gpaw.poisson import PoissonSolver
 from gpaw.fd_operators import Gradient
 
-from gpaw.inducedfield.extend_grid import extend_grid, extend_array, deextend_array, move_atoms
+from gpaw.utilities.extend_grid import extended_grid_descriptor, extend_array, \
+    deextend_array, move_atoms
 
 
 def sendreceive_dict(comm, a_i, dest, b_i, src_i, iitems):
@@ -172,7 +173,7 @@ class BaseInducedField(object):
         
         # Extend grid
         oldgd = gd
-        egd, cell_cv, move_c = extend_grid(gd, extend_N_cd)
+        egd, cell_cv, move_c = extended_grid_descriptor(gd, extend_N_cd=extend_N_cd)
         Frho_we = egd.zeros((self.nw,), dtype=self.dtype)
         for w in range(self.nw):
             extend_array(Frho_wg[w], gd, Frho_we[w], egd)
