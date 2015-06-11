@@ -309,7 +309,7 @@ static PyObject* moduleinit(void)
   Py_INCREF(&XCFunctionalType);
   Py_INCREF(&lxcXCFunctionalType);
 
-  import_array();
+  import_array1(NULL);
   
   return m;
 }
