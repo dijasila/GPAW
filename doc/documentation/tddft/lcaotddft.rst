@@ -7,6 +7,10 @@ Time propagation TDDFT with LCAO
 This page documents the use of time-propagation TDDFT in :ref:`LCAO
 mode <lcao>`.  Work in progress!!!!!!!!!!
 
+TODO: add reference to the implementation articles
+
+TODO: after which version the code works?
+
 Usage
 =====
 
@@ -66,6 +70,95 @@ Parallelization
 
 TODO.
 
+PoissonSolver
+=============
+
+The Poisson solver with default parameters uses zero boundary conditions on the cell boundaries.
+To get converged Hartree potential, one often needs large vacuum sizes. However, in LCAO approach
+large vacuum size is often unnecessary. Thus, to avoid using large vacuum sizes but get converged
+potential, one can use two approaches 1) use multipole moment corrections or 2) solve Poisson 
+equation on a extended grid. These two approaches are implemented in ExtendedPoissonSolver.
+
+Multipole moment corrections
+----------------------------
+
+The boundary conditions can be improved by adding multipole moment corrections to the density so that
+the corresponding multipoles of the density vanish. The potential of these corrections is added to
+the obtained potential. For a reference of the method, see XXX.
+
+This can be accomplished by following solver::
+
+  from gpaw.poisson_extended import ExtendedPoissonSolver
+  poissonsolver = ExtendedPoissonSolver(eps=eps,
+                                        moment_corrections=4)
+
+This corrects the 4 first multipole moments, i.e., s, p_x, p_y, and p_z type multipoles. The range of
+multipoles can be changed by using moment_corrections=9 when in addition the multipoles d_xx, d_xy,
+d_yy, d_yz, and d_zz are included.
+
+This setting has been observed to work well for spherical-like metallic nanoparticles, but more complex
+geometries require inclusion of high multipoles or multicenter multipole approach. For this, consider
+the advanced syntax of the moment_corrections. The previous code snippet is equivalent to::
+
+  from gpaw.poisson_extended import ExtendedPoissonSolver
+  poissonsolver = ExtendedPoissonSolver(eps=eps,
+                                        moment_corrections=[{'moms': range(4), 'center': None}])
+
+Here moment_corrections is a list of dictionaries with following keywords: moms specifies the
+considered multipole moments, e.g., range(4) equals to s, p_x, p_y, and p_z multipoles, and center
+specifies the center of the added corrections in atomic units (None corresponds to the center of the
+cell).
+
+As an example, consider metallic nanoparticle dimer where the nanoparticle centers are at (x1, y1, z1) Å and
+(x2, y2, z2) Å. In this the following settings for the poisson solver may be tried out::
+
+  import numpy as np
+  from ase.units import Bohr
+  from gpaw.poisson_extended import ExtendedPoissonSolver
+  moms = range(4)
+  center1 = np.array([x1, y1, z1]) / Bohr
+  center2 = np.array([x2, y2, z2]) / Bohr
+  poissonsolver = ExtendedPoissonSolver(eps=eps,
+                                        moment_corrections=[{'moms': moms, 'center': center1},
+					                    {'moms': moms, 'center': center2}])
+
+In general case with multiple centers, the calculation cell is divided into non-overlapping regions
+determined by the given centers so that each point of space is associated to the closest center.
+See `Voronoi diagrams <http://en.wikipedia.org/wiki/Voronoi_diagram>`_ for analogous illustration of
+the partitioning of a plane.
+
+
+Extended Poisson grid
+---------------------
+
+The multipole correction scheme is challenging for complex system geometries. For these cases, the
+size of the grid used for solving the Poisson equation can be increased. The extended grid can be
+defined as follows::
+
+  from gpaw.poisson_extended import ExtendedPoissonSolver
+  poissonsolver = ExtendedPoissonSolver(eps=eps,
+                                        extendedgpts=(256, 256, 256))
+
+This solves the Poisson equation on an extended fine grid of size (256, 256, 256). Important notes:
+
+* **extendedgpts refers to the size of the fine grid**
+* **use sizes that are divisible by high powers of 2 to accelerate the multigrid scheme**
+
+As a consequence of the different grid that is used in the Hartree potential evaluation, the
+Poisson solver neglects the given initial potential in function solve(). However, in most of
+the cases an analogous behaviour is obtained by setting extendedhistory=True::
+
+  from gpaw.poisson_extended import ExtendedPoissonSolver
+  poissonsolver = ExtendedPoissonSolver(eps=eps,
+                                        extendedgpts=(256, 256, 256),
+					extendedhistory=True)
+
+This means that the Poisson solver uses the previously calculated potential as an initial guess
+in the potential calculation. The default value extendedhistory=False leads to significant
+performance decrease in the potential evaluation during the SCF cycle and the time-propagation TDDFT.
+
+
+
 =======================================================
 Advanced tutorial - Plasmon resonance of Silver cluster
 =======================================================
@@ -99,3 +192,13 @@ Kohn-Sham decomposition of the transition density matrix
 ========================================================
 
 Here we will analyse the origin of the transitions.
+
+
+References
+==========
+
+.. [#Kuisma2015]
+   M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara, L. Lehtovaara, and T. T. Rantala, 
+   Localized surface plasmon resonance in silver nanoparticles: Atomistic first-principles time-dependent
+   density functional theory calculations,
+   *Phys. Rev. B* **69**, 245419 (2004). `doi:10.1103/PhysRevB.91.115431 <http://dx.doi.org/10.1103/PhysRevB.91.115431>`_
