@@ -71,14 +71,21 @@ class FrequencyDescriptor(ArrayDescriptor):
 
     def get_closest_index(self, omega):
         beta = self.beta
-        if omega < self.omegamin:
-            return 0
-        elif omega > self.omegamax:
-            return self.wmax
-
         o_m = omega
         w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
         return w_m
+
+    def get_index_range(self, omega1, omega2):
+        w1 = self.get_closest_index(omega1)
+        w2 = self.get_closest_index(omega2)
+        o1 = self.omega_w[w1]
+        o2 = self.omega_w[w2]
+        if o1 < omega1:
+            w1 += 1
+        if o2 > omega2:
+            w2 -= 1
+        
+        return np.arange(w1, w2 + 1)
 
 
 def frequency_grid(domega0, omega2, omegamax):
@@ -101,8 +108,11 @@ class Chi0:
                  disable_point_group=False, disable_time_reversal=False,
                  use_more_memory=1, unsymmetrized=True):
 
+        self.timer = timer or Timer()
+
         self.pair = PairDensity(calc, ecut, ftol, threshold,
-                                real_space_derivatives, world, txt, timer,
+                                real_space_derivatives, world, txt,
+                                self.timer,
                                 nblocks=nblocks, gate_voltage=gate_voltage)
 
         calc = self.pair.calc
@@ -173,8 +183,6 @@ class Chi0:
 
         self.nocc1 = self.pair.nocc1  # number of completely filled bands
         self.nocc2 = self.pair.nocc2  # number of non-empty bands
-
-        self.timer = timer or Timer()
 
         self.Q_aGii = None
 
@@ -258,15 +266,18 @@ class Chi0:
         bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
 
         # Initialize integrator
-        integrator = TetrahedronIntegrator(comm=self.kncomm)
+        integrator = TetrahedronIntegrator(comm=self.kncomm,
+                                           timer=self.timer)
         td = integrator.tesselate(bzk_kv)
 
         # Integrate interband response
         kd2 = self.calc.wfs.kd
-        mat_kwargs = {'kd': kd2, 'pd': pd, 'm1': m1,
+        mat_kwargs = {'kd': kd2, 'pd': pd, 'n1': 0,
+                      'n2': self.nocc2, 'm1': m1,
                       'm2': m2, 'symmetry': PWSA}
-        eig_kwargs = {'kd': kd2, 'm1': m1, 'm2': m2, 'pd': pd}
-        domain = (td, spins, range(0, self.nocc2))
+        eig_kwargs = {'kd': kd2, 'm1': m1, 'm2': m2, 'n1': 0,
+                      'n2': self.nocc2, 'pd': pd}
+        domain = (td, spins)
         integrator.integrate('response_function', domain,
                              (self.get_matrix_element,
                               self.get_eigenvalues),
@@ -276,7 +287,7 @@ class Chi0:
 
         with self.timer('Hilbert transform'):
             omega_w = self.wd.get_data()
-            ht = HilbertTransform(np.array(omega_w), 0.001 / Hartree)
+            ht = HilbertTransform(np.array(omega_w), 0.0001 / Hartree)
             ht(chi0_wGG)
 
         if chi0_wxvG is not None:
@@ -319,7 +330,8 @@ class Chi0:
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
-    def get_matrix_element(self, k_v, s, n,
+    @timer('Get matrix element')
+    def get_matrix_element(self, k_v, s, n1=None, n2=None,
                            m1=None, m2=None,
                            pd=None, kd=None,
                            symmetry=None):
@@ -332,22 +344,24 @@ class Chi0:
         where s is spin, n and m are band indices, k is
         the kpoint and q is the momentum transfer."""
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
-
+        nG = pd.ngmax
+        
         if self.Q_aGii is None:
             self.Q_aGii = self.pair.initialize_paw_corrections(pd)
 
-        kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n, n + 1, m1, m2)
-        m_m = range(m1, m2)
-        n_mG = self.pair.get_pair_density(pd, kptpair, [n], m_m,
-                                          Q_aGii=self.Q_aGii)[0]
-        deps_nm = kptpair.get_transition_energies([n], m_m)
-        df_nm = kptpair.get_occupation_differences([n], m_m)
+        kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
+                                            m1, m2)
+        m_m = np.arange(m1, m2)
+        n_n = np.arange(n1, n2)
+        n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
+                                           Q_aGii=self.Q_aGii)
+        df_nm = kptpair.get_occupation_differences(n_n, m_m)
         df_nm[df_nm <= 1e-20] = 0.0
-        n_mG[deps_nm[0] >= 0.0] = 0
-        n_mG *= df_nm[0][:, np.newaxis]
-        return n_mG
+        n_nmG *= df_nm[..., np.newaxis]
+        return n_nmG.reshape((-1, nG + 2))
 
-    def get_eigenvalues(self, k_v, s, n,
+    @timer('Get eigenvalues')
+    def get_eigenvalues(self, k_v, s, n1=None, n2=None,
                         m1=None, m2=None,
                         kd=None, pd=None):
         """A function that can return the eigenvalues.
@@ -356,17 +370,20 @@ class Chi0:
         the response function which gives an output that
         is compatible with the gpaw k-point integration
         routines."""
+        wfs = self.calc.wfs
+        kd = wfs.kd
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+        K1 = kd.where_is_q(k_c, kd.bzk_kc)
+        ik = kd.bz2ibz_k[K1]
+        kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+        K2 = kd.where_is_q(k_c + pd.kd.bzk_kc[0], kd.bzk_kc)
+        ik = kd.bz2ibz_k[K2]
+        kpt2 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+        deps_nm = (kpt2.eps_n[m1:m2][np.newaxis]
+                   - kpt1.eps_n[n1:n2][:, np.newaxis])
+        deps_nm[deps_nm <= 0.0] = 0
 
-        kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n, n + 1, m1, m2,
-                                            load_wfs=False)
-        kpt1 = kptpair.get_k1()
-        kpt2 = kptpair.get_k2()
-        m_m = range(m1, m2)
-        deps_m = (kpt2.eps_n[m_m - kpt2.n1] -
-                  kpt1.eps_n[n - kpt1.n1])
-
-        return deps_m
+        return deps_nm.reshape(-1)
 
     def get_intraband_response(self, k_v, s, n1=None, n2=None,
                                kd=None, symmetry=None, pd=None):
@@ -385,9 +402,14 @@ class Chi0:
         the response function which gives an output that
         is compatible with the gpaw k-point integration
         routines."""
+        wfs = self.calc.wfs
+        kd = wfs.kd
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
-        kpt1 = self.pair.get_k_point(s, k_c, n1, n2, load_wfs=False)
-        return kpt1.eps_n
+        K1 = kd.where_is_q(k_c, kd.bzk_kc)
+        ik = kd.bz2ibz_k[K1]
+        kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+
+        return kpt1.eps_n[n1:n2]
 
     @timer('redist')
     def redistribute(self, in_wGG, out_x=None):

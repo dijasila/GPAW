@@ -1,27 +1,16 @@
 from __future__ import print_function, division
 
 import sys
-from time import ctime
-import itertools
 
 import numpy as np
 from scipy.spatial import Delaunay
 
-from ase.units import Hartree
 from ase.utils import devnull
 from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi
-from gpaw import extra_parameters
-from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor,
-                        DryRunBlacsGrid)
-from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.occupations import FermiDirac
-from gpaw.response.pair import PairDensity
-from gpaw.utilities.memory import maxrss
 from gpaw.utilities.blas import gemm, rk, czher, mmm
-from gpaw.wavefunctions.pw import PWDescriptor
-from gpaw.response.pair import PWSymmetryAnalyzer
 from gpaw.utilities.progressbar import ProgressBar
 from functools import partial
 
@@ -468,18 +457,18 @@ class TetrahedronIntegrator(Integrator):
             # Integrate values
             k_c = bzk_kc[K]
             n_MG = get_matrix_element(k_c, *arguments)
-            for n_G, W_K in zip(n_MG, W_MK):
-                i0 = W_K[K][0]
+            with self.timer('integrate'):
+                for n_G, W_K in zip(n_MG, W_MK):
+                    i0 = W_K[K][0]
 
-                if i0 is None:
-                    continue
+                    if i0 is None:
+                        continue
 
-                W_w = W_K[K][1]
-                for iw, weight in enumerate(W_w):
-                    czher(weight, n_G.conj(), out_wxx[i0 + iw])
+                    W_w = W_K[K][1]
+                    for iw, weight in enumerate(W_w):
+                        czher(weight, n_G.conj(), out_wxx[i0 + iw])
 
         self.kncomm.sum(out_wxx)
-        self.timer.write()
     
     @timer('Get integration weight')
     def get_integration_weights(self, g, wd, td, arguments):
@@ -501,163 +490,187 @@ class TetrahedronIntegrator(Integrator):
                 W_MK = [[[None, None] for k in range(len(td.points))]
                         for m in range(len(g_M))]
 
-            for g_k, W_K in zip(g_Mk, W_MK):
-                istart, gi_w, I_kw = self.single_simplex_weight(wd, g_k)
-                if I_kw is None:
+            istart_M, gi_Mw, I_Mkw = self.single_simplex_weight(wd, g_Mk)
+            for W_K, istart, gi_w, I_kw in zip(W_MK, istart_M,
+                                               gi_Mw, I_Mkw):
+
+                if istart is None:
                     continue
+
                 W_kw = I_kw * gi_w * vol
 
-                for K, W_w in zip(K_k, W_kw):
-                    tmpistart = W_K[K][0]
-                    if tmpistart is None:
-                        W_K[K][0] = istart
-                        W_K[K][1] = W_w
-                    else:
-                        tmpW_w = W_K[K][1]
-                        tmpiend = tmpistart + len(tmpW_w)
-                        iend = istart + len(W_w)
-                        if tmpistart <= istart and iend <= tmpiend:
-                            i0 = istart - tmpistart
-                            i1 = iend - tmpistart
-                            W_K[K][1][i0:i1] += W_w
-                        elif istart <= tmpistart and tmpiend <= iend:
-                            i0 = tmpistart - istart
-                            i1 = tmpiend - istart
-                            W_w[i0:i1] += tmpW_w
+                with self.timer('Update weights'):
+                    for K, W_w in zip(K_k, W_kw):
+                        tmpistart = W_K[K][0]
+                        if tmpistart is None:
+                            W_K[K][0] = istart
                             W_K[K][1] = W_w
-                            W_K[K][0] = istart
-                        elif istart < tmpistart and iend < tmpiend:
-                            Wnew_w = np.zeros((tmpiend - istart,), float)
-                            i0 = tmpistart - istart
-                            i1 = iend - istart
-                            Wnew_w[i0:] += tmpW_w
-                            Wnew_w[:i1] += W_w
-                            W_K[K][0] = istart
-                            W_K[K][1] = Wnew_w
-                        elif tmpistart < istart and tmpiend < iend:
-                            Wnew_w = np.zeros((iend - tmpistart,),
-                                              float)
-                            i0 = istart - tmpistart
-                            i1 = tmpiend - tmpistart
-                            Wnew_w[i0:] += W_w
-                            Wnew_w[:i1] += tmpW_w
-                            W_K[K][1] = Wnew_w
                         else:
-                            print(istart, iend, tmpistart, tmpiend)
-                            raise AssertionError
+                            tmpW_w = W_K[K][1]
+                            tmpiend = tmpistart + len(tmpW_w)
+                            iend = istart + len(W_w)
+                            if tmpistart <= istart and iend <= tmpiend:
+                                i0 = istart - tmpistart
+                                i1 = iend - tmpistart
+                                W_K[K][1][i0:i1] += W_w
+                            elif istart <= tmpistart and tmpiend <= iend:
+                                i0 = tmpistart - istart
+                                i1 = tmpiend - istart
+                                W_w[i0:i1] += tmpW_w
+                                W_K[K][1] = W_w
+                                W_K[K][0] = istart
+                            elif istart < tmpistart and iend < tmpiend:
+                                Wnew_w = np.zeros((tmpiend - istart), float)
+                                i0 = tmpistart - istart
+                                i1 = iend - istart
+                                Wnew_w[i0:] += tmpW_w
+                                Wnew_w[:i1] += W_w
+                                W_K[K][0] = istart
+                                W_K[K][1] = Wnew_w
+                            elif tmpistart < istart and tmpiend < iend:
+                                Wnew_w = np.zeros((iend - tmpistart),
+                                                  float)
+                                i0 = istart - tmpistart
+                                i1 = tmpiend - tmpistart
+                                Wnew_w[i0:] += W_w
+                                Wnew_w[:i1] += tmpW_w
+                                W_K[K][1] = Wnew_w
+                            else:
+                                print(istart, iend, tmpistart, tmpiend)
+                                raise AssertionError
 
         return W_MK
 
     @timer('Single simplex weight')
-    def single_simplex_weight(self, wd, de_k):
+    def single_simplex_weight(self, wd, de_Mk):
         """Calculate the integration weights."""
         omega_w = wd.get_data()
+        shape = de_Mk.shape
 
-        permute = np.argsort(de_k)
-        de_k = de_k[permute]
+        if len(shape) == 2:
+            nm = de_Mk.shape[0]
+        elif len(shape) == 1:
+            nm = 1
 
-        # Frequency ranges from i0 to i3
-        i0 = wd.get_closest_index(de_k[0])
-        i3 = wd.get_closest_index(de_k[3]) + 1
+        with self.timer('argsort'):
+            permute = np.argsort(de_Mk)
 
-        I_kw = None
-        gi_w = None
-        
-        for iw in range(i0, i3):
-            omega = omega_w[iw]
+        I_Mkw = [None for m in range(nm)]
+        gi_Mw = [None for m in range(nm)]
+        i0_M = [None for m in range(nm)]
 
-            if de_k[0] < omega < de_k[1]:
-                case = 0
-            elif de_k[1] <= omega <= de_k[2]:
-                case = 1
-            elif de_k[2] < omega < de_k[3]:
-                case = 2
-            else:
+        for M in xrange(nm):
+            de_k = de_Mk[M, permute[M]]
+            i_w = wd.get_index_range(de_k[0], de_k[3])
+
+            if not len(i_w):
                 continue
-
-            if I_kw is None:
-                I_kw = np.zeros((4, i3 - i0), float)
-                gi_w = np.zeros((i3 - i0), float)
-
-            gi, I_k = self.get_kpoint_weight(omega, de_k, case)
-            I_kw[permute, iw - i0] = I_k
-            gi_w[iw - i0] = gi
-
-        return i0, gi_w, I_kw
-
-    @timer('Single simplex weight')
-    def calculate_integration_weights(self, wd, deps_kM, vol):
-        """Calculate the integration weights."""
-        nM = len(deps_kM[0])
-        omega_w = wd.get_data()
-
-        I_KMw = [[] for j in range(4)]
-        for M in range(nM):
-            de_k = np.array([deps_kM[ik][M] for ik in range(4)])
-            permute = np.argsort(de_k)
-            de_k = de_k[permute]
-
-            # Frequency ranges from i0 to i3
-            i0 = wd.get_closest_index(de_k[0])
-            i3 = wd.get_closest_index(de_k[3]) + 1
-
-            I_wk = np.zeros((i3 - i0, 4), float)
-
-            for iw in range(i0, i3):
-                omega = omega_w[iw]
-
-                if de_k[0] < omega < de_k[1]:
-                    case = 0
-                elif de_k[1] <= omega <= de_k[2]:
-                    case = 1
-                elif de_k[2] < omega < de_k[3]:
-                    case = 2
-                else:
+            
+            i0_M[M] = np.min(i_w)
+            gi_w = np.zeros(len(i_w), float)
+            I_kw = np.zeros((4, len(i_w)), float)
+            omegatmp_w = np.take(omega_w, i_w)
+            i0 = 0
+            for case in [0, 1, 2]:
+                i1 = (omegatmp_w <= de_k[case + 1]).sum()
+                if i0 == i1:
                     continue
+                oc_w = omegatmp_w[i0:i1]
+                gi_w[i0:i1], I_kw[:, i0:i1] = self.get_kpoint_weight(oc_w,
+                                                                     de_k,
+                                                                     case)
+                i0 = i1
 
-                gi, I_k = self.get_kpoint_weight(omega, de_k, case)
-                I_wk[iw - i0, permute] = vol * gi * I_k
+            I_kw[permute[M]] = I_kw
+            gi_Mw[M] = gi_w
+            I_Mkw[M] = I_kw
 
-            with self.timer('append'):
-                for K in range(4):
-                    I_KMw[K].append((i0, I_wk[:, K]))
+        return i0_M, gi_Mw, I_Mkw
 
-        return I_KMw
-
-    @timer('get_kpoint_weight')
-    def get_kpoint_weight(self, omega, de_k, case):
-        I_k = np.zeros(4, float)
-        f_kk = np.zeros((4, 4), float)
+    def get_kpoint_weight_old(self, omega_w, de_k, case):
+        I_wk = np.zeros((len(omega_w), 4), float)
+        f_wkk = np.zeros((len(omega_w), 4, 4), float)
 
         if case == 0:
-            f_kk[1:, 0] = (omega - de_k[0]) / (de_k[1:] - de_k[0])
-            f_kk[0, 1:] = 1 - f_kk[1:, 0]
-            ni = f_kk[1, 0] * f_kk[2, 0] * f_kk[3, 0]
-            gi = 3 * ni / (omega - de_k[0])
-            I_k[0] = (f_kk[0, 1] + f_kk[0, 2] + f_kk[0, 3]) / 3
-            I_k[1:] = f_kk[1:, 0] / 3
+            f_wkk[:, 1:, 0] = ((omega_w - de_k[0])[:, np.newaxis] /
+                               (de_k[1:] - de_k[0])[np.newaxis])
+            f_wkk[:, 0, 1:] = 1 - f_wkk[:, 1:, 0]
+            ni_w = np.prod(f_wkk[:, 1:, 0], axis=1)
+            gi_w = 3 * ni_w / (omega_w - de_k[0])
+            I_wk[:, 0] = f_wkk[:, 0, 1:].sum(1) / 3
+            I_wk[:, 1:] = f_wkk[:, 1:, 0] / 3
         elif case == 1:
-            f_kk[2:, :2] = ((omega - de_k[:2][np.newaxis]) /
-                            (de_k[2:][:, np.newaxis]
-                             - de_k[:2][np.newaxis]))
-            f_kk[:2, 2:] = 1 - f_kk[2:, :2].T
+            f_wkk[:, 2:, :2] = ((omega_w[:, np.newaxis] -
+                                 de_k[:2][np.newaxis])[:, np.newaxis] /
+                                (de_k[2:][:, np.newaxis]
+                                 - de_k[:2][np.newaxis])[np.newaxis])
+            f_wkk[:, :2, 2:] = 1 - f_wkk[:, 2:, :2].transpose(0, 2, 1)
             delta = de_k[3] - de_k[0]
-            gi = 3 / delta * (f_kk[1, 2] * f_kk[2, 0] +
-                              f_kk[2, 1] * f_kk[1, 3])
-            I_k[:] = (f_kk[([0, 1, 2, 3], [3, 2, 1, 0])] / 3 +
-                      f_kk[([0, 1, 2, 3], [2, 3, 0, 1])] *
-                      f_kk[([2, 1, 2, 1], [0, 3, 0, 3])] *
-                      f_kk[([1, 2, 1, 2], [2, 1, 2, 1])] /
-                      (gi * delta))
-        elif case == 2:
-            f_kk[:3, 3] = (omega - de_k[3]) / (de_k[:3] - de_k[3])
-            f_kk[3, :3] = 1 - f_kk[:3, 3]
-            ni = (1 - f_kk[0, 3] * f_kk[1, 3] * f_kk[2, 3])
-            gi = 3. * (1 - ni) / (de_k[3] - omega)
-            I_k[:3] = f_kk[:3, 3] / 3.
-            I_k[3] = (f_kk[3, 0] + f_kk[3, 1] + f_kk[3, 2]) / 3.
+            gi_w = 3 / delta * (f_wkk[:, 1, 2] * f_wkk[:, 2, 0] +
+                                f_wkk[:, 2, 1] * f_wkk[:, 1, 3])
             
-        return gi, I_k
+            I_wk[:, 0] = (f_wkk[:, 0, 3] / 3 + f_wkk[:, 0, 2] *
+                          f_wkk[:, 2, 0] * f_wkk[:, 1, 2] /
+                          (gi_w * delta))
+            I_wk[:, 1] = (f_wkk[:, 1, 2] / 3 + f_wkk[:, 1, 3]**2 *
+                          f_wkk[:, 2, 1] / (gi_w * delta))
+            I_wk[:, 2] = (f_wkk[:, 2, 1] / 3 + f_wkk[:, 2, 0]**2 *
+                          f_wkk[:, 1, 2] / (gi_w * delta))
+            I_wk[:, 3] = (f_wkk[:, 3, 0] / 3 + f_wkk[:, 3, 1] *
+                          f_wkk[:, 1, 3] * f_wkk[:, 2, 1] /
+                          (gi_w * delta))
+        elif case == 2:
+            f_wkk[:, :3, 3] = ((omega_w - de_k[3])[:, np.newaxis] /
+                               (de_k[:3] - de_k[3])[np.newaxis])
+            f_wkk[:, 3, :3] = 1 - f_wkk[:, :3, 3]
+            ni_w = (1 - np.prod(f_wkk[:, :3, 3], axis=1))
+            gi_w = 3 * (1 - ni_w) / (de_k[3] - omega_w)
+            I_wk[:, :3] = f_wkk[:, :3, 3] / 3.
+            I_wk[:, 3] = f_wkk[:, 3, :3].sum(1) / 3.
+            
+        return gi_w, I_wk
+
+    @timer('Kpoint weight')
+    def get_kpoint_weight(self, omega_w, de_k, case):
+        I_kw = np.zeros((4, len(omega_w)), float)
+        inds_kk = np.tril_indices(4, -1)
+        
+        # Calculate convex expansion coefficients
+        deps_K = (np.take(de_k, inds_kk[0]) -
+                  np.take(de_k, inds_kk[1]))
+        domeps_Kw = (omega_w[np.newaxis] -
+                     np.take(de_k, inds_kk[1])[:, np.newaxis])
+        f_Kw = domeps_Kw / deps_K[:, np.newaxis]
+
+        if case == 0:
+            f_kw = np.take(f_Kw, [0, 1, 3], axis=0)
+            ni_w = np.prod(f_kw, axis=0)
+            gi_w = 3 * ni_w / domeps_Kw[0]
+            I_kw[0] = 1 - f_kw.sum(0) / 3
+            I_kw[1:] = f_kw / 3
+        elif case == 1:
+            delta = deps_K[4]
+            mf_Kw = 1 - f_Kw
+
+            gi_w = 3 / delta * (f_Kw[2] * f_Kw[1] +
+                                mf_Kw[2] * mf_Kw[4])
+            
+            I_kw[0] = (mf_Kw[3] / 3 + mf_Kw[1] * f_Kw[1] * mf_Kw[2] /
+                       (gi_w * delta))
+            I_kw[1] = (mf_Kw[2] / 3 + mf_Kw[4]**2 * f_Kw[2] /
+                       (gi_w * delta))
+            I_kw[2] = (f_Kw[2] / 3 + f_Kw[1]**2 * mf_Kw[2] /
+                       (gi_w * delta))
+            I_kw[3] = (f_Kw[3] / 3 + f_Kw[4] * mf_Kw[4] * f_Kw[2] /
+                       (gi_w * delta))
+        elif case == 2:
+            mf_Kw = 1 - f_Kw
+            ni_w = (1 - np.prod(mf_Kw[3:], axis=0))
+            gi_w = 3 * (1 - ni_w) / (de_k[3] - omega_w)
+            I_kw[:3] = mf_Kw[3:] / 3.
+            I_kw[3] = f_Kw[3:].sum(0) / 3.
+            
+        return gi_w, I_kw
 
 
 class HilbertTransform:

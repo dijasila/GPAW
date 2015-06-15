@@ -56,7 +56,7 @@ def refine_grid(input_pv, N):
 def tesselate_brillouin_zone(calc, N=5):
     """Refine kpoint grid of previously calculated ground state."""
     if isinstance(calc, str):
-        calc = GPAW(calc)
+        calc = GPAW(calc, txt=None)
     bzk_kc, ibzk_kc = get_BZ(calc)
     cell_cv = calc.wfs.gd.cell_cv
     B_cv = np.linalg.inv(cell_cv).T * 2 * np.pi
@@ -174,7 +174,7 @@ def get_IBZ_vertices(cell_cv, U_scc=None,
 
 def get_BZ(calc):
     if isinstance(calc, str):
-        calc = GPAW(calc)
+        calc = GPAW(calc, txt=None)
     symmetry = calc.wfs.kd.symmetry
     cell_cv = calc.wfs.gd.cell_cv
     

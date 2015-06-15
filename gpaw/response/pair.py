@@ -6,6 +6,8 @@ import functools
 from math import pi
 
 import numpy as np
+from scipy.spatial import Delaunay
+
 from ase.units import Hartree
 from ase.utils import devnull
 from ase.utils.timing import timer, Timer
@@ -20,6 +22,8 @@ from gpaw.response.math_func import (two_phi_planewave_integrals,
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.pw import PWLFC
+from gpaw.bztools import get_reduced_BZ, unique_rows
+
 import gpaw.io.tar as io
 
 
@@ -322,38 +326,32 @@ class PWSymmetryAnalyzer:
         return K_gk
 
     def get_reduced_kd(self):
-        K_gK = self.group_kpoints()
-
+        # Get the little group of q
         U_scc = []
         for s in self.s_s:
             U_cc, sign, _, _, _ = self.get_symmetry_operator(s)
             U_scc.append(sign * U_cc)
         U_scc = np.array(U_scc)
 
-        from gpaw.bztools import get_reduced_BZ, get_symmetry_operations
-        symmetry = self.kd.symmetry
-        cU_scc = get_symmetry_operations(symmetry.op_scc,
-                                         symmetry.time_reversal)
+        # Determine the irreducible BZ
         bzk_kc, ibzk_kc = get_reduced_BZ(self.pd.gd.cell_cv,
                                          U_scc,
                                          False)
 
-        from scipy.spatial import Delaunay
+        # Find the irreducible kpoints
         tess = Delaunay(ibzk_kc)
         ik_kc = []
-        for K_k in K_gK:
-            for K in K_k:
-                k_c = self.kd.bzk_kc[K]
-                k_sc = np.dot(k_c, cU_scc.transpose(0, 2, 1))
-                for ks_c in k_sc:
-                    i = tess.find_simplex(ks_c)
-                    if i >= 0:
-                        ik_kc.append(ks_c)
+        n = 5
+        N_xc = np.indices((n, n, n)).reshape((3, n**3)).T - n // 2
+        for k_c in self.kd.bzk_kc:
+            k_xc = N_xc + k_c[np.newaxis]
+            for kx_c in k_xc:
+                i = tess.find_simplex(kx_c)
+                if i >= 0:
+                    ik_kc.append(kx_c)
 
-        ik_kc = np.array(ik_kc)
-        from gpaw.bztools import unique_rows
-        ik_kc = unique_rows(ik_kc)
-
+        ik_kc = unique_rows(np.array(ik_kc))
+        
         return KPointDescriptor(ik_kc)
 
     def get_kpoint_weight(self, k_c):
@@ -749,9 +747,10 @@ class PairDensity:
             Range of bands to include.
         """
 
-        wfs = self.calc.wfs
-        kd = wfs.kd
-        K = kd.where_is_q(k_c, kd.bzk_kc)
+        with self.timer('where_is_k'):
+            wfs = self.calc.wfs
+            kd = wfs.kd
+            K = kd.where_is_q(k_c, kd.bzk_kc)
         shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
 
         if block:
@@ -781,34 +780,36 @@ class PairDensity:
             return KPoint(s, K, n1, n2, blocksize, na, nb,
                           None, eps_n, f_n, None, shift_c)
 
-        psit_nG = kpt.psit_nG
-        ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
-        for n in range(na, nb):
-            ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
+        with self.timer('load wfs'):
+            psit_nG = kpt.psit_nG
+            ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
+            for n in range(na, nb):
+                ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
 
-        P_ani = []
-        if self.reader is None:
-            for b, U_ii in zip(a_a, U_aii):
-                P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
-                if time_reversal:
-                    P_ni = P_ni.conj()
-                P_ani.append(P_ni)
-        else:
-            II_a = []
-            I1 = 0
-            for U_ii in U_aii:
-                I2 = I1 + len(U_ii)
-                II_a.append((I1, I2))
-                I1 = I2
-                
+        with self.timer('Load projections'):
             P_ani = []
-            P_nI = self.reader.get('Projections', kpt.s, kpt.k)
-            for b, U_ii in zip(a_a, U_aii):
-                I1, I2 = II_a[b]
-                P_ni = np.dot(P_nI[na:nb, I1:I2], U_ii)
-                if time_reversal:
-                    P_ni = P_ni.conj()
-                P_ani.append(P_ni)
+            if self.reader is None:
+                for b, U_ii in zip(a_a, U_aii):
+                    P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
+                    if time_reversal:
+                        P_ni = P_ni.conj()
+                    P_ani.append(P_ni)
+            else:
+                II_a = []
+                I1 = 0
+                for U_ii in U_aii:
+                    I2 = I1 + len(U_ii)
+                    II_a.append((I1, I2))
+                    I1 = I2
+                    
+                P_ani = []
+                P_nI = self.reader.get('Projections', kpt.s, kpt.k)
+                for b, U_ii in zip(a_a, U_aii):
+                    I1, I2 = II_a[b]
+                    P_ni = np.dot(P_nI[na:nb, I1:I2], U_ii)
+                    if time_reversal:
+                        P_ni = P_ni.conj()
+                    P_ani.append(P_ni)
         
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, shift_c)
