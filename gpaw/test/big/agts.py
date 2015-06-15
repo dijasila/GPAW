@@ -228,7 +228,8 @@ class AGTSQueue:
         """Find agts.py files and collect jobs."""
         for dir, agtsfile in self.locate_tests():
             _global = {}
-            exec(open(os.path.join(dir, agtsfile)).read(), _global)
+            fname = os.path.join(dir, agtsfile)
+            exec(compile(open(fname).read(), fname, 'exec'), _global)
             self._dir = dir
             _global['agts'](self)
         self.normalize()
