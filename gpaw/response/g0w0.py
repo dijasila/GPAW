@@ -13,7 +13,6 @@ from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
 from gpaw import debug
-from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0, HilbertTransform
 from gpaw.response.pair import PairDensity
@@ -100,7 +99,7 @@ class G0W0(PairDensity):
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
 
-        self.kpts = select_kpts(kpts, self.calc)
+        self.kpts = list(select_kpts(kpts, self.calc))
                 
         if bands is None:
             bands = [0, self.nocc2]
