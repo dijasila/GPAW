@@ -8,6 +8,8 @@ from scipy.spatial import Delaunay
 from ase.utils import devnull
 from ase.utils.timing import timer, Timer
 
+from _gpaw import tetrahedron_weight
+
 import gpaw.mpi as mpi
 from gpaw.occupations import FermiDirac
 from gpaw.utilities.blas import gemm, rk, czher, mmm
@@ -570,107 +572,13 @@ class TetrahedronIntegrator(Integrator):
             gi_w = np.zeros(len(i_w), float)
             I_kw = np.zeros((4, len(i_w)), float)
             omegatmp_w = np.take(omega_w, i_w)
-            i0 = 0
-            for case in [0, 1, 2]:
-                i1 = (omegatmp_w <= de_k[case + 1]).sum()
-                if i0 == i1:
-                    continue
-                oc_w = omegatmp_w[i0:i1]
-                gi_w[i0:i1], I_kw[:, i0:i1] = self.get_kpoint_weight(oc_w,
-                                                                     de_k,
-                                                                     case)
-                i0 = i1
+            tetrahedron_weight(de_k, omegatmp_w, gi_w, I_kw)
 
             I_kw[permute[M]] = I_kw
             gi_Mw[M] = gi_w
             I_Mkw[M] = I_kw
 
         return i0_M, gi_Mw, I_Mkw
-
-    def get_kpoint_weight_old(self, omega_w, de_k, case):
-        I_wk = np.zeros((len(omega_w), 4), float)
-        f_wkk = np.zeros((len(omega_w), 4, 4), float)
-
-        if case == 0:
-            f_wkk[:, 1:, 0] = ((omega_w - de_k[0])[:, np.newaxis] /
-                               (de_k[1:] - de_k[0])[np.newaxis])
-            f_wkk[:, 0, 1:] = 1 - f_wkk[:, 1:, 0]
-            ni_w = np.prod(f_wkk[:, 1:, 0], axis=1)
-            gi_w = 3 * ni_w / (omega_w - de_k[0])
-            I_wk[:, 0] = f_wkk[:, 0, 1:].sum(1) / 3
-            I_wk[:, 1:] = f_wkk[:, 1:, 0] / 3
-        elif case == 1:
-            f_wkk[:, 2:, :2] = ((omega_w[:, np.newaxis] -
-                                 de_k[:2][np.newaxis])[:, np.newaxis] /
-                                (de_k[2:][:, np.newaxis]
-                                 - de_k[:2][np.newaxis])[np.newaxis])
-            f_wkk[:, :2, 2:] = 1 - f_wkk[:, 2:, :2].transpose(0, 2, 1)
-            delta = de_k[3] - de_k[0]
-            gi_w = 3 / delta * (f_wkk[:, 1, 2] * f_wkk[:, 2, 0] +
-                                f_wkk[:, 2, 1] * f_wkk[:, 1, 3])
-            
-            I_wk[:, 0] = (f_wkk[:, 0, 3] / 3 + f_wkk[:, 0, 2] *
-                          f_wkk[:, 2, 0] * f_wkk[:, 1, 2] /
-                          (gi_w * delta))
-            I_wk[:, 1] = (f_wkk[:, 1, 2] / 3 + f_wkk[:, 1, 3]**2 *
-                          f_wkk[:, 2, 1] / (gi_w * delta))
-            I_wk[:, 2] = (f_wkk[:, 2, 1] / 3 + f_wkk[:, 2, 0]**2 *
-                          f_wkk[:, 1, 2] / (gi_w * delta))
-            I_wk[:, 3] = (f_wkk[:, 3, 0] / 3 + f_wkk[:, 3, 1] *
-                          f_wkk[:, 1, 3] * f_wkk[:, 2, 1] /
-                          (gi_w * delta))
-        elif case == 2:
-            f_wkk[:, :3, 3] = ((omega_w - de_k[3])[:, np.newaxis] /
-                               (de_k[:3] - de_k[3])[np.newaxis])
-            f_wkk[:, 3, :3] = 1 - f_wkk[:, :3, 3]
-            ni_w = (1 - np.prod(f_wkk[:, :3, 3], axis=1))
-            gi_w = 3 * (1 - ni_w) / (de_k[3] - omega_w)
-            I_wk[:, :3] = f_wkk[:, :3, 3] / 3.
-            I_wk[:, 3] = f_wkk[:, 3, :3].sum(1) / 3.
-            
-        return gi_w, I_wk
-
-    @timer('Kpoint weight')
-    def get_kpoint_weight(self, omega_w, de_k, case):
-        I_kw = np.zeros((4, len(omega_w)), float)
-        inds_kk = np.tril_indices(4, -1)
-        
-        # Calculate convex expansion coefficients
-        deps_K = (np.take(de_k, inds_kk[0]) -
-                  np.take(de_k, inds_kk[1]))
-        domeps_Kw = (omega_w[np.newaxis] -
-                     np.take(de_k, inds_kk[1])[:, np.newaxis])
-        f_Kw = domeps_Kw / deps_K[:, np.newaxis]
-
-        if case == 0:
-            f_kw = np.take(f_Kw, [0, 1, 3], axis=0)
-            ni_w = np.prod(f_kw, axis=0)
-            gi_w = 3 * ni_w / domeps_Kw[0]
-            I_kw[0] = 1 - f_kw.sum(0) / 3
-            I_kw[1:] = f_kw / 3
-        elif case == 1:
-            delta = deps_K[4]
-            mf_Kw = 1 - f_Kw
-
-            gi_w = 3 / delta * (f_Kw[2] * f_Kw[1] +
-                                mf_Kw[2] * mf_Kw[4])
-            
-            I_kw[0] = (mf_Kw[3] / 3 + mf_Kw[1] * f_Kw[1] * mf_Kw[2] /
-                       (gi_w * delta))
-            I_kw[1] = (mf_Kw[2] / 3 + mf_Kw[4]**2 * f_Kw[2] /
-                       (gi_w * delta))
-            I_kw[2] = (f_Kw[2] / 3 + f_Kw[1]**2 * mf_Kw[2] /
-                       (gi_w * delta))
-            I_kw[3] = (f_Kw[3] / 3 + f_Kw[4] * mf_Kw[4] * f_Kw[2] /
-                       (gi_w * delta))
-        elif case == 2:
-            mf_Kw = 1 - f_Kw
-            ni_w = (1 - np.prod(mf_Kw[3:], axis=0))
-            gi_w = 3 * (1 - ni_w) / (de_k[3] - omega_w)
-            I_kw[:3] = mf_Kw[3:] / 3.
-            I_kw[3] = f_Kw[3:].sum(0) / 3.
-            
-        return gi_w, I_kw
 
 
 class HilbertTransform:
