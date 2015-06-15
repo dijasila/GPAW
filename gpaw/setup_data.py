@@ -430,13 +430,13 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.filename, source = search_for_file(setup.stdfilename, world)
 
         if source is None:
-            print("""
+            err = ('Could not find %s-setup for "%s".' %
+                   (setup.name + '.' + setup.setupname, setup.symbol))
+            helpful_message = """
 You need to set the GPAW_SETUP_PATH environment variable to point to
 the directory where the setup files are stored.  See
-http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details.""")
-            raise RuntimeError('Could not find %s-setup for "%s".' %
-                               (setup.name + '.' + setup.setupname,
-                                setup.symbol))
+http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
+            raise RuntimeError('%s\n%s' % (err, helpful_message))
         
         setup.fingerprint = hashlib.md5(source).hexdigest()
         
