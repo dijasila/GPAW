@@ -22,6 +22,8 @@ Development version in trunk
 * Fixed bug in printing work functions for calculations with a
   dipole-correction `<http://listserv.fysik.dtu.dk/pipermail/gpaw-users/2015-February/003226.html>`_.
 
+* A :ref:`continuum solvent model <continuum_solvent_model>` was added.
+
 Version 0.10.0
 ==============
 
