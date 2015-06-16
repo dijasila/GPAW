@@ -203,20 +203,17 @@ static PyMethodDef Transformer_Methods[] = {
     {NULL, NULL, 0, NULL}
 };
 
-static PyObject* Transformer_getattr(PyObject *obj, char *name)
-{
-    return Py_FindMethod(Transformer_Methods, obj, name);
-}
-
 PyTypeObject TransformerType = {
-  PyObject_HEAD_INIT(NULL)
-  0,
-  "Transformer",
-  sizeof(TransformerObject),
-  0,
-  (destructor)Transformer_dealloc,
-  0,
-  Transformer_getattr
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "Transformer",
+    sizeof(TransformerObject),
+    0,
+    (destructor)Transformer_dealloc,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    "Transformer object",
+    0, 0, 0, 0, 0, 0,
+    Transformer_Methods
 };
 
 PyObject * NewTransformerObject(PyObject *obj, PyObject *args)

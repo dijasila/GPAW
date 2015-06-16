@@ -107,7 +107,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
         e_kn = [calc.get_eigenvalues(kpt=k)[bands] for k in range(Nk)]
         e_skn = np.array([e_kn, e_kn])
     else:
-        e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)[bands] 
+        e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)[bands]
                            for k in range(Nk)] for s in range(2)])
 
     # <phi_i|dV_adr / r * L_v|phi_j>
@@ -125,7 +125,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
             N2 = 0
             for j2, l2 in enumerate(a.l_j):
                 if l1 == l2:
-                    f_sg = phi_jg[j1][:Ng] * v_sg[:] * phi_jg[j2][:Ng] 
+                    f_sg = phi_jg[j1][:Ng] * v_sg[:] * phi_jg[j2][:Ng]
                     r_g = a.xc_correction.rgd.r_g
                     dr_g = a.xc_correction.rgd.dr_g
                     #I_s = np.sum(a.xc_correction.rgd.integrate(f_sg[:])*r_g**2*dr_g)
@@ -155,7 +155,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
         H_mm[range(2*Nn)[::2], range(2*Nn)[::2]] = e_skn[0, k, :]
         H_mm[range(2*Nn)[1::2], range(2*Nn)[1::2]] = e_skn[1, k, :]
         for ai in range(Na):
-            P_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands] 
+            P_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands]
                      for s in range(Ns)]
             dVL_svii = dVL_asvii[ai]
             if Ns == 1:
@@ -199,7 +199,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
             return np.array(e_km).T
     
 
-def get_spinorbit_correction(calc, bands=None, 
+def get_spinorbit_correction(calc, bands=None,
                              return_spin=False, return_wfs=False):
     
     if bands is None:
@@ -212,7 +212,7 @@ def get_spinorbit_correction(calc, bands=None,
         e_kn = [calc.get_eigenvalues(kpt=k)[bands] for k in range(Nk)]
         e_skn = np.array([e_kn, e_kn])
     else:
-        e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)[bands] 
+        e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)[bands]
                            for k in range(Nk)] for s in range(2)])
     e_snk = np.swapaxes(e_skn, 1, 2)
     dVL_avii = []
@@ -265,9 +265,9 @@ def get_spinorbit_correction(calc, bands=None,
                     P0_ni = P0_ani[ai]
                     P1_ni = P1_ani[ai]
                     dVL_vii = dVL_avii[ai]
-                    dE0 -= a_Z[ai] * np.dot(np.dot(P0_ni[n].conj(), 
+                    dE0 -= a_Z[ai] * np.dot(np.dot(P0_ni[n].conj(),
                                                    dVL_vii[2]), P0_ni[n])
-                    dE1 -= a_Z[ai] * np.dot(np.dot(P1_ni[n].conj(), 
+                    dE1 -= a_Z[ai] * np.dot(np.dot(P1_ni[n].conj(),
                                                    dVL_vii[2]), P1_ni[n])
                 de_s = np.array([dE0, -dE1])
             e_snk[:, ni, k] += de_s.real * alpha**2 / 4.0 * Ha
@@ -294,15 +294,11 @@ def get_parity_eigenvalues(calc, spin_orbit=False, ik=0, tol=1.0e-3):
     for i1, G1 in enumerate(G_Gv):
         for i2, G2 in enumerate(G_Gv):
             if np.dot(G1 + G2, G1 + G2) < 1.0e-6:
-                #print G1, G2
                 P_GG[i1, i2] = 1
     ps = []
-    #print P_GG
     for n in range(calc.get_number_of_bands()):
-        psit_G = psit_nG[n]#, :len(G_Gv)]
+        psit_G = psit_nG[n]
         Ppsit_G = np.dot(P_GG, psit_G)
-        #print psit_G
-        #print Ppsit_G
         if np.sum(np.abs(Ppsit_G - psit_G)) / vol < tol:
             p = 1
             ps.append(p)
@@ -310,6 +306,8 @@ def get_parity_eigenvalues(calc, spin_orbit=False, ik=0, tol=1.0e-3):
             p = -1
             ps.append(p)
         else:
-            print 'n =', n, 'is not a parity eigenvalue', np.sum(np.abs(Ppsit_G + psit_G)) / vol, np.sum(np.abs(Ppsit_G - psit_G)) / vol
+            print('n =', n, 'is not a parity eigenvalue',
+                  np.sum(np.abs(Ppsit_G + psit_G)) /
+                  vol, np.sum(np.abs(Ppsit_G - psit_G)) / vol)
 
     return ps

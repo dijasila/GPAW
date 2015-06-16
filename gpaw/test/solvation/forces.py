@@ -12,8 +12,8 @@ from gpaw.solvation import (
     GradientSurface,
     VolumeInteraction,
     SurfaceInteraction,
-    LeakedDensityInteraction
-)
+    LeakedDensityInteraction)
+
 import numpy as np
 
 SKIP_ENERGY_CALCULATION = True
@@ -35,8 +35,7 @@ atoms.calc = SolvationGPAW(
         effective_potential=Power12Potential(atomic_radii, u0),
         temperature=T,
         volume_calculator=KB51Volume(),
-        surface_calculator=GradientSurface()
-        ),
+        surface_calculator=GradientSurface()),
     dielectric=LinearDielectric(epsinf=epsinf),
     # parameters chosen to give ~ 1eV for each interaction
     interactions=[
@@ -73,13 +72,13 @@ if not SKIP_ENERGY_CALCULATION:
         np.save('E.npy', E)
         np.save('F.npy', F)
         from pprint import pprint
-        print 'd'
+        print('d')
         pprint(list(d))
-        print ''
-        print 'E'
+        print()
+        print('E')
         pprint(list(E))
-        print ''
-        print 'F'
+        print()
+        print('F')
         pprint([list([list(l2) for l2 in l1]) for l1 in F])
 else:
     d = [

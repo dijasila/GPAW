@@ -7,17 +7,17 @@ system = molecule('H2O')
 synchronize_atoms(system, world)
 
 if world.rank == 1:
-    system.positions[1, 1] += 1e-8 # fail (above tolerance)
+    system.positions[1, 1] += 1e-8  # fail (above tolerance)
 if world.rank == 2:
-    system.cell[0, 0] += 1e-15 # fail (zero tolerance)
+    system.cell[0, 0] += 1e-15  # fail (zero tolerance)
 if world.rank == 3:
-    system.positions[1, 1] += 1e-10 # pass (below tolerance)
+    system.positions[1, 1] += 1e-10  # pass (below tolerance)
 
 expected_err_ranks = {1: [], 2: [1]}.get(world.size, [1, 2])
 
 try:
     synchronize_atoms(system, world, tolerance=1e-9)
-except ValueError, e:
-    assert (expected_err_ranks == e[1]).all()
+except ValueError as e:
+    assert (expected_err_ranks == e.args[1]).all()
 else:
     assert world.size == 1

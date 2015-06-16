@@ -1,27 +1,26 @@
 import copy
-import cPickle
+import pickle
 import numpy as np
 
-from ase.utils.timing import Timer
 from ase.units import Hartree
 
-from gpaw.utilities import unpack
-from gpaw.mpi import world, rank, send_string, receive_string, broadcast_string
+from gpaw.mpi import world, send_string, receive_string, broadcast_string
 from gpaw.utilities.blas import gemm
-from gpaw.utilities.lapack import inverse_general
-import _gpaw
+
 
 def tw(mat, filename):
-    fd = file(filename, 'wb')
-    cPickle.dump(mat, fd, 2)
+    fd = open(filename, 'wb')
+    pickle.dump(mat, fd, 2)
     fd.close()
 
+    
 def tr(filename):
-    fd = file(filename, 'r')
-    mat = cPickle.load(fd)
+    fd = open(filename, 'rb')
+    mat = pickle.load(fd)
     fd.close()
     return mat
 
+    
 def write(filename, name, data, dimension, dtype=float):
     import gpaw.io.tar as io
     if world.rank == 0:
@@ -34,16 +33,19 @@ def write(filename, name, data, dimension, dtype=float):
         w.fill(data)
         w.close()
 
+        
 def fermidistribution(energy, kt):
     #fermi level is fixed to zero
     return 1.0 / (1.0 + np.exp(energy / kt))
 
+    
 def zeroTFermi(energy):
     if np.real(energy) > 0:
         return 0.
     else:
         return 1.
 
+        
 def get_tri_type(mat):
     #mat is lower triangular or upper triangular matrix
     tol = 1e-10
@@ -61,6 +63,7 @@ def get_tri_type(mat):
     if abs(diff) < tol:
         print('Warning: can not define the triangular matrix')
     return ans
+
     
 def tri2full(M,UL='L'):
     """UP='L' => fill upper triangle from lower triangle
@@ -112,7 +115,7 @@ def k2r_hs(h_skmm, s_kmm, ibzk_kc, weight_k, R_c=(0,0,0), magnet=None):
     if s_kmm is not None:
         nbf = s_kmm.shape[-1]
         s_mm = np.empty((nbf, nbf),complex)
-        s_mm[:] = np.sum((s_kmm * c_k), axis=0)     
+        s_mm[:] = np.sum((s_kmm * c_k), axis=0)
     #if magnet is not None:
     #    MM = magnet.trans_matrix(diag=True)
     #    assert np.sum(R_c) == R_c[2]
@@ -120,8 +123,8 @@ def k2r_hs(h_skmm, s_kmm, ibzk_kc, weight_k, R_c=(0,0,0), magnet=None):
     #    if h_skmm is not None:
     #        for s in range(nspins):
     #            h_smm[s] *= MM
-    #    if s_kmm is not None:  
-    #        s_mm *= MM    
+    #    if s_kmm is not None:
+    #        s_mm *= MM
     if h_skmm is not None and s_kmm is not None:
         return h_smm, s_mm
     elif h_skmm is None:
@@ -151,9 +154,9 @@ def r2k_hs(h_srmm, s_rmm, R_vector, kvector=(0,0,0), magnet=None):
 #       if h_srmm is not None:
 #            for s in range(nspins):
 #               h_smm[s] *= MM
-#       if s_mm is not None:    
-#           s_mm *= MM    
-    if h_srmm is not None and s_rmm is not None:   
+#       if s_mm is not None:
+#           s_mm *= MM
+    if h_srmm is not None and s_rmm is not None:
         return h_smm, s_mm
     elif h_srmm is None:
         return s_mm
@@ -188,13 +191,13 @@ def collect_lead_mat(lead_hsd, lead_couple_hsd, s, pk, flag='S'):
         diag_h.append(copy.deepcopy(band_mat))
         upc_h.append(cp_mat.recover('c'))
         dwnc_h.append(cp_mat.recover('n'))
-    return diag_h, upc_h, dwnc_h        
+    return diag_h, upc_h, dwnc_h
         
 def get_hs(atoms):
     """Calculate the Hamiltonian and overlap matrix."""
     calc = atoms.calc
     wfs = calc.wfs
-    wfs.gd.comm.broadcast(wfs.S_qMM, 0)    
+    wfs.gd.comm.broadcast(wfs.S_qMM, 0)
     Ef = calc.get_fermi_level()
     eigensolver = wfs.eigensolver
     ham = calc.hamiltonian
@@ -208,7 +211,7 @@ def get_hs(atoms):
         H_MM *= Hartree
         #H_MM -= Ef * S_qMM[kpt.q]
         H_sqMM[kpt.s, kpt.q] = H_MM
-    wfs.gd.comm.broadcast(H_sqMM, 0)        
+    wfs.gd.comm.broadcast(H_sqMM, 0)
     return H_sqMM, S_qMM
 
 def substract_pk(d, npk, ntk, kpts, k_mm, hors='s', position=[0, 0, 0], magnet=None):
@@ -240,7 +243,7 @@ def substract_pk(d, npk, ntk, kpts, k_mm, hors='s', position=[0, 0, 0], magnet=N
             pk_mm[:, i] = k2r_hs(tk_mm, None, tkpts, weight, position, magnet)
         elif hors == 's':
             pk_mm[i] = k2r_hs(None, tk_mm, tkpts, weight, position, magnet)
-    return pk_mm   
+    return pk_mm
 
 def pick_out_tkpts(d, npk, ntk, kpts):
     tkpts = np.zeros([ntk, 3])
@@ -299,15 +302,15 @@ def get_atom_indices(subatoms, setups):
     for j, lj  in zip(subatoms, range(len(subatoms))):
         begin = np.sum(np.array(basis_list[:j], int))
         for n in range(basis_list[j]):
-            index.append(begin + n) 
-    return np.array(index, int)    
+            index.append(begin + n)
+    return np.array(index, int)
 
 def mp_distribution(e, kt, n=1):
     x = e / kt
     re = 0.5 * error_function(x)
     for i in range(n):
-        re += coff_function(i + 1) * hermite_poly(2 * i + 1, x) * np.exp(-x**2) 
-    return re        
+        re += coff_function(i + 1) * hermite_poly(2 * i + 1, x) * np.exp(-x**2)
+    return re
 
 def coff_function(n):
     return (-1)**n / (np.product(np.arange(1, n + 1)) * 4.** n * np.sqrt(np.pi))
@@ -400,7 +403,7 @@ def get_lcao_density_matrix(calc):
         if my_ns == 1:
             wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM, d_skmm[0, kpt.q])
         else:
-            wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM, d_skmm[kpt.s, kpt.q])            
+            wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM, d_skmm[kpt.s, kpt.q])
     return d_skmm
 
 def collect_atomic_matrices(asp, setups, ns, comm, partition):
@@ -412,13 +415,13 @@ def collect_atomic_matrices(asp, setups, ns, comm, partition):
             sp = np.empty((ns, ni * (ni + 1) // 2))
         if comm.size > 1:
             comm.broadcast(sp, partition.rank_a[a])
-        all_asp.append(sp)      
+        all_asp.append(sp)
     return all_asp
 
 def distribute_atomic_matrices(all_asp, asp, setups):
     for a in range(len(setups)):
         if asp.get(a) is not None:
-            asp[a] = all_asp[a]    
+            asp[a] = all_asp[a]
 
 def collect_and_distribute_atomic_matrices(D_ap, setups, setups0, partition, comm, keys):
     gD_ap = []
@@ -435,7 +438,7 @@ def collect_and_distribute_atomic_matrices(D_ap, setups, setups0, partition, com
     for a in range(len(setups0)):
         if a in keys:
             D_ap0[keys.index(a)] = gD_ap[a]
-    return D_ap0            
+    return D_ap0
 
 def generate_selfenergy_database(atoms, ntk, filename, direction=0, kt=0.1,
                                  bias=[-3,3], depth=3, comm=None):
@@ -451,7 +454,7 @@ def generate_selfenergy_database(atoms, ntk, filename, direction=0, kt=0.1,
                                                 wfs.kd.ibzk_qc,
                                                 hl_skmm, sl_kmm, dl_skmm,
                                                 None, wfs.dtype,
-                                                direction=direction)    
+                                                direction=direction)
     my_npk = len(wfs.kd.ibzk_qc) / ntk
     my_nspins = len(wfs.kpt_u) / ( my_npk * ntk)
     
@@ -461,12 +464,12 @@ def generate_selfenergy_database(atoms, ntk, filename, direction=0, kt=0.1,
         lead_hsd.reset(0, pk, sl_pkmm[pk], 'S', init=True)
         lead_couple_hsd.reset(0, pk, sl_pkcmm[pk], 'S', init=True)
         for s in range(my_nspins):
-            lead_hsd.reset(s, pk, hl_spkmm[s, pk], 'H', init=True)     
+            lead_hsd.reset(s, pk, hl_spkmm[s, pk], 'H', init=True)
             lead_hsd.reset(s, pk, dl_spkmm[s, pk], 'D', init=True)
-            lead_couple_hsd.reset(s, pk, hl_spkcmm[s, pk], 'H', init=True)     
-            lead_couple_hsd.reset(s, pk, dl_spkcmm[s, pk], 'D', init=True)          
+            lead_couple_hsd.reset(s, pk, hl_spkcmm[s, pk], 'H', init=True)
+            lead_couple_hsd.reset(s, pk, dl_spkcmm[s, pk], 'D', init=True)
     lead_se = LeadSelfEnergy(lead_hsd, lead_couple_hsd)
-    contour = Contour(kt, [fermi] * 2, bias, depth, comm=comm)    
+    contour = Contour(kt, [fermi] * 2, bias, depth, comm=comm)
     path = contour.get_plot_path(ex=True)
     for nid, energy in zip(path.my_nids, path.my_energies):
         for kpt in wfs.kpt_u:
@@ -475,10 +478,11 @@ def generate_selfenergy_database(atoms, ntk, filename, direction=0, kt=0.1,
                     lead_se.s = kpt.s
                     lead_se.pk = kpt.q // ntk
                     data = lead_se(energy)
-                    fd = file(flag, 'w')    
-                    cPickle.dump(data, fd, 2)
-                    fd.close()    
+                    fd = open(flag, 'wb')
+                    pickle.dump(data, fd, 2)
+                    fd.close()
 
+                    
 def test_selfenergy_interpolation(atoms, ntk, filename, begin, end, base, scale, direction=0):
     from gpaw.transport.sparse_matrix import Banded_Sparse_HSD, CP_Sparse_HSD, Se_Sparse_Matrix
     from gpaw.transport.selfenergy import LeadSelfEnergy
@@ -492,7 +496,7 @@ def test_selfenergy_interpolation(atoms, ntk, filename, begin, end, base, scale,
                                                 wfs.kd.ibzk_qc,
                                                 hl_skmm, sl_kmm, dl_skmm,
                                                 None, wfs.dtype,
-                                                direction=direction)    
+                                                direction=direction)
     my_npk = len(wfs.kd.ibzk_qc) / ntk
     my_nspins = len(wfs.kpt_u) / ( my_npk * ntk)
     
@@ -502,10 +506,10 @@ def test_selfenergy_interpolation(atoms, ntk, filename, begin, end, base, scale,
         lead_hsd.reset(0, pk, sl_pkmm[pk], 'S', init=True)
         lead_couple_hsd.reset(0, pk, sl_pkcmm[pk], 'S', init=True)
         for s in range(my_nspins):
-            lead_hsd.reset(s, pk, hl_spkmm[s, pk], 'H', init=True)     
+            lead_hsd.reset(s, pk, hl_spkmm[s, pk], 'H', init=True)
             lead_hsd.reset(s, pk, dl_spkmm[s, pk], 'D', init=True)
-            lead_couple_hsd.reset(s, pk, hl_spkcmm[s, pk], 'H', init=True)     
-            lead_couple_hsd.reset(s, pk, dl_spkcmm[s, pk], 'D', init=True)          
+            lead_couple_hsd.reset(s, pk, hl_spkcmm[s, pk], 'H', init=True)
+            lead_couple_hsd.reset(s, pk, dl_spkcmm[s, pk], 'D', init=True)
     lead_se = LeadSelfEnergy(lead_hsd, lead_couple_hsd)
     begin += fermi
     end += fermi
@@ -533,8 +537,8 @@ def test_selfenergy_interpolation(atoms, ntk, filename, begin, end, base, scale,
     for e in cmp_ee:
         cmp_se.append(lead_se(e).recover())
     
-    fd = file(filename, 'w')
-    cPickle.dump((cmp_se, inter_se_linear, ee, cmp_ee), fd, 2)
+    fd = open(filename, 'wb')
+    pickle.dump((cmp_se, inter_se_linear, ee, cmp_ee), fd, 2)
     fd.close()
     
     for i,e in enumerate(cmp_ee):
@@ -554,7 +558,7 @@ def path_selfenergy(atoms, ntk, filename, begin, end, num= 257, direction=0):
                                                 wfs.kd.ibzk_qc,
                                                 hl_skmm, sl_kmm, dl_skmm,
                                                 None, wfs.dtype,
-                                                direction=direction)    
+                                                direction=direction)
     my_npk = len(wfs.kd.ibzk_qc) / ntk
     my_nspins = len(wfs.kpt_u) / ( my_npk * ntk)
     
@@ -564,10 +568,10 @@ def path_selfenergy(atoms, ntk, filename, begin, end, num= 257, direction=0):
         lead_hsd.reset(0, pk, sl_pkmm[pk], 'S', init=True)
         lead_couple_hsd.reset(0, pk, sl_pkcmm[pk], 'S', init=True)
         for s in range(my_nspins):
-            lead_hsd.reset(s, pk, hl_spkmm[s, pk], 'H', init=True)     
+            lead_hsd.reset(s, pk, hl_spkmm[s, pk], 'H', init=True)
             lead_hsd.reset(s, pk, dl_spkmm[s, pk], 'D', init=True)
-            lead_couple_hsd.reset(s, pk, hl_spkcmm[s, pk], 'H', init=True)     
-            lead_couple_hsd.reset(s, pk, dl_spkcmm[s, pk], 'D', init=True)          
+            lead_couple_hsd.reset(s, pk, hl_spkcmm[s, pk], 'H', init=True)
+            lead_couple_hsd.reset(s, pk, dl_spkcmm[s, pk], 'D', init=True)
     lead_se = LeadSelfEnergy(lead_hsd, lead_couple_hsd)
     begin += fermi
     end += fermi
@@ -579,8 +583,8 @@ def path_selfenergy(atoms, ntk, filename, begin, end, num= 257, direction=0):
         se.append(lead_se(e).recover())
     se = np.array(se)
     
-    fd = file(filename + '_' + str(world.rank), 'w')
-    cPickle.dump((se, ee), fd, 2)
+    fd = open(filename + '_' + str(world.rank), 'wb')
+    pickle.dump((se, ee), fd, 2)
     fd.close()
 
 def sort_atoms(atoms):
@@ -603,7 +607,7 @@ def fuzzy_sort(seq0, tol=1e-6):
     while len(ind1) < len(seq):
         ind = []
         am = np.argmin(seq)
-        tmp = seq - seq[am]        
+        tmp = seq - seq[am]
         for j, i in enumerate(tmp):
             if abs(i) < tol:
                 ind.append(j)
@@ -660,7 +664,7 @@ def egodic(nums):
         all = np.zeros([rows, cols])
         
         for i, n in enumerate(nums):
-            subrows = np.product(np.arange(1, len(nums)))            
+            subrows = np.product(np.arange(1, len(nums)))
             all[i*subrows: (i+1)*subrows, 0] = n
             left_nums = nums[:]
             left_nums.remove(n)
@@ -736,41 +740,41 @@ def PutD(index, X, D, T):
         D2z2r2 = np.dot(X, Dz2r2)
         D2z2r2 = np.dot(D2z2r2, X.T)
         
-        T[D.xy, D.xy] = D2xy[0, 1]               
-        T[D.xz, D.xy] = D2xy[0, 2]               
-        T[D.yz, D.xy] = D2xy[1, 2]               
-        T[D.x2y2, D.xy] = (D2xy[0, 0] - D2xy[1, 1]) / 2 
-        T[D.z2r2, D.xy] = sqrt(3) / 2 * D2xy[2, 2]     
+        T[D.xy, D.xy] = D2xy[0, 1]
+        T[D.xz, D.xy] = D2xy[0, 2]
+        T[D.yz, D.xy] = D2xy[1, 2]
+        T[D.x2y2, D.xy] = (D2xy[0, 0] - D2xy[1, 1]) / 2
+        T[D.z2r2, D.xy] = sqrt(3) / 2 * D2xy[2, 2]
 
-        T[D.xy, D.xz] = D2xz[0, 1]               
-        T[D.xz, D.xz] = D2xz[0, 2]               
-        T[D.yz, D.xz] = D2xz[1, 2]               
-        T[D.x2y2, D.xz] = (D2xz[0, 0] - D2xz[1, 1]) / 2 
-        T[D.z2r2, D.xz] = sqrt(3) / 2 * D2xz[2,2];     
+        T[D.xy, D.xz] = D2xz[0, 1]
+        T[D.xz, D.xz] = D2xz[0, 2]
+        T[D.yz, D.xz] = D2xz[1, 2]
+        T[D.x2y2, D.xz] = (D2xz[0, 0] - D2xz[1, 1]) / 2
+        T[D.z2r2, D.xz] = sqrt(3) / 2 * D2xz[2,2];
 
-        T[D.xy , D.yz] = D2yz[0, 1]               
-        T[D.xz , D.yz] = D2yz[0, 2]               
-        T[D.yz , D.yz] = D2yz[1, 2]               
-        T[D.x2y2, D.yz] = (D2yz[0, 0] - D2yz[1, 1]) / 2 
-        T[D.z2r2, D.yz] = sqrt(3) / 2 * D2yz[2, 2]     
+        T[D.xy , D.yz] = D2yz[0, 1]
+        T[D.xz , D.yz] = D2yz[0, 2]
+        T[D.yz , D.yz] = D2yz[1, 2]
+        T[D.x2y2, D.yz] = (D2yz[0, 0] - D2yz[1, 1]) / 2
+        T[D.z2r2, D.yz] = sqrt(3) / 2 * D2yz[2, 2]
 
-        T[D.xy , D.x2y2] = D2x2y2[0, 1]               
-        T[D.xz , D.x2y2] = D2x2y2[0, 2]               
-        T[D.yz , D.x2y2] = D2x2y2[1, 2]               
-        T[D.x2y2, D.x2y2] = (D2x2y2[0, 0] - D2x2y2[1, 1]) / 2 
-        T[D.z2r2, D.x2y2] = sqrt(3) / 2 * D2x2y2[2, 2]     
+        T[D.xy , D.x2y2] = D2x2y2[0, 1]
+        T[D.xz , D.x2y2] = D2x2y2[0, 2]
+        T[D.yz , D.x2y2] = D2x2y2[1, 2]
+        T[D.x2y2, D.x2y2] = (D2x2y2[0, 0] - D2x2y2[1, 1]) / 2
+        T[D.z2r2, D.x2y2] = sqrt(3) / 2 * D2x2y2[2, 2]
 
-        T[D.xy, D.z2r2] = D2z2r2[0, 1]               
-        T[D.xz, D.z2r2] = D2z2r2[0, 2]               
-        T[D.yz, D.z2r2] = D2z2r2[1, 2]               
-        T[D.x2y2, D.z2r2] = (D2z2r2[0, 0] - D2z2r2[1, 1]) / 2 
-        T[D.z2r2, D.z2r2] = sqrt(3) / 2 * D2z2r2[2, 2]     
+        T[D.xy, D.z2r2] = D2z2r2[0, 1]
+        T[D.xz, D.z2r2] = D2z2r2[0, 2]
+        T[D.yz, D.z2r2] = D2z2r2[1, 2]
+        T[D.x2y2, D.z2r2] = (D2z2r2[0, 0] - D2z2r2[1, 1]) / 2
+        T[D.z2r2, D.z2r2] = sqrt(3) / 2 * D2z2r2[2, 2]
         
-        D.__init__()      
+        D.__init__()
         
 def orbital_matrix_rotate_transformation(X, orbital_indices):
     nb = orbital_indices.shape[0]
-    assert len(X) == 3 
+    assert len(X) == 3
     T = np.zeros([nb, nb])
     P = P_info()
     D = D_info()
@@ -808,7 +812,7 @@ def vector_to_paramid(r):
     r2 = normalize(r2)
     R1 = r + r1
     R2 = r - r1 / 2. + r2 / 2.
-    R3 = r - r1 / 2. - r2 / 2. 
+    R3 = r - r1 / 2. - r2 / 2.
     return np.array([R1, R2, R3])
   
 def transform_3d(rs1, rs2):
@@ -859,14 +863,14 @@ def interpolate_array(array, gd, h, di='+'):
             xnew = np.arange(gd.N_c[2]) * h
         else:
             x = np.arange(-gd.N_c[2], 0) * gd.h_cv[2, 2]
-            xnew = np.arange(-gd.N_c[2], 0) * h            
+            xnew = np.arange(-gd.N_c[2], 0) * h
     else:
         if di == '+':
             x = np.arange(gd.N_c[2] * 2) * gd.h_cv[2, 2]
             xnew = np.arange(gd.N_c[2]) * h
         else:
             x = np.arange(-gd.N_c[2] * 2, 0) * gd.h_cv[2, 2]
-            xnew = np.arange(-gd.N_c[2], 0) * h         
+            xnew = np.arange(-gd.N_c[2], 0) * h
         
     if spin_relate:
         ns, nx, ny, nz = array.shape
@@ -940,7 +944,7 @@ def shtm(l):
             #mtx[i, i + 2*(l-i)] = (-1.)**(i - l) / np.sqrt(2)
             mtx[i, i] = (-1.)**(i - l) /np.sqrt(2)
             mtx[i, i + 2*(l-i)] = 1. / np.sqrt(2)
-    return mtx.T            
+    return mtx.T
 
 def construct_spherical_transformation_matrix(l_list):
     #construct a transformation matrix from complex harmonics to real for
@@ -956,7 +960,7 @@ def construct_spherical_transformation_matrix(l_list):
 
 def aml(ss, l, direction):
     #calculat angular momentum matrix(complex spherical harmonics)
-    #elements based on the overlap 
+    #elements based on the overlap
     amss = np.zeros(ss.shape, complex)
     n = 2 * l + 1
     for i in range(n):
@@ -966,17 +970,17 @@ def aml(ss, l, direction):
             a1 = 0.5 * np.sqrt(l*(l+1.)-m*(m+1.))
             a2 = 0.5 * np.sqrt(l*(l+1.)-m*(m-1.))
         # y direction=1, ly=(l+ - l-) /2i
-        if direction == 1:    
+        if direction == 1:
             a1 = -0.5 * 1.j * np.sqrt(l*(l+1.)-m*(m+1.))
             a2 = 0.5 * 1.j * np.sqrt(l*(l+1.)-m*(m-1.))
-        if direction == 0 or direction == 1:  
+        if direction == 0 or direction == 1:
             if m + 1 <= l:
                 amss[i] += a1 * ss[i + 1]
             if m - 1 >= -l:
                 amss[i] += a2 * ss[i - 1]
         elif direction == 2: #z direction=2
             amss[i] = m * ss[i]
-        else: 
+        else:
             raise RuntimeError('unknown direction %d' % direction)
     return amss
 
@@ -990,7 +994,7 @@ def angular_momentum_slice(overlap_slice, l, direction):
     for i in range(nao):
         ss = overlap_slice[i]
         am_slice[i] = aml(ss, l, direction)
-    return am_slice     
+    return am_slice
 
 def cut_grids_side(array, gd, gd0):
     #abstract the grid value from a including-buffer-layer calculation
@@ -1015,8 +1019,8 @@ def cut_grids_side(array, gd, gd0):
     gd0.distribute(global_new_array, new_array)
     return new_array
 
+
 def save_bias_data_file(Lead1, Lead2, Device):
-    import pickle
     ham = Device.calc.hamiltonian
     density = Device.calc.density
     hamL = Lead1.calc.hamiltonian
@@ -1024,23 +1028,23 @@ def save_bias_data_file(Lead1, Lead2, Device):
     Ef = Device.calc.get_fermi_level()
     Ef_L = Lead1.calc.get_fermi_level()
     Ef_R = Lead2.calc.get_fermi_level()
-    vt_sG = ham.gd.collect(ham.vt_sG) 
+    vt_sG = ham.gd.collect(ham.vt_sG)
     vt_sG_L = hamL.gd.collect(hamL.vt_sG)
     vt_sG_R = hamR.gd.collect(hamR.vt_sG)
     dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups,
                                      ham.nspins, ham.gd.comm,
                                      density.atom_partition)
     if world.rank == 0:
-        vt_sG_L += (Ef - Ef_L) / Hartree
-        vt_sG_R += (Ef - Ef_R) / Hartree
+        vt_sG += (Ef_L-Ef) / Hartree
+        vt_sG_R += (Ef_L - Ef_R) / Hartree
         vt_sG=np.append(vt_sG_L, vt_sG,axis=3)
         vt_sG=np.append(vt_sG,vt_sG_R,axis=3)
-        pickle.dump(([0.0,0,0], vt_sG, dH_asp), file('bias_data1','wb'),2)
+        pickle.dump(([0.0,0,0], vt_sG, dH_asp), open('bias_data1', 'wb'), 2)
 
 def find(condition, flag=0):
     if flag == 1: # return an int
         return np.int(np.nonzero(condition)[0])
-    else: # return an array     
+    else: # return an array
         return np.nonzero(condition)[0]
    
 def gather_ndarray_list(data, comm):
@@ -1061,7 +1065,7 @@ def gather_ndarray_list(data, comm):
             all_data.append(tmp[:])
     else:
         comm.ssend(data, 0, 546)
-    return all_data            
+    return all_data
         
 def gather_ndarray_dict(data, comm, broadcast=False):
     #data is dict of a numpy array, maybe has different shape in different cpus
@@ -1114,7 +1118,7 @@ def gather_ndarray_dict(data, comm, broadcast=False):
                 comm.broadcast(shape, 0)
                 comm.broadcast(all_data[name], 0)
         else:
-            comm.broadcast(num, 0)              
+            comm.broadcast(num, 0)
             for i in range(num):
                 name = broadcast_string(None, 0, comm)
                 shape = np.zeros([info[i, 0]], int)

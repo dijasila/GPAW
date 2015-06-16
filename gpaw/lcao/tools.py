@@ -1,9 +1,8 @@
 from time import localtime
-from numpy import linalg as la
-import cPickle as pickle
+import pickle
 import numpy as np
 
-from gpaw.utilities import pack, unpack
+from gpaw.utilities import pack
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.blas import rk, gemm
 from gpaw.basis_data import Basis
@@ -73,11 +72,11 @@ def get_mulliken(calc, a_list):
             M1 = calc.wfs.basis_functions.M_a[a]
             M2 = M1 + calc.wfs.setups[a].nao
             Q_a[a] += np.sum(Q_M[M1:M2])
-    return Q_a        
+    return Q_a
 
 
 def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
-                     R_c=(0, 0, 0), direction='x', 
+                     R_c=(0, 0, 0), direction='x',
                      symmetry={'enabled': False}):
 
     from gpaw.symmetry import Symmetry
@@ -85,7 +84,7 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
         monkhorst_pack
     
     if symmetry['point_group'] is True:
-        raise NotImplementedError, 'Point group symmetry not implemented'
+        raise NotImplementedError('Point group symmetry not implemented')
 
     nspins, nk, nbf = h_skmm.shape[:3]
     dir = 'xyz'.index(direction)
@@ -107,7 +106,7 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
         symmetry['time_reversal'] = True
     if symmetry['time_reversal'] is True:
         #XXX a somewhat ugly hack:
-        # By default GPAW reduces inversion sym in the z direction. The steps 
+        # By default GPAW reduces inversion sym in the z direction. The steps
         # below assure reduction in the transverse dirs.
         # For now this part seems to do the job, but it may be written
         # in a smarter way in the future.
@@ -150,7 +149,7 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
             c_k = np.exp(2.j * np.pi * np.dot(k, R_c)) * weight_p_k
             h_skii[:, j] += c_k * h
             if s_kmm is not None:
-                s_kii[j] += c_k * s 
+                s_kii[j] += c_k * s
     
     if s_kmm is None:
         return ibzk_t_kc, weights_t_k, h_skii
@@ -199,13 +198,13 @@ def dump_hamiltonian(filename, atoms, direction=None, Ef=None):
                     remove_pbc(atoms, h_skmm[s, k], None, d)
     
     if atoms.calc.master:
-        fd = file(filename,'wb')
+        fd = open(filename, 'wb')
         pickle.dump((h_skmm, s_kmm), fd, 2)
         atoms_data = {'cell':atoms.cell, 'positions':atoms.positions,
                       'numbers':atoms.numbers, 'pbc':atoms.pbc}
         
         pickle.dump(atoms_data, fd, 2)
-        calc_data ={'weight_k':atoms.calc.weight_k, 
+        calc_data ={'weight_k':atoms.calc.weight_k,
                     'ibzk_kc':atoms.calc.ibzk_kc}
         
         pickle.dump(calc_data, fd, 2)
@@ -218,7 +217,7 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
     """
         Dump the lcao representation of H and S to file(s) beginning
         with filename. If direction is x, y or z, the periodic boundary
-        conditions will be removed in the specified direction. 
+        conditions will be removed in the specified direction.
         If the Fermi temperature is different from zero,  the
         energy zero-point is taken as the Fermi level.
 
@@ -237,7 +236,7 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
     nq = len(wfs.kpt_u) // wfs.nspins
     H_qMM = np.empty((wfs.nspins, nq, nao, nao), wfs.dtype)
     calc_data = {'k_q':{},
-                 'skpt_qc':np.empty((nq, 3)), 
+                 'skpt_qc':np.empty((nq, 3)),
                  'weight_q':np.empty(nq)}
 
     S_qMM = wfs.S_qMM
@@ -251,7 +250,7 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
 ##             wfs.world.rank, wfs.kd.comm.rank,
 ##             wfs.gd.domain.comm.rank, kpt.q, kpt.k)
         H_MM = wfs.eigensolver.calculate_hamiltonian_matrix(calc.hamiltonian,
-                                                            wfs, 
+                                                            wfs,
                                                             kpt)
 
         H_qMM[kpt.s, kpt.q] = H_MM
@@ -276,7 +275,7 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
         fd = file(filename+'%i.pckl' % wfs.kd.comm.rank, 'wb')
         H_qMM *= Hartree
         pickle.dump((H_qMM, S_qMM),fd , 2)
-        pickle.dump(calc_data, fd, 2) 
+        pickle.dump(calc_data, fd, 2)
         fd.close()
 
 
@@ -319,7 +318,7 @@ def get_lead_lcao_hamiltonian(calc, direction='x'):
         return None, None, None, None
 
 
-def lead_kspace2realspace(h_skmm, s_kmm, bzk_kc, weight_k, direction='x', 
+def lead_kspace2realspace(h_skmm, s_kmm, bzk_kc, weight_k, direction='x',
                           symmetry={'point_group': False}):
     """Convert a k-dependent Hamiltonian to tight-binding onsite and coupling.
 
@@ -447,12 +446,10 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     # S_w: None or diagonal of overlap matrix. In the latter case
     # the optimized and truncated pair orbitals are obtained from
     # normalized (to 1) orbitals.
-    #     
+    #
     # Tolerance is used for truncation of optimized pairorbitals
     #calc = GPAW(gpwfile, txt=None)
     from gpaw import GPAW
-    from gpaw.utilities import pack, unpack
-    from gpaw.utilities.blas import rk, gemm
     from gpaw.mpi import world, MASTER
     calc = GPAW(gpwfile, txt='pairorb.txt') # XXX
     gd = calc.wfs.gd
@@ -462,7 +459,7 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
 
     # Load orbitals on master and distribute to slaves
     if world.rank == MASTER:
-        wglobal_wG, P_awi = pickle.load(open(orbitalfile))
+        wglobal_wG, P_awi = pickle.load(open(orbitalfile, 'rb'))
         Nw = len(wglobal_wG)
         print('Estimated total (serial) mem usage: %0.3f GB' % (
             np.prod(gd.N_c) * Nw**2 * 8 / 1024.**3))
@@ -480,7 +477,7 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     for p, (w1, w2) in enumerate(np.ndindex(Nw, Nw)):
         np.multiply(w_wG[w1], w_wG[w2], f_pG[p])
     del w_wG
-    assert f_pG.flags.contiguous 
+    assert f_pG.flags.contiguous
     # Make pairorbital overlap (lower triangle only)
     D_pp = np.zeros((Nw**2, Nw**2))
     rk(gd.dv, f_pG, 0., D_pp)
@@ -553,8 +550,8 @@ def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     calc = GPAW(gpwfile, txt=None, communicator=serial_comm)
     spos_ac = calc.get_atoms().get_scaled_positions() % 1.0
     coulomb = Coulomb(calc.wfs.gd, calc.wfs.setups, spos_ac, fft)
-    w_wG, P_awi = pickle.load(open(orbitalfile))
-    eps_q, U_pq = pickle.load(open(rotationfile))
+    w_wG, P_awi = pickle.load(open(orbitalfile, 'rb'))
+    eps_q, U_pq = pickle.load(open(rotationfile, 'rb'))
     del calc
 
     # Make rotation matrix divided by sqrt of norm
@@ -588,7 +585,7 @@ def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
             U = Uisq_iqj[w1, qstart: qend].copy()
             gemm(1., w1_G * w_wG, U, 1.0, g_qG)
             for a, P_wi in P_awi.items():
-                P_wp = np.array([pack(np.outer(P_wi[w1], P_wi[w2])) 
+                P_wp = np.array([pack(np.outer(P_wi[w1], P_wi[w2]))
                                 for w2 in range(Ni)])
                 gemm(1., P_wp, U, 1.0, P_aqp[a])
         return g_qG, P_aqp

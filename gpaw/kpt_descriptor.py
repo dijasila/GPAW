@@ -91,18 +91,20 @@ class KPointDescriptor:
             self.bzk_kc = np.zeros((1, 3))
             self.N_c = np.array((1, 1, 1), dtype=int)
             self.offset_c = np.zeros(3)
-        elif isinstance(kpts[0], int):
-            self.bzk_kc = monkhorst_pack(kpts)
-            self.N_c = np.array(kpts, dtype=int)
-            self.offset_c = np.zeros(3)
         else:
-            self.bzk_kc = np.array(kpts, float)
-            try:
-                self.N_c, self.offset_c = \
-                    get_monkhorst_pack_size_and_offset(self.bzk_kc)
-            except ValueError:
-                self.N_c = None
-                self.offset_c = None
+            kpts = np.asarray(kpts)
+            if kpts.ndim == 1:
+                self.N_c = np.array(kpts, dtype=int)
+                self.bzk_kc = monkhorst_pack(self.N_c)
+                self.offset_c = np.zeros(3)
+            else:
+                self.bzk_kc = np.array(kpts, dtype=float)
+                try:
+                    self.N_c, self.offset_c = \
+                        get_monkhorst_pack_size_and_offset(self.bzk_kc)
+                except ValueError:
+                    self.N_c = None
+                    self.offset_c = None
 
         self.collinear = collinear
         self.nspins = nspins
@@ -474,7 +476,7 @@ class KPointDescriptor:
 
         if rank is None:
             rank = self.comm.rank
-        assert rank in xrange(self.comm.size)
+        assert rank in range(self.comm.size)
         mynks0 = self.nks // self.comm.size
         mynks = mynks0
         if rank >= self.rank0:
@@ -486,7 +488,7 @@ class KPointDescriptor:
 
         if rank is None:
             rank = self.comm.rank
-        assert rank in xrange(self.comm.size)
+        assert rank in range(self.comm.size)
         mynks0 = self.nks // self.comm.size
         ks0 = rank * mynks0
         if rank >= self.rank0:
@@ -505,7 +507,7 @@ class KPointDescriptor:
 
         if rank is None:
             rank = self.comm.rank
-        assert rank in xrange(self.comm.size)
+        assert rank in range(self.comm.size)
         mynks, ks0 = self.get_count(rank), self.get_offset(rank)
         uslice = slice(ks0, ks0 + mynks)
         return uslice
@@ -542,7 +544,7 @@ class KPointDescriptor:
 
         if rank is None:
             rank = self.comm.rank
-        assert rank in xrange(self.comm.size)
+        assert rank in range(self.comm.size)
         ks0 = self.get_offset(rank)
         u = ks0 + myu
         return u

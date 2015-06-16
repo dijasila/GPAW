@@ -446,20 +446,17 @@ static PyMethodDef Operator_Methods[] = {
 };
 
 
-static PyObject* Operator_getattr(PyObject *obj, char *name)
-{
-    return Py_FindMethod(Operator_Methods, obj, name);
-}
-
 PyTypeObject OperatorType = {
-  PyObject_HEAD_INIT(NULL)
-  0,
-  "Operator",
-  sizeof(OperatorObject),
-  0,
-  (destructor)Operator_dealloc,
-  0,
-  Operator_getattr
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "Operator",
+    sizeof(OperatorObject),
+    0,
+    (destructor)Operator_dealloc,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    "FD-operator object",
+    0, 0, 0, 0, 0, 0,
+    Operator_Methods
 };
 
 PyObject * NewOperatorObject(PyObject *obj, PyObject *args)

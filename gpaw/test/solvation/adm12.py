@@ -40,7 +40,7 @@ atoms.minimal_box(vac, h)
 if not SKIP_VAC_CALC:
     atoms.calc = GPAW(xc='PBE', h=h)
     Evac = atoms.get_potential_energy()
-    print Evac
+    print(Evac)
 else:
     Evac = -14.8628983897  # h = 0.24, vac = 4.0
 
@@ -67,6 +67,6 @@ Ewater = atoms.get_potential_energy()
 assert atoms.calc.get_number_of_iterations() < 40
 atoms.get_forces()
 DGSol = (Ewater - Evac) / (kcal / mol)
-print 'Delta Gsol: %s kcal / mol' % (DGSol, )
+print('Delta Gsol: %s kcal / mol' % DGSol)
 
 equal(DGSol, -6.3, 2.)

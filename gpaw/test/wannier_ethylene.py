@@ -48,7 +48,7 @@ def check(calc):
         while np.sum((expected[i] - center)**2) > 0.01:
             i += 1
             if i == len(expected):
-                raise RuntimeError, 'Correct center not found'
+                raise RuntimeError('Correct center not found')
     expected.pop(i)
 
 check(calc)

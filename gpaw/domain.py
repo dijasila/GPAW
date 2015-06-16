@@ -49,7 +49,7 @@ class Domain:
 
         self.pbc_c = np.asarray(pbc, bool)
 
-        if type(parsize) is int:
+        if isinstance(parsize, int):
             parsize_c = None
             assert parsize == comm.size
         else:
@@ -155,7 +155,7 @@ def decompose_domain(ng, p):
         pdict[n] = 0
     for n in plist:
         pdict[n] += 1
-    candidates = factorizations(pdict.items())
+    candidates = factorizations(list(pdict.items()))
     mincost = 10000000000.0
     best = None
     for p1, p2, p3 in candidates:

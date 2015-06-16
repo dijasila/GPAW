@@ -85,7 +85,7 @@ class MemNode:
       node = MemNode('Root') # any name will do
       some_object.estimate_memory(node)
       nbytes = node.calculate_size()
-      print 'Bytes', nbytes
+      print('Bytes', nbytes)
       node.write(stdout) # write details
 
     Note that calculate_size() must be called before write().  Some

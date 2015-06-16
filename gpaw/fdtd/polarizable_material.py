@@ -3,21 +3,10 @@
 """
 
 from ase.units import Hartree, Bohr, _eps0, _c, _aut
-from gpaw import PoissonConvergenceError
 from gpaw.fd_operators import Gradient
-from gpaw.io import open as gpaw_io_open
-from gpaw.tddft.units import attosec_to_autime, autime_to_attosec, \
-    autime_to_attosec
 from gpaw.transformers import Transformer
-from gpaw.utilities import mlsqr
-from gpaw.utilities.blas import axpy
-from math import pi
 from numpy.fft import fftn, ifftn, fft2, ifft2
-from string import split
-import _gpaw
-import gpaw.mpi as mpi
 import numpy as np
-import sys
 
 # in atomic units, 1/(4*pi*e_0) = 1
 _eps0_au = 1.0 / (4.0 * np.pi)
@@ -196,7 +185,7 @@ class PolarizableBox():
         
         self.name = 'PolarizableBox'
         self.arguments = 'corner1=[%f, %f, %f], corner2=[%f, %f, %f]' % (corner1[0], corner1[1], corner1[2],
-                                                                         corner2[0], corner2[1], corner2[2])        
+                                                                         corner2[0], corner2[1], corner2[2])
 
     # Setup grid descriptor and the permittivity values inside the box
     def get_mask(self, gd):
@@ -366,7 +355,7 @@ class PolarizableRod():
             this_mask = np.logical_and(np.logical_and(angle1 < 0.5*np.pi, angle2 < 0.5*np.pi),
                                       d < self.radius**2.0 )
 
-            # Add spheres around current end points 
+            # Add spheres around current end points
             if self.round_corners:
                 # |r-a| and |r-p|
                 raDist = np.sum([ra[:, :, :, w]*ra[:, :, :, w] for w in range(3)], axis=0)
@@ -412,7 +401,7 @@ class PolarizableTetrahedron():
     #        D2 = |x  y  z  1|
     #             |x3 y3 z3 1|
     #             |x4 y4 z4 1|
-    # 
+    #
     #             |x1 y1 z1 1|
     #        D3 = |x2 y2 z2 1|
     #             |x  y  z  1|
@@ -542,9 +531,9 @@ class Permittivity:
             self.Nj = len(lines)
 
             for line in lines:
-                bar_omega = float(split(line)[0]) / Hartree
-                alpha     = float(split(line)[1]) / Hartree
-                beta      = float(split(line)[2]) / Hartree / Hartree
+                bar_omega = float(line.split()[0]) / Hartree
+                alpha     = float(line.split()[1]) / Hartree
+                beta      = float(line.split()[2]) / Hartree / Hartree
                 self.oscillators.append(LorentzOscillator(bar_omega, alpha, beta))
             return
 
@@ -559,7 +548,7 @@ class Permittivity:
     def data_eVA(self):
         return [[osc.bar_omega*Hartree, osc.alpha*Hartree, osc.beta*Hartree*Hartree] for osc in self.oscillators]
 
-# Dieletric function that renormalizes the static permittivity to the requested value (usually epsZero) 
+# Dieletric function that renormalizes the static permittivity to the requested value (usually epsZero)
 class PermittivityPlus(Permittivity):
     def __init__(self, fname=None, data=None, eps_infty = _eps0_au, epsZero = _eps0_au, newbar_omega = 0.01, new_alpha = 0.10, **kwargs):
         Permittivity.__init__(self, fname=fname, data=data, eps_infty=eps_infty)
@@ -568,7 +557,7 @@ class PermittivityPlus(Permittivity):
         _newbar_omega = newbar_omega / Hartree
         _new_alpha    = new_alpha / Hartree
         
-        # Evaluate the new value    
+        # Evaluate the new value
         _new_beta = ((epsZero - self.value(0.0))*_newbar_omega**2.0/_eps0_au).real
         self.oscillators.append(LorentzOscillator(_newbar_omega, _new_alpha, _new_beta))
         self.Nj = len(self.oscillators)

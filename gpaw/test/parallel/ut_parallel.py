@@ -127,7 +127,7 @@ if __name__ in ['__main__', '__builtin__']:
                    len(testresult.failures), test.numfails, testresult.failures)
 
         separator0 = '*'*len(testresult.separator1)
-        map(testrunner.stream.writeln, ['',separator0,conclusion,separator0,''])
+        list(map(testrunner.stream.writeln, ['',separator0,conclusion,separator0,'']))
 
         # Provide feedback on failed tests if imported by test.py
         if __name__ == '__builtin__' and not verified:

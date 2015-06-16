@@ -243,7 +243,7 @@ def get_parallel_config(mpi_libraries,mpi_library_dirs,mpi_include_dirs,
                         mpi_runtime_library_dirs,mpi_define_macros):
 
     globals = {}
-    execfile('gpaw/mpi/config.py', globals)
+    exec(open('gpaw/mpi/config.py').read(), globals)
     mpi = globals['get_mpi_implementation']()
 
     if mpi == '':
@@ -284,7 +284,7 @@ def mtime(path, name, mtimes):
 
     include = re.compile('^#\s*include "(\S+)"', re.MULTILINE)
 
-    if mtimes.has_key(name):
+    if name in mtimes:
         return mtimes[name]
     t = os.stat(os.path.join(path, name))[ST_MTIME]
     for name2 in include.findall(open(os.path.join(path, name)).read()):
@@ -331,7 +331,7 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
     # Write the compilation configuration into a file
     try:
         out = open('configuration.log', 'w')
-    except IOError, x:
+    except IOError as x:
         print(x)
         return
     print("Current configuration", file=out)

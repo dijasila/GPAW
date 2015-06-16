@@ -38,10 +38,10 @@ def cubify(out_filename, filenames):
         line0 = f.readline()
         elems = re.compile('[\d.e+-]+').findall(line0)
         natom = int(elems[0])
-        (nx,ny,nz) = map(int, elems[1:4])
-        (hx,hy,hz) = map(float, elems[4:7])
+        (nx,ny,nz) = [int(n) for n in elems[1:4]]
+        (hx,hy,hz) = [float(h) for h in elems[4:7]]
         line = f.readline()
-        (xb,xe,yb,ye,zb,ze) = map(int,re.compile('\d+').findall(line))
+        (xb,xe,yb,ye,zb,ze) = [int(x) for x in re.compile('\d+').findall(line)]
         sys.stderr.write('%d %d %d %d %d %d\n' % (xb,xe,yb,ye,zb,ze))
 
         line = f.readline()

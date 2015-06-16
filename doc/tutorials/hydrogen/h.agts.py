@@ -7,7 +7,7 @@ if __name__ == '__main__':
     import pylab as plt
     from ase.io import read
     code = open('h.py').read().replace('ae', 'paw')
-    exec code
+    exec(code)
     ae = np.array([h.get_potential_energy() for h in read('H.ae.txt@:')])
     paw = np.array([h.get_potential_energy() for h in read('H.paw.txt@:')])
     ecut = range(200, 901, 100)

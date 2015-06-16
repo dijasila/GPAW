@@ -158,9 +158,9 @@ def get_timings(fname):
 
 alltimings = []
 metadata = None
-    
+
 for rank, fname in enumerate(fnames):
-    if fname.endswith('timings.metadata.txt'):
+    if fname.endswith('metadata.txt'):
         assert metadata is None
         metadata = [line.strip() for line in open(fname)]
     else:

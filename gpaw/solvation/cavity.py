@@ -22,9 +22,9 @@ def get_pbc_positions(atoms, r_max):
         pos_aav[index1] = np.empty((np.prod(ncells_c * 2 - 1), 3))
         # loops over neighbour cells
         index2 = 0
-        for ix in xrange(-ncells_c[0] + 1, ncells_c[0]):
-            for iy in xrange(-ncells_c[1] + 1, ncells_c[1]):
-                for iz in xrange(-ncells_c[2] + 1, ncells_c[2]):
+        for ix in range(-ncells_c[0] + 1, ncells_c[0]):
+            for iy in range(-ncells_c[1] + 1, ncells_c[1]):
+                for iz in range(-ncells_c[2] + 1, ncells_c[2]):
                     i_c = np.array([ix, iy, iz])
                     pos_aav[index1][index2, :] = pos + np.dot(i_c, cell_cv)
                     index2 += 1
@@ -359,7 +359,7 @@ class Power12Potential(Potential):
         self.u_g.fill(.0)
         self.grad_u_vg.fill(.0)
         na = np.newaxis
-        for index, pos_av in self.pos_aav.iteritems():
+        for index, pos_av in self.pos_aav.items():
             r12 = self.r12_a[index]
             for pos_v in pos_av:
                 origin_vg = pos_v[:, na, na, na]
@@ -603,7 +603,7 @@ class SSS09Density(Density):
         self.pos_aav = get_pbc_positions(atoms, r_cutoff)
         self.rho_g.fill(.0)
         na = np.newaxis
-        for index, pos_av in self.pos_aav.iteritems():
+        for index, pos_av in self.pos_aav.items():
             for pos_v in pos_av:
                 origin_vg = pos_v[:, na, na, na]
                 r_diff_vg = self.r_vg - origin_vg

@@ -29,7 +29,7 @@ e_H2 = H2.get_potential_energy()
 niter_H2 = calc.get_number_of_iterations()
 
 
-calc_plus = GPAW(gpts=(12, 12, 12), xc=xc, nbands=2, 
+calc_plus = GPAW(gpts=(12, 12, 12), xc=xc, nbands=2,
                  parallel={'domain': mpi.world.size},
                  spinpol=True, txt=txt)
 calc_plus.set(charge=+1)
@@ -70,4 +70,3 @@ lr = LrTDDFT(out)
 lr.set_calculator(calc_plus)
 pes = TDDFTPES(calc, lr)
 pes.save_folded_pes(filename=None, folding=None)
-

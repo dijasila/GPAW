@@ -35,7 +35,7 @@ class Generator(AllElectron):
         self.name = name
 
         self.core = core
-        if type(rcut) is float:
+        if isinstance(rcut, float):
             rcut_l = [rcut]
         else:
             rcut_l = rcut
@@ -542,9 +542,9 @@ class Generator(AllElectron):
             u_n[:] = np.dot(inv(L_nn), u_n)
 
             dO_nn = np.dot(np.dot(inv(L_nn), dO_nn),
-                            inv(np.transpose(L_nn)))
+                           inv(np.transpose(L_nn)))
             dH_nn = np.dot(np.dot(inv(L_nn), dH_nn),
-                            inv(np.transpose(L_nn)))
+                           inv(np.transpose(L_nn)))
 
             ku_n = [self.kin(l, u, e) for u, e in zip(u_n, e_n)]
             ks_n = [self.kin(l, s) for s in s_n]
@@ -977,7 +977,7 @@ class Generator(AllElectron):
             print('\n  </%s>' % name, file=xml)
 
         # Print xc-specific data to setup file (used so for KLI and GLLB)
-        for name, a in extra_xc_data.iteritems():
+        for name, a in extra_xc_data.items():
             newname = 'GLLB_'+name
             print('  <%s grid="g1">\n    ' % newname, end=' ', file=xml)
             for x in a:

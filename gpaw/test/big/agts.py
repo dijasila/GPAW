@@ -123,7 +123,7 @@ class Cluster:
         fd = open(job.script + '.py', 'w')
         fd.write('from gpaw.test import wrap_pylab\n')
         fd.write('wrap_pylab(%s)\n' % job.show)
-        fd.write('execfile(%r)\n' % job.script)
+        fd.write('exec(open(%r).read())\n' % job.script)
         fd.close()
         
     def tick(self, nrunning):
@@ -220,14 +220,16 @@ class AGTSQueue:
             if root.startswith('./build'):
                 continue
             for fname in files:
-                if fname.endswith('agts.py') and root != './gpaw/test/big':
+                if (fname.endswith('agts.py') and
+                    not root.endswith('gpaw/test/big')):
                     yield root, fname
 
     def collect(self):
         """Find agts.py files and collect jobs."""
         for dir, agtsfile in self.locate_tests():
             _global = {}
-            execfile(os.path.join(dir, agtsfile), _global)
+            fname = os.path.join(dir, agtsfile)
+            exec(compile(open(fname).read(), fname, 'exec'), _global)
             self._dir = dir
             _global['agts'](self)
         self.normalize()

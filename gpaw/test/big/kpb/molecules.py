@@ -81,4 +81,3 @@ for name in ex_atomization.keys() + 'H Li Be B C N O F Cl P'.split():
 
     c.write(a, name=name, exx=eexx)
     del c[id]
-    

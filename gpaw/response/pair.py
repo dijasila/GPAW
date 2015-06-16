@@ -256,13 +256,13 @@ class PWSymmetryAnalyzer:
 
         # Filter out disabled symmetries
         if self.disable_point_group:
-            s_s = filter(self.is_not_point_group, s_s)
+            s_s = [s for s in s_s if self.is_not_point_group(s)]
 
         if self.disable_time_reversal:
-            s_s = filter(self.is_not_time_reversal, s_s)
+            s_s = [s for s in s_s if self.is_not_time_reversal(s)]
 
         if self.disable_non_symmorphic:
-            s_s = filter(self.is_not_non_symmorphic, s_s)
+            s_s = [s for s in s_s if self.is_not_non_symmorphic(s)]
 
         stmp_s = []
         for s in s_s:
@@ -299,7 +299,7 @@ class PWSymmetryAnalyzer:
     def group_kpoints(self, K_k=None):
         """Group kpoints according to the reduced symmetries"""
         if K_k is None:
-            K_k = range(self.kd.nbzkpts)
+            K_k = np.arange(self.kd.nbzkpts)
         s_s = self.s_s
         bz2bz_ks = self.kd.bz2bz_ks
         nk = len(bz2bz_ks)
@@ -537,7 +537,7 @@ class PairDensity:
             rank1 = world.rank // nblocks * nblocks
             rank2 = rank1 + nblocks
             self.blockcomm = self.world.new_communicator(range(rank1, rank2))
-            ranks = range(world.rank % nblocks, world.size, nblocks)
+            ranks = np.arange(world.rank % nblocks, world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
 
         if world.rank != 0:
@@ -624,7 +624,7 @@ class PairDensity:
         wfs = self.calc.wfs
 
         if kpts is None:
-            kpts = range(wfs.kd.nbzkpts)
+            kpts = np.arange(wfs.kd.nbzkpts)
 
         nbands = band2 - band1
         size = self.kncomm.size
@@ -806,7 +806,7 @@ class PairDensity:
                                            None, None, vel_mv)
 
                 # Divide the occupied bands into chunks
-                n_n = range(n2 - n1)
+                n_n = np.arange(n2 - n1)
                 if use_more_memory == 0:
                     chunksize = 1
                 else:
@@ -822,7 +822,7 @@ class PairDensity:
                 # n runs over occupied bands
                 for n_n in no_n:  # n_n is a list of occupied band indices
                     # m over unoccupied bands
-                    m_m = range(0, kpt2.n2 - kpt2.n1)
+                    m_m = np.arange(0, kpt2.n2 - kpt2.n1)
                     deps_nm = kptpair.get_transition_energies(n_n, m_m)
                     df_nm = kptpair.get_occupation_differences(n_n, m_m)
 
@@ -1128,7 +1128,7 @@ class PairDensity:
         na, nb, n1 = kpt.na, kpt.nb, kpt.n1
         vel_nv = np.zeros((nb - na, 3), dtype=complex)
         if n_n is None:
-            n_n = range(na, nb)
+            n_n = np.arange(na, nb)
         assert np.max(n_n) < nb, print('This is too many bands')
         
         # Load kpoints

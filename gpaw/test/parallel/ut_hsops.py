@@ -176,7 +176,7 @@ def create_memory_info(mem1, mem2, vmkey='VmData'):
     dm = np.array([(mem2-mem1)[vmkey]], dtype=float)
     dm_r = np.empty(world.size, dtype=float)
     world.all_gather(dm, dm_r)
-    return dm_r, ','.join(map(lambda v: '%8.4f MB' % v, dm_r/1024**2.))
+    return dm_r, ','.join(['%8.4f MB' % v for v in dm_r/1024**2.])
 
 # -------------------------------------------------------------------
 
@@ -755,7 +755,7 @@ if __name__ in ['__main__', '__builtin__']:
     for test in [UTBandParallelSetup_Blocked, UTBandParallelSetup_Strided]:
         info = ['', test.__name__, test.__doc__.strip('\n'), '']
         testsuite = initialTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         assert testresult.wasSuccessful(), 'Initial verification failed!'
         parinfo.extend(['    Parallelization options: %s' % tci._parinfo for \
@@ -774,7 +774,7 @@ if __name__ in ['__main__', '__builtin__']:
     for test in testcases:
         info = ['', test.__name__, test.__doc__.strip('\n')] + parinfo + ['']
         testsuite = defaultTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         # Provide feedback on failed tests if imported by test.py
         if __name__ == '__builtin__' and not testresult.wasSuccessful():

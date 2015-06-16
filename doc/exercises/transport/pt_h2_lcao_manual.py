@@ -8,7 +8,7 @@ manually instead of using gpawtransport, which currently does not work
 from ase import Atoms
 from gpaw import GPAW, Mixer, FermiDirac
 from gpaw.lcao.tools import remove_pbc, get_lcao_hamiltonian, get_lead_lcao_hamiltonian
-import cPickle as pickle
+import pickle as pickle
 
 a = 2.41  # Pt binding lenght
 b = 0.90  # H2 binding lenght
