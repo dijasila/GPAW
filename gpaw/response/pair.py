@@ -540,10 +540,16 @@ class PairDensity:
             ranks = np.arange(world.rank % nblocks, world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
 
-        if world.rank != 0:
-            txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w')
+        #if world.rank != 0:
+        #    txt = devnull
+        #elif isinstance(txt, str):
+        #    txt = open(txt, 'w')
+        # Test: Each rank can print to a seperate file
+        if isinstance(txt, str):
+            if world.rank == 0:
+                txt = open(txt, 'w')
+            else:
+                txt = devnull
         self.fd = txt
 
         self.timer = timer or Timer()
