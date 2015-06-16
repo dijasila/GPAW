@@ -3,12 +3,6 @@ import numpy as np
 
 def Bootstrap(chi0_wGG, Nw, Kc_GG, printtxt, print_bootstrap, world):
 
-    printtxt('Calculating the dielectric function using the Bootstrap \
-             XC-functional')
-#    printtxt('chi0_000 = %s' % chi0_wGG[0,0,0])
-#    chi0_000 = chi0_wGG[0,0,0]/100
-#    printtxt('using chi0_000 = %s' % chi0_000)
-
     Nw_local = chi0_wGG.shape[0]
     npw = chi0_wGG.shape[1]
     
@@ -30,7 +24,6 @@ def Bootstrap(chi0_wGG, Nw, Kc_GG, printtxt, print_bootstrap, world):
 
         if world.rank == 0:
             alpha = dminv_wGG[0,0,0] / (Kc_GG[0,0] * chi0_wGG[0,0,0])
-            #alpha = dminv_wGG[0,0,0] / (Kc_GG[0,0] * chi0_000) # TEST
             fxc_GG = alpha * Kc_GG
         world.broadcast(fxc_GG, 0)
     

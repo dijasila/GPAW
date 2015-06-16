@@ -10,7 +10,6 @@ from ase.dft.kpoints import monkhorst_pack
 from ase.units import Hartree
 from ase.utils import opencew, devnull
 from ase.utils.timing import timer
-from ase.parallel import parprint
 
 import gpaw.mpi as mpi
 from gpaw import debug
@@ -190,7 +189,6 @@ class G0W0(PairDensity):
                   for s, K, n1, n2 in self.mysKn1n2]
         
         # Loop over q in the IBZ:
-        nQ = 0
         for pd0, W0, q_c in self.calculate_screened_potential():
             for kpt1 in mykpts:
                 K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
@@ -198,7 +196,6 @@ class G0W0(PairDensity):
                 k1 = kd.bz2ibz_k[kpt1.K]
                 i = self.kpts.index(k1)
                 self.calculate_q(i, kpt1, kpt2, pd0, W0)
-            nQ += 1
 
         self.world.sum(self.sigma_sin)
         self.world.sum(self.dsigma_sin)
@@ -406,23 +403,9 @@ class G0W0(PairDensity):
         gd = self.calc.wfs.gd
         nGmax = max(count_reciprocal_vectors(self.ecut, gd, q_c)
                     for q_c in self.qd.ibzk_kc)
-        """
-        nGmax = 0
-        mynGmax = 0
-        for nG in [count_reciprocal_vectors(self.ecut, gd, q_c)
-                   for q_c in self.qd.ibzk_kc]:
-            mynG = nG // self.blockcomm.size
-            Ga = self.blockcomm.rank * mynG
-            Gb = Ga + mynG
-            if self.blockcomm.rank == self.blockcomm.size - 1:
-                Gb = nG
-            nGmax = max(nGmax, nG)
-            mynGmax = max(mynGmax, Gb - Ga)
-        """
         nw = len(self.omega_w)
         
         size = self.blockcomm.size
-        
         mynGmax = (nGmax + size - 1) // size
         mynw = (nw + size - 1) // size
         
@@ -510,7 +493,6 @@ class G0W0(PairDensity):
             
         self.timer.start('Dyson eq.')
         # Calculate W and store it in chi0_wGG ndarray:
-        w = 0
         for chi0_GG in chi0_wGG:
             e_GG = (delta_GG -
                     4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis])
@@ -521,7 +503,7 @@ class G0W0(PairDensity):
                 W_GG[0, 0] *= G20inv
                 W_GG[1:, 0] *= G0inv
                 W_GG[0, 1:] *= G0inv
-        
+                
         if self.blockcomm.size > 1:
             Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)
         else:
