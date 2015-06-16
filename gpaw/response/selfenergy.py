@@ -224,8 +224,9 @@ class GWSelfEnergy(SelfEnergy):
                     deps_m = kpt1.eps_n[n] - kpt2.eps_n
                     nn = kpt1.n1 + n - self.bandrange[0]
 
-                    sigma, dsigma = self.freqint.calculate_integration(
-                        n_mG, deps_m, f_m, W0_wGG, S0_wvG, L0_wvv)
+                    sigma, dsigma, S_G0, dS_G0, S_0G, dS_0G, S_00, dS_00 = \
+                      self.freqint.calculate_integration(
+                          n_mG, deps_m, f_m, W0_wGG, S0_wvG, L0_wvv)
                     
                     for bzq in bzqs:
                         self.sigma_qsin[bzq, spin, i, nn] = sigma
@@ -462,17 +463,17 @@ class RealFreqIntegration(FrequencyIntegration):
 
             # Calculate the screened potential
             W_GG = idf_GG
+            W_GG -= delta_GG
             if np.allclose(q_c, 0):
-                W_GG[1:, 1:] = 4 * pi * (idf_GG[1:, 1:] - delta_GG[1:, 1:]) * \
-                  vc_G[1:] * vc_G[1:, np.newaxis]
-                W_GG[1:, 0] = 4 * pi * (idf_GG[0, 1:] -
-                                        delta_GG[0, 1:]) * vc_G0[1:]
-                W_GG[1:, 0] = 4 * pi * (idf_GG[0, 1:] -
-                                        delta_GG[0, 1:]) * vc_G0[1:]
-                W_GG[0, 0] = 4 * pi * (idf_GG[0, 0] - 1.) * vc_00
+                W_GG[1:, 1:] = 4 * pi * W_GG[1:, 1:] * vc_G[1:] * \
+                  vc_G[1:, np.newaxis]
+                #W_GG[1:, 0] = 4 * pi * (idf_GG[0, 1:] -
+                #                        delta_GG[0, 1:]) * vc_G0[1:]
+                #W_GG[1:, 0] = 4 * pi * (idf_GG[0, 1:] -
+                #                        delta_GG[0, 1:]) * vc_G0[1:]
+                #W_GG[0, 0] = 4 * pi * (idf_GG[0, 0] - 1.) * vc_00
             else:
-                W_GG[:] = 4 * pi * (idf_GG - delta_GG) * vc_G * \
-                  vc_G[:, np.newaxis]
+                W_GG[:] = 4 * pi * W_GG * vc_G * vc_G[:, np.newaxis]
         
         W_wGG = chi0_wGG # rename
 
@@ -516,7 +517,8 @@ class RealFreqIntegration(FrequencyIntegration):
         
         return Wpm_wGG, Spm_wvG, Lpm_wvv, pd, Q_aGii
 
-    def calculate_integration(self, n_mG, deps_m, f_m, W_wGG, S_wvG, L_wvv):
+    def calculate_integration(self, n_mG, deps_m, f_m, W_wGG, S_wvG, L_wvv,
+                              gamma=False):
         o_m = abs(deps_m)
         # Add small number to avoid zeros for degenerate states:
         sgn_m = np.sign(deps_m + 1e-15)
@@ -539,9 +541,30 @@ class RealFreqIntegration(FrequencyIntegration):
         o2_m = np.empty(len(o_m))
         o1_m[m_inb] = self.omega_w[w_m[m_inb]]
         o2_m[m_inb] = self.omega_w[w_m[m_inb] + 1]
-        
+
+        # G1 != 0, G2 != 0 part
         sigma = 0.0
         dsigma = 0.0
+
+        if gamma:
+            # G1 != 0, G2 == 0 part for q=Gamma
+            S_G0 = np.zeros(len(nG))
+            dS_G0 = np.zeros(len(nG))
+            # G1 == 0, G2 != 0 part for q=Gamma
+            S_0G = np.zeros(len(nG))
+            dS_0G = np.zeros(len(nG))
+            # G1 == 0, G2 == 0 part for q=Gamma
+            S_00 = 0.0
+            dS_00 = 0.0
+        else:
+            S_G0 = None
+            dS_G0 = None
+            S_0G = None
+            dS_0G = None
+            S_00 = None
+            dS_00 = None
+        
+        
         # Performing frequency integration
         for o, o1, o2, sgn, s, w, n_G in zip(o_m, o1_m, o2_m,
                                              sgn_m, s_m, w_m, n_mG):
@@ -551,12 +574,40 @@ class RealFreqIntegration(FrequencyIntegration):
             C2_GG = W_wGG[s*nw + w + 1]
             p = 1.0 * sgn
             myn_G = n_G[Ga:Gb]
-            sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
-            sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
-            sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
-            dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
+            if not gamma:
+                sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
+                sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
+                sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
+                dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
+            else:
+                G0 = 0
+                if Ga == 0:
+                    G0 = 1
+
+                sigma1 = p * np.dot(np.dot(myn_G[G0:], C1_GG[G0:, 1:]),
+                                    n_G[1:].conj())
+                sigma2 = p * np.dot(np.dot(myn_G[G0:], C2_GG[G0:, 1:]),
+                                    n_G[1:].conj())
+                sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
+                dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
+
+                S1_G0 = p * mynG[G0:] * C1_GG[G0:, 0] * n_G[0].conj()
+                S2_G0 = p * mynG[G0:] * C2_GG[G0:, 0] * n_G[0].conj()
+                S_G0 += ((o - o1) * S2_G0 + (o2 - o) * S1_G0) / (o2 - o1)
+                dS_G0 += sgn * (S2_G0 - S1_G0) / (o2 - o1)
+
+                if Ga == 0:
+                    S1_0G = p * mynG[0] * C1_GG[0, 1:] * n_G[1:].conj()
+                    S2_0G = p * mynG[0] * C2_GG[0, 1:] * n_G[1:].conj()
+                    S_0G += ((o - o1) * S2_0G + (o2 - o) * S1_0G) / (o2 - o1)
+                    dS_0G += sgn * (S2_0G - S1_0G) / (o2 - o1)
+
+                    S1_00 = p * mynG[0] * C1_GG[0, 0] * n_G[0].conj()
+                    S2_00 = p * mynG[0] * C2_GG[0, 0] * n_G[0].conj()
+                    S_00 += ((o - o1) * S2_00 + (o2 - o) * S1_00) / (o2 - o1)
+                    dS_00 += sgn * (S2_00 - S1_00) / (o2 - o1)
             
-        return sigma, dsigma
+        return sigma, dsigma, S_G0, dS_G0, S_0G, dS_0G, S_00, dS_00
 
     def write_chi(self, name, pd, chi0_wGG):
         nw = len(self.omega_w)
