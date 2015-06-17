@@ -314,24 +314,12 @@ class Hamiltonian(object):
                 l_j = setup.l_j
                 n_j = setup.n_j
 
-
                 scale = 1   
                 NbP = 1  
                 if 'scale' in self.HubU_dict:
                     scale = self.HubU_dict['scale']
                 if 'NbP' in self.HubU_dict:
                     NbP = self.HubU_dict['NbP']
-
-                for D_p, H_p in zip(D_sp, dH_asp[a]):
-                    [N_mm,V] =self.aoom(unpack2(D_p),a,l, scale)
-                    N_mm = N_mm / 2 * nspins
-
-                    Eorb = setup.HubU / 2. * (N_mm - np.dot(N_mm,N_mm)).trace()
-                    Vorb = setup.HubU * (0.5 * np.eye(2*l+1) - N_mm)
-                    Exc += Eorb
-                    if nspins == 1:
-                        # add contribution of other spin manyfold
-                        Exc += Eorb
 
                 for n, HubU_n in self.HubU_dict[a].items():
                     for l, HubU_nl in HubU_n.items(): 
@@ -379,17 +367,6 @@ class Hamiltonian(object):
                             Htemp += V
                             H_p[:] = pack2(Htemp)
            
-                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-                        V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
-                        V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
-                        V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
-                    else:
-                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-
-                    Htemp = unpack(H_p)
-                    Htemp += V
-                    H_p[:] = pack2(Htemp)
-
             dH_sp[:self.nspins] += dH_p
             if self.ref_dH_asp:
                 dH_sp += self.ref_dH_asp[a]
