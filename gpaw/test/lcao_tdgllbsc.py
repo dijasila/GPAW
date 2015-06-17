@@ -2,7 +2,7 @@ from ase import Atoms
 from gpaw import GPAW, FermiDirac, Mixer, restart
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.mpi import world
-from gpaw.svnversion import svnversion
+from gpaw.version import version
 from gpaw.tddft import TDDFT as GRIDTDDFT
 from gpaw.test import equal
 import numpy as np
@@ -10,7 +10,7 @@ import sys
 
 ref_values = [[-0.0153712, -0.0153712, -0.0153712],
               [ 0.0037263,  0.0037263,  0.0037263],
-              [ 0.0118144,  0.0118144,  0.0118144], 
+              [ 0.0118144,  0.0118144,  0.0118144],
               [-0.0902301, -0.0902301, -0.0902301],
               [-0.0835503, -0.0835503, -0.08355028]]
 calcs = []
@@ -26,7 +26,7 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
         if xc=='PBE' and mode=='fd': # There are other checks for this combination
             continue
 
-        tag = 'np%i_rev%s_%s_%s+%s' % (world.size, svnversion, mode, xc, fxc)
+        tag = 'np%i_ver%s_%s_%s+%s' % (world.size, version, mode, xc, fxc)
 
         # silane
         atoms = Atoms('SiH4',[( 0.0000,  0.0000,  0.0000),
