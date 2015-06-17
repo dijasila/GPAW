@@ -10,6 +10,9 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* Non-selfconsistent spin-orbit coupling have been added. See tutorial 
+  for examples of band structure calculations with spin-orbit coupling.
+
 * New :ref:`symmetry <manual_symmetry>` keyword.  Replaces ``usesymm``.
 
 * Use non-symmorphic symmetries: combining fractional translations with
