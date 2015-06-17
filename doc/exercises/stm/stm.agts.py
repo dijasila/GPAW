@@ -5,4 +5,4 @@ def agts(queue):
 if __name__ == '__main__':
     import sys
     sys.argv = ['', 'HAl100.gpw']
-    execfile('stm.py')
+    exec(open('stm.py').read())

@@ -48,6 +48,9 @@ class PAW(PAWTextOutput):
 
     """This is the main calculation object for doing a PAW calculation."""
 
+    real_space_hamiltonian_class = RealSpaceHamiltonian
+    reciprocal_space_hamiltonian_class = pw.ReciprocalSpaceHamiltonian
+
     def __init__(self, filename=None, timer=None,
                  read_projections=True, **kwargs):
         """ASE-calculator interface. 
@@ -465,7 +468,7 @@ class PAW(PAWTextOutput):
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
         kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
         m_av = magmom_av.round(decimals=3)  # round off
-        id_a = zip(setups.id_a, *m_av.T)
+        id_a = list(zip(setups.id_a, *m_av.T))
         symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
         kd.set_symmetry(atoms, symmetry, comm=world)
         setups.set_symmetry(symmetry)
@@ -504,12 +507,12 @@ class PAW(PAWTextOutput):
         M = np.dot(M_v, M_v) ** 0.5
 
         nbands = par.nbands
-        
+
         orbital_free = any(setup.orbital_free for setup in setups)
         if orbital_free:
             nbands = 1
 
-        if isinstance(nbands, basestring):
+        if isinstance(nbands, str):
             if nbands[-1] == '%':
                 basebands = int(nvalence + M + 0.5) // 2
                 nbands = int((float(nbands[:-1]) / 100) * basebands)
@@ -614,7 +617,7 @@ class PAW(PAWTextOutput):
             if parsize_domain is not None:
                 ndomains = np.prod(parsize_domain)
             if mode.name == 'pw':
-                if ndomains > 1:
+                if ndomains is not None and ndomains > 1:
                     raise ValueError('Planewave mode does not support '
                                      'domain decomposition.')
                 ndomains = 1
@@ -824,12 +827,12 @@ class PAW(PAWTextOutput):
         if self.hamiltonian is None:
             gd, finegd = self.density.gd, self.density.finegd
             if realspace:
-                self.hamiltonian = RealSpaceHamiltonian(
+                self.hamiltonian = self.real_space_hamiltonian_class(
                     gd, finegd, nspins, setups, self.timer, xc,
                     world, self.wfs.kptband_comm, par.external,
                     collinear, par.poissonsolver, par.stencils[1])
             else:
-                self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
+                self.hamiltonian = self.reciprocal_space_hamiltonian_class(
                     gd, finegd,
                     self.density.pd2, self.density.pd3,
                     nspins, setups, self.timer, xc, world, self.wfs.kptband_comm, par.external,
@@ -996,14 +999,14 @@ class PAW(PAWTextOutput):
         on convergence"""
 
         try:
-            slf = function.im_self
+            slf = function.__self__
         except AttributeError:
             pass
         else:
             if slf is self:
                 # function is a bound method of self.  Store the name
                 # of the method and avoid circular reference:
-                function = function.im_func.func_name
+                function = function.__func__.__name__
 
         self.observers.append((function, n, args, kwargs))
 
@@ -1110,7 +1113,7 @@ class PAW(PAWTextOutput):
             self.scf.converged = False
 
             # is the density ok ?
-            error = self.density.mixer.get_charge_sloshing()
+            error = self.density.mixer.get_charge_sloshing() or 0.0
             criterion = (self.input_parameters['convergence']['density']
                          * self.wfs.nvalence)
             if error < criterion and not self.hamiltonian.xc.orbital_dependent:
@@ -1118,7 +1121,8 @@ class PAW(PAWTextOutput):
 
             self.calculate()
 
-    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None, expert=False):
+    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None,
+                                     expert=False):
         self.wfs.diagonalize_full_hamiltonian(self.hamiltonian, self.atoms,
                                               self.occupations, self.txt,
                                               nbands, scalapack, expert)

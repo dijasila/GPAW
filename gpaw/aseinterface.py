@@ -24,6 +24,19 @@ class GPAW(PAW):
     def set_atoms(self, atoms):
         pass
 
+    def _extrapolate_energy_to_zero_width(self, E):
+        """Return energy E extrapolated to zero width.
+
+        Internal method to extrapolate an energy to zero width.
+        Useful e.g. for total energy or "electrostatic" part of
+        a continuum solvent calculation.
+
+        E and return value are in Hartree.
+        """
+        if isinstance(self.occupations, MethfesselPaxton):
+            return E + self.hamiltonian.S / (self.occupations.iter + 2)
+        return E + 0.5 * self.hamiltonian.S
+
     def get_potential_energy(self, atoms=None, force_consistent=False):
         """Return total energy.
 
@@ -41,11 +54,9 @@ class GPAW(PAW):
             return Hartree * self.hamiltonian.Etot
         else:
             # Energy extrapolated to zero width:
-            if isinstance(self.occupations, MethfesselPaxton):
-                return Hartree * (self.hamiltonian.Etot +
-                                  self.hamiltonian.S /
-                                  (self.occupations.iter + 2))
-            return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
+            return Hartree * self._extrapolate_energy_to_zero_width(
+                self.hamiltonian.Etot
+            )
 
     def get_forces(self, atoms):
         """Return the forces for the current state of the atoms."""
@@ -112,17 +123,21 @@ class GPAW(PAW):
     def _get_results(self):
         results = {}
         from ase.calculators.calculator import all_properties
-        for property in all_properties:
-            if property == 'charges':
+        for prop in all_properties:
+            if prop == 'charges':
                 continue
-            if not self.calculation_required(self.atoms, [property]):
+            if not self.calculation_required(self.atoms, [prop]):
+                if prop == 'magmoms':
+                    results[prop] = self.magmom_av
+                    continue
+                if prop == 'dipole':
+                    results[prop] = self.dipole_v * Bohr
+                    continue
                 name = {'energy': 'potential_energy',
-                        'dipole': 'dipole_moment',
-                        'magmom': 'magnetic_moment',
-                        'magmoms': 'magnetic_moments'}.get(property, property)
+                        'magmom': 'magnetic_moment'}.get(prop, prop)
                 try:
                     x = getattr(self, 'get_' + name)(self.atoms)
-                    results[property] = x
+                    results[prop] = x
                 except (NotImplementedError, AttributeError):
                     pass
         return results
@@ -637,8 +652,7 @@ class GPAW(PAW):
 
     def get_dipole_moment(self, atoms=None):
         """Return the total dipole moment in ASE units."""
-        if self.dipole_v is None:
-            self.dipole_v = self.density.calculate_dipole_moment()
+        self.dipole_v = self.density.calculate_dipole_moment()
         return self.dipole_v * Bohr
 
     def get_magnetic_moment(self, atoms=None):
@@ -647,9 +661,6 @@ class GPAW(PAW):
 
     def get_magnetic_moments(self, atoms=None):
         """Return the local magnetic moments within augmentation spheres"""
-        if self.magmom_av is not None:
-            return self.magmom_av
-
         self.magmom_av = self.density.estimate_magnetic_moments()
         if self.wfs.collinear:
             momsum = self.magmom_av.sum()

@@ -317,4 +317,4 @@ if home is not None:
     rc = os.path.join(home, '.gpaw', 'rc.py')
     if os.path.isfile(rc):
         # Read file in ~/.gpaw/rc.py
-        execfile(rc)
+        exec(open(rc).read())

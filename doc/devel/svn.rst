@@ -11,7 +11,7 @@ Browse svn online_.
 
 Take a look at this `SVN cheat sheet`_
 
-.. _SVN cheat sheet: ../static/svn-refcard.pdf
+.. _SVN cheat sheet: ../_static/svn-refcard.pdf
 
 
 
@@ -24,7 +24,7 @@ Creating a new branch::
 
 Merge changes from trunk into branch::
 
-  $ svn merge https://svn.fysik.dtu.dk/projects/gpaw/trunk
+  $ svn merge ^/trunk
   $ svn ci -m "Merged changes from trunk into branch."
 
 Merge branch to trunk::
@@ -32,7 +32,7 @@ Merge branch to trunk::
   $ cd <root directory of trunk>
   $ svn up
   At revision 957.
-  $ svn merge --reintegrate https://svn.fysik.dtu.dk/projects/gpaw/branches/new-interface
+  $ svn merge --reintegrate ^/branches/new-interface
   $ svn ci -m "Merged branch to trunk."
 
 

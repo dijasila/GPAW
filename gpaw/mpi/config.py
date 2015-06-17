@@ -47,7 +47,7 @@ def get_mpi_command(debug=False):
         return 'mprun -np %(np)d %(job)s &'
 
     if mpi == 'poe':
-        if os.environ.has_key('LOADL_PROCESSOR_LIST'):
+        if 'LOADL_PROCESSOR_LIST' in os.environ:
             return "poe '%(job)s' &"
         else:
             return "poe '%(job)s' -procs %(np)d -hfile %(hostfile)s &"

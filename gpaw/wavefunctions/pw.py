@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, division
 import functools
+import numbers
 from math import pi
 from math import factorial as fac
 
@@ -188,7 +189,7 @@ class PWDescriptor:
     def empty(self, x=(), dtype=None, q=-1):
         if dtype is not None:
             assert dtype == self.dtype
-        if isinstance(x, int):
+        if isinstance(x, numbers.Integral):
             x = (x,)
         if q == -1:
             shape = x + (self.ngmax,)
@@ -681,7 +682,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         else:
             H_GG = md.zeros(dtype=complex)
             S_GG = md.zeros(dtype=complex)
-            G1, G2 = md.my_blocks(S_GG).next()[:2]
+            G1, G2 = next(md.my_blocks(S_GG))[:2]
 
         H_GG.ravel()[G1::npw + 1] = (0.5 * self.pd.gd.dv / N *
                                      self.pd.G2_qG[q][G1:G2])
@@ -1333,12 +1334,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)
         self.timer.stop('Poisson')
 
-        # Calculate atomic hamiltonians:
-        W_aL = {}
-        for a in density.D_asp:
-            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_q, W_aL)
-
         self.vt_Q = self.vbar_Q + self.vHt_q[density.G3_G] / 8
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
@@ -1352,14 +1347,23 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.vt_Q += vxc_Q / self.nspins
         self.timer.stop('XC 3D grid')
 
+        eext = 0.0
+
+        return self.epot, self.ebar, eext, self.exc
+
+    def calculate_atomic_hamiltonians(self, density):
+        W_aL = {}
+        for a in density.D_asp:
+            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
+        density.ghat.integrate(self.vHt_q, W_aL)
+        return W_aL
+
+    def calculate_kinetic_energy(self, density):
         ekin = 0.0
         for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
             ekin -= self.gd.integrate(vt_G, nt_G)
         ekin += self.gd.integrate(self.vt_sG, density.nct_G).sum()
-
-        eext = 0.0
-
-        return ekin, self.epot, self.ebar, eext, self.exc, W_aL
+        return ekin
 
     def restrict(self, in_xR, out_xR=None):
         """Restrict array."""

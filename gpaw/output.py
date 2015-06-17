@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 import time
@@ -39,9 +40,7 @@ class PAWTextOutput:
         self.print_header()
 
     def text(self, *args, **kwargs):
-        self.txt.write(kwargs.get('sep', ' ').join([str(arg)
-                                                    for arg in args]) +
-                       kwargs.get('end', '\n'))
+        print(*args, file=self.txt, **kwargs)
 
     def print_header(self):
         self.text()
@@ -474,45 +473,47 @@ class PAWTextOutput:
             self.timer.write(self.txt)
 
 
-def eigenvalue_string(paw, comment=None):
+def eigenvalue_string(paw, comment=' '):
     """
     Write eigenvalues and occupation numbers into a string.
     The parameter comment can be used to comment out non-numers,
     for example to escape it for gnuplot.
     """
 
-    if not comment:
-        comment = ' '
+    tokens = []
+    
+    def add(*line):
+        for token in line:
+            tokens.append(token)
+        tokens.append('\n')
 
     if len(paw.wfs.kd.ibzk_kc) == 1:
-        s = ''
         if paw.wfs.nspins == 1:
-            s += comment + 'Band   Eigenvalues  Occupancy\n'
+            add(comment, 'Band  Eigenvalues  Occupancy')
             eps_n = paw.get_eigenvalues(kpt=0, spin=0)
             f_n = paw.get_occupation_numbers(kpt=0, spin=0)
             if paw.wfs.world.rank == 0:
                 for n in range(paw.wfs.bd.nbands):
-                    s += ('%4d   %10.5f  %10.5f\n' % (n, eps_n[n], f_n[n]))
+                    add('%5d  %11.5f  %9.5f' % (n, eps_n[n], f_n[n]))
         else:
-            s += comment + '                 Up                     Down\n'
-            s += comment + \
-            'Band  Eigenvalues  Occupancy  Eigenvalues  Occupancy\n'
+            add(comment, '                  Up                     Down')
+            add(comment, 'Band  Eigenvalues  Occupancy  Eigenvalues  '
+                'Occupancy')
             epsa_n = paw.get_eigenvalues(kpt=0, spin=0, broadcast=False)
             epsb_n = paw.get_eigenvalues(kpt=0, spin=1, broadcast=False)
             fa_n = paw.get_occupation_numbers(kpt=0, spin=0, broadcast=False)
             fb_n = paw.get_occupation_numbers(kpt=0, spin=1, broadcast=False)
             if paw.wfs.world.rank == 0:
                 for n in range(paw.wfs.bd.nbands):
-                    s += (' %4d  %11.5f  %9.5f  %11.5f  %9.5f\n' %
-                      (n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
-        return s
+                    add('%5d  %11.5f  %9.5f  %11.5f  %9.5f' %
+                        (n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
+        return ''.join(tokens)
 
-    s = ''
     if len(paw.wfs.kd.ibzk_kc) > 10:
-        s += 'Warning: Showing only first 10 kpts\n'
+        add('Warning: Showing only first 10 kpts')
         print_range = 10
     else:
-        s += 'Showing all kpts\n'
+        add('Showing all kpts')
         print_range = len(paw.wfs.kd.ibzk_kc)
 
     if paw.wfs.nvalence / 2. > 10:
@@ -525,20 +526,19 @@ def eigenvalue_string(paw, comment=None):
         j = int(paw.wfs.bd.nbands)
 
     if paw.wfs.nspins == 1:
-        s += comment + 'Kpt   Band   Eigenvalues  Occupancy\n'
+        add(comment, 'Kpt  Band  Eigenvalues  Occupancy')
         for i in range(print_range):
             eps_n = paw.get_eigenvalues(kpt=i, spin=0)
             f_n = paw.get_occupation_numbers(kpt=i, spin=0)
             if paw.wfs.world.rank == 0:
                 for n in range(m, j):
-                    s += (' %i  %4d   %10.5f  %10.5f\n' %
-                      (i, n, eps_n[n], f_n[n]))
-                s += '\n'
-
+                    add('%3i %5d  %11.5f  %9.5f' % (i, n, eps_n[n], f_n[n]))
+                add()
     else:
-        s += comment + '                     Up                     Down\n'
-        s += comment + \
-        'Kpt  Band  Eigenvalues  Occupancy  Eigenvalues  Occupancy\n'
+        add(comment, '                     Up                     Down')
+        add(comment, 'Kpt  Band  Eigenvalues  Occupancy  Eigenvalues  '
+            'Occupancy')
+
         for i in range(print_range):
             epsa_n = paw.get_eigenvalues(kpt=i, spin=0, broadcast=False)
             epsb_n = paw.get_eigenvalues(kpt=i, spin=1, broadcast=False)
@@ -546,20 +546,20 @@ def eigenvalue_string(paw, comment=None):
             fb_n = paw.get_occupation_numbers(kpt=i, spin=1, broadcast=False)
             if paw.wfs.world.rank == 0:
                 for n in range(m, j):
-                    s += (' %i  %4d  %11.5f  %9.5f  %11.5f  %9.5f\n' %
-                      (i, n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
-                s += '\n'
-    return s
+                    add('%3i %5d  %11.5f  %9.5f  %11.5f  %9.5f' %
+                        (i, n, epsa_n[n], fa_n[n], epsb_n[n], fb_n[n]))
+                add()
+    return ''.join(tokens)
 
 
 def plot(atoms):
     """Ascii-art plot of the atoms."""
 
-##   y
-##   |
-##   .-- x
-##  /
-## z
+#   y
+#   |
+#   .-- x
+#  /
+# z
 
     cell_cv = atoms.get_cell()
     if (cell_cv - np.diag(cell_cv.diagonal())).any():

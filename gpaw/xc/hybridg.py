@@ -776,7 +776,6 @@ class KPoint:
 
         kpt.P_ani = {}
         I1 = 0
-        assert self.P_ani.keys() == range(len(self.P_ani))  # ???
         for a, P_ni in self.P_ani.items():
             I2 = I1 + P_ni.shape[1]
             kpt.P_ani[a] = kpt.P_nI[:, I1:I2]

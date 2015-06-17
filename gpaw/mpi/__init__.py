@@ -1,6 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
+import os
 import sys
 import time
 import traceback
@@ -232,21 +233,21 @@ class _Communicator:
         sbuffer: ndarray
             Source of the data to distribute, i.e. send buffers on all rank.
         scounts: ndarray
-            Integer array equal to the group size specifying the number of 
+            Integer array equal to the group size specifying the number of
             elements to send to each processor
         sbuffer: ndarray
-            Integer array (of length group size). Entry j specifies the 
-            displacement (relative to sendbuf from which to take the 
+            Integer array (of length group size). Entry j specifies the
+            displacement (relative to sendbuf from which to take the
             outgoing data destined for process j
         rbuffer: ndarray
             Destination of the distributed data, i.e. local receive buffer.
         rcounts: ndarray
-            Integer array equal to the group size specifying the maximum 
+            Integer array equal to the group size specifying the maximum
             number of elements that can be received from each processor.
         rdispls:
-            Integer array (of length group size). Entry i specifies the 
-            displacement (relative to recvbuf at which to place the incoming 
-            data from process i 
+            Integer array (of length group size). Entry i specifies the
+            displacement (relative to recvbuf at which to place the incoming
+            data from process i
         """
         assert sbuffer.flags.contiguous
         assert scounts.flags.contiguous
@@ -256,7 +257,8 @@ class _Communicator:
         assert rdispls.flags.contiguous
         assert sbuffer.dtype == rbuffer.dtype
         # FIXME: more tests
-        self.comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls)
+        self.comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts,
+                            rdispls)
 
     def all_gather(self, a, b):
         """Gather data from all ranks onto all processes in a group.
@@ -525,7 +527,7 @@ class _Communicator:
         comm.get_c_object() and pass the resulting object to the C code.
         """
         c_obj = self.comm.get_c_object()
-        assert type(c_obj) is _gpaw.Communicator
+        assert isinstance(c_obj, _gpaw.Communicator)
         return c_obj
 
 
@@ -600,10 +602,18 @@ class SerialCommunicator:
 
 serial_comm = SerialCommunicator()
 
-try:
+libmpi = os.environ.get('GPAW_MPI')
+if libmpi:
+    import ctypes
+    ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
     world = _gpaw.Communicator()
-except AttributeError:
-    world = serial_comm
+    if world.size == 1:
+        world = serial_comm
+else:
+    try:
+        world = _gpaw.Communicator()
+    except AttributeError:
+        world = serial_comm
 
     
 class DryRunCommunicator(SerialCommunicator):
@@ -653,15 +663,15 @@ def broadcast(obj, root=0, comm=world):
     """Broadcast a Python object across an MPI communicator and return it."""
     if comm.rank == root:
         assert obj is not None
-        string = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
+        b = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
     else:
         assert obj is None
-        string = None
-    string = broadcast_string(string, root, comm)
+        b = None
+    b = broadcast_bytes(b, root, comm)
     if comm.rank == root:
         return obj
     else:
-        return pickle.loads(string)
+        return pickle.loads(b)
 
 
 def synchronize_atoms(atoms, comm, tolerance=1e-8):
@@ -696,7 +706,7 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
     if all_fail.any():
         err_ranks = np.arange(comm.size)[all_fail]
         if debug:
-            fd = open('synchronize_atoms_r%d.pckl' % comm.rank, 'w')
+            fd = open('synchronize_atoms_r%d.pckl' % comm.rank, 'wb')
             pickle.dump((newatoms, atoms), fd)
             fd.close()
         raise ValueError('Mismatch of Atoms objects.  In debug '
@@ -705,21 +715,26 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
 
         
 def broadcast_string(string=None, root=0, comm=world):
-    """Broadcast a Python string across an MPI communicator and return it.
-    NB: Strings are immutable objects in Python, so the input is unchanged."""
     if comm.rank == root:
-        assert isinstance(string, str)
-        n = np.array(len(string), int)
+        string = string.encode()
+    return broadcast_bytes(string, root, comm).decode()
+    
+    
+def broadcast_bytes(b=None, root=0, comm=world):
+    """Broadcast a bytes across an MPI communicator and return it."""
+    if comm.rank == root:
+        assert isinstance(b, bytes)
+        n = np.array(len(b), int)
     else:
-        assert string is None
+        assert b is None
         n = np.zeros(1, int)
     comm.broadcast(n, root)
     if comm.rank == root:
-        string = np.fromstring(string, np.int8)
+        b = np.fromstring(b, np.int8)
     else:
-        string = np.zeros(n, np.int8)
-    comm.broadcast(string, root)
-    return string.tostring()
+        b = np.zeros(n, np.int8)
+    comm.broadcast(b, root)
+    return b.tostring()
 
     
 def send_string(string, rank, comm=world):
@@ -732,7 +747,7 @@ def receive_string(rank, comm=world):
     comm.receive(n, rank)
     string = np.empty(n, np.int8)
     comm.receive(string, rank)
-    return string.tostring()
+    return string.tostring().decode()
 
     
 def alltoallv_string(send_dict, comm=world):
@@ -756,7 +771,7 @@ def alltoallv_string(send_dict, comm=world):
     for proc in range(comm.size):
         rdispls[proc] = rtotal
         rtotal += rcounts[proc]
-        #rtotal += rcounts[proc]  # CHECK: is this correct?
+        # rtotal += rcounts[proc]  # CHECK: is this correct?
 
     sbuffer = np.zeros(stotal, dtype=np.int8)
     for proc in range(comm.size):
@@ -768,7 +783,8 @@ def alltoallv_string(send_dict, comm=world):
 
     rdict = {}
     for proc in range(comm.size):
-        rdict[proc] = rbuffer[rdispls[proc]:(rdispls[proc] + rcounts[proc])].tostring()
+        i = rdispls[proc]
+        rdict[proc] = rbuffer[i:i + rcounts[proc]].tostring().decode()
 
     return rdict
 
@@ -781,7 +797,9 @@ def ibarrier(timeout=None, root=0, tag=123, comm=world):
     byte = np.ones(1, dtype=np.int8)
     if comm.rank == root:
         # Everybody else:
-        for rank in range(0, root) + range(root + 1, comm.size):
+        for rank in range(comm.size):
+            if rank == root:
+                continue
             rbuf, sbuf = np.empty_like(byte), byte.copy()
             requests.append(comm.send(sbuf, rank, tag=2 * tag + 0,
                                       block=False))
@@ -815,7 +833,7 @@ def run(iterators):
 
     while True:
         try:
-            results = [iter.next() for iter in iterators]
+            results = [next(iter) for iter in iterators]
         except StopIteration:
             return results
 
@@ -960,7 +978,6 @@ class Parallelization:
         ncpus = nspinkpts
         while ncpus > 0:
             if self.navail % ncpus == 0:
-                nkptsmin = nspinkpts // ncpus
                 nkptsmax = -(-nspinkpts // ncpus)
                 effort = nkptsmax * ncpus
                 efficiency = nspinkpts / float(effort)
@@ -986,13 +1003,28 @@ def cleanup():
 
 
 def print_mpi_stack_trace(type, value, tb):
+    """Format exceptions nicely when running in parallel.
+
+    Use this function as an except hook.  Adds rank
+    and line number to each line of the exception.  Lines will
+    still be printed from different ranks in random order, but
+    one can grep for a rank or run 'sort' on the output to obtain
+    readable data."""
+    
     exception_text = traceback.format_exception(type, value, tb)
     ndigits = len(str(world.size - 1))
-    number = ('%%0%dd' % ndigits) % world.rank
+    rankstring = ('%%0%dd' % ndigits) % world.rank
     
-    for line in exception_text:
-        for line1 in line.splitlines():
-            sys.stderr.write('rank=%s %s\n' % (number, line1))
+    lines = []
+    # The exception elements may contain newlines themselves
+    for element in exception_text:
+        lines.extend(element.splitlines())
+
+    line_ndigits = len(str(len(lines) - 1))
+
+    for lineno, line in enumerate(lines):
+        lineno = ('%%0%dd' % line_ndigits) % lineno
+        sys.stderr.write('rank=%s L%s: %s\n' % (rankstring, lineno, line))
 
 if world.size > 1:  # Triggers for dry-run communicators too, but we care not.
     sys.excepthook = print_mpi_stack_trace

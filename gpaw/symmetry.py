@@ -119,7 +119,7 @@ class Symmetry:
 
         # operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
         # there are 3**9 = 19683 possible matrices
-        for base3id in xrange(19683):
+        for base3id in range(19683):
             op_cc = np.empty((3, 3), dtype=int)
             m = base3id
             for ip, p in enumerate(power):

@@ -16,8 +16,9 @@ from math import pi, sqrt
 import numpy as np
 import ase.units as units
 from ase.data import chemical_symbols
+from ase.utils import basestring
 
-from gpaw.setup_data import SetupData
+from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt as G_LLL, Y_LLv
 from gpaw.utilities import unpack, pack
@@ -64,6 +65,20 @@ def create_setup(symbol, xc='LDA', lmax=0,
         elif type == 'ghost':
             from gpaw.lcao.bsse import GhostSetupData
             setupdata = GhostSetupData(symbol)
+        elif type == 'sg15':
+            from gpaw.upf import UPFSetupData
+            upfname = '%s_ONCV_PBE-*.upf' % symbol
+            upfpath, source = search_for_file(upfname, world=world)
+            if source is None:
+                raise IOError('Could not find pseudopotential file %s '
+                              'in any GPAW search path.  '
+                              'Please install the SG15 setups using, '
+                              'e.g., \'gpaw-install-setups\'.' % upfname)
+            setupdata = UPFSetupData(upfpath)
+            if xc.name != 'PBE':
+                raise ValueError('SG15 pseudopotentials support only the PBE '
+                                 'functional.  This calculation would use '
+                                 'the %s functional.' % xc.name)
         else:
             setupdata = SetupData(symbol, xc.get_setup_name(),
                                   type, True,
@@ -150,7 +165,7 @@ class BaseSetup:
                                2 * l_j + 1, False)
         
         # Projector function indices:
-        nj = len(self.n_j) # or l_j?  Seriously.
+        nj = len(self.n_j)  # or l_j?  Seriously.
 
         # distribute to the atomic wave functions
         i = 0
@@ -161,7 +176,7 @@ class BaseSetup:
             # Skip functions not in basis set:
             while j < nj and self.l_orb_j[j] != l:
                 j += 1
-            if j < len(f_j): # lengths of f_j and l_j may differ
+            if j < len(f_j):  # lengths of f_j and l_j may differ
                 f = f_j[j]
                 f_s = f_sj[:, j]
             else:
@@ -172,7 +187,7 @@ class BaseSetup:
 
             if hund:
                 # Use Hunds rules:
-                #assert f == int(f)
+                # assert f == int(f)
                 f = int(f)
                 f_si[0, i:i + min(f, degeneracy)] = 1.0      # spin up
                 f_si[1, i:i + max(f - degeneracy, 0)] = 1.0  # spin down
@@ -266,7 +281,6 @@ class BaseSetup:
         nct_g = data.nct_g.copy()
         tauc_g = data.tauc_g
         tauct_g = data.tauct_g
-        #nc_g[gcut2:] = nct_g[gcut2:] = 0.0
         nc = self.rgd.spline(nc_g, rcut2, points=1000)
         nct = self.rgd.spline(nct_g, rcut2, points=1000)
         if tauc_g is None:
@@ -302,8 +316,6 @@ class BaseSetup:
             return self.I4_pp
 
         # radial grid
-        #ng = self.ng
-        #g = np.arange(ng, dtype=float)
         r2dr_g = self.rgd.r_g**2 * self.rgd.dr_g
 
         phi_jg = self.data.phi_jg
@@ -333,7 +345,7 @@ class BaseSetup:
         # https://wiki.fysik.dtu.dk/gpaw/devel/overview.html
 
         # calculate the integrals
-        _np = ni * (ni + 1) // 2 # length for packing
+        _np = ni * (ni + 1) // 2  # length for packing
         self.I4_pp = np.empty((_np, _np))
         p1 = 0
         for i1 in range(ni):
@@ -378,10 +390,10 @@ class LeanSetup(BaseSetup):
         """Copies precisely the necessary attributes of the Setup s."""
         # R_sii can be changed dynamically (which is ugly)
         self.R_sii = None # rotations, initialized when doing sym. reductions
-
         self.lq  = s.lq # Required for DFT+U
         self.type = s.type # required for writing to file
         self.fingerprint = s.fingerprint # also req. for writing
+
         self.filename = s.filename
 
         self.symbol = s.symbol
@@ -393,7 +405,7 @@ class LeanSetup(BaseSetup):
         self.nao = s.nao
 
         self.pt_j = s.pt_j
-        self.phit_j = s.phit_j # basis functions
+        self.phit_j = s.phit_j  # basis functions
 
         self.Nct = s.Nct
         self.nct = s.nct
@@ -436,29 +448,29 @@ class LeanSetup(BaseSetup):
         # Required by print_info
         self.rcutfilter = s.rcutfilter
         self.rcore = s.rcore
-        self.basis = s.basis # we don't need nao if we use this instead
+        self.basis = s.basis  # we don't need nao if we use this instead
         # Can also get rid of the phit_j splines if need be
 
-        self.N0_p = s.N0_p # req. by estimate_magnetic_moments
+        self.N0_p = s.N0_p  # req. by estimate_magnetic_moments
         self.nabla_iiv = s.nabla_iiv  # req. by lrtddft
         self.rnabla_iiv = s.rnabla_iiv  # req. by lrtddft
         self.rxnabla_iiv = s.rxnabla_iiv  # req. by lrtddft2
 
         # XAS stuff
-        self.phicorehole_g = s.phicorehole_g # should be optional
+        self.phicorehole_g = s.phicorehole_g  # should be optional
         if s.phicorehole_g is not None:
-            self.A_ci = s.A_ci # oscillator strengths
+            self.A_ci = s.A_ci  # oscillator strengths
 
         # Required to get all electron density
         self.rgd = s.rgd
         self.rcut_j = s.rcut_j
 
-        self.tauct = s.tauct # required by TPSS, MGGA
+        self.tauct = s.tauct  # required by TPSS, MGGA
 
-        self.Delta_iiL = s.Delta_iiL # required with external potential
+        self.Delta_iiL = s.Delta_iiL  # required with external potential
 
-        self.B_ii = s.B_ii # required for exact inverse overlap operator
-        self.dC_ii = s.dC_ii # required by time-prop tddft with apply_inverse
+        self.B_ii = s.B_ii  # required for exact inverse overlap operator
+        self.dC_ii = s.dC_ii  # required by time-prop tddft with apply_inverse
 
         # Required by exx
         self.X_p = s.X_p
@@ -683,7 +695,7 @@ class Setup(BaseSetup):
 
         extra_xc_data = dict(data.extra_xc_data)
         # Cut down the GLLB related extra data
-        for key, item in extra_xc_data.iteritems():
+        for key, item in extra_xc_data.items():
             if len(item) == rgd.N:
                 extra_xc_data[key] = item[:gcut2].copy()
         self.extra_xc_data = extra_xc_data
@@ -777,7 +789,7 @@ class Setup(BaseSetup):
         
         r = 0.02 * rcut2 * np.arange(51, dtype=float)
         alpha = data.rcgauss**-2
-        self.ghat_l = data.get_ghat(lmax, alpha, r, rcut2)#;print 'use g_lg!'
+        self.ghat_l = data.get_ghat(lmax, alpha, r, rcut2)
         self.rcgauss = data.rcgauss
         
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
@@ -807,7 +819,7 @@ class Setup(BaseSetup):
             A_qq -= 0.5 * np.dot(nt_qg, np.transpose(wnt_lqg[l]))
             if l <= lmax:
                 A_qq -= 0.5 * np.outer(Delta_lq[l],
-                                        np.dot(wnt_lqg[l], g_lg[l]))
+                                       np.dot(wnt_lqg[l], g_lg[l]))
                 A_qq -= 0.5 * np.outer(np.dot(nt_qg, wg_lg[l]), Delta_lq[l])
                 A_qq -= 0.5 * np.dot(g_lg[l], wg_lg[l]) * \
                         np.outer(Delta_lq[l], Delta_lq[l])
@@ -880,7 +892,7 @@ class Setup(BaseSetup):
         
         n_qg = np.zeros((nq, gcut2))
         nt_qg = np.zeros((nq, gcut2))
-        q = 0 # q: common index for j1, j2
+        q = 0  # q: common index for j1, j2
         for j1 in range(self.nj):
             for j2 in range(j1, self.nj):
                 n_qg[q] = phi_jg[j1] * phi_jg[j2]
@@ -1003,9 +1015,8 @@ class Setup(BaseSetup):
                                                     1 + v2],
                                               Y_LLv[L3, l2**2:l2**2 + nm2, v1])
                             except IndexError:
-                                pass # L3 might be too large, ignore
-                    rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += (
-                        f1f2or * G )
+                                pass  # L3 might be too large, ignore
+                    rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += f1f2or * G
                 i2 += nm2
             i1 += nm1
         return (4 * pi / 3 ) * rnabla_iiv
@@ -1167,7 +1178,6 @@ class Setup(BaseSetup):
 
         return rxnabla_iiv
 
-
     def construct_core_densities(self, setupdata):
         rcore = self.data.find_core_density_cutoff(setupdata.nc_g)
         nct = self.rgd.spline(setupdata.nct_g, rcore)
@@ -1199,7 +1209,7 @@ class Setup(BaseSetup):
         a_g = 4 * x**3 * (1 - 0.75 * x)
         b_g = x**3 * (x - 1) * (rcut3 - rcut2)
 
-        class PartialWaveBasis(Basis): # yuckkk
+        class PartialWaveBasis(Basis):  # yuckkk
             def __init__(self, symbol, phit_j):
                 Basis.__init__(self, symbol, 'partial-waves', readxml=False)
                 self.phit_j = phit_j
@@ -1235,7 +1245,7 @@ class Setup(BaseSetup):
             l = self.l_j[j]
             if l == 1:
                 a = self.rgd.integrate(phi_jg[j] * self.data.phicorehole_g,
-                                      n=1) / (4 * pi)
+                                       n=1) / (4 * pi)
 
                 for m in range(3):
                     c = (m + 1) % 3
@@ -1303,7 +1313,7 @@ class Setups(list):
         natoms = {}
         Mcumulative = 0
         self.M_a = []
-        self.id_a = zip(Z_a, type_a, basis_a)
+        self.id_a = list(zip(Z_a, type_a, basis_a))
         for id in self.id_a:
             setup = self.setups.get(id)
             if setup is None:
@@ -1350,7 +1360,7 @@ class Setups(list):
         for setup in self.setups.values():
             setup.calculate_rotations(R_slmm)
 
-    def empty_asp(self, ns, atom_partition):
+    def empty_atomic_matrix(self, ns, atom_partition):
         Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
                      for setup in self]
         return atom_partition.arraydict(Dshapes_a)

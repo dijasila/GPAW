@@ -98,8 +98,8 @@ gpaw-logo.odg_, gpaw-logo.svg_
 
 .. _odg: http://www.openoffice.org/product/draw.html
 .. _svg: http://en.wikipedia.org/wiki/Scalable_Vector_Graphics
-.. _gpaw-logo.odg: ../static/gpaw-logo.odg
-.. _gpaw-logo.svg: ../static/gpaw-logo.svg
+.. _gpaw-logo.odg: ../_static/gpaw-logo.odg
+.. _gpaw-logo.svg: ../_static/gpaw-logo.svg
 
 
 Statistics

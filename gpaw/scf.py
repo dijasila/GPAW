@@ -110,7 +110,7 @@ class SCFLoop:
                 self.force_last = F_av
 
         self.converged = (
-            self.eigenstates_error < self.max_eigenstates_error and
+            (self.eigenstates_error or 0.0) < self.max_eigenstates_error and
             self.energy_error < self.max_energy_error and
             self.density_error < self.max_density_error and
             (self.force_error or 0) < ((self.max_force_error)

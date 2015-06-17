@@ -218,7 +218,7 @@ class AllElectron:
             fd = None
         else:
             try:
-                fd = open(restartfile, 'r')
+                fd = open(restartfile, 'rb')
             except IOError:
                 fd = None
             else:
@@ -280,7 +280,7 @@ class AllElectron:
 
             vr[:] = (vHr + self.vXC * r)
 
-            if self.orbital_free: 
+            if self.orbital_free:
                 vr /= self.tw_coeff
 
             if niter > 0:
@@ -322,13 +322,13 @@ class AllElectron:
         t('Converged in %d iteration%s.' % (niter, 's'[:niter != 1]))
 
         try:
-            fd = open(restartfile, 'w')
+            fd = open(restartfile, 'wb')
         except IOError:
             pass
         else:
             pickle.dump(n, fd)
             try:
-                os.chmod(restartfile, 0666)
+                os.chmod(restartfile, 0o666)
             except OSError:
                 pass
 
@@ -565,8 +565,8 @@ class AllElectron:
                           self.scalarrel)
             # adjust eigenenergy until u has the correct number of nodes
             while nn != nodes:
-                diff = cmp(nn, nodes)
-                while diff == cmp(nn, nodes):
+                diff = np.sign(nn - nodes)
+                while diff == np.sign(nn - nodes):
                     e -= diff * delta
                     nn, A = shoot(u, l, vr, e, self.r2dvdr, r, dr, c10, c2,
                                   self.scalarrel)

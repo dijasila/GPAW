@@ -1,7 +1,7 @@
 from ase.lattice import bulk
 from gpaw import GPAW, PW, FermiDirac
 
-a = bulk('Pt', 'fcc', a= 3.92)
+a = bulk('Pt', 'fcc', a=3.92)
 
 calc = GPAW(mode=PW(600),
             xc='PBE',

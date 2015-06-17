@@ -18,7 +18,7 @@ def build_gpaw_web_page(force_build):
         subprocess.check_call(
             'tar xf gpaw-setups-latest.tar.gz', shell=True)
         path = os.path.abspath(glob.glob('gpaw-setups-[0-9]*')[0])
-        build(True, 'gpaw', 'GPAW_SETUP_PATH=' + path, 'bla-bla')
+        build(True, 'gpaw', 'GPAW_SETUP_PATH=' + path)
         
         
 if __name__ == '__main__':

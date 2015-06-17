@@ -97,6 +97,14 @@ class LCAOWaveFunctions(WaveFunctions):
         fd.write('    Diagonalizer: %s\n' % self.ksl.get_description())
         fd.write('    Atomic Correction: %s\n'
                  % self.atomic_correction.description)
+        if self.dtype == complex:
+            typestr = "complex"
+        elif self.dtype == float:
+            typestr = "float"
+        else:
+            typestr = "unknown"
+        fd.write("    Datatype: %s\n" % typestr)
+        
         
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)
@@ -162,15 +170,6 @@ class LCAOWaveFunctions(WaveFunctions):
         self.atomic_correction.gobble_data(self)
         # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-        for kpt in self.kpt_u:
-            q = kpt.q
-            kpt.P_aMi = dict([(a, P_qMi[q])
-                              for a, P_qMi in self.P_aqMi.items()])
-
-            kpt.P_aaim = dict([(a1a2, P_qim[q])
-                               for a1a2, P_qim in self.P_aaqim.items()])
-
-        # XXX does not work yet
         self.atomic_correction.add_overlap_correction(self, S_qMM)
         self.timer.stop('TCI: Calculate S, T, P')
 
@@ -546,8 +545,7 @@ class LCAOWaveFunctions(WaveFunctions):
             self.timer.start('Get neighbors')
             nl = tci.atompairs.pairs.neighbors
             r_and_offset_aao = get_r_and_offsets(nl, spos_ac, cell_cv)
-            atompairs = r_and_offset_aao.keys()
-            atompairs.sort()
+            atompairs = sorted(r_and_offset_aao.keys())
             self.timer.stop('Get neighbors')
 
             T_expansions = tci.T_expansions

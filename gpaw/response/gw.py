@@ -219,7 +219,7 @@ class GW(BASECHI):
                 continue
             t1 = time()
 
-            # get screened interaction. 
+            # get screened interaction.
             df, W_wGG = self.screened_interaction_kernel(iq)
             t2 = time()
             t_w += t2 - t1
@@ -256,7 +256,7 @@ class GW(BASECHI):
             world.barrier()
             exxfile='EXX.pckl'
             self.printtxt('EXX takes %s ' %(timedelta(seconds=round(time()-t0))))
-        data = pickle.load(open(exxfile))
+        data = pickle.load(open(exxfile, 'rb'))
         vxc_skn = data['vxc_skn'] # in Hartree
         exx_skn = data['exx_skn'] # in Hartree
         f_skn = data['f_skn']
@@ -297,7 +297,7 @@ class GW(BASECHI):
                 'QP_skn': QP_skn        # in Hartree
                }
         if rank == 0:
-            pickle.dump(data, open(file, 'w'), -1)
+            pickle.dump(data, open(file, 'wb'), -1)
 
 
     def screened_interaction_kernel(self, iq):
@@ -426,7 +426,7 @@ class GW(BASECHI):
                 else:
                     kq_c = df.kd.bzk_kc[k] - df.q_c  # k - q
 
-                kq = df.kd.where_is_q(kq_c, df.kd.bzk_kc)            
+                kq = df.kd.where_is_q(kq_c, df.kd.bzk_kc)
                 assert df.kq_k[kq] == k
                 ibzkpt1 = df.kd.bz2ibz_k[k]
                 ibzkpt2 = df.kd.bz2ibz_k[kq]
@@ -535,7 +535,7 @@ class GW(BASECHI):
                                 Sigma_skn[s,i,j] += Sw0
                                 dSigma_skn[s,i,j] += (Sw1 + Sw2)/(2*self.dw)
 
-                            else:                        
+                            else:
                                 Sw1_G = gemmdot(C_wGG[0], rho_G, beta=0.0)
                                 Sw1 = np.real(gemmdot(Sw1_G, rho_G, alpha=self.alpha, beta=0.0, trans='c'))
                                 Sw2_G = gemmdot(C_wGG[1], rho_G, beta=0.0)
@@ -549,7 +549,7 @@ class GW(BASECHI):
         self.ncomm.sum(Sigma_skn)
         self.ncomm.sum(dSigma_skn)
 
-        return Sigma_skn, dSigma_skn 
+        return Sigma_skn, dSigma_skn
 
 
     def get_exact_exchange(self, ecut=None, communicator=world, file='EXX.pckl'):
@@ -606,7 +606,7 @@ class GW(BASECHI):
                 'gwbands_n': self.gwbands_n
                }
         if rank == 0:
-            pickle.dump(data, open(file, 'w'), -1)
+            pickle.dump(data, open(file, 'wb'), -1)
             self.printtxt("------------------------------------------------")
             self.printtxt("non-selfconsistent HF eigenvalues are (eV):")
             self.printtxt((e_skn - vxc_skn + exx_skn)*Hartree)

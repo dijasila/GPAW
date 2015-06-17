@@ -12,15 +12,14 @@ P = points['P']
 N = points['N']
 H_z = [H[0], -H[1], -H[2]]
 G_yz = [2*H[0], 0.0, 0.0]
-#kpts, x, X = get_bandpath([G, H, N, G, P, N], layer.cell, npoints=750)
-#kpts, x, X = get_bandpath([H, G, H_z], layer.cell, npoints=250)
+
 kpts, x, X = get_bandpath([G, H, G_yz], layer.cell, npoints=500)
 calc = GPAW('Fe_gs.gpw',
             kpts=kpts,
             symmetry='off',
             txt='Fe_bands.txt',
-            parallel={'band': 1}) 
-calc.diagonalize_full_hamiltonian()#nbands=32, scalapack=(4, 4, 32))
+            parallel={'band': 1})
+calc.diagonalize_full_hamiltonian()
 
 calc.write('Fe_bands.gpw', mode='all')
 

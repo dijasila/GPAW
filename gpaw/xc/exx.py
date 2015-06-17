@@ -41,7 +41,7 @@ def select_kpts(kpts, calc):
     k-points in the IBZ."""
     if kpts is None:
         # Do all k-points in the IBZ:
-        return range(calc.wfs.kd.nibzkpts)
+        return np.arange(calc.wfs.kd.nibzkpts)
     
     if np.asarray(kpts).ndim == 1:
         return kpts

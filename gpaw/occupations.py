@@ -460,7 +460,7 @@ class SmoothDistribution(ZeroKelvin):
             lumo = -wfs.world.max(-lumo)
             return np.array([homo, lumo])
         else:
-            assert wfs.bd.size == 1
+            assert wfs.bd.comm.size == 1
             eps_homo = -1000.0
             eps_lumo = 1000.0
             epsilon = 1e-2

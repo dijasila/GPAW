@@ -21,13 +21,13 @@ static PyObject * spline_get_angular_momentum_number(SplineObject *self,
   return Py_BuildValue("i", self->spline.l);
 }
 
-static PyObject * spline_get_value_and_derivative(SplineObject *obj, 
+static PyObject * spline_get_value_and_derivative(SplineObject *obj,
                                                   PyObject *args,
                                                   PyObject *kwargs)
 {
   double r;
   if (!PyArg_ParseTuple(args, "d", &r))
-    return NULL;  
+    return NULL;
   double f;
   double dfdr;
   bmgs_get_value_and_derivative(&obj->spline, r, &f, &dfdr);
@@ -45,7 +45,7 @@ static PyObject * spline_get_indices_from_zranges(SplineObject *self,
   int nm = 2 * self->spline.l + 1;
 
   if (!PyArg_ParseTuple(args, "OOO", &beg_c_obj, &end_c_obj, &G_b_obj))
-    return NULL; 
+    return NULL;
 
   long* beg_c = LONGP(beg_c_obj);
   long* end_c = LONGP(end_c_obj);
@@ -62,7 +62,7 @@ static PyObject * spline_get_indices_from_zranges(SplineObject *self,
     ng += G_B[b+1]-G_B[b];
 
   npy_intp gm_dims[2] = {ng, nm};
-  PyArrayObject* indices_gm_obj = (PyArrayObject*)PyArray_SimpleNew(2, gm_dims, 
+  PyArrayObject* indices_gm_obj = (PyArrayObject*)PyArray_SimpleNew(2, gm_dims,
                                                                     NPY_INT);
 
   int* p = INTP(indices_gm_obj);
@@ -84,36 +84,38 @@ static PyObject * spline_get_indices_from_zranges(SplineObject *self,
 static PyMethodDef spline_methods[] = {
     {"get_cutoff",
      (PyCFunction)spline_get_cutoff, METH_VARARGS, 0},
-    {"get_angular_momentum_number", 
+    {"get_angular_momentum_number",
      (PyCFunction)spline_get_angular_momentum_number, METH_VARARGS, 0},
-    {"get_value_and_derivative", 
+    {"get_value_and_derivative",
      (PyCFunction)spline_get_value_and_derivative, METH_VARARGS, 0},
-    {"get_indices_from_zranges", 
+    {"get_indices_from_zranges",
      (PyCFunction)spline_get_indices_from_zranges, METH_VARARGS, 0},
     {NULL, NULL, 0, NULL}
 };
 
-static PyObject* spline_get_attr(PyObject *obj, char *name)
-{
-    return Py_FindMethod(spline_methods, obj, name);
-}
 
 static PyObject * spline_call(SplineObject *obj, PyObject *args,
                               PyObject *kwargs)
 {
   double r;
   if (!PyArg_ParseTuple(args, "d", &r))
-    return NULL;  
+    return NULL;
   return Py_BuildValue("d", bmgs_splinevalue(&obj->spline, r));
 }
 
+
 PyTypeObject SplineType = {
-  PyObject_HEAD_INIT(NULL) 0,
-  "Spline",
-  sizeof(SplineObject), 0,
-  (destructor)spline_dealloc, 0,
-  spline_get_attr, 0, 0, 0, 0, 0, 0, 0,
-  (ternaryfunc)spline_call
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "Spline",
+    sizeof(SplineObject), 0,
+    (destructor)spline_dealloc,
+    0, 0, 0, 0, 0, 0, 0, 0, 0,
+    (ternaryfunc)spline_call,
+    0, 0, 0, 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    "Spline object",
+    0, 0, 0, 0, 0, 0,
+    spline_methods
 };
 
 PyObject * NewSplineObject(PyObject *self, PyObject *args)
@@ -121,7 +123,7 @@ PyObject * NewSplineObject(PyObject *self, PyObject *args)
   int l;
   double rcut;
   PyArrayObject* farray;
-  if (!PyArg_ParseTuple(args, "idO", &l, &rcut, &farray)) 
+  if (!PyArg_ParseTuple(args, "idO", &l, &rcut, &farray))
     return NULL;
   SplineObject *spline = PyObject_NEW(SplineObject, &SplineType);
   if (spline == NULL)

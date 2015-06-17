@@ -1,6 +1,4 @@
 # creates: bigpicture.svg, bigpicture.png
-
-import os
 from math import pi, cos, sin
 
 import numpy as np
@@ -143,7 +141,7 @@ wfs = box('WaveFunctions',
 gd = box('GridDescriptor', ['(coarse grid)'],
          ['cell_cv, N_c,', 'pbc_c, dv, comm'], 'orange')
 finegd = box('GridDescriptor', '(fine grid)',
-         ['cell_cv, N_c, pbc_c, dv, comm'], 'orange')
+             ['cell_cv, N_c, pbc_c, dv, comm'], 'orange')
 rgd = box('RadialGridDescriptor', [], ['r_g, dr_g, rcut'], color='orange')
 setups = box('Setups', ['', '', '', ''], ['nvalence, nao, Eref, corecharge'])
 xccorrection = box('XCCorrection')

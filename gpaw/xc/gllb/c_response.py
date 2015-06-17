@@ -105,14 +105,16 @@ class C_Response(Contribution):
             # This code first removes them to match density.D_asp.
             # and then further distributes the density matricies for xc-corrections.
             d("Just read")
-            if len(self.Dresp_asp) != len(self.density.D_asp):
-                for a in self.Dresp_asp.keys():
-                    if not self.density.D_asp.has_key(a):
-                        del self.Dresp_asp[a]
-                        del self.D_asp[a]
-                        d("Core ", world.rank, " removed a", a)
-                    else:
-                        d("Core ", world.rank, "keeping a", a)
+
+            Dresp_asp = self.empty_atomic_matrix()
+            D_asp = self.empty_atomic_matrix()
+            for a in self.density.D_asp:
+                Dresp_asp[a][:] = self.Dresp_asp[a]
+                D_asp[a][:] = self.D_asp[a]
+            self.Dresp_asp = Dresp_asp
+            self.D_asp = D_asp
+
+            assert len(self.Dresp_asp) == len(self.density.D_asp)
             self.just_read = False
             self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
             d("Core ", world.rank, "self.Dresp_asp", self.Dresp_asp.items(), "self.Drespdist_asp", self.Drespdist_asp.items())
@@ -212,12 +214,12 @@ class C_Response(Contribution):
             
         return 0.0
 
-    def integrate_sphere(self, a, Dresp_sp, D_sp, Dwf_p):
+    def integrate_sphere(self, a, Dresp_sp, D_sp, Dwf_p, spin=0):
         c = self.nlfunc.setups[a].xc_correction
-        Dresp_p, D_p = Dresp_sp[0], D_sp[0]
+        Dresp_p, D_p = Dresp_sp[spin], D_sp[spin]
         D_Lq = np.dot(c.B_pqL.T, D_p)
         n_Lg = np.dot(D_Lq, c.n_qg) # Construct density
-        n_Lg[0] += c.nc_g * sqrt(4 * pi)
+        n_Lg[0] += c.nc_g * sqrt(4 * pi) / len(D_sp)
         nt_Lg = np.dot(D_Lq, c.nt_qg) # Construct smooth density (without smooth core)
         Dresp_Lq = np.dot(c.B_pqL.T, Dresp_p) # Construct response
         nresp_Lg = np.dot(Dresp_Lq, c.n_qg) # Construct 'response density'
@@ -306,8 +308,7 @@ class C_Response(Contribution):
                     Dresp_sp = self.Dxc_Dresp_asp[a]
                     P_ni = kpt.P_ani[a]
                     Dwf_p = pack(np.outer(P_ni[lumo_n].T.conj(), P_ni[lumo_n]).real)
-                    print("self.integrate_sphere DOES NOT SUPPORT SPIN POLARIZED? atc_response.py")
-                    E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p)
+                    E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p, spin=s)
                 E = self.grid_comm.sum(E)
                 E += self.gd.integrate(nt_G*self.Dxc_vt_sG[s])
                 E += kpt.eps_n[lumo_n]
@@ -476,8 +477,8 @@ class C_Response(Contribution):
         print("Integration over Dxc_vt_sG", domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel())))
         
         def _write_atomic_matrix(X0_asp, name):
-            X_asp = self.wfs.setups.empty_asp(self.wfs.ns,
-                                              self.wfs.atom_partition)
+            X_asp = self.wfs.setups.empty_atomic_matrix(self.wfs.ns,
+                                                        self.wfs.atom_partition)
             # XXX some of the provided X0_asp contain strangely duplicated
             # elements.  Take only the minimal set:
             for a in X_asp:
@@ -489,6 +490,10 @@ class C_Response(Contribution):
         _write_atomic_matrix(self.Dxc_D_asp, 'GLLBDxcAtomicDensityMatrices')
         _write_atomic_matrix(self.Dxc_Dresp_asp,
                              'GLLBDxcAtomicResponseMatrices')
+
+    def empty_atomic_matrix(self):
+        return self.setups.empty_atomic_matrix(self.density.ns,
+                                               self.density.atom_partition)
 
     def read(self, r):
         wfs = self.wfs

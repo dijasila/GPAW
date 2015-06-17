@@ -733,6 +733,9 @@ class FFTMixerDif(FFTBaseMixer):
             return None
         return self.mixer.dNt
 
+    def set_charge_sloshing(self, dNt):
+        self.mixer.dNt = dNt
+        
         
 class ReciprocalMetric:
     def __init__(self, weight, k2_Q):

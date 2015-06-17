@@ -34,7 +34,7 @@ class RPACorrelation:
                 sys.stdout = devnull
                 self.txt = devnull
         else:
-            assert type(txt) is str
+            assert isinstance(txt, str)
             from ase.parallel import paropen
             self.txt = paropen(txt, 'w')
 
@@ -83,7 +83,7 @@ class RPACorrelation:
             self.dfcomm = world
             E_q = []
             if restart is not None:
-                assert type(restart) is str
+                assert isinstance(restart, str)
                 try:
                     f = paropen(restart, 'r')
                     lines = f.readlines()

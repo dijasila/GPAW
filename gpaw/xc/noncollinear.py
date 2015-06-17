@@ -275,7 +275,8 @@ class NonCollinearLCAOEigensolver(DirectLCAO):
         Mstop = wfs.basis_functions.Mstop
         wfs.timer.stop('Atomic Hamiltonian')
         tri2full(H_MM)
-        for a, P_Mi in kpt.P_aMi.items():
+        for a, P_qMi in wfs.P_aqMi.items():
+            P_Mi = P_qMi[kpt.q]
             dH_ii = np.asarray(unpack(dH_asp[a][s]), wfs.dtype)
             dHP_iM = np.zeros((dH_ii.shape[1], P_Mi.shape[0]), wfs.dtype)
             # (ATLAS can't handle uninitialized output array)
@@ -347,7 +348,7 @@ class NonCollinearLCAOWaveFunctions(LCAOWaveFunctions):
             self.basis_functions.construct_density(rho_MM, nt_G, kpt.q)
 
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
-        P_Mi = kpt.P_aMi[a]
+        P_Mi = self.P_aqMi[a][kpt.q]
         rhoP_Mi = np.zeros_like(P_Mi)
         D0_ii = np.zeros(D_sii[0].shape, self.dtype)
         for rho_MM, D_ii in zip(kpt.rho_sMM, D_sii):

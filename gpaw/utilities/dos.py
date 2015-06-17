@@ -9,7 +9,7 @@ from gpaw.setup_data import SetupData
 from gpaw.gauss import Gauss
 from gpaw.io.fmf import FMF
 from gpaw.utilities.blas import gemmdot
-from itertools import izip
+
 
 
 def print_projectors(setup):
@@ -17,7 +17,7 @@ def print_projectors(setup):
 
     If nucleus is a string, treat this as an element name.
     """
-    if type(setup) is str:
+    if isinstance(setup, str):
         setup = SetupData(setup, 'LDA', 'paw')
         n_j = setup.n_j
         l_j = setup.l_j
@@ -47,7 +47,7 @@ def number_of_projectors(setup):
 
     If setup is a string, treat this as an element name.
     """
-    if type(setup) is str:
+    if isinstance(setup, str):
         setup = SetupData(setup, 'LDA', 'paw')
         n_j = setup.n_j
         l_j = setup.l_j
@@ -161,7 +161,7 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
 
     if angular is None:
         return energies, weights_xi
-    elif type(angular) is int:
+    elif isinstance(angular, int):
         return energies, weights_xi[:, angular]
     else:
         projectors = get_angular_projectors(setup, angular, type='bound')
@@ -263,7 +263,7 @@ def get_all_electron_IPR(paw):
                 nt_iter = xccorr.expand_density(D_sLq, xccorr.nt_qg, None)
 
                 # Take the spherical average of smooth and ae radial xc potentials
-                for n_sg, nt_sg, integrator in izip(n_iter,
+                for n_sg, nt_sg, integrator in zip(n_iter,
                                                     nt_iter,
                                                     xccorr.get_integrator(None)):
                     ipr += integrator.weight * np.sum((n_sg[0]**2-nt_sg[0]**2) * xccorr.rgd.dv_g)

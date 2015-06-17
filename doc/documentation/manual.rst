@@ -320,8 +320,8 @@ For more flexibility, you can use this syntax::
 You can also specify the **k**-point density in units of points per
 Å\ `^{-1}`::
     
-    kpts={'density': 2.5}  # Monkhorst-Pack with a density of 2.5 points/Ang^-1
-    kpts={'density': 2.5, 'even': True}  # round off to neares even number
+    kpts={'density': 2.5}  # MP with a minimum density of 2.5 points/Ang^-1
+    kpts={'density': 2.5, 'even': True}  # round up to nearest even number
     kpts={'density': 2.5, 'gamma': True}  # include gamma-point
     
 The **k**-point density is calculated as:

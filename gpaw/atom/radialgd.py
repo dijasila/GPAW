@@ -96,9 +96,9 @@ class RadialGridDescriptor:
         k_rgamma[0] = kv(l + 0.5, r[1] * gamma * 1e-5)
         matrix_ik = np.outer(n1 * dr, n2 * dr)
         len_vec = len(k_rgamma)
-        for i in xrange(len_vec):
+        for i in range(len_vec):
             k_rgi = k_rgamma[i]
-            for k in xrange(i):
+            for k in range(i):
                 modified_bessels = i_rgamma[k] * k_rgi
                 matrix_ik[i, k] *= modified_bessels
                 matrix_ik[k, i] *= modified_bessels
@@ -127,6 +127,19 @@ class RadialGridDescriptor:
         b_g[1:-1] = 0.5 * (c_g[2:] - c_g[:-2])
         b_g[-2] = c_g[-1] - 0.5 * c_g[-3]
         b_g[-1] = -c_g[-1] - 0.5 * c_g[-2]
+
+    def laplace(self, n_g, d2ndr2_g=None):
+        """Laplace of radial function."""
+        if d2ndr2_g is None:
+            d2ndr2_g = self.empty()
+        dndg_g = 0.5 * (n_g[2:] - n_g[:-2])
+        d2ndg2_g = n_g[2:] - 2 * n_g[1:-1] + n_g[:-2]
+        d2ndr2_g[1:-1] = (d2ndg2_g / self.dr_g[1:-1]**2 +
+                          dndg_g * (self.d2gdr2()[1:-1] +
+                                    2 / self.r_g[1:-1] / self.dr_g[1:-1]))
+        d2ndr2_g[0] = d2ndr2_g[1]
+        d2ndr2_g[-1] = d2ndr2_g[-2]
+        return d2ndr2_g
 
     def interpolate(self, f_g, r_x):
         from scipy.interpolate import InterpolatedUnivariateSpline

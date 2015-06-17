@@ -7,28 +7,44 @@ import urllib2
 from StringIO import StringIO
 import tarfile
 from optparse import OptionParser
+import re
 
 
-usage = '%prog [OPTION] [DIR]'
-description = ('Download and install gpaw-setups into '
-               'DIR/gpaw-setups-[version] if DIR is specified, '
-               'otherwise print current GPAW setup search paths.')
+usage = '%prog [OPTION]\n  or:  %prog [OPTION] INSTALLDIR'
+description = ('In first form, show available setups and GPAW setup paths.  '
+               'In second form, download and install gpaw-setups into '
+               'INSTALLDIR/[setups-package-name-and-version].')
 
 
 p = OptionParser(usage=usage, description=description)
 p.add_option('--version', metavar='VERSION',
-             help='download VERSION of gpaw-setups.  '
-             'Run without arguments to download a list of versions.  '
-             'VERSION can the full URL or any sufficient part of the '
-             'version number.')
+             help='download VERSION of setups or pseudopotentials.  '
+             'Run without arguments to display a list of versions.  '
+             'VERSION can be the full URL or a part such as  '
+             '\'0.8\' or \'0.6.6300\'')
 p.add_option('--tarball', metavar='FILENAME',
              help='unpack and install from local tarball FILENAME '
-             'instead of downloading from the GPAW website')
+             'instead of downloading')
+p.add_option('--sg15', action='store_true',
+             help='install SG15 pseudopotentials rather than PAW setups.')
+p.add_option('--register', action='store_true',
+             help='run non-interactively and register install path in '
+             'GPAW setup search paths.  This is done by adding lines to '
+             '~/.gpaw/rc.py')
+p.add_option('--no-register', action='store_true',
+             help='run non-interactively and do not register install path in '
+             'GPAW setup search paths')
 opts, args = p.parse_args()
 nargs = len(args)
 
 
-def get_setup_file_urls():
+if opts.register and opts.no_register:
+    p.error('Conflicting options specified on whether to register '
+            'setup install paths in configuration file.  Try not specifying '
+            'some options.')
+
+
+def get_gpaw_setup_file_urls():
     setups_page = 'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.txt'
     response = urllib2.urlopen(setups_page)
     pattern = 'https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-*.tar.gz'
@@ -37,15 +53,40 @@ def get_setup_file_urls():
     return urls
 
 
+sg15_page = 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/'
+
+def get_sg15_file_urls():
+    response = urllib2.urlopen(sg15_page)
+    # (This primitive way actually produces two hits per file)
+    pattern = re.compile(r'sg15_oncv_upf_\d\d\d\d-\d\d-\d\d.tar.gz')
+    matches = pattern.findall(response.read())
+    sg15_files = list(set(matches))
+    sg15_files.sort(reverse=True)
+    sg15_urls = [''.join([sg15_page, fname])
+                 for fname in sg15_files]
+    return sg15_urls
+
+
+# The sg15 file is a tarbomb.  We will later defuse it by untarring
+# into a subdirectory, so we don't leave a ghastly mess on the
+# unsuspecting user's system.
+
 if not opts.tarball:
-    urls = get_setup_file_urls()
+    if opts.sg15:
+        urls = get_sg15_file_urls()
+    else:
+        urls = get_gpaw_setup_file_urls()
 
     def print_urls(urls, marked=None):
         for url in urls:
+            pageurl, fname = url.rsplit('/', 1)
+            #print(pageurl, fname)
+            domain = pageurl.split('//', 1)[1].split('/', 1)[0]
             if url == marked:
-                print(' [*] %s' % url)
+                marking = ' [*]'
             else:
-                print('     %s' % url)
+                marking = '    '
+            print(' %s %s' % (marking, url))
 
     if len(urls) == 0:
         p.error('For some reason, no setup packages were found.  Probably'
@@ -66,9 +107,9 @@ if not opts.tarball:
     else:
         url = urls[0]
 
-    print('Available setups')
+    print('Available setups and pseudopotentials')
     print_urls(urls, url)
-
+    print()
 
 def print_setups_info():
     try:
@@ -80,15 +121,17 @@ def print_setups_info():
     if npaths == 0:
         print('GPAW currently has no setup search paths')
     else:
-        print('GPAW setup paths in order of search priority:')
-        for path in gpaw.setup_paths:
-            print('     %s' % path)
+        print('Current GPAW setup paths in order of search priority:')
+        for i, path in enumerate(gpaw.setup_paths):
+            print('%4d. %s' % (i + 1, path))
 
 if nargs == 0:
     print_setups_info()
     print()
     progname = p.get_prog_name()
     print('Run %s DIR to install newest setups into DIR.' % progname)
+    print('Run %s DIR --version=VERSION to install VERSION (from above).'
+          % progname)
     print('See %s --help for more info.' % progname)
     raise SystemExit
 elif len(args) != 1:
@@ -101,9 +144,10 @@ targetpath = args[0]
 if opts.tarball:
     print('Reading local tarball %s' % opts.tarball)
     targzfile = tarfile.open(opts.tarball)
+    tarfname = opts.tarball
 else:
     tarfname = url.rsplit('/', 1)[1]
-    print('Downloading %s' % tarfname)
+    print('Selected %s.  Downloading...' % tarfname)
     response = urllib2.urlopen(url)
     targzfile = tarfile.open(fileobj=StringIO(response.read()))
 
@@ -111,14 +155,19 @@ else:
 if not os.path.exists(targetpath):
     os.makedirs(targetpath)
 
+assert tarfname.endswith('.tar.gz')
+setup_dirname = tarfname.rsplit('.', 2)[0]  # remove .tar.gz ending
+setup_path = os.path.abspath(os.path.join(targetpath, setup_dirname))
+if tarfname.startswith('sg15'):
+    # Defuse tarbomb
+    if not os.path.isdir(setup_path):
+        os.mkdir(setup_path)
+    targetpath = os.path.join(targetpath, setup_dirname)
 
 print('Extracting tarball into %s' % targetpath)
 targzfile.extractall(targetpath)
-
-
-setup_dirname = tarfname.rsplit('.', 2)[0]  # remove .tar.gz ending
-setup_path = os.path.abspath(os.path.join(targetpath, setup_dirname))
 assert os.path.isdir(setup_path)
+print('Setups installed into %s.' % setup_path)
 
 
 # Okay, now we have to maybe edit people's rc files.
@@ -126,19 +175,32 @@ rcfiledir = os.path.join(os.environ['HOME'], '.gpaw')
 rcfilepath = os.path.join(rcfiledir, 'rc.py')
 
 
-print('Setups installed into %s.' % setup_path)
-
-
 # We could do all this by importing the rcfile as well and checking
 # whether things are okay or not.
 rcline1 = 'from gpaw import setup_paths'
 rcline2 = "setup_paths.insert(0, '%s')" % setup_path
 
+# Run interactive mode unless someone specified a flag requiring otherwise
+interactive_mode = not (opts.register or opts.no_register)
 
-answer = raw_input('Register this setup path in %s? [y/n] ' % rcfilepath)
+register_path = False
 
+if interactive_mode:
+    answer = raw_input('Register this setup path in %s? [y/n] ' % rcfilepath)
+    if answer.lower() in ['y', 'yes']:
+        register_path = True
+    elif answer.lower() in ['n', 'no']:
+        print('As you wish.')
+    else:
+        print('What do you mean by "%s"?  Assuming "n".' % answer)
+else:
+    if opts.register:
+        assert not opts.no_register
+        register_path = True
+    else:
+        assert opts.no_register
 
-if answer.lower() == 'y':
+if register_path:
     # First we create the file
     if not os.path.exists(rcfiledir):
         os.makedirs(rcfiledir)
@@ -156,13 +218,15 @@ if answer.lower() == 'y':
         rcfd = open(rcfilepath, 'a')
         print(rcline1, file=rcfd)
         print(rcline2, file=rcfd)
-        print('Setup path has been registered in %s.' % rcfilepath)
+        print('Setup path registered in %s.' % rcfilepath)
+
+        # Note: If called twice during the same run, this will *not* have
+        # been updated with the newly edited lines as the info was already
+        # imported!  Would need a reload.
+        print_setups_info()
 else:
-    if answer.lower() != 'n':
-        print('What do you mean by "%s"?  Assuming "n".' % answer)
-    else:
-        print('As you wish.')
-    print('You can manually write the following two lines to %s:' % rcfilepath)
+    print('You can manually register the setups by adding the')
+    print('following two lines to %s:' % rcfilepath)
     print()
     print(rcline1)
     print(rcline2)

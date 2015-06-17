@@ -4,13 +4,9 @@ import warnings
 # silence matplotlib.use() warning
 warnings.filterwarnings('ignore', '.*This call to matplotlib\.use.*',)
 
-import csv
-
 import numpy as np
 
 import heapq
-
-import matplotlib.pyplot as plt
 
 from ase.data.molecules import latex
 
@@ -27,8 +23,7 @@ from gpaw.test.big.g2_1.pbe_nwchem_def2_qzvppd_analyse import ref
 from gpaw.test.big.g2_1.pbe_gpaw_nrel_analyse import ref as calc
 from gpaw.test.big.g2_1.pbe_gpaw_nrel_analyse import tag
 
-formulas = ref['ea'].keys()
-formulas.sort()
+formulas = sorted(ref['ea'].keys())
 
 atoms = []
 for f in formulas:
@@ -38,9 +33,9 @@ atoms = list(set(atoms))
 anum = [atomic_numbers[a] for a in atoms]
 
 # sort according to anum
-tmpsort = zip(anum, atoms)
-tmpsort.sort()
+tmpsort = sorted(zip(anum, atoms))
 a, atomssorted = zip(*tmpsort)
+
 
 def containatom(atom, formulas, data):
     molecules = []
@@ -50,9 +45,9 @@ def containatom(atom, formulas, data):
             molecules.append(f)
     return list(set(molecules))
 
+    
 def get_statistics(result, reference):
-    skeys = result.keys()
-    skeys.sort()
+    skeys = sorted(result.keys())
     res1 = []
     res2 = []
     for k in skeys:

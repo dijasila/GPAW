@@ -9,7 +9,7 @@
 typedef int* MPI_Request; // !!!!!!!???????????
 typedef int* MPI_Comm;
 #define MPI_COMM_NULL 0
-#define MPI_Comm_rank(comm, rank) *(rank) = 0, 0
+#define MPI_Comm_rank(comm, rank) *(rank) = 0
 #endif
 
 

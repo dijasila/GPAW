@@ -2,7 +2,7 @@
 # Please see the accompanying LICENSE file for further information.
 from __future__ import print_function
 import numpy as np
-from math import pi
+
 
 def run():
     from gpaw.spherical_harmonics import Y
@@ -30,7 +30,7 @@ def run():
     for s1 in [-1, 1]:
         for s2 in [-1, 1]:
             for s3 in [-1, 1]:
-                R_nv[n] = (s1 * C, s2 * C, s3 * C) 
+                R_nv[n] = (s1 * C, s2 * C, s3 * C)
                 n += 1
     C1 = 0.30151134457776357
     C2 = (1.0 - 2.0 * C1**2)**0.5
@@ -60,7 +60,7 @@ def run():
     f = open('50.xyz', 'w')
     f.write('50\n\n')
     for x, y, z in R_nv:
-        print('H', 4*x, 4*y, 4*z, file=f)
+        print('H', 4 * x, 4 * y, 4 * z, file=f)
 
     #print np.dot(weights, Y_nL) * (4*pi)**.5
 

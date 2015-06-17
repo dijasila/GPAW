@@ -118,15 +118,15 @@ PDOS script::
     axis([-15, 10, None, 4])
     ylabel('DOS')
 
-    molecule = range(len(slab))[-2:] 
+    molecule = range(len(slab))[-2:]
 
     subplot(212)
     c_mol = GPAW('CO.gpw')
     for n in range(2,7):
         print 'Band', n
         # PDOS on the band n
-	wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]	
-  		for k in range(len(c_mol.wfs.weight_k))]
+        wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]
+                for k in range(len(c_mol.wfs.weight_k))]
         P_aui = [[kpt.P_ani[a][n] for kpt in c_mol.wfs.kpt_u]
                  for a in range(len(molecule))]
         e, dos = calc.get_all_electron_ldos(mol=molecule, spin=0, npts=2001,
@@ -168,11 +168,11 @@ Pickle script::
     P_n = []
     for n in range(c_mol.wfs.nbands):
         print 'Band: ', n
-	wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]
-      		for k in range(len(c_mol.wfs.weight_k))]
+        wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]
+                for k in range(len(c_mol.wfs.weight_k))]
         P_aui = [[kpt.P_ani[a][n] for kpt in c_mol.wfs.kpt_u]
                  for a in range(len(molecule))]
-        e, P = calc.get_all_electron_ldos(mol=molecule, wf_k=wf_k, spin=0, 
+        e, P = calc.get_all_electron_ldos(mol=molecule, wf_k=wf_k, spin=0,
                                           P_aui=P_aui, raw=True)
         e_n.append(e)
         P_n.append(P)
@@ -216,7 +216,7 @@ the relevant overlaps within the PAW formalism is
   \langle \phi^a_i | \psi_n\rangle = \langle \tilde \phi^a_i
   | \tilde \psi_n \rangle + \sum_{a'} \sum_{i_1i_2} \langle \tilde
   \phi^a_i | \tilde p_{i_1}^{a'} \rangle \Big(\langle \phi_{i_1}^{a'} |
-  \phi_{i_2}^{a'} \rangle - \langle \tilde \phi_{i_1}^{a'} | \tilde 
+  \phi_{i_2}^{a'} \rangle - \langle \tilde \phi_{i_1}^{a'} | \tilde
   \phi_{i_2}^{a'}\rangle \Big)\langle \tilde p^{a'}_{i_2} | \tilde
   \psi_n \rangle
 
@@ -235,7 +235,7 @@ overlaps `\langle \tilde \phi^a_i | \tilde p^{a'}_{i_1} \rangle`,
 
 .. math::
 
-  \langle \phi^a_i | \psi_n \rangle \approx 
+  \langle \phi^a_i | \psi_n \rangle \approx
   \langle \tilde p_i^a | \tilde \psi_n \rangle
 
 We thus define an atomic orbital PDOS by
@@ -243,7 +243,7 @@ We thus define an atomic orbital PDOS by
 .. math::
 
   \rho^a_i(\varepsilon) = \sum_n |\langle\tilde p_i^a | \tilde \psi_n
-  \rangle |^2 \delta(\varepsilon - \varepsilon_n) \approx \sum_n 
+  \rangle |^2 \delta(\varepsilon - \varepsilon_n) \approx \sum_n
   | \langle \phi_i^a | \psi_n \rangle |^2 \delta(\varepsilon - \varepsilon_n)
 
 available from a GPAW calculator from the method ``get_orbital_ldos(a, spin=0,
@@ -310,7 +310,7 @@ For the Wigner-Seitz LDOS, the eigenstates are projected onto the function
 
 This defines an LDOS:
 
-.. math:: 
+.. math::
   
   \rho^a(\varepsilon) = \sum_n |\langle \theta^a| \psi_n \rangle|^2
   \delta(\varepsilon - \varepsilon_n)
@@ -320,7 +320,7 @@ Introducing the PAW formalism shows that the weights can be calculated by
 .. math::
 
    |\langle \theta^a| \psi_n \rangle|^2 = |\langle \theta^a| \tilde
-   \psi_n \rangle|^2 + \sum_{ij} P^{a*}_{ni} \Delta S^a_{ij} P^a_{nj}, 
+   \psi_n \rangle|^2 + \sum_{ij} P^{a*}_{ni} \Delta S^a_{ij} P^a_{nj},
 
 This property can be accessed by ``calc.get_wigner_seitz_ldos(a,
 spin=0, npts=201, width=None)``.  It represents a local probe of the
@@ -331,7 +331,5 @@ electrons contained in the region ascribed to atom `a` (more
 efficiently computed using ``calc.get_wigner_seitz_densities(spin)``.
 Notice that the domain ascribed to each atom is deduced purely on a
 geometrical criterion. A more advanced scheme for assigning the charge
-density to atoms is the Bader_ algorithm (all though the Wigner-Seitz
-approach is faster).
-
-.. _Bader: https://wiki.fysik.dtu.dk/ase/ase/dft/bader.html
+density to atoms is the :ref:`bader analysis` algorithm (all though the
+Wigner-Seitz approach is faster).

@@ -1,4 +1,4 @@
-.. _all_electron_density:
+.. _all electron density:
 
 ================================
 Getting the all-electron density
@@ -49,10 +49,14 @@ resolution), while the pseudo density will integrate to some more or
 less arbitrary number. This fact is illustrated in the following
 example.
 
+.. seealso::
+    
+    :ref:`bader analysis`
+    
 
----------------
-Example 1: NaCl
----------------
+-------------
+Example: NaCl
+-------------
 
 As an example of application, consider the three systems Na, Cl, and
 NaCl. The pseudo- and all-electron densities of these three systems
@@ -69,13 +73,3 @@ the three systems is:
 
 From which we see that the all-electron densities integrate to the
 total number of electrons in the system, as expected.
-
-
--------------------------------------------
-Example 2: Bader analysis of H\ :sub:`2`\ O
--------------------------------------------
-
-For information on the Bader algorithm, and an example of how to do
-Bader analysis using the all-electron density; see the ASE
-tutorial on the H\ :sub:`2`\ O molecule :ase:`Bader
-<ase/dft/bader.html>`

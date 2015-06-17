@@ -8,10 +8,10 @@ import sys
 import re
 import distutils.util
 from distutils.sysconfig import get_config_var, get_config_vars
-from distutils.command.config import config
 from glob import glob
 from os.path import join
 from stat import ST_MTIME
+
 
 def check_packages(packages, msg, include_ase, import_numpy):
     """Check the python version and required extra packages
@@ -29,7 +29,8 @@ def check_packages(packages, msg, include_ase, import_numpy):
             raise SystemExit('numpy is not installed!')
     else:
         msg += ['* numpy is not installed.',
-                '  "include_dirs" in your customize.py must point to "numpy/core/include".']
+                '  "include_dirs" in your customize.py must point to '
+                '"numpy/core/include".']
 
     if not include_ase:
         if import_numpy:
@@ -50,7 +51,7 @@ def check_packages(packages, msg, include_ase, import_numpy):
         # ln -s python-ase-3.1.0.846/ase .
         ase_root = 'ase'
         if include_ase:
-            assert os.path.isdir(ase_root), ase_root+': No such file or directory'
+            assert os.path.isdir(ase_root), ase_root
         ase = []
         for root, dirs, files in os.walk(ase_root):
             if 'CVS' in dirs:
@@ -66,8 +67,9 @@ def check_packages(packages, msg, include_ase, import_numpy):
         else:
             packages += ase
 
+            
 def find_file(arg, dir, files):
-    #looks if the first element of the list arg is contained in the list files
+    # looks if the first element of the list arg is contained in the list files
     # and if so, appends dir to to arg. To be used with the os.path.walk
     if arg[0] in files:
         arg.append(dir)
@@ -106,7 +108,6 @@ def get_system_config(define_macros, undef_macros,
         if len(arch) > 0:
             extra_compile_args += ['-xarch=%s' % arch[-1]]
 
-
         # We need the -Bstatic before the -lsunperf and -lfsu:
         # http://forum.java.sun.com/thread.jspa?threadID=5072537&messageID=9265782
         extra_link_args += ['-Bstatic', '-lsunperf', '-lfsu', '-Bdynamic']
@@ -115,7 +116,7 @@ def get_system_config(define_macros, undef_macros,
             libraries.append('mtsk')
         else:
             extra_link_args.append('-lmtsk')
-        #define_macros.append(('NO_C99_COMPLEX', '1'))
+        # define_macros.append(('NO_C99_COMPLEX', '1'))
 
         msg += ['* Using SUN high performance library']
 
@@ -138,9 +139,9 @@ def get_system_config(define_macros, undef_macros,
                 directory = ld
                 break
         if lib == 'openblas':
-             libraries += [lib, 'gfortran']
+            libraries += [lib, 'gfortran']
         if lib:
-             msg +=  ['* Using %s library from %s' % (lib, directory)]
+            msg += ['* Using %s library from %s' % (lib, directory)]
 
     elif sys.platform in ['aix5', 'aix6']:
 
@@ -153,7 +154,7 @@ def get_system_config(define_macros, undef_macros,
         # setting memory limit is necessary on aix5
         if sys.platform == 'aix5':
             extra_link_args += ['-bmaxdata:0x80000000',
-                '-bmaxstack:0x80000000']
+                                '-bmaxstack:0x80000000']
 
         libraries += ['f', 'lapack', 'essl']
         define_macros.append(('GPAW_AIX', '1'))
@@ -172,8 +173,10 @@ def get_system_config(define_macros, undef_macros,
         if len(acml) > 0:
             library_dirs += [acml[-1]]
             libraries += ['acml']
-            if acml[-1].find('gfortran') != -1: libraries.append('gfortran')
-            if acml[-1].find('gnu') != -1: libraries.append('g2c')
+            if acml[-1].find('gfortran') != -1:
+                libraries.append('gfortran')
+            if acml[-1].find('gnu') != -1:
+                libraries.append('g2c')
             extra_link_args += ['-Wl,-rpath=' + acml[-1]]
             msg += ['* Using ACML library']
         else:
@@ -181,41 +184,42 @@ def get_system_config(define_macros, undef_macros,
             for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64/atlas']:
                 if glob(join(dir, 'libatlas.so')) != []:
                     atlas = True
-                    libdir = dir        
+                    libdir = dir
                     break
             satlas = False
             for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64/atlas']:
                 if glob(join(dir, 'libsatlas.so')) != []:
                     satlas = True
-                    libdir = dir        
+                    libdir = dir
                     break
             openblas = False
             for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64']:
                 if glob(join(dir, 'libopenblas.so')) != []:
                     openblas = True
-                    libdir = dir        
+                    libdir = dir
                     break
             if openblas:  # prefer openblas
                 libraries += ['openblas']
                 library_dirs += [libdir]
-                msg +=  ['* Using OpenBLAS library']
+                msg += ['* Using OpenBLAS library']
             else:
                 if atlas:  # then atlas
                     # http://math-atlas.sourceforge.net/errata.html#LINK
-                    # atlas does not respect OMP_NUM_THREADS - build single-thread
+                    # atlas does not respect OMP_NUM_THREADS - build
+                    # single-thread
                     # http://math-atlas.sourceforge.net/faq.html#tsafe
                     libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
                     library_dirs += [libdir]
-                    msg +=  ['* Using ATLAS library']
+                    msg += ['* Using ATLAS library']
                 elif satlas:  # then atlas >= 3.10 Fedora/RHEL
                     libraries += ['satlas']
                     library_dirs += [libdir]
-                    msg +=  ['* Using ATLAS library']
+                    msg += ['* Using ATLAS library']
                 else:
                     libraries += ['blas', 'lapack']
-                    msg +=  ['* Using standard lapack']
+                    msg += ['* Using standard lapack']
 
-    elif machine =='ia64':
+    elif machine == 'ia64':
 
         #  _  _
         # |_ |  o
@@ -223,7 +227,7 @@ def get_system_config(define_macros, undef_macros,
         #
 
         extra_compile_args += ['-Wall', '-std=c99']
-        libraries += ['mkl','mkl_lapack64']
+        libraries += ['mkl', 'mkl_lapack64']
 
     elif platform.machine().startswith('arm'):
         
@@ -233,24 +237,24 @@ def get_system_config(define_macros, undef_macros,
         for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
             if glob(join(dir, 'libatlas.so')) != []:
                 atlas = True
-                libdir = dir        
+                libdir = dir
                 break
         satlas = False
         for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
             if glob(join(dir, 'libsatlas.so')) != []:
                 satlas = True
-                libdir = dir        
+                libdir = dir
                 break
         openblas = False
         for dir in ['/usr/lib', '/usr/local/lib']:
             if glob(join(dir, 'libopenblas.so')) != []:
                 openblas = True
-                libdir = dir        
+                libdir = dir
                 break
         if openblas:  # prefer openblas
             libraries += ['openblas']
             library_dirs += [libdir]
-            msg +=  ['* Using OpenBLAS library']
+            msg += ['* Using OpenBLAS library']
         else:
             if atlas:  # then atlas
                 # http://math-atlas.sourceforge.net/errata.html#LINK
@@ -258,14 +262,14 @@ def get_system_config(define_macros, undef_macros,
                 # http://math-atlas.sourceforge.net/faq.html#tsafe
                 libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
                 library_dirs += [libdir]
-                msg +=  ['* Using ATLAS library']
+                msg += ['* Using ATLAS library']
             elif satlas:  # then atlas >= 3.10 Fedora/RHEL
                 libraries += ['satlas']
                 library_dirs += [libdir]
-                msg +=  ['* Using ATLAS library']
+                msg += ['* Using ATLAS library']
             else:
                 libraries += ['blas', 'lapack']
-                msg +=  ['* Using standard lapack']
+                msg += ['* Using standard lapack']
 
     elif machine == 'i686':
 
@@ -282,38 +286,38 @@ def get_system_config(define_macros, undef_macros,
             mklbasedir = glob('/opt/intel/mkl*')
         libs = ['libmkl_ia32.a']
         if mklbasedir != []:
-            os.path.walk(mklbasedir[0],find_file, libs)
+            os.path.walk(mklbasedir[0], find_file, libs)
         libs.pop(0)
         if libs != []:
             libs.sort()
             libraries += ['mkl_lapack',
-                          'mkl_ia32', 'guide', 'pthread', 'mkl']#, 'mkl_def']
+                          'mkl_ia32', 'guide', 'pthread', 'mkl']
             library_dirs += libs
-            msg +=  ['* Using MKL library: %s' % library_dirs[-1]]
-            #extra_link_args += ['-Wl,-rpath=' + library_dirs[-1]]
+            msg += ['* Using MKL library: %s' % library_dirs[-1]]
+            # extra_link_args += ['-Wl,-rpath=' + library_dirs[-1]]
         else:
             atlas = False
             for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
                 if glob(join(dir, 'libatlas.so')) != []:
                     atlas = True
-                    libdir = dir        
+                    libdir = dir
                     break
             satlas = False
             for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
                 if glob(join(dir, 'libsatlas.so')) != []:
                     satlas = True
-                    libdir = dir        
+                    libdir = dir
                     break
             openblas = False
             for dir in ['/usr/lib', '/usr/local/lib']:
                 if glob(join(dir, 'libopenblas.so')) != []:
                     openblas = True
-                    libdir = dir        
+                    libdir = dir
                     break
             if openblas:  # prefer openblas
                 libraries += ['openblas']
                 library_dirs += [libdir]
-                msg +=  ['* Using OpenBLAS library']
+                msg += ['* Using OpenBLAS library']
             else:
                 if atlas:  # then atlas
                     # http://math-atlas.sourceforge.net/errata.html#LINK
@@ -321,25 +325,26 @@ def get_system_config(define_macros, undef_macros,
                     # http://math-atlas.sourceforge.net/faq.html#tsafe
                     libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
                     library_dirs += [libdir]
-                    msg +=  ['* Using ATLAS library']
+                    msg += ['* Using ATLAS library']
                 elif satlas:  # then atlas >= 3.10 Fedora/RHEL
                     libraries += ['satlas']
                     library_dirs += [libdir]
-                    msg +=  ['* Using ATLAS library']
+                    msg += ['* Using ATLAS library']
                 else:
                     libraries += ['blas', 'lapack']
-                    msg +=  ['* Using standard lapack']
+                    msg += ['* Using standard lapack']
 
             # add libg2c if available
-            g2c=False
+            g2c = False
             for dir in ['/usr/lib', '/usr/local/lib']:
                 if glob(join(dir, 'libg2c.so')) != []:
-                    g2c=True
+                    g2c = True
                     break
                 if glob(join(dir, 'libg2c.a')) != []:
-                    g2c=True
+                    g2c = True
                     break
-            if g2c: libraries += ['g2c']
+            if g2c:
+                libraries += ['g2c']
 
     elif sys.platform == 'darwin':
 
@@ -351,7 +356,7 @@ def get_system_config(define_macros, undef_macros,
             msg += ['* Using vecLib']
         else:
             libraries += ['blas', 'lapack']
-            msg +=  ['* Using standard lapack']
+            msg += ['* Using standard lapack']
 
     # https://listserv.fysik.dtu.dk/pipermail/gpaw-users/2012-May/001473.html
     p = platform.dist()
@@ -361,11 +366,11 @@ def get_system_config(define_macros, undef_macros,
     return msg
 
 
-def get_parallel_config(mpi_libraries,mpi_library_dirs,mpi_include_dirs,
-                        mpi_runtime_library_dirs,mpi_define_macros):
+def get_parallel_config(mpi_libraries, mpi_library_dirs, mpi_include_dirs,
+                        mpi_runtime_library_dirs, mpi_define_macros):
 
     globals = {}
-    execfile('gpaw/mpi/config.py', globals)
+    exec(open('gpaw/mpi/config.py').read(), globals)
     mpi = globals['get_mpi_implementation']()
 
     if mpi == '':
@@ -382,15 +387,17 @@ def get_parallel_config(mpi_libraries,mpi_library_dirs,mpi_include_dirs,
         mpicompiler = 'mpcc_r'
 
     else:
-        #Try to use mpicc
+        # Try to use mpicc
         mpicompiler = 'mpicc'
 
     return mpicompiler
 
+    
 def get_scalapack_config(define_macros):
     # check ScaLapack settings
     define_macros.append(('GPAW_WITH_SL', '1'))
 
+    
 def get_hdf5_config(define_macros):
     # check ScaLapack settings
     define_macros.append(('GPAW_WITH_HDF5', '1'))
@@ -406,7 +413,7 @@ def mtime(path, name, mtimes):
 
     include = re.compile('^#\s*include "(\S+)"', re.MULTILINE)
 
-    if mtimes.has_key(name):
+    if name in mtimes:
         return mtimes[name]
     t = os.stat(os.path.join(path, name))[ST_MTIME]
     for name2 in include.findall(open(os.path.join(path, name)).read()):
@@ -416,6 +423,7 @@ def mtime(path, name, mtimes):
     mtimes[name] = t
     return t
 
+    
 def check_dependencies(sources):
     # Distutils does not do deep dependencies correctly.  We take care of
     # that here so that "python setup.py build_ext" always does the right
@@ -440,6 +448,7 @@ def check_dependencies(sources):
         # print 'removing', so
         os.remove(so)
 
+        
 def test_configuration():
     raise NotImplementedError
 
@@ -447,13 +456,13 @@ def test_configuration():
 def write_configuration(define_macros, include_dirs, libraries, library_dirs,
                         extra_link_args, extra_compile_args,
                         runtime_library_dirs, extra_objects, mpicompiler,
-                    mpi_libraries, mpi_library_dirs, mpi_include_dirs,
-                    mpi_runtime_library_dirs, mpi_define_macros):
+                        mpi_libraries, mpi_library_dirs, mpi_include_dirs,
+                        mpi_runtime_library_dirs, mpi_define_macros):
 
     # Write the compilation configuration into a file
     try:
         out = open('configuration.log', 'w')
-    except IOError, x:
+    except IOError as x:
         print(x)
         return
     print("Current configuration", file=out)
@@ -484,7 +493,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                       mpi_include_dirs, mpi_runtime_library_dirs,
                       mpi_define_macros):
 
-    #Build custom interpreter which is used for parallel calculations
+    # Build custom interpreter which is used for parallel calculations
 
     cfgDict = get_config_vars()
     plat = distutils.util.get_platform() + '-' + sys.version[0:3]
@@ -493,7 +502,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     cfiles += glob('c/xc/*.c')
 
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
-               'c/operators.c', 'c/transformers.c',
+               'c/operators.c', 'c/woperators.c', 'c/transformers.c',
                'c/blacs.c', 'c/utilities.c', 'c/hdf5.c']
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])
@@ -528,7 +537,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
         libs += ' -lpython%s' % cfgDict['VERSION']
     libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
 
-    #Hack taken from distutils to determine option for runtime_libary_dirs
+    # Hack taken from distutils to determine option for runtime_libary_dirs
     if sys.platform[:6] == 'darwin':
         # MacOSX's linker doesn't understand the -R flag at all
         runtime_lib_option = '-L'
@@ -541,20 +550,24 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     else:
         runtime_lib_option = '-R'
 
-    runtime_libs = ' '.join([ runtime_lib_option + lib for lib in runtime_library_dirs])
+    runtime_libs = ' '.join([runtime_lib_option + lib
+                             for lib in runtime_library_dirs])
 
     extra_link_args.append(cfgDict['LDFLAGS'])
     if sys.platform in ['aix5', 'aix6']:
-        extra_link_args.append(cfgDict['LINKFORSHARED'].replace('Modules', cfgDict['LIBPL']))
+        extra_link_args.append(cfgDict['LINKFORSHARED'].replace(
+            'Modules', cfgDict['LIBPL']))
     elif sys.platform == 'darwin':
         pass
     else:
         extra_link_args.append(cfgDict['LINKFORSHARED'])
 
+    extra_compile_args.append('-fPIC')
+    
     # Compile the parallel sources
     for src in sources:
         obj = 'build/temp.%s/' % plat + src[:-1] + 'o'
-        cmd = ('%s %s %s %s -o %s -c %s ' ) % \
+        cmd = ('%s %s %s %s -o %s -c %s ') % \
               (mpicompiler,
                macros,
                ' '.join(extra_compile_args),
@@ -563,13 +576,14 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                src)
         print(cmd)
         if '--dry-run' not in sys.argv:
-            error=os.system(cmd)
+            error = os.system(cmd)
             if error != 0:
-                msg = ['* compiling FAILED!  Only serial version of code will work.']
+                msg = ['* compiling FAILED!  Only serial version of code '
+                       'will work.']
                 break
 
     # Link the custom interpreter
-    cmd = ('%s -o %s %s %s %s %s %s %s' ) % \
+    cmd = ('%s -o %s %s %s %s %s %s %s') % \
           (mpilinker,
            exefile,
            objects,
@@ -582,9 +596,9 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     msg = ['* Building a custom interpreter']
     print(cmd)
     if '--dry-run' not in sys.argv:
-        error=os.system(cmd)
+        error = os.system(cmd)
         if error != 0:
-            msg += ['* linking FAILED!  Only serial version of code will work.']
-
+            msg += ['* linking FAILED!  Only serial version of code will '
+                    'work.']
 
     return error, msg

@@ -54,6 +54,7 @@ PyObject* linear_solve_tridiag(PyObject *self, PyObject *args);
 PyObject* right_eigenvectors(PyObject *self, PyObject *args);
 PyObject* NewLocalizedFunctionsObject(PyObject *self, PyObject *args);
 PyObject* NewOperatorObject(PyObject *self, PyObject *args);
+PyObject* NewWOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewSplineObject(PyObject *self, PyObject *args);
 PyObject* NewTransformerObject(PyObject *self, PyObject *args);
 PyObject* pc_potential(PyObject *self, PyObject *args);
@@ -146,6 +147,7 @@ static PyMethodDef functions[] = {
   {"right_eigenvectors", right_eigenvectors, METH_VARARGS, 0},
   {"LocalizedFunctions", NewLocalizedFunctionsObject, METH_VARARGS, 0},
   {"Operator", NewOperatorObject, METH_VARARGS, 0},
+  {"WOperator", NewWOperatorObject, METH_VARARGS, 0},
   {"Spline", NewSplineObject, METH_VARARGS, 0},
   {"Transformer", NewTransformerObject, METH_VARARGS, 0},
   {"heap_mallinfo", (PyCFunction) heap_mallinfo, METH_NOARGS, 0},
@@ -234,40 +236,63 @@ extern PyTypeObject GPAW_MPI_Request_type;
 extern PyTypeObject LFCType;
 extern PyTypeObject LocalizedFunctionsType;
 extern PyTypeObject OperatorType;
+extern PyTypeObject WOperatorType;
 extern PyTypeObject SplineType;
 extern PyTypeObject TransformerType;
 extern PyTypeObject XCFunctionalType;
 extern PyTypeObject lxcXCFunctionalType;
 
+#if PY_MAJOR_VERSION >= 3
+    static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "_gpaw",
+        "C-extension for GPAW",
+        -1,
+        functions,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+    };
+#endif
+
 #ifndef GPAW_INTERPRETER
-PyMODINIT_FUNC init_gpaw(void)
+
+static PyObject* moduleinit(void)
 {
 #ifdef PARALLEL
   if (PyType_Ready(&MPIType) < 0)
-    return;
+    return NULL;
   if (PyType_Ready(&GPAW_MPI_Request_type) < 0)
-    return;
+    return NULL;
 #endif
 
   if (PyType_Ready(&LFCType) < 0)
-    return;
+    return NULL;
   if (PyType_Ready(&LocalizedFunctionsType) < 0)
-    return;
+    return NULL;
   if (PyType_Ready(&OperatorType) < 0)
-    return;
+    return NULL;
+  if (PyType_Ready(&WOperatorType) < 0)
+    return NULL;
   if (PyType_Ready(&SplineType) < 0)
-    return;
+    return NULL;
   if (PyType_Ready(&TransformerType) < 0)
-    return;
+    return NULL;
   if (PyType_Ready(&XCFunctionalType) < 0)
-    return;
+    return NULL;
   if (PyType_Ready(&lxcXCFunctionalType) < 0)
-    return;
+    return NULL;
 
+#if PY_MAJOR_VERSION >= 3
+  PyObject* m = PyModule_Create(&moduledef);
+#else
   PyObject* m = Py_InitModule3("_gpaw", functions,
              "C-extension for GPAW\n\n...\n");
+#endif
+
   if (m == NULL)
-    return;
+    return NULL;
 
 #ifdef PARALLEL
   Py_INCREF(&MPIType);
@@ -278,17 +303,32 @@ PyMODINIT_FUNC init_gpaw(void)
   Py_INCREF(&LFCType);
   Py_INCREF(&LocalizedFunctionsType);
   Py_INCREF(&OperatorType);
+  Py_INCREF(&WOperatorType);
   Py_INCREF(&SplineType);
   Py_INCREF(&TransformerType);
   Py_INCREF(&XCFunctionalType);
   Py_INCREF(&lxcXCFunctionalType);
 
-  import_array();
+  import_array1(NULL);
+  
+  return m;
 }
+
+
+#if PY_MAJOR_VERSION >= 3
+    PyMODINIT_FUNC PyInit__gpaw(void)
+    {
+        return moduleinit();
+    }
+#else
+    PyMODINIT_FUNC init_gpaw(void)
+    {
+        moduleinit();
+    }
 #endif
 
+#else // ifndef GPAW_INTERPRETER
 
-#ifdef GPAW_INTERPRETER
 extern DL_EXPORT(int) Py_Main(int, char **);
 
 // Performance measurement
@@ -335,7 +375,7 @@ main(int argc, char **argv)
   else {
       printf("MPI_COMM_SIZE is %d \n", numprocs);
       printf("%s \n", procname);
-      
+
       for (i = 1; i < numprocs; ++i) {
           MPI_Recv(&procnamesize, 1, MPI_INT, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
           MPI_Recv(procname, procnamesize, MPI_CHAR, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -364,6 +404,8 @@ main(int argc, char **argv)
     return -1;
   if (PyType_Ready(&OperatorType) < 0)
     return -1;
+  if (PyType_Ready(&WOperatorType) < 0)
+    return -1;
   if (PyType_Ready(&SplineType) < 0)
     return -1;
   if (PyType_Ready(&TransformerType) < 0)
@@ -387,6 +429,7 @@ main(int argc, char **argv)
   Py_INCREF(&LFCType);
   Py_INCREF(&LocalizedFunctionsType);
   Py_INCREF(&OperatorType);
+  Py_INCREF(&WOperatorType);
   Py_INCREF(&SplineType);
   Py_INCREF(&TransformerType);
   Py_INCREF(&XCFunctionalType);
