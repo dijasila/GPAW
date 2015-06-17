@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from ase.units import Ha, alpha, Bohr
 from gpaw.xc import XC
@@ -219,7 +220,7 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, tol=1.0e-3,
         Ppsit_G *= np.exp(-2.0j * np.dot(G_Gv[:] + kpt_v, center_v))
         #Ppsit_G *= np.exp(-2.0j * np.dot(G_Gv, center_v))
         p = np.dot(psit_G.conj(), Ppsit_G) / np.dot(psit_G.conj(), psit_G)
-        print n, p
+        print(n, p)
         if np.abs(p - 1.0) < tol:
             p = 1
         elif np.abs(p + 1.0) < tol:
