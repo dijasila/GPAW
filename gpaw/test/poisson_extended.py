@@ -88,16 +88,6 @@ phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
 plot_phi(phi_g)
 compare(phi_g, phiref_g, 0.0)
 
-# Test default poisson, extendedhistory=True
-# (should not affect anything)
-poisson = ExtendedPoissonSolver(eps=poissoneps, extendedhistory=True)
-poisson.set_grid_descriptor(gd)
-poisson.initialize()
-phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
-phi2_g, npoisson2 = poisson_solve(gd, rho_g, poisson)
-equal(npoisson, npoisson2)
-compare(phi_g, phi2_g, 0.0)
-
 # Test moment_corrections=int
 poisson = ExtendedPoissonSolver(eps=poissoneps, moment_corrections=4)
 poisson.set_grid_descriptor(gd)
@@ -119,7 +109,8 @@ compare(phi_g, phiref_g, 2.7569628594e-02)
 
 # Test extendedgpts
 poisson = ExtendedPoissonSolver(eps=poissoneps,
-                                extendedgpts=(48, 48, 3*48))
+                                extended={'gpts': (24, 24, 3*24),
+                                          'useprev': False})
 poisson.set_grid_descriptor(gd)
 poisson.initialize()
 phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
@@ -128,7 +119,8 @@ compare(phi_g, phiref_g, 2.5351851105e-02)
 
 # Test extendedgpts + moment_corrections, extendedhistory=False
 poisson = ExtendedPoissonSolver(eps=poissoneps,
-                                extendedgpts=(48, 48, 3*48),
+                                extended={'gpts': (24, 24, 3*24),
+                                          'useprev': False},
                                 moment_corrections=
                                 [{'moms': range(4), 'center': [.5, .5, 1]},
                                  {'moms': range(4), 'center': [.5, .5, 2]}])
@@ -144,11 +136,11 @@ compare(phi_g, phiref_g, 2.7519388038e-02)
 # Test extendedgpts + moment_corrections,
 # extendedhistory=True
 poisson = ExtendedPoissonSolver(eps=poissoneps,
-                                extendedgpts=(48, 48, 3*48),
+                                extended={'gpts': (24, 24, 3*24),
+                                          'useprev': True},
                                 moment_corrections=
                                 [{'moms': range(4), 'center': [.5, .5, 1]},
-                                 {'moms': range(4), 'center': [.5, .5, 2]}],
-                                extendedhistory=True)
+                                 {'moms': range(4), 'center': [.5, .5, 2]}])
 poisson.set_grid_descriptor(gd)
 poisson.initialize()
 phi_g, npoisson = poisson_solve(gd, rho_g, poisson)

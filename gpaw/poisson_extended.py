@@ -12,10 +12,36 @@ from gpaw.utilities.extend_grid import extended_grid_descriptor, \
 
 
 class ExtendedPoissonSolver(PoissonSolver):
+    """ExtendedPoissonSolver
+    
+    Parameter syntax:
+
+    moment_corrections = [{'moms': moms_list1, 'center': center1},
+                          {'moms': moms_list2, 'center': center2},
+                          ...]
+    Here moms_listX is list of integers of multipole moments to be corrected
+    at centerX.
+
+    extended = {'gpts': gpts, 'useprev': useprev}
+    Here gpts is number of grid points in the **coarse** grid corresponding
+    to the larger grid used for PoissonSolver (the Poisson equation
+    is solved on fine grid as usual, but the gpts is given in coarse grid
+    units for convenience), and useprev is boolean determining whether previous
+    solution of the PoissonSolver instance is used as an initial guess
+    for the next solve() call.
+
+    Important: provide timer for PoissonSolver to analyze the cost of
+    the multipole moment corrections and grid extension to your system!
+
+    """
+    # TODO: enable 'comm' parameter for 'extended' dictionary. This would
+    # allow to use the whole mpi.world for PoissonSolver.
+    # Currently, Poisson equation calculation is duplicated over, e.g.,
+    # band and kpt communicators.
+
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
                  moment_corrections=None,
-                 extendedgpts=None,
-                 extendedhistory=False,
+                 extended=None,
                  timer=nulltimer):
 
         PoissonSolver.__init__(self, nn=nn, relax=relax,
@@ -23,8 +49,6 @@ class ExtendedPoissonSolver(PoissonSolver):
                                remove_moment=None)
 
         self.timer = timer
-
-        extendedcomm = None
 
         if moment_corrections is None:
             self.moment_corrections = None
@@ -35,21 +59,27 @@ class ExtendedPoissonSolver(PoissonSolver):
             self.moment_corrections = moment_corrections
 
         self.is_extended = False
+        # Broadcast over band, kpt, etc. communicators required?
         self.requires_broadcast = False
-        if extendedgpts is not None:
+        if extended is not None:
             self.is_extended = True
-            self.extendedgpts = extendedgpts
-            self.extendedcomm = extendedcomm
-            self.extendedhistory = extendedhistory
-            if self.extendedcomm is not None:
+            self.extended = extended
+            assert 'gpts' in extended.keys(), 'gpts parameter is missing'
+            self.extended['gpts'] = np.array(self.extended['gpts'])
+            # Multiply gpts by 2 to get gpts on fine grid
+            self.extended['finegpts'] = self.extended['gpts'] * 2
+            assert 'useprev' in extended.keys(), 'useprev parameter is missing'
+            if self.extended.get('comm') is not None:
                 self.requires_broadcast = True
 
     def set_grid_descriptor(self, gd):
         if self.is_extended:
             self.gd_original = gd
+            assert np.all(self.gd_original.N_c < self.extended['finegpts']), \
+                'extended grid has to be larger than the original one'
             gd, _, _ = extended_grid_descriptor(gd,
-                                                N_c=self.extendedgpts,
-                                                extcomm=self.extendedcomm)
+                                                N_c=self.extended['finegpts'],
+                                                extcomm=self.extended.get('comm'))
         PoissonSolver.set_grid_descriptor(self, gd)
 
     def get_description(self):
@@ -60,8 +90,8 @@ class ExtendedPoissonSolver(PoissonSolver):
         if self.is_extended:
             lines.extend(['    Extended %d*%d*%d grid' %
                           tuple(self.gd.N_c)])
-            lines.extend(['    Remember history is %s' %
-                          self.extendedhistory])
+            lines.extend(['    Use previous is %s' %
+                          self.extended['useprev']])
 
         if self.moment_corrections:
             lines.extend(['    %d moment corrections:' %
@@ -131,6 +161,7 @@ class ExtendedPoissonSolver(PoissonSolver):
                 mask_g = mask_r.reshape(self.gd.n_c)
                 self.mask_ig.append(mask_g)
 
+                # Uncomment this to see masks on grid 
                 # big_g = self.gd.collect(mask_g)
                 # if self.gd.comm.rank == 0:
                 #     big_g.dump('mask_%dg' % (i))
@@ -139,7 +170,7 @@ class ExtendedPoissonSolver(PoissonSolver):
               zero_initial_phi=False):
         if self.is_extended:
             self.rho_g[:] = 0
-            if not self.extendedhistory:
+            if not self.extended['useprev']:
                 self.phi_g[:] = 0
 
             self.timer.start('Extend array')
