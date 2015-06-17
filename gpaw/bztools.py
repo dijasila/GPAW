@@ -66,13 +66,16 @@ def tesselate_brillouin_zone(calc, density=3.5):
 
     # Find full BZ
     bzk_kc = unique_rows(np.concatenate(np.dot(ibzk_kc,
-                                               U_scc.transpose(0, 2, 1))),
-                         tol=1e-6)
+                                               U_scc.transpose(0, 2, 1))))
 
     # Remove BZ points which are equivalent
     hull = ConvexHull(bzk_kc, qhull_options='Qc')
 
-    vertices = hull.vertices
+    try:
+        vertices = hull.vertices
+    except AttributeError:
+        vertices = np.unique(hull.simplices.ravel())
+
     coplanar = hull.coplanar
 
     boundarypoints = np.sort(np.concatenate([vertices, coplanar[:, 0]]))
