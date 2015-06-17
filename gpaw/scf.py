@@ -59,7 +59,26 @@ class SCFLoop:
             #print 'convenged?',self.converged 
             yield iter
             if self.HubAlphaIO:
+                # This code is used for calculating linear scaling hubbard U
+                # Here, D_asp_0 is the electronic density corresponding to the 
+                # unscreened linear response to alpha. The key issue is,
+                # which iteration should we use?
+                # h=0.18
+                # Iter == 1 gives -8.12
+                # Iter == 2 gives 0.62
+                # Iter == 3 gives 0.67
+                # Iter == 4 gives 0.7
+                # Iter == 5 gives 0.67
+                # Iter == 6 gives 0.65
+                # Iter == 10 gives -0.11
+                # h=0.20
+                # Iter == 6 gives 0.42
+                # This agrees with description in 10.1103/PhysRevB.71.035105
+                #if iter == 4:
+                #    density.update(wfs)
+                #    self.D_asp_0 = dict((k,v.copy()) for k,v in (density.D_asp).items())
                 if iter <= 6 or flag == 0:
+                #if iter <= 6 and flag == 0:
                     density.update(wfs)
                     iter_0 = iter
                     self.D_asp_0 = dict((k,v.copy()) for k,v in (density.D_asp).items())
