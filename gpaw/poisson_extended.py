@@ -10,7 +10,6 @@ from gpaw.utilities.extend_grid import extended_grid_descriptor, \
     extend_array, deextend_array
 
 
-
 class ExtendedPoissonSolver(PoissonSolver):
     """ExtendedPoissonSolver
     
@@ -78,8 +77,8 @@ class ExtendedPoissonSolver(PoissonSolver):
             assert np.all(self.gd_original.N_c < self.extended['finegpts']), \
                 'extended grid has to be larger than the original one'
             gd, _, _ = extended_grid_descriptor(gd,
-                                                N_c=self.extended['finegpts'],
-                                                extcomm=self.extended.get('comm'))
+                N_c=self.extended['finegpts'],
+                extcomm=self.extended.get('comm'))
         PoissonSolver.set_grid_descriptor(self, gd)
 
     def get_description(self):
@@ -161,7 +160,7 @@ class ExtendedPoissonSolver(PoissonSolver):
                 mask_g = mask_r.reshape(self.gd.n_c)
                 self.mask_ig.append(mask_g)
 
-                # Uncomment this to see masks on grid 
+                # Uncomment this to see masks on grid
                 # big_g = self.gd.collect(mask_g)
                 # if self.gd.comm.rank == 0:
                 #     big_g.dump('mask_%dg' % (i))
@@ -236,10 +235,10 @@ class ExtendedPoissonSolver(PoissonSolver):
         gdbytes = self.gd.bytecount()
         if self.is_extended:
             mem.subnode('extended arrays',
-                        2*gdbytes)
+                        2 * gdbytes)
         if self.moment_corrections is not None:
             mem.subnode('moment_corrections masks',
-                        len(self.moment_corrections)*gdbytes)
+                        len(self.moment_corrections) * gdbytes)
 
     def __repr__(self):
         template = 'ExtendedPoissonSolver(relax=\'%s\', nn=%s, eps=%e)'

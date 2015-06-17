@@ -27,7 +27,7 @@ def extended_grid_descriptor(gd,
     if extend_N_cd is None:
         assert N_c is not None, 'give only extend_N_cd or N_c'
         N_c = np.array(N_c, dtype=np.int)
-        extend_N_cd = np.tile((N_c - gd.N_c)/2, (2, 1)).T
+        extend_N_cd = np.tile((N_c - gd.N_c) / 2, (2, 1)).T
     else:  # extend_N_cd is not None:
         assert N_c is None, 'give only extend_N_cd or N_c'
         extend_N_cd = np.array(extend_N_cd, dtype=np.int)
@@ -39,7 +39,7 @@ def extended_grid_descriptor(gd,
     egd = GridDescriptor(N_c, cell_cv, gd.pbc_c, extcomm)
     egd.extend_N_cd = extend_N_cd
 
-    return egd, cell_cv*Bohr, move_c*Bohr
+    return egd, cell_cv * Bohr, move_c * Bohr
 
 
 def extend_array(d_g, gd, d_e, egd):
