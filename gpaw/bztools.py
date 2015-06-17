@@ -2,14 +2,13 @@ from __future__ import division, print_function
 
 import numpy as np
 
-from itertools import product
-
-from scipy.spatial import Delaunay, Voronoi
+from scipy.spatial import Delaunay, Voronoi, ConvexHull
 
 from ase.units import Bohr
 
 from gpaw import GPAW
 from gpaw.symmetry import Symmetry
+
 
 def get_lattice_symmetry(cell_cv):
     latsym = Symmetry([0], cell_cv)
@@ -46,7 +45,7 @@ def tesselate_brillouin_zone(calc, density=3.5):
             k_kv = tess.points[simplex]
             for k1_v in k_kv:
                 for k2_v in k_kv:
-                    dist = ((k1_v - k2_v)**2).sum()**0.5 / (2 * np.pi)
+                    dist = ((k1_v - k2_v)**2).sum()**0.5
                     if dist > 1 / density:
                         p_v = (k1_v + k2_v) / 2
                         newpoints_pv.append(p_v)
@@ -67,29 +66,41 @@ def tesselate_brillouin_zone(calc, density=3.5):
 
     # Find full BZ
     bzk_kc = unique_rows(np.concatenate(np.dot(ibzk_kc,
-                                               U_scc.transpose(0, 2, 1))))
+                                               U_scc.transpose(0, 2, 1))),
+                         tol=1e-6)
 
     # Remove BZ points which are equivalent
+    hull = ConvexHull(bzk_kc, qhull_options='Qc')
+
+    vertices = hull.vertices
+    coplanar = hull.coplanar
+
+    boundarypoints = np.sort(np.concatenate([vertices, coplanar[:, 0]]))
+    bk_kc = hull.points[boundarypoints]
+
     i = 0
-    while i < len(bzk_kc):
-        k1_c = bzk_kc[i]
-        dk_kc = bzk_kc[i + 1:] - k1_c
+    while i < len(bk_kc):
+        dk_kc = bk_kc[i + 1:] - bk_kc[i]
         diff_k = np.abs(dk_kc - dk_kc.round()).sum(1)
         inds_k = np.nonzero(diff_k < 1e-7)[0]
-        bzk_kc = np.delete(bzk_kc, inds_k + i + 1, axis=0)
+        if len(inds_k):
+            bk_kc = np.delete(bk_kc, inds_k + i + 1, axis=0)
         i += 1
+
+    bzk_kc = np.delete(hull.points, boundarypoints, axis=0)
+    bzk_kc = np.concatenate([bzk_kc, bk_kc])
 
     return bzk_kc
 
 
-def unique_rows(a, tol=1e-10):
-    order = np.lexsort(a.T)  # Lexical ordering
+def unique_rows(ain, tol=1e-10):
+    a = ain.copy().round((-np.log10(tol).astype(int)))
+    order = np.lexsort(a.T)
     a = a[order]
-    # Round off difference betwwen points
-    diff = np.diff(a, axis=0).round((-np.log10(tol).astype(int)))
+    diff = np.diff(a, axis=0)
     ui = np.ones(len(a), 'bool')
     ui[1:] = (diff != 0).any(1)
-    return a[ui]
+    return ain[order][ui]
 
 
 def get_smallest_Gvecs(cell_cv, n=5):
