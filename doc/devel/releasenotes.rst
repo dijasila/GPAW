@@ -27,6 +27,8 @@ Development version in trunk
 
 * A :ref:`continuum solvent model <continuum_solvent_model>` was added.
 
+* Orbital-free DFT with PAW transformation is available
+
 Version 0.10.0
 ==============
 
