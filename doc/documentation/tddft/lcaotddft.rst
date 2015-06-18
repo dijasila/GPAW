@@ -1,13 +1,15 @@
 .. _lcaotddft:
 
 ================================
-Time propagation TDDFT with LCAO
+Time-propagation TDDFT with LCAO
 ================================
 
-This page documents the use of time-propagation TDDFT in :ref:`LCAO
-mode <lcao>`.  Work in progress!!!!!!!!!!
+**Work in progress!!!!!!!!!!**
 
-TODO: add reference to the implementation articles
+This page documents the use of time-propagation TDDFT in :ref:`LCAO
+mode <lcao>`. The implementation is described in [#Kuisma2015]_.
+
+
 
 TODO: after which version the code works?
 
@@ -56,14 +58,44 @@ General notes about basis sets
 ==============================
 
 In time-propagation LCAO-TDDFT, the basis sets are in even more crucial role than in a ground state LCAO 
-calculation. It is required, that basis set can represent both the occupied (holes) and relevant 
-unoccupied states (electrons) adequately. Custom basis sets for the time propagation should be generated 
-according to ones need, and then benchmarked. For already benchmarked basis sets, click here.
+calculation. It is required, that basis set can represent both the occupied (electrons) and relevant 
+unoccupied states (holes) adequately. Custom basis sets for the time propagation should be generated 
+according to ones need, and then benchmarked.
 
-In other words, ALWAYS, ALWAYS, benchmark results with respect to grid real time propagation code on a 
+**Irrespective of the basis sets you choose, ALWAYS, ALWAYS, benchmark LCAO results with respect to grid time-propagation code** on a 
 largest system possible. For example, one can create a prototype system, which consists of similar atom 
 species with similar roles than in the parent system, but small enough to calculate with grid propagation 
-mode. Example will be given in advanged tutorial.
+mode. Example will be given in advanced tutorial.
+
+After these remarks, we describe two sets of basis sets that can be used as a starting point
+for choosing suitable basis set for your needs. Namely, :ref:`pvalence basis sets` and :ref:`coopt basis sets`.
+
+
+.. _pvalence basis sets:
+
+p-valence basis sets
+--------------------
+
+The so-called p-valence basis sets are constructed by replace the p-type polarization function of the default basis sets with bound unoccupied p-type orbital and its split-valence complement. 
+Such basis sets correspond to the ones used in Ref. [#Kuisma2015]_. These basis sets significantly improve density of states of unoccupied states.
+
+The p-valence basis sets can be easily obtained for appropriate elements
+by ``gpaw-install-setups`` tool, see XXX. It is again reminded that these basis sets are not
+thoroughly tested and **it is essential to benchmark the performance of the basis sets for your
+application**.
+
+
+.. _coopt basis sets:
+
+Completeness-optimized basis sets
+---------------------------------
+
+A systematic approach for improving the basis sets can be obtained with the so-called completeness-optimization approach. This approach is used in Ref. [#Rossi2015]_ to generate
+basis set series for TDDFT calculations of copper, silver, and gold clusters.
+
+For further details of the basis sets, as well as their construction and performance, see [#Rossi2015]_. For convenience, these basis sets can be easily obtained with ``gpaw-install-setups`` tool, see XXX. Finally, it is again emphasized that when using the basis sets,
+**it is essential to benchmark their suitability for your application**.
+
 
 Parallelization
 ===============
@@ -73,18 +105,21 @@ TODO.
 PoissonSolver
 =============
 
-The Poisson solver with default parameters uses zero boundary conditions on the cell boundaries.
-To get converged Hartree potential, one often needs large vacuum sizes. However, in LCAO approach
+The ``PoissonSolver`` with default parameters uses zero boundary conditions on the cell boundaries.
+This becomes a problem in systems involving large dipole moment, for example (due to, e.g., plasmonic charge oscillation on a nanoparticle). The potential due to
+the dipole is long-ranged and, thus, the converged potential requires large vacuum sizes.
+
+However, in LCAO approach
 large vacuum size is often unnecessary. Thus, to avoid using large vacuum sizes but get converged
-potential, one can use two approaches 1) use multipole moment corrections or 2) solve Poisson 
-equation on a extended grid. These two approaches are implemented in ExtendedPoissonSolver.
+potential, one can use two approaches or their combination: 1) use multipole moment corrections or 2) solve Poisson 
+equation on a extended grid. These two approaches are implemented in :class:`~gpaw.poisson_extended.ExtendedPoissonSolver`.
 
 Multipole moment corrections
 ----------------------------
 
 The boundary conditions can be improved by adding multipole moment corrections to the density so that
 the corresponding multipoles of the density vanish. The potential of these corrections is added to
-the obtained potential. For a reference of the method, see XXX.
+the obtained potential. For a description of the method, see [#Castro2003]_.
 
 This can be accomplished by following solver::
 
@@ -92,25 +127,24 @@ This can be accomplished by following solver::
   poissonsolver = ExtendedPoissonSolver(eps=eps,
                                         moment_corrections=4)
 
-This corrects the 4 first multipole moments, i.e., s, p_x, p_y, and p_z type multipoles. The range of
-multipoles can be changed by using moment_corrections=9 when in addition the multipoles d_xx, d_xy,
-d_yy, d_yz, and d_zz are included.
+This corrects the 4 first multipole moments, i.e., `s`, `p_x`, `p_y`, and `p_z` type multipoles. The range of
+multipoles can be changed by changing ``moment_corrections`` parameter. For example, ``moment_correction=9`` includes in addition to the previous multipoles, also `d_{xx}`, `d_{xy}`,
+`d_{yy}`, `d_{yz}`, and `d_{zz}` type multipoles.
 
-This setting has been observed to work well for spherical-like metallic nanoparticles, but more complex
-geometries require inclusion of high multipoles or multicenter multipole approach. For this, consider
+This setting suffices usually for spherical-like metallic nanoparticles, but more complex
+geometries require inclusion of very high multipoles or, alternatively, a multicenter multipole approach. For this, consider
 the advanced syntax of the moment_corrections. The previous code snippet is equivalent to::
 
   from gpaw.poisson_extended import ExtendedPoissonSolver
   poissonsolver = ExtendedPoissonSolver(eps=eps,
                                         moment_corrections=[{'moms': range(4), 'center': None}])
 
-Here moment_corrections is a list of dictionaries with following keywords: moms specifies the
-considered multipole moments, e.g., range(4) equals to s, p_x, p_y, and p_z multipoles, and center
-specifies the center of the added corrections in atomic units (None corresponds to the center of the
-cell).
+Here ``moment_corrections`` is a list of dictionaries with following keywords: ``moms`` specifies the
+considered multipole moments, e.g., ``range(4)`` equals to `s`, `p_x`, `p_y`, and `p_z` multipoles, and ``center``
+specifies the center of the added corrections in atomic units (``None`` corresponds to the center of the cell).
 
-As an example, consider metallic nanoparticle dimer where the nanoparticle centers are at (x1, y1, z1) Å and
-(x2, y2, z2) Å. In this the following settings for the poisson solver may be tried out::
+As an example, consider metallic nanoparticle dimer where the nanoparticle centers are at ``(x1, y1, z1)`` Å and
+``(x2, y2, z2)`` Å. In this case, the following settings for the ``ExtendedPoissonSolver`` may be tried out::
 
   import numpy as np
   from ase.units import Bohr
@@ -122,8 +156,8 @@ As an example, consider metallic nanoparticle dimer where the nanoparticle cente
                                         moment_corrections=[{'moms': moms, 'center': center1},
 					                    {'moms': moms, 'center': center2}])
 
-In general case with multiple centers, the calculation cell is divided into non-overlapping regions
-determined by the given centers so that each point of space is associated to the closest center.
+When multiple centers are used, the multipole moments are calculated on non-overlapping regions of
+the calculation cell. Each point in space is associated to its closest center.
 See `Voronoi diagrams <http://en.wikipedia.org/wiki/Voronoi_diagram>`_ for analogous illustration of
 the partitioning of a plane.
 
@@ -131,36 +165,31 @@ the partitioning of a plane.
 Extended Poisson grid
 ---------------------
 
-The multipole correction scheme is challenging for complex system geometries. For these cases, the
-size of the grid used for solving the Poisson equation can be increased. The extended grid can be
-defined as follows::
+The multipole correction scheme is not always successful for complex system geometries.
+For these cases, one can use a separate large grid just for solving the Hartree potential.
+Such extended grid can be set up as follows::
 
   from gpaw.poisson_extended import ExtendedPoissonSolver
   poissonsolver = ExtendedPoissonSolver(eps=eps,
-                                        extendedgpts=(256, 256, 256))
+                                        extended={'gpts': (128, 128, 128),
+					          'useprev': False})
 
-This solves the Poisson equation on an extended fine grid of size (256, 256, 256). Important notes:
+This solves the Poisson equation on an extended grid. The size of the grid is given **in units of coarse grid**. Thus, in this case the fine extended grid used in evaluating the Hartree potential is of size (256, 256, 256). It is important to **use grid sizes that are divisible by high powers of 2 to accelerate the multigrid scheme** used in ``PoissonSolver``.
 
-* **extendedgpts refers to the size of the fine grid**
-* **use sizes that are divisible by high powers of 2 to accelerate the multigrid scheme**
+The ``useprev`` parameter describes whether the ``ExtendedPoissonSolver`` uses the previous solution
+as a initial potential for subsequent calls of the function ``solver.solve()``. It is often reasonable to use ``useprev = True``, which mimics the behaviour of the usual
+``PoissonSolver`` in most cases. In such cases, the value ``useprev = False`` would lead to significant performance decrease since the Hartree potential is always calculated from scratch.
 
-As a consequence of the different grid that is used in the Hartree potential evaluation, the
-Poisson solver neglects the given initial potential in function solve(). However, in most of
-the cases an analogous behaviour is obtained by setting extendedhistory=True::
-
-  from gpaw.poisson_extended import ExtendedPoissonSolver
-  poissonsolver = ExtendedPoissonSolver(eps=eps,
-                                        extendedgpts=(256, 256, 256),
-					extendedhistory=True)
-
-This means that the Poisson solver uses the previously calculated potential as an initial guess
-in the potential calculation. The default value extendedhistory=False leads to significant
-performance decrease in the potential evaluation during the SCF cycle and the time-propagation TDDFT.
+.. note::
+   When extended grid is in use, the implementation neglects the ``phi`` parameter given to the 
+   ``solver.solve()`` due to its incompatibility with the extended grid. 
 
 
+Timing
+======
 
-=======================================================
-Advanced tutorial - Plasmon resonance of Silver cluster
+
+Advanced tutorial - Plasmon resonance of silver cluster
 =======================================================
 
 One should think what type of transitions is there of interest, and make sure that the basis set can 
@@ -169,12 +198,12 @@ cluster will be `5s \rightarrow 5p` like. We require 5p orbitals in the basis se
 generate a custom basis set.
 
 
-==========================================
+
 Advanced tutorial - large organic molecule
 ==========================================
 
 General notes
-=============
+-------------
 
 On large organic molecules, on large conjugated systems, there will`\pi \rightarrow \pi^*`, `\sigma 
 \rightarrow \sigma^*`. These states consists of only the valence orbitals of carbon, and they are likely 
@@ -201,4 +230,19 @@ References
    M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara, L. Lehtovaara, and T. T. Rantala, 
    Localized surface plasmon resonance in silver nanoparticles: Atomistic first-principles time-dependent
    density functional theory calculations,
-   *Phys. Rev. B* **69**, 245419 (2004). `doi:10.1103/PhysRevB.91.115431 <http://dx.doi.org/10.1103/PhysRevB.91.115431>`_
+   *Phys. Rev. B* **69**, 245419 (2004).
+   `doi:10.1103/PhysRevB.91.115431 <http://dx.doi.org/10.1103/PhysRevB.91.115431>`_
+
+.. [#Rossi2015]
+   T. P. Rossi, S. Lehtola, A. Sakko, M. J. Puska, and R. M. Nieminen,
+   Nanoplasmonics simulations at the basis set limit through completeness-optimized, local numerical basis sets,
+   *J. Chem. Phys.* **142**, 094114 (2015).
+   `doi:10.1063/1.4913739 <http://dx.doi.org/10.1063/1.4913739>`_
+
+.. [#Castro2003]
+   A. Castro, A. Rubio, and M. J. Stott,
+   Solution of Poisson's equation for finite systems using plane-wave methods,
+   *Can. J. Phys.* **81**, 1151 (2003).
+   `doi:10.1139/p03-078 <http://dx.doi.org/10.1139/p03-078>`_
+
+
