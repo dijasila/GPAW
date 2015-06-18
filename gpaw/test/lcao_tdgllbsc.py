@@ -72,10 +72,7 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
         if xc==fxc: # TODO: restart when linearize_to_xc was applied
             calcs.append(TDDFT('td.gpw'))
 
-        if mode=='fd':
-            calcs[-1].absorption_kick([0.01, 0.01, 0.01])
-        else:
-            calcs[-1].kick(strength=[0.01, 0.01, 0.01])
+        calcs[-1].absorption_kick([0.01, 0.01, 0.01])
         calcs[-1].propagate(10.0, 30, 'dm.%s.dat' % tag)
 
         equal(calcs[-1].density.finegd.calculate_dipole_moment(calcs[-1].density.rhot_g), ref_values.pop(0), 1.0e-5, msg="Failed with %s/%s+%s: " % (mode, xc, fxc))

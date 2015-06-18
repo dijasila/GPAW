@@ -113,7 +113,7 @@ class LCAOTDDFT(GPAW):
                  propagator='cn', fxc=None, **kwargs):
         self.time = 0.0
         self.niter = 0
-        self.kick_strength = [0.0, 0.0, 0.0]
+        self.kick_strength = np.array([0.0, 0.0, 0.0], dtype=float)
         GPAW.__init__(self, filename, **kwargs)
         self.propagator_debug = propagator_debug
         self.tddft_initialized = False
@@ -333,18 +333,16 @@ class LCAOTDDFT(GPAW):
 
         self.timer.stop('Taylor propagator')
 
-    def kick(self, strength):
+    def absorption_kick(self, kick_strength):
         self.tddft_init()
         self.timer.start('Kick')
-        self.kick_strength = strength
+        self.kick_strength = np.array(kick_strength, dtype=float)
 
         # magnitude
-        magnitude = np.sqrt(strength[0] * strength[0]
-                            + strength[1] * strength[1]
-                            + strength[2] * strength[2])
+        magnitude = np.sqrt(np.sum(self.kick_strength**2))
 
         # normalize
-        direction = strength / magnitude
+        direction = self.kick_strength / magnitude
 
         self.text('Applying absorbtion kick')
         self.text('Magnitude: %.8f ' % magnitude)
@@ -493,7 +491,7 @@ class LCAOTDDFT(GPAW):
         time_step *= attosec_to_autime
         self.time_step = time_step
         self.dump_interval = dump_interval
-        maxiter = self.niter + iterations
+        self.tdmaxiter = self.niter + iterations
 
         if self.time < self.time_step:
             self.dm_file = paropen(out, 'w') # XXXX
@@ -509,12 +507,12 @@ class LCAOTDDFT(GPAW):
         else:
             self.dm_file = paropen(out, 'a') # XXXX
             self.text('About to continue from iteration %d and do %d '
-                      'propagation steps' % (self.niter, maxiter))
+                      'propagation steps' % (self.niter, self.tdmaxiter))
         self.tddft_init()
 
         dm0 = None  # Initial dipole moment
         self.timer.start('Propagate')
-        while self.niter < maxiter:
+        while self.niter < self.tdmaxiter:
             dm = self.density.finegd.calculate_dipole_moment(\
                 self.density.rhot_g)
             if dm0 is None:
@@ -527,11 +525,11 @@ class LCAOTDDFT(GPAW):
                 print(line, file=self.dm_file)
 
             if world.rank == 0 and self.niter % 10 == 0:
-                print('iter: %3d  %02d:%02d:%02d %11.2f   %9.1f %12.8f'
-                      % (self.niter, T[3], T[4], T[5],
-                         self.time * autime_to_attosec,
-                         log(abs(norm) + 1e-16) / log(10),
-                         np.sqrt(dm[0]**2 + dm[1]**2 + dm[2]**2)))
+                self.text('iter: %3d  %02d:%02d:%02d %11.2f   %9.1f %12.8f'
+                          % (self.niter, T[3], T[4], T[5],
+                             self.time * autime_to_attosec,
+                             log(abs(norm) + 1e-16) / log(10),
+                             np.sqrt(dm[0]**2 + dm[1]**2 + dm[2]**2)))
                 self.dm_file.flush()
 
             # --------------

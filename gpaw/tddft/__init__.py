@@ -284,7 +284,7 @@ class TDDFT(GPAW):
             if self.initialized and key not in ['txt']:
                 raise TypeError("Keyword argument '%s' is immutable." % key)
 
-            if key in ['txt', 'parallel', 'communicator']:
+            if key in ['txt', 'parallel', 'communicator', 'poissonsolver']:
                 continue
             elif key == 'mixer':
                 if not isinstance(kwargs[key], DummyMixer):
@@ -351,7 +351,7 @@ class TDDFT(GPAW):
         self.dump_interval = dump_interval
 
         niterpropagator = 0
-        maxiter = self.niter + iterations
+        self.tdmaxiter = self.niter + iterations
 
         # Let FDTD part know the time step
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
@@ -359,7 +359,7 @@ class TDDFT(GPAW):
             self.hamiltonian.poisson.set_time_step(self.time_step)
             
         self.timer.start('Propagate')
-        while self.niter < maxiter:
+        while self.niter < self.tdmaxiter:
             norm = self.density.finegd.integrate(self.density.rhot_g)
 
             # Write dipole moment at every iteration
