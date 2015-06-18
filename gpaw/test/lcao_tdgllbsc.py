@@ -1,12 +1,10 @@
 from ase import Atoms
-from gpaw import GPAW, FermiDirac, Mixer, restart
+from gpaw import GPAW, FermiDirac, Mixer
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.mpi import world
 from gpaw.version import version
 from gpaw.tddft import TDDFT as GRIDTDDFT
 from gpaw.test import equal
-import numpy as np
-import sys
 
 ref_values = [[-0.0153712, -0.0153712, -0.0153712],
               [ 0.0037263,  0.0037263,  0.0037263],

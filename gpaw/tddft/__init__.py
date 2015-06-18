@@ -34,10 +34,6 @@ from gpaw.tddft.tdopers import \
     TimeDependentWaveFunctions, \
     TimeDependentDensity, \
     AbsorptionKickHamiltonian
-from gpaw.tddft.abc import \
-    LinearAbsorbingBoundary, \
-    PML, \
-    P4AbsorbingBoundary
 
 
 # T^-1
@@ -50,6 +46,7 @@ class KineticEnergyPreconditioner:
     def apply(self, kpt, psi, psin):
         for i in range(len(psi)):
             psin[i][:] = self.preconditioner(psi[i], kpt.phase_cd, None, None)
+
 
 # S^-1
 class InverseOverlapPreconditioner:
@@ -660,7 +657,7 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         f_file.write('#  om (eV) %14s%20s%20s\n' % ('Sx', 'Sy', 'Sz'))
         # alpha = 2/(2*pi) / eps int dt sin(omega t) exp(-t^2*sigma^2/2)
         #                                * ( dm(t) - dm(0) )
-        alpha = 0
+        # alpha = 0
         for i in range(nw):
             w = i * dw
             # x

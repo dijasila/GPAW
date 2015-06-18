@@ -1,11 +1,9 @@
 from __future__ import print_function
-from gpaw.tddft import *
+from gpaw.tddft import photoabsorption_spectrum
 from ase import Atoms
 from gpaw import GPAW
-from sys import argv
 from gpaw.lcaotddft import LCAOTDDFT
 import gpaw.lrtddft as lrtddft
-from sys import exit
 from gpaw.mpi import world
 
 N = 2
