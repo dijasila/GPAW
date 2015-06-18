@@ -17,6 +17,7 @@ from ase.data import atomic_numbers
 from ase.utils import basestring
 
 from gpaw.atom.atompaw import AtomPAW
+from gpaw.setup_data import search_for_file
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.pseudopotential import PseudoPotential, screen_potential, \
     figure_out_valence_states
@@ -513,7 +514,18 @@ def main_plot():
     opts, args = p.parse_args()
 
     import pylab as pl
-    for fname in args:
+    for arg in args:
+        if not arg.lower().endswith('.upf'):
+            # This is a bit bug prone.  It is subject to files
+            # "sneaking in" unexpectedly due to '*' from
+            # higher-priority search directories.  Then again, this
+            # probably will not happen, and the runtime setup loading
+            # mechanism is the same anyway so at least it is honest.
+            fname, source = search_for_file('%s*.[uU][pP][fF]' % arg)
+            if fname is None:
+                p.error('No match within search paths: %s' % arg)
+        else:
+            fname = arg
         pp = parse_upf(fname)
         print('--- %s ---' % fname)
         print(UPFSetupData(pp).tostring())
