@@ -197,10 +197,10 @@ if hdf5:
                                extra_objects=extra_objects)
     extensions.append(hdf5_extension)
 
-scripts = [join('tools', script)
-           for script in ('gwap', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
-                          'gpaw-mpisim', 'gpaw-runscript',
-                          'gpaw-install-setups')]
+files = ['gpaw-analyse-basis', 'gpaw-basis', 'gpaw-install-setups',
+         'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
+         'gpaw-setup', 'gpaw-test', 'gpaw-upfplot', 'gwap']
+scripts = [join('tools', script) for script in files]
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
