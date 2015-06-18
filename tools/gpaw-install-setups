@@ -117,6 +117,12 @@ def print_setups_info():
     except ImportError, e:
         p.error("Cannot import 'gpaw'.  GPAW does not appear to be installed."
                 " %s" % e)
+
+    # GPAW may already have been imported, and the contents of the rc
+    # file may have changed since then.  Thus, we re-import gpaw to be
+    # sure that everything is as it should be.
+    reload(gpaw)
+
     npaths = len(gpaw.setup_paths)
     if npaths == 0:
         print('GPAW currently has no setup search paths')
@@ -219,10 +225,10 @@ if register_path:
         print(rcline1, file=rcfd)
         print(rcline2, file=rcfd)
         print('Setup path registered in %s.' % rcfilepath)
+        # Need to explicitly flush/close the file so print_setups_info
+        # sees the change in rc.py
+        rcfd.close()
 
-        # Note: If called twice during the same run, this will *not* have
-        # been updated with the newly edited lines as the info was already
-        # imported!  Would need a reload.
         print_setups_info()
 else:
     print('You can manually register the setups by adding the')
