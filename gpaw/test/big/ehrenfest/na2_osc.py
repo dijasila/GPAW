@@ -6,7 +6,7 @@ import numpy as np
 from ase import Atoms
 from ase.parallel import paropen
 from ase.units import Hartree, Bohr
-from ase.io.trajectory import PickleTrajectory
+from ase.io import Trajectory
 from ase.calculators.singlepoint import SinglePointCalculator
 from gpaw import GPAW
 from gpaw.mpi import world
@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
     tdcalc = TDDFT(name + '_gs.gpw', txt=name + '_td.txt', propagator='EFSICN')
     ehrenfest = EhrenfestVelocityVerlet(tdcalc)
-    traj = PickleTrajectory(name + '_td.traj', 'w', tdcalc.get_atoms())
+    traj = Trajectory(name + '_td.traj', 'w', tdcalc.get_atoms())
 
     t0 = time.time()
     f = paropen(name + '_td.log', 'w')

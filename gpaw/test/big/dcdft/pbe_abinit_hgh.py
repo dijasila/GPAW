@@ -8,7 +8,7 @@ import ase.db
 from ase.units import Rydberg
 from ase.utils import opencew
 from ase.calculators.calculator import kpts2mp
-from ase.io.trajectory import PickleTrajectory
+from ase.io import Trajectory
 from ase.calculators.abinit import Abinit
 from ase.test.tasks.dcdft import DeltaCodesDFTCollection as Collection
 
@@ -43,7 +43,7 @@ for name in names:
     fd = opencew(name + '_' + code + '.traj')
     if fd is None:
         continue
-    traj = PickleTrajectory(name + '_' + code + '.traj', 'w')
+    traj = Trajectory(name + '_' + code + '.traj', 'w')
     atoms = collection[name]
     if name == 'Mn':  # fails to find the right magnetic state
         atoms.set_initial_magnetic_moments([10., 20., -10., -20.])

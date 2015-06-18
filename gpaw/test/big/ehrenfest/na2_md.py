@@ -6,7 +6,7 @@ import numpy as np
 from ase import Atoms
 from ase.parallel import paropen
 from ase.units import fs, Hartree, Bohr
-from ase.io.trajectory import PickleTrajectory
+from ase.io import Trajectory
 from ase.md.verlet import VelocityVerlet
 from gpaw import GPAW
 from gpaw.mpi import world
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     tdcalc.initialize_positions()
     atoms = tdcalc.get_atoms()
 
-    traj = PickleTrajectory(name + '_td.traj', 'w', atoms)
+    traj = Trajectory(name + '_td.traj', 'w', atoms)
     verlet = VelocityVerlet(atoms, timestep * 1e-3 * fs,
                             logfile=paropen(name + '_td.verlet', 'w'),
                             trajectory=traj)

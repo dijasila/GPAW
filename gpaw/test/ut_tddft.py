@@ -13,7 +13,7 @@ from ase import Atoms
 from ase.structure import molecule
 from ase.parallel import paropen
 from ase.units import Bohr, Hartree
-from ase.io.trajectory import PickleTrajectory
+from ase.io import Trajectory
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.utils import devnull
 
@@ -126,7 +126,7 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
         niter = int(self.duration / timestep)
         ndiv = 1 #XXX
 
-        traj = PickleTrajectory('%s_%d.traj' % (self.tdname, t),
+        traj = Trajectory('%s_%d.traj' % (self.tdname, t),
                                 'w', self.tdcalc.get_atoms())
 
         t0 = time.time()
