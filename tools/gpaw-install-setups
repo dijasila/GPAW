@@ -210,8 +210,7 @@ rcfilepath = os.path.join(rcfiledir, 'rc.py')
 
 # We could do all this by importing the rcfile as well and checking
 # whether things are okay or not.
-rcline1 = 'from gpaw import setup_paths'
-rcline2 = "setup_paths.insert(0, '%s')" % setup_path
+rcline = "setup_paths.insert(0, '%s')" % setup_path
 
 # Run interactive mode unless someone specified a flag requiring otherwise
 interactive_mode = not (opts.register or opts.no_register)
@@ -242,15 +241,14 @@ if register_path:
         tmpfd.close()
 
     for line in open(rcfilepath):
-        if line.startswith(rcline2):
+        if line.startswith(rcline):
             print('It looks like the path is already registered in %s.'
                   % rcfilepath)
             print('File will not be modified at this time.')
             break
     else:
         rcfd = open(rcfilepath, 'a')
-        print(rcline1, file=rcfd)
-        print(rcline2, file=rcfd)
+        print(rcline, file=rcfd)
         print('Setup path registered in %s.' % rcfilepath)
         # Need to explicitly flush/close the file so print_setups_info
         # sees the change in rc.py
@@ -259,9 +257,8 @@ if register_path:
         print_setups_info()
 else:
     print('You can manually register the setups by adding the')
-    print('following two lines to %s:' % rcfilepath)
+    print('following line to %s:' % rcfilepath)
     print()
-    print(rcline1)
-    print(rcline2)
+    print(rcline)
     print()
 print('Installation complete.')
