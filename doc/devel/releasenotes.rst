@@ -10,6 +10,15 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* :ref:`Time-propagation TDDFT with LCAO <lcaotddft>`.
+
+* Improved distribution and load balance when calculating atomic XC
+  corrections, and in LCAO when calculating atomic corrections to the
+  Hamiltonian.
+
+* Norm-conserving :ref:`SG15 pseudopotentials <manual_setups>` and
+  parser for several dialects of the UPF format.
+
 * Non-selfconsistent spin-orbit coupling have been added. See tutorial 
   for examples of band structure calculations with spin-orbit coupling.
 
@@ -27,7 +36,7 @@ Development version in trunk
 
 * A :ref:`continuum solvent model <continuum_solvent_model>` was added.
 
-* Orbital-free DFT with PAW transformation is available
+* Orbital-free DFT with PAW transformation is available.
 
 Version 0.10.0
 ==============
