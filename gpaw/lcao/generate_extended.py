@@ -62,10 +62,12 @@ def main():
     for sym in symbols:
         try:
             s = SetupData(sym, opts.xc)
-        except RuntimeError, e:
+        except RuntimeError as e:
             if str(e).startswith('Could not find'):
                 #print 'No %s' % sym
                 continue
+            else:
+                raise
 
         # One could include basis functions also for the ``virtual'' states
         # (marked with negative n)
