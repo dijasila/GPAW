@@ -15,12 +15,14 @@ description = ('In first form, show available setups and GPAW setup paths.  '
                'In second form, download and install gpaw-setups into '
                'INSTALLDIR/[setups-package-name-and-version].')
 
+
 sources = [('gpaw', 'official GPAW setups releases [default]'),
            ('sg15', 'SG15 pseudopotentials'),
            ('basis', 'basis sets for LCAO mode'),
            ('test', 'small file for testing this script'),
            ]
 names = [r for r, d in sources]
+
 
 p = OptionParser(usage=usage, description=description)
 p.add_option('--version', metavar='VERSION',
@@ -49,13 +51,16 @@ p.add_option('--no-register', action='store_true',
 opts, args = p.parse_args()
 nargs = len(args)
 
+
 if opts.source is None:
     opts.source = sources[0][0]
+
 
 if opts.register and opts.no_register:
     p.error('Conflicting options specified on whether to register '
             'setup install paths in configuration file.  Try not specifying '
             'some options.')
+
 
 def get_urls(source):
     if source == 'gpaw':
@@ -82,11 +87,10 @@ def get_urls(source):
         files = sorted(pattern.findall(response.read()), reverse=True)
         return [page + fname for fname in files]
     elif source == 'test':
-         return ['http://dcwww.camd.dtu.dk/~askhl/files/gpaw-test-source/'
-                 'gpaw-dist-test-source.tar.gz']
+        return ['http://dcwww.camd.dtu.dk/~askhl/files/gpaw-test-source/'
+                'gpaw-dist-test-source.tar.gz']
     else:
         raise ValueError('Unknown source: %s' % source)
-        
 
 
 # The sg15 file is a tarbomb.  We will later defuse it by untarring
@@ -105,8 +109,6 @@ if not opts.tarball:
     def print_urls(urls, marked=None):
         for url in urls:
             pageurl, fname = url.rsplit('/', 1)
-            #print(pageurl, fname)
-            domain = pageurl.split('//', 1)[1].split('/', 1)[0]
             if url == marked:
                 marking = ' [*]'
             else:
@@ -138,12 +140,13 @@ if not opts.tarball:
     print_urls(urls, url)
     print()
 
+
 def print_setups_info():
     try:
         import gpaw
     except ImportError, e:
-        p.error("Cannot import 'gpaw'.  GPAW does not appear to be installed."
-                " %s" % e)
+        p.error('Cannot import \'gpaw\'.  GPAW does not appear to be '
+                'installed. %s' % e)
 
     # GPAW may already have been imported, and the contents of the rc
     # file may have changed since then.  Thus, we re-import gpaw to be
