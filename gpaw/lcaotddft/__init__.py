@@ -453,5 +453,6 @@ class LCAOTDDFT(GPAW):
             self.time += self.time_step
             
         self.call_observers(self.niter, final=True)
-        self.dm_file.close()
+        if self.wfs.world.rank == 0:
+            self.dm_file.close()
         self.timer.stop('Propagate')
