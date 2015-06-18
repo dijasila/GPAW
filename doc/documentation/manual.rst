@@ -651,11 +651,16 @@ There exist three special names that, if used, do not specify a file name:
 * ``'ae'`` is used for specifying all-electron mode for an
   atom. I.e. no PAW or pseudo potential is used.
 * ``sg15`` specifies the `SG15 optimized norm-conserving Vanderbilt
-  pseudopotentials`_ for the PBE functional.  These have to be installed
-  separately.  Use :file:`gpaw-install-setups --sg15 {<dir>}` to
-  download and unpack the pseudopotentials into
+  pseudopotentials`_ for the PBE functional.  These have to be
+  installed separately.  Use :file:`gpaw-install-setups --sg15
+  {<dir>}` to download and unpack the pseudopotentials into
   :file:`{<dir>}/sg15_oncv_upf_{<version>}`.  As of now, the SG15
   pseudopotentials should still be considered experimental in GPAW.
+  You can plot a UPF pseudopotential by running :file:`gpaw-upfplot
+  {<pseudopotential>}`.  Here, :file:`{<pseudopotential>}` can be
+  either a direct path to a UPF file or the symbol or identifier to
+  search for in the GPAW setup paths.
+	
 * ``'hgh'`` is used to specify a norm-conserving Hartwigsen-Goedecker-Hutter
   pseudopotential (no installation necessary).  Some elements have better
   semicore pseudopotentials.  To use those, specify ``'hgh.sc'``
