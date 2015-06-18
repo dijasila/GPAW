@@ -179,7 +179,7 @@ PyTypeObject GPAW_MPI_Request_type = {
     0,                 /* tp_new */
 };
 
-static GPAW_MPI_Request *NewMPIRequest()
+static GPAW_MPI_Request *NewMPIRequest(void)
 {
   GPAW_MPI_Request *self;
 
