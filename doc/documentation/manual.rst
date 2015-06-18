@@ -621,8 +621,8 @@ throughout the SCF-cycle (so called Harris calculation).
 
 .. _manual_setups:
 
-Type of setup to use
---------------------
+PAW datasets or pseudopotentials
+--------------------------------
 
 The ``setups`` keyword is used to specify the name(s) of the setup files
 used in the calulation.
@@ -646,16 +646,24 @@ which is the GPAW default.
 As an example, the latest PAW setup of Na includes also the 6 semicore p states
 in the valence, in order to use non-default setup with only the 1 s electron in valence (:file:`Na.1.XC.gz`) one can specify ``setups={'Na': '1'}``
 
-There exist three special names, that if used, does not specify a file name:
+There exist three special names that, if used, do not specify a file name:
 
 * ``'ae'`` is used for specifying all-electron mode for an
   atom. I.e. no PAW or pseudo potential is used.
+* ``sg15`` specifies the `SG15 optimized norm-conserving Vanderbilt
+  pseudopotentials`_ for the PBE functional.  These have to be installed
+  separately.  Use :file:`gpaw-install-setups --sg15 {<dir>}` to
+  download and unpack the pseudopotentials into
+  :file:`{<dir>}/sg15_oncv_upf_{<version>}`.  As of now, the SG15
+  pseudopotentials should still be considered experimental in GPAW.
 * ``'hgh'`` is used to specify a norm-conserving Hartwigsen-Goedecker-Hutter
-  pseudopotential (no file necessary).  Some elements have better
+  pseudopotential (no installation necessary).  Some elements have better
   semicore pseudopotentials.  To use those, specify ``'hgh.sc'``
   for the elements or atoms in question.
 * ``'ghost'`` is used to indicated a *ghost* atom in LCAO mode,
   see :ref:`ghost-atoms`.
+
+.. _SG15 optimized norm-conserving Vanderbilt pseudopotentials: http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/
 
 If a dictionary contains both chemical element specifications *and*
 atomic number specifications, the latter is dominant.
