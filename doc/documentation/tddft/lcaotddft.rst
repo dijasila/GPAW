@@ -112,7 +112,7 @@ the dipole is long-ranged and, thus, the converged potential requires large vacu
 However, in LCAO approach
 large vacuum size is often unnecessary. Thus, to avoid using large vacuum sizes but get converged
 potential, one can use two approaches or their combination: 1) use multipole moment corrections or 2) solve Poisson 
-equation on a extended grid. These two approaches are implemented in :class:`~gpaw.poisson_extended.ExtendedPoissonSolver`.
+equation on a extended grid. These two approaches are implemented in ``ExtendedPoissonSolver``.
 
 Multipole moment corrections
 ----------------------------
@@ -187,6 +187,8 @@ as a initial potential for subsequent calls of the function ``solver.solve()``. 
 
 Timing
 ======
+
+TODO: add ``ParallelTimer`` example
 
 
 Advanced tutorial - Plasmon resonance of silver cluster
