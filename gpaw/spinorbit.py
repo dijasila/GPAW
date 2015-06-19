@@ -39,6 +39,7 @@ d[1, 3] = 1.0j
 d[3, 1] = -1.0j
 Lz_lmm = [s, p, d]
 
+
 def get_radial_potential(calc, a, ai):
     """Calculates dV/dr / r for the effective potential.
     Below, f_g denotes dV/dr = minus the radial force"""
@@ -88,7 +89,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
         e_kn = [calc.get_eigenvalues(kpt=k)[bands] for k in range(Nk)]
         e_skn = np.array([e_kn, e_kn])
     else:
-        e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)[bands] 
+        e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)[bands]
                            for k in range(Nk)] for s in range(2)])
 
     # <phi_i|dV_adr / r * L_v|phi_j>
@@ -106,7 +107,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
             N2 = 0
             for j2, l2 in enumerate(a.l_j):
                 if l1 == l2:
-                    f_sg = phi_jg[j1][:Ng] * v_sg[:] * phi_jg[j2][:Ng] 
+                    f_sg = phi_jg[j1][:Ng] * v_sg[:] * phi_jg[j2][:Ng]
                     r_g = a.xc_correction.rgd.r_g
                     dr_g = a.xc_correction.rgd.dr_g
                     I_s = a.xc_correction.rgd.integrate(f_sg) / (4 * np.pi)
@@ -135,7 +136,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
         H_mm[range(2*Nn)[::2], range(2*Nn)[::2]] = e_skn[0, k, :]
         H_mm[range(2*Nn)[1::2], range(2*Nn)[1::2]] = e_skn[1, k, :]
         for ai in range(Na):
-            P_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands] 
+            P_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands]
                      for s in range(Ns)]
             dVL_svii = dVL_asvii[ai]
             if Ns == 1:
@@ -196,7 +197,7 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, tol=1.0e-3,
                         for n in bands])
 
     if spin_orbit:
-        e_nk, v_knm = get_spinorbit_eigenvalues(calc, return_wfs=True, 
+        e_nk, v_knm = get_spinorbit_eigenvalues(calc, return_wfs=True,
                                                 bands=bands)
         psit_mG = np.dot(v_knm[ik][::2, ::2].T, psit_nG)
         psit_nG = psit_mG
@@ -205,7 +206,7 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, tol=1.0e-3,
     #G_Gv = calc.wfs.pd.get_reciprocal_vectors(q=ik, add_q=True)
     P_GG = np.ones((len(G_Gv), len(G_Gv)), float)
 
-    icell_cv = (2 * np.pi) * np.linalg.inv(calc.wfs.gd.cell_cv).T 
+    icell_cv = (2 * np.pi) * np.linalg.inv(calc.wfs.gd.cell_cv).T
     kpt_v = np.dot(kpt_c, icell_cv)
 
     for iG, G_v in enumerate(G_Gv):
@@ -228,7 +229,7 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, tol=1.0e-3,
         else:
             p = 0
             print( 'n =', bands[n], 'is not a parity eigenvalue')
-            #print psit_G[:5] 
+            #print psit_G[:5]
             #print Ppsit_G[:5]
             #print Ppsit_G[:5] / psit_G[:5]
         ps.append(p)
