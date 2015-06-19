@@ -64,40 +64,19 @@ def tesselate_brillouin_zone(calc, density=3.5):
     # Fold out to crystal IBZ
     ibzk_kc = expand_ibz(lU_scc, U_scc, ibzk_kc)
 
-    # Find full BZ
+    # Find full BZ modulo 1.
     bzk_kc = unique_rows(np.concatenate(np.dot(ibzk_kc,
-                                               U_scc.transpose(0, 2, 1))))
-
-    # Remove BZ points which are equivalent
-    hull = ConvexHull(bzk_kc, qhull_options='Qc')
-
-    try:
-        vertices = hull.vertices
-    except AttributeError:
-        vertices = np.unique(hull.simplices.ravel())
-
-    coplanar = hull.coplanar
-
-    boundarypoints = np.sort(np.concatenate([vertices, coplanar[:, 0]]))
-    bk_kc = hull.points[boundarypoints]
-
-    i = 0
-    while i < len(bk_kc):
-        dk_kc = bk_kc[i + 1:] - bk_kc[i]
-        diff_k = np.abs(dk_kc - dk_kc.round()).sum(1)
-        inds_k = np.nonzero(diff_k < 1e-7)[0]
-        if len(inds_k):
-            bk_kc = np.delete(bk_kc, inds_k + i + 1, axis=0)
-        i += 1
-
-    bzk_kc = np.delete(hull.points, boundarypoints, axis=0)
-    bzk_kc = np.concatenate([bzk_kc, bk_kc])
+                                               U_scc.transpose(0, 2, 1))),
+                         tol=1e-6, mod=1)
 
     return bzk_kc
 
 
-def unique_rows(ain, tol=1e-10):
-    a = ain.copy().round((-np.log10(tol).astype(int)))
+def unique_rows(ain, tol=1e-10, mod=None):
+    a = ain.copy()
+    a = a.round((-np.log10(tol).astype(int)))
+    if mod is not None:
+        a = np.mod(a, mod)
     order = np.lexsort(a.T)
     a = a[order]
     diff = np.diff(a, axis=0)
