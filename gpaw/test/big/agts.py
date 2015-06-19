@@ -89,6 +89,11 @@ class AGTSJob:
                 self.exitcode = int(open('%s.done' % name).readlines()[-1])
                 if self.exitcode:
                     self.set_status('FAILED')
+                    if self.creates:
+                        for filename in self.creates:
+                            path = os.path.join(self.dir, filename)
+                            if os.path.isfile(path):
+                                os.remove(path)
                 else:
                     self.set_status('success')
                     if self.creates:
