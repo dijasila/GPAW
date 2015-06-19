@@ -1,7 +1,6 @@
 import sys
 from optparse import OptionParser
 
-from ase.data import chemical_symbols
 from gpaw.atom.basis import BasisMaker
 from gpaw.atom.configurations import parameters, parameters_extra
 from gpaw.setup_data import SetupData
@@ -27,9 +26,10 @@ class BasisSpecification:
                                          for j in self.jextra])
 
 description = """Generate basis sets that include unoccupied p states as
-valence states instead of Gaussian-based polarization functions.  
+valence states instead of Gaussian-based polarization functions.
 If SYMBOLs are omitted, generate basis sets for all elements with
 unoccupied p states and default setup."""
+
 
 def main():
     parser = OptionParser(usage='%prog [OPTION...] [SYMBOL...]',
@@ -51,7 +51,7 @@ def main():
             othersymbols.append(code)
         trouble = set(['Os.8', 'Ta.5', 'V.5', 'W.6', 'Ir.9'])
         othersymbols = [symbol for symbol in othersymbols
-                        if not symbol in trouble]
+                        if symbol not in trouble]
         symbols.extend(sorted(othersymbols))
 
         if opts._from:
@@ -96,9 +96,9 @@ def main():
         if i % world.size != world.rank:
             continue
         if world.size > 1:
-            print world.rank, spec
+            print(world.rank, spec)
         else:
-            print spec
+            print(spec)
         gtxt = None
 
         # XXX figure out how to accept Ag.11
