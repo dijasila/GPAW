@@ -2,6 +2,7 @@
 # Please see the accompanying LICENSE file for further information.
 
 from math import pi
+import warnings
 
 import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2
@@ -14,6 +15,28 @@ from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.ewald import madelung
 from gpaw.utilities.tools import construct_reciprocal
 import _gpaw
+
+
+POISSON_GRID_WARNING="""Grid unsuitable for Poisson solver!
+
+The Poisson solver does not have sufficient multigrid levels for good
+performance and will converge inefficiently if at all, or yield wrong
+results.
+
+You may need to manually specify a grid such that the number of points
+along each direction is divisible by a high power of 2, such as 8, 16,
+or 32 depending on system size; examples:
+
+  GPAW(gpts=(32, 32, 288))
+
+or
+
+  from gpaw.tools import h2gpts
+  GPAW(gpts=h2gpts(0.2, atoms.get_cell(), idiv=16))
+
+Parallelizing over very small domains can also undesirably limit the
+number of multigrid levels even if the total number of grid points
+is divisible by a high power of 2."""
 
 
 class PoissonSolver:
@@ -87,6 +110,23 @@ class PoissonSolver:
 
         self.levels = level
 
+        if self.operators[-1].gd.N_c.max() > 36:
+            # Try to warn exactly once no matter how one uses the solver.
+            if gd.comm.parent is None:
+                warn = (gd.comm.rank == 0)
+            else:
+                warn = (gd.comm.parent.rank == 0)
+
+            if warn:
+                warntxt = '\n'.join([POISSON_GRID_WARNING, '',
+                                     self.get_description()])
+            else:
+                warntxt = ('Poisson warning from domain rank %d'
+                           % self.gd.comm.rank)
+
+            # Warn from all ranks to avoid deadlocks.
+            warnings.warn(warntxt, stacklevel=2)
+
     def get_description(self):
         name = {1: 'Gauss-Seidel', 2: 'Jacobi'}[self.relax_method]
         coarsest_grid = self.operators[-1].gd.N_c
@@ -96,6 +136,8 @@ class PoissonSolver:
                  % (name, self.levels + 1),
                  '    Coarsest grid: %s points' % coarsest_grid_string]
         if coarsest_grid.max() > 24:
+            # This friendly warning has lower threshold than the big long
+            # one that we print when things are really bad.
             lines.extend(['    Warning: Coarse grid has more than 24 points.',
                           '             More multi-grid levels recommended.'])
         lines.extend(['    Stencil: %s' % self.operators[0].description,
