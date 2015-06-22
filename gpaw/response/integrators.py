@@ -574,7 +574,7 @@ class TetrahedronIntegrator(Integrator):
             omegatmp_w = np.take(omega_w, i_w)
             tetrahedron_weight(de_k, omegatmp_w, gi_w, I_kw)
 
-            I_kw[permute[M]] = I_kw
+            I_kw[permute[M]] = I_kw.copy()
             gi_Mw[M] = gi_w
             I_Mkw[M] = I_kw
 

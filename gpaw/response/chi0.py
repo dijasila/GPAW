@@ -42,9 +42,7 @@ class ArrayDescriptor:
         return np.argmin(diff_x)
 
     def get_index_range(self, lim1, lim2):
-        """Get closest index.
-        
-        Get closest index approximating scalar from below."""
+        """Get index range. """
         i_x = np.nonzero(np.logical_and(lim1 <= self.data_x,
                                         self.data_x <= lim2))[0]
         return i_x

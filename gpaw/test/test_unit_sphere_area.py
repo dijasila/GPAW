@@ -7,51 +7,39 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 #from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
+from _gpaw import tetrahedron_weight
 from gpaw.response.integrators import TetrahedronIntegrator
 from gpaw.response.chi0 import ArrayDescriptor
 
 
 def unit(x_c):
-    return np.array([[1]], complex)
+    return np.array([[1.]], complex)
 
 
 def unit_sphere(x_c):
-    return np.array([1.0 - (x_c**2).sum()**0.5])
+    return np.array([(x_c**2).sum()**0.5], float)
 
 # Test tetrahedron integrator
 integrator = TetrahedronIntegrator()
-omega_w = np.linspace(0, 3, 50)
+
+omega_w = np.linspace(-1, 4, 51)
 gi_w = np.zeros(len(omega_w), float)
 I_kw = np.zeros((4, len(omega_w)), float)
-de_k = np.array([0, 1, 2, 3], float)
-for iw, omega in enumerate(omega_w):
-    if de_k[0] <= omega <= de_k[1]:
-        case = 0
-    elif de_k[1] <= omega <= de_k[2]:
-        case = 1
-    elif de_k[2] <= omega <= de_k[3]:
-        case = 2
+de_k = np.array([0, 1, 1, 3], float)
+tetrahedron_weight(de_k, omega_w, gi_w, I_kw)
 
-    gi, I_k = integrator.get_kpoint_weight(omega, de_k, case)
+if False:
+    plt.plot(omega_w, gi_w, label='g')
+    plt.plot(omega_w, I_kw[0], label='I0')
+    plt.plot(omega_w, I_kw[1], label='I1')
+    plt.plot(omega_w, I_kw[2], label='I2')
+    plt.plot(omega_w, I_kw[3], label='I3')
+    plt.legend()
+    plt.show()
 
-    gi_w[iw] = gi
-    I_kw[:, iw] = I_k
-
-plt.plot(omega_w, gi_w, label='g')
-plt.plot(omega_w, I_kw[0], label='I0')
-plt.plot(omega_w, I_kw[1], label='I1')
-plt.plot(omega_w, I_kw[2], label='I2')
-plt.plot(omega_w, I_kw[3], label='I3')
-plt.legend()
-plt.show()
-
-wd = ArrayDescriptor([0.001])
-vol = 1
-deps_kM = np.array([[1], [0], [2], [3]], float)
-I_KMw = integrator.calculate_integration_weights(wd, deps_kM, vol)
 
 # Calculate surface area of unit sphere
-x_g = np.linspace(-1, 1, 30)
+x_g = np.linspace(-1, 1, 35)
 x_gc = np.array([comb for comb in product(*([x_g] * 3))])
 
 td = integrator.tesselate(x_gc)
@@ -80,7 +68,7 @@ domain = (td,)
 out_wxx = np.zeros((1, 1, 1), complex)
 integrator.integrate('response_function', domain,
                      (unit, unit_sphere),
-                     ArrayDescriptor([0.]),
+                     ArrayDescriptor([1.0]),
                      out_wxx=out_wxx)
 
 print(out_wxx)
