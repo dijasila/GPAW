@@ -76,7 +76,6 @@ tests = [
     'kpt.py',
     'mpicomm.py',
     'numpy_core_multiarray_dot.py',
-    'maxrss.py',  # verifies reported RAM allocation: fragile, don't move down
     'fileio/hdf5_noncontiguous.py',
     'cg2.py',
     'laplace.py',
@@ -385,13 +384,8 @@ tests = [
 
 exclude = []
 
-# not available on Windows
-if os.name in ['ce', 'nt'] or sys.platform in ['darwin']:
-    exclude += ['maxrss.py']
-
 if mpi.size > 1:
-    exclude += ['maxrss.py',
-                'pes.py',
+    exclude += ['pes.py',
                 'diamond_eps.py',
                 'nscfsic.py',
                 'coreeig.py',
