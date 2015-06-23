@@ -74,6 +74,9 @@ class FrequencyDescriptor(ArrayDescriptor):
         return w_m
 
     def get_index_range(self, omega1, omega2):
+        if omega1 < 0 or omega2 < 0:
+            return np.array((), int)
+
         w1 = self.get_closest_index(omega1)
         w2 = self.get_closest_index(omega2)
         o1 = self.omega_w[w1]
@@ -209,9 +212,8 @@ class Chi0:
 
         q_c = np.asarray(q_c, dtype=float)
         optical_limit = np.allclose(q_c, 0.0)
-
-        qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(self.ecut, wfs.gd, complex, qd)
+        
+        pd = self.get_PWDescriptor(q_c)
 
         self.print_chi(pd)
 
@@ -256,12 +258,7 @@ class Chi0:
 
     @timer('Calculate CHI_0')
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins):
-        # Use symmetries
-        PWSA = PWSymmetryAnalyzer
-        PWSA = PWSA(self.calc.wfs.kd, pd,
-                    timer=self.timer, txt=self.fd)
-        bzk_kc = PWSA.get_reduced_kd().bzk_kc
-        bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
+        bzk_kv, PWSA = self.get_kpoints(pd)
 
         # Initialize integrator
         integrator = TetrahedronIntegrator(comm=self.kncomm,
@@ -295,7 +292,7 @@ class Chi0:
                               'n1': self.nocc1, 'n2': self.nocc2,
                               'pd': pd}
 
-                eig_kwargs = {'kd': kd2, 'n1': max(0, self.nocc1 - 1),
+                eig_kwargs = {'kd': kd2, 'n1': self.nocc1,
                               'n2': self.nocc2, 'pd': pd}
                 domain = (td, spins)
                 fermi_level = self.pair.fermi_level
@@ -327,6 +324,23 @@ class Chi0:
         chi0_wGG = chi0_wGG[:, 2:, 2:]
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+
+    def get_PWDescriptor(self, q_c):
+        qd = KPointDescriptor([q_c])
+        pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
+                          complex, qd)
+        return pd
+
+    @timer('Get kpoints')
+    def get_kpoints(self, pd):
+        # Use symmetries
+        PWSA = PWSymmetryAnalyzer
+        PWSA = PWSA(self.calc.wfs.kd, pd,
+                    timer=self.timer, txt=self.fd)
+        bzk_kc = PWSA.get_reduced_kd().bzk_kc
+        bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
+
+        return bzk_kv, PWSA
 
     @timer('Get matrix element')
     def get_matrix_element(self, k_v, s, n1=None, n2=None,
@@ -361,14 +375,17 @@ class Chi0:
     @timer('Get eigenvalues')
     def get_eigenvalues(self, k_v, s, n1=None, n2=None,
                         m1=None, m2=None,
-                        kd=None, pd=None):
+                        kd=None, pd=None, wfs=None):
         """A function that can return the eigenvalues.
 
         A simple function describing the integrand of
         the response function which gives an output that
         is compatible with the gpaw k-point integration
         routines."""
-        wfs = self.calc.wfs
+
+        if wfs is None:
+            wfs = self.calc.wfs
+
         kd = wfs.kd
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
         K1 = kd.where_is_q(k_c, kd.bzk_kc)
@@ -379,7 +396,6 @@ class Chi0:
         kpt2 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
         deps_nm = (kpt2.eps_n[m1:m2][np.newaxis]
                    - kpt1.eps_n[n1:n2][:, np.newaxis])
-        deps_nm[deps_nm <= 0.0] = 0
 
         return deps_nm.reshape(-1)
 

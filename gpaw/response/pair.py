@@ -341,7 +341,7 @@ class PWSymmetryAnalyzer:
         # Find the irreducible kpoints
         tess = Delaunay(ibzk_kc)
         ik_kc = []
-        n = 5
+        n = 3
         N_xc = np.indices((n, n, n)).reshape((3, n**3)).T - n // 2
         for k_c in self.kd.bzk_kc:
             k_xc = N_xc + k_c[np.newaxis]

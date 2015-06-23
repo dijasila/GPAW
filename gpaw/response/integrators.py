@@ -390,6 +390,7 @@ class TetrahedronIntegrator(Integrator):
     def __init__(self, *args, **kwargs):
         Integrator.__init__(self, *args, **kwargs)
 
+    @timer('Tesselate')
     def tesselate(self, vertices):
         """Get tesselation descriptor."""
 
@@ -459,6 +460,7 @@ class TetrahedronIntegrator(Integrator):
             # Integrate values
             k_c = bzk_kc[K]
             n_MG = get_matrix_element(k_c, *arguments)
+            assert len(n_MG) == len(W_MK), print(len(n_MG), len(W_MK))
             with self.timer('integrate'):
                 for n_G, W_K in zip(n_MG, W_MK):
                     i0 = W_K[K][0]
