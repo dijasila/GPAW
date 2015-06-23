@@ -155,7 +155,7 @@ class SimpleStm(STM):
         filetype.lower()
 
         if filetype == 'plt':
-            data, cell = read_plt(file)
+            data, self.cell = read_plt(file)
 
             pbc_c = [True, True, True]
             N_c = np.array(data.shape)
@@ -163,7 +163,7 @@ class SimpleStm(STM):
                 if N_c[c] % 2 == 1:
                     pbc_c[c] = False
                     N_c[c] += 1
-            self.gd = GridDescriptor(N_c, cell.diagonal() / Bohr, pbc_c)
+            self.gd = GridDescriptor(N_c, self.cell.diagonal() / Bohr, pbc_c)
             self.offset_c = [int(not a) for a in self.gd.pbc_c]
 
         else:
