@@ -474,7 +474,8 @@ class TestRunner:
         else:
             self.log = devnull
         self.n = max([len(test) for test in tests])
-
+        self.setup_paths = setup_paths[:]
+        
     def run(self):
         self.log.write('=' * 77 + '\n')
         if not self.show_output:
@@ -561,6 +562,7 @@ class TestRunner:
             return exitcode_skip
 
         try:
+            setup_paths[:] = self.setup_paths
             loc = {}
             exec(compile(open(filename).read(), filename, 'exec'), loc)
             loc.clear()
