@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 def dos(filename, plot=False, output='dos.csv', width=0.1):
     """Calculate density of states.
     
