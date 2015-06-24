@@ -199,7 +199,7 @@ if hdf5:
 
 files = ['gpaw-analyse-basis', 'gpaw-basis', 'gpaw-install-setups',
          'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
-         'gpaw-setup', 'gpaw-test', 'gpaw-upfplot', 'gwap']
+         'gpaw-setup', 'gpaw-test', 'gpaw-upfplot', 'gpaw']
 scripts = [join('tools', script) for script in files]
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,

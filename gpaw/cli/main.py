@@ -1,4 +1,4 @@
-"""GPAW Without Any Python (GWAP)."""
+"""GPAW command-line tool."""
 from __future__ import print_function
 import os
 import sys
@@ -8,14 +8,14 @@ import textwrap
 
 
 functions = {'xc': 'gpaw.xc.xc',
-             'run': 'gpaw.cli.main',
-             'dos': 'gpaw.gwap.dos',
+             'run': 'gpaw.cli.run.main',
+             'dos': 'gpaw.cli.dos.dos',
              'rpa': 'gpaw.xc.rpa.rpa',
-             'info': 'gpaw.gwap.info',
+             'info': 'gpaw.cli.info.info',
              'test': 'gpaw.test.test.main',
              'atom': 'gpaw.atom.aeatom.main',
              'diag': 'gpaw.fulldiag.fulldiag',
-             'quick': 'gpaw.gwap.quick',
+             'quick': 'gpaw.cli.quick.quick',
              'dataset': 'gpaw.atom.generator2.main',
              'symmetry': 'gpaw.symmetry.analyze_atoms'}
 
@@ -23,8 +23,8 @@ functions = {'xc': 'gpaw.xc.xc',
 def main():
     commands = sorted(functions.keys())
     parser1 = optparse.OptionParser(
-        usage='Usage: gwap [options] command [more options]\n' +
-        '       gwap command --help  (for help on individual commands)',
+        usage='Usage: gpaw [-h] [-v] [-P N] command [more options]\n' +
+        '       gpaw command --help  (for help on individual commands)',
         description='Run one of these commands: {0}.'
         .format(', '.join(commands)))
     parser1.disable_interspersed_args()
@@ -69,7 +69,7 @@ def main():
             raise
         else:
             print('{0}: {1}'.format(x.__class__.__name__, x), file=sys.stderr)
-            print('To get a full traceback, use: gwap --verbose',
+            print('To get a full traceback, use: gpaw --verbose',
                   file=sys.stderr)
 
             
@@ -130,80 +130,8 @@ def construct_parser(func, name):
     epilog = ' '.join(lines[i:])
             
     parser = optparse.OptionParser(
-        usage='Usage: gwap {0} <{1}> [options]'.format(name, '> <'.join(args)),
+        usage='Usage: gpaw {0} <{1}> [options]'.format(name, '> <'.join(args)),
         description=description,
         option_list=options,
         epilog=epilog)
     return len(args), optnames, parser
-
-    
-def info(filename):
-    """Write summary of GPAW-restart file.
-    
-    filename: str
-        Name of restart-file.
-    """
-    from gpaw import GPAW
-    GPAW(filename)
-
-    
-def dos(filename, plot=False, output='dos.csv', width=0.1):
-    """Calculate density of states.
-    
-    filename: str
-        Name of restart-file.
-    plot: bool
-        Show a plot.
-    output: str
-        Name of CSV output file.
-    width: float
-        Width of Gaussians.
-    """
-    from gpaw import GPAW
-    from ase.dft.dos import DOS
-    calc = GPAW(filename, txt=None)
-    dos = DOS(calc, width)
-    D = [dos.get_dos(spin) for spin in range(calc.get_number_of_spins())]
-    if output:
-        fd = sys.stdout if output == '-' else open(output, 'w')
-        for x in zip(dos.energies, *D):
-            print(*x, sep=', ', file=fd)
-        if output != '-':
-            fd.close()
-    if plot:
-        import matplotlib.pyplot as plt
-        for y in D:
-            plt.plot(dos.energies, y)
-        plt.show()
-
-    
-def quick(project='bulk', system=None):
-    """Create Python script to get going quickly.
-    
-    project: str
-        Must be 'bulk' or 'molecule'.
-    system: str
-        A string representing the system ('H2', 'Si').
-    """
-    if project == 'bulk':
-        template = """\
-from ase.lattice import bulk
-from gpaw import GPAW
-
-atoms = bulk('{0}')
-atoms.calc = GPAW(kpts={{'size': (4, 4, 4)}},
-                  txt='{0}.txt')
-e = atoms.get_potential_energy()
-f = atoms.get_forces()"""
-    else:
-        template = """\
-from ase.structure import molecule
-from ase.optimize import QuasiNewton
-from gpaw import GPAW
-
-atoms = molecule('{0}')
-atoms.calc = GPAW(txt='{0}.txt')
-e = atoms.get_potential_energy()
-opt = QuasiNewton(atoms, traj='{0}.traj')
-opt.run(fmax=0.05)"""
-    print(template.format(system))
