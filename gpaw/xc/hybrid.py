@@ -16,7 +16,7 @@ from gpaw.utilities.tools import symmetrize
 from gpaw.atom.configurations import core_states
 from gpaw.lfc import LFC
 from gpaw.utilities.blas import gemm
-from gpaw.gaunt import make_gaunt
+from gpaw.gaunt import gaunt
 
 
 class HybridXCBase(XCFunctional):
@@ -71,7 +71,7 @@ class HybridXCBase(XCFunctional):
         return 'PBE'
 
 class HybridXC(HybridXCBase):
-    def __init__(self, name, hybrid=None, xc=None, 
+    def __init__(self, name, hybrid=None, xc=None,
                  finegrid=False, unocc=False):
         """Mix standard functionals with exact exchange.
 
@@ -203,7 +203,7 @@ class HybridXC(HybridXCBase):
                         Htpsit_nG[n2] += f1 * vt_G * psit1_G
 
                     # Update the vxx_uni and vxx_unii vectors of the nuclei,
-                    # used to determine the atomic hamiltonian, and the 
+                    # used to determine the atomic hamiltonian, and the
                     # residuals
                     v_aL = self.ghat.dict()
                     self.ghat.integrate(vt_g, v_aL)
@@ -225,7 +225,7 @@ class HybridXC(HybridXCBase):
 
             if Htpsit_nG is not None:
                 # Add non-trivial corrections the Hamiltonian matrix
-                h_nn = symmetrize(np.inner(P_ni[:nbands], 
+                h_nn = symmetrize(np.inner(P_ni[:nbands],
                                            kpt.vxx_ani[a][:nbands]))
                 ekin -= np.dot(kpt.f_n[:nbands], h_nn.diagonal())
 
@@ -341,12 +341,12 @@ class HybridXC(HybridXCBase):
             gemm(1.0, v_nii.copy(), U_nn, 0.0, v_nii)
 
         
-def atomic_exact_exchange(atom, type = 'all'):
+def atomic_exact_exchange(atom, type='all'):
     """Returns the exact exchange energy of the atom defined by the
        instantiated AllElectron object 'atom'
     """
-    gaunt = make_gaunt(lmax=max(atom.l_j)) # Make gaunt coeff. list
-    Nj = len(atom.n_j)                     # The total number of orbitals
+    G_LLL = gaunt(lmax=max(atom.l_j))  # Make gaunt coeff. list
+    Nj = len(atom.n_j)  # The total number of orbitals
 
     # determine relevant states for chosen type of exchange contribution
     if type == 'all':
@@ -395,7 +395,7 @@ def atomic_exact_exchange(atom, type = 'all'):
 
                 # take all m1 m2 and m values of Gaunt matrix of the form
                 # G(L1,L2,L) where L = {l,m}
-                G2 = gaunt[l1**2:(l1+1)**2, l2**2:(l2+1)**2, l**2:(l+1)**2]**2
+                G2 = G_LLL[l1**2:(l1+1)**2, l2**2:(l2+1)**2, l**2:(l+1)**2]**2
 
                 # add to total potential
                 vr += vrl * np.sum(G2)
@@ -419,7 +419,7 @@ def constructX(gen):
     # initialize attributes
     uv_j = gen.vu_j    # soft valence states * r:
     lv_j = gen.vl_j    # their repective l quantum numbers
-    Nvi  = 0 
+    Nvi  = 0
     for l in lv_j:
         Nvi += 2 * l + 1   # total number of valence states (including m)
 
@@ -439,7 +439,7 @@ def constructX(gen):
 
     # make gaunt coeff. list
     lmax = max(gen.l_j[:Njcore] + gen.vl_j)
-    gaunt = make_gaunt(lmax=lmax)
+    G_LLL = gaunt(lmax=lmax)
 
     # sum over core states
     for jc in range(Njcore):
@@ -448,7 +448,7 @@ def constructX(gen):
         # sum over first valence state index
         i1 = 0
         for jv1 in range(Njval):
-            lv1 = lv_j[jv1] 
+            lv1 = lv_j[jv1]
 
             # electron density 1 times radius times length element
             n1c = uv_j[jv1] * uc_j[jc] * dr
@@ -473,9 +473,9 @@ def constructX(gen):
                     A_mm = X_ii[i1:i1 + 2 * lv1 + 1, i2:i2 + 2 * lv2 + 1]
                     for mc in range(2 * lc + 1):
                         for m in range(2 * l + 1):
-                            G1c = gaunt[lv1**2:(lv1 + 1)**2,
+                            G1c = G_LLL[lv1**2:(lv1 + 1)**2,
                                         lc**2 + mc, l**2 + m]
-                            G2c = gaunt[lv2**2:(lv2 + 1)**2,
+                            G2c = G_LLL[lv2**2:(lv2 + 1)**2,
                                         lc**2 + mc, l**2 + m]
                             A_mm += nv * np.outer(G1c, G2c)
                 i2 += 2 * lv2 + 1

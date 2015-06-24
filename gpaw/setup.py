@@ -20,10 +20,9 @@ from ase.utils import basestring
 
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
-from gpaw.gaunt import gaunt as G_LLL, Y_LLv
+from gpaw.gaunt import gaunt, nabla
 from gpaw.utilities import unpack, pack
 from gpaw.rotation import rotation
-from gpaw import extra_parameters
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC
 
@@ -362,9 +361,12 @@ class BaseSetup:
             for j2 in range(nj):
                 for j3 in range(nj):
                     for j4 in range(nj):
-                        R_jjjj[j1, j2, j3, j4] = np.dot(r2dr_g,
-                         phi_jg[j1] * phi_jg[j2] * phi_jg[j3] * phi_jg[j4] -
-                         phit_jg[j1] * phit_jg[j2] * phit_jg[j3] * phit_jg[j4])
+                        R_jjjj[j1, j2, j3, j4] = np.dot(
+                            r2dr_g,
+                            phi_jg[j1] * phi_jg[j2] *
+                            phi_jg[j3] * phi_jg[j4] -
+                            phit_jg[j1] * phit_jg[j2] *
+                            phit_jg[j3] * phit_jg[j4])
 
         # prepare for angular parts
         L_i = []
@@ -378,6 +380,8 @@ class BaseSetup:
         # L_i is the list of L (=l**2+m for 0<=m<2*l+1) values
         # https://wiki.fysik.dtu.dk/gpaw/devel/overview.html
 
+        G_LLL = gaunt(max(self.l_j))
+        
         # calculate the integrals
         _np = ni * (ni + 1) // 2  # length for packing
         self.I4_pp = np.empty((_np, _np))
@@ -425,7 +429,7 @@ class LeanSetup(BaseSetup):
         # R_sii and HubU can be changed dynamically (which is ugly)
         self.R_sii = None  # rotations, initialized when doing sym. reductions
         self.HubU = s.HubU  # XXX probably None
-        self.lq  = s.lq  # Required for LDA+U I think.
+        self.lq = s.lq  # Required for LDA+U I think.
         self.type = s.type  # required for writing to file
         self.fingerprint = s.fingerprint  # also req. for writing
         self.filename = s.filename
@@ -590,11 +594,6 @@ class Setup(BaseSetup):
         
         self.HubU = None
 
-        if max(data.l_j) > 2 and not extra_parameters.get('fprojectors'):
-            msg = ('Your %s dataset has f-projectors!  ' % data.symbol +
-                   'Add --gpaw=fprojectors=1 on the command-line.')
-            raise RuntimeError(msg)
-            
         if not data.is_compatible(xc):
             raise ValueError('Cannot use %s setup with %s functional' %
                              (data.setupname, xc.get_setup_name()))
@@ -855,8 +854,8 @@ class Setup(BaseSetup):
                 A_qq -= 0.5 * np.outer(Delta_lq[l],
                                        np.dot(wnt_lqg[l], g_lg[l]))
                 A_qq -= 0.5 * np.outer(np.dot(nt_qg, wg_lg[l]), Delta_lq[l])
-                A_qq -= 0.5 * np.dot(g_lg[l], wg_lg[l]) * \
-                        np.outer(Delta_lq[l], Delta_lq[l])
+                A_qq -= 0.5 * (np.dot(g_lg[l], wg_lg[l]) *
+                               np.outer(Delta_lq[l], Delta_lq[l]))
             A_lqq.append(A_qq)
 
         M_pp = np.zeros((_np, _np))
@@ -882,6 +881,7 @@ class Setup(BaseSetup):
         return -np.dot(dO_ii, np.linalg.inv(np.identity(ni) + xO_ii))
 
     def calculate_T_Lqp(self, lcut, nq, _np, nj, jlL_i):
+        G_LLL = gaunt(max(self.l_j))
         Lcut = (2 * lcut + 1)**2
         T_Lqp = np.zeros((Lcut, nq, _np))
         p = 0
@@ -974,6 +974,9 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
+        G_LLL = gaunt(max(self.l_j))
+        Y_LLv = nabla(max(self.l_j))
+
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         nabla_iiv = np.empty((self.ni, self.ni, 3))
@@ -1019,6 +1022,9 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
+        G_LLL = gaunt(max(self.l_j))
+        Y_LLv = nabla(max(self.l_j))
+        
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         rnabla_iiv = np.zeros((self.ni, self.ni, 3))
@@ -1053,7 +1059,7 @@ class Setup(BaseSetup):
                     rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += f1f2or * G
                 i2 += nm2
             i1 += nm1
-        return (4 * pi / 3 ) * rnabla_iiv
+        return (4 * pi / 3) * rnabla_iiv
 
     def get_magnetic_integrals_new(self, rgd, phi_jg, phit_jg):
         """Calculate PAW-correction matrix elements of r x nabla.

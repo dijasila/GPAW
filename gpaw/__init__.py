@@ -47,7 +47,7 @@ sl_inverse_cholesky = None
 sl_lcao = None
 sl_lrtddft = None
 buffer_size = None
-extra_parameters = {'fprojectors': True}
+extra_parameters = {}
 profile = False
 i = 1
 while len(sys.argv) > i:

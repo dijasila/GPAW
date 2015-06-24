@@ -12,7 +12,7 @@ import ase.units as units
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
 
 from gpaw.xc import XC
-from gpaw.gaunt import make_gaunt
+from gpaw.gaunt import gaunt
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
 
@@ -740,7 +740,7 @@ class AllElectronAtom:
                     if l > lmax:
                         lmax = l
 
-        G_LLL = make_gaunt(lmax)
+        G_LLL = gaunt(lmax)
 
         exx = 0.0
         j1 = 0
