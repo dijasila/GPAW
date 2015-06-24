@@ -393,7 +393,6 @@ class TetrahedronIntegrator(Integrator):
     @timer('Tesselate')
     def tesselate(self, vertices):
         """Get tesselation descriptor."""
-
         td = Delaunay(vertices)
 
         return td
@@ -453,8 +452,8 @@ class TetrahedronIntegrator(Integrator):
             arguments = arguments[:-1]
 
             if not oldargs == arguments:
-                W_MK = self.get_integration_weights(get_eigenvalues, wd, td,
-                                                    arguments)
+                W_MK = self.get_integration_weights(get_eigenvalues,
+                                                    wd, td, arguments)
                 oldargs = arguments
 
             # Integrate values
@@ -478,11 +477,10 @@ class TetrahedronIntegrator(Integrator):
     def get_integration_weights(self, g, wd, td, arguments):
         # The data format for the weights
         W_MK = None
-
         for S, K_k in enumerate(td.simplices):
             vol = self.get_simplex_volume(td, S)
             g_Mk = None
-
+            
             for i, K in enumerate(K_k):
                 k_c = td.points[K]
                 g_M = g(k_c, *arguments)
@@ -493,16 +491,16 @@ class TetrahedronIntegrator(Integrator):
             if W_MK is None:
                 W_MK = [[[None, None] for k in range(len(td.points))]
                         for m in range(len(g_M))]
-
+    
             istart_M, gi_Mw, I_Mkw = self.single_simplex_weight(wd, g_Mk)
             for W_K, istart, gi_w, I_kw in zip(W_MK, istart_M,
                                                gi_Mw, I_Mkw):
-
+    
                 if istart is None:
                     continue
-
+    
                 W_kw = I_kw * gi_w * vol
-
+    
                 with self.timer('Update weights'):
                     for K, W_w in zip(K_k, W_kw):
                         tmpistart = W_K[K][0]
@@ -542,7 +540,7 @@ class TetrahedronIntegrator(Integrator):
                             else:
                                 print(istart, iend, tmpistart, tmpiend)
                                 raise AssertionError
-
+                                
         return W_MK
 
     @timer('Single simplex weight')

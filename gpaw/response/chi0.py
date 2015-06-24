@@ -8,6 +8,8 @@ from ase.units import Hartree
 from ase.utils import devnull
 from ase.utils.timing import timer, Timer
 
+from scipy.spatial import cKDTree
+
 import gpaw.mpi as mpi
 from gpaw import extra_parameters
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor,
@@ -266,11 +268,13 @@ class Chi0:
         td = integrator.tesselate(bzk_kv)
 
         # Integrate interband response
-        kd2 = self.calc.wfs.kd
-        mat_kwargs = {'kd': kd2, 'pd': pd, 'n1': 0,
+        kd = self.calc.wfs.kd
+        self.KDTree = cKDTree(np.mod(kd.bzk_kc, 1))
+
+        mat_kwargs = {'kd': kd, 'pd': pd, 'n1': 0,
                       'n2': self.nocc2, 'm1': m1,
                       'm2': m2, 'symmetry': PWSA}
-        eig_kwargs = {'kd': kd2, 'm1': m1, 'm2': m2, 'n1': 0,
+        eig_kwargs = {'kd': kd, 'm1': m1, 'm2': m2, 'n1': 0,
                       'n2': self.nocc2, 'pd': pd}
         domain = (td, spins)
         integrator.integrate('response_function', domain,
@@ -288,11 +292,11 @@ class Chi0:
         if chi0_wxvG is not None:
             if self.nocc1 != self.nocc2:
                 # Determine plasma frequency
-                mat_kwargs = {'kd': kd2, 'symmetry': PWSA,
+                mat_kwargs = {'kd': kd, 'symmetry': PWSA,
                               'n1': self.nocc1, 'n2': self.nocc2,
                               'pd': pd}
 
-                eig_kwargs = {'kd': kd2, 'n1': self.nocc1,
+                eig_kwargs = {'kd': kd, 'n1': self.nocc1,
                               'n2': self.nocc2, 'pd': pd}
                 domain = (td, spins)
                 fermi_level = self.pair.fermi_level
@@ -388,14 +392,16 @@ class Chi0:
 
         kd = wfs.kd
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
-        K1 = kd.where_is_q(k_c, kd.bzk_kc)
-        ik = kd.bz2ibz_k[K1]
-        kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
-        K2 = kd.where_is_q(k_c + pd.kd.bzk_kc[0], kd.bzk_kc)
-        ik = kd.bz2ibz_k[K2]
-        kpt2 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
-        deps_nm = (kpt2.eps_n[m1:m2][np.newaxis]
-                   - kpt1.eps_n[n1:n2][:, np.newaxis])
+
+        K1 = self.KDTree.query(np.mod(k_c, 1))[1]
+        K2 = self.KDTree.query(np.mod(k_c + pd.kd.bzk_kc[0], 1))[1]
+
+        ik1 = kd.bz2ibz_k[K1]
+        ik2 = kd.bz2ibz_k[K2]
+        kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik1]
+        kpt2 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik2]
+        deps_nm = np.subtract(kpt2.eps_n[m1:m2],
+                              kpt1.eps_n[n1:n2][:, np.newaxis])
 
         return deps_nm.reshape(-1)
 
@@ -408,6 +414,7 @@ class Chi0:
         vel_nv = self.pair.intraband_pair_density(kpt1, n_n)
         return vel_nv
 
+    @timer('Intraband eigenvalue')
     def get_intraband_eigenvalue(self, k_v, s,
                                  n1=None, n2=None, kd=None, pd=None):
         """A function that can return the eigenvalues.
@@ -419,7 +426,7 @@ class Chi0:
         wfs = self.calc.wfs
         kd = wfs.kd
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
-        K1 = kd.where_is_q(k_c, kd.bzk_kc)
+        K1 = self.KDTree.query(np.mod(k_c, 1))[1]
         ik = kd.bz2ibz_k[K1]
         kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
 

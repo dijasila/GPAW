@@ -338,19 +338,17 @@ class PWSymmetryAnalyzer:
                                          U_scc,
                                          False)
 
+        n = 5
+        N_xc = np.indices((n, n, n)).reshape((3, n**3)).T - n // 2
+
         # Find the irreducible kpoints
         tess = Delaunay(ibzk_kc)
         ik_kc = []
-        n = 3
-        N_xc = np.indices((n, n, n)).reshape((3, n**3)).T - n // 2
-        for k_c in self.kd.bzk_kc:
-            k_xc = N_xc + k_c[np.newaxis]
-            for kx_c in k_xc:
-                i = tess.find_simplex(kx_c)
-                if i >= 0:
-                    ik_kc.append(kx_c)
 
-        ik_kc = unique_rows(np.array(ik_kc))
+        k_kc = np.reshape(self.kd.bzk_kc[:, np.newaxis] +
+                          N_xc[np.newaxis], (-1, 3))
+        k_kc = k_kc[tess.find_simplex(k_kc) >= 0]
+        ik_kc = unique_rows(np.array(k_kc))
         
         return KPointDescriptor(ik_kc)
 
