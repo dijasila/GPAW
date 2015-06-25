@@ -1,10 +1,8 @@
 from gpaw.atom.generator import Generator
-from gpaw.atom.configurations import parameters
 from gpaw.atom.basis import BasisMaker
-args = {'core': '[Kr]',   'rcut': 2.45}
-print "Generating setup with following parameters", args
+args = {'core': '[Kr]', 'rcut': 2.45}
 generator = Generator('Ag', 'GLLBSC')
-generator.N *= 2 # Increase grid resolution
+generator.N *= 2 #  Increase grid resolution
 generator.run(**args)
 bm = BasisMaker(generator, name='GLLBSC-dz', run=False)
 basis = bm.generate(zetacount=2, polarizationcount=0,

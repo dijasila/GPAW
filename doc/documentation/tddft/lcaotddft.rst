@@ -293,6 +293,26 @@ For more details, see [#Kuisma2015]_.
 
 .. image:: fig1.png
 
+Induced density
+===============
+
+Plotting the induced density is especially interesting in case of plasmon resonances. As an example, we calculate a dummy Na8 wire and write density to a file on every iteration.
+There is certain advantages in writing the density on every iteration instead of using the predefined frequencies and on-fly Fourier transformation: only one TDDFT run is required as any frequency can be analysed as a post processing operation.
+Hard disk requirements are large, but tolerable (1-100GB) in usual cases.
+
+.. literalinclude:: lcaotddft_induced.py
+
+Files with extensions .sG and .asp are created, where .sG contains the density in coarse grid and .asp contains the atomic density matrix. With these, it is possible to reconstruct the full density.
+This can now be fourier transformed at desired frequency. Here, we look from the produced spectrum file that plasmonic peak, and perform Fourier transform at that frequency.
+
+.. literalinclude:: lcaotddft_analyse.py
+
+Two cube files are created, one for sin (imag) and cos (real) transform at the frequency. Usually, one is interested in the absorbing part i.e. imaginary part. Below is visualized the plasmon resonance
+in Na8 wire.
+
+.. image:: Na8_imag.png
+
+
 Advanced tutorial - large organic molecule
 ==========================================
 
@@ -308,16 +328,13 @@ around the fermi level.
 
 Here, we will calculate a small and a large organic molecule with lcao-tddft.
 
-Induced density
-===============
-
-Here we will obtain the induced density.
+**TODO**
 
 Kohn-Sham decomposition of the transition density matrix
 ========================================================
 
-Here we will analyse the origin of the transitions.
-
+Soon it will be possible to analyse the origin of the transitions the same way as is commonly done in Casida-based codes.
+The LCAO basis will be transformed to electron-hole basis of the Kohn-Sham system.
 
 References
 ==========
