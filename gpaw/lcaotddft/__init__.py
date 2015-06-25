@@ -270,6 +270,7 @@ class LCAOTDDFT(GPAW):
 
             # Parallel grid descriptors
             grid = ksl.blockgrid
+            assert grid.nprow * grid.npcol == self.wfs.ksl.block_comm.size
             # FOR DEBUG
             self.MM_descriptor = grid.new_descriptor(nao, nao, nao, nao)
             self.mm_block_descriptor = grid.new_descriptor(nao, nao, blocksize,
@@ -332,6 +333,12 @@ class LCAOTDDFT(GPAW):
                 gemm(1.0, self.wfs.P_aqMi[a][kpt.q], kpt.C_nM, 0.0, P_ni, 'n')
         self.timer.stop('LCAO update projectors')
 
+    def get_hamiltonian(self, kpt):
+        eig = self.wfs.eigensolver
+        H_MM = eig.calculate_hamiltonian_matrix(self.hamiltonian, self.wfs,
+                                                kpt, root=-1)
+        return H_MM
+
     def save_wfs(self):
         for k, kpt in enumerate(self.wfs.kpt_u):
             kpt.C2_nM[:] = kpt.C_nM
@@ -340,6 +347,60 @@ class LCAOTDDFT(GPAW):
         self.update_projectors()
         self.density.update(self.wfs)
         self.hamiltonian.update(self.density)
+
+    def propagate_single(self, dt):
+        # --------------
+        # Predictor step
+        # --------------
+        # 1. Calculate H(t)
+        self.save_wfs() # kpt.C2_nM = kpt.C_nM
+        # 2. H_MM(t) = <M|H(t)|H>
+        #    Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt) =
+        #                              (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
+
+        for k, kpt in enumerate(self.wfs.kpt_u):
+            if self.fxc is not None:
+                if self.time == 0.0:
+                    kpt.deltaXC_H_MM = self.get_hamiltonian(kpt)
+                    self.hamiltonian.xc = XC(self.fxc)
+                    self.update_hamiltonian()
+                    assert len(self.wfs.kpt_u) == 1
+                    kpt.deltaXC_H_MM -= self.get_hamiltonian(kpt)
+
+        self.update_hamiltonian()
+
+        # Call registered callback functions
+        self.call_observers(self.niter)
+
+        for k, kpt in enumerate(self.wfs.kpt_u):
+            kpt.H0_MM = self.get_hamiltonian(kpt)
+            if self.fxc is not None:
+                kpt.H0_MM += kpt.deltaXC_H_MM
+            self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
+        # ---------------
+        # Propagator step
+        # ---------------
+        # 1. Calculate H(t+dt)
+        self.update_hamiltonian()
+        # 2. Estimate H(t+0.5*dt) ~ H(t) + H(t+dT)
+        for k, kpt in enumerate(self.wfs.kpt_u):
+            kpt.H0_MM *= 0.5
+            if self.fxc is not None:
+                #  Store this to H0_MM and maybe save one extra H_MM of
+                # memory?
+                kpt.H0_MM += 0.5 * (self.get_hamiltonian(kpt)
+                                    + kpt.deltaXC_H_MM)
+            else:
+                #  Store this to H0_MM and maybe save one extra H_MM of
+                # memory?
+                kpt.H0_MM += 0.5 * self.get_hamiltonian(kpt)
+
+            # 3. Solve Psi(t+dt) from
+            # (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
+            #    = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
+            self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM, dt)
+        self.niter += 1
+        self.time += dt
 
     def propagate(self, time_step=10, iterations=2000, out='lcao.dm',
                   dump_interval=50):
@@ -390,67 +451,7 @@ class LCAOTDDFT(GPAW):
                              self.time * autime_to_attosec,
                              log(abs(norm) + 1e-16) / log(10)))
                 self.dm_file.flush()
-
-            # --------------
-            # Predictor step
-            # --------------
-            # 1. Calculate H(t)
-            self.save_wfs() # kpt.C2_nM = kpt.C_nM
-            # 2. H_MM(t) = <M|H(t)|H>
-            #    Solve Psi(t+dt) from (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt) =
-            #                              (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
-
-            eig = self.wfs.eigensolver
-            for k, kpt in enumerate(self.wfs.kpt_u):
-                if self.fxc is not None:
-                    if self.time == 0.0:
-                        kpt.deltaXC_H_MM = eig.calculate_hamiltonian_matrix(\
-                            self.hamiltonian, self.wfs, kpt, root=-1)
-                        self.hamiltonian.xc = XC(self.fxc)
-                        self.update_hamiltonian()
-                        assert len(self.wfs.kpt_u) == 1
-                        kpt.deltaXC_H_MM -= eig.calculate_hamiltonian_matrix(\
-                            self.hamiltonian, self.wfs, kpt, root=-1)
-
-            self.update_hamiltonian()
-
-            # Call registered callback functions
-            self.call_observers(self.niter)
-
-            for k, kpt in enumerate(self.wfs.kpt_u):
-                kpt.H0_MM = eig.calculate_hamiltonian_matrix(\
-                    self.hamiltonian, self.wfs, kpt, root=-1)
-                if self.fxc is not None:
-                    kpt.H0_MM += kpt.deltaXC_H_MM
-                self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
-                                   self.time_step)
-            # ---------------
-            # Propagator step
-            # ---------------
-            # 1. Calculate H(t+dt)
-            self.update_hamiltonian()
-            # 2. Estimate H(t+0.5*dt) ~ H(t) + H(t+dT)
-            for k, kpt in enumerate(self.wfs.kpt_u):
-                kpt.H0_MM *= 0.5
-                if self.fxc is not None:
-                    #  Store this to H0_MM and maybe save one extra H_MM of
-                    # memory?
-                    kpt.H0_MM += 0.5 * (eig.calculate_hamiltonian_matrix( \
-                                            self.hamiltonian, self.wfs, kpt,
-                                            root=-1) + kpt.deltaXC_H_MM)
-                else:
-                    #  Store this to H0_MM and maybe save one extra H_MM of
-                    # memory?
-                    kpt.H0_MM += 0.5 * eig.calculate_hamiltonian_matrix( \
-                        self.hamiltonian, self.wfs, kpt, root=-1)
-
-                # 3. Solve Psi(t+dt) from
-                # (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
-                #    = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
-                self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
-                                   self.time_step)
-            self.niter += 1
-            self.time += self.time_step
+            self.propagate_single(self.time_step)
             
         self.call_observers(self.niter, final=True)
         if self.wfs.world.rank == 0:
