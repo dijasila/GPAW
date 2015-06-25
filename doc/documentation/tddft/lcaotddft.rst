@@ -1,25 +1,61 @@
 .. _lcaotddft:
 
-================================
-Time-propagation TDDFT with LCAO
-================================
-
-**Work in progress!!!!!!!!!!**
+=========================================
+Time-propagation TDDFT with LCAO : Theory
+=========================================
 
 This page documents the use of time-propagation TDDFT in :ref:`LCAO
 mode <lcao>`. The implementation is described in [#Kuisma2015]_.
 
+Real time propagation of LCAO-functions
+=======================================
 
+In real time LCAO-TDDFT approach, the time-dependent wave functions are represented using localized basis sets as
 
-TODO: after which version the code works?
+.. math::
 
-Usage
-=====
+  \tilde{\Psi(\mathbf{r},t)} = \sum_{\mu} C_{\mu i}(t) \tilde{\phi}(\mathbf{r}-\mathbf{R}^\mu)}.
+
+The TD-Kohn-Sham equation in PAW formalism can be written as
+
+.. math::
+
+  \left[ \widehat T^\dagger \left( -i \frac{{\rm d}}{{\rm d}t} + \hat H_{\rm KS}(t) \right) \widehat T \right]  \tilde{\Psi(\mathbf{r},t)} = 0.
+
+Using these equations, following matrix equation can be derived for LCAO wave function coefficients
+
+.. math::
+  {\rm i}\mathbf{S} \frac{{\rm d}\mathbf{C}(t)}{{\rm d}t} = \mathbf{H}(t) \mathbf{C}(t).
+
+In current implementation in GPAW, C, S and H are full matrices, which are parellelized using ScaLAPACK.
+Currently semi implicit Crank-Nicholson method (SICN) is used to propagate wave functions. For wave functions at time t, 
+one propagates the system forward using H(t) and solving a linear equation
+
+.. math::
+
+  \left( \mathbf{S} + i H(t) dt / 2 \right) C'(t+dt) = \left( S - i H(t) dt / 2 \right) C(t)
+
+Using the predicted wave functions at C'(t+dt), the Hamiltonian H'(t+dt) is calculated and the
+Hamiltonian at middle of the time step is estimated as
+
+.. math::
+
+   H(t+dt/2) = (H(t) + H'(t+dt)) / 2
+
+With the improved Hamiltonian, have functions are again propagated from t to t+dt
+
+  \left( \mathbf{S} + i H(t+dt/2) dt / 2 \right) C(t+dt) = \left( S - i H(t+dt/2) dt / 2 \right) C(t)
+
+This procedure is repeated using time step of 5-40as and for 500-2000 times to obtain time evolution of electrons.
+
+========================================
+Time-propagation TDDFT with LCAO : Usage
+========================================
 
 Create LCAOTDDFT object like a GPAW calculator::
 
  >>> from gpaw.lcaotddft import LCAOTDDFT
- >>> td_calc = LCAOTDDFT(setups={'Na':'1'}, basis='1.dzp', xc='oldLDA', h=0.3, nbands=1,
+ >>> td_calc = LCAOTDDFT(setups={'Na':'1'}, basis='1.dzp', xc='LDA', h=0.3, nbands=1,
                          convergence={'density':1e-7},
                          poissonsolver=PoissonSolver(eps=1e-20, remove_moment=1+3+5))
 
