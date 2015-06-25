@@ -1,4 +1,10 @@
 from __future__ import print_function
+import sys
+
+from ase.dft.dos import DOS
+
+from gpaw import GPAW
+
 
 def dos(filename, plot=False, output='dos.csv', width=0.1):
     """Calculate density of states.
@@ -12,8 +18,6 @@ def dos(filename, plot=False, output='dos.csv', width=0.1):
     width: float
         Width of Gaussians.
     """
-    from gpaw import GPAW
-    from ase.dft.dos import DOS
     calc = GPAW(filename, txt=None)
     dos = DOS(calc, width)
     D = [dos.get_dos(spin) for spin in range(calc.get_number_of_spins())]
