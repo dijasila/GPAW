@@ -278,10 +278,15 @@ require 5p orbitals in the basis set, and thus, we must generate a custom basis
 set.
 
 Here is how to generate a double-zeta basis set with 5p orbital in valence for 
-Silver for GLLB-SC potential
+Silver for GLLB-SC potential. We will use GPAW 0.8 setup definition, since semi-core p states are not relevant here.
 
 .. literalinclude:: lcaotddft_basis.py
 
+We calculate the icosahedral Ag55 cluster: :download:`ag55.xyz`
+
+This code uses ScaLAPACK parallelization with 64 cores.
+
+.. literalinclude:: lcaotddft_ag55.py
 
 Advanced tutorial - large organic molecule
 ==========================================
