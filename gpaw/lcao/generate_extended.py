@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 
@@ -114,7 +115,7 @@ def main():
         else:
             raise ValueError('Strange setup specification')
 
-        type = 'dz' # XXXXXXXXX
+        type = 'dz'  # XXXXXXXXX
         bm = BasisMaker(sym, '%s.%s' % (name, type),
                         run=False, gtxt=gtxt, xc=opts.xc)
         bm.generator.run(write_xml=False, use_restart_file=False, **p[sym])
