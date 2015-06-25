@@ -126,7 +126,7 @@ keyword            type       default value        description
                                                    or :ref:`dipole correction
                                                    <manual_dipole_correction>`
                                                    or :ref:`Advanced Poisson 
-                                                   solver <advanced_poisson>`
+                                                   solver <advancedpoisson>`
 ``communicator``   Object                          :ref:`manual_communicator`
 ``idiotproof``     ``bool``   ``True``             Set to ``False`` to ignore
                                                    setup fingerprint mismatch
