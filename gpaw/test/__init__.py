@@ -561,6 +561,11 @@ class TestRunner:
             self.register_skipped(test, t0)
             return exitcode_skip
 
+        dirname = test[:-3]
+        os.makedirs(dirname)
+        cwd = os.getcwd()
+        os.chdir(dirname)
+
         try:
             setup_paths[:] = self.setup_paths
             loc = {}
@@ -588,6 +593,8 @@ class TestRunner:
                 tb = traceback.format_exc()
         except Exception:
             tb = traceback.format_exc()
+        finally:
+            os.chdir(cwd)
 
         mpi.ibarrier(timeout=60.0)  # guard against parallel hangs
 
