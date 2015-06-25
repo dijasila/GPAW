@@ -33,12 +33,16 @@ Development version in trunk
   be used to calculate forces to a given precision.
 
 * Fixed bug in printing work functions for calculations with a
-  dipole-correction `<http://listserv.fysik.dtu.dk/pipermail/gpaw-users/2015-February/003226.html>`_.
+  dipole-correction `<http://listserv.fysik.dtu.dk/pipermail/
+  gpaw-users/2015-February/003226.html>`_.
 
 * A :ref:`continuum solvent model <continuum_solvent_model>` was added.
 
 * Orbital-free DFT with PAW transformation is available.
 
+* GPAW can now perform :ref:`electrodynamics` simulations using quasistatic
+  finite-difference time-domain (QSFDTD) method.
+  
 * Support for Python 3.
 
 
