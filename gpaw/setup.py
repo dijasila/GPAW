@@ -1319,9 +1319,8 @@ class Setups(list):
         for a, _type in enumerate(type_a):
             # Make basis files correspond to setup files.
             #
-            # If the setup has a name (i.e. non-default _type), and the
-            # basis set does not, then inherit the name from the setup
-            # by prepending it.
+            # If the setup has a name (i.e. non-default _type), then
+            # prepend that name to the basis name.
             #
             # Typically people might specify '11' as the setup but just
             # 'dzp' for the basis set.  Here we adjust to
@@ -1334,19 +1333,23 @@ class Setups(list):
             # Due to the "szp(dzp)" syntax this is complicated!
             # The name has to go as "szp(name.dzp)".
             basis = basis_a[a]
-            if (isinstance(basis, basestring) and isinstance(_type, basestring)
-                and _type != 'paw' and '.' not in basis):
+            if isinstance(basis, basestring):
+                if isinstance(_type, basestring):
+                    setupname = _type
+                else:
+                    setupname = _type.name  # _type is an object like SetupData
                 # Drop DFT+U specification from type string if it is there:
-                _type = _type.split(':')[0]
-                if _type:
-                    if '(' in basis:
-                        reduced, name = basis.split('(')
-                        assert name.endswith(')')
-                        name = name[:-1]
-                        fullname = '%s(%s.%s)' % (reduced, _type, name)
-                    else:
-                        fullname = '%s.%s' % (_type, basis_a[a])
-                    basis_a[a] = fullname
+                setupname = setupname.split(':')[0]
+                if setupname != 'paw':
+                    if setupname:
+                        if '(' in basis:
+                            reduced, name = basis.split('(')
+                            assert name.endswith(')')
+                            name = name[:-1]
+                            fullname = '%s(%s.%s)' % (reduced, setupname, name)
+                        else:
+                            fullname = '%s.%s' % (setupname, basis_a[a])
+                        basis_a[a] = fullname
 
         # Construct necessary PAW-setup objects:
         self.setups = {}
@@ -1426,6 +1429,9 @@ def types2atomtypes(symbols, types, default):
 
     # First symbols ...
     for symbol, type in types.items():
+        # Types are given either by strings or they are objects that
+        # have a 'symbol' attribute (SetupData, Pseudopotential, Basis, etc.).
+        assert isinstance(type, str) or hasattr(type, 'symbol')
         if isinstance(symbol, str):
             for a, symbol2 in enumerate(symbols):
                 if symbol == symbol2:

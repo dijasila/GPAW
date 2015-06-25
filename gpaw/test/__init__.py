@@ -134,6 +134,7 @@ tests = [
     'harmonic.py',
     'proton.py',
     'atoms_mismatch.py',
+    'setup_basis_spec.py',
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'lcao_density.py',                      # ~1s
