@@ -388,32 +388,31 @@ def search_for_file(name, world=None):
     Returns the file path and file contents.  If the file is not
     found, raises RuntimeError."""
 
-    if world is not None and world.size > 1:
+    if world is None or world.rank == 0:
+        source = None
+        filename = None
+        for path in setup_paths:
+            pattern = os.path.join(path, name)
+            filenames = glob(pattern) + glob('%s.gz' % pattern)
+            if filenames:
+                # The globbing is a hack to grab the 'newest' version if
+                # the files are somehow version numbered; then we want the
+                # last/newest of the results (used with SG15).  (User must
+                # instantiate (UPF)SetupData directly to override.)
+                filename = max(filenames)
+                assert has_gzip  # Which systems do not have the gzip module?
+                if filename.endswith('.gz'):
+                    fd = gzip.open(filename)
+                else:
+                    fd = open(filename, 'rb')
+                source = fd.read()
+                break
+
+    if world is not None: 
         if world.rank == 0:
-            filename, source = search_for_file(name)
             broadcast((filename, source), 0, world)
         else:
             filename, source = broadcast(None, 0, world)
-        return filename, source
-
-    source = None
-    filename = None
-    for path in setup_paths:
-        pattern = os.path.join(path, name)
-        filenames = glob(pattern) + glob('%s.gz' % pattern)
-        if filenames:
-            # The globbing is a hack to grab the 'newest' version if
-            # the files are somehow version numbered; then we want the
-            # last/newest of the results (used with SG15).  (User must
-            # instantiate (UPF)SetupData directly to override.)
-            filename = max(filenames)
-            assert has_gzip  # Which systems do not have the gzip module?
-            if filename.endswith('.gz'):
-                fd = gzip.open(filename)
-            else:
-                fd = open(filename, 'rb')
-            source = fd.read()
-            break
 
     if source is None:
         if name.endswith('basis'):
