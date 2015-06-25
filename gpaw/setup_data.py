@@ -408,7 +408,7 @@ def search_for_file(name, world=None):
                 source = fd.read()
                 break
 
-    if world is not None: 
+    if world is not None:
         if world.rank == 0:
             broadcast((filename, source), 0, world)
         else:
@@ -441,9 +441,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         if source is None:
             setup.filename, source = search_for_file(setup.stdfilename, world)
 
-        
         setup.fingerprint = hashlib.md5(source).hexdigest()
-        
+
         # XXXX There must be a better way!
         # We don't want to look at the dtd now.  Remove it:
         source = re.compile(b'<!DOCTYPE .*?>', re.DOTALL).sub(b'', source, 1)
