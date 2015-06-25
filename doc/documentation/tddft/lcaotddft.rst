@@ -15,7 +15,7 @@ represented using localized basis sets as
 
 .. math::
 
-  \tilde{\Psi(\mathbf{r},t)} = \sum_{\mu} C_{\mu i}(t) \tilde{\phi}(\mathbf{r}-\mathbf{R}^\mu).
+  \tilde{\Psi}_i(\mathbf{r},t) = \sum_{\mu} C_{\mu i}(t) \tilde{\phi}^{\mu}(\mathbf{r}-\mathbf{R}^\mu).
 
 The TD-Kohn-Sham equation in PAW formalism can be written as
 
@@ -109,8 +109,7 @@ need, and then benchmarked.
 results with respect to grid time-propagation code** on a largest system 
 possible. For example, one can create a prototype system, which consists of 
 similar atom species with similar roles than in the parent system, but small 
-enough to calculate with grid propagation mode. Example will be given in advanced 
-tutorial.
+enough to calculate with grid propagation mode. For example, in relevance of benchmarking the basis set, see Fig. 4 and 5 of [#Kuisma2015]_.
 
 After these remarks, we describe two sets of basis sets that can be used as a 
 starting point for choosing suitable basis set for your needs. Namely, 
@@ -321,8 +320,8 @@ Advanced tutorial - large organic molecule
 General notes
 -------------
 
-On large organic molecules, on large conjugated systems, there will`\pi 
-\rightarrow \pi^*`, `\sigma \rightarrow \sigma^*`. These states consists of only 
+On large organic molecules, on large conjugated systems, there will `\pi \rightarrow \pi^*`, 
+`\sigma \rightarrow \sigma^*`. These states consists of only 
 the valence orbitals of carbon, and they are likely by quite similar few eV's 
 below and above the fermi lavel. These is thus a reason to believe that these 
 states are well described with hydrogen 1s and carbon 2s and 2p valence orbitals 
