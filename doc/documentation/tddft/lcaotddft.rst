@@ -79,7 +79,7 @@ If you wish to save here, write the wave functions also::
 
 The calculation proceeds as in grid mode. We kick the system to x-direction and propagate with 10as time steps for 500 steps::
 
- >>> td_calc.kick([1e-5, 0.0, 0.0])
+ >>> td_calc.absorption_kick([1e-5, 0.0, 0.0])
  >>> td_calc.propagate(10, 500, out='Na2.dm')
 
 The spectrum is obtained in same manner, as in grid propagation mode.
@@ -136,7 +136,12 @@ For further details of the basis sets, as well as their construction and perform
 Parallelization
 ===============
 
-TODO.
+LCAO-TDDFT is parallelized using ScaLAPACK. It runs without scalapack, but in this case only single core is used for linear alrebra.
+
+ * ScaLAPACK can be enabled by specifying --sl_default=N,M,64 in command line.
+ * Alternatively, use parallization={'sl_default':(N,M,64)}.
+ * It is necessary that N*M equals to total number of cores and max(N,M)*64 < nbands. 64 can be changed to 16 if necessary.
+ * Apart from parallelization of linear algrebra, normal domain and band parallelizations can be used. As in LCAO-mode usually, use band parallelization to reduce memory consumption.
 
 PoissonSolver
 =============
@@ -149,6 +154,9 @@ However, in LCAO approach
 large vacuum size is often unnecessary. Thus, to avoid using large vacuum sizes but get converged
 potential, one can use two approaches or their combination: 1) use multipole moment corrections or 2) solve Poisson 
 equation on a extended grid. These two approaches are implemented in ``ExtendedPoissonSolver``.
+Also regular PoissonSolver in GPAW has the option remove_moment.
+
+In any nano-particle plasmonics calculation, it is necessary to use multipole correction. Without corrections more than 10Å of vacuum is required for converged results.
 
 Multipole moment corrections
 ----------------------------
@@ -234,7 +242,6 @@ One should think what type of transitions is there of interest, and make sure th
 represent such Kohn-Sham electron and hole wave functions. The first transitions in silver
 cluster will be `5s \rightarrow 5p` like. We require 5p orbitals in the basis set, and thus, we must
 generate a custom basis set.
-
 
 
 Advanced tutorial - large organic molecule
