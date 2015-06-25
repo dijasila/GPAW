@@ -4,6 +4,3 @@ def agts(queue):
     queue.add('lcaotddft_fig1.py', deps=[ag55], creates='fig1.png')
     induced = queue.add('lcaotddft_induced.py', ncpus=4, walltime=60)
     queue.add('lcaotddft_analyse.py', deps=[induced], ncpus=1, walltime=15)
-
-
-
