@@ -562,7 +562,9 @@ class TestRunner:
             return exitcode_skip
 
         dirname = test[:-3]
-        os.makedirs(dirname)
+        if mpi.rank == 0:
+            os.makedirs(dirname)
+        mpi.world.barrier()
         cwd = os.getcwd()
         os.chdir(dirname)
 
