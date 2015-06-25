@@ -15,6 +15,8 @@ chosen basis.
 
 The sections below explain briefly how LCAO mode works, how to
 generate basis sets and how to use them in calculations.
+LCAO Mode is available for TD-DFT via 
+:ref:`LCAOTDDFT <lcaotddft>` module.
 
 Introduction
 ------------
