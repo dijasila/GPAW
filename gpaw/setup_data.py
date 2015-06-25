@@ -414,6 +414,19 @@ def search_for_file(name, world=None):
                 fd = open(filename, 'rb')
             source = fd.read()
             break
+
+    if source is None:
+        if name.endswith('basis'):
+            _type = 'basis set'
+        else:
+            _type = 'PAW dataset'
+        err = 'Could not find required %s file "%s".' % (_type, name)
+        helpful_message = """
+You need to set the GPAW_SETUP_PATH environment variable to point to
+the directories where setup and basis files are stored.  See
+http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
+        raise RuntimeError('%s\n%s' % (err, helpful_message))
+
     return filename, source
 
 
@@ -429,14 +442,6 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         if source is None:
             setup.filename, source = search_for_file(setup.stdfilename, world)
 
-        if source is None:
-            err = ('Could not find %s-setup for "%s".' %
-                   (setup.name + '.' + setup.setupname, setup.symbol))
-            helpful_message = """
-You need to set the GPAW_SETUP_PATH environment variable to point to
-the directory where the setup files are stored.  See
-http://wiki.fysik.dtu.dk/gpaw/install/installationguide.html for details."""
-            raise RuntimeError('%s\n%s' % (err, helpful_message))
         
         setup.fingerprint = hashlib.md5(source).hexdigest()
         

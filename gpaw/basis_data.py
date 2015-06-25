@@ -193,17 +193,6 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
         fullname = '%s.%s.basis' % (basis.symbol, name)
         if filename is None:
             basis.filename, source = search_for_file(fullname, world=world)
-            if source is None:
-                print("""
-You need to set the GPAW_SETUP_PATH environment variable to point to
-the directory where the basis set files are stored.  See
-
-  http://wiki.fysik.dtu.dk/gpaw/Setups
-
-for details.""")
-
-                raise RuntimeError('Could not find "%s" basis for "%s".' %
-                                   (name, basis.symbol))
         else:
             basis.filename = filename
             source = open(filename, 'rb').read()
