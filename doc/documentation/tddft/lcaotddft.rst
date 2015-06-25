@@ -288,6 +288,11 @@ This code uses ScaLAPACK parallelization with 64 cores.
 
 .. literalinclude:: lcaotddft_ag55.py
 
+Code runs for approximately two wall hours. The resulting spectrum shows already emerging plasmonic excitation around 4 eV.
+For more details, see [#Kuisma2015]_.
+
+.. image:: fig1.png
+
 Advanced tutorial - large organic molecule
 ==========================================
 
