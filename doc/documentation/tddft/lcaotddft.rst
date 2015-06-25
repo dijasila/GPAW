@@ -15,7 +15,7 @@ represented using localized basis sets as
 
 .. math::
 
-  \tilde{\Psi(\mathbf{r},t)} = \sum_{\mu} C_{\mu i}(t) \tilde{\phi}(\mathbf{r}-\mathbf{R}^\mu)}.
+  \tilde{\Psi(\mathbf{r},t)} = \sum_{\mu} C_{\mu i}(t) \tilde{\phi}(\mathbf{r}-\mathbf{R}^\mu).
 
 The TD-Kohn-Sham equation in PAW formalism can be written as
 
@@ -36,18 +36,20 @@ propagates the system forward using H(t) and solving a linear equation
 
 .. math::
 
-  \left( \mathbf{S} + i H(t) dt / 2 \right) C'(t+dt) = \left( S - i H(t) dt / 2 \right) C(t)
+  \left( \mathbf{S} + {\rm i} H(t) {\rm d}t / 2 \right) C'(t+{\rm d}t) = \left( S - {\rm i} H(t) {\rm d}t / 2 \right) C(t)
 
 Using the predicted wave functions at C'(t+dt), the Hamiltonian H'(t+dt) is 
 calculated and the Hamiltonian at middle of the time step is estimated as
 
 .. math::
 
-   H(t+dt/2) = (H(t) + H'(t+dt)) / 2
+   H(t+{\rm d}t/2) = (H(t) + H'(t+{\rm d}t)) / 2
 
 With the improved Hamiltonian, have functions are again propagated from t to t+dt
 
-  \left( \mathbf{S} + i H(t+dt/2) dt / 2 \right) C(t+dt) = \left( S - i H(t+dt/2) dt / 2 \right) C(t)
+.. math::
+
+  \left( \mathbf{S} + {\rm i} H(t+{\rm d}t/2) {\rm d}t / 2 \right) C(t+{\rm d}t) = \left( S - {\rm i} H(t+{\rm d}t/2) {\rm d}t / 2 \right) C(t)
 
 This procedure is repeated using time step of 5-40as and for 500-2000 times to 
 obtain time evolution of electrons.
@@ -308,7 +310,7 @@ This can now be fourier transformed at desired frequency. Here, we look from the
 .. literalinclude:: lcaotddft_analyse.py
 
 Two cube files are created, one for sin (imag) and cos (real) transform at the frequency. Usually, one is interested in the absorbing part i.e. imaginary part. Below is visualized the plasmon resonance
-in Na8 wire.
+in Na8 wire. In the current form, these cube files contain just the pseudo part of density.
 
 .. image:: Na8_imag.png
 
