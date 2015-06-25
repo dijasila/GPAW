@@ -386,7 +386,7 @@ def search_for_file(name, world=None):
     """Traverse gpaw setup paths to find file.
 
     Returns the file path and file contents.  If the file is not
-    found, contents will be None."""
+    found, raises RuntimeError."""
 
     if world is not None and world.size > 1:
         if world.rank == 0:
