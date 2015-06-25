@@ -19,8 +19,9 @@ Development version in trunk
 * Norm-conserving :ref:`SG15 pseudopotentials <manual_setups>` and
   parser for several dialects of the UPF format.
 
-* Non-selfconsistent spin-orbit coupling have been added. See tutorial 
-  for examples of band structure calculations with spin-orbit coupling.
+* Non-selfconsistent spin-orbit coupling have been added. See :ref:`tutorial
+  <spinorbit>` for examples of band structure calculations with spin-orbit
+  coupling.
 
 * New :ref:`symmetry <manual_symmetry>` keyword.  Replaces ``usesymm``.
 
@@ -37,6 +38,9 @@ Development version in trunk
 * A :ref:`continuum solvent model <continuum_solvent_model>` was added.
 
 * Orbital-free DFT with PAW transformation is available.
+
+* Support for Python 3.
+
 
 Version 0.10.0
 ==============
