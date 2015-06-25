@@ -182,6 +182,12 @@ class SimpleStm(STM):
         """
         return 0.0002 * sqrt(current)
 
+    def linescan(self, bias, current, p1, p2, npoints=50, z0=None):
+        """Line scan for a given current [nA]"""
+        return STM.linescan(self, bias, 
+                            self.current_to_density(current),
+                            p1, p2, npoints, z0)
+
     def density_to_current(self, density):
         return 5000. * density ** 2
 
