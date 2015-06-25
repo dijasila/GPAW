@@ -17,6 +17,7 @@ from config import (check_packages, get_system_config, get_parallel_config,
 
 
 # Get the current version number:
+version_base = None
 try:
     # Write gpaw/svnversion.py and get svnversion:
     exec(open('gpaw/svnversion_io.py').read())

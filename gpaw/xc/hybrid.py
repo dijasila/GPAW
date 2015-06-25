@@ -70,6 +70,7 @@ class HybridXCBase(XCFunctional):
     def get_setup_name(self):
         return 'PBE'
 
+        
 class HybridXC(HybridXCBase):
     def __init__(self, name, hybrid=None, xc=None,
                  finegrid=False, unocc=False):
@@ -87,7 +88,7 @@ class HybridXC(HybridXCBase):
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
         return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
-                                 addcoredensity, a)
+                                                addcoredensity, a)
     
     def initialize(self, density, hamiltonian, wfs, occupations):
         assert wfs.kd.gamma
@@ -178,10 +179,10 @@ class HybridXC(HybridXCBase):
                 nt_G, rhot_g = self.calculate_pair_density(n1, n2, psit_nG,
                                                            P_ani)
                 vt_g[:] = 0.0
-                iter = self.poissonsolver.solve(vt_g, -rhot_g,
-                                                charge=-float(n1 == n2),
-                                                eps=1e-12,
-                                                zero_initial_phi=True)
+                self.poissonsolver.solve(vt_g, -rhot_g,
+                                         charge=-float(n1 == n2),
+                                         eps=1e-12,
+                                         zero_initial_phi=True)
                 vt_g *= hybrid
 
                 if self.gd is self.finegd:
@@ -232,7 +233,7 @@ class HybridXC(HybridXCBase):
                 dH_p = dH_asp[a][kpt.s]
             
             # Get atomic density and Hamiltonian matrices
-            D_p  = self.density.D_asp[a][kpt.s]
+            D_p = self.density.D_asp[a][kpt.s]
             D_ii = unpack2(D_p)
             ni = len(D_ii)
             
@@ -352,13 +353,13 @@ def atomic_exact_exchange(atom, type='all'):
     if type == 'all':
         nstates = mstates = range(Nj)
     else:
-        Njcore = core_states(atom.symbol) # The number of core orbitals
+        Njcore = core_states(atom.symbol)  # The number of core orbitals
         if type == 'val-val':
             nstates = mstates = range(Njcore, Nj)
         elif type == 'core-core':
             nstates = mstates = range(Njcore)
         elif type == 'val-core':
-            nstates = range(Njcore,Nj)
+            nstates = range(Njcore, Nj)
             mstates = range(Njcore)
         else:
             raise RuntimeError('Unknown type of exchange: ', type)
@@ -378,8 +379,8 @@ def atomic_exact_exchange(atom, type='all'):
             l2 = atom.l_j[j2]
 
             # joint occupation number
-            f12 = .5 * atom.f_j[j1] / (2. * l1 + 1) * \
-                       atom.f_j[j2] / (2. * l2 + 1)
+            f12 = 0.5 * (atom.f_j[j1] / (2. * l1 + 1) *
+                         atom.f_j[j2] / (2. * l2 + 1))
 
             # electron density times radius times length element
             nrdr = atom.u_j[j1] * atom.u_j[j2] * atom.dr
@@ -395,7 +396,9 @@ def atomic_exact_exchange(atom, type='all'):
 
                 # take all m1 m2 and m values of Gaunt matrix of the form
                 # G(L1,L2,L) where L = {l,m}
-                G2 = G_LLL[l1**2:(l1+1)**2, l2**2:(l2+1)**2, l**2:(l+1)**2]**2
+                G2 = G_LLL[l1**2:(l1 + 1)**2,
+                           l2**2:(l2 + 1)**2,
+                           l**2:(l + 1)**2]**2
 
                 # add to total potential
                 vr += vrl * np.sum(G2)
@@ -404,7 +407,8 @@ def atomic_exact_exchange(atom, type='all'):
             Exx += -.5 * f12 * np.dot(vr, nrdr)
 
     # double energy if mixed contribution
-    if type == 'val-core': Exx *= 2.
+    if type == 'val-core':
+        Exx *= 2.
 
     # return exchange energy
     return Exx
@@ -419,17 +423,17 @@ def constructX(gen):
     # initialize attributes
     uv_j = gen.vu_j    # soft valence states * r:
     lv_j = gen.vl_j    # their repective l quantum numbers
-    Nvi  = 0
+    Nvi = 0
     for l in lv_j:
         Nvi += 2 * l + 1   # total number of valence states (including m)
 
     # number of core and valence orbitals (j only, i.e. not m-number)
     Njcore = gen.njcore
-    Njval  = len(lv_j)
+    Njval = len(lv_j)
 
     # core states * r:
     uc_j = gen.u_j[:Njcore]
-    r, dr, N, beta = gen.r, gen.dr, gen.N, gen.beta
+    r, dr, N = gen.r, gen.dr, gen.N
 
     # potential times radius
     vr = np.zeros(N)
@@ -497,7 +501,8 @@ def H_coulomb_val_core(paw, u=0):
         ij   //       --          |r - r'|
                       k
     """
-    H_nn = np.zeros((paw.wfs.bd.nbands, paw.wfs.bd.nbands), dtype=paw.wfs.dtype)
+    H_nn = np.zeros((paw.wfs.bd.nbands, paw.wfs.bd.nbands),
+                    dtype=paw.wfs.dtype)
     for a, P_ni in paw.wfs.kpt_u[u].P_ani.items():
         X_ii = unpack(paw.wfs.setups[a].X_p)
         H_nn += np.dot(P_ni.conj(), np.dot(X_ii, P_ni.T))
