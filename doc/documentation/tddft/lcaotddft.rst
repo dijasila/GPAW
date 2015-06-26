@@ -10,7 +10,7 @@ mode <lcao>`. The implementation is described in [#Kuisma2015]_.
 Real time propagation of LCAO-functions
 =======================================
 
-In real time LCAO-TDDFT approach, the time-dependent wave functions are 
+In real time LCAO-TDDFT approach, the time-dependent wave functions are
 represented using localized basis sets as
 
 .. math::
@@ -23,22 +23,22 @@ The TD-Kohn-Sham equation in PAW formalism can be written as
 
   \left[ \widehat T^\dagger \left( -i \frac{{\rm d}}{{\rm d}t} + \hat H_{\rm KS}(t) \right) \widehat T \right]  \tilde{\Psi(\mathbf{r},t)} = 0.
 
-Using these equations, following matrix equation can be derived for LCAO wave 
+Using these equations, following matrix equation can be derived for LCAO wave
 function coefficients
 
 .. math::
   {\rm i}\mathbf{S} \frac{{\rm d}\mathbf{C}(t)}{{\rm d}t} = \mathbf{H}(t) \mathbf{C}(t).
 
-In current implementation in GPAW, C, S and H are full matrices, which are 
-parellelized using ScaLAPACK. Currently semi implicit Crank-Nicholson method 
-(SICN) is used to propagate wave functions. For wave functions at time t, one 
+In current implementation in GPAW, C, S and H are full matrices, which are
+parellelized using ScaLAPACK. Currently semi implicit Crank-Nicholson method
+(SICN) is used to propagate wave functions. For wave functions at time t, one
 propagates the system forward using H(t) and solving a linear equation
 
 .. math::
 
   \left( \mathbf{S} + {\rm i} H(t) {\rm d}t / 2 \right) C'(t+{\rm d}t) = \left( S - {\rm i} H(t) {\rm d}t / 2 \right) C(t)
 
-Using the predicted wave functions at C'(t+dt), the Hamiltonian H'(t+dt) is 
+Using the predicted wave functions at C'(t+dt), the Hamiltonian H'(t+dt) is
 calculated and the Hamiltonian at middle of the time step is estimated as
 
 .. math::
@@ -51,7 +51,7 @@ With the improved Hamiltonian, have functions are again propagated from t to t+d
 
   \left( \mathbf{S} + {\rm i} H(t+{\rm d}t/2) {\rm d}t / 2 \right) C(t+{\rm d}t) = \left( S - {\rm i} H(t+{\rm d}t/2) {\rm d}t / 2 \right) C(t)
 
-This procedure is repeated using time step of 5-40as and for 500-2000 times to 
+This procedure is repeated using time step of 5-40as and for 500-2000 times to
 obtain time evolution of electrons.
 
 =====
@@ -99,20 +99,20 @@ Simple run script
 General notes about basis sets
 ==============================
 
-In time-propagation LCAO-TDDFT, the basis sets are in even more crucial role than 
-in a ground state LCAO calculation. It is required, that basis set can represent 
-both the occupied (electrons) and relevant unoccupied states (holes) adequately. 
-Custom basis sets for the time propagation should be generated according to ones 
+In time-propagation LCAO-TDDFT, the basis sets are in even more crucial role than
+in a ground state LCAO calculation. It is required, that basis set can represent
+both the occupied (electrons) and relevant unoccupied states (holes) adequately.
+Custom basis sets for the time propagation should be generated according to ones
 need, and then benchmarked.
 
-**Irrespective of the basis sets you choose, ALWAYS, ALWAYS, benchmark LCAO 
-results with respect to grid time-propagation code** on a largest system 
-possible. For example, one can create a prototype system, which consists of 
-similar atom species with similar roles than in the parent system, but small 
+**Irrespective of the basis sets you choose, ALWAYS, ALWAYS, benchmark LCAO
+results with respect to grid time-propagation code** on a largest system
+possible. For example, one can create a prototype system, which consists of
+similar atom species with similar roles than in the parent system, but small
 enough to calculate with grid propagation mode. For example, in relevance of benchmarking the basis set, see Fig. 4 and 5 of [#Kuisma2015]_.
 
-After these remarks, we describe two sets of basis sets that can be used as a 
-starting point for choosing suitable basis set for your needs. Namely, 
+After these remarks, we describe two sets of basis sets that can be used as a
+starting point for choosing suitable basis set for your needs. Namely,
 :ref:`pvalence basis sets` and :ref:`coopt basis sets`.
 
 .. _pvalence basis sets:
@@ -120,15 +120,15 @@ starting point for choosing suitable basis set for your needs. Namely,
 p-valence basis sets
 --------------------
 
-The so-called p-valence basis sets are constructed by replace the p-type 
-polarization function of the default basis sets with bound unoccupied p-type 
-orbital and its split-valence complement. Such basis sets correspond to the ones 
-used in Ref. [#Kuisma2015]_. These basis sets significantly improve density of 
+The so-called p-valence basis sets are constructed by replace the p-type
+polarization function of the default basis sets with bound unoccupied p-type
+orbital and its split-valence complement. Such basis sets correspond to the ones
+used in Ref. [#Kuisma2015]_. These basis sets significantly improve density of
 states of unoccupied states.
 
-The p-valence basis sets can be easily obtained for appropriate elements by 
-``gpaw-install-setups`` tool, see XXX. It is again reminded that these basis sets 
-are not thoroughly tested and **it is essential to benchmark the performance of 
+The p-valence basis sets can be easily obtained for appropriate elements by
+``gpaw-install-setups`` tool, see XXX. It is again reminded that these basis sets
+are not thoroughly tested and **it is essential to benchmark the performance of
 the basis sets for your application**.
 
 .. _coopt basis sets:
@@ -136,15 +136,15 @@ the basis sets for your application**.
 Completeness-optimized basis sets
 ---------------------------------
 
-A systematic approach for improving the basis sets can be obtained with the 
-so-called completeness-optimization approach. This approach is used in Ref. 
-[#Rossi2015]_ to generate basis set series for TDDFT calculations of copper, 
+A systematic approach for improving the basis sets can be obtained with the
+so-called completeness-optimization approach. This approach is used in Ref.
+[#Rossi2015]_ to generate basis set series for TDDFT calculations of copper,
 silver, and gold clusters.
 
-For further details of the basis sets, as well as their construction and 
-performance, see [#Rossi2015]_. For convenience, these basis sets can be easily 
-obtained with ``gpaw-install-setups`` tool, see XXX. Finally, it is again 
-emphasized that when using the basis sets, **it is essential to benchmark their 
+For further details of the basis sets, as well as their construction and
+performance, see [#Rossi2015]_. For convenience, these basis sets can be easily
+obtained with ``gpaw-install-setups`` tool, see XXX. Finally, it is again
+emphasized that when using the basis sets, **it is essential to benchmark their
 suitability for your application**.
 
 
@@ -167,13 +167,13 @@ TODO: add ``ParallelTimer`` example
 Advanced tutorial - Plasmon resonance of silver cluster
 =======================================================
 
-One should think what type of transitions is there of interest, and make sure 
-that the basis set can represent such Kohn-Sham electron and hole wave functions. 
-The first transitions in silver cluster will be `5s \rightarrow 5p` like. We 
-require 5p orbitals in the basis set, and thus, we must generate a custom basis 
+One should think what type of transitions is there of interest, and make sure
+that the basis set can represent such Kohn-Sham electron and hole wave functions.
+The first transitions in silver cluster will be `5s \rightarrow 5p` like. We
+require 5p orbitals in the basis set, and thus, we must generate a custom basis
 set.
 
-Here is how to generate a double-zeta basis set with 5p orbital in valence for 
+Here is how to generate a double-zeta basis set with 5p orbital in valence for
 Silver for GLLB-SC potential. We will use GPAW 0.8 setup definition, since semi-core p states are not relevant here.
 
 .. literalinclude:: lcaotddft_basis.py
@@ -215,11 +215,11 @@ Advanced tutorial - large organic molecule
 General notes
 -------------
 
-On large organic molecules, on large conjugated systems, there will `\pi \rightarrow \pi^*`, 
-`\sigma \rightarrow \sigma^*`. These states consists of only 
-the valence orbitals of carbon, and they are likely by quite similar few eV's 
-below and above the fermi lavel. These is thus a reason to believe that these 
-states are well described with hydrogen 1s and carbon 2s and 2p valence orbitals 
+On large organic molecules, on large conjugated systems, there will `\pi \rightarrow \pi^*`,
+`\sigma \rightarrow \sigma^*`. These states consists of only
+the valence orbitals of carbon, and they are likely by quite similar few eV's
+below and above the fermi lavel. These is thus a reason to believe that these
+states are well described with hydrogen 1s and carbon 2s and 2p valence orbitals
 around the fermi level.
 
 Here, we will calculate a small and a large organic molecule with lcao-tddft.
@@ -232,11 +232,12 @@ Kohn-Sham decomposition of the transition density matrix
 Soon it will be possible to analyse the origin of the transitions the same way as is commonly done in Casida-based codes.
 The LCAO basis will be transformed to electron-hole basis of the Kohn-Sham system.
 
+
 References
 ==========
 
 .. [#Kuisma2015]
-   M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara, L. Lehtovaara, and T. T. Rantala, 
+   M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara, L. Lehtovaara, and T. T. Rantala,
    Localized surface plasmon resonance in silver nanoparticles: Atomistic first-principles time-dependent
    density functional theory calculations,
    *Phys. Rev. B* **69**, 245419 (2004).
@@ -247,11 +248,3 @@ References
    Nanoplasmonics simulations at the basis set limit through completeness-optimized, local numerical basis sets,
    *J. Chem. Phys.* **142**, 094114 (2015).
    `doi:10.1063/1.4913739 <http://dx.doi.org/10.1063/1.4913739>`_
-
-.. [#Castro2003]
-   A. Castro, A. Rubio, and M. J. Stott,
-   Solution of Poisson's equation for finite systems using plane-wave methods,
-   *Can. J. Phys.* **81**, 1151 (2003).
-   `doi:10.1139/p03-078 <http://dx.doi.org/10.1139/p03-078>`_
-
-
