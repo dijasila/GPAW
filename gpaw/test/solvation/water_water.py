@@ -24,19 +24,25 @@ T = 298.15
 vdw_radii = vdw_radii.copy()
 vdw_radii[1] = 1.09
 atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
+convergence = {
+    'energy': 0.05 / 8.,
+    'density': 10.,
+    'eigenstates': 10.,
+}
 
 atoms = Cluster(molecule('H2O'))
 atoms.minimal_box(vac, h)
 
 if not SKIP_VAC_CALC:
-    atoms.calc = GPAW(xc='PBE', h=h)
+    atoms.calc = GPAW(xc='PBE', h=h, convergence=convergence)
     Evac = atoms.get_potential_energy()
     print(Evac)
 else:
-    Evac = -14.8628983897  # h = 0.24, vac = 4.0
+    # h=0.24, vac=4.0, setups: 0.9.11271, convergence: only energy 0.05 / 8
+    Evac = -14.857414548
 
 atoms.calc = SolvationGPAW(
-    xc='PBE', h=h,
+    xc='PBE', h=h, convergence=convergence,
     cavity=EffectivePotentialCavity(
         effective_potential=Power12Potential(atomic_radii, u0),
         temperature=T,

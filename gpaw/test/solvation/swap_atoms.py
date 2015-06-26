@@ -20,22 +20,25 @@ T = 298.15
 vdw_radii = vdw_radii.copy()
 vdw_radii[1] = 1.09
 atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
-
+convergence = {
+    'energy': 0.1 / 8.,
+    'density': 10.,
+    'eigenstates': 10.,
+}
 
 atoms = Cluster(molecule('H2O'))
 atoms.minimal_box(vac, h)
 
-
 calc = SolvationGPAW(
-    xc='LDA', h=h,
+    xc='LDA', h=h, convergence=convergence,
     cavity=EffectivePotentialCavity(
         effective_potential=Power12Potential(atomic_radii, u0),
         temperature=T,
         surface_calculator=GradientSurface()
-        ),
+    ),
     dielectric=LinearDielectric(epsinf=epsinf),
     interactions=[SurfaceInteraction(surface_tension=st)]
-    )
+)
 atoms.calc = calc
 atoms.get_potential_energy()
 atoms.get_forces()
