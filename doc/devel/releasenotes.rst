@@ -23,6 +23,14 @@ Development version in trunk
   <spinorbit>` for examples of band structure calculations with spin-orbit
   coupling.
 
+* Text output from ground-state calculations now list the symmetries found
+  and the **k**-points used.  Eigenvalues and occupation numbers are now
+  also printed for systems with **k**-points.
+  
+* :ref:`GW <gw exercise>`, :ref:`rpa`, and :ref:`response function
+  calculation <df_tutorial>` has been rewritten to take advantage of
+  symmetry and fast matrix-matrix multiplication (BLAS).
+  
 * New :ref:`symmetry <manual_symmetry>` keyword.  Replaces ``usesymm``.
 
 * Use non-symmorphic symmetries: combining fractional translations with
