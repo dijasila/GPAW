@@ -13,7 +13,7 @@ from gpaw.lcaotddft import LCAOTDDFT
 # Increase accuragy of density for ground state
 convergence = {'density': 1e-7}
 
-# Increase accuracy of Poisson Solver and apply multipole corrections up to l=2
+# Increase accuracy of Poisson Solver and apply multipole corrections up to l=1
 poissonsolver = PoissonSolver(eps=1e-14, remove_moment=1 + 3)
 
 td_calc = LCAOTDDFT(

@@ -36,20 +36,20 @@ propagates the system forward using H(t) and solving a linear equation
 
 .. math::
 
-  \left( \mathbf{S} + {\rm i} H(t) {\rm d}t / 2 \right) C'(t+{\rm d}t) = \left( S - {\rm i} H(t) {\rm d}t / 2 \right) C(t)
+  \left( \mathbf{S} + {\rm i} \mathbf{H}(t) {\rm d}t / 2 \right) \mathbf{C}'(t+{\rm d}t) = \left( \mathbf{S} - {\rm i} \mathbf{H}(t) {\rm d}t / 2 \right) \mathbf{C}(t)
 
 Using the predicted wave functions at C'(t+dt), the Hamiltonian H'(t+dt) is
 calculated and the Hamiltonian at middle of the time step is estimated as
 
 .. math::
 
-   H(t+{\rm d}t/2) = (H(t) + H'(t+{\rm d}t)) / 2
+   \mathbf{H}(t+{\rm d}t/2) = (\mathbf{H}(t) + \mathbf{H}'(t+{\rm d}t)) / 2
 
 With the improved Hamiltonian, have functions are again propagated from t to t+dt
 
 .. math::
 
-  \left( \mathbf{S} + {\rm i} H(t+{\rm d}t/2) {\rm d}t / 2 \right) C(t+{\rm d}t) = \left( S - {\rm i} H(t+{\rm d}t/2) {\rm d}t / 2 \right) C(t)
+  \left( \mathbf{S} + {\rm i} \mathbf{H}(t+{\rm d}t/2) {\rm d}t / 2 \right) \mathbf{C}(t+{\rm d}t) = \left( \mathbf{S} - {\rm i} \mathbf{H}(t+{\rm d}t/2) {\rm d}t / 2 \right) \mathbf{C}(t)
 
 This procedure is repeated using time step of 5-40as and for 500-2000 times to
 obtain time evolution of electrons.
