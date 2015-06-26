@@ -126,8 +126,10 @@ orbital and its split-valence complement. Such basis sets correspond to the ones
 used in Ref. [#Kuisma2015]_. These basis sets significantly improve density of
 states of unoccupied states.
 
-The p-valence basis sets can be easily obtained for appropriate elements by
-``gpaw-install-setups`` tool, see XXX. It is again reminded that these basis sets
+The p-valence basis sets can be easily obtained for appropriate elements with ``gpaw-install-setups`` tool with following options:
+``gpaw-install-setups --basis --version=pvalence``.
+See :ref:`installationguide_setup_files` for basis set installation.
+It is again reminded that these basis sets
 are not thoroughly tested and **it is essential to benchmark the performance of
 the basis sets for your application**.
 
@@ -143,7 +145,10 @@ silver, and gold clusters.
 
 For further details of the basis sets, as well as their construction and
 performance, see [#Rossi2015]_. For convenience, these basis sets can be easily
-obtained with ``gpaw-install-setups`` tool, see XXX. Finally, it is again
+obtained with ``gpaw-install-setups`` tool with following options:
+``gpaw-install-setups --basis --version=coopt``.
+See :ref:`installationguide_setup_files` for basis set installation.
+Finally, it is again
 emphasized that when using the basis sets, **it is essential to benchmark their
 suitability for your application**.
 
