@@ -691,22 +691,21 @@ Atomic basis set
 ----------------
 
 The ``basis`` keyword can be used to specify the basis set which
-should be used in LCAO mode, which also affects the LCAO
-initialization in FD mode.
+should be used in LCAO mode.  This also affects the LCAO
+initialization in FD mode, where initial wave functions are
+constructed by solving the Kohn-Sham equations in the LCAO basis.
 
-In FD mode, the initial guess for the density / wave functions is
-determined by solving the Kohn-Sham equations in the LCAO basis.
-
-The ``basis`` keyword can be either a string or a dictionary.  If
-``basis`` is a string, GPAW will look for a file named
-:file:`{symbol}.{basis}.basis` in
-the setup locations
-(see :ref:`installationguide_setup_files`), where
+If ``basis`` is a string, :file:`basis='basisname'`, then GPAW will
+look for files named :file:`{symbol}.{basisname}.basis` in the setup
+locations (see :ref:`installationguide_setup_files`), where
 :file:`{symbol}` is taken as the chemical symbol from the ``Atoms``
-object.
-The first found file is used.
-If ``basis`` is a dictionary, the basis set can be specified
-differently for each atomic species by using the atomic symbol as
+object.  If a non-default setup is used for an element, its name is
+included as :file:`{symbol}.{setupname}.{basisname}.basis`.
+
+If ``basis`` is a dictionary, its keys specify atoms or species while
+its values are corresponding basis names which work as above.
+Distinct basis sets can be specified
+for each atomic species by using the atomic symbol as
 a key, or for individual atoms by using an ``int`` as a key.  In the
 latter case the integer corresponds to the index of that atom in the
 ``Atoms`` object.  As an example, ``basis={'H': 'sz', 'C': 'dz', 7:
@@ -719,7 +718,8 @@ the ``Atoms`` object.
     If you want to use only the ``sz`` basis functinons from a ``dzp``
     basis set, then you can use this syntax: ``basis='sz(dzp)'``.
     This will read the basis functions for, say hydrogen, from the
-    ``H.dzp.basis`` file.
+    ``H.dzp.basis`` file.  If the basis has a custom name,
+    it is specified as ``'szp(mybasis.dzp)'``.
 
 The value ``None`` (default) implies that the pseudo partial waves
 from the setup are used as a basis. This basis is always available;
