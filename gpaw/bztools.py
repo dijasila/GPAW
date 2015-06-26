@@ -2,7 +2,7 @@ from __future__ import division, print_function
 
 import numpy as np
 
-from scipy.spatial import Delaunay, Voronoi, ConvexHull
+from scipy.spatial import Delaunay, Voronoi
 
 from ase.units import Bohr
 
@@ -67,21 +67,32 @@ def tesselate_brillouin_zone(calc, density=3.5):
     # Find full BZ modulo 1.
     bzk_kc = unique_rows(np.concatenate(np.dot(ibzk_kc,
                                                U_scc.transpose(0, 2, 1))),
-                         tol=1e-6, mod=1)
+                         tol=1e-10, mod=1)
 
     return bzk_kc
 
-
 def unique_rows(ain, tol=1e-10, mod=None):
-    a = ain.copy()
-    a = a.round((-np.log10(tol).astype(int)))
+    # Move to positive octant
+    a = ain - ain.min(0)
+
+    # First take modulus
     if mod is not None:
         a = np.mod(a, mod)
+    
+    # Round and take modulus again
+    a = a.round(-np.log10(tol).astype(int))
+    if mod is not None:
+        a = np.mod(a, mod)
+
+    # Now perform ordering
     order = np.lexsort(a.T)
     a = a[order]
+
+    # Find unique rows
     diff = np.diff(a, axis=0)
     ui = np.ones(len(a), 'bool')
     ui[1:] = (diff != 0).any(1)
+
     return ain[order][ui]
 
 

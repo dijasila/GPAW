@@ -38,8 +38,9 @@ class Symmetry:
     It also provides to apply symmetry operations to kpoint grids,
     wavefunctions and forces.
     """
-    def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
-                 point_group=True, time_reversal=True, symmorphic=True):
+    def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool),
+                 tolerance=1e-10, point_group=True,
+                 time_reversal=True, symmorphic=True):
         """Construct symmetry object.
 
         Parameters:
@@ -413,7 +414,7 @@ class Symmetry:
             p()
 
 
-def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
+def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-7):
     """Find symmetry relations between k-points.
 
     This is a Python-wrapper for a C-function that does the hard work
@@ -436,13 +437,7 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
     bz2bz_ks[k1, s] = -1.
     """
 
-    if comm is None or isinstance(comm, mpi.DryRunCommunicator):
-        comm = mpi.serial_comm
-
     nbzkpts = len(bzk_kc)
-    ka = nbzkpts * comm.rank // comm.size
-    kb = nbzkpts * (comm.rank + 1) // comm.size
-    assert comm.sum(kb - ka) == nbzkpts
 
     if time_reversal:
         U_scc = np.concatenate([U_scc, -U_scc])
@@ -451,18 +446,32 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
     bz2bz_ks[:] = -1
 
     for s, U_cc in enumerate(U_scc):
+        # Find mapped kpoints
         Ubzk_kc = np.dot(bzk_kc, U_cc.T)
-        k_kc = np.append(bzk_kc, Ubzk_kc, axis=0)
+
+        # Do some work on the input
+        k_kc = np.concatenate([bzk_kc, Ubzk_kc])
+        k_kc = k_kc - k_kc.min(0)
+        k_kc = np.mod(k_kc, 1)
         k_kc = k_kc.round(-np.log10(tol).astype(int))
         k_kc = np.mod(k_kc, 1)
+
+        # Find the lexicographical order
         order = np.lexsort(k_kc.T)
         k_kc = k_kc[order]
         diff_kc = np.diff(k_kc, axis=0)
-        equivalentpairs_k = (np.abs(diff_kc) < tol).all(1)
-        orders = np.array([order[equivalentpairs_k],
+        equivalentpairs_k = np.array((diff_kc == 0).all(1),
+                                     bool)
+
+        
+        # Mapping array.
+        orders = np.array([order[:-1][equivalentpairs_k],
                            order[1:][equivalentpairs_k]])
-        orders.sort(0)
-        bz2bz_ks[orders[1] - len(bzk_kc), s] = orders[0]
+
+        # This has to be true.
+        assert (orders[0] < nbzkpts).all()
+        assert (orders[1] >= nbzkpts).all()
+        bz2bz_ks[orders[1] - nbzkpts, s] = orders[0]
 
     return bz2bz_ks
 
