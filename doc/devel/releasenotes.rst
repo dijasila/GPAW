@@ -10,11 +10,16 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* When searching for basis sets, the setup name if any is now
+  prepended automatically to the basis name.  Thus if
+  :file:`setups='{setupname}'` and :file:`basis='{basisname}'`, GPAW
+  will search for :file:`{symbol}.{setupname}.{basisname}.basis`.
+
 * :ref:`Time-propagation TDDFT with LCAO <lcaotddft>`.
 
 * Improved distribution and load balance when calculating atomic XC
   corrections, and in LCAO when calculating atomic corrections to the
-  Hamiltonian.
+  Hamiltonian and overlap.
 
 * Norm-conserving :ref:`SG15 pseudopotentials <manual_setups>` and
   parser for several dialects of the UPF format.
@@ -48,8 +53,8 @@ Development version in trunk
 
 * Orbital-free DFT with PAW transformation is available.
 
-* GPAW can now perform :ref:`electrodynamics` simulations using quasistatic
-  finite-difference time-domain (QSFDTD) method.
+* GPAW can now perform :ref:`electrodynamics` simulations using the
+  quasistatic finite-difference time-domain (QSFDTD) method.
   
 * Support for Python 3.
 
