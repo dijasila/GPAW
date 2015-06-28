@@ -157,9 +157,9 @@ class LCAOWaveFunctions(WaveFunctions):
         self.tci.calculate(spos_ac, S_qMM, T_qMM, self.P_aqMi)
 
         # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-        from gpaw.lcao.newoverlap import newoverlap
-        self.P_neighbors_a, self.P_aaqim, self.newP_aqMi \
-            = newoverlap(self, spos_ac)
+        if self.atomic_correction.name != 'dense':
+            from gpaw.lcao.newoverlap import newoverlap
+            self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
         self.atomic_correction.gobble_data(self)
         # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
