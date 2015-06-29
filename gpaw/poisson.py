@@ -41,13 +41,14 @@ is divisible by a high power of 2."""
 
 class PoissonSolver:
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None):
+                 remove_moment=None, use_charge_center=True):
         self.relax = relax
         self.nn = nn
         self.eps = eps
         self.charged_periodic_correction = None
         self.maxiter = maxiter
         self.remove_moment = remove_moment
+        self.use_charge_center = use_charge_center
 
         # Relaxation method
         if relax == 'GS':
@@ -58,7 +59,7 @@ class PoissonSolver:
             self.relax_method = 2
         else:
             raise NotImplementedError('Relaxation method %s' % relax)
-        
+
         self.description = None
 
     def get_stencil(self):
@@ -168,9 +169,9 @@ class PoissonSolver:
         if load_gauss:
             self.load_gauss()
 
-    def load_gauss(self):
-        if not hasattr(self, 'rho_gauss'):
-            gauss = Gaussian(self.gd)
+    def load_gauss(self, center=None):
+        if not hasattr(self, 'rho_gauss') or center is not None:
+            gauss = Gaussian(self.gd, center=center)
             self.rho_gauss = gauss.get_gauss(0)
             self.phi_gauss = gauss.get_gauss_pot(0)
 
@@ -225,7 +226,11 @@ class PoissonSolver:
             # and 3) add the potential from the gaussian density.
 
             # Load necessary attributes
-            self.load_gauss()
+            if self.use_charge_center:
+                center = -self.gd.calculate_dipole_moment(rho)/actual_charge
+                self.load_gauss(center=center)
+            else:
+                self.load_gauss()
 
             # Remove monopole moment
             q = actual_charge / np.sqrt(4 * pi)  # Monopole moment
@@ -357,7 +362,7 @@ class NoInteractionPoissonSolver:
 
     def get_description(self):
         return 'No interaction'
-    
+
     def get_stencil(self):
         return 1
 

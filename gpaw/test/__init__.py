@@ -122,6 +122,8 @@ tests = [
     'noncollinear/xcgrid3d.py',
     'cluster.py',
     'poisson.py',
+    'poisson_asym.py',
+    'asym_box.py',
     'parallel/arraydict_redist.py',
     'parallel/overlap.py',
     'parallel/scalapack.py',
