@@ -7,7 +7,7 @@ from scipy.spatial import Delaunay, Voronoi
 from ase.units import Bohr
 
 from gpaw import GPAW
-from gpaw.symmetry import Symmetry
+from gpaw.symmetry import Symmetry, aglomerate_points
 
 
 def get_lattice_symmetry(cell_cv):
@@ -77,9 +77,10 @@ def unique_rows(ain, tol=1e-10, mod=None):
 
     # First take modulus
     if mod is not None:
-        a = np.mod(a, mod)
+        a = np.mod(np.mod(a, mod), mod)
     
     # Round and take modulus again
+    aglomerate_points(a, tol)
     a = a.round(-np.log10(tol).astype(int))
     if mod is not None:
         a = np.mod(a, mod)

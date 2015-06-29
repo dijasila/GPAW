@@ -451,8 +451,8 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-7):
 
         # Do some work on the input
         k_kc = np.concatenate([bzk_kc, Ubzk_kc])
-        k_kc = k_kc - k_kc.min(0)
-        k_kc = np.mod(k_kc, 1)
+        k_kc = np.mod(np.mod(k_kc, 1), 1)
+        aglomerate_points(k_kc, tol)
         k_kc = k_kc.round(-np.log10(tol).astype(int))
         k_kc = np.mod(k_kc, 1)
 
@@ -463,7 +463,6 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-7):
         equivalentpairs_k = np.array((diff_kc == 0).all(1),
                                      bool)
 
-        
         # Mapping array.
         orders = np.array([order[:-1][equivalentpairs_k],
                            order[1:][equivalentpairs_k]])
@@ -474,6 +473,21 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-7):
         bz2bz_ks[orders[1] - nbzkpts, s] = orders[0]
 
     return bz2bz_ks
+
+
+def aglomerate_points(k_kc, tol):
+    nbzkpts = len(k_kc)
+    inds_kc = np.argsort(k_kc, axis=0)
+    for c in range(3):
+        sk_k = k_kc[inds_kc[:, c], c]
+        dk_k = np.diff(sk_k)
+        
+        # Partition the kpoints into groups
+        pt_K = np.argwhere(dk_k > tol)[:, 0]
+        pt_K = np.append(np.append(0, pt_K + 1), 2 * nbzkpts)
+        for i in range(len(pt_K) - 1):
+            k_kc[inds_kc[pt_K[i]:pt_K[i + 1], c],
+                 c] = k_kc[inds_kc[pt_K[i], c], c]
 
 
 def map_k_points_old(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
