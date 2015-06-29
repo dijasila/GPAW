@@ -61,7 +61,7 @@ Usage
 Create LCAOTDDFT object like a GPAW calculator::
 
  >>> from gpaw.lcaotddft import LCAOTDDFT
- >>> td_calc = LCAOTDDFT(setups={'Na':'1'}, basis='1.dzp', xc='LDA', h=0.3, nbands=1,
+ >>> td_calc = LCAOTDDFT(setups={'Na':'1'}, basis='dzp', xc='LDA', h=0.3, nbands=1,
                          convergence={'density':1e-7},
                          poissonsolver=PoissonSolver(eps=1e-20, remove_moment=1+3+5))
 

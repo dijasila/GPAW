@@ -17,7 +17,7 @@ convergence = {'density': 1e-7}
 poissonsolver = PoissonSolver(eps=1e-14, remove_moment=1 + 3)
 
 td_calc = LCAOTDDFT(
-    setups={'Na': '1'}, basis='1.dzp', xc='LDA', h=0.3, nbands=1,
+    setups={'Na': '1'}, basis='dzp', xc='LDA', h=0.3, nbands=1,
     convergence=convergence, poissonsolver=poissonsolver)
 
 atoms.set_calculator(td_calc)
