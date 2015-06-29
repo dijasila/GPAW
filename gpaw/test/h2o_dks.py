@@ -1,6 +1,5 @@
 from __future__ import print_function
 from ase.structure import molecule
-from ase.parallel import rank, barrier
 
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal, gen

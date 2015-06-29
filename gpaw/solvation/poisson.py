@@ -24,7 +24,7 @@ class SolvationPoissonSolver(PoissonSolver):
                 'is not implemented for SolvationPoissonSolver!'
             )
         PoissonSolver.__init__(self, nn, relax, eps, maxiter, remove_moment,
-                use_charge_center=use_charge_center)
+                               use_charge_center=use_charge_center)
 
     def set_dielectric(self, dielectric):
         """Set the dielectric.
