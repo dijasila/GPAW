@@ -136,7 +136,7 @@ def calculate(element, h, vacuum, xc, magmom):
 
     if 0:
         qn = QuasiNewton(compound)
-        qn.attach(PickleTrajectory(
+        qn.attach(Trajectory(
             element+'2'+'_'+xc+'.traj', 'w', compound).write)
         qn.run(fmax=0.02)
     e_atom = atom.get_potential_energy()

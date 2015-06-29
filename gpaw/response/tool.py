@@ -45,14 +45,14 @@ def find_peaks(x,y,threshold = None):
 
     """
 
-    assert type(x) == np.ndarray and type(y) == np.ndarray
+    assert isinstance(x, np.ndarray) and isinstance(y, np.ndarray)
     assert x.ndim == 1 and y.ndim == 1
     assert x.shape[0] == y.shape[0]
 
     if threshold is None:
         threshold = (x.min(), x.max(), y.min(), y.max())
         
-    if type(threshold) is not tuple:
+    if not isinstance(threshold, tuple):
         threshold = (threshold, )
 
     if len(threshold) == 1:

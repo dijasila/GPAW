@@ -229,7 +229,7 @@ class ProjectedWannierFunctions:
         self.N = N
         
         if fixedenergy is None:
-            raise NotImplementedError,'Only fixedenergy is implemented for now'
+            raise NotImplementedError('Only fixedenergy is implemented for now')
         else:
             self.fixedenergy = fixedenergy
             self.M_k = [sum(eps_n <= fixedenergy) for eps_n in self.eps_kn]

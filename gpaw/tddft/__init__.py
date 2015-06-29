@@ -8,15 +8,12 @@ import time
 from math import log
 
 import numpy as np
-from ase.units import Bohr, Hartree
+from ase.units import Hartree
 
-import gpaw.io
-import gpaw.mpi as mpi
 from gpaw.aseinterface import GPAW
 from gpaw.mixer import DummyMixer
 from gpaw.version import version
 from gpaw.preconditioner import Preconditioner
-from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec, \
                              eV_to_aufrequency, aufrequency_to_eV
 from gpaw.tddft.utils import MultiBlas
@@ -37,10 +34,6 @@ from gpaw.tddft.tdopers import \
     TimeDependentWaveFunctions, \
     TimeDependentDensity, \
     AbsorptionKickHamiltonian
-from gpaw.tddft.abc import \
-    LinearAbsorbingBoundary, \
-    PML, \
-    P4AbsorbingBoundary
 
 
 # T^-1
@@ -53,6 +46,7 @@ class KineticEnergyPreconditioner:
     def apply(self, kpt, psi, psin):
         for i in range(len(psi)):
             psin[i][:] = self.preconditioner(psi[i], kpt.phase_cd, None, None)
+
 
 # S^-1
 class InverseOverlapPreconditioner:
@@ -287,7 +281,7 @@ class TDDFT(GPAW):
             if self.initialized and key not in ['txt']:
                 raise TypeError("Keyword argument '%s' is immutable." % key)
 
-            if key in ['txt', 'parallel', 'communicator']:
+            if key in ['txt', 'parallel', 'communicator', 'poissonsolver']:
                 continue
             elif key == 'mixer':
                 if not isinstance(kwargs[key], DummyMixer):
@@ -354,7 +348,7 @@ class TDDFT(GPAW):
         self.dump_interval = dump_interval
 
         niterpropagator = 0
-        maxiter = self.niter + iterations
+        self.tdmaxiter = self.niter + iterations
 
         # Let FDTD part know the time step
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
@@ -362,7 +356,7 @@ class TDDFT(GPAW):
             self.hamiltonian.poisson.set_time_step(self.time_step)
             
         self.timer.start('Propagate')
-        while self.niter < maxiter:
+        while self.niter < self.tdmaxiter:
             norm = self.density.finegd.integrate(self.density.rhot_g)
 
             # Write dipole moment at every iteration
@@ -432,7 +426,7 @@ class TDDFT(GPAW):
                 # We probably continue from restart
                 mode = 'a'
 
-            self.dm_file = file(dipole_moment_file, mode)
+            self.dm_file = open(dipole_moment_file, mode)
 
             # If the dipole moment file is empty, add a header
             if self.dm_file.tell() == 0:
@@ -443,7 +437,6 @@ class TDDFT(GPAW):
                     % ('time', 'norm', 'dmx', 'dmy', 'dmz')
                 self.dm_file.write(header)
                 self.dm_file.flush()
-        
 
     def update_dipole_moment_file(self, norm):
         dm = self.density.finegd.calculate_dipole_moment(self.density.rhot_g)
@@ -605,8 +598,8 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         print('Calculating photoabsorption spectrum from file "%s"' \
               % dipole_moment_file)
 
-        f_file = file(spectrum_file, 'w')
-        dm_file = file(dipole_moment_file, 'r')
+        f_file = open(spectrum_file, 'w')
+        dm_file = open(dipole_moment_file, 'r')
         lines = dm_file.readlines()
         dm_file.close()
 
@@ -664,7 +657,7 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         f_file.write('#  om (eV) %14s%20s%20s\n' % ('Sx', 'Sy', 'Sz'))
         # alpha = 2/(2*pi) / eps int dt sin(omega t) exp(-t^2*sigma^2/2)
         #                                * ( dm(t) - dm(0) )
-        alpha = 0
+        # alpha = 0
         for i in range(nw):
             w = i * dw
             # x

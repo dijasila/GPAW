@@ -1,10 +1,10 @@
 import os
 
-import StringIO
+import io
 
 import numpy as np
 
-import ase.units 
+import ase.units
 
 import gpaw.mpi
 
@@ -15,8 +15,6 @@ from gpaw.utilities import pack
 from gpaw.fd_operators import Gradient
 
 
-
-################################################################################
 class KohnShamSingleExcitation:
     def __init__(self, gs_calc, kpt_ind, occ_ind, unocc_ind):
         self.calc = gs_calc
@@ -30,7 +28,6 @@ class KohnShamSingleExcitation:
         self.magn_mom = None
         self.pair_density = None
 
-    ############################################################################
     # Calculates pair density of (i,p) transition (and given kpt)
     # dnt_Gp: pair density without compensation charges on coarse grid
     # dnt_gp: pair density without compensation charges on fine grid      (XC)
@@ -39,11 +36,10 @@ class KohnShamSingleExcitation:
         if self.pair_density is None:
             # FIXME: USE EXISTING PairDensity method
             self.pair_density = LRiPairDensity(self.calc.density)
-        self.pair_density.initialize(self.calc.wfs.kpt_u[self.kpt_ind], 
+        self.pair_density.initialize(self.calc.wfs.kpt_u[self.kpt_ind],
                                      self.occ_ind, self.unocc_ind)
         self.pair_density.get(dnt_Gip, dnt_gip, drhot_gip)
 
-    ############################################################################
     def __str__(self):
         if self.dip_mom_r is not None and self.dip_mom_v is not None and self.magn_mom is not None:
             str = "# KS single excitation from state %05d to state %05d: dE_pi = %18.12lf, f_pi = %18.12lf,  dmr_ip = (%18.12lf, %18.12lf, %18.12lf), dmv_ip = (%18.12lf, %18.12lf, %18.12lf), dmm_ip = %18.12lf" \
@@ -66,22 +62,17 @@ class KohnShamSingleExcitation:
         else:
             raise RuntimeError("Uninitialized KSSingle")
         return str
-    
 
-################################################################################
-
-
-
-################################################################################
+        
 class KohnShamSingles:
-    def __init__(self, 
-                 basefilename, 
-                 gs_calc, 
+    def __init__(self,
+                 basefilename,
+                 gs_calc,
                  kpt_index,
-                 min_occ, max_occ, 
-                 min_unocc, max_unocc, 
-                 max_energy_diff, 
-                 min_pop_diff, 
+                 min_occ, max_occ,
+                 min_unocc, max_unocc,
+                 max_energy_diff,
+                 min_pop_diff,
                  lr_comms,
                  txt):
         self.basefilename = basefilename
@@ -101,9 +92,7 @@ class KohnShamSingles:
 
         self.kss_prop = None
         self.kss_prop_ready = False
-        
 
-    ############################################################################
     def update_list(self):
         # shorthands
         eps_n = self.calc.wfs.kpt_u[self.kpt_ind].eps_n      # eigen energies
@@ -127,17 +116,12 @@ class KohnShamSingles:
                     kss.pop_diff = df_ip
                     self.kss_list.append(kss)
 
-        # Sort by energy diff
-        def energy_diff_cmp(kss_ip,kss_jq):
-            ediff = kss_ip.energy_diff - kss_jq.energy_diff
-            if ediff < 0: return -1
-            elif ediff > 0: return 1
-            return 0
-        self.kss_list = sorted(self.kss_list, cmp=energy_diff_cmp)            
+        # Sort by energy diff:
+        self.kss_list = sorted(self.kss_list, key=lambda x: x.energy_diff)
 
 
-        # Remove old transitions and add new 
-        # BUT only add to the end of the list (otherwise lower triangle 
+        # Remove old transitions and add new
+        # BUT only add to the end of the list (otherwise lower triangle
         # matrix is not filled completely)
         if old_kss_list is not None:
             new_kss_list = self.kss_list   # required list
@@ -151,7 +135,7 @@ class KohnShamSingles:
                          and kss_o.unocc_ind == kss_n.unocc_ind ):
                         found = True
                         break
-                if found: 
+                if found:
                     self.kss_list.append(kss_o) # Found, add to final list
                 else:
                     pass                        # else drop
@@ -198,11 +182,11 @@ class KohnShamSingles:
             data = None
             if self.lr_comms.parent_comm.rank == 0:
                 data = open(kss_file, 'r', 1024*1024).read()
-            data = gpaw.mpi.broadcast_string(data, root=0, 
+            data = gpaw.mpi.broadcast_string(data, root=0,
                                              comm=self.lr_comms.parent_comm)
 
             # just parse
-            for line in StringIO.StringIO(data):
+            for line in io.StringIO(data):
                 line = line.split()
                 i, p = int(line[0]), int(line[1])
                 ediff, fdiff = float(line[2]), float(line[3])
@@ -217,7 +201,7 @@ class KohnShamSingles:
                 self.kss_list.append(kss)
 
             # if none read
-            if len(self.kss_list) <= 0: 
+            if len(self.kss_list) <= 0:
                 self.kss_list = None
 
 
@@ -234,7 +218,7 @@ class KohnShamSingles:
             self.kss_prop_ready = False
 
         # Check if we already have properties for all singles
-        if self.kss_prop_ready: 
+        if self.kss_prop_ready:
             return
         self.kss_prop_ready = True
         for kss_ip in self.kss_list:
@@ -276,7 +260,7 @@ class KohnShamSingles:
 
         # Loop over all KS single excitations
         #
-        # Transition dipole moment, mu_ip = <p| (-e r) |i> 
+        # Transition dipole moment, mu_ip = <p| (-e r) |i>
         # Magnetic transition dipole, m_ip = -(1/2c) <i|L|p>
         # For total m_0I = -m_I0 = -(m_0I)^*, but not for m_ip (right?)
         # R_0I = Im[mu_0I * m_0I]
@@ -288,17 +272,17 @@ class KohnShamSingles:
         #
         # See:
         # WIREs Comput Mol Sci 2012, 2: 150-166 doi: 10.1002/wcms.55
-        # J. Chem. Phys., Vol. 116, No. 16, 22 April 2002
+        # J. Chem. Phys., Vol. 116, 6930 (2002)
         for kss_ip in self.kss_list:
             # If have dipole moment and magnetic moment, already done and skip
             if (kss_ip.dip_mom_r is not None and
                 kss_ip.magn_mom is not None):
                 continue
             
-            # Transition dipole moment, mu_ip = <p| (-r) |i> 
+            # Transition dipole moment, mu_ip = <p| (-r) |i>
             kss_ip.calculate_pair_density( dnt_Gip, dnt_gip, drhot_gip )
             #kss_ip.dip_mom_r = self.calc.density.finegd.calculate_dipole_moment(drhot_gip)
-            #kss_ip.dip_mom_r = self.calc.density.finegd.calculate_dipole_moment(drhot_gip)            
+            #kss_ip.dip_mom_r = self.calc.density.finegd.calculate_dipole_moment(drhot_gip)
             kss_ip.dip_mom_r = np.zeros(3)
             kss_ip.dip_mom_r[0] = -self.calc.density.finegd.integrate(r_cg[0] * drhot_gip)
             kss_ip.dip_mom_r[1] = -self.calc.density.finegd.integrate(r_cg[1] * drhot_gip)
@@ -320,16 +304,16 @@ class KohnShamSingles:
             rxnabla_g[0] = self.calc.wfs.gd.integrate(kss_ip.pair_density.psit1_G *
                                                       (r_cG[1] * grad_psit2_G[2] -
                                                        r_cG[2] * grad_psit2_G[1]))
-            rxnabla_g[1] = self.calc.wfs.gd.integrate(kss_ip.pair_density.psit1_G * 
+            rxnabla_g[1] = self.calc.wfs.gd.integrate(kss_ip.pair_density.psit1_G *
                                                       (r_cG[2] * grad_psit2_G[0] -
                                                        r_cG[0] * grad_psit2_G[2]))
-            rxnabla_g[2] = self.calc.wfs.gd.integrate(kss_ip.pair_density.psit1_G * 
+            rxnabla_g[2] = self.calc.wfs.gd.integrate(kss_ip.pair_density.psit1_G *
                                                       (r_cG[0] * grad_psit2_G[1] -
                                                        r_cG[1] * grad_psit2_G[0]))
 
            
             # augmentation contributions to magnetic moment
-            # <psi1| r x nabla |psi2> = <psi1| (r-Ra+Ra) x nabla |psi2> 
+            # <psi1| r x nabla |psi2> = <psi1| (r-Ra+Ra) x nabla |psi2>
             #                         = <psi1| (r-Ra) x nabla |psi2> + Ra x <psi1| nabla |psi2>
             rxnabla_a = np.zeros(3)
             # <psi1| (r-Ra) x nabla |psi2>

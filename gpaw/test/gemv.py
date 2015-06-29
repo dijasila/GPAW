@@ -5,7 +5,7 @@ import numpy as np
 from gpaw.utilities.blas import gemmdot, dotu, gemv
 
 def getrand(shape, dtype):
-    if type(shape) is int:
+    if isinstance(shape, int):
         shape = (shape,)
     nelements = np.prod(shape)
     if dtype == float:

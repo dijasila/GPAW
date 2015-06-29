@@ -2,8 +2,9 @@
 
 """
 from __future__ import print_function
-from math import sqrt
+import numbers
 import sys
+from math import sqrt
 
 import numpy as np
 from ase.units import Hartree
@@ -11,18 +12,12 @@ from ase.utils.timing import Timer
 
 import _gpaw
 import gpaw.mpi as mpi
-MASTER = mpi.MASTER
-from gpaw import debug
 from gpaw.lrtddft.excitation import Excitation, ExcitationList
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.lrtddft.omega_matrix import OmegaMatrix
 from gpaw.lrtddft.apmb import ApmB
 # from gpaw.lrtddft.transition_density import TransitionDensity
-from gpaw.utilities import packed_index
-from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
-from gpaw.xc.hybridk import HybridXC
-from gpaw.utilities.timing import nulltimer
 from gpaw.lrtddft.spectrum import spectrum
 from gpaw.wavefunctions.fd import FDWaveFunctions
 
@@ -115,6 +110,7 @@ class LrTDDFT(ExcitationList):
             'xc': 'GS',
             'derivative_level': 1,
             'numscale': 0.00001,
+            'excitation': None,
             'txt': None,
             'filename': None,
             'finegrid': 2,
@@ -150,7 +146,7 @@ class LrTDDFT(ExcitationList):
         """
         if what is None:
             what = range(len(self))
-        elif isinstance(what, int):
+        elif isinstance(what, numbers.Integral):
             what = [what]
 
         if out is None:
@@ -200,7 +196,7 @@ class LrTDDFT(ExcitationList):
         self.Om = Om(self.calculator, self.kss,
                      self.xc, self.derivative_level, self.numscale,
                      finegrid=self.finegrid, eh_comm=self.eh_comm,
-                     txt=self.txt)
+                     txt=self.txt, excitation=self.excitation)
         self.name = name
 
     def diagonalize(self, istart=None, jend=None,
@@ -234,7 +230,7 @@ class LrTDDFT(ExcitationList):
             if filename.endswith('.gz'):
                 try:
                     import gzip
-                    f = gzip.open(filename)
+                    f = gzip.open(filename, 'rt')
                 except:
                     f = open(filename, 'r')
             else:
@@ -335,12 +331,12 @@ class LrTDDFT(ExcitationList):
         'fh' is a filehandle. This can be used to write into already
         opened files.
         """
-        if mpi.rank == mpi.MASTER:
+        if mpi.rank == 0:
             if fh is None:
                 if filename.endswith('.gz'):
                     try:
                         import gzip
-                        f = gzip.open(filename, 'wb')
+                        f = gzip.open(filename, 'wt')
                     except:
                         f = open(filename, 'w')
                 else:

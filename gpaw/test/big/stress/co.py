@@ -2,7 +2,7 @@ import numpy as np
 
 from ase.lattice import bulk
 from ase.optimize import BFGS
-from ase.io import PickleTrajectory
+from ase.io import Trajectory
 from ase.constraints import StrainFilter
 
 from gpaw import GPAW, PW
@@ -20,7 +20,7 @@ BFGS(StrainFilter(co)).run(0.005)
 a0 = co.cell[0, 0]
 c0 = co.cell[2, 2]
 
-traj = PickleTrajectory('co.traj', 'w')
+traj = Trajectory('co.traj', 'w')
 eps = 0.01
 for a in a0 * np.linspace(1 - eps, 1 + eps, 3):
     for c in c0 * np.linspace(1 - eps, 1 + eps, 3):

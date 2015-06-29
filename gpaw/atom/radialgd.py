@@ -167,6 +167,19 @@ class RadialGridDescriptor:
         b_g[-2] = c_g[-1] - 0.5 * c_g[-3]
         b_g[-1] = -c_g[-1] - 0.5 * c_g[-2]
 
+    def laplace(self, n_g, d2ndr2_g=None):
+        """Laplace of radial function."""
+        if d2ndr2_g is None:
+            d2ndr2_g = self.empty()
+        dndg_g = 0.5 * (n_g[2:] - n_g[:-2])
+        d2ndg2_g = n_g[2:] - 2 * n_g[1:-1] + n_g[:-2]
+        d2ndr2_g[1:-1] = (d2ndg2_g / self.dr_g[1:-1]**2 +
+                          dndg_g * (self.d2gdr2()[1:-1] +
+                                    2 / self.r_g[1:-1] / self.dr_g[1:-1]))
+        d2ndr2_g[0] = d2ndr2_g[1]
+        d2ndr2_g[-1] = d2ndr2_g[-2]
+        return d2ndr2_g
+
     def interpolate(self, f_g, r_x):
         from scipy.interpolate import InterpolatedUnivariateSpline
         return InterpolatedUnivariateSpline(self.r_g, f_g)(r_x)

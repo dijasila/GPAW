@@ -1,13 +1,12 @@
 from __future__ import print_function
-from math import pi
+from math import pi, acos, cos, sin, sqrt
 
 import numpy as np
+from ase.atoms import string2vector
 from ase.units import Bohr, Hartree
 
 import gpaw.mpi as mpi
 from gpaw.spherical_harmonics import Y
-from gpaw.utilities.vector import Vector3d
-from gpaw.utilities.timing import StepTimer
 from gpaw.utilities.tools import coordinates
 
 
@@ -56,7 +55,6 @@ class AngularIntegral:
     def initialize(self):
         """Initialize grids."""
 
-        center = self.center
         Rmax = self.Rmax
         dR = self.dR
         gd = self.gd
@@ -111,7 +109,7 @@ class AngularIntegral:
 
     def average(self, f_g):
         """Give the angular average of a function on the grid."""
-        V_R = np.where(self.V_R > 0,  self.V_R, 1.e32)
+        V_R = np.where(self.V_R > 0, self.V_R, 1.e32)
         return self.integrate(f_g) * self.dR / V_R / Bohr ** 2
 
     def radii(self, model='nominal'):
@@ -121,7 +119,7 @@ class AngularIntegral:
         elif model == 'mean':
             return self.R_R * Bohr
         else:
-            raise NonImplementedError
+            raise NotImplementedError
 
 
 class ExpandYl(AngularIntegral):
@@ -157,7 +155,9 @@ class ExpandYl(AngularIntegral):
         gamma_l = np.zeros((self.lmax + 1))
         nL = len(self.L_l)
         L_l = self.L_l
-        dR = self.dR
+
+        def abs2(z):
+            return z.real**2 + z.imag**2
 
         for i, dV in enumerate(self.V_R):
             # get the R shell and it's Volume
@@ -165,9 +165,9 @@ class ExpandYl(AngularIntegral):
             if dV > 0:
                 for L in range(nL):
                     psit_LR = self.gd.integrate(psit_g * R_g * self.y_Lg[L])
-                    gamma_l[L_l[L]] += 4 * pi / dV * psit_LR ** 2
+                    gamma_l[L_l[L]] += 4 * pi / dV * abs2(psit_LR)
         # weight of the wave function inside the ball
-        weight = self.gd.integrate(psit_g ** 2 * self.ball_g)
+        weight = self.gd.integrate((psit_g * psit_g.conj()).real * self.ball_g)
 
         return gamma_l, weight
 
@@ -204,7 +204,7 @@ class ExpandYl(AngularIntegral):
         print('# dR =', self.dR * Bohr, lu, file=f)
         print('# lmax =', self.lmax, file=f)
         print('# s    k     n', end=' ', file=f)
-        print('     e[eV]      occ', end=' ', file=f)
+        print('kpt-wght    e[eV]      occ', end=' ', file=f)
         print('    norm      sum   weight', end=' ', file=f)
         spdfghi = 's p d f g h i'.split()
         for l in range(self.lmax + 1):
@@ -217,20 +217,109 @@ class ExpandYl(AngularIntegral):
                 for n in nrange:
                     kpt = calculator.wfs.kpt_u[u]
                     psit_G = kpt.psit_nG[n]
-                    norm = self.gd.integrate(psit_G ** 2)
+                    norm = self.gd.integrate((psit_G * psit_G.conj()).real)
 
                     gl, weight = self.expand(psit_G)
                     gsum = np.sum(gl)
                     gl = 100 * gl / gsum
 
                     print('%2d %5d %5d' % (s, k, n), end=' ', file=f)
-                    print('%10.4f %8.4f' % (kpt.eps_n[n] * Hartree,
-                                            kpt.f_n[n]), end=' ', file=f)
-                    print("%8.4f %8.4f %8.4f" %
+                    print('%6.4f %10.4f %8.4f' % (kpt.weight,
+                                                  kpt.eps_n[n] * Hartree,
+                                                  kpt.f_n[n]),
+                          end=' ', file=f)
+                    print('%8.4f %8.4f %8.4f' %
                           (norm, gsum, weight), end=' ', file=f)
 
                     for g in gl:
-                        print("%8.2f" % g, end=' ', file=f)
+                        print('%8.2f' % g, end=' ', file=f)
                     print(file=f)
                     f.flush()
         f.close()
+
+
+class Vector3d(list):
+    def __init__(self,vector=None):
+        if vector is None or vector == []:
+            vector = [0,0,0]
+        vector = string2vector(vector)
+        list.__init__(self)
+        for c in range(3):
+            self.append(float(vector[c]))
+        self.l = False
+
+    def __add__(self, other):
+        result = self.copy()
+        for c in range(3):
+            result[c] += other[c]
+        return result
+
+    def __truediv__(self,other):
+        return Vector3d(np.array(self) / other)
+
+    __div__ = __truediv__
+    
+    def __mul__(self, x):
+        if isinstance(x, type(self)):
+            return np.dot( self, x )
+        else:
+            return Vector3d(x * np.array(self))
+        
+    def __rmul__(self, x):
+        return self.__mul__(x)
+        
+    def __lmul__(self, x):
+        return self.__mul__(x)
+
+    def __neg__(self):
+        return -1 * self
+        
+    def __str__(self):
+        return "(%g,%g,%g)" % tuple(self)
+
+    def __sub__(self, other):
+        result = self.copy()
+        for c in range(3):
+            result[c] -= other[c]
+        return result
+
+    def angle(self, other):
+        """Return the angle between the directions of yourself and the
+        other vector in radians."""
+        other = Vector3d(other)
+        ll = self.length() * other.length()
+        if not ll > 0:
+            return None
+        return acos((self * other) / ll)
+        
+    def copy(self):
+        return Vector3d(self)
+
+    def distance(self,vector):
+        if not isinstance(vector, type(self)):
+            vector=Vector3d(vector)
+        dv = self - vector
+        return (self - vector).length()
+
+    def length(self,value=None):
+        if value:
+            fac = value / self.length()
+            for c in range(3):
+                self[c] *= fac
+            self.l = False
+        if not self.l:
+            self.l = sqrt(self.norm())
+        return self.l
+
+    def norm(self):
+        #return np.sum( self*self )
+        return self*self  #  XXX drop this class and use numpy arrays ...
+                         
+    def x(self):
+        return self[0]
+
+    def y(self):
+        return self[1]
+
+    def z(self):
+        return self[2]

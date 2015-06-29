@@ -124,6 +124,8 @@ keyword            type       default value        description
                                                    <manual_poissonsolver>`
                                                    or :ref:`dipole correction
                                                    <manual_dipole_correction>`
+                                                   or :ref:`Advanced Poisson 
+                                                   solver <advancedpoisson>`
 ``communicator``   Object                          :ref:`manual_communicator`
 ``idiotproof``     ``bool``   ``True``             Set to ``False`` to ignore 
                                                    setup fingerprint mismatch
@@ -319,8 +321,8 @@ For more flexibility, you can use this syntax::
 You can also specify the **k**-point density in units of points per
 Å\ `^{-1}`::
     
-    kpts={'density': 2.5}  # Monkhorst-Pack with a density of 2.5 points/Ang^-1
-    kpts={'density': 2.5, 'even': True}  # round off to neares even number
+    kpts={'density': 2.5}  # MP with a minimum density of 2.5 points/Ang^-1
+    kpts={'density': 2.5, 'even': True}  # round up to nearest even number
     kpts={'density': 2.5, 'gamma': True}  # include gamma-point
     
 The **k**-point density is calculated as:
@@ -620,8 +622,8 @@ throughout the SCF-cycle (so called Harris calculation).
 
 .. _manual_setups:
 
-Type of setup to use
---------------------
+PAW datasets or pseudopotentials
+--------------------------------
 
 The ``setups`` keyword is used to specify the name(s) of the setup files
 used in the calulation.
@@ -645,16 +647,29 @@ which is the GPAW default.
 As an example, the latest PAW setup of Na includes also the 6 semicore p states
 in the valence, in order to use non-default setup with only the 1 s electron in valence (:file:`Na.1.XC.gz`) one can specify ``setups={'Na': '1'}``
 
-There exist three special names, that if used, does not specify a file name:
+There exist three special names that, if used, do not specify a file name:
 
 * ``'ae'`` is used for specifying all-electron mode for an
   atom. I.e. no PAW or pseudo potential is used.
-* ``'hgh'`` is used to specify a norm-conserving Hartwigsen-Goedecker-Hutter 
-  pseudopotential (no file necessary).  Some elements have better 
-  semicore pseudopotentials.  To use those, specify ``'hgh.sc'`` 
+* ``sg15`` specifies the `SG15 optimized norm-conserving Vanderbilt
+  pseudopotentials`_ for the PBE functional.  These have to be
+  installed separately.  Use :file:`gpaw-install-setups --sg15
+  {<dir>}` to download and unpack the pseudopotentials into
+  :file:`{<dir>}/sg15_oncv_upf_{<version>}`.  As of now, the SG15
+  pseudopotentials should still be considered experimental in GPAW.
+  You can plot a UPF pseudopotential by running :file:`gpaw-upfplot
+  {<pseudopotential>}`.  Here, :file:`{<pseudopotential>}` can be
+  either a direct path to a UPF file or the symbol or identifier to
+  search for in the GPAW setup paths.
+	
+* ``'hgh'`` is used to specify a norm-conserving Hartwigsen-Goedecker-Hutter
+  pseudopotential (no installation necessary).  Some elements have better
+  semicore pseudopotentials.  To use those, specify ``'hgh.sc'``
   for the elements or atoms in question.
 * ``'ghost'`` is used to indicated a *ghost* atom in LCAO mode, 
   see :ref:`ghost-atoms`. 
+
+.. _SG15 optimized norm-conserving Vanderbilt pseudopotentials: http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/
 
 If a dictionary contains both chemical element specifications *and*
 atomic number specifications, the latter is dominant.
@@ -675,22 +690,21 @@ Atomic basis set
 ----------------
 
 The ``basis`` keyword can be used to specify the basis set which
-should be used in LCAO mode, which also affects the LCAO
-initialization in FD mode.
+should be used in LCAO mode.  This also affects the LCAO
+initialization in FD mode, where initial wave functions are
+constructed by solving the Kohn-Sham equations in the LCAO basis.
 
-In FD mode, the initial guess for the density / wave functions is
-determined by solving the Kohn-Sham equations in the LCAO basis.
-
-The ``basis`` keyword can be either a string or a dictionary.  If
-``basis`` is a string, GPAW will look for a file named
-:file:`{symbol}.{basis}.basis` in
-the setup locations
-(see :ref:`installationguide_setup_files`), where
+If ``basis`` is a string, :file:`basis='basisname'`, then GPAW will
+look for files named :file:`{symbol}.{basisname}.basis` in the setup
+locations (see :ref:`installationguide_setup_files`), where
 :file:`{symbol}` is taken as the chemical symbol from the ``Atoms``
-object.
-The first found file is used.
-If ``basis`` is a dictionary, the basis set can be specified
-differently for each atomic species by using the atomic symbol as
+object.  If a non-default setup is used for an element, its name is
+included as :file:`{symbol}.{setupname}.{basisname}.basis`.
+
+If ``basis`` is a dictionary, its keys specify atoms or species while
+its values are corresponding basis names which work as above.
+Distinct basis sets can be specified
+for each atomic species by using the atomic symbol as
 a key, or for individual atoms by using an ``int`` as a key.  In the
 latter case the integer corresponds to the index of that atom in the
 ``Atoms`` object.  As an example, ``basis={'H': 'sz', 'C': 'dz', 7:
@@ -703,7 +717,8 @@ the ``Atoms`` object.
     If you want to use only the ``sz`` basis functinons from a ``dzp``
     basis set, then you can use this syntax: ``basis='sz(dzp)'``.
     This will read the basis functions for, say hydrogen, from the
-    ``H.dzp.basis`` file.
+    ``H.dzp.basis`` file.  If the basis has a custom name,
+    it is specified as ``'szp(mybasis.dzp)'``.
 
 The value ``None`` (default) implies that the pseudo partial waves
 from the setup are used as a basis. This basis is always available;

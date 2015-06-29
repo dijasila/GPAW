@@ -55,6 +55,7 @@ class NiflheimCluster(Cluster):
         run_command += 'module load SCIPY/0.12.0-1&& '
         run_command += 'module load MATPLOTLIB/1.4.0-1&& '
         run_command += 'module load povray&& '
+        run_command += 'module load bader&& '
         run_command += 'module load ABINIT&& '
         run_command += 'module load DACAPO&& '
         run_command += 'module load SCIENTIFICPYTHON&& '

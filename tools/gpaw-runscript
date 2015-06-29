@@ -500,7 +500,8 @@ s used.'
         print >> f, '#SBATCH --ntasks-per-node=' + str(ppn)
         print >> f, '#SBATCH --time=' + hms_string(set['time'])
         if set['mail'] is not None:
-            print >> f, '#MSUB -M', set['mail']
+            print >> f, '#SBATCH --mail-user=' + set['mail']
+            print >> f, '#SBATCH --mail-type=ALL'
         print >> f, 'cd', set['wd']
         print >> f, ('export LD_LIBRARY_PATH=' + env['LD_LIBRARY_PATH'] + 
                      ':$LD_LIBRARY_PATH')

@@ -1,14 +1,14 @@
 
 import numpy as np
 
-from gpaw.utilities import ffact
+#from gpaw.utilities import ffact
 
 # Define (l+|m|)!/(l-|m|)!
-lmfact = lambda l,m: ffact(l-abs(m), l+abs(m))
+#lmfact = lambda l,m: ffact(l-abs(m), l+abs(m))
 
 def _lmiter(lmax, full=True):
-    for l in xrange(lmax+1):
-        for m in xrange(full and -l or 0,l+1):
+    for l in range(lmax+1):
+        for m in range(full and -l or 0,l+1):
             yield (l,m)
     raise StopIteration
 

@@ -128,7 +128,7 @@ class KSSingles(ExcitationList):
         ispins = [0]
         nks = wfs.kd.nks
         if self.nvspins < 2:
-            if nspins > self.nvspins:
+            if (nspins or 0) > self.nvspins:
                 self.npspins = nspins
                 fijscale = 0.5
                 ispins = [0, 1]
@@ -498,8 +498,10 @@ class KSSingle(Excitation, PairDensity):
         else:
             return RuntimeError('not a number')
 
-    def __div__(self, x):
+    def __truediv__(self, x):
         return self.__mul__(1. / x)
+
+    __div__ = __truediv__
 
     def copy(self):
         if self.mur.dtype == complex:

@@ -158,14 +158,24 @@ class ApmB(OmegaMatrix):
                                     rsf_integrals, yukawa)
                     ApB[ij, kq] -= weight * (ikjq + iqkj)
                     AmB[ij, kq] -= weight * (ikjq - iqkj)
-
-                ApB[kq, ij] = ApB[ij, kq]
-                AmB[kq, ij] = AmB[ij, kq]
-
+                    if self.excitation is not None and kq == ij \
+                            and kss[ij].i ==  self.excitation:
+                        for lm in range(nij):  # Add J - K
+                            if kss[lm].spin == s and kss[lm].j == kss[ij].j:
+                                ApB[lm, lm] += weight * (ikjq - iqkj)
+                                AmB[lm, lm] += weight * (ikjq - iqkj)
+                if self.excitation is None:
+                    ApB[kq, ij] = ApB[ij, kq]
+                    AmB[kq, ij] = AmB[ij, kq]
             timer.stop()
             if ij < (nij - 1):
                 print('HF estimated time left',
                       self.time_left(timer, t0, ij, nij), file=self.txt)
+        if self.excitation is not None:
+            for ij in range(nij):
+                for kq in range(ij, nij):
+                    ApB[kq, ij] = ApB[ij, kq]
+                    AmB[kq, ij] = AmB[ij, kq]
 
         return AmB
 

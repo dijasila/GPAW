@@ -29,18 +29,19 @@ for q_c in [[0, 0, 0], [1. / 4, 0, 0]]:
     qd = KPointDescriptor([q_c])
     pd = PWDescriptor(pair.ecut, calc.wfs.gd, complex, qd)
     kptpair = pair.get_kpoint_pair(pd, s=0, K=0, n1=0, n2=nb, m1=0, m2=nb)
-    deps_nm = kptpair.get_transition_energies(range(0, nb), range(0, nb))
+    deps_nm = kptpair.get_transition_energies(np.arange(0, nb),
+                                              np.arange(0, nb))
 
-    n_nmG, n_nmv, _ = pair.get_pair_density(pd, kptpair, range(0, nb),
-                                            range(0, nb), optical_limit=ol)
+    n_nmG, n_nmv, _ = pair.get_pair_density(pd, kptpair, np.arange(0, nb),
+                                            np.arange(0, nb), optical_limit=ol)
 
-    n_nmvG = pair.get_pair_momentum(pd, kptpair, range(0, nb),
-                                    range(0, nb))
+    n_nmvG = pair.get_pair_momentum(pd, kptpair, np.arange(0, nb),
+                                    np.arange(0, nb))
 
     if ol:
         n2_nmv = np.zeros_like(n_nmv)
         for n in range(0, nb):
-            n2_nmv[n] = pair.optical_pair_velocity(n, range(0, nb),
+            n2_nmv[n] = pair.optical_pair_velocity(n, np.arange(0, nb),
                                                    kptpair.kpt1,
                                                    kptpair.kpt2)
 

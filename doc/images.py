@@ -13,7 +13,11 @@ may not exist.
 
 """
 from __future__ import print_function
-from urllib2 import urlopen, HTTPError
+try:
+    from urllib2 import urlopen, HTTPError
+except ImportError:
+    from urllib.request import urlopen
+    from urllib.error import HTTPError
 import os
 from sys import executable
 

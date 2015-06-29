@@ -58,7 +58,7 @@ class Phonons(phonons.Phonons):
     def run(self):
         """Overwrite base class member function."""
 
-        raise RuntimeError, "Use only this class for post-processing"
+        raise RuntimeError("Use only this class for post-processing")
     
     def read(self):
         """Read force constants from files."""

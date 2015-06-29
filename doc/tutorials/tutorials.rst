@@ -41,6 +41,7 @@ Specialized tutorials
    jellium/jellium
    hydrogen/h
    stm/stm
+   bader/bader
    all-electron/all_electron_density
    neb/neb
    pbe0/pbe0
@@ -51,4 +52,4 @@ Specialized tutorials
    H2/ensembles
    gw_tutorial/gw_tutorial
    atomization_cmr/atomization_cmr
-
+   continuum_solvent_model/continuum_solvent_model

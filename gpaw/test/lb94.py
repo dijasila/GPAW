@@ -42,7 +42,7 @@ print('atom [refs] -e_homo diff   all in mHa')
 for atom in e_HOMO_cs.keys():
     e_ref = e_HOMO_cs[atom]
     # generate setup for the atom
-    if rank == 0 and not setups.has_key(atom):
+    if rank == 0 and atom not in setups:
         g = Generator(atom, 'LB94', nofiles=True, txt=txt)
         g.run(**parameters[atom])
         setups[atom] = 1
@@ -80,7 +80,7 @@ for atom in e_HOMO_os.keys():
     e_ref = e_HOMO_os[atom][0]
     magmom =  e_HOMO_os[atom][1]
     # generate setup for the atom
-    if rank == 0 and not setups.has_key(atom):
+    if rank == 0 and atom not in setups:
         g = Generator(atom, 'LB94', nofiles=True, txt=txt)
         g.run(**parameters[atom])
         setups[atom] = 1

@@ -96,7 +96,11 @@ Citations of the GPAW method papers
 
 (updated on May 18, 2013)
 
-The five method papers are:
+The total number of citations above is the number of publications
+citing at least one of the other papers, not the sum of all citation
+counts.
+
+The six method papers are:
 
 gpaw1:
     \J. J. Mortensen, L. B. Hansen, and K. W. Jacobsen
@@ -155,6 +159,16 @@ response:
     Phys. Rev. B **83**, 245122 (2011)
 
     __ http://prb.aps.org/abstract/PRB/v83/i24/e245122
+
+csm:
+    \A. Held and M. Walter
+           
+    `Simplified continuum solvent model with a smooth cavity based on 
+    volumetric data`__
+     
+    \J. Chem. Phys.* **141**, 174108 (2014)
+
+    __ http://dx.doi.org/10.1063/1.4900838
 
 
 All citing articles:

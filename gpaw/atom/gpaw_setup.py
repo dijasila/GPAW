@@ -170,7 +170,7 @@ def main():
                   **p)
         except ConvergenceError:
             print(bad_density_warning, file=sys.stderr)
-        except RuntimeError, m:
+        except RuntimeError as m:
             if len(m.__str__()) == 0:
                 raise
             print(m)

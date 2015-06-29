@@ -1,7 +1,6 @@
 """Photoelectron spectra from the (shifted) DOS approach."""
 
 import numpy as np
-from ase.units import Hartree
 
 from gpaw.pes import BasePES
 
@@ -12,7 +11,8 @@ class DOSPES(BasePES):
 
     """
 
-    def __init__(self, mother, daughter=None, shift=False, vde=None, f_min=0.1):
+    def __init__(self, mother, daughter=None, shift=False, vde=None,
+                 f_min=0.1):
         self.c_m = mother
         self.c_d = daughter
         self.f = None
@@ -50,7 +50,7 @@ class DOSPES(BasePES):
                 e_m = self.c_m.get_potential_energy()
                 try:
                     energy_shift = float(self.c_d) - e_HOMO
-                except AttributeError:
+                except (TypeError, AttributeError):
                     e_d = self.c_d.get_potential_energy()
                     energy_shift = e_d - e_m - e_HOMO
             else:

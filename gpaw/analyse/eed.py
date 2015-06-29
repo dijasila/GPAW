@@ -64,7 +64,7 @@ class ExteriorElectronDensity:
             file = 'eed_mies.dat'
 
         if isinstance(file, str):
-            out = paropen(file, 'aw')
+            out = paropen(file, 'a')
         else:
             out = file
 

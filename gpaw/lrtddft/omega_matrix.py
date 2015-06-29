@@ -43,6 +43,7 @@ class OmegaMatrix:
                  derivativeLevel=None,
                  numscale=0.001,
                  filehandle=None,
+                 excitation=None,
                  txt=None,
                  finegrid=2,
                  eh_comm=None,
@@ -64,6 +65,7 @@ class OmegaMatrix:
 
         self.fullkss = kss
         self.finegrid = finegrid
+        self.excitation = excitation
 
         if calculator is None:
             return

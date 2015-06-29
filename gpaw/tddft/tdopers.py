@@ -6,14 +6,13 @@ operators."""
 import numpy as np
 
 from gpaw.external_potential import ExternalPotential
-from gpaw.utilities import pack2, unpack
-from gpaw.mpi import run
+from gpaw.utilities import unpack
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.overlap import Overlap
 from gpaw.wavefunctions.fd import FDWaveFunctions
 from gpaw.tddft.abc import *
 
-# Hamiltonian
+
 class TimeDependentHamiltonian:
     """Time-dependent Hamiltonian, H(t)
     
@@ -47,8 +46,8 @@ class TimeDependentHamiltonian:
         self.vt_sG = hamiltonian.gd.zeros(hamiltonian.nspins)
 
         # Increase the accuracy of Poisson solver
-        if self.hamiltonian.poisson.eps > 1e-12: 
-           self.hamiltonian.poisson.eps = 1e-12 
+        if self.hamiltonian.poisson.eps > 1e-12:
+            self.hamiltonian.poisson.eps = 1e-12
 
         # external potential
         #if hamiltonian.vext_g is None:
@@ -62,14 +61,13 @@ class TimeDependentHamiltonian:
         self.spos_ac = atoms.get_scaled_positions() % 1.0
         self.absorbing_boundary = None
         
-
     def update(self, density, time):
         """Updates the time-dependent Hamiltonian.
     
         Parameters
         ----------
         density: Density
-            the density at the given time  
+            the density at the given time
             (TimeDependentDensity.get_density())
         time: float
             the current time
@@ -86,7 +84,7 @@ class TimeDependentHamiltonian:
         Parameters
         ----------
         density: Density
-            the density at the given time 
+            the density at the given time
             (TimeDependentDensity.get_density())
         time: float
             the current time
@@ -133,7 +131,6 @@ class TimeDependentHamiltonian:
             for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
                 Htpsit_G += psit_G * vt_G
 
-
     def half_apply(self, kpt, psit, hpsit, calculate_P_ani=True):
         """Applies the half-difference of the time-dependent Hamiltonian
         to the wavefunction psit of the k-point kpt.
@@ -143,7 +140,7 @@ class TimeDependentHamiltonian:
         kpt: Kpoint
             the current k-point (kpt_u[index_of_k-point])
         psit: List of coarse grid
-            the wavefuntions (on coarse grid) 
+            the wavefuntions (on coarse grid)
             (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
         hpsit: List of coarse grid
             the resulting "operated wavefunctions" (H psit)
@@ -189,7 +186,7 @@ class TimeDependentHamiltonian:
         kpt: Kpoint
             the current k-point (kpt_u[index_of_k-point])
         psit: List of coarse grid
-            the wavefuntions (on coarse grid) 
+            the wavefuntions (on coarse grid)
             (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
         hpsit: List of coarse grid
             the resulting "operated wavefunctions" (H psit)
@@ -246,9 +243,9 @@ class TimeDependentHamiltonian:
 
             
     def set_absorbing_boundary(self, absorbing_boundary):
-        """ Sets up the absorbing boundary.            
+        """ Sets up the absorbing boundary.
             Parameters:
-            absorbing_boundary: absorbing boundary object of any kind.  
+            absorbing_boundary: absorbing boundary object of any kind.
         """
         
         self.absorbing_boundary = absorbing_boundary
@@ -282,13 +279,12 @@ class TimeDependentHamiltonian:
         P_axi = wfs.pt.dict(shape)
         wfs.pt.integrate(psit_nG, P_axi, kpt.q)
         
-        #G_LLL = gaunt # G_LLL[L1,L2,L3] = \int Y_L1 Y_L2 Y_L3
             
         #Coefficients for calculating P \psi_n
         # P = -i sum_a v_a P^a, P^a = T^{\dagger} \nabla_{R_a} T
         w_ani = wfs.pt.dict(wfs.bd.mynbands, zero=True)
         #projector derivatives < nabla pt_i^a | psit_n >
-        dpt_aniv = wfs.pt.dict(wfs.bd.mynbands, derivative=True)     
+        dpt_aniv = wfs.pt.dict(wfs.bd.mynbands, derivative=True)
         wfs.pt.derivative(psit_nG, dpt_aniv, kpt.q)
         #wfs.calculate_forces(paw.hamiltonian, F_av)
         for a in dpt_aniv.keys():
@@ -297,7 +293,7 @@ class TimeDependentHamiltonian:
 
                 P_xi = P_axi[a]
                 #nabla_iiv contains terms < \phi_i1^a | d / d v phi_i2^a >
-                #- < phit_i1^a | d / dv phit_i2^a>, where v is either x,y or z              
+                #- < phit_i1^a | d / dv phit_i2^a>, where v is either x,y or z
                 nabla_ii = wfs.setups[a].nabla_iiv[:,:,c]
                 dpt_ni = dpt_aniv[a][:,:,c]
                 dO_ii = wfs.setups[a].dO_ii
@@ -340,8 +336,8 @@ class AbsorptionKickHamiltonian:
         self.spos_ac = atoms.get_scaled_positions() % 1.0
         
         # magnitude
-        magnitude = np.sqrt(strength[0]*strength[0] 
-                             + strength[1]*strength[1] 
+        magnitude = np.sqrt(strength[0]*strength[0]
+                             + strength[1]*strength[1]
                              + strength[2]*strength[2])
         # iterations
         self.iterations = int(round(magnitude / 1.0e-4))
@@ -389,7 +385,7 @@ class AbsorptionKickHamiltonian:
         kpt: Kpoint
             the current k-point (kpt_u[index_of_k-point])
         psit: List of coarse grids
-            the wavefuntions (on coarse grid) 
+            the wavefuntions (on coarse grid)
             (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
         hpsit: List of coarse grids
             the resulting "operated wavefunctions" (H psit)
@@ -436,7 +432,7 @@ class TimeDependentOverlap(Overlap):
         kpt: Kpoint
             the current k-point (kpt_u[index_of_k-point])
         psit: List of coarse grids (optional)
-            the wavefuntions (on coarse grid) 
+            the wavefuntions (on coarse grid)
             (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
 
         """
@@ -486,11 +482,11 @@ class TimeDependentOverlap(Overlap):
     #def apply(self, psit, spsit, wfs, kpt, calculate_P_ani=True):
     #    """Apply the time-dependent overlap operator to the wavefunction
     #    psit of the k-point kpt.
-    #    
+    #
     #    Parameters
     #    ----------
     #    psit: List of coarse grids
-    #        the wavefuntions (on coarse grid) 
+    #        the wavefuntions (on coarse grid)
     #        (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
     #    spsit: List of coarse grids
     #        the resulting "operated wavefunctions" (S psit)
@@ -513,7 +509,7 @@ class TimeDependentOverlap(Overlap):
         Parameters
         ----------
         a_nG: List of coarse grids
-            the wavefuntions (on coarse grid) 
+            the wavefuntions (on coarse grid)
             (kpt_u[index_of_k-point].psit_nG[indices_of_wavefunc])
         b_nG: List of coarse grids
             the resulting "operated wavefunctions" (S^(-1) psit)
@@ -533,7 +529,7 @@ class TimeDependentOverlap(Overlap):
             self.timer.start('Apply approximate inverse overlap')
             Overlap.apply_inverse(self, a_nG, b_nG, wfs, kpt, calculate_P_ani)
             self.timer.stop('Apply approximate inverse overlap')
-            return            
+            return
 
         self.timer.start('Apply exact inverse overlap')
         from gpaw.utilities.blas import dotu, axpy, dotc
@@ -563,7 +559,7 @@ class TimeDependentOverlap(Overlap):
         beta = np.zeros((nvec,), dtype=wfs.dtype)
         scale = np.zeros((nvec,), dtype=wfs.dtype)
         normr2 = np.zeros((nvec,), dtype=wfs.dtype)
-        rho  = np.zeros((nvec,), dtype=wfs.dtype) 
+        rho  = np.zeros((nvec,), dtype=wfs.dtype)
         rho_prev  = np.zeros((nvec,), dtype=wfs.dtype)
         rho_prev[:] = 1.0
         tol_cg = 1e-14
@@ -628,7 +624,7 @@ class TimeDependentWaveFunctions(FDWaveFunctions):
     def calculate_forces(self, hamiltonian, F_av):
         """ Calculate wavefunction forces with optional corrections for
             Ehrenfest dynamics
-        """  
+        """
 
             
         #If td_correction is not none, we replace the overlap part of the

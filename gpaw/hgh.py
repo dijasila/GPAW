@@ -1,8 +1,9 @@
+import hashlib
+
 import numpy as np
 from ase.data import atomic_numbers
 
 from gpaw.utilities import pack2
-from gpaw.utilities.tools import md5_new
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.atom.configurations import configurations
 from gpaw.pseudopotential import PseudoPotential
@@ -268,7 +269,7 @@ class HGHSetupData:
         if basis is None:
             basis = self.create_basis_functions()
         setup = PseudoPotential(self, basis)
-        setup.fingerprint = md5_new(str(self.hghdata)).hexdigest()
+        setup.fingerprint = hashlib.md5(str(self.hghdata).encode()).hexdigest()
         return setup
 
 
@@ -460,11 +461,11 @@ class HGHParameterSet:
 def parse_local_part(string):
     """Create HGHParameterSet object with local part initialized."""
     tokens = iter(string.split())
-    symbol = tokens.next()
+    symbol = next(tokens)
     actual_chemical_symbol = symbol.split('.')[0]
     Z = atomic_numbers[actual_chemical_symbol]
-    Nv = int(tokens.next())
-    rloc = float(tokens.next())
+    Nv = int(next(tokens))
+    rloc = float(next(tokens))
     c_n = [float(token) for token in tokens]
     return symbol, Z, Nv, rloc, c_n
 
@@ -479,17 +480,17 @@ class HGHBogusNumbersError(ValueError):
 def parse_hgh_setup(lines):
     """Initialize HGHParameterSet object from text representation."""
     lines = iter(lines)
-    symbol, Z, Nv, rloc, c_n = parse_local_part(lines.next())
+    symbol, Z, Nv, rloc, c_n = parse_local_part(next(lines))
 
     def pair_up_nonlocal_lines(lines):
-        yield lines.next(), ''
+        yield next(lines), ''
         while True:
-            yield lines.next(), lines.next()
+            yield next(lines), next(lines)
 
     v_l = []
-    for l, (nonlocal, spinorbit) in enumerate(pair_up_nonlocal_lines(lines)):
+    for l, (non_local, spinorbit) in enumerate(pair_up_nonlocal_lines(lines)):
         # we discard the spinorbit 'k_n' data so far
-        nltokens = nonlocal.split()
+        nltokens = non_local.split()
         r0 = float(nltokens[0])
         h_n = [float(token) for token in nltokens[1:]]
 
@@ -518,10 +519,10 @@ def hgh2str(hgh):
 def parse_setups(lines):
     """Read HGH data from file."""
     setups = {}
-    entry_lines = [i for i in xrange(len(lines))
+    entry_lines = [i for i in range(len(lines))
                    if lines[i][0].isalpha()]
     lines_by_element = [lines[entry_lines[i]:entry_lines[i + 1]]
-                        for i in xrange(len(entry_lines) - 1)]
+                        for i in range(len(entry_lines) - 1)]
     lines_by_element.append(lines[entry_lines[-1]:])
 
     for elines in lines_by_element:
@@ -557,7 +558,7 @@ def plot_many(*symbols):
 
 
 def parse_default_setups():
-    from hgh_parameters import parameters
+    from gpaw.hgh_parameters import parameters
     lines = parameters.splitlines()
     setups0 = parse_setups(lines)
     for key, value in setups0.items():

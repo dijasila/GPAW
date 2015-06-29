@@ -12,7 +12,7 @@ from ase.data import atomic_numbers
 from gpaw.mpi import world
 from gpaw.version import version
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
-from gpaw.gaunt import make_gaunt
+from gpaw.gaunt import gaunt
 from gpaw.utilities import erf, pack2
 from gpaw.utilities.lapack import general_diagonalize
 from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
@@ -518,7 +518,7 @@ class PAWSetupGenerator:
             self.tauct_g = self.rgd.zeros()
         else:
             # Make sure pseudo density is monotonically decreasing:
-            while 1:
+            while True:
                 gcore = self.rgd.round(rcore)
                 self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
                 nt_g = self.nt_g + self.nct_g
@@ -581,24 +581,7 @@ class PAWSetupGenerator:
     def find_polynomial_potential(self, r0, P):
         self.log('Constructing smooth local potential for r < %.3f' % r0)
         g0 = self.rgd.ceil(r0)
-
-        r_g = self.rgd.r_g
-        if 1:
-            self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
-        else:
-            # Use bessel function:
-            r0 = r_g[g0]
-            v_g = self.aea.vr_sg[0, g0 - 1:g0 + 2] / r_g[g0 - 1:g0 + 2]
-            v0 = v_g[1]
-            v1 = (v_g[2] - v_g[0]) / 2 / self.rgd.dr_g[g0]
-            
-            def f(x):
-                return x / np.tan(x) - 1 - v1 * r0 / v0
-                
-            q = root(f, 2).x / r0
-            A = v0 * r0 / np.sin(q * r0)
-            self.vtr_g = self.aea.vr_sg[0].copy()
-            self.vtr_g[:g0] = A * np.sin(q * r_g[:g0])
+        self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
 
     def match_local_potential(self, r0, P):
         l0 = self.l0
@@ -863,7 +846,9 @@ class PAWSetupGenerator:
             if n0 is None:
                 continue
 
-            bf = [bf for bf in self.basis.bf_j if bf.l == l and bf.n == n0][0]
+            for bf in self.basis.bf_j:
+                if bf.l == l and bf.n == n0:
+                    break
 
             # Radius and l-value used for polarization function below:
             rcpol = bf.rc
@@ -1145,7 +1130,7 @@ class PAWSetupGenerator:
                         lmax = l
 
         lmax = max(lmax, len(self.waves_l) - 1)
-        G_LLL = make_gaunt(lmax)
+        G_LLL = gaunt(lmax)
 
         # Calculate core contribution to EXX energy:
         self.exxcc = 0.0

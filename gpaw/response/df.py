@@ -146,7 +146,7 @@ class DielectricFunction:
 
     def read(self, name):
         print('Reading from', name, file=self.chi0.fd)
-        fd = open(name)
+        fd = open(name, 'rb')
         omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
         assert np.allclose(omega_w, self.omega_w)
 

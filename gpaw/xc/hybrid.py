@@ -17,7 +17,7 @@ from gpaw.utilities.tools import symmetrize
 from gpaw.atom.configurations import core_states
 from gpaw.lfc import LFC
 from gpaw.utilities.blas import gemm
-from gpaw.gaunt import make_gaunt
+from gpaw.gaunt import gaunt
 from math import exp
 
 
@@ -152,7 +152,7 @@ class HybridXC(HybridXCBase):
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
         return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
-                                 addcoredensity, a)
+                                                addcoredensity, a)
     
     def initialize(self, density, hamiltonian, wfs, occupations):
         assert wfs.kd.gamma
@@ -268,10 +268,10 @@ class HybridXC(HybridXCBase):
                 nt_G, rhot_g = self.calculate_pair_density(n1, n2, psit_nG,
                                                            P_ani)
                 vt_g[:] = 0.0
-                piter = self.poissonsolver.solve(vt_g, -rhot_g,
-                                                charge=-float(n1 == n2),
-                                                eps=1e-12,
-                                                zero_initial_phi=True)
+                self.poissonsolver.solve(vt_g, -rhot_g,
+                                         charge=-float(n1 == n2),
+                                         eps=1e-12,
+                                         zero_initial_phi=True)
                 vt_g *= hybrid
                 if self.rsf == 'Yukawa':
                     y_vt_g[:] = 0.0
@@ -512,14 +512,14 @@ def atomic_exact_exchange(atom, type='all'):
     """Returns the exact exchange energy of the atom defined by the
        instantiated AllElectron object 'atom'
     """
-    gaunt = make_gaunt(lmax=max(atom.l_j))  # Make gaunt coeff. list
-    Nj = len(atom.n_j)                      # The total number of orbitals
+    G_LLL = gaunt(lmax=max(atom.l_j))  # Make gaunt coeff. list
+    Nj = len(atom.n_j)  # The total number of orbitals
 
     # determine relevant states for chosen type of exchange contribution
     if type == 'all':
         nstates = mstates = range(Nj)
     else:
-        Njcore = core_states(atom.symbol)   # The number of core orbitals
+        Njcore = core_states(atom.symbol)  # The number of core orbitals
         if type == 'val-val':
             nstates = mstates = range(Njcore, Nj)
         elif type == 'core-core':
@@ -545,8 +545,8 @@ def atomic_exact_exchange(atom, type='all'):
             l2 = atom.l_j[j2]
 
             # joint occupation number
-            f12 = .5 * atom.f_j[j1] / (2. * l1 + 1) * \
-                       atom.f_j[j2] / (2. * l2 + 1)
+            f12 = 0.5 * (atom.f_j[j1] / (2. * l1 + 1) *
+                         atom.f_j[j2] / (2. * l2 + 1))
 
             # electron density times radius times length element
             nrdr = atom.u_j[j1] * atom.u_j[j2] * atom.dr
@@ -563,7 +563,9 @@ def atomic_exact_exchange(atom, type='all'):
 
                 # take all m1 m2 and m values of Gaunt matrix of the form
                 # G(L1,L2,L) where L = {l,m}
-                G2 = gaunt[l1**2:(l1+1)**2, l2**2:(l2+1)**2, l**2:(l+1)**2]**2
+                G2 = G_LLL[l1**2:(l1 + 1)**2,
+                           l2**2:(l2 + 1)**2,
+                           l**2:(l + 1)**2]**2
 
                 # add to total potential
                 vr += vrl * np.sum(G2)
@@ -598,7 +600,7 @@ def constructX(gen, gamma=0):
 
     # core states * r:
     uc_j = gen.u_j[:Njcore]
-    r, dr, N, beta = gen.r, gen.dr, gen.N, gen.beta
+    r, dr, N = gen.r, gen.dr, gen.N
     r2 = r**2
 
     # potential times radius
@@ -609,7 +611,7 @@ def constructX(gen, gamma=0):
 
     # make gaunt coeff. list
     lmax = max(gen.l_j[:Njcore] + gen.vl_j)
-    gaunt = make_gaunt(lmax=lmax)
+    G_LLL = gaunt(lmax=lmax)
 
     # sum over core states
     for jc in range(Njcore):
@@ -647,9 +649,9 @@ def constructX(gen, gamma=0):
                     A_mm = X_ii[i1:i1 + 2 * lv1 + 1, i2:i2 + 2 * lv2 + 1]
                     for mc in range(2 * lc + 1):
                         for m in range(2 * l + 1):
-                            G1c = gaunt[lv1**2:(lv1 + 1)**2,
+                            G1c = G_LLL[lv1**2:(lv1 + 1)**2,
                                         lc**2 + mc, l**2 + m]
-                            G2c = gaunt[lv2**2:(lv2 + 1)**2,
+                            G2c = G_LLL[lv2**2:(lv2 + 1)**2,
                                         lc**2 + mc, l**2 + m]
                             A_mm += nv * np.outer(G1c, G2c)
                 i2 += 2 * lv2 + 1
@@ -672,7 +674,7 @@ def H_coulomb_val_core(paw, u=0):
                       k
     """
     H_nn = np.zeros((paw.wfs.bd.nbands, paw.wfs.bd.nbands),
-            dtype=paw.wfs.dtype)
+                    dtype=paw.wfs.dtype)
     for a, P_ni in paw.wfs.kpt_u[u].P_ani.items():
         X_ii = unpack(paw.wfs.setups[a].X_p)
         H_nn += np.dot(P_ni.conj(), np.dot(X_ii, P_ni.T))

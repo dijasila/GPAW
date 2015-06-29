@@ -1,6 +1,28 @@
 import numpy as np
 from gpaw.arraydict import ArrayDict
 
+
+def to_parent_comm(partition):
+    # XXX assume communicator is strided, i.e. regular.
+    # This actually imposes implicit limitations on things, but is not
+    # "likely" to cause trouble with the usual communicators, i.e.
+    # for gd/kd/bd.
+    parent = partition.comm.parent
+    if parent is None:
+        # This should not ordinarily be necessary, but when running with
+        # AtomPAW, it is.  So let's stay out of trouble.
+        return partition
+
+    members = partition.comm.get_members()
+    parent_rank_a = members[partition.rank_a]
+
+    # XXXX we hope and pray that our communicator is "equivalent" to
+    # that which includes parent's rank0.
+    assert min(members) == members[0]
+    parent_rank_a -= members[0] # yuckkk
+    return AtomPartition(parent, parent_rank_a)
+
+
 class AtomicMatrixDistributor:
     """Class to distribute atomic dictionaries like dH_asp and D_asp."""
     def __init__(self, atom_partition, setups, kptband_comm, ns):
@@ -20,61 +42,48 @@ class AtomicMatrixDistributor:
         self.setups = setups
         self.kptband_comm = kptband_comm
         self.ns = ns
-        self.new_atom_partition = self.atom_partition.to_parent_comm()
+        #self.new_atom_partition = atom_partition.to_parent_comm()
 
-    def get_empty(self, a):
-        return np.empty(self.get_shape(a))
+        self.grid_partition = atom_partition
+        self.grid_unique_partition = to_parent_comm(self.grid_partition)
 
-    def get_shape(self, a):
-        ni = self.setups[a].ni
-        return (self.ns, ni * (ni + 1) // 2)
+        # This represents a full distribution across grid, kpt, and band.
+        self.work_partition = self.grid_unique_partition.as_even_partition()
 
     def distribute(self, D_asp):
         # Right now the D are duplicated across the band/kpt comms.
         # Here we pick out a set of unique D.  With duplicates out,
-        # this will be a one-to-one redistribution.
-        Ddist_asp = {}
-        for a in self.new_atom_partition.my_indices:
-            assert self.kptband_comm.rank == 0
+        # we can redistribute one-to-one to the larger work_partition.
+        #assert D_asp.partition == self.grid_partition
+        
+        Ddist_asp = self.setups.empty_atomic_matrix(self.ns,
+                                                    self.grid_unique_partition)
+        if self.kptband_comm.rank != 0:
+            assert len(Ddist_asp) == 0
+        for a in Ddist_asp:
             Ddist_asp[a] = D_asp[a]
-        self.new_atom_partition.to_even_distribution(Ddist_asp, self.get_empty)
+        Ddist_asp.redistribute(self.work_partition)
         return Ddist_asp
 
     def collect(self, dHdist_asp):
+        # We have an array on work_partition.  We want first to
+        # collect it on grid_unique_partition, the broadcast it
+        # to grid_partition.
+
         # First receive one-to-one from everywhere.
-        self.new_atom_partition.from_even_distribution(dHdist_asp,
-                                                       self.get_empty)
-        
-        # We need to broadcast across band/kpt comms now.
-        # Instead of doing a broadcast for each atom, we will make a big
-        # buffer for all data and broadcast that.  We just need to allocate
-        # arrays of the right size.
-        shapes = [self.get_shape(a) for a in self.atom_partition.my_indices]
-        sizes = [np.prod(sh) for sh in shapes]
-        csizes = np.cumsum(sizes)
+        #assert dHdist_asp.partition == self.work_partition
+        dHdist_asp.redistribute(self.grid_unique_partition)
 
-        if len(csizes) > 0:
-            bigbuf = np.empty(csizes[-1])
-        else:
-            bigbuf = np.empty(0) # variable name not so descriptive
-        
+        dH_asp = self.setups.empty_atomic_matrix(self.ns, self.grid_partition)
         if self.kptband_comm.rank == 0:
-            i1 = 0
-            for i2, a in zip(csizes, self.atom_partition.my_indices):
-                bigbuf[i1:i2] = dHdist_asp[a].ravel()
-                i1 = i2
-        
-        self.kptband_comm.broadcast(bigbuf, 0)
-
-        # Copy from bigbuf to reconstruct dictionary
-        dH_asp = {}
-        i1 = 0
-        for i2, a in zip(csizes, self.atom_partition.my_indices):
-            buf = self.get_empty(a)
-            buf.ravel()[:] = bigbuf[i1:i2]
-            dH_asp[a] = buf
-            i1 = i2
-        
+            buf = dHdist_asp.toarray()
+            assert not np.isnan(buf).any()
+        else:
+            buf = dH_asp.toarray()
+            buf[:] = np.nan # Let's be careful for now like --debug mode
+        self.kptband_comm.broadcast(buf, 0)
+        assert not np.isnan(buf).any()
+        dH_asp.fromarray(buf)
         return dH_asp
 
 
@@ -193,7 +202,7 @@ def general_redistribute(comm, src_rank_a, dst_rank_a, redistributable):
         # Send matrix to new domain:
         buf = redistributable.get_sendbuffer(a)
         requests.append(comm.send(buf, dst_rank_a[a], tag=a, block=False))
-                                  
+
     comm.waitall(requests)
 
 
@@ -208,62 +217,12 @@ class AtomPartition:
     def as_serial(self):
         return AtomPartition(self.comm, np.zeros(self.natoms, int))
 
-    def reorder(self, args_a):
-        # XXX use to get better load balance
-        # after creating from EvenPartition
-        return AtomPartition(self.comm, self.rank_a[args_a])
-
     def get_indices(self, rank):
         return np.where(self.rank_a == rank)[0]
-
-    def to_parent_comm(self):
-        # XXX assume communicator is strided, i.e. regular.
-        # This actually imposes implicit limitations on things, but is not
-        # "likely" to cause trouble with the usual communicators, i.e.
-        # for gd/kd/bd.
-        parent = self.comm.parent
-        if parent is None:
-            # This should not ordinarily be necessary, but when running with
-            # AtomPAW, it is.  So let's stay out of trouble.
-            return self
-        
-        members = self.comm.get_members()
-        parent_rank_a = members[self.rank_a]
-        
-        # XXXX we hope and pray that our communicator is "equivalent" to
-        # that which includes parent's rank0.
-        assert min(members) == members[0]
-        parent_rank_a -= members[0] # yuckkk
-        return AtomPartition(self.comm.parent, parent_rank_a)
 
     def as_even_partition(self):
         even_part = EvenPartitioning(self.comm, len(self.rank_a))
         return even_part.as_atom_partition()
-
-    def to_even_distribution(self, atomdict_ax, get_empty, copy=False):
-        # XXXXXXXXX get rid of these.
-        if copy:
-            atomdict1_ax = {}
-            for a, arr_x in atomdict_ax.items():
-                atomdict1_ax[a] = arr_x.copy() # list-style ones??
-            atomdict_ax = atomdict1_ax
-        
-        even_part = EvenPartitioning(self.comm,
-                                     len(self.rank_a)).as_atom_partition()
-        self.redistribute(even_part, atomdict_ax, get_empty)
-        return atomdict_ax # XXX copy or not???
-
-    def from_even_distribution(self, atomdict_ax, get_empty, copy=False):
-        if copy:  # XXX We should have a class for atomdicts to facilitate life
-            atomdict1_ax = {}
-            for a, arr_x in atomdict_ax.items():
-                atomdict1_ax[a] = arr_x.copy()
-            atomdict_ax = atomdict1_ax
-            
-        even_part = EvenPartitioning(self.comm,
-                                     len(self.rank_a)).as_atom_partition()
-        even_part.redistribute(self, atomdict_ax, get_empty)
-        return atomdict_ax
 
     def redistribute(self, new_partition, atomdict_ax, get_empty):
         # XXX we the two communicators to be equal according to
@@ -300,7 +259,12 @@ class AtomPartition:
             atomdict_ax.partition = new_partition # XXX
             atomdict_ax.check_consistency()
 
+    def __repr__(self):
+        indextext = ', '.join(map(str, self.my_indices))
+        return '%s@rank%d/%d (%d/%d): [%s]' % (self.__class__.__name__,
+                                               self.comm.rank, self.comm.size,
+                                               len(self.my_indices),
+                                               self.natoms, indextext)
+
     def arraydict(self, shapes, dtype=float):
-        if callable(shapes):
-            shapes = [shapes(a) for a in self.natoms]
         return ArrayDict(self, shapes, dtype)

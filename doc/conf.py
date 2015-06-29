@@ -21,11 +21,8 @@ import sys
 #sys.path.append(os.path.abspath('some/directory'))
 sys.path.append('.')
 
-# General configuration
-# ---------------------
-
-# coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['ytp', 'ext', 'images', 'sitelink',
+extensions = [#'ytp',
+              'ext', 'images', 'sitelink',
               'sphinx.ext.autodoc',
               'sphinx.ext.viewcode',
               'sphinx.ext.mathjax',
