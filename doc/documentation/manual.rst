@@ -177,10 +177,10 @@ LCAO:
     See also the page on :ref:`lcao`.
 
 Plane-waves:
-    Expand the wave-functions in plane-waves.  Use ``mode='pw'`` if you want
+    Expand the wave functions in plane-waves.  Use ``mode='pw'`` if you want
     to use the default plane-wave cutoff of `E_{\text{cut}}=340` eV.  The
-    plane-waves will be those with `|\bG+\bk|^2/2<E_{\text{cut}}`.  You
-    can set another cutoff like this::
+    plane-waves will be those with `|\mathbf G+\mathbf k|^2/2<E_{\text{cut}}`.
+    You can set another cutoff like this::
         
         from gpaw import GPAW, PW
         calc = GPAW(mode=PW(200))
