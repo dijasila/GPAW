@@ -228,6 +228,12 @@ class PoissonSolver:
             # Load necessary attributes
             if self.use_charge_center:
                 center = -self.gd.calculate_dipole_moment(rho)/actual_charge
+                borders = np.inner(self.gd.h_cv, self.gd.N_c)
+                if np.any(center > borders) or \
+                        np.any(center < np.array([0,0,0])):
+                    warnings.warn('Poisson solver: center of charge'
+                        + 'outside box - cenerting to box')
+                    center = borders/2  # move coc to cob
                 self.load_gauss(center=center)
             else:
                 self.load_gauss()

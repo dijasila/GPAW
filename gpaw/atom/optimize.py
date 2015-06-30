@@ -140,12 +140,12 @@ def fit(E):
     
     
 class DatasetOptimizer:
-    tolerances = np.array([0.01,
+    tolerances = np.array([0.3,
                            0.01, 0.03, 0.05,
                            0.01, 0.03, 0.05,
                            40,
                            400,  # 0.1 eV convergence
-                           0.004,  # eggbox error
+                           0.002,  # eggbox error
                            0.1])
     
     conf = None
@@ -219,8 +219,10 @@ class DatasetOptimizer:
         # print('dFffRrrICEer:')
         for error, id, x, errors in self.best(N):
             params = [0.1 * p for p in x[:self.nenergies]]
-            params += [0.5 * p for p in x[self.nenergies:]]
-            print('{0:5} {1:7.1f} {2} {3}'.format(
+            params += [0.05 * p for p in x[self.nenergies:]]
+            print('{0:2} {1:2} {2:5} {3:7.1f} {4} {5}'.format(
+                self.Z,
+                self.symbol,
                 id, error,
                 ' '.join('{0:5.2f}'.format(p) for p in params),
                 ' '.join('{0:8.3f}'.format(e) for e in errors)))
@@ -499,7 +501,7 @@ if __name__ == '__main__':
             os.chdir(symbol)
             do = DatasetOptimizer(symbol)
             if opts.summary:
-                do.summary()
+                do.summary(15)
             elif opts.best:
                 do.best1()
             os.chdir('..')

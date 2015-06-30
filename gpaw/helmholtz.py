@@ -1,4 +1,4 @@
-from math import pi, sqrt, fabs
+from math import pi, sqrt
 import numpy as np
 from numpy import exp
 
@@ -20,7 +20,7 @@ class HelmholtzGaussian(Gaussian):
         i = 1j
         rhop = r / sqrt(2) / sigma + i * p
         rhom = r / sqrt(2) / sigma - i * p
-        h = np.sin(k * r)
+        # h = np.sin(k * r)
 
         # the gpaw-Gaussian is sqrt(4 * pi) times a 3D normalized Gaussian
         return sqrt(4 * pi) * exp(-p**2) / r / 2 * (

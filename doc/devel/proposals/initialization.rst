@@ -2,7 +2,7 @@
 Initialization and I/O changes
 ==============================
 
-This is a proposal for some changes that will solve various issues with 
+This is a proposal for some changes that will solve various issues with
 the maintainability and stability of the I/O code amongst other things.
 
 .. contents::
@@ -10,43 +10,40 @@ the maintainability and stability of the I/O code amongst other things.
 Rationale
 =========
 
-Presently the gpw I/O is handled centrally by the module 
-gpaw/io/__init__.py.  If someone makes changes in setup.py or 
-density.py, the I/O may break due to these "non-local correlations" (we 
-in particular, being physicists, should know to appreciate locality), or 
-it may misbehave in subtle ways for certain cases 
+Presently the gpw I/O is handled centrally by the module
+gpaw/io/__init__.py.  If someone makes changes in setup.py or
+density.py, the I/O may break due to these "non-local correlations" (we
+in particular, being physicists, should know to appreciate locality), or
+it may misbehave in subtle ways for certain cases
 (TDDFT/LCAO/non-gamma-point/etc.).
 
-Most of this trouble can be avoided entirely by requiring that objects 
-should know how to read and write themselves.  Thus, responsibility for 
-what to write (and how to read it back!) is delegated to various objects 
+Most of this trouble can be avoided entirely by requiring that objects
+should know how to read and write themselves.  Thus, responsibility for
+what to write (and how to read it back!) is delegated to various objects
 as per the usual 'object oriented' way.
 
-A different but sort of related issue: The output.py module writes lots 
-of things to the log file, and those things would be better off 'writing 
-themselves'.  There are several bugs here waiting to be fixed: if the 
-Poisson solver was created by hand with a non-standard stencil, then the 
-wrong stencil is written.  Scalapack/BLACS information is sometimes 
-wrong (depending on the way it was specified).  No information on the 
-stridedness of the band descriptor is written (and thus parallelization 
+A different but sort of related issue: The output.py module writes lots
+of things to the log file, and those things would be better off 'writing
+themselves'.  There are several bugs here waiting to be fixed: if the
+Poisson solver was created by hand with a non-standard stencil, then the
+wrong stencil is written.  Scalapack/BLACS information is sometimes
+wrong (depending on the way it was specified).  No information on the
+stridedness of the band descriptor is written (and thus parallelization
 info is incomplete).  There are probably other issues.
 
 
 Object hierarki
 ===============
 
-.. image:: ../bigpicture.png
-   :target: ../../bigpicture.svg
-
-So all the objects above may implement functions to read and write their 
-own parameters.  They could also implement functions to read/write 
+So all the objects above may implement functions to read and write their
+own parameters.  They could also implement functions to read/write
 human-readable information to log files (which is highly desirable).
 
-On a somewhat deeper level, we could formalize the tree hierarchy 
-between the major GPAW objects and define a mandatory interface for all 
-major objects to implement (read/write, memory estimate, 
-initialize/set_positions/allocate -- these procesure *all* involve 
-traversing the same tree hierarchy).  This might make it easier for new 
+On a somewhat deeper level, we could formalize the tree hierarchy
+between the major GPAW objects and define a mandatory interface for all
+major objects to implement (read/write, memory estimate,
+initialize/set_positions/allocate -- these procesure *all* involve
+traversing the same tree hierarchy).  This might make it easier for new
 programmers to learn the structure of GPAW (a well-known problem).
 
 Example of what an object could look like:
@@ -164,7 +161,7 @@ can easily support them.
 
 
 Some thoughts about different backends:
---------------------------------------- 
+---------------------------------------
 
 If/when each object writes/reads itself, some sort of hierachical file
 format would be convenient.  I am not that familiar with

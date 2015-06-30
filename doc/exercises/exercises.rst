@@ -47,12 +47,15 @@ Intermediate exercises
 
 Advanced exercises
 ==================
-Pick among them according to your interest.  You can also look at the :ref:`tutorials`.
+
+Pick among them according to your interest.  You can also look at the
+:ref:`tutorials`.
+
+* :ref:`Nudged elastic band calculations <ase:selfdiffusion>`
 
 .. toctree::
    :maxdepth: 1
 
-   neb/neb
    stm/stm
    wannier/wannier
    dos/dos

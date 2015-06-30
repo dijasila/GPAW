@@ -3,21 +3,26 @@ from ase import Atoms
 from ase.units import kcal, mol
 from gpaw import GPAW
 from gpaw.xc.hybrid import HybridXC
+from gpaw.xc import XC
 from gpaw.occupations import FermiDirac
+from gpaw.cluster import Cluster
 from gpaw.test import equal
 from gpaw.eigensolvers import RMM_DIIS
 import _gpaw
 
 newlibxc = _gpaw.lxcXCFuncNum('HYB_GGA_XC_LCY_PBE') is not None
 
-work_atoms = [
-    Atoms('TiO2', [(0, 0, 0), (0.66, 0.66, 1.34), (0.66, 0.66, -1.34)]),
-    Atoms('Ti', [(0, 0, 0)]),
-    Atoms('O', [(0, 0, 0)])]
+h=0.25
+work_atoms = []
 
-for work_atom in work_atoms:
-    work_atom.center(vacuum=4)
+for work_atom in [
+        Atoms('TiO2', [(0, 0, 0), (0.66, 0.66, 1.34), (0.66, 0.66, -1.34)]),
+        Atoms('Ti', [(0, 0, 0)]),
+        Atoms('O', [(0, 0, 0)])]:
+    work_atom = Cluster(work_atom)
+    work_atom.minimal_box(4, h=h)
     work_atom.translate([0.01, 0.02, 0.03])
+    work_atoms.append(work_atom)
 c = {'energy': 0.001, 'eigenstates': 3, 'density': 3}
 
 # Atomization energies are from M. Seth, T. Ziegler, JCTC 8, 901-907
@@ -26,10 +31,10 @@ c = {'energy': 0.001, 'eigenstates': 3, 'density': 3}
 # error.
 
 calculator = GPAW(convergence=c, eigensolver=RMM_DIIS(),
-        occupations=FermiDirac(width=0.0, fixmagmom=True))
-for xc, dE, ediff in [('LCY_BLYP', 143.3, 0.35),
-#               ('LCY_PBE', 149.2, 0.45),
-#               ('CAMY_B3LYP', 147.1, 0.4)
+        occupations=FermiDirac(width=0.0, fixmagmom=True), h=h)
+for xc, dE, ediff in [#('LCY_BLYP', 143.3, 0.25),
+#               ('LCY_PBE', 149.2, 0.3),
+               ('CAMY_B3LYP', 147.1, 0.25)
                 ]:
     if not newlibxc:
         print('Skipped')
@@ -40,10 +45,11 @@ for xc, dE, ediff in [('LCY_BLYP', 143.3, 0.35),
         name = work_atom.get_chemical_formula()
         calculator.set(txt=name + '-' + xc + '.txt')
         work_atom.calc = calculator
-        if name == 'O2Ti':
+        if name == 'O2Ti':   # Speed up a litte, help CAMY
             work_atom.set_initial_magnetic_moments([2.0, -1.0, -1.0])
-            if xc == 'CAMY_B3LYP':
-                work_atom.center(vacuum=4)
+            calculator.set(xc=XC('PBE'))
+            work_atom.get_potential_energy()
+            calculator.set(xc=HybridXC(xc))
         else:
             work_atom.set_initial_magnetic_moments([2.0])
         energies[name] = work_atom.get_potential_energy()

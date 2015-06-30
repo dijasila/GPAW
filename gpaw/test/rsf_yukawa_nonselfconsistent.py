@@ -2,19 +2,21 @@
 from ase import Atoms
 from ase.units import kcal, mol
 from gpaw import GPAW
+from gpaw.cluster import Cluster
 from gpaw.xc.hybrid import HybridXC
 from gpaw.occupations import FermiDirac
 from gpaw.test import equal
 
-tio2 = Atoms('TiO2', positions=[(0, 0, 0), (0.66, 0.66, 1.34),
-    (0.66, 0.66, -1.34)])
-tio2.center(vacuum=4)
+h = 0.25
+tio2 = Cluster(Atoms('TiO2', positions=[(0, 0, 0), (0.66, 0.66, 1.34),
+    (0.66, 0.66, -1.34)]))
+tio2.minimal_box(4, h=h)
 tio2.translate([0.01, 0.02, 0.03])
-ti = Atoms('Ti', [(0, 0, 0)])
-ti.center(vacuum=4)
+ti = Cluster(Atoms('Ti', [(0, 0, 0)]))
+ti.minimal_box(4, h=h)
 ti.translate([0.01, 0.02, 0.03])
-o = Atoms('O', [(0, 0, 0)])
-o.center(vacuum=4)
+o = Cluster(Atoms('O', [(0, 0, 0)]))
+o.minimal_box(4, h=h)
 o.translate([0.01, 0.02, 0.03])
 
 c = {'energy': 0.001, 'eigenstates': 4, 'density': 3}
@@ -25,21 +27,21 @@ c = {'energy': 0.001, 'eigenstates': 4, 'density': 3}
 # error.
 xc = 'PBE'
 ti.calc = GPAW(txt='Ti-' + xc + '.txt', xc=xc, convergence=c,
-            occupations=FermiDirac(width=0.0, fixmagmom=True))
+            occupations=FermiDirac(width=0.0, fixmagmom=True), h=h)
 ti.set_initial_magnetic_moments([2.0])
 e_ti = ti.get_potential_energy()
 o.calc = GPAW(txt='O-' + xc + '.txt', xc=xc, convergence=c,
-            occupations=FermiDirac(width=0.0, fixmagmom=True))
+            occupations=FermiDirac(width=0.0, fixmagmom=True), h=h)
 o.set_initial_magnetic_moments([2.0])
 e_o = o.get_potential_energy()
 tio2.calc = GPAW(txt='TiO2-' + xc + '.txt', xc=xc, convergence=c,
-        occupations=FermiDirac(width=0.0, fixmagmom=True))
+        occupations=FermiDirac(width=0.0, fixmagmom=True), h=h)
 tio2.set_initial_magnetic_moments([1.0, -0.5, -0.5])
 e_tio2 = tio2.get_potential_energy()
 
-for xc, dE, ediff in [('CAMY_B3LYP', 147.1, 0.25),
-                    ('LCY_BLYP', 143.3, 0.45),
-                    ('LCY_PBE', 149.2, 0.55)]:
+for xc, dE, ediff in [('CAMY_B3LYP', 147.1, 0.15),
+                    ('LCY_BLYP', 143.3, 0.25),
+                    ('LCY_PBE', 149.2, 0.35)]:
     de_ti = e_ti + ti.calc.get_xc_difference(HybridXC(xc))
     de_o = e_o + o.calc.get_xc_difference(HybridXC(xc))
     de_tio2 = e_tio2 + tio2.calc.get_xc_difference(HybridXC(xc))

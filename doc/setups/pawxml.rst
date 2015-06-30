@@ -14,7 +14,7 @@ calculations \ [#Blo94]_.  We use the term *dataset* instead of
 *pseudo potential* because the PAW method is not a pseudopotential method.
 
 An example XML file for nitrogen PAW dataset using LDA can be seen
-here: `N.LDA <../N.LDA>`_.
+here: :download:`N.LDA`.
 
 .. note::
    Hartree atomic units are used in the XML file (`\hbar = m = e = 1`).

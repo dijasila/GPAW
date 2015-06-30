@@ -18,7 +18,7 @@ Next, :mod:`ase.dft.kpoints` module is used for generating k-points along
 the high symmetry directions in the Brillouin zone. The below figure shows 
 the high symmetry points of few common crystal lattices. 
 
-.. figure:: ../../_static/bz-all.png
+.. figure:: ../../static/bz-all.png
    :width: 600 px
 
 For the band structure calculation, density is fixed to the previously

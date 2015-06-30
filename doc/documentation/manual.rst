@@ -41,7 +41,8 @@ calculator::
 In Python code, it looks like this:
 
 .. literalinclude:: h2.py
-
+    :start-after: from __future__
+    
 If the above code was executed, a calculation for a single `\rm{H}_2`
 molecule would be started.  The calculation would be done using a
 supercell of size :math:`6.0 \times 6.0 \times 6.0` Å with cluster
@@ -54,7 +55,7 @@ boundary conditions.  The parameters for the PAW calculation are:
 * :math:`32 \times 32 \times 32` grid points.
 
 The values of these parameters can be found in the text output file:
-`h2.txt <../h2.txt>`_.
+:download:`h2.txt`.
 
 The calculator will try to make sensible choices for all parameters
 that the user does not specify.  Specifying parameters can be done
@@ -120,14 +121,14 @@ keyword            type       default value        description
 ``external``       Object                          XXX Missing doc
 ``verbose``        ``int``    ``0``                :ref:`manual_verbose`
 ``poissonsolver``  Object                          Specification of
-                                                   :ref:`Poisson solver 
+                                                   :ref:`Poisson solver
                                                    <manual_poissonsolver>`
                                                    or :ref:`dipole correction
                                                    <manual_dipole_correction>`
                                                    or :ref:`Advanced Poisson 
                                                    solver <advancedpoisson>`
 ``communicator``   Object                          :ref:`manual_communicator`
-``idiotproof``     ``bool``   ``True``             Set to ``False`` to ignore 
+``idiotproof``     ``bool``   ``True``             Set to ``False`` to ignore
                                                    setup fingerprint mismatch
                                                    (allows restart when the
                                                    original setup files are
@@ -137,7 +138,7 @@ keyword            type       default value        description
 *seq*: A sequence of three ``int``'s.
 
 
-.. note:: 
+.. note::
    
    Parameters can be changed after the calculator has been constructed
    by using the :meth:`~gpaw.aseinterface.GPAW.set` method:
@@ -176,10 +177,10 @@ LCAO:
     See also the page on :ref:`lcao`.
 
 Plane-waves:
-    Expand the wave-functions in plane-waves.  Use ``mode='pw'`` if you want
+    Expand the wave functions in plane-waves.  Use ``mode='pw'`` if you want
     to use the default plane-wave cutoff of `E_{\text{cut}}=340` eV.  The
-    plane-waves will be those with `|\bG+\bk|^2/2<E_{\text{cut}}`.  You
-    can set another cutoff like this::
+    plane-waves will be those with `|\mathbf G+\mathbf k|^2/2<E_{\text{cut}}`.
+    You can set another cutoff like this::
         
         from gpaw import GPAW, PW
         calc = GPAW(mode=PW(200))
@@ -255,7 +256,7 @@ Some of the most commonly used exchange-correlation functionals
 are listed below.
 
 ============  =========================== ===========================  ==========
-``xc``        full libxc_ keyword         description                  reference 
+``xc``        full libxc_ keyword         description                  reference
 ============  =========================== ===========================  ==========
 ``'LDA'``     ``'LDA_X+LDA_C_PW'``        Local density approximation  [#LDA]_
 ``'PBE'``     ``'GGA_X_PBE+GGA_C_PBE'``   Perdew, Burke, Ernzerhof     [#PBE]_
@@ -413,7 +414,7 @@ cell accordingly. This can be achieved by::
   d = 0.74
   a = 6.0
   atoms = Cluster('H2', positions=[(0, 0, 0), (0, 0, d)])
-  # set the amount of vacuum at least to 4 Å 
+  # set the amount of vacuum at least to 4 Å
   # and ensure a grid spacing of h=0.2
   atoms.minimal_box(4., h=.2)
 
@@ -525,14 +526,14 @@ The default value is this Python dictionary::
    'density': 1.0e-4,
    'eigenstates': 4.0e-8,  # eV^2 / electron
    'bands': 'occupied',
-   'forces': None} # eV / Ang Max 
+   'forces': None} # eV / Ang Max
 
 In words:
 
 * The energy change (last 3 iterations) should be less than 0.5 meV
   per valence electron.
 
-* The change in density (integrated absolute value of density change) 
+* The change in density (integrated absolute value of density change)
   should be less than 0.001 electrons per valence electron.
 
 * The integrated value of the square of the residuals of the Kohn-Sham
@@ -540,7 +541,7 @@ In words:
   \mathrm{eV}^2` per valence electron (FD mode only).
 
 * The maximum change in the magnitude of the vector representing the
-  difference in forces for each atom.  Setting this to None disables 
+  difference in forces for each atom.  Setting this to None disables
   this functionality, saving computational time and memory usage.
 
 The individual criteria can be changed by giving only the specific
@@ -614,7 +615,7 @@ Fixed density
 
 When calculating band structures or when adding unoccupied states to
 calculation (and wanting to converge them) it is often useful to use existing
-density without updating it. By using ``fixdensity=True`` the initial density 
+density without updating it. By using ``fixdensity=True`` the initial density
 (e.g. one read from .gpw/.hdf5 or existing from previous calculation) is used
 throughout the SCF-cycle (so called Harris calculation).
 
@@ -651,23 +652,12 @@ There exist three special names that, if used, do not specify a file name:
 
 * ``'ae'`` is used for specifying all-electron mode for an
   atom. I.e. no PAW or pseudo potential is used.
-* ``sg15`` specifies the `SG15 optimized norm-conserving Vanderbilt
-  pseudopotentials`_ for the PBE functional.  These have to be
-  installed separately.  Use :file:`gpaw-install-setups --sg15
-  {<dir>}` to download and unpack the pseudopotentials into
-  :file:`{<dir>}/sg15_oncv_upf_{<version>}`.  As of now, the SG15
-  pseudopotentials should still be considered experimental in GPAW.
-  You can plot a UPF pseudopotential by running :file:`gpaw-upfplot
-  {<pseudopotential>}`.  Here, :file:`{<pseudopotential>}` can be
-  either a direct path to a UPF file or the symbol or identifier to
-  search for in the GPAW setup paths.
-	
 * ``'hgh'`` is used to specify a norm-conserving Hartwigsen-Goedecker-Hutter
-  pseudopotential (no installation necessary).  Some elements have better
+  pseudopotential (no file necessary).  Some elements have better
   semicore pseudopotentials.  To use those, specify ``'hgh.sc'``
   for the elements or atoms in question.
-* ``'ghost'`` is used to indicated a *ghost* atom in LCAO mode, 
-  see :ref:`ghost-atoms`. 
+* ``'ghost'`` is used to indicated a *ghost* atom in LCAO mode,
+  see :ref:`ghost-atoms`.
 
 .. _SG15 optimized norm-conserving Vanderbilt pseudopotentials: http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/
 
@@ -746,7 +736,7 @@ More control can be obtained by using directly the eigensolver objects::
   calc = GPAW(eigensolver=CG(niter=5, rtol=0.20))
 
 Here, ``niter`` specifies the maximum number of conjugate gradient iterations
-for each band (within a single SCF step), and if the relative change 
+for each band (within a single SCF step), and if the relative change
 in residual is less than ``rtol``, the iteration for the band is not continued.
 
 LCAO mode has its own eigensolver, which directly diagonalizes the
@@ -777,10 +767,10 @@ on the domain decomposition used.
 
 The last argument, ``eps``, is the convergence criterion.
 
-.. note:: 
+.. note::
 
   The Poisson solver is rarely a performance bottleneck, but it can
-  sometimes perform poorly depending on the grid layout.  This is mostly 
+  sometimes perform poorly depending on the grid layout.  This is mostly
   important in LCAO calculations, but can be good to know in general.
   See the LCAO notes on
   :ref:`Poisson performance <poisson_performance>`.
@@ -853,7 +843,7 @@ Output verbosity
 ----------------
 
 By default, only a limited number of information is printed out for each SCF
-step. It is possible to obtain more information (e.g. for investigating 
+step. It is possible to obtain more information (e.g. for investigating
 convergen problems in more detail) by ``verbose=1`` keyword.
 
 .. _manual_communicator:
@@ -862,7 +852,7 @@ Communicator object
 -------------------
 
 By specifying a communicator object, it is possible to use only a subset of
-processes for the calculator when calculating e.g. different atomic images 
+processes for the calculator when calculating e.g. different atomic images
 in parallel. See :ref:`different_calculations_in parallel` for more details.
 
 .. _manual_parallel_calculations:
@@ -976,24 +966,24 @@ The possible command line arguments are:
 argument                         description
 ===============================  =============================================
 ``--trace``
-``--debug``                      
+``--debug``
                                  Run in debug-mode, e.g. check
                                  consistency of arrays passed to c-extensions
-``--dry-run[=nprocs]``           
+``--dry-run[=nprocs]``
                                  Print out the computational
-                                 parameters and estimate memory usage, 
-                                 do not perform actual calculation. 
-                                 If ``nprocs`` is specified, print also which 
+                                 parameters and estimate memory usage,
+                                 do not perform actual calculation.
+                                 If ``nprocs`` is specified, print also which
                                  parallelization settings would be employed
                                  when run on ``nprocs`` processors.
-``--memory-estimate-depth[=n]``  
+``--memory-estimate-depth[=n]``
                                  Print out an itemized memory estimate by
                                  stepping recursively through the object
                                  hierarchy of the calculator. If ``n`` is
                                  specified, print a summary for depths
                                  greater than the specified value.
                                  Default: ``n=2``
-``--domain-decomposition=comp``  
+``--domain-decomposition=comp``
                                  Specify the domain decomposition with
                                  ``comp`` as a positive integer or, for
                                  greater control, a tuple of three integers.
@@ -1019,10 +1009,10 @@ argument                         description
                                  of the above at once or just the default
                                  value for those not explicitly given.
                                  Allowed values are equivalent to those of
-                                 the four ``sl_...`` arguments in the 
+                                 the four ``sl_...`` arguments in the
                                  :ref:`parallel <manual_parallel>` keyword.
                                  Requires GPAW to be built with ScaLAPACK.
-``--gpaw a=1,b=2.3,...``         
+``--gpaw a=1,b=2.3,...``
                                  Extra parameters for development work:
                                  
                                  >>> from gpaw import extra_parameters
