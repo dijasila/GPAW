@@ -232,8 +232,8 @@ class PoissonSolver:
                 borders = np.inner(self.gd.h_cv, self.gd.N_c)
                 if np.any(center > borders) or \
                         np.any(center < np.array([0, 0, 0])):
-                    warnings.warn('Poisson solver: center of charge'
-                                  + 'outside box - cenerting to box')
+                    warnings.warn('Poisson solver: center of charge '
+                                  + 'outside box - centering to box')
                     center = borders / 2  # move coc to cob
                 self.load_gauss(center=center)
             else:
