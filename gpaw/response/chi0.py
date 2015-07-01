@@ -27,7 +27,7 @@ from functools import partial
 class ArrayDescriptor:
     """Describes a single dimensional array."""
     def __init__(self, data_x):
-        self.data_x = data_x
+        self.data_x = np.array(data_x)
         self._data_len = len(data_x)
 
     def __len__(self):
