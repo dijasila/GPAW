@@ -2,7 +2,8 @@ from __future__ import print_function
 
 import pickle
 import numpy as np
-from ase.units import Hartree, Bohr
+Hartree = 27.2113956555
+Bohr = 0.529177257507
 
 
 class Heterostructure:
@@ -87,7 +88,7 @@ class Heterostructure:
         self.d = np.array(d) / Bohr  # interlayer distances
         if self.n_layers > 1:
             # space around each layer
-            self.s = (np.insert(self.d, 0, self.d[0]) +
+            self.s = (np.insert(self.d, 0, self.d[0]) + 
                       np.append(self.d, self.d[-1])) / 2.
         else:  # Monolayer calculation
             self.s = [d0 / Bohr]  # Width of single layer
@@ -294,7 +295,7 @@ class Heterostructure:
         if self.kernel_qij is None:
             self.kernel_qij = self.get_Coulomb_Kernel()
         chi_qwij = np.zeros((len(self.q_abs), len(self.frequencies),
-                             self.dim, self.dim), dtype=complex)
+                                 self.dim, self.dim), dtype=complex)
 
         for iq in range(len(q_abs)):
             kernel_ij = self.kernel_qij[iq].copy()
@@ -307,8 +308,8 @@ class Heterostructure:
                                                       iq, iw])
                 chi_intra_ij = np.diag(chi_intra_i)
                 chi_qwij[iq, iw, :, :] = np.dot(np.linalg.inv(
-                        np.eye(self.dim) - np.dot(chi_intra_ij,
-                                                  kernel_ij)), chi_intra_ij)
+                        np.eye(self.dim) - np.dot(chi_intra_ij, kernel_ij)),
+                                                chi_intra_ij)
   
         return chi_qwij
 
@@ -387,7 +388,7 @@ class Heterostructure:
             epsinv_M = 1. / N * np.dot(np.array(potential) * layer_weight,
                                        np.dot(epsinv_ij,
                                               np.array(constant_perturbation)))
-            epsM_q.append(1. / epsinv_M)
+            epsM_q.append(1. / epsinv_M.real)
         return self.q_abs / Bohr, epsM_q
 
     def get_response(self, iw=0, dipole=False):
