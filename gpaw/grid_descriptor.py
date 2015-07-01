@@ -3,10 +3,9 @@
 
 """Grid-descriptors
 
-This module contains classes defining two kinds of grids:
+This module contains a classes defining uniform 3D grids.
+For radial grid descriptors, look atom/radialgd.py.
 
-* Uniform 3D grids.
-* Radial grids.
 """
 
 import numbers

@@ -2,6 +2,7 @@
 # Please see the accompanying LICENSE file for further information.
 
 from math import pi
+import warnings
 
 import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2
@@ -16,15 +17,38 @@ from gpaw.utilities.tools import construct_reciprocal
 import _gpaw
 
 
+POISSON_GRID_WARNING="""Grid unsuitable for Poisson solver!
+
+The Poisson solver does not have sufficient multigrid levels for good
+performance and will converge inefficiently if at all, or yield wrong
+results.
+
+You may need to manually specify a grid such that the number of points
+along each direction is divisible by a high power of 2, such as 8, 16,
+or 32 depending on system size; examples:
+
+  GPAW(gpts=(32, 32, 288))
+
+or
+
+  from gpaw.tools import h2gpts
+  GPAW(gpts=h2gpts(0.2, atoms.get_cell(), idiv=16))
+
+Parallelizing over very small domains can also undesirably limit the
+number of multigrid levels even if the total number of grid points
+is divisible by a high power of 2."""
+
+
 class PoissonSolver:
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None):
+                 remove_moment=None, use_charge_center=True):
         self.relax = relax
         self.nn = nn
         self.eps = eps
         self.charged_periodic_correction = None
         self.maxiter = maxiter
         self.remove_moment = remove_moment
+        self.use_charge_center = use_charge_center
 
         # Relaxation method
         if relax == 'GS':
@@ -35,7 +59,7 @@ class PoissonSolver:
             self.relax_method = 2
         else:
             raise NotImplementedError('Relaxation method %s' % relax)
-        
+
         self.description = None
 
     def get_stencil(self):
@@ -87,6 +111,23 @@ class PoissonSolver:
 
         self.levels = level
 
+        if self.operators[-1].gd.N_c.max() > 36:
+            # Try to warn exactly once no matter how one uses the solver.
+            if gd.comm.parent is None:
+                warn = (gd.comm.rank == 0)
+            else:
+                warn = (gd.comm.parent.rank == 0)
+
+            if warn:
+                warntxt = '\n'.join([POISSON_GRID_WARNING, '',
+                                     self.get_description()])
+            else:
+                warntxt = ('Poisson warning from domain rank %d'
+                           % self.gd.comm.rank)
+
+            # Warn from all ranks to avoid deadlocks.
+            warnings.warn(warntxt, stacklevel=2)
+
     def get_description(self):
         name = {1: 'Gauss-Seidel', 2: 'Jacobi'}[self.relax_method]
         coarsest_grid = self.operators[-1].gd.N_c
@@ -96,6 +137,8 @@ class PoissonSolver:
                  % (name, self.levels + 1),
                  '    Coarsest grid: %s points' % coarsest_grid_string]
         if coarsest_grid.max() > 24:
+            # This friendly warning has lower threshold than the big long
+            # one that we print when things are really bad.
             lines.extend(['    Warning: Coarse grid has more than 24 points.',
                           '             More multi-grid levels recommended.'])
         lines.extend(['    Stencil: %s' % self.operators[0].description,
@@ -126,9 +169,9 @@ class PoissonSolver:
         if load_gauss:
             self.load_gauss()
 
-    def load_gauss(self):
-        if not hasattr(self, 'rho_gauss'):
-            gauss = Gaussian(self.gd)
+    def load_gauss(self, center=None):
+        if not hasattr(self, 'rho_gauss') or center is not None:
+            gauss = Gaussian(self.gd, center=center)
             self.rho_gauss = gauss.get_gauss(0)
             self.phi_gauss = gauss.get_gauss_pot(0)
 
@@ -183,7 +226,18 @@ class PoissonSolver:
             # and 3) add the potential from the gaussian density.
 
             # Load necessary attributes
-            self.load_gauss()
+            if self.use_charge_center:
+                center = - self.gd.calculate_dipole_moment(rho) \
+                        / actual_charge
+                borders = np.inner(self.gd.h_cv, self.gd.N_c)
+                if np.any(center > borders) or \
+                        np.any(center < np.array([0, 0, 0])):
+                    warnings.warn('Poisson solver: center of charge '
+                                  + 'outside box - centering to box')
+                    center = borders / 2  # move coc to cob
+                self.load_gauss(center=center)
+            else:
+                self.load_gauss()
 
             # Remove monopole moment
             q = actual_charge / np.sqrt(4 * pi)  # Monopole moment
@@ -315,7 +369,7 @@ class NoInteractionPoissonSolver:
 
     def get_description(self):
         return 'No interaction'
-    
+
     def get_stencil(self):
         return 1
 

@@ -5,6 +5,7 @@ from ase.calculators.neighborlist import NeighborList
 from gpaw.lcao.overlap import AtomicDisplacement, TwoCenterIntegralCalculator
 from gpaw.utilities.partition import EvenPartitioning
 
+
 class DistsAndOffsets:
     def __init__(self, nl, spos_ac, cell_cv):
         #assert nl.bothways
@@ -43,7 +44,8 @@ def newoverlap(wfs, spos_ac):
 
     # New neighbor list because we want it "both ways", heh.  Or do we?
     neighbors = NeighborList(tci.cutoff_a, skin=0,
-                             sorted=True, self_interaction=True, bothways=False)
+                             sorted=True, self_interaction=True,
+                             bothways=False)
     atoms = Atoms('X%d' % len(tci.cutoff_a), cell=gd.cell_cv, pbc=gd.pbc_c)
     atoms.set_scaled_positions(spos_ac)
     neighbors.update(atoms)
@@ -74,7 +76,7 @@ def newoverlap(wfs, spos_ac):
     overlapcalc = TwoCenterIntegralCalculator(wfs.kd.ibzk_qc,
                                               derivative=False)
     
-    P_aaqim = {} # keys: (a1, a2).  Values: matrix blocks
+    P_aaqim = {}  # keys: (a1, a2).  Values: matrix blocks
     dists_and_offsets = DistsAndOffsets(neighbors, spos_ac, gd.cell_cv)
 
     #ng = 2**extra_parameters.get('log2ng', 10)
@@ -90,7 +92,7 @@ def newoverlap(wfs, spos_ac):
         l_Ij.append([phit.get_angular_momentum_number()
                      for phit in phit_j])
 
-    pt_l_Ij = [setup.l_j for setup in tci.setups_I]        
+    pt_l_Ij = [setup.l_j for setup in tci.setups_I]
     pt_Ij = [setup.pt_j for setup in tci.setups_I]
     phit_Ijq = msoc.transform(phit_Ij)
     pt_Ijq = msoc.transform(pt_Ij)
@@ -105,7 +107,7 @@ def newoverlap(wfs, spos_ac):
     for a1 in atom_partition.my_indices:
         for a2 in range(len(wfs.setups)):
             R_ca_and_offset_a = dists_and_offsets.get(a1, a2)
-            if R_ca_and_offset_a is None: # No overlap between a1 and a2
+            if R_ca_and_offset_a is None:  # No overlap between a1 and a2
                 continue
 
             maxdistance = pcutoff_a[a1] + phicutoff_a[a2]
@@ -134,25 +136,4 @@ def newoverlap(wfs, spos_ac):
                 P_aaqim[(a1, a2)] = P_qim
                 P_neighbors_a.setdefault(a1, []).append(a2)
     
-    Pkeys = sorted(P_aaqim.keys())
-
-    def get_M1M2(a):
-        M1 = wfs.setups.M_a[a]
-        M2 = M1 + wfs.setups[a].nao
-        return M1, M2
-    
-    oldstyle_P_aqMi = None
-    if 0:#wfs.world.size == 1:
-        oldstyle_P_aqMi = {}
-        for a, setup in enumerate(wfs.setups):
-            oldstyle_P_aqMi[a] = np.zeros((nq, wfs.setups.nao, setup.ni),
-                                          dtype=wfs.dtype)
-        print([(s.ni, s.nao) for s in wfs.setups])
-        for a1, a2 in Pkeys:
-            M1, M2 = get_M1M2(a2)
-            Pconj_qmi = P_aaqim[(a1, a2)].transpose(0, 2, 1).conjugate()
-            oldstyle_P_aqMi[a1][:, M1:M2, :] = Pconj_qmi
-        
-    # XXX mind distribution
-
-    return P_neighbors_a, P_aaqim, oldstyle_P_aqMi
+    return P_neighbors_a, P_aaqim

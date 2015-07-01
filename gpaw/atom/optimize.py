@@ -18,6 +18,14 @@ from gpaw import GPAW, PW, setup_paths, Mixer  # , ConvergenceError
 from gpaw.atom.generator2 import _generate, DatasetGenerationError
 
 
+my_covalent_radii = covalent_radii.copy()
+my_covalent_radii[1] += 0.2
+my_covalent_radii[2] += 0.2
+my_covalent_radii[10] += 0.2
+
+NN = 11
+
+
 class GA:
     def __init__(self, initialvalue=None):
         self.initialvalue = initialvalue
@@ -30,16 +38,16 @@ class GA:
                 words = line.split(',')
                 n = int(words.pop(0))
                 error = float(words.pop(0))
-                x = tuple(int(word) for word in words[:-12])
+                x = tuple(int(word) for word in words[:-NN])
                 self.individuals[x] = (error, n)
-                y = tuple(float(word) for word in words[-12:])
+                y = tuple(float(word) for word in words[-NN:])
                 self.errors[n] = y
                 
         self.fd = open('pool.csv', 'a')  # pool of genes
         self.n = len(self.individuals)
         self.pool = mp.Pool()  # process pool
 
-    def run(self, func, sleep=5, mutate=15.0, size1=4, size2=1000):
+    def run(self, func, sleep=5, mutate=5.0, size1=2, size2=1000):
         results = []
         while True:
             while len(results) < mp.cpu_count():
@@ -132,11 +140,12 @@ def fit(E):
     
     
 class DatasetOptimizer:
-    tolerances = np.array([0.01,
+    tolerances = np.array([0.3,
                            0.01, 0.03, 0.05,
                            0.01, 0.03, 0.05,
-                           40, 0.2,
-                           0.001, 0.02,
+                           40,
+                           400,  # 0.1 eV convergence
+                           0.002,  # eggbox error
                            0.1])
     
     conf = None
@@ -168,9 +177,9 @@ class DatasetOptimizer:
             self.lmax = 2
             
         # Round to integers:
-        x = ([e / 0.05 for e in energies] +
-             [r / 0.01 for r in radii] +
-             [r0 / 0.01])
+        x = ([e / 0.1 for e in energies] +
+             [r / 0.05 for r in radii] +
+             [r0 / 0.05])
         self.x = tuple(int(round(f)) for f in x)
         
         # Read FHI-Aims data:
@@ -182,9 +191,9 @@ class DatasetOptimizer:
         
         setup_paths[:0] = ['../..', '.']
         
-        Z = atomic_numbers[symbol]
-        self.rc = covalent_radii[Z]
-        self.rco = covalent_radii[8]
+        self.Z = atomic_numbers[symbol]
+        self.rc = my_covalent_radii[self.Z]
+        self.rco = my_covalent_radii[8]
 
     def run(self):  # , mu, n1, n2):
         # mu = float(mu)
@@ -207,11 +216,13 @@ class DatasetOptimizer:
                     for error, id, x in best[:N]]
         
     def summary(self, N=10):
-        #print('dFffRrrICEer:')
+        # print('dFffRrrICEer:')
         for error, id, x, errors in self.best(N):
-            params = [0.05 * p for p in x[:self.nenergies]]
-            params += [0.01 * p for p in x[self.nenergies:]]
-            print('{0:5} {1:7.1f} {2} {3}'.format(
+            params = [0.1 * p for p in x[:self.nenergies]]
+            params += [0.05 * p for p in x[self.nenergies:]]
+            print('{0:2} {1:2} {2:5} {3:7.1f} {4} {5}'.format(
+                self.Z,
+                self.symbol,
                 id, error,
                 ' '.join('{0:5.2f}'.format(p) for p in params),
                 ' '.join('{0:8.3f}'.format(e) for e in errors)))
@@ -222,7 +233,6 @@ class DatasetOptimizer:
         except IndexError:
             return
         energies, radii, r0, projectors = self.parameters(x)
-        Z = atomic_numbers[self.symbol]
         if 0:
             print(error, self.symbol, n)
         if 1:
@@ -231,7 +241,7 @@ class DatasetOptimizer:
             else:
                 nderiv0 = 2
             fmt = '{0:2} {1:2} -P {2:31} -r {3:20} -0 {4},{5:.2f} # {6:10.3f}'
-            print(fmt.format(Z,
+            print(fmt.format(self.Z,
                              self.symbol,
                              projectors,
                              ','.join('{0:.2f}'.format(r) for r in radii),
@@ -243,8 +253,8 @@ class DatasetOptimizer:
                 print(projectors, ' '.join('{0:.2f}'.format(r)
                                            for r in radii + [r0]),
                       file=fd)
-        if 0:
-            self.generate(None, 'PBE', projectors, radii, r0, not True, '',
+        if 0 and error != np.inf and error != np.nan:
+            self.generate(None, 'PBE', projectors, radii, r0, True, '',
                           logderivs=not False)
         
     def generate(self, fd, xc, projectors, radii, r0,
@@ -274,9 +284,9 @@ class DatasetOptimizer:
         return error
             
     def parameters(self, x):
-        energies = tuple(0.05 * i for i in x[:self.nenergies])
-        radii = [0.01 * i for i in x[self.nenergies:-1]]
-        r0 = 0.01 * x[-1]
+        energies = tuple(0.1 * i for i in x[:self.nenergies])
+        radii = [0.05 * i for i in x[self.nenergies:-1]]
+        r0 = 0.05 * x[-1]
         projectors = self.projectors % energies
         return energies, radii, r0, projectors
         
@@ -284,14 +294,14 @@ class DatasetOptimizer:
         fd = open('{0}.txt'.format(n), 'w')
         energies, radii, r0, projectors = self.parameters(x)
         
-        if any(r < r0 for r in radii) or any(e <= 0.0 for e in energies):
-            return n, x, [np.inf] * 12, np.inf
+        if any(r < r0 for r in radii):  # or any(e <= 0.0 for e in energies):
+            return n, x, [np.inf] * NN, np.inf
             
         try:
             errors = self.test(n, fd, projectors, radii, r0)
         except Exception:
             traceback.print_exc(file=fd)
-            errors = [np.inf] * 12
+            errors = [np.inf] * NN
             
         try:
             os.remove('{0}.ga{1}.PBE'.format(self.symbol, n))
@@ -308,7 +318,7 @@ class DatasetOptimizer:
                                    scalar_relativistic=True)
         results = {'dataset': error}
         
-        for name in ['slab', 'fcc', 'rocksalt', 'eggbox']:
+        for name in ['slab', 'fcc', 'rocksalt', 'convergence', 'eggbox']:
             result = getattr(self, name)(n, fd)
             results[name] = result
             
@@ -331,10 +341,9 @@ class DatasetOptimizer:
             errors.append(result['c80'] - result['c80ref'])
         
         errors.append(maxiter)
-        errors.append(results['fcc']['convergence'])
+        errors.append(results['convergence'])
         
-        errors.append(results['eggbox'][0])
-        errors.append(results['eggbox'][1])
+        errors.append(results['eggbox'])
         
         errors.append(results['radii'])
         
@@ -347,6 +356,9 @@ class DatasetOptimizer:
         sc = min((abs(s - sc), s) for s in ref if s != 'a')[1]
         maxiter = 0
         energies = []
+        M = 200
+        if 58 <= self.Z <= 70:
+            M = 999
         for s in [sc, 0.9, 1.0, 1.1]:
             atoms = bulk(self.symbol, 'fcc', a0r * s)
             atoms.calc = GPAW(mode=PW(self.ecut2),
@@ -354,18 +366,13 @@ class DatasetOptimizer:
                               xc='PBE',
                               lmax=self.lmax,
                               setups='ga' + str(n),
-                              maxiter=200,
+                              maxiter=M,
                               txt=fd)
             e = atoms.get_potential_energy()
             maxiter = max(maxiter, atoms.calc.get_number_of_iterations())
             energies.append(e)
-            if s == 1.0:
-                atoms.calc.set(mode=PW(self.ecut1), eigensolver='rmm-diis')
-                e2 = atoms.get_potential_energy()
-                maxiter = max(maxiter, atoms.calc.get_number_of_iterations())
-
-        return {'convergence': e2 - energies[2],
-                'c90': energies[1] - energies[2],
+                    
+        return {'c90': energies[1] - energies[2],
                 'c80': energies[0] - energies[2],
                 'c90ref': ref[0.9] - ref[1.0],
                 'c80ref': ref[sc] - ref[1.0],
@@ -376,10 +383,13 @@ class DatasetOptimizer:
     def rocksalt(self, n, fd):
         ref = self.reference['rocksalt']
         a0r = ref['a']
-        sc = min(0.8, (self.rc + self.rco) / a0r)
+        sc = min(0.8, 2 * (self.rc + self.rco) / a0r)
         sc = min((abs(s - sc), s) for s in ref if s != 'a')[1]
         maxiter = 0
         energies = []
+        M = 200
+        if 58 <= self.Z <= 70:
+            M = 999
         for s in [sc, 0.9, 1.0, 1.1]:
             atoms = bulk(self.symbol + 'O', 'rocksalt', a0r * s)
             atoms.calc = GPAW(mode=PW(self.ecut2),
@@ -387,7 +397,7 @@ class DatasetOptimizer:
                               xc='PBE',
                               lmax=self.lmax,
                               setups={self.symbol: 'ga' + str(n)},
-                              maxiter=200,
+                              maxiter=M,
                               txt=fd)
             e = atoms.get_potential_energy()
             maxiter = max(maxiter, atoms.calc.get_number_of_iterations())
@@ -405,7 +415,7 @@ class DatasetOptimizer:
         a0 = self.reference['fcc']['a']
         atoms = fcc111(self.symbol, (1, 1, 7), a0, vacuum=3.5)
         assert not atoms.pbc[2]
-        if self.lmax == 3:
+        if 58 <= self.Z <= 70:
             mixer = {'mixer': Mixer(0.002, 3)}
         else:
             mixer = {}
@@ -422,7 +432,7 @@ class DatasetOptimizer:
         return itrs
         
     def eggbox(self, n, fd):
-        h = 0.19
+        h = 0.18
         a0 = 16 * h
         atoms = Atoms(self.symbol, cell=(a0, a0, a0), pbc=True)
         atoms.calc = GPAW(h=h,
@@ -435,16 +445,34 @@ class DatasetOptimizer:
         e0 = atoms.get_potential_energy()
         atoms.positions += h / 6
         e1 = atoms.get_potential_energy()
-        f1 = atoms.get_forces()
         atoms.positions += h / 6
         e2 = atoms.get_potential_energy()
-        f2 = atoms.get_forces()
         atoms.positions += h / 6
         e3 = atoms.get_potential_energy()
-        return (np.ptp([e0, e1, e2, e3]),
-                max((f**2).sum()**0.5 for f in [f1, f2]))
+        return np.ptp([e0, e1, e2, e3])
 
-        
+    def convergence(self, n, fd):
+        a = 3.0
+        atoms = Atoms(self.symbol, cell=(a, a, a), pbc=True)
+        atoms.calc = GPAW(mode=PW(900),
+                          xc='PBE',
+                          eigensolver='rmm-diis',
+                          lmax=self.lmax,
+                          setups='ga' + str(n),
+                          symmetry='off',
+                          txt=fd)
+        e0 = atoms.get_potential_energy()
+        de0 = 0.0
+        for ec in range(800, 200, -100):
+            atoms.calc.set(mode=PW(ec))
+            de = abs(atoms.get_potential_energy() - e0)
+            if de > 0.1:
+                ec0 = ec + (de - 0.1) / (de - de0) * 100
+                return ec0
+            de0 = de
+        return 250
+
+
 if __name__ == '__main__':
     import optparse
     parser = optparse.OptionParser(usage='python -m gpaw.atom.optimize '
@@ -473,7 +501,7 @@ if __name__ == '__main__':
             os.chdir(symbol)
             do = DatasetOptimizer(symbol)
             if opts.summary:
-                do.summary()
+                do.summary(15)
             elif opts.best:
                 do.best1()
             os.chdir('..')

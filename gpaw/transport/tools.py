@@ -1035,8 +1035,8 @@ def save_bias_data_file(Lead1, Lead2, Device):
                                      ham.nspins, ham.gd.comm,
                                      density.atom_partition)
     if world.rank == 0:
-        vt_sG_L += (Ef - Ef_L) / Hartree
-        vt_sG_R += (Ef - Ef_R) / Hartree
+        vt_sG += (Ef_L-Ef) / Hartree
+        vt_sG_R += (Ef_L - Ef_R) / Hartree
         vt_sG=np.append(vt_sG_L, vt_sG,axis=3)
         vt_sG=np.append(vt_sG,vt_sG_R,axis=3)
         pickle.dump(([0.0,0,0], vt_sG, dH_asp), open('bias_data1', 'wb'), 2)

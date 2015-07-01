@@ -193,17 +193,6 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
         fullname = '%s.%s.basis' % (basis.symbol, name)
         if filename is None:
             basis.filename, source = search_for_file(fullname, world=world)
-            if source is None:
-                print("""
-You need to set the GPAW_SETUP_PATH environment variable to point to
-the directory where the basis set files are stored.  See
-
-  http://wiki.fysik.dtu.dk/gpaw/Setups
-
-for details.""")
-
-                raise RuntimeError('Could not find "%s" basis for "%s".' %
-                                   (name, basis.symbol))
         else:
             basis.filename = filename
             source = open(filename, 'rb').read()
@@ -301,7 +290,7 @@ class BasisPlotter:
         else:
             factor = np.ones_like(r_g)
 
-        dashes_l = [(1, 0), (6, 3), (4, 1, 1, 1), (1, 1)]
+        dashes_l = [(), (6, 3), (4, 1, 1, 1), (1, 1)]
 
         pl.figure()
         for norm, bf in zip(norm_j, basis.bf_j):
@@ -309,7 +298,7 @@ class BasisPlotter:
             if self.normalize:
                 y_g /= norm
             pl.plot(r_g[:bf.ng], y_g, label=bf.type[:12],
-                    dashes=dashes_l[bf.l],
+                    dashes=dashes_l[bf.l], lw=2,
                     **plot_args)
         axis = pl.axis()
         rc = max([bf.rc for bf in basis.bf_j])

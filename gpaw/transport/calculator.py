@@ -149,7 +149,6 @@ class Transport(GPAW):
                         'foot_print',
                         'data_file',
                         'extended_atoms',
-                        'restart_lead_hamiltonian',
                         'analysis_data_list',
                         'save_bias_data',
                         'perturbation_steps',
@@ -228,7 +227,6 @@ class Transport(GPAW):
         self.foot_print = p['foot_print']
         self.save_file = p['save_file']
         self.restart_file = p['restart_file']
-        self.restart_lead_hamiltonian = p['restart_lead_hamiltonian']
         self.neintmethod = p['neintmethod']
         self.neintstep = p['neintstep']
         self.n_bias_step = p['n_bias_step']
@@ -340,7 +338,6 @@ class Transport(GPAW):
         p['lead_calculators'] = None
         p['d'] = 2
         p['lead_restart'] = False
-        p['restart_lead_hamiltonian'] = False
         p['lead_atoms'] = None
         p['extended_atoms'] = None
         p['nleadlayers'] = [1, 1]
@@ -513,18 +510,21 @@ class Transport(GPAW):
     def restart_leads(self):
         self.log('restart_leads()')
         self.setups_lead = []
+        self.lead_fermi = []
         for i in range(self.lead_num):
             atoms = self.get_lead_atoms(i)
             calc = atoms.calc
             calc.initialize(atoms)
+            calc.set_positions(atoms)
             self.setups_lead.append(atoms.calc.wfs.setups)
             data = self.tio.read_data(filename='Lead_' + str(i),
                                                   option='Lead')
             vt_sG = data['vt_sG']
             dH_asp = data['dH_asp']
+            self.lead_fermi.append(data['fermi'])
             calc.hamiltonian.dH_asp = {}
-            for i, dH_p in enumerate(dH_asp):
-                calc.hamiltonian.dH_asp[i] = dH_p
+            for j, dH_p in enumerate(dH_asp):
+                calc.hamiltonian.dH_asp[j] = dH_p
             #calc.hamiltonian.vt_sG = calc.gd.empty()
             calc.gd.distribute(vt_sG, calc.hamiltonian.vt_sG)
             self.collect_leads_matrices(calc, i)
@@ -571,7 +571,7 @@ class Transport(GPAW):
         self.initialize_lead_matrix()
 
         self.tio = Transport_IO(self.wfs.kd.comm, self.gd.comm)
-        if not self.restart_lead_hamiltonian:
+        if not self.lead_restart:
             if self.lead_calculators is None:
                 self.calculate_leads()
             else:
@@ -1263,7 +1263,10 @@ class Transport(GPAW):
     def collect_leads_matrices(self, calc, l):
         self.log('collect_leads_matrices()')
         hl_skmm, sl_kmm = self.get_hs(calc)
-        dl_skmm = get_lcao_density_matrix(calc)
+        if self.lead_restart:
+            dl_skmm = np.zeros_like(hl_skmm)
+        else:
+            dl_skmm = get_lcao_density_matrix(calc)
         lead_direction = l # character l
         hl_spkmm, sl_pkmm, dl_spkmm,  \
         hl_spkcmm, sl_pkcmm, dl_spkcmm = get_pk_hsd(self.d, self.ntklead,
@@ -2946,7 +2949,7 @@ class Transport(GPAW):
            fd = open('bias_data' + str(i + 1), 'rb')
            self.bias, vt_sG, dH_asp = pickle.load(fd)
            fd.close()
-           self.surround.combine_dH_asp(dH_asp)
+           self.surround.combine_dH_asp(self, dH_asp)
            self.gd1.distribute(vt_sG, self.extended_calc.hamiltonian.vt_sG)
            h_spkmm, s_pkmm = self.get_hs(self.extended_calc)
            if kpt_comm.rank == 0:

@@ -97,14 +97,7 @@ class LCAOWaveFunctions(WaveFunctions):
         fd.write('    Diagonalizer: %s\n' % self.ksl.get_description())
         fd.write('    Atomic Correction: %s\n'
                  % self.atomic_correction.description)
-        if self.dtype == complex:
-            typestr = "complex"
-        elif self.dtype == float:
-            typestr = "float"
-        else:
-            typestr = "unknown"
-        fd.write("    Datatype: %s\n" % typestr)
-        
+        fd.write("    Datatype: %s\n" % self.dtype.__name__)
         
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)
@@ -164,9 +157,9 @@ class LCAOWaveFunctions(WaveFunctions):
         self.tci.calculate(spos_ac, S_qMM, T_qMM, self.P_aqMi)
 
         # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-        from gpaw.lcao.newoverlap import newoverlap
-        self.P_neighbors_a, self.P_aaqim, self.newP_aqMi \
-            = newoverlap(self, spos_ac)
+        if self.atomic_correction.name != 'dense':
+            from gpaw.lcao.newoverlap import newoverlap
+            self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
         self.atomic_correction.gobble_data(self)
         # XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 

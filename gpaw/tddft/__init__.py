@@ -34,10 +34,6 @@ from gpaw.tddft.tdopers import \
     TimeDependentWaveFunctions, \
     TimeDependentDensity, \
     AbsorptionKickHamiltonian
-from gpaw.tddft.abc import \
-    LinearAbsorbingBoundary, \
-    PML, \
-    P4AbsorbingBoundary
 
 
 # T^-1
@@ -50,6 +46,7 @@ class KineticEnergyPreconditioner:
     def apply(self, kpt, psi, psin):
         for i in range(len(psi)):
             psin[i][:] = self.preconditioner(psi[i], kpt.phase_cd, None, None)
+
 
 # S^-1
 class InverseOverlapPreconditioner:
@@ -284,7 +281,7 @@ class TDDFT(GPAW):
             if self.initialized and key not in ['txt']:
                 raise TypeError("Keyword argument '%s' is immutable." % key)
 
-            if key in ['txt', 'parallel', 'communicator']:
+            if key in ['txt', 'parallel', 'communicator', 'poissonsolver']:
                 continue
             elif key == 'mixer':
                 if not isinstance(kwargs[key], DummyMixer):
@@ -351,7 +348,7 @@ class TDDFT(GPAW):
         self.dump_interval = dump_interval
 
         niterpropagator = 0
-        maxiter = self.niter + iterations
+        self.tdmaxiter = self.niter + iterations
 
         # Let FDTD part know the time step
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
@@ -359,7 +356,7 @@ class TDDFT(GPAW):
             self.hamiltonian.poisson.set_time_step(self.time_step)
             
         self.timer.start('Propagate')
-        while self.niter < maxiter:
+        while self.niter < self.tdmaxiter:
             norm = self.density.finegd.integrate(self.density.rhot_g)
 
             # Write dipole moment at every iteration
@@ -660,7 +657,7 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
         f_file.write('#  om (eV) %14s%20s%20s\n' % ('Sx', 'Sy', 'Sz'))
         # alpha = 2/(2*pi) / eps int dt sin(omega t) exp(-t^2*sigma^2/2)
         #                                * ( dm(t) - dm(0) )
-        alpha = 0
+        # alpha = 0
         for i in range(nw):
             w = i * dw
             # x

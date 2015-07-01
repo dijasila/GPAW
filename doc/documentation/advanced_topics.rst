@@ -18,6 +18,7 @@ GPAW calculator:
    xc/xc
    xc/exx
    xc/rpa
+   poisson
    transport/negftransport
    transport/keldyshgf
    tddft/tddft

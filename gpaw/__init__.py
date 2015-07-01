@@ -5,18 +5,7 @@
 
 import os
 import sys
-try:
-    from distutils.util import get_platform
-except ImportError:
-    modulepath = os.environ.get('GPAW_GET_PLATFORM')
-    if modulepath is None:
-        errmsg = ('Error: Could not get platform from distutils. '
-                  'Set the GPAW_GET_PLATFORM environment variable to '
-                  'the architecture string printed during build.')
-        raise ImportError(errmsg)
-
-    def get_platform():
-        return modulepath
+from distutils.util import get_platform
 
 from os.path import join, isfile
 
@@ -30,7 +19,7 @@ __all__ = ['GPAW', 'Calculator',
            'CG', 'Davidson', 'RMM_DIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
-           'restart']
+           'PW', 'LCAO', 'restart']
 
 
 class ConvergenceError(Exception):
@@ -58,7 +47,7 @@ sl_inverse_cholesky = None
 sl_lcao = None
 sl_lrtddft = None
 buffer_size = None
-extra_parameters = {'fprojectors': True}
+extra_parameters = {}
 profile = False
 i = 1
 while len(sys.argv) > i:
@@ -207,7 +196,7 @@ if debug:
         return a
     np.empty = empty
 
-
+    
 build_path = join(__path__[0], '..', 'build')
 arch = '%s-%s' % (get_platform(), sys.version[0:3])
 
@@ -271,7 +260,7 @@ if trace:
 
         if event == 'call':
             print(('%s%s:%d(%s)' % (indent, f[len(path):], frame.f_lineno,
-                                   frame.f_code.co_name)))
+                                    frame.f_code.co_name)))
             indent += '| '
         elif event == 'return':
             indent = indent[:-2]

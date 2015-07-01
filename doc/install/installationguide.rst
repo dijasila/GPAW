@@ -314,6 +314,15 @@ Example::
 Installation of PAW datasets
 ============================
 
+The PAW datasets can be installed automatically or manually.
+
+To install them automatically, run :file:`gpaw-install-setups
+{<dir>}`.  This downloads and unpacks the newest package into
+:file:`{<dir>}/gpaw-setups-{<version>}`.  When prompted, answer
+yes (y) to register the path in the GPAW configuration file.
+
+To manually install the setups, do as follows:
+
 1) Get the tar file :file:`gpaw-setups-{<version>}.tar.gz`
    of the <version> of PAW datasets from the :ref:`setups` page
    and unpack it somewhere, preferably in :envvar:`HOME`

@@ -76,7 +76,6 @@ tests = [
     'kpt.py',
     'mpicomm.py',
     'numpy_core_multiarray_dot.py',
-    'maxrss.py',  # verifies reported RAM allocation: fragile, don't move down
     'fileio/hdf5_noncontiguous.py',
     'cg2.py',
     'laplace.py',
@@ -123,6 +122,8 @@ tests = [
     'noncollinear/xcgrid3d.py',
     'cluster.py',
     'poisson.py',
+    'poisson_asym.py',
+    'asym_box.py',
     'parallel/arraydict_redist.py',
     'parallel/overlap.py',
     'parallel/scalapack.py',
@@ -135,6 +136,7 @@ tests = [
     'harmonic.py',
     'proton.py',
     'atoms_mismatch.py',
+    'setup_basis_spec.py',
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
     'lcao_density.py',                      # ~1s
@@ -169,6 +171,7 @@ tests = [
     'fixdensity.py',                        # ~2s
     'pseudopotential/ah.py',                # ~2s
     'lcao_restart.py',                      # ~2s
+    'lcao_tddft.py',                        # ~2s
     'wfs_io.py',                            # ~3s
     'lrtddft2.py',                          # ~3s
     'fileio/file_reference.py',             # ~3s
@@ -186,6 +189,8 @@ tests = [
     'pw/fulldiag.py',                       # ~3s
     'symmetry_ft.py',                       # ~3s
     'aluminum_EELS_RPA.py',                 # ~3s
+    'poisson_extended.py',                  # ~3s
+    'solvation/vacuum.py',                  # ~3s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'ewald.py',                             # ~4s
     'symmetry.py',                          # ~4s
@@ -216,6 +221,7 @@ tests = [
     'parallel/lcao_hamiltonian.py',         # ~5s
     'degeneracy.py',                        # ~5s
     'refine.py',                            # ~5s
+    'solvation/pbc.py',                     # ~5s
     'gemm.py',                              # ~6s
     'al_chain.py',                          # ~6s
     'fileio/parallel.py',                   # ~6s
@@ -255,15 +261,17 @@ tests = [
     'kssingles_Be.py',                      # ~11s
     'relax.py',                             # ~11s
     'pw/mgo_hybrids.py',                    # ~11s
+    'solvation/adm12.py',                   # ~11s
     'dscf_lcao.py',                         # ~12s
     '8Si.py',                               # ~12s
     'partitioning.py',                      # ~12s
     'lxc_xcatom.py',                        # ~12s
+    'solvation/sfgcm06.py',                 # ~12s
+    'solvation/sss09.py',                   # ~12s
     'gllbatomic.py',                        # ~13s
     'guc_force.py',                         # ~13s
     'ralda_energy_Ni.py',                   # ~13s
     'simple_stm.py',                        # ~13s
-    'solvation/vacuum.py',                  # ~13s
     'ofdft_pbc.py',                         # ~13s
     'ed_shapes.py',                         # ~14s
     'restart_band_structure.py',            # ~14s
@@ -274,6 +282,8 @@ tests = [
     'IP_oxygen.py',                         # ~15s
     'rpa_energy_Na.py',                     # ~15s
     'parallel/fd_parallel.py',              # ~15s
+    'solvation/poisson.py',                 # ~15s
+    'solvation/water_water.py',             # ~15s
     'parallel/lcao_parallel.py',            # ~16s
     'atomize.py',                           # ~16s
     'excited_state.py',                     # ~16s
@@ -285,7 +295,6 @@ tests = [
     'pplda.py',                             # ~18s
     'si_xas.py',                            # ~18s
     'mgga_sc.py',                           # ~19s
-    'solvation/pbc.py',                     # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
     # buildbot > 20 sec tests start here (add tests after lrtddft.py!)
     'lrtddft.py',                           # ~20s
@@ -301,12 +310,13 @@ tests = [
     'diamond_absorption.py',                # ~24s
     'ralda_energy_Si.py',                   # ~24s
     'ldos.py',                              # ~25s
+    'solvation/swap_atoms.py',              # ~25s
     'revPBE_Li.py',                         # ~26s
-    'solvation/poisson.py',                 # ~28s
     'ofdft_scale.py',                       # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
     'h2o_dks.py',                           # ~30s
     'nsc_MGGA.py',                          # ~32s
+    'solvation/spinpol.py',                 # ~32s
     'diamond_gllb.py',                      # ~33s
     'MgO_exx_fd_vs_pw.py',                  # ~37s
     'vdw/quick_spin.py',                    # ~37s
@@ -317,13 +327,13 @@ tests = [
     'au02_absorption.py',                   # ~44s
     'wannierk.py',                          # ~45s
     'bse_vs_lrtddft.py',                    # ~45s
-    'solvation/spinpol.py',                 # ~45s
     'aluminum_testcell.py',                 # ~46s
     'pygga.py',                             # ~47s
     'ut_tddft.py',                          # ~49s
     'response_pair.py',                     # ~50s
     'rpa_energy_N2.py',                     # ~52s
     'vdw/ar2.py',                           # ~53s
+    'solvation/forces_symmetry.py',         # ~56s
     'parallel/diamond_gllb.py',             # ~59s
     'beef.py',
     'pw/si_stress.py',                      # ~61s
@@ -332,19 +342,13 @@ tests = [
     'transport.py',                         # ~73s
     'lrtddft3.py',                          # ~75s
     'nonlocalset.py',                       # ~82s
-    'solvation/water_water.py',             # ~83s
-    'solvation/sfgcm06.py',                 # ~86s
-    'solvation/sss09.py',                   # ~87s
-    'solvation/adm12.py',                   # ~87s
     # buildbot > 100 sec tests start here (add tests after lb94.py!)
     'lb94.py',                              # ~84s
-    'solvation/swap_atoms.py',              # ~114s
     'AA_exx_enthalpy.py',                   # ~119s
-    'solvation/forces_symmetry.py',         # ~119s
     'lcao_tdgllbsc.py',                     # ~132s
+    'solvation/forces.py',                  # ~140s
     'bse_silicon.py',                       # ~143s
     'gwsi.py',                              # ~147s
-    'solvation/forces.py',                  # ~289s
     'response_graphene.py',                 # ~160s
     'response_symmetry.py',                 # ~300s
     'pw/moleculecg.py',                     # duration unknown
@@ -383,13 +387,8 @@ tests = [
 
 exclude = []
 
-# not available on Windows
-if os.name in ['ce', 'nt'] or sys.platform in ['darwin']:
-    exclude += ['maxrss.py']
-
 if mpi.size > 1:
-    exclude += ['maxrss.py',
-                'pes.py',
+    exclude += ['pes.py',
                 'diamond_eps.py',
                 'nscfsic.py',
                 'coreeig.py',
@@ -478,7 +477,8 @@ class TestRunner:
         else:
             self.log = devnull
         self.n = max([len(test) for test in tests])
-
+        self.setup_paths = setup_paths[:]
+        
     def run(self):
         self.log.write('=' * 77 + '\n')
         if not self.show_output:
@@ -564,7 +564,15 @@ class TestRunner:
             self.register_skipped(test, t0)
             return exitcode_skip
 
+        dirname = test[:-3]
+        if mpi.rank == 0:
+            os.makedirs(dirname)
+        mpi.world.barrier()
+        cwd = os.getcwd()
+        os.chdir(dirname)
+
         try:
+            setup_paths[:] = self.setup_paths
             loc = {}
             exec(compile(open(filename).read(), filename, 'exec'), loc)
             loc.clear()
@@ -590,6 +598,8 @@ class TestRunner:
                 tb = traceback.format_exc()
         except Exception:
             tb = traceback.format_exc()
+        finally:
+            os.chdir(cwd)
 
         mpi.ibarrier(timeout=60.0)  # guard against parallel hangs
 

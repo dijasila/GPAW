@@ -10,6 +10,32 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* When searching for basis sets, the setup name if any is now
+  prepended automatically to the basis name.  Thus if
+  :file:`setups='{setupname}'` and :file:`basis='{basisname}'`, GPAW
+  will search for :file:`{symbol}.{setupname}.{basisname}.basis`.
+
+* :ref:`Time-propagation TDDFT with LCAO <lcaotddft>`.
+
+* Improved distribution and load balance when calculating atomic XC
+  corrections, and in LCAO when calculating atomic corrections to the
+  Hamiltonian and overlap.
+
+* Norm-conserving :ref:`SG15 pseudopotentials <manual_setups>` and
+  parser for several dialects of the UPF format.
+
+* Non-selfconsistent spin-orbit coupling have been added. See :ref:`tutorial
+  <spinorbit>` for examples of band structure calculations with spin-orbit
+  coupling.
+
+* Text output from ground-state calculations now list the symmetries found
+  and the **k**-points used.  Eigenvalues and occupation numbers are now
+  also printed for systems with **k**-points.
+  
+* :ref:`GW <gw exercise>`, :ref:`rpa`, and :ref:`response function
+  calculation <df_tutorial>` has been rewritten to take advantage of
+  symmetry and fast matrix-matrix multiplication (BLAS).
+  
 * New :ref:`symmetry <manual_symmetry>` keyword.  Replaces ``usesymm``.
 
 * Use non-symmorphic symmetries: combining fractional translations with
@@ -20,7 +46,18 @@ Development version in trunk
   be used to calculate forces to a given precision.
 
 * Fixed bug in printing work functions for calculations with a
-  dipole-correction `<http://listserv.fysik.dtu.dk/pipermail/gpaw-users/2015-February/003226.html>`_.
+  dipole-correction `<http://listserv.fysik.dtu.dk/pipermail/
+  gpaw-users/2015-February/003226.html>`_.
+
+* A :ref:`continuum solvent model <continuum_solvent_model>` was added.
+
+* Orbital-free DFT with PAW transformation is available.
+
+* GPAW can now perform :ref:`electrodynamics` simulations using the
+  quasistatic finite-difference time-domain (QSFDTD) method.
+  
+* Support for Python 3.
+
 
 Version 0.10.0
 ==============
