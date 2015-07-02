@@ -27,7 +27,7 @@ from functools import partial
 class ArrayDescriptor:
     """Describes a single dimensional array."""
     def __init__(self, data_x):
-        self.data_x = np.array(data_x)
+        self.data_x = np.array(np.sort(data_x))
         self._data_len = len(data_x)
 
     def __len__(self):
@@ -43,11 +43,21 @@ class ArrayDescriptor:
         diff_x = scalar - self.data_x
         return np.argmin(diff_x)
 
-    def get_index_range(self, lim1, lim2):
+    def get_index_range(self, lim1_m, lim2_m):
         """Get index range. """
-        i_x = np.nonzero(np.logical_and(lim1 <= self.data_x,
-                                        self.data_x <= lim2))[0]
-        return i_x
+        
+        i0_m = np.zeros(len(lim1_m), int)
+        i1_m = np.zeros(len(lim2_m), int)
+        
+        for m, (lim1, lim2) in enumerate(zip(lim1_m, lim2_m)):
+            i_x = np.logical_and(lim1 <= self.data_x,
+                                 lim2 >= self.data_x)
+            if i_x.any():
+                inds = np.argwhere(i_x)
+                i0_m[m] = inds.min()
+                i1_m[m] = inds.max() + 1
+
+        return i0_m, i1_m
 
 
 class FrequencyDescriptor(ArrayDescriptor):
@@ -69,26 +79,23 @@ class FrequencyDescriptor(ArrayDescriptor):
         self.omega_w = omega_w
         self.nw = len(omega_w)
 
-    def get_closest_index(self, omega):
+    def get_closest_index(self, o_m):
         beta = self.beta
-        o_m = omega
         w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
         return w_m
 
-    def get_index_range(self, omega1, omega2):
-        if omega1 < 0 or omega2 < 0:
-            return np.array((), int)
-
-        w1 = self.get_closest_index(omega1)
-        w2 = self.get_closest_index(omega2)
-        o1 = self.omega_w[w1]
-        o2 = self.omega_w[w2]
-        if o1 < omega1:
-            w1 += 1
-        if o2 > omega2:
-            w2 -= 1
-        
-        return np.arange(w1, w2 + 1)
+    def get_index_range(self, omega1_m, omega2_m):
+        omega1_m = omega1_m.copy()
+        omega2_m = omega2_m.copy()
+        omega1_m[omega1_m < 0] = 0
+        omega2_m[omega2_m < 0] = 0
+        w1_m = self.get_closest_index(omega1_m)
+        w2_m = self.get_closest_index(omega2_m)
+        o1_m = self.omega_w[w1_m]
+        o2_m = self.omega_w[w2_m]
+        w1_m[o1_m < omega1_m] += 1
+        w2_m[o2_m < omega2_m] += 1
+        return w1_m, w2_m
 
 
 def frequency_grid(domega0, omega2, omegamax):

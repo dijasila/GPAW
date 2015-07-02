@@ -1,7 +1,6 @@
 from __future__ import print_function, division
 
 import sys
-from itertools import product
 
 import numpy as np
 from scipy.spatial import Delaunay
@@ -444,16 +443,13 @@ class TetrahedronIntegrator(Integrator):
 
         # Change to numpy arrays:
         for k in xrange(nk):
-            pts_k[k] = np.array(pts_k[k])
-
-        self.pts_k = pts_k
+            pts_k[k] = np.array(pts_k[k], int)
 
         # Nearest neighbours
         neighbours_k = [None for n in xrange(nk)]
 
         for k in xrange(nk):
-            neighbours = np.unique(td.simplices[pts_k[k]])
-            neighbours_k[k] = neighbours[neighbours != k]
+            neighbours_k[k] = np.unique(td.simplices[pts_k[k]])
 
         # Distribute integral summation
         myterms_t = self.distribute_domain(args)
@@ -462,7 +458,7 @@ class TetrahedronIntegrator(Integrator):
         deps_tMk = None  # t for term
         nterms = np.prod([len(domain_l) for domain_l in list(args)])
         
-        for n, arguments in enumerate(myterms_t):
+        for t, arguments in enumerate(myterms_t):
             for K in range(nk):
                 k_c = bzk_kc[K]
                 deps_M = get_eigenvalues(k_c, *arguments)
@@ -470,23 +466,36 @@ class TetrahedronIntegrator(Integrator):
                     deps_tMk = np.zeros([nterms] +
                                         list(deps_M.shape) +
                                         [nk], float)
-                deps_tMk[n, :, K] = deps_M
+                deps_tMk[t, :, K] = deps_M
+
+        # Store indices for frequencies
+        indices_tMki = np.zeros(list(deps_tMk.shape) + [2], int)
+        for t, deps_Mk in enumerate(deps_tMk):
+            for K in xrange(nk):
+                teteps_Mk = deps_Mk[:, neighbours_k[K]]
+                emin_M, emax_M = teteps_Mk.min(1), teteps_Mk.max(1)
+                i0_M, i1_M = wd.get_index_range(emin_M, emax_M)
+                indices_tMki[t, :, K, 0] = i0_M
+                indices_tMki[t, :, K, 1] = i1_M
+
+        omega_w = wd.get_data()
 
         # Calculate integrations weight
         pb = ProgressBar(self.fd)
         for t, arguments in pb.enumerate(myterms_t):
             deps_Mk = deps_tMk[t]
+            indices_Mki = indices_tMki[t]
             for _, K in pb.enumerate(range(nk)):
-                k_c = bzk_kc[K]
-                n_MG = get_matrix_element(k_c, *arguments)
-                for n_G, deps_k in zip(n_MG, deps_Mk):
-                    i0, W_w = self.get_kpoint_weight(K, deps_k,
-                                                     pts_k,
-                                                     neighbours_k,
-                                                     wd,
-                                                     td)
-                    if i0 is None:
+                n_MG = get_matrix_element(bzk_kc[K], *arguments)
+                for n_G, deps_k, I_ki in zip(n_MG, deps_Mk,
+                                             indices_Mki):
+                    i0, i1 = I_ki[K, 0], I_ki[K, 1]
+                    if i0 == i1:
                         continue
+
+                    W_w = self.get_kpoint_weight(K, deps_k,
+                                                 pts_k, omega_w[i0:i1],
+                                                 td)
                     for iw, weight in enumerate(W_w):
                         czher(weight, n_G.conj(), out_wxx[i0 + iw])
 
@@ -494,27 +503,17 @@ class TetrahedronIntegrator(Integrator):
 
     @timer('Get kpoint weight')
     def get_kpoint_weight(self, K, deps_k, pts_k,
-                          neighbours_k, wd, td):
-        
-        # Find appropriate idnex range
-        de_k = np.append(deps_k[neighbours_k[K]],
-                         deps_k[K])
-        emin, emax = np.min(de_k), np.max(de_k)
-        i_w = wd.get_index_range(emin, emax)
-        
-        if not len(i_w):
-            return None, None
-
-        i0 = np.min(i_w)
-        i1 = np.max(i_w)
+                          omega_w, td):
+        # Find appropriate index range
         simplices_s = pts_k[K]
-        omega_w = wd.get_data()[i0:i1 + 1]
         W_w = np.zeros(len(omega_w), float)
         vol_s = self.get_simplex_volume(td, simplices_s)
-        tetrahedron_weight(deps_k, K, simplices_s,
-                           W_w, omega_w, vol_s)
+        with self.timer('Tetrahedron weight'):
+            tetrahedron_weight(deps_k, td.simplices, K,
+                               simplices_s,
+                               W_w, omega_w, vol_s)
 
-        return i0, W_w
+        return W_w
 
     @timer('Get integration weight')
     def get_integration_weights(self, g, wd, td, arguments):
