@@ -298,7 +298,7 @@ class PAWTextOutput:
             if self.density.charge == 0:
                 t('Dipole Moment: %s' % dipole)
             else:
-                t('Center of Charge: %s' % (dipole / abs(self.density.charge)))
+                t('Center of Charge: %s' % (dipole / self.density.charge))
 
         try:
             correction = self.hamiltonian.poisson.corrector.correction
