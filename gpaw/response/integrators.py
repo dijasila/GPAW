@@ -482,7 +482,7 @@ class TetrahedronIntegrator(Integrator):
 
         # Calculate integrations weight
         pb = ProgressBar(self.fd)
-        for t, arguments in pb.enumerate(myterms_t):
+        for t, arguments in enumerate(myterms_t):
             deps_Mk = deps_tMk[t]
             indices_Mki = indices_tMki[t]
             for _, K in pb.enumerate(range(nk)):
@@ -514,128 +514,6 @@ class TetrahedronIntegrator(Integrator):
                                W_w, omega_w, vol_s)
 
         return W_w
-
-    @timer('Get integration weight')
-    def get_integration_weights(self, g, wd, td, arguments):
-        # The data format for the weights
-        W_MK = None
-        ns = td.nsimplex
-
-        size = self.kncomm.size
-        rank = self.kncomm.rank
-
-        n = (ns + size - 1) // size
-        i1 = rank * n
-        i2 = min(i1 + n, ns)
-
-        for S in xrange(i1, i2):
-            K_k = td.simplices[S]
-            vol = self.get_simplex_volume(td, S)
-            g_Mk = None
-            
-            for i, K in enumerate(K_k):
-                k_c = td.points[K]
-                g_M = g(k_c, *arguments)
-                if g_Mk is None:
-                    g_Mk = np.zeros((len(g_M), 4), float)
-                g_Mk[..., i] = g_M
-
-            if W_MK is None:
-                W_MK = [[[None, None] for k in range(len(td.points))]
-                        for m in range(len(g_M))]
-    
-            istart_M, gi_Mw, I_Mkw = self.single_simplex_weight(wd, g_Mk)
-            for W_K, istart, gi_w, I_kw in zip(W_MK, istart_M,
-                                               gi_Mw, I_Mkw):
-    
-                if istart is None:
-                    continue
-    
-                W_kw = I_kw * gi_w * vol
-    
-                with self.timer('Update weights'):
-                    for K, W_w in zip(K_k, W_kw):
-                        tmpistart = W_K[K][0]
-                        if tmpistart is None:
-                            W_K[K][0] = istart
-                            W_K[K][1] = W_w
-                        else:
-                            tmpW_w = W_K[K][1]
-                            tmpiend = tmpistart + len(tmpW_w)
-                            iend = istart + len(W_w)
-                            if tmpistart <= istart and iend <= tmpiend:
-                                i0 = istart - tmpistart
-                                i1 = iend - tmpistart
-                                W_K[K][1][i0:i1] += W_w
-                            elif istart <= tmpistart and tmpiend <= iend:
-                                i0 = tmpistart - istart
-                                i1 = tmpiend - istart
-                                W_w[i0:i1] += tmpW_w
-                                W_K[K][1] = W_w
-                                W_K[K][0] = istart
-                            elif istart < tmpistart and iend < tmpiend:
-                                Wnew_w = np.zeros((tmpiend - istart), float)
-                                i0 = tmpistart - istart
-                                i1 = iend - istart
-                                Wnew_w[i0:] += tmpW_w
-                                Wnew_w[:i1] += W_w
-                                W_K[K][0] = istart
-                                W_K[K][1] = Wnew_w
-                            elif tmpistart < istart and tmpiend < iend:
-                                Wnew_w = np.zeros((iend - tmpistart),
-                                                  float)
-                                i0 = istart - tmpistart
-                                i1 = tmpiend - tmpistart
-                                Wnew_w[i0:] += W_w
-                                Wnew_w[:i1] += tmpW_w
-                                W_K[K][1] = Wnew_w
-                            else:
-                                print(istart, iend, tmpistart, tmpiend)
-                                raise AssertionError
-                                
-        return W_MK
-
-    @timer('Single simplex weight')
-    def single_simplex_weight(self, wd, de_Mk):
-        """Calculate the integration weights."""
-        omega_w = wd.get_data()
-        shape = de_Mk.shape
-
-        if len(shape) == 2:
-            nm = de_Mk.shape[0]
-        elif len(shape) == 1:
-            nm = 1
-
-        permute = np.argsort(de_Mk)
-
-        I_Mkw = [None for m in range(nm)]
-        gi_Mw = [None for m in range(nm)]
-        i0_M = [None for m in range(nm)]
-
-        for M in xrange(nm):
-            with self.timer('Permute'):
-                de_k = de_Mk[M, permute[M]]
-
-            with self.timer('Get index range'):
-                i_w = wd.get_index_range(de_k[0], de_k[3])
-
-            if not len(i_w):
-                continue
-            
-            i0_M[M] = np.min(i_w)
-            gi_w = np.zeros(len(i_w), float)
-            I_kw = np.zeros((4, len(i_w)), float)
-            with self.timer('take'):
-                omegatmp_w = np.take(omega_w, i_w)
-            with self.timer('tetrahedron_weight'):
-                tetrahedron_weight(de_k, omegatmp_w, gi_w, I_kw)
-
-            I_kw[permute[M]] = I_kw.copy()
-            gi_Mw[M] = gi_w
-            I_Mkw[M] = I_kw
-
-        return i0_M, gi_Mw, I_Mkw
-
 
 class HilbertTransform:
     def __init__(self, omega_w, eta, timeordered=False, gw=False,
