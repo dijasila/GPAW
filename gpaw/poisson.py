@@ -10,7 +10,6 @@ from numpy.fft import fftn, ifftn, fft2, ifft2
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw import PoissonConvergenceError
-from ase.parallel import parprint
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.ewald import madelung
