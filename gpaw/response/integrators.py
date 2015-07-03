@@ -451,14 +451,17 @@ class TetrahedronIntegrator(Integrator):
         for k in xrange(nk):
             neighbours_k[k] = np.unique(td.simplices[pts_k[k]])
 
-        # Distribute integral summation
-        myterms_t = self.distribute_domain(args)
+        # Distribute everything
+        myterms_t = self.distribute_domain(list(args) +
+                                           [list(range(nk))])
 
         # Store eigenvalues
         deps_tMk = None  # t for term
-        nterms = np.prod([len(domain_l) for domain_l in list(args)])
+        shape = [len(domain_l) for domain_l in args]
+        nterms = np.prod(shape)
         
-        for t, arguments in enumerate(myterms_t):
+        for t in range(nterms):
+            arguments = np.unravel_index(t, shape)
             for K in range(nk):
                 k_c = bzk_kc[K]
                 deps_M = get_eigenvalues(k_c, *arguments)
@@ -482,22 +485,24 @@ class TetrahedronIntegrator(Integrator):
 
         # Calculate integrations weight
         pb = ProgressBar(self.fd)
-        for t, arguments in enumerate(myterms_t):
+        for _, arguments in pb.enumerate(myterms_t):
+            K = arguments[-1]
+            t = np.ravel_multi_index(arguments[:-1], shape)
             deps_Mk = deps_tMk[t]
-            indices_Mki = indices_tMki[t]
-            for _, K in pb.enumerate(range(nk)):
-                n_MG = get_matrix_element(bzk_kc[K], *arguments)
-                for n_G, deps_k, I_ki in zip(n_MG, deps_Mk,
-                                             indices_Mki):
-                    i0, i1 = I_ki[K, 0], I_ki[K, 1]
-                    if i0 == i1:
-                        continue
+            indices_Mi = indices_tMki[t, :, K]
+            n_MG = get_matrix_element(bzk_kc[K],
+                                      *arguments[:-1])
+            for n_G, deps_k, I_i in zip(n_MG, deps_Mk,
+                                        indices_Mi):
+                i0, i1 = I_i[0], I_i[1]
+                if i0 == i1:
+                    continue
 
-                    W_w = self.get_kpoint_weight(K, deps_k,
-                                                 pts_k, omega_w[i0:i1],
-                                                 td)
-                    for iw, weight in enumerate(W_w):
-                        czher(weight, n_G.conj(), out_wxx[i0 + iw])
+                W_w = self.get_kpoint_weight(K, deps_k,
+                                             pts_k, omega_w[i0:i1],
+                                             td)
+                for iw, weight in enumerate(W_w):
+                    czher(weight, n_G.conj(), out_wxx[i0 + iw])
 
         self.kncomm.sum(out_wxx)
 
