@@ -2,8 +2,8 @@ import os
 
 import sys
 
-import urllib
-import urllib2
+import urllib.request, urllib.parse, urllib.error
+import urllib.request, urllib.error, urllib.parse
 
 import tarfile
 import zipfile
@@ -37,8 +37,8 @@ if not os.path.exists(dir): os.makedirs(dir)
 os.chdir(dir)
 if not os.path.exists('calcDelta.py'):
     try:
-        resp = urllib2.urlopen(src)
-        urllib.urlretrieve(src, filename=name)
+        resp = urllib.request.urlopen(src)
+        urllib.request.urlretrieve(src, filename=name)
         z = zipfile.ZipFile(name)
         try:  # new in 2.6
             z.extractall()
@@ -49,7 +49,7 @@ if not os.path.exists('calcDelta.py'):
                 fd.write(z.read(f))
                 fd.close()
         # AttributeError if unzip not found
-    except (urllib2.HTTPError, AttributeError):
+    except (urllib.error.HTTPError, AttributeError):
         raise NotAvailable('Retrieval of zip failed')
 os.chdir('..')
 

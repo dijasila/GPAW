@@ -1,6 +1,6 @@
 from __future__ import print_function
 from math import pi,sqrt
-from itertools import izip
+
 
 import numpy as np
 

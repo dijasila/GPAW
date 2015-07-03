@@ -217,7 +217,7 @@ class BASECHI:
         elif self.txtname == devnull:
             self.txt = devnull
         else:
-            assert type(self.txtname) is str
+            assert isinstance(self.txtname, str)
             from ase.parallel import paropen
             self.txt = paropen(self.txtname,'w')
 

@@ -100,7 +100,7 @@ class NonLocalFunctional(XCFunctional):
                                                                      D_sp, H_sp, a, addcoredensity)
         else:
             cmix = self.mix
-            if not self.old_H_asp.has_key(a):
+            if a not in self.old_H_asp:
                 self.old_H_asp[a] = H_sp.copy()
                 cmix = 1.0
 

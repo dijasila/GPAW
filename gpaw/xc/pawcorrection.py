@@ -5,8 +5,6 @@ from math import pi, sqrt
 
 import numpy as np
 
-from gpaw.utilities.blas import axpy, gemm, gemv, gemmdot
-from gpaw import extra_parameters
 from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import nablarlYL
 
@@ -36,29 +34,28 @@ rnablaY_nLv = np.empty((len(R_nv), 25, 3))
 for rnablaY_Lv, Y_L, R_v in zip(rnablaY_nLv, Y_nL, R_nv):
     for l in range(5):
         for L in range(l**2, (l + 1)**2):
-            rnablaY_Lv[L] = nablarlYL(L, R_v)  - l * R_v * Y_L[L]
+            rnablaY_Lv[L] = nablarlYL(L, R_v) - l * R_v * Y_L[L]
 
 
 class PAWXCCorrection:
     def __init__(self,
-                 w_jg,  # all-lectron partial waves
-                 wt_jg, # pseudo partial waves
-                 nc_g,  # core density
-                 nct_g, # smooth core density
-                 rgd,   # radial grid descriptor
-                 jl,    # ?
-                 lmax,  # maximal angular momentum to consider
-                 Exc0,  # xc energy of reference atom
-                 phicorehole_g, # ?
-                 fcorehole,     # ?
-                 tauc_g,   # kinetic core energy array
-                 tauct_g   # pseudo kinetic core energy array
+                 w_jg,    # all-lectron partial waves
+                 wt_jg,   # pseudo partial waves
+                 nc_g,    # core density
+                 nct_g,   # smooth core density
+                 rgd,     # radial grid descriptor
+                 jl,      # ?
+                 lmax,    # maximal angular momentum to consider
+                 Exc0,    # xc energy of reference atom
+                 phicorehole_g,  # ?
+                 fcorehole,      # ?
+                 tauc_g,  # kinetic core energy array
+                 tauct_g  # pseudo kinetic core energy array
                  ):
         self.Exc0 = Exc0
         self.Lmax = (lmax + 1)**2
         self.rgd = rgd
         self.dv_g = rgd.dv_g
-        #self.nspins = nspins
         self.Y_nL = Y_nL[:, :self.Lmax]
         self.rnablaY_nLv = rnablaY_nLv[:, :self.Lmax]
         self.ng = ng = len(nc_g)
@@ -76,6 +73,7 @@ class PAWXCCorrection:
         self.tau_npg = None
         self.taut_npg = None
 
+        G_LLL = gaunt(max(l for j, l in jl))
         B_Lqp = np.zeros((self.Lmax, njj, nii))
         p = 0
         i1 = 0
@@ -85,7 +83,7 @@ class PAWXCCorrection:
                     q = j2 + j1 * nj - j1 * (j1 + 1) // 2
                 else:
                     q = j1 + j2 * nj - j2 * (j2 + 1) // 2
-                B_Lqp[:, q, p] = gaunt[L1, L2, :self.Lmax]
+                B_Lqp[:, q, p] = G_LLL[L1, L2, :self.Lmax]
                 p += 1
             i1 += 1
         self.B_pqL = B_Lqp.T.copy()
@@ -96,7 +94,6 @@ class PAWXCCorrection:
         q = 0
         for j1, l1 in jl:
             for j2, l2 in jl[j1:]:
-                #rl1l2 = rgd.r_g**(l1 + l2)
                 self.n_qg[q] = w_jg[j1] * w_jg[j2]
                 self.nt_qg[q] = wt_jg[j1] * wt_jg[j2]
                 q += 1
@@ -119,7 +116,7 @@ class PAWXCCorrection:
 
         ns, nii = D_sp.shape
 
-        assert ns == 1# and not self.xc.get_functional().gga
+        assert ns == 1
 
         D_p = D_sp[0]
         D_Lq = np.dot(self.B_pqL.T, D_p)

@@ -78,10 +78,11 @@ Installation on Windows
    GPAW is not yet fully functional on Windows! See
    http://listserv.fysik.dtu.dk/pipermail/gpaw-users/2013-August/002264.html
 
-On Windows install ASE dependencies as described at
+On Windows install Python(x,y) as described at
 https://wiki.fysik.dtu.dk/ase/download.html#windows.
 
-Download the gpaw.win32-py2.7.msi_ installer and install with::
+Download the gpaw.win32-py2.7.msi_ installer
+(fix the incorrect *man* extension while downloading) and install with::
 
    gpaw.win32-py2.7.msi /l*vx "%TMP%\gpaw_install.log" /passive
 
@@ -92,7 +93,7 @@ Download the gpaw.win32-py2.7.msi_ installer and install with::
 
     Unpack gpaw-setups under C:\gpaw-setups (see :ref:`setups`).
 
-As the last step (this is important) install the ASE
+As the last step (this is important) install the ASE msi
 (see https://wiki.fysik.dtu.dk/ase/download.html#windows).
 
 After performing the installation do not forget to :ref:`running_tests`!
@@ -312,6 +313,15 @@ Example::
 
 Installation of PAW datasets
 ============================
+
+The PAW datasets can be installed automatically or manually.
+
+To install them automatically, run :file:`gpaw-install-setups
+{<dir>}`.  This downloads and unpacks the newest package into
+:file:`{<dir>}/gpaw-setups-{<version>}`.  When prompted, answer
+yes (y) to register the path in the GPAW configuration file.
+
+To manually install the setups, do as follows:
 
 1) Get the tar file :file:`gpaw-setups-{<version>}.tar.gz`
    of the <version> of PAW datasets from the :ref:`setups` page

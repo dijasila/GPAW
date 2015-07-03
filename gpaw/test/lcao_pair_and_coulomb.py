@@ -1,10 +1,9 @@
 import numpy as np
-import cPickle as pickle
+import pickle
 from ase.structure import molecule
 from gpaw.lcao.tools import makeU, makeV
 from gpaw import GPAW, FermiDirac, restart
 from gpaw.lcao.pwf2 import LCAOwrap
-from gpaw.lcao.tools import remove_pbc, get_bfi2, get_bf_centers
 from gpaw.mpi import world, rank, MASTER, serial_comm
 from gpaw.test import equal
 

@@ -1,18 +1,13 @@
 
 import numpy as np
 
-from ase.units import Bohr
 from gpaw import debug
 from gpaw.mpi import world
-#from gpaw.utilities.dscftools import mpi_debug
-mpi_debug = lambda x, ordered=True: None # silenced
+mpi_debug = lambda x, ordered=True: None  # silenced
 from gpaw.overlap import Overlap
 from gpaw.utilities import unpack
 from gpaw.lfc import NewLocalizedFunctionsCollection as NewLFC
 
-#from arbitrary_tci import projector_overlap_matrix2, generate_atomic_overlaps2
-
-# -------------------------------------------------------------------
 
 class PairOverlap:
     def __init__(self, gd, setups):
@@ -108,8 +103,8 @@ class GridPairOverlap(PairOverlap):
                             assert self.setups[a2].ni == lfs2.ni, 'setups[%d].ni=%d, lfc2.lfs_a[%d].ni=%d' % (a2,self.setups[a2].ni,a2,lfs2.ni)
 
                         # Find the intersection of the two boxes
-                        beg_c = np.array([map(max, zip(beg1_c, beg2_c))]).ravel()
-                        end_c = np.array([map(min, zip(end1_c, end2_c))]).ravel()
+                        beg_c = np.max((beg1_c, beg2_c), axis=0)
+                        end_c = np.min((end1_c, end2_c), axis=0)
 
                         if debug: mpi_debug('        beg_c=%s, end_c=%s, size_c=%s' % (beg_c, end_c, tuple(end_c-beg_c)), ordered=False)
 
@@ -187,8 +182,8 @@ class GridPairOverlap(PairOverlap):
                         if debug: mpi_debug('      b2=%d, beg2_c=%s, end2_c=%s, sdisp2_c=%s' % (b2,beg2_c,end2_c,sdisp2_c), ordered=False)
 
                         # Find the intersection of the two boxes
-                        beg_c = np.array([map(max, zip(beg1_c, beg2_c))]).ravel()
-                        end_c = np.array([map(min, zip(end1_c, end2_c))]).ravel()
+                        beg_c = np.max((beg1_c, beg2_c), axis=0)
+                        end_c = np.min((end1_c, end2_c), axis=0)
 
                         if debug: mpi_debug('        beg_c=%s, end_c=%s, size_c=%s' % (beg_c, end_c, tuple(end_c-beg_c)), ordered=False)
 
@@ -224,56 +219,6 @@ class GridPairOverlap(PairOverlap):
         self.gd.comm.sum(X_aa) # better to sum over X_ii?
         return X_aa
 
-
-"""
-def extract_projectors(gd, pt, a):
-    print 'pt.lfs_a: %s' % pt.lfs_a.keys()
-    lfs = pt.lfs_a[a]
-    assert len(lfs.box_b) == 1
-    box = lfs.box_b[0]
-
-    pt_iB = box.get_functions()
-    assert pt_iB.shape[0] == lfs.ni
-    shape = pt_iB.shape[1:]
-
-    work_iG = gd.zeros(lfs.ni, dtype=pt.dtype)
-    print 'a=%d, ni=%d, pt_iB.shape' % (a,lfs.ni), pt_iB.shape
-
-    # We assume that all functions have the same cut-off:
-    rcut = pt.spline_aj[a][0].get_cutoff()
-    gdbox_b = gd.get_boxes(pt.spos_ac[a], rcut, cut=False)
-    assert len(gdbox_b) == 1, 'What?'
-    beg_c, end_c, sdisp_c = gdbox_b[0]
-    work_iG[:,beg_c[0]:end_c[0],beg_c[1]:end_c[1],beg_c[2]:end_c[2]] = pt_iB
-
-    #for i,spline in enumerate(pt.spline_aj[a]): #XXX wrong, loop over pt_iB!!!
-    #    rcut = spline.get_cutoff()
-    #    gdbox_b = gd.get_boxes(pt.spos_ac[a], rcut, cut=False)
-    #    assert len(gdbox_b) == 1, 'What?'
-    #    beg_c, end_c, sdisp_c = gdbox_b[0]
-    #    print 'a=%d, pt_iB[%d].shape' % (a,i), pt_iB[i].shape
-    #    print 'a=%d, work_iG[%d].shape' % (a,i), work_iG[i,beg_c[0]:end_c[0],beg_c[1]:end_c[1],beg_c[2]:end_c[2]].shape
-    #    work_iG[i,beg_c[0]:end_c[0],beg_c[1]:end_c[1],beg_c[2]:end_c[2]] = pt_iB[i]
-
-    return work_iG
-
-def overlap_projectors(gd, pt, setups):
-    work_aiG = {}
-    for a in range(len(setups)):
-        work_aiG[a] = extract_projectors(gd,pt,a)
-
-    ni_a = np.cumsum([0]+[setup.ni for setup in setups])
-    nproj = ni_a[-1]
-    B_aa = np.zeros((nproj,nproj), dtype=float)
-    for a1, work1_iG in work_aiG.items():
-        for a2, work2_iG in work_aiG.items():
-            B_ii = np.zeros((setups[a1].ni,setups[a2].ni), dtype=float)
-            for i1, work1_G in enumerate(work1_iG):
-                for i2, work2_G in enumerate(work2_iG):
-                    B_ii[i1,i2] = np.dot(work1_G.flat, work2_G.flat)*gd.dv
-            B_aa[ni_a[a1]:ni_a[a1+1], ni_a[a2]:ni_a[a2+1]] = B_ii
-    return B_aa
-"""
 
 class ProjectorPairOverlap(Overlap, GridPairOverlap):
     """

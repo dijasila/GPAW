@@ -61,8 +61,7 @@ for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
                        title.strip())
     if os.path.isfile(bib + '.bib'):
         papers.update(f(bib + '.bib'))
-    papers = [(papers[doi][0], doi, papers[doi][1]) for doi in papers]
-    papers.sort()
+    papers = sorted((papers[doi][0], doi, papers[doi][1]) for doi in papers)
     plt.plot([paper[0] for paper in papers], range(1, len(papers) + 1),
              '-o', label=bib)
     fd = open(bib + '.txt', 'w')
@@ -75,8 +74,7 @@ for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
     print((bib, len(papers), len(x), len(total)))
 
 
-allpapers = [(paper[0], doi, paper[1]) for doi, paper in total.items()]
-allpapers.sort()
+allpapers = sorted((paper[0], doi, paper[1]) for doi, paper in total.items())
 plt.plot([paper[0] for paper in allpapers], range(1, len(allpapers) + 1),
          '-o', label='total')
 

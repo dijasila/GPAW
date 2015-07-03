@@ -42,27 +42,27 @@ for atoms in atomss:
             temperature=T,
             surface_calculator=GradientSurface(),
             volume_calculator=KB51Volume()
-            ),
+        ),
         dielectric=LinearDielectric(epsinf=epsinf),
         interactions=[
             SurfaceInteraction(
                 surface_tension=100. * 1e-3 * Pascal * m
-                ),
+            ),
             VolumeInteraction(
                 pressure=-1.0 * 1e9 * Pascal
-                ),
+            ),
             LeakedDensityInteraction(
                 voltage=1.0
-                )
-            ]
-        )
+            )
+        ]
+    )
     Es.append(atoms.get_potential_energy())
     Fs.append(atoms.get_forces())
 
 # compare to expected difference of a gas phase calc
-print 'difference E: ', Es[0] - Es[1]
+print('difference E: ', Es[0] - Es[1])
 equal(Es[0], Es[1], 0.0002)
-print 'difference F: ', np.abs(Fs[0] - Fs[1]).max()
+print('difference F: ', np.abs(Fs[0] - Fs[1]).max())
 equal(Fs[0], Fs[1], 0.003)
 
 

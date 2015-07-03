@@ -14,8 +14,10 @@ except ImportError:  # python2.6 compatibility
 
 import numpy as np
 from ase.data import atomic_numbers
+from ase.utils import basestring
 
 from gpaw.atom.atompaw import AtomPAW
+from gpaw.setup_data import search_for_file
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.pseudopotential import PseudoPotential, screen_potential, \
     figure_out_valence_states
@@ -33,7 +35,7 @@ class UPFStateSpec:
         self.n = n
 
 
-class UPFCompensationChargeSpec: # Not used right now.......
+class UPFCompensationChargeSpec:  # Not used right now.......
     def __init__(self, i, j, l, qint, values, coefs):
         self.i = i
         self.j = j
@@ -91,7 +93,7 @@ def parse_upf(fname):
 
     def toarray(element):
         attr = element.attrib
-        numbers = map(float, element.text.split())
+        numbers = [float(n) for n in element.text.split()]
         if attr:
             assert attr['type'] == 'real'
             assert int(attr['size']) == len(numbers)
@@ -104,7 +106,7 @@ def parse_upf(fname):
 
     if v201:
         for key, val in header.items():
-            header[key] = val.strip() # some values have whitespace...
+            header[key] = val.strip()  # some values have whitespace...
         for key in ['is_paw', 'is_coulomb', 'has_so', 'has_wfc', 'has_gipaw',
                     'paw_as_gipaw', 'core_correction']:
             if key in header:
@@ -148,10 +150,10 @@ def parse_upf(fname):
     # Convert to Hartree from Rydberg.
     pp['vlocal'] = 0.5 * toarray(root.find('PP_LOCAL'))
     
-    nonlocal = root.find('PP_NONLOCAL')
+    non_local = root.find('PP_NONLOCAL')
     
     pp['projectors'] = []
-    for element in nonlocal:
+    for element in non_local:
         if element.tag.startswith('PP_BETA'):
             if '.' in element.tag:
                 name, num = element.tag.split('.')
@@ -244,20 +246,19 @@ class UPFSetupData:
             self.filename = '[N/A]'
         
         assert isinstance(data, dict)
-        self.data = data # more or less "raw" data from the file
+        self.data = data  # more or less "raw" data from the file
 
         self.name = 'upf'
 
         header = data['header']
         
-        keys = header.keys()
-        keys.sort()
+        keys = sorted(header)
 
         self.symbol = header['element']
         self.Z = atomic_numbers[self.symbol]
         self.Nv = header['z_valence']
         self.Nc = self.Z - self.Nv
-        self.Delta0 = -self.Nv / np.sqrt(4.0 * np.pi) # like hgh
+        self.Delta0 = -self.Nv / np.sqrt(4.0 * np.pi)  # like hgh
         self.rcut_j = [data['r'][len(proj.values) - 1]
                        for proj in data['projectors']]
 
@@ -344,7 +345,7 @@ class UPFSetupData:
         #    a = .247621
 
         vbar_g, ghat_g = screen_potential(data['r'], vlocal_unscreened,
-                                          self.Nv) #, a=a)
+                                          self.Nv)
         
         self.vbar_g = self._interp(vbar_g) * np.sqrt(4.0 * np.pi)
         self.ghat_lg = [4.0 * np.pi / self.Nv * self._interp(ghat_g)]
@@ -463,7 +464,7 @@ class UPFSetupData:
         assert len(self.ghat_lg) == 1
         ghat_g = self.ghat_lg[0]
         ng = len(ghat_g)
-        rcutcc = self.rgd.r_g[ng - 1] # correct or not?
+        rcutcc = self.rgd.r_g[ng - 1]  # correct or not?
         r = np.linspace(0.0, rcutcc, 50)
         ghat_g[-1] = 0.0
         ghatnew_g = Spline(0, rcutcc, ghat_g).map(r)
@@ -483,7 +484,7 @@ class UPFSetupData:
         states = self.data['states']
         maxlen = max([len(state.values) for state in states])
         orig_r = self.data['r']
-        rcut = min(orig_r[maxlen - 1], 12.0) # XXX hardcoded 12 max radius
+        rcut = min(orig_r[maxlen - 1], 12.0)  # XXX hardcoded 12 max radius
         
         b.d = 0.02
         b.ng = int(1 + rcut / b.d)
@@ -493,7 +494,7 @@ class UPFSetupData:
             val = state.values
             phit_g = np.interp(rgd.r_g, orig_r, val)
             phit_g = divrl(phit_g, 1, rgd.r_g)
-            icut = len(phit_g) - 1 # XXX correct or off-by-one?
+            icut = len(phit_g) - 1  # XXX correct or off-by-one?
             rcut = rgd.r_g[icut]
             bf = BasisFunction(state.l, rcut, phit_g, 'pregenerated')
             b.bf_j.append(bf)
@@ -513,7 +514,18 @@ def main_plot():
     opts, args = p.parse_args()
 
     import pylab as pl
-    for fname in args:
+    for arg in args:
+        if not arg.lower().endswith('.upf'):
+            # This is a bit bug prone.  It is subject to files
+            # "sneaking in" unexpectedly due to '*' from
+            # higher-priority search directories.  Then again, this
+            # probably will not happen, and the runtime setup loading
+            # mechanism is the same anyway so at least it is honest.
+            fname, source = search_for_file('%s*.[uU][pP][fF]' % arg)
+            if fname is None:
+                p.error('No match within search paths: %s' % arg)
+        else:
+            fname = arg
         pp = parse_upf(fname)
         print('--- %s ---' % fname)
         print(UPFSetupData(pp).tostring())
@@ -589,7 +601,6 @@ def upfplot(setup, show=True, calculate=False):
         splines = basis.tosplines()
         for spline, bf in zip(splines, basis.bf_j):
             wfsax.plot(r_g, r_g * spline.map(r_g), label=bf.type)
-
 
     vax.legend(loc='best')
     rhoax.legend(loc='best')

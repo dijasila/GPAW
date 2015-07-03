@@ -71,7 +71,7 @@ def mpi_debug(data, ordered=True):
 
 def dscf_find_atoms(atoms,symbol):
     chemsyms = atoms.get_chemical_symbols()
-    return np.where(map(lambda s: s==symbol,chemsyms))[0]
+    return np.where([s==symbol for s in chemsyms])[0]
 
 # -------------------------------------------------------------------
 
@@ -163,7 +163,7 @@ def dscf_kpoint_overlaps(paw, phasemod=True, broadcast=True):
                     for n0, P0_i in enumerate(P0_ni):
                         X_nn[n,n0] += np.vdot(P_i, np.dot(dO_ii, P0_i))
         """
-        X = lambda psit_nG, g=SliceGen(psit0_nG, operator): g.next()
+        X = lambda psit_nG, g=SliceGen(psit0_nG, operator): next(g)
         dX = lambda a, P_ni: np.dot(P0_ani[a], paw.wfs.setups[a].dO_ii)
         X_nn[:] = operator.calculate_matrix_elements(kpt.psit_nG, kpt.P_ani, X, dX).T
 

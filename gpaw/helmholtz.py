@@ -1,4 +1,4 @@
-from math import pi, sqrt, fabs
+from math import pi, sqrt
 import numpy as np
 from numpy import exp
 
@@ -20,7 +20,7 @@ class HelmholtzGaussian(Gaussian):
         i = 1j
         rhop = r / sqrt(2) / sigma + i * p
         rhom = r / sqrt(2) / sigma - i * p
-        h = np.sin(k * r)
+        # h = np.sin(k * r)
 
         # the gpaw-Gaussian is sqrt(4 * pi) times a 3D normalized Gaussian
         return sqrt(4 * pi) * exp(-p**2) / r / 2 * (
@@ -45,7 +45,7 @@ class ScreenedPoissonGaussian(Gaussian):
 
         # the gpaw-Gaussian is sqrt(4 * pi) times a 3D normalized Gaussian
         return sqrt(4 * pi) * exp(sig2 * mu2 / 2.0) / (2 * r) * (
-                exp(-mu * r) * erfc(mrho) - exp(mu * r) * erfc(prho))
+            exp(-mu * r) * erfc(mrho) - exp(mu * r) * erfc(prho))
         
 
 class HelmholtzOperator(FDOperator):
@@ -115,9 +115,11 @@ class HelmholtzSolver(PoissonSolver):
        otherwise we'll try to solve the screened Poisson equation.
     """
 
-    def __init__(self, k2=0.0, nn='M', relax='GS', eps=2e-10):
+    def __init__(self, k2=0.0, nn='M', relax='GS', eps=2e-10,
+                 use_charge_center=True):
         assert k2 <= 0, 'Currently only defined for k^2<=0'
-        PoissonSolver.__init__(self, nn, relax, eps)
+        PoissonSolver.__init__(self, nn, relax, eps,
+                               use_charge_center=use_charge_center)
         self.k2 = k2
         
     def set_grid_descriptor(self, gd):
@@ -169,12 +171,12 @@ class HelmholtzSolver(PoissonSolver):
         self.description += ' solver with %d multi-grid levels' % (level + 1)
         self.description += '\nStencil: ' + self.operators[0].description
 
-    def load_gauss(self):
+    def load_gauss(self, center=None):
         """Load the gaussians."""
-        if not hasattr(self, 'rho_gauss'):
+        if not hasattr(self, 'rho_gauss') or center is not None:
             if self.k2 > 0:
-                gauss = HelmholtzGaussian(self.gd)
+                gauss = HelmholtzGaussian(self.gd, center=center)
             else:
-                gauss = ScreenedPoissonGaussian(self.gd)
+                gauss = ScreenedPoissonGaussian(self.gd, center=center)
             self.rho_gauss = gauss.get_gauss(0)
             self.phi_gauss = gauss.get_phi(abs(self.k2))

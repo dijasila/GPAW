@@ -1,4 +1,4 @@
-from ase.io import read, PickleTrajectory
+from ase.io import read, Trajectory
 from ase.constraints import FixAtoms
 from ase.neb import NEB
 from ase.optimize import BFGS
@@ -41,8 +41,8 @@ neb.interpolate()
 
 qn = BFGS(neb, logfile='qn.log')
 
-traj = PickleTrajectory('neb%d.traj' % j, 'w', images[j],
-                        master=(rank % n == 0))
+traj = Trajectory('neb%d.traj' % j, 'w', images[j],
+                  master=(rank % n == 0))
 
 qn.attach(traj)
 qn.run(fmax=0.05)

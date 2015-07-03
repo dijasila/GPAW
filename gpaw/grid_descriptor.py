@@ -3,12 +3,12 @@
 
 """Grid-descriptors
 
-This module contains classes defining two kinds of grids:
+This module contains a classes defining uniform 3D grids.
+For radial grid descriptors, look atom/radialgd.py.
 
-* Uniform 3D grids.
-* Radial grids.
 """
 
+import numbers
 from math import pi
 
 import numpy as np
@@ -215,7 +215,7 @@ class GridDescriptor(Domain):
         else:
             shape = self.n_c
             
-        if isinstance(n, int):
+        if isinstance(n, numbers.Integral):
             n = (n,)
 
         shape = n + tuple(shape)
@@ -571,7 +571,7 @@ class GridDescriptor(Domain):
         
     def bytecount(self, dtype=float):
         """Get the number of bytes used by a grid of specified dtype."""
-        return long(np.prod(self.n_c)) * np.array(1, dtype).itemsize
+        return int(np.prod(self.n_c)) * np.array(1, dtype).itemsize
 
     def get_grid_point_coordinates(self, dtype=float, global_array=False):
         """Construct cartesian coordinates of grid points in the domain."""

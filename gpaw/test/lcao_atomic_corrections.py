@@ -53,7 +53,7 @@ for correction in corrections:
 
 master = calc.wfs.world.rank == 0
 if master:
-    print 'energies', energies
+    print('energies', energies)
 
 eref = energies[0]
 errs = []
@@ -62,6 +62,6 @@ for energy, c in zip(energies, corrections):
     nops = calc.wfs.world.sum(c.nops)
     errs.append(err)
     if master:
-        print 'err=%e :: name=%s :: nops=%d' % (err, c.name, nops)
+        print('err=%e :: name=%s :: nops=%d' % (err, c.name, nops))
 
 assert max(errs) < 1e-11

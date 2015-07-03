@@ -1,6 +1,6 @@
 from __future__ import print_function
 import pickle
-from math import log, pi, sqrt
+from math import log, pi
 
 import numpy as np
 from ase.units import Hartree
@@ -30,16 +30,16 @@ class XAS:
         if wfs.nspins == 1:
             if spin is not 0:
                 raise RuntimeError(
-                    "use spin=0 for a spin paired calculation")            
+                    "use spin=0 for a spin paired calculation")
             nocc = wfs.setups.nvalence // 2
             self.list_kpts = range(nkpts)
         else:
             self.list_kpts=[]
 
             if spin is not 0 and spin is not 1:
-                print("spin",spin)    
+                print("spin",spin)
                 raise RuntimeError(
-                    "use either spin=0 or spin=1")            
+                    "use either spin=0 or spin=1")
 
             #find kpoints with correct spin
             for i, kpt in  enumerate(wfs.kpt_u):
@@ -64,7 +64,7 @@ class XAS:
             
         else:
             for a, setup in enumerate(wfs.setups):
-                if setup.phicorehole_g is not None:  
+                if setup.phicorehole_g is not None:
                     break
 
         A_ci = setup.A_ci
@@ -72,15 +72,15 @@ class XAS:
         # xas, xes or all modes
         if mode == "xas":
             n_start = nocc
-            n_end = wfs.bd.nbands  
+            n_end = wfs.bd.nbands
             n =  wfs.bd.nbands - nocc
         elif mode == "xes":
             n_start = 0
-            n_end = nocc  
+            n_end = nocc
             n = nocc
         elif mode == "all":
             n_start = 0
-            n_end = wfs.bd.nbands 
+            n_end = wfs.bd.nbands
             n = wfs.bd.nbands
         else:
             raise RuntimeError(
@@ -121,7 +121,7 @@ class XAS:
           the broadening has reached fwhm2. example [0.5, 540, 550]
         E_in:
           a list of energy values where the spectrum is to be computed
-          if None the orbital energies will be used to compute the energy 
+          if None the orbital energies will be used to compute the energy
           range
         N:
           the number of bins in the broadened spectrum. If E_in is given N
@@ -172,7 +172,7 @@ class XAS:
             proj_3 = proj_tmp.copy()
         
         # now symmetrize
-        sigma2_cn = np.zeros((proj_3.shape[0], self.sigma_cn.shape[1]),float) 
+        sigma2_cn = np.zeros((proj_3.shape[0], self.sigma_cn.shape[1]),float)
         
         if self.symmetry is not None:
             for i,p in enumerate(proj_3):
@@ -180,20 +180,20 @@ class XAS:
                     op_vv = np.dot(np.linalg.inv(self.cell_cv),
                                    np.dot(op_cc, self.cell_cv))
                     s_tmp = np.dot(p, np.dot(op_vv, self.sigma_cn))
-                    sigma2_cn[i,:] += (s_tmp * np.conjugate(s_tmp) ).real 
+                    sigma2_cn[i,:] += (s_tmp * np.conjugate(s_tmp) ).real
             sigma2_cn /= len(self.symmetry.op_scc)
             
         else:
             for i,p in enumerate(proj_3):
                 s_tmp = np.dot(p, self.sigma_cn)
-                sigma2_cn[i,:] += (s_tmp * np.conjugate(s_tmp) ).real 
+                sigma2_cn[i,:] += (s_tmp * np.conjugate(s_tmp) ).real
                 
         eps_n = self.eps_n[:]
 
         if kpoint is not None:
             eps_start = kpoint*self.n
             eps_end = (kpoint+1)*self.n
-        else: 
+        else:
             eps_start = 0
             eps_end = len(self.eps_n)
             
@@ -303,7 +303,7 @@ class RecursionMethod:
             self.initialize_start_vector(proj=proj,proj_xyz=proj_xyz)
 
     def read(self, filename):
-        data = pickle.load(open(filename))
+        data = pickle.load(open(filename, 'rb'))
         self.nkpts = data['nkpts']
         if 'swaps' in data:
             # This is an old file:
@@ -382,7 +382,7 @@ class RecursionMethod:
                     kpt_comm.gather(y0_ucG, 0)
 
         if self.wfs.world.rank == 0:
-            pickle.dump(data, open(filename, 'w'))
+            pickle.dump(data, open(filename, 'wb'))
 
     def allocate_tmp_arrays(self):
         
@@ -393,7 +393,7 @@ class RecursionMethod:
     def initialize_start_vector(self, proj=None, proj_xyz=True):
         # proj is one list of vectors [[e1_x,e1_y,e1_z],[e2_x,e2_y,e2_z]]
         #( or [ex,ey,ez] if only one projection )
-        # that the spectrum will be projected on 
+        # that the spectrum will be projected on
         # default is to only calculate the averaged spectrum
         # if proj_xyz is True, keep projection in x,y,z, if False
         # only calculate the projections in proj
@@ -424,12 +424,12 @@ class RecursionMethod:
             proj_tmp = []
             for p in proj_2:
                proj_tmp.append(np.dot(p, A_ci))
-            proj_tmp = np.array(proj_tmp, float)   
+            proj_tmp = np.array(proj_tmp, float)
 
             # if proj_xyz is True, append projections to A_ci
             if proj_xyz:
                 A_ci_tmp = np.zeros((3 + proj_2.shape[0], A_ci.shape[1]))
-                A_ci_tmp[0:3,:] = A_ci 
+                A_ci_tmp[0:3,:] = A_ci
                 A_ci_tmp[3:,:]= proj_tmp
 
             # otherwise, replace A_ci by projections
@@ -464,15 +464,14 @@ class RecursionMethod:
         elif inverse_overlap == "noinverse":
             self.solver = self.solve3
         else:
-            raise RuntimeError("""Error, inverse_solver must be either 'exact',
-            'approximate' or 'noinverse' """)
-            
+            raise RuntimeError("Error, inverse_solver must be either 'exact' "
+                               "'approximate' or 'noinverse'")
 
         ni = self.a_uci.shape[2]
         a_uci = np.empty((self.nmykpts, self.dim, ni + nsteps), self.wfs.dtype)
         b_uci = np.empty((self.nmykpts, self.dim, ni + nsteps), self.wfs.dtype)
-        a_uci[:, :, :ni]  = self.a_uci
-        b_uci[:, :, :ni]  = self.b_uci
+        a_uci[:, :, :ni] = self.a_uci
+        b_uci[:, :, :ni] = self.b_uci
         self.a_uci = a_uci
         self.b_uci = b_uci
 
@@ -490,12 +489,12 @@ class RecursionMethod:
         
         self.solver(w_cG, self.z_cG, u)
         I_c = np.reshape(integrate(np.conjugate(z_cG) * w_cG)**-0.5,
-                          (self.dim, 1, 1, 1))
+                         (self.dim, 1, 1, 1))
         z_cG *= I_c
         w_cG *= I_c
         
         if i != 0:
-            b_c =  1.0 / I_c 
+            b_c = 1.0 / I_c
         else:
             b_c = np.reshape(np.zeros(self.dim), (self.dim, 1, 1, 1))
     
@@ -506,7 +505,6 @@ class RecursionMethod:
         w_cG[:] = wnew_cG
         self.a_uci[u, :, i] = a_c[:, 0, 0, 0]
         self.b_uci[u, :, i] = b_c[:, 0, 0, 0]
-
 
     def continued_fraction(self, e, k, c, i, imax):
         a_i = self.a_uci[k, c]
@@ -540,7 +538,7 @@ class RecursionMethod:
                                                        0, imax).imag
         else:
             for k in range(self.nkpts):
-                print('kpoint', k, 'spin_k', self.spin_k[k], spin, 'weight', self.weight_k[k]) 
+                print('kpoint', k, 'spin_k', self.spin_k[k], spin, 'weight', self.weight_k[k])
                 if self.spin_k[k] == spin:
                     weight = self.weight_k[k]
                     for c in range(self.dim):
@@ -554,7 +552,7 @@ class RecursionMethod:
                 sigma_cn += np.dot(op_cc**2, sigma0_cn)
             sigma_cn /= len(self.op_scc)
 
-        # gaussian broadening 
+        # gaussian broadening
         if fwhm is not None:
             sigma_tmp = np.zeros(sigma_cn.shape)
 
@@ -655,15 +653,15 @@ class RecursionMethod:
 
 
 def write_spectrum(a,b, filename):
-    f=open(filename, 'w')         
-    print(f, a.shape, b.shape)        
+    f=open(filename, 'w')
+    print(f, a.shape, b.shape)
     
     for i in range(a.shape[0]):
         print("%g" % a[i], b[0,i] +b[1,i] +b[2,i], end=' ', file=f)
         for b2 in b:
             print("%g" % b2[i], end=' ', file=f)
         print(file=f)
-    f.close()      
+    f.close()
 
 
                                                                                                                  

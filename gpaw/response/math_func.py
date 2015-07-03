@@ -4,7 +4,7 @@ import numpy as np
 from scipy.special.specfun import sphj
 
 from gpaw.utilities.blas import gemmdot
-from gpaw.gaunt import gaunt as G_LLL, make_nabla, make_gaunt
+from gpaw.gaunt import nabla, gaunt
 from gpaw.spherical_harmonics import Y
 
 
@@ -46,9 +46,9 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
       | dr [phi (r) e    phi (r) - phi (r) e    phi (r)]
       /        1            2         1            2
 
-                        ll    -  /     2                      ~       ~
-      = 4 * pi \sum_lm  i  Y (k) | dr r  [ phi (r) phi (r) - phi (r) phi (r) j (kr)
-                            lm   /            1       2         1       2     ll
+                     ll   -  /     2                      ~       ~
+      = 4pi \sum_lm i  Y (k) | dr r  [ phi (r) phi (r) - phi (r) phi (r) j (kr)
+                        lm   /            1       2         1       2     ll
 
           /
         * | d\Omega Y     Y     Y
@@ -110,6 +110,8 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
             tmp_jjg[j1, j2] = (phi_jg[j1] * phi_jg[j2] -
                                phit_jg[j1] * phit_jg[j2])
 
+    G_LLL = gaunt(max(l_j))
+    
     # Loop over G vectors
     for iG in range(Gstart, Gend):
         kk = k_Gv[iG]
@@ -137,7 +139,9 @@ def two_phi_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
                         R_ii[i1, i2] = G_LLL[L1, L2, li**2 + mi] * R_jj[j1, j2]
 
                 phi_Gii[iG] += R_ii * Y(li**2 + mi,
-                                        kk[0] / k, kk[1] / k, kk[2] / k) * (-1j)**li
+                                        kk[0] / k,
+                                        kk[1] / k,
+                                        kk[2] / k) * (-1j)**li
     
     phi_Gii *= 4 * pi
 
@@ -194,13 +198,10 @@ def two_phi_nabla_planewave_integrals(k_Gv, setup=None, Gstart=0, Gend=None,
     nj = len(l_j)
     lmax = max(l_j) * 2 + 1
     
-    # We have to calculate our own gaunt
-    # coeff and Y_LLv's as the default
-    # won't generally suffice.
     ljdef = 3
     l2max = max(l_j) * (max(l_j) > ljdef) + ljdef * (max(l_j) <= ljdef)
-    G_LLL = make_gaunt(l2max)
-    Y_LLv = make_nabla(2 * l2max)
+    G_LLL = gaunt(l2max)
+    Y_LLv = nabla(2 * l2max)
 
     if setup is not None:
         assert ni == setup.ni and nj == setup.nj

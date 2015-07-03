@@ -185,7 +185,7 @@ class Writer:
         if self.verbose:
             print("close()")
         self._close_array()
-        if self.cmr_params.has_key("ase_atoms_var"):
+        if "ase_atoms_var" in self.cmr_params:
             ase_vars = self.cmr_params["ase_atoms_var"]
             for key in ase_vars:
                 self.data.set_user_variable(key, ase_vars[key])
@@ -219,13 +219,13 @@ class Reader:
         return self.reader[name]
     
     def __getitem__(self, name):
-        if name=='version' and not self.reader.has_key('version') \
-            and self.reader.has_key('db_calculator_version'):
+        if name=='version' and 'version' not in self.reader \
+            and 'db_calculator_version' in self.reader:
                 return self.reader['db_calculator_version']
         return self.reader[name]
 
     def has_array(self, name):
-        return self.reader.has_key(name)
+        return name in self.reader
     
     def get(self, name, *indices, **kwargs):
         if self.verbose:
@@ -237,7 +237,7 @@ class Reader:
             return result
         
         #gpaw wants expressions evaluated
-        if type(result)==str or type(result)==unicode:
+        if isinstance(result, str) or isinstance(result, unicode):
             try:
                 if self.verbose:
                     print("Converting ", result)

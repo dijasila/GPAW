@@ -25,4 +25,4 @@ class Perturbation:
     def apply(self, psi_nG, y_nG, k, kplusq=None):
         """Apply perturbing potential to unperturbed wave-functions."""
         
-        raise NotImplementedError, ("Implement in derived classes")
+        raise NotImplementedError('Implement in derived classes')

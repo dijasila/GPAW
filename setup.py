@@ -17,12 +17,13 @@ from config import (check_packages, get_system_config, get_parallel_config,
 
 
 # Get the current version number:
+version_base = None
 try:
-    execfile('gpaw/svnversion_io.py')  # write gpaw/svnversion.py and get
-                                       # svnversion
-except ValueError:
+    # Write gpaw/svnversion.py and get svnversion:
+    exec(open('gpaw/svnversion_io.py').read())
+except (ValueError, TypeError):
     svnversion = ''
-execfile('gpaw/version.py')        # get version_base
+exec(open('gpaw/version.py').read())        # get version_base
 if svnversion:
     version = version_base + '.' + svnversion
 else:
@@ -101,7 +102,7 @@ scalapack = False
 hdf5 = False
 
 # User provided customizations:
-execfile(customize)
+exec(open(customize).read())
 
 if platform_id != '':
     my_platform = distutils.util.get_platform() + '-' + platform_id
@@ -197,10 +198,10 @@ if hdf5:
                                extra_objects=extra_objects)
     extensions.append(hdf5_extension)
 
-scripts = [join('tools', script)
-           for script in ('gwap', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
-                          'gpaw-mpisim', 'gpaw-runscript',
-                          'gpaw-install-setups')]
+files = ['gpaw-analyse-basis', 'gpaw-basis', 'gpaw-install-setups',
+         'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
+         'gpaw-setup', 'gpaw-test', 'gpaw-upfplot', 'gpaw']
+scripts = [join('tools', script) for script in files]
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,

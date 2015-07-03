@@ -48,13 +48,13 @@ class FiniteDifferenceCalculator(Calculator):
         self.parallel = {
             'world': world, 'mycomm': world, 'ncalcs': 1, 'icalc': 0}
         if world.size < 2:
-            if parallel > 0:
+            if parallel:
                 prnt('#', (self.__class__.__name__ + ':'),
                      'Serial calculation, keyword parallel ignored.',
                      file=self.txt)
-        elif parallel > 0:
+        elif parallel:
             mycomm, ncalcs, icalc = distribute_cpus(parallel, world)
-            if type(ncalcs) != type(1):
+            if not isinstance(ncalcs, int):
                 # this is ase < r3431
                 ncalcs = world.size / parallel
             self.parallel = {'world': world, 'mycomm': mycomm,
@@ -76,7 +76,7 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         """
         FiniteDifferenceCalculator.__init__(self, lrtddft, d, txt, parallel)
 
-        if type(index) == type(1):
+        if isinstance(index, int):
             self.index = UnconstraintIndex(index)
         else:
             self.index = index
@@ -240,7 +240,6 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
 class UnconstraintIndex:
 
     def __init__(self, index):
-        assert(type(index) == type(1))
         self.index = index
 
     def apply(self, *argv):
@@ -305,7 +304,7 @@ class MaximalOSIndex:
     def __init__(self, energy_range=None, direction=None):
         if energy_range is None:
             energy_range = np.array([0.0, 1.e32])
-        elif isinstance(energy_range, (int, long, float)):
+        elif isinstance(energy_range, (int, float)):
             energy_range = np.array([0.0, energy_range]) / Hartree
         self.energy_range = energy_range
 

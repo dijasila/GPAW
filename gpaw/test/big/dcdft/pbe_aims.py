@@ -7,7 +7,7 @@ import numpy as np
 import ase.db
 from ase.utils import opencew
 from ase.calculators.calculator import kpts2mp
-from ase.io.trajectory import PickleTrajectory
+from ase.io import Trajectory
 from ase.calculators.aims import Aims
 from ase.test.tasks.dcdft import DeltaCodesDFTCollection as Collection
 
@@ -57,7 +57,7 @@ for name in names:
     fd = opencew(name + '_' + code + '.traj')
     if fd is None:
         continue
-    traj = PickleTrajectory(name + '_' + code + '.traj', 'w')
+    traj = Trajectory(name + '_' + code + '.traj', 'w')
     atoms = collection[name]
     cell = atoms.get_cell()
     kpts = tuple(kpts2mp(atoms, kptdensity, even=True))

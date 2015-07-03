@@ -16,4 +16,3 @@ def agts(queue):
     calc4 = queue.add('Na2_relax_excited.py',
                       ncpus=4,
                       walltime=500)
-    

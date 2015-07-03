@@ -52,14 +52,14 @@ class Trajectory(PickleTrajectory):
         else:
             return self.images.__iter__()
 
-    def next(self):
+    def __next__(self):
         if hasattr(self, 'offsets'):
             return PickleTrajectory.next(self)
         else:
-            return self.images.next()
+            return next(self.images)
 
     def append(self, images):
-        if type(images) == type(Atoms):
+        if isinstance(images, type(Atoms)):
             images = [images]
         for image in images:
             self.images.append(image)

@@ -830,20 +830,18 @@ static PyMethodDef lxcXCFunctional_Methods[] = {
   {NULL, NULL, 0, NULL}
 };
 
-static PyObject* lxcXCFunctional_getattr(PyObject *obj, char *name)
-{
-  return Py_FindMethod(lxcXCFunctional_Methods, obj, name);
-}
 
 PyTypeObject lxcXCFunctionalType = {
-  PyObject_HEAD_INIT(NULL)
-  0,
-  "lxcXCFunctional",
-  sizeof(lxcXCFunctionalObject),
-  0,
-  (destructor)lxcXCFunctional_dealloc,
-  0,
-  lxcXCFunctional_getattr
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "lxcXCFunctional",
+    sizeof(lxcXCFunctionalObject),
+    0,
+    (destructor)lxcXCFunctional_dealloc,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    "LibXCFunctional object",
+    0, 0, 0, 0, 0, 0,
+    lxcXCFunctional_Methods
 };
 
 

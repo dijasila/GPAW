@@ -35,8 +35,7 @@ def kwargs2str(**kwargs):
     tokens = []
     start = 'dict('
     indent = ' ' * len(start)
-    keys = kwargs.keys()
-    keys.sort()
+    keys = sorted(kwargs.keys())
     for key in keys:
         tokens.append('%s=%s' % (key, repr(kwargs[key])))
     string = (',\n%s' % indent).join(tokens)

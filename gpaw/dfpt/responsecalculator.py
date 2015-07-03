@@ -198,7 +198,7 @@ class ResponseCalculator:
                     break
                 
             if iter == max_iter:
-                raise RuntimeError, ("self-consistent loop did not converge "
+                raise RuntimeError("self-consistent loop did not converge "
                                      "in %i iterations" % iter)
    
     def set(self, **kwargs):

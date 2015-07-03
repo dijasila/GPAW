@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 import time
@@ -39,9 +40,7 @@ class PAWTextOutput:
         self.print_header()
 
     def text(self, *args, **kwargs):
-        self.txt.write(kwargs.get('sep', ' ').join([str(arg)
-                                                    for arg in args]) +
-                       kwargs.get('end', '\n'))
+        print(*args, file=self.txt, **kwargs)
 
     def print_header(self):
         self.text()
@@ -299,7 +298,7 @@ class PAWTextOutput:
             if self.density.charge == 0:
                 t('Dipole Moment: %s' % dipole)
             else:
-                t('Center of Charge: %s' % (dipole / abs(self.density.charge)))
+                t('Center of Charge: %s' % (dipole / self.density.charge))
 
         try:
             correction = self.hamiltonian.poisson.corrector.correction
@@ -458,6 +457,7 @@ def eigenvalue_string(paw, comment=' '):
     """
 
     tokens = []
+    
     def add(*line):
         for token in line:
             tokens.append(token)
@@ -465,7 +465,7 @@ def eigenvalue_string(paw, comment=' '):
 
     if len(paw.wfs.kd.ibzk_kc) == 1:
         if paw.wfs.nspins == 1:
-            add(comment, ' Band  Eigenvalues  Occupancy')
+            add(comment, 'Band  Eigenvalues  Occupancy')
             eps_n = paw.get_eigenvalues(kpt=0, spin=0)
             f_n = paw.get_occupation_numbers(kpt=0, spin=0)
             if paw.wfs.world.rank == 0:
@@ -473,7 +473,7 @@ def eigenvalue_string(paw, comment=' '):
                     add('%5d  %11.5f  %9.5f' % (n, eps_n[n], f_n[n]))
         else:
             add(comment, '                  Up                     Down')
-            add(comment, ' Band  Eigenvalues  Occupancy  Eigenvalues  '
+            add(comment, 'Band  Eigenvalues  Occupancy  Eigenvalues  '
                 'Occupancy')
             epsa_n = paw.get_eigenvalues(kpt=0, spin=0, broadcast=False)
             epsb_n = paw.get_eigenvalues(kpt=0, spin=1, broadcast=False)
@@ -531,11 +531,11 @@ def eigenvalue_string(paw, comment=' '):
 def plot(atoms):
     """Ascii-art plot of the atoms."""
 
-##   y
-##   |
-##   .-- x
-##  /
-## z
+#   y
+#   |
+#   .-- x
+#  /
+# z
 
     cell_cv = atoms.get_cell()
     if (cell_cv - np.diag(cell_cv.diagonal())).any():

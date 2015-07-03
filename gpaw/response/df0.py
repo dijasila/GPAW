@@ -481,10 +481,10 @@ class DF(CHI):
             Energy (eV).
         """
 
-        if type(w) is int:
+        if isinstance(w, int):
             iw = w
             w = self.wlist[iw] / Hartree
-        elif type(w) is float:
+        elif isinstance(w, float):
             w /= Hartree
             iw = int(np.round(w / self.dw))
         else:

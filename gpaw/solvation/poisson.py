@@ -17,13 +17,14 @@ class SolvationPoissonSolver(PoissonSolver):
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None):
+                 remove_moment=None, use_charge_center=True):
         if remove_moment is not None:
             raise NotImplementedError(
                 'Removing arbitrary multipole moments '
                 'is not implemented for SolvationPoissonSolver!'
             )
-        PoissonSolver.__init__(self, nn, relax, eps, maxiter, remove_moment)
+        PoissonSolver.__init__(self, nn, relax, eps, maxiter, remove_moment,
+                               use_charge_center=use_charge_center)
 
     def set_dielectric(self, dielectric):
         """Set the dielectric.
@@ -33,7 +34,7 @@ class SolvationPoissonSolver(PoissonSolver):
         """
         self.dielectric = dielectric
 
-    def load_gauss(self):
+    def load_gauss(self, center=None):
         """Load compensating charge distribution for charged systems.
 
         See Appendix B of
@@ -41,7 +42,7 @@ class SolvationPoissonSolver(PoissonSolver):
         """
         # XXX Check if update is needed (dielectric changed)?
         epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
-        gauss = Gaussian(self.gd)
+        gauss = Gaussian(self.gd, center=center)
         rho_g = gauss.get_gauss(0)
         phi_g = gauss.get_gauss_pot(0)
         x, y, z = gauss.xyz
@@ -84,7 +85,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
         """Restric operator weights to coarse grids."""
         weights = [self.dielectric.eps_gradeps] + self.op_coarse_weights
         for i, res in enumerate(self.restrictors):
-            for j in xrange(4):
+            for j in range(4):
                 res.apply(weights[i][j], weights[i + 1][j])
         self.step = 0.66666666 / self.operators[0].get_diagonal_element()
 
@@ -162,7 +163,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None):
+                 remove_moment=None, use_charge_center=True):
         polarization_warning = UserWarning(
             (
                 'PolarizationPoissonSolver is not accurate enough'
@@ -171,7 +172,8 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
         )
         warnings.warn(polarization_warning)
         SolvationPoissonSolver.__init__(
-            self, nn, relax, eps, maxiter, remove_moment
+            self, nn, relax, eps, maxiter, remove_moment,
+            use_charge_center=use_charge_center
         )
         self.phi_tilde = None
 
@@ -220,8 +222,8 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
         )
         return niter_tilde + niter
 
-    def load_gauss(self):
-        return PoissonSolver.load_gauss(self)
+    def load_gauss(self, center=None):
+        return PoissonSolver.load_gauss(self, center=center)
 
 
 class ADM12PoissonSolver(SolvationPoissonSolver):
@@ -241,7 +243,7 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, eta=.6):
+                 remove_moment=None, eta=.6, use_charge_center=True):
         """Constructor for ADM12PoissonSolver.
 
         Additional arguments not present in SolvationPoissonSolver:
@@ -256,7 +258,8 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
         warnings.warn(adm12_warning)
         self.eta = eta
         SolvationPoissonSolver.__init__(
-            self, nn, relax, eps, maxiter, remove_moment
+            self, nn, relax, eps, maxiter, remove_moment,
+            use_charge_center=use_charge_center
         )
 
     def set_grid_descriptor(self, gd):

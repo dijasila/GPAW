@@ -22,7 +22,7 @@ try:
 except ValueError:
     pass # It *should* raise an error
 else:
-    raise RuntimeError, 'get_fermi_level should not be possible for width=0'
+    raise RuntimeError('get_fermi_level should not be possible for width=0')
 calc.set(nbands=3, convergence={'bands':2})
 atoms.get_potential_energy()
 homo, lumo = calc.get_homo_lumo()

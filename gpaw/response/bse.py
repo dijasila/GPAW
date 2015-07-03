@@ -167,11 +167,11 @@ class BSE(BASECHI):
                         self.integrate_coulomb.append(iG)
             else:
                 raise NotImplementedError
-        elif type(self.integrate_coulomb) is int:
+        elif isinstance(self.integrate_coulomb, int):
             self.integrate_coulomb = range(self.integrate_coulomb)
         elif self.integrate_coulomb == 'all':
             self.integrate_coulomb = range(len(self.Gvec_Gc))
-        elif type(self.integrate_coulomb) is list:
+        elif isinstance(self.integrate_coulomb, list):
             pass
         else:
             raise 'Invalid option for integrate_coulomb'

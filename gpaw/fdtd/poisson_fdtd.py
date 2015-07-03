@@ -14,16 +14,10 @@ from gpaw.mpi import world, serial_comm
 from gpaw.tddft import TDDFT, photoabsorption_spectrum
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
 from gpaw.transformers import Transformer
-from gpaw.utilities.blas import axpy
 from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.utilities.gauss import Gaussian
 from gpaw.poisson import PoissonSolver
-from math import pi
-from string import split
-import _gpaw
 import gpaw.mpi as mpi
 import numpy as np
-import sys
 
 # QSFDTD is a wrapper class to make calculations
 # easier, something like this:
@@ -63,7 +57,7 @@ class QSFDTD:
                 vacuum=None
                 corners=cells[1]
         else:
-            raise Exception, 'QSFDTD: cells defined incorrectly'
+            raise Exception('QSFDTD: cells defined incorrectly')
         
         # Define spacings in in one of these ways:
         # 1. (clh, qmh)
@@ -75,7 +69,7 @@ class QSFDTD:
             cl_spacing = spacings[0]
             qm_spacing = spacings[1]
         else:
-            raise Exception, 'QSFDTD: spacings defined incorrectly'
+            raise Exception('QSFDTD: spacings defined incorrectly')
             
         self.poissonsolver = FDTDPoissonSolver(classical_material  = classical_material,
                                           cl_spacing          = cl_spacing,
@@ -205,8 +199,8 @@ class FDTDPoissonSolver:
         self.relax= relax
         self.nn = nn
         
-        # Only handle the quantities via self.qm or self.cl 
-        self.cl = PoissonOrganizer()        
+        # Only handle the quantities via self.qm or self.cl
+        self.cl = PoissonOrganizer()
         self.cl.spacing_def = cl_spacing * np.ones(3) / Bohr
         self.cl.extrapolated_qm_phi = None
         self.cl.dcomm = communicator
@@ -249,7 +243,7 @@ class FDTDPoissonSolver:
         #self.cl.poisson_solver.estimate_memory(mem)
         self.qm.poisson_solver.estimate_memory(mem)
 
-    # Return the TDDFT stencil by default 
+    # Return the TDDFT stencil by default
     def get_stencil(self, mode='qm'):
         if mode=='qm':
             return self.qm.poisson_solver.get_stencil()
@@ -259,7 +253,7 @@ class FDTDPoissonSolver:
     # Initialize both PoissonSolvers
     def initialize(self, load_Gauss=False):
         self.qm.poisson_solver.initialize(load_Gauss)
-        self.cl.poisson_solver.initialize(load_Gauss)     
+        self.cl.poisson_solver.initialize(load_Gauss)
 
     def set_grid_descriptor(self, qmgd):
 
@@ -369,7 +363,7 @@ class FDTDPoissonSolver:
             self.qm.cell[w, w] = v2[w] - v1[w]
         
         N_c = get_number_of_grid_points(self.qm.cell, qmh)
-        self.qm.spacing = np.diag(self.qm.cell) / N_c        
+        self.qm.spacing = np.diag(self.qm.cell) / N_c
 
         # Classical corner indices must be divisible with numb
         if any(self.cl.spacing / self.qm.spacing >= 3):
@@ -390,7 +384,7 @@ class FDTDPoissonSolver:
         
         # Center, left, and right points of the suggested quantum grid
         cp = 0.5 * (np.array(v1) + np.array(v2))
-        lp = cp - 0.5 * self.num_indices * self.cl.spacing 
+        lp = cp - 0.5 * self.num_indices * self.cl.spacing
         rp = cp + 0.5 * self.num_indices * self.cl.spacing
                 
         # Indices in the classical grid restricting the quantum grid
@@ -466,7 +460,7 @@ class FDTDPoissonSolver:
         self.cl.subgds = []
         self.cl.subgds.append(GridDescriptor(N_c, subcell_cv, False, serial_comm, self.cl.dparsize))
 
-        #self.messages.append("  N_c/spacing of the subgrid:           %3i %3i %3i / %.4f %.4f %.4f" % 
+        #self.messages.append("  N_c/spacing of the subgrid:           %3i %3i %3i / %.4f %.4f %.4f" %
         #          (self.cl.subgds[0].N_c[0],
         #           self.cl.subgds[0].N_c[1],
         #           self.cl.subgds[0].N_c[2],
@@ -501,7 +495,7 @@ class FDTDPoissonSolver:
         
         # Center, left, and right points of the suggested quantum grid
         extended_cp = 0.5 * (np.array(self.given_corner_v1/Bohr) + np.array(self.given_corner_v2/Bohr))
-        extended_lp = extended_cp - 0.5 * (self.extended_num_indices) * self.cl.spacing 
+        extended_lp = extended_cp - 0.5 * (self.extended_num_indices) * self.cl.spacing
         extended_rp = extended_cp + 0.5 * (self.extended_num_indices) * self.cl.spacing
         
         # Indices in the classical grid restricting the quantum grid
@@ -544,14 +538,14 @@ class FDTDPoissonSolver:
             #         self.cl.extended_subgds[n + 1].empty().shape[1],
             #         self.cl.extended_subgds[n + 1].empty().shape[2]))
         
-        #self.messages.append("  N_c/spacing of the refined subgrid:   %3i %3i %3i / %.4f %.4f %.4f" % 
+        #self.messages.append("  N_c/spacing of the refined subgrid:   %3i %3i %3i / %.4f %.4f %.4f" %
         #          (self.cl.subgds[-1].N_c[0],
         #           self.cl.subgds[-1].N_c[1],
         #           self.cl.subgds[-1].N_c[2],
         #           self.cl.subgds[-1].h_cv[0][0] * Bohr,
         #           self.cl.subgds[-1].h_cv[1][1] * Bohr,
         #           self.cl.subgds[-1].h_cv[2][2] * Bohr))
-        #self.messages.append("  shape from the refined subgrid:       %3i %3i %3i" % 
+        #self.messages.append("  shape from the refined subgrid:       %3i %3i %3i" %
         #         (tuple(self.cl.subgds[-1].empty().shape)))
         
         self.extended_deltaIndex = 2 ** (self.num_refinements) * self.extend_nn
@@ -564,7 +558,7 @@ class FDTDPoissonSolver:
         for n in range(self.num_refinements - 1):
             dmygd = dmygd.coarsen()
         
-        #self.messages.append("  N_c/spacing of the coarsened subgrid: %3i %3i %3i / %.4f %.4f %.4f" % 
+        #self.messages.append("  N_c/spacing of the coarsened subgrid: %3i %3i %3i / %.4f %.4f %.4f" %
         #          (dmygd.N_c[0], dmygd.N_c[1], dmygd.N_c[2],
         #           dmygd.h_cv[0][0] * Bohr, dmygd.h_cv[1][1] * Bohr, dmygd.h_cv[2][2] * Bohr))
        
@@ -608,7 +602,7 @@ class FDTDPoissonSolver:
         self.calculation_mode = calculation_mode
 
     # The density object must be attached, so that the electric field
-    # from all-electron density can be calculated    
+    # from all-electron density can be calculated
     def set_density(self, density):
         self.density = density
         
@@ -661,7 +655,7 @@ class FDTDPoissonSolver:
                                   self.qm.cell,
                                   False,
                                   serial_comm,
-                                  None)                           
+                                  None)
             while qmgd.h_cv[0, 0] < clgd.h_cv[0, 0] * 0.95:
                 qmn = Transformer(qmgd, qmgd.coarsen()).apply(qmn)
                 qmgd = qmgd.coarsen()
@@ -695,7 +689,7 @@ class FDTDPoissonSolver:
  
     # Iterate classical and quantum potentials until convergence
     def solve_iterate(self, **kwargs):
-        # Initial value (unefficient?) 
+        # Initial value (unefficient?)
         self.solve_solve(**kwargs)
         old_rho_qm = self.qm.rho.copy()
         old_rho_cl = self.classical_material.charge_density.copy()
@@ -713,7 +707,7 @@ class FDTDPoissonSolver:
             self.classical_material.solve_rho()  # n = -Grad[P]
                 
             # Update electrostatic potential         # nabla^2 Vh = -4*pi*n
-            niter = self.solve_solve(**kwargs) 
+            niter = self.solve_solve(**kwargs)
 
             # Mix potential
             try:
@@ -781,11 +775,10 @@ class FDTDPoissonSolver:
                     calculation_mode=None):
 
         if self.density is None:
-            print 'FDTDPoissonSolver requires a density object.' \
-                  ' Use set_density routine to initialize it.'
-            raise
+            raise RuntimeError('FDTDPoissonSolver requires a density object.'
+                               ' Use set_density routine to initialize it.')
 
-        # Update local variables (which may have changed in SCF cycle or propagator) 
+        # Update local variables (which may have changed in SCF cycle or propagator)
         self.qm.phi = phi
         self.qm.rho = rho
 
@@ -915,10 +908,10 @@ class FDTDPoissonSolver:
                                          dtype=float)
         else:
             big_currents = None
-        self.cl.gd.distribute(big_currents, self.classical_material.currents)                
+        self.cl.gd.distribute(big_currents, self.classical_material.currents)
         
         
-    # Write restart data   
+    # Write restart data
     def write(self, paw, writer):#                     filename='poisson'):
         rho = self.classical_material.charge_density
         world = paw.wfs.world
