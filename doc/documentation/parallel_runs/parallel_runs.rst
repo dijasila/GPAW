@@ -183,8 +183,8 @@ nitrogen molecule using two processes:
 
 .. _manual_parallel:
 
-Parallization options
-=====================
+Parallelization options
+=======================
 
 In version 0.7, a new keyword called ``parallel`` was introduced to provide 
 a unified way of specifying parallelization-related options. Similar to
