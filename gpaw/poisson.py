@@ -10,6 +10,7 @@ from numpy.fft import fftn, ifftn, fft2, ifft2
 from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw import PoissonConvergenceError
+from ase.parallel import parprint
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.ewald import madelung
@@ -226,15 +227,28 @@ class PoissonSolver:
             # and 3) add the potential from the gaussian density.
 
             # Load necessary attributes
-            if self.use_charge_center:
+            border_offset = np.inner(self.gd.h_cv, np.array((7, 7, 7)))
+            if self.use_charge_center and np.all(self.gd.N_c >= 16):
+                warntxt = None
                 center = - self.gd.calculate_dipole_moment(rho) \
                         / actual_charge
+                # print(center)
                 borders = np.inner(self.gd.h_cv, self.gd.N_c)
-                if np.any(center > borders) or \
-                        np.any(center < np.array([0, 0, 0])):
-                    warnings.warn('Poisson solver: center of charge '
-                                  + 'outside box - centering to box')
+                if np.any(center > borders) or np.any(center < 0):
+                    warntxt = 'Poisson solver: center of charge outside' + \
+                               ' box - centering to box'
                     center = borders / 2  # move coc to cob
+                borders -= border_offset
+                if np.any(center > borders):
+                    warntxt = 'Poisson solver: center of charge outside' + \
+                               ' borders - moving to upper border'
+                    center[np.where(center > borders)] = borders
+                if np.any(center < border_offset):
+                    warntxt = 'Poisson solver: center of charge outside' + \
+                               ' borders - moving to lower border'
+                    center[np.where(center < border_offset)] = border_offset
+                if warntxt is not None:
+                    warnings.warn(warntxt, stacklevel=2)
                 self.load_gauss(center=center)
             else:
                 self.load_gauss()
