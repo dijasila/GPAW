@@ -436,7 +436,7 @@ class BSE(BASECHI):
             q = self.ibzq_qc[iq]
             optical_limit = False
             if np.abs(q).sum() < 1e-8:
-                q = self.q_c.copy()
+                q = np.array([0.0001, 0, 0])
                 optical_limit = True
             df = DF(calc=self.calc,
                     q=q,
