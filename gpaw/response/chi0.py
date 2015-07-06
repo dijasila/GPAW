@@ -194,6 +194,9 @@ class Chi0:
         self.nocc1 = self.pair.nocc1  # number of completely filled bands
         self.nocc2 = self.pair.nocc2  # number of non-empty bands
 
+        kd = self.calc.wfs.kd
+        self.KDTree = cKDTree(np.mod(kd.bzk_kc, 1))
+
         self.Q_aGii = None
 
     def find_maximum_frequency(self):
@@ -276,7 +279,6 @@ class Chi0:
 
         # Integrate interband response
         kd = self.calc.wfs.kd
-        self.KDTree = cKDTree(np.mod(kd.bzk_kc, 1))
 
         mat_kwargs = {'kd': kd, 'pd': pd, 'n1': 0,
                       'n2': self.nocc2, 'm1': m1,
@@ -393,7 +395,6 @@ class Chi0:
         the response function which gives an output that
         is compatible with the gpaw k-point integration
         routines."""
-
         if wfs is None:
             wfs = self.calc.wfs
 
