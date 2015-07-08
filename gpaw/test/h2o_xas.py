@@ -45,10 +45,10 @@ if mpi.size == 1:
     de2 = e2_n[1] - e2_n[0]
 
     print(de2)
-    print(de2 - 2.1026)
-    assert abs(de2 - 2.1026) < 0.001
+    print(de2 - 2.0705)
+    assert abs(de2 - 2.0705) < 0.001
     print(w_n[1] / w_n[0])
-    assert abs(w_n[1] / w_n[0] - 2.14) < 0.01
+    assert abs(w_n[1] / w_n[0] - 2.22) < 0.01
 
     if mpi.size == 1:
         assert de1 == de2
@@ -63,4 +63,4 @@ if 0:
 print(e, niter)
 energy_tolerance = 0.00009
 niter_tolerance = 0
-equal(e, -17.9486, energy_tolerance)
+equal(e, -17.9772, energy_tolerance)
