@@ -278,11 +278,11 @@ class PhononCalculator:
             omega_n[indices] = -1 * np.sqrt(np.abs(omega2_n[indices].real))
 
         # Conversion factor from sqrt(Ha / Bohr**2 / amu) -> eV
-        s = units.Hartree ** 0.5 * units._hbar * 1.e10 / \
+        s = units.Hartree**0.5 * units._hbar * 1.e10 / \
             (units._e * units._amu)**0.5 / units.Bohr
 
         # Convert to eV and Ang
-        omega_n = s ** 2 * np.asarray(omega_n.real)
+        omega_n = s**2 * np.asarray(omega_n.real)
 
         if modes:
             u_n = np.asarray(u_n) * units.Bohr

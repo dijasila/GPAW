@@ -87,7 +87,7 @@ class ScipyLinearSolver:
 
         return self.i, info
 
-    def iteration(self):
+    def iteration(self, dummy):
         """Passed as callback function to the scipy-routine."""
 
         # Increment iterator counter
