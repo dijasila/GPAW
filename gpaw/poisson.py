@@ -41,7 +41,7 @@ is divisible by a high power of 2."""
 
 class PoissonSolver:
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=True):
+                 remove_moment=None, use_charge_center=False):
         self.relax = relax
         self.nn = nn
         self.eps = eps
@@ -68,9 +68,6 @@ class PoissonSolver:
     def set_grid_descriptor(self, gd):
         # Should probably be renamed initialize
         self.gd = gd
-        self.dv = gd.dv
-
-        gd = self.gd
         scale = -0.25 / pi
 
         if self.nn == 'M':
@@ -144,6 +141,11 @@ class PoissonSolver:
         lines.extend(['    Stencil: %s' % self.operators[0].description,
                       '    Tolerance: %e' % self.eps,
                       '    Max iterations: %d' % self.maxiter])
+        if self.remove_moment is not None:
+            lines.append('    Remove moments up to L=%d' % self.remove_moment)
+        if self.use_charge_center:
+            lines.append('    Compensate for charged system using center of '
+                         'charge')
         return '\n'.join(lines)
 
     def initialize(self, load_gauss=False):
@@ -227,7 +229,7 @@ class PoissonSolver:
 
             # Load necessary attributes
             border_offset = np.inner(self.gd.h_cv, np.array((7, 7, 7)))
-            if self.use_charge_center and np.all(self.gd.N_c >= 16):
+            if self.use_charge_center:
                 warntxt = None
                 center = - self.gd.calculate_dipole_moment(rho) \
                         / actual_charge
@@ -271,8 +273,8 @@ class PoissonSolver:
             return niter
         else:
             # System is charged with mixed boundaryconditions
-            msg = 'Charged systems with mixed periodic/zero'
-            msg += ' boundary conditions'
+            msg = ('Charged systems with mixed periodic/zero'
+                   ' boundary conditions')
             raise NotImplementedError(msg)
 
     def solve_neutral(self, phi, rho, eps=2e-10):
@@ -355,7 +357,7 @@ class PoissonSolver:
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
             error = self.gd.comm.sum(np.dot(residual.ravel(),
-                                            residual.ravel())) * self.dv
+                                            residual.ravel())) * self.gd.dv
             return error
 
     def estimate_memory(self, mem):
