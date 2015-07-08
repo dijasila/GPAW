@@ -36,16 +36,16 @@ class ResponseCalculator:
         Weight for the mixer metric (=1 -> no metric used).
     """
 
-    parameters = {'verbose':               False,
-                  'max_iter':              100,
-                  'max_iter_krylov':       1000,
-                  'krylov_solver':         'cg',
-                  'tolerance_sc':          1.0e-5,
+    parameters = {'verbose': False,
+                  'max_iter': 100,
+                  'max_iter_krylov': 1000,
+                  'krylov_solver': 'cg',
+                  'tolerance_sc': 1.0e-5,
                   'tolerance_sternheimer': 1.0e-4,
-                  'use_pc':                True,
-                  'beta':                  0.1,
-                  'nmaxold':               6,
-                  'weight':                50
+                  'use_pc': True,
+                  'beta': 0.1,
+                  'nmaxold': 6,
+                  'weight': 50
                   }
 
     def __init__(self, calc, wfs, poisson_solver=None, dtype=float, **kwargs):
@@ -155,7 +155,7 @@ class ResponseCalculator:
                                 dtype=self.gs_dtype)
 
         # Preconditioner for the Sternheimer equation
-        if p['use_pc']:
+        if use_pc:
             pc = ScipyPreconditioner(self.gd,
                                      self.sternheimer_operator.project,
                                      dtype=self.gs_dtype)
@@ -217,11 +217,11 @@ class ResponseCalculator:
         max_iter = p['max_iter']
         tolerance = p['tolerance_sc']
 
-        for iter in range(max_iter):
-            if iter == 0:
+        for i in range(max_iter):
+            if i == 0:
                 self.first_iteration()
             else:
-                print("iter:%3i\t" % iter, end=' ')
+                print("iter:%3i\t" % i, end=' ')
                 norm = self.iteration()
                 print("abs-norm: %6.3e\t" % norm, end=' ')
                 print(("integrated density response (abs): % 5.2e (%5.2e) "
@@ -230,12 +230,12 @@ class ResponseCalculator:
 
                 if norm < tolerance:
                     print(("self-consistent loop converged in %i iterations"
-                           % iter))
+                           % i))
                     break
 
-            if iter == max_iter:
+            if i == max_iter:
                 raise RuntimeError("self-consistent loop did not converge "
-                                   "in %i iterations" % iter)
+                                   "in %i iterations" % i)
 
     def set(self, **kwargs):
         """Set parameters for calculation."""
@@ -336,7 +336,7 @@ class ResponseCalculator:
                 print("eps_n", kpt.eps_n)
                 print("P_ani", kpt.P_ani)
                 print("dP_aniv", kpt.dP_aniv)
-               ## print("psit1_nG[0]", kpt.psit1_nG[0])
+                # print("psit1_nG[0]", kpt.psit1_nG[0])
 
             # Index of k+q vector
             if kplusq_k is None:
@@ -374,27 +374,27 @@ class ResponseCalculator:
                 self.sternheimer_operator.set_band(n)
                 # Get view of the Bloch function derivative
                 psit1_G = psit1_nG[n]
-                #print(psit1_G)
+                # print(psit1_G)
 
                 # Rhs of Sternheimer equation
                 rhs_G = -1 * rhs_nG[n]
 
                 # Solve Sternheimer equation
-                iter, info = self.linear_solver.solve(self.sternheimer_operator,
-                                                      psit1_G, rhs_G)
-               # print(psit1_G)
-               # quit()
+                i, info = self.linear_solver.solve(self.sternheimer_operator,
+                                                   psit1_G, rhs_G)
+                # print(psit1_G)
+                # quit()
 
                 if verbose:
                     print("\tBand %2.1i -" % n, end=' ')
 
                 if info == 0:
                     if verbose:
-                        print("linear solver converged in %i iterations" % iter)
+                        print("linear solver converged in %i iterations" % i)
                 elif info > 0:
                     assert False, ("linear solver did not converge in maximum "
                                    "number (=%i) of iterations for "
-                                   "k-point number %d" % (iter, k))
+                                   "k-point number %d" % (i, k))
                 else:
                     assert False, ("linear solver failed to converge")
 

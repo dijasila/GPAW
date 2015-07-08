@@ -5,14 +5,18 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
 from gpaw.dfpt2.kpointcontainer import KPointContainer
 
+
 class KD:
     """Minimal replacement for kd, just to initialize LFC properly"""
+
     def __init__(self, gamma, ibzk_qc):
-      self.gamma = gamma
-      self.ibzk_qc = ibzk_qc
+        self.gamma = gamma
+        self.ibzk_qc = ibzk_qc
+
 
 class WaveFunctions:
     """Class for wave-function related stuff (e.g. projectors)."""
+
     def __init__(self, nbands, kpt_u, setups, kd, gd, spos_ac, dtype=float):
         """Store and initialize required attributes.
 
@@ -109,7 +113,7 @@ class WaveFunctions:
                 for n, psit_G in enumerate(psit_nG):
                     # Rotate wave function of the irreducible point to the
                     # full k-point
-                    #psit_G[:] = kd.symmetry.symmetrize_wavefunction(
+                    # psit_G[:] = kd.symmetry.symmetrize_wavefunction(
                     #    kpt_.psit_nG[n], ik_c, k_c, op_cc, time_reversal)
                     psit_G[:] = kd.transform_wave_function(kpt_.psit_nG[n], k)
 
@@ -139,7 +143,7 @@ class WaveFunctions:
 
         for kpt in self.kpt_u:
             kpt.psit1_nG = self.gd.zeros(n=self.nbands, dtype=self.dtype)
-        
+
     def calculate_projector_coef(self):
         """Coefficients for the derivative of the non-local part of the PP.
 
@@ -180,7 +184,7 @@ class WaveFunctions:
             psit_nG = kpt.psit_nG
 
             # Integration dicts
-            P_ani   = self.pt.dict(shape=n)
+            P_ani = self.pt.dict(shape=n)
             dP_aniv = self.pt.dict(shape=n, derivative=True)
 
             # 1) Integrate with projectors

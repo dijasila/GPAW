@@ -18,9 +18,9 @@ from gpaw.dfpt2.wavefunctions import WaveFunctions
 
 class PhononCalculator:
     """This class defines the interface for phonon calculations."""
-    def __init__(self, calc, dispersion=False, symmetry=False,
-                 q_c=[0., 0., 0.], world=mpi.world):
-        """Inititialize class with a list of atoms.
+
+    def __init__(self, calc, dispersion=False, symmetry=False, q_c=None, world=mpi.world):
+        """Initialize class with a list of atoms.
 
         The atoms object must contain a converged ground-state calculation.
 
@@ -29,10 +29,10 @@ class PhononCalculator:
         calc: str or Calculator
             Calculator containing a ground-state calculation.
         dispersion: bool
-            If true, calculates dynamcial matrix on a grid of q-points. Else,
+            If true, calculates dynamical matrix on a grid of q-points. Else,
             use  a single q-point. Not implemented.
         symmetry: bool
-            Use symmetries to reduce the q-vectors of the dynamcial matrix
+            Use symmetries to reduce the q-vectors of the dynamical matrix
             (None, False or True). None=off, False=time_reversal only. True
             isn't implemented yet.
         q_c: array
@@ -42,6 +42,8 @@ class PhononCalculator:
             Communicator for parallelization over k-points and real-space
             domain.
         """
+        if not q_c:
+            q_c = [0., 0., 0.]
 
         # Asserts for unfinished and non features
         assert symmetry in [None, False], "Spatial symmetries not allowed yet"
@@ -259,7 +261,7 @@ class PhononCalculator:
             # multiply with mass prefactor
             u_nav = u_avn[:, omega2_n.argsort()].T.copy() * m_inv_av
             # Multiply with mass prefactor
-            u_n.append(u_nav.reshape((3*N, -1, 3)))
+            u_n.append(u_nav.reshape((3 * N, -1, 3)))
         else:
             omega2_n = la.eigvalsh(D_q, UPLO='L')
             # Sort eigenvalues in increasing order
@@ -276,11 +278,11 @@ class PhononCalculator:
             omega_n[indices] = -1 * np.sqrt(np.abs(omega2_n[indices].real))
 
         # Conversion factor from sqrt(Ha / Bohr**2 / amu) -> eV
-        s = units.Hartree**0.5 * units._hbar * 1.e10 / \
-            (units._e * units._amu)**(0.5) / units.Bohr
+        s = units.Hartree ** 0.5 * units._hbar * 1.e10 / \
+            (units._e * units._amu)**0.5 / units.Bohr
 
         # Convert to eV and Ang
-        omega_n = s**2 * np.asarray(omega_n.real)
+        omega_n = s ** 2 * np.asarray(omega_n.real)
 
         if modes:
             u_n = np.asarray(u_n) * units.Bohr

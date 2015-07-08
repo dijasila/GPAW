@@ -1,5 +1,5 @@
-import numpy as np
 import scipy.sparse.linalg as sla
+
 
 class ScipyLinearSolver:
     """Wrapper class for the linear solvers in ``scipy.sparse.linalg``.
@@ -10,19 +10,19 @@ class ScipyLinearSolver:
 
     where A is a linear operator and b is the known rhs. The linear operator
     provided as argument in the ``solve`` method must have a ``shape``
-    attribute (a tuble (M,N) where M and N give the size of the corresponding
+    attribute (a tuple (M,N) where M and N give the size of the corresponding
     matrix) and a ``dtype`` attribute giving datatype of the matrix entries.
 
     """
 
     # Supported solvers
-    solvers = {'cg':       sla.cg,       # symmetric positive definite
-               'minres':   sla.minres,   # symmetric indefinite
-               'gmres':    sla.gmres,    # non-symmetric
-               'bicg':     sla.bicg,     # non-symmetric
-               'cgs':      sla.cgs,      # similar to bicg
-               'bicgstab': sla.bicgstab, # 
-               'qmr':      sla.qmr,      #
+    solvers = {'cg': sla.cg,  # symmetric positive definite
+               'minres': sla.minres,  # symmetric indefinite
+               'gmres': sla.gmres,  # non-symmetric
+               'bicg': sla.bicg,  # non-symmetric
+               'cgs': sla.cgs,  # similar to bicg
+               'bicgstab': sla.bicgstab,  #
+               'qmr': sla.qmr,  #
                # 'lgmres': sla.lgmres, # scipy v. 0.8.0
                }
 
@@ -87,7 +87,7 @@ class ScipyLinearSolver:
 
         return self.i, info
 
-    def iteration(self, x_i):
+    def iteration(self):
         """Passed as callback function to the scipy-routine."""
 
         # Increment iterator counter

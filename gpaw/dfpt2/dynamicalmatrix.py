@@ -1,6 +1,6 @@
 import numpy as np
 
-from ase.utils.timing import timer, Timer
+from ase.utils.timing import timer
 
 from gpaw.utilities import unpack
 
@@ -9,7 +9,7 @@ class DynamicalMatrix:
     """Class for assembling the dynamical matrix from first-order responses.
 
     The second order derivative of the total energy with respect to atomic
-    displacements (for periodic systems collective atomic displacemnts
+    displacements (for periodic systems collective atomic displacements
     characterized by a q-vector) can be obtained from an expression involving
     the first-order derivatives of the density and the wave-functions.
 
@@ -17,7 +17,7 @@ class DynamicalMatrix:
     total energy are implemented in separate functions.
     """
     def __init__(self, atoms, dtype=float, timer=None):
-        """Inititialize class with a list of atoms.
+        """Initialize class with a list of atoms.
 
         Parameters
         ----------
@@ -32,10 +32,7 @@ class DynamicalMatrix:
 
         self.atoms = atoms
         self.dtype = dtype
-        if timer is not None:
-            self.timer = timer
-        else:
-            self.timer = Timer()
+        self.timer = timer
 
         # List of atomic indices to be included (default is all atoms)
         self.indices = range(len(self.atoms))
@@ -294,4 +291,3 @@ class DynamicalMatrix:
                     D_new[a, 3*ni+j] = -tmp
 
         return D_new
-

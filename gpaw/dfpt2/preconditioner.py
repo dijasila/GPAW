@@ -7,7 +7,6 @@ from gpaw.preconditioner import Preconditioner
 
 
 class ScipyPreconditioner:
-
     def __init__(self, gd, project, dtype=float):
         """Init the gpaw preconditioner.
 
@@ -28,7 +27,7 @@ class ScipyPreconditioner:
 
         # For scipy's linear solver
         N = np.prod(gd.n_c)
-        self.shape = (N,N)
+        self.shape = (N, N)
         self.dtype = dtype
 
     def set_kpt(self, kpt):

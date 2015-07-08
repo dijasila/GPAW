@@ -18,6 +18,7 @@ from gpaw.fd_operators import Laplace
 from gpaw.utilities import unpack
 from gpaw.utilities.blas import gemm
 
+
 class SternheimerOperator:
     """Class implementing the linear operator in the Sternheimer equation.
 
@@ -114,14 +115,14 @@ class SternheimerOperator:
         kpt = self.kpt_u[self.k]
         # k+q
         kplusqpt = self.kpt_u[self.kplusq]
-        
+
         # Kintetic energy
         # k+q
         self.kin.apply(x_nG, y_nG, phase_cd=kplusqpt.phase_cd)
 
         # Local part of effective potential - no phase !!
         self.hamiltonian.apply_local_potential(x_nG, y_nG, kpt.s)
-        
+
         # Non-local part from projectors (coefficients can not be reused)
         shape = x_nG.shape[:-3]
         P_ani = self.pt.dict(shape=shape)
@@ -177,10 +178,10 @@ class SternheimerOperator:
         gemm(-1.0, psit_nG, proj_mn, 1.0, x_nG)
 
         # Project out one orbital at a time
-        ## for n, psit_G in enumerate(psit_nG):
-        ## 
-        ##     proj = self.gd.integrate(psit_G.conjugate() * x_nG)
-        ##     x_nG -= proj * psit_G
+        # for n, psit_G in enumerate(psit_nG):
+        #
+        #     proj = self.gd.integrate(psit_G.conjugate() * x_nG)
+        #     x_nG -= proj * psit_G
 
     def matvec(self, x):
         """Matrix-vector multiplication for scipy's Krylov solvers.
@@ -199,24 +200,24 @@ class SternheimerOperator:
 
         # Check that a is 1-dimensional
         assert len(x.shape) == 1
-        
+
         # Find the number of states in x
         grid_shape = tuple(self.gd.n_c)
         assert ((x.size % np.prod(grid_shape)) == 0), ("Incompatible array " +
                                                        "shapes")
         # Number of states in the vector
         N = x.size / np.prod(grid_shape)
-        
+
         # Output array
         y_nG = self.gd.zeros(n=N, dtype=self.dtype)
         shape = y_nG.shape
 
         assert x.size == np.prod(y_nG.shape)
-        
+
         x_nG = x.reshape(shape)
 
         self.apply(x_nG, y_nG)
-        
+
         y = y_nG.ravel()
-        
+
         return y

@@ -17,35 +17,34 @@ class PhononPerturbation(Perturbation):
     The action of the perturbing potential on a state vector is implemented in
     the ``apply`` member function.
     """
+
     def __init__(self, calc, q_c, poisson_solver, kd, dtype=float, **kwargs):
         """Store useful objects, e.g. lfc's for the various atomic functions.
 
-        Depending on whether the system is periodic or finite, Poisson's
-        equation is solved with FFT or multigrid techniques, respectively.
+            Depending on whether the system is periodic or finite, Poisson's
+            equation is solved with FFT or multigrid techniques, respectively.
 
-        Parameters
-        ----------
-        calc: Calculator
-            Ground-state calculation.
-        q_c: Array
-            Phonon q-vector
-        kd: KPointDescriptor
-            Descriptor for the q-vector(s) of the dynamical matrix. DEPRECATED
-        poisson_solver: PoissonSolver
-        dtype:
-        """
-
+            Parameters
+            ----------
+            calc: Calculator
+                Ground-state calculation.
+            q_c: Array
+                Phonon q-vector
+            kd: KPointDescriptor
+                Descriptor for the q-vector(s) of the dynamical matrix. DEPRECATED
+            poisson_solver: PoissonSolver
+            dtype:
+            """
+        Perturbation.__init__(self)
         self.q_c = q_c
         self.kd = kd  # DEPRECATED
         self.dtype = dtype
         self.poisson = poisson_solver
-
         if np.allclose(self.q_c, [0., 0., 0.], 1e-5):
             self.gamma = True
         else:
             self.gamma = False
 
-        # Get phases
         if self.gamma:
             self.phase_cd = None
         else:
@@ -54,49 +53,27 @@ class PhononPerturbation(Perturbation):
             phase_cd = np.exp(2j * np.pi * sdisp_cd * self.q_c[:, np.newaxis])
             self.phase_qcd.append(phase_cd)
 
-        # Store grid-descriptors
         self.gd = calc.density.gd
         self.finegd = calc.density.finegd
-
-        # Steal setups for the lfc's
         setups = calc.wfs.setups
-
-        # Store projector coefficients
         self.dH_asp = calc.hamiltonian.dH_asp.copy()
-
-        # Localized functions:
-        # core corections
         self.nct = LFC(self.gd, [[setup.nct] for setup in setups],
                        integral=[setup.Nct for setup in setups],
                        dtype=self.dtype)
-        # compensation charges
-        # XXX what is the consequence of numerical errors in the integral ??
         self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups], kd,
                         dtype=self.dtype)
-        # self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
-        #                 integral=sqrt(4 * pi), dtype=self.dtype)
-        # vbar potential
         self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups], kd,
                         dtype=self.dtype)
-
-        # Expansion coefficients for the compensation charges
         self.Q_aL = calc.density.Q_aL.copy()
-
-        # Grid transformer -- convert array from fine to coarse grid
         self.restrictor = Transformer(self.finegd, self.gd, nn=3,
                                       dtype=self.dtype)
-
-        # Atom, cartesian coordinate and q-vector of the perturbation
         self.a = None
         self.v = None
-
-        # Local q-vector index of the perturbation
         if self.gamma:
             self.q = -1
         else:
             self.q = None
 
-        # Add a hack to replace self.kd.ibzk_qc
         self.q_qc = [self.q_c]
 
     def initialize(self, spos_ac):
@@ -230,7 +207,7 @@ class PhononPerturbation(Perturbation):
             self.poisson.solve_neutral(phi_g, rho_g)
         else:
             # Divide out the phase factor to get the periodic part
-            rhot_g = rho_g/self.phase_qg[self.q]
+            rhot_g = rho_g / self.phase_qg[self.q]
 
             # Solve Poisson's equation for the periodic part of the potential
             # XXX NOTICE: solve_neutral
@@ -307,7 +284,7 @@ class PhononPerturbation(Perturbation):
         # < p_a^i | Psi_nk >
         P_ni = P_ani[a]
         # < dp_av^i | Psi_nk > - remember the sign convention of the derivative
-        dP_ni = -1 * dP_aniv[a][...,v]
+        dP_ni = -1 * dP_aniv[a][..., v]
 
         # Expansion coefficients for the projectors on atom a
         dH_ii = unpack(self.dH_asp[a][0])
@@ -328,31 +305,14 @@ class PhononPerturbation(Perturbation):
         # k+q !!
         pt.add_derivative(a, v, y_nG, dc_ani, q=kplusq)
 
-
-
-
-
-
-
-
-
-
     def has_q(self):
         """Overwrite base class member function."""
 
-        return (not self.gamma)
+        return not self.gamma
 
     def get_q(self):
         """Return q-vector."""
 
         assert not self.gamma, "Gamma-point calculation."
-        
+
         return self.kd.ibzk_qc[self.q]
-    
-
-
-
-        
-
-
-
