@@ -3,7 +3,7 @@ import numpy as np
 from gpaw.utilities.blas import gemm
 
 
-class DirectLCAO:
+class DirectLCAO(object):
     """Eigensolver for LCAO-basis calculation"""
 
     def __init__(self, diagonalizer=None):
