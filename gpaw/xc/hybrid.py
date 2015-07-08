@@ -166,13 +166,15 @@ class HybridXC(HybridXCBase):
         self.ekin_s = np.zeros(self.nspins)
         self.nocc_s = np.empty(self.nspins, int)
         
+        use_charge_center = hamiltonian.poisson.use_charge_center
         if self.finegrid:
             self.poissonsolver = hamiltonian.poisson
             self.ghat = density.ghat
             self.interpolator = density.interpolator
             self.restrictor = hamiltonian.restrictor
         else:
-            self.poissonsolver = PoissonSolver(eps=1e-11)
+            self.poissonsolver = PoissonSolver(eps=1e-11,
+                    use_charge_center=use_charge_center)
             self.poissonsolver.set_grid_descriptor(density.gd)
             self.poissonsolver.initialize()
             self.ghat = LFC(density.gd,
@@ -182,8 +184,9 @@ class HybridXC(HybridXCBase):
         self.finegd = self.ghat.gd
         if self.rsf == 'Yukawa':
             omega2 = self.omega**2
-            self.screened_poissonsolver = HelmholtzSolver(
-                                            k2=-omega2, eps=1e-11, nn=3)
+            self.screened_poissonsolver = HelmholtzSolver(k2=-omega2,
+                                eps=1e-11, nn=3,
+                                use_charge_center=use_charge_center)
             if not self.finegrid:
                 self.screened_poissonsolver.set_grid_descriptor(density.gd)
             else:
