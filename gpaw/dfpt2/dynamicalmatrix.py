@@ -114,32 +114,29 @@ class DynamicalMatrix:
         ghat and vbar. They are therefore diagonal in the atomic indices.
         """
 
-        # ATTENTION This routine may be wrong or incomplete.
+        # ATTENTION This routine may be incomplete.
+        # ATTENTION: The second derivative is missing L>0 parts!!!!
 
         # Use the GS LFC's to integrate with the ground-state quantities!
-        ghat = calc.density.ghat
-        vbar = calc.hamiltonian.vbar
+
         # Compensation charge coefficients
         Q_aL = calc.density.Q_aL
 
         # Integral of Hartree potential times the second derivative of ghat
-        vH_g = calc.hamiltonian.vHt_g
-        d2ghat_aLvv = dict([(atom.index, np.zeros((3, 3)))
-                            for atom in self.atoms])
-        ghat.second_derivative(vH_g, d2ghat_aLvv)
+        d2ghat_aLvv = calc.density.ghat.dict_d2(zero=True)
+        calc.density.ghat.second_derivative(calc.hamiltonian.vHt_g, d2ghat_aLvv)
 
         # Integral of electron density times the second derivative of vbar
-        nt_g = calc.density.nt_g
-        d2vbar_avv = dict([(atom.index, np.zeros((3, 3)))
-                           for atom in self.atoms])
-        vbar.second_derivative(nt_g, d2vbar_avv)
+        d2vbar_avv = calc.hamiltonian.vbar.dict_d2(zero=True)
+        calc.hamiltonian.vbar.second_derivative(calc.density.nt_g, d2vbar_avv)
 
         # Matrix of force constants to be updated; q=-1 for Gamma calculation!
         for a in self.indices:
-            # XXX: HGH has only one ghat per atom -> generalize when
+            # HACK: HGH has only one ghat per atom -> generalize when
             # implementing PAW
-            self.C_aavv[a][a] += d2ghat_aLvv[a] * Q_aL[a]
-            self.C_aavv[a][a] += d2vbar_avv[a]
+            self.C_aavv[a][a] += d2ghat_aLvv[a][0] * Q_aL[a]
+            # here the 0 is actually correct, because d2vbar doesn't depend on L
+            self.C_aavv[a][a] += d2vbar_avv[a][0]
 
     @timer('Density derivative')
     def density_derivative(self, perturbation, response_calc):

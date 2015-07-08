@@ -213,6 +213,19 @@ class BaseLFC:
                     c_axi[a].fill(0.0)
             return c_axi
 
+    def dict_d2(self, shape=(), zero=False):
+        """dict for second derivative"""
+        if isinstance(shape, int):
+            shape = (shape,)
+        c_axivv = {}
+        for a in self.my_atom_indices:
+            ni = self.get_function_count(a)
+            if not zero:
+              c_axivv[a] = np.empty(shape + (ni, 3, 3), self.dtype)
+            else:
+              c_axivv[a] = np.zeros(shape + (ni, 3, 3), self.dtype)
+        return c_axivv
+
     def estimate_memory(self, mem):
         points = 0
         for sphere in self.sphere_a:
@@ -839,23 +852,25 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         dtype = a_xG.dtype
 
-        c_Mvv = np.zeros((self.Mmax, 3, 3), dtype)
+        xshape = a_xG.shape[:-3]
+        c_xMvv = np.zeros(xshape + (self.Mmax, 3, 3), dtype)
 
         cspline_M = []
         for a in self.atom_indices:
+            for spline in self.sphere_a[a].spline_j:
+                nm = 2 * spline.get_angular_momentum_number() + 1
+                cspline_M.extend([spline.spline] * nm)
+
             # HACK: Only works for l=0 and only one function.
             # That is of course ridicoulus
-
             # Works only for atoms with a single function
             assert len(self.sphere_a[a].spline_j) == 1
-            spline = self.sphere_a[a].spline_j[0]
             # that is spherical symmetric
             assert spline.get_angular_momentum_number() == 0
-            cspline_M.append(spline.spline)
-            
+
         gd = self.gd
 
-        self.lfc.second_derivative(a_xG, c_Mvv, np.ascontiguousarray(gd.h_cv),
+        self.lfc.second_derivative(a_xG, c_xMvv, np.ascontiguousarray(gd.h_cv),
                                    gd.n_c, cspline_M,
                                    gd.beg_c, self.pos_Wv, q)
 
@@ -871,7 +886,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             sphere = self.sphere_a[a]
             M2 = M1 + sphere.Mmax
             if sphere.rank != rank:
-                c_vv = c_Mvv[M1:M2].copy()
+                c_vv = c_xMvv[M1:M2].copy()
                 b_avv[a] = c_vv
                 srequests.append(comm.send(c_vv, sphere.rank, a, False))
             else:
@@ -887,14 +902,14 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         M1 = 0
         for a in self.atom_indices:
-            c_vv = c_axivv.get(a)
+            c_ivv = c_axivv.get(a)
             sphere = self.sphere_a[a]
             M2 = M1 + sphere.Mmax
-            if c_vv is not None:
+            if c_ivv is not None:
                 if len(sphere.ranks) > 0:
-                    c_vv[:] = c_Mvv[M1] + c_arvv[a].sum(axis=0)
+                    c_ivv[0, :] = c_xMvv[M1] + c_arvv[a].sum(axis=0)
                 else:
-                    c_vv[:] = c_Mvv[M1]
+                    c_ivv[0, :] = c_xMvv[M1]
             M1 = M2
 
         for request in srequests:
