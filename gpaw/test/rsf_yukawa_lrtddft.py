@@ -7,6 +7,7 @@ from gpaw.occupations import FermiDirac
 from gpaw.test import equal
 from gpaw.eigensolvers import RMM_DIIS
 from gpaw.lrtddft import LrTDDFT
+from gpaw.poisson import PoissonSolver
 import _gpaw
 
 newlibxc = _gpaw.lxcXCFuncNum('HYB_GGA_XC_LCY_PBE') is not None
@@ -23,6 +24,7 @@ def get_paw():
     """Return calculator object."""
     c = {'energy': 0.001, 'eigenstates': 0.001, 'density': 0.001}
     return GPAW(convergence=c, eigensolver=RMM_DIIS(), xc='LCY_PBE(0.83)',
+            poissonsolver=PoissonSolver(use_charge_center=True),
         parallel={'domain': mpi.world.size}, gpts=(20, 20, 20),
         occupations=FermiDirac(width=0.0, fixmagmom=True))
 

@@ -3,6 +3,7 @@ from ase import Atoms
 from ase.units import kcal, mol
 from gpaw import GPAW
 from gpaw.xc.hybrid import HybridXC
+from gpaw.poisson import PoissonSolver
 from gpaw.xc import XC
 from gpaw.occupations import FermiDirac
 from gpaw.test import equal, gen
@@ -30,6 +31,7 @@ c = {'energy': 0.001, 'eigenstates': 3, 'density': 3}
 # error.
 
 calculator = GPAW(convergence=c, eigensolver=RMM_DIIS(),
+        poissonsolver=PoissonSolver(use_charge_center=True),
         occupations=FermiDirac(width=0.0, fixmagmom=True), h=h)
 for xc, dE, ediff, yuk_gamma in [('LCY_BLYP', 143.3, 0.4, 0.75),
 #               ('LCY_PBE', 149.2, 0.4, 0.75),

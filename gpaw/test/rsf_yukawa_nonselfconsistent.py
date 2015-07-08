@@ -2,6 +2,7 @@
 from ase import Atoms
 from ase.units import kcal, mol
 from gpaw import GPAW
+from gpaw.poisson import PoissonSolver
 from gpaw.cluster import Cluster
 from gpaw.xc.hybrid import HybridXC
 from gpaw.occupations import FermiDirac
@@ -27,15 +28,18 @@ c = {'energy': 0.001, 'eigenstates': 4, 'density': 3}
 # error.
 xc = 'PBE'
 ti.calc = GPAW(txt='Ti-' + xc + '.txt', xc=xc, convergence=c,
+            poissonsolver=PoissonSolver(use_charge_center=True),
             occupations=FermiDirac(width=0.0, fixmagmom=True), h=h)
 ti.set_initial_magnetic_moments([2.0])
 e_ti = ti.get_potential_energy()
 o.calc = GPAW(txt='O-' + xc + '.txt', xc=xc, convergence=c,
+            poissonsolver=PoissonSolver(use_charge_center=True),
             occupations=FermiDirac(width=0.0, fixmagmom=True), h=h)
 o.set_initial_magnetic_moments([2.0])
 e_o = o.get_potential_energy()
 tio2.calc = GPAW(txt='TiO2-' + xc + '.txt', xc=xc, convergence=c,
-        occupations=FermiDirac(width=0.0, fixmagmom=True), h=h)
+            poissonsolver=PoissonSolver(use_charge_center=True),
+            occupations=FermiDirac(width=0.0, fixmagmom=True), h=h)
 tio2.set_initial_magnetic_moments([1.0, -0.5, -0.5])
 e_tio2 = tio2.get_potential_energy()
 

@@ -3,6 +3,7 @@ from ase import Atoms
 from ase.units import kcal, mol
 from gpaw import GPAW
 from gpaw.cluster import Cluster
+from gpaw.poisson import PoissonSolver
 # from gpaw.xc.hybrid import HybridXC
 from gpaw.occupations import FermiDirac
 from gpaw.test import equal
@@ -25,15 +26,18 @@ c = {'energy': 0.001, 'eigenstates': 4, 'density': 3}
 # dx.doi.org/10.1021/ct300006h
 xc = 'PBE'
 ti.calc = GPAW(txt='Ti-' + xc + '.txt', xc=xc, convergence=c, h=h,
+            poissonsolver=PoissonSolver(use_charge_center=True),
             occupations=FermiDirac(width=0.0, fixmagmom=True))
 ti.set_initial_magnetic_moments([2.0])
 e_ti = ti.get_potential_energy()
 o.calc = GPAW(txt='O-' + xc + '.txt', xc=xc, convergence=c, h=h,
+            poissonsolver=PoissonSolver(use_charge_center=True),
             occupations=FermiDirac(width=0.0, fixmagmom=True))
 o.set_initial_magnetic_moments([2.0])
 e_o = o.get_potential_energy()
 tio2.calc = GPAW(txt='TiO2-' + xc + '.txt', xc=xc, convergence=c, h=h,
-        occupations=FermiDirac(width=0.0, fixmagmom=True))
+            poissonsolver=PoissonSolver(use_charge_center=True),
+            occupations=FermiDirac(width=0.0, fixmagmom=True))
 tio2.set_initial_magnetic_moments([1.0, -0.5, -0.5])
 e_tio2 = tio2.get_potential_energy()
 
