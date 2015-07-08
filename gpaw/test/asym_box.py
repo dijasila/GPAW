@@ -1,16 +1,17 @@
 """Check for change in total energy and lowest eigenvalue regarding to box."""
 from ase import Atoms
 from ase.parallel import parprint
-from gpaw import GPAW
+from gpaw import GPAW, PoissonSolver
 from gpaw.cluster import Cluster
 from gpaw.test import equal
-# from gpaw.poisson import PoissonSolver
+
 
 h = 0.2
 s = Cluster(Atoms('He'))
 s.minimal_box(3, h=h)
 
 c = GPAW(charge=1, txt='He_plus.txt',
+         poissonsolver=PoissonSolver(use_charge_center=True),
          convergence={     # run fast
              'energy': 0.001,
              'eigenstates': 1e-4,
