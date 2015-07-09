@@ -200,8 +200,6 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
         int i2 = Ga % n_c[2] + beg_c[2];
         int i1 = (Ga / n_c[2]) % n_c[1] + beg_c[1];
         int i0 = Ga / (n_c[2] * n_c[1]) + beg_c[0];
-        printf("%d %d %d \n", i2, i1, i0);
-
         double xG = h_cv[0] * i0 + h_cv[3] * i1 + h_cv[6] * i2;
         double yG = h_cv[1] * i0 + h_cv[4] * i1 + h_cv[7] * i2;
         double zG = h_cv[2] * i0 + h_cv[5] * i1 + h_cv[8] * i2;

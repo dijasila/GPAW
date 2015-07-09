@@ -38,7 +38,7 @@ energies *= 1000  # Conversion to meV
 
 # This was without acoustic sum rule
 
-reference = [8.406736, 8.407219, 8.413146, 45.733691, 45.733730, 45.769766]
+reference = [10.026842, 10.027247, 10.032217, 46.059036, 46.059075, 46.094857]
 equal(energies, reference, 1e-4)
 
 # Now check with acoustic sum rule
@@ -66,7 +66,7 @@ equal(energies, reference, 1e-4)
 # reference energies without acoustic sum rule
 
 # reference energies for Gamma
-# [8.406736, 8.407219, 8.413146, 45.733691, 45.733730, 45.769766]
+# [10.026842, 10.027247, 10.032217, 46.059036, 46.059075, 46.094857]
 # reference energies for (1/3, 0, 1/3)
 # [18.838915, 18.841651, 25.601615, 37.047843, 37.074885, 40.602762]
 # reference energies for X
