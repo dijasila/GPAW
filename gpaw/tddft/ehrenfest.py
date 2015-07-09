@@ -76,14 +76,16 @@ class EhrenfestVelocityVerlet:
         self.F  = self.a.copy()
 
         self.calc.get_td_energy()
-        self.calc.forces.reset()
-        self.F = self.calc.forces.calculate(self.calc.wfs,
-                                            self.calc.td_density.get_density(),
-                                            self.calc.td_hamiltonian.hamiltonian)
+        self.F = self.get_forces()
 
         for i in range(len(self.F)):
             self.a[i] = self.F[i] / self.M[i]
 
+    def get_forces(self):
+        self.calc.forces.reset()
+        return self.calc.forces.calculate(self.calc.wfs,
+                                          self.calc.td_density.get_density(),
+                                          self.calc.td_hamiltonian.hamiltonian)
 
     def propagate(self, dt):
         """Performs one Ehrenfest MD propagation step
@@ -104,10 +106,7 @@ class EhrenfestVelocityVerlet:
         self.calc.atoms.positions = self.x * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
-        self.calc.forces.reset()
-        self.F = self.calc.forces.calculate(self.calc.wfs,
-                                            self.calc.td_density.get_density(),
-                                            self.calc.td_hamiltonian.hamiltonian)
+        self.F = self.get_forces()
 
         for i in range(len(self.F)):
             self.a[i] = self.F[i] / self.M[i]
@@ -121,10 +120,7 @@ class EhrenfestVelocityVerlet:
         self.calc.atoms.positions = self.xh * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
-        self.calc.forces.reset()
-        self.F = self.calc.forces.calculate(self.calc.wfs,
-                                            self.calc.td_density.get_density(),
-                                            self.calc.td_hamiltonian.hamiltonian)
+        self.F = self.get_forces()
 
         for i in range(len(self.F)):
             self.ah[i] = self.F[i] / self.M[i]
@@ -135,20 +131,13 @@ class EhrenfestVelocityVerlet:
 
         # Propagate wf
         # psi(t+dt)   = U(t,t+dt) psi(t)
-        if(self.setups == 'paw'):
-            niters = self.calc.propagator.propagate(self.time, dt, self.vh)
-        else:
-            niters = self.calc.propagator.propagate(self.time, dt)
-        #print 'Propagation took = ', niters
+        niters = self.propagate_single(dt)
 
         # m a(t+dt/2) = F[psi(t+dt),x(t+dt/2)] 
         self.calc.atoms.positions = self.xh * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
-        self.calc.forces.reset()
-        self.F = self.calc.forces.calculate(self.calc.wfs,
-                                            self.calc.td_density.get_density(),
-                                            self.calc.td_hamiltonian.hamiltonian)
+        self.F = self.get_forces()
 
         for i in range(len(self.F)):
             self.ah[i] = self.F[i] / self.M[i]
@@ -163,31 +152,13 @@ class EhrenfestVelocityVerlet:
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
         self.calc.update_eigenvalues()
-        self.calc.forces.reset()
-        self.F = self.calc.forces.calculate(self.calc.wfs,
-                                            self.calc.td_density.get_density(),
-                                            self.calc.td_hamiltonian.hamiltonian)
+        self.F = self.get_forces()
 
         for i in range(len(self.F)):
             self.an[i] = self.F[i] / self.M[i]
 
         # v(t+dt)     = vh(t+dt/2) + .5 a(t+dt/2) dt/2
         self.vn = self.vhh + .5 * self.an * dt/2
-
-        
-        #print '--- X ---'
-        #print self.x
-        #print self.xn
-        #print self.xn - self.x
-        #print '-- V ---'
-        #print self.v
-        #print self.vn
-        #print self.vn - self.v
-        #print '--- A ---'
-        #print self.a
-        #print self.an
-        #print self.an - self.a
-        #print '---'
 
         # update
         self.x[:] = self.xn
@@ -198,20 +169,19 @@ class EhrenfestVelocityVerlet:
         self.calc.atoms.set_positions(self.x * Bohr)
         self.calc.atoms.set_velocities(self.v * Bohr / AUT)
 
+    def propagate_single(self, dt):
+        if self.setups == 'paw':
+            niters = self.calc.propagator.propagate(self.time, dt, self.vh)
+        else:
+            niters = self.calc.propagator.propagate(self.time, dt)
+        return niters
+
     def get_energy(self):
         """Updates kinetic, electronic and total energies"""
-        self.Ekin = 0.0
-        for i in range(len(self.v)):
-            self.Ekin += (
-                .5 * self.M[i] * self.v[i][0]**2
-                +.5 * self.M[i] * self.v[i][1]**2
-                +.5 * self.M[i] * self.v[i][2]**2
-                )
+
+        self.Ekin = 0.5 * (self.M * (self.v**2).sum(axis=1)).sum()
         self.Epot = self.calc.get_td_energy()
         self.Etot = self.Ekin + self.Epot
-
-        #print 'Ecur = ', [self.Etot, self.Ekin, self.Epot]
-        
         return self.Etot
         
     def get_velocities_in_au(self):
