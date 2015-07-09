@@ -48,4 +48,4 @@ lr.diagonalize()
 for i, ip_i in enumerate([14.74, 18.51]):
     ion_i = lr[i].get_energy() * Hartree + e_ion
     print(ion_i, ip_i)
-    equal(ion_i, ip_i, 3.5)
+    equal(ion_i, ip_i, 3.4)
