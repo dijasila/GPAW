@@ -1,8 +1,5 @@
 from ase.units import Bohr, AUT, _me, _amu
-from gpaw import *
-from gpaw.tddft import *
 from gpaw.tddft.units import attosec_to_autime
-from gpaw.mpi import world
 
 ###############################################################################
 # EHRENFEST DYNAMICS WITHIN THE PAW METHOD
@@ -11,22 +8,23 @@ from gpaw.mpi import world
 # SUPPORTS ALSO HGH PSEUDOPOTENTIALS
 ###############################################################################
 
-# m a(t+dt)   = F[psi(t),x(t)] 
+# m a(t+dt)   = F[psi(t),x(t)]
 # x(t+dt/2)   = x(t) + v(t) dt/2 + .5 a(t) (dt/2)^2
 # vh(t+dt/2)  = v(t) + .5 a(t) dt/2
-# m a(t+dt/2) = F[psi(t),x(t+dt/2)] 
+# m a(t+dt/2) = F[psi(t),x(t+dt/2)]
 # v(t+dt/2)   = vh(t+dt/2) + .5 a(t+dt/2) dt/2
 #
 # psi(t+dt)   = U(t,t+dt) psi(t)
 #
-# m a(t+dt/2) = F[psi(t+dt),x(t+dt/2)] 
+# m a(t+dt/2) = F[psi(t+dt),x(t+dt/2)]
 # x(t+dt)     = x(t+dt/2) + v(t+dt/2) dt/2 + .5 a(t+dt/2) (dt/2)^2
 # vh(t+dt)    = v(t+dt/2) + .5 a(t+dt/2) dt/2
-# m a(t+dt)   = F[psi(t+dt),x(t+dt)] 
+# m a(t+dt)   = F[psi(t+dt),x(t+dt)]
 # v(t+dt)     = vh(t+dt/2) + .5 a(t+dt/2) dt/2
 
 #TODO: move force corrections from forces.py to this module, as well as
 # the cg method for calculating the inverse of S from overlap.py
+
 
 class EhrenfestVelocityVerlet:
     
@@ -47,11 +45,13 @@ class EhrenfestVelocityVerlet:
         Note
         ------
 
-        Use propagator = 'EFSICN' for when creating the TDDFT object from a PAW ground state
-        calculator and propagator = 'EFSICN_HGH' for HGH pseudopotentials
+        Use propagator = 'EFSICN' for when creating the TDDFT object from a
+        PAW ground state calculator and propagator = 'EFSICN_HGH' for HGH
+        pseudopotentials
+        
 
         """
-        #print '--- EhrenfestVelocityVerlet is NOT READY FOR PRODUCTION USE ---'
+        #print '--- EhrenfestVelocityVerlet NOT READY FOR PRODUCTION USE ---'
         self.calc = calc
         self.setups = setups
         self.x  = self.calc.atoms.positions.copy() / Bohr
@@ -102,7 +102,7 @@ class EhrenfestVelocityVerlet:
 
         dt = dt * attosec_to_autime
 
-        # m a(t+dt)   = F[psi(t),x(t)] 
+        # m a(t+dt)   = F[psi(t),x(t)]
         self.calc.atoms.positions = self.x * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
@@ -116,7 +116,7 @@ class EhrenfestVelocityVerlet:
         self.xh  = self.x + self.v * dt/2 + .5 * self.a * dt/2*dt/2
         self.vhh = self.v + .5 * self.a * dt/2
 
-        # m a(t+dt/2) = F[psi(t),x(t+dt/2)a] 
+        # m a(t+dt/2) = F[psi(t),x(t+dt/2)a]
         self.calc.atoms.positions = self.xh * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
@@ -131,9 +131,9 @@ class EhrenfestVelocityVerlet:
 
         # Propagate wf
         # psi(t+dt)   = U(t,t+dt) psi(t)
-        niters = self.propagate_single(dt)
+        self.propagate_single(dt)
 
-        # m a(t+dt/2) = F[psi(t+dt),x(t+dt/2)] 
+        # m a(t+dt/2) = F[psi(t+dt),x(t+dt/2)]
         self.calc.atoms.positions = self.xh * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
@@ -147,7 +147,7 @@ class EhrenfestVelocityVerlet:
         self.xn  = self.xh + self.vh * dt/2 + .5 * self.ah * dt/2*dt/2
         self.vhh = self.vh + .5 * self.ah * dt/2
 
-        # m a(t+dt)   = F[psi(t+dt),x(t+dt)] 
+        # m a(t+dt)   = F[psi(t+dt),x(t+dt)]
         self.calc.atoms.positions = self.xn * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
@@ -171,10 +171,9 @@ class EhrenfestVelocityVerlet:
 
     def propagate_single(self, dt):
         if self.setups == 'paw':
-            niters = self.calc.propagator.propagate(self.time, dt, self.vh)
+            self.calc.propagator.propagate(self.time, dt, self.vh)
         else:
-            niters = self.calc.propagator.propagate(self.time, dt)
-        return niters
+            self.calc.propagator.propagate(self.time, dt)
 
     def get_energy(self):
         """Updates kinetic, electronic and total energies"""
