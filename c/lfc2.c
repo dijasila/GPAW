@@ -8,8 +8,8 @@
 
 PyObject* second_derivative(LFCObject *lfc, PyObject *args)
 {
-  PyArrayObject* a_G_obj;
-  PyArrayObject* c_Mvv_obj;
+  PyArrayObject* a_xG_obj;
+  PyArrayObject* c_xMvv_obj;
   PyArrayObject* h_cv_obj;
   PyArrayObject* n_c_obj;
   PyObject* spline_M_obj;
@@ -17,32 +17,37 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
   PyArrayObject* pos_Wc_obj;
   int q;
 
-  if (!PyArg_ParseTuple(args, "OOOOOOOi", &a_G_obj, &c_Mvv_obj,
+  if (!PyArg_ParseTuple(args, "OOOOOOOi", &a_xG_obj, &c_xMvv_obj,
                         &h_cv_obj, &n_c_obj,
                         &spline_M_obj, &beg_c_obj,
                         &pos_Wc_obj, &q))
     return NULL; 
 
-  // Copied from derivative member function
-  int nd = PyArray_NDIM(a_G_obj);
-  npy_intp* dims = PyArray_DIMS(a_G_obj);
+  // number of dimensions of a_xG
+  int nd = PyArray_NDIM(a_xG_obj);
+  // length of each of these
+  npy_intp* dims = PyArray_DIMS(a_xG_obj);
+  // length of x, whatever it is
   int nx = PyArray_MultiplyList(dims, nd - 3);
+  // total entries in grid a_G
   int nG = PyArray_MultiplyList(dims + nd - 3, 3);
-  int nM = PyArray_DIM(c_Mvv_obj, PyArray_NDIM(c_Mvv_obj) - 2);
-
-  // These were already present
+  // number of splines
+  int nM = PyArray_DIM(c_xMvv_obj, PyArray_NDIM(c_xMvv_obj) - 3);
+  
+  // convert input parameters to c
   const double* h_cv = (const double*)PyArray_DATA(h_cv_obj);
   const long* n_c = (const long*)PyArray_DATA(n_c_obj);
   const double (*pos_Wc)[3] = (const double (*)[3])PyArray_DATA(pos_Wc_obj);
 
   long* beg_c = LONGP(beg_c_obj);
-  ///////////////////////////////////////////////
 
+  // ???
   const double Y00dv = lfc->dv / sqrt(4.0 * M_PI);
 
   if (!lfc->bloch_boundary_conditions) {
-    const double* a_G = (const double*)PyArray_DATA(a_G_obj);
-    double* c_Mvv = (double*)PyArray_DATA(c_Mvv_obj);
+    // convert input parameters to c
+    const double* a_G = (const double*)PyArray_DATA(a_xG_obj);
+    double* c_Mvv = (double*)PyArray_DATA(c_xMvv_obj);
     // Loop over number of x-dimension in a_xG (not relevant yet)
     for (int x = 0; x < nx; x++) {
       // JJs old stuff
@@ -61,37 +66,117 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
             double* c_mvv = c_Mvv + 9 * M;
             const bmgsspline* spline = (const bmgsspline*) \
               &((const SplineObject*)PyList_GetItem(spline_M_obj, M))->spline;
-              
+
+            int nm = vol->nm;
+            int l = (nm-1)/2;
             double x = xG - pos_Wc[vol->W][0];
             double y = yG - pos_Wc[vol->W][1];
             double z = zG - pos_Wc[vol->W][2];
             double r2 = x * x + y * y + z * z;
             double r = sqrt(r2);
-            int bin = r / spline->dr;
-            assert(bin <= spline->nbins);
-            double* s = spline->data + 4 * bin;
-            double u = r - bin * spline->dr;
-            double dfdror;
-            if (bin == 0)
-              dfdror = 2.0 * s[2] + 3.0 * s[3] * r;
-            else
-              dfdror = (s[1] + u * (2.0 * s[2] + u * 3.0 * s[3])) / r;
-            double a = a_G[G] * Y00dv;
-            dfdror *= a;
-            c_mvv[0] += dfdror;
-            c_mvv[4] += dfdror;
-            c_mvv[8] += dfdror;
-            if (r > 1e-15) {
-              double b = ((2.0 * s[2] + 6.0 * s[3] * u) * a - dfdror) / r2;
-              c_mvv[0] += b * x * x;
-              c_mvv[1] += b * x * y;
-              c_mvv[2] += b * x * z;
-              c_mvv[3] += b * y * x;
-              c_mvv[4] += b * y * y;
-              c_mvv[5] += b * y * z;
-              c_mvv[6] += b * z * x;
-              c_mvv[7] += b * z * y;
-              c_mvv[8] += b * z * z;
+
+            double af;
+            double dfdr;
+            double d2fdr2;
+            bmgs_get_value_and_second_derivative(spline, r, &af, &dfdr, &d2fdr2);
+            af *= a_G[G] * lfc->dv;
+            dfdr *= a_G[G] * lfc->dv;
+            d2fdr2 *= a_G[G] * lfc->dv;
+            // Second derivative has 4 terms ( or 3 )
+            // 1. Term: a*f* d^2(Y * r^l)/dxdy
+            double afd2rlYdxdy_m[nm];
+            spherical_harmonics_derivative_xx(l, af, x, y, z, r2, afd2rlYdxdy_m);
+            for (int m = 0; m < nm; m++)
+              c_mvv[9 * m] += afd2rlYdxdy_m[m];
+            spherical_harmonics_derivative_xy(l, af, x, y, z, r2, afd2rlYdxdy_m);
+            for (int m = 0; m < nm; m++){
+              c_mvv[9 * m + 1] += afd2rlYdxdy_m[m];
+              c_mvv[9 * m + 3] += afd2rlYdxdy_m[m];}
+            spherical_harmonics_derivative_xz(l, af, x, y, z, r2, afd2rlYdxdy_m);
+            for (int m = 0; m < nm; m++){
+              c_mvv[9 * m + 2] += afd2rlYdxdy_m[m];
+              c_mvv[9 * m + 6] += afd2rlYdxdy_m[m];}
+            spherical_harmonics_derivative_yy(l, af, x, y, z, r2, afd2rlYdxdy_m);
+            for (int m = 0; m < nm; m++)
+              c_mvv[9 * m + 4] += afd2rlYdxdy_m[m];
+            spherical_harmonics_derivative_yz(l, af, x, y, z, r2, afd2rlYdxdy_m);
+            for (int m = 0; m < nm; m++){
+              c_mvv[9 * m + 5] += afd2rlYdxdy_m[m];
+              c_mvv[9 * m + 7] += afd2rlYdxdy_m[m];}
+            spherical_harmonics_derivative_zz(l, af, x, y, z, r2, afd2rlYdxdy_m);
+            for (int m = 0; m < nm; m++)
+              c_mvv[9 * m + 8] += afd2rlYdxdy_m[m];
+            // 2. and 3. Term: a * df/dr x/r * d(Y * r^l)/dy + a * df/dr * y/r * d(Y * r^l)/dx
+            if (r > 1e-15){
+              double adfdxdrlYdy_m[nm];
+              double adfdydrlYdx_m[nm];
+              double dfdrxr[3];
+              dfdrxr[0] = dfdr * x / r;
+              dfdrxr[1] = dfdr * y / r;
+              dfdrxr[2] = dfdr * z / r;
+              spherical_harmonics_derivative_x(l, dfdrxr[0], x, y, z, r2, adfdxdrlYdy_m);
+              for (int m = 0; m < nm; m++)
+                c_mvv[9 * m] += 2. * adfdxdrlYdy_m[m] ;
+              spherical_harmonics_derivative_y(l, dfdrxr[0], x, y, z, r2, adfdxdrlYdy_m);
+              spherical_harmonics_derivative_x(l, dfdrxr[1], x, y, z, r2, adfdydrlYdx_m);
+              for (int m = 0; m < nm; m++){
+                c_mvv[9 * m + 1] += adfdxdrlYdy_m[m] +  adfdydrlYdx_m[m];
+                c_mvv[9 * m + 3] += adfdxdrlYdy_m[m] +  adfdydrlYdx_m[m];}
+              spherical_harmonics_derivative_x(l, dfdrxr[0], x, y, z, r2, adfdxdrlYdy_m);
+              spherical_harmonics_derivative_x(l, dfdrxr[2], x, y, z, r2, adfdydrlYdx_m);
+              for (int m = 0; m < nm; m++){
+                c_mvv[9 * m + 2] += adfdxdrlYdy_m[m] +  adfdydrlYdx_m[m];
+                c_mvv[9 * m + 6] += adfdxdrlYdy_m[m] +  adfdydrlYdx_m[m];}
+              spherical_harmonics_derivative_y(l, dfdrxr[1], x, y, z, r2, adfdxdrlYdy_m);
+              for (int m = 0; m < nm; m++)
+                c_mvv[9 * m + 4] += 2. * adfdxdrlYdy_m[m] ;
+              spherical_harmonics_derivative_z(l, dfdrxr[1], x, y, z, r2, adfdxdrlYdy_m);
+              spherical_harmonics_derivative_y(l, dfdrxr[2], x, y, z, r2, adfdydrlYdx_m);
+              for (int m = 0; m < nm; m++){
+                c_mvv[9 * m + 5] += adfdxdrlYdy_m[m] +  adfdydrlYdx_m[m];
+                c_mvv[9 * m + 7] += adfdxdrlYdy_m[m] +  adfdydrlYdx_m[m];}
+              spherical_harmonics_derivative_z(l, dfdrxr[2], x, y, z, r2, adfdxdrlYdy_m);
+              for (int m = 0; m < nm; m++)
+                c_mvv[9 * m + 8] += 2. * adfdxdrlYdy_m[m] ;
+            }
+            // 4. Term: a * d^2f/dr^2 * (x*y)/r^2 * Y * r^l - a df/dr (x*y)/r^3       * Y * r^l
+            //      OR  a * d^2f/dr^2 *   x^2/r^2 * Y * r^l + a df/dr (1/r - x^2/r^3) * Y * r^l
+            if (r > 1e-15){
+              double ad2fdxdyrlY_m[nm];
+              double d2fdr2xyr2;
+              d2fdr2xyr2 = d2fdr2 * x * x / r2;
+              d2fdr2xyr2 += dfdr * (r - x * x / r) / r2;
+              spherical_harmonics(l, d2fdr2xyr2, x, y, z, r2, ad2fdxdyrlY_m);
+              for (int m = 0; m < nm; m++)
+                c_mvv[9 * m] += ad2fdxdyrlY_m[m];
+              d2fdr2xyr2 = d2fdr2 * x * y / r2;
+              d2fdr2xyr2 += dfdr * (0. - x * y / r) / r2;
+              spherical_harmonics(l, d2fdr2xyr2, x, y, z, r2, ad2fdxdyrlY_m);
+              for (int m = 0; m < nm; m++){
+                c_mvv[9 * m + 1] += ad2fdxdyrlY_m[m];
+                c_mvv[9 * m + 3] += ad2fdxdyrlY_m[m];}
+              d2fdr2xyr2 = d2fdr2 * x * z / r2;
+              d2fdr2xyr2 += dfdr * (0. - x * z / r) / r2;
+              spherical_harmonics(l, d2fdr2xyr2, x, y, z, r2, ad2fdxdyrlY_m);
+              for (int m = 0; m < nm; m++){
+                c_mvv[9 * m + 2] += ad2fdxdyrlY_m[m];
+                c_mvv[9 * m + 6] += ad2fdxdyrlY_m[m];}
+              d2fdr2xyr2 = d2fdr2 * y * y / r2;
+              d2fdr2xyr2 += dfdr * (r - y * y / r) / r2;
+              spherical_harmonics(l, d2fdr2xyr2, x, y, z, r2, ad2fdxdyrlY_m);
+              for (int m = 0; m < nm; m++)
+                c_mvv[9 * m + 4] += ad2fdxdyrlY_m[m];
+              d2fdr2xyr2 = d2fdr2 * y * z / r2;
+              d2fdr2xyr2 += dfdr * (0. - y * z / r) / r2;
+              spherical_harmonics(l, d2fdr2xyr2, x, y, z, r2, ad2fdxdyrlY_m);
+              for (int m = 0; m < nm; m++){
+                c_mvv[9 * m + 5] += ad2fdxdyrlY_m[m];
+                c_mvv[9 * m + 7] += ad2fdxdyrlY_m[m];}
+              d2fdr2xyr2 = d2fdr2 * z * z / r2;
+              d2fdr2xyr2 += dfdr * (r - z * z / r) / r2;
+              spherical_harmonics(l, d2fdr2xyr2, x, y, z, r2, ad2fdxdyrlY_m);
+              for (int m = 0; m < nm; m++)
+                c_mvv[9 * m + 8] += ad2fdxdyrlY_m[m];
             }
           }
           xG += h_cv[6];
@@ -105,8 +190,9 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
     }
   }
   else {
-    const complex double* a_G = (const complex double*)PyArray_DATA(a_G_obj);
-    complex double* c_Mvv = (complex double*)PyArray_DATA(c_Mvv_obj);
+    printf("ATTENTION: This branch of LFC second derivatives doens't work with l>0!!!\n");
+    const complex double* a_G = (const complex double*)PyArray_DATA(a_xG_obj);
+    complex double* c_Mvv = (complex double*)PyArray_DATA(c_xMvv_obj);
 
     for (int x = 0; x < nx; x++) {
       GRID_LOOP_START(lfc, q) {
@@ -114,6 +200,8 @@ PyObject* second_derivative(LFCObject *lfc, PyObject *args)
         int i2 = Ga % n_c[2] + beg_c[2];
         int i1 = (Ga / n_c[2]) % n_c[1] + beg_c[1];
         int i0 = Ga / (n_c[2] * n_c[1]) + beg_c[0];
+        printf("%d %d %d \n", i2, i1, i0);
+
         double xG = h_cv[0] * i0 + h_cv[3] * i1 + h_cv[6] * i2;
         double yG = h_cv[1] * i0 + h_cv[4] * i1 + h_cv[7] * i2;
         double zG = h_cv[2] * i0 + h_cv[5] * i1 + h_cv[8] * i2;

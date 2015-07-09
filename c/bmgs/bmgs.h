@@ -62,7 +62,7 @@ double bmgs_splinevalue(const bmgsspline* spline, double r);
 void bmgs_get_value_and_derivative(const bmgsspline* spline, double r,
            double *f, double *dfdr);
 void bmgs_get_value_and_second_derivative(const bmgsspline* spline, double r,
-           double *f, double *d2fdr2);
+           double *f, double *dfdr, double *d2fdr2);
 void bmgs_deletespline(bmgsspline* spline);
 void bmgs_radial1(const bmgsspline* spline,
       const int n[3], const double C[3],

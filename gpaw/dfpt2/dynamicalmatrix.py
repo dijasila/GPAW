@@ -130,11 +130,12 @@ class DynamicalMatrix:
         d2vbar_avv = calc.hamiltonian.vbar.dict_d2(zero=True)
         calc.hamiltonian.vbar.second_derivative(calc.density.nt_g, d2vbar_avv)
 
-        # Matrix of force constants to be updated; q=-1 for Gamma calculation!
+        # Matrix of force constants to be updated
         for a in self.indices:
-            # HACK: HGH has only one ghat per atom -> generalize when
-            # implementing PAW
-            self.C_aavv[a][a] += d2ghat_aLvv[a][0] * Q_aL[a]
+            d2ghat_vv = np.zeros((3, 3))
+            for l in range(len(Q_aL[a])):
+                d2ghat_vv += d2ghat_aLvv[a][l] * Q_aL[a][l]
+            self.C_aavv[a][a] += d2ghat_vv
             # here the 0 is actually correct, because d2vbar doesn't depend on L
             self.C_aavv[a][a] += d2vbar_avv[a][0]
 

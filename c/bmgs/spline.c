@@ -76,18 +76,20 @@ void bmgs_get_value_and_derivative(const bmgsspline* spline, double r,
 
 
 void bmgs_get_value_and_second_derivative(const bmgsspline* spline, double r,
-                                   double *f, double *d2fdr2)
+                                   double *f, double *dfdr, double *d2fdr2)
 {
   int b = r / spline->dr;
   if (b >= spline->nbins)
     {
       *f = 0.0;
+      *dfdr = 0.0;
       *d2fdr2 = 0.0;
       return;
     }
   double u = r - b * spline->dr;
   double* s = spline->data + 4 * b;
   *f = s[0] + u * (s[1] + u * (s[2] + u * s[3]));
+  *dfdr = s[1] + u * (2.0 * s[2] + u * 3.0 * s[3]);
   *d2fdr2 = 2.0 * s[2] + u * 6.0 * s[3];
 }
 

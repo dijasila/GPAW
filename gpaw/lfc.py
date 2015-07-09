@@ -861,15 +861,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 nm = 2 * spline.get_angular_momentum_number() + 1
                 cspline_M.extend([spline.spline] * nm)
 
-            # HACK: Only works for l=0 and only one function.
-            # That is of course ridicoulus
-            # Works only for atoms with a single function
-            assert len(self.sphere_a[a].spline_j) == 1
-            # that is spherical symmetric
-            assert spline.get_angular_momentum_number() == 0
-
         gd = self.gd
-
         self.lfc.second_derivative(a_xG, c_xMvv, np.ascontiguousarray(gd.h_cv),
                                    gd.n_c, cspline_M,
                                    gd.beg_c, self.pos_Wv, q)
@@ -878,23 +870,24 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         rank = comm.rank
         srequests = []
         rrequests = []
-        c_arvv = {}
-        b_avv = {}
+        c_arxivv = {}
+        b_axivv = {}
         M1 = 0
-        
+
         for a in self.atom_indices:
             sphere = self.sphere_a[a]
             M2 = M1 + sphere.Mmax
             if sphere.rank != rank:
-                c_vv = c_xMvv[M1:M2].copy()
-                b_avv[a] = c_vv
-                srequests.append(comm.send(c_vv, sphere.rank, a, False))
+                c_xivv = c_xMvv[..., M1:M2, :, :].copy()
+                b_axivv[a] = c_xivv
+                srequests.append(comm.send(c_xivv, sphere.rank, a, False))
             else:
                 if len(sphere.ranks) > 0:
-                    c_rvv = np.empty(sphere.ranks.shape + (3, 3), dtype)
-                    c_arvv[a] = c_rvv
-                    for r, b_vv in zip(sphere.ranks, c_rvv):
-                        rrequests.append(comm.receive(b_vv, r, a, False))
+                    c_rxivv = np.empty(sphere.ranks.shape + xshape +
+                                       (M2-M1, 3, 3), dtype)
+                    c_arxivv[a] = c_rxivv
+                    for r, b_xivv in zip(sphere.ranks, c_rxivv):
+                        rrequests.append(comm.receive(b_xivv, r, a, False))
             M1 = M2
 
         for request in rrequests:
@@ -902,14 +895,14 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         M1 = 0
         for a in self.atom_indices:
-            c_ivv = c_axivv.get(a)
+            c_xivv = c_axivv.get(a)
             sphere = self.sphere_a[a]
             M2 = M1 + sphere.Mmax
-            if c_ivv is not None:
+            if c_xivv is not None:
                 if len(sphere.ranks) > 0:
-                    c_ivv[0, :] = c_xMvv[M1] + c_arvv[a].sum(axis=0)
+                    c_xivv[:] = c_xMvv[..., M1:M2, :, :] + c_arxivv[a].sum(axis=0)
                 else:
-                    c_ivv[0, :] = c_xMvv[M1]
+                    c_xivv[:] = c_xMvv[..., M1:M2, :, :]
             M1 = M2
 
         for request in srequests:
