@@ -21,6 +21,12 @@ from gpaw.atom.generator2 import _generate, DatasetGenerationError
 my_covalent_radii = covalent_radii.copy()
 my_covalent_radii[1] += 0.2
 my_covalent_radii[2] += 0.2
+my_covalent_radii[4] -= 0.1  # Be
+my_covalent_radii[5] -= 0.1
+my_covalent_radii[6] -= 0.1
+my_covalent_radii[7] -= 0.1
+my_covalent_radii[8] -= 0.1
+my_covalent_radii[9] -= 0.1  # F
 my_covalent_radii[10] += 0.2
 
 NN = 11
@@ -313,7 +319,7 @@ class DatasetOptimizer:
     def test(self, n, fd, projectors, radii, r0):
         error = self.generate(fd, 'PBE', projectors, radii, r0,
                               tag='ga{0}'.format(n))
-        for xc in ['PBE', 'LDA', 'PBEsol']:
+        for xc in ['PBE', 'LDA', 'PBEsol', 'RPBE', 'PW91']:
             error += self.generate(fd, xc, projectors, radii, r0,
                                    scalar_relativistic=True)
         results = {'dataset': error}
@@ -357,27 +363,30 @@ class DatasetOptimizer:
         maxiter = 0
         energies = []
         M = 200
-        if 58 <= self.Z <= 70:
+        mixer = {}
+        if 58 <= self.Z <= 70 or 90 <= self.Z <= 102:
             M = 999
-        for s in [sc, 0.9, 1.0, 1.1]:
+            mixer = {'mixer': Mixer(0.01, 5)}
+        for s in [sc, 0.9, 0.95, 1.0, 1.05]:
             atoms = bulk(self.symbol, 'fcc', a0r * s)
             atoms.calc = GPAW(mode=PW(self.ecut2),
-                              kpts={'density': 2.0, 'even': True},
+                              kpts={'density': 4.0, 'even': True},
                               xc='PBE',
                               lmax=self.lmax,
                               setups='ga' + str(n),
                               maxiter=M,
-                              txt=fd)
+                              txt=fd,
+                              **mixer)
             e = atoms.get_potential_energy()
             maxiter = max(maxiter, atoms.calc.get_number_of_iterations())
             energies.append(e)
                     
-        return {'c90': energies[1] - energies[2],
-                'c80': energies[0] - energies[2],
+        return {'c90': energies[1] - energies[3],
+                'c80': energies[0] - energies[3],
                 'c90ref': ref[0.9] - ref[1.0],
                 'c80ref': ref[sc] - ref[1.0],
-                'a0': fit([ref[s] for s in [0.9, 1.0, 1.1]]) * 0.1 * a0r,
-                'a': fit(energies[1:]) * 0.1 * a0r,
+                'a0': fit([ref[s] for s in [0.95, 1.0, 1.05]]) * 0.1 * a0r,
+                'a': fit(energies[2:]) * 0.1 * a0r,
                 'maxiter': maxiter}
         
     def rocksalt(self, n, fd):
@@ -388,35 +397,40 @@ class DatasetOptimizer:
         maxiter = 0
         energies = []
         M = 200
-        if 58 <= self.Z <= 70:
+        mixer = {}
+        if 58 <= self.Z <= 70 or 90 <= self.Z <= 102:
             M = 999
-        for s in [sc, 0.9, 1.0, 1.1]:
+            mixer = {'mixer': Mixer(0.01, 5)}
+        for s in [sc, 0.9, 0.95, 1.0, 1.05]:
             atoms = bulk(self.symbol + 'O', 'rocksalt', a0r * s)
             atoms.calc = GPAW(mode=PW(self.ecut2),
-                              kpts={'density': 2.0, 'even': True},
+                              kpts={'density': 4.0, 'even': True},
                               xc='PBE',
                               lmax=self.lmax,
                               setups={self.symbol: 'ga' + str(n)},
                               maxiter=M,
-                              txt=fd)
+                              txt=fd,
+                              **mixer)
             e = atoms.get_potential_energy()
             maxiter = max(maxiter, atoms.calc.get_number_of_iterations())
             energies.append(e)
         
-        return {'c90': energies[1] - energies[2],
-                'c80': energies[0] - energies[2],
+        return {'c90': energies[1] - energies[3],
+                'c80': energies[0] - energies[3],
                 'c90ref': ref[0.9] - ref[1.0],
                 'c80ref': ref[sc] - ref[1.0],
-                'a0': fit([ref[s] for s in [0.9, 1.0, 1.1]]) * 0.1 * a0r,
-                'a': fit(energies[1:]) * 0.1 * a0r,
+                'a0': fit([ref[s] for s in [0.95, 1.0, 1.05]]) * 0.1 * a0r,
+                'a': fit(energies[2:]) * 0.1 * a0r,
                 'maxiter': maxiter}
         
     def slab(self, n, fd):
         a0 = self.reference['fcc']['a']
         atoms = fcc111(self.symbol, (1, 1, 7), a0, vacuum=3.5)
         assert not atoms.pbc[2]
-        if 58 <= self.Z <= 70:
-            mixer = {'mixer': Mixer(0.002, 3)}
+        M = 333
+        if 58 <= self.Z <= 70 or 90 <= self.Z <= 102:
+            M = 1333
+            mixer = {'mixer': Mixer(0.001, 3, 100)}
         else:
             mixer = {}
         atoms.calc = GPAW(mode=PW(self.ecut1),
@@ -424,7 +438,7 @@ class DatasetOptimizer:
                           xc='PBE',
                           lmax=self.lmax,
                           setups='ga' + str(n),
-                          maxiter=900,
+                          maxiter=M,
                           txt=fd,
                           **mixer)
         atoms.get_potential_energy()
@@ -435,13 +449,20 @@ class DatasetOptimizer:
         h = 0.18
         a0 = 16 * h
         atoms = Atoms(self.symbol, cell=(a0, a0, a0), pbc=True)
+        M = 333
+        if 58 <= self.Z <= 70 or 90 <= self.Z <= 102:
+            M = 999
+            mixer = {'mixer': Mixer(0.01, 5)}
+        else:
+            mixer = {}
         atoms.calc = GPAW(h=h,
                           xc='PBE',
                           lmax=self.lmax,
                           symmetry='off',
                           setups='ga' + str(n),
-                          maxiter=200,
-                          txt=fd)
+                          maxiter=M,
+                          txt=fd,
+                          **mixer)
         e0 = atoms.get_potential_energy()
         atoms.positions += h / 6
         e1 = atoms.get_potential_energy()
@@ -454,17 +475,25 @@ class DatasetOptimizer:
     def convergence(self, n, fd):
         a = 3.0
         atoms = Atoms(self.symbol, cell=(a, a, a), pbc=True)
-        atoms.calc = GPAW(mode=PW(900),
+        M = 333
+        if 58 <= self.Z <= 70 or 90 <= self.Z <= 102:
+            M = 999
+            mixer = {'mixer': Mixer(0.01, 5)}
+        else:
+            mixer = {}
+        atoms.calc = GPAW(mode=PW(1500),
                           xc='PBE',
-                          eigensolver='rmm-diis',
                           lmax=self.lmax,
                           setups='ga' + str(n),
                           symmetry='off',
-                          txt=fd)
+                          maxiter=M,
+                          txt=fd,
+                          **mixer)
         e0 = atoms.get_potential_energy()
         de0 = 0.0
         for ec in range(800, 200, -100):
             atoms.calc.set(mode=PW(ec))
+            atoms.calc.set(eigensolver='rmm-diis')
             de = abs(atoms.get_potential_energy() - e0)
             if de > 0.1:
                 ec0 = ec + (de - 0.1) / (de - de0) * 100
