@@ -1,5 +1,7 @@
+from __future__ import print_function
+
 import numpy as np
-from Numeric import pi, sqrt
+#from Numeric import pi, sqrt
 from tools import factorial
 from tools import Rational as Q
 
@@ -69,7 +71,7 @@ def lm_to_L(l,m):
     """convert (l, m) index to L index"""
     return l**2 + l + m
 
-def Y_to_string(l, m, deriv=None, multiply=None, numeric=False):
+def Y_to_string(l, m, deriv=None, multiply=None, numeric=False, deriv2=None):
     # for L in range(40): print L, Y_to_string(*L_to_lm(L))
     """                                                   l    m
        If deriv is None, return string representation of r  * Y (x, y, z)
@@ -85,17 +87,21 @@ def Y_to_string(l, m, deriv=None, multiply=None, numeric=False):
        be written as a numeric or an algebraic expression.
     """
     assert deriv is None or deriv in range(3)
+    assert deriv2 is None or deriv2 in range(3)
     assert multiply is None or multiply in range(3)
-    
+
     if deriv is None:
         norm, xyzs = Y_collect(l, m)
-    else:
+    elif deriv2 is None:
         norm, xyzs = dYdq(l, m, deriv)
+    else:
+        norm, xyzs = d2Ydq2(l, m, deriv, deriv2)
 
     if multiply is not None:
         xyzs = q_times_xyzs(xyzs, multiply)
 
-    string = to_string(l, xyzs, deriv is not None, multiply is not None)
+    string = to_string(l, xyzs, deriv is not None, multiply is not None,
+                       deriv2 is not None)
     if string == '0': return '0'
     else: return norm.tostring(numeric) + (' * ' + string) * (string != '1')
 
@@ -178,14 +184,14 @@ def gauss_potential_to_string(l, m, numeric=False):
     return string
 
 #----------------------------- TECHNICAL METHODS -----------------------------
-def to_string(l, xyzs, deriv=False, multiply=False):
+def to_string(l, xyzs, deriv=False, multiply=False, deriv2=False):
     """Return string representation of an xyz dictionary"""
     if xyzs == {}: return '0'
     out = ''
 
     for xyz, coef in xyzs.items():
         x, y, z = xyz
-        r = l - x - y - z - deriv + multiply
+        r = l - x - y - z - deriv - deriv2 + multiply
         one = abs(coef) != 1 or (x == 0 and y == 0 and z == 0 and r == 0)
         out += sign(coef) + str(abs(coef)) * one
         out += ('*x'*x + '*y'*y + '*z'*z + '*r2'*(r/2))[1 - one:]
@@ -229,7 +235,7 @@ class Normalization:
 
     def __str__(self):
         n = self.norm
-        sn = sqrt(n)
+        sn = np.sqrt(n)
         if int(sn) == sn:
             string = repr(sn) + '/sqrt(pi)'
         else:
@@ -241,7 +247,7 @@ class Normalization:
         return repr(self.__float__())
 
     def __float__(self):
-        return sqrt(self.norm / pi)
+        return np.sqrt(self.norm / np.pi)
 
     def multiply(self, x):
         self.norm *= x**2
@@ -404,7 +410,7 @@ def dYdq(l, m, q):
     """
     norm, xyzs = Y_collect(l, m)
     dxyzs = {}
-    
+
     for xyz, coef in xyzs.items():
         x, y, z = xyz
         r = l - x - y - z
@@ -415,7 +421,7 @@ def dYdq(l, m, q):
             dxyz[q] -= 1
             dxyz = tuple(dxyz)
             dxyzs[dxyz] = dxyzs.get(dxyz, 0) + xyz[q] * coef
-        
+
         # chain rule: diff coordinate r only
         if r != 0:
             dxyz = list(xyz)
@@ -430,6 +436,36 @@ def dYdq(l, m, q):
     # simplify
     if dxyzs != {}: norm.multiply(simplify(dxyzs))
     return norm, dxyzs
+
+def d2Ydq2(l, m, q, p):
+    norm, dxyzs = dYdq(l, m, q)
+    ddxyzs = {}
+
+    for xyz, coef in dxyzs.items():
+        x, y, z = xyz
+        r = l - x - y - z - 1
+
+        # chain rule: diff coordinate p only
+        if xyz[p] != 0:
+            ddxyz = list(xyz)
+            ddxyz[p] -= 1
+            ddxyz = tuple(ddxyz)
+            ddxyzs[ddxyz] = ddxyzs.get(ddxyz, 0) + xyz[p] * coef
+
+        # chain rule: diff coordinate r only
+        if r != 0:
+            ddxyz = list(xyz)
+            ddxyz[p] += 1
+            ddxyz = tuple(ddxyz)
+            ddxyzs[ddxyz] = ddxyzs.get(ddxyz, 0) + r * coef
+
+    # remove zeros from list
+    for ddxyz in ddxyzs.keys():
+        if ddxyzs[ddxyz] == 0: ddxyzs.pop(ddxyz)
+
+    # simplify
+    if ddxyzs != {}: norm.multiply(simplify(ddxyzs))
+    return norm, ddxyzs
 
 def simplify(xyzs):
     """Rescale coefficients to smallest integer value"""
@@ -581,7 +617,8 @@ def symmetry2(l, display=True):
     else: return diff
 
 def construct_spherical_harmonic_c_function(file, lmax, funcname,
-                                            multiply=None, deriv=None):
+                                            multiply=None, deriv=None,
+                                            deriv2=None):
     """Construct a macro for evaluating values of spherical harmonics,
     or the derivative of any spherical harmonic with respect to some axis.
     The deriv keyword corresponds to that of the Y_to_string function."""
@@ -602,7 +639,7 @@ def construct_spherical_harmonic_c_function(file, lmax, funcname,
         wn('case %d:' % l)
         indent += 1
         for M, m in enumerate(range(-l, l + 1)):
-            Ystr = Y_to_string(l, m, numeric=True, deriv=deriv)
+            Ystr = Y_to_string(l, m, numeric=True, deriv=deriv, deriv2=deriv2)
             wn('p[%d] = f * %s;' % (M, Ystr))
         wn('break;')
         indent -= 1
@@ -625,7 +662,12 @@ def construct_spherical_harmonic_c_code(filename='spherical_harmonics.h',
     construct(file, lmax, 'spherical_harmonics')
     for c in range(3):
         construct(file, lmax, 'spherical_harmonics_derivative_%s' % 'xyz'[c],
-                  multiply=c, deriv=c)
+                  multiply=c, deriv=c, deriv2=None)
+    for a in range(3):
+        for b in range(a,3):
+            construct(file, lmax, ('spherical_harmonics_derivative_%s%s' %
+                                   ('xyz'[a], 'xyz'[b])),
+                      multiply=a, deriv=a, deriv2=b)
     file.close()
 
     
