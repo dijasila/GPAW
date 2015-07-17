@@ -221,6 +221,8 @@ class DielectricFunction:
         elif self.truncation == '2D':
             K_G = truncated_coulomb(pd)
             K_G *= G_G**2
+            if pd.kd.gamma:
+                K_G[0] = 0.0
         else:
             K_G = np.ones(nG)
 
