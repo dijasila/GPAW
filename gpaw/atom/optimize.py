@@ -28,6 +28,9 @@ my_covalent_radii[7] -= 0.1
 my_covalent_radii[8] -= 0.1
 my_covalent_radii[9] -= 0.1  # F
 my_covalent_radii[10] += 0.2
+for e in ['Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr']:  # missing radii
+    my_covalent_radii[atomic_numbers[e]] = 1.7
+
 
 NN = 11
 
