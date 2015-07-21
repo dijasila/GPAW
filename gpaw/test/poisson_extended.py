@@ -129,7 +129,7 @@ plot_phi(phi_g)
 phi2_g, npoisson2 = poisson_solve(gd, rho_g, poisson)
 equal(npoisson, npoisson2)
 compare(phi_g, phi2_g, 0.0)
-compare(phi_g, phiref_g, 2.7519388038e-02)
+compare(phi_g, phiref_g, 2.75205170866e-02)
 
 # Test extendedgpts + moment_corrections,
 # extendedhistory=True

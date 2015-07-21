@@ -123,7 +123,6 @@ tests = [
     'cluster.py',
     'poisson.py',
     'poisson_asym.py',
-    'asym_box.py',
     'parallel/arraydict_redist.py',
     'parallel/overlap.py',
     'parallel/scalapack.py',
@@ -222,6 +221,7 @@ tests = [
     'degeneracy.py',                        # ~5s
     'refine.py',                            # ~5s
     'solvation/pbc.py',                     # ~5s
+    'asym_box.py',                          # ~5s
     'gemm.py',                              # ~6s
     'al_chain.py',                          # ~6s
     'fileio/parallel.py',                   # ~6s

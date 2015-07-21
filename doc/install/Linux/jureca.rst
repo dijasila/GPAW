@@ -1,11 +1,12 @@
-.. _juropatest:
+.. _jureca:
 
-======================
-juropatest @ FZ-Jülich
-======================
+==================
+jureca @ FZ-Jülich
+==================
 
-Here you find information about the the system
-http://www.fz-juelich.de/ias/jsc/juropatest
+Find information about the `Jureca system here`_.
+
+.. _Jureca system here: http://www.fz-juelich.de/ias/jsc/jureca
 
 Pre-installed versions
 ======================
@@ -21,7 +22,7 @@ the setups (next point) and you are done.
 Setups
 ======
 
-The setups are not defined in the per-installed vesrion, so we need
+The setups are not defined in the pre-installed vesrion, so we need
 to install them ourselves::
 
   cd
@@ -56,7 +57,7 @@ such that we also see them with::
 Building from trunk
 ===================
 
-In case that you need a newer version than is installed you might want 
+In case that you need a newer version than is installed, you might want 
 to install gpaw yourself.
 
 We first create a place for gpaw and get the trunk version::
@@ -79,11 +80,11 @@ We use the installed versions of ASE and libxc::
   module load libxc
 
 and install using
-:svn:`~doc/install/Linux/customize_juropatest.py`::
+:svn:`~doc/install/Linux/customize_jureca.py`::
 
   cd $GPAW_SOURCE/trunk
   mkdir install
-  cp customize_juropatest.py customize.py
+  cp customize_jureca.py customize.py
   python setup.py install --prefix=$PWD/install
 
 It is very handy to add our installation to the module environment::

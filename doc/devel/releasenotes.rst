@@ -56,6 +56,8 @@ Development version in trunk
 * GPAW can now perform :ref:`electrodynamics` simulations using the
   quasistatic finite-difference time-domain (QSFDTD) method.
   
+* BEEF-vdW, mBEEF and mBEEF-vdW functionals added.
+  
 * Support for Python 3.
 
 
