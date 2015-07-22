@@ -63,7 +63,7 @@ Version 0.11.0
 
 * A :ref:`continuum solvent model <continuum_solvent_model>` was added.
 
-* Orbital-free DFT with PAW transformation is available.
+* A :ref:`orbital-free DFT <ofdft>` with PAW transformation is available.
 
 * GPAW can now perform :ref:`electrodynamics` simulations using the
   quasistatic finite-difference time-domain (QSFDTD) method.
