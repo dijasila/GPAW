@@ -21,6 +21,7 @@ The latest stable release can be obtained from ``svn`` or as a ``tarball``.
 ===========  =======  ========  =========================  ====================
 Date         Version  Revision  Tarfile                    Required ASE version
 ===========  =======  ========  =========================  ====================
+Jul 22 2015  0.11.0_  13004     gpaw-0.11.0.13004.tar.gz_  3.9.1
 Apr  8 2014  0.10.0_  11364     gpaw-0.10.0.11364.tar.gz_  3.8.1
 Mar  7 2012  0.9.0_   8965      gpaw-0.9.0.8965.tar.gz_    3.6.0
 May 25 2011  0.8.0_   8092      gpaw-0.8.0.8092.tar.gz_    3.5.1
@@ -33,7 +34,13 @@ Nov 16 2008  0.4_     2734      gpaw-0.4.2734.tar.gz_      3.0.0
 
 To check out the latest stable version from SVN, do this::
 
-  $ svn co -r 11364 https://svn.fysik.dtu.dk/projects/gpaw/tags/0.10.0 gpaw-0.10.0
+  $ svn co https://svn.fysik.dtu.dk/projects/gpaw/tags/0.11.0 gpaw-0.11
+
+.. _0.11.0:
+    https://trac.fysik.dtu.dk/projects/gpaw/browser/tags/0.11.0
+
+.. _gpaw-0.11.0.13004.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-0.11.0.13004.tar.gz
 
 .. _0.10.0:
     https://trac.fysik.dtu.dk/projects/gpaw/browser/tags/0.10.0
@@ -117,13 +124,13 @@ After downloading create the link to the requested version, e.g.:
 - if retrieved from ``svn``::
 
    $ cd $HOME
-   $ ln -s gpaw-0.9.0 gpaw
+   $ ln -s gpaw-0.11 gpaw
 
 - if retrieved as ``tarball``::
 
    $ cd $HOME
-   $ tar -xtf gpaw-0.9.0.8965.tar.gz
-   $ ln -s gpaw-0.9.0.8965 gpaw
+   $ tar -xtf gpaw-0.11.0.13004.tar.gz
+   $ ln -s gpaw-0.11.0.13004 gpaw
 
   .. note::
 

@@ -10,6 +10,18 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
+* ...
+
+* ...
+
+
+Version 0.11.0
+==============
+
+22 Juli 2015: :trac:`tags/0.11.0 <../tags/0.11.0>`.
+
+* Corresponding ASE release: ASE-3.9.1.
+
 * When searching for basis sets, the setup name if any is now
   prepended automatically to the basis name.  Thus if
   :file:`setups='{setupname}'` and :file:`basis='{basisname}'`, GPAW
