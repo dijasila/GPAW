@@ -50,6 +50,7 @@ class Cavity(NeedsGD):
                      solute location to one in the bulk solvent.
     del_g_del_n_g -- The partial derivative of the cavity with respect to
                      the electron density on the fine grid.
+    grad_g_vg     -- The gradient of the cavity on the fine grid.
     V             -- global Volume in Bohr ** 3 or None
     A             -- global Area in Bohr ** 2 or None
     """
@@ -64,6 +65,7 @@ class Cavity(NeedsGD):
         NeedsGD.__init__(self)
         self.g_g = None
         self.del_g_del_n_g = None
+        self.grad_g_vg = None
         self.surface_calculator = surface_calculator
         self.volume_calculator = volume_calculator
         self.V = None  # global Volume
@@ -72,6 +74,7 @@ class Cavity(NeedsGD):
     def estimate_memory(self, mem):
         ngrids = 1 + self.depends_on_el_density
         mem.subnode('Distribution Function', ngrids * self.gd.bytecount())
+        mem.subnode('Gradient of Distribution Function', 3 * self.gd.bytecount())
         if self.surface_calculator is not None:
             self.surface_calculator.estimate_memory(
                 mem.subnode('Surface Calculator')
@@ -82,7 +85,7 @@ class Cavity(NeedsGD):
             )
 
     def update(self, atoms, density):
-        """Update the cavity.
+        """Update the cavity and its gradient.
 
         atoms are None, iff they have not changed.
 
@@ -117,6 +120,7 @@ class Cavity(NeedsGD):
     def allocate(self):
         NeedsGD.allocate(self)
         self.g_g = self.gd.empty()
+        self.grad_g_vg = self.gd.empty(3)
         if self.depends_on_el_density:
             self.del_g_del_n_g = self.gd.empty()
         if self.surface_calculator is not None:
@@ -206,6 +210,12 @@ class EffectivePotentialCavity(Cavity):
             self.del_g_del_n_g.fill(self.minus_beta)
             self.del_g_del_n_g *= self.g_g
             self.del_g_del_n_g *= self.effective_potential.del_u_del_n_g
+        # This class supports the GradientSurface API,
+        # so we can use it for the gradient also
+        grad_inner_vg = self.get_grad_inner()
+        del_outer_del_inner = self.get_del_outer_del_inner()
+        for i in (0, 1, 2):
+            np.multiply(grad_inner_vg[i], del_outer_del_inner, self.grad_g_vg[i])
         return True
 
     def get_del_r_vg(self, atom_index, density):
@@ -230,20 +240,9 @@ class EffectivePotentialCavity(Cavity):
         Cavity.print_parameters(self, text)
 
     # --- BEGIN GradientSurface API ---
-    def get_inner_function(self):
-        return np.minimum(self.effective_potential.u_g, 1e20)
-
-    def get_inner_function_boundary_value(self):
-        if hasattr(self.effective_potential, 'grad_u_vg'):
-            raise NotImplementedError
-        else:
-            return .0
 
     def get_grad_inner(self):
-        if hasattr(self.effective_potential, 'grad_u_vg'):
-            return self.effective_potential.grad_u_vg
-        else:
-            raise NotImplementedError
+        return self.effective_potential.grad_u_vg
 
     def get_del_outer_del_inner(self):
         return self.minus_beta * self.g_g
@@ -256,6 +255,7 @@ class Potential(NeedsGD):
 
     Attributes:
     u_g           -- The potential on the fine grid in Hartree.
+    grad_u_vg     -- The gradient of the potential of the fine grid.
     del_u_del_n_g -- Partial derivative with respect to the electron density.
     """
 
@@ -263,6 +263,7 @@ class Potential(NeedsGD):
         NeedsGD.__init__(self)
         self.u_g = None
         self.del_u_del_n_g = None
+        self.grad_u_vg = None
 
     @property
     def depends_on_el_density(self):
@@ -277,15 +278,17 @@ class Potential(NeedsGD):
     def estimate_memory(self, mem):
         ngrids = 1 + self.depends_on_el_density
         mem.subnode('Potential', ngrids * self.gd.bytecount())
+        mem.subnode('Gradient of Potential', 3 * self.gd.bytecount())
 
     def allocate(self):
         NeedsGD.allocate(self)
         self.u_g = self.gd.empty()
         if self.depends_on_el_density:
             self.del_u_del_n_g = self.gd.empty()
+        self.grad_u_vg = self.gd.empty(3)
 
     def update(self, atoms, density):
-        """Update the potential.
+        """Update the potential and its gradient.
 
         atoms are None, iff they have not changed.
 
@@ -333,20 +336,17 @@ class Power12Potential(Potential):
         self.del_u_del_r_vg = None
         self.atomic_radii_output = None
         self.symbols = None
-        self.grad_u_vg = None
 
     def estimate_memory(self, mem):
         Potential.estimate_memory(self, mem)
         nbytes = self.gd.bytecount()
         mem.subnode('Coordinates', 3 * nbytes)
         mem.subnode('Atomic Position Derivative', 3 * nbytes)
-        mem.subnode('Gradient', 3 * nbytes)
 
     def allocate(self):
         Potential.allocate(self)
         self.r_vg = self.gd.get_grid_point_coordinates()
         self.del_u_del_r_vg = self.gd.empty(3)
-        self.grad_u_vg = self.gd.empty(3)
 
     def update(self, atoms, density):
         if atoms is None:
@@ -419,7 +419,7 @@ class SmoothStepCavity(Cavity):
     def __init__(
         self,
         density,
-        surface_calculator=None, volume_calculator=None
+        surface_calculator=None, volume_calculator=None,
     ):
         """Constructor for the SmoothStepCavity class.
 
@@ -462,6 +462,12 @@ class SmoothStepCavity(Cavity):
                 self.density.del_rho_del_n_g,
                 self.del_g_del_n_g
             )
+        # This class supports the GradientSurface API,
+        # so we can use it for the gradient also
+        grad_inner_vg = self.get_grad_inner()
+        del_outer_del_inner = self.get_del_outer_del_inner()
+        for i in (0, 1, 2):
+            np.multiply(grad_inner_vg[i], del_outer_del_inner, self.grad_g_vg[i])
         return True
 
     def update_smooth_step(self, rho_g):
@@ -480,14 +486,8 @@ class SmoothStepCavity(Cavity):
         Cavity.print_parameters(self, text)
 
     # --- BEGIN GradientSurface API ---
-    def get_inner_function(self):
-        return self.density.rho_g
-
-    def get_inner_function_boundary_value(self):
-        return .0
-
     def get_grad_inner(self):
-        raise NotImplementedError
+        return self.density.grad_rho_vg
 
     def get_del_outer_del_inner(self):
         return self.del_g_del_rho_g
@@ -501,24 +501,28 @@ class Density(NeedsGD):
     Attributes:
     rho_g           -- The density on the fine grid in 1 / Bohr ** 3.
     del_rho_del_n_g -- Partial derivative with respect to the electron density.
+    grad_rho_vg     -- The gradient of the density on the fine grid.
     """
 
     def __init__(self):
         NeedsGD.__init__(self)
         self.rho_g = None
         self.del_rho_del_n_g = None
+        self.grad_rho_vg = None
 
     def estimate_memory(self, mem):
         nbytes = self.gd.bytecount()
         mem.subnode('Density', nbytes)
         if self.depends_on_el_density:
             mem.subnode('Density Derivative', nbytes)
+        mem.subnode('Gradient of Density', 3 * nbytes)
 
     def allocate(self):
         NeedsGD.allocate(self)
         self.rho_g = self.gd.empty()
         if self.depends_on_el_density:
             self.del_rho_del_n_g = self.gd.empty()
+        self.grad_rho_vg = self.gd.empty(3)
 
     def update(self, atoms, density):
         raise NotImplementedError()
@@ -535,7 +539,44 @@ class Density(NeedsGD):
         pass
 
 
-class ElDensity(Density):
+class FDGradientDensity(Density):
+    """Base class for all Density classes with finite difference gradient"""
+
+    def __init__(self, boundary_value, nn=3):
+        """Constructur for the FDGradientDensity class.
+
+        Arguments:
+        boundary_value -- Boundary value of rho_g
+                          (for non-periodic directions).
+        nn             -- Stencil size for the finite difference gradient.
+        """
+        Density.__init__(self)
+        self.boundary_value = boundary_value
+        self.nn = nn
+        self.gradient = None
+
+    def allocate(self):
+        Density.allocate(self)
+        self.gradient = [
+            Gradient(self.gd, i, 1.0, self.nn) for i in (0, 1, 2)
+        ]
+
+    def update(self, atoms, density):
+        changed = self.update_only_density(atoms, density)
+        if changed:
+            self.update_gradient()
+        return changed
+
+    def update_gradient(self):
+        if self.boundary_value != 0:
+            in_g = self.rho_g - self.boundary_value
+        else:
+            in_g = self.rho_g
+        for i in (0, 1, 2):
+            self.gradient[i].apply(in_g, self.grad_rho_vg[i])
+
+
+class ElDensity(FDGradientDensity):
     """Wrapper class for using the electron density in a SmoothStepCavity.
 
     (Hopefully small) negative values of the electron density are set to zero.
@@ -544,17 +585,26 @@ class ElDensity(Density):
     depends_on_el_density = True
     depends_on_atomic_positions = False
 
+    def __init__(self, nn=3):
+        """Constructor for the ElDensity class.
+
+        Arguments:
+        nn -- Stencil size for the finite difference gradient.
+        """
+        FDGradientDensity.__init__(self, boundary_value=.0, nn=nn)
+
     def allocate(self):
-        Density.allocate(self)
+        FDGradientDensity.allocate(self)
         self.del_rho_del_n_g = 1.  # free array
 
-    def update(self, atoms, density):
+    def update_only_density(self, atoms, density):
         self.rho_g[:] = density.nt_g
         self.rho_g[self.rho_g < .0] = .0
         return True
 
 
-class SSS09Density(Density):
+# TODO: implement analytic gradient for SSS09Density
+class SSS09Density(FDGradientDensity):
     """Fake density from atomic radii for the use in a SmoothStepCavity.
 
     Following V. M. Sanchez, M. Sued and D. A. Scherlis,
@@ -564,7 +614,7 @@ class SSS09Density(Density):
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
-    def __init__(self, atomic_radii, pbc_cutoff=1e-3):
+    def __init__(self, atomic_radii, pbc_cutoff=1e-3, nn=3):
         """Constructor for the SSS09Density class.
 
         Arguments:
@@ -572,8 +622,9 @@ class SSS09Density(Density):
                         to an iterable of atomic radii in Angstroms.
         pbc_cutoff   -- Cutoff in eV for including neighbor cells in
                         a calculation with periodic boundary conditions.
+        nn           -- Stencil size for the finite difference gradient.
         """
-        Density.__init__(self)
+        FDGradientDensity.__init__(self, boundary_value=.0, nn=nn)
         self.atomic_radii = atomic_radii
         self.atomic_radii_output = None
         self.symbols = None
@@ -583,17 +634,17 @@ class SSS09Density(Density):
         self.del_rho_del_r_vg = None
 
     def estimate_memory(self, mem):
-        Density.estimate_memory(self, mem)
+        FDGradientDensity.estimate_memory(self, mem)
         nbytes = self.gd.bytecount()
         mem.subnode('Coordinates', 3 * nbytes)
         mem.subnode('Atomic Position Derivative', 3 * nbytes)
 
     def allocate(self):
-        Density.allocate(self)
+        FDGradientDensity.allocate(self)
         self.r_vg = self.gd.get_grid_point_coordinates()
         self.del_rho_del_r_vg = self.gd.empty(3)
 
-    def update(self, atoms, density):
+    def update_only_density(self, atoms, density):
         if atoms is None:
             return False
         self.atomic_radii_output = np.array(self.atomic_radii(atoms))
@@ -635,7 +686,7 @@ class SSS09Density(Density):
             ):
                 text('%3d %-2s %10.5f' % (a, s, r))
         text('pbc_cutoff: %s' % (self.pbc_cutoff, ))
-        Density.print_parameters(self, text)
+        FDGradientDensity.print_parameters(self, text)
 
 
 class ADM12SmoothStepCavity(SmoothStepCavity):
@@ -789,7 +840,6 @@ class GradientSurface(SurfaceCalculator):
         SurfaceCalculator.__init__(self)
         self.nn = nn
         self.gradient = None
-        self.gradient_in = None
         self.gradient_out = None
         self.norm_grad_out = None
         self.div_tmp = None
@@ -797,7 +847,7 @@ class GradientSurface(SurfaceCalculator):
     def estimate_memory(self, mem):
         SurfaceCalculator.estimate_memory(self, mem)
         nbytes = self.gd.bytecount()
-        mem.subnode('Gradient', 5 * nbytes)
+        mem.subnode('Gradient', 4 * nbytes)
         mem.subnode('Divergence', nbytes)
 
     def allocate(self):
@@ -805,20 +855,15 @@ class GradientSurface(SurfaceCalculator):
         self.gradient = [
             Gradient(self.gd, i, 1.0, self.nn) for i in (0, 1, 2)
         ]
-        self.gradient_in = self.gd.empty()
         self.gradient_out = self.gd.empty(3)
         self.norm_grad_out = self.gd.empty()
         self.div_tmp = self.gd.empty()
 
     def update(self, cavity):
-        inner = cavity.get_inner_function()
         del_outer_del_inner = cavity.get_del_outer_del_inner()
         sign = np.sign(del_outer_del_inner.max() + del_outer_del_inner.min())
-        try:
-            self.gradient_out[...] = cavity.get_grad_inner()
-            self.norm_grad_out = (self.gradient_out ** 2).sum(0) ** .5
-        except NotImplementedError:
-            self.calc_grad(inner, cavity.get_inner_function_boundary_value())
+        self.gradient_out[...] = cavity.get_grad_inner()
+        self.norm_grad_out = (self.gradient_out ** 2).sum(0) ** .5
         self.A = sign * self.gd.integrate(
             del_outer_del_inner * self.norm_grad_out, global_integral=False
         )
@@ -832,18 +877,6 @@ class GradientSurface(SurfaceCalculator):
         self.calc_div(self.gradient_out, self.delta_A_delta_g_g)
         if sign == 1:
             self.delta_A_delta_g_g *= -1.
-
-    def calc_grad(self, x, boundary):
-        if boundary != .0:
-            np.subtract(x, boundary, self.gradient_in)
-            gradient_in = self.gradient_in
-        else:
-            gradient_in = x
-        self.norm_grad_out.fill(.0)
-        for i in (0, 1, 2):
-            self.gradient[i].apply(gradient_in, self.gradient_out[i])
-            self.norm_grad_out += self.gradient_out[i] ** 2
-        self.norm_grad_out **= .5
 
     def calc_div(self, vec, out):
         self.gradient[0].apply(vec[0], out)
