@@ -177,6 +177,7 @@ is set by the use of the keyword tw_coeff. The definition of the remainder of th
 . When defining this kinetic functional in GPAW, say for
 `\lambda = 0.2 , \, \gamma = 0.8`
 , we would do::
+
   lambda = 0.2
   gamma = '0.8'
  
