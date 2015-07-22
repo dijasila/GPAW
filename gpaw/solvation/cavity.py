@@ -74,7 +74,9 @@ class Cavity(NeedsGD):
     def estimate_memory(self, mem):
         ngrids = 1 + self.depends_on_el_density
         mem.subnode('Distribution Function', ngrids * self.gd.bytecount())
-        mem.subnode('Gradient of Distribution Function', 3 * self.gd.bytecount())
+        mem.subnode(
+            'Gradient of Distribution Function', 3 * self.gd.bytecount()
+        )
         if self.surface_calculator is not None:
             self.surface_calculator.estimate_memory(
                 mem.subnode('Surface Calculator')
@@ -215,7 +217,11 @@ class EffectivePotentialCavity(Cavity):
         grad_inner_vg = self.get_grad_inner()
         del_outer_del_inner = self.get_del_outer_del_inner()
         for i in (0, 1, 2):
-            np.multiply(grad_inner_vg[i], del_outer_del_inner, self.grad_g_vg[i])
+            np.multiply(
+                grad_inner_vg[i],
+                del_outer_del_inner,
+                self.grad_g_vg[i]
+            )
         return True
 
     def get_del_r_vg(self, atom_index, density):
@@ -467,7 +473,11 @@ class SmoothStepCavity(Cavity):
         grad_inner_vg = self.get_grad_inner()
         del_outer_del_inner = self.get_del_outer_del_inner()
         for i in (0, 1, 2):
-            np.multiply(grad_inner_vg[i], del_outer_del_inner, self.grad_g_vg[i])
+            np.multiply(
+                grad_inner_vg[i],
+                del_outer_del_inner,
+                self.grad_g_vg[i]
+                )
         return True
 
     def update_smooth_step(self, rho_g):

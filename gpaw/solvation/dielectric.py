@@ -1,4 +1,3 @@
-from gpaw.fd_operators import Gradient
 from gpaw.solvation.gridmem import NeedsGD
 import numpy as np
 
@@ -47,7 +46,11 @@ class Dielectric(NeedsGD):
         """Calculate eps_gradeps and del_eps_del_g_g from the cavity."""
         self.update_eps_only(cavity)
         for i in (0, 1, 2):
-            np.multiply(self.del_eps_del_g_g, cavity.grad_g_vg[i], self.eps_gradeps[1 + i])
+            np.multiply(
+                self.del_eps_del_g_g,
+                cavity.grad_g_vg[i],
+                self.eps_gradeps[1 + i]
+            )
 
     def update_eps_only(self, cavity):
         raise NotImplementedError
