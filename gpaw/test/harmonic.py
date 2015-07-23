@@ -1,6 +1,3 @@
-from math import pi
-
-import numpy as np
 from ase import Atoms
 from ase.units import Hartree, Bohr
 
@@ -9,28 +6,24 @@ from gpaw.xc import XC
 from gpaw.test import equal
 from gpaw.xc.kernel import XCNull
 from gpaw.poisson import NoInteractionPoissonSolver
+from gpaw.external import ExternalPotential
 
 
 a = 4.0
 x = Atoms(cell=(a, a, a))  # no atoms
 
-class HarmonicPotential:
-    def __init__(self, alpha):
-        self.alpha = alpha
-        self.vext_g = None
 
-    def get_potential(self, gd):
-        if self.vext_g is None:
-            r_vg = gd.get_grid_point_coordinates()
-            self.vext_g = self.alpha * ((r_vg - a / Bohr / 2)**2).sum(0)
-        return self.vext_g
+class HarmonicPotential(ExternalPotential):
+    def calculate_potential(self, gd):
+        r_vg = gd.get_grid_point_coordinates()
+        self.vext_g = 0.5 * ((r_vg - a / Bohr / 2)**2).sum(0)
 
 
 calc = GPAW(charge=-8,
             nbands=4,
             h=0.2,
             xc=XC(XCNull()),
-            external=HarmonicPotential(0.5),
+            external=HarmonicPotential(),
             poissonsolver=NoInteractionPoissonSolver(),
             eigensolver='cg')
 

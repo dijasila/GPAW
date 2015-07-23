@@ -5,7 +5,6 @@ operators."""
 
 import numpy as np
 
-from gpaw.external_potential import ExternalPotential
 from gpaw.utilities import unpack
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.overlap import Overlap
@@ -235,11 +234,11 @@ class TimeDependentHamiltonian:
         if self.td_potential is not None:
             #TODO on shaky ground here...
             strength = self.td_potential.strength
-            ExternalPotential().add_linear_field(self.wfs, self.spos_ac,
-                                                 psit, hpsit,
-                                                 0.5 * strength(self.time) +
-                                                 0.5 * strength(self.old_time),
-                                                 kpt)
+            add_linear_field(self.wfs, self.spos_ac,
+                             psit, hpsit,
+                             0.5 * strength(self.time) +
+                             0.5 * strength(self.old_time),
+                             kpt)
 
             
     def set_absorbing_boundary(self, absorbing_boundary):
@@ -398,10 +397,10 @@ class AbsorptionKickHamiltonian:
         hpsit[:] = 0.0
 
         #TODO on shaky ground here...
-        ExternalPotential().add_linear_field(self.wfs, self.spos_ac,
-                                             psit, hpsit,
-                                             self.abs_hamiltonian, kpt)
-
+        add_linear_field(self.wfs, self.spos_ac,
+                         psit, hpsit,
+                         self.abs_hamiltonian, kpt)
+        
 
 # Overlap
 class TimeDependentOverlap(Overlap):
@@ -766,3 +765,93 @@ class TimeDependentDensity(DummyDensity):
 
         """
         return self.density
+
+
+def add_linear_field(wfs, spos_ac, a_nG, b_nG, strength, kpt):
+    """Adds (does NOT apply) linear field.
+    
+    ::
+        
+        f(x,y,z) = str_x * x + str_y * y + str_z * z to wavefunctions.
+
+    Parameters:
+
+    a_nG:
+        the wavefunctions
+    b_nG:
+        the result
+    strength: float[3]
+        strength of the linear field
+    kpt: KPoint
+        K-point
+    """
+
+    gd = wfs.gd
+
+    # apply local part of x to smooth wavefunctions psit_n
+    for i in range(gd.n_c[0]):
+        x = (i + gd.beg_c[0]) * gd.h_cv[0, 0]
+        b_nG[:, i, :, :] += (strength[0] * x) * a_nG[:, i, :, :]
+
+    # FIXME: combine y and z to one vectorized operation,
+    # i.e., make yz-array and take its product with a_nG
+
+    # apply local part of y to smooth wavefunctions psit_n
+    for i in range(gd.n_c[1]):
+        y = (i + gd.beg_c[1]) * gd.h_cv[1, 1]
+        b_nG[:, :, i, :] += (strength[1] * y) * a_nG[:, :, i, :]
+
+    # apply local part of z to smooth wavefunctions psit_n
+    for i in range(gd.n_c[2]):
+        z = (i + gd.beg_c[2]) * gd.h_cv[2, 2]
+        b_nG[:, :, :, i] += (strength[2] * z) * a_nG[:, :, :, i]
+
+    # apply the non-local part for each nucleus
+
+    # number of wavefunctions, psit_nG
+    n = len(a_nG)
+    P_ani = wfs.pt.dict(n)
+    wfs.pt.integrate(a_nG, P_ani, kpt.q)
+
+    coef_ani = {}
+    for a, P_ni in P_ani.items():
+        c0 = np.dot(spos_ac[a] * gd.cell_cv.diagonal(), strength)
+        cxyz = strength
+        # calculate coefficient
+        # ---------------------
+        #
+        # coeffs_ni =
+        #   P_nj * c0 * 1_ij
+        #   + P_nj * cx * x_ij
+        #
+        # where (see spherical_harmonics.py)
+        #
+        #   1_ij = sqrt(4pi) Delta_0ij
+        #   y_ij = sqrt(4pi/3) Delta_1ij
+        #   z_ij = sqrt(4pi/3) Delta_2ij
+        #   x_ij = sqrt(4pi/3) Delta_3ij
+        # ...
+
+        Delta_iiL = wfs.setups[a].Delta_iiL
+
+        #   1_ij = sqrt(4pi) Delta_0ij
+        #   y_ij = sqrt(4pi/3) Delta_1ij
+        #   z_ij = sqrt(4pi/3) Delta_2ij
+        #   x_ij = sqrt(4pi/3) Delta_3ij
+        oneij = np.sqrt(4 * np.pi) \
+            * np.dot(P_ni, Delta_iiL[:, :, 0])
+        yij = np.sqrt(4 * np.pi / 3) \
+            * np.dot(P_ni, Delta_iiL[:, :, 1])
+        zij = np.sqrt(4 * np.pi / 3) \
+            * np.dot(P_ni, Delta_iiL[:, :, 2])
+        xij = np.sqrt(4 * np.pi / 3) \
+            * np.dot(P_ni, Delta_iiL[:, :, 3])
+
+        # coefficients
+        # coefs_ni = sum_j ( <phi_i| f(x,y,z) | phi_j>
+        #                    - <phit_i| f(x,y,z) | phit_j> ) P_nj
+        coef_ani[a] = (c0 * oneij +
+                       cxyz[0] * xij + cxyz[1] * yij + cxyz[2] * zij)
+
+    # add partial wave pt_nG to psit_nG with proper coefficient
+    wfs.pt.add(b_nG, coef_ani, kpt.q)

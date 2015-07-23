@@ -5,7 +5,6 @@ import numpy as np
 from math import sqrt
 from gpaw.utilities.blas import gemm
 from numpy.linalg import inv
-from numpy import dot
 from gpaw.mixer import DummyMixer
 from math import pi, log
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
@@ -16,10 +15,8 @@ from gpaw.utilities.scalapack import pblas_simple_hemm, pblas_simple_gemm, \
                                      scalapack_inverse, scalapack_solve, \
                                      scalapack_zero, pblas_tran, scalapack_set
                                      
-from gpaw.utilities.tools import tri2full
-
-import sys
 from time import localtime
+
 
 class KickHamiltonian:
     def __init__(self, calc, ext):
@@ -425,7 +422,7 @@ class LCAOTDDFT(GPAW):
                 self.dm_file.flush()
                 self.text('About to do %d propagation steps.' % iterations)
             else:
-                self.dm_file = open(out, 'a') 
+                self.dm_file = open(out, 'a')
                 self.text('About to continue from iteration %d and do %d '
                           'propagation steps' % (self.niter, self.tdmaxiter))
         self.tddft_init()
