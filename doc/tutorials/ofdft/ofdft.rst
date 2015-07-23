@@ -4,7 +4,7 @@
 ==============================================
 Orbital-free Density Functional Theory (OFDFT)
 ==============================================
-This page introduces the orbital-free DFT method in a comprehensive way. If you are already familiar with the theory and want to learn how to use the orbital-free GPAW module you can skip the introduction and go directly to the section running the code. 
+This page introduces the orbital-free DFT method in a comprehensive way. If you are already familiar with the theory and want to learn how to use the orbital-free GPAW module you can skip the introduction and go directly to the section running the code.
 
 Theoretical introduction
 ========================
@@ -29,7 +29,7 @@ and
 `|\Psi \rangle`
 is the many-body wave function. The exact kinetic energy functional is then
 
-.. math:: T[n] = \langle \Psi | \hat{T} | \Psi \rangle. 
+.. math:: T[n] = \langle \Psi | \hat{T} | \Psi \rangle.
 
 In practice, the form of the universal density functional is unknown and we must rely on
 approximations. As we have already mentioned, introducing the Kohn-Sham single-particle ansatz is the most popular strategy to tackle this problem. Kohn and Sham proposed that the electronic density can be expressed as a sum of the density of a set of
@@ -88,7 +88,7 @@ The kinetic energy functional
 `T_\text{s} [n]`
 is the non-interacting Kohn-Sham kinetic energy, and the last two terms combined are known as the Pauli functional,
 
-.. math:: T_\theta [n] = T_\text{s}[n] - T_\text{W} [n]. 
+.. math:: T_\theta [n] = T_\text{s}[n] - T_\text{W} [n].
 
 Levy et al. showed that a Kohn-Sham-like equation, derived variationally from the equation above, holds for the square root of the density:
 
@@ -134,7 +134,7 @@ Since one could choose to construct a kinetic functional which does not explicit
 `T_\text{s} [n]`
 as
 
-.. math:: T_\text{s} [n] \approx T_\text{r} [n] + \lambda T_\text{W} [n], 
+.. math:: T_\text{s} [n] \approx T_\text{r} [n] + \lambda T_\text{W} [n],
 
 where r stands for "rest", referring to the approximation to the total kinetic functional minus the included fraction of Weizsäcker. In practice, the "rest" term will be included in the code as part of the definition of the exchange-correlation functional, and the Weizsäcker contribution will be included via an additional parameter (see the next subsection on "λ scaling"). This more general form leads to the Pauli functional expressed as
 
@@ -226,6 +226,7 @@ Follow the instructions given in the section on running OFDFT for PAW setup gene
 
 Run the grid calculations
 We will now run grid calculations for atomic N and molecular N2 using the setup generated in the preceding step. For the atomic calculation use the code given in the second part of the running OFDFT section. The energy calculated by GPAW on the grid is given with respect to the total energy of the atomic calculation done during setup generation, and should be close to zero. For the N2 molecule, we first need to optimize the bond length. In order to do so, plot the system's energy as a function of interatomic distance and look for the minimum, for instance by adding the following loop to your script (since the experimental bond length is about 1.098 Å we will start searching in that region)::
+    
   for d in [0.9, 1.0, 1.1, 1.2, 1.3, 1.4]:
       molecule = Atoms('N2',
       positions=([c - d/2, c,c], [c+d/2,c,c]),
