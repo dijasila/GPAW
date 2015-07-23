@@ -65,7 +65,8 @@ Use this function to check results:
 
 
 .. _big-test:
-
+.. _agts:
+    
 Big tests
 =========
 
@@ -112,13 +113,5 @@ Name           Type      Default value  Description
 ``deps``       ``list``  ``[]``         List of jobs this job depends on
 ``creates``    ``list``  ``[]``         List of files this job creates
                                         (figures and other stuff for the
-                                        web-page) 
+                                        web-page)
 =============  ========  =============  ===================================
-
-
-Creating expensive figures for the web-page
--------------------------------------------
-
-You can also use AGTS for running long jobs that create figures for this
-web-page.  For an example, look at the source code
-:trac:`here <doc/tutorials/stm>` which will produce this: :ref:`stm tutorial`.
