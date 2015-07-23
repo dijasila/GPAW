@@ -221,6 +221,8 @@ class DielectricFunction:
         elif self.truncation == '2D':
             K_G = truncated_coulomb(pd)
             K_G *= G_G**2
+            if pd.kd.gamma:
+                K_G[0] = 0.0
         else:
             K_G = np.ones(nG)
 
@@ -231,10 +233,10 @@ class DielectricFunction:
         if xc != 'RPA':
             R_av = self.chi0.calc.atoms.positions / Bohr
             nt_sG = self.chi0.calc.density.nt_sG
-            K_GG += calculate_Kxc(pd, nt_sG, R_av, self.chi0.calc.wfs.setups,
-                                  self.chi0.calc.density.D_asp,
-                                  functional=xc) * G_G * G_G[:, np.newaxis]
-            
+            Kxc_sGG = calculate_Kxc(pd, nt_sG, R_av, self.chi0.calc.wfs.setups,
+                                    self.chi0.calc.density.D_asp,
+                                    functional=xc)
+            K_GG += Kxc_sGG[0] * G_G * G_G[:, np.newaxis]
         chi_wGG = []
         for chi0_GG in chi0_wGG:
             chi0_GG[:] = chi0_GG / G_G / G_G[:, np.newaxis]

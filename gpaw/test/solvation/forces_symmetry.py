@@ -52,6 +52,8 @@ atoms.calc = SolvationGPAW(
 F = atoms.calc.get_forces(atoms)
 
 difference = F[0][2] + F[1][2]
+print(difference)
 equal(difference, .0, .02)  # gas phase is ~.007 eV / Ang
 F[0][2] = F[1][2] = .0
-equal(np.abs(F), .0, 1e-9)  # gas phase is ~1e-11 eV / Ang
+print(np.abs(F))
+equal(np.abs(F), .0, 1e-10)  # gas phase is ~1e-11 eV / Ang

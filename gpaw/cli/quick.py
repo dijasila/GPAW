@@ -23,6 +23,7 @@ from ase.optimize import QuasiNewton
 from gpaw import GPAW
 
 atoms = molecule('{0}')
+atoms.center(vacuum=3.0)
 atoms.calc = GPAW(txt='{0}.txt')
 e = atoms.get_potential_energy()
 opt = QuasiNewton(atoms, traj='{0}.traj')

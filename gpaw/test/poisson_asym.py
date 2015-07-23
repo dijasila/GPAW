@@ -37,6 +37,6 @@ residual = gd.integrate((pot - vg)**2)**0.5
 
 print('residual %s' % (
     residual))
-assert residual < 0.05  # Better than 5.x
+assert residual < 1e-5  # Better than 5.x
 
 # mpirun -np 2 python gauss_func.py --gpaw-parallel --gpaw-debug

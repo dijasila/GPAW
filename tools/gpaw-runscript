@@ -35,9 +35,8 @@ hosts = { 'batman'                   : 'pbs_batman',
           'globus'                   : 'bwg',
           'ui.bfg.uni'               : 'pbs_bfg',
           r'xc2(.*)'                 : 'xc2',
-          'juropa.fz-juelich.de'     : 'juropa',
-	  r'jj(.*)'                  : 'juropa',
-	  r'j3(.*)'                  : 'juropatest',
+	  'jureca'                   : 'jureca',
+	  'juropatest'               : 'juropatest',
           r'joe*'                    : 'joe',
           r'uc1n99*'                 : 'bwUniCluster',
           }
@@ -483,12 +482,45 @@ ormance.'
 
     def juropatest(self, f, set, env):
         print >> f, '#!/bin/bash -x'
-        print >> f, '#SBATCH --job-name=' + set['name']
+        print >> f, '#SBATCH --job-name=' + set['name'].replace('+', '')
         # nodes contain 14 cores                                             
         cores = set['cores']
         cores_per_node = 28
         if set['smt']:
             cores_per_node = 28
+        nodes = int((cores + (cores_per_node - 1)) / cores_per_node)
+        ppn = int((cores + nodes - 1) / nodes)
+        if cores != nodes * ppn:
+            print 'Note:', nodes * ppn, 'cores reserved but only', cores, 'core\
+s used.'
+            print '     Consider to use multiples of', cores_per_node,
+            print 'processors for best performance.'
+        print >> f, '#SBATCH --nodes=' + str(nodes)
+        print >> f, '#SBATCH --ntasks-per-node=' + str(ppn)
+        print >> f, '#SBATCH --time=' + hms_string(set['time'])
+        if set['mail'] is not None:
+            print >> f, '#SBATCH --mail-user=' + set['mail']
+            print >> f, '#SBATCH --mail-type=ALL'
+        print >> f, 'cd', set['wd']
+        print >> f, ('export LD_LIBRARY_PATH=' + env['LD_LIBRARY_PATH'] + 
+                     ':$LD_LIBRARY_PATH')
+        print >> f, 'export PYTHONPATH=' + env['PYTHONPATH'] + ':$PYTHONPATH'
+        print >> f, 'export GPAW_SETUP_PATH=' + env['GPAW_SETUP_PATH']
+        print >> f, 'export GPAW_PYTHON=' + env['GPAW_PYTHON']
+        print >> f, 'srun $GPAW_PYTHON', set['script'],
+        if 'parameters' in set:
+            print >> f, set['parameters'],
+        print >> f, '>', set['out']+'_$SLURM_JOBID',
+        print >> f, '2>', set['err']+'_$SLURM_JOBID'
+
+    def jureca(self, f, set, env):
+        print >> f, '#!/bin/bash -x'
+        print >> f, '#SBATCH --job-name=' + set['name'].replace('+', '')
+        # nodes contain 2x12 cores                                             
+        cores = set['cores']
+        cores_per_node = 24
+        if set['smt']:
+            cores_per_node = 48
         nodes = int((cores + (cores_per_node - 1)) / cores_per_node)
         ppn = int((cores + nodes - 1) / nodes)
         if cores != nodes * ppn:
@@ -712,7 +744,10 @@ if opt.arch:
     set['arch']=opt.arch
 else:
     host = None
-    if 'HOSTNAME' in os.environ.keys():
+    if os.path.isfile('/etc/FZJ/systemname'):
+        with open ('/etc/FZJ/systemname', "r") as f:
+            host = f.read().strip()
+    elif 'HOSTNAME' in os.environ.keys():
         host = os.environ['HOSTNAME']
     else:
         try:

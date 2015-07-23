@@ -52,6 +52,8 @@ Quick links to all features:
 News
 ====
 
+* :ref:`GPAW version 0.11 <releasenotes>` released (Jul 22 2015)
+
 * :ref:`GPAW version 0.10 <releasenotes>` released (Apr 8 2014)
 
 * GPAW is part of the `PRACE Unified European Application Benchmark Suite`_

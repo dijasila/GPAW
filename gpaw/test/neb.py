@@ -16,7 +16,8 @@ mol = Cluster([Atom('H'),
 def set_calculators(all=False):
     c=GPAW(h=.3, convergence={'eigenstates':0.1, 
                               'energy' : 0.1,
-                              'density' : 0.01}, txt=txt)
+                              'density' : 0.01}, 
+           symmetry='off', txt=txt)
 #    c = EMT()
     n = len(images)
     if not all:

@@ -3,7 +3,6 @@
 from math import pi
 
 import numpy as np
-from ase import Atoms
 from ase.units import Bohr
 
 from gpaw.poisson import PoissonSolver
@@ -56,7 +55,7 @@ class JelliumSurfacePoissonSolver(JelliumPoissonSolver):
             Position of upper surface in Angstrom units."""
         
         PoissonSolver.__init__(self, **kwargs)
-        self.z1 = (z1 - 0.0001)  / Bohr
+        self.z1 = (z1 - 0.0001) / Bohr
         self.z2 = (z2 - 0.0001) / Bohr
 
     def get_mask(self, r_gv):
