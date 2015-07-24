@@ -190,6 +190,9 @@ class PAWTextOutput:
             orthonormalizer_layout = self.wfs.orthoksl.get_description()
             t('Orthonormalizer layout: ' + orthonormalizer_layout)
         t()
+        
+        if self.hamiltonian.vext is not None:
+            t('External potential:\n    {0}\n'.format(self.hamiltonian.vext))
 
         self.wfs.kd.symmetry.print_symmetries(self.txt)
 

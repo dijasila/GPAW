@@ -53,7 +53,7 @@ class ConstantElectricField(ExternalPotential):
 
     def __str__(self):
         return ('Constant electric field: '
-                '({0:.3f}, {0:.3f}, {0:.3f}) eV/Ang'
+                '({0:.3f}, {1:.3f}, {2:.3f}) eV/Ang'
                 .format(*(self.field * Hartree / Bohr)))
 
     def calculate_potential(self, gd):
