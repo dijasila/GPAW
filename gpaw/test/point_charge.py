@@ -82,6 +82,7 @@ print(fpc1 + f1.sum(0))
 f2 = [[numeric_force(lih, a, v) for v in range(3)] for a in range(2)]
 print(f1)
 print(f1 - f2)
+assert abs(f1 - f2).max() < 2e-3
 
 x = 0.0001
 for v in range(3):
@@ -93,4 +94,6 @@ for v in range(3):
     em = lih.get_potential_energy()
     pos[v] += x
     pc.set_positions([pos])
-    print((em - ep) / (2 * x) - fpc1[0, v])
+    error = (em - ep) / (2 * x) - fpc1[0, v]
+    print(v, error)
+    assert abs(error) < 0.006
