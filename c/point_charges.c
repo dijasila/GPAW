@@ -29,10 +29,11 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
     double* F_pv = 0;
     double dV = 0.0;
     if (F_pv_obj != 0) {
+        // Handle the two extra arguments for the force calculation:
         rhot_G = PyArray_DATA(rhot_G_obj);
         F_pv = PyArray_DATA(F_pv_obj);
         dV = h_v[0] * h_v[1] * h_v[2];
-        }
+    }
     
     for (int i = 0; i < n[0]; i++) {
         double x = (beg_v[0] + i) * h_v[0];
@@ -49,40 +50,42 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                     double d = sqrt(dx * dx + dy * dy + dz * dz);
                     int G = ij + k;
                     if (F_pv == 0) {
+                        // Calculate potential:
                         double v;
                         if (d > rc)
                             v = q_p[p] / d;
                         else {
-                            double x = d / rc;
-                            double x2 = x * x;
+                            double s = d / rc;
+                            double s2 = s * s;
                             v = q_p[p] * (3.28125 +
-                                          x2 * (-5.46875 +
-                                                x2 * (4.59375 +
-                                                      x2 * -1.40625))) / rc;
-                            }
-                        vext_G[G] += v;
+                                          s2 * (-5.46875 +
+                                                s2 * (4.59375 +
+                                                      s2 * -1.40625))) / rc;
                         }
+                        vext_G[G] += v;
+                    }
                     else {
+                        // Calculate forces:
                         double w;  // -(dv/dr)/r
                         if (d > rc)
                             w = 1 / (d * d * d);
                         else {
-                            double x = d / rc;
-                            double x2 = x * x;
+                            double s = d / rc;
+                            double s2 = s * s;
                             w = (-2 * (-5.46875 +
-                                       x2 * (2 * 4.59375 +
-                                             x2 * 3 * -1.40625)) /
+                                       s2 * (2 * 4.59375 +
+                                             s2 * 3 * -1.40625)) /
                                  (rc * rc * rc));
-                            }
+                        }
                         w *= q_p[p] * rhot_G[G] * dV;
                         double* F_v = F_pv + 3 * p;
                         F_v[0] += w * dx;
                         F_v[1] += w * dy;
                         F_v[2] += w * dz;
-                        }
                     }
                 }
             }
         }
+    }
     Py_RETURN_NONE;
 }

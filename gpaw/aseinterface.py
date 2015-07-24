@@ -1,5 +1,3 @@
-# pylint: disable-msg=W0142,C0103,E0201
-
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
@@ -7,15 +5,15 @@
 import numpy as np
 from ase.units import Bohr, Hartree
 
-from gpaw.xc import XC
+from gpaw.external import PointChargePotential
+from gpaw.occupations import MethfesselPaxton
 from gpaw.paw import PAW
 from gpaw.stress import stress
-from gpaw.occupations import MethfesselPaxton
+from gpaw.xc import XC
 
 
 class GPAW(PAW):
-    """This is the ASE-calculator frontend for doing a PAW calculation.
-    """
+    """This is the ASE-calculator frontend for doing a PAW calculation."""
     def get_atoms(self):
         atoms = self.atoms.copy()
         atoms.set_calculator(self)
@@ -738,65 +736,8 @@ class GPAW(PAW):
         elif type == 'mbeefvdw':
             return np.append(x.flatten(), c)
 
-    # FOR QM/MM
-    def get_point_charge_forces(self, mm_subsystem=None):
-        """ Calculate the forces on point charges due to
-            the external field due to pseudo electron
-            density. 
-        """
-
-        beg_c = self.density.gd.beg_c
-        end_c = self.density.gd.end_c
-
-        h_cv = self.density.gd.h_cv
-
-        V = h_cv[0,0] * h_cv[1,1] * h_cv[2,2]
-        pos = np.zeros((3))
-
-        h = np.array([h_cv[0,0], h_cv[1,1], h_cv[2,2]]) * Bohr
-
-        Forces = np.zeros((len(mm_subsystem), 3))
-
-        from ase.units import kcal, mol
-        k_c = 332.1 * kcal / mol
-        import _gpaw
-
-        nt = self.density.nt_sG.sum(axis=0)
-
-        Forces = np.zeros((len(mm_subsystem), 3))
-        q = mm_subsystem.get_initial_charges()
-
-        for a in range(len(mm_subsystem)): 
-            # LATER: OVER LIST OF ATOM_IDS
-            Force = np.zeros(3)
-            _gpaw.pc_der_potential(Force, 
-                                   self.density.nt_sG.sum(axis=0),
-                                   mm_subsystem[a].position, 
-                                   q[a]*np.ones(2),
-                                   beg_c, end_c, h)
-
-            Forces[a,:] = Force * k_c * V
-
-        self.density.gd.comm.sum(Forces)
-
-        return Forces
-
-    def get_compensation_charges(self, index):
-        """ Calculate multipole moments of compensation charges.
-            Returns the total compensation charge in units of electron
-            charge, positive (core charges are negative in GPAW).
-            Afer normalization the pseudo electron charge, and core
-            charge integrate to zero.
-        """
-        from math import sqrt, pi
-        
-        comp_charge = np.zeros((index))
-        self.density.Q_aL = {}
-        for a, D_sp in self.density.D_asp.items():
-            Q_L = self.density.Q_aL[a] = np.dot(D_sp[:self.wfs.nspins].sum(0),
-                                         self.wfs.setups[a].Delta_pL)
-            Q_L[0] += self.wfs.setups[a].Delta0
-            comp_charge[a] += Q_L[0]
-        self.wfs.gd.comm.sum(comp_charge)
-
-        return (-1) * comp_charge * sqrt(4 * pi)
+    def embed(self, q_p):
+        """Embed QM region in point-charges."""
+        pc = PointChargePotential(q_p)
+        self.set(external=pc)
+        return pc

@@ -1,8 +1,13 @@
 from __future__ import division
 import numpy as np
+from ase import Atoms
+from ase.calculators.test import numeric_force
+from gpaw import GPAW
+from gpaw.external import PointChargePotential
 from gpaw.test import equal
 import _gpaw
 
+# Find coefs for polynomial:
 c = np.linalg.solve([[1, 1, 1, 1],
                      [0, 2, 4, 6],
                      [0, 2, 12, 30],
@@ -21,6 +26,7 @@ if 0:
     plt.plot(x, 1 / x)
     plt.show()
 
+# Low-level test:
 h = 0.1
 q = 2.2
 beg_v = np.zeros(3, int)
@@ -57,3 +63,34 @@ for rc in [0.9 * d, 1.1 * d]:
         R_pv[0, v] += eps
         F = -(ep - em) / (2 * eps) * h**3
         equal(F, F_pv[0, v], 1e-9)
+        
+# High-level test:
+lih = Atoms('LiH')
+lih[1].y += 1.64
+lih.center(vacuum=3)
+
+pos = lih.cell.sum(axis=0)
+print(pos)
+pc = PointChargePotential([-1.0], [pos])
+lih.calc = GPAW(external=pc,
+                txt='lih-pc.txt')
+f1 = lih.get_forces()
+fpc1 = pc.get_forces(lih.calc)
+print(fpc1)
+print(fpc1 + f1.sum(0))
+
+f2 = [[numeric_force(lih, a, v) for v in range(3)] for a in range(2)]
+print(f1)
+print(f1 - f2)
+
+x = 0.0001
+for v in range(3):
+    pos[v] += x
+    pc.set_positions([pos])
+    ep = lih.get_potential_energy()
+    pos[v] -= 2 * x
+    pc.set_positions([pos])
+    em = lih.get_potential_energy()
+    pos[v] += x
+    pc.set_positions([pos])
+    print((em - ep) / (2 * x) - fpc1[0, v])

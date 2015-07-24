@@ -4,7 +4,6 @@ from ase import Atom, Atoms
 from gpaw import GPAW
 from gpaw.test import equal
 
-from gpaw.point_charges import PointCharges
 from gpaw.external import ConstantPotential
 from gpaw.mpi import world
 
@@ -16,28 +15,12 @@ R = 1.0
 a = 2 * sc
 c = 3 * sc
 at = 'H'
-H2 = Atoms([Atom(at, (a / 2, a / 2, (c - R) / 2)),
-            Atom(at, (a / 2, a / 2, (c + R) / 2))],
+H2 = Atoms('HH', [(a / 2, a / 2, (c - R) / 2),
+                  (a / 2, a / 2, (c + R) / 2)],
            cell=(a, a, c),
            pbc=False)
-print(at, 'dimer')
-nelectrons = 2 * H2[0].number
 
 txt = None
-
-# load point charges
-fname = 'pc.xyz'
-if world.rank == 0:
-    f = open('i' + fname, 'w')
-    print("""1
-
-X 0 0 100 -0.5""", file=f)
-    f.close()
-world.barrier()
-
-ex = PointCharges()
-ex.read('i' + fname)
-ex.write('o' + fname)
 
 convergence = {'eigenstates': 1.e-4 * 40 * 1.5**3,
                'density': 1.e-2,
@@ -83,14 +66,6 @@ for i in range(c00.get_number_of_bands()):
         equal(e00, e1 + 1., 0.007)
 
 E_c00 = c00.get_potential_energy()
-niter_c00 = c00.get_number_of_iterations()
-
 E_c1 = c1.get_potential_energy()
-niter_c1 = c1.get_number_of_iterations()
-
 DeltaE = E_c00 - E_c1
-print('Energy diff, expected, error=', DeltaE, nelectrons, DeltaE - nelectrons)
-equal(DeltaE, nelectrons, 0.002)
-
-energy_tolerance = 0.00001
-niter_tolerance = 0
+equal(DeltaE, 0, 0.002)
