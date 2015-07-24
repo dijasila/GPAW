@@ -123,6 +123,11 @@ The calculated value for the solvation Gibbs energy should be about
 about the usage of the ``SolvationGPAW`` calculator class or model specific
 parts.
 
+There is also a helper function to use the solvation parameters for
+water as in the above example:
+
+.. literalinclude:: kwargs_factory.py
+
 
 References
 ==========
