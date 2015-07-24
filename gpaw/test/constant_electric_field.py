@@ -10,11 +10,11 @@ from ase.units import Bohr, Hartree
 from ase.parallel import rank
 from gpaw import GPAW
 
-from gpaw.external_potential import ConstantElectricField
+from gpaw.external import ConstantElectricField
 
 ###
 
-field   = 0.01
+field   = 0.5
 dx      = 2.0
 vac     = 3.0
 nsteps  = 3
@@ -71,7 +71,7 @@ if True:
         spinpol   = False,
         xc        = 'LDA',
         txt       = txt,
-        external  = ConstantElectricField(field * Bohr/Hartree)
+        external  = ConstantElectricField(field)
         )
     a.set_calculator(c)
 

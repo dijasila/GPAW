@@ -1,43 +1,37 @@
 from __future__ import print_function
-from gpaw import GPAW
-from gpaw.external_potential import ConstantElectricField
+from math import log
+
 import numpy as np
-from math import sqrt
+from numpy.linalg import inv, solve
+from ase.units import Bohr, Hartree
+
+from gpaw import GPAW
+from gpaw.external import ConstantElectricField
 from gpaw.utilities.blas import gemm
-from numpy.linalg import inv
 from gpaw.mixer import DummyMixer
-from math import pi, log
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
-from numpy.linalg import solve
 from gpaw.xc import XC
 
-from gpaw.utilities.scalapack import pblas_simple_hemm, pblas_simple_gemm, \
-                                     scalapack_inverse, scalapack_solve, \
-                                     scalapack_zero, pblas_tran, scalapack_set
+from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
+                                      scalapack_inverse, scalapack_solve,
+                                      scalapack_zero, pblas_tran,
+                                      scalapack_set)
                                      
 from time import localtime
 
 
 class KickHamiltonian:
     def __init__(self, calc, ext):
-        self.ext = ext
-        self.vt_sG = [ext.get_potential(gd=calc.density.gd)]
-        #self.dH_asp = {}
-        self.dH_asp = calc.density.D_asp.deepcopy()
+        dens = calc.density
+        vext_g = ext.get_potential(dens.gd)
+        self.vt_sG = [vext_g]
+        self.dH_asp = dens.setups.empty_atomic_matrix(1, dens.atom_partition)
 
-        # This code is copy-paste from hamiltonian.update
-        for a, D_sp in calc.density.D_asp.items():
-            setup = calc.hamiltonian.setups[a]
-            vext = ext.get_taylor(spos_c=calc.hamiltonian.spos_ac[a, :])
-            # Taylor expansion to the zeroth order
-            self.dH_asp[a][:] = [vext[0][0] * sqrt(4 * pi)
-                                 * setup.Delta_pL[:, 0]]
-            if len(vext) > 1:
-                # Taylor expansion to the first order
-                Delta_p1 = np.array([setup.Delta_pL[:, 1],
-                                     setup.Delta_pL[:, 2],
-                                     setup.Delta_pL[:, 3]])
-                self.dH_asp[a] += sqrt(4 * pi / 3) * np.dot(vext[1], Delta_p1)
+        W_aL = dens.ghat.dict()
+        dens.ghat.integrate(vext_g, W_aL)
+        for a, W_L in W_aL.items():
+            setup = dens.setups[a]
+            self.dH_asp[a] = np.dot(setup.Delta_pL, W_L).reshape((1, -1))
 
 
 class LCAOTDDFT(GPAW):
@@ -225,14 +219,14 @@ class LCAOTDDFT(GPAW):
         direction = self.kick_strength / magnitude
 
         self.text('Applying absorbtion kick')
-        self.text('Magnitude: %.8f ' % magnitude)
+        self.text('Magnitude: %.8f hartree/bohr' % magnitude)
         self.text('Direction: %.4f %.4f %.4f' % tuple(direction))
 
         # Create hamiltonian object for absorbtion kick
-        cef = ConstantElectricField(magnitude, direction=direction)
+        cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
         kick_hamiltonian = KickHamiltonian(self, cef)
         for k, kpt in enumerate(self.wfs.kpt_u):
-            Vkick_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(\
+            Vkick_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
                 kick_hamiltonian, self.wfs, kpt, add_kinetic=False, root=-1)
             for i in range(10):
                 self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)

@@ -1,5 +1,4 @@
 from __future__ import print_function
-import sys
 from math import sqrt, pi
 
 import numpy as np
@@ -8,7 +7,7 @@ from ase.units import Bohr, Hartree
 from ase.parallel import rank, size
 
 from gpaw import GPAW
-from gpaw.external_potential import ConstantElectricField
+from gpaw.external import ConstantElectricField
 from gpaw.point_charges import PointCharges
 from gpaw.utilities import packed_index
 from gpaw.pair_density import PairDensity
@@ -22,12 +21,9 @@ from gpaw.pair_density import PairDensity
 # is 4.5 a0**3 (e.g. PRA 33, 3671), while the experimental
 # value is 4.6 a0**3 (e.g. PR 133, A629).
 
-###
-
 to_au = Hartree / Bohr**2
 to_eVA = Hartree / Bohr
 
-###
 
 def dipole_op(c, state1, state2, k=0, s=0):
     # Taken from KSSingle, maybe make this accessible in
@@ -184,7 +180,7 @@ if test2:
         if rank == 0 and debug:
             print(field)
         c.set(
-            external  = ConstantElectricField(field * Bohr/Hartree),
+            external  = ConstantElectricField(field),
             )
         etot = a.get_potential_energy()
         e   += [ etot ]
