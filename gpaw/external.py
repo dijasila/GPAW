@@ -99,4 +99,5 @@ class PointChargePotential(ExternalPotential):
         _gpaw.pc_potential(gd.beg_c, gd.h_cv.diagonal().copy(),
                            self.q_p, self.R_pv, self.rc, self.vext_g,
                            dens.rhot_g, F_pv)
+        gd.comm.sum(F_pv)
         return F_pv * Hartree / Bohr
