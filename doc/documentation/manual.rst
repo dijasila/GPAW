@@ -118,14 +118,14 @@ keyword            type       default value        description
 ``eigensolver``    ``str``    ``'dav'``            :ref:`manual_eigensolver`
 ``hund``           ``bool``   ``False``            :ref:`Use Hund's rule
                                                    <manual_hund>`
-``external``       Object                          XXX Missing doc
+``external``       Object                          :ref:`manual_external`
 ``verbose``        ``int``    ``0``                :ref:`manual_verbose`
 ``poissonsolver``  Object                          Specification of
                                                    :ref:`Poisson solver
                                                    <manual_poissonsolver>`
                                                    or :ref:`dipole correction
                                                    <manual_dipole_correction>`
-                                                   or :ref:`Advanced Poisson 
+                                                   or :ref:`Advanced Poisson
                                                    solver <advancedpoisson>`
 ``communicator``   Object                          :ref:`manual_communicator`
 ``idiotproof``     ``bool``   ``True``             Set to ``False`` to ignore
@@ -608,6 +608,7 @@ occupations one has to use :class:`~gpaw.mixer.MixerSum` instead of
 
 See also the documentation on :ref:`density mixing <densitymix>`.
 
+
 .. _manual_fixdensity:
 
 Fixed density
@@ -618,7 +619,6 @@ calculation (and wanting to converge them) it is often useful to use existing
 density without updating it. By using ``fixdensity=True`` the initial density
 (e.g. one read from .gpw/.hdf5 or existing from previous calculation) is used
 throughout the SCF-cycle (so called Harris calculation).
-
 
 
 .. _manual_setups:
@@ -645,8 +645,10 @@ The special key ``None`` can be used to specify the default setup
 name. Thus ``setups={None: 'paw'}`` is equivalent to ``setups='paw'``
 which is the GPAW default.
 
-As an example, the latest PAW setup of Na includes also the 6 semicore p states
-in the valence, in order to use non-default setup with only the 1 s electron in valence (:file:`Na.1.XC.gz`) one can specify ``setups={'Na': '1'}``
+As an example, the latest PAW setup of Na includes also the 6 semicore p
+states in the valence, in order to use non-default setup with only the 1 s
+electron in valence (:file:`Na.1.XC.gz`) one can specify ``setups={'Na':
+'1'}``
 
 There exist three special names that, if used, do not specify a file name:
 
@@ -662,7 +664,7 @@ There exist three special names that, if used, do not specify a file name:
   {<pseudopotential>}`.  Here, :file:`{<pseudopotential>}` can be
   either a direct path to a UPF file or the symbol or identifier to
   search for in the GPAW setup paths.
-	
+        
 * ``'hgh'`` is used to specify a norm-conserving Hartwigsen-Goedecker-Hutter
   pseudopotential (no installation necessary).  Some elements have better
   semicore pseudopotentials.  To use those, specify ``'hgh.sc'``
@@ -847,6 +849,20 @@ total magnetic moment be fixed, by passing e.g.
 ``occupations=FermiDirac(0.0, fixmagmom=True)``.
 Any user specified magnetic moment is
 ignored. Default is False.
+
+
+.. _manual_external:
+
+External potential
+------------------
+
+Example::
+    
+    from gpaw.external import ConstanElectricField
+    calc = GPAW(..., external=ConstanElectricField(2.0, [1, 0, 0]), ...)
+    
+See also: :mod:`gpaw.external`.
+
 
 .. _manual_verbose:
 

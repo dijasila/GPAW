@@ -10,7 +10,7 @@ Development version in trunk
 
 :trac:`trunk <>`.
 
-* ...
+* New :mod:`external` module.
 
 * ...
 

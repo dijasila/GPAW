@@ -30,12 +30,10 @@ class ExternalPotential:
     def calculate_potential(self, gd):
         raise NotImplementedError
         
-    def todict(self):
-        raise NotImplementedError
-
     def write(self, writer):
-        from ase.io.jsonio import encode
-        writer['ExternalPotential'] = encode(self).replace('"', "'")
+        if hasattr(self, 'todict'):
+            from ase.io.jsonio import encode
+            writer['ExternalPotential'] = encode(self).replace('"', "'")
         
 
 class ConstantPotential(ExternalPotential):
@@ -84,12 +82,12 @@ class ConstantElectricField(ExternalPotential):
 
 
 class PointChargePotential(ExternalPotential):
-    def __init__(self, q_p, R_pv=None, rc=0.2):
+    def __init__(self, charges, positions=None, rc=0.2):
         """Point-charge potential.
         
-        q_p: list of float
+        charges: list of float
             Charges.
-        R_pv: (N, 3) shaped array-like of float
+        positions: (N, 3) shaped array-like of float
             Positions of charges in Angstrom.  Can be set later.
         rc: float
             Cutoff for Coulomb potential in Angstrom.
@@ -97,10 +95,10 @@ class PointChargePotential(ExternalPotential):
         for r < rc, 1 / r is replace by a third order polynomial in r^2 that
         has matching value, first derivative, second derivative and integral.
         """
-        self.q_p = np.ascontiguousarray(q_p, float)
+        self.q_p = np.ascontiguousarray(charges, float)
         self.rc = rc / Bohr
-        if R_pv is not None:
-            self.set_positions(R_pv)
+        if positions is not None:
+            self.set_positions(positions)
         else:
             self.R_pv = None
             
