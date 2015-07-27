@@ -21,7 +21,7 @@ from gpaw.solvation.interactions import (
     LeakedDensityInteraction)
 
 
-def make_HW14_water_kwargs():
+def get_HW14_water_kwargs():
     """Return kwargs for initializing a SolvationGPAW instance.
 
     Parameters for water as a solvent as in
