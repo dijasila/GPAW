@@ -22,10 +22,11 @@ from time import localtime
 
 class KickHamiltonian:
     def __init__(self, calc, ext):
+        ham = calc.hamiltonian
         dens = calc.density
-        vext_g = ext.get_potential(dens.gd)
-        self.vt_sG = [vext_g]
-        self.dH_asp = dens.setups.empty_atomic_matrix(1, dens.atom_partition)
+        vext_g = ext.get_potential(ham.finegd)
+        self.vt_sG = [ham.restrict(vext_g)]
+        self.dH_asp = ham.setups.empty_atomic_matrix(1, ham.atom_partition)
 
         W_aL = dens.ghat.dict()
         dens.ghat.integrate(vext_g, W_aL)
@@ -51,14 +52,14 @@ class LCAOTDDFT(GPAW):
             self.set_positions()
 
     def set(self, **kwargs):
-        if not 'mode' in kwargs:
+        if 'mode' not in kwargs:
             kwargs['mode'] = 'lcao'
         else:
             modevar = kwargs['mode']
             if hasattr(modevar, 'name'):
-                assert modevar.name == 'lcao' # LCAO mode required
+                assert modevar.name == 'lcao'  # LCAO mode required
             else:
-                assert modevar == 'lcao' # LCAO mode required
+                assert modevar == 'lcao'  # LCAO mode required
         GPAW.set(self, **kwargs)
 
     def propagate_wfs(self, sourceC_nm, targetC_nm, S_MM, H_MM, dt):
@@ -106,7 +107,7 @@ class LCAOTDDFT(GPAW):
                               temp_block_mm,
                               target_blockC_nm)
             # 2. target = (S-0.5j*H*dt)^-1 * target
-            #temp_block_mm[:] = S_MM + (0.5j*dt) * H_MM
+            # temp_block_mm[:] = S_MM + (0.5j*dt) * H_MM
             # XXX It can't be this f'n hard to symmetrize a matrix (tri2full)
             # Lower diagonal matrix:
             temp_block_mm[:] = S_MM + (0.5j * dt) * H_MM
@@ -124,7 +125,7 @@ class LCAOTDDFT(GPAW):
                             temp_block_mm,
                             target_blockC_nm)
 
-            if self.density.gd.comm.rank != 0: # XXX is this correct?
+            if self.density.gd.comm.rank != 0:  # XXX is this correct?
                 # XXX Fake blacks nbands, nao, nbands, nao grid because some
                 # weird asserts
                 # (these are 0,x or x,0 arrays)
@@ -132,7 +133,7 @@ class LCAOTDDFT(GPAW):
             else:
                 target = targetC_nM
             self.Cnm2nM.redistribute(target_blockC_nm, target)
-            self.density.gd.comm.broadcast(targetC_nM, 0) # Is this required?
+            self.density.gd.comm.broadcast(targetC_nM, 0)  # Is this required?
         else:
             # Note: The full equation is conjugated (therefore -+, not +-)
             targetC_nM[:] = \
@@ -177,11 +178,11 @@ class LCAOTDDFT(GPAW):
                 pblas_simple_hemm(self.mm_block_descriptor,
                                   self.Cnm_block_descriptor,
                                   self.Cnm_block_descriptor,
-                                  self.wfs.kpt_u[0].invS_MM, # XXX
+                                  self.wfs.kpt_u[0].invS_MM,  # XXX
                                   temp2_blockC_nm,
                                   temp_blockC_nm, side='R')
                 target_blockC_nm += temp_blockC_nm
-            if self.density.gd.comm.rank != 0: # Todo: Change to gd.rank
+            if self.density.gd.comm.rank != 0:  # Todo: Change to gd.rank
                 # XXX Fake blacks nbands, nao, nbands, nao grid because
                 # some weird asserts
                 # (these are 0,x or x,0 arrays)
@@ -271,9 +272,9 @@ class LCAOTDDFT(GPAW):
                                                             blocksize)
             #self.CnM_descriptor = ksl.blockgrid.new_descriptor(nbands,
             #    nao, mynbands, nao)
-            self.mM_column_descriptor = ksl.single_column_grid.new_descriptor(\
+            self.mM_column_descriptor = ksl.single_column_grid.new_descriptor(
                 nao, nao, ksl.naoblocksize, nao)
-            self.CnM_unique_descriptor = ksl.single_column_grid.new_descriptor(\
+            self.CnM_unique_descriptor = ksl.single_column_grid.new_descriptor(
                 nbands, nao, mynbands, nao)
 
             # Redistributors
@@ -424,7 +425,7 @@ class LCAOTDDFT(GPAW):
         dm0 = None  # Initial dipole moment
         self.timer.start('Propagate')
         while self.niter < self.tdmaxiter:
-            dm = self.density.finegd.calculate_dipole_moment(\
+            dm = self.density.finegd.calculate_dipole_moment(
                 self.density.rhot_g)
             if dm0 is None:
                 dm0 = dm
