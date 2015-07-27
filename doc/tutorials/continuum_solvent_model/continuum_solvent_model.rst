@@ -117,7 +117,7 @@ using the continuum solvent model:
 .. literalinclude:: ethanol_in_water.py
 
 The calculated value for the solvation Gibbs energy should be about
--4.3 kcal per mole. The experimental value is -5.0 kcal per mole
+-4.5 kcal per mole. The experimental value is -5.0 kcal per mole
 [#KCT06]_. Please refer to the Epydoc documentation of the
 :epydoc:`gpaw.solvation` module or the source code for further reading
 about the usage of the ``SolvationGPAW`` calculator class or model specific
