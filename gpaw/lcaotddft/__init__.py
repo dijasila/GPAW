@@ -234,15 +234,19 @@ class LCAOTDDFT(GPAW):
         self.timer.stop('Kick')
 
     def blacs_mm_to_global(self, H_mm):
+        # Someone could verify that this works and remove the error.
+        raise NotImplementedError('Method untested and thus unreliable')
         target = self.MM_descriptor.empty(dtype=complex)
         self.mm2MM.redistribute(H_mm, target)
-        world.barrier()
+        self.wfs.world.barrier()
         return target
 
     def blacs_nm_to_global(self, C_nm):
+        # Someone could verify that this works and remove the error.
+        raise NotImplementedError('Method untested and thus unreliable')
         target = self.CnM_unique_descriptor.empty(dtype=complex)
         self.Cnm2nM.redistribute(C_nm, target)
-        world.barrier()
+        self.wfs.world.barrier()
         return target
 
     def tddft_init(self):

@@ -9,7 +9,6 @@ from gpaw.utilities import unpack
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.overlap import Overlap
 from gpaw.wavefunctions.fd import FDWaveFunctions
-from gpaw.tddft.abc import *
 
 
 class TimeDependentHamiltonian:
@@ -531,7 +530,7 @@ class TimeDependentOverlap(Overlap):
             return
 
         self.timer.start('Apply exact inverse overlap')
-        from gpaw.utilities.blas import dotu, axpy, dotc
+        from gpaw.utilities.blas import dotu, axpy
         #from gpaw.tddft.cscg import multi_zdotu, multi_scale, multi_zaxpy
         #initialization
           # Multivector dot product, a^T b, where ^T is transpose
@@ -551,7 +550,6 @@ class TimeDependentOverlap(Overlap):
         nvec = len(a_nG)
         r = wfs.gd.zeros(nvec, dtype=wfs.dtype)
         z  = wfs.gd.zeros((nvec,), dtype=wfs.dtype)
-        sx = wfs.gd.zeros(nvec, dtype=wfs.dtype)
         p = wfs.gd.zeros(nvec, dtype=wfs.dtype)
         q = wfs.gd.zeros(nvec, dtype=wfs.dtype)
         alpha = np.zeros((nvec,), dtype=wfs.dtype)
