@@ -12,6 +12,13 @@ Development version in trunk
 
 * New :mod:`gpaw.external` module.
 
+* The gradients of the cavity and the dielectric in the continuum
+  solvent model are now calculated analytically for the case of the
+  effective potential method. This improves the accuracy of the forces
+  in solution compared to the gradient calculated by finite
+  differences. The solvation energies are expected to change slightly
+  within the accuracy of the model.
+
 * ...
 
 
