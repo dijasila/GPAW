@@ -15,6 +15,7 @@ GPAW calculator:
    restart_files
    rmm-diis
    orthogonalization
+   external
    xc/xc
    xc/exx
    xc/rpa

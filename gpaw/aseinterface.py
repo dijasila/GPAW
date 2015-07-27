@@ -1,5 +1,3 @@
-# pylint: disable-msg=W0142,C0103,E0201
-
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
@@ -7,15 +5,15 @@
 import numpy as np
 from ase.units import Bohr, Hartree
 
-from gpaw.xc import XC
+from gpaw.external import PointChargePotential
+from gpaw.occupations import MethfesselPaxton
 from gpaw.paw import PAW
 from gpaw.stress import stress
-from gpaw.occupations import MethfesselPaxton
+from gpaw.xc import XC
 
 
 class GPAW(PAW):
-    """This is the ASE-calculator frontend for doing a PAW calculation.
-    """
+    """This is the ASE-calculator frontend for doing a PAW calculation."""
     def get_atoms(self):
         atoms = self.atoms.copy()
         atoms.set_calculator(self)
@@ -737,3 +735,9 @@ class GPAW(PAW):
             return x.flatten()
         elif type == 'mbeefvdw':
             return np.append(x.flatten(), c)
+
+    def embed(self, q_p):
+        """Embed QM region in point-charges."""
+        pc = PointChargePotential(q_p)
+        self.set(external=pc)
+        return pc

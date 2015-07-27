@@ -325,6 +325,7 @@ tests = [
     'parallel/ut_hsops.py',                 # ~41s
     'LDA_unstable.py',                      # ~42s
     'au02_absorption.py',                   # ~44s
+    'point_charge.py',
     'wannierk.py',                          # ~45s
     'bse_vs_lrtddft.py',                    # ~45s
     'aluminum_testcell.py',                 # ~46s

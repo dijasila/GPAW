@@ -1,46 +1,38 @@
 from __future__ import print_function
-from gpaw import GPAW
-from gpaw.external_potential import ConstantElectricField
+from math import log
+
 import numpy as np
-from math import sqrt
+from numpy.linalg import inv, solve
+from ase.units import Bohr, Hartree
+
+from gpaw import GPAW
+from gpaw.external import ConstantElectricField
 from gpaw.utilities.blas import gemm
-from numpy.linalg import inv
-from numpy import dot
 from gpaw.mixer import DummyMixer
-from math import pi, log
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec
-from numpy.linalg import solve
 from gpaw.xc import XC
 
-from gpaw.utilities.scalapack import pblas_simple_hemm, pblas_simple_gemm, \
-                                     scalapack_inverse, scalapack_solve, \
-                                     scalapack_zero, pblas_tran, scalapack_set
+from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
+                                      scalapack_inverse, scalapack_solve,
+                                      scalapack_zero, pblas_tran,
+                                      scalapack_set)
                                      
-from gpaw.utilities.tools import tri2full
-
-import sys
 from time import localtime
+
 
 class KickHamiltonian:
     def __init__(self, calc, ext):
-        self.ext = ext
-        self.vt_sG = [ext.get_potential(gd=calc.density.gd)]
-        #self.dH_asp = {}
-        self.dH_asp = calc.density.D_asp.deepcopy()
+        ham = calc.hamiltonian
+        dens = calc.density
+        vext_g = ext.get_potential(ham.finegd)
+        self.vt_sG = [ham.restrict(vext_g)]
+        self.dH_asp = ham.setups.empty_atomic_matrix(1, ham.atom_partition)
 
-        # This code is copy-paste from hamiltonian.update
-        for a, D_sp in calc.density.D_asp.items():
-            setup = calc.hamiltonian.setups[a]
-            vext = ext.get_taylor(spos_c=calc.hamiltonian.spos_ac[a, :])
-            # Taylor expansion to the zeroth order
-            self.dH_asp[a][:] = [vext[0][0] * sqrt(4 * pi)
-                                 * setup.Delta_pL[:, 0]]
-            if len(vext) > 1:
-                # Taylor expansion to the first order
-                Delta_p1 = np.array([setup.Delta_pL[:, 1],
-                                     setup.Delta_pL[:, 2],
-                                     setup.Delta_pL[:, 3]])
-                self.dH_asp[a] += sqrt(4 * pi / 3) * np.dot(vext[1], Delta_p1)
+        W_aL = dens.ghat.dict()
+        dens.ghat.integrate(vext_g, W_aL)
+        for a, W_L in W_aL.items():
+            setup = dens.setups[a]
+            self.dH_asp[a] = np.dot(setup.Delta_pL, W_L).reshape((1, -1))
 
 
 class LCAOTDDFT(GPAW):
@@ -60,14 +52,14 @@ class LCAOTDDFT(GPAW):
             self.set_positions()
 
     def set(self, **kwargs):
-        if not 'mode' in kwargs:
+        if 'mode' not in kwargs:
             kwargs['mode'] = 'lcao'
         else:
             modevar = kwargs['mode']
             if hasattr(modevar, 'name'):
-                assert modevar.name == 'lcao' # LCAO mode required
+                assert modevar.name == 'lcao'  # LCAO mode required
             else:
-                assert modevar == 'lcao' # LCAO mode required
+                assert modevar == 'lcao'  # LCAO mode required
         GPAW.set(self, **kwargs)
 
     def propagate_wfs(self, sourceC_nm, targetC_nm, S_MM, H_MM, dt):
@@ -115,7 +107,7 @@ class LCAOTDDFT(GPAW):
                               temp_block_mm,
                               target_blockC_nm)
             # 2. target = (S-0.5j*H*dt)^-1 * target
-            #temp_block_mm[:] = S_MM + (0.5j*dt) * H_MM
+            # temp_block_mm[:] = S_MM + (0.5j*dt) * H_MM
             # XXX It can't be this f'n hard to symmetrize a matrix (tri2full)
             # Lower diagonal matrix:
             temp_block_mm[:] = S_MM + (0.5j * dt) * H_MM
@@ -133,7 +125,7 @@ class LCAOTDDFT(GPAW):
                             temp_block_mm,
                             target_blockC_nm)
 
-            if self.density.gd.comm.rank != 0: # XXX is this correct?
+            if self.density.gd.comm.rank != 0:  # XXX is this correct?
                 # XXX Fake blacks nbands, nao, nbands, nao grid because some
                 # weird asserts
                 # (these are 0,x or x,0 arrays)
@@ -141,7 +133,7 @@ class LCAOTDDFT(GPAW):
             else:
                 target = targetC_nM
             self.Cnm2nM.redistribute(target_blockC_nm, target)
-            self.density.gd.comm.broadcast(targetC_nM, 0) # Is this required?
+            self.density.gd.comm.broadcast(targetC_nM, 0)  # Is this required?
         else:
             # Note: The full equation is conjugated (therefore -+, not +-)
             targetC_nM[:] = \
@@ -186,11 +178,11 @@ class LCAOTDDFT(GPAW):
                 pblas_simple_hemm(self.mm_block_descriptor,
                                   self.Cnm_block_descriptor,
                                   self.Cnm_block_descriptor,
-                                  self.wfs.kpt_u[0].invS_MM, # XXX
+                                  self.wfs.kpt_u[0].invS_MM,  # XXX
                                   temp2_blockC_nm,
                                   temp_blockC_nm, side='R')
                 target_blockC_nm += temp_blockC_nm
-            if self.density.gd.comm.rank != 0: # Todo: Change to gd.rank
+            if self.density.gd.comm.rank != 0:  # Todo: Change to gd.rank
                 # XXX Fake blacks nbands, nao, nbands, nao grid because
                 # some weird asserts
                 # (these are 0,x or x,0 arrays)
@@ -228,14 +220,14 @@ class LCAOTDDFT(GPAW):
         direction = self.kick_strength / magnitude
 
         self.text('Applying absorbtion kick')
-        self.text('Magnitude: %.8f ' % magnitude)
+        self.text('Magnitude: %.8f hartree/bohr' % magnitude)
         self.text('Direction: %.4f %.4f %.4f' % tuple(direction))
 
         # Create hamiltonian object for absorbtion kick
-        cef = ConstantElectricField(magnitude, direction=direction)
+        cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
         kick_hamiltonian = KickHamiltonian(self, cef)
         for k, kpt in enumerate(self.wfs.kpt_u):
-            Vkick_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(\
+            Vkick_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
                 kick_hamiltonian, self.wfs, kpt, add_kinetic=False, root=-1)
             for i in range(10):
                 self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, Vkick_MM, 0.1)
@@ -280,9 +272,9 @@ class LCAOTDDFT(GPAW):
                                                             blocksize)
             #self.CnM_descriptor = ksl.blockgrid.new_descriptor(nbands,
             #    nao, mynbands, nao)
-            self.mM_column_descriptor = ksl.single_column_grid.new_descriptor(\
+            self.mM_column_descriptor = ksl.single_column_grid.new_descriptor(
                 nao, nao, ksl.naoblocksize, nao)
-            self.CnM_unique_descriptor = ksl.single_column_grid.new_descriptor(\
+            self.CnM_unique_descriptor = ksl.single_column_grid.new_descriptor(
                 nbands, nao, mynbands, nao)
 
             # Redistributors
@@ -425,7 +417,7 @@ class LCAOTDDFT(GPAW):
                 self.dm_file.flush()
                 self.text('About to do %d propagation steps.' % iterations)
             else:
-                self.dm_file = open(out, 'a') 
+                self.dm_file = open(out, 'a')
                 self.text('About to continue from iteration %d and do %d '
                           'propagation steps' % (self.niter, self.tdmaxiter))
         self.tddft_init()
@@ -433,7 +425,7 @@ class LCAOTDDFT(GPAW):
         dm0 = None  # Initial dipole moment
         self.timer.start('Propagate')
         while self.niter < self.tdmaxiter:
-            dm = self.density.finegd.calculate_dipole_moment(\
+            dm = self.density.finegd.calculate_dipole_moment(
                 self.density.rhot_g)
             if dm0 is None:
                 dm0 = dm
