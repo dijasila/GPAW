@@ -257,4 +257,3 @@ class InputParameters(dict):
             self.external = dict2potential(r['ExternalPotential'])
         except KeyError:
             pass
-

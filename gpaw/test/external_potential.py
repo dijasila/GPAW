@@ -1,11 +1,10 @@
 from __future__ import print_function
 
-from ase import Atom, Atoms
+from ase import Atoms
 from gpaw import GPAW
 from gpaw.test import equal
 
 from gpaw.external import ConstantPotential
-from gpaw.mpi import world
 
 cp = ConstantPotential()
 
