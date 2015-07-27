@@ -13,6 +13,8 @@ Change log for version:
 
 5) Added "ForcesConvergenceCriterion".
 
+6) Added "ExternalPotential".
+
 """
 
 import os
@@ -139,7 +141,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
-    w['version'] = 5
+    w['version'] = 6
     w['lengthunit'] = 'Bohr'
     w['energyunit'] = 'Hartree'
 
@@ -445,6 +447,9 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     hamiltonian.xc.write(w, natoms)
 
+    if p.external is not None:
+        p.external.write(w)
+    
     if mode in ['', 'all']:
         timer.start('Pseudo-wavefunctions')
         wfs.write(w, write_wave_functions=(mode == 'all'))

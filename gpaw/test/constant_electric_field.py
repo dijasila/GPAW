@@ -16,3 +16,6 @@ f2 = -de / 0.001
 print(f1, f2)
 assert abs(f1 - 1) < 1e-4
 assert abs(f2 - 1) < 5e-3
+
+h.calc.write('h')
+assert GPAW('h', txt=None).hamiltonian.vext.field[2] == 1.0

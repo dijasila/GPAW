@@ -9,6 +9,7 @@ __all__ = ['ConstantPotential', 'ConstantElectricField']
 
 
 def dict2potential(dct):
+    """Construct potential from dict."""
     if dct['name'] not in __all__:
         raise ValueError
     return globals()[dct['name']](**dct['kwargs'])
@@ -18,10 +19,24 @@ class ExternalPotential:
     vext_g = None
 
     def get_potential(self, gd):
+        """Get the potential on a regular 3-d grid.
+        
+        Will only call calculate_potential() the first time."""
+        
         if self.vext_g is None:
             self.calculate_potential(gd)
         return self.vext_g
 
+    def calculate_potential(self, gd):
+        raise NotImplementedError
+        
+    def todict(self):
+        raise NotImplementedError
+
+    def write(self, writer):
+        from ase.io.jsonio import encode
+        writer['ExternalPotential'] = encode(self).replace('"', "'")
+        
 
 class ConstantPotential(ExternalPotential):
     """Constant potential for tests."""
@@ -70,6 +85,18 @@ class ConstantElectricField(ExternalPotential):
 
 class PointChargePotential(ExternalPotential):
     def __init__(self, q_p, R_pv=None, rc=0.2):
+        """Point-charge potential.
+        
+        q_p: list of float
+            Charges.
+        R_pv: (N, 3) shaped array-like of float
+            Positions of charges in Angstrom.  Can be set later.
+        rc: float
+            Cutoff for Coulomb potential in Angstrom.
+            
+        for r < rc, 1 / r is replace by a third order polynomial in r^2 that
+        has matching value, first derivative, second derivative and integral.
+        """
         self.q_p = np.ascontiguousarray(q_p, float)
         self.rc = rc / Bohr
         if R_pv is not None:
@@ -83,6 +110,7 @@ class PointChargePotential(ExternalPotential):
                 .format(len(self.q_p), self.rc * Bohr))
             
     def set_positions(self, R_pv):
+        """Update positions."""
         self.R_pv = np.asarray(R_pv) / Bohr
         self.vext_g = None
         
@@ -93,6 +121,7 @@ class PointChargePotential(ExternalPotential):
                            self.q_p, self.R_pv, self.rc, self.vext_g)
 
     def get_forces(self, calc):
+        """Calculate forces from QM charge density on point-charges."""
         dens = calc.density
         F_pv = np.zeros_like(self.R_pv)
         gd = dens.finegd

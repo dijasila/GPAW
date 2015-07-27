@@ -251,3 +251,11 @@ class InputParameters(dict):
             # Gamma point only:
             if r['DataType'] == 'Complex':
                 self.dtype = complex
+                
+        try:
+            from ase.io.jsonio import decode
+            from gpaw.external import dict2potential
+            self.external = dict2potential(r['ExternalPotential'])
+        except KeyError:
+            pass
+
