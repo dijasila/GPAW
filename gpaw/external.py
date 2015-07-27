@@ -92,7 +92,7 @@ class PointChargePotential(ExternalPotential):
         rc: float
             Cutoff for Coulomb potential in Angstrom.
             
-        for r < rc, 1 / r is replace by a third order polynomial in r^2 that
+        for r < rc, 1 / r is replaced by a third order polynomial in r^2 that
         has matching value, first derivative, second derivative and integral.
         """
         self.q_p = np.ascontiguousarray(charges, float)
