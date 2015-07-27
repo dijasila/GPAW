@@ -5,7 +5,7 @@ from ase.structure import molecule
 from ase.units import mol, kcal
 from gpaw.solvation import (
     SolvationGPAW,
-    make_HW14_water_kwargs,
+    get_HW14_water_kwargs,
 )
 
 SKIP_VAC_CALC = True
@@ -31,7 +31,7 @@ else:
 
 atoms.calc = SolvationGPAW(
     xc='PBE', h=h, convergence=convergence,
-    **make_HW14_water_kwargs()
+    **get_HW14_water_kwargs()
 )
 Ewater = atoms.get_potential_energy()
 Eelwater = atoms.calc.get_electrostatic_energy()

@@ -18,7 +18,7 @@ Development version in trunk
 Version 0.11.0
 ==============
 
-22 Juli 2015: :trac:`tags/0.11.0 <../tags/0.11.0>`.
+22 July 2015: :trac:`tags/0.11.0 <../tags/0.11.0>`.
 
 * Corresponding ASE release: ASE-3.9.1.
 
