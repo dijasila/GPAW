@@ -22,7 +22,7 @@ class DielectricFunction:
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  gate_voltage=None, truncation=None, disable_point_group=False,
                  disable_time_reversal=False, use_more_memory=1,
-                 unsymmetrized=True):
+                 unsymmetrized=True, eshift=None):
         """Creates a DielectricFunction object.
         
         calc: str
@@ -85,7 +85,7 @@ class DielectricFunction:
                          disable_point_group=disable_point_group,
                          disable_time_reversal=disable_time_reversal,
                          use_more_memory=use_more_memory,
-                         unsymmetrized=unsymmetrized)
+                         unsymmetrized=unsymmetrized, eshift=eshift)
         
         self.name = name
 
