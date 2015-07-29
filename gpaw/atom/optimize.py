@@ -155,7 +155,7 @@ class DatasetOptimizer:
                            40,
                            400,  # 0.1 eV convergence
                            0.002,  # eggbox error
-                           0.1])
+                           0.4])
     
     conf = None
     
