@@ -62,7 +62,7 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                                                 s2 * (4.59375 +
                                                       s2 * -1.40625))) / rc;
                         }
-                        vext_G[G] += v;
+                        vext_G[G] -= v;
                     }
                     else {
                         // Calculate forces:
@@ -79,9 +79,9 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                         }
                         w *= q_p[p] * rhot_G[G] * dV;
                         double* F_v = F_pv + 3 * p;
-                        F_v[0] += w * dx;
-                        F_v[1] += w * dy;
-                        F_v[2] += w * dz;
+                        F_v[0] -= w * dx;
+                        F_v[1] -= w * dy;
+                        F_v[2] -= w * dz;
                     }
                 }
             }
