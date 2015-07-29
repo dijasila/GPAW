@@ -40,7 +40,7 @@ rhot_G = np.ones((1, 1, 1))
 def f(rc):
     vext_G[:] = 0.0
     _gpaw.pc_potential(beg_v, h_v, q_p, R_pv, rc, vext_G)
-    return vext_G[0, 0, 0]
+    return -vext_G[0, 0, 0]
 
 d = (R_pv[0]**2).sum()**0.5
 
@@ -62,7 +62,7 @@ for rc in [0.9 * d, 1.1 * d]:
         em = f(rc)
         R_pv[0, v] += eps
         F = -(ep - em) / (2 * eps) * h**3
-        equal(F, F_pv[0, v], 1e-9)
+        equal(F, -F_pv[0, v], 1e-9)
         
 # High-level test:
 lih = Atoms('LiH')
