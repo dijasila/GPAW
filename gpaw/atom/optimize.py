@@ -388,8 +388,8 @@ class DatasetOptimizer:
                 'c80': energies[0] - energies[3],
                 'c90ref': ref[0.9] - ref[1.0],
                 'c80ref': ref[sc] - ref[1.0],
-                'a0': fit([ref[s] for s in [0.95, 1.0, 1.05]]) * 0.1 * a0r,
-                'a': fit(energies[2:]) * 0.1 * a0r,
+                'a0': fit([ref[s] for s in [0.95, 1.0, 1.05]]) * 0.05 * a0r,
+                'a': fit(energies[2:]) * 0.05 * a0r,
                 'maxiter': maxiter}
         
     def rocksalt(self, n, fd):
@@ -422,8 +422,8 @@ class DatasetOptimizer:
                 'c80': energies[0] - energies[3],
                 'c90ref': ref[0.9] - ref[1.0],
                 'c80ref': ref[sc] - ref[1.0],
-                'a0': fit([ref[s] for s in [0.95, 1.0, 1.05]]) * 0.1 * a0r,
-                'a': fit(energies[2:]) * 0.1 * a0r,
+                'a0': fit([ref[s] for s in [0.95, 1.0, 1.05]]) * 0.05 * a0r,
+                'a': fit(energies[2:]) * 0.05 * a0r,
                 'maxiter': maxiter}
         
     def slab(self, n, fd):
