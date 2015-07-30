@@ -495,6 +495,7 @@ class RealFreqIntegration(FrequencyIntegration):
 
     @timer('Inverse dielectric function')
     def calculate_idf(self, q_c, vc, ecut, readw=False, A_x=None):
+        #print('qp: calculate_idf, q_c=%s' % q_c.round(3))
         """Calculates the inverse dielectric matrix for a specified q-point."""
         # Divide memory into two slots so we can redistribute via moving values
         # from one slot to the other
@@ -592,13 +593,13 @@ class RealFreqIntegration(FrequencyIntegration):
 
             # Calculate the q->0 entities
             if np.allclose(q_c, 0):
-                B_GG = idf_GG[1:, 1:]
-                B_GG[:] = np.linalg.inv(delta_GG[1:, 1:] -
+                idf_GG[0, :] = 0.0
+                idf_GG[:, 0] = 0.0
+                idf_GG[0, 0] = 1.0
+                idf_GG[1:, 1:] = np.linalg.inv(delta_GG[1:, 1:] -
                                         chi0_GG[1:, 1:] * vc_G[np.newaxis, 1:] *
                                         vc_G[1:, np.newaxis])
-                idf_GG[0, :] *= 0.0
-                idf_GG[:, 0] *= 0.0
-                idf_GG[0, 0] = 1.0
+                B_GG = idf_GG[1:, 1:]
                 U_vG = -vc_G0[np.newaxis, :] * chi0_wxvG[wa + w, 0, :, 1:]
                 F_vv = -vc_00 * chi0_wvv[wa + w]
                 S_vG = np.dot(U_vG, B_GG.T)
@@ -606,7 +607,8 @@ class RealFreqIntegration(FrequencyIntegration):
                 S_wvG[w] = S_vG
                 L_wvv[w] = L_vv
             else:
-                idf_GG[:] = np.linalg.inv(delta_GG - chi0_GG * vc_G *
+                idf_GG[:] = np.linalg.inv(delta_GG - chi0_GG * 
+                                          vc_G[np.newaxis, :] *
                                           vc_G[:, np.newaxis])
             idf_GG -= delta_GG
         
@@ -637,8 +639,9 @@ class RealFreqIntegration(FrequencyIntegration):
         else:
             Wpm_wGG[:nw] = W_wGG
         
-        """
+        
         Wpm_wGG[nw:] = Wpm_wGG[0:nw]
+        """
         mystr = 'rank=%d, q_c=%s\n' % (world.rank, q_c)
         for n in range(nblocks1):
             G1 = n * mynG1
@@ -812,10 +815,8 @@ class QPointIntegration:
 
         if isinstance(self.vc, WignerSeitzTruncatedCoulomb):
             vc_G = self.vc.get_potential(pd)**0.5
-            if np.allclose(q_c, 0):
-                vc_G[0] = 0.0
             W_wGG[:] = (vc_G[np.newaxis, Ga:Gb, np.newaxis] * idf_wGG *
-                        vc_G[np.newaxis, :, np.newaxis])
+                        vc_G[np.newaxis, np.newaxis, :])
 
         elif isinstance(self.vc, CoulombKernel3D):
             dq = rvol / self.qd.nbzkpts
@@ -938,7 +939,7 @@ class QPointIntegration:
                 vc_G = self.vc.get_potential(pd=pd)**0.5
                 W_wGG[:] = 1.0 * (vc_G[np.newaxis, Ga:Gb, np.newaxis] * idf_wGG *
                                  vc_G[np.newaxis, :, np.newaxis])
-        
+
         return W_wGG
 
     def add_anisotropy_correction3D(self, W_wGG, v_G, q_v, S_wvG, L_wvv,

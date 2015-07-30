@@ -434,10 +434,6 @@ class G0W0(PairDensity):
                     pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
 
             self.timer.stop('W')
-
-            print('q_c=%s' % q_c)
-            #print('W_wGG:')
-            #print(W[0][0, 0:5, 0:5])
             
             # Loop over all k-points in the BZ and find those that are related
             # to the current IBZ k-point by symmetry
