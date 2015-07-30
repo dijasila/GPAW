@@ -686,32 +686,35 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
         return
     
     if comm.rank == 0:
-        src_atoms = atoms
+        src = (atoms.positions, atoms.cell, atoms.numbers, atoms.pbc)
     else:
-        src_atoms = None
+        src = None
 
-    newatoms = broadcast(src_atoms, root=0, comm=comm)
-    err = np.abs(newatoms.positions - atoms.positions).max()
-    # Now copy positions array so we can check for strict identity
-    atoms.positions[:, :] = newatoms.positions[:, :]
+    positions, cell, numbers, pbc = broadcast(src, root=0, comm=comm)
+    ok = (len(positions) == len(atoms.positions) and
+          (abs(positions - atoms.positions).max() <= tolerance) and
+          (numbers == atoms.numbers).all() and
+          (cell == atoms.cell).all() and
+          (pbc == atoms.pbc).all())
 
     # We need to fail equally on all ranks to avoid trouble.  Thus
     # we use an array to gather check results from everyone.
-    my_fail = np.array(err > tolerance or newatoms != atoms,
-                       dtype=bool)
-
+    my_fail = np.array(not ok, dtype=bool)
     all_fail = np.zeros(comm.size, dtype=bool)
     comm.all_gather(my_fail, all_fail)
 
     if all_fail.any():
-        err_ranks = np.arange(comm.size)[all_fail]
         if debug:
-            fd = open('synchronize_atoms_r%d.pckl' % comm.rank, 'wb')
-            pickle.dump((newatoms, atoms), fd)
-            fd.close()
+            with open('synchronize_atoms_r%d.pckl' % comm.rank, 'wb') as fd:
+                pickle.dump((atoms.positions, atoms.cell,
+                             atoms.numbers, atoms.pbc,
+                             positions, cell, numbers, pbc), fd)
+        err_ranks = np.arange(comm.size)[all_fail]
         raise ValueError('Mismatch of Atoms objects.  In debug '
                          'mode, atoms will be dumped to files.',
                          err_ranks)
+        
+    atoms.positions = positions
 
         
 def broadcast_string(string=None, root=0, comm=world):

@@ -1,4 +1,3 @@
-from gpaw.fd_operators import Gradient
 from gpaw.solvation.gridmem import NeedsGD
 import numpy as np
 
@@ -45,6 +44,15 @@ class Dielectric(NeedsGD):
 
     def update(self, cavity):
         """Calculate eps_gradeps and del_eps_del_g_g from the cavity."""
+        self.update_eps_only(cavity)
+        for i in (0, 1, 2):
+            np.multiply(
+                self.del_eps_del_g_g,
+                cavity.grad_g_vg[i],
+                self.eps_gradeps[1 + i]
+            )
+
+    def update_eps_only(self, cavity):
         raise NotImplementedError
 
     def print_parameters(self, text):
@@ -52,44 +60,7 @@ class Dielectric(NeedsGD):
         text('epsilon_inf: %s' % (self.epsinf, ))
 
 
-class FDGradientDielectric(Dielectric):
-    """Dielectric with finite difference gradient."""
-
-    def __init__(self, epsinf, nn=3):
-        """Constructor for the FDGradientDielectric class.
-
-        Additional arguments not present in the base Dielectric class:
-        nn -- Stencil size for finite difference gradient.
-        """
-        Dielectric.__init__(self, epsinf)
-        self.nn = nn
-        self.eps_hack_g = None
-        self.gradient = None
-
-    def estimate_memory(self, mem):
-        Dielectric.estimate_memory(self, mem)
-        mem.subnode('Boundary Correction', self.gd.bytecount())
-
-    def allocate(self):
-        Dielectric.allocate(self)
-        self.eps_hack_g = self.gd.empty()
-        self.gradient = [
-            Gradient(self.gd, i, 1.0, self.nn) for i in (0, 1, 2)
-        ]
-
-    def update_gradient(self):
-        """Update the gradient.
-
-        Usage note:
-        Call this method at the end of the update method of a subclass.
-        """
-        # zero on boundary, since bmgs supports only zero or periodic BC
-        np.subtract(self.eps_gradeps[0], self.epsinf, out=self.eps_hack_g)
-        for i in (0, 1, 2):
-            self.gradient[i].apply(self.eps_hack_g, self.eps_gradeps[i + 1])
-
-
-class LinearDielectric(FDGradientDielectric):
+class LinearDielectric(Dielectric):
     """Dielectric depending (affine) linearly on the cavity.
 
     See also
@@ -97,26 +68,24 @@ class LinearDielectric(FDGradientDielectric):
     """
 
     def allocate(self):
-        FDGradientDielectric.allocate(self)
+        Dielectric.allocate(self)
         self.del_eps_del_g_g = self.epsinf - 1.  # frees array
 
-    def update(self, cavity):
+    def update_eps_only(self, cavity):
         np.multiply(cavity.g_g, self.epsinf - 1., self.eps_gradeps[0])
         self.eps_gradeps[0] += 1.
-        self.update_gradient()
 
 
-class CMDielectric(FDGradientDielectric):
+class CMDielectric(Dielectric):
     """Clausius-Mossotti like dielectric.
 
     Untested, use at own risk!
     """
 
-    def update(self, cavity):
+    def update_eps_only(self, cavity):
         ei = self.epsinf
         t = 1. - cavity.g_g
         self.eps_gradeps[0][:] = (3. * (ei + 2.)) / ((ei - 1.) * t + 3.) - 2.
         self.del_eps_del_g_g[:] = (
             (3. * (ei - 1.) * (ei + 2.)) / ((ei - 1.) * t + 3.) ** 2
         )
-        self.update_gradient()

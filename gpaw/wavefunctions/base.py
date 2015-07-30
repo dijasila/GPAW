@@ -68,6 +68,7 @@ class WaveFunctions(EmptyWaveFunctions):
         #self.nbands = self.bd.nbands #XXX
         #self.mynbands = self.bd.mynbands #XXX
         self.dtype = dtype
+        assert dtype == float or dtype == complex
         self.world = world
         self.kd = kd
         self.kptband_comm = kptband_comm

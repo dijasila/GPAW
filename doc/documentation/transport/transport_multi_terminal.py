@@ -1,9 +1,7 @@
-from ase import Atoms, view
+from ase import Atoms
 from gpaw import FermiDirac, Mixer
-from gpaw.transport.calculator import Transport 
-from gpaw.atom.basis import BasisMaker
+from gpaw.transport.calculator import Transport
 from gpaw.poisson import PoissonSolver
-import pickle
 import numpy as np
 
 Ly=7.0
@@ -18,13 +16,13 @@ for i in range(6):
     atoms.positions[i, 0] = np.cos(np.pi/3*i)*C_C
     atoms.positions[i, 2] = np.sin(np.pi/3*i)*C_C
 for i in range(6,10):
-    atoms.positions[i, 0] = (i + 2 - 6) * atoms.positions[0, 0] 
+    atoms.positions[i, 0] = (i + 2 - 6) * atoms.positions[0, 0]
     atoms.positions[i, 2] = (i + 2 - 6) * atoms.positions[0, 2]
 for i in range(10,14):
-    atoms.positions[i, 0] = (i + 2 - 10) * atoms.positions[2, 0] 
+    atoms.positions[i, 0] = (i + 2 - 10) * atoms.positions[2, 0]
     atoms.positions[i, 2] = (i + 2 - 10) * atoms.positions[2, 2]
 for i in range(14,18):
-    atoms.positions[i, 0] = (i + 2 - 14) * atoms.positions[4, 0] 
+    atoms.positions[i, 0] = (i + 2 - 14) * atoms.positions[4, 0]
     atoms.positions[i, 2] = (i + 2 - 14) * atoms.positions[4, 2]
 for i in range(18,21):
     atoms.positions[i, 0] = atoms.positions[(i - 18)*2 + 1, 0] * (C_H + C_C) / C_C
@@ -41,26 +39,26 @@ for i in range(6):
     eatoms.positions[i, 0] = np.cos(np.pi/3*i)*C_C
     eatoms.positions[i, 2] = np.sin(np.pi/3*i)*C_C
 for i in range(6,10):
-    eatoms.positions[i, 0] = (i + 2 - 6) * eatoms.positions[0, 0] 
+    eatoms.positions[i, 0] = (i + 2 - 6) * eatoms.positions[0, 0]
     eatoms.positions[i, 2] = (i + 2 - 6) * eatoms.positions[0, 2]
 for i in range(10,14):
-    eatoms.positions[i, 0] = (i + 2 - 10) * eatoms.positions[2, 0] 
+    eatoms.positions[i, 0] = (i + 2 - 10) * eatoms.positions[2, 0]
     eatoms.positions[i, 2] = (i + 2 - 10) * eatoms.positions[2, 2]
 for i in range(14,18):
-    eatoms.positions[i, 0] = (i + 2 - 14) * eatoms.positions[4, 0] 
+    eatoms.positions[i, 0] = (i + 2 - 14) * eatoms.positions[4, 0]
     eatoms.positions[i, 2] = (i + 2 - 14) * eatoms.positions[4, 2]
 for i in range(18,21):
     eatoms.positions[i, 0] = eatoms.positions[(i - 18)*2 + 1, 0] * (C_H + C_C) / C_C
     eatoms.positions[i, 2] = eatoms.positions[(i - 18)*2 + 1, 2] * (C_H + C_C) / C_C
 
 for i in range(21,25):
-    eatoms.positions[i, 0] = (i + 2 - 17) * eatoms.positions[0, 0] 
+    eatoms.positions[i, 0] = (i + 2 - 17) * eatoms.positions[0, 0]
     eatoms.positions[i, 2] = (i + 2 - 17) * eatoms.positions[0, 2]
 for i in range(25,29):
-    eatoms.positions[i, 0] = (i + 2 - 21) * eatoms.positions[2, 0] 
+    eatoms.positions[i, 0] = (i + 2 - 21) * eatoms.positions[2, 0]
     eatoms.positions[i, 2] = (i + 2 - 21) * eatoms.positions[2, 2]
 for i in range(29,33):
-    eatoms.positions[i, 0] = (i + 2 - 25) * eatoms.positions[4, 0] 
+    eatoms.positions[i, 0] = (i + 2 - 25) * eatoms.positions[4, 0]
     eatoms.positions[i, 2] = (i + 2 - 25) * eatoms.positions[4, 2]
 
 #sort_atoms(atoms)
@@ -68,7 +66,7 @@ eatoms.rotate('x', 'z')
 eatoms.rotate('y', np.pi)
 eatoms.center()
 
-pl_atoms1 = range(6,10)     
+pl_atoms1 = range(6,10)
 pl_atoms2 = range(10,14)
 pl_atoms3 = range(14,18)
 

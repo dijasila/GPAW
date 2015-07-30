@@ -716,7 +716,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     @timer('Full diag')
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
-                                     nbands=None, scalapack=None, expert=False):
+                                     nbands=None, scalapack=None,
+                                     expert=False):
         assert self.dtype == complex
 
         if nbands is None:

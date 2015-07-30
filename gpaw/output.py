@@ -190,6 +190,9 @@ class PAWTextOutput:
             orthonormalizer_layout = self.wfs.orthoksl.get_description()
             t('Orthonormalizer layout: ' + orthonormalizer_layout)
         t()
+        
+        if self.hamiltonian.vext is not None:
+            t('External potential:\n    {0}\n'.format(self.hamiltonian.vext))
 
         self.wfs.kd.symmetry.print_symmetries(self.txt)
 
@@ -298,7 +301,7 @@ class PAWTextOutput:
             if self.density.charge == 0:
                 t('Dipole Moment: %s' % dipole)
             else:
-                t('Center of Charge: %s' % (dipole / abs(self.density.charge)))
+                t('Center of Charge: %s' % (dipole / self.density.charge))
 
         try:
             correction = self.hamiltonian.poisson.corrector.correction

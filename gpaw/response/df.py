@@ -17,12 +17,13 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
     def __init__(self, calc, name=None, frequencies=None, domega0=0.1,
-                 omega2=10.0, omegamax=None, ecut=50, hilbert=True,
+                 omega2=10.0, omegamax=None, ecut=50,
+                 hilbert=True, timeordered=False,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  gate_voltage=None, truncation=None, disable_point_group=False,
                  disable_time_reversal=False, use_more_memory=1,
-                 unsymmetrized=True):
+                 unsymmetrized=True, eshift=None):
         """Creates a DielectricFunction object.
         
         calc: str
@@ -78,14 +79,15 @@ class DielectricFunction:
 
         self.chi0 = Chi0(calc, frequencies, domega0=domega0,
                          omega2=omega2, omegamax=omegamax,
-                         ecut=ecut, hilbert=hilbert, nbands=nbands,
+                         ecut=ecut, nbands=nbands,
+                         hilbert=hilbert, timeordered=timeordered,
                          eta=eta, ftol=ftol, threshold=threshold,
                          intraband=intraband, world=world, nblocks=nblocks,
                          txt=txt, gate_voltage=gate_voltage,
                          disable_point_group=disable_point_group,
                          disable_time_reversal=disable_time_reversal,
                          use_more_memory=use_more_memory,
-                         unsymmetrized=unsymmetrized)
+                         unsymmetrized=unsymmetrized, eshift=eshift)
         
         self.name = name
 
@@ -93,12 +95,15 @@ class DielectricFunction:
         nw = len(self.omega_w)
         
         world = self.chi0.world
-        self.mynw = (nw + world.size - 1) // world.size
+        comm = self.chi0.blockcomm
+        kncomm = self.chi0.kncomm
+        #self.mynw = (nw + world.size - 1) // world.size
+        self.mynw = (nw + comm.size - 1) // comm.size
         self.w1 = min(self.mynw * world.rank, nw)
         self.w2 = min(self.w1 + self.mynw, nw)
         self.truncation = truncation
 
-    def calculate_chi0(self, q_c):
+    def calculate_chi0(self, q_c, A1_x=None, A2_x=None):
         """Calculates the density response function.
 
         Calculate the density response function for a specific momentum.
@@ -110,47 +115,62 @@ class DielectricFunction:
             kd = self.chi0.calc.wfs.kd
             name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
             if os.path.isfile(name):
-                return self.read(name)
+                return self.read(name, A1_x, A2_x)
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c)
-        chi0_wGG = self.chi0.distribute_frequencies(chi0_wGG)
-        self.chi0.timer.write(self.chi0.fd)
-        if self.name:
-            self.write(name, pd, chi0_wGG, chi0_wxvG, chi0_wvv)
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c, A_x=A1_x)
         
+        chi0_wGG = self.chi0.redistribute(chi0_wGG, A2_x)
+        #chi0_wGG = self.chi0.distribute_frequencies(chi0_wGG)
+        
+        if self.name:
+            self.write(name, pd, chi0_wGG, chi0_wxvG, chi0_wvv, A1_x)
+            #pass
+        
+        self.chi0.timer.write(self.chi0.fd)
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
-    def write(self, name, pd, chi0_wGG, chi0_wxvG, chi0_wvv):
+    def write(self, name, pd, chi0_wGG, chi0_wxvG, chi0_wvv, A_x):
         nw = len(self.omega_w)
         nG = pd.ngmax
         world = self.chi0.world
+        blockcomm = self.chi0.blockcomm
+        kncomm = self.chi0.kncomm
 
+        
         if world.rank == 0:
+            assert kncomm.rank == 0
             fd = open(name, 'wb')
             pickle.dump((self.omega_w, pd, None, chi0_wxvG, chi0_wvv),
                         fd, pickle.HIGHEST_PROTOCOL)
-            for chi0_GG in chi0_wGG:
+            for w, chi0_GG in enumerate(chi0_wGG):
                 pickle.dump(chi0_GG, fd, pickle.HIGHEST_PROTOCOL)
             
-            tmp_wGG = np.empty((self.mynw, nG, nG), complex)
+            if A_x is not None:
+                nx = self.mynw * nG**2
+                #tmp_wGG = A_x[:nx].reshape((self.mynw, nG, nG))
+                tmp_wGG = np.empty((self.mynw, nG, nG), complex)
+            else:
+                tmp_wGG = np.empty((self.mynw, nG, nG), complex)
             w1 = self.mynw
-            for rank in range(1, world.size):
+            for rank in range(1, blockcomm.size):
                 w2 = min(w1 + self.mynw, nw)
-                world.receive(tmp_wGG[:w2 - w1], rank)
+                world.receive(tmp_wGG, rank)
                 for w in range(w2 - w1):
                     pickle.dump(tmp_wGG[w], fd, pickle.HIGHEST_PROTOCOL)
                 w1 = w2
             fd.close()
-        else:
+        elif kncomm.rank == 0:
             world.send(chi0_wGG, 0)
 
-    def read(self, name):
+    def read(self, name, A1_x=None, A2_x=None):
         print('Reading from', name, file=self.chi0.fd)
         fd = open(name, 'rb')
         omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
         assert np.allclose(omega_w, self.omega_w)
 
         world = self.chi0.world
+        blockcomm = self.chi0.blockcomm
+        kncomm = self.chi0.kncomm
         
         nw = len(omega_w)
         nG = pd.ngmax
@@ -160,19 +180,36 @@ class DielectricFunction:
             chi0_wGG = chi0_wGG[self.w1:self.w2].copy()
         else:
             if world.rank == 0:
-                chi0_wGG = np.empty((self.mynw, nG, nG), complex)
-                for chi0_GG in chi0_wGG:
-                    chi0_GG[:] = pickle.load(fd)
-                tmp_wGG = np.empty((self.mynw, nG, nG), complex)
-                w1 = self.mynw
-                for rank in range(1, world.size):
+                assert kncomm.rank == 0
+                if A1_x is not None:
+                    nx = self.mynw * nG**2
+                    chi0_wGG = A1_x[:nx].reshape((self.mynw, nG, nG))
+                    tmp_wGG = A2_x[:nx].reshape((self.mynw, nG, nG))
+                else:
+                    chi0_wGG = np.empty((self.mynw, nG, nG), complex)
+                    tmp_wGG = np.empty((self.mynw, nG, nG), complex)
+                
+                #for w, chi0_GG in enumerate(chi0_wGG):
+                #    print('w=%d' % w)
+                #    chi0_GG[:] = pickle.load(fd)
+                w1 = 0
+                for brank in range(blockcomm.size):
                     w2 = min(w1 + self.mynw, nw)
                     for w in range(w2 - w1):
                         tmp_wGG[w] = pickle.load(fd)
-                    world.send(tmp_wGG[:w2 - w1], rank)
+                    for knrank in range(0, kncomm.size):
+                        rank = knrank * blockcomm.size + brank
+                        if rank == 0:
+                            chi0_wGG[:] = tmp_wGG
+                        else:
+                            world.send(tmp_wGG, rank)
                     w1 = w2
             else:
-                chi0_wGG = np.empty((self.w2 - self.w1, nG, nG), complex)
+                if A1_x is not None:
+                    nx = self.mynw * nG**2
+                    chi0_wGG = A1_x[:nx].reshape((self.mynw, nG, nG))
+                else:
+                    chi0_wGG = np.empty((self.mynw, nG, nG), complex)
                 world.receive(chi0_wGG, 0)
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
         
@@ -221,6 +258,8 @@ class DielectricFunction:
         elif self.truncation == '2D':
             K_G = truncated_coulomb(pd)
             K_G *= G_G**2
+            if pd.kd.gamma:
+                K_G[0] = 0.0
         else:
             K_G = np.ones(nG)
 
@@ -231,10 +270,10 @@ class DielectricFunction:
         if xc != 'RPA':
             R_av = self.chi0.calc.atoms.positions / Bohr
             nt_sG = self.chi0.calc.density.nt_sG
-            K_GG += calculate_Kxc(pd, nt_sG, R_av, self.chi0.calc.wfs.setups,
-                                  self.chi0.calc.density.D_asp,
-                                  functional=xc) * G_G * G_G[:, np.newaxis]
-            
+            Kxc_sGG = calculate_Kxc(pd, nt_sG, R_av, self.chi0.calc.wfs.setups,
+                                    self.chi0.calc.density.D_asp,
+                                    functional=xc)
+            K_GG += Kxc_sGG[0] * G_G * G_G[:, np.newaxis]
         chi_wGG = []
         for chi0_GG in chi0_wGG:
             chi0_GG[:] = chi0_GG / G_G / G_G[:, np.newaxis]

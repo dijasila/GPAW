@@ -15,21 +15,22 @@ runs = [
 #    #'cgdzpd103',  # lcao + cg + MixerDif
 #    'fm103',  # FFT
     'davd203',  # PW mode winner
-    'davfd203',  # FFT
-    ]
+    'davfd203']  # FFT
+
 runsstr = ','.join(runs)
 runsstr += ',jacapo'
 
+
 def agts(queue):
-    run = [queue.add('dcdft_pbe_pw.py %s --gpaw=fprojectors=1' % r,
+    run = [queue.add('dcdft_pbe_pw.py %s' % r,
                      ncpus=1,
-                     walltime=30*60)
-           for r in runs*8]
+                     walltime=30 * 60)
+           for r in runs * 8]
     jacapo = queue.add('dcdft_pbe_pw_jacapo.py',
                        ncpus=1,
-                       walltime=10*60)
+                       walltime=10 * 60)
     if 0:  # we don't run all the runs for the moment
-        analyse = queue.add('analyse.py bulk scf_dcdft_pbe_pw ' + runsstr,
-                            ncpus=1, walltime=10, deps=run + [jacapo],
-                            creates=['scf_dcdft_pbe_pw_energy.csv',
-                                     'scf_dcdft_pbe_pw_calculator_steps.png'])
+        queue.add('analyse.py bulk scf_dcdft_pbe_pw ' + runsstr,
+                  ncpus=1, walltime=10, deps=run + [jacapo],
+                  creates=['scf_dcdft_pbe_pw_energy.csv',
+                           'scf_dcdft_pbe_pw_calculator_steps.png'])

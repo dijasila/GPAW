@@ -79,3 +79,9 @@ class WignerSeitzTruncatedCoulomb:
         K_G[1:] += 4 * pi * (1 - np.exp(-G2_G[1:] / (4 * a**2))) / G2_G[1:]
         assert pd.dtype == complex
         return K_G
+
+    def get_gamma_limits(self, pd):
+        vc_00 = 0.0
+        G_Gv = pd.get_reciprocal_vectors(add_q=False)
+        vc_G0 = np.zeros(len(G_Gv) - 1)
+        return vc_G0, vc_00

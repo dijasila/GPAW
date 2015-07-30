@@ -63,9 +63,7 @@ UL = 'L'
 # Generate the coefficients for the Fourier-Bessel transform
 C = []
 a = 0.0
-LMAX = 5
-if extra_parameters.get('fprojectors'):
-    LMAX = 7
+LMAX = 7
 for n in range(LMAX):
     c = np.zeros(n + 1, complex)
     for s in range(n + 1):
@@ -140,7 +138,8 @@ class OverlapExpansion(BaseOverlapExpansionSet):
     def get_gaunt(self, l):
         la = self.la
         lb = self.lb
-        G_mmm = gaunt[la**2:(la + 1)**2,
+        G_LLL = gaunt(max(la, lb))
+        G_mmm = G_LLL[la**2:(la + 1)**2,
                       lb**2:(lb + 1)**2,
                       l**2:(l + 1)**2]
         return G_mmm

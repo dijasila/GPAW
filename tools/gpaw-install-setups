@@ -6,7 +6,7 @@ import fnmatch
 import urllib2
 from StringIO import StringIO
 import tarfile
-from optparse import OptionParser
+from optparse import OptionParser, OptionGroup
 import re
 
 
@@ -16,17 +16,31 @@ description = ('In first form, show available setups and GPAW setup paths.  '
                'INSTALLDIR/[setups-package-name-and-version].')
 
 
+sources = [('gpaw', 'official GPAW setups releases [default]'),
+           ('sg15', 'SG15 pseudopotentials'),
+           ('basis', 'basis sets for LCAO mode'),
+           ('test', 'small file for testing this script'),
+           ]
+names = [r for r, d in sources]
+
+
 p = OptionParser(usage=usage, description=description)
 p.add_option('--version', metavar='VERSION',
-             help='download VERSION of setups or pseudopotentials.  '
+             help='download VERSION of package.  '
              'Run without arguments to display a list of versions.  '
              'VERSION can be the full URL or a part such as  '
              '\'0.8\' or \'0.6.6300\'')
-p.add_option('--tarball', metavar='FILENAME',
-             help='unpack and install from local tarball FILENAME '
+p.add_option('--tarball', metavar='FILE',
+             help='unpack and install from local tarball FILE '
              'instead of downloading')
-p.add_option('--sg15', action='store_true',
-             help='install SG15 pseudopotentials rather than PAW setups.')
+p.add_option('--list-all', action='store_true',
+             help='list packages from all sources')
+g = OptionGroup(p, 'Sources')
+for name, description in sources:
+    g.add_option('--%s' % name, action='store_const',
+                 const=name, dest='source',
+                 help=description)
+p.add_option_group(g)
 p.add_option('--register', action='store_true',
              help='run non-interactively and register install path in '
              'GPAW setup search paths.  This is done by adding lines to '
@@ -38,33 +52,45 @@ opts, args = p.parse_args()
 nargs = len(args)
 
 
+if opts.source is None:
+    opts.source = sources[0][0]
+
+
 if opts.register and opts.no_register:
     p.error('Conflicting options specified on whether to register '
             'setup install paths in configuration file.  Try not specifying '
             'some options.')
 
 
-def get_gpaw_setup_file_urls():
-    setups_page = 'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.txt'
-    response = urllib2.urlopen(setups_page)
-    pattern = 'https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-*.tar.gz'
-    urls = [line.strip() for line in response
-            if fnmatch.fnmatch(line.strip(), pattern)]
-    return urls
-
-
-sg15_page = 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/'
-
-def get_sg15_file_urls():
-    response = urllib2.urlopen(sg15_page)
-    # (This primitive way actually produces two hits per file)
-    pattern = re.compile(r'sg15_oncv_upf_\d\d\d\d-\d\d-\d\d.tar.gz')
-    matches = pattern.findall(response.read())
-    sg15_files = list(set(matches))
-    sg15_files.sort(reverse=True)
-    sg15_urls = [''.join([sg15_page, fname])
-                 for fname in sg15_files]
-    return sg15_urls
+def get_urls(source):
+    if source == 'gpaw':
+        page = 'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.txt'
+        response = urllib2.urlopen(page)
+        pattern = 'https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-*.tar.gz'
+        urls = [line.strip() for line in response
+                if fnmatch.fnmatch(line.strip(), pattern)]
+        return urls
+    elif source == 'sg15':
+        page = 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/'
+        response = urllib2.urlopen(page)
+        # Extract filename from:
+        # <a href="...">sg15_oncv_upf_YYYY-MM-DD.tar.gz</a>
+        pattern = r'>(sg15_oncv_upf_\d\d\d\d-\d\d-\d\d\.tar\.gz)</a>'
+        files = re.compile(pattern).findall(response.read())
+        files.sort(reverse=True)
+        urls = [page + fname for fname in files]
+        return urls
+    elif source == 'basis':
+        page = 'http://dcwww.camd.dtu.dk/~askhl/files/gpaw-lcao-basis-sets/'
+        pattern = re.compile('>(gpaw-basis-.+?.tar.gz)</a>')
+        response = urllib2.urlopen(page)
+        files = sorted(pattern.findall(response.read()), reverse=True)
+        return [page + fname for fname in files]
+    elif source == 'test':
+        return ['http://dcwww.camd.dtu.dk/~askhl/files/gpaw-test-source/'
+                'gpaw-dist-test-source.tar.gz']
+    else:
+        raise ValueError('Unknown source: %s' % source)
 
 
 # The sg15 file is a tarbomb.  We will later defuse it by untarring
@@ -72,16 +98,17 @@ def get_sg15_file_urls():
 # unsuspecting user's system.
 
 if not opts.tarball:
-    if opts.sg15:
-        urls = get_sg15_file_urls()
+    if opts.list_all:
+        urls = []
+        for source in names:
+            urls1 = get_urls(source)
+            urls.extend(urls1)
     else:
-        urls = get_gpaw_setup_file_urls()
+        urls = get_urls(opts.source)
 
     def print_urls(urls, marked=None):
         for url in urls:
             pageurl, fname = url.rsplit('/', 1)
-            #print(pageurl, fname)
-            domain = pageurl.split('//', 1)[1].split('/', 1)[0]
             if url == marked:
                 marking = ' [*]'
             else:
@@ -89,9 +116,11 @@ if not opts.tarball:
             print(' %s %s' % (marking, url))
 
     if len(urls) == 0:
-        p.error('For some reason, no setup packages were found.  Probably'
-                'this script is out of date.  Please rummage around GPAW '
-                'web page until solution is found.')
+        p.error('For some reason, no files were found. Probably this script '
+                'is out of date.  Please rummage around GPAW web page until '
+                'solution is found.  Writing e-mails to '
+                'gpaw-developers@lists@listserv.fysik.dtu.dk is also likely'
+                'to help.')
 
     if opts.version:
         matching_urls = [url for url in urls if opts.version in url]
@@ -111,12 +140,19 @@ if not opts.tarball:
     print_urls(urls, url)
     print()
 
+
 def print_setups_info():
     try:
         import gpaw
-    except ImportError, e:
-        p.error("Cannot import 'gpaw'.  GPAW does not appear to be installed."
-                " %s" % e)
+    except ImportError as e:
+        p.error('Cannot import \'gpaw\'.  GPAW does not appear to be '
+                'installed. %s' % e)
+
+    # GPAW may already have been imported, and the contents of the rc
+    # file may have changed since then.  Thus, we re-import gpaw to be
+    # sure that everything is as it should be.
+    reload(gpaw)
+
     npaths = len(gpaw.setup_paths)
     if npaths == 0:
         print('GPAW currently has no setup search paths')
@@ -177,8 +213,7 @@ rcfilepath = os.path.join(rcfiledir, 'rc.py')
 
 # We could do all this by importing the rcfile as well and checking
 # whether things are okay or not.
-rcline1 = 'from gpaw import setup_paths'
-rcline2 = "setup_paths.insert(0, '%s')" % setup_path
+rcline = "setup_paths.insert(0, '%s')" % setup_path
 
 # Run interactive mode unless someone specified a flag requiring otherwise
 interactive_mode = not (opts.register or opts.no_register)
@@ -209,26 +244,24 @@ if register_path:
         tmpfd.close()
 
     for line in open(rcfilepath):
-        if line.startswith(rcline2):
+        if line.startswith(rcline):
             print('It looks like the path is already registered in %s.'
                   % rcfilepath)
             print('File will not be modified at this time.')
             break
     else:
         rcfd = open(rcfilepath, 'a')
-        print(rcline1, file=rcfd)
-        print(rcline2, file=rcfd)
+        print(rcline, file=rcfd)
         print('Setup path registered in %s.' % rcfilepath)
+        # Need to explicitly flush/close the file so print_setups_info
+        # sees the change in rc.py
+        rcfd.close()
 
-        # Note: If called twice during the same run, this will *not* have
-        # been updated with the newly edited lines as the info was already
-        # imported!  Would need a reload.
         print_setups_info()
 else:
     print('You can manually register the setups by adding the')
-    print('following two lines to %s:' % rcfilepath)
+    print('following line to %s:' % rcfilepath)
     print()
-    print(rcline1)
-    print(rcline2)
+    print(rcline)
     print()
 print('Installation complete.')

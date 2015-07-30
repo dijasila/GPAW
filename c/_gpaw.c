@@ -24,7 +24,6 @@ PyObject* craypat_region_begin(PyObject *self, PyObject *args);
 PyObject* craypat_region_end(PyObject *self, PyObject *args);
 #endif
 
-
 PyObject* symmetrize(PyObject *self, PyObject *args);
 PyObject* symmetrize_ft(PyObject *self, PyObject *args);
 PyObject* symmetrize_wavefunction(PyObject *self, PyObject *args);
@@ -58,7 +57,6 @@ PyObject* NewWOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewSplineObject(PyObject *self, PyObject *args);
 PyObject* NewTransformerObject(PyObject *self, PyObject *args);
 PyObject* pc_potential(PyObject *self, PyObject *args);
-PyObject* pc_potential_value(PyObject *self, PyObject *args);
 PyObject* heap_mallinfo(PyObject *self);
 PyObject* elementwise_multiply_add(PyObject *self, PyObject *args);
 PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args);
@@ -173,7 +171,6 @@ static PyMethodDef functions[] = {
   {"vdw2", vdw2, METH_VARARGS, 0},
   {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
   {"pc_potential", pc_potential, METH_VARARGS, 0},
-  {"pc_potential_value", pc_potential_value, METH_VARARGS, 0},
   {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
   {"LFC", NewLFCObject, METH_VARARGS, 0},
   /*
@@ -310,7 +307,7 @@ static PyObject* moduleinit(void)
   Py_INCREF(&lxcXCFunctionalType);
 
   import_array1(NULL);
-  
+ 
   return m;
 }
 

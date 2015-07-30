@@ -25,11 +25,12 @@ atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
 
 xy_cell = np.ceil((min_vac * 2.) / h / 8.) * 8. * h
 z_cell = np.ceil((min_vac * 2. + d) / h / 8.) * 8. * h
-atoms = Atoms('NaCl', positions=(
+atoms = Atoms(
+    'NaCl', positions=(
         (xy_cell / 2., xy_cell / 2., z_cell / 2. - d / 2.),
         (xy_cell / 2., xy_cell / 2., z_cell / 2. + d / 2.)
-        )
-              )
+    )
+)
 atoms.set_cell((xy_cell, xy_cell, z_cell))
 
 atoms.calc = SolvationGPAW(
@@ -39,18 +40,20 @@ atoms.calc = SolvationGPAW(
         temperature=T,
         volume_calculator=KB51Volume(),
         surface_calculator=GradientSurface()
-        ),
+    ),
     dielectric=LinearDielectric(epsinf=epsinf),
     # parameters chosen to give ~ 1eV for each interaction
     interactions=[
         VolumeInteraction(pressure=-1e9 * Pascal),
         SurfaceInteraction(surface_tension=100. * 1e-3 * Pascal * m),
         LeakedDensityInteraction(voltage=10.)
-        ]
-    )
+    ]
+)
 F = atoms.calc.get_forces(atoms)
 
 difference = F[0][2] + F[1][2]
+print(difference)
 equal(difference, .0, .02)  # gas phase is ~.007 eV / Ang
 F[0][2] = F[1][2] = .0
-equal(np.abs(F), .0, 1e-9)  # gas phase is ~1e-11 eV / Ang
+print(np.abs(F))
+equal(np.abs(F), .0, 1e-10)  # gas phase is ~1e-11 eV / Ang

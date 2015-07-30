@@ -13,13 +13,13 @@ import _gpaw
 import gpaw.mpi as mpi
 
 
-def frac(f, n=2 * 3 * 4 * 5):
+def frac(f, n=2 * 3 * 4 * 5, tol=1e-6):
     if not isinstance(f, (int, float)):
-        return np.array([frac(a, n) for a in f]).T
+        return np.array([frac(a, n, tol) for a in f]).T
     if f == 0:
         return 0, 1
     x = n * f
-    if abs(x - round(x)) > 1e-6:
+    if abs(x - round(x)) > n * tol:
         raise ValueError
     x = int(round(x))
     d = gcd(x, n)
@@ -194,9 +194,10 @@ class Symmetry:
                 ftrans_jc -= np.rint(ftrans_jc)
                 for ft_c in ftrans_jc:
                     try:
-                        nom_c, denom_c = frac(ft_c)
+                        nom_c, denom_c = frac(ft_c, tol=self.tol)
                     except ValueError:
                         continue
+                    ft0_c = ft_c.copy()
                     ft_c = nom_c / denom_c
                     a_a = self.check_one_symmetry(spos_ac, op_cc, ft_c, a_ij)
                     if a_a is not None:

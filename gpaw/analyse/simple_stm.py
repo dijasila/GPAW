@@ -155,7 +155,7 @@ class SimpleStm(STM):
         filetype.lower()
 
         if filetype == 'plt':
-            data, cell = read_plt(file)
+            data, self.cell = read_plt(file)
 
             pbc_c = [True, True, True]
             N_c = np.array(data.shape)
@@ -163,7 +163,7 @@ class SimpleStm(STM):
                 if N_c[c] % 2 == 1:
                     pbc_c[c] = False
                     N_c[c] += 1
-            self.gd = GridDescriptor(N_c, cell.diagonal() / Bohr, pbc_c)
+            self.gd = GridDescriptor(N_c, self.cell.diagonal() / Bohr, pbc_c)
             self.offset_c = [int(not a) for a in self.gd.pbc_c]
 
         else:
@@ -181,6 +181,12 @@ class SimpleStm(STM):
         as given in Hofer et al., RevModPhys 75 (2003) 1287
         """
         return 0.0002 * sqrt(current)
+
+    def linescan(self, bias, current, p1, p2, npoints=50, z0=None):
+        """Line scan for a given current [nA]"""
+        return STM.linescan(self, bias, 
+                            self.current_to_density(current),
+                            p1, p2, npoints, z0)
 
     def density_to_current(self, density):
         return 5000. * density ** 2

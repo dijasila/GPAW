@@ -13,3 +13,5 @@ if size > 1:
     except ValueError as e:
         err_ranks = e.args[1]
         assert (err_ranks == range(1, size)).all()
+    else:
+        assert False

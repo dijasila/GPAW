@@ -20,7 +20,7 @@ class BaseAtomicCorrection:
         self.nops = 0
 
     def redistribute(self, wfs, dX_asp, type='asp', op='forth'):
-        assert hasattr(dX_asp, 'redistribute'), type(dX_asp)
+        assert hasattr(dX_asp, 'redistribute'), dX_asp
         assert op in ['back', 'forth']
         return dX_asp
 

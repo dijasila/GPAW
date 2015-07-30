@@ -42,20 +42,20 @@ for atoms in atomss:
             temperature=T,
             surface_calculator=GradientSurface(),
             volume_calculator=KB51Volume()
-            ),
+        ),
         dielectric=LinearDielectric(epsinf=epsinf),
         interactions=[
             SurfaceInteraction(
                 surface_tension=100. * 1e-3 * Pascal * m
-                ),
+            ),
             VolumeInteraction(
                 pressure=-1.0 * 1e9 * Pascal
-                ),
+            ),
             LeakedDensityInteraction(
                 voltage=1.0
-                )
-            ]
-        )
+            )
+        ]
+    )
     Es.append(atoms.get_potential_energy())
     Fs.append(atoms.get_forces())
 

@@ -38,12 +38,12 @@ class Chi0(PairDensity):
                  nblocks=1, no_optical_limit=False,
                  keep_occupied_states=False, gate_voltage=None,
                  disable_point_group=False, disable_time_reversal=False,
-                 use_more_memory=0, unsymmetrized=True):
+                 use_more_memory=0, unsymmetrized=True, eshift=None):
 
         PairDensity.__init__(self, calc, ecut, ftol, threshold,
                              real_space_derivatives, world, txt, timer,
                              nblocks=nblocks,
-                             gate_voltage=gate_voltage)
+                             gate_voltage=gate_voltage, eshift=eshift)
 
         self.eta = eta / Hartree
         self.domega0 = domega0 / Hartree
@@ -128,6 +128,7 @@ class Chi0(PairDensity):
         self.Ga = self.blockcomm.rank * mynG
         self.Gb = min(self.Ga + mynG, nG)
         assert mynG * (self.blockcomm.size - 1) < nG
+        
         
         if A_x is not None:
             nx = nw * (self.Gb - self.Ga) * nG
@@ -423,15 +424,18 @@ class Chi0(PairDensity):
         """
         
         comm = self.blockcomm
+        world = self.world
         
         if comm.size == 1:
             return in_wGG
             
         nw = len(self.omega_w)
         nG = in_wGG.shape[2]
+        #mynw = (nw + world.size - 1) // world.size
         mynw = (nw + comm.size - 1) // comm.size
         mynG = (nG + comm.size - 1) // comm.size
         
+        #bg1 = BlacsGrid(world, world.size, 1)
         bg1 = BlacsGrid(comm, comm.size, 1)
         bg2 = BlacsGrid(comm, 1, comm.size)
         md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)

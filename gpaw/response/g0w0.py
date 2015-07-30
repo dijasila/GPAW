@@ -317,6 +317,7 @@ class G0W0(PairDensity):
         o2_m = self.omega_w[w_m + 1]
         
         x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
+        
         sigma = 0.0
         dsigma = 0.0
         # Performing frequency integration
@@ -433,6 +434,11 @@ class G0W0(PairDensity):
                     pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
 
             self.timer.stop('W')
+
+            print('q_c=%s' % q_c)
+            #print('W_wGG:')
+            #print(W[0][0, 0:5, 0:5])
+            
             # Loop over all k-points in the BZ and find those that are related
             # to the current IBZ k-point by symmetry
             Q1 = self.qd.ibz2bz_k[iq]
@@ -493,9 +499,10 @@ class G0W0(PairDensity):
             
         self.timer.start('Dyson eq.')
         # Calculate W and store it in chi0_wGG ndarray:
-        for chi0_GG in chi0_wGG:
+        for w, chi0_GG in enumerate(chi0_wGG):
             e_GG = (delta_GG -
                     4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis])
+            
             W_GG = chi0_GG
             W_GG[:] = 4 * pi * (np.linalg.inv(e_GG) -
                                 delta_GG) * iG_G * iG_G[:, np.newaxis]
@@ -508,13 +515,14 @@ class G0W0(PairDensity):
             Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)
         else:
             Wm_wGG = chi0_wGG
-            
+        
         Wp_wGG = A2_x[:Wm_wGG.size].reshape(Wm_wGG.shape)
         Wp_wGG[:] = Wm_wGG
 
         with self.timer('Hilbert transform'):
-            htp(Wp_wGG)
             htm(Wm_wGG)
+            htp(Wp_wGG)
+        
         self.timer.stop('Dyson eq.')
         
         return pd, [Wp_wGG, Wm_wGG]

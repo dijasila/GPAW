@@ -1,3 +1,5 @@
+.. _electrodynamics:
+    
 =========================
 Classical electrodynamics
 =========================

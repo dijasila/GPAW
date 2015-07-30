@@ -183,8 +183,8 @@ nitrogen molecule using two processes:
 
 .. _manual_parallel:
 
-Parallization options
-=====================
+Parallelization options
+=======================
 
 In version 0.7, a new keyword called ``parallel`` was introduced to provide 
 a unified way of specifying parallelization-related options. Similar to
@@ -212,7 +212,7 @@ In words:
 * ``'kpt'`` is an integer and denotes the number of groups of k-points over which to parallelize.
   k-point parallelization is the most efficient type of parallelization for most systems
   with many electrons and/or many k-points.
-  If uspecified, the calculator will choose a parallelization itself which maximizes the k-point
+  If unspecified, the calculator will choose a parallelization itself which maximizes the k-point
   parallelization unless that leads to load imbalance; in that case, it may prioritize domain
   decomposition.
 

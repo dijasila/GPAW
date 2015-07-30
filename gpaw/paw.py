@@ -267,7 +267,9 @@ class PAW(PAWTextOutput):
         elif not self.initialized:
             self.initialize(atoms)
             self.set_positions(atoms)
-        elif (atoms.get_positions() != self.atoms.get_positions()).any():
+        elif ((atoms.get_positions() != self.atoms.get_positions()).any() or
+              self.input_parameters.external is not None and
+              self.input_parameters.external.vext_g is None):
             self.density.reset()
             self.set_positions(atoms)
         elif not self.scf.converged:

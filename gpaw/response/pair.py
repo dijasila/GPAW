@@ -515,12 +515,15 @@ class PairDensity:
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt=sys.stdout, timer=None, nblocks=1,
-                 gate_voltage=None):
+                 gate_voltage=None, eshift=None):
         if ecut is not None:
             ecut /= Hartree
 
         if gate_voltage is not None:
             gate_voltage /= Hartree
+        
+        if eshift is not None:
+            eshift /= Hartree
 
         self.ecut = ecut
         self.ftol = ftol
@@ -572,6 +575,8 @@ class PairDensity:
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
         self.count_occupied_bands()
+        if eshift is not None:
+            self.add_eshift(eshift)
 
         self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
 
@@ -598,6 +603,26 @@ class PairDensity:
         f_n[tmp <= 100] = 1 / (1 + np.exp(tmp[tmp <= 100]))
         f_n[tmp > 100] = 0.0
         return f_n
+
+    def add_eshift(self, eshift=0):
+        """Shifts unoccupied bands by eshift"""
+        print('Shifting unoccupied bands by %.2f eV' % (eshift * Hartree),
+              file=self.fd)
+        for kpt in self.calc.wfs.kpt_u:
+            # Should only be applied to semiconductors
+            f_n = kpt.f_n / kpt.weight
+            if not all([f_n[i] > 1. - self.ftol or f_n[i] < self.ftol
+                    for i in range(len(f_n))]):
+                raise AssertionError('Eshift should only be applied ' + \
+                                     'to semiconductors and insulators.')
+            kpt.eps_n[self.nocc1:] += eshift
+            # Nothing done for occupations so far
+            # assume T=0 for occupations
+            #kpt.f_n[:self.nocc1] = kpt.weight
+            #kpt.f_n[self.nocc1:] = 0
+            # or shift Fermi level:
+            #kpt.f_n = (self.shift_occupations(kpt.eps_n, eshift / 2.)
+            #          * kpt.weight)
 
     def count_occupied_bands(self):
         self.nocc1 = 9999999

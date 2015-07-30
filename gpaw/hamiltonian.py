@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2003  CAMP
+# Copyright (C) 2003-2015  CAMP
 # Please see the accompanying LICENSE file for further information.
 
 """This module defines a Hamiltonian."""
-
-from math import pi, sqrt
 
 import numpy as np
 
@@ -93,7 +91,7 @@ class Hamiltonian(object):
 
     @property
     def dH_asp(self):
-        assert isinstance(self._dH_asp, ArrayDict) or self._dH_asp is None, type(self._dH_asp)
+        assert isinstance(self._dH_asp, ArrayDict) or self._dH_asp is None
         self._dH_asp.check_consistency()
         return self._dH_asp
 
@@ -139,7 +137,6 @@ class Hamiltonian(object):
                                                       self.kptband_comm,
                                                       self.ns)
 
-
     def aoom(self, DM, a, l, scale=1):
         """Atomic Orbital Occupation Matrix.
 
@@ -155,46 +152,46 @@ class Hamiltonian(object):
         which represents the orbital occupation matrix for l=2 this is
         a 5x5 matrix.
         """
-        S=self.setups[a]
+        S = self.setups[a]
         l_j = S.l_j
-        lq  = S.lq
-        nl  = np.where(np.equal(l_j, l))[0]
+        lq = S.lq
+        nl = np.where(np.equal(l_j, l))[0]
         V = np.zeros(np.shape(DM))
         if len(nl) == 2:
-            aa = (nl[0])*len(l_j)-((nl[0]-1)*(nl[0])/2)
-            bb = (nl[1])*len(l_j)-((nl[1]-1)*(nl[1])/2)
-            ab = aa+nl[1]-nl[0]
+            aa = (nl[0]) * len(l_j) - ((nl[0] - 1) * (nl[0]) / 2)
+            bb = (nl[1]) * len(l_j) - ((nl[1] - 1) * (nl[1]) / 2)
+            ab = aa + nl[1] - nl[0]
 
             if not scale:
-                lq_a  = lq[aa]
+                lq_a = lq[aa]
                 lq_ab = lq[ab]
-                lq_b  = lq[bb]
+                lq_b = lq[bb]
             else:
-                lq_a  = 1
-                lq_ab = lq[ab]/lq[aa]
-                lq_b  = lq[bb]/lq[aa]
+                lq_a = 1
+                lq_ab = lq[ab] / lq[aa]
+                lq_b = lq[bb] / lq[aa]
 
             # and the correct entrances in the DM
-            nn = (2*np.array(l_j)+1)[0:nl[0]].sum()
-            mm = (2*np.array(l_j)+1)[0:nl[1]].sum()
+            nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
+            mm = (2 * np.array(l_j) + 1)[0:nl[1]].sum()
 
             # finally correct and add the four submatrices of NC_DM
-            A = DM[nn:nn+2*l+1,nn:nn+2*l+1]*(lq_a)
-            B = DM[nn:nn+2*l+1,mm:mm+2*l+1]*(lq_ab)
-            C = DM[mm:mm+2*l+1,nn:nn+2*l+1]*(lq_ab)
-            D = DM[mm:mm+2*l+1,mm:mm+2*l+1]*(lq_b)
+            A = DM[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] * lq_a
+            B = DM[nn:nn + 2 * l + 1, mm:mm + 2 * l + 1] * lq_ab
+            C = DM[mm:mm + 2 * l + 1, nn:nn + 2 * l + 1] * lq_ab
+            D = DM[mm:mm + 2 * l + 1, mm:mm + 2 * l + 1] * lq_b
 
-            V[nn:nn+2*l+1,nn:nn+2*l+1]=+(lq_a)
-            V[nn:nn+2*l+1,mm:mm+2*l+1]=+(lq_ab)
-            V[mm:mm+2*l+1,nn:nn+2*l+1]=+(lq_ab)
-            V[mm:mm+2*l+1,mm:mm+2*l+1]=+(lq_b)
+            V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] = lq_a
+            V[nn:nn + 2 * l + 1, mm:mm + 2 * l + 1] = lq_ab
+            V[mm:mm + 2 * l + 1, nn:nn + 2 * l + 1] = lq_ab
+            V[mm:mm + 2 * l + 1, mm:mm + 2 * l + 1] = lq_b
 
-            return  A+B+C+D, V
+            return A + B + C + D, V
         else:
-            nn =(2*np.array(l_j)+1)[0:nl[0]].sum()
-            A=DM[nn:nn+2*l+1,nn:nn+2*l+1]*lq[-1]
-            V[nn:nn+2*l+1,nn:nn+2*l+1]=+lq[-1]
-            return A,V
+            nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
+            A = DM[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] * lq[-1]
+            V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] = lq[-1]
+            return A, V
 
     def initialize(self):
         self.vt_sg = self.finegd.empty(self.ns)
@@ -220,8 +217,7 @@ class Hamiltonian(object):
         Ekin = self.calculate_kinetic_energy(density)
         W_aL = self.calculate_atomic_hamiltonians(density)
         Ekin, Epot, Ebar, Eext, Exc = self.update_corrections(
-            density, Ekin, Epot, Ebar, Eext, Exc, W_aL
-            )
+            density, Ekin, Epot, Ebar, Eext, Exc, W_aL)
 
         energies = np.array([Ekin, Epot, Ebar, Eext, Exc])
         self.timer.start('Communicate energies')
@@ -229,16 +225,13 @@ class Hamiltonian(object):
         # Make sure that all CPUs have the same energies
         self.world.broadcast(energies, 0)
         self.timer.stop('Communicate energies')
-        (self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc) = energies
-
-        #self.Exc += self.Enlxc
-        #self.Ekin0 += self.Enlkin
+        self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc = energies
 
         self.timer.stop('Hamiltonian')
 
     def update_corrections(self, density, Ekin, Epot, Ebar, Eext, Exc, W_aL):
         self.timer.start('Atomic')
-        self.dH_asp = None # XXXX
+        self.dH_asp = None  # XXXX
 
         dH_asp = {}
         for a, D_sp in density.D_asp.items():
@@ -254,22 +247,6 @@ class Hamiltonian(object):
             Epot += setup.M + np.dot(D_p, (setup.M_p +
                                            np.dot(setup.M_pp, D_p)))
 
-            if self.vext is not None:
-                vext = self.vext.get_taylor(spos_c=self.spos_ac[a, :])
-                # Tailor expansion to the zeroth order
-                Eext += vext[0][0] * (sqrt(4 * pi) * density.Q_aL[a][0]
-                                      + setup.Z)
-                dH_p += vext[0][0] * sqrt(4 * pi) * setup.Delta_pL[:, 0]
-                if len(vext) > 1:
-                    # Tailor expansion to the first order
-                    Eext += sqrt(4 * pi / 3) * np.dot(vext[1],
-                                                      density.Q_aL[a][1:4])
-                    # there must be a better way XXXX
-                    Delta_p1 = np.array([setup.Delta_pL[:, 1],
-                                          setup.Delta_pL[:, 2],
-                                          setup.Delta_pL[:, 3]])
-                    dH_p += sqrt(4 * pi / 3) * np.dot(vext[1], Delta_p1)
-
             dH_asp[a] = dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
@@ -277,31 +254,32 @@ class Hamiltonian(object):
                 nspins = len(D_sp)
 
                 l_j = setup.l_j
-                l   = setup.Hubl
+                l = setup.Hubl
                 scale = setup.Hubs
-                nl  = np.where(np.equal(l_j,l))[0]
-                nn  = (2*np.array(l_j)+1)[0:nl[0]].sum()
+                nl = np.where(np.equal(l_j, l))[0]
+                nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
 
                 for D_p, H_p in zip(D_sp, dH_asp[a]):
-                    [N_mm,V] =self.aoom(unpack2(D_p),a,l, scale)
+                    [N_mm, V] = self.aoom(unpack2(D_p), a, l, scale)
                     N_mm = N_mm / 2 * nspins
 
-                    Eorb = setup.HubU / 2. * (N_mm - np.dot(N_mm,N_mm)).trace()
-                    Vorb = setup.HubU * (0.5 * np.eye(2*l+1) - N_mm)
+                    Eorb = setup.HubU / 2. * (N_mm -
+                                              np.dot(N_mm, N_mm)).trace()
+                    Vorb = setup.HubU * (0.5 * np.eye(2 * l + 1) - N_mm)
                     Exc += Eorb
                     if nspins == 1:
                         # add contribution of other spin manyfold
                         Exc += Eorb
 
-                    if len(nl)==2:
-                        mm  = (2*np.array(l_j)+1)[0:nl[1]].sum()
+                    if len(nl) == 2:
+                        mm = (2 * np.array(l_j) + 1)[0:nl[1]].sum()
 
-                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
-                        V[mm:mm+2*l+1,nn:nn+2*l+1] *= Vorb
-                        V[nn:nn+2*l+1,mm:mm+2*l+1] *= Vorb
-                        V[mm:mm+2*l+1,mm:mm+2*l+1] *= Vorb
+                        V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
+                        V[mm:mm + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
+                        V[nn:nn + 2 * l + 1, mm:mm + 2 * l + 1] *= Vorb
+                        V[mm:mm + 2 * l + 1, mm:mm + 2 * l + 1] *= Vorb
                     else:
-                        V[nn:nn+2*l+1,nn:nn+2*l+1] *= Vorb
+                        V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
 
                     Htemp = unpack(H_p)
                     Htemp += V
@@ -345,7 +323,6 @@ class Hamiltonian(object):
         self.timer.stop('Atomic')
 
         # Make corrections due to non-local xc:
-        #xcfunc = self.xc.xcfunc
         self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
         Ekin += self.xc.get_kinetic_energy_correction() / self.gd.comm.size
         return (Ekin, Epot, Ebar, Eext, Exc)
@@ -375,8 +352,6 @@ class Hamiltonian(object):
             ref_dH_asp[a] -= dH_sp
         self.ref_vt_sG = ref_vt_sG
         self.ref_dH_asp = ref_dH_asp
-
-
 
     def calculate_forces(self, dens, F_av):
         ghat_aLv = dens.ghat.dict(derivative=True)
@@ -587,9 +562,10 @@ class RealSpaceHamiltonian(Hamiltonian):
         Eext = 0.0
         if self.vext is not None:
             assert self.collinear
-            vt_g += self.vext.get_potential(self.finegd)
-            Eext = self.finegd.integrate(vt_g, density.nt_g,
-                                         global_integral=False) - Ebar
+            vext_g = self.vext.get_potential(self.finegd)
+            vt_g += vext_g
+            Eext = self.finegd.integrate(vext_g, density.rhot_g,
+                                         global_integral=False)
 
         self.vt_sg[1:self.nspins] = vt_g
 
@@ -622,7 +598,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.start('Hartree integrate/restrict')
         Ekin = 0.0
         s = 0
-        for s, (vt_g, vt_G, nt_G) in enumerate(zip(self.vt_sg, self.vt_sG, density.nt_sG)):
+        for vt_g, vt_G, nt_G in zip(self.vt_sg, self.vt_sG, density.nt_sG):
 
             self.restrict(vt_g, vt_G)
             if self.ref_vt_sG is not None:
@@ -637,11 +613,13 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.stop('Hartree integrate/restrict')
         return Ekin
 
-    def calculate_atomic_hamiltonians(self, density):
-        W_aL = {}
-        for a in density.D_asp:
-            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_g, W_aL)
+    def calculate_atomic_hamiltonians(self, dens):
+        W_aL = dens.ghat.dict()
+        if self.vext:
+            vext_g = self.vext.get_potential(self.finegd)
+            dens.ghat.integrate(self.vHt_g + vext_g, W_aL)
+        else:
+            dens.ghat.integrate(self.vHt_g, W_aL)
         return W_aL
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
@@ -650,6 +628,10 @@ class RealSpaceHamiltonian(Hamiltonian):
         else:
             vt_G = self.vt_sG[0]
 
-        dens.ghat.derivative(self.vHt_g, ghat_aLv)
-        dens.nct.derivative(vt_G, nct_av)
         self.vbar.derivative(dens.nt_g, vbar_av)
+        if self.vext:
+            vext_g = self.vext.get_potential(self.finegd)
+            dens.ghat.derivative(self.vHt_g + vext_g, ghat_aLv)
+        else:
+            dens.ghat.derivative(self.vHt_g, ghat_aLv)
+        dens.nct.derivative(vt_G, nct_av)

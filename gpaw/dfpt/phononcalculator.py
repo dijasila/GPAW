@@ -10,7 +10,7 @@ import numpy as np
 import numpy.linalg as la
 
 import ase.units as units
-from ase.io.trajectory import PickleTrajectory
+from ase.io import Trajectory
 
 from gpaw import GPAW
 from gpaw.mpi import serial_comm, rank
@@ -517,7 +517,7 @@ class PhononCalculator:
             mode_av[indices] = u_av
             mode_mav = (np.vstack([mode_av]*M) * phase_ma[:, np.newaxis]).real
 
-            traj = PickleTrajectory('%s.mode.%d.traj' % (self.name, n), 'w')
+            traj = Trajectory('%s.mode.%d.traj' % (self.name, n), 'w')
 
             for x in np.linspace(0, 2*pi, nimages, endpoint=False):
                 # XXX Is it correct to take out the sine component here ?

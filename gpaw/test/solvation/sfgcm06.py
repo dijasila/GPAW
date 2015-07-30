@@ -29,19 +29,25 @@ epsinf = 78.36
 rho0 = 0.00078 / Bohr ** 3
 beta = 1.3
 st = 72. * 1e-3 * Pascal * m
+convergence = {
+    'energy': 0.05 / 8.,
+    'density': 10.,
+    'eigenstates': 10.,
+}
 
 atoms = Cluster(Atoms('Cl'))
 atoms.minimal_box(vac, h)
 
 if not SKIP_VAC_CALC:
-    atoms.calc = GPAW(xc='PBE', h=h, charge=-1)
+    atoms.calc = GPAW(xc='PBE', h=h, charge=-1, convergence=convergence)
     Evac = atoms.get_potential_energy()
     print(Evac)
 else:
-    Evac = -3.82381881936  # h = 0.24, vac = 4.0
+    # h=0.24, vac=4.0, setups: 0.9.11271, convergence: only energy 0.05 / 8
+    Evac = -3.83245253419
 
 atoms.calc = SolvationGPAW(
-    xc='PBE', h=h, charge=-1,
+    xc='PBE', h=h, charge=-1, convergence=convergence,
     cavity=FG02SmoothStepCavity(
         rho0=rho0, beta=beta,
         density=ElDensity(),

@@ -84,7 +84,7 @@ Linux:
    Linux/gardar.nhpc.hi.is
    Linux/huygens
    Linux/juropa
-   Linux/juropatest
+   Linux/jureca
    Linux/monolith
    Linux/murska
    Linux/nanolab_EL4

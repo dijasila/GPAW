@@ -1,7 +1,7 @@
 from gpaw.solvation.poisson import (
     WeightedFDPoissonSolver, ADM12PoissonSolver, PolarizationPoissonSolver
-    )
-from gpaw.solvation.dielectric import FDGradientDielectric
+)
+from gpaw.solvation.dielectric import Dielectric
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.gauss import Gaussian
 from gpaw.fd_operators import Gradient
@@ -30,9 +30,16 @@ def make_gd(h, box, pbc):
     return GridDescriptor(grid_shape, cell / Bohr, pbc)
 
 
-class MockDielectric(FDGradientDielectric):
+class MockDielectric(Dielectric):
+    def __init__(self, epsinf, nn):
+        Dielectric.__init__(self, epsinf)
+        self.nn = nn
+
     def update(self, cavity):
-        self.update_gradient()
+        grad_eps_vg = gradient(self.gd, self.eps_gradeps[0] - self.epsinf, self.nn)
+        for i in (0, 1, 2):
+            self.eps_gradeps[1 + i][...] = grad_eps_vg[i]
+
 
 box = 12.
 gd = make_gd(h=.4, box=box, pbc=False)
