@@ -139,78 +139,78 @@ class DielectricFunction:
         
         if world.rank == 0:
             assert kncomm.rank == 0
-            fd = open(name, 'wb')
-            pickle.dump((self.omega_w, pd, None, chi0_wxvG, chi0_wvv),
-                        fd, pickle.HIGHEST_PROTOCOL)
-            for w, chi0_GG in enumerate(chi0_wGG):
-                pickle.dump(chi0_GG, fd, pickle.HIGHEST_PROTOCOL)
+            with open(name, 'wb') as fd:
+                pickle.dump((self.omega_w, pd, None, chi0_wxvG, chi0_wvv),
+                            fd, pickle.HIGHEST_PROTOCOL)
+                for w, chi0_GG in enumerate(chi0_wGG):
+                    pickle.dump(chi0_GG, fd, pickle.HIGHEST_PROTOCOL)
             
-            if A_x is not None:
-                nx = self.mynw * nG**2
-                #tmp_wGG = A_x[:nx].reshape((self.mynw, nG, nG))
-                tmp_wGG = np.empty((self.mynw, nG, nG), complex)
-            else:
-                tmp_wGG = np.empty((self.mynw, nG, nG), complex)
-            w1 = self.mynw
-            for rank in range(1, blockcomm.size):
-                w2 = min(w1 + self.mynw, nw)
-                world.receive(tmp_wGG, rank)
-                for w in range(w2 - w1):
-                    pickle.dump(tmp_wGG[w], fd, pickle.HIGHEST_PROTOCOL)
-                w1 = w2
-            fd.close()
+                if A_x is not None:
+                    nx = self.mynw * nG**2
+                    #tmp_wGG = A_x[:nx].reshape((self.mynw, nG, nG))
+                    tmp_wGG = np.empty((self.mynw, nG, nG), complex)
+                else:
+                    tmp_wGG = np.empty((self.mynw, nG, nG), complex)
+                w1 = self.mynw
+                for rank in range(1, blockcomm.size):
+                    w2 = min(w1 + self.mynw, nw)
+                    world.receive(tmp_wGG, rank)
+                    for w in range(w2 - w1):
+                        pickle.dump(tmp_wGG[w], fd, pickle.HIGHEST_PROTOCOL)
+                    w1 = w2
         elif kncomm.rank == 0:
             world.send(chi0_wGG, 0)
 
     def read(self, name, A1_x=None, A2_x=None):
         print('Reading from', name, file=self.chi0.fd)
-        fd = open(name, 'rb')
-        omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
-        assert np.allclose(omega_w, self.omega_w)
+        with open(name, 'rb') as fd:
+            omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
+        
+            assert np.allclose(omega_w, self.omega_w)
 
-        world = self.chi0.world
-        blockcomm = self.chi0.blockcomm
-        kncomm = self.chi0.kncomm
+            world = self.chi0.world
+            blockcomm = self.chi0.blockcomm
+            kncomm = self.chi0.kncomm
         
-        nw = len(omega_w)
-        nG = pd.ngmax
+            nw = len(omega_w)
+            nG = pd.ngmax
         
-        if chi0_wGG is not None:
-            # Old file format:
-            chi0_wGG = chi0_wGG[self.w1:self.w2].copy()
-        else:
-            if world.rank == 0:
-                assert kncomm.rank == 0
-                if A1_x is not None:
-                    nx = self.mynw * nG**2
-                    chi0_wGG = A1_x[:nx].reshape((self.mynw, nG, nG))
-                    tmp_wGG = A2_x[:nx].reshape((self.mynw, nG, nG))
-                else:
-                    chi0_wGG = np.empty((self.mynw, nG, nG), complex)
-                    tmp_wGG = np.empty((self.mynw, nG, nG), complex)
-                
-                #for w, chi0_GG in enumerate(chi0_wGG):
-                #    print('w=%d' % w)
-                #    chi0_GG[:] = pickle.load(fd)
-                w1 = 0
-                for brank in range(blockcomm.size):
-                    w2 = min(w1 + self.mynw, nw)
-                    for w in range(w2 - w1):
-                        tmp_wGG[w] = pickle.load(fd)
-                    for knrank in range(0, kncomm.size):
-                        rank = knrank * blockcomm.size + brank
-                        if rank == 0:
-                            chi0_wGG[:] = tmp_wGG
-                        else:
-                            world.send(tmp_wGG, rank)
-                    w1 = w2
+            if chi0_wGG is not None:
+                # Old file format:
+                chi0_wGG = chi0_wGG[self.w1:self.w2].copy()
             else:
-                if A1_x is not None:
-                    nx = self.mynw * nG**2
-                    chi0_wGG = A1_x[:nx].reshape((self.mynw, nG, nG))
+                if world.rank == 0:
+                    assert kncomm.rank == 0
+                    if A1_x is not None:
+                        nx = self.mynw * nG**2
+                        chi0_wGG = A1_x[:nx].reshape((self.mynw, nG, nG))
+                        tmp_wGG = A2_x[:nx].reshape((self.mynw, nG, nG))
+                    else:
+                        chi0_wGG = np.empty((self.mynw, nG, nG), complex)
+                        tmp_wGG = np.empty((self.mynw, nG, nG), complex)
+                
+                    #for w, chi0_GG in enumerate(chi0_wGG):
+                    #    print('w=%d' % w)
+                    #    chi0_GG[:] = pickle.load(fd)
+                    w1 = 0
+                    for brank in range(blockcomm.size):
+                        w2 = min(w1 + self.mynw, nw)
+                        for w in range(w2 - w1):
+                            tmp_wGG[w] = pickle.load(fd)
+                        for knrank in range(0, kncomm.size):
+                            rank = knrank * blockcomm.size + brank
+                            if rank == 0:
+                                chi0_wGG[:] = tmp_wGG
+                            else:
+                                world.send(tmp_wGG, rank)
+                        w1 = w2
                 else:
-                    chi0_wGG = np.empty((self.mynw, nG, nG), complex)
-                world.receive(chi0_wGG, 0)
+                    if A1_x is not None:
+                        nx = self.mynw * nG**2
+                        chi0_wGG = A1_x[:nx].reshape((self.mynw, nG, nG))
+                    else:
+                        chi0_wGG = np.empty((self.mynw, nG, nG), complex)
+                    world.receive(chi0_wGG, 0)
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
         
     def collect(self, a_w):

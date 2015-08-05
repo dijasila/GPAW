@@ -2,6 +2,8 @@
 from __future__ import division, print_function
 
 import sys
+import os
+from tempfile import TemporaryFile
 import functools
 from math import pi
 import numpy as np
@@ -27,7 +29,7 @@ class SelfEnergy:
 class GWSelfEnergy(SelfEnergy):
 
     def __init__(self, calc, kpts=None, bandrange=None,
-                 filename=None, txt=sys.stdout, savechi0=False, scratch='./',
+                 filename=None, txt=sys.stdout, temp=None, savechi0=False,
                  nbands=None, ecut=150., nblocks=1, hilbert=True, eta=0.1,
                  domega0=0.025, omega2=10., omegamax=None,
                  qptint=None, truncation='3D',
@@ -44,7 +46,7 @@ class GWSelfEnergy(SelfEnergy):
 
         if isinstance(ecut, (int, float)):
             pct = 0.8
-            necuts = 5
+            necuts = 3
             self.ecut = ecut / Hartree
             self.ecut_i = self.ecut * (1 + (1. / pct - 1) * np.arange(necuts) /
                                        (necuts - 1))**(-2 / 3)
@@ -76,7 +78,16 @@ class GWSelfEnergy(SelfEnergy):
         self.bandrange = bandrange
 
         self.filename = filename
+
         self.savechi0 = savechi0
+        self.use_temp = bool(temp)
+        self.temp_dir = None
+        if self.use_temp:
+            if isinstance(temp, str):
+                self.temp_dir = temp
+            else:
+                self.temp_dir = './'
+        self.saved_pair_density_files = dict()
 
         self.truncation = truncation
 
@@ -123,6 +134,8 @@ class GWSelfEnergy(SelfEnergy):
         self.freqint = RealFreqIntegration(self.calc,
                                            filename=self.filename,
                                            savechi0=self.savechi0,
+                                           use_temp=self.use_temp,
+                                           temp_dir=self.temp_dir,
                                            ecut=self.ecut * Hartree,
                                            nbands=self.nbands,
                                            domega0=self.domega0 * Hartree,
@@ -168,10 +181,16 @@ class GWSelfEnergy(SelfEnergy):
 
         self.progressEvent(0.0)
 
-        for i, ecut in enumerate(self.ecut_i):
-            sigma_skn, dsigma_skn = self._calculate(ecut, readw)
-            self.sigma_iskn[i, :] = sigma_skn
-            self.dsigma_iskn[i, :] = dsigma_skn
+        #for i, ecut in enumerate(self.ecut_i):
+        try:
+            sigma_iskn, dsigma_iskn = self._calculate(readw)
+        except:
+            self.clear_temp_files()
+            self.freqint.clear_temp_files()
+            raise
+        
+        self.sigma_iskn = sigma_iskn
+        self.dsigma_iskn = dsigma_iskn
         
         self.sigerr_skn = np.zeros(self.shape)
         if len(self.ecut_i) > 1:
@@ -203,7 +222,7 @@ class GWSelfEnergy(SelfEnergy):
             self.sigma_skn = self.sigma_iskn[0]
             self.dsigma_skn = self.dsigma_iskn[0]
 
-    def _calculate(self, ecut, readw=True):
+    def _calculate(self, readw=True):
 
         # My part of the states we want to calculate QP-energies for:
         mykpts = [self.pairDensity.get_k_point(s, K, n1, n2)
@@ -215,10 +234,9 @@ class GWSelfEnergy(SelfEnergy):
         
         prefactor = 1 / (2 * pi)**4
 
-        self.qpt_integration.reset(self.shape)
+        self.qpt_integration.reset((len(self.ecut_i), ) + self.shape)
         
-        for Q1, Q2, W0_wGG, pd0, Q0_aGii in \
-          self.do_qpt_loop(ecut, readw=readw):
+        for i, Q1, Q2, W0_wGG, pd0, pdi0, Q0_aGii in self.do_qpt_loop(readw=readw):
             ibzq = self.qd.bz2ibz_k[Q1]
             q_c = self.qd.ibzk_kc[ibzq]
 
@@ -252,10 +270,10 @@ class GWSelfEnergy(SelfEnergy):
                 if np.allclose(dq_c.round(), dq_c):
                     bzqs.append(bzq)
 
-            G_Gv = pd0.get_reciprocal_vectors()
-            pos_av = np.dot(self.pairDensity.spos_ac, pd0.gd.cell_cv)
-            M_vv = np.dot(pd0.gd.cell_cv.T,
-                          np.dot(U_cc.T, np.linalg.inv(pd0.gd.cell_cv).T))
+            G_Gv = pdi0.get_reciprocal_vectors()
+            pos_av = np.dot(self.pairDensity.spos_ac, pdi0.gd.cell_cv)
+            M_vv = np.dot(pdi0.gd.cell_cv.T,
+                          np.dot(U_cc.T, np.linalg.inv(pdi0.gd.cell_cv).T))
             # Transform PAW corrections from IBZ to full BZ
             Q_aGii = []
             for a, Q_Gii in enumerate(Q0_aGii):
@@ -266,10 +284,12 @@ class GWSelfEnergy(SelfEnergy):
                                U_ii.T).transpose(1, 0, 2)
                 Q_aGii.append(Q_Gii)
 
+            G2G = pdi0.map(pd0, q=0)
+
             for u1, kpt1 in enumerate(mykpts):
                 k1 = kd.bz2ibz_k[kpt1.K]
                 spin = kpt1.s
-                i = self.kpts.index(k1)
+                ik = self.kpts.index(k1)
                 
                 K2 = kd.find_k_plus_q(Q_c, [kpt1.K])[0] # K2 will be in 1st BZ
                 # This k+q or symmetry related points have not been
@@ -278,8 +298,8 @@ class GWSelfEnergy(SelfEnergy):
                                                     self.nbands,
                                                     block=True)
 
-                N_c = pd0.gd.N_c
-                i_cG = sign * np.dot(U_cc, np.unravel_index(pd0.Q_qG[0], N_c))
+                N_c = pdi0.gd.N_c
+                i_cG = sign * np.dot(U_cc, np.unravel_index(pdi0.Q_qG[0], N_c))
 
                 k1_c = kd.bzk_kc[kpt1.K]
                 k2_c = kd.bzk_kc[K2]
@@ -294,12 +314,29 @@ class GWSelfEnergy(SelfEnergy):
                 I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
 
                 for n in range(kpt1.n2 - kpt1.n1):
-                    ut1cc_R = kpt1.ut_nR[n].conj()
-                    C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
-                              for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-                    n_mG = self.pairDensity \
-                        .calculate_pair_densities(ut1cc_R, C1_aGi,
-                                                  kpt2, pd0, I_G)
+                    n_mG = None
+                    myid = 'k1=%dk2=%dn=%d' % (kpt1.K, kpt2.K, n)
+                    if i > 0 and self.use_temp:
+                        tmpfile = self.saved_pair_density_files[myid]
+                        tmpfile.seek(0)
+                        n_mG = np.load(tmpfile).take(G2G, axis=1)
+                            
+                    if n_mG is None:
+                        C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
+                                  for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+                        ut1cc_R = kpt1.ut_nR[n].conj()
+                        n_mG = self.pairDensity.calculate_pair_densities(
+                            ut1cc_R, C1_aGi, kpt2, pdi0, I_G)
+                        if self.use_temp:
+                            tmpfile = TemporaryFile(dir=self.temp_dir)
+                            np.save(tmpfile, n_mG)
+                            self.saved_pair_density_files[myid] = tmpfile
+                    
+                    #n_mG = self.pairDensity \
+                    #    .calculate_pair_densities(ut1cc_R, C1_aGi,
+                    #                              kpt2, pd0, I_G)
+                    #n_mG = self.get_pair_densities(kpt1, kpt2, n, pd0,
+                    #                               C1_aGi, I_G)
                     
                     if sign == 1:
                         n_mG = n_mG.conj()
@@ -321,7 +358,7 @@ class GWSelfEnergy(SelfEnergy):
                                         deps_m, f_m, W0_wGG)
 
                     for bzq in bzqs:
-                        self.qpt_integration.add_term(bzq, spin, i, nn,
+                        self.qpt_integration.add_term(bzq, i, spin, ik, nn,
                                                       prefactor * sigma,
                                                       prefactor * dsigma)
                     
@@ -334,12 +371,48 @@ class GWSelfEnergy(SelfEnergy):
         #self.world.sum(self.sigma_qsin)
         #self.world.sum(self.dsigma_qsin)
         
-        sigma_skn, dsigma_skn = self.qpt_integration.integrate() # (self.sigma_qsin, self.dsigma_qsin)
-        self.world.sum(sigma_skn)
-        self.world.sum(dsigma_skn)
-        return sigma_skn, dsigma_skn
+        sigma_iskn, dsigma_iskn = self.qpt_integration.integrate() # (self.sigma_qsin, self.dsigma_qsin)
+        self.world.sum(sigma_iskn)
+        self.world.sum(dsigma_iskn)
+        return sigma_iskn, dsigma_iskn
 
-    def do_qpt_loop(self, ecut, readw=True):
+    def get_pair_densities(self, kpt1, kpt2, n1, pd, C1_aGi, I_G):
+        tmpfile = (self.temp_dir + self.filename +
+                   '.nk%dq%dn%d.pckl' % (kpt1.K, kpt2.K, n1))
+        if self.use_temp:
+            if tmpfile in self.saved_pair_density_files:
+                try:
+                    fd = open(tmpfile, 'rb')
+                    pd0, n0_mG = pickle.load(fd)
+                    fd.close()
+                    if pd0.ecut > pd.ecut:
+                        G2G = pd.map(pd0, q=0)
+                        return n0_mG.take(G2G, axis=1)
+                    else:
+                        return n0_mG
+                except IOError as err:
+                    print('read error: %s' % err)
+        
+        ut1cc_R = kpt1.ut_nR[n1].conj()
+        n_mG = self.pairDensity.calculate_pair_densities(ut1cc_R, C1_aGi,
+                                                         kpt2, pd, I_G)
+        if self.use_temp and self.blockcomm.rank == 0:
+            try:
+                fd = open(tmpfile, 'wb')
+                pickle.dump((pd, n_mG), fd, pickle.HIGHEST_PROTOCOL)
+                fd.close()
+                self.saved_pair_density_files.append(tmpfile)
+            except IOError as err:
+                print('write err: %s' % err)
+        
+        return n_mG
+
+    def clear_temp_files(self):
+        for fileid, tmpfile in self.saved_pair_density_files.iteritems():
+            tmpfile.close()
+        self.saved_pair_density_files = dict()
+
+    def do_qpt_loop(self, readw=True):
         """Do the loop over q-points in the q-point integration"""
 
         # Find maximum size of chi-0 matrices:
@@ -370,47 +443,53 @@ class GWSelfEnergy(SelfEnergy):
         for nq, ibzq in enumerate(ibzqs):
             q_c = qd.ibzk_kc[ibzq]
 
-            W_wGG, pd, Q_aGii = \
-              self.calculate_idf(q_c, ecut, readw=readw, A_x=A_x)
+            for i, ecut in enumerate(self.ecut_i):
 
-            nG = pd.ngmax
-            mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-            self.Ga = self.blockcomm.rank * mynG
-            self.Gb = min(self.Ga + mynG, nG)
-            assert mynG * (self.blockcomm.size - 1) < nG
+                W_wGG, pd, pdi, Q_aGii = self.calculate_idf(q_c, ecut,
+                                                            readw=readw,
+                                                            A_x=A_x)
 
-            #W_wGG = self.qpt_integration.calculate_w(pd, idf_wGG,
-            #                                         S_wvG, L_wvv,
-            #                                         (self.Ga, self.Gb))
+                nG = pd.ngmax
+                mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
+                self.Ga = self.blockcomm.rank * mynG
+                self.Gb = min(self.Ga + mynG, nG)
+                assert mynG * (self.blockcomm.size - 1) < nG
 
-            #print('Wp_wGG:')
-            #print(W_wGG[0, 0:3, 0:3])
-            # Get the PAW corrections to the pair density
-            #Q_aGii = self.pairDensity.initialize_paw_corrections(pd)
+                #W_wGG = self.qpt_integration.calculate_w(pd, idf_wGG,
+                #                                         S_wvG, L_wvv,
+                #                                         (self.Ga, self.Gb))
 
-            # Loop over all k-points in the BZ and find those that are related
-            # to the current IBZ k-point by symmetry
-            #Q1 = qd.ibz2bz_k[iq]
+                #print('Wp_wGG:')
+                #print(W_wGG[0, 0:3, 0:3])
+                # Get the PAW corrections to the pair density
+                #Q_aGii = self.pairDensity.initialize_paw_corrections(pd)
 
-            Q1 = self.qd.ibz2bz_k[ibzq]
-            done = set()
-            for s, Q2 in enumerate(self.qd.bz2bz_ks[Q1]):
-                if Q2 >= 0 and Q2 not in done:
-                    yield Q1, Q2, W_wGG, pd, Q_aGii
-                    done.add(Q2)
+                # Loop over all k-points in the BZ and find those that are related
+                # to the current IBZ k-point by symmetry
+                #Q1 = qd.ibz2bz_k[iq]
+
+                Q1 = self.qd.ibz2bz_k[ibzq]
+                done = set()
+                for s, Q2 in enumerate(self.qd.bz2bz_ks[Q1]):
+                    if Q2 >= 0 and Q2 not in done:
+                        yield i, Q1, Q2, W_wGG, pd, pdi, Q_aGii
+                        done.add(Q2)
+            
+            self.clear_temp_files()
+            self.freqint.clear_temp_files()
             
             self.progressEvent(1.0 * (nq + 1) / len(ibzqs))
 
     @timer('Screened potential')
     def calculate_idf(self, q_c, ecut, readw=True, A_x=None):
         
-        W_wGG, pd, Q_aGii = \
+        W_wGG, pd, pdi, Q_aGii = \
           self.freqint.calculate_idf(q_c, self.vc, ecut, readw=readw, A_x=A_x)
         
         if Q_aGii is None:
-            Q_aGii = self.pairDensity.initialize_paw_corrections(pd)
+            Q_aGii = self.pairDensity.initialize_paw_corrections(pdi)
 
-        return W_wGG, pd, Q_aGii
+        return W_wGG, pd, pdi, Q_aGii
 
     def calculate_w(self, pd, idf_wGG, S_wvG, L_wvv):
 
@@ -430,6 +509,7 @@ class FrequencyIntegration:
 class RealFreqIntegration(FrequencyIntegration):
 
     def __init__(self, calc, filename=None, savechi0=False,
+                 use_temp=True, temp_dir='./',
                  ecut=150., nbands=None,
                  domega0=0.025, omega2=10.,
                  timer=None, txt=sys.stdout, nblocks=1):
@@ -438,7 +518,6 @@ class RealFreqIntegration(FrequencyIntegration):
         self.timer = timer
         
         self.calc = calc
-        self.filename = filename
 
         self.ecut = ecut / Hartree
         self.nbands = nbands
@@ -473,16 +552,16 @@ class RealFreqIntegration(FrequencyIntegration):
                          no_optical_limit=False,
                          **parameters)
         """
-        if self.savechi0:
-            filename = self.filename + '.chi0'
-        else:
-            filename = None
+        self.filename = filename
+        self.use_temp = use_temp
+        self.temp_dir = temp_dir
+        
         self.df = DielectricFunction(self.calc,
                                      nbands=self.nbands,
                                      ecut=self.ecut * Hartree,
                                      intraband=True,
                                      nblocks=self.nblocks,
-                                     name=filename,
+                                     name=None,
                                      txt=self.filename + '.chi0.txt',
                                      **parameters)
                                      
@@ -492,6 +571,8 @@ class RealFreqIntegration(FrequencyIntegration):
 
         self.htp = HilbertTransform(self.omega_w, self.eta, gw=True)
         self.htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
+
+        self.temp_files = []
 
     @timer('Inverse dielectric function')
     def calculate_idf(self, q_c, vc, ecut, readw=False, A_x=None):
@@ -507,41 +588,45 @@ class RealFreqIntegration(FrequencyIntegration):
             A1_x = None
             A2_x = None
         
-        Q_aGii = None
         """
-        if readw and self.filename:
-            chi_filename = (self.filename + '.chi0.%+d%+d%+d.pckl' %
-                            tuple((q_c * self.calc.wfs.kd.N_c).round()))
-            fd = opencew(chi_filename)
-        if readw and fd is None:
-            # Read chi0 from file and save it in second half of A_x
-            print('Reading chi0 from file: %s' % chi_filename, file=self.fd)
-            pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.read_chi(chi_filename,
-                                                              A1_x)
+        if self.use_temp and self.tmpfile is not None:
+            pd = self.pd
+            Q_aGii = self.Q_aGii
+            chi0_wGG, chi0_wxvG, chi0_wvv = self.read_chi0(self.tmpfile,
+                                                           A1_x, A2_x)
         else:
-            # Calculate chi0 and save it in second half of A1_x
-            pd, chi0_wGG, chi0_wxvG, chi0_wvv = \
-              self.chi0.calculate(q_c, A_x=A1_x)
+            pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c,
+                                                                    A_x=A1_x)
             Q_aGii = self.chi0.Q_aGii
-            if self.savew:
-                chi_filename = (self.filename + '.chi0.%+d%+d%+d.pckl' %
-                                tuple((q_c * self.calc.wfs.kd.N_c).round()))
-                self.write_chi(chi_filename, pd, chi0_wGG, chi0_wxvG, chi0_wvv)
-
-        if self.nblocks > 1:
-            # Redistribute chi0 over frequencies and save the new array in A2_x
             chi0_wGG = self.chi0.redistribute(chi0_wGG, A2_x)
-            # chi0_wGG now has shape (wb - wa, nG, nG)
+            if self.use_temp:
+                self.tmpfile = TemporaryFile(dir=self.tmp_dir)
+                self.write_chi0(self.tmpfile, pd, chi0_wGG, chi0_wxvG, chi0_wvv)
+                self.pd = pd
+                self.Q_aGii = Q_aGii
         """
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.df.calculate_chi0(q_c,
-                                                                   A1_x=A1_x,
-                                                                   A2_x=A2_x)
+        
+        kd = self.df.chi0.calc.wfs.kd
+        filename = (self.temp_dir + self.filename + '.chi0' +
+                    '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round()))
+        if (readw or self.use_temp) and os.path.isfile(filename):
+            pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.df.read(filename,
+                                                             A1_x, A2_x)
+            Q_aGii = None
+        else:
+            pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.df.calculate_chi0(
+                q_c, A1_x=A1_x, A2_x=A2_x)
+            Q_aGii = self.df.chi0.Q_aGii
+            if self.savechi0 or self.use_temp:
+                self.df.write(filename, pd, chi0_wGG, chi0_wxvG, chi0_wvv,
+                              A1_x)
+                self.temp_files.append(filename)
 
         if pd.ecut > ecut:
-            bigpd = pd
-            pd = PWDescriptor(ecut, bigpd.gd, dtype=bigpd.dtype,
-                              kd=bigpd.kd)
-            G2G = pd.map(bigpd, q=0)
+            pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
+                               kd=pd.kd)
+            G2G = pdi.map(pd, q=0)
+            
             chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
 
             if chi0_wxvG is not None:
@@ -550,6 +635,8 @@ class RealFreqIntegration(FrequencyIntegration):
             if Q_aGii is not None:
                 for a, Q_Gii in enumerate(Q_aGii):
                     Q_aGii[a] = Q_Gii.take(G2G, axis=0)
+        else:
+            pdi = pd
 
         world = self.df.chi0.world
         blockcomm = self.df.chi0.blockcomm
@@ -576,13 +663,13 @@ class RealFreqIntegration(FrequencyIntegration):
         #                                                        mynG, Ga, Gb))
         
         # Get the Coulomb kernel for the screened potential calculation
-        vc_G = vc.get_potential(pd=pd)**0.5
+        vc_G = vc.get_potential(pd=pdi)**0.5
 
         # These are entities related to the q->0 value
         S_wvG = None
         L_wvv = None
         if np.allclose(q_c, 0):
-            vc_G0, vc_00 = vc.get_gamma_limits(pd)
+            vc_G0, vc_00 = vc.get_gamma_limits(pdi)
             S_wvG = np.zeros((wb - wa, 3, nG - 1), complex)
             L_wvv = np.zeros((wb - wa, 3, 3), complex)
 
@@ -615,7 +702,7 @@ class RealFreqIntegration(FrequencyIntegration):
         idf_wGG = chi0_wGG # rename
 
         W_wGG = idf_wGG
-        W_wGG[:wb - wa] = self.selfenergy.calculate_w(pd, idf_wGG[:wb - wa],
+        W_wGG[:wb - wa] = self.selfenergy.calculate_w(pdi, idf_wGG[:wb - wa],
                                                       S_wvG, L_wvv)
 
         # Since we are doing a Hilbert transform we get two editions of the
@@ -641,23 +728,20 @@ class RealFreqIntegration(FrequencyIntegration):
         
         
         Wpm_wGG[nw:] = Wpm_wGG[0:nw]
-        """
-        mystr = 'rank=%d, q_c=%s\n' % (world.rank, q_c)
-        for n in range(nblocks1):
-            G1 = n * mynG1
-            mystr += 'G1=%d, before hilbert: %s\n' % (Ga + G1, str(Wpm_wGG[0, n * mynG1, 0:3]))
-        """
+        
         with self.timer('Hilbert transform'):
             self.htp(Wpm_wGG[:nw])
             self.htm(Wpm_wGG[nw:])
         
-        """
-        for n in range(nblocks1):
-            G1 = n * mynG1
-            mystr += 'G1=%d, after hilbert: %s\n' % (Ga + G1, str(Wpm_wGG[0, n * mynG1, 0:3]))
-        print(mystr)
-        """
-        return Wpm_wGG, pd, Q_aGii
+        return Wpm_wGG, pd, pdi, Q_aGii
+
+    def clear_temp_files(self):
+        if not self.savechi0:
+            world = self.df.chi0.world
+            if world.rank == 0:
+                while len(self.temp_files) > 0:
+                    filename = self.temp_files.pop()
+                    os.remove(filename)
 
     @timer('Frequency integration')
     def calculate_integration(self, n_mG, deps_m, f_m, W_wGG, gamma=False):
@@ -705,76 +789,6 @@ class RealFreqIntegration(FrequencyIntegration):
             dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
             
         return sigma, dsigma
-
-    def write_chi(self, name, pd, chi0_wGG, chi0_wxvG=None, chi0_wvv=None):
-        nw = len(self.omega_w)
-        nG = pd.ngmax
-        mynG = chi0_wGG.shape[1]
-        world = self.chi0.world
-
-        if world.rank == 0:
-            fd = open(name, 'wb')
-            pickle.dump((self.omega_w, pd, chi0_wxvG, chi0_wvv),
-                        fd, pickle.HIGHEST_PROTOCOL)
-            for iG in range(mynG):
-                pickle.dump((iG, chi0_wGG[:, iG, :]), fd,
-                            pickle.HIGHEST_PROTOCOL)
-
-            tmp_wGG = np.empty((nw, mynG, nG), complex)
-            Ga = mynG
-            for rank in range(1, world.size):
-                Gb = min(Ga + mynG, nG)
-                world.receive(tmp_wGG, rank)
-                for iG in range(Gb - Ga):
-                    globG = rank * mynG + iG
-                    pickle.dump((globG, tmp_wGG[:, iG, :]), fd,
-                                pickle.HIGHEST_PROTOCOL)
-                Ga = Gb
-            fd.close()
-        else:
-            world.send(chi0_wGG, 0)
-
-    def read_chi(self, name, A1_x=None):
-        """Read chi0_wGG from a file."""
-        world = self.chi0.world
-        fd = open(name)
-        omega_w, pd, chi0_wxvG, chi0_wvv = pickle.load(fd)
-
-        nw = len(omega_w)
-        nG = pd.ngmax
-
-        mynG = (nG + self.chi0.blockcomm.size - 1) // self.chi0.blockcomm.size
-        assert mynG * (self.chi0.blockcomm.size - 1) < nG
-
-        myGa = self.chi0.blockcomm.rank * mynG
-        myGb = min(myGa + mynG, nG)
-        
-        if A1_x is not None:
-            nx = nw * mynG * nG
-            chi0_wGG = A1_x[:nx].reshape((nw, mynG, nG))
-            chi0_wGG[:] = 0.0
-        else:
-            chi0_wGG = np.zeros((nw, mynG, nG), complex)
-
-        if world.rank == 0:
-            for iG in range(mynG):
-                row, chi0_wGG[:, iG, :] = pickle.load(fd)
-                assert row == iG, 'Row order not OK'
-            tmp_wGG = np.empty((nw, mynG, nG), complex)
-            Ga = mynG
-            for rank in range(1, world.size):
-                Gb = min(Ga + mynG, nG)
-                for iG in range(Gb - Ga):
-                    row, tmp_wGG[:, iG, :] = pickle.load(fd)
-                    assert row == Ga + iG, 'Row order not OK'
-                print('Sending to rank=%d, Ga=%d, Gb=%d, tmp_wGG.shape=%s' %
-                          (rank, Ga, Gb, str(tmp_wGG[:, :, :].shape)))
-                world.send(tmp_wGG, rank)
-                Ga = Gb
-        else:
-            world.receive(chi0_wGG, 0)
-        
-        return pd, chi0_wGG[:, 0:myGb - myGa], chi0_wxvG, chi0_wvv
 
 
 class QPointIntegration:
@@ -1002,15 +1016,15 @@ class QuadQPointIntegration(QPointIntegration):
         QPointIntegration.__init__(self, qd, cell_cv, qpts_qc, txt)
 
     def reset(self, shape):
-        self.sigma_skn = np.zeros(shape)
-        self.dsigma_skn = np.zeros(shape)
+        self.sigma_iskn = np.zeros(shape)
+        self.dsigma_iskn = np.zeros(shape)
 
-    def add_term(self, bzq, spin, k, n, sigma, dsigma):
+    def add_term(self, bzq, i, spin, k, n, sigma, dsigma):
         vol = abs(np.linalg.det(self.cell_cv))
         dq = (2 * pi)**3 / vol
         
-        self.sigma_skn[spin, k, n] += dq * self.weight_q[bzq] * sigma
-        self.dsigma_skn[spin, k, n] += dq * self.weight_q[bzq] * dsigma
+        self.sigma_iskn[i, spin, k, n] += dq * self.weight_q[bzq] * sigma
+        self.dsigma_iskn[i, spin, k, n] += dq * self.weight_q[bzq] * dsigma
 
     def integrate(self):
         
@@ -1020,7 +1034,7 @@ class QuadQPointIntegration(QPointIntegration):
         dsigma_sin = dq * np.dot(self.weight_q,
                                  np.transpose(dsigma_qsin, [1, 2, 0, 3]))
         """
-        return self.sigma_skn, self.dsigma_skn
+        return self.sigma_iskn, self.dsigma_iskn
 
 class TriangleQPointIntegration(QPointIntegration):
     def __init__(self, qd, cell_cv, qpts_qc, simplices):

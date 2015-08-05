@@ -32,7 +32,7 @@ class GWQuasiParticleCalculator:
     calculation of the self-consistent quasiparticle wavefunctions are
     currently not implemented."""
     def __init__(self, calc, kpts=None, bandrange=None,
-                 filename=None, txt=sys.stdout, savechi0=False, scratch='./',
+                 filename=None, txt=sys.stdout, savechi0=False, temp=False,
                  ecut=150., nbands=None, domega0=0.025, omega2=10.,
                  qptint=None, truncation='3D',
                  nblocks=1, world=mpi.world):
@@ -124,7 +124,7 @@ class GWQuasiParticleCalculator:
         self.shape = (self.nspins, len(kpts), bandrange[1] - bandrange[0])
 
         self.filename = filename
-        self.scratch = scratch
+        #self.scratch = scratch
         self.savechi0 = savechi0
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
@@ -144,6 +144,8 @@ class GWQuasiParticleCalculator:
               for k in self.kpts]
              for s in range(self.nspins)])
 
+        print(self.eps_sin.shape)
+
         omegamax = np.amax(self.eps_sin) - np.amin(self.eps_sin) + 5.0
 
         self.print_header()
@@ -153,8 +155,7 @@ class GWQuasiParticleCalculator:
                                        bandrange=self.bandrange,
                                        filename=self.filename,
                                        txt=self.filename + '.sigmac.txt',
-                                       savechi0=self.savechi0,
-                                       scratch=self.scratch,
+                                       temp=temp,
                                        ecut=ecut,
                                        nbands=nbands,
                                        domega0=self.domega0 * Hartree,
