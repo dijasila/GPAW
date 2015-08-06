@@ -856,10 +856,10 @@ static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)
   int elem_size = PyArray_ITEMSIZE(send_obj);
 
   //int itemsize = PyArray_ITEMSIZE(
-  int* tmp1 = PyArray_DATA(send_cnts);
-  int* tmp2 = PyArray_DATA(send_displs);
-  int* tmp3 = PyArray_DATA(recv_cnts);
-  int* tmp4 = PyArray_DATA(recv_displs);
+  long* tmp1 = PyArray_DATA(send_cnts);
+  long* tmp2 = PyArray_DATA(send_displs);
+  long* tmp3 = PyArray_DATA(recv_cnts);
+  long* tmp4 = PyArray_DATA(recv_displs);
   for (int i=0; i < self->size; i++) {
       s_cnts[i] = tmp1[i] * elem_size;
       s_displs[i] = tmp2[i] * elem_size;
