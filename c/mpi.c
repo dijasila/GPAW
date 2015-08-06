@@ -853,22 +853,30 @@ static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)
   int *r_displs = GPAW_MALLOC(int, self->size);
 
   /* Create count and displacement arrays in units of bytes */
-  int elem_size = PyArray_DESCR(send_obj)->elsize;
-  long* tmp1 = PyArray_DATA(send_cnts);
-  long* tmp2 = PyArray_DATA(send_displs);
-  long* tmp3 = PyArray_DATA(recv_cnts);
-  long* tmp4 = PyArray_DATA(recv_displs);
-  for (int i=0; i < self->size; i++)
-    {
+  int elem_size = PyArray_ITEMSIZE(send_obj);
+
+  //int itemsize = PyArray_ITEMSIZE(
+  int* tmp1 = PyArray_DATA(send_cnts);
+  int* tmp2 = PyArray_DATA(send_displs);
+  int* tmp3 = PyArray_DATA(recv_cnts);
+  int* tmp4 = PyArray_DATA(recv_displs);
+  for (int i=0; i < self->size; i++) {
       s_cnts[i] = tmp1[i] * elem_size;
       s_displs[i] = tmp2[i] * elem_size;
       r_cnts[i] = tmp3[i] * elem_size;
       r_displs[i] = tmp4[i] * elem_size;
-    }
+  }
 
-  MPI_Alltoallv(PyArray_BYTES(send_obj), s_cnts, s_displs,
+  MPI_Alltoallv(PyArray_BYTES(send_obj),
+                s_cnts, s_displs,
                 MPI_BYTE, PyArray_BYTES(recv_obj), r_cnts,
                 r_displs, MPI_BYTE, self->comm);
+
+  free(s_cnts);
+  free(s_displs);
+  free(r_cnts);
+  free(r_displs);
+
   Py_RETURN_NONE;
 }
 
