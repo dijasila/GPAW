@@ -6,10 +6,12 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
                  nasty=False):
     """Perform certain simple redistributions among two grid descriptors.
 
-    Redistribute src from gd with decomposition X x Y x Z to gd2
-    with decomposition X x YZ x 1, or some variation of this.
+    Redistribute src from gd with decomposition X x Y x Z to gd2 with
+    decomposition X x YZ x 1, or some variation of this.  We say that
+    we "reduce" along Z while we "distribute" along Y.  The
+    redistribution is one-to-one.
 
-    gd and gd2 must have the same parallelization in one direction.
+    gd and gd2 must have the same parallelization in the third direction.
 
     reduce_dir is the direction (0, 1, or 2) in which gd2 is serial,
     and distribute_dir is the direction in which gd2 has more cores
@@ -321,6 +323,8 @@ def rigorous_testing():
         print '--------'
         for parsize, N_c, dirs in failures:
             print 'parsize=%s N=%s (ind dist red)=%s' % (parsize, N_c, dirs)
+
+    return failures
 
 
 if __name__ == '__main__':
