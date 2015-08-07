@@ -231,16 +231,16 @@ class _Communicator:
         Parameters:
 
         sbuffer: ndarray
-            Source of the data to distribute, i.e. send buffers on all rank.
+            Source of the data to distribute, i.e., send buffers on all ranks
         scounts: ndarray
             Integer array equal to the group size specifying the number of
             elements to send to each processor
-        sbuffer: ndarray
+        sdispls: ndarray
             Integer array (of length group size). Entry j specifies the
             displacement (relative to sendbuf from which to take the
-            outgoing data destined for process j
+            outgoing data destined for process j)
         rbuffer: ndarray
-            Destination of the distributed data, i.e. local receive buffer.
+            Destination of the distributed data, i.e., local receive buffer.
         rcounts: ndarray
             Integer array equal to the group size specifying the maximum
             number of elements that can be received from each processor.
@@ -256,9 +256,17 @@ class _Communicator:
         assert rcounts.flags.contiguous
         assert rdispls.flags.contiguous
         assert sbuffer.dtype == rbuffer.dtype
-        # FIXME: more tests
-        self.comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts,
-                            rdispls)
+        
+        for arr in [scounts, sdispls, rcounts, rdispls]:
+            assert arr.dtype == np.int32, arr.dtype
+            assert len(arr) == self.size
+
+        assert np.all(0 <= sdispls)
+        assert np.all(0 <= rdispls)
+        assert np.all(sdispls + scounts <= sbuffer.size)
+        assert np.all(rdispls + rcounts <= rbuffer.size)
+        self.comm.alltoallv(sbuffer, scounts, sdispls,
+                            rbuffer, rcounts, rdispls)
 
     def all_gather(self, a, b):
         """Gather data from all ranks onto all processes in a group.
