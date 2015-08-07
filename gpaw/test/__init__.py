@@ -228,7 +228,7 @@ tests = [
     'fixmom.py',                            # ~6s
     'exx_unocc.py',                         # ~6s
     'davidson.py',                          # ~6s
-    'parallel/grid_redistribute.py',        # ~7s
+    'parallel/redistribute_grid.py',        # ~7s
     'aedensity.py',                         # ~7s
     'pw/h.py',                              # ~7s
     'apmb.py',                              # ~7s
