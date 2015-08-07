@@ -41,6 +41,8 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
         * gd.parsize_c[distribute_dir]
     assert operation == 'forth' or operation == 'back'
     forward = (operation == 'forth')
+    if not forward:
+        raise NotImplementedError('Sorry, no way back yet.')
 
     dirs = (independent_dir, distribute_dir, reduce_dir)
     if not nasty and dirs in [(0, 2, 1), (1, 0, 2), (1, 2, 0), (2, 1, 0)]:
