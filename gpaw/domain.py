@@ -96,6 +96,10 @@ class Domain:
     def get_rank_from_position(self, spos_c):
         return self.get_ranks_from_positions(np.array([spos_c]))[0]
 
+    def get_rank_from_processor_position(self, parpos_c):
+        return parpos_c[2] + self.parsize_c[2] * \
+            (parpos_c[1] + self.parsize_c[1] * parpos_c[0])
+
     def get_processor_position_from_rank(self, rank=None):
         """Calculate position of a domain in the 3D grid of all domains."""
         if rank is None:
