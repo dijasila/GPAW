@@ -64,8 +64,6 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
     else:
         assert np.all(src.shape == gd2.n_c)
 
-    assert np.all(gd.pbc_c)  # XXX fix grid size irregularities for pbc=0
-
     # We want this to work no matter which direction is distribute and
     # reduce.  But that is tricky to code.  So we use a standard order
     # of the three.
@@ -126,7 +124,8 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
         dst = gd2.zeros(dtype=src.dtype)
     else:
         dst = gd.zeros(dtype=src.dtype)
-    recvbuf = -np.empty(dst.size, dtype=src.dtype)
+    recvbuf = np.empty(dst.size, dtype=src.dtype)
+    dst[:] = -2
     recvbuf[:] = -3
 
     sendchunks = []
@@ -156,8 +155,11 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
             - gd.beg_c[distribute_dir]
         sendnpts_ddir = sendstop_ddir - sendstart_ddir
 
-        recvstart_rdir = recvn_p[parent_src_coord]
-        recvstop_rdir = recvn_p[parent_src_coord + 1]
+        # Compensate for the infinitely annoying convention that enumeration
+        # of points starts at 1 in non-periodic directions.
+        d1rdir = 1 - gd.pbc_c[reduce_dir]
+        recvstart_rdir = recvn_p[parent_src_coord] - d1rdir
+        recvstop_rdir = recvn_p[parent_src_coord + 1] - d1rdir
         recvnpts_rdir = recvstop_rdir - recvstart_rdir
 
         # Grab subarray that is going to be sent to process i.
@@ -173,10 +175,9 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
             recvchunksize = recvnpts_rdir * recvnpts_ddir * npts_idir
         else:
             recvchunksize = sendnpts_rdir * sendnpts_ddir * npts_idir
-        recvchunk = recvbuf[recvchunk_start:recvchunk_start
-                            + recvchunksize]
-        recvchunk_start += recvchunksize
+        recvchunk = recvbuf[recvchunk_start:recvchunk_start + recvchunksize]
         recvchunks.append(recvchunk)
+        recvchunk_start += recvchunksize
 
         if forward:
             dstchunk = dst.transpose(*dirs)[:, :, recvstart_rdir:recvstop_rdir]
@@ -187,6 +188,7 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
 
     sendcounts = np.array([chunk.size for chunk in sendchunks], dtype=int)
     recvcounts = np.array([chunk.size for chunk in recvchunks], dtype=int)
+
     # Parallel Ole Holm-Nielsen check:
     # (First call int because some versions of numpy return np.intXX
     #  which does not trigger single-number comm.sum)
@@ -209,14 +211,14 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
 
 def playground():
     np.set_printoptions(linewidth=176)
-    N_c = [1, 5, 7]
+    N_c = [4, 5, 10]
 
-    pbc_c = (1, 1, 1)
+    pbc_c = (0, 0, 0)
 
     distribute_dir = 1
     reduce_dir = 2
 
-    parsize_c = (1, 2, 2)
+    parsize_c = (1, 1, 4)#2, 2)
     parsize2_c = list(parsize_c)
     parsize2_c[reduce_dir] = 1
     parsize2_c[distribute_dir] *= parsize_c[reduce_dir]
@@ -314,13 +316,12 @@ def test(N_c, gd, gd2, reduce_dir, distribute_dir, verbose=True):
 
 
 def rigorous_testing(raise_on_error=True):
-    from itertools import product, permutations
+    from itertools import product, permutations, cycle
     from gpaw.mpi import world
     #gridpointcounts = [1, 2, 3, 5, 7, 10, 16, 24, 37]
-    gridpointcounts = [1, 2, 5, 10, 16, 37]
+    gridpointcounts = [1, 2, 10, 16, 37]
     cpucounts = np.arange(1, world.size + 1)
-
-    failures = []
+    pbc = cycle(product([0, 1], [0, 1], [0, 1]))
 
     # This yields all possible parallelizations!
     for parsize_c in product(cpucounts, cpucounts, cpucounts):
@@ -329,8 +330,12 @@ def rigorous_testing(raise_on_error=True):
 
         # All possible grid point counts
         for N_c in product(gridpointcounts, gridpointcounts, gridpointcounts):
-            pbc_c = (1, 1, 1)
 
+            # We simply can't be bothered to also do all possible
+            # combinations with PBCs.  Trying every possible set of
+            # boundary conditions at least ones should be quite fine
+            # enough.
+            pbc_c = pbc.next()
             for dirs in permutations([0, 1, 2]):
                 independent_dir, distribute_dir, reduce_dir = dirs
 
@@ -359,9 +364,9 @@ def rigorous_testing(raise_on_error=True):
                 except ValueError:  # Skip illegal distributions
                     continue
 
-                print('N_c=%s redist %s -> %s [ind=%d red=%d dist=%d]' %
-                      (N_c, parsize_c, parsize2_c, independent_dir,
-                       reduce_dir, distribute_dir))
+                print('N_c=%s[%s] redist %s -> %s [ind=%d red=%d dist=%d]'
+                      % (N_c, pbc_c, parsize_c, parsize2_c,
+                         independent_dir, reduce_dir, distribute_dir))
 
                 test(N_c, gd, gd2, reduce_dir, distribute_dir,
                      verbose=False)
