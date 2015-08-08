@@ -152,7 +152,11 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
     sendcounts = np.array([chunk.size for chunk in sendchunks])
     recvcounts = np.array([chunk.size for chunk in recvchunks])
     # Parallel Ole Holm-Nielsen check:
-    assert peer_comm.sum(recvcounts.sum()) == peer_comm.sum(sendcounts.sum())
+    # (First call int because some versions of numpy return np.intXX
+    #  which does not trigger single-number comm.sum)
+    nsend = int(sendcounts.sum())
+    nrecv = int(recvcounts.sum())
+    assert peer_comm.sum(nsend) == peer_comm.sum(nrecv)
     senddispls = np.array([0] + list(np.cumsum(sendcounts))[:-1], dtype=int)
     recvdispls = np.array([0] + list(np.cumsum(recvcounts))[:-1], dtype=int)
 
