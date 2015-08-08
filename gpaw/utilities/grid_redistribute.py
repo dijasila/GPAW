@@ -58,10 +58,13 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
     assert gd2.parsize_c[distribute_dir] == gd.parsize_c[reduce_dir] \
         * gd.parsize_c[distribute_dir]
     assert operation == 'forth' or operation == 'back'
-
     forward = (operation == 'forth')
-    if not forward:
-        raise NotImplementedError('Sorry, no way back yet.')
+    if forward:
+        assert np.all(src.shape == gd.n_c)
+    else:
+        assert np.all(src.shape == gd2.n_c)
+
+    assert np.all(gd.pbc_c)  # XXX fix grid size irregularities for pbc=0
 
     # We want this to work no matter which direction is distribute and
     # reduce.  But that is tricky to code.  So we use a standard order
@@ -72,6 +75,7 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
     #
     # We only support some of them though...
     dirs = (independent_dir, distribute_dir, reduce_dir)
+    src = src.transpose(*dirs)
     if not nasty and dirs in [(0, 2, 1), (1, 0, 2), (1, 2, 0), (2, 1, 0)]:
         raise NotImplementedError('Cannot reduce dir %d and distribute dir %d'
                                   % (reduce_dir, distribute_dir))
@@ -80,8 +84,6 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
     # In principle it is possible to fix (0, 2, 1) and (2, 1, 0)
     # because they are similar operations along trivially different
     # axes.
-
-    dtype = src.dtype
 
     # Construct a communicator consisting of all those processes that
     # participate in domain decomposition along the reduction
@@ -105,9 +107,6 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
     sendn_p = gd2.n_cp[distribute_dir]
     recvn_p = gd.n_cp[reduce_dir]
 
-    recvbuf = gd2.zeros(dtype=dtype).ravel()
-    recvbuf[:] = -3
-
     # We have the sendbuffer, and it is contiguous.  But the parts
     # that we are going to send to each CPU are not contiguous!  We
     # need to loop over all the little chunks that we want to send,
@@ -122,20 +121,28 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
     # buffer yet.  Therefore we create a list of ChunkCopiers that
     # contain all the information that they need to later copy things
     # into the appropriate places of the return array.
-    
-    dst = gd2.zeros(dtype=dtype)
+
+    if forward:
+        dst = gd2.zeros(dtype=src.dtype)
+    else:
+        dst = gd.zeros(dtype=src.dtype)
+    recvbuf = -np.empty(dst.size, dtype=src.dtype)
+    recvbuf[:] = -3
+
     sendchunks = []
     recvchunks = []
     recv_chunk_copiers = []
     
     class ChunkCopier:
-        def __init__(self, i, start, stop):
-            self.chunk = recvchunks[i]
-            self.dstchunk = dst.transpose(*dirs)[:, :, start:stop]
+        def __init__(self, src_chunk, dst_chunk):
+            self.src_chunk = src_chunk
+            self.dst_chunk = dst_chunk
 
         def copy(self):
-            self.dstchunk.flat[:] = self.chunk
+            self.dst_chunk.flat[:] = self.src_chunk
 
+    # XXXXXX Some variables are named sendXXX and recvXXX but are used
+    # in the opposite way when operation='back'.  Rename!!!
     recvchunk_start = 0
     for i in range(peer_comm.size):
         parent_rank = members[i]
@@ -148,28 +155,38 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
         sendstop_ddir = sendn_p[parent_dst_coord + 1] \
             - gd.beg_c[distribute_dir]
         sendnpts_ddir = sendstop_ddir - sendstart_ddir
-        
+
         recvstart_rdir = recvn_p[parent_src_coord]
         recvstop_rdir = recvn_p[parent_src_coord + 1]
         recvnpts_rdir = recvstop_rdir - recvstart_rdir
 
         # Grab subarray that is going to be sent to process i.
-        sendchunk = src.transpose(*dirs)[:, sendstart_ddir:sendstop_ddir, :]
-
-        assert sendchunk.size == sendnpts_rdir * sendnpts_ddir * npts_idir
+        if forward:
+            sendchunk = src[:, sendstart_ddir:sendstop_ddir, :]
+            assert sendchunk.size == sendnpts_rdir * sendnpts_ddir * npts_idir
+        else:
+            sendchunk = src[:, :, recvstart_rdir:recvstop_rdir]
+            assert sendchunk.size == recvnpts_rdir * recvnpts_ddir * npts_idir
         sendchunks.append(sendchunk)
 
-        recvchunksize = recvnpts_rdir * recvnpts_ddir * npts_idir
+        if forward:
+            recvchunksize = recvnpts_rdir * recvnpts_ddir * npts_idir
+        else:
+            recvchunksize = sendnpts_rdir * sendnpts_ddir * npts_idir
         recvchunk = recvbuf[recvchunk_start:recvchunk_start
                             + recvchunksize]
-        recvchunks.append(recvchunk)
         recvchunk_start += recvchunksize
-        
-        recv_chunk_copiers.append(ChunkCopier(i, recvstart_rdir,
-                                              recvstop_rdir))
+        recvchunks.append(recvchunk)
 
-    sendcounts = np.array([chunk.size for chunk in sendchunks])
-    recvcounts = np.array([chunk.size for chunk in recvchunks])
+        if forward:
+            dstchunk = dst.transpose(*dirs)[:, :, recvstart_rdir:recvstop_rdir]
+        else:
+            dstchunk = dst.transpose(*dirs)[:, sendstart_ddir:sendstop_ddir, :]
+        copier = ChunkCopier(recvchunk, dstchunk)
+        recv_chunk_copiers.append(copier)
+
+    sendcounts = np.array([chunk.size for chunk in sendchunks], dtype=int)
+    recvcounts = np.array([chunk.size for chunk in recvchunks], dtype=int)
     # Parallel Ole Holm-Nielsen check:
     # (First call int because some versions of numpy return np.intXX
     #  which does not trigger single-number comm.sum)
@@ -183,6 +200,7 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth',
 
     peer_comm.alltoallv(sendbuf, sendcounts, senddispls,
                         recvbuf, recvcounts, recvdispls)
+        
     # Copy contiguous blocks of receive buffer back into precoded slices:
     for chunk_copier in recv_chunk_copiers:
         chunk_copier.copy()
@@ -228,6 +246,7 @@ def playground():
     gd.comm.barrier()
 
     recvbuf = redistribute(gd, gd2, src, distribute_dir, reduce_dir,
+                           operation='forth',
                            nasty=True)
     recvbuf_master = gd2.collect(recvbuf)
     if gd2.comm.rank == 0:
@@ -235,6 +254,16 @@ def playground():
         print(recvbuf_master)
         err = src_global - recvbuf_master
         print('MAXERR', np.abs(err).max())
+
+    hopefully_orig = redistribute(gd, gd2, recvbuf, distribute_dir, reduce_dir,
+                                  operation='back',
+                                  nasty=True)
+    tmp = gd.collect(hopefully_orig)
+    if gd.comm.rank == 0:
+        print('FINALLY')
+        print(tmp)
+        err2 = src_global - tmp
+        print('MAXERR', np.abs(err2).max())
 
 
 def test(N_c, gd, gd2, reduce_dir, distribute_dir, verbose=True):
@@ -258,7 +287,8 @@ def test(N_c, gd, gd2, reduce_dir, distribute_dir, verbose=True):
         print(goal_global)
     gd.comm.barrier()
     
-    recvbuf = redistribute(gd, gd2, src, distribute_dir, reduce_dir)
+    recvbuf = redistribute(gd, gd2, src, distribute_dir, reduce_dir,
+                           operation='forth', nasty=True)
     recvbuf_master = gd2.collect(recvbuf)
     #if np.all(N_c == [10, 16, 24]):
     #    recvbuf_master[5,8,3] = 7
@@ -270,14 +300,20 @@ def test(N_c, gd, gd2, reduce_dir, distribute_dir, verbose=True):
         err = src_global - recvbuf_master
         maxerr = np.abs(err).max()
         if verbose:
-            print('RECV')
+            print('RECV FORTH')
             print(recvbuf_master)
             print('MAXERR', maxerr)
     maxerr = gd.comm.sum(maxerr)
-    return maxerr
+    assert maxerr == 0.0, 'bad values after distribute "forth"'
+
+    recvbuf2 = redistribute(gd, gd2, recvbuf, distribute_dir, reduce_dir,
+                            operation='back', nasty=True)
+
+    final_err = gd.comm.sum(np.abs(src - recvbuf2).max())
+    assert final_err == 0.0, 'bad values after distribute "back"'
 
 
-def rigorous_testing():
+def rigorous_testing(raise_on_error=True):
     from itertools import product, permutations
     from gpaw.mpi import world
     #gridpointcounts = [1, 2, 3, 5, 7, 10, 16, 24, 37]
@@ -323,31 +359,12 @@ def rigorous_testing():
                 except ValueError:  # Skip illegal distributions
                     continue
 
-                try:
-                    maxerr = test(N_c, gd, gd2, reduce_dir, distribute_dir,
-                                  verbose=False)
-                    if maxerr == 0.0:
-                        result = 'OK'
-                    else:
-                        result = 'FAIL'
-                except AssertionError:
-                    result = 'FAIL'
+                print('N_c=%s redist %s -> %s [ind=%d red=%d dist=%d]' %
+                      (N_c, parsize_c, parsize2_c, independent_dir,
+                       reduce_dir, distribute_dir))
 
-                if result == 'FAIL':
-                    failures.append((parsize_c, N_c, dirs))
-                if gd.comm.rank == 0:
-                    print('N_c=%s redist %s -> %s [ind=%d red=%d dist=%d]: %s'
-                          % (N_c, parsize_c, parsize2_c, independent_dir,
-                             reduce_dir, distribute_dir, result))
-
-    if gd.comm.rank == 0:
-        print()
-        print('Failures')
-        print('--------')
-        for parsize, N_c, dirs in failures:
-            print('parsize=%s N=%s (ind dist red)=%s' % (parsize, N_c, dirs))
-
-    return failures
+                test(N_c, gd, gd2, reduce_dir, distribute_dir,
+                     verbose=False)
 
 
 if __name__ == '__main__':
