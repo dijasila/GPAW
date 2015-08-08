@@ -258,7 +258,7 @@ class _Communicator:
         assert sbuffer.dtype == rbuffer.dtype
         
         for arr in [scounts, sdispls, rcounts, rdispls]:
-            assert arr.dtype == np.int32, arr.dtype
+            assert arr.dtype == np.int, arr.dtype
             assert len(arr) == self.size
 
         assert np.all(0 <= sdispls)
