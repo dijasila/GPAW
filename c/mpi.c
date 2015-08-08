@@ -855,7 +855,6 @@ static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)
   /* Create count and displacement arrays in units of bytes */
   int elem_size = PyArray_ITEMSIZE(send_obj);
 
-  //int itemsize = PyArray_ITEMSIZE(
   long* tmp1 = PyArray_DATA(send_cnts);
   long* tmp2 = PyArray_DATA(send_displs);
   long* tmp3 = PyArray_DATA(recv_cnts);
