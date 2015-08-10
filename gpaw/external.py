@@ -87,7 +87,7 @@ class PointChargePotential(ExternalPotential):
         
         charges: list of float
             Charges.
-        positions: (N, 3) shaped array-like of float
+        positions: (N, 3)-shaped array-like of float
             Positions of charges in Angstrom.  Can be set later.
         rc: float
             Cutoff for Coulomb potential in Angstrom.
