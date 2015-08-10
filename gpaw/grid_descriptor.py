@@ -115,16 +115,13 @@ class GridDescriptor(Domain):
         Domain.__init__(self, cell_cv, pbc_c, comm, parsize, self.N_c)
         self.rank = self.comm.rank
 
-        parsize_c = self.parsize_c
-        n_c, remainder_c = divmod(self.N_c, parsize_c)
-
         self.beg_c = np.empty(3, int)
         self.end_c = np.empty(3, int)
 
         self.n_cp = []
         for c in range(3):
-            n_p = (np.arange(parsize_c[c] + 1) * float(self.N_c[c]) /
-                   parsize_c[c])
+            n_p = (np.arange(self.parsize_c[c] + 1) * float(self.N_c[c]) /
+                   self.parsize_c[c])
             n_p = np.around(n_p + 0.4999).astype(int)
             
             if not self.pbc_c[c]:
@@ -150,6 +147,18 @@ class GridDescriptor(Domain):
         h_c = self.get_grid_spacings()
         if max(h_c) / min(h_c) > 1.3:
             raise ValueError('Very anisotropic grid spacings: %s' % h_c)
+
+    def __str__(self):
+        if self.orthogonal:
+            cellstring = np.diag(self.cell_cv).tolist()
+        else:
+            cellstring = self.cell_cv.tolist()
+
+        return ('GridDescriptor(%s, cell_cv=%s, pbc_c=%s, comm=[%d/%d], '
+                'parsize=%s)'
+                % (self.N_c.tolist(), cellstring,
+                   np.array(self.pbc_c).astype(int).tolist(), self.comm.rank,
+                   self.comm.size, self.parsize_c.tolist()))
 
     def new_descriptor(self, N_c=None, cell_cv=None, pbc_c=None,
                        comm=None, parsize=None):
