@@ -111,35 +111,35 @@ class GPAW(PAW):
                 'magmoms' in quantities and self.magmom_av is None or
                 'dipole' in quantities and self.dipole_v is None)
 
-    # XXX hack for compatibility with ASE-3.8's new calculator specification.
+    # name, nolabel, check_state, todict and get_property are hacks
+    # for compatibility with ASE-3.8's new calculator specification.
     # In the future, we will get this stuff for free by inheriting from
     # ase.calculators.calculator.Calculator.
     name = 'GPAW'
     nolabel = True
-    def check_state(self, atoms): return []
-    def todict(self): return {}
-    def _get_results(self):
-        results = {}
-        from ase.calculators.calculator import all_properties
-        for prop in all_properties:
-            if prop == 'charges':
-                continue
-            if not self.calculation_required(self.atoms, [prop]):
+    
+    def check_state(self, atoms):
+        return []
+        
+    def todict(self):
+        return {}
+        
+    def get_property(self, prop, atoms, allow_calculation=True):
+        calcreqd = self.calculation_required(atoms, [prop])
+        if allow_calculation or not calcreqd:
+            if not calcreqd:
                 if prop == 'magmoms':
-                    results[prop] = self.magmom_av
-                    continue
+                    return self.magmom_av.copy()
                 if prop == 'dipole':
-                    results[prop] = self.dipole_v * Bohr
-                    continue
-                name = {'energy': 'potential_energy',
-                        'magmom': 'magnetic_moment'}.get(prop, prop)
-                try:
-                    x = getattr(self, 'get_' + name)(self.atoms)
-                    results[prop] = x
-                except (NotImplementedError, AttributeError):
-                    pass
-        return results
-    results = property(_get_results)
+                    return self.dipole_v * Bohr
+            name = {'energy': 'potential_energy',
+                    'magmom': 'magnetic_moment',
+                    'magmoms': 'magnetic_moments',
+                    'dipole': 'dipole_moment'}.get(prop, prop)
+            try:
+                return getattr(self, 'get_' + name)(self.atoms)
+            except (NotImplementedError, AttributeError):
+                pass
 
     def get_number_of_bands(self):
         """Return the number of bands."""
