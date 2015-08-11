@@ -511,6 +511,8 @@ class _Communicator:
         each other, and otherwise 'unequal'.
 
         This method corresponds to MPI_Comm_compare."""
+        if isinstance(self.comm, SerialCommunicator):
+            return self.comm.compare(othercomm.comm) # argh!
         result = self.comm.compare(othercomm.get_c_object())
         assert result in ['ident', 'congruent', 'similar', 'unequal']
         return result
@@ -525,6 +527,8 @@ class _Communicator:
         assign MPI_UNDEFINED)."""
         assert all(0 <= rank for rank in ranks)
         assert all(rank < self.size for rank in ranks)
+        if isinstance(self.comm, SerialCommunicator):
+            return self.comm.translate_ranks(other.comm, ranks) # argh!
         otherranks = self.comm.translate_ranks(other.get_c_object(), ranks)
         assert all(-1 <= rank for rank in otherranks)
         return otherranks
