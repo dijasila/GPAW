@@ -639,12 +639,9 @@ class SerialCommunicator:
             raise NotImplementedError('Compare serial comm to other')
 
     def translate_ranks(self, other, ranks):
-        if self == 'other':
-            if len(ranks) == 0:
-                return np.array([], dtype=int)
-            else:
-                assert len(ranks) == 1 and ranks[0] == 0
-                return np.array([0])
+        if isinstance(other, SerialCommunicator):
+            assert all(rank == 0 for rank in ranks)
+            return np.zeros(len(ranks), dtype=int)
         raise NotImplementedError('Translate non-trivial ranks with serial comm')
 
     def get_c_object(self):
