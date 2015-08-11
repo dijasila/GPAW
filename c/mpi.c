@@ -840,6 +840,7 @@ static PyObject *mpi_compare(MPIObject *self, PyObject *args)
   else if (result == MPI_CONGRUENT) pyresult = "congruent";
   else if (result == MPI_SIMILAR) pyresult = "similar";
   else if (result == MPI_UNEQUAL) pyresult = "unequal";
+  else return NULL;
   return Py_BuildValue("s", pyresult);
 }
 
