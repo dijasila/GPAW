@@ -52,6 +52,5 @@ Specialized tutorials
    H2/ensembles
    gw_tutorial/gw_tutorial
    spinorbit/spinorbit
-   atomization_cmr/atomization_cmr
    continuum_solvent_model/continuum_solvent_model
    ofdft/ofdft

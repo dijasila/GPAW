@@ -174,7 +174,6 @@ tests = [
     'wfs_io.py',                            # ~3s
     'lrtddft2.py',                          # ~3s
     'fileio/file_reference.py',             # ~3s
-    'cmrtest/cmr_test2.py',                 # ~3s
     'restart.py',                           # ~3s
     'broydenmixer.py',                      # ~3s
     'pw/fulldiagk.py',                      # ~3s
@@ -367,12 +366,7 @@ tests = [
     'nscfsic.py',                           # duration unknown
     'coreeig.py',                           # duration unknown
     'bse_MoS2_cut.py',                      # duration unknown
-    'parallel/scalapack_mpirecv_crash.py',  # duration unknown
-    'cmrtest/cmr_test.py',                  # duration unknown
-    'cmrtest/cmr_test3.py',                 # duration unknown
-    'cmrtest/cmr_test4.py',                 # duration unknown
-    'cmrtest/cmr_append.py',                # duration unknown
-    'cmrtest/Li2_atomize.py']               # duration unknown
+    'parallel/scalapack_mpirecv_crash.py']  # duration unknown
 
 # 'fractional_translations.py',
 # 'graphene_EELS.py', disabled while work is in progress on response code
@@ -400,9 +394,6 @@ if mpi.size > 1:
                 'stark_shift.py',
                 'exx_q.py',
                 'potential.py',
-                # 'cmrtest/cmr_test3.py',
-                # 'cmrtest/cmr_append.py',
-                # 'cmrtest/Li2_atomize.py',  # started to hang May 2014
                 'lcao_pair_and_coulomb.py',
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
@@ -588,7 +579,7 @@ class TestRunner:
                 module = ex.name
             else:
                 module = ex.args[0].split()[-1].split('.')[0]
-            if module in ['scipy', 'cmr', '_gpaw_hdf5']:
+            if module in ['scipy', '_gpaw_hdf5']:
                 skip = True
             else:
                 tb = traceback.format_exc()
