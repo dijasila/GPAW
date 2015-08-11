@@ -503,6 +503,32 @@ class _Communicator:
         """Block execution until all process have reached this point."""
         self.comm.barrier()
 
+    def compare(self, othercomm):
+        """Compare communicator to other.
+
+        Returns 'ident' if they are identical, 'congruent' if they are
+        copies of each other, 'similar' if they are permutations of
+        each other, and otherwise 'unequal'.
+
+        This method corresponds to MPI_Comm_compare."""
+        result = self.comm.compare(othercomm.get_c_object())
+        assert result in ['ident', 'congruent', 'similar', 'unequal']
+        return result
+
+    def translate_ranks(self, other, ranks):
+        """"Translate ranks from communicator to other.
+
+        ranks must be valid on this communicator.  Returns ranks
+        on other communicator corresponding to the same processes.
+        Ranks that are not defined on the other communicator are
+        assigned values of -1.  (In contrast to MPI which would
+        assign MPI_UNDEFINED)."""
+        assert all(0 <= rank for rank in ranks)
+        assert all(rank < self.size for rank in ranks)
+        otherranks = self.comm.translate_ranks(other.get_c_object(), ranks)
+        assert all(-1 <= rank for rank in otherranks)
+        return otherranks
+        
     def get_members(self):
         """Return the subset of processes which are members of this MPI group
         in terms of the ranks they are assigned on the parent communicator.
@@ -603,6 +629,23 @@ class SerialCommunicator:
 
     def get_members(self):
         return np.array([0])
+    
+    def compare(self, other):
+        if self == other:
+            return 'ident'
+        elif isinstance(other, SerialCommunicator):
+            return 'congruent'
+        else:
+            raise NotImplementedError('Compare serial comm to other')
+
+    def translate_ranks(self, other, ranks):
+        if self == 'other':
+            if len(ranks) == 0:
+                return np.array([], dtype=int)
+            else:
+                assert len(ranks) == 1 and ranks[0] == 0
+                return np.array([0])
+        raise NotImplementedError('Translate non-trivial ranks with serial comm')
 
     def get_c_object(self):
         raise NotImplementedError('Should not get C-object for serial comm')
