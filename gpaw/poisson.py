@@ -437,7 +437,7 @@ class FFTPoissonSolver(PoissonSolver):
         return 1
 
     def estimate_memory(self, mem):
-        mem.subnode('')
+        mem.subnode('(Varies)', 0.0)
 
 
 class ParallelFFTPoissonSolver(PoissonSolver):
