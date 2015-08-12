@@ -459,32 +459,25 @@ class ParallelFFTPoissonSolver(PoissonSolver):
         # We will probably want to use this on non-periodic grids too...
         assert gd.pbc_c.all()
         self.gd = gd
-        
-        self.conj_x_yz_1 = GridRedistributor(self.gd, 1, 2)
-        self.conj_1_yz_x = GridRedistributor(self.conj_x_yz_1.gd2, 2, 0)
-        self.conj_yz_1_x = GridRedistributor(self.conj_1_yz_x.gd2, 0, 1)
+        self.transp_x_yz_1 = GridRedistributor(self.gd, 1, 2)
+        self.transp_1_yz_x = GridRedistributor(self.transp_x_yz_1.gd2, 2, 0)
+        self.transp_yz_1_x = GridRedistributor(self.transp_1_yz_x.gd2, 0, 1)
 
     def initialize(self):
-        gd = self.conj_yz_1_x.gd2
-        if gd.comm.rank == 0:
-            # XXX construct distributed array only.
-            k2serial_Q = construct_reciprocal(gd)[0]
-        else:
-            k2serial_Q = None
-        k2_Q = gd.empty()
-        gd.distribute(k2serial_Q, k2_Q)
+        gd = self.redist_yz_1_x.gd2
+        k2_Q, N3 = construct_reciprocal(gd, distributed=True)
         self.poisson_factor_Q = 4.0 * np.pi / k2_Q
 
     def solve_neutral(self, phi_g, rho_g, eps=None):
         # Will be a bit more efficient if reduced dimension is always
         # contiguous.  Probably more things can be improved...
-        work = fftn(self.conj_x_yz_1.forth(rho_g), axes=[2])
-        work = fftn(self.conj_1_yz_x.forth(work), axes=[0])
-        work = fftn(self.conj_yz_1_x.forth(work), axes=[1])
+        work = fftn(self.transp_x_yz_1.forth(rho_g), axes=[2])
+        work = fftn(self.transp_1_yz_x.forth(work), axes=[0])
+        work = fftn(self.transp_yz_1_x.forth(work), axes=[1])
         work *= self.poisson_factor_Q
-        work = self.conj_yz_1_x.back(ifftn(work, axes=[1]))
-        work = self.conj_1_yz_x.back(ifftn(work, axes=[0]))
-        work = self.conj_x_yz_1.back(ifftn(work, axes=[2]).real)
+        work = self.transp_yz_1_x.back(ifftn(work, axes=[1]))
+        work = self.transp_1_yz_x.back(ifftn(work, axes=[0]))
+        work = self.transp_x_yz_1.back(ifftn(work, axes=[2]).real)
         phi_g[:] = work
         return 1
 
