@@ -4,6 +4,28 @@ import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 
 
+class GridRedistributor:
+    """Perform redistributions between two grids.
+
+    See the redistribute function."""
+    def __init__(self, gd, distribute_dir, reduce_dir):
+        self.gd = gd
+        self.distribute_dir = distribute_dir
+        self.reduce_dir = reduce_dir
+        self.gd2 = get_compatible_grid_descriptor(gd, distribute_dir,
+                                                  reduce_dir)
+
+    def _redist(self, src, op):
+        return redistribute(self.gd, self.gd2, src, self.distribute_dir,
+                            self.reduce_dir, operation=op)
+        
+    def forth(self, src):
+        return self._redist(src, 'forth')
+
+    def back(self, src):
+        return self._redist(src, 'back')
+
+
 def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth'):
     """Perform certain simple redistributions among two grid descriptors.
 
