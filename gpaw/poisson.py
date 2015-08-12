@@ -464,7 +464,7 @@ class ParallelFFTPoissonSolver(PoissonSolver):
         self.transp_yz_1_x = GridRedistributor(self.transp_1_yz_x.gd2, 0, 1)
 
     def initialize(self):
-        gd = self.redist_yz_1_x.gd2
+        gd = self.transp_yz_1_x.gd2
         k2_Q, N3 = construct_reciprocal(gd, distributed=True)
         self.poisson_factor_Q = 4.0 * np.pi / k2_Q
 
