@@ -482,7 +482,7 @@ class ParallelFFTPoissonSolver(PoissonSolver):
         return 1
 
     def estimate_memory(self, mem):
-        mem.subnode('k squared', self.conj_yz_1_x.gd.bytecount())
+        mem.subnode('k squared', self.transp_yz_1_x.gd2.bytecount())
 
 
 class FixedBoundaryPoissonSolver(PoissonSolver):
