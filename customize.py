@@ -1,4 +1,4 @@
-er provided customizations for the gpaw setup
+#User provided customizations for the gpaw setup
 
 #Here, one can override the default arguments, or append own
 #arguments to default ones
