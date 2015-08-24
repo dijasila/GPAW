@@ -237,6 +237,8 @@ def divrl(a_g, l, r_g):
 def compiled_with_sl():
     return hasattr(_gpaw, 'new_blacs_context')
 
+def compiled_with_libvdwxc():
+    return hasattr(_gpaw, 'libvdwxc_initialize')
 
 def load_balance(paw, atoms):
     try:

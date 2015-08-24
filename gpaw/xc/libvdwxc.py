@@ -4,6 +4,7 @@ from gpaw.xc.libxc import LibXC
 from gpaw.xc.functional import XCFunctional
 from gpaw.xc.gga import GGA
 from gpaw.xc.vdw import VDWFunctional
+from gpaw.utilities import compiled_with_libvdwxc
 from gpaw.utilities.grid_redistribute import redistribute
 from gpaw.utilities.accordion_redistribute import accordion_redistribute
 from gpaw.utilities.timing import nulltimer
@@ -26,7 +27,7 @@ class LibVDWXC(GGA, object):
         self._vdw = None
         self._fft_comm = None
         self.timer = timer
-        if not hasattr(_gpaw, 'libvdwxc_initialize'):
+        if not compiled_with_libvdwxc():
             raise ImportError('libvdwxc not compiled into GPAW')
 
     @property
@@ -153,4 +154,5 @@ class LibVDWXC(GGA, object):
         # Energy should be added to e_g
 
     def __del__(self):
-        _gpaw.libvdwxc_free(self._vdw)
+        if self._vdw is not None:
+            _gpaw.libvdwxc_free(self._vdw)
