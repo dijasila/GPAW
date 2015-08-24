@@ -112,6 +112,16 @@ PyObject* pblas_rk(PyObject *self, PyObject *args);
 PyObject* papi_mem_info(PyObject *self, PyObject *args);
 #endif
 
+#ifdef GPAW_WITH_LIBVDWXC
+PyObject* libvdwxc_initialize(PyObject *self, PyObject *args);
+PyObject* libvdwxc_calculate(PyObject *self, PyObject *args);
+PyObject* libvdwxc_free(PyObject *self, PyObject *args);
+#ifdef PARALLEL
+PyObject* libvdwxc_initialize_mpi(PyObject *self, PyObject *args);
+PyObject* libvdwxc_calculate_mpi(PyObject *self, PyObject *args);
+#endif
+#endif
+
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args);
 
@@ -221,6 +231,15 @@ static PyMethodDef functions[] = {
 #ifdef GPAW_PAPI
   {"papi_mem_info", papi_mem_info, METH_VARARGS, 0},
 #endif // GPAW_PAPI
+#ifdef GPAW_WITH_LIBVDWXC
+  {"libvdwxc_initialize", libvdwxc_initialize, METH_VARARGS, 0},
+  {"libvdwxc_calculate", libvdwxc_calculate, METH_VARARGS, 0},
+  {"libvdwxc_free", libvdwxc_free, METH_VARARGS, 0},
+#ifdef PARALLEL
+  {"libvdwxc_initialize_mpi", libvdwxc_initialize_mpi, METH_VARARGS, 0},
+  {"libvdwxc_calculate_mpi", libvdwxc_calculate_mpi, METH_VARARGS, 0},
+#endif
+#endif
   {"mlsqr", mlsqr, METH_VARARGS, 0},
   {0, 0, 0, 0}
 };
