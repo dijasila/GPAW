@@ -19,13 +19,35 @@ def check_grid_descriptor(gd):
     assert nxpts_p[-1] <= nxpts0
 
 
-class GPAWVDWXCFunctional(GGA):
+class LibVDWXC(GGA, object):
     def __init__(self, timer=nulltimer):
+        object.__init__(self)
         GGA.__init__(self, LibXC('GGA_X_PBE_R+LDA_C_PW'))
         self._vdw = None
-        self.name = 'libvdwxc/vdW-DF'
-        self._mpi = False
+        self._fft_comm = None
         self.timer = timer
+        if not hasattr(_gpaw, 'libvdwxc_initialize'):
+            raise ImportError('libvdwxc not compiled into GPAW')
+
+    @property
+    def name(self):
+        if self._vdw is None:
+            return 'vdW-DF [libvdwxc]'
+        if self._vdw is not None:
+            if self._fft_comm is None:
+                desc = 'serial'
+            else:
+                if self._fft_comm.size == 1:
+                    desc = 'in "parallel" with 1 core'
+                else:
+                    desc = 'in parallel with %d cores' % self._fft_comm.size
+            return 'vdW-DF [libvdwxc %s]' % desc
+        return 'vdW-DF [libvdwxc]'
+
+    @name.setter
+    def name(self, value):
+        # Somewhere in the class hierarchy, someone tries to set the name.
+        pass
 
     def get_setup_name(self):
         return 'revPBE'
@@ -35,11 +57,13 @@ class GPAWVDWXCFunctional(GGA):
         manyargs = list(N_c) + list(cell_cv.ravel())
         if isinstance(comm, SerialCommunicator):
             self._vdw = _gpaw.libvdwxc_initialize(None, *manyargs)
-            self._mpi = False
         else:
-            self._vdw = _gpaw.libvdwxc_initialize_mpi(comm.get_c_object(),
-                                                      *manyargs)
-            self._mpi = True
+            try:
+                initfunc = _gpaw.libvdwxc_initialize_mpi
+            except AttributeError:
+                raise ImportError('parallel libvdwxc not compiled into GPAW')
+            self._vdw = initfunc(comm.get_c_object(), *manyargs)
+            self._fft_comm = comm
         self.timer.stop('lib init')
 
     def initialize(self, density, hamiltonian, wfs, occupations):
@@ -64,13 +88,12 @@ class GPAWVDWXCFunctional(GGA):
     def _calculate(self, n_g, sigma_g):
         v_g = np.zeros_like(n_g)
         dedsigma_g = np.zeros_like(sigma_g)
-        if self._mpi:
-            energy = _gpaw.libvdwxc_calculate_mpi(self._vdw, n_g, sigma_g,
-                                                  v_g, dedsigma_g)
-        else:
+        if self._fft_comm is None:
             energy = _gpaw.libvdwxc_calculate(self._vdw, n_g, sigma_g,
-                                              v_g, dedsigma_g)
-            
+                                              v_g, dedsigma_g) 
+        else:
+           energy = _gpaw.libvdwxc_calculate_mpi(self._vdw, n_g, sigma_g,
+                                                  v_g, dedsigma_g)
         return energy, v_g, dedsigma_g
 
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
