@@ -127,8 +127,9 @@ class Cluster:
         """Use Agg backend and prevent windows from popping up."""
         fd = open(job.script + '.py', 'w')
         fd.write('from gpaw.test import wrap_pylab\n')
-        fd.write('wrap_pylab(%s)\n' % job.show)
-        fd.write('exec(open(%r).read())\n' % job.script)
+        fd.write('wrap_pylab({0})\n'.format(job.show))
+        fd.write('exec(compile(open({0!r}).read()), {0!r}, "exec")\n'
+                 .format(job.script))
         fd.close()
         
     def tick(self, nrunning):
