@@ -182,7 +182,7 @@ def decompose_domain(ngpts_c, ncores):
             best = (p1, p2, p3)
     if best is None:
         raise RuntimeError("Can't decompose a %dx%dx%d grid on %d CPUs!" %
-                           (n1, n2, n3, p))
+                           (n1, n2, n3, ncores))
     return best
 
 
