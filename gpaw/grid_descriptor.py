@@ -31,6 +31,11 @@ class GridBoundsError(ValueError):
     pass
 
 
+def assign_domain_sizes(parsize, N):
+    n_p = np.arange(parsize + 1) * float(N) / parsize
+    n_p = np.around(n_p + 0.4999).astype(int)
+    return n_p
+
 class GridDescriptor(Domain):
     """Descriptor-class for uniform 3D grid
 
@@ -69,7 +74,7 @@ class GridDescriptor(Domain):
     ndim = 3  # dimension of ndarrays
 
     def __init__(self, N_c, cell_cv=(1, 1, 1), pbc_c=True,
-                 comm=None, parsize=None):
+                 comm=None, parsize=None, n_cp=None):
         """Construct grid-descriptor object.
 
         parameters:
@@ -118,22 +123,24 @@ class GridDescriptor(Domain):
         self.beg_c = np.empty(3, int)
         self.end_c = np.empty(3, int)
 
-        self.n_cp = []
-        for c in range(3):
-            n_p = (np.arange(self.parsize_c[c] + 1) * float(self.N_c[c]) /
-                   self.parsize_c[c])
-            n_p = np.around(n_p + 0.4999).astype(int)
-            
+        if n_cp is None:
+            n_cp = []
+            for c in range(3):
+                n_p = assign_domain_sizes(self.parsize_c[c], self.N_c[c])
+                n_cp.append(n_p)
+        self.n_cp = n_cp
+        
+        for c, n_p in enumerate(n_cp):
+            assert len(n_p) == self.parsize_c[c] + 1
             if not self.pbc_c[c]:
                 n_p[0] = 1
 
-            if not np.alltrue(n_p[1:] - n_p[:-1]):
+            if not np.all(n_p[1:] - n_p[:-1] > 0):
                 raise ValueError('Grid too small!')
-                    
+
             self.beg_c[c] = n_p[self.parpos_c[c]]
             self.end_c[c] = n_p[self.parpos_c[c] + 1]
-            self.n_cp.append(n_p)
-            
+
         self.n_c = self.end_c - self.beg_c
 
         self.h_cv = self.cell_cv / self.N_c[:, np.newaxis]
@@ -154,14 +161,15 @@ class GridDescriptor(Domain):
         else:
             cellstring = self.cell_cv.tolist()
 
-        return ('GridDescriptor(%s, cell_cv=%s, pbc_c=%s, comm=[%d/%d], '
-                'parsize=%s)'
+        pcoords = tuple(self.get_processor_position_from_rank())
+        return ('GridDescriptor(%s, cell_cv=%s, pbc_c=%s, comm=[%d/%d, '
+                'domain=%s], parsize=%s)'
                 % (self.N_c.tolist(), cellstring,
                    np.array(self.pbc_c).astype(int).tolist(), self.comm.rank,
-                   self.comm.size, self.parsize_c.tolist()))
+                   self.comm.size, pcoords, self.parsize_c.tolist()))
 
     def new_descriptor(self, N_c=None, cell_cv=None, pbc_c=None,
-                       comm=None, parsize=None):
+                       comm=None, parsize=None, n_cp=None):
         """Create new descriptor based on this one.
 
         The new descriptor will use the same class (possibly a subclass)
@@ -177,7 +185,12 @@ class GridDescriptor(Domain):
             comm = self.comm
         if parsize is None:
             parsize = self.parsize_c
-        return self.__class__(N_c, cell_cv, pbc_c, comm, parsize)
+        #if n_cp is None:
+        #    n_cp = self.n_cp
+        # Hmmm!!  What to do about n_cp?  If we have a custom one, we should
+        # sort of pass that, but we don't even know if it was set in a funny
+        # way.  We will just forward whatever the caller asks for.
+        return self.__class__(N_c, cell_cv, pbc_c, comm, parsize, n_cp)
 
     def get_grid_spacings(self):
         L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
@@ -233,6 +246,15 @@ class GridDescriptor(Domain):
             return np.zeros(shape, dtype)
         else:
             return np.empty(shape, dtype)
+
+    def get_axial_communicator(self, axis):
+        peer_ranks = []
+        pos_c = self.parpos_c.copy()
+        for i in range(self.parsize_c[axis]):
+            pos_c[axis] = i
+            peer_ranks.append(self.get_rank_from_processor_position(pos_c))
+        peer_comm = self.comm.new_communicator(peer_ranks)
+        return peer_comm
         
     def integrate(self, a_xg, b_yg=None,
                   global_integral=True, hermitian=False,
