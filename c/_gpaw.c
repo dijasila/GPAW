@@ -355,7 +355,7 @@ main(int argc, char **argv)
 #endif
 
     Py_SetProgramName(wargv[0]);
-    PyImport_AppendInittab("_gpaw", &modinit);
+    PyImport_AppendInittab("_gpaw", &moduleinit0);
     Py_Initialize();
     int status = Py_Main(argc, wargv);
     Py_Finalize();
