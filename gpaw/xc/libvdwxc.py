@@ -38,11 +38,11 @@ class LibVDWXC(GGA, object):
             if self._fft_comm.size == 1:
                 # Invokes MPI libraries and is implementation-wise
                 # slightly different from the serial version
-                desc = 'libvdwxc in "parallel" with 1 core'
+                desc = 'in "parallel" with 1 core'
             else:
-                desc = ('libvdwxc in parallel with %d cores'
+                desc = ('in parallel with %d cores'
                         % self._fft_comm.size)
-        return 'vdW-DF [%s]' % desc
+        return 'vdW-DF [libvdwxc %s]' % desc
 
     @name.setter
     def name(self, value):
@@ -55,7 +55,9 @@ class LibVDWXC(GGA, object):
     def _vdw_init(self, comm, N_c, cell_cv):
         self.timer.start('lib init')
         manyargs = list(N_c) + list(cell_cv.ravel())
-        if isinstance(comm, SerialCommunicator):
+        try:
+            comm.get_c_object()
+        except NotImplementedError:  # Serial
             self._vdw = _gpaw.libvdwxc_initialize(None, *manyargs)
         else:
             try:
