@@ -32,18 +32,17 @@ class LibVDWXC(GGA, object):
 
     @property
     def name(self):
-        if self._vdw is None:
-            return 'vdW-DF [libvdwxc]'
-        if self._vdw is not None:
-            if self._fft_comm is None:
-                desc = 'serial'
+        if self._fft_comm is None:
+            desc = 'serial'
+        else:
+            if self._fft_comm.size == 1:
+                # Invokes MPI libraries and is implementation-wise
+                # slightly different from the serial version
+                desc = 'libvdwxc in "parallel" with 1 core'
             else:
-                if self._fft_comm.size == 1:
-                    desc = 'in "parallel" with 1 core'
-                else:
-                    desc = 'in parallel with %d cores' % self._fft_comm.size
-            return 'vdW-DF [libvdwxc %s]' % desc
-        return 'vdW-DF [libvdwxc]'
+                desc = ('libvdwxc in parallel with %d cores'
+                        % self._fft_comm.size)
+        return 'vdW-DF [%s]' % desc
 
     @name.setter
     def name(self, value):
@@ -71,20 +70,46 @@ class LibVDWXC(GGA, object):
         self.timer.start('initialize')
         GGA.initialize(self, density, hamiltonian, wfs, occupations)
         gd = density.finegd
+        self.aggressive_distribute = (gd.comm.size == 1 and wfs.world.size > 1)
+        if self.aggressive_distribute:
+            fft_comm = wfs.world
+            gd = gd.new_descriptor(comm=fft_comm, parsize=(fft_comm.size,
+                                                           1, 1))
+        else:
+            fft_comm = gd.comm
+
         nx, ny, nz = gd.parsize_c
 
         self.gd1 = gd
         self.gd2 = gd.new_descriptor(parsize=(nx, ny * nz, 1))
         self.gd3 = self.gd2.new_descriptor(parsize=(nx * ny * nz, 1, 1))
-        N_c = gd.get_size_of_global_array()
-        self._vdw_init(gd.comm, N_c, gd.cell_cv)
+        self._vdw_init(fft_comm, gd.get_size_of_global_array(), gd.cell_cv)
         self.timer.stop('initialize')
 
     # This one we write down just to "echo" the original interface
     def calculate(self, gd, n_sg, v_sg, e_g=None):
         if e_g is None:
             e_g = gd.zeros()
-        return GGA.calculate(self, gd, n_sg, v_sg, e_g=e_g)
+
+        if self.aggressive_distribute:
+            print('YARRRRG')
+            n1_sg = self.gd1.empty(len(n_sg))
+            v1_sg = self.gd1.empty(len(v_sg))
+            e1_g = self.gd1.empty() # TODO handle e_g properly
+            self.gd1.distribute(n_sg, n1_sg)
+            self.gd1.distribute(v_sg, v1_sg)
+            self.gd1.distribute(e_g, e1_g)
+        else:
+            n1_sg = n_sg
+            v1_sg = v_sg
+            e1_g = e_g
+        energy = GGA.calculate(self, self.gd1, n1_sg, v1_sg, e_g=e1_g)
+        if self.aggressive_distribute:
+            n_sg[:] = self.gd1.collect(n1_sg, broadcast=True)
+            v_sg[:] = self.gd1.collect(v1_sg, broadcast=True)
+            e_g[:] = self.gd1.collect(e1_g, broadcast=True)
+            #energy = self.gd1.comm.sum(energy)
+        return energy
     
     def _calculate(self, n_g, sigma_g):
         v_g = np.zeros_like(n_g)
