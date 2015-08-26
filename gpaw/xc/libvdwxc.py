@@ -71,12 +71,17 @@ class LibVDWXC(GGA, object):
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.timer.start('initialize')
         GGA.initialize(self, density, hamiltonian, wfs, occupations)
-        gd = density.finegd
-        self.aggressive_distribute = (gd.comm.size == 1 and wfs.world.size > 1)
+        bigger_fft_comm = None
+        if density.finegd.comm.size == 1 and wfs.world.size > 1:
+            bigger_fft_comm = wfs.world
+        self._initialize(density.finegd, fft_comm=bigger_fft_comm)
+
+    def _initialize(self, gd, fft_comm=None):
+        """This is the real initialize, without any complicated arguments."""
+        self.aggressive_distribute = (fft_comm is not None)
         if self.aggressive_distribute:
-            fft_comm = wfs.world
-            gd = gd.new_descriptor(comm=fft_comm, parsize=(fft_comm.size,
-                                                           1, 1))
+            gd = gd.new_descriptor(comm=fft_comm,
+                                   parsize=(fft_comm.size, 1, 1))
         else:
             fft_comm = gd.comm
 
