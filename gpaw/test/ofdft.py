@@ -5,7 +5,7 @@ from gpaw.test import equal
 from gpaw.test import gen
 
 h = 0.18
-a = 8
+a = 8.0
 c = a / 2
 d = 1.8
 

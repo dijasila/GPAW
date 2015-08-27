@@ -5,7 +5,7 @@ from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 import numpy as np
 
 # Na2 cluster
-atoms = Atoms(symbols='Na2', 
+atoms = Atoms(symbols='Na2',
               positions=[(0, 0, 0), (3.0, 0, 0)],
               pbc=False)
 atoms.center(vacuum=3.0)
@@ -34,7 +34,7 @@ ind = TDDFTInducedField(paw=td_calc,
                         restart_file='na2_td.ind')
 
 # Propagate as usual
-td_calc.propagate(time_step, iterations/2, 'na2_td_dm.dat', 'na2_td.gpw')
+td_calc.propagate(time_step, iterations // 2, 'na2_td_dm.dat', 'na2_td.gpw')
 
 # Save TDDFT and InducedField objects
 td_calc.write('na2_td.gpw', mode='all')
@@ -51,14 +51,14 @@ ind = TDDFTInducedField(filename='na2_td.ind',
                         restart_file='na2_td.ind')
     
 # Continue propagation as usual
-td_calc.propagate(time_step, iterations/2, 'na2_td_dm.dat', 'na2_td.gpw')
+td_calc.propagate(time_step, iterations // 2, 'na2_td_dm.dat', 'na2_td.gpw')
 
 # Calculate induced electric field
 ind.calculate_induced_field(gridrefinement=2, from_density='comp')
 
 # Test
 from gpaw.test import equal
-tol  = 0.0001
+tol = 0.0001
 val1 = ind.fieldgd.integrate(ind.Ffe_wg[0])
 val2 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[0][0]))
 val3 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[0][1]))

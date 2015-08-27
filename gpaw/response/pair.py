@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, division
 
 import sys
 import functools
@@ -205,7 +205,7 @@ class PWSymmetryAnalyzer:
         ng = len(K_gK)
         self.infostring += '{0} groups of equivalent kpoints. '.format(ng)
         
-        percent = (1. - (ng + 0.) / self.kd.nbzkpts) * 100
+        percent = (1 - ng / self.kd.nbzkpts) * 100
         self.infostring += '{0}% reduction. '.format(percent)
 
     @timer('Analyze symmetries.')
@@ -1171,7 +1171,7 @@ class PairDensity:
 
         # Only works with Fermi-Dirac distribution
         assert isinstance(self.calc.occupations, FermiDirac)
-        dfde_n = (- 1. / width * (f_n - f_n**2.0))  # Analytical derivative
+        dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
         partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
         if only_partially_occupied and not partocc_n.any():
             return None
