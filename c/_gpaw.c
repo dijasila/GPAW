@@ -299,6 +299,10 @@ static PyObject* moduleinit(void)
     Py_INCREF(&XCFunctionalType);
     Py_INCREF(&lxcXCFunctionalType);
 
+#ifdef GPAW_WITH_HDF5
+    init_gpaw_hdf5();
+#endif
+
     import_array1(NULL);
  
     return m;
