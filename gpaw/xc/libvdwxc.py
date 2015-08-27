@@ -5,7 +5,7 @@ from gpaw.xc.functional import XCFunctional
 from gpaw.xc.gga import GGA
 from gpaw.xc.vdw import VDWFunctional
 from gpaw.utilities import compiled_with_libvdwxc
-from gpaw.utilities.grid_redistribute import redistribute
+from gpaw.utilities.grid_redistribute import GridRedistributor
 from gpaw.utilities.accordion_redistribute import accordion_redistribute
 from gpaw.utilities.timing import nulltimer
 from gpaw.mpi import SerialCommunicator
@@ -85,11 +85,8 @@ class LibVDWXC(GGA, object):
         else:
             fft_comm = gd.comm
 
-        nx, ny, nz = gd.parsize_c
-
-        self.gd1 = gd
-        self.gd2 = gd.new_descriptor(parsize=(nx, ny * nz, 1))
-        self.gd3 = self.gd2.new_descriptor(parsize=(nx * ny * nz, 1, 1))
+        self.dist1 = GridRedistributor(gd, 1, 2)
+        self.dist2 = GridRedistributor(self.dist1.gd2, 0, 1)
         self._vdw_init(fft_comm, gd.get_size_of_global_array(), gd.cell_cv)
         self.timer.stop('initialize')
 
@@ -98,25 +95,27 @@ class LibVDWXC(GGA, object):
         if e_g is None:
             e_g = gd.zeros()
 
+        dist_gd = gd
         if self.aggressive_distribute:
-            print('YARRRRG')
-            n1_sg = self.gd1.empty(len(n_sg))
-            v1_sg = self.gd1.empty(len(v_sg))
-            e1_g = self.gd1.empty() # TODO handle e_g properly
-            self.gd1.distribute(n_sg, n1_sg)
-            self.gd1.distribute(v_sg, v1_sg)
-            self.gd1.distribute(e_g, e1_g)
+            print('distribute aggressively')
+            dist_gd = self.dist1.gd
+            n1_sg = dist_gd.empty(len(n_sg))
+            v1_sg = dist_gd.empty(len(v_sg))
+            e1_g = dist_gd.empty() # TODO handle e_g properly
+            dist_gd.distribute(n_sg, n1_sg)
+            dist_gd.distribute(v_sg, v1_sg)
+            dist_gd.distribute(e_g, e1_g)
         else:
             n1_sg = n_sg
             v1_sg = v_sg
             e1_g = e_g
-        energy = GGA.calculate(self, self.gd1, n1_sg, v1_sg, e_g=e1_g)
+        energy = GGA.calculate(self, dist_gd, n1_sg, v1_sg, e_g=e1_g)
+
         if self.aggressive_distribute:
             n_sg[:] = self.gd1.collect(n1_sg, broadcast=True)
             v_sg[:] = self.gd1.collect(v1_sg, broadcast=True)
             e_g[:] = self.gd1.collect(e1_g, broadcast=True)
-            #energy = self.gd1.comm.sum(energy)
-        return energy
+        return gd.integrate(e_g)
     
     def _calculate(self, n_g, sigma_g):
         v_g = np.zeros_like(n_g)
@@ -130,8 +129,8 @@ class LibVDWXC(GGA, object):
         return energy, v_g, dedsigma_g
 
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
-        self.timer.start('calculate gga')
         assert self._vdw is not None
+        self.timer.start('calculate gga')
         self.n_sg = n_sg
         self.sigma_xg = sigma_xg
         n_sg[:] = np.abs(n_sg)
@@ -139,50 +138,40 @@ class LibVDWXC(GGA, object):
         assert len(n_sg) == 1
         assert len(sigma_xg) == 1
         GGA.calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-
         # TODO:  Only call the various redistribute functions when necessary.
-
         self.timer.start('redist')
-        n1_g = n_sg[0]
-        n2_g = redistribute(self.gd1, self.gd2, n1_g, 1, 2)
-        n3_g = redistribute(self.gd2, self.gd3, n2_g, 0, 1)
-        gd2, n4_g = accordion_redistribute(self.gd3, n3_g, axis=0)
 
-        sigma1_g = sigma_xg[0]
-        sigma2_g = redistribute(self.gd1, self.gd2, sigma1_g, 1, 2)
-        sigma3_g = redistribute(self.gd2, self.gd3, sigma2_g, 0, 1)
-        gd4_, sigma4_g = accordion_redistribute(self.gd3, sigma3_g, axis=0)
-        
+        def to_1d_block_distribution(array):
+            array = self.dist1.forth(array)
+            array = self.dist2.forth(array)
+            _gd, array = accordion_redistribute(self.dist2.gd2, array, axis=0)
+            return array
+
+        def from_1d_block_distribution(array):
+            _gd, array = accordion_redistribute(self.dist2.gd2, array, axis=0,
+                                                operation='back')
+            array = self.dist2.back(array)
+            array = self.dist1.back(array)
+            return array
+
+        assert len(sigma_xg) == 1
+        assert len(n_sg) == 1
+        n4_g = to_1d_block_distribution(n_sg[0])
+        sigma4_g = to_1d_block_distribution(sigma_xg[0])
+
         self.timer.stop('redist')
         self.timer.start('libvdwxc')
         Ecnl, v4_g, dedsigma4_g = self._calculate(n4_g, sigma4_g)
         self.timer.stop('libvdwxc')
         self.timer.start('redist')
-        
-        _gd, v3_g = accordion_redistribute(self.gd3, v4_g, axis=0,
-                                           operation='back')
-        _gd, dedsigma3_g = accordion_redistribute(self.gd3, v4_g, axis=0,
-                                                  operation='back')
-
-        v2_g = redistribute(self.gd2, self.gd3, v3_g, 0, 1, operation='back')
-        v1_g = redistribute(self.gd1, self.gd2, v2_g, 1, 2, operation='back')
-
-        dedsigma2_g = redistribute(self.gd2, self.gd3, dedsigma3_g, 0, 1,
-                                   operation='back')
-        dedsigma1_g = redistribute(self.gd1, self.gd2, dedsigma2_g, 1, 2,
-                                   operation='back')
+        v1_g = from_1d_block_distribution(v4_g)
+        dedsigma1_g = from_1d_block_distribution(dedsigma4_g)
         self.timer.stop('redist')
-        Ecnl = self.gd1.comm.sum(Ecnl)
-
 
         self.Ecnl = Ecnl
-        self.vnl_g = v1_g
-        self.Ecnl = Ecnl
-        print('E nonlocal', Ecnl)
         v_sg[0, :] += v1_g
         dedsigma_xg[0, :] += dedsigma1_g
         self.timer.stop('calculate gga')
-        return Ecnl # XXX is not actually supposed to return anything
         # Energy should be added to e_g
 
     def __del__(self):
