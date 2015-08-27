@@ -156,23 +156,28 @@ class LibVDWXC(GGA, object):
 
         assert len(sigma_xg) == 1
         assert len(n_sg) == 1
-        n4_g = to_1d_block_distribution(n_sg[0])
-        sigma4_g = to_1d_block_distribution(sigma_xg[0])
+        nblock_g = to_1d_block_distribution(n_sg[0])
+        sigmablock_g = to_1d_block_distribution(sigma_xg[0])
 
         self.timer.stop('redist')
         self.timer.start('libvdwxc')
-        Ecnl, v4_g, dedsigma4_g = self._calculate(n4_g, sigma4_g)
+        Ecnl, vblock_g, dedsigmablock_g = self._calculate(nblock_g,
+                                                          sigmablock_g)
         self.timer.stop('libvdwxc')
         self.timer.start('redist')
-        v1_g = from_1d_block_distribution(v4_g)
-        dedsigma1_g = from_1d_block_distribution(dedsigma4_g)
+        v_g = from_1d_block_distribution(vblock_g)
+        dedsigma_g = from_1d_block_distribution(dedsigmablock_g)
         self.timer.stop('redist')
 
+        Ecnl = self.gd.comm.sum(Ecnl)
+        if self.gd.comm.rank == 0:
+            e_g[0, 0, 0] += Ecnl / self.gd.dv # XXXXXXXXXXXXXXXX ugly
         self.Ecnl = Ecnl
-        v_sg[0, :] += v1_g
-        dedsigma_xg[0, :] += dedsigma1_g
+        assert len(v_sg) == 1
+        v_sg[0, :] += v_g
+        assert len(dedsigma_xg) == 1
+        dedsigma_xg[0, :] += dedsigma_g
         self.timer.stop('calculate gga')
-        # Energy should be added to e_g
 
     def __del__(self):
         if self._vdw is not None:
