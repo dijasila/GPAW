@@ -95,7 +95,6 @@ class LibVDWXC(GGA, object):
         if e_g is None:
             e_g = gd.zeros()
 
-        dist_gd = gd
         if self.aggressive_distribute:
             print('distribute aggressively')
             dist_gd = self.dist1.gd
@@ -106,15 +105,16 @@ class LibVDWXC(GGA, object):
             dist_gd.distribute(v_sg, v1_sg)
             dist_gd.distribute(e_g, e1_g)
         else:
+            dist_gd = gd
             n1_sg = n_sg
             v1_sg = v_sg
             e1_g = e_g
         energy = GGA.calculate(self, dist_gd, n1_sg, v1_sg, e_g=e1_g)
 
         if self.aggressive_distribute:
-            n_sg[:] = self.gd1.collect(n1_sg, broadcast=True)
-            v_sg[:] = self.gd1.collect(v1_sg, broadcast=True)
-            e_g[:] = self.gd1.collect(e1_g, broadcast=True)
+            n_sg[:] = dist_gd.collect(n1_sg, broadcast=True)
+            v_sg[:] = dist_gd.collect(v1_sg, broadcast=True)
+            e_g[:] = dist_gd.collect(e1_g, broadcast=True)
         return gd.integrate(e_g)
     
     def _calculate(self, n_g, sigma_g):
