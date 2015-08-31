@@ -1,6 +1,7 @@
 from __future__ import print_function
 import numpy as np
 
+
 def accordion_redistribute(gd, src, axis, operation='forth'):
     """Redistribute grid longitudinally to uniform blocksize.
 
@@ -13,9 +14,9 @@ def accordion_redistribute(gd, src, axis, operation='forth'):
       [5, 5, 6, 5, 6, 5].
 
     This would be redistributed to
-    
+
       [6, 6, 6, 6, 6, 2].
-    
+
     This makes the array compatible with some parallel Fourier
     transform libraries such as FFTW-MPI or PFFT.
 
@@ -31,7 +32,7 @@ def accordion_redistribute(gd, src, axis, operation='forth'):
     if remainder < 0:
         raise BadGridError('Dimensions incompatible (grid too small)')
     n_p = gd.n_cp[axis] - gd.n_cp[axis][0]
-    
+
     forward = (operation == 'forth')
     assert forward or operation == 'back'
     assert (parsize - 1) * blocksize + remainder == ngpts
@@ -64,7 +65,7 @@ def accordion_redistribute(gd, src, axis, operation='forth'):
     rank2_a = np.empty(ngpts, dtype=int)  # pbc?
     rank1_a.fill(-1)
     rank2_a.fill(-1)
-    
+
     for i in range(peer_comm.size):
         rank1_a[n_p[i]:n_p[i + 1]] = i
         rank2_a[blocksize * i:blocksize * (i + 1)] = i
@@ -73,7 +74,7 @@ def accordion_redistribute(gd, src, axis, operation='forth'):
     assert (rank2_a >= 0).all(), str(rank2_a)
     partition1 = AtomPartition(peer_comm, rank1_a)
     partition2 = AtomPartition(peer_comm, rank2_a)
-    
+
     # The plan is to divide things in chunks of 1xNxM for simplicity.
     # Probably not very efficient but this is meant for layouts that
     # are "almost correct" in the first place, requiring only a few
@@ -90,7 +91,7 @@ def accordion_redistribute(gd, src, axis, operation='forth'):
     slices = [slice(None, None, None)] * 3
 
     grrr = gd.n_cp[axis][0]
-    
+
     def grid_to_dict(arr):
         if forward:
             beg = gd.beg_c[axis] - grrr
@@ -142,8 +143,8 @@ def playground():
 class BadGridError(ValueError):
     pass
 
+
 def test(N_c, pbc_c, parsize_c, axis):
-    from gpaw.mpi import world
     from gpaw.grid_descriptor import GridDescriptor
     from gpaw.mpi import world
     N_c = np.array(N_c)
