@@ -92,8 +92,8 @@ def accordion_redistribute(gd, src, axis, operation='forth'):
 
     grrr = gd.n_cp[axis][0]
 
-    def grid_to_dict(arr):
-        if forward:
+    def _copy(arr, grid2dict):
+        if grid2dict == forward:
             beg = gd.beg_c[axis] - grrr
             end = gd.end_c[axis] - grrr
         else:
@@ -104,25 +104,21 @@ def accordion_redistribute(gd, src, axis, operation='forth'):
             slices[axis] = i
             dictslice = data[g]
             arrayslice = arr[slices[0], slices[1], slices[2]]
-            dictslice[:] = arrayslice
+            if grid2dict:
+                dictslice[:] = arrayslice
+            else:
+                arrayslice[:] = dictslice
+
+
+    def grid_to_dict(arr):
+        _copy(arr, True)
 
     def dict_to_grid(arr):
-        if forward:
-            globalstart = peer_comm.rank * blocksize
-            globalstop = globalstart + myblocksize
-        else:
-            globalstart = gd.beg_c[axis] - grrr
-            globalstop = globalstart + gd.n_c[axis]
-        for i, g in enumerate(range(globalstart, globalstop)):
-            slices[axis] = i
-            dictslice = data[g]
-            arrayslice = arr[slices[0], slices[1], slices[2]]
-            arrayslice[:] = dictslice
+        _copy(arr, False)
 
     grid_to_dict(src)
     data.redistribute(partition2 if forward else partition1)
     dict_to_grid(dst)
-
     return dst
             
 
