@@ -58,10 +58,10 @@ class DF(CHI):
             self.initialize()
             self.calculate()
         elif self.chi0_wGG is None and chi0_wGG is not None:
-            #Read from file and reinitialize 
+            #Read from file and reinitialize
             self.xc = xc
 
-            from gpaw.response.parallel import par_read 
+            from gpaw.response.parallel import par_read
             self.chi0_wGG = par_read(chi0_wGG, 'chi0_wGG')
             self.nvalbands = self.nbands
             #self.parallel_init() # parallelization not yet implemented
@@ -90,7 +90,7 @@ class DF(CHI):
                 else:
                     nt_sG = nt_sg
                         
-                self.Kxc_sGG = calculate_Kxc(self.gd, 
+                self.Kxc_sGG = calculate_Kxc(self.gd,
                                              nt_sG,
                                              self.npw, self.Gvec_Gc,
                                              self.gd.N_c, self.vol,
@@ -144,7 +144,7 @@ class DF(CHI):
                 A_wGG[iw] = np.dot(self.chi0_wGG[iw], np.linalg.inv(tmp_GG - np.dot(self.Kxc_sGG[0], self.chi0_wGG[iw])))
     
             for iw in range(self.Nw_local):
-                dm_wGG[iw] = tmp_GG - self.Kc_GG * A_wGG[iw]                
+                dm_wGG[iw] = tmp_GG - self.Kc_GG * A_wGG[iw]
 
         return dm_wGG
 
@@ -221,7 +221,7 @@ class DF(CHI):
                 self.df2_w = df2_w
             elif xc=='ALDA' or xc=='ALDA_X':
                 self.df3_w = df1_w
-                self.df4_w = df2_w                
+                self.df4_w = df2_w
 
         if xc == 'RPA':
             return self.df1_w, self.df2_w
@@ -242,7 +242,7 @@ class DF(CHI):
 
         Nz = self.gd.N_c[2] # number of points in z direction
         tmp = np.zeros(Nz, dtype=int)
-        nGz = 0         # number of G_z 
+        nGz = 0         # number of G_z
         for i in range(self.npw):
             if self.Gvec_Gc[i, 0] == 0 and self.Gvec_Gc[i, 1] == 0:
                 tmp[nGz] = self.Gvec_Gc[i, 2]
@@ -255,7 +255,7 @@ class DF(CHI):
             # The first nGz are all Gx=0 and Gy=0 component
             chi_wgg_LFC = chi_wGG[:, :nGz, :nGz]
             del chi_wGG
-            chi_wzz_LFC = np.zeros((self.Nw_local, Nz, Nz), dtype=complex)        
+            chi_wzz_LFC = np.zeros((self.Nw_local, Nz, Nz), dtype=complex)
     
             # Fourier transform of chi_wgg to chi_wzz
             Gz_g = tmp[:nGz] * self.bcell_cv[2,2]
@@ -265,7 +265,7 @@ class DF(CHI):
     
             for iw in range(self.Nw_local):
                 chi_wzz_LFC[iw] = np.dot(np.dot(phase1_zg, chi_wgg_LFC[iw]), phase2_gz)
-            chi_wzz_LFC /= self.acell_cv[2,2]        
+            chi_wzz_LFC /= self.acell_cv[2,2]
     
             # Get surface response function
     
@@ -275,11 +275,11 @@ class DF(CHI):
             phase1_1z = np.array([np.exp(qq*z_z)])
             phase2_z1 = np.exp(qq*z_z)
     
-            tmp_w = np.zeros(self.Nw_local, dtype=complex)        
+            tmp_w = np.zeros(self.Nw_local, dtype=complex)
             for iw in range(self.Nw_local):
-                tmp_w[iw] = np.dot(np.dot(phase1_1z, chi_wzz_LFC[iw]), phase2_z1)[0]            
+                tmp_w[iw] = np.dot(np.dot(phase1_1z, chi_wzz_LFC[iw]), phase2_z1)[0]
     
-            tmp_w *= -2 * pi / qq * self.gd.h_cv[2,2]**2        
+            tmp_w *= -2 * pi / qq * self.gd.h_cv[2,2]**2
             g_w = np.zeros(self.Nw, dtype=complex)
             self.wcomm.all_gather(tmp_w, g_w)
             g_w2[:, id] = g_w
@@ -358,7 +358,7 @@ class DF(CHI):
             eps = np.real(df2[0])
             self.printtxt('  %s direction' %(dirstr[dir]))
             self.printtxt('    Without local field: %f' % eps0 )
-            self.printtxt('    Include local field: %f' % eps )        
+            self.printtxt('    Include local field: %f' % eps )
             
         return eps0, eps
 
@@ -537,11 +537,11 @@ class DF(CHI):
 
         return drho_z
 
-    def get_eigenmodes(self,filename = None, chi0 = None, calc = None, dm = None, 
-                       xc = 'RPA', sum = None, vcut = None, checkphase = False, 
+    def get_eigenmodes(self,filename = None, chi0 = None, calc = None, dm = None,
+                       xc = 'RPA', sum = None, vcut = None, checkphase = False,
                        return_full = False):
         """
-        Calculate the plasmonic eigenmodes as eigenvectors of the dielectric matrix.  
+        Calculate the plasmonic eigenmodes as eigenvectors of the dielectric matrix.
 
         Parameters:
 
@@ -565,7 +565,7 @@ class DF(CHI):
               '1D': To be implemented
 
         vcut:  str '0D','1D' or '2D'
-               Cut the Coulomb potential 
+               Cut the Coulomb potential
 
         checkphase:   Bool
                       if True, the eigenfunctions id rotated in the complex
@@ -573,7 +573,7 @@ class DF(CHI):
 
         return_full:  Bool
                       if True, the eigenvectors in reciprocal space is also
-                      returned. 
+                      returned.
            
         """
         self.read(filename)
@@ -594,7 +594,7 @@ class DF(CHI):
         # get grid on which the eigenmodes are calculated
         #gd = self.calc.wfs.gd
         #r = gd.get_grid_point_coordinates()
-        #rrr = r*Bohr 
+        #rrr = r*Bohr
         from gpaw.utilities.gpts import get_number_of_grid_points
         from gpaw.grid_descriptor import GridDescriptor
         grid_size = [1,1,1]
@@ -604,7 +604,7 @@ class DF(CHI):
         realspace = True
         h /= Bohr
         N_c = get_number_of_grid_points(cell_cv, h, mode, realspace)
-        gd = GridDescriptor(N_c, cell_cv, self.pbc) 
+        gd = GridDescriptor(N_c, cell_cv, self.pbc)
         #gd = self.calc.wfs.gd
         r = gd.get_grid_point_coordinates()
         rrr = r*Bohr
@@ -621,16 +621,16 @@ class DF(CHI):
         v_dummy = np.zeros([1, self.npw], dtype = complex)
         vec_dummy = np.zeros([1, self.npw], dtype = complex)
         vec_dummy2 = np.zeros([1, self.npw], dtype = complex)
-        w_0 = np.array([]) 
+        w_0 = np.array([])
         w_left = np.array([])
         w_right = np.array([])
      
         if sum == '2D':
             v_ind = np.zeros([1, r.shape[-1]], dtype = complex)
             n_ind = np.zeros([1, r.shape[-1]], dtype = complex)
-        elif sum == '1D':            
+        elif sum == '1D':
             self.printtxt('1D sum not implemented')
-            return 
+            return
         else:
             v_ind = np.zeros([1, r.shape[1], r.shape[2], r.shape[3]], dtype = complex)
             n_ind = np.zeros([1, r.shape[1], r.shape[2], r.shape[3]], dtype = complex)
@@ -648,15 +648,15 @@ class DF(CHI):
             eig_plus, vec_plus = np.linalg.eig(eps_GG_plus)
             vec_plus_dual = np.linalg.inv(vec_plus)
             eig_dummy[0,:] = eig
-            eig_all = np.append(eig_all, eig_dummy, axis=0) # append all eigenvalues to array         
+            eig_all = np.append(eig_all, eig_dummy, axis=0) # append all eigenvalues to array
             # loop to check find the eigenvalues that crosses zero from negative to positive values:
             for k in range(self.npw):
                 for m in range(self.npw):
                     if eig[k]< 0 and 0 < eig_plus[m]:
                         # check it's the same mode - Overlap between eigenvectors should be large:
-                        if abs(np.inner(vec[:,k], vec_plus_dual[m,:])) > 0.95:                             
+                        if abs(np.inner(vec[:,k], vec_plus_dual[m,:])) > 0.95:
                             self.printtxt('crossing found at w = %1.1f eV'%self.w_w[i-1])
-                            eig_left = np.append(eig_left, eig[k])   
+                            eig_left = np.append(eig_left, eig[k])
                             eig_right = np.append(eig_right, eig_plus[m])
 
                             vec_dummy[0, :] = vec[:,k]
@@ -672,12 +672,12 @@ class DF(CHI):
 
                             w_0 = np.append(w_0,w0)
                             w_left = np.append(w_left, w1)
-                            eig_0 = np.append(eig_0,eig0)                           
+                            eig_0 = np.append(eig_0,eig0)
 
                             n_dummy = np.zeros([1, r.shape[1], r.shape[2],
                                                 r.shape[3]], dtype = complex)
                             v_dummy = np.zeros([1, r.shape[1], r.shape[2],
-                                                r.shape[3]], dtype = complex)    
+                                                r.shape[3]], dtype = complex)
 
                             vec_n = np.zeros([self.npw])
                             
@@ -685,15 +685,15 @@ class DF(CHI):
                                 qG = np.dot((q + self.Gvec_Gc[iG]), self.bcell_cv)
                                 coef_G = np.dot(qG, qG) / (4 * pi)
                                 qGr_R = np.inner(qG, r.T).T
-                                v_dummy += vec[iG, k] * np.exp(1j * qGr_R) 
+                                v_dummy += vec[iG, k] * np.exp(1j * qGr_R)
                                 n_dummy += vec[iG, k] * np.exp(1j * qGr_R) * coef_G
                                                         
-                            if checkphase: # rotate eigenvectors in complex plane 
+                            if checkphase: # rotate eigenvectors in complex plane
                                 integral = np.zeros([81])
                                 phases = np.linspace(0,2,81)
                                 for ip in range(81):
                                     v_int = v_dummy * np.exp(1j * pi * phases[ip])
-                                    integral[ip] = abs(np.imag(v_int)).sum()                                     
+                                    integral[ip] = abs(np.imag(v_int)).sum()
                                 phase = phases[np.argsort(integral)][0]
                                 
                                 v_dummy *= np.exp(1j * pi * phase)
@@ -701,7 +701,7 @@ class DF(CHI):
                                 
 
                             if sum == '2D':
-                                i_xyz = 3 
+                                i_xyz = 3
                                 v_dummy_z = np.zeros([1,v_dummy.shape[i_xyz]],
                                                      dtype = complex)
                                 n_dummy_z = np.zeros([1,v_dummy.shape[i_xyz]],
@@ -720,7 +720,7 @@ class DF(CHI):
                                 v_ind = np.append(v_ind, v_dummy, axis=0)
                                 n_ind = np.append(n_ind, n_dummy, axis=0)
             
-        """                        
+        """
         returns: grid points, frequency grid, all eigenvalues, mode energies, left point energies,
                  mode eigenvalues, eigenvalues of left and right-side points,
                  (mode eigenvectors, mode dual eigenvectors,)
@@ -792,7 +792,7 @@ class DF(CHI):
                 'qmod' : np.dot(self.qq_v, self.qq_v), # / Bohr
                 'vcut' : self.vcut,
                 'pbc'  : self.pbc,
-                'nvalence'     : self.nvalence,                
+                'nvalence'     : self.nvalence,
                 'hilbert_trans' : self.hilbert_trans,
                 'optical_limit' : self.optical_limit,
                 'e_skn'         : self.e_skn,          # * Hartree,
@@ -812,10 +812,9 @@ class DF(CHI):
             par_write('chi0' + filename,'chi0_wGG',self.wcomm,self.chi0_wGG)
         
         if rank == 0:
-            pickle.dump(data, open(filename, 'w'), -1)
+            pickle.dump(data, open(filename, 'wb'), -1)
 
         self.comm.barrier()
-
 
     def read(self, filename):
         """Read data from pickle file"""

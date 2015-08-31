@@ -140,7 +140,7 @@ class FXCCorrelation(RPACorrelation):
             fv = r.get('fhxc_sGsG')
             if cut_G is not None:
                 cut_sG = np.tile(cut_G, ns)
-                cut_sG[len(cut_G):] += len(fv) / ns
+                cut_sG[len(cut_G):] += len(fv) // ns
                 fv = fv.take(cut_sG, 0).take(cut_sG, 1)
             for s1 in range(ns):
                 for s2 in range(ns):
@@ -386,8 +386,10 @@ class Kernel:
                 # redistribute grid and plane waves in fhxc_qsGr[iq]
                 bg1 = BlacsGrid(mpi.world, 1, mpi.world.size)
                 bg2 = BlacsGrid(mpi.world, mpi.world.size, 1)
-                bd1 = bg1.new_descriptor(npw, ng, npw, -(-ng / mpi.world.size))
-                bd2 = bg2.new_descriptor(npw, ng, -(-npw / mpi.world.size), ng)
+                bd1 = bg1.new_descriptor(npw, ng,
+                                         npw, -(-ng // mpi.world.size))
+                bd2 = bg2.new_descriptor(npw, ng,
+                                         -(-npw // mpi.world.size), ng)
 
                 fhxc_Glr = np.zeros((len(l_pw_range), ng), dtype=complex)
                 if ns == 2:

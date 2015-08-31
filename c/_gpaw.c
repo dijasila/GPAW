@@ -116,113 +116,108 @@ PyObject* papi_mem_info(PyObject *self, PyObject *args);
 PyObject* mlsqr(PyObject *self, PyObject *args);
 
 static PyMethodDef functions[] = {
-  {"symmetrize", symmetrize, METH_VARARGS, 0},
-  {"symmetrize_ft", symmetrize_ft, METH_VARARGS, 0},
-  {"symmetrize_wavefunction", symmetrize_wavefunction, METH_VARARGS, 0},
-  {"symmetrize_return_index", symmetrize_return_index, METH_VARARGS, 0},
-  {"symmetrize_with_index", symmetrize_with_index, METH_VARARGS, 0},
-  {"map_k_points", map_k_points, METH_VARARGS, 0},
-  {"scal", scal, METH_VARARGS, 0},
-  {"mmm", mmm, METH_VARARGS, 0},
-  {"gemm", gemm, METH_VARARGS, 0},
-  {"gemv", gemv, METH_VARARGS, 0},
-  {"axpy", axpy, METH_VARARGS, 0},
-  {"czher", czher, METH_VARARGS, 0},
-  {"rk",  rk,  METH_VARARGS, 0},
-  {"r2k", r2k, METH_VARARGS, 0},
-  {"dotc", dotc, METH_VARARGS, 0},
-  {"dotu", dotu, METH_VARARGS, 0},
-  {"multi_dotu", multi_dotu, METH_VARARGS, 0},
-  {"multi_axpy", multi_axpy, METH_VARARGS, 0},
-  {"diagonalize", diagonalize, METH_VARARGS, 0},
-  {"diagonalize_mr3", diagonalize_mr3, METH_VARARGS, 0},
-  {"general_diagonalize", general_diagonalize, METH_VARARGS, 0},
-  {"inverse_cholesky", inverse_cholesky, METH_VARARGS, 0},
-  {"inverse_symmetric", inverse_symmetric, METH_VARARGS, 0},
-  {"inverse_general", inverse_general, METH_VARARGS, 0},
-  {"linear_solve_band", linear_solve_band, METH_VARARGS, 0},
-  {"linear_solve_tridiag", linear_solve_tridiag, METH_VARARGS, 0},
-  {"right_eigenvectors", right_eigenvectors, METH_VARARGS, 0},
-  {"LocalizedFunctions", NewLocalizedFunctionsObject, METH_VARARGS, 0},
-  {"Operator", NewOperatorObject, METH_VARARGS, 0},
-  {"WOperator", NewWOperatorObject, METH_VARARGS, 0},
-  {"Spline", NewSplineObject, METH_VARARGS, 0},
-  {"Transformer", NewTransformerObject, METH_VARARGS, 0},
-  {"heap_mallinfo", (PyCFunction) heap_mallinfo, METH_NOARGS, 0},
-  {"elementwise_multiply_add", elementwise_multiply_add, METH_VARARGS, 0},
-  {"utilities_gaussian_wave", utilities_gaussian_wave, METH_VARARGS, 0},
-  {"utilities_vdot", utilities_vdot, METH_VARARGS, 0},
-  {"utilities_vdot_self", utilities_vdot_self, METH_VARARGS, 0},
-  {"eed_region", exterior_electron_density_region, METH_VARARGS, 0},
-  {"plane_wave_grid", plane_wave_grid, METH_VARARGS, 0},
-  {"erf",        errorfunction,        METH_VARARGS, 0},
-  {"cerf",       cerf,        METH_VARARGS, 0},
-  {"pack",       pack,           METH_VARARGS, 0},
-  {"unpack",       unpack,           METH_VARARGS, 0},
-  {"unpack_complex",       unpack_complex,           METH_VARARGS, 0},
-  {"hartree",        hartree,        METH_VARARGS, 0},
-  {"localize",       localize,        METH_VARARGS, 0},
-  {"XCFunctional",    NewXCFunctionalObject,    METH_VARARGS, 0},
-  /*  {"MGGAFunctional",    NewMGGAFunctionalObject,    METH_VARARGS, 0},*/
-  {"lxcXCFunctional",    NewlxcXCFunctionalObject,    METH_VARARGS, 0},
-  {"lxcXCFuncNum",    lxcXCFuncNum,    METH_VARARGS, 0},
-  {"overlap",       overlap,        METH_VARARGS, 0},
-  {"vdw", vdw, METH_VARARGS, 0},
-  {"vdw2", vdw2, METH_VARARGS, 0},
-  {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
-  {"pc_potential", pc_potential, METH_VARARGS, 0},
-  {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
-  {"LFC", NewLFCObject, METH_VARARGS, 0},
-  /*
-  {"calculate_potential_matrix", calculate_potential_matrix, METH_VARARGS, 0},
-  {"construct_density", construct_density, METH_VARARGS, 0},
-  {"construct_density1", construct_density1, METH_VARARGS, 0},
-  */
+    {"symmetrize", symmetrize, METH_VARARGS, 0},
+    {"symmetrize_ft", symmetrize_ft, METH_VARARGS, 0},
+    {"symmetrize_wavefunction", symmetrize_wavefunction, METH_VARARGS, 0},
+    {"symmetrize_return_index", symmetrize_return_index, METH_VARARGS, 0},
+    {"symmetrize_with_index", symmetrize_with_index, METH_VARARGS, 0},
+    {"map_k_points", map_k_points, METH_VARARGS, 0},
+    {"scal", scal, METH_VARARGS, 0},
+    {"mmm", mmm, METH_VARARGS, 0},
+    {"gemm", gemm, METH_VARARGS, 0},
+    {"gemv", gemv, METH_VARARGS, 0},
+    {"axpy", axpy, METH_VARARGS, 0},
+    {"czher", czher, METH_VARARGS, 0},
+    {"rk",  rk,  METH_VARARGS, 0},
+    {"r2k", r2k, METH_VARARGS, 0},
+    {"dotc", dotc, METH_VARARGS, 0},
+    {"dotu", dotu, METH_VARARGS, 0},
+    {"multi_dotu", multi_dotu, METH_VARARGS, 0},
+    {"multi_axpy", multi_axpy, METH_VARARGS, 0},
+    {"diagonalize", diagonalize, METH_VARARGS, 0},
+    {"diagonalize_mr3", diagonalize_mr3, METH_VARARGS, 0},
+    {"general_diagonalize", general_diagonalize, METH_VARARGS, 0},
+    {"inverse_cholesky", inverse_cholesky, METH_VARARGS, 0},
+    {"inverse_symmetric", inverse_symmetric, METH_VARARGS, 0},
+    {"inverse_general", inverse_general, METH_VARARGS, 0},
+    {"linear_solve_band", linear_solve_band, METH_VARARGS, 0},
+    {"linear_solve_tridiag", linear_solve_tridiag, METH_VARARGS, 0},
+    {"right_eigenvectors", right_eigenvectors, METH_VARARGS, 0},
+    {"LocalizedFunctions", NewLocalizedFunctionsObject, METH_VARARGS, 0},
+    {"Operator", NewOperatorObject, METH_VARARGS, 0},
+    {"WOperator", NewWOperatorObject, METH_VARARGS, 0},
+    {"Spline", NewSplineObject, METH_VARARGS, 0},
+    {"Transformer", NewTransformerObject, METH_VARARGS, 0},
+    {"heap_mallinfo", (PyCFunction) heap_mallinfo, METH_NOARGS, 0},
+    {"elementwise_multiply_add", elementwise_multiply_add, METH_VARARGS, 0},
+    {"utilities_gaussian_wave", utilities_gaussian_wave, METH_VARARGS, 0},
+    {"utilities_vdot", utilities_vdot, METH_VARARGS, 0},
+    {"utilities_vdot_self", utilities_vdot_self, METH_VARARGS, 0},
+    {"eed_region", exterior_electron_density_region, METH_VARARGS, 0},
+    {"plane_wave_grid", plane_wave_grid, METH_VARARGS, 0},
+    {"erf", errorfunction, METH_VARARGS, 0},
+    {"cerf", cerf, METH_VARARGS, 0},
+    {"pack", pack, METH_VARARGS, 0},
+    {"unpack", unpack, METH_VARARGS, 0},
+    {"unpack_complex", unpack_complex,           METH_VARARGS, 0},
+    {"hartree", hartree, METH_VARARGS, 0},
+    {"localize", localize, METH_VARARGS, 0},
+    {"XCFunctional", NewXCFunctionalObject, METH_VARARGS, 0},
+    {"lxcXCFunctional", NewlxcXCFunctionalObject, METH_VARARGS, 0},
+    {"lxcXCFuncNum", lxcXCFuncNum, METH_VARARGS, 0},
+    {"overlap", overlap, METH_VARARGS, 0},
+    {"vdw", vdw, METH_VARARGS, 0},
+    {"vdw2", vdw2, METH_VARARGS, 0},
+    {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
+    {"pc_potential", pc_potential, METH_VARARGS, 0},
+    {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
+    {"LFC", NewLFCObject, METH_VARARGS, 0},
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
-  {"new_blacs_context", new_blacs_context, METH_VARARGS, NULL},
-  {"get_blacs_gridinfo", get_blacs_gridinfo, METH_VARARGS, NULL},
-  {"get_blacs_local_shape", get_blacs_local_shape, METH_VARARGS, NULL},
-  {"blacs_destroy",     blacs_destroy,      METH_VARARGS, 0},
-  {"scalapack_set", scalapack_set, METH_VARARGS, 0},
-  {"scalapack_redist",      scalapack_redist,     METH_VARARGS, 0},
-  {"scalapack_diagonalize_dc", scalapack_diagonalize_dc, METH_VARARGS, 0},
-  {"scalapack_diagonalize_ex", scalapack_diagonalize_ex, METH_VARARGS, 0},
+    {"new_blacs_context", new_blacs_context, METH_VARARGS, NULL},
+    {"get_blacs_gridinfo", get_blacs_gridinfo, METH_VARARGS, NULL},
+    {"get_blacs_local_shape", get_blacs_local_shape, METH_VARARGS, NULL},
+    {"blacs_destroy", blacs_destroy, METH_VARARGS, 0},
+    {"scalapack_set", scalapack_set, METH_VARARGS, 0},
+    {"scalapack_redist", scalapack_redist, METH_VARARGS, 0},
+    {"scalapack_diagonalize_dc", scalapack_diagonalize_dc, METH_VARARGS, 0},
+    {"scalapack_diagonalize_ex", scalapack_diagonalize_ex, METH_VARARGS, 0},
 #ifdef GPAW_MR3
-  {"scalapack_diagonalize_mr3", scalapack_diagonalize_mr3, METH_VARARGS, 0},
+    {"scalapack_diagonalize_mr3", scalapack_diagonalize_mr3, METH_VARARGS, 0},
 #endif // GPAW_MR3
-  {"scalapack_general_diagonalize_dc",
-   scalapack_general_diagonalize_dc, METH_VARARGS, 0},
-  {"scalapack_general_diagonalize_ex",
-   scalapack_general_diagonalize_ex, METH_VARARGS, 0},
+    {"scalapack_general_diagonalize_dc",
+     scalapack_general_diagonalize_dc, METH_VARARGS, 0},
+    {"scalapack_general_diagonalize_ex",
+     scalapack_general_diagonalize_ex, METH_VARARGS, 0},
 #ifdef GPAW_MR3
-  {"scalapack_general_diagonalize_mr3",
-   scalapack_general_diagonalize_mr3, METH_VARARGS, 0},
+    {"scalapack_general_diagonalize_mr3",
+     scalapack_general_diagonalize_mr3, METH_VARARGS, 0},
 #endif // GPAW_MR3
-  {"scalapack_inverse_cholesky", scalapack_inverse_cholesky, METH_VARARGS, 0},
-  {"scalapack_inverse", scalapack_inverse, METH_VARARGS, 0},
-  {"scalapack_solve", scalapack_solve, METH_VARARGS, 0},
-  {"pblas_tran", pblas_tran, METH_VARARGS, 0},
-  {"pblas_gemm", pblas_gemm, METH_VARARGS, 0},
-  {"pblas_hemm", pblas_hemm, METH_VARARGS, 0},
-  {"pblas_gemv", pblas_gemv, METH_VARARGS, 0},
-  {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
-  {"pblas_rk", pblas_rk, METH_VARARGS, 0},
+    {"scalapack_inverse_cholesky", scalapack_inverse_cholesky,
+     METH_VARARGS, 0},
+    {"scalapack_inverse", scalapack_inverse, METH_VARARGS, 0},
+    {"scalapack_solve", scalapack_solve, METH_VARARGS, 0},
+    {"pblas_tran", pblas_tran, METH_VARARGS, 0},
+    {"pblas_gemm", pblas_gemm, METH_VARARGS, 0},
+    {"pblas_hemm", pblas_hemm, METH_VARARGS, 0},
+    {"pblas_gemv", pblas_gemv, METH_VARARGS, 0},
+    {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
+    {"pblas_rk", pblas_rk, METH_VARARGS, 0},
 #endif // GPAW_WITH_SL && PARALLEL
 #ifdef GPAW_HPM
-  {"hpm_start", ibm_hpm_start, METH_VARARGS, 0},
-  {"hpm_stop", ibm_hpm_stop, METH_VARARGS, 0},
-  {"mpi_start", (PyCFunction) ibm_mpi_start, METH_NOARGS, 0},
-  {"mpi_stop", (PyCFunction) ibm_mpi_stop, METH_NOARGS, 0},
+    {"hpm_start", ibm_hpm_start, METH_VARARGS, 0},
+    {"hpm_stop", ibm_hpm_stop, METH_VARARGS, 0},
+    {"mpi_start", (PyCFunction) ibm_mpi_start, METH_NOARGS, 0},
+    {"mpi_stop", (PyCFunction) ibm_mpi_stop, METH_NOARGS, 0},
 #endif // GPAW_HPM
 #ifdef CRAYPAT
-  {"craypat_region_begin", craypat_region_begin, METH_VARARGS, 0},
-  {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
+    {"craypat_region_begin", craypat_region_begin, METH_VARARGS, 0},
+    {"craypat_region_end", craypat_region_end, METH_VARARGS, 0},
 #endif // CRAYPAT
 #ifdef GPAW_PAPI
-  {"papi_mem_info", papi_mem_info, METH_VARARGS, 0},
+    {"papi_mem_info", papi_mem_info, METH_VARARGS, 0},
 #endif // GPAW_PAPI
-  {"mlsqr", mlsqr, METH_VARARGS, 0},
-  {0, 0, 0, 0}
+    {"mlsqr", mlsqr, METH_VARARGS, 0},
+    {0, 0, 0, 0}
 };
 
 #ifdef PARALLEL
@@ -240,217 +235,141 @@ extern PyTypeObject XCFunctionalType;
 extern PyTypeObject lxcXCFunctionalType;
 
 #if PY_MAJOR_VERSION >= 3
-    static struct PyModuleDef moduledef = {
-        PyModuleDef_HEAD_INIT,
-        "_gpaw",
-        "C-extension for GPAW",
-        -1,
-        functions,
-        NULL,
-        NULL,
-        NULL,
-        NULL
-    };
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,
+    "_gpaw",
+    "C-extension for GPAW",
+    -1,
+    functions,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+};
 #endif
-
-#ifndef GPAW_INTERPRETER
 
 static PyObject* moduleinit(void)
 {
 #ifdef PARALLEL
-  if (PyType_Ready(&MPIType) < 0)
-    return NULL;
-  if (PyType_Ready(&GPAW_MPI_Request_type) < 0)
-    return NULL;
+    if (PyType_Ready(&MPIType) < 0)
+        return NULL;
+    if (PyType_Ready(&GPAW_MPI_Request_type) < 0)
+        return NULL;
 #endif
 
-  if (PyType_Ready(&LFCType) < 0)
-    return NULL;
-  if (PyType_Ready(&LocalizedFunctionsType) < 0)
-    return NULL;
-  if (PyType_Ready(&OperatorType) < 0)
-    return NULL;
-  if (PyType_Ready(&WOperatorType) < 0)
-    return NULL;
-  if (PyType_Ready(&SplineType) < 0)
-    return NULL;
-  if (PyType_Ready(&TransformerType) < 0)
-    return NULL;
-  if (PyType_Ready(&XCFunctionalType) < 0)
-    return NULL;
-  if (PyType_Ready(&lxcXCFunctionalType) < 0)
-    return NULL;
+    if (PyType_Ready(&LFCType) < 0)
+        return NULL;
+    if (PyType_Ready(&LocalizedFunctionsType) < 0)
+        return NULL;
+    if (PyType_Ready(&OperatorType) < 0)
+        return NULL;
+    if (PyType_Ready(&WOperatorType) < 0)
+        return NULL;
+    if (PyType_Ready(&SplineType) < 0)
+        return NULL;
+    if (PyType_Ready(&TransformerType) < 0)
+        return NULL;
+    if (PyType_Ready(&XCFunctionalType) < 0)
+        return NULL;
+    if (PyType_Ready(&lxcXCFunctionalType) < 0)
+        return NULL;
 
 #if PY_MAJOR_VERSION >= 3
-  PyObject* m = PyModule_Create(&moduledef);
+    PyObject* m = PyModule_Create(&moduledef);
 #else
-  PyObject* m = Py_InitModule3("_gpaw", functions,
-             "C-extension for GPAW\n\n...\n");
+    PyObject* m = Py_InitModule3("_gpaw", functions,
+                                 "C-extension for GPAW\n\n...\n");
 #endif
 
-  if (m == NULL)
-    return NULL;
+    if (m == NULL)
+        return NULL;
 
 #ifdef PARALLEL
-  Py_INCREF(&MPIType);
-  Py_INCREF(&GPAW_MPI_Request_type);
-  PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
+    Py_INCREF(&MPIType);
+    Py_INCREF(&GPAW_MPI_Request_type);
+    PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
 
-  Py_INCREF(&LFCType);
-  Py_INCREF(&LocalizedFunctionsType);
-  Py_INCREF(&OperatorType);
-  Py_INCREF(&WOperatorType);
-  Py_INCREF(&SplineType);
-  Py_INCREF(&TransformerType);
-  Py_INCREF(&XCFunctionalType);
-  Py_INCREF(&lxcXCFunctionalType);
+    Py_INCREF(&LFCType);
+    Py_INCREF(&LocalizedFunctionsType);
+    Py_INCREF(&OperatorType);
+    Py_INCREF(&WOperatorType);
+    Py_INCREF(&SplineType);
+    Py_INCREF(&TransformerType);
+    Py_INCREF(&XCFunctionalType);
+    Py_INCREF(&lxcXCFunctionalType);
 
-  import_array1(NULL);
+#ifdef GPAW_WITH_HDF5
+    init_gpaw_hdf5();
+#endif
+
+    import_array1(NULL);
  
-  return m;
+    return m;
 }
+
+#ifndef GPAW_INTERPRETER
 
 
 #if PY_MAJOR_VERSION >= 3
-    PyMODINIT_FUNC PyInit__gpaw(void)
-    {
-        return moduleinit();
-    }
+PyMODINIT_FUNC PyInit__gpaw(void)
+{
+    return moduleinit();
+}
 #else
-    PyMODINIT_FUNC init_gpaw(void)
-    {
-        moduleinit();
-    }
+PyMODINIT_FUNC init_gpaw(void)
+{
+    moduleinit();
+}
 #endif
 
 #else // ifndef GPAW_INTERPRETER
 
-extern DL_EXPORT(int) Py_Main(int, char **);
-
-// Performance measurement
-int gpaw_perf_init();
-void gpaw_perf_finalize();
+#if PY_MAJOR_VERSION >= 3
+#define moduleinit0 moduleinit
+#else
+void moduleinit0(void) { moduleinit(); }
+#endif
 
 #include <mpi.h>
 
 int
 main(int argc, char **argv)
 {
-  int status;
-
-#ifdef CRAYPAT
-  PAT_region_begin(1, "C-Initializations");
-#endif
-
 #ifndef GPAW_OMP
-  MPI_Init(&argc, &argv);
+    MPI_Init(&argc, &argv);
 #else
-  int granted;
-  MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
-  if(granted != MPI_THREAD_MULTIPLE) exit(1);
+    int granted;
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
+    if (granted != MPI_THREAD_MULTIPLE)
+        exit(1);
 #endif // GPAW_OMP
 
-// Get initial timing
-  double t0 = MPI_Wtime();
-
-#ifdef GPAW_PERFORMANCE_REPORT
-  gpaw_perf_init();
+#if PY_MAJOR_VERSION >= 3
+    wchar_t* wargv[argc];
+    wchar_t* wargv2[argc];
+    for (int i = 0; i < argc; i++) {
+        int n = 1 + mbstowcs(NULL, argv[i], 0);
+        wargv[i] = (wchar_t*)malloc(n * sizeof(wchar_t));
+        wargv2[i] = wargv[i];
+        mbstowcs(wargv[i], argv[i], n);
+    }
+#else
+    char** wargv = argv;
 #endif
 
-#ifdef GPAW_MPI_MAP
-  int tag = 99;
-  int myid, numprocs, i, procnamesize;
-  char procname[MPI_MAX_PROCESSOR_NAME];
-  MPI_Comm_size(MPI_COMM_WORLD, &numprocs );
-  MPI_Comm_rank(MPI_COMM_WORLD, &myid );
-  MPI_Get_processor_name(procname, &procnamesize);
-  if (myid > 0) {
-      MPI_Send(&procnamesize, 1, MPI_INT, 0, tag, MPI_COMM_WORLD);
-      MPI_Send(procname, procnamesize, MPI_CHAR, 0, tag, MPI_COMM_WORLD);
-  }
-  else {
-      printf("MPI_COMM_SIZE is %d \n", numprocs);
-      printf("%s \n", procname);
-
-      for (i = 1; i < numprocs; ++i) {
-          MPI_Recv(&procnamesize, 1, MPI_INT, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-          MPI_Recv(procname, procnamesize, MPI_CHAR, i, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-          printf("%s \n", procname);
-      }
-  }
-#endif // GPAW_MPI_MAP
-
-#ifdef GPAW_MPI_DEBUG
-  // Default Errhandler is MPI_ERRORS_ARE_FATAL
-  MPI_Errhandler_set(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
+    Py_SetProgramName(wargv[0]);
+    PyImport_AppendInittab("_gpaw", &moduleinit0);
+    Py_Initialize();
+    int status = Py_Main(argc, wargv);
+    Py_Finalize();
+    MPI_Finalize();
+    
+#if PY_MAJOR_VERSION >= 3
+    for (int i = 0; i < argc; i++)
+        free(wargv2[i]);
 #endif
 
-  // Progname seems to be needed in some circumstances to resolve
-  // correct default sys.path
-  Py_SetProgramName(argv[0]);
-
-  Py_Initialize();
-
-  if (PyType_Ready(&MPIType) < 0)
-    return -1;
-
-  if (PyType_Ready(&LFCType) < 0)
-    return -1;
-  if (PyType_Ready(&LocalizedFunctionsType) < 0)
-    return -1;
-  if (PyType_Ready(&OperatorType) < 0)
-    return -1;
-  if (PyType_Ready(&WOperatorType) < 0)
-    return -1;
-  if (PyType_Ready(&SplineType) < 0)
-    return -1;
-  if (PyType_Ready(&TransformerType) < 0)
-    return -1;
-  if (PyType_Ready(&XCFunctionalType) < 0)
-    return -1;
-  if (PyType_Ready(&lxcXCFunctionalType) < 0)
-    return -1;
-
-  PyObject* m = Py_InitModule3("_gpaw", functions,
-             "C-extension for GPAW\n\n...\n");
-  if (m == NULL)
-    return -1;
-
-  Py_INCREF(&MPIType);
-  PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
-
-  // Add initial time to _gpaw object
-  PyModule_AddObject(m, "time0", PyFloat_FromDouble(t0));
-
-  Py_INCREF(&LFCType);
-  Py_INCREF(&LocalizedFunctionsType);
-  Py_INCREF(&OperatorType);
-  Py_INCREF(&WOperatorType);
-  Py_INCREF(&SplineType);
-  Py_INCREF(&TransformerType);
-  Py_INCREF(&XCFunctionalType);
-  Py_INCREF(&lxcXCFunctionalType);
-
-#ifdef GPAW_WITH_HDF5
-  init_gpaw_hdf5();
-#endif
-  import_array1(-1);
-  MPI_Barrier(MPI_COMM_WORLD);
-#ifdef CRAYPAT
-  PAT_region_end(1);
-  PAT_region_begin(2, "all other");
-#endif
-  status = Py_Main(argc, argv);
-#ifdef CRAYPAT
-  PAT_region_end(2);
-#endif
-
-#ifdef GPAW_PERFORMANCE_REPORT
-  gpaw_perf_finalize();
-#endif
-
-  MPI_Finalize();
-  return status;
+    return status;
 }
 #endif // GPAW_INTERPRETER

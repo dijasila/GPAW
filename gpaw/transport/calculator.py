@@ -268,7 +268,7 @@ class Transport(GPAW):
         if self.scat_restart and self.restart_file is None:
             self.restart_file = 'bias_data1'
         
-        self.master = (world.rank==0)
+        self.master = (world.rank == 0)
         
         bias = self.bias
         
@@ -294,12 +294,12 @@ class Transport(GPAW):
             pass
         else:
             npk = np.product(kpts[:2])
-            nibpzk = (npk + npk % 2) / 2
+            nibpzk = (npk + npk % 2) // 2
             from fractions import gcd
             n_kpt_comm = gcd(nibpzk, world.size)
-            self.gpw_kwargs['parallel']= {'kpt': n_kpt_comm,
-                                          'domain': None,
-                                          'band': 1}
+            self.gpw_kwargs['parallel'] = {'kpt': n_kpt_comm,
+                                           'domain': None,
+                                           'band': 1}
         # ! THa: Hack:
         # ! Also save the the parameters
         # !'plot_energy_range' and for later analysis 'plot_energy_point_num'

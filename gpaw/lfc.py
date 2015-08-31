@@ -1,3 +1,4 @@
+from __future__ import division
 from math import pi
 
 import numpy as np
@@ -103,7 +104,7 @@ class Sphere:
         
         self.rank = gd.get_rank_from_position(spos_c)
         if ng == 0:
-            self.ranks = None # What about making empty lists instead?
+            self.ranks = None  # What about making empty lists instead?
             self.A_wgm = None
             self.G_wb = None
             self.M_w = None
@@ -1319,7 +1320,7 @@ def test():
     from gpaw.grid_descriptor import GridDescriptor
 
     ngpts = 40
-    h = 1.0 / ngpts
+    h = 1 / ngpts
     N_c = (ngpts, ngpts, ngpts)
     a = h * ngpts
     gd = GridDescriptor(N_c, (a, a, a))

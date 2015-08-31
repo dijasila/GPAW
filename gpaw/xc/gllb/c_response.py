@@ -3,7 +3,6 @@ from __future__ import print_function
 from math import sqrt, pi
 
 import numpy as np
-from ase.units import Hartree
 
 from gpaw.io import write_atomic_matrix
 from gpaw.mpi import world
@@ -11,15 +10,15 @@ from gpaw.sphere.lebedev import weight_n
 from gpaw.utilities import pack
 from gpaw.xc.gllb import safe_sqr
 from gpaw.xc.gllb.contribution import Contribution
-#from gpaw.xc_functional import XCRadialGrid, XCFunctional, XC3DGrid
-#from gpaw.xc_correction import A_Liy, weights
 
 ### XXX Work in process
 debug = False
 
+
 def d(*args):
     if debug:
         print(args)
+
 
 class C_Response(Contribution):
     def __init__(self, nlfunc, weight, coefficients):
@@ -119,7 +118,7 @@ class C_Response(Contribution):
             self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
             d("Core ", world.rank, "self.Dresp_asp", self.Dresp_asp.items(), "self.Drespdist_asp", self.Drespdist_asp.items())
             self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
-            return 
+            return
 
         if not self.occupations.is_ready():
             d("No occupations calculated yet")
@@ -158,7 +157,7 @@ class C_Response(Contribution):
         self.density.interpolate(self.vt_sG, self.vt_sg)
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
-        self.update_potentials([n_g]) 
+        self.update_potentials([n_g])
         v_g[:] += self.weight * self.vt_sg[0]
         return 0.0
 
@@ -258,8 +257,8 @@ class C_Response(Contribution):
             self.Dxc_Dresp_asp[a] = np.zeros((self.nlfunc.nspins, ni * (ni + 1) // 2))
             self.Dxc_D_asp[a] = np.zeros((self.nlfunc.nspins, ni * (ni + 1) // 2))
 
-        # Calculate new response potential with LUMO reference 
-        w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u, lumo_perturbation=True, 
+        # Calculate new response potential with LUMO reference
+        w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u, lumo_perturbation=True,
                                                          homolumo=homolumo,
                                                          nspins=self.nspins)
         f_kn = [ kpt.f_n for kpt in self.kpt_u ]
@@ -296,7 +295,8 @@ class C_Response(Contribution):
 
         # Find the lumo-orbital of this spin
         sign = 1 - s * 2
-        lumo_n = (self.occupations.nvalence + sign * self.occupations.magmom) // 2
+        lumo_n = int((self.occupations.nvalence +
+                      sign * self.occupations.magmom) // 2)
         gaps = [ 1000.0 ]
         for u, kpt in enumerate(self.kpt_u):
             if kpt.s == s:
@@ -317,7 +317,7 @@ class C_Response(Contribution):
                 #eps_un[u][n] = E
 
         method2_dxc = -self.kpt_comm.max(-min(gaps))
-        Ha = 27.2116 
+        Ha = 27.2116
         Ksgap *= Ha
         method1_dxc *= Ha
         method2_dxc *= Ha
@@ -359,7 +359,7 @@ class C_Response(Contribution):
         f_sM = np.empty((self.nspins, basis_functions.Mmax))
         self.D_asp = {}
         f_asi = {}
-        w_asi = {}              
+        w_asi = {}
 
         for a in basis_functions.atom_indices:
             w_j = self.setups[a].extra_xc_data['w_j']
@@ -368,7 +368,7 @@ class C_Response(Contribution):
                     0, False, charge=0, nspins=self.nspins, f_j=w_j)
             # Basis function coefficients based on density
             f_si = self.setups[a].calculate_initial_occupation_numbers(
-                    0, False, charge=0, nspins=self.nspins)            
+                    0, False, charge=0, nspins=self.nspins)
 
             if a in basis_functions.my_atom_indices:
                 self.Dresp_asp[a] = self.setups[a].initialize_density_matrix(w_si)

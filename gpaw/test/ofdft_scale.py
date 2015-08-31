@@ -7,7 +7,7 @@ from gpaw.eigensolvers import CG
 
 
 h = 0.18
-a = 10
+a = 10.0
 c = a / 2
 d = 1.8
 
@@ -27,7 +27,7 @@ for element, result, e in zip(elements, results, electrons):
                  cell=(a, a, a))
 
     mixer = Mixer(0.3, 5, 1)
-    eigensolver = CG(tw_coeff=lambda_coeff) 
+    eigensolver = CG(tw_coeff=lambda_coeff)
     calc = GPAW(h=h, txt='-', xc=xcname, maxiter=240,
                 mixer=mixer, eigensolver=eigensolver)
 
