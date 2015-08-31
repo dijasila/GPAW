@@ -171,7 +171,7 @@ tests = [
     'pseudopotential/ah.py',                # ~2s
     'lcao_restart.py',                      # ~2s
     'lcao_tddft.py',                        # ~2s
-    'vdw/libvdwxc_h2o',                     # ~2s
+    'vdw/libvdwxc_h2o.py',                  # ~2s
     'wfs_io.py',                            # ~3s
     'lrtddft2.py',                          # ~3s
     'fileio/file_reference.py',             # ~3s
