@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 
 def accordion_redistribute(gd, src, axis, operation='forth'):
@@ -7,7 +8,7 @@ def accordion_redistribute(gd, src, axis, operation='forth'):
     non-uniform block distribution to one with fixed blocksize except
     for last element which may be smaller.
 
-    For example along one axis, GPAW may have the following blocks:
+    For example along one axis, GPAW may distribute in blocks as follows:
 
       [5, 5, 6, 5, 6, 5].
 
@@ -20,12 +21,16 @@ def accordion_redistribute(gd, src, axis, operation='forth'):
 
     This probably involves relatively little communication and so we do
     not care to fiercely optimize this."""
+    if axis != 0:
+        raise NotImplementedError('accordion redistribute along non-x axis')
+
     parsize = gd.parsize_c[axis]
-    ngpts = gd.N_c[axis]  # XXX pbc?
-    assert all(gd.pbc_c)
+    ngpts = gd.get_size_of_global_array()[axis]
     blocksize = -(-ngpts // parsize)
     remainder = ngpts - (parsize - 1) * blocksize
-    n_p = gd.n_cp[axis]
+    if remainder < 0:
+        raise BadGridError('Dimensions incompatible (grid too small)')
+    n_p = gd.n_cp[axis] - gd.n_cp[axis][0]
     
     forward = (operation == 'forth')
     assert forward or operation == 'back'
@@ -33,22 +38,20 @@ def accordion_redistribute(gd, src, axis, operation='forth'):
     assert remainder <= blocksize
     assert len(gd.n_cp[axis]) == parsize + 1
     ngpts_p = np.empty(parsize + 1, dtype=int)
-    ngpts_p[0] = 0 if gd.pbc_c[axis] else 1
+    ngpts_p[0] = 0
     ngpts_p[1:-1] = blocksize
     ngpts_p[-1] = remainder
-    n2_p = np.cumsum(ngpts_p)
-    n2_cp = list(gd.n_cp)
-    n2_cp[axis] = n2_p
 
-    gd2 = gd.new_descriptor(n_cp=n2_cp)
     peer_comm = gd.get_axial_communicator(axis)
 
-    shape = gd.n_c.copy()
     if peer_comm.rank == peer_comm.size - 1:
-        shape[axis] = remainder
+        myblocksize = remainder
     else:
-        shape[axis] = blocksize
-    if operation == 'forth':
+        myblocksize = blocksize
+
+    shape = gd.n_c.copy()
+    shape[axis] = myblocksize
+    if forward:
         dst = np.empty(shape, dtype=src.dtype)
     else:
         dst = gd.empty(dtype=src.dtype)
@@ -61,6 +64,7 @@ def accordion_redistribute(gd, src, axis, operation='forth'):
     rank2_a = np.empty(ngpts, dtype=int)  # pbc?
     rank1_a.fill(-1)
     rank2_a.fill(-1)
+    
     for i in range(peer_comm.size):
         rank1_a[n_p[i]:n_p[i + 1]] = i
         rank2_a[blocksize * i:blocksize * (i + 1)] = i
@@ -85,19 +89,29 @@ def accordion_redistribute(gd, src, axis, operation='forth'):
 
     slices = [slice(None, None, None)] * 3
 
+    grrr = gd.n_cp[axis][0]
+    
     def grid_to_dict(arr):
-        for i, g in enumerate(range(gd.beg_c[axis], gd.end_c[axis])):
+        if forward:
+            beg = gd.beg_c[axis] - grrr
+            end = gd.end_c[axis] - grrr
+        else:
+            beg = blocksize * peer_comm.rank
+            end = beg + myblocksize
+
+        for i, g in enumerate(range(beg, end)):
             slices[axis] = i
             dictslice = data[g]
             arrayslice = arr[slices[0], slices[1], slices[2]]
             dictslice[:] = arrayslice
 
     def dict_to_grid(arr):
-        globalstart = peer_comm.rank * blocksize
-        if peer_comm.rank == peer_comm.size - 1:
-            globalstop = globalstart + remainder
+        if forward:
+            globalstart = peer_comm.rank * blocksize
+            globalstop = globalstart + myblocksize
         else:
-            globalstop = globalstart + blocksize
+            globalstart = gd.beg_c[axis] - grrr
+            globalstop = globalstart + gd.n_c[axis]
         for i, g in enumerate(range(globalstart, globalstop)):
             slices[axis] = i
             dictslice = data[g]
@@ -108,7 +122,7 @@ def accordion_redistribute(gd, src, axis, operation='forth'):
     data.redistribute(partition2 if forward else partition1)
     dict_to_grid(dst)
 
-    return gd2, dst
+    return dst
             
 
 def playground():
@@ -117,26 +131,67 @@ def playground():
     N_c = np.array((12, 1, 4))
     gd = GridDescriptor(N_c, cell_cv=0.2 * N_c,
                         parsize=(world.size, 1, 1))
-    print gd
+    print(gd)
     src = gd.zeros()
     src[:] = gd.comm.rank
-    
-    gd2, dst = accordion_redistribute(gd, src, axis=0, operation='forth')
-
-    gd_, orig = accordion_redistribute(gd, dst, axis=0, operation='back')
-
-    grumble = gd2.collect(dst)
-
+    dst = accordion_redistribute(gd, src, axis=0, operation='forth')
+    orig = accordion_redistribute(gd, dst, axis=0, operation='back')
     src0 = gd.collect(src)
 
-    if gd.comm.rank == 0:
-        print src0.squeeze()
 
-    if gd2.comm.rank == 0:
-        print grumble.squeeze()
+class BadGridError(ValueError):
+    pass
 
-    #if gd.comm.rank == 1:
-    #    print dst
+def test(N_c, pbc_c, parsize_c, axis):
+    from gpaw.mpi import world
+    from gpaw.grid_descriptor import GridDescriptor
+    from gpaw.mpi import world
+    N_c = np.array(N_c)
+    try:
+        gd = GridDescriptor(N_c, cell_cv=0.2 * N_c, pbc_c=pbc_c,
+                            parsize=parsize_c)
+    except ValueError as e:
+        raise BadGridError(e)
+    src = gd.zeros()
+    src[:] = gd.comm.rank
+    dst = accordion_redistribute(gd, src, axis=axis, operation='forth')
+    orig = accordion_redistribute(gd, dst, axis=axis, operation='back')
+    err = np.abs(src - orig).max()
+    
+    if err == 0.0:
+        status = 'OK:  '
+    else:
+        status = 'Bad: '
+    msg = '%s N_c=%s pbc_c=%s parsize_c=%s' % (status, N_c, pbc_c,
+                                               gd.parsize_c)
+    #assert err == 0.0, 'Bad: N_c=%s pbc_c=%s' % (N_c, pbc_c)
+    if world.rank == 0:
+        print(msg)
+    
+    # Let's just raise an error properly...
+    assert err == 0.0, msg
+
+
+def test_thoroughly():
+    from itertools import product
+    from gpaw.mpi import world
+    Nvalues = [1, 2, 5, 17, 37]
+    pbcvalues = [False, True]
+    
+    cpucounts = np.arange(1, world.size + 1)
+
+    for parsize_c in product(cpucounts, cpucounts, cpucounts):
+        if np.prod(parsize_c) != world.size:
+            continue
+    
+        for N_c in product(Nvalues, Nvalues, Nvalues):
+            for pbc_c in product(pbcvalues, pbcvalues, pbcvalues):
+                try:
+                    test(N_c, pbc_c, parsize_c, 0)
+                except BadGridError:
+                    pass
+
 
 if __name__ == '__main__':
-    playground()
+    test_thoroughly()
+    #playground()
