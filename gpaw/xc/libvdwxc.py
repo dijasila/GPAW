@@ -144,12 +144,12 @@ class LibVDWXC(GGA, object):
         def to_1d_block_distribution(array):
             array = self.dist1.forth(array)
             array = self.dist2.forth(array)
-            _gd, array = accordion_redistribute(self.dist2.gd2, array, axis=0)
+            array = accordion_redistribute(self.dist2.gd2, array, axis=0)
             return array
 
         def from_1d_block_distribution(array):
-            _gd, array = accordion_redistribute(self.dist2.gd2, array, axis=0,
-                                                operation='back')
+            array = accordion_redistribute(self.dist2.gd2, array, axis=0,
+                                           operation='back')
             array = self.dist2.back(array)
             array = self.dist1.back(array)
             return array
