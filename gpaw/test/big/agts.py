@@ -128,7 +128,7 @@ class Cluster:
         fd = open(job.script + '.py', 'w')
         fd.write('from gpaw.test import wrap_pylab\n')
         fd.write('wrap_pylab({0})\n'.format(job.show))
-        fd.write('exec(compile(open({0!r}).read()), {0!r}, "exec")\n'
+        fd.write('exec(compile(open({0!r}).read(), {0!r}, "exec"))\n'
                  .format(job.script))
         fd.close()
         
