@@ -1,15 +1,13 @@
 from __future__ import print_function
 import numpy as np
 from gpaw.xc.libxc import LibXC
-from gpaw.xc.functional import XCFunctional
 from gpaw.xc.gga import GGA
-from gpaw.xc.vdw import VDWFunctional
 from gpaw.utilities import compiled_with_libvdwxc
 from gpaw.utilities.grid_redistribute import GridRedistributor
 from gpaw.utilities.accordion_redistribute import accordion_redistribute
 from gpaw.utilities.timing import nulltimer
-from gpaw.mpi import SerialCommunicator
 import _gpaw
+
 
 def check_grid_descriptor(gd):
     assert gd.parsize_c[1] == 1 and gd.parsize_c[2] == 1
@@ -96,11 +94,10 @@ class LibVDWXC(GGA, object):
             e_g = gd.zeros()
 
         if self.aggressive_distribute:
-            print('distribute aggressively')
             dist_gd = self.dist1.gd
             n1_sg = dist_gd.empty(len(n_sg))
             v1_sg = dist_gd.empty(len(v_sg))
-            e1_g = dist_gd.empty() # TODO handle e_g properly
+            e1_g = dist_gd.empty()  # TODO handle e_g properly
             dist_gd.distribute(n_sg, n1_sg)
             dist_gd.distribute(v_sg, v1_sg)
             dist_gd.distribute(e_g, e1_g)
@@ -109,23 +106,23 @@ class LibVDWXC(GGA, object):
             n1_sg = n_sg
             v1_sg = v_sg
             e1_g = e_g
-        energy = GGA.calculate(self, dist_gd, n1_sg, v1_sg, e_g=e1_g)
+        GGA.calculate(self, dist_gd, n1_sg, v1_sg, e_g=e1_g)
 
         if self.aggressive_distribute:
             n_sg[:] = dist_gd.collect(n1_sg, broadcast=True)
             v_sg[:] = dist_gd.collect(v1_sg, broadcast=True)
             e_g[:] = dist_gd.collect(e1_g, broadcast=True)
         return gd.integrate(e_g)
-    
+
     def _calculate(self, n_g, sigma_g):
         v_g = np.zeros_like(n_g)
         dedsigma_g = np.zeros_like(sigma_g)
         if self._fft_comm is None:
-            energy = _gpaw.libvdwxc_calculate(self._vdw, n_g, sigma_g,
-                                              v_g, dedsigma_g) 
+            libvdwxc_func = _gpaw.libvdwxc_calculate
         else:
-           energy = _gpaw.libvdwxc_calculate_mpi(self._vdw, n_g, sigma_g,
-                                                  v_g, dedsigma_g)
+            libvdwxc_func = _gpaw.libvdwxc_calculate_mpi
+        energy = libvdwxc_func(self._vdw, n_g, sigma_g,
+                               v_g, dedsigma_g)
         return energy, v_g, dedsigma_g
 
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
@@ -171,7 +168,7 @@ class LibVDWXC(GGA, object):
 
         Ecnl = self.gd.comm.sum(Ecnl)
         if self.gd.comm.rank == 0:
-            e_g[0, 0, 0] += Ecnl / self.gd.dv # XXXXXXXXXXXXXXXX ugly
+            e_g[0, 0, 0] += Ecnl / self.gd.dv  # XXXXXXXXXXXXXXXX ugly
         self.Ecnl = Ecnl
         assert len(v_sg) == 1
         v_sg[0, :] += v_g
