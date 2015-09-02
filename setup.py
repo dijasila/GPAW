@@ -3,13 +3,14 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import os
-import sys
 import distutils
 import distutils.util
+from distutils.command.build_scripts import build_scripts as _build_scripts
 from distutils.core import setup, Extension
 from glob import glob
+import os
 from os.path import join
+import sys
 
 from config import (check_packages, get_system_config, get_parallel_config,
                     get_scalapack_config, get_hdf5_config, check_dependencies,
@@ -211,22 +212,36 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
 
 description = 'An electronic structure code based on the PAW method'
 
-setup(name='gpaw',
-      version=version,
-      description=description,
-      maintainer='GPAW-community',
-      maintainer_email='gpaw-developers@listserv.fysik.dtu.dk',
-      url='http://wiki.fysik.dtu.dk/gpaw',
-      license='GPLv3+',
-      platforms=['unix'],
-      packages=packages,
-      ext_modules=extensions,
-      scripts=scripts,
-      long_description=long_description)
+kwargs = dict(
+    name='gpaw',
+    version=version,
+    description=description,
+    maintainer='GPAW-community',
+    maintainer_email='gpaw-developers@listserv.fysik.dtu.dk',
+    url='http://wiki.fysik.dtu.dk/gpaw',
+    license='GPLv3+',
+    platforms=['unix'],
+    packages=packages,
+    long_description=long_description)
 
+setup(ext_modules=extensions, scripts=scripts, **kwargs)
+      
 
+class build_scripts(_build_scripts):
+    def copy_scripts(self):
+        self.mkpath(self.build_dir)
+        outfiles = []
+        updated_files = []
+        script = self.scripts[0]
+        outfile = os.path.join(self.build_dir, os.path.basename(script))
+        outfiles.append(outfile)
+        updated_files.append(outfile)
+        self.copy_file(script, outfile)
+        return outfiles, updated_files
+        
+        
 if custom_interpreter:
-    scripts.append('build/bin.%s/' % plat + 'gpaw-python')
+    scripts = ['build/bin.%s/' % plat + 'gpaw-python']
     error, par_msg = build_interpreter(
         define_macros, include_dirs, libraries,
         library_dirs, extra_link_args, extra_compile_args,
@@ -238,18 +253,10 @@ if custom_interpreter:
     msg += par_msg
     # install also gpaw-python
     if 'install' in sys.argv and error == 0:
-        setup(name='gpaw',
-              version=version,
-              description=description,
-              maintainer='GPAW-community',
-              maintainer_email='gpaw-developers@listserv.fysik.dtu.dk',
-              url='http://wiki.fysik.dtu.dk/gpaw',
-              license='GPLv3+',
-              platforms=['unix'],
-              packages=packages,
+        setup(cmdclass={'build_scripts': build_scripts},
               ext_modules=[extension],
               scripts=scripts,
-              long_description=long_description)
+              **kwargs)
 
 else:
     msg += ['* Only a serial version of gpaw was built!']
