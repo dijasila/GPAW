@@ -1,7 +1,7 @@
 import numpy as np
 
 from gpaw.utilities import pack, unpack2
-from gpaw.utilities.blas import gemm
+from gpaw.utilities.blas import gemm, axpy
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
 
@@ -95,6 +95,17 @@ class WaveFunctions(EmptyWaveFunctions):
         return True
 
     __nonzero__ = __bool__  # for Python 2
+
+    def add_realspace_orbital_to_density(self, nt_G, psit_G):
+        if psit_G.dtype == float:
+            axpy(1.0, psit_G**2, nt_G)
+        else:
+            assert psit_G.dtype == complex
+            axpy(1.0, psit_G.real**2, nt_G)
+            axpy(1.0, psit_G.imag**2, nt_G)
+
+    def add_orbital_density(self, nt_G, kpt, n):
+        self.add_realspace_orbital_to_density(nt_G, kpt.psit_nG[n])
 
     def calculate_density_contribution(self, nt_sG):
         """Calculate contribution to pseudo density from wave functions."""

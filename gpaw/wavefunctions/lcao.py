@@ -243,6 +243,13 @@ class LCAOWaveFunctions(WaveFunctions):
     def initialize_wave_functions_from_restart_file(self):
         """Dummy function to ensure compatibility to fd mode"""
         self.initialize_wave_functions_from_lcao()
+
+    def add_orbital_density(self, nt_G, kpt, n):
+        rank, u = self.kd.get_rank_and_index(kpt.s, kpt.k)
+        assert rank == self.kd.comm.rank
+        assert self.kpt_u[u] is kpt
+        psit_G = self._get_wave_function_array(self, u, n, realspace=True)
+        self.add_realspace_orbital_to_density(self, nt_G, psit_G)
     
     def calculate_density_matrix(self, f_n, C_nM, rho_MM=None):
         # ATLAS can't handle uninitialized output array:
@@ -861,6 +868,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.stop('LCAO forces')
 
     def _get_wave_function_array(self, u, n, realspace=True):
+        # XXX Taking kpt is better than taking u
         kpt = self.kpt_u[u]
         if kpt.C_nM is None:
             # Hack to make sure things are available after restart
