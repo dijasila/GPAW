@@ -1,14 +1,10 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-"""
-Python wrapper functions for the ``C`` package:
-Basic Linear Algebra Subroutines (BLAS)
+"""Python wrapper functions for Basic Linear Algebra Subroutines (BLAS).
 
-See also:
-http://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms
-and
-http://www.netlib.org/lapack/lug/node145.html
+See also http://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms
+and http://www.netlib.org/lapack/lug/node145.html.
 """
 
 import numpy as np
@@ -31,7 +27,11 @@ def mmm(alpha, a, opa, b, opb, beta, c):
     
     assert opa in 'ntc'
     assert opb in 'ntc'
-    
+
+    a = a.reshape((len(a), -1))
+    b = b.reshape((len(b), -1))
+    c = c.reshape((len(c), -1))
+
     if opa == 'n':
         a1, a2 = a.shape
     else:
@@ -43,7 +43,12 @@ def mmm(alpha, a, opa, b, opb, beta, c):
     assert a2 == b1
     assert c.shape == (a1, b2)
     
-    assert a.strides[1] == b.strides[1] == c.strides[1] == c.itemsize
+    assert a.strides[1] == c.itemsize or a.shape[1] == 1
+    assert b.strides[1] == c.itemsize or b.shape[1] == 1
+    assert c.strides[1] == c.itemsize or c.shape[1] == 1
+    for x in [a, b, c]:
+        if x.shape[0] == 1:
+            x.strides = (x.shape[1] * x.itemsize, c.itemsize)
     assert a.dtype == b.dtype == c.dtype
     if a.dtype == float:
         assert not isinstance(alpha, complex)

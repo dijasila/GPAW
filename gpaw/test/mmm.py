@@ -27,3 +27,7 @@ for dtype in [float, complex]:
             C = np.dot(A, B)
             mmm(1, a, opa, b, opb, -1, C)
             assert abs(C).max() < 1e-14
+    x = np.zeros((1, 1))
+    mmm(1, np.ones((1, 3)), 'n', np.ones((1, 3)), 't', 0, x)
+    print(x)
+

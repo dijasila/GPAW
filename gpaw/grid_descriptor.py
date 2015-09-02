@@ -17,7 +17,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities import mlsqr
-from gpaw.utilities.blas import rk, r2k, gemv, gemm
+from gpaw.utilities.blas import rk, r2k, gemv, mmm
 
 
 # Remove this:  XXX
@@ -279,7 +279,7 @@ class GridDescriptor(Domain):
         elif hermitian:
             r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
         else:
-            gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
+            mmm(self.dv, B_yg, 'n', A_xg, 'c', 0.0, result_yx)
         
         if global_integral:
             self.comm.sum(result_yx)
@@ -294,7 +294,7 @@ class GridDescriptor(Domain):
 
     def gemm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
         """Helper function for MatrixOperator class."""
-        gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
+        mmm(alpha, C_mn, 'n', psit_nG, 'n', beta, newpsit_mG)
 
     def gemv(self, alpha, psit_nG, C_n, beta, newpsit_G, trans='t'):
         """Helper function for CG eigensolver."""

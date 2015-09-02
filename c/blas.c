@@ -159,6 +159,8 @@ PyObject* mmm(PyObject *self, PyObject *args)
         return NULL;
         
     int m = PyArray_DIM(M3, 1);
+    for (int d = 2; d < PyArray_NDIM(M3); d++)
+        m *= PyArray_DIM(M3, d);
     int n = PyArray_DIM(M3, 0);
     int k;
     
@@ -175,6 +177,8 @@ PyObject* mmm(PyObject *self, PyObject *args)
         k = PyArray_DIM(M2, 0);
     else
         k = PyArray_DIM(M2, 1);
+        for (int d = 2; d < PyArray_NDIM(M2); d++)
+            m *= PyArray_DIM(M2, d);
         
     if (bytes == 8)
         dgemm_(trans2, trans1, &m, &n, &k,

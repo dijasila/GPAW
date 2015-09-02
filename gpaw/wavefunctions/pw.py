@@ -21,7 +21,7 @@ from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
 from gpaw.utilities import unpack
-from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
+from gpaw.utilities.blas import rk, r2k, gemv, mmm, axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 
@@ -158,7 +158,7 @@ class PWDescriptor:
         in xyz coordinates.
         """
 
-        assert q < len(self.K_qv), ('Choose a q-index belonging to ' +
+        assert q < len(self.K_qv), ('Choose a q-index belonging to '
                                     'the irreducible Brillouin zone.')
         q_v = self.K_qv[q]
 
@@ -284,7 +284,7 @@ class PWDescriptor:
         elif hermitian:
             r2k(0.5 * alpha, A_xg, B_yg, 0.0, result_yx)
         else:
-            gemm(alpha, A_xg, B_yg, 0.0, result_yx, 'c')
+            mmm(alpha, B_yg, 'n', A_xg, 'c', 0.0, result_yx)
 
         if self.dtype == float:
             correction_yx = np.outer(B_yg[:, 0], A_xg[:, 0])
@@ -405,7 +405,7 @@ class PWDescriptor:
         if self.dtype == float:
             psit_nG = psit_nG.view(float)
             newpsit_mG = newpsit_mG.view(float)
-        gemm(alpha, psit_nG, C_mn, beta, newpsit_mG)
+        mmm(alpha, C_mn, 'n', psit_nG, 'n', beta, newpsit_mG)
 
     def gemv(self, alpha, psit_nG, C_n, beta, newpsit_G, trans='t'):
         """Helper function for CG eigensolver."""
@@ -1055,7 +1055,8 @@ class PWLFC(BaseLFC):
                 G1 *= 2
                 G2 *= 2
 
-            gemm(1.0 / self.pd.gd.dv, f_IG, c_xI, 1.0, a_xG[:, G1:G2])
+            mmm(1.0 / self.pd.gd.dv, c_xI, 'n', f_IG, 'n',
+                1.0, a_xG[:, G1:G2])
 
     def integrate(self, a_xG, c_axi=None, q=-1):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
@@ -1081,7 +1082,7 @@ class PWLFC(BaseLFC):
                 G1 *= 2
                 G2 *= 2
 
-            gemm(alpha, f_IG, a_xG[:, G1:G2], x, b_xI, 'c')
+            mmm(alpha, a_xG[:, G1:G2], 'n', f_IG, 'c', x, b_xI)
             x = 1.0
 
         for a, I1, I2 in self.indices:
@@ -1105,16 +1106,16 @@ class PWLFC(BaseLFC):
             G_Gv = self.pd.G_Qv[self.pd.Q_qG[q][G1:G2]]
             if self.pd.dtype == float:
                 for v in range(3):
-                    gemm(2 * alpha,
-                         (f_IG * 1.0j * G_Gv[:, v]).view(float),
-                         a_xG[:, 2 * G1:2 * G2],
-                         x, b_vxI[v], 'c')
+                    mmm(2 * alpha,
+                        a_xG[:, 2 * G1:2 * G2], 'n',
+                        (f_IG * 1.0j * G_Gv[:, v]).view(float), 'c',
+                        x, b_vxI[v])
             else:
                 for v in range(3):
-                    gemm(-alpha,
-                         f_IG * (G_Gv[:, v] + K_v[v]),
-                         a_xG[:, G1:G2],
-                         x, b_vxI[v], 'c')
+                    mmm(-alpha,
+                        a_xG[:, G1:G2], 'n',
+                        f_IG * (G_Gv[:, v] + K_v[v]), 'c',
+                        x, b_vxI[v])
             x = 1.0
 
         for v in range(3):
@@ -1194,7 +1195,7 @@ class PWLFC(BaseLFC):
             f_IG = f_IG.view(float)
             a_xG = a_xG.copy().view(float)
 
-        gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
+        mmm(alpha, a_xG, 'n', f_IG, 'c', 0.0, b_xI)
 
         stress = 0.0
         for a, I1, I2 in self.indices:
