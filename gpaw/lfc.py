@@ -1182,7 +1182,7 @@ from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster
 from gpaw.mpi import run
 
 
-class LocalizedFunctionsCollection(BaseLFC):
+class OldLocalizedFunctionsCollection(BaseLFC):
     def __init__(self, gd, spline_aj, kpt_comm=None,
                  cut=False, dtype=float,
                  integral=None, forces=False):
@@ -1304,6 +1304,8 @@ class LocalizedFunctionsCollection(BaseLFC):
 
 if extra_parameters.get('usenewlfc', True):
     LocalizedFunctionsCollection = NewLocalizedFunctionsCollection
+else:
+    LocalizedFunctionsCollection = OldLocalizedFunctionsCollection
 
 
 def LFC(gd, spline_aj, kd=None,

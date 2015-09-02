@@ -1,3 +1,6 @@
+import gpaw.mpi
+
+
 class LrCommunicators:
     def __init__(self, world=None, dd_size=None, eh_size=None):
         """Create communicators for LrTDDFT calculation.

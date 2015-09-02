@@ -156,7 +156,7 @@ class Banded_Sparse_Matrix:
         full_mat = self.recover()
         timer = Timer()
         timer.start('full_numpy')
-        tmp0 = np.linalg.inv(full_mat)
+        np.linalg.inv(full_mat)
         timer.stop('full_numpy')
         
         timer.start('full_lapack')
@@ -742,7 +742,7 @@ class Tp_Sparse_Matrix:
         full_mat = self.recover()
         timer = Timer()
         timer.start('full_numpy')
-        tmp0 = np.linalg.inv(full_mat)
+        np.linalg.inv(full_mat)
         timer.stop('full_numpy')
         
         timer.start('full_lapack')

@@ -58,13 +58,12 @@ class DF(CHI):
             self.initialize()
             self.calculate()
         elif self.chi0_wGG is None and chi0_wGG is not None:
-            #Read from file and reinitialize
+            # Read from file and reinitialize
             self.xc = xc
 
             from gpaw.response.parallel import par_read
             self.chi0_wGG = par_read(chi0_wGG, 'chi0_wGG')
             self.nvalbands = self.nbands
-            #self.parallel_init() # parallelization not yet implemented
             self.Nw_local = self.Nw  # parallelization not yet implemented
             if self.calc is None:
                 from gpaw import GPAW
@@ -72,7 +71,7 @@ class DF(CHI):
             if self.xc == 'ALDA' or self.xc == 'ALDA_X':
                 from gpaw.response.kernel import calculate_Kxc
                 from gpaw.grid_descriptor import GridDescriptor
-                from gpaw.mpi import world, rank, size, serial_comm
+                from gpaw.mpi import serial_comm
                     
                 self.pbc = self.calc.atoms.pbc
                 self.gd = GridDescriptor(self.calc.wfs.gd.N_c*self.rpad, self.acell_cv,
@@ -112,7 +111,7 @@ class DF(CHI):
             self.chi0_wGG[:,0,:] = self.chi00G_wGv[:,:,dir]
             self.chi0_wGG[:,:,0] = self.chi0G0_wGv[:,:,dir]
         
-        from gpaw.response.kernel import calculate_Kc, CoulombKernel
+        from gpaw.response.kernel import CoulombKernel
         kernel = CoulombKernel(vcut=self.vcut,
                                pbc=self.calc.atoms.pbc,
                                cell=self.acell_cv)
@@ -351,8 +350,6 @@ class DF(CHI):
         dirstr = ['x', 'y', 'z']
 
         for dir in range(3):
-        
-            eM = np.zeros(2)
             df1, df2 = self.get_dielectric_function(xc=xc, dir=dir)
             eps0 = np.real(df1[0])
             eps = np.real(df2[0])
@@ -426,7 +423,6 @@ class DF(CHI):
         df1, df2 = self.get_dielectric_function(xc='RPA')
         if self.xc == 'ALDA':
             df3, df4 = self.get_dielectric_function(xc='ALDA')
-        Nw = df1.shape[0]
 
         if rank == 0:
             f = open(filename,'w')
@@ -579,7 +575,6 @@ class DF(CHI):
         self.read(filename)
         self.pbc = [1,1,1]
         #self.calc.atoms.pbc = [1,1,1]
-        npw = self.npw
         self.w_w = np.linspace(0, self.dw * (self.Nw - 1)*Hartree, self.Nw)
         self.vcut = vcut
         dm_wGG = self.get_dielectric_matrix(xc=xc,
@@ -614,16 +609,12 @@ class DF(CHI):
         eig_right = np.array([], dtype = complex)
         vec_modes = np.zeros([1, self.npw], dtype = complex)
         vec_modes_dual = np.zeros([1, self.npw], dtype = complex)
-        vec_modes_density = np.zeros([1, self.npw], dtype = complex)
-        vec_modes_norm = np.zeros([1, self.npw], dtype = complex)
         eig_all = np.zeros([1, self.npw], dtype = complex)
         eig_dummy = np.zeros([1, self.npw], dtype = complex)
         v_dummy = np.zeros([1, self.npw], dtype = complex)
         vec_dummy = np.zeros([1, self.npw], dtype = complex)
-        vec_dummy2 = np.zeros([1, self.npw], dtype = complex)
         w_0 = np.array([])
         w_left = np.array([])
-        w_right = np.array([])
      
         if sum == '2D':
             v_ind = np.zeros([1, r.shape[-1]], dtype = complex)
@@ -641,7 +632,6 @@ class DF(CHI):
         
         # loop over frequencies, where the eigenvalues for the 2D matrix in G,G' are found.
         for i in np.array(range(self.Nw-1))+1:
-            eps_GG = eps_GG_plus
             eig, vec = eig_plus,vec_plus
             vec_dual = vec_plus_dual
             eps_GG_plus = dm_wGG[i] # epsilon_GG'(omega + d-omega)
@@ -679,8 +669,6 @@ class DF(CHI):
                             v_dummy = np.zeros([1, r.shape[1], r.shape[2],
                                                 r.shape[3]], dtype = complex)
 
-                            vec_n = np.zeros([self.npw])
-                            
                             for iG in range(self.npw):  # Fourier transform
                                 qG = np.dot((q + self.Gvec_Gc[iG]), self.bcell_cv)
                                 coef_G = np.dot(qG, qG) / (4 * pi)
