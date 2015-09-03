@@ -240,7 +240,7 @@ class ExpandYl(AngularIntegral):
 
 class Vector3d(list):
     def __init__(self,vector=None):
-        if vector is None or vector == []:
+        if vector is None:
             vector = [0,0,0]
         vector = string2vector(vector)
         list.__init__(self)

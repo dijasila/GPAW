@@ -205,7 +205,7 @@ class CoulombKernel0D(BaseCoulombKernel):
     Isolated System/Molecule calculation.
     vcut = [True, True, True].
     Spherical cutoff in all directions.
-    R = 1/2 max cell.    
+    R = 1/2 max cell.
     """
     def __init__(self, vcut, cell):
         self.R = max(np.diag(cell)) / 2.
@@ -235,7 +235,7 @@ class CoulombKernel(BaseCoulombKernel):
     """
     def __init__(self, vcut, pbc, cell):
         if vcut is None:
-            vcut = pbc - True
+            vcut = ~pbc
         elif isinstance(vcut, str):
             # Assume vcut = 'nD', where n is number of periodic directions
             # Should be deprecated
