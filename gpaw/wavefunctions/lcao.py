@@ -248,8 +248,8 @@ class LCAOWaveFunctions(WaveFunctions):
         rank, u = self.kd.get_rank_and_index(kpt.s, kpt.k)
         assert rank == self.kd.comm.rank
         assert self.kpt_u[u] is kpt
-        psit_G = self._get_wave_function_array(self, u, n, realspace=True)
-        self.add_realspace_orbital_to_density(self, nt_G, psit_G)
+        psit_G = self._get_wave_function_array(u, n, realspace=True)
+        self.add_realspace_orbital_to_density(nt_G, psit_G)
     
     def calculate_density_matrix(self, f_n, C_nM, rho_MM=None):
         # ATLAS can't handle uninitialized output array:
