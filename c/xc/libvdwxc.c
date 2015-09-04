@@ -12,10 +12,11 @@
 PyObject* libvdwxc_initialize(PyObject* self, PyObject* args)
 {
     printf("vdw init\n");
+    int vdw_code;
     PyObject* comm;
     int Nx, Ny, Nz;
     double C00, C10, C20, C01, C11, C21, C02, C12, C22;
-    if(!PyArg_ParseTuple(args, "Oiiiddddddddd", &comm,
+    if(!PyArg_ParseTuple(args, "iOiiiddddddddd", &vdw_code, &comm,
                          &Nx, &Ny, &Nz,
                          &C00, &C10, &C20, &C01, &C11, &C21, &C02, &C12, &C22)) {
         return NULL;
@@ -23,7 +24,7 @@ PyObject* libvdwxc_initialize(PyObject* self, PyObject* args)
     npy_intp objsize = vdw_df_data_get_size();
     PyArrayObject* vdwdata_obj = (PyArrayObject*)PyArray_SimpleNew(1, &objsize, NPY_BYTE);
     void* vdwdata = PyArray_DATA(vdwdata_obj);
-    vdw_df_initialize(vdwdata, FUNC_VDWDF);
+    vdw_df_initialize(vdwdata, vdw_code);
 
     if(comm != Py_None) {
         PyErr_SetString(PyExc_RuntimeError, "comm given in serial.");
@@ -67,10 +68,11 @@ PyObject* libvdwxc_initialize_mpi(PyObject* self, PyObject* args)
 {
     printf("vdw mpi init\n");
     fftw_mpi_init(); // can be called as many times as one wants.
+    int vdw_code;
     PyObject* comm;
     int Nx, Ny, Nz;
     double C00, C10, C20, C01, C11, C21, C02, C12, C22;
-    if(!PyArg_ParseTuple(args, "Oiiiddddddddd", &comm,
+    if(!PyArg_ParseTuple(args, "iOiiiddddddddd", &vdw_code, &comm,
                          &Nx, &Ny, &Nz,
                          &C00, &C10, &C20, &C01, &C11, &C21, &C02, &C12, &C22)) {
         return NULL;
@@ -78,7 +80,7 @@ PyObject* libvdwxc_initialize_mpi(PyObject* self, PyObject* args)
     npy_intp objsize = vdw_df_data_get_size();
     PyArrayObject* vdwdata_obj = (PyArrayObject*)PyArray_SimpleNew(1, &objsize, NPY_BYTE);
     void* vdwdata = PyArray_DATA(vdwdata_obj);
-    vdw_df_initialize(vdwdata, FUNC_VDWDF);
+    vdw_df_initialize(vdwdata, vdw_code);
 
     MPIObject* gpaw_comm = (MPIObject *)comm;
     vdw_df_set_communicator(vdwdata, gpaw_comm->comm);
