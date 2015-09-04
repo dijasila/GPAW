@@ -1,5 +1,5 @@
 from __future__ import print_function
-from math import pi, acos, cos, sin, sqrt
+from math import pi, acos, sqrt
 
 import numpy as np
 from ase.atoms import string2vector
@@ -298,7 +298,6 @@ class Vector3d(list):
     def distance(self,vector):
         if not isinstance(vector, type(self)):
             vector=Vector3d(vector)
-        dv = self - vector
         return (self - vector).length()
 
     def length(self,value=None):
