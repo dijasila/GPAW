@@ -1,7 +1,5 @@
-import numpy as np
 from ase.lattice import bulk
 from gpaw import GPAW
-from ase import Atoms
 
 # This test calculates a GLLB quasiparticle gap with LCAO and verifies
 # that it does not change from a reference value.  Note that the
@@ -16,6 +14,8 @@ calc = GPAW(mode='lcao',
             xc='GLLBSC',
             kpts={'size': (2, 2, 2), 'gamma': True},
             txt='si.txt')
+
+
 def stopcalc():
     calc.scf.converged = True
 calc.attach(stopcalc, 1)
@@ -27,6 +27,6 @@ response = calc.hamiltonian.xc.xcs['RESPONSE']
 response.calculate_delta_xc()
 EKs, Dxc = response.calculate_delta_xc_perturbation()
 refgap = 3.01514230845
-gap = EKs+Dxc
-print 'GAP', gap
+gap = EKs + Dxc
+print('GAP', gap)
 assert abs(gap - refgap) < 1e-4
