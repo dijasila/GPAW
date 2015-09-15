@@ -4,6 +4,7 @@ from gpaw.eigensolvers.rmm_diis import RMM_DIIS
 from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
 from gpaw.lcao.eigensolver import DirectLCAO
+from gpaw import use_mic
 
 
 def get_eigensolver(name, mode, convergence=None):
@@ -22,6 +23,9 @@ def get_eigensolver(name, mode, convergence=None):
     else:
         eigensolver = name
     
+    if use_mic and not isinstance(eigensolver, RMM_DIIS):
+        raise NotImplementedError('MIC version works only with RMM_DIIS')
+
     if isinstance(eigensolver, CG):
         eigensolver.tolerance = convergence['eigenstates']
 
