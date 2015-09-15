@@ -58,11 +58,11 @@ void mic_gemm(const int64_t *dtype, const void *A_, const void *B_,
 
             CBLAS_TRANSPOSE ctrans = (*trans == 0 ? CblasNoTrans : CblasTrans);
             
-            fprintf(stderr, "calling DGEMM\n");
+/*            fprintf(stderr, "calling DGEMM\n");
             fflush(stderr);
             fprintf(stderr, "A=%p B=%p C=%p m=%d n=%d k=%d lda=%d ldb=%d ldc=%d alpha=%lf beta=%lf \n", 
                             A, B, C, m, n, k, lda, ldb, ldc, *alpha, *beta);
-            fflush(stderr);
+            fflush(stderr); */
             cblas_dgemm(CblasColMajor, ctrans, CblasNoTrans,
                         m, n, k, *alpha, A, lda, B, ldb, *beta, C, ldc);
         }
@@ -77,8 +77,8 @@ void mic_gemm(const int64_t *dtype, const void *A_, const void *B_,
 
             CBLAS_TRANSPOSE ctrans = (*trans == 0 ? CblasNoTrans : CblasConjTrans);
             
-            fprintf(stderr, "calling ZGEMM\n");
-            fflush(stderr);
+/*            fprintf(stderr, "calling ZGEMM\n");
+            fflush(stderr); */
             cblas_zgemm(CblasColMajor, ctrans, CblasNoTrans,
                         m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
         }

@@ -1,12 +1,13 @@
 import pymic
 from gpaw.mpi import rank
 from gpaw import use_mic
+import os
 
 # Distribute multiple devices to ranks. Assumes that ranks are assigned to
 # nodes sequencely i.e. with 4 ranks and 2 nodes ranks 0,1 reside in node 0
 # and ranks 2,3 in node 1
 if use_mic:
-    ppn=24
+    ppn=int(os.getenv('GPAW_PPN', 28))
     rpd=ppn / pymic.number_of_devices()
     if rpd == 0:
         rpd = 1
