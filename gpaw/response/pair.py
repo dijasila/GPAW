@@ -546,7 +546,7 @@ class PairDensity:
         if world.rank != 0:
             txt = devnull
         elif isinstance(txt, str):
-            txt = open(txt, 'w')
+            txt = open(txt, 'w', 1)
         self.fd = txt
 
         self.timer = timer or Timer()
