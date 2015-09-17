@@ -63,7 +63,7 @@ def select_kpts(kpts, calc):
 class EXX(PairDensity):
     def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=None,
                  omega=None, world=mpi.world, txt=sys.stdout, timer=None):
-    
+        
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt,
                              timer=timer)
 
@@ -134,6 +134,7 @@ class EXX(PairDensity):
         self.iG_qG = {}  # cache
             
         # PAW matrices:
+        prnt('PAW init')
         self.V_asii = []  # valence-valence correction
         self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
@@ -144,12 +145,15 @@ class EXX(PairDensity):
         
         for s in range(nspins):
             for i, k1 in enumerate(self.kpts):
+                prnt('s=%d, i=%d' % (s, i), file=self.fd)
                 K1 = kd.ibz2bz_k[k1]
                 kpt1 = self.get_k_point(s, K1, *self.bands)
                 self.f_sin[s, i] = kpt1.f_n
-                for kpt2 in self.mykpts:
+                for i2, kpt2 in enumerate(self.mykpts):
                     if kpt2.s == s:
                         self.calculate_q(i, kpt1, kpt2)
+                        progress = (s + (i + (i2 + 1.) / len(self.mykpts)) / len(self.kpts)) / nspins
+                        prnt('Progress %.1f %%' % (progress * 100.), file=self.fd)
                 
                 self.calculate_paw_exx_corrections(i, kpt1)
 
@@ -250,7 +254,9 @@ class EXX(PairDensity):
     def initialize_paw_exx_corrections(self):
         for a, atomdata in enumerate(self.calc.wfs.setups):
             V_sii = []
+            i = 0
             for D_p in self.calc.density.D_asp[a]:
+                i += 1
                 D_ii = unpack2(D_p)
                 V_ii = pawexxvv(atomdata, D_ii)
                 V_sii.append(V_ii)
