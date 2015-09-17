@@ -99,7 +99,7 @@ class DielectricFunction:
         kncomm = self.chi0.kncomm
         #self.mynw = (nw + world.size - 1) // world.size
         self.mynw = (nw + comm.size - 1) // comm.size
-        self.w1 = min(self.mynw * world.rank, nw)
+        self.w1 = min(self.mynw * comm.rank, nw)
         self.w2 = min(self.w1 + self.mynw, nw)
         self.truncation = truncation
 
@@ -166,7 +166,7 @@ class DielectricFunction:
         with open(name, 'rb') as fd:
             omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
         
-            assert np.allclose(omega_w, self.omega_w)
+            #assert np.allclose(omega_w, self.omega_w)
 
             world = self.chi0.world
             blockcomm = self.chi0.blockcomm
@@ -174,27 +174,30 @@ class DielectricFunction:
         
             nw = len(omega_w)
             nG = pd.ngmax
+            mynw = (nw + blockcomm.size - 1) // blockcomm.size
+            wa = min(mynw * blockcomm.rank, nw)
+            wb = min(wa + mynw, nw)
         
             if chi0_wGG is not None:
                 # Old file format:
-                chi0_wGG = chi0_wGG[self.w1:self.w2].copy()
+                chi0_wGG = chi0_wGG[wa:wb].copy()
             else:
                 if world.rank == 0:
                     assert kncomm.rank == 0
                     if A1_x is not None:
                         nx = self.mynw * nG**2
-                        chi0_wGG = A1_x[:nx].reshape((self.mynw, nG, nG))
-                        tmp_wGG = A2_x[:nx].reshape((self.mynw, nG, nG))
+                        chi0_wGG = A1_x[:nx].reshape((mynw, nG, nG))
+                        tmp_wGG = A2_x[:nx].reshape((mynw, nG, nG))
                     else:
-                        chi0_wGG = np.empty((self.mynw, nG, nG), complex)
-                        tmp_wGG = np.empty((self.mynw, nG, nG), complex)
+                        chi0_wGG = np.empty((mynw, nG, nG), complex)
+                        tmp_wGG = np.empty((mynw, nG, nG), complex)
                 
                     #for w, chi0_GG in enumerate(chi0_wGG):
                     #    print('w=%d' % w)
                     #    chi0_GG[:] = pickle.load(fd)
                     w1 = 0
                     for brank in range(blockcomm.size):
-                        w2 = min(w1 + self.mynw, nw)
+                        w2 = min(w1 + mynw, nw)
                         for w in range(w2 - w1):
                             tmp_wGG[w] = pickle.load(fd)
                         for knrank in range(0, kncomm.size):
@@ -206,12 +209,13 @@ class DielectricFunction:
                         w1 = w2
                 else:
                     if A1_x is not None:
-                        nx = self.mynw * nG**2
-                        chi0_wGG = A1_x[:nx].reshape((self.mynw, nG, nG))
+                        nx = mynw * nG**2
+                        chi0_wGG = A1_x[:nx].reshape((mynw, nG, nG))
                     else:
-                        chi0_wGG = np.empty((self.mynw, nG, nG), complex)
+                        chi0_wGG = np.empty((mynw, nG, nG), complex)
                     world.receive(chi0_wGG, 0)
-        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+        
+        return pd, chi0_wGG[:wb - wa], chi0_wxvG, chi0_wvv
         
     def collect(self, a_w):
         world = self.chi0.world
