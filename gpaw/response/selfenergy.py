@@ -29,12 +29,13 @@ class SelfEnergy:
 class GWSelfEnergy(SelfEnergy):
 
     def __init__(self, calc, kpts=None, bandrange=None,
-                 filename=None, txt=sys.stdout, temp=None, savechi0=False,
+                 filename=None, txt=sys.stdout,
+                 temp=None, savechi0=False, savepair=False,
                  nbands=None, ecut=150., nblocks=1, hilbert=True, eta=0.1,
                  domega0=0.025, omega2=10., omegamax=None,
                  qptint=None, truncation='3D',
                  world=mpi.world, timer=None):
-
+        
         # Create output buffer
         if world.rank != 0:
             txt = devnull
@@ -80,13 +81,11 @@ class GWSelfEnergy(SelfEnergy):
         self.filename = filename
 
         self.savechi0 = savechi0
+        self.savepair = savepair
         self.use_temp = bool(temp)
-        self.temp_dir = None
-        if self.use_temp:
-            if isinstance(temp, str):
-                self.temp_dir = temp
-            else:
-                self.temp_dir = './'
+        self.temp_dir = './'
+        if self.use_temp and isinstance(temp, str):
+            self.temp_dir = temp
         self.saved_pair_density_files = dict()
 
         self.truncation = truncation
@@ -127,9 +126,11 @@ class GWSelfEnergy(SelfEnergy):
             self.qpt_integration = QuadQPointIntegration(self.qd,
                                                          cell_cv,
                                                          bzq_qc,
-                                                         weights_q)
+                                                         weights_q,
+                                                         txt=self.fd)
         else:
             self.qpt_integration = qptint
+            self.qpt_integration.fd = self.fd
 
         self.freqint = RealFreqIntegration(self.calc,
                                            filename=self.filename,
@@ -158,9 +159,72 @@ class GWSelfEnergy(SelfEnergy):
 
         self.progressEvent = Event()
 
+        self.estimate_pair_density_space()
+
+        self.sigma_iskn = None
+        self.dsigma_iskn = None
+        self.sigma_skn = None
+        self.dsigma_skn = None
+        self.sigerr_skn = None
+
+        self.complete = False
+        self.nq = 0
+        if self.load_state_file():
+            if self.complete:
+                print('Self-energy loaded from file', file=self.fd)
+
     def addEventHandler(self, event, handler):
         if event == 'progress' and handler not in self.progressEvent:
             self.progressEvent.append(handler)
+
+    def save_state_file(self, q=0):
+        data = {'kpts': self.kpts,
+                'bandrange': self.bandrange,
+                'nbands': self.nbands,
+                'ecut_i': self.ecut_i,
+                'freqint': (type(self.freqint).__module__ +
+                            type(self.freqint).__name__),
+                'qptint': (type(self.qpt_integration).__module__ +
+                           type(self.qpt_integration).__name__),
+                'qpts_qc': self.qpt_integration.qpts_qc,
+                'last_q': self.nq,
+                'complete': self.complete,
+                'qptstate': self.qpt_integration.get_state(self.world),
+                'sigma_iskn': self.sigma_iskn,
+                'dsigma_iskn': self.dsigma_iskn,
+                'sigma_skn': self.sigma_skn,
+                'dsigma_skn': self.dsigma_skn,
+                'sigerr_skn': self.sigerr_skn}
+        if self.world.rank == 0:
+            with open(self.filename + '.sigma.pckl', 'wb') as fd:
+                pickle.dump(data, fd)
+
+    def load_state_file(self):
+        try:
+            data = pickle.load(open(self.filename + '.sigma.pckl'))
+        except IOError:
+            return False
+        else:
+            if (data['kpts'] == self.kpts and
+                data['bandrange'] == self.bandrange and
+                data['nbands'] == self.nbands and
+                data['ecut_i'] == self.ecut_i,
+                data['freqint'] == (type(self.freqint).__module__ +
+                                    type(self.freqint).__name__) and
+                data['qptint'] == (type(self.qpt_integration).__module__ +
+                                   type(self.qpt_integration).__name__) and
+                np.allclose(data['qpts_qc'], self.qpt_integration.qpts_qc)):
+                self.nq = data['last_q']
+                self.qpt_integration.load_state(data['qptstate'], self.world)
+                self.complete = data['complete']
+                self.sigma_iskn = data['sigma_iskn']
+                self.dsigma_iskn = data['dsigma_iskn']
+                self.sigma_skn = data['sigma_skn']
+                self.dsigma_skn = data['dsigma_skn']
+                self.sigerr_skn = data['sigerr_skn']
+                return True
+            else:
+                return False
 
     def calculate(self, readw=True):
         p = functools.partial(print, file=self.fd)
@@ -174,10 +238,13 @@ class GWSelfEnergy(SelfEnergy):
             p('    Using PW cut-off:   {0:.0f} eV'.format(self.ecut_i[0] * Hartree))
 
         nbzq = len(self.qpt_integration.qpts_qc)
-        self.sigma_iskn = np.zeros((len(self.ecut_i), ) + self.shape)
-        self.dsigma_iskn = np.zeros((len(self.ecut_i), ) + self.shape)
+        self.sigma_iskn = np.zeros((len(self.ecut_i), ) + self.shape, complex)
+        self.dsigma_iskn = np.zeros((len(self.ecut_i), ) + self.shape, complex)
 
-        self.qpt_integration.reset(self.shape)
+        if self.complete:
+            # Start a new calculation
+            self.complete = False
+            self.nq = 0
 
         self.progressEvent(0.0)
 
@@ -188,14 +255,18 @@ class GWSelfEnergy(SelfEnergy):
             self.clear_temp_files()
             self.freqint.clear_temp_files()
             raise
+        else:
+            self.complete = True
         
         self.sigma_iskn = sigma_iskn
         self.dsigma_iskn = dsigma_iskn
         
-        self.sigerr_skn = np.zeros(self.shape)
+        self.sigerr_skn = np.zeros(self.shape, complex)
         if len(self.ecut_i) > 1:
-            self.sigma_skn = np.zeros(self.shape)
-            self.dsigma_skn = np.zeros(self.shape)
+            # Do linear fit of selfenergy vs. inverse of number of plane waves
+            # to extrapolate to infinite number of plane waves
+            self.sigma_skn = np.zeros(self.shape, complex)
+            self.dsigma_skn = np.zeros(self.shape, complex)
             invN_i = self.ecut_i**(-3. / 2)
             for s in range(self.shape[0]):
                 for k in range(self.shape[1]):
@@ -211,7 +282,8 @@ class GWSelfEnergy(SelfEnergy):
                                   sigslopes[imin] * invN_i[imin])
                         sigmin = (self.sigma_iskn[imax, s, k, n] -
                                   sigslopes[imax] * invN_i[imax])
-                        assert (psig[1] < sigmax and psig[1] > sigmin)
+                        assert (psig[1].real < sigmax.real and
+                                psig[1].real > sigmin.real)
                         sigerr = sigmax - sigmin
                         self.sigerr_skn[s, k, n] = sigerr
                         
@@ -222,8 +294,11 @@ class GWSelfEnergy(SelfEnergy):
             self.sigma_skn = self.sigma_iskn[0]
             self.dsigma_skn = self.dsigma_iskn[0]
 
-    def _calculate(self, readw=True):
+        self.save_state_file()
+        
+        self.timer.write(self.fd)
 
+    def _calculate(self, readw=True):
         # My part of the states we want to calculate QP-energies for:
         mykpts = [self.pairDensity.get_k_point(s, K, n1, n2)
                   for s, K, n1, n2 in self.mysKn1n2]
@@ -234,7 +309,8 @@ class GWSelfEnergy(SelfEnergy):
         
         prefactor = 1 / (2 * pi)**4
 
-        self.qpt_integration.reset((len(self.ecut_i), ) + self.shape)
+        if self.complete or self.nq == 0:
+            self.qpt_integration.reset((len(self.ecut_i), ) + self.shape)
         
         for i, Q1, Q2, W0_wGG, pd0, pdi0, Q0_aGii in self.do_qpt_loop(readw=readw):
             ibzq = self.qd.bz2ibz_k[Q1]
@@ -312,14 +388,17 @@ class GWSelfEnergy(SelfEnergy):
                 shift1_c = shift1_c.round().astype(int)
                 shift_c = kpt1.shift_c - kpt2.shift_c - shift1_c
                 I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
-
+                
                 for n in range(kpt1.n2 - kpt1.n1):
                     n_mG = None
                     myid = 'k1=%dk2=%dn=%d' % (kpt1.K, kpt2.K, n)
-                    if i > 0 and self.use_temp:
-                        tmpfile = self.saved_pair_density_files[myid]
-                        tmpfile.seek(0)
-                        n_mG = np.load(tmpfile).take(G2G, axis=1)
+                    if i > 0 and self.use_temp and self.savepair:
+                        n_mG = np.empty((kpt2.n2 - kpt2.n1, nG), complex)
+                        if self.blockcomm.rank == 0:
+                            tmpfile = self.saved_pair_density_files[myid]
+                            tmpfile.seek(0)
+                            n_mG[:] = np.load(tmpfile).take(G2G, axis=1)
+                        self.blockcomm.broadcast(n_mG, 0)
                             
                     if n_mG is None:
                         C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
@@ -327,7 +406,7 @@ class GWSelfEnergy(SelfEnergy):
                         ut1cc_R = kpt1.ut_nR[n].conj()
                         n_mG = self.pairDensity.calculate_pair_densities(
                             ut1cc_R, C1_aGi, kpt2, pdi0, I_G)
-                        if self.use_temp:
+                        if self.use_temp and self.savepair and self.blockcomm.rank == 0:
                             tmpfile = TemporaryFile(dir=self.temp_dir)
                             np.save(tmpfile, n_mG)
                             self.saved_pair_density_files[myid] = tmpfile
@@ -356,24 +435,20 @@ class GWSelfEnergy(SelfEnergy):
 
                     sigma, dsigma = self.freqint.calculate_integration(n_mG,
                                         deps_m, f_m, W0_wGG)
-
+                    
                     for bzq in bzqs:
                         self.qpt_integration.add_term(bzq, i, spin, ik, nn,
                                                       prefactor * sigma,
                                                       prefactor * dsigma)
-                    
-                    """
-                    for bzq in bzqs:
-                        self.sigma_qsin[bzq, spin, i, nn] = prefactor * sigma
-                        self.dsigma_qsin[bzq, spin, i, nn] = prefactor * dsigma
-                    """
 
         #self.world.sum(self.sigma_qsin)
         #self.world.sum(self.dsigma_qsin)
         
         sigma_iskn, dsigma_iskn = self.qpt_integration.integrate() # (self.sigma_qsin, self.dsigma_qsin)
+
         self.world.sum(sigma_iskn)
         self.world.sum(dsigma_iskn)
+        
         return sigma_iskn, dsigma_iskn
 
     def get_pair_densities(self, kpt1, kpt2, n1, pd, C1_aGi, I_G):
@@ -414,7 +489,6 @@ class GWSelfEnergy(SelfEnergy):
 
     def do_qpt_loop(self, readw=True):
         """Do the loop over q-points in the q-point integration"""
-
         # Find maximum size of chi-0 matrices:
         gd = self.calc.wfs.gd
         nGmax = max(count_reciprocal_vectors(self.ecut, gd, q_c)
@@ -422,11 +496,14 @@ class GWSelfEnergy(SelfEnergy):
         nw = self.freqint.wsize
         
         size = self.blockcomm.size
+        mynwmax = (nw + size - 1) // size
         mynGmax = (nGmax + size - 1) // size
         #mynw = (nw + size - 1) // size
         
         # Allocate memory in the beginning and use for all q:
-        A_x = np.empty(nw * mynGmax * nGmax, complex)
+        #maxsize = max(nw * mynGmax * nGmax, mynwmax * nGmax**2)
+        maxsize = self.freqint.get_max_size(self.qd)
+        A_x = np.empty(maxsize, complex)
 
         # Find IBZ q-points included in the integration
         qd = self.qd
@@ -440,15 +517,21 @@ class GWSelfEnergy(SelfEnergy):
                 ibzqs.append(ibzq)
 
         # Loop over IBZ q-points
-        for nq, ibzq in enumerate(ibzqs):
+        nibzqs = len(ibzqs)
+        for nq in range(self.nq, nibzqs):
+            self.nq = nq
+            self.save_state_file()
+            ibzq = ibzqs[nq]
             q_c = qd.ibzk_kc[ibzq]
 
+            qcstr = '(' + ', '.join(['%.3f' % x for x in q_c]) + ')'
+            print('Calculating contribution from IBZ q-pointq #%d/%d, q_c=%s' %
+                  (nq + 1, len(ibzqs), qcstr), file=self.fd)
             for i, ecut in enumerate(self.ecut_i):
 
                 W_wGG, pd, pdi, Q_aGii = self.calculate_idf(q_c, ecut,
                                                             readw=readw,
                                                             A_x=A_x)
-
                 nG = pd.ngmax
                 mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
                 self.Ga = self.blockcomm.rank * mynG
@@ -469,20 +552,24 @@ class GWSelfEnergy(SelfEnergy):
                 #Q1 = qd.ibz2bz_k[iq]
 
                 Q1 = self.qd.ibz2bz_k[ibzq]
-                done = set()
+                Q2s = set()
                 for s, Q2 in enumerate(self.qd.bz2bz_ks[Q1]):
-                    if Q2 >= 0 and Q2 not in done:
-                        yield i, Q1, Q2, W_wGG, pd, pdi, Q_aGii
-                        done.add(Q2)
+                    if Q2 >= 0 and Q2 not in Q2s:
+                        Q2s.add(Q2)
+                
+                for nq2, Q2 in enumerate(Q2s):
+                    yield i, Q1, Q2, W_wGG, pd, pdi, Q_aGii
+                    q2p = (nq2 + 1.) / len(Q2s)
+                    ecutp = (i + q2p) / len(self.ecut_i)
+                    q1p = (nq + ecutp) / len(ibzqs)
+                    self.progressEvent(q1p)
+                print('ecut=%.0f done' % (ecut * Hartree), file=self.fd)
             
             self.clear_temp_files()
             self.freqint.clear_temp_files()
-            
-            self.progressEvent(1.0 * (nq + 1) / len(ibzqs))
 
     @timer('Screened potential')
     def calculate_idf(self, q_c, ecut, readw=True, A_x=None):
-        
         W_wGG, pd, pdi, Q_aGii = \
           self.freqint.calculate_idf(q_c, self.vc, ecut, readw=readw, A_x=A_x)
         
@@ -494,6 +581,35 @@ class GWSelfEnergy(SelfEnergy):
     def calculate_w(self, pd, idf_wGG, S_wvG, L_wvv):
 
         return self.qpt_integration.calculate_w(pd, idf_wGG, S_wvG, L_wvv)
+
+    def estimate_pair_density_space(self):
+        # Find IBZ q-points included in the integration
+        qd = self.qd
+        bz1q_qc = to1bz(self.qpt_integration.qpts_qc, qd.symmetry.cell_cv)
+        ibzqs = []
+        for bzq_c in bz1q_qc:
+            ibzq, iop, timerev, diff_c = qd.find_ibzkpt(qd.symmetry.op_scc,
+                                                        qd.ibzk_kc,
+                                                        bzq_c)
+            if not ibzq in ibzqs:
+                ibzqs.append(ibzq)
+        
+        
+        nbzq_q = np.zeros(len(ibzqs))
+        for i, ibzq in enumerate(ibzqs):
+            Q1 = self.qd.ibz2bz_k[ibzq]
+            done = set()
+            for s, Q2 in enumerate(self.qd.bz2bz_ks[Q1]):
+                if Q2 >= 0 and Q2 not in done:
+                    nbzq_q[i] += 1
+                    done.add(Q2)
+        maxnbzq = np.amax(nbzq_q)
+        knsize = self.pairDensity.kncomm.size
+        nu = np.prod(self.shape)
+        mynu = (nu + knsize - 1) // knsize
+        maxsize = mynu * maxnbzq * self.nbands * 16.0 / 1024**2
+        print('max nbzq=%d, mynu=%d, maxsize=%.2f MB' % (maxnbzq, mynu, maxsize),
+              file=self.fd)
 
 class FrequencyIntegration:
 
@@ -574,14 +690,31 @@ class RealFreqIntegration(FrequencyIntegration):
 
         self.temp_files = []
 
+    def get_max_size(self, qd):
+        # Find maximum size of chi-0 matrices:
+        gd = self.calc.wfs.gd
+        nGmax = max(count_reciprocal_vectors(self.ecut, gd, q_c)
+                    for q_c in qd.ibzk_kc)
+        nw = len(self.omega_w)
+
+        chi0 = self.df.chi0
+        size = chi0.blockcomm.size
+        mynwmax = (nw + size - 1) // size
+        mynGmax = (nGmax + size - 1) // size
+        #mynw = (nw + size - 1) // size
+        
+        # Allocate memory in the beginning and use for all q:
+        maxsize = max(2 * nw * mynGmax * nGmax, 2 * mynwmax * nGmax**2)
+
+        return maxsize
+
     @timer('Inverse dielectric function')
     def calculate_idf(self, q_c, vc, ecut, readw=False, A_x=None):
-        #print('qp: calculate_idf, q_c=%s' % q_c.round(3))
         """Calculates the inverse dielectric matrix for a specified q-point."""
         # Divide memory into two slots so we can redistribute via moving values
         # from one slot to the other
-        nx = len(A_x)
         if A_x is not None:
+            nx = len(A_x)
             A1_x = A_x[:nx // 2]
             A2_x = A_x[nx // 2:]
         else:
@@ -615,7 +748,7 @@ class RealFreqIntegration(FrequencyIntegration):
             Q_aGii = None
         else:
             pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.df.calculate_chi0(
-                q_c, A1_x=A1_x, A2_x=A2_x)
+                q_c, A1_x=A2_x, A2_x=A1_x)
             Q_aGii = self.df.chi0.Q_aGii
             if self.savechi0 or self.use_temp:
                 self.df.write(filename, pd, chi0_wGG, chi0_wxvG, chi0_wvv,
@@ -637,6 +770,7 @@ class RealFreqIntegration(FrequencyIntegration):
                     Q_aGii[a] = Q_Gii.take(G2G, axis=0)
         else:
             pdi = pd
+
 
         world = self.df.chi0.world
         blockcomm = self.df.chi0.blockcomm
@@ -687,7 +821,8 @@ class RealFreqIntegration(FrequencyIntegration):
                                         chi0_GG[1:, 1:] * vc_G[np.newaxis, 1:] *
                                         vc_G[1:, np.newaxis])
                 B_GG = idf_GG[1:, 1:]
-                U_vG = -vc_G0[np.newaxis, :] * chi0_wxvG[wa + w, 0, :, 1:]
+                U_vG = -vc_00**0.5 * vc_G0[np.newaxis, :]**0.5 * \
+                       chi0_wxvG[wa + w, 0, :, 1:]
                 F_vv = -vc_00 * chi0_wvv[wa + w]
                 S_vG = np.dot(U_vG, B_GG.T)
                 L_vv = F_vv - np.dot(U_vG.conj(), S_vG.T)
@@ -711,10 +846,6 @@ class RealFreqIntegration(FrequencyIntegration):
         # halves.
         newshape = (2*nw, Gb - Ga, nG)
         size = np.prod(newshape)
-
-        nblocks1 = 3 - world.size
-        mynG1 = (nG + nblocks1 - 1) // nblocks1
-        mynw1 = (nw + nblocks1 - 1) // nblocks1
         
         Wpm_wGG = A_x[:size].reshape(newshape)
         
@@ -722,7 +853,9 @@ class RealFreqIntegration(FrequencyIntegration):
             # Now redistribute back on G rows and save in second half of A1_x
             # which is not used any more (was only used when reading/
             # calculating chi0 in the beginning
-            Wpm_wGG[:nw] = self.df.chi0.redistribute(W_wGG, A1_x)
+            W_wGG = self.df.chi0.redistribute(W_wGG, A2_x)
+            Wpm_wGG[:nw] = W_wGG
+            #Wpm_wGG[:nw] = self.df.chi0.redistribute(W_wGG, A1_x)
         else:
             Wpm_wGG[:nw] = W_wGG
         
@@ -732,6 +865,8 @@ class RealFreqIntegration(FrequencyIntegration):
         with self.timer('Hilbert transform'):
             self.htp(Wpm_wGG[:nw])
             self.htm(Wpm_wGG[nw:])
+
+        #print('rank=%d, Wpm_wGG.shape=%s' % (world.rank, str(Wpm_wGG.shape)))
         
         return Wpm_wGG, pd, pdi, Q_aGii
 
@@ -807,6 +942,81 @@ class QPointIntegration:
     def add_term(bzq, spin, i, nn, sigma, dsigma):
         pass
 
+    def get_state(self):
+        pass
+
+    def load_state(self, state):
+        pass
+
+    def calculate_w(self, pd, idf_wGG, S_wvG, L_wvv, GaGb=None):
+        pass
+
+    def integrate(self, sigma_qsin, dsigma_qsin):
+        pass
+    
+
+class QuadQPointIntegration(QPointIntegration):
+    def __init__(self, qd, cell_cv, qpts_qc=None, weight_q=None,
+                 txt=sys.stdout, anisotropic=True, q0density=0.0025):
+        if qpts_qc is None:
+            qpts_qc = qd.bzk_kc
+        
+        if weight_q is None:
+            weight_q = 1.0 * np.ones(len(qpts_qc)) / len(qpts_qc)
+
+        assert abs(np.sum(weight_q) - 1.0) < 1e-9, "Weights should sum to 1"
+        
+        self.weight_q = weight_q
+        self.anistropy_correction = anisotropic
+        self.q0density = q0density
+        
+        QPointIntegration.__init__(self, qd, cell_cv, qpts_qc, txt)
+
+    def print_info():
+        print('BZ Integration using numerical quadrature', file=self.fd)
+        print('  Use anisotropy correction: %s' % self.anisotropy_correction,
+              file=self.fd)
+        print('  q-point density for numerical Gamma-point integration: ' +
+              '%s Angstrom^(-1)' % self.q0density, file=self.fd)
+
+    def reset(self, shape):
+        self.sigma_iskn = np.zeros(shape, complex)
+        self.dsigma_iskn = np.zeros(shape, complex)
+
+    def add_term(self, bzq, i, spin, k, n, sigma, dsigma):
+        vol = abs(np.linalg.det(self.cell_cv))
+        dq = (2 * pi)**3 / vol
+        
+        self.sigma_iskn[i, spin, k, n] += dq * self.weight_q[bzq] * sigma
+        self.dsigma_iskn[i, spin, k, n] += dq * self.weight_q[bzq] * dsigma
+
+    def integrate(self):
+        
+        """
+        sigma_sin = dq * np.dot(self.weight_q,
+                                np.transpose(sigma_qsin, [1, 2, 0, 3]))
+        dsigma_sin = dq * np.dot(self.weight_q,
+                                 np.transpose(dsigma_qsin, [1, 2, 0, 3]))
+        """
+        return self.sigma_iskn, self.dsigma_iskn
+
+    def get_state(self, world):
+        sigma_iskn = self.sigma_iskn.copy()
+        dsigma_iskn = self.dsigma_iskn.copy()
+        world.sum(sigma_iskn, 0)
+        world.sum(dsigma_iskn, 0)
+        return {'sigma_iskn': sigma_iskn,
+                'dsigma_iskn': dsigma_iskn}
+
+    def load_state(self, state, world):
+        if world.rank == 0:
+            self.sigma_iskn = state['sigma_iskn'].astype(complex)
+            self.dsigma_iskn = state['dsigma_iskn'].astype(complex)
+        else:
+            myshape = state['sigma_iskn'].shape
+            self.sigma_iskn = np.zeros(myshape, complex)
+            self.dsigma_iskn = np.zeros(myshape, complex)
+    
     def calculate_w(self, pd, idf_wGG, S_wvG, L_wvv, GaGb=None):
         """This function calculates the screened potential W integrated over
         a region around each q-point."""
@@ -837,12 +1047,12 @@ class QPointIntegration:
             
             if np.allclose(q_c, 0):
                 # For now, suppose 3D
-                qdensity = 0.025
+                q0density = self.q0density
                 rcell_cv = 2 * pi * np.linalg.inv(self.cell_cv).T
                 N_c = self.qd.N_c
                 
                 npts_c = np.ceil(np.sum(rcell_cv**2, axis=1)**0.5 /
-                                 N_c / qdensity).astype(int)
+                                 N_c / q0density).astype(int)
                 print('Calculating Gamma-point integral on a %dx%dx%d grid' %
                       tuple(npts_c), file=self.fd)
                 qpts_qc = ((np.indices(npts_c).transpose((1, 2, 3, 0)) \
@@ -902,21 +1112,6 @@ class QPointIntegration:
             
             if np.allclose(q_c, 0):
                 # For now, suppose 3D
-                qdensity = 0.05
-                rcell_cv = 2 * pi * np.linalg.inv(self.cell_cv).T
-                N_c = self.qd.N_c
-                
-                npts_c = np.ceil(np.sum(rcell_cv**2, axis=1)**0.5 /
-                                 N_c / qdensity).astype(int)
-                npts_c[2] = 1
-                
-                qpts_qc = ((np.indices(npts_c).transpose((1, 2, 3, 0)) \
-                            .reshape((-1, 3)) + 0.5) / npts_c - 0.5) / N_c
-                qgamma = np.argmin(np.sum(qpts_qc**2, axis=1))
-                #qpts_qc[qgamma] += np.array([1e-16, 0, 0])
-                dq0 = dq / len(qpts_qc)
-                
-                qpts_qv = np.dot(qpts_qc, rcell_cv)
                 
                 G_Gv = pd.get_reciprocal_vectors()
                 v_G = self.vc.get_potential(Gq_Gv=G_Gv[1:])**0.5
@@ -925,8 +1120,28 @@ class QPointIntegration:
                 W_wGG[:, 0, :] = 0.0
                 W_wGG[:, 1:, 1:] *= (v_G[np.newaxis, :, np.newaxis] *
                                      v_G[np.newaxis, np.newaxis, :])
-
+                
                 if self.anistropy_correction:
+                    q0density = self.q0density
+                    rcell_cv = 2 * pi * np.linalg.inv(self.cell_cv).T
+                    N_c = self.qd.N_c
+                
+                    npts_c = np.ceil(np.sum(rcell_cv**2, axis=1)**0.5 /
+                                     N_c / q0density).astype(int)
+                    npts_c[2] = 1
+                    print('Evaluating Gamma point contribution to W on a ' +
+                          '%dx%dx%d grid' % tuple(npts_c), file=self.fd)
+                    #npts_c = np.array([1, 1, 1])
+                
+                    qpts_qc = ((np.indices(npts_c).transpose((1, 2, 3, 0)) \
+                                .reshape((-1, 3)) + 0.5) / npts_c - 0.5) / N_c
+                    qgamma = np.argmin(np.sum(qpts_qc**2, axis=1))
+                    #qpts_qc[qgamma] += np.array([1e-16, 0, 0])
+                    dq0 = dq / len(qpts_qc)
+                    
+                    qpts_qv = np.dot(qpts_qc, rcell_cv)
+                    
+                    dn = 1. / len(qpts_qv)
                     # I think we have to do this as a dump loop to avoid memory
                     # problems
                     for q, q_v in enumerate(qpts_qv):
@@ -935,19 +1150,19 @@ class QPointIntegration:
                     
                         vq_G = self.vc.get_potential(Gq_Gv=G_Gv + q_v)**0.5
 
-                        dn = 1. / len(qpts_qv)
-                        self.add_anisotropy_correction2D(W_wGG, dn * vq_G, q_v,
-                                                         S_wvG, L_wvv)
+                        self.add_anisotropy_correction2D(W_wGG, vq_G, q_v,
+                                                         S_wvG, L_wvv,
+                                                         a=dn, b=dn, c=dn)
                     
                     rq = (dq0 / pi)**0.5
-                    W_wGG[:, 0, 0] += (-2 * pi**2 * L * (rq**2 / 2) *
-                                       (L_wvv[:, 0, 0] + L_wvv[:, 1, 1])) / dq0
+                    W_wGG[:, 0, 0] += - pi * L * (L_wvv[:, 0, 0] +
+                                                     L_wvv[:, 1, 1]) * dn
                 
-                    W_wGG[:, 1:, 1:] += (pi * rq**3 / 3 / dq0 *
-                                         (S_wvG[:, 0, :, np.newaxis] *
-                                          S_wvG[:, 0, np.newaxis, :].conj() +
-                                          S_wvG[:, 1, :, np.newaxis] *
-                                          S_wvG[:, 1, np.newaxis, :].conj()))
+                    #W_wGG[:, 1:, 1:] += (pi * rq**3 / 3 / dq0 *
+                    #                     (S_wvG[:, 0, :, np.newaxis] *
+                    #                      S_wvG[:, 0, np.newaxis, :].conj() +
+                    #                      S_wvG[:, 1, :, np.newaxis] *
+                    #                      S_wvG[:, 1, np.newaxis, :].conj()))
             
             else:
                 vc_G = self.vc.get_potential(pd=pd)**0.5
@@ -984,7 +1199,7 @@ class QPointIntegration:
                               qnorm * L_wvv, qdir_v), qdir_v)
         qS_wG = qnorm**0.5 * np.dot(S_wvG.transpose((0, 2, 1)), qdir_v)
         
-        W_wGG[:, 0, 0] += a * v_G[0] * (1.0 / qLq_w - 1)
+        W_wGG[:, 0, 0] += a * v_G[0]**2 * (1.0 / qLq_w - 1)
         W_wGG[:, 1:, 0] += b * (-v_G[np.newaxis, 1:] * v_G[0] *
                                 qS_wG / qLq_w[:, np.newaxis])
         W_wGG[:, 0, 1:] += b * (-v_G[np.newaxis, 1:] * v_G[0] *
@@ -994,47 +1209,6 @@ class QPointIntegration:
                                  (qS_wG[:, :, np.newaxis] *
                                   qS_wG.conj()[:, np.newaxis, :] /
                                   qLq_w[:, np.newaxis, np.newaxis]))
-
-    def integrate(self, sigma_qsin, dsigma_qsin):
-        pass
-    
-
-class QuadQPointIntegration(QPointIntegration):
-    def __init__(self, qd, cell_cv, qpts_qc=None, weight_q=None,
-                 txt=sys.stdout, anisotropic=True):
-        if qpts_qc is None:
-            qpts_qc = qd.bzk_kc
-        
-        if weight_q is None:
-            weight_q = 1.0 * np.ones(len(qpts_qc)) / len(qpts_qc)
-
-        assert abs(np.sum(weight_q) - 1.0) < 1e-9, "Weights should sum to 1"
-        
-        self.weight_q = weight_q
-        self.anistropy_correction = anisotropic
-        
-        QPointIntegration.__init__(self, qd, cell_cv, qpts_qc, txt)
-
-    def reset(self, shape):
-        self.sigma_iskn = np.zeros(shape)
-        self.dsigma_iskn = np.zeros(shape)
-
-    def add_term(self, bzq, i, spin, k, n, sigma, dsigma):
-        vol = abs(np.linalg.det(self.cell_cv))
-        dq = (2 * pi)**3 / vol
-        
-        self.sigma_iskn[i, spin, k, n] += dq * self.weight_q[bzq] * sigma
-        self.dsigma_iskn[i, spin, k, n] += dq * self.weight_q[bzq] * dsigma
-
-    def integrate(self):
-        
-        """
-        sigma_sin = dq * np.dot(self.weight_q,
-                                np.transpose(sigma_qsin, [1, 2, 0, 3]))
-        dsigma_sin = dq * np.dot(self.weight_q,
-                                 np.transpose(dsigma_qsin, [1, 2, 0, 3]))
-        """
-        return self.sigma_iskn, self.dsigma_iskn
 
 class TriangleQPointIntegration(QPointIntegration):
     def __init__(self, qd, cell_cv, qpts_qc, simplices):
