@@ -129,7 +129,6 @@ class Chi0(PairDensity):
         self.Gb = min(self.Ga + mynG, nG)
         assert mynG * (self.blockcomm.size - 1) < nG
         
-        
         if A_x is not None:
             nx = nw * (self.Gb - self.Ga) * nG
             chi0_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
@@ -148,7 +147,7 @@ class Chi0(PairDensity):
         # Do all empty bands:
         m1 = self.nocc1
         m2 = self.nbands
-        
+
         self._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins)
         
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
@@ -190,6 +189,7 @@ class Chi0(PairDensity):
 
         # Calculate unsymmetrized chi or spectral function
         self.timer.start('Loop')
+        print('Generating pair densities. Progress:', file=self.fd)
         for f2_m, df_m, deps_m, n_mG, n_mv, vel_mv in \
             generator(pd, m1, m2, spins, PWSA=PWSA,
                       disable_optical_limit=not optical_limit,
@@ -234,6 +234,7 @@ class Chi0(PairDensity):
                     chi0_GG[iu] = chi0_GG[il].conj()
 
         if self.hilbert:
+            print('Performing Hilbert transform', file=self.fd)
             with self.timer('Hilbert transform'):
                 ht = HilbertTransform(self.omega_w, self.eta,
                                       self.timeordered)
@@ -257,6 +258,7 @@ class Chi0(PairDensity):
 
         if self.unsymmetrized:
             # Carry out symmetrization
+            print('Symmetrizing', file=self.fd)
             # Redistribute if block par
             tmpchi0_wGG = self.redistribute(chi0_wGG)
             PWSA.symmetrize_wGG(tmpchi0_wGG)
@@ -273,6 +275,7 @@ class Chi0(PairDensity):
                 if self.blockcomm.rank == 0:
                     chi0_wGG[:, 0] = chi0_wxvG[:, 0, 0]
                     chi0_wGG[:, 0, 0] = chi0_wvv[:, 0, 0]
+            print('Symmetrization done', file=self.fd)
                     
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
@@ -455,7 +458,10 @@ class Chi0(PairDensity):
             out_wGG = np.empty(outshape, complex)
         else:
             out_wGG = out_x[:np.product(outshape)].reshape(outshape)
-            
+
+        in_wGG.reshape(mdin.shape)
+        out_wGG.reshape(mdout.shape)
+        
         r.redistribute(in_wGG.reshape(mdin.shape),
                        out_wGG.reshape(mdout.shape))
         
