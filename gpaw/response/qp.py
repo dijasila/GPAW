@@ -5,6 +5,7 @@ import sys
 import os
 import functools
 from math import pi
+import pickle
 
 import numpy as np
 
@@ -32,7 +33,8 @@ class GWQuasiParticleCalculator:
     calculation of the self-consistent quasiparticle wavefunctions are
     currently not implemented."""
     def __init__(self, calc, kpts=None, bandrange=None,
-                 filename=None, txt=sys.stdout, savechi0=False, temp=False,
+                 filename=None, txt=sys.stdout,
+                 savechi0=False, temp=False, savepair=False,
                  ecut=150., nbands=None, domega0=0.025, omega2=10.,
                  qptint=None, truncation='3D',
                  nblocks=1, world=mpi.world):
@@ -135,18 +137,16 @@ class GWQuasiParticleCalculator:
         self.world = world
 
         na, nb = self.bandrange
-        self.eps_sin = np.array(
+        self.eps_skn = np.array(
             [[self.calc.get_eigenvalues(kpt=k, spin=s)[na:nb]
               for k in self.kpts]
               for s in range(self.nspins)]) / Hartree
-        self.f_sin = np.array(
+        self.f_skn = np.array(
             [[self.calc.get_occupation_numbers(kpt=k, spin=s)[na:nb]
               for k in self.kpts]
              for s in range(self.nspins)])
 
-        print(self.eps_sin.shape)
-
-        omegamax = np.amax(self.eps_sin) - np.amin(self.eps_sin) + 5.0
+        omegamax = np.amax(self.eps_skn) - np.amin(self.eps_skn) + 5.0
 
         self.print_header()
 
@@ -156,6 +156,8 @@ class GWQuasiParticleCalculator:
                                        filename=self.filename,
                                        txt=self.filename + '.sigmac.txt',
                                        temp=temp,
+                                       savechi0=savechi0,
+                                       savepair=savepair,
                                        ecut=ecut,
                                        nbands=nbands,
                                        domega0=self.domega0 * Hartree,
@@ -170,26 +172,32 @@ class GWQuasiParticleCalculator:
         self.selfenergy.addEventHandler('progress',
                                         self.print_selfenergy_progress)
         self.print_parameters()
-        self.reset()
+
+        if self.load_iteration():
+            print('State loaded from file: %s' % (self.filename + '.pckl'),
+                  file=self.fd)
+            self.print_qp_energies()
+        else:
+            self.reset()
 
     def reset(self):
         """Resets the iterations and sets the quasiparticle energies to the
         Kohn-Sham values."""
         self.iter = 0
-        self.qp_sin = self.eps_sin.copy()
+        self.qp_skn = self.eps_skn.copy()
+        self.qp_iskn = np.array([self.qp_skn])
 
     @timer('Quasi-particle equation')
     def calculate(self, niter=1, mixing=1.0, overwrite=False, updatew=False):
         """Calculate the quasiparticle energies after a number of iterations
         of the quasiparticle equation."""
 
-        if self.iter == 0:
-            self.calculate_ks_xc_contribution(overwrite=overwrite)
-            print('', file=self.fd)
-            # The exchange contribution does not depend on the quasiparticle
-            # energies - only the wavefunctions so we only have to do this
-            # once. In full scQPGW this has to be recalculated at every
-            # iteration.
+        self.calculate_ks_xc_contribution(overwrite=overwrite)
+        print('', file=self.fd)
+        # The exchange contribution does not depend on the quasiparticle
+        # energies - only the wavefunctions so we only have to do this
+        # once. In full scQPGW this has to be recalculated at every
+        # iteration.
 
         for i in range(niter):
             print('', file=self.fd)
@@ -203,37 +211,41 @@ class GWQuasiParticleCalculator:
             self.calculate_correlation_contribution(updatew=updatew)
             print('', file=self.fd)
 
-            self.qp_sin = self.qp_sin + self.Z_sin * (self.eps_sin -
-                            self.vxc_sin - self.qp_sin + self.exx_sin +
-                            self.sigma_sin)
+            self.qp_skn = self.qp_skn + self.Z_skn * (self.eps_skn -
+                            self.vxc_skn - self.qp_skn + self.exx_skn +
+                                                      self.sigma_skn)
             self.iter += 1
+            self.qp_iskn = np.concatenate((self.qp_iskn,
+                                           np.array([self.qp_skn])))
+            self.save_iteration()
             print('Iteration %d done.' % self.iter,
                   file=self.fd)
-            #print(self.qp_sin * Hartree, file=self.fd)
+            #print(self.qp_skn * Hartree, file=self.fd)
             self.print_qp_energies()
         
         self.timer.write(self.fd)
-        return self.qp_sin * Hartree
+        return self.qp_skn * Hartree
     
     def update_energies(self, mixing):
         """Updates the energies of the calculator with the quasi-particle
         energies."""
-        shifts_sn = np.mean(self.qp_sin - self.eps_sin, axis=1)
+        shifts_sn = np.mean(self.qp_skn - self.eps_skn, axis=1)
         na, nb = self.bandrange
         for kpt in self.calc.wfs.kpt_u:
-            kpt.eps_n[na:nb] = self.mixer(kpt.eps_n[na:nb],
-                                          self.qp_sin[kpt.s, kpt.k],
-                                          mixing)
-            # Should we do something smart with the bands outside the interval?
-            # Here we shift the unoccupied bands not included by the average
-            # change of the top-most band and the occupied by the bottom-most
-            # band included
-            kpt.eps_n[:na] += shifts_sn[kpt.s, 0]
-            kpt.eps_n[nb:] += shifts_sn[kpt.s, -1]
+            if kpt.k in self.kpts:
+                kpt.eps_n[na:nb] = self.mixer(kpt.eps_n[na:nb],
+                                              self.qp_skn[kpt.s, kpt.k],
+                                              mixing)
+                # Should we do something smart with the bands outside the interval?
+                # Here we shift the unoccupied bands not included by the average
+                # change of the top-most band and the occupied by the bottom-most
+                # band included
+                kpt.eps_n[:na] += shifts_sn[kpt.s, 0]
+                kpt.eps_n[nb:] += shifts_sn[kpt.s, -1]
 
-    def mixer(self, e0_sin, e1_sin, mixing=1.0):
+    def mixer(self, e0_skn, e1_skn, mixing=1.0):
         """Mix energies."""
-        return e0_sin + mixing * (e1_sin - e0_sin)
+        return e0_skn + mixing * (e1_skn - e0_skn)
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self, overwrite=False):
@@ -246,8 +258,8 @@ class GWQuasiParticleCalculator:
             else:
                 print('Reading Kohn-Sham XC contribution from file: ' + name,
                   file=self.fd)
-                self.vxc_sin = np.load(fd)
-                assert self.vxc_sin.shape == self.shape, self.vxc_sin.shape
+                self.vxc_skn = np.load(fd)
+                assert self.vxc_skn.shape == self.shape, self.vxc_skn.shape
                 return
         
         print('Calculating Kohn-Sham XC contribution', file=self.fd)
@@ -255,10 +267,10 @@ class GWQuasiParticleCalculator:
             self.calc.wfs.read_projections(self.reader)
         vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Hartree
         n1, n2 = self.bandrange
-        self.vxc_sin = vxc_skn[:, self.kpts, n1:n2]
+        self.vxc_skn = vxc_skn[:, self.kpts, n1:n2]
 
         with paropen(name, 'wb') as fd:
-            np.save(fd, self.vxc_sin)
+            np.save(fd, self.vxc_skn)
         
     @timer('Exchange self-energy')
     def calculate_exchange_contribution(self, overwrite=False):
@@ -273,26 +285,26 @@ class GWQuasiParticleCalculator:
             else:
                 print('Reading exchange self-energy contribution from file:',
                       name, file=self.fd)
-                self.exx_sin = np.load(fd)
-                assert self.exx_sin.shape == self.shape, self.exx_sin.shape
+                self.exx_skn = np.load(fd)
+                assert self.exx_skn.shape == self.shape, self.exx_skn.shape
                 return
         
         print('Calculating exchange self-energy contribution', file=self.fd)
         exx = EXX(self.calc, kpts=self.kpts, bands=self.bandrange,
                   txt=self.filename + '.exx.txt', timer=self.timer)
         exx.calculate()
-        self.exx_sin = exx.get_eigenvalue_contributions() / Hartree
+        self.exx_skn = exx.get_eigenvalue_contributions() / Hartree
         with paropen(name, 'wb') as fd:
-            np.save(fd, self.exx_sin)
+            np.save(fd, self.exx_skn)
 
     @timer('Correlation self-energy')
     def calculate_correlation_contribution(self, updatew=False):
         """Calculate the correlation self-energy."""
-        print('Calculating correlation self-energy contribution')
+        print('Calculating correlation self-energy contribution', file=self.fd)
         self.selfenergy.calculate(readw=not updatew)
-        self.sigma_sin = self.selfenergy.sigma_skn
-        self.dsigma_sin = self.selfenergy.dsigma_skn
-        self.Z_sin = 1. / (1 - self.dsigma_sin)
+        self.sigma_skn = self.selfenergy.sigma_skn.real
+        self.dsigma_skn = self.selfenergy.dsigma_skn.real
+        self.Z_skn = 1. / (1 - self.dsigma_skn)
 
     def print_header(self):
         from gpaw.version import version
@@ -357,7 +369,44 @@ class GWQuasiParticleCalculator:
                 line = ' {0:2d}   {1:3d}'.format(kpt, band)
                 for s in range(self.nspins):
                     line += '  {0:11.5f}  {1:9.5f}'.format(
-                        self.qp_sin[s, k, n] * Hartree, self.f_sin[s, k, n])
+                        self.qp_skn[s, k, n] * Hartree, self.f_skn[s, k, n])
                 p(line)
             p()
-                                                         
+
+    
+    def save_iteration(self):
+        """Save quasi-particle energies to a file so that they can be loaded
+        later to restart a calculation or continue iterations."""
+        data = {'kpts': self.kpts,
+                'bandrange': self.bandrange,
+                'iter': self.iter,
+                'qp_iskn': self.qp_iskn}
+        if self.filename:
+            pickle.dump(data, paropen(self.filename + '.pckl', 'wb'))
+    
+    
+    def load_iteration(self):
+        """Load quasi-particle energies from saved file. Returns True/False
+        whether saved quasi-particle energies were successfully loaded or
+        not."""
+        if self.filename:
+            pckl = self.filename + '.pckl'
+            try:
+                data = pickle.load(open(pckl, 'rb'))
+            except IOError:
+                return False
+            else:
+                kpts = data['kpts']
+                bandrange = data['bandrange']
+                iter = data['iter']
+                qp_iskn = data['qp_iskn']
+                assert kpts == self.kpts and bandrange == self.bandrange, \
+                    ("k points and bands does not match those loaded from "
+                     "restart file")
+                self.iter = iter
+                self.qp_iskn = qp_iskn
+                self.qp_skn = self.qp_iskn[-1]
+                return True
+        else:
+            return False
+                
