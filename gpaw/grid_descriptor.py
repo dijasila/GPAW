@@ -439,6 +439,8 @@ class GridDescriptor(Domain):
         return np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
 
     def symmetrize(self, a_g, op_scc, ft_sc=None):
+        # ft_sc: fractional translations
+        # XXXX documentation missing.  This is some kind of array then?
         if len(op_scc) == 1:
             return
         
