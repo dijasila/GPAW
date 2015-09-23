@@ -9,7 +9,7 @@ import numpy as np
 import ase
 from ase.units import Bohr, Hartree
 from ase.data import chemical_symbols
-from ase.version import version as ase_version
+from ase import __version__ as ase_version
 from ase.utils import devnull
 from ase.parallel import get_txt
 

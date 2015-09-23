@@ -8,7 +8,7 @@ import xml.sax
 import numpy as np
 
 import ase
-from ase.version import version as ase_version
+from ase import __version__ as ase_version
 import gpaw
 from gpaw.version import version_base as gpaw_version
 
@@ -30,7 +30,7 @@ try:
     def create_db_filename(param, ext=".db"):
         return cdbfn(param, ext=ext)
     
-except:    
+except:
     #old style cmr io
     import cmr
     from cmr import create_db_filename as cdbfn
@@ -191,8 +191,8 @@ class Writer:
                 self.data.set_user_variable(key, ase_vars[key])
             self.cmr_params.pop("ase_atoms_var")
         if self.filename==".db" or self.filename==".cmr":
-            # Note: 
-            #      .cmr files can currently not be uploaded to the database therefore 
+            # Note:
+            #      .cmr files can currently not be uploaded to the database therefore
             #      it defaults to .db until supported
             self.cmr_params["output"]=create_db_filename(self.data, ext=".db")
         else:
