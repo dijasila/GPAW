@@ -32,6 +32,7 @@ class LibVDWXC(GGA, object):
         self.timer = timer
         self.vdwcoef = 1.
         self.vdw_functional_name = name
+        self._c_vdw_calculate = None
         if not compiled_with_libvdwxc():
             raise ImportError('libvdwxc not compiled into GPAW')
 
@@ -58,20 +59,25 @@ class LibVDWXC(GGA, object):
         return 'revPBE'
 
     def _vdw_init(self, comm, N_c, cell_cv):
+        """Initialize libvdwxc things in C."""
         self.timer.start('libvdwxc init')
         manyargs = list(N_c) + list(cell_cv.ravel())
         try:
             _c_comm = comm.get_c_object()
         except NotImplementedError:  # Serial
             _c_comm = None
-            initfunc = _gpaw.libvdwxc_initialize
+            vdw_init = _gpaw.libvdwxc_initialize
+            vdw_calculate = _gpaw.libvdwxc_calculate
         else:
             try:
-                initfunc = _gpaw.libvdwxc_initialize_mpi
+                vdw_init = _gpaw.libvdwxc_initialize_mpi
             except AttributeError:
                 raise ImportError('parallel libvdwxc not compiled into GPAW')
+            else:
+                vdw_calculate = _gpaw.libvdwxc_calculate_mpi
         code = _VDW_NUMERICAL_CODES[self.vdw_functional_name]
-        self._vdw = initfunc(code, _c_comm, *manyargs)
+        self._vdw = vdw_init(code, _c_comm, *manyargs)
+        self._c_vdw_calculate = vdw_calculate
         self._fft_comm = comm
         self.timer.stop('libvdwxc init')
 
@@ -85,7 +91,15 @@ class LibVDWXC(GGA, object):
         self.timer.stop('initialize')
 
     def _initialize(self, gd, fft_comm=None):
-        """This is the real initialize, without any complicated arguments."""
+        """This is the real initialize, without any complicated arguments.
+
+        This will initialize parallelization things in Python and then
+        the actual C backend libvdwxc.
+
+        If gd is not domain-decomposed, then fft_comm may passed
+        and arrays will be distributed on that for parallel FFTs."""
+        if fft_comm is not None:
+            assert gd.comm.size == 1
         self.aggressive_distribute = (fft_comm is not None)
         if self.aggressive_distribute:
             gd = gd.new_descriptor(comm=fft_comm,
@@ -126,12 +140,8 @@ class LibVDWXC(GGA, object):
     def calculate_nonlocal(self, n_g, sigma_g):
         v_g = np.zeros_like(n_g)
         dedsigma_g = np.zeros_like(sigma_g)
-        if self._fft_comm is None:
-            libvdwxc_func = _gpaw.libvdwxc_calculate
-        else:
-            libvdwxc_func = _gpaw.libvdwxc_calculate_mpi
-        energy = libvdwxc_func(self._vdw, n_g, sigma_g,
-                               v_g, dedsigma_g)
+        energy = self._c_vdw_calculate(self._vdw, n_g, sigma_g,
+                                       v_g, dedsigma_g)
         return energy, v_g, dedsigma_g
 
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
@@ -269,7 +279,7 @@ class CXKernel:
                  + alp * s_6 / (beta + alp * s_6) * fs_rPW86
 
         # the energy density for the exchange.
-        sx[:] += Ax * rho**(four_thirds) * fs  # XXXXX (fs - 1.0)
+        sx[:] += Ax * rho**four_thirds * fs # XXXXX (fs - 1.0)
 
         df_rPW86_ds = (1. / (15. * fs_rPW86**14.0)) * \
             (2 * a * s + 4 * b * s_3 + 6 * c * s_5)
@@ -295,7 +305,7 @@ class CXKernel:
 
 
 def test_derivatives():
-    gen = np.random.RandomState(0)
+    gen = np.random.RandomState(1)
     shape = (1, 20, 20, 20)
     ngpts = np.product(shape)
     n_sg = gen.rand(*shape)
@@ -347,10 +357,10 @@ def test_derivatives():
         print('dedsigma', dedsigma, 'fd', dedsigma_fd, 'err %e' % dedsigma_err)
         return e_g, dedn_sg, dedsigma_xg
 
-    print('libxc')
+    print('pw86r libxc')
     e_lxc_g, dedn_lxc_g, dedsigma_lxc_g = check_and_write(libxc_kernel)
     print()
-    print('qe')
+    print('pw86r ours')
     e_qe_g, dedn_qe_g, dedsigma_qe_g = check_and_write(qe_kernel)
     print()
     print('cx')
@@ -440,5 +450,5 @@ def test_selfconsistent():
 
 
 if __name__ == '__main__':
-    #test_derivatives()
-    test_selfconsistent()
+    test_derivatives()
+    #test_selfconsistent()
