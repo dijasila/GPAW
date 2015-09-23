@@ -97,6 +97,7 @@ tests = [
     'lf.py',
     'fsbt.py',
     'parallel/compare.py',
+    'vdw/libvdwxc_functionals.py',
     'integral4.py',
     'zher.py',
     'gd.py',
@@ -450,6 +451,7 @@ if not compiled_with_sl():
     exclude.append('lcao_atomic_corrections.py')
 
 if not compiled_with_libvdwxc():
+    exclude.append('vdw/libvdwxc_functionals.py')
     exclude.append('vdw/libvdwxc_h2o.py')
 
 if np.__version__ < '1.6.0':
