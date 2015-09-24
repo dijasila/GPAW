@@ -85,7 +85,7 @@ class LrTDDFT(ExcitationList):
                     'Linear response TDDFT supported only in real space mode')
             if calculator.wfs.kd.comm.size > 1:
                 err_txt = 'Spin parallelization with Linear response '
-                err_txt += "TDDFT. Use parallel = {'domain' : 'domain_only'} "
+                err_txt += "TDDFT. Use parallel={'domain': world.size} "
                 err_txt += 'calculator parameter.'
                 raise NotImplementedError(err_txt)
             if self.xc == 'GS':

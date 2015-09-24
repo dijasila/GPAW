@@ -604,9 +604,6 @@ class PAW(PAWTextOutput):
             pbc_c = np.ones(3, bool)
 
         if not self.wfs:
-            if parsize_domain == 'domain only':  # XXX this was silly!
-                parsize_domain = world.size
-
             parallelization = mpi.Parallelization(world,
                                                   nspins * kd.nibzkpts)
             ndomains = None
