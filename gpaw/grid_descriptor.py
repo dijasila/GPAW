@@ -539,17 +539,33 @@ class GridDescriptor(Domain):
             for request, a_xg in requests:
                 self.comm.wait(request)
         
-    def zero_pad(self, a_xg):
+    def zero_pad(self, a_xg, global_array=True):
         """Pad array with zeros as first element along non-periodic directions.
 
-        Should only be invoked on global arrays.
+        If not global_array, the array must be distributed.
         """
-        assert np.all(a_xg.shape[-3:] == (self.N_c + self.pbc_c - 1))
+
+        # We could infer what global_array should be from a_xg.shape.
+        # But as it is now, there is a bit of redundancy to avoid
+        # confusing errors
+
+        gshape = a_xg.shape[-3:]
+        padding_c = 1 - self.pbc_c
+        if global_array:
+            assert (gshape == self.N_c - padding_c).all()
+            bshape = tuple(self.N_c)
+        else:
+            assert (gshape == self.n_c).all()
+            parpos_c = self.get_processor_position_from_rank()
+            # Only pad where domain is on edge:
+            padding_c *= (parpos_c == 0)
+            bshape = tuple(self.n_c + padding_c)
+
         if self.pbc_c.all():
             return a_xg
 
-        npbx, npby, npbz = 1 - self.pbc_c
-        b_xg = np.zeros(a_xg.shape[:-3] + tuple(self.N_c), dtype=a_xg.dtype)
+        npbx, npby, npbz = padding_c
+        b_xg = np.zeros(a_xg.shape[:-3] + tuple(bshape), dtype=a_xg.dtype)
         b_xg[..., npbx:, npby:, npbz:] = a_xg
         return b_xg
 
