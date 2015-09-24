@@ -4,7 +4,6 @@ class XCFunctional:
         self.name = name
         self.gd = None
         self.ekin = 0.0
-        self.type = None
         
     def get_setup_name(self):
         return self.name
