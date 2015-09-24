@@ -46,7 +46,7 @@ if os.system('svn checkout ' +
     fail('Checkout of gpaw failed!')
 if os.system('cd ~/gpaw-nightly-tests/ase && '
              'git pull && '
-             'git archive --format tar.gz --prefix ase/ | '
+             'git archive --format tar.gz --prefix ase/ HEAD | '
              '(cd {0}; tar -xzf -)'.format(tmpdir)) != 0:
     fail('Checkout of ASE failed!')
 
