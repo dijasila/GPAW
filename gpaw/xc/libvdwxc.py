@@ -305,45 +305,46 @@ class CXKernel:
 
         grad_rho = np.sqrt(grho)
 
-        s = grad_rho / (s_prefactor * rho**four_thirds)
-        s_2 = s * s
-        s_3 = s_2 * s
-        s_4 = s_2 * s_2
-        s_5 = s_3 * s_2
-        s_6 = s_2 * s_2 * s_2
+        # eventually we need s to power 12.  Clip to avoid overflow
+        # (We have individual tolerances on both rho and grho, but
+        # they are not sufficient to guarantee this)
+        s_1 = (grad_rho / (s_prefactor * rho**four_thirds)).clip(0.0, 1e20)
+        s_2 = s_1 * s_1
+        s_3 = s_2 * s_1
+        s_4 = s_3 * s_1
+        s_5 = s_4 * s_1
+        s_6 = s_5 * s_1
 
-        fs_rPW86 = (1 + a * s_2 + b * s_4 + c * s_6)**(1./15.)
+        fs_rPW86 = (1.0 + a * s_2 + b * s_4 + c * s_6)**(1./15.)
 
         if self.just_kidding:
             fs = fs_rPW86
         else:
-            fs = 1. / (1 + alp * s_6) * (1 + mu_LM * s_2) \
-                 + alp * s_6 / (beta + alp * s_6) * fs_rPW86
+            fs = (1.0 + mu_LM * s_2) / (1.0 + alp * s_6) \
+                + alp * s_6 / (beta + alp * s_6) * fs_rPW86
 
         # the energy density for the exchange.
-        sx[:] += Ax * rho**four_thirds * fs # XXXXX (fs - 1.0)
+        sx[:] += Ax * rho**four_thirds * fs
 
         df_rPW86_ds = (1. / (15. * fs_rPW86**14.0)) * \
-            (2 * a * s + 4 * b * s_3 + 6 * c * s_5)
+            (2 * a * s_1 + 4 * b * s_3 + 6 * c * s_5)
 
         if self.just_kidding:
             df_ds = df_rPW86_ds # XXXXXXXXXXXXXXXXXXXX
         else:
             df_ds = 1. / (1. + alp * s_6)**2 \
-                * (2.0 * mu_LM * s * (1. + alp * s_6)
+                * (2.0 * mu_LM * s_1 * (1. + alp * s_6)
                    - 6.0 * alp * s_5 * (1. + mu_LM * s_2)) \
                 + alp * s_6 / (beta + alp * s_6) * df_rPW86_ds \
                 + 6.0 * alp * s_5 * fs_rPW86 / (beta + alp * s_6) \
                 * (1. - alp * s_6 / (beta + alp * s_6))
 
         # de/dn.  This is the partial derivative of sx wrt. n, for s constant
-        # Subtraction by one removed XXXXXXXXXXXXXXXXXXXXXXXXX
-        v1x[:] += Ax * four_thirds * (rho**(1. / 3.) * fs # XXXXX (fs - 1.0)
+        v1x[:] += Ax * four_thirds * (rho**(1. / 3.) * fs
                                       - grad_rho / (s_prefactor * rho) * df_ds)
         # de/d(nabla n).  The other partial derivative
-        # XXXXXXXXXXXX why do we have to divide by two here in the end?
-        v2x[:] += Ax * df_ds / (s_prefactor * grad_rho) / 2.
-        # We may or may not understand what that grad_rho is doing here.
+        v2x[:] += 0.5 * Ax * df_ds / (s_prefactor * grad_rho)
+        # (We may or may not understand what that grad_rho is doing here.)
 
 
 def test_derivatives():
