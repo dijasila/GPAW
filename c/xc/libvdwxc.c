@@ -11,7 +11,6 @@
 
 PyObject* libvdwxc_initialize(PyObject* self, PyObject* args)
 {
-    printf("vdw init\n");
     int vdw_code;
     PyObject* comm;
     int Nx, Ny, Nz;
@@ -66,7 +65,6 @@ PyObject* libvdwxc_free(PyObject* self, PyObject* args)
 #ifdef PARALLEL
 PyObject* libvdwxc_initialize_mpi(PyObject* self, PyObject* args)
 {
-    printf("vdw mpi init\n");
     fftw_mpi_init(); // can be called as many times as one wants.
     int vdw_code;
     PyObject* comm;
@@ -110,17 +108,6 @@ PyObject* libvdwxc_calculate_mpi(PyObject* self, PyObject* args)
     }
     return Py_BuildValue("d", energy);
 }
-
-#else
-PyObject* libvdwxc_calculate_mpi(PyObject* self, PyObject* args){
-    printf("what the FUCK\n");
-    return NULL;
-}
-PyObject* libvdwxc_initialize_mpi(PyObject* self, PyObject* args){
-    printf("what the FUCK\n");
-    return NULL;
-}
-
 #endif // parallel
 
 #endif // gpaw_with_libvdwxc
