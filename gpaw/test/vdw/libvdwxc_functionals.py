@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.xc.libvdwxc import VDWDF, VDWDF2, VDWDFCX
@@ -28,8 +29,11 @@ def test(vdwxcclass, Eref=None, nvref=None):
     nverr = None if nvref is None else abs(nv - nvref)
 
     if gd.comm.rank == 0:
+        print(vdwxcclass.__name__)
+        print('=' * len(vdwxcclass.__name__))
         print('E  = %15s vs Eref  = %15s :: Eerr  = %15s' % (E, Eref, Eerr))
         print('nv = %15s vs nvref = %15s :: nverr = %15s' % (nv, nvref, nverr))
+        print()
     gd.comm.barrier()
 
     if Eerr is not None:
@@ -37,6 +41,6 @@ def test(vdwxcclass, Eref=None, nvref=None):
     if nverr is not None:
         assert nverr < 1e-11
 
-test(VDWDF, -3.73959839053, -4.78025172386)
-test(VDWDF2, -3.75889296613, -4.79485237173)
-test(VDWDFCX, -3.6320083832, -4.67896596247)
+test(VDWDF, -3.73732366504, -4.77652923808)
+test(VDWDF2, -3.75680663781, -4.79124091301)
+test(VDWDFCX, -3.62973365771, -4.6752434767)

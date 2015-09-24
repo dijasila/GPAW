@@ -98,44 +98,86 @@ class LibVDWXC(GGA, object):
 
         If gd is not domain-decomposed, then fft_comm may passed
         and arrays will be distributed on that for parallel FFTs."""
+        # We want a periodic descriptor because it tends to have nicely
+        # primey numbers of grid points whereas non-periodic grid descriptors
+        # do not.  We don't truly pad anything though.
+        pad_gd = gd.new_descriptor(pbc_c=(1, 1, 1))
         if fft_comm is not None:
-            assert gd.comm.size == 1
+            assert pad_gd.comm.size == 1
         self.aggressive_distribute = (fft_comm is not None)
         if self.aggressive_distribute:
-            gd = gd.new_descriptor(comm=fft_comm,
-                                   parsize=(fft_comm.size, 1, 1))
+            pad_gd = pad_gd.new_descriptor(comm=fft_comm,
+                                           parsize=(fft_comm.size, 1, 1))
         else:
-            fft_comm = gd.comm
+            fft_comm = pad_gd.comm
 
-        self.dist1 = GridRedistributor(gd, 1, 2)
+        self.pad_gd = pad_gd
+        self.dist1 = GridRedistributor(pad_gd, 1, 2)
         self.dist2 = GridRedistributor(self.dist1.gd2, 0, 1)
-        self._vdw_init(fft_comm, gd.get_size_of_global_array(), gd.cell_cv)
+        self._vdw_init(fft_comm, pad_gd.get_size_of_global_array(), pad_gd.cell_cv)
 
-    # This one we write down just to "echo" the original interface
     def calculate(self, gd, n_sg, v_sg, e_g=None):
-        if e_g is None:
-            e_g = gd.zeros()
+        """Calculate energy and potential.
+
+        gd may be non-periodic.  To be distinguished from self.gd
+        which is always periodic due to priminess of FFT dimensions.
+        (To do: proper padded FFTs.)"""
+        nspins = len(n_sg)
+        if e_g is not None:
+            raise NotImplementedError('Proper energy density e_g')
+        #v_orig_sg = v_sg
+
+        npad_sg = gd.zero_pad(n_sg, global_array=False)
+        #vpad_sg = gd.zero_pad(v_sg)
+
+        #if e_g is None:
+        #    epad_g = self.gd.zeros()
+        #else:
+        #    epad_g = gd.zero_pad(e_g)
 
         if self.aggressive_distribute:
             dist_gd = self.dist1.gd
-            n1_sg = dist_gd.empty(len(n_sg))
-            v1_sg = dist_gd.empty(len(v_sg))
-            e1_g = dist_gd.empty()  # TODO handle e_g properly
-            dist_gd.distribute(n_sg, n1_sg)
-            dist_gd.distribute(v_sg, v1_sg)
-            dist_gd.distribute(e_g, e1_g)
+            ndist_sg = dist_gd.empty(nspins)
+            #vdist_sg = dist_gd.empty(len(vpad_sg))
+            #edist_g = dist_gd.empty()  # TODO handle e_g properly
+            dist_gd.distribute(npad_sg, ndist_sg)
+            #dist_gd.distribute(vpad_sg, vdist_sg)
+            #dist_gd.distribute(e_g, e1_g)
         else:
-            dist_gd = gd
-            n1_sg = n_sg
-            v1_sg = v_sg
-            e1_g = e_g
-        GGA.calculate(self, dist_gd, n1_sg, v1_sg, e_g=e1_g)
+            dist_gd = self.pad_gd
+            ndist_sg = npad_sg
+            #vdist_sg = dist_gd.zeros(nspins)#vpad_sg
+        npad_sg = None  # Possible garbage collection
+
+        vdist_sg = dist_gd.zeros(nspins)
+        edist_g = dist_gd.empty()
+
+        # We have the minor issue that dist_gd now goes across the cell
+        # when evaluating derivatives, so in non-periodic systems we will
+        # get (very) small numerical errors until we have proper padding
+        GGA.calculate(self, dist_gd, ndist_sg, vdist_sg, e_g=edist_g)
+        ndist_sg = None
+        energy = dist_gd.integrate(edist_g)
+        edist_g = None
 
         if self.aggressive_distribute:
             #n_sg[:] = dist_gd.collect(n1_sg, broadcast=True)
-            v_sg[:] += dist_gd.collect(v1_sg, broadcast=True)
-            e_g[:] = dist_gd.collect(e1_g, broadcast=True)
-        return gd.integrate(e_g)
+            vpad_sg = dist_gd.collect(vdist_sg, broadcast=True)
+            #epad_g = dist_gd.collect(edist_g, broadcast=True)
+        else:
+            vpad_sg = vdist_sg
+
+        # Now we have to unpad.  Of course the density is zero in the padded
+        # region so the energy contribution is zero.  However we added all the
+        # vdw energy in the corner of e_g because of our rebellious nature,
+        # and now we have to account for our sins
+        
+        #if e_g is None:
+        #    e_g = gd.empty()
+        pad_c = 1 - gd.pbc_c
+        v_sg += vpad_sg[:, pad_c[0]:, pad_c[1]:, pad_c[2]:]
+            #e_g[:] = epad_g[pad_c[0]:, pad_c[1]:, pad_c[2]:]
+        return energy
 
     def calculate_nonlocal(self, n_g, sigma_g):
         v_g = np.zeros_like(n_g)
