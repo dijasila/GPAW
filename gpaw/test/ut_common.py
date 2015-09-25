@@ -1,27 +1,12 @@
 """Common code base for maintaining backwards compatibility in ut_xxx tests."""
 
-__all__ = ['ase_svnversion', 'shapeopt', 'TestCase', 'TextTestRunner', \
+__all__ = ['shapeopt', 'TestCase', 'TextTestRunner', \
     'CustomTextTestRunner', 'defaultTestLoader', 'initialTestLoader', \
     'create_random_atoms', 'create_parsize_maxbands', 'create_parsize_minbands']
 
 partest = True
 
 # -------------------------------------------------------------------
-
-# Maintain backwards compatibility with ASE 3.1.0 svn. rev. 1158 or later
-try:
-    from ase.svnversion import svnversion as ase_svnversion
-except ImportError:
-    # Fall back on minimum required ASE svn.rev.
-    ase_svnversion = 1158
-else:
-    # From test/ase3k_version.py.
-    full_ase_svnversion = ase_svnversion
-    if ase_svnversion[-1] == 'M':
-        ase_svnversion = ase_svnversion[:-1]
-    if ase_svnversion.rfind(':') != -1:
-        ase_svnversion = ase_svnversion[:ase_svnversion.rfind(':')]
-    ase_svnversion = int(ase_svnversion)
 
 
 def shapegen(size, ndims, ecc=0.5):
