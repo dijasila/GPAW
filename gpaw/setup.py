@@ -133,6 +133,8 @@ class BaseSetup:
             f_j = self.f_j
         f_j = np.array(f_j, float)
         l_j = np.array(self.l_j)
+        if len(l_j) == 0:
+            l_j = np.ones(1)
 
         def correct_for_charge(f_j, charge, degeneracy_j, use_complete=True):
             nj = len(f_j)
