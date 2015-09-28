@@ -45,7 +45,7 @@ if os.system('svn checkout ' +
              'https://svn.fysik.dtu.dk/projects/gpaw/trunk gpaw') != 0:
     fail('Checkout of gpaw failed!')
 if os.system('cd ~/gpaw-nightly-tests/ase && '
-             'git pull && '
+             'git pull > pull.out 2>&1 && '
              'git archive --format tar --prefix ase/ HEAD | '
              '(cd {0}; tar -xf -)'.format(tmpdir)) != 0:
     fail('Checkout of ASE failed!')
