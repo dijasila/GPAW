@@ -25,7 +25,7 @@ from gpaw.xc import XC
 from gpaw.setup import SetupData, Setups
 from gpaw.lfc import LFC
 
-# -------------------------------------------------------------------
+memstats = False
 
 from gpaw.test.ut_common import shapeopt, TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \

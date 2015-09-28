@@ -15,7 +15,7 @@ from gpaw.kohnsham_layouts import BlacsBandLayouts
 if 0:  # causes numpy doctests failures - exact formatting is expected!
     np.set_printoptions(linewidth=168) #XXX large xterm width
 
-# -------------------------------------------------------------------
+memstats = False
 
 from gpaw.test.ut_common import TextTestRunner, \
     CustomTextTestRunner, defaultTestLoader, initialTestLoader
