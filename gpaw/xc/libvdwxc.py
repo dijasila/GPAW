@@ -223,6 +223,11 @@ class LibVDWXC(GGA, object):
         dedsigma_xg[0, :] += dedsigma_g * self.vdwcoef
         self.timer.stop('calculate gga')
 
+    def estimate_memory(self, mem):
+        size = self.dist2.gd2.bytecount()
+        mem.subnode('thetas', 20 * size)
+        mem.subnode('other', 5 * size)
+
     def __del__(self):
         if self._vdw is not None:
             _gpaw.libvdwxc_free(self._vdw)
