@@ -432,8 +432,6 @@ class Generator(AllElectron):
             self.xc.get_extra_setup_data(extra_xc_data)
 
         vt = vHt + vXCt
-        if self.orbital_free:
-            vt /= self.tf_coeff
 
         # Construct zero potential:
         gc = 1 + int(rcutvbar * N / (rcutvbar + beta))
@@ -506,8 +504,6 @@ class Generator(AllElectron):
         filter = Filter(r, dr, gcutfilter, hfilter).filter
 
         vbar = filter(vbar * r)
-        if self.orbital_free:
-            vbar *= self.tf_coeff
 
         # Calculate matrix elements:
         self.dK_lnn = dK_lnn = []

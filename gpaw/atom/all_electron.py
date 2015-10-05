@@ -273,11 +273,7 @@ class AllElectron:
 
             # calculate new total Kohn-Sham effective potential and
             # admix with old version
-            vr[:] = (vHr + self.vXC * r)
-
-            if self.orbital_free: 
-                vr /= self.tf_coeff
-
+            vr[:] = (vHr + self.vXC * r) / self.tf_coeff
 
             if niter > 0:
                 vr[:] = mix * vr + (1 - mix) * vrold
@@ -329,15 +325,15 @@ class AllElectron:
                 pass
 
         Ekin = 0
+        if self.orbital_free:
+            e_j[0] *= self.tf_coeff
+            vr *= self.tf_coeff
         
         for f, e in zip(f_j, e_j):
             Ekin += f * e
 
         Epot = 2 * pi * np.dot(n * r * (vHr - Z), dr)
         Ekin += -4 * pi * np.dot(n * vr * r, dr)
-        if self.orbital_free:
-        #e and vr are not scaled back
-            Ekin *= self.tf_coeff
 
         t()
         t('Energy contributions:')
