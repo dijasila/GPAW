@@ -719,12 +719,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                      nbands=None, scalapack=None,
                                      expert=False):
 
-        if self.dtype is not complex:
-            raise ValueError(('Your wavefunctions are not complex as '
-                              'required by the PW diagonalization routine.\n'
-                              'Please supply GPAW(..., dtype=complex, ...) '
-                              'as an argument to the calculator to enforce '
-                              'complex wavefunctions.'))
+        if self.dtype != complex:
+            raise ValueError('Your wavefunctions are not complex as '
+                             'required by the PW diagonalization routine.\n'
+                             'Please supply GPAW(..., dtype=complex, ...) '
+                             'as an argument to the calculator to enforce '
+                             'complex wavefunctions.')
         
         if nbands is None:
             nbands = self.pd.ngmin // self.bd.comm.size * self.bd.comm.size
