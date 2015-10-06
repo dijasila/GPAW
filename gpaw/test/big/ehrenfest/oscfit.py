@@ -17,7 +17,7 @@ except (ImportError, RuntimeError):
 
 from scipy.optimize import leastsq
 from ase.units import second
-from ase.io.trajectory import PickleTrajectory
+from ase.io import Trajectory
 
 # Dimer oscillation model used for least-squares fit 
 def f(p, t):
@@ -42,7 +42,7 @@ for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
             raise ImportError('Module %s has no %s value' % (name, attr))
 
     # Read dimer bond length time series from trajectory file
-    traj = PickleTrajectory(name + '_td.traj', 'r')
+    traj = Trajectory(name + '_td.traj', 'r')
     nframes = len(traj)
     natoms = len(traj[0])
     symbol = traj[0].get_name()

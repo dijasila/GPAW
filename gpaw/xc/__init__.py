@@ -50,6 +50,9 @@ def XC(kernel, parameters=None):
         elif name == 'LB94':
             from gpaw.xc.lb94 import LB94
             kernel = LB94()
+        elif name == 'TB09':
+            from gpaw.xc.tb09 import TB09
+            return TB09()
         elif name.startswith('ODD_'):
             from ODD import ODDFunctional
             return ODDFunctional(name[4:])

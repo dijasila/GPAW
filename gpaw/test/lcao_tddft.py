@@ -1,11 +1,9 @@
 from __future__ import print_function
-from gpaw.tddft import *
+from gpaw.tddft import photoabsorption_spectrum
 from ase import Atoms
 from gpaw import GPAW
-from sys import argv
-from gpaw.tddft.lcao_tddft import LCAOTDDFT
+from gpaw.lcaotddft import LCAOTDDFT
 import gpaw.lrtddft as lrtddft
-from sys import exit
 from gpaw.mpi import world
 
 N = 2
@@ -21,10 +19,14 @@ atoms = Atoms(symbols=sy, positions = positions)
 atoms.center(vacuum=3)
 print(atoms)
 # LCAO-RT-TDDFT
+parallel = {}
+if world.size > 3:
+    parallel['band'] = 2
+
 calc = LCAOTDDFT(mode='lcao', xc=xc, h=h, basis=b, nbands=N,
-                dtype=complex, charge=c, convergence={'density':1e-6}, 
-                propagator_debug=True, propagator='cn',
-                parallel={'band':2})
+                 dtype=complex, charge=c, convergence={'density':1e-6}, 
+                 propagator='cn',
+                 parallel=parallel)
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 dmfile = sy+'_lcao_'+b+'_rt_z.dm'+str(world.size)
@@ -53,4 +55,4 @@ if 0:
     if world.rank == 0:
         lrtddft.photoabsorption_spectrum(lr, sy+'_lcao_'+b+'_lr.spectrum', e_min=0.0, e_max=400)
 
-    # XXX Actually check that the spectums match
+    # XXX Actually check that the spectra match

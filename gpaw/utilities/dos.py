@@ -9,7 +9,7 @@ from gpaw.setup_data import SetupData
 from gpaw.gauss import Gauss
 from gpaw.io.fmf import FMF
 from gpaw.utilities.blas import gemmdot
-from itertools import izip
+
 
 
 def print_projectors(setup):
@@ -17,7 +17,7 @@ def print_projectors(setup):
 
     If nucleus is a string, treat this as an element name.
     """
-    if type(setup) is str:
+    if isinstance(setup, str):
         setup = SetupData(setup, 'LDA', 'paw')
         n_j = setup.n_j
         l_j = setup.l_j
@@ -47,7 +47,7 @@ def number_of_projectors(setup):
 
     If setup is a string, treat this as an element name.
     """
-    if type(setup) is str:
+    if isinstance(setup, str):
         setup = SetupData(setup, 'LDA', 'paw')
         n_j = setup.n_j
         l_j = setup.l_j
@@ -113,7 +113,7 @@ def fold(energies, weights, npts, width, mode='Gauss'):
     return e, dos_e
 
     
-def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
+def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
     """Return a list of eigenvalues, and their weight on the specified atom.
 
     angular can be s, p, d, f, or a list of these.
@@ -121,11 +121,20 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
 
     An integer value for ``angular`` can also be used to specify a specific
     projector function.
+
+    Setting nbands limits the number of bands included. This speeds up the
+    calculation if one has many bands in the calculator but is only interested
+    in the DOS at low energies.
     """
     wfs = paw.wfs
     w_k = wfs.kd.weight_k
     nk = len(w_k)
-    nb = wfs.bd.nbands
+    if not nbands:
+        nb = wfs.bd.nbands
+    else:
+        nb = nbands
+        assert nb <= wfs.bd.nbands, ("nbands higher than available number" +
+                                     "of bands")
 
     if a < 0:
         # Allow list-style negative indices; we'll need the positive a for the
@@ -137,22 +146,22 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf'):
     weights_xi = np.empty((nb * nk, setup.ni))
     x = 0
     for k, w in enumerate(w_k):
-        eps = wfs.collect_eigenvalues(k=k, s=spin)
-        print(wfs.world.rank, type(eps))
+        eps = wfs.collect_eigenvalues(k=k, s=spin)[:nb]
+        #print(wfs.world.rank, type(eps))
         if eps is not None:
             energies[x:x + nb] = eps
         u = spin * nk + k
         P_ani = wfs.kpt_u[u].P_ani
         if a in P_ani:
-            weights_xi[x:x + nb, :] = w * np.absolute(P_ani[a])**2
+            weights_xi[x:x + nb, :] = w * np.absolute(P_ani[a][:nb, :])**2
         x += nb
 
     wfs.world.broadcast(energies, 0)
-    wfs.world.broadcast(weights_xi, wfs.rank_a[a])
+    wfs.world.broadcast(weights_xi, wfs.atom_partition.rank_a[a])
 
     if angular is None:
         return energies, weights_xi
-    elif type(angular) is int:
+    elif isinstance(angular, int):
         return energies, weights_xi[:, angular]
     else:
         projectors = get_angular_projectors(setup, angular, type='bound')
@@ -254,7 +263,7 @@ def get_all_electron_IPR(paw):
                 nt_iter = xccorr.expand_density(D_sLq, xccorr.nt_qg, None)
 
                 # Take the spherical average of smooth and ae radial xc potentials
-                for n_sg, nt_sg, integrator in izip(n_iter,
+                for n_sg, nt_sg, integrator in zip(n_iter,
                                                     nt_iter,
                                                     xccorr.get_integrator(None)):
                     ipr += integrator.weight * np.sum((n_sg[0]**2-nt_sg[0]**2) * xccorr.rgd.dv_g)

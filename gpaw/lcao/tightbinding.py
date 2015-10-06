@@ -39,7 +39,7 @@ class TightBinding:
         # Symmetry
         self.symmetry = kd.symmetry
         if self.symmetry['point_group'] is True:
-            raise NotImplementedError, "Only time-reversal symmetry supported."
+            raise NotImplementedError("Only time-reversal symmetry supported.")
 
         # Lattice vectors and number of repetitions
         self.R_cN = None
@@ -133,7 +133,7 @@ class TightBinding:
             try:
                 assert np.all(np.abs(A_xMM.imag) < 1e-10)
             except AssertionError:
-                raise ValueError, "MAX Im(A_MM): % .2e" % np.amax(np.abs(A_xMM.imag))
+                raise ValueError("MAX Im(A_MM): % .2e" % np.amax(np.abs(A_xMM.imag)))
 
             A_NxMM.append(A_xMM.real)
 

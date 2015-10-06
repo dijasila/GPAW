@@ -2,11 +2,11 @@
 
 Electron-phonon interaction::
    
-                  __              
+                  __
                   \     l   +         +
         H      =   )   g   c   c   ( a   + a  ),
          el-ph    /_    ij  i   j     l     l
-                 l,ij            
+                 l,ij
     
 where the electron phonon coupling is given by::
 
@@ -21,7 +21,7 @@ mass-scaled polarization vector, respectively, M is an effective mass, i, j are
 electronic state indices and nabla_u denotes the gradient wrt atomic
 displacements. The implementation supports calculations of the el-ph coupling
 in both finite and periodic systems, i.e. expressed in a basis of molecular
-orbitals or Bloch states. 
+orbitals or Bloch states.
 
 The implementation is based on finite-difference calculations of the the atomic
 gradients of the effective potential expressed on a real-space grid. The el-ph
@@ -31,7 +31,7 @@ effective potential and the electronic states.
 In PAW the matrix elements of the derivative of the effective potential is
 given by the sum of the following contributions::
         
-                  d                  d  
+                  d                  d
             < i | -- V | j > = < i | -- V | j>
                   du  eff            du
 
@@ -59,24 +59,21 @@ DFT Hamiltonian.
 
 """
 
-import sys
-import cPickle as pickle
+import pickle
 from math import pi
-from os.path import isfile
 
 import numpy as np
 import numpy.fft as fft
 import numpy.linalg as la
 
 import ase.units as units
-from ase.phonons import Displacement, Phonons
-from ase.parallel import rank, barrier
+from ase.phonons import Displacement
 
 from gpaw.utilities import unpack2
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import StepTimer, nulltimer, Timer
 from gpaw.lcao.overlap import ManySiteDictionaryWrapper, \
-     TwoCenterIntegralCalculator
+                              TwoCenterIntegralCalculator
 from gpaw.lcao.tightbinding import TightBinding
 from gpaw.kpt_descriptor import KPointDescriptor
 
@@ -92,7 +89,7 @@ class ElectronPhononCoupling(Displacement):
 
     The subsequent calculation of the coupling matrix in the basis of atomic
     orbitals (or Bloch-sums hereof for periodic systems) is handled by the
-    ``calculate_matrix`` member function. 
+    ``calculate_matrix`` member function.
    
     """
 
@@ -121,7 +118,7 @@ class ElectronPhononCoupling(Displacement):
         """
 
         # Init base class and make the center cell in the supercell the
-        # reference cell 
+        # reference cell
         Displacement.__init__(self, atoms, calc=calc, supercell=supercell,
                               name=name, delta=delta, refcell='center')
 
@@ -175,9 +172,9 @@ class ElectronPhononCoupling(Displacement):
         # - check that gamma
         # - check that no symmetries are used
         # - ...
-        assert calc.input_parameters['mode'] == 'lcao', "LCAO mode required."
+        assert calc.input_parameters['mode'] == 'lcao', 'LCAO mode required.'
         symmetry = calc.input_parameters['symmetry']
-        assert symmetry['point_group'] != True, "Symmetries not supported."
+        assert not symmetry['point_group'], 'Symmetries not supported.'
         
         self.calc_lcao = calc
 
@@ -292,7 +289,7 @@ class ElectronPhononCoupling(Displacement):
 
         self.timer.write_now("Calculating supercell matrix")
 
-        self.timer.write_now("Calculating real-space gradients")        
+        self.timer.write_now("Calculating real-space gradients")
         # Calculate finite-difference gradients (in Hartree / Bohr)
         V1t_xG, dH1_xasp = self.calculate_gradient()
         self.timer.write_now("Finished real-space gradients")
@@ -325,7 +322,7 @@ class ElectronPhononCoupling(Displacement):
                 # Corresponding array index
                 x = 3 * i + v
                 V1t_G = V1t_xG[x]
-                self.timer.write_now("%s-gradient of atom %u" % 
+                self.timer.write_now("%s-gradient of atom %u" %
                                      (['x','y','z'][v], a))
 
                 # Array for different k-point components
@@ -420,7 +417,7 @@ class ElectronPhononCoupling(Displacement):
                     fname = self.name + '.supercell_matrix.%s.pckl' % basis
                 fd = open(fname, 'w')
                 M_a = self.basis_info['M_a']
-                nao_a = self.basis_info['nao_a']                
+                nao_a = self.basis_info['nao_a']
                 pickle.dump((self.g_xNNMM, M_a, nao_a), fd, 2)
                 fd.close()
 
@@ -535,7 +532,7 @@ class ElectronPhononCoupling(Displacement):
 
                 if cutmax is not None:
                     # Atoms indices where the distance is larger than the max
-                    # cufoff 
+                    # cufoff
                     j_a = np.where(dist_a > cutmax)[0]
                     # Zero elements
                     for j in j_a:
@@ -544,7 +541,7 @@ class ElectronPhononCoupling(Displacement):
 
                 if cutmin is not None:
                     # Atoms indices where the distance is larger than the min
-                    # cufoff 
+                    # cufoff
                     j_a = np.where(dist_a > cutmin)[0]
                     # Update mask to keep elements where one LCAO is outside
                     # the min cutoff
@@ -567,12 +564,12 @@ class ElectronPhononCoupling(Displacement):
             Mass-scaled polarization vectors (in units of 1 / sqrt(amu)) of the
             phonons.
         omega_l: ndarray
-            Vibrational frequencies in eV. 
+            Vibrational frequencies in eV.
             
         """
 
         # Supercell matrix (Hartree / Bohr)
-        assert self.g_xNNMM is not None, "Load supercell matrix."        
+        assert self.g_xNNMM is not None, "Load supercell matrix."
         assert self.g_xNNMM.shape[1:3] == (1, 1)
         g_xMM = self.g_xNNMM[:, 0, 0, :, :]
         # Number of atomic orbitals
@@ -580,7 +577,7 @@ class ElectronPhononCoupling(Displacement):
         # Number of phonon modes
         nmodes = u_l.shape[0]
 
-        # 
+        #
         u_lx = u_l.reshape(nmodes, 3 * len(self.atoms))
         g_lMM = np.dot(u_lx, g_xMM.transpose(1, 0, 2))
 
@@ -600,14 +597,14 @@ class ElectronPhononCoupling(Displacement):
         This function calculates the electron-phonon coupling between the
         specified Bloch states, i.e.::
 
-                      ______ 
+                      ______
             mnl      / hbar               ^
            g    =   /-------  < m k + q | e  . grad V  | n k >
             kq    \/ 2 M w                 ql        q
                           ql
 
         In case the ``omega_ql`` keyword argument is not given, the bare matrix
-        element (in units of eV / Ang) without the sqrt prefactor is returned. 
+        element (in units of eV / Ang) without the sqrt prefactor is returned.
         
         Parameters
         ----------
@@ -625,7 +622,7 @@ class ElectronPhononCoupling(Displacement):
             phonons. Again, the ordering must be the same as in the
             corresponding ``qpts`` argument.
         omega_ql: ndarray
-            Vibrational frequencies in eV. 
+            Vibrational frequencies in eV.
         kpts_from: list of ints or int
             Calculate only the matrix element for the k-vectors specified by
             their index in the ``kpts`` argument (default: all).
@@ -695,7 +692,7 @@ class ElectronPhononCoupling(Displacement):
             kplusq_k = kd_kpts.find_k_plus_q(q_c, kpts_k=kpts_k)
 
             # Here, ``i`` is counting from 0 and ``k`` is the global index of
-            # the k-point 
+            # the k-point
             for i, (k, k_c) in enumerate(zip(kpts_k, kpts_kc)):
 
                 # Check the wave vectors (adapted to the ``KPointDescriptor`` class)
@@ -848,7 +845,7 @@ class ElectronPhononCoupling(Displacement):
                     Vtm_G, dHm_asp = pickle.load(open(name + '-.pckl'))
                     Vtp_G, dHp_asp = pickle.load(open(name + '+.pckl'))
                 except (IOError, EOFError):
-                    raise IOError, "%s(-/+).pckl" % name
+                    raise IOError('%s(-/+).pckl' % name)
                 
                 # FD derivatives in Hartree / Bohr
                 V1t_G = (Vtp_G - Vtm_G) / (2 * self.delta / units.Bohr)

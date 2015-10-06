@@ -5,35 +5,28 @@ from ase.parallel import parprint
 from gpaw.test import equal
 from gpaw import GPAW, mpi
 from gpaw.lrtddft import LrTDDFT
-import numpy
 
-#numpy.seterr(all='raise')
-
-txt='-'
-txt='/dev/null'
+txt = '-'
+txt = '/dev/null'
 
 load = False
-#load = True
     
 if not load:
-    R=0.7 # approx. experimental bond length
-    a = 3
-    c = 4
-    H2 = Atoms([Atom('H', (a/2,a/2,(c-R)/2)),
-                Atom('H', (a/2,a/2,(c+R)/2))],
-               cell=(a,a,c))
+    R = 0.7  # approx. experimental bond length
+    a = 3.0
+    c = 4.0
+    H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
+                Atom('H', (a / 2, a / 2, (c + R) / 2))],
+               cell=(a, a, c))
     calc = GPAW(xc='PBE', nbands=2, spinpol=False, txt=txt)
     H2.set_calculator(calc)
     H2.get_potential_energy()
-##    calc.write('H2.gpw', 'all')
 else:
     calc = GPAW('H2.gpw', txt=txt)
-#calc.initialize_wave_functions()
 
-#-----------------------------------------------------------
 # DFT only
 
-xc='LDA'
+xc = 'LDA'
 
 # no spin
 
@@ -50,12 +43,11 @@ equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-10)
 parprint('------ with spin')
 
 if not load:
-    c_spin = GPAW(xc='PBE', nbands=2, 
+    c_spin = GPAW(xc='PBE', nbands=2,
                   spinpol=True, parallel={'domain': mpi.world.size},
                   txt=txt)
     H2.set_calculator(c_spin)
     c_spin.calculate(H2)
-##    c_spin.write('H2spin.gpw', 'all')
 else:
     c_spin = GPAW('H2spin.gpw', txt=txt)
 lr = LrTDDFT(c_spin, xc=xc)
@@ -82,10 +74,9 @@ parprint('ApmB=', lr_ApmB)
 equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-10)
 equal(lr[1].get_energy(), lr_ApmB[1].get_energy(), 5.e-10)
     
-#-------------------------------------------------------
 # with HF exchange
 
-xc='PBE0'
+xc = 'PBE0'
 
 parprint('------ with spin xc=', xc)
 lr_spin = LrTDDFT(c_spin, xc=xc)

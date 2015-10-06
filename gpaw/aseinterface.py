@@ -1,22 +1,19 @@
-# pylint: disable-msg=W0142,C0103,E0201
-
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
 """ASE-calculator interface."""
-
 import numpy as np
 from ase.units import Bohr, Hartree
 
-from gpaw.xc import XC
+from gpaw.external import PointChargePotential
+from gpaw.occupations import MethfesselPaxton
 from gpaw.paw import PAW
 from gpaw.stress import stress
-from gpaw.occupations import MethfesselPaxton
+from gpaw.xc import XC
 
 
 class GPAW(PAW):
-    """This is the ASE-calculator frontend for doing a PAW calculation.
-    """
+    """This is the ASE-calculator frontend for doing a PAW calculation."""
     def get_atoms(self):
         atoms = self.atoms.copy()
         atoms.set_calculator(self)
@@ -24,6 +21,19 @@ class GPAW(PAW):
 
     def set_atoms(self, atoms):
         pass
+
+    def _extrapolate_energy_to_zero_width(self, E):
+        """Return energy E extrapolated to zero width.
+
+        Internal method to extrapolate an energy to zero width.
+        Useful e.g. for total energy or "electrostatic" part of
+        a continuum solvent calculation.
+
+        E and return value are in Hartree.
+        """
+        if isinstance(self.occupations, MethfesselPaxton):
+            return E + self.hamiltonian.S / (self.occupations.iter + 2)
+        return E + 0.5 * self.hamiltonian.S
 
     def get_potential_energy(self, atoms=None, force_consistent=False):
         """Return total energy.
@@ -42,11 +52,9 @@ class GPAW(PAW):
             return Hartree * self.hamiltonian.Etot
         else:
             # Energy extrapolated to zero width:
-            if isinstance(self.occupations, MethfesselPaxton):
-                return Hartree * (self.hamiltonian.Etot +
-                                  self.hamiltonian.S /
-                                  (self.occupations.iter + 2))
-            return Hartree * (self.hamiltonian.Etot + 0.5 * self.hamiltonian.S)
+            return Hartree * self._extrapolate_energy_to_zero_width(
+                self.hamiltonian.Etot
+            )
 
     def get_forces(self, atoms):
         """Return the forces for the current state of the atoms."""
@@ -103,31 +111,35 @@ class GPAW(PAW):
                 'magmoms' in quantities and self.magmom_av is None or
                 'dipole' in quantities and self.dipole_v is None)
 
-    # XXX hack for compatibility with ASE-3.8's new calculator specification.
+    # name, nolabel, check_state, todict and get_property are hacks
+    # for compatibility with ASE-3.8's new calculator specification.
     # In the future, we will get this stuff for free by inheriting from
     # ase.calculators.calculator.Calculator.
     name = 'GPAW'
     nolabel = True
-    def check_state(self, atoms): return []
-    def todict(self): return {}
-    def _get_results(self):
-        results = {}
-        from ase.calculators.calculator import all_properties
-        for property in all_properties:
-            if property == 'charges':
-                continue
-            if not self.calculation_required(self.atoms, [property]):
-                name = {'energy': 'potential_energy',
-                        'dipole': 'dipole_moment',
-                        'magmom': 'magnetic_moment',
-                        'magmoms': 'magnetic_moments'}.get(property, property)
-                try:
-                    x = getattr(self, 'get_' + name)(self.atoms)
-                    results[property] = x
-                except (NotImplementedError, AttributeError):
-                    pass
-        return results
-    results = property(_get_results)
+    
+    def check_state(self, atoms):
+        return []
+        
+    def todict(self):
+        return {}
+        
+    def get_property(self, prop, atoms, allow_calculation=True):
+        calcreqd = self.calculation_required(atoms, [prop])
+        if allow_calculation or not calcreqd:
+            if not calcreqd:
+                if prop == 'magmoms':
+                    return self.magmom_av.copy()
+                if prop == 'dipole':
+                    return self.dipole_v * Bohr
+            name = {'energy': 'potential_energy',
+                    'magmom': 'magnetic_moment',
+                    'magmoms': 'magnetic_moments',
+                    'dipole': 'dipole_moment'}.get(prop, prop)
+            try:
+                return getattr(self, 'get_' + name)(self.atoms)
+            except (NotImplementedError, AttributeError):
+                pass
 
     def get_number_of_bands(self):
         """Return the number of bands."""
@@ -350,7 +362,8 @@ class GPAW(PAW):
         return fold(energies * Hartree, weights, npts, width)
 
     def get_orbital_ldos(self, a,
-                         spin=0, angular='spdf', npts=201, width=None):
+                         spin=0, angular='spdf', npts=201, width=None,
+                         nbands=None):
         """The Local Density of States, using atomic orbital basis functions.
 
         Project wave functions onto an atom orbital at atom ``a``, and
@@ -361,6 +374,10 @@ class GPAW(PAW):
 
         An integer value for ``angular`` can also be used to specify a specific
         projector function to project onto.
+
+        Setting nbands limits the number of bands included. This speeds up the
+        calculation if one has many bands in the calculator but is only
+        interested in the DOS at low energies.
         """
         if width is None:
             width = self.get_electronic_temperature()
@@ -368,7 +385,7 @@ class GPAW(PAW):
             width = 0.1
 
         from gpaw.utilities.dos import raw_orbital_LDOS, fold
-        energies, weights = raw_orbital_LDOS(self, a, spin, angular)
+        energies, weights = raw_orbital_LDOS(self, a, spin, angular, nbands)
         return fold(energies * Hartree, weights, npts, width)
 
     def get_all_electron_ldos(self, mol, spin=0, npts=201, width=None,
@@ -592,7 +609,7 @@ class GPAW(PAW):
 
         from gpaw.lfc import LocalizedFunctionsCollection as LFC
         from gpaw.spline import Spline
-        from gpaw.utilities import _fact
+        from math import factorial as fac
 
         nkpts = len(wfs.kd.ibzk_kc)
         nbf = np.sum([2 * l + 1 for pos, l, a in locfun])
@@ -607,9 +624,9 @@ class GPAW(PAW):
             spos_xc.append(spos_c)
             alpha = .5 * Bohr**2 / sigma**2
             r = np.linspace(0, 10. * sigma, 500)
-            f_g = (_fact[l] * (4 * alpha)**(l + 3 / 2.) *
+            f_g = (fac(l) * (4 * alpha)**(l + 3 / 2.) *
                    np.exp(-alpha * r**2) /
-                   (np.sqrt(4 * np.pi) * _fact[2 * l + 1]))
+                   (np.sqrt(4 * np.pi) * fac(2 * l + 1)))
             splines_x.append([Spline(l, rmax=r[-1], f_g=f_g)])
 
         lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype)
@@ -633,8 +650,7 @@ class GPAW(PAW):
 
     def get_dipole_moment(self, atoms=None):
         """Return the total dipole moment in ASE units."""
-        if self.dipole_v is None:
-            self.dipole_v = self.density.calculate_dipole_moment()
+        self.dipole_v = self.density.calculate_dipole_moment()
         return self.dipole_v * Bohr
 
     def get_magnetic_moment(self, atoms=None):
@@ -643,9 +659,6 @@ class GPAW(PAW):
 
     def get_magnetic_moments(self, atoms=None):
         """Return the local magnetic moments within augmentation spheres"""
-        if self.magmom_av is not None:
-            return self.magmom_av
-
         self.magmom_av = self.density.estimate_magnetic_moments()
         if self.wfs.collinear:
             momsum = self.magmom_av.sum()
@@ -721,3 +734,11 @@ class GPAW(PAW):
             return np.append(x, c)
         elif type is 'mbeef':
             return x.flatten()
+        elif type == 'mbeefvdw':
+            return np.append(x.flatten(), c)
+
+    def embed(self, q_p):
+        """Embed QM region in point-charges."""
+        pc = PointChargePotential(q_p)
+        self.set(external=pc)
+        return pc

@@ -46,8 +46,7 @@ def analyse_benchmark(dir, pattern, output_prefix, iter, verbose=False):
 
     from glob import glob
 
-    f_list = glob(join(root_abspath, pattern, output))
-    f_list.sort()
+    f_list = sorted(glob(join(root_abspath, pattern, output)))
     assert not f_list == [], 'Error: list of output files is empty'
 
     import re

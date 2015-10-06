@@ -1,4 +1,4 @@
-import StringIO
+import io
 from itertools import chain
 
 import numpy as np
@@ -30,7 +30,7 @@ H       7.580803493981530      5.034479218283977      4.877211530909463
 """
 
 h = 0.3
-atoms = Cluster(read_xyz(StringIO.StringIO(butadiene)))
+atoms = Cluster(read_xyz(io.StringIO(butadiene)))
 atoms.minimal_box(3., h)
 atoms.set_calculator(GPAW(h=h))
 if 0:

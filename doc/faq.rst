@@ -62,6 +62,14 @@ If you use the :ref:`gw_tutorial`, please cite also:
 
    __ http://link.aps.org/doi/10.1103/PhysRevB.87.235132
 
+If you use the :ref:`continuum_solvent_model`, please cite also:
+
+   | A. Held and M. Walter
+   | `Simplified continuum solvent model with a smooth cavity based on volumetric data`__
+   | The Journal of Chemical Physics Vol. **141**, 174108, 2014
+
+   __ http://dx.doi.org/10.1063/1.4900838
+
 BibTex (:svn:`doc/GPAW.bib`):
 
 .. literalinclude:: GPAW.bib

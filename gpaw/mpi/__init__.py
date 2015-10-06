@@ -4,15 +4,16 @@
 import os
 import sys
 import time
+import traceback
 import atexit
 import pickle
+from fractions import gcd
+
 import numpy as np
 
 from gpaw import debug
 from gpaw import dry_run as dry_run_size
 from gpaw.utilities import is_contiguous
-from gpaw.utilities import gcd
-from gpaw.utilities.tools import md5_array
 
 import _gpaw
 
@@ -223,6 +224,49 @@ class _Communicator:
         assert b.flags.contiguous
         assert 0 <= root < self.size
         self.comm.scatter(a, b, root)
+
+    def alltoallv(self, sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls):
+        """All-to-all in a group.
+
+        Parameters:
+
+        sbuffer: ndarray
+            Source of the data to distribute, i.e., send buffers on all ranks
+        scounts: ndarray
+            Integer array equal to the group size specifying the number of
+            elements to send to each processor
+        sdispls: ndarray
+            Integer array (of length group size). Entry j specifies the
+            displacement (relative to sendbuf from which to take the
+            outgoing data destined for process j)
+        rbuffer: ndarray
+            Destination of the distributed data, i.e., local receive buffer.
+        rcounts: ndarray
+            Integer array equal to the group size specifying the maximum
+            number of elements that can be received from each processor.
+        rdispls:
+            Integer array (of length group size). Entry i specifies the
+            displacement (relative to recvbuf at which to place the incoming
+            data from process i
+        """
+        assert sbuffer.flags.contiguous
+        assert scounts.flags.contiguous
+        assert sdispls.flags.contiguous
+        assert rbuffer.flags.contiguous
+        assert rcounts.flags.contiguous
+        assert rdispls.flags.contiguous
+        assert sbuffer.dtype == rbuffer.dtype
+        
+        for arr in [scounts, sdispls, rcounts, rdispls]:
+            assert arr.dtype == np.int, arr.dtype
+            assert len(arr) == self.size
+
+        assert np.all(0 <= sdispls)
+        assert np.all(0 <= rdispls)
+        assert np.all(sdispls + scounts <= sbuffer.size)
+        assert np.all(rdispls + rcounts <= rbuffer.size)
+        self.comm.alltoallv(sbuffer, scounts, sdispls,
+                            rbuffer, rcounts, rdispls)
 
     def all_gather(self, a, b):
         """Gather data from all ranks onto all processes in a group.
@@ -460,6 +504,36 @@ class _Communicator:
         """Block execution until all process have reached this point."""
         self.comm.barrier()
 
+    def compare(self, othercomm):
+        """Compare communicator to other.
+
+        Returns 'ident' if they are identical, 'congruent' if they are
+        copies of each other, 'similar' if they are permutations of
+        each other, and otherwise 'unequal'.
+
+        This method corresponds to MPI_Comm_compare."""
+        if isinstance(self.comm, SerialCommunicator):
+            return self.comm.compare(othercomm.comm) # argh!
+        result = self.comm.compare(othercomm.get_c_object())
+        assert result in ['ident', 'congruent', 'similar', 'unequal']
+        return result
+
+    def translate_ranks(self, other, ranks):
+        """"Translate ranks from communicator to other.
+
+        ranks must be valid on this communicator.  Returns ranks
+        on other communicator corresponding to the same processes.
+        Ranks that are not defined on the other communicator are
+        assigned values of -1.  (In contrast to MPI which would
+        assign MPI_UNDEFINED)."""
+        assert all(0 <= rank for rank in ranks)
+        assert all(rank < self.size for rank in ranks)
+        if isinstance(self.comm, SerialCommunicator):
+            return self.comm.translate_ranks(other.comm, ranks) # argh!
+        otherranks = self.comm.translate_ranks(other.get_c_object(), ranks)
+        assert all(-1 <= rank for rank in otherranks)
+        return otherranks
+        
     def get_members(self):
         """Return the subset of processes which are members of this MPI group
         in terms of the ranks they are assigned on the parent communicator.
@@ -492,7 +566,7 @@ class _Communicator:
         comm.get_c_object() and pass the resulting object to the C code.
         """
         c_obj = self.comm.get_c_object()
-        assert type(c_obj) is _gpaw.Communicator
+        assert isinstance(c_obj, _gpaw.Communicator)
         return c_obj
 
 
@@ -532,6 +606,11 @@ class SerialCommunicator:
     def all_gather(self, a, b):
         b[:] = a
 
+    def alltoallv(self, sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls):
+        rbuffer[:] = sbuffer
+        rcounts[:] = scounts
+        rdispls[:] = sdispls
+
     def new_communicator(self, ranks):
         if self.rank not in ranks:
             return None
@@ -555,6 +634,20 @@ class SerialCommunicator:
 
     def get_members(self):
         return np.array([0])
+    
+    def compare(self, other):
+        if self == other:
+            return 'ident'
+        elif isinstance(other, SerialCommunicator):
+            return 'congruent'
+        else:
+            raise NotImplementedError('Compare serial comm to other')
+
+    def translate_ranks(self, other, ranks):
+        if isinstance(other, SerialCommunicator):
+            assert all(rank == 0 for rank in ranks)
+            return np.zeros(len(ranks), dtype=int)
+        raise NotImplementedError('Translate non-trivial ranks with serial comm')
 
     def get_c_object(self):
         raise NotImplementedError('Should not get C-object for serial comm')
@@ -562,10 +655,18 @@ class SerialCommunicator:
 
 serial_comm = SerialCommunicator()
 
-try:
+libmpi = os.environ.get('GPAW_MPI')
+if libmpi:
+    import ctypes
+    ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
     world = _gpaw.Communicator()
-except AttributeError:
-    world = serial_comm
+    if world.size == 1:
+        world = serial_comm
+else:
+    try:
+        world = _gpaw.Communicator()
+    except AttributeError:
+        world = serial_comm
 
 class DryRunCommunicator(SerialCommunicator):
     def __init__(self, size=1, parent=None):
@@ -609,129 +710,86 @@ def distribute_cpus(parsize_domain, parsize_bands,
     return p.build_communicators(domain=np.prod(parsize_domain),
                                  band=parsize_bands)
 
-def old_distribute_cpus(parsize_domain, parsize_bands,
-                        nspins, nibzkpts, comm=world,
-                        idiotproof=True, mode='fd'):
-    """Distribute k-points/spins to processors.
-
-    Construct communicators for parallelization over
-    k-points/spins and for parallelization using domain
-    decomposition."""
-
-    size = comm.size
-    rank = comm.rank
-
-    nsk = nspins * nibzkpts
-
-    if mode in ['fd', 'lcao']:
-        if parsize_bands is None:
-            parsize_bands = 1
-
-        if parsize_domain is not None:
-            if type(parsize_domain) is int:
-                ndomains = parsize_domain
-            else:
-                ndomains = (parsize_domain[0] *
-                            parsize_domain[1] *
-                            parsize_domain[2])
-            assert (size // parsize_bands) % ndomains == 0
-
-        else:
-            ntot = nsk * parsize_bands
-            ndomains = size // gcd(ntot, size)
-    else:
-        # Plane wave mode:
-        ndomains = 1
-        if parsize_bands is None:
-            parsize_bands = size // gcd(nsk, size)
-
-    assert size % parsize_bands == 0
-        
-    # How many spin/k-point combinations do we get per node:
-    nu, x = divmod(nsk, size // parsize_bands // ndomains)
-    assert x == 0 or nu >= 2 or not idiotproof, 'load imbalance!'
-
-    r0 = (rank // ndomains) * ndomains
-    ranks = np.arange(r0, r0 + ndomains)
-    domain_comm = comm.new_communicator(ranks)
-
-    r0 = rank % (ndomains * parsize_bands)
-    ranks = np.arange(r0, r0 + size, ndomains * parsize_bands)
-    kpt_comm = comm.new_communicator(ranks)
-
-    r0 = rank % ndomains + kpt_comm.rank * (ndomains * parsize_bands)
-    ranks = np.arange(r0, r0 + (ndomains * parsize_bands), ndomains)
-    band_comm = comm.new_communicator(ranks)
-
-    assert size == domain_comm.size * kpt_comm.size * band_comm.size
-
-    return domain_comm, kpt_comm, band_comm
-
-
-def compare_atoms(atoms, comm=world):
-    """Check whether atoms objects are identical on all processors."""
-    # Construct fingerprint:
-    # ASE may return slightly different atomic positions (e.g. due
-    # to MKL) so compare only first 8 decimals of positions
-    fingerprint = np.array([md5_array(array, numeric=True) for array in
-                             [atoms.positions.round(8),
-                              atoms.cell,
-                              atoms.pbc * 1.0,
-                              atoms.get_initial_magnetic_moments()]])
-    # Compare fingerprints:
-    fingerprints = np.empty((comm.size, 4), fingerprint.dtype)
-    comm.all_gather(fingerprint, fingerprints)
-    mismatches = fingerprints.ptp(0)
-
-    if debug:
-        dumpfile = 'compare_atoms'
-        for i in np.argwhere(mismatches).ravel():
-            itemname = ['positions', 'cell', 'pbc', 'magmoms'][i]
-            itemfps = fingerprints[:, i]
-            itemdata = [atoms.positions,
-                        atoms.cell,
-                        atoms.pbc * 1.0,
-                        atoms.get_initial_magnetic_moments()][i]
-            if comm.rank == 0:
-                print('DEBUG: compare_atoms failed for %s' % itemname)
-                itemfps.dump('%s_fps_%s.pickle' % (dumpfile, itemname))
-            itemdata.dump('%s_r%04d_%s.pickle' % (dumpfile, comm.rank, 
-                                                  itemname))
-
-    # Use only the atomic positions from rank 0
-    comm.broadcast(atoms.positions, 0)
-    return not mismatches.any()
 
 def broadcast(obj, root=0, comm=world):
     """Broadcast a Python object across an MPI communicator and return it."""
     if comm.rank == root:
         assert obj is not None
-        string = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
+        b = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
     else:
         assert obj is None
-        string = None
-    string = broadcast_string(string, root, comm)
+        b = None
+    b = broadcast_bytes(b, root, comm)
     if comm.rank == root:
         return obj
     else:
-        return pickle.loads(string)
+        return pickle.loads(b)
 
-def broadcast_string(string=None, root=0, comm=world):
-    """Broadcast a Python string across an MPI communicator and return it.
-    NB: Strings are immutable objects in Python, so the input is unchanged."""
-    if comm.rank == root:
-        assert isinstance(string, str)
-        n = np.array(len(string), int)
+
+def synchronize_atoms(atoms, comm, tolerance=1e-8):
+    """Synchronize atoms between multiple CPUs removing numerical noise.
+    
+    If the atoms differ significantly, raise ValueError on all ranks.
+    The error object contains the ranks where the check failed.
+
+    In debug mode, write atoms to files in case of failure."""
+
+    if len(atoms) == 0:
+        return
+    
+    if comm.rank == 0:
+        src = (atoms.positions, atoms.cell, atoms.numbers, atoms.pbc)
     else:
-        assert string is None
+        src = None
+
+    positions, cell, numbers, pbc = broadcast(src, root=0, comm=comm)
+    ok = (len(positions) == len(atoms.positions) and
+          (abs(positions - atoms.positions).max() <= tolerance) and
+          (numbers == atoms.numbers).all() and
+          (cell == atoms.cell).all() and
+          (pbc == atoms.pbc).all())
+
+    # We need to fail equally on all ranks to avoid trouble.  Thus
+    # we use an array to gather check results from everyone.
+    my_fail = np.array(not ok, dtype=bool)
+    all_fail = np.zeros(comm.size, dtype=bool)
+    comm.all_gather(my_fail, all_fail)
+
+    if all_fail.any():
+        if debug:
+            with open('synchronize_atoms_r%d.pckl' % comm.rank, 'wb') as fd:
+                pickle.dump((atoms.positions, atoms.cell,
+                             atoms.numbers, atoms.pbc,
+                             positions, cell, numbers, pbc), fd)
+        err_ranks = np.arange(comm.size)[all_fail]
+        raise ValueError('Mismatch of Atoms objects.  In debug '
+                         'mode, atoms will be dumped to files.',
+                         err_ranks)
+        
+    atoms.positions = positions
+
+        
+def broadcast_string(string=None, root=0, comm=world):
+    if comm.rank == root:
+        string = string.encode()
+    return broadcast_bytes(string, root, comm).decode()
+    
+    
+def broadcast_bytes(b=None, root=0, comm=world):
+    """Broadcast a bytes across an MPI communicator and return it."""
+    if comm.rank == root:
+        assert isinstance(b, bytes)
+        n = np.array(len(b), int)
+    else:
+        assert b is None
         n = np.zeros(1, int)
     comm.broadcast(n, root)
     if comm.rank == root:
-        string = np.fromstring(string, np.int8)
+        b = np.fromstring(b, np.int8)
     else:
-        string = np.zeros(n, np.int8)
-    comm.broadcast(string, root)
-    return string.tostring()
+        b = np.zeros(n, np.int8)
+    comm.broadcast(b, root)
+    return b.tostring()
 
 def send_string(string, rank, comm=world):
     comm.send(np.array(len(string)), rank)
@@ -742,7 +800,7 @@ def receive_string(rank, comm=world):
     comm.receive(n, rank)
     string = np.empty(n, np.int8)
     comm.receive(string, rank)
-    return string.tostring()
+    return string.tostring().decode()
 
 def alltoallv_string(send_dict, comm=world):
     scounts = np.zeros(comm.size, dtype=np.int)
@@ -763,7 +821,7 @@ def alltoallv_string(send_dict, comm=world):
     for proc in range(comm.size):
         rdispls[proc] = rtotal
         rtotal += rcounts[proc]
-        rtotal += rcounts[proc]
+        # rtotal += rcounts[proc]  # CHECK: is this correct?
 
 
     sbuffer = np.zeros(stotal, dtype=np.int8)
@@ -775,7 +833,8 @@ def alltoallv_string(send_dict, comm=world):
 
     rdict = {}
     for proc in range(comm.size):
-        rdict[proc] = rbuffer[rdispls[proc]:(rdispls[proc]+rcounts[proc])].tostring()
+        i = rdispls[proc]
+        rdict[proc] = rbuffer[i:i + rcounts[proc]].tostring().decode()
 
     return rdict
 
@@ -786,7 +845,10 @@ def ibarrier(timeout=None, root=0, tag=123, comm=world):
     requests = []
     byte = np.ones(1, dtype=np.int8)
     if comm.rank == root:
-        for rank in range(0,root) + range(root+1,comm.size): #everybody else
+        # Everybody else:
+        for rank in range(comm.size):
+            if rank == root:
+                continue
             rbuf, sbuf = np.empty_like(byte), byte.copy()
             requests.append(comm.send(sbuf, rank, tag=2 * tag + 0, 
                                       block=False))
@@ -819,7 +881,7 @@ def run(iterators):
 
     while True:
         try:
-            results = [iter.next() for iter in iterators]
+            results = [next(iter) for iter in iterators]
         except StopIteration:
             return results
 
@@ -849,7 +911,7 @@ class Parallelization:
                                ['k-point', 'domain', 'band']):
             if group is not None:
                 if self.size % group != 0:
-                    msg = ('Cannot paralllize as the '
+                    msg = ('Cannot parallelize as the '
                            'communicator size %d is not divisible by the '
                            'requested number %d of ranks for %s '
                            'parallelization' % (self.size, group, name))
@@ -963,7 +1025,6 @@ class Parallelization:
         ncpus = nspinkpts
         while ncpus > 0:
             if self.navail % ncpus == 0:
-                nkptsmin = nspinkpts // ncpus
                 nkptsmax = -(-nspinkpts // ncpus)
                 effort = nkptsmax * ncpus
                 efficiency = nspinkpts / float(effort)
@@ -987,6 +1048,35 @@ def cleanup():
             time.sleep(10)
             world.abort(42)
 
+
+def print_mpi_stack_trace(type, value, tb):
+    """Format exceptions nicely when running in parallel.
+
+    Use this function as an except hook.  Adds rank
+    and line number to each line of the exception.  Lines will
+    still be printed from different ranks in random order, but
+    one can grep for a rank or run 'sort' on the output to obtain
+    readable data."""
+    
+    exception_text = traceback.format_exception(type, value, tb)
+    ndigits = len(str(world.size - 1))
+    rankstring = ('%%0%dd' % ndigits) % world.rank
+    
+    lines = []
+    # The exception elements may contain newlines themselves
+    for element in exception_text:
+        lines.extend(element.splitlines())
+
+    line_ndigits = len(str(len(lines) - 1))
+
+    for lineno, line in enumerate(lines):
+        lineno = ('%%0%dd' % line_ndigits) % lineno
+        sys.stderr.write('rank=%s L%s: %s\n' % (rankstring, lineno, line))
+
+if world.size > 1:  # Triggers for dry-run communicators too, but we care not.
+    sys.excepthook = print_mpi_stack_trace
+
+            
 def exit(error='Manual exit'):
     # Note that exit must be called on *all* MPI tasks
     atexit._exithandlers = [] # not needed because we are intentially exiting

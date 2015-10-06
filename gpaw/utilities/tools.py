@@ -1,6 +1,9 @@
+import hashlib
+
 import numpy as np
 
 from ase.units import Hartree, Bohr
+
 
 def L_to_lm(L):
     """Convert L index to (l, m) index."""
@@ -26,11 +29,11 @@ def split_formula(formula):
         elif c.islower():
             res[-1] += c
         else:
-            res.extend([res[-1],] * (eval(c) - 1))
+            res.extend([res[-1]] * (eval(c) - 1))
     return res
 
 
-def construct_reciprocal(gd, q_c=None):
+def construct_reciprocal(gd, q_c=None, distributed=False):
     """Construct the reciprocal lattice from ``GridDescriptor`` instance.
 
     The generated reciprocal lattice has lattice vectors correspoding to the
@@ -40,7 +43,7 @@ def construct_reciprocal(gd, q_c=None):
     The ordering of the reciprocal lattice agrees with the one typically used
     in fft algorithms, i.e. positive k-values followed by negative.
 
-    Note that the G=(0,0,0) entrance is set to one instead of zero. This
+    Note that the G=(0,0,0) entry is set to one instead of zero. This
     bit should probably be moved somewhere else ...
     
     Parameters
@@ -52,17 +55,25 @@ def construct_reciprocal(gd, q_c=None):
         denotes the reciprocal lattice vectors.
     
     """
+    # TODO: always use distributed.  If someone wants to do this in serial,
+    # they can easily create their own serial grid descriptor.
     
     assert gd.pbc_c.all(), 'Works only with periodic boundary conditions!'
 
     # Check q_c
     if q_c is not None:
-        assert q_c.shape in [(3,), (3,1)]
-        q_c = q_c.reshape((3,1))
+        assert q_c.shape in [(3,), (3, 1)]
+        q_c = q_c.reshape((3, 1))
         
     # Calculate reciprocal lattice vectors
     N_c1 = gd.N_c[:, np.newaxis]
-    i_cq = np.indices(gd.N_c).reshape((3, -1))
+    if distributed:
+        shape = gd.n_c
+        i_cq = np.indices(gd.n_c).reshape((3, -1)) # offsets....
+        i_cq += gd.beg_c[:, None]
+    else:
+        shape = gd.N_c
+        i_cq = np.indices(gd.N_c).reshape((3, -1))
     i_cq += N_c1 // 2
     i_cq %= N_c1
     i_cq -= N_c1 // 2
@@ -76,24 +87,28 @@ def construct_reciprocal(gd, q_c=None):
     k_vq = np.dot(B_vc, i_cq)
 
     k_vq *= k_vq
-    k2_Q = k_vq.sum(axis=0).reshape(gd.N_c)
+    k2_Q = k_vq.sum(axis=0).reshape(shape)
 
-    if q_c is None:
-        k2_Q[0, 0, 0] = 1.0
-    elif abs(q_c).sum() < 1e-8:
-        k2_Q[0, 0, 0] = 1.0
-        
+    if gd.comm.rank == 0 or not distributed:
+        if q_c is None:
+            k2_Q[0, 0, 0] = 1.0
+        elif abs(q_c).sum() < 1e-8:
+            k2_Q[0, 0, 0] = 1.0
+
     # Determine N^3
+    #
+    # Why do we need to calculate and return this?  The caller already
+    # has access to gd and thus knows how many points there are.
     N3 = gd.n_c[0] * gd.n_c[1] * gd.n_c[2]
-
     return k2_Q, N3
 
+    
 def coordinates(gd, origin=None, tiny=1e-12):
     """Constructs and returns matrices containing cartesian coordinates,
        and the square of the distance from the origin.
 
-       The origin can be given explicitely (in Bohr units, not Anstroms). 
-       Otherwise the origin is placed in the center of the box described 
+       The origin can be given explicitely (in Bohr units, not Anstroms).
+       Otherwise the origin is placed in the center of the box described
        by the given grid-descriptor 'gd'.
     """
     
@@ -109,6 +124,7 @@ def coordinates(gd, origin=None, tiny=1e-12):
     # Return r^2 matrix
     return r_vG, r2_G
 
+    
 def pick(a_ix, i):
     """Take integer index of a, or a linear combination of the elements of a"""
     if isinstance(i, int):
@@ -214,7 +230,6 @@ def tri2full(H_nn, UL='L', map=np.conj):
     """
     N, tmp = H_nn.shape
     assert N == tmp, 'Matrix must be square'
-    #assert np.isreal(H_nn.diagonal()).all(), 'Diagonal should be real'
     if UL != 'L':
         H_nn = H_nn.T
 
@@ -230,7 +245,8 @@ def apply_subspace_mask(H_nn, f_n):
     """
     occ = 0
     nbands = len(f_n)
-    while occ < nbands and f_n[occ] > 1e-3: occ += 1
+    while occ < nbands and f_n[occ] > 1e-3:
+        occ += 1
     H_nn[occ:, :occ] = H_nn[:occ, occ:] = 0
 
 
@@ -262,9 +278,9 @@ def tridiag(a, b, c, r, u):
     [          ... 0 an-1 bn  ] [un]   [rn]
     """
     n = len(b)
-    tmp = np.zeros(n-1) # necessary temporary array
+    tmp = np.zeros(n - 1)  # necessary temporary array
     if b[0] == 0:
-        raise RuntimeError, 'System is effectively order N-1'
+        raise RuntimeError('System is effectively order N-1')
 
     beta = b[0]
     u[0] = r[0] / beta
@@ -273,7 +289,7 @@ def tridiag(a, b, c, r, u):
         tmp[i-1] = c[i-1] / beta
         beta = b[i] - a[i-1] * tmp[i-1]
         if beta == 0:
-            raise RuntimeError, 'Method failure'
+            raise RuntimeError('Method failure')
         u[i] = (r[i] - a[i-1] * u[i-1]) / beta
 
     for i in range(n-1, 0, -1):
@@ -305,14 +321,6 @@ def signtrim(data, decimals=None):
     return data.reshape(shape)
 
 
-try:
-    from hashlib import md5 as md5_new
-    import hashlib as md5
-except ImportError:
-    from md5 import new as md5_new
-    import md5
-
-
 def md5_array(data, numeric=False):
     """Create MD5 hex digest from NumPy array.
 
@@ -341,7 +349,7 @@ def md5_array(data, numeric=False):
         data.dtype not in [bool, np.bool, np.bool_]):
         raise TypeError('MD5 hex digest only accepts numeric/boolean arrays.')
 
-    datahash = md5.md5(data.tostring())
+    datahash = hashlib.md5(data.tostring())
 
     if numeric:
         xor = lambda a,b: chr(ord(a)^ord(b)) # bitwise xor on 2 bytes -> 1 byte

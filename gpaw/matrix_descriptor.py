@@ -12,9 +12,11 @@ class MatrixDescriptor:
     def __init__(self, M, N):
         self.shape = (M, N)
     
-    def __nonzero__(self):
+    def __bool__(self):
         return self.shape[0] != 0 and self.shape[1] != 0
 
+    __nonzero__ = __bool__  # for Python 2
+    
     def zeros(self, n=(), dtype=float):
         """Return array of zeroes with the correct size on all CPUs.
 
@@ -125,7 +127,7 @@ class BandMatrixDescriptor(MatrixDescriptor):
         """
         N = self.bd.mynbands
         B = self.bd.comm.size
-        assert band_rank in xrange(B)
+        assert band_rank in range(B)
 
         if B == 1:
             # Only fill in the lower part
@@ -134,7 +136,7 @@ class BandMatrixDescriptor(MatrixDescriptor):
             return
 
         # A_qnn[q2,myn1,myn2] on rank q1 is the q2'th overlap calculated
-        # between <psi_n1| and A|psit_n2> where n1 <-> (q1,myn1) and 
+        # between <psi_n1| and A|psit_n2> where n1 <-> (q1,myn1) and
         # n2 <-> ((q1+q2)%B,myn2) since we've sent/recieved q2 times.
         q1 = band_rank
         Q = B // 2 + 1
@@ -159,7 +161,7 @@ class BandMatrixDescriptor(MatrixDescriptor):
                 mask[:] = np.tri(N, N, dq//B)
                 if debug:
                     m1,m2 = np.indices((N,N))
-                    assert dq in xrange(-B+1,Q)
+                    assert dq in range(-B+1,Q)
                     assert (mask == (m1 >= m2 - dq//B)).all()
 
                 # Copy lower part of A_qnn[q2] to its rightfull place
@@ -210,14 +212,14 @@ class BandMatrixDescriptor(MatrixDescriptor):
         """
         N = self.bd.mynbands
         B = self.bd.comm.size
-        assert band_rank in xrange(B)
+        assert band_rank in range(B)
 
         if B == 1:
             A_NN[:] = A_qnn.reshape((N,N))
             return
 
         # A_qnn[q2,myn1,myn2] on rank q1 is the q2'th overlap calculated
-        # between <psi_n1| and A|psit_n2> where n1 <-> (q1,myn1) and 
+        # between <psi_n1| and A|psit_n2> where n1 <-> (q1,myn1) and
         # n2 <-> ((q1+q2)%B,myn2) since we've sent/recieved q2 times.
         q1 = band_rank
         Q = B
@@ -346,7 +348,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
         """
         N = self.bd.mynbands
         B = self.bd.comm.size
-        assert band_rank in xrange(B)
+        assert band_rank in range(B)
 
         if B == 1:
             # Only fill in the lower part
@@ -355,7 +357,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
             return
 
         # A_qnn[q2,myn1,myn2] on rank q1 is the q2'th overlap calculated
-        # between <psi_n1| and A|psit_n2> where n1 <-> (q1,myn1) and 
+        # between <psi_n1| and A|psit_n2> where n1 <-> (q1,myn1) and
         # n2 <-> ((q1+q2)%B,myn2) since we've sent/recieved q2 times.
         q1 = band_rank
         Q = B // 2 + 1
@@ -383,7 +385,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
                 mask[:] = np.tri(N, N, dq//B)
                 if debug:
                     m1,m2 = np.indices((N,N))
-                    assert dq in xrange(-B+1,Q)
+                    assert dq in range(-B+1,Q)
                     assert (mask == (m1 >= m2 - dq//B)).all()
 
                 # Copy lower part of A_qnn[q2] to its rightfull place
@@ -411,7 +413,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
                 if q1 + q2 < B:
                     A_bnn[q1 + q2] = A_qnn[q2]
 
-            reqs = []                
+            reqs = []
             if q1 < Q-1: # receive from ranks >= Q
                 if debug:
                     Q2 = np.arange(Q,B-q1)
@@ -454,7 +456,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
         """
         N = self.bd.mynbands
         B = self.bd.comm.size
-        assert band_rank in xrange(B)
+        assert band_rank in range(B)
 
         if B == 1:
             A_Nn[:] = A_qnn.reshape((N,N))

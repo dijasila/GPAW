@@ -16,9 +16,9 @@ atoms = Atoms('Na2', [atom_center + [0.0, 0.0, -1.50],
                       atom_center + [0.0, 0.0, +1.50]]);
 
 # Permittivity file
-if world.rank==0:
-    fo = open("ed.txt", "wb")
-    fo.writelines(["1.20 0.20 25.0"])
+if world.rank == 0:
+    fo = open('ed.txt', 'w')
+    fo.writelines(['1.20 0.20 25.0'])
     fo.close()
 world.barrier()
 

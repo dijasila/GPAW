@@ -37,21 +37,27 @@ def T(w, x, y, z):
     return 0.5 * ((1.0 / (w + x) + 1.0 / (y + z)) * 
                   (1.0 / ((w + y) * (x + z)) + 1.0 / ((w + z) * (y + x)))) 
 
-def W(a, b): 
-    return 2 * ((3 - a**2) * b * cos(b) * sin(a) + 
-                (3 - b**2) * a * cos(a) * sin(b) + 
-                (a**2 + b**2 - 3) * sin(a) * sin(b) - 
-                3 * a * b * cos(a) * cos(b)) / (a * b)**3 
-eta = 8 * pi / 9 
-def nu(y, d): 
+    
+def W(a, b):
+    return 2 * ((3 - a**2) * b * cos(b) * sin(a) +
+                (3 - b**2) * a * cos(a) * sin(b) +
+                (a**2 + b**2 - 3) * sin(a) * sin(b) -
+                3 * a * b * cos(a) * cos(b)) / (a * b)**3
+
+eta = 8 * pi / 9
+
+
+def nu(y, d):
     return 0.5 * y**2 / (1 - exp(-0.5 * eta * (y / d)**2))
 
-def f(a, b, d, dp): 
-    va = nu(a, d) 
-    vb = nu(b, d) 
-    vpa = nu(a, dp) 
-    vpb = nu(b, dp) 
+    
+def f(a, b, d, dp):
+    va = nu(a, d)
+    vb = nu(b, d)
+    vpa = nu(a, dp)
+    vpb = nu(b, dp)
     return 2 * (a * b)**2 * W(a, b) * T(va, vb, vpa, vpb) / pi**2
+
 
 def phi(d, dp):
     """vdW-DF kernel."""
@@ -61,12 +67,16 @@ def phi(d, dp):
     return quad(lambda y: quad(f, 0, cut, (y, d, dp), **kwargs)[0],
                 0, cut, **kwargs)[0]
 
+
 C = 12 * (4 * pi / 9)**3
+
+
 def phi_asymptotic(d, dp):
     """Asymptotic behavior of vdW-DF kernel."""
     d2 = d**2
     dp2 = dp**2
     return -C / (d2 * dp2 * (d2 + dp2)) 
+
 
 def hRPS(x, xc=1.0):
     """Cutoff function from Román-Péres-Soler paper."""
@@ -267,27 +277,30 @@ class VDWFunctional(GGA):
         return Ecnl
 
     def read_table(self):
-        name = ('phi-%.3f-%.3f-%.3f-%d-%d.pckl' %
+        name = ('phi-%.3f-%.3f-%.3f-%d-%d.txt' %
                 (self.phi0, self.ds, self.D_j[-1],
                  len(self.delta_i), len(self.D_j)))
-        
-        if 'GPAW_VDW' in os.environ:
-            print('Use of GPAW_VDW is deprecated.')
-            print('Put', name, 'in your GPAW_SETUP_PATH directory.')
-            dirs = [os.environ['GPAW_VDW']]
-        else:
-            dirs = setup_paths + ['.']
+        dirs = setup_paths + ['.']
 
         for dir in dirs:
             filename = os.path.join(dir, name)
             if os.path.isfile(filename):
-                self.phi_ij = pickle.load(open(filename))
-                if self.verbose:
-                    print('VDW: using', filename)
+                self.phi_ij = np.loadtxt(filename)
+                break
+        else:
+            oldname = name[:-3] + 'pckl'
+            for dir in dirs:
+                filename = os.path.join(dir, oldname)
+                if os.path.isfile(filename):
+                    self.phi_ij = pickle.load(open(filename))
+                    break
+            else:
+                print('VDW: Could not find table file:', name)
+                self.make_table(name)
                 return
-            
-        print('VDW: Could not find table file:', name)
-        self.make_table(name)
+                
+        if self.verbose:
+            print('VDW: using', filename)
             
     def make_table(self, name):
         print('VDW: Generating vdW-DF kernel ...')
@@ -319,7 +332,8 @@ class VDWFunctional(GGA):
         print()
         print('VDW: Done!')
         if self.world.rank == 0:
-            pickle.dump(self.phi_ij, open(name, 'w'), pickle.HIGHEST_PROTOCOL)
+            with open(name, 'w') as f:
+                np.savetxt(f, self.phi_ij)
 
     def make_prl_plot(self, multiply_by_4_pi_D_squared=True):
         import pylab as plt

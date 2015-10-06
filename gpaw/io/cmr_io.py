@@ -8,7 +8,7 @@ import xml.sax
 import numpy as np
 
 import ase
-from ase.version import version as ase_version
+from ase import __version__ as ase_version
 import gpaw
 from gpaw.version import version_base as gpaw_version
 
@@ -30,7 +30,7 @@ try:
     def create_db_filename(param, ext=".db"):
         return cdbfn(param, ext=ext)
     
-except:    
+except:
     #old style cmr io
     import cmr
     from cmr import create_db_filename as cdbfn
@@ -185,14 +185,14 @@ class Writer:
         if self.verbose:
             print("close()")
         self._close_array()
-        if self.cmr_params.has_key("ase_atoms_var"):
+        if "ase_atoms_var" in self.cmr_params:
             ase_vars = self.cmr_params["ase_atoms_var"]
             for key in ase_vars:
                 self.data.set_user_variable(key, ase_vars[key])
             self.cmr_params.pop("ase_atoms_var")
         if self.filename==".db" or self.filename==".cmr":
-            # Note: 
-            #      .cmr files can currently not be uploaded to the database therefore 
+            # Note:
+            #      .cmr files can currently not be uploaded to the database therefore
             #      it defaults to .db until supported
             self.cmr_params["output"]=create_db_filename(self.data, ext=".db")
         else:
@@ -219,13 +219,13 @@ class Reader:
         return self.reader[name]
     
     def __getitem__(self, name):
-        if name=='version' and not self.reader.has_key('version') \
-            and self.reader.has_key('db_calculator_version'):
+        if name=='version' and 'version' not in self.reader \
+            and 'db_calculator_version' in self.reader:
                 return self.reader['db_calculator_version']
         return self.reader[name]
 
     def has_array(self, name):
-        return self.reader.has_key(name)
+        return name in self.reader
     
     def get(self, name, *indices, **kwargs):
         if self.verbose:
@@ -237,7 +237,7 @@ class Reader:
             return result
         
         #gpaw wants expressions evaluated
-        if type(result)==str or type(result)==unicode:
+        if isinstance(result, str) or isinstance(result, unicode):
             try:
                 if self.verbose:
                     print("Converting ", result)

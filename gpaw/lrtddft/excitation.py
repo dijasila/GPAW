@@ -58,15 +58,17 @@ class ExcitationList(list):
     def set_calculator(self, calculator):
         self.calculator = calculator
 
-    def __div__(self, x):
+    def __truediv__(self, x):
         return self.__mul__(1. / x)
 
+    __div__ = __truediv__
+    
     def __rmul__(self, x):
         return self.__mul__(x)
 
     def __mul__(self, x):
         """Multiply with a number"""
-        if type(x) == type(0.) or type(x) == type(0):
+        if isinstance(x, (float, int)):
             result = self.__class__()
             result.dtype = self.dtype
             for kss in self:

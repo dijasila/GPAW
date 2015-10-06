@@ -1,9 +1,9 @@
-#This module is used to store and read some temperary data.
-import cPickle
+"""This module is used to store and read some temperary data."""
+import pickle
 import os
 from gpaw.mpi import world
 from gpaw.transport.tools import collect_atomic_matrices, gather_ndarray_dict
-import numpy as np
+
 
 class Transport_IO:
     def __init__(self, kpt_comm, domain_comm):
@@ -32,14 +32,14 @@ class Transport_IO:
         if option == 'Lead':
             if filename is None:
                 filename = self.filenames[option]
-            fd = file(self.dir_name + '/' + filename, 'r')
-            data = cPickle.load(fd)
+            fd = open(self.dir_name + '/' + filename, 'rb')
+            data = pickle.load(fd)
             fd.close()
         elif option == 'Analysis':
             name = 'KC_' + str(self.kpt_comm.rank) + '_DC_' + \
                 str(self.domain_comm.rank) +'AD'
-            fd = file(self.dir_name + '/' + self.filenames[name] + '_bias_' + str(bias_step), 'r')
-            data = cPickle.load(fd)
+            fd = open(self.dir_name + '/' + self.filenames[name] + '_bias_' + str(bias_step), 'rb')
+            data = pickle.load(fd)
             fd.close()
         else:
             raise NotImplementError
@@ -54,14 +54,14 @@ class Transport_IO:
             if world.rank == 0:
                 if filename is None:
                     filename = self.filenames[option]
-                fd = file(self.dir_name + '/' + filename, 'wb')
-                cPickle.dump(data, fd, 2)
+                fd = open(self.dir_name + '/' + filename, 'wb')
+                pickle.dump(data, fd, 2)
                 fd.close()
         elif option == 'Analysis':
             name = 'KC_' + str(self.kpt_comm.rank) + '_DC_' + \
                 str(self.domain_comm.rank) +'AD'
-            fd = file(self.dir_name + '/' + self.filenames[name] + '_bias_' + str(bias_step), 'wb')
-            cPickle.dump(data, fd, 2)
+            fd = open(self.dir_name + '/' + self.filenames[name] + '_bias_' + str(bias_step), 'wb')
+            pickle.dump(data, fd, 2)
             fd.close()
         else:
             raise NotImplementError()
@@ -110,10 +110,10 @@ class Transport_IO:
 
         D_asp = collect_atomic_matrices(den.D_asp, den.setups,
                                         den.nspins, den.gd.comm,
-                                        den.rank_a)
+                                        den.atom_partition)
         dH_asp = collect_atomic_matrices(ham.dH_asp, ham.setups,
                                          ham.nspins, ham.gd.comm,
-                                         ham.rank_a)
+                                         ham.atom_partition)
         data['D_asp'] = D_asp
         data['dH_asp'] = dH_asp
         return data
@@ -121,7 +121,7 @@ class Transport_IO:
     def collect_analysis_data(self, obj):
         return obj.data
         
-    def arrange_analysis_data(self, n_bias_step, n_ion_step, analysis_mode):           
+    def arrange_analysis_data(self, n_bias_step, n_ion_step, analysis_mode):
         data = self.read_data(bias_step=n_bias_step, option='Analysis')
         parsize = data['domain_parsize']
         parpos = data['domain_parpos']
@@ -170,9 +170,9 @@ class Transport_IO:
                 filename = '/abias_step_' + str(n_bias_step)
             else:
                 filename = '/bias_step_' + str(n_bias_step)
-            fd = file('analysis_data/ionic_step_' + str(n_ion_step)
+            fd = open('analysis_data/ionic_step_' + str(n_ion_step)
                       + filename, 'wb')
-            cPickle.dump(global_data, fd, 2)
+            pickle.dump(global_data, fd, 2)
             fd.close()
             for root, dirs, files in os.walk('temperary_data'):
                 for name in files:

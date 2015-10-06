@@ -59,8 +59,8 @@ else:
 if unittest_version < (1,56):
     _TestCase = TestCase
     class TestCase(_TestCase):
-        assertTrue = _TestCase.failUnless
-        assertFalse = _TestCase.failIf
+        assertTrue = _TestCase.assertTrue
+        assertFalse = _TestCase.assertFalse
 
 # -------------------------------------------------------------------
 # Test framework core
@@ -300,7 +300,7 @@ class ParallelTextTestRunner(TextTestRunner):
         self.comm = comm
         if self.comm.rank != 0:
             stream = devnull
-        elif type(stream) is str:
+        elif isinstance(stream, str):
             self.logfile = stream
             stream = open(self.logfile, 'w', buffering=0)
         TextTestRunner.__init__(self, stream=stream, **kwargs)

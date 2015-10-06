@@ -14,6 +14,7 @@ atoms = bulk('Si', 'diamond', a=a)
 
 calc = GPAW(mode='pw',
             kpts={'density': 5.0, 'gamma': True},
+            parallel={'band': 1},
             xc='LDA',
             occupations=FermiDirac(0.001))  # Use small FD smearing
 

@@ -31,7 +31,7 @@ else:
     
 for name in names:
     namespace = {}
-    execfile(name, namespace)
+    exec(open(name).read(), namespace)
     atoms = namespace['atoms']
     ncpus = namespace.get('ncpus', 8)
     

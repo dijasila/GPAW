@@ -91,8 +91,8 @@ class BASECHI:
         self.G_plus_q = G_plus_q
         self.rpad = rpad
         self.optical_limit = optical_limit
-        if self.optical_limit:
-            self.qopt = 1e-5
+        #if self.optical_limit:
+        self.qopt = 1e-5
         self.eshift = eshift
 
     def initialize(self):
@@ -214,7 +214,7 @@ class BASECHI:
         elif self.txtname == devnull:
             self.txt = devnull
         else:
-            assert type(self.txtname) is str
+            assert isinstance(self.txtname, str)
             from ase.parallel import paropen
             self.txt = paropen(self.txtname,'w')
 

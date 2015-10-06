@@ -41,6 +41,8 @@ encountering convergence problems:
 
        from gpaw.eigensolvers import RMM_DIIS
 
+   CG eigensolver tends converge fastest the unoccupied bands ``eigensolver='cg'``.
+
 4) Use a smoother distribution function for the occupation numbers.
 
    Remember that for systems without periodic boundary conditions

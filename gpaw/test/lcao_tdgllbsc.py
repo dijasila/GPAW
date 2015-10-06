@@ -1,16 +1,14 @@
 from ase import Atoms
-from gpaw import GPAW, FermiDirac, Mixer, restart
+from gpaw import GPAW, FermiDirac, Mixer
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.mpi import world
-from gpaw.svnversion import svnversion
+from gpaw.version import version
 from gpaw.tddft import TDDFT as GRIDTDDFT
 from gpaw.test import equal
-import numpy as np
-import sys
 
 ref_values = [[-0.0153712, -0.0153712, -0.0153712],
               [ 0.0037263,  0.0037263,  0.0037263],
-              [ 0.0118144,  0.0118144,  0.0118144], 
+              [ 0.0118144,  0.0118144,  0.0118144],
               [-0.0902301, -0.0902301, -0.0902301],
               [-0.0835503, -0.0835503, -0.08355028]]
 calcs = []
@@ -26,7 +24,7 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
         if xc=='PBE' and mode=='fd': # There are other checks for this combination
             continue
 
-        tag = 'np%i_rev%s_%s_%s+%s' % (world.size, svnversion, mode, xc, fxc)
+        tag = 'np%i_ver%s_%s_%s+%s' % (world.size, version, mode, xc, fxc)
 
         # silane
         atoms = Atoms('SiH4',[( 0.0000,  0.0000,  0.0000),
@@ -72,10 +70,10 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
         if xc==fxc: # TODO: restart when linearize_to_xc was applied
             calcs.append(TDDFT('td.gpw'))
 
-        if mode=='fd':
-            calcs[-1].absorption_kick([0.01, 0.01, 0.01])
-        else:
-            calcs[-1].kick(strength=[0.01, 0.01, 0.01])
+        calcs[-1].absorption_kick([0.01, 0.01, 0.01])
         calcs[-1].propagate(10.0, 30, 'dm.%s.dat' % tag)
 
-        equal(calcs[-1].density.finegd.calculate_dipole_moment(calcs[-1].density.rhot_g), ref_values.pop(0), 1.0e-5, msg="Failed with %s/%s+%s: " % (mode, xc, fxc))
+        dens = calcs[-1].density
+        equal(dens.finegd.calculate_dipole_moment(dens.rhot_g),
+              ref_values.pop(0), 1.0e-5,
+              msg="Failed with %s/%s+%s: " % (mode, xc, fxc))

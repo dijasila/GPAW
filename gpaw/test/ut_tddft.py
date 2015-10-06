@@ -13,7 +13,7 @@ from ase import Atoms
 from ase.structure import molecule
 from ase.parallel import paropen
 from ase.units import Bohr, Hartree
-from ase.io.trajectory import PickleTrajectory
+from ase.io import Trajectory
 from ase.calculators.singlepoint import SinglePointCalculator
 from gpaw import GPAW, debug
 from gpaw.mpi import world
@@ -22,7 +22,7 @@ from gpaw.tddft.units import attosec_to_autime
 
 # -------------------------------------------------------------------
 
-from gpaw.test.ut_common import ase_svnversion, shapeopt, TestCase, \
+from gpaw.test.ut_common import shapeopt, TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
     initialTestLoader, create_random_atoms, create_parsize_maxbands
 
@@ -124,7 +124,7 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
         niter = int(self.duration / timestep)
         ndiv = 1 #XXX
 
-        traj = PickleTrajectory('%s_%d.traj' % (self.tdname, t),
+        traj = Trajectory('%s_%d.traj' % (self.tdname, t),
                                 'w', self.tdcalc.get_atoms())
 
         t0 = time.time()
@@ -214,9 +214,6 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
             #    '%5.2f as, dpsit=%g, digits: %d' % (t, timestep, dpsit, spsit))
         f.close()
 
-# -------------------------------------------------------------------
-
-import new
 
 def UTStaticPropagatorFactory(timesteps, propagator):
     sep = '_'
@@ -228,7 +225,7 @@ def UTStaticPropagatorFactory(timesteps, propagator):
         propagator = propagator
     for t,timestep in enumerate(timesteps):
         func = lambda _self, _t=t: _self._test_timestepping(_t)
-        method = new.instancemethod(func, None, MetaPrototype)
+        method = func#new.instancemethod(func, None, MetaPrototype)
         method_name = 'test_timestepping_%02.0fas' % timestep
         setattr(MetaPrototype, method_name, method)
     MetaPrototype.__name__ = classname
@@ -249,7 +246,7 @@ if __name__ in ['__main__', '__builtin__']:
     for test in [UTGroundStateSetup]:
         info = ['', test.__name__, test.__doc__.strip('\n'), '']
         testsuite = initialTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         assert testresult.wasSuccessful(), 'Initial verification failed!'
         parinfo.extend(['    Parallelization options: %s' % tci._parinfo for \
@@ -267,7 +264,7 @@ if __name__ in ['__main__', '__builtin__']:
     for test in testcases:
         info = ['', test.__name__, test.__doc__.strip('\n')] + parinfo + ['']
         testsuite = defaultTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         # Provide feedback on failed tests if imported by test.py
         if __name__ == '__builtin__' and not testresult.wasSuccessful():

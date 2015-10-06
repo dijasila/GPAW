@@ -8,7 +8,9 @@ Currently two different approaches are available:
    :maxdepth: 2
 
    timepropagation
+   lcaotddft
    linear_response
+   linear_response2
    dielectric_response
    inducedfield/inducedfield
 

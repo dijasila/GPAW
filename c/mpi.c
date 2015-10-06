@@ -6,6 +6,7 @@
 #include <Python.h>
 
 #ifdef PARALLEL
+
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
@@ -138,8 +139,7 @@ static PyMethodDef mpi_request_methods[] = {
 };
 
 PyTypeObject GPAW_MPI_Request_type = {
-    PyObject_HEAD_INIT(NULL)
-    0,                         /*ob_size*/
+    PyVarObject_HEAD_INIT(NULL, 0)
     "MPI_Request",             /*tp_name*/
     sizeof(GPAW_MPI_Request),             /*tp_basicsize*/
     0,                         /*tp_itemsize*/
@@ -179,7 +179,7 @@ PyTypeObject GPAW_MPI_Request_type = {
     0,                 /* tp_new */
 };
 
-static GPAW_MPI_Request *NewMPIRequest()
+static GPAW_MPI_Request *NewMPIRequest(void)
 {
   GPAW_MPI_Request *self;
 
@@ -194,11 +194,15 @@ static GPAW_MPI_Request *NewMPIRequest()
 
 static void mpi_dealloc(MPIObject *obj)
 {
-  if (obj->comm != MPI_COMM_WORLD)
-    MPI_Comm_free(&(obj->comm));
-  Py_XDECREF(obj->parent);
-  free(obj->members);
-  PyObject_DEL(obj);
+    if (obj->comm == MPI_COMM_WORLD) {
+#       ifndef GPAW_INTERPRETER
+            MPI_Finalize();
+#       endif
+    } else
+        MPI_Comm_free(&(obj->comm));
+    Py_XDECREF(obj->parent);
+    free(obj->members);
+    PyObject_DEL(obj);
 }
 
 static PyObject * mpi_sendreceive(MPIObject *self, PyObject *args,
@@ -226,12 +230,12 @@ static PyObject * mpi_sendreceive(MPIObject *self, PyObject *args,
     for (int d = 0; d < PyArray_NDIM(b); d++)
         nrecv *= PyArray_DIM(b,d);
 #ifndef GPAW_MPI_DEBUG
-    MPI_Sendrecv(PyArray_BYTES(a), nsend, MPI_BYTE, dest, sendtag, 
-                 PyArray_BYTES(b), nrecv, MPI_BYTE, src, recvtag, 
+    MPI_Sendrecv(PyArray_BYTES(a), nsend, MPI_BYTE, dest, sendtag,
+                 PyArray_BYTES(b), nrecv, MPI_BYTE, src, recvtag,
                  self->comm, MPI_STATUS_IGNORE);
 #else
-    int ret = MPI_Sendrecv(PyArray_BYTES(a), nsend, MPI_BYTE, dest, sendtag, 
-                           PyArray_BYTES(b), nrecv, MPI_BYTE, src, recvtag, 
+    int ret = MPI_Sendrecv(PyArray_BYTES(a), nsend, MPI_BYTE, dest, sendtag,
+                           PyArray_BYTES(b), nrecv, MPI_BYTE, src, recvtag,
                            self->comm, MPI_STATUS_IGNORE);
     if (ret != MPI_SUCCESS) {
         PyErr_SetString(PyExc_RuntimeError, "MPI_Sendrecv error occured.");
@@ -405,7 +409,7 @@ static PyObject * mpi_testall(MPIObject *self, PyObject *requests)
       PyErr_SetString(PyExc_TypeError, "mpi.testall: argument must be a sequence");
       return NULL;
     }
-  // Extract the request objects 
+  // Extract the request objects
   n = PySequence_Size(requests);
   assert(n >= 0);  // This cannot fail.
   rqs = GPAW_MALLOC(MPI_Request, n);
@@ -415,7 +419,7 @@ static PyObject * mpi_testall(MPIObject *self, PyObject *requests)
       PyObject *o = PySequence_GetItem(requests, i);
       if (o == NULL)
         return NULL;
-      if (o->ob_type != &GPAW_MPI_Request_type)
+      if (Py_TYPE(o) != &GPAW_MPI_Request_type)
         {
           Py_DECREF(o);
           free(rqs);
@@ -478,7 +482,7 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
       PyErr_SetString(PyExc_TypeError, "mpi.waitall: argument must be a sequence");
       return NULL;
     }
-  // Extract the request objects 
+  // Extract the request objects
   n = PySequence_Size(requests);
   assert(n >= 0);  // This cannot fail.
   rqs = GPAW_MALLOC(MPI_Request, n);
@@ -487,7 +491,7 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
       PyObject *o = PySequence_GetItem(requests, i);
       if (o == NULL)
         return NULL;
-      if (o->ob_type != &GPAW_MPI_Request_type)
+      if (Py_TYPE(o) != &GPAW_MPI_Request_type)
         {
           Py_DECREF(o);
           free(rqs);
@@ -582,6 +586,12 @@ static MPI_Datatype get_mpi_datatype(PyArrayObject *a)
   return 0;
 }
 
+#if PY_MAJOR_VERSION >= 3
+    #define PyInt_FromLong PyLong_FromLong
+    #define PyInt_Check PyLong_Check
+    #define PyInt_AS_LONG PyLong_AS_LONG
+#endif
+
 static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
                              MPI_Op operation, int allowcomplex)
 {
@@ -633,7 +643,7 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
       PyErr_SetString(PyExc_ValueError,
                       "Operation not allowed on complex numbers");
       return NULL;
-    }   
+    }
   else   // It should be an array
     {
       int n;
@@ -681,21 +691,21 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
           char* b = 0;
           if (rank == root)
             {
-#ifdef GPAW_MPI2 
-              MPI_Reduce(MPI_IN_PLACE, PyArray_BYTES(aobj), n, 
+#ifdef GPAW_MPI2
+              MPI_Reduce(MPI_IN_PLACE, PyArray_BYTES(aobj), n,
                          datatype, operation, root, self->comm);
 #else
               b = GPAW_MALLOC(char, n * elemsize);
-              MPI_Reduce(PyArray_BYTES(aobj), b, n, datatype, 
+              MPI_Reduce(PyArray_BYTES(aobj), b, n, datatype,
                          operation, root, self->comm);
               assert(PyArray_NBYTES(aobj) == n * elemsize);
               memcpy(PyArray_BYTES(aobj), b, n * elemsize);
-              free(b);               
+              free(b);
 #endif
             }
           else
             {
-              MPI_Reduce(PyArray_BYTES(aobj), b, n, datatype, 
+              MPI_Reduce(PyArray_BYTES(aobj), b, n, datatype,
                          operation, root, self->comm);
             }
         }
@@ -712,7 +722,7 @@ static PyObject * mpi_product(MPIObject *self, PyObject *args, PyObject *kwargs)
 {
   // No complex numbers as that would give separate products of
   // real and imaginary parts.
-  return mpi_reduce(self, args, kwargs,  MPI_PROD, 0); 
+  return mpi_reduce(self, args, kwargs,  MPI_PROD, 0);
 }
 
 static PyObject * mpi_max(MPIObject *self, PyObject *args, PyObject *kwargs)
@@ -762,7 +772,7 @@ static PyObject * mpi_allgather(MPIObject *self, PyObject *args)
   int n = PyArray_DESCR(a)->elsize;
   for (int d = 0; d < PyArray_NDIM(a); d++)
     n *= PyArray_DIM(a,d);
-  // What about endianness???? 
+  // What about endianness????
   MPI_Allgather(PyArray_BYTES(a), n, MPI_BYTE, PyArray_BYTES(b), n,
                 MPI_BYTE, self->comm);
   Py_RETURN_NONE;
@@ -785,7 +795,7 @@ static PyObject * mpi_gather(MPIObject *self, PyObject *args)
   else if ((PyObject*)b != Py_None && b != NULL)
     {
       fprintf(stderr, "******** Root=%d\n", root);
-      PyErr_SetString(PyExc_ValueError,  
+      PyErr_SetString(PyExc_ValueError,
                       "mpi_gather: b array should not be given on non-root processors.");
       return NULL;
     }
@@ -817,6 +827,70 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+static PyObject *mpi_compare(MPIObject *self, PyObject *args)
+{
+  MPIObject* other;
+  int result;
+  char* pyresult;
+  if (!PyArg_ParseTuple(args, "O", &other))
+    return NULL;
+  
+  MPI_Comm_compare(self->comm, other->comm, &result);
+  if(result == MPI_IDENT) pyresult = "ident";
+  else if (result == MPI_CONGRUENT) pyresult = "congruent";
+  else if (result == MPI_SIMILAR) pyresult = "similar";
+  else if (result == MPI_UNEQUAL) pyresult = "unequal";
+  else return NULL;
+  return Py_BuildValue("s", pyresult);
+}
+
+static PyObject *mpi_translate_ranks(MPIObject *self, PyObject *args)
+{
+  PyObject* myranks_anytype; // Conversion to numpy array below
+  MPIObject* other;
+  
+  if (!PyArg_ParseTuple(args, "OO", &other, &myranks_anytype))
+    return NULL;
+
+  // This handling of arrays of ranks is taken from the MPICommunicator
+  // creation method.  See that method for explanation of casting, datatypes
+  // etc.
+  PyArrayObject *myranks_long = (PyArrayObject*)PyArray_ContiguousFromAny(
+                                            myranks_anytype, NPY_LONG, 1, 1);
+  // XXX decref myranks_long?
+  if(myranks_long == NULL)
+    return NULL;
+  
+  int nranks = PyArray_DIM(myranks_long, 0);
+  
+  PyArrayObject *myranks;
+  myranks = (PyArrayObject*)PyArray_Cast((PyArrayObject*) myranks_long, NPY_INT);
+  Py_DECREF(myranks_long);
+
+  npy_intp rankshape[1];
+  rankshape[0] = PyArray_SIZE(myranks);
+  PyArrayObject* other_ranks = (PyArrayObject*)PyArray_SimpleNew(1, rankshape,
+                                                                 NPY_INT);
+
+  MPI_Group mygroup, othergroup;
+  MPI_Comm_group(self->comm, &mygroup);
+  MPI_Comm_group(other->comm, &othergroup);
+
+  int* rankdata = (int*)PyArray_BYTES(myranks);
+  int* otherrankdata = (int*)PyArray_BYTES(other_ranks);
+  MPI_Group_translate_ranks(mygroup, nranks, rankdata, othergroup,
+                            otherrankdata);
+
+  // Return something with a definite value to Python.
+  for(int i=0; i < nranks; i++) {
+      if(otherrankdata[i] == MPI_UNDEFINED) {
+          otherrankdata[i] = -1;
+      }
+  }
+  Py_DECREF(myranks);
+  return (PyObject*)other_ranks;
+}
+
 static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)
 {
   PyArrayObject* send_obj;
@@ -826,8 +900,8 @@ static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)
   PyArrayObject* recv_cnts;
   PyArrayObject* recv_displs;
 
-  if (!PyArg_ParseTuple(args, "OOOOOO:alltoallv", &send_obj, &send_cnts, 
-                                                  &send_displs, &recv_obj, 
+  if (!PyArg_ParseTuple(args, "OOOOOO:alltoallv", &send_obj, &send_cnts,
+                                                  &send_displs, &recv_obj,
                                                   &recv_cnts, &recv_displs))
     return NULL;
   CHK_ARRAY(send_obj);
@@ -843,22 +917,29 @@ static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)
   int *r_displs = GPAW_MALLOC(int, self->size);
 
   /* Create count and displacement arrays in units of bytes */
-  int elem_size = PyArray_DESCR(send_obj)->elsize;
+  int elem_size = PyArray_ITEMSIZE(send_obj);
+
   long* tmp1 = PyArray_DATA(send_cnts);
   long* tmp2 = PyArray_DATA(send_displs);
   long* tmp3 = PyArray_DATA(recv_cnts);
   long* tmp4 = PyArray_DATA(recv_displs);
-  for (int i=0; i < self->size; i++)
-    {
+  for (int i=0; i < self->size; i++) {
       s_cnts[i] = tmp1[i] * elem_size;
       s_displs[i] = tmp2[i] * elem_size;
       r_cnts[i] = tmp3[i] * elem_size;
       r_displs[i] = tmp4[i] * elem_size;
-    }
+  }
 
-  MPI_Alltoallv(PyArray_BYTES(send_obj), s_cnts, s_displs, 
-                MPI_BYTE, PyArray_BYTES(recv_obj), r_cnts, 
+  MPI_Alltoallv(PyArray_BYTES(send_obj),
+                s_cnts, s_displs,
+                MPI_BYTE, PyArray_BYTES(recv_obj), r_cnts,
                 r_displs, MPI_BYTE, self->comm);
+
+  free(s_cnts);
+  free(s_displs);
+  free(r_cnts);
+  free(r_displs);
+
   Py_RETURN_NONE;
 }
 
@@ -936,6 +1017,10 @@ static PyMethodDef mpi_methods[] = {
      "alltoallv(sbuf, scnt, sdispl, rbuf, ...) send data from all tasks to all tasks."},
     {"broadcast",        (PyCFunction)mpi_broadcast,    METH_VARARGS,
      "broadcast(buffer, root) Broadcast data in-place from root task."},
+    {"compare",          (PyCFunction)mpi_compare,      METH_VARARGS,
+     "compare two communicators for identity using MPI_Comm_compare."},
+    {"translate_ranks",  (PyCFunction)mpi_translate_ranks, METH_VARARGS,
+     "figure out correspondence between ranks on two communicators."},
     {"get_members",      (PyCFunction)get_members,      METH_VARARGS, 0},
     {"get_c_object",     (PyCFunction)get_c_object,     METH_VARARGS, 0},
     {"new_communicator", (PyCFunction)MPICommunicator,  METH_VARARGS,
@@ -951,30 +1036,35 @@ static PyMemberDef mpi_members[] = {
 };
 
 // __new__
-static PyObject *NewMPIObject(PyTypeObject* type, PyObject *args, PyObject *kwds)
+static PyObject *NewMPIObject(PyTypeObject* type, PyObject *args,
+                              PyObject *kwds)
 {
-  static char *kwlist[] = {NULL};
-  MPIObject* self;
+    static char *kwlist[] = {NULL};
+    MPIObject* self;
   
-  if (! PyArg_ParseTupleAndKeywords(args, kwds, "", kwlist))
-    return NULL;
+    if (! PyArg_ParseTupleAndKeywords(args, kwds, "", kwlist))
+        return NULL;
 
-  self = (MPIObject *) type->tp_alloc(type, 0);
-  if (self == NULL)
-    return NULL;
-  
-  MPI_Comm_size(MPI_COMM_WORLD, &(self->size));
-  MPI_Comm_rank(MPI_COMM_WORLD, &(self->rank));
-  self->comm = MPI_COMM_WORLD;
-  Py_INCREF(Py_None);
-  self->parent = Py_None;
-  self->members = (int*) malloc(self->size*sizeof(int));
-  if (self->members == NULL)
-    return NULL;
-  for (int i=0; i<self->size; i++)
-    self->members[i] = i;
+    self = (MPIObject *) type->tp_alloc(type, 0);
+    if (self == NULL)
+        return NULL;
+   
+#   ifndef GPAW_INTERPRETER
+        MPI_Init(NULL, NULL);
+#   endif
 
-  return (PyObject *) self;
+    MPI_Comm_size(MPI_COMM_WORLD, &(self->size));
+    MPI_Comm_rank(MPI_COMM_WORLD, &(self->rank));
+    self->comm = MPI_COMM_WORLD;
+    Py_INCREF(Py_None);
+    self->parent = Py_None;
+    self->members = (int*) malloc(self->size*sizeof(int));
+    if (self->members == NULL)
+        return NULL;
+    for (int i=0; i<self->size; i++)
+        self->members[i] = i;
+
+    return (PyObject *) self;
 }
 
 // __init__ does nothing.
@@ -990,8 +1080,7 @@ static int InitMPIObject(MPIObject* self, PyObject *args, PyObject *kwds)
 
 
 PyTypeObject MPIType = {
-  PyObject_HEAD_INIT(NULL)
-  0,                         /*ob_size*/
+  PyVarObject_HEAD_INIT(NULL, 0)
   "MPI",                     /*tp_name*/
   sizeof(MPIObject),         /*tp_basicsize*/
   0,                         /*tp_itemsize*/
@@ -1038,7 +1127,7 @@ static PyObject * MPICommunicator(MPIObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "O", &orig_ranks))
     return NULL;
   // NB: int32 is NPY_LONG on 32-bit Linux and NPY_INT on 64-bit Linux!
-  // First convert to NumPy array of NPY_LONG, then cast to NPY_INT, to 
+  // First convert to NumPy array of NPY_LONG, then cast to NPY_INT, to
   // allow both 32 and 64 bit integers in the argument (except 64 on 32).
   PyArrayObject *ranks = (PyArrayObject*)PyArray_ContiguousFromAny(
                                             orig_ranks, NPY_LONG, 1, 1);
@@ -1123,4 +1212,4 @@ static PyObject * MPICommunicator(MPIObject *self, PyObject *args)
       return (PyObject*)obj;
     }
 }
-#endif //PARALLEL
+#endif // PARALLEL

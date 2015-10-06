@@ -1,4 +1,4 @@
-# creates: Pt.png paw_note.pdf
+# creates: paw_note.pdf
 
 import os
 import numpy as np
@@ -39,6 +39,4 @@ error += os.system('pdflatex -interaction=nonstopmode paw_note > /dev/null')
 error += os.system('bibtex paw_note > /dev/null')
 error += os.system('pdflatex -interaction=nonstopmode paw_note > /dev/null')
 error += os.system('pdflatex -interaction=nonstopmode paw_note > /dev/null')
-error += os.system('cp paw_note.pdf ../../_build')
-
-#assert error == 0
+error += os.system('cp paw_note.pdf ..')

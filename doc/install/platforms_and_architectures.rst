@@ -83,6 +83,7 @@ Linux:
    Linux/davinci
    Linux/huygens
    Linux/juropa
+   Linux/jureca
    Linux/monolith
    Linux/murska
    Linux/nanolab_EL4

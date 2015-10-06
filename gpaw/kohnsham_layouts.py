@@ -3,13 +3,12 @@
 # Please see the accompanying LICENSE file for further information.
 import numpy as np
 
-from gpaw.mpi import SerialCommunicator, serial_comm
 from gpaw.matrix_descriptor import MatrixDescriptor, \
     BandMatrixDescriptor, \
     BlacsBandMatrixDescriptor
-from blacs import BlacsGrid, Redistributor
+from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities import uncamelcase
-from gpaw.utilities.blas import gemm, r2k, gemmdot
+from gpaw.utilities.blas import gemm, r2k
 from gpaw.utilities.lapack import diagonalize, general_diagonalize, \
     inverse_cholesky
 from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_tran
@@ -116,7 +115,6 @@ class BandLayouts(KohnShamLayouts):
         2. Simultaneous parallelization over domains and bands.
         """
         nbands = self.bd.nbands
-        mynbands = self.bd.mynbands
         eps_N = np.empty(nbands)
         self.timer.start('Diagonalize')
         # Broadcast on block_comm since result
@@ -347,7 +345,6 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         # 1. outdescriptor
         # 2. broadcast with gd.comm
         # We will does this with a dummy buffer C2_nM
-        indescriptor = self.mM2mm.srcdescriptor  # cols2blocks
         outdescriptor = self.mm2nM.dstdescriptor  # blocks2cols
         blockdescriptor = self.mM2mm.dstdescriptor  # cols2blocks
 
@@ -393,10 +390,12 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         blocksize = 2**23 // Sflat_x.itemsize  # 8 MiB
         nblocks = -(-len(Sflat_x) // blocksize)
         Mstart = 0
+        self.timer.start('blocked summation')
         for i in range(nblocks):
             self.gd.comm.sum(Sflat_x[Mstart:Mstart + blocksize], root=root)
             Mstart += blocksize
         assert Mstart + blocksize >= len(Sflat_x)
+        self.timer.stop('blocked summation')
 
         xshape = S_qmM.shape[:-2]
         nm, nM = S_qmM.shape[-2:]
@@ -409,7 +408,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         if not coldesc:  # XXX ugly way to sort out inactive ranks
             S_qmM = coldesc.zeros(len(S_qmM), S_qmM.dtype)
         
-        self.timer.start('Distribute overlap matrix')
+        self.timer.start('Scalapack redistribute')
         for S_mM, S_mm in zip(S_qmM, S_qmm):
             self.mM2mm.redistribute(S_mM, S_mm)
             if add_hermitian_conjugate:
@@ -417,7 +416,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                     pblas_tran(1.0, S_mm.copy(), 1.0, S_mm,
                                blockdesc, blockdesc)
                 
-        self.timer.stop('Distribute overlap matrix')
+        self.timer.stop('Scalapack redistribute')
         return S_qmm.reshape(xshape + blockdesc.shape)
 
     def get_overlap_matrix_shape(self):
@@ -425,7 +424,6 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
     def calculate_blocked_density_matrix(self, f_n, C_nM):
         nbands = self.bd.nbands
-        mynbands = self.bd.mynbands
         nao = self.nao
         dtype = C_nM.dtype
         
@@ -509,10 +507,6 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         # This version is parallel over the band descriptor only.
         # This is inefficient, but let's keep it for a while in case
         # there's trouble with the more efficient version
-        nbands = self.bd.nbands
-        mynbands = self.bd.mynbands
-        nao = self.nao
-        
         if rho_mM is None:
             rho_mM = self.mMdescriptor.zeros(dtype=C_nM.dtype)
         
@@ -567,7 +561,6 @@ class OrbitalLayouts(KohnShamLayouts):
         general_diagonalize(H_MM, eps_M, S_MM)
 
     def estimate_memory(self, mem, dtype):
-        nao = self.setups.nao
         itemsize = mem.itemsize[dtype]
         mem.subnode('eps [M]', self.nao * mem.floatsize)
         mem.subnode('H [MM]', self.nao * self.nao * itemsize)

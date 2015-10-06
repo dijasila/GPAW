@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, division
 import functools
+import numbers
 from math import pi
+from math import factorial as fac
 
 import numpy as np
 import ase.units as units
@@ -17,7 +19,7 @@ from gpaw.hamiltonian import Hamiltonian
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
-from gpaw.utilities import unpack, _fact as fac
+from gpaw.utilities import unpack
 from gpaw.utilities.blas import rk, r2k, gemv, gemm, axpy
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.utilities.timing import timer
@@ -187,7 +189,7 @@ class PWDescriptor:
     def empty(self, x=(), dtype=None, q=-1):
         if dtype is not None:
             assert dtype == self.dtype
-        if isinstance(x, int):
+        if isinstance(x, numbers.Integral):
             x = (x,)
         if q == -1:
             shape = x + (self.ngmax,)
@@ -680,7 +682,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         else:
             H_GG = md.zeros(dtype=complex)
             S_GG = md.zeros(dtype=complex)
-            G1, G2 = md.my_blocks(S_GG).next()[:2]
+            G1, G2 = next(md.my_blocks(S_GG))[:2]
 
         H_GG.ravel()[G1::npw + 1] = (0.5 * self.pd.gd.dv / N *
                                      self.pd.G2_qG[q][G1:G2])
@@ -714,7 +716,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     @timer('Full diag')
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
-                                     nbands=None, scalapack=None):
+                                     nbands=None, scalapack=None,
+                                     expert=False):
         assert self.dtype == complex
 
         if nbands is None:
@@ -776,7 +779,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
             eps_n = np.empty(npw)
 
             with self.timer('Diagonalize'):
-                md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
+                if not scalapack:
+                    md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n,
+                                               iu=iu)
+                else:
+                    md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
             del H_GG, S_GG
 
             kpt.eps_n = eps_n[myslice].copy()
@@ -871,7 +878,7 @@ def ft(spline):
     f_q = fbt(l, f_r, r_r, k_q)
     f_q[1:] /= k_q[1:]**(2 * l + 1)
     f_q[0] = (np.dot(f_r, r_r**(2 + 2 * l)) *
-              dr * 2**l * fac[l] / fac[2 * l + 1])
+              dr * 2**l * fac(l) / fac(2 * l + 1))
 
     return Spline(l, k_q[-1], f_q)
 
@@ -1162,7 +1169,7 @@ class PWLFC(BaseLFC):
             if G1 == 0:
                 f_IG[:, 0] *= 0.5
             f_IG = f_IG.view(float)
-            a_xG = a_xG.view(float)
+            a_xG = a_xG.copy().view(float)
 
         gemm(alpha, f_IG, a_xG, 0.0, b_xI, 'c')
 
@@ -1204,8 +1211,8 @@ class ReciprocalSpaceDensity(Density):
 
         self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3)
 
-    def set_positions(self, spos_ac, rank_a=None):
-        Density.set_positions(self, spos_ac, rank_a)
+    def set_positions(self, spos_ac, atom_partition):
+        Density.set_positions(self, spos_ac, atom_partition)
         self.nct_q = self.pd2.zeros()
         self.nct.add(self.nct_q, 1.0 / self.nspins)
         self.nct_G = self.pd2.ifft(self.nct_q)
@@ -1291,8 +1298,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         fd.write('Interpolation: FFT\n')
         fd.write('Poisson solver: FFT\n')
 
-    def set_positions(self, spos_ac, rank_a=None):
-        Hamiltonian.set_positions(self, spos_ac, rank_a)
+    def set_positions(self, spos_ac, atom_partition):
+        Hamiltonian.set_positions(self, spos_ac, atom_partition)
         self.vbar_Q = self.pd2.zeros()
         self.vbar.add(self.vbar_Q)
 
@@ -1307,12 +1314,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.epot = 0.5 * self.pd3.integrate(self.vHt_q, density.rhot_q)
         self.timer.stop('Poisson')
 
-        # Calculate atomic hamiltonians:
-        W_aL = {}
-        for a in density.D_asp:
-            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
-        density.ghat.integrate(self.vHt_q, W_aL)
-
         self.vt_Q = self.vbar_Q + self.vHt_q[density.G3_G] / 8
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
@@ -1326,14 +1327,23 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             self.vt_Q += vxc_Q / self.nspins
         self.timer.stop('XC 3D grid')
 
+        eext = 0.0
+
+        return self.epot, self.ebar, eext, self.exc
+
+    def calculate_atomic_hamiltonians(self, density):
+        W_aL = {}
+        for a in density.D_asp:
+            W_aL[a] = np.empty((self.setups[a].lmax + 1)**2)
+        density.ghat.integrate(self.vHt_q, W_aL)
+        return W_aL
+
+    def calculate_kinetic_energy(self, density):
         ekin = 0.0
         for vt_G, nt_G in zip(self.vt_sG, density.nt_sG):
             ekin -= self.gd.integrate(vt_G, nt_G)
         ekin += self.gd.integrate(self.vt_sG, density.nct_G).sum()
-
-        eext = 0.0
-
-        return ekin, self.epot, self.ebar, eext, self.exc, W_aL
+        return ekin
 
     def restrict(self, in_xR, out_xR=None):
         """Restrict array."""

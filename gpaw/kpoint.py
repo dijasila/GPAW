@@ -5,10 +5,6 @@
 
 import numpy as np
 
-from gpaw.fd_operators import Gradient
-from gpaw.utilities.blas import axpy
-from gpaw import extra_parameters
-
 
 class KPoint:
     """Class for a single k-point.
@@ -94,8 +90,6 @@ class KPoint:
 
         self.rho_MM = None
         
-        self.P_aMi = None
-        self.P_aaim = None
         self.S_MM = None
         self.T_MM = None
 
@@ -111,7 +105,7 @@ class GlobalKPoint(KPoint):
         kpt_rank, u = divmod(self.k + nks * self.s, mynu)
         kpt_comm = wfs.kd.comm
 
-        my_atom_indices = np.argwhere(wfs.rank_a == wfs.gd.comm.rank).ravel()
+        my_atom_indices = wfs.atom_partition.my_atom_indices
         mynproj = sum([wfs.setups[a].ni for a in my_atom_indices])
         my_P_ni = np.empty((wfs.mynbands, mynproj), wfs.dtype)
 

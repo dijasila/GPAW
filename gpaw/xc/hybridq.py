@@ -7,7 +7,6 @@ from __future__ import print_function
 from math import pi, sqrt
 import sys
 import numpy as np
-from ase import Atoms
 from ase.units import Ha
 from time import ctime
 
@@ -19,6 +18,7 @@ from gpaw.lfc import LFC
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import world, rank
+
 
 class KPoint:
     def __init__(self, kd, kpt=None):
@@ -138,7 +138,7 @@ class HybridXC(XCFunctional):
                 sys.stdout = devnull
                 self.txt = devnull
         else:
-            assert type(txt) is str
+            assert isinstance(txt, str)
             from ase.parallel import paropen
             self.txt = paropen(txt, 'w')
 
@@ -156,7 +156,7 @@ class HybridXC(XCFunctional):
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
         return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
-                                 addcoredensity, a)
+                                                addcoredensity, a)
     
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.xc.initialize(density, hamiltonian, wfs, occupations)
@@ -267,7 +267,7 @@ class HybridXC(XCFunctional):
         print(file=self.txt)
         print('------------------------------------------------------', file=self.txt)
         print(file=self.txt)
-        print('Contributions: q         w        E_q (eV)', file=self.txt) 
+        print('Contributions: q         w        E_q (eV)', file=self.txt)
         for q in range(len(exx_q)):
             print('[%1.3f %1.3f %1.3f]    %1.3f   %s' % \
                   (self.ibzq_qc[q][0], self.ibzq_qc[q][1], self.ibzq_qc[q][2],
@@ -288,7 +288,7 @@ class HybridXC(XCFunctional):
             for i, q in enumerate(self.bzq_qc):
                 if abs(q - self.ibzq_qc[iq]).max() < 1e-9:
                     bzq_index = i
-                    break    
+                    break
         else:
             bzq_index = iq
         
@@ -331,7 +331,7 @@ class HybridXC(XCFunctional):
                 vt_G *= -pi * vol / Gpk2_G
                 e = np.vdot(nt_G, vt_G).real * nspins * self.hybrid
                 self.exx += f1 * f2 * e
-                self.exx_kq[ik1,iq] += f1*f2*e        
+                self.exx_kq[ik1,iq] += f1*f2*e
     
     def calculate_pair_density(self, n1, n2, kpt1, kpt2, ik1, ik2, bzq_index):
         psit1_G = self.kd.transform_wave_function(kpt1.psit_nG[n1], ik1)

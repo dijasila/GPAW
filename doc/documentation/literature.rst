@@ -26,7 +26,7 @@ Reports, presentations, and theses using gpaw
 
 * Summer-school 2014 talk about `PAW and GPAW`_
 
-* A short note on the basics of PAW: `paw note`_
+* A short note on the basics of PAW: :download:`paw_note.pdf`
 
 * A master thesis on the inclusion of non-local exact exchange in the
   PAW formalism, and the implementation in gpaw: `exact exchange`_
@@ -48,7 +48,6 @@ Reports, presentations, and theses using gpaw
 
 * Slides from a mini symposium during early development stage: `early gpaw`_
 
-.. _paw note: ../paw_note.pdf
 .. _exact exchange: ../_static/rostgaard_master.pdf
 .. _lcao: ../_static/marco_master.pdf
 .. _localized basis sets: ../_static/askhl_master.pdf
@@ -96,7 +95,11 @@ Citations of the GPAW method papers
 
 (updated on May 18, 2013)
 
-The five method papers are:
+The total number of citations above is the number of publications
+citing at least one of the other papers, not the sum of all citation
+counts.
+
+The six method papers are:
 
 gpaw1:
     \J. J. Mortensen, L. B. Hansen, and K. W. Jacobsen
@@ -137,10 +140,10 @@ gpaw2:
     V. Petzold, N. A. Romero, J. Stausholm, M. Strange, G. A. Tritsaris,
     M. Vanin, M. Walter, B. Hammer, H. Häkkinen, G. K. H. Madsen,
     R. M. Nieminen, J. K. Nørskov, M. Puska, T. T. Rantala,
-    J. Schiøtz, K. S. Thygesen, and K. W. Jacobsen   
+    J. Schiøtz, K. S. Thygesen, and K. W. Jacobsen
 
     `Electronic structure calculations with GPAW: a real-space
-    implementation of the projector augmented-wave method`__ 
+    implementation of the projector augmented-wave method`__
 
     \J. Phys.: Condens. Matter **22**, 253202 (2010)
 
@@ -155,6 +158,16 @@ response:
     Phys. Rev. B **83**, 245122 (2011)
 
     __ http://prb.aps.org/abstract/PRB/v83/i24/e245122
+
+csm:
+    \A. Held and M. Walter
+           
+    `Simplified continuum solvent model with a smooth cavity based on 
+    volumetric data`__
+     
+    \J. Chem. Phys.* **141**, 174108 (2014)
+
+    __ http://dx.doi.org/10.1063/1.4900838
 
 
 All citing articles:

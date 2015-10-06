@@ -1,12 +1,8 @@
 from __future__ import print_function
 import numpy as np
-from math import sqrt, pi
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.grid_descriptor import GridDescriptor, RadialGridDescriptor
 from gpaw.spline import Spline
-from gpaw.setup import Setup
-from gpaw.gaunt import gaunt as G_LLL
-from gpaw.spherical_harmonics import Y
 from gpaw.response.math_func import two_phi_planewave_integrals
 
 # Initialize s, p, d (9 in total) wave and put them on grid
@@ -52,7 +48,7 @@ rgd = RadialGridDescriptor(r, np.ones_like(r) * r[1])
 g = [np.exp(-(r / rc * b)**2)*r**l for l in range(lmax + 1)]
 l_j = range(lmax + 1)
 d1 = two_phi_planewave_integrals(k_G, rgd=rgd, phi_jg=g,
-                            phit_jg=np.zeros_like(g), l_j=l_j)
+                                 phit_jg=np.zeros_like(g), l_j=l_j)
 
 d1 = d1.reshape(nkpt, m, m)
 
@@ -61,4 +57,3 @@ for i in range(m):
         for ik in range(nkpt):
             if np.abs(d0[ik,i,j] - d1[ik,i,j]) > 1e-10:
                 print(i, j, d0[ik,i,j]- d1[ik,i,j])
-

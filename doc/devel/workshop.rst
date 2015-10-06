@@ -7,7 +7,7 @@ Electronic structure calculations with the GPAW code
 Users and developers meeting Technical University of Denmark, May 21-23, 2013
 =============================================================================
 
-.. image:: ../_static/workshop13_01_33-1.jpg
+.. image:: ../static/workshop13_01_33-1.jpg
 
 The meeting provides an overview of the present status of the open
 source electronic structure program GPAW. The latest developments will

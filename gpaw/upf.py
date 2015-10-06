@@ -6,11 +6,18 @@ provide pseudopotential objects for use with GPAW.
 """
 
 from optparse import OptionParser
-from xml.etree.ElementTree import parse as xmlparse, ParseError, fromstring
+from xml.etree.ElementTree import parse as xmlparse, fromstring
+try:
+    from xml.etree.ElementTree import ParseError
+except ImportError:  # python2.6 compatibility
+    from xml.parsers.expat import ExpatError as ParseError
 
 import numpy as np
 from ase.data import atomic_numbers
+from ase.utils import basestring
 
+from gpaw.atom.atompaw import AtomPAW
+from gpaw.setup_data import search_for_file
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.pseudopotential import PseudoPotential, screen_potential, \
     figure_out_valence_states
@@ -28,7 +35,7 @@ class UPFStateSpec:
         self.n = n
 
 
-class UPFCompensationChargeSpec: # Not used right now.......
+class UPFCompensationChargeSpec:  # Not used right now.......
     def __init__(self, i, j, l, qint, values, coefs):
         self.i = i
         self.j = j
@@ -86,7 +93,7 @@ def parse_upf(fname):
 
     def toarray(element):
         attr = element.attrib
-        numbers = map(float, element.text.split())
+        numbers = [float(n) for n in element.text.split()]
         if attr:
             assert attr['type'] == 'real'
             assert int(attr['size']) == len(numbers)
@@ -99,14 +106,19 @@ def parse_upf(fname):
 
     if v201:
         for key, val in header.items():
-            header[key] = val.strip() # some values have whitespace...
+            header[key] = val.strip()  # some values have whitespace...
         for key in ['is_paw', 'is_coulomb', 'has_so', 'has_wfc', 'has_gipaw',
                     'paw_as_gipaw', 'core_correction']:
-            header[key] = {'F': False, 'T': True}[header[key]]
+            if key in header:
+                header[key] = {'F': False, 'T': True}[header[key]]
         for key in ['z_valence', 'total_psenergy', 'wfc_cutoff', 'rho_cutoff']:
+            if key not in header:
+                continue
             header[key] = float(header[key])
         for key in ['l_max', 'l_max_rho', 'mesh_size', 'number_of_wfc',
                     'number_of_proj']:
+            if key not in header:
+                continue
             header[key] = int(header[key])
     else:
         assert len(header) == 0
@@ -138,17 +150,17 @@ def parse_upf(fname):
     # Convert to Hartree from Rydberg.
     pp['vlocal'] = 0.5 * toarray(root.find('PP_LOCAL'))
     
-    nonlocal = root.find('PP_NONLOCAL')
+    non_local = root.find('PP_NONLOCAL')
     
     pp['projectors'] = []
-    for element in nonlocal:
+    for element in non_local:
         if element.tag.startswith('PP_BETA'):
             if '.' in element.tag:
                 name, num = element.tag.split('.')
                 assert name == 'PP_BETA'
                 attr = element.attrib
                 proj = UPFStateSpec(int(attr['index']),
-                                    attr['label'],
+                                    attr.get('label'),
                                     int(attr['angular_momentum']),
                                     toarray(element))
                 assert num == attr['index']
@@ -228,23 +240,25 @@ class UPFSetupData:
         # Maybe just a symbol would also be fine if we know the
         # filename to look for.
         if isinstance(data, basestring):
+            self.filename = data
             data = parse_upf(data)
+        else:
+            self.filename = '[N/A]'
         
         assert isinstance(data, dict)
-        self.data = data # more or less "raw" data from the file
+        self.data = data  # more or less "raw" data from the file
 
         self.name = 'upf'
 
         header = data['header']
         
-        keys = header.keys()
-        keys.sort()
+        keys = sorted(header)
 
         self.symbol = header['element']
         self.Z = atomic_numbers[self.symbol]
         self.Nv = header['z_valence']
         self.Nc = self.Z - self.Nv
-        self.Delta0 = -self.Nv / np.sqrt(4.0 * np.pi) # like hgh
+        self.Delta0 = -self.Nv / np.sqrt(4.0 * np.pi)  # like hgh
         self.rcut_j = [data['r'][len(proj.values) - 1]
                        for proj in data['projectors']]
 
@@ -284,7 +298,6 @@ class UPFSetupData:
         self.rcgauss = 0.0 # XXX .... what is this used for?
         self.ni = sum([2 * l + 1 for l in self.l_j])
 
-        self.filename = None # remember filename?
         self.fingerprint = None # XXX hexdigest the file?
         self.HubU = None # XXX
         self.lq = None # XXX
@@ -332,7 +345,7 @@ class UPFSetupData:
         #    a = .247621
 
         vbar_g, ghat_g = screen_potential(data['r'], vlocal_unscreened,
-                                          self.Nv) #, a=a)
+                                          self.Nv)
         
         self.vbar_g = self._interp(vbar_g) * np.sqrt(4.0 * np.pi)
         self.ghat_lg = [4.0 * np.pi / self.Nv * self._interp(ghat_g)]
@@ -382,6 +395,7 @@ class UPFSetupData:
             % self.get_local_potential().get_cutoff())
         add('Comp charge cutoff:     %s'
             % self.rgd.r_g[len(self.ghat_lg[0]) - 1])
+        add('File: %s' % self.filename)
         add('')
         return '\n'.join(lines)
 
@@ -450,7 +464,7 @@ class UPFSetupData:
         assert len(self.ghat_lg) == 1
         ghat_g = self.ghat_lg[0]
         ng = len(ghat_g)
-        rcutcc = self.rgd.r_g[ng - 1] # correct or not?
+        rcutcc = self.rgd.r_g[ng - 1]  # correct or not?
         r = np.linspace(0.0, rcutcc, 50)
         ghat_g[-1] = 0.0
         ghatnew_g = Spline(0, rcutcc, ghat_g).map(r)
@@ -470,7 +484,7 @@ class UPFSetupData:
         states = self.data['states']
         maxlen = max([len(state.values) for state in states])
         orig_r = self.data['r']
-        rcut = min(orig_r[maxlen - 1], 12.0) # XXX hardcoded 12 max radius
+        rcut = min(orig_r[maxlen - 1], 12.0)  # XXX hardcoded 12 max radius
         
         b.d = 0.02
         b.ng = int(1 + rcut / b.d)
@@ -480,7 +494,7 @@ class UPFSetupData:
             val = state.values
             phit_g = np.interp(rgd.r_g, orig_r, val)
             phit_g = divrl(phit_g, 1, rgd.r_g)
-            icut = len(phit_g) - 1 # XXX correct or off-by-one?
+            icut = len(phit_g) - 1  # XXX correct or off-by-one?
             rcut = rgd.r_g[icut]
             bf = BasisFunction(state.l, rcut, phit_g, 'pregenerated')
             b.bf_j.append(bf)
@@ -495,27 +509,41 @@ class UPFSetupData:
 def main_plot():
     p = OptionParser(usage='%prog [OPTION] [FILE...]',
                      description='plot upf pseudopotential from file.')
+    p.add_option('--calculate', action='store_true',
+                 help='calculate density and orbitals.')
     opts, args = p.parse_args()
 
     import pylab as pl
-    for fname in args:
+    for arg in args:
+        if not arg.lower().endswith('.upf'):
+            # This is a bit bug prone.  It is subject to files
+            # "sneaking in" unexpectedly due to '*' from
+            # higher-priority search directories.  Then again, this
+            # probably will not happen, and the runtime setup loading
+            # mechanism is the same anyway so at least it is honest.
+            fname, source = search_for_file('%s*.[uU][pP][fF]' % arg)
+            if fname is None:
+                p.error('No match within search paths: %s' % arg)
+        else:
+            fname = arg
         pp = parse_upf(fname)
         print('--- %s ---' % fname)
         print(UPFSetupData(pp).tostring())
         print(pp['info'])
-        upfplot(pp, show=False)
+        upfplot(pp, show=False, calculate=opts.calculate)
     pl.show()
 
 
-def upfplot(setup, show=True):
+def upfplot(setup, show=True, calculate=False):
     # A version of this, perhaps nicer, is in pseudopotential.py.
     # Maybe it is not worth keeping this version
     if isinstance(setup, dict):
         setup = UPFSetupData(setup)
+
     pp = setup.data
     r0 = pp['r'].copy()
     r0[0] = 1e-8
-    
+
     def rtrunc(array, rdividepower=0):
         r = r0[:len(array)]
         arr = divrl(array, rdividepower, r)
@@ -553,10 +581,26 @@ def upfplot(setup, show=True):
 
     for j, st in enumerate(pp['states']):
         r, psi = rtrunc(st.values, 1)
-        wfsax.plot(r, psi, label='wf%d %s' % (j, st.label))
+        wfsax.plot(r, r * psi, label='wf%d %s' % (j, st.label))
 
     r, rho = rtrunc(pp['rhoatom'], 2)
-    wfsax.plot(r, rho, label='rho')
+    wfsax.plot(r, r * rho, label='rho')
+
+    if calculate:
+        calc = AtomPAW(setup.symbol,
+                       [setup.f_ln],
+                       #xc='PBE', # XXX does not support GGAs :( :( :(
+                       setups={setup.symbol: setup},
+                       h=0.08,
+                       rcut=10.0)
+        r_g = calc.wfs.gd.r_g
+        basis = calc.extract_basis_functions()
+        wfsax.plot(r_g, r_g * calc.density.nt_sg[0] * 4.0 * np.pi,
+                   ls='--', label='rho [calc]', color='r')
+
+        splines = basis.tosplines()
+        for spline, bf in zip(splines, basis.bf_j):
+            wfsax.plot(r_g, r_g * spline.map(r_g), label=bf.type)
 
     vax.legend(loc='best')
     rhoax.legend(loc='best')
@@ -569,7 +613,7 @@ def upfplot(setup, show=True):
 
     vax.set_ylabel('potential')
     pax.set_ylabel('projectors')
-    wfsax.set_ylabel('WF / density')
+    wfsax.set_ylabel(r'$r \psi(r), r n(r)$')
     rhoax.set_ylabel('Comp charges')
 
     fig.subplots_adjust(wspace=0.3)

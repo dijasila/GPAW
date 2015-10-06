@@ -126,7 +126,7 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 >>> calc = GPAW(xc=xc)
 >>> h2.set_calculator(calc)
 >>> e_h2 = h2.get_potential_energy()
->>> ens = BEEF_Ensemble(calc)
+>>> ens = BEEFEnsemble(calc)
 >>> de_h2 = ens.get_ensemble_energies()
 >>> del h2, calc, ens
 >>> h = Atoms('H')
@@ -135,21 +135,21 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 >>> calc = GPAW(xc=xc)
 >>> h.set_calculator(calc)
 >>> e_h = h.get_potential_energy()
->>> ens = BEEF_Ensemble(calc)
+>>> ens = BEEFEnsemble(calc)
 >>> de_h = ens.get_ensemble_energies()
 >>> E_bind = 2*e_h - e_h2
 >>> dE_bind = 2*de_h[:] - de_h2[:]
 >>> dE_bind = np.std(dE_bind)
 
 
-Note that the BEEF_Ensemble module has recently been moved from GPAW
+Note that the BEEFEnsemble module has recently been moved from GPAW
 to the ASE package.
 The default number of ensemble XC functionals is 2000,
 for which well-converged error estimates should be ensured.
 Therefore, "de_h2" and "de_h" in the example
 are both arrays of 2000 pertubations of a BEEF-vdW total energy.
 The syntax "ens.get_ensemble_energies(N)" changes this number to N.
-The calculator object input to the BEEF_Ensemble class could of course
+The calculator object input to the BEEFEnsemble class could of course
 stem from a restarted GPAW calculation.
 
 It is very important to calculate

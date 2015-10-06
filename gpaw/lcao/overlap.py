@@ -5,7 +5,7 @@ Contains classes for evaluating integrals of the form::
              /
             |   _   _a    _   _b   _
     Theta = | f(r - R ) g(r - R ) dr ,
-            | 
+            |
            /
 
 with f and g each being given as a radial function times a spherical
@@ -42,7 +42,7 @@ on the lower-level ones.
 
 """
 
-from math import pi
+from math import pi, factorial as fac
 
 import numpy as np
 from numpy.fft import ifft
@@ -55,7 +55,6 @@ from ase.units import Bohr
 from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import Yl, nablarlYL
 from gpaw.spline import Spline
-from gpaw.utilities import _fact
 from gpaw.utilities.tools import tri2full
 from gpaw import extra_parameters
 
@@ -64,13 +63,11 @@ UL = 'L'
 # Generate the coefficients for the Fourier-Bessel transform
 C = []
 a = 0.0
-LMAX = 5
-if extra_parameters.get('fprojectors'):
-    LMAX = 7
+LMAX = 7
 for n in range(LMAX):
     c = np.zeros(n + 1, complex)
     for s in range(n + 1):
-        a = (1.0j)**s * _fact[n + s] / (_fact[s] * 2**s * _fact[n - s])
+        a = (1.0j)**s * fac(n + s) / (fac(s) * 2**s * fac(n - s))
         a *= (-1.0j)**(n + 1)
         c[s] = a
     C.append(c)
@@ -141,7 +138,8 @@ class OverlapExpansion(BaseOverlapExpansionSet):
     def get_gaunt(self, l):
         la = self.la
         lb = self.lb
-        G_mmm = gaunt[la**2:(la + 1)**2,
+        G_LLL = gaunt(max(la, lb))
+        G_mmm = G_LLL[la**2:(la + 1)**2,
                       lb**2:(lb + 1)**2,
                       l**2:(l + 1)**2]
         return G_mmm
@@ -360,7 +358,7 @@ class SimpleAtomIter:
 class NeighborPairs:
     """Class for looping over pairs of atoms using a neighbor list."""
     def __init__(self, cutoff_a, cell_cv, pbc_c, self_interaction):
-        self.neighbors = NeighborList(cutoff_a, skin=0, sorted=True, 
+        self.neighbors = NeighborList(cutoff_a, skin=0, sorted=True,
                                       self_interaction=self_interaction)
         self.atoms = Atoms('X%d' % len(cutoff_a), cell=cell_cv, pbc=pbc_c)
         # Warning: never use self.atoms.get_scaled_positions() for
@@ -702,7 +700,7 @@ class NewTwoCenterIntegrals:
         
         self.cutoff_a = cutoff_a # convenient for writing the new new overlap
         self.I_a = I_a
-        self.setups_I = setups_I        
+        self.setups_I = setups_I
         self.atompairs = PairsWithSelfinteraction(NeighborPairs(cutoff_a,
                                                                 cell_cv,
                                                                 pbc_c,
@@ -739,7 +737,7 @@ class NewTwoCenterIntegrals:
             l_Ij.append([phit.get_angular_momentum_number()
                          for phit in phit_j])
         
-        pt_l_Ij = [setup.l_j for setup in self.setups_I]        
+        pt_l_Ij = [setup.l_j for setup in self.setups_I]
         pt_Ij = [setup.pt_j for setup in self.setups_I]
         phit_Ijq = self.msoc.transform(phit_Ij)
         pt_Ijq = self.msoc.transform(pt_Ij)
@@ -753,8 +751,10 @@ class NewTwoCenterIntegrals:
                                                       pt_l_Ij, pt_Ijq)
 
     def _calculate(self, calc, spos_ac, Theta_qxMM, T_qxMM, P_aqxMi):
-        for X_xMM in [Theta_qxMM, T_qxMM] + P_aqxMi.values():
-            X_xMM.fill(0.0)
+        Theta_qxMM.fill(0.0)
+        T_qxMM.fill(0.0)
+        for P_qxMi in P_aqxMi.values():
+            P_qxMi.fill(0.0)
 
         if 1: # XXX
             self.atoms_close.set_positions(spos_ac)
@@ -799,7 +799,7 @@ class NewTwoCenterIntegrals:
         self._calculate(calc, spos_ac, dThetadR_qcMM, dTdR_qcMM, dPdR_aqcMi)
 
         def antihermitian(src, dst):
-            np.conj(-src, dst)        
+            np.conj(-src, dst)
 
         if not self.blacs:
             for X_cMM in list(dThetadR_qcMM) + list(dTdR_qcMM):

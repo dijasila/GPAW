@@ -140,7 +140,7 @@ PyObject* papi_mem_info(PyObject *self, PyObject *args)
   PyDict_SetItemString(py_dmem, "peak", PyLong_FromLongLong(dmem.peak));
   PyDict_SetItemString(py_dmem, "size", PyLong_FromLongLong(dmem.size));
   PyDict_SetItemString(py_dmem, "resident", PyLong_FromLongLong(dmem.resident));
-  PyDict_SetItemString(py_dmem, "high_water_mark", 
+  PyDict_SetItemString(py_dmem, "high_water_mark",
                        PyLong_FromLongLong(dmem.high_water_mark));
   PyDict_SetItemString(py_dmem, "shared", PyLong_FromLongLong(dmem.shared));
   PyDict_SetItemString(py_dmem, "text", PyLong_FromLongLong(dmem.text));
@@ -241,13 +241,13 @@ void gpaw_perf_finalize()
 }
 #else  // Use just MPI_Wtime
 static double t0;
-int gpaw_perf_init()
+int gpaw_perf_init(void)
 {
   t0 = MPI_Wtime();
   return 0;
 }
 
-void gpaw_perf_finalize()
+void gpaw_perf_finalize(void)
 {
   double rtime;
   int rank, numranks;
@@ -290,10 +290,10 @@ double distance(double *a, double *b)
     sum += diff*diff;
   }
   return sqrt(sum);
-} 
+}
 
-/* get heap memory using mallinfo. 
-   There is a UNIX version and a Mac OS X version is not well tested 
+/* get heap memory using mallinfo.
+   There is a UNIX version and a Mac OS X version is not well tested
    but seems to give credible values in simple tests.*/
 PyObject* heap_mallinfo(PyObject *self)
 {
@@ -328,7 +328,7 @@ PyObject* elementwise_multiply_add(PyObject *self, PyObject *args)
   PyArrayObject* aa;
   PyArrayObject* bb;
   PyArrayObject* cc;
-  if (!PyArg_ParseTuple(args, "OOO", &aa, &bb, &cc)) 
+  if (!PyArg_ParseTuple(args, "OOO", &aa, &bb, &cc))
     return NULL;
   const double* const a = DOUBLEP(aa);
   const double* const b = DOUBLEP(bb);
@@ -438,7 +438,7 @@ PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args)
 
 
 /* vdot
- * 
+ *
  * If a and b are input vectors,
  * a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + ...
  * is returned.
@@ -447,7 +447,7 @@ PyObject* utilities_vdot(PyObject *self, PyObject *args)
 {
   PyArrayObject* aa;
   PyArrayObject* bb;
-  if (!PyArg_ParseTuple(args, "OO", &aa, &bb)) 
+  if (!PyArg_ParseTuple(args, "OO", &aa, &bb))
     return NULL;
   const double* const a = DOUBLEP(aa);
   const double* const b = DOUBLEP(bb);
@@ -463,7 +463,7 @@ PyObject* utilities_vdot(PyObject *self, PyObject *args)
 }
 
 /* vdot
- * 
+ *
  * If a is the input vector,
  * a[0]*a[0] + a[1]*a[1] + a[2]*a[2] + ...
  * is returned.
@@ -471,7 +471,7 @@ PyObject* utilities_vdot(PyObject *self, PyObject *args)
 PyObject* utilities_vdot_self(PyObject *self, PyObject *args)
 {
   PyArrayObject* aa;
-  if (!PyArg_ParseTuple(args, "O", &aa)) 
+  if (!PyArg_ParseTuple(args, "O", &aa))
     return NULL;
   const double* const a = DOUBLEP(aa);
   double sum = 0.0;
@@ -488,7 +488,7 @@ PyObject* utilities_vdot_self(PyObject *self, PyObject *args)
 PyObject* errorfunction(PyObject *self, PyObject *args)
 {
   double x;
-  if (!PyArg_ParseTuple(args, "d", &x)) 
+  if (!PyArg_ParseTuple(args, "d", &x))
     return NULL;
 
   return Py_BuildValue("d", erf(x));
@@ -498,7 +498,7 @@ PyObject* errorfunction(PyObject *self, PyObject *args)
 PyObject* pack(PyObject *self, PyObject *args)
 {
     PyArrayObject* a_obj;
-    if (!PyArg_ParseTuple(args, "O", &a_obj)) 
+    if (!PyArg_ParseTuple(args, "O", &a_obj))
         return NULL;
     a_obj = PyArray_GETCONTIGUOUS(a_obj);
     int n = PyArray_DIMS(a_obj)[0];
@@ -536,7 +536,7 @@ PyObject* unpack(PyObject *self, PyObject *args)
 {
   PyArrayObject* ap;
   PyArrayObject* a;
-  if (!PyArg_ParseTuple(args, "OO", &ap, &a)) 
+  if (!PyArg_ParseTuple(args, "OO", &ap, &a))
     return NULL;
   int n = PyArray_DIMS(a)[0];
   double* datap = DOUBLEP(ap);
@@ -555,7 +555,7 @@ PyObject* unpack_complex(PyObject *self, PyObject *args)
 {
   PyArrayObject* ap;
   PyArrayObject* a;
-  if (!PyArg_ParseTuple(args, "OO", &ap, &a)) 
+  if (!PyArg_ParseTuple(args, "OO", &ap, &a))
     return NULL;
   int n = PyArray_DIMS(a)[0];
   double_complex* datap = COMPLEXP(ap);
@@ -576,7 +576,7 @@ PyObject* hartree(PyObject *self, PyObject *args)
     PyArrayObject* nrdr_obj;
     PyArrayObject* r_obj;
     PyArrayObject* vr_obj;
-    if (!PyArg_ParseTuple(args, "iOOO", &l, &nrdr_obj, &r_obj, &vr_obj)) 
+    if (!PyArg_ParseTuple(args, "iOOO", &l, &nrdr_obj, &r_obj, &vr_obj))
         return NULL;
         
     const int M = PyArray_DIM(nrdr_obj, 0);
@@ -611,7 +611,7 @@ PyObject* localize(PyObject *self, PyObject *args)
 {
   PyArrayObject* Z_nnc;
   PyArrayObject* U_nn;
-  if (!PyArg_ParseTuple(args, "OO", &Z_nnc, &U_nn)) 
+  if (!PyArg_ParseTuple(args, "OO", &Z_nnc, &U_nn))
     return NULL;
 
   int n = PyArray_DIMS(U_nn)[0];
@@ -689,7 +689,7 @@ PyObject* spherical_harmonics(PyObject *self, PyObject *args)
   int l;
   PyArrayObject* R_obj_c;
   PyArrayObject* Y_obj_m;
-  if (!PyArg_ParseTuple(args, "iOO", &l, &R_obj_c, &Y_obj_m)) 
+  if (!PyArg_ParseTuple(args, "iOO", &l, &R_obj_c, &Y_obj_m))
     return NULL;
 
   double* R_c = DOUBLEP(R_obj_c);
@@ -712,7 +712,7 @@ PyObject* spherical_harmonics(PyObject *self, PyObject *args)
         {
           double r2 = x*x+y*y+z*z;
           if (l == 2)
-            {               
+            {
               Y_m[0] = 1.0925484305920792 * x*y;
               Y_m[1] = 1.0925484305920792 * y*z;
               Y_m[2] = 0.31539156525252005 * (3*z*z-r2);
@@ -761,14 +761,14 @@ PyObject* spherical_harmonics(PyObject *self, PyObject *args)
               Y_m[1] = 2.3666191622317521 * (y*y*y*y*y*z-10*x*x*y*y*y*z+5*x*x*x*x*y*z);
               Y_m[2] = 2.0182596029148967 * (-x*x*x*y*r2+x*y*y*y*r2-11*x*y*y*y*z*z+11*x*x*x*y*z*z);
               Y_m[3] = 0.92120525951492349 * (-11*y*y*y*z*z*z-9*x*x*y*z*r2+33*x*x*y*z*z*z+3*y*y*y*z*r2);
-              Y_m[4] =0.92120525951492349 * (x*y*r2*r2+33*x*y*z*z*z*z-18*x*y*z*z*r2); 
+              Y_m[4] =0.92120525951492349 * (x*y*r2*r2+33*x*y*z*z*z*z-18*x*y*z*z*r2);
               Y_m[5] = 0.58262136251873142 * (5*y*z*r2*r2+33*y*z*z*z*z*z-30*y*z*z*z*r2);
               Y_m[6] = 0.063569202267628425 * (231*z*z*z*z*z*z-5*r2*r2*r2+105*z*z*r2*r2-315*z*z*z*z*r2);
               Y_m[7] = 0.58262136251873142 * (-30*x*z*z*z*r2+33*x*z*z*z*z*z+5*x*z*r2*r2);
-              Y_m[8] = 0.46060262975746175 * (33*x*x*z*z*z*z+x*x*r2*r2-y*y*r2*r2-18*x*x*z*z*r2+18*y*y*z*z*r2-33*y*y*z*z*z*z); 
+              Y_m[8] = 0.46060262975746175 * (33*x*x*z*z*z*z+x*x*r2*r2-y*y*r2*r2-18*x*x*z*z*r2+18*y*y*z*z*r2-33*y*y*z*z*z*z);
               Y_m[9] = 0.92120525951492349 * (-3*x*x*x*z*r2-33*x*y*y*z*z*z+9*x*y*y*z*r2+11*x*x*x*z*z*z);
               Y_m[10] = 0.50456490072872417 * (11*y*y*y*y*z*z-66*x*x*y*y*z*z-x*x*x*x*r2+6*x*x*y*y*r2+11*x*x*x*x*z*z-y*y*y*y*r2);
-              Y_m[11] = 2.3666191622317521 * (5*x*y*y*y*y*z+x*x*x*x*x*z-10*x*x*x*y*y*z); 
+              Y_m[11] = 2.3666191622317521 * (5*x*y*y*y*y*z+x*x*x*x*x*z-10*x*x*x*y*y*z);
               Y_m[12] = 0.6831841051919143 * (x*x*x*x*x*x+15*x*x*y*y*y*y-15*x*x*x*x*y*y-y*y*y*y*y*y);
             }
         }

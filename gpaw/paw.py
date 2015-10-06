@@ -38,6 +38,7 @@ from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.utilities.partition import AtomPartition
 from gpaw.parameters import InputParameters, usesymm2symmetry
 from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
 
@@ -46,7 +47,11 @@ class PAW(PAWTextOutput):
 
     """This is the main calculation object for doing a PAW calculation."""
 
-    def __init__(self, filename=None, timer=None, **kwargs):
+    real_space_hamiltonian_class = RealSpaceHamiltonian
+    reciprocal_space_hamiltonian_class = pw.ReciprocalSpaceHamiltonian
+
+    def __init__(self, filename=None, timer=None,
+                 read_projections=True, **kwargs):
         """ASE-calculator interface.
 
         The following parameters can be used: nbands, xc, kpts,
@@ -262,7 +267,9 @@ class PAW(PAWTextOutput):
         elif not self.initialized:
             self.initialize(atoms)
             self.set_positions(atoms)
-        elif (atoms.get_positions() != self.atoms.get_positions()).any():
+        elif ((atoms.get_positions() != self.atoms.get_positions()).any() or
+              self.input_parameters.external is not None and
+              self.input_parameters.external.vext_g is None):
             self.density.reset()
             self.set_positions(atoms)
         elif not self.scf.converged:
@@ -306,13 +313,15 @@ class PAW(PAWTextOutput):
             # Save the state of the atoms:
             self.atoms = atoms.copy()
 
-        self.check_atoms()
+        self.synchronize_atoms()
 
         spos_ac = atoms.get_scaled_positions() % 1.0
 
-        self.wfs.set_positions(spos_ac)
-        self.density.set_positions(spos_ac, self.wfs.rank_a)
-        self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
+        rank_a = self.wfs.gd.get_ranks_from_positions(spos_ac)
+        atom_partition = AtomPartition(self.wfs.gd.comm, rank_a)
+        self.wfs.set_positions(spos_ac, atom_partition)
+        self.density.set_positions(spos_ac, atom_partition)
+        self.hamiltonian.set_positions(spos_ac, atom_partition)
 
         return spos_ac
 
@@ -364,7 +373,7 @@ class PAW(PAWTextOutput):
         Z_a = atoms.get_atomic_numbers()
         magmom_av = atoms.get_initial_magnetic_moments()
 
-        self.check_atoms()
+        self.synchronize_atoms()
 
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
@@ -456,7 +465,7 @@ class PAW(PAWTextOutput):
         bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
         kd = KPointDescriptor(bzkpts_kc, nspins, collinear)
         m_av = magmom_av.round(decimals=3)  # round off
-        id_a = zip(setups.id_a, *m_av.T)
+        id_a = list(zip(setups.id_a, *m_av.T))
         symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
         kd.set_symmetry(atoms, symmetry, comm=world)
         setups.set_symmetry(symmetry)
@@ -495,12 +504,12 @@ class PAW(PAWTextOutput):
         M = np.dot(M_v, M_v) ** 0.5
 
         nbands = par.nbands
-        
+
         orbital_free = any(setup.orbital_free for setup in setups)
         if orbital_free:
             nbands = 1
 
-        if isinstance(nbands, basestring):
+        if isinstance(nbands, str):
             if nbands[-1] == '%':
                 basebands = int(nvalence + M + 0.5) // 2
                 nbands = int((float(nbands[:-1]) / 100) * basebands)
@@ -595,16 +604,13 @@ class PAW(PAWTextOutput):
             pbc_c = np.ones(3, bool)
 
         if not self.wfs:
-            if parsize_domain == 'domain only':  # XXX this was silly!
-                parsize_domain = world.size
-
             parallelization = mpi.Parallelization(world,
                                                   nspins * kd.nibzkpts)
             ndomains = None
             if parsize_domain is not None:
                 ndomains = np.prod(parsize_domain)
             if mode.name == 'pw':
-                if ndomains > 1:
+                if ndomains is not None and ndomains > 1:
                     raise ValueError('Planewave mode does not support '
                                      'domain decomposition.')
                 ndomains = 1
@@ -814,12 +820,12 @@ class PAW(PAWTextOutput):
         if self.hamiltonian is None:
             gd, finegd = self.density.gd, self.density.finegd
             if realspace:
-                self.hamiltonian = RealSpaceHamiltonian(
+                self.hamiltonian = self.real_space_hamiltonian_class(
                     gd, finegd, nspins, setups, self.timer, xc,
                     world, self.wfs.kptband_comm, par.external,
                     collinear, par.poissonsolver, par.stencils[1])
             else:
-                self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
+                self.hamiltonian = self.reciprocal_space_hamiltonian_class(
                     gd, finegd, self.density.pd2, self.density.pd3,
                     nspins, setups, self.timer, xc, world,
                     self.wfs.kptband_comm, par.external, collinear)
@@ -871,10 +877,10 @@ class PAW(PAWTextOutput):
         TODO: Is this really the most efficient way?
         """
         spos_ac = self.atoms.get_scaled_positions() % 1.0
-        self.density.set_positions(spos_ac, self.wfs.rank_a)
+        self.density.set_positions(spos_ac, self.wfs.atom_partition)
         self.density.interpolate_pseudo_density()
         self.density.calculate_pseudo_charge()
-        self.hamiltonian.set_positions(spos_ac, self.wfs.rank_a)
+        self.hamiltonian.set_positions(spos_ac, self.wfs.atom_partition)
         self.hamiltonian.update(self.density)
 
     def attach(self, function, n=1, *args, **kwargs):
@@ -894,14 +900,14 @@ class PAW(PAWTextOutput):
         on convergence"""
 
         try:
-            slf = function.im_self
+            slf = function.__self__
         except AttributeError:
             pass
         else:
             if slf is self:
                 # function is a bound method of self.  Store the name
                 # of the method and avoid circular reference:
-                function = function.im_func.func_name
+                function = function.__func__.__name__
 
         self.observers.append((function, n, args, kwargs))
 
@@ -1008,7 +1014,7 @@ class PAW(PAWTextOutput):
             self.scf.converged = False
 
             # is the density ok ?
-            error = self.density.mixer.get_charge_sloshing()
+            error = self.density.mixer.get_charge_sloshing() or 0.0
             criterion = (self.input_parameters['convergence']['density']
                          * self.wfs.nvalence)
             if error < criterion and not self.hamiltonian.xc.orbital_dependent:
@@ -1016,16 +1022,15 @@ class PAW(PAWTextOutput):
 
             self.calculate()
 
-    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None):
+    def diagonalize_full_hamiltonian(self, nbands=None, scalapack=None,
+                                     expert=False):
         self.wfs.diagonalize_full_hamiltonian(self.hamiltonian, self.atoms,
                                               self.occupations, self.txt,
                                               nbands, scalapack)
 
-    def check_atoms(self):
+    def synchronize_atoms(self):
         """Check that atoms objects are identical on all processors."""
-        if not mpi.compare_atoms(self.atoms, comm=self.wfs.world):
-            raise RuntimeError('Atoms objects on different processors ' +
-                               'are not identical!')
+        mpi.synchronize_atoms(self.atoms, self.wfs.world)
 
 
 def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,

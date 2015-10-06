@@ -66,11 +66,10 @@ to become the next release.
 Code Overview
 =============
 
-Keep this picture under your pillow:
-
+Keep this :download:`picture <bigpicture.svg>` under your pillow:
 
 .. image:: bigpicture.png
-   :target: ../bigpicture.svg
+   :target: ../_downloads/bigpicture.svg
 
 The developer guide provides an overview of the PAW quantities and how
 the corresponding objects are defined in the code:

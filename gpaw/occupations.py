@@ -54,6 +54,10 @@ class OccupationNumbers:
             if kpt.eps_n is None:
                 return
 
+            # Sanity check.  This class will typically be the first to
+            # suffer if any NaNs sneak in.
+            assert not np.isnan(kpt.eps_n).any()
+
         # Let the master domain do the work and broadcast results:
         data = np.empty(7)
         if wfs.gd.comm.rank == 0:
@@ -457,7 +461,7 @@ class SmoothDistribution(ZeroKelvin):
             lumo= -wfs.world.max(-lumo)
             return np.array([homo, lumo])
         else:
-            assert wfs.bd.size == 1
+            assert wfs.bd.comm.size == 1
             eps_homo = -1000.0
             eps_lumo = 1000.0
             epsilon = 1e-2

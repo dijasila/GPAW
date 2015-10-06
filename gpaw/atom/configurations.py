@@ -6,6 +6,8 @@
 #    'element': (atomic number, [(n, l, occ, energy), ...])
 from __future__ import print_function
 
+import copy
+
 configurations = {
  'Ac': (89,
         [(1, 0, 2, -3443.1103670000002),
@@ -1010,6 +1012,36 @@ configurations = {
          (5, 0, 2, -0.16239100000000001)])}
 
 # End of computer generated code:
+
+# add missing elements 93-102, based on U (92)
+configurations.update({'Np': (93, copy.deepcopy(configurations['U'])[1])})
+configurations['Np'][1][15] = (5, 3, 4, -0.36654300000000001)
+configurations.update({'Pu': (94, copy.deepcopy(configurations['U'])[1])})
+configurations['Pu'][1][15] = (5, 3, 6, -0.36654300000000001)
+configurations['Pu'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'Am': (95, copy.deepcopy(configurations['U'])[1])})
+configurations['Am'][1][15] = (5, 3, 7, -0.36654300000000001)
+configurations['Am'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'Cm': (96, copy.deepcopy(configurations['U'])[1])})
+configurations['Cm'][1][15] = (5, 3, 7, -0.36654300000000001)
+configurations.update({'Bk': (97, copy.deepcopy(configurations['U'])[1])})
+configurations['Bk'][1][15] = (5, 3, 9, -0.36654300000000001)
+configurations['Bk'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'Cf': (98, copy.deepcopy(configurations['U'])[1])})
+configurations['Cf'][1][15] = (5, 3, 10, -0.36654300000000001)
+configurations['Cf'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'Es': (99, copy.deepcopy(configurations['U'])[1])})
+configurations['Es'][1][15] = (5, 3, 11, -0.36654300000000001)
+configurations['Es'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'Fm': (100, copy.deepcopy(configurations['U'])[1])})
+configurations['Fm'][1][15] = (5, 3, 12, -0.36654300000000001)
+configurations['Fm'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'Md': (101, copy.deepcopy(configurations['U'])[1])})
+configurations['Md'][1][15] = (5, 3, 13, -0.36654300000000001)
+configurations['Md'][1][16] = (6, 2, 0, -0.14319000000000001)
+configurations.update({'No': (102, copy.deepcopy(configurations['U'])[1])})
+configurations['No'][1][15] = (5, 3, 14, -0.36654300000000001)
+configurations['No'][1][16] = (6, 2, 0, -0.14319000000000001)
 
 
 parameters = {

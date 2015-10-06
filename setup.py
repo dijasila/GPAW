@@ -3,13 +3,14 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import os
-import sys
 import distutils
 import distutils.util
+from distutils.command.build_scripts import build_scripts as _build_scripts
 from distutils.core import setup, Extension
 from glob import glob
+import os
 from os.path import join
+import sys
 
 from config import (check_packages, get_system_config, get_parallel_config,
                     get_scalapack_config, get_hdf5_config, check_dependencies,
@@ -17,12 +18,13 @@ from config import (check_packages, get_system_config, get_parallel_config,
 
 
 # Get the current version number:
+version_base = None
 try:
-    execfile('gpaw/svnversion_io.py')  # write gpaw/svnversion.py and get
-                                       # svnversion
-except ValueError:
+    # Write gpaw/svnversion.py and get svnversion:
+    exec(open('gpaw/svnversion_io.py').read())
+except (ValueError, TypeError):
     svnversion = ''
-execfile('gpaw/version.py')        # get version_base
+exec(open('gpaw/version.py').read())        # get version_base
 if svnversion:
     version = version_base + '.' + svnversion
 else:
@@ -101,7 +103,7 @@ scalapack = False
 hdf5 = False
 
 # User provided customizations:
-execfile(customize)
+exec(open(customize).read())
 
 if platform_id != '':
     my_platform = distutils.util.get_platform() + '-' + platform_id
@@ -197,10 +199,10 @@ if hdf5:
                                extra_objects=extra_objects)
     extensions.append(hdf5_extension)
 
-scripts = [join('tools', script)
-           for script in ('gwap', 'gpaw-test', 'gpaw-setup', 'gpaw-basis',
-                          'gpaw-mpisim', 'gpaw-runscript',
-                          'gpaw-install-setups')]
+files = ['gpaw-analyse-basis', 'gpaw-basis', 'gpaw-install-setups',
+         'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
+         'gpaw-setup', 'gpaw-test', 'gpaw-upfplot', 'gpaw']
+scripts = [join('tools', script) for script in files]
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
@@ -210,22 +212,39 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
 
 description = 'An electronic structure code based on the PAW method'
 
-setup(name='gpaw',
-      version=version,
-      description=description,
-      maintainer='GPAW-community',
-      maintainer_email='gpaw-developers@listserv.fysik.dtu.dk',
-      url='http://wiki.fysik.dtu.dk/gpaw',
-      license='GPLv3+',
-      platforms=['unix'],
-      packages=packages,
-      ext_modules=extensions,
-      scripts=scripts,
-      long_description=long_description)
+kwargs = dict(
+    name='gpaw',
+    version=version,
+    description=description,
+    maintainer='GPAW-community',
+    maintainer_email='gpaw-developers@listserv.fysik.dtu.dk',
+    url='http://wiki.fysik.dtu.dk/gpaw',
+    license='GPLv3+',
+    platforms=['unix'],
+    packages=packages,
+    long_description=long_description)
 
+setup(ext_modules=extensions, scripts=scripts, **kwargs)
+      
 
+class build_scripts(_build_scripts):
+    # Python 3's version will try to read the first line of gpaw-python
+    # because it thinks it is a Python script that need an adjustment of
+    # the Python version.  We skip this in our version.
+    def copy_scripts(self):
+        self.mkpath(self.build_dir)
+        outfiles = []
+        updated_files = []
+        script = self.scripts[0]
+        outfile = os.path.join(self.build_dir, os.path.basename(script))
+        outfiles.append(outfile)
+        updated_files.append(outfile)
+        self.copy_file(script, outfile)
+        return outfiles, updated_files
+        
+        
 if custom_interpreter:
-    scripts.append('build/bin.%s/' % plat + 'gpaw-python')
+    scripts = ['build/bin.%s/' % plat + 'gpaw-python']
     error, par_msg = build_interpreter(
         define_macros, include_dirs, libraries,
         library_dirs, extra_link_args, extra_compile_args,
@@ -237,18 +256,10 @@ if custom_interpreter:
     msg += par_msg
     # install also gpaw-python
     if 'install' in sys.argv and error == 0:
-        setup(name='gpaw',
-              version=version,
-              description=description,
-              maintainer='GPAW-community',
-              maintainer_email='gpaw-developers@listserv.fysik.dtu.dk',
-              url='http://wiki.fysik.dtu.dk/gpaw',
-              license='GPLv3+',
-              platforms=['unix'],
-              packages=packages,
+        setup(cmdclass={'build_scripts': build_scripts},
               ext_modules=[extension],
               scripts=scripts,
-              long_description=long_description)
+              **kwargs)
 
 else:
     msg += ['* Only a serial version of gpaw was built!']

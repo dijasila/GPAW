@@ -24,7 +24,7 @@ except:
     H2 = Atoms([Atom('H', (a/2, a/2, (c-R)/2)),
                 Atom('H', (a/2, a/2, (c+R)/2))],
                cell=(a,a,c), pbc=True)
-    calc = GPAW(gpts=(12, 12, 16), nbands=2,
+    calc = GPAW(gpts=(12, 12, 16), nbands=2, kpts=(1,1,2),
                 convergence={'eigenstates':1.e-6},
                 txt=None,
                 )

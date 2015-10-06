@@ -103,7 +103,7 @@ class BandDescriptor:
         """Return the slice of global bands which belong to a given rank."""
         if band_rank is None:
             band_rank = self.comm.rank
-        assert band_rank in xrange(self.comm.size)
+        assert band_rank in range(self.comm.size)
 
         if self.strided:
             nstride = self.comm.size

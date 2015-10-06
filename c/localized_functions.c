@@ -11,7 +11,7 @@
    typedef int* MPI_Request; // !!!!!!!???????????
    typedef int* MPI_Comm;
 #  define MPI_COMM_NULL 0
-#  define MPI_Comm_rank(comm, rank) *(rank) = 0, 0
+#  define MPI_Comm_rank(comm, rank) *(rank) = 0
 #  define MPI_Bcast(buff, count, datatype, root, comm) 0
 #endif
 
@@ -24,13 +24,13 @@
 #endif
 
 int dgemm_(char *transa, char *transb, int *m, int * n,
-	   int *k, double *alpha, double *a, int *lda,
-	   double *b, int *ldb, double *beta,
-	   double *c, int *ldc);
+           int *k, double *alpha, double *a, int *lda,
+           double *b, int *ldb, double *beta,
+           double *c, int *ldc);
 int dgemv_(char *trans, int *m, int * n,
-	   double *alpha, double *a, int *lda,
-	   double *x, int *incx, double *beta,
-	   double *y, int *incy);
+           double *alpha, double *a, int *lda,
+           double *x, int *incx, double *beta,
+           double *y, int *incy);
 
 static void localized_functions_dealloc(LocalizedFunctionsObject *self)
 {
@@ -40,7 +40,7 @@ static void localized_functions_dealloc(LocalizedFunctionsObject *self)
 }
 
 static PyObject * localized_functions_integrate(LocalizedFunctionsObject *self,
-						PyObject *args)
+                                                PyObject *args)
 {
   PyArrayObject* aa;
   PyArrayObject* bb;
@@ -61,32 +61,32 @@ static PyObject * localized_functions_integrate(LocalizedFunctionsObject *self,
   if (PyArray_DESCR(aa)->type_num == NPY_DOUBLE)
     for (int n = 0; n < na; n++)
       {
-	bmgs_cut(a, self->size, self->start, w, self->size0);
-	double zero = 0.0;
-	int inc = 1;
-	dgemv_("t", &ng0, &nf, &self->dv, f, &ng0, w, &inc, &zero, b, &inc);
+        bmgs_cut(a, self->size, self->start, w, self->size0);
+        double zero = 0.0;
+        int inc = 1;
+        dgemv_("t", &ng0, &nf, &self->dv, f, &ng0, w, &inc, &zero, b, &inc);
 
-	a += ng;
-	b += nf;
+        a += ng;
+        b += nf;
       }
   else
     for (int n = 0; n < na; n++)
       {
-	bmgs_cutz((const double_complex*)a, self->size, self->start,
-		  (double_complex*)w, self->size0);
-	double zero = 0.0;
-	int inc = 2;
-	dgemm_("n", "n", &inc, &nf, &ng0, &self->dv, w, &inc, f, &ng0,
-	       &zero, b, &inc);
+        bmgs_cutz((const double_complex*)a, self->size, self->start,
+                  (double_complex*)w, self->size0);
+        double zero = 0.0;
+        int inc = 2;
+        dgemm_("n", "n", &inc, &nf, &ng0, &self->dv, w, &inc, f, &ng0,
+               &zero, b, &inc);
 
-	a += 2 * ng;
-	b += 2 * nf;
+        a += 2 * ng;
+        b += 2 * nf;
       }
   Py_RETURN_NONE;
 }
 
 static PyObject * localized_functions_derivative(
-		      LocalizedFunctionsObject *self, PyObject *args)
+                      LocalizedFunctionsObject *self, PyObject *args)
 {
   PyArrayObject* aa;
   PyArrayObject* bb;
@@ -107,32 +107,32 @@ static PyObject * localized_functions_derivative(
   if (PyArray_DESCR(aa)->type_num == NPY_DOUBLE)
     for (int n = 0; n < na; n++)
       {
-	bmgs_cut(a, self->size, self->start, w, self->size0);
-	double zero = 0.0;
-	int inc = 1;
-	dgemv_("t", &ng0, &nf, &self->dv, f, &ng0, w, &inc, &zero, b, &inc);
+        bmgs_cut(a, self->size, self->start, w, self->size0);
+        double zero = 0.0;
+        int inc = 1;
+        dgemv_("t", &ng0, &nf, &self->dv, f, &ng0, w, &inc, &zero, b, &inc);
 
-	a += ng;
-	b += nf;
+        a += ng;
+        b += nf;
       }
   else
     for (int n = 0; n < na; n++)
       {
-	bmgs_cutz((const double_complex*)a, self->size, self->start,
-		  (double_complex*)w, self->size0);
-	double zero = 0.0;
-	int inc = 2;
-	dgemm_("n", "n", &inc, &nf, &ng0, &self->dv, w, &inc, f, &ng0,
-	       &zero, b, &inc);
+        bmgs_cutz((const double_complex*)a, self->size, self->start,
+                  (double_complex*)w, self->size0);
+        double zero = 0.0;
+        int inc = 2;
+        dgemm_("n", "n", &inc, &nf, &ng0, &self->dv, w, &inc, f, &ng0,
+               &zero, b, &inc);
 
-	a += 2 * ng;
-	b += 2 * nf;
+        a += 2 * ng;
+        b += 2 * nf;
       }
   Py_RETURN_NONE;
 }
 
 static PyObject * localized_functions_add(LocalizedFunctionsObject *self,
-					  PyObject *args)
+                                          PyObject *args)
 {
   PyArrayObject* cc;
   PyArrayObject* aa;
@@ -153,33 +153,33 @@ static PyObject * localized_functions_add(LocalizedFunctionsObject *self,
   if (PyArray_DESCR(aa)->type_num == NPY_DOUBLE)
     for (int n = 0; n < na; n++)
       {
-	double zero = 0.0;
-	double one = 1.0;
-	int inc = 1;
-	dgemv_("n", &ng0, &nf, &one, f, &ng0, c, &inc, &zero, w, &inc);
-	bmgs_pastep(w, self->size0, a, self->size, self->start);
-	a += ng;
-	c += nf;
+        double zero = 0.0;
+        double one = 1.0;
+        int inc = 1;
+        dgemv_("n", &ng0, &nf, &one, f, &ng0, c, &inc, &zero, w, &inc);
+        bmgs_pastep(w, self->size0, a, self->size, self->start);
+        a += ng;
+        c += nf;
       }
   else
     for (int n = 0; n < na; n++)
       {
-	double zero = 0.0;
-	double one = 1.0;
-	int inc = 2;
-	dgemm_("n", "t", &inc, &ng0, &nf, &one, c, &inc, f, &ng0,
-	       &zero, w, &inc);
-	bmgs_pastepz((const double_complex*)w, self->size0,
-		    (double_complex*)a, self->size, self->start);
-	a += 2 * ng;
-	c += 2 * nf;
+        double zero = 0.0;
+        double one = 1.0;
+        int inc = 2;
+        dgemm_("n", "t", &inc, &ng0, &nf, &one, c, &inc, f, &ng0,
+               &zero, w, &inc);
+        bmgs_pastepz((const double_complex*)w, self->size0,
+                    (double_complex*)a, self->size, self->start);
+        a += 2 * ng;
+        c += 2 * nf;
       }
   Py_RETURN_NONE;
 }
 
 static PyObject * localized_functions_add_density(LocalizedFunctionsObject*
-						  self,
-						  PyObject *args)
+                                                  self,
+                                                  PyObject *args)
 {
   PyArrayObject* dd;
   PyArrayObject* oo;
@@ -197,16 +197,16 @@ static PyObject * localized_functions_add_density(LocalizedFunctionsObject*
   for (int i = 0; i < nf; i++)
     for (int n = 0; n < ng0; n++)
       {
-	double g = *f++;
-	w[n] += o[i] * g * g;
+        double g = *f++;
+        w[n] += o[i] * g * g;
       }
   bmgs_pastep(w, self->size0, d, self->size, self->start);
   Py_RETURN_NONE;
 }
 
 static PyObject * localized_functions_add_density2(LocalizedFunctionsObject*
-						  self,
-						  PyObject *args)
+                                                  self,
+                                                  PyObject *args)
 {
   PyArrayObject* dd; // density array to be added to
   PyArrayObject* oo; // density matrix
@@ -227,13 +227,13 @@ static PyObject * localized_functions_add_density2(LocalizedFunctionsObject*
     {
     for (int j = i; j < nf; j++)
       {
-	for (int n = 0; n < ng0; n++)
-	  {
-	    double tmp = o[p] * f[n + i * ng0] * f[n + j * ng0];
-	    F += tmp;
-	    w[n] += tmp;
-	  }
-	p++;
+        for (int n = 0; n < ng0; n++)
+          {
+            double tmp = o[p] * f[n + i * ng0] * f[n + j * ng0];
+            F += tmp;
+            w[n] += tmp;
+          }
+        p++;
       }
     }
   bmgs_pastep(w, self->size0, d, self->size, self->start);
@@ -242,7 +242,7 @@ static PyObject * localized_functions_add_density2(LocalizedFunctionsObject*
 }
 
 static PyObject * localized_functions_norm(LocalizedFunctionsObject* self,
-					   PyObject *args)
+                                           PyObject *args)
 {
   PyArrayObject* I_obj;
   if (!PyArg_ParseTuple(args, "O", &I_obj))
@@ -254,7 +254,7 @@ static PyObject * localized_functions_norm(LocalizedFunctionsObject* self,
     {
       double F = 0.0;
       for (int n = 0; n < self->ng0; n++)
-	F += f[n];
+        F += f[n];
       II[i][0] += F * self->dv;
       f += self->ng0;
     }
@@ -263,20 +263,20 @@ static PyObject * localized_functions_norm(LocalizedFunctionsObject* self,
     {
       const double* fd = self->fd;
       for (int i = 0; i < self->nf; i++)
-	for (int c = 0; c < 3; c++)
-	  {
-	    double F = 0.0;
-	    for (int n = 0; n < self->ng0; n++)
-	      F += fd[n];
-	    II[i][c + 1] += F * self->dv;
-	    fd += self->ng0;
-	  }
+        for (int c = 0; c < 3; c++)
+          {
+            double F = 0.0;
+            for (int n = 0; n < self->ng0; n++)
+              F += fd[n];
+            II[i][c + 1] += F * self->dv;
+            fd += self->ng0;
+          }
     }
   Py_RETURN_NONE;
 }
 
 static PyObject * localized_functions_normalize(LocalizedFunctionsObject* self,
-						PyObject *args)
+                                                PyObject *args)
 {
   double I0;
   PyArrayObject* I_obj;
@@ -297,7 +297,7 @@ static PyObject * localized_functions_normalize(LocalizedFunctionsObject* self,
       double *g = f + i * self->ng0;
       double a = -II[i][0] / I0;
       for (int n = 0; n < self->ng0; n++)
-	g[n] += a * f[n];
+        g[n] += a * f[n];
     }
 
 
@@ -306,46 +306,46 @@ static PyObject * localized_functions_normalize(LocalizedFunctionsObject* self,
       // Adjust derivatives:
       double* fd = self->fd;
       for (int n = 0; n < 3 * self->ng0; n++)
-	fd[n] *= s;
+        fd[n] *= s;
 
       for (int c = 0; c < 3; c++)
-	{
-	  double sd = II[0][c + 1] / II[0][0];
-	  for (int n = 0; n < self->ng0; n++)
-	    fd[n + c * self->ng0] -= f[n] * sd ;
-	}
+        {
+          double sd = II[0][c + 1] / II[0][0];
+          for (int n = 0; n < self->ng0; n++)
+            fd[n + c * self->ng0] -= f[n] * sd ;
+        }
 
       for (int i = 1; i < self->nf; i++)
-	{
-	  double *gd = fd + 3 * i * self->ng0;
-	  double a = -II[i][0] / I0;
-	  for (int n = 0; n < 3 * self->ng0; n++)
-	    gd[n] += a * fd[n];
+        {
+          double *gd = fd + 3 * i * self->ng0;
+          double a = -II[i][0] / I0;
+          for (int n = 0; n < 3 * self->ng0; n++)
+            gd[n] += a * fd[n];
 
-	  for (int c = 0; c < 3; c++)
-	    {
-	      double sd = II[i][c + 1] / I0;
-	      for (int n = 0; n < self->ng0; n++)
-		gd[n + c * self->ng0] -= f[n] * sd ;
-	    }
-	}
+          for (int c = 0; c < 3; c++)
+            {
+              double sd = II[i][c + 1] / I0;
+              for (int n = 0; n < self->ng0; n++)
+                gd[n + c * self->ng0] -= f[n] * sd ;
+            }
+        }
     }
 
   Py_RETURN_NONE;
 }
 
 static PyObject * get_functions(LocalizedFunctionsObject* self,
-				PyObject *args)
+                                PyObject *args)
 {
   if (!PyArg_ParseTuple(args, ""))
     return NULL;
 
   npy_intp dims[4] = {self->nf,
-		      self->size0[0], self->size0[1], self->size0[2]};
+                      self->size0[0], self->size0[1], self->size0[2]};
   PyArrayObject* functions = (PyArrayObject*)PyArray_SimpleNew(4, dims,
-							       NPY_DOUBLE);
+                                                               NPY_DOUBLE);
   memcpy(PyArray_DATA(functions), self->f,
-	 self->nf * self->ng0 * sizeof(double));
+         self->nf * self->ng0 * sizeof(double));
   return (PyObject*)functions;
 }
 
@@ -364,8 +364,8 @@ static PyObject * set_corner(LocalizedFunctionsObject* self,
 
 #ifdef PARALLEL
 static PyObject * localized_functions_broadcast(LocalizedFunctionsObject*
-						self,
-						PyObject *args)
+                                                self,
+                                                PyObject *args)
 {
   PyObject* comm_obj;
   int root;
@@ -374,7 +374,7 @@ static PyObject * localized_functions_broadcast(LocalizedFunctionsObject*
 
   MPI_Comm comm = ((MPIObject*)comm_obj)->comm;
   MPI_Bcast(self->f, self->ng0 * (self->nf + self->nfd),
-	    MPI_DOUBLE, root, comm);
+            MPI_DOUBLE, root, comm);
   Py_RETURN_NONE;
 }
 #endif
@@ -406,20 +406,18 @@ static PyMethodDef localized_functions_methods[] = {
     {NULL, NULL, 0, NULL}
 };
 
-static PyObject* localized_functions_getattr(PyObject *obj, char *name)
-{
-    return Py_FindMethod(localized_functions_methods, obj, name);
-}
 
 PyTypeObject LocalizedFunctionsType = {
-  PyObject_HEAD_INIT(NULL)
-  0,
-  "LocalizedFunctions",
-  sizeof(LocalizedFunctionsObject),
-  0,
-  (destructor)localized_functions_dealloc,
-  0,
-  localized_functions_getattr
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "LocalizedFunctions",
+    sizeof(LocalizedFunctionsObject),
+    0,
+    (destructor)localized_functions_dealloc,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    "LF object",
+    0, 0, 0, 0, 0, 0,
+    localized_functions_methods
 };
 
 PyObject * NewLocalizedFunctionsObject(PyObject *obj, PyObject *args)
@@ -434,13 +432,13 @@ PyObject * NewLocalizedFunctionsObject(PyObject *obj, PyObject *args)
   int forces;
   int compute;
   if (!PyArg_ParseTuple(args, "OOOOOOiii", &radials,
-			&size0_array, &size_array,
+                        &size0_array, &size_array,
                         &start_array, &h_array, &C_array,
                         &real, &forces, &compute))
     return NULL;
 
   LocalizedFunctionsObject *self = PyObject_NEW(LocalizedFunctionsObject,
-						&LocalizedFunctionsType);
+                                                &LocalizedFunctionsType);
   if (self == NULL)
     return NULL;
 
@@ -467,19 +465,19 @@ PyObject * NewLocalizedFunctionsObject(PyObject *obj, PyObject *args)
   for (int j = 0; j < PyList_Size(radials); j++)
     {
       const bmgsspline* spline =
-	&(((SplineObject*)PyList_GetItem(radials, j))->spline);
+        &(((SplineObject*)PyList_GetItem(radials, j))->spline);
       int l = spline->l;
       assert(l <= 4);
       if (j == 0)
-	{
-	  nbins = spline->nbins;
-	  dr = spline->dr;
-	}
+        {
+          nbins = spline->nbins;
+          dr = spline->dr;
+        }
       else
-	{
-	  assert(spline->nbins == nbins);
-	  assert(spline->dr == dr);
-	}
+        {
+          assert(spline->nbins == nbins);
+          assert(spline->dr == dr);
+        }
       nf += (2 * l + 1);
     }
 
@@ -504,33 +502,33 @@ PyObject * NewLocalizedFunctionsObject(PyObject *obj, PyObject *args)
       double* f0 = GPAW_MALLOC(double, ng0);
       double* fd0 = 0;
       if (forces)
-	fd0 = GPAW_MALLOC(double, ng0);
+        fd0 = GPAW_MALLOC(double, ng0);
 
       double* a = self->f;
       double* ad = self->fd;
       for (int j = 0; j < PyList_Size(radials); j++)
-	{
-	  const bmgsspline* spline =
-	    &(((SplineObject*)PyList_GetItem(radials, j))->spline);
-	  if (j == 0)
-	    bmgs_radial1(spline, self->size0, C, h, bin, d);
-	  bmgs_radial2(spline, self->size0, bin, d, f0, fd0);
-	  int l = spline->l;
-	  for (int m = -l; m <= l; m++)
-	    {
-	      bmgs_radial3(spline, m, self->size0, C, h, f0, a);
-	      a += ng0;
-	    }
-	  if (forces)
-	    for (int m = -l; m <= l; m++)
-	      for (int c = 0; c < 3; c++)
-		{
-		  bmgs_radiald3(spline, m, c, self->size0, C, h, f0, fd0, ad);
-		  ad += ng0;
-		}
-	}
+        {
+          const bmgsspline* spline =
+            &(((SplineObject*)PyList_GetItem(radials, j))->spline);
+          if (j == 0)
+            bmgs_radial1(spline, self->size0, C, h, bin, d);
+          bmgs_radial2(spline, self->size0, bin, d, f0, fd0);
+          int l = spline->l;
+          for (int m = -l; m <= l; m++)
+            {
+              bmgs_radial3(spline, m, self->size0, C, h, f0, a);
+              a += ng0;
+            }
+          if (forces)
+            for (int m = -l; m <= l; m++)
+              for (int c = 0; c < 3; c++)
+                {
+                  bmgs_radiald3(spline, m, c, self->size0, C, h, f0, fd0, ad);
+                  ad += ng0;
+                }
+        }
       if (forces)
-	free(fd0);
+        free(fd0);
       free(f0);
       free(d);
       free(bin);

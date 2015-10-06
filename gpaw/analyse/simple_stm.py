@@ -7,13 +7,14 @@ from ase.atoms import Atoms
 from ase.units import Bohr, Hartree
 from ase.io.cube import write_cube
 from ase.io.plt import write_plt, read_plt
+from ase.dft.stm import STM
 
 import gpaw.mpi as mpi
 from gpaw.mpi import MASTER
 from gpaw.grid_descriptor import GridDescriptor
 
 
-class SimpleStm:
+class SimpleStm(STM):
 
     """Simple STM object to simulate STM pictures.
 
@@ -31,15 +32,20 @@ class SimpleStm:
         if isinstance(atoms, str):
             self.read_3D(atoms)
             self.calc = None
+            self.atoms = None
         else:
             if isinstance(atoms, Atoms):
+                self.atoms = atoms
                 self.calc = atoms.get_calculator()
             else:
                 self.calc = atoms
+                self.atoms = self.calc.get_atoms()
             self.calc.converge_wave_functions()
 
             self.gd = self.calc.wfs.gd
             self.offset_c = [int(not a) for a in self.gd.pbc_c]
+
+            STM.__init__(self, self.atoms)
 
     def calculate_ldos(self, bias):
         """bias is the n, k, s list/tuple."""
@@ -67,7 +73,7 @@ class SimpleStm:
             except:
                 efermi_s = np.array([self.calc.get_homo_lumo().mean()] * 2)
 
-            if isinstance(bias, (int, long, float)):
+            if isinstance(bias, (int, float)):
                 # bias given
                 if bias > 0:
                     # positive bias = negative tip
@@ -149,7 +155,7 @@ class SimpleStm:
         filetype.lower()
 
         if filetype == 'plt':
-            data, cell = read_plt(file)
+            data, self.cell = read_plt(file)
 
             pbc_c = [True, True, True]
             N_c = np.array(data.shape)
@@ -157,7 +163,7 @@ class SimpleStm:
                 if N_c[c] % 2 == 1:
                     pbc_c[c] = False
                     N_c[c] += 1
-            self.gd = GridDescriptor(N_c, cell.diagonal() / Bohr, pbc_c)
+            self.gd = GridDescriptor(N_c, self.cell.diagonal() / Bohr, pbc_c)
             self.offset_c = [int(not a) for a in self.gd.pbc_c]
 
         else:
@@ -176,81 +182,29 @@ class SimpleStm:
         """
         return 0.0002 * sqrt(current)
 
+    def linescan(self, bias, current, p1, p2, npoints=50, z0=None):
+        """Line scan for a given current [nA]"""
+        return STM.linescan(self, bias, 
+                            self.current_to_density(current),
+                            p1, p2, npoints, z0)
+
     def density_to_current(self, density):
         return 5000. * density ** 2
 
-    def scan_const_current(self, current, bias=None,
-                           interpolate=False, hmax=None):
+    def scan_const_current(self, current, bias):
         """Get the height image for constant current I [nA].
-
-        hmax is the maximal height to consider
         """
         return self.scan_const_density(self.current_to_density(current),
-                                       bias, interpolate, hmax)
-
-    def scan_const_density(self, density, bias, interpolate=False, hmax=None):
+                                       bias)
+ 
+    def scan_const_density(self, density, bias):
         """Get the height image for constant density [e/Angstrom^3].
         """
+        x, y, heights = self.scan(bias, density)
+        self.heights = heights / Bohr
 
-        self.calculate_ldos(bias)
-
-        self.density = density
-
-        gd = self.gd
-        h_c = [np.linalg.norm(gd.h_cv[c]) for c in range(3)]
-        nx, ny = (gd.N_c - self.offset_c)[:2]
-
-        # each cpu will have the full array, but works on its
-        # own part only
-        heights = np.zeros((nx, ny)) - 1
-        if hmax is None:
-            hmax = h_c[2] * self.ldos.shape[2] + h_c[2] / 2.
-        else:
-            hmax /= Bohr
-        ihmax = min(gd.end_c[2] - 1, int(hmax / h_c[2]))
-
-        for i in range(gd.beg_c[0], gd.end_c[0]):
-            ii = i - gd.beg_c[0]
-            for j in range(gd.beg_c[1], gd.end_c[1]):
-                jj = j - gd.beg_c[1]
-
-                zline = self.ldos[ii, jj]
-
-                # check from above until you find the required density
-                for k in range(ihmax, gd.beg_c[2] - 1, -1):
-                    kk = k - gd.beg_c[2]
-                    if zline[kk] > density:
-                        heights[i - self.offset_c[0],
-                                j - self.offset_c[1]] = k
-                        break
-
-        # collect the results
-        gd.comm.max(heights)
-
-        if interpolate:
-            # collect the full grid to enable interpolation
-            fullgrid = gd.collect(self.ldos)
-
-            kmax = self.ldos.shape[2] - 1
-            for i in range(gd.beg_c[0], gd.end_c[0]):
-                ii = i - gd.beg_c[0]
-                i -= self.offset_c[0]
-                for j in range(gd.beg_c[1], gd.end_c[1]):
-                    jj = j - gd.beg_c[1]
-                    j -= self.offset_c[1]
-                    if heights[i, j] > 0:
-                        if heights[i, j] < kmax:
-                            c1 = fullgrid[i, j, int(heights[i, j])]
-                            c2 = fullgrid[i, j, int(heights[i, j]) + 1]
-                            k = heights[i, j] + (density - c1) / (c2 - c1)
-                        else:
-                            k = kmax
-
-        self.heights = np.where(heights > 0,
-                               (heights + self.offset_c[2]) * h_c[2], -1)
-
-        return heights
-
+        return self.heights
+        
     def write(self, file=None):
         """Write STM data to a file in gnuplot readable tyle."""
 

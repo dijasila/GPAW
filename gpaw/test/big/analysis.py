@@ -1,9 +1,8 @@
 from __future__ import print_function
 import os
-import cPickle as pickle
+import pickle
 import numpy as np
 import matplotlib.pyplot as pl
-import tempfile
 import smtplib
 
 try:
@@ -19,6 +18,7 @@ dict(testname: [(rev, runtime, info), (rev, runtime, info), ...])
     runtime: Run time in seconds. Negative for crashed jobs!
     info: A string describing the outcome
 """
+
 
 class DatabaseHandler:
     """Database class for keeping timings and info for long tests"""
@@ -40,14 +40,14 @@ class DatabaseHandler:
         pickle.dump(self.data, open(filename, 'wb'))
 
     def add_data(self, name, rev, runtime, info):
-        if not self.data.has_key(name):
+        if name not in self.data:
             self.data[name] = []
         self.data[name].append((rev, runtime, info))
 
     def get_data(self, name):
         """Return rev, time_array"""
         revs, runtimes = [], []
-        if self.data.has_key(name):
+        if name in self.data:
             for datapoint in self.data[name]:
                 revs.append(datapoint[0])
                 runtimes.append(datapoint[1])
@@ -69,6 +69,7 @@ class DatabaseHandler:
             info = job.status
 
             self.add_data(absname, rev, tstop - tstart, info)
+
 
 class TestAnalyzer:
     def __init__(self, name, revs, runtimes):
@@ -107,7 +108,7 @@ class TestAnalyzer:
                     self.better.append(i)
                     status = -1
                 elif relchange > reltol and abschange > abstol:
-                    # Regression 
+                    # Regression
                     current_first = i
                     self.worse.append(i)
                     status = 1
@@ -133,9 +134,10 @@ class TestAnalyzer:
         ax.set_title(self.name)
         if not outputdir.endswith('/'):
             outputdir += '/'
-        figname = self.name.replace('/','_')
+        figname = self.name.replace('/', '_')
         fig.savefig(outputdir + figname + '.png')
 
+        
 class MailGenerator:
     def __init__(self, queue):
         self.better = []
@@ -156,7 +158,7 @@ class MailGenerator:
 
     def add_worse(self, ta):
         self.worse.append((ta.name, ta.runtimes[-1],
-                            ta.abschange, ta.relchange))
+                           ta.abschange, ta.relchange))
 
     def add_failed(self, name):
         self.FAILED.append(name)

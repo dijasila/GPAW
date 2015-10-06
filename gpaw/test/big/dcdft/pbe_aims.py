@@ -7,7 +7,7 @@ import numpy as np
 import ase.db
 from ase.utils import opencew
 from ase.calculators.calculator import kpts2mp
-from ase.io.trajectory import PickleTrajectory
+from ase.io import Trajectory
 from ase.calculators.aims import Aims
 from ase.test.tasks.dcdft import DeltaCodesDFTCollection as Collection
 
@@ -26,7 +26,8 @@ basis = 'light'
 #basis = 'really_tight'
 #basis = 'tier2'
 
-kptdensity = 16.0
+kptdensity = 16.0  # this is converged
+kptdensity = 6.0  # just for testing
 width = 0.01
 
 basis_threshold = 0.00001
@@ -50,7 +51,7 @@ for name in names:
     fd = opencew(name + '_' + code + '.traj')
     if fd is None:
         continue
-    traj = PickleTrajectory(name + '_' + code + '.traj', 'w')
+    traj = Trajectory(name + '_' + code + '.traj', 'w')
     atoms = collection[name]
     cell = atoms.get_cell()
     kpts = tuple(kpts2mp(atoms, kptdensity, even=True))

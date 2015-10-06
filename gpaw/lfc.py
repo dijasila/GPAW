@@ -1,3 +1,4 @@
+from __future__ import division
 from math import pi
 
 import numpy as np
@@ -102,7 +103,7 @@ class Sphere:
         
         self.rank = gd.get_rank_from_position(spos_c)
         if ng == 0:
-            self.ranks = None # What about making empty lists instead?
+            self.ranks = None  # What about making empty lists instead?
             self.A_wgm = None
             self.G_wb = None
             self.M_w = None
@@ -262,7 +263,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         for a, (spos_c, sphere) in enumerate(zip(spos_ac, self.sphere_a)):
             try:
                 movement |= sphere.set_position(spos_c, self.gd, self.cut)
-            except GridBoundsError, e:
+            except GridBoundsError as e:
                 e.args = ['Atom %d too close to edge: %s' % (a, str(e))]
                 raise
 
@@ -368,7 +369,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
                 iterators.append(iterator)
             for i in range(3):
                 for iterator in iterators:
-                    iterator.next()
+                    next(iterator)
 
         return sdisp_Wc
 
@@ -414,7 +415,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         if debug:
             assert a_xG.ndim >= 3
-            assert (np.sort(c_axi.keys()) == self.my_atom_indices).all()
+            assert sorted(c_axi.keys()) == self.my_atom_indices
             for c_xi in c_axi.values():
                 assert c_xi.dtype == dtype
 
@@ -499,7 +500,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
             assert a_xG.ndim >= 3
             assert dtype == self.dtype
             if isinstance(c_axi, dict):
-                assert (np.sort(c_axi.keys()) == self.my_atom_indices).all()
+                assert sorted(c_axi.keys()) == self.my_atom_indices
             for c_xi in c_axi.values():
                 assert c_xi.dtype == dtype
 
@@ -548,7 +549,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         if debug:
             assert a_xG.ndim >= 3
-            assert (np.sort(c_axi.keys()) == self.my_atom_indices).all()
+            assert sorted(c_axi.keys()) == self.my_atom_indices
             for c_xi in c_axi.values():
                 assert c_xi.shape[:-1] == xshape
 
@@ -626,7 +627,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
 
         if debug:
             assert a_xG.ndim >= 3
-            assert (np.sort(c_axiv.keys()) == self.my_atom_indices).all()
+            assert sorted(c_axiv.keys()) == self.my_atom_indices
 
         if self.integral_a is not None:
             assert q == -1
@@ -831,7 +832,7 @@ class NewLocalizedFunctionsCollection(BaseLFC):
         if debug:
             assert a_xG.ndim == 3
             assert a_xG.dtype == self.dtype
-            assert (np.sort(c_axivv.keys()) == self.my_atom_indices).all()
+            assert sorted(c_axivv.keys()) == self.my_atom_indices
 
         dtype = a_xG.dtype
 
@@ -1178,7 +1179,7 @@ from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster
 from gpaw.mpi import run
 
 
-class LocalizedFunctionsCollection(BaseLFC):
+class OldLocalizedFunctionsCollection(BaseLFC):
     def __init__(self, gd, spline_aj, kpt_comm=None,
                  cut=False, dtype=float,
                  integral=None, forces=False):
@@ -1300,6 +1301,8 @@ class LocalizedFunctionsCollection(BaseLFC):
 
 if extra_parameters.get('usenewlfc', True):
     LocalizedFunctionsCollection = NewLocalizedFunctionsCollection
+else:
+    LocalizedFunctionsCollection = OldLocalizedFunctionsCollection
 
 
 def LFC(gd, spline_aj, kd=None,
@@ -1316,7 +1319,7 @@ def test():
     from gpaw.grid_descriptor import GridDescriptor
 
     ngpts = 40
-    h = 1.0 / ngpts
+    h = 1 / ngpts
     N_c = (ngpts, ngpts, ngpts)
     a = h * ngpts
     gd = GridDescriptor(N_c, (a, a, a))

@@ -1,6 +1,5 @@
 import numpy as np
 
-from ase.parallel import parprint
 
 from ase.units import Bohr, Hartree
 from gpaw.tddft import eV_to_aufrequency, aufrequency_to_eV  # TODO: remove
@@ -9,7 +8,8 @@ from gpaw.io.tar import Reader, Writer
 from gpaw.poisson import PoissonSolver
 from gpaw.fd_operators import Gradient
 
-from gpaw.inducedfield.extend_grid import extend_grid, extend_array, deextend_array, move_atoms
+from gpaw.utilities.extend_grid import extended_grid_descriptor, extend_array, \
+    deextend_array, move_atoms
 
 
 def sendreceive_dict(comm, a_i, dest, b_i, src_i, iitems):
@@ -116,7 +116,7 @@ class BaseInducedField(object):
         self.domain_comm = paw.wfs.gd.comm
         self.band_comm = paw.wfs.band_comm
         self.kpt_comm = paw.wfs.kd.comm
-        self.rank_a = paw.wfs.rank_a
+        self.rank_a = paw.wfs.atom_partition.rank_a
         self.nspins = paw.density.nspins
         self.setups = paw.wfs.setups
         self.density = paw.density
@@ -173,7 +173,7 @@ class BaseInducedField(object):
         
         # Extend grid
         oldgd = gd
-        egd, cell_cv, move_c = extend_grid(gd, extend_N_cd)
+        egd, cell_cv, move_c = extended_grid_descriptor(gd, extend_N_cd=extend_N_cd)
         Frho_we = egd.zeros((self.nw,), dtype=self.dtype)
         for w in range(self.nw):
             extend_array(Frho_wg[w], gd, Frho_we[w], egd)
@@ -226,12 +226,12 @@ class BaseInducedField(object):
         self.Ffe_wg = Ffe_wg
         
     def _parse_readwritemode(self, mode):
-        if type(mode) == str:
+        if isinstance(mode, str):
             try:
                 readwrites = self.readwritemode_str_to_list[mode]
             except KeyError:
                 raise IOError('unknown readwrite mode string')
-        elif type(mode) == list:
+        elif isinstance(mode, list):
             readwrites = mode
         else:
             raise IOError('unknown readwrite mode type')
@@ -253,7 +253,7 @@ class BaseInducedField(object):
         # Actual read
         self.nw = tar.dimension('nw')
         if ws == 'all':
-            ws = range(self.nw)
+            ws = np.arange(self.nw)
         self.nw = len(ws)
         self._read(tar, reads, ws)
 
@@ -349,7 +349,7 @@ class BaseInducedField(object):
         writes = self._parse_readwritemode(mode)
 
         if ws == 'all':
-            ws = range(self.nw)
+            ws = np.arange(self.nw)
 
         if 'field' in writes and self.fieldgd is None:
             raise IOError('field variables cannot be written ' +
@@ -571,7 +571,7 @@ def read_data(filename, keys=None, ws='all'):
     
     try:
         nspins = tar.dimension('nspins')
-    except  KeyError:
+    except KeyError:
         nspins = None
     
     na = tar['na']

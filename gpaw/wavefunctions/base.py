@@ -1,7 +1,7 @@
 import numpy as np
 
 from gpaw.utilities import pack, unpack2
-from gpaw.utilities.blas import gemm
+from gpaw.utilities.blas import gemm, axpy
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
 
@@ -9,8 +9,10 @@ from gpaw.utilities.timing import nulltimer
 class EmptyWaveFunctions:
     mode = 'undefined'
     
-    def __nonzero__(self):
+    def __bool__(self):
         return False
+
+    __nonzero__ = __bool__  # for Python 2
     
     def set_eigensolver(self, eigensolver):
         pass
@@ -66,6 +68,7 @@ class WaveFunctions(EmptyWaveFunctions):
         #self.nbands = self.bd.nbands #XXX
         #self.mynbands = self.bd.mynbands #XXX
         self.dtype = dtype
+        assert dtype == float or dtype == complex
         self.world = world
         self.kd = kd
         self.kptband_comm = kptband_comm
@@ -73,7 +76,6 @@ class WaveFunctions(EmptyWaveFunctions):
         if timer is None:
             timer = nulltimer
         self.timer = timer
-        self.rank_a = None
         self.atom_partition = None
             
         self.kpt_u = kd.create_k_points(self.gd)
@@ -89,8 +91,21 @@ class WaveFunctions(EmptyWaveFunctions):
     def set_eigensolver(self, eigensolver):
         self.eigensolver = eigensolver
 
-    def __nonzero__(self):
+    def __bool__(self):
         return True
+
+    __nonzero__ = __bool__  # for Python 2
+
+    def add_realspace_orbital_to_density(self, nt_G, psit_G):
+        if psit_G.dtype == float:
+            axpy(1.0, psit_G**2, nt_G)
+        else:
+            assert psit_G.dtype == complex
+            axpy(1.0, psit_G.real**2, nt_G)
+            axpy(1.0, psit_G.imag**2, nt_G)
+
+    def add_orbital_density(self, nt_G, kpt, n):
+        self.add_realspace_orbital_to_density(nt_G, kpt.psit_nG[n])
 
     def calculate_density_contribution(self, nt_sG):
         """Calculate contribution to pseudo density from wave functions."""
@@ -118,7 +133,7 @@ class WaveFunctions(EmptyWaveFunctions):
     
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
         if kpt.rho_MM is not None:
-            P_Mi = kpt.P_aMi[a]
+            P_Mi = self.P_aqMi[a][kpt.q]
             #P_Mi = kpt.P_aMi_sparse[a]
             #ind = get_matrix_index(kpt.P_aMi_index[a])
             #D_sii[kpt.s] += np.dot(np.dot(P_Mi.T.conj(), kpt.rho_MM),
@@ -165,16 +180,29 @@ class WaveFunctions(EmptyWaveFunctions):
         self.symmetrize_atomic_density_matrices(D_asp)
 
     def symmetrize_atomic_density_matrices(self, D_asp):
-        if len(self.kd.symmetry.op_scc) > 1:
+        if len(self.kd.symmetry.op_scc) == 0:
+            return
+        
+        if hasattr(D_asp, 'redistribute'):
+            a_sa = self.kd.symmetry.a_sa
+            D_asp.redistribute(self.atom_partition.as_serial())
+            for s in range(self.nspins):
+                D_aii = [unpack2(D_asp[a][s])
+                         for a in range(len(D_asp))]
+                for a, D_ii in enumerate(D_aii):
+                    setup = self.setups[a]
+                    D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
+            D_asp.redistribute(self.atom_partition)
+        else:
             all_D_asp = []
             for a, setup in enumerate(self.setups):
                 D_sp = D_asp.get(a)
                 if D_sp is None:
                     ni = setup.ni
                     D_sp = np.empty((self.ns, ni * (ni + 1) // 2))
-                self.gd.comm.broadcast(D_sp, self.rank_a[a])
+                self.gd.comm.broadcast(D_sp, self.atom_partition.rank_a[a])
                 all_D_asp.append(D_sp)
-
+ 
             for s in range(self.nspins):
                 D_aii = [unpack2(D_sp[s]) for D_sp in all_D_asp]
                 for a, D_sp in D_asp.items():
@@ -182,15 +210,19 @@ class WaveFunctions(EmptyWaveFunctions):
                     D_sp[s] = pack(setup.symmetrize(a, D_aii,
                                                     self.kd.symmetry.a_sa))
 
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, atom_partition=None):
         self.positions_set = False
-        rank_a = self.gd.get_ranks_from_positions(spos_ac)
-        atom_partition = AtomPartition(self.gd.comm, rank_a)
+        #rank_a = self.gd.get_ranks_from_positions(spos_ac)
+        #atom_partition = AtomPartition(self.gd.comm, rank_a)
         # XXX pass AtomPartition around instead of spos_ac?
         # All the classes passing around spos_ac end up needing the ranks
         # anyway.
 
-        if self.rank_a is not None and self.kpt_u[0].P_ani is not None:
+        if atom_partition is None:
+            rank_a = self.gd.get_ranks_from_positions(spos_ac)
+            atom_partition = AtomPartition(self.gd.comm, rank_a)
+
+        if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
             self.timer.start('Redistribute')
             mynks = len(self.kpt_u)
             
@@ -202,7 +234,6 @@ class WaveFunctions(EmptyWaveFunctions):
                                              get_empty)
             self.timer.stop('Redistribute')
 
-        self.rank_a = rank_a
         self.atom_partition = atom_partition
 
         self.kd.symmetry.check(spos_ac)
@@ -312,7 +343,7 @@ class WaveFunctions(EmptyWaveFunctions):
 
         kpt_rank, u = self.kd.get_rank_and_index(s, k)
 
-        natoms = len(self.rank_a)  # it's a hack...
+        natoms = self.atom_partition.natoms
         nproj = sum([setup.ni for setup in self.setups])
 
         if self.world.rank == 0:
@@ -328,7 +359,8 @@ class WaveFunctions(EmptyWaveFunctions):
                         P_ni = P_ani[a]
                     else:
                         P_ni = np.empty((self.bd.mynbands, ni), self.dtype)
-                        world_rank = (self.rank_a[a] +
+                        # XXX will fail with nonstandard communicator nesting
+                        world_rank = (self.atom_partition.rank_a[a] +
                                       kpt_rank * self.gd.comm.size *
                                       self.band_comm.size +
                                       band_rank * self.gd.comm.size)
@@ -383,6 +415,8 @@ class WaveFunctions(EmptyWaveFunctions):
             # allocate full wave function and receive
             psit_G = self.empty(global_array=True,
                                 realspace=realspace)
+            # XXX this will fail when using non-standard nesting
+            # of communicators.
             world_rank = (kpt_rank * self.gd.comm.size *
                           self.band_comm.size +
                           band_rank * self.gd.comm.size)

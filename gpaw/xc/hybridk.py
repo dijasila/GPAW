@@ -16,6 +16,7 @@ from gpaw.wavefunctions.pw import PWDescriptor, PWWaveFunctions
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.xc.hybrid import HybridXCBase
 
+
 class KPoint:
     def __init__(self, kd, kpt=None):
         """Helper class for parallelizing over k-points.
@@ -85,7 +86,6 @@ class KPoint:
             self.kd.comm.receive(self.weight, rank, block=False, tag=4),
             self.kd.comm.receive(self.P_nI, rank, block=False, tag=5)]
 
-        
     def wait(self):
         self.kd.comm.waitall(self.requests)
         self.requests = []
@@ -94,7 +94,7 @@ class KPoint:
 class HybridXC(HybridXCBase):
     orbital_dependent = True
     def __init__(self, name, hybrid=None, xc=None, gygi=False,
-                 alpha=None, skip_gamma=False, ecut=None, 
+                 alpha=None, skip_gamma=False, ecut=None,
                  etotflag = False, acdf=False, coredensity=True,
                  logfilename='-', bands=None, core_valence=True):
         """Mix standard functionals with exact exchange.
@@ -420,9 +420,9 @@ class HybridXC(HybridXCBase):
                 if self.etotflag:
                     if self.acdf:
                         if self.gygi and same:
-                            self.exxacdf += f2 * e * kpt1.weight                            
+                            self.exxacdf += f2 * e * kpt1.weight
                         else:
-                            self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e + 
+                            self.exxacdf += 0.5 * (f1 * (1-np.sign(e2-e1)) * e +
                                                    f2 * (1-np.sign(e1-e2)) * e ) * kpt1.weight
                     else:
                         self.exx += f2 * e * kpt1.weight[0] * f1 * self.kd.nbzkpts * nspins / 2

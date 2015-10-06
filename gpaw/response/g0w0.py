@@ -98,7 +98,7 @@ class G0W0(PairDensity):
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
 
-        self.kpts = select_kpts(kpts, self.calc)
+        self.kpts = list(select_kpts(kpts, self.calc))
                 
         if bands is None:
             bands = [0, self.nocc2]

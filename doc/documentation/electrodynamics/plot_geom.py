@@ -38,8 +38,8 @@ def generate_xygrid(d, g, box):
 
     # Spacing
     dx = x[1]-x[0]
-    dy = y[1]-y[0]    
-    return d_slice, d_proj, (x, y, dx, dy), (X, Y, U, V) 
+    dy = y[1]-y[0]
+    return d_slice, d_proj, (x, y, dx, dy), (X, Y, U, V)
 
 use('Agg')
 
@@ -108,7 +108,3 @@ ylabel('x [Ang]')
 # Plot
 tight_layout()
 savefig('geom.png')
-
-import os
-os.system('cp geom.png ../../_build')
-

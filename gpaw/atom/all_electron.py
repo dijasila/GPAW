@@ -33,7 +33,7 @@ class AllElectron:
 
     def __init__(self, symbol, xcname='LDA', scalarrel=False,
                  corehole=None, configuration=None, nofiles=True,
-                 txt='-', gpernode=150, orbital_free=False, tf_coeff=1.):
+                 txt='-', gpernode=150, orbital_free=False, tw_coeff=1.):
         """Do an atomic DFT calculation.
 
         Example::
@@ -98,13 +98,14 @@ class AllElectron:
         self.beta = 0.4
 
         self.orbital_free = orbital_free
-        self.tf_coeff = tf_coeff
+        self.tw_coeff = tw_coeff
 
         if self.orbital_free:
             self.n_j = [1]
             self.l_j = [0]
             self.f_j = [self.Z]
             self.e_j = [self.e_j[-1]]
+
             
         t = self.text
         t()
@@ -216,7 +217,7 @@ class AllElectron:
             fd = None
         else:
             try:
-                fd = open(restartfile, 'r')
+                fd = open(restartfile, 'rb')
             except IOError:
                 fd = None
             else:
@@ -246,10 +247,12 @@ class AllElectron:
         
         # orbital_free needs more iterations and coefficient
         if self.orbital_free:
-            qOK = log(1e-14)
-            e_j[0] /= self.tf_coeff
             mix = 0.1
-            nitermax = 1000
+            nitermax = 2000
+            e_j[0] /= self.tw_coeff
+            if Z > 10 : #help convergence for third row elements
+                mix = 0.002
+                nitermax = 10000
             
         vrold = None
         
@@ -273,7 +276,11 @@ class AllElectron:
 
             # calculate new total Kohn-Sham effective potential and
             # admix with old version
-            vr[:] = (vHr + self.vXC * r) / self.tf_coeff
+
+            vr[:] = (vHr + self.vXC * r)
+
+            if self.orbital_free:
+                vr /= self.tw_coeff
 
             if niter > 0:
                 vr[:] = mix * vr + (1 - mix) * vrold
@@ -314,26 +321,32 @@ class AllElectron:
         t('Converged in %d iteration%s.' % (niter, 's'[:niter != 1]))
 
         try:
-            fd = open(restartfile, 'w')
+            fd = open(restartfile, 'wb')
         except IOError:
             pass
         else:
             pickle.dump(n, fd)
             try:
-                os.chmod(restartfile, 0666)
+                os.chmod(restartfile, 0o666)
             except OSError:
                 pass
 
         Ekin = 0
-        if self.orbital_free:
-            e_j[0] *= self.tf_coeff
-            vr *= self.tf_coeff
         
         for f, e in zip(f_j, e_j):
             Ekin += f * e
 
         Epot = 2 * pi * np.dot(n * r * (vHr - Z), dr)
         Ekin += -4 * pi * np.dot(n * vr * r, dr)
+
+        if self.orbital_free:
+        #e and vr are not scaled back
+        #instead Ekin is scaled for total energy (printed and inside setup)
+            Ekin *= self.tw_coeff
+            t()
+            t('Lambda:{0}'.format(self.tw_coeff))
+            t('Correct eigenvalue:{0}'.format(e_j[0]*self.tw_coeff))
+            t()
 
         t()
         t('Energy contributions:')
@@ -551,8 +564,8 @@ class AllElectron:
                           self.scalarrel)
             # adjust eigenenergy until u has the correct number of nodes
             while nn != nodes:
-                diff = cmp(nn, nodes)
-                while diff == cmp(nn, nodes):
+                diff = np.sign(nn - nodes)
+                while diff == np.sign(nn - nodes):
                     e -= diff * delta
                     nn, A = shoot(u, l, vr, e, self.r2dvdr, r, dr, c10, c2,
                                   self.scalarrel)

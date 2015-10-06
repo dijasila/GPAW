@@ -9,20 +9,14 @@ from gpaw.hs_operators import MatrixOperator
 from gpaw.utilities import compiled_with_sl
 from gpaw.utilities.scalapack import scalapack_set
 from gpaw.blacs import Redistributor
-from gpaw.kohnsham_layouts import BlacsBandLayouts 
+from gpaw.kohnsham_layouts import BlacsBandLayouts
 if 0:  # causes numpy doctests failures - exact formatting is expected!
     np.set_printoptions(linewidth=168) #XXX large xterm width
 
-# -------------------------------------------------------------------
-
-from gpaw.test.ut_common import ase_svnversion, TextTestRunner, \
-    CustomTextTestRunner, defaultTestLoader, initialTestLoader
-
 memstats = False
-if memstats:
-    # Developer use of this feature requires ASE 3.1.0 svn.rev. 905 or later.
-    assert ase_svnversion >= 905 # wasn't bug-free untill 973!
-    from ase.utils.memory import MemorySingleton, MemoryStatistics
+
+from gpaw.test.ut_common import TextTestRunner, \
+    CustomTextTestRunner, defaultTestLoader, initialTestLoader
 
 from gpaw.test.parallel.ut_hsops import UTBandParallelSetup, \
                                         UTConstantWavefunctionSetup
@@ -333,8 +327,8 @@ def UTConstantWavefunctionFactory(dtype, parstride_bands, blocking, async):
     classname = 'UTConstantWavefunctionBlacsSetup' \
     + sep + {float:'Float', complex:'Complex'}[dtype] \
     + sep + {False:'Blocked', True:'Strided'}[parstride_bands] \
-    + sep + {'fast':'Fast', 'light':'Light', 
-             'intdiv':'Intdiv', 'nonintdiv1': 'Nonintdiv1', 
+    + sep + {'fast':'Fast', 'light':'Light',
+             'intdiv':'Intdiv', 'nonintdiv1': 'Nonintdiv1',
              'nonintdiv2':'Nonintdiv2'}[blocking] \
     + sep + {False:'Synchronous', True:'Asynchronous'}[async]
     class MetaPrototype(UTConstantWavefunctionBlacsSetup, object):
@@ -362,7 +356,7 @@ if __name__ in ['__main__', '__builtin__'] and compiled_with_sl():
     for test in [UTBandParallelBlacsSetup_Blocked]: #, UTBandParallelBlacsSetup_Strided]:
         info = ['', test.__name__, test.__doc__.strip('\n'), '']
         testsuite = initialTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         assert testresult.wasSuccessful(), 'Initial verification failed!'
         parinfo.extend(['    Parallelization options: %s' % tci._parinfo for \
@@ -373,7 +367,7 @@ if __name__ in ['__main__', '__builtin__'] and compiled_with_sl():
     for dtype in [float, complex]:
         for parstride_bands in [False]: #XXX [False, True]:
             for blocking in ['fast', 'light', 'intdiv',
-                             'nonintdiv1', 'nonintdiv2']: 
+                             'nonintdiv1', 'nonintdiv2']:
                 for async in [False, True]:
                     testcases.append(UTConstantWavefunctionFactory(dtype, \
                         parstride_bands, blocking, async))
@@ -381,7 +375,7 @@ if __name__ in ['__main__', '__builtin__'] and compiled_with_sl():
     for test in testcases:
         info = ['', test.__name__, test.__doc__.strip('\n')] + parinfo + ['']
         testsuite = defaultTestLoader.loadTestsFromTestCase(test)
-        map(testrunner.stream.writeln, info)
+        list(map(testrunner.stream.writeln, info))
         testresult = testrunner.run(testsuite)
         # Provide feedback on failed tests if imported by test.py
         if __name__ == '__builtin__' and not testresult.wasSuccessful():

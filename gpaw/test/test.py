@@ -5,6 +5,8 @@ import tempfile
 import warnings
 from optparse import OptionParser
 
+import numpy as np
+
 import gpaw.mpi as mpi
 from gpaw import debug
 from gpaw.version import version
@@ -124,6 +126,7 @@ def main(args=None):
     if mpi.rank == 0:
         print('python %s on %s' % (python, operating_system))
         print('Running tests in %s' % tmpdir)
+        print('Numpy:', np.__version__)
         print('Jobs: %d, Cores: %d, debug-mode: %r' % (opt.jobs, mpi.size,
                                                        debug))
     failed = TestRunner(tests, jobs=opt.jobs,

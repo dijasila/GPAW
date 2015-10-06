@@ -1,5 +1,4 @@
 import numpy as np
-from types import FloatType
 from ase.parallel import rank
 
 import _gpaw
@@ -41,11 +40,23 @@ class BEE2(XCKernel):
         """
 
         if parameters is None:
-            # LDA exchange
-            t = [1.0, 0.0]
-            coefs = [1.0]
-            orders = [0.0]
-            parameters = np.append(t, np.append(orders, coefs))
+            parameters = (
+                [4.0, 0.0] + list(range(30)) +
+                [1.516501714304992365356, 0.441353209874497942611,
+                 -0.091821352411060291887, -0.023527543314744041314,
+                 0.034188284548603550816, 0.002411870075717384172,
+                 -0.014163813515916020766, 0.000697589558149178113,
+                 0.009859205136982565273, -0.006737855050935187551,
+                 -0.001573330824338589097, 0.005036146253345903309,
+                 -0.002569472452841069059, -0.000987495397608761146,
+                 0.002033722894696920677, -0.000801871884834044583,
+                 -0.000668807872347525591, 0.001030936331268264214,
+                 -0.000367383865990214423, -0.000421363539352619543,
+                 0.000576160799160517858, -0.000083465037349510408,
+                 -0.000445844758523195788, 0.000460129009232047457,
+                 -0.000005231775398304339, -0.000423957047149510404,
+                 0.000375019067938866537, 0.000021149381251344578,
+                 -0.000190491156503997170, 0.000073843624209823442])
         else:
             assert len(parameters) > 2
             assert np.mod(len(parameters), 2) == 0
@@ -291,8 +302,8 @@ class BEEF_Ensemble:
             from gpaw.xc.kernel import XCNull
             xc_null = XC(XCNull())
             self.e0 = self.e_dft + self.calc.get_xc_difference(xc_null)
-        isinstance(self.e_dft, FloatType)
-        isinstance(self.e0, FloatType)
+        assert isinstance(self.e_dft, float)
+        assert isinstance(self.e0, float)
 
     def mbeef_exchange_energy_contribs(self):
         """Legendre polynomial exchange contributions to mBEEF Etot"""

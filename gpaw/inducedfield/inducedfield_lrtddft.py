@@ -33,7 +33,7 @@ class LrTDDFTInducedField(BaseInducedField):
         """
         # TODO: change kickdir to general kick = [1e-3, 1-e3, 0] etc.
 
-        if type(lr) is not LrTDDFT:
+        if not isinstance(lr, LrTDDFT):
             raise RuntimeError('Provide LrTDDFT object.')
         
         # Check that lr is diagonalized

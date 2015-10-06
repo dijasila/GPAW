@@ -1,8 +1,7 @@
 
 import numpy as np
-from gpaw import debug, dry_run
-from gpaw.mpi import world, serial_comm, _Communicator, \
-                     SerialCommunicator, DryRunCommunicator
+from gpaw import debug
+from gpaw.mpi import world, serial_comm, _Communicator, SerialCommunicator
 
 even_comm = world.new_communicator(np.arange(0, world.size, 2))
 if world.size > 1:
@@ -20,8 +19,8 @@ else:
 hasmpi = False
 try:
     import _gpaw
-    hasmpi = hasattr(_gpaw, 'Communicator')
-except ImportError, AttributeError:
+    hasmpi = hasattr(_gpaw, 'Communicator') and world.size > 1
+except (ImportError, AttributeError):
     pass
 
 assert world.parent is None

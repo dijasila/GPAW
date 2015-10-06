@@ -72,6 +72,8 @@ class FFTWPlan:
         lib.fftw_execute(self.plan)
 
     def __del__(self, lib=lib):
+        # We keep a reference to lib so that it's not GC'ed before we have
+        # cleaned up.
         lib.fftw_destroy_plan(self.plan)
 
 
@@ -127,6 +129,8 @@ else:
         ctypes.c_uint]
     try:
         lib.fftw_plan_with_nthreads.argtypes = [ctypes.c_int]
-        assert lib.fftw_init_threads()
     except AttributeError:
-        pass
+        pass  # We have a single-threaded FFTW
+    else:
+        if not lib.fftw_init_threads():
+            raise RuntimeError('fftw_init_threads failed')

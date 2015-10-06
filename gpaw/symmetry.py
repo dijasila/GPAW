@@ -6,20 +6,20 @@ from __future__ import print_function, division
 
 import functools
 
+from fractions import gcd
 import numpy as np
 
 import _gpaw
 import gpaw.mpi as mpi
-from gpaw.utilities import gcd
 
 
-def frac(f, n=2 * 3 * 4 * 5):
+def frac(f, n=2 * 3 * 4 * 5, tol=1e-6):
     if not isinstance(f, (int, float)):
-        return np.array([frac(a, n) for a in f]).T
+        return np.array([frac(a, n, tol) for a in f]).T
     if f == 0:
         return 0, 1
     x = n * f
-    if abs(x - round(x)) > 1e-6:
+    if abs(x - round(x)) > n * tol:
         raise ValueError
     x = int(round(x))
     d = gcd(x, n)
@@ -119,7 +119,7 @@ class Symmetry:
 
         # operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
         # there are 3**9 = 19683 possible matrices
-        for base3id in xrange(19683):
+        for base3id in range(19683):
             op_cc = np.empty((3, 3), dtype=int)
             m = base3id
             for ip, p in enumerate(power):
@@ -194,7 +194,7 @@ class Symmetry:
                 ftrans_jc -= np.rint(ftrans_jc)
                 for ft_c in ftrans_jc:
                     try:
-                        nom_c, denom_c = frac(ft_c)
+                        nom_c, denom_c = frac(ft_c, tol=self.tol)
                     except ValueError:
                         continue
                     ft_c = nom_c / denom_c

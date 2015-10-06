@@ -13,6 +13,8 @@ Change log for version:
 
 5) Added "ForcesConvergenceCriterion".
 
+6) Added "ExternalPotential".
+
 """
 
 import os
@@ -56,6 +58,14 @@ def open(filename, mode='r', comm=mpi.world):
             return DummyWriter(filename, comm)
     else:
         raise ValueError("Illegal mode!  Use 'r' or 'w'.")
+
+
+def write_atomic_matrix(writer, X_asp, name, master):
+    all_X_asp = X_asp.deepcopy()
+    all_X_asp.redistribute(all_X_asp.partition.as_serial())
+    writer.add(name, ('nspins', 'nadm'), dtype=float)
+    if master:
+        writer.fill(all_X_asp.toarray(axis=1))
 
 
 def wave_function_name_template(mode):
@@ -131,7 +141,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
     
     w = open(filename, 'w', world)
     w['history'] = 'GPAW restart file'
-    w['version'] = 5
+    w['version'] = 6
     w['lengthunit'] = 'Bohr'
     w['energyunit'] = 'Hartree'
 
@@ -322,13 +332,14 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
                 P_ani = {}
                 for a in range(natoms):
                     ni = wfs.setups[a].ni
-                    if wfs.rank_a[a] == 0:
+                    if wfs.atom_partition.rank_a[a] == 0:
                         P_ani[a] = kpt.P_ani[a]
                     else:
                         P_ani[a] = np.empty((wfs.bd.mynbands, ni),
                                             dtype=wfs.dtype)
+                        rank = wfs.atom_partition.rank_a[a]
                         requests.append(domain_comm.receive(P_ani[a],
-                                                            wfs.rank_a[a],
+                                                            rank,
                                                             1303 + a,
                                                             block=False))
             else:
@@ -352,38 +363,9 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     # Write atomic density matrices and non-local part of hamiltonian:
     timer.start('Atomic matrices')
-    if master:
-        all_D_sp = np.empty((wfs.nspins, nadm))
-        all_H_sp = np.empty((wfs.nspins, nadm))
-        p1 = 0
-        p2 = 0
-        for a in range(natoms):
-            ni = wfs.setups[a].ni
-            nii = ni * (ni + 1) // 2
-            if a in density.D_asp:
-                D_sp = density.D_asp[a]
-                dH_sp = hamiltonian.dH_asp[a]
-            else:
-                D_sp = np.empty((wfs.nspins, nii))
-                domain_comm.receive(D_sp, wfs.rank_a[a], 207)
-                dH_sp = np.empty((wfs.nspins, nii))
-                domain_comm.receive(dH_sp, wfs.rank_a[a], 2071)
-            p2 = p1 + nii
-            all_D_sp[:, p1:p2] = D_sp
-            all_H_sp[:, p1:p2] = dH_sp
-            p1 = p2
-        assert p2 == nadm
-    elif kpt_comm.rank == 0 and band_comm.rank == 0:
-        for a in range(natoms):
-            if a in density.D_asp:
-                domain_comm.send(density.D_asp[a], 0, 207)
-                domain_comm.send(hamiltonian.dH_asp[a], 0, 2071)
-    w.add('AtomicDensityMatrices', ('nspins', 'nadm'), dtype=float)
-    if master:
-        w.fill(all_D_sp)
-    w.add('NonLocalPartOfHamiltonian', ('nspins', 'nadm'), dtype=float)
-    if master:
-        w.fill(all_H_sp)
+    write_atomic_matrix(w, density.D_asp, 'AtomicDensityMatrices', master)
+    write_atomic_matrix(w, hamiltonian.dH_asp, 'NonLocalPartOfHamiltonian',
+                        master)
     timer.stop('Atomic matrices')
 
     # Write the eigenvalues and occupation numbers:
@@ -468,6 +450,9 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     hamiltonian.xc.write(w, natoms)
 
+    if p.external is not None:
+        p.external.write(w)
+    
     if mode in ['', 'all']:
         timer.start('Pseudo-wavefunctions')
         wfs.write(w, write_wave_functions=(mode == 'all'))
@@ -612,10 +597,9 @@ def read(paw, reader):
     from gpaw.utilities.partition import AtomPartition
     atom_partition = AtomPartition(gd.comm, np.zeros(natoms, dtype=int))
     # <sarcasm>let's set some variables directly on some objects!</sarcasm>
-    wfs.atom_partition = atom_partition # XXX
-    wfs.rank_a = np.zeros(natoms, int) # XXX
-    density.atom_partition = atom_partition # XXX
-    hamiltonian.atom_partition = atom_partition # XXX
+    wfs.atom_partition = atom_partition
+    density.atom_partition = atom_partition
+    hamiltonian.atom_partition = atom_partition
 
     if version > 0.3:
         Etot = hamiltonian.Etot
@@ -771,6 +755,12 @@ def read(paw, reader):
                     i1 = i2
         timer.stop('Projections')
 
+    # Get the forces from the old calculation:
+    if r.has_array('CartesianForces'):
+        paw.forces.F_av = r.get('CartesianForces', broadcast=True)
+    else:
+        paw.forces.reset()
+
     # Manage mode change:
     paw.scf.check_convergence(density, wfs.eigensolver, wfs, hamiltonian, paw.forces)
     newmode = paw.input_parameters.mode
@@ -788,12 +778,6 @@ def read(paw, reader):
 
     if newmode != oldmode:
         paw.scf.reset()
-
-    # Get the forces from the old calculation:
-    if r.has_array('CartesianForces'):
-        paw.forces.F_av = r.get('CartesianForces', broadcast=True)
-    else:
-        paw.forces.reset()
 
     hamiltonian.xc.read(r)
 

@@ -1,6 +1,6 @@
 """Common code base for maintaining backwards compatibility in ut_xxx tests."""
 
-__all__ = ['ase_svnversion', 'shapeopt', 'TestCase', 'TextTestRunner', \
+__all__ = ['shapeopt', 'TestCase', 'TextTestRunner', \
     'CustomTextTestRunner', 'defaultTestLoader', 'initialTestLoader', \
     'create_random_atoms', 'create_parsize_maxbands', 'create_parsize_minbands']
 
@@ -8,23 +8,60 @@ partest = True
 
 # -------------------------------------------------------------------
 
-# Maintain backwards compatibility with ASE 3.1.0 svn. rev. 1158 or later
-try:
-    from ase.svnversion import svnversion as ase_svnversion
-except ImportError:
-    # Fall back on minimum required ASE svn.rev.
-    ase_svnversion = 1158
-else:
-    # From test/ase3k_version.py.
-    full_ase_svnversion = ase_svnversion
-    if ase_svnversion[-1] == 'M':
-        ase_svnversion = ase_svnversion[:-1]
-    if ase_svnversion.rfind(':') != -1:
-        ase_svnversion = ase_svnversion[:ase_svnversion.rfind(':')]
-    ase_svnversion = int(ase_svnversion)
 
-# Using a feature from ASE 3.1.0 svn. rev. 1001 or later.
-from ase.utils.memory import shapeopt
+def shapegen(size, ndims, ecc=0.5):
+    """Return a generator of an N-dimensional array shape
+    which approximately contains a given number of elements.
+
+        size:       int or long in [1,inf[
+                    The total number of elements
+        ndims=3:    int in [1,inf[
+                    The number of dimensions
+        ecc=0.5:    float in ]0,1[
+                    The eccentricity of the distribution
+    """
+    assert type(size) in [int,float] and size>=1
+    assert isinstance(ndims, int) and ndims>=1
+    assert type(ecc) in [int,float] and ecc>0 and ecc<1
+
+    for i in range(ndims-1):
+        scale = size**(1.0/(ndims-i))
+        c = round(np.random.uniform((1-ecc)*scale, 1.0/(1-ecc)*scale))
+        size/=c
+        yield c
+    yield round(size)
+
+    
+def shapeopt(maxseed, size, ndims, ecc=0.5):
+    """Return optimal estimate of an N-dimensional array shape
+    which is closest to containing a given number of elements.
+
+        maxseed:    int in [1,inf[
+                    The maximal number of seeds to try
+        size:       int or long in [1,inf[
+                    The total number of elements
+        ndims=3:    int in [1,inf[
+                    The number of dimensions
+        ecc=0.5:    float in ]0,1[
+                    The eccentricity of the distribution
+    """
+    assert isinstance(maxseed, int) and maxseed>=1
+    assert type(size) in [int,float] and size>=1
+    assert isinstance(ndims, int) and ndims>=1
+    assert type(ecc) in [int,float] and ecc>0 and ecc<1
+
+    digits_best = np.inf
+    shape_best = None
+    for seed in range(maxseed):
+        np.random.seed(seed)
+        shape = tuple(shapegen(size, ndims, ecc))
+        if np.prod(shape) == size:
+            return -np.inf, shape
+        digits = np.log10(abs(np.prod(shape)-size))
+        if digits < digits_best:
+            (digits_best, shape_best) = (digits, shape)
+    return digits_best, shape_best
+
 
 if partest:
     from gpaw.test.parunittest import ParallelTestCase as TestCase, \
@@ -50,7 +87,7 @@ from math import sin, cos
 from ase import Atoms
 from ase.structure import molecule
 from ase.units import Bohr
-from gpaw.mpi import compare_atoms
+from gpaw.mpi import synchronize_atoms, world
 from gpaw.utilities.tools import md5_array
 
 def create_random_atoms(gd, nmolecules=10, name='NH2', mindist=4.5 / Bohr):
@@ -68,7 +105,8 @@ def create_random_atoms(gd, nmolecules=10, name='NH2', mindist=4.5 / Bohr):
     seed = np.array([md5_array(data, numeric=True)
                      for data in
                      [nmolecules, gd.cell_cv, gd.pbc_c, gd.N_c]]).astype(int)
-    np.random.seed(seed % 4294967296)
+    #np.random.seed(seed % 4294967296)
+    np.random.seed(seed % 1073741824)
 
     for m in range(nmolecules):
         amol = molecule(name)
@@ -109,19 +147,19 @@ def create_random_atoms(gd, nmolecules=10, name='NH2', mindist=4.5 / Bohr):
 
     # Restore the original state of the random number generator
     np.random.set_state(randstate)
-    assert compare_atoms(atoms)
+    synchronize_atoms(atoms, world)
     return atoms
 
 
 # -------------------------------------------------------------------
 
-from gpaw.utilities import gcd
+from fractions import gcd
 from gpaw import parsize_domain, parsize_bands
 
 def create_parsize_maxbands(nbands, world_size):
     """Safely parse command line parallel arguments for band parallel case."""
     # D: number of domains
-    # B: number of band groups   
+    # B: number of band groups
     if parsize_bands is None:
         if parsize_domain is None:
             B = gcd(nbands, world_size) # largest possible

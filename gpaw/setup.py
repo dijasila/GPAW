@@ -16,13 +16,13 @@ from math import pi, sqrt
 import numpy as np
 import ase.units as units
 from ase.data import atomic_names, chemical_symbols, atomic_numbers
+from ase.utils import basestring
 
-from gpaw.setup_data import SetupData
+from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
-from gpaw.gaunt import gaunt as G_LLL, Y_LLv
+from gpaw.gaunt import gaunt, nabla
 from gpaw.utilities import unpack, pack
 from gpaw.rotation import rotation
-from gpaw import extra_parameters
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC
 
@@ -75,6 +75,20 @@ def create_setup(symbol, xc='LDA', lmax=0,
         elif type == 'ghost':
             from gpaw.lcao.bsse import GhostSetupData
             setupdata = GhostSetupData(symbol)
+        elif type == 'sg15':
+            from gpaw.upf import UPFSetupData
+            upfname = '%s_ONCV_PBE-*.upf' % symbol
+            upfpath, source = search_for_file(upfname, world=world)
+            if source is None:
+                raise IOError('Could not find pseudopotential file %s '
+                              'in any GPAW search path.  '
+                              'Please install the SG15 setups using, '
+                              'e.g., \'gpaw-install-setups\'.' % upfname)
+            setupdata = UPFSetupData(upfpath)
+            if xc.name != 'PBE':
+                raise ValueError('SG15 pseudopotentials support only the PBE '
+                                 'functional.  This calculation would use '
+                                 'the %s functional.' % xc.name)
         else:
             setupdata = SetupData(symbol, xc.get_setup_name(),
                                   type, True,
@@ -119,6 +133,8 @@ class BaseSetup:
             f_j = self.f_j
         f_j = np.array(f_j, float)
         l_j = np.array(self.l_j)
+        if len(l_j) == 0:
+            l_j = np.ones(1)
 
         def correct_for_charge(f_j, charge, degeneracy_j, use_complete=True):
             nj = len(f_j)
@@ -164,7 +180,7 @@ class BaseSetup:
                                2 * l_j + 1, False)
         
         # Projector function indices:
-        nj = len(self.n_j) # or l_j?  Seriously.
+        nj = len(self.n_j)  # or l_j?  Seriously.
 
         # distribute to the atomic wave functions
         i = 0
@@ -175,7 +191,7 @@ class BaseSetup:
             # Skip functions not in basis set:
             while j < nj and self.l_orb_j[j] != l:
                 j += 1
-            if j < len(f_j): # lengths of f_j and l_j may differ
+            if j < len(f_j):  # lengths of f_j and l_j may differ
                 f = f_j[j]
                 f_s = f_sj[:, j]
             else:
@@ -186,7 +202,7 @@ class BaseSetup:
 
             if hund:
                 # Use Hunds rules:
-                #assert f == int(f)
+                # assert f == int(f)
                 f = int(f)
                 f_si[0, i:i + min(f, degeneracy)] = 1.0      # spin up
                 f_si[1, i:i + max(f - degeneracy, 0)] = 1.0  # spin down
@@ -281,7 +297,6 @@ class BaseSetup:
         nct_g = data.nct_g.copy()
         tauc_g = data.tauc_g
         tauct_g = data.tauct_g
-        #nc_g[gcut2:] = nct_g[gcut2:] = 0.0
         nc = self.rgd.spline(nc_g, rcut2, points=1000)
         nct = self.rgd.spline(nct_g, rcut2, points=1000)
         if tauc_g is None:
@@ -338,8 +353,6 @@ class BaseSetup:
             return self.I4_pp
 
         # radial grid
-        #ng = self.ng
-        #g = np.arange(ng, dtype=float)
         r2dr_g = self.rgd.r_g**2 * self.rgd.dr_g
 
         phi_jg = self.data.phi_jg
@@ -352,9 +365,12 @@ class BaseSetup:
             for j2 in range(nj):
                 for j3 in range(nj):
                     for j4 in range(nj):
-                        R_jjjj[j1, j2, j3, j4] = np.dot(r2dr_g,
-                         phi_jg[j1] * phi_jg[j2] * phi_jg[j3] * phi_jg[j4] -
-                         phit_jg[j1] * phit_jg[j2] * phit_jg[j3] * phit_jg[j4])
+                        R_jjjj[j1, j2, j3, j4] = np.dot(
+                            r2dr_g,
+                            phi_jg[j1] * phi_jg[j2] *
+                            phi_jg[j3] * phi_jg[j4] -
+                            phit_jg[j1] * phit_jg[j2] *
+                            phit_jg[j3] * phit_jg[j4])
 
         # prepare for angular parts
         L_i = []
@@ -368,8 +384,10 @@ class BaseSetup:
         # L_i is the list of L (=l**2+m for 0<=m<2*l+1) values
         # https://wiki.fysik.dtu.dk/gpaw/devel/overview.html
 
+        G_LLL = gaunt(max(self.l_j))
+        
         # calculate the integrals
-        _np = ni * (ni + 1) // 2 # length for packing
+        _np = ni * (ni + 1) // 2  # length for packing
         self.I4_pp = np.empty((_np, _np))
         p1 = 0
         for i1 in range(ni):
@@ -413,11 +431,11 @@ class LeanSetup(BaseSetup):
     def __init__(self, s):
         """Copies precisely the necessary attributes of the Setup s."""
         # R_sii and HubU can be changed dynamically (which is ugly)
-        self.R_sii = None # rotations, initialized when doing sym. reductions
-        self.HubU = s.HubU # XXX probably None
-        self.lq  = s.lq # Required for LDA+U I think.
-        self.type = s.type # required for writing to file
-        self.fingerprint = s.fingerprint # also req. for writing
+        self.R_sii = None  # rotations, initialized when doing sym. reductions
+        self.HubU = s.HubU  # XXX probably None
+        self.lq = s.lq  # Required for LDA+U I think.
+        self.type = s.type  # required for writing to file
+        self.fingerprint = s.fingerprint  # also req. for writing
         self.filename = s.filename
 
         self.symbol = s.symbol
@@ -429,7 +447,7 @@ class LeanSetup(BaseSetup):
         self.nao = s.nao
 
         self.pt_j = s.pt_j
-        self.phit_j = s.phit_j # basis functions
+        self.phit_j = s.phit_j  # basis functions
 
         self.Nct = s.Nct
         self.nct = s.nct
@@ -472,29 +490,29 @@ class LeanSetup(BaseSetup):
         # Required by print_info
         self.rcutfilter = s.rcutfilter
         self.rcore = s.rcore
-        self.basis = s.basis # we don't need nao if we use this instead
+        self.basis = s.basis  # we don't need nao if we use this instead
         # Can also get rid of the phit_j splines if need be
 
-        self.N0_p = s.N0_p # req. by estimate_magnetic_moments
+        self.N0_p = s.N0_p  # req. by estimate_magnetic_moments
         self.nabla_iiv = s.nabla_iiv  # req. by lrtddft
         self.rnabla_iiv = s.rnabla_iiv  # req. by lrtddft
-        self.rxp_iiv = s.rxp_iiv  # req. by lrtddft
+        self.rxnabla_iiv = s.rxnabla_iiv  # req. by lrtddft2
 
         # XAS stuff
-        self.phicorehole_g = s.phicorehole_g # should be optional
+        self.phicorehole_g = s.phicorehole_g  # should be optional
         if s.phicorehole_g is not None:
-            self.A_ci = s.A_ci # oscillator strengths
+            self.A_ci = s.A_ci  # oscillator strengths
 
         # Required to get all electron density
         self.rgd = s.rgd
         self.rcut_j = s.rcut_j
 
-        self.tauct = s.tauct # required by TPSS, MGGA
+        self.tauct = s.tauct  # required by TPSS, MGGA
 
-        self.Delta_iiL = s.Delta_iiL # required with external potential
+        self.Delta_iiL = s.Delta_iiL  # required with external potential
 
-        self.B_ii = s.B_ii # required for exact inverse overlap operator
-        self.dC_ii = s.dC_ii # required by time-prop tddft with apply_inverse
+        self.B_ii = s.B_ii  # required for exact inverse overlap operator
+        self.dC_ii = s.dC_ii  # required by time-prop tddft with apply_inverse
 
         # Required by exx
         self.X_p = s.X_p
@@ -580,11 +598,6 @@ class Setup(BaseSetup):
         
         self.HubU = None
 
-        if max(data.l_j) > 2 and not extra_parameters.get('fprojectors'):
-            msg = ('Your %s dataset has f-projectors!  ' % data.symbol +
-                   'Add --gpaw=fprojectors=1 on the command-line.')
-            raise RuntimeError(msg)
-            
         if not data.is_compatible(xc):
             raise ValueError('Cannot use %s setup with %s functional' %
                              (data.setupname, xc.get_setup_name()))
@@ -723,7 +736,7 @@ class Setup(BaseSetup):
 
         extra_xc_data = dict(data.extra_xc_data)
         # Cut down the GLLB related extra data
-        for key, item in extra_xc_data.iteritems():
+        for key, item in extra_xc_data.items():
             if len(item) == rgd.N:
                 extra_xc_data[key] = item[:gcut2].copy()
         self.extra_xc_data = extra_xc_data
@@ -817,13 +830,17 @@ class Setup(BaseSetup):
         
         r = 0.02 * rcut2 * np.arange(51, dtype=float)
         alpha = data.rcgauss**-2
-        self.ghat_l = data.get_ghat(lmax, alpha, r, rcut2)#;print 'use g_lg!'
+        self.ghat_l = data.get_ghat(lmax, alpha, r, rcut2)
         self.rcgauss = data.rcgauss
         
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
         self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
-        self.rxp_iiv = self.get_magnetic_integrals_new(rgd2, phi_jg, phit_jg)
+        try:
+            self.rxnabla_iiv = self.get_magnetic_integrals_new(rgd2,
+                                                               phi_jg, phit_jg)
+        except NotImplementedError:
+            self.rxnabla_iiv = None
 
     def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,
                                       lmax, Delta_lq, wnt_lqg,
@@ -843,10 +860,10 @@ class Setup(BaseSetup):
             A_qq -= 0.5 * np.dot(nt_qg, np.transpose(wnt_lqg[l]))
             if l <= lmax:
                 A_qq -= 0.5 * np.outer(Delta_lq[l],
-                                        np.dot(wnt_lqg[l], g_lg[l]))
+                                       np.dot(wnt_lqg[l], g_lg[l]))
                 A_qq -= 0.5 * np.outer(np.dot(nt_qg, wg_lg[l]), Delta_lq[l])
-                A_qq -= 0.5 * np.dot(g_lg[l], wg_lg[l]) * \
-                        np.outer(Delta_lq[l], Delta_lq[l])
+                A_qq -= 0.5 * (np.dot(g_lg[l], wg_lg[l]) *
+                               np.outer(Delta_lq[l], Delta_lq[l]))
             A_lqq.append(A_qq)
 
         M_pp = np.zeros((_np, _np))
@@ -872,6 +889,7 @@ class Setup(BaseSetup):
         return -np.dot(dO_ii, np.linalg.inv(np.identity(ni) + xO_ii))
 
     def calculate_T_Lqp(self, lcut, nq, _np, nj, jlL_i):
+        G_LLL = gaunt(max(self.l_j))
         Lcut = (2 * lcut + 1)**2
         T_Lqp = np.zeros((Lcut, nq, _np))
         p = 0
@@ -916,7 +934,7 @@ class Setup(BaseSetup):
         
         n_qg = np.zeros((nq, gcut2))
         nt_qg = np.zeros((nq, gcut2))
-        q = 0 # q: common index for j1, j2
+        q = 0  # q: common index for j1, j2
         for j1 in range(self.nj):
             for j2 in range(j1, self.nj):
                 n_qg[q] = phi_jg[j1] * phi_jg[j2]
@@ -964,6 +982,9 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
+        G_LLL = gaunt(max(self.l_j))
+        Y_LLv = nabla(max(self.l_j))
+
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         nabla_iiv = np.empty((self.ni, self.ni, 3))
@@ -1009,6 +1030,9 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
+        G_LLL = gaunt(max(self.l_j))
+        Y_LLv = nabla(max(self.l_j))
+        
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         rnabla_iiv = np.zeros((self.ni, self.ni, 3))
@@ -1039,12 +1063,11 @@ class Setup(BaseSetup):
                                                     1 + v2],
                                               Y_LLv[L3, l2**2:l2**2 + nm2, v1])
                             except IndexError:
-                                pass # L3 might be too large, ignore
-                    rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += (
-                        f1f2or * G )
+                                pass  # L3 might be too large, ignore
+                    rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += f1f2or * G
                 i2 += nm2
             i1 += nm1
-        return (4 * pi / 3 ) * rnabla_iiv
+        return (4 * pi / 3) * rnabla_iiv
 
     def get_magnetic_integrals_new(self, rgd, phi_jg, phit_jg):
         """Calculate PAW-correction matrix elements of r x nabla.
@@ -1157,8 +1180,8 @@ class Setup(BaseSetup):
             return -.5j * ( YL1_Lp_YL2(L1,L2) - YL1_Lm_YL2(L1,L2) )
 
 
-        # r x p for [i-index 1, i-index 2, (x,y,z)]
-        rxp_iiv = np.zeros((self.ni, self.ni, 3))
+        # r x nabla for [i-index 1, i-index 2, (x,y,z)]
+        rxnabla_iiv = np.zeros((self.ni, self.ni, 3))
 
         # loops over all j1=(l1,m1) values
         i1 = 0
@@ -1173,21 +1196,24 @@ class Setup(BaseSetup):
                     # 4 pi here?????
                     radial_part = rgd.integrate(phi_jg[j1] * phi_jg[j2] -
                                                 phit_jg[j1] * phit_jg[j2]) / (4*pi)
+
+                    # <l1m1|r x nabla|l2m2> = i/hbar <l1m1|rxp|l2m2>
                     for m2 in range(2 * l2 + 1):
                         L2 = l2**2 + m2
                         # Lx
                         Lx = (1j * YL1_Lx_YL2(L1,L2))
                         #print '%8.3lf %8.3lf | ' % (Lx.real, Lx.imag),
-                        rxp_iiv[i1,i2,0] = Lx.real * radial_part
+                        rxnabla_iiv[i1,i2,0] = Lx.real * radial_part
 
                         # Ly
                         Ly = (1j * YL1_Ly_YL2(L1,L2))
                         #print '%8.3lf %8.3lf | ' % (Ly.real, Ly.imag),
-                        rxp_iiv[i1,i2,1] = Ly.real * radial_part
+                        rxnabla_iiv[i1,i2,1] = Ly.real * radial_part
+
                         # Lz
                         Lz = (1j * YL1_Lz_YL2(L1,L2))
                         #print '%8.3lf %8.3lf | ' % (Lz.real, Lz.imag),
-                        rxp_iiv[i1,i2,2] = Lz.real * radial_part
+                        rxnabla_iiv[i1,i2,2] = Lz.real * radial_part
 
                         #print
 
@@ -1197,7 +1223,7 @@ class Setup(BaseSetup):
                 # increase index 1
                 i1 += 1
 
-        return rxp_iiv
+        return rxnabla_iiv
 
     def construct_core_densities(self, setupdata):
         rcore = self.data.find_core_density_cutoff(setupdata.nc_g)
@@ -1230,7 +1256,7 @@ class Setup(BaseSetup):
         a_g = 4 * x**3 * (1 - 0.75 * x)
         b_g = x**3 * (x - 1) * (rcut3 - rcut2)
 
-        class PartialWaveBasis(Basis): # yuckkk
+        class PartialWaveBasis(Basis):  # yuckkk
             def __init__(self, symbol, phit_j):
                 Basis.__init__(self, symbol, 'partial-waves', readxml=False)
                 self.phit_j = phit_j
@@ -1266,7 +1292,7 @@ class Setup(BaseSetup):
             l = self.l_j[j]
             if l == 1:
                 a = self.rgd.integrate(phi_jg[j] * self.data.phicorehole_g,
-                                      n=1) / (4 * pi)
+                                       n=1) / (4 * pi)
 
                 for m in range(3):
                     c = (m + 1) % 3
@@ -1296,13 +1322,48 @@ class Setups(list):
         symbols = [chemical_symbols[Z] for Z in Z_a]
         type_a = types2atomtypes(symbols, setup_types, default='paw')
         basis_a = types2atomtypes(symbols, basis_sets, default=None)
-        
+
+        for a, _type in enumerate(type_a):
+            # Make basis files correspond to setup files.
+            #
+            # If the setup has a name (i.e. non-default _type), then
+            # prepend that name to the basis name.
+            #
+            # Typically people might specify '11' as the setup but just
+            # 'dzp' for the basis set.  Here we adjust to
+            # obtain, say, '11.dzp' which loads the correct basis set.
+            #
+            # There will be no way to obtain the original 'dzp' with
+            # a custom-named setup except by loading directly from
+            # BasisData.
+            #
+            # Due to the "szp(dzp)" syntax this is complicated!
+            # The name has to go as "szp(name.dzp)".
+            basis = basis_a[a]
+            if isinstance(basis, basestring):
+                if isinstance(_type, basestring):
+                    setupname = _type
+                else:
+                    setupname = _type.name  # _type is an object like SetupData
+                # Drop DFT+U specification from type string if it is there:
+                setupname = setupname.split(':')[0]
+                if setupname != 'paw':
+                    if setupname:
+                        if '(' in basis:
+                            reduced, name = basis.split('(')
+                            assert name.endswith(')')
+                            name = name[:-1]
+                            fullname = '%s(%s.%s)' % (reduced, setupname, name)
+                        else:
+                            fullname = '%s.%s' % (setupname, basis_a[a])
+                        basis_a[a] = fullname
+
         # Construct necessary PAW-setup objects:
         self.setups = {}
         natoms = {}
         Mcumulative = 0
         self.M_a = []
-        self.id_a = zip(Z_a, type_a, basis_a)
+        self.id_a = list(zip(Z_a, type_a, basis_a))
         for id in self.id_a:
             setup = self.setups.get(id)
             if setup is None:
@@ -1349,6 +1410,11 @@ class Setups(list):
         for setup in self.setups.values():
             setup.calculate_rotations(R_slmm)
 
+    def empty_atomic_matrix(self, ns, atom_partition):
+        Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
+                     for setup in self]
+        return atom_partition.arraydict(Dshapes_a)
+
 
 def types2atomtypes(symbols, types, default):
     """Map a types identifier to a list with a type id for each atom.
@@ -1370,6 +1436,9 @@ def types2atomtypes(symbols, types, default):
 
     # First symbols ...
     for symbol, type in types.items():
+        # Types are given either by strings or they are objects that
+        # have a 'symbol' attribute (SetupData, Pseudopotential, Basis, etc.).
+        assert isinstance(type, str) or hasattr(type, 'symbol')
         if isinstance(symbol, str):
             for a, symbol2 in enumerate(symbols):
                 if symbol == symbol2:

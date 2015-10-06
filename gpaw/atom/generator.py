@@ -21,10 +21,10 @@ class Generator(AllElectron):
     def __init__(self, symbol, xcname='LDA', scalarrel=False, corehole=None,
                  configuration=None,
                  nofiles=True, txt='-', gpernode=150,
-                 orbital_free=False, tf_coeff=1.):
+                 orbital_free=False, tw_coeff=1.):
         AllElectron.__init__(self, symbol, xcname, scalarrel, corehole,
                              configuration, nofiles, txt, gpernode,
-                             orbital_free, tf_coeff)
+                             orbital_free, tw_coeff)
 
     def run(self, core='', rcut=1.0, extra=None,
             logderiv=False, vbar=None, exx=False, name=None,
@@ -35,7 +35,7 @@ class Generator(AllElectron):
         self.name = name
 
         self.core = core
-        if type(rcut) is float:
+        if isinstance(rcut, float):
             rcut_l = [rcut]
         else:
             rcut_l = rcut
@@ -122,6 +122,7 @@ class Generator(AllElectron):
             self.l_j = [0]
             self.f_j = [self.Z]
             self.e_j = [self.e_j[0]]
+
             n_j = self.n_j
             l_j = self.l_j
             f_j = self.f_j
@@ -433,6 +434,9 @@ class Generator(AllElectron):
 
         vt = vHt + vXCt
 
+        if self.orbital_free:
+            vt /= self.tw_coeff
+
         # Construct zero potential:
         gc = 1 + int(rcutvbar * N / (rcutvbar + beta))
         if vbar_type == 'f':
@@ -502,7 +506,8 @@ class Generator(AllElectron):
                 q[gcutmax:] = 0.0
 
         filter = Filter(r, dr, gcutfilter, hfilter).filter
-
+        if self.orbital_free:
+            vbar *= self.tw_coeff
         vbar = filter(vbar * r)
 
         # Calculate matrix elements:
@@ -537,9 +542,9 @@ class Generator(AllElectron):
             u_n[:] = np.dot(inv(L_nn), u_n)
 
             dO_nn = np.dot(np.dot(inv(L_nn), dO_nn),
-                            inv(np.transpose(L_nn)))
+                           inv(np.transpose(L_nn)))
             dH_nn = np.dot(np.dot(inv(L_nn), dH_nn),
-                            inv(np.transpose(L_nn)))
+                           inv(np.transpose(L_nn)))
 
             ku_n = [self.kin(l, u, e) for u, e in zip(u_n, e_n)]
             ks_n = [self.kin(l, s) for s in s_n]
@@ -688,6 +693,8 @@ class Generator(AllElectron):
             for n1, j1 in enumerate(j_n):
                 for n2, j2 in enumerate(j_n):
                     self.dK_jj[j1, j2] = self.dK_lnn[l][n1, n2]
+                    if self.orbital_free:
+                        self.dK_jj[j1,j2] *= self.tw_coeff
 
         if exx:
             X_p = constructX(self)
@@ -970,7 +977,7 @@ class Generator(AllElectron):
             print('\n  </%s>' % name, file=xml)
 
         # Print xc-specific data to setup file (used so for KLI and GLLB)
-        for name, a in extra_xc_data.iteritems():
+        for name, a in extra_xc_data.items():
             newname = 'GLLB_'+name
             print('  <%s grid="g1">\n    ' % newname, end=' ', file=xml)
             for x in a:

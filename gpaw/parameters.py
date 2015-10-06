@@ -24,7 +24,7 @@ class InputParameters(dict):
             ('h', None),  # Angstrom
             ('xc', 'LDA'),
             ('gpts', None),
-            ('kpts', [(0, 0, 0)]),
+            ('kpts', [(0.0, 0.0, 0.0)]),
             ('lmax', 2),
             ('charge', 0),
             ('fixmom', False),  # don't use this
@@ -251,3 +251,9 @@ class InputParameters(dict):
             # Gamma point only:
             if r['DataType'] == 'Complex':
                 self.dtype = complex
+                
+        try:
+            from gpaw.external import dict2potential
+            self.external = dict2potential(r['ExternalPotential'])
+        except KeyError:
+            pass

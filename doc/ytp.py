@@ -2,10 +2,13 @@ def setup(app):
     from datetime import datetime
     from random import randint
     import json
-    import urllib2
+    try:
+        from urllib2 import urlopen
+    except ImportError:
+        from urllib.request import urlopen
     u = ('http://gdata.youtube.com/feeds/api/playlists/' +
          'UUJR-f8bqXzPv5aUlu1-Ba0g?alt=json')
-    d = json.loads(urllib2.urlopen(u).read())
+    d = json.loads(urlopen(u).read())
     n = len(d['feed']['entry'])
     i = randint(0, n - 1)
     # avoid non-ascii names of people ...

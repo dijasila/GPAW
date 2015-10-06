@@ -15,6 +15,8 @@ chosen basis.
 
 The sections below explain briefly how LCAO mode works, how to
 generate basis sets and how to use them in calculations.
+LCAO mode is available for TD-DFT via the
+:ref:`LCAOTDDFT <lcaotddft>` module.
 
 Introduction
 ------------
@@ -33,7 +35,7 @@ functions and spherical harmonics
 
 .. math::
 
-  \Phi_{nlm}(\mathbf{r}) 
+  \Phi_{nlm}(\mathbf{r})
   = \Phi_{nlm}(\mathbf r^a + \mathbf R^a)
   = \varphi_{nl}(r^a) Y_{lm}(\hat{\mathbf{r}}^a)
 
@@ -51,7 +53,7 @@ problem then becomes
 which can be solved by directly diagonalizating the Hamiltonian in the
 basis of the atomic orbitals.
 
-Some detailed information can be found in the master theses `1`_ and `2`_.  
+Some detailed information can be found in the master theses `1`_ and `2`_.
 
 .. _1: ../../_static/askhl_master.pdf
 .. _2: ../../_static/marco_master.pdf
@@ -169,7 +171,7 @@ ordinary atom and the corresponding ghost atom is the setup type.
 Perform a calculation using ghost copper atoms and ordinary oxygen and
 hydrogen atoms::
   
-  >>> GPAW(setups={'Cu' : 'ghost', 'O' : 'paw', 'H' : 'paw'}, 
+  >>> GPAW(setups={'Cu' : 'ghost', 'O' : 'paw', 'H' : 'paw'},
            basis='dzp',
            mode='lcao',
            ...)
@@ -259,4 +261,4 @@ single-zeta polarized basis set for certain elements.
 
 
 .. [Siesta] J.M. Soler et al.,
-   J. Phys. Cond. Matter 14, 2745-2779 (2002) 
+   J. Phys. Cond. Matter 14, 2745-2779 (2002)
