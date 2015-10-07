@@ -32,7 +32,7 @@ or 32 depending on system size; examples:
 
 or
 
-  from gpaw.tools import h2gpts
+  from gpaw.utilities import h2gpts
   GPAW(gpts=h2gpts(0.2, atoms.get_cell(), idiv=16))
 
 Parallelizing over very small domains can also undesirably limit the
