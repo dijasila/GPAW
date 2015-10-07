@@ -32,7 +32,6 @@ class LibVDWXC(GGA, object):
         self.timer = timer
         self.vdwcoef = 1.
         self.vdw_functional_name = name
-        self._c_vdw_calculate = None
         if not compiled_with_libvdwxc():
             raise ImportError('libvdwxc not compiled into GPAW')
 
@@ -58,26 +57,21 @@ class LibVDWXC(GGA, object):
     def get_setup_name(self):
         return 'revPBE'
 
-    def _vdw_init(self, comm, N_c, cell_cv):
+    def _libvdwxc_c_init(self, comm, N_c, cell_cv):
         """Initialize libvdwxc things in C."""
         self.timer.start('libvdwxc init')
-        manyargs = list(N_c) + list(cell_cv.ravel())
+        code = _VDW_NUMERICAL_CODES[self.vdw_functional_name]
+        self._vdw = _gpaw.libvdwxc_create(code, tuple(N_c),
+                                          tuple(cell_cv.ravel()))
+
         try:
             _c_comm = comm.get_c_object()
         except NotImplementedError:  # Serial
-            _c_comm = None
-            vdw_init = _gpaw.libvdwxc_initialize
-            vdw_calculate = _gpaw.libvdwxc_calculate
+            assert comm.size == 1
+            _gpaw.libvdwxc_init_serial(self._vdw)
         else:
-            try:
-                vdw_init = _gpaw.libvdwxc_initialize_mpi
-            except AttributeError:
-                raise ImportError('parallel libvdwxc not compiled into GPAW')
-            else:
-                vdw_calculate = _gpaw.libvdwxc_calculate_mpi
-        code = _VDW_NUMERICAL_CODES[self.vdw_functional_name]
-        self._vdw = vdw_init(code, _c_comm, *manyargs)
-        self._c_vdw_calculate = vdw_calculate
+            _gpaw.libvdwxc_init_mpi(self._vdw, _c_comm)
+
         self._fft_comm = comm
         self.timer.stop('libvdwxc init')
 
@@ -114,8 +108,8 @@ class LibVDWXC(GGA, object):
         self.pad_gd = pad_gd
         self.dist1 = GridRedistributor(pad_gd, 1, 2)
         self.dist2 = GridRedistributor(self.dist1.gd2, 0, 1)
-        self._vdw_init(fft_comm, pad_gd.get_size_of_global_array(),
-                       pad_gd.cell_cv)
+        self._libvdwxc_c_init(fft_comm, pad_gd.get_size_of_global_array(),
+                              pad_gd.cell_cv)
 
     def calculate(self, gd, n_sg, v_sg, e_g=None):
         """Calculate energy and potential.
@@ -166,8 +160,8 @@ class LibVDWXC(GGA, object):
     def calculate_nonlocal(self, n_g, sigma_g):
         v_g = np.zeros_like(n_g)
         dedsigma_g = np.zeros_like(sigma_g)
-        energy = self._c_vdw_calculate(self._vdw, n_g, sigma_g,
-                                       v_g, dedsigma_g)
+        energy = _gpaw.libvdwxc_calculate(self._vdw, n_g, sigma_g,
+                                          v_g, dedsigma_g)
         return energy, v_g, dedsigma_g
 
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
@@ -247,13 +241,12 @@ class VDWDF2(LibVDWXC):
 
 class VDWDFCX(LibVDWXC):
     def __init__(self, timer=nulltimer):
-        # This is just exchange.  Need correlation
-        kernel = CXKernel()
+        kernel = CXGGAKernel()
         LibVDWXC.__init__(self, gga_kernel=kernel, name='vdW-DF-CX',
                           timer=timer)
 
 
-class CXKernel:
+class CXGGAKernel:
     def __init__(self, just_kidding=False):
         self.just_kidding = just_kidding
         self.type = 'GGA'
@@ -344,10 +337,10 @@ def test_derivatives():
     sigma_xg = np.zeros(shape)
     sigma_xg[:] = gen.rand(*shape)
 
-    qe_kernel = CXKernel(just_kidding=True)
+    qe_kernel = CXGGAKernel(just_kidding=True)
     libxc_kernel = LibXC('GGA_X_RPW86+LDA_C_PW')
 
-    cx_kernel = CXKernel(just_kidding=False)
+    cx_kernel = CXGGAKernel(just_kidding=False)
 
     def check(kernel, n_sg, sigma_xg):
         e_g = np.zeros(shape[1:])
@@ -426,7 +419,6 @@ def test_selfconsistent():
         system.set_calculator(calc)
         return system.get_potential_energy()
 
-    #results = {}
     libxc_results = {}
 
     for name in ['GGA_X_PBE_R+LDA_C_PW', 'GGA_X_RPW86+LDA_C_PW']:
@@ -436,8 +428,8 @@ def test_selfconsistent():
 
 
     cx_gga_results = {}
-    cx_gga_results['rpw86'] = test(GGA(CXKernel(just_kidding=True)))
-    cx_gga_results['lv_rpw86'] = test(GGA(CXKernel(just_kidding=False)))
+    cx_gga_results['rpw86'] = test(GGA(CXGGAKernel(just_kidding=True)))
+    cx_gga_results['lv_rpw86'] = test(GGA(CXGGAKernel(just_kidding=False)))
     
     vdw_results = {}
     vdw_coef0_results = {}
@@ -467,18 +459,6 @@ def test_selfconsistent():
         print('  df2 err=%e' % err_df2)
         err_cx = vdw_coef0_results['VDWDFCX'] - cx_gga_results['lv_rpw86']
         print('   cx err=%e' % err_cx)
-
-    #for xc in [#GGA(LibXC('GGA_X_RPW86')),
-    #           GGA(LibXC('GGA_X_PBE_R+LDA_C_PW')),  # ~ DF1
-    #           GGA(LibXC('GGA_X_RPW86+LDA_C_PW')),  # ~ DF2, CX
-    #           GGA(CXKernel(just_kidding=True)),  # really just GGA_X_RPW86
-    #           GGA(CXKernel(just_kidding=False)),  # with Langreth-Vosko
-    #           VDWDF(),
-    #           VDWDF2(),
-    #           VDWDFCX(),
-    #           ]:
-    #    xc.vdwcoef = 0.0
-    #    test(xc)
 
 
 if __name__ == '__main__':

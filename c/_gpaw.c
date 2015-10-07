@@ -106,21 +106,23 @@ PyObject* pblas_hemm(PyObject *self, PyObject *args);
 PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
-#endif
+#endif // GPAW_WITH_SL and PARALLEL
 
 #ifdef GPAW_PAPI
 PyObject* papi_mem_info(PyObject *self, PyObject *args);
 #endif
 
 #ifdef GPAW_WITH_LIBVDWXC
-PyObject* libvdwxc_initialize(PyObject *self, PyObject *args);
+PyObject* libvdwxc_create(PyObject *self, PyObject *args);
+PyObject* libvdwxc_init_serial(PyObject *self, PyObject *args);
 PyObject* libvdwxc_calculate(PyObject *self, PyObject *args);
-PyObject* libvdwxc_free(PyObject *self, PyObject *args);
+PyObject* libvdwxc_free(PyObject* self, PyObject* args);
 #ifdef PARALLEL
-PyObject* libvdwxc_initialize_mpi(PyObject *self, PyObject *args);
-PyObject* libvdwxc_calculate_mpi(PyObject *self, PyObject *args);
-#endif
-#endif
+#ifdef GPAW_WITH_FFTW3_MPI
+PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args);
+#endif // FFTW3_MPI
+#endif // PARALLEL
+#endif // GPAW_WITH_LIBVDWXC
 
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args);
@@ -232,14 +234,16 @@ static PyMethodDef functions[] = {
   {"papi_mem_info", papi_mem_info, METH_VARARGS, 0},
 #endif // GPAW_PAPI
 #ifdef GPAW_WITH_LIBVDWXC
-  {"libvdwxc_initialize", libvdwxc_initialize, METH_VARARGS, 0},
+  {"libvdwxc_create", libvdwxc_create, METH_VARARGS, 0},
+  {"libvdwxc_init_serial", libvdwxc_init_serial, METH_VARARGS, 0},
   {"libvdwxc_calculate", libvdwxc_calculate, METH_VARARGS, 0},
   {"libvdwxc_free", libvdwxc_free, METH_VARARGS, 0},
 #ifdef PARALLEL
-  {"libvdwxc_initialize_mpi", libvdwxc_initialize_mpi, METH_VARARGS, 0},
-  {"libvdwxc_calculate_mpi", libvdwxc_calculate_mpi, METH_VARARGS, 0},
-#endif
-#endif
+#ifdef GPAW_WITH_FFTW3_MPI
+  {"libvdwxc_init_mpi", libvdwxc_init_mpi, METH_VARARGS, 0},
+#endif // FFTW3_MPI
+#endif // PARALLEL
+#endif // GPAW_WITH_LIBVDWXC
   {"mlsqr", mlsqr, METH_VARARGS, 0},
   {0, 0, 0, 0}
 };
