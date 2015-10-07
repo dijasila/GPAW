@@ -15,7 +15,7 @@ libraries =[
 library_dirs =[
     '/home/opt/el6/' + nodetype + '/openmpi-1.6.3-' + nodetype + '-tm-gfortran-1/lib',
     '/home/opt/el6/' + nodetype + '/blacs-1.1-' + nodetype + '-tm-gfortran-openmpi-1.6.3-1/lib',
-    '/home/opt/el6/' + nodetype + '/scalapack-2.0.2-' + nodetype + '-tm-gfortran-openmpi-1.6.3-opeonblas-0.2.14-1/lib',
+    '/home/opt/el6/' + nodetype + '/scalapack-2.0.2-' + nodetype + '-tm-gfortran-openmpi-1.6.3-openblas-0.2.14-1/lib',
     '/home/opt/el6/common/openblas-0.2.14-1/lib64',
     '/home/opt/el6/' + nodetype + '/hdf5-1.8.10-' + nodetype + '-tm-gfortran-openmpi-1.6.3-1/lib',
     '/home/opt/el6/' + nodetype + '/libxc-2.2.2-' + nodetype + '-gfortran-1/lib',
