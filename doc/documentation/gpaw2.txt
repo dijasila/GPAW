@@ -297,9 +297,12 @@
 2014-12-18 10.1021/jp505394e Operando Characterization of an Amorphous Molybdenum Sulfide Nanoparticle Catalyst during the Hydrogen Evolution Reaction
 2014-12-21 10.1063/1.4902383 Self-interaction corrected density functional calculations of Rydberg states of molecular clusters: N,N-dimethylisopropylamine
 2014-12-31 10.1021/ja510335z Electrochemical Control of Single-Molecule Conductance by FermiLevel Tuning and Conjugation Switching
+2015-01-13 10.1103/PhysRevB.91.045418 pi-plasmon dispersion in free-standing graphene by momentum-resolved electron energy-loss spectroscopy
 2015-01-15 10.1002/cctc.201402756 Enhancing Activity for the Oxygen Evolution Reaction: The Beneficial Interaction of Gold with Manganese and Cobalt Oxides
 2015-01-15 10.1016/j.jcat.2014.10.009 Ab initio prediction of the equilibrium shape of supported Ag nanoparticles on alpha-Al2O3(0001)
+2015-01-15 10.1016/j.jcp.2014.10.052 Real-time adaptive finite element solution of time-dependent Kohn-Sham equation
 2015-01-15 10.1021/cs5015749 Understanding the Early Stages of the Methanol-to-Olefin Conversion on H-SAPO-34
+2015-01-15 10.1021/jp508932x Influence of Adsorbed Water on the Oxygen Evolution Reaction on Oxides
 2015-01-15 10.1021/n1503518q1 Single-Molecule Electrochemical Transistor Utilizing a Nickel-Pyridyl Spinterface
 2015-01-15 10.1039/c4cp02789b A DFT study of the effect of OH groups on the optical, electronic, and structural properties of TiO2 nanoparticles
 2015-01-15 10.1039/c4cy01044b Single-chiral-catalytic-surface-sites: STM and DFT study of stereodirecting complexes formed between (R)-1-(1-naphthyl)ethylamine and ketopantolactone on Pt(111)
@@ -321,6 +324,41 @@
 2015-03-15 10.1016/j.susc.2014.11.006 Detection of adsorbate overlayer structural transitions using sum-frequency generation spectroscopy
 2015-03-15 10.1021/ct501155k Removing External Degrees of Freedom from Transition-State Search Methods using Quaternions
 2015-03-15 10.1021/nn506711a Molecule-like Photodynamics of Au-102(pMBA)(44) Nano cluster
+2015-03-15 10.1088/2053-1583/2/1/014001 The growth of Fe clusters over graphene/Cu(111)
 2015-03-18 10.1002/adfm.201404388 Molecular Heterojunctions of Oligo(phenylene ethynylene)s with Linear to Cruciform Framework
 2015-03-26 10.1021/acs.jpca.5b01797 Ultrafast Structural Pathway of Charge Transfer in N,N,N ',N '-Tetramethylethylenediamine
+2015-03-28 10.1063/1.4915265 Density functional theory and chromium: Insights from the dimers
+2015-04-01 10.1016/j.cplett.2015.02.013 Relationship between unbranched alkane dimer interaction energies using different theoretical methods and correlations with thermodynamic properties
+2015-04-02 10.1021/acs.jpcc.5b00734 Isolating a Reaction Intermediate in the Hydrogenation of 2,2,2-Trifluoroacetophenone on Pt(111)
 2015-04-05 10.1002/jcc.23834 van der Waals Interactions are Critical in Car-Parrinello Molecular Dynamics Simulations of Porphyrin-Fullerene Dyads
+2015-04-08 10.1002/aenm.201401082 Design Principles for Metal Oxide Redox Materials for Solar-Driven Isothermal Fuel Production
+2015-04-15 10.1515/ntrev-2012-0047 On the interaction between gold and silver metal atoms and DNA/RNA nucleobases - a comprehensive computational study of ground state properties
+2015-04-24 10.1103/PhysRevB.91.165309 Band-gap engineering of functional perovskites through quantum confinement and tunneling
+2015-04-30 10.1021/acs.jpcc.5b01068 The Role of the Anchor Atom in the Ligand of the Monolayer-Protected Au-25(XR)(18)(-) Nanocluster
+2015-05-08 10.1088/0953-8984/27/17/175007 The effect of point defects on diffusion pathway within alpha-Fe
+2015-05-13 10.1088/0953-8984/27/18/183202 Subsystem density-functional theory as an effective tool for modeling ground and excited states, their dynamics and many-body interactions
+2015-05-14 10.1021/acs.jpcc.5b01580 Improved Tight-Binding Charge Transfer Model and Calculations of Energetics of a Step on the Rutile TiO2(110) Surface
+2015-05-15 10.1021/cs501673g A Consistent Reaction Scheme for the Selective Catalytic Reduction of Nitrogen Oxides with Ammonia
+2015-05-21 10.1021/jp510926q Theoretical Analysis of the M12Ag32(SR)(40)(4-) and X@M12Ag32(SR)(30)(4-) Nanoclusters (M = Au, Ag; X = H, Mn)
+2015-06-06 10.1098/rsfs.2014.0084 Rational design of metal nitride redox materials for solar-driven ammonia synthesis
+2015-06-08 10.1002/cssc.201500239 Design Principles of Perovskites for Thermochemical Oxygen Separation
+2015-06-15 10.1002/anie.201410974 Ketene as a Reaction Intermediate in the Carbonylation of Dimethyl Ether to Methyl Acetate over Mordenite
+2015-06-20 10.1016/j.electacta.2015.04.006 First principles study of (Cd, Hg, In, Tl, Sn, Pb, As, Sb, Bi, Se) modified Pt (111), Pt(100) and Pt(211) electrodes as CO oxidation catalysts
+2015-06-24 10.1021/cr500551h Quantum-Chemical Characterization of the Properties and Reactivities of Metal-Organic Frameworks
+2015-07-14 10.1021/acs.chemmater.5b00446 Accelerated DFT-Based Design of Materials for Ammonia Storage
+2015-07-15 10.1002/ente.201500065 Carbon Dioxide Reforming of Methane using an Isothermal Redox Membrane Reactor
+2015-07-15 10.1021/acscatal.5b00754 Tailoring Gold Nanoparticle Characteristics and the Impact on Aqueous-Phase Oxidation of Glycerol
+2015-07-15 10.1021/cs501542n Mechanistic Pathway in the Electrochemical Reduction of CO2 on RuO2
+2015-07-15 10.1595/205651315X687975 Atomic-Scale Modelling and its Application to Catalytic Materials Science Developing an interdisciplinary approach to modelling
+2015-07-16 10.1021/acs.jpclett.5b01043 Electrochemical Barriers Made Simple
+2015-08-13 10.1021/acs.jpcc.5b04432 Role of Li2O2@Li2CO3 Interfaces on Charge Transport in Nonaqueous Li-Air Batteries
+2015-08-20 10.1021/acs.jpcc.5b04985 Real-Time Study of CVD Growth of Silicon Oxide on Rutile TiO2(110) Using Tetraethyl Orthosilicate
+2015-08-20 10.1021/acs.jpcc.5b05894 Optical Properties of Monolayer-Protected Aluminum Clusters: Time-Dependent Density Functional Theory Study
+2015-08-21 10.1063/1.4928646 Indication of non-thermal contribution to visible femtosecond laser-induced CO oxidation on Ru(0001)
+2015-08-27 10.1021/acs.jpcc.5b05392 Using G(0)W(0) Level Alignment to Identify Catechol's Structure on TiO2(110)
+2015-09-05 10.1002/qua.24945 Unoccupied titanium 3d states due to subcluster formation in stoichiometric TiO2 nanoparticles
+2015-09-15 10.1016/j.ccr.2015.05.002 The role of density functional theory methods in the prediction of nanostructured gas-adsorbent materials
+2015-09-15 10.1016/j.molcata.2015.04.016 Identifying the active sites for CO dissociation on Fe-BCC nanoclusters
+2015-09-20 10.1016/j.electacta.2015.01.136 Theoretical modeling of the PEMFC catalyst layer: A review of atomistic methods
+2015-10-15 10.1016/j.susc.2015.03.011 Optical laser-induced CO desorption from Ru(0001) monitored with a free-electron X-ray laser: DFT prediction and X-ray confirmation of a precursor state
+2015-10-15 10.1016/j.susc.2015.04.013 Dissociative adsorption of water on Au/MgO/Ag(001) from first principles calculations
