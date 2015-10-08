@@ -2,7 +2,8 @@ from __future__ import print_function
 import numpy as np
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.gga import GGA
-from gpaw.utilities import compiled_with_libvdwxc
+from gpaw.utilities import compiled_with_libvdwxc, compiled_with_fftw_mpi,\
+    compiled_with_pfft
 from gpaw.utilities.grid_redistribute import GridRedistributor
 from gpaw.utilities.accordion_redistribute import accordion_redistribute
 from gpaw.utilities.timing import nulltimer
@@ -23,31 +24,78 @@ _VDW_NUMERICAL_CODES = {'vdW-DF': 1,
                         'vdW-DF-CX': 3}
 
 
+def get_auto_pfft_grid(size):
+    nproc1 = size
+    nproc2 = 1
+    while nproc1 > nproc2 and nproc1 % 2 == 0:
+        nproc1 /= 2
+        nproc2 *= 2
+    return nproc1, nproc2
+
+
 class LibVDWXC(GGA, object):
-    def __init__(self, gga_kernel, name, timer=nulltimer):
+    def __init__(self, gga_kernel, name, timer=nulltimer, parallel='auto',
+                 pfft_grid=None):
+        """Initialize LibVDWXC object (further initialization required).
+
+        parallel can be 'auto', '', 'serial', 'mpi', or 'pfft'.
+
+         * 'serial' uses FFTW and only works with serial decompositions.
+
+         * 'mpi' uses FFTW-MPI with communicator of the grid
+           descriptor, parallelizing along the x axis.
+
+         * 'pfft' uses PFFT and works with any decomposition,
+           parallelizing along two directions for best scalability.
+
+         * 'auto' uses PFFT if available, else FFTW-MPI if available,
+           else adhoc if applicable, else serial.
+
+         pfft_grid is the 2D CPU grid used by PFFT and can be a tuple
+         (nproc1, nproc2) that multiplies to total communicator size,
+         or None.  It is an error to specify pfft_grid unless using
+         PFFT.  If left unspecified, a hopefully reasonable automatic
+         choice will be made.
+         """
         object.__init__(self)
         GGA.__init__(self, gga_kernel)
         self._vdw = None
-        self._fft_comm = None
+        self.fft_comm = None
         self.timer = timer
         self.vdwcoef = 1.
         self.vdw_functional_name = name
+
+        print('parallel', parallel)
+
+        if parallel == 'auto':
+            if compiled_with_pfft():
+                parallel = 'pfft'
+            elif compiled_with_fftw_mpi():
+                print('have fftw mpi')
+                parallel = 'mpi'
+            else:
+                parallel = 'serial'
+        self.parallel = parallel
+        if parallel != 'pfft' and pfft_grid is not None:
+            raise ValueError('pfft_grid specified but pfft not available')
+        self.pfft_grid = pfft_grid
+
         if not compiled_with_libvdwxc():
             raise ImportError('libvdwxc not compiled into GPAW')
 
     @property
     def name(self):
-        if self._fft_comm is None:
-            desc = 'serial'
+        if self.parallel == 'serial':
+            pardesc = self.parallel
+        elif self.parallel == 'mpi':
+            pardesc = 'FFTW-MPI with %d cores' % self.fft_comm.size
         else:
-            if self._fft_comm.size == 1:
-                # Invokes MPI libraries and is implementation-wise
-                # slightly different from the serial version
-                desc = 'in "parallel" with 1 core'
+            assert self.parallel == 'pfft'
+            if self.pfft_grid is None:
+                pardesc = 'PFFT with unknown parallelization'
             else:
-                desc = ('in parallel with %d cores'
-                        % self._fft_comm.size)
-        return '%s [libvdwxc %s]' % (self.vdw_functional_name, desc)
+                pardesc = 'PFFT with %d x %d cores' % tuple(self.pfft_grid)
+        return '%s [libvdwxc/%s]' % (self.vdw_functional_name, pardesc)
 
     @name.setter
     def name(self, value):
@@ -64,15 +112,19 @@ class LibVDWXC(GGA, object):
         self._vdw = _gpaw.libvdwxc_create(code, tuple(N_c),
                                           tuple(cell_cv.ravel()))
 
-        try:
-            _c_comm = comm.get_c_object()
-        except NotImplementedError:  # Serial
+        if self.parallel == 'pfft':
+            if self.pfft_grid is None:
+                self.pfft_grid = get_auto_pfft_grid(comm.size)
+            nproc1, nproc2 = self.pfft_grid
+            assert nproc1 * nproc2 == comm.size
+            _gpaw.libvdwxc_init_pfft(self._vdw, comm.get_c_object(),
+                                     nproc1, nproc2)
+        elif self.parallel == 'mpi':
+            _gpaw.libvdwxc_init_mpi(self._vdw, comm.get_c_object())
+        else:
             assert comm.size == 1
             _gpaw.libvdwxc_init_serial(self._vdw)
-        else:
-            _gpaw.libvdwxc_init_mpi(self._vdw, _c_comm)
-
-        self._fft_comm = comm
+        self.fft_comm = comm
         self.timer.stop('libvdwxc init')
 
     def initialize(self, density, hamiltonian, wfs, occupations):
@@ -230,13 +282,15 @@ class LibVDWXC(GGA, object):
 class VDWDF(LibVDWXC):
     def __init__(self, timer=nulltimer):
         kernel = LibXC('GGA_X_PBE_R+LDA_C_PW')
-        LibVDWXC.__init__(self, gga_kernel=kernel, name='vdW-DF', timer=timer)
+        LibVDWXC.__init__(self, gga_kernel=kernel, name='vdW-DF',
+                          timer=timer)
 
 
 class VDWDF2(LibVDWXC):
     def __init__(self, timer=nulltimer):
         kernel = LibXC('GGA_X_RPW86+LDA_C_PW')
-        LibVDWXC.__init__(self, gga_kernel=kernel, name='vdW-DF2', timer=timer)
+        LibVDWXC.__init__(self, gga_kernel=kernel, name='vdW-DF2',
+                          timer=timer)
 
 
 class VDWDFCX(LibVDWXC):
