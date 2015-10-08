@@ -162,8 +162,12 @@ class BaseSetup:
         if nspins == 1:
             assert magmom == 0.0
             f_sj = np.array([f_j])
-            correct_for_charge(f_sj[0], charge,
-                               2 * (2 * l_j + 1))
+            if not self.orbital_free:
+                correct_for_charge(f_sj[0], charge,
+                                    2 * (2 * l_j + 1))
+            else:
+                #ofdft degeneracy of one orbital is infinite
+                f_sj[0] += -charge
         else:
             nval = f_j.sum() - charge
             if np.abs(magmom) > nval:
