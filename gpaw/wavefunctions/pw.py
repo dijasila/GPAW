@@ -718,8 +718,14 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def diagonalize_full_hamiltonian(self, ham, atoms, occupations, txt,
                                      nbands=None, scalapack=None,
                                      expert=False):
-        assert self.dtype == complex
 
+        if self.dtype != complex:
+            raise ValueError('Your wavefunctions are not complex as '
+                             'required by the PW diagonalization routine.\n'
+                             'Please supply GPAW(..., dtype=complex, ...) '
+                             'as an argument to the calculator to enforce '
+                             'complex wavefunctions.')
+        
         if nbands is None:
             nbands = self.pd.ngmin // self.bd.comm.size * self.bd.comm.size
         else:
