@@ -30,4 +30,9 @@
 2014-12-17 10.1088/0953-8984/26/50/505302 Quantum size effect on dielectric function of ultrathin metal film: a first-principles study of Al(111)
 2015-01-13 10.1103/PhysRevB.91.045418 pi-plasmon dispersion in free-standing graphene by momentum-resolved electron energy-loss spectroscopy
 2015-01-15 10.1002/cpe.3199 Design and performance characterization of electronic structure calculations on massively parallel supercomputers: a case study of GPAW on the Blue Gene/P architecture
+2015-01-15 10.1039/c5ta01586c Calculated optical absorption of different perovskite phases
+2015-04-24 10.1103/PhysRevB.91.165309 Band-gap engineering of functional perovskites through quantum confinement and tunneling
+2015-05-11 10.1103/PhysRevB.91.195407 Changing character of electronic transitions in graphene: From single-particle excitations to plasmons
 2015-05-15 10.1016/j.progsurf.2014.12.002 The influence of electron confinement, quantum size effects, and film morphology on the dispersion and the damping of plasmonic modes in Ag and Au thin films
+2015-07-01 10.1016/j.nimb.2014.11.080 Computation of electron energy loss spectra by an iterative method
+2015-07-15 10.1021/acs.nanolett.5b01251 Dielectric Genome of van der Waals Heterostructures

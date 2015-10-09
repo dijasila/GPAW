@@ -24,7 +24,7 @@ from gpaw.tddft.units import attosec_to_autime
 
 # -------------------------------------------------------------------
 
-from gpaw.test.ut_common import ase_svnversion, shapeopt, TestCase, \
+from gpaw.test.ut_common import shapeopt, TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
     initialTestLoader, create_random_atoms, create_parsize_maxbands
 

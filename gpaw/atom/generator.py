@@ -229,7 +229,7 @@ class Generator(AllElectron):
 
             # Make sure we have two projectors for each occupied channel:
             for l in range(lmaxocc + 1):
-                if len(n_ln[l]) < 2 and not normconserving_l[l]:
+                if len(n_ln[l]) < 2:# and not normconserving_l[l]:
                     # Only one - add one more:
                     assert len(n_ln[l]) == 1
                     n_ln[l].append(-1)
@@ -306,9 +306,9 @@ class Generator(AllElectron):
         for l, (u_n, s_n) in enumerate(zip(u_ln, s_ln)):
             nodeless = True
             gc = gcut_l[l]
-            for u, s in zip(u_n, s_n):
+            for n, (u, s) in enumerate(zip(u_n, s_n)):
                 s[:] = u
-                if normconserving_l[l]:
+                if normconserving_l[l] and n_ln[l][n] > 0:
                     A = np.zeros((5, 5))
                     A[:4, 0] = 1.0
                     A[:4, 1] = r[gc - 2:gc + 2]**2

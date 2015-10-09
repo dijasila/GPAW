@@ -43,7 +43,16 @@
 2014-11-10 10.1016/j.electacta.2014.09.056 Ti atoms in Ru0.3Ti0.7O2 mixed oxides form active and selective sites for electrochemical chlorine evolution
 2014-12-07 10.1063/1.4902249 Nucleation and growth of Pt nanoparticles on reduced and oxidized rutile TiO2 (110)
 2015-01-15 10.1039/c4nr06371f Surface-confined 2D polymerization of a brominated copper-tetraphenylporphyrin on Au(111)
+2015-01-15 10.1039/c4sc03835e Design of two-photon molecular tandem architectures for solar cells by ab initio theory
+2015-01-15 10.1039/c5cp01881a Electronic and magnetic properties of DUT-8(Ni)
+2015-01-15 10.1039/c5cp03382a Low temperature pollutant trapping and dissociation over two-dimensional tin
 2015-03-07 10.1063/1.4913739 Nanoplasmonics simulations at the basis set limit through completeness-optimized, local numerical basis sets
 2015-03-14 10.1063/1.4906048 Chemical insight from density functional modeling of molecular adsorption: Tracking the bonding and diffusion of anthracene derivatives on Cu(111) with molecular orbitals
 2015-03-18 10.1002/adfm.201404388 Molecular Heterojunctions of Oligo(phenylene ethynylene)s with Linear to Cruciform Framework
+2015-03-24 10.1103/PhysRevB.91.115431 Localized surface plasmon resonance in silver nanoparticles: Atomistic first-principles time-dependent density-functional theory calculations
+2015-04-02 10.1021/acs.jpcc.5b00734 Isolating a Reaction Intermediate in the Hydrogenation of 2,2,2-Trifluoroacetophenone on Pt(111)
 2015-04-05 10.1002/jcc.23834 van der Waals Interactions are Critical in Car-Parrinello Molecular Dynamics Simulations of Porphyrin-Fullerene Dyads
+2015-05-08 10.1088/0953-8984/27/17/175007 The effect of point defects on diffusion pathway within alpha-Fe
+2015-06-11 10.1021/jp512627e Importance of the Reorganization Energy Barrier in Computational Design of Porphyrin-Based Solar Cells with Cobalt-Based Redox Mediators
+2015-07-30 10.1021/acs.jpcc.5b04977 Self-Metalation of Phthalocyanine Molecules with Silver Surface Atoms by Adsorption on Ag(110)
+2016-01-15 10.1007/128_2014_616 Dynamical Processes in Open Quantum Systems from a TDDFT Perspective: Resonances and Electron Photoemission

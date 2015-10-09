@@ -22,7 +22,7 @@ class Domain:
         """Create Domain object from a unit cell and boundary conditions.
 
         The arguments are the lengths of the three axes, followed by a
-        tuple of three periodic-boundary condition flags (``bool``'s).
+        tuple of three periodic-boundary condition flags (``bool``s).
 
         Parallel stuff:
          =============== ==================================================
@@ -141,7 +141,7 @@ class Domain:
                         self.neighbor_cd[c, d] = -1
 
 
-def decompose_domain(ng, p):
+def decompose_domain(ngpts_c, ncores):
     """Determine parsize based on grid size and number of processors.
 
     If global variable UNIFORM is True, the returned parsize will
@@ -150,10 +150,10 @@ def decompose_domain(ng, p):
     If UNIFORM is False, the returned parsize may result in a variable
     number of points on each cpu.
     """
-    if p == 1:
+    if ncores == 1:
         return (1, 1, 1)
-    n1, n2, n3 = ng
-    plist = prims(p)
+    n1, n2, n3 = ngpts_c
+    plist = prims(ncores)
     pdict = {}
     for n in plist:
         pdict[n] = 0
@@ -181,8 +181,8 @@ def decompose_domain(ng, p):
             mincost = cost
             best = (p1, p2, p3)
     if best is None:
-        raise RuntimeError("Can't decompose a %dx%dx%d grid on %d cpu's!" %
-                           (n1, n2, n3, p))
+        raise RuntimeError("Can't decompose a %dx%dx%d grid on %d CPUs!" %
+                           (n1, n2, n3, ncores))
     return best
 
 

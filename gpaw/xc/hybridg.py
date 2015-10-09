@@ -787,7 +787,6 @@ class KPoint:
         return kpt
         
     def start_sending(self, rank):
-        assert self.P_ani.keys() == range(len(self.P_ani))  # ???
         P_nI = np.hstack([P_ni for P_ni in self.P_ani.values()])
         P_nI = np.ascontiguousarray(P_nI)
         self.requests += [

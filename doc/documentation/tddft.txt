@@ -33,8 +33,17 @@
 2015-01-15 10.1002/cpe.3199 Design and performance characterization of electronic structure calculations on massively parallel supercomputers: a case study of GPAW on the Blue Gene/P architecture
 2015-01-15 10.1016/j.jcp.2014.10.052 Real-time adaptive finite element solution of time-dependent Kohn-Sham equation
 2015-01-15 10.1039/c4cp02789b A DFT study of the effect of OH groups on the optical, electronic, and structural properties of TiO2 nanoparticles
+2015-01-15 10.1039/c5cc04513d UV photoexcitation of a dissolved metalloid Ge-9 cluster compound and its extensive ultrafast response
+2015-01-15 10.1039/c5cp00435g An old workhorse for new applications: Fe(dpm)(3) as a precursor for low-temperature PECVD of iron(III) oxide
 2015-01-22 10.1021/jp511037x Silver Sulfide Nanoclusters and the Superatom Model
 2015-01-28 10.1021/ja5109968 A Critical Size for Emergence of Nonbulk Electronic and Geometric Structures in Dodecanethiolate-Protected Au Clusters
 2015-02-05 10.1021/jz502637b Copper Induces a Core Plasmon in Intermetallic Au(144,145)-xCux(SR)(60) Nanoclusters
 2015-03-07 10.1063/1.4913739 Nanoplasmonics simulations at the basis set limit through completeness-optimized, local numerical basis sets
 2015-03-15 10.1021/nn506711a Molecule-like Photodynamics of Au-102(pMBA)(44) Nano cluster
+2015-03-24 10.1103/PhysRevB.91.115431 Localized surface plasmon resonance in silver nanoparticles: Atomistic first-principles time-dependent density-functional theory calculations
+2015-04-30 10.1021/acs.jpcc.5b01068 The Role of the Anchor Atom in the Ligand of the Monolayer-Protected Au-25(XR)(18)(-) Nanocluster
+2015-05-21 10.1021/jp510926q Theoretical Analysis of the M12Ag32(SR)(40)(4-) and X@M12Ag32(SR)(30)(4-) Nanoclusters (M = Au, Ag; X = H, Mn)
+2015-07-02 10.1021/acs.jpclett.5b01045 Impact of Ga-V Codoping on Interfacial Electron Transfer in Dye-Sensitized TiO2
+2015-07-20 10.1103/PhysRevB.92.045209 Beyond the Tamm-Dancoff approximation for extended systems using exact diagonalization
+2015-08-14 10.1063/1.4928510 Subspace formulation of time-dependent density functional theory for large-scale calculations
+2015-08-27 10.1021/acs.jpcc.5b07622 Photodynamics of a Molecular Water-Soluble Nanocluster Identified as Au-130(pMBA)(50)

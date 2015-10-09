@@ -20,6 +20,7 @@ from gpaw.io import read_atomic_matrices
 from gpaw.mpi import SerialCommunicator
 from gpaw.arraydict import ArrayDict
 
+
 class Density(object):
     """Density object.
 
@@ -85,7 +86,6 @@ class Density(object):
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()
 
-        #self.nt_sG = None
         self.nt_sg = None
         self.nt_g = None
         self.rhot_g = None
@@ -259,7 +259,6 @@ class Density(object):
         self.nt_sG = nt_sG
         self.D_asp = D_asp
         D_asp.check_consistency()
-        #self.calculate_normalized_charges_and_mix()
         # No calculate multipole moments?  Tests will fail because of
         # improperly initialized mixer
 
@@ -313,7 +312,8 @@ class Density(object):
             np.dot(self.D_asp[a][spin], setup.Delta_pL[:, 0])
             + setup.Delta0 / self.nspins)
 
-    def get_all_electron_density(self, atoms=None, gridrefinement=2, spos_ac=None):
+    def get_all_electron_density(self, atoms=None, gridrefinement=2,
+                                 spos_ac=None):
         """Return real all-electron density array.
 
            Usage: Either get_all_electron_density(atoms) or
@@ -498,7 +498,7 @@ class Density(object):
         natoms = len(self.setups)
         atom_partition = AtomPartition(self.gd.comm, np.zeros(natoms, int))
         D_asp = self.setups.empty_atomic_matrix(self.ns, atom_partition)
-        self.atom_partition = atom_partition # XXXXXX
+        self.atom_partition = atom_partition  # XXXXXX
 
         all_D_sp = reader.get('AtomicDensityMatrices', broadcast=True)
         if self.gd.comm.rank == 0:

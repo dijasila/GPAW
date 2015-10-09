@@ -85,7 +85,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
                               'Please install the SG15 setups using, '
                               'e.g., \'gpaw-install-setups\'.' % upfname)
             setupdata = UPFSetupData(upfpath)
-            if xc.name != 'PBE':
+            if 0:#xc.name != 'PBE':
                 raise ValueError('SG15 pseudopotentials support only the PBE '
                                  'functional.  This calculation would use '
                                  'the %s functional.' % xc.name)
@@ -133,6 +133,8 @@ class BaseSetup:
             f_j = self.f_j
         f_j = np.array(f_j, float)
         l_j = np.array(self.l_j)
+        if len(l_j) == 0:
+            l_j = np.ones(1)
 
         def correct_for_charge(f_j, charge, degeneracy_j, use_complete=True):
             nj = len(f_j)
@@ -160,8 +162,12 @@ class BaseSetup:
         if nspins == 1:
             assert magmom == 0.0
             f_sj = np.array([f_j])
-            correct_for_charge(f_sj[0], charge,
-                               2 * (2 * l_j + 1))
+            if not self.orbital_free:
+                correct_for_charge(f_sj[0], charge,
+                                    2 * (2 * l_j + 1))
+            else:
+                #ofdft degeneracy of one orbital is infinite
+                f_sj[0] += -charge
         else:
             nval = f_j.sum() - charge
             if np.abs(magmom) > nval:

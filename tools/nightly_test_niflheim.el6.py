@@ -5,6 +5,7 @@ import time
 import glob
 import tempfile
 
+
 def fail(subject, email=None, filename='/dev/null'):
     if email is not None:
         assert os.system('mail -s "%s" %s < %s' %
@@ -14,27 +15,27 @@ def fail(subject, email=None, filename='/dev/null'):
 day = time.localtime()[6]
 if '--debug' in sys.argv[1:]:
     args = '--debug'
-    np = 2 ** (1 + (day+1) % 3)
+    np = 2 ** (1 + (day + 1) % 3)
 else:
     args = ''
     np = 2 ** (1 + day % 3)
 
 if '--dir' in sys.argv:
     i = sys.argv.index('--dir')
-    dir = os.path.abspath(sys.argv[i+1])
+    dir = os.path.abspath(sys.argv[i + 1])
 else:
     dir = None
 
 if '--email' in sys.argv:
     i = sys.argv.index('--email')
-    email = sys.argv[i+1]
+    email = sys.argv[i + 1]
 else:
     email = None
 
 # allow overwrite of np
 if '--np' in sys.argv:
     i = sys.argv.index('--np')
-    np = int(sys.argv[i+1])
+    np = int(sys.argv[i + 1])
 
 tmpdir = tempfile.mkdtemp(prefix='gpaw-parallel-', dir=dir)
 os.chdir(tmpdir)
@@ -43,8 +44,10 @@ os.chdir(tmpdir)
 if os.system('svn checkout ' +
              'https://svn.fysik.dtu.dk/projects/gpaw/trunk gpaw') != 0:
     fail('Checkout of gpaw failed!')
-if os.system('svn export ' +
-             'https://svn.fysik.dtu.dk/projects/ase/trunk ase') != 0:
+if os.system('cd ~/gpaw-nightly-tests/ase && '
+             'git pull > pull.out 2>&1 && '
+             'git archive --format tar --prefix ase/ HEAD | '
+             '(cd {0}; tar -xf -)'.format(tmpdir)) != 0:
     fail('Checkout of ASE failed!')
 
 os.chdir('gpaw')

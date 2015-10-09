@@ -6,7 +6,7 @@ from gpaw.poisson import PoissonSolver
 
 
 # Initialize classes
-a = 20  # Size of cell
+a = 20.0  # Size of cell
 inv_width = 19  # inverse width of the gaussian
 N = 48  # Number of grid points
 center_of_charge = (a / 2, a / 2, 3 * a / 4)  # off center charge

@@ -388,6 +388,40 @@ class GPAW(PAW):
         energies, weights = raw_orbital_LDOS(self, a, spin, angular, nbands)
         return fold(energies * Hartree, weights, npts, width)
 
+    def get_lcao_dos(self, atom_indices=None, basis_indices=None,
+                     npts=201, width=None):
+        """Get density of states projected onto orbitals in LCAO mode.
+
+        basis_indices is a list of indices of basis functions on which
+        to project.  To specify all basis functions on a set of atoms,
+        you can supply atom_indices instead.  Both cannot be given
+        simultaneously."""
+
+        both_none = atom_indices is None and basis_indices is None
+        neither_none = atom_indices is not None and basis_indices is not None
+        if both_none or neither_none:
+            raise ValueError('Please give either atom_indices or '
+                             'basis_indices but not both')
+
+        if width is None:
+            width = self.get_electronic_temperature()
+        if width == 0.0:
+            width = 0.1
+
+        if self.wfs.S_qMM is None:
+            from gpaw.utilities.dos import RestartLCAODOS
+            lcaodos = RestartLCAODOS(self)
+        else:
+            from gpaw.utilities.dos import LCAODOS
+            lcaodos = LCAODOS(self)
+        
+        if atom_indices is not None:
+            basis_indices = lcaodos.get_atom_indices(atom_indices)
+                        
+        eps_n, w_n = lcaodos.get_subspace_pdos(basis_indices)
+        from gpaw.utilities.dos import fold
+        return fold(eps_n * Hartree, w_n, npts, width)
+
     def get_all_electron_ldos(self, mol, spin=0, npts=201, width=None,
                               wf_k=None, P_aui=None, lc=None, raw=False):
         """The Projected Density of States, using all-electron wavefunctions.
@@ -395,7 +429,7 @@ class GPAW(PAW):
         Projects onto a pseudo_wavefunctions (wf_k) corresponding to some band
         n and uses P_aui ([paw.nuclei[a].P_uni[:,n,:] for a in atoms]) to
         obtain the all-electron overlaps.
-        Instead of projecting onto a wavefunctions a molecular orbital can
+        Instead of projecting onto a wavefunction, a molecular orbital can
         be specified by a linear combination of weights (lc)
         """
         from gpaw.utilities.dos import all_electron_LDOS, fold
