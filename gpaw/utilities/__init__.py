@@ -238,7 +238,6 @@ def compiled_with_sl():
     return hasattr(_gpaw, 'new_blacs_context')
 
 def compiled_with_libvdwxc():
-    print(_gpaw.libvdwxc_create)
     return hasattr(_gpaw, 'libvdwxc_create')
 
 # The following two methods should do real checks for their respective libraries.
