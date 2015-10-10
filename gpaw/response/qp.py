@@ -145,6 +145,11 @@ class GWQuasiParticleCalculator:
             [[self.calc.get_occupation_numbers(kpt=k, spin=s)[na:nb]
               for k in self.kpts]
              for s in range(self.nspins)])
+        
+        nibzk = len(self.calc.get_ibz_k_points())
+        self.eps0_skn = np.array([[self.calc.get_eigenvalues(kpt=k, spin=s)
+                                   for k in range(nibzk)]
+                                  for s in range(self.nspins)]) / Hartree
 
         omegamax = np.amax(self.eps_skn) - np.amin(self.eps_skn) + 5.0
 
@@ -188,7 +193,7 @@ class GWQuasiParticleCalculator:
         self.qp_iskn = np.array([self.qp_skn])
 
     @timer('Quasi-particle equation')
-    def calculate(self, niter=1, mixing=1.0, overwrite=False, updatew=False):
+    def calculate(self, niter=1, mixing=0.3, overwrite=False, updatew=False):
         """Calculate the quasiparticle energies after a number of iterations
         of the quasiparticle equation."""
 
@@ -229,19 +234,40 @@ class GWQuasiParticleCalculator:
     def update_energies(self, mixing):
         """Updates the energies of the calculator with the quasi-particle
         energies."""
-        shifts_sn = np.mean(self.qp_skn - self.eps_skn, axis=1)
+        shifts_skn = np.zeros(self.shape)
         na, nb = self.bandrange
+        #print('eps0_skn=%s' % self.eps0_skn[:, :, na:nb])
         for kpt in self.calc.wfs.kpt_u:
+            s = kpt.s
             if kpt.k in self.kpts:
-                kpt.eps_n[na:nb] = self.mixer(kpt.eps_n[na:nb],
-                                              self.qp_skn[kpt.s, kpt.k],
-                                              mixing)
+                ik = self.kpts.index(kpt.k)
+                eps1_n = self.mixer(kpt.eps_n[na:nb], self.qp_skn[s, ik],
+                                    mixing)
+                kpt.eps_n[na:nb] = eps1_n
                 # Should we do something smart with the bands outside the interval?
                 # Here we shift the unoccupied bands not included by the average
                 # change of the top-most band and the occupied by the bottom-most
                 # band included
-                kpt.eps_n[:na] += shifts_sn[kpt.s, 0]
-                kpt.eps_n[nb:] += shifts_sn[kpt.s, -1]
+                shifts_skn[s, ik] = (eps1_n - self.eps0_skn[s, kpt.k, na:nb])
+        
+        for kpt in self.calc.wfs.kpt_u:
+            s = kpt.s
+            if kpt.k in self.kpts:
+                ik = self.kpts.index(kpt.k)
+                kpt.eps_n[:na] = (self.eps0_skn[s, kpt.k, :na] +
+                                  np.mean(shifts_skn[s, :, 0]))
+                kpt.eps_n[nb:] = (self.eps0_skn[s, kpt.k, nb:] +
+                                  np.mean(shifts_skn[s, :, -1]))
+            else:
+                """
+                kpt.eps_n[:na] = (self.eps0_skn[s, kpt.k, :na] +
+                                  np.mean(shifts_skn[s, :, 0]))
+                kpt.eps_n[na:nb] = (self.eps0_skn[s, kpt.k, na:nb] +
+                                    np.mean(shifts_skn[s, :], axis=0))
+                kpt.eps_n[nb:] = (self.eps0_skn[s, kpt.k, nb:] +
+                                  np.mean(shifts_skn[s, :, -1]))
+                """
+                pass
 
     def mixer(self, e0_skn, e1_skn, mixing=1.0):
         """Mix energies."""
