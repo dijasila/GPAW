@@ -183,7 +183,7 @@ class GridDescriptor(Domain):
             pbc_c = self.pbc_c
         if comm is None:
             comm = self.comm
-        if parsize is None:
+        if parsize is None and comm.size == self.comm.size:
             parsize = self.parsize_c
         #if n_cp is None:
         #    n_cp = self.n_cp
