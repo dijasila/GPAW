@@ -987,6 +987,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
             s      --   si \    i    /
                    a,i
         """
+        assert np.all(self.gd.n_c == nt_sG.shape[1:])
         nspins = len(nt_sG)
         f_sM = np.empty((nspins, self.Mmax))
         for a in self.atom_indices:
