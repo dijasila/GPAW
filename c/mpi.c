@@ -852,6 +852,11 @@ static PyObject *mpi_translate_ranks(MPIObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "OO", &other, &myranks_anytype))
     return NULL;
 
+  // XXXXXX This uses NPY_LONG and NPY_INT.  On some computers the
+  // returned array is int32 while np.array(..., dtype=int) returns
+  // int64.  This should very probably be changed so it always
+  // corresponds to the default int of numpy.
+  
   // This handling of arrays of ranks is taken from the MPICommunicator
   // creation method.  See that method for explanation of casting, datatypes
   // etc.

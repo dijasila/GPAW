@@ -700,6 +700,9 @@ class GridDescriptor(Domain):
                     (0.0 + dg_c[0]) * (0.0 + dg_c[1]) * (0.0 + dg_c[2]))
 
     def __eq__(self, other):
+        # XXX Wait, should this not check the global distribution?  This
+        # could return True on some nodes and False on others because the
+        # check does not verify self.n_cp.
         return (self.dv == other.dv and
                 (self.h_cv == other.h_cv).all() and
                 (self.N_c == other.N_c).all() and

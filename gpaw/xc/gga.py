@@ -254,7 +254,7 @@ def pbe_constants(name):
 
     return name, kappa, mu, beta
 
-
+# a2 = |grad n|^2
 def gga_x(name, spin, n, a2, kappa, mu):
     assert spin in [0, 1]
 
