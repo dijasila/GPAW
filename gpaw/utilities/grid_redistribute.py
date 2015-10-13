@@ -382,6 +382,10 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
     array, for example.
 
     """
+    assert len(src_g.shape) == 3
+    assert len(dst_g.shape) == 3
+    assert src_g.dtype == dst_g.dtype
+
     if not isinstance(domains1, Domains):
         domains1 = Domains(domains1)
     if not isinstance(domains2, Domains):
