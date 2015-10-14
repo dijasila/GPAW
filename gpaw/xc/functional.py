@@ -25,7 +25,7 @@ class XCFunctional:
             Array for potential.  The XC potential is added to the values
             already there.
         e_g: rank-3 ndarray
-            Energy density.
+            Energy density.  Values must be written directly, not added.
 
         The total XC energy is returned."""
         
@@ -55,10 +55,13 @@ class XCFunctional:
         pass
     
     def correct_hamiltonian_matrix(self, kpt, H_nn):
+        # In what sense?  Some documentation here maybe?
         pass
 
     def add_correction(self, kpt, psit_xG, R_xG, P_axi, c_axi, n_x=None,
                        calculate_change=False):
+        # Which kind of correction is this?  Maybe some kind of documentation
+        # could be written?  What is required of an implementation?
         pass
     
     def rotate(self, kpt, U_nn):

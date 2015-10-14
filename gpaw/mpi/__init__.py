@@ -525,6 +525,8 @@ class _Communicator:
         Ranks that are not defined on the other communicator are
         assigned values of -1.  (In contrast to MPI which would
         assign MPI_UNDEFINED)."""
+        assert hasattr(other, 'translate_ranks'), \
+            'Excpected communicator, got %s' % other
         assert all(0 <= rank for rank in ranks)
         assert all(rank < self.size for rank in ranks)
         if isinstance(self.comm, SerialCommunicator):

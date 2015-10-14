@@ -123,17 +123,17 @@ class GridDescriptor(Domain):
             n_p = (np.arange(self.parsize_c[c] + 1) * float(self.N_c[c]) /
                    self.parsize_c[c])
             n_p = np.around(n_p + 0.4999).astype(int)
-            
+
             if not self.pbc_c[c]:
                 n_p[0] = 1
 
-            if not np.alltrue(n_p[1:] - n_p[:-1]):
+            if not np.all(n_p[1:] - n_p[:-1] > 0):
                 raise ValueError('Grid too small!')
-                    
+
             self.beg_c[c] = n_p[self.parpos_c[c]]
             self.end_c[c] = n_p[self.parpos_c[c] + 1]
             self.n_cp.append(n_p)
-            
+
         self.n_c = self.end_c - self.beg_c
 
         self.h_cv = self.cell_cv / self.N_c[:, np.newaxis]
@@ -154,11 +154,12 @@ class GridDescriptor(Domain):
         else:
             cellstring = self.cell_cv.tolist()
 
-        return ('GridDescriptor(%s, cell_cv=%s, pbc_c=%s, comm=[%d/%d], '
-                'parsize=%s)'
+        pcoords = tuple(self.get_processor_position_from_rank())
+        return ('GridDescriptor(%s, cell_cv=%s, pbc_c=%s, comm=[%d/%d, '
+                'domain=%s], parsize=%s)'
                 % (self.N_c.tolist(), cellstring,
                    np.array(self.pbc_c).astype(int).tolist(), self.comm.rank,
-                   self.comm.size, self.parsize_c.tolist()))
+                   self.comm.size, pcoords, self.parsize_c.tolist()))
 
     def new_descriptor(self, N_c=None, cell_cv=None, pbc_c=None,
                        comm=None, parsize=None):
@@ -175,7 +176,7 @@ class GridDescriptor(Domain):
             pbc_c = self.pbc_c
         if comm is None:
             comm = self.comm
-        if parsize is None:
+        if parsize is None and comm.size == self.comm.size:
             parsize = self.parsize_c
         return self.__class__(N_c, cell_cv, pbc_c, comm, parsize)
 
@@ -233,6 +234,15 @@ class GridDescriptor(Domain):
             return np.zeros(shape, dtype)
         else:
             return np.empty(shape, dtype)
+
+    def get_axial_communicator(self, axis):
+        peer_ranks = []
+        pos_c = self.parpos_c.copy()
+        for i in range(self.parsize_c[axis]):
+            pos_c[axis] = i
+            peer_ranks.append(self.get_rank_from_processor_position(pos_c))
+        peer_comm = self.comm.new_communicator(peer_ranks)
+        return peer_comm
         
     def integrate(self, a_xg, b_yg=None,
                   global_integral=True, hermitian=False,
@@ -417,6 +427,8 @@ class GridDescriptor(Domain):
         return np.exp(2j * pi * np.dot(np.indices(N_c).T, k_c / N_c).T)
 
     def symmetrize(self, a_g, op_scc, ft_sc=None):
+        # ft_sc: fractional translations
+        # XXXX documentation missing.  This is some kind of array then?
         if len(op_scc) == 1:
             return
         
@@ -515,17 +527,33 @@ class GridDescriptor(Domain):
             for request, a_xg in requests:
                 self.comm.wait(request)
         
-    def zero_pad(self, a_xg):
+    def zero_pad(self, a_xg, global_array=True):
         """Pad array with zeros as first element along non-periodic directions.
 
-        Should only be invoked on global arrays.
+        Array may either be local or in standard decomposition.
         """
-        assert np.all(a_xg.shape[-3:] == (self.N_c + self.pbc_c - 1))
+
+        # We could infer what global_array should be from a_xg.shape.
+        # But as it is now, there is a bit of redundancy to avoid
+        # confusing errors
+
+        gshape = a_xg.shape[-3:]
+        padding_c = 1 - self.pbc_c
+        if global_array:
+            assert (gshape == self.N_c - padding_c).all()
+            bshape = tuple(self.N_c)
+        else:
+            assert (gshape == self.n_c).all()
+            parpos_c = self.get_processor_position_from_rank()
+            # Only pad where domain is on edge:
+            padding_c *= (parpos_c == 0)
+            bshape = tuple(self.n_c + padding_c)
+
         if self.pbc_c.all():
             return a_xg
 
-        npbx, npby, npbz = 1 - self.pbc_c
-        b_xg = np.zeros(a_xg.shape[:-3] + tuple(self.N_c), dtype=a_xg.dtype)
+        npbx, npby, npbz = padding_c
+        b_xg = np.zeros(a_xg.shape[:-3] + tuple(bshape), dtype=a_xg.dtype)
         b_xg[..., npbx:, npby:, npbz:] = a_xg
         return b_xg
 

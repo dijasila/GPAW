@@ -11,7 +11,7 @@ from ase.utils import devnull
 
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters, tf_parameters
-from gpaw.utilities import compiled_with_sl
+from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw
@@ -97,6 +97,7 @@ tests = [
     'lf.py',
     'fsbt.py',
     'parallel/compare.py',
+    'vdw/libvdwxc_functionals.py',
     'integral4.py',
     'zher.py',
     'gd.py',
@@ -171,6 +172,7 @@ tests = [
     'pseudopotential/ah.py',                # ~2s
     'lcao_restart.py',                      # ~2s
     'lcao_tddft.py',                        # ~2s
+    'vdw/libvdwxc_h2o.py',                  # ~2s
     'lcao_gllb_si.py',                      # ~2s
     'wfs_io.py',                            # ~3s
     'lrtddft2.py',                          # ~3s
@@ -448,6 +450,10 @@ if mpi.size != 1 and not compiled_with_sl():
 
 if not compiled_with_sl():
     exclude.append('lcao_atomic_corrections.py')
+
+if not compiled_with_libvdwxc():
+    exclude.append('vdw/libvdwxc_functionals.py')
+    exclude.append('vdw/libvdwxc_h2o.py')
 
 if np.__version__ < '1.6.0':
     exclude.append('chi0.py')

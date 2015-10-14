@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
+import itertools
 import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 
@@ -292,6 +293,229 @@ def get_compatible_grid_descriptor(gd, distribute_dir, reduce_dir):
     comm2 = gd.comm.new_communicator(ranks)
     gd2 = gd.new_descriptor(comm=comm2, parsize=parsize2_c)
     return gd2
+
+
+class Domains:
+    def __init__(self, domains_cp):
+        self.domains_cp = domains_cp
+        self.parsize_c = tuple(len(domains_cp[c]) - 1 for c in range(3))
+
+    def get_parsize(self):
+        return tuple(len(self.domains_cp[c]) - 1 for c in range(3))
+
+    def get_global_shape(self):
+        return tuple(domains_cp[c][-1] - domains_cp[c][0] for c in range(3))
+
+    def get_offset(self, parpos_c):
+        offset_c = [self.domains_cp[c][parpos_c[c]] for c in range(3)]
+        return np.array(offset_c)
+
+    def get_box(self, parpos_c):
+        offset_c = self.get_offset(parpos_c)
+        nextoffset_c = self.get_offset(np.array(parpos_c) + 1)
+        return offset_c, nextoffset_c - offset_c
+
+    def as_serial(self):
+        return Domains([[self.domains_cp[c][0], self.domains_cp[c][-1]]
+                        for c in range(3)])
+
+
+def random_subcomm(comm, gen, size):
+    allranks = np.arange(comm.size)
+    wranks = gen.choice(allranks, size=size, replace=False)
+    subcomm = comm.new_communicator(wranks)
+    return wranks, subcomm
+
+
+# For testing
+class RandomDistribution:
+    def __init__(self, comm, domains, gen):
+        self.world = comm
+        self.domains = domains
+        size = np.prod(domains.parsize_c)
+        wranks, subcomm = random_subcomm(comm, gen, size)
+        self.comm = subcomm
+
+        # We really need to know this information globally, even where
+        # subcomm is None.
+        comm.broadcast(wranks, 0)
+        self.wranks = wranks
+        self.subranks = {}
+        for i, wrank in enumerate(wranks):
+            self.subranks[wrank] = i
+
+        domain_order = np.arange(size)
+        gen.shuffle(domain_order)
+        self.ranks3d = domain_order.reshape(domains.parsize_c)
+        
+        coords_iter = itertools.product(*[range(domains.parsize_c[c])
+                                          for c in range(3)])
+        self.coords_by_rank = list(coords_iter)
+
+    def parpos2rank(self, parpos_c):
+        return self.wranks[self.ranks3d[parpos_c]]
+
+    def rank2parpos(self, rank):
+        subrank = self.subranks.get(rank, None)
+        if subrank is None:
+            return None
+        return self.coords_by_rank[subrank]
+
+    def get_test_array(self, dtype=int):
+        if self.comm is None:
+            return np.zeros((0, 0, 0), dtype=dtype)
+
+        parpos_c = self.rank2parpos(self.world.rank)
+        offset_c, size_c = self.domains.get_box(parpos_c)
+        arr = np.empty(size_c, dtype=dtype)
+        arr[:] = self.comm.rank
+        return arr
+
+
+def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
+                         src_g, dst_g):
+    """Redistribute array arbitrarily.
+
+    Generally, this function redistributes part of an array into part
+    of another array.  It is thus not necessarily one-to-one, but can
+    be used to perform a redistribution to or from a larger, padded
+    array, for example.
+
+    """
+    if not isinstance(domains1, Domains):
+        domains1 = Domains(domains1)
+    if not isinstance(domains2, Domains):
+        domains2 = Domains(domains2)
+
+    # Get global coords for local slice
+    myparpos1_c = rank2parpos1(comm.rank)
+    if myparpos1_c is not None:
+        myoffset1_c, mysize1_c = domains1.get_box(myparpos1_c)
+    myparpos2_c = rank2parpos2(comm.rank)
+    if myparpos2_c is not None:
+        myoffset2_c, mysize2_c = domains2.get_box(myparpos2_c)
+
+    sendranks = []
+    recvranks = []
+    sendchunks = []
+    recvchunks = []
+
+    sendcounts, recvcounts, senddispls, recvdispls = np.zeros((4, comm.size),
+                                                              dtype=int)
+
+    # The plan is to loop over all ranks, then figure out:
+    #
+    #   1) What do we have to send to that rank
+    #   2) What are we going to receive from that rank
+    #
+    # Some ranks may not hold any data before, or after, or both.
+
+    def _intersection(myoffset_c, mysize_c, offset_c, size_c, arr_g):
+        # Get intersection of two rectangles, given as offset and size
+        # in global coordinates.  Returns None if no intersection,
+        # else the appropriate slice of the local array
+        start_c = np.max([myoffset_c, offset_c], axis=0)
+        stop_c = np.min([myoffset_c + mysize_c, offset_c + size_c], axis=0)
+        if (stop_c - start_c > 0).all():
+            # Reduce to local array coordinates:
+            start_c -= myoffset_c
+            stop_c -= myoffset_c
+            return arr_g[start_c[0]:stop_c[0],
+                         start_c[1]:stop_c[1],
+                         start_c[2]:stop_c[2]]
+        else:
+            return None
+
+    def get_sendchunk(offset_c, size_c):
+        return _intersection(myoffset1_c, mysize1_c, offset_c, size_c, src_g)
+
+    def get_recvchunk(offset_c, size_c):
+        return _intersection(myoffset2_c, mysize2_c, offset_c, size_c, dst_g)
+
+    nsendtotal = 0
+    nrecvtotal = 0
+    for rank in range(comm.size):
+        # Proceed only if we have something to send
+        if myparpos1_c is not None:
+            parpos2_c = rank2parpos2(rank)
+            # Proceed only if other rank is going to receive something
+            if parpos2_c is not None:
+                offset2_c, size2_c = domains2.get_box(parpos2_c)
+                sendchunk = get_sendchunk(offset2_c, size2_c)
+                if sendchunk is not None:
+                    sendcounts[rank] = sendchunk.size
+                    senddispls[rank] = nsendtotal
+                    nsendtotal += sendchunk.size
+                    sendchunks.append(sendchunk)
+                    sendranks.append(rank)
+
+        # Proceed only if we are going to receive something
+        if myparpos2_c is not None:
+            parpos1_c = rank2parpos1(rank)
+            # Proceed only if other rank has something to send
+            if parpos1_c is not None:
+                offset1_c, size1_c = domains1.get_box(parpos1_c)
+                recvchunk = get_recvchunk(offset1_c, size1_c)
+                if recvchunk is not None:
+                    recvcounts[rank] = recvchunk.size
+                    recvdispls[rank] = nrecvtotal
+                    nrecvtotal += recvchunk.size
+                    recvchunks.append(recvchunk)
+                    recvranks.append(rank)
+
+    # MPI wants contiguous buffers; who are we to argue:
+    sendbuf = np.empty(nsendtotal)
+    recvbuf = np.empty(nrecvtotal)
+
+    # Copy non-contiguous slices into contiguous sendbuffer:
+    for sendrank, sendchunk in zip(sendranks, sendchunks):
+        nstart = senddispls[sendrank]
+        nstop = nstart + sendcounts[sendrank]
+        sendbuf[nstart:nstop] = sendchunk.ravel()
+
+    # Finally!
+    comm.alltoallv(sendbuf, sendcounts, senddispls,
+                   recvbuf, recvcounts, recvdispls)
+
+    # Now copy from the recvbuffer into the actual destination array:
+    for recvrank, recvchunk in zip(recvranks, recvchunks):
+        nstart = recvdispls[recvrank]
+        nstop = nstart + recvcounts[recvrank]
+        recvchunk.flat[:] = recvbuf[nstart:nstop]
+
+def test_general_redistribute():
+    domains1 = Domains([[0, 1],
+                        [1, 3, 5, 6],
+                        [0, 5, 9]])
+    domains2 = Domains([[0, 1],
+                        [0, 2, 4, 7, 10],
+                        [2, 4, 6, 7]])
+
+    serial = domains2.as_serial()
+
+    gen = np.random.RandomState(42)
+
+    dist1 = RandomDistribution(world, domains1, gen)
+    dist2 = RandomDistribution(world, domains2, gen)
+
+    arr1 = dist1.get_test_array()
+    arr2 = dist2.get_test_array()
+    arr2[:] = -1
+
+    general_redistribute(world, domains1, domains2,
+                         dist1.rank2parpos, dist2.rank2parpos,
+                         arr1, arr2)
+
+    dist_serial = RandomDistribution(world, serial, gen)
+    arr3 = dist_serial.get_test_array()
+    general_redistribute(world, domains2, serial, dist2.rank2parpos,
+                         dist_serial.rank2parpos, arr2, arr3)
+    print(arr3)
+
+
+#if __name__ == '__main__':
+#    main()
+
 
 def playground():
     np.set_printoptions(linewidth=176)

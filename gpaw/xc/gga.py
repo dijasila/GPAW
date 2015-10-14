@@ -9,6 +9,24 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 
 
+def calculate_sigma(gd, grad_v, n_sg):
+    """Calculate sigma(r) and grad n(r).
+                  _     __   _  2     __    _
+    Returns sigma(r) = |\/ n(r)|  and \/ n (r).
+
+    With multiple spins it's a bit more complicated."""
+    nspins = len(n_sg)
+    gradn_svg = gd.empty((nspins, 3))
+    sigma_xg = gd.zeros(nspins * 2 - 1)
+    for v in range(3):
+        for s in range(nspins):
+            grad_v[v](n_sg[s], gradn_svg[s, v])
+            axpy(1.0, gradn_svg[s, v]**2, sigma_xg[2 * s])
+        if nspins == 2:
+            axpy(1.0, gradn_svg[0, v] * gradn_svg[1, v], sigma_xg[1])
+    return sigma_xg, gradn_svg
+
+
 class GGA(LDA):
     def set_grid_descriptor(self, gd):
         LDA.set_grid_descriptor(self, gd)
@@ -19,6 +37,11 @@ class GGA(LDA):
         sigma_xg, gradn_svg = self.calculate_sigma(n_sg)
         dedsigma_xg = self.gd.empty(nspins * 2 - 1)
         self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        self.add_gradient_correction(gradn_svg, sigma_xg, dedsigma_xg, v_sg)
+
+    def add_gradient_correction(self, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
+        """Add gradient correction to potential."""
+        nspins = len(v_sg)
         vv_g = sigma_xg[0]
         for v in range(3):
             for s in range(nspins):
@@ -30,16 +53,7 @@ class GGA(LDA):
                     # TODO: can the number of gradient evaluations be reduced?
 
     def calculate_sigma(self, n_sg):
-        nspins = len(n_sg)
-        gradn_svg = self.gd.empty((nspins, 3))
-        sigma_xg = self.gd.zeros(nspins * 2 - 1)
-        for v in range(3):
-            for s in range(nspins):
-                self.grad_v[v](n_sg[s], gradn_svg[s, v])
-                axpy(1.0, gradn_svg[s, v] ** 2, sigma_xg[2 * s])
-            if nspins == 2:
-                axpy(1.0, gradn_svg[0, v] * gradn_svg[1, v], sigma_xg[1])
-        return sigma_xg, gradn_svg
+        return calculate_sigma(self.gd, self.grad_v, n_sg)
 
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
