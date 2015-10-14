@@ -240,6 +240,7 @@ tests = [
     'ne_gllb.py',                           # ~7s
     'ed.py',                                # ~7s
     'lcao_force.py',                        # ~7s
+    'pplda.py',                             # ~7s
     'fileio/restart_density.py',            # ~8s
     'rpa_energy_Ni.py',                     # ~8s
     'be_nltd_ip.py',                        # ~8s
@@ -296,7 +297,6 @@ tests = [
     'tpss.py',                              # ~18s
     'td_na2.py',                            # ~18s
     'exx_coarse.py',                        # ~18s
-    'pplda.py',                             # ~18s
     'si_xas.py',                            # ~18s
     'mgga_sc.py',                           # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
