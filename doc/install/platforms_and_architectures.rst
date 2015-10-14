@@ -79,6 +79,7 @@ Linux:
    Linux/armageddon
    Linux/batman
    Linux/bwgrid
+   Linux/bwuni
    Linux/carbon_cnm
    Linux/davinci
    Linux/gardar.nhpc.hi.is
