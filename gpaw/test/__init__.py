@@ -287,6 +287,7 @@ tests = [
     'parallel/fd_parallel.py',              # ~15s
     'solvation/poisson.py',                 # ~15s
     'solvation/water_water.py',             # ~15s
+    'pygga.py',                             # ~15s
     'parallel/lcao_parallel.py',            # ~16s
     'atomize.py',                           # ~16s
     'excited_state.py',                     # ~16s
@@ -332,7 +333,6 @@ tests = [
     'wannierk.py',                          # ~45s
     'bse_vs_lrtddft.py',                    # ~45s
     'aluminum_testcell.py',                 # ~46s
-    'pygga.py',                             # ~47s
     'ut_tddft.py',                          # ~49s
     'response_pair.py',                     # ~50s
     'rpa_energy_N2.py',                     # ~52s

@@ -1,5 +1,5 @@
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, PoissonSolver
 import numpy as np
 
 # spin paired H2
@@ -15,7 +15,9 @@ for XC in ['pyPBE', 'pyRPBE']:
     f = np.array([])
     for i in [2, 0]:
         xc = XC[i:]
-        calc = GPAW(nbands=-1, xc=xc, txt=None)
+        calc = GPAW(nbands=-1, xc=xc,
+                    h=0.25,
+                    mode='lcao', basis='dz(dzp)')
         h2.set_calculator(calc)
         e = np.append(e, h2.get_potential_energy())
         f = np.append(f, h2.get_forces())
@@ -35,7 +37,9 @@ for XC in ['pyPBE', 'pyRPBE']:
     f = np.array([])
     for i in [2, 0]:
         xc = XC[i:]
-        calc = GPAW(nbands=-2, xc=xc, txt=None)
+        calc = GPAW(nbands=-2, xc=xc,
+                    h=0.28,
+                    mode='lcao', basis='dz(dzp)')
         o2.set_calculator(calc)
         e = np.append(e, o2.get_potential_energy())
         f = np.append(f, o2.get_forces())
