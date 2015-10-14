@@ -5,7 +5,7 @@ from gpaw.xc.gga import GGA
 from gpaw.utilities import compiled_with_libvdwxc, compiled_with_fftw_mpi,\
     compiled_with_pfft
 from gpaw.utilities.grid_redistribute import GridRedistributor
-#from gpaw.utilities.accordion_redistribute import accordion_redistribute
+from gpaw.utilities.accordion_redistribute import accordion_redistribute
 from gpaw.utilities.timing import nulltimer
 import _gpaw
 
