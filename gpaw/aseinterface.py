@@ -244,11 +244,10 @@ class GPAW(PAW):
                              for spin in range(2)])
 
     def get_all_electron_density(self, spin=None, gridrefinement=2,
-                                 pad=True, broadcast=True, collect=True):
+                                 pad=True, broadcast=True, collect=True,skip_core=False):
         """Return reconstructed all-electron density array."""
         n_sG, gd = self.density.get_all_electron_density(
-            self.atoms, gridrefinement=gridrefinement)
-
+            self.atoms, gridrefinement=gridrefinement,skip_core=skip_core)
         if spin is None:
             if self.density.nspins == 1:
                 n_G = n_sG[0]
