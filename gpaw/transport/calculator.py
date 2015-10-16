@@ -1,7 +1,6 @@
-from ase import Atoms, Atom
 from ase.parallel import parprint, paropen
 from ase.units import Hartree, Bohr
-from gpaw import GPAW, debug, dry_run, PoissonSolver
+from gpaw import GPAW, dry_run, PoissonSolver
 from gpaw.mixer import Mixer, MixerSum, MixerDif, BroydenMixer, BroydenMixerSum
 from gpaw.poisson import FixedBoundaryPoissonSolver
 
@@ -10,13 +9,14 @@ from gpaw.transformers import Transformer
 from gpaw.mpi import world
 from gpaw.utilities.memory import maxrss
 
-from gpaw.transport.tools import tri2full, dot, \
-          get_atom_indices, substract_pk, get_lcao_density_matrix, \
-          get_pk_hsd, get_matrix_index, aa1d, aa2d, collect_atomic_matrices,\
-          distribute_atomic_matrices, fermidistribution
+from gpaw.transport.tools import (
+    tri2full, dot,
+    get_atom_indices, substract_pk, get_lcao_density_matrix,
+    get_pk_hsd, get_matrix_index, collect_atomic_matrices,
+    distribute_atomic_matrices, fermidistribution)
 
-from gpaw.transport.sparse_matrix import Tp_Sparse_HSD, Banded_Sparse_HSD, \
-                                  CP_Sparse_HSD, Se_Sparse_Matrix
+from gpaw.transport.sparse_matrix import (Tp_Sparse_HSD, Banded_Sparse_HSD,
+                                          CP_Sparse_HSD)
 
 from gpaw.transport.contour import Contour, EnergyNode
 from gpaw.transport.surrounding import Surrounding
@@ -268,9 +268,7 @@ class Transport(GPAW):
         if self.scat_restart and self.restart_file is None:
             self.restart_file = 'bias_data1'
         
-        self.master = (world.rank==0)
-        
-        bias = self.bias
+        self.master = (world.rank == 0)
         
         if self.LR_leads and self.lead_num != 2:
             raise RuntimeError('wrong way to use keyword LR_leads')
@@ -294,12 +292,12 @@ class Transport(GPAW):
             pass
         else:
             npk = np.product(kpts[:2])
-            nibpzk = (npk + npk % 2) / 2
+            nibpzk = (npk + npk % 2) // 2
             from fractions import gcd
             n_kpt_comm = gcd(nibpzk, world.size)
-            self.gpw_kwargs['parallel']= {'kpt': n_kpt_comm,
-                                          'domain': None,
-                                          'band': 1}
+            self.gpw_kwargs['parallel'] = {'kpt': n_kpt_comm,
+                                           'domain': None,
+                                           'band': 1}
         # ! THa: Hack:
         # ! Also save the the parameters
         # !'plot_energy_range' and for later analysis 'plot_energy_point_num'
@@ -1123,7 +1121,6 @@ class Transport(GPAW):
             sum = 0
             for i in range(self.lead_num):
                 self.log('  append lead: {0}'.format(i))
-                begin = np.min(self.lead_index[i])
                 newb = tp_mat.nb + sum
                 #ex_index.append(self.lead_index[i] - begin + newb)
                 ex_index.append(np.argsort(self.lead_index[i]) + newb)
@@ -1821,7 +1818,6 @@ class Transport(GPAW):
         #              fint = -2i*pi*kt
       
         contour = self.contour
-        sgftol = 1e-10
         stepintcnt = 50
         nbmol = self.nbmol_inner
                 
@@ -1863,7 +1859,6 @@ class Transport(GPAW):
             gr = self.hsd.calculate_eq_green_function(zp[i], sigma, False)
             # --ne-Integral---
             kt = contour.kt
-            ff = []
             if calcutype == 'neInt':
                 ffocc = []
                 ffvir = []
@@ -1941,7 +1936,6 @@ class Transport(GPAW):
         nbmol = self.nbmol_inner
         denocc = np.zeros([nbmol, nbmol], complex)
         denvir = np.zeros([nbmol, nbmol], complex)
-        ind = self.ne_par_energy_index[s][k]
         zp = pathinfo.energy
 
         self.timer.start('ne fock2den')
@@ -2193,8 +2187,6 @@ class Transport(GPAW):
         self.log('induce_density_perturbation()')
         wfs = self.extended_calc.wfs
         basis_functions = wfs.basis_functions
-        density = self.density
-        f_sM = np.empty((self.nspins, basis_functions.Mmax))
         D_asp = {}
         f_asi = {}
         for a in basis_functions.atom_indices:
@@ -2533,7 +2525,6 @@ class Transport(GPAW):
     def fill_lead_with_scat(self):
         self.log('fill_lead_with_scat()')
         assert self.hsd.extended
-        n = -1
         m = -2
         for  i in range(self.lead_num):
             for s in range(self.my_nspins):
@@ -2772,7 +2763,6 @@ class Transport(GPAW):
         magmom_a = self.extended_atoms.get_initial_magnetic_moments()
         if density.nt_sG is None:
             if wfs.kpt_u[0].f_n is None or wfs.kpt_u[0].C_nM is None:
-                f_sM = np.empty((self.nspins, wfs.basis_functions.Mmax))
                 self.extended_D_asp = {}
                 density.D_asp = {}
                 f_asi = {}
@@ -2992,7 +2982,6 @@ class Transport(GPAW):
         lead_fermi = plotter.bias_steps[bias_step].lead_fermi
         
         self.initialize_transport()
-        flag = True
         if not hasattr(self, 'analysor'):
             self.analysor = Transport_Analysor(self, True)
         self.contour = Contour(self.occupations.width * Hartree,
@@ -3004,7 +2993,6 @@ class Transport(GPAW):
         
         for j in range(self.lead_num):
                 self.analysor.selfenergies[j].set_bias(self.bias[j])
-        dtype = s00.dtype
         for q in range(self.npk):
             self.hsd.reset(0, q, s00[q], 'S', True)
             for s in range(self.nspins):

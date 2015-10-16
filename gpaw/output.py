@@ -9,7 +9,7 @@ import numpy as np
 import ase
 from ase.units import Bohr, Hartree
 from ase.data import chemical_symbols
-from ase.version import version as ase_version
+from ase import __version__ as ase_version
 from ase.utils import devnull
 from ase.parallel import get_txt
 
@@ -52,33 +52,34 @@ class PAWTextOutput:
         self.text()
 
         uname = platform.uname()
-        self.text('User: ', os.getenv('USER', '???') + '@' + uname[1])
-        self.text('Date: ', time.asctime())
-        self.text('Arch: ', uname[4])
-        self.text('Pid:  ', os.getpid())
-        self.text('gpaw: ', os.path.dirname(gpaw.__file__))
+        self.text('User:  ', os.getenv('USER', '???') + '@' + uname[1])
+        self.text('Date:  ', time.asctime())
+        self.text('Arch:  ', uname[4])
+        self.text('Pid:   ', os.getpid())
+        self.text('Python: {0}.{1}.{2}'.format(*sys.version_info[:3]))
+        self.text('gpaw:  ', os.path.dirname(gpaw.__file__))
         
         # Find C-code:
         c = getattr(_gpaw, '__file__', None)
         if not c:
             c = sys.executable
-        self.text('_gpaw:', os.path.normpath(c))
+        self.text('_gpaw: ', os.path.normpath(c))
                   
-        self.text('ase:   %s (version %s)' %
+        self.text('ase:    %s (version %s)' %
                   (os.path.dirname(ase.__file__), ase_version))
-        self.text('numpy: %s (version %s)' %
+        self.text('numpy:  %s (version %s)' %
                   (os.path.dirname(np.__file__), np.version.version))
         try:
             import scipy as sp
-            self.text('scipy: %s (version %s)' %
+            self.text('scipy:  %s (version %s)' %
                       (os.path.dirname(sp.__file__), sp.version.version))
             # Explicitly deleting SciPy seems to remove garbage collection
             # problem of unknown cause
             del sp
         except ImportError:
-            self.text('scipy: Not available')
-        self.text('units: Angstrom and eV')
-        self.text('cores:', self.wfs.world.size)
+            self.text('scipy:  Not available')
+        self.text('units:  Angstrom and eV')
+        self.text('cores: ', self.wfs.world.size)
 
         if gpaw.debug:
             self.text('DEBUG MODE')

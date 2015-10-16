@@ -1,85 +1,70 @@
-#User provided customizations for the gpaw setup
+"""User provided customizations.
 
-#Here, one can override the default arguments, or append own
-#arguments to default ones
-#To override use the form
-#     libraries = ['somelib','otherlib']
-#To append use the form
-#     libraries += ['somelib','otherlib']
+Here, one change the default arguments for compiling _gpaw.so (serial)
+and gpaw-python (parallel).
 
-import os
-if 'GPAW_MPI' in os.environ:
-    # Build MPI-interface into _gpaw.so:
-    compiler = 'mpicc'
-    define_macros += [('PARALLEL', '1')]
-    mpicompiler = None
+Here are all the lists that can be modified:
     
-#compiler = 'mpcc'
-#libraries = []
-#libraries += []
+* libraries
+* library_dirs
+* include_dirs
+* extra_link_args
+* extra_compile_args
+* runtime_library_dirs
+* extra_objects
+* define_macros
+* mpi_libraries
+* mpi_library_dirs
+* mpi_include_dirs
+* mpi_runtime_library_dirs
+* mpi_define_macros
 
-#library_dirs = []
-#library_dirs += []
+To override use the form:
+    
+    libraries = ['somelib', 'otherlib']
 
-#include_dirs = []
-#include_dirs += []
+To append use the form
 
-#extra_link_args = []
-#extra_link_args += []
+    libraries += ['somelib', 'otherlib']
+"""
 
-#extra_compile_args = []
-#extra_compile_args += []
+# compiler = 'gcc'
+# mpicompiler = 'mpicc'  # use None if you don't want to build a gpaw-python
+# mpilinker = 'mpicc'
+# platform_id = ''
+# scalapack = False
+# hdf5 = False
 
-#runtime_library_dirs = []
-#runtime_library_dirs += []
-
-#extra_objects = []
-#extra_objects += []
-
-#define_macros = []
-#define_macros += []
-
-#mpicompiler = None
-#mpilinker = None
-#mpi_libraries = []
-#mpi_libraries += []
-
-#mpi_library_dirs = []
-#mpi_library_dirs += []
-
-#mpi_include_dirs = []
-#mpi_include_dirs += []
-
-#mpi_runtime_library_dirs = []
-#mpi_runtime_library_dirs += []
-
-#mpi_define_macros = []
-#mpi_define_macros += []
-
-#platform_id = ''
-
-#hdf5 = True
-
-# Valid values for scalapack are False, or True:
-# False (the default) - no ScaLapack compiled in
-# True - ScaLapack compiled in
+# Use ScaLAPACK:
 # Warning! At least scalapack 2.0.1 is required!
 # See https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
-scalapack = False
-
 if scalapack:
-    libraries += ['scalapack']
-    library_dirs += []
+    libraries += ['scalapack',
+                  'blacsCinit',
+                  'blacs']
     define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
     define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
 
+# LibXC:
 # In order to link libxc installed in a non-standard location
 # (e.g.: configure --prefix=/home/user/libxc-2.0.1-1), use:
+
 # - static linking:
-#include_dirs += ['/home/user/libxc-2.0.1-1/include']
-#extra_link_args += ['/home/user/libxc-2.0.1-1/lib/libxc.a']
-#if 'xc' in libraries: libraries.remove('xc')
+if 0:
+    include_dirs += ['/home/user/libxc-2.0.1-1/include']
+    extra_link_args += ['/home/user/libxc-2.0.1-1/lib/libxc.a']
+    if 'xc' in libraries:
+        libraries.remove('xc')
+        
 # - dynamic linking (requires also setting LD_LIBRARY_PATH at runtime):
-#include_dirs += ['/home/user/libxc-2.0.1-1/include']
-#library_dirs += ['/home/user/libxc-2.0.1-1/lib']
-#if 'xc' not in libraries: libraries.append('xc')
+if 0:
+    include_dirs += ['/home/user/libxc-2.0.1-1/include']
+    library_dirs += ['/home/user/libxc-2.0.1-1/lib']
+    if 'xc' not in libraries:
+        libraries.append('xc')
+
+# Build MPI-interface into _gpaw.so:
+if 0:
+    compiler = 'mpicc'
+    define_macros += [('PARALLEL', '1')]
+    mpicompiler = None

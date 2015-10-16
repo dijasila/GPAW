@@ -744,6 +744,12 @@ def read(paw, reader, read_projections=True):
             wfs.read_projections(r)
         timer.stop('Projections')
 
+    # Get the forces from the old calculation:
+    if r.has_array('CartesianForces'):
+        paw.forces.F_av = r.get('CartesianForces', broadcast=True)
+    else:
+        paw.forces.reset()
+
     # Manage mode change:
     paw.scf.check_convergence(density, wfs.eigensolver, wfs, hamiltonian,
                               paw.forces)
@@ -762,12 +768,6 @@ def read(paw, reader, read_projections=True):
 
     if newmode != oldmode:
         paw.scf.reset()
-
-    # Get the forces from the old calculation:
-    if r.has_array('CartesianForces'):
-        paw.forces.F_av = r.get('CartesianForces', broadcast=True)
-    else:
-        paw.forces.reset()
 
     hamiltonian.xc.read(r)
 

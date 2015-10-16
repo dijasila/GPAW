@@ -243,6 +243,8 @@ class EffectivePotentialCavity(Cavity):
         text('effective potential: %s' % (self.effective_potential.__class__))
         self.effective_potential.print_parameters(text)
         text()
+        text('temperature: %s' % (self.temperature, ))
+        text()
         Cavity.print_parameters(self, text)
 
     # --- BEGIN GradientSurface API ---

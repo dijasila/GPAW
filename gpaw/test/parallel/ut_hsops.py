@@ -25,19 +25,12 @@ from gpaw.xc import XC
 from gpaw.setup import SetupData, Setups
 from gpaw.lfc import LFC
 
-# -------------------------------------------------------------------
+memstats = False
 
-from gpaw.test.ut_common import ase_svnversion, shapeopt, TestCase, \
+from gpaw.test.ut_common import shapeopt, TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
     initialTestLoader, create_random_atoms, create_parsize_maxbands
 
-memstats = False
-if memstats:
-    # Developer use of this feature requires ASE 3.1.0 svn.rev. 905 or later.
-    assert ase_svnversion >= 905 # wasn't bug-free untill 973!
-    from ase.utils.memory import MemorySingleton, MemoryStatistics
-
-# -------------------------------------------------------------------
 
 p = InputParameters(spinpol=False)
 xc = XC(p.xc)
@@ -375,7 +368,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
             except np.linalg.LinAlgError:
                 # Eigenvector decomposition dO_ii = V_ii * W_ii * V_ii^dag
                 W_i, V_ii = np.linalg.eigh(self.setups[a].dO_ii)
-                alpha_i /= np.abs(np.vdot(alpha_i, 
+                alpha_i /= np.abs(np.vdot(alpha_i,
                                           np.dot(np.diag(W_i), alpha_i)))**0.5
                 beta_i = np.linalg.solve(V_ii.T.conj(), alpha_i)
 
@@ -420,15 +413,15 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
     def get_optimal_number_of_blocks(self, blocking='fast'):
         """Estimate the optimal number of blocks for band parallelization.
 
-        The number of blocks determines how many parallel send/receive 
-        operations are performed, as well as the added memory footprint 
+        The number of blocks determines how many parallel send/receive
+        operations are performed, as well as the added memory footprint
         of the required send/receive buffers.
 
         ``blocking``  ``nblocks``      Description
         ============  =============    ========================================
         'fast'        ``1``            Heavy on memory, more accurate and fast.
         'light'       ``mynbands``     Light on memory, less accurate and slow.
-        'intdiv'      ``...``          First integer divisible value 
+        'intdiv'      ``...``          First integer divisible value
         'nonintdiv'   ``...``          Some non-integer divisible cases
         """
 
@@ -441,7 +434,7 @@ class UTConstantWavefunctionSetup(UTBandParallelSetup):
             return self.bd.mynbands
         elif blocking == 'intdiv':
             # Find first value of nblocks that leads to integer
-            # divisible mybands / nblock. This is very like to be 
+            # divisible mybands / nblock. This is very like to be
             # 2 but coded here for the general case
             nblocks = 2
             while self.bd.mynbands % nblocks != 0:
@@ -727,7 +720,7 @@ def UTConstantWavefunctionFactory(dtype, parstride_bands, blocking, async):
     classname = 'UTConstantWavefunctionSetup' \
     + sep + {float:'Float', complex:'Complex'}[dtype] \
     + sep + {False:'Blocked', True:'Strided'}[parstride_bands] \
-    + sep + {'fast':'Fast', 'light':'Light', 
+    + sep + {'fast':'Fast', 'light':'Light',
              'intdiv':'Intdiv', 'nonintdiv1':'Nonintdiv1',
              'nonintdiv2':'Nonintdiv2'}[blocking] \
     + sep + {False:'Synchronous', True:'Asynchronous'}[async]
@@ -765,8 +758,8 @@ if __name__ in ['__main__', '__builtin__']:
     testcases = []
     for dtype in [float, complex]:
         for parstride_bands in [False, True]:
-            for blocking in ['fast', 'light', 'intdiv',   
-                             'nonintdiv1', 'nonintdiv2']: 
+            for blocking in ['fast', 'light', 'intdiv',
+                             'nonintdiv1', 'nonintdiv2']:
                 for async in [False, True]:
                     testcases.append(UTConstantWavefunctionFactory(dtype, \
                         parstride_bands, blocking, async))

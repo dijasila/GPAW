@@ -231,16 +231,16 @@ class _Communicator:
         Parameters:
 
         sbuffer: ndarray
-            Source of the data to distribute, i.e. send buffers on all rank.
+            Source of the data to distribute, i.e., send buffers on all ranks
         scounts: ndarray
             Integer array equal to the group size specifying the number of
             elements to send to each processor
-        sbuffer: ndarray
+        sdispls: ndarray
             Integer array (of length group size). Entry j specifies the
             displacement (relative to sendbuf from which to take the
-            outgoing data destined for process j
+            outgoing data destined for process j)
         rbuffer: ndarray
-            Destination of the distributed data, i.e. local receive buffer.
+            Destination of the distributed data, i.e., local receive buffer.
         rcounts: ndarray
             Integer array equal to the group size specifying the maximum
             number of elements that can be received from each processor.
@@ -256,9 +256,17 @@ class _Communicator:
         assert rcounts.flags.contiguous
         assert rdispls.flags.contiguous
         assert sbuffer.dtype == rbuffer.dtype
-        # FIXME: more tests
-        self.comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts,
-                            rdispls)
+        
+        for arr in [scounts, sdispls, rcounts, rdispls]:
+            assert arr.dtype == np.int, arr.dtype
+            assert len(arr) == self.size
+
+        assert np.all(0 <= sdispls)
+        assert np.all(0 <= rdispls)
+        assert np.all(sdispls + scounts <= sbuffer.size)
+        assert np.all(rdispls + rcounts <= rbuffer.size)
+        self.comm.alltoallv(sbuffer, scounts, sdispls,
+                            rbuffer, rcounts, rdispls)
 
     def all_gather(self, a, b):
         """Gather data from all ranks onto all processes in a group.
@@ -495,6 +503,38 @@ class _Communicator:
         """Block execution until all process have reached this point."""
         self.comm.barrier()
 
+    def compare(self, othercomm):
+        """Compare communicator to other.
+
+        Returns 'ident' if they are identical, 'congruent' if they are
+        copies of each other, 'similar' if they are permutations of
+        each other, and otherwise 'unequal'.
+
+        This method corresponds to MPI_Comm_compare."""
+        if isinstance(self.comm, SerialCommunicator):
+            return self.comm.compare(othercomm.comm) # argh!
+        result = self.comm.compare(othercomm.get_c_object())
+        assert result in ['ident', 'congruent', 'similar', 'unequal']
+        return result
+
+    def translate_ranks(self, other, ranks):
+        """"Translate ranks from communicator to other.
+
+        ranks must be valid on this communicator.  Returns ranks
+        on other communicator corresponding to the same processes.
+        Ranks that are not defined on the other communicator are
+        assigned values of -1.  (In contrast to MPI which would
+        assign MPI_UNDEFINED)."""
+        assert hasattr(other, 'translate_ranks'), \
+            'Excpected communicator, got %s' % other
+        assert all(0 <= rank for rank in ranks)
+        assert all(rank < self.size for rank in ranks)
+        if isinstance(self.comm, SerialCommunicator):
+            return self.comm.translate_ranks(other.comm, ranks) # argh!
+        otherranks = self.comm.translate_ranks(other.get_c_object(), ranks)
+        assert all(-1 <= rank for rank in otherranks)
+        return otherranks
+        
     def get_members(self):
         """Return the subset of processes which are members of this MPI group
         in terms of the ranks they are assigned on the parent communicator.
@@ -568,9 +608,14 @@ class SerialCommunicator:
         b[:] = a
 
     def alltoallv(self, sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls):
-        rbuffer[:] = sbuffer
-        rcounts[:] = scounts
-        rdispls[:] = sdispls
+        assert len(scounts) == 1
+        assert len(sdispls) == 1
+        assert len(rcounts) == 1
+        assert len(rdispls) == 1
+        assert len(sbuffer) == len(rbuffer)
+        
+        rbuffer[rdispls[0]:rdispls[0] + rcounts[0]] = \
+            sbuffer[sdispls[0]:sdispls[0] + scounts[0]]
 
     def new_communicator(self, ranks):
         if self.rank not in ranks:
@@ -595,6 +640,20 @@ class SerialCommunicator:
 
     def get_members(self):
         return np.array([0])
+    
+    def compare(self, other):
+        if self == other:
+            return 'ident'
+        elif isinstance(other, SerialCommunicator):
+            return 'congruent'
+        else:
+            raise NotImplementedError('Compare serial comm to other')
+
+    def translate_ranks(self, other, ranks):
+        if isinstance(other, SerialCommunicator):
+            assert all(rank == 0 for rank in ranks)
+            return np.zeros(len(ranks), dtype=int)
+        raise NotImplementedError('Translate non-trivial ranks with serial comm')
 
     def get_c_object(self):
         raise NotImplementedError('Should not get C-object for serial comm')

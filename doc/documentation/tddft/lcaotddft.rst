@@ -109,7 +109,7 @@ General notes about basis sets
 In time-propagation LCAO-TDDFT, it is much more important to think
 about the basis sets compared to ground state LCAO calculations.  It
 is required that the basis set can represent both the occupied
-(electrons) and relevant unoccupied states (holes) adequately.  Custom
+(holes) and relevant unoccupied states (electrons) adequately.  Custom
 basis sets for the time propagation should be generated according to
 one's need, and then benchmarked.
 

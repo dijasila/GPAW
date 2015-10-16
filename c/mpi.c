@@ -827,6 +827,70 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+static PyObject *mpi_compare(MPIObject *self, PyObject *args)
+{
+  MPIObject* other;
+  int result;
+  char* pyresult;
+  if (!PyArg_ParseTuple(args, "O", &other))
+    return NULL;
+  
+  MPI_Comm_compare(self->comm, other->comm, &result);
+  if(result == MPI_IDENT) pyresult = "ident";
+  else if (result == MPI_CONGRUENT) pyresult = "congruent";
+  else if (result == MPI_SIMILAR) pyresult = "similar";
+  else if (result == MPI_UNEQUAL) pyresult = "unequal";
+  else return NULL;
+  return Py_BuildValue("s", pyresult);
+}
+
+static PyObject *mpi_translate_ranks(MPIObject *self, PyObject *args)
+{
+  PyObject* myranks_anytype; // Conversion to numpy array below
+  MPIObject* other;
+  
+  if (!PyArg_ParseTuple(args, "OO", &other, &myranks_anytype))
+    return NULL;
+
+  // This handling of arrays of ranks is taken from the MPICommunicator
+  // creation method.  See that method for explanation of casting, datatypes
+  // etc.
+  PyArrayObject *myranks_long = (PyArrayObject*)PyArray_ContiguousFromAny(
+                                            myranks_anytype, NPY_LONG, 1, 1);
+  // XXX decref myranks_long?
+  if(myranks_long == NULL)
+    return NULL;
+  
+  int nranks = PyArray_DIM(myranks_long, 0);
+  
+  PyArrayObject *myranks;
+  myranks = (PyArrayObject*)PyArray_Cast((PyArrayObject*) myranks_long, NPY_INT);
+  Py_DECREF(myranks_long);
+
+  npy_intp rankshape[1];
+  rankshape[0] = PyArray_SIZE(myranks);
+  PyArrayObject* other_ranks = (PyArrayObject*)PyArray_SimpleNew(1, rankshape,
+                                                                 NPY_INT);
+
+  MPI_Group mygroup, othergroup;
+  MPI_Comm_group(self->comm, &mygroup);
+  MPI_Comm_group(other->comm, &othergroup);
+
+  int* rankdata = (int*)PyArray_BYTES(myranks);
+  int* otherrankdata = (int*)PyArray_BYTES(other_ranks);
+  MPI_Group_translate_ranks(mygroup, nranks, rankdata, othergroup,
+                            otherrankdata);
+
+  // Return something with a definite value to Python.
+  for(int i=0; i < nranks; i++) {
+      if(otherrankdata[i] == MPI_UNDEFINED) {
+          otherrankdata[i] = -1;
+      }
+  }
+  Py_DECREF(myranks);
+  return (PyObject*)other_ranks;
+}
+
 static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)
 {
   PyArrayObject* send_obj;
@@ -853,22 +917,29 @@ static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)
   int *r_displs = GPAW_MALLOC(int, self->size);
 
   /* Create count and displacement arrays in units of bytes */
-  int elem_size = PyArray_DESCR(send_obj)->elsize;
+  int elem_size = PyArray_ITEMSIZE(send_obj);
+
   long* tmp1 = PyArray_DATA(send_cnts);
   long* tmp2 = PyArray_DATA(send_displs);
   long* tmp3 = PyArray_DATA(recv_cnts);
   long* tmp4 = PyArray_DATA(recv_displs);
-  for (int i=0; i < self->size; i++)
-    {
+  for (int i=0; i < self->size; i++) {
       s_cnts[i] = tmp1[i] * elem_size;
       s_displs[i] = tmp2[i] * elem_size;
       r_cnts[i] = tmp3[i] * elem_size;
       r_displs[i] = tmp4[i] * elem_size;
-    }
+  }
 
-  MPI_Alltoallv(PyArray_BYTES(send_obj), s_cnts, s_displs,
+  MPI_Alltoallv(PyArray_BYTES(send_obj),
+                s_cnts, s_displs,
                 MPI_BYTE, PyArray_BYTES(recv_obj), r_cnts,
                 r_displs, MPI_BYTE, self->comm);
+
+  free(s_cnts);
+  free(s_displs);
+  free(r_cnts);
+  free(r_displs);
+
   Py_RETURN_NONE;
 }
 
@@ -946,6 +1017,10 @@ static PyMethodDef mpi_methods[] = {
      "alltoallv(sbuf, scnt, sdispl, rbuf, ...) send data from all tasks to all tasks."},
     {"broadcast",        (PyCFunction)mpi_broadcast,    METH_VARARGS,
      "broadcast(buffer, root) Broadcast data in-place from root task."},
+    {"compare",          (PyCFunction)mpi_compare,      METH_VARARGS,
+     "compare two communicators for identity using MPI_Comm_compare."},
+    {"translate_ranks",  (PyCFunction)mpi_translate_ranks, METH_VARARGS,
+     "figure out correspondence between ranks on two communicators."},
     {"get_members",      (PyCFunction)get_members,      METH_VARARGS, 0},
     {"get_c_object",     (PyCFunction)get_c_object,     METH_VARARGS, 0},
     {"new_communicator", (PyCFunction)MPICommunicator,  METH_VARARGS,

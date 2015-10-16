@@ -13,6 +13,7 @@ from gpaw import PoissonConvergenceError
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.ewald import madelung
+from gpaw.utilities.grid_redistribute import GridRedistributor
 from gpaw.utilities.tools import construct_reciprocal
 import _gpaw
 
@@ -31,7 +32,7 @@ or 32 depending on system size; examples:
 
 or
 
-  from gpaw.tools import h2gpts
+  from gpaw.utilities import h2gpts
   GPAW(gpts=h2gpts(0.2, atoms.get_cell(), idiv=16))
 
 Parallelizing over very small domains can also undesirably limit the
@@ -406,6 +407,8 @@ class FFTPoissonSolver(PoissonSolver):
     nn = 999
 
     def __init__(self, eps=2e-10):
+        # This class inherits from PoissonSolver but it has almost none of
+        # its capabilities and doesn't even invoke its constructor!!
         self.charged_periodic_correction = None
         self.remove_moment = None
         self.eps = eps
@@ -432,6 +435,54 @@ class FFTPoissonSolver(PoissonSolver):
                 globalphi_g = None
             self.gd.distribute(globalphi_g, phi_g)
         return 1
+
+    def estimate_memory(self, mem):
+        mem.subnode('(Varies)', 0.0)
+
+
+class ParallelFFTPoissonSolver(PoissonSolver):
+    """FFT Poisson solver for general unit cells."""
+    # XXX it is criminally outrageous that this inherits from PoissonSolver!
+
+    relax_method = 0
+    nn = 999
+
+    def __init__(self, eps=0.0):
+        self.charged_periodic_correction = None
+        self.remove_moment = None
+        self.eps = eps
+
+    def get_description(self):
+        return 'Parallel FFT'
+
+    def set_grid_descriptor(self, gd):
+        # We will probably want to use this on non-periodic grids too...
+        assert gd.pbc_c.all()
+        self.gd = gd
+        self.transp_x_yz_1 = GridRedistributor(self.gd, 1, 2)
+        self.transp_1_yz_x = GridRedistributor(self.transp_x_yz_1.gd2, 2, 0)
+        self.transp_yz_1_x = GridRedistributor(self.transp_1_yz_x.gd2, 0, 1)
+
+    def initialize(self):
+        gd = self.transp_yz_1_x.gd2
+        k2_Q, N3 = construct_reciprocal(gd, distributed=True)
+        self.poisson_factor_Q = 4.0 * np.pi / k2_Q
+
+    def solve_neutral(self, phi_g, rho_g, eps=None):
+        # Will be a bit more efficient if reduced dimension is always
+        # contiguous.  Probably more things can be improved...
+        work = fftn(self.transp_x_yz_1.forth(rho_g), axes=[2])
+        work = fftn(self.transp_1_yz_x.forth(work), axes=[0])
+        work = fftn(self.transp_yz_1_x.forth(work), axes=[1])
+        work *= self.poisson_factor_Q
+        work = self.transp_yz_1_x.back(ifftn(work, axes=[1]))
+        work = self.transp_1_yz_x.back(ifftn(work, axes=[0]))
+        work = self.transp_x_yz_1.back(ifftn(work, axes=[2]).real)
+        phi_g[:] = work
+        return 1
+
+    def estimate_memory(self, mem):
+        mem.subnode('k squared', self.transp_yz_1_x.gd2.bytecount())
 
 
 class FixedBoundaryPoissonSolver(PoissonSolver):

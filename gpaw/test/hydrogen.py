@@ -1,6 +1,6 @@
 from math import log
 from ase import Atoms
-from ase.io import read
+from ase.io import read, write, iread
 from ase.units import Bohr
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
@@ -29,10 +29,8 @@ equal(e1, e2 + log(2) * kT, 3.0e-7)
 
 # Test ase.db a bit:
 from ase.db import connect
-# Note: This test will fail if run twice in same directory without
-# cleaning these files.
 for name in ['h.json', 'h.db']:
-    con = connect(name)
+    con = connect(name, append=False)
     con.write(hydrogen)
     id = con.write(hydrogen, foo='bar', data={'abc': [1, 2, 3]})
     assert id == 2
@@ -43,8 +41,14 @@ for name in ['h.json', 'h.db']:
     del con[1]
     assert con.reserve(x=42) == 3
 
+    write('x' + name, hydrogen)
+    write('xx' + name, [hydrogen, hydrogen])
+    
+    assert read(name + '@foo=bar')[0].get_potential_energy() == e2
+    for n, h in zip([1, 0], iread(name + '@:')):
+        assert n == len(h)
+
 # Test parsing of GPAW's text output:
 h = read('h.txt')
 error = abs(h.calc.get_eigenvalues() - hydrogen.calc.get_eigenvalues()).max()
 assert error < 1e-5, error
-

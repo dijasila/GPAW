@@ -237,6 +237,18 @@ def divrl(a_g, l, r_g):
 def compiled_with_sl():
     return hasattr(_gpaw, 'new_blacs_context')
 
+def compiled_with_libvdwxc():
+    return hasattr(_gpaw, 'libvdwxc_create')
+
+# The following two methods should do real checks for their respective libraries.
+# But here in the beginning we shall only be using them for libvdwxc.  Probably
+# it will be quite desirable to use FFTW-MPI and PFFT for other purposes (Poisson) later.
+def compiled_with_fftw_mpi():
+    return hasattr(_gpaw, 'libvdwxc_init_mpi')
+
+# This one should do a real check for pfft.  But so far we only use it for
+def compiled_with_pfft():
+    return hasattr(_gpaw, 'libvdwxc_init_pfft')
 
 def load_balance(paw, atoms):
     try:

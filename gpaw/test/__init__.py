@@ -11,7 +11,7 @@ from ase.utils import devnull
 
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters, tf_parameters
-from gpaw.utilities import compiled_with_sl
+from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw
@@ -97,6 +97,7 @@ tests = [
     'lf.py',
     'fsbt.py',
     'parallel/compare.py',
+    'vdw/libvdwxc_functionals.py',
     'integral4.py',
     'zher.py',
     'gd.py',
@@ -171,10 +172,11 @@ tests = [
     'pseudopotential/ah.py',                # ~2s
     'lcao_restart.py',                      # ~2s
     'lcao_tddft.py',                        # ~2s
+    'vdw/libvdwxc_h2o.py',                  # ~2s
+    'lcao_gllb_si.py',                      # ~2s
     'wfs_io.py',                            # ~3s
     'lrtddft2.py',                          # ~3s
     'fileio/file_reference.py',             # ~3s
-    'cmrtest/cmr_test2.py',                 # ~3s
     'restart.py',                           # ~3s
     'broydenmixer.py',                      # ~3s
     'pw/fulldiagk.py',                      # ~3s
@@ -228,6 +230,7 @@ tests = [
     'fixmom.py',                            # ~6s
     'exx_unocc.py',                         # ~6s
     'davidson.py',                          # ~6s
+    'parallel/redistribute_grid.py',        # ~7s
     'aedensity.py',                         # ~7s
     'pw/h.py',                              # ~7s
     'apmb.py',                              # ~7s
@@ -237,6 +240,7 @@ tests = [
     'ne_gllb.py',                           # ~7s
     'ed.py',                                # ~7s
     'lcao_force.py',                        # ~7s
+    'pplda.py',                             # ~7s
     'fileio/restart_density.py',            # ~8s
     'rpa_energy_Ni.py',                     # ~8s
     'be_nltd_ip.py',                        # ~8s
@@ -284,6 +288,7 @@ tests = [
     'parallel/fd_parallel.py',              # ~15s
     'solvation/poisson.py',                 # ~15s
     'solvation/water_water.py',             # ~15s
+    'pygga.py',                             # ~15s
     'parallel/lcao_parallel.py',            # ~16s
     'atomize.py',                           # ~16s
     'excited_state.py',                     # ~16s
@@ -292,7 +297,6 @@ tests = [
     'tpss.py',                              # ~18s
     'td_na2.py',                            # ~18s
     'exx_coarse.py',                        # ~18s
-    'pplda.py',                             # ~18s
     'si_xas.py',                            # ~18s
     'mgga_sc.py',                           # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
@@ -329,7 +333,6 @@ tests = [
     'wannierk.py',                          # ~45s
     'bse_vs_lrtddft.py',                    # ~45s
     'aluminum_testcell.py',                 # ~46s
-    'pygga.py',                             # ~47s
     'ut_tddft.py',                          # ~49s
     'response_pair.py',                     # ~50s
     'rpa_energy_N2.py',                     # ~52s
@@ -366,12 +369,7 @@ tests = [
     'nscfsic.py',                           # duration unknown
     'coreeig.py',                           # duration unknown
     'bse_MoS2_cut.py',                      # duration unknown
-    'parallel/scalapack_mpirecv_crash.py',  # duration unknown
-    'cmrtest/cmr_test.py',                  # duration unknown
-    'cmrtest/cmr_test3.py',                 # duration unknown
-    'cmrtest/cmr_test4.py',                 # duration unknown
-    'cmrtest/cmr_append.py',                # duration unknown
-    'cmrtest/Li2_atomize.py']               # duration unknown
+    'parallel/scalapack_mpirecv_crash.py']  # duration unknown
 
 # 'fractional_translations.py',
 # 'graphene_EELS.py', disabled while work is in progress on response code
@@ -399,9 +397,6 @@ if mpi.size > 1:
                 'stark_shift.py',
                 'exx_q.py',
                 'potential.py',
-                # 'cmrtest/cmr_test3.py',
-                # 'cmrtest/cmr_append.py',
-                # 'cmrtest/Li2_atomize.py',  # started to hang May 2014
                 'lcao_pair_and_coulomb.py',
                 'bse_MoS2_cut.py',
                 'pw/moleculecg.py',
@@ -455,6 +450,10 @@ if mpi.size != 1 and not compiled_with_sl():
 
 if not compiled_with_sl():
     exclude.append('lcao_atomic_corrections.py')
+
+if not compiled_with_libvdwxc():
+    exclude.append('vdw/libvdwxc_functionals.py')
+    exclude.append('vdw/libvdwxc_h2o.py')
 
 if np.__version__ < '1.6.0':
     exclude.append('chi0.py')
@@ -587,7 +586,7 @@ class TestRunner:
                 module = ex.name
             else:
                 module = ex.args[0].split()[-1].split('.')[0]
-            if module in ['scipy', 'cmr', '_gpaw_hdf5']:
+            if module in ['scipy', '_gpaw_hdf5']:
                 skip = True
             else:
                 tb = traceback.format_exc()

@@ -50,6 +50,8 @@ class SCFLoop:
 
             energy = hamiltonian.get_energy(occupations)
             self.energies.append(energy)
+            if self.max_force_error is not None:
+                forces.reset()
             self.check_convergence(density, wfs.eigensolver,
                                    wfs, hamiltonian, forces)
             yield iter
@@ -84,7 +86,6 @@ class SCFLoop:
             self.density_error = 1000000.0
 
         if self.max_force_error is not None:
-            forces.reset()
             F_av = forces.calculate(wfs, density, hamiltonian)
             
             if self.force_last is None:

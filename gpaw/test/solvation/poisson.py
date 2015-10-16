@@ -1,6 +1,6 @@
-from gpaw.solvation.poisson import (
-    WeightedFDPoissonSolver, ADM12PoissonSolver, PolarizationPoissonSolver
-)
+from gpaw.solvation.poisson import (WeightedFDPoissonSolver,
+                                    ADM12PoissonSolver,
+                                    PolarizationPoissonSolver)
 from gpaw.solvation.dielectric import Dielectric
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.gauss import Gaussian
@@ -36,7 +36,8 @@ class MockDielectric(Dielectric):
         self.nn = nn
 
     def update(self, cavity):
-        grad_eps_vg = gradient(self.gd, self.eps_gradeps[0] - self.epsinf, self.nn)
+        grad_eps_vg = gradient(self.gd, self.eps_gradeps[0] - self.epsinf,
+                               self.nn)
         for i in (0, 1, 2):
             self.eps_gradeps[1 + i][...] = grad_eps_vg[i]
 
@@ -63,11 +64,9 @@ def solve(ps, eps, rho):
     return phi
 
 
-psolvers = (
-    WeightedFDPoissonSolver,
-    ADM12PoissonSolver,
-    PolarizationPoissonSolver
-    )
+psolvers = (WeightedFDPoissonSolver,
+            ADM12PoissonSolver,
+            PolarizationPoissonSolver)
 
 
 # test neutral system with constant permittivity
@@ -81,7 +80,7 @@ rho = gd.zeros()
 phi_expected = gd.zeros()
 for q, shift in zip(qs, shifts):
     gauss_norm = q / np.sqrt(4 * np.pi)
-    gauss = Gaussian(gd, center=(box / 2. + shift) * np.ones(3.) / Bohr)
+    gauss = Gaussian(gd, center=(box / 2. + shift) * np.ones(3) / Bohr)
     rho += gauss_norm * gauss.get_gauss(0)
     phi_expected += gauss_norm * gauss.get_gauss_pot(0) / epsinf
 
@@ -98,7 +97,7 @@ eps = gd.zeros()
 eps.fill(epsinf)
 q = -2.
 gauss_norm = q / np.sqrt(4 * np.pi)
-gauss = Gaussian(gd, center=(box / 2. + 1.) * np.ones(3.) / Bohr)
+gauss = Gaussian(gd, center=(box / 2. + 1.) * np.ones(3) / Bohr)
 rho_gauss = gauss_norm * gauss.get_gauss(0)
 phi_gauss = gauss_norm * gauss.get_gauss_pot(0)
 phi_expected = phi_gauss / epsinf
@@ -110,10 +109,8 @@ for ps in psolvers:
 
 
 # test non-constant permittivity
-msgs = (
-    'neutral, non-constant permittivity',
-    'charged, non-constant permittivity'
-    )
+msgs = ('neutral, non-constant permittivity',
+        'charged, non-constant permittivity')
 qss = ((-1., 1.), (2., ))
 shiftss = ((-.4, .4), (-1., ))
 epsshifts = (.0, -1.)
@@ -121,7 +118,7 @@ epsshifts = (.0, -1.)
 for msg, qs, shifts, epsshift in zip(msgs, qss, shiftss, epsshifts):
     parprint(msg)
     epsinf = 80.
-    gauss = Gaussian(gd, center=(box / 2. + epsshift) * np.ones(3.) / Bohr)
+    gauss = Gaussian(gd, center=(box / 2. + epsshift) * np.ones(3) / Bohr)
     eps = gauss.get_gauss(0)
     eps = epsinf - eps / eps.max() * (epsinf - 1.)
 
@@ -130,7 +127,7 @@ for msg, qs, shifts, epsshift in zip(msgs, qss, shiftss, epsshifts):
     grad_eps = gradient(gd, eps - epsinf, nn)
 
     for q, shift in zip(qs, shifts):
-        gauss = Gaussian(gd, center=(box / 2. + shift) * np.ones(3.) / Bohr)
+        gauss = Gaussian(gd, center=(box / 2. + shift) * np.ones(3) / Bohr)
         phi_tmp = gauss.get_gauss_pot(0)
         xyz = gauss.xyz
         fac = 2. * np.sqrt(gauss.a) * np.exp(-gauss.a * gauss.r2)
@@ -140,8 +137,7 @@ for msg, qs, shifts, epsshift in zip(msgs, qss, shiftss, epsshifts):
         grad_phi = fac * xyz
         laplace_phi = -4. * np.pi * gauss.get_gauss(0)
         rho_tmp = -1. / (4. * np.pi) * (
-            (grad_eps * grad_phi).sum(0) + eps * laplace_phi
-            )
+            (grad_eps * grad_phi).sum(0) + eps * laplace_phi)
         norm = gd.integrate(rho_tmp)
         rho_tmp /= norm * q
         phi_tmp /= norm * q

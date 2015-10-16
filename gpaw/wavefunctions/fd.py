@@ -70,13 +70,6 @@ class FDWaveFunctions(FDPWWaveFunctions):
         hamiltonian.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
         self.timer.stop('Apply hamiltonian')
 
-    def add_orbital_density(self, nt_G, kpt, n):
-        if self.dtype == float:
-            axpy(1.0, kpt.psit_nG[n]**2, nt_G)
-        else:
-            axpy(1.0, kpt.psit_nG[n].real**2, nt_G)
-            axpy(1.0, kpt.psit_nG[n].imag**2, nt_G)
-
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
         nt_G = nt_sG[kpt.s]

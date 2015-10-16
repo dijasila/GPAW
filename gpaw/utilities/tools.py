@@ -33,7 +33,7 @@ def split_formula(formula):
     return res
 
 
-def construct_reciprocal(gd, q_c=None):
+def construct_reciprocal(gd, q_c=None, distributed=False):
     """Construct the reciprocal lattice from ``GridDescriptor`` instance.
 
     The generated reciprocal lattice has lattice vectors correspoding to the
@@ -43,7 +43,7 @@ def construct_reciprocal(gd, q_c=None):
     The ordering of the reciprocal lattice agrees with the one typically used
     in fft algorithms, i.e. positive k-values followed by negative.
 
-    Note that the G=(0,0,0) entrance is set to one instead of zero. This
+    Note that the G=(0,0,0) entry is set to one instead of zero. This
     bit should probably be moved somewhere else ...
     
     Parameters
@@ -55,6 +55,8 @@ def construct_reciprocal(gd, q_c=None):
         denotes the reciprocal lattice vectors.
     
     """
+    # TODO: always use distributed.  If someone wants to do this in serial,
+    # they can easily create their own serial grid descriptor.
     
     assert gd.pbc_c.all(), 'Works only with periodic boundary conditions!'
 
@@ -65,7 +67,13 @@ def construct_reciprocal(gd, q_c=None):
         
     # Calculate reciprocal lattice vectors
     N_c1 = gd.N_c[:, np.newaxis]
-    i_cq = np.indices(gd.N_c).reshape((3, -1))
+    if distributed:
+        shape = gd.n_c
+        i_cq = np.indices(gd.n_c).reshape((3, -1)) # offsets....
+        i_cq += gd.beg_c[:, None]
+    else:
+        shape = gd.N_c
+        i_cq = np.indices(gd.N_c).reshape((3, -1))
     i_cq += N_c1 // 2
     i_cq %= N_c1
     i_cq -= N_c1 // 2
@@ -79,16 +87,19 @@ def construct_reciprocal(gd, q_c=None):
     k_vq = np.dot(B_vc, i_cq)
 
     k_vq *= k_vq
-    k2_Q = k_vq.sum(axis=0).reshape(gd.N_c)
+    k2_Q = k_vq.sum(axis=0).reshape(shape)
 
-    if q_c is None:
-        k2_Q[0, 0, 0] = 1.0
-    elif abs(q_c).sum() < 1e-8:
-        k2_Q[0, 0, 0] = 1.0
-        
+    if gd.comm.rank == 0 or not distributed:
+        if q_c is None:
+            k2_Q[0, 0, 0] = 1.0
+        elif abs(q_c).sum() < 1e-8:
+            k2_Q[0, 0, 0] = 1.0
+
     # Determine N^3
+    #
+    # Why do we need to calculate and return this?  The caller already
+    # has access to gd and thus knows how many points there are.
     N3 = gd.n_c[0] * gd.n_c[1] * gd.n_c[2]
-
     return k2_Q, N3
 
     
