@@ -213,14 +213,17 @@ For comparison, one can see that the RPA converges much more slowly:
 
 .. literalinclude:: diam_kern.ralda_08_rpa.py
 
-Here we summarize the above calculations and show the correlation energy/electron, 
+Here we summarize the above calculations and show the correlation energy/electron (in eV), 
 obtained at an (unconverged) cutoff of 131 eV:
 
-=================  ================   ======  =====  ======  ===================  =====
-rALDA (dens. av.)  rALDA (wave. av)   rALDAc  JGMs   CP_dyn  range separated RPA   RPA  
-=================  ================   ======  =====  ======  ===================  =====
-7.75               5.17               7.04     7.61   3243        7.55             343
-=================  ================   ======  =====  ======  ===================  =====
+=================  ================   ======  ======  ======  ===================  ======
+rALDA (dens. av.)  rALDA (wave. av)   rALDAc  JGMs    CP_dyn  range separated RPA   RPA  
+=================  ================   ======  ======  ======  ===================  ======
+-1.161              -1.134            -1.127  -1.134  -1.069        -1.730         -1.396
+=================  ================   ======  ======  ======  ===================  ======
+
+Incidentally, a fully-converged RPA calculation gives a correlation energy 
+of -1.781 eV per electron.
 
 We conclude with some practical points.  The wavevector-averaging scheme is less intuitive
 than the density-average, but avoids some difficulties such as having to describe the :math:`1/r`
@@ -231,7 +234,8 @@ However it is also worth remembering that kernels which scale linearly in the co
 need to be constructed :math:`N_\lambda` times, and the CP_dyn kernel must be constructed
 at each frequency point as well, i.e. :math:`N_\lambda N_\omega` times.  Assuming standard values
 of 8 and 16 for :math:`N_\lambda` and :math:`N_\omega` means there is a factor 100 cost
-in constructing and storing a dynamical kernel compared to rALDA.
+in constructing and storing a dynamical kernel compared to rALDA.  Finally we point out that 
+the rALDA and rAPBE kernels are also special because they have explicit spin-polarized forms.
 
 .. [#Olsen1] T. Olsen and K. S. Thygesen
               *Phys. Rev. B* **86**, 081103(R) (2012)
