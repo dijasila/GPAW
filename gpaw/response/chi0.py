@@ -59,7 +59,6 @@ class Chi0(PairDensity):
         self.unsymmetrized = unsymmetrized
 
         omax = self.find_maximum_frequency()
-
         if frequencies is None:
             if self.omegamax is None:
                 self.omegamax = omax
@@ -323,6 +322,7 @@ class Chi0(PairDensity):
         beta = (2**0.5 - 1) * self.domega0 / self.omega2
         o_m = abs(deps_m)
         w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
+        
         o1_m = self.omega_w[w_m]
         o2_m = self.omega_w[w_m + 1]
         p_m = self.prefactor * abs(df_m) / (o2_m - o1_m)**2  # XXX abs()?
