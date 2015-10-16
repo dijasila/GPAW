@@ -240,6 +240,7 @@ tests = [
     'ne_gllb.py',                           # ~7s
     'ed.py',                                # ~7s
     'lcao_force.py',                        # ~7s
+    'pplda.py',                             # ~7s
     'fileio/restart_density.py',            # ~8s
     'rpa_energy_Ni.py',                     # ~8s
     'be_nltd_ip.py',                        # ~8s
@@ -287,6 +288,7 @@ tests = [
     'parallel/fd_parallel.py',              # ~15s
     'solvation/poisson.py',                 # ~15s
     'solvation/water_water.py',             # ~15s
+    'pygga.py',                             # ~15s
     'parallel/lcao_parallel.py',            # ~16s
     'atomize.py',                           # ~16s
     'excited_state.py',                     # ~16s
@@ -295,7 +297,6 @@ tests = [
     'tpss.py',                              # ~18s
     'td_na2.py',                            # ~18s
     'exx_coarse.py',                        # ~18s
-    'pplda.py',                             # ~18s
     'si_xas.py',                            # ~18s
     'mgga_sc.py',                           # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
@@ -332,7 +333,6 @@ tests = [
     'wannierk.py',                          # ~45s
     'bse_vs_lrtddft.py',                    # ~45s
     'aluminum_testcell.py',                 # ~46s
-    'pygga.py',                             # ~47s
     'ut_tddft.py',                          # ~49s
     'response_pair.py',                     # ~50s
     'rpa_energy_N2.py',                     # ~52s

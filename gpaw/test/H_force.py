@@ -1,7 +1,7 @@
 from __future__ import print_function
 from ase import Atom, Atoms
 from ase.calculators.test import numeric_force
-from gpaw import GPAW, Mixer, FermiDirac
+from gpaw import GPAW, Mixer, FermiDirac, Davidson
 from gpaw.test import equal
 
 a = 4.0
@@ -11,7 +11,8 @@ atoms = Atoms([Atom('H', [1.234, 2.345, 3.456])],
 calc = GPAW(nbands=1,
             gpts=(n, n, n),
             txt=None,
-            mixer=Mixer(0.25, 3, 1),
+            eigensolver=Davidson(4),
+            mixer=Mixer(0.3, 3, 1),
             convergence={'energy': 1e-7},
             occupations=FermiDirac(0.0))
 atoms.set_calculator(calc)

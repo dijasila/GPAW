@@ -610,9 +610,14 @@ class SerialCommunicator:
         b[:] = a
 
     def alltoallv(self, sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls):
-        rbuffer[:] = sbuffer
-        rcounts[:] = scounts
-        rdispls[:] = sdispls
+        assert len(scounts) == 1
+        assert len(sdispls) == 1
+        assert len(rcounts) == 1
+        assert len(rdispls) == 1
+        assert len(sbuffer) == len(rbuffer)
+        
+        rbuffer[rdispls[0]:rdispls[0] + rcounts[0]] = \
+            sbuffer[sdispls[0]:sdispls[0] + scounts[0]]
 
     def new_communicator(self, ranks):
         if self.rank not in ranks:
