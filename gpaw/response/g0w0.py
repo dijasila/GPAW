@@ -119,6 +119,7 @@ class G0W0(PairDensity):
         if nbands is None:
             nbands = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
         self.nbands = nbands
+        self.nspins = self.calc.wfs.nspins
 
         p()
         p('Quasi particle states:')
@@ -146,7 +147,7 @@ class G0W0(PairDensity):
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
         
-        assert self.calc.wfs.nspins == 1
+        #assert self.calc.wfs.nspins == 1
         
     @timer('G0W0')
     def calculate(self, ecuts=None):
@@ -179,23 +180,28 @@ class G0W0(PairDensity):
 
         # Get KS eigenvalues and occupation numbers:
         b1, b2 = self.bands
+        nibzk = self.calc.wfs.kd.nibzkpts
         for i, k in enumerate(self.kpts):
-            kpt = self.calc.wfs.kpt_u[k]
-            self.eps_sin[0, i] = kpt.eps_n[b1:b2]
-            self.f_sin[0, i] = kpt.f_n[b1:b2] / kpt.weight
+            for s in range(self.nspins):
+                u = s * nibzk + k
+                kpt = self.calc.wfs.kpt_u[u]
+                self.eps_sin[s, i] = kpt.eps_n[b1:b2]
+                self.f_sin[s, i] = kpt.f_n[b1:b2] / kpt.weight
 
         # My part of the states we want to calculate QP-energies for:
         mykpts = [self.get_k_point(s, K, n1, n2)
                   for s, K, n1, n2 in self.mysKn1n2]
         
         # Loop over q in the IBZ:
+        nQ = 0
         for pd0, W0, q_c in self.calculate_screened_potential():
             for kpt1 in mykpts:
                 K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
-                kpt2 = self.get_k_point(0, K2, 0, self.nbands, block=True)
+                kpt2 = self.get_k_point(kpt1.s, K2, 0, self.nbands, block=True)
                 k1 = kd.bz2ibz_k[kpt1.K]
                 i = self.kpts.index(k1)
                 self.calculate_q(i, kpt1, kpt2, pd0, W0)
+            nQ += 1
 
         self.world.sum(self.sigma_sin)
         self.world.sum(self.dsigma_sin)
@@ -406,6 +412,7 @@ class G0W0(PairDensity):
         nw = len(self.omega_w)
         
         size = self.blockcomm.size
+        
         mynGmax = (nGmax + size - 1) // size
         mynw = (nw + size - 1) // size
         
@@ -493,6 +500,7 @@ class G0W0(PairDensity):
             
         self.timer.start('Dyson eq.')
         # Calculate W and store it in chi0_wGG ndarray:
+        w = 0
         for chi0_GG in chi0_wGG:
             e_GG = (delta_GG -
                     4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis])
@@ -503,7 +511,7 @@ class G0W0(PairDensity):
                 W_GG[0, 0] *= G20inv
                 W_GG[1:, 0] *= G0inv
                 W_GG[0, 1:] *= G0inv
-                
+        
         if self.blockcomm.size > 1:
             Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)
         else:
