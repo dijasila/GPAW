@@ -57,7 +57,6 @@ class GWSelfEnergy(SelfEnergy):
         
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
-        self.omegamax = omegamax / Hartree if not omegamax is None else None
         self.eta = eta / Hartree
         
         self.calc = calc
@@ -72,6 +71,16 @@ class GWSelfEnergy(SelfEnergy):
             nbands = min(calc.get_number_of_bands(),
                          int(vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2))
         self.nbands = nbands
+
+        # Set omegamax to maximum shift plus some extra
+        e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)[0:nbands]
+                           for k in range(len(calc.get_ibz_k_points()))]
+                          for s in range(calc.get_number_of_spins())]) / Hartree
+        omax = np.amax(e_skn) - np.amin(e_skn)
+        if omegamax is None:
+            self.omegamax = omax # + 10.0 / Hartree
+        else:
+            self.omegamax = omegamax
 
         if bandrange is None:
             bandrange = (0, calc.get_number_of_bands())
@@ -141,6 +150,7 @@ class GWSelfEnergy(SelfEnergy):
                                            nbands=self.nbands,
                                            domega0=self.domega0 * Hartree,
                                            omega2=self.omega2 * Hartree,
+                                           omegamax=self.omegamax * Hartree,
                                            nblocks=self.nblocks,
                                            txt=self.fd,
                                            timer=self.timer)
@@ -627,7 +637,7 @@ class RealFreqIntegration(FrequencyIntegration):
     def __init__(self, calc, filename=None, savechi0=False,
                  use_temp=True, temp_dir='./',
                  ecut=150., nbands=None,
-                 domega0=0.025, omega2=10.,
+                 domega0=0.025, omega2=10., omegamax=None,
                  timer=None, txt=sys.stdout, nblocks=1):
         FrequencyIntegration.__init__(self, txt)
         
@@ -653,7 +663,8 @@ class RealFreqIntegration(FrequencyIntegration):
                       'hilbert': True,
                       'timeordered': True,
                       'domega0': self.domega0 * Hartree,
-                      'omega2': self.omega2 * Hartree}
+                      'omega2': self.omega2 * Hartree,
+                      'omegamax': omegamax}
         
         """
         self.chi0 = Chi0(self.calc,
