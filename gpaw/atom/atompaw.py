@@ -18,8 +18,8 @@ class MakeWaveFunctions:
     def __init__(self, gd):
         self.gd = gd
 
-    def __call__(self, paw, gd, *args):
-        return AtomWaveFunctions(self.gd, *args)
+    def __call__(self, paw, gd, *args, **kwargs):
+        return AtomWaveFunctions(self.gd, *args, **kwargs)
     
 
 class AtomWaveFunctions(WaveFunctions):
@@ -243,7 +243,13 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
     def get_size_of_global_array(self):
         return np.array(len(self.N_c))
 
-        
+    def new_descriptor(self, *args, **kwargs):
+        return self
+
+    def get_processor_position_from_rank(self, rank):
+        return (0, 0, 0)
+
+
 class AtomOccupations(OccupationNumbers):
     def __init__(self, f_sln):
         self.f_sln = f_sln
@@ -280,6 +286,7 @@ class AtomPAW(GPAW):
                       nbands=sum([(2 * l + 1) * len(f_n)
                                   for l, f_n in enumerate(f_sln[0])]),
                       communicator=mpi.serial_comm,
+                      parallel=dict(full_monty=False),
                       **kwargs)
         self.occupations = AtomOccupations(f_sln)
         self.initialize(Atoms(symbol, calculator=self))

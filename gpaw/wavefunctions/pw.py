@@ -47,7 +47,7 @@ class PW:
         else:
             self.cell_cv = cell / units.Bohr
 
-    def __call__(self, diagksl, orthoksl, initksl, gd, *args):
+    def __call__(self, diagksl, orthoksl, initksl, gd, *args, **kwargs):
         if self.cell_cv is None:
             ecut = self.ecut
         else:
@@ -56,7 +56,8 @@ class PW:
             ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
 
         wfs = PWWaveFunctions(ecut, self.fftwflags,
-                              diagksl, orthoksl, initksl, gd, *args)
+                              diagksl, orthoksl, initksl, gd, *args,
+                              **kwargs)
         return wfs
 
     def __eq__(self, other):
@@ -467,7 +468,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def __init__(self, ecut, fftwflags,
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd, dtype,
-                 world, kd, kptband_comm, timer):
+                 world, kd, kptband_comm, timer, grid2grid):
         self.ecut = ecut
         self.fftwflags = fftwflags
 
@@ -475,7 +476,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd, dtype,
-                                   world, kd, kptband_comm, timer)
+                                   world, kd, kptband_comm, timer,
+                                   grid2grid=grid2grid)
 
         self.orthoksl.gd = self.pd
         self.matrixoperator = MatrixOperator(self.orthoksl)
@@ -1301,9 +1303,11 @@ class ReciprocalSpaceDensity(Density):
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
-                 world, kptband_comm, vext=None, collinear=True):
+                 world, kptband_comm, vext=None, collinear=True,
+                 grid2grid=None):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
-                             world, kptband_comm, vext, collinear)
+                             world, kptband_comm, vext=vext,
+                             collinear=collinear, grid2grid=grid2grid)
 
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
         self.pd2 = pd2

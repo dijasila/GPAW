@@ -54,10 +54,11 @@ class LCAOWaveFunctions(WaveFunctions):
     mode = 'lcao'
     
     def __init__(self, ksl, gd, nvalence, setups, bd,
-                 dtype, world, kd, kptband_comm, timer,
+                 dtype, world, kd, kptband_comm, timer, grid2grid,
                  atomic_correction=None):
         WaveFunctions.__init__(self, gd, nvalence, setups, bd,
-                               dtype, world, kd, kptband_comm, timer)
+                               dtype, world, kd, kptband_comm, timer,
+                               grid2grid=grid2grid)
         self.ksl = ksl
         self.S_qMM = None
         self.T_qMM = None

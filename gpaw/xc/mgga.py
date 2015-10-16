@@ -22,6 +22,7 @@ class MGGA(GGA):
 
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.wfs = wfs
+        assert not wfs.grid2grid.enabled
         self.tauct = density.get_pseudo_core_kinetic_energy_density_lfc()
         self.tauct_G = None
         self.dedtaut_sG = None

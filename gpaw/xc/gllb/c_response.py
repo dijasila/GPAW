@@ -178,11 +178,11 @@ class C_Response(Contribution):
         # okay, this is a bit hacky since we have to call this from
         # several different places.  Maybe Mikael can figure out something
         # smarter.  -Ask
-        from gpaw.utilities.partition import AtomicMatrixDistributor
-        amd = AtomicMatrixDistributor(self.density.atom_partition,
-                                      self.density.setups,
-                                      self.wfs.kptband_comm, self.density.ns)
-        return amd.distribute(Dresp_asp)
+        #from gpaw.utilities.partition import AtomicMatrixDistributor
+        #amd = self.wfs.grid2grid.amd
+        #amd = AtomicMatrixDistributor(self.density.atom_partition,
+        #                              self.wfs.kptband_comm)
+        return self.wfs.amd.distribute(Dresp_asp)
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a,
                                          addcoredensity=True):
@@ -373,16 +373,20 @@ class C_Response(Contribution):
     def initialize_from_atomic_orbitals(self, basis_functions):
         # Initialize 'response-density' and density-matrices
         print("Initializing from atomic orbitals")
-        self.Dresp_asp = {}
-        self.D_asp = {}
 
-        for a in self.density.D_asp.keys():
-            ni = self.setups[a].ni
-            self.Dresp_asp[a] = np.zeros((self.nlfunc.nspins, ni *
-                                          (ni + 1) // 2))
-            self.D_asp[a] = np.zeros((self.nlfunc.nspins, ni * (ni + 1) // 2))
+        self.Dresp_asp = self.empty_atomic_matrix()
+        self.D_asp = self.empty_atomic_matrix()
 
-        self.D_asp = {}
+        #self.Dresp_asp = self.setups.empty_atomic_matrix( \
+        #    self.nlfunc.nspins, self.density.D_asp.partition)
+
+        #for a in self.density.D_asp.keys():
+        #    ni = self.setups[a].ni
+        #    self.Dresp_asp[a] = np.zeros((self.nlfunc.nspins, ni *
+        #                                  (ni + 1) // 2))
+        #    self.D_asp[a] = np.zeros((self.nlfunc.nspins, ni * (ni + 1) // 2))
+
+        #self.D_asp = {}
         f_asi = {}
         w_asi = {}
 
@@ -565,10 +569,10 @@ class C_Response(Contribution):
         Dxc_D_sp = r.get('GLLBDxcAtomicDensityMatrices')
         Dxc_Dresp_sp = r.get('GLLBDxcAtomicResponseMatrices')
 
-        self.D_asp = {}
-        self.Dresp_asp = {}
-        self.Dxc_D_asp = {}
-        self.Dxc_Dresp_asp = {}
+        self.D_asp = self.empty_atomic_matrix()
+        self.Dresp_asp = self.empty_atomic_matrix()
+        self.Dxc_D_asp = self.empty_atomic_matrix()
+        self.Dxc_Dresp_asp = self.empty_atomic_matrix()
 
         p1 = 0
         for a, setup in enumerate(wfs.setups):

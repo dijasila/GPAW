@@ -192,9 +192,9 @@ class SIC(XCFunctional):
 
     
     def initialize(self, density, hamiltonian, wfs, occ=None):
-        
         assert wfs.kd.gamma
         assert not wfs.gd.pbc_c.any()
+        assert not wfs.grid2grid.enabled
 
         self.wfs = wfs
         self.dtype = float
@@ -215,7 +215,7 @@ class SIC(XCFunctional):
         poissonsolver = PoissonSolver(eps=1e-14)
         poissonsolver.set_grid_descriptor(self.finegd)
         poissonsolver.initialize()
-        
+
         self.spin_s = {}
         for kpt in wfs.kpt_u:
             self.spin_s[kpt.s] = SICSpin(kpt, self.xc,

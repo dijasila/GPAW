@@ -38,6 +38,7 @@ from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.utilities.grid import Grid2Grid
 from gpaw.utilities.partition import AtomPartition
 from gpaw.parameters import InputParameters, usesymm2symmetry
 from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
@@ -659,13 +660,22 @@ class PAW(PAWTextOutput):
                 self.density = None
                 self.hamiltonian = None
 
+
             # Construct grid descriptor for coarse grids for wave functions:
             gd = self.grid_descriptor_class(N_c, cell_cv, pbc_c,
                                             domain_comm, parsize_domain)
 
+            big_gd = self.grid_descriptor_class(N_c, cell_cv, pbc_c, world)
+            grid2grid = Grid2Grid(world, kptband_comm, gd, big_gd,
+                                  par.parallel['augment_grids'])
+
             # do k-point analysis here? XXX
-            args = (gd, nvalence, setups, bd, dtype, world, kd,
-                    kptband_comm, self.timer)
+            #wfs_args = (gd, nvalence, setups, bd, dtype, world, kd,
+            #            kptband_comm, self.timer)
+            wfs_kwargs = dict(gd=gd, nvalence=nvalence, setups=setups,
+                              bd=bd, dtype=dtype, world=world, kd=kd,
+                              kptband_comm=kptband_comm, timer=self.timer,
+                              grid2grid=grid2grid)
 
             if par.parallel['sl_auto']:
                 # Choose scalapack parallelization automatically
@@ -703,7 +713,7 @@ class PAW(PAWTextOutput):
                                                gd, bd, domainband_comm, dtype,
                                                nao=nao, timer=self.timer)
 
-                self.wfs = mode(collinear, lcaoksl, *args)
+                self.wfs = mode(collinear, lcaoksl, **wfs_kwargs)
 
             elif mode.name == 'fd' or mode.name == 'pw':
                 # buffer_size keyword only relevant for fdpw
@@ -754,26 +764,28 @@ class PAW(PAWTextOutput):
                     assert mode.name == 'fd'
                     from gpaw.tddft import TimeDependentWaveFunctions
                     self.wfs = TimeDependentWaveFunctions(
-                        par.stencils[0],
-                        diagksl,
-                        orthoksl,
-                        initksl,
-                        gd,
-                        nvalence,
-                        setups,
-                        bd,
-                        world,
-                        kd,
-                        kptband_comm,
-                        self.timer)
+                        stencil=par.stencils[0],
+                        diagksl=diagksl,
+                        orthoksl=orthoksl,
+                        initksl=initksl,
+                        gd=gd,
+                        nvalence=nvalence,
+                        setups=setups,
+                        bd=bd,
+                        world=world,
+                        kd=kd,
+                        kptband_comm=kptband_comm,
+                        grid2grid=grid2grid,
+                        timer=self.timer)
                 elif mode.name == 'fd':
                     self.wfs = mode(par.stencils[0], diagksl,
-                                    orthoksl, initksl, *args)
+                                    orthoksl, initksl, **wfs_kwargs)
                 else:
                     assert mode.name == 'pw'
-                    self.wfs = mode(diagksl, orthoksl, initksl, *args)
+                    self.wfs = mode(diagksl, orthoksl, initksl,
+                                    **wfs_kwargs)
             else:
-                self.wfs = mode(self, *args)
+                self.wfs = mode(self, **wfs_kwargs)
         else:
             self.wfs.set_setups(setups)
 
@@ -819,16 +831,24 @@ class PAW(PAWTextOutput):
 
         if self.hamiltonian is None:
             gd, finegd = self.density.gd, self.density.finegd
+
             if realspace:
                 self.hamiltonian = self.real_space_hamiltonian_class(
-                    gd, finegd, nspins, setups, self.timer, xc,
-                    world, self.wfs.kptband_comm, par.external,
-                    collinear, par.poissonsolver, par.stencils[1])
+                    gd=gd, finegd=finegd, nspins=nspins,
+                    setups=setups, timer=self.timer, xc=xc,
+                    world=world, kptband_comm=self.wfs.kptband_comm,
+                    grid2grid=self.wfs.grid2grid,
+                    vext=par.external, collinear=collinear,
+                    psolver=par.poissonsolver,
+                    stencil=par.stencils[1])
             else:
                 self.hamiltonian = self.reciprocal_space_hamiltonian_class(
                     gd, finegd, self.density.pd2, self.density.pd3,
-                    nspins, setups, self.timer, xc, world,
-                    self.wfs.kptband_comm, par.external, collinear)
+                    nspins=nspins, setups=setups, timer=self.timer,
+                    xc=xc, world=world,
+                    kptband_comm=self.wfs.kptband_comm,
+                    grid2grid=self.wfs.grid2grid,
+                    vext=par.external, collinear=collinear)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)

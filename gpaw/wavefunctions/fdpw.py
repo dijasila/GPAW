@@ -82,7 +82,9 @@ class FDPWWaveFunctions(WaveFunctions):
         lcaowfs = LCAOWaveFunctions(lcaoksl, self.gd, self.nvalence,
                                     self.setups, lcaobd, self.dtype,
                                     self.world, self.kd, self.kptband_comm,
-                                    nulltimer)
+                                    nulltimer,
+                                    grid2grid=self.grid2grid,
+                                    )
         lcaowfs.basis_functions = basis_functions
         lcaowfs.timer = self.timer
         self.timer.start('Set positions (LCAO WFS)')

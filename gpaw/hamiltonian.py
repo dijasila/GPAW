@@ -51,8 +51,8 @@ class Hamiltonian(object):
 
     """
 
-    def __init__(self, gd, finegd, nspins, setups, timer, xc,
-                 world, kptband_comm, vext=None, collinear=True):
+    def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
+                 kptband_comm, grid2grid, vext=None, collinear=True):
         """Create the Hamiltonian."""
         self.gd = gd
         self.finegd = finegd
@@ -65,6 +65,19 @@ class Hamiltonian(object):
         self.ns = self.nspins * self.ncomp**2
         self.world = world
         self.kptband_comm = kptband_comm
+        self.grid2grid = grid2grid
+
+        # * Work in progress *
+        # The goal is to only transfer data on the coarse grid.
+        # But while not finished, we may need to transfer on the finegrid.
+        # So construct a gri2dgrid for that.
+        if grid2grid.enabled:
+            bigfinegd = finegd.new_descriptor(comm=grid2grid.big_gd.comm)
+            self.finegrid2grid = grid2grid.new(finegd, bigfinegd)
+        else:
+            # We can't grab stuff like gd.n_cp with AtomPAW
+            # This makes things a bit complicated.
+            self.finegrid2grid = None
         
         self.dH_asp = None
 
@@ -132,10 +145,15 @@ class Hamiltonian(object):
             self.timer.stop('Redistribute')
 
         self.atom_partition = atom_partition
+        if self.grid2grid.enabled:
+            rank_a = self.grid2grid.big_gd.get_ranks_from_positions(spos_ac)
+            work = AtomPartition(self.grid2grid.big_gd.comm, rank_a)
+        else:
+            work = None
         self.dh_distributor = AtomicMatrixDistributor(atom_partition,
-                                                      self.setups,
                                                       self.kptband_comm,
-                                                      self.ns)
+                                                      work_partition=work)
+                                                       
 
     def aoom(self, DM, a, l, scale=1):
         """Atomic Orbital Occupation Matrix.
@@ -446,6 +464,7 @@ class Hamiltonian(object):
             density.interpolate_pseudo_density()
         nt_sg = density.nt_sg
         if hasattr(xc, 'hybrid'):
+            assert not self.grid2grid
             xc.calculate_exx()
         Exc = xc.calculate(density.finegd, nt_sg) / self.gd.comm.size
         for a, D_sp in density.D_asp.items():
@@ -514,16 +533,20 @@ class Hamiltonian(object):
 
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, setups, timer, xc, world,
-                 kptband_comm, vext=None, collinear=True, psolver=None,
-                 stencil=3):
+                 kptband_comm, vext=None, collinear=True,
+                 psolver=None, stencil=3, grid2grid=None):
         Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
-                             world, kptband_comm, vext, collinear)
+                             world, kptband_comm, vext=vext,
+                             collinear=collinear, grid2grid=grid2grid)
 
         # Solver for the Poisson equation:
         if psolver is None:
             psolver = PoissonSolver(nn=3, relax='J')
         self.poisson = psolver
-        self.poisson.set_grid_descriptor(finegd)
+        if self.grid2grid.enabled:
+            self.poisson.set_grid_descriptor(self.finegrid2grid.big_gd)
+        else:
+            self.poisson.set_grid_descriptor(self.finegd)
 
         # Restrictor function for the potential:
         self.restrictor = Transformer(self.finegd, self.gd, stencil)
@@ -572,14 +595,43 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.vt_sg[self.nspins:] = 0.0
 
         self.timer.start('XC 3D grid')
-        Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
+        g2g = self.finegrid2grid
+        if g2g:
+            self.timer.start('redist')
+            nt_sg = g2g.big_gd.empty(self.ns)
+            vt_sg = g2g.big_gd.empty(self.ns)
+            for s in range(self.ns):
+                g2g.distribute(density.nt_sg[s], nt_sg[s])
+                g2g.distribute(self.vt_sg[s], vt_sg[s])
+            self.timer.stop('redist')
+
+            Exc = self.xc.calculate(g2g.big_gd, nt_sg, vt_sg)
+
+            self.timer.start('redist')
+            for s in range(self.ns):
+                g2g.collect(vt_sg[s], self.vt_sg[s])
+            self.timer.stop('redist')
+        else:
+            Exc = self.xc.calculate(self.finegd, density.nt_sg, self.vt_sg)
+
         Exc /= self.gd.comm.size
         self.timer.stop('XC 3D grid')
 
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
-        self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
-                                           charge=-density.charge)
+        g2g = self.finegrid2grid
+        if g2g:
+            vHt_g = g2g.big_gd.empty()
+            rhot_g = g2g.big_gd.empty()
+            g2g.distribute(self.vHt_g, vHt_g)
+            g2g.distribute(density.rhot_g, rhot_g)
+        
+            self.npoisson = self.poisson.solve(vHt_g, rhot_g,
+                                               charge=-density.charge)
+            g2g.collect(vHt_g, self.vHt_g)
+        else:
+            self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
+                                               charge=-density.charge)
         self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')

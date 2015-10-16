@@ -18,6 +18,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         # RealSpaceHamiltonian arguments:
         gd, finegd, nspins, setups, timer, xc, world,
         kptband_comm, vext=None, collinear=True, psolver=None,
+        grid2grid=None,
         stencil=3
     ):
         """Constructor of SolvationRealSpaceHamiltonian class.
@@ -41,8 +42,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         RealSpaceHamiltonian.__init__(
             self,
             gd, finegd, nspins, setups, timer, xc, world,
-            kptband_comm, vext, collinear, psolver,
-            stencil
+            kptband_comm, vext=vext, collinear=collinear, psolver=psolver,
+            stencil=stencil, grid2grid=grid2grid
         )
         for ia in interactions:
             setattr(self, 'E_' + ia.subscript, None)

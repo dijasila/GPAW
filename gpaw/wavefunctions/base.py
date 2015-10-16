@@ -2,7 +2,7 @@ import numpy as np
 
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
-from gpaw.utilities.partition import AtomPartition
+from gpaw.utilities.partition import AtomPartition, AtomicMatrixDistributor
 from gpaw.utilities.timing import nulltimer
 
 
@@ -59,7 +59,7 @@ class WaveFunctions(EmptyWaveFunctions):
     ncomp = 1
     
     def __init__(self, gd, nvalence, setups, bd, dtype,
-                 world, kd, kptband_comm, timer=None):
+                 world, kd, kptband_comm, timer, grid2grid):
         self.gd = gd
         self.nspins = kd.nspins
         self.ns = self.nspins * self.ncomp**2
@@ -73,16 +73,17 @@ class WaveFunctions(EmptyWaveFunctions):
         self.kd = kd
         self.kptband_comm = kptband_comm
         self.band_comm = self.bd.comm  # XXX
-        if timer is None:
-            timer = nulltimer
         self.timer = timer
         self.atom_partition = None
+        self.big_atom_partition = None
             
         self.kpt_u = kd.create_k_points(self.gd)
 
         self.eigensolver = None
         self.positions_set = False
 
+        self.grid2grid = grid2grid
+        self.amd = None  # matrix distributor.  Switch to better name
         self.set_setups(setups)
 
     def set_setups(self, setups):
@@ -235,8 +236,14 @@ class WaveFunctions(EmptyWaveFunctions):
             self.timer.stop('Redistribute')
 
         self.atom_partition = atom_partition
-
         self.kd.symmetry.check(spos_ac)
+        #if self.grid2grid is not None:
+            
+        ranks = self.grid2grid.big_gd.get_ranks_from_positions(spos_ac)
+        big_partition = AtomPartition(self.grid2grid.big_gd.comm, ranks)
+        self.amd = AtomicMatrixDistributor(self.atom_partition,
+                                           self.kptband_comm,
+                                           big_partition)
 
     def allocate_arrays_for_projections(self, my_atom_indices):
         if not self.positions_set and self.kpt_u[0].P_ani is not None:
