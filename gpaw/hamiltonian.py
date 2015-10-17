@@ -308,7 +308,7 @@ class Hamiltonian(object):
                 dH_sp += self.ref_dH_asp[a]
             # We are not yet done with dH_sp; still need XC correction below
 
-        Ddist_asp = self.dh_distributor.distribute(density.D_asp)
+        Ddist_asp = density.D_asp #self.dh_distributor.distribute(density.D_asp)
         
         dHdist_asp = self.setups.empty_atomic_matrix(self.ns,
                                                      Ddist_asp.partition)
@@ -322,12 +322,15 @@ class Hamiltonian(object):
             # when gd.comm and distribution comm are the same
             dHdist_asp[a] = dH_sp
         self.timer.stop('XC Correction')
-        
-        dHdist_asp = self.dh_distributor.collect(dHdist_asp)
+
+        # XXXXXXXX this disables the "even" distribution of D/dH.
+        # We should definitely reenable this once redistribution stuff
+        # works.
+        #dHdist_asp = self.dh_distributor.collect(dHdist_asp)
 
         # Exca has contributions from all cores so modify it so it is
         # parallel in the same way as the other energies.
-        Exca = self.world.sum(Exca)
+        Exca = dHdist_asp.partition.comm.sum(Exca)
         if self.gd.comm.rank == 0:
             Exc += Exca
         
@@ -543,10 +546,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         if psolver is None:
             psolver = PoissonSolver(nn=3, relax='J')
         self.poisson = psolver
-        if self.grid2grid.enabled:
-            self.poisson.set_grid_descriptor(self.finegrid2grid.big_gd)
-        else:
-            self.poisson.set_grid_descriptor(self.finegd)
+        self.poisson.set_grid_descriptor(self.finegd)
 
         # Restrictor function for the potential:
         self.restrictor = Transformer(self.finegd, self.gd, stencil)
@@ -596,7 +596,7 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         self.timer.start('XC 3D grid')
         g2g = self.finegrid2grid
-        if g2g:
+        if 0:#g2g:
             self.timer.start('redist')
             nt_sg = g2g.big_gd.empty(self.ns)
             vt_sg = g2g.big_gd.empty(self.ns)
@@ -620,7 +620,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
         g2g = self.finegrid2grid
-        if g2g:
+        if 0:#g2g:
             vHt_g = g2g.big_gd.empty()
             rhot_g = g2g.big_gd.empty()
             g2g.distribute(self.vHt_g, vHt_g)

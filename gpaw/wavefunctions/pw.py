@@ -1219,8 +1219,9 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 
 class ReciprocalSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, charge, collinear=True):
-        Density.__init__(self, gd, finegd, nspins, charge, collinear)
+    def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True):
+        Density.__init__(self, gd, finegd, nspins, charge, grid2grid,
+                         collinear=collinear)
 
         self.ecut2 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max() * 0.9999
         self.pd2 = PWDescriptor(self.ecut2, self.gd)

@@ -109,7 +109,9 @@ class WaveFunctions(EmptyWaveFunctions):
         self.add_realspace_orbital_to_density(nt_G, kpt.psit_nG[n])
 
     def calculate_density_contribution(self, nt_sG):
-        """Calculate contribution to pseudo density from wave functions."""
+        """Calculate contribution to pseudo density from wave functions.
+
+        Array entries are written to (not added to)."""
         nt_sG.fill(0.0)
         for kpt in self.kpt_u:
             self.add_to_density_from_k_point(nt_sG, kpt)
@@ -239,11 +241,17 @@ class WaveFunctions(EmptyWaveFunctions):
         self.kd.symmetry.check(spos_ac)
         #if self.grid2grid is not None:
             
-        ranks = self.grid2grid.big_gd.get_ranks_from_positions(spos_ac)
-        big_partition = AtomPartition(self.grid2grid.big_gd.comm, ranks)
+        big_rank_a = self.grid2grid.big_gd.get_ranks_from_positions(spos_ac)
+        big_partition = AtomPartition(self.grid2grid.big_gd.comm, big_rank_a)
         self.amd = AtomicMatrixDistributor(self.atom_partition,
                                            self.kptband_comm,
                                            big_partition)
+
+    def get_work_atom_partition(self):
+        if self.grid2grid.enabled:
+            return self.amd.work_partition
+        else:
+            return self.atom_partition
 
     def allocate_arrays_for_projections(self, my_atom_indices):
         if not self.positions_set and self.kpt_u[0].P_ani is not None:

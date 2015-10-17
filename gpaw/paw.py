@@ -321,8 +321,9 @@ class PAW(PAWTextOutput):
         rank_a = self.wfs.gd.get_ranks_from_positions(spos_ac)
         atom_partition = AtomPartition(self.wfs.gd.comm, rank_a)
         self.wfs.set_positions(spos_ac, atom_partition)
-        self.density.set_positions(spos_ac, atom_partition)
-        self.hamiltonian.set_positions(spos_ac, atom_partition)
+        work_atom_partition = self.wfs.get_work_atom_partition()
+        self.density.set_positions(spos_ac, work_atom_partition)
+        self.hamiltonian.set_positions(spos_ac, work_atom_partition)
 
         return spos_ac
 
@@ -808,7 +809,10 @@ class PAW(PAWTextOutput):
             self.wfs.set_eigensolver(eigensolver)
 
         if self.density is None:
-            gd = self.wfs.gd
+            if self.wfs.grid2grid.enabled:
+                gd = self.wfs.grid2grid.big_gd
+            else:
+                gd = self.wfs.gd
             if par.stencils[1] != 9:
                 # Construct grid descriptor for fine grids for densities
                 # and potentials:
@@ -820,11 +824,12 @@ class PAW(PAWTextOutput):
             if realspace:
                 self.density = RealSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
-                    collinear, par.stencils[1])
+                    self.wfs.grid2grid, collinear=collinear,
+                    stencil=par.stencils[1])
             else:
                 self.density = pw.ReciprocalSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
-                    collinear)
+                    self.wfs.grid2grid, collinear=collinear)
 
         self.density.initialize(setups, self.timer, magmom_av, par.hund)
         self.density.set_mixer(par.mixer)
@@ -896,11 +901,12 @@ class PAW(PAWTextOutput):
         These are not initialized by default.
         TODO: Is this really the most efficient way?
         """
+        atom_partition = self.wfs.get_work_atom_partition()
         spos_ac = self.atoms.get_scaled_positions() % 1.0
-        self.density.set_positions(spos_ac, self.wfs.atom_partition)
+        self.density.set_positions(spos_ac, atom_partition)
         self.density.interpolate_pseudo_density()
         self.density.calculate_pseudo_charge()
-        self.hamiltonian.set_positions(spos_ac, self.wfs.atom_partition)
+        self.hamiltonian.set_positions(spos_ac, atom_partition)
         self.hamiltonian.update(self.density)
 
     def attach(self, function, n=1, *args, **kwargs):

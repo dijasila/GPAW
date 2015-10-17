@@ -41,7 +41,14 @@ class DirectLCAO(object):
         # distributed_atomic_correction works with ScaLAPACK/BLACS in general.
         # If SL is not enabled, it will not work with band parallelization.
         # But no one would want that for a practical calculation anyway.
-        dH_asp = wfs.atomic_correction.redistribute(wfs, hamiltonian.dH_asp)
+        #dH_asp = wfs.atomic_correction.redistribute(wfs, hamiltonian.dH_asp)
+        # XXXXX fix atomic corrections
+        #dH_asp = hamiltonian.dH_asp
+        if wfs.grid2grid.enabled:
+            dH_asp = wfs.amd.collect(hamiltonian.dH_asp)
+        else:
+            dH_asp = hamiltonian.dH_asp
+        #print(wfs.world.rank, dH_asp.keys())
         
         if Vt_xMM is None:
             wfs.timer.start('Potential matrix')
@@ -86,13 +93,19 @@ class DirectLCAO(object):
     def iterate(self, hamiltonian, wfs):
         wfs.timer.start('LCAO eigensolver')
 
+        if wfs.grid2grid.enabled:
+            vt_sG = wfs.gd.empty(wfs.ns)
+            wfs.grid2grid.collect(hamiltonian.vt_sG, vt_sG)
+        else:
+            vt_sG = hamiltonian.vt_sG
+
         s = -1
         for kpt in wfs.kpt_u:
             if kpt.s != s:
                 s = kpt.s
                 wfs.timer.start('Potential matrix')
                 Vt_xMM = wfs.basis_functions.calculate_potential_matrices(
-                    hamiltonian.vt_sG[s])
+                    vt_sG[s])
                 wfs.timer.stop('Potential matrix')
             self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM)
 

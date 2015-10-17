@@ -42,13 +42,14 @@ class Density(object):
      ========== =========================================
     """
 
-    def __init__(self, gd, finegd, nspins, charge, collinear=True):
+    def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True):
         """Create the Density object."""
 
         self.gd = gd
         self.finegd = finegd
         self.nspins = nspins
         self.charge = float(charge)
+        self.grid2grid = grid2grid
 
         self.collinear = collinear
         self.ncomp = 1 if collinear else 2
@@ -112,7 +113,14 @@ class Density(object):
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
-        wfs.calculate_density_contribution(self.nt_sG)
+        if wfs.grid2grid.enabled:
+            nt_sG = wfs.gd.empty(self.ns)
+        else:
+            nt_sG = self.nt_sG
+        wfs.calculate_density_contribution(nt_sG)
+        if wfs.grid2grid.enabled:
+            wfs.grid2grid.distribute(nt_sG, self.nt_sG)
+
         self.nt_sG[:self.nspins] += self.nct_G
 
     @property
@@ -139,7 +147,12 @@ class Density(object):
         self.calculate_pseudo_density(wfs)
         self.timer.stop('Pseudo density')
         self.timer.start('Atomic density matrices')
-        wfs.calculate_atomic_density_matrices(self.D_asp)
+        D_asp = self.setups.empty_atomic_matrix(self.ns, wfs.atom_partition)
+        wfs.calculate_atomic_density_matrices(D_asp)
+        if wfs.grid2grid.enabled:
+            self.D_asp = wfs.amd.distribute(D_asp)
+        else:
+            self.D_asp = D_asp
         self.timer.stop('Atomic density matrices')
         self.timer.start('Multipole moments')
         comp_charge = self.calculate_multipole_moments()
@@ -199,6 +212,25 @@ class Density(object):
             comp_charge += Q_L[0]
         return self.gd.comm.sum(comp_charge) * sqrt(4 * pi)
 
+    def get_initial_occupations(self, a):
+        c = self.charge / len(self.setups)  # distribute on all atoms
+        M_v = self.magmom_av[a]
+        M = (M_v**2).sum()**0.5
+        f_si = self.setups[a].calculate_initial_occupation_numbers(
+            M, self.hund, charge=c, nspins=self.nspins * self.ncomp)
+
+        if self.collinear:
+            if M_v[2] < 0:
+                f_si = f_si[::-1].copy()
+        else:
+            f_i = f_si.sum(axis=0)
+            fm_i = f_si[0] - f_si[1]
+            f_si = np.zeros((4, len(f_i)))
+            f_si[0] = f_i
+            if M > 0:
+                f_si[1:4] = np.outer(M_v / M, fm_i)
+        return f_si
+
     def initialize_from_atomic_densities(self, basis_functions):
         """Initialize D_asp, nt_sG and Q_aL from atomic densities.
 
@@ -216,36 +248,30 @@ class Density(object):
                                                      self.atom_partition)
         f_asi = {}
         for a in basis_functions.atom_indices:
-            c = self.charge / len(self.setups)  # distribute on all atoms
-            M_v = self.magmom_av[a]
-            M = (M_v**2).sum()**0.5
-            f_si = self.setups[a].calculate_initial_occupation_numbers(
-                M, self.hund, charge=c, nspins=self.nspins * self.ncomp)
+            f_asi[a] = self.get_initial_occupations(a)
 
-            if self.collinear:
-                if M_v[2] < 0:
-                    f_si = f_si[::-1].copy()
-            else:
-                f_i = f_si.sum(axis=0)
-                fm_i = f_si[0] - f_si[1]
-                f_si = np.zeros((4, len(f_i)))
-                f_si[0] = f_i
-                if M > 0:
-                    f_si[1:4] = np.outer(M_v / M, fm_i)
+        # D_asp does not have the same distribution as the basis functions,
+        # so we have to loop over atoms separately.
+        for a in self.D_asp:
+            f_si = f_asi.get(a)
+            if f_si is None:
+                f_si = self.get_initial_occupations(a)
+            self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
 
-            if a in basis_functions.my_atom_indices:
-                self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
-
-            f_asi[a] = f_si
-
-        self.nt_sG = self.gd.zeros(self.ns)
-        basis_functions.add_to_density(self.nt_sG, f_asi)
+        nt_sG = basis_functions.gd.zeros(self.ns)
+        basis_functions.add_to_density(nt_sG, f_asi)
+        self.nt_sG = self.gd.empty(self.ns)
+        if self.grid2grid.enabled:
+            self.grid2grid.distribute(nt_sG, self.nt_sG)
+        else:
+            self.nt_sG[:] = nt_sG
         self.nt_sG[:self.nspins] += self.nct_G
         self.calculate_normalized_charges_and_mix()
 
     def initialize_from_wavefunctions(self, wfs):
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
         self.timer.start("Density initialize from wavefunctions")
+        assert False # redist not implemented
         self.nt_sG = self.gd.empty(self.ns)
         self.calculate_pseudo_density(wfs)
         self.D_asp = self.setups.empty_atomic_matrix(self.ns,
@@ -509,9 +535,10 @@ class Density(object):
 
 
 class RealSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, charge, collinear=True,
+    def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True,
                  stencil=3):
-        Density.__init__(self, gd, finegd, nspins, charge, collinear)
+        Density.__init__(self, gd, finegd, nspins, charge, grid2grid,
+                         collinear=collinear)
         self.stencil = stencil
 
     def initialize(self, setups, timer, magmom_av, hund):
