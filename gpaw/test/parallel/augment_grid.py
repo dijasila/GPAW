@@ -16,11 +16,12 @@ for mode in ['fd',
              'lcao'
              ]:
     energy = []
+    if mode != 'lcao' and band == 2:
+        eigensolver = 'rmm-diis'
+    else:
+        eigensolver = None
+
     for augment_grids in [True, False]:
-        if mode != 'lcao':
-            eigensolver = 'rmm-diis'
-        else:
-            eigensolver = None
         calc = GPAW(mode=mode,
                     eigensolver=eigensolver,
                     parallel=dict(augment_grids=augment_grids,

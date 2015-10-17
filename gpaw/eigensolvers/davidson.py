@@ -130,7 +130,7 @@ class Davidson(Eigensolver):
 
             for a, P_ni in kpt.P_ani.items():
                 P2_ni = P2_ani[a]
-                dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                dH_ii = unpack(hamiltonian.dH_wfs_asp[a][kpt.s])
                 self.H_nn += np.dot(P2_ni, np.dot(dH_ii, P_ni.T.conj()))
 
             gd.comm.sum(self.H_nn, 0)
@@ -141,7 +141,7 @@ class Davidson(Eigensolver):
                           _transposed_result=self.H_nn)
             # r2k(0.5 * gd.dv, psit2_nG, Htpsit_nG, 0.0, self.H_nn)
             for a, P2_ni in P2_ani.items():
-                dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                dH_ii = unpack(hamiltonian.dH_wfs_asp[a][kpt.s])
                 self.H_nn += np.dot(P2_ni, np.dot(dH_ii, P2_ni.T.conj()))
 
             gd.comm.sum(self.H_nn, 0)

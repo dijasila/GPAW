@@ -271,12 +271,12 @@ class Density(object):
     def initialize_from_wavefunctions(self, wfs):
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""
         self.timer.start("Density initialize from wavefunctions")
-        assert False # redist not implemented
         self.nt_sG = self.gd.empty(self.ns)
         self.calculate_pseudo_density(wfs)
-        self.D_asp = self.setups.empty_atomic_matrix(self.ns,
-                                                     self.atom_partition)
-        wfs.calculate_atomic_density_matrices(self.D_asp)
+        D_asp = self.setups.empty_atomic_matrix(self.ns,
+                                                wfs.atom_partition)
+        wfs.calculate_atomic_density_matrices(D_asp)
+        self.D_asp = wfs.amd.distribute(D_asp)
         self.calculate_normalized_charges_and_mix()
         self.timer.stop("Density initialize from wavefunctions")
 
