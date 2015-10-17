@@ -180,6 +180,8 @@ class PoissonSolver:
 
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
               zero_initial_phi=False):
+        assert np.all(phi.shape == self.gd.n_c)
+        assert np.all(rho.shape == self.gd.n_c)
 
         if eps is None:
             eps = self.eps
