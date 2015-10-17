@@ -80,11 +80,13 @@ class Hamiltonian(object):
             self.finegrid2grid = None
         
         self.dH_asp = None
+        self.dH_wfs_asp = None
 
         # The external potential
         self.vext = vext
 
         self.vt_sG = None
+        self.vt_wfs_sG = None
         self.vHt_g = None
         self.vt_sg = None
 
@@ -146,13 +148,13 @@ class Hamiltonian(object):
 
         self.atom_partition = atom_partition
         if self.grid2grid.enabled:
-            rank_a = self.grid2grid.big_gd.get_ranks_from_positions(spos_ac)
-            work = AtomPartition(self.grid2grid.big_gd.comm, rank_a)
+            wfs_rank_a = self.grid2grid.gd.get_ranks_from_positions(spos_ac)
+            wfs_partition = AtomPartition(self.grid2grid.gd.comm, wfs_rank_a)
+            self.dh_distributor = AtomicMatrixDistributor(wfs_partition,
+                                                          self.kptband_comm,
+                                                          atom_partition)
         else:
-            work = None
-        self.dh_distributor = AtomicMatrixDistributor(atom_partition,
-                                                      self.kptband_comm,
-                                                      work_partition=work)
+            self.dh_distributor = None
                                                        
 
     def aoom(self, DM, a, l, scale=1):
@@ -215,6 +217,10 @@ class Hamiltonian(object):
         self.vt_sg = self.finegd.empty(self.ns)
         self.vHt_g = self.finegd.zeros()
         self.vt_sG = self.gd.empty(self.ns)
+        if self.grid2grid.enabled:
+            self.vt_wfs_sG = self.grid2grid.gd.empty(self.ns)
+        else:
+            self.vt_wfs_sG = self.vt_sG
         self.poisson.initialize()
 
     def update(self, density):
@@ -238,11 +244,13 @@ class Hamiltonian(object):
             density, Ekin, Epot, Ebar, Eext, Exc, W_aL)
 
         energies = np.array([Ekin, Epot, Ebar, Eext, Exc])
-        self.timer.start('Communicate energies')
+        self.timer.start('Communicate')
+        if self.grid2grid.enabled:
+            self.grid2grid.collect(self.vt_sG, self.vt_wfs_sG)
         self.gd.comm.sum(energies)
         # Make sure that all CPUs have the same energies
         self.world.broadcast(energies, 0)
-        self.timer.stop('Communicate energies')
+        self.timer.stop('Communicate')
         self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc = energies
 
         self.timer.stop('Hamiltonian')
@@ -251,7 +259,7 @@ class Hamiltonian(object):
         self.timer.start('Atomic')
         self.dH_asp = None  # XXXX
 
-        dH_asp = {}
+        dH_asp = self.setups.empty_atomic_matrix(self.ns, self.atom_partition)
         for a, D_sp in density.D_asp.items():
             W_L = W_aL[a]
             setup = self.setups[a]
@@ -308,10 +316,12 @@ class Hamiltonian(object):
                 dH_sp += self.ref_dH_asp[a]
             # We are not yet done with dH_sp; still need XC correction below
 
+
         Ddist_asp = density.D_asp #self.dh_distributor.distribute(density.D_asp)
         
         dHdist_asp = self.setups.empty_atomic_matrix(self.ns,
-                                                     Ddist_asp.partition)
+                                                     self.atom_partition)
+
         Exca = 0.0
         self.timer.start('XC Correction')
         for a, D_sp in Ddist_asp.items():
@@ -341,6 +351,10 @@ class Hamiltonian(object):
             dH_sp += dHdist_asp[a]
             Ekin -= (D_sp * dH_sp).sum()  # NCXXX
         self.dH_asp = dH_asp
+        if self.grid2grid.enabled:
+            self.dH_wfs_asp = self.dh_distributor.collect(self.dH_asp)
+        else:
+            self.dH_wfs_asp = self.dH_asp
         self.timer.stop('Atomic')
 
         # Make corrections due to non-local xc:
@@ -418,7 +432,7 @@ class Hamiltonian(object):
             are not applied and calculate_projections is ignored.
 
         """
-        vt_G = self.vt_sG[s]
+        vt_G = self.vt_wfs_sG[s]
         if psit_nG.ndim == 3:
             Htpsit_nG += psit_nG * vt_G
         else:
@@ -619,19 +633,8 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
-        g2g = self.finegrid2grid
-        if 0:#g2g:
-            vHt_g = g2g.big_gd.empty()
-            rhot_g = g2g.big_gd.empty()
-            g2g.distribute(self.vHt_g, vHt_g)
-            g2g.distribute(density.rhot_g, rhot_g)
-        
-            self.npoisson = self.poisson.solve(vHt_g, rhot_g,
-                                               charge=-density.charge)
-            g2g.collect(vHt_g, self.vHt_g)
-        else:
-            self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
-                                               charge=-density.charge)
+        self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
+                                           charge=-density.charge)
         self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')
@@ -642,7 +645,6 @@ class RealSpaceHamiltonian(Hamiltonian):
             vt_g += self.vHt_g
 
         self.timer.stop('Hartree integrate/restrict')
-
         return Epot, Ebar, Eext, Exc
 
     def calculate_kinetic_energy(self, density):

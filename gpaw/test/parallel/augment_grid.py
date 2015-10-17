@@ -11,7 +11,7 @@ band = 1
 if world.size > 4:
     band = 2
 
-for mode in [#'fd',
+for mode in ['fd',
              #'pw',
              'lcao'
              ]:
@@ -31,7 +31,7 @@ for mode in [#'fd',
         def stopcalc():
             calc.scf.converged = True
         # Iterate enough for density to update so it depends on potential
-        calc.attach(stopcalc, 5)
+        calc.attach(stopcalc, 3 if mode == 'lcao' else 5)
         system.set_calculator(calc)
         energy.append(system.get_potential_energy())
     err = energy[1] - energy[0]
