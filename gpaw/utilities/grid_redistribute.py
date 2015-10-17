@@ -383,6 +383,9 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
 
     """
     assert src_xg.dtype == dst_xg.dtype
+    src_xg = src_xg.reshape(-1, *src_xg.shape[-3:])
+    dst_xg = dst_xg.reshape(-1, *dst_xg.shape[-3:])
+    assert src_xg.shape[0] == dst_xg.shape[0]
 
     if not isinstance(domains1, Domains):
         domains1 = Domains(domains1)
@@ -393,11 +396,13 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
     myparpos1_c = rank2parpos1(comm.rank)
     if myparpos1_c is not None:
         myoffset1_c, mysize1_c = domains1.get_box(myparpos1_c)
-        assert np.all(mysize1_c == src_xg.shape[-3:])
+        assert np.all(mysize1_c == src_xg.shape[-3:]), \
+            (mysize1_c, src_xg.shape)
     myparpos2_c = rank2parpos2(comm.rank)
     if myparpos2_c is not None:
         myoffset2_c, mysize2_c = domains2.get_box(myparpos2_c)
-        assert np.all(mysize2_c == dst_xg.shape[-3:])
+        assert np.all(mysize2_c == dst_xg.shape[-3:]), \
+            (mysize2_c, dst_xg.shape)
 
     sendranks = []
     recvranks = []
@@ -424,10 +429,8 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
             # Reduce to local array coordinates:
             start_c -= myoffset_c
             stop_c -= myoffset_c
-            return arr_g[...,
-                start_c[0]:stop_c[0],
-                start_c[1]:stop_c[1],
-                start_c[2]:stop_c[2]]
+            return arr_g[:, start_c[0]:stop_c[0], start_c[1]:stop_c[1],
+                            start_c[2]:stop_c[2]]
         else:
             return None
 
