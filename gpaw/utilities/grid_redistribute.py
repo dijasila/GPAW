@@ -373,7 +373,7 @@ class RandomDistribution:
 
 
 def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
-                         src_g, dst_g):
+                         src_xg, dst_xg):
     """Redistribute array arbitrarily.
 
     Generally, this function redistributes part of an array into part
@@ -382,9 +382,7 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
     array, for example.
 
     """
-    assert len(src_g.shape) == 3
-    assert len(dst_g.shape) == 3
-    assert src_g.dtype == dst_g.dtype
+    assert src_xg.dtype == dst_xg.dtype
 
     if not isinstance(domains1, Domains):
         domains1 = Domains(domains1)
@@ -395,9 +393,11 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
     myparpos1_c = rank2parpos1(comm.rank)
     if myparpos1_c is not None:
         myoffset1_c, mysize1_c = domains1.get_box(myparpos1_c)
+        assert np.all(mysize1_c == src_xg.shape[-3:])
     myparpos2_c = rank2parpos2(comm.rank)
     if myparpos2_c is not None:
         myoffset2_c, mysize2_c = domains2.get_box(myparpos2_c)
+        assert np.all(mysize2_c == dst_xg.shape[-3:])
 
     sendranks = []
     recvranks = []
@@ -424,17 +424,18 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
             # Reduce to local array coordinates:
             start_c -= myoffset_c
             stop_c -= myoffset_c
-            return arr_g[start_c[0]:stop_c[0],
-                         start_c[1]:stop_c[1],
-                         start_c[2]:stop_c[2]]
+            return arr_g[...,
+                start_c[0]:stop_c[0],
+                start_c[1]:stop_c[1],
+                start_c[2]:stop_c[2]]
         else:
             return None
 
     def get_sendchunk(offset_c, size_c):
-        return _intersection(myoffset1_c, mysize1_c, offset_c, size_c, src_g)
+        return _intersection(myoffset1_c, mysize1_c, offset_c, size_c, src_xg)
 
     def get_recvchunk(offset_c, size_c):
-        return _intersection(myoffset2_c, mysize2_c, offset_c, size_c, dst_g)
+        return _intersection(myoffset2_c, mysize2_c, offset_c, size_c, dst_xg)
 
     nsendtotal = 0
     nrecvtotal = 0
