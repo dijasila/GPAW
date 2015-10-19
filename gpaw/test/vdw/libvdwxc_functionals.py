@@ -19,7 +19,7 @@ gd.distribute(nG_sg, n_sg)
 
 def test(vdwxcclass, Eref=None, nvref=None):
     xc = vdwxcclass()
-    xc._initialize(gd)
+    xc._libvdwxc_init(gd)
     v_sg = gd.zeros(1)
     E = xc.calculate(gd, n_sg, v_sg)
     nv = gd.integrate(n_sg * v_sg, global_integral=True)
