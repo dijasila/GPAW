@@ -121,6 +121,10 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         # non-blocking version as we only need this stuff after
         # doing tons of real-space work.
 
+        # XXXXXXXXXXXXXXXXXX
+        if 1:
+            return dX_asp.deepcopy()
+
         dX_asp = dX_asp.deepcopy()
         if op == 'forth':
             even = self.orig_partition.as_even_partition()

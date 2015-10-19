@@ -481,7 +481,7 @@ class Hamiltonian(object):
             density.interpolate_pseudo_density()
         nt_sg = density.nt_sg
         if hasattr(xc, 'hybrid'):
-            assert not self.grid2grid
+            assert not self.grid2grid.enabled
             xc.calculate_exx()
         Exc = xc.calculate(density.finegd, nt_sg) / self.gd.comm.size
         for a, D_sp in density.D_asp.items():
