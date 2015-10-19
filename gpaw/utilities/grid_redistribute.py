@@ -374,7 +374,7 @@ class RandomDistribution:
 
 
 def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
-                         src_xg, dst_xg):
+                         src_xg, dst_xg, behavior='overwrite'):
     """Redistribute array arbitrarily.
 
     Generally, this function redistributes part of an array into part
@@ -387,6 +387,7 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
     src_xg = src_xg.reshape(-1, *src_xg.shape[-3:])
     dst_xg = dst_xg.reshape(-1, *dst_xg.shape[-3:])
     assert src_xg.shape[0] == dst_xg.shape[0]
+    assert behavior in ['overwrite', 'add']
 
     if not isinstance(domains1, Domains):
         domains1 = Domains(domains1)
@@ -490,7 +491,11 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
     for recvrank, recvchunk in zip(recvranks, recvchunks):
         nstart = recvdispls[recvrank]
         nstop = nstart + recvcounts[recvrank]
-        recvchunk.flat[:] = recvbuf[nstart:nstop]
+        buf = recvbuf[nstart:nstop]
+        if behavior == 'overwrite':
+            recvchunk.flat[:] = buf
+        elif behavior == 'add':
+            recvchunk.flat[:] += buf
 
 def test_general_redistribute():
     domains1 = Domains([[0, 1],
