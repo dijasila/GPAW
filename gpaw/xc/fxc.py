@@ -681,7 +681,7 @@ class Kernel_Wave:
 
                         else:
 
-                            small_ind = range(self.gridsize)
+                            small_ind = np.arange(self.gridsize)
 
                         phase_Gpq = np.exp(-1.0j*(deltaGv[:, 0, np.newaxis] *
                                                   self.x_g[small_ind]
