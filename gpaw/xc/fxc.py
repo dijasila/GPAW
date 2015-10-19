@@ -326,7 +326,7 @@ class FXCCorrelation(RPACorrelation):
 
             if self.xc == 'RPA':
 
-                fv = np.ones(nG)
+                fv = np.eye(nG)
 
             elif self.xc == 'range_RPA':
 
@@ -401,16 +401,33 @@ class FXCCorrelation(RPACorrelation):
 
                 else:
 
-                    # Analytical coupling constant integration
+                    # Coupling constant integration
                     # for long-range part
-                    if self.xc in ('RPA', 'range_RPA'):
+                    # Do this analytically, except for the RPA
+                    # simply since the analytical method is already
+                    # implemented in rpa.py
+                    if self.xc == 'range_RPA':
                         # way faster than np.dot for diagonal kernels
                         e_GG = np.eye(nG) - chi0v * fv
-                    else:
+                    elif self.xc != 'RPA':
                         e_GG = np.eye(nG) - np.dot(chi0v, fv)
 
-                    elong = (np.log(np.linalg.det(e_GG)) +
-                             nG - np.trace(e_GG)).real
+                    if self.xc == 'RPA':
+                        # numerical RPA
+                        elong = 0.0
+                        for l, weight in zip(self.l_l, self.weight_l):
+
+                            chiv = np.linalg.solve(np.eye(nG) - l *
+                                                   np.dot(chi0v, fv), chi0v).real
+
+                            elong -= np.trace(chiv) * weight
+
+                        elong += np.trace(chi0v.real)
+
+                    else:
+                        # analytic everything else
+                        elong = (np.log(np.linalg.det(e_GG)) +
+                                 nG - np.trace(e_GG)).real
                     # Numerical integration for short-range part
                     eshort = 0.0
                     if self.xc not in ('RPA', 'range_RPA', 'range_rALDA'):
