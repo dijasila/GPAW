@@ -277,7 +277,8 @@ class Density(object):
                                                 wfs.atom_partition)
         wfs.calculate_atomic_density_matrices(D_asp)
         if self.grid2grid.enabled:
-            self.D_asp = wfs.amd.distribute(D_asp)
+            D_asp = wfs.amd.distribute(D_asp)
+        self.D_asp = D_asp
         self.calculate_normalized_charges_and_mix()
         self.timer.stop("Density initialize from wavefunctions")
 
