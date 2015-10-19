@@ -291,7 +291,7 @@ def get_compatible_grid_descriptor(gd, distribute_dir, reduce_dir):
     
     ranks = np.arange(gd.comm.size).reshape(gd.parsize_c).transpose(*t).ravel()
     comm2 = gd.comm.new_communicator(ranks)
-    gd2 = gd.new_descriptor(comm=comm2, parsize=parsize2_c)
+    gd2 = gd.new_descriptor(comm=comm2, parsize_c=parsize2_c)
     return gd2
 
 
@@ -311,8 +311,9 @@ class Domains:
         return np.array(offset_c)
 
     def get_box(self, parpos_c):
+        parpos_c = np.array(parpos_c)
         offset_c = self.get_offset(parpos_c)
-        nextoffset_c = self.get_offset(np.array(parpos_c) + 1)
+        nextoffset_c = self.get_offset(parpos_c + 1)
         return offset_c, nextoffset_c - offset_c
 
     def as_serial(self):
@@ -543,7 +544,7 @@ def playground():
     assert np.prod(parsize2_c) == np.prod(parsize_c)
 
     gd = GridDescriptor(N_c=N_c, pbc_c=pbc_c, cell_cv=0.2 * np.array(N_c),
-                        parsize=parsize_c)
+                        parsize_c=parsize_c)
 
     gd2 = get_compatible_grid_descriptor(gd, distribute_dir, reduce_dir)
 
@@ -670,11 +671,11 @@ def rigorous_testing():
                 try:
                     gd = GridDescriptor(N_c=N_c, pbc_c=pbc_c,
                                         cell_cv=0.2 * np.array(N_c),
-                                        parsize=parsize_c)
+                                        parsize_c=parsize_c)
                     gd2 = get_compatible_grid_descriptor(gd, distribute_dir,
                                                          reduce_dir)
                          
-                    #gd2 = gd.new_descriptor(parsize=parsize2_c)
+                    #gd2 = gd.new_descriptor(parsize_c=parsize2_c)
                 except ValueError:  # Skip illegal distributions
                     continue
 
