@@ -74,7 +74,7 @@ class GridDescriptor(Domain):
     ndim = 3  # dimension of ndarrays
 
     def __init__(self, N_c, cell_cv=(1, 1, 1), pbc_c=True,
-                 comm=None, parsize=None, n_cp=None):
+                 comm=None, parsize_c=None):
         """Construct grid-descriptor object.
 
         parameters:
@@ -87,7 +87,7 @@ class GridDescriptor(Domain):
             Periodic boundary conditions flag(s).
         comm: MPI-communicator
             Communicator for domain-decomposition.
-        parsize: tuple of 3 ints, a single int or None
+        parsize_c: tuple of 3 ints, a single int or None
             Number of domains.
 
         Note that if pbc_c[c] is True, then the actual number of gridpoints
@@ -117,7 +117,7 @@ class GridDescriptor(Domain):
         if (self.N_c != N_c).any():
             raise ValueError('Non-int number of grid points %s' % N_c)
         
-        Domain.__init__(self, cell_cv, pbc_c, comm, parsize, self.N_c)
+        Domain.__init__(self, cell_cv, pbc_c, comm, parsize_c, self.N_c)
         self.rank = self.comm.rank
 
         self.beg_c = np.empty(3, int)
@@ -167,7 +167,7 @@ class GridDescriptor(Domain):
                    self.comm.size, pcoords, self.parsize_c.tolist()))
 
     def new_descriptor(self, N_c=None, cell_cv=None, pbc_c=None,
-                       comm=None, parsize=None, n_cp=None):
+                       comm=None, parsize_c=None):
         """Create new descriptor based on this one.
 
         The new descriptor will use the same class (possibly a subclass)
@@ -181,14 +181,9 @@ class GridDescriptor(Domain):
             pbc_c = self.pbc_c
         if comm is None:
             comm = self.comm
-        if parsize is None and comm.size == self.comm.size:
-            parsize = self.parsize_c
-        #if n_cp is None:
-        #    n_cp = self.n_cp
-        # Hmmm!!  What to do about n_cp?  If we have a custom one, we should
-        # sort of pass that, but we don't even know if it was set in a funny
-        # way.  We will just forward whatever the caller asks for.
-        return self.__class__(N_c, cell_cv, pbc_c, comm, parsize, n_cp)
+        if parsize_c is None and comm.size == self.comm.size:
+            parsize_c = self.parsize_c
+        return self.__class__(N_c, cell_cv, pbc_c, comm, parsize_c)
 
     def get_grid_spacings(self):
         L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5

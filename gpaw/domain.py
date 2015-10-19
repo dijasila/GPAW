@@ -18,7 +18,7 @@ class Domain:
     A ``Domain`` object (in domain.py) holds informaion on the unit
     cell and the boundary conditions"""
 
-    def __init__(self, cell, pbc, comm, parsize, N_c):
+    def __init__(self, cell, pbc, comm, parsize_c, N_c):
         """Create Domain object from a unit cell and boundary conditions.
 
         The arguments are the lengths of the three axes, followed by a
@@ -49,11 +49,9 @@ class Domain:
 
         self.pbc_c = np.asarray(pbc, bool)
 
-        if isinstance(parsize, int):
+        if isinstance(parsize_c, int):
+            assert parsize_c == comm.size
             parsize_c = None
-            assert parsize == comm.size
-        else:
-            parsize_c = parsize
 
         self.set_decomposition(comm, parsize_c, N_c)
 

@@ -57,7 +57,7 @@ if world.rank == 0:
 
 # Set up band and grid descriptors:
 bd = BandDescriptor(N, band_comm, False)
-gd = GridDescriptor((G, G, G), (a, a, a), True, domain_comm, parsize=D)
+gd = GridDescriptor((G, G, G), (a, a, a), True, domain_comm, parsize_c=D)
 ksl = BandLayouts(gd, bd, block_comm, float)
 
 # Random wave functions:
