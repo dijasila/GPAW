@@ -94,7 +94,7 @@ class FXCCorrelation(RPACorrelation):
                     prnt(file=self.fd)
 
                     if self.linear_kernel:
-                        kernel = Kernel_Wave(self.calc,
+                        kernel = KernelWave(self.calc,
                                              self.xc,
                                              self.ibzq_qc,
                                              self.fd,
@@ -107,7 +107,7 @@ class FXCCorrelation(RPACorrelation):
                                              self.timer)
 
                     elif not self.dyn_kernel:
-                        kernel = Kernel_Wave(self.calc,
+                        kernel = KernelWave(self.calc,
                                              self.xc,
                                              self.ibzq_qc,
                                              self.fd,
@@ -120,7 +120,7 @@ class FXCCorrelation(RPACorrelation):
                                              self.timer)
 
                     else:
-                        kernel = Kernel_Wave(self.calc,
+                        kernel = KernelWave(self.calc,
                                              self.xc,
                                              self.ibzq_qc,
                                              self.fd,
@@ -134,7 +134,7 @@ class FXCCorrelation(RPACorrelation):
 
                 else:
 
-                    kernel = Kernel_Dens(self.calc,
+                    kernel = KernelDens(self.calc,
                                          self.xc,
                                          self.ibzq_qc,
                                          self.fd,
@@ -496,7 +496,7 @@ class FXCCorrelation(RPACorrelation):
             self.Eg = None
 
 
-class Kernel_Wave:
+class KernelWave:
 
     def __init__(self, calc, xc, ibzq_qc, fd, l_l, q_empty,
                  omega_w, Eg, ecut, tag, timer):
@@ -1306,7 +1306,7 @@ class range_separated:
         return(lchi)
 
 
-class Kernel_Dens:
+class KernelDens:
     def __init__(self, calc, xc, ibzq_qc, fd, unit_cells,
                  density_cut, ecut, tag, timer):
 
