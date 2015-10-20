@@ -16,8 +16,8 @@ for XC in ['pyPBE', 'pyRPBE']:
     for i in [2, 0]:
         xc = XC[i:]
         calc = GPAW(nbands=-1, xc=xc,
-                    h=0.25,
-                    mode='lcao', basis='dz(dzp)')
+                    h=0.3,
+                    mode='lcao', basis='szp(dzp)')
         h2.set_calculator(calc)
         e = np.append(e, h2.get_potential_energy())
         f = np.append(f, h2.get_forces())
@@ -38,8 +38,8 @@ for XC in ['pyPBE', 'pyRPBE']:
     for i in [2, 0]:
         xc = XC[i:]
         calc = GPAW(nbands=-2, xc=xc,
-                    h=0.28,
-                    mode='lcao', basis='dz(dzp)')
+                    h=0.3,
+                    mode='lcao', basis='szp(dzp)')
         o2.set_calculator(calc)
         e = np.append(e, o2.get_potential_energy())
         f = np.append(f, o2.get_forces())

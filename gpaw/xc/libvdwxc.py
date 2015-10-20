@@ -65,13 +65,10 @@ class LibVDWXC(GGA, object):
         self.vdwcoef = 1.
         self.vdw_functional_name = name
 
-        print('parallel', parallel)
-
         if parallel == 'auto':
             if compiled_with_pfft():
                 parallel = 'pfft'
             elif compiled_with_fftw_mpi():
-                print('have fftw mpi')
                 parallel = 'mpi'
             else:
                 parallel = 'serial'
