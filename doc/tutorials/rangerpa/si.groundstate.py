@@ -2,7 +2,7 @@ from ase.lattice import bulk
 from gpaw import GPAW, FermiDirac
 from gpaw.wavefunctions.pw import PW
 
-bulk_si = bulk('Si',a=5.42935602)
+bulk_si = bulk('Si', a=5.42935602)
 calc = GPAW(mode=PW(400.0),
             xc='LDA',
             occupations=FermiDirac(width=0.01),
