@@ -422,8 +422,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             indices = [s] + wfs.gd.get_slice()
             w.fill(density.nt_sG[s], parallel=parallel, write=do_write,
                    *indices)
-        elif kpt_comm.rank == 0:
-            nt_sG = wfs.gd.collect(density.nt_sG[s])
+        else:
+            nt_sG = density.gd.collect(density.nt_sG[s])
             if master:
                 w.fill(nt_sG, s)
     timer.stop('Pseudo-density')
@@ -439,8 +439,8 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
             indices = [s] + wfs.gd.get_slice()
             w.fill(hamiltonian.vt_sG[s], parallel=parallel, write=do_write,
                    *indices)
-        elif kpt_comm.rank == 0:
-            vt_sG = wfs.gd.collect(hamiltonian.vt_sG[s])
+        else:
+            vt_sG = hamiltonian.gd.collect(hamiltonian.vt_sG[s])
             if master:
                 w.fill(vt_sG, s)
     timer.stop('Pseudo-potential')
