@@ -138,7 +138,7 @@ cluster = NiflheimCluster(asepath=os.path.join(dir, 'ase'),
 # Example below is confusing: job.script must NOT be the *.agts.py script,
 # but the actual python script to be run!
 # testsuite.agts.py does both: see gpaw/test/big/miscellaneous/testsuite.agts.py
-#queue.jobs = [job for job in queue.jobs if job.script == 'testsuite.agts.py']
+# queue.jobs = [job for job in queue.jobs if job.script == 'testsuite.agts.py']
 
 nfailed = queue.run(cluster)
 
@@ -171,17 +171,3 @@ else:
         for f in ef:
             attach += ' ' + f
     fail(subject, email, attach, mailer='mutt')
-
-if 0:
-    # Analysis:
-    import matplotlib
-    matplotlib.use('Agg')
-    from gpaw.test.big.analysis import analyse
-    user = os.environ['USER']
-    analyse(queue,
-            '../analysis/analyse.pickle',  # file keeping history
-            '../analysis',                 # Where to dump figures
-            rev=niflheim.revision,
-            #mailto='gpaw-developers@listserv.fysik.dtu.dk',
-            mailserver='servfys.fysik.dtu.dk',
-            attachment='status.log')
