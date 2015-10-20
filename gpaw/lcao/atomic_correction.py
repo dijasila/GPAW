@@ -107,7 +107,8 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         self.even_partition = evenpart.as_atom_partition()
     
     def get_a_values(self):
-        return self.even_partition.my_indices
+        return self.orig_partition.my_indices  # XXXXXXXXXX
+        #return self.even_partition.my_indices
 
     def redistribute(self, wfs, dX_asp, type='asp', op='forth'):
         if type not in ['asp', 'aii']:
@@ -301,7 +302,8 @@ class ScipyAtomicCorrection(DistributedAtomicCorrection):
     def calculate_projections(self, wfs, kpt):
         if self.implements_distributed_projections():
             P_In = self.Psparse_qIM[kpt.q].dot(kpt.C_nM.T)
-            for a in self.even_partition.my_indices:
+            #for a in self.even_partition.my_indices: # XXXXXXX
+            for a in self.orig_partition.my_indices:
                 I1 = self.I_a[a]
                 I2 = I1 + wfs.setups[a].ni
                 kpt.P_ani[a][:, :] = P_In[I1:I2, :].T.conj()

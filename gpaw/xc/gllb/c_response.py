@@ -182,7 +182,8 @@ class C_Response(Contribution):
         #amd = self.wfs.grid2grid.amd
         #amd = AtomicMatrixDistributor(self.density.atom_partition,
         #                              self.wfs.kptband_comm)
-        return self.wfs.amd.distribute(Dresp_asp)
+        #return self.wfs.amd.distribute(Dresp_asp)
+        return Dresp_asp.deepcopy()
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a,
                                          addcoredensity=True):
