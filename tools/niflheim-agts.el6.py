@@ -121,7 +121,8 @@ tar xzf gpaw-setups-latest.tar.gz && \
 rm gpaw-setups-latest.tar.gz && \
 mv gpaw-setups-[0-9]* gpaw/gpaw-setups""")
 
-cmd('(cd ../ase; git pull; git archive --format tar --prefix ase/ HEAD) | '
+cmd('(cd ../ase; git pull > pull.out; '
+    'git archive --format tar --prefix ase/ HEAD) | '
     'tar -xf -')
 
 # ase needed
