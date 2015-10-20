@@ -533,9 +533,8 @@ class _Communicator:
             return self.comm.translate_ranks(other.comm, ranks) # argh!
         otherranks = self.comm.translate_ranks(other.get_c_object(), ranks)
         assert all(-1 <= rank for rank in otherranks)
-        # XXX the C code returns some kind of NPY_ integer type which is
-        # not necessarily the default, so we convert to the default one:
-        return otherranks.astype(int)
+        assert ranks.dtype == otherranks.dtype
+        return otherranks
         
     def get_members(self):
         """Return the subset of processes which are members of this MPI group
