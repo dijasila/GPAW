@@ -41,6 +41,7 @@ dry_run = 0
 memory_estimate_depth = 2
 parsize_domain = None
 parsize_bands = None
+augment_grids = True
 sl_default = None
 sl_diagonalize = None
 sl_inverse_cholesky = None
@@ -77,6 +78,8 @@ while len(sys.argv) > i:
             assert len(parsize_domain) == 3
     elif arg.startswith('--state-parallelization='):
         parsize_bands = int(arg.split('=')[1])
+    elif arg.startswith('--augment-grids='):
+        augment_grids = bool(int(arg.split('=')[1]))
     elif arg.startswith('--sl_default='):
         # --sl_default=nprow,npcol,mb,cpus_per_node
         # use 'd' for the default of one or more of the parameters
