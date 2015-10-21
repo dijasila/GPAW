@@ -197,6 +197,9 @@ class PAWTextOutput:
 
         self.wfs.kd.symmetry.print_symmetries(self.txt)
 
+        if -1 in self.wfs.kd.bz2bz_ks:
+            t('Note: your k-points are not as symmetric as your crystal!')
+            
         t(self.wfs.kd.description)
         t(('%d k-point%s in the Irreducible Part of the Brillouin Zone') %
           (nibzkpts, ' s'[1:nibzkpts]))
