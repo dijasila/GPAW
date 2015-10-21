@@ -407,7 +407,7 @@ class Heterostructure:
             potential[index] = 1.
         
         if static:
-            Nw = 0
+            Nw = 1
         else:
             Nw = len(self.frequencies)
 
