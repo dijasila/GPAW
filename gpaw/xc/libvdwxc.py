@@ -4,9 +4,7 @@ from gpaw.xc.libxc import LibXC
 from gpaw.xc.gga import GGA
 from gpaw.utilities import compiled_with_libvdwxc, compiled_with_fftw_mpi,\
     compiled_with_pfft
-from gpaw.utilities.grid_redistribute import GridRedistributor, \
-    Domains, general_redistribute
-from gpaw.utilities.accordion_redistribute import accordion_redistribute
+from gpaw.utilities.grid_redistribute import Domains, general_redistribute
 from gpaw.utilities.timing import nulltimer
 import _gpaw
 
@@ -33,6 +31,7 @@ def get_domains(N_c, parsize_c):
     # starting with 0.
     blocksize_c = -(-N_c // parsize_c)
     return (np.arange(1 + parsize_c) * blocksize_c).clip(0, N_c)
+
 
 def get_auto_pfft_grid(size):
     nproc1 = size
@@ -102,9 +101,9 @@ class LibVDWXC(GGA, object):
          PFFT.  If left unspecified, a hopefully reasonable automatic
          choice will be made.
          """
+        self._vdw = None
         object.__init__(self)
         GGA.__init__(self, gga_kernel)
-        self._vdw = None
         self.timer = timer
         self.vdwcoef = 1.0
         self.vdw_functional_name = name
@@ -113,7 +112,6 @@ class LibVDWXC(GGA, object):
             if compiled_with_pfft():
                 parallel = 'pfft'
             elif compiled_with_fftw_mpi():
-                print('have fftw mpi')
                 parallel = 'mpi'
             else:
                 parallel = 'serial'
@@ -218,14 +216,14 @@ class LibVDWXC(GGA, object):
 
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         assert self._vdw is not None
-        self.timer.start('calculate vdW XC')
+        self.timer.start('van der Waals')
         n_sg[:] = np.abs(n_sg)  # XXXX What to do about this?
         sigma_xg[:] = np.abs(sigma_xg)
         assert len(n_sg) == 1
         assert len(sigma_xg) == 1
-        self.timer.start('calculate GGA')
+        self.timer.start('semilocal')
         GGA.calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        self.timer.stop('calculate GGA')
+        self.timer.stop('semilocal')
 
         zeros = self.distribution.block_zeros
 
@@ -254,7 +252,7 @@ class LibVDWXC(GGA, object):
 
         # XXXXXXXXXXXXXXXX ugly
         e_g[0, 0, 0] += self.vdwcoef * energy_nonlocal / self.gd.dv
-        self.timer.stop('calculate vdW XC')
+        self.timer.stop('van der Waals')
 
     def estimate_memory(self, mem):
         size = self.distribution.input_gd.bytecount()  # only on average
