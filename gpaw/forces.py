@@ -35,9 +35,7 @@ class ForceCalculator:
         else:
             correction(self.F_av)
         
-        if wfs.bd.comm.rank == 0 and wfs.kd.comm.rank == 0:
-            ham.calculate_forces(dens, self.F_av)
-
+        ham.calculate_forces(dens, self.F_av)
         wfs.world.broadcast(self.F_av, 0)
         
         self.F_av = wfs.kd.symmetry.symmetrize_forces(self.F_av)
