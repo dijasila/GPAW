@@ -657,7 +657,7 @@ class GridDescriptor(Domain):
         This doesn't work in parallel, since it would require
         communication between neighbouring grid.  """
 
-        assert mpi.world.size == 1
+        assert self.comm.size == 1
 
         if use_mlsqr:
             mlsqr(3, 2.3, spos_nc, self.N_c, self.beg_c, vt_g, target_n)
