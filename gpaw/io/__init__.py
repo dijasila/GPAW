@@ -418,8 +418,10 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     for s in range(wfs.nspins):
         if hdf5:
+            # XXXXXXX must work with density/hamiltonian redist changes
+            # Maybe the easiest solution is to simply redist to wfs.gd
             do_write = (kpt_comm.rank == 0) and (band_comm.rank == 0)
-            indices = [s] + wfs.gd.get_slice()
+            indices = [s] + density.gd.get_slice()
             w.fill(density.nt_sG[s], parallel=parallel, write=do_write,
                    *indices)
         else:
@@ -435,8 +437,10 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     for s in range(wfs.nspins):
         if hdf5:
+            # XXXXXXX must work with density/hamiltonian redist changes
+            # Maybe the easiest solution is to simply redist to wfs.gd
             do_write = (kpt_comm.rank == 0) and (band_comm.rank == 0)
-            indices = [s] + wfs.gd.get_slice()
+            indices = [s] + hamiltonian.gd.get_slice()
             w.fill(hamiltonian.vt_sG[s], parallel=parallel, write=do_write,
                    *indices)
         else:
