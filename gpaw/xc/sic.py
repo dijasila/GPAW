@@ -194,7 +194,7 @@ class SIC(XCFunctional):
     def initialize(self, density, hamiltonian, wfs, occ=None):
         assert wfs.kd.gamma
         assert not wfs.gd.pbc_c.any()
-        assert not wfs.grid2grid.enabled
+        assert not density.grid2grid.enabled  # Too complicated for now
 
         self.wfs = wfs
         self.dtype = float
@@ -284,13 +284,13 @@ class SIC(XCFunctional):
         self.spin_s[kpt.s].rotate(U_nn)
 
     def setup_force_corrections(self, F_av):
-       self.dF_av = np.zeros_like(F_av)
-       for spin in self.spin_s.values():
-           spin.add_forces(self.dF_av)
-       self.wfs.kd.comm.sum(self.dF_av)
+        self.dF_av = np.zeros_like(F_av)
+        for spin in self.spin_s.values():
+            spin.add_forces(self.dF_av)
+        self.wfs.kd.comm.sum(self.dF_av)
         
     def add_forces(self, F_av):
-       F_av += self.dF_av
+        F_av += self.dF_av
 
     def summary(self, out=sys.stdout):
         for s in range(self.nspins):
@@ -999,7 +999,7 @@ class SICSpin:
 
     def add_forces(self, F_av):
         # Calculate changes in projections
-        deg = 3-self.nspins
+        deg = 3 - self.nspins
         F_amiv = self.pt.dict(self.nocc, derivative=True)
         self.pt.derivative(self.phit_mG, F_amiv)
         for m in range(self.nocc):
@@ -1007,7 +1007,8 @@ class SICSpin:
             dF_aLv = self.ghat.dict(derivative=True)
             self.ghat.derivative(self.vHt_mg[m], dF_aLv)
             for a, dF_Lv in dF_aLv.items():
-                F_av[a] -= deg*self.coulomb_factor * np.dot(self.Q_maL[m][a], dF_Lv)        
+                F_av[a] -= deg * self.coulomb_factor * \
+                    np.dot(self.Q_maL[m][a], dF_Lv)
 
             # Force from projectors
             for a, F_miv in F_amiv.items():
