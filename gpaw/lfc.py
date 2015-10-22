@@ -1044,7 +1044,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                       /
 
         Overwrites the elements of the target matrix Vt_MM. """
-        assert np.all(vt_G.shape == self.gd.n_c)
+        assert np.all(vt_G.shape == self.gd.n_c), (vt_G.shape, self.gd.n_c)
         if self.gamma and self.dtype == float:
             Vt_xMM = np.zeros((1, self.Mstop - self.Mstart, self.Mmax))
             self.lfc.calculate_potential_matrix(vt_G, Vt_xMM[0], -1,
@@ -1147,6 +1147,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
 
         Results are added to DVt_vMM.
         """
+        assert np.all(vt_G.shape == self.gd.n_c)
         cspline_M = []
         for a, sphere in enumerate(self.sphere_a):
             for j, spline in enumerate(sphere.spline_j):

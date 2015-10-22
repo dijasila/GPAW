@@ -214,6 +214,7 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
         self.h_cv = self.cell_cv / self.N_c
         self.dv = (rcut / 2 / ng)**3
         self.orthogonal = False
+        self.parsize_c = (1, 1, 1)
         
     def get_ranks_from_positions(self, spos_ac):
         return np.array([0])
@@ -240,7 +241,7 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
     def get_grid_spacings(self):
         return self.h_cv.diagonal()
         
-    def get_size_of_global_array(self):
+    def get_size_of_global_array(self, pad=None):
         return np.array(len(self.N_c))
 
     def new_descriptor(self, *args, **kwargs):

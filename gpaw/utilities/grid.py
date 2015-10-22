@@ -3,10 +3,11 @@ from functools import partial
 
 import numpy as np
 from gpaw.utilities.grid_redistribute import general_redistribute
+from gpaw.utilities.partition import AtomPartition, AtomicMatrixDistributor
 
 
 class Grid2Grid:
-    def __init__(self, comm, broadcast_comm, gd, big_gd, enabled):
+    def __init__(self, comm, broadcast_comm, gd, big_gd, enabled=True):
         self.comm = comm
         self.broadcast_comm = broadcast_comm
         self.gd = gd
@@ -36,18 +37,32 @@ class Grid2Grid:
                                 big_gd.n_cp, gd.n_cp,
                                 rank2parpos2, rank2parpos1)
     
-    def distribute(self, src_g, dst_g):
-        self._distribute(src_g, dst_g)
+    def distribute(self, src_xg, dst_xg=None):
+        if dst_xg is None:
+            dst_xg = self.big_gd.empty(src_xg.shape[:-3], dtype=src_xg.dtype)
+        self._distribute(src_xg, dst_xg)
+        return dst_xg
     
-    def collect(self, src_g, dst_g):
-        self._collect(src_g, dst_g)
-        self.broadcast_comm.broadcast(dst_g, 0)
+    def collect(self, src_xg, dst_xg=None):
+        if dst_xg is None:
+            dst_xg = self.gd.empty(src_xg.shape[:-3], src_xg.dtype)
+        self._collect(src_xg, dst_xg)
+        self.broadcast_comm.broadcast(dst_xg, 0)
+        return dst_xg
 
     # Strangely enough the purpose of this is to appease AtomPAW
     def new(self, gd, big_gd):
         return Grid2Grid(self.comm, self.broadcast_comm, gd, big_gd,
                          self.enabled)
 
+    def get_matrix_distributor(self, atom_partition, spos_ac=None):
+        if spos_ac is None:
+            rank_a = np.zeros(self.big_gd.comm.size, dtype=int)
+        else:
+            rank_a = self.big_gd.get_ranks_from_positions(spos_ac)
+        big_partition = AtomPartition(self.big_gd.comm, rank_a)
+        return AtomicMatrixDistributor(atom_partition, self.broadcast_comm,
+                                       big_partition)
 
 def grid2grid(comm, gd1, gd2, src_g, dst_g):
     assert np.all(src_g.shape == gd1.n_c)
