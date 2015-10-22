@@ -7,6 +7,6 @@ fxc = FXCCorrelation('diam_kern.ralda.lda_wfcs.gpw', xc='JGMs',
                      Eg=7.3)
 E_i = fxc.calculate(ecut=[131.072])
 
-resultfile = paropen('diam_kern.ralda_kernel_comparison.dat','a')
+resultfile = paropen('diam_kern.ralda_kernel_comparison.dat', 'a')
 resultfile.write(str(E_i[-1]) + '\n')
 resultfile.close()
