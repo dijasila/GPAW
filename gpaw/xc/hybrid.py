@@ -101,7 +101,6 @@ class HybridXC(HybridXCBase):
         self.exx_s = np.zeros(self.nspins)
         self.ekin_s = np.zeros(self.nspins)
         self.nocc_s = np.empty(self.nspins, int)
-        assert not wfs.grid2grid.enabled
         
         if self.finegrid:
             self.poissonsolver = hamiltonian.poisson
