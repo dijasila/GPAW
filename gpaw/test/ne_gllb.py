@@ -15,6 +15,9 @@ for xcname in ['GLLBSC','GLLB']:
         g = Generator(atom, xcname =xcname, scalarrel=False,nofiles=True)
         g.run(**parameters[atom])
         eps = g.e_j[-1]
+    else:
+        eps = 0.0
+    eps = world.sum(eps)
     world.barrier()
 
     a = 5
