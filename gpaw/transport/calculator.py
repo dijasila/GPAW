@@ -2365,9 +2365,11 @@ class Transport(GPAW):
                                                        density.rhot_g,
                                                         global_integral=False)
         Ekin = 0.0
-        for vt_g, vt_G in zip(ham.vt_sg, ham.vt_sG):
+        vt_sG = ham.aux_gd.empty(ham.ns)
+        for vt_g, vt_G in zip(ham.vt_sg, vt_sG):
             vt_g += ham.vHt_g
             ham.restrict(vt_g, vt_G)
+        ham.grid2grid.collect(vt_G, ham.vt_sG)
         self.surround.refresh_vt_sG(self)
         
         nn = self.surround.nn

@@ -468,7 +468,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def __init__(self, ecut, fftwflags,
                  diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd, dtype,
-                 world, kd, kptband_comm, timer, grid2grid):
+                 world, kd, kptband_comm, timer):
         self.ecut = ecut
         self.fftwflags = fftwflags
 
@@ -476,8 +476,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd, dtype,
-                                   world, kd, kptband_comm, timer,
-                                   grid2grid=grid2grid)
+                                   world, kd, kptband_comm, timer)
 
         self.orthoksl.gd = self.pd
         self.matrixoperator = MatrixOperator(self.orthoksl)
@@ -1223,10 +1222,15 @@ class ReciprocalSpaceDensity(Density):
         Density.__init__(self, gd, finegd, nspins, charge, grid2grid,
                          collinear=collinear)
 
+        # XXXXX work in progress
+        serial_comm = gd.comm.new_communicator([gd.comm.rank])
+        serial_gd = gd.new_descriptor(comm=serial_comm)
+        serial_finegd = finegd.new_descriptor(comm=serial_comm)
+
         self.ecut2 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max() * 0.9999
-        self.pd2 = PWDescriptor(self.ecut2, self.gd)
+        self.pd2 = PWDescriptor(self.ecut2, serial_gd)
         self.ecut3 = 0.5 * pi**2 / (self.finegd.h_cv**2).sum(1).max() * 0.9999
-        self.pd3 = PWDescriptor(self.ecut3, self.finegd)
+        self.pd3 = PWDescriptor(self.ecut3, serial_finegd)
 
         self.G3_G = self.pd2.map(self.pd3)
 

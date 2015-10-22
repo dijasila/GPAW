@@ -27,18 +27,19 @@ class ForceCalculator:
         F_wfs_av = np.zeros((natoms, 3))
         wfs.calculate_forces(ham, F_wfs_av)
         wfs.gd.comm.sum(F_wfs_av, 0)
-        
+                
+        F_ham_av = np.zeros((natoms, 3))
+
         try:
             # ODD functionals need force corrections for each spin
             correction = ham.xc.setup_force_corrections
         except AttributeError:
             pass
         else:
-            correction(self.F_av)
-        
-        F_ham_av = np.zeros((natoms, 3))
+            correction(F_ham_av)
+
         ham.calculate_forces(dens, F_ham_av)
-        
+
         F_av = F_ham_av + F_wfs_av
         wfs.world.broadcast(F_av, 0)
 

@@ -54,11 +54,10 @@ class LCAOWaveFunctions(WaveFunctions):
     mode = 'lcao'
     
     def __init__(self, ksl, gd, nvalence, setups, bd,
-                 dtype, world, kd, kptband_comm, timer, grid2grid,
+                 dtype, world, kd, kptband_comm, timer,
                  atomic_correction=None):
         WaveFunctions.__init__(self, gd, nvalence, setups, bd,
-                               dtype, world, kd, kptband_comm, timer,
-                               grid2grid=grid2grid)
+                               dtype, world, kd, kptband_comm, timer)
         self.ksl = ksl
         self.S_qMM = None
         self.T_qMM = None
@@ -376,13 +375,8 @@ class LCAOWaveFunctions(WaveFunctions):
             def my_slices():
                 return _slices(my_atom_indices)
 
-        if self.grid2grid.enabled:
-            vt_sG = self.gd.empty(self.ns)
-            self.grid2grid.collect(hamiltonian.vt_sG, vt_sG)
-            dH_asp = hamiltonian.dh_distributor.collect(hamiltonian.dH_asp)
-        else:
-            dH_asp = hamiltonian.dH_asp
-            vt_sG = hamiltonian.vt_sG
+        dH_asp = hamiltonian.dH_asp
+        vt_sG = hamiltonian.vt_sG
 
         #
         #         -----                    -----

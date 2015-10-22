@@ -161,7 +161,8 @@ class C_Response(Contribution):
 
             self.vt_sG /= self.nt_sG + self.damp
 
-        self.density.interpolate(self.vt_sG, self.vt_sg)
+        vt_sG = self.density.grid2grid.distribute(self.vt_sG)
+        self.density.interpolate(vt_sG, self.vt_sg)
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
         self.update_potentials([n_g])
@@ -175,15 +176,7 @@ class C_Response(Contribution):
 
     def distribute_Dresp_asp(self, Dresp_asp):
         d("distribute_Dresp_asp")
-        # okay, this is a bit hacky since we have to call this from
-        # several different places.  Maybe Mikael can figure out something
-        # smarter.  -Ask
-        #from gpaw.utilities.partition import AtomicMatrixDistributor
-        #amd = self.wfs.grid2grid.amd
-        #amd = AtomicMatrixDistributor(self.density.atom_partition,
-        #                              self.wfs.kptband_comm)
-        #return self.wfs.amd.distribute(Dresp_asp)
-        return Dresp_asp.deepcopy()
+        return self.density.atomic_matrix_distributor.distribute(Dresp_asp)
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a,
                                          addcoredensity=True):
@@ -423,7 +416,8 @@ class C_Response(Contribution):
         # used until occupations and eigenvalues are available.
         self.vt_sG /= self.nt_sG + self.damp
         self.vt_sg = self.finegd.zeros(self.nspins)
-        self.density.interpolate(self.vt_sG, self.vt_sg)
+        vt_sG = self.density.grid2grid.distribute(self.vt_sG)
+        self.density.interpolate(vt_sG, self.vt_sg)
 
     def add_extra_setup_data(self, dict):
         ae = self.ae
@@ -562,7 +556,8 @@ class C_Response(Contribution):
         d("Integration over Dxc_vt_sG",
           domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel())))
         self.vt_sg = self.density.finegd.zeros(wfs.nspins)
-        self.density.interpolate(self.vt_sG, self.vt_sg)
+        vt_sG = self.density.grid2grid.distribute(self.vt_sG)
+        self.density.interpolate(vt_sG, self.vt_sg)
 
         # Read atomic density matrices and non-local part of hamiltonian:
         D_sp = r.get('GLLBAtomicDensityMatrices')

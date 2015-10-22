@@ -169,12 +169,12 @@ class PAWTextOutput:
             else:
                 t('Parallelization over k-points: %d' %
                   self.wfs.kd.comm.size)
-        if self.density.gd.comm.size > 1:  # domain parallelization
-            if np.any(self.density.gd.parsize_c != self.wfs.gd.parsize_c):
-                t('Domain Decomposition: %d x %d x %d (States)'
+        if self.density.finegd.comm.size > 1:  # domain parallelization
+            if np.any(self.density.finegd.parsize_c != self.wfs.gd.parsize_c):
+                t('Domain Decomposition: %d x %d x %d (coarse grid)'
                   % tuple(self.wfs.gd.parsize_c))
-                t('                      %d x %d x %d (Density, Potential)'
-                  % tuple(self.density.gd.parsize_c))
+                t('                      %d x %d x %d (fine grid)'
+                  % tuple(self.density.finegd.parsize_c))
             else:
                 t('Domain Decomposition: %d x %d x %d' %
                   tuple(self.wfs.gd.parsize_c))

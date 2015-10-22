@@ -43,12 +43,7 @@ class DirectLCAO(object):
         # But no one would want that for a practical calculation anyway.
         #dH_asp = wfs.atomic_correction.redistribute(wfs, hamiltonian.dH_asp)
         # XXXXX fix atomic corrections
-        #dH_asp = hamiltonian.dH_asp
-        if wfs.grid2grid.enabled:
-            dH_asp = wfs.amd.collect(hamiltonian.dH_asp)
-        else:
-            dH_asp = hamiltonian.dH_asp
-        #print(wfs.world.rank, dH_asp.keys())
+        dH_asp = hamiltonian.dH_asp
         
         if Vt_xMM is None:
             wfs.timer.start('Potential matrix')
@@ -75,7 +70,6 @@ class DirectLCAO(object):
         #  mu nu    --   mu i  ij nu j
         #           aij
         #
-
         name = wfs.atomic_correction.__class__.__name__
         wfs.timer.start(name)
         wfs.atomic_correction.calculate_hamiltonian(wfs, kpt, dH_asp, H_MM, yy)
@@ -93,19 +87,13 @@ class DirectLCAO(object):
     def iterate(self, hamiltonian, wfs):
         wfs.timer.start('LCAO eigensolver')
 
-        if wfs.grid2grid.enabled:
-            vt_sG = wfs.gd.empty(wfs.ns)
-            wfs.grid2grid.collect(hamiltonian.vt_sG, vt_sG)
-        else:
-            vt_sG = hamiltonian.vt_sG
-
         s = -1
         for kpt in wfs.kpt_u:
             if kpt.s != s:
                 s = kpt.s
                 wfs.timer.start('Potential matrix')
                 Vt_xMM = wfs.basis_functions.calculate_potential_matrices(
-                    vt_sG[s])
+                    hamiltonian.vt_sG[s])
                 wfs.timer.stop('Potential matrix')
             self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM)
 

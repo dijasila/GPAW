@@ -321,9 +321,8 @@ class PAW(PAWTextOutput):
         rank_a = self.wfs.gd.get_ranks_from_positions(spos_ac)
         atom_partition = AtomPartition(self.wfs.gd.comm, rank_a)
         self.wfs.set_positions(spos_ac, atom_partition)
-        work_atom_partition = self.wfs.get_work_atom_partition()
-        self.density.set_positions(spos_ac, work_atom_partition)
-        self.hamiltonian.set_positions(spos_ac, work_atom_partition)
+        self.density.set_positions(spos_ac, atom_partition)
+        self.hamiltonian.set_positions(spos_ac, atom_partition)
 
         return spos_ac
 
@@ -666,17 +665,10 @@ class PAW(PAWTextOutput):
             gd = self.grid_descriptor_class(N_c, cell_cv, pbc_c,
                                             domain_comm, parsize_domain)
 
-            big_gd = self.grid_descriptor_class(N_c, cell_cv, pbc_c, world)
-            grid2grid = Grid2Grid(world, kptband_comm, gd, big_gd,
-                                  par.parallel['augment_grids'])
-
             # do k-point analysis here? XXX
-            #wfs_args = (gd, nvalence, setups, bd, dtype, world, kd,
-            #            kptband_comm, self.timer)
             wfs_kwargs = dict(gd=gd, nvalence=nvalence, setups=setups,
                               bd=bd, dtype=dtype, world=world, kd=kd,
-                              kptband_comm=kptband_comm, timer=self.timer,
-                              grid2grid=grid2grid)
+                              kptband_comm=kptband_comm, timer=self.timer)
 
             if par.parallel['sl_auto']:
                 # Choose scalapack parallelization automatically
@@ -776,7 +768,6 @@ class PAW(PAWTextOutput):
                         world=world,
                         kd=kd,
                         kptband_comm=kptband_comm,
-                        grid2grid=grid2grid,
                         timer=self.timer)
                 elif mode.name == 'fd':
                     self.wfs = mode(par.stencils[0], diagksl,
@@ -809,32 +800,63 @@ class PAW(PAWTextOutput):
             self.wfs.set_eigensolver(eigensolver)
 
         if self.density is None:
-            if self.wfs.grid2grid.enabled:
-                gd = self.wfs.grid2grid.big_gd
+            gd = self.wfs.gd
+
+            # XXX allow specification of parsize, and get automatic parsize
+            # in a smarter way
+            big_gd = gd.new_descriptor(comm=world)
+            # Check whether grid is too small.  8 is smallest admissible.
+            # (we decide this by how difficult it is to make the tests pass)
+            N_c = big_gd.get_size_of_global_array(pad=True)
+            too_small = np.any(N_c / big_gd.parsize_c < 8)
+            if par.parallel['augment_grids'] and not too_small:
+                grid2grid = Grid2Grid(world, kptband_comm, gd, big_gd)
             else:
-                gd = self.wfs.gd
+                # Yuck, let's move this elsewhere
+                class NullGrid2Grid:
+                    def __init__(self, aux_gd):
+                        self.aux_gd = aux_gd
+                        self.enabled = False
+                    def distribute(self, src_xg, dst_xg=None):
+                        assert src_xg is dst_xg or dst_xg is None
+                        return src_xg
+                    collect = distribute
+                    def get_matrix_distributor(self, atom_partition,
+                                               spos_ac=None):
+                        class NullMatrixDistributor:
+                            def distribute(self, D_asp):
+                                return D_asp
+                            collect = distribute
+                        return NullMatrixDistributor()
+                grid2grid = NullGrid2Grid(gd)
+            aux_gd = big_gd if grid2grid.enabled else gd
+
             if par.stencils[1] != 9:
                 # Construct grid descriptor for fine grids for densities
                 # and potentials:
-                finegd = gd.refine()
+                finegd = aux_gd.refine()
             else:
                 # Special case (use only coarse grid):
-                finegd = gd
+                finegd = aux_gd
 
             if realspace:
                 self.density = RealSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
-                    self.wfs.grid2grid, collinear=collinear,
+                    grid2grid, collinear=collinear,
                     stencil=par.stencils[1])
             else:
                 self.density = pw.ReciprocalSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
-                    self.wfs.grid2grid, collinear=collinear)
+                    grid2grid, collinear=collinear)
 
         self.density.initialize(setups, self.timer, magmom_av, par.hund)
         self.density.set_mixer(par.mixer)
 
         if self.hamiltonian is None:
+            # XXX we hope and pray that hamiltonian becomes None
+            # whenever the density does; else the finegds of the two
+            # objects may have different communicators depending on
+            # whether someone called set()!
             gd, finegd = self.density.gd, self.density.finegd
 
             if realspace:
@@ -842,7 +864,7 @@ class PAW(PAWTextOutput):
                     gd=gd, finegd=finegd, nspins=nspins,
                     setups=setups, timer=self.timer, xc=xc,
                     world=world, kptband_comm=self.wfs.kptband_comm,
-                    grid2grid=self.wfs.grid2grid,
+                    grid2grid=self.density.grid2grid,
                     vext=par.external, collinear=collinear,
                     psolver=par.poissonsolver,
                     stencil=par.stencils[1])
@@ -852,7 +874,7 @@ class PAW(PAWTextOutput):
                     nspins=nspins, setups=setups, timer=self.timer,
                     xc=xc, world=world,
                     kptband_comm=self.wfs.kptband_comm,
-                    grid2grid=self.wfs.grid2grid,
+                    grid2grid=self.density.grid2grid,
                     vext=par.external, collinear=collinear)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
@@ -901,7 +923,7 @@ class PAW(PAWTextOutput):
         These are not initialized by default.
         TODO: Is this really the most efficient way?
         """
-        atom_partition = self.wfs.get_work_atom_partition()
+        atom_partition = self.wfs.atom_partition
         spos_ac = self.atoms.get_scaled_positions() % 1.0
         self.density.set_positions(spos_ac, atom_partition)
         self.density.interpolate_pseudo_density()

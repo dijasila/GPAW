@@ -85,11 +85,9 @@ class Eigensolver:
         for R_G, eps, psit_G in zip(R_xG, eps_x, psit_xG):
             axpy(-eps, psit_G, R_G)
 
-        dH_asp = hamiltonian.dH_wfs_asp
-
         c_axi = {}
         for a, P_xi in P_axi.items():
-            dH_ii = unpack(dH_asp[a][kpt.s])
+            dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
             dO_ii = hamiltonian.setups[a].dO_ii
             c_xi = (np.dot(P_xi, dH_ii) -
                     np.dot(P_xi * eps_x[:, np.newaxis], dO_ii))
@@ -123,9 +121,9 @@ class Eigensolver:
 
         self.timer.start('Subspace diag')
 
-        dH_asp = hamiltonian.dH_wfs_asp
         psit_nG = kpt.psit_nG
         P_ani = kpt.P_ani
+        dH_asp = hamiltonian.dH_asp
 
         if self.keep_htpsit:
             Htpsit_nG = reshape(self.Htpsit_nG, psit_nG.shape)

@@ -82,9 +82,7 @@ class FDPWWaveFunctions(WaveFunctions):
         lcaowfs = LCAOWaveFunctions(lcaoksl, self.gd, self.nvalence,
                                     self.setups, lcaobd, self.dtype,
                                     self.world, self.kd, self.kptband_comm,
-                                    nulltimer,
-                                    grid2grid=self.grid2grid,
-                                    )
+                                    nulltimer)
         lcaowfs.basis_functions = basis_functions
         lcaowfs.timer = self.timer
         self.timer.start('Set positions (LCAO WFS)')
@@ -147,8 +145,6 @@ class FDPWWaveFunctions(WaveFunctions):
         F_av.fill(0.0)
         F_aniv = self.pt.dict(self.bd.mynbands, derivative=True)
         dH_asp = hamiltonian.dH_asp
-        if self.grid2grid.enabled:
-            dH_asp = hamiltonian.dh_distributor.collect(dH_asp)
         for kpt in self.kpt_u:
             self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)
             for a, F_niv in F_aniv.items():

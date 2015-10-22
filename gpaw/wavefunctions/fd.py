@@ -28,11 +28,10 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def __init__(self, stencil, diagksl, orthoksl, initksl,
                  gd, nvalence, setups, bd,
-                 dtype, world, kd, kptband_comm, timer, grid2grid):
+                 dtype, world, kd, kptband_comm, timer):
         FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
                                    gd, nvalence, setups, bd,
-                                   dtype, world, kd, kptband_comm, timer,
-                                   grid2grid=grid2grid)
+                                   dtype, world, kd, kptband_comm, timer)
 
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)

@@ -59,7 +59,7 @@ class WaveFunctions(EmptyWaveFunctions):
     ncomp = 1
     
     def __init__(self, gd, nvalence, setups, bd, dtype,
-                 world, kd, kptband_comm, timer, grid2grid):
+                 world, kd, kptband_comm, timer):
         self.gd = gd
         self.nspins = kd.nspins
         self.ns = self.nspins * self.ncomp**2
@@ -82,7 +82,6 @@ class WaveFunctions(EmptyWaveFunctions):
         self.eigensolver = None
         self.positions_set = False
 
-        self.grid2grid = grid2grid
         self.amd = None  # matrix distributor.  Switch to better name
         self.set_setups(setups)
 
@@ -239,19 +238,6 @@ class WaveFunctions(EmptyWaveFunctions):
 
         self.atom_partition = atom_partition
         self.kd.symmetry.check(spos_ac)
-        #if self.grid2grid is not None:
-            
-        big_rank_a = self.grid2grid.big_gd.get_ranks_from_positions(spos_ac)
-        big_partition = AtomPartition(self.grid2grid.big_gd.comm, big_rank_a)
-        self.amd = AtomicMatrixDistributor(self.atom_partition,
-                                           self.kptband_comm,
-                                           big_partition)
-
-    def get_work_atom_partition(self):
-        if self.grid2grid.enabled:
-            return self.amd.work_partition
-        else:
-            return self.atom_partition
 
     def allocate_arrays_for_projections(self, my_atom_indices):
         if not self.positions_set and self.kpt_u[0].P_ani is not None:

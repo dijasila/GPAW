@@ -50,6 +50,8 @@ class Density(object):
         self.nspins = nspins
         self.charge = float(charge)
         self.grid2grid = grid2grid
+        self.aux_gd = grid2grid.big_gd if grid2grid.enabled else gd
+        self.atomic_matrix_distributor = None
 
         self.collinear = collinear
         self.ncomp = 1 if collinear else 2
@@ -81,17 +83,9 @@ class Density(object):
         # TODO: reset other parameters?
         self.nt_sG = None
 
-    def set_positions(self, spos_ac, atom_partition):
+    def set_positions_without_ruining_everything(self, spos_ac,
+                                                 atom_partition):
         rank_a = atom_partition.rank_a
-        self.nct.set_positions(spos_ac)
-        self.ghat.set_positions(spos_ac)
-        self.mixer.reset()
-
-        self.nt_sg = None
-        self.nt_g = None
-        self.rhot_g = None
-        self.Q_aL = None
-
         # If both old and new atomic ranks are present, start a blank dict if
         # it previously didn't exist but it will needed for the new atoms.
         if (self.atom_partition is not None and
@@ -106,6 +100,19 @@ class Density(object):
             self.timer.stop('Redistribute')
         
         self.atom_partition = atom_partition
+        self.atomic_matrix_distributor = self.grid2grid.get_matrix_distributor(
+            self.atom_partition, spos_ac)
+
+    def set_positions(self, spos_ac, atom_partition):
+        self.set_positions_without_ruining_everything(spos_ac, atom_partition)
+        self.nct.set_positions(spos_ac)
+        self.ghat.set_positions(spos_ac)
+        self.mixer.reset()
+
+        self.nt_sg = None
+        self.nt_g = None
+        self.rhot_g = None
+        self.Q_aL = None
 
     def calculate_pseudo_density(self, wfs):
         """Calculate nt_sG from scratch.
@@ -113,14 +120,7 @@ class Density(object):
         nt_sG will be equal to nct_G plus the contribution from
         wfs.add_to_density().
         """
-        if wfs.grid2grid.enabled:
-            nt_sG = wfs.gd.empty(self.ns)
-        else:
-            nt_sG = self.nt_sG
-        wfs.calculate_density_contribution(nt_sG)
-        if wfs.grid2grid.enabled:
-            wfs.grid2grid.distribute(nt_sG, self.nt_sG)
-
+        wfs.calculate_density_contribution(self.nt_sG)
         self.nt_sG[:self.nspins] += self.nct_G
 
     @property
@@ -147,12 +147,7 @@ class Density(object):
         self.calculate_pseudo_density(wfs)
         self.timer.stop('Pseudo density')
         self.timer.start('Atomic density matrices')
-        D_asp = self.setups.empty_atomic_matrix(self.ns, wfs.atom_partition)
-        wfs.calculate_atomic_density_matrices(D_asp)
-        if wfs.grid2grid.enabled:
-            self.D_asp = wfs.amd.distribute(D_asp)
-        else:
-            self.D_asp = D_asp
+        wfs.calculate_atomic_density_matrices(self.D_asp)
         self.timer.stop('Atomic density matrices')
         self.timer.start('Multipole moments')
         comp_charge = self.calculate_multipole_moments()
@@ -205,12 +200,13 @@ class Density(object):
 
         comp_charge = 0.0
         self.Q_aL = {}
-        for a, D_sp in self.D_asp.items():
+        Ddist_asp = self.atomic_matrix_distributor.distribute(self.D_asp)
+        for a, D_sp in Ddist_asp.items():
             Q_L = self.Q_aL[a] = np.dot(D_sp[:self.nspins].sum(0),
                                         self.setups[a].Delta_pL)
             Q_L[0] += self.setups[a].Delta0
             comp_charge += Q_L[0]
-        return self.gd.comm.sum(comp_charge) * sqrt(4 * pi)
+        return self.aux_gd.comm.sum(comp_charge) * sqrt(4 * pi)
 
     def get_initial_occupations(self, a):
         c = self.charge / len(self.setups)  # distribute on all atoms
@@ -258,13 +254,8 @@ class Density(object):
                 f_si = self.get_initial_occupations(a)
             self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
 
-        nt_sG = basis_functions.gd.zeros(self.ns)
-        basis_functions.add_to_density(nt_sG, f_asi)
-        self.nt_sG = self.gd.empty(self.ns)
-        if self.grid2grid.enabled:
-            self.grid2grid.distribute(nt_sG, self.nt_sG)
-        else:
-            self.nt_sG[:] = nt_sG
+        self.nt_sG = self.gd.zeros(self.ns)
+        basis_functions.add_to_density(self.nt_sG, f_asi)
         self.nt_sG[:self.nspins] += self.nct_G
         self.calculate_normalized_charges_and_mix()
 
@@ -276,8 +267,6 @@ class Density(object):
         D_asp = self.setups.empty_atomic_matrix(self.ns,
                                                 wfs.atom_partition)
         wfs.calculate_atomic_density_matrices(D_asp)
-        if self.grid2grid.enabled:
-            D_asp = wfs.amd.distribute(D_asp)
         self.D_asp = D_asp
         self.calculate_normalized_charges_and_mix()
         self.timer.stop("Density initialize from wavefunctions")
@@ -351,9 +340,13 @@ class Density(object):
             spos_ac = atoms.get_scaled_positions() % 1.0
 
         # Refinement of coarse grid, for representation of the AE-density
+        # XXXXXXXXXXXX think about distribution depending on gridrefinement!
         if gridrefinement == 1:
-            gd = self.gd
+            gd = self.aux_gd
             n_sg = self.nt_sG.copy()
+            # This will get the density with the same distribution
+            # as finegd:
+            n_sg = self.grid2grid.distribute(n_sg)
         elif gridrefinement == 2:
             gd = self.finegd
             if self.nt_sg is None:
@@ -364,7 +357,7 @@ class Density(object):
             gd = self.finegd.refine()
 
             # Interpolation function for the density:
-            interpolator = Transformer(self.finegd, gd, 3)
+            interpolator = Transformer(self.finegd, gd, 3) # XXX grids!
 
             # Transfer the pseudo-density to the fine grid:
             n_sg = gd.empty(self.nspins)
@@ -412,13 +405,14 @@ class Density(object):
             W += nw
 
         x_W = phi.create_displacement_arrays()[0]
+        D_asp = self.atomic_matrix_distributor.distribute(self.D_asp)
 
         rho_MM = np.zeros((phi.Mmax, phi.Mmax))
         for s, I_a in enumerate(I_sa):
             M1 = 0
             for a, setup in enumerate(self.setups):
                 ni = setup.ni
-                D_sp = self.D_asp.get(a)
+                D_sp = D_asp.get(a)
                 if D_sp is None:
                     D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
                 else:
@@ -426,11 +420,12 @@ class Density(object):
                               sqrt(4 * pi) *
                               np.dot(D_sp[s], setup.Delta_pL[:, 0]))
                 if gd.comm.size > 1:
-                    gd.comm.broadcast(D_sp, self.atom_partition.rank_a[a])
+                    gd.comm.broadcast(D_sp, D_asp.partition.rank_a[a])
                 M2 = M1 + ni
                 rho_MM[M1:M2, M1:M2] = unpack2(D_sp[s])
                 M1 = M2
 
+            assert np.all(n_sg[s].shape == phi.gd.n_c)
             phi.lfc.ae_valence_density_correction(rho_MM, n_sg[s], a_W, I_a,
                                                   x_W)
             phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a,
@@ -527,6 +522,8 @@ class Density(object):
         atom_partition = AtomPartition(self.gd.comm, np.zeros(natoms, int))
         D_asp = self.setups.empty_atomic_matrix(self.ns, atom_partition)
         self.atom_partition = atom_partition  # XXXXXX
+        self.atomic_matrix_distributor = self.grid2grid.get_matrix_distributor(
+            self.atom_partition)
 
         all_D_sp = reader.get('AtomicDensityMatrices', broadcast=True)
         if self.gd.comm.rank == 0:
@@ -547,7 +544,7 @@ class RealSpaceDensity(Density):
         Density.initialize(self, setups, timer, magmom_av, hund)
 
         # Interpolation function for the density:
-        self.interpolator = Transformer(self.gd, self.finegd, self.stencil)
+        self.interpolator = Transformer(self.aux_gd, self.finegd, self.stencil)
 
         spline_aj = []
         for setup in setups:
@@ -571,7 +568,8 @@ class RealSpaceDensity(Density):
         if comp_charge is None:
             comp_charge = self.calculate_multipole_moments()
 
-        self.nt_sg = self.interpolate(self.nt_sG, self.nt_sg)
+        nt_sG = self.grid2grid.distribute(self.nt_sG)
+        self.nt_sg = self.interpolate(nt_sG, self.nt_sg)
 
         # With periodic boundary conditions, the interpolation will
         # conserve the number of electrons.

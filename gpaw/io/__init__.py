@@ -766,9 +766,15 @@ def read(paw, reader, read_projections=True):
     except (AttributeError, KeyError):
         oldmode = 'fd'  # This is an old gpw file from before lcao existed
         
+    spos_ac = paw.atoms.get_scaled_positions() % 1.0
     if newmode == 'lcao':
-        spos_ac = paw.atoms.get_scaled_positions() % 1.0
         wfs.load_lazily(hamiltonian, spos_ac)
+
+    rank_a = density.gd.get_ranks_from_positions(spos_ac)
+    new_atom_partition = AtomPartition(density.gd.comm, rank_a)
+    for obj in [density, hamiltonian]:
+        obj.set_positions_without_ruining_everything(spos_ac,
+                                                     new_atom_partition)
 
     if newmode != oldmode:
         paw.scf.reset()
