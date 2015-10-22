@@ -30,7 +30,8 @@ for xcname in ['GLLBSC','GLLB']:
     response.calculate_delta_xc_perturbation()
 
     eps3d = calc.wfs.kpt_u[0].eps_n[3]
-    if world.rank == 0:
-        equal(eps, eps3d, 1e-3)
-        # Correct for small cell +0.14eV (since the test needs to be fast in test suite)
-        equal(e+0.147106041, 0, 5e-2)
+    #if world.rank == 0:
+    equal(eps, eps3d, 1e-3)
+    # Correct for small cell +0.14eV (since the test needs to be fast
+    # in test suite)
+    equal(e+0.147106041, 0, 5e-2)

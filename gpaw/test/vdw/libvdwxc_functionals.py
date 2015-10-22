@@ -37,9 +37,9 @@ def test(vdwxcclass, Eref=None, nvref=None):
     gd.comm.barrier()
 
     if Eerr is not None:
-        assert Eerr < 1e-11
+        assert Eerr < 1e-11, 'error=%s' % Eerr
     if nverr is not None:
-        assert nverr < 1e-11
+        assert nverr < 1e-11, 'error=%s' % nverr
 
 test(VDWDF, -3.73732366504, -4.77652923808)
 test(VDWDF2, -3.75680663781, -4.79124091301)
