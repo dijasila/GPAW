@@ -312,14 +312,18 @@ class Density(object):
             np.dot(self.D_asp[a][spin], setup.Delta_pL[:, 0])
             + setup.Delta0 / self.nspins)
 
-    def get_all_electron_density(self, atoms=None, gridrefinement=2, spos_ac=None, skip_core=False):
+    def get_all_electron_density(self, atoms=None, gridrefinement=2,
+                                 spos_ac=None, skip_core=False):
         """Return real all-electron density array.
 
            Usage: Either get_all_electron_density(atoms) or
                          get_all_electron_density(spos_ac=spos_ac)
-                         skip_core=True theoretically returns the all-electron 
-                         valence density (use with care; will not in general integrate
-                         to valence)                                                  """
+
+           skip_core=True theoretically returns the
+                          all-electron valence density (use with
+                          care; will not in general integrate
+                          to valence)
+        """
         if spos_ac is None:
             spos_ac = atoms.get_scaled_positions() % 1.0
 
