@@ -38,7 +38,7 @@ from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.utilities.grid import Grid2Grid
+from gpaw.utilities.grid import Grid2Grid, NullGrid2Grid
 from gpaw.utilities.partition import AtomPartition
 from gpaw.parameters import InputParameters, usesymm2symmetry
 from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
@@ -805,30 +805,14 @@ class PAW(PAWTextOutput):
             # XXX allow specification of parsize, and get automatic parsize
             # in a smarter way
             big_gd = gd.new_descriptor(comm=world)
-            # Check whether grid is too small.  4 is smallest admissible.
+            # Check whether grid is too small.  8 is smallest admissible.
             # (we decide this by how difficult it is to make the tests pass)
             # (Actually it depends on stencils!  But let the user deal with it)
             N_c = big_gd.get_size_of_global_array(pad=True)
-            too_small = np.any(N_c / big_gd.parsize_c < 4)
+            too_small = np.any(N_c / big_gd.parsize_c < 8)
             if par.parallel['augment_grids'] and not too_small:
                 grid2grid = Grid2Grid(world, kptband_comm, gd, big_gd)
             else:
-                # Yuck, let's move this elsewhere
-                class NullGrid2Grid:
-                    def __init__(self, aux_gd):
-                        self.aux_gd = aux_gd
-                        self.enabled = False
-                    def distribute(self, src_xg, dst_xg=None):
-                        assert src_xg is dst_xg or dst_xg is None
-                        return src_xg
-                    collect = distribute
-                    def get_matrix_distributor(self, atom_partition,
-                                               spos_ac=None):
-                        class NullMatrixDistributor:
-                            def distribute(self, D_asp):
-                                return D_asp
-                            collect = distribute
-                        return NullMatrixDistributor()
                 grid2grid = NullGrid2Grid(gd)
             aux_gd = big_gd if grid2grid.enabled else gd
 

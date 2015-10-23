@@ -28,8 +28,9 @@ def vxc(paw, xc=None, coredensity=True):
     # Calculate XC-potential:
     vxct_sg = ham.finegd.zeros(wfs.nspins)
     xc.calculate(dens.finegd, dens.nt_sg, vxct_sg)
-    vxct_sG = ham.gd.empty(wfs.nspins)
+    vxct_sG = ham.aux_gd.empty(wfs.nspins)
     ham.restrict(vxct_sg, vxct_sG)
+    vxct_sG = ham.grid2grid.collect(vxct_sG)
     if thisisatest:
         vxct_sG[:] = 1
         

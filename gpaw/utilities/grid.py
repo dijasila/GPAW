@@ -64,6 +64,31 @@ class Grid2Grid:
         return AtomicMatrixDistributor(atom_partition, self.broadcast_comm,
                                        big_partition)
 
+
+class NullGrid2Grid:
+    def __init__(self, aux_gd):
+        self.gd = aux_gd
+        self.big_gd = aux_gd
+        self.enabled = False
+
+    def distribute(self, src_xg, dst_xg=None):
+        assert src_xg is dst_xg or dst_xg is None
+        return src_xg
+
+    collect = distribute
+
+    def get_matrix_distributor(self, atom_partition, spos_ac=None):
+        class NullMatrixDistributor:
+            def distribute(self, D_asp):
+                return D_asp
+            collect = distribute
+        return NullMatrixDistributor()
+
+    def new(self, gd, big_gd):
+        assert np.all(gd.n_c == big_gd.n_c)
+        return NullGrid2Grid(gd)
+
+
 def grid2grid(comm, gd1, gd2, src_g, dst_g):
     assert np.all(src_g.shape == gd1.n_c)
     assert np.all(dst_g.shape == gd2.n_c)

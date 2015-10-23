@@ -1219,20 +1219,22 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 class ReciprocalSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True):
-        Density.__init__(self, gd, finegd, nspins, charge, grid2grid,
-                         collinear=collinear)
+        assert gd.comm.size == 1
+        serial_finegd = finegd.new_descriptor(comm=gd.comm)
 
-        # XXXXX work in progress
-        serial_comm = gd.comm.new_communicator([gd.comm.rank])
-        serial_gd = gd.new_descriptor(comm=serial_comm)
-        serial_finegd = finegd.new_descriptor(comm=serial_comm)
+        from gpaw.utilities.grid import NullGrid2Grid
+        Density.__init__(self, gd, serial_finegd, nspins, charge,
+                         grid2grid=NullGrid2Grid(gd), collinear=collinear)
 
         self.ecut2 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max() * 0.9999
-        self.pd2 = PWDescriptor(self.ecut2, serial_gd)
+        self.pd2 = PWDescriptor(self.ecut2, gd)
         self.ecut3 = 0.5 * pi**2 / (self.finegd.h_cv**2).sum(1).max() * 0.9999
         self.pd3 = PWDescriptor(self.ecut3, serial_finegd)
 
         self.G3_G = self.pd2.map(self.pd3)
+        
+        self.xc_grid2grid = grid2grid.new(serial_finegd, finegd)
+        self.xc_matrix_distributor = None
 
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
@@ -1252,6 +1254,11 @@ class ReciprocalSpaceDensity(Density):
         self.nct_q = self.pd2.zeros()
         self.nct.add(self.nct_q, 1.0 / self.nspins)
         self.nct_G = self.pd2.ifft(self.nct_q)
+
+        from gpaw.utilities.partition import AtomPartition
+        p = AtomPartition(self.gd.comm, np.zeros(len(spos_ac), dtype=int))
+        self.xc_matrix_distributor = \
+            self.xc_grid2grid.get_matrix_distributor(p)
 
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
@@ -1310,8 +1317,11 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, setups, timer, xc,
                  world, kptband_comm, vext=None, collinear=True,
                  grid2grid=None):
-        Hamiltonian.__init__(self, gd, finegd, nspins, setups, timer, xc,
-                             world, kptband_comm, vext=vext,
+
+        assert gd.comm.size == 1
+        assert finegd.comm.size == 1
+        Hamiltonian.__init__(self, gd, finegd, nspins, setups,
+                             timer, xc, world, kptband_comm, vext=vext,
                              collinear=collinear, grid2grid=grid2grid)
 
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)
@@ -1354,8 +1364,11 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
         self.vt_sG[:] = self.pd2.ifft(self.vt_Q)
 
         self.timer.start('XC 3D grid')
-        vxct_sg = self.finegd.zeros(self.nspins)
-        self.exc = self.xc.calculate(self.finegd, density.nt_sg, vxct_sg)
+        nt_dist_sg = density.xc_grid2grid.distribute(density.nt_sg)
+        vxct_dist_sg = density.xc_grid2grid.big_gd.zeros(self.nspins)
+        self.exc = self.xc.calculate(density.xc_grid2grid.big_gd,
+                                     nt_dist_sg, vxct_dist_sg)
+        vxct_sg = density.xc_grid2grid.collect(vxct_dist_sg)
 
         for vt_G, vxct_g in zip(self.vt_sG, vxct_sg):
             vxc_G, vxc_Q = self.pd3.restrict(vxct_g, self.pd2)

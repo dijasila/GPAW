@@ -303,7 +303,7 @@ class Hamiltonian(object):
         self.timer.start('XC Correction')
         for a, D_sp in D_asp.items():
             setup = self.setups[a]
-            dH_sp = dH_asp[a]#np.zeros_like(D_sp)
+            dH_sp = dH_asp[a]
             Exc += self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
         self.timer.stop('XC Correction')
 
