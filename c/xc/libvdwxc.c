@@ -64,7 +64,7 @@ PyObject* libvdwxc_init_serial(PyObject* self, PyObject* args)
     }
     vdw_data* vdw = unpack_vdw_pointer(vdw_obj);
     vdw_init_serial(*vdw);
-    vdw_print(*vdw);
+    //vdw_print(*vdw);
     Py_RETURN_NONE;
 }    
 
@@ -118,7 +118,7 @@ PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args)
     MPI_Comm comm = unpack_gpaw_comm(gpaw_comm_obj);
     fftw_mpi_init();
     vdw_init_mpi(*vdw, comm);
-    vdw_print(*vdw);
+    //vdw_print(*vdw);
     Py_RETURN_NONE;
 }
 #endif // FFTW3_MPI
@@ -126,7 +126,6 @@ PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args)
 #ifdef GPAW_WITH_PFFT
 PyObject* libvdwxc_init_pfft(PyObject* self, PyObject* args)
 {
-    printf("pfft init\n");
     PyObject* vdw_obj;
     PyObject* gpaw_comm_obj;
     int nproc1, nproc2;
@@ -137,7 +136,7 @@ PyObject* libvdwxc_init_pfft(PyObject* self, PyObject* args)
     MPI_Comm comm = unpack_gpaw_comm(gpaw_comm_obj);
     pfft_init();
     vdw_init_pfft(*vdw, comm, nproc1, nproc2);
-    vdw_print(*vdw);
+    //vdw_print(*vdw);
     Py_RETURN_NONE;
 }
 #endif // PFFT
