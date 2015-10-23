@@ -31,16 +31,18 @@ def test(vdwxcclass, Eref=None, nvref=None):
     if gd.comm.rank == 0:
         print(vdwxcclass.__name__)
         print('=' * len(vdwxcclass.__name__))
-        print('E  = %15s vs Eref  = %15s :: Eerr  = %15s' % (E, Eref, Eerr))
-        print('nv = %15s vs nvref = %15s :: nverr = %15s' % (nv, nvref, nverr))
+        print('E  = %18.14f vs ref = %18.14f :: err = %10.6e'
+              % (E, Eref, Eerr))
+        print('nv = %18.14f vs ref = %18.14f :: err = %10.6e'
+              % (nv, nvref, nverr))
         print()
     gd.comm.barrier()
 
     if Eerr is not None:
-        assert Eerr < 1e-11, 'error=%s' % Eerr
+        assert Eerr < 1e-14, 'error=%s' % Eerr
     if nverr is not None:
-        assert nverr < 1e-11, 'error=%s' % nverr
+        assert nverr < 1e-14, 'error=%s' % nverr
 
-test(VDWDF, -3.73732366504, -4.77652923808)
-test(VDWDF2, -3.75680663781, -4.79124091301)
-test(VDWDFCX, -3.62973365771, -4.6752434767)
+test(VDWDF, -3.73732366504356, -4.77652923808480)
+test(VDWDF2, -3.75680663471042, -4.79124091177043)
+test(VDWDFCX, -3.62973365771069, -4.67524347669559)
