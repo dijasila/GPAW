@@ -372,10 +372,8 @@ class Heterostructure:
             ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])
             layer_thickness=self.d[ilayer]
         else:
-            print ('hey')
             ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])/2
             layer_thickness=self.d[ilayer]
-        print (layer_thickness)
             
         W_q *= q_temp
         q = np.linspace(q_temp[0],q_temp[-1],10000)
