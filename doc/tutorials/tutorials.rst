@@ -49,6 +49,7 @@ Specialized tutorials
    dielectric_response/dielectric_response
    rpa/rpa_tut
    fxc_correlation/rapbe_tut
+   rangerpa/rangerpa_tut
    H2/ensembles
    gw_tutorial/gw_tutorial
    spinorbit/spinorbit
