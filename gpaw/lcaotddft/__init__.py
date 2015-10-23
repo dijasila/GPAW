@@ -30,10 +30,12 @@ class KickHamiltonian:
 
         W_aL = dens.ghat.dict()
         dens.ghat.integrate(vext_g, W_aL)
+        # XXX this is a quick hack to get the distribution right
+        dHtmp_asp = ham.atomic_matrix_distributor.distribute(self.dH_asp)
         for a, W_L in W_aL.items():
             setup = dens.setups[a]
-            self.dH_asp[a] = np.dot(setup.Delta_pL, W_L).reshape((1, -1))
-
+            dHtmp_asp[a] = np.dot(setup.Delta_pL, W_L).reshape((1, -1))
+        self.dH_asp = ham.atomic_matrix_distributor.collect(dHtmp_asp)
 
 class LCAOTDDFT(GPAW):
     def __init__(self, filename=None,

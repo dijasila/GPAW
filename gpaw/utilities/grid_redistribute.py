@@ -399,12 +399,12 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
     if myparpos1_c is not None:
         myoffset1_c, mysize1_c = domains1.get_box(myparpos1_c)
         assert np.all(mysize1_c == src_xg.shape[-3:]), \
-            (mysize1_c, src_xg.shape)
+            (mysize1_c, src_xg.shape[-3:])
     myparpos2_c = rank2parpos2(comm.rank)
     if myparpos2_c is not None:
         myoffset2_c, mysize2_c = domains2.get_box(myparpos2_c)
         assert np.all(mysize2_c == dst_xg.shape[-3:]), \
-            (mysize2_c, dst_xg.shape)
+            (mysize2_c, dst_xg.shape[-3:])
 
     sendranks = []
     recvranks = []

@@ -805,10 +805,11 @@ class PAW(PAWTextOutput):
             # XXX allow specification of parsize, and get automatic parsize
             # in a smarter way
             big_gd = gd.new_descriptor(comm=world)
-            # Check whether grid is too small.  8 is smallest admissible.
+            # Check whether grid is too small.  4 is smallest admissible.
             # (we decide this by how difficult it is to make the tests pass)
+            # (Actually it depends on stencils!  But let the user deal with it)
             N_c = big_gd.get_size_of_global_array(pad=True)
-            too_small = np.any(N_c / big_gd.parsize_c < 8)
+            too_small = np.any(N_c / big_gd.parsize_c < 4)
             if par.parallel['augment_grids'] and not too_small:
                 grid2grid = Grid2Grid(world, kptband_comm, gd, big_gd)
             else:
