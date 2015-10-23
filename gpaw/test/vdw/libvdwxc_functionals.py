@@ -31,9 +31,9 @@ def test(vdwxcclass, Eref=None, nvref=None):
     if gd.comm.rank == 0:
         print(vdwxcclass.__name__)
         print('=' * len(vdwxcclass.__name__))
-        print('E  = %18.14f vs ref = %18.14f :: err = %10.6e'
+        print('E  = %19.16f vs ref = %19.16f :: err = %10.6e'
               % (E, Eref, Eerr))
-        print('nv = %18.14f vs ref = %18.14f :: err = %10.6e'
+        print('nv = %19.16f vs ref = %19.16f :: err = %10.6e'
               % (nv, nvref, nverr))
         print()
     gd.comm.barrier()
