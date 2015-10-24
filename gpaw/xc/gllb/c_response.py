@@ -161,8 +161,8 @@ class C_Response(Contribution):
 
             self.vt_sG /= self.nt_sG + self.damp
 
-        vt_sG = self.density.grid2grid.distribute(self.vt_sG)
-        self.density.interpolate(vt_sG, self.vt_sg)
+        self.vt_sg = self.density.distribute_and_interpolate(self.vt_sG,
+                                                             self.vt_sg)
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
         self.update_potentials([n_g])
@@ -415,9 +415,8 @@ class C_Response(Contribution):
         # Update vt_sG to correspond atomic response potential. This will be
         # used until occupations and eigenvalues are available.
         self.vt_sG /= self.nt_sG + self.damp
-        self.vt_sg = self.finegd.zeros(self.nspins)
-        vt_sG = self.density.grid2grid.distribute(self.vt_sG)
-        self.density.interpolate(vt_sG, self.vt_sg)
+        self.vt_sg = self.density.distribute_and_interpolate(self.vt_sG,
+                                                             self.vt_sg)
 
     def add_extra_setup_data(self, dict):
         ae = self.ae
@@ -555,9 +554,9 @@ class C_Response(Contribution):
           domain_comm.sum(np.sum(self.vt_sG.ravel())))
         d("Integration over Dxc_vt_sG",
           domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel())))
-        self.vt_sg = self.density.finegd.zeros(wfs.nspins)
-        vt_sG = self.density.grid2grid.distribute(self.vt_sG)
-        self.density.interpolate(vt_sG, self.vt_sg)
+
+        self.vt_sg = self.density.distribute_and_interpolate(self.vt_sG,
+                                                             self.vt_sg)
 
         # Read atomic density matrices and non-local part of hamiltonian:
         D_sp = r.get('GLLBAtomicDensityMatrices')

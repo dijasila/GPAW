@@ -25,7 +25,7 @@ class KickHamiltonian:
         ham = calc.hamiltonian
         dens = calc.density
         vext_g = ext.get_potential(ham.finegd)
-        self.vt_sG = [ham.grid2grid.collect(ham.restrict(vext_g))]
+        self.vt_sG = [ham.restrict_and_collect(vext_g)]
         self.dH_asp = ham.setups.empty_atomic_matrix(1, ham.atom_partition)
 
         W_aL = dens.ghat.dict()
