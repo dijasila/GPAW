@@ -1285,6 +1285,8 @@ class ReciprocalSpaceDensity(Density):
 
         return out_xR
 
+    distribute_and_interpolate = interpolate
+
     def calculate_pseudo_charge(self):
         self.nt_Q = self.nt_sQ[:self.nspins].sum(axis=0)
         self.rhot_q = self.pd3.zeros()
@@ -1406,6 +1408,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             out_R[:] = self.pd3.restrict(in_R, self.pd2)[0]
 
         return out_xR
+
+    restrict_and_collect = restrict
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         dens.ghat.derivative(self.vHt_q, ghat_aLv)
