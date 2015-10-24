@@ -529,6 +529,14 @@ class RealSpaceHamiltonian(Hamiltonian):
                         forces=True)
         self.vbar_g = None
 
+    def restrict_and_collect(self, a_xg, b_xg=None, phases=None):
+        if self.grid2grid.enabled:
+            tmp_xg = self.restrictor.apply(a_xg, output=None, phases=phases)
+            b_xg = self.grid2grid.collect(tmp_xg, b_xg)
+        else:
+            b_xg = self.restrictor.apply(a_xg, output=b_xg, phases=phases)
+        return b_xg
+
     def summary(self, fd):
         Hamiltonian.summary(self, fd)
 
@@ -591,12 +599,7 @@ class RealSpaceHamiltonian(Hamiltonian):
     def calculate_kinetic_energy(self, density):
         # XXX new timer item for kinetic energy?
         self.timer.start('Hartree integrate/restrict')
-        if self.grid2grid.enabled:
-            vt_sG = self.aux_gd.empty(self.ns)
-        else:
-            vt_sG = self.vt_sG
-        self.restrict(self.vt_sg, vt_sG)
-        self.grid2grid.collect(vt_sG, self.vt_sG)
+        self.restrict_and_collect(self.vt_sg, self.vt_sG)
         
         Ekin = 0.0
         s = 0

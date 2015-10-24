@@ -584,8 +584,7 @@ class RealSpaceDensity(Density):
         if comp_charge is None:
             comp_charge = self.calculate_multipole_moments()
 
-        nt_sG = self.grid2grid.distribute(self.nt_sG)
-        self.nt_sg = self.interpolate(nt_sG, self.nt_sg)
+        self.nt_sg = self.distribute_and_interpolate(self.nt_sG, self.nt_sg)
 
         # With periodic boundary conditions, the interpolation will
         # conserve the number of electrons.
@@ -615,6 +614,10 @@ class RealSpaceDensity(Density):
             self.interpolator.apply(in_R, out_R)
 
         return out_xR
+
+    def distribute_and_interpolate(self, in_xR, out_xR=None):
+        in_xR = self.grid2grid.distribute(in_xR)
+        return self.interpolate(in_xR, out_xR)
 
     def calculate_pseudo_charge(self):
         self.nt_g = self.nt_sg[:self.nspins].sum(axis=0)
