@@ -10,6 +10,7 @@ from scipy.special import gamma
 # from scipy.linalg import solve_banded
 import ase.units as units
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
+from ase.utils import seterr
 
 from gpaw.xc import XC
 from gpaw.gaunt import gaunt
@@ -77,14 +78,11 @@ class GaussianBasis:
         self.K_bb = np.dot(np.dot(Q_Bb.T, K_BB), Q_Bb)
 
         r_g = rgd.r_g
+        gaussians_Bg = np.exp(-np.outer(alpha_B, r_g**2)) * r_g**l
         # Avoid errors in debug mode from division by zero:
-        old_settings = np.seterr(divide='ignore')
-        self.basis_bg = (np.dot(
-            Q_Bb.T,
-            (2 * (2 * alpha_B[:, None])**(l + 1.5) /
-             gamma(l + 1.5))**0.5 *
-            np.exp(-np.multiply.outer(alpha_B, r_g**2))) * r_g**l)
-        np.seterr(**old_settings)
+        with seterr(divide='ignore'):
+            prefactors_B = (2 * (2 * alpha_B)**(l + 1.5) / gamma(l + 1.5))**0.5
+        self.basis_bg = np.dot(Q_Bb.T, prefactors_B[:, None] * gaussians_Bg)
         
     def __len__(self):
         return self.nbasis
