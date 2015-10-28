@@ -17,8 +17,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         cavity, dielectric, interactions,
         # RealSpaceHamiltonian arguments:
         gd, finegd, nspins, setups, timer, xc, world,
-        kptband_comm, vext=None, collinear=True, psolver=None,
-        grid2grid=None,
+        kptband_comm, grid2grid, vext=None, collinear=True, psolver=None,
         stencil=3
     ):
         """Constructor of SolvationRealSpaceHamiltonian class.
@@ -106,21 +105,23 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                 vt_g += self.vt_ia_g
         Eias = [ia.E for ia in self.interactions]
 
-        Ekin = self.calculate_kinetic_energy(density)
+        Ekin1 = self.calculate_kinetic_energy(density)
         W_aL = self.calculate_atomic_hamiltonians(density)
-        Ekin, Epot, Ebar, Eext, Exc = self.update_corrections(
-            density, Ekin, Epot, Ebar, Eext, Exc, W_aL
+        Ekin2, Epot, Ebar, Eext, Exc = self.update_corrections(
+            density, 0.0, Epot, Ebar, Eext, Exc, W_aL
         )
 
-        energies = np.array([Ekin, Epot, Ebar, Eext, Exc] + Eias)
+        self.Ekin0 = self.gd.comm.sum(Ekin1) + self.finegd.comm.sum(Ekin2)
+        
+        energies = np.array([Epot, Ebar, Eext, Exc] + Eias)
         self.timer.start('Communicate energies')
-        self.gd.comm.sum(energies)
+        self.finegd.comm.sum(energies)
         # Make sure that all CPUs have the same energies
         self.world.broadcast(energies, 0)
         self.cavity.communicate_vol_surf(self.world)
         self.timer.stop('Communicate energies')
-        (self.Ekin0, self.Epot, self.Ebar, self.Eext, self.Exc) = energies[:5]
-        for E, ia in zip(energies[5:], self.interactions):
+        (self.Epot, self.Ebar, self.Eext, self.Exc) = energies[:4]
+        for E, ia in zip(energies[4:], self.interactions):
             setattr(self, 'E_' + ia.subscript, E)
 
         # self.Exc += self.Enlxc
