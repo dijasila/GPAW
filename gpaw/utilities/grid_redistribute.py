@@ -646,8 +646,7 @@ def test(N_c, gd, gd2, reduce_dir, distribute_dir, verbose=True):
 def rigorous_testing():
     from itertools import product, permutations, cycle
     from gpaw.mpi import world
-    #gridpointcounts = [1, 2, 3, 5, 7, 10, 16, 24, 37]
-    gridpointcounts = [1, 2, 10, 16, 37]
+    gridpointcounts = [1, 2, 10, 21]
     cpucounts = np.arange(1, world.size + 1)
     pbc = cycle(product([0, 1], [0, 1], [0, 1]))
 
