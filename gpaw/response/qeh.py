@@ -47,6 +47,7 @@ class Heterostructure:
         layer_indices = []
         self.n_layers = 0
         namelist = []
+        n_rep = 0
         for n in range(len(structure)):
             name = structure[n]
             num = ''
@@ -75,8 +76,10 @@ class Heterostructure:
                     chi_dipole.append(np.array(chid[:qindex, :windex]))
                     drho_dipole.append(np.array(drhod[:qindex]))
                 self.z.append(np.array(zi))
+                n -= n_rep
             else:
                 n = namelist.index(name)
+                n_rep += 1
             indices = [n for i in range(int(num))]
             layer_indices = np.append(layer_indices, indices)
         self.layer_indices = np.array(layer_indices, dtype=int)
@@ -369,10 +372,10 @@ class Heterostructure:
         if self.n_layers==1:
             layer_thickness = self.s[0]
         elif len(e_distr)==self.n_layers:
-            ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])
+            ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])//2
             layer_thickness=self.d[ilayer]
         else:
-            ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])/2
+            ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])//4
             layer_thickness=self.d[ilayer]
             
         W_q *= q_temp
