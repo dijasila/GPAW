@@ -6,7 +6,9 @@ import pickle
 from math import pi
 
 import numpy as np
-from ase.units import Hartree, Bohr
+import ase
+from ase.units import Hartree, Bohr, _c
+from ase.utils import devnull
 
 import gpaw.mpi as mpi
 from gpaw.response.chi0 import Chi0
@@ -189,7 +191,8 @@ class DielectricFunction:
         """Return frequencies that Chi is evaluated on"""
         return self.omega_w * Hartree
 
-    def get_chi(self, xc='RPA', q_c=[0, 0, 0], direction='x'):
+    def get_chi(self, xc='RPA', q_c=[0, 0, 0], direction='x',
+                return_VchiV=True, q0=None):
         """ Returns v^1/2 chi V^1/2"""
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         G_G = pd.G2_qG[0]**0.5
@@ -209,41 +212,46 @@ class DielectricFunction:
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
         
-        G_G /= (4 * pi)**0.5
+        K_G = (4 * pi)**0.5 / G_G
+        K_GG = np.eye(nG, dtype=complex)
 
-        if self.truncation == 'wigner-seitz':
-            kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv,
-                                                 self.chi0.calc.wfs.kd.N_c)
-            K_G = kernel.get_potential(pd)
-            K_G *= G_G**2
-            if pd.kd.gamma:
-                K_G[0] = 0.0
-        elif self.truncation == '2D':
-            K_G = truncated_coulomb(pd)
-            K_G *= G_G**2
-            if pd.kd.gamma:
-                K_G[0] = 0.0
-        else:
-            K_G = np.ones(nG)
+        if self.truncation is not None:
+            if self.truncation == 'wigner-seitz':
+                kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv,
+                                                     self.chi0.calc.wfs.kd.N_c)
+                Ktrunc_GG = kernel.get_potential(pd)
+            
+            elif self.truncation == '2D':
+                Ktrunc_G = truncated_coulomb(pd, q0=q0)
 
-        K_GG = np.zeros((nG, nG), dtype=complex)
-        for i in range(nG):
-            K_GG[i, i] = K_G[i]
-
+            if pd.kd.gamma and q0 is None:
+                Ktrunc_G[0] = 0.0
+        
+            Ktrunc_GG = np.zeros((nG, nG), dtype=complex)
+            for i in range(nG):
+                K_GG[i, i] = Ktrunc_G[i] / K_G[i]
+        
         if xc != 'RPA':
             R_av = self.chi0.calc.atoms.positions / Bohr
             nt_sG = self.chi0.calc.density.nt_sG
             Kxc_sGG = calculate_Kxc(pd, nt_sG, R_av, self.chi0.calc.wfs.setups,
                                     self.chi0.calc.density.D_asp,
                                     functional=xc)
-            K_GG += Kxc_sGG[0] * G_G * G_G[:, np.newaxis]
+            K_GG += Kxc_sGG[0] / K_G / K_G[:, np.newaxis]
+
         chi_wGG = []
         for chi0_GG in chi0_wGG:
-            chi0_GG[:] = chi0_GG / G_G / G_G[:, np.newaxis]
-            chi_wGG.append(np.dot(np.linalg.inv(np.eye(nG) -
-                                                np.dot(chi0_GG, K_GG)),
-                                  chi0_GG))
-        return chi0_wGG, np.array(chi_wGG)
+            #  v^1/2 chi0 V^1/2
+            chi0_GG[:] = chi0_GG * K_G * K_G[:, np.newaxis]
+            chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
+                                          np.dot(chi0_GG, K_GG)),
+                            chi0_GG)
+            if not return_VchiV:
+                chi0_GG /= K_G * K_G[:, np.newaxis]
+                chi_GG /= K_G * K_G[:, np.newaxis]
+            chi_wGG.append(chi_GG)
+            
+        return pd, chi0_wGG, np.array(chi_wGG)
   
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
@@ -413,23 +421,25 @@ class DielectricFunction:
                           direction='x', filename='eels.csv'):
         """Calculate EELS spectrum. By default, generate a file 'eels.csv'.
 
-        EELS spectrum is obtained from the imaginary part of the inverse
-        of dielectric function. Returns EELS spectrum without and with
-        local field corrections:
+        EELS spectrum is obtained from the imaginary part of the
+        density response function as, EELS(\omega) = - 4 * \pi / q^2 Im \chi.
+        Returns EELS spectrum without and with local field corrections:
 
         df_NLFC_w, df_LFC_w = DielectricFunction.get_eels_spectrum()
         """
-
-        # Calculate dielectric function
-        df_NLFC_w, df_LFC_w = self.get_dielectric_function(
-            xc=xc, q_c=q_c,
-            direction=direction,
-            filename=None)
-        Nw = df_NLFC_w.shape[0]
         
-        # Calculate eels
-        eels_NLFC_w = -(1 / df_NLFC_w).imag
-        eels_LFC_w = -(1 / df_LFC_w).imag
+        # Calculate V^1/2 \chi V^1/2
+        pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
+                                               direction=direction)
+        Nw = self.omega_w.shape[0]
+
+        # Calculate eels = -Im 4 \pi / q^2  \chi
+        eels_NLFC_w = -(1. / (1. - Vchi0_wGG[:, 0, 0])).imag
+        eels_LFC_w = - (Vchi_wGG[:, 0, 0]).imag
+        
+        # Collect frequencies
+        eels_NLFC_w = self.collect(eels_NLFC_w)
+        eels_LFC_w = self.collect(eels_LFC_w)
 
         # Write to file
         if filename is not None and mpi.rank == 0:
@@ -440,8 +450,48 @@ class DielectricFunction:
                       (self.chi0.omega_w[iw] * Hartree,
                        eels_NLFC_w[iw], eels_LFC_w[iw]), file=fd)
             fd.close()
-
+            
         return eels_NLFC_w, eels_LFC_w
+
+    def get_absorption_spectrum(self, xc='RPA', q_c=[0, 0, 0],
+                                direction='x', filename='abs.csv'):
+        """Calculate absorption spectrum. By default, generate a file
+        'abs.csv'.
+
+        The absorption spectrum is obtained from the imaginary part of the
+        polarizability as, Abs(\omega) = - 4 * \pi / q^2 Im \chi.
+        Returns absorption spectrum without and with local field corrections:
+
+        df_NLFC_w, df_LFC_w = DielectricFunction.get_absorption_spectrum()
+        """
+        
+        # Calculate V^1/2 \chi V^1/2
+        pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c, 
+                                               direction=direction)
+        Nw = self.omega_w.shape[0]
+
+        # Calculate abs = - 4 \pi / q^2 Im \chi0
+        if pd.kd.gamma:
+            abs_NLFC_w = - (Vchi0_wGG[:, 0, 0]).imag
+            abs_LFC_w = - (Vchi_wGG[:, 0, 0]).imag
+        else:
+            abs_NLFC_w = - (Vchi0_wGG[:, 0, 0]).imag
+            abs_LFC_w = (1. / (1 + Vchi_wGG[:, 0, 0])).imag
+       
+        abs_NLFC_w = self.collect(abs_NLFC_w)
+        abs_LFC_w = self.collect(abs_LFC_w)
+        
+        # Write to file
+        if filename is not None and mpi.rank == 0:
+            fd = open(filename, 'w')
+            print('# energy, abs_NLFC_w, abs_LFC_w', file=fd)
+            for iw in range(Nw):
+                print('%.6f, %.6f, %.6f' %
+                      (self.chi0.omega_w[iw] * Hartree,
+                       abs_NLFC_w[iw], abs_LFC_w[iw]), file=fd)
+            fd.close()
+
+        return abs_NLFC_w, abs_LFC_w
         
     def get_polarizability(self, xc='RPA', direction='x',
                            filename='polarizability.csv', pbc=None):
