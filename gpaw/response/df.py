@@ -6,9 +6,7 @@ import pickle
 from math import pi
 
 import numpy as np
-import ase
-from ase.units import Hartree, Bohr, _c
-from ase.utils import devnull
+from ase.units import Hartree, Bohr
 
 import gpaw.mpi as mpi
 from gpaw.response.chi0 import Chi0
