@@ -3,6 +3,18 @@ from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.poisson import PoissonSolver
 
+"""The purpose of this test is to make sure that wfs-dependent
+functionals do not produce wrong results due to incorrect saving of
+the wfs object when calc.set() is used.
+
+It works by converging a calculation with (1, 2, 1) kpts, then setting
+to (4, 1, 1) kpts and comparing.  That should yield the same result as
+converging (4, 1, 1) right form the start.
+
+This is just one example of the many inconsistencies that can be
+caused by calls to calc.set().  That method should therefore only be
+used with the utmost care."""
+
 atoms = Atoms('HF',positions=[(0.0,0.0,0.0),(1.0,0.0,0.0)])
 atoms.set_pbc((True,True,True))
 atoms.set_cell((2.0,2.0,2.0))
