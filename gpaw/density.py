@@ -313,12 +313,17 @@ class Density(object):
             + setup.Delta0 / self.nspins)
 
     def get_all_electron_density(self, atoms=None, gridrefinement=2,
-                                 spos_ac=None):
+                                 spos_ac=None, skip_core=False):
         """Return real all-electron density array.
 
            Usage: Either get_all_electron_density(atoms) or
-                         get_all_electron_density(spos_ac=spos_ac) """
+                         get_all_electron_density(spos_ac=spos_ac)
 
+           skip_core=True theoretically returns the
+                          all-electron valence density (use with
+                          care; will not in general integrate
+                          to valence)
+        """
         if spos_ac is None:
             spos_ac = atoms.get_scaled_positions() % 1.0
 
@@ -394,9 +399,13 @@ class Density(object):
                 if D_sp is None:
                     D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
                 else:
-                    I_a[a] = ((setup.Nct - setup.Nc) / self.nspins -
+                    I_a[a] = ((setup.Nct) / self.nspins -
                               sqrt(4 * pi) *
                               np.dot(D_sp[s], setup.Delta_pL[:, 0]))
+
+                    if not skip_core:
+                        I_a[a] -= setup.Nc / self.nspins
+
                 if gd.comm.size > 1:
                     gd.comm.broadcast(D_sp, self.atom_partition.rank_a[a])
                 M2 = M1 + ni
@@ -415,15 +424,22 @@ class Density(object):
             a_W[W:W + nw] = a
             W += nw
         scale = 1.0 / self.nspins
+
         for s, I_a in enumerate(I_sa):
-            nc.lfc.ae_core_density_correction(scale, n_sg[s], a_W, I_a)
+
+            if not skip_core:
+                nc.lfc.ae_core_density_correction(scale, n_sg[s], a_W, I_a)
+
             nct.lfc.ae_core_density_correction(-scale, n_sg[s], a_W, I_a)
             gd.comm.sum(I_a)
             N_c = gd.N_c
             g_ac = np.around(N_c * spos_ac).astype(int) % N_c - gd.beg_c
-            for I, g_c in zip(I_a, g_ac):
-                if (g_c >= 0).all() and (g_c < gd.n_c).all():
-                    n_sg[s][tuple(g_c)] -= I / gd.dv
+
+            if not skip_core:
+
+                for I, g_c in zip(I_a, g_ac):
+                    if (g_c >= 0).all() and (g_c < gd.n_c).all():
+                        n_sg[s][tuple(g_c)] -= I / gd.dv
 
         return n_sg, gd
 

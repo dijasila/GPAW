@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import pickle
 import numpy as np
+import ase.units
 Hartree = 27.2113956555
 Bohr = 0.529177257507
 
@@ -46,6 +47,7 @@ class Heterostructure:
         layer_indices = []
         self.n_layers = 0
         namelist = []
+        n_rep = 0
         for n in range(len(structure)):
             name = structure[n]
             num = ''
@@ -74,13 +76,17 @@ class Heterostructure:
                     chi_dipole.append(np.array(chid[:qindex, :windex]))
                     drho_dipole.append(np.array(drhod[:qindex]))
                 self.z.append(np.array(zi))
+                n -= n_rep
             else:
                 n = namelist.index(name)
+                n_rep += 1
             indices = [n for i in range(int(num))]
             layer_indices = np.append(layer_indices, indices)
         self.layer_indices = np.array(layer_indices, dtype=int)
 
         self.q_abs = q[:qindex]
+        if self.q_abs[0] == 0:
+            self.q_abs[0] += 1e-12
         self.frequencies = w[:windex]
         self.n_types = len(namelist)
 
@@ -88,7 +94,7 @@ class Heterostructure:
         self.d = np.array(d) / Bohr  # interlayer distances
         if self.n_layers > 1:
             # space around each layer
-            self.s = (np.insert(self.d, 0, self.d[0]) + 
+            self.s = (np.insert(self.d, 0, self.d[0]) +
                       np.append(self.d, self.d[-1])) / 2.
         else:  # Monolayer calculation
             self.s = [d0 / Bohr]  # Width of single layer
@@ -109,13 +115,16 @@ class Heterostructure:
 
         # arange potential and density
         self.chi_monopole = np.array(chi_monopole)
+
         if include_dipole:
             self.chi_dipole = np.array(chi_dipole)
         self.drho_monopole, self.drho_dipole, self.basis_array, \
             self.drho_array = self.arange_basis(drho_monopole, drho_dipole)
-       
+        
         self.dphi_array = self.get_induced_potentials()
         self.kernel_qij = None
+
+        
 
     def arange_basis(self, drhom, drhod=None):
         from scipy.interpolate import interp1d
@@ -267,21 +276,30 @@ class Heterostructure:
         M_inv = np.linalg.inv(M)
         dphi = np.dot(M_inv, f_z)
         return dphi
-    
+
+
     def get_Coulomb_Kernel(self, step_potential=False):
         kernel_qij = np.zeros([len(self.q_abs), self.dim, self.dim],
                               dtype=complex)
         for iq in range(len(self.q_abs)):
-            if step_potential:
-                # Use step-function average for monopole contribution
-                kernel_qij[iq] = np.dot(self.basis_array[:, iq],
-                                        self.dphi_array[:, iq].T) * self.dz
-            else:  # Normal kernel
-                kernel_qij[iq] = np.dot(self.drho_array[:, iq],
-                                        self.dphi_array[:, iq].T) * self.dz
-                
+            if np.isclose(self.q_abs[iq], 0):
+                # Special treatment of q=0 limit
+                kernel_qij[iq] = np.eye(self.dim)
+            else:
+                if step_potential:
+                    # Use step-function average for monopole contribution
+                    kernel_qij[iq] = np.dot(self.basis_array[:, iq],
+                                            self.dphi_array[:, iq].T) * self.dz
+                else:  # Normal kernel
+                    kernel_qij[iq] = np.dot(self.drho_array[:, iq],
+                                            self.dphi_array[:, iq].T) * self.dz
+            if self.chi_dipole is not None:
+                for j in range(self.n_layers):
+                    kernel_qij[iq, 2 * j, 2 * j + 1] = 0
+                    kernel_qij[iq, 2 * j + 1, 2 * j] = 0
+                    
         return kernel_qij
-
+    
     def get_chi_matrix(self):
 
         """
@@ -293,9 +311,9 @@ class Heterostructure:
         chi_d_iqw = self.chi_dipole
         
         if self.kernel_qij is None:
-            self.kernel_qij = self.get_Coulomb_Kernel()
+            self.kernel_qij = self.get_Coulomb_Kernel()            
         chi_qwij = np.zeros((len(self.q_abs), len(self.frequencies),
-                                 self.dim, self.dim), dtype=complex)
+                             self.dim, self.dim), dtype=complex)
 
         for iq in range(len(q_abs)):
             kernel_ij = self.kernel_qij[iq].copy()
@@ -307,9 +325,9 @@ class Heterostructure:
                                             chi_d_iqw[self.layer_indices,
                                                       iq, iw])
                 chi_intra_ij = np.diag(chi_intra_i)
-                chi_qwij[iq, iw, :, :] = np.dot(np.linalg.inv(
+                chi_qwij[iq, iw] = np.dot(np.linalg.inv(
                         np.eye(self.dim) - np.dot(chi_intra_ij, kernel_ij)),
-                                                chi_intra_ij)
+                                          chi_intra_ij)
   
         return chi_qwij
 
@@ -319,6 +337,7 @@ class Heterostructure:
         """
         self.kernel_qij =\
             self.get_Coulomb_Kernel(step_potential=step_potential)
+        
         chi_qwij = self.get_chi_matrix()
         eps_qwij = np.zeros((len(self.q_abs), len(self.frequencies),
                              self.dim, self.dim), dtype=complex)
@@ -326,13 +345,45 @@ class Heterostructure:
         for iq in range(len(self.q_abs)):
             kernel_ij = self.kernel_qij[iq]
             for iw in range(0, len(self.frequencies)):
-                eps_qwij[iq, iw, :, :] = np.linalg.inv(
+                eps_qwij[iq, iw] = np.linalg.inv(
                     np.eye(kernel_ij.shape[0]) + np.dot(kernel_ij,
-                                                        chi_qwij[iq, iw,
-                                                                 :, :]))
+                                                        chi_qwij[iq, iw]))
       
         return eps_qwij
     
+    def get_screened_potential(self, layer=0):
+        """
+        get the screened interaction averaged over layer "k":
+        W_{kk}(q, w) = \sum_{ij} V_{ki}(q) \chi_{ij}(q, w) V_{jk}(q) 
+        
+        parameters:
+        layer: int
+            index of layer to calculate the screened interaction for.
+
+        returns: W(q,w) 
+        """
+        self.kernel_qij =\
+            self.get_Coulomb_Kernel(step_potential=True)
+        #print(self.kernel_qij[0])
+        chi_qwij = self.get_chi_matrix()
+        #print(chi_qwij[0,0])
+        W_qw = np.zeros((len(self.q_abs), len(self.frequencies)), 
+                        dtype=complex)
+
+        W0_qw = np.zeros((len(self.q_abs), len(self.frequencies)), 
+                         dtype=complex)
+        k = layer
+        if self.chi_dipole is not None:
+            k *= 2
+        for iq in range(len(self.q_abs)):
+            kernel_ij = self.kernel_qij[iq]
+            for iw in range(0, len(self.frequencies)):
+                W_qw[iq, iw] = np.dot(np.dot(kernel_ij[k], chi_qwij[iq, iw]),
+                                      kernel_ij[:,k])
+                W0_qw[iq, iw] = kernel_ij[k, k]**2 * chi_qwij[iq, iw, k, k]
+                
+        return self.kernel_qij[:, k, k], W_qw  
+        
     def get_exciton_screened_potential(self, e_distr, h_distr):
         v_screened_qw = np.zeros((len(self.q_abs),
                                   len(self.frequencies)))
@@ -348,65 +399,355 @@ class Heterostructure:
                            np.dot(np.linalg.inv(eps_qwij[iq, iw, :, :]),
                                   ext_pot))
                         
-        return self.q_abs, -v_screened_qw, kernel_qij
+        return self.q_abs, -v_screened_qw[:,0]
 
-    def get_macroscopic_dielectric_function(self, layers=None):
+    def get_exciton_screened_potential_r(self, r_array, e_distr=None, 
+                                         h_distr=None,Wq_name=None):
+        if Wq_name is not None:
+            q_abs,W_q = pickle.load(open(Wq_name))
+        else:
+            q_temp,W_q = self.get_exciton_screened_potential(e_distr, h_distr)
+        
+        from scipy.special import jn
+        if self.n_layers==1:
+            layer_thickness = self.s[0]
+        elif len(e_distr)==self.n_layers:
+            ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])
+            layer_thickness=self.d[ilayer]
+        else:
+            ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])/2
+            layer_thickness=self.d[ilayer]
+            
+        W_q *= q_temp
+        q = np.linspace(q_temp[0],q_temp[-1],10000)
+        Wt_q = np.interp(q,q_temp,W_q)
+        Dq_Q2D = q[1]-q[0]
+        Coulombt_q = -4.*np.pi/q*(1.-np.exp(-q*layer_thickness/2.))/layer_thickness   
+
+        W_r = np.zeros(len(r_array))
+        for ir in range(0,len(r_array)):
+            J_q = jn(0, q*r_array[ir])
+            if r_array[ir]>np.exp(-13):
+                Int_temp = -1./layer_thickness*np.log((layer_thickness/2. + np.sqrt(r_array[ir]**2 + layer_thickness**2/4.))\
+                            /(-layer_thickness/2. + np.sqrt(r_array[ir]**2 + layer_thickness**2/4.)))
+            else:
+                Int_temp = -1./layer_thickness*np.log(layer_thickness**2/r_array[ir]**2)
+            W_r[ir] =  Dq_Q2D/2./np.pi * np.sum(J_q*(Wt_q-Coulombt_q)) + Int_temp 
+        return r_array,W_r
+
+    def get_exciton_binding_energies(self, eff_mass, L_min=-50,L_max=10,Delta=0.1, e_distr=None, h_distr=None, Wq_name=None):
+        from scipy.linalg import eig
+        r_space = np.arange(L_min,L_max,Delta)
+        Nint = len(r_space) 
+
+        r,W_r = self.get_exciton_screened_potential_r(r_array=np.exp(r_space),e_distr=e_distr, h_distr=h_distr, Wq_name=None)
+        
+        H = np.zeros((Nint,Nint),dtype=complex)
+        for i in range(0,Nint):
+            r_abs = np.exp(r_space[i])
+            H[i,i] = - 1./r_abs**2/2./eff_mass*(-2./Delta**2 + 1./4.) + W_r[i]
+            if i+1 < Nint:
+                H[i,i+1] = -1./r_abs**2/2./eff_mass*(1./Delta**2-1./2./Delta)
+            if i-1 >= 0:
+                H[i,i-1] = -1./r_abs**2/2./eff_mass*(1./Delta**2+1./2./Delta)
+
+        ee, ev = eig(H)
+        index_sort = np.argsort(ee.real)
+        ee = ee[index_sort]
+        ev = ev[:,index_sort]        
+        return ee*Hartree, ev
+
+    def get_macroscopic_dielectric_function(self, static=True, layers=None,
+                                            direction='x'):
         """
-        Calculates the averaged  dielectric matrix over the structure in the
-        static limit omega = 0.
+        Calculates the averaged dielectric function over the structure.
         
         Parameters:
+        
+        static: bool
+            If True only include w=0 
             
         layers: array of integers
             list with index of specific layers to include in the average.
 
-        Returns list of q-points, dielectric function.
+        direction: str 'x' or 'z'
+            'x' for in plane dielectric function
+            'z' for out of plane dielectric function
+
+        Returns list of q-points, frequencies, dielectric function(q, w).
         """
-        constant_perturbation = np.ones([self.n_layers])
         layer_weight = self.s / np.sum(self.s) * self.n_layers
         
         if self.chi_dipole is not None:
-            constant_perturbation = np.insert(constant_perturbation,
-                                              np.arange(self.n_layers) + 1,
-                                              np.zeros([self.n_layers]))
             layer_weight = np.insert(layer_weight,
                                      np.arange(self.n_layers) + 1,
                                      layer_weight)
+
+        if direction == 'x':
+            const_per = np.ones([self.n_layers])
+            if self.chi_dipole is not None:
+                const_per = np.insert(const_per, np.arange(self.n_layers) + 1,
+                                      np.zeros([self.n_layers]))
+
+        elif direction == 'z':
+            const_per = np.zeros([self.n_layers])
+            assert self.chi_dipole is not None
+            const_per = np.insert(const_per, np.arange(self.n_layers) + 1,
+                                  np.ones([self.n_layers]))
+
         if layers is None:  # average over entire structure
             N = self.n_layers
-            potential = constant_perturbation
+            potential = const_per
         else:  # average over selected layers
             N = len(layers)
             potential = np.zeros([self.dim])
             index = layers * self.dim / self.n_layers
+            if direction == 'z':
+                index += 1
             potential[index] = 1.
-        epsM_q = []
-        eps_qij = self.get_eps_matrix(step_potential=True)[:, 0]
+        
+        if static:
+            Nw = 1
+        else:
+            Nw = len(self.frequencies)
+
+        eps_qwij = self.get_eps_matrix(step_potential=True)[:, :Nw] 
+        
+        Nq = len(self.q_abs)
+        epsM_qw = np.zeros([Nq, Nw], dtype=complex)
+
+        for iw in range(Nw):
+            for iq in range(Nq):
+                eps_ij = eps_qwij[iq, iw]
+                epsinv_ij = np.linalg.inv(eps_ij)
+                epsinv_M = 1. / N * np.dot(np.array(potential) * layer_weight,
+                                           np.dot(epsinv_ij,
+                                                  np.array(const_per)))
+                      
+                epsM_qw[iq, iw] = 1. / epsinv_M
+                
+        return self.q_abs / Bohr,  self.frequencies[:Nw] * Hartree, epsM_qw
+
+    def get_eels(self, dipole_contribution=False):
+        """
+        Calculates Electron energy loss spectrum, defined as:
+
+        EELS(q, w) = - Im 4 \pi / q**2 \chi_M(q, w)
+
+        Returns list of q-points, Frequencies and the loss function
+        """
+        const_per = np.ones([self.n_layers])
+        layer_weight = self.s / np.sum(self.s) * self.n_layers
+        
+        if self.chi_dipole is not None:
+            const_per = np.insert(const_per,
+                                  np.arange(self.n_layers) + 1,
+                                  np.zeros([self.n_layers]))
+            layer_weight = np.insert(layer_weight,
+                                     np.arange(self.n_layers) + 1,
+                                     layer_weight)
+
+        if dipole_contribution:
+            const_per = np.zeros([self.n_layers])
+            const_per = np.insert(const_per,
+                                  np.arange(self.n_layers) + 1,
+                                  np.ones([self.n_layers]))
+
+        N = self.n_layers
+        eels_qw = np.zeros([len(self.q_abs), len(self.frequencies)],
+                           dtype=complex)
+       
+        chi_qwij = self.get_chi_matrix()
+   
         for iq in range(len(self.q_abs)):
-            eps_ij = eps_qij[iq]
-            epsinv_ij = np.linalg.inv(eps_ij)
-            epsinv_M = 1. / N * np.dot(np.array(potential) * layer_weight,
-                                       np.dot(epsinv_ij,
-                                              np.array(constant_perturbation)))
-            epsM_q.append(1. / epsinv_M.real)
-        return self.q_abs / Bohr, epsM_q
+            for iw in range(len(self.frequencies)):
+                eels_qw[iq, iw] = np.dot(np.array(const_per) * layer_weight,
+                                         np.dot(chi_qwij[iq, iw],
+                                                np.array(const_per)))
+
+            eels_qw[iq, :] *= 1. / N * 4 * np.pi / self.q_abs[iq]**2
+
+        return self.q_abs / Bohr, self.frequencies * Hartree, \
+            - (Bohr * eels_qw).imag
+    
+    def get_absorption_spectrum(self, dipole_contribution=False):
+        """
+        Calculates absorption spectrum, defined as:
+
+        ABS(q, w) = - Im 2 / q \eps_M(q, w)
+
+        Returns list of q-points, Frequencies and the loss function
+        """
+        const_per = np.ones([self.n_layers])
+        layer_weight = self.s / np.sum(self.s) * self.n_layers
+        
+        if self.chi_dipole is not None:
+            const_per = np.insert(const_per,
+                                  np.arange(self.n_layers) + 1,
+                                  np.zeros([self.n_layers]))
+            layer_weight = np.insert(layer_weight,
+                                     np.arange(self.n_layers) + 1,
+                                     layer_weight)
+
+        if dipole_contribution:
+            const_per = np.zeros([self.n_layers])
+            const_per = np.insert(const_per,
+                                  np.arange(self.n_layers) + 1,
+                                  np.ones([self.n_layers]))
+
+        N = self.n_layers
+        abs_qw = np.zeros([len(self.q_abs), len(self.frequencies)],
+                           dtype=complex)
+       
+        eps_qwij = self.get_eps_matrix()
+   
+        for iq in range(len(self.q_abs)):
+            for iw in range(len(self.frequencies)):
+                abs_qw[iq, iw] = np.dot(np.array(const_per) * layer_weight,
+                                        np.dot(eps_qwij[iq, iw],
+                                               np.array(const_per)))
+
+            abs_qw[iq, :] *= 1. / N * 2. / self.q_abs[iq] 
+
+        return self.q_abs / Bohr, self.frequencies * Hartree, \
+            (Bohr * abs_qw).imag
+
+    def get_sum_eels(self, V_beam=100, include_z=False):
+
+        """
+        Calculates the q- averaged Electron energy loss spectrum usually
+        obtained in scanning transmission electron microscopy (TEM).
+
+        EELS(w) = - Im [sum_{q}^{q_max}  V(q) \chi(w, q) V(q)]
+                    \delta(w - q \dot v_e)
+                    
+        The calculation assumes a beam in the z-direction perpendicular to the
+        layers, and that the response in isotropic within the plane.
+
+        Input parameters:
+        V_beam: float
+            Acceleration voltage of electron beam in kV. 
+            Is used to calculate v_e that goes into \delta(w - q \dot v_e)
+
+        Returns list of Frequencies and the loss function
+        """
+        const_per = np.ones([self.n_layers])
+        layer_weight = self.s / np.sum(self.s) * self.n_layers
+        
+        if self.chi_dipole is not None:
+            const_per = np.insert(const_per,
+                                  np.arange(self.n_layers) + 1,
+                                  np.zeros([self.n_layers]))
+            layer_weight = np.insert(layer_weight,
+                                     np.arange(self.n_layers) + 1,
+                                     layer_weight)
+
+        N = self.n_layers
+        eels_w = np.zeros([len(self.frequencies)], dtype=complex)
+        chi_qwij = self.get_chi_matrix()
+        vol = np.pi * (self.q_abs[-1] + self.q_abs[1] / 2.)**2 
+        weight0 = np.pi * (self.q_abs[1] / 2.)**2 / vol
+        c = (1 - weight0) / np.sum(self.q_abs)
+        weights = c * self.q_abs        
+        weights[0] = weight0
+        # Beam speed from relativistic eq
+        me = ase.units._me
+        c = ase.units._c
+        E_0 = me * c**2  # Rest energy
+        E = E_0 + V_beam * 1e3 / ase.units.J   # Relativistic energy
+        v_e = c * (E**2 - E_0**2)**0.5 / E  # beam velocity in SI 
+        # Lower cutoff q_z = w / v_e
+        w_wSI = self.frequencies * Hartree \
+            / ase.units.J / ase.units._hbar  # w in SI units
+        q_z = w_wSI / v_e / ase.units.m * Bohr  # in Bohr
+        q_z[0] = q_z[1]
+        print('Using a beam acceleration voltage of V = %3.1f kV' % (V_beam))
+        print('Beam speed = %1.2f / c' % (v_e / c))
+        # Upper cutoff q_c = q[1] / 2.
+        q_c = self.q_abs[1] / 2.
+        # Integral for q=0: \int_0^q_c \frac{q^3}{(q^2 + q_z^2)^2} dq 
+        I = 2 * np.pi / vol * \
+            (q_z**2 / 2. / (q_c**2 + q_z**2) - 0.5 +
+             0.5 * np.log((q_c / q_z)**2 + 1))
+        I2 = 2 * np.pi / vol / 2. * (1. / q_z**2 - 1. / (q_z**2 + q_c**2))
+
+        q_max = self.q_abs[-1]
+        print(q_max / Bohr)
+        omega_weight = 1. / (2 * np.pi / vol *
+                             (q_z**2 / 2. * (1. / (q_max**2 + q_z**2) -
+                                             1. / q_z**2) + 
+                              0.5 * np.log((q_max / q_z)**2 + 1)))
+       
+        for iq in range(len(self.q_abs)):
+            eels_temp = np.zeros([len(self.frequencies)], dtype=complex)
+            for iw in range(len(self.frequencies)):
+                # Longitudinal in-plane
+                temp = np.dot(np.array(const_per) * layer_weight,
+                              np.dot(chi_qwij[iq, iw], np.array(const_per)))
+                eels_temp[iw] += temp
+                
+            if np.isclose(self.q_abs[iq], 0):
+                eels_temp *= (4 * np.pi)**2 * I
+                
+            else:
+                eels_temp *= 1. / (self.q_abs[iq]**2 + q_z**2)**2
+                eels_temp *= (4 * np.pi)**2 * weights[iq] 
+            eels_w += eels_temp
+
+            if include_z:
+                eels_temp = np.zeros([len(self.frequencies)], dtype=complex)
+                for iw in range(len(self.frequencies)):
+                    # longitudinal out of plane
+                    temp = np.dot(np.array(const_per[::-1]) * layer_weight,
+                                  np.dot(chi_qwij[iq, iw],
+                                         np.array(const_per[::-1])))
+                    eels_temp[iw] += temp
+
+                    # longitudinal cross terms
+                    temp = 1J * np.dot(np.array(const_per) * layer_weight,
+                                     np.dot(chi_qwij[iq, iw],
+                                            np.array(const_per[::-1]))) 
+                    eels_temp[iw] += temp / q_z[iw]
+
+                    temp = -1J * np.dot(np.array(const_per[::-1]) *
+                                        layer_weight,
+                                        np.dot(chi_qwij[iq, iw],
+                                               np.array(const_per)))
+                    eels_temp[iw] += temp / q_z[iw]
+
+                    # Transversal
+                    temp = np.dot(np.array(const_per[::-1]) * layer_weight,
+                                  np.dot(chi_qwij[iq, iw],
+                                         np.array(const_per[::-1])))
+                    temp *= (v_e / c)**4
+                    eels_temp[iw] += temp
+
+                if np.isclose(self.q_abs[iq], 0):
+                    eels_temp *= (4 * np.pi)**2 * I2 * q_z**2
+                else:
+                    eels_temp *= 1. / (self.q_abs[iq]**2 + q_z**2)**2 * q_z**2
+                    eels_temp *= (4 * np.pi)**2 * weights[iq]
+                    
+                eels_w += eels_temp
+
+        return self.frequencies * Hartree, - (Bohr**5 * eels_w * vol).imag
 
     def get_response(self, iw=0, dipole=False):
         """
         Get the induced density and potential due to constant perturbation
         obtained as: rho_ind(r) = \int chi(r,r') dr'
         """
-        constant_perturbation = np.ones([self.n_layers])
+        const_per = np.ones([self.n_layers])
         if self.chi_dipole is not None:
-            constant_perturbation = np.insert(constant_perturbation,
-                                              np.arange(self.n_layers) + 1,
-                                              np.zeros([self.n_layers]))
+            const_per = np.insert(const_per,
+                                  np.arange(self.n_layers) + 1,
+                                  np.zeros([self.n_layers]))
 
         if dipole:
-            constant_perturbation = self.z0 - self.z0[-1] / 2.
-            constant_perturbation = np.insert(constant_perturbation,
-                                              np.arange(self.n_layers) + 1,
-                                              np.ones([self.n_layers]))
+            const_per = self.z0 - self.z0[-1] / 2.
+            const_per = np.insert(const_per,
+                                  np.arange(self.n_layers) + 1,
+                                  np.ones([self.n_layers]))
 
         chi_qij = self.get_chi_matrix()[:, iw]
         Vind_z = np.zeros((len(self.q_abs), len(self.z_big)))
@@ -418,7 +759,7 @@ class Heterostructure:
         # to get spatial detendence
         for iq in range(len(self.q_abs)):
             chi_ij = chi_qij[iq]
-            Vind_qi = np.dot(chi_ij, np.array(constant_perturbation))
+            Vind_qi = np.dot(chi_ij, np.array(const_per))
             rhoind_z[iq] = np.dot(drho_array[:, iq].T, Vind_qi)
             Vind_z[iq] = np.dot(dphi_array[:, iq].T, Vind_qi)
         return self.z_big * Bohr, rhoind_z, Vind_z, self.z0 * Bohr

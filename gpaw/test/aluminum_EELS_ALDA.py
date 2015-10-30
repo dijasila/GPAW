@@ -59,8 +59,8 @@ d = np.loadtxt('EELS_Al_ALDA',delimiter=',')
 wpeak1,Ipeak1 = findpeak(d[:,0],d[:,1])
 wpeak2,Ipeak2 = findpeak(d[:,0],d[:,2])
 
-test_wpeak1 = 15.4929666813 # eV
-test_Ipeak1 = 29.644489594
+test_wpeak1 = 15.7002862696  # eV
+test_Ipeak1 = 28.5590363176
 test_wpeak2 = 15.5196459206 # eV
 test_Ipeak2 = 26.5680624522
 
