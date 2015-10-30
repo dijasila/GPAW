@@ -35,12 +35,11 @@ functionals (Perdew-Zunger).
 
 
 import sys
-from math import pi, sqrt, cos, sin, log10, exp, atan2
+from math import pi
 
 import numpy as np
 from ase.units import Bohr, Hartree
 
-from gpaw.utilities.tools import dagger
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
@@ -49,7 +48,6 @@ from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack, unpack
 from gpaw.lfc import LFC
-import gpaw.mpi as mpi
 import _gpaw
 
 
@@ -454,7 +452,7 @@ class SICSpin:
         self.gd = wfs.gd
         self.finegd = finegd
 
-        if self.finegd.N_c is self.gd:
+        if self.finegd is self.gd:
             self.interpolator = None
             self.restrictor = None
         else:
@@ -1047,10 +1045,6 @@ class SICSpin:
             energy functional.
         """
         
-        ESI_init = 0.0
-        ESI      = 0.0
-        dE       = 1e-16  
-
         optstep  = 0.0
         Gold     = 0.0
         cgiter   = 0
@@ -1058,7 +1052,6 @@ class SICSpin:
         epsstep  = 0.005  # 0.005
         dltstep  = 0.1    # 0.1
         prec     = 1E-7
-        oldstep  = 0.0
         #
         #
         # get the initial ODD potentials/energy/matrixelements
@@ -1066,7 +1059,6 @@ class SICSpin:
         self.update_potentials(save=True)
         ESI = self.esic
         V_mm, K_mm, norm = self.calculate_sic_matrixelements()
-        ESI_init = ESI
 
         if norm < self.uonscres and self.maxuoiter>0:
             return
@@ -1086,7 +1078,6 @@ class SICSpin:
             # copy the initial unitary transformation and orbital
             # dependent energies
             W_old_mn    = self.W_mn.copy()
-            ESI_old  = ESI
             #
             # setup the steepest-descent/conjugate gradient
             # D_nn:  search direction
@@ -1159,7 +1150,6 @@ class SICSpin:
                 #print eps_works, optstep, G0/((G0-G1)/step)
                 #
                 # decide on the method for stepping
-                oldstep = 0.0
                 if (optstep > 0.0):
                     #
                     # convex region -> force only estimate for minimum
@@ -1189,7 +1179,6 @@ class SICSpin:
                         minimum   = True
                         failed    = False
                         lsmethod  = 'CV-S'
-                        oldstep   = optstep
                     else:
                         #self.K_unn[q] = K_nn
                         ESI       = E0
