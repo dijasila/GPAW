@@ -217,7 +217,7 @@ class DielectricFunction:
             if self.truncation == 'wigner-seitz':
                 kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv,
                                                      self.chi0.calc.wfs.kd.N_c)
-                Ktrunc_GG = kernel.get_potential(pd)
+                Ktrunc_G = kernel.get_potential(pd)
             
             elif self.truncation == '2D':
                 Ktrunc_G = truncated_coulomb(pd, q0=q0)
@@ -528,7 +528,7 @@ class DielectricFunction:
             # With truncation we need to calculate \chit = v^0.5*chi*v^0.5
             print('Using truncated Coulomb interaction',
                   file=self.chi0.fd)
-            chi0_wGG, chi_wGG = self.get_chi(xc=xc, direction=direction)
+            pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, direction=direction)
             alpha_w = -V * (chi_wGG[:, 0, 0]) / (4 * pi)
             alpha0_w = -V * (chi0_wGG[:, 0, 0]) / (4 * pi)
 
