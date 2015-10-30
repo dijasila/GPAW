@@ -218,9 +218,11 @@ class BASECHI:
             self.txt = devnull
         else:
             assert isinstance(self.txtname, str)
-            from ase.parallel import paropen
-            self.txt = paropen(self.txtname,'w')
-
+            if rank == 0:
+                self.txt = open(self.txtname, 'w', 1)
+            else:
+                sys.stdout = devnull
+                self.txt = devnull
 
     def printtxt(self, text):
         print(text, file=self.txt)

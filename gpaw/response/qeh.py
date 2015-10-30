@@ -47,6 +47,7 @@ class Heterostructure:
         layer_indices = []
         self.n_layers = 0
         namelist = []
+        n_rep = 0
         for n in range(len(structure)):
             name = structure[n]
             num = ''
@@ -75,8 +76,10 @@ class Heterostructure:
                     chi_dipole.append(np.array(chid[:qindex, :windex]))
                     drho_dipole.append(np.array(drhod[:qindex]))
                 self.z.append(np.array(zi))
+                n -= n_rep
             else:
                 n = namelist.index(name)
+                n_rep += 1
             indices = [n for i in range(int(num))]
             layer_indices = np.append(layer_indices, indices)
         self.layer_indices = np.array(layer_indices, dtype=int)
@@ -270,7 +273,8 @@ class Heterostructure:
         M_inv = np.linalg.inv(M)
         dphi = np.dot(M_inv, f_z)
         return dphi
-    
+
+
     def get_Coulomb_Kernel(self, step_potential=False):
         kernel_qij = np.zeros([len(self.q_abs), self.dim, self.dim],
                               dtype=complex)
@@ -288,7 +292,7 @@ class Heterostructure:
                                             self.dphi_array[:, iq].T) * self.dz
            
         return kernel_qij
-
+    
     def get_chi_matrix(self):
 
         """
@@ -300,7 +304,7 @@ class Heterostructure:
         chi_d_iqw = self.chi_dipole
         
         if self.kernel_qij is None:
-            self.kernel_qij = self.get_Coulomb_Kernel()
+            self.kernel_qij = self.get_Coulomb_Kernel()            
         chi_qwij = np.zeros((len(self.q_abs), len(self.frequencies),
                              self.dim, self.dim), dtype=complex)
 
@@ -326,6 +330,7 @@ class Heterostructure:
         """
         self.kernel_qij =\
             self.get_Coulomb_Kernel(step_potential=step_potential)
+        
         chi_qwij = self.get_chi_matrix()
         eps_qwij = np.zeros((len(self.q_abs), len(self.frequencies),
                              self.dim, self.dim), dtype=complex)
@@ -355,7 +360,62 @@ class Heterostructure:
                            np.dot(np.linalg.inv(eps_qwij[iq, iw, :, :]),
                                   ext_pot))
                         
-        return self.q_abs, -v_screened_qw, kernel_qij
+        return self.q_abs, -v_screened_qw[:,0]
+
+    def get_exciton_screened_potential_r(self, r_array, e_distr=None, h_distr=None,Wq_name=None):
+        if Wq_name is not None:
+            q_abs,W_q = pickle.load(open(Wq_name))
+        else:
+            q_temp,W_q = self.get_exciton_screened_potential(e_distr, h_distr)
+        
+        from scipy.special import jn
+        if self.n_layers==1:
+            layer_thickness = self.s[0]
+        elif len(e_distr)==self.n_layers:
+            ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])//2
+            layer_thickness=self.d[ilayer]
+        else:
+            ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])//4
+            layer_thickness=self.d[ilayer]
+            
+        W_q *= q_temp
+        q = np.linspace(q_temp[0],q_temp[-1],10000)
+        Wt_q = np.interp(q,q_temp,W_q)
+        Dq_Q2D = q[1]-q[0]
+        Coulombt_q = -4.*np.pi/q*(1.-np.exp(-q*layer_thickness/2.))/layer_thickness   
+
+        W_r = np.zeros(len(r_array))
+        for ir in range(0,len(r_array)):
+            J_q = jn(0, q*r_array[ir])
+            if r_array[ir]>np.exp(-13):
+                Int_temp = -1./layer_thickness*np.log((layer_thickness/2. + np.sqrt(r_array[ir]**2 + layer_thickness**2/4.))\
+                            /(-layer_thickness/2. + np.sqrt(r_array[ir]**2 + layer_thickness**2/4.)))
+            else:
+                Int_temp = -1./layer_thickness*np.log(layer_thickness**2/r_array[ir]**2)
+            W_r[ir] =  Dq_Q2D/2./np.pi * np.sum(J_q*(Wt_q-Coulombt_q)) + Int_temp 
+        return r_array,W_r
+
+    def get_exciton_binding_energies(self, eff_mass, L_min=-50,L_max=10,Delta=0.1, e_distr=None, h_distr=None, Wq_name=None):
+        from scipy.linalg import eig
+        r_space = np.arange(L_min,L_max,Delta)
+        Nint = len(r_space) 
+
+        r,W_r = self.get_exciton_screened_potential_r(r_array=np.exp(r_space),e_distr=e_distr, h_distr=h_distr, Wq_name=None)
+        
+        H = np.zeros((Nint,Nint),dtype=complex)
+        for i in range(0,Nint):
+            r_abs = np.exp(r_space[i])
+            H[i,i] = - 1./r_abs**2/2./eff_mass*(-2./Delta**2 + 1./4.) + W_r[i]
+            if i+1 < Nint:
+                H[i,i+1] = -1./r_abs**2/2./eff_mass*(1./Delta**2-1./2./Delta)
+            if i-1 >= 0:
+                H[i,i-1] = -1./r_abs**2/2./eff_mass*(1./Delta**2+1./2./Delta)
+
+        ee, ev = eig(H)
+        index_sort = np.argsort(ee.real)
+        ee = ee[index_sort]
+        ev = ev[:,index_sort]        
+        return ee*Hartree, ev
 
     def get_macroscopic_dielectric_function(self, static=True, layers=None,
                                             direction='x'):
