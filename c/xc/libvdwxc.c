@@ -1,12 +1,12 @@
 #ifdef GPAW_WITH_LIBVDWXC
 #include "../extensions.h"
 
-#include <mpi.h>
-#include "../mympi.h"
 
 #include <vdw_core.h>
 
 #ifdef PARALLEL
+#include <mpi.h>
+#include "../mympi.h"
 #include <vdw_mpi.h>
 
 #ifdef GPAW_WITH_FFTW3_MPI
