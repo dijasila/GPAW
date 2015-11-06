@@ -1,23 +1,12 @@
 #ifdef GPAW_WITH_LIBVDWXC
 #include "../extensions.h"
 
-#include <mpi.h>
-#include "../mympi.h"
-
 #include <vdw_core.h>
 
 #ifdef PARALLEL
-#include <vdw_mpi.h>
-
-#ifdef GPAW_WITH_FFTW3_MPI
-#include <fftw3-mpi.h>
-#endif // FFTW3_MPI
-#ifdef GPAW_WITH_PFFT
-#include <pfft.h>
-#include <vdw_pfft.h>
-#endif // PFFT
-
-#endif // PARALLEL
+#include <mpi.h>
+#include "../mympi.h"
+#endif
 
 
 // Our heinous plan is to abuse a numpy array so that it will contain a pointer to the vdw_data.
@@ -64,7 +53,6 @@ PyObject* libvdwxc_init_serial(PyObject* self, PyObject* args)
     }
     vdw_data* vdw = unpack_vdw_pointer(vdw_obj);
     vdw_init_serial(*vdw);
-    //vdw_print(*vdw);
     Py_RETURN_NONE;
 }    
 
@@ -106,7 +94,6 @@ MPI_Comm unpack_gpaw_comm(PyObject* gpaw_mpi_obj)
     return gpaw_comm->comm;
 }
 
-#ifdef GPAW_WITH_FFTW3_MPI
 PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args)
 {
     PyObject* vdw_obj;
@@ -114,16 +101,17 @@ PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args)
     if(!PyArg_ParseTuple(args, "OO", &vdw_obj, &gpaw_comm_obj)) {
         return NULL;
     }
+    
+    if(!vdw_has_fftw_mpi()) {
+        return NULL;
+    }
+
     vdw_data* vdw = unpack_vdw_pointer(vdw_obj);
     MPI_Comm comm = unpack_gpaw_comm(gpaw_comm_obj);
-    fftw_mpi_init();
     vdw_init_mpi(*vdw, comm);
-    //vdw_print(*vdw);
     Py_RETURN_NONE;
 }
-#endif // FFTW3_MPI
 
-#ifdef GPAW_WITH_PFFT
 PyObject* libvdwxc_init_pfft(PyObject* self, PyObject* args)
 {
     PyObject* vdw_obj;
@@ -132,14 +120,16 @@ PyObject* libvdwxc_init_pfft(PyObject* self, PyObject* args)
     if(!PyArg_ParseTuple(args, "OOii", &vdw_obj, &gpaw_comm_obj, &nproc1, &nproc2)) {
         return NULL;
     }
+    
+    if(!vdw_has_pfft) {
+        return NULL;
+    }
+
     vdw_data* vdw = unpack_vdw_pointer(vdw_obj);
     MPI_Comm comm = unpack_gpaw_comm(gpaw_comm_obj);
-    pfft_init();
     vdw_init_pfft(*vdw, comm, nproc1, nproc2);
-    //vdw_print(*vdw);
     Py_RETURN_NONE;
 }
-#endif // PFFT
 
 #endif // PARALLEL
 

@@ -177,6 +177,7 @@ class LibVDWXC(GGA, object):
             _gpaw.libvdwxc_init_mpi(self._vdw, comm.get_c_object())
             
         else:
+            assert self.parallel == 'serial'
             assert comm.size == 1
             _gpaw.libvdwxc_init_serial(self._vdw)
 
