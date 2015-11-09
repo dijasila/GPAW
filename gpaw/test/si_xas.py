@@ -5,27 +5,18 @@ from gpaw.xas import XAS, RecursionMethod
 from gpaw.test import gen
 
 # Generate setup for oxygen with half a core-hole:
-gen('Si', name='hch1s', corehole=(1, 0, 0.5))
-
-a = 4.0
-b = a / 2
-c = b / 2
-d = b + c
-si = Atoms([Atom('Si', (0, 0, 0)),
-            Atom('Si', (c, c, c)),
-            Atom('Si', (b, b, 0)),
-            Atom('Si', (d, d, c)),
-            Atom('Si', (b, 0, b)),
-            Atom('Si', (d, c, d)),
-            Atom('Si', (0, b, b)),
-            Atom('Si', (c, d, d))],
-           cell=(a, a, a), pbc=True)
+gen('Si', name='hch1s', corehole=(1, 0, 0.5), gpernode=30)
+a = 2.6
+si = Atoms('Si', cell=(a, a, a), pbc=True)
 
 import numpy as np
 calc = GPAW(nbands=None,
             h=0.25,
             occupations=FermiDirac(width=0.05),
             setups={0: 'hch1s'})
+def stopcalc():
+    calc.scf.converged = 1
+calc.attach(stopcalc, 1)
 si.set_calculator(calc)
 e = si.get_potential_energy()
 niter = calc.get_number_of_iterations()
@@ -60,12 +51,15 @@ if 0:
     p.show()
 
 # 2p corehole
-gen('Si', name='hch2p', corehole=(2, 1, 0.5))
+gen('Si', name='hch2p', corehole=(2, 1, 0.5), gpernode=30)
 calc = GPAW(nbands=None,
             h=0.25,
             occupations=FermiDirac(width=0.05),
             setups={0: 'hch2p'})
 si.set_calculator(calc)
+def stopcalc():
+    calc.scf.converged = True
+calc.attach(stopcalc, 1)
 e = si.get_potential_energy()
 niter = calc.get_number_of_iterations()
 calc.write('si_hch2p.gpw')
