@@ -144,16 +144,17 @@ class FDPWWaveFunctions(WaveFunctions):
         # Calculate force-contribution from k-points:
         F_av.fill(0.0)
         F_aniv = self.pt.dict(self.bd.mynbands, derivative=True)
+        dH_asp = hamiltonian.dH_asp
         for kpt in self.kpt_u:
             self.pt.derivative(kpt.psit_nG, F_aniv, kpt.q)
             for a, F_niv in F_aniv.items():
                 F_niv = F_niv.conj()
                 F_niv *= kpt.f_n[:, np.newaxis, np.newaxis]
-                dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                dH_ii = unpack(dH_asp[a][kpt.s])
                 P_ni = kpt.P_ani[a]
                 F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
                 F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
-                dO_ii = hamiltonian.setups[a].dO_ii
+                dO_ii = self.setups[a].dO_ii
                 F_vii -= np.dot(np.dot(F_niv.transpose(), P_ni), dO_ii)
                 F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 
@@ -167,11 +168,11 @@ class FDPWWaveFunctions(WaveFunctions):
                     d_nn += ne * np.outer(c_n.conj(), c_n)
                 for a, F_niv in F_aniv.items():
                     F_niv = F_niv.conj()
-                    dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
+                    dH_ii = unpack(dH_asp[a][kpt.s])
                     Q_ni = np.dot(d_nn, kpt.P_ani[a])
                     F_vii = np.dot(np.dot(F_niv.transpose(), Q_ni), dH_ii)
                     F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
-                    dO_ii = hamiltonian.setups[a].dO_ii
+                    dO_ii = self.setups[a].dO_ii
                     F_vii -= np.dot(np.dot(F_niv.transpose(), Q_ni), dO_ii)
                     F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 

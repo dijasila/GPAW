@@ -22,26 +22,27 @@ class ForceCalculator:
         self.timer.start('Force calculation')
 
         natoms = len(wfs.setups)
-        self.F_av = np.zeros((natoms, 3))
 
         # Force from projector functions (and basis set):
-        wfs.calculate_forces(ham, self.F_av)
-        
+        F_wfs_av = np.zeros((natoms, 3))
+        wfs.calculate_forces(ham, F_wfs_av)
+        wfs.gd.comm.sum(F_wfs_av, 0)
+                
+        F_ham_av = np.zeros((natoms, 3))
+
         try:
             # ODD functionals need force corrections for each spin
             correction = ham.xc.setup_force_corrections
         except AttributeError:
             pass
         else:
-            correction(self.F_av)
-        
-        if wfs.bd.comm.rank == 0 and wfs.kd.comm.rank == 0:
-            ham.calculate_forces(dens, self.F_av)
+            correction(F_ham_av)
 
-        wfs.world.broadcast(self.F_av, 0)
-        
-        self.F_av = wfs.kd.symmetry.symmetrize_forces(self.F_av)
+        ham.calculate_forces(dens, F_ham_av)
 
+        F_av = F_ham_av + F_wfs_av
+        wfs.world.broadcast(F_av, 0)
+
+        self.F_av = wfs.kd.symmetry.symmetrize_forces(F_av)
         self.timer.stop('Force calculation')
-
         return self.F_av

@@ -42,13 +42,16 @@ class Density(object):
      ========== =========================================
     """
 
-    def __init__(self, gd, finegd, nspins, charge, collinear=True):
+    def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True):
         """Create the Density object."""
 
         self.gd = gd
         self.finegd = finegd
         self.nspins = nspins
         self.charge = float(charge)
+        self.grid2grid = grid2grid
+        self.aux_gd = grid2grid.big_gd if grid2grid.enabled else gd
+        self.atomic_matrix_distributor = None
 
         self.collinear = collinear
         self.ncomp = 1 if collinear else 2
@@ -80,17 +83,9 @@ class Density(object):
         # TODO: reset other parameters?
         self.nt_sG = None
 
-    def set_positions(self, spos_ac, atom_partition):
+    def set_positions_without_ruining_everything(self, spos_ac,
+                                                 atom_partition):
         rank_a = atom_partition.rank_a
-        self.nct.set_positions(spos_ac)
-        self.ghat.set_positions(spos_ac)
-        self.mixer.reset()
-
-        self.nt_sg = None
-        self.nt_g = None
-        self.rhot_g = None
-        self.Q_aL = None
-
         # If both old and new atomic ranks are present, start a blank dict if
         # it previously didn't exist but it will needed for the new atoms.
         if (self.atom_partition is not None and
@@ -105,6 +100,19 @@ class Density(object):
             self.timer.stop('Redistribute')
         
         self.atom_partition = atom_partition
+        self.atomic_matrix_distributor = self.grid2grid.get_matrix_distributor(
+            self.atom_partition, spos_ac)
+
+    def set_positions(self, spos_ac, atom_partition):
+        self.set_positions_without_ruining_everything(spos_ac, atom_partition)
+        self.nct.set_positions(spos_ac)
+        self.ghat.set_positions(spos_ac)
+        self.mixer.reset()
+
+        self.nt_sg = None
+        self.nt_g = None
+        self.rhot_g = None
+        self.Q_aL = None
 
     def calculate_pseudo_density(self, wfs):
         """Calculate nt_sG from scratch.
@@ -192,12 +200,32 @@ class Density(object):
 
         comp_charge = 0.0
         self.Q_aL = {}
-        for a, D_sp in self.D_asp.items():
+        Ddist_asp = self.atomic_matrix_distributor.distribute(self.D_asp)
+        for a, D_sp in Ddist_asp.items():
             Q_L = self.Q_aL[a] = np.dot(D_sp[:self.nspins].sum(0),
                                         self.setups[a].Delta_pL)
             Q_L[0] += self.setups[a].Delta0
             comp_charge += Q_L[0]
-        return self.gd.comm.sum(comp_charge) * sqrt(4 * pi)
+        return self.aux_gd.comm.sum(comp_charge) * sqrt(4 * pi)
+
+    def get_initial_occupations(self, a):
+        c = self.charge / len(self.setups)  # distribute on all atoms
+        M_v = self.magmom_av[a]
+        M = (M_v**2).sum()**0.5
+        f_si = self.setups[a].calculate_initial_occupation_numbers(
+            M, self.hund, charge=c, nspins=self.nspins * self.ncomp)
+
+        if self.collinear:
+            if M_v[2] < 0:
+                f_si = f_si[::-1].copy()
+        else:
+            f_i = f_si.sum(axis=0)
+            fm_i = f_si[0] - f_si[1]
+            f_si = np.zeros((4, len(f_i)))
+            f_si[0] = f_i
+            if M > 0:
+                f_si[1:4] = np.outer(M_v / M, fm_i)
+        return f_si
 
     def initialize_from_atomic_densities(self, basis_functions):
         """Initialize D_asp, nt_sG and Q_aL from atomic densities.
@@ -216,27 +244,15 @@ class Density(object):
                                                      self.atom_partition)
         f_asi = {}
         for a in basis_functions.atom_indices:
-            c = self.charge / len(self.setups)  # distribute on all atoms
-            M_v = self.magmom_av[a]
-            M = (M_v**2).sum()**0.5
-            f_si = self.setups[a].calculate_initial_occupation_numbers(
-                M, self.hund, charge=c, nspins=self.nspins * self.ncomp)
+            f_asi[a] = self.get_initial_occupations(a)
 
-            if self.collinear:
-                if M_v[2] < 0:
-                    f_si = f_si[::-1].copy()
-            else:
-                f_i = f_si.sum(axis=0)
-                fm_i = f_si[0] - f_si[1]
-                f_si = np.zeros((4, len(f_i)))
-                f_si[0] = f_i
-                if M > 0:
-                    f_si[1:4] = np.outer(M_v / M, fm_i)
-
-            if a in basis_functions.my_atom_indices:
-                self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
-
-            f_asi[a] = f_si
+        # D_asp does not have the same distribution as the basis functions,
+        # so we have to loop over atoms separately.
+        for a in self.D_asp:
+            f_si = f_asi.get(a)
+            if f_si is None:
+                f_si = self.get_initial_occupations(a)
+            self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
 
         self.nt_sG = self.gd.zeros(self.ns)
         basis_functions.add_to_density(self.nt_sG, f_asi)
@@ -248,9 +264,10 @@ class Density(object):
         self.timer.start("Density initialize from wavefunctions")
         self.nt_sG = self.gd.empty(self.ns)
         self.calculate_pseudo_density(wfs)
-        self.D_asp = self.setups.empty_atomic_matrix(self.ns,
-                                                     self.atom_partition)
-        wfs.calculate_atomic_density_matrices(self.D_asp)
+        D_asp = self.setups.empty_atomic_matrix(self.ns,
+                                                wfs.atom_partition)
+        wfs.calculate_atomic_density_matrices(D_asp)
+        self.D_asp = D_asp
         self.calculate_normalized_charges_and_mix()
         self.timer.stop("Density initialize from wavefunctions")
 
@@ -328,9 +345,13 @@ class Density(object):
             spos_ac = atoms.get_scaled_positions() % 1.0
 
         # Refinement of coarse grid, for representation of the AE-density
+        # XXXXXXXXXXXX think about distribution depending on gridrefinement!
         if gridrefinement == 1:
-            gd = self.gd
+            gd = self.aux_gd
             n_sg = self.nt_sG.copy()
+            # This will get the density with the same distribution
+            # as finegd:
+            n_sg = self.grid2grid.distribute(n_sg)
         elif gridrefinement == 2:
             gd = self.finegd
             if self.nt_sg is None:
@@ -341,7 +362,7 @@ class Density(object):
             gd = self.finegd.refine()
 
             # Interpolation function for the density:
-            interpolator = Transformer(self.finegd, gd, 3)
+            interpolator = Transformer(self.finegd, gd, 3) # XXX grids!
 
             # Transfer the pseudo-density to the fine grid:
             n_sg = gd.empty(self.nspins)
@@ -389,13 +410,14 @@ class Density(object):
             W += nw
 
         x_W = phi.create_displacement_arrays()[0]
+        D_asp = self.atomic_matrix_distributor.distribute(self.D_asp)
 
         rho_MM = np.zeros((phi.Mmax, phi.Mmax))
         for s, I_a in enumerate(I_sa):
             M1 = 0
             for a, setup in enumerate(self.setups):
                 ni = setup.ni
-                D_sp = self.D_asp.get(a)
+                D_sp = D_asp.get(a)
                 if D_sp is None:
                     D_sp = np.empty((self.nspins, ni * (ni + 1) // 2))
                 else:
@@ -407,11 +429,12 @@ class Density(object):
                         I_a[a] -= setup.Nc / self.nspins
 
                 if gd.comm.size > 1:
-                    gd.comm.broadcast(D_sp, self.atom_partition.rank_a[a])
+                    gd.comm.broadcast(D_sp, D_asp.partition.rank_a[a])
                 M2 = M1 + ni
                 rho_MM[M1:M2, M1:M2] = unpack2(D_sp[s])
                 M1 = M2
 
+            assert np.all(n_sg[s].shape == phi.gd.n_c)
             phi.lfc.ae_valence_density_correction(rho_MM, n_sg[s], a_W, I_a,
                                                   x_W)
             phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a,
@@ -515,6 +538,8 @@ class Density(object):
         atom_partition = AtomPartition(self.gd.comm, np.zeros(natoms, int))
         D_asp = self.setups.empty_atomic_matrix(self.ns, atom_partition)
         self.atom_partition = atom_partition  # XXXXXX
+        self.atomic_matrix_distributor = self.grid2grid.get_matrix_distributor(
+            self.atom_partition)
 
         all_D_sp = reader.get('AtomicDensityMatrices', broadcast=True)
         if self.gd.comm.rank == 0:
@@ -525,16 +550,17 @@ class Density(object):
 
 
 class RealSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, charge, collinear=True,
+    def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True,
                  stencil=3):
-        Density.__init__(self, gd, finegd, nspins, charge, collinear)
+        Density.__init__(self, gd, finegd, nspins, charge, grid2grid,
+                         collinear=collinear)
         self.stencil = stencil
 
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
 
         # Interpolation function for the density:
-        self.interpolator = Transformer(self.gd, self.finegd, self.stencil)
+        self.interpolator = Transformer(self.aux_gd, self.finegd, self.stencil)
 
         spline_aj = []
         for setup in setups:
@@ -558,7 +584,7 @@ class RealSpaceDensity(Density):
         if comp_charge is None:
             comp_charge = self.calculate_multipole_moments()
 
-        self.nt_sg = self.interpolate(self.nt_sG, self.nt_sg)
+        self.nt_sg = self.distribute_and_interpolate(self.nt_sG, self.nt_sg)
 
         # With periodic boundary conditions, the interpolation will
         # conserve the number of electrons.
@@ -588,6 +614,10 @@ class RealSpaceDensity(Density):
             self.interpolator.apply(in_R, out_R)
 
         return out_xR
+
+    def distribute_and_interpolate(self, in_xR, out_xR=None):
+        in_xR = self.grid2grid.distribute(in_xR)
+        return self.interpolate(in_xR, out_xR)
 
     def calculate_pseudo_charge(self):
         self.nt_g = self.nt_sg[:self.nspins].sum(axis=0)

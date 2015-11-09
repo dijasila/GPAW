@@ -219,7 +219,7 @@ class ExcitedState(FiniteDifferenceCalculator, GPAW):
         self.density = ExcitedStateDensity(
             gsdensity.gd, gsdensity.finegd, lr.kss.npspins,
             gsdensity.charge,
-            method=method)
+            method=method, grid2grid=gsdensity.grid2grid)
         index = self.index.apply(self.lrtddft)
         self.density.initialize(self.lrtddft, index)
         self.density.update(self.calculator.wfs)

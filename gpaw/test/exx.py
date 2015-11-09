@@ -19,7 +19,7 @@ ref_1871 = {  # Values from revision 1871. Not true reference values
     # xc         Energy          eigenvalue 0    eigenvalue 1
     'PBE': (5.427450, -3.84092, -0.96192),
     'PBE0': (-790.919942, -4.92321, -1.62948),
-    'EXX': (-785.590402, -7.17440, -2.73259)
+    'EXX': (-785.580737092, -7.16802337336, -2.72602997017)
     }
 
 from gpaw.xc import XC

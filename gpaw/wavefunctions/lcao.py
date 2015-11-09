@@ -374,7 +374,10 @@ class LCAOWaveFunctions(WaveFunctions):
 
             def my_slices():
                 return _slices(my_atom_indices)
-        
+
+        dH_asp = hamiltonian.dH_asp
+        vt_sG = hamiltonian.vt_sG
+
         #
         #         -----                    -----
         #          \    -1                  \    *
@@ -468,7 +471,7 @@ class LCAOWaveFunctions(WaveFunctions):
                 self.timer.start('Potential')
                 rhoT_mM = ksl.distribute_to_columns(rhoT_mm, desc)
                 
-                vt_G = hamiltonian.vt_sG[kpt.s]
+                vt_G = vt_sG[kpt.s]
                 Fpot_av += bfs.calculate_force_contribution(vt_G, rhoT_mM,
                                                             kpt.q)
                 del rhoT_mM
@@ -553,8 +556,6 @@ class LCAOWaveFunctions(WaveFunctions):
             P_expansions = tci.P_expansions
             nq = len(self.kd.ibzk_qc)
             
-            dH_asp = hamiltonian.dH_asp
-
             self.timer.start('broadcast dH')
             alldH_asp = {}
             for a in range(len(self.setups)):
@@ -779,8 +780,9 @@ class LCAOWaveFunctions(WaveFunctions):
             #
             self.timer.start('Potential')
             Fpot_av = np.zeros_like(F_av)
+
             for u, kpt in enumerate(self.kpt_u):
-                vt_G = hamiltonian.vt_sG[kpt.s]
+                vt_G = vt_sG[kpt.s]
                 Fpot_av += bfs.calculate_force_contribution(vt_G, rhoT_uMM[u],
                                                             kpt.q)
             self.timer.stop('Potential')
@@ -845,8 +847,7 @@ class LCAOWaveFunctions(WaveFunctions):
             Fatom_av = np.zeros_like(F_av)
             for u, kpt in enumerate(self.kpt_u):
                 for b in my_atom_indices:
-                    H_ii = np.asarray(unpack(hamiltonian.dH_asp[b][kpt.s]),
-                                      dtype)
+                    H_ii = np.asarray(unpack(dH_asp[b][kpt.s]), dtype)
                     HP_iM = gemmdot(H_ii,
                                     np.ascontiguousarray(
                             self.P_aqMi[b][kpt.q].T.conj()))

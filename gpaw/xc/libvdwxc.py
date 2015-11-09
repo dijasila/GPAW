@@ -4,8 +4,7 @@ from gpaw.xc.libxc import LibXC
 from gpaw.xc.gga import GGA
 from gpaw.utilities import compiled_with_libvdwxc, compiled_with_fftw_mpi,\
     compiled_with_pfft
-from gpaw.utilities.grid_redistribute import GridRedistributor
-from gpaw.utilities.accordion_redistribute import accordion_redistribute
+from gpaw.utilities.grid_redistribute import Domains, general_redistribute
 from gpaw.utilities.timing import nulltimer
 import _gpaw
 
@@ -24,6 +23,16 @@ _VDW_NUMERICAL_CODES = {'vdW-DF': 1,
                         'vdW-DF-CX': 3}
 
 
+def get_domains(N_c, parsize_c):
+    # We want a distribution like this:
+    #   [B, B, ..., B, remainder, 0, 0, ..., 0].
+    # with blocksize B chosen as large as possible for better load balance.
+    # This function returns the blocksize and the cumulative sum of indices
+    # starting with 0.
+    blocksize_c = -(-N_c // parsize_c)
+    return (np.arange(1 + parsize_c) * blocksize_c).clip(0, N_c)
+
+
 def get_auto_pfft_grid(size):
     nproc1 = size
     nproc2 = 1
@@ -31,6 +40,41 @@ def get_auto_pfft_grid(size):
         nproc1 /= 2
         nproc2 *= 2
     return nproc1, nproc2
+
+
+class VDWDistribution:
+    def __init__(self, gd, parsize_c):
+        self.input_gd = gd
+        assert np.product(parsize_c) == gd.comm.size
+        self.local_input_size_c = gd.n_c
+        self.domains_in = Domains(gd.n_cp)
+        N_c = gd.get_size_of_global_array(pad=True)
+        self.domains_out = Domains([get_domains(N_c[i], parsize_c[i])
+                                    for i in range(3)])
+
+        # The auxiliary gd actually is used *only* for the rank/parpos
+        # correspondence.  The actual domains it defines are unused!!
+        self.aux_gd = gd.new_descriptor(comm=gd.comm, parsize_c=parsize_c)
+        parpos_c = self.aux_gd.get_processor_position_from_rank()
+        
+        self.local_output_size_c = tuple(self.domains_out.get_box(parpos_c)[1])
+
+    def block_zeros(self, shape=(),):
+        return np.zeros(shape + self.local_output_size_c)
+
+    def gd2block(self, a_xg, b_xg):
+        general_redistribute(self.input_gd.comm,
+                             self.domains_in, self.domains_out,
+                             self.input_gd.get_processor_position_from_rank,
+                             self.aux_gd.get_processor_position_from_rank,
+                             a_xg, b_xg, behavior='overwrite')
+
+    def block2gd_add(self, a_xg, b_xg):
+        general_redistribute(self.input_gd.comm,
+                             self.domains_out, self.domains_in,
+                             self.aux_gd.get_processor_position_from_rank,
+                             self.input_gd.get_processor_position_from_rank,
+                             a_xg, b_xg, behavior='add')
 
 
 class LibVDWXC(GGA, object):
@@ -57,12 +101,11 @@ class LibVDWXC(GGA, object):
          PFFT.  If left unspecified, a hopefully reasonable automatic
          choice will be made.
          """
+        self._vdw = None
         object.__init__(self)
         GGA.__init__(self, gga_kernel)
-        self._vdw = None
-        self.fft_comm = None
         self.timer = timer
-        self.vdwcoef = 1.
+        self.vdwcoef = 1.0
         self.vdw_functional_name = name
 
         if parallel == 'auto':
@@ -76,6 +119,7 @@ class LibVDWXC(GGA, object):
         if parallel != 'pfft' and pfft_grid is not None:
             raise ValueError('pfft_grid specified but pfft not available')
         self.pfft_grid = pfft_grid
+        self.distribution = None
 
         if not compiled_with_libvdwxc():
             raise ImportError('libvdwxc not compiled into GPAW')
@@ -85,7 +129,8 @@ class LibVDWXC(GGA, object):
         if self.parallel == 'serial':
             pardesc = self.parallel
         elif self.parallel == 'mpi':
-            pardesc = 'FFTW-MPI with %d cores' % self.fft_comm.size
+            pardesc = ('FFTW-MPI with %d cores'
+                       % self.distribution.input_gd.comm.size)
         else:
             assert self.parallel == 'pfft'
             if self.pfft_grid is None:
@@ -102,63 +147,48 @@ class LibVDWXC(GGA, object):
     def get_setup_name(self):
         return 'revPBE'
 
-    def _libvdwxc_c_init(self, comm, N_c, cell_cv):
+    def _libvdwxc_init(self, gd):
         """Initialize libvdwxc things in C."""
         self.timer.start('libvdwxc init')
+        
+        comm = gd.comm
+
+        # TODO Here we could decide FFT padding.
+        N_c = gd.get_size_of_global_array(pad=True)
+
         code = _VDW_NUMERICAL_CODES[self.vdw_functional_name]
         self._vdw = _gpaw.libvdwxc_create(code, tuple(N_c),
-                                          tuple(cell_cv.ravel()))
+                                          tuple(gd.cell_cv.ravel()))
+
+        cpugrid = [1, 1, 1]
 
         if self.parallel == 'pfft':
             if self.pfft_grid is None:
+                # TODO decide grid intelligently (e.g., based on sizes)
                 self.pfft_grid = get_auto_pfft_grid(comm.size)
             nproc1, nproc2 = self.pfft_grid
             assert nproc1 * nproc2 == comm.size
+            cpugrid[0] = nproc1
+            cpugrid[1] = nproc2
             _gpaw.libvdwxc_init_pfft(self._vdw, comm.get_c_object(),
                                      nproc1, nproc2)
         elif self.parallel == 'mpi':
+            cpugrid[0] = comm.size
             _gpaw.libvdwxc_init_mpi(self._vdw, comm.get_c_object())
+            
         else:
+            assert self.parallel == 'serial'
             assert comm.size == 1
             _gpaw.libvdwxc_init_serial(self._vdw)
-        self.fft_comm = comm
+
+        self.distribution = VDWDistribution(gd, cpugrid)
         self.timer.stop('libvdwxc init')
 
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.timer.start('initialize')
         GGA.initialize(self, density, hamiltonian, wfs, occupations)
-        bigger_fft_comm = None
-        if density.finegd.comm.size == 1 and wfs.world.size > 1:
-            bigger_fft_comm = wfs.world
-        self._initialize(density.finegd, fft_comm=bigger_fft_comm)
+        self._libvdwxc_init(density.finegd)
         self.timer.stop('initialize')
-
-    def _initialize(self, gd, fft_comm=None):
-        """This is the real initialize, without any complicated arguments.
-
-        This will initialize parallelization things in Python and then
-        the actual C backend libvdwxc.
-
-        If gd is not domain-decomposed, then fft_comm may passed
-        and arrays will be distributed on that for parallel FFTs."""
-        # We want a periodic descriptor because it tends to have nicely
-        # primey numbers of grid points whereas non-periodic grid descriptors
-        # do not.  We don't truly pad anything though.
-        pad_gd = gd.new_descriptor(pbc_c=(1, 1, 1))
-        if fft_comm is not None:
-            assert pad_gd.comm.size == 1
-        self.aggressive_distribute = (fft_comm is not None)
-        if self.aggressive_distribute:
-            pad_gd = pad_gd.new_descriptor(comm=fft_comm,
-                                           parsize=(fft_comm.size, 1, 1))
-        else:
-            fft_comm = pad_gd.comm
-
-        self.pad_gd = pad_gd
-        self.dist1 = GridRedistributor(pad_gd, 1, 2)
-        self.dist2 = GridRedistributor(self.dist1.gd2, 0, 1)
-        self._libvdwxc_c_init(fft_comm, pad_gd.get_size_of_global_array(),
-                              pad_gd.cell_cv)
 
     def calculate(self, gd, n_sg, v_sg, e_g=None):
         """Calculate energy and potential.
@@ -167,109 +197,68 @@ class LibVDWXC(GGA, object):
         which is always periodic due to priminess of FFT dimensions.
         (To do: proper padded FFTs.)"""
         nspins = len(n_sg)
+        assert nspins == 1, 'libvdwxc does not work with multiple spins yet'
+        assert gd == self.distribution.input_gd
+
         if e_g is not None:
             # TODO: handle e_g properly
-            raise NotImplementedError('Proper energy density e_g')
-
-        npad_sg = gd.zero_pad(n_sg, global_array=False)
-
-        if self.aggressive_distribute:
-            dist_gd = self.dist1.gd
-            ndist_sg = dist_gd.empty(nspins)
-            dist_gd.distribute(npad_sg, ndist_sg)
-        else:
-            dist_gd = self.pad_gd
-            ndist_sg = npad_sg
-        npad_sg = None  # Possible garbage collection
-
-        vdist_sg = dist_gd.zeros(nspins)
-        edist_g = dist_gd.empty()
-
-        # We have the minor issue that dist_gd now goes across the cell
-        # when evaluating derivatives, so in non-periodic systems we will
-        # get (very) small numerical errors until we have proper padding.
-        GGA.calculate(self, dist_gd, ndist_sg, vdist_sg, e_g=edist_g)
-        ndist_sg = None
-        energy = dist_gd.integrate(edist_g)
-        edist_g = None
-
-        if self.aggressive_distribute:
-            vpad_sg = dist_gd.collect(vdist_sg, broadcast=True)
-        else:
-            vpad_sg = vdist_sg
-
-        # Now we have to unpad.  Of course the density is zero in the padded
-        # region so the energy contribution is zero.  However we added all the
-        # vdw energy in the corner of e_g because of our rebellious nature,
-        # and now we have to account for our sins
-        pad_c = (1 - gd.pbc_c) * (gd.get_processor_position_from_rank() == 0)
-        v_sg += vpad_sg[:, pad_c[0]:, pad_c[1]:, pad_c[2]:]
+            raise NotImplementedError('Proper energy density e_g in libvdwxc')
+        energy = GGA.calculate(self, gd, n_sg, v_sg, e_g=None)
         return energy
 
-    def calculate_nonlocal(self, n_g, sigma_g):
-        v_g = np.zeros_like(n_g)
-        dedsigma_g = np.zeros_like(sigma_g)
+    def calculate_nonlocal(self, n_g, sigma_g, v_g, dedsigma_g):
+        for arr in [n_g, sigma_g, v_g, dedsigma_g]:
+            assert arr.flags.contiguous
+            assert arr.dtype == float
+            np.all(arr.shape == self.distribution.local_output_size_c)
         energy = _gpaw.libvdwxc_calculate(self._vdw, n_g, sigma_g,
                                           v_g, dedsigma_g)
-        return energy, v_g, dedsigma_g
+        return energy
 
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         assert self._vdw is not None
-        self.timer.start('calculate gga')
+        self.timer.start('van der Waals')
         n_sg[:] = np.abs(n_sg)  # XXXX What to do about this?
         sigma_xg[:] = np.abs(sigma_xg)
         assert len(n_sg) == 1
         assert len(sigma_xg) == 1
+        self.timer.start('semilocal')
         GGA.calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        # TODO:  Only call the various redistribute functions when necessary.
+        self.timer.stop('semilocal')
 
-        def to_1d_block_distribution(array):
-            array = self.dist1.forth(array)
-            array = self.dist2.forth(array)
-            array = accordion_redistribute(self.dist2.gd2, array, axis=0)
-            return array
+        zeros = self.distribution.block_zeros
 
-        def from_1d_block_distribution(array):
-            array = accordion_redistribute(self.dist2.gd2, array, axis=0,
-                                           operation='back')
-            array = self.dist2.back(array)
-            array = self.dist1.back(array)
-            return array
+        nblock_g = zeros()
+        sigmablock_g = zeros()
+        vblock_g = zeros()
+        dedsigmablock_g = zeros()
 
-        assert len(sigma_xg) == 1
-        assert len(n_sg) == 1
+        self.timer.start('redistribute')
+        self.distribution.gd2block(n_sg[0], nblock_g)
+        self.distribution.gd2block(sigma_xg[0], sigmablock_g)
+        self.timer.stop('redistribute')
 
-        self.timer.start('redist')
-        nblock_g = to_1d_block_distribution(n_sg[0])
-        sigmablock_g = to_1d_block_distribution(sigma_xg[0])
-        self.timer.stop('redist')
+        self.timer.start('libvdwxc nonlocal')
+        energy_nonlocal = self.calculate_nonlocal(nblock_g, sigmablock_g,
+                                                  vblock_g, dedsigmablock_g)
+        self.timer.stop('libvdwxc nonlocal')
 
-        self.timer.start('libvdwxc')
-        Ecnl, vblock_g, dedsigmablock_g = self.calculate_nonlocal(nblock_g,
-                                                                  sigmablock_g)
-        self.timer.stop('libvdwxc')
+        for obj in [energy_nonlocal, vblock_g, dedsigmablock_g]:
+            obj *= self.vdwcoef
 
-        self.timer.start('redist')
-        v_g = from_1d_block_distribution(vblock_g)
-        dedsigma_g = from_1d_block_distribution(dedsigmablock_g)
-        #dedsigma_g *= 0.
-        self.timer.stop('redist')
+        self.timer.start('redistribute')
+        self.distribution.block2gd_add(vblock_g, v_sg[0])
+        self.distribution.block2gd_add(dedsigmablock_g, dedsigma_xg[0])
+        self.timer.stop('redistribute')
 
-        Ecnl = self.gd.comm.sum(Ecnl)
-        if self.gd.comm.rank == 0:
-            # XXXXXXXXXXXXXXXX ugly
-            e_g[0, 0, 0] += Ecnl / self.gd.dv * self.vdwcoef
-        self.Ecnl = Ecnl * self.gd.dv
-        assert len(v_sg) == 1
-        v_sg[0, :] += v_g * self.vdwcoef
-        assert len(dedsigma_xg) == 1
-        dedsigma_xg[0, :] += dedsigma_g * self.vdwcoef
-        self.timer.stop('calculate gga')
+        # XXXXXXXXXXXXXXXX ugly
+        e_g[0, 0, 0] += self.vdwcoef * energy_nonlocal / self.gd.dv
+        self.timer.stop('van der Waals')
 
     def estimate_memory(self, mem):
-        size = self.dist2.gd2.bytecount()
+        size = self.distribution.input_gd.bytecount()  # only on average
         mem.subnode('thetas', 20 * size)
-        mem.subnode('other', 5 * size)
+        mem.subnode('other', 3 * size)
 
     def __del__(self):
         if self._vdw is not None:

@@ -2,7 +2,7 @@ import numpy as np
 
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
-from gpaw.utilities.partition import AtomPartition
+from gpaw.utilities.partition import AtomPartition, AtomicMatrixDistributor
 from gpaw.utilities.timing import nulltimer
 
 
@@ -59,7 +59,7 @@ class WaveFunctions(EmptyWaveFunctions):
     ncomp = 1
     
     def __init__(self, gd, nvalence, setups, bd, dtype,
-                 world, kd, kptband_comm, timer=None):
+                 world, kd, kptband_comm, timer):
         self.gd = gd
         self.nspins = kd.nspins
         self.ns = self.nspins * self.ncomp**2
@@ -73,16 +73,16 @@ class WaveFunctions(EmptyWaveFunctions):
         self.kd = kd
         self.kptband_comm = kptband_comm
         self.band_comm = self.bd.comm  # XXX
-        if timer is None:
-            timer = nulltimer
         self.timer = timer
         self.atom_partition = None
+        self.big_atom_partition = None
             
         self.kpt_u = kd.create_k_points(self.gd)
 
         self.eigensolver = None
         self.positions_set = False
 
+        self.amd = None  # matrix distributor.  Switch to better name
         self.set_setups(setups)
 
     def set_setups(self, setups):
@@ -108,7 +108,9 @@ class WaveFunctions(EmptyWaveFunctions):
         self.add_realspace_orbital_to_density(nt_G, kpt.psit_nG[n])
 
     def calculate_density_contribution(self, nt_sG):
-        """Calculate contribution to pseudo density from wave functions."""
+        """Calculate contribution to pseudo density from wave functions.
+
+        Array entries are written to (not added to)."""
         nt_sG.fill(0.0)
         for kpt in self.kpt_u:
             self.add_to_density_from_k_point(nt_sG, kpt)
@@ -235,7 +237,6 @@ class WaveFunctions(EmptyWaveFunctions):
             self.timer.stop('Redistribute')
 
         self.atom_partition = atom_partition
-
         self.kd.symmetry.check(spos_ac)
 
     def allocate_arrays_for_projections(self, my_atom_indices):

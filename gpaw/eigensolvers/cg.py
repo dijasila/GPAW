@@ -18,7 +18,7 @@ class CG(Eigensolver):
 
     It is expected that the trial wave functions are orthonormal
     and the integrals of projector functions and wave functions
-    ``nucleus.P_uni`` are already calculated.
+    are already calculated.
 
     Solution steps are:
 
@@ -69,6 +69,14 @@ class CG(Eigensolver):
 
         comm = wfs.gd.comm
         if self.tw_coeff:
+            # Wait!  What business does the eigensolver have changing
+            # the properties of the Hamiltonian?  We are not updating
+            # the Hamiltonian here.  Moreover, what is supposed to
+            # happen if this function is called multiple times per
+            # iteration?  Then we keep dividing the potential by the
+            # same number.  What on earth is the meaning of this?
+            #
+            # Also the parameter tw_coeff is undocumented.  What is it?
             hamiltonian.vt_sG /= self.tw_coeff
             # Assuming the ordering in dH_asp and wfs is the same
             for a in hamiltonian.dH_asp.keys():

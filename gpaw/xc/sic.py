@@ -35,20 +35,19 @@ functionals (Perdew-Zunger).
 
 
 import sys
-from math import pi, sqrt, cos, sin, log10, exp, atan2
+from math import pi
 
 import numpy as np
 from ase.units import Bohr, Hartree
 
-from gpaw.utilities.tools import dagger
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional
 from gpaw.poisson import PoissonSolver
+from gpaw.transformers import Transformer
 from gpaw.utilities import pack, unpack
 from gpaw.lfc import LFC
-import gpaw.mpi as mpi
 import _gpaw
 
 
@@ -192,9 +191,9 @@ class SIC(XCFunctional):
 
     
     def initialize(self, density, hamiltonian, wfs, occ=None):
-        
         assert wfs.kd.gamma
         assert not wfs.gd.pbc_c.any()
+        assert wfs.bd.comm.size == 1  # band parallelization unsupported
 
         self.wfs = wfs
         self.dtype = float
@@ -202,20 +201,16 @@ class SIC(XCFunctional):
         self.kpt_comm = wfs.kd.comm
         self.nspins = wfs.nspins
         self.nbands = wfs.bd.nbands
-        
-        if self.finegrid:
-            self.finegd = density.finegd
-            self.ghat = density.ghat
-        else:
-            self.finegd = density.gd
-            self.ghat = LFC(self.finegd,
+
+        self.finegd = density.gd.refine() if self.finegrid else density.gd
+        self.ghat = LFC(self.finegd,
                         [setup.ghat_l for setup in density.setups],
-                        integral=sqrt(4 * pi), forces=True)
+                        integral=np.sqrt(4 * np.pi), forces=True)
         
         poissonsolver = PoissonSolver(eps=1e-14)
         poissonsolver.set_grid_descriptor(self.finegd)
         poissonsolver.initialize()
-        
+
         self.spin_s = {}
         for kpt in wfs.kpt_u:
             self.spin_s[kpt.s] = SICSpin(kpt, self.xc,
@@ -232,13 +227,9 @@ class SIC(XCFunctional):
                                  addcoredensity, a)
     
     def set_positions(self, spos_ac):
-        if not self.finegrid:
-            self.ghat.set_positions(spos_ac)
+        self.ghat.set_positions(spos_ac)
     
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
-        
-        self.gd = gd
-        
         # Normal XC contribution:
         exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
 
@@ -284,13 +275,13 @@ class SIC(XCFunctional):
         self.spin_s[kpt.s].rotate(U_nn)
 
     def setup_force_corrections(self, F_av):
-       self.dF_av = np.zeros_like(F_av)
-       for spin in self.spin_s.values():
-           spin.add_forces(self.dF_av)
-       self.wfs.kd.comm.sum(self.dF_av)
+        self.dF_av = np.zeros_like(F_av)
+        for spin in self.spin_s.values():
+            spin.add_forces(self.dF_av)
+        self.wfs.kd.comm.sum(self.dF_av)
         
     def add_forces(self, F_av):
-       F_av += self.dF_av
+        F_av += self.dF_av
 
     def summary(self, out=sys.stdout):
         for s in range(self.nspins):
@@ -300,13 +291,13 @@ class SIC(XCFunctional):
                 pos_mv = spin.get_centers()
                 exc_m = spin.exc_m
                 ecoulomb_m = spin.ecoulomb_m
-                if self.kpt_comm.rank == 1 and self.gd.comm.rank == 0:
+                if self.kpt_comm.rank == 1 and self.finegd.comm.rank == 0:
                     nocc = self.kpt_comm.sum(spin.nocc)
                     self.kpt_comm.send(pos_mv, 0)
                     self.kpt_comm.send(exc_m, 0)
                     self.kpt_comm.send(ecoulomb_m, 0)
             else:
-                if self.kpt_comm.rank == 0 and self.gd.comm.rank == 0:
+                if self.kpt_comm.rank == 0 and self.finegd.comm.rank == 0:
                     nocc = self.kpt_comm.sum(0)
                     pos_mv = np.zeros((nocc, 3))
                     exc_m = np.zeros(nocc)
@@ -314,7 +305,7 @@ class SIC(XCFunctional):
                     self.kpt_comm.receive(pos_mv, 1)
                     self.kpt_comm.receive(exc_m, 1)
                     self.kpt_comm.receive(ecoulomb_m, 1)
-            if self.kpt_comm.rank == 0 and self.gd.comm.rank == 0:
+            if self.kpt_comm.rank == 0 and self.finegd.comm.rank == 0:
                 out.write('\nSIC orbital centers and energies:\n')
                 out.write('                                %5.2fx   %5.2fx\n' %
                           (self.spin_s[0].xc_factor,
@@ -460,15 +451,21 @@ class SICSpin:
         
         self.gd = wfs.gd
         self.finegd = finegd
-        self.interpolator = density.interpolator
-        self.restrictor = hamiltonian.restrictor
+
+        if self.finegd is self.gd:
+            self.interpolator = None
+            self.restrictor = None
+        else:
+            self.interpolator = Transformer(self.gd, self.finegd, 3)
+            self.restrictor = Transformer(self.finegd, self.gd, 3)
+
         self.nspins = wfs.nspins
         self.spin = kpt.s
         self.timer = wfs.timer
         self.setups = wfs.setups
-        
+
         self.dtype = dtype
-        self.coulomb_factor = coulomb_factor    
+        self.coulomb_factor = coulomb_factor
         self.xc_factor = xc_factor    
 
         self.nocc = None           # number of occupied states
@@ -512,7 +509,7 @@ class SICSpin:
             Z_mmv[:, :, v] = self.gd.wannier_matrix(self.kpt.psit_nG,
                                                     self.kpt.psit_nG, G_v,
                                                     self.nocc)
-        self.gd.comm.sum(Z_mmv)
+        self.finegd.comm.sum(Z_mmv)
 
         if self.initial_W_mn is not None:
             self.W_mn = self.initial_W_mn
@@ -536,7 +533,7 @@ class SICSpin:
             self.W_mn = np.dot(U_mm, self.W_mn)
         
         if self.W_mn is not None:
-            self.gd.comm.broadcast(self.W_mn, 0)
+            self.finegd.comm.broadcast(self.W_mn, 0)
             
         spos_mc = -np.angle(Z_mmv.diagonal()).T / (2 * pi)
         self.initial_pos_mv = np.dot(spos_mc % 1.0, self.gd.cell_cv)
@@ -554,7 +551,7 @@ class SICSpin:
             Z_mmv[:, :, v] = self.gd.wannier_matrix(self.kpt.psit_nG,
                                                     self.kpt.psit_nG, G_v,
                                                     self.nocc)
-        self.gd.comm.sum(Z_mmv)
+        self.finegd.comm.sum(Z_mmv)
         #
         # setup the initial configuration (identity)
         W_nm = np.identity(self.nocc)
@@ -604,7 +601,7 @@ class SICSpin:
             Z_mmv[:, :, v] = self.gd.wannier_matrix(self.phit_mG,
                                                     self.phit_mG, G_v,
                                                     self.nocc)
-        self.gd.comm.sum(Z_mmv)
+        self.finegd.comm.sum(Z_mmv)
         #
         # calculate positions of localized orbitals
         spos_mc = -np.angle(Z_mmv.diagonal()).T / (2 * pi)
@@ -627,7 +624,7 @@ class SICSpin:
         
 
         # accumulate over grid-domains
-        self.gd.comm.sum(V_mm)
+        self.finegd.comm.sum(V_mm)
         self.V_mm = V_mm
 
         # Symmetrization of V and kappa-matrix:
@@ -872,7 +869,7 @@ class SICSpin:
                     dH_ii = unpack(dH_p)
                     R_mk[m] += np.dot(P_mi[m], np.dot(dH_ii, P_ni[nocc:].T))
             #      
-            self.gd.comm.sum(R_mk)        
+            self.finegd.comm.sum(R_mk)        
         #
         #self.R_mk = R_mk
         # ==================================================================
@@ -939,8 +936,8 @@ class SICSpin:
                 v_mx[m] += np.dot(P_mi[m], np.dot(dH_ii, P_xi.T))   
         #
         # sum over grid-domains
-        self.gd.comm.sum(w_mx)
-        self.gd.comm.sum(v_mx)
+        self.finegd.comm.sum(w_mx)
+        self.finegd.comm.sum(v_mx)
         #
         
         V_mm = 0.5*(self.V_mm + self.V_mm.T)
@@ -999,7 +996,7 @@ class SICSpin:
 
     def add_forces(self, F_av):
         # Calculate changes in projections
-        deg = 3-self.nspins
+        deg = 3 - self.nspins
         F_amiv = self.pt.dict(self.nocc, derivative=True)
         self.pt.derivative(self.phit_mG, F_amiv)
         for m in range(self.nocc):
@@ -1007,7 +1004,8 @@ class SICSpin:
             dF_aLv = self.ghat.dict(derivative=True)
             self.ghat.derivative(self.vHt_mg[m], dF_aLv)
             for a, dF_Lv in dF_aLv.items():
-                F_av[a] -= deg*self.coulomb_factor * np.dot(self.Q_maL[m][a], dF_Lv)        
+                F_av[a] -= deg * self.coulomb_factor * \
+                    np.dot(self.Q_maL[m][a], dF_Lv)
 
             # Force from projectors
             for a, F_miv in F_amiv.items():
@@ -1047,10 +1045,6 @@ class SICSpin:
             energy functional.
         """
         
-        ESI_init = 0.0
-        ESI      = 0.0
-        dE       = 1e-16  
-
         optstep  = 0.0
         Gold     = 0.0
         cgiter   = 0
@@ -1058,7 +1052,6 @@ class SICSpin:
         epsstep  = 0.005  # 0.005
         dltstep  = 0.1    # 0.1
         prec     = 1E-7
-        oldstep  = 0.0
         #
         #
         # get the initial ODD potentials/energy/matrixelements
@@ -1066,7 +1059,6 @@ class SICSpin:
         self.update_potentials(save=True)
         ESI = self.esic
         V_mm, K_mm, norm = self.calculate_sic_matrixelements()
-        ESI_init = ESI
 
         if norm < self.uonscres and self.maxuoiter>0:
             return
@@ -1086,7 +1078,6 @@ class SICSpin:
             # copy the initial unitary transformation and orbital
             # dependent energies
             W_old_mn    = self.W_mn.copy()
-            ESI_old  = ESI
             #
             # setup the steepest-descent/conjugate gradient
             # D_nn:  search direction
@@ -1159,7 +1150,6 @@ class SICSpin:
                 #print eps_works, optstep, G0/((G0-G1)/step)
                 #
                 # decide on the method for stepping
-                oldstep = 0.0
                 if (optstep > 0.0):
                     #
                     # convex region -> force only estimate for minimum
@@ -1189,7 +1179,6 @@ class SICSpin:
                         minimum   = True
                         failed    = False
                         lsmethod  = 'CV-S'
-                        oldstep   = optstep
                     else:
                         #self.K_unn[q] = K_nn
                         ESI       = E0
@@ -1351,7 +1340,7 @@ class SICSpin:
             self.W_mn = ortho(self.W_mn)
             K = max(norm, 1.0e-16)
            
-            if self.gd.comm.rank == 0:
+            if self.finegd.comm.rank == 0:
                 if self.logging==1:
                     print("           UO-%d: %2d %5.1f  %20.5f  " % (
                         self.spin, iter, np.log10(K), ESI*Hartree))

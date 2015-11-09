@@ -49,6 +49,10 @@ class InputParameters(dict):
                           'band': gpaw.parsize_bands,
                           'order': 'kdb',
                           'stridebands': False,
+                          # Distribute density/potential on world.
+                          # What is a better name for this parameter?
+                          # It should probably accept a parsize tuple
+                          'augment_grids': gpaw.augment_grids,
                           'sl_auto': False,
                           'sl_default': gpaw.sl_default,
                           'sl_diagonalize': gpaw.sl_diagonalize,

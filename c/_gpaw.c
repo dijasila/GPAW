@@ -118,12 +118,8 @@ PyObject* libvdwxc_init_serial(PyObject *self, PyObject *args);
 PyObject* libvdwxc_calculate(PyObject *self, PyObject *args);
 PyObject* libvdwxc_free(PyObject* self, PyObject* args);
 #ifdef PARALLEL
-#ifdef GPAW_WITH_FFTW3_MPI
 PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args);
-#endif // FFTW3_MPI
-#ifdef GPAW_WITH_PFFT
 PyObject* libvdwxc_init_pfft(PyObject* self, PyObject* args);
-#endif
 #endif // PARALLEL
 #endif // GPAW_WITH_LIBVDWXC
 
@@ -237,12 +233,8 @@ static PyMethodDef functions[] = {
     {"libvdwxc_calculate", libvdwxc_calculate, METH_VARARGS, 0},
     {"libvdwxc_free", libvdwxc_free, METH_VARARGS, 0},
 #ifdef PARALLEL
-#ifdef GPAW_WITH_FFTW3_MPI
     {"libvdwxc_init_mpi", libvdwxc_init_mpi, METH_VARARGS, 0},
-#endif // FFTW3_MPI
-#ifdef GPAW_WITH_PFFT
     {"libvdwxc_init_pfft", libvdwxc_init_pfft, METH_VARARGS, 0},
-#endif // PFFT
 #endif // PARALLEL
 #endif // GPAW_WITH_LIBVDWXC
     {"mlsqr", mlsqr, METH_VARARGS, 0},
