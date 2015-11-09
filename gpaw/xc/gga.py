@@ -40,7 +40,14 @@ class GGA(LDA):
         self.add_gradient_correction(gradn_svg, sigma_xg, dedsigma_xg, v_sg)
 
     def add_gradient_correction(self, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
-        """Add gradient correction to potential."""
+        """Add gradient correction to potential.
+
+                      __   /       de(r)    __      \
+        v  (r) += -2  \/ . | ? + ---------  \/ n(r) |
+         xc                \     dsigma(r)          /
+
+        Appears to also add to sigma_xg.
+        """
         nspins = len(v_sg)
         vv_g = sigma_xg[0]
         for v in range(3):
@@ -254,7 +261,7 @@ def pbe_constants(name):
 
     return name, kappa, mu, beta
 
-
+# a2 = |grad n|^2
 def gga_x(name, spin, n, a2, kappa, mu):
     assert spin in [0, 1]
 

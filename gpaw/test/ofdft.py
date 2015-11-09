@@ -1,23 +1,23 @@
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, PoissonSolver
 from gpaw.mixer import Mixer
 from gpaw.test import equal
 from gpaw.test import gen
 
-h = 0.18
-a = 8.0
+a = 6.0
 c = a / 2
-d = 1.8
+#d = 1.8
 
 elements = ['C', 'Be']
-results = [0.0256218846668, 9.972405]
+results = [0.245393619863, 9.98114719239]
 electrons = [6, 3]
 charges = [0,1]
 
 
 for symbol in elements:
     xcname = '1.0_LDA_K_TF+1.0_LDA_X'
-    g = gen(symbol, xcname=xcname, scalarrel=False, orbital_free=True)
+    g = gen(symbol, xcname=xcname, scalarrel=False, orbital_free=True,
+            gpernode=75)
 
 for element, result, e, charge in zip(elements, results, electrons, charges):
     atom = Atoms(element,
@@ -25,7 +25,9 @@ for element, result, e, charge in zip(elements, results, electrons, charges):
                  cell=(a, a, a))
 
     mixer = Mixer(0.3, 5, 1)
-    calc = GPAW(h=h, txt='-', xc=xcname, maxiter=240,
+    calc = GPAW(gpts=(32, 32, 32),
+                txt='-', xc=xcname,
+                poissonsolver=PoissonSolver(relax='GS', eps=1e-6),
                 eigensolver='cg', mixer=mixer, charge=charge)
 
     atom.set_calculator(calc)

@@ -90,16 +90,10 @@ class PointChargePotential(ExternalPotential):
         positions: (N, 3)-shaped array-like of float
             Positions of charges in Angstrom.  Can be set later.
         rc: float
-            Inner cutoff for Coulomb potential in Angstrom.
+            Cutoff for Coulomb potential in Angstrom.
             
-        For r < rc, 1 / r is replaced by a third order polynomial in r^2 that
+        for r < rc, 1 / r is replaced by a third order polynomial in r^2 that
         has matching value, first derivative, second derivative and integral.
-        
-        You can also give rc a negative value.  In that case, this formula
-        is used::
-            
-            (r^4 - rc^4) / (r^5 - |rc|^5).
-            
         """
         self.q_p = np.ascontiguousarray(charges, float)
         self.rc = rc / Bohr

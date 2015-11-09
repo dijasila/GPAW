@@ -19,7 +19,13 @@ Development version in trunk
   differences. The solvation energies are expected to change slightly
   within the accuracy of the model.
 
-* ...
+* New `f_{\text{xc}}` kernels for correlation energy calculations.  See this
+  updated :ref:`tutorial <rapbe_tut>`.
+
+* Correlation energies within the range-separated RPA.  See this
+  :ref:`tutorial <rangerpa_tut>`.
+  
+* Experimental interface to the *libvdwxc* library.
 
 
 Version 0.11.0

@@ -52,43 +52,31 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                     if (F_pv == 0) {
                         // Calculate potential:
                         double v;
-                        if (rc < 0.0)
-                           v = (q_p[p] * (d * d * d * d - rc * rc * rc * rc) /
-                                (d * d * d * d * d + rc * rc * rc * rc * rc));
-                        else
-                            if (d > rc)
-                                v = q_p[p] / d;
-                            else {
-                                double s = d / rc;
-                                double s2 = s * s;
-                                v = q_p[p] * (3.28125 +
-                                              s2 * (-5.46875 +
-                                                    s2 * (4.59375 +
-                                                          s2 * -1.40625))) / rc;
-                            }
+                        if (d > rc)
+                            v = q_p[p] / d;
+                        else {
+                            double s = d / rc;
+                            double s2 = s * s;
+                            v = q_p[p] * (3.28125 +
+                                          s2 * (-5.46875 +
+                                                s2 * (4.59375 +
+                                                      s2 * -1.40625))) / rc;
+                        }
                         vext_G[G] -= v;
                     }
                     else {
                         // Calculate forces:
                         double w;  // -(dv/dr)/r
-                        if (rc < 0.0) {
-                            double x = (d * d * d * d * d +
-                                        rc * rc * rc * rc * rc);
-                            w = ((d * d * d * d - rc * rc * rc * rc) /
-                                 (x * x) * 5 * d * d * d -
-                                 4 * d * d / x);
+                        if (d > rc)
+                            w = 1 / (d * d * d);
+                        else {
+                            double s = d / rc;
+                            double s2 = s * s;
+                            w = (-2 * (-5.46875 +
+                                       s2 * (2 * 4.59375 +
+                                             s2 * 3 * -1.40625)) /
+                                 (rc * rc * rc));
                         }
-                        else
-                            if (d > rc)
-                                w = 1 / (d * d * d);
-                            else {
-                                double s = d / rc;
-                                double s2 = s * s;
-                                w = (-2 * (-5.46875 +
-                                           s2 * (2 * 4.59375 +
-                                                 s2 * 3 * -1.40625)) /
-                                     (rc * rc * rc));
-                            }
                         w *= q_p[p] * rhot_G[G] * dV;
                         double* F_v = F_pv + 3 * p;
                         F_v[0] -= w * dx;

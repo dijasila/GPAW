@@ -12,10 +12,6 @@ from gpaw.response.grid_chi import CHI
 from gpaw.mpi import serial_comm, rank, size
 from gpaw.utilities import devnull
 
-
-if rank != 0:
-  sys.stdout = devnull 
-
 GS1 = 1
 GS2 = 1
 EELS = 1

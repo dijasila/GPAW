@@ -533,6 +533,7 @@ class _Communicator:
             return self.comm.translate_ranks(other.comm, ranks) # argh!
         otherranks = self.comm.translate_ranks(other.get_c_object(), ranks)
         assert all(-1 <= rank for rank in otherranks)
+        assert ranks.dtype == otherranks.dtype
         return otherranks
         
     def get_members(self):
@@ -608,9 +609,14 @@ class SerialCommunicator:
         b[:] = a
 
     def alltoallv(self, sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls):
-        rbuffer[:] = sbuffer
-        rcounts[:] = scounts
-        rdispls[:] = sdispls
+        assert len(scounts) == 1
+        assert len(sdispls) == 1
+        assert len(rcounts) == 1
+        assert len(rdispls) == 1
+        assert len(sbuffer) == len(rbuffer)
+        
+        rbuffer[rdispls[0]:rdispls[0] + rcounts[0]] = \
+            sbuffer[sdispls[0]:sdispls[0] + scounts[0]]
 
     def new_communicator(self, ranks):
         if self.rank not in ranks:

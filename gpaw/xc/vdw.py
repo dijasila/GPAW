@@ -483,7 +483,7 @@ class RealSpaceVDWFunctional(VDWFunctionalBase):
 class FFTVDWFunctional(VDWFunctionalBase):
     """FFT implementation of vdW-DF."""
     def __init__(self,
-                 Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048 * 2, size=None,
+                 Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, size=None,
                  **kwargs):
         """FFT vdW-DF.
 

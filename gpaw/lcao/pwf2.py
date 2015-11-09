@@ -40,7 +40,7 @@ def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
     vxct_sg = calc.density.finegd.zeros(calc.wfs.nspins)
     calc.hamiltonian.xc.calculate(calc.density.finegd, nt_sg, vxct_sg)
     vxct_G = calc.wfs.gd.zeros()
-    calc.hamiltonian.restrict(vxct_sg[spin], vxct_G)
+    calc.hamiltonian.restrict_and_collect(vxct_sg[spin], vxct_G)
     Vxc_qMM = np.zeros((nq, nao, nao), dtype)
     for q, Vxc_MM in enumerate(Vxc_qMM):
         bfs.calculate_potential_matrix(vxct_G, Vxc_MM, q)
@@ -65,7 +65,7 @@ def get_xc2(calc, w_wG, P_awi, spin=0):
     vxct_g = calc.density.finegd.zeros()
     calc.hamiltonian.xc.get_energy_and_potential(nt_g, vxct_g)
     vxct_G = calc.wfs.gd.empty()
-    calc.hamiltonian.restrict(vxct_g, vxct_G)
+    calc.hamiltonian.restrict_and_collect(vxct_g, vxct_G)
 
     # Integrate pseudo part
     Nw = len(w_wG)

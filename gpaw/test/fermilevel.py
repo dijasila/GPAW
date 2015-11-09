@@ -1,7 +1,7 @@
 import numpy as np
 
 from ase import Atoms
-from gpaw import GPAW, FermiDirac
+from gpaw import GPAW, FermiDirac, Davidson
 from gpaw.test import equal
 
 modes = ['gpw']
@@ -11,7 +11,9 @@ try:
 except ImportError:
     pass
 
-calc = GPAW(nbands=1, occupations=FermiDirac(0.0))#, txt=None)
+calc = GPAW(nbands=1,
+            eigensolver=Davidson(6),
+            occupations=FermiDirac(0.0))#, txt=None)
 atoms = Atoms('He', pbc=True, calculator=calc)
 atoms.center(vacuum=3)
 

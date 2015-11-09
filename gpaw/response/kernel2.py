@@ -22,9 +22,10 @@ def truncated_coulomb(pd, q0=None):
 
     qG = pd.get_reciprocal_vectors(add_q=True)
     if pd.kd.gamma:  # Set small finite q to handle divergence
-        if q0 is None:
-            q0 = 0.0000001
-        qG += [q0, 0, 0]
+        if q0 is not None:
+            qG += [q0, 0, 0]
+        else:
+            qG[0] = 1.
     nG = len(qG)
     L = pd.gd.cell_cv[2, 2]
     R = L / 2.  # Truncation length is half of unit cell
@@ -38,6 +39,8 @@ def truncated_coulomb(pd, q0=None):
     # sin(qG_z * R) = 0 when R = L/2
 
     K_G *= 1. - np.exp(-qG_par * R) * np.cos(qG_z * R)
+    if pd.kd.gamma:
+        K_G[0] = 4 * np.pi * R
     
     K_G **= 0.5
 

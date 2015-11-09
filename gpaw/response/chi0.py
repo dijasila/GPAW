@@ -295,7 +295,7 @@ class Chi0(PairDensity):
             gemm(self.prefactor, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_GG)
 
-    @timer('CHI_0 hermetian update')
+    @timer('CHI_0 hermitian update')
     def update_hermitian(self, n_mG, deps_m, df_m, chi0_wGG):
         """If eta=0 use hermitian update."""
         for w, omega in enumerate(self.omega_w):
@@ -306,7 +306,8 @@ class Chi0(PairDensity):
             else:
                 x_m = 2 * df_m * deps_m / (omega.imag**2 + deps_m**2)
                 mynx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
-                mmm(self.prefactor, mynx_mG, 'c', n_mG, 'n', 1.0, chi0_wGG[w])
+                mmm(self.prefactor, mynx_mG, 't', n_mG.conj(), 'n',
+                    1.0, chi0_wGG[w])
 
     @timer('CHI_0 spectral function update')
     def update_hilbert(self, n_mG, deps_m, df_m, chi0_wGG):

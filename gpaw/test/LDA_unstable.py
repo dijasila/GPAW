@@ -1,19 +1,16 @@
 # http://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2014-February/004374.html
 from __future__ import print_function
 from ase import Atom, Atoms
-from gpaw import GPAW
+from gpaw import GPAW, PoissonSolver
 from gpaw.test import equal
+from ase.structure import molecule
 
 
-for i in range(40):
-    a = 6.
-    b = a / 2
-    mol = Atoms([Atom('O',(b, b, 0.1219 + b)),
-                 Atom('H',(b, 0.7633 + b, -0.4876 + b)),
-                 Atom('H',(b, -0.7633 + b, -0.4876 + b))],
-                pbc=False, cell=[a, a, a])
-    calc = GPAW(gpts=(24, 24, 24), nbands=4, mode='lcao', txt=None,
-                xc='LDA')
+for i in range(12):
+    mol = molecule('H2')
+    mol.center(vacuum=1.5)
+    calc = GPAW(h=0.3, nbands=2, mode='lcao', txt=None, basis='sz(dzp)',
+                poissonsolver=PoissonSolver(eps=17.), xc='oldLDA')
     def stop():
         calc.scf.converged = True
     calc.attach(stop, 1)

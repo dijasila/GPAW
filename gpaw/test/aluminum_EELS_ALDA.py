@@ -7,6 +7,7 @@ import time
 from ase.units import Bohr
 from ase.lattice import bulk
 from ase.utils import devnull
+from ase.parallel import parprint
 
 from gpaw import GPAW, PW
 from gpaw.test import findpeak
@@ -15,8 +16,6 @@ from gpaw.response.df import DielectricFunction
 from gpaw.mpi import serial_comm, rank, size, world
 from gpaw.wavefunctions.pw import PW
 
-if rank != 0:
-  sys.stdout = devnull 
 
 assert size <= 4**3
 
@@ -50,8 +49,8 @@ df.get_eels_spectrum(xc='ALDA', filename='EELS_Al_ALDA',q_c=q)
 
 t3 = time.time()
 
-print('For ground  state calc, it took', (t2 - t1) / 60, 'minutes')
-print('For excited state calc, it took', (t3 - t2) / 60, 'minutes')
+parprint('For ground  state calc, it took', (t2 - t1) / 60, 'minutes')
+parprint('For excited state calc, it took', (t3 - t2) / 60, 'minutes')
 
 world.barrier()
 d = np.loadtxt('EELS_Al_ALDA',delimiter=',')
@@ -59,8 +58,8 @@ d = np.loadtxt('EELS_Al_ALDA',delimiter=',')
 wpeak1,Ipeak1 = findpeak(d[:,0],d[:,1])
 wpeak2,Ipeak2 = findpeak(d[:,0],d[:,2])
 
-test_wpeak1 = 15.4929666813 # eV
-test_Ipeak1 = 29.644489594
+test_wpeak1 = 15.7002862696  # eV
+test_Ipeak1 = 28.5590363176
 test_wpeak2 = 15.5196459206 # eV
 test_Ipeak2 = 26.5680624522
 

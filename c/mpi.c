@@ -852,20 +852,23 @@ static PyObject *mpi_translate_ranks(MPIObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "OO", &other, &myranks_anytype))
     return NULL;
 
+  // XXXXXX This uses NPY_LONG and NPY_INT.  On some computers the
+  // returned array is int32 while np.array(..., dtype=int) returns
+  // int64.  This should very probably be changed so it always
+  // corresponds to the default int of numpy.
+  
   // This handling of arrays of ranks is taken from the MPICommunicator
   // creation method.  See that method for explanation of casting, datatypes
   // etc.
   PyArrayObject *myranks_long = (PyArrayObject*)PyArray_ContiguousFromAny(
                                             myranks_anytype, NPY_LONG, 1, 1);
-  // XXX decref myranks_long?
   if(myranks_long == NULL)
     return NULL;
   
   int nranks = PyArray_DIM(myranks_long, 0);
   
   PyArrayObject *myranks;
-  myranks = (PyArrayObject*)PyArray_Cast((PyArrayObject*) myranks_long, NPY_INT);
-  Py_DECREF(myranks_long);
+  myranks = (PyArrayObject*)PyArray_Cast(myranks_long, NPY_INT);
 
   npy_intp rankshape[1];
   rankshape[0] = PyArray_SIZE(myranks);
@@ -887,8 +890,13 @@ static PyObject *mpi_translate_ranks(MPIObject *self, PyObject *args)
           otherrankdata[i] = -1;
       }
   }
+  PyObject* other_ranks_anytype = PyArray_Cast(other_ranks,
+                                               PyArray_TYPE(myranks_anytype));
+
+  Py_DECREF(myranks_long);
   Py_DECREF(myranks);
-  return (PyObject*)other_ranks;
+  Py_DECREF(other_ranks);
+  return (PyObject*)other_ranks_anytype;
 }
 
 static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)

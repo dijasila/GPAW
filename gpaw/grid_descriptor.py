@@ -74,7 +74,7 @@ class GridDescriptor(Domain):
     ndim = 3  # dimension of ndarrays
 
     def __init__(self, N_c, cell_cv=(1, 1, 1), pbc_c=True,
-                 comm=None, parsize=None, n_cp=None):
+                 comm=None, parsize_c=None):
         """Construct grid-descriptor object.
 
         parameters:
@@ -87,7 +87,7 @@ class GridDescriptor(Domain):
             Periodic boundary conditions flag(s).
         comm: MPI-communicator
             Communicator for domain-decomposition.
-        parsize: tuple of 3 ints, a single int or None
+        parsize_c: tuple of 3 ints, a single int or None
             Number of domains.
 
         Note that if pbc_c[c] is True, then the actual number of gridpoints
@@ -117,21 +117,18 @@ class GridDescriptor(Domain):
         if (self.N_c != N_c).any():
             raise ValueError('Non-int number of grid points %s' % N_c)
         
-        Domain.__init__(self, cell_cv, pbc_c, comm, parsize, self.N_c)
+        Domain.__init__(self, cell_cv, pbc_c, comm, parsize_c, self.N_c)
         self.rank = self.comm.rank
 
         self.beg_c = np.empty(3, int)
         self.end_c = np.empty(3, int)
 
-        if n_cp is None:
-            n_cp = []
-            for c in range(3):
-                n_p = assign_domain_sizes(self.parsize_c[c], self.N_c[c])
-                n_cp.append(n_p)
-        self.n_cp = n_cp
-        
-        for c, n_p in enumerate(n_cp):
-            assert len(n_p) == self.parsize_c[c] + 1
+        self.n_cp = []
+        for c in range(3):
+            n_p = (np.arange(self.parsize_c[c] + 1) * float(self.N_c[c]) /
+                   self.parsize_c[c])
+            n_p = np.around(n_p + 0.4999).astype(int)
+
             if not self.pbc_c[c]:
                 n_p[0] = 1
 
@@ -140,6 +137,7 @@ class GridDescriptor(Domain):
 
             self.beg_c[c] = n_p[self.parpos_c[c]]
             self.end_c[c] = n_p[self.parpos_c[c] + 1]
+            self.n_cp.append(n_p)
 
         self.n_c = self.end_c - self.beg_c
 
@@ -169,7 +167,7 @@ class GridDescriptor(Domain):
                    self.comm.size, pcoords, self.parsize_c.tolist()))
 
     def new_descriptor(self, N_c=None, cell_cv=None, pbc_c=None,
-                       comm=None, parsize=None, n_cp=None):
+                       comm=None, parsize_c=None):
         """Create new descriptor based on this one.
 
         The new descriptor will use the same class (possibly a subclass)
@@ -183,14 +181,9 @@ class GridDescriptor(Domain):
             pbc_c = self.pbc_c
         if comm is None:
             comm = self.comm
-        if parsize is None and comm.size == self.comm.size:
-            parsize = self.parsize_c
-        #if n_cp is None:
-        #    n_cp = self.n_cp
-        # Hmmm!!  What to do about n_cp?  If we have a custom one, we should
-        # sort of pass that, but we don't even know if it was set in a funny
-        # way.  We will just forward whatever the caller asks for.
-        return self.__class__(N_c, cell_cv, pbc_c, comm, parsize, n_cp)
+        if parsize_c is None and comm.size == self.comm.size:
+            parsize_c = self.parsize_c
+        return self.__class__(N_c, cell_cv, pbc_c, comm, parsize_c)
 
     def get_grid_spacings(self):
         L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
@@ -542,7 +535,7 @@ class GridDescriptor(Domain):
     def zero_pad(self, a_xg, global_array=True):
         """Pad array with zeros as first element along non-periodic directions.
 
-        If not global_array, the array must be distributed.
+        Array may either be local or in standard decomposition.
         """
 
         # We could infer what global_array should be from a_xg.shape.
@@ -664,7 +657,7 @@ class GridDescriptor(Domain):
         This doesn't work in parallel, since it would require
         communication between neighbouring grid.  """
 
-        assert mpi.world.size == 1
+        assert self.comm.size == 1
 
         if use_mlsqr:
             mlsqr(3, 2.3, spos_nc, self.N_c, self.beg_c, vt_g, target_n)
@@ -700,6 +693,9 @@ class GridDescriptor(Domain):
                     (0.0 + dg_c[0]) * (0.0 + dg_c[1]) * (0.0 + dg_c[2]))
 
     def __eq__(self, other):
+        # XXX Wait, should this not check the global distribution?  This
+        # could return True on some nodes and False on others because the
+        # check does not verify self.n_cp.
         return (self.dv == other.dv and
                 (self.h_cv == other.h_cv).all() and
                 (self.N_c == other.N_c).all() and

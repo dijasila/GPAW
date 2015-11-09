@@ -134,10 +134,8 @@ class HybridXC(XCFunctional):
         self.ecut = ecut
         if txt is None:
             if rank == 0:
-                #self.txt = devnull
                 self.txt = sys.stdout
             else:
-                sys.stdout = devnull
                 self.txt = devnull
         else:
             assert isinstance(txt, str)

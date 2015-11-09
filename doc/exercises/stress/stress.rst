@@ -4,7 +4,7 @@
 Plane wave mode and Stress tensor
 ==========================================================
 
-The major advantage of running DFT calculations on a real space grid, is a very efficient paralleliation scheme when dealing with large systems. However, for small systems it is often faster to use a plane wave basis set instead. In this case all quantities are represented by their Fourier transforms on the periodic super cell and periodic boundary conditions are required. In grid mode, the key convergence parameter is the grid spacing `h`, whereas in planewave mode the corresponding parameter is `E_{cut}=G_{cut}^2/2` (in atomic units). `G_{cut}` determines the maximum size of reciprocal lattice vectors to be included in the plane wave expansion.  
+The major advantage of running DFT calculations on a real space grid, is a very efficient parallelization scheme when dealing with large systems. However, for small systems it is often faster to use a plane wave basis set instead. In this case all quantities are represented by their Fourier transforms on the periodic super cell and periodic boundary conditions are required. In grid mode, the key convergence parameter is the grid spacing `h`, whereas in planewave mode the corresponding parameter is `E_{cut}=G_{cut}^2/2` (in atomic units). `G_{cut}` determines the maximum size of reciprocal lattice vectors to be included in the plane wave expansion.  
 
 Converging the plane wave cutoff
 -------------------------------------

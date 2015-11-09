@@ -123,6 +123,7 @@ class Eigensolver:
 
         psit_nG = kpt.psit_nG
         P_ani = kpt.P_ani
+        dH_asp = hamiltonian.dH_asp
 
         if self.keep_htpsit:
             Htpsit_nG = reshape(self.Htpsit_nG, psit_nG.shape)
@@ -137,11 +138,11 @@ class Eigensolver:
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
                                          result_xG)
             hamiltonian.xc.apply_orbital_dependent_hamiltonian(
-                kpt, psit_xG, result_xG, hamiltonian.dH_asp)
+                kpt, psit_xG, result_xG, dH_asp)
             return result_xG
 
         def dH(a, P_ni):
-            return np.dot(P_ni, unpack(hamiltonian.dH_asp[a][kpt.s]))
+            return np.dot(P_ni, unpack(dH_asp[a][kpt.s]))
 
         self.timer.start('calc_h_matrix')
         H_nn = self.operator.calculate_matrix_elements(psit_nG, P_ani,

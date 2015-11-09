@@ -38,6 +38,7 @@ from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.wavefunctions.base import EmptyWaveFunctions
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.utilities.grid import Grid2Grid, NullGrid2Grid
 from gpaw.utilities.partition import AtomPartition
 from gpaw.parameters import InputParameters, usesymm2symmetry
 from gpaw import dry_run, memory_estimate_depth, KohnShamConvergenceError
@@ -467,7 +468,9 @@ class PAW(PAWTextOutput):
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = list(zip(setups.id_a, *m_av.T))
         symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
+        self.timer.start('Set symmetry')
         kd.set_symmetry(atoms, symmetry, comm=world)
+        self.timer.stop('Set symmetry')
         setups.set_symmetry(symmetry)
 
         if par.gpts is not None:
@@ -659,13 +662,15 @@ class PAW(PAWTextOutput):
                 self.density = None
                 self.hamiltonian = None
 
+
             # Construct grid descriptor for coarse grids for wave functions:
             gd = self.grid_descriptor_class(N_c, cell_cv, pbc_c,
                                             domain_comm, parsize_domain)
 
             # do k-point analysis here? XXX
-            args = (gd, nvalence, setups, bd, dtype, world, kd,
-                    kptband_comm, self.timer)
+            wfs_kwargs = dict(gd=gd, nvalence=nvalence, setups=setups,
+                              bd=bd, dtype=dtype, world=world, kd=kd,
+                              kptband_comm=kptband_comm, timer=self.timer)
 
             if par.parallel['sl_auto']:
                 # Choose scalapack parallelization automatically
@@ -703,7 +708,7 @@ class PAW(PAWTextOutput):
                                                gd, bd, domainband_comm, dtype,
                                                nao=nao, timer=self.timer)
 
-                self.wfs = mode(collinear, lcaoksl, *args)
+                self.wfs = mode(collinear, lcaoksl, **wfs_kwargs)
 
             elif mode.name == 'fd' or mode.name == 'pw':
                 # buffer_size keyword only relevant for fdpw
@@ -754,26 +759,27 @@ class PAW(PAWTextOutput):
                     assert mode.name == 'fd'
                     from gpaw.tddft import TimeDependentWaveFunctions
                     self.wfs = TimeDependentWaveFunctions(
-                        par.stencils[0],
-                        diagksl,
-                        orthoksl,
-                        initksl,
-                        gd,
-                        nvalence,
-                        setups,
-                        bd,
-                        world,
-                        kd,
-                        kptband_comm,
-                        self.timer)
+                        stencil=par.stencils[0],
+                        diagksl=diagksl,
+                        orthoksl=orthoksl,
+                        initksl=initksl,
+                        gd=gd,
+                        nvalence=nvalence,
+                        setups=setups,
+                        bd=bd,
+                        world=world,
+                        kd=kd,
+                        kptband_comm=kptband_comm,
+                        timer=self.timer)
                 elif mode.name == 'fd':
                     self.wfs = mode(par.stencils[0], diagksl,
-                                    orthoksl, initksl, *args)
+                                    orthoksl, initksl, **wfs_kwargs)
                 else:
                     assert mode.name == 'pw'
-                    self.wfs = mode(diagksl, orthoksl, initksl, *args)
+                    self.wfs = mode(diagksl, orthoksl, initksl,
+                                    **wfs_kwargs)
             else:
-                self.wfs = mode(self, *args)
+                self.wfs = mode(self, **wfs_kwargs)
         else:
             self.wfs.set_setups(setups)
 
@@ -797,38 +803,66 @@ class PAW(PAWTextOutput):
 
         if self.density is None:
             gd = self.wfs.gd
+
+            # XXX allow specification of parsize, and get automatic parsize
+            # in a smarter way
+            big_gd = gd.new_descriptor(comm=world)
+            # Check whether grid is too small.  8 is smallest admissible.
+            # (we decide this by how difficult it is to make the tests pass)
+            # (Actually it depends on stencils!  But let the user deal with it)
+            N_c = big_gd.get_size_of_global_array(pad=True)
+            too_small = np.any(N_c / big_gd.parsize_c < 8)
+            if par.parallel['augment_grids'] and not too_small:
+                grid2grid = Grid2Grid(world, kptband_comm, gd, big_gd)
+            else:
+                grid2grid = NullGrid2Grid(gd)
+            aux_gd = big_gd if grid2grid.enabled else gd
+
             if par.stencils[1] != 9:
                 # Construct grid descriptor for fine grids for densities
                 # and potentials:
-                finegd = gd.refine()
+                finegd = aux_gd.refine()
             else:
                 # Special case (use only coarse grid):
-                finegd = gd
+                finegd = aux_gd
 
             if realspace:
                 self.density = RealSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
-                    collinear, par.stencils[1])
+                    grid2grid, collinear=collinear,
+                    stencil=par.stencils[1])
             else:
                 self.density = pw.ReciprocalSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
-                    collinear)
+                    grid2grid, collinear=collinear)
 
         self.density.initialize(setups, self.timer, magmom_av, par.hund)
         self.density.set_mixer(par.mixer)
 
         if self.hamiltonian is None:
+            # XXX we hope and pray that hamiltonian becomes None
+            # whenever the density does; else the finegds of the two
+            # objects may have different communicators depending on
+            # whether someone called set()!
             gd, finegd = self.density.gd, self.density.finegd
+
             if realspace:
                 self.hamiltonian = self.real_space_hamiltonian_class(
-                    gd, finegd, nspins, setups, self.timer, xc,
-                    world, self.wfs.kptband_comm, par.external,
-                    collinear, par.poissonsolver, par.stencils[1])
+                    gd=gd, finegd=finegd, nspins=nspins,
+                    setups=setups, timer=self.timer, xc=xc,
+                    world=world, kptband_comm=self.wfs.kptband_comm,
+                    grid2grid=self.density.grid2grid,
+                    vext=par.external, collinear=collinear,
+                    psolver=par.poissonsolver,
+                    stencil=par.stencils[1])
             else:
                 self.hamiltonian = self.reciprocal_space_hamiltonian_class(
                     gd, finegd, self.density.pd2, self.density.pd3,
-                    nspins, setups, self.timer, xc, world,
-                    self.wfs.kptband_comm, par.external, collinear)
+                    nspins=nspins, setups=setups, timer=self.timer,
+                    xc=xc, world=world,
+                    kptband_comm=self.wfs.kptband_comm,
+                    grid2grid=self.density.grid2grid,
+                    vext=par.external, collinear=collinear)
 
         xc.initialize(self.density, self.hamiltonian, self.wfs,
                       self.occupations)
@@ -876,11 +910,12 @@ class PAW(PAWTextOutput):
         These are not initialized by default.
         TODO: Is this really the most efficient way?
         """
+        atom_partition = self.wfs.atom_partition
         spos_ac = self.atoms.get_scaled_positions() % 1.0
-        self.density.set_positions(spos_ac, self.wfs.atom_partition)
+        self.density.set_positions(spos_ac, atom_partition)
         self.density.interpolate_pseudo_density()
         self.density.calculate_pseudo_charge()
-        self.hamiltonian.set_positions(spos_ac, self.wfs.atom_partition)
+        self.hamiltonian.set_positions(spos_ac, atom_partition)
         self.hamiltonian.update(self.density)
 
     def attach(self, function, n=1, *args, **kwargs):

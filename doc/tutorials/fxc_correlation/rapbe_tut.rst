@@ -24,7 +24,7 @@ function and the exchange-correlation kernel :math:`f_{xc}`:
 
 .. math::
 
-  \chi^\lambda(\omega) = \chi^KS(\omega) + \chi^KS(\omega)\Big[\lambda v+f_{xc}^\lambda(\omega)\Big]\chi^\lambda(\omega).
+  \chi^\lambda(\omega) = \chi^{KS}(\omega) + \chi^{KS}(\omega)\Big[\lambda v+f_{xc}^\lambda(\omega)\Big]\chi^\lambda(\omega).
 
 The RPA is obtained by neglecting the exchange-correlation kernel and it should be possible to improve RPA by including 
 simple approximations for this kernel. However, if one tries to use a simple adiabatic kernel, one encounters severe 
@@ -42,6 +42,13 @@ Details on the theory, implementation and benchmarking of the renormalized kerne
 Below we give examples on how to calculate the correlation energy of a Hydrogen atom as well as the rAPBE atomization energy 
 of a :math:`CO` molecule and the rAPBE cohesive energy of diamond. 
 Note that some of the calculations in this tutorial will need a lot of CPU time and are essentially not possible without a supercomputer.
+
+Finally, we note that there is some freedom in deciding how to include the density dependence in the kernel.
+By default the kernel is constructed from a two-point average of the density.
+However as shown in Example 4 it is possible to instead use a reciprocal-space averaging procedure.  
+Within this averaging scheme it is possible to explore different
+approximations for :math:`f_{xc}`, for instance a simple dynamical kernel, or a jellium-with-gap model, which displays
+a :math:`1/q^2` divergence for small :math:`q`.  More details can be found below and in [#Patrick]_.
 
 Example 1: Correlation energy of the Hydrogen atom
 ==================================================
@@ -153,6 +160,83 @@ PBE     HF     RPA    rAPBE       Experimental
 
 As anticipated, RPA severly underestimates the cohesive energy, while PBE performs much better, and rAPBE comes very close to the experimental value.
 
+
+Example 4: Correlation energy of diamond with different kernels
+===============================================================
+Finally we provide an example where we try different exchange-correlation kernels.
+For illustrative purposes we use a basic computational setup - as a result these numbers
+should not be considered converged!
+As usual we start with a ground state calculation to get the electron density and wavefunctions
+for diamond:
+
+.. literalinclude:: diam_kern.ralda_01_lda.py
+
+The default method of constructing the kernel is to use a two-point density average.
+Therefore the following simple script gets the rALDA correlation energy within this averaging scheme:
+
+.. literalinclude:: diam_kern.ralda_02_ralda_dens.py
+
+However, an alternative method of constructing the kernel is to work in reciprocal space,
+and average over wavevectors rather than density.
+To use this averaging scheme, we add the flag ``av_scheme='wavevector'``:
+
+.. literalinclude:: diam_kern.ralda_03_ralda_wave.py
+
+Using this averaging scheme opens a few more possible choices for the kernel.
+For example, we can include the correlation part of the ALDA which is left out of the rALDA
+by setting ``xc='rALDAc'``:
+
+.. literalinclude:: diam_kern.ralda_04_raldac.py
+
+Alternatively, we can look at more exotic kernels, such as a simplified version of the
+jellium-with-gap kernel of Ref. [#Trevisanutto]_ (JGMs).
+This kernel diverges as `1/q^2` for small :math:`q`, with the strength of the divergence
+depending on the size of the band gap.
+To use this kernel, the gap must be specified as ``Eg=X``, where X is in eV:
+
+.. literalinclude:: diam_kern.ralda_05_jgm.py
+
+Another interesting avenue is the simple dynamical kernel of Constantin and Pitarke (CP_dyn) [#Constantin]_:
+
+.. literalinclude:: diam_kern.ralda_06_CP_dyn.py
+
+Finally, for the enthusiast there is a basic implementation of the range-separated
+RPA approach of Ref. [#Bruneval]_.  By separating the Coulomb interaction into long
+and short-range parts and taking the short range part from the electron gas, one can
+dramatically reduce the number of plane waves needed to converge the RPA energy.
+In this approach it is necessary to specify a range-separation parameter ``range_rc=Y``, where
+Y is in Bohr.  It is important to bear in mind that this feature is relatively untested.
+
+.. literalinclude:: diam_kern.ralda_07_range_rpa.py
+
+For comparison, one can see that the RPA converges much more slowly:
+
+.. literalinclude:: diam_kern.ralda_08_rpa.py
+
+Here we summarize the above calculations and show the correlation energy/electron (in eV), 
+obtained at an (unconverged) cutoff of 131 eV:
+
+=================  ================   ======  ======  ======  ===================  ======
+rALDA (dens. av.)  rALDA (wave. av)   rALDAc  JGMs    CP_dyn  range separated RPA   RPA  
+=================  ================   ======  ======  ======  ===================  ======
+-1.161              -1.134            -1.127  -1.134  -1.069        -1.730         -1.396
+=================  ================   ======  ======  ======  ===================  ======
+
+Incidentally, a fully-converged RPA calculation gives a correlation energy 
+of -1.781 eV per electron.
+
+We conclude with some practical points.  The wavevector-averaging scheme is less intuitive
+than the density-average, but avoids some difficulties such as having to describe the :math:`1/r`
+divergence of the Coulomb interaction in real space.  It also provides a natural framework
+to construct the JGMs kernel, and can be faster to construct for systems with many k points.
+However it is also worth remembering that kernels which scale linearly in the coupling constant
+(e.g rALDA) need only be constructed once per k point.  Those that do not scale linearly (e.g. rALDAc) 
+need to be constructed :math:`N_\lambda` times, and the CP_dyn kernel must be constructed
+at each frequency point as well, i.e. :math:`N_\lambda N_\omega` times.  Assuming standard values
+of 8 and 16 for :math:`N_\lambda` and :math:`N_\omega` means there is a factor 100 cost
+in constructing and storing a dynamical kernel compared to rALDA.  Finally we point out that 
+the rALDA and rAPBE kernels are also special because they have explicit spin-polarized forms.
+
 .. [#Olsen1] T. Olsen and K. S. Thygesen
               *Phys. Rev. B* **86**, 081103(R) (2012)
 
@@ -161,3 +245,15 @@ As anticipated, RPA severly underestimates the cohesive energy, while PBE perfor
 
 .. [#Olsen3] T. Olsen and K. S. Thygesen
               *Phys. Rev. Lett* **112**, 203001 (2014)
+
+.. [#Patrick] C. E. Patrick and K. S. Thygesen
+              *J. Chem. Phys.* **143**, 102802 (2015)
+
+.. [#Trevisanutto] P. E. Trevisanutto et al.
+              *Phys. Rev. B* **87**, 205143 (2013)
+
+.. [#Constantin] L. A. Constantin and J. M. Pitarke
+              *Phys. Rev. B* **75**, 245127 (2007)
+
+.. [#Bruneval] F. Bruneval
+              *Phys. Rev. Lett* **108**, 256403 (2012)

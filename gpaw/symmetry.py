@@ -100,6 +100,9 @@ class Symmetry:
         First determine all symmetry operations of the cell. Then call
         ``prune_symmetries`` to remove those symmetries that are not satisfied
         by the atoms.
+
+        It is not mandatory to call this method.  If not called, only
+        time reversal symmetry may be used.
         """
         if self.point_group:
             self.find_lattice_symmetry()
