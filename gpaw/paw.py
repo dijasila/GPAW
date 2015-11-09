@@ -467,7 +467,9 @@ class PAW(PAWTextOutput):
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = list(zip(setups.id_a, *m_av.T))
         symmetry = Symmetry(id_a, cell_cv, atoms.pbc, **symm)
+        self.timer.start('Set symmetry')
         kd.set_symmetry(atoms, symmetry, comm=world)
+        self.timer.stop('Set symmetry')
         setups.set_symmetry(symmetry)
 
         if par.gpts is not None:
