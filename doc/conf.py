@@ -1,13 +1,19 @@
 import sys
 sys.path.append('.')
 
+import sphinx_rtd_theme
+
+html_theme = "sphinx_rtd_theme"
+
+html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+
 extensions = [#'ytp',
               'ext', 'images', 'sitelink',
               'sphinx.ext.autodoc',
               'sphinx.ext.viewcode',
               'sphinx.ext.mathjax',
               'sphinx.ext.intersphinx']
-templates_path = ['templates']
+#templates_path = ['templates']
 source_suffix = '.rst'
 master_doc = 'contents'
 project = 'GPAW'
@@ -21,7 +27,7 @@ intersphinx_mapping = {
     'numpy': ('http://docs.scipy.org/doc/numpy', None),
     'mayavi': ('http://docs.enthought.com/mayavi/mayavi', None)}
 
-html_style = 'gpaw.css'
+html_style = 'css/gpaw.css'
 html_title = 'GPAW'
 html_logo = 'static/logo-gpaw.png'
 html_favicon = 'static/gpaw_favicon.ico'
