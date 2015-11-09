@@ -14,8 +14,6 @@ from gpaw.mpi import serial_comm, rank, size
 from gpaw.utilities import devnull
 
 
-if rank != 0:
-    sys.stdout = devnull 
 
 GS = 1
 GS2 = 1

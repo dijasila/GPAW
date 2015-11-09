@@ -212,7 +212,6 @@ class BASECHI:
             if rank == 0:
                 self.txt = sys.stdout
             else:
-                sys.stdout = devnull
                 self.txt = devnull
         elif self.txtname == devnull:
             self.txt = devnull
@@ -221,7 +220,6 @@ class BASECHI:
             if rank == 0:
                 self.txt = open(self.txtname, 'w', 1)
             else:
-                sys.stdout = devnull
                 self.txt = devnull
 
     def printtxt(self, text):
