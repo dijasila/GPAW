@@ -1,7 +1,7 @@
 #ifdef GPAW_WITH_LIBVDWXC
 #include "../extensions.h"
 
-#include <vdw_core.h>
+#include <vdwxc.h>
 
 #ifdef PARALLEL
 #include <mpi.h>
