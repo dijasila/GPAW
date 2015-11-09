@@ -237,7 +237,7 @@ tests = [
     'pseudopotential/hgh_h2o.py',           # ~7s
     'ed_wrapper.py',                        # ~7s
     'pw/bulk.py',                           # ~7s
-    'ne_gllb.py',                           # ~7s
+    'gllb/ne.py',                           # ~7s
     'ed.py',                                # ~7s
     'lcao/force.py',                        # ~7s
     'pplda.py',                             # ~7s
@@ -272,7 +272,7 @@ tests = [
     'lxc_xcatom.py',                        # ~12s
     'solvation/sfgcm06.py',                 # ~12s
     'solvation/sss09.py',                   # ~12s
-    'gllbatomic.py',                        # ~13s
+    'gllb/atomic.py',                       # ~13s
     'guc_force.py',                         # ~13s
     'ralda_energy_Ni.py',                   # ~13s
     'simple_stm.py',                        # ~13s
@@ -302,7 +302,7 @@ tests = [
     'Hubbard_U_Zn.py',                      # ~20s
     # buildbot > 20 sec tests start here (add tests after lrtddft.py!)
     'lrtddft.py',                           # ~20s
-    'gllbspin.py',                          # ~21s
+    'gllb/spin.py',                          # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s
     'pw/hyb.py',                            # ~21s
     'Cu.py',                                # ~21s
@@ -321,7 +321,7 @@ tests = [
     'h2o_dks.py',                           # ~30s
     'nsc_MGGA.py',                          # ~32s
     'solvation/spinpol.py',                 # ~32s
-    'diamond_gllb.py',                      # ~33s
+    'gllb/diamond.py',                      # ~33s
     'MgO_exx_fd_vs_pw.py',                  # ~37s
     'vdw/quick_spin.py',                    # ~37s
     'expert_diag.py',                       # ~37s
@@ -349,7 +349,7 @@ tests = [
     # buildbot > 100 sec tests start here (add tests after lb94.py!)
     'lb94.py',                              # ~84s
     'AA_exx_enthalpy.py',                   # ~119s
-    'lcao_tdgllbsc.py',                     # ~132s
+    'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
     'bse_silicon.py',                       # ~143s
     'gwsi.py',                              # ~147s
