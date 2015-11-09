@@ -7,6 +7,7 @@ import time
 from ase.units import Bohr
 from ase.lattice import bulk
 from ase.utils import devnull
+from ase.parallel import parprint
 
 from gpaw import GPAW, PW
 from gpaw.test import findpeak
@@ -14,9 +15,6 @@ from gpaw.atom.basis import BasisMaker
 from gpaw.response.df import DielectricFunction
 from gpaw.mpi import serial_comm, rank, size, world
 from gpaw.wavefunctions.pw import PW
-
-if rank != 0:
-  sys.stdout = devnull 
 
 assert size <= 4**3
 
@@ -50,9 +48,9 @@ df.get_eels_spectrum(xc='RPA', filename='EELS_Al', q_c=q)
 
 t3 = time.time()
 
-print('')
-print('For ground  state calc, it took', (t2 - t1) / 60, 'minutes')
-print('For excited state calc, it took', (t3 - t2) / 60, 'minutes')
+parprint('')
+parprint('For ground  state calc, it took', (t2 - t1) / 60, 'minutes')
+parprint('For excited state calc, it took', (t3 - t2) / 60, 'minutes')
 
 world.barrier()
 d = np.loadtxt('EELS_Al',delimiter=',')

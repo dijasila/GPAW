@@ -31,7 +31,6 @@ class RPACorrelation:
             if rank == 0:
                 self.txt = sys.stdout
             else:
-                sys.stdout = devnull
                 self.txt = devnull
         else:
             assert isinstance(txt, str)

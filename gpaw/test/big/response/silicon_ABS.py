@@ -10,6 +10,7 @@ import numpy as np
 from ase.units import Bohr
 from ase.lattice import bulk
 from ase.parallel import paropen
+from ase.parallel import parprint
 from gpaw.atom.basis import BasisMaker
 from gpaw import GPAW, FermiDirac
 from gpaw.mpi import serial_comm, rank, size
@@ -17,8 +18,6 @@ from gpaw.utilities import devnull
 from gpaw.response.df0 import DF
 
 
-if rank != 0:
-    sys.stdout = devnull 
 
 GS = 1
 ABS = 1
@@ -63,7 +62,7 @@ if ABS:
     df.write('df_1.pckl')
 
     if np.abs(eM1 - 13.991793) > 1e-3 or np.abs(eM2 - 12.589129) > 1e-3:
-        print(eM1, eM2)
+        parprint(eM1, eM2)
         raise ValueError('Please check dielectric constant !')
 
     #getting absorption spectrum

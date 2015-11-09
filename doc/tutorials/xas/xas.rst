@@ -92,7 +92,7 @@ and fwhm is the FWHM of the Gaussian broadening.
   y = r.get_spectra(x_rec, delta=0.4, fwhm=0.4 )
   y2 = sum(y)
   
-  p.plot(x_rec + 278.344673457,y2)
+  p.plot(x_rec + 273.44,y2)
   p.show()
 
 

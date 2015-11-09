@@ -1,13 +1,12 @@
 #ifdef GPAW_WITH_LIBVDWXC
 #include "../extensions.h"
-
 #include <vdwxc.h>
+
 
 #ifdef PARALLEL
 #include <mpi.h>
 #include "../mympi.h"
 #endif
-
 
 // Our heinous plan is to abuse a numpy array so that it will contain a pointer to the vdw_data.
 // This is because PyCapsules are not there until Python 3.1/2.7.

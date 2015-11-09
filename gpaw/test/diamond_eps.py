@@ -12,9 +12,6 @@ from gpaw.response.df0 import DF
 from gpaw.mpi import serial_comm, rank, size
 
 
-if rank != 0:
-  sys.stdout = devnull 
-
 # GS Calculation One
 a = 6.75 * Bohr
 atoms = bulk('C', 'diamond', a=a)

@@ -1,6 +1,6 @@
 from __future__ import print_function
 from ase import Atom, Atoms
-from gpaw import GPAW, PoissonSolver
+from gpaw import GPAW, PoissonSolver, Davidson, Mixer
 from gpaw.test import equal
 from gpaw.xc.hybrid import HybridXC
 
@@ -12,15 +12,21 @@ atom = Atoms([Atom('H', (c, c, c), magmom=1)],
 
 # gpaw calculator:
 calc = GPAW(gpts=(32, 32, 32), nbands=1, xc='PBE', txt='H.txt',
+            #poissonsolver=PoissonSolver(relax='GS', eps=1e-8),
+            eigensolver=Davidson(12),
+            mixer=Mixer(0.5, 5),
+            parallel=dict(kpt=1),
             convergence=dict(eigenstates=3.3e-8))
 atom.set_calculator(calc)
 
 e1 = atom.get_potential_energy()
 niter1 = calc.get_number_of_iterations()
+print('start')
 de1t = calc.get_xc_difference('TPSS')
 de1m = calc.get_xc_difference('M06L')
 de1x = calc.get_xc_difference(HybridXC('EXX', finegrid=True))
 de1xb = calc.get_xc_difference(HybridXC('EXX', finegrid=False))
+print('stop')
 
 # Hydrogen molecule:
 d = 0.74  # Experimental bond length

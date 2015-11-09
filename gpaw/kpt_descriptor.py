@@ -163,8 +163,9 @@ class KPointDescriptor:
             if not periodic and not np.allclose(self.bzk_kc[:, c], 0.0):
                 raise ValueError('K-points can only be used with PBCs!')
 
-        # Find symmetry operations of atoms:
-        symmetry.analyze(atoms.get_scaled_positions())
+        # Find symmetry operations of atoms if necessary:
+        if self.nbzkpts > 1:
+            symmetry.analyze(atoms.get_scaled_positions())
 
         if symmetry.time_reversal or symmetry.point_group:
             (self.ibzk_kc, self.weight_k,
