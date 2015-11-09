@@ -139,7 +139,7 @@ tests = [
     'setup_basis_spec.py',
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
-    'lcao_density.py',                      # ~1s
+    'lcao/density.py',                      # ~1s
     'parallel/hamiltonian.py',              # ~1s
     'pw/stresstest.py',                     # ~1s
     'pw/fftmixer.py',                       # ~1s
@@ -151,7 +151,7 @@ tests = [
     'ase3k.py',                             # ~1s
     'numpy_zdotc_graphite.py',              # ~1s
     'eed.py',                               # ~1s
-    'lcao_dos.py',                          # ~1s
+    'lcao/dos.py',                          # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
     'gemv.py',                              # ~2s
     'fileio/idiotproof_setup.py',           # ~2s
@@ -166,14 +166,14 @@ tests = [
     'multipoleH2O.py',                      # ~2s
     'noncollinear/h.py',                    # ~2s
     'stdout.py',                            # ~2s
-    'lcao_largecellforce.py',               # ~2s
+    'lcao/largecellforce.py',               # ~2s
     'parallel/scalapack_diag_simple.py',    # ~2s
     'fixdensity.py',                        # ~2s
     'pseudopotential/ah.py',                # ~2s
-    'lcao_restart.py',                      # ~2s
-    'lcao_tddft.py',                        # ~2s
+    'lcao/restart.py',                      # ~2s
+    'lcao/tddft.py',                        # ~2s
     'vdw/libvdwxc_h2o.py',                  # ~2s
-    'lcao_gllb_si.py',                      # ~2s
+    'lcao/gllb_si.py',                      # ~2s
     'wfs_io.py',                            # ~3s
     'lrtddft2.py',                          # ~3s
     'fileio/file_reference.py',             # ~3s
@@ -181,11 +181,11 @@ tests = [
     'broydenmixer.py',                      # ~3s
     'pw/fulldiagk.py',                      # ~3s
     'external_potential.py',                # ~3s
-    'lcao_atomic_corrections.py',           # ~3s
+    'lcao/atomic_corrections.py',           # ~3s
     'mixer.py',                             # ~3s
     'parallel/lcao_projections.py',         # ~3s
-    'lcao_h2o.py',                          # ~3s
-    'h2o_xas.py',                           # ~3s
+    'lcao/h2o.py',                          # ~3s
+    'xas/h2o.py',                           # ~3s
     'wfs_auto.py',                          # ~3s
     'pw/fulldiag.py',                       # ~3s
     'symmetry_ft.py',                       # ~3s
@@ -208,7 +208,7 @@ tests = [
     'fermisplit.py',                        # ~4s
     'Cl_minus.py',                          # ~4s
     'ts09.py',                              # ~4s
-    'h2o_xas_recursion.py',                 # ~5s
+    'xas/h2o_recursion.py',                 # ~5s
     'nonselfconsistent.py',                 # ~5s
     'spinpol.py',                           # ~5s
     'exx_acdf.py',                          # ~5s
@@ -218,7 +218,7 @@ tests = [
     'blocked_rmm_diis.py',                  # ~5s
     'pw/slab.py',                           # ~5s
     'si.py',                                # ~5s
-    'lcao_bsse.py',                         # ~5s
+    'lcao/bsse.py',                         # ~5s
     'parallel/lcao_hamiltonian.py',         # ~5s
     'degeneracy.py',                        # ~5s
     'refine.py',                            # ~5s
@@ -239,7 +239,7 @@ tests = [
     'pw/bulk.py',                           # ~7s
     'ne_gllb.py',                           # ~7s
     'ed.py',                                # ~7s
-    'lcao_force.py',                        # ~7s
+    'lcao/force.py',                        # ~7s
     'pplda.py',                             # ~7s
     'fileio/restart_density.py',            # ~8s
     'rpa_energy_Ni.py',                     # ~8s
@@ -260,7 +260,7 @@ tests = [
     'parallel/lcao_complicated.py',         # ~10s
     'bulk.py',                              # ~10s
     'scfsic_h2.py',                         # ~10s
-    'lcao_bulk.py',                         # ~11s
+    'lcao/bulk.py',                         # ~11s
     '2Al.py',                               # ~11s
     'kssingles_Be.py',                      # ~11s
     'relax.py',                             # ~11s
@@ -297,7 +297,7 @@ tests = [
     'tpss.py',                              # ~18s
     'td_na2.py',                            # ~18s
     'exx_coarse.py',                        # ~18s
-    'si_xas.py',                            # ~18s
+    'xas/si.py',                            # ~18s
     'mgga_sc.py',                           # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
     # buildbot > 20 sec tests start here (add tests after lrtddft.py!)
