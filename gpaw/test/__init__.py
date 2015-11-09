@@ -306,7 +306,7 @@ tests = [
     'parallel/fd_parallel_kpt.py',          # ~21s
     'pw/hyb.py',                            # ~21s
     'Cu.py',                                # ~21s
-    'response_na_plasmon.py',               # ~22s
+    'response/na_plasmon.py',               # ~22s
     'bse_diamond.py',                       # ~23s
     'fermilevel.py',                        # ~23s
     'parallel/ut_hsblacs.py',               # ~23s
@@ -334,7 +334,7 @@ tests = [
     'bse_vs_lrtddft.py',                    # ~45s
     'aluminum_testcell.py',                 # ~46s
     'ut_tddft.py',                          # ~49s
-    'response_pair.py',                     # ~50s
+    'response/pair.py',                     # ~50s
     'rpa_energy_N2.py',                     # ~52s
     'vdw/ar2.py',                           # ~53s
     'solvation/forces_symmetry.py',         # ~56s
@@ -353,8 +353,8 @@ tests = [
     'solvation/forces.py',                  # ~140s
     'bse_silicon.py',                       # ~143s
     'gwsi.py',                              # ~147s
-    'response_graphene.py',                 # ~160s
-    'response_symmetry.py',                 # ~300s
+    'response/graphene.py',                 # ~160s
+    'response/symmetry.py',                 # ~300s
     'pw/moleculecg.py',                     # duration unknown
     'potential.py',                         # duration unknown
     'pes.py',                               # duration unknown
@@ -408,7 +408,7 @@ if mpi.size > 1:
 
 if mpi.size > 2:
     exclude += ['neb.py',
-                'response_pair.py']
+                'response/pair.py']
 
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',
