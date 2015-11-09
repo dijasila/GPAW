@@ -253,7 +253,7 @@ tests = [
     'constant_electric_field.py',           # ~9s
     'complex.py',                           # ~9s
     'vdw/quick.py',                         # ~9s
-    'bse_aluminum.py',                      # ~10s
+    'response/bse_aluminum.py',             # ~10s
     'Al2_lrtddft.py',                       # ~10s
     'ralda_energy_N2.py',                   # ~10s
     'gw_ppa.py',                            # ~10s
@@ -307,7 +307,7 @@ tests = [
     'pw/hyb.py',                            # ~21s
     'Cu.py',                                # ~21s
     'response/na_plasmon.py',               # ~22s
-    'bse_diamond.py',                       # ~23s
+    'response/bse_diamond.py',              # ~23s
     'fermilevel.py',                        # ~23s
     'parallel/ut_hsblacs.py',               # ~23s
     'ralda_energy_H2.py',                   # ~23s
@@ -325,7 +325,7 @@ tests = [
     'MgO_exx_fd_vs_pw.py',                  # ~37s
     'vdw/quick_spin.py',                    # ~37s
     'expert_diag.py',                       # ~37s
-    'bse_sym.py',                           # ~40s
+    'response/bse_sym.py',                  # ~40s
     'parallel/ut_hsops.py',                 # ~41s
     'LDA_unstable.py',                      # ~42s
     'au02_absorption.py',                   # ~44s
@@ -351,7 +351,7 @@ tests = [
     'AA_exx_enthalpy.py',                   # ~119s
     'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
-    'bse_silicon.py',                       # ~143s
+    'response/bse_silicon.py',              # ~143s
     'gwsi.py',                              # ~147s
     'response/graphene.py',                 # ~160s
     'response/symmetry.py',                 # ~300s
@@ -368,7 +368,7 @@ tests = [
     'muffintinpot.py',                      # duration unknown
     'nscfsic.py',                           # duration unknown
     'coreeig.py',                           # duration unknown
-    'bse_MoS2_cut.py',                      # duration unknown
+    'response/bse_MoS2_cut.py',             # duration unknown
     'parallel/scalapack_mpirecv_crash.py']  # duration unknown
 
 # 'fractional_translations.py',
@@ -398,7 +398,7 @@ if mpi.size > 1:
                 'exx_q.py',
                 'potential.py',
                 'lcao_pair_and_coulomb.py',
-                'bse_MoS2_cut.py',
+                'response/bse_MoS2_cut.py',
                 'pw/moleculecg.py',
                 'pw/davidson_pw.py',
                 # scipy.weave fails often in parallel due to
@@ -418,9 +418,9 @@ if mpi.size < 4:
                 'parallel/scalapack_diag_simple.py',
                 'parallel/realspace_blacs.py',
                 'AA_exx_enthalpy.py',
-                'bse_aluminum.py',
-                'bse_diamond.py',
-                'bse_silicon.py',
+                'response/bse_aluminum.py',
+                'response/bse_diamond.py',
+                'response/bse_silicon.py',
                 'bse_vs_lrtddft.py',
                 'fileio/parallel.py',
                 'parallel/diamond_gllb.py',
@@ -440,8 +440,8 @@ if mpi.size != 1 and not compiled_with_sl():
                 'ralda_energy_N2.py',
                 'ralda_energy_Ni.py',
                 'ralda_energy_Si.py',
-                'bse_sym.py',
-                'bse_silicon.py',
+                'response/bse_sym.py',
+                'response/bse_silicon.py',
                 'gwsi.py',
                 'rpa_energy_N2.py',
                 'pw/fulldiag.py',
