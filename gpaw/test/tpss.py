@@ -1,11 +1,11 @@
 from __future__ import print_function
 from ase.structure import molecule
 from ase.parallel import paropen
-from gpaw import GPAW
+from gpaw import GPAW, Davidson, Mixer, PoissonSolver
 from gpaw.utilities.tools import split_formula
 from gpaw.test import equal
 
-cell = [10.,10.,10.]
+cell = [6.,6.,7.]
 data = paropen('data.txt', 'w')
 
 ##Reference from J. Chem. Phys. Vol 120 No. 15, 15 April 2004, page 6898
@@ -13,7 +13,7 @@ tpss_de = {
 'Li2': 22.5,
 }
 tpss_old = {
-'Li2': 22.7,
+'Li2': 20.9 #22.7,
 }
 
 exp_bonds_dE = {
@@ -40,8 +40,12 @@ for formula in systems:
     loa.set_cell(cell)
     loa.center()
     calc = GPAW(h=0.3,
+                eigensolver=Davidson(8),
+                parallel=dict(kpt=1),
+                mixer=Mixer(0.5, 5),
                 nbands=-2,
-                xc='PBE',
+                poissonsolver=PoissonSolver(relax='GS'),
+                xc='oldPBE',
                 #fixmom=True,
                 txt=formula + '.txt')
     if len(loa) == 1:
