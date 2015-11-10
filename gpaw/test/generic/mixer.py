@@ -2,6 +2,11 @@ from ase import Atom, Atoms
 from gpaw import GPAW, Mixer
 from gpaw.test import equal
 
+# This test would be useful if it did anything with mixers that the
+# other tests didn't.  Maybe verify that it uses mixing history
+# correctly, or the long-range damping, or something.  Preferebly
+# without a self-consistent calculation.
+
 a = 2.7
 bulk = Atoms([Atom('Li')], pbc=True, cell=(a, a, a))
 k = 2
