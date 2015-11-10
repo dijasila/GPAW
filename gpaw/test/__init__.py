@@ -208,6 +208,7 @@ tests = [
     'fermisplit.py',                        # ~4s
     'generic/Cl_minus.py',                  # ~4s
     'vdw/ts09.py',                          # ~4s
+    'lrtddft/pes.py',                       # ~4s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
@@ -357,7 +358,6 @@ tests = [
     'response/symmetry.py',                 # ~300s
     'pw/moleculecg.py',                     # duration unknown
     'potential.py',                         # duration unknown
-    'pes.py',                               # duration unknown
     'lcao/pair_and_coulomb.py',             # duration unknown
     'ase_features/asewannier.py',           # duration unknown
     'exx/q.py',                             # duration unknown
