@@ -334,19 +334,21 @@ geometrical criterion. A more advanced scheme for assigning the charge
 density to atoms is the :ref:`bader analysis` algorithm (all though the
 Wigner-Seitz approach is faster).
 
+
 ---------------------
 PDOS on LCAO orbitals
 ---------------------
 
-DOS can be also be projected onto the LCAO basis functions. 
+DOS can be also be projected onto the LCAO basis functions.
 A subspace of the atomic orbitals is required as an input
 onto which one wants the projected density of states. For
 example, if the p orbitals of a particular atom in have the
 indices 41, 42 and 43, and the PDOS is required on the subpspace
-of these three orbital then an array [41, 42, 43] has to be given
+of these three orbital then an array ``[41, 42, 43]`` has to be given
 as an input for the PDOS calculation.
 
-An example and with explanation is provided below:
+An example and with explanation is provided below.
+
 LCAO PDOS::
 
     from ase import Atoms
@@ -385,7 +387,8 @@ LCAO PDOS::
             w_max.append(w[i])
 
     w_max = np.asarray(w_max)
-Few comments about the above script-
+
+Few comments about the above script.
 There are 51 basis functions in the calculations and the total
 density of state (DOS) is calculated by projecting the DOS on
 all the orbitals.
@@ -429,4 +432,4 @@ LCAO PDOS plotting script::
     ax = plt.gca()
     fig = plt.gcf()
     fig.set_size_inches(8,8)
-    plt.savefig(name+'.png', dpi=200)   
+    plt.savefig(name + '.png', dpi=200)
