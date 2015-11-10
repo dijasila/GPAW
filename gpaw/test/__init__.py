@@ -458,12 +458,14 @@ if not compiled_with_libvdwxc():
 if np.__version__ < '1.6.0':
     exclude.append('response/chi0.py')
 
-exclude = set(exclude)
 
-for test in tests:
-    assert os.path.exists(test), 'No such file: %s' % test
-for test in exclude:
-    assert os.path.exists(test), 'No such file (exclude): %s' % test
+def get_test_path(test):
+    return os.path.join(gpaw.__path__[0], 'test', test)
+
+for test in tests + exclude:
+    assert os.path.exists(get_test_path(test)), 'No such file: %s' % test
+
+exclude = set(exclude)
 
 class TestRunner:
     def __init__(self, tests, stream=sys.__stdout__, jobs=1,
@@ -559,7 +561,7 @@ class TestRunner:
             self.log.flush()
 
         t0 = time.time()
-        filename = gpaw.__path__[0] + '/test/' + test
+        filename = get_test_path(test)
 
         tb = ''
         skip = False
