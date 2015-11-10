@@ -71,12 +71,12 @@ def get_radial_potential(calc, a, ai):
     fxc_sg = np.array([a.xc_correction.rgd.derivative(v_sg[s])
                        for s in range(Ns)])
     
-    f_sg = np.tile(fc_g, (Ns, 1)) + np.tile(fh_g, (Ns, 1)) + fxc_sg
+    f_sg = np.tile(fc_g, (Ns, 1)) + np.tile(fh_g, (Ns, 1))# + fxc_sg
 
     return f_sg[:] / r_g
 
 def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
-                              return_wfs=False):
+                              return_wfs=False, scale=1.0):
     
     if bands is None:
         bands = range(calc.get_number_of_bands())
@@ -131,10 +131,11 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
         v_knm = []
 
     # Hamiltonian with SO in KS basis
+    # The even indices in H_mm are spin up along z
     for k in range(Nk):
         H_mm = np.zeros((2 * Nn, 2 * Nn), complex)
-        H_mm[range(2*Nn)[::2], range(2*Nn)[::2]] = e_skn[0, k, :]
-        H_mm[range(2*Nn)[1::2], range(2*Nn)[1::2]] = e_skn[1, k, :]
+        H_mm[range(2*Nn)[::2], range(2 * Nn)[::2]] = e_skn[0, k, :]
+        H_mm[range(2*Nn)[1::2], range(2 * Nn)[1::2]] = e_skn[1, k, :]
         for ai in range(Na):
             P_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands]
                      for s in range(Ns)]
@@ -142,7 +143,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
             if Ns == 1:
                 P_ni = P_sni[0]
                 Hso_nvn = np.dot(np.dot(P_ni.conj(), dVL_svii[0]), P_ni.T)
-                Hso_nvn *= alpha**2 / 4.0 * Ha
+                Hso_nvn *= scale * alpha**2 / 4.0 * Ha
                 H_mm[::2, ::2] += Hso_nvn[:, 2, :]
                 H_mm[1::2, 1::2] -= Hso_nvn[:, 2, :]
                 H_mm[::2, 1::2] += Hso_nvn[:, 0, :] - 1.0j * Hso_nvn[:, 1, :]
@@ -150,10 +151,10 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
             else:
                 P_ni = P_sni[0]
                 Hso0_nvn = np.dot(np.dot(P_ni.conj(), dVL_svii[0]), P_ni.T)
-                Hso0_nvn *= alpha**2 / 4.0 * Ha
+                Hso0_nvn *= scale * alpha**2 / 4.0 * Ha
                 P_ni = P_sni[1]
                 Hso1_nvn = np.dot(np.dot(P_ni.conj(), dVL_svii[1]), P_ni.T)
-                Hso1_nvn *= alpha**2 / 4.0 * Ha
+                Hso1_nvn *= scale * alpha**2 / 4.0 * Ha
                 H_mm[::2, ::2] += Hso0_nvn[:, 2, :]
                 H_mm[1::2, 1::2] -= Hso1_nvn[:, 2, :]
                 H_mm[::2, 1::2] += Hso1_nvn[:, 0, :] - 1.0j * Hso1_nvn[:, 1, :]
