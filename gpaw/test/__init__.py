@@ -392,7 +392,7 @@ if mpi.size > 1:
                 'sic/nscfsic.py',
                 'coreeig.py',
                 'ase_features/asewannier.py',
-                'wannier_ethylene.py',
+                'utilities/wannier_ethylene.py',
                 'muffintinpot.py',
                 'ext_potential/stark_shift.py',
                 'exx/q.py',
