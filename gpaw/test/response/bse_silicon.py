@@ -4,7 +4,7 @@ import numpy as np
 from ase import Atom, Atoms
 from ase.lattice import bulk
 from ase.units import Hartree, Bohr
-from gpaw import GPAW, FermiDirac
+from gpaw import GPAW, FermiDirac, Davidson
 from gpaw.response.bse import BSE
 from ase.dft.kpoints import monkhorst_pack
 from gpaw.mpi import rank
@@ -18,8 +18,10 @@ if GS:
  
     a = 5.431 # From PRB 73,045112 (2006)
     atoms = bulk('Si', 'diamond', a=a)
-    calc = GPAW(h=0.2,
+    calc = GPAW(h=0.25,
                 kpts=kpts,
+                xc='oldLDA',
+                eigensolver=Davidson(2),
                 occupations=FermiDirac(0.001),
                 nbands=12,
                 convergence={'bands':-4})

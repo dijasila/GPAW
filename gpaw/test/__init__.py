@@ -444,6 +444,7 @@ if mpi.size != 1 and not compiled_with_sl():
                 'response/bse_silicon.py',
                 'response/gwsi.py',
                 'rpa/rpa_energy_N2.py',
+                'pw/expert_diag.py',
                 'pw/fulldiag.py',
                 'pw/fulldiagk.py',
                 'response/au02_absorption.py']
