@@ -456,7 +456,7 @@ if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_h2o.py')
 
 if np.__version__ < '1.6.0':
-    exclude.append('chi0.py')
+    exclude.append('response/chi0.py')
 
 exclude = set(exclude)
 
