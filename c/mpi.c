@@ -891,7 +891,7 @@ static PyObject *mpi_translate_ranks(MPIObject *self, PyObject *args)
       }
   }
   PyObject* other_ranks_anytype = PyArray_Cast(other_ranks,
-                                               PyArray_TYPE(myranks_anytype));
+      PyArray_TYPE((PyArrayObject*)myranks_anytype));
 
   Py_DECREF(myranks_long);
   Py_DECREF(myranks);
