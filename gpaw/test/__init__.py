@@ -358,7 +358,7 @@ tests = [
     'pw/moleculecg.py',                     # duration unknown
     'potential.py',                         # duration unknown
     'pes.py',                               # duration unknown
-    'lcao_pair_and_coulomb.py',             # duration unknown
+    'lcao/pair_and_coulomb.py',             # duration unknown
     'asewannier.py',                        # duration unknown
     'exx_q.py',                             # duration unknown
     'pw/davidson_pw.py',                    # duration unknown
@@ -397,7 +397,7 @@ if mpi.size > 1:
                 'stark_shift.py',
                 'exx_q.py',
                 'potential.py',
-                'lcao_pair_and_coulomb.py',
+                'lcao/pair_and_coulomb.py',
                 'response/bse_MoS2_cut.py',
                 'pw/moleculecg.py',
                 'pw/davidson_pw.py',
@@ -449,7 +449,7 @@ if mpi.size != 1 and not compiled_with_sl():
                 'au02_absorption.py']
 
 if not compiled_with_sl():
-    exclude.append('lcao_atomic_corrections.py')
+    exclude.append('lcao/atomic_corrections.py')
 
 if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_functionals.py')
