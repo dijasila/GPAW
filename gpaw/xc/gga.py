@@ -42,9 +42,11 @@ class GGA(LDA):
     def add_gradient_correction(self, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
         """Add gradient correction to potential.
 
-                      __   /       de(r)    __      \
-        v  (r) += -2  \/ . | ? + ---------  \/ n(r) |
-         xc                \     dsigma(r)          /
+        ::
+            
+                          __   /       de(r)    __      \
+            v  (r) += -2  \/ . | ? + ---------  \/ n(r) |
+             xc                \     dsigma(r)          /
 
         Appears to also add to sigma_xg.
         """
