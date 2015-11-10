@@ -171,7 +171,7 @@ A gpaw script :file:`test.py` can be submitted to run on 8 cpus like this::
 
   > module load gpaw
   > gpaw-runscript test.py 8
-  using bwg
-  run.bwg written
-  > qsub run.bwg
+  hostname uc1n997 found, using bwUniCluster
+  run.bwUniCluster written
+  > msub run.bwUniCluster
 
