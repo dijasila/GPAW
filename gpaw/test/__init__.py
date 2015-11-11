@@ -387,8 +387,7 @@ tests = [
 exclude = []
 
 if mpi.size > 1:
-    exclude += ['pes.py',
-                'response/diamond_eps.py',
+    exclude += ['response/diamond_eps.py',
                 'sic/nscfsic.py',
                 'coreeig.py',
                 'ase_features/asewannier.py',
