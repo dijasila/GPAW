@@ -2,10 +2,10 @@ from __future__ import print_function
 import numpy as np
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.gga import GGA
-from gpaw.utilities import compiled_with_libvdwxc, compiled_with_fftw_mpi,\
-    compiled_with_pfft
+from gpaw.utilities import compiled_with_libvdwxc
 from gpaw.utilities.grid_redistribute import Domains, general_redistribute
 from gpaw.utilities.timing import nulltimer
+from gpaw.mpi import parallel as is_parallel_environment
 import _gpaw
 
 
@@ -21,6 +21,14 @@ def check_grid_descriptor(gd):
 _VDW_NUMERICAL_CODES = {'vdW-DF': 1,
                         'vdW-DF2': 2,
                         'vdW-DF-CX': 3}
+
+
+def libvdwxc_has_mpi():
+    return _gpaw.libvdwxc_has('mpi')
+
+
+def libvdwxc_has_pfft():
+    return _gpaw.libvdwxc_has('pfft')
 
 
 def get_domains(N_c, parsize_c):
@@ -109,9 +117,7 @@ class LibVDWXC(GGA, object):
         self.vdw_functional_name = name
 
         if parallel == 'auto':
-            if compiled_with_pfft():
-                parallel = 'pfft'
-            elif compiled_with_fftw_mpi():
+            if is_parallel_environment and libvdwxc_has_mpi():
                 parallel = 'mpi'
             else:
                 parallel = 'serial'
@@ -123,20 +129,28 @@ class LibVDWXC(GGA, object):
 
         if not compiled_with_libvdwxc():
             raise ImportError('libvdwxc not compiled into GPAW')
+        if parallel == 'mpi' and not libvdwxc_has_mpi():
+            raise ImportError('libvdwxc not compiled with MPI')
+        if parallel == 'pfft' and not libvdwxc_has_pfft():
+            raise ImportError('libvdwxc not compiled with PFFT')
 
     @property
     def name(self):
         if self.parallel == 'serial':
-            pardesc = self.parallel
+            pardesc = 'FFTW serial'
         elif self.parallel == 'mpi':
-            pardesc = ('FFTW-MPI with %d cores'
-                       % self.distribution.input_gd.comm.size)
+            if self.distribution is None:
+                cores = 'unspecified number of cores'
+            else:
+                size = self.distribution.input_gd.comm.size
+                cores = '%d cores' % size if size != 1 else 'one core'
+            pardesc = 'FFTW-MPI with %s' % cores
         else:
             assert self.parallel == 'pfft'
             if self.pfft_grid is None:
-                pardesc = 'PFFT with unknown parallelization'
+                pardesc = 'PFFT with unspecified parallelization'
             else:
-                pardesc = 'PFFT with %d x %d cores' % tuple(self.pfft_grid)
+                pardesc = 'PFFT with %d x %d CPU grid' % tuple(self.pfft_grid)
         return '%s [libvdwxc/%s]' % (self.vdw_functional_name, pardesc)
 
     @name.setter
@@ -157,14 +171,15 @@ class LibVDWXC(GGA, object):
         N_c = gd.get_size_of_global_array(pad=True)
 
         code = _VDW_NUMERICAL_CODES[self.vdw_functional_name]
-        self._vdw = _gpaw.libvdwxc_create(code, tuple(N_c),
-                                          tuple(gd.cell_cv.ravel()))
+        self._vdw = np.empty(1, np.intp)
+        _gpaw.libvdwxc_create(self._vdw, code, tuple(N_c),
+                              tuple(gd.cell_cv.ravel()))
 
         cpugrid = [1, 1, 1]
 
         if self.parallel == 'pfft':
             if self.pfft_grid is None:
-                # TODO decide grid intelligently (e.g., based on sizes)
+                # TODO decide grid intelligently (e.g., based on other comms)
                 self.pfft_grid = get_auto_pfft_grid(comm.size)
             nproc1, nproc2 = self.pfft_grid
             assert nproc1 * nproc2 == comm.size
@@ -175,10 +190,10 @@ class LibVDWXC(GGA, object):
         elif self.parallel == 'mpi':
             cpugrid[0] = comm.size
             _gpaw.libvdwxc_init_mpi(self._vdw, comm.get_c_object())
-            
         else:
             assert self.parallel == 'serial'
-            assert comm.size == 1
+            assert comm.size == 1, ('You cannot run in serial with %d cores'
+                                    % comm.size)
             _gpaw.libvdwxc_init_serial(self._vdw)
 
         self.distribution = VDWDistribution(gd, cpugrid)
@@ -265,6 +280,22 @@ class LibVDWXC(GGA, object):
             _gpaw.libvdwxc_free(self._vdw)
 
 
+def vdw_df(*args, **kwargs):
+    kernel = LibXC('GGA_X_PBE_R+LDA_C_PW')
+    return LibVDWXC(gga_kernel=kernel, name='vdW-DF', *args, **kwargs)
+
+
+def vdw_df2(*args, **kwargs):
+    kernel = LibXC('GGA_X_RPW86+LDA_C_PW')
+    return LibVDWXC(gga_kernel=kernel, name='vdW-DF2', *args, **kwargs)
+
+
+def vdw_df_cx(*args, **kwargs):
+    kernel = CXGGAKernel()
+    return LibVDWXC(gga_kernel=kernel, name='vdW-DF-CX', *args, **kwargs)
+
+
+# WARNING!  These classes will be deprecated and removed soon.
 class VDWDF(LibVDWXC):
     def __init__(self, timer=nulltimer):
         kernel = LibXC('GGA_X_PBE_R+LDA_C_PW')

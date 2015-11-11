@@ -16,13 +16,34 @@ vdw_data* unpack_vdw_pointer(PyObject* vdw_obj)
     return vdw;
 }
 
+PyObject* libvdwxc_has(PyObject* self, PyObject* args)
+{
+    char* name;
+    if(!PyArg_ParseTuple(args, "s", &name)) {
+            return NULL;
+    }
+    int val;
+    if(strcmp("mpi", name) == 0) {
+        val = vdw_has_mpi();
+    } else if(strcmp("pfft", name) == 0) {
+        val = vdw_has_pfft();
+    } else {
+        return NULL;
+    }
+    PyObject* pyval = val ? Py_True : Py_False;
+    Py_INCREF(pyval);
+    return pyval;
+}
+
 PyObject* libvdwxc_create(PyObject* self, PyObject* args, PyObject* kwargs)
 {
+    PyObject* vdw_obj;
     int vdw_code;
     int Nx, Ny, Nz;
     double C00, C10, C20, C01, C11, C21, C02, C12, C22;
 
-    if(!PyArg_ParseTuple(args, "i(iii)(ddddddddd)|Oi",
+    if(!PyArg_ParseTuple(args, "Oi(iii)(ddddddddd)",
+                         &vdw_obj,
                          &vdw_code, // functional identifier
                          &Nx, &Ny, &Nz, // number of grid points
                          &C00, &C10, &C20, // 3x3 cell
@@ -32,15 +53,10 @@ PyObject* libvdwxc_create(PyObject* self, PyObject* args, PyObject* kwargs)
     }
 
     vdw_data vdw = vdw_new(vdw_code);
-    vdw_set_unit_cell(vdw, Nx, Ny, Nz, C00, C10, C20, C01, C11, C21, C02, C12, C22);
-
-    // That was the real work.  Now we create the horrific array to contain the pointer.
-    npy_intp pointersize = sizeof(void *);
-    PyObject* vdw_obj = PyArray_SimpleNew(1, &pointersize, NPY_BYTE);
-    Py_INCREF(vdw_obj); // To be DECREF'd after we call vdw_finalize
     vdw_data* vdw_ptr = unpack_vdw_pointer(vdw_obj);
     vdw_ptr[0] = vdw;
-    return vdw_obj;
+    vdw_set_unit_cell(vdw, Nx, Ny, Nz, C00, C10, C20, C01, C11, C21, C02, C12, C22);
+    Py_RETURN_NONE;
 }
 
 PyObject* libvdwxc_init_serial(PyObject* self, PyObject* args)
@@ -81,7 +97,6 @@ PyObject* libvdwxc_free(PyObject* self, PyObject* args)
     }
     vdw_data* vdw = unpack_vdw_pointer(vdw_obj);
     vdw_finalize(vdw);
-    Py_DECREF(vdw_obj); // We INCREF'd this back when we created it.  Now it may be GC'd.
     Py_RETURN_NONE;
 }
 
@@ -100,7 +115,7 @@ PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args)
         return NULL;
     }
     
-    if(!vdw_has_fftw_mpi()) {
+    if(!vdw_has_mpi()) {
         return NULL;
     }
 

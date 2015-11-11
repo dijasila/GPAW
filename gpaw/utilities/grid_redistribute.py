@@ -304,7 +304,8 @@ class Domains:
         return tuple(len(self.domains_cp[c]) - 1 for c in range(3))
 
     def get_global_shape(self):
-        return tuple(domains_cp[c][-1] - domains_cp[c][0] for c in range(3))
+        return tuple(self.domains_cp[c][-1]
+                     - self.domains_cp[c][0] for c in range(3))
 
     def get_offset(self, parpos_c):
         offset_c = [self.domains_cp[c][parpos_c[c]] for c in range(3)]
@@ -498,6 +499,8 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
             recvchunk.flat[:] += buf
 
 def test_general_redistribute():
+    from gpaw.mpi import world
+
     domains1 = Domains([[0, 1],
                         [1, 3, 5, 6],
                         [0, 5, 9]])
