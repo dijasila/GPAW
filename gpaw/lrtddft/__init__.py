@@ -370,7 +370,8 @@ class LrTDDFT(ExcitationList):
 
             if fh is None:
                 f.close()
-
+        mpi.world.barrier()
+                
 
 def d2Excdnsdnt(dup, ddn):
     """Second derivative of Exc polarised"""
