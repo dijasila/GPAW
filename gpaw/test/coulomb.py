@@ -3,7 +3,7 @@ import numpy as np
 from math import pi
 from gpaw.coulomb import Coulomb
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.mpi import world, parallel
+from gpaw.mpi import world
 from gpaw.utilities.gauss import coordinates
 from gpaw.test import equal
 import time
@@ -16,7 +16,7 @@ def test_coulomb(N=2**6, a=20):
     nH = np.exp(-2 * r) / pi  # density of the hydrogen atom
     C = Coulomb(gd)           # coulomb calculator
     
-    if parallel:
+    if world.size > 1:
         C.load('real')
         t0 = time.time()
         print('Processor %s of %s: %s Ha in %s sec' % (
@@ -41,7 +41,7 @@ def test_coulomb(N=2**6, a=20):
 
 analytic = -5 / 16.0
 res = test_coulomb(N=48, a=15)
-if not parallel:
+if world.size == 1:
     print('Units: Bohr and Hartree')
     print('%12s %8s %8s' % ('Method', 'Energy', 'Time'))
     print('%12s %2.6f %6s' % ('analytic', analytic, '--'))
