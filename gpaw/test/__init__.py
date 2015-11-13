@@ -301,7 +301,7 @@ tests = [
     'corehole/si.py',                       # ~18s
     'mgga/mgga_sc.py',                      # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
-    # buildbot > 20 sec tests start here (add tests after lrtddft.py!)
+    # buildbot > 20 sec tests start here (add tests after lrtddft/1.py!)
     'lrtddft/1.py',                         # ~20s
     'gllb/spin.py',                         # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s
@@ -347,7 +347,7 @@ tests = [
     'transport.py',                         # ~73s
     'lrtddft/3.py',                         # ~75s
     'pathological/nonlocalset.py',          # ~82s
-    # buildbot > 100 sec tests start here (add tests after lb94.py!)
+    # buildbot > 100 sec tests start here (add tests after xc/lb94.py!)
     'xc/lb94.py',                           # ~84s
     'exx/AA_enthalpy.py',                   # ~119s
     'lcao/tdgllbsc.py',                     # ~132s
@@ -387,23 +387,24 @@ tests = [
 exclude = []
 
 if mpi.size > 1:
-    exclude += ['response/diamond_eps.py',
-                'sic/nscfsic.py',
+    exclude += ['ase_features/asewannier.py',
                 'coreeig.py',
-                'ase_features/asewannier.py',
-                'utilities/wannier_ethylene.py',
-                'muffintinpot.py',
                 'ext_potential/stark_shift.py',
                 'exx/q.py',
+                'fd_ops/laplace.py',
                 'potential.py',
                 'lcao/pair_and_coulomb.py',
-                'response/bse_MoS2_cut.py',
+                'muffintinpot.py',
                 'pw/moleculecg.py',
                 'pw/davidson_pw.py',
+                'response/bse_MoS2_cut.py',
+                'response/diamond_eps.py',
+                'sic/nscfsic.py',
                 # scipy.weave fails often in parallel due to
                 # ~/.python*_compiled
                 # https://github.com/scipy/scipy/issues/1895
-                'scipy_test.py']
+                'scipy_test.py',
+                'utilities/wannier_ethylene.py']
 
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
