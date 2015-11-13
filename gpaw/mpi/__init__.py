@@ -699,6 +699,12 @@ if debug:
 size = world.size
 rank = world.rank
 parallel = (size > 1)
+try:
+    world.get_c_object()
+except NotImplementedError:
+    have_mpi = False
+else:
+    have_mpi = True
 
 
 # XXXXXXXXXX for easier transition to Parallelization class

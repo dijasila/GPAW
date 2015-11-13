@@ -251,9 +251,9 @@ def restart(filename, Class=GPAW, **kwargs):
 if trace:
     indent = '    '
     path = __path__[0]
-    from gpaw.mpi import parallel, rank
-    if parallel:
-        indent = 'CPU%d    ' % rank
+    from gpaw.mpi import world
+    if world.size > 1:
+        indent = 'CPU%d    ' % world.rank
 
     def f(frame, event, arg):
         global indent
