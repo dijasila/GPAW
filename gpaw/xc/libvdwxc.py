@@ -5,7 +5,7 @@ from gpaw.xc.gga import GGA
 from gpaw.utilities import compiled_with_libvdwxc
 from gpaw.utilities.grid_redistribute import Domains, general_redistribute
 from gpaw.utilities.timing import nulltimer
-from gpaw.mpi import parallel as is_parallel_environment
+from gpaw.mpi import have_mpi
 import _gpaw
 
 
@@ -24,11 +24,11 @@ _VDW_NUMERICAL_CODES = {'vdW-DF': 1,
 
 
 def libvdwxc_has_mpi():
-    return _gpaw.libvdwxc_has('mpi')
+    return have_mpi and _gpaw.libvdwxc_has('mpi')
 
 
 def libvdwxc_has_pfft():
-    return _gpaw.libvdwxc_has('pfft')
+    return have_mpi and _gpaw.libvdwxc_has('pfft')
 
 
 def get_domains(N_c, parsize_c):
@@ -117,7 +117,7 @@ class LibVDWXC(GGA, object):
         self.vdw_functional_name = name
 
         if parallel == 'auto':
-            if is_parallel_environment and libvdwxc_has_mpi():
+            if have_mpi and libvdwxc_has_mpi():
                 parallel = 'mpi'
             else:
                 parallel = 'serial'
@@ -127,8 +127,12 @@ class LibVDWXC(GGA, object):
         self.pfft_grid = pfft_grid
         self.distribution = None
 
+        # Check for missing libraries.  I guess ImportError makes most sense?
         if not compiled_with_libvdwxc():
             raise ImportError('libvdwxc not compiled into GPAW')
+        if parallel != 'serial' and not have_mpi:
+            raise ImportError('MPI not available for libvdwxc-%s '
+                              'because GPAW is serial' % parallel)
         if parallel == 'mpi' and not libvdwxc_has_mpi():
             raise ImportError('libvdwxc not compiled with MPI')
         if parallel == 'pfft' and not libvdwxc_has_pfft():

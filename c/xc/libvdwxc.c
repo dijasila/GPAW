@@ -1,10 +1,12 @@
 #ifdef GPAW_WITH_LIBVDWXC
 #include "../extensions.h"
-#include <vdwxc.h>
 
 #ifdef PARALLEL
 #include <mpi.h>
 #include "../mympi.h"
+#include <vdwxc_mpi.h>
+#else
+#include <vdwxc.h>
 #endif
 
 // Our heinous plan is to abuse a numpy array so that it will contain a pointer to the vdw_data.
@@ -68,7 +70,7 @@ PyObject* libvdwxc_init_serial(PyObject* self, PyObject* args)
     vdw_data* vdw = unpack_vdw_pointer(vdw_obj);
     vdw_init_serial(*vdw);
     Py_RETURN_NONE;
-}    
+}
 
 PyObject* libvdwxc_calculate(PyObject* self, PyObject* args)
 {
@@ -106,6 +108,7 @@ MPI_Comm unpack_gpaw_comm(PyObject* gpaw_mpi_obj)
     MPIObject* gpaw_comm = (MPIObject *)gpaw_mpi_obj;
     return gpaw_comm->comm;
 }
+#endif
 
 PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args)
 {
@@ -119,10 +122,14 @@ PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args)
         return NULL;
     }
 
+#ifdef PARALLEL
     vdw_data* vdw = unpack_vdw_pointer(vdw_obj);
     MPI_Comm comm = unpack_gpaw_comm(gpaw_comm_obj);
     vdw_init_mpi(*vdw, comm);
     Py_RETURN_NONE;
+#else
+    return NULL;
+#endif
 }
 
 PyObject* libvdwxc_init_pfft(PyObject* self, PyObject* args)
@@ -138,12 +145,14 @@ PyObject* libvdwxc_init_pfft(PyObject* self, PyObject* args)
         return NULL;
     }
 
+#ifdef PARALLEL
     vdw_data* vdw = unpack_vdw_pointer(vdw_obj);
     MPI_Comm comm = unpack_gpaw_comm(gpaw_comm_obj);
     vdw_init_pfft(*vdw, comm, nproc1, nproc2);
     Py_RETURN_NONE;
+#else
+    return NULL;
+#endif
 }
-
-#endif // PARALLEL
 
 #endif // gpaw_with_libvdwxc
