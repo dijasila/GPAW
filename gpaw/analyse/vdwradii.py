@@ -1,4 +1,3 @@
-import numpy as np
 from ase.data import atomic_numbers, chemical_symbols
 from ase.units import Bohr
 

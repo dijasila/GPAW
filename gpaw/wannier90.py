@@ -1,6 +1,5 @@
 from __future__ import print_function
 import numpy as np
-import datetime
 from gpaw.utilities.blas import gemmdot
 from ase.units import Bohr
 

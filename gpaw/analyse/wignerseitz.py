@@ -3,7 +3,7 @@ import numpy as np
 
 from ase.units import Bohr
 
-from gpaw.utilities import pack, pack2
+from gpaw.utilities import pack
 from gpaw.analyse.hirshfeld import HirshfeldDensity
 from gpaw.utilities.tools import coordinates
 from gpaw.mpi import MASTER
@@ -153,6 +153,7 @@ class WignerSeitzLDOS(LDOSbyBand):
         ldos = np.empty((nu, paw.nbands, len(paw.atoms)))
         for u, kpt in enumerate(paw.kpt_u):
             for n, psit_G in enumerate(kpt.psit_nG):
+                # XXX variable ws undefined.  Probably self.ws
                 ldos[u, n, :] = ws.expand_wave_function(psit_G, u, n)
 
     def write(self, filename, slavewrite=False):

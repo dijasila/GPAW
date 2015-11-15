@@ -11,7 +11,7 @@ from gpaw.transformers import Transformer
 from gpaw.lfc import LFC
 from gpaw.utilities import pack2, unpack, unpack2
 from gpaw.io import read_atomic_matrices
-from gpaw.utilities.partition import AtomPartition, AtomicMatrixDistributor
+from gpaw.utilities.partition import AtomPartition
 from gpaw.arraydict import ArrayDict
 
 

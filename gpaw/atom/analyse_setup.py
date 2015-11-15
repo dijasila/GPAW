@@ -1,10 +1,5 @@
-from math import sqrt, pi
-
 import pylab as plt
 import numpy as np
-
-from ase.data import atomic_names as names
-
 
 def analyse(generator, show=False):
     gen = generator

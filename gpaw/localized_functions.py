@@ -3,7 +3,7 @@
 
 """Atomic-centered localized functions."""
 
-from math import pi, cos, sin
+from math import pi
 
 import numpy as np
 
