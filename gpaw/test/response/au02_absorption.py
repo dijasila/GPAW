@@ -47,7 +47,6 @@ if ABS:
     I0_ = 244.693028
     w_ = 5.696528390
     I_ = 207.8
-    I_ws = 112.3376687
     
     w, I = findpeak(np.linspace(0, 14., 141), b0.imag)
     equal(w, w0_, 0.05)
@@ -67,4 +66,4 @@ if ABS:
     # The Wigner-Seitz truncation does not give exactly the same for small cell
     w, I = findpeak(np.linspace(0, 14., 141), a_ws.imag)
     equal(w, w_, 0.2)
-    equal(I, I_ws, 8.0)
+    equal(I, I_, 8.0)

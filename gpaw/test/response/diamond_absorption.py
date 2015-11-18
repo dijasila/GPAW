@@ -49,7 +49,6 @@ w0_ = 10.778232265664668
 I0_ = 5.5467658790816268
 w_ = 10.9530497246
 I_ = 6.09704008088  
-I_ws = 6.39274394637 
 
 w, I = findpeak(np.linspace(0, 24., 241), b0.imag)
 equal(w, w0_, 0.05)
@@ -69,4 +68,4 @@ equal(I, I_, 0.05)
 # The Wigner-Seitz truncation does not give exactly the same for kpts=(3,3,3)
 w, I = findpeak(np.linspace(0, 24., 241), a_ws.imag)
 equal(w, w_, 0.1)
-equal(I, I_ws, 0.1)
+equal(I, I_, 0.1)
