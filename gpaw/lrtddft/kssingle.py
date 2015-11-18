@@ -52,13 +52,14 @@ class KSSingles(ExcitationList):
                  txt=None):
 
         self.eps = None
+        self.world = mpi.world
 
         if isinstance(calculator, str):
-            filehandle = open(calculator)
+            return self.read(calculator, 
+                             istart=istart, jend=jend)
         if filehandle is not None:
-            self.world = mpi.world
-            self.read(fh=filehandle, istart=istart, jend=jend)
-            return None
+            return self.read(fh=filehandle,
+                             istart=istart, jend=jend)
 
         # LCAO calculation requires special actions
         if calculator is not None:
