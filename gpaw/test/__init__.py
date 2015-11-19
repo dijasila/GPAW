@@ -363,7 +363,6 @@ tests = [
     'exx/q.py',                             # duration unknown
     'pw/davidson_pw.py',                    # duration unknown
     'ase_features/neb.py',                  # duration unknown
-    'response/diamond_eps.py',              # duration unknown
     'utilities/wannier_ethylene.py',        # duration unknown
     'muffintinpot.py',                      # duration unknown
     'sic/nscfsic.py',                       # duration unknown
@@ -398,7 +397,6 @@ if mpi.size > 1:
                 'pw/moleculecg.py',
                 'pw/davidson_pw.py',
                 'response/bse_MoS2_cut.py',
-                'response/diamond_eps.py',
                 'sic/nscfsic.py',
                 # scipy.weave fails often in parallel due to
                 # ~/.python*_compiled

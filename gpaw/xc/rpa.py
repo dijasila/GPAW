@@ -173,7 +173,7 @@ class RPACorrelation:
 
         chi0 = Chi0(self.calc, 1j * Hartree * self.omega_w, eta=0.0,
                     intraband=False, hilbert=False,
-                    txt=self.fd, timer=self.timer, world=self.world,
+                    txt='chi0.txt', timer=self.timer, world=self.world,
                     no_optical_limit=self.wstc,
                     nblocks=self.nblocks)
 

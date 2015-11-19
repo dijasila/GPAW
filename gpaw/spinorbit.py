@@ -70,8 +70,10 @@ def get_radial_potential(calc, a, ai):
     xc.calculate_spherical(a.xc_correction.rgd, n_sg, v_sg)
     fxc_sg = np.array([a.xc_correction.rgd.derivative(v_sg[s])
                        for s in range(Ns)])
-    
-    f_sg = np.tile(fc_g, (Ns, 1)) + np.tile(fh_g, (Ns, 1))# + fxc_sg
+    fxc_g = np.sum(fxc_sg, axis=0) / Ns
+
+    #f_sg = np.tile(fc_g, (Ns, 1)) + np.tile(fh_g, (Ns, 1)) + fxc_sg
+    f_sg = np.tile(fc_g + fh_g + fxc_g, (Ns, 1))
 
     return f_sg[:] / r_g
 
@@ -139,26 +141,26 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
         for ai in range(Na):
             P_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands]
                      for s in range(Ns)]
-            dVL_svii = dVL_asvii[ai]
+            dVL_svii = dVL_asvii[ai] * scale * alpha**2 / 4.0 * Ha
             if Ns == 1:
                 P_ni = P_sni[0]
                 Hso_nvn = np.dot(np.dot(P_ni.conj(), dVL_svii[0]), P_ni.T)
-                Hso_nvn *= scale * alpha**2 / 4.0 * Ha
                 H_mm[::2, ::2] += Hso_nvn[:, 2, :]
                 H_mm[1::2, 1::2] -= Hso_nvn[:, 2, :]
                 H_mm[::2, 1::2] += Hso_nvn[:, 0, :] - 1.0j * Hso_nvn[:, 1, :]
                 H_mm[1::2, ::2] += Hso_nvn[:, 0, :] + 1.0j * Hso_nvn[:, 1, :]
             else:
-                P_ni = P_sni[0]
-                Hso0_nvn = np.dot(np.dot(P_ni.conj(), dVL_svii[0]), P_ni.T)
-                Hso0_nvn *= scale * alpha**2 / 4.0 * Ha
-                P_ni = P_sni[1]
-                Hso1_nvn = np.dot(np.dot(P_ni.conj(), dVL_svii[1]), P_ni.T)
-                Hso1_nvn *= scale * alpha**2 / 4.0 * Ha
-                H_mm[::2, ::2] += Hso0_nvn[:, 2, :]
-                H_mm[1::2, 1::2] -= Hso1_nvn[:, 2, :]
-                H_mm[::2, 1::2] += Hso1_nvn[:, 0, :] - 1.0j * Hso1_nvn[:, 1, :]
-                H_mm[1::2, ::2] += Hso0_nvn[:, 0, :] + 1.0j * Hso0_nvn[:, 1, :]
+                P0_ni = P_sni[0]
+                P1_ni = P_sni[1]
+                Hso00_nvn = np.dot(np.dot(P0_ni.conj(), dVL_svii[0]), P0_ni.T)
+                Hso11_nvn = np.dot(np.dot(P1_ni.conj(), dVL_svii[1]), P1_ni.T)
+                Hso01_nvn = np.dot(np.dot(P0_ni.conj(), dVL_svii[0]), P1_ni.T)
+                Hso10_nvn = np.dot(np.dot(P1_ni.conj(), dVL_svii[1]), P0_ni.T)
+                H_mm[::2, ::2] += Hso00_nvn[:, 2, :]
+                H_mm[1::2, 1::2] -= Hso11_nvn[:, 2, :]
+                H_mm[::2, 1::2] += Hso01_nvn[:, 0, :] - 1.0j * Hso01_nvn[:, 1, :]
+                H_mm[1::2, ::2] += Hso10_nvn[:, 0, :] + 1.0j * Hso10_nvn[:, 1, :]
+        
         e_m, v_snm = np.linalg.eigh(H_mm)
         e_km.append(e_m)
         if return_wfs:
