@@ -42,6 +42,7 @@ def write_input(calc,
                 bands=None,
                 orbitals_ai=None,
                 mp=None,
+                plot=False,
                 num_iter=100,
                 dis_num_iter=200,
                 dis_froz_max=0.1,
@@ -149,6 +150,11 @@ def write_input(calc,
     print('end atoms_frac', file=f)
     print(file=f)
 
+    if plot:
+        print('wannier_plot   = True', file=f)
+        print('wvfn_formatted = True', file=f)
+        print(file=f)
+        
     if mp is not None:
         N_c = mp
     else:
@@ -474,9 +480,9 @@ def write_wavefunctions(calc, v_knm=None, spin=0, seed=None):
         grid_v = np.shape(u_nG)[1:]
         print(grid_v[0], grid_v[1], grid_v[2], ik + 1, Nn, file=f)
         for n in range(Nn):
-            for ix in range(grid_v[0]):
+            for iz in range(grid_v[2]):
                 for iy in range(grid_v[1]):
-                    for iz in range(grid_v[2]):
+                    for ix in range(grid_v[0]):
                         u = u_nG[n, ix, iy, iz]
                         print(u.real, u.imag, file=f)
         f.close()
