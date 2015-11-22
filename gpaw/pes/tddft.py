@@ -185,7 +185,7 @@ class TDDFTPES(BasePES):
                    shift)
 
     def _nuc_corr(self, i_m, j_d, k_m, k_d):
-        ma = 0
+        ma = 0.0
 
         for a, P_ni_m in self.c_m.wfs.kpt_u[k_m].P_ani.items():
             P_ni_d = self.c_d.wfs.kpt_u[k_d].P_ani[a]
