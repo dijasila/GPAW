@@ -200,14 +200,15 @@ class DielectricFunction:
         Kbare_G = get_coulomb_kernel(pd, 
                                      N_c, 
                                      truncation=None,
-                                     q_inf=q_inf)**0.5
-        nG = len(Kbare_G)
+                                     q_inf=q_inf)
+        vsqr_G = Kbare_G**0.5
+        nG = len(vsqr_G)
 
         if self.truncation is not None:
             Ktrunc_G = get_coulomb_kernel(pd, 
                                           N_c, 
                                           truncation=self.truncation, 
-                                          q_inf=q_inf)**0.5
+                                          q_inf=q_inf)
             K_GG = np.diag(Ktrunc_G / Kbare_G)
         else:
             K_GG = np.eye(nG, dtype=complex)
@@ -230,18 +231,18 @@ class DielectricFunction:
                                     self.chi0,
                                     functional=xc, 
                                     chi0_wGG=chi0_wGG)
-            K_GG += Kxc_sGG[0] / Kbare_G / Kbare_G[:, np.newaxis]
+            K_GG += Kxc_sGG[0] / vsqr_G / vsqr_G[:, np.newaxis]
 
         chi_wGG = []
         for chi0_GG in chi0_wGG:
             """v^1/2 chi0 V^1/2"""
-            chi0_GG[:] = chi0_GG * Kbare_G * Kbare_G[:, np.newaxis]
+            chi0_GG[:] = chi0_GG * vsqr_G * vsqr_G[:, np.newaxis]
             chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
                                           np.dot(chi0_GG, K_GG)),
                             chi0_GG)
             if not return_VchiV:
-                chi0_GG /= Kbare_G * Kbare_G[:, np.newaxis]
-                chi_GG /= Kbare_G * Kbare_G[:, np.newaxis]
+                chi0_GG /= vsqr_G * vsqr_G[:, np.newaxis]
+                chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
             chi_wGG.append(chi_GG)
             
         return pd, chi0_wGG, np.array(chi_wGG)
@@ -495,7 +496,9 @@ class DielectricFunction:
 
             print('Using truncated Coulomb interaction', file=self.chi0.fd)
 
-            pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, direction=direction)
+            pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc,
+                                                 q_c=q_c,
+                                                 direction=direction)
             alpha_w = -V * (chi_wGG[:, 0, 0]) / (4 * pi)
             alpha0_w = -V * (chi0_wGG[:, 0, 0]) / (4 * pi)
 
