@@ -517,24 +517,13 @@ class PAWSetupGenerator:
             self.nct_g = self.rgd.zeros()
             self.tauct_g = self.rgd.zeros()
         else:
-            # Make sure pseudo density is monotonically decreasing:
-            while True:
-                gcore = self.rgd.round(rcore)
-                self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
-                nt_g = self.nt_g + self.nct_g
-                dntdr_g = self.rgd.derivative(nt_g)[:gcore]
-                if dntdr_g.max() < 0.0:
-                    break
-                rcore -= 0.01
-
-            rcore *= 1.2
             gcore = self.rgd.round(rcore)
-            self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
-            nt_g = self.nt_g + self.nct_g
+            nt_g = self.rgd.pseudize(self.aea.n_sg[0], gcore)[0]
+            self.nct_g = nt_g - self.nt_g
+            self.nt_g = nt_g
 
             self.log('Constructing smooth pseudo core density for r < %.3f' %
                      rcore)
-            self.nt_g = nt_g
 
             self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
 
