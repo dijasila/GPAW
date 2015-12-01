@@ -4,6 +4,15 @@
 Documentation
 =============
 
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   manual
+   tools/tools
+   advanced_topics
+   literature
+
 If you want to know how to *use* the GPAW code, we recommend looking
 at the :ref:`tutorials` and consulting the :ref:`manual` pages.
 
@@ -21,14 +30,6 @@ Developers should consult the :ref:`devel` pages.
 ..
   The manual includes the basic instructions on how to use the GPAW
   calculator's functionalities:
-
-.. toctree::
-   :maxdepth: 2
-
-   manual
-   tools/tools
-   advanced_topics
-   literature
 
 If you can not find what you are looking for in any of the above,
 please consult the :ref:`mailing_lists`.

@@ -1,0 +1,8 @@
+=======
+Support
+=======
+
+.. toctree::
+
+   faq
+   mailinglists

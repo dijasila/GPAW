@@ -5,31 +5,36 @@ Contents
 ========
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 5
 
-   index
-   algorithms
+   GPAW <index>
    install/install
-   setups/setups
-   tutorials/tutorials
-   exercises/exercises
    documentation/documentation
-   devel/benchmarks
-   devel/releasenotes
-   faq
-   mailinglists
+   development
+   support
+   
+..   algorithms
+..   setups/setups
+..   tutorials/tutorials
+..   exercises/exercises
+   
 
-   devel/devel
+..   devel/benchmarks
+..   devel/releasenotes
+..   faq
+..   mailinglists
 
-Old pages
----------
+..   devel/devel
 
-.. toctree::
-   :maxdepth: 2
+.. Old pages
+.. ---------
 
-   exercises/summerschool14
-   exercises/summerschool12
-   exercises/summerschool10
-   exercises/summerschool08
-   introduction_to_paw
-   devel/grids
+.. .. toctree::
+..    :maxdepth: 2
+
+..   exercises/summerschool14
+..   exercises/summerschool12
+..   exercises/summerschool10
+..   exercises/summerschool08
+..   introduction_to_paw
+..   devel/grids
