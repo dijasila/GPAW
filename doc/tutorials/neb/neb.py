@@ -36,7 +36,7 @@ for i in range(3):
     
 images.append(final)
 
-neb = NEB(images, parallel=True)
+neb = NEB(images, parallel=True, climb=True)
 neb.interpolate()
 
 qn = BFGS(neb, logfile='qn.log')
