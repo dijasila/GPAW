@@ -137,8 +137,6 @@ class Eigensolver:
                 result_xG = reshape(self.operator.work1_xG, psit_xG.shape)
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
                                          result_xG)
-            hamiltonian.xc.apply_orbital_dependent_hamiltonian(
-                kpt, psit_xG, result_xG, dH_asp)
             return result_xG
 
         def dH(a, P_ni):

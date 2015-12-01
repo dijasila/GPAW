@@ -1,33 +1,15 @@
-from __future__ import print_function
-from ase import Atom
+"""Compare TPSS from scratch and from PBE"""
+from ase import Atoms
 from gpaw import GPAW
-from gpaw.cluster import Cluster
-from gpaw.test import equal
 
-h=0.40
-txt = None
-txt = 'mgga_sc.txt'
+n = Atoms('N', magmoms=[3])
+n.center(vacuum=2.5)
+n.calc = GPAW(xc='TPSS')
+e1 = n.get_potential_energy()
 
-s = Cluster([Atom('H')])
-s.minimal_box(4., h=h)
-s.set_initial_magnetic_moments([1])
-# see https://trac.fysik.dtu.dk/projects/gpaw/ticket/244
-s.set_cell((8.400000,8.400000,8.400000))
-
-c = GPAW(xc='TPSS', h=h, nbands=5, txt=txt, 
-         eigensolver='rmm-diis',
-         fixmom=True,
-         maxiter=300)
-c.calculate(s)
-
-cpbe = GPAW(xc='PBE', h=h, nbands=5, txt=txt,
-            eigensolver='rmm-diis',
-            fixmom=True,
-            maxiter=300)
-cpbe.calculate(s)
-cpbe.set(xc='TPSS')
-cpbe.calculate()
-
-print("Energy difference", (cpbe.get_potential_energy() - 
-                            c.get_potential_energy()))
-equal(cpbe.get_potential_energy(), c.get_potential_energy(), 0.002)
+n.calc = GPAW(xc='PBE')
+n.get_potential_energy()
+n.calc.set(xc='TPSS')
+e2 = n.get_potential_energy()
+print('Energy difference', e1 - e2)
+assert abs(e1 - e2) < 1e-5

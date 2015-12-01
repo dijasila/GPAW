@@ -1,5 +1,6 @@
 class XCFunctional:
     orbital_dependent = False
+
     def __init__(self, name):
         self.name = name
         self.gd = None
@@ -51,7 +52,7 @@ class XCFunctional:
     
     # Orbital dependent stuff:
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_nG,
-                                            Htpsit_nG, dH_asp):
+                                            Htpsit_nG, dH_asp=None):
         pass
     
     def correct_hamiltonian_matrix(self, kpt, H_nn):

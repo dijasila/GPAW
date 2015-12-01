@@ -64,10 +64,12 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def make_preconditioner(self, block=1):
         return Preconditioner(self.gd, self.kin, self.dtype, block)
     
-    def apply_pseudo_hamiltonian(self, kpt, hamiltonian, psit_xG, Htpsit_xG):
+    def apply_pseudo_hamiltonian(self, kpt, ham, psit_xG, Htpsit_xG):
         self.timer.start('Apply hamiltonian')
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
-        hamiltonian.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
+        ham.apply_local_potential(psit_xG, Htpsit_xG, kpt.s)
+        ham.xc.apply_orbital_dependent_hamiltonian(
+            kpt, psit_xG, Htpsit_xG, ham.dH_asp)
         self.timer.stop('Apply hamiltonian')
 
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
@@ -135,7 +137,6 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         # New k-point descriptor for full BZ:
         kd = KPointDescriptor(self.kd.bzk_kc, nspins=self.nspins)
-        #kd.set_symmetry(atoms, self.setups, enabled=False)
         kd.set_communicator(serial_comm)
 
         self.pt = LFC(self.gd, [setup.pt_j for setup in self.setups],

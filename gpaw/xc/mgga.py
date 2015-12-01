@@ -72,7 +72,7 @@ class MGGA(GGA):
                                       self.tauct_G / self.wfs.nspins))
 
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
-                                            Htpsit_xG, dH_asp):
+                                            Htpsit_xG, dH_asp=None):
         self.wfs.apply_mgga_orbital_dependent_hamiltonian(
             kpt, psit_xG,
             Htpsit_xG, dH_asp,
@@ -179,7 +179,7 @@ class MGGA(GGA):
                     tau_ypg[y, p, :] += temp
                     p += 1
                 i1 += 1
-        ##first term
+        # first term
         for y in range(ny):
             i1 = 0
             p = 0
@@ -322,7 +322,6 @@ def get_alpha(n, sigma, tau):
 
     # z and alpha
     tau_ = np.maximum(tau_w, tau)
-    z = np.divide(tau_w, tau_)
     alpha = np.divide(tau_ - tau_w, tau_lsda)
     assert(alpha.all() >= 0.0)
     return alpha
@@ -361,12 +360,13 @@ def legendre_polynomial(x, orders, coefs, P=None):
         for i in range(max_order):
             i += 2
             L[:, i] = (2.0 * x[:] * L[:, i - 1] - L[:, i - 2]
-                - (x[:] * L[:, i - 1] - L[:, i - 2]) / i)
+                       - (x[:] * L[:, i - 1] - L[:, i - 2]) / i)
     else:
         for i in range(max_order):
             i += 2
             L[:, :, :, i] = (2.0 * x[:] * L[:, :, :, i - 1] - L[:, :, :, i - 2]
-                - (x[:] * L[:, :, :, i - 1] - L[:, :, :, i - 2]) / i)
+                             - (x[:] * L[:, :, :, i - 1] - L[:, :, :, i - 2])
+                             / i)
 
     # building polynomium P
     coefs_ = np.empty(max_order + 1)
