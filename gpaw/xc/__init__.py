@@ -73,7 +73,7 @@ def XC(kernel, parameters=None):
         name = kernel
 
         if name not in ['BEE1','BEE2','2D-MGGA']:
-            param_ignore_warning(name)
+            param_ignore_warning(parameters)
 
         # New vdW-DF implementations via libvdwxc
         # Temporary name until we decide how to deal with old and new versions.

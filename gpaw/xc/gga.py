@@ -56,7 +56,7 @@ class GGA(LDA):
                      For more information, see
                      https://wiki.fysik.dtu.dk/gpaw/documentation/xc/functionals.html#uniform-3d-grid
 
-             e_g     Optional. The energy density is REPLACED to this array.
+             e_g     Optional. The xc energy density is REPLACED to this array.
 
            Returns:
              E_xc    The total LDA exchange-correlation energy.
