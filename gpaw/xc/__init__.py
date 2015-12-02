@@ -4,6 +4,48 @@ from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
 from gpaw.xc.mgga import MGGA
 
+def get_kernel_by_name(name):
+    """Return xc kernel for a given name.
+
+    Libxc will be used for default, unless the name is one of the following:
+    BEE1, BEE2, LB94, TPSS, M06L, revTPSS, old... PPLDA, pyPBE, pyPBEsol,
+    pyRPBE, pyxzPBEsol.
+    
+    xc kernel object provides the basic computational functionality for 
+    LDA, GGA and MGGA type of functionals. It needs to be wrapped by
+    LDA, GGA or MGGA object, which inherit the XCFunctional object.
+    
+    """
+    if name == 'BEE1':
+        from gpaw.xc.bee import BEE1
+        return BEE1(parameters)
+    if name == 'BEE2':
+        from gpaw.xc.bee import BEE2
+        return BEE2(parameters)
+    if name == 'LB94':
+        from gpaw.xc.lb94 import LB94
+        return LB94()
+    if name == 'TPSS' or name == 'M06L' or name == 'revTPSS':
+        from gpaw.xc.kernel import XCKernel
+        return XCKernel(name)
+    if name.startswith('old'):
+        from gpaw.xc.kernel import XCKernel
+        return XCKernel(name[3:])
+    if name == 'PPLDA':
+        from gpaw.xc.lda import PurePythonLDAKernel
+        return PurePythonLDAKernel()
+    if name in ['pyPBE', 'pyPBEsol', 'pyRPBE', 'pyzvPBEsol']:
+        from gpaw.xc.gga import PurePythonGGAKernel
+        return PurePythonGGAKernel(name)
+    if name == '2D-MGGA':
+        from gpaw.xc.mgga import PurePython2DMGGAKernel
+        return PurePython2DMGGAKernel(name, parameters)
+    if name[0].isdigit():
+        from gpaw.xc.parametrizedxc import ParametrizedKernel
+        return ParametrizedKernel(name)
+
+    # libXC is used by default
+    return LibXC(name)
 
 def XC(kernel, parameters=None):
     """Create XCFunctional object.
@@ -14,7 +56,7 @@ def XC(kernel, parameters=None):
         Parameters for BEE functional.
 
     Recognized names are: LDA, PW91, PBE, revPBE, RPBE, BLYP, HCTH407,
-    TPSS, M06L, revTPSS, vdW-DF, vdW-DF2, EXX, PBE0, B3LYP, BEE,
+    TPSS, M06L, revTPSS, new_vdW-DF, vdW-DF, vdW-DF2, EXX, PBE0, B3LYP, BEE,
     GLLBSC.  One can also use equivalent libxc names, for example
     GGA_X_PBE+GGA_C_PBE is equivalent to PBE, and LDA_X to the LDA exchange.
     In this way one has access to all the functionals defined in libxc.
@@ -22,64 +64,58 @@ def XC(kernel, parameters=None):
     
     if isinstance(kernel, str):
         name = kernel
+
+        # New vdW-DF implementations via libvdwxc
+        # Temporary name until we decide how to deal with old and new versions.
+        if name in ['new_vdW-DF']:
+            from gpaw.xc.libvdwxc import VDWDF
+            return VDWDF()
+
+        # Old vdW-DF family implementations
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:
             from gpaw.xc.vdw import VDWFunctional
             return VDWFunctional(name)
-        elif name in ['EXX', 'PBE0', 'B3LYP']:
-            from gpaw.xc.hybrid import HybridXC
-            return HybridXC(name)
-        elif name in ['HSE03', 'HSE06']:
-            from gpaw.xc.exx import EXX
-            return EXX(name)
-        elif name == 'BEE1':
-            from gpaw.xc.bee import BEE1
-            kernel = BEE1(parameters)
-        elif name == 'BEE2':
-            from gpaw.xc.bee import BEE2
-            kernel = BEE2(parameters)
-        elif name.startswith('GLLB'):
+
+        # GLLB family potentials
+        if name.startswith('GLLB'):
             from gpaw.xc.gllb.nonlocalfunctionalfactory import \
                 NonLocalFunctionalFactory
             xc = NonLocalFunctionalFactory().get_functional_by_name(name)
             xc.print_functional()
             return xc
-        elif name == 'LB94':
-            from gpaw.xc.lb94 import LB94
-            kernel = LB94()
-        elif name == 'TB09':
+
+        # Hybrid functionals
+        if name in ['EXX', 'PBE0', 'B3LYP']:
+            from gpaw.xc.hybrid import HybridXC
+            return HybridXC(name)
+
+        if name in ['HSE03', 'HSE06']:
+            from gpaw.xc.exx import EXX
+            return EXX(name)
+
+        if name == 'TB09':
             from gpaw.xc.tb09 import TB09
             return TB09()
-        elif name.startswith('ODD_'):
+
+        # Orbital dependent functionals
+        if name.startswith('ODD_'):
             from ODD import ODDFunctional
             return ODDFunctional(name[4:])
-        elif name.endswith('PZ-SIC'):
+
+        if name.endswith('PZ-SIC'):
             try:
                 from ODD import PerdewZungerSIC as SIC
                 return SIC(xc=name[:-7])
             except:
                 from gpaw.xc.sic import SIC
                 return SIC(xc=name[:-7])
-        elif name == 'TPSS' or name == 'M06L' or name == 'revTPSS':
-            from gpaw.xc.kernel import XCKernel
-            kernel = XCKernel(name)
-        elif name.startswith('old'):
-            from gpaw.xc.kernel import XCKernel
-            kernel = XCKernel(name[3:])
-        elif name == 'PPLDA':
-            from gpaw.xc.lda import PurePythonLDAKernel
-            kernel = PurePythonLDAKernel()
-        elif name in ['pyPBE', 'pyPBEsol', 'pyRPBE', 'pyzvPBEsol']:
-            from gpaw.xc.gga import PurePythonGGAKernel
-            kernel = PurePythonGGAKernel(name)
-        elif name == '2D-MGGA':
-            from gpaw.xc.mgga import PurePython2DMGGAKernel
-            kernel = PurePython2DMGGAKernel(name, parameters)
-        elif name[0].isdigit():
-            from gpaw.xc.parametrizedxc import ParametrizedKernel
-            kernel = ParametrizedKernel(name)
-        else:
-            kernel = LibXC(kernel)
+
+        # If this point is reached, the functional string is 
+        # either LDA, GGA or MGGA kernel        
+        kernel = get_kernel_by_name(name)
+
+
     if kernel.type == 'LDA':
         return LDA(kernel)
     elif kernel.type == 'GGA':
