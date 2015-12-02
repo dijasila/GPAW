@@ -1,4 +1,6 @@
 from ase import Atom, Atoms
+from ase.parallel import parprint
+
 from gpaw import GPAW, mpi
 from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
@@ -40,6 +42,7 @@ niter_H2_plus = calc.get_number_of_iterations()
 out = 'dospes.dat'
 pes = DOSPES(calc, calc_plus, shift=True)
 pes.save_folded_pes(filename=out, folding=None)
+parprint('DOS:')
 pes.save_folded_pes(filename=None, folding=None)
 
 # check for correct shift
@@ -56,6 +59,7 @@ lr = LrTDDFT(calc_plus, xc=xc)
 out = 'lrpes.dat'
 pes = TDDFTPES(calc, lr)
 pes.save_folded_pes(filename=out, folding='Gauss')
+parprint('Linear response:')
 pes.save_folded_pes(filename=None, folding=None)
 
 energy_tolerance = 0.0001
@@ -69,4 +73,5 @@ lr.write(out)
 lr = LrTDDFT(out)
 lr.set_calculator(calc_plus)
 pes = TDDFTPES(calc, lr)
+parprint('Linear response:')
 pes.save_folded_pes(filename=None, folding=None)
