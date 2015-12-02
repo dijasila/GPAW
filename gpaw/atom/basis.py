@@ -105,7 +105,7 @@ class BasisMaker:
                  non_relativistic_guess=False, xc='PBE'):
         if isinstance(generator, str):  # treat 'generator' as symbol
             generator = Generator(generator, scalarrel=True,
-                                  xcname=xc, txt=gtxt,
+                                  xc=xc, txt=gtxt,
                                   nofiles=True)
             generator.N *= 4
         self.generator = generator
@@ -116,7 +116,7 @@ class BasisMaker:
         if run:
             if non_relativistic_guess:
                 ae0 = AllElectron(generator.symbol, scalarrel=False,
-                                  nofiles=False, txt=gtxt, xcname=xc)
+                                  nofiles=False, txt=gtxt, xc=xc)
                 ae0.N = generator.N
                 ae0.beta = generator.beta
                 ae0.run()

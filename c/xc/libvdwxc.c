@@ -91,6 +91,24 @@ PyObject* libvdwxc_calculate(PyObject* self, PyObject* args)
     return Py_BuildValue("d", energy);
 }
 
+PyObject* libvdwxc_calculate_radial(PyObject* self, PyObject* args)
+{
+    int N;
+    double dr;
+    PyArrayObject *rho_obj, *sigma_obj, *dedn_obj, *dedsigma_obj;
+    if(!PyArg_ParseTuple(args, "idOOOO", &N, &dr,
+                         &rho_obj, &sigma_obj, &dedn_obj, &dedsigma_obj)) {
+        return NULL;
+    }
+    double* rho_g = (double*)PyArray_DATA(rho_obj);
+    double* sigma_g = (double*)PyArray_DATA(sigma_obj);
+    double* dedn_g = (double*)PyArray_DATA(dedn_obj);
+    double* dedsigma_g = (double*)PyArray_DATA(dedsigma_obj);
+    double energy = vdwxc_calculate_radial(N, dr, rho_g, sigma_g, dedn_g, dedsigma_g);
+    return Py_BuildValue("d", energy);
+}
+
+
 PyObject* libvdwxc_free(PyObject* self, PyObject* args)
 {
     PyObject* vdwxc_obj;

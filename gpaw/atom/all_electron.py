@@ -32,10 +32,12 @@ alpha = 1 / 137.036
 class AllElectron:
     """Object for doing an atomic DFT calculation."""
 
-    def __init__(self, symbol, xcname='LDA', scalarrel=False,
+    def __init__(self, symbol, xc='LDA', scalarrel=False,
                  corehole=None, configuration=None, nofiles=True,
                  txt='-', gpernode=150, orbital_free=False, tw_coeff=1.):
         """Do an atomic DFT calculation.
+
+        xc can be string or XCFunctional object.
 
         Example::
 
@@ -52,7 +54,11 @@ class AllElectron:
         self.txt = txt
 
         self.symbol = symbol
-        self.xcname = xcname
+        if isinstance(xc, str):
+            self.xc = XC(xc)
+        else:
+            self.xc = xc
+        self.xcname = xcname = self.xc.name
         self.scalarrel = scalarrel
         self.nofiles = nofiles
 
@@ -186,9 +192,6 @@ class AllElectron:
 
         # Electron density:
         self.n = np.zeros(N)
-
-        # Always spinpaired nspins=1
-        self.xc = XC(self.xcname)
 
         # Initialize for non-local functionals
         if self.xc.type == 'GLLB':

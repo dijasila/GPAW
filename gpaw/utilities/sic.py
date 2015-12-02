@@ -27,7 +27,7 @@ class NSCFSIC:
             # TODO: Loop over setups, not atoms.
             print('Atom core SIC for ', setup.symbol)
             print('%10s%10s%10s' % ('E_xc[n_i]', 'E_Ha[n_i]', 'E_SIC'))
-            g = Generator(setup.symbol, xcname='LDA', nofiles=True, txt=None)
+            g = Generator(setup.symbol, xc='LDA', nofiles=True, txt=None)
             g.run(**parameters[setup.symbol])
             njcore = g.njcore
             for f, l, e, u in zip(g.f_j[:njcore], g.l_j[:njcore],

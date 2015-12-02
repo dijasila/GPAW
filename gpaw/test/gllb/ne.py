@@ -12,7 +12,7 @@ setup_paths.insert(0, '.')
 
 for xcname in ['GLLBSC','GLLB']:
     if world.rank == 0:
-        g = Generator(atom, xcname =xcname, scalarrel=False,nofiles=True)
+        g = Generator(atom, xc=xcname, scalarrel=False,nofiles=True)
         g.run(**parameters[atom])
         eps = g.e_j[-1]
     else:

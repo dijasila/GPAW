@@ -10,7 +10,7 @@ newlibxc = _gpaw.lxcXCFuncNum('MGGA_X_MBEEF') is not None
 c = {'energy': 0.001, 'eigenstates': 1, 'density': 1}
 d = 0.75
 
-gen('H', xcname='PBEsol')
+gen('H', xc='PBEsol')
 
 for xc, E0, dE0 in [('mBEEF', 4.86, 0.16),
                     ('BEEF-vdW', 5.13, 0.20),

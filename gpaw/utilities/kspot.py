@@ -35,7 +35,7 @@ class AllElectronPotential:
             r_g, vKS_g = self.get_spherical_ks_potential(a)
             setup = self.paw.density.setups[a]
             # Calculate also atomic LDA for reference
-            g = AllElectron(setup.symbol, xcname='LDA', nofiles=True,
+            g = AllElectron(setup.symbol, xc='LDA', nofiles=True,
                             scalarrel=True, txt=None)
             g.run()
             print(r_g[0], vKS_g[0], g.vr[0], 0.0, file=f)

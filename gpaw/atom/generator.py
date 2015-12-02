@@ -18,11 +18,11 @@ from gpaw.atom.filter import Filter
 
 
 class Generator(AllElectron):
-    def __init__(self, symbol, xcname='LDA', scalarrel=False, corehole=None,
+    def __init__(self, symbol, xc='LDA', scalarrel=False, corehole=None,
                  configuration=None,
                  nofiles=True, txt='-', gpernode=150,
                  orbital_free=False, tw_coeff=1.):
-        AllElectron.__init__(self, symbol, xcname, scalarrel, corehole,
+        AllElectron.__init__(self, symbol, xc, scalarrel, corehole,
                              configuration, nofiles, txt, gpernode,
                              orbital_free, tw_coeff)
 
