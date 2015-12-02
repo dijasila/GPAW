@@ -86,6 +86,7 @@ Linux:
    Linux/huygens
    Linux/juropa
    Linux/jureca
+   Linux/justus
    Linux/monolith
    Linux/murska
    Linux/nanolab_EL4
