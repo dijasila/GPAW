@@ -32,11 +32,40 @@ class GGA(LDA):
         LDA.set_grid_descriptor(self, gd)
         self.grad_v = [Gradient(gd, v).apply for v in range(3)]
 
-    def calculate_lda(self, e_g, n_sg, v_sg):
+    def calculate_total_derivative(self, e_g, n_sg, v_sg):
+        """Calculate GGA potential and energy density.
+
+           Overrides LDA.calculate_total_derivative.
+
+           Input: 
+             gd      the grid descriptor of the given arrays.
+             n_sg    Density in grid for all of the spins.
+ 
+           Output:
+             v_sg    Optional. The potential is ADDED to this array.
+
+                                   D \sum_g e_g * dV
+                     v_sg += 1/dV  ------------------,
+                                         D n_sg
+
+                     which for GGA can be calculated as 
+                              de_g[n_sg]      __   /  de_g[n_sg] __      \
+                     v_sg += ----------   - 2 \/ . |  ---------- \/ n(r) |
+                               dn_sg               \   dsigma(r)         /
+
+                     For more information, see
+                     https://wiki.fysik.dtu.dk/gpaw/documentation/xc/functionals.html#uniform-3d-grid
+
+             e_g     Optional. The energy density is REPLACED to this array.
+
+           Returns:
+             E_xc    The total LDA exchange-correlation energy.
+        """
+
         nspins = len(n_sg)
         sigma_xg, gradn_svg = self.calculate_sigma(n_sg)
         dedsigma_xg = self.gd.empty(nspins * 2 - 1)
-        self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        self.calculate_partial_derivatives(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
         self.add_gradient_correction(gradn_svg, sigma_xg, dedsigma_xg, v_sg)
 
     def add_gradient_correction(self, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
@@ -64,7 +93,29 @@ class GGA(LDA):
     def calculate_sigma(self, n_sg):
         return calculate_sigma(self.gd, self.grad_v, n_sg)
 
-    def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+    def calculate_partial_derivatives(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+        """Calculate partial derivatives needed to calculate GGA potential.
+
+        This method is renamed from calculate_gga.
+
+        Input: 
+          n_sg     density                                 __      2 
+          sigma_xg Gradient of density squared sigma_xg = |\/ n_sg|
+
+        Output:
+          v_sg     Partial derivative with respect to denisty is ADDED to this array.
+
+                            de_g
+                   v_sg += -------
+                            de_ng
+
+          dedsigma Partial derivative with respect to sigma is REPLACED to this array.
+
+                                  de_g
+                   dedsigma_g = ---------
+                                dsigma_xg
+      
+        """
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
     def stress_tensor_contribution(self, n_sg):
@@ -73,7 +124,7 @@ class GGA(LDA):
         dedsigma_xg = self.gd.empty(nspins * 2 - 1)
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
-        self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        self.calculate_partial_derivatives(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
         def integrate(a1_g, a2_g=None):
             return self.gd.integrate(a1_g, a2_g, global_integral=False)
@@ -150,7 +201,7 @@ class GGA(LDA):
         dedn_sg = rgd.zeros(nspins)
         dedsigma_xg = rgd.zeros(2 * nspins - 1)
 
-        self.calculate_gga_radial(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
+        self.calculate_partial_derivatives_radial(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
 
         vv_sg = sigma_xg[:nspins]  # reuse array
         for s in range(nspins):
@@ -168,7 +219,7 @@ class GGA(LDA):
 
         return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
 
-    calculate_gga_radial = calculate_gga
+    calculate_partial_derivatives_radial = calculate_partial_derivatives
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         dndr_sg = np.empty_like(n_sg)

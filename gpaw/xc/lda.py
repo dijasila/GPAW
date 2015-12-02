@@ -13,16 +13,39 @@ class LDA(XCFunctional):
         self.type = kernel.type
 
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
+        """Calculate LDA potential and energy density.
+
+           Input: 
+             gd      the grid descriptor of the given arrays.
+             n_sg    Density in grid for all of the spins.
+ 
+           Output:
+             v_sg    Optional. The potential is ADDED to this array.
+
+                                   D \sum_g e_g * dV
+                     v_sg += 1/dV  ------------------,
+                                        D n_sg
+
+                     which for LDA reduces to
+                             D e_g[n_sg]
+                     v_sg += -----------.
+                               D n_sg
+
+             e_g     Optional. The energy density is REPLACED to this array.
+
+           Returns:
+             E_xc    The total LDA exchange-correlation energy.
+        """
         if gd is not self.gd:
             self.set_grid_descriptor(gd)
         if e_g is None:
             e_g = gd.empty()
         if v_sg is None:
             v_sg = np.zeros_like(n_sg)
-        self.calculate_lda(e_g, n_sg, v_sg)
+        self.calculate_total_derivative(e_g, n_sg, v_sg)
         return gd.integrate(e_g)
 
-    def calculate_lda(self, e_g, n_sg, v_sg):
+    def calculate_total_derivative(self, e_g, n_sg, v_sg):
         self.kernel.calculate(e_g, n_sg, v_sg)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
@@ -114,7 +137,7 @@ class LDA(XCFunctional):
         nspins = len(n_sg)
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
-        self.calculate_lda(e_g, n_sg, v_sg)
+        self.calculate_total_derivative(e_g, n_sg, v_sg)
         stress = self.gd.integrate(e_g)
         for v_g, n_g in zip(v_sg, n_sg):
             stress -= self.gd.integrate(v_g, n_g)

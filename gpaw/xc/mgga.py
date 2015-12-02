@@ -35,12 +35,13 @@ class MGGA(GGA):
         self.tauct_G[:] = 0.0
         self.tauct.add(self.tauct_G)
 
-    def calculate_gga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
+    def calculate_partial_derivatives(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
         try:
             taut_sG = self.wfs.calculate_kinetic_energy_density()
-        except RuntimeError:
+        except RuntimeError: # XXX Dangerous except
             nspins = self.wfs.nspins
             # Initialize with von Weizsaecker kinetic energy density
+            print("Initialize with von Weizsaecker kinetic energy density")
             taut_sG = self.wfs.gd.empty((nspins))
             gradn_g = self.gd.empty()
             for s in range(nspins):
@@ -95,7 +96,7 @@ class MGGA(GGA):
         del self.D_sp, self.n, self.ae, self.c, self.dEdD_sp
         return E
 
-    def calculate_gga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+    def calculate_partial_derivatives_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         nspins = len(n_sg)
         if self.ae:
             tau_pg = self.c.tau_npg[self.n]

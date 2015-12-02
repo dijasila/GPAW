@@ -122,7 +122,7 @@ def VDWFunctional(name, fft=True, **kwargs):
         assert fft
         return MGGAFFTVDWFunctional(name, kernel, **kwargs)
     else:
-        2 / 0
+        2 / 0 # XXX
     if fft:
         return GGAFFTVDWFunctional(name, kernel, **kwargs)
     return GGARealSpaceVDWFunctional(name, kernel, **kwargs)
@@ -202,7 +202,7 @@ class VDWFunctionalBase:
     def get_Ecnl(self):
         return self.Ecnl
 
-    def calculate_gga(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
+    def calculate_partial_derivatives(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
         eLDAc_g = self.gd.empty()
         vLDAc_sg = self.gd.zeros(1)
 
@@ -819,9 +819,9 @@ class GGAFFTVDWFunctional(FFTVDWFunctional, GGA):
         GGA.__init__(self, kernel)
         self.name = name
         
-    def calculate_gga(self, *args):
-        GGA.calculate_gga(self, *args)
-        FFTVDWFunctional.calculate_gga(self, *args)
+    def calculate_partial_derivatives(self, *args):
+        GGA.calculate_partial_derivatives(self, *args)
+        FFTVDWFunctional.calculate_partial_derivatives(self, *args)
 
     def set_grid_descriptor(self, gd):
         GGA.set_grid_descriptor(self, gd)
@@ -834,9 +834,9 @@ class GGARealSpaceVDWFunctional(RealSpaceVDWFunctional, GGA):
         GGA.__init__(self, kernel)
         self.name = name
         
-    def calculate_gga(self, *args):
-        GGA.calculate_gga(self, *args)
-        RealSpaceVDWFunctional.calculate_gga(self, *args)
+    def calculate_partial_derivatives(self, *args):
+        GGA.calculate_partial_derivatives(self, *args)
+        RealSpaceVDWFunctional.calculate_partial_derivatives(self, *args)
 
     def set_grid_descriptor(self, gd):
         GGA.set_grid_descriptor(self, gd)
@@ -849,9 +849,9 @@ class MGGAFFTVDWFunctional(FFTVDWFunctional, MGGA):
         MGGA.__init__(self, kernel)
         self.name = name
         
-    def calculate_gga(self, *args):
-        MGGA.calculate_gga(self, *args)
-        FFTVDWFunctional.calculate_gga(self, *args)
+    def calculate_partial_derivatives(self, *args):
+        MGGA.calculate_partial_derivatives(self, *args)
+        FFTVDWFunctional.calculate_partial_derivatives(self, *args)
 
     def initialize(self, *args):
         MGGA.initialize(self, *args)

@@ -1343,7 +1343,7 @@ class Kernel:
         e_g = np.zeros_like(n_g)
         v_sg = np.array([np.zeros_like(n_g)])
         
-        xc.calculate_gga(e_g, np.array([n_g]), v_sg, sigma_xg, dedsigma_xg)
+        xc.calculate_partial_derivatives(e_g, np.array([n_g]), v_sg, sigma_xg, dedsigma_xg)
 
         sigma = sigma_xg[0].flat[:]
         gradn_vg = gradn_svg[0]

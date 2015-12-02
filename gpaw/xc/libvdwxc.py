@@ -234,7 +234,7 @@ class LibVDWXC(GGA, object):
                                           v_g, dedsigma_g)
         return energy
 
-    def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+    def calculate_partial_derivatives(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         assert self._vdw is not None
         self.timer.start('van der Waals')
         n_sg[:] = np.abs(n_sg)  # XXXX What to do about this?
@@ -242,7 +242,7 @@ class LibVDWXC(GGA, object):
         assert len(n_sg) == 1
         assert len(sigma_xg) == 1
         self.timer.start('semilocal')
-        GGA.calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        GGA.calculate_partial_derivatives(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
         self.timer.stop('semilocal')
 
         zeros = self.distribution.block_zeros

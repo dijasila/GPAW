@@ -4,7 +4,14 @@ from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
 from gpaw.xc.mgga import MGGA
 
-def get_kernel_by_name(name):
+def param_ignore_warning(parameters):
+    """Many of functionals do not accept parameters and these are ignored.
+       This function prints a warning if parameters are ignored.
+    """
+    if parameters is not None and len(parameters) > 0:
+        print("Warning: XC functional ignoring parameters", parameters)
+
+def get_kernel_by_name(name, parameters):
     """Return xc kernel for a given name.
 
     Libxc will be used for default, unless the name is one of the following:
@@ -61,9 +68,12 @@ def XC(kernel, parameters=None):
     GGA_X_PBE+GGA_C_PBE is equivalent to PBE, and LDA_X to the LDA exchange.
     In this way one has access to all the functionals defined in libxc.
     See xc_funcs.h for the complete list.  """
-    
+
     if isinstance(kernel, str):
         name = kernel
+
+        if name not in ['BEE1','BEE2','2D-MGGA']:
+            param_ignore_warning(name)
 
         # New vdW-DF implementations via libvdwxc
         # Temporary name until we decide how to deal with old and new versions.
@@ -107,14 +117,15 @@ def XC(kernel, parameters=None):
             try:
                 from ODD import PerdewZungerSIC as SIC
                 return SIC(xc=name[:-7])
-            except:
+            except: # XXX Dangerous except
                 from gpaw.xc.sic import SIC
                 return SIC(xc=name[:-7])
 
         # If this point is reached, the functional string is 
         # either LDA, GGA or MGGA kernel        
-        kernel = get_kernel_by_name(name)
-
+        kernel = get_kernel_by_name(name, parameters)
+    else:
+        param_ignore_warning(parameters)
 
     if kernel.type == 'LDA':
         return LDA(kernel)
