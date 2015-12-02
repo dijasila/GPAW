@@ -5,7 +5,7 @@ from gpaw import GPAW, FermiDirac, PoissonSolver
 from gpaw.test import equal, gen
 
 # Generate setup for oxygen with a core-hole:
-gen('O', name='fch1s', xcname='PBE', corehole=(1, 0, 1.0))
+gen('O', name='fch1s', xc='PBE', corehole=(1, 0, 1.0))
 
 atoms = molecule('H2O')
 atoms.center(vacuum=2.5)

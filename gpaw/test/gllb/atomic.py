@@ -16,7 +16,7 @@ for xcname in ['GLLB','GLLBSC']:
     atoms = ['Be','Ne','Mg']
     for atom in atoms:
         # Test AllElectron GLLB
-        GLLB = AllElectron(atom, xcname = xcname, scalarrel = False, gpernode = 600)
+        GLLB = AllElectron(atom, xc = xcname, scalarrel = False, gpernode = 600)
         GLLB.run()
         
         out("Total energy", xcname+"1D", atom,  ETotal[atom] , GLLB.ETotal,"Ha")

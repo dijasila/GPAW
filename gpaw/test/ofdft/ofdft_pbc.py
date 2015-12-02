@@ -11,7 +11,7 @@ result = -224.200276535
 electrons = 48
 
 xcname = 'LDA_K_TF+LDA_X'
-g = gen(symbol, xcname=xcname, scalarrel=False, orbital_free=True)
+g = gen(symbol, xc=xcname, scalarrel=False, orbital_free=True)
 h = 0.14
 a = 2.8
 atoms = bulk(symbol, 'diamond', a=a, cubic=True)   # Generate diamond

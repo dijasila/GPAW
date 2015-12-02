@@ -12,7 +12,7 @@ if 1:
         'GGA_X_B88+GGA_C_P86', 'GGA_X_B88+GGA_C_LYP',
         'GGA_X_FT97_A+GGA_C_LYP'
         ]:
-        gen('N', xcname=functional)
+        gen('N', xc=functional)
         
 tolerance = 0.000005 # libxc must reproduce old gpaw energies
 # zero Kelvin: in Hartree

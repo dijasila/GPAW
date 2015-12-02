@@ -18,7 +18,7 @@ lambda_coeff=2.0
 
 for symbol in elements:
     xcname = '1.0_LDA_K_TF+1.0_LDA_X'
-    g = gen(symbol, xcname=xcname, scalarrel=False, orbital_free=True,
+    g = gen(symbol, xc=xcname, scalarrel=False, orbital_free=True,
             tw_coeff=lambda_coeff)
 
 for element, result, e in zip(elements, results, electrons):
