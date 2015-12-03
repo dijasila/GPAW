@@ -14,7 +14,7 @@ Calculate diamond with various parallelizations with GLLBSC
 """
 
 xc = 'GLLBSC'
-gen('C',xcname=xc)
+gen('C',xc=xc)
 setup_paths.insert(0, '.')
 
 KSb = []

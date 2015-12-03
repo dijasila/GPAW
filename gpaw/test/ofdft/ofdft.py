@@ -16,7 +16,7 @@ charges = [0,1]
 
 for symbol in elements:
     xcname = '1.0_LDA_K_TF+1.0_LDA_X'
-    g = gen(symbol, xcname=xcname, scalarrel=False, orbital_free=True,
+    g = gen(symbol, xc=xcname, scalarrel=False, orbital_free=True,
             gpernode=75)
 
 for element, result, e, charge in zip(elements, results, electrons, charges):

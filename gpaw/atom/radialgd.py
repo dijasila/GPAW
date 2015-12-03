@@ -148,10 +148,6 @@ class RadialGridDescriptor:
         d_g[ r_x > self.r_g[-1] ] = 0.0 # Do not extrapolate.
         return d_g
 
-    def interpolate(self, f_g, r_x):
-        from scipy.interpolate import InterpolatedUnivariateSpline
-        return InterpolatedUnivariateSpline(self.r_g, f_g)(r_x)
-        
     def fft(self, fr_g, l=0, N=None):
         """Fourier transform.
 

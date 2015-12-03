@@ -5,7 +5,7 @@ from gpaw.test import equal, gen
 import os
 from gpaw.mpi import world
 
-gen('Si', xcname='GLLBSC')
+gen('Si', xc='GLLBSC')
 
 e = {}
 niter = {}

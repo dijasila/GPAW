@@ -5,8 +5,10 @@
 #include <mpi.h>
 #include "../mympi.h"
 #include <vdwxc_mpi.h>
+#warning "Including vdwxc_mpi.h"
 #else
 #include <vdwxc.h>
+#warning "Including vdwxc.h"
 #endif
 
 // Our heinous plan is to abuse a numpy array so that it will contain a pointer to the vdwxc_data.
@@ -37,27 +39,40 @@ PyObject* libvdwxc_has(PyObject* self, PyObject* args)
     return pyval;
 }
 
-PyObject* libvdwxc_create(PyObject* self, PyObject* args, PyObject* kwargs)
+PyObject* libvdwxc_create(PyObject* self, PyObject* args)
 {
     PyObject* vdwxc_obj;
     int vdwxc_code;
-    int Nx, Ny, Nz;
-    double C00, C10, C20, C01, C11, C21, C02, C12, C22;
 
-    if(!PyArg_ParseTuple(args, "Oi(iii)(ddddddddd)",
+    if(!PyArg_ParseTuple(args, "Oi",
                          &vdwxc_obj,
-                         &vdwxc_code, // functional identifier
-                         &Nx, &Ny, &Nz, // number of grid points
-                         &C00, &C10, &C20, // 3x3 cell
-                         &C01, &C11,&C21,
-                         &C02, &C12, &C22)) {
+                         &vdwxc_code)) {
         return NULL;
     }
 
     vdwxc_data vdw = vdwxc_new(vdwxc_code);
     vdwxc_data* vdwxc_ptr = unpack_vdwxc_pointer(vdwxc_obj);
     vdwxc_ptr[0] = vdw;
-    vdwxc_set_unit_cell(vdw, Nx, Ny, Nz, C00, C10, C20, C01, C11, C21, C02, C12, C22);
+    Py_RETURN_NONE;
+}
+
+PyObject* libvdwxc_set_unit_cell(PyObject* self, PyObject* args)
+{
+    PyObject* vdwxc_obj;
+    int Nx, Ny, Nz;
+    double C00, C10, C20, C01, C11, C21, C02, C12, C22;
+
+    if(!PyArg_ParseTuple(args, "O(iii)(ddddddddd)",
+                         &vdwxc_obj,
+                         &Nx, &Ny, &Nz, // number of grid points
+                         &C00, &C10, &C20, // 3x3 cell
+                         &C01, &C11, &C21,
+                         &C02, &C12, &C22)) {
+        return NULL;
+    }
+
+    vdwxc_data* vdw = unpack_vdwxc_pointer(vdwxc_obj);
+    vdwxc_set_unit_cell(*vdw, Nx, Ny, Nz, C00, C10, C20, C01, C11, C21, C02, C12, C22);
     Py_RETURN_NONE;
 }
 
@@ -95,16 +110,18 @@ PyObject* libvdwxc_calculate_radial(PyObject* self, PyObject* args)
 {
     int N;
     double dr;
+    PyObject *vdwxc_obj;
     PyArrayObject *rho_obj, *sigma_obj, *dedn_obj, *dedsigma_obj;
-    if(!PyArg_ParseTuple(args, "idOOOO", &N, &dr,
+    if(!PyArg_ParseTuple(args, "OidOOOO", &vdwxc_obj, &N, &dr,
                          &rho_obj, &sigma_obj, &dedn_obj, &dedsigma_obj)) {
         return NULL;
     }
+    vdwxc_data* vdw = unpack_vdwxc_pointer(vdwxc_obj);
     double* rho_g = (double*)PyArray_DATA(rho_obj);
     double* sigma_g = (double*)PyArray_DATA(sigma_obj);
     double* dedn_g = (double*)PyArray_DATA(dedn_obj);
     double* dedsigma_g = (double*)PyArray_DATA(dedsigma_obj);
-    double energy = vdwxc_calculate_radial(N, dr, rho_g, sigma_g, dedn_g, dedsigma_g);
+    double energy = vdwxc_calculate_radial(*vdw, N, dr, rho_g, sigma_g, dedn_g, dedsigma_g);
     return Py_BuildValue("d", energy);
 }
 

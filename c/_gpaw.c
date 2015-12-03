@@ -114,6 +114,7 @@ PyObject* papi_mem_info(PyObject *self, PyObject *args);
 
 #ifdef GPAW_WITH_LIBVDWXC
 PyObject* libvdwxc_create(PyObject *self, PyObject *args);
+PyObject* libvdwxc_set_unit_cell(PyObject *self, PyObject *args);
 PyObject* libvdwxc_has(PyObject* self, PyObject *args);
 PyObject* libvdwxc_init_serial(PyObject *self, PyObject *args);
 PyObject* libvdwxc_calculate(PyObject *self, PyObject *args);
@@ -229,6 +230,7 @@ static PyMethodDef functions[] = {
 #endif // GPAW_PAPI
 #ifdef GPAW_WITH_LIBVDWXC
     {"libvdwxc_create", libvdwxc_create, METH_VARARGS, 0},
+    {"libvdwxc_set_unit_cell", libvdwxc_set_unit_cell, METH_VARARGS, 0},
     {"libvdwxc_has", libvdwxc_has, METH_VARARGS, 0},
     {"libvdwxc_init_serial", libvdwxc_init_serial, METH_VARARGS, 0},
     {"libvdwxc_calculate", libvdwxc_calculate, METH_VARARGS, 0},

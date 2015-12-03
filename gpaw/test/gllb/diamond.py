@@ -21,7 +21,7 @@ Compare to reference.
 """
 
 xc = 'GLLBSC'
-gen('C',xcname=xc)
+gen('C',xc=xc)
 setup_paths.insert(0, '.')
 
 # Calculate ground state
