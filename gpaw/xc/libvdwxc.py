@@ -148,6 +148,7 @@ class LibVDWXC(GGA, object):
 
     @property
     def name(self):
+        return self.vdw_functional_name # XXX Temporary fix to write setup files
         if self.parallel == 'serial':
             pardesc = 'FFTW serial'
         elif self.parallel == 'mpi':
@@ -249,8 +250,6 @@ class LibVDWXC(GGA, object):
         else:
             Exc = 0.0
 
-        # Only equidistant grids supported
-        assert abs(rgd.r_g[1]-rgd.r_g[0] -(rgd.r_g[10]-rgd.r_g[9])) < 1e-10
 
         #            __
         # Calculate |\/ n|^2
@@ -271,43 +270,30 @@ class LibVDWXC(GGA, object):
         vv_g[0] = vv_g[1]
         v_sg[0] += vv_g 
 
-        #f = open('eq.dat','w')
-        #for r, dedn, sigma, dedsigma in zip(ergd.r_g, ev_g, esigma_g, ededsigma_g):
-        #    print(r,dedn,sigma, dedsigma, file=f)
-        #f.close()
-
-        #dedn_g[:] = ergd.interpolate(ev_g, rgd.r_g)
-        #for r, dedn in zip(rgd.r_g, dedn_g):
-        #    print("DATA",r,dedn)
-        #v_sg[0] += dedn_g
-
-        #f = open('vnl.txt','w')
-        #for r, dedn in zip(rgd.r_g, dedn_g):
-        #    print(r,dedn, file=f)
-        #f.close()
-        #lda_c = LibXC('LDA_C_PW')
-        ## Just for display purposes, write LDA correlation to a file also
-        #dummy_v_sg = rgd.zeros()
-        #dummy_e_g = rgd.zeros()
-        #dummy_dedsigma_g = rgd.zeros()
-        #lda_c.calculate(dummy_e_g, n_sg, dummy_v_sg, 0*n_sg, dummy_dedsigma_g)
-        #f = open('vc.txt','w')
-        #for r, dedn, v in zip(rgd.r_g, dedn_g, dummy_v_sg):
-        #    print(r,dedn+v, file=f)
-        #f.close()
         return Exc
 
-    """def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None, add_gga=True):
+    def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None, add_gga=True):
         if add_gga:
             Exc = GGA.calculate_spherical(self, rgd, n_sg, v_sg, e_g)
         else:
             Exc = 0.0
 
-        # Create an equidistant grid and interpolate density to it
         dedn_g = rgd.zeros()
-        dr, N = 0.01, 1000
-        ergd = ERGD(dr, N)
-        en_g = rgd.interpolate(n_sg, ergd.r_g)
+
+        # equidistant grids are leaved as is
+        if abs(rgd.r_g[1]-rgd.r_g[0] -(rgd.r_g[10]-rgd.r_g[9])) < 1e-10:
+            ergd = rgd
+            dr, N = rgd.r_g[1]-rgd.r_g[0], len(rgd.r_g)
+            print("equidistance grids")
+        else:
+            # Create an equidistant grid and interpolate density to it
+            dr, N = 0.01, 1000
+            ergd = ERGD(dr, N)
+
+        if ergd != rgd:
+            en_g = rgd.interpolate(n_sg, ergd.r_g)
+        else:
+            en_g = n_sg[0].copy()
         ev_g = np.zeros_like(en_g)
         evv_g = np.zeros_like(en_g)
 
@@ -327,32 +313,15 @@ class LibVDWXC(GGA, object):
         evv_g[0] = evv_g[1]
         ev_g += evv_g
 
-        f = open('eq.dat','w')
-        for r, dedn, sigma, dedsigma in zip(ergd.r_g, ev_g, esigma_g, ededsigma_g):
-            print(r,dedn,sigma, dedsigma, file=f)
-        f.close()
+        if ergd != rgd:
+            dedn_g[:] = ergd.interpolate(ev_g, rgd.r_g)
+        else:
+            dedn_g[:] = ev_g
 
-        dedn_g[:] = ergd.interpolate(ev_g, rgd.r_g)
-        for r, dedn in zip(rgd.r_g, dedn_g):
-            print("DATA",r,dedn)
         v_sg[0] += dedn_g
 
-        #f = open('vnl.txt','w')
-        #for r, dedn in zip(rgd.r_g, dedn_g):
-        #    print(r,dedn, file=f)
-        #f.close()
-        #lda_c = LibXC('LDA_C_PW')
-        ## Just for display purposes, write LDA correlation to a file also
-        #dummy_v_sg = rgd.zeros()
-        #dummy_e_g = rgd.zeros()
-        #dummy_dedsigma_g = rgd.zeros()
-        #lda_c.calculate(dummy_e_g, n_sg, dummy_v_sg, 0*n_sg, dummy_dedsigma_g)
-        #f = open('vc.txt','w')
-        #for r, dedn, v in zip(rgd.r_g, dedn_g, dummy_v_sg):
-        #    print(r,dedn+v, file=f)
-        #f.close()
         return Exc
-"""
+
 
     def calculate_nonlocal(self, n_g, sigma_g, v_g, dedsigma_g):
         for arr in [n_g, sigma_g, v_g, dedsigma_g]:

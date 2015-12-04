@@ -60,12 +60,12 @@ for atom in ['He','Be','Ne']:
     print "Exc grid ", xc.Enlc
     print "ratio    ", xc.Enlc / Exc
     
-    if 0:
+    if 1:
         plt.plot(r,radial_v_g, label='radial')
         plt.legend()
         plt.show()
 
-    #for i in range(2,N//2-3):
-    #    assert abs(xc.ref_v_g[i]-radial_v_g[i])<1e-4
+    for i in range(2,N//2-3):
+        assert abs(xc.ref_v_g[i]-radial_v_g[i])<1e-4
 
 

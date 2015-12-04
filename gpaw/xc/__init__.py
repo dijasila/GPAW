@@ -80,6 +80,9 @@ def XC(kernel, parameters=None):
         if name in ['new_vdW-DF']:
             from gpaw.xc.libvdwxc import VDWDF
             return VDWDF()
+        if name in ['new_vdW-DF-CX']:
+            from gpaw.xc.libvdwxc import VDWDFCX
+            return VDWDFCX()
 
         # Old vdW-DF family implementations
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
