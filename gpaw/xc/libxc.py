@@ -13,7 +13,7 @@ short_names = {
     'HCTH407': 'GGA_XC_HCTH_407',
     'WC': 'GGA_X_WC+GGA_C_PBE',
     'AM05': 'GGA_X_AM05+GGA_C_AM05',
-    'M06L': 'MGGA_X_M06_L+MGGA_C_M06_L',
+    #'M06L': 'MGGA_X_M06_L+MGGA_C_M06_L',
     'mBEEF': 'MGGA_X_MBEEF+GGA_C_PBE_SOL',
     'TPSS': 'MGGA_X_TPSS+MGGA_C_TPSS',
     'revTPSS': 'MGGA_X_REVTPSS+MGGA_C_REVTPSS'}
@@ -68,6 +68,11 @@ class LibXC(XCKernel):
         nspins = len(n_sg)
         if self.nspins != nspins:
             self.initialize(nspins)
+
+        #for taut_g, nt_g, sigma_g in zip(taut_sg, nt_sg, sigma_xg[::2]):
+        #    #break
+        #    tauw_g = sigma_g / 8 / nt_g
+        #    taut_g[:] = (taut_g**m + (tauw_g / 2)**m)**(1.0 / m)
 
         self.xc.calculate(e_g.ravel(), n_sg, dedn_sg,
                           sigma_xg, dedsigma_xg,
