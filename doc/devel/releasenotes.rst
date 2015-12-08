@@ -27,6 +27,8 @@ Development version in trunk
   
 * Experimental interface to the *libvdwxc* library.
 
+* It's now possible to use Davidson and CG eigensolvers for MGGA calculations.
+
 
 Version 0.11.0
 ==============
