@@ -3,6 +3,7 @@ from gpaw.xc.libxc import LibXC
 from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
 from gpaw.xc.mgga import MGGA
+from gpaw import extra_parameters
 
 
 def XC(kernel, parameters=None):
@@ -60,7 +61,8 @@ def XC(kernel, parameters=None):
             except:
                 from gpaw.xc.sic import SIC
                 return SIC(xc=name[:-7])
-        elif name == 'TPSS' or name == 'M06L' or name == 'revTPSS':
+        elif (extra_parameters.get('oldxc', True) and
+              (name == 'TPSS' or name == 'M06L' or name == 'revTPSS')):
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name)
         elif name.startswith('old'):

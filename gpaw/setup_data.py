@@ -13,7 +13,7 @@ import numpy as np
 from ase.data import atomic_names
 from ase.units import Bohr, Hartree
 
-from gpaw import setup_paths
+from gpaw import setup_paths, extra_parameters
 from gpaw.spline import Spline
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast
@@ -571,6 +571,10 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         elif name == 'pseudo_valence_density':
             setup.nvt_g = x_g
         elif name == 'pseudo_core_kinetic_energy_density':
+            if extra_parameters.get('mggapscore') and (x_g == 0).all():
+                x = setup.rgd.r_g / 0.7
+                x_g = 0.1 * (1 - x**2 * (3 - 2 * x))
+                x_g[x > 0] = 0.0
             setup.tauct_g = x_g
         elif name in ['localized_potential', 'zero_potential']:  # XXX
             setup.vbar_g = x_g

@@ -60,9 +60,19 @@ class MGGA(GGA):
             self.distribute_and_interpolate(taut_G, taut_g)
 
         dedtaut_sg = np.empty_like(nt_sg)
-
+        
+        m = 12
+        for taut_g, nt_g, sigma_g in zip(taut_sg, nt_sg, sigma_xg[::2]):
+            tauw_g = sigma_g / 8 / nt_g
+            taut_g[:] = (taut_g**m + (tauw_g / 2)**m)**(1.0 / m)
+            break
         self.kernel.calculate(e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg,
                               taut_sg, dedtaut_sg)
+        print(dedtaut_sg.shape)
+        import matplotlib.pyplot as plt
+        plt.plot(taut_sg[0,39,39])
+        plt.plot(e_g[39,39])
+        plt.show()
         self.dedtaut_sG = self.wfs.gd.empty(self.wfs.nspins)
         self.ekin = 0.0
         for s in range(self.wfs.nspins):
@@ -106,6 +116,14 @@ class MGGA(GGA):
             tauc_g = self.c.tauct_g / (sqrt(4 * pi) * nspins)
             sign = -1.0
         tau_sg = np.dot(self.D_sp, tau_pg) + tauc_g
+        
+        if not self.ae:
+            m = 12
+            for tau_g, n_g, sigma_g in zip(tau_sg, n_sg, sigma_xg[::2]):
+                tauw_g = sigma_g / 8 / n_g
+                tau_g[:] = (tau_g**m + (tauw_g / 2)**m)**(1.0 / m)
+                break
+                
         dedtau_sg = np.empty_like(tau_sg)
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
                               tau_sg, dedtau_sg)
