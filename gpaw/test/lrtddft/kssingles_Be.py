@@ -33,7 +33,8 @@ for mode in modes:
         Be.set_pbc(pbc)
         if pbc:
             name = 'periodic'
-            calc = GPAW(h=0.25, nbands=4, kpts=(1,2,2), mode=mode, 
+            calc = GPAW(h=0.25, nbands=4, kpts=(1,1,2), mode=mode, 
+                        symmetry='off',
                         eigensolver=eigensolver, txt=txt)
         else:
             name = 'zero bc'
@@ -61,7 +62,7 @@ for mode in modes:
         mpi.world.barrier()
         kss = KSSingles('kss.dat')
         kss1 = KSSingles('kss.dat', jend=1)
-        assert(len(kss1) == 1)
+        assert(len(kss1) == (1 + pbc))
 
     # periodic and non-periodic should be roughly equal
     equal(energy['zero bc'], energy['periodic'], 1.e-2)
