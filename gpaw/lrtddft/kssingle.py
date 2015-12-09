@@ -85,6 +85,8 @@ class KSSingles(ExcitationList):
         self.select(nspins, eps, istart, jend, energy_range)
 
         trkm = self.get_trk()
+        print(file=self.txt)
+        print('KSS %d transitions' % len(self), file=self.txt)
         print('KSS TRK sum %g (%g,%g,%g)' %
               (np.sum(trkm) / 3., trkm[0], trkm[1], trkm[2]), file=self.txt)
         pol = self.get_polarizabilities(lmax=3)
