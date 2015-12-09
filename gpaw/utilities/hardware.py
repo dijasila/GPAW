@@ -26,7 +26,7 @@ _hardware_info = {
         'scheduler': {
             'cmdstr': '#SBATCH ',
             'jobid': '$SLURM_JOBID',
-            'mpirun_no': 'srun -n ',
+            'mpirun': 'srun -n ',
             'mail': '--mail-user=',
             'mailtype': '--mail-type=ALL',
             'name': '--job-name=',
