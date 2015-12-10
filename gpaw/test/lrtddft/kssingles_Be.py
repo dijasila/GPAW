@@ -5,13 +5,15 @@ from ase import Atom, Atoms
 from ase.optimize import BFGS
 from ase.parallel import parprint
 from ase.units import Hartree
+
 import gpaw.mpi as mpi
 from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.lrtddft.kssingle import KSSingles
 
+
 Be = Atoms('Be')
-Be.center(vacuum=6)
+Be.center(vacuum=4)
 if 1:
 # introduce a sligth non-orthgonality
     cell = Be.get_cell()
@@ -33,37 +35,39 @@ for mode in modes:
         Be.set_pbc(pbc)
         if pbc:
             name = 'periodic'
-            calc = GPAW(h=0.25, nbands=4, kpts=(1,1,2), mode=mode, 
+            calc = GPAW(h=0.25, nbands=4, kpts=(1,2,2), mode=mode, 
                         symmetry='off',
                         eigensolver=eigensolver, txt=txt)
         else:
-            name = 'zero bc'
+            name = 'zero_bc'
             calc = GPAW(h=0.25, nbands=4, mode=mode, 
                         eigensolver=eigensolver, txt=txt)
         Be.set_calculator(calc)
         Be.get_potential_energy()
         
-        kss = KSSingles(calc)
+        kss = KSSingles(calc, eps=0.9)
         # all s->p transitions at the same energy [Ha] and 
         # oscillator_strength
         for ks in kss:
-            equal(ks.get_energy(), kss[0].get_energy(), 1.e-4)
+            equal(ks.get_energy(), kss[0].get_energy(), 5.e-3)
             equal(ks.get_oscillator_strength()[0],
-                  kss[0].get_oscillator_strength()[0], 1.e-3)
+                  kss[0].get_oscillator_strength()[0], 5.e-3)
         energy[name] = np.array(
             [ks.get_energy() * Hartree for ks in kss]).mean()
         osz[name] = np.array(
             [ks.get_oscillator_strength()[0] for ks in kss]).sum()
 
+        parprint(name + ':')
         parprint(kss)
 
         # I/O
-        kss.write('kss.dat')
+        fname = 'kss_' + name + '.dat'
+        kss.write(fname)
         mpi.world.barrier()
-        kss = KSSingles('kss.dat')
-        kss1 = KSSingles('kss.dat', jend=1)
-        assert(len(kss1) == (1 + pbc))
+        kss = KSSingles(fname)
+        kss1 = KSSingles(fname, jend=1)
+        assert(len(kss1) == calc.wfs.kd.nks)
 
     # periodic and non-periodic should be roughly equal
-    equal(energy['zero bc'], energy['periodic'], 1.e-2)
-    equal(osz['zero bc'], osz['periodic'], 1.e-3)
+    equal(energy['zero_bc'], energy['periodic'], 5.e-2)
+    equal(osz['zero_bc'], osz['periodic'], 2.e-2)
