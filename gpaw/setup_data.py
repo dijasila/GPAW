@@ -573,8 +573,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         elif name == 'pseudo_core_kinetic_energy_density':
             if extra_parameters.get('mggapscore') and (x_g == 0).all():
                 x = setup.rgd.r_g / 0.7
-                x_g = 0.1 * (1 - x**2 * (3 - 2 * x))
-                x_g[x > 0] = 0.0
+                x_g = 0.051 * (1 - x**2 * (3 - 2 * x))
+                x_g[x > 1] = 0.0
             setup.tauct_g = x_g
         elif name in ['localized_potential', 'zero_potential']:  # XXX
             setup.vbar_g = x_g
