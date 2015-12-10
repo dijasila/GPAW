@@ -13,7 +13,7 @@ if 1:
     n.calc.set(xc='TPSS')
     e2 = n.get_potential_energy()
     print('Energy difference', e1 - e2)
-    assert abs(e1 - e2) < 1e-5
+    assert abs(e1 - e2) < 2e-5
 
 h = Atoms('H', magmoms=[1])
 h.center(vacuum=2.5)
