@@ -1,4 +1,3 @@
-# This makes sure that division works as in Python3
 from __future__ import division, print_function
 
 import functools
@@ -147,7 +146,7 @@ class G0W0(PairDensity):
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
         
-        #assert self.calc.wfs.nspins == 1
+        # assert self.calc.wfs.nspins == 1
         
     @timer('G0W0')
     def calculate(self, ecuts=None):
@@ -233,7 +232,6 @@ class G0W0(PairDensity):
                                   np.unravel_index(pd0.Q_qG[0], N_c))
 
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
-        q0 = np.allclose(q_c, 0) and not self.wstc
 
         shift0_c = q_c - self.sign * np.dot(self.U_cc, pd0.kd.bzk_kc[0])
         assert np.allclose(shift0_c.round(), shift0_c)
@@ -275,13 +273,7 @@ class G0W0(PairDensity):
                                                  pd0, I_G)
             if self.sign == 1:
                 n_mG = n_mG.conj()
-                
-            if q0:
-                n_mG[:, 0] = 0
-                m = n + kpt1.n1 - kpt2.n1
-                if 0 <= m < len(n_mG):
-                    n_mG[m, 0] = 1.0
-                    
+                                    
             f_m = kpt2.f_n
             deps_m = eps1 - kpt2.eps_n
             sigma, dsigma = calculate_sigma(n_mG, deps_m, f_m, W0)
@@ -444,7 +436,7 @@ class G0W0(PairDensity):
             # to the current IBZ k-point by symmetry
             Q1 = self.qd.ibz2bz_k[iq]
             done = set()
-            for s, Q2 in enumerate(self.qd.bz2bz_ks[Q1]):
+            for Q2 in self.qd.bz2bz_ks[Q1]:
                 if Q2 >= 0 and Q2 not in done:
                     s = self.qd.sym_k[Q2]
                     self.s = s
@@ -500,7 +492,6 @@ class G0W0(PairDensity):
             
         self.timer.start('Dyson eq.')
         # Calculate W and store it in chi0_wGG ndarray:
-        w = 0
         for chi0_GG in chi0_wGG:
             e_GG = (delta_GG -
                     4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis])
