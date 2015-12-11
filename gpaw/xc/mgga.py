@@ -36,47 +36,32 @@ class MGGA(GGA):
         self.tauct.add(self.tauct_G)
 
     def calculate_gga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
-        try:
-            taut_sG = self.wfs.calculate_kinetic_energy_density()
-        except RuntimeError:
+        nt0_sg = nt_sg.copy()
+        nt0_sg[nt0_sg < 1e-10] = np.inf
+        tautW_sg = sigma_xg[::2] / 8 / nt0_sg
+        
+        taut_sG = self.wfs.calculate_kinetic_energy_density()
+        
+        if taut_sG is None:
+            # Initialize with von Weizsaecker kinetic energy density:
+            taut_sg = tautW_sg.copy()
             nspins = self.wfs.nspins
-            # Initialize with von Weizsaecker kinetic energy density
-            taut_sG = self.wfs.gd.empty((nspins))
-            gradn_g = self.gd.empty()
-            for s in range(nspins):
-                taut_g = self.gd.zeros()
-                for v in range(3):
-                    self.grad_v[v](nt_sg[s], gradn_g)
-                    axpy(0.125, gradn_g**2, taut_g)
-                ntinv_g = 0. * taut_g
-                nt_ok = np.where(nt_sg[s] > 1e-7)
-                ntinv_g[nt_ok] = 1.0 / nt_sg[s][nt_ok]
-                taut_g *= ntinv_g
-                self.restrict_and_collect(taut_g, taut_sG[s])
-
-        taut_sg = np.empty_like(nt_sg)
+            taut_sG = self.wfs.gd.empty(nspins)
+            for taut_G, taut_g in zip(taut_sG, taut_sg):
+                self.restrict_and_collect(taut_g, taut_G)
+        else:
+            taut_sg = np.empty_like(nt_sg)
+        
         for taut_G, taut_g in zip(taut_sG, taut_sg):
             taut_G += 1.0 / self.wfs.nspins * self.tauct_G
             self.distribute_and_interpolate(taut_G, taut_g)
 
-        dedtaut_sg = np.empty_like(nt_sg)
+        bad = taut_sg < tautW_sg + 1e-11
+        taut_sg[bad] = tautW_sg[bad]
         
-        m = 12
-        #import matplotlib.pyplot as plt
-        #plt.plot(taut_sg[0,31,31])
-        for taut_g, nt_g, sigma_g in zip(taut_sg, nt_sg, sigma_xg[::2]):
-            break
-            tauw_g = sigma_g / 8 / nt_g
-            taut_g[:] = (taut_g**m + (tauw_g / 2)**m)**(1.0 / m)
-            break
+        dedtaut_sg = np.empty_like(nt_sg)
         self.kernel.calculate(e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg,
                               taut_sg, dedtaut_sg)
-        #print(dedtaut_sg.shape, self.gd.integrate(e_g),
-        #      self.gd.dv * e_g[25:-25,25:-25,25:-25].sum())
-        #plt.plot(sigma_g[0,31,31])
-        #plt.plot(tauw_g[0,31,31])
-        #plt.plot(e_g[31,31])
-        #plt.show()
         self.dedtaut_sG = self.wfs.gd.empty(self.wfs.nspins)
         self.ekin = 0.0
         for s in range(self.wfs.nspins):

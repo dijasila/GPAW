@@ -103,10 +103,9 @@ class FDWaveFunctions(FDPWWaveFunctions):
             
         assert not hasattr(self.kpt_u[0], 'c_on')
         if self.kpt_u[0].psit_nG is None:
-            raise RuntimeError('No wavefunctions yet')
+            return None
         if isinstance(self.kpt_u[0].psit_nG, FileReference):
-            # XXX initialize
-            raise RuntimeError('Wavefunctions have not been initialized.')
+            return None
 
         taut_sG = self.gd.zeros(self.nspins)
         dpsit_G = self.gd.empty(dtype=self.dtype)
