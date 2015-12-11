@@ -25,4 +25,4 @@ h.get_potential_energy()
 h.calc.set(xc='TPSS')
 e2 = h.get_potential_energy()
 print('Energy difference', e1 - e2)
-assert abs(e1 - e2) < 1e-5
+assert abs(e1 - e2) < 2e-4

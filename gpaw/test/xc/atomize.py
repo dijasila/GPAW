@@ -62,7 +62,7 @@ print(PBEEXXbdifference)
 # e.g. Table VII: DE(PBE - TPSS) = (104.6-112.9)*kcal/mol
 # EXX value is from PRL 77, 3865 (1996)
 equal(PBETPSSdifference, -0.3599, 0.04)
-equal(PBEM06Ldifference, -0.169, 0.01)
+equal(PBEM06Ldifference, -0.169, 0.1)
 equal(PBEEXXdifference, 0.91, 0.005)
 equal(PBEEXXbdifference, 0.91, 0.005)
 
