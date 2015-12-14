@@ -166,6 +166,7 @@ class GWSelfEnergy(SelfEnergy):
                                                   self.fd)
         
         self.qpt_integration.set_potential(self.vc)
+        self.qpt_integration.fd = self.fd
 
         self.progressEvent = Event()
 
@@ -239,6 +240,7 @@ class GWSelfEnergy(SelfEnergy):
     def calculate(self, readw=True):
         p = functools.partial(print, file=self.fd)
         p('Calculating the correlation self-energy')
+        p('selfenergy2')
         if len(self.ecut_i) > 1:
             p('    Using PW cut-offs: ' +
               ', '.join(['{0:.0f} eV'.format(ecut * Hartree)
@@ -325,6 +327,10 @@ class GWSelfEnergy(SelfEnergy):
         for i, Q1, Q2, W0_wGG, pd0, pdi0, Q0_aGii in self.do_qpt_loop(readw=readw):
             ibzq = self.qd.bz2ibz_k[Q1]
             q_c = self.qd.ibzk_kc[ibzq]
+
+            #print('i=%d, W0_GG=' % i, file=self.fd)
+            #for iG in range(4):
+            #    print(W0_wGG[0, iG, 0:4].round(4), file=self.fd)
 
             world = self.world
             bsize = self.nblocks
@@ -679,6 +685,7 @@ class RealFreqIntegration(FrequencyIntegration):
                          no_optical_limit=False,
                          **parameters)
         """
+        self.fd = txt
         self.filename = filename
         self.use_temp = use_temp
         self.temp_dir = temp_dir
@@ -817,8 +824,9 @@ class RealFreqIntegration(FrequencyIntegration):
             vc_G0, vc_00 = vc.get_gamma_limits(pdi)
             S_wvG = np.zeros((wb - wa, 3, nG - 1), complex)
             L_wvv = np.zeros((wb - wa, 3, 3), complex)
-
+        
         delta_GG = np.eye(len(vc_G))
+
         for w, chi0_GG in enumerate(chi0_wGG[:wb - wa]):
             # First we calculate the inverse dielectric function
             idf_GG = chi0_GG
@@ -832,13 +840,13 @@ class RealFreqIntegration(FrequencyIntegration):
                                         chi0_GG[1:, 1:] * vc_G[np.newaxis, 1:] *
                                         vc_G[1:, np.newaxis])
                 B_GG = idf_GG[1:, 1:]
-                U_vG = -vc_00**0.5 * vc_G0[np.newaxis, :]**0.5 * \
+                u_vG = vc_G0[np.newaxis, :]**0.5 * \
                        chi0_wxvG[wa + w, 0, :, 1:]
-                F_vv = -vc_00 * chi0_wvv[wa + w]
-                S_vG = np.dot(U_vG, B_GG.T)
-                L_vv = F_vv - np.dot(U_vG.conj(), S_vG.T)
-                S_wvG[w] = S_vG
-                L_wvv[w] = L_vv
+                U_vv = -chi0_wvv[wa + w]
+                a_vG = -np.dot(u_vG, B_GG.T)
+                A_vv = U_vv - np.dot(u_vG.conj(), a_vG.T)
+                S_wvG[w] = a_vG
+                L_wvv[w] = A_vv
             else:
                 idf_GG[:] = np.linalg.inv(delta_GG - chi0_GG * 
                                           vc_G[np.newaxis, :] *
@@ -968,7 +976,8 @@ class QPointIntegration:
 
 class QuadQPointIntegration(QPointIntegration):
     def __init__(self, qd, cell_cv, qpts_qc=None, weight_q=None,
-                 txt=sys.stdout, anisotropic=True, q0density=0.0025):
+                 txt=sys.stdout, anisotropic=True, x0density=0.01,
+                 only_head=False):
         if qpts_qc is None:
             qpts_qc = qd.bzk_kc
         
@@ -978,8 +987,9 @@ class QuadQPointIntegration(QPointIntegration):
         assert abs(np.sum(weight_q) - 1.0) < 1e-9, "Weights should sum to 1"
         
         self.weight_q = weight_q
-        self.anistropy_correction = anisotropic
-        self.q0density = q0density
+        self.anisotropy_correction = anisotropic
+        self.only_head = only_head
+        self.x0density = x0density
         
         QPointIntegration.__init__(self, qd, cell_cv, qpts_qc, txt)
 
@@ -987,8 +997,10 @@ class QuadQPointIntegration(QPointIntegration):
         print('BZ Integration using numerical quadrature', file=self.fd)
         print('  Use anisotropy correction: %s' % self.anisotropy_correction,
               file=self.fd)
+        print('  Include only anistropy corrections to HEAD: %s'
+              % self.only_head, file=self.fd)
         print('  q-point density for numerical Gamma-point integration: ' +
-              '%s Angstrom^(-1)' % self.q0density, file=self.fd)
+              '%s Angstrom^(-1)' % self.x0density, file=self.fd)
 
     def reset(self, shape):
         self.sigma_iskn = np.zeros(shape, complex)
@@ -1047,152 +1059,128 @@ class QuadQPointIntegration(QPointIntegration):
         
         vol = abs(np.linalg.det(self.cell_cv))
         rvol = (2 * pi)**3 / vol
-
-        if isinstance(self.vc, WignerSeitzTruncatedCoulomb):
-            vc_G = self.vc.get_potential(pd)**0.5
-            W_wGG[:] = (vc_G[np.newaxis, Ga:Gb, np.newaxis] * idf_wGG *
+        
+        if np.allclose(q_c, 0):
+            if isinstance(self.vc, WignerSeitzTruncatedCoulomb):
+                vc_G = self.vc.get_potential(pd=pd)**0.5
+                W_wGG[:] = (vc_G[np.newaxis, Ga:Gb, np.newaxis] * idf_wGG *
+                            vc_G[np.newaxis, np.newaxis, :])
+            elif isinstance(self.vc, CoulombKernel3D):
+                pass
+            elif isinstance(self.vc, CoulombKernel2D):
+                self.calculate_W_q0_2D(pd, idf_wGG, L_wvv, S_wvG)
+        else:
+            vc_G = self.vc.get_potential(pd=pd)**0.5
+            W_wGG[:] = (vc_G[np.newaxis, :, np.newaxis] * idf_wGG *
                         vc_G[np.newaxis, np.newaxis, :])
-
-        elif isinstance(self.vc, CoulombKernel3D):
-            dq = rvol / self.qd.nbzkpts
-            
-            if np.allclose(q_c, 0):
-                # For now, suppose 3D
-                q0density = self.q0density
-                rcell_cv = 2 * pi * np.linalg.inv(self.cell_cv).T
-                N_c = self.qd.N_c
-                
-                npts_c = np.ceil(np.sum(rcell_cv**2, axis=1)**0.5 /
-                                 N_c / q0density).astype(int)
-                print('Calculating Gamma-point integral on a %dx%dx%d grid' %
-                      tuple(npts_c), file=self.fd)
-                qpts_qc = ((np.indices(npts_c).transpose((1, 2, 3, 0)) \
-                            .reshape((-1, 3)) + 0.5) / npts_c - 0.5) / N_c
-                qgamma = np.argmin(np.sum(qpts_qc**2, axis=1))
-                #qpts_qc[qgamma] += np.array([1e-16, 0, 0])
-                dq0 = dq / len(qpts_qc)
-                
-                qpts_qv = np.dot(qpts_qc, rcell_cv)
-                
-                G_Gv = pd.get_reciprocal_vectors()
-                delta_GG = np.eye(len(G_Gv))
-
-                W_wGG[:, :, 0] = 0.0
-                W_wGG[:, 0, :] = 0.0
-
-                # I think we have to do this as a dump loop to avoid memory
-                # problems
-                for q, q_v in enumerate(qpts_qv):
-                    if np.allclose(q_v, 0):
-                        continue
-                    
-                    if q % 100 == 0:
-                        print('q=%d/%d' % (q + 1, len(qpts_qv)))
-                    vq_G = self.vc.get_potential(Gq_Gv=G_Gv + q_v)**0.5
-                    
-                    self.add_anisotropy_correction3D(W_wGG, dq0 * vq_G,
-                                                     q_v, S_wvG, L_wvv)
-                
-                print('done')
-                G_Gv[0] += np.array([1e-16, 0, 0])
-                v0_G = self.vc.get_potential(Gq_Gv=G_Gv)**0.5
-                v0_G[0] = 1.0
-                dirx_v = np.array([1, 0, 0])
-                diry_v = np.array([0, 1, 0])
-                dirz_v = np.array([0, 0, 1])
-
-                rq = (3. / (4 * pi) * dq0)**(1. / 3)
-                va = (4*pi)**2 * rq
-                vb = 2. / 5 * (2 * pi)**(3 / 2) * rq**(5 / 2)
-                vc = dq0
-                self.add_anisotropy_correction3D(W_wGG, 1. / 3 * v0_G, dirx_v,
-                                                 S_wvG, L_wvv, va, vb, vc)
-                self.add_anisotropy_correction3D(W_wGG, 1. / 3 * v0_G, diry_v,
-                                                 S_wvG, L_wvv, va, vb, vc)
-                self.add_anisotropy_correction3D(W_wGG, 1. / 3 * v0_G, dirz_v,
-                                                 S_wvG, L_wvv, va, vb, vc)
-                
-            else:
-                vc_G = self.vc.get_potential(pd=pd)**0.5
-                W_wGG[:] = dq * (vc_G[np.newaxis, Ga:Gb, np.newaxis] * idf_wGG *
-                                 vc_G[np.newaxis, :, np.newaxis])
-            
-        elif isinstance(self.vc, CoulombKernel2D):
-            
-            if np.allclose(q_c, 0):
-                # For now, suppose 3D
-                q0 = np.argmin(np.sum((self.qpts_qc - q_c)**2, axis=1))
-                assert np.allclose(q_c, self.qpts_qc[q0])
-                q0weight = self.weight_q[q0]
-
-                L = abs(self.cell_cv[2, 2])
-                # 
-                dq = q0weight * rvol * L / (2 * pi) / self.qd.nbzkpts
-                
-                G_Gv = pd.get_reciprocal_vectors()
-                v_G = self.vc.get_potential(Gq_Gv=G_Gv[1:])**0.5
-
-                W_wGG[:, :, 0] = 0.0
-                W_wGG[:, 0, :] = 0.0
-                W_wGG[:, 1:, 1:] *= (v_G[np.newaxis, :, np.newaxis] *
-                                     v_G[np.newaxis, np.newaxis, :])
-                
-                if self.anistropy_correction:
-                    q0density = self.q0density
-                    rcell_cv = 2 * pi * np.linalg.inv(self.cell_cv).T
-                    N_c = self.qd.N_c
-                
-                    qf = q0weight * np.product(N_c)
-                    q0cell_cv = np.array([qf, qf, 1])**0.5 * rcell_cv / N_c
-                    q0vol = abs(np.linalg.det(q0cell_cv))
-                    npts_c = np.ceil(np.sum(q0cell_cv**2, axis=1)**0.5 /
-                                     q0density).astype(int)
-                    npts_c[2] = 1
-                    print('qf=%.3f, q0density=%s, q0 volume=%.5f ~ %.2f %%' %
-                          (qf, self.q0density, q0vol, q0vol / rvol * 100.),
-                          file=self.fd)
-                    print('Evaluating Gamma point contribution to W on a ' +
-                          '%dx%dx%d grid' % tuple(npts_c), file=self.fd)
-                    #npts_c = np.array([1, 1, 1])
-                
-                    qpts_qc = ((np.indices(npts_c).transpose((1, 2, 3, 0)) \
-                                .reshape((-1, 3)) + 0.5) / npts_c - 0.5) #/ N_c
-                    qgamma = np.argmin(np.sum(qpts_qc**2, axis=1))
-                    #qpts_qc[qgamma] += np.array([1e-16, 0, 0])
-                    dq0 = dq / len(qpts_qc)
-                    
-                    qpts_qv = np.dot(qpts_qc, q0cell_cv)
-                    
-                    dn = 1. / len(qpts_qv)
-                    # I think we have to do this as a dump loop to avoid memory
-                    # problems
-                    for q, q_v in enumerate(qpts_qv):
-                        if np.allclose(q_v, 0):
-                            continue
-                    
-                        vq_G = self.vc.get_potential(Gq_Gv=G_Gv + q_v)**0.5
-
-                        self.add_anisotropy_correction2D(W_wGG, vq_G, q_v,
-                                                         S_wvG, L_wvv,
-                                                         a=dn, b=dn, c=dn)
-                    
-                    rq = (dq0 / pi)**0.5
-                    W_wGG[:, 0, 0] += - pi * L * (L_wvv[:, 0, 0] +
-                                                     L_wvv[:, 1, 1]) * dn
-                
-                    #W_wGG[:, 1:, 1:] += (pi * rq**3 / 3 / dq0 *
-                    #                     (S_wvG[:, 0, :, np.newaxis] *
-                    #                      S_wvG[:, 0, np.newaxis, :].conj() +
-                    #                      S_wvG[:, 1, :, np.newaxis] *
-                    #                      S_wvG[:, 1, np.newaxis, :].conj()))
-            
-            else:
-                vc_G = self.vc.get_potential(pd=pd)**0.5
-                W_wGG[:] = 1.0 * (vc_G[np.newaxis, Ga:Gb, np.newaxis] * idf_wGG *
-                                 vc_G[np.newaxis, :, np.newaxis])
-
-        print('W_000=%s' % W_wGG[0, 0, 0].real, file=self.fd)
+        
         return W_wGG
+
+    def calculate_W_q0_2D(self, pd, invdf_wGG, A_wvv, a_wvG):
+        L = self.cell_cv[2, 2]
+        # First get potential
+        G_Gv = pd.get_reciprocal_vectors()[1:]
+        G_Gv += np.array([1e-9, 1e-9, 0])
+        G2_G = np.sum(G_Gv**2, axis=1)
+        Gpar_G = np.sum(G_Gv[:, 0:2]**2, axis=1)**0.5
+        v_G = (4 * pi / G2_G * (1 - np.exp(-0.5 * L * Gpar_G) * \
+                                np.cos(0.5 * L * G_Gv[:, 2])))**0.5
+        W_wGG = invdf_wGG # Rename
+        nG = W_wGG.shape[1]
+
+        # Generate numerical q-point grid
+        rcell_cv = 2 * pi * np.linalg.inv(self.cell_cv).T
+        rvol = abs(np.linalg.det(rcell_cv))
+        N_c = self.qd.N_c
+        
+        q0weight = 1
+        qf = q0weight
+        q0cell_cv = np.array([qf, qf, 1])**0.5 * rcell_cv / N_c
+        q0vol = abs(np.linalg.det(q0cell_cv))
+
+        x0density = self.x0density
+        q0density = 2. / L * x0density
+        npts_c = np.ceil(np.sum(q0cell_cv**2, axis=1)**0.5 /
+                         q0density).astype(int)
+        npts_c[2] = 1
+        npts_c += (npts_c + 1) % 2
+        print('qf=%.3f, q0density=%s, q0 volume=%.5f ~ %.2f %%' %
+              (qf, q0density, q0vol, q0vol / rvol * 100.),
+              file=self.fd)
+        print('Evaluating Gamma point contribution to W on a ' +
+              '%dx%dx%d grid' % tuple(npts_c), file=self.fd)
+        #npts_c = np.array([1, 1, 1])
+                
+        qpts_qc = ((np.indices(npts_c).transpose((1, 2, 3, 0)) \
+                    .reshape((-1, 3)) + 0.5) / npts_c - 0.5) #/ N_c
+        qgamma = np.argmin(np.sum(qpts_qc**2, axis=1))
+        #qpts_qc[qgamma] += np.array([1e-16, 0, 0])
+                    
+        qpts_qv = np.dot(qpts_qc, q0cell_cv)
+        qpts_q = np.sum(qpts_qv**2, axis=1)**0.5
+        qpts_q[qgamma] = 1e-14
+        qdir_qv = qpts_qv / qpts_q[:, np.newaxis]
+        qdir_qvv = qdir_qv[:, :, np.newaxis] * qdir_qv[:, np.newaxis, :]
+        nq = len(qpts_qc)
+        q0area = q0vol / q0cell_cv[2, 2]
+        dq0 = q0area / nq
+        dq0rad = (dq0 / pi)**0.5
+
+        exp_q = 4 * pi * (1 - np.exp(-qpts_q * L / 2))
+        dv_G = ((pi * L * G2_G * np.exp(-0.5 * L * Gpar_G) * \
+                 np.cos(0.5 * L * G_Gv[:, 2]) -
+                 4 * pi * Gpar_G * (1 - np.exp(-0.5 * Gpar_G) * \
+                                    np.cos(0.5 * L * G_Gv[:, 2]))) / \
+                (G2_G**1.5 * Gpar_G * (4 * pi * (1 - np.exp(-0.5 * L * Gpar_G) * \
+                                                 np.cos(0.5 * L * G_Gv[:, 2])))**0.5))
+        dv_Gv = dv_G[:, np.newaxis] * G_Gv
+        
+        # Calculate q=0 value
+        nw = W_wGG.shape[0]
+        nG = W_wGG.shape[1]
+        for w in range(nw):
+
+            W_wGG[w, :, 0] = 0.0
+            W_wGG[w, 0, :] = 0.0
+            W_wGG[w, 1:, 1:] = (v_G[:, None] * v_G[None, :] * invdf_wGG[w, 1:, 1:])
+            
+
+            if not self.anisotropy_correction:
+                # Skip q=0 corrections
+                continue
+            
+            A_q = np.sum(qdir_qv * np.dot(qdir_qv, A_wvv[w]), axis=1)
+            frac_q = 1. / (1 + exp_q * A_q)
+
+            # HEAD:
+            w00_q = -(exp_q / qpts_q)**2 * A_q * frac_q
+            w00_q[qgamma] = 0.0
+            W_wGG[w, 0, 0] = w00_q.sum() / nq
+            a0 = 2 * pi * (A_wvv[w, 0, 0] + A_wvv[w, 1, 1]) + 1
+            W_wGG[w, 0, 0] += -(a0 * dq0rad - np.log(a0 * dq0rad + 1)) / a0**2 / dq0
+
+            # WINGS:
+            u_q = -exp_q / qpts_q * frac_q
+            #u_q[qgamma] = 0.0
+            W_wGG[w, 1:, 0] = 1. / nq * np.dot(
+                np.sum(qdir_qv * u_q[:, np.newaxis], axis=0),
+                a_wvG[w] * v_G[np.newaxis, :])
+            
+            W_wGG[w, 0, 1:] = W_wGG[w, 1:, 0].conj()
+            
+            # BODY:
+            # Constant corrections:
+            W_wGG[w, 1:, 1:] += 1. / nq * v_G[:, None] * v_G[None, :] * \
+                np.tensordot(a_wvG[w], np.dot(a_wvG[w].T.conj(),
+                np.sum(-qdir_qvv * exp_q[:, None, None] * frac_q[:, None, None],
+                axis=0)), axes=(0, 1))
+            u_vvv = np.tensordot(u_q[:, None] * qpts_qv, qdir_qvv, axes=(0, 0))
+            # Gradient corrections:
+            W_wGG[w, 1:, 1:] += 1. / nq * np.sum(
+                dv_Gv[:, :, None] * np.tensordot(
+                    a_wvG[w], np.tensordot(u_vvv, a_wvG[w].conj() * v_G[None, :],
+                                           axes=(2, 0)), axes=(0, 1)), axis=1)
+            
 
     def add_anisotropy_correction3D(self, W_wGG, v_G, q_v, S_wvG, L_wvv,
                                     a=1.0, b=1.0, c=1.0):
@@ -1213,7 +1201,7 @@ class QuadQPointIntegration(QPointIntegration):
                                   qS_wG.conj()[:, np.newaxis, :] /
                                   qLq_w[:, np.newaxis, np.newaxis]))
 
-    def add_anisotropy_correction2D(self, W_wGG, v_G, q_v, S_wvG, L_wvv,
+    def add_anisotropy_correction2D_lin(self, W_wGG, v_G, q_v, S_wvG, L_wvv,
                                     a=1.0, b=1.0, c=1.0):
         qnorm = np.linalg.norm(q_v)
         qdir_v = q_v / qnorm
@@ -1232,6 +1220,27 @@ class QuadQPointIntegration(QPointIntegration):
                                  (qS_wG[:, :, np.newaxis] *
                                   qS_wG.conj()[:, np.newaxis, :] /
                                   qLq_w[:, np.newaxis, np.newaxis]))
+
+    def add_anisotropy_correction2D(self, W_wGG, v_G, q_v, S_wvG, L_wvv, L,
+                                    a=1.0, b=1.0, c=1.0):
+        qnorm = np.linalg.norm(q_v)
+        qdir_v = q_v / qnorm
+        
+        A_w = np.dot(np.dot(L_wvv, qdir_v), qdir_v)
+        a_wG = v_G[np.newaxis, 1:] * np.dot(qdir_v, S_wvG)
+        exp = 4 * pi * (1 - np.exp(-0.5 * L * qnorm))
+
+        W_wGG[:, 0, 0] += -(exp / qnorm)**2 / (1 + A_w * exp) * a
+        
+        W_wGG[:, 1:, 0] += -exp / qnorm * a_wG / \
+                           (1 + A_w[:, np.newaxis] * exp) * b
+        W_wGG[:, 0, 1:] += -exp / qnorm * a_wG.conj() / \
+                           (1 + A_w[:, np.newaxis] * exp) * b
+        
+        W_wGG[:, 1:, 1:] += -exp * a_wG[:, :, np.newaxis] * \
+                            a_wG[:, np.newaxis, :] / \
+                            (1 + A_w[:, np.newaxis, np.newaxis] * exp) * c
+        
 
 class TriangleQPointIntegration(QPointIntegration):
     def __init__(self, qd, cell_cv, qpts_qc, simplices):
