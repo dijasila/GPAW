@@ -445,6 +445,11 @@ class GWQuasiParticleCalculator:
     def print_parameters(self):
         print(self.nbands)
         p = functools.partial(print, file=self.fd)
+        p('Parameters for the self-consistency cycle:')
+        p('    Energy convergence threshold: {0:g} eV'.format(self.convergence))
+        p('    Maximum number of iterations: {0:d}'.format(self.maxiter))
+        p('    Energy mixing:                {0:g}'.format(self.mixing))
+        p()
         p('Parameters for the correlation self-energy:')
         p('    PW cut-off:        {0:g} eV'.format(self.ecut * Hartree))
         p('    Number of bands:   {0:d}'.format(self.nbands))
