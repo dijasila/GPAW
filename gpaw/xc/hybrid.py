@@ -7,16 +7,17 @@ evaluation of exact exchange.
 
 import numpy as np
 
-from gpaw.xc import XC
-from gpaw.xc.kernel import XCNull
-from gpaw.xc.functional import XCFunctional
-from gpaw.poisson import PoissonSolver
-from gpaw.utilities import hartree, pack, pack2, unpack, unpack2, packed_index
-from gpaw.utilities.tools import symmetrize
 from gpaw.atom.configurations import core_states
-from gpaw.lfc import LFC
-from gpaw.utilities.blas import gemm
 from gpaw.gaunt import gaunt
+from gpaw.lfc import LFC
+from gpaw.poisson import PoissonSolver
+from gpaw.transformers import Transformer
+from gpaw.utilities import hartree, pack, pack2, unpack, unpack2, packed_index
+from gpaw.utilities.blas import gemm
+from gpaw.utilities.tools import symmetrize
+from gpaw.xc import XC
+from gpaw.xc.functional import XCFunctional
+from gpaw.xc.kernel import XCNull
 
 
 class HybridXCBase(XCFunctional):
@@ -101,29 +102,40 @@ class HybridXC(HybridXCBase):
         self.exx_s = np.zeros(self.nspins)
         self.ekin_s = np.zeros(self.nspins)
         self.nocc_s = np.empty(self.nspins, int)
+
+        self.gd = density.gd
+        self.grid2grid = density.grid2grid
+
+        # XXX How do we construct a copy of the Poisson solver of the
+        # Hamiltonian?  We don't know what class it is, etc., but gd
+        # may differ.
+        self.poissonsolver = PoissonSolver(eps=1e-11)
+        #self.poissonsolver = hamiltonian.poisson
         
         if self.finegrid:
-            self.poissonsolver = hamiltonian.poisson
-            self.ghat = density.ghat
-            self.interpolator = density.interpolator
-            self.restrictor = hamiltonian.restrictor
+            self.finegd = self.gd.refine()
+            # XXX Taking restrictor from Hamiltonian will not work in PW mode,
+            # will it?  I think this supports only real-space mode.
+            #self.restrictor = hamiltonian.restrictor
+            self.restrictor = Transformer(self.finegd, self.gd, 3)
+            self.interpolator = Transformer(self.gd, self.finegd, 3)
         else:
-            self.poissonsolver = PoissonSolver(eps=1e-11)
-            self.poissonsolver.set_grid_descriptor(density.gd)
-            self.poissonsolver.initialize()
-            self.ghat = LFC(density.gd,
-                            [setup.ghat_l for setup in density.setups],
-                            integral=np.sqrt(4 * np.pi), forces=True)
-        self.gd = density.gd
-        self.finegd = self.ghat.gd
+            self.finegd = self.gd
+
+        self.ghat = LFC(self.finegd,
+                        [setup.ghat_l for setup in density.setups],
+                        integral=np.sqrt(4 * np.pi), forces=True)
+        self.poissonsolver.set_grid_descriptor(self.finegd)
+        self.poissonsolver.initialize()
 
     def set_positions(self, spos_ac):
-        if not self.finegrid:
-            self.ghat.set_positions(spos_ac)
+        self.ghat.set_positions(spos_ac)
     
     def calculate(self, gd, n_sg, v_sg=None, e_g=None):
         # Normal XC contribution:
         exc = self.xc.calculate(gd, n_sg, v_sg, e_g)
+        # Note that the quantities passed are on the density/Hamiltonian grids!
+        # They may be distributed differently from own quantities.
         self.ekin = self.kpt_comm.sum(self.ekin_s.sum())
         return exc + self.kpt_comm.sum(self.exx_s.sum())
 
@@ -135,10 +147,9 @@ class HybridXC(HybridXCBase):
                                             Htpsit_nG=None, dH_asp=None):
         if kpt.f_n is None:
             return
-        
+
         deg = 2 // self.nspins   # Spin degeneracy
         hybrid = self.hybrid
-        
         P_ani = kpt.P_ani
         setups = self.setups
 
@@ -165,6 +176,10 @@ class HybridXC(HybridXCBase):
         exx = 0.0
         ekin = 0.0
 
+        # XXXX nbands can be different numbers on different cpus!
+        # That means some will execute the loop and others not.
+        # And deadlocks with augment-grids.
+
         # Determine pseudo-exchange
         for n1 in range(nbands):
             psit1_G = psit_nG[n1]
@@ -175,10 +190,13 @@ class HybridXC(HybridXCBase):
 
                 # Double count factor:
                 dc = (1 + (n1 != n2)) * deg
-                
                 nt_G, rhot_g = self.calculate_pair_density(n1, n2, psit_nG,
                                                            P_ani)
                 vt_g[:] = 0.0
+                # XXXXX This will go wrong because we are solving the
+                # Poisson equation on the distribution of gd, not finegd
+                # Or maybe it's fixed now
+
                 self.poissonsolver.solve(vt_g, -rhot_g,
                                          charge=-float(n1 == n2),
                                          eps=1e-12,

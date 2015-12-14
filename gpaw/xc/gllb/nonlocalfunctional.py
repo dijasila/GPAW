@@ -92,6 +92,9 @@ class NonLocalFunctional(XCFunctional):
             
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         Exc = 0.0
+        # We are supposed to add to H_sp, not write directly
+        H0_sp = H_sp
+        H_sp = H0_sp.copy()
         H_sp[:] = 0.0
 
         if self.mix is None:
@@ -111,8 +114,9 @@ class NonLocalFunctional(XCFunctional):
             H_sp += (1-cmix) * self.old_H_asp[a]
             self.old_H_asp[a][:] = H_sp.copy()
             
-        if a == 0:
-            print(H_sp)
+        #if a == 0:
+        #    print('eh', H_sp.sum())
+        H0_sp += H_sp
         Exc -= setup.xc_correction.Exc0
         return Exc
 

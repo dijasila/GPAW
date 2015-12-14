@@ -268,7 +268,7 @@ void *wapply_worker_cfd(void *threadarg)
     chunksize = args->chunksize;
 
   int chunk = args->chunkinc;
-  if (chunk > chunksize);
+  if (chunk > chunksize)
     chunk = chunksize;
 
   double* sendbuf = (double*) GPAW_MALLOC(double, bc->maxsend * args->chunksize
@@ -292,7 +292,7 @@ void *wapply_worker_cfd(void *threadarg)
   for (int n = nstart+chunk; n < nend; n += chunk)
     {
       last_chunk += args->chunkinc;
-      if (last_chunk > chunksize);
+      if (last_chunk > chunksize)
         last_chunk = chunksize;
 
       if (n + last_chunk >= nend && last_chunk > 1)

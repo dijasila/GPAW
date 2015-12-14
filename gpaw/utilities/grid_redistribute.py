@@ -291,7 +291,7 @@ def get_compatible_grid_descriptor(gd, distribute_dir, reduce_dir):
     
     ranks = np.arange(gd.comm.size).reshape(gd.parsize_c).transpose(*t).ravel()
     comm2 = gd.comm.new_communicator(ranks)
-    gd2 = gd.new_descriptor(comm=comm2, parsize=parsize2_c)
+    gd2 = gd.new_descriptor(comm=comm2, parsize_c=parsize2_c)
     return gd2
 
 
@@ -304,15 +304,17 @@ class Domains:
         return tuple(len(self.domains_cp[c]) - 1 for c in range(3))
 
     def get_global_shape(self):
-        return tuple(domains_cp[c][-1] - domains_cp[c][0] for c in range(3))
+        return tuple(self.domains_cp[c][-1]
+                     - self.domains_cp[c][0] for c in range(3))
 
     def get_offset(self, parpos_c):
         offset_c = [self.domains_cp[c][parpos_c[c]] for c in range(3)]
         return np.array(offset_c)
 
     def get_box(self, parpos_c):
+        parpos_c = np.array(parpos_c)
         offset_c = self.get_offset(parpos_c)
-        nextoffset_c = self.get_offset(np.array(parpos_c) + 1)
+        nextoffset_c = self.get_offset(parpos_c + 1)
         return offset_c, nextoffset_c - offset_c
 
     def as_serial(self):
@@ -373,7 +375,7 @@ class RandomDistribution:
 
 
 def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
-                         src_g, dst_g):
+                         src_xg, dst_xg, behavior='overwrite'):
     """Redistribute array arbitrarily.
 
     Generally, this function redistributes part of an array into part
@@ -382,6 +384,12 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
     array, for example.
 
     """
+    assert src_xg.dtype == dst_xg.dtype
+    src_xg = src_xg.reshape(-1, *src_xg.shape[-3:])
+    dst_xg = dst_xg.reshape(-1, *dst_xg.shape[-3:])
+    assert src_xg.shape[0] == dst_xg.shape[0]
+    assert behavior in ['overwrite', 'add']
+
     if not isinstance(domains1, Domains):
         domains1 = Domains(domains1)
     if not isinstance(domains2, Domains):
@@ -391,9 +399,13 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
     myparpos1_c = rank2parpos1(comm.rank)
     if myparpos1_c is not None:
         myoffset1_c, mysize1_c = domains1.get_box(myparpos1_c)
+        assert np.all(mysize1_c == src_xg.shape[-3:]), \
+            (mysize1_c, src_xg.shape[-3:])
     myparpos2_c = rank2parpos2(comm.rank)
     if myparpos2_c is not None:
         myoffset2_c, mysize2_c = domains2.get_box(myparpos2_c)
+        assert np.all(mysize2_c == dst_xg.shape[-3:]), \
+            (mysize2_c, dst_xg.shape[-3:])
 
     sendranks = []
     recvranks = []
@@ -420,17 +432,16 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
             # Reduce to local array coordinates:
             start_c -= myoffset_c
             stop_c -= myoffset_c
-            return arr_g[start_c[0]:stop_c[0],
-                         start_c[1]:stop_c[1],
-                         start_c[2]:stop_c[2]]
+            return arr_g[:, start_c[0]:stop_c[0], start_c[1]:stop_c[1],
+                            start_c[2]:stop_c[2]]
         else:
             return None
 
     def get_sendchunk(offset_c, size_c):
-        return _intersection(myoffset1_c, mysize1_c, offset_c, size_c, src_g)
+        return _intersection(myoffset1_c, mysize1_c, offset_c, size_c, src_xg)
 
     def get_recvchunk(offset_c, size_c):
-        return _intersection(myoffset2_c, mysize2_c, offset_c, size_c, dst_g)
+        return _intersection(myoffset2_c, mysize2_c, offset_c, size_c, dst_xg)
 
     nsendtotal = 0
     nrecvtotal = 0
@@ -481,9 +492,15 @@ def general_redistribute(comm, domains1, domains2, rank2parpos1, rank2parpos2,
     for recvrank, recvchunk in zip(recvranks, recvchunks):
         nstart = recvdispls[recvrank]
         nstop = nstart + recvcounts[recvrank]
-        recvchunk.flat[:] = recvbuf[nstart:nstop]
+        buf = recvbuf[nstart:nstop]
+        if behavior == 'overwrite':
+            recvchunk.flat[:] = buf
+        elif behavior == 'add':
+            recvchunk.flat[:] += buf
 
 def test_general_redistribute():
+    from gpaw.mpi import world
+
     domains1 = Domains([[0, 1],
                         [1, 3, 5, 6],
                         [0, 5, 9]])
@@ -535,7 +552,7 @@ def playground():
     assert np.prod(parsize2_c) == np.prod(parsize_c)
 
     gd = GridDescriptor(N_c=N_c, pbc_c=pbc_c, cell_cv=0.2 * np.array(N_c),
-                        parsize=parsize_c)
+                        parsize_c=parsize_c)
 
     gd2 = get_compatible_grid_descriptor(gd, distribute_dir, reduce_dir)
 
@@ -632,8 +649,7 @@ def test(N_c, gd, gd2, reduce_dir, distribute_dir, verbose=True):
 def rigorous_testing():
     from itertools import product, permutations, cycle
     from gpaw.mpi import world
-    #gridpointcounts = [1, 2, 3, 5, 7, 10, 16, 24, 37]
-    gridpointcounts = [1, 2, 10, 16, 37]
+    gridpointcounts = [1, 2, 10, 21]
     cpucounts = np.arange(1, world.size + 1)
     pbc = cycle(product([0, 1], [0, 1], [0, 1]))
 
@@ -662,11 +678,11 @@ def rigorous_testing():
                 try:
                     gd = GridDescriptor(N_c=N_c, pbc_c=pbc_c,
                                         cell_cv=0.2 * np.array(N_c),
-                                        parsize=parsize_c)
+                                        parsize_c=parsize_c)
                     gd2 = get_compatible_grid_descriptor(gd, distribute_dir,
                                                          reduce_dir)
                          
-                    #gd2 = gd.new_descriptor(parsize=parsize2_c)
+                    #gd2 = gd.new_descriptor(parsize_c=parsize2_c)
                 except ValueError:  # Skip illegal distributions
                     continue
 

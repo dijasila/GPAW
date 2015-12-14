@@ -4,11 +4,10 @@ from optparse import OptionParser
 import numpy as np
 
 from gpaw.atom.atompaw import AtomPAW
-from gpaw.atom.basis import rsplit_by_norm, QuasiGaussian,\
-     get_gaussianlike_basis_function
+from gpaw.atom.basis import rsplit_by_norm, get_gaussianlike_basis_function
 from gpaw.basis_data import BasisFunction, Basis
-from gpaw.hgh import setups as hgh_setups, sc_setups as hgh_sc_setups,\
-     HGHSetupData
+from gpaw.hgh import (setups as hgh_setups, sc_setups as hgh_sc_setups,
+                      HGHSetupData)
 
 # XXX
 from scipy.optimize import bisect
@@ -50,7 +49,6 @@ def get_orbitals_by_energy_shift(opts, setup, **kwargs):
             yield l, n + 1 # XXX
 
     bf_j = []
-    cutoffs = []
     
     for i, (l, n) in enumerate(valence_states()):
         e0 = get_orbital_energy(l, n, 15.0) * 27.211 # 15Ang == infinity

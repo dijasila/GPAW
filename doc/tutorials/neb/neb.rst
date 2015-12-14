@@ -20,4 +20,4 @@ The results are read with::
 
   $ ase-gui -n -1 neb?.traj
 
-The energy barrier is found to be ~0.14 eV.
+The energy barrier is found to be ~0.3 eV for LDA.

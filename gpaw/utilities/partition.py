@@ -25,11 +25,12 @@ def to_parent_comm(partition):
 
 class AtomicMatrixDistributor:
     """Class to distribute atomic dictionaries like dH_asp and D_asp."""
-    def __init__(self, atom_partition, setups, kptband_comm, ns):
+    def __init__(self, atom_partition, broadcast_comm,
+                 work_partition=None):
         # Assumptions on communicators are as follows.
         #
         # atom_partition represents standard domain decomposition, and
-        # kptband_comm are the corresponding kpt/band communicators
+        # broadcast_comm are the corresponding kpt/band communicators
         # together encompassing wfs.world.
         #
         # Initially, dH_asp are distributed over domains according to the
@@ -39,26 +40,27 @@ class AtomicMatrixDistributor:
         # The idea is to transfer dH_asp so they are distributed equally
         # among all ranks on wfs.world, and back, when necessary.
         self.atom_partition = atom_partition
-        self.setups = setups
-        self.kptband_comm = kptband_comm
-        self.ns = ns
+        self.broadcast_comm = broadcast_comm
         #self.new_atom_partition = atom_partition.to_parent_comm()
 
         self.grid_partition = atom_partition
         self.grid_unique_partition = to_parent_comm(self.grid_partition)
 
         # This represents a full distribution across grid, kpt, and band.
-        self.work_partition = self.grid_unique_partition.as_even_partition()
+        if work_partition is None:
+            work_partition = self.grid_unique_partition.as_even_partition()
+        self.work_partition = work_partition
 
     def distribute(self, D_asp):
         # Right now the D are duplicated across the band/kpt comms.
         # Here we pick out a set of unique D.  With duplicates out,
         # we can redistribute one-to-one to the larger work_partition.
         #assert D_asp.partition == self.grid_partition
-        
-        Ddist_asp = self.setups.empty_atomic_matrix(self.ns,
-                                                    self.grid_unique_partition)
-        if self.kptband_comm.rank != 0:
+
+        Ddist_asp = ArrayDict(self.grid_unique_partition, D_asp.shapes_a,
+                              dtype=D_asp.dtype)
+
+        if self.broadcast_comm.rank != 0:
             assert len(Ddist_asp) == 0
         for a in Ddist_asp:
             Ddist_asp[a] = D_asp[a]
@@ -72,16 +74,18 @@ class AtomicMatrixDistributor:
 
         # First receive one-to-one from everywhere.
         #assert dHdist_asp.partition == self.work_partition
+        dHdist_asp = dHdist_asp.deepcopy()
         dHdist_asp.redistribute(self.grid_unique_partition)
 
-        dH_asp = self.setups.empty_atomic_matrix(self.ns, self.grid_partition)
-        if self.kptband_comm.rank == 0:
+        dH_asp = ArrayDict(self.grid_partition, dHdist_asp.shapes_a,
+                           dtype=dHdist_asp.dtype)
+        if self.broadcast_comm.rank == 0:
             buf = dHdist_asp.toarray()
             assert not np.isnan(buf).any()
         else:
             buf = dH_asp.toarray()
             buf[:] = np.nan # Let's be careful for now like --debug mode
-        self.kptband_comm.broadcast(buf, 0)
+        self.broadcast_comm.broadcast(buf, 0)
         assert not np.isnan(buf).any()
         dH_asp.fromarray(buf)
         return dH_asp

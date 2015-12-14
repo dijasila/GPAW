@@ -125,7 +125,7 @@ class Davidson(Eigensolver):
             # <psi2 | H | psi>
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit2_nG, Htpsit_nG)
             gd.integrate(psit_nG, Htpsit_nG, global_integral=False,
-                          _transposed_result=self.H_nn)
+                         _transposed_result=self.H_nn)
             # gemm(1.0, psit_nG, Htpsit_nG, 0.0, self.H_nn, 'c')
 
             for a, P_ni in kpt.P_ani.items():
@@ -138,7 +138,7 @@ class Davidson(Eigensolver):
 
             # <psi2 | H | psi2>
             gd.integrate(psit2_nG, Htpsit_nG, global_integral=False,
-                          _transposed_result=self.H_nn)
+                         _transposed_result=self.H_nn)
             # r2k(0.5 * gd.dv, psit2_nG, Htpsit_nG, 0.0, self.H_nn)
             for a, P2_ni in P2_ani.items():
                 dH_ii = unpack(hamiltonian.dH_asp[a][kpt.s])
@@ -150,7 +150,7 @@ class Davidson(Eigensolver):
             # Overlap matrix
             # <psi2 | S | psi>
             gd.integrate(psit_nG, psit2_nG, global_integral=False,
-                          _transposed_result=self.S_nn)
+                         _transposed_result=self.S_nn)
             # gemm(1.0, psit_nG, psit2_nG, 0.0, self.S_nn, 'c')
         
             for a, P_ni in kpt.P_ani.items():
@@ -163,7 +163,7 @@ class Davidson(Eigensolver):
 
             # <psi2 | S | psi2>
             gd.integrate(psit2_nG, psit2_nG, global_integral=False,
-                          _transposed_result=self.S_nn)
+                         _transposed_result=self.S_nn)
             # rk(gd.dv, psit2_nG, 0.0, self.S_nn)
             for a, P2_ni in P2_ani.items():
                 dO_ii = wfs.setups[a].dO_ii

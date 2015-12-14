@@ -10,8 +10,8 @@ from ase.units import Hartree, Bohr
 
 import gpaw.mpi as mpi
 from gpaw.response.chi0 import Chi0
-from gpaw.response.kernel2 import calculate_Kxc, truncated_coulomb
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.kernels import get_coulomb_kernel
+from gpaw.response.fxc import get_xc_kernel
 
 
 class DielectricFunction:
@@ -231,14 +231,30 @@ class DielectricFunction:
         return self.omega_w * Hartree
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], direction='x',
-                return_VchiV=True, q0=None):
-        """ Returns v^1/2 chi V^1/2"""
+                return_VchiV=True, q_inf=None):
+        """ Returns v^1/2 chi v^1/2. The truncated Coulomb interaction is
+        then included as v^-1/2 v_t v^-1/2. This is in order to conform with
+        the head and wings of chi0, which is treated specially for q=0."""
+
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
-        G_G = pd.G2_qG[0]**0.5
-        nG = len(G_G)
+        N_c = self.chi0.calc.wfs.kd.N_c
+        Kbare_G = get_coulomb_kernel(pd, 
+                                     N_c, 
+                                     truncation=None,
+                                     q_inf=q_inf)
+        vsqr_G = Kbare_G**0.5
+        nG = len(vsqr_G)
+
+        if self.truncation is not None:
+            Ktrunc_G = get_coulomb_kernel(pd, 
+                                          N_c, 
+                                          truncation=self.truncation, 
+                                          q_inf=q_inf)
+            K_GG = np.diag(Ktrunc_G / Kbare_G)
+        else:
+            K_GG = np.eye(nG, dtype=complex)
 
         if pd.kd.gamma:
-            G_G[0] = 1.0
             if isinstance(direction, str):
                 d_v = {'x': [1, 0, 0],
                        'y': [0, 1, 0],
@@ -251,50 +267,30 @@ class DielectricFunction:
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
         
-        K_G = (4 * pi)**0.5 / G_G
-        K_GG = np.eye(nG, dtype=complex)
-
-        if self.truncation is not None:
-            if self.truncation == 'wigner-seitz':
-                kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv,
-                                                     self.chi0.calc.wfs.kd.N_c)
-                Ktrunc_G = kernel.get_potential(pd)
-            
-            elif self.truncation == '2D':
-                Ktrunc_G = truncated_coulomb(pd, q0=q0)
-
-            if pd.kd.gamma and q0 is None:
-                Ktrunc_G[0] = 0.0
-        
-            Ktrunc_GG = np.zeros((nG, nG), dtype=complex)
-            for i in range(nG):
-                K_GG[i, i] = Ktrunc_G[i] / K_G[i]
-        
         if xc != 'RPA':
-            R_av = self.chi0.calc.atoms.positions / Bohr
-            nt_sG = self.chi0.calc.density.nt_sG
-            Kxc_sGG = calculate_Kxc(pd, nt_sG, R_av, self.chi0.calc.wfs.setups,
-                                    self.chi0.calc.density.D_asp,
-                                    functional=xc)
-            K_GG += Kxc_sGG[0] / K_G / K_G[:, np.newaxis]
+            Kxc_sGG = get_xc_kernel(pd, 
+                                    self.chi0,
+                                    functional=xc, 
+                                    chi0_wGG=chi0_wGG)
+            K_GG += Kxc_sGG[0] / vsqr_G / vsqr_G[:, np.newaxis]
 
         chi_wGG = []
         for chi0_GG in chi0_wGG:
-            #  v^1/2 chi0 V^1/2
-            chi0_GG[:] = chi0_GG * K_G * K_G[:, np.newaxis]
+            """v^1/2 chi0 V^1/2"""
+            chi0_GG[:] = chi0_GG * vsqr_G * vsqr_G[:, np.newaxis]
             chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
                                           np.dot(chi0_GG, K_GG)),
                             chi0_GG)
             if not return_VchiV:
-                chi0_GG /= K_G * K_G[:, np.newaxis]
-                chi_GG /= K_G * K_G[:, np.newaxis]
+                chi0_GG /= vsqr_G * vsqr_G[:, np.newaxis]
+                chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
             chi_wGG.append(chi_GG)
             
         return pd, chi0_wGG, np.array(chi_wGG)
   
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
-                              calculate_chi=False, q0=None,
+                              calculate_chi=False, q_inf=None,
                               add_intraband=True):
         """Returns the symmetrized dielectric matrix.
         
@@ -312,17 +308,24 @@ class DielectricFunction:
             
             In RPA:   P = chi^0
             In TDDFT: P = (1 - chi^0 * f_xc)^{-1} chi^0
+
+        in addition to RPA one can use the kernels, ALDA, rALDA, rAPBE,
+        Bootstrap and LRalpha (long-range kerne), where alpha is a user 
+        specified parameter (for example xc='LR0.25')
         
         The head of the inverse symmetrized dielectric matrix is equal
         to the head of the inverse dielectric matrix (inverse dielectric
-        function)
-        """
+        function)"""
+
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
-        G_G = pd.G2_qG[0]**0.5
-        nG = len(G_G)
+        N_c = self.chi0.calc.wfs.kd.N_c
+        K_G = get_coulomb_kernel(pd,
+                                 N_c,
+                                 truncation=self.truncation, 
+                                 q_inf=q_inf)**0.5
+        nG = len(K_G)
 
         if pd.kd.gamma:
-            G_G[0] = 1.0
             if isinstance(direction, str):
                 d_v = {'x': [1, 0, 0],
                        'y': [0, 1, 0],
@@ -336,12 +339,11 @@ class DielectricFunction:
                 chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
                 chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
                 chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
-            if q0 is not None:
+            if q_inf is not None:
                 print('Restoring q dependence of head and wings of chi0')
-                chi0_wGG[:, 1:, 0] *= q0
-                chi0_wGG[:, 0, 1:] *= q0
-                chi0_wGG[:, 0, 0] *= q0**2
-                G_G[0] = q0
+                chi0_wGG[:, 1:, 0] *= q_inf
+                chi0_wGG[:, 0, 1:] *= q_inf
+                chi0_wGG[:, 0, 0] *= q_inf**2
                     
         if self.truncation == 'wigner-seitz':
             kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv,
@@ -349,20 +351,12 @@ class DielectricFunction:
             K_G = kernel.get_potential(pd)**0.5
             if pd.kd.gamma:
                 K_G[0] = 0.0
-        elif self.truncation == '2D':
-            K_G = truncated_coulomb(pd, q0=q0)
-            if pd.kd.gamma and q0 is None:
-                K_G[0] = 0.0
-        else:
-            K_G = (4 * pi)**0.5 / G_G
 
         if xc != 'RPA':
-            R_av = self.chi0.calc.atoms.positions / Bohr
-            nt_sG = self.chi0.calc.density.nt_sG
-            Kxc_sGG = calculate_Kxc(pd, nt_sG, R_av,
-                                    self.chi0.calc.wfs.setups,
-                                    self.chi0.calc.density.D_asp,
-                                    functional=xc)
+            Kxc_sGG = get_xc_kernel(pd,
+                                    self.chi0,
+                                    functional=xc,
+                                    chi0_wGG=chi0_wGG)
 
         if calculate_chi:
             chi_wGG = []
@@ -395,14 +389,14 @@ class DielectricFunction:
             # chi_wGG is the full density response function..
             return pd, chi0_wGG, np.array(chi_wGG)
 
-    def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0],
+    def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0], q_inf=None,
                                 direction='x', filename='df.csv'):
         """Calculate the dielectric function.
 
         Returns dielectric function without and with local field correction:
         df_NLFC_w, df_LFC_w = DielectricFunction.get_dielectric_function()
         """
-        e_wGG = self.get_dielectric_matrix(xc, q_c, direction)
+        e_wGG = self.get_dielectric_matrix(xc, q_c, direction, q_inf=q_inf)
         df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
         df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
 
@@ -424,7 +418,7 @@ class DielectricFunction:
                 
         return df_NLFC_w, df_LFC_w
 
-    def get_macroscopic_dielectric_constant(self, xc='RPA', direction='x'):
+    def get_macroscopic_dielectric_constant(self, xc='RPA', direction='x', q_inf=None):
         """Calculate macroscopic dielectric constant.
         
         Returns eM_NLFC and eM_LFC.
@@ -447,7 +441,8 @@ class DielectricFunction:
         df_NLFC_w, df_LFC_w = self.get_dielectric_function(
             xc=xc,
             filename=None,
-            direction=direction)
+            direction=direction,
+            q_inf=q_inf)
         eps0 = np.real(df_NLFC_w[0])
         eps = np.real(df_LFC_w[0])
         print('  %s direction' % direction, file=fd)
@@ -492,47 +487,8 @@ class DielectricFunction:
             
         return eels_NLFC_w, eels_LFC_w
 
-    def get_absorption_spectrum(self, xc='RPA', q_c=[0, 0, 0],
-                                direction='x', filename='abs.csv'):
-        """Calculate absorption spectrum. By default, generate a file
-        'abs.csv'.
-
-        The absorption spectrum is obtained from the imaginary part of the
-        polarizability as, Abs(\omega) = - 4 * \pi / q^2 Im \chi.
-        Returns absorption spectrum without and with local field corrections:
-
-        df_NLFC_w, df_LFC_w = DielectricFunction.get_absorption_spectrum()
-        """
         
-        # Calculate V^1/2 \chi V^1/2
-        pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c, 
-                                               direction=direction)
-        Nw = self.omega_w.shape[0]
-
-        # Calculate abs = - 4 \pi / q^2 Im \chi0
-        if pd.kd.gamma:
-            abs_NLFC_w = - (Vchi0_wGG[:, 0, 0]).imag
-            abs_LFC_w = - (Vchi_wGG[:, 0, 0]).imag
-        else:
-            abs_NLFC_w = - (Vchi0_wGG[:, 0, 0]).imag
-            abs_LFC_w = (1. / (1 + Vchi_wGG[:, 0, 0])).imag
-       
-        abs_NLFC_w = self.collect(abs_NLFC_w)
-        abs_LFC_w = self.collect(abs_LFC_w)
-        
-        # Write to file
-        if filename is not None and mpi.rank == 0:
-            fd = open(filename, 'w')
-            print('# energy, abs_NLFC_w, abs_LFC_w', file=fd)
-            for iw in range(Nw):
-                print('%.6f, %.6f, %.6f' %
-                      (self.chi0.omega_w[iw] * Hartree,
-                       abs_NLFC_w[iw], abs_LFC_w[iw]), file=fd)
-            fd.close()
-
-        return abs_NLFC_w, abs_LFC_w
-        
-    def get_polarizability(self, xc='RPA', direction='x',
+    def get_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
                            filename='polarizability.csv', pbc=None):
         """Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
@@ -559,17 +515,31 @@ class DielectricFunction:
             V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
 
         if not self.truncation:
-            # Without truncation alpha is simply related to eps_M
-            df0_w, df_w = self.get_dielectric_function(xc=xc, q_c=[0, 0, 0],
+            """Standard expression for the polarizability"""
+            df0_w, df_w = self.get_dielectric_function(xc=xc,
+                                                       q_c=q_c,
                                                        filename=None,
                                                        direction=direction)
             alpha_w = V * (df_w - 1.0) / (4 * pi)
             alpha0_w = V * (df0_w - 1.0) / (4 * pi)
         else:
-            # With truncation we need to calculate \chit = v^0.5*chi*v^0.5
-            print('Using truncated Coulomb interaction',
-                  file=self.chi0.fd)
-            pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, direction=direction)
+            """Since eps_M = 1.0 for a truncated Coulomb interaction, it does
+            not make sense to apply it here. Instead one should define the
+            polarizability by
+
+                alpha * eps_M = -L / (4 * pi) * <v_ind>
+
+            where <v_ind> = 4 * pi * \chi / q^2 is the averaged induced 
+            potential (relative to the strength of the  external potential). 
+            With the bare Coulomb potential, this expression is equivalent to 
+            the standard one. In a 2D system \chi should be calculated with a 
+            truncated Coulomb potential and eps_M = 1.0"""
+
+            print('Using truncated Coulomb interaction', file=self.chi0.fd)
+
+            pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc,
+                                                 q_c=q_c,
+                                                 direction=direction)
             alpha_w = -V * (chi_wGG[:, 0, 0]) / (4 * pi)
             alpha0_w = -V * (chi0_wGG[:, 0, 0]) / (4 * pi)
 

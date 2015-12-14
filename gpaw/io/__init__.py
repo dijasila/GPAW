@@ -418,12 +418,14 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     for s in range(wfs.nspins):
         if hdf5:
+            # XXXXXXX must work with density/hamiltonian redist changes
+            # Maybe the easiest solution is to simply redist to wfs.gd
             do_write = (kpt_comm.rank == 0) and (band_comm.rank == 0)
-            indices = [s] + wfs.gd.get_slice()
+            indices = [s] + density.gd.get_slice()
             w.fill(density.nt_sG[s], parallel=parallel, write=do_write,
                    *indices)
-        elif kpt_comm.rank == 0:
-            nt_sG = wfs.gd.collect(density.nt_sG[s])
+        else:
+            nt_sG = density.gd.collect(density.nt_sG[s])
             if master:
                 w.fill(nt_sG, s)
     timer.stop('Pseudo-density')
@@ -435,12 +437,14 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
 
     for s in range(wfs.nspins):
         if hdf5:
+            # XXXXXXX must work with density/hamiltonian redist changes
+            # Maybe the easiest solution is to simply redist to wfs.gd
             do_write = (kpt_comm.rank == 0) and (band_comm.rank == 0)
-            indices = [s] + wfs.gd.get_slice()
+            indices = [s] + hamiltonian.gd.get_slice()
             w.fill(hamiltonian.vt_sG[s], parallel=parallel, write=do_write,
                    *indices)
-        elif kpt_comm.rank == 0:
-            vt_sG = wfs.gd.collect(hamiltonian.vt_sG[s])
+        else:
+            vt_sG = hamiltonian.gd.collect(hamiltonian.vt_sG[s])
             if master:
                 w.fill(vt_sG, s)
     timer.stop('Pseudo-potential')
@@ -762,9 +766,15 @@ def read(paw, reader, read_projections=True):
     except (AttributeError, KeyError):
         oldmode = 'fd'  # This is an old gpw file from before lcao existed
         
+    spos_ac = paw.atoms.get_scaled_positions() % 1.0
     if newmode == 'lcao':
-        spos_ac = paw.atoms.get_scaled_positions() % 1.0
         wfs.load_lazily(hamiltonian, spos_ac)
+
+    rank_a = density.gd.get_ranks_from_positions(spos_ac)
+    new_atom_partition = AtomPartition(density.gd.comm, rank_a)
+    for obj in [density, hamiltonian]:
+        obj.set_positions_without_ruining_everything(spos_ac,
+                                                     new_atom_partition)
 
     if newmode != oldmode:
         paw.scf.reset()

@@ -52,13 +52,14 @@ class KSSingles(ExcitationList):
                  txt=None):
 
         self.eps = None
+        self.world = mpi.world
 
         if isinstance(calculator, str):
-            filehandle = open(calculator)
+            return self.read(calculator, 
+                             istart=istart, jend=jend)
         if filehandle is not None:
-            self.world = mpi.world
-            self.read(fh=filehandle, istart=istart, jend=jend)
-            return None
+            return self.read(fh=filehandle,
+                             istart=istart, jend=jend)
 
         # LCAO calculation requires special actions
         if calculator is not None:
@@ -84,6 +85,8 @@ class KSSingles(ExcitationList):
         self.select(nspins, eps, istart, jend, energy_range)
 
         trkm = self.get_trk()
+        print(file=self.txt)
+        print('KSS %d transitions' % len(self), file=self.txt)
         print('KSS TRK sum %g (%g,%g,%g)' %
               (np.sum(trkm) / 3., trkm[0], trkm[1], trkm[2]), file=self.txt)
         pol = self.get_polarizabilities(lmax=3)
@@ -147,7 +150,7 @@ class KSSingles(ExcitationList):
                     kpt = self.kpt_u[myks]
                     for i in range(nbands):
                         for j in range(i + 1, nbands):
-                            fij = kpt.f_n[i] - kpt.f_n[j]
+                            fij = (kpt.f_n[i] - kpt.f_n[j]) / kpt.weight
                             epsij = kpt.eps_n[j] - kpt.eps_n[i]
                             if (fij > eps and
                                 epsij >= emin and epsij < emax and

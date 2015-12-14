@@ -8,13 +8,6 @@ import numpy as np
 from gpaw.setup_data import search_for_file
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 
-try:
-    import gzip
-except ImportError:
-    has_gzip = False
-else:
-    has_gzip = True
-
 
 def parse_basis_name(name):
     """Parse any basis type identifier: 'sz', 'dzp', 'qztp', '4z3p', ... """

@@ -39,9 +39,9 @@ To append use the form
 # Warning! At least scalapack 2.0.1 is required!
 # See https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
 if scalapack:
-    libraries += ['scalapack',
-                  'blacsCinit',
-                  'blacs']
+    libraries += ['scalapack-openmpi',
+                  'blacsCinit-openmpi',
+                  'blacs-openmpi']
     define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
     define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
 

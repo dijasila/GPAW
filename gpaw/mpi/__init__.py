@@ -533,6 +533,7 @@ class _Communicator:
             return self.comm.translate_ranks(other.comm, ranks) # argh!
         otherranks = self.comm.translate_ranks(other.get_c_object(), ranks)
         assert all(-1 <= rank for rank in otherranks)
+        assert ranks.dtype == otherranks.dtype
         return otherranks
         
     def get_members(self):
@@ -698,6 +699,12 @@ if debug:
 size = world.size
 rank = world.rank
 parallel = (size > 1)
+try:
+    world.get_c_object()
+except NotImplementedError:
+    have_mpi = False
+else:
+    have_mpi = True
 
 
 # XXXXXXXXXX for easier transition to Parallelization class

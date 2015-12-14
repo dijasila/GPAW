@@ -10,13 +10,11 @@ from ase.visualize import view
 from ase.units import Bohr
 from ase.lattice.surface import *
 from ase.parallel import paropen
+from ase.parallel import parprint
 from gpaw import GPAW
 from gpaw.mpi import serial_comm, rank, size
 from gpaw.utilities import devnull
 from gpaw.response.df0 import DF
-
-if rank != 0:
-  sys.stdout = devnull 
 
 GS = 1
 EELS = 1
@@ -77,5 +75,5 @@ if check:
 
     if (np.abs(d[Nw1, 1] - 10.1346526489) > 1e-2
         or np.abs(d[Nw2, 1] - 2.17958316492 ) > 1e-2):
-        print(d[Nw1, 1], d[Nw2, 1])
+        parprint(d[Nw1, 1], d[Nw2, 1])
         raise ValueError('Please check spectrum strength ! ')

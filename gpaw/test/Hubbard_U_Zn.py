@@ -2,12 +2,12 @@ from __future__ import print_function
 from ase import Atom
 from ase.units import Hartree
 
-from gpaw import GPAW, FermiDirac
+from gpaw import GPAW, FermiDirac, Davidson, PoissonSolver
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 
-h =.3
-box = 4.
+h =.35
+box = 3.
 energy_tolerance = 0.0004
 
 s = Cluster([Atom('Zn')])
@@ -17,7 +17,10 @@ E = {}
 E_U = {}
 for spin in [0, 1]:
     c = GPAW(h=h, spinpol=spin,
-             eigensolver='cg',
+             xc='oldLDA',
+             mode='lcao', basis='sz(dzp)',
+             poissonsolver=PoissonSolver(relax='GS', eps=1e-7),
+             parallel=dict(kpt=1),
              charge=1, occupations=FermiDirac(width=0.1, fixmagmom=spin)
              )
     s.set_calculator(c)

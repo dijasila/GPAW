@@ -60,7 +60,41 @@ Building from trunk
 In case that you need a newer version than is installed, you might want 
 to install gpaw yourself.
 
-We first create a place for gpaw and get the trunk version::
+We first get ASE trunk::
+
+  cd
+  ASE_SOURCE=$PWD/source/ase
+  mkdir -p $ASE_SOURCE
+  cd $ASE_SOURCE
+  git clone https://gitlab.com/ase/ase.git trunk
+
+which can be updated using::
+
+  cd $ASE_SOURCE/trunk
+  git pull
+
+We add our installation to the module environment::
+
+  cd
+  mkdir -p modulefiles/ase
+  cd modulefiles/ase
+
+and edit the module file  :file:`trunk` that should read::
+
+  #%Module
+
+  if {![is-loaded intel-para]} {module load intel-para}
+  if {![is-loaded Python/2.7.10]} {module load Python/2.7.10}
+
+  # change this to your $HOME
+  set HOME /homec/hfr04/hfr047
+
+  set asehome $HOME/source/ase/trunk
+
+  prepend-path       PYTHONPATH    $asehome
+  prepend-path       PATH          $asehome/tools
+
+We create a place for gpaw and get the trunk version::
 
   cd
   GPAW_SOURCE=$PWD/source/gpaw
@@ -73,11 +107,11 @@ The current trunk version can then be updated by::
   cd $GPAW_SOURCE/trunk
   svn up
 
-We use the installed versions of ASE and libxc::
+We use the installed version of libxc and our ase/trunk::
 
   module load intel-para
-  module load ASE
   module load libxc
+  module load ase/trunk
 
 and install using
 :svn:`~doc/install/Linux/customize_jureca.py`::
@@ -87,27 +121,28 @@ and install using
   cp customize_jureca.py customize.py
   python setup.py install --prefix=$PWD/install
 
-It is very handy to add our installation to the module environment::
+We add this also to the module environment::
 
   cd
   mkdir -p modulefiles/gpaw
+  cd modulefiles/gpaw
   
 and the module file  :file:`trunk` should read::
 
   #%Module1.0
 
-  if {![is-loaded intel-para]} {module load intel-para}
-  if {![is-loaded ASE]} {module load ASE}
+  if {![is-loaded ase/trunk]} {module load ase/trunk}
   if {![is-loaded libxc]} {module load libxc}
   if {![is-loaded gpaw-setups]}  {module load gpaw-setups}
 
   # change this to your $HOME
-  set HOME /homea/hfr08/hfr080
+  set HOME /homec/hfr04/hfr047
 
   set gpawhome $HOME/source/gpaw/trunk/install
   prepend-path    PATH                 $gpawhome/bin
-  prepend-path    PYTHONPATH           $gpawhome/lib/python2.7/site-packages/
+  prepend-path    PYTHONPATH           $gpawhome/lib/python
   setenv          GPAW_PYTHON          $gpawhome/bin/gpaw-python
+
 
 Execution
 =========

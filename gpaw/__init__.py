@@ -41,6 +41,7 @@ dry_run = 0
 memory_estimate_depth = 2
 parsize_domain = None
 parsize_bands = None
+augment_grids = False
 sl_default = None
 sl_diagonalize = None
 sl_inverse_cholesky = None
@@ -77,6 +78,8 @@ while len(sys.argv) > i:
             assert len(parsize_domain) == 3
     elif arg.startswith('--state-parallelization='):
         parsize_bands = int(arg.split('=')[1])
+    elif arg.startswith('--augment-grids='):
+        augment_grids = bool(int(arg.split('=')[1]))
     elif arg.startswith('--sl_default='):
         # --sl_default=nprow,npcol,mb,cpus_per_node
         # use 'd' for the default of one or more of the parameters
@@ -248,9 +251,9 @@ def restart(filename, Class=GPAW, **kwargs):
 if trace:
     indent = '    '
     path = __path__[0]
-    from gpaw.mpi import parallel, rank
-    if parallel:
-        indent = 'CPU%d    ' % rank
+    from gpaw.mpi import world
+    if world.size > 1:
+        indent = 'CPU%d    ' % world.rank
 
     def f(frame, event, arg):
         global indent

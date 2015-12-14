@@ -53,7 +53,7 @@ class ConstantPotential(ExternalPotential):
     
         
 class ConstantElectricField(ExternalPotential):
-    def __init__(self, strength, direction=[0, 0, 1]):
+    def __init__(self, strength, direction=[0, 0, 1], tolerance=1e-7):
         """External constant electric field.
         
         strength: float
@@ -61,24 +61,32 @@ class ConstantElectricField(ExternalPotential):
         direction: vector
             Polarisation direction.
         """
-        d = np.asarray(direction)
-        self.field = strength * d / (d**2).sum()**0.5 * Bohr / Hartree
-
+        d_v = np.asarray(direction)
+        self.field_v = strength * d_v / (d_v**2).sum()**0.5 * Bohr / Hartree
+        self.tolerance = tolerance
+        
     def __str__(self):
         return ('Constant electric field: '
                 '({0:.3f}, {1:.3f}, {2:.3f}) eV/Ang'
-                .format(*(self.field * Hartree / Bohr)))
+                .format(*(self.field_v * Hartree / Bohr)))
 
     def calculate_potential(self, gd):
-        assert not gd.pbc_c.any()
+        d_v = self.field_v / (self.field_v**2).sum()**0.5
+        for axis_v in gd.cell_cv[gd.pbc_c]:
+            if abs(np.dot(d_v, axis_v)) > self.tolerance:
+                raise ValueError(
+                    'Field not perpendicular to periodic axis: {0}'
+                    .format(axis_v))
+                
         center_v = 0.5 * gd.cell_cv.sum(0)
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-        self.vext_g = np.dot(r_gv - center_v, self.field)
+        self.vext_g = np.dot(r_gv - center_v, self.field_v)
         
     def todict(self):
+        strength = (self.field_v**2).sum()**0.5
         return {'name': 'ConstantElectricField',
-                'kwargs': {'strength': Hartree / Bohr,
-                           'direction': self.field}}
+                'kwargs': {'strength': strength * Hartree / Bohr,
+                           'direction': self.field_v / strength}}
 
 
 class PointChargePotential(ExternalPotential):

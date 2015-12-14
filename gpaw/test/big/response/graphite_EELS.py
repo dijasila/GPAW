@@ -19,8 +19,6 @@ from gpaw.response.df0 import DF
 from gpaw.utilities import devnull
 
 
-if rank != 0:
-    sys.stdout = devnull 
 
 GS = 1
 EELS = 1

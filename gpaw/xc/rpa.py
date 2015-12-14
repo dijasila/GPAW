@@ -76,7 +76,6 @@ class RPACorrelation:
 
         if nblocks > 1:
             assert len(self.omega_w) % nblocks == 0
-            assert wstc
 
         self.wstc = wstc
         self.nblocks = nblocks
@@ -174,7 +173,7 @@ class RPACorrelation:
 
         chi0 = Chi0(self.calc, 1j * Hartree * self.omega_w, eta=0.0,
                     intraband=False, hilbert=False,
-                    txt=self.fd, timer=self.timer, world=self.world,
+                    txt='chi0.txt', timer=self.timer, world=self.world,
                     no_optical_limit=self.wstc,
                     nblocks=self.nblocks)
 
@@ -313,11 +312,15 @@ class RPACorrelation:
             print('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
         else:
+            nw = len(self.omega_w)
+            mynw = nw // self.nblocks
+            w1 = self.blockcomm.rank * mynw
+            w2 = w1 + mynw
             e = 0.0
             for v in range(3):
-                chi0_wGG[:, 0] = chi0_wxvG[:, 0, v]
-                chi0_wGG[:, :, 0] = chi0_wxvG[:, 1, v]
-                chi0_wGG[:, 0, 0] = chi0_wvv[:, v, v]
+                chi0_wGG[:, 0] = chi0_wxvG[w1:w2, 0, v]
+                chi0_wGG[:, :, 0] = chi0_wxvG[w1:w2, 1, v]
+                chi0_wGG[:, 0, 0] = chi0_wvv[w1:w2, v, v]
                 ev = self.calculate_energy(pd, chi0_wGG, cut_G)
                 e += ev
                 print('%.3f' % (ev * Hartree), end='', file=self.fd)

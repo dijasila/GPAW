@@ -21,7 +21,8 @@ class HirshfeldDensity(RealSpaceDensity):
         density = calculator.density
         par = self.calculator.input_parameters
         RealSpaceDensity.__init__(self, density.gd, density.finegd, 1, 0,
-                                  stencil=par.stencils[1])
+                                  stencil=par.stencils[1],
+                                  grid2grid=density.grid2grid)
 
     def set_positions(self, spos_ac, atom_partition):
         """HirshfeldDensity builds a hack density object to calculate
@@ -30,6 +31,8 @@ class HirshfeldDensity(RealSpaceDensity):
         atomic density matrices
         in density.py"""
         self.atom_partition = atom_partition
+        self.atomic_matrix_distributor = self.grid2grid.get_matrix_distributor(
+            self.atom_partition, spos_ac)
         self.nct.set_positions(spos_ac)
         self.ghat.set_positions(spos_ac)
         self.mixer.reset()

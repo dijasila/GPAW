@@ -115,7 +115,6 @@ class Heterostructure:
 
         # arange potential and density
         self.chi_monopole = np.array(chi_monopole)
-
         if include_dipole:
             self.chi_dipole = np.array(chi_dipole)
         self.drho_monopole, self.drho_dipole, self.basis_array, \
@@ -123,8 +122,6 @@ class Heterostructure:
         
         self.dphi_array = self.get_induced_potentials()
         self.kernel_qij = None
-
-        
 
     def arange_basis(self, drhom, drhod=None):
         from scipy.interpolate import interp1d
@@ -293,11 +290,7 @@ class Heterostructure:
                 else:  # Normal kernel
                     kernel_qij[iq] = np.dot(self.drho_array[:, iq],
                                             self.dphi_array[:, iq].T) * self.dz
-            if self.chi_dipole is not None:
-                for j in range(self.n_layers):
-                    kernel_qij[iq, 2 * j, 2 * j + 1] = 0
-                    kernel_qij[iq, 2 * j + 1, 2 * j] = 0
-                    
+           
         return kernel_qij
     
     def get_chi_matrix(self):
@@ -325,9 +318,9 @@ class Heterostructure:
                                             chi_d_iqw[self.layer_indices,
                                                       iq, iw])
                 chi_intra_ij = np.diag(chi_intra_i)
-                chi_qwij[iq, iw] = np.dot(np.linalg.inv(
+                chi_qwij[iq, iw, :, :] = np.dot(np.linalg.inv(
                         np.eye(self.dim) - np.dot(chi_intra_ij, kernel_ij)),
-                                          chi_intra_ij)
+                                                chi_intra_ij)
   
         return chi_qwij
 
@@ -345,45 +338,13 @@ class Heterostructure:
         for iq in range(len(self.q_abs)):
             kernel_ij = self.kernel_qij[iq]
             for iw in range(0, len(self.frequencies)):
-                eps_qwij[iq, iw] = np.linalg.inv(
+                eps_qwij[iq, iw, :, :] = np.linalg.inv(
                     np.eye(kernel_ij.shape[0]) + np.dot(kernel_ij,
-                                                        chi_qwij[iq, iw]))
+                                                        chi_qwij[iq, iw,
+                                                                 :, :]))
       
         return eps_qwij
     
-    def get_screened_potential(self, layer=0):
-        """
-        get the screened interaction averaged over layer "k":
-        W_{kk}(q, w) = \sum_{ij} V_{ki}(q) \chi_{ij}(q, w) V_{jk}(q) 
-        
-        parameters:
-        layer: int
-            index of layer to calculate the screened interaction for.
-
-        returns: W(q,w) 
-        """
-        self.kernel_qij =\
-            self.get_Coulomb_Kernel(step_potential=True)
-        #print(self.kernel_qij[0])
-        chi_qwij = self.get_chi_matrix()
-        #print(chi_qwij[0,0])
-        W_qw = np.zeros((len(self.q_abs), len(self.frequencies)), 
-                        dtype=complex)
-
-        W0_qw = np.zeros((len(self.q_abs), len(self.frequencies)), 
-                         dtype=complex)
-        k = layer
-        if self.chi_dipole is not None:
-            k *= 2
-        for iq in range(len(self.q_abs)):
-            kernel_ij = self.kernel_qij[iq]
-            for iw in range(0, len(self.frequencies)):
-                W_qw[iq, iw] = np.dot(np.dot(kernel_ij[k], chi_qwij[iq, iw]),
-                                      kernel_ij[:,k])
-                W0_qw[iq, iw] = kernel_ij[k, k]**2 * chi_qwij[iq, iw, k, k]
-                
-        return self.kernel_qij[:, k, k], W_qw  
-        
     def get_exciton_screened_potential(self, e_distr, h_distr):
         v_screened_qw = np.zeros((len(self.q_abs),
                                   len(self.frequencies)))
@@ -401,8 +362,7 @@ class Heterostructure:
                         
         return self.q_abs, -v_screened_qw[:,0]
 
-    def get_exciton_screened_potential_r(self, r_array, e_distr=None, 
-                                         h_distr=None,Wq_name=None):
+    def get_exciton_screened_potential_r(self, r_array, e_distr=None, h_distr=None,Wq_name=None):
         if Wq_name is not None:
             q_abs,W_q = pickle.load(open(Wq_name))
         else:
@@ -412,10 +372,10 @@ class Heterostructure:
         if self.n_layers==1:
             layer_thickness = self.s[0]
         elif len(e_distr)==self.n_layers:
-            ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])
+            ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])//2
             layer_thickness=self.d[ilayer]
         else:
-            ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])/2
+            ilayer = np.min([np.where(e_distr==1)[0][0],np.where(h_distr==1)[0][0]])//4
             layer_thickness=self.d[ilayer]
             
         W_q *= q_temp

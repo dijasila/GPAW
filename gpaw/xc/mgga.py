@@ -25,8 +25,8 @@ class MGGA(GGA):
         self.tauct = density.get_pseudo_core_kinetic_energy_density_lfc()
         self.tauct_G = None
         self.dedtaut_sG = None
-        self.restrict = hamiltonian.restrict
-        self.interpolate = density.interpolate
+        self.restrict_and_collect = hamiltonian.restrict_and_collect
+        self.distribute_and_interpolate = density.distribute_and_interpolate
 
     def set_positions(self, spos_ac):
         self.tauct.set_positions(spos_ac)
@@ -52,12 +52,12 @@ class MGGA(GGA):
                 nt_ok = np.where(nt_sg[s] > 1e-7)
                 ntinv_g[nt_ok] = 1.0 / nt_sg[s][nt_ok]
                 taut_g *= ntinv_g
-                self.restrict(taut_g, taut_sG[s])
+                self.restrict_and_collect(taut_g, taut_sG[s])
 
         taut_sg = np.empty_like(nt_sg)
         for taut_G, taut_g in zip(taut_sG, taut_sg):
             taut_G += 1.0 / self.wfs.nspins * self.tauct_G
-            self.interpolate(taut_G, taut_g)
+            self.distribute_and_interpolate(taut_G, taut_g)
 
         dedtaut_sg = np.empty_like(nt_sg)
 
@@ -66,13 +66,13 @@ class MGGA(GGA):
         self.dedtaut_sG = self.wfs.gd.empty(self.wfs.nspins)
         self.ekin = 0.0
         for s in range(self.wfs.nspins):
-            self.restrict(dedtaut_sg[s], self.dedtaut_sG[s])
+            self.restrict_and_collect(dedtaut_sg[s], self.dedtaut_sG[s])
             self.ekin -= self.wfs.gd.integrate(
                 self.dedtaut_sG[s] * (taut_sG[s] -
                                       self.tauct_G / self.wfs.nspins))
 
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
-                                            Htpsit_xG, dH_asp):
+                                            Htpsit_xG, dH_asp=None):
         self.wfs.apply_mgga_orbital_dependent_hamiltonian(
             kpt, psit_xG,
             Htpsit_xG, dH_asp,
@@ -179,7 +179,7 @@ class MGGA(GGA):
                     tau_ypg[y, p, :] += temp
                     p += 1
                 i1 += 1
-        ##first term
+        # first term
         for y in range(ny):
             i1 = 0
             p = 0
@@ -322,7 +322,6 @@ def get_alpha(n, sigma, tau):
 
     # z and alpha
     tau_ = np.maximum(tau_w, tau)
-    z = np.divide(tau_w, tau_)
     alpha = np.divide(tau_ - tau_w, tau_lsda)
     assert(alpha.all() >= 0.0)
     return alpha
@@ -361,12 +360,13 @@ def legendre_polynomial(x, orders, coefs, P=None):
         for i in range(max_order):
             i += 2
             L[:, i] = (2.0 * x[:] * L[:, i - 1] - L[:, i - 2]
-                - (x[:] * L[:, i - 1] - L[:, i - 2]) / i)
+                       - (x[:] * L[:, i - 1] - L[:, i - 2]) / i)
     else:
         for i in range(max_order):
             i += 2
             L[:, :, :, i] = (2.0 * x[:] * L[:, :, :, i - 1] - L[:, :, :, i - 2]
-                - (x[:] * L[:, :, :, i - 1] - L[:, :, :, i - 2]) / i)
+                             - (x[:] * L[:, :, :, i - 1] - L[:, :, :, i - 2])
+                             / i)
 
     # building polynomium P
     coefs_ = np.empty(max_order + 1)

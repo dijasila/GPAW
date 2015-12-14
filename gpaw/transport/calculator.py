@@ -289,7 +289,7 @@ class Transport(GPAW):
                 self.scat_ntk = 1
         self.gpw_kwargs['kpts'] = kpts[:2] + (1,)
         if 'parallel' in self.gpw_kwargs:
-            pass
+            self.gpw_kargs['parallel']['augment_grids'] = False
         else:
             npk = np.product(kpts[:2])
             nibpzk = (npk + npk % 2) // 2
@@ -297,7 +297,8 @@ class Transport(GPAW):
             n_kpt_comm = gcd(nibpzk, world.size)
             self.gpw_kwargs['parallel'] = {'kpt': n_kpt_comm,
                                            'domain': None,
-                                           'band': 1}
+                                           'band': 1,
+                                           'augment_grids': False}
         # ! THa: Hack:
         # ! Also save the the parameters
         # !'plot_energy_range' and for later analysis 'plot_energy_point_num'
@@ -2369,7 +2370,7 @@ class Transport(GPAW):
             vt_g += ham.vHt_g
             ham.restrict(vt_g, vt_G)
         self.surround.refresh_vt_sG(self)
-        
+
         nn = self.surround.nn
         vt_sG = self.surround.uncapsule(self, nn, ham.vt_sG, self.gd1, self.gd)
         for vt_G, nt_G in zip(vt_sG, density.nt_sG):

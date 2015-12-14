@@ -378,7 +378,7 @@ class DF(CHI):
     
             if self.xc == 'Bootstrap':
                 # bootstrap doesnt support all direction spectra yet
-                from gpaw.response.fxc import Bootstrap
+                from gpaw.response.bootstrap import Bootstrap
                 Kc_GG = np.zeros((self.npw, self.npw))
                 q_c = np.diag((1, 1, 1))[dir] * self.qopt
 
