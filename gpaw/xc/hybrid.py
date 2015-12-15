@@ -18,7 +18,7 @@ from gpaw.atom.configurations import core_states
 from gpaw.lfc import LFC
 from gpaw.utilities.blas import gemm
 from gpaw.gaunt import gaunt
-from math import exp
+from math import exp, ceil
 
 
 class HybridXCBase(XCFunctional):
@@ -228,7 +228,7 @@ class HybridXC(HybridXCBase):
                 y_vt_G = self.gd.empty()
 
         self.lumo_pot = self.gd.empty()
-        nocc = int(kpt.f_n.sum()) // (3 - self.nspins)
+        nocc = int(ceil(kpt.f_n.sum())) // (3 - self.nspins)
         if self.excitation is not None:
             homo = nocc - self.excited - 1  # not my homo
             if self.excitation == 'singlet':
