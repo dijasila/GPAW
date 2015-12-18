@@ -209,6 +209,7 @@ tests = [
     'generic/Cl_minus.py',                  # ~4s
     'vdw/ts09.py',                          # ~4s
     'lrtddft/pes.py',                       # ~4s
+##    'ase_read.py',                          # ~4s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
