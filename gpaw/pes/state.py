@@ -89,7 +89,7 @@ class H1s(State):
         elif form == 'V':
             pre = 1j
         else:
-            raise NonImplementedError
+            raise NotImplementedError
         return pre * k_c * self.FT(k)
 
     def get_ds(self, Ekin, form='L', units='Mb'):
