@@ -12,13 +12,13 @@ setup_paths.insert(0, '.')
 h = 0.18
 a = 12.00
 c = a/2
- 
+
 # XC functional + kinetic functional (minus the Tw contribution) to be used
 xcname = '1.0_LDA_K_TF+1.0_LDA_X+1.0_LDA_C_PW'
- 
+
 # Fraction of Tw
 lambda_coeff = 1.0
- 
+
 name = 'lambda_{0}'.format(lambda_coeff)
 
 filename = 'atoms_'+name+'.dat'
@@ -29,17 +29,17 @@ elements = ['N']
 
 for symbol in elements:
     mixer = Mixer()
-     
+
     eigensolver = CG(tw_coeff=lambda_coeff)
     
     poissonsolver=PoissonSolver()
-    molecule = Atoms(symbol, 
+    molecule = Atoms(symbol,
                      positions=[(c,c,c)] ,
                      cell=(a,a,a))
     
-    calc = GPAW(h=h, 
+    calc = GPAW(h=h,
                 xc=xcname,
-                maxiter=240, 
+                maxiter=240,
                 eigensolver=eigensolver,
                 mixer=mixer,
                 setups=name,
