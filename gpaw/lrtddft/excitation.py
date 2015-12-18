@@ -170,7 +170,7 @@ class Excitation:
             # pre = 471.43
             # From TurboMole
             pre = 64604.8164
-        elif uints == 'a.u.':
+        elif units == 'a.u.':
             pre = 1.
         else:
             raise RuntimeError('Unknown units >' + units + '<')
