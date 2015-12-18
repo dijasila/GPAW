@@ -692,7 +692,7 @@ class AllElectronAtom:
                 n_g = ch.calculate_density(n)
                 rave = self.rgd.integrate(n_g, 1)
                 gave = self.rgd.round(rave)
-                fr_g *= cmp(fr_g[gave], 0)
+                fr_g *= np.sign(fr_g[gave], 0)
                 plt.plot(self.rgd.r_g, fr_g,
                          ls=ls, lw=lw, color=colors[n + ch.l], label=name)
 
