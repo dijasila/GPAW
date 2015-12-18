@@ -7,7 +7,6 @@ import numpy as np
 
 import gpaw.mpi as mpi
 from gpaw.output import get_txt
-from ase.units import A, m, s, Bohr, _aut, C
 
 
 class ExcitationList(list):
@@ -62,7 +61,7 @@ class ExcitationList(list):
         return self.__mul__(1. / x)
 
     __div__ = __truediv__
-    
+
     def __rmul__(self, x):
         return self.__mul__(x)
 
