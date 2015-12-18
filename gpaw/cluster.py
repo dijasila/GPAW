@@ -135,7 +135,7 @@ class Cluster(Atoms):
         """General get"""
         attr = 'get_' + name
         if hasattr(self, attr):
-            getattr(self, attr)(data)
+            getattr(self, attr)()
         elif name in self.data:
             return self.data[name]
         else:
