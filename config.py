@@ -434,16 +434,6 @@ def get_parallel_config(mpi_libraries, mpi_library_dirs, mpi_include_dirs,
     return mpicompiler
 
     
-def get_scalapack_config(define_macros):
-    # check ScaLapack settings
-    define_macros.append(('GPAW_WITH_SL', '1'))
-
-    
-def get_hdf5_config(define_macros):
-    # check ScaLapack settings
-    define_macros.append(('GPAW_WITH_HDF5', '1'))
-
-
 def mtime(path, name, mtimes):
     """Return modification time.
 
