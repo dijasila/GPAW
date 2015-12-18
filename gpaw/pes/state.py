@@ -1,14 +1,12 @@
-from math import exp, sin, cos, pi, sqrt, acos, asin
+from math import exp, pi, sqrt
 
 import numpy as np
 
 from ase.units import Bohr, Hartree, alpha
-import _gpaw
 from gpaw.pes import ds_prefactor
 
 
 class State:
-
     """Electronic state base class."""
 
     def __init__(self, gd):
