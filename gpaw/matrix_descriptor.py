@@ -571,11 +571,12 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
 
         if q2 == self.bd.comm.rank: #XXX must evaluate the same on all ranks!
             if self.bd.strided:
+                # XXX This case seems to be untested
                 A_nnb = A_nN.reshape((N, N, B))
-                return A_nbn[..., q1].copy() # block must be contiguous
+                return A_nnb[..., q1].copy('C') # block must be contiguous
             else:
                 A_nbn = A_nN.reshape((N, B, N))
-                return A_nbn[:, q1, :].copy() # block must be contiguous
+                return A_nbn[:, q1, :].copy('C') # block must be contiguous
         else:
             raise NotImplementedError
 
