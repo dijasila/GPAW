@@ -50,4 +50,4 @@ print('PBE: ', E_n2_pbe - 2 * E_n_pbe)
 print('HF: ',  E_n2_hf - 2 * E_n_hf)
 print('HF+RPA: ', E_n2_hf - 2 * E_n_hf + E_n2_rpa[0] - 2 * E_n_rpa[0])
 
-equal(E_n2_rpa - 2*E_n_rpa, -1.72, 0.02)
+equal(E_n2_rpa - 2*E_n_rpa, -1.68, 0.02)
