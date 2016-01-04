@@ -31,4 +31,3 @@ ind = LrTDDFTInducedField(paw=calc,
                           kickdir=kickdir)
 ind.calculate_induced_field(gridrefinement=2, from_density='comp')
 ind.write('na2_casida_field.ind', mode='field')
-    
