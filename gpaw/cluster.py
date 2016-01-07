@@ -38,7 +38,11 @@ class Cluster(Atoms):
         return np.array([np.minimum.reduce(pos), np.maximum.reduce(pos)])
 
     def find_connected(self, index, dmax=None, scale=1.5):
-        """Find the atoms connected to self[index] and return them.
+        """Find atoms connected to self[index] and return them."""
+        return self[self.connected_indices(index, dmax, scale)]
+
+    def connected_indices(self, index, dmax=None, scale=1.5):
+        """Find atoms connected to self[index] and return their indices.
 
         If dmax is not None:
         Atoms are defined to be connected if they are nearer than dmax
@@ -49,7 +53,6 @@ class Cluster(Atoms):
         sum of their covalent radii * scale to each other.
 
         """
-
         if index < 0:
             index = len(self) + index
 
@@ -75,11 +78,7 @@ class Cluster(Atoms):
                         connected.append(j)
                         isolated = False
 
-        atoms = Cluster()
-        for i in connected:
-            atoms.append(self[i])
-
-        return atoms
+        return connected
 
     def minimal_box(self, border=0, h=None, multiple=4):
         """The box needed to fit the structure in.
