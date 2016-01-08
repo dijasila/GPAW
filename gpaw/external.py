@@ -57,7 +57,7 @@ class ConstantElectricField(ExternalPotential):
         """External constant electric field.
         
         strength: float
-            Field strength in eV/Ang.
+            Field strength in V/Ang.
         direction: vector
             Polarisation direction.
         """
