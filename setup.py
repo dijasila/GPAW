@@ -171,6 +171,8 @@ if 'clean' in sys.argv:
 
 sources = glob('c/*.c') + ['c/bmgs/bmgs.c']
 sources = sources + glob('c/xc/*.c')
+# Make build process deterministic (for "reproducible build" in debian)
+sources.sort()
 
 check_dependencies(sources)
 

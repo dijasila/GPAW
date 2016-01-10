@@ -531,6 +531,9 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     cfiles = glob('c/[a-zA-Z_]*.c') + ['c/bmgs/bmgs.c']
     cfiles += glob('c/xc/*.c')
+    # Make build process deterministic (for "reproducible build" in debian)
+    # XXX some of this is duplicated in setup.py!  Why do the same thing twice?
+    cfiles.sort()
 
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
                'c/operators.c', 'c/woperators.c', 'c/transformers.c',
