@@ -60,7 +60,7 @@ def XC(kernel, parameters=None):
             except:
                 from gpaw.xc.sic import SIC
                 return SIC(xc=name[:-7])
-        elif name == 'TPSS' or name == 'M06L...' or name == 'revTPSS':
+        elif name == 'TPSS' or name == 'M06L' or name == 'revTPSS':
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name)
         elif name.startswith('old'):
@@ -78,12 +78,6 @@ def XC(kernel, parameters=None):
         elif name[0].isdigit():
             from gpaw.xc.parametrizedxc import ParametrizedKernel
             kernel = ParametrizedKernel(name)
-        elif name == 'LDA........':
-            from gpaw.xc.pp import LDA as PPLDA
-            kernel = PPLDA()
-        elif name == 'M06L':
-            from gpaw.xc.pp import M06_L
-            kernel = M06_L()
         else:
             kernel = LibXC(kernel)
     if kernel.type == 'LDA':
