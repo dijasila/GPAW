@@ -45,7 +45,6 @@ class FDOperator:
 
         mp = maxoffset_c[0]
         if maxoffset_c[1] != mp or maxoffset_c[2] != mp:
-##            print 'Warning: this should be optimized XXXX', maxoffsets, mp
             mp = max(maxoffset_c)
         n_c = gd.n_c
         M_c = n_c + 2 * mp
@@ -184,7 +183,11 @@ class GUCLaplace(FDOperator):
             A_md = (h_dv**m_mv[:, np.newaxis, :]).prod(2)
             a_d, residual, rank, s = np.linalg.lstsq(A_md, [1, 1, 1, 0, 0, 0])
             if residual.sum() < 1e-14:
-                assert rank == D, 'You have a weird unit cell!'
+                if rank != D:
+                    raise ValueError(
+                        'You have a weird unit cell!  '
+                        'Try to use the maximally reduced Niggli cell.  '
+                        'See the ase.utils.geometry.niggli_reduce() function.')
                 # D directions was OK
                 break
 
