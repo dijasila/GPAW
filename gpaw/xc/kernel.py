@@ -10,7 +10,7 @@ codes = {
     'RPBE': 2,
     'PW91': 14,
     'TPSS': 20,
-    'M06L': 21,
+    'M06-L': 21,
     'revTPSS': 22}
 # NOTE: when adding MGGA functionals to the above
 # list, self.type must be set to MGGA in XCKernel:__init__
@@ -29,7 +29,7 @@ class XCKernel:
         self.name = name
         if name == 'LDA':
             self.type = 'LDA'
-        elif name == 'TPSS' or name == 'M06L' or name == 'revTPSS':
+        elif name == 'TPSS' or name == 'M06-L' or name == 'revTPSS':
             self.type = 'MGGA'
         else:
             self.type = 'GGA'

@@ -29,6 +29,8 @@ Development version in trunk
 
 * It's now possible to use Davidson and CG eigensolvers for MGGA calculations.
 
+* The functional name "M06L" is now deprecated.  Use "M06-L" from now on.
+
 
 Version 0.11.0
 ==============

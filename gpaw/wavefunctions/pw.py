@@ -553,7 +553,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def calculate_kinetic_energy_density(self):
         if self.kpt_u[0].f_n is None:
-            raise RuntimeError
+            return None
 
         taut_sR = self.gd.zeros(self.nspins)
         for kpt in self.kpt_u:
