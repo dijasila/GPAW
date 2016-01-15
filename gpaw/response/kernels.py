@@ -5,6 +5,7 @@
 """
 
 import numpy as np
+from ase.dft import monkhorst_pack
 
 def get_coulomb_kernel(pd, N_c, truncation=None, q_v=None, wstc=None):
     """Factory function that calls the specified flavour 
@@ -69,17 +70,17 @@ def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
     # Truncation length is half of cell vector in non-periodic direction
     R = pd.gd.cell_cv[Nn_c[0], Nn_c[0]] / 2. 
 
-    qGpar_G = ((qG_Gv[:, Np_c[0]])**2 + (qG_Gv[:, Np_c[1]]**2))**0.5
+    qGp_G = ((qG_Gv[:, Np_c[0]])**2 + (qG_Gv[:, Np_c[1]]**2))**0.5
     qGn_G = qG_Gv[:, Nn_c[0]]
     
     v_G = 4 * np.pi / (qG_Gv**2).sum(axis=1)
-    if (qGpar_G != 0.0).all():
-        a_G = qGn_G / qGpar_G * np.sin(qGn_G * R) - np.cos(qGn_G * R)
-        v_G *= 1. + np.exp(-qGpar_G * R) * a_G
+    if (qGp_G != 0.0).all():
+        a_G = qGn_G / qGp_G * np.sin(qGn_G * R) - np.cos(qGn_G * R)
+        v_G *= 1. + np.exp(-qGp_G * R) * a_G
     else:
         assert (qGn_G == 0.0).any()
         # sin(qGn_G * R) = 0 when R = L/2 and q_n = 0.0
-        v_G *= 1.0 - np.exp(-qGpar_G * R) * np.cos(qGn_G * R)
+        v_G *= 1.0 - np.exp(-qGp_G * R) * np.cos(qGn_G * R)
 
     return v_G
 
@@ -111,7 +112,7 @@ def calculate_1D_truncated_coulomb(pd, q_v=None, N_c=None):
     qGnR_G = (qG_Gv[:, Nn_c[0]]**2 + qG_Gv[:, Nn_c[1]]**2)**0.5 * R
     qGpR_G = abs(qG_Gv[:, Np_c[0]]) * R
     v_G = 4 * np.pi / (qG_Gv**2).sum(axis=1)
-    v_G *= (1. + qGnR_G * j1(qGnR_G) * k0(qGpR_G)
+    v_G *= (1.0 + qGnR_G * j1(qGnR_G) * k0(qGpR_G)
             - qGpR_G * j0(qGnR_G) * k1(qGpR_G))
 
     return v_G
@@ -136,3 +137,58 @@ def calculate_0D_truncated_coulomb(pd, q_v=None):
     v_G *= 1.0 - np.cos(qG2_G**0.5 * R)
 
     return v_G
+
+def get_integrated_kernel(pd, N_c, truncation=None, N=100):
+
+    B_cv = 2 * np.pi * pd.gd.icell_cv
+    Nf_c = [N, N, N]
+    #if not np.all(N_c == [1, 1, 1]):
+    #    Nf_c[np.where(N_c == 1)[0]] = 1
+    q_qc = monkhorst_pack(Nf_c) / N_c   
+    q_qc += pd.kd.ibzk_kc[0]
+    q_qv = np.dot(q_qc, B_cv)
+
+    if truncation is None:
+        v_q = 4 * np.pi / np.sum(q_qv**2, axis=1)
+    elif truncation == '2D':
+        # The non-periodic direction is determined from k-point grid
+        Nn_c = np.where(N_c == 1)[0]
+        Np_c = np.where(N_c != 1)[0]
+        if len(Nn_c) != 1:
+            # The k-point grid does not fit with boundary conditions
+            Nn_c = [2]    # Choose reduced cell vectors 0, 1
+            Np_c = [0, 1] # Choose reduced cell vector 2
+        # Truncation length is half of cell vector in non-periodic direction
+        R = pd.gd.cell_cv[Nn_c[0], Nn_c[0]] / 2. 
+
+        qp_q = ((q_qv[:, Np_c[0]])**2 + (q_qv[:, Np_c[1]]**2))**0.5
+        qn_q = q_qv[:, Nn_c[0]]
+    
+        v_q = 4 * np.pi / (q_qv**2).sum(axis=1)
+        a_q = qn_q / qp_q * np.sin(qn_q * R) - np.cos(qn_q * R)
+        v_q *= 1. + np.exp(-qp_q * R) * a_q
+    elif truncation == '1D':
+        # The non-periodic direction is determined from k-point grid
+        Nn_c = np.where(N_c == 1)[0]
+        Np_c = np.where(N_c != 1)[0]
+
+        if len(Nn_c) != 2:
+            # The k-point grid does not fit with boundary conditions
+            Nn_c = [0, 1]    # Choose reduced cell vectors 0, 1
+            Np_c = [2]       # Choose reduced cell vector 2
+        # The radius is determined from area of non-periodic part of cell
+        Acell_cv = pd.gd.cell_cv[Nn_c, :][:, Nn_c]
+        R = (np.linalg.det(Acell_cv) / np.pi)**0.5
+
+        qnR_q = (q_qv[:, Nn_c[0]]**2 + q_qv[:, Nn_c[1]]**2)**0.5 * R
+        qpR_q = abs(q_qv[:, Np_c[0]]) * R
+        v_q = 4 * np.pi / (q_qv**2).sum(axis=1)
+        v_q *= (1.0 + qnR_q * j1(qnR_q) * k0(qpR_q) 
+                - qpR_q * j0(qnR_q) * k1(qpR_q))
+    elif truncation == '0D' or 'wigner-seitz':
+        R = (3 * np.linalg.det(pd.gd.cell_cv) / (4 * np.pi))**(1. / 3.)
+        q2_q = (q_qv**2).sum(axis=1)
+        v_q = 4 * np.pi / q2_q
+        v_q *= 1.0 - np.cos(q2_q**0.5 * R)
+
+    return np.sum(v_q) / len(v_q)
