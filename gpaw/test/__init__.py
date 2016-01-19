@@ -397,7 +397,6 @@ if mpi.size > 1:
                 'muffintinpot.py',
                 'pw/moleculecg.py',
                 'pw/davidson_pw.py',
-                'response/bse_MoS2_cut.py',
                 'sic/nscfsic.py',
                 # scipy.weave fails often in parallel due to
                 # ~/.python*_compiled
@@ -419,7 +418,8 @@ if mpi.size < 4:
                 'exx/AA_enthalpy.py',
                 'response/bse_aluminum.py',
                 'response/bse_diamond.py',
-                'response/bse_silicon.py',
+                'response/bse_silicon.py', 
+                'response/bse_MoS2_cut.py',
                 'bse_vs_lrtddft.py',
                 'fileio/parallel.py',
                 'parallel/diamond_gllb.py',

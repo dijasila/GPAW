@@ -78,8 +78,8 @@ def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
         a_G = qGn_G / qGp_G * np.sin(qGn_G * R) - np.cos(qGn_G * R)
         v_G *= 1. + np.exp(-qGp_G * R) * a_G
     else:
-        assert (qGn_G == 0.0).any()
-        # sin(qGn_G * R) = 0 when R = L/2 and q_n = 0.0
+        assert (qGn_G == 0.0).any() or (qG_Gv[0] == 1.0).all()
+        """sin(qGn_G * R) = 0 when R = L/2 and q_n = 0.0"""
         v_G *= 1.0 - np.exp(-qGp_G * R) * np.cos(qGn_G * R)
 
     return v_G

@@ -8,8 +8,7 @@ from datetime import timedelta
 import sys
 
 import numpy as np
-from ase.io import write
-from ase.units import Hartree
+from ase.units import Hartree, Bohr
 from ase.utils import devnull
 from ase.dft import monkhorst_pack
 
@@ -40,7 +39,7 @@ class BSE():
                  truncation=None,
                  txt=sys.stdout,
                  mode='BSE',
-                 wfile='W_qGG.pckl',
+                 wfile=None,
                  write_h=True,
                  write_v=True): 
         """Creates the BSE object
@@ -58,8 +57,9 @@ class BSE():
         eshift: float
             Scissors operator opening the gap (eV)
         gw_skn: list / array
-            List or array defining the gw quasiparticle energies used in the BSE 
-            Hamiltonian. Should mathc spin, k-points and valence/conduction bands
+            List or array defining the gw quasiparticle energies used in 
+            the BSE Hamiltonian. Should match spin, k-points and 
+            valence/conduction bands
         truncation: str
             Coulomb truncation scheme. Can be either wigner-seitz, 
             2D, 1D, or 0D
@@ -68,20 +68,21 @@ class BSE():
         mode: str
             Theory level used. can be RPA TDHF or BSE. Only BSE is screened.
         wfile: str
-            File for saving screened interaction and some other stuff needed later
+            File for saving screened interaction and some other stuff 
+            needed later
         write_h: bool
             If True, write the BSE Hamiltonian to H_SS.gpw.
         write_v: bool
             If True, write eigenvalues and eigenstates to v_TS.gpw
         """
 
-        assert mode in ['RPA', 'TDHF', 'BSE']
-        assert calc.wfs.kd.nbzkpts % world.size == 0
-
         # Calculator
         if isinstance(calc, str):
             calc = GPAW(calc, txt=None, communicator=serial_comm)
         self.calc = calc
+
+        assert mode in ['RPA', 'TDHF', 'BSE']
+        #assert calc.wfs.kd.nbzkpts % world.size == 0
 
         # txt file
         if world.rank != 0:
@@ -100,7 +101,9 @@ class BSE():
 
         # Find q-vectors and weights in the IBZ:
         self.kd = calc.wfs.kd
-        assert -1 not in self.kd.bz2bz_ks
+        if -1 in self.kd.bz2bz_ks:
+            print('***WARNING*** Symmetries may not be right ' + 
+                  'Use gamma-centered grid to be sure')
         offset_c = 0.5 * ((self.kd.N_c + 1) % 2) / self.kd.N_c
         bzq_qc = monkhorst_pack(self.kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
@@ -247,7 +250,6 @@ class BSE():
         # Save H_sS matrix
         if self.write_h:
             self.par_save('H_SS','H_SS', H_sS)
-
         self.H_sS = H_sS
 
     def get_density_matrix(self, kpt1, kpt2):
@@ -376,7 +378,9 @@ class BSE():
                 N = 4
                 N_c = [N, N, N]
                 if not np.all(kd.N_c == [1, 1, 1]):
-                    N_c[np.where(kd.N_c == 1)[0]] = 1
+                    for i, n in enumerate(kd.N_c):
+                        if n == 1:
+                            N_c[i] = 1
                 qf_qc = monkhorst_pack(N_c)
                 qf_qc *= 1.0e-6
                 U_scc = kd.symmetry.op_scc
@@ -437,11 +441,11 @@ class BSE():
             self.pd_q.append(pd)
             self.W_qGG.append(W_GG)
 
-            if iq % (self.qd.nibzkpts // 5 + 1) == 0:
+            if iq % (self.qd.nibzkpts // 5 + 1) == 2:
                 dt = time() - t0
                 tleft = dt * self.qd.nibzkpts / (iq + 1) - dt
                 print('  Finished %s q-points in %s - Estimated %s left' % 
-                      (iq, timedelta(seconds=round(dt)),
+                      (iq + 1, timedelta(seconds=round(dt)),
                        timedelta(seconds=round(tleft))), file=self.fd)
 
     def diagonalize(self):
@@ -467,47 +471,37 @@ class BSE():
                 self.v_St = self.H_sS.conj().T
             else:
                 print('  Using scalapack...', file=self.fd)
-                self.w_T, self.v_St = self.scalapack_diagonalize(self.H_sS)
+                nS = self.nS
+                ns = -(-self.kd.nbzkpts // world.size) * self.nv * self.nc
+                grid = BlacsGrid(world, world.size, 1)
+                desc = grid.new_descriptor(nS, nS, ns, nS)
+                
+                desc2 = grid.new_descriptor(nS, nS, 2, 2)
+                H_tmp = desc2.zeros(dtype=complex)
+                r = Redistributor(world, desc, desc2)
+                r.redistribute(self.H_sS, H_tmp)
+
+                self.w_T = np.empty(nS)
+                v_tmp = desc2.empty(dtype=complex)
+                desc2.diagonalize_dc(H_tmp, v_tmp, self.w_T)
+
+                r = Redistributor(grid.comm, desc2, desc)
+                self.v_St = desc.zeros(dtype=complex)
+                r.redistribute(v_tmp, self.v_St)
                 self.v_St = self.v_St.conj().T
 
         if self.write_v:
             self.par_save('v_TS', 'v_TS', self.v_St.T)
         return 
 
-    def scalapack_diagonalize(self, H_sS):
-
-        mb = 32
-        N = self.nS
-        
-        g1 = BlacsGrid(world, world.size,    1)
-        g2 = BlacsGrid(world, world.size // 2, 2)
-        nndesc1 = g1.new_descriptor(N, N, len(H_sS),  N) 
-        nndesc2 = g2.new_descriptor(N, N, mb, mb)
-        
-        A_ss = nndesc2.empty(dtype=H_sS.dtype)
-        redistributor = Redistributor(world, nndesc1, nndesc2)
-        redistributor.redistribute(H_sS, A_ss)
-        
-        # diagonalize
-        v_ss = nndesc2.zeros(dtype=A_ss.dtype)
-        w_S = np.zeros(N, dtype=float)
-        nndesc2.diagonalize_dc(A_ss, v_ss, w_S, 'L')
-        
-        # distribute the eigenvectors to master
-        v_sS = np.zeros_like(H_sS)
-        redistributor = Redistributor(world, nndesc2, nndesc1)
-        redistributor.redistribute(v_ss, v_sS)
-        
-        return w_S, v_sS
-
     def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
-                 ac=1.0, readfile=None):
+                 ac=1.0, readfile=None, optical=True):
         """Returns v * \chi where v is the bare Coulomb interaction"""
 
         self.q_c = q_c
 
         if readfile is None:
-            self.calculate(optical=True, q_c=q_c, ac=ac)
+            self.calculate(optical=optical, q_c=q_c, ac=ac)
             self.diagonalize()
         elif readfile == 'H_SS':
             print('Reading Hamiltonian from file', file=self.fd)
@@ -522,7 +516,7 @@ class BSE():
         w_w /= Hartree
         eta /= Hartree
 
-        w_T= self.w_T
+        w_T = self.w_T
         v_St = self.v_St
         rhoG0_S = self.rhoG0_S
         df_S = self.df_S
@@ -535,13 +529,23 @@ class BSE():
         B_t = np.dot(rhoG0_S * df_S, v_St)
         if not self.td:
             # Indices are global in this case (t=T, s=S)
-            tmp = np.dot(v_St.conj().T, v_St )
+            tmp = np.dot(v_St.conj().T, v_St)
             overlap_tt = np.linalg.inv(tmp)
             C_T = np.dot(B_t.conj(), overlap_tt.T) * A_t
         else:
-            C_T = np.zeros(self.nS, complex)
-            world.all_gather(B_t.conj() * A_t, C_T)
-
+            if world.size == 1:
+                C_T = B_t.conj() * A_t
+            else:
+                nS = self.nS
+                ns = -(-self.kd.nbzkpts // world.size) * self.nv * self.nc
+                grid = BlacsGrid(world, world.size, 1)
+                desc = grid.new_descriptor(nS, 1, ns, 1)
+                C_t = desc.empty(dtype=complex)
+                C_t[:, 0] = B_t.conj() * A_t
+                C_T = desc.collect_on_master(C_t)[:, 0]
+                if world.rank != 0:
+                    C_T = np.empty(nS, dtype=complex)
+                world.broadcast(C_T, 0)
         for iw, w in enumerate(w_w):
             tmp_T = 1. / (w - w_T + 1j * eta)
             vchi_w[iw] += np.dot(tmp_T, C_T)
@@ -557,8 +561,9 @@ class BSE():
 
     def get_dielectric_function(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
                                 filename='df_bse.csv', readfile=None,
-                                write_eig='bse_eig.dat'):
-        """Returns and writes real and imaginary part of the dielectric function.
+                                write_eig=None, optical=True):
+        """Returns and writes real and imaginary part of the dielectric 
+        function.
 
         w_w: list of frequencies (eV)
             Dielectric function is calculated at these frequencies
@@ -570,13 +575,15 @@ class BSE():
             data file on which frequencies, real and imaginary part of 
             dielectric function is written
         readfile: str
-            If H_SS is given, the method will load the BSE Hamiltonian from H_SS.gpw
-            If v_TS is given, the method will load the eigenstates from v_TS.gpw
+            If H_SS is given, the method will load the BSE Hamiltonian 
+            from H_SS.gpw. If v_TS is given, the method will load the 
+            eigenstates from v_TS.gpw
         write_eig: str
             File on which the BSE eigenvalues are written
         """
 
-        epsilon_w = -self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, readfile=readfile)
+        epsilon_w = -self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, 
+                                   readfile=readfile, optical=optical)
         epsilon_w += 1.0
     
         """Check f-sum rule."""
@@ -591,7 +598,7 @@ class BSE():
         print(file=self.fd)
 
         w_w *= Hartree
-        if world.rank == 0:
+        if world.rank == 0 and filename is not None:
             f = open(filename, 'w')
             for iw, w in enumerate(w_w):
                 print('%.6f, %.6f, %.6f' %  
@@ -612,11 +619,63 @@ class BSE():
 
         return w_w, epsilon_w
 
+    def get_polarizability(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
+                           filename='pol_bse.csv', readfile=None, pbc=None,
+                           write_eig=None, optical=True):
+        """Calculate the polarizability alpha.
+        In 3D the imaginary part of the polarizability is related to the
+        dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
+        with reduced dimensionality the converged value of alpha is
+        independent of the cell volume. This is not the case for eps_M,
+        which is ill defined. A truncated Coulomb kernel will always give
+        eps_M = 1.0, whereas the polarizability maintains its structure.
+        pbs should be a list of booleans giving the periodic directions.
+
+        By default, generate a file 'pol_bse.csv'. The three colomns are:
+        frequency (eV), Real(alpha), Imag(alpha). The dimension of alpha 
+        is \AA to the power of non-periodic directions.
+        """
+
+        cell_cv = self.calc.wfs.gd.cell_cv
+        if not pbc:
+            pbc_c = self.calc.atoms.pbc
+        else:
+            pbc_c = np.array(pbc)
+        if pbc_c.all():
+            V = 1.0
+        else:
+            V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
+
+        vchi_w = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, 
+                               readfile=readfile, optical=optical)
+        alpha_w = -V * vchi_w / (4 * np.pi)
+        alpha_w *= Bohr**(sum(~pbc_c))
+        w_w *= Hartree
+
+        if world.rank == 0 and filename is not None:
+            fd = open(filename, 'w')
+            for iw, w in enumerate(w_w):
+                print('%.6f, %.6f, %.6f' %
+                      (w, alpha_w[iw].real, alpha_w[iw].imag), file=fd)
+            fd.close()
+
+        self.w_T *= Hartree
+        if write_eig is not None:
+            if world.rank == 0:
+                f = open(write_eig, 'w')
+                print('# %s eigenvalues in eV' % self.mode, file=f)
+                for iw, w in enumerate(self.w_T):
+                    print('%8d %12.6f' % (iw, w.real), file=f)
+                f.close()
+            
+        print('Calculation completed at:', ctime(), file=self.fd)
+
+        return w_w, alpha_w
+
     def par_save(self, filename, name, A_sS):
         from gpaw.io import open 
 
         nS = self.nS
-        
         if world.rank == 0:
             w = open(filename, 'w', world)
             w.dimension('nS', nS)
@@ -630,19 +689,28 @@ class BSE():
             w.fill(self.df_S)
 
             w.add(name, ('nS', 'nS'), dtype=complex)
-            tmp = np.zeros_like(A_sS)
-
-        # Assumes that H_SS is written in order from rank 0 - rank N
-        for irank in range(world.size):
-            if irank == 0:
-                if world.rank == 0:
-                    w.fill(A_sS)
-            else:
-                if world.rank == irank:
-                    world.send(A_sS, 0, irank+100)
-                if world.rank == 0:
-                    world.receive(tmp, irank, irank+100)
-                    w.fill(tmp)
+        
+        if not self.td and name == 'v_TS':
+            if world.rank == 0:
+                w.fill(A_sS)
+        else:
+            # Assumes that A_SS is written in order from rank 0 - rank N
+            nK = self.kd.nbzkpts
+            for irank in range(world.size):
+                if irank == 0:
+                    if world.rank == 0:
+                        w.fill(A_sS)
+                else:
+                    if world.rank == irank:
+                        world.send(A_sS, 0, irank+100)
+                    if world.rank == 0:
+                        iKsize = -(-nK // world.size)
+                        iKrange = range(irank * iKsize,
+                                        min((irank + 1) * iKsize, nK))
+                        iSsize = len(iKrange) * self.nv * self.nc
+                        tmp = np.empty((iSsize, nS), complex)
+                        world.receive(tmp, irank, irank+100)
+                        w.fill(tmp)
         if world.rank == 0:
             w.close()
         world.barrier()
@@ -652,22 +720,27 @@ class BSE():
 
         r = open(filename, 'r')
         nS = r.dimension('nS')
-        mySsize = -(-nS // world.size)
-        mySrange = range(world.rank * mySsize,
-                         min((world.rank + 1) * mySsize, nS))
-        mySsize = len(mySrange)
+        nK = self.kd.nbzkpts
+        myKsize = -(-nK // world.size)
+        myKrange = range(world.rank * myKsize,
+                         min((world.rank + 1) * myKsize, nK))
+        mySsize = len(myKrange) * self.nv * self.nc
+        if len(myKrange) > 0:
+            mySrange = range(myKrange[0] * self.nv * self.nc,
+                             myKrange[0] * self.nv * self.nc + mySsize)
 
         if name == 'H_SS':
             self.H_sS = np.zeros((mySsize, nS), dtype=complex)
-            for si, s in enumerate(mySrange):
-                self.H_sS[si] = r.get('H_SS', s)
+            if len(myKrange) > 0:
+                for si, s in enumerate(mySrange):
+                    self.H_sS[si] = r.get('H_SS', s)
 
         if name == 'v_TS':
             self.w_T = r.get('w_T')
-            v_tS = np.zeros((mySsize, nS), dtype=complex)
-            for it, t in enumerate(mySrange):
-                v_tS[it] = r.get('v_TS', t)
-            self.v_St = v_tS.T
+            self.v_St = np.zeros((nS, mySsize), dtype=complex)
+            if len(myKrange) > 0:
+                for it, t in enumerate(mySrange):
+                    self.v_St[:, it] = r.get('v_TS', t)
 
         self.rhoG0_S = r.get('rhoG0_S')
         self.df_S = r.get('df_S')
@@ -677,7 +750,7 @@ class BSE():
     def print_initialization(self, td, eshift, gw_skn):
         p = functools.partial(print, file=self.fd)
         p('----------------------------------------------------------')
-        p('BSE Calculation')
+        p('%s Hamiltonian' % self.mode)
         p('----------------------------------------------------------')
         p('Started at:  ', ctime())
         p()
@@ -698,8 +771,8 @@ class BSE():
         if gw_skn is not None:
             p('User specified BSE bands')
         p('Screening bands included       :', self.nbands)
-        p('BSE valence bands              :', self.val_n)
-        p('BSE conduction bands           :', self.con_n)
+        p('Valence bands                  :', self.val_n)
+        p('Conduction bands               :', self.con_n)
         if eshift is not None:
             p('Scissors operator              :', eshift * Hartree, 'eV')
         p('Tamm-Dancoff approximation     :', td)
