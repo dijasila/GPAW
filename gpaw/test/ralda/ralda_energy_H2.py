@@ -32,7 +32,7 @@ H2.get_potential_energy()
 calc.diagonalize_full_hamiltonian(nbands=80, scalapack=scalapack1)
 calc.write('H2.gpw', mode='all')
 
-ralda = FXCCorrelation('H2.gpw', xc='rALDA')
+ralda = FXCCorrelation('H2.gpw', xc='rALDA', nblocks=min(4,world.size))
 E_ralda_H2 = ralda.calculate(ecut=[200])
 
 rapbe = FXCCorrelation('H2.gpw', xc='rAPBE')
@@ -59,7 +59,7 @@ calc.write('H.gpw', mode='all')
 ralda = FXCCorrelation('H.gpw', xc='rALDA')
 E_ralda_H = ralda.calculate(ecut=[200])
 
-rapbe = FXCCorrelation('H.gpw', xc='rAPBE')
+rapbe = FXCCorrelation('H.gpw', xc='rAPBE', nblocks=min(4,world.size))
 E_rapbe_H = rapbe.calculate(ecut=[200])
                                       
 # if rank == 0:
