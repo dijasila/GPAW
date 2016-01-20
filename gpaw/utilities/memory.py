@@ -68,7 +68,7 @@ def maxrss():
             if mm < (1024)**2:  # 1 MiB
                 mm = mm * 1024  # then mm was probably in KiB so convert to MiB
             return mm
-    except ImportError:
+    except (TypeError, ImportError):
         pass
 
     return 0.0  # no more ideas
