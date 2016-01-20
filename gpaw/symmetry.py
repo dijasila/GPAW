@@ -315,9 +315,11 @@ class Symmetry:
             return
         for U_cc, ft_c in zip(self.op_scc, self.ft_sc):
             # Make sure all grid-points map onto another grid-point:
-            assert not ((N_c * U_cc).T % N_c).any()
+            if ((N_c * U_cc).T % N_c).any():
+                raise ValueError
             t_c = ft_c * N_c
-            assert np.allclose(t_c, t_c.round())
+            if not np.allclose(t_c, t_c.round()):
+                raise ValueError
 
     def symmetrize(self, a, gd):
         """Symmetrize array."""

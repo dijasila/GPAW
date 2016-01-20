@@ -87,6 +87,7 @@ tests = [
     'lfc/gp2.py',
     'linalg/blas.py',
     'Gauss.py',
+    'symmetry/check.py',
     'fd_ops/nabla.py',
     'linalg/dot.py',
     'linalg/mmm.py',
