@@ -2,6 +2,7 @@
 
 https://listserv.fysik.dtu.dk/pipermail/gpaw-users/2016-January/003864.html
 """
+from __future__ import division
 from ase import Atoms
 from ase.test import must_raise
 from gpaw.symmetry import atoms2symmetry
