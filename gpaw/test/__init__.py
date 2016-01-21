@@ -256,7 +256,6 @@ tests = [
     'ext_potential/constant_e_field.py',    # ~9s
     'complex.py',                           # ~9s
     'vdw/quick.py',                         # ~9s
-    'response/bse_aluminum.py',             # ~10s
     'lrtddft/Al2_lrtddft.py',               # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
     'response/gw_ppa.py',                   # ~10s
@@ -280,6 +279,7 @@ tests = [
     'ralda/ralda_energy_Ni.py',             # ~13s
     'utilities/simple_stm.py',              # ~13s
     'ofdft/ofdft_pbc.py',                   # ~13s
+    'response/bse_silicon.py',              # ~13s
     'fdtd/ed_shapes.py',                    # ~14s
     'gllb/restart_band_structure.py',       # ~14s
     'exx/exx.py',                           # ~14s
@@ -336,6 +336,7 @@ tests = [
     'ase_features/wannierk.py',             # ~45s
     'bse_vs_lrtddft.py',                    # ~45s
     'response/aluminum_testcell.py',        # ~46s
+    'response/bse_aluminum.py',             # ~48s
     'ut_tddft.py',                          # ~49s
     'response/pair.py',                     # ~50s
     'rpa/rpa_energy_N2.py',                 # ~52s
@@ -354,7 +355,6 @@ tests = [
     'exx/AA_enthalpy.py',                   # ~119s
     'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
-    'response/bse_silicon.py',              # ~143s
     'response/gwsi.py',                     # ~147s
     'response/graphene.py',                 # ~160s
     'response/symmetry.py',                 # ~300s
@@ -419,7 +419,6 @@ if mpi.size < 4:
                 'exx/AA_enthalpy.py',
                 'response/bse_aluminum.py',
                 'response/bse_diamond.py',
-                'response/bse_silicon.py', 
                 'response/bse_MoS2_cut.py',
                 'bse_vs_lrtddft.py',
                 'fileio/parallel.py',
@@ -442,6 +441,7 @@ if mpi.size != 1 and not compiled_with_sl():
                 'ralda/ralda_energy_Si.py',
                 'response/bse_sym.py',
                 'response/bse_silicon.py',
+                'response/bse_MoS2_cut.py',
                 'response/gwsi.py',
                 'rpa/rpa_energy_N2.py',
                 'pw/expert_diag.py',

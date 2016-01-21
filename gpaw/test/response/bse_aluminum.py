@@ -1,75 +1,75 @@
 from __future__ import print_function
 import numpy as np
+import os
 from ase.units import Bohr, Hartree
 from ase.lattice import bulk
 from gpaw import GPAW
-from gpaw.eigensolvers.rmm_diis_old import RMM_DIIS
-from gpaw.mixer import Mixer
-from gpaw.response.df0 import DF
-from gpaw.response.bse import BSE
+from gpaw.response.df import DielectricFunction
+from gpaw.response.bse_new import BSE
+from gpaw.mpi import rank
+from gpaw.test import findpeak, equal
 
 GS = 1
 df = 1
 bse = 1
 check_spectrum = 1
+delfiles = 1
 
 if GS:
     a = 4.043
     atoms = bulk('Al', 'fcc', a=a)
-    atoms.center()
-    calc = GPAW(h=0.2,
-                eigensolver=RMM_DIIS(),
-                mixer=Mixer(0.1,3),
-                kpts=(4,2,2),
+    calc = GPAW(mode='pw',
+                kpts={'size': (4,4,4), 'gamma': True},
                 xc='LDA',
                 nbands=4,
-                convergence={'bands':'all'})
+                convergence={'bands': 'all'})
     
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
     calc.write('Al.gpw','all')
 
+q_c = np.array([0.25, 0.0, 0.0])
+w_w = np.linspace(0, 24, 241)
+eta = 0.2
+ecut = 50
 if bse:
     bse = BSE('Al.gpw',
-              w=np.linspace(0,24,241),
-              nv=[0,4],
-              nc=[0,4],
-              coupling=True,
+              valence_bands=range(4),
+              conduction_bands=range(4),
               mode='RPA',
-              q=np.array([0.25, 0, 0]),
-              ecut=50.,
-              eta=0.2)
-    bse.get_dielectric_function('Al_bse.dat')
+              nbands=4,
+              ecut=ecut,
+              write_h=False,
+              write_v=False,
+              )
+    bse_w = bse.get_dielectric_function(filename=None,
+                                        q_c=q_c,
+                                        w_w=w_w,
+                                        eta=eta,
+                                        optical=False,
+                                        )[1].imag
     
 if df:
-    # Excited state calculation
-    q = np.array([1/4.,0.,0.])
-    w = np.linspace(0, 24, 241)
-    
-    df = DF(calc='Al.gpw',
-            q=q,
-            w=w,
-            eta=0.2,
-            ecut=50,
-            hilbert_trans=False)
-    df.get_EELS_spectrum(filename='Al_df.dat')
-    df.write('Al.pckl')
-    df.check_sum_rule()
-
+    df = DielectricFunction(calc='Al.gpw',
+                            frequencies=w_w,
+                            eta=eta,
+                            ecut=ecut,
+                            hilbert=False)
+    df_w =  df.get_eels_spectrum(q_c=q_c,
+                                 filename=None,
+                                 )[1]
 
 if check_spectrum:
-    d = np.loadtxt('Al_bse.dat')[:,2] 
-    wpeak = 16.4 
-    Nw = 164
-    if d[Nw] > d[Nw-1] and d[Nw] > d[Nw+1]:
-        pass
-    else:
-        raise ValueError('Plasmon peak not correct ! ')
-    
-    if np.abs(d[Nw] - 27.4958893542) > 1e-5:
-        print(d[Nw])
-        raise ValueError('Please check spectrum strength ! ')
+    w_ = 15.1423
+    I_ = 25.4359
+    wbse, Ibse = findpeak(w_w, bse_w)
+    wdf, Idf = findpeak(w_w, df_w)
+    equal(wbse, w_, 0.01)
+    equal(wdf, w_, 0.01)
+    equal(Ibse, I_, 0.1)
+    equal(Idf, I_, 0.1)
 
-    d2 = np.loadtxt('Al_df.dat')
-    if np.abs(d[:240] - d2[:240, 2]).sum() > 0.003:
-        raise ValueError('Please compare two spectrum')
+if delfiles and rank == 0:
+    os.remove('Al.gpw')
+    os.remove('pair.txt')
+    os.remove('chi0.txt')
