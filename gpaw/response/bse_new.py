@@ -135,7 +135,7 @@ class BSE():
         
         self.print_initialization(self.td, self.eshift, self.gw_skn)
 
-    def calculate(self, optical=True, q_c=[0.0, 0.0, 0.0], ac=1.0):
+    def calculate(self, optical=True, ac=1.0):
 
         # Parallelization stuff
         nK = self.kd.nbzkpts
@@ -151,10 +151,9 @@ class BSE():
         self.get_screened_potential(ac=ac)
 
         # Calculate exchange interaction
-        self.Pair = PairDensity(self.calc, self.ecut, world=serial_comm,
-                                txt='pair.txt')
         iq0 = self.qd.bz2ibz_k[self.kd.where_is_q(self.q_c, self.qd.bzk_kc)]
         pd0 = self.pd_q[iq0]
+        ikq_k = self.kd.find_k_plus_q(self.q_c)
         v_G = get_coulomb_kernel(pd0, self.kd.N_c, truncation=self.truncation,
                                  wstc=self.wstc)
         if optical:
@@ -169,12 +168,14 @@ class BSE():
             optical_limit = True
         else:
             optical_limit = False
+        self.Pair = PairDensity(self.calc, self.ecut, world=serial_comm,
+                                txt='pair.txt')
         get_pair = self.Pair.get_kpoint_pair
         get_rho = self.Pair.get_pair_density
         vi, vf = self.val_n[0], self.val_n[-1] + 1
         ci, cf = self.con_n[0], self.con_n[-1] + 1
         for ik, iK in enumerate(myKrange):
-            pair = get_pair(self.pd_q[iq0], 0, iK, vi, vf, ci, cf)
+            pair = get_pair(pd0, 0, iK, vi, vf, ci, cf)
             #deps_nm = (self.gw_skn[0, ik, :self.nv][:, np.newaxis] -
             #           self.gw_skn[0, ik, self.nv:])
 
@@ -182,16 +183,18 @@ class BSE():
                                                          range(self.nc))
             df_Kmn[iK] = pair.get_occupation_differences(range(self.nv),
                                                          range(self.nc))
-            rhoex_KmnG[iK] = get_rho(self.pd_q[iq0], pair,
+            rhoex_KmnG[iK] = get_rho(pd0, pair,
                                      range(self.nv), range(self.nc),
                                      optical_limit=optical_limit,
-                                     Q_aGii=self.Q_qaGii[iq0])[0]
+                                     Q_aGii=self.Q_qaGii[iq0])[0]        
         if self.eshift is not None:
             deps_kmn[np.where(df_Kmn[myKrange] > 1.0e-3)] += self.eshift
             deps_kmn[np.where(df_Kmn[myKrange] < -1.0e-3)] -= self.eshift
+
+        df_Kmn[np.where(np.abs(df_Kmn) < 1.0e-6)] = 0.0
         df_Kmn *= 2.0 / nK  # multiply by 2 for spin polarized calculation
-        world.sum(rhoex_KmnG)
         world.sum(df_Kmn)
+        world.sum(rhoex_KmnG)
 
         # Calculate Hamiltonian
         t0 = time()
@@ -204,21 +207,21 @@ class BSE():
             rho1ccV_mnG = rho1_mnG.conj()[:, :] * v_G
             rhoG0_Kmn[iK1] = rho1_mnG[:, :, 0]
             kptv1 = self.Pair.get_k_point(0, iK1, vi, vf)
-            kptc1 = self.Pair.get_k_point(0, iK1, ci, cf)
+            kptc1 = self.Pair.get_k_point(0, ikq_k[iK1], ci, cf)
             for iK2 in range(nK):
                 rho2_mnG = rhoex_KmnG[iK2]
                 H_kKmnmn[ik1, iK2] += np.dot(rho1ccV_mnG,
                                              np.swapaxes(rho2_mnG, 1, 2))
                 if not self.mode == 'RPA':
                     kptv2 = self.Pair.get_k_point(0, iK2, vi, vf)
-                    kptc2 = self.Pair.get_k_point(0, iK2, ci, cf)
+                    kptc2 = self.Pair.get_k_point(0, ikq_k[iK2], ci, cf)
                     rho3_mmG, iq = self.get_density_matrix(kptv1, kptv2)
                     rho4_nnG, iq = self.get_density_matrix(kptc1, kptc2)
                     rho3ccW_mmG = np.dot(rho3_mmG.conj(), self.W_qGG[iq])
                     W_mmnn = np.dot(rho3ccW_mmG,
                                     np.swapaxes(rho4_nnG, 1, 2))
                     H_kKmnmn[ik1, iK2] -= 0.5 * np.swapaxes(W_mmnn, 1, 2)
-                    
+
             if iK1 % (myKsize // 5 + 1) == 0:
                 dt = time() - t0
                 tleft = dt * myKsize / (iK1 + 1) - dt
@@ -247,7 +250,6 @@ class BSE():
             # add bare transition energies
             H_sS[iS, iS0 + iS] += self.deps_s[iS]
 
-        # Save H_sS matrix
         if self.write_h:
             self.par_save('H_SS','H_SS', H_sS)
         self.H_sS = H_sS
@@ -258,7 +260,7 @@ class BSE():
         iQ = self.qd.where_is_q(Q_c, self.qd.bzk_kc)
         iq = self.qd.bz2ibz_k[iQ]
         q_c = self.qd.ibzk_kc[iq]
-        
+
         if np.allclose(q_c, 0.0):
             optical_limit = True
         else:
@@ -271,12 +273,12 @@ class BSE():
         sign = 1 - 2 * time_reversal
         d_c = sign * np.dot(U_cc, q_c) - Q_c
         assert np.allclose(d_c.round(), d_c)
-        
+
         pd = self.pd_q[iq]
         N_c = pd.gd.N_c
         i_cG = sign * np.dot(U_cc, np.unravel_index(pd.Q_qG[0], N_c))
 
-        shift0_c = Q_c - sign * np.dot(U_cc, pd.kd.bzk_kc[0])
+        shift0_c = Q_c - sign * np.dot(U_cc, q_c)
         assert np.allclose(shift0_c.round(), shift0_c)
         shift0_c = shift0_c.round().astype(int)
 
@@ -297,7 +299,7 @@ class BSE():
             Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
                            U_ii.T).transpose(1, 0, 2)
             Q_aGii.append(Q_Gii)
-        
+
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
                            complex)
         for m in range(len(rho_mnG)):
@@ -397,41 +399,41 @@ class BSE():
                     chi0_GG[0] = a0_qG[iqf]
                     chi0_GG[:, 0] = a1_qG[iqf]
                     chi0_GG[0, 0] = a_q[iqf]
-                    sqrv_G = get_coulomb_kernel(pd,
+                    sqrV_G = get_coulomb_kernel(pd,
                                                 kd.N_c,
                                                 truncation=self.truncation,
                                                 wstc=self.wstc,
                                                 q_v=qf_qv[iqf])**0.5
-                    sqrv_G *= ac**0.5 # Multiply by adiabatic coupling
-                    e_GG = np.eye(nG) - chi0_GG * sqrv_G * sqrv_G[:, np.newaxis]
+                    sqrV_G *= ac**0.5 # Multiply by adiabatic coupling
+                    e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
                     einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
                     #einv_GG = np.linalg.inv(e_GG) * weight_q[iqf]
-                    #W_GG += (einv_GG * sqrv_G * sqrv_G[:, np.newaxis] 
+                    #W_GG += (einv_GG * sqrV_G * sqrV_G[:, np.newaxis] 
                     #         * weight_q[iqf])
             else:
-                sqrv_G = get_coulomb_kernel(pd,
-                                            self.kd.N_c,
+                sqrV_G = get_coulomb_kernel(pd,
+                                            kd.N_c,
                                             truncation=self.truncation,
                                             wstc=self.wstc)**0.5
-                sqrv_G *= ac**0.5 # Multiply by adiabatic coupling
-                e_GG = np.eye(nG) - chi0_GG * sqrv_G * sqrv_G[:, np.newaxis]
+                sqrV_G *= ac**0.5 # Multiply by adiabatic coupling
+                e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
                 einv_GG = np.linalg.inv(e_GG)
-                #W_GG = einv_GG * sqrv_G * sqrv_G[:, np.newaxis]
+                #W_GG = einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
 
             # Now calculate W_GG
             if pd.kd.gamma:
-                sqrv_G = get_coulomb_kernel(pd,
-                                            self.kd.N_c,
+                sqrV_G = get_coulomb_kernel(pd,
+                                            kd.N_c,
                                             truncation=self.truncation,
                                             wstc=self.wstc)**0.5 
                 #bzvol = (2 * np.pi)**3 / self.vol / self.qd.nbzkpts
                 #Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
-                #sqrv_G[0] = 4 * np.pi * (Rq0 / bzvol)**0.5
-            sqrv_G[0] = get_integrated_kernel(pd,
-                                              self.kd.N_c,
+                #sqrV_G[0] = 4 * np.pi * (Rq0 / bzvol)**0.5
+            sqrV_G[0] = get_integrated_kernel(pd,
+                                              kd.N_c,
                                               truncation=self.truncation,
                                               N=100)**0.5 
-            W_GG = einv_GG * sqrv_G * sqrv_G[:, np.newaxis]
+            W_GG = einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
 
             if pd.kd.gamma:
                 e = 1 / einv_GG[0, 0].real
@@ -501,7 +503,7 @@ class BSE():
         self.q_c = q_c
 
         if readfile is None:
-            self.calculate(optical=optical, q_c=q_c, ac=ac)
+            self.calculate(optical=optical, ac=ac)
             self.diagonalize()
         elif readfile == 'H_SS':
             print('Reading Hamiltonian from file', file=self.fd)
@@ -580,6 +582,9 @@ class BSE():
             eigenstates from v_TS.gpw
         write_eig: str
             File on which the BSE eigenvalues are written
+        optical: bool
+            If True, the standard dielectric function is returned. If False,
+            the imaginary part of the returned quantity is the EELS spectrum
         """
 
         epsilon_w = -self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, 
@@ -616,7 +621,7 @@ class BSE():
                 f.close()
             
         print('Calculation completed at:', ctime(), file=self.fd)
-
+        
         return w_w, epsilon_w
 
     def get_polarizability(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
@@ -787,5 +792,3 @@ class BSE():
         p('  Hamiltonian')
         p('    Pair orbital decomposition           : % s' % world.size)
         p()
-
-
