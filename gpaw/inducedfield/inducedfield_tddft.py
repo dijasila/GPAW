@@ -8,7 +8,8 @@ from gpaw.transformers import Transformer
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack2, is_contiguous
 
-from gpaw.inducedfield.inducedfield_base import BaseInducedField, sendreceive_dict
+from gpaw.inducedfield.inducedfield_base import BaseInducedField, \
+    sendreceive_dict
 
 
 class TDDFTInducedField(BaseInducedField, Observer):
@@ -29,9 +30,9 @@ class TDDFTInducedField(BaseInducedField, Observer):
     """
     
     def __init__(self, filename=None, paw=None, ws='all',
-                  frequencies=None, folding='Gauss', width=0.08,
-                  interval=1, restart_file=None
-                  ):
+                 frequencies=None, folding='Gauss', width=0.08,
+                 interval=1, restart_file=None
+                 ):
         """
         Parameters (see also ``BaseInducedField``):
         -------------------------------------------
@@ -62,10 +63,10 @@ class TDDFTInducedField(BaseInducedField, Observer):
         self.D0_asp = None
 
         self.readwritemode_str_to_list = \
-        {'': ['Fnt', 'n0t', 'FD', 'D0', 'atoms'],
-         'all': ['Fnt', 'n0t', 'FD', 'D0',
-                 'Frho', 'Fphi', 'Fef', 'Ffe', 'atoms'],
-         'field': ['Frho', 'Fphi', 'Fef', 'Ffe', 'atoms']}
+            {'': ['Fnt', 'n0t', 'FD', 'D0', 'atoms'],
+             'all': ['Fnt', 'n0t', 'FD', 'D0',
+                     'Frho', 'Fphi', 'Fef', 'Ffe', 'atoms'],
+             'field': ['Frho', 'Fphi', 'Fef', 'Ffe', 'atoms']}
 
         BaseInducedField.__init__(self, filename, paw, ws,
                                   frequencies, folding, width)
@@ -73,21 +74,22 @@ class TDDFTInducedField(BaseInducedField, Observer):
     def initialize(self, paw, allocate=True):
         BaseInducedField.initialize(self, paw, allocate)
         
-        assert hasattr(paw, 'time') and hasattr(paw, 'niter'), 'Use TDDFT!'
-        self.time = paw.time
-        self.niter = paw.niter
+        if self.has_paw:
+            assert hasattr(paw, 'time') and hasattr(paw, 'niter'), 'Use TDDFT!'
+            self.time = paw.time                # !
+            self.niter = paw.niter
+            
+            # TODO: remove this requirement
+            assert np.count_nonzero(paw.kick_strength) > 0, \
+                'Apply absorption kick before %s' % self.__class__.__name__
         
-        # TODO: remove this requirement
-        assert np.count_nonzero(paw.kick_strength) > 0, \
-        'Apply absorption kick before %s' % self.__class__.__name__
-        
-        # Background electric field
-        self.Fbgef_v = paw.kick_strength
+            # Background electric field
+            self.Fbgef_v = paw.kick_strength
 
-        # Attach to PAW-type object
-        paw.attach(self, self.interval)
-        # TODO: write more details (folding, freqs, etc)
-        parprint('%s: Attached ' % self.__class__.__name__)
+            # Attach to PAW-type object
+            paw.attach(self, self.interval)
+            # TODO: write more details (folding, freqs, etc)
+            parprint('%s: Attached ' % self.__class__.__name__)
 
     def set_folding(self, folding, width):
         BaseInducedField.set_folding(self, folding, width)
@@ -147,7 +149,7 @@ class TDDFTInducedField(BaseInducedField, Observer):
 
         # Complex exponential with envelope
         f_w = np.exp(1.0j * self.omega_w * self.time) * \
-              self.envelope(self.time) * time_step
+            self.envelope(self.time) * time_step
 
         # Time-dependent quantities
         nt_sG = self.density.nt_sG
@@ -349,10 +351,13 @@ class TDDFTInducedField(BaseInducedField, Observer):
     def _read(self, tar, reads, ws):
         BaseInducedField._read(self, tar, reads, ws)
         
-        # Test time
         time = tar['time']
-        if abs(time - self.time) >= 1e-9:
-            raise IOError('Timestamp is incompatible with calculator.')
+        if self.has_paw:
+            # Test time
+            if abs(time - self.time) >= 1e-9:
+                raise IOError('Timestamp is incompatible with calculator.')
+        else:
+            self.time = time
 
         # Allocate
         self.allocate()

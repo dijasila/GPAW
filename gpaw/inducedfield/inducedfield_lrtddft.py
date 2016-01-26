@@ -18,9 +18,9 @@ class LrTDDFTInducedField(BaseInducedField):
     """
     
     def __init__(self, filename=None, paw=None, lr=None, ws='all',
-                  frequencies=None, folding='Gauss', width=0.08,
-                  kickdir=0
-                  ):
+                 frequencies=None, folding='Gauss', width=0.08,
+                 kickdir=0
+                 ):
         """
         Parameters (see also ``BaseInducedField``):
         -------------------------------------------
@@ -45,13 +45,13 @@ class LrTDDFTInducedField(BaseInducedField):
         # "Kick" direction
         self.kickdir = kickdir
         
-        self.readwritemode_str_to_list = \
-        {'': ['Frho', 'atoms'],
-         'all': ['Frho', 'Fphi', 'Fef', 'Ffe', 'atoms'],
-         'field': ['Frho', 'Fphi', 'Fef', 'Ffe', 'atoms']}
-        
         BaseInducedField.__init__(self, filename, paw, ws,
                                   frequencies, folding, width)
+        
+        self.readwritemode_str_to_list = \
+            {'': ['Frho', 'atoms'],
+             'all': ['Frho', 'Fphi', 'Fef', 'Ffe', 'atoms'],
+             'field': ['Frho', 'Fphi', 'Fef', 'Ffe', 'atoms']}
     
     def initialize(self, paw, allocate=True):
         BaseInducedField.initialize(self, paw, allocate)

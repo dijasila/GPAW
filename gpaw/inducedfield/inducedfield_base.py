@@ -2,14 +2,17 @@ import numpy as np
 
 
 from ase.units import Bohr, Hartree
-from gpaw.tddft import eV_to_aufrequency, aufrequency_to_eV  # TODO: remove
+from ase import Atoms
+from gpaw.tddft import eV_to_aufrequency, aufrequency_to_eV
 
+import gpaw.mpi as mpi
 from gpaw.io.tar import Reader, Writer
 from gpaw.poisson import PoissonSolver
 from gpaw.fd_operators import Gradient
+from gpaw.grid_descriptor import GridDescriptor
 
-from gpaw.utilities.extend_grid import extended_grid_descriptor, extend_array, \
-    deextend_array, move_atoms
+from gpaw.utilities.extend_grid import extended_grid_descriptor, \
+    extend_array, deextend_array, move_atoms
 
 
 def sendreceive_dict(comm, a_i, dest, b_i, src_i, iitems):
@@ -33,7 +36,7 @@ def sendreceive_dict(comm, a_i, dest, b_i, src_i, iitems):
 
 
 class BaseInducedField(object):
-    """Virtual base class for induced field calculations.
+    """Partially virtual base class for induced field calculations.
     
     Attributes:
     -----------
@@ -56,8 +59,8 @@ class BaseInducedField(object):
     """
     
     def __init__(self, filename=None, paw=None, ws='all',
-                  frequencies=None, folding='Gauss', width=0.08
-                  ):
+                 frequencies=None, folding='Gauss', width=0.08,
+                 readmode=''):
         """
         Parameters:
         -----------
@@ -82,11 +85,28 @@ class BaseInducedField(object):
             This parameter is neglected if ``filename`` is given.
         """
         self.dtype = complex
-        
+
+        # These are allocated when calculated
+        self.fieldgd = None
+        self.Frho_wg = None
+        self.Fphi_wg = None
+        self.Fef_wvg = None
+        self.Ffe_wg = None
+        self.Fbgef_v = None
+
+        # has variables
+        self.has_paw = False
+        self.has_field = False
+
+        if not hasattr(self, 'readwritemode_str_to_list'):
+            self.readwritemode_str_to_list = \
+                {'': ['Frho', 'atoms'],
+                 'all': ['Frho', 'Fphi', 'Fef', 'Ffe', 'atoms'],
+                 'field': ['Frho', 'Fphi', 'Fef', 'Ffe', 'atoms']}
+ 
         if filename is not None:
-            assert paw is not None, 'Provide PAW object also'
             self.initialize(paw, allocate=False)
-            self.read(filename, ws=ws)
+            self.read(filename, ws=ws, mode=readmode)
             return
         
         self.folding = folding
@@ -98,32 +118,30 @@ class BaseInducedField(object):
         
         self.nv = 3  # dimensionality of the space
         
-        # These are allocated when calculated
-        self.fieldgd = None
-        self.Frho_wg = None
-        self.Fphi_wg = None
-        self.Fef_wvg = None
-        self.Ffe_wg = None
-        self.Fbgef_v = None
-        
-        if paw is not None:
-            self.initialize(paw, allocate=True)
+        self.initialize(paw, allocate=True)
     
     def initialize(self, paw, allocate=True):
         self.allocated = False
-        self.paw = paw
-        self.world = paw.wfs.world
-        self.domain_comm = paw.wfs.gd.comm
-        self.band_comm = paw.wfs.band_comm
-        self.kpt_comm = paw.wfs.kd.comm
-        self.rank_a = paw.wfs.atom_partition.rank_a
-        self.nspins = paw.density.nspins
-        self.setups = paw.wfs.setups
-        self.density = paw.density
-        self.atoms = paw.atoms
-        self.na = len(self.atoms.get_atomic_numbers())
-        self.gd = self.density.gd
-        self.stencil = self.paw.input_parameters.stencils[1]
+        self.has_paw = paw is not None
+
+        if self.has_paw:
+            # If no paw is given, then the variables
+            # marked with "# !" are created in _read().
+            # Other variables are not accessible without
+            # paw (TODO: could be implemented...).
+            self.paw = paw
+            self.world = paw.wfs.world                            # !
+            self.domain_comm = paw.wfs.gd.comm                    # !
+            self.band_comm = paw.wfs.band_comm                    # !
+            self.kpt_comm = paw.wfs.kd.comm                       # !
+            self.rank_a = paw.wfs.atom_partition.rank_a
+            self.nspins = paw.density.nspins                      # !
+            self.setups = paw.wfs.setups
+            self.density = paw.density
+            self.atoms = paw.atoms                                # !
+            self.na = len(self.atoms.get_atomic_numbers())        # !
+            self.gd = self.density.gd                             # !
+            self.stencil = self.paw.input_parameters.stencils[1]
         
         if allocate:
             self.allocate()
@@ -157,14 +175,21 @@ class BaseInducedField(object):
         raise RuntimeError('Virtual member function called')
 
     def calculate_induced_field(self, from_density='comp',
-                                   gridrefinement=2,
-                                   extend_N_cd=None,
-                                   deextend=False,
-                                   poisson_nn=3, poisson_relax='J',
-                                   gradient_n=3):
+                                gridrefinement=2,
+                                extend_N_cd=None,
+                                deextend=False,
+                                poisson_nn=3, poisson_relax='J',
+                                poisson_eps=1e-20,
+                                gradient_n=3):
 
-        Frho_wg, gd = self.get_induced_density(from_density,
-                                               gridrefinement)
+        if self.has_field and \
+           from_density == self.field_from_density and \
+           self.Frho_wg is not None:
+            Frho_wg = self.Frho_wg
+            gd = self.fieldgd
+        else:
+            Frho_wg, gd = self.get_induced_density(from_density,
+                                                   gridrefinement)
         
         # Always extend a bit to get field without jumps
         if extend_N_cd is None:
@@ -173,7 +198,8 @@ class BaseInducedField(object):
         
         # Extend grid
         oldgd = gd
-        egd, cell_cv, move_c = extended_grid_descriptor(gd, extend_N_cd=extend_N_cd)
+        egd, cell_cv, move_c = \
+            extended_grid_descriptor(gd, extend_N_cd=extend_N_cd)
         Frho_we = egd.zeros((self.nw,), dtype=self.dtype)
         for w in range(self.nw):
             extend_array(Frho_wg[w], gd, Frho_we[w], egd)
@@ -197,6 +223,7 @@ class BaseInducedField(object):
                             nv=self.nv,
                             poisson_nn=poisson_nn,
                             poisson_relax=poisson_relax,
+                            poisson_eps=poisson_eps,
                             gradient_n=gradient_n)
 
         # De-extend grid
@@ -218,6 +245,7 @@ class BaseInducedField(object):
             gd = oldgd
     
         # Store results
+        self.has_field = True
         self.field_from_density = from_density
         self.fieldgd = gd
         self.Frho_wg = Frho_wg
@@ -270,16 +298,48 @@ class BaseInducedField(object):
         # Read dimensions
         na = tar['na']
         self.nv = tar.dimension('nv')
-        nspins = tar.dimension('nspins')
-        ng = (tar.dimension('ng0'), tar.dimension('ng1'), tar.dimension('ng2'))
+        try:
+            nspins = tar.dimension('nspins')
+        except KeyError:
+            nspins = tar['nspins']
+        try:
+            ng = np.array((tar.dimension('ng0'),
+                           tar.dimension('ng1'),
+                           tar.dimension('ng2')))
+        except KeyError:
+            ng = np.array((tar['ng0'], tar['ng1'], tar['ng2']))
+
+        # Background electric field
+        Fbgef_v = tar.get('Fbgef_v')
         
-        # Test dimensions
-        if na != self.na:
-            raise IOError('natoms is incompatible with calculator')
-        if nspins != self.nspins:
-            raise IOError('nspins is incompatible with calculator')
-        if (ng != self.gd.get_size_of_global_array()).any():
-            raise IOError('grid is incompatible with calculator')
+        if self.has_paw:
+            # Test dimensions
+            if na != self.na:
+                raise IOError('natoms is incompatible with calculator')
+            if nspins != self.nspins:
+                raise IOError('nspins is incompatible with calculator')
+            if (ng != self.gd.get_size_of_global_array()).any():
+                raise IOError('grid is incompatible with calculator')
+            if (Fbgef_v != self.Fbgef_v).any():
+                raise IOError('kick is incompatible with calculator')
+        else:
+            # Construct objects / assign values without paw
+            self.na = na
+            self.nspins = nspins
+            self.Fbgef_v = Fbgef_v
+
+            atomnum_a = tar.get('atomnum_a')
+            atompos_av = tar.get('atompos_a')
+            atomcell_cv = tar.get('atomcell_cv')
+            self.atoms = Atoms(numbers=atomnum_a, positions=atompos_av,
+                               cell=atomcell_cv, pbc=False)
+
+            self.world = mpi.world
+            self.gd = GridDescriptor(ng + 1, atomcell_cv / Bohr,
+                                     pbc_c=False, comm=self.world)
+            self.domain_comm = self.gd.comm
+            self.band_comm = mpi.SerialCommunicator()
+            self.kpt_comm = mpi.SerialCommunicator()
 
         # Folding
         folding = tar['folding']
@@ -291,12 +351,17 @@ class BaseInducedField(object):
 
         # Read field
         if 'field' in reads:
-            nfieldg = (tar.dimension('nfieldg0'),
-                       tar.dimension('nfieldg1'),
-                       tar.dimension('nfieldg2'))
+            try:
+                nfieldg = np.array((tar.dimension('nfieldg0'),
+                                    tar.dimension('nfieldg1'),
+                                    tar.dimension('nfieldg2')))
+            except KeyError:
+                nfieldg = np.array((tar['nfieldg0'],
+                                    tar['nfieldg1'],
+                                    tar['nfieldg2']))
+            self.has_field = True
             self.field_from_density = tar['field_from_density']
-            self.fieldgd = self.gd.new_descriptor(N_c=np.array(nfieldg) +\
-                                                      np.array([1, 1, 1]))
+            self.fieldgd = self.gd.new_descriptor(N_c=nfieldg + 1)
     
         if 'Frho' in reads:
             self.Frho_wg = self.fieldgd.empty((self.nw), dtype=self.dtype)
@@ -363,7 +428,7 @@ class BaseInducedField(object):
        
         # Actual write
         self._write(tar, writes, ws,
-                     (master, domainmaster, bandmaster, kptmaster))
+                    (master, domainmaster, bandmaster, kptmaster))
        
         # Close to flush changes
         if master:
@@ -384,19 +449,26 @@ class BaseInducedField(object):
             tar['width'] = self.width
             
             tar['na'] = self.na
+            tar['nspins'] = self.nspins
             tar.dimension('nv', self.nv)
             tar.dimension('nw', nw)
             tar.dimension('nspins', self.nspins)
             
             # Write grid
             ng = self.gd.get_size_of_global_array()
+            tar['ng0'] = ng[0]
+            tar['ng1'] = ng[1]
+            tar['ng2'] = ng[2]
             tar.dimension('ng0', ng[0])
             tar.dimension('ng1', ng[1])
             tar.dimension('ng2', ng[2])
-            
+
             # Write field grid
             if 'field' in writes:
                 nfieldg = self.fieldgd.get_size_of_global_array()
+                tar['nfieldg0'] = nfieldg[0]
+                tar['nfieldg1'] = nfieldg[1]
+                tar['nfieldg2'] = nfieldg[2]
                 tar.dimension('nfieldg0', nfieldg[0])
                 tar.dimension('nfieldg1', nfieldg[1])
                 tar.dimension('nfieldg2', nfieldg[2])
@@ -410,7 +482,8 @@ class BaseInducedField(object):
        
             # Write system description
             # TODO: remove this and use ASE's atoms object instead
-            if 'atoms' in writes:
+            # if 'atoms' in writes:
+            if True:  # Always write atoms!
                 atomnum_a = self.atoms.get_atomic_numbers()
                 atompos_a = self.atoms.get_positions()
                 atomcell_cv = self.atoms.get_cell()
@@ -463,22 +536,25 @@ class BaseInducedField(object):
 
 
 def calculate_field(gd, rho_g, bgef_v,
-                      phi_g, ef_vg, fe_g,  # preallocated numpy arrays
-                      nv=3, poisson_nn=3, poisson_relax='J', gradient_n=3):
+                    phi_g, ef_vg, fe_g,  # preallocated numpy arrays
+                    nv=3, poisson_nn=3, poisson_relax='J',
+                    gradient_n=3, poisson_eps=1e-20):
     
     dtype = rho_g.dtype
     yes_complex = dtype == complex
-    
+
     phi_g[:] = 0.0
     ef_vg[:] = 0.0
     fe_g[:] = 0.0
     tmp_g = gd.zeros(dtype=float)
-    
+
     # Poissonsolver
-    poissonsolver = PoissonSolver(nn=poisson_nn, relax=poisson_relax)
+    poissonsolver = PoissonSolver(nn=poisson_nn,
+                                  relax=poisson_relax,
+                                  eps=poisson_eps)
     poissonsolver.set_grid_descriptor(gd)
     poissonsolver.initialize()
-    
+
     # Potential, real part
     poissonsolver.solve(tmp_g, rho_g.real.copy())
     phi_g += tmp_g
@@ -489,7 +565,8 @@ def calculate_field(gd, rho_g, bgef_v,
         phi_g += 1.0j * tmp_g
     
     # Gradient
-    gradient = [Gradient(gd, v, scale=1.0, n=gradient_n) for v in range(nv)]
+    gradient = [Gradient(gd, v, scale=1.0, n=gradient_n)
+                for v in range(nv)]
     for v in range(nv):
         # Electric field, real part
         gradient[v].apply(-phi_g.real, tmp_g)
@@ -646,11 +723,17 @@ def calculate_oscstr(Fn_wg, omega_w, box, kick):
     
     Fn_wg_im = Fn_wg.imag
     if kick[0] != 0.0:
-        osc_w = -2 * omega_w / np.pi / kick[0] * ((Fn_wg_im.sum(axis=2)).sum(axis=2) * np.linspace(0, box[0], ng[0])).sum(axis=1) * dV
+        osc_w = -2 * omega_w / np.pi / kick[0] * \
+            ((Fn_wg_im.sum(axis=2)).sum(axis=2) *
+             np.linspace(0, box[0], ng[0])).sum(axis=1) * dV
     elif kick[1] != 0.0:
-        osc_w = -2 * omega_w / np.pi / kick[1] * ((Fn_wg_im.sum(axis=1)).sum(axis=2) * np.linspace(0, box[1], ng[1])).sum(axis=1) * dV
+        osc_w = -2 * omega_w / np.pi / kick[1] * \
+            ((Fn_wg_im.sum(axis=1)).sum(axis=2) *
+             np.linspace(0, box[1], ng[1])).sum(axis=1) * dV
     elif kick[2] != 0.0:
-        osc_w = -2 * omega_w / np.pi / kick[2] * ((Fn_wg_im.sum(axis=1)).sum(axis=1) * np.linspace(0, box[2], ng[2])).sum(axis=1) * dV
+        osc_w = -2 * omega_w / np.pi / kick[2] * \
+            ((Fn_wg_im.sum(axis=1)).sum(axis=1) *
+             np.linspace(0, box[2], ng[2])).sum(axis=1) * dV
     return osc_w / Hartree  # to 1/eV
 
 
@@ -662,9 +745,15 @@ def calculate_polarizability(Fn_wg, box, kick):
     dV = volume / (ng - 1).prod()  # Note: data is zeropadded to both sides
     
     if kick[0] != 0.0:
-        pol_w = -1.0 / kick[0] * ((Fn_wg.sum(axis=2)).sum(axis=2) * np.linspace(0, box[0], ng[0])).sum(axis=1) * dV
+        pol_w = -1.0 / kick[0] * \
+            ((Fn_wg.sum(axis=2)).sum(axis=2) *
+             np.linspace(0, box[0], ng[0])).sum(axis=1) * dV
     elif kick[1] != 0.0:
-        pol_w = -1.0 / kick[1] * ((Fn_wg.sum(axis=1)).sum(axis=2) * np.linspace(0, box[1], ng[1])).sum(axis=1) * dV
+        pol_w = -1.0 / kick[1] * \
+            ((Fn_wg.sum(axis=1)).sum(axis=2) *
+             np.linspace(0, box[1], ng[1])).sum(axis=1) * dV
     elif kick[2] != 0.0:
-        pol_w = -1.0 / kick[2] * ((Fn_wg.sum(axis=1)).sum(axis=1) * np.linspace(0, box[2], ng[2])).sum(axis=1) * dV
+        pol_w = -1.0 / kick[2] * \
+            ((Fn_wg.sum(axis=1)).sum(axis=1) *
+             np.linspace(0, box[2], ng[2])).sum(axis=1) * dV
     return pol_w / Hartree**2  # to 1/eV**2

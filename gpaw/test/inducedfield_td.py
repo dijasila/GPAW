@@ -54,7 +54,8 @@ ind = TDDFTInducedField(filename='na2_td.ind',
 td_calc.propagate(time_step, iterations // 2, 'na2_td_dm.dat', 'na2_td.gpw')
 
 # Calculate induced electric field
-ind.calculate_induced_field(gridrefinement=2, from_density='comp')
+ind.calculate_induced_field(gridrefinement=2, from_density='comp',
+                            poisson_eps=2e-10)
 
 # Test
 from gpaw.test import equal
