@@ -28,13 +28,11 @@ class SelfEnergy:
 
 class GWSelfEnergy(SelfEnergy):
 
-    def __init__(self, calc, kpts=None, bandrange=None,
-                 filename=None, txt=sys.stdout,
-                 temp=None, savechi0=False, savepair=False,
-                 nbands=None, ecut=150., nblocks=1, hilbert=True, eta=0.1,
-                 domega0=0.025, omega2=10., omegamax=None,
-                 qptint=None, truncation='3D',
-                 world=mpi.world, timer=None):
+    def __init__(self, calc, kpts=None, bandrange=None, filename=None, 
+                 txt=sys.stdout, temp=None, savechi0=False, savepair=False,
+                 nbands=None, ecut=150., nblocks=1, hilbert=True,      
+                 domega0=0.025, omega2=10., omegamax=None,  eta=0.1, 
+                 qptint=None, truncation='3D', world=mpi.world, timer=None):
         
         # Create output buffer
         if world.rank != 0:
@@ -151,6 +149,7 @@ class GWSelfEnergy(SelfEnergy):
                                            domega0=self.domega0 * Hartree,
                                            omega2=self.omega2 * Hartree,
                                            omegamax=self.omegamax * Hartree,
+                                           eta = self.eta * Hartree,
                                            nblocks=self.nblocks,
                                            txt=self.fd,
                                            timer=self.timer)
@@ -644,7 +643,7 @@ class RealFreqIntegration(FrequencyIntegration):
                  use_temp=True, temp_dir='./',
                  ecut=150., nbands=None,
                  domega0=0.025, omega2=10., omegamax=None,
-                 timer=None, txt=sys.stdout, nblocks=1):
+                 eta = 0.1, timer=None, txt=sys.stdout, nblocks=1):
         FrequencyIntegration.__init__(self, txt)
         
         self.timer = timer
@@ -655,7 +654,7 @@ class RealFreqIntegration(FrequencyIntegration):
         self.nbands = nbands
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
-        self.eta = 0.1 / Hartree
+        self.eta = eta / Hartree
 
         self.anistropy_correction = False
         self.savechi0 = savechi0

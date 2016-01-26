@@ -37,7 +37,7 @@ class GWQuasiParticleCalculator:
                  calc=None, kpts=None, bandrange=None,
                  maxiter=1, convergence=0.05, mixing=0.2,
                  savechi0=False, temp=False, savepair=False, updatew=False,
-                 ecut=150., nbands=None, domega0=0.025, omega2=10.,
+                 ecut=150., nbands=None, domega0=0.025, omega2=10., eta = 0.1,
                  qptint=None, truncation='3D',
                  nblocks=1, world=mpi.world):
         """Creates a new quasiparticle calculator.
@@ -178,6 +178,7 @@ class GWQuasiParticleCalculator:
         self.savechi0 = savechi0
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
+        self.eta = eta / Hartree
         self.qptint = qptint
         self.truncation = truncation
 
@@ -219,6 +220,7 @@ class GWQuasiParticleCalculator:
                                        nbands=nbands,
                                        domega0=self.domega0 * Hartree,
                                        omega2=self.omega2 * Hartree,
+                                       eta=self.eta * Hartree,
                                        qptint=self.qptint,
                                        truncation=self.truncation,
                                        nblocks=self.nblocks,
