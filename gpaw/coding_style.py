@@ -84,9 +84,9 @@ class SimpleExample:
 
         Parameters:
 
-        b : ndarray
+        b: ndarray
             Add this array.
-        out : ndarray
+        out: ndarray
             Optional output array.
 
         Returns:
@@ -94,7 +94,7 @@ class SimpleExample:
         The sum of ...
         """
 
-        if out is none:
+        if out is None:
             return self.a + b
         else:
             return np.add(self.a, b, out)

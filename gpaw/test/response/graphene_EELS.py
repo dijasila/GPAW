@@ -16,6 +16,7 @@ from ase.lattice import bulk
 system = Graphene(symbol='C',
                   latticeconstant={'a': 2.45,'c': 1.0},
                   size=(1,1,1))
+
 system.pbc = (1, 1, 0)
 system.center(axis=2, vacuum=4.0)
 

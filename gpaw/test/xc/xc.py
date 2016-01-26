@@ -18,8 +18,6 @@ for name in codes:
 
 
 def create_xc(func, mode):
-    isinstance(func, str)
-    isinstance(mode, int)
     if mode == 0:
         xc = LibXC(func)
     else:
@@ -59,6 +57,7 @@ n_xg = np.array(
      [0.1, 0.3, 0.5]]).T.copy()
 
 for i, func in enumerate(funcs):
+    print(i, func)
     xc = create_xc(funcs[i], modes[i])
     e0_g, d0_xg = f1(n_xg, xc)
     d_xg = np.empty_like(d0_xg)
@@ -68,6 +67,7 @@ for i, func in enumerate(funcs):
         d_xg[x] = 0.5 * f1(m_xg, xc)[0] / eps
         m_xg[x] -= 2 * eps
         d_xg[x] -= 0.5 * f1(m_xg, xc)[0] / eps
+
     ns_xg = np.empty((7, len(n_g)))
     ns_xg[:2] = n_xg[0] / 2
     ns_xg[2:5] = n_xg[1] / 4

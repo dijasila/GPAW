@@ -411,8 +411,7 @@ class PAW(PAWTextOutput):
         if par.filter is None and mode.name != 'pw':
             gamma = 1.6
             if par.gpts is not None:
-                h = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5
-                     / par.gpts).max()
+                h = ((np.linalg.inv(cell_cv)**2).sum(0)**-0.5 / par.gpts).max()
             else:
                 h = (par.h or 0.2) / Bohr
 
@@ -579,7 +578,7 @@ class PAW(PAWTextOutput):
                 self.occupations.calculate(self.wfs)
 
         self.occupations.magmom = M_v[2]
-
+        
         cc = par.convergence
 
         if mode.name == 'lcao':
@@ -643,9 +642,9 @@ class PAW(PAWTextOutput):
             # I would like to give the following error message, but apparently
             # there are cases, e.g. gpaw/test/gw_ppa.py, which involve
             # nbands > nao and are supposed to work that way.
-            #if nbands > nao:
+            # if nbands > nao:
             #    raise ValueError('Number of bands %d adjusted for band '
-            #                     'parallelization %d exceeds number of atomic '
+            #                    'parallelization %d exceeds number of atomic '
             #                     'orbitals %d.  This problem can be fixed '
             #                     'by reducing the number of bands a bit.'
             #                     % (nbands, band_comm.size, nao))
@@ -662,7 +661,6 @@ class PAW(PAWTextOutput):
                 self.density = None
                 self.hamiltonian = None
 
-
             # Construct grid descriptor for coarse grids for wave functions:
             gd = self.grid_descriptor_class(N_c, cell_cv, pbc_c,
                                             domain_comm, parsize_domain)
@@ -676,8 +674,8 @@ class PAW(PAWTextOutput):
                 # Choose scalapack parallelization automatically
 
                 for key, val in par.parallel.items():
-                    if (key.startswith('sl_') and key != 'sl_auto'
-                            and val is not None):
+                    if (key.startswith('sl_') and key != 'sl_auto' and
+                        val is not None):
                         raise ValueError("Cannot use 'sl_auto' together "
                                          "with '%s'" % key)
                 max_scalapack_cpus = bd.comm.size * gd.comm.size
@@ -1050,8 +1048,8 @@ class PAW(PAWTextOutput):
 
             # is the density ok ?
             error = self.density.mixer.get_charge_sloshing() or 0.0
-            criterion = (self.input_parameters['convergence']['density']
-                         * self.wfs.nvalence)
+            criterion = (self.input_parameters['convergence']['density'] *
+                         self.wfs.nvalence)
             if error < criterion and not self.hamiltonian.xc.orbital_dependent:
                 self.scf.fix_density()
 

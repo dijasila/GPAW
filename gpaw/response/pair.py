@@ -934,7 +934,7 @@ class PairDensity:
     @timer('get_pair_density')
     def get_pair_density(self, pd, kptpair, n_n, m_m,
                          optical_limit=False, intraband=False,
-                         Q_aGii=None):
+                         direction=0, Q_aGii=None):
         """Get pair density for a kpoint pair."""
         if optical_limit:
             assert np.allclose(pd.kd.bzk_kc[0], 0.0)
@@ -966,7 +966,7 @@ class PairDensity:
                 n_nmv[j] = self.optical_pair_density(n, m_m, kpt1, kpt2)
 
         if optical_limit:
-            n_nmG[..., 0] = n_nmv[..., 0]
+            n_nmG[..., 0] = n_nmv[..., direction]
 
         if intraband:
             vel_mv = self.intraband_pair_density(kpt2)

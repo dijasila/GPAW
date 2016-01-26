@@ -1,6 +1,6 @@
 from __future__ import print_function
 from ase import Atom, Atoms
-from gpaw import GPAW, PoissonSolver, Davidson, Mixer
+from gpaw import GPAW, Davidson, Mixer
 from gpaw.test import equal
 from gpaw.xc.hybrid import HybridXC
 
@@ -8,11 +8,10 @@ a = 6.  # Size of unit cell (Angstrom)
 c = a / 2
 # Hydrogen atom:
 atom = Atoms([Atom('H', (c, c, c), magmom=1)],
-                   cell=(a, a, a), pbc=False)
+             cell=(a, a, a), pbc=False)
 
 # gpaw calculator:
 calc = GPAW(gpts=(32, 32, 32), nbands=1, xc='PBE', txt='H.txt',
-            #poissonsolver=PoissonSolver(relax='GS', eps=1e-8),
             eigensolver=Davidson(12),
             mixer=Mixer(0.5, 5),
             parallel=dict(kpt=1),
@@ -23,7 +22,7 @@ e1 = atom.get_potential_energy()
 niter1 = calc.get_number_of_iterations()
 print('start')
 de1t = calc.get_xc_difference('TPSS')
-de1m = calc.get_xc_difference('M06L')
+de1m = calc.get_xc_difference('M06-L')
 de1x = calc.get_xc_difference(HybridXC('EXX', finegrid=True))
 de1xb = calc.get_xc_difference(HybridXC('EXX', finegrid=False))
 print('stop')
@@ -39,7 +38,7 @@ molecule.set_calculator(calc)
 e2 = molecule.get_potential_energy()
 niter2 = calc.get_number_of_iterations()
 de2t = calc.get_xc_difference('TPSS')
-de2m = calc.get_xc_difference('M06L')
+de2m = calc.get_xc_difference('M06-L')
 de2x = calc.get_xc_difference(HybridXC('EXX', finegrid=True))
 de2xb = calc.get_xc_difference(HybridXC('EXX', finegrid=False))
 
@@ -47,7 +46,7 @@ print('hydrogen atom energy:     %5.2f eV' % e1)
 print('hydrogen molecule energy: %5.2f eV' % e2)
 print('atomization energy:       %5.2f eV' % (2 * e1 - e2))
 print('atomization energy  TPSS: %5.2f eV' % (2 * (e1 + de1t) - (e2 + de2t)))
-print('atomization energy  M06L: %5.2f eV' % (2 * (e1 + de1m) - (e2 + de2m)))
+print('atomization energy  M06-L: %5.2f eV' % (2 * (e1 + de1m) - (e2 + de2m)))
 print('atomization energy   EXX: %5.2f eV' % (2 * (e1 + de1x) - (e2 + de2x)))
 print('atomization energy   EXX: %5.2f eV' % (2 * (e1 + de1xb) - (e2 + de2xb)))
 PBETPSSdifference = (2 * e1 - e2) - (2 * (e1 + de1t) - (e2 + de2t))

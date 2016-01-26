@@ -968,7 +968,7 @@ class BuildingBlock():
             pd, chi0, chi = self.df.get_dielectric_matrix(symmetric=False, 
                                                           calculate_chi=True,
                                                           q_c=q_c,
-                                                          q_inf=q_inf,
+                                                          q_v=q_inf,
                                                           add_intraband=
                                                           add_intraband
                                                           )

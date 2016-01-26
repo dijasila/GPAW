@@ -159,7 +159,7 @@ def get_system_config(define_macros, undef_macros,
         libraries += ['f', 'lapack', 'essl']
         define_macros.append(('GPAW_AIX', '1'))
 
-    elif machine in ['x86_64', 'ppc64']:
+    elif machine in ['x86_64', 'ppc64', 'aarch64']:
 
         #    _
         # \/|_||_    |_ |_|
@@ -434,16 +434,6 @@ def get_parallel_config(mpi_libraries, mpi_library_dirs, mpi_include_dirs,
     return mpicompiler
 
     
-def get_scalapack_config(define_macros):
-    # check ScaLapack settings
-    define_macros.append(('GPAW_WITH_SL', '1'))
-
-    
-def get_hdf5_config(define_macros):
-    # check ScaLapack settings
-    define_macros.append(('GPAW_WITH_HDF5', '1'))
-
-
 def mtime(path, name, mtimes):
     """Return modification time.
 
@@ -541,6 +531,9 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     cfiles = glob('c/[a-zA-Z_]*.c') + ['c/bmgs/bmgs.c']
     cfiles += glob('c/xc/*.c')
+    # Make build process deterministic (for "reproducible build" in debian)
+    # XXX some of this is duplicated in setup.py!  Why do the same thing twice?
+    cfiles.sort()
 
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
                'c/operators.c', 'c/woperators.c', 'c/transformers.c',

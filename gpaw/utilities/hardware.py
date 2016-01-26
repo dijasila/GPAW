@@ -16,7 +16,7 @@ moab = {
 _hardware_info = {
     "bwUniCluster": {
         "cores_per_node": 16,
-        "loginnodes": [r'joe*'],
+        "loginnodes": [r'uc1n*'],
         'modules': ['mpi'],
         'scheduler': moab,
     },

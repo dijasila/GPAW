@@ -83,7 +83,11 @@ class PWDescriptor:
         N_c = gd.N_c
         self.comm = gd.comm
 
-        assert ((gd.h_cv**2).sum(1) <= 0.5 * pi**2 / ecut).all()
+        if ((gd.h_cv**2).sum(1) > 0.5 * pi**2 / ecut).any():
+            raise ValueError(
+                'You have a weird unit cell!  '
+                'Try to use the maximally reduced Niggli cell.  '
+                'See the ase.utils.geometry.niggli_reduce() function.')
 
         if dtype is None:
             if kd is None or kd.gamma:
@@ -549,7 +553,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def calculate_kinetic_energy_density(self):
         if self.kpt_u[0].f_n is None:
-            raise RuntimeError
+            return None
 
         taut_sR = self.gd.zeros(self.nspins)
         for kpt in self.kpt_u:

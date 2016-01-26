@@ -1,3 +1,4 @@
+compiler='mpicc'
 extra_link_args += [
      '-Wl,--no-as-needed',
     '-L/opt/bwhpc/common/compiler/intel/compxe.2013.sp1.4.211/mkl/lib/intel64',

@@ -58,7 +58,7 @@ class WignerSeitzTruncatedCoulomb:
                 
         self.K_Q = np.fft.fftn(v_R) * self.gd.dv
         
-    def get_potential(self, pd):
+    def get_potential(self, pd, q_v=None):
         q_c = pd.kd.bzk_kc[0]
         shift_c = (q_c * self.nk_c).round().astype(int)
         max_c = self.gd.N_c // 2
@@ -70,7 +70,11 @@ class WignerSeitzTruncatedCoulomb:
             if (abs(Q_c) < max_c).all():
                 K_G[G] = self.K_Q[tuple(Q_c)]
 
-        G2_G = pd.G2_qG[0]
+        qG_Gv = pd.get_reciprocal_vectors(add_q=True)
+        if q_v is not None:
+            qG_Gv += q_v
+        G2_G = np.sum(qG_Gv**2, axis=1)
+        #G2_G = pd.G2_qG[0]
         a = self.a
         if pd.kd.gamma:
             K_G[0] += pi / a**2

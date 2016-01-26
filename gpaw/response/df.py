@@ -11,6 +11,7 @@ from ase.units import Hartree, Bohr
 import gpaw.mpi as mpi
 from gpaw.response.chi0 import Chi0
 from gpaw.response.kernels import get_coulomb_kernel
+from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.fxc import get_xc_kernel
 
 
@@ -73,8 +74,9 @@ class DielectricFunction:
             Shift Fermi level of ground state calculation by the
             specified amount.
         truncation: str
-            'wigner-seitz' for Wigner Seitz truncated Coulomb
-            '2D' for regular truncation in the z-direction
+            'wigner-seitz' for Wigner Seitz truncated Coulomb.
+            '2D, 1D or 0d for standard analytical truncation schemes.
+            Non-periodic directions are determined from k-point grid
         """
 
         self.chi0 = Chi0(calc, frequencies, domega0=domega0,
@@ -231,7 +233,7 @@ class DielectricFunction:
         return self.omega_w * Hartree
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], direction='x',
-                return_VchiV=True, q_inf=None):
+                return_VchiV=True, q_v=None):
         """ Returns v^1/2 chi v^1/2. The truncated Coulomb interaction is
         then included as v^-1/2 v_t v^-1/2. This is in order to conform with
         the head and wings of chi0, which is treated specially for q=0."""
@@ -241,15 +243,20 @@ class DielectricFunction:
         Kbare_G = get_coulomb_kernel(pd, 
                                      N_c, 
                                      truncation=None,
-                                     q_inf=q_inf)
+                                     q_v=q_v)
         vsqr_G = Kbare_G**0.5
         nG = len(vsqr_G)
 
         if self.truncation is not None:
+            if self.truncation == 'wigner-seitz':
+                self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
+            else:
+                self.wstc = None
             Ktrunc_G = get_coulomb_kernel(pd, 
-                                          N_c, 
-                                          truncation=self.truncation, 
-                                          q_inf=q_inf)
+                                          N_c,
+                                          truncation=self.truncation,
+                                          wstc=self.wstc,
+                                          q_v=q_v)
             K_GG = np.diag(Ktrunc_G / Kbare_G)
         else:
             K_GG = np.eye(nG, dtype=complex)
@@ -290,7 +297,7 @@ class DielectricFunction:
   
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
-                              calculate_chi=False, q_inf=None,
+                              calculate_chi=False, q_v=None,
                               add_intraband=True):
         """Returns the symmetrized dielectric matrix.
         
@@ -318,11 +325,17 @@ class DielectricFunction:
         function)"""
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+
         N_c = self.chi0.calc.wfs.kd.N_c
+        if self.truncation == 'wigner-seitz':
+            self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
+        else:
+            self.wstc = None
         K_G = get_coulomb_kernel(pd,
                                  N_c,
-                                 truncation=self.truncation, 
-                                 q_inf=q_inf)**0.5
+                                 truncation=self.truncation,
+                                 wstc=self.wstc,
+                                 q_v=q_v)**0.5
         nG = len(K_G)
 
         if pd.kd.gamma:
@@ -339,19 +352,12 @@ class DielectricFunction:
                 chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
                 chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
                 chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
-            if q_inf is not None:
+            if q_v is not None:
                 print('Restoring q dependence of head and wings of chi0')
-                chi0_wGG[:, 1:, 0] *= q_inf
-                chi0_wGG[:, 0, 1:] *= q_inf
-                chi0_wGG[:, 0, 0] *= q_inf**2
+                chi0_wGG[:, 1:, 0] *= np.dot(q_v, d_v)
+                chi0_wGG[:, 0, 1:] *= np.dot(q_v, d_v)
+                chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v)**2
                     
-        if self.truncation == 'wigner-seitz':
-            kernel = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv,
-                                                 self.chi0.calc.wfs.kd.N_c)
-            K_G = kernel.get_potential(pd)**0.5
-            if pd.kd.gamma:
-                K_G[0] = 0.0
-
         if xc != 'RPA':
             Kxc_sGG = get_xc_kernel(pd,
                                     self.chi0,
@@ -389,14 +395,14 @@ class DielectricFunction:
             # chi_wGG is the full density response function..
             return pd, chi0_wGG, np.array(chi_wGG)
 
-    def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0], q_inf=None,
+    def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None,
                                 direction='x', filename='df.csv'):
         """Calculate the dielectric function.
 
         Returns dielectric function without and with local field correction:
         df_NLFC_w, df_LFC_w = DielectricFunction.get_dielectric_function()
         """
-        e_wGG = self.get_dielectric_matrix(xc, q_c, direction, q_inf=q_inf)
+        e_wGG = self.get_dielectric_matrix(xc, q_c, direction, q_v=q_v)
         df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
         df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
 
@@ -418,7 +424,7 @@ class DielectricFunction:
                 
         return df_NLFC_w, df_LFC_w
 
-    def get_macroscopic_dielectric_constant(self, xc='RPA', direction='x', q_inf=None):
+    def get_macroscopic_dielectric_constant(self, xc='RPA', direction='x', q_v=None):
         """Calculate macroscopic dielectric constant.
         
         Returns eM_NLFC and eM_LFC.
@@ -442,7 +448,7 @@ class DielectricFunction:
             xc=xc,
             filename=None,
             direction=direction,
-            q_inf=q_inf)
+            q_v=q_v)
         eps0 = np.real(df_NLFC_w[0])
         eps = np.real(df_LFC_w[0])
         print('  %s direction' % direction, file=fd)

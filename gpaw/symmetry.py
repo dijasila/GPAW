@@ -39,7 +39,8 @@ class Symmetry:
     wavefunctions and forces.
     """
     def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
-                 point_group=True, time_reversal=True, symmorphic=True):
+                 point_group=True, time_reversal=True, symmorphic=True,
+                 do_not_symmetrize_the_density=False):
         """Construct symmetry object.
 
         Parameters:
@@ -83,7 +84,8 @@ class Symmetry:
         self.symmorphic = symmorphic
         self.point_group = point_group
         self.time_reversal = time_reversal
-
+        self.do_not_symmetrize_the_density = do_not_symmetrize_the_density
+        
         # Disable fractional translations for non-periodic boundary conditions:
         if not self.pbc_c.all():
             self.symmorphic = True
@@ -310,14 +312,20 @@ class Symmetry:
 
     def check_grid(self, N_c):
         """Check that symmetries are comensurate with grid."""
+        if self.do_not_symmetrize_the_density:
+            return
         for U_cc, ft_c in zip(self.op_scc, self.ft_sc):
-            assert not (U_cc * N_c - (U_cc.T * N_c).T).any()
+            # Make sure all grid-points map onto another grid-point:
+            if ((N_c * U_cc).T % N_c).any():
+                raise ValueError
             t_c = ft_c * N_c
-            assert np.allclose(t_c, t_c.round())
+            if not np.allclose(t_c, t_c.round()):
+                raise ValueError
 
     def symmetrize(self, a, gd):
         """Symmetrize array."""
-        gd.symmetrize(a, self.op_scc, self.ft_sc)
+        if not self.do_not_symmetrize_the_density:
+            gd.symmetrize(a, self.op_scc, self.ft_sc)
 
     def symmetrize_positions(self, spos_ac):
         """Symmetrizes the atomic positions."""

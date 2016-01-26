@@ -77,7 +77,8 @@ class LrTDDFT(ExcitationList):
             pass
         else:
             # world should be a list of ranks:
-            self.eh_comm = mpi.world.new_communicator(np.asarray(eh_comm))
+            self.eh_comm = mpi.world.new_communicator(
+                np.asarray(self.eh_comm))
 
         if calculator is not None and calculator.initialized:
             if not isinstance(calculator.wfs, FDWaveFunctions):
@@ -437,13 +438,8 @@ class LrTDDFTExcitation(Excitation):
         if e is not None:
             self.energy = e
             if m is None:
-                if mur is None or muv is None or magn is None:
-                    raise RuntimeError
-                self.mur = mur
-                self.muv = muv
-                self.magn = magn
-            else:
-                self.me = m
+                raise RuntimeError
+            self.me = m
             return
 
         raise RuntimeError

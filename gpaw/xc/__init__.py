@@ -1,4 +1,7 @@
 from __future__ import print_function
+
+import warnings
+
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
@@ -14,7 +17,7 @@ def XC(kernel, parameters=None):
         Parameters for BEE functional.
 
     Recognized names are: LDA, PW91, PBE, revPBE, RPBE, BLYP, HCTH407,
-    TPSS, M06L, revTPSS, vdW-DF, vdW-DF2, EXX, PBE0, B3LYP, BEE,
+    TPSS, M06-L, revTPSS, vdW-DF, vdW-DF2, EXX, PBE0, B3LYP, BEE,
     GLLBSC.  One can also use equivalent libxc names, for example
     GGA_X_PBE+GGA_C_PBE is equivalent to PBE, and LDA_X to the LDA exchange.
     In this way one has access to all the functionals defined in libxc.
@@ -60,7 +63,10 @@ def XC(kernel, parameters=None):
             except:
                 from gpaw.xc.sic import SIC
                 return SIC(xc=name[:-7])
-        elif name == 'TPSS' or name == 'M06L' or name == 'revTPSS':
+        elif name in ['TPSS', 'M06-L', 'M06L', 'revTPSS']:
+            if name == 'M06L':
+                name = 'M06-L'
+                warnings.warn('Please use M06-L instead of M06L')
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name)
         elif name.startswith('old'):

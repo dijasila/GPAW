@@ -1,6 +1,6 @@
 """User provided customizations.
 
-Here, one change the default arguments for compiling _gpaw.so (serial)
+Here one changes the default arguments for compiling _gpaw.so (serial)
 and gpaw-python (parallel).
 
 Here are all the lists that can be modified:
@@ -56,12 +56,25 @@ if 0:
     if 'xc' in libraries:
         libraries.remove('xc')
         
-# - dynamic linking (requires also setting LD_LIBRARY_PATH at runtime):
+# - dynamic linking (requires rpath or setting LD_LIBRARY_PATH at runtime):
 if 0:
     include_dirs += ['/home/user/libxc-2.0.1-1/include']
     library_dirs += ['/home/user/libxc-2.0.1-1/lib']
+    # You can use rpath to avoid changing LD_LIBRARY_PATH:
+    # extra_link_args += ['-Wl,-rpath=/home/user/libxc-2.0.1-1/lib']
     if 'xc' not in libraries:
         libraries.append('xc')
+
+
+# libvdwxc:
+if 0:
+    libvdwxc = True
+    path = '/home/user/libvdwxc'
+    extra_link_args += ['-Wl,-rpath=%s/lib' % path]
+    library_dirs += ['%s/lib' % path]
+    include_dirs += ['%s/include' % path]
+    libraries += ['vdwxc']
+
 
 # Build MPI-interface into _gpaw.so:
 if 0:
