@@ -8,8 +8,6 @@ from ase.units import Hartree
 from ase.utils import devnull
 from ase.utils.timing import timer, Timer
 
-from scipy.spatial import cKDTree
-
 import gpaw.mpi as mpi
 from gpaw import extra_parameters
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor,
@@ -116,7 +114,8 @@ class Chi0:
                  nblocks=1, no_optical_limit=False,
                  keep_occupied_states=False, gate_voltage=None,
                  disable_point_group=False, disable_time_reversal=False,
-                 use_more_memory=1, unsymmetrized=True):
+                 disable_non_symmorphic=True, use_more_memory=1,
+                 unsymmetrized=True):
 
         self.timer = timer or Timer()
 
@@ -124,6 +123,10 @@ class Chi0:
                                 real_space_derivatives, world, txt,
                                 self.timer,
                                 nblocks=nblocks, gate_voltage=gate_voltage)
+
+        self.disable_point_group = disable_point_group
+        self.disable_time_reversal = disable_time_reversal
+        self.disable_non_symmorphic = disable_non_symmorphic
 
         calc = self.pair.calc
         self.calc = calc
@@ -158,9 +161,6 @@ class Chi0:
         if ecut is not None:
             ecut /= Hartree
 
-        if gate_voltage is not None:
-            gate_voltage /= Hartree
-
         self.ecut = ecut
 
         self.eta = eta / Hartree
@@ -169,6 +169,8 @@ class Chi0:
         self.omegamax = None if omegamax is None else omegamax / Hartree
         self.nbands = nbands or self.calc.wfs.bd.nbands
         self.keep_occupied_states = keep_occupied_states
+        self.include_intraband = intraband
+
 
         omax = self.find_maximum_frequency()
 
@@ -193,9 +195,6 @@ class Chi0:
 
         self.nocc1 = self.pair.nocc1  # number of completely filled bands
         self.nocc2 = self.pair.nocc2  # number of non-empty bands
-
-        kd = self.calc.wfs.kd
-        self.KDTree = cKDTree(np.mod(kd.bzk_kc, 1))
 
         self.Q_aGii = None
 
@@ -293,13 +292,14 @@ class Chi0:
                              kwargs=(mat_kwargs, eig_kwargs),
                              out_wxx=chi0_wGG)
 
+
         with self.timer('Hilbert transform'):
             omega_w = self.wd.get_data()
-            ht = HilbertTransform(np.array(omega_w), 0.0001 / Hartree)
+            ht = HilbertTransform(np.array(omega_w), self.eta)
             ht(chi0_wGG)
 
         if chi0_wxvG is not None:
-            if self.nocc1 != self.nocc2:
+            if self.nocc1 != self.nocc2 and self.include_intraband:
                 # Determine plasma frequency
                 mat_kwargs = {'kd': kd, 'symmetry': PWSA,
                               'n1': self.nocc1, 'n2': self.nocc2,
@@ -316,11 +316,21 @@ class Chi0:
                                      ArrayDescriptor([fermi_level]),
                                      kwargs=(mat_kwargs, eig_kwargs),
                                      out_wxx=plasmafreq_wvv)
-                self.plasmafreq_vv = plasmafreq_wvv[0]
+                self.plasmafreq_vv = plasmafreq_wvv[0].copy()
                 chi0_wGG[:, 0:3, 0:3] += (self.plasmafreq_vv[np.newaxis] /
                                           (self.omega_w[:, np.newaxis,
-                                                        np.newaxis]**2 +
-                                           1e-10))
+                                                        np.newaxis] +
+                                           1e-10 + self.eta * 1j)**2)
+
+                PWSA.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
+
+                self.plasmafreq_vv = (2 * self.plasmafreq_vv * 4 * np.pi *
+                                      PWSA.how_many_symmetries() / (2 * np.pi)**3
+                                      / len(spins))
+
+                print()
+                print('Plasma frequency:', file=self.fd)
+                print((self.plasmafreq_vv**0.5 * Hartree).round(2), file=self.fd)
 
         # Symmetrize chi the results
         chi0_wGG *= (2 * PWSA.how_many_symmetries() /
@@ -330,8 +340,9 @@ class Chi0:
         PWSA.symmetrize_wxx(tmpchi0_wGG)
         self.redistribute(tmpchi0_wGG, chi0_wGG)
 
-        chi0_wxvG[:, 0] = np.transpose(chi0_wGG[:, :, 0:3], (0, 2, 1))
-        chi0_wxvG[:, 1] = chi0_wGG[:, 0:3]
+        chi0_wxvG[:, 1] = np.transpose(chi0_wGG[:, :, 0:3],
+                                       (0, 2, 1))
+        chi0_wxvG[:, 0] = chi0_wGG[:, 0:3]
         chi0_wxvG = chi0_wxvG[..., 2:]
         chi0_wvv = chi0_wGG[:, 0:3, 0:3]
         chi0_wGG = chi0_wGG[:, 2:, 2:]
@@ -349,7 +360,11 @@ class Chi0:
         # Use symmetries
         PWSA = PWSymmetryAnalyzer
         PWSA = PWSA(self.calc.wfs.kd, pd,
-                    timer=self.timer, txt=self.fd)
+                    timer=self.timer, txt=self.fd,
+                    disable_point_group=self.disable_point_group,
+                    disable_time_reversal=self.disable_time_reversal,
+                    disable_non_symmorphic=self.disable_non_symmorphic)
+
         bzk_kc = PWSA.get_reduced_kd().bzk_kc
         bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
 
@@ -380,15 +395,18 @@ class Chi0:
         n_n = np.arange(n1, n2)
         n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
                                            Q_aGii=self.Q_aGii)
+
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
         df_nm[df_nm <= 1e-20] = 0.0
         n_nmG *= df_nm[..., np.newaxis]
-        return n_nmG.reshape((-1, nG + 2))
+
+        return n_nmG.reshape(-1, nG + 2)
 
     @timer('Get eigenvalues')
     def get_eigenvalues(self, k_v, s, n1=None, n2=None,
                         m1=None, m2=None,
-                        kd=None, pd=None, wfs=None):
+                        kd=None, pd=None, wfs=None,
+                        filter=False):
         """A function that can return the eigenvalues.
 
         A simple function describing the integrand of
@@ -400,9 +418,9 @@ class Chi0:
 
         kd = wfs.kd
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
-
-        K1 = self.KDTree.query(np.mod(k_c, 1))[1]
-        K2 = self.KDTree.query(np.mod(k_c + pd.kd.bzk_kc[0], 1))[1]
+        q_c = pd.kd.bzk_kc[0]
+        K1 = self.pair.find_kpoint(k_c)
+        K2 = self.pair.find_kpoint(k_c + q_c)
 
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
@@ -410,6 +428,14 @@ class Chi0:
         kpt2 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik2]
         deps_nm = np.subtract(kpt2.eps_n[m1:m2],
                               kpt1.eps_n[n1:n2][:, np.newaxis])
+
+        if filter:
+            #df_nm = np.subtract(kpt1.f_n[n1:n2][:, np.newaxis],
+            #                    kpt2.f_n[m1:m2])
+            #deps_nm[df_nm <= 1e-10] = np.nan
+            fermi_level = self.pair.fermi_level
+            deps_nm[kpt1.eps_n[n1:n2] > fermi_level, :] = np.nan
+            deps_nm[:, kpt2.eps_n[m1:m2] < fermi_level] = np.nan
 
         return deps_nm.reshape(-1)
 
@@ -434,7 +460,7 @@ class Chi0:
         wfs = self.calc.wfs
         kd = wfs.kd
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
-        K1 = self.KDTree.query(np.mod(k_c, 1))[1]
+        K1 = self.pair.find_kpoint(k_c)
         ik = kd.bz2ibz_k[K1]
         kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
 

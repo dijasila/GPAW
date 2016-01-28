@@ -32,9 +32,13 @@ class JDOS(Chi0):
         kpt2 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
         df_nm = (kpt1.f_n[n1:n2][:, np.newaxis]
                  - kpt2.f_n[m1:m2][np.newaxis])
-        df_nm[df_nm <= 0.0] = 0
+        fermi_level = self.pair.fermi_level
+        df_nm[:] = 1.
+        df_nm[kpt1.eps_n[n1:n2] > fermi_level, :] = 0.0
+        df_nm[:, kpt2.eps_n[m1:m2] < fermi_level] = 0.0
+#        df_nm[df_nm <= 1e-5] = 0.0
+#        df_nm[df_nm > 0.0] = 1.0
         df_M = df_nm.astype(complex).reshape(-1)
         df_MG = np.tile(df_M[:, np.newaxis], (1, 3))
-
 
         return df_MG

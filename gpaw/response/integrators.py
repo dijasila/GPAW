@@ -14,6 +14,7 @@ import gpaw.mpi as mpi
 from gpaw.occupations import FermiDirac
 from gpaw.utilities.blas import gemm, rk, czher, mmm
 from gpaw.utilities.progressbar import ProgressBar
+from gpaw.utilities.memory import maxrss
 from functools import partial
 
 
@@ -427,59 +428,91 @@ class TetrahedronIntegrator(Integrator):
         # The kwargs contain any constant
         # arguments provided by the user
         if kwargs is not None:
-            get_matrix_element = partial(get_matrix_element, **kwargs[0])
-            get_eigenvalues = partial(get_eigenvalues, **kwargs[1])
+            get_matrix_element = partial(get_matrix_element,
+                                         **kwargs[0])
+            get_eigenvalues = partial(get_eigenvalues,
+                                      **kwargs[1])
         
         # Relevant quantities
         bzk_kc = td.points
         nk = len(bzk_kc)
 
-        # Point to simplex
-        pts_k = [[] for n in xrange(nk)]
+        print('Before pts: %f MB' % (maxrss() / 1024.**2))
 
-        for s, K_k in enumerate(td.simplices):
-            for K in K_k:
-                pts_k[K].append(s)
+        with self.timer('pts'):
+            # Point to simplex
+            pts_k = [[] for n in xrange(nk)]
+            for s, K_k in enumerate(td.simplices):
+                A_kv = np.append(td.points[K_k],
+                              np.ones(4)[:, np.newaxis], axis=1)
+                
+                D_kv = np.append((A_kv[:, :-1]**2).sum(1)[:, np.newaxis],
+                                 A_kv, axis=1)
+                a = np.linalg.det(D_kv[:, np.arange(5) != 0])
 
-        # Change to numpy arrays:
-        for k in xrange(nk):
-            pts_k[k] = np.array(pts_k[k], int)
+                if np.abs(a) < 1e-10:
+                    continue
 
-        # Nearest neighbours
-        neighbours_k = [None for n in xrange(nk)]
+                for K in K_k:
+                    pts_k[K].append(s)
 
-        for k in xrange(nk):
-            neighbours_k[k] = np.unique(td.simplices[pts_k[k]])
+            # Change to numpy arrays:
+            for k in xrange(nk):
+                pts_k[k] = np.array(pts_k[k], int)
+
+        print('After pts: %f MB' % (maxrss() / 1024.**2))
+
+        with self.timer('neighbours'):
+            # Nearest neighbours
+            neighbours_k = [None for n in xrange(nk)]
+
+            for k in xrange(nk):
+                neighbours_k[k] = np.unique(td.simplices[pts_k[k]])
+
+        print('After neighbors: %f MB' % (maxrss() / 1024.**2))
 
         # Distribute everything
         myterms_t = self.distribute_domain(list(args) +
                                            [list(range(nk))])
 
-        # Store eigenvalues
-        deps_tMk = None  # t for term
-        shape = [len(domain_l) for domain_l in args]
-        nterms = np.prod(shape)
-        
-        for t in range(nterms):
-            arguments = np.unravel_index(t, shape)
-            for K in range(nk):
-                k_c = bzk_kc[K]
-                deps_M = get_eigenvalues(k_c, *arguments)
-                if deps_tMk is None:
-                    deps_tMk = np.zeros([nterms] +
-                                        list(deps_M.shape) +
-                                        [nk], float)
-                deps_tMk[t, :, K] = deps_M
+        print('After distribute domain: %f MB' % (maxrss() / 1024.**2))
 
-        # Store indices for frequencies
-        indices_tMki = np.zeros(list(deps_tMk.shape) + [2], int)
-        for t, deps_Mk in enumerate(deps_tMk):
-            for K in xrange(nk):
-                teteps_Mk = deps_Mk[:, neighbours_k[K]]
-                emin_M, emax_M = teteps_Mk.min(1), teteps_Mk.max(1)
-                i0_M, i1_M = wd.get_index_range(emin_M, emax_M)
-                indices_tMki[t, :, K, 0] = i0_M
-                indices_tMki[t, :, K, 1] = i1_M
+        with self.timer('eigenvalues'):
+            # Store eigenvalues
+            deps_tMk = None  # t for term
+            shape = [len(domain_l) for domain_l in args]
+            nterms = np.prod(shape)
+        
+            for t in range(nterms):
+                arguments = np.unravel_index(t, shape)
+                for K in range(nk):
+                    k_c = bzk_kc[K]
+                    deps_M = get_eigenvalues(k_c, *arguments)
+                    if deps_tMk is None:
+                        deps_tMk = np.zeros([nterms] +
+                                            list(deps_M.shape) +
+                                            [nk], float)
+                    deps_tMk[t, :, K] = deps_M
+
+        print('After eigenvalues: %f MB' % (maxrss() / 1024.**2))
+
+        with self.timer('Get indices'):
+            # Store indices for frequencies
+            indices_tMki = np.zeros(list(deps_tMk.shape) + [2], int)
+            for t, deps_Mk in enumerate(deps_tMk):
+                for K in xrange(nk):
+                    teteps_Mk = deps_Mk[:, neighbours_k[K]]
+                    try:
+                        emin_M, emax_M = teteps_Mk.min(1), teteps_Mk.max(1)
+                    except:
+                        print(neighbours_k[K])
+                        print(teteps_Mk)
+                        raise
+                    i0_M, i1_M = wd.get_index_range(emin_M, emax_M)
+                    indices_tMki[t, :, K, 0] = i0_M
+                    indices_tMki[t, :, K, 1] = i1_M
+
+        print('After indices: %f MB' % (maxrss() / 1024.**2))
 
         omega_w = wd.get_data()
 
@@ -501,10 +534,18 @@ class TetrahedronIntegrator(Integrator):
                 W_w = self.get_kpoint_weight(K, deps_k,
                                              pts_k, omega_w[i0:i1],
                                              td)
+
                 for iw, weight in enumerate(W_w):
                     czher(weight, n_G.conj(), out_wxx[i0 + iw])
 
         self.kncomm.sum(out_wxx)
+
+        # Fill in upper/lower triangle also:
+        nx = out_wxx.shape[1]
+        il = np.tril_indices(nx, -1)
+        iu = il[::-1]
+        for out_xx in out_wxx:
+            out_xx[il] = out_xx[iu].conj()
 
     @timer('Get kpoint weight')
     def get_kpoint_weight(self, K, deps_k, pts_k,

@@ -476,9 +476,10 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-7):
 
 
 def aglomerate_points(k_kc, tol):
+    nd = k_kc.shape[1]
     nbzkpts = len(k_kc)
     inds_kc = np.argsort(k_kc, axis=0)
-    for c in range(3):
+    for c in range(nd):
         sk_k = k_kc[inds_kc[:, c], c]
         dk_k = np.diff(sk_k)
         

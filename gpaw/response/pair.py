@@ -6,7 +6,7 @@ import functools
 from math import pi
 
 import numpy as np
-from scipy.spatial import Delaunay
+from scipy.spatial import Delaunay, cKDTree
 
 from ase.units import Hartree
 from ase.utils import devnull
@@ -338,18 +338,20 @@ class PWSymmetryAnalyzer:
                                          U_scc,
                                          False)
 
-        n = 5
+        n = 3
         N_xc = np.indices((n, n, n)).reshape((3, n**3)).T - n // 2
 
         # Find the irreducible kpoints
         tess = Delaunay(ibzk_kc)
         ik_kc = []
+        for N_c in N_xc:
+            k_kc = self.kd.bzk_kc + N_c
+            k_kc = k_kc[tess.find_simplex(k_kc) >= 0]
+            if not len(ik_kc) and len(k_kc):
+                ik_kc = unique_rows(k_kc)
+            elif len(k_kc):
+                ik_kc = unique_rows(np.append(k_kc, ik_kc, axis=0))
 
-        k_kc = np.reshape(self.kd.bzk_kc[:, np.newaxis] +
-                          N_xc[np.newaxis], (-1, 3))
-        k_kc = k_kc[tess.find_simplex(k_kc) >= 0]
-        ik_kc = unique_rows(np.array(k_kc))
-        
         return KPointDescriptor(ik_kc)
 
     def get_kpoint_weight(self, k_c):
@@ -600,7 +602,7 @@ class PairDensity:
             ecut /= Hartree
 
         if gate_voltage is not None:
-            gate_voltage /= Hartree
+            gate_voltage = gate_voltage / Hartree
 
         self.ecut = ecut
         self.ftol = ftol
@@ -645,6 +647,8 @@ class PairDensity:
         assert calc.wfs.kd.symmetry.symmorphic
         self.calc = calc
 
+        self.fermi_level = self.calc.occupations.get_fermi_level()
+
         if gate_voltage is not None:
             self.add_gate_voltage(gate_voltage)
 
@@ -655,22 +659,26 @@ class PairDensity:
         self.count_occupied_bands()
 
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
-        self.fermi_level = self.calc.occupations.get_fermi_level()
+        
+        kd = self.calc.wfs.kd
+        self.KDTree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
         print('Number of blocks:', nblocks, file=self.fd)
+
+    def find_kpoint(self, k_c):
+        return self.KDTree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
     def add_gate_voltage(self, gate_voltage=0):
         """Shifts the Fermi-level by e * Vg. By definition e = 1."""
         assert isinstance(self.calc.occupations, FermiDirac)
         print('Shifting Fermi-level by %.2f eV' % (gate_voltage * Hartree),
               file=self.fd)
-
+        self.fermi_level += gate_voltage
         for kpt in self.calc.wfs.kpt_u:
             kpt.f_n = (self.shift_occupations(kpt.eps_n, gate_voltage)
                        * kpt.weight)
 
     def shift_occupations(self, eps_n, gate_voltage):
         """Shift fermilevel."""
-        self.fermi_level += gate_voltage
         fermi = self.fermi_level
         width = self.calc.occupations.width
         tmp = (eps_n - fermi) / width
@@ -745,10 +753,9 @@ class PairDensity:
             Range of bands to include.
         """
 
-        with self.timer('where_is_k'):
-            wfs = self.calc.wfs
-            kd = wfs.kd
-            K = kd.where_is_q(k_c, kd.bzk_kc)
+        wfs = self.calc.wfs
+        kd = wfs.kd
+        K = self.find_kpoint(k_c)
         shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
 
         if block:
@@ -763,9 +770,9 @@ class PairDensity:
         nb = min(na + blocksize, n2)
 
         U_cc, T, a_a, U_aii, shift_c, time_reversal = \
-            self.construct_symmetry_operators(K)
+            self.construct_symmetry_operators(K, k_c=k_c)
 
-        shift_c += shift0_c
+        shift_c += -shift0_c
         ik = wfs.kd.bz2ibz_k[K]
         kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
 
@@ -1165,7 +1172,8 @@ class PairDensity:
         blockbands = kpt2.nb - kpt2.na
         n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
         nt_m = np.empty(kpt2.blocksize, dtype=complex)
-        n0_mv[:blockbands] = -self.calc.wfs.gd.integrate(ut_vR, kpt2.ut_nR).T
+        n0_mv[:blockbands] = -self.calc.wfs.gd.integrate(ut_vR,
+                                                         kpt2.ut_nR).T
         nt_m[:blockbands] = self.calc.wfs.gd.integrate(kpt1.ut_nR[n - kpt1.na],
                                                        kpt2.ut_nR)
 
@@ -1214,6 +1222,7 @@ class PairDensity:
             n_n = range(na, nb)
 
         assert np.max(n_n) < nb, print('This is too many bands')
+        assert np.min(n_n) >= na, print('This is too few bands')
 
         # Load kpoints
         kd = self.calc.wfs.kd
@@ -1301,7 +1310,7 @@ class PairDensity:
             N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
         return N_G
 
-    def construct_symmetry_operators(self, K):
+    def construct_symmetry_operators(self, K, k_c=None):
         """Construct symmetry operators for wave function and PAW projections.
 
         We want to transform a k-point in the irreducible part of the BZ to
@@ -1328,12 +1337,24 @@ class PairDensity:
         U_cc = kd.symmetry.op_scc[s]
         time_reversal = kd.time_reversal_k[K]
         ik = kd.bz2ibz_k[K]
-        k_c = kd.bzk_kc[K]
+        if k_c is None:
+            k_c = kd.bzk_kc[K]
         ik_c = kd.ibzk_kc[ik]
 
         sign = 1 - 2 * time_reversal
         shift_c = np.dot(U_cc, ik_c) - k_c * sign
-        assert np.allclose(shift_c.round(), shift_c)
+
+        try:
+            assert np.allclose(shift_c.round(), shift_c)
+        except AssertionError:
+            print(shift_c)
+            print(k_c)
+            print(kd.bzk_kc[K])
+            print(ik_c)
+            print(U_cc)
+            print(sign)
+            raise AssertionError
+
         shift_c = shift_c.round().astype(int)
 
         if (U_cc == np.eye(3)).all():
