@@ -1346,7 +1346,10 @@ class Setups(list):
                     setupname = _type.name  # _type is an object like SetupData
                 # Drop DFT+U specification from type string if it is there:
                 setupname = setupname.split(':')[0]
-                if setupname != 'paw':
+
+                # Basis names inherit setup names except default setups
+                # and ghost atoms.
+                if setupname != 'paw' and setupname != 'ghost':
                     if setupname:
                         if '(' in basis:
                             reduced, name = basis.split('(')
