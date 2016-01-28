@@ -150,7 +150,7 @@ tests = [
     'force_as_stop.py',                     # ~1s
     'vdwradii.py',                          # ~1s
     'ase_features/ase3k.py',                # ~1s
-    'pathological/numpy_zdotc_graphite.py', # ~1s
+    'pathological/numpy_zdotc_graphite.py',  # ~1s
     'utilities/eed.py',                     # ~1s
     'lcao/dos.py',                          # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
@@ -210,7 +210,7 @@ tests = [
     'generic/Cl_minus.py',                  # ~4s
     'vdw/ts09.py',                          # ~4s
     'lrtddft/pes.py',                       # ~4s
-##    'ase_read.py',                          # ~4s
+    # 'ase_read.py',                          # ~4s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
@@ -408,7 +408,7 @@ if mpi.size > 1:
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
                 'response/pair.py']
-
+    
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',
                 'parallel/lcao_parallel.py',
@@ -428,8 +428,9 @@ if mpi.size < 4:
 
 
 if mpi.size != 4:
-    exclude += ['parallel/scalapack_mpirecv_crash.py']
-    exclude += ['parallel/scalapack_pdlasrt_hang.py']
+    exclude += ['parallel/scalapack_mpirecv_crash.py',
+                'parallel/scalapack_pdlasrt_hang.py',
+                'response/bse_silicon.py']
 
 if mpi.size == 1 or not compiled_with_sl():
     exclude += ['parallel/submatrix_redist.py']
@@ -467,6 +468,7 @@ for test in tests + exclude:
     assert os.path.exists(get_test_path(test)), 'No such file: %s' % test
 
 exclude = set(exclude)
+
 
 class TestRunner:
     def __init__(self, tests, stream=sys.__stdout__, jobs=1,
