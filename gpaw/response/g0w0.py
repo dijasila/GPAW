@@ -54,6 +54,11 @@ class G0W0(PairDensity):
        truncation: str
             Coulomb truncation scheme. Can be either wigner-seitz, 
             2D, 1D, or 0D
+        integrate_gamma: int
+            Method to integrate the Coulomb interaction. 1 is a numerical 
+            integration at all q-points with G=[0,0,0] - this breaks the 
+            symmetry slightly. 0 is analytical integration at q=[0,0,0] only - 
+            this conserves the symmetry
        E0: float
           Energy (in eV) used for fitting in the plasmon-pole approximation.
        domega0: float
@@ -65,7 +70,7 @@ class G0W0(PairDensity):
     """
     def __init__(self, calc, filename='gw',
                  kpts=None, bands=None, nbands=None, ppa=False,
-                 truncation=None,
+                 truncation=None, integrate_gamma=1,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
                  domega0=0.025, omega2=10.0,
                  nblocks=1, savew=False,
@@ -95,6 +100,7 @@ class G0W0(PairDensity):
         
         self.ppa = ppa
         self.truncation = truncation
+        self.integrate_gamma = integrate_gamma
         self.eta = eta / Hartree
         self.E0 = E0 / Hartree
         self.domega0 = domega0 / Hartree
@@ -467,20 +473,22 @@ class G0W0(PairDensity):
                                     truncation=self.truncation,
                                     wstc=wstc)**0.5
 
-        if np.allclose(q_c, 0):
-            #G20inv = get_integrated_kernel(pd,
-            #                               self.calc.wfs.kd.N_c,
-            #                               truncation=self.truncation,
-            #                               N=200) / (4 * pi)
-            #G0inv = G20inv**0.5
-            if self.truncation is None:
-                dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
-                qc = (dq3 / 4 / pi * 3)**(1 / 3)
-                G0inv = 2 * pi * qc**2 / dq3
-                G20inv = 4 * pi * qc / dq3
-            else:
-                G0inv = 0.0
-                G20inv = 0.0
+        if self.integrate_gamma == 1:
+            truncation = self.truncation
+            G20inv, G0inv = get_integrated_kernel(pd,
+                                                  self.calc.wfs.kd.N_c,
+                                                  truncation=truncation,
+                                                  N=100)
+            G20inv /= (4 * np.pi)
+            G0inv /= (4 * np.pi)**0.5
+        elif self.integrate_gamma == 0 and np.allclose(q_c, 0):
+            dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
+            qc = (dq3 / 4 / pi * 3)**(1 / 3)
+            G0inv = 2 * pi * qc**2 / dq3
+            G20inv = 4 * pi * qc / dq3
+        else:
+            G0inv = 1.0
+            G20inv = 1.0
         
         delta_GG = np.eye(len(sqrV_G))
 
@@ -495,10 +503,9 @@ class G0W0(PairDensity):
             W_GG = chi0_GG
             W_GG[:] = (np.linalg.inv(e_GG) -
                        delta_GG) * sqrV_G * sqrV_G[:, np.newaxis]
-            if np.allclose(q_c, 0):
-                W_GG[0, 0] *= G20inv
-                W_GG[1:, 0] *= G0inv
-                W_GG[0, 1:] *= G0inv
+            W_GG[0, 0] *= G20inv
+            W_GG[1:, 0] *= G0inv
+            W_GG[0, 1:] *= G0inv
         
         if self.blockcomm.size > 1:
             Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)

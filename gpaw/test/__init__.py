@@ -279,7 +279,6 @@ tests = [
     'ralda/ralda_energy_Ni.py',             # ~13s
     'utilities/simple_stm.py',              # ~13s
     'ofdft/ofdft_pbc.py',                   # ~13s
-    'response/bse_silicon.py',              # ~13s
     'fdtd/ed_shapes.py',                    # ~14s
     'gllb/restart_band_structure.py',       # ~14s
     'exx/exx.py',                           # ~14s
@@ -297,6 +296,7 @@ tests = [
     'lrtddft/excited_state.py',             # ~16s
     'gllb/ne_disc.py',                      # ~16s
     'ofdft/ofdft.py',                       # ~17s
+    'response/bse_silicon.py',              # ~18s
     'tpss.py',                              # ~18s
     'tddft/td_na2.py',                      # ~18s
     'exx/coarse.py',                        # ~18s
@@ -310,7 +310,6 @@ tests = [
     'pw/hyb.py',                            # ~21s
     'generic/Cu.py',                        # ~21s
     'response/na_plasmon.py',               # ~22s
-    'response/bse_diamond.py',              # ~23s
     'fermilevel.py',                        # ~23s
     'parallel/ut_hsblacs.py',               # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
@@ -328,15 +327,13 @@ tests = [
     'exx/MgO_fd_vs_pw.py',                  # ~37s
     'vdw/quick_spin.py',                    # ~37s
     'pw/expert_diag.py',                    # ~37s
-    'response/bse_sym.py',                  # ~40s
     'parallel/ut_hsops.py',                 # ~41s
     'pathological/LDA_unstable.py',         # ~42s
+    'response/bse_aluminum.py',             # ~42s
     'response/au02_absorption.py',          # ~44s
     'ext_potential/point_charge.py',
     'ase_features/wannierk.py',             # ~45s
-    'bse_vs_lrtddft.py',                    # ~45s
     'response/aluminum_testcell.py',        # ~46s
-    'response/bse_aluminum.py',             # ~48s
     'ut_tddft.py',                          # ~49s
     'response/pair.py',                     # ~50s
     'rpa/rpa_energy_N2.py',                 # ~52s
@@ -418,9 +415,7 @@ if mpi.size < 4:
                 'parallel/realspace_blacs.py',
                 'exx/AA_enthalpy.py',
                 'response/bse_aluminum.py',
-                'response/bse_diamond.py',
                 'response/bse_MoS2_cut.py',
-                'bse_vs_lrtddft.py',
                 'fileio/parallel.py',
                 'parallel/diamond_gllb.py',
                 'parallel/lcao_parallel_kpt.py',
@@ -440,7 +435,6 @@ if mpi.size != 1 and not compiled_with_sl():
                 'ralda/ralda_energy_N2.py',
                 'ralda/ralda_energy_Ni.py',
                 'ralda/ralda_energy_Si.py',
-                'response/bse_sym.py',
                 'response/bse_silicon.py',
                 'response/bse_MoS2_cut.py',
                 'response/gwsi.py',

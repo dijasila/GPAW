@@ -1,11 +1,10 @@
 import os
 import numpy as np
-from ase import *
+from ase import Atoms
 from ase.lattice.hexagonal import Hexagonal
-from gpaw import *
+from gpaw import GPAW, FermiDirac
 from gpaw.test import findpeak, equal
 from gpaw.response.bse_new import BSE
-from gpaw.response.df import DielectricFunction
 from gpaw.mpi import rank
 
 if 1:
@@ -57,9 +56,9 @@ w_w, alpha_w = bse.get_polarizability(filename=None,
                                       eta=0.02,
                                       w_w=np.linspace(0., 5., 5001),
                                       )
-w_ = 0.834
-I_ = 26.00
-w, I = findpeak(w_w[:1000], alpha_w.imag[:1000])
+w_ = 1.000
+I_ = 27.07
+w, I = findpeak(w_w[:1200], alpha_w.imag[:1200])
 equal(w, w_, 0.01) 
 equal(I, I_, 0.1)
 

@@ -46,8 +46,7 @@ class RPACorrelation:
                  skip_gamma=False, qsym=True, nlambda=None,
                  nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
                  frequencies=None, weights=None, truncation=None,
-                 world=mpi.world, nblocks=1, integrate_gamma=False,
-                 txt=sys.stdout):
+                 world=mpi.world, nblocks=1, txt=sys.stdout):
         """Creates the RPACorrelation object
         
         calc: str or calculator object
@@ -86,9 +85,6 @@ class RPACorrelation:
             Number of parallelization blocks. Frequency parallelization
             can be specified by setting nblocks=nfrequencies and is useful
             for memory consuming calculations
-        integrate_gamma: bool
-            integrate the exact small-q expression for v\chi0 around the
-            gamma point
         txt: str
             txt file for saving and loading contributions to the correlation
             energy from different q-points
@@ -125,7 +121,6 @@ class RPACorrelation:
         self.world = world
 
         self.truncation = truncation
-        self.integrate_gamma = integrate_gamma
         self.skip_gamma = skip_gamma
         self.ibzq_qc = None
         self.weight_q = None
@@ -350,18 +345,20 @@ class RPACorrelation:
         print('E_c(q) = ', end='', file=self.fd)
 
         chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
-        print('nG:', len(chi0_wGG[0]))
+
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_wGG, cut_G)
             print('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
         else:
             from ase.dft import monkhorst_pack
-            N = 4
-            q_qc = monkhorst_pack((N, N, N)) / pd.kd.N_c
-            if not self.integrate_gamma:
-                q_qc /= 1000.0
             kd = self.calc.wfs.kd
+            N = 4
+            N_c = [N, N, N]
+            #if self.truncation is not None and not np.all(kd.N_c == [1, 1, 1]):
+            #    N_c[np.where(kd.N_c == 1)[0]] = 1                              
+            q_qc = monkhorst_pack(N_c) / kd.N_c
+            q_qc *= 1.0e-6
             U_scc = kd.symmetry.op_scc
             q_qc = kd.get_ibz_q_points(q_qc, U_scc)[0]
             weight_q = kd.q_weights

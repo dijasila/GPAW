@@ -42,12 +42,10 @@ if bse:
               write_h=False,
               write_v=False,
               )
-    bse_w = bse.get_dielectric_function(filename=None,
-                                        q_c=q_c,
-                                        w_w=w_w,
-                                        eta=eta,
-                                        optical=False,
-                                        )[1].imag
+    bse_w = bse.get_eels_spectrum(filename=None,
+                                  q_c=q_c,
+                                  w_w=w_w,
+                                  eta=eta)[1]
     
 if df:
     df = DielectricFunction(calc='Al.gpw',
@@ -72,4 +70,3 @@ if check_spectrum:
 if delfiles and rank == 0:
     os.remove('Al.gpw')
     os.remove('pair.txt')
-    os.remove('chi0.txt')

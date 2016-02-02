@@ -142,14 +142,15 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100):
 
     B_cv = 2 * np.pi * pd.gd.icell_cv
     Nf_c = [N, N, N]
-    #if not np.all(N_c == [1, 1, 1]):
+    #if truncation is not None and not np.all(N_c == [1, 1, 1]):
+        # Only integrate periodic directions if truncation is used
     #    Nf_c[np.where(N_c == 1)[0]] = 1
     q_qc = monkhorst_pack(Nf_c) / N_c   
     q_qc += pd.kd.ibzk_kc[0]
     q_qv = np.dot(q_qc, B_cv)
 
     if truncation is None:
-        v_q = 4 * np.pi / np.sum(q_qv**2, axis=1)
+        V_q = 4 * np.pi / np.sum(q_qv**2, axis=1)
     elif truncation == '2D':
         # The non-periodic direction is determined from k-point grid
         Nn_c = np.where(N_c == 1)[0]
@@ -164,9 +165,9 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100):
         qp_q = ((q_qv[:, Np_c[0]])**2 + (q_qv[:, Np_c[1]]**2))**0.5
         qn_q = q_qv[:, Nn_c[0]]
     
-        v_q = 4 * np.pi / (q_qv**2).sum(axis=1)
+        V_q = 4 * np.pi / (q_qv**2).sum(axis=1)
         a_q = qn_q / qp_q * np.sin(qn_q * R) - np.cos(qn_q * R)
-        v_q *= 1. + np.exp(-qp_q * R) * a_q
+        V_q *= 1. + np.exp(-qp_q * R) * a_q
     elif truncation == '1D':
         # The non-periodic direction is determined from k-point grid
         Nn_c = np.where(N_c == 1)[0]
@@ -182,13 +183,13 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100):
 
         qnR_q = (q_qv[:, Nn_c[0]]**2 + q_qv[:, Nn_c[1]]**2)**0.5 * R
         qpR_q = abs(q_qv[:, Np_c[0]]) * R
-        v_q = 4 * np.pi / (q_qv**2).sum(axis=1)
-        v_q *= (1.0 + qnR_q * j1(qnR_q) * k0(qpR_q) 
+        V_q = 4 * np.pi / (q_qv**2).sum(axis=1)
+        V_q *= (1.0 + qnR_q * j1(qnR_q) * k0(qpR_q) 
                 - qpR_q * j0(qnR_q) * k1(qpR_q))
     elif truncation == '0D' or 'wigner-seitz':
         R = (3 * np.linalg.det(pd.gd.cell_cv) / (4 * np.pi))**(1. / 3.)
         q2_q = (q_qv**2).sum(axis=1)
-        v_q = 4 * np.pi / q2_q
-        v_q *= 1.0 - np.cos(q2_q**0.5 * R)
+        V_q = 4 * np.pi / q2_q
+        V_q *= 1.0 - np.cos(q2_q**0.5 * R)
 
-    return np.sum(v_q) / len(v_q)
+    return np.sum(V_q) / len(V_q), np.sum(V_q**0.5) / len(V_q)

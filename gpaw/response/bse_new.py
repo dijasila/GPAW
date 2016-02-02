@@ -28,7 +28,7 @@ from gpaw.response.pair import PairDensity
 
 
 class BSE():
-    def __init__(self,
+    def __init__(self, 
                  calc=None,
                  ecut=10.,
                  nbands=None,
@@ -37,11 +37,12 @@ class BSE():
                  eshift=None,
                  gw_skn=None,
                  truncation=None,
+                 integrate_gamma=1,
                  txt=sys.stdout,
                  mode='BSE',
                  wfile=None,
                  write_h=True,
-                 write_v=True):
+                 write_v=True): 
         """Creates the BSE object
         
         calc: str or calculator object
@@ -57,18 +58,23 @@ class BSE():
         eshift: float
             Scissors operator opening the gap (eV)
         gw_skn: list / array
-            List or array defining the gw quasiparticle energies used in
-            the BSE Hamiltonian. Should match spin, k-points and
+            List or array defining the gw quasiparticle energies used in 
+            the BSE Hamiltonian. Should match spin, k-points and 
             valence/conduction bands
         truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
+            Coulomb truncation scheme. Can be either wigner-seitz, 
             2D, 1D, or 0D
+        integrate_gamma: int
+            Method to integrate the Coulomb interaction. 1 is a numerical 
+            integration at all q-points with G=[0,0,0] - this breaks the 
+            symmetry slightly. 0 is analytical integration at q=[0,0,0] only - 
+            this conserves the symmetry
         txt: str
             txt output
         mode: str
             Theory level used. can be RPA TDHF or BSE. Only BSE is screened.
         wfile: str
-            File for saving screened interaction and some other stuff
+            File for saving screened interaction and some other stuff 
             needed later
         write_h: bool
             If True, write the BSE Hamiltonian to H_SS.gpw.
@@ -95,6 +101,11 @@ class BSE():
         self.nbands = nbands
         self.mode = mode
         self.truncation = truncation
+        if integrate_gamma == 0 and truncation is not None:
+            print('***WARNING*** Analytical Coulomb integration is ' + 
+                  'not expected to work with Coulomb truncation. ' + 
+                  'Use integrate_gamma=1', file=self.fd)
+        self.integrate_gamma = integrate_gamma
         self.wfile = wfile
         self.write_h = write_h
         self.write_v = write_v
@@ -102,8 +113,8 @@ class BSE():
         # Find q-vectors and weights in the IBZ:
         self.kd = calc.wfs.kd
         if -1 in self.kd.bz2bz_ks:
-            print('***WARNING*** Symmetries may not be right ' +
-                  'Use gamma-centered grid to be sure')
+            print('***WARNING*** Symmetries may not be right ' + 
+                  'Use gamma-centered grid to be sure', file=self.fd)
         offset_c = 0.5 * ((self.kd.N_c + 1) % 2) / self.kd.N_c
         bzq_qc = monkhorst_pack(self.kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
@@ -144,21 +155,40 @@ class BSE():
                          min((world.rank + 1) * myKsize, nK))
         myKsize = len(myKrange)
 
-        # Calculate direct (screened) interaction
-        self.Q_qaGii = []
-        self.W_qGG = []
-        self.pd_q = []
-        self.get_screened_potential(ac=ac)
+        # Wigner-Seitz stuff
+        if self.truncation == 'wigner-seitz':
+            self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv, 
+                                                    self.kd.N_c, self.fd)
+        else:
+            self.wstc = None
 
         # Calculate exchange interaction
-        iq0 = self.qd.bz2ibz_k[self.kd.where_is_q(self.q_c, self.qd.bzk_kc)]
-        pd0 = self.pd_q[iq0]
+        qd0 = KPointDescriptor([self.q_c])
+        pd0 = PWDescriptor(self.ecut, self.calc.wfs.gd, complex, qd0)
         ikq_k = self.kd.find_k_plus_q(self.q_c)
         v_G = get_coulomb_kernel(pd0, self.kd.N_c, truncation=self.truncation,
                                  wstc=self.wstc)
         if optical:
             v_G[0] = 0.0
 
+        self.pair = PairDensity(self.calc, self.ecut, world=serial_comm,
+                                txt='pair.txt')
+
+        # Calculate direct (screened) interaction and PAW corrections
+        self.Q_qaGii = []
+        self.W_qGG = []
+        self.pd_q = []
+        if self.mode == 'RPA':
+            Q_aGii = self.pair.initialize_paw_corrections(pd0)
+        else:
+            self.get_screened_potential(ac=ac)
+            if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
+                iq0 = self.qd.bz2ibz_k[self.kd.where_is_q(self.q_c, 
+                                                          self.qd.bzk_kc)]
+                Q_aGii = self.Q_qaGii[iq0]
+            else:
+                Q_aGii = self.pair.initialize_paw_corrections(pd0)
+            
         # Calculate pair densities, eigenvalues and occupations
         rhoex_KmnG = np.zeros((nK, self.nv, self.nc, len(v_G)), complex)
         rhoG0_Kmn = np.zeros((nK, self.nv, self.nc), complex)
@@ -168,10 +198,8 @@ class BSE():
             optical_limit = True
         else:
             optical_limit = False
-        self.Pair = PairDensity(self.calc, self.ecut, world=serial_comm,
-                                txt='pair.txt')
-        get_pair = self.Pair.get_kpoint_pair
-        get_rho = self.Pair.get_pair_density
+        get_pair = self.pair.get_kpoint_pair
+        get_rho = self.pair.get_pair_density
         vi, vf = self.val_n[0], self.val_n[-1] + 1
         ci, cf = self.con_n[0], self.con_n[-1] + 1
         for ik, iK in enumerate(myKrange):
@@ -179,14 +207,14 @@ class BSE():
             #deps_nm = (self.gw_skn[0, ik, :self.nv][:, np.newaxis] -
             #           self.gw_skn[0, ik, self.nv:])
 
-            deps_kmn[ik] = -pair.get_transition_energies(np.arange(self.nv),
-                                                         np.arange(self.nc))
-            df_Kmn[iK] = pair.get_occupation_differences(np.arange(self.nv),
-                                                         np.arange(self.nc))
+            deps_kmn[ik] = -pair.get_transition_energies(range(self.nv),
+                                                         range(self.nc))
+            df_Kmn[iK] = pair.get_occupation_differences(range(self.nv),
+                                                         range(self.nc))
             rhoex_KmnG[iK] = get_rho(pd0, pair,
-                                     np.arange(self.nv), np.arange(self.nc),
+                                     range(self.nv), range(self.nc),
                                      optical_limit=optical_limit,
-                                     Q_aGii=self.Q_qaGii[iq0])[0]
+                                     Q_aGii=Q_aGii)[0]        
         if self.eshift is not None:
             deps_kmn[np.where(df_Kmn[myKrange] > 1.0e-3)] += self.eshift
             deps_kmn[np.where(df_Kmn[myKrange] < -1.0e-3)] -= self.eshift
@@ -198,7 +226,8 @@ class BSE():
 
         # Calculate Hamiltonian
         t0 = time()
-        print('Calculating %s matrix elements' % self.mode, file=self.fd)
+        print('Calculating %s matrix elements at q_c = %s' 
+              % (self.mode, self.q_c), file=self.fd)
         H_kKmnmn = np.zeros((myKsize, nK,
                              self.nv, self.nc, self.nv, self.nc),
                             complex)
@@ -206,15 +235,16 @@ class BSE():
             rho1_mnG = rhoex_KmnG[iK1]
             rho1ccV_mnG = rho1_mnG.conj()[:, :] * v_G
             rhoG0_Kmn[iK1] = rho1_mnG[:, :, 0]
-            kptv1 = self.Pair.get_k_point(0, iK1, vi, vf)
-            kptc1 = self.Pair.get_k_point(0, ikq_k[iK1], ci, cf)
-            for iK2 in range(nK):
+            kptv1 = self.pair.get_k_point(0, iK1, vi, vf)
+            kptc1 = self.pair.get_k_point(0, ikq_k[iK1], ci, cf)
+            for Q_c in self.qd.bzk_kc:
+                iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
                 rho2_mnG = rhoex_KmnG[iK2]
                 H_kKmnmn[ik1, iK2] += np.dot(rho1ccV_mnG,
                                              np.swapaxes(rho2_mnG, 1, 2))
                 if not self.mode == 'RPA':
-                    kptv2 = self.Pair.get_k_point(0, iK2, vi, vf)
-                    kptc2 = self.Pair.get_k_point(0, ikq_k[iK2], ci, cf)
+                    kptv2 = self.pair.get_k_point(0, iK2, vi, vf)
+                    kptc2 = self.pair.get_k_point(0, ikq_k[iK2], ci, cf)
                     rho3_mmG, iq = self.get_density_matrix(kptv1, kptv2)
                     rho4_nnG, iq = self.get_density_matrix(kptc1, kptc2)
                     rho3ccW_mmG = np.dot(rho3_mmG.conj(), self.W_qGG[iq])
@@ -225,7 +255,7 @@ class BSE():
             if iK1 % (myKsize // 5 + 1) == 0:
                 dt = time() - t0
                 tleft = dt * myKsize / (iK1 + 1) - dt
-                print('  Finished %s pair orbitals in %s - Estimated %s left' %
+                print('  Finished %s pair orbitals in %s - Estimated %s left' % 
                       ((iK1 + 1) * self.nv * self.nc * world.size,
                        timedelta(seconds=round(dt)),
                        timedelta(seconds=round(tleft))), file=self.fd)
@@ -261,11 +291,6 @@ class BSE():
         iq = self.qd.bz2ibz_k[iQ]
         q_c = self.qd.ibzk_kc[iq]
 
-        if np.allclose(q_c, 0.0):
-            optical_limit = True
-        else:
-            optical_limit = False
-
         # Find symmetry that transforms Q_c into q_c
         sym = self.qd.sym_k[iQ]
         U_cc = self.qd.symmetry.op_scc[sym]
@@ -284,7 +309,6 @@ class BSE():
 
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
-        
         G_Gv = pd.get_reciprocal_vectors()
         pos_ac = self.calc.atoms.get_scaled_positions()
         pos_av = np.dot(pos_ac, pd.gd.cell_cv)
@@ -306,23 +330,17 @@ class BSE():
             C1_aGi = [np.dot(Qa_Gii, P1_ni[m].conj())
                       for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             ut1cc_R = kpt1.ut_nR[m].conj()
-            rho_mnG[m] = self.Pair.calculate_pair_densities(ut1cc_R, C1_aGi,
+            rho_mnG[m] = self.pair.calculate_pair_densities(ut1cc_R, C1_aGi, 
                                                             kpt2, pd, I_G)
         return rho_mnG, iq
 
     def get_screened_potential(self, ac=1.0):
 
-        if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
-                                                    self.kd.N_c, self.fd)
-        else:
-            self.wstc = None
-
         if self.wfile is not None:
             # Read screened potential from file
             try:
                 f = open(self.wfile)
-                print('Reading screened potential from % s' % self.wfile,
+                print('Reading screened potential from % s' % self.wfile, 
                       file=self.fd)
                 self.Q_qaGii, self.pd_q, self.W_qGG = pickle.load(f)
             except:
@@ -379,11 +397,11 @@ class BSE():
                 kd = self.calc.wfs.kd
                 N = 4
                 N_c = [N, N, N]
-                if not np.all(kd.N_c == [1, 1, 1]):
-                    for i, n in enumerate(kd.N_c):
-                        if n == 1:
-                            N_c[i] = 1
-                qf_qc = monkhorst_pack(N_c)
+                #if (self.truncation is not None and 
+                #    not np.all(kd.N_c == [1, 1, 1])):
+                    # Only average periodic directions if trunction is used
+                #    N_c[np.where(kd.N_c == 1)[0]] = 1
+                qf_qc = monkhorst_pack(N_c) / kd.N_c
                 qf_qc *= 1.0e-6
                 U_scc = kd.symmetry.op_scc
                 qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
@@ -408,11 +426,11 @@ class BSE():
                     e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
                     einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
                     #einv_GG = np.linalg.inv(e_GG) * weight_q[iqf]
-                    #W_GG += (einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
+                    #W_GG += (einv_GG * sqrV_G * sqrV_G[:, np.newaxis] 
                     #         * weight_q[iqf])
             else:
                 sqrV_G = get_coulomb_kernel(pd,
-                                            kd.N_c,
+                                            self.kd.N_c,
                                             truncation=self.truncation,
                                             wstc=self.wstc)**0.5
                 sqrV_G *= ac**0.5 # Multiply by adiabatic coupling
@@ -422,22 +440,33 @@ class BSE():
 
             # Now calculate W_GG
             if pd.kd.gamma:
+                # Reset bare Coulomb interaction
                 sqrV_G = get_coulomb_kernel(pd,
-                                            kd.N_c,
+                                            self.kd.N_c,
                                             truncation=self.truncation,
-                                            wstc=self.wstc)**0.5
-                #bzvol = (2 * np.pi)**3 / self.vol / self.qd.nbzkpts
-                #Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
-                #sqrV_G[0] = 4 * np.pi * (Rq0 / bzvol)**0.5
-            sqrV_G[0] = get_integrated_kernel(pd,
-                                              kd.N_c,
-                                              truncation=self.truncation,
-                                              N=100)**0.5
+                                            wstc=self.wstc)**0.5 
             W_GG = einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
-
+            if self.integrate_gamma == 1:
+                # Integrate bare Coulomb interaction at all q-points
+                V0, sqrV0 = get_integrated_kernel(pd,
+                                                  self.kd.N_c,
+                                                  truncation=self.truncation,
+                                                  N=100)
+                W_GG[0, 0] = einv_GG[0, 0] * V0
+                W_GG[0, 1:] = einv_GG[0, 1:] * sqrV0 * sqrV_G[1:]
+                W_GG[1:, 0] = einv_GG[1:, 0] * sqrV_G[1:] * sqrV0
+            elif self.integrate_gamma == 0 and pd.kd.gamma:
+                # Analytical integration at gamma
+                bzvol = (2 * np.pi)**3 / self.vol / self.qd.nbzkpts
+                Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
+                V0 = 16 * np.pi**2 * Rq0 / bzvol
+                sqrV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
+            else:
+                pass
+            
             if pd.kd.gamma:
                 e = 1 / einv_GG[0, 0].real
-                print('RPA macroscopic dielectric constant is: %3.3f' %  e,
+                print('    RPA dielectric constant is: %3.3f' %  e,
                       file=self.fd)
             self.Q_qaGii.append(chi0.Q_aGii)
             self.pd_q.append(pd)
@@ -446,19 +475,19 @@ class BSE():
             if iq % (self.qd.nibzkpts // 5 + 1) == 2:
                 dt = time() - t0
                 tleft = dt * self.qd.nibzkpts / (iq + 1) - dt
-                print('  Finished %s q-points in %s - Estimated %s left' %
+                print('  Finished %s q-points in %s - Estimated %s left' % 
                       (iq + 1, timedelta(seconds=round(dt)),
                        timedelta(seconds=round(tleft))), file=self.fd)
 
     def diagonalize(self):
 
         print('Diagonalizing Hamiltonian', file=self.fd)
-        """The t and T represent local and global
+        """The t and T represent local and global 
            eigenstates indices respectively
         """
  
         # Non-Hermitian matrix can only use linalg.eig
-        if not self.td:
+        if not self.td: 
             print('  Using numpy.linalg.eig...', file=self.fd)
             self.H_SS = np.zeros((self.nS, self.nS), dtype=complex)
             world.all_gather(self.H_sS, self.H_SS)
@@ -494,7 +523,7 @@ class BSE():
 
         if self.write_v:
             self.par_save('v_TS', 'v_TS', self.v_St.T)
-        return
+        return 
 
     def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
                  ac=1.0, readfile=None, optical=True):
@@ -511,7 +540,7 @@ class BSE():
             self.diagonalize()
         elif readfile == 'v_TS':
             print('Reading eigenstates from file', file=self.fd)
-            self.par_load('v_TS', 'v_TS')
+            self.par_load('v_TS', 'v_TS') 
         else:
             raise ValueError('%s array not recognized' % readfile)
 
@@ -563,8 +592,8 @@ class BSE():
 
     def get_dielectric_function(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
                                 filename='df_bse.csv', readfile=None,
-                                write_eig=None, optical=True):
-        """Returns and writes real and imaginary part of the dielectric
+                                write_eig=None):
+        """Returns and writes real and imaginary part of the dielectric 
         function.
 
         w_w: list of frequencies (eV)
@@ -572,23 +601,20 @@ class BSE():
         eta: float
             Lorentzian broadening of the spectrum (eV)
         q_c: list of three floats
-            Wavevector in reduced units on which the response is calculated
+            Wavevector in reduced units on which the response is calculated 
         filename: str
-            data file on which frequencies, real and imaginary part of
+            data file on which frequencies, real and imaginary part of 
             dielectric function is written
         readfile: str
-            If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.gpw. If v_TS is given, the method will load the
+            If H_SS is given, the method will load the BSE Hamiltonian 
+            from H_SS.gpw. If v_TS is given, the method will load the 
             eigenstates from v_TS.gpw
         write_eig: str
             File on which the BSE eigenvalues are written
-        optical: bool
-            If True, the standard dielectric function is returned. If False,
-            the imaginary part of the returned quantity is the EELS spectrum
         """
 
-        epsilon_w = -self.get_vchi(w_w=w_w, eta=eta, q_c=q_c,
-                                   readfile=readfile, optical=optical)
+        epsilon_w = -self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, 
+                                   readfile=readfile, optical=True)
         epsilon_w += 1.0
     
         """Check f-sum rule."""
@@ -598,7 +624,7 @@ class BSE():
         N = np.dot(dw_w, weps_w.imag) * self.vol / (2 * np.pi**2)
         print(file=self.fd)
         print('Checking f-sum rule:', file=self.fd)
-        print('  N = %f, %f  %% error' % (N, (N - nv) / nv * 100),
+        print('  N = %f, %f  %% error' % (N, (N - nv) / nv * 100), 
               file=self.fd)
         print(file=self.fd)
 
@@ -606,7 +632,7 @@ class BSE():
         if world.rank == 0 and filename is not None:
             f = open(filename, 'w')
             for iw, w in enumerate(w_w):
-                print('%.6f, %.6f, %.6f' %
+                print('%.6f, %.6f, %.6f' %  
                       (w, epsilon_w[iw].real, epsilon_w[iw].imag), file=f)
             f.close()
         world.barrier()
@@ -624,6 +650,53 @@ class BSE():
         
         return w_w, epsilon_w
 
+    def get_eels_spectrum(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
+                          filename='df_bse.csv', readfile=None,
+                          write_eig=None):
+        """Returns and writes real and imaginary part of the dielectric 
+        function.
+
+        w_w: list of frequencies (eV)
+            Dielectric function is calculated at these frequencies
+        eta: float
+            Lorentzian broadening of the spectrum (eV)
+        q_c: list of three floats
+            Wavevector in reduced units on which the response is calculated 
+        filename: str
+            data file on which frequencies, real and imaginary part of 
+            dielectric function is written
+        readfile: str
+            If H_SS is given, the method will load the BSE Hamiltonian 
+            from H_SS.gpw. If v_TS is given, the method will load the 
+            eigenstates from v_TS.gpw
+        write_eig: str
+            File on which the BSE eigenvalues are written
+        """
+
+        eels_w = -self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, 
+                                readfile=readfile, optical=False).imag
+
+        w_w *= Hartree
+        if world.rank == 0 and filename is not None:
+            f = open(filename, 'w')
+            for iw, w in enumerate(w_w):
+                print('%.6f, %.6f' %  (w, eels_w[iw]), file=f)
+            f.close()
+        world.barrier()
+
+        self.w_T *= Hartree
+        if write_eig is not None:
+            if world.rank == 0:
+                f = open(write_eig, 'w')
+                print('# %s eigenvalues in eV' % self.mode, file=f)
+                for iw, w in enumerate(self.w_T):
+                    print('%8d %12.6f' % (iw, w.real), file=f)
+                f.close()
+            
+        print('Calculation completed at:', ctime(), file=self.fd)
+        
+        return w_w, eels_w
+
     def get_polarizability(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
                            filename='pol_bse.csv', readfile=None, pbc=None,
                            write_eig=None, optical=True):
@@ -637,7 +710,7 @@ class BSE():
         pbs should be a list of booleans giving the periodic directions.
 
         By default, generate a file 'pol_bse.csv'. The three colomns are:
-        frequency (eV), Real(alpha), Imag(alpha). The dimension of alpha
+        frequency (eV), Real(alpha), Imag(alpha). The dimension of alpha 
         is \AA to the power of non-periodic directions.
         """
 
@@ -651,7 +724,7 @@ class BSE():
         else:
             V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
 
-        vchi_w = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c,
+        vchi_w = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, 
                                readfile=readfile, optical=optical)
         alpha_w = -V * vchi_w / (4 * np.pi)
         alpha_w *= Bohr**(sum(~pbc_c))
@@ -678,7 +751,7 @@ class BSE():
         return w_w, alpha_w
 
     def par_save(self, filename, name, A_sS):
-        from gpaw.io import open
+        from gpaw.io import open 
 
         nS = self.nS
         if world.rank == 0:
@@ -721,7 +794,7 @@ class BSE():
         world.barrier()
 
     def par_load(self, filename, name):
-        from gpaw.io import open
+        from gpaw.io import open 
 
         r = open(filename, 'r')
         nS = r.dimension('nS')
@@ -782,6 +855,14 @@ class BSE():
             p('Scissors operator              :', eshift * Hartree, 'eV')
         p('Tamm-Dancoff approximation     :', td)
         p('Number of pair orbitals        :', self.nS)
+        p()
+        p('Truncation of Coulomb kernel   :', self.truncation)
+        if self.integrate_gamma == 0:
+            p('Coulomb integration scheme     :', 'Analytical - gamma only')
+        elif self.integrate_gamma == 1:
+            p('Coulomb integration scheme     :', 'Numerical - all q-points')
+        else:
+            pass
         p()
         p('----------------------------------------------------------')
         p('----------------------------------------------------------')
