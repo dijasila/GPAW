@@ -21,6 +21,7 @@ def run(atoms, symm, name):
     atoms.calc.write(name, mode='all')
     gw = G0W0(name, 'gw-' + name,
               nbands=8,
+              integrate_gamma=0,
               kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
               ecut=40,
               domega0=0.1,
