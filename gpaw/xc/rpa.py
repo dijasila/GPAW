@@ -355,8 +355,8 @@ class RPACorrelation:
             kd = self.calc.wfs.kd
             N = 4
             N_c = [N, N, N]
-            #if self.truncation is not None and not np.all(kd.N_c == [1, 1, 1]):
-            #    N_c[np.where(kd.N_c == 1)[0]] = 1                              
+            if self.truncation is not None:
+                N_c[np.where(kd.N_c == 1)[0]] = 1                              
             q_qc = monkhorst_pack(N_c) / kd.N_c
             q_qc *= 1.0e-6
             U_scc = kd.symmetry.op_scc
@@ -380,7 +380,6 @@ class RPACorrelation:
                 chi0_wGG[:, 0, 0] = a_qw[iq]
                 ev = self.calculate_energy(pd, chi0_wGG, cut_G, 
                                            q_v=q_qv[iq])
-                #print(q_qv[iq], ev * Hartree)
                 e += ev * weight_q[iq]
             print('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
@@ -391,19 +390,19 @@ class RPACorrelation:
     def calculate_energy(self, pd, chi0_wGG, cut_G, q_v=None):
         """Evaluate correlation energy from chi0."""
 
-        sqrv_G = get_coulomb_kernel(pd, self.calc.wfs.kd.N_c, q_v=q_v,
+        sqrV_G = get_coulomb_kernel(pd, self.calc.wfs.kd.N_c, q_v=q_v,
                                     truncation=self.truncation,
                                     wstc=self.wstc)**0.5
         if cut_G is not None:
-            sqrv_G = sqrv_G[cut_G]
-        nG = len(sqrv_G)
+            sqrV_G = sqrV_G[cut_G]
+        nG = len(sqrV_G)
 
         e_w = []
         for chi0_GG in chi0_wGG:
             if cut_G is not None:
                 chi0_GG = chi0_GG.take(cut_G, 0).take(cut_G, 1)
 
-            e_GG = np.eye(nG) - chi0_GG * sqrv_G * sqrv_G[:, np.newaxis]
+            e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
             e = np.log(np.linalg.det(e_GG)) + nG - np.trace(e_GG)
             e_w.append(e.real)
 

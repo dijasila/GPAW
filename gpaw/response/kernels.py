@@ -82,7 +82,7 @@ def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
         """sin(qGn_G * R) = 0 when R = L/2 and q_n = 0.0"""
         v_G *= 1.0 - np.exp(-qGp_G * R) * np.cos(qGn_G * R)
 
-    return v_G
+    return v_G.astype(complex)
 
 def calculate_1D_truncated_coulomb(pd, q_v=None, N_c=None):
     """ Simple 1D truncation of Coulomb kernel PRB 73, 205119. 
@@ -115,7 +115,7 @@ def calculate_1D_truncated_coulomb(pd, q_v=None, N_c=None):
     v_G *= (1.0 + qGnR_G * j1(qGnR_G) * k0(qGpR_G)
             - qGpR_G * j0(qGnR_G) * k1(qGpR_G))
 
-    return v_G
+    return v_G.astype(complex)
 
 def calculate_0D_truncated_coulomb(pd, q_v=None):
     """ Simple spherical truncation of the Coulomb interaction
@@ -142,9 +142,9 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100):
 
     B_cv = 2 * np.pi * pd.gd.icell_cv
     Nf_c = [N, N, N]
-    #if truncation is not None and not np.all(N_c == [1, 1, 1]):
+    if truncation is not None:
         # Only integrate periodic directions if truncation is used
-    #    Nf_c[np.where(N_c == 1)[0]] = 1
+        Nf_c[np.where(N_c == 1)[0]] = 1
     q_qc = monkhorst_pack(Nf_c) / N_c   
     q_qc += pd.kd.ibzk_kc[0]
     q_qv = np.dot(q_qc, B_cv)

@@ -398,10 +398,9 @@ class BSE():
                 kd = self.calc.wfs.kd
                 N = 4
                 N_c = [N, N, N]
-                #if (self.truncation is not None and 
-                #    not np.all(kd.N_c == [1, 1, 1])):
+                if self.truncation is not None:
                     # Only average periodic directions if trunction is used
-                #    N_c[np.where(kd.N_c == 1)[0]] = 1
+                    N_c[np.where(kd.N_c == 1)[0]] = 1
                 qf_qc = monkhorst_pack(N_c) / kd.N_c
                 qf_qc *= 1.0e-6
                 U_scc = kd.symmetry.op_scc
@@ -448,7 +447,7 @@ class BSE():
                                             wstc=self.wstc)**0.5 
             W_GG = einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
             if self.integrate_gamma == 1:
-                # Integrate bare Coulomb interaction at all q-points
+                # Numerical integration of Coulomb interaction at all q-points
                 V0, sqrV0 = get_integrated_kernel(pd,
                                                   self.kd.N_c,
                                                   truncation=self.truncation,
