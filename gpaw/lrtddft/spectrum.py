@@ -2,7 +2,7 @@ from __future__ import print_function
 import sys
 import numpy as np
 
-from ase.units import _hbar, _c, _e, Hartree
+from ase.units import _hbar, _c, _e, _eps0, _me, Hartree, m
 from gpaw.version import version
 from gpaw.utilities.folder import Folder
 
@@ -75,6 +75,16 @@ def spectrum(exlist=None,
     if filename is not None:
         out.close()
 
+def get_adsorbance_pre_factor(atoms):
+    """Return the absorbance pre-factor for solids. Unit m^-1.
+
+    Use this factor to multiply the folded oscillatior strength
+    obtained from spectrum()
+
+    Robert C. Hilborn, Am. J. Phys. 50, 982 (1982)
+    """
+    V = atoms.get_volume() / m**3    # V in m^3
+    return np.pi * _e**2 / 2. / _me / _c
 
 def rotatory_spectrum(exlist=None,
                       filename=None,

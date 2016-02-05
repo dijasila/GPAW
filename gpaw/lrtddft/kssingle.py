@@ -54,12 +54,15 @@ class KSSingles(ExcitationList):
         self.eps = None
         self.world = mpi.world
 
+        self.calculator = None
         if isinstance(calculator, str):
-            return self.read(calculator, 
-                             istart=istart, jend=jend)
+            self.read(calculator)
+            return self.select(eps=eps, istart=istart, jend=jend,
+                               energy_range=energy_range)
         if filehandle is not None:
-            return self.read(fh=filehandle,
-                             istart=istart, jend=jend)
+            self.read(fh=filehandle)
+            return self.select(eps, istart=istart, jend=jend,
+                               energy_range=energy_range)
 
         # LCAO calculation requires special actions
         if calculator is not None:
@@ -93,19 +96,8 @@ class KSSingles(ExcitationList):
         print('KSS polarisabilities(l=0-3) %g, %g, %g, %g' %
               tuple(pol.tolist()), file=self.txt)
 
-    def select(self, nspins=None, eps=0.001,
-               istart=0, jend=sys.maxsize, energy_range=None):
-        """Select KSSingles according to the given criterium."""
-
-        paw = self.calculator
-        wfs = paw.wfs
-        self.dtype = wfs.dtype
-        self.kpt_u = wfs.kpt_u
-
-        if not self.lcao and self.kpt_u[0].psit_nG is None:
-            raise RuntimeError('No wave functions in calculator!')
-
-        # criteria
+    @staticmethod
+    def emin_emax(energy_range):
         emin = -sys.float_info.max
         emax = sys.float_info.max
         if energy_range is not None:
@@ -115,9 +107,34 @@ class KSSingles(ExcitationList):
                 emax /= Hartree
             except:
                 emax = energy_range / Hartree
+        return emin, emax
+
+    def select(self, nspins=None, eps=0.001,
+               istart=0, jend=sys.maxsize, energy_range=None):
+        """Select KSSingles according to the given criterium."""
+
+        # criteria
+        emin, emax = self.emin_emax(energy_range)
         self.istart = istart
         self.jend = jend
         self.eps = eps
+
+        if self.calculator is None:  # I'm read from a file
+            # throw away all not needed entries
+            for i, ks in reversed(list(enumerate(self))):
+                if ((ks.fij / ks.weight) <= eps or
+                    ks.i < istart or ks.j > jend or
+                    ks.energy < emin or ks.energy > emax):
+                    del(self[i])
+            return None
+
+        paw = self.calculator
+        wfs = paw.wfs
+        self.dtype = wfs.dtype
+        self.kpt_u = wfs.kpt_u
+
+        if not self.lcao and self.kpt_u[0].psit_nG is None:
+            raise RuntimeError('No wave functions in calculator!')
 
         # here, we need to take care of the spins also for
         # closed shell systems (Sz=0)
@@ -184,7 +201,7 @@ class KSSingles(ExcitationList):
         for kss in self:
             kss.distribute()
 
-    def read(self, filename=None, fh=None, istart=0, jend=sys.maxsize):
+    def read(self, filename=None, fh=None):
         """Read myself from a file"""
         if fh is None:
             if filename.endswith('.gz'):
@@ -214,9 +231,8 @@ class KSSingles(ExcitationList):
         self.npspins = 1
         for i in range(n):
             kss = KSSingle(string=f.readline(), dtype=self.dtype)
-            if (kss.i >= istart) and (kss.j <= jend):
-                self.append(kss)
-                self.npspins = max(self.npspins, kss.pspin + 1)
+            self.append(kss)
+            self.npspins = max(self.npspins, kss.pspin + 1)
         self.update()
 
         if fh is None:
