@@ -10,4 +10,4 @@ si.calc.write('Si_gs', 'all')
 dct = {}
 exec(open('Si_g0w0_ppa.py').read(), dct)
 assert abs(dct['ks_gap'] - 0.404) < 0.01
-assert abs(dct['qp_gap'] - 1.138) < 0.01
+assert abs(dct['qp_gap'] - 1.358) < 0.01
