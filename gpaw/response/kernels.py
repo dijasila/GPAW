@@ -142,9 +142,9 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100):
 
     B_cv = 2 * np.pi * pd.gd.icell_cv
     Nf_c = [N, N, N]
-    if truncation is not None:
+    #if truncation is not None:
         # Only integrate periodic directions if truncation is used
-        Nf_c[np.where(N_c == 1)[0]] = 1
+    #    Nf_c[np.where(N_c == 1)[0]] = 1
     q_qc = monkhorst_pack(Nf_c) / N_c   
     q_qc += pd.kd.ibzk_kc[0]
     q_qv = np.dot(q_qc, B_cv)
