@@ -24,6 +24,7 @@ class DielectricFunction:
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  gate_voltage=None, truncation=None, disable_point_group=False,
                  disable_time_reversal=False, use_more_memory=1,
+                 no_optical_limit=False,
                  unsymmetrized=True, eshift=None):
         """Creates a DielectricFunction object.
         
@@ -89,7 +90,8 @@ class DielectricFunction:
                          disable_point_group=disable_point_group,
                          disable_time_reversal=disable_time_reversal,
                          use_more_memory=use_more_memory,
-                         unsymmetrized=unsymmetrized, eshift=eshift)
+                         unsymmetrized=unsymmetrized, eshift=eshift,
+                         no_optical_limit=no_optical_limit)
         
         self.name = name
 
@@ -193,10 +195,7 @@ class DielectricFunction:
                     else:
                         chi0_wGG = np.empty((mynw, nG, nG), complex)
                         tmp_wGG = np.empty((mynw, nG, nG), complex)
-                
-                    #for w, chi0_GG in enumerate(chi0_wGG):
-                    #    print('w=%d' % w)
-                    #    chi0_GG[:] = pickle.load(fd)
+                    
                     w1 = 0
                     for brank in range(blockcomm.size):
                         w2 = min(w1 + mynw, nw)
@@ -216,6 +215,9 @@ class DielectricFunction:
                     else:
                         chi0_wGG = np.empty((mynw, nG, nG), complex)
                     world.receive(chi0_wGG, 0)
+        if chi0_wxvG is not None:
+            B_cv = 2 * pi * self.chi0.calc.wfs.gd.icell_cv
+            i_Qc = np.dot(pd.get_reciprocal_vectors(), np.linalg.inv(B_cv))
         
         return pd, chi0_wGG[:wb - wa], chi0_wxvG, chi0_wvv
         

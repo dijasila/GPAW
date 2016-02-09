@@ -28,12 +28,15 @@ class SelfEnergy:
 
 class GWSelfEnergy(SelfEnergy):
 
-    def __init__(self, calc, kpts=None, bandrange=None, filename=None, 
-                 txt=sys.stdout, temp=None, savechi0=False, savepair=False,
-                 nbands=None, ecut=150., nblocks=1, hilbert=True,      
-                 domega0=0.025, omega2=10., omegamax=None,  eta=0.1, 
-                 qptint=None, truncation='3D', world=mpi.world, timer=None):
-        
+    def __init__(self, calc, kpts=None, bandrange=None,
+                 filename=None, txt=sys.stdout,
+                 temp=None, savechi0=False, savepair=False,
+                 nbands=None, ecut=150., reuse_extrapolation=True,
+                 nblocks=1, hilbert=True, eta=0.1,
+                 domega0=0.025, omega2=10., omegamax=None,
+                 qptint=None, truncation='3D',
+                 world=mpi.world, timer=None):
+
         # Create output buffer
         if world.rank != 0:
             txt = devnull
@@ -52,6 +55,8 @@ class GWSelfEnergy(SelfEnergy):
         else:
             self.ecut = max(ecut) / Hartree
             self.ecut_i = np.sort(ecut)[::-1] / Hartree
+        self.reuse_extrapolation = reuse_extrapolation
+        self.has_extrapolation = False
         
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
@@ -272,38 +277,52 @@ class GWSelfEnergy(SelfEnergy):
         self.sigma_iskn = sigma_iskn
         self.dsigma_iskn = dsigma_iskn
         
-        self.sigerr_skn = np.zeros(self.shape, complex)
+        if not self.has_extrapolation:
+            self.sigerr_skn = np.zeros(self.shape, complex)
+            self.sigshift_skn = np.zeros(self.shape, complex)
+            self.dsigshift_skn = np.zeros(self.shape, complex)
+        
         if len(self.ecut_i) > 1:
             # Do linear fit of selfenergy vs. inverse of number of plane waves
             # to extrapolate to infinite number of plane waves
             self.sigma_skn = np.zeros(self.shape, complex)
             self.dsigma_skn = np.zeros(self.shape, complex)
             invN_i = self.ecut_i**(-3. / 2)
-            for s in range(self.shape[0]):
-                for k in range(self.shape[1]):
-                    for n in range(self.shape[2]):
-                        psig = np.polyfit(invN_i,
-                                          self.sigma_iskn[:, s, k, n], 1)
-                        self.sigma_skn[s, k, n] = psig[1]
-                        sigslopes = (np.diff(self.sigma_iskn[:, s, k, n]) /
-                                     np.diff(invN_i))
-                        imin = np.argmin(sigslopes)
-                        imax = np.argmax(sigslopes)
-                        sigmax = (self.sigma_iskn[imin, s, k, n] -
-                                  sigslopes[imin] * invN_i[imin])
-                        sigmin = (self.sigma_iskn[imax, s, k, n] -
-                                  sigslopes[imax] * invN_i[imax])
-                        assert (psig[1].real < sigmax.real and
-                                psig[1].real > sigmin.real)
-                        sigerr = sigmax - sigmin
-                        self.sigerr_skn[s, k, n] = sigerr
-                        
-                        pdsig = np.polyfit(invN_i,
-                                           self.dsigma_iskn[:, s, k, n], 1)
-                        self.dsigma_skn[s, k, n] = pdsig[1]
+            for m in range(np.product(self.shape)):
+                s, k, n = np.unravel_index(m, self.shape)
+                
+                if not self.reuse_extrapolation or not self.has_extrapolation:
+                    psig = np.polyfit(invN_i, self.sigma_iskn[:, s, k, n], 1)
+
+                    self.sigshift_skn[s, k, n] = (psig[1] -
+                                                  self.sigma_iskn[0, s, k, n])
+                    
+                    sigslopes = (np.diff(self.sigma_iskn[:, s, k, n]) /
+                                 np.diff(invN_i))
+                    imin = np.argmin(sigslopes)
+                    imax = np.argmax(sigslopes)
+                    sigmax = (self.sigma_iskn[imin, s, k, n] -
+                              sigslopes[imin] * invN_i[imin])
+                    sigmin = (self.sigma_iskn[imax, s, k, n] -
+                              sigslopes[imax] * invN_i[imax])
+                    assert (psig[1].real < sigmax.real and
+                            psig[1].real > sigmin.real)
+                    sigerr = sigmax - sigmin
+                    self.sigerr_skn[s, k, n] = sigerr
+                    
+                    pdsig = np.polyfit(invN_i, self.dsigma_iskn[:, s, k, n], 1)
+                    self.dsigshift_skn[s, k, n] = (pdsig[1] -
+                                                   self.dsigma_skn[s, k, n])
+                
+                self.sigma_skn[s, k, n] = (self.sigma_iskn[0, s, k, n] +
+                                           self.sigshift_skn[s, k, n])
+                self.dsigma_skn[s, k, n] = (self.dsigma_iskn[0, s, k, n] +
+                                            self.dsigshift_skn[s, k, n])
         else:
             self.sigma_skn = self.sigma_iskn[0]
             self.dsigma_skn = self.dsigma_iskn[0]
+
+        self.has_extrapolation = True
 
         self.save_state_file()
         
@@ -542,7 +561,10 @@ class GWSelfEnergy(SelfEnergy):
             qcstr = '(' + ', '.join(['%.3f' % x for x in q_c]) + ')'
             print('Calculating contribution from IBZ q-pointq #%d/%d, q_c=%s' %
                   (nq + 1, len(ibzqs), qcstr), file=self.fd)
-            for i, ecut in enumerate(self.ecut_i):
+            ilast = len(self.ecut_i)
+            if self.reuse_extrapolation and self.has_extrapolation:
+                ilast = 1
+            for i, ecut in enumerate(self.ecut_i[:ilast]):
 
                 W_wGG, pd, pdi, Q_aGii = self.calculate_idf(q_c, ecut,
                                                             readw=readw,
@@ -643,7 +665,7 @@ class RealFreqIntegration(FrequencyIntegration):
                  use_temp=True, temp_dir='./',
                  ecut=150., nbands=None,
                  domega0=0.025, omega2=10., omegamax=None,
-                 eta = 0.1, timer=None, txt=sys.stdout, nblocks=1):
+                 eta=0.1, timer=None, txt=sys.stdout, nblocks=1):
         FrequencyIntegration.__init__(self, txt)
         
         self.timer = timer
@@ -960,10 +982,10 @@ class QPointIntegration:
     def add_term(bzq, spin, i, nn, sigma, dsigma):
         pass
 
-    def get_state(self):
+    def get_state(self, world):
         pass
 
-    def load_state(self, state):
+    def load_state(self, state, world):
         pass
 
     def calculate_w(self, pd, idf_wGG, S_wvG, L_wvv, GaGb=None):
@@ -1091,8 +1113,10 @@ class QuadQPointIntegration(QPointIntegration):
         rcell_cv = 2 * pi * np.linalg.inv(self.cell_cv).T
         rvol = abs(np.linalg.det(rcell_cv))
         N_c = self.qd.N_c
-        
-        q0weight = 1
+
+        iq = np.argmin(np.sum(self.qpts_qc**2, axis=1))
+        assert np.allclose(self.qpts_qc[iq], 0)
+        q0weight = self.weight_q[iq]
         qf = q0weight
         q0cell_cv = np.array([qf, qf, 1])**0.5 * rcell_cv / N_c
         q0vol = abs(np.linalg.det(q0cell_cv))
@@ -1247,15 +1271,24 @@ class TriangleQPointIntegration(QPointIntegration):
         
         QPointIntegration.__init__(self, qd, cell_cv, qpts_qc)
 
-    def integrate(self, sigma_qsin, dsigma_qsin):
+    def reset(self, shape):
+        nq = len(self.qpts_qc)
+        self.sigma_qiskn = np.zeros((nq,) + shape, complex)
+        self.dsigma_qiskn = np.zeros((nq,) + shape, complex)
+
+    def add_term(self, bzq, i, spin, k, n, sigma, dsigma):
+        self.sigma_qiskn[bzq, i, spin, k, n] = sigma
+        self.dsigma_qiskn[bzq, i, spin, k, n] = dsigma
+
+    def integrate(self):
         rcell_cv = 2 * pi * np.linalg.inv(self.cell_cv).T
         h = abs(self.cell_cv[2, 2])
         qpts_qv = np.dot(self.qpts_qc, rcell_cv)
 
         Vtot = 0
 
-        sigma_sin = np.zeros(sigma_qsin.shape[1:])
-        dsigma_sin = np.zeros(dsigma_qsin.shape[1:])
+        sigma_iskn = np.zeros(self.sigma_qiskn.shape[1:], complex)
+        dsigma_iskn = np.zeros(self.dsigma_qiskn.shape[1:], complex)
         for sim in self.simplices:
             q1_v = qpts_qv[sim[0]]
             q2_v = qpts_qv[sim[1]]
@@ -1265,10 +1298,54 @@ class TriangleQPointIntegration(QPointIntegration):
                           [q1_v[1], q2_v[1], q3_v[1]]])
             V = 0.5 * abs(np.linalg.det(J)) * 2 * pi / h
             Vtot += V
-            sigma_sin += V / 3 * np.sum(sigma_qsin[sim], axis=0)
-            dsigma_sin += V / 3 * np.sum(dsigma_qsin[sim], axis=0)
+            sigma_iskn += V / 3 * np.sum(self.sigma_qiskn[sim], axis=0)
+            dsigma_iskn += V / 3 * np.sum(self.dsigma_qiskn[sim], axis=0)
 
-        return sigma_sin, dsigma_sin
+        return sigma_iskn, dsigma_iskn
+
+    def calculate_w(self, pd, idf_wGG, S_wvG, L_wvv, GaGb=None):
+        """This function calculates the screened potential W integrated over
+        a region around each q-point."""
+        
+        if GaGb is None:
+            Ga = 0
+            Gb = idf_wGG.shape[1]
+        else:
+            Ga = GaGb[0]
+            Gb = GaGb[1]
+        
+        nG = idf_wGG.shape[2]
+        mynG = idf_wGG.shape[1]
+        W_wGG = idf_wGG # Rename
+
+        q_c = pd.kd.bzk_kc[0]
+        
+        vol = abs(np.linalg.det(self.cell_cv))
+        rvol = (2 * pi)**3 / vol
+        
+        if np.allclose(q_c, 0):
+            if isinstance(self.vc, WignerSeitzTruncatedCoulomb):
+                vc_G = self.vc.get_potential(pd=pd)**0.5
+                W_wGG[:] = (vc_G[np.newaxis, Ga:Gb, np.newaxis] * idf_wGG *
+                            vc_G[np.newaxis, np.newaxis, :])
+            elif isinstance(self.vc, CoulombKernel3D):
+                pass
+            elif isinstance(self.vc, CoulombKernel2D):
+                L = self.cell_cv[2, 2]
+                A_w = 0.5 * (L_wvv[:, 0, 0] + L_wvv[:, 1, 1])
+                W_wGG[:, 0, 0] = -(2 * pi * L)**2 * A_w
+                W_wGG[:, 1:, 0] = 0.0
+                W_wGG[:, 0, 1:] = 0.0
+                vc_G = self.vc.get_potential(pd=pd)**0.5
+                for w, idf_GG in enumerate(idf_wGG):
+                    W_wGG[w, 1:, 1:] = (vc_G[1:, None] * idf_GG[1:, 1:] * \
+                                        vc_G[None, 1:])
+        else:
+            vc_G = self.vc.get_potential(pd=pd)**0.5
+            W_wGG[:] = (vc_G[np.newaxis, :, np.newaxis] * idf_wGG *
+                        vc_G[np.newaxis, np.newaxis, :])
+        
+        return W_wGG
 
 class BaseKernel:
     def __init__(self):

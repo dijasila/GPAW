@@ -18,6 +18,7 @@ from gpaw.response.math_func import (two_phi_planewave_integrals,
                                      two_phi_nabla_planewave_integrals)
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.progressbar import ProgressBar
+from gpaw.utilities.memory import maxrss
 from gpaw.wavefunctions.pw import PWLFC
 import gpaw.io.tar as io
 
@@ -712,6 +713,7 @@ class PairDensity:
             'Increase GS-nbands or decrease chi0-nbands!'
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
+
 
         psit_nG = kpt.psit_nG
         ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
