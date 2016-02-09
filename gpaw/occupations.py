@@ -4,10 +4,65 @@
 """Occupation number objects."""
 
 import warnings
+from math import pi
+
 import numpy as np
 from ase.units import Hartree
+
 from gpaw.utilities import erf
-from math import pi
+
+
+def findroot(func, x, tol=1e-10):
+    """Function used for locating Fermi level."""
+    xmin = -np.inf
+    xmax = np.inf
+        
+    # Try 10 step using the gradient:
+    niter = 0
+    while True:
+        f, dfdx = func(x)
+        if abs(f) < tol:
+            return x, niter
+        if f < 0.0 and x > xmin:
+            xmin = x
+        elif f > 0.0 and x < xmax:
+            xmax = x
+        dx = -f / max(dfdx, 1e-18)
+        if niter == 10 or abs(dx) > 0.01 or not (xmin < x + dx < xmax):
+            break  # try bisection
+        x += dx
+        niter += 1
+
+    # Bracket the solution:
+    if not np.isfinite(xmin):
+        xmin = x
+        fmin = f
+        step = 0.01
+        while fmin > tol:
+            xmin -= step
+            fmin = func(xmin)[0]
+            step *= 2
+            
+    if not np.isfinite(xmax):
+        xmax = x
+        fmax = f
+        step = 0.01
+        while fmax < 0:
+            xmax += step
+            fmax = func(xmax)[0]
+            step *= 2
+            
+    # Bisect:
+    while True:
+        x = (xmin + xmax) / 2
+        f = func(x)[0]
+        if abs(f) < tol:
+            return x, niter
+        if f > 0:
+            xmax = x
+        else:
+            xmin = x
+        niter += 1
 
 
 class OccupationNumbers:
@@ -411,15 +466,7 @@ class SmoothDistribution(ZeroKelvin):
             self.fermilevel = self.guess_fermi_level(wfs)
 
         if not self.fixmagmom or wfs.nspins == 1:
-            try:
-                result = self.find_fermi_level(wfs, self.nvalence,
-                                               self.fermilevel)
-            except RuntimeError:
-                self.fermilevel = self.guess_fermi_level(wfs)
-                result = self.find_fermi_level(wfs, self.nvalence,
-                                               self.fermilevel)
-                self.niter += self.maxiter
-                
+            result = self.find_fermi_level(wfs, self.nvalence, self.fermilevel)
             self.fermilevel, self.magmom, self.e_entropy = result
             
             if wfs.nspins == 1:
@@ -525,32 +572,27 @@ class SmoothDistribution(ZeroKelvin):
                     
     def find_fermi_level(self, wfs, ne, fermilevel, spins=(0, 1)):
         niter = 0
-        while True:
-            data = np.zeros(4)
+        
+        x = self.fermilevel
+        if x is None:
+            x = self.guess_fermi_level(wfs)
+            
+        data = np.empty(4)
+        
+        def f(x, data=data):
+            data.fill(0.0)
             for kpt in wfs.kpt_u:
                 if kpt.s in spins:
-                    data += self.distribution(kpt, fermilevel)
+                    data += self.distribution(kpt, x)
             wfs.kptband_comm.sum(data)
-            n, dnde, magmom, e_entropy = data
-            dn = ne - n
-            if abs(dn) < 1e-9:
-                break
-            if abs(dnde) < 1e-9:
-                fermilevel = self.guess_fermi_level(wfs)
-                niter += 1
-                if niter > self.maxiter:
-                    raise RuntimeError('Could not locate the Fermi level! ' +
-                                       'See ticket #27.')
-                continue
-            if niter > self.maxiter:
-                raise RuntimeError('Could not locate the Fermi level!')
-            de = dn / dnde
-            if abs(de) > self.width:
-                de *= self.width / abs(de)
-            fermilevel += de
-            niter += 1
+            n, dnde = data[:2]
+            dn = n - ne
+            return dn, dnde
 
+        fermilevel, niter = findroot(f, x)
+        
         self.niter = niter
+        magmom, e_entropy = data[2:]
         return fermilevel, magmom, e_entropy
 
 
