@@ -38,7 +38,7 @@ class GWQuasiParticleCalculator:
                  maxiter=1, convergence=0.05, mixing=0.2,
                  savechi0=False, temp=False, savepair=False, updatew=False,
                  ecut=150., nbands=None, reuse_extrapolation=True,
-                 domega0=0.025, omega2=10. eta=0.1,
+                 domega0=0.025, omega2=10.0, eta=0.1,
                  qptint=None, truncation='3D',
                  nblocks=1, world=mpi.world):
         """Creates a new quasiparticle calculator.
