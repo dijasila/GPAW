@@ -17,4 +17,4 @@ e2 = a.get_potential_energy()
 assert abs(calc.get_eigenvalues(spin=0)[0] -
            calc.get_eigenvalues(spin=1)[0]) < 1e-10
 
-assert abs(e1 - e2) < 9e-8, abs(e1 - e2)
+assert abs(e1 - e2) < 2e-6, abs(e1 - e2)
