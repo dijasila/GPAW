@@ -445,15 +445,22 @@ class PAWTextOutput:
 
     def __del__(self):
         """Destructor:  Write timing output before closing."""
-        if not dry_run:
+        if dry_run:
+            return
+            
+        try:
             mr = maxrss()
-            if mr > 0:
-                if mr < 1024.0**3:
-                    self.text('Memory usage: %.2f MiB' % (mr / 1024.0**2))
-                else:
-                    self.text('Memory usage: %.2f GiB' % (mr / 1024.0**3))
+        except (LookupError, TypeError, NameError):
+            # Thing can get weird during interpreter shutdown ...
+            mr = 0
 
-            self.timer.write(self.txt)
+        if mr > 0:
+            if mr < 1024.0**3:
+                self.text('Memory usage: %.2f MiB' % (mr / 1024.0**2))
+            else:
+                self.text('Memory usage: %.2f GiB' % (mr / 1024.0**3))
+
+        self.timer.write(self.txt)
 
 
 def eigenvalue_string(paw, comment=' '):
