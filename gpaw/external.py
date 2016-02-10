@@ -90,7 +90,8 @@ class ConstantElectricField(ExternalPotential):
 
 
 class PointChargePotential(ExternalPotential):
-    def __init__(self, charges, positions=None, rc=0.2):
+    def __init__(self, charges, positions=None,
+                 rc=0.2, rc2=np.inf, width=1.0):
         """Point-charge potential.
         
         charges: list of float
@@ -99,18 +100,28 @@ class PointChargePotential(ExternalPotential):
             Positions of charges in Angstrom.  Can be set later.
         rc: float
             Inner cutoff for Coulomb potential in Angstrom.
+        rc2: float
+            Outer cutoff for Coulomb potential in Angstrom.
+        width: float
+            Width for cutoff function for Coulomb part.
             
         For r < rc, 1 / r is replaced by a third order polynomial in r^2 that
         has matching value, first derivative, second derivative and integral.
         
+        For rc2 - width < r < rc2, 1 / r is multiplied by a smooth cutoff
+        function (a third order polynomium in r).
+        
         You can also give rc a negative value.  In that case, this formula
         is used::
             
-            (r^4 - rc^4) / (r^5 - |rc|^5).
+            (r^4 - rc^4) / (r^5 - |rc|^5)
             
+        for all values of r - no cutoff at rc2!
         """
         self.q_p = np.ascontiguousarray(charges, float)
         self.rc = rc / Bohr
+        self.rc2 = rc2 / Bohr
+        self.width = width / Bohr
         if positions is not None:
             self.set_positions(positions)
         else:
@@ -118,8 +129,11 @@ class PointChargePotential(ExternalPotential):
             
     def __str__(self):
         return ('Point-charge potential '
-                '(points: {0}, cutoff: {1:.3f} Ang)'
-                .format(len(self.q_p), self.rc * Bohr))
+                '(points: {0}, cutoffs: {1:.3f}, {2:.3f}, {3:.3f} Ang)'
+                .format(len(self.q_p),
+                        self.rc * Bohr,
+                        (self.rc2 - self.width) * Bohr,
+                        self.rc2 * Bohr))
             
     def set_positions(self, R_pv):
         """Update positions."""
@@ -130,7 +144,8 @@ class PointChargePotential(ExternalPotential):
         assert gd.orthogonal
         self.vext_g = gd.zeros()
         _gpaw.pc_potential(gd.beg_c, gd.h_cv.diagonal().copy(),
-                           self.q_p, self.R_pv, self.rc, self.vext_g)
+                           self.q_p, self.R_pv, self.rc, self.rc2, self.width,
+                           self.vext_g)
 
     def get_forces(self, calc):
         """Calculate forces from QM charge density on point-charges."""
@@ -138,7 +153,7 @@ class PointChargePotential(ExternalPotential):
         F_pv = np.zeros_like(self.R_pv)
         gd = dens.finegd
         _gpaw.pc_potential(gd.beg_c, gd.h_cv.diagonal().copy(),
-                           self.q_p, self.R_pv, self.rc, self.vext_g,
-                           dens.rhot_g, F_pv)
+                           self.q_p, self.R_pv, self.rc, self.rc2, self.width,
+                           self.vext_g, dens.rhot_g, F_pv)
         gd.comm.sum(F_pv)
         return F_pv * Hartree / Bohr

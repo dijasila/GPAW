@@ -8,11 +8,13 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
     PyArrayObject* q_p_obj;
     PyArrayObject* R_pv_obj;
     double rc;
+    double rc2;
+    double width;
     PyArrayObject* vext_G_obj;
     PyArrayObject* rhot_G_obj = 0;
     PyArrayObject* F_pv_obj = 0;
-    if (!PyArg_ParseTuple(args, "OOOOdO|OO", &beg_v_obj, &h_v_obj, &q_p_obj,
-                          &R_pv_obj, &rc, &vext_G_obj,
+    if (!PyArg_ParseTuple(args, "OOOOdddO|OO", &beg_v_obj, &h_v_obj, &q_p_obj,
+                          &R_pv_obj, &rc, &rc2, &width, &vext_G_obj,
                           &rhot_G_obj, &F_pv_obj))
     return NULL;
 
@@ -35,6 +37,8 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
         dV = h_v[0] * h_v[1] * h_v[2];
     }
     
+    double rc12 = rc2 - width;
+    
     for (int i = 0; i < n[0]; i++) {
         double x = (beg_v[0] + i) * h_v[0];
         for (int j = 0; j < n[1]; j++) {
@@ -56,7 +60,13 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                            v = (q_p[p] * (d * d * d * d - rc * rc * rc * rc) /
                                 (d * d * d * d * d + rc * rc * rc * rc * rc));
                         else
-                            if (d > rc)
+                            if (d > rc2)
+                                v = 0.0;
+                            else if (d > rc12) {
+                                double x = (d - rc12) / width;
+                                v = q_p[p] * (1 - x * x * (3 - 2 * x)) / d;
+                            }
+                            else if (d > rc)
                                 v = q_p[p] / d;
                             else {
                                 double s = d / rc;
@@ -79,7 +89,14 @@ PyObject *pc_potential(PyObject *self, PyObject *args)
                                  4 * d * d / x);
                         }
                         else
-                            if (d > rc)
+                            if (d > rc2)
+                                w = 0.0;
+                            else if (d > rc12) {
+                                double x = (d - rc12) / width;
+                                w = (6 * x * (1 - x) / width +
+                                     (1 - x * x * (3 - 2 * x)) / d) / (d * d);
+                            }
+                            else if (d > rc)
                                 w = 1 / (d * d * d);
                             else {
                                 double s = d / rc;
