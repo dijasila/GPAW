@@ -63,6 +63,9 @@ def XC(kernel, parameters=None):
             except:
                 from gpaw.xc.sic import SIC
                 return SIC(xc=name[:-7])
+        elif name == 'M06-L':
+            from gpaw.xc.pp import M06_L
+            kernel = M06_L()
         elif name in ['TPSS', 'M06-L', 'M06L', 'revTPSS']:
             if name == 'M06L':
                 name = 'M06-L'
