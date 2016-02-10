@@ -374,21 +374,20 @@ class FDTDPoissonSolver:
             numb = 4
         
         # The index mismatch of the two simulation cells
-        self.num_indices = numb * np.ceil((np.array(v2) -
-                                           np.array(v1)) /
-                                          self.cl.spacing / numb)
-        
-        self.num_indices_1 = numb * np.floor(np.array(v1) / self.cl.spacing / numb)
-        self.num_indices_2 = numb * np.ceil(np.array(v2) / self.cl.spacing / numb)
-        self.num_indices = self.num_indices_2 - self.num_indices_1
-        
+        # self.num_indices = numb * np.ceil((np.array(v2) -
+        #                                    np.array(v1)) /
+        #                                   self.cl.spacing / numb).astype(int)
+        num_indices_1 = numb * np.floor(np.array(v1) / self.cl.spacing / numb)
+        num_indices_2 = numb * np.ceil(np.array(v2) / self.cl.spacing / numb)
+        self.num_indices = (num_indices_2 - num_indices_1).astype(int)
+
         # Center, left, and right points of the suggested quantum grid
         cp = 0.5 * (np.array(v1) + np.array(v2))
         lp = cp - 0.5 * self.num_indices * self.cl.spacing
         rp = cp + 0.5 * self.num_indices * self.cl.spacing
-                
+
         # Indices in the classical grid restricting the quantum grid
-        self.shift_indices_1 = np.round(lp / self.cl.spacing)
+        self.shift_indices_1 = np.round(lp / self.cl.spacing).astype(int)
         self.shift_indices_2 = self.shift_indices_1 + self.num_indices
 
         # Sanity checks
@@ -499,7 +498,7 @@ class FDTDPoissonSolver:
         extended_rp = extended_cp + 0.5 * (self.extended_num_indices) * self.cl.spacing
         
         # Indices in the classical grid restricting the quantum grid
-        self.extended_shift_indices_1 = np.round(extended_lp / self.cl.spacing)
+        self.extended_shift_indices_1 = np.round(extended_lp / self.cl.spacing).astype(int)
         self.extended_shift_indices_2 = self.extended_shift_indices_1 + self.extended_num_indices
 
         #self.messages.append('  extended_shift_indices_1: %i %i %i' % (self.extended_shift_indices_1[0],self.extended_shift_indices_1[1], self.extended_shift_indices_1[2]))
@@ -869,9 +868,9 @@ class FDTDPoissonSolver:
         self.given_corner_v2 = read_vector(r['fdtd.given_corner_2'])
         self.given_cell = np.diag(read_vector(r['fdtd.given_cell']))
         self.hratios = read_vector(r['fdtd.hratios'])
-        self.shift_indices_1 = read_vector(r['fdtd.shift_indices_1'])
-        self.shift_indices_2 = read_vector(r['fdtd.shift_indices_2'])
-        self.num_indices = read_vector(r['fdtd.num_indices'])
+        self.shift_indices_1 = read_vector(r['fdtd.shift_indices_1']).astype(int)
+        self.shift_indices_2 = read_vector(r['fdtd.shift_indices_2']).astype(int)
+        self.num_indices = read_vector(r['fdtd.num_indices']).astype(int)
         self.num_refinements = int(r['fdtd.num_refinements'])
         
         # Redefine atoms to suit the cut_cell routine
