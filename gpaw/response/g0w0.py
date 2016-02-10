@@ -1,4 +1,3 @@
-# This makes sure that division works as in Python3
 from __future__ import division, print_function
 
 import functools
@@ -17,6 +16,8 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0, HilbertTransform
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.kernels import get_coulomb_kernel
+from gpaw.response.kernels import get_integrated_kernel
 from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.tools import vxc
@@ -50,6 +51,14 @@ class G0W0(PairDensity):
        ppa: bool
           Sets whether the Godby-Needs plasmon-pole approximation for the
           dielectric function should be used.
+       truncation: str
+            Coulomb truncation scheme. Can be either wigner-seitz, 
+            2D, 1D, or 0D
+        integrate_gamma: int
+            Method to integrate the Coulomb interaction. 1 is a numerical 
+            integration at all q-points with G=[0,0,0] - this breaks the 
+            symmetry slightly. 0 is analytical integration at q=[0,0,0] only - 
+            this conserves the symmetry
        E0: float
           Energy (in eV) used for fitting in the plasmon-pole approximation.
        domega0: float
@@ -58,13 +67,10 @@ class G0W0(PairDensity):
        omega2: float
           Control parameter for the non-linear frequency grid, equal to the
           frequency where the grid spacing has doubled in size.
-       wstc: bool
-          Sets whether a Wigner-Seitz truncation should be used for the
-          Coloumb potential.
     """
     def __init__(self, calc, filename='gw',
                  kpts=None, bands=None, nbands=None, ppa=False,
-                 wstc=False,
+                 truncation=None, integrate_gamma=1,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
                  domega0=0.025, omega2=10.0,
                  nblocks=1, savew=False,
@@ -93,7 +99,8 @@ class G0W0(PairDensity):
         ecut /= Hartree
         
         self.ppa = ppa
-        self.wstc = wstc
+        self.truncation = truncation
+        self.integrate_gamma = integrate_gamma
         self.eta = eta / Hartree
         self.E0 = E0 / Hartree
         self.domega0 = domega0 / Hartree
@@ -147,7 +154,7 @@ class G0W0(PairDensity):
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
         
-        #assert self.calc.wfs.nspins == 1
+        # assert self.calc.wfs.nspins == 1
         
     @timer('G0W0')
     def calculate(self, ecuts=None):
@@ -233,7 +240,6 @@ class G0W0(PairDensity):
                                   np.unravel_index(pd0.Q_qG[0], N_c))
 
         q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
-        q0 = np.allclose(q_c, 0) and not self.wstc
 
         shift0_c = q_c - self.sign * np.dot(self.U_cc, pd0.kd.bzk_kc[0])
         assert np.allclose(shift0_c.round(), shift0_c)
@@ -275,13 +281,7 @@ class G0W0(PairDensity):
                                                  pd0, I_G)
             if self.sign == 1:
                 n_mG = n_mG.conj()
-                
-            if q0:
-                n_mG[:, 0] = 0
-                m = n + kpt1.n1 - kpt2.n1
-                if 0 <= m < len(n_mG):
-                    n_mG[m, 0] = 1.0
-                    
+                                    
             f_m = kpt2.f_n
             deps_m = eps1 - kpt2.eps_n
             sigma, dsigma = calculate_sigma(n_mG, deps_m, f_m, W0)
@@ -349,8 +349,8 @@ class G0W0(PairDensity):
         # have to manually start and stop the timer here:
         self.timer.start('W')
         print('Calculating screened Coulomb potential', file=self.fd)
-        if self.wstc:
-            print('Using Wigner-Seitz truncated Coloumb potential',
+        if self.truncation is not None:
+            print('Using %s truncated Coloumb potential' % self.truncation,
                   file=self.fd)
             
         if self.ppa:
@@ -388,10 +388,9 @@ class G0W0(PairDensity):
                     timer=self.timer,
                     keep_occupied_states=True,
                     nblocks=self.blockcomm.size,
-                    no_optical_limit=self.wstc,
                     **parameters)
 
-        if self.wstc:
+        if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
                 self.calc.wfs.gd.cell_cv,
                 self.calc.wfs.kd.N_c,
@@ -444,7 +443,7 @@ class G0W0(PairDensity):
             # to the current IBZ k-point by symmetry
             Q1 = self.qd.ibz2bz_k[iq]
             done = set()
-            for s, Q2 in enumerate(self.qd.bz2bz_ks[Q1]):
+            for Q2 in self.qd.bz2bz_ks[Q1]:
                 if Q2 >= 0 and Q2 not in done:
                     s = self.qd.sym_k[Q2]
                     self.s = s
@@ -469,48 +468,44 @@ class G0W0(PairDensity):
             A1_x = chi0_wGG.ravel()
             chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
             
-        if self.wstc:
-            iG_G = (wstc.get_potential(pd) / (4 * pi))**0.5
-            if np.allclose(q_c, 0):
-                chi0_wGG[:, 0] = 0.0
-                chi0_wGG[:, :, 0] = 0.0
-                G0inv = 0.0
-                G20inv = 0.0
-            else:
-                G0inv = None
-                G20inv = None
-        else:
-            if np.allclose(q_c, 0):
-                dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
-                qc = (dq3 / 4 / pi * 3)**(1 / 3)
-                G0inv = 2 * pi * qc**2 / dq3
-                G20inv = 4 * pi * qc / dq3
-                G_G = pd.G2_qG[0]**0.5
-                G_G[0] = 1
-                iG_G = 1 / G_G
-            else:
-                iG_G = pd.G2_qG[0]**-0.5
-                G0inv = None
-                G20inv = None
+        sqrV_G = get_coulomb_kernel(pd,
+                                    self.calc.wfs.kd.N_c,
+                                    truncation=self.truncation,
+                                    wstc=wstc)**0.5
 
-        delta_GG = np.eye(len(iG_G))
+        if self.integrate_gamma == 1:
+            truncation = self.truncation
+            G20inv, G0inv = get_integrated_kernel(pd,
+                                                  self.calc.wfs.kd.N_c,
+                                                  truncation=truncation,
+                                                  N=100)
+            G20inv /= (4 * np.pi)
+            G0inv /= (4 * np.pi)**0.5
+        elif self.integrate_gamma == 0 and np.allclose(q_c, 0):
+            dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
+            qc = (dq3 / 4 / pi * 3)**(1 / 3)
+            G0inv = 2 * pi * qc**2 / dq3
+            G20inv = 4 * pi * qc / dq3
+        else:
+            G0inv = 1.0
+            G20inv = 1.0
+        
+        delta_GG = np.eye(len(sqrV_G))
 
         if self.ppa:
-            return pd, self.ppa_w(chi0_wGG, iG_G, delta_GG, G0inv, G20inv, q_c)
+            return pd, self.ppa_w(chi0_wGG, sqrV_G, delta_GG, G0inv, G20inv, 
+                                  q_c)
             
         self.timer.start('Dyson eq.')
         # Calculate W and store it in chi0_wGG ndarray:
-        w = 0
         for chi0_GG in chi0_wGG:
-            e_GG = (delta_GG -
-                    4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis])
+            e_GG = (delta_GG - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis])
             W_GG = chi0_GG
-            W_GG[:] = 4 * pi * (np.linalg.inv(e_GG) -
-                                delta_GG) * iG_G * iG_G[:, np.newaxis]
-            if np.allclose(q_c, 0):
-                W_GG[0, 0] *= G20inv
-                W_GG[1:, 0] *= G0inv
-                W_GG[0, 1:] *= G0inv
+            W_GG[:] = (np.linalg.inv(e_GG) -
+                       delta_GG) * sqrV_G * sqrV_G[:, np.newaxis]
+            W_GG[0, 0] *= G20inv
+            W_GG[1:, 0] *= G0inv
+            W_GG[0, 1:] *= G0inv
         
         if self.blockcomm.size > 1:
             Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)
@@ -598,20 +593,19 @@ class G0W0(PairDensity):
         self.timer.write(self.fd)
 
     @timer('PPA')
-    def ppa_w(self, chi0_wGG, iG_G, delta_GG, G0inv, G20inv, q_c):
+    def ppa_w(self, chi0_wGG, sqrV_G, delta_GG, G0inv, G20inv, q_c):
         einv_wGG = []
         for chi0_GG in chi0_wGG:
-            e_GG = (delta_GG -
-                    4 * pi * chi0_GG * iG_G * iG_G[:, np.newaxis])
+            e_GG = (delta_GG - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis])
             einv_wGG.append(np.linalg.inv(e_GG) - delta_GG)
 
-        if self.wstc and np.allclose(q_c, 0):
+        if self.truncation is not None and np.allclose(q_c, 0):
             einv_wGG[0][0] = 42
             einv_wGG[0][:, 0] = 42
         omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
                                       (einv_wGG[0] - einv_wGG[1]))
         R_GG = -0.5 * omegat_GG * einv_wGG[0]
-        W_GG = 4 * pi**2 * R_GG * iG_G * iG_G[:, np.newaxis]
+        W_GG = pi * R_GG * sqrV_G * sqrV_G[:, np.newaxis]
         if np.allclose(q_c, 0):
             W_GG[0, 0] *= G20inv
             W_GG[1:, 0] *= G0inv

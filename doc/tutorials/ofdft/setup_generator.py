@@ -1,5 +1,5 @@
 from gpaw.atom.generator import Generator
- 
+
 # List of elements for which setups will be generated
 elements = ['N']
 
@@ -31,12 +31,12 @@ for symbol in elements:
 
     # Calculate OFDFT density
     g = Generator(symbol, xcname=pauliname, scalarrel=False,
-                  orbital_free=True, tw_coeff=lambda_coeff, 
+                  orbital_free=True, tw_coeff=lambda_coeff,
                   gpernode=gpernode)
 
     try:
-        g.run(exx=False, name=name, use_restart_file=False, 
+        g.run(exx=False, name=name, use_restart_file=False,
               rcut=rcut,
-              write_xml=True) 
+              write_xml=True)
     except:
-        print "error"
+        print("error")

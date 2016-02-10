@@ -3,8 +3,10 @@ from ase.parallel import paropen
 from ase.units import Hartree
 from gpaw.xc.rpa import RPACorrelation
 
-rpa1 = RPACorrelation('N.gpw', nblocks=8, wstc=True, txt='rpa_N.txt')
-rpa2 = RPACorrelation('N2.gpw', nblocks=8, wstc=True, txt='rpa_N2.txt')
+rpa1 = RPACorrelation('N.gpw', nblocks=8, truncation='wigner-seitz',
+                      txt='rpa_N.txt')
+rpa2 = RPACorrelation('N2.gpw', nblocks=8, truncation='wigner-seitz',
+                      txt='rpa_N2.txt')
 
 E1_i = rpa1.calculate(ecut=400)
 E2_i = rpa2.calculate(ecut=400)

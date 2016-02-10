@@ -1,5 +1,7 @@
 """A proton in an electric field."""
 from ase import Atoms
+from ase.units import Hartree, Bohr
+
 from gpaw import GPAW
 from gpaw.external import ConstantElectricField
 
@@ -17,5 +19,7 @@ print(f1, f2)
 assert abs(f1 - 1) < 1e-4
 assert abs(f2 - 1) < 5e-3
 
+# Check writing and reading:
 h.calc.write('h')
-assert GPAW('h', txt=None).hamiltonian.vext.field[2] == 1.0
+vext = GPAW('h', txt=None).hamiltonian.vext
+assert abs(vext.field_v[2] - 1.0 * Bohr / Hartree) < 1e-13

@@ -1,7 +1,7 @@
 from __future__ import print_function
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.test import equal, gen
+from gpaw.test import equal
 
 # ??? g = Generator('H', 'TPSS', scalarrel=True, nofiles=True)
 
@@ -13,7 +13,7 @@ e1 = atoms.get_potential_energy()
 niter1 = calc.get_number_of_iterations()
 e1ref = calc.get_reference_energy()
 de12t = calc.get_xc_difference('TPSS')
-de12m = calc.get_xc_difference('M06L')
+de12m = calc.get_xc_difference('M06-L')
 de12r = calc.get_xc_difference('revTPSS')
 
 
@@ -41,7 +41,7 @@ e1He = atomsHe.get_potential_energy()
 niter_1He = calc.get_number_of_iterations()
 e1refHe = calc.get_reference_energy()
 de12tHe = calc.get_xc_difference('TPSS')
-de12mHe = calc.get_xc_difference('M06L')
+de12mHe = calc.get_xc_difference('M06-L')
 de12rHe = calc.get_xc_difference('revTPSS')
 
 print('================')
@@ -54,6 +54,11 @@ print('m06l = ', e1He + de12mHe)
 print('revtpss = ', e1He + de12rHe)
 print('================')
 
-equal(e1He+de12tHe, -0.409972893501, 0.15)
-equal(e1He+de12mHe, -0.487249688866, 0.15)
-equal(e1He+de12rHe, -0.447232286813, 0.15)
+equal(e1He + de12tHe, -0.409972893501, 0.005)
+equal(e1He + de12mHe, -0.487249688866, 0.005)
+equal(e1He + de12rHe, -0.447232286813, 0.005)
+
+energy_tolerance = 0.0005
+niter_tolerance = 0
+equal(e1, -1.123322, energy_tolerance)
+equal(e1He, 0.0100192, energy_tolerance)

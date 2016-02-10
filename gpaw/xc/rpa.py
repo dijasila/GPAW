@@ -3,7 +3,6 @@ from __future__ import print_function, division
 import functools
 import os
 import sys
-from math import pi
 from time import ctime
 
 import numpy as np
@@ -16,6 +15,7 @@ import gpaw.mpi as mpi
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0
+from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.wavefunctions.pw import PWDescriptor, count_reciprocal_vectors
 
@@ -37,7 +37,6 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     from gpaw.xc.rpa import RPACorrelation
     rpa = RPACorrelation(name, name + '-rpa.dat',
                          nblocks=blocks,
-                         wstc=True,
                          txt=name + '-rpa.txt')
     rpa.calculate(ecut=ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3))
 
@@ -46,9 +45,50 @@ class RPACorrelation:
     def __init__(self, calc, xc='RPA', filename=None,
                  skip_gamma=False, qsym=True, nlambda=None,
                  nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
-                 frequencies=None, weights=None,
-                 world=mpi.world, nblocks=1, wstc=False,
-                 txt=sys.stdout):
+                 frequencies=None, weights=None, truncation=None,
+                 world=mpi.world, nblocks=1, txt=sys.stdout):
+        """Creates the RPACorrelation object
+        
+        calc: str or calculator object
+            The string should refer to the .gpw file contaning KS orbitals
+        xc: str
+            Exchange-correlation kernel. This is only different from RPA when 
+            this object is constructed from a different module - e.g. fxc.py
+        filename: str
+            txt output
+        skip_gamme: bool
+            If True, skip q = [0,0,0] from the calculation        
+        qsym: bool
+            Use symmetry to reduce q-points
+        nlambda: int
+            Number of lambda points. Only used for numerical coupling 
+            constant integration involved when called from fxc.py
+        nfrequencies: int
+            Number of frequency points used in the Gauss-Legendre integration
+        frequency_max: float
+            Largest frequency point in Gauss-Legendre integration
+        frequency_scale: float
+            Determines density of frequency points at low frequencies. A slight 
+            increase to e.g. 2.5 or 3.0 improves convergence wth respect to 
+            frequency points for metals
+        frequencies: list
+            List of frequancies for user-specified frequency integration
+        weights: list
+            list of weights (integration measure) for a user specified 
+            frequency grid. Must be specified and have the same length as
+            frequencies if frequencies is not None
+        truncation: str
+            Coulomb truncation scheme. Can be either wigner-seitz, 
+            2D, 1D, or 0D
+        world: communicator
+        nblocks: int
+            Number of parallelization blocks. Frequency parallelization
+            can be specified by setting nblocks=nfrequencies and is useful
+            for memory consuming calculations
+        txt: str
+            txt file for saving and loading contributions to the correlation
+            energy from different q-points
+        """
 
         if isinstance(calc, str):
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
@@ -57,7 +97,7 @@ class RPACorrelation:
         if world.rank != 0:
             txt = devnull
         elif isinstance(txt, str):
-            txt = open(txt, 'w')
+            txt = open(txt, 'w', 1)
         self.fd = txt
 
         self.timer = Timer()
@@ -77,10 +117,10 @@ class RPACorrelation:
         if nblocks > 1:
             assert len(self.omega_w) % nblocks == 0
 
-        self.wstc = wstc
         self.nblocks = nblocks
         self.world = world
 
+        self.truncation = truncation
         self.skip_gamma = skip_gamma
         self.ibzq_qc = None
         self.weight_q = None
@@ -165,8 +205,10 @@ class RPACorrelation:
         for e in self.ecut_i:
             p(' {0:.3f}'.format(e * Hartree), end='')
         p()
+        if self.truncation is not None:
+            p('Using %s Coulomb truncation' % self.truncation)
         p()
-
+            
         if self.filename and os.path.isfile(self.filename):
             self.read()
             self.world.barrier()
@@ -174,18 +216,17 @@ class RPACorrelation:
         chi0 = Chi0(self.calc, 1j * Hartree * self.omega_w, eta=0.0,
                     intraband=False, hilbert=False,
                     txt='chi0.txt', timer=self.timer, world=self.world,
-                    no_optical_limit=self.wstc,
                     nblocks=self.nblocks)
 
         self.blockcomm = chi0.blockcomm
         
         wfs = self.calc.wfs
-        
-        if self.wstc:
-            with self.timer('WSTC-init'):
-                p('Using Wigner-Seitz truncated Coulomb potential.')
-                self.wstc = WignerSeitzTruncatedCoulomb(
-                    wfs.gd.cell_cv, wfs.kd.N_c, self.fd)
+
+        if self.truncation == 'wigner-seitz':
+            self.wstc = WignerSeitzTruncatedCoulomb(wfs.gd.cell_cv, 
+                                                    wfs.kd.N_c, self.fd)
+        else:
+            self.wstc = None
 
         nq = len(self.energy_qi)
         nw = len(self.omega_w)
@@ -221,9 +262,7 @@ class RPACorrelation:
             chi0_swGG = A1_x[:np.prod(shape)].reshape(shape)
             chi0_swGG[:] = 0.0
             
-            if self.wstc or np.allclose(q_c, 0.0):
-                # Wings (x=0,1) and head (G=0) for optical limit and three
-                # directions (v=0,1,2):
+            if np.allclose(q_c, 0.0):
                 chi0_swxvG = np.zeros((1 + spin, nw, 2, 3, nG), complex)
                 chi0_swvv = np.zeros((1 + spin, nw, 3, 3), complex)
             else:
@@ -302,61 +341,68 @@ class RPACorrelation:
             chi0_wvv = None
         chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv,
                         m1, m2, [0, 1])
-
+        
         print('E_c(q) = ', end='', file=self.fd)
 
         chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
-        
-        if not pd.kd.gamma or self.wstc:
+
+        if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_wGG, cut_G)
             print('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
         else:
+            from ase.dft import monkhorst_pack
+            kd = self.calc.wfs.kd
+            N = 4
+            N_c = [N, N, N]
+            if self.truncation is not None:
+                N_c[np.where(kd.N_c == 1)[0]] = 1                              
+            q_qc = monkhorst_pack(N_c) / kd.N_c
+            q_qc *= 1.0e-6
+            U_scc = kd.symmetry.op_scc
+            q_qc = kd.get_ibz_q_points(q_qc, U_scc)[0]
+            weight_q = kd.q_weights
+            q_qv = 2 * np.pi * np.dot(q_qc, pd.gd.icell_cv)
+
             nw = len(self.omega_w)
             mynw = nw // self.nblocks
             w1 = self.blockcomm.rank * mynw
             w2 = w1 + mynw
-            e = 0.0
-            for v in range(3):
-                chi0_wGG[:, 0] = chi0_wxvG[w1:w2, 0, v]
-                chi0_wGG[:, :, 0] = chi0_wxvG[w1:w2, 1, v]
-                chi0_wGG[:, 0, 0] = chi0_wvv[w1:w2, v, v]
-                ev = self.calculate_energy(pd, chi0_wGG, cut_G)
-                e += ev
-                print('%.3f' % (ev * Hartree), end='', file=self.fd)
-                if v < 2:
-                    print('/', end='', file=self.fd)
-                else:
-                    print(' eV', file=self.fd)
-                    self.fd.flush()
-            e /= 3
+            a_qw = np.sum(np.dot(chi0_wvv[w1:w2], q_qv.T)
+                          * q_qv.T, axis=1).T
+            a0_qwG = np.dot(q_qv, chi0_wxvG[w1:w2, 0])
+            a1_qwG = np.dot(q_qv, chi0_wxvG[w1:w2, 1])
+
+            e = 0
+            for iq in range(len(q_qv)):
+                chi0_wGG[:, 0] = a0_qwG[iq]
+                chi0_wGG[:, :, 0] = a1_qwG[iq]
+                chi0_wGG[:, 0, 0] = a_qw[iq]
+                ev = self.calculate_energy(pd, chi0_wGG, cut_G, 
+                                           q_v=q_qv[iq])
+                e += ev * weight_q[iq]
+            print('%.3f eV' % (e * Hartree), file=self.fd)
+            self.fd.flush()
 
         return e
 
     @timer('Energy')
-    def calculate_energy(self, pd, chi0_wGG, cut_G):
+    def calculate_energy(self, pd, chi0_wGG, cut_G, q_v=None):
         """Evaluate correlation energy from chi0."""
 
-        if self.wstc:
-            invG_G = (self.wstc.get_potential(pd) / (4 * pi))**0.5
-        else:
-            G_G = pd.G2_qG[0]**0.5  # |G+q|
-            if pd.kd.gamma:
-                G_G[0] = 1.0
-            invG_G = 1.0 / G_G
-            
+        sqrV_G = get_coulomb_kernel(pd, self.calc.wfs.kd.N_c, q_v=q_v,
+                                    truncation=self.truncation,
+                                    wstc=self.wstc)**0.5
         if cut_G is not None:
-            invG_G = invG_G[cut_G]
-
-        nG = len(invG_G)
+            sqrV_G = sqrV_G[cut_G]
+        nG = len(sqrV_G)
 
         e_w = []
         for chi0_GG in chi0_wGG:
             if cut_G is not None:
                 chi0_GG = chi0_GG.take(cut_G, 0).take(cut_G, 1)
 
-            e_GG = (np.eye(nG) -
-                    4 * np.pi * chi0_GG * invG_G * invG_G[:, np.newaxis])
+            e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
             e = np.log(np.linalg.det(e_GG)) + nG - np.trace(e_GG)
             e_w.append(e.real)
 
@@ -365,6 +411,7 @@ class RPACorrelation:
         energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
         self.E_w = E_w
         return energy
+
 
     def extrapolate(self, e_i):
         print('Extrapolated energies:', file=self.fd)
@@ -428,7 +475,7 @@ class RPACorrelation:
         p()
         p('Parallelization')
         p('    Total number of CPUs          : % s' % self.world.size)
-        p('    G-vector decomposition       : % s' % self.nblocks)
+        p('    G-vector decomposition        : % s' % self.nblocks)
         p('    K-point/band decomposition    : % s' %
           (self.world.size // self.nblocks))
         p()
@@ -472,7 +519,8 @@ def main():
     
     rpa = RPACorrelation(name,
                          txt=name[:-3] + 'rpa.txt',
-                         wstc=True, nblocks=opts.blocks)
+                         #wstc=True, 
+                         nblocks=opts.blocks)
     rpa.calculate([opts.cut_off])
 
 

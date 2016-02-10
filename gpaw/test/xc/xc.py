@@ -19,8 +19,6 @@ print(funcs, modes)
 
 
 def create_xc(func, mode):
-    assert isinstance(func, str)
-    assert isinstance(mode, int)
     if mode == 0:
         xc = LibXC(func)
     else:

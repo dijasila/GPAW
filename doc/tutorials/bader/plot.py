@@ -19,8 +19,8 @@ else:
 x0, y0, z0 = atoms.positions[0]
 y = np.linspace(0, atoms.cell[1, 1], len(dens), endpoint=False) - y0
 z = np.linspace(0, atoms.cell[2, 2], len(dens[0]), endpoint=False) - z0
-print y.shape, z.shape, dens.shape, bader.shape
-print atoms.positions
+print(y.shape, z.shape, dens.shape, bader.shape)
+print(atoms.positions)
 print(dens.min(), dens.mean(), dens.max())
 plt.figure(figsize=(5, 5))
 plt.contourf(z, y, dens, np.linspace(0.01, 0.9, 15))

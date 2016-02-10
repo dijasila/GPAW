@@ -16,7 +16,7 @@ moab = {
 _hardware_info = {
     "bwUniCluster": {
         "cores_per_node": 16,
-        "loginnodes": [r'joe*'],
+        "loginnodes": [r'uc1n*'],
         'modules': ['mpi'],
         'scheduler': moab,
     },
@@ -26,7 +26,7 @@ _hardware_info = {
         'scheduler': {
             'cmdstr': '#SBATCH ',
             'jobid': '$SLURM_JOBID',
-            'mpirun_no': 'srun -n ',
+            'mpirun': 'srun -n ',
             'mail': '--mail-user=',
             'mailtype': '--mail-type=ALL',
             'name': '--job-name=',

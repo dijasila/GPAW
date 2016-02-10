@@ -13,7 +13,7 @@ from os.path import join
 import sys
 
 from config import (check_packages, get_system_config, get_parallel_config,
-                    get_scalapack_config, get_hdf5_config, check_dependencies,
+                    check_dependencies,
                     write_configuration, build_interpreter, get_config_vars)
 
 
@@ -100,6 +100,7 @@ mpilinker = mpicompiler
 compiler = None
 
 scalapack = False
+libvdwxc = False
 hdf5 = False
 
 # User provided customizations:
@@ -142,10 +143,16 @@ if mpicompiler is not None:
             custom_interpreter = True
             break
 
-# apply ScaLapack settings
+
 if scalapack:
-    get_scalapack_config(define_macros)
+    define_macros.append(('GPAW_WITH_SL', '1'))
     msg.append('* Compiling with ScaLapack')
+
+
+if libvdwxc:
+    define_macros.append(('GPAW_WITH_LIBVDWXC', '1'))
+    msg.append('* Compiling with libvdwxc')
+
 
 # distutils clean does not remove the _gpaw.so library and gpaw-python
 # binary so do it here:
@@ -164,6 +171,8 @@ if 'clean' in sys.argv:
 
 sources = glob('c/*.c') + ['c/bmgs/bmgs.c']
 sources = sources + glob('c/xc/*.c')
+# Make build process deterministic (for "reproducible build" in debian)
+sources.sort()
 
 check_dependencies(sources)
 
@@ -183,7 +192,7 @@ extensions = [extension]
 
 if hdf5:
     hdf5_sources = ['c/hdf5.c']
-    get_hdf5_config(define_macros)
+    define_macros.append(('GPAW_WITH_HDF5', '1'))
     msg.append('* Compiling with HDF5')
 
     hdf5_extension = Extension('_gpaw_hdf5',

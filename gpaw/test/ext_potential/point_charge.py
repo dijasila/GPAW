@@ -39,7 +39,7 @@ rhot_G = np.ones((1, 1, 1))
 
 def f(rc):
     vext_G[:] = 0.0
-    _gpaw.pc_potential(beg_v, h_v, q_p, R_pv, rc, vext_G)
+    _gpaw.pc_potential(beg_v, h_v, q_p, R_pv, rc, np.inf, 1.0, vext_G)
     return -vext_G[0, 0, 0]
 
 d = (R_pv[0]**2).sum()**0.5
@@ -53,7 +53,8 @@ for rc in [0.9 * d, 1.1 * d]:
     equal(f(rc), v0, 1e-12)
     
     F_pv = np.zeros((1, 3))
-    _gpaw.pc_potential(beg_v, h_v, q_p, R_pv, rc, vext_G, rhot_G, F_pv)
+    _gpaw.pc_potential(beg_v, h_v, q_p, R_pv, rc, np.inf, 1.0,
+                       vext_G, rhot_G, F_pv)
     eps = 0.0001
     for v in range(3):
         R_pv[0, v] += eps

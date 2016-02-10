@@ -94,7 +94,7 @@ class Hamiltonian(object):
     @property
     def dH_asp(self):
         assert isinstance(self._dH_asp, ArrayDict) or self._dH_asp is None
-        #self._dH_asp.check_consistency()
+        # self._dH_asp.check_consistency()
         return self._dH_asp
 
     @dH_asp.setter
@@ -162,8 +162,8 @@ class Hamiltonian(object):
         nl = np.where(np.equal(l_j, l))[0]
         V = np.zeros(np.shape(DM))
         if len(nl) == 2:
-            aa = (nl[0]) * len(l_j) - ((nl[0] - 1) * (nl[0]) / 2)
-            bb = (nl[1]) * len(l_j) - ((nl[1] - 1) * (nl[1]) / 2)
+            aa = nl[0] * len(l_j) - (nl[0] - 1) * nl[0] // 2
+            bb = nl[1] * len(l_j) - (nl[1] - 1) * nl[1] // 2
             ab = aa + nl[1] - nl[0]
 
             if not scale:

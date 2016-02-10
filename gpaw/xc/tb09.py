@@ -27,11 +27,12 @@ class TB09Kernel:
     alpha = -0.012
     beta = 1.023
     
-    def __init__(self):
+    def __init__(self, c=None):
         self.tb09 = LibXC('MGGA_X_TB09').xc.tb09
         self.ldac = LibXC('LDA_C_PW')
         
-        self.c = None  # amount of "exact exchange"
+        self.fixedc = c is not None  # calculate c or use fixed value
+        self.c = c  # amount of "exact exchange"
         self.n = 0  # Lebedev quadrature point number (0-49)
         self.sign = 1.0  # sign of PAW correction: +1 for AE and -1 for PS
         self.I = None  # integral from Eq. (3)
@@ -42,25 +43,30 @@ class TB09Kernel:
         n_sg[n_sg < 1e-6] = 1e-6
         
         if n_sg.ndim == 4:
-            if self.c is None:
-                # We don't have the integral yet - just use 1.0:
-                self.c = 1.0
-            else:
-                self.I = self.world.sum(self.I)
-                self.c = (self.alpha + self.beta *
-                          (self.I / self.gd.volume)**0.5)
+            if not self.fixedc:
+                if self.c is None:
+                    # We don't have the integral yet - just use 1.0:
+                    self.c = 1.0
+                else:
+                    self.I = self.world.sum(self.I)
+                    self.c = (self.alpha + self.beta *
+                              (self.I / self.gd.volume)**0.5)
+
+                # Start calculation of c for use in the next SCF step:
+                if ns == 1:
+                    gradn_g = sigma_xg[0]**0.5
+                else:
+                    gradn_g = (sigma_xg[0] +
+                               2 * sigma_xg[1] +
+                               sigma_xg[2])**0.5
+                self.I = self.gd.integrate(gradn_g / n_sg.sum(0))
+                # The domain is not distributed like the PAW corrections:
+                self.I /= self.world.size
+                
             lapl_sg = self.gd.empty(ns)
             for n_g, lapl_g in zip(n_sg, lapl_sg):
                 self.lapl.apply(n_g, lapl_g)
             
-            # Start calculation of the integral for use in the next SCF step:
-            if ns == 1:
-                gradn_g = sigma_xg[0]**0.5
-            else:
-                gradn_g = (sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2])**0.5
-            self.I = self.gd.integrate(gradn_g / n_sg.sum(0))
-            # The domain is not distributed like the PAW corrections:
-            self.I /= self.world.size
         else:
             rgd = self.rgd
             lapl_sg = []
@@ -78,18 +84,21 @@ class TB09Kernel:
                     l += 1
                 lapl_sg.append(lapl_g)
 
-            # PAW corrections to integral:
-            w = self.sign * weight_n[self.n]
-            if ns == 1:
-                gradn_g = sigma_xg[0]**0.5
-            else:
-                gradn_g = (sigma_xg[0] + 2 * sigma_xg[1] + sigma_xg[2])**0.5
-            self.I += w * rgd.integrate(gradn_g / n_sg.sum(0))
-            
-            self.n += 1
-            if self.n == len(weight_n):
-                self.n = 0
-                self.sign = -self.sign
+            if not self.fixedc:
+                # PAW corrections to integral:
+                w = self.sign * weight_n[self.n]
+                if ns == 1:
+                    gradn_g = sigma_xg[0]**0.5
+                else:
+                    gradn_g = (sigma_xg[0] +
+                               2 * sigma_xg[1] +
+                               sigma_xg[2])**0.5
+                self.I += w * rgd.integrate(gradn_g / n_sg.sum(0))
+                
+                self.n += 1
+                if self.n == len(weight_n):
+                    self.n = 0
+                    self.sign = -self.sign
                 
         # dedn_sg[:] = 0.0
         sigma_xg[sigma_xg < 1e-10] = 1e-10
@@ -108,8 +117,8 @@ class TB09Kernel:
 
         
 class TB09(MGGA):
-    def __init__(self):
-        MGGA.__init__(self, TB09Kernel())
+    def __init__(self, c=None):
+        MGGA.__init__(self, TB09Kernel(c))
 
     def get_setup_name(self):
         return 'LDA'

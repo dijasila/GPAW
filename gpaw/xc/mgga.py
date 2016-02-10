@@ -3,7 +3,6 @@ from math import sqrt, pi
 import numpy as np
 
 from gpaw.xc.gga import GGA
-from gpaw.utilities.blas import axpy
 from gpaw.sphere.lebedev import weight_n
 
 
@@ -36,15 +35,12 @@ class MGGA(GGA):
         self.tauct.add(self.tauct_G)
 
     def calculate_gga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
-        nt0_sg = nt_sg.copy()
-        nt0_sg[nt0_sg < 1e-10] = np.inf
-        tautW_sg = sigma_xg[::2] / 8 / nt0_sg
-        
         taut_sG = self.wfs.calculate_kinetic_energy_density()
-        
         if taut_sG is None:
             # Initialize with von Weizsaecker kinetic energy density:
-            taut_sg = tautW_sg.copy()
+            nt0_sg = nt_sg.copy()
+            nt0_sg[nt0_sg < 1e-10] = np.inf
+            taut_sg = sigma_xg[::2] / 8 / nt0_sg
             nspins = self.wfs.nspins
             taut_sG = self.wfs.gd.empty(nspins)
             for taut_G, taut_g in zip(taut_sG, taut_sg):
@@ -55,13 +51,20 @@ class MGGA(GGA):
         for taut_G, taut_g in zip(taut_sG, taut_sg):
             taut_G += 1.0 / self.wfs.nspins * self.tauct_G
             self.distribute_and_interpolate(taut_G, taut_g)
-
+            
+        # bad = taut_sg < tautW_sg + 1e-11
+        # taut_sg[bad] = tautW_sg[bad]
+        
+        # m = 12.0
+        # taut_sg = (taut_sg**m + (tautW_sg / 2)**m)**(1 / m)
+        
         bad = taut_sg < tautW_sg + 1e-11
         taut_sg[bad] = tautW_sg[bad]
         
         dedtaut_sg = np.empty_like(nt_sg)
         self.kernel.calculate(e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg,
                               taut_sg, dedtaut_sg)
+
         self.dedtaut_sG = self.wfs.gd.empty(self.wfs.nspins)
         self.ekin = 0.0
         for s in range(self.wfs.nspins):
@@ -107,7 +110,7 @@ class MGGA(GGA):
             sign = -1.0
         tau_sg = np.dot(self.D_sp, tau_pg) + tauc_g
         
-        if 0:#not self.ae:
+        if 0:  # not self.ae:
             m = 12
             for tau_g, n_g, sigma_g in zip(tau_sg, n_sg, sigma_xg[::2]):
                 tauw_g = sigma_g / 8 / n_g
@@ -197,8 +200,8 @@ class MGGA(GGA):
             Az_L = rnablaY_Lv[:, 2]
             for j1, l1, L1 in x.jlL:
                 for j2, l2, L2 in x.jlL[i1:]:
-                    temp = (Ax_L[L1] * Ax_L[L2] + Ay_L[L1] * Ay_L[L2]
-                            + Az_L[L1] * Az_L[L2])
+                    temp = (Ax_L[L1] * Ax_L[L2] + Ay_L[L1] * Ay_L[L2] +
+                            Az_L[L1] * Az_L[L2])
                     temp *= phi_jg[j1] * phi_jg[j2]
                     temp[1:] /= x.rgd.r_g[1:]**2
                     temp[0] = temp[1]
@@ -367,15 +370,16 @@ def legendre_polynomial(x, orders, coefs, P=None):
     if len(sh) == 1:
         for i in range(max_order):
             i += 2
-            L[:, i] = (2.0 * x[:] * L[:, i - 1] - L[:, i - 2]
-                       - (x[:] * L[:, i - 1] - L[:, i - 2]) / i)
+            L[:, i] = (2.0 * x[:] * L[:, i - 1] - L[:, i - 2] -
+                       (x[:] * L[:, i - 1] - L[:, i - 2]) / i)
     else:
         for i in range(max_order):
             i += 2
-            L[:, :, :, i] = (2.0 * x[:] * L[:, :, :, i - 1] - L[:, :, :, i - 2]
-                             - (x[:] * L[:, :, :, i - 1] - L[:, :, :, i - 2])
-                             / i)
-
+            L[:, :, :, i] = (
+                2.0 * x[:] * L[:, :, :, i - 1] -
+                L[:, :, :, i - 2] -
+                (x[:] * L[:, :, :, i - 1] - L[:, :, :, i - 2]) / i)
+            
     # building polynomium P
     coefs_ = np.empty(max_order + 1)
     k = 0

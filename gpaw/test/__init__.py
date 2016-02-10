@@ -87,6 +87,7 @@ tests = [
     'lfc/gp2.py',
     'linalg/blas.py',
     'Gauss.py',
+    'symmetry/check.py',
     'fd_ops/nabla.py',
     'linalg/dot.py',
     'linalg/mmm.py',
@@ -149,7 +150,7 @@ tests = [
     'force_as_stop.py',                     # ~1s
     'vdwradii.py',                          # ~1s
     'ase_features/ase3k.py',                # ~1s
-    'pathological/numpy_zdotc_graphite.py', # ~1s
+    'pathological/numpy_zdotc_graphite.py',  # ~1s
     'utilities/eed.py',                     # ~1s
     'lcao/dos.py',                          # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
@@ -209,6 +210,7 @@ tests = [
     'generic/Cl_minus.py',                  # ~4s
     'vdw/ts09.py',                          # ~4s
     'lrtddft/pes.py',                       # ~4s
+    # 'ase_read.py',                          # ~4s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
@@ -254,7 +256,6 @@ tests = [
     'ext_potential/constant_e_field.py',    # ~9s
     'complex.py',                           # ~9s
     'vdw/quick.py',                         # ~9s
-    'response/bse_aluminum.py',             # ~10s
     'lrtddft/Al2_lrtddft.py',               # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
     'response/gw_ppa.py',                   # ~10s
@@ -295,6 +296,7 @@ tests = [
     'lrtddft/excited_state.py',             # ~16s
     'gllb/ne_disc.py',                      # ~16s
     'ofdft/ofdft.py',                       # ~17s
+    'response/bse_silicon.py',              # ~18s
     'tpss.py',                              # ~18s
     'tddft/td_na2.py',                      # ~18s
     'exx/coarse.py',                        # ~18s
@@ -308,7 +310,6 @@ tests = [
     'pw/hyb.py',                            # ~21s
     'generic/Cu.py',                        # ~21s
     'response/na_plasmon.py',               # ~22s
-    'response/bse_diamond.py',              # ~23s
     'fermilevel.py',                        # ~23s
     'parallel/ut_hsblacs.py',               # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
@@ -326,13 +327,12 @@ tests = [
     'exx/MgO_fd_vs_pw.py',                  # ~37s
     'vdw/quick_spin.py',                    # ~37s
     'pw/expert_diag.py',                    # ~37s
-    'response/bse_sym.py',                  # ~40s
     'parallel/ut_hsops.py',                 # ~41s
     'pathological/LDA_unstable.py',         # ~42s
+    'response/bse_aluminum.py',             # ~42s
     'response/au02_absorption.py',          # ~44s
     'ext_potential/point_charge.py',
     'ase_features/wannierk.py',             # ~45s
-    'bse_vs_lrtddft.py',                    # ~45s
     'response/aluminum_testcell.py',        # ~46s
     'ut_tddft.py',                          # ~49s
     'response/pair.py',                     # ~50s
@@ -352,7 +352,6 @@ tests = [
     'exx/AA_enthalpy.py',                   # ~119s
     'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
-    'response/bse_silicon.py',              # ~143s
     'response/gwsi.py',                     # ~147s
     'response/graphene.py',                 # ~160s
     'response/symmetry.py',                 # ~300s
@@ -396,7 +395,6 @@ if mpi.size > 1:
                 'muffintinpot.py',
                 'pw/moleculecg.py',
                 'pw/davidson_pw.py',
-                'response/bse_MoS2_cut.py',
                 'sic/nscfsic.py',
                 # scipy.weave fails often in parallel due to
                 # ~/.python*_compiled
@@ -407,7 +405,7 @@ if mpi.size > 1:
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
                 'response/pair.py']
-
+    
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',
                 'parallel/lcao_parallel.py',
@@ -417,9 +415,7 @@ if mpi.size < 4:
                 'parallel/realspace_blacs.py',
                 'exx/AA_enthalpy.py',
                 'response/bse_aluminum.py',
-                'response/bse_diamond.py',
-                'response/bse_silicon.py',
-                'bse_vs_lrtddft.py',
+                'response/bse_MoS2_cut.py',
                 'fileio/parallel.py',
                 'parallel/diamond_gllb.py',
                 'parallel/lcao_parallel_kpt.py',
@@ -427,8 +423,9 @@ if mpi.size < 4:
 
 
 if mpi.size != 4:
-    exclude += ['parallel/scalapack_mpirecv_crash.py']
-    exclude += ['parallel/scalapack_pdlasrt_hang.py']
+    exclude += ['parallel/scalapack_mpirecv_crash.py',
+                'parallel/scalapack_pdlasrt_hang.py',
+                'response/bse_silicon.py']
 
 if mpi.size == 1 or not compiled_with_sl():
     exclude += ['parallel/submatrix_redist.py']
@@ -438,8 +435,8 @@ if mpi.size != 1 and not compiled_with_sl():
                 'ralda/ralda_energy_N2.py',
                 'ralda/ralda_energy_Ni.py',
                 'ralda/ralda_energy_Si.py',
-                'response/bse_sym.py',
                 'response/bse_silicon.py',
+                'response/bse_MoS2_cut.py',
                 'response/gwsi.py',
                 'rpa/rpa_energy_N2.py',
                 'pw/expert_diag.py',
@@ -465,6 +462,7 @@ for test in tests + exclude:
     assert os.path.exists(get_test_path(test)), 'No such file: %s' % test
 
 exclude = set(exclude)
+
 
 class TestRunner:
     def __init__(self, tests, stream=sys.__stdout__, jobs=1,

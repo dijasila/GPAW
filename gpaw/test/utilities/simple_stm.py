@@ -1,5 +1,4 @@
 from __future__ import print_function
-import os
 
 from ase import Atom, Atoms
 from ase.parallel import size, rank
@@ -8,28 +7,29 @@ from gpaw import GPAW, FermiDirac
 from gpaw.analyse.simple_stm import SimpleStm
 from gpaw.test import equal
 
-load=True
-load=False
+load = True
+load = False
 txt = '/dev/null'
-txt='-'
+txt = '-'
 
 me = ''
 if size > 1:
     me += 'rank ' + str(rank) + ': '
 
 BH = Atoms([Atom('B', [.0, .0, .41]),
-             Atom('H', [.0, .0, -1.23]),
-             ], cell=[5, 6, 6.5])
+            Atom('H', [.0, .0, -1.23])], cell=[5, 6, 6.5])
 BH.center()
 
 f3dname = 'stm3d.plt'
+
+
 def testSTM(calc):
     stm = SimpleStm(calc)
-    stm.write_3D([1,0,0], f3dname) # single wf
+    stm.write_3D([1, 0, 0], f3dname)  # single wf
     wf = stm.gd.integrate(stm.ldos)
 ##    print "wf=", wf
 
-    if size == 1: # XXXX we have problem with reading plt in parallel
+    if size == 1:  # XXXX we have problem with reading plt in parallel
         stm2 = SimpleStm(f3dname)
         wf2 = stm2.gd.integrate(stm2.ldos)
         print('Integrals: written, read=', wf, wf2)
@@ -45,7 +45,7 @@ def testSTM(calc):
     return wf
 
 # finite system without spin and width
-fname='BH-nospin_wfs.gpw'
+fname = 'BH-nospin_wfs.gpw'
 if not load:
     BH.set_pbc(False)
     cf = GPAW(nbands=3, h=.3, txt=txt)
@@ -58,7 +58,7 @@ else:
 wf = testSTM(cf)
 
 # finite system with spin
-fname='BH-spin_Sz2_wfs.gpw'
+fname = 'BH-spin_Sz2_wfs.gpw'
 BH.set_initial_magnetic_moments([1, 1])
 if not load:
     BH.set_pbc(False)
@@ -77,18 +77,20 @@ testSTM(cf)
 # periodic system
 if not load:
     BH.set_pbc(True)
-    cp = GPAW(spinpol=True, nbands=3, h=.3, kpts=(2,1,1), txt=txt)
+    cp = GPAW(spinpol=True, nbands=3, h=.3,
+              kpts=(2, 1, 1), txt=txt, symmetry='off')
     BH.set_calculator(cp)
     e3 = BH.get_potential_energy()
     niter3 = cp.get_number_of_iterations()
-    cp.write('BH-8kpts_wfs.gpw', 'all')
+    cp.write('BH-4kpts_wfs.gpw', 'all')
 else:
-    cp = GPAW('BH-8kpts_wfs.gpw', txt=txt)
+    cp = GPAW('BH-4kpts_wfs.gpw', txt=txt)
 
 stmp = SimpleStm(cp)
 
 stmp.write_3D(-4., f3dname)
-print(me + 'Integrals(occ): 2 * wf, bias=', 2 * wf, stmp.gd.integrate(stmp.ldos))
+print(me + 'Integrals(occ): 2 * wf, bias=', 2 * wf,
+      stmp.gd.integrate(stmp.ldos))
 equal(2 * wf, stmp.gd.integrate(stmp.ldos), 0.02)
 
 stmp.write_3D(+4., f3dname)

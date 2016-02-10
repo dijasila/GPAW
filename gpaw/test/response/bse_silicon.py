@@ -1,30 +1,27 @@
 from __future__ import print_function
 import os
 import numpy as np
-from ase import Atom, Atoms
 from ase.lattice import bulk
-from ase.units import Hartree, Bohr
-from gpaw import GPAW, FermiDirac, Davidson
-from gpaw.response.bse import BSE
-from ase.dft.kpoints import monkhorst_pack
+from gpaw import GPAW, FermiDirac
+from gpaw.response.bse_new import BSE
 from gpaw.mpi import rank
+from gpaw.test import findpeak, equal
 
 GS = 1
+nosym = 1
 bse = 1
 check = 1
+delfiles = 1
 
 if GS:
-    kpts = (4,4,4)
- 
     a = 5.431 # From PRB 73,045112 (2006)
     atoms = bulk('Si', 'diamond', a=a)
-    calc = GPAW(h=0.25,
-                kpts=kpts,
-                xc='oldLDA',
-                eigensolver=Davidson(2),
+    atoms.positions -= a/ 8
+    calc = GPAW(mode='pw',
+                kpts={'size': (2, 2, 2), 'gamma': True},
                 occupations=FermiDirac(0.001),
                 nbands=12,
-                convergence={'bands':-4})
+                convergence={'bands': -4})
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
     calc.write('Si.gpw','all')
@@ -32,32 +29,62 @@ if GS:
 if bse:
     eshift = 0.8
     bse = BSE('Si.gpw',
-              w=np.linspace(0,10,201),
-              q=np.array([0.0001, 0, 0.0]),
-              optical_limit=True,
               ecut=50.,
-              nc=np.array([4,6]),
-              nv=np.array([2,4]),
+              valence_bands=range(4),
+              conduction_bands=range(4,8),
               eshift=eshift,
-              nbands=8)
-    bse.get_dielectric_function('Si_bse.dat')
-
-    if rank == 0 and os.path.isfile('phi_qaGp'):
-        os.remove('phi_qaGp')
-
+              nbands=8,
+              write_h=False,
+              write_v=False)
+    w_w, eps_w = bse.get_dielectric_function(filename=None,
+                                             eta=0.2,
+                                             w_w=np.linspace(0,10,2001),
+                                             )
 if check:
-    d = np.loadtxt('Si_bse.dat')
+    w_ = 2.552
+    I_ = 421.15
+    w, I = findpeak(w_w, eps_w.imag)
+    equal(w, w_, 0.01)
+    equal(I, I_, 0.1)
 
-    Nw1 = 64
-    Nw2 = 77
-    if d[Nw1, 2] > d[Nw1-1, 2] and d[Nw1, 2] > d[Nw1+1, 2] \
-            and d[Nw2, 2] > d[Nw2-1, 2] and d[Nw2, 2] > d[Nw2+1, 2]:
-        pass
-    else:
-        raise ValueError('Absorption peak not correct ! ')
+if delfiles and rank == 0:
+    os.remove('Si.gpw')
+    os.remove('pair.txt')
+    os.remove('chi0.txt')
 
-    if np.abs(d[Nw1, 2] - 53.3382894891) > 1. \
-        or np.abs(d[Nw2, 2] - 62.7667801949 ) > 2.:
-        print(d[Nw1, 2], d[Nw2, 2])
-        raise ValueError('Please check spectrum strength ! ')
 
+if GS and nosym:
+    atoms = bulk('Si', 'diamond', a=a)
+    calc = GPAW(mode='pw',
+                kpts={'size': (2, 2, 2), 'gamma': True},
+                occupations=FermiDirac(0.001),
+                nbands=12,
+                symmetry='off',
+                convergence={'bands': -4})
+    atoms.set_calculator(calc)
+    atoms.get_potential_energy()
+    calc.write('Si.gpw','all')
+
+if bse and nosym:
+    bse = BSE('Si.gpw',
+              ecut=50.,
+              valence_bands=range(4),
+              conduction_bands=range(4,8),
+              eshift=eshift,
+              nbands=8,
+              write_h=False,
+              write_v=False)
+    w_w, eps_w = bse.get_dielectric_function(filename=None,
+                                             eta=0.2,
+                                             w_w=np.linspace(0,10,2001),
+                                             )
+
+if check and nosym:
+    w, I = findpeak(w_w, eps_w.imag)
+    equal(w, w_, 0.01)
+    equal(I, I_, 0.1)
+
+if delfiles and nosym and rank == 0:
+    os.remove('Si.gpw')
+    os.remove('pair.txt')
+    os.remove('chi0.txt')

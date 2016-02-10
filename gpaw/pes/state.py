@@ -1,14 +1,12 @@
-from math import exp, sin, cos, pi, sqrt, acos, asin
+from math import exp, pi, sqrt
 
 import numpy as np
 
 from ase.units import Bohr, Hartree, alpha
-import _gpaw
 from gpaw.pes import ds_prefactor
 
 
 class State:
-
     """Electronic state base class."""
 
     def __init__(self, gd):
@@ -89,7 +87,7 @@ class H1s(State):
         elif form == 'V':
             pre = 1j
         else:
-            raise NonImplementedError
+            raise NotImplementedError
         return pre * k_c * self.FT(k)
 
     def get_ds(self, Ekin, form='L', units='Mb'):

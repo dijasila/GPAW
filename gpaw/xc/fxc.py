@@ -182,18 +182,31 @@ class FXCCorrelation(RPACorrelation):
                             m1, m2, [1])
         prnt('E_c(q) = ', end='', file=self.fd)
 
-        chi0_swGG = chi0.redistribute(chi0_swGG, A2_x)
+        if self.nblocks > 1:
+            if len(chi0_swGG) == 2:
+                chi0_0wGG = chi0.redistribute(chi0_swGG[0], A2_x)
+                nredist = np.product(chi0_0wGG.shape)
+                chi0.redistribute(chi0_swGG[1], A2_x[nredist:])
+                chi0_swGG = A2_x[:2 * nredist].reshape((2,) + chi0_0wGG.shape)
+            else:
+                chi0_0wGG = chi0.redistribute(chi0_swGG[0], A2_x)
+                nredist = np.product(chi0_0wGG.shape)
+                chi0_swGG = A2_x[:1 * nredist].reshape((1,) + chi0_0wGG.shape)
 
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_swGG, cut_G)
             prnt('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
         else:
+            nw = len(self.omega_w)
+            mynw = nw // self.nblocks
+            w1 = self.blockcomm.rank * mynw
+            w2 = w1 + mynw
             e = 0.0
             for v in range(3):
-                chi0_swGG[:, :, 0] = chi0_swxvG[:, :, 0, v]
-                chi0_swGG[:, :, :, 0] = chi0_swxvG[:, :, 1, v]
-                chi0_swGG[:, :, 0, 0] = chi0_swvv[:, :, v, v]
+                chi0_swGG[:, :, 0] = chi0_swxvG[:, w1:w2, 0, v]
+                chi0_swGG[:, :, :, 0] = chi0_swxvG[:, w1:w2, 1, v]
+                chi0_swGG[:, :, 0, 0] = chi0_swvv[:, w1:w2, v, v]
                 ev = self.calculate_energy(pd, chi0_swGG, cut_G)
                 e += ev
                 prnt('%.3f' % (ev * Hartree), end='', file=self.fd)
