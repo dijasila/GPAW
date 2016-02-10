@@ -19,20 +19,18 @@ class MGGA(GGA):
     def get_setup_name(self):
         return 'PBE'
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, dens, ham, wfs, occ):
         self.wfs = wfs
-        self.tauct = density.get_pseudo_core_kinetic_energy_density_lfc()
-        self.tauct_G = None
-        self.dedtaut_sG = None
-        self.restrict_and_collect = hamiltonian.restrict_and_collect
-        self.distribute_and_interpolate = density.distribute_and_interpolate
+        self.tauct = dens.get_pseudo_core_kinetic_energy_density_lfc()
+        self.tauct_g = dens.finegd.empty()
+        self.dedtaut_sG = wfs.gd.empty(wfs.nspins)
+        self.restrict_and_collect = ham.restrict_and_collect
+        self.distribute_and_interpolate = dens.distribute_and_interpolate
 
     def set_positions(self, spos_ac):
         self.tauct.set_positions(spos_ac)
-        if self.tauct_G is None:
-            self.tauct_G = self.wfs.gd.empty()
-        self.tauct_G[:] = 0.0
-        self.tauct.add(self.tauct_G)
+        self.tauct_g[:] = 0.0
+        self.tauct.add(self.tauct_g)
 
     def calculate_gga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
         taut_sG = self.wfs.calculate_kinetic_energy_density()
@@ -41,16 +39,13 @@ class MGGA(GGA):
             nt0_sg = nt_sg.copy()
             nt0_sg[nt0_sg < 1e-10] = np.inf
             taut_sg = sigma_xg[::2] / 8 / nt0_sg
-            nspins = self.wfs.nspins
-            taut_sG = self.wfs.gd.empty(nspins)
-            for taut_G, taut_g in zip(taut_sG, taut_sg):
-                self.restrict_and_collect(taut_g, taut_G)
         else:
             taut_sg = np.empty_like(nt_sg)
-        
-        for taut_G, taut_g in zip(taut_sG, taut_sg):
-            taut_G += 1.0 / self.wfs.nspins * self.tauct_G
-            self.distribute_and_interpolate(taut_G, taut_g)
+            for taut_G, taut_g in zip(taut_sG, taut_sg):
+                self.distribute_and_interpolate(taut_G, taut_g)
+                
+        for taut_g in taut_sg:
+            taut_g += 1.0 / self.wfs.nspins * self.tauct_g
             
         # bad = taut_sg < tautW_sg + 1e-11
         # taut_sg[bad] = tautW_sg[bad]
@@ -58,20 +53,19 @@ class MGGA(GGA):
         # m = 12.0
         # taut_sg = (taut_sg**m + (tautW_sg / 2)**m)**(1 / m)
         
-        bad = taut_sg < tautW_sg + 1e-11
-        taut_sg[bad] = tautW_sg[bad]
+        # bad = taut_sg < tautW_sg + 1e-11
+        # taut_sg[bad] = tautW_sg[bad]
         
         dedtaut_sg = np.empty_like(nt_sg)
         self.kernel.calculate(e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg,
                               taut_sg, dedtaut_sg)
 
-        self.dedtaut_sG = self.wfs.gd.empty(self.wfs.nspins)
         self.ekin = 0.0
         for s in range(self.wfs.nspins):
             self.restrict_and_collect(dedtaut_sg[s], self.dedtaut_sG[s])
-            self.ekin -= self.wfs.gd.integrate(
-                self.dedtaut_sG[s] * (taut_sG[s] -
-                                      self.tauct_G / self.wfs.nspins))
+            if taut_sG is not None:
+                self.ekin -= self.wfs.gd.integrate(self.dedtaut_sG[s] *
+                                                   taut_sG[s])
 
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG, dH_asp=None):
@@ -95,7 +89,6 @@ class MGGA(GGA):
         E = GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp,
                                          addcoredensity, a)
         del self.D_sp, self.n, self.ae, self.c, self.dEdD_sp
-        #print(E)
         return E
 
     def calculate_gga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):

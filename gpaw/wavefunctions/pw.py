@@ -1302,7 +1302,7 @@ class ReciprocalSpaceDensity(Density):
 
     def get_pseudo_core_kinetic_energy_density_lfc(self):
         return PseudoCoreKineticEnergyDensityLFC(
-            [[setup.tauct] for setup in self.setups], self.pd2)
+            [[setup.tauct] for setup in self.setups], self.pd3)
 
     def calculate_dipole_moment(self):
         if np.__version__ < '1.6.0':

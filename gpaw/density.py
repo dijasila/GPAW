@@ -631,7 +631,7 @@ class RealSpaceDensity(Density):
                                    charge)
 
     def get_pseudo_core_kinetic_energy_density_lfc(self):
-        return LFC(self.gd,
+        return LFC(self.finegd,
                    [[setup.tauct] for setup in self.setups],
                    forces=True, cut=True)
 
