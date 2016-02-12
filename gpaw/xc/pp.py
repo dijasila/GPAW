@@ -1,6 +1,7 @@
 from __future__ import division
 import numpy as np
 from numpy import pi, log as ln, exp, sqrt
+from ase.utils import seterr
 
 CF = 0.6 * (6 * pi**2)**(2 / 3)
 
@@ -111,8 +112,8 @@ class M06_L:
             tt[badt] = c
 
             aa = a2_xg.copy()
-            #bada = aa < c
-            #aa[bada] = c
+            bada = aa < 1e-5
+            aa[bada] = 0#1e-5
             
             args = (nn_sg[0], nn_sg[1],
                     aa[0], aa[1], aa[2], tt[0], tt[1])
@@ -269,8 +270,8 @@ def m06_l_g(nom, c):
     
     
 def m06_l_c(na, nb, aa2, ab2, taua, taub):
-    za = 2 * taua / na**(5 / 3) - CF
-    zb = 2 * taub / nb**(5 / 3) - CF
+    zap = 2 * taua / na**(5 / 3)
+    zbp = 2 * taub / nb**(5 / 3)
     xa2 = aa2 / na**(8 / 3)
     xb2 = ab2 / nb**(8 / 3)
     xab2 = xa2 + xb2
@@ -281,7 +282,7 @@ def m06_l_c(na, nb, aa2, ab2, taua, taub):
     ubb = lda_c_pw92(nb, 1)[0] * nb
     uab = lda_c_pw92(n, zeta)[0] * n - uaa - ubb
     #print(uaa,ubb,uab+uaa+ubb)
-    hab = m06_l_h(xab2, za + zb, 0.00304966,
+    hab = m06_l_h(xab2, zap + zbp - 2 * CF, 0.00304966,
                   0.3957626, -0.5614546, 0.01403963, 0.0009831442,
                   -0.003577176)
     gab = m06_l_g(0.0031 * xab2,
@@ -291,15 +292,27 @@ def m06_l_c(na, nb, aa2, ab2, taua, taub):
     e = uab * (gab + hab)
 
     i = 0
-    for x2, z, u in [(xa2, za, uaa), (xb2, zb, ubb)]:
-        h = m06_l_h(x2, z, 0.00515088,
+    for x2, zp, u in [(xa2, zap, uaa), (xb2, zbp, ubb)]:
+        h = m06_l_h(x2, zp - CF, 0.00515088,
                     0.4650534, 0.1617589, 0.1833657, 0.0004692100,
                     -0.004990573)
         g = m06_l_g(0.06 * x2,
                     [0.5349466, 0.5396620, -31.61217, 51.49592, -29.19613])
 
-        D = 1 - x2 / 4 / (z + CF)
-        D[z + CF <= x2 / 4] = 0
+        #with seterr(divide='ignore'):
+        try:
+            D = 1 - x2 / 4 / zp
+        except FloatingPointError:
+            print(taua[0,0])
+            print((x2/4)[0,0])
+            print(zp[0,0])
+            import matplotlib.pyplot as plt
+            plt.plot((x2/4)[0,0])
+            plt.plot(zp[0,0])
+            plt.plot((x2/4)[:,0,0])
+            plt.plot(zp[:,0,0])
+            plt.show()
+        D[zp <= x2 / 4] = 0
         e += u * (g + h) * D
         i += 1
     

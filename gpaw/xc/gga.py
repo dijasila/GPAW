@@ -37,9 +37,10 @@ class GGA(LDA):
         sigma_xg, gradn_svg = self.calculate_sigma(n_sg)
         dedsigma_xg = self.gd.empty(nspins * 2 - 1)
         self.calculate_gga(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-        self.add_gradient_correction(gradn_svg, sigma_xg, dedsigma_xg, v_sg)
+        self.add_gradient_correction(gradn_svg, dedsigma_xg, v_sg,
+                                     tmp_g=sigma_xg[0])
 
-    def add_gradient_correction(self, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
+    def add_gradient_correction(self, gradn_svg, dedsigma_xg, v_sg, tmp_g):
         """Add gradient correction to potential.
 
         ::
@@ -48,19 +49,24 @@ class GGA(LDA):
             v  (r) += -2  \/ . | ? + ---------  \/ n(r) |
              xc                \     dsigma(r)          /
 
-        Appears to also add to sigma_xg.
         """
         nspins = len(v_sg)
-        vv_g = sigma_xg[0]
         for v in range(3):
             for s in range(nspins):
-                self.grad_v[v](dedsigma_xg[2 * s] * gradn_svg[s, v], vv_g)
-                axpy(-2.0, vv_g, v_sg[s])
+                self.grad_v[v](dedsigma_xg[2 * s] * gradn_svg[s, v], tmp_g)
+                axpy(-2.0, tmp_g, v_sg[s])
                 if nspins == 2:
-                    self.grad_v[v](dedsigma_xg[1] * gradn_svg[s, v], vv_g)
-                    axpy(-1.0, vv_g, v_sg[1 - s])
-                    # TODO: can the number of gradient evaluations be reduced?
+                    self.grad_v[v](dedsigma_xg[1] * gradn_svg[s, v], tmp_g)
+                    axpy(-1.0, tmp_g, v_sg[1 - s])
 
+        if self.type == 'MGGA...':
+            import matplotlib.pyplot as plt
+            plt.plot(self.gd.coords(0), dedsigma_xg[0,:,0,0])
+            plt.plot(self.gd.coords(2), dedsigma_xg[0,0,0])
+            plt.plot(self.gd.coords(0), v_sg[0,:,0,0])
+            plt.plot(self.gd.coords(2), v_sg[0,0,0])
+            plt.show()
+            
     def calculate_sigma(self, n_sg):
         return calculate_sigma(self.gd, self.grad_v, n_sg)
 

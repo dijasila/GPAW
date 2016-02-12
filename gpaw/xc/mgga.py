@@ -43,10 +43,18 @@ class MGGA(GGA):
             taut_sg = np.empty_like(nt_sg)
             for taut_G, taut_g in zip(taut_sG, taut_sg):
                 self.distribute_and_interpolate(taut_G, taut_g)
-                
+             
         for taut_g in taut_sg:
             taut_g += 1.0 / self.wfs.nspins * self.tauct_g
-            
+
+        import matplotlib.pyplot as plt
+        if 0:
+            #if taut_sG is not None:
+            #    plt.plot(self.wfs.gd.coords(2), taut_sG[0, 0, 0])
+            #plt.plot(self.gd.coords(2), taut_sg[0, 0, 0])
+            plt.plot(self.gd.coords(2), taut_sg[0, 0, 0])
+            plt.plot(self.gd.coords(2), nt_sg[0, 0, 0])
+            plt.plot(self.gd.coords(2), sigma_xg[0, 0, 0])
         # bad = taut_sg < tautW_sg + 1e-11
         # taut_sg[bad] = tautW_sg[bad]
         
@@ -60,6 +68,11 @@ class MGGA(GGA):
         self.kernel.calculate(e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg,
                               taut_sg, dedtaut_sg)
 
+        if 0:
+            plt.plot(self.gd.coords(2), v_sg[0, 0, 0])
+            plt.plot(self.gd.coords(2), dedtaut_sg[0, 0, 0])
+            plt.show()
+            
         self.ekin = 0.0
         for s in range(self.wfs.nspins):
             self.restrict_and_collect(dedtaut_sg[s], self.dedtaut_sG[s])
