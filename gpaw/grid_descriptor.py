@@ -180,6 +180,22 @@ class GridDescriptor(Domain):
             parsize_c = self.parsize_c
         return self.__class__(N_c, cell_cv, pbc_c, comm, parsize_c)
 
+    def coords(self, c):
+        """Return coordinates along one of the three axes.
+        
+        Useful for plotting::
+            
+            import matplotlib.pyplot as plt
+            plt.plot(gd.coords(0), data[:, 0, 0])
+            plt.show()
+            
+        """
+        L = np.linalg.norm(self.cell_cv[c])
+        N = self.N_c[c]
+        h = L / N
+        p = self.pbc_c[c]
+        return np.linspace((1 - p) * h, L, N - 1 + p, False)
+        
     def get_grid_spacings(self):
         L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
         return L_c / self.N_c
