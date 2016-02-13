@@ -20,16 +20,20 @@ H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
             Atom('H', (a / 2, a / 2, (c + R) / 2))],
            cell=(a, a, c))
 
-calc = GPAW(xc=xc, nbands=2, spinpol=False, eigensolver='rmm-diis', txt=txt)
+calc = GPAW(xc=xc, nbands=3, spinpol=False, eigensolver='rmm-diis', txt=txt)
 H2.set_calculator(calc)
 H2.get_potential_energy()
 
 gsname = exname = 'rraman'
 rr = ResonantRaman(H2, KSSingles, gsname=gsname, exname=exname,
-                   exkwargs={'eps':0.0},
+                   exkwargs={'eps':0.0, 'jend':1}
                )
 rr.run()
 
-if world.rank == 0:
-    rr = ResonantRaman(H2, KSSingles, gsname=gsname, exname=exname)
-    rr.summary(omega=5, method='frederiksen')
+# check size
+kss = KSSingles('rraman-d0.010.eq.ex.gz')
+assert(len(kss) == 1)
+
+rr = ResonantRaman(H2, KSSingles, gsname=gsname, exname=exname, 
+                   verbose=True,)
+rr.summary(omega=5, method='frederiksen')
