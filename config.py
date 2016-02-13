@@ -159,7 +159,7 @@ def get_system_config(define_macros, undef_macros,
         libraries += ['f', 'lapack', 'essl']
         define_macros.append(('GPAW_AIX', '1'))
 
-    elif machine in ['x86_64', 'ppc64', 'aarch64']:
+    elif machine in ['x86_64', 'ppc64', 'ppc64le', 'aarch64']:
 
         #    _
         # \/|_||_    |_ |_|
