@@ -358,21 +358,19 @@ class PWSymmetryAnalyzer:
 
     def symmetrize_wGG(self, A_wGG):
         """Symmetrize an array in GG'."""
-        tmp_wGG = np.zeros_like(A_wGG)
 
-        if self.use_time_reversal:
-            AT_wGG = np.transpose(A_wGG, (0, 2, 1))
+        for A_GG in A_wGG:
+            tmp_GG = np.zeros_like(A_GG)
 
-        for s in self.s_s:
-            G_G, sign, _ = self.G_sG[s]
-            if sign == 1:
-                tmp_wGG += A_wGG[:, G_G, :][:, :, G_G]
-            if sign == -1:
-                tmp_wGG += AT_wGG[:, G_G, :][:, :, G_G]
+            for s in self.s_s:
+                G_G, sign, _ = self.G_sG[s]
+                if sign == 1:
+                    tmp_GG += A_GG[G_G,:][:,G_G]
+                if sign == -1:
+                    tmp_GG += A_GG[G_G,:][:,G_G].T
 
-        # Inplace overwriting
-        A_wGG[:] = tmp_wGG
-        
+            A_GG[:] = tmp_GG
+
     def symmetrize_wxvG(self, A_wxvG):
         """Symmetrize chi0_wxvG"""
         A_cv = self.pd.gd.cell_cv
