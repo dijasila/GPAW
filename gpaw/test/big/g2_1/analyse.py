@@ -1,11 +1,10 @@
 from __future__ import print_function
 import numpy as np
 import ase.db
-from ase.utils import prnt
 from ase.data.g2_1 import molecule_names
 
-
 c = ase.db.connect('g2-1.db')
+
 
 def analyse(calc, relaxed):
     e = {}
@@ -32,12 +31,12 @@ print(abs(Dg0 - Dn0).max(), abs(Dg0 - Dn0).mean())
 print(abs(Dg1 - Dn1).max(), abs(Dg1 - Dn1).mean())
 
 fd = open('g2-1.csv', 'w')
-prnt('# Atomization energies and distances.  N: NWChem, G: GPAW', file=fd)
-prnt('# name, E(N, not relaxed), E(N), E(G)-E(N), d(N), d(G)-d(N)', file=fd)
+print('# Atomization energies and distances.  N: NWChem, G: GPAW', file=fd)
+print('# name, E(N, not relaxed), E(N), E(G)-E(N), d(N), d(G)-d(N)', file=fd)
 for name, en0, en1, eg1, dn1, dg1 in zip(molecule_names,
                                          En0, En1, Eg1, Dn1, Dg1):
-    prnt('%11s, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f' %
-         (name, en0, en1, eg1 - en1, dn1, dg1 - dn1), file=fd)
+    print('%11s, %7.3f, %7.3f, %7.3f, %7.3f, %7.3f' %
+          (name, en0, en1, eg1 - en1, dn1, dg1 - dn1), file=fd)
     
 
 # these results are calculated at relaxed geometries
@@ -46,5 +45,3 @@ En10 = [ref['ea'][name] for name in molecule_names]
 Dn10 = [ref['distance'][name] for name in molecule_names]
 print(abs(En1 - En10).max())
 print(abs(Dn1 - Dn10).max())
-
-

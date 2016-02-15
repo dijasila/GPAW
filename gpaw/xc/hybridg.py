@@ -8,7 +8,6 @@ from time import time
 from math import pi, sqrt
 
 import numpy as np
-from ase.utils import prnt
 from ase.units import Hartree
 from ase.dft.kpoints import monkhorst_pack
 from ase.utils.timing import Timer
@@ -102,7 +101,7 @@ class HybridXC(HybridXCBase):
         self.timer = Timer()
 
     def log(self, *args, **kwargs):
-        prnt(file=self.fd, *args, **kwargs)
+        print(file=self.fd, *args, **kwargs)
         self.fd.flush()
 
     def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,
@@ -200,8 +199,8 @@ class HybridXC(HybridXCBase):
             alpha = self.alpha
         if self.gamma_point == 1:
             if alpha == 0.0:
-                qvol = (2*np.pi)**3 / vol / N_c.prod()
-                self.gamma = 4*np.pi * (3*qvol / (4*np.pi))**(1/3.) / qvol
+                qvol = (2 * np.pi)**3 / vol / N_c.prod()
+                self.gamma = 4 * np.pi * (3 * qvol / (4 * np.pi))**(1 / 3.) / qvol
             else:
                 self.gamma = self.calculate_gamma(vol, alpha)
         else:

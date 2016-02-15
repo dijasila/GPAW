@@ -4,11 +4,11 @@
 """This module provides all the classes and functions associated with the
 evaluation of exact exchange with k-point sampling."""
 
+from __future__ import print_function
 from math import pi, sqrt
 from time import time
 
 import numpy as np
-from ase.utils import prnt
 
 from gpaw.utilities import pack, unpack2, packed_index, logfile
 from gpaw.lfc import LFC
@@ -125,7 +125,7 @@ class HybridXC(HybridXCBase):
         HybridXCBase.__init__(self, name, hybrid, xc)
 
     def log(self, *args, **kwargs):
-        prnt(file=self.fd, *args, **kwargs)
+        print(file=self.fd, *args, **kwargs)
         self.fd.flush()
 
     def calculate_radial(self, rgd, n_sLg, Y_L, v_sg,

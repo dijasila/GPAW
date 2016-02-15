@@ -1,8 +1,8 @@
+from __future__ import print_function
 import numpy as np
 
 from ase.units import Bohr
 from ase.parallel import paropen
-from ase.utils import prnt
 
 from gpaw.spherical_harmonics import Y
 from gpaw.utilities.tools import coordinates
@@ -75,17 +75,17 @@ class Multipole:
 
         f = paropen(filename, mode)
 
-        prnt('# Multipole expansion of the charge density', file=f)
-        prnt('# center =', self.center * Bohr, 'Angstrom', file=f)
-        prnt('# lmax =', self.lmax, file=f)
-        prnt(('# see https://trac.fysik.dtu.dk/projects/gpaw/browser/' +
+        print('# Multipole expansion of the charge density', file=f)
+        print('# center =', self.center * Bohr, 'Angstrom', file=f)
+        print('# lmax =', self.lmax, file=f)
+        print(('# see https://trac.fysik.dtu.dk/projects/gpaw/browser/' +
               'trunk/c/bmgs/sharmonic.py'), file=f)
-        prnt('# for the definition of spherical harmonics', file=f)
-        prnt('# l  m    q_lm[|e| Angstrom**l]', file=f)
+        print('# for the definition of spherical harmonics', file=f)
+        print('# l  m    q_lm[|e| Angstrom**l]', file=f)
 
         L = 0
         for l in range(self.lmax + 1):
             for m in range(-l, l + 1):
-                prnt('{0:2d} {1:3d} {2:g}'.format(l, m, q_L[L]), file=f)
+                print('{0:2d} {1:3d} {2:g}'.format(l, m, q_L[L]), file=f)
                 L += 1
         f.close()

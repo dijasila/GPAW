@@ -1,9 +1,9 @@
+from __future__ import print_function
 import sys
 import numpy as np
 from numpy.linalg.linalg import LinAlgError
 from ase.units import kJ
 import ase.db
-from ase.utils import prnt
 from ase.test.tasks.dcdft import DeltaCodesDFTCollection as Collection
 from ase.test.tasks.dcdft import FullEquationOfState as EquationOfState
 
@@ -46,8 +46,8 @@ E, V, B0, B1, R = analyse(c, collection)
 fd = open(db + '_raw.txt', 'w')
 for name, e, v, b0, b1, r, in zip(collection.names, E, V, B0, B1, R):
     if not np.isnan(e):
-        prnt('%2s %8.4f %8.4f %8.4f' % (name, v, b0, b1), file=fd)
+        print('%2s %8.4f %8.4f %8.4f' % (name, v, b0, b1), file=fd)
 fd = open(db + '_raw.csv', 'w')
 for name, e, v, b0, b1, r, in zip(collection.names, E, V, B0, B1, R):
     if not np.isnan(e):
-        prnt('%s, %8.4f, %8.4f, %8.4f' % (name, v, b0, b1), file=fd)
+        print('%s, %8.4f, %8.4f, %8.4f' % (name, v, b0, b1), file=fd)

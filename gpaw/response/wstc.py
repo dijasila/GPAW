@@ -9,13 +9,12 @@ See:
     Wigner-Seitz truncated interactions: Towards chemical accuracy
     in nontrivial systems
 """
-
+from __future__ import print_function
 import sys
 from math import pi
 
 import numpy as np
 from ase.units import Bohr
-from ase.utils import prnt
 
 import gpaw.mpi as mpi
 from gpaw.utilities import erf
@@ -30,18 +29,18 @@ class WignerSeitzTruncatedCoulomb:
         L_c = (np.linalg.inv(bigcell_cv)**2).sum(0)**-0.5
         
         rc = 0.5 * L_c.min()
-        prnt('Inner radius for %dx%dx%d Wigner-Seitz cell: %.3f Ang' %
-             (tuple(nk_c) + (rc * Bohr,)), file=txt)
+        print('Inner radius for %dx%dx%d Wigner-Seitz cell: %.3f Ang' %
+              (tuple(nk_c) + (rc * Bohr,)), file=txt)
         
         self.a = 5 / rc
-        prnt('Range-separation parameter: %.3f Ang^-1' % (self.a / Bohr),
-             file=txt)
+        print('Range-separation parameter: %.3f Ang^-1' % (self.a / Bohr),
+              file=txt)
         
 #        nr_c = [get_efficient_fft_size(2 * int(L * self.a * 1.5))
         nr_c = [get_efficient_fft_size(2 * int(L * self.a * 3.0))
                 for L in L_c]
-        prnt('FFT size for calculating truncated Coulomb: %dx%dx%d' %
-             tuple(nr_c), file=txt)
+        print('FFT size for calculating truncated Coulomb: %dx%dx%d' %
+              tuple(nr_c), file=txt)
         
         self.gd = GridDescriptor(nr_c, bigcell_cv, comm=mpi.serial_comm)
         v_R = self.gd.empty()

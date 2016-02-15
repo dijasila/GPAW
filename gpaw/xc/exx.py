@@ -1,12 +1,10 @@
-# Todo: ACDF formula
-from __future__ import division
+from __future__ import division, print_function
 
 import sys
 from math import pi
 
 import numpy as np
 from ase.units import Hartree
-from ase.utils import prnt
 
 import gpaw.mpi as mpi
 from gpaw.xc import XC
@@ -95,17 +93,17 @@ class EXX(PairDensity):
             # Do all occupied bands:
             bands = [0, self.nocc2]
         
-        prnt('Calculating exact exchange contributions for band index',
-             '%d-%d' % (bands[0], bands[1] - 1), file=self.fd)
-        prnt('for IBZ k-points with indices:',
-             ', '.join(str(i) for i in self.kpts), file=self.fd)
+        print('Calculating exact exchange contributions for band index',
+              '%d-%d' % (bands[0], bands[1] - 1), file=self.fd)
+        print('for IBZ k-points with indices:',
+              ', '.join(str(i) for i in self.kpts), file=self.fd)
         
         self.bands = bands
 
         if self.ecut is None:
             self.ecut = self.calc.wfs.pd.ecut
-        prnt('Plane-wave cutoff: %.3f eV' % (self.ecut * Hartree),
-             file=self.fd)
+        print('Plane-wave cutoff: %.3f eV' % (self.ecut * Hartree),
+              file=self.fd)
         
         shape = (self.calc.wfs.nspins, len(self.kpts), bands[1] - bands[0])
         self.exxvv_sin = np.zeros(shape)   # valence-valence exchange energies
@@ -126,8 +124,8 @@ class EXX(PairDensity):
         self.mykpts = [self.get_k_point(s, K, n1, n2)
                        for s, K, n1, n2 in self.mysKn1n2]
 
-        prnt('Using Wigner-Seitz truncated coulomb interaction.',
-             file=self.fd)
+        print('Using Wigner-Seitz truncated coulomb interaction.',
+              file=self.fd)
         self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
                                                 self.calc.wfs.kd.N_c,
                                                 self.fd)
@@ -164,19 +162,19 @@ class EXX(PairDensity):
             self.exxvv = np.dot(kd.weight_k[self.kpts], exxvv_i) / nspins
             self.exxvc = np.dot(kd.weight_k[self.kpts], exxvc_i) / nspins
             self.exx = self.exxvv + self.exxvc + self.exxcc
-            prnt('Exact exchange energy:', file=self.fd)
+            print('Exact exchange energy:', file=self.fd)
             for kind, exx in [('valence-valence', self.exxvv),
                               ('valence-core', self.exxvc),
                               ('core-core', self.exxcc),
                               ('total', self.exx)]:
-                prnt('%16s%11.3f eV' % (kind + ':', exx * Hartree),
-                     file=self.fd)
+                print('%16s%11.3f eV' % (kind + ':', exx * Hartree),
+                      file=self.fd)
             
             self.exc = self.calculate_hybrid_correction()
 
         exx_sin = self.exxvv_sin + self.exxvc_sin
-        prnt('EXX eigenvalue contributions in eV:', file=self.fd)
-        prnt(np.array_str(exx_sin * Hartree, precision=3), file=self.fd)
+        print('EXX eigenvalue contributions in eV:', file=self.fd)
+        print(np.array_str(exx_sin * Hartree, precision=3), file=self.fd)
     
     def get_exx_energy(self):
         return self.exx * Hartree
