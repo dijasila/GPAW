@@ -8,7 +8,6 @@ from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kohnsham_layouts import BandLayouts
 from gpaw.mpi import world, distribute_cpus
-from gpaw.utilities.lapack import inverse_cholesky
 from gpaw.hs_operators import MatrixOperator
 from gpaw.fd_operators import Laplace
 
@@ -38,11 +37,11 @@ else:
     D = world.size // B
 
 M = N // B     # number of bands per group
-assert M * B == N, 'M=%d, B=%d, N=%d' % (M,B,N)
+assert M * B == N, 'M=%d, B=%d, N=%d' % (M, B, N)
 
 h = 0.2        # grid spacing
 a = h * G      # side length of box
-assert np.prod(D) * B == world.size, 'D=%s, B=%d, W=%d' % (D,B,world.size)
+assert np.prod(D) * B == world.size, 'D=%s, B=%d, W=%d' % (D, B, world.size)
 
 # Set up communicators:
 comms = distribute_cpus(parsize_domain=D,
@@ -53,7 +52,8 @@ domain_comm, kpt_comm, band_comm, block_comm = \
 
 assert kpt_comm.size == 1
 if world.rank == 0:
-    print('MPI: %d domains, %d band groups' % (domain_comm.size, band_comm.size))
+    print('MPI: %d domains, %d band groups' % (domain_comm.size,
+                                               band_comm.size))
 
 # Set up band and grid descriptors:
 bd = BandDescriptor(N, band_comm, False)
@@ -74,17 +74,22 @@ kin = Laplace(gd, -0.5, 2).apply
 vt_G = gd.empty()
 vt_G.fill(0.567)
 
+
 def run(psit_mG):
     overlap = MatrixOperator(ksl, J)
+
     def H(psit_xG):
         Htpsit_xG = np.empty_like(psit_xG)
         kin(psit_xG, Htpsit_xG)
         for psit_G, y_G in zip(psit_xG, Htpsit_xG):
             y_G += vt_G * psit_G
         return Htpsit_xG
+    
     dH_aii = {0: np.ones((2, 2)) * 0.123, 1: np.ones((3, 3)) * 0.321}
+    
     def dH(a, P_ni):
         return np.dot(P_ni, dH_aii[a])
+    
     H_nn = overlap.calculate_matrix_elements(psit_mG, P_ani, H, dH)
 
     t1 = time()
@@ -94,7 +99,7 @@ def run(psit_mG):
     t2 = time()
 
     if world.rank == 0:
-        print('Diagonalization Time %f' % (t2-t1))
+        print('Diagonalization Time %f' % (t2 - t1))
         print(eps_n)
 
     # Distribute matrix:
@@ -112,7 +117,7 @@ def run(psit_mG):
     H_nn = overlap.calculate_matrix_elements(psit_mG, P_ani, H, dH)
     if world.rank == 0:
         for n in range(N):
-            assert abs(H_nn[n, n] - eps_n[n]) < 1.5e-8
+            assert abs(H_nn[n, n] - eps_n[n]) < 2e-8
             assert not H_nn[n + 1:, n].round(8).any()
 
     return psit_mG
@@ -125,4 +130,4 @@ for x in range(repeats):
 tb = time()
 
 if world.rank == 0:
-    print('Total Time %f' % (tb -ta))
+    print('Total Time %f' % (tb - ta))
