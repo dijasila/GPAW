@@ -52,33 +52,33 @@ class RPACorrelation:
         calc: str or calculator object
             The string should refer to the .gpw file contaning KS orbitals
         xc: str
-            Exchange-correlation kernel. This is only different from RPA when 
+            Exchange-correlation kernel. This is only different from RPA when
             this object is constructed from a different module - e.g. fxc.py
         filename: str
             txt output
         skip_gamme: bool
-            If True, skip q = [0,0,0] from the calculation        
+            If True, skip q = [0,0,0] from the calculation
         qsym: bool
             Use symmetry to reduce q-points
         nlambda: int
-            Number of lambda points. Only used for numerical coupling 
+            Number of lambda points. Only used for numerical coupling
             constant integration involved when called from fxc.py
         nfrequencies: int
             Number of frequency points used in the Gauss-Legendre integration
         frequency_max: float
             Largest frequency point in Gauss-Legendre integration
         frequency_scale: float
-            Determines density of frequency points at low frequencies. A slight 
-            increase to e.g. 2.5 or 3.0 improves convergence wth respect to 
+            Determines density of frequency points at low frequencies. A slight
+            increase to e.g. 2.5 or 3.0 improves convergence wth respect to
             frequency points for metals
         frequencies: list
             List of frequancies for user-specified frequency integration
         weights: list
-            list of weights (integration measure) for a user specified 
+            list of weights (integration measure) for a user specified
             frequency grid. Must be specified and have the same length as
             frequencies if frequencies is not None
         truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz, 
+            Coulomb truncation scheme. Can be either wigner-seitz,
             2D, 1D, or 0D
         world: communicator
         nblocks: int
@@ -223,7 +223,7 @@ class RPACorrelation:
         wfs = self.calc.wfs
 
         if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(wfs.gd.cell_cv, 
+            self.wstc = WignerSeitzTruncatedCoulomb(wfs.gd.cell_cv,
                                                     wfs.kd.N_c, self.fd)
         else:
             self.wstc = None
@@ -354,9 +354,9 @@ class RPACorrelation:
             from ase.dft import monkhorst_pack
             kd = self.calc.wfs.kd
             N = 4
-            N_c = [N, N, N]
+            N_c = np.array([N, N, N])
             if self.truncation is not None:
-                N_c[np.where(kd.N_c == 1)[0]] = 1                              
+                N_c[kd.N_c == 1] = 1
             q_qc = monkhorst_pack(N_c) / kd.N_c
             q_qc *= 1.0e-6
             U_scc = kd.symmetry.op_scc
@@ -368,8 +368,7 @@ class RPACorrelation:
             mynw = nw // self.nblocks
             w1 = self.blockcomm.rank * mynw
             w2 = w1 + mynw
-            a_qw = np.sum(np.dot(chi0_wvv[w1:w2], q_qv.T)
-                          * q_qv.T, axis=1).T
+            a_qw = np.sum(np.dot(chi0_wvv[w1:w2], q_qv.T) * q_qv.T, axis=1).T
             a0_qwG = np.dot(q_qv, chi0_wxvG[w1:w2, 0])
             a1_qwG = np.dot(q_qv, chi0_wxvG[w1:w2, 1])
 
@@ -378,7 +377,7 @@ class RPACorrelation:
                 chi0_wGG[:, 0] = a0_qwG[iq]
                 chi0_wGG[:, :, 0] = a1_qwG[iq]
                 chi0_wGG[:, 0, 0] = a_qw[iq]
-                ev = self.calculate_energy(pd, chi0_wGG, cut_G, 
+                ev = self.calculate_energy(pd, chi0_wGG, cut_G,
                                            q_v=q_qv[iq])
                 e += ev * weight_q[iq]
             print('%.3f eV' % (e * Hartree), file=self.fd)
@@ -411,7 +410,6 @@ class RPACorrelation:
         energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
         self.E_w = E_w
         return energy
-
 
     def extrapolate(self, e_i):
         print('Extrapolated energies:', file=self.fd)
@@ -519,7 +517,6 @@ def main():
     
     rpa = RPACorrelation(name,
                          txt=name[:-3] + 'rpa.txt',
-                         #wstc=True, 
                          nblocks=opts.blocks)
     rpa.calculate([opts.cut_off])
 
