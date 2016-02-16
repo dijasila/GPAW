@@ -16,9 +16,9 @@ for symbol in elements:
         rcut = 0.9
     elif symbol in ['He' or 'Li']:
         rcut = 1.0
-    elif symbol in ['Be','B','C','N','O','F','Ne']:
+    elif symbol in ['Be', 'B', 'C', 'N', 'O', 'F', 'Ne']:
         rcut = 1.2
-    elif symbol in ['Na','Mg','Al','Si','P','S','Cl','Ar']:
+    elif symbol in ['Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar']:
         rcut = 1.4
     else:
         rcut = 1.0
@@ -26,7 +26,8 @@ for symbol in elements:
     # If the lambda scaling is used change name to differentiate the setup
     name = 'lambda_{0}'.format(lambda_coeff)
 
-    # Use of Kinetic functional (minus the Tw contribution) inside the xc definition
+    # Use of Kinetic functional (minus the Tw contribution) inside the
+    # xc definition
     pauliname = '{0}_LDA_K_TF+1.0_LDA_X+1.0_LDA_C_PW'.format(gamma_coeff)
 
     # Calculate OFDFT density
@@ -34,9 +35,6 @@ for symbol in elements:
                   orbital_free=True, tw_coeff=lambda_coeff,
                   gpernode=gpernode)
 
-    try:
-        g.run(exx=False, name=name, use_restart_file=False,
-              rcut=rcut,
-              write_xml=True)
-    except:
-        print("error")
+    g.run(exx=False, name=name, use_restart_file=False, 
+          rcut=rcut,
+          write_xml=True) 

@@ -1,4 +1,3 @@
-
 import numpy as np
 
 from gpaw import debug, parsize_domain, parsize_bands

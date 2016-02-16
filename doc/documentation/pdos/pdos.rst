@@ -123,7 +123,7 @@ PDOS script::
     subplot(212)
     c_mol = GPAW('CO.gpw')
     for n in range(2,7):
-        print 'Band', n
+        print('Band', n)
         # PDOS on the band n
         wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]
                 for k in range(len(c_mol.wfs.weight_k))]
@@ -167,7 +167,7 @@ Pickle script::
     e_n = []
     P_n = []
     for n in range(c_mol.wfs.nbands):
-        print 'Band: ', n
+        print('Band: ', n)
         wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]
                 for k in range(len(c_mol.wfs.weight_k))]
         P_aui = [[kpt.P_ani[a][n] for kpt in c_mol.wfs.kpt_u]

@@ -376,7 +376,7 @@ library), and (only when requested) :file:`build_ext.log`
 
 If tests pass, and the parallel version is built, test the parallel code::
 
-  [gpaw]$ mpirun -np 2 gpaw-python -c "import gpaw.mpi as mpi; print mpi.rank"
+  [gpaw]$ mpirun -np 2 gpaw-python -c "import gpaw.mpi as mpi; print(mpi.rank)"
   1
   0
 

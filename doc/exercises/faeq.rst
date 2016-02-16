@@ -87,7 +87,7 @@ The = operator in Python is *not* and assignment operator, it is a
   a = [1, 2, 3, 4, 5]  # Create a list
   b = a                # New name for list
   a[2] = 42
-  print b              # [1, 2, 42, 4, 5]
+  print(b)             # [1, 2, 42, 4, 5]
 
 
   c = 7

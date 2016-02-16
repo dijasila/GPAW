@@ -129,6 +129,7 @@ If you *really* want all nodes to write something to files, you should make sure
 >>> from ase.parallel import rank
 >>> f = open('data.%d' % rank, 'w')
 
+
 Writing text output
 ===================
 
@@ -136,18 +137,19 @@ Text output written by the ``print`` statement is written by all nodes.
 To avoid this use:
 
 >>> from ase.parallel import parprint
->>> print 'This is written by all nodes'
+>>> print('This is written by all nodes')
 >>> parprint('This is written by the master only')
 
 which is equivalent to
 
 >>> from ase.parallel import rank
->>> print 'This is written by all nodes'
+>>> print('This is written by all nodes')
 >>> if rank == 0:
-...     print 'This is written by the master only'
+...     print('This is written by the master only')
 
 Note that parprint has the syntax of the print statement in 
 `Python3 <http://docs.python.org/release/3.0.1/whatsnew/3.0.html>`_.
+
 
 .. _different_calculations_in parallel:
 

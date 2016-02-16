@@ -1,4 +1,5 @@
 from ase import Atoms
+from gpaw.wannier import Wannier
 from gpaw import GPAW
 
 a = 5.475
@@ -13,10 +14,16 @@ si = Atoms(symbols='Si4',
 si += si
 si.positions[4:] += a / 4
 
-calc = GPAW(nbands=16,
-            h=0.25,
-            txt='si.txt')
+for x in [0, 0.01, 0.02, 0.03]:
+    si[0].x = x
+    calc = GPAW(nbands=16,
+                h=0.25,
+                txt='si.txt')
+    si.set_calculator(calc)
+    si.get_potential_energy()
 
-si.set_calculator(calc)
-si.get_potential_energy()
-calc.write('si.gpw', mode='all')
+    w = Wannier(calc)
+    w.localize()
+    centers = w.get_centers()
+    Z = 2 * centers.sum(0) - 4 * si.positions.sum(0)
+    print(x, Z, centers)

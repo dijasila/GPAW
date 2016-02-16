@@ -53,7 +53,7 @@ typing the following from the Python interpreter:
 >>> from gpaw import GPAW
 >>> calc = GPAW('Al-fcc.gpw', txt=None)
 >>> bulk = calc.get_atoms()
->>> print bulk.get_potential_energy()
+>>> print(bulk.get_potential_energy())
 -4.12234332252
 >>> density = calc.get_pseudo_density()
 >>> density.shape
