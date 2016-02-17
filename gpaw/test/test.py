@@ -8,8 +8,7 @@ from optparse import OptionParser
 import numpy as np
 
 import gpaw.mpi as mpi
-from gpaw import debug
-from gpaw.version import version
+from gpaw import debug, __version__
 
 
 def main(args=None):
@@ -21,7 +20,7 @@ def main(args=None):
 
     parser = OptionParser(usage='%prog [OPTION...] [TEST...]',
                           description=description,
-                          version='%%prog %s' % version)
+                          version='%%prog %s' % __version__)
     parser.add_option('-x', '--exclude',
                       type='string', default=None,
                       help='Exclude tests (comma separated list of tests).',

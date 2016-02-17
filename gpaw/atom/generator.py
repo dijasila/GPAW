@@ -9,7 +9,7 @@ from ase.data import atomic_names
 
 from gpaw.setup_data import SetupData
 from gpaw.atom.configurations import configurations
-from gpaw.version import version
+from gpaw import __version__ as version
 from gpaw.atom.all_electron import AllElectron, shoot
 from gpaw.utilities.lapack import general_diagonalize
 from gpaw.utilities import hartree

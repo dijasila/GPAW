@@ -1,17 +1,11 @@
-import sys
 import numpy as np
 
 from ase.lattice.hexagonal import Graphene
-#import ase.io as io
-#from ase import Atoms, Atom
-from ase.visualize import view
 from ase.parallel import parprint as pp
 
-from gpaw import GPAW, PW, restart
+from gpaw import GPAW
 from gpaw.response.df import DielectricFunction
 from gpaw.mpi import world
-from gpaw.version import version
-from ase.lattice import bulk
 
 system = Graphene(symbol='C',
                   latticeconstant={'a': 2.45,'c': 1.0},
@@ -52,11 +46,12 @@ q = np.array([1.0 / nkpts, 0., 0.])
 w = np.linspace(0, 31.9, 320)
 dw = w[1] - w[0]
 
+
 def check(name, energies, loss, ref_energy, ref_peakloss):
     arg = loss.argmax()
     energy = energies[arg]
     peakloss = loss[arg]
-    pp('check %s :: energy = %5.2f [%5.2f], peakloss = %.12f [%.12f]' 
+    pp('check %s :: energy = %5.2f [%5.2f], peakloss = %.12f [%.12f]'
        % (name, energy, ref_energy, peakloss, ref_peakloss))
 
     data = dict(name=name, peakloss=peakloss, energy=energy,
@@ -75,8 +70,9 @@ scriptlines = []
 loss_errs = []
 energy_errs = []
 
+
 def check(name, energy, peakloss, ref_energy, ref_loss):
-    pp('check %s :: energy = %5.2f [%5.2f], peakloss = %.12f [%.12f]' 
+    pp('check %s :: energy = %5.2f [%5.2f], peakloss = %.12f [%.12f]'
        % (name, energy, ref_energy, peakloss, ref_loss))
     energy_errs.append(abs(energy - ref_energy))
     loss_errs.append(abs(peakloss - ref_loss))
@@ -86,6 +82,7 @@ array = np.array
 template = """\
 check_df('%s', %s, %s, %s, %s,
          **%s)"""
+
 
 def check_df(name, ref_energy, ref_loss, ref_energy_lfe, ref_loss_lfe,
              **kwargs_override):
@@ -140,7 +137,7 @@ for line in scriptlines:
 pp()
 
 for err in energy_errs:
-    # with the current grid this error just means 
+    # with the current grid this error just means
     assert err < dw / 4.0, err
 for err in loss_errs:
     assert err < 1e-6, err

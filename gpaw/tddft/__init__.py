@@ -12,7 +12,7 @@ from ase.units import Hartree
 
 from gpaw.aseinterface import GPAW
 from gpaw.mixer import DummyMixer
-from gpaw.version import version
+from gpaw import __version__ as version
 from gpaw.preconditioner import Preconditioner
 from gpaw.tddft.units import attosec_to_autime, autime_to_attosec, \
                              eV_to_aufrequency, aufrequency_to_eV
@@ -643,7 +643,7 @@ def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
 
         # write comment line
         f_file.write('# Photoabsorption spectrum from real-time propagation\n')
-        f_file.write('# GPAW version: ' + str(version) + '\n')
+        f_file.write('# GPAW version: ' + version + '\n')
         f_file.write('# Total time = %lf fs, Time step = %lf as\n' \
             % (n * dt * autime_to_attosec/1000.0, \
                dt * autime_to_attosec))

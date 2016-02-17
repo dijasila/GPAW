@@ -1,8 +1,7 @@
 from ase import Atoms
-from gpaw import GPAW, FermiDirac, Mixer
+from gpaw import GPAW, FermiDirac, Mixer, __version__
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.mpi import world
-from gpaw.version import version
 from gpaw.tddft import TDDFT as GRIDTDDFT
 from gpaw.test import equal
 
@@ -24,7 +23,7 @@ for (mode, TDDFT) in [('lcao', LCAOTDDFT),
         if xc=='PBE' and mode=='fd': # There are other checks for this combination
             continue
 
-        tag = 'np%i_ver%s_%s_%s+%s' % (world.size, version, mode, xc, fxc)
+        tag = 'np%i_ver%s_%s_%s+%s' % (world.size, __version__, mode, xc, fxc)
 
         # silane
         atoms = Atoms('SiH4',[( 0.0000,  0.0000,  0.0000),

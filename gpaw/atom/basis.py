@@ -10,7 +10,7 @@ import numpy as np
 from ase.units import Hartree
 from ase.utils import devnull
 
-from gpaw.version import version
+from gpaw import __version__ as version
 from gpaw.utilities import divrl
 from gpaw.atom.generator import Generator
 from gpaw.atom.all_electron import AllElectron

@@ -10,13 +10,12 @@ from ase.calculators.test import numeric_force
 from ase.utils.timing import Timer
 from ase.parallel import distribute_cpus
 
-from gpaw import GPAW
+from gpaw import GPAW, __version__
 from gpaw.density import RealSpaceDensity
 from gpaw.output import get_txt
 from gpaw import mpi
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.version import version
 
 
 class FiniteDifferenceCalculator(Calculator):
@@ -42,7 +41,7 @@ class FiniteDifferenceCalculator(Calculator):
                 self.txt = self.lrtddft.txt
             else:
                 self.txt = get_txt(txt, world.rank)
-        print('#', self.__class__.__name__, version, file=self.txt)
+        print('#', self.__class__.__name__, __version__, file=self.txt)
 
         self.d = d
         self.parallel = {

@@ -1,15 +1,16 @@
-import os
 import platform
 import time
 
-from gpaw.version import version
+from gpaw import __version__
+
 
 class FMF:
     """Full-Metadata Format
 
-    Full-Metadata Format after 
-    http://www.sir.uni-freiburg.de/repository/2009/SI20090302a/SI20090302a.pdf"""
-    def __init__(self, 
+    Full-Metadata Format after
+    http://www.sir.uni-freiburg.de/repository/2009/SI20090302a/SI20090302a.pdf
+    """
+    def __init__(self,
                  title='-',
                  creator=None,
                  place=None,
@@ -21,7 +22,7 @@ class FMF:
  
     def header(self):
         ec = self.escape
-        header =  ec + '; -*- fmf version: 1.0 -*-\n'
+        header = ec + '; -*- fmf version: 1.0 -*-\n'
         header += ec + '[*reference]\n'
         header += ec + 'creator: ' + self.creator + '\n'
         header += ec + 'created: ' + time.strftime('%Y-%m-%d %H:%M') + '\n'
@@ -36,13 +37,13 @@ class FMF:
                 header += ec + '       '
             header += line + '\n'
 
-        header += ec + 'gpaw-version: ' + version + '\n'
+        header += ec + 'gpaw-version: ' + __version__ + '\n'
         try:
             import socket
             header += ec + 'hostname: ' + socket.gethostname() + '\n'
         except:
             pass
-        header += ec + 'architecture: ' + platform.uname()[4]  + '\n'
+        header += ec + 'architecture: ' + platform.uname()[4] + '\n'
 
         return header
 
@@ -67,7 +68,7 @@ class FMF:
             return
 
         try:
-            # get 
+            # get
             import getpass
             username = getpass.getuser()
             
@@ -89,4 +90,3 @@ class FMF:
             creator = 'unknown'
 
         self.creator = creator
-

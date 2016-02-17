@@ -10,7 +10,7 @@ import numpy as np
 import ase
 from ase import __version__ as ase_version
 import gpaw
-from gpaw.version import version_base as gpaw_version
+from gpaw import __version__ as gpaw_version
 
 try:
     #new style cmr io

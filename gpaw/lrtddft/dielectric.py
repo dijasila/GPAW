@@ -2,9 +2,9 @@ from __future__ import print_function
 import sys
 import numpy as np
 
+import gpaw
 from ase.units import Hartree, Bohr
 from gpaw.utilities.folder import Folder
-from gpaw.version import version
 
 
 def dielectric(exlist,
@@ -42,7 +42,7 @@ def dielectric(exlist,
         print('#', comment, file=out)
 
     print('# Dielec function', file=out)
-    print('# GPAW version:', version, file=out)
+    print('# GPAW version:', gpaw.__version__, file=out)
     print('# width={0} [{1}]'.format(width, energyunit), file=out)
     if form == 'r':
         print('# length form', file=out)

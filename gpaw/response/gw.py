@@ -10,8 +10,7 @@ from ase.parallel import paropen
 from ase.units import Hartree, Bohr
 from ase.utils import devnull
 
-from gpaw import GPAW
-from gpaw.version import version
+from gpaw import GPAW, __version__
 from gpaw.mpi import world, rank, size, serial_comm
 from gpaw.utilities.blas import gemmdot
 from gpaw.xc.tools import vxc
@@ -68,7 +67,7 @@ class GW(BASECHI):
         self.txtname = self.gwtxtname
         self.output_init()
 
-        self.printtxt('GPAW version %s' %(version))
+        self.printtxt('GPAW version %s' % __version__)
         self.printtxt('-----------------------------------------------')
         self.printtxt('GW calculation started at:')
         self.printtxt(ctime())
