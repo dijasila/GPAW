@@ -5,31 +5,24 @@
 
 import distutils
 import distutils.util
+import os
+import re
+import sys
+
 from distutils.command.build_scripts import build_scripts as _build_scripts
+from distutils.command.sdist import sdist as _sdist
 from distutils.core import setup, Extension
 from glob import glob
-import os
 from os.path import join
-import sys
 
 from config import (check_packages, get_system_config, get_parallel_config,
                     check_dependencies,
                     write_configuration, build_interpreter, get_config_vars)
 
-
 # Get the current version number:
-version_base = None
-try:
-    # Write gpaw/svnversion.py and get svnversion:
-    exec(open('gpaw/svnversion_io.py').read())
-except (ValueError, TypeError):
-    svnversion = ''
-exec(open('gpaw/version.py').read())        # get version_base
-if svnversion:
-    version = version_base + '.' + svnversion
-else:
-    version = version_base
-
+with open('gpaw/__init__.py') as fd:
+    version = re.search("__version__ = '(.*)'", fd.read()).group(1)
+ 
 long_description = """\
 A grid-based real-space Projector Augmented Wave (PAW) method Density
 Functional Theory (DFT) code featuring: Flexible boundary conditions,
@@ -233,7 +226,24 @@ kwargs = dict(
     packages=packages,
     long_description=long_description)
 
-setup(ext_modules=extensions, scripts=scripts, **kwargs)
+
+class sdist(_sdist):
+    """Fix distutils.
+    
+    Distutils insists that there should be a README or README.txt,
+    but GitLab.com needs README.rst in order to parse it as reStructureText."""
+    
+    def warn(self, msg):
+        if msg.startswith('standard file not found: should have one of'):
+            self.filelist.append('README.rst')
+        else:
+            _sdist.warn(self, msg)
+
+            
+setup(ext_modules=extensions,
+      scripts=scripts,
+      cmdclass={'sdist': sdist},
+      **kwargs)
       
 
 class build_scripts(_build_scripts):

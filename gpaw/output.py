@@ -15,7 +15,6 @@ from ase.parallel import get_txt
 
 import gpaw
 import _gpaw
-from gpaw.version import version
 from gpaw.utilities.memory import maxrss
 from gpaw import dry_run, extra_parameters
 
@@ -47,7 +46,7 @@ class PAWTextOutput:
         self.text('  ___ ___ ___ _ _ _  ')
         self.text(' |   |   |_  | | | | ')
         self.text(' | | | | | . | | | | ')
-        self.text(' |__ |  _|___|_____| ', version)
+        self.text(' |__ |  _|___|_____| ', gpaw.__version__)
         self.text(' |___|_|             ')
         self.text()
 
