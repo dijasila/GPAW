@@ -16,12 +16,14 @@ Requirements
 * ASE_ (atomic simulation environment)
 * NumPy_ (base N-dimensional array package)
 * LibXC
-* BLAS and LAPACK
+* BLAS
+* LAPACK
 
 Optional:
 
-* SciPy_ (library for scientific computing)
+* MPI
 * ScaLAPACK
+* SciPy_ (library for scientific computing)
 
 
 Installation
@@ -31,8 +33,7 @@ Do this::
     
     $ python setup.py install --user
     
-and add ``~/gpaw/tools`` to $PATH (assuming ``~/gpaw`` is where your GPAW
-folder is).
+and make sure you have ``~/.local/bin`` in your $PATH.
 
 For more details, please see:
 
@@ -83,7 +84,14 @@ BFGS:   3  09:08:13       -6.630429       0.0003
 >>> write('H2.xyz', h2)
 >>> h2.get_potential_energy()  # ASE's units are eV and Å
 -6.6304292169392784
-    
+
+
+Getting started
+---------------
+
+Once you have familiarized yourself with ASE_ and NumPy_, you should take a
+look at the GPAW exercises_ and tutorials_.
+
     
 .. _Python: http://www.python.org/
 .. _ASE: http://wiki.fysik.dtu.dk/ase
@@ -94,3 +102,5 @@ BFGS:   3  09:08:13       -6.630429       0.0003
 .. _gpaw-users: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-users
 .. _gpaw-developers: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-developers
 .. _IRC: http://webchat.freenode.net/?randomnick=0&channels=gpaw
+.. _exercises: https://wiki.fysik.dtu.dk/gpaw/exercises/exercises.html
+.. _tutorials: https://wiki.fysik.dtu.dk/gpaw/tutorials/tutorials.html
