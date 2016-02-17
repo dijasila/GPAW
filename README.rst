@@ -29,7 +29,7 @@ Installation
 
 Do this::
     
-    $ python3 setup.py install --user
+    $ python setup.py install --user
     
 and add ``~/gpaw/tools`` to $PATH (assuming ``~/gpaw`` is where your GPAW
 folder is).
