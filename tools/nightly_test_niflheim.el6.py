@@ -41,8 +41,10 @@ tmpdir = tempfile.mkdtemp(prefix='gpaw-parallel-', dir=dir)
 os.chdir(tmpdir)
 
 # Checkout a fresh version and install:
-if os.system('svn checkout ' +
-             'https://svn.fysik.dtu.dk/projects/gpaw/trunk gpaw') != 0:
+if os.system('cd ~/gpaw-nightly-tests/gpaw && '
+             'git pull > pull.out 2>&1 && '
+             'git archive --format tar --prefix gpaw/ HEAD | '
+             '(cd {0}; tar -xf -)'.format(tmpdir)) != 0:
     fail('Checkout of gpaw failed!')
 if os.system('cd ~/gpaw-nightly-tests/ase && '
              'git pull > pull.out 2>&1 && '
@@ -69,7 +71,7 @@ os.system('mv ../ase/ase ../lib64/python')
 sys.path.insert(0, '%s/%s/python' % (tmpdir, 'lib64'))
 
 # this import requires numpy!
-from gpaw.version import version
+from gpaw import __version__
 
 os.system('wget --no-check-certificate --quiet ' +
           'http://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-latest.tar.gz')
@@ -95,7 +97,7 @@ if os.system('source /home/opt/modulefiles/modulefiles_el6.sh&& ' +
              'mpiexec -np %d ' % np +
              tmpdir + '/bin/gpaw-python ' +
              'tools/gpaw-test --directory=. %s >& test.out' % args) != 0:
-    fail('GPAW %s:  Testsuite crashed!' % str(version), email, 'test.out')
+    fail('GPAW %s:  Testsuite crashed!' % str(__version__), email, 'test.out')
 
 try:
     failed = open('failed-tests.txt').readlines()
@@ -111,7 +113,7 @@ else:
                                                failed[0][:-1], failed[1][:-1])
         if n > 2:
             subject += ', ...'
-    subject = 'GPAW %s: ' % str(version) + subject
+    subject = 'GPAW %s: ' % str(__version__) + subject
     fail(subject, email, 'test.out')
 
 print('Done')
