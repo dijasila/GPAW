@@ -2,11 +2,11 @@ import glob
 import os
 import subprocess
 
-from ase.utils.build_web_page import build, svn_update, main
+from ase.utils.build_web_page import build, git_pull, main
 
 
 def build_gpaw_web_page(force_build):
-    changes = svn_update('gpaw')
+    changes = git_pull('gpaw')
     if force_build or changes:
         os.chdir('ase')
         subprocess.check_call('python setup.py install --home=..', shell=True)
