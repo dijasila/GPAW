@@ -8,6 +8,7 @@ import sys
 import xml.sax
 from glob import glob
 from math import sqrt, pi, factorial as fac
+from distutils.version import LooseVersion
 
 import numpy as np
 from ase.data import atomic_names
@@ -461,7 +462,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         setup = self.setup
         if name == 'paw_setup':
             setup.version = attrs['version']
-            assert setup.version >= '0.4'
+            assert LooseVersion(setup.version) >= '0.4'
         if name == 'atom':
             setup.Z = int(attrs['Z'])
             setup.Nc = float(attrs['core'])
@@ -490,7 +491,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.rcut_j.append(float(attrs.get('rc', -1)))
             setup.id_j.append(attrs['id'])
             # Compatibility with old setups:
-            if setup.version < '0.6' and setup.f_j[-1] == 0:
+            if LooseVersion(setup.version) < '0.6' and setup.f_j[-1] == 0:
                 setup.n_j[-1] = -1
         elif name == 'radial_grid':
             if attrs['eq'] == 'r=a*i/(n-i)':
