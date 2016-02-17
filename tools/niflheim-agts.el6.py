@@ -153,9 +153,9 @@ files = glob.glob(gfiles + '/*')
 for f in files:
     os.chmod(f, 0644)
 
-from gpaw.version import version
+import gpaw
 
-subject = 'AGTS GPAW %s: ' % str(version)
+subject = 'AGTS GPAW %s: ' % str(gpaw.__version__)
 # Send mail:
 sfile = os.path.join(dir, 'status.log')
 attach = sfile
