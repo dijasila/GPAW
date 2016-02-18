@@ -39,7 +39,7 @@ def fail(subject, email=None, filename='/dev/null', mailer='mail'):
                 attach += ')'
                 assert os.system('%s | mail -s "%s" %s' %
                                  (attach, subject, email)) == 0
-            else: # mutt
+            else:  # mutt
                 attach = ''
                 for f in filenames:
                     attach += ' -a %s ' % f
@@ -50,7 +50,7 @@ def fail(subject, email=None, filename='/dev/null', mailer='mail'):
 
 if '--dir' in sys.argv:
     i = sys.argv.index('--dir')
-    dir = os.path.abspath(sys.argv[i+1])
+    dir = os.path.abspath(sys.argv[i + 1])
 else:
     dir = 'agts'
 
@@ -71,7 +71,9 @@ if os.path.isdir(dir):
 os.mkdir(dir)
 os.chdir(dir)
 
-cmd('svn checkout https://svn.fysik.dtu.dk/projects/gpaw/trunk gpaw')
+cmd('(cd ../gpaw; git pull > agts-pull.out; '
+    'git archive --format tar --prefix gpaw/ HEAD) | '
+    'tar -xf -')
 
 # a hack: link libxc for the common version built on surt statically
 cmd('cp gpaw/customize.py gpaw/customize.py.libxca')
@@ -121,7 +123,7 @@ tar xzf gpaw-setups-latest.tar.gz && \
 rm gpaw-setups-latest.tar.gz && \
 mv gpaw-setups-[0-9]* gpaw/gpaw-setups""")
 
-cmd('(cd ../ase; git pull > pull.out; '
+cmd('(cd ../ase; git pull > agts-pull.out; '
     'git archive --format tar --prefix ase/ HEAD) | '
     'tar -xf -')
 
