@@ -8,6 +8,10 @@ MANIFEST
 *.png
 *.gif
 *.pov
+*.svg
+*.jpg
+*.odg
+*.dat
 *.ini
 *.traj
 *.pdf
@@ -17,13 +21,18 @@ MANIFEST
 *.xyz
 *.db
 *.pckl
+*.gz
+N.LDA
+
+# Stuff from LaTeX:
+*.aux
+*.bbl
+*.blg
+*.toc
 
 # Editor backup files:
 *~
 \#*
 
-# These are OK (images for the supported calculators):
-!/doc/static/*.png
-
-# This one is also OK:
+# This one is OK:
 !requirements.txt
