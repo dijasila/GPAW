@@ -31,46 +31,47 @@ class G0W0(PairDensity):
     Note: So far the G0W0 calculation only works for spin-paired systems.
 
     Parameters:
-       calc: str or PAW object
-          GPAW calculator object or filename of saved calculator object.
-       filename: str
-          Base filename of output files.
-       kpts: list
-          List of indices of the IBZ k-points to calculate the quasi particle
-          energies for.
-       bands: tuple
-          Range of band indices, like (n1, n2+1), to calculate the quasi
-          particle energies for. Note that the second band index is not
-          included.
-       ecut: float
-          Plane wave cut-off energy in eV.
-       nbands: int
-          Number of bands to use in the calculation. If :None: the number will
-          be determined from :ecut: to yield a number close to the number of
-          plane waves used.
-       ppa: bool
-          Sets whether the Godby-Needs plasmon-pole approximation for the
-          dielectric function should be used.
-       truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz, 
-            2D, 1D, or 0D
-        integrate_gamma: int
-            Method to integrate the Coulomb interaction. 1 is a numerical 
-            integration at all q-points with G=[0,0,0] - this breaks the 
-            symmetry slightly. 0 is analytical integration at q=[0,0,0] only - 
-            this conserves the symmetry
-       E0: float
-          Energy (in eV) used for fitting in the plasmon-pole approximation.
-       domega0: float
-          Minimum frequency step (in eV) used in the generation of the non-
-          linear frequency grid.
-       omega2: float
-          Control parameter for the non-linear frequency grid, equal to the
-          frequency where the grid spacing has doubled in size.
+        
+    calc: str or PAW object
+        GPAW calculator object or filename of saved calculator object.
+    filename: str
+        Base filename of output files.
+    kpts: list
+        List of indices of the IBZ k-points to calculate the quasi particle
+        energies for.
+    bands: tuple
+        Range of band indices, like (n1, n2+1), to calculate the quasi
+        particle energies for. Note that the second band index is not
+        included.
+    ecut: float
+        Plane wave cut-off energy in eV.
+    nbands: int
+        Number of bands to use in the calculation. If :None: the number will
+        be determined from :ecut: to yield a number close to the number of
+        plane waves used.
+    ppa: bool
+        Sets whether the Godby-Needs plasmon-pole approximation for the
+        dielectric function should be used.
+    truncation: str
+        Coulomb truncation scheme. Can be either wigner-seitz,
+        2D, 1D, or 0D
+    integrate_gamma: int
+        Method to integrate the Coulomb interaction. 1 is a numerical
+        integration at all q-points with G=[0,0,0] - this breaks the
+        symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
+        this conserves the symmetry
+    E0: float
+        Energy (in eV) used for fitting in the plasmon-pole approximation.
+    domega0: float
+        Minimum frequency step (in eV) used in the generation of the non-
+        linear frequency grid.
+    omega2: float
+        Control parameter for the non-linear frequency grid, equal to the
+        frequency where the grid spacing has doubled in size.
     """
     def __init__(self, calc, filename='gw',
                  kpts=None, bands=None, nbands=None, ppa=False,
-                 truncation=None, integrate_gamma=1,
+                 truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
                  domega0=0.025, omega2=10.0,
                  nblocks=1, savew=False,
@@ -493,7 +494,7 @@ class G0W0(PairDensity):
         delta_GG = np.eye(len(sqrV_G))
 
         if self.ppa:
-            return pd, self.ppa_w(chi0_wGG, sqrV_G, delta_GG, G0inv, G20inv, 
+            return pd, self.ppa_w(chi0_wGG, sqrV_G, delta_GG, G0inv, G20inv,
                                   q_c)
             
         self.timer.start('Dyson eq.')
