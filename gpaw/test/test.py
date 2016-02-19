@@ -123,6 +123,7 @@ def main(args=None):
     python = platform.python_version() + ' ' + platform.python_compiler()
     python += ' ' + ' '.join(platform.architecture())
     if mpi.rank == 0:
+        print('GPAW:', __version__)
         print('python %s on %s' % (python, operating_system))
         print('Running tests in %s' % tmpdir)
         print('Numpy:', np.__version__)

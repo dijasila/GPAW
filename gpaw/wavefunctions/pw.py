@@ -913,8 +913,8 @@ class PWLFC(BaseLFC):
         pd: PWDescriptor
             Plane-wave descriptor object.
         blocksize: int
-            Block-size to use when looping over G-vectors.  Default is to do
-            all G-vectors in one big block."""
+            Block-size to use when looping over G-vectors.  Use None for
+            doing all G-vectors in one big block."""
 
         self.pd = pd
         self.spline_aj = spline_aj
