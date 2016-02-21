@@ -6,6 +6,7 @@ import os
 import sys
 import re
 import distutils.util
+from distutils.version import LooseVersion
 from distutils.sysconfig import get_config_var, get_config_vars
 from distutils.command.config import config
 from glob import glob
@@ -108,7 +109,7 @@ def get_system_config(define_macros, undef_macros,
         # http://forum.java.sun.com/thread.jspa?threadID=5072537&messageID=9265782
         extra_link_args += ['-Bstatic', '-lsunperf', '-lfsu', '-Bdynamic']
         cc_version = os.popen3('cc -V')[2].readline().split()[3]
-        if cc_version > '5.6':
+        if LooseVersion(cc_version) > '5.6':
             libraries.append('mtsk')
         else:
             extra_link_args.append('-lmtsk')

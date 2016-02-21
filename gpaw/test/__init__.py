@@ -4,6 +4,7 @@ import sys
 import time
 import signal
 import traceback
+from distutils.version import LooseVersion
 
 import numpy as np
 
@@ -451,7 +452,7 @@ if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_functionals.py')
     exclude.append('vdw/libvdwxc_h2o.py')
 
-if np.__version__ < '1.6.0':
+if LooseVersion(np.__version__) < '1.6.0':
     exclude.append('response/chi0.py')
 
 

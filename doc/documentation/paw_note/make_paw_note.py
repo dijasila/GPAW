@@ -1,6 +1,7 @@
 # creates: paw_note.pdf
 
 import os
+from distutils.version import LooseVersion
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -21,7 +22,7 @@ plt.plot([rcut, rcut], lim[2:], 'k--', label='_nolegend_')
 plt.axis(lim)
 
 # The pad keyword to legend was deprecated in MPL v. 0.98.4
-if matplotlib.__version__ < '0.98.4':
+if LooseVersion(matplotlib.__version__) < '0.98.4':
     kwpad = {'pad': 0.05}
 else:
     kwpad = {'borderpad': 0.05, 'labelspacing': 0.01}

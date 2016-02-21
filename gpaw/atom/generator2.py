@@ -2,6 +2,7 @@
 from __future__ import print_function
 import sys
 from math import pi, exp, sqrt, log
+from distutils.version import LooseVersion
 
 import numpy as np
 from scipy.optimize import fsolve  # , root
@@ -21,7 +22,7 @@ from gpaw.atom.aeatom import AllElectronAtom, Channel, parse_ld_str, colors, \
 
 class DatasetGenerationError(Exception):
     pass
-    
+
 parameters = {
     # 1-2:
     'H1': ('1s,s,p', 0.9),
@@ -414,7 +415,7 @@ class PAWSetupGenerator:
             def f(alpha):
                 return log(spillage(alpha)) - log(eps)
 
-            if scipy_version < '0.8':
+            if LooseVersion(scipy_version) < '0.8':
                 self.alpha = fsolve(f, 7.0)
             else:
                 self.alpha = fsolve(f, 7.0)[0]
