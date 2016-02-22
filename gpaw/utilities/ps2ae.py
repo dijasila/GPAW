@@ -8,14 +8,14 @@ from gpaw.utilities import h2gpts
 from gpaw.wavefunctions.pw import PWDescriptor
 
 
-class WaveFunctionInterpolator:
-    """Interpolator for PS wave functions.
+class PS2AE:
+    """Transform PS to AE wave functions.
     
-    Useful for Interpolating PS wave function and for adding PAW
+    Interpolates PS wave functions to a fine grid and adds PAW
     corrections in order to obtain true AE wave functions.
     """
     def __init__(self, calc, h=0.05, n=2):
-        """Create interpolation object for PAW wave functions.
+        """Create transformation object.
         
         calc: GPAW calculator object
             The calcalator that has the wave functions.

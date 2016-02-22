@@ -87,7 +87,7 @@ class PWDescriptor:
         if ecut is None:
             ecut = ecutmax * 0.9999
         else:
-            if ((gd.h_cv**2).sum(1) > 0.5 * pi**2 / ecut).any():
+            if ecut > ecutmax:
                 raise ValueError(
                     'You have a weird unit cell!  '
                     'Try to use the maximally reduced Niggli cell.  '

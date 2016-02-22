@@ -23,6 +23,8 @@ MANIFEST
 *.pckl
 *.gz
 N.LDA
+*.gpw
+*.npy
 
 # Stuff from LaTeX:
 *.aux

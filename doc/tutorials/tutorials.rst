@@ -43,7 +43,7 @@ Specialized tutorials
    stm/stm
    bader/bader
    all-electron/all_electron_density
-   wavefunctions/wavefunctions
+   ps2ae/ps2ae
    neb/neb
    pbe0/pbe0
    xas/xas
