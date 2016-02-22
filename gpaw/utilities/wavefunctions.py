@@ -9,6 +9,11 @@ from gpaw.wavefunctions.pw import PWDescriptor
 
 
 class WaveFunctionInterpolator:
+    """Interpolator for PS wave functions.
+    
+    Useful for Interpolating PS wave function and for adding PAW
+    corrections in order to obtain true AE wave functions.
+    """
     def __init__(self, calc, h=0.05, n=2):
         """Create interpolation object for PAW wave functions.
         
@@ -22,7 +27,7 @@ class WaveFunctionInterpolator:
         self.calc = calc
 
         # Create plane-wave descriptor for starting grid:
-        gd0 = calc.wfs.gd
+        gd0 = GridDescriptor(calc.wfs.gd.N_c, calc.wfs.gd.cell_cv)
         self.pd0 = PWDescriptor(ecut=None, gd=gd0)
         
         # ... and a descriptor for the final gris:
@@ -33,7 +38,7 @@ class WaveFunctionInterpolator:
         
         self.dphi = None  # PAW correction (will be initialize when needed)
 
-    def initialize_corrections(self):
+    def _initialize_corrections(self):
         if self.dphi is not None:
             return
         splines = {}
@@ -71,7 +76,7 @@ class WaveFunctionInterpolator:
         psi_r *= Bohr**1.5
         psi_R, _ = self.pd0.interpolate(psi_r, self.pd)
         if ae:
-            self.initialize_corrections()
+            self._initialize_corrections()
             wfs = self.calc.wfs
             kpt_rank, u = wfs.kd.get_rank_and_index(s, k)
             band_rank, n = wfs.bd.who_has(n)
