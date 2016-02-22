@@ -76,19 +76,25 @@ class PWDescriptor:
         assert gd.pbc_c.all()
         assert gd.comm.size == 1
 
-        self.ecut = ecut
         self.gd = gd
         self.fftwflags = fftwflags
 
         N_c = gd.N_c
         self.comm = gd.comm
+        
+        ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
 
-        if ((gd.h_cv**2).sum(1) > 0.5 * pi**2 / ecut).any():
-            raise ValueError(
-                'You have a weird unit cell!  '
-                'Try to use the maximally reduced Niggli cell.  '
-                'See the ase.utils.geometry.niggli_reduce() function.')
+        if ecut is None:
+            ecut = ecutmax * 0.9999
+        else:
+            if ((gd.h_cv**2).sum(1) > 0.5 * pi**2 / ecut).any():
+                raise ValueError(
+                    'You have a weird unit cell!  '
+                    'Try to use the maximally reduced Niggli cell.  '
+                    'See the ase.utils.geometry.niggli_reduce() function.')
 
+        self.ecut = ecut
+                
         if dtype is None:
             if kd is None or kd.gamma:
                 dtype = float
@@ -1232,10 +1238,8 @@ class ReciprocalSpaceDensity(Density):
         Density.__init__(self, gd, serial_finegd, nspins, charge,
                          grid2grid=NullGrid2Grid(gd), collinear=collinear)
 
-        self.ecut2 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max() * 0.9999
-        self.pd2 = PWDescriptor(self.ecut2, gd)
-        self.ecut3 = 0.5 * pi**2 / (self.finegd.h_cv**2).sum(1).max() * 0.9999
-        self.pd3 = PWDescriptor(self.ecut3, serial_finegd)
+        self.pd2 = PWDescriptor(None, gd)
+        self.pd3 = PWDescriptor(None, serial_finegd)
 
         self.G3_G = self.pd2.map(self.pd3)
         
