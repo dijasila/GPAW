@@ -10,11 +10,11 @@ from gpaw.mpi import rank
 if 1:
     calc = GPAW(mode='pw',
                 xc='PBE',
-                nbands=20,
+                #nbands=20,
                 setups={'Mo': '6'},
                 parallel={'band': 1, 'domain': 1},
                 occupations=FermiDirac(0.001),
-                convergence={'bands': -5},
+                #convergence={'bands': -5},
                 kpts={'size': (6,6,1), 'gamma': True})
     
     a = 3.1604

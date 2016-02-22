@@ -353,6 +353,7 @@ tests = [
     'exx/AA_enthalpy.py',                   # ~119s
     'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
+    'response/gw_MoS2_cut.py',
     'response/gwsi.py',                     # ~147s
     'response/graphene.py',                 # ~160s
     'response/symmetry.py',                 # ~300s
@@ -439,6 +440,7 @@ if mpi.size != 1 and not compiled_with_sl():
                 'response/bse_silicon.py',
                 'response/bse_MoS2_cut.py',
                 'response/gwsi.py',
+                'response/gw_MoS2_cut.py',
                 'rpa/rpa_energy_N2.py',
                 'pw/expert_diag.py',
                 'pw/fulldiag.py',
