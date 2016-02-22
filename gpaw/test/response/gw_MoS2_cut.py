@@ -4,18 +4,18 @@ from ase import Atoms
 from ase.lattice.hexagonal import Hexagonal
 from gpaw import GPAW, FermiDirac
 from gpaw.test import findpeak, equal
-from gpaw.response.bse_new import BSE
+from gpaw.response.g0w0 import G0W0
 from gpaw.mpi import rank
 
 if 1:
     calc = GPAW(mode='pw',
-                xc='GLLBSC',
+                xc='PBE',
                 nbands=20,
                 setups={'Mo': '6'},
                 parallel={'band': 1, 'domain': 1},
                 occupations=FermiDirac(0.001),
                 convergence={'bands': -5},
-                kpts=(9,9,1))
+                kpts={'size': (6,6,1), 'gamma': True})
     
     a = 3.1604
     c = 10.0
@@ -32,37 +32,22 @@ if 1:
     layer.set_positions(pos)
     layer.set_calculator(calc)
     layer.get_potential_energy()
-    response = calc.hamiltonian.xc.xcs['RESPONSE']
-    response.calculate_delta_xc()
-    E_ks, dis = response.calculate_delta_xc_perturbation()
     calc.write('MoS2.gpw', mode='all')
-else:
-    dis = 0.5345
 
-bse = BSE('MoS2.gpw',
-          ecut=10,
-          valence_bands=[8],
-          conduction_bands=[9],
-          eshift=dis,
+gw = G0W0('MoS2.gpw',
+          'gw-test',
           nbands=15,
-          write_h=False,
-          write_v=False,
-          wfile=None,
-          mode='BSE',
+          ecut=10,
+          domega0=0.1,
+          eta=0.2,
           truncation='2D',
+          kpts=[((1/3., 1/3., 0))],
+          bands=(8, 10),
           )
-w_w, alpha_w = bse.get_polarizability(filename='bse.csv',
-                                      pbc=[True, True, False],
-                                      eta=0.02,
-                                      w_w=np.linspace(0., 5., 5001),
-                                      )
-w_ = 0.833
-I_ = 26.51
-w, I = findpeak(w_w[:1000], alpha_w.imag[:1000])
-equal(w, w_, 0.01) 
-equal(I, I_, 0.1)
+e_qp = gw.calculate()['qp'][0, 0]
 
-if rank == 0:
-    os.remove('MoS2.gpw')
-    os.remove('chi0.txt')
-    os.remove('pair.txt')
+ev = 2.701
+ec = 6.779
+
+equal(e_qp[0], ev, 0.01) 
+equal(e_qp[1], ec, 0.01)

@@ -74,13 +74,13 @@ def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
     qGn_G = qG_Gv[:, Nn_c[0]]
     
     v_G = 4 * np.pi / (qG_Gv**2).sum(axis=1)
-    if (qGp_G != 0.0).all():
-        a_G = qGn_G / qGp_G * np.sin(qGn_G * R) - np.cos(qGn_G * R)
-        v_G *= 1. + np.exp(-qGp_G * R) * a_G
-    else:
-        assert (qGn_G == 0.0).any() or (qG_Gv[0] == 1.0).all()
+    if np.allclose(qGn_G[0], 0) or pd.kd.gamma:
         """sin(qGn_G * R) = 0 when R = L/2 and q_n = 0.0"""
         v_G *= 1.0 - np.exp(-qGp_G * R) * np.cos(qGn_G * R)
+    else:
+        """Normal component of q is not zero"""
+        a_G = qGn_G / qGp_G * np.sin(qGn_G * R) - np.cos(qGn_G * R)
+        v_G *= 1. + np.exp(-qGp_G * R) * a_G
 
     return v_G.astype(complex)
 
@@ -138,13 +138,13 @@ def calculate_0D_truncated_coulomb(pd, q_v=None):
 
     return v_G
 
-def get_integrated_kernel(pd, N_c, truncation=None, N=100):
+def get_integrated_kernel(pd, N_c, truncation=None, N=100, reduced=False):
 
     B_cv = 2 * np.pi * pd.gd.icell_cv
-    Nf_c = [N, N, N]
-    #if truncation is not None:
+    Nf_c = np.array([N, N, N])
+    if reduced:
         # Only integrate periodic directions if truncation is used
-    #    Nf_c[np.where(N_c == 1)[0]] = 1
+        Nf_c[np.where(N_c == 1)[0]] = 1
     q_qc = monkhorst_pack(Nf_c) / N_c   
     q_qc += pd.kd.ibzk_kc[0]
     q_qv = np.dot(q_qc, B_cv)

@@ -61,12 +61,13 @@ class BSE():
             valence/conduction bands
         truncation: str
             Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
+            2D, 1D, or 0D 
         integrate_gamma: int
-            Method to integrate the Coulomb interaction. 1 is a numerical
-            integration at all q-points with G=[0,0,0] - this breaks the
-            symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
-            this conserves the symmetry
+            Method to integrate the Coulomb interaction. 1 is a numerical 
+            integration at all q-points with G=[0,0,0] - this breaks the 
+            symmetry slightly. 0 is analytical integration at q=[0,0,0] only - 
+            this conserves the symmetry. integrate_gamma=2 is the same as 1, 
+            but the average is only carried out in the non-periodic directions.
         txt: str
             txt output
         mode: str
@@ -395,10 +396,10 @@ class BSE():
                 # Generate fine grid in vicinity of gamma
                 kd = self.calc.wfs.kd
                 N = 4
-                N_c = [N, N, N]
+                N_c = np.array([N, N, N])
                 if self.truncation is not None:
                     # Only average periodic directions if trunction is used
-                    N_c[np.where(kd.N_c == 1)[0]] = 1
+                    N_c[kd.N_c == 1] = 1
                 qf_qc = monkhorst_pack(N_c) / kd.N_c
                 qf_qc *= 1.0e-6
                 U_scc = kd.symmetry.op_scc
@@ -443,11 +444,16 @@ class BSE():
                                             truncation=self.truncation,
                                             wstc=self.wstc)**0.5
             W_GG = einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
-            if self.integrate_gamma == 1:
+            if self.integrate_gamma != 0:
                 # Numerical integration of Coulomb interaction at all q-points
+                if self.integrate_gamma == 2:
+                    reduced = True
+                else:
+                    reduced = False
                 V0, sqrV0 = get_integrated_kernel(pd,
                                                   self.kd.N_c,
                                                   truncation=self.truncation,
+                                                  reduced=reduced,
                                                   N=100)
                 W_GG[0, 0] = einv_GG[0, 0] * V0
                 W_GG[0, 1:] = einv_GG[0, 1:] * sqrV0 * sqrV_G[1:]
@@ -458,6 +464,9 @@ class BSE():
                 Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
                 V0 = 16 * np.pi**2 * Rq0 / bzvol
                 sqrV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
+                W_GG[0, 0] = einv_GG[0, 0] * V0
+                W_GG[0, 1:] = einv_GG[0, 1:] * sqrV0 * sqrV_G[1:]
+                W_GG[1:, 0] = einv_GG[1:, 0] * sqrV_G[1:] * sqrV0
             else:
                 pass
             

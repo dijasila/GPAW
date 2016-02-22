@@ -31,47 +31,47 @@ class G0W0(PairDensity):
     Note: So far the G0W0 calculation only works for spin-paired systems.
 
     Parameters:
-        
-    calc: str or PAW object
-        GPAW calculator object or filename of saved calculator object.
-    filename: str
-        Base filename of output files.
-    kpts: list
-        List of indices of the IBZ k-points to calculate the quasi particle
-        energies for.
-    bands: tuple
-        Range of band indices, like (n1, n2+1), to calculate the quasi
-        particle energies for. Note that the second band index is not
-        included.
-    ecut: float
-        Plane wave cut-off energy in eV.
-    nbands: int
-        Number of bands to use in the calculation. If :None: the number will
-        be determined from :ecut: to yield a number close to the number of
-        plane waves used.
-    ppa: bool
-        Sets whether the Godby-Needs plasmon-pole approximation for the
-        dielectric function should be used.
-    truncation: str
-        Coulomb truncation scheme. Can be either wigner-seitz,
-        2D, 1D, or 0D
-    integrate_gamma: int
-        Method to integrate the Coulomb interaction. 1 is a numerical
-        integration at all q-points with G=[0,0,0] - this breaks the
-        symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
-        this conserves the symmetry
-    E0: float
-        Energy (in eV) used for fitting in the plasmon-pole approximation.
-    domega0: float
-        Minimum frequency step (in eV) used in the generation of the non-
-        linear frequency grid.
-    omega2: float
-        Control parameter for the non-linear frequency grid, equal to the
-        frequency where the grid spacing has doubled in size.
+       calc: str or PAW object
+          GPAW calculator object or filename of saved calculator object.
+       filename: str
+          Base filename of output files.
+       kpts: list
+          List of indices of the IBZ k-points to calculate the quasi particle
+          energies for.
+       bands: tuple
+          Range of band indices, like (n1, n2+1), to calculate the quasi
+          particle energies for. Note that the second band index is not
+          included.
+       ecut: float
+          Plane wave cut-off energy in eV.
+       nbands: int
+          Number of bands to use in the calculation. If :None: the number will
+          be determined from :ecut: to yield a number close to the number of
+          plane waves used.
+       ppa: bool
+          Sets whether the Godby-Needs plasmon-pole approximation for the
+          dielectric function should be used.
+       truncation: str
+            Coulomb truncation scheme. Can be either wigner-seitz, 
+            2D, 1D, or 0D
+       integrate_gamma: int
+            Method to integrate the Coulomb interaction. 1 is a numerical 
+            integration at all q-points with G=[0,0,0] - this breaks the 
+            symmetry slightly. 0 is analytical integration at q=[0,0,0] only - 
+            this conserves the symmetry. integrate_gamma=2 is the same as 1, 
+            but the average is only carried out in the non-periodic directions.
+       E0: float
+          Energy (in eV) used for fitting in the plasmon-pole approximation.
+       domega0: float
+          Minimum frequency step (in eV) used in the generation of the non-
+          linear frequency grid.
+       omega2: float
+          Control parameter for the non-linear frequency grid, equal to the
+          frequency where the grid spacing has doubled in size.
     """
     def __init__(self, calc, filename='gw',
                  kpts=None, bands=None, nbands=None, ppa=False,
-                 truncation=None, integrate_gamma=0,
+                 truncation=None, integrate_gamma=1,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
                  domega0=0.025, omega2=10.0,
                  nblocks=1, savew=False,
@@ -141,6 +141,7 @@ class G0W0(PairDensity):
         p('Computational parameters:')
         p('Plane wave cut-off: {0:g} eV'.format(self.ecut * Hartree))
         p('Number of bands: {0:d}'.format(self.nbands))
+        p('Coulomb cutoff:', self.truncation)
         p('Broadening: {0:g} eV'.format(self.eta * Hartree))
 
         kd = self.calc.wfs.kd
@@ -460,54 +461,109 @@ class G0W0(PairDensity):
     @timer('WW')
     def calculate_w(self, chi0, q_c, htp, htm, wstc, A1_x, A2_x):
         """Calculates the screened potential for a specified q-point."""
-        pd, chi0_wGG = chi0.calculate(q_c, A_x=A1_x)[:2]
+        pd, chi0_wGG, chi0_wxvG, chi0_wvv = chi0.calculate(q_c, A_x=A1_x)
         self.Q_aGii = chi0.Q_aGii
         self.Ga = chi0.Ga
         self.Gb = chi0.Gb
-        
+
         if self.blockcomm.size > 1:
             A1_x = chi0_wGG.ravel()
             chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
             
-        sqrV_G = get_coulomb_kernel(pd,
-                                    self.calc.wfs.kd.N_c,
-                                    truncation=self.truncation,
-                                    wstc=wstc)**0.5
-
-        if self.integrate_gamma == 1:
-            truncation = self.truncation
-            G20inv, G0inv = get_integrated_kernel(pd,
-                                                  self.calc.wfs.kd.N_c,
-                                                  truncation=truncation,
-                                                  N=100)
-            G20inv /= (4 * np.pi)
-            G0inv /= (4 * np.pi)**0.5
+        if self.integrate_gamma != 0:
+            if self.integrate_gamma == 2:
+                reduced = True
+            else:
+                reduced = False
+            V0, sqrV0 = get_integrated_kernel(pd,
+                                              self.calc.wfs.kd.N_c,
+                                              truncation=self.truncation,
+                                              reduced=reduced,
+                                              N=100)
         elif self.integrate_gamma == 0 and np.allclose(q_c, 0):
-            dq3 = (2 * pi)**3 / (self.qd.nbzkpts * self.vol)
-            qc = (dq3 / 4 / pi * 3)**(1 / 3)
-            G0inv = 2 * pi * qc**2 / dq3
-            G20inv = 4 * pi * qc / dq3
+            bzvol = (2 * np.pi)**3 / self.vol / self.qd.nbzkpts
+            Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
+            V0 = 16 * np.pi**2 * Rq0 / bzvol
+            sqrV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
         else:
-            G0inv = 1.0
-            G20inv = 1.0
-        
-        delta_GG = np.eye(len(sqrV_G))
+            pass
+            
+        nG = len(chi0_wGG[0])
+        delta_GG = np.eye(nG)
 
         if self.ppa:
-            return pd, self.ppa_w(chi0_wGG, sqrV_G, delta_GG, G0inv, G20inv,
-                                  q_c)
+            einv_wGG = []
             
         self.timer.start('Dyson eq.')
         # Calculate W and store it in chi0_wGG ndarray:
-        for chi0_GG in chi0_wGG:
-            e_GG = (delta_GG - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis])
-            W_GG = chi0_GG
-            W_GG[:] = (np.linalg.inv(e_GG) -
-                       delta_GG) * sqrV_G * sqrV_G[:, np.newaxis]
-            W_GG[0, 0] *= G20inv
-            W_GG[1:, 0] *= G0inv
-            W_GG[0, 1:] *= G0inv
+        for iw, chi0_GG in enumerate(chi0_wGG):
+            if np.allclose(q_c, 0):
+                # Generate fine grid in vicinity of gamma
+                kd = self.calc.wfs.kd
+                N = 4
+                N_c = np.array([N, N, N])
+                if self.truncation is not None:
+                    # Only average periodic directions if trunction is used
+                    N_c[np.where(kd.N_c == 1)[0]] = 1
+                qf_qc = monkhorst_pack(N_c) / kd.N_c
+                qf_qc *= 1.0e-6
+                U_scc = kd.symmetry.op_scc
+                qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
+                weight_q = kd.q_weights
+                qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
+                a_q = np.sum(np.dot(chi0_wvv[iw], qf_qv.T) * qf_qv.T, axis=0)
+                a0_qG = np.dot(qf_qv, chi0_wxvG[iw, 0])
+                a1_qG = np.dot(qf_qv, chi0_wxvG[iw, 1])
+                einv_GG = np.zeros((nG, nG), complex)
+                #W_GG = np.zeros((nG, nG), complex)
+                for iqf in range(len(qf_qv)):
+                    chi0_GG[0] = a0_qG[iqf]
+                    chi0_GG[:, 0] = a1_qG[iqf]
+                    chi0_GG[0, 0] = a_q[iqf]
+                    sqrV_G = get_coulomb_kernel(pd,
+                                                kd.N_c,
+                                                truncation=self.truncation,
+                                                wstc=wstc,
+                                                q_v=qf_qv[iqf])**0.5
+                    e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
+                    einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
+                    #einv_GG = np.linalg.inv(e_GG) * weight_q[iqf]
+                    #W_GG += (einv_GG * sqrV_G * sqrV_G[:, np.newaxis] 
+                    #         * weight_q[iqf])
+            else:
+                sqrV_G = get_coulomb_kernel(pd,
+                                            self.calc.wfs.kd.N_c,
+                                            truncation=self.truncation,
+                                            wstc=wstc)**0.5
+                e_GG = (delta_GG - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis])
+                einv_GG = np.linalg.inv(e_GG)
+
+            if self.ppa:
+                einv_wGG.append(einv_GG - delta_GG)
+            else:
+                W_GG = chi0_GG
+                W_GG[:] = (einv_GG - delta_GG) * sqrV_G * sqrV_G[:, np.newaxis]
+
+                if np.allclose(q_c, 0) or self.integrate_gamma != 0:
+                    W_GG[0, 0] = (einv_GG[0, 0] - 1.0) * V0
+                    W_GG[0, 1:] = einv_GG[0, 1:] * sqrV_G[1:] * sqrV0
+                    W_GG[1:, 0] = einv_GG[1:, 0] * sqrV0 * sqrV_G[1:]
+                else:
+                    pass
         
+        if self.ppa:
+            omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
+                                          (einv_wGG[0] - einv_wGG[1]))
+            R_GG = -0.5 * omegat_GG * einv_wGG[0]
+            W_GG = pi * R_GG * sqrV_G * sqrV_G[:, np.newaxis]
+            if np.allclose(q_c, 0) or self.integrate_gamma != 0:
+                W_GG[0, 0] = pi * R_GG[0, 0] * V0
+                W_GG[0, 1:] = pi * R_GG[0, 1:] * sqrV_G[1:] * sqrV0
+                W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrV0 * sqrV_G[1:]
+
+            self.timer.stop('Dyson eq.')
+            return pd, [W_GG, omegat_GG]
+            
         if self.blockcomm.size > 1:
             Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)
         else:
@@ -593,27 +649,6 @@ class G0W0(PairDensity):
 
         self.timer.write(self.fd)
 
-    @timer('PPA')
-    def ppa_w(self, chi0_wGG, sqrV_G, delta_GG, G0inv, G20inv, q_c):
-        einv_wGG = []
-        for chi0_GG in chi0_wGG:
-            e_GG = (delta_GG - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis])
-            einv_wGG.append(np.linalg.inv(e_GG) - delta_GG)
-
-        if self.truncation is not None and np.allclose(q_c, 0):
-            einv_wGG[0][0] = 42
-            einv_wGG[0][:, 0] = 42
-        omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
-                                      (einv_wGG[0] - einv_wGG[1]))
-        R_GG = -0.5 * omegat_GG * einv_wGG[0]
-        W_GG = pi * R_GG * sqrV_G * sqrV_G[:, np.newaxis]
-        if np.allclose(q_c, 0):
-            W_GG[0, 0] *= G20inv
-            W_GG[1:, 0] *= G0inv
-            W_GG[0, 1:] *= G0inv
-
-        return [W_GG, omegat_GG]
-        
     @timer('PPA-Sigma')
     def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W):
         W_GG, omegat_GG = W
