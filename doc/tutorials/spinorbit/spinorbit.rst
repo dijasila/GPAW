@@ -62,7 +62,7 @@ Note that the wavefunctions are saved in the .gpw file, since these will
 needed for the spin-orbit calculation. Finally the full spin-orbit coupled
 bandstructure is calculated and plotted with the following script
 :download:`plot_Pt_bands.py`. The spin-orbit calculation takes on the order of
-a second, while the preceeding scripts takes much longer and should be
+a second, while the preceding scripts takes much longer and should be
 submitted to a cluster - possibly parallelized. The band structure without
 spin-orbit coupling is shown as dashed grey lines. Note that we only plot
 every second spin-orbit band, since time-reversal symmetry along with

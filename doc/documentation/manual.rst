@@ -293,7 +293,7 @@ Currently all the hybrid functionals use the PBE setup as a *base* setup.
 
 For more information about ``gpaw-setup`` see :ref:`generation_of_setups`.
 
-Set the location of setups as decribed on :ref:`installationguide_setup_files`.
+Set the location of setups as described on :ref:`installationguide_setup_files`.
 
 The details of the implementation of the exchange-correlation
 are described on the :ref:`xc_functionals` page.
@@ -477,7 +477,7 @@ used for the remaining bands.
 Occupation numbers
 ------------------
 
-The smearing of the occupation numbers is controled like this::
+The smearing of the occupation numbers is controlled like this::
 
   from gpaw import GPAW, FermiDirac
   calc = GPAW(..., occupations=FermiDirac(width), ...)

@@ -18,7 +18,7 @@ Refer to :ref:`df_tutorial` for getting started with examples.
 Non-interacting density response function
 =========================================
 
-The Non-interacting density response funtion in real space is written as, 
+The Non-interacting density response function in real space is written as, 
 
 .. math::
 
@@ -288,7 +288,7 @@ is defined as
        \times \delta( \omega^{\prime} + \epsilon_{n\mathbf{k}} - \epsilon_{n^{\prime} \mathbf{k} + \mathbf{q} }  )
 
 Note that the integration above requires both positive and negative frequencies. 
-In the following derivation, the  intergration will be reduced to only half of the frequency domain. 
+In the following derivation, the  integration will be reduced to only half of the frequency domain. 
 
 In the system that possesses the time-reversal symmetry, the bloch states have the following properties
 

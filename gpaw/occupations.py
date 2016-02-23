@@ -679,7 +679,7 @@ class TFOccupations(FermiDirac):
     def occupy(self, f_n, eps_n, ne, weight=1):
         """Fill in occupation numbers.
         
-        In TF mode only one band. Is guarenteed to work only
+        In TF mode only one band. Is guaranteed to work only
         for spin-paired case.
         
         return HOMO and LUMO energies."""

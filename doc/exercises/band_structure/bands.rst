@@ -4,7 +4,7 @@
 Band structure
 ==============
 
-Band diagrams are usefull analysis tools.  Read :ref:`bandstructures` tutorial
+Band diagrams are useful analysis tools.  Read :ref:`bandstructures` tutorial
 and try to understand what it does.
 
 As a next step, calculate the bandstructure of FCC silver. Here we should be

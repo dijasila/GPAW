@@ -540,7 +540,7 @@ f.write('- :ref:`%s`: %.0f %% %s' % (categories[-1].lower(),rlimits[-2],end))
 f.write("""
 
 For each file, the coverage summary specifies the number of lines (NOL), number
-of executable statements (NOS) and number of coverage misses (NOM). Additionaly,
+of executable statements (NOS) and number of coverage misses (NOM). Additionally,
 the total number of statement executions is presented, as well as the average
 number of executions for each statement. Note that the test suite has been run
 multiple times as invidual Python threads, thus causing a total of %d Python

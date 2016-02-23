@@ -1,7 +1,7 @@
 BSE for excitonic effects
 =========================
 
-Excitonic effects play a fundamental role in determining the optical spectum
+Excitonic effects play a fundamental role in determining the optical spectrum
 of a semiconductor. As soon as an electron from the valence band is promoted
 to the conduction band by an external electromagnetic field, it interacts
 with the hole left behind in valence band via Coulomb interaction; the
@@ -36,7 +36,7 @@ Read it, try to understand what it does and run it::
 
     python LiF_gs.py
 
-Before proceding with the BSE we want to calculate the single-particle
+Before proceeding with the BSE we want to calculate the single-particle
 spectrum in order to have something to compare with. We do this using the RPA
 approximation (as you probably did in the previous exercises).
 Download the script :download:`LiF_RPA.py`.

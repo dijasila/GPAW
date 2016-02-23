@@ -149,11 +149,11 @@ Step 4
 A number of the GPAW source files in ``gpaw/c`` directory are built using
 the ``distutils`` module which makes it difficult to control the flags
 which are passed to the gnu compiler. A workaround is to use the following python
-script: :svn:`bgp_gcc.py`.  Additionaly, it is
+script: :svn:`bgp_gcc.py`.  Additionally, it is
 desirable to static link as many libraries as possible. This requires
 bypassing the mpi wrapper to the compiler using another python
 script :svn:`bgp_gcc_linker.py`.
-Lastly, we must use these work arounds in conjuction with two
+Lastly, we must use these work arounds in conjunction with two
 configures files :svn:`customize_surveyor_gcc.py`  and
 :svn:`config_surveyor.py`, the latter requires
 renaming to ``config.py`` in the top level directory.

@@ -17,7 +17,7 @@ Python is provided below:
 .. literalinclude:: build_scalable_python.sh
 
 NumPy 1.3.0 or later is recommended. Disutils does not work well on
-PPC architectures and a compiler must be explictly specified. A build
+PPC architectures and a compiler must be explicitly specified. A build
 script for NumPy 1.3.0 is provided below:
 
 .. literalinclude:: build_numpy.sh

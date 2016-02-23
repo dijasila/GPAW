@@ -1,6 +1,6 @@
 # Symmetry can only be used in EELS spectra calculations for GPAW svn 6305 above.
 # Refer to A. Rubio and V. Olevano, et.al, Physical Review B 69, 245419 (2004)
-# for comparision of results
+# for comparison of results
 from __future__ import print_function
 
 import os

@@ -1188,7 +1188,7 @@ def main(argv=None):
         ' (2, 1, 0, 0.0)]"')
     add('-P', '--projectors',
         help='Projector functions - use comma-separated - ' +
-        'nl values, where n can be pricipal quantum number ' +
+        'nl values, where n can be principal quantum number ' +
         '(integer) or energy (floating point number). ' +
         'Example: 2s,0.5s,2p,0.5p,0.0d.')
     add('-r', '--radius',

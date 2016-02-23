@@ -3,7 +3,7 @@ from gpaw import GPAW, ConvergenceError
 from gpaw.mixer import Mixer
 from gpaw.utilities import compiled_with_sl
 
-# the system loosing magnetic moment
+# the system losing magnetic moment
 
 atoms = read('ScSZ.xyz')
 atoms.set_cell([[  7.307241,   0.,         0.,      ],

@@ -347,7 +347,7 @@ ScaLAPACK parameters in three different places: i) general eigensolve
 in the LCAO intilization ii) standard eigensolve in the FD calculation and 
 iii) Cholesky decomposition in the FD calculation. It is currently
 possible to use different ScaLAPACK parameters in the LCAO
-intialization and the FD calculation by using two of the ScaLAPACK 
+initialization and the FD calculation by using two of the ScaLAPACK 
 keywords in tandem, e.g::
 
    --sl_lcao=p,q,pb --sl_default=m,n,mb

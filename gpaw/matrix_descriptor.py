@@ -137,7 +137,7 @@ class BandMatrixDescriptor(MatrixDescriptor):
 
         # A_qnn[q2,myn1,myn2] on rank q1 is the q2'th overlap calculated
         # between <psi_n1| and A|psit_n2> where n1 <-> (q1,myn1) and
-        # n2 <-> ((q1+q2)%B,myn2) since we've sent/recieved q2 times.
+        # n2 <-> ((q1+q2)%B,myn2) since we've sent/received q2 times.
         q1 = band_rank
         Q = B // 2 + 1
         if debug:
@@ -220,7 +220,7 @@ class BandMatrixDescriptor(MatrixDescriptor):
 
         # A_qnn[q2,myn1,myn2] on rank q1 is the q2'th overlap calculated
         # between <psi_n1| and A|psit_n2> where n1 <-> (q1,myn1) and
-        # n2 <-> ((q1+q2)%B,myn2) since we've sent/recieved q2 times.
+        # n2 <-> ((q1+q2)%B,myn2) since we've sent/received q2 times.
         q1 = band_rank
         Q = B
         if debug:
@@ -358,7 +358,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
 
         # A_qnn[q2,myn1,myn2] on rank q1 is the q2'th overlap calculated
         # between <psi_n1| and A|psit_n2> where n1 <-> (q1,myn1) and
-        # n2 <-> ((q1+q2)%B,myn2) since we've sent/recieved q2 times.
+        # n2 <-> ((q1+q2)%B,myn2) since we've sent/received q2 times.
         q1 = band_rank
         Q = B // 2 + 1
         if debug:
@@ -464,7 +464,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):#, BlacsBandLayouts):
 
         # A_qnn[q2,myn1,myn2] on rank q1 is the q2'th overlap calculated
         # between <psi_n1| and A|psit_n2> where n1 <-> (q1,myn1) and
-        # n2 <-> ((q1+q2)%B,myn2) since we've sent/recieved q2 times.
+        # n2 <-> ((q1+q2)%B,myn2) since we've sent/received q2 times.
         q1 = band_rank
         Q = B
 
