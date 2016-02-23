@@ -377,7 +377,7 @@ class DF(CHI):
             Nw = df1.shape[0]
     
             if self.xc == 'Bootstrap':
-                # bootstrap doesnt support all direction spectra yet
+                # bootstrap doesn't support all direction spectra yet
                 from gpaw.response.bootstrap import Bootstrap
                 Kc_GG = np.zeros((self.npw, self.npw))
                 q_c = np.diag((1, 1, 1))[dir] * self.qopt
@@ -472,7 +472,7 @@ class DF(CHI):
         Parameters:
 
         q: ndarray
-            Momentum tranfer at reduced coordinate.
+            Momentum transfer at reduced coordinate.
         w: scalar
             Energy (eV).
         """
@@ -843,4 +843,4 @@ class DF(CHI):
         self.df4_w   = data['dfLFCALDA_w']
         self.df_flag = data['df_flag']
         
-        self.printtxt('Read succesfully !')
+        self.printtxt('Read successfully !')

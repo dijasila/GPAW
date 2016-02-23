@@ -125,7 +125,7 @@ class TightBinding:
                 # 
                 self.kd.comm.broadcast(A0_xMM, rank[0])
 
-                # Add conjugate and substract double counted Gamma component
+                # Add conjugate and subtract double counted Gamma component
                 A_xMM += A_xMM.conj() - A0_xMM
 
             A_xMM /= np.prod(self.Nk_c)

@@ -113,7 +113,7 @@ class Coulomb:
         recip_ewald:
            Evaluate by Fourier transform.
            Divergence at division by k^2 is avoided by utilizing the Ewald /
-           Tuckermann trick, which formaly requires the densities to be
+           Tuckermann trick, which formally requires the densities to be
            localized within half of the unit cell.
 
         recip_gauss:

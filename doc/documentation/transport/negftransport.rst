@@ -51,10 +51,10 @@ in a item named surface Green's function
   g(E) = (E*S_l - H_l)^{-1}
 
 `S_l` and `H_l` are the overlap and hamiltonian matrices of
-leads respectively, and since they are inifinite, we need to
+leads respectively, and since they are infinite, we need to
 do some handling to get it.
 
-We induce the concept of priciple layer, the unit cell when 
+We induce the concept of principle layer, the unit cell when 
 solving the surface Green's function. We assum interaction 
 only exsits between two adjacent principle layers.
 That means the Hamiltonian matrix is tridiagonal by the size
@@ -197,7 +197,7 @@ electrode calculation, will be attached outside.
 
 >>> nt X Y
 
-Similiar to vt X Y, it plot the pseudo density.
+Similar to vt X Y, it plot the pseudo density.
 
 more...
 
@@ -220,7 +220,7 @@ or,   C-H_S C-H_P C-H_A plot the S orbital, P orbital, and total DOS of C and H 
 respectively in one figure.
 As a summery, the linking symbol - means plus a element, _ means the orbital type,
 ],[,= defines the atomic indices, A represent all the atoms or orbtials, so dos X Y is
-equalivalent to pdos X Y A_A. This command support multi inputparameters seperated by
+equalivalent to pdos X Y A_A. This command support multi inputparameters separated by
 space.
 
 IV Characteristic:
@@ -233,7 +233,7 @@ Charge:
 
 >>> charge X Y ZZZ
 
-Usage is similiar to pdos, it plot the charge of the partial orbitals as a function 
+Usage is similar to pdos, it plot the charge of the partial orbitals as a function 
 of bias.
 
 Force:
@@ -273,7 +273,7 @@ Principle Layer Atoms
 ``pl_atoms`` is the index of lead atoms, whose length is the 
 number of leads. For example, [[0,1,2,3],[7,8,9,10]] means there
 are two leads, [0,1,2,3] is the principle layer of the first
-lead and [7,8,9,10] for the second. The sequence is arbitary.
+lead and [7,8,9,10] for the second. The sequence is arbitrary.
 
 .. _manual_pl_cells:
 
@@ -430,7 +430,7 @@ neutrality condition. Because the charge is conserved always by filling up
 the molecular levels, the scaling factor is very close to 1. There the scaling
 just helps to converge, and does not influece the calculation result. In NEGF
 calculation, because the density matrix is obtain by the Green's function integral
-to the fermi level, the charge neutrality is not garanteed. Without scaling, there
+to the fermi level, the charge neutrality is not guaranteed. Without scaling, there
 may be a convergence problem for the three dimensional system. So the code 
 is forced to do scaling always for the first several steps. The keyword 
 ``normalize_density`` decides whether the scaling will be released or not at last.

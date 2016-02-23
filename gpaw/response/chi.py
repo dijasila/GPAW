@@ -585,7 +585,7 @@ class CHI(BASECHI):
                 self.Nw, self.Nw_local, self.wstart, self.wend =  parallel_partition(
                                self.Nw, self.wcomm.rank, self.wcomm.size, reshape=False)
             else:
-                # if frequency point is too few, then dont parallelize
+                # if frequency point is too few, then don't parallelize
                 self.wcomm = serial_comm
                 self.wstart = 0
                 self.wend = self.Nw

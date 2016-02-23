@@ -242,7 +242,7 @@ class Heterostructure:
         drho: induced potential basis function
         q: momentum transfer.
         """
-        z -= np.mean(z)  # center arround 0
+        z -= np.mean(z)  # center around 0
         z_grid = self.get_z_grid(z, z_lim=self.poisson_lim)
         dz = z[1] - z[0]
         Nz_loc = (len(z_grid) - len(z)) / 2

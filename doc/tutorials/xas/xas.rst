@@ -24,7 +24,7 @@ or you can write a small script to do it:
 
 .. literalinclude:: setups.py
 
-Set the location of setups as decribed on :ref:`installationguide_setup_files`.
+Set the location of setups as described on :ref:`installationguide_setup_files`.
 
 Spectrum calculation using unoccupied states
 ============================================

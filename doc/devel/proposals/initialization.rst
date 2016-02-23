@@ -163,11 +163,11 @@ can easily support them.
 Some thoughts about different backends:
 ---------------------------------------
 
-If/when each object writes/reads itself, some sort of hierachical file
+If/when each object writes/reads itself, some sort of hierarchical file
 format would be convenient.  I am not that familiar with
 tarfile-interface used for .gpw files, but I think that it can support
-hierachical structure (folders and files). Also, HDF5 supports
-hierachical structure ("hierachical data format"), basic structure of
+hierarchical structure (folders and files). Also, HDF5 supports
+hierarchical structure ("hierarchical data format"), basic structure of
 HDF5 file is groups and datasets.  Other formats that one could think
 of are MPI-IO and netcdf, but that they do not really support
 hierarchical structure. Drawback of MPI-IO is also that the files are
@@ -175,7 +175,7 @@ not necessarily portable (although it should be possible to ensure
 portability with the price of more expensive IO).
 
 
-Here is a prototype implementation of a hierachical reader/writer
+Here is a prototype implementation of a hierarchical reader/writer
 framework: :trac:`doc/devel/proposals/rw.py`.
 
 

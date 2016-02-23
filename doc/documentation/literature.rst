@@ -70,7 +70,7 @@ The original article introducing the PAW formalism:
 
    __ http://dx.doi.org/10.1103/PhysRevB.50.17953
 
-A different formulation of PAW by Kresse and Joubert designed to make the transistion from USPP to PAW easy.
+A different formulation of PAW by Kresse and Joubert designed to make the transition from USPP to PAW easy.
   | G. Kresse and D. Joubert
   | `From ultrasoft pseudopotentials to the projector augmented-wave method`__
   | Physical Review B, Vol. **59**, 1758, 1999

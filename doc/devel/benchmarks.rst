@@ -550,7 +550,7 @@ through integer powers of 2 up to 128.
 The number of bands (1056) and cores are chosen to make comparisons
 of different band parallelizations (:ref:`band_parallelization`) possible.
 
-**Note**: to achive optimal performance diagonalization steps are performed
+**Note**: to achieve optimal performance diagonalization steps are performed
 on `4x4` blacs grid with block size of `64` specified by adding ``--gpaw=blacs=1 --sl_diagonalize=4,4,64`` options.
 
 **Note** also that a default domain decomposition is appplied, and different
@@ -707,7 +707,7 @@ through integer powers of 2 and up to the total number of CPU 4096 cores.
 The number of bands (1728) and cores are chosen to make comparisons
 of different band parallelizations (:ref:`band_parallelization`) possible.
 
-**Note**: to achive optimal performance diagonalization steps are performed
+**Note**: to achieve optimal performance diagonalization steps are performed
 on `5x5` blacs grid with block size of `64` specified by adding ``--gpaw=blacs=1 --sl_diagonalize=5,5,64`` options.
 
 **Note** also that a default domain decomposition is appplied, and different

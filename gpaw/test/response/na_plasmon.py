@@ -50,7 +50,7 @@ a2.calc.diagonalize_full_hamiltonian(nbands=40)
 a1.calc.write('gs_Na_small.gpw', 'all')
 a2.calc.write('gs_Na_large.gpw', 'all')
 
-# Settings that should yeild the same result
+# Settings that should yield the same result
 settings = [{'disable_point_group': True, 'disable_time_reversal': True,
              'use_more_memory': 0},
             {'disable_point_group': False, 'disable_time_reversal': True,

@@ -9,7 +9,7 @@
 #
 # The last updates of our contribution to the GPAW code took place
 # 01.11.2011 and a minor update on 16.01.2012. Since then there is no active 
-# developement in the original GPAW repositories, but of course we continued 
+# development in the original GPAW repositories, but of course we continued 
 # work in our development version.
 #
 # If you are interested in running self-interaction corrected DFT

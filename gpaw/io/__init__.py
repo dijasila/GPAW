@@ -460,7 +460,7 @@ def write(paw, filename, mode, cmr_params=None, **kwargs):
         timer.stop('Pseudo-wavefunctions')
     elif mode != '':
         w['Mode'] = 'fd'
-        # Write the wave functions as seperate files
+        # Write the wave functions as separate files
 
         # check if we need subdirs and have to create them
         ftype, template = wave_function_name_template(mode)

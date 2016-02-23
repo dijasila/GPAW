@@ -33,7 +33,7 @@ This object is the central object for a GPAW calculation::
 The implementation is in :svn:`gpaw/paw.py`.  The
 :class:`~gpaw.paw.PAW` class doesn't do any part of the actual
 calculation - it only handles the logic of parsing the input
-parameters and setting up the neccesary objects for doing the actual
+parameters and setting up the necessary objects for doing the actual
 work (see figure above).
 
 

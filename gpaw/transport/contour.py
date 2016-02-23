@@ -33,7 +33,7 @@ from ase.parallel import parprint, paropen
            --------------------------------------------->
  
  
-    Hierachy:
+    Hierarchy:
        NID(node ID) is the most important information of the energy node.
        With it you can get the corresponding energy and weight.
  

@@ -20,7 +20,7 @@ the methodology in the :mod:`ASE manual <ase.transport>`.
 
 Recent experiments suggests that a hydrogen molecule trapped between
 metal electrodes has a conductance close to the quantum unit of
-conductance (`1G_0=2e^2/h`).  As a managable model for this system, we
+conductance (`1G_0=2e^2/h`).  As a manageable model for this system, we
 consider a hydrogen molecule sandwiched between semi-infinite one
 dimensional Pt leads as shown in the figure below
 

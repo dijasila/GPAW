@@ -91,7 +91,7 @@ class Writer:
         self.fd = fd
         self.data = data
         
-        # Shape and dtype of array beeing filled:
+        # Shape and dtype of array being filled:
         self.shape = (0,)
         self.dtype = None
         
