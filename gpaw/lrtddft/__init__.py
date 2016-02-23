@@ -57,6 +57,7 @@ class LrTDDFT(ExcitationList):
     def __init__(self, calculator=None, **kwargs):
 
         self.timer = Timer()
+        self.diagonalized = False
 
         self.set(**kwargs)
 
@@ -201,6 +202,7 @@ class LrTDDFT(ExcitationList):
         self.timer.start('omega')
         self.Om.diagonalize(istart, jend, energy_range, TDA)
         self.timer.stop('omega')
+        self.diagonalized = True
 
         # remove old stuff
         self.timer.start('clean')
@@ -374,14 +376,19 @@ class LrTDDFT(ExcitationList):
         mpi.world.barrier()
 
     def __getitem__(self, i):
-        if not hasattr(self.Om, 'kss'):
+        if not self.diagonalized:
             self.diagonalize()
         return list.__getitem__(self, i)
 
     def __iter__(self):
-        if not hasattr(self.Om, 'kss'):
+        if not self.diagonalized:
             self.diagonalize()
         return list.__iter__(self)
+
+    def __len__(self):
+        if not self.diagonalized:
+            self.diagonalize()
+        return list.__len__(self)
 
 
 def d2Excdnsdnt(dup, ddn):
