@@ -1,3 +1,4 @@
+#from __future__ import print_function
 from ase import Atom, Atoms
 from gpaw import GPAW
 from gpaw.lrtddft import LrTDDFT
@@ -33,7 +34,6 @@ gs = GPAW('H2saved_wfs.gpw', txt=txt)
 # but take rounding errors into account
 assert(abs(calc.wfs.eigensolver.error / gs.wfs.eigensolver.error - 1) < 1e-8)
 lr1 = LrTDDFT(gs, xc=xc, txt='-')
-lr1.diagonalize()
 # check the oscillator strrength
 assert (abs(lr1[0].get_oscillator_strength()[0] /
             lr[0].get_oscillator_strength()[0] - 1) < 1e-10)
@@ -42,7 +42,6 @@ assert (abs(lr1[0].get_oscillator_strength()[0] /
 gs = GPAW('H2saved.gpw', txt=None)
 
 lr2 = LrTDDFT(gs, txt='-')
-lr2.diagonalize()
 # check the oscillator strrength
 d = abs(lr2[0].get_oscillator_strength()[0] /
         lr[0].get_oscillator_strength()[0] - 1)
