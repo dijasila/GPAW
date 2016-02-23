@@ -6,6 +6,7 @@ from ase.units import _hbar, _c, _e, _me, Hartree
 from gpaw import __version__ as version
 from gpaw.utilities.folder import Folder
 
+
 def get_folded_spectrum(
         exlist=None,
         emin=None,
@@ -14,7 +15,6 @@ def get_folded_spectrum(
         energyunit='eV',
         folding='Gauss',
         width=0.08,  # Gauss/Lorentz width
-        comment=None,
         form='r'):
     """Return folded spectrum."""
 
@@ -27,7 +27,6 @@ def get_folded_spectrum(
     if energyunit == 'nm':
         # transform to experimentally used wavelength [nm]
         x = 1.e+9 * 2 * np.pi * _hbar * _c / _e / np.array(x)
-        y = np.array(y)
     elif energyunit != 'eV':
         raise RuntimeError('currently only eV and nm are supported')
 
@@ -42,6 +41,7 @@ def spectrum(exlist=None,
              energyunit='eV',
              folding='Gauss',
              width=0.08,  # Gauss/Lorentz width
+             comment=None,
              form='r'):
     """Write out a folded spectrum.
 
