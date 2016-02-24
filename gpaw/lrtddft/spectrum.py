@@ -7,6 +7,32 @@ from gpaw import __version__ as version
 from gpaw.utilities.folder import Folder
 
 
+def get_folded_spectrum(
+        exlist=None,
+        emin=None,
+        emax=None,
+        de=None,
+        energyunit='eV',
+        folding='Gauss',
+        width=0.08,  # Gauss/Lorentz width
+        form='r'):
+    """Return folded spectrum."""
+
+    x = []
+    y = []
+    for ex in exlist:
+        x.append(ex.get_energy() * Hartree)
+        y.append(ex.get_oscillator_strength(form))
+
+    if energyunit == 'nm':
+        # transform to experimentally used wavelength [nm]
+        x = 1.e+9 * 2 * np.pi * _hbar * _c / _e / np.array(x)
+    elif energyunit != 'eV':
+        raise RuntimeError('currently only eV and nm are supported')
+
+    return Folder(width, folding).fold(x, y, de, emin, emax)
+
+
 def spectrum(exlist=None,
              filename=None,
              emin=None,
@@ -53,20 +79,10 @@ def spectrum(exlist=None,
     print('# om [%s]     osz          osz x       osz y       osz z'
           % energyunit, file=out)
 
-    x = []
-    y = []
-    for ex in exlist:
-        x.append(ex.get_energy() * Hartree)
-        y.append(ex.get_oscillator_strength(form))
+    energies, values = get_folded_spectrum(exlist, emin, emax, de,
+                                           energyunit, folding,
+                                           width, form)
 
-    if energyunit == 'nm':
-        # transform to experimentally used wavelength [nm]
-        x = 1.e+9 * 2 * np.pi * _hbar * _c / _e / np.array(x)
-        y = np.array(y)
-    elif energyunit != 'eV':
-        raise RuntimeError('currently only eV and nm are supported')
-
-    energies, values = Folder(width, folding).fold(x, y, de, emin, emax)
     for e, val in zip(energies, values):
         print('%10.5f %12.7e %12.7e %11.7e %11.7e' %
               (e, val[0], val[1], val[2], val[3]), file=out)

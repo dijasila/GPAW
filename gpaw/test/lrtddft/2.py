@@ -1,8 +1,6 @@
-import os
-import numpy as np
+#from __future__ import print_function
 from ase import Atom, Atoms
 from gpaw import GPAW
-from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
 
 txt = '-'
@@ -32,21 +30,23 @@ lr.diagonalize()
 #print "-> reading gs with wfs"
 gs = GPAW('H2saved_wfs.gpw', txt=txt)
 
-# check that the wfs error is read correctly, 
+# check that the wfs error is read correctly,
 # but take rounding errors into account
-assert( abs(calc.wfs.eigensolver.error/gs.wfs.eigensolver.error - 1) < 1e-8)
+assert(abs(calc.wfs.eigensolver.error / gs.wfs.eigensolver.error - 1) < 1e-8)
 lr1 = LrTDDFT(gs, xc=xc, txt='-')
-lr1.diagonalize()
 # check the oscillator strrength
 assert (abs(lr1[0].get_oscillator_strength()[0] /
-            lr[0].get_oscillator_strength()[0] -1) < 1e-10)
+            lr[0].get_oscillator_strength()[0] - 1) < 1e-10)
 
 #print "-> reading gs without wfs"
 gs = GPAW('H2saved.gpw', txt=None)
 
 lr2 = LrTDDFT(gs, txt='-')
-lr2.diagonalize()
 # check the oscillator strrength
 d = abs(lr2[0].get_oscillator_strength()[0] /
         lr[0].get_oscillator_strength()[0] - 1)
 assert (d < 2e-3), d
+
+# write spectrum
+from gpaw.lrtddft.spectrum import spectrum
+spectrum(lr, 'spectrum.dat')
