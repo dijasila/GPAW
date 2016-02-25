@@ -728,7 +728,7 @@ class G0W0(PairDensity):
 
         iq = np.argmin(np.sum(self.qpts_qc**2, axis=1))
         assert np.allclose(self.qpts_qc[iq], 0)
-        q0weight = self.weight_q[iq]
+        q0weight = 1#self.weight_q[iq]
         qf = q0weight
         q0cell_cv = np.array([qf, qf, 1])**0.5 * rcell_cv / N_c
         q0vol = abs(np.linalg.det(q0cell_cv))
