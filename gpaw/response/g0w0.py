@@ -9,6 +9,7 @@ from ase.dft.kpoints import monkhorst_pack
 from ase.units import Hartree
 from ase.utils import opencew, devnull
 from ase.utils.timing import timer
+from ase.parallel import paropen
 
 import gpaw.mpi as mpi
 from gpaw import debug
@@ -74,7 +75,7 @@ class G0W0(PairDensity):
                  truncation=None, integrate_gamma=1,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
                  domega0=0.025, omega2=10.0,
-                 nblocks=1, savew=False,
+                 nblocks=1, savew=False, savepckl=True,
                  world=mpi.world):
 
         if world.rank != 0:
@@ -96,6 +97,7 @@ class G0W0(PairDensity):
 
         self.filename = filename
         self.savew = savew
+        self.savepckl = savepckl
         
         ecut /= Hartree
         
@@ -229,6 +231,9 @@ class G0W0(PairDensity):
                    'qp': self.qp_sin * Hartree}
       
         self.print_results(results)
+
+        if self.savepckl:
+            pickle.dump(results, paropen(self.filename+'_results.pckl', 'w'))
         
         return results
         
@@ -302,7 +307,6 @@ class G0W0(PairDensity):
         G_G = G_I[I0_G]
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
-
         for a, Q_Gii in enumerate(self.initialize_paw_corrections(pd1)):
             e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
             assert e < 1e-12
