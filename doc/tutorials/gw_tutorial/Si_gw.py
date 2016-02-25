@@ -1,16 +1,14 @@
+import pickle
 import numpy as np
-from gpaw.response.gw import GW
+from gpaw.response.g0w0 import G0W0
 
-gw = GW(
-        file='Si_groundstate.gpw',
-        nbands=100,                # number of bands for calculation of self-energy
-        bands=np.array([2,3,4,5]), # here: two highest valence and two lowest conduction bands
-        kpoints=None,              # by default: all points in irreducible Brillouin zone
-        ecut=50.,                  # plane wave cutoff for self-energy
-        ppa=True,                  # use Plasmon Pole Approximation
-        txt='Si-3k_GW.out'
-       )
+gw = G0W0(calc='Si_groundstate.gpw',
+          nbands=30,                # number of bands for calculation of self-energy
+          bands=(3,5),               # here: all valence bands and lowest conduction bands
+          ecut=20.,                  # plane wave cutoff for self-energy
+          filename='Si-g0w0'
+          )
 
-gw.get_exact_exchange()
+result = gw.calculate()
 
-gw.get_QP_spectrum()
+pickle.dump(result, open('Si-g0w0.pckl', 'w'))

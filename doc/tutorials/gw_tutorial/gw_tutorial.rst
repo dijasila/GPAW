@@ -19,9 +19,9 @@ More information can be found here:
 
 Quasi-particle spectrum of bulk silicon
 =======================================
+In the first part of the tutorial, the quasi-particle spectrum of bulk silicon will be calculated. The resulting bandgap is compared to that of a standard DFT calculation.
 
-
-groundstate calculation
+Groundstate calculation
 -----------------------
 
 First, we need to do a regular groundstate calculation.
@@ -30,7 +30,7 @@ In order to keep the computational efforts small, we start with (3x3x3) k-points
 
 .. literalinclude:: Si_groundstate.py
 
-It takes a few minutes on a single CPU.
+It takes a few seconds on a single CPU.
 The last line in the script creates a .gpw file which contains all the informations of the system, including the wavefunctions.
 
 .. note::
@@ -38,92 +38,104 @@ The last line in the script creates a .gpw file which contains all the informati
     You can change the number of bands to be written out by using ``calc.diagonalize_full_hamiltonian(nbands=...)``.
     This will be useful for higher plane wave cutoffs.
 
-.. note::
-
-    For calculations including only the :math:`\Gamma` point, insert ``dtype=complex`` in the calculator.
-    This holds both for the plane wave and the grid mode.
-
-the GW calculator
+The GW calculator
 -----------------
 
-Next, we set up the GW calculator, where we define all the required parameters
-as well as the k-point and band indices for which we want to calculate the quasi-particle spectrum.
-Here, we do this for the complete irreducible Brioullin zone and 4 bands around the Fermi level
-(silicon has 8 valence electrons and the bands are double occupied, starting from band index 0,
-so the corresponding band indices are 2,3,4 and 5).
+Next, we set up the G0W0 calculator and calculate the quasi-particle spectrum for all the k-points in the irreducible Brillouin zone and the specified bands. In this case, silicon has 8 valence electrons and the bands are double occupied. Setting ``bands=(3,5)`` means including band index 3 and 4 which is the highest occupied band and the lowest unoccupied band.
 
 .. literalinclude:: Si_gw.py
-    :lines: 1-12
 
-calculating the exact exchange contributions
+The calculation takes about 5 minutes on a single CPU and returns a dict with the following key/value pairs. The dictionary is stored in a .pckl file.
+
+============    =====================    ===================================
+key             type                     description
+============    =====================    ===================================
+``f``           ``(s, k, n)`` ndarray    Occupation numbers
+``eps``         ``(s, k, n)`` ndarray    Kohn-Sham eigenvalues in eV
+``vxc``         ``(s, k, n)`` ndarray    Exchange-correlation 
+                                         contributions in eV
+``exx``         ``(s, k, n)`` ndarray    Exact exchange contributions in eV
+``sigma``       ``(s, k, n)`` ndarray    Self-energy contributions in eV
+``Z``           ``(s, k, n)`` ndarray    Renormalization factors
+``qp``          ``(s, k, n)`` ndarray    Quasi particle energies in eV
+============    =====================    ===================================
+From the dict it is for example possible to extract the direct bandgap:
+
+.. literalinclude:: get_gw_bandgap.py
+
+with the result: 3.18 eV.
+
+The possible input parameters of the G0W0 calculator are listed below.
+
+Parameters
+---------------
+
+=================    =================   ===================   ================================
+keyword              type                default value         description
+=================    =================   ===================   ================================
+``calc``             ``str`` or          None                  gpw filename 
+                     PAW object                                (with 'all' option when writing 
+                                                               the gpw file)
+``filename``         ``str``             ``'gw'``              Base filename of output files.
+``kpts``             ``list``            None                  List of indices of the IBZ 
+                                                               k-points to calculate the quasi 
+			    				       particle energies for. 
+							       None means entire IBZ.
+``bands``            ``tuple``           None                  Range of band indices, like 
+                                                               (n1 + n2+1). Second band index 
+		 					       is not included.
+``nbands``           ``int``             None                  Number of bands to include. 
+                                                               None defaults to all available 
+ 	 						       from groundstate calculation.
+``ppa``              ``bool``            False                 Use the plasmon pole approximation
+                                                               or not.
+``truncation``       ``str``             None                  Coulomb truncation scheme: 
+                                                               None, wigner-seitz, 2D, 1D or 0D. 
+``integrate_gamma``  ``int``             1                     q=0 integration scheme: 0, 1 or 2. 
+``ecut``             ``float``           150.0 (eV)            Planewave energy cutoff.
+``eta``              ``float``           0.1 (eV)              Broadening parameter.
+``E0``               ``float``           27.21 (eV)            Energy used for fitting in the 
+                                                               plasmon-pole approximation.
+``domega0``          ``float``           0.025                 Minimum frequency step (in eV).
+``omega2``           ``float``           10.0                  Equal to the frequency where the 
+                                                               grid spacing has doubled in size.
+``nblocks``          ``int``             1                     Number of blocks used in block 
+                                                               parallellization.
+``savew``            ``bool``            False                 Option to store the screened 
+                                                               Coulomb interaction.
+=================  =================  ===================  ================================
+
+Convergence with respect to cutoff energy and number of k-points
 --------------------------------------------
-
-It is highly recommended (though not necessary) to start with calculating the exact exchange contributions.
-This is simply done by calling:
-
-.. literalinclude:: Si_gw.py
-    :lines: 14
-
-In the output file, we find the results for non-selfconsistent Hartree-Fock,
-sorted by spin, k-points (rows) and bands (columns).
-
-.. note::
-
-    By default, the results are stored in a pickle file called ``EXX.pckl``.
-    The name can be changed by using ``gw.get_exact_exchange(file='myown_EXX.pckl')``.
-
-Check for convergence with respect to the plane wave cutoff energy and number of k points
-by changing the respective values in the groundstate calculation and restarting.
+Can we trust the calculated value of the direct bandgap? Not yet.
+Check for convergence with respect to the plane wave cutoff energy and number of k points is necessary. 
+This is done by changing the respective values in the groundstate calculation and restarting. 
+This is rather time consuming for the full G0W0 calculation but one can usually get a good idea of converged parameters just by calculating the exact exchange contribution. Script xxx does that for you plots the resulting data. It takes about yyy minutes on a single CPU. The resulting figure is shown below.
 
 .. image:: Si_EXX.png
        :height: 400 px
 
-A k-point sampling of (9x9x9) and 150 eV plane wave cutoff seems to give well converged results.
+A k-point sampling of (9x9x9) and 150 eV plane wave cutoff seems to give well converged results. A full G0W0 calculation at these values result in a direct bandgap of xxx eV. Hence the value of yyy eV calculated before was definately not converged!
 
-calculating the self-energy
----------------------------
-
-Now, we are ready to calculate the GW quasiparticle spectrum by calling:
-
-.. literalinclude:: Si_gw.py
-    :lines: 16
-
-While the calculation is running, timing information is printed in the output file.
-
-In the end, the results for the quasiparticle spectrum are printed,
-again sorted by spin, k-points (rows) and bands (columns).
-
-.. note::
-
-    By default, the results are stored in a pickle file called ``GW.pckl``.
-    The name can be changed by using ``gw.get_QP_spectrum(file='myown_GW.pckl', exxfile='myown_EXX.pckl')``.
-
-Again, results need to be checked for convergence with respect to k-point sampling, plane wave cutoff energy and number of bands.
-
-A reasonable choice are the values determined previously for the Hartree Fock band gap, that means (9x9x9) k points and plane waves up to 150 eV.
-Usually, the self-energy converges faster with respect to the number of k points than the exchange contributions, whereas the dependence on the plane wave cutoff energy is similar.
-The number of bands should be chosen in a way, so that the energy of the highest band is around `E_\text{cut}`. This is easiest done by using the default value ``nbands = None``,
-which sets the number of bands equal to the number of plane waves.
-
-frequency dependence
+Frequency dependence
 --------------------
 
-Next, we should check the quality of the Plasmon Pole Approximation and use the fully frequency-dependent dielectric matrix.
+Next, we should check the quality of the frequency grid used in the calculation. Two parameters determine how the frequency grid looks. ``domega0`` and ``omega2``. Read more about these parameters in the tutorial for the dielectric function (LINK).
 
-Remove the line ``ppa = True`` and insert ``w = np.array([50., 150., 0.05])``.
-This creates a frequency grid which is linear from 0 to 50 eV with a spacing of 0.05 eV and increasing steps up to 150 eV.
-This will correspond to ~1064 frequency points. The calculation takes about 1 hour.
-
-The results should be very close to what we obtained within the Plasmon Pole Approximation, verifying its validity for this system.
-
-At last, see how the results depend on the chosen frequency grid. It is important to have a very fine grid in the lower frequency range,
-where the electronic structure of the system is more complicated.
+Running script xxx calcuates the direct band gap using different frequency grids with ``domega0`` varying from 0.005 to 0.05 and ``omega2`` from 1 to 30. yyy plots the resulting data shown in the figure below.
 
 .. image:: Si_w.png
        :height: 400 px
 
-Good convergence is reached for :math:`\omega_\text{lin} \approx \omega_\text{max}/3` and :math:`\Delta\omega` = 0.05 eV.
+Converged results are obtained for ``domega0=yy`` and ``omega2=xx``. 
+
+Another method for carrying out the frequency integration is the Plasmon Pole approximation (PPA). Read more about it here (LINK). This is turned on by setting ``ppa = True``. Carrying out a full G0W0 calculation using the converged parameters and the PPA gives a direct band gap of xxx eV, which is in very good agreement with the result for the full frequency integration but the calculation took only xxx minutes on one CPU!
 
 .. note::
 
-    If more memory is needed, use ``wpar=int`` to parallelize over frequency points. ``int`` needs to be an integer divisor of the available cores.
+    If a calculation is very memory heavy, it is possible to set ``nblocks`` to an integer larger than 1 but less than the amount of CPU cores running the calculation. With this, the response function is divided into blocks and each core gets to store a smaller matrix. 
+
+
+Quasi-particle spectrum of two-dimensional materials
+====================================================
+
