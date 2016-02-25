@@ -222,7 +222,7 @@ class LCAOWaveFunctions(WaveFunctions):
                
     def initialize_wave_functions_from_lcao(self):
         """
-        Fill the calc.wfs.kpt_[u].psit_nG arrays with usefull data.
+        Fill the calc.wfs.kpt_[u].psit_nG arrays with useful data.
         
         Normally psit_nG is NOT used in lcao mode, but some extensions
         (like ase.dft.wannier) want to have it.

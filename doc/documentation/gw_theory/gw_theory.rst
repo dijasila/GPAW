@@ -126,7 +126,7 @@ Then, the frequency integration with
 
 .. math:: \frac{1}{\omega + \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} + i \eta \, \text{sgn}(\epsilon_{m \, \mathbf{k} - \mathbf{q}} - \mu)} \hspace{0.4cm} \textsf{and} \hspace{0.4cm} - \frac{1}{\left(\omega + \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} + i \eta \, \text{sgn}(\epsilon_{m \, \mathbf{k} - \mathbf{q}} - \mu)\right)^2}
 
-for the self energy and its derivative is carried out, where :math:`\omega = \epsilon_{n \mathbf{k}}`. This is done for every :math:`(n \, \mathbf{k})` and :math:`(m \, \mathbf{k}\!-\!\mathbf{q})` seperately.
+for the self energy and its derivative is carried out, where :math:`\omega = \epsilon_{n \mathbf{k}}`. This is done for every :math:`(n \, \mathbf{k})` and :math:`(m \, \mathbf{k}\!-\!\mathbf{q})` separately.
 
 Method 2 (``hilbert_trans = True``) reverses this order by doing the frequency integration first for all :math:`\omega` on the grid. Then, for every :math:`(n \, \mathbf{k})` and :math:`(m \, \mathbf{k}\!-\!\mathbf{q})`, the contributions to :math:`\Sigma(\omega = \epsilon_{n \mathbf{k}})` and its derivative are found by linear interpolation using the two closest points on the frequency grid with :math:`\omega_i \leq \omega = \epsilon_{n \mathbf{k}} < \omega_{i+1}`. For :math:`\omega = 0`, three points are used for the interpolation. This is similar to using the Hilbert transform for the dielectric response function.
 
@@ -149,7 +149,7 @@ I/O
 
 All necessary informations of the system are read from ``file = 'filename.gpw'`` which must contain the wavefunctions. This is done by performing ``calc.write('groundstate.gpw', 'all')`` after the groundstate calculation. GW supports grid mode and planewave basis.
 
-Especially for big systems, it might be reasonable to determine the exact exchange contributions seperately and store them in a pickle file which can be read by defining ``exxfile = 'filename.pckl'`` (see below). The band and k-point indices must match the ones used for the GW calculation. The pickle file needs to contain the following data:
+Especially for big systems, it might be reasonable to determine the exact exchange contributions separately and store them in a pickle file which can be read by defining ``exxfile = 'filename.pckl'`` (see below). The band and k-point indices must match the ones used for the GW calculation. The pickle file needs to contain the following data:
 
 ================= ==============================================================================
 ``gwkpt_k``       list of k-point indices
@@ -167,7 +167,7 @@ See the GW tutorial for an example: :ref:`gw_tutorial`
 
 The output is written to ``txt = 'filename.out'`` which summarizes the input and results and gives an estimation of the timing while the calculation is running. An additional file ``df.out`` is created for the calculation of the dielectric matrix.
 
-All results are also stored in a pickle file called ``GW.pckl`` by default, which contains all data listed in the table above and addionally ``Sigma_skn``, ``Z_skn`` and ``QP_skn`` for the self energy contributions, renormalization factors and the quasi-particle bandstructure, respectively.
+All results are also stored in a pickle file called ``GW.pckl`` by default, which contains all data listed in the table above and additionally ``Sigma_skn``, ``Z_skn`` and ``QP_skn`` for the self energy contributions, renormalization factors and the quasi-particle bandstructure, respectively.
 
 Convergence
 ===========

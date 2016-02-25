@@ -833,7 +833,7 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
   double vl, vu; // not used when range = 'A' or 'I'
 
   char jobz = 'V'; // eigenvectors also
-  char range = 'I'; // eigenvalues il-th thru iu-th
+  char range = 'I'; // eigenvalues il-th through iu-th
   char* uplo;
 
   if (!PyArg_ParseTuple(args, "OOsiOO", &a, &desca, &uplo, &iu,
@@ -976,7 +976,7 @@ PyObject* scalapack_diagonalize_mr3(PyObject *self, PyObject *args)
   double vl, vu; // not used when range = 'A' or 'I'
 
   char jobz = 'V'; // eigenvectors also
-  char range = 'I'; // eigenvalues il-th thru iu-th
+  char range = 'I'; // eigenvalues il-th through iu-th
   char* uplo;
 
   if (!PyArg_ParseTuple(args, "OOsiOO", &a, &desca, &uplo, &iu,
@@ -1294,7 +1294,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
   double vl, vu; // not used when range = 'A' or 'I'
 
   char jobz = 'V'; // eigenvectors also
-  char range = 'I'; // eigenvalues il-th thru iu-th
+  char range = 'I'; // eigenvalues il-th through iu-th
   char* uplo;
 
   if (!PyArg_ParseTuple(args, "OOsiOOO", &a, &desca, &uplo, &iu,
@@ -1440,7 +1440,7 @@ PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args)
   double vl, vu; // not used when range = 'A' or 'I'
 
   char jobz = 'V'; // eigenvectors also
-  char range = 'I'; // eigenvalues il-th thru iu-th
+  char range = 'I'; // eigenvalues il-th through iu-th
   char* uplo;
 
   double scale;

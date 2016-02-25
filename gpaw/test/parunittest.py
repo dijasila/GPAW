@@ -159,7 +159,7 @@ class ParallelTestResult(TestResult):
         raise NotImplementedError
 
     def addExpectedFailure(self, test, err):
-        """Called when an expected failure/error occured. Not ready!"""
+        """Called when an expected failure/error occurred. Not ready!"""
         raise NotImplementedError
 
     def addUnexpectedSuccess(self, test):

@@ -977,7 +977,7 @@ class Parallelization:
 
         groups = dict(k=self.kpt, b=self.band, d=self.domain)
 
-        # Build communicators in hierachical manner
+        # Build communicators in hierarchical manner
         # The ranks in the first group have largest separation while
         # the ranks in the last group are next to each other
         for name in order:

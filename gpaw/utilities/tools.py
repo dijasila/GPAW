@@ -298,7 +298,7 @@ def tridiag(a, b, c, r, u):
 
 
 def signtrim(data, decimals=None):
-    """Trim off the sign of potential zeros, usually occuring after round.
+    """Trim off the sign of potential zeros, usually occurring after round.
 
     data is the ndarray holding NumPy data to round and trim.
     decimals is an integer specifying how many decimals to round to.

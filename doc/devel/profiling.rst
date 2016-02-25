@@ -102,7 +102,7 @@ Follow the vendor installation instructions for ``TAU``.
 PerfDMF are a set of utilities that allow you to create a database for storing and analayzing your profile data. If you plan to collect any significant amount of profile data, it is highly recommend that you set one up. There are a number of options for the perfmdf database. For must users, the default based on derby is the simplest and it can be created by ``perfdmf_configure --create-default``. Other options are
 also available:
 `<http://www.cs.uoregon.edu/research/tau/docs/newguide/ch18s02.html>`_
-Note that altough Paraprof is the simplest way to load profile data into your database,
+Note that although Paraprof is the simplest way to load profile data into your database,
 it is also possible to accomplish this directly with the PerfDMF utilities.
 `<http://www.cs.uoregon.edu/research/tau/docs/newguide/ch19.html>`_
 
@@ -170,7 +170,7 @@ Simply add the following to the ``customize.py`` and run ``python setup.py build
 
   extra_link_args += ['-Wl,-rpath='+tau_path+'lib/']
 
-There may be a number of Makefile TAU stubs available. Choose the one that is appropriate for the profile data that you wish to collect and the compiler. Because automatic instrumentation generally has larger overhead than manual instrumentation, it is recommended to set the compensate option. In this way, the instrumentation time will be substracted out from the time reported by TAU. Without this compensation option, light weight functions may be over-represented in the flat profile.
+There may be a number of Makefile TAU stubs available. Choose the one that is appropriate for the profile data that you wish to collect and the compiler. Because automatic instrumentation generally has larger overhead than manual instrumentation, it is recommended to set the compensate option. In this way, the instrumentation time will be subtracted out from the time reported by TAU. Without this compensation option, light weight functions may be over-represented in the flat profile.
 
 You may set the following::
 

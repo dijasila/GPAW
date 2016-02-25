@@ -501,7 +501,7 @@ class Transport_Analysor:
             v = de2 / (k2 - k) / 2 / np.pi
             total_v.append(v)
             
-            #seperating left scaterring states and right scattering states
+            #separating left scaterring states and right scattering states
             #left scattering: lead->mol, right scattering: mol->lead
             proindex = find(abs(k.imag) < MinErr)
             pro_left_index = proindex[find(v[proindex].real < 0)]
@@ -646,7 +646,7 @@ class Transport_Analysor:
             
     def cal_sstates(self, tp, energies, s, q):
         #To see how much the transmision from one orbital(local basis) in lead a
-        # to the orbital in the lead b, the transmission is decomposited to
+        # to the orbital in the lead b, the transmission is decomposed to
         # Bloch wave in leads
         MinErr = 1e-8
         MaxLambda = 1 + MinErr

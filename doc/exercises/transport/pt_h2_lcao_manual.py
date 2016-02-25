@@ -10,9 +10,9 @@ from gpaw import GPAW, Mixer, FermiDirac
 from gpaw.lcao.tools import remove_pbc, get_lcao_hamiltonian, get_lead_lcao_hamiltonian
 import pickle as pickle
 
-a = 2.41  # Pt binding lenght
-b = 0.90  # H2 binding lenght
-c = 1.70  # Pt-H binding lenght
+a = 2.41  # Pt binding length
+b = 0.90  # H2 binding length
+c = 1.70  # Pt-H binding length
 L = 7.00  # width of unit cell
 
 #####################

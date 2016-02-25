@@ -135,7 +135,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
 
     # absolute path to directory
     root_abspath = os.path.abspath(opt.dir)
-    # lenght of directory name
+    # length of directory name
     rootlen = len(root_abspath) + 1
 
     ref_value_3300 = -44.85826

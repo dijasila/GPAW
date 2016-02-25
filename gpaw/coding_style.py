@@ -44,7 +44,7 @@ class SimpleExample:
         parameters, there should be a parameter section (see below).
         If there only a few possible arguments, then the parameter
         section can be left out and the arguments can be described in
-        the section folowing the headline and blank line (see the
+        the section following the headline and blank line (see the
         `run` method).  If a method is real simple and
         self-explanatory, the docstring can be the headline only (see
         the `reset` method).

@@ -35,7 +35,7 @@ Projected Density of states (PDOS)
 
 The projected density of states is useful for for analyzing chemical
 bonding. There exist several studies where the density projected onto
-the d states of a given surface atom is used. This short excercise
+the d states of a given surface atom is used. This short exercise
 demonstrates how to construct the PDOS of Fe.
 
 We will get a feel for the local density of states by plotting the

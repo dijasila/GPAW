@@ -321,7 +321,7 @@ class RawLDOS:
         spd = np.zeros((wfs.nspins, nibzkpts, wfs.bd.nbands, 3))
 
         if hasattr(atom, '__iter__'):
-            # atom is a list of atom indicies 
+            # atom is a list of atom indices 
             for a in atom:
                 spd += self.get(a)
             return spd

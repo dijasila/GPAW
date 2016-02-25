@@ -186,7 +186,7 @@ class RPACorrelation:
         nbands: int
             Number of bands (defaults to number of plane-waves).
         spin: bool
-            Separate spin in response funtion.
+            Separate spin in response function.
             (Only needed for beyond RPA methods that inherit this function).
         """
 

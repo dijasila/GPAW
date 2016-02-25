@@ -145,15 +145,15 @@ to the ASE package.
 The default number of ensemble XC functionals is 2000,
 for which well-converged error estimates should be ensured.
 Therefore, "de_h2" and "de_h" in the example
-are both arrays of 2000 pertubations of a BEEF-vdW total energy.
+are both arrays of 2000 perturbations of a BEEF-vdW total energy.
 The syntax "ens.get_ensemble_energies(N)" changes this number to N.
 The calculator object input to the BEEFEnsemble class could of course
 stem from a restarted GPAW calculation.
 
 It is very important to calculate
 the ensemble statistics correctly. Computing the standard deviation of each
-array of total energy pertubations makes little sense, only the standard
-deviation of the relative energy pertubations should be used for the
+array of total energy perturbations makes little sense, only the standard
+deviation of the relative energy perturbations should be used for the
 BEEF-vdW ensemble error estimates on a quantity.
 
 

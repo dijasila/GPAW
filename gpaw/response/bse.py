@@ -112,7 +112,7 @@ class BSE(BASECHI):
             for n1 in range(self.nv[0], self.nv[1]): 
                 for m1 in range(self.nc[0], self.nc[1]): 
                     focc = self.f_skn[0][ibzkpt1,n1] - self.f_skn[0][ibzkpt2,m1]
-                    if self.coupling: # Dont use Tamm-Dancoff Approx.
+                    if self.coupling: # Don't use Tamm-Dancoff Approx.
                         check_ftol = np.abs(focc) > self.ftol
                     else:
                         check_ftol = focc > self.ftol
@@ -851,7 +851,7 @@ class BSE(BASECHI):
         self.w_S  = data['w_S']
         self.v_SS = data['v_SS']
 
-        self.printtxt('Read succesfully !')
+        self.printtxt('Read successfully !')
         
 
     def save(self, filename):

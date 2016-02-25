@@ -26,6 +26,9 @@ N.LDA
 *.gpw
 *.npy
 
+# If you run the tests, these may write out files
+*.gpw
+
 # Stuff from LaTeX:
 *.aux
 *.bbl
