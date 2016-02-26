@@ -19,7 +19,7 @@ More information can be found here:
 
 Quasi-particle spectrum of bulk silicon
 =======================================
-In the first part of the tutorial, the quasi-particle spectrum of bulk silicon will be calculated. The resulting bandgap is compared to that of a standard DFT calculation.
+In the first part of the tutorial, the G0W0 calculator is introduced and the quasi-particle spectrum of bulk silicon is calculated. 
 
 Groundstate calculation
 -----------------------
@@ -45,7 +45,7 @@ Next, we set up the G0W0 calculator and calculate the quasi-particle spectrum fo
 
 .. literalinclude:: Si_gw.py
 
-The calculation takes about 5 minutes on a single CPU and returns a dict with the following key/value pairs. The dictionary is stored in a .pckl file.
+The calculation takes about 5 minutes on a single CPU and returns a dict with the following key/value pairs. The dictionary is stored in ``Si-g0w0_results.pckl``.
 
 ============    =====================    ===================================
 key             type                     description

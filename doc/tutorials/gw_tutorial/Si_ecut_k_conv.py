@@ -8,7 +8,7 @@ from gpaw import GPAW, FermiDirac
 from gpaw.wavefunctions.pw import PW
 from gpaw.response.g0w0 import G0W0
 
-direct_gap = np.zeros(4,4)
+direct_gap = np.zeros((4,4))
 
 a = 5.431
 atoms = bulk('Si', 'diamond', a=a)
@@ -20,6 +20,7 @@ for i, ecut in enumerate([50, 100, 150, 200]):
                     dtype=complex,
                     xc='LDA',
                     occupations=FermiDirac(0.001),
+                    eigensolver='rmm-diis',
                     txt='Si_groundstate.txt'
                     )
 
