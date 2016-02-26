@@ -137,7 +137,9 @@ class BSE():
             eshift /= Hartree
         if gw_skn is not None:
             assert self.nv + self.nc == len(gw_skn[0, 0])
-            assert self.kd.nbzkpts == len(gw_skn[0])
+            assert self.kd.nibzkpts == len(gw_skn[0])
+            gw_skn = gw_skn[:, self.kd.bz2ibz_k]
+            #assert self.kd.nbzkpts == len(gw_skn[0])
             gw_skn /= Hartree
         self.gw_skn = gw_skn
         self.eshift = eshift
@@ -203,12 +205,15 @@ class BSE():
         ci, cf = self.con_n[0], self.con_n[-1] + 1
         for ik, iK in enumerate(myKrange):
             pair = get_pair(pd0, 0, iK, vi, vf, ci, cf)
-            # deps_nm = (self.gw_skn[0, ik, :self.nv][:, np.newaxis] -
-            #            self.gw_skn[0, ik, self.nv:])
-
             n_n = np.arange(self.nv)
             m_m = np.arange(self.nc)
-            deps_kmn[ik] = -pair.get_transition_energies(n_n, m_m)
+
+            if self.gw_skn is not None:
+                deps_kmn[ik] = -(self.gw_skn[0, iK, :self.nv][:, np.newaxis] -
+                                 self.gw_skn[0, iK, self.nv:])
+            else:
+                deps_kmn[ik] = -pair.get_transition_energies(n_n, m_m)
+                
             df_Kmn[iK] = pair.get_occupation_differences(n_n, m_m)
             rhoex_KmnG[iK] = get_rho(pd0, pair,
                                      n_n, m_m,
