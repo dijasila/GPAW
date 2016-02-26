@@ -70,10 +70,8 @@ def main():
     if opts.gpaw:
         path = opts.gpaw
     else:
-        path = os.environ.get('GPAW_HOME')
-        if not path:
-            import gpaw
-            path = gpaw.__path__[0]
+        import gpaw
+        path = gpaw.__path__[0]
         
     if opts.export:
         export = opts.export.split(',')

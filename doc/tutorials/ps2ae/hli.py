@@ -5,9 +5,10 @@ from ase.units import Bohr
 from gpaw.utilities.ps2ae import PS2AE
 from gpaw import GPAW
 
-hli = Atoms('HLi', positions=[[0, 0, 0], [0, 0, 1.6]])
-hli.center(vacuum=2.5)
-hli.set_calculator(GPAW(txt='hli.txt'))
+hli = Atoms('HLi', positions=[[0, 0, 0], [0, 0, 1.6]],
+            cell=[3, 3, 4], pbc=True)
+#hli.center(vacuum=2.5)
+hli.set_calculator(GPAW(txt='hli.txt', kpts=(1, 1, 3)))
 hli.get_potential_energy()
 
 # Transformer:

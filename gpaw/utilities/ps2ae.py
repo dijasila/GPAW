@@ -25,16 +25,18 @@ class PS2AE:
             Force number of points to be a mulitiple of n.
         """
         self.calc = calc
-
+        dtype = calc.wfs.dtype
+        kd = calc.wfs.kd
+        
         # Create plane-wave descriptor for starting grid:
         gd0 = GridDescriptor(calc.wfs.gd.N_c, calc.wfs.gd.cell_cv)
-        self.pd0 = PWDescriptor(ecut=None, gd=gd0)
+        self.pd0 = PWDescriptor(ecut=None, gd=gd0, kd=kd)
         
         # ... and a descriptor for the final gris:
         N_c = h2gpts(h / Bohr, gd0.cell_cv, n)
         N_c = np.array([get_efficient_fft_size(N) for N in N_c])
         self.gd = GridDescriptor(N_c, gd0.cell_cv)
-        self.pd = PWDescriptor(ecut=None, gd=self.gd)
+        self.pd = PWDescriptor(ecut=None, gd=self.gd, kd=kd)
         
         self.dphi = None  # PAW correction (will be initialize when needed)
 
@@ -57,7 +59,9 @@ class PS2AE:
                                                    points=200))
             dphi_aj.append(dphi_j)
             
-        self.dphi = LFC(self.gd, dphi_aj)
+        self.dphi = LFC(self.gd, dphi_aj, kd=self.calc.wfs.kd,
+                        dtype=self.calc.wfs.dtype)
+        print(self.calc.wfs.dtype)
         self.dphi.set_positions(self.calc.atoms.get_scaled_positions())
         
     def get_wave_function(self, n, k=0, s=0, ae=True):
@@ -82,5 +86,6 @@ class PS2AE:
             band_rank, n = wfs.bd.who_has(n)
             assert kpt_rank == 0 and band_rank == 0
             P_ai = dict((a, P_ni[n]) for a, P_ni in wfs.kpt_u[u].P_ani.items())
-            self.dphi.add(psi_R, P_ai)
+            print(psi_R.dtype, P_ai,k)
+            self.dphi.add(psi_R, P_ai, k)
         return psi_R
