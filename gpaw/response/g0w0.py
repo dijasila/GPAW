@@ -475,10 +475,16 @@ class G0W0(PairDensity):
         self.Ga = chi0.Ga
         self.Gb = chi0.Gb
 
+        nw = chi0_wGG.shape[0]
+        mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
+
         if self.blockcomm.size > 1:
             A1_x = chi0_wGG.ravel()
             chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
-            
+            wa = min(self.blockcomm.rank * mynw, nw)
+        else:
+            wa = 0
+
         if self.integrate_gamma != 0:
             if self.integrate_gamma == 2:
                 reduced = True
@@ -520,9 +526,9 @@ class G0W0(PairDensity):
                 qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
                 weight_q = kd.q_weights
                 qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
-                a_q = np.sum(np.dot(chi0_wvv[iw], qf_qv.T) * qf_qv.T, axis=0)
-                a0_qG = np.dot(qf_qv, chi0_wxvG[iw, 0])
-                a1_qG = np.dot(qf_qv, chi0_wxvG[iw, 1])
+                a_q = np.sum(np.dot(chi0_wvv[wa+iw], qf_qv.T) * qf_qv.T, axis=0)
+                a0_qG = np.dot(qf_qv, chi0_wxvG[wa+iw, 0])
+                a1_qG = np.dot(qf_qv, chi0_wxvG[wa+iw, 1])
                 einv_GG = np.zeros((nG, nG), complex)
                 #W_GG = np.zeros((nG, nG), complex)
                 for iqf in range(len(qf_qv)):
@@ -554,7 +560,7 @@ class G0W0(PairDensity):
                 W_GG[:] = (einv_GG - delta_GG) * sqrV_G * sqrV_G[:, np.newaxis]
 
                 if self.ac and np.allclose(q_c, 0):
-                    W_GG = self.add_anisotropy_correction(pd, W_GG, einv_GG, chi0_wxvG[iw], chi0_wvv[iw], sqrV_G)
+                    W_GG = self.add_anisotropy_correction(pd, W_GG, einv_GG, chi0_wxvG[wa+iw], chi0_wvv[wa+iw], sqrV_G)
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
                     W_GG[0, 0] = (einv_GG[0, 0] - 1.0) * V0
                     W_GG[0, 1:] = einv_GG[0, 1:] * sqrV_G[1:] * sqrV0
