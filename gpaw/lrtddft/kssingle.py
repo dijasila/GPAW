@@ -599,6 +599,17 @@ class KSSingle(Excitation, PairDensity):
             string += ')'
         return string
 
+    def __eq__(self, other):
+        """KSSingles are considred equal when their indices are equal."""
+        return (self.pspin == other.pspin and self.k == other.k and
+                self.i == other.i and self.j == other.j)
+
+    def __hash__(self):
+        """Hash similar to __eq__"""
+        if not hasattr(self, 'hash'):
+            self.hash = hash((self.spin, self.k, self.i, self.j))
+        return self.hash
+
     #
     # User interface: ##
     #
