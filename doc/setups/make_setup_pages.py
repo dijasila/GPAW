@@ -39,7 +39,7 @@ Convergence tests
 =================
 
 The energy of %(aname)s dimer (`E_d`) and %(aname)s atom (`E_a`) is
-calculated at diferent grid-spacings (`h`).
+calculated at different grid-spacings (`h`).
 
 .. image:: ../static/setups-data/%(symbol)s-dimer-eggbox.png
 

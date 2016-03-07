@@ -21,5 +21,5 @@ print("%10s%10s%10s%10s" % ("atom", "ref.", "gpaw", "diff"))
 for a, er, e in zip(atoms, EREF, EE):
     print("%10s%10.2f%10.2f%10.2f" % (a, er, e, er-e))
     assert abs(er-e)<0.1 
-    # Arbitary 0.1 eV tolerance for non-self consistent SIC
+    # Arbitrary 0.1 eV tolerance for non-self consistent SIC
     # Note that Ne already deviates 2.5 eV

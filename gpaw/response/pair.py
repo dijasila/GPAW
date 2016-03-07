@@ -809,7 +809,7 @@ class PairDensity:
                     weight = np.sqrt(PWSA.how_many_symmetries() / len(K_k))
 
                 # Use kpt2 to compute intraband transitions
-                # These conditions are sufficent to make sure
+                # These conditions are sufficient to make sure
                 # that it still works in parallel
                 if kpt1.n1 == 0 and self.blockcomm.rank == 0 and \
                    optical_limit and intraband:

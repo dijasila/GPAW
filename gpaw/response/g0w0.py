@@ -9,6 +9,7 @@ from ase.dft.kpoints import monkhorst_pack
 from ase.units import Hartree
 from ase.utils import opencew, devnull
 from ase.utils.timing import timer
+from ase.parallel import paropen
 
 import gpaw.mpi as mpi
 from gpaw import debug
@@ -52,13 +53,13 @@ class G0W0(PairDensity):
           Sets whether the Godby-Needs plasmon-pole approximation for the
           dielectric function should be used.
        truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz, 
+            Coulomb truncation scheme. Can be either wigner-seitz,
             2D, 1D, or 0D
        integrate_gamma: int
-            Method to integrate the Coulomb interaction. 1 is a numerical 
-            integration at all q-points with G=[0,0,0] - this breaks the 
-            symmetry slightly. 0 is analytical integration at q=[0,0,0] only - 
-            this conserves the symmetry. integrate_gamma=2 is the same as 1, 
+            Method to integrate the Coulomb interaction. 1 is a numerical
+            integration at all q-points with G=[0,0,0] - this breaks the
+            symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
+            this conserves the symmetry. integrate_gamma=2 is the same as 1,
             but the average is only carried out in the non-periodic directions.
        E0: float
           Energy (in eV) used for fitting in the plasmon-pole approximation.
@@ -74,7 +75,7 @@ class G0W0(PairDensity):
                  truncation=None, integrate_gamma=1,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
                  domega0=0.025, omega2=10.0,
-                 nblocks=1, savew=False,
+                 nblocks=1, savew=False, savepckl=True,
                  world=mpi.world):
 
         if world.rank != 0:
@@ -96,6 +97,7 @@ class G0W0(PairDensity):
 
         self.filename = filename
         self.savew = savew
+        self.savepckl = savepckl
         
         ecut /= Hartree
         
@@ -229,6 +231,10 @@ class G0W0(PairDensity):
                    'qp': self.qp_sin * Hartree}
       
         self.print_results(results)
+
+        if self.savepckl:
+            pickle.dump(results,
+                        paropen(self.filename + '_results.pckl', 'wb'))
         
         return results
         
@@ -302,7 +308,6 @@ class G0W0(PairDensity):
         G_G = G_I[I0_G]
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
-
         for a, Q_Gii in enumerate(self.initialize_paw_corrections(pd1)):
             e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
             assert e < 1e-12
@@ -430,7 +435,7 @@ class G0W0(PairDensity):
                 fd = opencew(wfilename)
             if self.savew and fd is None:
                 # Read screened potential from file
-                with open(wfilename) as fd:
+                with open(wfilename, 'rb') as fd:
                     pd, W = pickle.load(fd)
                 # We also need to initialize the PAW corrections
                 self.Q_aGii = self.initialize_paw_corrections(pd)
@@ -466,10 +471,16 @@ class G0W0(PairDensity):
         self.Ga = chi0.Ga
         self.Gb = chi0.Gb
 
+        nw = chi0_wGG.shape[0]
+        mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
+
         if self.blockcomm.size > 1:
             A1_x = chi0_wGG.ravel()
             chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
-            
+            wa = min(self.blockcomm.rank * mynw, nw)
+        else:
+            wa = 0
+
         if self.integrate_gamma != 0:
             if self.integrate_gamma == 2:
                 reduced = True
@@ -511,11 +522,11 @@ class G0W0(PairDensity):
                 qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
                 weight_q = kd.q_weights
                 qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
-                a_q = np.sum(np.dot(chi0_wvv[iw], qf_qv.T) * qf_qv.T, axis=0)
-                a0_qG = np.dot(qf_qv, chi0_wxvG[iw, 0])
-                a1_qG = np.dot(qf_qv, chi0_wxvG[iw, 1])
+                a_q = np.sum(np.dot(chi0_wvv[wa+iw], qf_qv.T) * qf_qv.T, axis=0)
+                a0_qG = np.dot(qf_qv, chi0_wxvG[wa+iw, 0])
+                a1_qG = np.dot(qf_qv, chi0_wxvG[wa+iw, 1])
                 einv_GG = np.zeros((nG, nG), complex)
-                #W_GG = np.zeros((nG, nG), complex)
+                # W_GG = np.zeros((nG, nG), complex)
                 for iqf in range(len(qf_qv)):
                     chi0_GG[0] = a0_qG[iqf]
                     chi0_GG[:, 0] = a1_qG[iqf]
@@ -525,11 +536,12 @@ class G0W0(PairDensity):
                                                 truncation=self.truncation,
                                                 wstc=wstc,
                                                 q_v=qf_qv[iqf])**0.5
-                    e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
+                    e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:,
+                                                                  np.newaxis]
                     einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
-                    #einv_GG = np.linalg.inv(e_GG) * weight_q[iqf]
-                    #W_GG += (einv_GG * sqrV_G * sqrV_G[:, np.newaxis] 
-                    #         * weight_q[iqf])
+                    # einv_GG = np.linalg.inv(e_GG) * weight_q[iqf]
+                    # W_GG += (einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
+                    #          * weight_q[iqf])
             else:
                 sqrV_G = get_coulomb_kernel(pd,
                                             self.calc.wfs.kd.N_c,
@@ -586,7 +598,7 @@ class G0W0(PairDensity):
         if fd is None:
             print('Reading Kohn-Sham XC contribution from file:', name,
                   file=self.fd)
-            with open(name) as fd:
+            with open(name, 'rb') as fd:
                 self.vxc_sin = np.load(fd)
             assert self.vxc_sin.shape == self.shape, self.vxc_sin.shape
             return
@@ -605,7 +617,7 @@ class G0W0(PairDensity):
         fd = opencew(name)
         if fd is None:
             print('Reading EXX contribution from file:', name, file=self.fd)
-            with open(name) as fd:
+            with open(name, 'rb') as fd:
                 self.exx_sin = np.load(fd)
             assert self.exx_sin.shape == self.shape, self.exx_sin.shape
             return

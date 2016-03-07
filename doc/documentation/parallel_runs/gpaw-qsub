@@ -1,58 +1,55 @@
 #!/usr/bin/env python
 # Emacs: treat this as -*- python -*-
 
-import os, sys
-from optparse import OptionParser, Option, OptionValueError
+import os
+import sys
+from optparse import OptionParser, IndentedHelpFormatter
 import subprocess
 
-class MultipleOption(Option):
-    """OptionParser with added extend action"""
-    ACTIONS = Option.ACTIONS + ("extend",)
-    STORE_ACTIONS = Option.STORE_ACTIONS + ("extend",)
-    TYPED_ACTIONS = Option.TYPED_ACTIONS + ("extend",)
-    ALWAYS_TYPED_ACTIONS = Option.ALWAYS_TYPED_ACTIONS + ("extend",)
 
-    def take_action(self, action, dest, opt, value, values, parser):
-        if action == "extend":
-            # The extend action takes comma separated lists and turns them
-            # into python lists and append thems to list-like options
-            lvalue = value.split(",")
-            values.ensure_value(dest, []).extend(lvalue)
-        else:
-            Option.take_action(self, action, dest, opt, value, values, parser)
+class Formatter(IndentedHelpFormatter):
+    """Nicer epilog."""
+    def format_epilog(self, epilog):
+        return '\n' + '\n'.join(self._format_text(section)
+                                for section in epilog) + '\n'
 
 
 def main():
-    PROG = os.path.basename(os.path.splitext(__file__)[0])
-    description = """Submits a GPAW python script to the TORQUE queue"""
+    description = """Submits a GPAW Python script to the TORQUE queue."""
     
-    parser = OptionParser(option_class=MultipleOption,
-                          usage=('usage: %prog [OPTIONS] <script> ' +
-                                 '[SCRIPT ARGUMENTS]'),
-                          description=description)
+    parser = OptionParser(
+        usage='usage: %prog [OPTIONS] <script> [SCRIPT ARGUMENTS]',
+        description=description,
+        epilog=['Examples:',
+                '',
+                '    gpaw-qsub -c 32 script.py  # two xeon16',
+                '    gpaw-qsub -c 32 -n 2 script.py  # two xeon16, but use '
+                'only 1 core on each'],
+        formatter=Formatter())
     parser.disable_interspersed_args()
 
     add = parser.add_option
-    add('-x', '--export', action="extend", type='string',
-        help='Environment variables to export')
+    add('-c', '--cores', type=int,
+        help='Total number of cores to reserve.  Will automatically '
+        'determine the architecture (xeon16, xeon8, opteron4).')
+    add('-0', '--dry-run', action='store_true',
+        help='Do not submit anything, but write parameters and qsub command')
+    add('-n', '--processes', type=int,
+        help='Number of actual cores to use.')
+    add('-q', '--queue', default='verylong',
+        help='Name of queue (small, long, verylong).  Default is verylong')
+    add('-l', '--resources',
+        help='Example: -l nodes=2:ppn=4:opteron4')
+    add('-m', '--mail-options',
+        help='Example: -m abe (abort, begin, end)')
+    add('-N', '--jobname')
     add('-g', '--gpaw', help='Path to GPAW')
-    add('--module', help=('Run library module as a script ' +
-                          '(terminates option list)'))
-    add('--cores', type=int,
-        help=('Determine processor scheme automatically to give a total ' +
-              'number of cores.'))
-    add('--ncpus', type=int,
-        help=('Number of actual cpus to use.'))
-    add('-n', '--threads', type=int, default=1,
-        help='Number of threads per cpu.')
-    add('-0', '--dry-run', action='store_true')
-    
-    # qsub options:
-    add('-q', '--queue')
-    add('-l', '--resource-list', action='extend', type='string',
-        dest='resource_list')
-    add('-m', '--mail-options', dest='mail_options')
-    add('-N', '--jobname', dest='jobname')
+    add('-x', '--export',
+        help='Comma separated environment variables to export')
+    add('--threads', type=int, default=1,
+        help='Number of threads per process.')
+    add('--module',
+        help='Run library module as a script (terminates option list)')
 
     args = sys.argv[1:]
     for i, arg in enumerate(args):
@@ -79,8 +76,7 @@ def main():
             path = gpaw.__path__[0]
         
     if opts.export:
-        export = opts.export
-        pass
+        export = opts.export.split(',')
     else:
         export = []
         
@@ -107,11 +103,14 @@ def main():
             args[0] = p.communicate()[0].strip()
 
     determine_nodes = True
-    if opts.resource_list:
-        for res in opts.resource_list:
+    if opts.resources:
+        resources = opts.resources.split(':')
+        for res in resources:
             if res.startswith('nodes='):
                 determine_nodes = False
                 break
+    else:
+        resources = []
     
     if opts.cores and determine_nodes:
         for ppn, arch in [(16, 'xeon16'), (8, 'xeon8'), (4, 'opteron4')]:
@@ -124,18 +123,13 @@ def main():
                 ppn = opts.cores
             else:
                 2 / 0
-        if not opts.resource_list:
-            opts.resource_list = []
-        opts.resource_list.append(
-            'nodes={0}:ppn={1}:{2}'.format(nodes, ppn, arch))
+        resources += ['nodes={0}'.format(nodes),
+                      'ppn={0}:{1}'.format(ppn, arch)]
 
     qsub += 'job = %r\n' % args
     qsub += 'path = %r\n' % path
     qsub += 'module = %r\n' % opts.module
-    if opts.ncpus:
-        qsub += 'ncpus = %d\n' % opts.ncpus
-    else:
-        qsub += 'ncpus = None\n'
+    qsub += 'processes = {0}\n'.format(opts.processes)
     qsub += 'nthreads = %d\n' % opts.threads
     qsub += 'export = %r\n' % export
 
@@ -157,10 +151,8 @@ if c in 'ghi':
     # Intel Niflheim node:
     cmd += ['--mca', 'btl', '^tcp']
 
-if ncpus:
-    cmd += ['-np', str(ncpus), '--loadbalance']
-elif nthreads > 1:
-    cmd += ['-np', str(nproc // nthreads), '--loadbalance']
+if processes:
+    cmd += ['-np', str(processes), '--loadbalance']
 if nthreads > 1:
     export.append('OMP_NUM_THREADS=%d' % nthreads)
 
@@ -180,17 +172,16 @@ if error:
     raise SystemExit(error)
 """
     cmd = ['qsub']
-    qsub_options = []
     if opts.queue:
         cmd += ['-q', opts.queue]
-    if opts.resource_list:
-        cmd += ['-l', ','.join(opts.resource_list)]
+    if resources:
+        cmd += ['-l', ':'.join(resources)]
     if opts.mail_options:
         cmd += ['-m', opts.mail_options]
     
     if opts.dry_run:
-        print(cmd)
-        print(qsub)
+        print('\n'.join(qsub.splitlines()[1:9]))
+        print(' '.join(cmd))
     else:
         subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(qsub)
 

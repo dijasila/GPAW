@@ -128,7 +128,7 @@ def analyse_benchmark(dir, pattern, output_prefix, iter, verbose=False):
                 t = T(lines[n + 0].split()[4])
                 break
         time[p]['start'] = t
-        # extract SCF begining time estimate and end time (constant potential steps (fixdensity))
+        # extract SCF beginning time estimate and end time (constant potential steps (fixdensity))
         for n, l in enumerate(lines):
             if l.startswith('iter:   1'):
                 #print l, n, f
@@ -140,10 +140,10 @@ def analyse_benchmark(dir, pattern, output_prefix, iter, verbose=False):
                 t2 = T(lines[fixdensity_start + 1].split()[2])
                 t3 = T(lines[fixdensity_start + 2].split()[2])
                 break
-        # estimate the begining of fixdensity based on 3 fixdensity steps
+        # estimate the beginning of fixdensity based on 3 fixdensity steps
         time[p]['fixdensity_start_estimate'] = t1-(t3-t1)/2.0
         time[p]['fixdensity_end'] = t3
-        # extract SCF begining and end time
+        # extract SCF beginning and end time
         time[p]['SCF_start'] = time[p]['fixdensity_end']
         for n, l in enumerate(lines):
             if l.startswith('iter: '+"%3s" % iter):

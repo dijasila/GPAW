@@ -5,7 +5,7 @@ from ase.visualize import view
 from gpaw import GPAW, PW
 
 name = 'Al-fcc'
-a = 4.05  # fcc lattice paramter
+a = 4.05  # fcc lattice parameter
 b = a / 2
 
 bulk = Atoms('Al',

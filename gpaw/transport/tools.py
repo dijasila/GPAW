@@ -998,7 +998,7 @@ def angular_momentum_slice(overlap_slice, l, direction):
 
 def cut_grids_side(array, gd, gd0):
     #abstract the grid value from a including-buffer-layer calculation
-    #the vaccum buffer layer is fixed on the right side
+    #the vacuum buffer layer is fixed on the right side
     #Assume the buffer system has the same domain spliting with the original one
     from scipy import interpolate
     global_array = gd.collect(array)

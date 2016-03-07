@@ -68,7 +68,7 @@ mpi_debug('idata=%d' % idata)
 if world.rank == 0:
     print('-'*16)
 
-# The master just calculated auxilary data. Distribute it.
+# The master just calculated auxiliary data. Distribute it.
 aux = np.empty(N, dtype=float)
 
 # Only master knows the data right now
@@ -77,7 +77,7 @@ if world.rank == 0:
     aux[:] = np.random.uniform(0,1,size=N).round(2)
     print('MASTER aux: %s, mean=%f' % (aux, aux.mean()))
 
-# Allocate space for my part of the auxilary data
+# Allocate space for my part of the auxiliary data
 myaux = np.empty(M, dtype=float)
 
 # Scatter parts from master to everyone
@@ -112,13 +112,13 @@ mpi_debug('myaux: %s, mean=%f' % (myaux,meanaux))
 if world.rank == 0:
     print('-'*16)
 
-# We've done something to our part of the auxilary data. Master needs it all
+# We've done something to our part of the auxiliary data. Master needs it all
 if world.rank == 0:
     result = np.empty(N, dtype=float)
 else:
     result = None
 
-# Do something to our auxilary data
+# Do something to our auxiliary data
 myaux[:] = np.sin(2*np.pi*myaux).round(3)
 mpi_debug('myaux: %s' % myaux)
 

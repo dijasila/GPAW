@@ -28,7 +28,7 @@ If you decide to install a development version of GPAW, this is what you do:
    i.e. the installation path will be :file:`/home/niflheim/$USER/devel/gpaw`.
 
    **Note** that this path appears in few places in the tools described on
-   this page - make sure you change those occurences if installing
+   this page - make sure you change those occurrences if installing
    in under a different directory. The instructions assume **bash**.
 
 1. On the ``servcamd`` filesystem (login on your workstation)
@@ -58,7 +58,7 @@ If you decide to install a development version of GPAW, this is what you do:
    https://wiki.fysik.dtu.dk/it/SshWithoutPassword.
 
 5. Set the relevant environment variables poiting to the compiled GPAW version.
-   There are at least two ways to achive that:
+   There are at least two ways to achieve that:
 
     5a. **Prepend** :envvar:`PYTHONPATH` and :envvar:`PATH` environment variables in your login scripts.
     This method provides you with a default GPAW version (`devel`).

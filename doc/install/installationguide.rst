@@ -34,22 +34,23 @@ Installation with package manager on Linux
 This is **the preferred** way to install on a Linux system.
 If you prefer to install from sources follow :ref:`installationguide_developer`.
 
-Configure the package repositories as described at
-`Installation with package manager on Linux <https://wiki.fysik.dtu.dk/ase/download.html#installation-with-package-manager-on-linux>`_,
-and install GPAW with:
+Install GPAW with:
 
-- on RHEL/CentOS/Fedora::
+* on RHEL/CentOS/Fedora::
 
-    yum -y install gpaw
+    $ yum -y install gpaw
+    
+  (enable https://fedoraproject.org/wiki/EPEL on RHEL/CentOS)
 
-- on openSUSE::
+* on openSUSE::
+    
+    $ zypper ar -f http://download.opensuse.org/repositories/home:/dtufys/openSUSE_13.1/home:dtufys.repo
+    $ yast -i gpaw
 
-    yast -i gpaw
+* on Debian/Ubuntu::
 
-- on Debian/Ubuntu::
-
-    sudo apt-get update
-    sudo apt-get -y install gpaw
+    $ sudo apt-get update
+    $ sudo apt-get -y install gpaw
 
 For the full list of supported distributions check
 https://build.opensuse.org/package/show?package=gpaw&project=home%3Adtufys

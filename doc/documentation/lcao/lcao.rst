@@ -190,6 +190,11 @@ atoms are ghosts::
 Notes on performance
 --------------------
 
+For larger LCAO calculations, it is crucial to use ScaLAPACK.
+See the dedicated section on :ref:`manual_ScaLAPACK` for more information.
+Below are some hints on how to obtain good performance for operations not
+related to ScaLAPACK.
+
 The *only* difference between the FD (grid-based finite-difference)
 and LCAO modes is the way in which pseudo wave functions are
 represented.  The usual real-space grid methods are still used for the

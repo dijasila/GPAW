@@ -72,7 +72,7 @@ static PyObject *mpi_request_wait(GPAW_MPI_Request *self, PyObject *noargs)
   int ret = MPI_Wait(&(self->rq), MPI_STATUS_IGNORE);
   if (ret != MPI_SUCCESS)
     {
-      PyErr_SetString(PyExc_RuntimeError, "MPI_Wait error occured.");
+      PyErr_SetString(PyExc_RuntimeError, "MPI_Wait error occurred.");
       return NULL;
     }
 #endif
@@ -96,7 +96,7 @@ static PyObject *mpi_request_test(GPAW_MPI_Request *self, PyObject *noargs)
   int ret = MPI_Test(&(self->rq), &flag, MPI_STATUS_IGNORE); // Can this change the Python string?
   if (ret != MPI_SUCCESS)
     {
-      PyErr_SetString(PyExc_RuntimeError, "MPI_Test error occured.");
+      PyErr_SetString(PyExc_RuntimeError, "MPI_Test error occurred.");
       return NULL;
     }
 #endif
@@ -238,7 +238,7 @@ static PyObject * mpi_sendreceive(MPIObject *self, PyObject *args,
                            PyArray_BYTES(b), nrecv, MPI_BYTE, src, recvtag,
                            self->comm, MPI_STATUS_IGNORE);
     if (ret != MPI_SUCCESS) {
-        PyErr_SetString(PyExc_RuntimeError, "MPI_Sendrecv error occured.");
+        PyErr_SetString(PyExc_RuntimeError, "MPI_Sendrecv error occurred.");
         return NULL;
     }
 #endif
@@ -272,7 +272,7 @@ static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
                          MPI_STATUS_IGNORE);
       if (ret != MPI_SUCCESS)
         {
-          PyErr_SetString(PyExc_RuntimeError, "MPI_Recv error occured.");
+          PyErr_SetString(PyExc_RuntimeError, "MPI_Recv error occurred.");
           return NULL;
         }
 #endif
@@ -291,7 +291,7 @@ static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
                           &(req->rq));
       if (ret != MPI_SUCCESS)
         {
-          PyErr_SetString(PyExc_RuntimeError, "MPI_Irecv error occured.");
+          PyErr_SetString(PyExc_RuntimeError, "MPI_Irecv error occurred.");
           return NULL;
         }
 #endif
@@ -322,7 +322,7 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
       int ret = MPI_Send(PyArray_BYTES(a), n, MPI_BYTE, dest, tag, self->comm);
       if (ret != MPI_SUCCESS)
         {
-          PyErr_SetString(PyExc_RuntimeError, "MPI_Send error occured.");
+          PyErr_SetString(PyExc_RuntimeError, "MPI_Send error occurred.");
           return NULL;
         }
 #endif
@@ -341,7 +341,7 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
                           &(req->rq));
       if (ret != MPI_SUCCESS)
         {
-          PyErr_SetString(PyExc_RuntimeError, "MPI_Isend error occured.");
+          PyErr_SetString(PyExc_RuntimeError, "MPI_Isend error occurred.");
           return NULL;
         }
 #endif
@@ -438,7 +438,7 @@ static PyObject * mpi_testall(MPIObject *self, PyObject *requests)
   if (ret != MPI_SUCCESS)
     {
       // We do not dare to release the buffers now!
-      PyErr_SetString(PyExc_RuntimeError, "MPI_Testall error occured.");
+      PyErr_SetString(PyExc_RuntimeError, "MPI_Testall error occurred.");
       return NULL;
     }
 #endif
@@ -510,7 +510,7 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
   if (ret != MPI_SUCCESS)
     {
       // We do not dare to release the buffers now!
-      PyErr_SetString(PyExc_RuntimeError, "MPI_Waitall error occured.");
+      PyErr_SetString(PyExc_RuntimeError, "MPI_Waitall error occurred.");
       return NULL;
     }
 #endif

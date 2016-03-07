@@ -221,11 +221,11 @@ class LCAOTDDFT(GPAW):
         # normalize
         direction = self.kick_strength / magnitude
 
-        self.text('Applying absorbtion kick')
+        self.text('Applying absorption kick')
         self.text('Magnitude: %.8f hartree/bohr' % magnitude)
         self.text('Direction: %.4f %.4f %.4f' % tuple(direction))
 
-        # Create hamiltonian object for absorbtion kick
+        # Create hamiltonian object for absorption kick
         cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
         kick_hamiltonian = KickHamiltonian(self, cef)
         for k, kpt in enumerate(self.wfs.kpt_u):

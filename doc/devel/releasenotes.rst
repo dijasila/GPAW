@@ -302,7 +302,7 @@ Version 0.4
 * Using localized functions will now no longer use MPI group
   communicators and blocking calls to MPI_Reduce and MPI_Bcast.
   Instead non-blocking sends/receives/waits are used.  This will
-  reduce syncronization time for large parallel calculations.
+  reduce synchronization time for large parallel calculations.
 
 * More work on LB94.
 * Using LCAO code forinitial guess for grid calculations.

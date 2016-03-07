@@ -396,7 +396,7 @@ def Y_collect2(l, m):
     return norm, p2
 
 def dYdq(l, m, q):
-    """Returns a normalization constant, and a dictionary discribing
+    """Returns a normalization constant, and a dictionary describing
        the functional form of the derivative of r^l Y_l^m(x,y,z) with
        respect to x, y or z if q is either 0, 1 or 2 respectively. The
        format of the output dictionary is {(i, j, k): c}, where c is the

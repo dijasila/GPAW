@@ -14,7 +14,7 @@ number of bands (left unspecified), unless stated otherwise.
 
 On the plots: the number of self-consistent steps (stats), the total run time,
 the systems with the largest number of steps, and the number of
-systems for which convergence succeded.
+systems for which convergence succeeded.
 
 In the corresponding tables: the most common value of the total energy
 ("energy"), and the differences (run - "energy").

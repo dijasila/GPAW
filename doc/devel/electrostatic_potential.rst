@@ -52,7 +52,7 @@ and
    \frac{\Delta\tilde{\rho}^a(\mathbf{r}')}
    {|\mathbf{r}-\mathbf{r}'|}.
 
-Notice that the `Q_{\ell m}^a` have been choosen so that all multipole
+Notice that the `Q_{\ell m}^a` have been chosen so that all multipole
 moments of `\Delta\tilde{\rho}^a` are zero and therefore, the
 potential from these correction charges (`\Delta\tilde{v}_H^a`) will
 be non-zero only inside the atomic augmentation spheres.

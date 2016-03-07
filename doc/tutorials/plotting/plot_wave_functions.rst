@@ -17,7 +17,7 @@ molecule and save the wave functions in a file (``CO.gpw``).
 Creating wave function cube files
 ---------------------------------
 
-You can get seperate cube files (the format used by Gaussian) for each wavefunction with the script:
+You can get separate cube files (the format used by Gaussian) for each wavefunction with the script:
 
 .. literalinclude:: CO2cube.py
 

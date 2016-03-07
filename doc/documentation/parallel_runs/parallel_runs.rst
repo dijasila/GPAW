@@ -99,7 +99,7 @@ The tool tries to guess the architecture/host automatically.
 By default it uses the following environment variables to write the runscript:
 
 =============== ===================================
-variable        meaning                            
+variable        meaning
 =============== ===================================
 HOSTNAME        name used to assing host type
 PYTHONPATH      path for python
@@ -328,31 +328,60 @@ More information about these topics can be found here:
 .. _manual_ScaLAPACK:
 
 ScaLAPACK
---------------------
-Calculations with nbands > 500 will benefit from ScaLAPACK (otherwise
-the default serial LAPACK should be used). The ScaLAPACK parameters
-are defined either using the aformentioned ``'sl_...'`` entry in the parallel
-keyword dictionary or using a command line argument,
-e.g. ``--sl_default=m,n,mb``.  A reasonbly good guess for these 
-parameters on most systems is related to the numbers of bands. 
-We recommend::
+---------
+
+ScaLAPACK improves performance of calculations beyond a certain size.
+This size depends on whether using FD, LCAO, or PW mode.
+
+In FD or PW mode, ScaLAPACK operations are applied to arrays of size
+nbands by nbands, whereas in LCAO mode, the arrays are generally the
+number of orbitals by the number of orbitals and therefore larger,
+making ScaLAPACK particularly important for LCAO calculations.
+
+With LCAO, it starts to become an advantage to use ScaLAPACK at around
+800 orbitals which corresponds to about 50 normal (non-hydrogen,
+non-semicore) atoms with standard DZP basis set.
+In FD mode, calculations with nbands > 500 will
+benefit from ScaLAPACK; otherwise, the default serial LAPACK might as
+well be used.
+
+The ScaLAPACK parameters
+are defined either using the aforementioned ``'sl_...'`` entry in the parallel
+keyword dictionary (recommended) such as ``sl_default=(m, n, block)``,
+or alternatively using a command line argument such as
+``--sl_default=m,n,block``.
+
+A block size of 64 has been found to be a universally good choice both
+in all modes.
+
+In LCAO mode, it is normally best to assign as many cores as possible,
+which means that ``m`` and ``n`` should multiply to the total number of cores
+divided by the k-point/spin parallelization.
+For example with 128 cores and parallelizing by 4 over k-points,
+there are 32 cores per k-point available per scalapack and a sensible
+choice is ``m=8``, ``n=4``.  You can use ``sl_auto=True`` to make
+such a choice automatically.
+
+In FD or PW mode, a good guess for these
+parameters on most systems is related to the numbers of bands.
+We recommend for FD/PW::
 
   mb = 64
   m = floor(sqrt(nbands/mb))
   n = m
 
 There are a total of four ``'sl_...'`` keywords. Most people will be
-fine just using ``'sl_default'``. Here we use the same 
+fine just using ``'sl_default'`` or even ``'sl_auto'``. Here we use the same
 ScaLAPACK parameters in three different places: i) general eigensolve
-in the LCAO intilization ii) standard eigensolve in the FD calculation and 
+in the LCAO intilization ii) standard eigensolve in the FD calculation and
 iii) Cholesky decomposition in the FD calculation. It is currently
 possible to use different ScaLAPACK parameters in the LCAO
-intialization and the FD calculation by using two of the ScaLAPACK 
+initialization and the FD calculation by using two of the ScaLAPACK
 keywords in tandem, e.g::
 
    --sl_lcao=p,q,pb --sl_default=m,n,mb
 
-where ``p``, ``q``, ``pb``, ``m``, ``n``, and ``mb`` all 
+where ``p``, ``q``, ``pb``, ``m``, ``n``, and ``mb`` all
 have different values. The most general case is the combination
 of three ScaLAPACK keywords, e.g::
 

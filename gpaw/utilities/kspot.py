@@ -16,7 +16,7 @@ def get_scaled_positions(atoms, positions):
    
     Atoms outside the unit cell will be wrapped into the cell in
     those directions with periodic boundary conditions so that the
-    scaled coordinates are beween zero and one."""
+    scaled coordinates are between zero and one."""
    
     scaled = np.linalg.solve(atoms._cell.T, positions.T).T
     for i in range(3):

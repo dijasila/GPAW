@@ -24,7 +24,7 @@ the relieve of energy when we remove an electron from the valence band.
   minimum located and what is the band gap obtained from DFT?
 
 The GW approximation is a method for calculating the charged states of a
-system based on a systematic pertubation theory approach. In its simplest
+system based on a systematic perturbation theory approach. In its simplest
 version, and the one so far implemented in GPAW, we can use it to find the
 corrections to the DFT band structure than include the missing screening
 effect when we add or remove an electron. In this approximation the

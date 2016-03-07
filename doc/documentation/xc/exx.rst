@@ -19,7 +19,7 @@ The current implementation *lacks* the following features:
 * Fractional occupations.
    For technical reasons, we had to decouple occupied and unoccupied states. This makes fractional occupations imposible. (Warning: the code will not raise an exception, but probably won't converge).
 * Speed.
-   Inclusion of Fock exchange is exceedingly slow. The bottleneck is solving the poisson integrals of the Fock operator, which is currently done using an iterative real-space solver with a zero initial guess for the potential at each SCF cycle. This chould be optimized.
+   Inclusion of Fock exchange is exceedingly slow. The bottleneck is solving the poisson integrals of the Fock operator, which is currently done using an iterative real-space solver with a zero initial guess for the potential at each SCF cycle. This should be optimized.
 
 One way to speed up an exact-exchange (or hybrid) calculation is to use the coarse grid (used for wave functions) instead of the finegrid (used for for densities) for the Fock potentials. This should give a speed-up factor of 8. This can be specified in the ``xc`` keyword like in this example :svn:`~gpaw/test/exx_coarse.py`
 

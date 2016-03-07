@@ -121,7 +121,7 @@ class Side:
 
 
 class Surrounding:
-    """The potential and density enviroment of the scattering region"""
+    """The potential and density environment of the scattering region"""
     def __init__(self, tp, type='LR'):
         self.type = type
         self.lead_num = tp.lead_num

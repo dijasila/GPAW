@@ -3,9 +3,9 @@
 from ase import Atoms
 from ase.io import write
 
-a = 2.41  # Pt binding lenght
-b = 0.90  # H2 binding lenght
-c = 1.70  # Pt-H binding lenght
+a = 2.41  # Pt binding length
+b = 0.90  # H2 binding length
+c = 1.70  # Pt-H binding length
 L = 7.00  # width of unit cell
 
 # Setup the Atoms for the scattering region.

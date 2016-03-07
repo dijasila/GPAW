@@ -158,7 +158,7 @@ PBE     HF     RPA    rAPBE       Experimental
 7.75   5.17   7.04     7.61             7.55
 ====   ====   ====   ======       ============
 
-As anticipated, RPA severly underestimates the cohesive energy, while PBE performs much better, and rAPBE comes very close to the experimental value.
+As anticipated, RPA severely underestimates the cohesive energy, while PBE performs much better, and rAPBE comes very close to the experimental value.
 
 
 Example 4: Correlation energy of diamond with different kernels

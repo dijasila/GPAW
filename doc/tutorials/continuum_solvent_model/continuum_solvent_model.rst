@@ -75,7 +75,7 @@ with a modified value for hydrogen (1.09 Å) are a good
 choice for the atomic radii of the effective repulsive potential
 [#HW14]_.
 
-Alltogether, the model has three parameters. The static dielectric
+Altogether, the model has three parameters. The static dielectric
 constant `\epsilon_{\infty}` of the solvent is taken directly from
 experimental data. The parameter `u_0` is fitted to experimental
 volumes. Afterwards, the parameter `\gamma` can be fitted to

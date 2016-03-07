@@ -10,7 +10,7 @@ interaction of localized electrons, which is not correctly described
 by LDA or GGA, with an additional Hubbard-like term. The on-site
 Coulomb interactions are particularly strong for localized d and f
 electrons, but can be also important for p localized orbitals.  The
-strenght of the on-site interactions are usually described by
+strength of the on-site interactions are usually described by
 parameters U (on site Coulomb) and J (on site exchange). These
 parameters U and J can be extracted from ab-initio calculations, but
 usually are obtained semi-empirically.
@@ -97,7 +97,7 @@ have three p orbital fully occupied (spin up) and three p orbitals
 empty (spin down). In a first approximation, the occupied orbitals
 should decrease their energy by `U_\text{eff}/2` with respect to a
 calculation with no +U corrections, whereas the empty orbitals should
-increase their energy by the same ammount. The next example show how
+increase their energy by the same amount. The next example show how
 this is only true if the +U correction is normalized.
 
 .. literalinclude:: n.py

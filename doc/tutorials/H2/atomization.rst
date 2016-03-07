@@ -30,7 +30,7 @@ calculation is used again for the molecule caluclation - only the
 filename for the output file needs to be changed to ``H2.out``.  We
 extract the energy into the ``e2`` variable.
 
-If we run this script, we get the folowing result:
+If we run this script, we get the following result:
 
 .. literalinclude:: atomization.txt
 
