@@ -41,11 +41,6 @@ Quick links to all features:
       - :ref:`Continuum Solvent Model <continuum_solvent_model>`
       -
 
-.. Watch us on GPAWTV
-   ==================
-
-   .. include:: ytp.txt
-
 
 .. _news:
 
@@ -142,3 +137,18 @@ News
 .. _CSC's supercomputer procurement: http://www.csc.fi/english/pages/hpc2011
 .. _18 million CPU hour grant: http://www.prace-ri.eu/PRACE-5thRegular-Call
 .. _PRACE Unified European Application Benchmark Suite: http://www.prace-ri.eu/ueabs
+
+
+.. toctree::
+
+   algorithms
+   install/install
+   setups/setups
+   tutorials/tutorials
+   exercises/exercises
+   documentation/documentation
+   devel/benchmarks
+   devel/releasenotes
+   faq
+   mailinglists
+   devel/devel

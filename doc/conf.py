@@ -9,14 +9,15 @@ extensions = ['ext', 'images', 'sitelink',
               'sphinx.ext.intersphinx']
 templates_path = ['templates']
 source_suffix = '.rst'
-master_doc = 'contents'
+master_doc = 'index'
 project = 'GPAW'
-copyright = 'GPAW developers'
+copyright = '2016, GPAW developers'
 exclude_patterns = ['build']
 default_role = 'math'
 pygments_style = 'sphinx'
 autoclass_content = 'both'
-intersphinx_mapping = {
+imodindex_common_prefix = ['gpaw.']
+ntersphinx_mapping = {
     'ase': ('http://wiki.fysik.dtu.dk/ase', None),
     'numpy': ('http://docs.scipy.org/doc/numpy', None),
     'mayavi': ('http://docs.enthought.com/mayavi/mayavi', None)}
