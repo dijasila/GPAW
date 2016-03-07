@@ -70,6 +70,8 @@ class G0W0(PairDensity):
           Control parameter for the non-linear frequency grid, equal to the
           frequency where the grid spacing has doubled in size.
     """
+
+
     def __init__(self, calc, filename='gw',
                  kpts=None, bands=None, nbands=None, ppa=False,
                  truncation=None, integrate_gamma=1,
