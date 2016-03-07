@@ -21,4 +21,3 @@ def make_site_linker(baseurl):
     
 def setup(app):
     app.add_role('ase', make_site_linker('https://wiki.fysik.dtu.dk/ase/'))
-    app.add_role('wiki', make_site_linker('https://wiki.fysik.dtu.dk/'))
