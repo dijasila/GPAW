@@ -30,7 +30,6 @@ The following packages are required (names given for RHEL 5 system):
  - openmpi, openmpi-devel
  - bash
  - `campos-gpaw <https://wiki.fysik.dtu.dk/gpaw/install/installationguide.html>`_
- - `campos-ase3 <https://wiki.fysik.dtu.dk/ase/download.html>`_
 
 Please refer to :ref:`platforms_and_architectures` for hints on
 installing GPAW on different platforms.
@@ -274,7 +273,7 @@ Dual-socket dual Core AMD Opteron(tm) Processor 285/2.6 GHz/2 GB RAM per core EL
     Errors were reported when using different blas/lapack in GPAW and NUMPY!
 
     ============================== =============================================
-    compiler                       options                     
+    compiler                       options
     ============================== =============================================
     gcc 4.1.2 20080704             -O3 -funroll-all-loops -std=c99
     gcc43 4.3.2 20081007           -O3 -funroll-all-loops -std=c99
@@ -290,15 +289,15 @@ Dual-socket dual Core AMD Opteron(tm) Processor 285/2.6 GHz/2 GB RAM per core EL
     blas/lapack : compiler        gcc     gcc43   amd4.2  pathcc  icc     pgcc
     ============================= ======= ======= ======= ======= ======= =======
     acml-4.2.0/acml-4.2.0         N/A      991.74  985.83  980.75 1020.66 1082.64
-    acml-4.1.0/acml-4.1.0         N/A     --      --       978.58 --      --     
-    acml-4.0.1/acml-4.0.1          991.95 N/A     N/A      984.23 --      --     
-    blas-3.0-37/lapack-3.0-37     1494.63 1495.52 --      --      --      --     
+    acml-4.1.0/acml-4.1.0         N/A     --      --       978.58 --      --
+    acml-4.0.1/acml-4.0.1          991.95 N/A     N/A      984.23 --      --
+    blas-3.0-37/lapack-3.0-37     1494.63 1495.52 --      --      --      --
     goto-1.26/acml-4.2.0          N/A      889.22  886.43 879.28  FAIL    FAIL
-    goto-1.26/acml-4.2.0 PGO      --       886.47 --      --      --      --     
-    goto-1.26/acml-4.0.1           888.79 N/A     N/A     --      --      --     
-    atlas-3.8.3/acml-4.2.0        --       931.41 --      --      --      --     
-    atlas-3.8.3/lapack-3.2.1      --       927.71 --      --      --      --     
-    mkl-10.1.2.024/mkl-10.1.2.024 --      1012.64 --      1030.06 --      --     
+    goto-1.26/acml-4.2.0 PGO      --       886.47 --      --      --      --
+    goto-1.26/acml-4.0.1           888.79 N/A     N/A     --      --      --
+    atlas-3.8.3/acml-4.2.0        --       931.41 --      --      --      --
+    atlas-3.8.3/lapack-3.2.1      --       927.71 --      --      --      --
+    mkl-10.1.2.024/mkl-10.1.2.024 --      1012.64 --      1030.06 --      --
     ============================= ======= ======= ======= ======= ======= =======
 
     **Note**: the PGO entry refers to :ref:`PGO` driven using the benchmark.
@@ -307,7 +306,7 @@ Dual-socket dual Core AMD Opteron(tm) Processor 285/2.6 GHz/2 GB RAM per core EL
     Errors were reported when using different blas/lapack in GPAW and NUMPY!
 
     ============================== =============================================
-    compiler                       options                     
+    compiler                       options
     ============================== =============================================
     gcc 4.1.2 20080704             -O3 -funroll-all-loops -std=c99
     gcc43 4.3.2 20081007           -O3 -funroll-all-loops -std=c99
@@ -323,7 +322,7 @@ Dual-socket dual Core AMD Opteron(tm) Processor 285/2.6 GHz/2 GB RAM per core EL
     and gcc43/mkl-10.1.2.024/mkl-10.1.2.024 (**B**).
 
     ===================== ====================================== ======================================
-    MP pairs (see below)  A Runtime [sec]                        B Runtime [sec]                       
+    MP pairs (see below)  A Runtime [sec]                        B Runtime [sec]
     ===================== ====================================== ======================================
     00 01 12 13           avg 889.22, stddev 7.61, max 902.53    avg 1012.64, stddev 11.65, max 1032.98
     default (not set)     avg 892.22, stddev 12.54, max 915.96   avg 1047.2, stddev 51.8, max 1171.5
@@ -390,7 +389,7 @@ Dual-socket quad Core 64-bit Intel Nehalem Xeon X5570 quad-core 2.93 GHz/3 GB RA
     "**-**" that tests were not performed.
 
     ============================================================= ========= ========= ========= ========= ============
-    blas/lapack/(numpy:dotblas/lapack): compiler                  gcc       gcc43     icc 11.0  icc 11.1  open64 4.2.3 
+    blas/lapack/(numpy:dotblas/lapack): compiler                  gcc       gcc43     icc 11.0  icc 11.1  open64 4.2.3
     ============================================================= ========= ========= ========= ========= ============
     acml-4.4.0/acml-4.4.0/(default/acml-4.0.1)*                   N/A        436.6     399.2 F   400.0 F   418.5
     acml-4.4.0/acml-4.4.0/(blas-3.0-37/lapack-3.0-37)             N/A        355.5     326.7 F   326.0 F   347.4
@@ -416,7 +415,7 @@ Dual-socket quad Core 64-bit Intel Nehalem Xeon X5570 quad-core 2.93 GHz/3 GB RA
     Errors were reported when using different blas/lapack in GPAW and NUMPY!
 
     ============================== =============================================
-    compiler                       options                     
+    compiler                       options
     ============================== =============================================
     gcc 4.1.2 20080704             -O3 -funroll-all-loops -std=c99
     gcc43 4.3.2 20081007           -O3 -funroll-all-loops -std=c99
@@ -488,7 +487,7 @@ The performance numbers may not reflect the future production systems.
     Errors were reported when using different blas/lapack in GPAW and NUMPY!
 
     ============================== =============================================
-    compiler                       options                     
+    compiler                       options
     ============================== =============================================
     gcc 4.1.2 20080704             -O3 -funroll-all-loops -std=c99
     gcc43 4.3.2 20081007           -O3 -funroll-all-loops -std=c99
@@ -648,16 +647,16 @@ Please perform the following steps:
 
  - for a comparison of what to expect on different machines, the following absolute times where obtained with r=[1,1,1] (without ScaLAPACK)
 
-   ===================   ================= ============  ======= ============  ========  ========      
+   ===================   ================= ============  ======= ============  ========  ========
    host                  type              cpu type      MHz     # procs       time [s]  date
-   ===================   ================= ============  ======= ============  ========  ========      
+   ===================   ================= ============  ======= ============  ========  ========
    jump.fz-juelich.de    IBM Regatta p690+ Power4+       1700    2             88        23.3.09
    jump.fz-juelich.de    IBM Regatta p690+ Power4+       1700    4             51        23.3.09
    mmos3                 LINUX             Intel Q6600   2394    2             85        23.3.09
    mmos3                 LINUX             Intel Q6600   2394    4             62        23.3.09
    bfg.uni-freiburg.de   LINUX             Xeon 5160     3000    2             156       23.3.09
    bfg.uni-freiburg.de   LINUX             Xeon 5160     3000    4             119       23.3.09
-   ===================   ================= ============  ======= ============  ========  ========      
+   ===================   ================= ============  ======= ============  ========  ========
 
 2. Medium size system
 +++++++++++++++++++++

@@ -118,10 +118,8 @@ Contributing to GPAW
 ====================
 
 Getting commit access to our SVN repository works the same way as for
-the `ASE project`_.  Here is the list of current committers:
+the :ref:`ASE project <ase:contribute>`.  Here is the list of current committers:
 
 .. csv-table::
     :file: committers.csv
     :header: "real name", "user name", "email"
-
-.. _ASE project: https://wiki.fysik.dtu.dk/ase/development/contribute.html
