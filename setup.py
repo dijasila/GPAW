@@ -55,11 +55,6 @@ for dirname, dirnames, filenames in os.walk('gpaw'):
         if '__init__.py' in filenames:
             packages.append(dirname.replace('/', '.'))
 
-include_ase = False
-if '--include-ase' in sys.argv:
-    include_ase = True
-    sys.argv.remove('--include-ase')
-
 import_numpy = True
 if '--ignore-numpy' in sys.argv:
     import_numpy = False
@@ -208,18 +203,6 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
 
 description = 'An electronic structure code based on the PAW method'
 
-kwargs = dict(
-    name='gpaw',
-    version=version,
-    description=description,
-    maintainer='GPAW-community',
-    maintainer_email='gpaw-developers@listserv.fysik.dtu.dk',
-    url='http://wiki.fysik.dtu.dk/gpaw',
-    license='GPLv3+',
-    platforms=['unix'],
-    packages=packages,
-    long_description=long_description)
-
 
 class sdist(_sdist):
     """Fix distutils.
@@ -269,9 +252,30 @@ class build_scripts(_build_scripts):
 if custom_interpreter:
     scripts.append('build/bin.%s/' % plat + 'gpaw-python')
 
-setup(cmdclass={'sdist': sdist,
-                'build_ext': build_ext,
-                'build_scripts': build_scripts},
+setup(name='gpaw',
+      version=version,
+      description=description,
+      long_description=long_description,
+      maintainer='GPAW-community',
+      maintainer_email='gpaw-developers@listserv.fysik.dtu.dk',
+      url='http://wiki.fysik.dtu.dk/gpaw',
+      license='GPLv3+',
+      platforms=['unix'],
+      packages=packages,
       ext_modules=extensions,
       scripts=scripts,
-      **kwargs)
+      cmdclass={'sdist': sdist,
+                'build_ext': build_ext,
+                'build_scripts': build_scripts},
+      classifiers=[
+          'Development Status :: 6 - Mature',
+          'License :: OSI Approved :: '
+          'GNU General Public License v3 or later (GPLv3+)',
+          'Operating System :: OS Independent',
+          'Programming Language :: Python :: 2',
+          'Programming Language :: Python :: 2.6',
+          'Programming Language :: Python :: 2.7',
+          'Programming Language :: Python :: 3',
+          'Programming Language :: Python :: 3.4',
+          'Programming Language :: Python :: 3.5',
+          'Topic :: Scientific/Engineering :: Physics'])
