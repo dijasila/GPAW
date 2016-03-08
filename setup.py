@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-
-# Copyright (C) 2003  CAMP
+# Copyright (C) 2003-2016  CAMP
 # Please see the accompanying LICENSE file for further information.
 
 import distutils
@@ -26,6 +25,7 @@ assert sys.version_info >= (2, 6)
 with open('gpaw/__init__.py') as fd:
     version = re.search("__version__ = '(.*)'", fd.read()).group(1)
  
+description = 'An electronic structure code based on the PAW method'
 long_description = """\
 A grid-based real-space Projector Augmented Wave (PAW) method Density
 Functional Theory (DFT) code featuring: Flexible boundary conditions,
@@ -48,7 +48,6 @@ mpi_runtime_library_dirs = []
 mpi_define_macros = []
 
 platform_id = ''
-
 
 packages = []
 for dirname, dirnames, filenames in os.walk('gpaw'):
@@ -120,23 +119,11 @@ if compiler is not None:
             value[0] = compiler
             vars[key] = ' '.join(value)
 
-custom_interpreter = False
-# Check the command line so that custom interpreter is build only with
-# 'build', 'build_ext', or 'install':
-if mpicompiler is not None:
-    for cmd in ['build', 'build_ext', 'install']:
-        if cmd in sys.argv:
-            custom_interpreter = True
-            break
-
-
 if scalapack:
     define_macros.append(('GPAW_WITH_SL', '1'))
 
-
 if libvdwxc:
     define_macros.append(('GPAW_WITH_LIBVDWXC', '1'))
-
 
 # distutils clean does not remove the _gpaw.so library and gpaw-python
 # binary so do it here:
@@ -145,10 +132,10 @@ plat = plat + '-' + sys.version[0:3]
 gpawso = 'build/lib.%s/' % plat + '_gpaw.so'
 gpawbin = 'build/bin.%s/' % plat + 'gpaw-python'
 if 'clean' in sys.argv:
-    if os.path.isfile(gpawso):
+    if op.isfile(gpawso):
         print('removing ', gpawso)
         os.remove(gpawso)
-    if os.path.isfile(gpawbin):
+    if op.isfile(gpawbin):
         print('removing ', gpawbin)
         os.remove(gpawbin)
 
@@ -159,19 +146,17 @@ sources.sort()
 
 check_dependencies(sources)
 
-extension = Extension('_gpaw',
-                      sources,
-                      libraries=libraries,
-                      library_dirs=library_dirs,
-                      include_dirs=include_dirs,
-                      define_macros=define_macros,
-                      undef_macros=undef_macros,
-                      extra_link_args=extra_link_args,
-                      extra_compile_args=extra_compile_args,
-                      runtime_library_dirs=runtime_library_dirs,
-                      extra_objects=extra_objects)
-
-extensions = [extension]
+extensions = [Extension('_gpaw',
+                        sources,
+                        libraries=libraries,
+                        library_dirs=library_dirs,
+                        include_dirs=include_dirs,
+                        define_macros=define_macros,
+                        undef_macros=undef_macros,
+                        extra_link_args=extra_link_args,
+                        extra_compile_args=extra_compile_args,
+                        runtime_library_dirs=runtime_library_dirs,
+                        extra_objects=extra_objects)]
 
 if hdf5:
     hdf5_sources = ['c/hdf5.c']
@@ -201,8 +186,6 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     mpi_libraries, mpi_library_dirs, mpi_include_dirs,
                     mpi_runtime_library_dirs, mpi_define_macros)
 
-description = 'An electronic structure code based on the PAW method'
-
 
 class sdist(_sdist):
     """Fix distutils.
@@ -221,7 +204,8 @@ class sdist(_sdist):
 class build_ext(_build_ext):
     def run(self):
         _build_ext.run(self)
-        if custom_interpreter:
+        if mpicompiler:
+            # Also build gpaw-python:
             error = build_interpreter(
                 define_macros, include_dirs, libraries,
                 library_dirs, extra_link_args, extra_compile_args,
@@ -242,14 +226,14 @@ class build_scripts(_build_scripts):
         outfiles = []
         updated_files = []
         for script in self.scripts:
-            outfile = op.join(self.build_dir, os.path.basename(script))
+            outfile = op.join(self.build_dir, op.basename(script))
             outfiles.append(outfile)
             updated_files.append(outfile)
             self.copy_file(script, outfile)
         return outfiles, updated_files
         
         
-if custom_interpreter:
+if mpicompiler:
     scripts.append('build/bin.%s/' % plat + 'gpaw-python')
 
 setup(name='gpaw',
