@@ -201,7 +201,7 @@ if hdf5:
                                extra_objects=extra_objects)
     extensions.append(hdf5_extension)
 
-files = ['gpaw-analyse-basis', 'gpaw-basis', 'gpaw-install-setups',
+files = ['gpaw-analyse-basis', 'gpaw-basis',
          'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
          'gpaw-setup', 'gpaw-test', 'gpaw-upfplot', 'gpaw']
 scripts = [join('tools', script) for script in files]
