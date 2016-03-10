@@ -656,7 +656,7 @@ There exist three special names that, if used, do not specify a file name:
   atom. I.e. no PAW or pseudo potential is used.
 * ``sg15`` specifies the `SG15 optimized norm-conserving Vanderbilt
   pseudopotentials`_ for the PBE functional.  These have to be
-  installed separately.  Use :file:`gpaw-install-setups --sg15
+  installed separately.  Use :command:`gpaw install-data --sg15
   {<dir>}` to download and unpack the pseudopotentials into
   :file:`{<dir>}/sg15_oncv_upf_{<version>}`.  As of now, the SG15
   pseudopotentials should still be considered experimental in GPAW.

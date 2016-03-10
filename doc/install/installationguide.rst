@@ -317,7 +317,7 @@ Installation of PAW datasets
 
 The PAW datasets can be installed automatically or manually.
 
-To install them automatically, run :file:`gpaw-install-setups
+To install them automatically, run :command:`gpaw install-data
 {<dir>}`.  This downloads and unpacks the newest package into
 :file:`{<dir>}/gpaw-setups-{<version>}`.  When prompted, answer
 yes (y) to register the path in the GPAW configuration file.

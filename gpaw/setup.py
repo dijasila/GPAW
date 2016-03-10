@@ -83,7 +83,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
                 raise IOError('Could not find pseudopotential file %s '
                               'in any GPAW search path.  '
                               'Please install the SG15 setups using, '
-                              'e.g., \'gpaw-install-setups\'.' % upfname)
+                              'e.g., "gpaw install-data".' % upfname)
             setupdata = UPFSetupData(upfpath)
             if xc.name != 'PBE':
                 raise ValueError('SG15 pseudopotentials support only the PBE '
