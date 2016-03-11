@@ -61,12 +61,12 @@ class BSE():
             valence/conduction bands
         truncation: str
             Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D 
+            2D, 1D, or 0D
         integrate_gamma: int
-            Method to integrate the Coulomb interaction. 1 is a numerical 
-            integration at all q-points with G=[0,0,0] - this breaks the 
-            symmetry slightly. 0 is analytical integration at q=[0,0,0] only - 
-            this conserves the symmetry. integrate_gamma=2 is the same as 1, 
+            Method to integrate the Coulomb interaction. 1 is a numerical
+            integration at all q-points with G=[0,0,0] - this breaks the
+            symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
+            this conserves the symmetry. integrate_gamma=2 is the same as 1,
             but the average is only carried out in the non-periodic directions.
         txt: str
             txt output
@@ -323,10 +323,12 @@ class BSE():
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_qaGii[iq]):
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
-                                            sign * np.dot(M_vv, pos_av[a]))))
+                                            np.dot(M_vv, pos_av[a]))))
             U_ii = self.calc.wfs.setups[a].R_sii[sym]
             Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
                            U_ii.T).transpose(1, 0, 2)
+            if sign == -1:
+                Q_Gii = Q_Gii.conj()
             Q_aGii.append(Q_Gii)
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
