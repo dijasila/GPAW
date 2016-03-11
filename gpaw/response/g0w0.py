@@ -265,11 +265,12 @@ class G0W0(PairDensity):
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
-                                            self.sign *
                                             np.dot(M_vv, pos_av[a]))))
             U_ii = self.calc.wfs.setups[a].R_sii[self.s]
             Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
                            U_ii.T).transpose(1, 0, 2)
+            if self.sign == -1:
+                Q_Gii = Q_Gii.conj()
             Q_aGii.append(Q_Gii)
 
         if debug:
