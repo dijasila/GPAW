@@ -129,6 +129,8 @@ def write_input(calc,
 
     if len(bands) > Nw:
         ef = calc.get_fermi_level()
+        if hasattr(ef, 'dtype'):
+            ef = (ef[0] + ef[1]) / 2
         print('# Fermi level: %2.3f' % ef, file=f)
         print('dis_froz_max  = %2.3f' % (ef + dis_froz_max), file=f)
         print('dis_num_iter  = %d' % dis_num_iter, file=f)
