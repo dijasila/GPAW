@@ -5,10 +5,10 @@ from gpaw.xc import XC
 
 
 s = np.array([[0.0]])
-p = np.zeros((3, 3), complex) # y, z, x
+p = np.zeros((3, 3), complex)  # y, z, x
 p[0, 1] = -1.0j
 p[1, 0] = 1.0j
-d = np.zeros((5, 5), complex) # xy, yz, z^2, xz, x^2-y^2
+d = np.zeros((5, 5), complex)  # xy, yz, z^2, xz, x^2-y^2
 d[0, 3] = -1.0j
 d[3, 0] = 1.0j
 d[1, 2] = -3**0.5 * 1.0j
@@ -17,10 +17,10 @@ d[1, 4] = -1.0j
 d[4, 1] = 1.0j
 Lx_lmm = [s, p, d]
 
-p = np.zeros((3, 3), complex) # y, z, x
+p = np.zeros((3, 3), complex)  # y, z, x
 p[1, 2] = -1.0j
 p[2, 1] = 1.0j
-d = np.zeros((5, 5), complex) # xy, yz, z^2, xz, x^2-y^2
+d = np.zeros((5, 5), complex)  # xy, yz, z^2, xz, x^2-y^2
 d[0, 1] = 1.0j
 d[1, 0] = -1.0j
 d[2, 3] = -3**0.5 * 1.0j
@@ -29,10 +29,10 @@ d[3, 4] = -1.0j
 d[4, 3] = 1.0j
 Ly_lmm = [s, p, d]
 
-p = np.zeros((3, 3), complex) # y, z, x
+p = np.zeros((3, 3), complex)  # y, z, x
 p[0, 2] = 1.0j
 p[2, 0] = -1.0j
-d = np.zeros((5, 5), complex) # xy, yz, z^2, xz, x^2-y^2
+d = np.zeros((5, 5), complex)  # xy, yz, z^2, xz, x^2-y^2
 d[0, 4] = 2.0j
 d[4, 0] = -2.0j
 d[1, 3] = 1.0j
@@ -72,11 +72,12 @@ def get_radial_potential(calc, a, ai):
                        for s in range(Ns)])
     fxc_g = np.sum(fxc_sg, axis=0) / Ns
 
-    #f_sg = np.tile(fc_g, (Ns, 1)) + np.tile(fh_g, (Ns, 1)) + fxc_sg
+    # f_sg = np.tile(fc_g, (Ns, 1)) + np.tile(fh_g, (Ns, 1)) + fxc_sg
     f_sg = np.tile(fc_g + fh_g + fxc_g, (Ns, 1))
 
     return f_sg[:] / r_g
 
+    
 def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
                               return_wfs=False, scale=1.0,
                               theta=0.0, phi=0.0):
@@ -120,13 +121,12 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
             for j2, l2 in enumerate(a.l_j):
                 if l1 == l2:
                     f_sg = phi_jg[j1][:Ng] * v_sg[:] * phi_jg[j2][:Ng]
-                    r_g = a.xc_correction.rgd.r_g
-                    dr_g = a.xc_correction.rgd.dr_g
                     I_s = a.xc_correction.rgd.integrate(f_sg) / (4 * np.pi)
                     for s in range(Ns):
-                        dVL_svii[s, 0, N1:N1+Nm, N2:N2+Nm] = Lx_lmm[l1] * I_s[s]
-                        dVL_svii[s, 1, N1:N1+Nm, N2:N2+Nm] = Ly_lmm[l1] * I_s[s]
-                        dVL_svii[s, 2, N1:N1+Nm, N2:N2+Nm] = Lz_lmm[l1] * I_s[s]
+                        dVL_svii[s, :, N1:N1 + Nm, N2:N2 + Nm] = [
+                            Lx_lmm[l1] * I_s[s],
+                            Ly_lmm[l1] * I_s[s],
+                            Lz_lmm[l1] * I_s[s]]
                 else:
                     pass
                 N2 += 2 * l2 + 1
@@ -138,9 +138,9 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
     
     e_km = []
     if return_spin:
-        #s_x = np.array([[0, 1.0], [1.0, 0]])
-        #s_y = np.array([[0, -1.0j], [1.0j, 0]])
-        #s_z = np.array([[1.0, 0], [0, -1.0]])
+        # s_x = np.array([[0, 1.0], [1.0, 0]])
+        # s_y = np.array([[0, -1.0j], [1.0j, 0]])
+        # s_z = np.array([[1.0, 0], [0, -1.0]])
         s_km = []
     if return_wfs:
         v_knm = []
@@ -149,8 +149,8 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
     # The even indices in H_mm are spin up along z
     for k in range(Nk):
         H_mm = np.zeros((2 * Nn, 2 * Nn), complex)
-        H_mm[range(2*Nn)[::2], range(2 * Nn)[::2]] += e_skn[0, k, :]
-        H_mm[range(2*Nn)[1::2], range(2 * Nn)[1::2]] += e_skn[1, k, :]
+        H_mm[:2 * Nn:2, :2 * Nn:2] += e_skn[0, k, :]
+        H_mm[1:2 * Nn:2, 1:2 * Nn:2] += e_skn[1, k, :]
         for ai in range(Na):
             P_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands]
                      for s in range(Ns)]
@@ -162,7 +162,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
                 H_mm[1::2, 1::2] -= Hso_nvn[:, 2, :]
                 H_mm[::2, 1::2] += Hso_nvn[:, 0, :] - 1.0j * Hso_nvn[:, 1, :]
                 H_mm[1::2, ::2] += Hso_nvn[:, 0, :] + 1.0j * Hso_nvn[:, 1, :]
-            else: 
+            else:
                 P0_ni = P_sni[0]
                 P1_ni = P_sni[1]
                 Hso00_nvn = np.dot(np.dot(P0_ni.conj(), dVL_svii[0]), P0_ni.T)
@@ -171,8 +171,10 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
                 Hso10_nvn = np.dot(np.dot(P1_ni.conj(), dVL_svii[1]), P0_ni.T)
                 H_mm[::2, ::2] += Hso00_nvn[:, 2, :]
                 H_mm[1::2, 1::2] -= Hso11_nvn[:, 2, :]
-                H_mm[::2, 1::2] += Hso01_nvn[:, 0, :] - 1.0j * Hso01_nvn[:,1,:]
-                H_mm[1::2, ::2] += Hso10_nvn[:, 0, :] + 1.0j * Hso10_nvn[:,1,:]
+                H_mm[::2, 1::2] += (Hso01_nvn[:, 0, :] -
+                                    1.0j * Hso01_nvn[:, 1, :])
+                H_mm[1::2, ::2] += (Hso10_nvn[:, 0, :] +
+                                    1.0j * Hso10_nvn[:, 1, :])
 
         e_m, v_snm = np.linalg.eigh(H_mm)
         e_km.append(e_m)
@@ -194,6 +196,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
         else:
             return np.array(e_km).T
 
+            
 def set_calculator(calc, e_km, v_knm=None, width=None):
     from gpaw.occupations import FermiDirac
     from ase.units import Hartree
@@ -215,6 +218,7 @@ def set_calculator(calc, e_km, v_knm=None, width=None):
         kpt.f_n *= 2
         kpt.weight *= 2
     
+
 def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
                            inversion_center=[0, 0, 0], deg_tol=1.0e-6):
     '''Calculates parity eigenvalues at time-reversal invariant k-points.
@@ -242,15 +246,12 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
             e_in.append(n_n)
     
     print()
-    print( ' Inversion center at: %s' % inversion_center)
-    print( ' Calculating inversion eigenvalues at k = %s' % kpt_c)
+    print(' Inversion center at: %s' % inversion_center)
+    print(' Calculating inversion eigenvalues at k = %s' % kpt_c)
     print()
 
     center_v = np.array(inversion_center) / Bohr
-    vol = np.abs(np.linalg.det(calc.wfs.gd.cell_cv))
     G_Gv = calc.wfs.pd.get_reciprocal_vectors(q=ik, add_q=True)
-    icell_cv = (2 * np.pi) * np.linalg.inv(calc.wfs.gd.cell_cv).T
-    kpt_v = np.dot(kpt_c, icell_cv)
 
     psit_nG = np.array([calc.wfs.kpt_u[ik].psit_nG[n]
                         for n in bands])
