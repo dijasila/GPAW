@@ -770,8 +770,8 @@ class GPAW(PAW):
         elif type == 'mbeefvdw':
             return np.append(x.flatten(), c)
 
-    def embed(self, q_p, rc=0.2):
+    def embed(self, q_p, rc=0.2, rc2=np.inf, width=1.0):
         """Embed QM region in point-charges."""
-        pc = PointChargePotential(q_p, rc=rc)
+        pc = PointChargePotential(q_p, rc=rc, rc2=rc2, width=width)
         self.set(external=pc)
         return pc
