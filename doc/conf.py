@@ -1,8 +1,8 @@
 import sys
 sys.path.append('.')
 
-extensions = [#'ytp',
-              'ext', 'images', 'sitelink',
+extensions = ['ext',
+              'images',
               'sphinx.ext.autodoc',
               'sphinx.ext.viewcode',
               'sphinx.ext.mathjax',
