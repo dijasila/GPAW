@@ -142,13 +142,15 @@ News
 .. toctree::
 
    algorithms
-   install/install
+   install
    setups/setups
    tutorials/tutorials
    exercises/exercises
    documentation/documentation
    devel/benchmarks
-   devel/releasenotes
+   releasenotes
+   contact
    faq
    mailinglists
    devel/devel
+   bugs

@@ -1,135 +1,29 @@
-.. _installationguide:
 
-==================
-Installation guide
-==================
-
-.. note::
-
-   **CAMd users** installing on ``Niflheim``: please follow the
-   instructions for :ref:`Niflheim`.
-
-In order to choose the right method for installing GPAW
-identify your computer system and your goals related to GPAW.
-Is it a personal laptop or maybe an HPC cluster?
-Are you just trying out GPAW or need a full development environment
-in order to participate in developing GPAW?
-
-For the installation on personal laptops we recommend
-the binary packages provided for popular Linux distributions
-(:ref:`installationguide_package`)
-and MS Windows (:ref:`installationguide_windows`).
-
-Please skip to :ref:`installationguide_developer` if you prefer
-to install from sources.
-
-If you are on Mac OSX, please follow :ref:`installationguide_macosx`.
-
-
-.. _installationguide_package:
-
-Installation with package manager on Linux
-==========================================
-
-This is **the preferred** way to install on a Linux system.
-If you prefer to install from sources follow :ref:`installationguide_developer`.
-
-Install GPAW with:
-
-* on RHEL/CentOS/Fedora::
-
-    $ yum -y install gpaw
-    
-  (enable https://fedoraproject.org/wiki/EPEL on RHEL/CentOS)
-
-* on openSUSE::
-    
-    $ zypper ar -f http://download.opensuse.org/repositories/home:/dtufys/openSUSE_13.1/home:dtufys.repo
-    $ yast -i gpaw
-
-* on Debian/Ubuntu::
-
-    $ sudo apt-get update
-    $ sudo apt-get -y install gpaw
-
-For the full list of supported distributions check
-https://build.opensuse.org/package/show?package=gpaw&project=home%3Adtufys
-
-After performing the installation do not forget to :ref:`running_tests`!
-
-
-.. _installationguide_macosx:
-
-Installation on OS X
-====================
-
-For installation with http://brew.sh/ please follow
-instructions at :ref:`homebrew`.
-
-After performing the installation do not forget to :ref:`running_tests`!
-
-
-.. _installationguide_windows:
-
-Installation on Windows
-=======================
-
-.. note::
-
-   GPAW is not yet fully functional on Windows! See
-   http://listserv.fysik.dtu.dk/pipermail/gpaw-users/2013-August/002264.html
-
-On Windows install Python(x,y) as described at
-https://wiki.fysik.dtu.dk/ase/download.html#windows.
-
-Download the gpaw.win32-py2.7.msi_ installer
-(fix the incorrect *man* extension while downloading) and install with::
-
-   gpaw.win32-py2.7.msi /l*vx "%TMP%\gpaw_install.log" /passive
-
-.. _gpaw.win32-py2.7.msi:
-       https://wiki.fysik.dtu.dk/gpaw-files/gpaw.win32-py2.7.msi
-
-.. note::
-
-    Unpack gpaw-setups under C:\gpaw-setups (see :ref:`setups`).
-
-As the last step (this is important) install the ASE msi
-(see https://wiki.fysik.dtu.dk/ase/download.html#windows).
-
-After performing the installation do not forget to :ref:`running_tests`!
-
-
-.. _installationguide_developer:
-
-Manual installation
-===================
-
-GPAW binaries are available only for the :ref:`latest_stable_release`,
-and all available GPAW releases are listed at the :ref:`download` page.
-
-If you need a development version (or a historic version) of GPAW
-perform a manual installation according to instructions below.
-Follow the same instructions if you are configuring GPAW on an HPC cluster.
-
-
-This is the **preferred** way of manually installing GPAW.
-It offers the following advantages:
-
-- installation is limited to standard user's account:
-  it does not pollute the root filesystem,
-
-- user gains access to version control updates, if necessary.
+============
+Installation
+============
 
 Requirements
-------------
+============
 
-1) Python2 version 2.6 or newer. Python3 is not supported yet.
-   Python is available from http://www.python.org.
+* Python_ 2.6-3.5
+* NumPy_ (base N-dimensional array package)
 
-2) NumPy_ 1.6.1 or newer.  Earlier versions may work for basic operations.
+Optional:
+
+* For extra functionality: SciPy_ (library for scientific computing)
+* For :mod:`ase.gui`: PyGTK_ (GTK+ for Python) and Matplotlib_ (2D Plotting)
+
+
+.. _Python: http://www.python.org/
+.. _NumPy: http://docs.scipy.org/doc/numpy/reference/
+.. _SciPy: http://docs.scipy.org/doc/scipy/reference/
+.. _Matplotlib: http://matplotlib.org/
+.. _pygtk: http://www.pygtk.org/
+
 
 3) Atomic Simulation Environment (:ase:`ASE <>`).
+GPAW requires ASE. :ase:`Install ASE <download.html>`.
 
 4) C compiler - preferably gcc.
 
@@ -147,51 +41,100 @@ Optionally:
 9) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
 
 
-.. _NumPy: http://numpy.org/
-.. _SciPy: http://scipy.org/
 .. _libxc-download: http://www.tddft.org/programs/octopus/wiki/index.php/
                     Libxc:download
-.. _acml: http://developer.amd.com/tools-and-sdks/cpu-development/
-          amd-core-math-library-acml/
-.. _openblas: http://www.openblas.net/
 
-Installation process
---------------------
 
-After having installed the dependencies do:
+Installation using ``pip``
+==========================
 
-1) Perform :ref:`developer_installation`.
+.. highlight:: bash
 
-   .. note::
+The simplest way to install GPAW is::
+    
+    $ pip install --upgrade --user gpaw
+    
+This will compile and install GPAW in your ``~/.local`` folder where Python
+can automatically find it.  Make sure you have ``~/.local/bin`` (or on
+Windows, :file:`%APPDATA%/Python/Scripts`) in your :envvar:`PATH` environment
+variable.
 
-       If you install on a cluster,
-       take a look at :ref:`install_custom_installation` - it provides
-       installation instructions for different platforms.
+Now you should be ready to use GPAW, but before you start, please run the
+tests as described below.
 
-2) Perform :ref:`installationguide_setup_files`.
+.. note::
 
-3) :ref:`running_tests`.
+    Some Linux distributions have an GPAW package (named ``gpaw``),
+    that you can install on your system so that it is avilable for all
+    users.
 
-The following environment variables are involved when installing GPAW:
+    
+.. index:: test
+.. _running tests:
 
-.. envvar:: HOME
+Test your installation
+======================
 
-  The path to your home directory.
+Run the tests like this::
+    
+    $ gpaw test -j 4  # takes 1 hour!
 
-.. envvar:: GPAW_HOME
+and send us the output if there are failing tests.
 
-  Optional: points to the root directory of your GPAW installation, e.g.:
-  ``~/gpaw``.
 
-.. envvar:: PATH
+.. _download:
 
-  The ``$PATH`` environment variable should contain the paths to directory
-  containing the ``gpaw-python`` executable and additional scripts.
+Installation from source
+========================
 
-.. envvar:: PYTHONPATH
+As an alternative to ``pip``, you can also get the source from a tar-file or
+from Git.
 
-  The ``PYTHONPATH`` should point to the directory containing the GPAW Python
-  module and the ``_gpaw.so`` shared library.
+
+Tar-file
+--------
+
+You can get the source as a tar-file for the
+latest stable release (gpaw-3.9.1.4567.tar.gz_) or the latest
+development snapshot (`<snapshot.tar.gz>`_).
+
+Unpack and make a soft link::
+    
+    $ tar -xf python-gpaw-3.9.1.4567.tar.gz
+    $ ln -s python-gpaw-3.9.1.4567 gpaw
+
+.. _python-gpaw-3.9.1.4567.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/python-gpaw-3.9.1.4567.tar.gz
+
+    
+Git clone
+---------
+
+Alternatively, you can get the source for the latest stable release from
+https://gitlab.com/gpaw/gpaw like this::
+    
+    $ git clone -b 3.9.1 https://gitlab.com/gpaw/gpaw.git
+
+or if you want the development version::
+
+    $ git clone https://gitlab.com/gpaw/gpaw.git
+    
+Add ``~/gpaw`` to your :envvar:`PYTHONPATH` environment variable and add
+``~/gpaw/tools`` to :envvar:`PATH` (assuming ``~/gpaw`` is where your GPAW
+folder is).
+    
+.. note::
+    
+    We also have tar-file and Git tags for older stable versions of GPAW.
+    See the :ref:`releasenotes` for which tags are available.  Also the
+    dates of older releases can be found there.
+
+
+Niflheim, datasets, platforms, devel-mode
+
+
+
+
 
 .. envvar:: OMP_NUM_THREADS
   
@@ -259,15 +202,6 @@ Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
 
 
-.. _PGO:
-
-Profile guided optimization
-+++++++++++++++++++++++++++
-
-Some compilers allow one to use
-`profile guided optimization <http://en.wikipedia.org/wiki/Profile-guided_optimization>`_ (PGO).
-See :ref:`PGO_gcc_EL5` for an example how use PGO to compile GPAW on CentOS.
-
 Libxc Installation
 ++++++++++++++++++
 
@@ -312,44 +246,6 @@ Example::
 
 .. _installationguide_setup_files:
 
-Installation of PAW datasets
-============================
-
-The PAW datasets can be installed automatically or manually.
-
-To install them automatically, run :command:`gpaw install-data
-{<dir>}`.  This downloads and unpacks the newest package into
-:file:`{<dir>}/gpaw-setups-{<version>}`.  When prompted, answer
-yes (y) to register the path in the GPAW configuration file.
-
-To manually install the setups, do as follows:
-
-1) Get the tar file :file:`gpaw-setups-{<version>}.tar.gz`
-   of the <version> of PAW datasets from the :ref:`setups` page
-   and unpack it somewhere, preferably in :envvar:`HOME`
-   (``cd; tar -xf gpaw-setups-<version>.tar.gz``) - it could
-   also be somewhere global where
-   many users can access it like in :file:`/usr/share/gpaw-setups/`.
-   There will now be a subdirectory :file:`gpaw-setups-{<version>}/`
-   containing all the atomic data for the most commonly used functionals.
-
-2) Set the environment variable :envvar:`GPAW_SETUP_PATH`
-   to point to the directory
-   :file:`gpaw-setups-{<version>}/`, e.g. put into :file:`~/.tcshrc`::
-
-    setenv GPAW_SETUP_PATH ${HOME}/gpaw-setups-<version>
-
-   or if you use bash, put these lines into :file:`~/.bashrc`::
-
-    export GPAW_SETUP_PATH=${HOME}/gpaw-setups-<version>
-
-   Refer to :ref:`using_your_own_setups` for alternative way of
-   setting the location of PAW datasets.
-
-   .. note::
-
-     In case of several locations of PAW datasets the first found setup
-     file is used.
 
 
 .. _running_tests:
@@ -408,379 +304,43 @@ Finally run the tests in parallel on 2, 4 and 8 cores::
 
   [gpaw]$ mpirun -np 4 gpaw-python `which gpaw-test` 2>&1 | tee test4.log
 
-.. _install:
-
-.. toctree::
-
-   installationguide
-   download
-   platforms_and_architectures
-.. _download:
-
-========
-Download
-========
-
-.. note::
-
-   GPAW requires ASE. :ase:`Install ASE <download.html>`.
-
-   When done, to determine which way of installing GPAW suits you best
-   please read carefully :ref:`installationguide` first!
-
-.. _latest_stable_release:
-
-Latest stable release
-=====================
-
-The latest stable release can be obtained from ``svn`` or as a ``tarball``.
-
-===========  =======  ========  =========================  ====================
-Date         Version  Revision  Tarfile                    Required ASE version
-===========  =======  ========  =========================  ====================
-Jul 22 2015  0.11.0_  13004     gpaw-0.11.0.13004.tar.gz_  3.9.1
-Apr  8 2014  0.10.0_  11364     gpaw-0.10.0.11364.tar.gz_  3.8.1
-Mar  7 2012  0.9.0_   8965      gpaw-0.9.0.8965.tar.gz_    3.6.0
-May 25 2011  0.8.0_   8092      gpaw-0.8.0.8092.tar.gz_    3.5.1
-Aug 11 2010  0.7.2_   6974      gpaw-0.7.2.6974.tar.gz_    3.4.1
-Apr 23 2010  0.7_     6383      gpaw-0.7.6383.tar.gz_      3.4.0
-Oct  9 2009  0.6_     5147      gpaw-0.6.5147.tar.gz_      3.2.0
-Apr  1 2009  0.5_     3667      gpaw-0.5.3667.tar.gz_      3.1.0
-Nov 16 2008  0.4_     2734      gpaw-0.4.2734.tar.gz_      3.0.0
-===========  =======  ========  =========================  ====================
-
-To check out the latest stable version from SVN, do this::
-
-  $ svn co https://svn.fysik.dtu.dk/projects/gpaw/tags/0.11.0 gpaw-0.11
-
-.. _0.11.0:
-    https://trac.fysik.dtu.dk/projects/gpaw/browser/tags/0.11.0
-
-.. _gpaw-0.11.0.13004.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-0.11.0.13004.tar.gz
-
-.. _0.10.0:
-    https://trac.fysik.dtu.dk/projects/gpaw/browser/tags/0.10.0
-
-.. _gpaw-0.10.0.11364.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-0.10.0.11364.tar.gz
-
-.. _0.9.0:
-    https://trac.fysik.dtu.dk/projects/gpaw/browser/tags/0.9.0
-
-.. _gpaw-0.9.0.8965.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-0.9.0.8965.tar.gz
-
-.. _0.8.0:
-    https://trac.fysik.dtu.dk/projects/gpaw/browser/tags/0.8.0
-
-.. _gpaw-0.8.0.8092.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-0.8.0.8092.tar.gz
-
-.. _0.7.2:
-    https://trac.fysik.dtu.dk/projects/gpaw/browser/tags/0.7.2
-
-.. _gpaw-0.7.2.6974.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-0.7.2.6974.tar.gz
-
-.. _0.7:
-    https://trac.fysik.dtu.dk/projects/gpaw/browser/tags/0.7
-
-.. _gpaw-0.7.6383.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-0.7.6383.tar.gz
-
-.. _0.6:
-    https://trac.fysik.dtu.dk/projects/gpaw/browser/tags/0.6
-
-.. _gpaw-0.6.5147.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-0.6.5147.tar.gz
-
-.. _0.5:
-    https://trac.fysik.dtu.dk/projects/gpaw/browser/tags/0.5
-
-.. _gpaw-0.5.3667.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-0.5.3667.tar.gz
-
-.. _0.4:
-    https://trac.fysik.dtu.dk/projects/gpaw/browser/tags/0.4
-
-.. _gpaw-0.4.2734.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-0.4.2734.tar.gz
-
-After getting the code :ref:`create_links`.
-
-
-.. _latest_development_release:
-
-Latest development release
-==========================
-
-The latest revision can be obtained from svn::
-
-  $ svn checkout https://svn.fysik.dtu.dk/projects/gpaw/trunk gpaw
-
-or from the daily snapshot: `snapshot.tar.gz <../snapshot.tar.gz>`_.
-
-After getting the code :ref:`create_links`.
-
-.. note::
-
-   The recommended checkout path is :envvar:`HOME`.
-
-See :ref:`faq` in case of problems.
-
-.. _create_links:
-
-Create links
-============
-
-It is convenient to maintain several version of GPAW
-with the help of links.
-After downloading create the link to the requested version, e.g.:
-
-- if retrieved from ``svn``::
-
-   $ cd $HOME
-   $ ln -s gpaw-0.11 gpaw
-
-- if retrieved as ``tarball``::
-
-   $ cd $HOME
-   $ tar -xtf gpaw-0.11.0.13004.tar.gz
-   $ ln -s gpaw-0.11.0.13004 gpaw
-
-  .. note::
-
-     The recommended installation path is :envvar:`HOME`.
-
-When you have the code, go back to the :ref:`installationguide_developer`.
-.. _download_and_install:
-
-============
-Installation
-============
-
-Requirements
-============
-
-* Python_ 2.6-3.5
-* NumPy_ (base N-dimensional array package)
-
-Optional:
-
-* For extra functionality: SciPy_ (library for scientific computing)
-* For :mod:`ase.gui`: PyGTK_ (GTK+ for Python) and Matplotlib_ (2D Plotting)
-
-
-.. _Python: http://www.python.org/
-.. _NumPy: http://docs.scipy.org/doc/numpy/reference/
-.. _SciPy: http://docs.scipy.org/doc/scipy/reference/
-.. _Matplotlib: http://matplotlib.org/
-.. _pygtk: http://www.pygtk.org/
-
-
-Installation using ``pip``
-==========================
-
-.. highlight:: bash
-
-The simplest way to install ASE is::
     
-    $ pip install --upgrade ase
-    
-This will install ASE in your ``~/.local`` folder where Python can
-automatically find it.  Make sure you have ``~/.local/bin`` (or on
-Windows, :file:`%APPDATA%/Python/Scripts`) in your :envvar:`PATH`
-environment variable.
-
-Now you should be ready to use ASE, but before you start, please run the
-tests as described below.
-
-.. note::
-
-    Some Linux distributions have an ASE package (named ``python-ase``),
-    that you can install on your system so that it is avilable for all
-    users.
-
-    
-.. index:: test
-.. _running tests:
-
-Test your installation
-======================
-
-Run the tests like this::
-    
-    $ cd /tmp
-    $ mkdir ase-test
-    $ cd ase-test
-    $ python -c "from ase.test import test; test()"  # takes 1 min.
-
-and send us the output if there are failing tests.
-
-
-.. _download:
-
-Installation from source
-========================
-
-As an alternative to ``pip``, you can also get the source from a tar-file or
-from Git.
-
-
-Tar-file
---------
-
-You can get the source as a `tar-file <http://xkcd.com/1168/>`__ for the
-latest stable release (python-ase-3.9.1.4567.tar.gz_) or the latest
-development snapshot (`<snapshot.tar.gz>`_).
-
-Unpack and make a soft link::
-    
-    $ tar -xf python-ase-3.9.1.4567.tar.gz
-    $ ln -s python-ase-3.9.1.4567 ase
-
-.. _python-ase-3.9.1.4567.tar.gz:
-    https://wiki.fysik.dtu.dk/ase-files/python-ase-3.9.1.4567.tar.gz
-
-    
-Git clone
----------
-
-Alternatively, you can get the source for the latest stable release from
-https://gitlab.com/ase/ase like this::
-    
-    $ git clone -b 3.9.1 https://gitlab.com/ase/ase.git
-
-or if you want the development version::
-
-    $ git clone https://gitlab.com/ase/ase.git
-    
-Add ``~/ase`` to your :envvar:`PYTHONPATH` environment variable and add
-``~/ase/tools`` to :envvar:`PATH` (assuming ``~/ase`` is where your ASE
-folder is).
-    
-.. note::
-    
-    We also have tar-file and Git tags for older stable versions of ASE.
-    See the :ref:`releasenotes` for which tags are available.  Also the
-    dates of older releases can be found there.
-
-    
-Environment variables
-=====================
-
-.. envvar:: PATH
-
-    Colon-separated paths where programs can be found.
-    
-.. envvar:: PYTHONPATH
-
-    Colon-separated paths where Python modules can be found.
-
-Set these permanently in your :file:`~/.bashrc` file::
-
-    $ export PYTHONPATH=~/ase:$PYTHONPATH
-    $ export PATH=~ase/tools:$PATH
-
-or your :file:`~/.cshrc` file::
-
-    $ setenv PYTHONPATH ${HOME}/ase:${PYTHONPATH}
-    $ setenv PATH ${HOME}/ase/tools:${PATH}
-
-        
 Installation on OS X
 ====================
 
-For installation with http://brew.sh please follow
-instructions at the `Homebrew ASE installation page
-<https://wiki.fysik.dtu.dk/gpaw/install/MacOSX/homebrew.html>`_.
+For installation with http://brew.sh/ please follow
+instructions at :ref:`homebrew`.
 
-After performing the installation do not forget to :ref:`running tests`!
+After performing the installation do not forget to :ref:`running_tests`!
 
+
+.. _installationguide_windows:
 
 Installation on Windows
 =======================
 
 .. note::
 
-   ASE is not yet fully functional on Windows!
-   https://trac.fysik.dtu.dk/projects/ase/ticket/62
+   GPAW is not yet fully functional on Windows! See
+   http://listserv.fysik.dtu.dk/pipermail/gpaw-users/2013-August/002264.html
 
-Python(x,y), on both 32- and 64-bit Windows,
-requires Microsoft Visual C++ 2008 Redistributable Package (x86),
-download and install it from:
-https://www.microsoft.com/en-us/download/details.aspx?id=5582
-Use http://www.dependencywalker.com/ to find missing DLLs in case of
-"ImportError: DLL load failed: The specified module could not be found".
+On Windows install Python(x,y) as described at
+https://wiki.fysik.dtu.dk/ase/download.html#windows.
 
-Continue with:
+Download the gpaw.win32-py2.7.msi_ installer
+(fix the incorrect *man* extension while downloading) and install with::
 
-.. note:: installation assumes the python TARGETDIR C:\\Python27,
-          leave also the default C:\\Program Files\\pythonxy.
+   gpaw.win32-py2.7.msi /l*vx "%TMP%\gpaw_install.log" /passive
 
--  pythonxy_. Download the *2.7.5.2* exe installer (other versions
-   may be incompatible)and install with::
-
-     Python(x,y)-2.7.5.2.exe /Log="%TMP%\pythonxy_install.log" /S
+.. _gpaw.win32-py2.7.msi:
+       https://wiki.fysik.dtu.dk/gpaw-files/gpaw.win32-py2.7.msi
 
 .. note::
 
-   Open Task Manager and control when the process in finished.
+    Unpack gpaw-setups under C:\gpaw-setups (see :ref:`setups`).
 
-- pygtk_win32_. Download the msi **pygtk-all-in-one** installer.
-  Specify the correct TARGETDIR and install::
+As the last step (this is important) install the ASE msi
+(see https://wiki.fysik.dtu.dk/ase/download.html#windows).
 
-     pygtk-all-in-one-2.24.2.win32-py2.7.msi TARGETDIR="%HOMEDRIVE%\Python27" ALLUSERS=1 /l*vx "%TMP%\pygtk_install.log" /passive
-
-.. note::
-
-   If performing clicking-installation make sure that the default
-   python Windows TARGETDIR is selected.
-
-- Download the python-ase-win32.msi_ installer and install with::
-
-     python-ase-X.X.X.win32.msi /l*vx "%TMP%\python-ase_install.log" /passive
-
-.. note::
-
-   You can build the msi ASE package on Windows with::
-
-      python setup.py bdist_msi
-
-   The msi package will be created under the *dist* directory.
-
-.. _pythonxy: http://code.google.com/p/pythonxy
-.. _pygtk_win32: http://ftp.gnome.org/pub/GNOME/binaries/win32/pygtk/2.24/
-
-.. _python-ase-win32.msi:
-    https://wiki.fysik.dtu.dk/ase-files/python-ase.win32.msi
-
-After performing the installation do not forget to :ref:`running tests`!
-
-
-Old video tutorial
-==================
-
-In the video: Introduction to ASE, followed by a guide to installing ASE on a
-Linux system.
-
-.. note::
-
-   Use "Right Click -> Play" to play.
-
-.. raw:: html
-
-        <p></p>
-        <object width="800" height="600">
-        <embed src="https://wiki.fysik.dtu.dk/ase-files/oi_en_800x600.swf"
-        type="application/x-shockwave-flash"
-        allowFullScreen="false"
-        allowscriptaccess="never"
-        loop="false"
-        play="false"
-        width="800" height="600">
-        <p></p>
-        Video not playing? Download avi <a href="https://wiki.fysik.dtu.dk/ase-files/oi_en.avi">file</a> instead.
-        </embed></object>
-        <p></p>
+After performing the installation do not forget to :ref:`running_tests`!
+    
