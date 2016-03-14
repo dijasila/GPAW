@@ -27,7 +27,6 @@ html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 html_style = 'gpaw.css'
 html_title = 'GPAW'
-#html_logo = 'static/logo-gpaw.png'
 html_favicon = 'static/gpaw_favicon.ico'
 html_static_path = ['static']
 html_last_updated_fmt = '%a, %d %b %Y %H:%M:%S'
