@@ -30,8 +30,8 @@ Development topics
 ==================
 
 When committing significant changes to the code, remember to add a
-note in the :ref:`releasenotes` at the top (current svn) - the version
-to become the next release.
+note in the :ref:`releasenotes` at the top (development version) - the
+version to become the next release.
 
 .. toctree::
    :maxdepth: 1
@@ -46,7 +46,6 @@ to become the next release.
    ase_optimize/ase_optimize
    bugs
    newrelease
-   svn
    technology
    todo
 
@@ -117,9 +116,5 @@ documentation is included in the other line counts.
 Contributing to GPAW
 ====================
 
-Getting commit access to our SVN repository works the same way as for
-the :ref:`ASE project <ase:contribute>`.  Here is the list of current committers:
-
-.. csv-table::
-    :file: committers.csv
-    :header: "real name", "user name", "email"
+Getting commit access to the GPAW code works the same way as for
+the :ref:`ASE project <ase:contribute>`.

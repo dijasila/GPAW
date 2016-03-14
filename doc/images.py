@@ -65,7 +65,7 @@ logos = ['logo-gpaw.png']
 
 # flowchart.pdf  flowchart.sxd <-- where?
 devel_stuff = """
-gpaw-logo.svg gpaw-logo.odg overview.odg overview.pdf svn-refcard.pdf
+gpaw-logo.svg gpaw-logo.odg overview.odg overview.pdf
 """.split()
 
 architectures_stuff = """

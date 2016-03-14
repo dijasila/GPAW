@@ -21,7 +21,7 @@ If you find GPAW useful in your research please cite the original reference:
 and the major GPAW review:
 
    | J. Enkovaara, C. Rostgaard, J. J. Mortensen et al.
-   | `Electronic structure calculations with GPAW: a real-space implementation of the projector augmented-wave method`__ 
+   | `Electronic structure calculations with GPAW: a real-space implementation of the projector augmented-wave method`__
    | J. Phys.: Condens. Matter **22**, 253202 (2010)
 
    __ http://stacks.iop.org/0953-8984/22/253202
@@ -86,18 +86,6 @@ In Finnish: supisuomalaisittain "kee-pav".
 
 In Polish: "gyeh" jak `"Gie"rek <http://en.wikipedia.org/wiki/Edward_Gierek>`_, "pav" jak `paw <http://pl.wikipedia.org/wiki/Paw_indyjski>`_: "gyeh-pav".
 
-Download
-========
-
-Trying to checkout the code via SVN resulted::
-
- [~]$ svn checkout "https://svn.fysik.dtu.dk/projects/gpaw/trunk"
- svn: Unrecognized URL scheme 'https://svn.fysik.dtu.dk/projects/gpaw/trunk'
-
-This error is diplayed in case the library 'libsvn_ra_dav' is missing
-on your system. The library is used by SVN, but is not installed by
-default.
-
 
 Compiling the C-code
 ====================
@@ -119,7 +107,7 @@ LDFLAGS with::
 
  # sh/bash users:
  unset CC; unset CFLAGS; unset LDFLAGS
- # csh/tcsh users: 
+ # csh/tcsh users:
  unsetenv CC; unsetenv CFLAGS; unsetenv LDFLAGS
 
 and try again.
@@ -132,10 +120,10 @@ Consult the :ref:`convergence` page.
 Poisson solver did not converge!
 ================================
 
-If you are doing a spin-polarized calculation for an isolated molecule, 
+If you are doing a spin-polarized calculation for an isolated molecule,
 then you should set the Fermi temperature to a low value.
 
-You can also try to set the number of grid points to be divisible by 8. 
+You can also try to set the number of grid points to be divisible by 8.
 Consult the :ref:`poisson_performance` page.
 
 How to switch between several GPAW versions

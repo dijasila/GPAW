@@ -37,16 +37,17 @@ Make your changes to the ``.rst`` files, run the
 :command:`make` command again, check the results and if things
 looks ok, commit::
 
-  $ emacs index.rst
-  $ make
-  $ firefox build/html/index.html
-  $ svn ci -m "..." index.rst
+    $ emacs index.rst
+    $ make
+    $ firefox build/html/index.html
+    $ git add index.rst
+    $ git commit -m "..."
 
   
 Adding figures and tables
 =========================
 
-We don't want to have png and csv files committed to SVN.  Instead, you should
+We don't want to have png and csv files committed to Git.  Instead, you should
 add the Python scripts that generate the figures and table data so that we can
 always generate them again if needed.
     
