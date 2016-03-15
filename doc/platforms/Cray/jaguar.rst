@@ -14,7 +14,7 @@ modifications to the standard python are needed. Instructions below
 assume **tcsh**.
 
 The installations process of python and numpy can be performed with the
-script :svn:`~doc/install/Cray/make_python_numpy`::
+script :download:`make_python_numpy`::
 
   ./make_python_numpy |& tee all.log
 
@@ -77,7 +77,7 @@ The installation is based on instructions from
 http://yt.enzotools.org/wiki/CrayXT5Installation.
 
 .. _expat: http://expat.sourceforge.net/
-.. _zlib: http://www.zlib.net/  
+.. _zlib: http://www.zlib.net/
 
 Install expat::
 
@@ -140,7 +140,7 @@ following instructions are tested with python 2.5.4:
    make | tee make.log
    # ignore errors like:
    # *** WARNING: renaming "_ctypes" since importing it failed: dynamic module does not define init function (init_ctypes)
-   make install | tee make_install.log   
+   make install | tee make_install.log
 
 - build numpy::
 

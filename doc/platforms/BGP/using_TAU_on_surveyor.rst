@@ -39,15 +39,15 @@ The bindings are located in
 ``/soft/apps/tau/tau/tau-$TAUVERSION/bgp/lib/<name>``.  This particular TAU library binding supports BGP timers (a low-level
 timer with minimal overhead), MPI, GNU compiler, and Python. This is the recommended library binding for flat profiles.
 
-You will need to change one line in your :svn:`bgp_gcc.py`::
+You will need to change one line in your :git:`bgp_gcc.py`::
 
   cmd = "tau_cc.sh %s %s"%(flags, cmd)
   
 It is recommend that dynamic linking be used for the MPI libraries
-instead of static linking, see the comments in :svn:`configure_surveyor.py`
+instead of static linking, see the comments in :git:`configure_surveyor.py`
 
 Additionally, the TAU library must be linked manually. See the
-comments in :svn:`customize_surveyor.py`
+comments in :git:`customize_surveyor.py`
 
 Manual Instrumentation
 =============================
@@ -78,7 +78,7 @@ Submitting jobs
 ==================
 
 Modification to the submission script for use with TAU are show in the
-example submission script :svn:`surveyor.sh`
+example submission script :git:`surveyor.sh`
 
 If you are doing manual instrumentation, simply pass the actual input file to ``gpaw-python`` instead. For automatic instrumentation, you need to ``wrapper.py`` instead::
 

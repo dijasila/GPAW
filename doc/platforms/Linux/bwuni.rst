@@ -127,7 +127,7 @@ The current trunk version can then be updated by::
  svn up
 
 We have to modify the file :file:`customize.py` to
-:svn:`~doc/install/Linux/customize_bwuni.py`
+:download:`customize_bwuni.py`
 
 .. literalinclude:: customize_bwuni.py
 

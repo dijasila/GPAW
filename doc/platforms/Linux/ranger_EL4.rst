@@ -17,13 +17,13 @@ The installation of user's packages on ranger EL4, 64-bit described below uses
 
 - module files are located under ``~/CAMd/modulefiles``
 
-- download the :svn:`~doc/install/Linux/customize_ranger_EL4.py` file::
+- download the :download:`customize_ranger_EL4.py` file::
 
    wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Linux/customize_ranger_EL4.py
 
   .. literalinclude:: customize_ranger_EL4.py
 
-- download packages with :svn:`~doc/install/Linux/download_ranger.sh`,
+- download packages with :download:`download_ranger.sh`,
   buy running ``sh download_ranger.sh``:
 
   .. literalinclude:: download_ranger.sh
@@ -48,7 +48,7 @@ The installation of user's packages on ranger EL4, 64-bit described below uses
     module load python/2.5.2
     module load mkl/10.0
 
-- install packages, deploy modules and test with :svn:`~doc/install/Linux/install_ranger_EL4.sh`,
+- install packages, deploy modules and test with :download:`install_ranger_EL4.sh`,
   buy running ``sh install_ranger_EL4.sh``:
 
   .. literalinclude:: install_ranger_EL4.sh

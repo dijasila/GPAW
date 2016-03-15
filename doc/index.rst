@@ -47,6 +47,8 @@ Quick links to all features:
 News
 ====
 
+* :ref:`GPAW version 1.0 <releasenotes>` released (Mar 18 2016)
+
 * :ref:`GPAW version 0.11 <releasenotes>` released (Jul 22 2015)
 
 * :ref:`GPAW version 0.10 <releasenotes>` released (Apr 8 2014)
@@ -143,14 +145,14 @@ News
 
    algorithms
    install
-   setups/setups
+   platforms/platforms
+   documentation/documentation
    tutorials/tutorials
    exercises/exercises
-   documentation/documentation
-   devel/benchmarks
+   setups/setups
    releasenotes
    contact
    faq
-   mailinglists
    devel/devel
+   devel/benchmarks
    bugs

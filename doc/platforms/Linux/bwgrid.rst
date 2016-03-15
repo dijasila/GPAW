@@ -14,7 +14,7 @@ information visit `<http://www.bfg.uni-freiburg.de/doc/bwgrid>`_.
 Building GPAW with Intel compiler
 =================================
 
-Use the compiler wrapper file :svn:`~doc/install/Linux/icc.py`
+Use the compiler wrapper file :download:`icc.py`
 
 .. literalinclude:: icc.py
 
@@ -32,7 +32,7 @@ Internal libxc
 
 Before revision 10429 libxc was internal. The
 :file:`customize.py` had to be changed to
-:svn:`~doc/install/Linux/customize_bwgrid_icc.py`
+:download:`customize_bwgrid_icc.py`
 
 .. literalinclude:: customize_bwgrid_icc.py
 
@@ -58,7 +58,7 @@ and the C header
 files to $MYLIBXCDIR/libxc-2.0.2/install/include.
 
 We have to modify the file :file:`customize.py` to
-:svn:`~doc/install/Linux/customize_bwgrid_icc_libxc.py`
+:download:`customize_bwgrid_icc_libxc.py`
 
 .. literalinclude:: customize_bwgrid_icc_libxc.py
 

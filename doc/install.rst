@@ -12,7 +12,6 @@ Requirements
 Optional:
 
 * For extra functionality: SciPy_ (library for scientific computing)
-* For :mod:`ase.gui`: PyGTK_ (GTK+ for Python) and Matplotlib_ (2D Plotting)
 
 
 .. _Python: http://www.python.org/
@@ -22,15 +21,13 @@ Optional:
 .. _pygtk: http://www.pygtk.org/
 
 
-3) Atomic Simulation Environment (:ase:`ASE <>`).
-GPAW requires ASE. :ase:`Install ASE <download.html>`.
+3) Atomic Simulation Environment (ASE_).
 
 4) C compiler - preferably gcc.
 
 5) Libxc version 2.0.1 or newer (libxc-download_).
 
-6) BLAS and LAPACK libraries. Start with your system provided defaults or
-   e.g. acml_ or openblas_. Multithreading is not supported.
+6) BLAS and LAPACK libraries.
 
 7) SciPy_ 0.7.0 or newer
 
@@ -95,7 +92,7 @@ Tar-file
 --------
 
 You can get the source as a tar-file for the
-latest stable release (gpaw-3.9.1.4567.tar.gz_) or the latest
+latest stable release (gpaw-1.0.0.tar.gz_) or the latest
 development snapshot (`<snapshot.tar.gz>`_).
 
 Unpack and make a soft link::
@@ -103,8 +100,8 @@ Unpack and make a soft link::
     $ tar -xf python-gpaw-3.9.1.4567.tar.gz
     $ ln -s python-gpaw-3.9.1.4567 gpaw
 
-.. _python-gpaw-3.9.1.4567.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/python-gpaw-3.9.1.4567.tar.gz
+.. _gpaw-1.0.0.tar.gz:
+    https://pypi.python.org/packages/source/g/gpaw/gpaw-1.0.0.tar.gz
 
     
 Git clone
@@ -125,7 +122,7 @@ folder is).
     
 .. note::
     
-    We also have tar-file and Git tags for older stable versions of GPAW.
+    We also have Git tags for older stable versions of GPAW.
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
@@ -157,18 +154,18 @@ Customizing installation
 The install script does its best when trying to guess proper libraries
 and commands to build GPAW. However, if the standard procedure fails
 or user wants to override default values it is possible to customize
-the setup with :svn:`customize.py` file which is located in the GPAW base
-directory. As an example, :svn:`customize.py` might contain the following
+the setup with :git:`customize.py` file which is located in the GPAW base
+directory. As an example, :git:`customize.py` might contain the following
 lines::
 
   libraries = ['myblas', 'mylapack']
   library_dirs = ['path_to_myblas']
 
 Now, GPAW would be built with "``-Lpath_to_myblas -lmyblas
--lmylapack``" linker flags. Look at the file :svn:`customize.py`
+-lmylapack``" linker flags. Look at the file :git:`customize.py`
 itself for more possible options.  :ref:`platforms_and_architectures`
 provides examples of :file:`customize.py` for different platforms.
-After editing :svn:`customize.py`, follow the instructions for the
+After editing :git:`customize.py`, follow the instructions for the
 :ref:`developer_installation`.
 
 Installation with HDF5 support
@@ -188,7 +185,7 @@ Parallel installation
 
 By default, setup looks if :program:`mpicc` is available, and if setup
 finds one, a parallel version is build. If the setup does not find
-mpicc, a user can specify one in the :svn:`customize.py` file.
+mpicc, a user can specify one in the :git:`customize.py` file.
 
 Additionally a user may want to enable ScaLAPACK, setting in
 :file:`customize.py`::

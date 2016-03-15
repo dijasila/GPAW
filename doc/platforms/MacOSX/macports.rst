@@ -13,13 +13,13 @@ https://sites.google.com/site/naromero/code-development-on-mac-os-x.
 
 This build of GPAW will use MPICH2 1.2, Python 2.7.x and NumPy 1.5.x.
 
-Use the following customize file :svn:`customize_snowleopard_macports.py` to
+Use the following customize file :git:`customize_snowleopard_macports.py` to
 
 .. literalinclude:: customize_snowleopard_macports.py
 
 There have been some problems with vecLib library which is linked by
 default. Disabling this is in ``config.py`` is straigtforward.  Here
-is a diff :svn:`config.disable_vecLib.py.diff`
+is a diff :git:`config.disable_vecLib.py.diff`
 
 .. literalinclude:: config.disable_vecLib.py.diff
 

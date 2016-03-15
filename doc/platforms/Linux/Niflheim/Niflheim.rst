@@ -45,11 +45,11 @@ If you decide to install a development version of GPAW, this is what you do:
      export GPAW_HOME=${HOME}/devel/gpaw
 
 4. To compile the GPAW C-code, run the shell script
-   :svn:`~doc/install/Linux/Niflheim/compile.sh` 
+   :download:`compile.sh`
    from your gpaw directory, i.e.::
 
      cd ${GPAW_HOME}
-     sh ./doc/install/Linux/Niflheim/compile.sh
+     sh ./doc/platforms/Linux/Niflheim/compile.sh
 
    If you have login passwords active,
    this will force you to type your password four times. It is
@@ -64,27 +64,27 @@ If you decide to install a development version of GPAW, this is what you do:
     This method provides you with a default GPAW version (`devel`).
     Add to /home/niflheim/$USER/.bashrc::
 
-	if [ "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ]; then # fjorm
-	    module load GPAW
-	    export GPAW_PLATFORM="linux-x86_64-opteron-2.4"
-	fi
-	if test -n "`echo $FYS_PLATFORM | grep el6`"; then
-	    module load GPAW
-	    export GPAW_PLATFORM="linux-x86_64-`echo $FYS_PLATFORM | sed 's/-el6//'`-2.6"
-	fi
-	# GPAW_HOME must be set after loading the GPAW module!
-	export GPAW_HOME=${HOME}/devel/gpaw
-	export PATH=${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
-	export PATH=${GPAW_HOME}/tools:${PATH}
-	export PYTHONPATH=${GPAW_HOME}:${PYTHONPATH}
-	export PYTHONPATH=${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
+        if [ "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ]; then # fjorm
+            module load GPAW
+            export GPAW_PLATFORM="linux-x86_64-opteron-2.4"
+        fi
+        if test -n "`echo $FYS_PLATFORM | grep el6`"; then
+            module load GPAW
+            export GPAW_PLATFORM="linux-x86_64-`echo $FYS_PLATFORM | sed 's/-el6//'`-2.6"
+        fi
+        # GPAW_HOME must be set after loading the GPAW module!
+        export GPAW_HOME=${HOME}/devel/gpaw
+        export PATH=${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
+        export PATH=${GPAW_HOME}/tools:${PATH}
+        export PYTHONPATH=${GPAW_HOME}:${PYTHONPATH}
+        export PYTHONPATH=${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
 
-	if test -n "`echo $FYS_PLATFORM | grep el6`"; then
-	# http://docs.python.org/2/using/cmdline.html#envvar-PYTHONDONTWRITEBYTECODE
-	    export PYTHONDONTWRITEBYTECODE=1  # disable creation of pyc files
-	    module load NUMPY/1.7.1-1
-	    module load SCIPY/0.12.0-1
-	fi
+        if test -n "`echo $FYS_PLATFORM | grep el6`"; then
+        # http://docs.python.org/2/using/cmdline.html#envvar-PYTHONDONTWRITEBYTECODE
+            export PYTHONDONTWRITEBYTECODE=1  # disable creation of pyc files
+            module load NUMPY/1.7.1-1
+            module load SCIPY/0.12.0-1
+        fi
 
     **Warning**: from the moment you save settings in
     :file:`/home/niflheim/$USER/.bashrc`, your new jobs
@@ -98,53 +98,53 @@ If you decide to install a development version of GPAW, this is what you do:
 
     - create the following bash script :file:`/home/niflheim/$USER/devel/gpaw/qsub.sh`::
 
-	#!/bin/sh
+        #!/bin/sh
 
-	if [ -r "/home/camp/modulefiles.sh" ]; then
-	    source /home/camp/modulefiles.sh
-	fi
-	if [ -r "/home/opt/modulefiles/modulefiles_el6.sh" ]; then
-	    source /home/opt/modulefiles/modulefiles_el6.sh
-	fi
+        if [ -r "/home/camp/modulefiles.sh" ]; then
+            source /home/camp/modulefiles.sh
+        fi
+        if [ -r "/home/opt/modulefiles/modulefiles_el6.sh" ]; then
+            source /home/opt/modulefiles/modulefiles_el6.sh
+        fi
 
-	if [ "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ]; then # fjorm
-	    module load GPAW
-	    export GPAW_PLATFORM="linux-x86_64-opteron-2.4"
-	fi
-	if test -n "`echo $FYS_PLATFORM | grep el6`"; then
-	    module load GPAW
-	    export GPAW_PLATFORM="linux-x86_64-`echo $FYS_PLATFORM | sed 's/-el6//'`-2.6"
-	fi
-	# GPAW_HOME must be set after loading the GPAW module!
-	export GPAW_HOME=${HOME}/devel/gpaw
-	export PATH=${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
-	export PATH=${GPAW_HOME}/tools:${PATH}
-	export PYTHONPATH=${GPAW_HOME}:${PYTHONPATH}
-	export PYTHONPATH=${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
+        if [ "`echo $FYS_PLATFORM`" == "AMD-Opteron-el5" ]; then # fjorm
+            module load GPAW
+            export GPAW_PLATFORM="linux-x86_64-opteron-2.4"
+        fi
+        if test -n "`echo $FYS_PLATFORM | grep el6`"; then
+            module load GPAW
+            export GPAW_PLATFORM="linux-x86_64-`echo $FYS_PLATFORM | sed 's/-el6//'`-2.6"
+        fi
+        # GPAW_HOME must be set after loading the GPAW module!
+        export GPAW_HOME=${HOME}/devel/gpaw
+        export PATH=${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${PATH}
+        export PATH=${GPAW_HOME}/tools:${PATH}
+        export PYTHONPATH=${GPAW_HOME}:${PYTHONPATH}
+        export PYTHONPATH=${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
 
-	if test -n "`echo $FYS_PLATFORM | grep el6`"; then
-	# http://docs.python.org/2/using/cmdline.html#envvar-PYTHONDONTWRITEBYTECODE
-	    export PYTHONDONTWRITEBYTECODE=1  # disable creation of pyc files
-	    module load NUMPY/1.7.1-1
-	    module load SCIPY/0.12.0-1
-	fi
+        if test -n "`echo $FYS_PLATFORM | grep el6`"; then
+        # http://docs.python.org/2/using/cmdline.html#envvar-PYTHONDONTWRITEBYTECODE
+            export PYTHONDONTWRITEBYTECODE=1  # disable creation of pyc files
+            module load NUMPY/1.7.1-1
+            module load SCIPY/0.12.0-1
+        fi
 
-	mpiexec gpaw-python "$name"
+        mpiexec gpaw-python "$name"
 
       Modify this file if needed (if you need different ASE/setups, etc)!
 
     - define the corresponding function in :file:`/home/niflheim/$USER/.bashrc`::
 
-	 gpaw-qsub-devel ()
-	 {
-	 name="$1"
-	 shift
-	 qsub $@ -v name=$name ${HOME}/devel/gpaw/qsub.sh
-	 }
+         gpaw-qsub-devel ()
+         {
+         name="$1"
+         shift
+         qsub $@ -v name=$name ${HOME}/devel/gpaw/qsub.sh
+         }
 
     When submitting jobs specify the python script first!::
 
-	gpaw-qsub-devel script.py -l nodes=...
+        gpaw-qsub-devel script.py -l nodes=...
 
 6. If you prefer to use a personal setup's directory follow
    :ref:`installationguide_setup_files`.

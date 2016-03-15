@@ -10,9 +10,9 @@ Curie   (BullX cluster, Intel Nehalem, Infiniband QDR, MKL)
 Here you find information about the the system
 http://www-hpc.cea.fr/en/complexe/tgcc-curie.htm
 
-For large calculations, it is suggested that one utilizes the Scalable Python 
+For large calculations, it is suggested that one utilizes the Scalable Python
 interpreter. Small to medium size calculations are fine with standard Python,
-for these one can use system's default Python (which contains NumPy), 
+for these one can use system's default Python (which contains NumPy),
 thus one can skip directly to LibXC/GPAW instructions.
 
 
@@ -42,7 +42,7 @@ Add then ``install_prefix/bin`` to your PATH, and download and install NumPy::
    wget http://sourceforge.net/projects/numpy/files/NumPy/1.8.1/numpy-1.8.1.tar.gz
    tar xzf numpy-1.8.1.tar.gz
    cd numpy-1.8.1
-   python setup.py install   
+   python setup.py install
 
 LibXC
 =====
@@ -60,7 +60,7 @@ Configure and make::
 GPAW
 ====
 
-Intel compiler gives a bit better performance for GPAW, so one should switch 
+Intel compiler gives a bit better performance for GPAW, so one should switch
 back to Intel environment after Scalable Python/LibXC installation::
 
     module switch gnu intel
@@ -70,12 +70,12 @@ Furthermore, in order to utilize HDF5 load the module::
 
     module load hdf5/1.8.12_parallel
 
-Use the compiler wrapper file :svn:`~doc/install/Linux/icc.py`
+Use the compiler wrapper file :git:`~doc/platforms/Linux/icc.py`
 
 .. literalinclude:: icc.py
 
-and the following configuration file 
-:svn:`~doc/install/Bull/customize_curie_icc.py`.
+and the following configuration file
+:download:`customize_curie_icc.py`.
 
 .. literalinclude:: customize_curie_icc.py
 

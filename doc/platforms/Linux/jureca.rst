@@ -114,7 +114,7 @@ We use the installed version of libxc and our ase/trunk::
   module load ase/trunk
 
 and install using
-:svn:`~doc/install/Linux/customize_jureca.py`::
+:download:`customize_jureca.py`::
 
   cd $GPAW_SOURCE/trunk
   mkdir install

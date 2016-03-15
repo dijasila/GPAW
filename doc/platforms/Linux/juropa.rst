@@ -13,7 +13,7 @@ Building GPAW with gcc
 ======================
 
 Build GPAW using **gcc** with the configuration file
-:svn:`~doc/install/Linux/customize_juropa_gcc.py`.
+:download:`customize_juropa_gcc.py`.
 
 .. literalinclude:: customize_juropa_gcc.py
 
@@ -27,7 +27,7 @@ and by executing::
 Building GPAW with Intel compiler
 =================================
 
-Use the compiler wrapper file :svn:`~doc/install/Linux/icc.py`
+Use the compiler wrapper file :download:`icc.py`
 
 .. literalinclude:: icc.py
 
@@ -36,7 +36,7 @@ Internal libxc
 
 Before revision 10429 libxc was internal,  
 the corresponding 
-configuration file is :svn:`~doc/install/Linux/customize_juropa_icc.py`.
+configuration file is :download:`customize_juropa_icc.py`.
 
 .. literalinclude:: customize_juropa_icc.py
 
@@ -60,7 +60,7 @@ and the C header
 files to $MYLIBXCDIR/libxc-2.0.2/install/include.
 
 We have to modify the file :file:`customize.py` to
-:svn:`~doc/install/Linux/customize_juropa_icc_libxc.py`
+:download:`customize_juropa_icc_libxc.py`
 
 .. literalinclude:: customize_juropa_icc_libxc.py
 

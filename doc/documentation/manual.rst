@@ -5,13 +5,13 @@ Manual
 ======
 
 GPAW calculations are controlled through scripts written in the
-programming language Python_.  GPAW relies on the :ase:`Atomic
-Simulation Environment <>` (ASE), which is a Python package that helps
+programming language Python_.  GPAW relies on the `Atomic
+Simulation Environment <ASE>`_ (ASE), which is a Python package that helps
 us describe our atoms.  The ASE package also
 handles molecular dynamics, analysis, visualization, geometry
 optimization and more.  If you don't know anything about ASE, then it
 might be a good idea to familiarize yourself with it before continuing
-(at least read the :ase:`ASE introduction <intro.html>`).
+(at least read the :ref:`ase:about` section).
 
 Below, there will be Python code examples starting with ``>>>`` (and
 ``...`` for continuation lines).  It is a good idea to start the
@@ -19,9 +19,10 @@ Python interpreter and try some of the examples below.
 
 .. _Python: http://www.python.org
 
-The units used by the GPAW calculator correspond to the :ase:`ASE
-conventions <ase/units.html>`, most importantly electron volts and
+The units used by the GPAW calculator correspond to the :mod:`ASE
+conventions <ase.units>`, most importantly electron volts and
 angstroms.
+
 
 -----------------------
 Doing a PAW calculation

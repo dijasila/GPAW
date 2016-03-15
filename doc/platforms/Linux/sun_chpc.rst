@@ -19,15 +19,15 @@ The installation of user's packages on SUSE 10 **login01**,
 
    mkdir ~/CAMd/modulefiles
 
-- download the :svn:`~doc/install/Linux/customize_sun_chpc_SUSE10.py` file:
+- download the :download:`customize_sun_chpc_SUSE10.py` file:
 
   .. literalinclude:: customize_sun_chpc_SUSE10.py
 
-- download packages with :svn:`~doc/install/Linux/download_sun_chpc.sh`:
+- download packages with :download:`download_sun_chpc.sh`:
 
   .. literalinclude:: download_sun_chpc.sh
 
-- install packages, deploy modules and test with :svn:`~doc/install/Linux/install_sun_chpc_SUSE10.sh`:
+- install packages, deploy modules and test with :download:`install_sun_chpc_SUSE10.sh`:
 
   .. literalinclude:: install_sun_chpc_SUSE10.sh
 

@@ -116,6 +116,3 @@ Solaris:
 
    Solaris/corona
    Solaris/bohr
-
-
-

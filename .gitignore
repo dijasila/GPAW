@@ -25,6 +25,7 @@ MANIFEST
 N.LDA
 *.gpw
 *.npy
+theme.css
 
 # If you run the tests, these may write out files
 *.gpw

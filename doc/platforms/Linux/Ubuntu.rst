@@ -69,7 +69,7 @@ This is recommended for Ubuntu 9.10.  Install the package
 * libscalapack-mpi-dev
 
 Then build GPAW with the customize-file
-:svn:`~doc/install/Linux/customize-ubuntu-sl-blacs-openmpi.py`:
+:download:`customize-ubuntu-sl-blacs-openmpi.py`:
 
 .. literalinclude:: customize-ubuntu-sl-blacs-openmpi.py
 
@@ -87,7 +87,7 @@ recommended to use MPI-LAM.  Install the packages
 * blacsgf-lam-dev
 
 Then build GPAW with the customize-file
-:svn:`~doc/install/Linux/customize-ubuntu-sl-blacs-lam.py`:
+:download:`customize-ubuntu-sl-blacs-lam.py`:
 
 .. literalinclude:: customize-ubuntu-sl-blacs-lam.py
 

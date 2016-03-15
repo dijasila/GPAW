@@ -12,13 +12,13 @@ The latest version of gpaw uses numpy
 
 To build an optimized (consider to build based on ``goto`` blas to achieve the best performance
 see :ref:`building_with_gcc_on_surveyor`) numpy,
-save the :svn:`~doc/install/BGP/numpy-1.0.4-gnu.py.patch.powerpc-bgp-linux-gfortran` patch file
+save the :download:`numpy-1.0.4-gnu.py.patch.powerpc-bgp-linux-gfortran` patch file
 (modifications required to get powerpc-bgp-linux-gfortran instead of
 gfortran compiler),
-the :svn:`~doc/install/BGP/numpy-1.0.4-system_info.py.patch.lapack_bgp_esslbg` patch file (lapack
+the :download:`numpy-1.0.4-system_info.py.patch.lapack_bgp_esslbg` patch file (lapack
 section configured to use ``lapack_bgp`` and
 blas section to use ``esslbg`` and ``cblas_bgp``),
-and the :svn:`~doc/install/BGP/numpy-1.0.4-site.cfg.lapack_bgp_esslbg` file (contains paths to
+and the :download:`numpy-1.0.4-site.cfg.lapack_bgp_esslbg` file (contains paths to
 ``lapack_bgp``, ``esslbg`` , ``cblas_bgp``, and xlf* related libraries).
 
 **Note** that ``lapack_bgp`` and ``cblas_bgp`` are not available on
@@ -38,7 +38,7 @@ libraries to be used in the makefiles: /soft/apps/ESSL-4.4/lib and
 
 **Warning** - if numpy built using these libraries fails
 with errors of kind "R_PPC_REL24 relocation at 0xa3d664fc for symbol sqrt"
-- please add ``-qpic`` to compile options for both ``lapack_bgp`` and ``cblas_bgp``. 
+- please add ``-qpic`` to compile options for both ``lapack_bgp`` and ``cblas_bgp``.
 After bulding ``lapack_bgp`` and ``cblas_bgp``, get numpy-1.0.4 and do this::
 
   $ wget http://downloads.sourceforge.net/numpy/numpy-1.0.4.tar.gz
@@ -59,13 +59,13 @@ Numpy built in this way does contain the
 , but running the following python
 script (save it as :file:`/gpfs/fs2/frontend-13/$USER/numpy_dot.py`) results
 in the same time as for the standard version of numpy (~329 sec)
-for ``numpy.dot`` operation (:svn:`~doc/install/BGP/numpy_dot.py`):
+for ``numpy.dot`` operation (:download:`numpy_dot.py`):
 
 .. literalinclude:: numpy_dot.py
 
 Use the following command to submit this job ``cd
 /gpfs/fs2/frontend-13/$USER; llsubmit numpy.llrun``, with the
-following :svn:`~doc/install/BGP/numpy.llrun` file:
+following :download:`numpy.llrun` file:
 
 .. literalinclude:: numpy.llrun
 
@@ -88,7 +88,7 @@ Build GPAW
 LD_LIBRARY_PATH="$ldpath" $p setup.py build_ext --do-not-force-inclusion-of-numpy``) in
 :file:`/gpfs/fs2/frontend-13/$USER/gpaw` (you need to install the ase
 also somewhere below :file:`/gpfs/fs2/frontend-13/$USER`!)  with this
-:svn:`~doc/install/BGP/customize_rbgc.py` file:
+:download:`customize_rbgc.py` file:
 
 .. literalinclude:: customize_rbgc.py
 
@@ -107,7 +107,7 @@ accesible to the compute nodes (even python scripts!).  A gpaw script
   cd /gpfs/fs2/frontend-13/$USER
   llsubmit gpaw-script.llrun
 
-where :svn:`~doc/install/BGP/gpaw-script.llrun` looks like this:
+where :download:`gpaw-script.llrun` looks like this:
 
 .. literalinclude:: gpaw-script.llrun
 

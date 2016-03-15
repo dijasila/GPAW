@@ -110,7 +110,7 @@ The installation of user's packages on neolith described below uses
    module load numpy
    python -c "import numpy; numpy.test()"
 
-- use :svn:`~doc/install/Linux/customize_neolith.py`:
+- use :download:`customize_neolith.py`:
 
   .. literalinclude:: customize_neolith.py
 

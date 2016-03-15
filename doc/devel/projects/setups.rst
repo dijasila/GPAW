@@ -12,5 +12,5 @@ old collection of PAW setups we will focus on:
 * faster convergence of energy with number of grid-points - if possible
 * tesing the setups more carfully against a bigger set of all-electron results
 
-The code is in :svn:`~gpaw/gpaw/atom/generator2.py` and it is based on
-a new and more robust atomic solver: :svn:`~gpaw/gpaw/atom/aeatom.py`.
+The code is in :git:`~gpaw/gpaw/atom/generator2.py` and it is based on
+a new and more robust atomic solver: :git:`~gpaw/gpaw/atom/aeatom.py`.

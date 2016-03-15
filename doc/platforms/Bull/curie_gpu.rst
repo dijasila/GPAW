@@ -22,16 +22,16 @@ The installation assumes *bash* shell:
 
    mkdir ~/CAMd/modulefiles
 
-- download the :svn:`~doc/install/Bull/customize_curie_gpu.py` file:
+- download the :download:`customize_curie_gpu.py` file:
 
   .. literalinclude:: customize_curie_gpu.py
 
-- download packages with :svn:`~doc/install/Bull/download_curie_gpu.sh`:
+- download packages with :download:`download_curie_gpu.sh`:
 
   .. literalinclude:: download_curie_gpu.sh
 
 - install packages, deploy modules and test with
-  :svn:`~doc/install/Bull/install_curie_gpu.sh`:
+  :download:`install_curie_gpu.sh`:
 
   .. literalinclude:: install_curie_gpu.sh
 

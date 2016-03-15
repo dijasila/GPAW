@@ -71,7 +71,7 @@ system.
 Submit tool on Niflheim
 -----------------------
 
-At CAMd, we use this submit tool: :svn:`~doc/documentation/parallel_runs/gpaw-qsub`.
+At CAMd, we use this submit tool: :git:`~doc/documentation/parallel_runs/gpaw-qsub`.
 
 Examples::
 

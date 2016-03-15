@@ -17,7 +17,7 @@ charges are expanded with correct multipole moments up to
 integer occupation numbers, and zero-point energy is not included in
 the atomization energies. The numbers are compared to very accurate,
 state-of-the-art, PBE calculations [1]_.  The script that does the
-calculations is :svn:`~gpaw/testing/molecule_test.py`.
+calculations is :git:`~gpaw/testing/molecule_test.py`.
 
 
 Bond lengths

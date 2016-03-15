@@ -17,13 +17,13 @@ The installation of user's packages on newcell described below uses
 
 - module files are located under ``~/CAMd/modulefiles``
 
-- download the :svn:`~doc/install/Linux/customize_newcell.py` file::
+- download the :download:`customize_newcell.py` file::
 
    wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Linux/customize_newcell.py
 
   .. literalinclude:: customize_newcell.py
 
-- install packages, deploy modules and test with :svn:`~doc/install/Linux/install_newcell.csh`,
+- install packages, deploy modules and test with :download:`install_newcell.csh`,
   buy running ``csh install_newcell.csh``:
 
   .. literalinclude:: install_newcell.csh

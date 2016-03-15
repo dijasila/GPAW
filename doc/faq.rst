@@ -27,8 +27,7 @@ and the major GPAW review:
    __ http://stacks.iop.org/0953-8984/22/253202
 
 
-together with :ase:`ASE <>` citation
-(see :ase:`Citation: how should I cite ASE?<faq.html>`).
+together with ASE_ citation (see :ref:`ase:cite`).
 
 If you are using the time-dependent DFT part of the code, please cite also:
 
@@ -70,7 +69,7 @@ If you use the :ref:`continuum_solvent_model`, please cite also:
 
    __ http://dx.doi.org/10.1063/1.4900838
 
-BibTex (:svn:`doc/GPAW.bib`):
+BibTex (:git:`doc/GPAW.bib`):
 
 .. literalinclude:: GPAW.bib
 
@@ -130,12 +129,12 @@ How to switch between several GPAW versions
 ===========================================
 
 For each GPAW installation use a separate, modified submit tool:
-:svn:`~doc/documentation/parallel_runs/gpaw-qsub`.
+:git:`~doc/documentation/parallel_runs/gpaw-qsub`.
 
 Assuming that your :ref:`developer_installation` is under
 :file:`~/gpaw.test`, and the :command:`gpaw-python` under
 :file:`~/gpaw.test/build/bin.linux-x86_64-2.3/`, modify the submit
-tool: :svn:`~doc/documentation/parallel_runs/gpaw-qsub`:
+tool: :git:`~doc/documentation/parallel_runs/gpaw-qsub`:
 
 * set the :envvar:`PYTHONPATH` and :envvar:`PATH` passed to :command:`mpirun`::
 
@@ -149,7 +148,7 @@ tool: :svn:`~doc/documentation/parallel_runs/gpaw-qsub`:
    os.system('%s gpaw-python JOB' % (mpirun))
 
 Alternatively, instead of modifying
-:svn:`~doc/documentation/parallel_runs/gpaw-qsub`
+:git:`~doc/documentation/parallel_runs/gpaw-qsub`
 create a bash function - see :ref:`Niflheim` for details.
 
 Tests fail!

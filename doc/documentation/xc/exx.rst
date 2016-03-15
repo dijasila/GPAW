@@ -21,7 +21,7 @@ The current implementation *lacks* the following features:
 * Speed.
    Inclusion of Fock exchange is exceedingly slow. The bottleneck is solving the poisson integrals of the Fock operator, which is currently done using an iterative real-space solver with a zero initial guess for the potential at each SCF cycle. This should be optimized.
 
-One way to speed up an exact-exchange (or hybrid) calculation is to use the coarse grid (used for wave functions) instead of the finegrid (used for for densities) for the Fock potentials. This should give a speed-up factor of 8. This can be specified in the ``xc`` keyword like in this example :svn:`~gpaw/test/exx_coarse.py`
+One way to speed up an exact-exchange (or hybrid) calculation is to use the coarse grid (used for wave functions) instead of the finegrid (used for for densities) for the Fock potentials. This should give a speed-up factor of 8. This can be specified in the ``xc`` keyword like in this example :git:`~gpaw/test/exx_coarse.py`
 
 Parallelization using domain decomposition is fully supported.
 

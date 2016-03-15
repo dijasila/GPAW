@@ -26,7 +26,7 @@ GPAW will build with the XL legacy MPI wrapper script. It is
 recommeded that you statically link as many libraries as possible into
 GPAW to avoid potential performance bottlencks in loading shared
 libraries at scale. This can be done with some modification of the
-stock GPAW config.py file :svn:`~doc/install/BGQ/config_mira.py`.
+stock GPAW config.py file :download:`config_mira.py`.
 
 Lastly, we recommend that GPAW is compiled with both ScaLAPACK
 (v. 2.0.2 or later) as well as HDF5 support. Here is an example
@@ -35,9 +35,9 @@ customization file:
 .. literalinclude:: customize_mira_xlc_mpi.py
 
 which requires a number of wrappers for the XL compilers
-(:svn:`~doc/install/BGQ/bgq_xlc.py` and
-:svn:`~doc/install/BGQ/bgq_xlc_linker.py`). A build script for GPAW
-is provided for convenience :svn:`~doc/install/BGQ/build_gpaw.sh`.
+(:download:`bgq_xlc.py` and
+:download:`bgq_xlc_linker.py`). A build script for GPAW
+is provided for convenience :download:`build_gpaw.sh`.
 
 After all Python modules are installed, they should be byte compiled
 before running GPAW. This can be accomplished by going to the top level

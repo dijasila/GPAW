@@ -14,7 +14,7 @@ At SLAC we compiled GPAW for RHEL5 x86_64, on intel Xeon 5650 with intel compile
 Package          Version
 ================ ==================
 python           2.4
-gpaw             0.8.0.7419 
+gpaw             0.8.0.7419
 ase              3.5.0.1919
 numpy            1.4.1
 openmpi          1.4.3
@@ -40,7 +40,7 @@ gpaw
 ====
 
 For this we use
-:svn:`~doc/install/Linux/SUNCAT/customize_mkl10.3.py`:
+:download:`customize_mkl10.3.py`:
 
 .. literalinclude:: customize_mkl10.3.py
 

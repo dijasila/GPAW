@@ -17,13 +17,13 @@ The installation of user's packages on nanolab EL4, 32-bit described below uses
 
 - module files are located under ``~/CAMd/modulefiles``
 
-- download the :svn:`~doc/install/Linux/customize_nanolab_EL4.py` file::
+- download the :download:`customize_nanolab_EL4.py` file::
 
    wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Linux/customize_nanolab_EL4.py
 
   .. literalinclude:: customize_nanolab_EL4.py
 
-- download packages with :svn:`~doc/install/Linux/download_nanolab.sh`,
+- download packages with :download:`download_nanolab.sh`,
   buy running ``sh download_nanolab.sh``:
 
   .. literalinclude:: download_nanolab.sh
@@ -33,7 +33,7 @@ The installation of user's packages on nanolab EL4, 32-bit described below uses
     ssh c7.cnf.cornell.edu
 
 - install packages, deploy modules and test with
-  :svn:`~doc/install/Linux/install_nanolab_EL4.sh`, buy running ``sh
+  :download:`install_nanolab_EL4.sh`, buy running ``sh
   install_nanolab_EL4.sh``:
 
   .. literalinclude:: install_nanolab_EL4.sh
