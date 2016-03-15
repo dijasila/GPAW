@@ -70,9 +70,9 @@ The possible input parameters of the G0W0 calculator are listed below.
 Parameters
 ---------------
 
-=================    =================   ===================   ================================
+=================    =================   ===================   =================================
 keyword              type                default value         description
-=================    =================   ===================   ================================
+=================    =================   ===================   =================================
 ``calc``             ``str`` or          None                  gpw filename 
                      PAW object                                (with 'all' option when writing 
                                                                the gpw file)
@@ -105,10 +105,10 @@ keyword              type                default value         description
                                                                Coulomb interaction.
 ``savepckl``         ``bool``            True                  Option to store the resulting dict 
                                                                in a .pckl file.
-=================  =================  ===================  ================================
+=================    =================   ===================   ==================================
 
 Convergence with respect to cutoff energy and number of k-points
---------------------------------------------
+-----------------------------------------------------------------
 Can we trust the calculated value of the direct bandgap? Not yet.
 Check for convergence with respect to the plane wave cutoff energy and number of k points is necessary. 
 This is done by changing the respective values in the groundstate calculation and restarting. 
@@ -125,7 +125,7 @@ Frequency dependence
 
 Next, we should check the quality of the frequency grid used in the calculation. Two parameters determine how the frequency grid looks. ``domega0`` and ``omega2``. Read more about these parameters in the tutorial for the dielectric function :ref:`df_tutorial_freq`.
 
-Running script :download:`Si_frequency_conv.py` calculates the direct band gap using different frequency grids with ``domega0`` varying from 0.005 to 0.05 and ``omega2`` from 1 to 25. The resulting data is plotted in the same script and the figure is shown below.
+Running script :download:`Si_frequency_conv.py` calculates the direct band gap using different frequency grids with ``domega0`` varying from 0.005 to 0.05 and ``omega2`` from 1 to 25. The resulting data is plotted in :download:`Si_frequency_conv_plot.py` and the figure is shown below.
 
 .. image:: Si_w.png
        :height: 400 px
@@ -144,7 +144,7 @@ Another method for carrying out the frequency integration is the Plasmon Pole ap
 
 
 Details of the G0W0 object
-========================
+===========================
 
 .. autoclass:: gpaw.response.g0w0.G0W0
    :members: calculate, calculate_q, calculate_sigma, calculate_screened_potential, 
