@@ -59,6 +59,7 @@ key             type                     description
 ``Z``           ``(s, k, n)`` ndarray    Renormalization factors
 ``qp``          ``(s, k, n)`` ndarray    Quasi particle energies in eV
 ============    =====================    ===================================
+
 From the dict it is for example possible to extract the direct bandgap:
 
 .. literalinclude:: get_gw_bandgap.py
@@ -70,9 +71,9 @@ The possible input parameters of the G0W0 calculator are listed below.
 Parameters
 ---------------
 
-=================    =================   ===================   =================================
+=================    =================   ===================   ==================================
 keyword              type                default value         description
-=================    =================   ===================   =================================
+=================    =================   ===================   ==================================
 ``calc``             ``str`` or          None                  gpw filename 
                      PAW object                                (with 'all' option when writing 
                                                                the gpw file)
