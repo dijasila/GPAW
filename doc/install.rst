@@ -38,7 +38,7 @@ Optional, but highly recommended:
 * FFTw_ (for increased performance)
 * BLACS_ and ScaLAPACK_
 
-Optional, but maybe not needed:
+Optional (maybe not needed):
     
 * HDF5 1.8.0 or later (library for parallel I/O and for saving files in HDF5
   format)
@@ -67,16 +67,29 @@ have that in your :envvar:`PATH` environment variable.  If you have an
 ``mpicc`` command on your system then there will also be a ``gpaw-python``
 executable in ``~/.local/bin``.
 
-Now you should be ready to use GPAW, but before you start, please run the
-tests as described below.
-
+Check that you have installed everything in the correct places::
+    
+    $ gpaw status
+    
 .. note::
 
     Some Linux distributions have a GPAW package (named ``gpaw``),
     that you can install on your system so that it is avilable for all
     users.
 
-$gpaw info: versions and capabilities (mpi, scalapack, FFTw, ...)
+    
+Install PAW datasets
+====================
+
+This is done using this command::
+    
+    $ gpaw install-data
+    
+See :ref:`installation of paw datasets` for more details.
+
+Now you should be ready to use GPAW, but before you start, please run the
+tests as described below.
+
 
 .. index:: test
 .. _running tests:

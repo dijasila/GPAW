@@ -5,6 +5,7 @@ import sys
 
 from ase.utils import import_module
 
+import gpaw
 import gpaw.fftw as fftw
 from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
 
@@ -19,6 +20,8 @@ def version():
     module = import_module('_gpaw')
     results.append(('_gpaw', op.normpath(module.__file__)))
     p = subprocess.Popen(['which', 'gpaw-python'], stdout=subprocess.PIPE)
+    results.append(('PAW-datasets',
+                    ':\n                '.join(gpaw.setup_paths)))
     results.append(('parallel', p.communicate()[0].strip() or False))
     results.append(('FFTW', fftw.FFTPlan is fftw.FFTWPlan))
     results.append(('scalapack', compiled_with_sl()))
