@@ -21,7 +21,7 @@ Optional:
 .. _pygtk: http://www.pygtk.org/
 
 
-3) Atomic Simulation Environment (ASE_).
+3) Atomic Simulation Environment (`ASE <https://wiki.fysi.dtu.dk/ase>`_).
 
 4) C compiler - preferably gcc.
 
@@ -241,10 +241,6 @@ Example::
     export LD_LIBRARY_PATH=~/xc/lib
 
 
-.. _installationguide_setup_files:
-
-
-
 .. _running_tests:
 
 Run the tests
@@ -262,7 +258,7 @@ in parallel), test it too, in serial::
 
 This will take a couple of hours.
 Please report errors to the ``gpaw-developers`` mailing list (see
-:ref:`mailing_lists`) Send us :file:`test.log`, as well as the
+:ref:`mail lists`) Send us :file:`test.log`, as well as the
 information about your environment (processor architecture, versions
 of python and numpy, C-compiler, BLAS and LAPACK libraries, MPI
 library), and (only when requested) :file:`build_ext.log`

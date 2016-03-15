@@ -12,7 +12,7 @@ Do the following:
 
     .. note::
 
-       The instructions assume :envvar:`GPAW_HOME` is set to *${HOME}/gpaw*.
+       The instructions assume ``$GPAW_HOME`` is set to *${HOME}/gpaw*.
 
   * Go to the :file:`gpaw` directory::
 

@@ -49,6 +49,9 @@ News
 
 * :ref:`GPAW version 1.0 <releasenotes>` released (Mar 18 2016)
 
+* Web-page now use the `Read the Docs Sphinx Theme
+  <https://github.com/snide/sphinx_rtd_theme>`_ (Mar 18 2016)
+  
 * :ref:`GPAW version 0.11 <releasenotes>` released (Jul 22 2015)
 
 * :ref:`GPAW version 0.10 <releasenotes>` released (Apr 8 2014)
@@ -119,7 +122,7 @@ News
 
 * The `code sprint 2007`_ was successfully finished (Nov 16 2007)
 
-* The source code is now in the hands of :ref:`svn` and Trac_ (Okt 22 2007)
+* The source code is now in the hands of SVN and Trac_ (Okt 22 2007)
 
 * A GPAW Sprint will be held on November 16 in Lyngby (Okt 18 2007)
 
@@ -155,4 +158,5 @@ News
    faq
    devel/devel
    devel/benchmarks
+   summerschools/summerschools
    bugs

@@ -40,7 +40,7 @@ If you decide to install a development version of GPAW, this is what you do:
 
      svn checkout https://svn.fysik.dtu.dk/projects/gpaw/trunk /home/niflheim/$USER/devel/gpaw
 
-3. Set the :envvar:`GPAW_HOME` environment variable::
+3. Set the ``$GPAW_HOME`` environment variable::
 
      export GPAW_HOME=${HOME}/devel/gpaw
 
@@ -147,11 +147,11 @@ If you decide to install a development version of GPAW, this is what you do:
         gpaw-qsub-devel script.py -l nodes=...
 
 6. If you prefer to use a personal setup's directory follow
-   :ref:`installationguide_setup_files`.
+   :ref:`installation of paw datasets`.
 
 When updating the gpaw code in the future:
 
-- Go to the :envvar:`GPAW_HOME` directory and run::
+- Go to the ``$GPAW_HOME`` directory and run::
 
     svn up
 

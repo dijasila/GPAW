@@ -300,7 +300,7 @@ Dual-socket dual Core AMD Opteron(tm) Processor 285/2.6 GHz/2 GB RAM per core EL
     mkl-10.1.2.024/mkl-10.1.2.024 --      1012.64 --      1030.06 --      --
     ============================= ======= ======= ======= ======= ======= =======
 
-    **Note**: the PGO entry refers to :ref:`PGO` driven using the benchmark.
+    **Note**: the PGO entry refers to Profile guided optimization driven using the benchmark.
 
     **Warning**: fields marked by **FAIL** denote a failure in the memory_bandwidth_ benchmark.
     Errors were reported when using different blas/lapack in GPAW and NUMPY!

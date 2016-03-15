@@ -294,7 +294,7 @@ Currently all the hybrid functionals use the PBE setup as a *base* setup.
 
 For more information about ``gpaw-setup`` see :ref:`generation_of_setups`.
 
-Set the location of setups as described on :ref:`installationguide_setup_files`.
+Set the location of setups as described on :ref:`installation of paw datasets`.
 
 The details of the implementation of the exchange-correlation
 are described on the :ref:`xc_functionals` page.
@@ -633,7 +633,7 @@ used in the calulation.
 For a given element ``E``, setup name ``NAME``, and xc-functional
 'XC', GPAW looks for the file :file:`E.NAME.XC` or :file:`E.NAME.XC.gz`
 (in that order) in the setup locations
-(see :ref:`installationguide_setup_files`).
+(see :ref:`installation of paw datasets`).
 Unless ``NAME='paw'``, in which case it will simply look for
 :file:`E.XC` (or :file:`E.XC.gz`).
 The ``setups`` keyword can be either a single string, or a dictionary.
@@ -700,7 +700,7 @@ constructed by solving the Kohn-Sham equations in the LCAO basis.
 
 If ``basis`` is a string, :file:`basis='basisname'`, then GPAW will
 look for files named :file:`{symbol}.{basisname}.basis` in the setup
-locations (see :ref:`installationguide_setup_files`), where
+locations (see :ref:`installation of paw datasets`), where
 :file:`{symbol}` is taken as the chemical symbol from the ``Atoms``
 object.  If a non-default setup is used for an element, its name is
 included as :file:`{symbol}.{setupname}.{basisname}.basis`.
@@ -728,7 +728,7 @@ The value ``None`` (default) implies that the pseudo partial waves
 from the setup are used as a basis. This basis is always available;
 choosing anything else requires the existence of the corresponding
 basis set file in setup locations
-(see :ref:`installationguide_setup_files`).
+(see :ref:`installation of paw datasets`).
 
 For details on the LCAO mode and generation of basis set files; see
 the :ref:`LCAO <lcao>` documentation.

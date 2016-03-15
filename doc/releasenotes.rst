@@ -147,7 +147,7 @@ Version 0.10.0
   - improved eggbox: N, O, K, S, Ca, Sc, Zn, Sr, Zr, Cd, In, Sn, Pb, Bi
 
   - semicore states included: Na, Mg, V, Mn, Ni,
-    Nb, Mo, Ru (seems to solve the Ru problem :trac:`gpaw/test/big/Ru001`),
+    Nb, Mo, Ru (seems to solve the Ru problem :git:`gpaw/test/big/Ru001/`),
     Rh, Pd, Ag, Ta, W, Os, Ir, Pt
 
   - semicore states removed: Te

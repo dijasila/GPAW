@@ -31,6 +31,6 @@ Developers should consult the :ref:`devel` pages.
    literature
 
 If you can not find what you are looking for in any of the above,
-please consult the :ref:`mailing_lists`.
+please consult the :ref:`mail lists`.
 
 .. _pdf file on PAW theory: paw_note.pdf

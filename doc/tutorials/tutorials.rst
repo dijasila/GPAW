@@ -4,7 +4,7 @@
 Tutorials
 =========
 
-If you are not familiar with ASE_, consider going through the
+If you are not familiar with ASE, consider going through the
 :ref:`ASE Tutorials <ase:tutorials>` first.
 
 The GPAW tutorials are meant to guide the user through some scripts.

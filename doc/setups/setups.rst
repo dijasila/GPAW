@@ -8,8 +8,9 @@ A setup is to the PAW method what a pseudo-potential is to the
 pseudo-potential method.  All available setups are contained in this
 tar-file: gpaw-setups-0.9.11271.tar.gz_.  There are setups for the LDA,
 PBE, revPBE, RPBE and GLLBSC functionals.  Install them as described
-in the :ref:`installationguide_setup_files`.  The setups are stored as
+in the :ref:`installation of paw datasets` section.  The setups are stored as
 compressed :ref:`pawxml` files.
+
 
 Setup releases
 ==============
@@ -40,6 +41,8 @@ Jul 22 2009  0.5      3574      gpaw-setups-0.5.3574.tar.gz_
     https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.5.3574.tar.gz
 
 
+.. _installation of paw datasets:
+    
 Installation of PAW datasets
 ============================
 
@@ -54,7 +57,7 @@ To manually install the setups, do as follows:
 
 1) Get the tar file :file:`gpaw-setups-{<version>}.tar.gz`
    of the <version> of PAW datasets from the :ref:`setups` page
-   and unpack it somewhere, preferably in :envvar:`HOME`
+   and unpack it somewhere, preferably in ``$HOME``
    (``cd; tar -xf gpaw-setups-<version>.tar.gz``) - it could
    also be somewhere global where
    many users can access it like in :file:`/usr/share/gpaw-setups/`.

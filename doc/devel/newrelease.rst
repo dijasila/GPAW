@@ -14,7 +14,7 @@ When it is time for a new release of the code, here is what you have to do:
 
 * If a new ase release is required to pass the tests
   modify ``required_ase_version`` and ``required_ase_svnversion``
-  in :trac:`gpaw/version.py`, and checkin the changes.
+  in :git:`gpaw/__init__.py`, and checkin the changes.
 
 * ``svn up`` and :ref:`running_tests` again.
 
@@ -57,4 +57,5 @@ When it is time for a new release of the code, here is what you have to do:
 
   Now the trunk is ready for work on the new version.
 
-* Send announcement email to the ``gpaw-developers`` mailing list (see :ref:`mailing_lists`).
+* Send announcement email to the ``gpaw-developers`` mailing list (see
+  :ref:`mail lists`).

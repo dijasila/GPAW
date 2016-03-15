@@ -27,7 +27,7 @@ and the major GPAW review:
    __ http://stacks.iop.org/0953-8984/22/253202
 
 
-together with ASE_ citation (see :ref:`ase:cite`).
+together with ASE citation (see :ref:`ase:cite`).
 
 If you are using the time-dependent DFT part of the code, please cite also:
 

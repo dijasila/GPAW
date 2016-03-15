@@ -4,8 +4,10 @@
 Bugs in the latest GPAW
 =======================
 
-Bugs and feature proposals are managed using `Trac <https://trac.fysik.dtu.dk/projects/gpaw/>`_. If you have
-a problem with GPAW, and you are already subscribed to the :ref:`mailing_lists`, this is the place to handle:
+Bugs and feature proposals are managed using `Trac
+<https://trac.fysik.dtu.dk/projects/gpaw/>`_. If you have a problem with
+GPAW, and you are already subscribed to the :ref:`mail lists`, this is the
+place to handle:
 
 * Bugs in the code
 * Enhancement proposals
@@ -40,7 +42,7 @@ Common sources of bugs
   - Code which is not used very often will tend to stop working.
   - Be weary of copy/paste errors. Avoid code duplication if you can.
   - Numerics default type on an alpha is Int64. Use long instead of int.
-  - Elements of NumPy arrays are C ordered, BLAS and LAPACK routines expect Fortran ordering.  
+  - Elements of NumPy arrays are C ordered, BLAS and LAPACK routines expect Fortran ordering.
 
 .. spacer
 
@@ -69,13 +71,13 @@ Common sources of bugs
 
       n = 0
       for thing in things:
-	  thing.do_stuff(n)
-	  n += 1
+          thing.do_stuff(n)
+          n += 1
 
     Use this instead::
 
       for n, thing in enumerate(things):
-	  thing.do_stuff(n)
+          thing.do_stuff(n)
 
   - Indentation errors like this one::
 
