@@ -1,4 +1,4 @@
-.. _developer_installation:
+.. _developer installation:
 
 ======================
 Developer installation

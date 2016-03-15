@@ -29,7 +29,7 @@ The following packages are required (names given for RHEL 5 system):
  - python-matplotlib
  - openmpi, openmpi-devel
  - bash
- - `campos-gpaw <https://wiki.fysik.dtu.dk/gpaw/install/installationguide.html>`_
+ - gpaw
 
 Please refer to :ref:`platforms_and_architectures` for hints on
 installing GPAW on different platforms.
