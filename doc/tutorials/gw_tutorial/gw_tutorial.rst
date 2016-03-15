@@ -143,6 +143,13 @@ Another method for carrying out the frequency integration is the Plasmon Pole ap
 
     If a calculation is very memory heavy, it is possible to set ``nblocks`` to an integer larger than 1 but less than the amount of CPU cores running the calculation. With this, the response function is divided into blocks and each core gets to store a smaller matrix. 
 
+Quasi-particle spectrum of two-dimensional materials
+====================================================
+TBA
+
+GW0 calculations
+================
+TBA
 
 Details of the G0W0 object
 ===========================
