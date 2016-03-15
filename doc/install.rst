@@ -1,45 +1,51 @@
+.. _installation:
 
 ============
 Installation
 ============
 
+GPAW relies on a Python library called *atomic simulation environment* (ASE_),
+so you need to :ref`install ASE <ase:install>` first.  GPAW itself is written
+mostly in the Python programming language also, but there are also some
+C-code used for:
+    
+* performance critical parts
+* allowing Python to talk to external numerical libraries (BLAS_, LAPACK_,
+  LibXC_, MPI_ and ScaLAPACK_)
+
+So, in order to make GPAW work, you need to compile some C-code.  For serial
+calculations, you will need to build a dynamically linked library
+(``_gpaw.so``) that the standard Python interpreter can load.  For parallel
+calculations, you need to build a new Python interpreter (``gpaw-python``)
+that has MPI_ functionality built in.
+
+
 Requirements
 ============
 
 * Python_ 2.6-3.5
-* NumPy_ (base N-dimensional array package)
+* NumPy_ 1.6.1- (base N-dimensional array package)
+* `Atomic Simulation Environment <https://wiki.fysi.dtu.dk/ase>`_
+* C compiler
+* LibXC_ version 2.0.1- (libxc-download_)
+* BLAS_ and LAPACK_ libraries
 
-Optional:
+Optional, but highly recommended:
 
-* For extra functionality: SciPy_ (library for scientific computing)
+* SciPy_ 0.7- (library for scientific computing, requirered for some features)
+* an MPI_ library (required for parallel calculations)
+* FFTw_ (for increased performance)
+* BLACS_ and ScaLAPACK_
+
+Optional, but maybe not needed:
+    
+* HDF5 1.8.0- (library for parallel I/O and for saving files in HDF5 format)
 
 
 .. _Python: http://www.python.org/
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
 .. _SciPy: http://docs.scipy.org/doc/scipy/reference/
-.. _Matplotlib: http://matplotlib.org/
-.. _pygtk: http://www.pygtk.org/
-
-
-3) Atomic Simulation Environment (`ASE <https://wiki.fysi.dtu.dk/ase>`_).
-
-4) C compiler - preferably gcc.
-
-5) Libxc version 2.0.1 or newer (libxc-download_).
-
-6) BLAS and LAPACK libraries.
-
-7) SciPy_ 0.7.0 or newer
-
-Optionally:
-
-8) an MPI library (required for parallel calculations).
-
-9) HDF5 (> 1.8.0) library for parallel I/O and for saving files in HDF5 format
-
-
-.. _libxc-download: http://www.tddft.org/programs/octopus/wiki/index.php/
-                    Libxc:download
+.. _LibXC: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc
 
 
 Installation using ``pip``
@@ -52,20 +58,22 @@ The simplest way to install GPAW is::
     $ pip install --upgrade --user gpaw
     
 This will compile and install GPAW in your ``~/.local`` folder where Python
-can automatically find it.  Make sure you have ``~/.local/bin`` (or on
-Windows, :file:`%APPDATA%/Python/Scripts`) in your :envvar:`PATH` environment
-variable.
+can automatically find it.  Make sure you have ``~/.local/bin``  in your
+:envvar:`PATH` environment variable.
+
+....... .local/lib/.../gpaw+_gpaw.so and ~/local/bin/gpaw-xxxx
 
 Now you should be ready to use GPAW, but before you start, please run the
 tests as described below.
 
 .. note::
 
-    Some Linux distributions have an GPAW package (named ``gpaw``),
+    Some Linux distributions have a GPAW package (named ``gpaw``),
     that you can install on your system so that it is avilable for all
     users.
 
-    
+$gpaw info: versions and capabilities (mpi, scalapack, FFTw, ...)
+
 .. index:: test
 .. _running tests:
 
@@ -166,7 +174,7 @@ Now, GPAW would be built with "``-Lpath_to_myblas -lmyblas
 itself for more possible options.  :ref:`platforms_and_architectures`
 provides examples of :file:`customize.py` for different platforms.
 After editing :git:`customize.py`, follow the instructions for the
-:ref:`developer_installation`.
+:ref:`developer installation`.
 
 Installation with HDF5 support
 ++++++++++++++++++++++++++++++

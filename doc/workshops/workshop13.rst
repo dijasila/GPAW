@@ -57,54 +57,54 @@ Tuesday (May 21)
    - `Overview of GPAW
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a02.pdf>`__
    - `youtube
-     <http://www.youtube.com/watch?v=4hgWXbyjpS4>`__
+     <https://www.youtube.com/watch?v=4hgWXbyjpS4>`__
  * - 10:30
    - Jens Jørgen Mortensen
    - `Short history of GPAW and latest news about PAW setups
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a03.pdf>`__
    - `youtube
-     <http://www.youtube.com/watch?v=Bre5dOnMGcw>`__
+     <https://www.youtube.com/watch?v=Bre5dOnMGcw>`__
  * - 11:00
    - Ask Hjorth Larsen
    - `LCAO in GPAW
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a04.pdf>`__
    - `youtube
-     <http://www.youtube.com/watch?v=CRwU7mLUZec>`__
+     <https://www.youtube.com/watch?v=CRwU7mLUZec>`__
  * - 11:30
    - Samuli Hakala
    - `Multi-GPU Accelerated Large Scale Electronic Structure Calculations
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a05.pdf>`__
    - `youtube
-     <http://www.youtube.com/watch?v=tuB-lInAwDA>`__
+     <https://www.youtube.com/watch?v=tuB-lInAwDA>`__
  * - 12:00
-   - 
+   -
    - *Lunch*
-   - 
+   -
  * - 13:30
    - Henrik H. Kristoffersen
    - `Simple methods for photo reaction modeling
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a06.pdf>`__
    - `youtube
-     <http://www.youtube.com/watch?v=HPKI7xhcYsY>`__
+     <https://www.youtube.com/watch?v=HPKI7xhcYsY>`__
  * - 13:50
    - Lasse B. Vilhelmsen
    - `Automated Two Step Structure Prediction within GPAW
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a07.pdf>`__
    - `youtube
-     <http://www.youtube.com/watch?v=ihajSLIqPG8>`__
+     <https://www.youtube.com/watch?v=ihajSLIqPG8>`__
  * - 14:10
    - Bjørk Hammer
    - `Challenges with the currently (correctly) implemented NEB-method. Should
      ASE revert to the original more robust NEB-formulation with springs?
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a08.pdf>`__
    - `youtube
-     <http://www.youtube.com/watch?v=wKJLRBsVt7Q>`__
+     <https://www.youtube.com/watch?v=wKJLRBsVt7Q>`__
  * - 14:30
    - Jess Wellendorff
    - `Exchange-correlation functionals with error estimation
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/a09.pdf>`__
    - `youtube
-     <http://www.youtube.com/watch?v=ckYEzSEmUhw>`__
+     <https://www.youtube.com/watch?v=ckYEzSEmUhw>`__
  * - 15:00
    - Hannes Jónsson
    - `Orbital density dependent functionals
@@ -114,7 +114,7 @@ Tuesday (May 21)
  * - 15:30
    -
    - *Coffee*
-   - 
+   -
  * - 16:00
    - Per Hyldgaard
    - `Electron response in the Rutgers-Chalmers van der Waals density
@@ -137,7 +137,7 @@ Tuesday (May 21)
    - `youtube
      <https://www.youtube.com/watch?v=fhDbhUr_wEA>`__
  * - 18:00
-   - 
+   -
    - *Barbecue*
    -
 
@@ -186,7 +186,7 @@ Wednesday (May 22)
    - `youtube
      <https://www.youtube.com/watch?v=nqXciG-1nFA>`__
  * - 12:00
-   - 
+   -
    - *Lunch*
    -
  * - 13:00
@@ -208,7 +208,7 @@ Wednesday (May 22)
    -
  * - 14:15
    - Martti Puska
-   - `Non-adiabatic electron-ion dynamics 
+   - `Non-adiabatic electron-ion dynamics
      <https://wiki.fysik.dtu.dk/gpaw-files/workshop13/b08.pdf>`__
    - `youtube
      <https://www.youtube.com/watch?v=a3ZM0AJFt68>`__

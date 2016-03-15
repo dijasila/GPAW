@@ -4,7 +4,7 @@ from ase.utils.sphinx import create_png_files
 
 
 def git_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
-    return git_role_tmpl('http://gitlab.com/gpaw/gpaw/blob/master/',
+    return git_role_tmpl('https://gitlab.com/gpaw/gpaw/blob/master/',
                          role,
                          rawtext, text, lineno, inliner, options, content)
 

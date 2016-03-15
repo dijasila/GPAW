@@ -131,7 +131,7 @@ How to switch between several GPAW versions
 For each GPAW installation use a separate, modified submit tool:
 :git:`~doc/documentation/parallel_runs/gpaw-qsub`.
 
-Assuming that your :ref:`developer_installation` is under
+Assuming that your :ref:`developer installation` is under
 :file:`~/gpaw.test`, and the :command:`gpaw-python` under
 :file:`~/gpaw.test/build/bin.linux-x86_64-2.3/`, modify the submit
 tool: :git:`~doc/documentation/parallel_runs/gpaw-qsub`:

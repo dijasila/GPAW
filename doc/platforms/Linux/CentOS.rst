@@ -15,7 +15,7 @@ Example how describes how to use
 `profile guided optimization <http://en.wikipedia.org/wiki/Profile-guided_optimization>`_
 to compile GPAW with gcc version **4.3.0** on CentOS 5.3:
 
-- starting at :ref:`developer_installation`,
+- starting at :ref:`developer installation`,
   modify :file:`customize.py` so ``extra_compile_args`` reads::
 
     opt_string = '-fprofile-generate'
@@ -26,7 +26,7 @@ to compile GPAW with gcc version **4.3.0** on CentOS 5.3:
     mpilinker = mpicompiler+' '+opt_string
 
 - build GPAW's :ref:`c_extension` as described at
-  :ref:`developer_installation`.  This will create ``*.gcno`` files in
+  :ref:`developer installation`.  This will create ``*.gcno`` files in
   the :file:`./build/temp.<platform>-<python-version>/c/` directory.
 
 - perform a test run using :file:`gpaw-python`.  This will create

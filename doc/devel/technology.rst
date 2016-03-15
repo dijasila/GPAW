@@ -25,7 +25,7 @@ LAPACK_
 `NumPy`_
                    Numeric Python provides array manipulation and
                    computational capabilities similar to those found
-                   in IDL, Matlab, or Octave.  
+                   in IDL, Matlab, or Octave.
 
 distutils_
                    A suite of standard distribution utilities for Python
@@ -41,14 +41,14 @@ ScaLAPACK_
 =================  ======================================================
 
 
-.. _Python: http://www.python.org 
+.. _Python: https://www.python.org
 .. _C: http://www.open-std.org/jtc1/sc22/open/n2794/n2794.pdf
 .. _reStructuredText: http://docutils.sourceforge.net/rst.html
 .. _docutils: http://docutils.sourceforge.net
 .. _BLAS: http://www.netlib.org/blas
 .. _LAPACK: http://www.netlib.org/lapack
-.. _NumPy: http://numpy.scipy.org
-.. _distutils: http://www.python.org/sigs/distutils-sig
+.. _NumPy: http://www.numpy.org
+.. _distutils: https://docs.python.org/3/library/distutils.html
 .. _MPI: http://www.mpi-forum.org
 .. _FFTW: http://www.fftw.org
 .. _BLACS: http://www.netlib.org/blacs

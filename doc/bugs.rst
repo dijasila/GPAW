@@ -36,5 +36,5 @@ Known bugs
 * `Very old bugs <Trac>`_.
 
 
-.. _bug tracking system: http://gitlab.com/gpaw/gpaw/issues
+.. _bug tracking system: https://gitlab.com/gpaw/gpaw/issues
 .. _Trac: http://trac.fysik.dtu.dk/projects/gpaw/report/1

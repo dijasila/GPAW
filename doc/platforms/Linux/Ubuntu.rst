@@ -9,7 +9,7 @@ Here you find information about the `Ubuntu distribution
 
 Install ASE and the required packages, listed below, then
 :ref:`download <download>` GPAW trunk or stable and modify
-:file:`.bashrc` as detailed here: :ref:`install`.  The
+:file:`.bashrc` as detailed here: :ref:`installation`.  The
 following instructions are for Ubuntu 8.10 or newer.  Instructions for
 older versions can be found :ref:`further down the
 page <ubuntu_oldversions>`.

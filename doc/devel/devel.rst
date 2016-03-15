@@ -14,7 +14,7 @@ information which can be found here. For example the :ref:`code_overview`.
 As a developer, you should subscribe to all GPAW related :ref:`mail lists`.
 We would also like to encourage you to join our channel for :ref:`irc`.
 
-Now you are ready to to perfom a :ref:`developer_installation` and
+Now you are ready to to perfom a :ref:`developer installation` and
 start development!
 
 .. toctree::
@@ -22,7 +22,6 @@ start development!
 
    projects/projects
    developer_installation
-   workshop
 
 .. note --- below toctrees are defined in separate files to make sure that the line spacing doesn't get very large (which is of course a bad hack)
 
