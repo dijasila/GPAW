@@ -4,7 +4,7 @@
 Installation
 ============
 
-GPAW relies on a Python library called *atomic simulation environment* (ASE_),
+GPAW relies on the Python library *atomic simulation environment* (ASE_),
 so you need to :ref`install ASE <ase:install>` first.  GPAW itself is written
 mostly in the Python programming language also, but there are also some
 C-code used for:
@@ -24,22 +24,22 @@ Requirements
 ============
 
 * Python_ 2.6-3.5
-* NumPy_ 1.6.1- (base N-dimensional array package)
+* NumPy_ 1.6.1 or later (base N-dimensional array package)
 * `Atomic Simulation Environment <https://wiki.fysi.dtu.dk/ase>`_
 * C compiler
-* LibXC_ version 2.0.1- (libxc-download_)
+* LibXC_ 2.0.1 or later
 * BLAS_ and LAPACK_ libraries
 
 Optional, but highly recommended:
 
-* SciPy_ 0.7- (library for scientific computing, requirered for some features)
+* SciPy_ 0.7 or later (library for scientific computing, requirered for some features)
 * an MPI_ library (required for parallel calculations)
 * FFTw_ (for increased performance)
 * BLACS_ and ScaLAPACK_
 
 Optional, but maybe not needed:
     
-* HDF5 1.8.0- (library for parallel I/O and for saving files in HDF5 format)
+* HDF5 1.8.0 or later (library for parallel I/O and for saving files in HDF5 format)
 
 
 .. _Python: http://www.python.org/
@@ -53,12 +53,13 @@ Installation using ``pip``
 
 .. highlight:: bash
 
-The simplest way to install GPAW is::
+The simplest way to install GPAW is using pip_ and the GPAW package from the
+Python package index (PyPI_)::
     
     $ pip install --upgrade --user gpaw
     
-This will compile and install GPAW in your ``~/.local`` folder where Python
-can automatically find it.  Make sure you have ``~/.local/bin``  in your
+This will compile and install GPAW (both ``_gpaw.so`` and all the Python files) in your ``~/.local/lib/pythonX.Y/site-packages`` folder where Python
+can automatically find it.  The Make sure you have ``~/.local/bin``  in your
 :envvar:`PATH` environment variable.
 
 ....... .local/lib/.../gpaw+_gpaw.so and ~/local/bin/gpaw-xxxx

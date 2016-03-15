@@ -17,6 +17,7 @@ functions = {'xc': 'gpaw.xc.xc',
              'diag': 'gpaw.fulldiag.fulldiag',
              'quick': 'gpaw.cli.quick.quick',
              'dataset': 'gpaw.atom.generator2.main',
+             'version': 'gpaw.cli.version.main',
              'symmetry': 'gpaw.symmetry.analyze_atoms',
              'install-data': 'gpaw.cli.install_data.main'}
 
