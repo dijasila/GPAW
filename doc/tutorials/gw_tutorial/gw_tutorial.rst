@@ -71,9 +71,9 @@ The possible input parameters of the G0W0 calculator are listed below.
 Parameters
 ---------------
 
-=================    =================   ===================   ==================================
+=================    =================   ===================   ====================================
 keyword              type                default value         description
-=================    =================   ===================   ==================================
+=================    =================   ===================   ====================================
 ``calc``             ``str`` or          None                  gpw filename 
                      PAW object                                (with 'all' option when writing 
                                                                the gpw file)
@@ -106,7 +106,7 @@ keyword              type                default value         description
                                                                Coulomb interaction.
 ``savepckl``         ``bool``            True                  Option to store the resulting dict 
                                                                in a .pckl file.
-=================    =================   ===================   ==================================
+=================    =================   ===================   ====================================
 
 Convergence with respect to cutoff energy and number of k-points
 -----------------------------------------------------------------
