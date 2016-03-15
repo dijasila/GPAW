@@ -50,6 +50,7 @@ and is in 3D related to the macroscopic dielectric function as,
 
 Refer to :ref:`df_theory`  for detailed documentation on theoretical part. 
 
+.. _df_tutorial_freq:
 
 Frequency grid
 ==============

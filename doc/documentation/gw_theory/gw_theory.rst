@@ -78,6 +78,8 @@ with the use of :math:`W(\omega') = W(-\omega')`.
 
 The frequency grid is defined by an array of three values: :math:`[\omega_{\text{lin}}, \omega_{\text{max}}, \Delta\omega]`. This creates a linear grid from :math:`0` to :math:`\omega_{\text{lin}}` with a spacing :math:`\Delta\omega`. Above :math:`\omega_{\text{lin}}`, the spacing increases linearly with every step up to the maximum frequency :math:`\omega_{\text{max}}`. All values are in eV. The maximum frequency has to be bigger than the largest transition energy :math:`|\epsilon_{n \, \mathbf{k}} - \epsilon_{m \, \mathbf{k} - \mathbf{q}}|` included in the calculation. 
 
+.. _gw_theory_ppa:
+
 Plasmon Pole Approximation
 ==========================
  :math:`\rightarrow` ``ppa = True``

@@ -103,6 +103,8 @@ keyword              type                default value         description
                                                                parallellization.
 ``savew``            ``bool``            False                 Option to store the screened 
                                                                Coulomb interaction.
+``savepckl``         ``bool``            True                  Option to store the resulting dict 
+                                                               in a .pckl file.
 =================  =================  ===================  ================================
 
 Convergence with respect to cutoff energy and number of k-points
@@ -110,32 +112,40 @@ Convergence with respect to cutoff energy and number of k-points
 Can we trust the calculated value of the direct bandgap? Not yet.
 Check for convergence with respect to the plane wave cutoff energy and number of k points is necessary. 
 This is done by changing the respective values in the groundstate calculation and restarting. 
-This is rather time consuming for the full G0W0 calculation but one can usually get a good idea of converged parameters just by calculating the exact exchange contribution. Script xxx does that for you plots the resulting data. It takes about yyy minutes on a single CPU. The resulting figure is shown below.
+Script :download:`Si_ecut_k_conv_GW.py` carries out the calculations and :download:`Si_ecut_k_conv_plot_GW.py` plots the resulting data. It takes about xx minutes on 2 xeon-8 CPUs (16 cores total). The resulting figure is shown below.
 
 .. image:: Si_EXX.png
        :height: 400 px
 
-A k-point sampling of (9x9x9) and 150 eV plane wave cutoff seems to give well converged results. A full G0W0 calculation at these values result in a direct bandgap of xxx eV. Hence the value of yyy eV calculated before was definately not converged!
+A k-point sampling of (9x9x9) and 150 eV plane wave cutoff seems to give well converged results. 
+
 
 Frequency dependence
 --------------------
 
-Next, we should check the quality of the frequency grid used in the calculation. Two parameters determine how the frequency grid looks. ``domega0`` and ``omega2``. Read more about these parameters in the tutorial for the dielectric function (LINK).
+Next, we should check the quality of the frequency grid used in the calculation. Two parameters determine how the frequency grid looks. ``domega0`` and ``omega2``. Read more about these parameters in the tutorial for the dielectric function :ref:`df_tutorial_freq`.
 
-Running script xxx calcuates the direct band gap using different frequency grids with ``domega0`` varying from 0.005 to 0.05 and ``omega2`` from 1 to 30. yyy plots the resulting data shown in the figure below.
+Running script :download:`Si_frequency_conv.py` calculates the direct band gap using different frequency grids with ``domega0`` varying from 0.005 to 0.05 and ``omega2`` from 1 to 25. The resulting data is plotted in the same script and the figure is shown below.
 
 .. image:: Si_w.png
        :height: 400 px
 
 Converged results are obtained for ``domega0=yy`` and ``omega2=xx``. 
 
-Another method for carrying out the frequency integration is the Plasmon Pole approximation (PPA). Read more about it here (LINK). This is turned on by setting ``ppa = True``. Carrying out a full G0W0 calculation using the converged parameters and the PPA gives a direct band gap of xxx eV, which is in very good agreement with the result for the full frequency integration but the calculation took only xxx minutes on one CPU!
+Final results
+-------------
+A full G0W0 calculation at the values found above for the plane wave cutoff, number of k-points and frequency sampling results in a direct bandgap of xxx eV (with :download:`Si_converged.py`). Hence the value of 3.18 eV calculated at first was definately not converged!
+
+Another method for carrying out the frequency integration is the Plasmon Pole approximation (PPA). Read more about it here :ref:`gw_theory_ppa`. This is turned on by setting ``ppa = True``. Carrying out a full G0W0 calculation using the converged parameters and the PPA gives a direct band gap of xxx eV, which is in very good agreement with the result for the full frequency integration but the calculation took only xxx minutes on one CPU!
 
 .. note::
 
     If a calculation is very memory heavy, it is possible to set ``nblocks`` to an integer larger than 1 but less than the amount of CPU cores running the calculation. With this, the response function is divided into blocks and each core gets to store a smaller matrix. 
 
 
-Quasi-particle spectrum of two-dimensional materials
-====================================================
+Details of the G0W0 object
+========================
 
+.. autoclass:: gpaw.response.g0w0.G0W0
+   :members: calculate, calculate_q, calculate_sigma, calculate_screened_potential, 
+             calculate_w 
