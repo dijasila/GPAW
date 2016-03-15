@@ -6,7 +6,7 @@ Installation
 
 GPAW relies on the Python library *atomic simulation environment* (ASE_),
 so you need to :ref`install ASE <ase:install>` first.  GPAW itself is written
-mostly in the Python programming language also, but there are also some
+mostly in the Python programming language, but there are also some
 C-code used for:
     
 * performance critical parts
@@ -26,20 +26,22 @@ Requirements
 * Python_ 2.6-3.5
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
 * `Atomic Simulation Environment <https://wiki.fysi.dtu.dk/ase>`_
-* C compiler
+* a C compiler
 * LibXC_ 2.0.1 or later
 * BLAS_ and LAPACK_ libraries
 
 Optional, but highly recommended:
 
-* SciPy_ 0.7 or later (library for scientific computing, requirered for some features)
+* SciPy_ 0.7 or later (library for scientific computing, requirered for
+  some features)
 * an MPI_ library (required for parallel calculations)
 * FFTw_ (for increased performance)
 * BLACS_ and ScaLAPACK_
 
 Optional, but maybe not needed:
     
-* HDF5 1.8.0 or later (library for parallel I/O and for saving files in HDF5 format)
+* HDF5 1.8.0 or later (library for parallel I/O and for saving files in HDF5
+  format)
 
 
 .. _Python: http://www.python.org/
@@ -59,10 +61,11 @@ Python package index (PyPI_)::
     $ pip install --upgrade --user gpaw
     
 This will compile and install GPAW (both ``_gpaw.so`` and all the Python files) in your ``~/.local/lib/pythonX.Y/site-packages`` folder where Python
-can automatically find it.  The Make sure you have ``~/.local/bin``  in your
-:envvar:`PATH` environment variable.
-
-....... .local/lib/.../gpaw+_gpaw.so and ~/local/bin/gpaw-xxxx
+can automatically find it.  The ``pip`` command will also place the command
+line tool :command:`gpaw` in the ``~/.local/bin`` folder, so make sure you
+have that in your :envvar:`PATH` environment variable.  If you have an
+``mpicc`` command on your system then there will also be a ``gpaw-python``
+executable in ``~/.local/bin``.
 
 Now you should be ready to use GPAW, but before you start, please run the
 tests as described below.
@@ -97,33 +100,27 @@ As an alternative to ``pip``, you can also get the source from a tar-file or
 from Git.
 
 
-Tar-file
---------
+:Tar-file:
 
-You can get the source as a tar-file for the
-latest stable release (gpaw-1.0.0.tar.gz_) or the latest
-development snapshot (`<snapshot.tar.gz>`_).
+    You can get the source as a tar-file for the
+    latest stable release (gpaw-1.0.0.tar.gz_) or the latest
+    development snapshot (`<snapshot.tar.gz>`_).
 
-Unpack and make a soft link::
+    Unpack and make a soft link::
     
-    $ tar -xf python-gpaw-3.9.1.4567.tar.gz
-    $ ln -s python-gpaw-3.9.1.4567 gpaw
+        $ tar -xf python-gpaw-3.9.1.4567.tar.gz
+        $ ln -s python-gpaw-3.9.1.4567 gpaw
 
-.. _gpaw-1.0.0.tar.gz:
-    https://pypi.python.org/packages/source/g/gpaw/gpaw-1.0.0.tar.gz
+:Git clone:
 
+    Alternatively, you can get the source for the latest stable release from
+    https://gitlab.com/gpaw/gpaw like this::
     
-Git clone
----------
+        $ git clone -b 3.9.1 https://gitlab.com/gpaw/gpaw.git
 
-Alternatively, you can get the source for the latest stable release from
-https://gitlab.com/gpaw/gpaw like this::
-    
-    $ git clone -b 3.9.1 https://gitlab.com/gpaw/gpaw.git
+    or if you want the development version::
 
-or if you want the development version::
-
-    $ git clone https://gitlab.com/gpaw/gpaw.git
+        $ git clone https://gitlab.com/gpaw/gpaw.git
     
 Add ``~/gpaw`` to your :envvar:`PYTHONPATH` environment variable and add
 ``~/gpaw/tools`` to :envvar:`PATH` (assuming ``~/gpaw`` is where your GPAW
@@ -135,6 +132,9 @@ folder is).
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
+
+.. _gpaw-1.0.0.tar.gz:
+    https://pypi.python.org/packages/source/g/gpaw/gpaw-1.0.0.tar.gz
 
 Niflheim, datasets, platforms, devel-mode
 
