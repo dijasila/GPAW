@@ -20,7 +20,8 @@ class HirshfeldDensity(RealSpaceDensity):
         self.calculator = calculator
         density = calculator.density
         par = self.calculator.input_parameters
-        RealSpaceDensity.__init__(self, density.gd, density.finegd, 1, 0,
+        RealSpaceDensity.__init__(self, density.gd, density.finegd, 
+                                  density.nspins, 0,
                                   stencil=par.stencils[1],
                                   grid2grid=density.grid2grid)
 
