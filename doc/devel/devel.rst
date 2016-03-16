@@ -47,6 +47,7 @@ version to become the next release.
    newrelease
    technology
    todo
+   benchmarks
 
 * Details about supported :ref:`platforms and architectures`.
 

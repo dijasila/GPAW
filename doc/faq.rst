@@ -90,7 +90,7 @@ Compiling the C-code
 ====================
 
 For architecture dependent settings see the
-:ref:`platforms_and_architectures` page.
+:ref:`platforms and architectures` page.
 
 Compilation of the C part failed::
 
@@ -157,4 +157,3 @@ Tests fail!
 ===========
 
 Please report the failing test as described on :ref:`run the tests`.
-

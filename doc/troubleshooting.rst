@@ -1,3 +1,8 @@
+.. _troubleshooting:
+    
+Troubleshooting
+===============
+
 ::
     
     gpaw info

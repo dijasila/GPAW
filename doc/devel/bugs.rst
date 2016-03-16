@@ -24,8 +24,9 @@ by checking that all array arguments passed from Python to C functions have the 
 Apart from appending ``--debug`` to the command line arguments when running ``python`` or ``gpaw-python``,
 please familiarize yourself with the :ref:`debugging tools <debugging>` for the Python and C code.
 
-If you experience segfaults or unexplained MPI crashes when running GPAW in parallel, it is recommended to
-try a :ref:`custom installation <customize installation>` with a debugging flag in ``customize.py``::
+If you experience segfaults or unexplained MPI crashes when running GPAW
+in parallel, it is recommended to try a :ref:`custom installation
+<customizing installation>` with a debugging flag in ``customize.py``::
 
   define_macros += [("GPAW_MPI_DEBUG",1)]
 

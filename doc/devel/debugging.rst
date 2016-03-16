@@ -76,16 +76,20 @@ An example session might look like::
 
 Emacs has a special mode for python debugging which can be invoked as *M-x pdb*. After that one has to give the command to start the debugger (e.g. python -m pdb script.py). Emacs opens two windows, one for the debugger command prompt and one which shows the source code and the current point of execution. Breakpoints can be set also on the source-code window.
 
+
 C debugging
 ===========
 
-First of all, the C-extension should be compiled with the *-g* flag in order to get the debug information into the library.
-Also, the optimizations should be switched off which could be done in :ref:`customize.py <customize installation>` as::
+First of all, the C-extension should be compiled with the *-g* flag in
+order to get the debug information into the library. Also, the
+optimizations should be switched off which could be done in
+:ref:`customize.py <customizing installation>` as::
 
    extra_link_args += ['-g']
    extra_compile_args += ['-O0', '-g']
 
-There are several debuggers available, the following example session applies to *gdb*::
+There are several debuggers available, the following example session
+applies to *gdb*::
 
   sepeli ~/gpaw/trunk/test> gdb python
   GNU gdb Red Hat Linux (6.1post-1.20040607.52rh)

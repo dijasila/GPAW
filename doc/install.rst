@@ -37,9 +37,14 @@ There are several ways to install GPAW:
 * If you are a developer that need to change the code you should look at this
   description: :ref:`developer installation`.
 
-There are tips and tricks for installation on many :ref:`platforms and
-architectures`.
+.. seealso::
     
+    * Tips and tricks for installation on many :ref:`platforms and
+      architectures`.
+    * :ref:`troubleshooting`.
+    * Important :ref:`envvars`.
+    * In case of trouble: :ref:`Our mail list and IRC channel <contact>`.
+
     
 Requirements
 ============
@@ -300,6 +305,8 @@ Example::
     export LD_LIBRARY_PATH=~/xc/lib
 
 
+.. _envvars:
+    
 Environment variables
 =====================
 
@@ -328,3 +335,10 @@ or your :file:`~/.cshrc` file::
 
     $ setenv PYTHONPATH ${HOME}/gpaw:${PYTHONPATH}
     $ setenv PATH ${HOME}/gpaw/tools:${PATH}
+
+    
+.. toctree::
+    :hidden:
+        
+    troubleshooting
+    platforms/platforms

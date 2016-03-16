@@ -57,7 +57,7 @@ like `\tilde{p}_{n\ell m}^a(\mathbf{r})` on the 3D grid, you need both
 the radial part `\tilde{p}_{n\ell}^a(r)` (one of the splines in
 ``paw.wfs.setups[a].pt_j``) and a spherical harmonics `Y_{\ell
 m}(\theta,\phi)`.  Putting radial functions times spherical harmonics
-on a grid is done by the :class:`gpaw.lfc.LocalizedFunctionsCollection`
+on a grid is done by the :class:`gpaw.lfc.NewLocalizedFunctionsCollection`
 class. See also :class:`gpaw.setup.Setup` and :class:`gpaw.spline.Spline`.
 
 
@@ -204,7 +204,7 @@ way as the pseudo electron spin-densities.
      - :class:`gpaw.spline.Spline`
    * - `\tilde{n}_c^a(\mathbf{r}-\mathbf{R}^a)`
      - ``paw.density.nct``
-     - :class:`gpaw.lfc.LFC`
+     - :class:`gpaw.lfc.NewLocalizedFunctionsCollection`
    * - `f_{\sigma\mathbf{k}n}`
      - ``paw.wfs.kpt_u[u].f_n``
      - ``ndarray``
@@ -288,7 +288,7 @@ where
      - List of :class:`gpaw.spline.Spline`\ s
    * - `\hat{g}_L^a(\mathbf{r}-\mathbf{R}^a)`
      - ``paw.density.ghat``
-     - :class:`gpaw.lfc.LFC`
+     - :class:`gpaw.lfc.NewLocalizedFunctionsCollection`
    * - `Q_L^a`
      - ``paw.density.Q_aL[a]``
      - ``ndarray``

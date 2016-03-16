@@ -4,43 +4,17 @@ GPAW: DFT and beyond within the projector-augmented wave method
 
 GPAW is a density-functional theory (DFT) Python_ code based on the
 projector-augmented wave (:ref:`PAW <literature>`) method and the
-atomic simulation environment (ASE_).  It uses real-space uniform
-grids and multigrid methods, atom-centered basis-functions or plane-waves.
-Read more about the :ref:`algorithms` used.
+atomic simulation environment (ASE_).  The wave functiins can be described with
+
+* plane-waves (:ref:`pw <manual_mode>`)
+* real-space uniform grids, multigrid methods and the finite-difference approximation
+  (:ref:`fd <manual_stencils>`)
+* atom-centered basis-functions (:ref:`lcao <lcao>`)
+
 
 .. _Python: http://www.python.org
 .. _ASE: https://wiki.fysik.dtu.dk/ase
-
-
-Quick links to all features:
     
-.. list-table::
-    
-    * - :ref:`Plane-waves <manual_mode>`
-      - :ref:`Finite-difference <manual_stencils>`
-      - :ref:`LCAO <lcao>`
-    * - :ref:`XC-functionals <xc>`
-      - :ref:`DFT+U <hubbardu>`
-      - :ref:`GLLB-SC <bandgab>`
-    * - :ref:`DOS <pdos>`
-      - :ref:`STM <stm tutorial>`
-      - :ref:`Wannier functions <wannier>`
-    * - :ref:`delta-SCF <dscf>`
-      - :ref:`XAS <xas>`
-      - :ref:`Jellium <jellium>`
-    * - :ref:`TDDFT <timepropagation>`
-      - :ref:`LRTDDFT (molecules) <lrtddft>`
-      - :ref:`LRTDDFT (extended systems) <df_theory>`
-    * - :ref:`Transport <transport_exercise>`
-      - :ref:`NEGF-transport <transport>`
-      - :ref:`Keldysh GF-transport ... <keldyshgf>`
-    * - :ref:`RPA-correlation <rpa>`
-      - :ref:`GW <gw_theory>`
-      - :ref:`BSE <bse>`
-    * - :ref:`Parallelization <parallel_runs>`
-      - :ref:`Continuum Solvent Model <continuum_solvent_model>`
-      -
-
 
 .. _news:
 
@@ -148,7 +122,6 @@ News
 
    algorithms
    install
-   platforms/platforms
    documentation/documentation
    tutorials/tutorials
    exercises/exercises
@@ -157,7 +130,6 @@ News
    contact
    faq
    devel/devel
-   devel/benchmarks
    summerschools/summerschools
    workshops/workshops
    bugs
