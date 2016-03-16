@@ -100,7 +100,7 @@ Compilation of the C part failed::
  pgcc-Warning-Unknown switch: -fno-strict-aliasing
  PGC-S-0040-Illegal use of symbol, _Complex (/usr/include/bits/cmathcalls.h: 54)
 
-You are probably using another compiler, than it was used for
+You are probably using another compiler, than was used for
 compiling python. Undefine the environment variables CC, CFLAGS and
 LDFLAGS with::
 
@@ -124,6 +124,7 @@ then you should set the Fermi temperature to a low value.
 
 You can also try to set the number of grid points to be divisible by 8.
 Consult the :ref:`poisson_performance` page.
+
 
 How to switch between several GPAW versions
 ===========================================
@@ -151,8 +152,9 @@ Alternatively, instead of modifying
 :git:`~doc/documentation/parallel_runs/gpaw-qsub`
 create a bash function - see :ref:`Niflheim` for details.
 
+
 Tests fail!
 ===========
 
-Please report the failing test as described on :ref:`running_tests`.
+Please report the failing test as described on :ref:`run the tests`.
 

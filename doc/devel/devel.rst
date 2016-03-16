@@ -48,7 +48,7 @@ version to become the next release.
    technology
    todo
 
-* Details about supported :ref:`platforms_and_architectures`.
+* Details about supported :ref:`platforms and architectures`.
 
 .. _PyLint: http://www.logilab.org/857
 

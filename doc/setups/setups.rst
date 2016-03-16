@@ -1,5 +1,6 @@
 .. _setups:
-
+.. _datasets:
+    
 =================
 Atomic PAW Setups
 =================

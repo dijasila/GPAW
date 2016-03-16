@@ -21,19 +21,24 @@ that has MPI_ functionality built in.
 
 There are several ways to install GPAW:
     
-* pip
-* setup.py + customize.py
-* packages
-* dev
+* On a lucky day it's as simple as ``pip install -U gpaw`` as
+  described :ref:`below <installation using pip>`.
+  
+* Alternatively, you can :ref:`download <download>` the source code,
+  edit :git:`customize.py` to tell the install script which libraries you
+  want to link to and where they
+  can be found (see :ref:`customizing installation`) and then install with a
+  ``python setup.py install --user`` as described :ref:`here <install
+  with distutils>`.
+  
+* There may be a package for your Linux distribution that you can use
+  (named ``gpaw``).
+  
+* If you are a developer that need to change the code you should look at this
+  description: :ref:`developer installation`.
 
-test
-platforms
-
-.. note::
-
-    Some Linux distributions have a GPAW package (named ``gpaw``),
-    that you can install on your system so that it is avilable for all
-    users.
+There are tips and tricks for installation on many :ref:`platforms and
+architectures`.
     
     
 Requirements
@@ -41,8 +46,8 @@ Requirements
 
 * Python_ 2.6-3.5
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
-* `Atomic Simulation Environment <https://wiki.fysi.dtu.dk/ase>`_
-* a C compiler
+* ASE_ 3.12 or later (atomic simulation environment)
+* a C-compiler
 * LibXC_ 2.0.1 or later
 * BLAS_ and LAPACK_ libraries
 
@@ -51,7 +56,7 @@ Optional, but highly recommended:
 * SciPy_ 0.7 or later (library for scientific computing, requirered for
   some features)
 * an MPI_ library (required for parallel calculations)
-* FFTw_ (for increased performance)
+* FFTW_ (for increased performance)
 * BLACS_ and ScaLAPACK_
 
 Optional (maybe not needed):
@@ -74,8 +79,10 @@ Optional (maybe not needed):
 .. _PIP: https://pip.pypa.io/en/stable/
 .. _ASE: https://wiki.fysik.dtu.dk/ase
 .. _FFTW: http://www.fftw.org/
-    
 
+
+.. _installation using pip:
+    
 Installation using ``pip``
 ==========================
 
@@ -113,10 +120,10 @@ tests as described below.
 
 
 .. index:: test
-.. _test:
+.. _run the tests:
 
-Test your installation
-======================
+Run the tests
+=============
 
 Make sure that everything works by running the test suite::
     
@@ -132,32 +139,6 @@ can fix them (see :ref:`mail lists`).
 
 If tests pass, and the parallel version is built, test the parallel code::
 
-    $ mpiexec -np 2 gpaw-python -c "import gpaw.mpi as mpi; print(mpi.rank)"
-    1
-    0
-
-.. note::
-
-   Many MPI versions have their own ``-c`` option which may
-   invalidate python command line options. In this case
-   test the parallel code as in the example below.
-
-Try also::
-
-    $ ase-build H -v 2 | gpaw -P 2 run -p mode=pw
-
-This will perform a calculation for a single spin-polarized hydrogen atom
-parallelized with spin up on one processor and spin down on the other.
-
-If you enabled ScaLAPACK, do::
-
-  [examples]$ mpirun -np 2 gpaw-python ~/gpaw/test/CH4.py --sl_default=1,2,2
-
-This will enable ScaLAPACK's diagonalization on a 1x2 BLACS grid
-with the block size of 2.
-
-Finally run the tests in parallel on 4 cores::
-
     $ gpaw -P 4 test
 
 or equivalently::
@@ -167,12 +148,10 @@ or equivalently::
 
 .. _download:
 
-Installation from source
-========================
+Getting the source code
+=======================
 
-As an alternative to ``pip``, you can also get the source from a tar-file or
-from Git.
-
+Sou can get the source from a tar-file or from Git:
 
 :Tar-file:
 
@@ -228,58 +207,72 @@ lines::
 
 Now, GPAW would be built with "``-Lpath_to_myblas -lmyblas
 -lmylapack``" linker flags. Look at the file :git:`customize.py`
-itself for more possible options.  :ref:`platforms_and_architectures`
+itself for more possible options.  :ref:`platforms and architectures`
 provides examples of :file:`customize.py` for different platforms.
 After editing :git:`customize.py`, follow the instructions for the
 :ref:`developer installation`.
 
 
+.. _install with distutils:
 
-.. _parallel_installation:
+Install with setup.py
+=====================
+
+If you have the source code, you can use the install script (:git:`setup.py`)
+to compile and install the code::
+    
+    $ python setup.py install --user
+    
+
+.. _parallel installation:
 
 Parallel installation
-+++++++++++++++++++++
+=====================
 
 By default, setup looks if :program:`mpicc` is available, and if setup
 finds one, a parallel version is build. If the setup does not find
 mpicc, a user can specify one in the :git:`customize.py` file.
 
 Additionally a user may want to enable ScaLAPACK, setting in
-:file:`customize.py`::
+:git:`customize.py`::
 
- scalapack = True
+    scalapack = True
 
 and, in this case, provide BLACS/ScaLAPACK ``libraries`` and ``library_dirs``
-as described in :ref:`install_custom_installation`.
+as described in :ref:`customizing installation`.
 
 Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
 
+
 Installation with HDF5 support
-++++++++++++++++++++++++++++++
+------------------------------
 
-HDF5_ support can be enabled by setting in :file:`customize.py`::
+HDF5_ support can be enabled by setting in :git:`customize.py`::
 
- hdf5 = True
+    hdf5 = True
 
 and, in this case, provide HDF5 ``include_dirs``, ``libraries``, and
-``library_dirs`` as described in :ref:`install_custom_installation`.
+``library_dirs`` as described in :ref:`customizing installation`.
+
 
 Libxc Installation
-++++++++++++++++++
+------------------
 
-Libxc download/install instructions can be found `here <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`_.  A few extra tips:
+Libxc download/install instructions can be found `here
+<http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`_.  A
+few extra tips:
 
-- Libxc installation requires both a C compiler and a fortran compiler.
+* Libxc installation requires both a C compiler and a fortran compiler.
 
-- We've tried intel and gnu compilers and haven't noticed much of a
+* We've tried intel and gnu compilers and haven't noticed much of a
   performance difference.  Use whatever is easiest.
 
-- Libxc shared libraries can be built with the "--enable-shared" option
+* Libxc shared libraries can be built with the "--enable-shared" option
   to configure.  This might be slightly preferred because it reduces
   memory footprints for executables.
 
-- Typically when building GPAW one has to modify customize.py in a manner
+* Typically when building GPAW one has to modify customize.py in a manner
   similar to the following::
 
     library_dirs += ['/my/path/to/libxc/2.0.2/install/lib']
@@ -305,15 +298,6 @@ Example::
     export C_INCLUDE_PATH=~/xc/include
     export LIBRARY_PATH=~/xc/lib
     export LD_LIBRARY_PATH=~/xc/lib
-
-    
-Installation on OS X
-====================
-
-For installation with http://brew.sh/ please follow
-instructions at :ref:`homebrew`.
-
-After performing the installation do not forget to :ref:`running_tests`!
 
 
 Environment variables

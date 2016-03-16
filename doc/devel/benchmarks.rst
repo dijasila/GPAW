@@ -31,7 +31,7 @@ The following packages are required (names given for RHEL 5 system):
  - bash
  - gpaw
 
-Please refer to :ref:`platforms_and_architectures` for hints on
+Please refer to :ref:`platforms and architectures` for hints on
 installing GPAW on different platforms.
 
 Results
@@ -537,7 +537,7 @@ The following packages are required (names given for Fedora Core 10 system):
 * ase
 
 **Note** that GPAW has to built with ScaLAPACK enabled -
-please refer to :ref:`platforms_and_architectures` for hints on
+please refer to :ref:`platforms and architectures` for hints on
 installing GPAW on different platforms.
 
 Results
@@ -693,7 +693,7 @@ The following packages are required (names given for Fedora Core 10 system):
 * ase
 
 **Note** that GPAW has to built with ScaLAPACK enabled -
-please refer to :ref:`platforms_and_architectures` for hints on
+please refer to :ref:`platforms and architectures` for hints on
 installing GPAW on different platforms.
 
 Results

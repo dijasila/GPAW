@@ -25,7 +25,7 @@ Apart from appending ``--debug`` to the command line arguments when running ``py
 please familiarize yourself with the :ref:`debugging tools <debugging>` for the Python and C code.
 
 If you experience segfaults or unexplained MPI crashes when running GPAW in parallel, it is recommended to
-try a :ref:`custom installation <install_custom_installation>` with a debugging flag in ``customize.py``::
+try a :ref:`custom installation <customize installation>` with a debugging flag in ``customize.py``::
 
   define_macros += [("GPAW_MPI_DEBUG",1)]
 
