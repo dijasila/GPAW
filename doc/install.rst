@@ -5,7 +5,7 @@ Installation
 ============
 
 GPAW relies on the Python library *atomic simulation environment* (ASE_),
-so you need to :ref`install ASE <ase:install>` first.  GPAW itself is written
+so you need to :ref:`install ASE <ase:install>` first.  GPAW itself is written
 mostly in the Python programming language, but there are also some
 C-code used for:
     
