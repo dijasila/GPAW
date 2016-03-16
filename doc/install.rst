@@ -19,7 +19,13 @@ calculations, you will need to build a dynamically linked library
 calculations, you need to build a new Python interpreter (``gpaw-python``)
 that has MPI_ functionality built in.
 
+.. note::
 
+    Some Linux distributions have a GPAW package (named ``gpaw``),
+    that you can install on your system so that it is avilable for all
+    users.
+    
+    
 Requirements
 ============
 
@@ -40,7 +46,7 @@ Optional, but highly recommended:
 
 Optional (maybe not needed):
     
-* HDF5 1.8.0 or later (library for parallel I/O and for saving files in HDF5
+* HDF5_ 1.8.0 or later (library for parallel I/O and for saving files in HDF5_
   format)
 
 
@@ -48,15 +54,25 @@ Optional (maybe not needed):
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
 .. _SciPy: http://docs.scipy.org/doc/scipy/reference/
 .. _LibXC: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc
-
+.. _MPI: http://www.mpi-forum.org/ 
+.. _BLAS: http://www.netlib.org/blas/
+.. _BLACS: http://www.netlib.org/blacs/
+.. _LAPACK: http://www.netlib.org/lapack/
+.. _ScaLAPACK: http://www.netlib.org/scalapack/
+.. _HDF5: https://www.hdfgroup.org/HDF5/
+.. _PyPI: https://pypi.python.org/pypi/gpaw
+.. _PIP: https://pip.pypa.io/en/stable/
+.. _ASE: https://wiki.fysik.dtu.dk/ase
+.. _FFTW: http://www.fftw.org/
+    
 
 Installation using ``pip``
 ==========================
 
 .. highlight:: bash
 
-The simplest way to install GPAW is using pip_ and the GPAW package from the
-Python package index (PyPI_)::
+The simplest way to install GPAW is using pip_ and the GPAW package from
+the Python package index (PyPI_)::
     
     $ pip install --upgrade --user gpaw
     
@@ -67,16 +83,11 @@ have that in your :envvar:`PATH` environment variable.  If you have an
 ``mpicc`` command on your system then there will also be a ``gpaw-python``
 executable in ``~/.local/bin``.
 
+
 Check that you have installed everything in the correct places::
     
-    $ gpaw status
+    $ gpaw info
     
-.. note::
-
-    Some Linux distributions have a GPAW package (named ``gpaw``),
-    that you can install on your system so that it is avilable for all
-    users.
-
     
 Install PAW datasets
 ====================
@@ -92,16 +103,56 @@ tests as described below.
 
 
 .. index:: test
-.. _running tests:
+.. _test:
 
 Test your installation
 ======================
 
-Run the tests like this::
+Make sure that everything works by running the test suite::
     
-    $ gpaw test -j 4  # takes 1 hour!
+    $ gpaw test
+    
+This will take a couple of hours.  You can speed it up by using more than
+one core::
+    
+    $ gpaw test -j 4
 
-and send us the output if there are failing tests.
+Please report errors to the ``gpaw-developers`` mailing list so that we
+can fix them (see :ref:`mail lists`).
+
+If tests pass, and the parallel version is built, test the parallel code::
+
+    $ mpiexec -np 2 gpaw-python -c "import gpaw.mpi as mpi; print(mpi.rank)"
+    1
+    0
+
+.. note::
+
+   Many MPI versions have their own ``-c`` option which may
+   invalidate python command line options. In this case
+   test the parallel code as in the example below.
+
+Try also::
+
+    $ ase-build H -v 2 | gpaw -P 2 run -p mode=pw
+
+This will perform a calculation for a single spin-polarized hydrogen atom
+parallelized with spin up on one processor and spin down on the other.
+
+If you enabled ScaLAPACK, do::
+
+  [examples]$ mpirun -np 2 gpaw-python ~/gpaw/test/CH4.py --sl_default=1,2,2
+
+This will enable ScaLAPACK's diagonalization on a 1x2 BLACS grid
+with the block size of 2.
+
+Finally run the tests in parallel on 4 cores::
+
+    $ gpaw -P 4 test
+
+or equivalently::
+    
+    $ mpiexec -np 4 gpaw-python `which gpaw` test
 
 
 .. _download:
@@ -149,21 +200,13 @@ folder is).
 .. _gpaw-1.0.0.tar.gz:
     https://pypi.python.org/packages/source/g/gpaw/gpaw-1.0.0.tar.gz
 
-Niflheim, datasets, platforms, devel-mode
+Niflheim, platforms, devel-mode
 
 
-
-
-
-See below for hints how to customize your installation.
-
-Installation tricks
--------------------
-
-.. _install_custom_installation:
+.. _customizing installation:
 
 Customizing installation
-++++++++++++++++++++++++
+========================
 
 The install script does its best when trying to guess proper libraries
 and commands to build GPAW. However, if the standard procedure fails
@@ -182,15 +225,7 @@ provides examples of :file:`customize.py` for different platforms.
 After editing :git:`customize.py`, follow the instructions for the
 :ref:`developer installation`.
 
-Installation with HDF5 support
-++++++++++++++++++++++++++++++
 
-HDF5 support can be enabled by setting in :file:`customize.py`::
-
- hdf5 = True
-
-and, in this case, provide HDF5 ``include_dirs``, ``libraries``, and
-``library_dirs`` as described in :ref:`install_custom_installation`.
 
 .. _parallel_installation:
 
@@ -212,6 +247,15 @@ as described in :ref:`install_custom_installation`.
 Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
 
+Installation with HDF5 support
+++++++++++++++++++++++++++++++
+
+HDF5_ support can be enabled by setting in :file:`customize.py`::
+
+ hdf5 = True
+
+and, in this case, provide HDF5 ``include_dirs``, ``libraries``, and
+``library_dirs`` as described in :ref:`install_custom_installation`.
 
 Libxc Installation
 ++++++++++++++++++
@@ -254,63 +298,6 @@ Example::
     export LIBRARY_PATH=~/xc/lib
     export LD_LIBRARY_PATH=~/xc/lib
 
-
-.. _running_tests:
-
-Run the tests
-=============
-
-Make sure that everything works by running the test suite
-in serial (using bash)::
-
-  [gpaw]$ python `which gpaw-test` 2>&1 | tee test.log
-
-If you compiled the custom interpreter (needed to running calculations
-in parallel), test it too, in serial::
-
-  [gpaw]$ gpaw-python `which gpaw-test` 2>&1 | tee test1.log
-
-This will take a couple of hours.
-Please report errors to the ``gpaw-developers`` mailing list (see
-:ref:`mail lists`) Send us :file:`test.log`, as well as the
-information about your environment (processor architecture, versions
-of python and numpy, C-compiler, BLAS and LAPACK libraries, MPI
-library), and (only when requested) :file:`build_ext.log`
-(or :file:`install.log`).
-
-If tests pass, and the parallel version is built, test the parallel code::
-
-  [gpaw]$ mpirun -np 2 gpaw-python -c "import gpaw.mpi as mpi; print(mpi.rank)"
-  1
-  0
-
-.. note::
-
-   Many MPI versions have their own ``-c`` option which may
-   invalidate python command line options. In this case
-   test the parallel code as in the example below.
-
-Try also::
-
-  [gpaw]$ mpirun -np 2 gpaw-python gpaw/test/spinpol.py
-
-This will perform a calculation for a single hydrogen atom.
-First spin-paired then spin-polarized case, the latter parallelized
-over spin up on one processor and spin down on the other.  If you run
-the example on 4 processors, you get parallelization over both
-spins and the domain.
-
-If you enabled ScaLAPACK, do::
-
-  [examples]$ mpirun -np 2 gpaw-python ~/gpaw/test/CH4.py --sl_default=1,2,2
-
-This will enable ScaLAPACK's diagonalization on a 1x2 BLACS grid
-with the block size of 2.
-
-Finally run the tests in parallel on 2, 4 and 8 cores::
-
-  [gpaw]$ mpirun -np 4 gpaw-python `which gpaw-test` 2>&1 | tee test4.log
-
     
 Installation on OS X
 ====================
@@ -320,34 +307,10 @@ instructions at :ref:`homebrew`.
 
 After performing the installation do not forget to :ref:`running_tests`!
 
+.. envvar:: OMP_NUM_THREADS
+  
+  Currently should be set to 1.
 
-.. _installationguide_windows:
+.. envvar:: GPAW_SETUP_PATH
 
-Installation on Windows
-=======================
-
-.. note::
-
-   GPAW is not yet fully functional on Windows! See
-   http://listserv.fysik.dtu.dk/pipermail/gpaw-users/2013-August/002264.html
-
-On Windows install Python(x,y) as described at
-https://wiki.fysik.dtu.dk/ase/download.html#windows.
-
-Download the gpaw.win32-py2.7.msi_ installer
-(fix the incorrect *man* extension while downloading) and install with::
-
-   gpaw.win32-py2.7.msi /l*vx "%TMP%\gpaw_install.log" /passive
-
-.. _gpaw.win32-py2.7.msi:
-       https://wiki.fysik.dtu.dk/gpaw-files/gpaw.win32-py2.7.msi
-
-.. note::
-
-    Unpack gpaw-setups under C:\gpaw-setups (see :ref:`setups`).
-
-As the last step (this is important) install the ASE msi
-(see https://wiki.fysik.dtu.dk/ase/download.html#windows).
-
-After performing the installation do not forget to :ref:`running_tests`!
-    
+  Points to the directory containing the PAW datasets.
