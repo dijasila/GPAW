@@ -1,8 +1,54 @@
-.. _platforms_and_architectures:
+.. _platforms and architectures:
 
 ===========================
 Platforms and architectures
 ===========================
+
+Linux:
+
+.. toctree::
+   :maxdepth: 2
+
+   Linux/CentOS
+   Linux/Fedora
+   Linux/openSUSE
+   Linux/Ubuntu_ppa
+   Linux/Ubuntu
+   Linux/Niflheim/Niflheim
+   Linux/SUNCAT/SUNCAT
+   Linux/akka
+   Linux/armageddon
+   Linux/batman
+   Linux/bwgrid
+   Linux/bwuni
+   Linux/carbon_cnm
+   Linux/davinci
+   Linux/gardar.nhpc.hi.is
+   Linux/huygens
+   Linux/juropa
+   Linux/jureca
+   Linux/justus
+   Linux/monolith
+   Linux/murska
+   Linux/nanolab_EL4
+   Linux/neolith
+   Linux/newcell
+   Linux/r410_psmn.ens-lyon
+   Linux/ranger_EL4
+   Linux/sepeli
+   Linux/sun_chpc
+   Linux/supernova
+   Linux/uranus
+   Linux/vsc.univie
+   Linux/odyssey
+
+MacOSX:
+
+.. toctree::
+   :maxdepth: 1
+
+   MacOSX/homebrew
+   MacOSX/macports
 
 AIX:
 
@@ -62,52 +108,6 @@ HP:
    :maxdepth: 1
 
    HP/xc
-
-Linux:
-
-.. toctree::
-   :maxdepth: 2
-
-   Linux/CentOS
-   Linux/Fedora
-   Linux/openSUSE
-   Linux/Ubuntu_ppa
-   Linux/Ubuntu
-   Linux/Niflheim/Niflheim
-   Linux/SUNCAT/SUNCAT
-   Linux/akka
-   Linux/armageddon
-   Linux/batman
-   Linux/bwgrid
-   Linux/bwuni
-   Linux/carbon_cnm
-   Linux/davinci
-   Linux/gardar.nhpc.hi.is
-   Linux/huygens
-   Linux/juropa
-   Linux/jureca
-   Linux/justus
-   Linux/monolith
-   Linux/murska
-   Linux/nanolab_EL4
-   Linux/neolith
-   Linux/newcell
-   Linux/r410_psmn.ens-lyon
-   Linux/ranger_EL4
-   Linux/sepeli
-   Linux/sun_chpc
-   Linux/supernova
-   Linux/uranus
-   Linux/vsc.univie
-   Linux/odyssey
-
-MacOSX:
-
-.. toctree::
-   :maxdepth: 1
-
-   MacOSX/homebrew
-   MacOSX/macports
 
 Solaris:
 

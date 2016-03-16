@@ -19,6 +19,16 @@ calculations, you will need to build a dynamically linked library
 calculations, you need to build a new Python interpreter (``gpaw-python``)
 that has MPI_ functionality built in.
 
+There are several ways to install GPAW:
+    
+* pip
+* setup.py + customize.py
+* packages
+* dev
+
+test
+platforms
+
 .. note::
 
     Some Linux distributions have a GPAW package (named ``gpaw``),
@@ -54,7 +64,7 @@ Optional (maybe not needed):
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
 .. _SciPy: http://docs.scipy.org/doc/scipy/reference/
 .. _LibXC: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc
-.. _MPI: http://www.mpi-forum.org/ 
+.. _MPI: http://www.mpi-forum.org/
 .. _BLAS: http://www.netlib.org/blas/
 .. _BLACS: http://www.netlib.org/blacs/
 .. _LAPACK: http://www.netlib.org/lapack/
@@ -200,8 +210,6 @@ folder is).
 .. _gpaw-1.0.0.tar.gz:
     https://pypi.python.org/packages/source/g/gpaw/gpaw-1.0.0.tar.gz
 
-Niflheim, platforms, devel-mode
-
 
 .. _customizing installation:
 
@@ -307,10 +315,32 @@ instructions at :ref:`homebrew`.
 
 After performing the installation do not forget to :ref:`running_tests`!
 
+
+Environment variables
+=====================
+
+.. envvar:: PATH
+
+    Colon-separated paths where programs can be found.
+    
+.. envvar:: PYTHONPATH
+
+    Colon-separated paths where Python modules can be found.
+
 .. envvar:: OMP_NUM_THREADS
   
-  Currently should be set to 1.
+    Currently should be set to 1.
 
 .. envvar:: GPAW_SETUP_PATH
 
-  Points to the directory containing the PAW datasets.
+    Comma-separated paths to folders containing the PAW datasets.
+
+Set these permanently in your :file:`~/.bashrc` file::
+
+    $ export PYTHONPATH=~/gpaw:$PYTHONPATH
+    $ export PATH=~gpaw/tools:$PATH
+
+or your :file:`~/.cshrc` file::
+
+    $ setenv PYTHONPATH ${HOME}/gpaw:${PYTHONPATH}
+    $ setenv PATH ${HOME}/gpaw/tools:${PATH}

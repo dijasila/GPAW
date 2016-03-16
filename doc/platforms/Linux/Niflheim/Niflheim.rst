@@ -80,8 +80,6 @@ If you decide to install a development version of GPAW, this is what you do:
         export PYTHONPATH=${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
 
         if test -n "`echo $FYS_PLATFORM | grep el6`"; then
-        # http://docs.python.org/2/using/cmdline.html#envvar-PYTHONDONTWRITEBYTECODE
-            export PYTHONDONTWRITEBYTECODE=1  # disable creation of pyc files
             module load NUMPY/1.7.1-1
             module load SCIPY/0.12.0-1
         fi
@@ -123,8 +121,6 @@ If you decide to install a development version of GPAW, this is what you do:
         export PYTHONPATH=${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
 
         if test -n "`echo $FYS_PLATFORM | grep el6`"; then
-        # http://docs.python.org/2/using/cmdline.html#envvar-PYTHONDONTWRITEBYTECODE
-            export PYTHONDONTWRITEBYTECODE=1  # disable creation of pyc files
             module load NUMPY/1.7.1-1
             module load SCIPY/0.12.0-1
         fi

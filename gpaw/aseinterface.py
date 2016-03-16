@@ -710,13 +710,7 @@ class GPAW(PAW):
         return self.iter
 
     def get_ensemble_coefficients(self):
-        """Get BEE ensemble coefficients.
-
-        See The ASE manual_ for details.
-
-        .. _manual: https://wiki.fysik.dtu.dk/ase/Utilities
-                    #bayesian-error-estimate-bee
-        """
+        """Get BEE ensemble coefficients."""
 
         E = self.get_potential_energy()
         E0 = self.get_xc_difference('XC-9-1.0')

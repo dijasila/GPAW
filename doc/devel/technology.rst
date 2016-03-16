@@ -48,7 +48,7 @@ ScaLAPACK_
 .. _BLAS: http://www.netlib.org/blas
 .. _LAPACK: http://www.netlib.org/lapack
 .. _NumPy: http://www.numpy.org
-.. _distutils: https://docs.python.org/3/library/distutils.html
+.. _distutils: https://docs.python.org/library/distutils.html
 .. _MPI: http://www.mpi-forum.org
 .. _FFTW: http://www.fftw.org
 .. _BLACS: http://www.netlib.org/blacs

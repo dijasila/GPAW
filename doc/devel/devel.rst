@@ -48,13 +48,8 @@ version to become the next release.
    technology
    todo
 
-* The latest report_ from PyLint_ about the GPAW coding standard.
-
-.. spacer
-
 * Details about supported :ref:`platforms_and_architectures`.
 
-.. _report: http://dcwww.camd.dtu.dk/~s052580/pylint/gpaw/
 .. _PyLint: http://www.logilab.org/857
 
 

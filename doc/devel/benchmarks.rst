@@ -527,14 +527,14 @@ The amount of disk space required is minimal.
 
 The following packages are required (names given for Fedora Core 10 system):
 
- - python, python-devel
- - numpy
- - python-matplotlib
- - openmpi, openmpi-devel
- - blacs, scalapack
- - bash
- - `campos-gpaw <https://wiki.fysik.dtu.dk/gpaw/install/installationguide.html>`_
- - `campos-ase3 <https://wiki.fysik.dtu.dk/ase/download.html>`_
+* python, python-devel
+* numpy
+* python-matplotlib
+* openmpi, openmpi-devel
+* blacs, scalapack
+* bash
+* gpaw
+* ase
 
 **Note** that GPAW has to built with ScaLAPACK enabled -
 please refer to :ref:`platforms_and_architectures` for hints on
@@ -683,14 +683,14 @@ The amount of disk space required is minimal.
 
 The following packages are required (names given for Fedora Core 10 system):
 
- - python, python-devel
- - numpy
- - python-matplotlib
- - openmpi, openmpi-devel
- - blacs, scalapack
- - bash
- - `campos-gpaw <https://wiki.fysik.dtu.dk/gpaw/install/installationguide.html>`_
- - `campos-ase3 <https://wiki.fysik.dtu.dk/ase/download.html>`_
+* python, python-devel
+* numpy
+* python-matplotlib
+* openmpi, openmpi-devel
+* blacs, scalapack
+* bash
+* gpaw
+* ase
 
 **Note** that GPAW has to built with ScaLAPACK enabled -
 please refer to :ref:`platforms_and_architectures` for hints on

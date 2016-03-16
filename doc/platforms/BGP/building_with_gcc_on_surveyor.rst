@@ -112,11 +112,10 @@ Step 1
 
 Download all the necessary packages:
 
-- `ase <https://wiki.fysik.dtu.dk/ase/download.html#latest-stable-release>`_
+* :ref:`ASE <ase:download>`
+* :ref:`GPAW <download>`
+* :ref:`PAW datasets <datasets>`
 
-- `gpaw <https://wiki.fysik.dtu.dk/gpaw/download.html#latest-stable-release>`_
-
-- `gpaw-setups <https://wiki.fysik.dtu.dk/gpaw/setups/setups.html>`_
 
 Step 2
 ======
