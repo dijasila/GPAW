@@ -5,9 +5,9 @@ Installation
 ============
 
 GPAW relies on the Python library *atomic simulation environment* (ASE_),
-so you need to :ref:`install ASE <ase:install>` first.  GPAW itself is written
-mostly in the Python programming language, but there are also some
-C-code used for:
+so you need to :ref:`install ASE <ase:download_and_install>` first.  GPAW
+itself is written mostly in the Python programming language, but there
+are also some C-code used for:
     
 * performance critical parts
 * allowing Python to talk to external numerical libraries (BLAS_, LAPACK_,
@@ -51,7 +51,7 @@ Requirements
 
 * Python_ 2.6-3.5
 * NumPy_ 1.6.1 or later (base N-dimensional array package)
-* ASE_ 3.12 or later (atomic simulation environment)
+* ASE_ 3.10 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 2.0.1 or later
 * BLAS_ and LAPACK_ libraries
@@ -98,13 +98,13 @@ the Python package index (PyPI_)::
     
     $ pip install --upgrade --user gpaw
     
-This will compile and install GPAW (both ``_gpaw.so`` and all the Python files) in your ``~/.local/lib/pythonX.Y/site-packages`` folder where Python
-can automatically find it.  The ``pip`` command will also place the command
-line tool :command:`gpaw` in the ``~/.local/bin`` folder, so make sure you
-have that in your :envvar:`PATH` environment variable.  If you have an
-``mpicc`` command on your system then there will also be a ``gpaw-python``
-executable in ``~/.local/bin``.
-
+This will compile and install GPAW (both ``_gpaw.so`` and all the Python
+files) in your ``~/.local/lib/pythonX.Y/site-packages`` folder where
+Python can automatically find it.  The ``pip`` command will also place
+the command line tool :command:`gpaw` in the ``~/.local/bin`` folder, so
+make sure you have that in your :envvar:`PATH` environment variable.  If
+you have an ``mpicc`` command on your system then there will also be a
+``gpaw-python`` executable in ``~/.local/bin``.
 
 Check that you have installed everything in the correct places::
     
