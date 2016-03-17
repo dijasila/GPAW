@@ -1,5 +1,4 @@
 # Copyright (C) 2006 CSC-Scientific Computing Ltd.
-
 # Please see the accompanying LICENSE file for further information.
 from __future__ import print_function
 import os
@@ -13,61 +12,6 @@ from glob import glob
 from os.path import join
 from stat import ST_MTIME
 
-
-def check_packages(packages, msg, include_ase, import_numpy):
-    """Check the python version and required extra packages
-
-    If ASE is not installed, the `packages` list is extended with the
-    ASE modules if they are found."""
-
-    if sys.version_info < (2, 3, 0, 'final', 0):
-        raise SystemExit('Python 2.3.1 or later is required!')
-
-    if import_numpy:
-        try:
-            import numpy
-        except ImportError:
-            raise SystemExit('numpy is not installed!')
-    else:
-        msg += ['* numpy is not installed.',
-                '  "include_dirs" in your customize.py must point to '
-                '"numpy/core/include".']
-
-    if not include_ase:
-        if import_numpy:
-            try:
-                import ase
-            except ImportError:
-                import_ase = True
-            else:
-                import_ase = False
-        else:
-            import_ase = False
-
-    if include_ase or import_ase:
-        # Find ASE directories:
-        # include_ase works in case:
-        # cd gpaw # top-level gpaw source directory
-        # tar zxf ~/python-ase-3.1.0.846.tar.gz
-        # ln -s python-ase-3.1.0.846/ase .
-        ase_root = 'ase'
-        if include_ase:
-            assert os.path.isdir(ase_root), ase_root
-        ase = []
-        for root, dirs, files in os.walk(ase_root):
-            if 'CVS' in dirs:
-                dirs.remove('CVS')
-            if '.svn' in dirs:
-                dirs.remove('.svn')
-            if '__init__.py' in files:
-                ase.append(root.replace('/', '.'))
-
-        if len(ase) == 0:
-            msg += ['* ASE is not installed!  You may be able to install',
-                    "  gpaw, but you can't use it without ASE!"]
-        else:
-            packages += ase
-
             
 def find_file(arg, dir, files):
     # looks if the first element of the list arg is contained in the list files
@@ -79,7 +23,7 @@ def find_file(arg, dir, files):
 def get_system_config(define_macros, undef_macros,
                       include_dirs, libraries, library_dirs, extra_link_args,
                       extra_compile_args, runtime_library_dirs, extra_objects,
-                      msg, import_numpy):
+                      import_numpy):
 
     undef_macros += ['NDEBUG']
     if import_numpy:
@@ -119,8 +63,6 @@ def get_system_config(define_macros, undef_macros,
             extra_link_args.append('-lmtsk')
         # define_macros.append(('NO_C99_COMPLEX', '1'))
 
-        msg += ['* Using SUN high performance library']
-
     elif sys.platform.startswith('win'):
 
         # We compile with mingw coming from pythonyx (32-bit)
@@ -141,8 +83,6 @@ def get_system_config(define_macros, undef_macros,
                 break
         if lib == 'openblas':
             libraries += [lib, 'gfortran']
-        if lib:
-            msg += ['* Using %s library from %s' % (lib, directory)]
 
     elif sys.platform in ['aix5', 'aix6']:
 
@@ -179,7 +119,6 @@ def get_system_config(define_macros, undef_macros,
             if acml[-1].find('gnu') != -1:
                 libraries.append('g2c')
             extra_link_args += ['-Wl,-rpath=' + acml[-1]]
-            msg += ['* Using ACML library']
         else:
             atlas = False
             for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib64/atlas']:
@@ -202,7 +141,6 @@ def get_system_config(define_macros, undef_macros,
             if openblas:  # prefer openblas
                 libraries += ['openblas']
                 library_dirs += [libdir]
-                msg += ['* Using OpenBLAS library']
             else:
                 if atlas:  # then atlas
                     # http://math-atlas.sourceforge.net/errata.html#LINK
@@ -211,14 +149,11 @@ def get_system_config(define_macros, undef_macros,
                     # http://math-atlas.sourceforge.net/faq.html#tsafe
                     libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
                     library_dirs += [libdir]
-                    msg += ['* Using ATLAS library']
                 elif satlas:  # then atlas >= 3.10 Fedora/RHEL
                     libraries += ['satlas']
                     library_dirs += [libdir]
-                    msg += ['* Using ATLAS library']
                 else:
                     libraries += ['blas', 'lapack']
-                    msg += ['* Using standard lapack']
 
     elif machine == 'ia64':
 
@@ -255,7 +190,6 @@ def get_system_config(define_macros, undef_macros,
         if openblas:  # prefer openblas
             libraries += ['openblas']
             library_dirs += [libdir]
-            msg += ['* Using OpenBLAS library']
         else:
             if atlas:  # then atlas
                 # http://math-atlas.sourceforge.net/errata.html#LINK
@@ -263,14 +197,11 @@ def get_system_config(define_macros, undef_macros,
                 # http://math-atlas.sourceforge.net/faq.html#tsafe
                 libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
                 library_dirs += [libdir]
-                msg += ['* Using ATLAS library']
             elif satlas:  # then atlas >= 3.10 Fedora/RHEL
                 libraries += ['satlas']
                 library_dirs += [libdir]
-                msg += ['* Using ATLAS library']
             else:
                 libraries += ['blas', 'lapack']
-                msg += ['* Using standard lapack']
 
     elif machine == 'i686':
 
@@ -294,7 +225,6 @@ def get_system_config(define_macros, undef_macros,
             libraries += ['mkl_lapack',
                           'mkl_ia32', 'guide', 'pthread', 'mkl']
             library_dirs += libs
-            msg += ['* Using MKL library: %s' % library_dirs[-1]]
             # extra_link_args += ['-Wl,-rpath=' + library_dirs[-1]]
         else:
             atlas = False
@@ -318,22 +248,19 @@ def get_system_config(define_macros, undef_macros,
             if openblas:  # prefer openblas
                 libraries += ['openblas']
                 library_dirs += [libdir]
-                msg += ['* Using OpenBLAS library']
             else:
                 if atlas:  # then atlas
                     # http://math-atlas.sourceforge.net/errata.html#LINK
-                    # atlas does not respect OMP_NUM_THREADS - build single-thread
+                    # atlas does not respect OMP_NUM_THREADS - build
+                    # single-thread
                     # http://math-atlas.sourceforge.net/faq.html#tsafe
                     libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
                     library_dirs += [libdir]
-                    msg += ['* Using ATLAS library']
                 elif satlas:  # then atlas >= 3.10 Fedora/RHEL
                     libraries += ['satlas']
                     library_dirs += [libdir]
-                    msg += ['* Using ATLAS library']
                 else:
                     libraries += ['blas', 'lapack']
-                    msg += ['* Using standard lapack']
 
             # add libg2c if available
             g2c = False
@@ -354,10 +281,8 @@ def get_system_config(define_macros, undef_macros,
 
         if glob('/System/Library/Frameworks/vecLib.framework') != []:
             extra_link_args += ['-framework vecLib']
-            msg += ['* Using vecLib']
         else:
             libraries += ['blas', 'lapack']
-            msg += ['* Using standard lapack']
 
     else:
         extra_compile_args += ['-Wall', '-std=c99']
@@ -383,7 +308,6 @@ def get_system_config(define_macros, undef_macros,
         if openblas:  # prefer openblas
             libraries += ['openblas']
             library_dirs += [libdir]
-            msg += ['* Using OpenBLAS library']
         else:
             if atlas:  # then atlas
                 # http://math-atlas.sourceforge.net/errata.html#LINK
@@ -391,21 +315,16 @@ def get_system_config(define_macros, undef_macros,
                 # http://math-atlas.sourceforge.net/faq.html#tsafe
                 libraries += ['lapack', 'f77blas', 'cblas', 'atlas']
                 library_dirs += [libdir]
-                msg += ['* Using ATLAS library']
             elif satlas:  # then atlas >= 3.10 Fedora/RHEL
                 libraries += ['satlas']
                 library_dirs += [libdir]
-                msg += ['* Using ATLAS library']
             else:
                 libraries += ['blas', 'lapack']
-                msg += ['* Using standard lapack']
 
     # https://listserv.fysik.dtu.dk/pipermail/gpaw-users/2012-May/001473.html
     p = platform.dist()
     if p[0].lower() in ['redhat', 'centos'] and p[1].startswith('6.'):
         define_macros.append(('_GNU_SOURCE', '1'))
-
-    return msg
 
 
 def get_parallel_config(mpi_libraries, mpi_library_dirs, mpi_include_dirs,
@@ -610,12 +529,9 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                obj,
                src)
         print(cmd)
-        if '--dry-run' not in sys.argv:
-            error = os.system(cmd)
-            if error != 0:
-                msg = ['* compiling FAILED!  Only serial version of code '
-                       'will work.']
-                break
+        error = os.system(cmd)
+        if error != 0:
+            return error
 
     # Link the custom interpreter
     cmd = ('%s -o %s %s %s %s %s %s %s') % \
@@ -628,12 +544,6 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
            runtime_libs,
            ' '.join(extra_link_args))
 
-    msg = ['* Building a custom interpreter']
     print(cmd)
-    if '--dry-run' not in sys.argv:
-        error = os.system(cmd)
-        if error != 0:
-            msg += ['* linking FAILED!  Only serial version of code will '
-                    'work.']
-
-    return error, msg
+    error = os.system(cmd)
+    return error

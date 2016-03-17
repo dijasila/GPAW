@@ -36,10 +36,12 @@ def main():
         help='Do not submit anything, but write parameters and qsub command')
     add('-n', '--processes', type=int,
         help='Number of actual cores to use.')
-    add('-q', '--queue', default='verylong',
-        help='Name of queue (small, long, verylong).  Default is verylong')
+    add('-q', '--queue', default='small',
+        help='Name of queue: small, medium, long, verylong '
+        '(25m, 2h, 12h, 48h).  Default is verylong')
     add('-l', '--resources',
-        help='Example: -l nodes=2:ppn=4:opteron4')
+        help='Specify the resources needed.  Example: '
+        '-l nodes=1:ppn=16:xeon16,mem=200gb')
     add('-m', '--mail-options',
         help='Example: -m abe (abort, begin, end)')
     add('-N', '--jobname')

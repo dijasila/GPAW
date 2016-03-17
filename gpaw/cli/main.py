@@ -17,7 +17,8 @@ functions = {'xc': 'gpaw.xc.xc',
              'diag': 'gpaw.fulldiag.fulldiag',
              'quick': 'gpaw.cli.quick.quick',
              'dataset': 'gpaw.atom.generator2.main',
-             'symmetry': 'gpaw.symmetry.analyze_atoms'}
+             'symmetry': 'gpaw.symmetry.analyze_atoms',
+             'install-data': 'gpaw.cli.install_data.main'}
 
 
 def main():
@@ -46,7 +47,10 @@ def main():
         parser1.print_help()
         raise SystemExit
     command = args1[0]
-    modulename, funcname = functions.get(command, command).rsplit('.', 1)
+    try:
+        modulename, funcname = functions[command].rsplit('.', 1)
+    except KeyError:
+        parser1.error('Unknown command: ' + command)
     module = __import__(modulename, globals(), locals(), [funcname])
     func = getattr(module, funcname)
     kwargs = {}
