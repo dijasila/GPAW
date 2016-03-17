@@ -20,12 +20,12 @@ def info():
     module = import_module('_gpaw')
     results.append(('_gpaw', op.normpath(module.__file__)))
     p = subprocess.Popen(['which', 'gpaw-python'], stdout=subprocess.PIPE)
-    results.append(('PAW-datasets',
-                    ':\n                '.join(gpaw.setup_paths)))
     results.append(('parallel', p.communicate()[0].strip() or False))
     results.append(('FFTW', fftw.FFTPlan is fftw.FFTWPlan))
     results.append(('scalapack', compiled_with_sl()))
     results.append(('libvdwxc', compiled_with_libvdwxc()))
+    results.append(('PAW-datasets',
+                    ':\n                '.join(gpaw.setup_paths)))
 
     for a, b in results:
         if isinstance(b, bool):
@@ -34,8 +34,7 @@ def info():
 
         
 def main(args):
-    parser = optparse.OptionParser(
-        usage='Usage: gpaw version',
-        description=version.__doc__)
+    parser = optparse.OptionParser(usage='Usage: gpaw version',
+                                   description=info.__doc__)
     parser.parse_args(args)
     info()
