@@ -41,7 +41,11 @@ def main():
         if size == 1:
             # Start again using gpaw-python in parallel:
             args = ['mpiexec', '-np', str(opts1.parallel),
-                    'gpaw-python'] + sys.argv
+                    'gpaw-python']
+            if args1[0] == 'python':
+                args += args1[1:]
+            else:
+                args += sys.argv
             os.execvp('mpiexec', args)
     
     if len(args1) == 0:

@@ -4,13 +4,13 @@ GPAW: DFT and beyond within the projector-augmented wave method
 
 GPAW is a density-functional theory (DFT) Python_ code based on the
 projector-augmented wave (:ref:`PAW <literature>`) method and the
-atomic simulation environment (ASE_).  The wave functiins can be described
+atomic simulation environment (ASE_).  The wave functions can be described
 with:
 
-* plane-waves (:ref:`pw <manual_mode>`)
-* real-space uniform grids, multigrid methods and the finite-difference approximation
+* Plane-waves (:ref:`pw <manual_mode>`)
+* Real-space uniform grids, multigrid methods and the finite-difference approximation
   (:ref:`fd <manual_stencils>`)
-* atom-centered basis-functions (:ref:`lcao <lcao>`)
+* Atom-centered basis-functions (:ref:`lcao <lcao>`)
 
 >>> # H2-molecule example:
 >>> from ase import Atoms
@@ -21,6 +21,9 @@ with:
 array([[ 5.  ,  0.  ,  0.  ],
        [ 0.  ,  5.  ,  0.  ],
        [ 0.  ,  0.  ,  5.74]])
+>>> h2.positions
+array([[ 2.5 ,  2.5 ,  2.5 ],
+       [ 2.5 ,  2.5 ,  3.24]])
 >>> h2.set_calculator(GPAW(xc='PBE', mode=PW(300), txt='h2.txt'))
 >>> h2.get_potential_energy()
 -6.6237575005960494

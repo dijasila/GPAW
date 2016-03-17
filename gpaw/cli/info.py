@@ -18,7 +18,8 @@ def info():
         results.append((name + '-' + module.__version__,
                         module.__file__.rsplit('/', 1)[0] + '/'))
     module = import_module('_gpaw')
-    results.append(('_gpaw', op.normpath(module.__file__)))
+    results.append(('_gpaw',
+                    op.normpath(getattr(module, '__file__', 'built-in'))))
     p = subprocess.Popen(['which', 'gpaw-python'], stdout=subprocess.PIPE)
     results.append(('parallel', p.communicate()[0].strip() or False))
     results.append(('FFTW', fftw.FFTPlan is fftw.FFTWPlan))
