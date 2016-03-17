@@ -6,8 +6,7 @@ Diffusion of gold atom on Al(100) surface
 
 In this ASE-tutorial:
 
-* :ase:`Diffusion of gold atom on Al(100) surface
-  <tutorials/constraints/diffusion.html>`
+* :ref:`ase:constraints diffusion tutorial`
 
 
 the energy barrier for diffusion of a gold atom on an Al(100) surface

@@ -16,7 +16,7 @@ Links to guides and manual pages
 
 * The code :ref:`overview`
 
-* The :ref:`algorithms` used in the code
+* The :ref:`features and algorithms` in GPAW
 
 
 .. _literature_reports_presentations_and_theses:

@@ -29,9 +29,9 @@ The following packages are required (names given for RHEL 5 system):
  - python-matplotlib
  - openmpi, openmpi-devel
  - bash
- - `campos-gpaw <https://wiki.fysik.dtu.dk/gpaw/install/installationguide.html>`_
+ - gpaw
 
-Please refer to :ref:`platforms_and_architectures` for hints on
+Please refer to :ref:`platforms and architectures` for hints on
 installing GPAW on different platforms.
 
 Results
@@ -300,7 +300,7 @@ Dual-socket dual Core AMD Opteron(tm) Processor 285/2.6 GHz/2 GB RAM per core EL
     mkl-10.1.2.024/mkl-10.1.2.024 --      1012.64 --      1030.06 --      --
     ============================= ======= ======= ======= ======= ======= =======
 
-    **Note**: the PGO entry refers to :ref:`PGO` driven using the benchmark.
+    **Note**: the PGO entry refers to Profile guided optimization driven using the benchmark.
 
     **Warning**: fields marked by **FAIL** denote a failure in the memory_bandwidth_ benchmark.
     Errors were reported when using different blas/lapack in GPAW and NUMPY!
@@ -515,7 +515,7 @@ potential and 2 full SCF steps.
 All the stages are timed separately, due to their different scaling.
 
 **Note** that the size of the system can be changed easily by modifying
-just one variable in :svn:`~doc/devel/256H2O/b256H2O.py`::
+just one variable in :git:`~doc/devel/256H2O/b256H2O.py`::
 
   r = [2, 2, 2]
 
@@ -527,17 +527,17 @@ The amount of disk space required is minimal.
 
 The following packages are required (names given for Fedora Core 10 system):
 
- - python, python-devel
- - numpy
- - python-matplotlib
- - openmpi, openmpi-devel
- - blacs, scalapack
- - bash
- - `campos-gpaw <https://wiki.fysik.dtu.dk/gpaw/install/installationguide.html>`_
- - `campos-ase3 <https://wiki.fysik.dtu.dk/ase/download.html>`_
+* python, python-devel
+* numpy
+* python-matplotlib
+* openmpi, openmpi-devel
+* blacs, scalapack
+* bash
+* gpaw
+* ase
 
 **Note** that GPAW has to built with ScaLAPACK enabled -
-please refer to :ref:`platforms_and_architectures` for hints on
+please refer to :ref:`platforms and architectures` for hints on
 installing GPAW on different platforms.
 
 Results
@@ -670,7 +670,7 @@ potential and 2 full SCF steps.
 All the stages are timed separately, due to their different scaling.
 
 **Note** that the size of the system can be changed easily by modifying
-just one variable in :svn:`~doc/devel/Au_cluster/Au_cluster.py`::
+just one variable in :git:`~doc/devel/Au_cluster/Au_cluster.py`::
 
   r = [1, 1, 1]
 
@@ -683,17 +683,17 @@ The amount of disk space required is minimal.
 
 The following packages are required (names given for Fedora Core 10 system):
 
- - python, python-devel
- - numpy
- - python-matplotlib
- - openmpi, openmpi-devel
- - blacs, scalapack
- - bash
- - `campos-gpaw <https://wiki.fysik.dtu.dk/gpaw/install/installationguide.html>`_
- - `campos-ase3 <https://wiki.fysik.dtu.dk/ase/download.html>`_
+* python, python-devel
+* numpy
+* python-matplotlib
+* openmpi, openmpi-devel
+* blacs, scalapack
+* bash
+* gpaw
+* ase
 
 **Note** that GPAW has to built with ScaLAPACK enabled -
-please refer to :ref:`platforms_and_architectures` for hints on
+please refer to :ref:`platforms and architectures` for hints on
 installing GPAW on different platforms.
 
 Results

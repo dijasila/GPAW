@@ -638,7 +638,7 @@ readable, and should give an overview of what kind of dataset it is and
 how it was generated.  The remaining part of the file contains
 numerical data for all the radial functions.  To get an overview of
 these functions, you can extract that data with the
-:trac:`~doc/setups/pawxml.py` program and then pass it on to your
+:download:`pawxml.py` program and then pass it on to your
 favorite plotting tool.
 
 .. note::

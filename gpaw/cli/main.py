@@ -11,7 +11,8 @@ functions = {'xc': 'gpaw.xc.xc',
              'run': 'gpaw.cli.run.main',
              'dos': 'gpaw.cli.dos.dos',
              'rpa': 'gpaw.xc.rpa.rpa',
-             'info': 'gpaw.cli.info.info',
+             'gpw': 'gpaw.cli.gpw.gpw',
+             'info': 'gpaw.cli.info.main',
              'test': 'gpaw.test.test.main',
              'atom': 'gpaw.atom.aeatom.main',
              'diag': 'gpaw.fulldiag.fulldiag',
@@ -40,7 +41,11 @@ def main():
         if size == 1:
             # Start again using gpaw-python in parallel:
             args = ['mpiexec', '-np', str(opts1.parallel),
-                    'gpaw-python'] + sys.argv
+                    'gpaw-python']
+            if args1[0] == 'python':
+                args += args1[1:]
+            else:
+                args += sys.argv
             os.execvp('mpiexec', args)
     
     if len(args1) == 0:

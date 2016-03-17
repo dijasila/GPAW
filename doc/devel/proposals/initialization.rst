@@ -176,7 +176,7 @@ portability with the price of more expensive IO).
 
 
 Here is a prototype implementation of a hierarchical reader/writer
-framework: :trac:`doc/devel/proposals/rw.py`.
+framework: :download:`rw.py`.
 
 
 Parallel IO
