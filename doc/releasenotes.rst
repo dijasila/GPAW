@@ -10,6 +10,14 @@ Git master branch
 
 :git:`master <>`.
 
+
+Version 1.0.0
+=============
+
+17 March 2016: :git:`1.0.0 <../1.0.0>`.
+
+* Corresponding ASE release: ASE-3.10.0.
+
 * New :mod:`gpaw.external` module.
 
 * The gradients of the cavity and the dielectric in the continuum

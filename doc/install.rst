@@ -166,15 +166,15 @@ Sou can get the source from a tar-file or from Git:
 
     Unpack and make a soft link::
     
-        $ tar -xf python-gpaw-3.9.1.4567.tar.gz
-        $ ln -s python-gpaw-3.9.1.4567 gpaw
+        $ tar -xf gpaw-1.0.0.tar.gz
+        $ ln -s gpaw-1.0.0 gpaw
 
 :Git clone:
 
     Alternatively, you can get the source for the latest stable release from
     https://gitlab.com/gpaw/gpaw like this::
     
-        $ git clone -b 3.9.1 https://gitlab.com/gpaw/gpaw.git
+        $ git clone -b 3.10.0 https://gitlab.com/gpaw/gpaw.git
 
     or if you want the development version::
 
