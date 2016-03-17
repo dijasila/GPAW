@@ -564,7 +564,10 @@ class G0W0(PairDensity):
                 W_GG[:] = (einv_GG - delta_GG) * sqrV_G * sqrV_G[:, np.newaxis]
 
                 if self.ac and np.allclose(q_c, 0):
-                    W_GG = self.add_anisotropy_correction(pd, W_GG, einv_GG, chi0_wxvG[wa+iw], chi0_wvv[wa+iw], sqrV_G)
+                    W_GG = self.add_anisotropy_correction(pd, W_GG, e_GG, 
+                                                          chi0_wxvG[wa+iw], 
+                                                          chi0_wvv[wa+iw], 
+                                                          sqrV_G)
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
                     W_GG[0, 0] = (einv_GG[0, 0] - 1.0) * V0
                     W_GG[0, 1:] = einv_GG[0, 1:] * sqrV_G[1:] * sqrV0
@@ -706,121 +709,235 @@ class G0W0(PairDensity):
         x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
         return x * sigma, x * dsigma
 
-    def add_anisotropy_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv, sqrV_G):
+    def add_anisotropy_correction(self, pd, W_GG, e_GG, chi0_xvG, chi0_vv, sqrV_G):
+        from ase.dft import monkhorst_pack
+        
+        self.analytical_correction = True
+
+        if self.reduced is not None:
+            reduced = self.reduced
+        else:
+            reduced = False
+
         self.cell_cv = self.calc.wfs.gd.cell_cv
         self.qpts_qc = self.calc.wfs.kd.bzk_kc
         self.weight_q =  1.0 * np.ones(len(self.qpts_qc)) / len(self.qpts_qc)
-        self.x0density=0.01
+        # self.x0density=0.01
         L = self.cell_cv[2, 2]
         nG = W_GG.shape[0]
 
-        vc_00 = 4 * pi * L/2.
-        vc_G0 = sqrV_G[1:]**2
+        rcell_cv = 2 * pi * np.linalg.inv(self.cell_cv).T
+        rvol = abs(np.linalg.det(rcell_cv))
+        N_c = self.qd.N_c
 
-        B_GG = einv_GG[1:, 1:]
-        u_v0G = vc_G0[np.newaxis, :]**0.5 * chi0_xvG[0, :, 1:]
-        u_vG0 = vc_G0[np.newaxis, :]**0.5 * chi0_xvG[1, :, 1:]
+        # Get necessary G vectors.
+        G_Gv = pd.get_reciprocal_vectors()#[1:]
+        G_Gv += np.array([1e-14, 1e-14, 0])
+        G2_G = np.sum(G_Gv**2, axis=1)
+        Gpar_G = np.sum(G_Gv[:, 0:2]**2, axis=1)**0.5
+
+        # small set of G vectors along z-direction
+        Gcut = self.Gcut #0.001#0.2 # (rcell_cv / N_c)[0,0]
+        # Index of Gz vectors
+        i_Gz = np.array([i for i in range(len(G2_G)) if G2_G[i]**0.5 < Gcut 
+                        and np.allclose(G_Gv[i, :1], 0)])
+        # index of rest of G vectors
+        i_G = np.array([i for i in range(len(G2_G)) if i not in i_Gz])
+        nGz = len(i_Gz)
+
+        vc_00 = 4 * pi * L/2.
+        vc_G0 = sqrV_G**2
+
+        v_GzG = e_GG[i_Gz][:, i_G] # Wings in size GzxG
+        w_GGz = e_GG[i_G][:, i_Gz]
+        B_GG = np.linalg.inv(e_GG[i_G][:, i_G])
+        u_v0G = (vc_G0[np.newaxis, :]**0.5 * chi0_xvG[0])[:, i_G]
+        u_vG0 = (vc_G0[np.newaxis, :]**0.5 * chi0_xvG[1])[:, i_G]
+        u_vGzG = (vc_G0[np.newaxis, :]**0.5 * chi0_xvG[0])[:, i_G]
+        u_vGGz = (vc_G0[np.newaxis, :]**0.5 * chi0_xvG[1])[:, i_G]
         U_vv = -chi0_vv
         a_v0G = -np.dot(u_v0G, B_GG)
         a_vG0 = -np.dot(u_vG0, B_GG.T)
+        a_vGzG = -np.dot(u_vGzG, B_GG)
+        a_vGGz = -np.dot(u_vGGz, B_GG.T)
+        vBw_vvGzGz = np.dot(a_vGzG, u_vGGz.T)
         A_vv = U_vv - np.dot(a_v0G, u_vG0.T)
         S_v0G = a_v0G
         S_vG0 = a_vG0
         L_vv = A_vv
 
-
-        # Get necessary G vectors.
-        G_Gv = pd.get_reciprocal_vectors()[1:]
-        G_Gv += np.array([1e-14, 1e-14, 0])
-        G2_G = np.sum(G_Gv**2, axis=1)
-        Gpar_G = np.sum(G_Gv[:, 0:2]**2, axis=1)**0.5
-
         # Generate numerical q-point grid
-        rcell_cv = 2 * pi * np.linalg.inv(self.cell_cv).T
-        rvol = abs(np.linalg.det(rcell_cv))
-        N_c = self.qd.N_c
-
         iq = np.argmin(np.sum(self.qpts_qc**2, axis=1))
         assert np.allclose(self.qpts_qc[iq], 0)
-        q0weight = 1#self.weight_q[iq]
-        qf = q0weight
-        q0cell_cv = np.array([qf, qf, 1])**0.5 * rcell_cv / N_c
+        q0cell_cv = np.array([1, 1, 1])**0.5 * rcell_cv / N_c
         q0vol = abs(np.linalg.det(q0cell_cv))
-
+        q0area = q0vol / q0cell_cv[2, 2]
+        if self.q0zscale is not None: 
+            q0cell_cv[2, 2] *= self.q0zscale # small cell!
+            q0vol = abs(np.linalg.det(q0cell_cv)) 
+     
         x0density = self.x0density
         q0density = 2. / L * x0density
         npts_c = np.ceil(np.sum(q0cell_cv**2, axis=1)**0.5 /
                          q0density).astype(int)
-        npts_c[2] = 1
-        npts_c += (npts_c + 1) % 2
-#        print('qf=%.3f, q0density=%s, q0 volume=%.5f ~ %.2f %%' %
-#              (qf, q0density, q0vol, q0vol / rvol * 100.),
-#              file=self.fd)
-#        print('Evaluating Gamma point contribution to W on a ' +
-#              '%dx%dx%d grid' % tuple(npts_c), file=self.fd)
-        #npts_c = np.array([1, 1, 1])
-                
-        qpts_qc = ((np.indices(npts_c).transpose((1, 2, 3, 0)) \
-                    .reshape((-1, 3)) + 0.5) / npts_c - 0.5) #/ N_c
-        qgamma = np.argmin(np.sum(qpts_qc**2, axis=1))
-        #qpts_qc[qgamma] += np.array([1e-16, 0, 0])
-                    
-        qpts_qv = np.dot(qpts_qc, q0cell_cv)
-        qpts_q = np.sum(qpts_qv**2, axis=1)**0.5
+
+        if self.analytical_correction:
+            npts_c += (npts_c + 1) % 2
+        else:  # Choose non-centered grid
+            npts_c += npts_c % 2 #(npts_c + 1) % 2
+            #npts_c[2] += (npts_c[2] + 1) % 2
+        
+        if reduced:  # Only 2D grid
+            npts_c[2] = 1
+        
+        qpts_qc = monkhorst_pack(npts_c)
+
+        #print('qf=%.3f, q0density=%s, q0 volume=%.5f ~ %.2f %%' %
+        #      (1, q0density, q0vol, q0vol / rvol * 100.))
+              #, file=self.fd)
+        #print('Evaluating Gamma point contribution to W on a ' +
+        #      '%dx%dx%d grid' % tuple(npts_c))#, file=self.fd)
+  
+        qgamma = np.argsort(np.sum(qpts_qc[:, :2]**2, axis=1))[:npts_c[2]]
+        qz0gamma = np.argmin(qpts_qc[qgamma, 2]**2) #q_z=0
+        qpts_qv = np.dot(qpts_qc, q0cell_cv) 
+        qpts_qv[qgamma] += 1e-14
+        qpts_q = np.sum(qpts_qv**2, axis=1)**0.5  # Absolute q
         qpts_q[qgamma] = 1e-14
+        qpts_qp = np.sum(qpts_qv[:, :2]**2, axis=1)**0.5 # q parallel abs
+        qpts_qz = qpts_qv[:, 2] # q in z-direction
+
+        #qpts_qp[qgamma] = 1e-14
+        #qpts_q[qgamma] += 1e-14
+        #qpts_qz[qgamma[qz0gamma]] += 1e-14
+        #qpts_qv[qgamma, :2] += 1e-14
+        
         qdir_qv = qpts_qv / qpts_q[:, np.newaxis]
         qdir_qvv = qdir_qv[:, :, np.newaxis] * qdir_qv[:, np.newaxis, :]
         nq = len(qpts_qc)
-        q0area = q0vol / q0cell_cv[2, 2]
-        dq0 = q0area / nq
+        nqp = len([q for q in qpts_qc if np.isclose(q[2],0)])     
+        nqz = len(qgamma)  # number of qz for qp = 0
+        dq0 = q0area / nqp
         dq0rad = (dq0 / pi)**0.5
+        R = L / 2.
+        x0area = q0area * R**2
+        dx0rad = dq0rad * R
+       
+        exp_q = 4 * pi * (1 + np.exp(-qpts_qp * R) * 
+                          (qpts_qz / qpts_qp * np.sin(qpts_qz * R) - 
+                           np.cos(qpts_qz * R)))
 
-        exp_q = 4 * pi * (1 - np.exp(-qpts_q * L / 2))
-        dv_G = ((pi * L * G2_G * np.exp(-0.5 * L * Gpar_G) * \
-                 np.cos(0.5 * L * G_Gv[:, 2]) -
-                 4 * pi * Gpar_G * (1 - np.exp(-0.5 * Gpar_G) * \
-                                    np.cos(0.5 * L * G_Gv[:, 2]))) / \
-                (G2_G**1.5 * Gpar_G * (4 * pi * (1 - np.exp(-0.5 * L * Gpar_G) * \
-                                                 np.cos(0.5 * L * G_Gv[:, 2])))**0.5))
+        exp_q[qgamma] = 0
+        dv_G = ((pi * L * G2_G * np.exp(-Gpar_G * R) * \
+                 np.cos(G_Gv[:, 2] * R) -
+                 4 * pi * Gpar_G * (1 - np.exp(-Gpar_G * R) * \
+                                    np.cos(G_Gv[:, 2] * R))) / \
+                (G2_G**1.5 * Gpar_G * (4 * pi * (1 - np.exp(-Gpar_G * R) * \
+                                                 np.cos(G_Gv[:, 2] * R)))**0.5))
         dv_Gv = dv_G[:, np.newaxis] * G_Gv
-    
 
         ### Add corrections
         W_GG[:, 0] = 0.0
         W_GG[0, :] = 0.0
-
+ 
         A_q = np.sum(qdir_qv * np.dot(qdir_qv, L_vv), axis=1)
         frac_q = 1. / (1 + exp_q * A_q)
-
+    
         # HEAD:
-        w00_q = -(exp_q / qpts_q)**2 * A_q * frac_q
-        w00_q[qgamma] = 0.0
-        W_GG[0, 0] = w00_q.sum() / nq
-        a0 = 2 * pi * (L_vv[0, 0] + L_vv[1, 1]) + 1
-        W_GG[0, 0] += -(a0 * dq0rad - np.log(a0 * dq0rad + 1)) / a0**2 / dq0
+        if nGz ==1:  # Only Gz=0 is integrated
+            w00_q = -(exp_q / qpts_q)**2 * A_q * frac_q
+            w00_q[qgamma] = 0.0
+            W_GG[0, 0] = w00_q.sum() / nq
+            """ Analytical q=0 integration contribution for qz -> 0 and qp -> 0: """
+            if not reduced:
+                w_qgamma = np.array(-8 * np.pi**2 * R * qpts_qz[qgamma] * 
+                                     np.arctan(dq0rad / qpts_qz[qgamma]) / q0area, 
+                                     dtype=complex)
+           
+            else:
+                w_qgamma = np.zeros([1], dtype=complex)
+ 
+            """ Seperate expression for qz=0 analytical integration in terms of 
+            dimensionless coordinate x = q * L/2 """
+            Axy = 0.5 * (L_vv[0, 0] + L_vv[1, 1])  # in-plane average
+            a0 = 4 * pi * Axy + 1
+            w_qgamma[qz0gamma] = - (a0 * dx0rad - np.log(a0 * dx0rad + 1)) \
+                / a0**2 / x0area * 2 * np.pi * (2 * pi * L)**2 * Axy
+
+            W_GG[0, 0] += w_qgamma.sum() / nqz
+            
+        else:  # Include small set of Gz vectors
+            p_qG = np.dot(qdir_qv, chi0_xvG[0])[:, i_G]
+            s_qG = np.dot(qdir_qv, chi0_xvG[1])[:, i_G]
+            G_Gzv = G_Gv[i_Gz]
+            
+            # vBw_q = np.sum(qdir_qv * np.dot(qdir_qv, vBw_vv), axis=1)
+            w_qGzGz = np.zeros([len(qpts_qv), nGz, nGz], dtype=complex)
+            for iq, qv in enumerate(qpts_qv):
+                q = np.sum(qv**2)**0.5
+                qp = qpts_qp[iq] # absolute q parallel
+                q_Gzv = G_Gzv + qv[np.newaxis, :]
+                q_Gz = np.sum(q_Gzv**2, axis=1)**0.5 # absolute q 
+                qz_Gz = q_Gzv[:, 2] # absolute qz + Gz
+                qdir_qGv = q_Gzv / q_Gz[:, np.newaxis] # q direction
+                delta_GzGz = np.eye(nGz)
+                V_Gz = 4 * pi * (1 + np.exp(-qp * R) * 
+                                 (qz_Gz / qp * np.sin(qz_Gz * R) - 
+                                  np.cos(qz_Gz * R)))
+                V_GzGz = (V_Gz * np.ones([nGz, nGz])).T
+                # Set q-dependent wings for local field effects
+                # used for Block inversion
+                V0_G = sqrV_G[i_G] * V_Gz[0]**0.5
+                v_GzG[0, :] = - V0_G * p_qG[iq] 
+                w_GGz[:, 0] = - V0_G * s_qG[iq]  
+                vBw = -np.dot(np.dot(v_GzG, B_GG), w_GGz)
+                # Get chi0 in right direction
+                P_GzGz = np.dot(qdir_qGv, np.dot(chi0_vv, qdir_qGv.T))
+                # Standard treatment for wings with Gz=0 or Gz'=0
+                P_GzGz[0, 1:] = np.dot(qdir_qGv[0], chi0_xvG[0, :, i_Gz[1:]].T)
+                P_GzGz[1:, 0] = np.dot(qdir_qGv[0], chi0_xvG[1, :, i_Gz[1:]].T)
+                # H is the (nGz x nGz) head of the dielectric matrix
+                H_GzGz = delta_GzGz - V_GzGz * P_GzGz - vBw
+                einv_GzGz = np.linalg.inv(H_GzGz)
+                V_Gz /= q_Gz**2  # Full potential
+                V_GzGz = (V_Gz * np.ones([nGz, nGz])).T
+                w_qGzGz[iq] = V_GzGz * (einv_GzGz - delta_GzGz)
+
+            w_qGzGz[qgamma, :, :] = 0.0
+
+            w_GzGz = w_qGzGz.sum(axis=0) / nq    
+            for iG in range(nGz):
+                W_GG[i_Gz[iG], i_Gz] = w_GzGz[iG, :]
+
 
         # WINGS:
         u_q = -exp_q / qpts_q * frac_q
-        W_GG[1:, 0] = 1. / nq * np.dot(
+        W_GG[i_G, 0] = 1. / nq * np.dot(
             np.sum(qdir_qv * u_q[:, np.newaxis], axis=0),
-            S_vG0 * sqrV_G[np.newaxis, 1:])
+            S_vG0 * sqrV_G[np.newaxis, :][:, i_G])
             
-        W_GG[0, 1:] = 1. / nq * np.dot(
+        W_GG[0, i_G] = 1. / nq * np.dot(
             np.sum(qdir_qv * u_q[:, np.newaxis], axis=0),
-            S_v0G * sqrV_G[np.newaxis, 1:])
+            S_v0G * sqrV_G[np.newaxis, :][:, i_G])
 
         # BODY:
         # Constant corrections:
-        W_GG[1:, 1:] += 1. / nq * sqrV_G[1:, None] * sqrV_G[None, 1:] * \
+        Bcc_GG = 1. / nq * sqrV_G[i_G][:, None] * sqrV_G[None, :][:, i_G] * \
             np.tensordot(S_v0G, np.dot(S_vG0.T,
-            np.sum(-qdir_qvv * exp_q[:, None, None] * frac_q[:, None, None],
-                    axis=0)), axes=(0, 1))
+                                       np.sum(-qdir_qvv * exp_q[:, None, None] * frac_q[:, None, None],
+                                               axis=0)), axes=(0, 1))
+        for iG in range(len(i_G)):
+            W_GG[i_G[iG], i_G] += Bcc_GG[iG, :]  
+        
         u_vvv = np.tensordot(u_q[:, None] * qpts_qv, qdir_qvv, axes=(0, 0))
+        
         # Gradient corrections:
-        W_GG[1:, 1:] += 1. / nq * np.sum(
-            dv_Gv[:, :, None] * np.tensordot(
-                S_v0G, np.tensordot(u_vvv, S_vG0 * sqrV_G[None, 1:],
+        Bgc_GG = 1. / nq * np.sum(
+            dv_Gv[i_G][:, :, None] * np.tensordot(
+                S_v0G, np.tensordot(u_vvv, S_vG0 * sqrV_G[None, :][:, i_G],
                                     axes=(2, 0)), axes=(0, 1)), axis=1)
-            
 
+        for iG in range(len(i_G)):
+            W_GG[i_G[iG], i_G] += Bgc_GG[iG, :]      
+       
         return W_GG
