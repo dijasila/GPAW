@@ -14,8 +14,8 @@ The installation of user's packages described below assumes *bash* shell:
 - download the :download:`customize_armageddon.py`
   and :download:`set_env_armageddon.sh` files::
 
-   wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Linux/customize_armageddon.py
-   wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Linux/set_env_armageddon.sh
+   wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/Linux/customize_armageddon.py
+   wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/Linux/set_env_armageddon.sh
 
   .. literalinclude:: customize_armageddon.py
 

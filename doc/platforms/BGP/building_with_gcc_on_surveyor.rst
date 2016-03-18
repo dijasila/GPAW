@@ -166,12 +166,12 @@ renaming to ``config.py`` in the top level directory.
 Download these scripts into the top level GPAW directory::
 
   export GPAW_TRUNK=http://svn.fysik.dtu.dk/projects/gpaw/trunk
-  wget --no-check-certificate ${GPAW_TRUNK}/doc/install/BGP/bgp_gcc.py
+  wget --no-check-certificate ${GPAW_TRUNK}/doc/platforms/BGP/bgp_gcc.py
   chmod u+x bgp_gcc.py
-  wget --no-check-certificate ${GPAW_TRUNK}/doc/install/BGP/bgp_gcc_linker.py
+  wget --no-check-certificate ${GPAW_TRUNK}/doc/platforms/BGP/bgp_gcc_linker.py
   chmod u+x bgp_gcc_linker.py
-  wget --no-check-certificate ${GPAW_TRUNK}/doc/install/BGP/customize_surveyor_gcc.py
-  wget --no-check-certificate ${GPAW_TRUNK}/doc/install/BGP/config_surveyor.py
+  wget --no-check-certificate ${GPAW_TRUNK}/doc/platforms/BGP/customize_surveyor_gcc.py
+  wget --no-check-certificate ${GPAW_TRUNK}/doc/platforms/BGP/config_surveyor.py
   mv config_surveyor.py config.py
 
 Finally, we build GPAW by typing::

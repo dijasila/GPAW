@@ -123,7 +123,7 @@ The installation of user's packages on neolith described below uses
    cd ..
    tar zxf gpaw-0.6.3934.tar.gz
    cd gpaw-0.6.3934
-   wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Linux/customize_neolith.py -O customize.py
+   wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/Linux/customize_neolith.py -O customize.py
    module load openmpi/1.2.7-i101017
    python setup.py build_ext --remove-default-flags
 

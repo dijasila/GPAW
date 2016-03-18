@@ -19,7 +19,7 @@ The installation of user's packages on newcell described below uses
 
 - download the :download:`customize_newcell.py` file::
 
-   wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Linux/customize_newcell.py
+   wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/Linux/customize_newcell.py
 
   .. literalinclude:: customize_newcell.py
 

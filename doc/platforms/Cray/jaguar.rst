@@ -108,7 +108,7 @@ following instructions are tested with python 2.5.4:
 
 - create a special dynamic loader for correct resolution of namespaces::
 
-   wget --no-check-certificate http://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Cray/dynload_redstorm.c -O Python/dynload_jaguar.c
+   wget --no-check-certificate http://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/Cray/dynload_redstorm.c -O Python/dynload_jaguar.c
 
 - run :file:`configure`::
 
@@ -116,7 +116,7 @@ following instructions are tested with python 2.5.4:
 
 - in order to use ``distutils`` append the :file:`Lib/distutils/unixccompiler.py` file, so that static libraries are created instead of shared ones::
 
-   wget --no-check-certificate http://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Cray/linkforshared.py
+   wget --no-check-certificate http://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/Cray/linkforshared.py
    cat Lib/distutils/unixccompiler.py linkforshared.py > unixccompiler.py
    mv unixccompiler.py  Lib/distutils
 
@@ -124,7 +124,7 @@ following instructions are tested with python 2.5.4:
   by editing :file:`Modules/Setup`::
 
    mv Modules/Setup Modules/Setup.orig
-   wget --no-check-certificate http://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Cray/Setup_jaguar -O Modules/Setup
+   wget --no-check-certificate http://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/Cray/Setup_jaguar -O Modules/Setup
    touch Modules/Setup
 
   **Note**: sha modules are required by numpy, so the following lines should be present in Modules/Setup::
@@ -231,7 +231,7 @@ Install gpaw (**Note**: instructions valid from the **5232** release)::
   wget --no-check-certificate https://wiki.fysik.dtu.dk/gpaw/gpaw-0.7.5232.tar.gz
   tar zxf gpaw-0.7.5232.tar.gz
   cd gpaw-0.7.5232
-  wget --no-check-certificate http://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Cray/customize_jaguar.py -O customize.py
+  wget --no-check-certificate http://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/Cray/customize_jaguar.py -O customize.py
   ${PYTHON_DIR}/bin/python setup.py build_ext | tee build_ext.log
   cp -r ${sw_home}/gpaw-0.7.5232 /tmp/work/$USER
   cd /tmp/work/$USER

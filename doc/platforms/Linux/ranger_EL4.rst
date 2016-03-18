@@ -19,7 +19,7 @@ The installation of user's packages on ranger EL4, 64-bit described below uses
 
 - download the :download:`customize_ranger_EL4.py` file::
 
-   wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Linux/customize_ranger_EL4.py
+   wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/Linux/customize_ranger_EL4.py
 
   .. literalinclude:: customize_ranger_EL4.py
 

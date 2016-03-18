@@ -152,7 +152,7 @@ Install ASE/GPAW::
   tar zxf gpaw-${gpaw}.tar.gz
   tar zxf gpaw-setups-${setups}.tar.gz
   mkdir testase && cd testase && testase.py >& ../testase.log
-  wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Linux/customize_r410_psmn.py
+  wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/Linux/customize_r410_psmn.py
   cd ../gpaw-${gpaw}
   python setup.py --remove-default-flags --customize=../customize_r410_psmn.py build_ext >& build_ext.log
 

@@ -102,7 +102,7 @@ Build libxc::
 and GPAW::
 
   cd $APPHOME
-  wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Linux/customize_gardar.py
+  wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/Linux/customize_gardar.py
   cd $APPHOME/gpaw.12224
   python setup.py --remove-default-flags --customize=../customize_gardar.py build_ext 2>&1 | tee build_ext.log
 

@@ -102,7 +102,7 @@ Install the following homebrew packages::
 
 Install GPAW setups::
 
-  brew install https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/MacOSX/gpaw-setups.rb
+  brew install https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/MacOSX/gpaw-setups.rb
 
 Configure a virtualenv for GPAW, e.g. trunk::
 

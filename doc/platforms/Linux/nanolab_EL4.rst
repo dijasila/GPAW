@@ -19,7 +19,7 @@ The installation of user's packages on nanolab EL4, 32-bit described below uses
 
 - download the :download:`customize_nanolab_EL4.py` file::
 
-   wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/install/Linux/customize_nanolab_EL4.py
+   wget https://svn.fysik.dtu.dk/projects/gpaw/trunk/doc/platforms/Linux/customize_nanolab_EL4.py
 
   .. literalinclude:: customize_nanolab_EL4.py
 
