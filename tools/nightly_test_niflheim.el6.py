@@ -59,7 +59,7 @@ if os.system('source /home/opt/modulefiles/modulefiles_el6.sh&& ' +
              'module load intel-compilers&& ' +
              'module load openmpi&& ' +
              'python setup.py --remove-default-flags ' +
-             '--customize=doc/install/Linux/Niflheim/' +
+             '--customize=doc/platforms/Linux/Niflheim/' +
              'el6-sl230s-tm-gfortran-openmpi-1.6.3-acml-4.4.0-sl-hdf5-1.8.10.py ' +
              'install --home=%s 2>&1 | ' % tmpdir +
              'grep -v "c/libxc/src"') != 0:

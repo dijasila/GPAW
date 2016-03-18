@@ -73,7 +73,7 @@ will generate the basis-set files :file:`H.dzp.basis` and
 parameters. Note that :file:`dzp` stands for ``double zeta polarized``
 which is the default basis-set type. The basis-set should be placed in
 the same directory as the GPAW setups
-(see :ref:`installationguide_setup_files` for details).
+(see :ref:`installation of paw datasets` for details).
 For a complete list of the parameters do::
 
   $ gpaw-basis --help

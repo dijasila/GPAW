@@ -65,7 +65,7 @@ logos = ['logo-gpaw.png']
 
 # flowchart.pdf  flowchart.sxd <-- where?
 devel_stuff = """
-gpaw-logo.svg gpaw-logo.odg overview.odg overview.pdf svn-refcard.pdf
+gpaw-logo.svg gpaw-logo.odg overview.odg overview.pdf
 """.split()
 
 architectures_stuff = """
@@ -91,7 +91,7 @@ get('exercises/wavefunctions', ['co_bonding.jpg'])
 
 get('tutorials/H2', ['ensemble.png'])
 
-get('.', ['2sigma.png', 'co_wavefunctions.png', 'molecules.png'], 'static')
+get('.', ['2sigma.png', 'co_wavefunctions.png'], 'documentation')
 get('exercises/lrtddft', ['spectrum.png'])
 get('documentation/xc', 'g2test_pbe0.png  g2test_pbe.png  results.png'.split())
 get('performance', 'dacapoperf.png  goldwire.png  gridperf.png'.split(),
@@ -191,7 +191,7 @@ def setup(app):
     for dir, file in [('.', 'camd.png'),
                       ('tutorials/xas', 'xas_illustration.png'),
                       ('tutorials/xas', 'xas_h2o_convergence.png'),
-                      ('install/BGP', 'bgp_mapping_intranode.png'),
-                      ('install/BGP', 'bgp_mapping1.png'),
-                      ('install/BGP', 'bgp_mapping2.png')]:
+                      ('platforms/BGP', 'bgp_mapping_intranode.png'),
+                      ('platforms/BGP', 'bgp_mapping1.png'),
+                      ('platforms/BGP', 'bgp_mapping2.png')]:
         get('gpaw-stuff', [file], dir, jjwww)

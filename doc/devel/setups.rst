@@ -52,7 +52,7 @@ Splitting the integral in radial and angular parts, we get:
 
 where `G_{\ell m,\ell'm'}^{\ell''m''}` are Gaunt coefficents and the
 last angular integral has been calculated as ``Y_LLv`` in the
-:svn:`~gpaw/gaunt.py` module.
+:git:`~gpaw/gaunt.py` module.
 
 
 More stuff

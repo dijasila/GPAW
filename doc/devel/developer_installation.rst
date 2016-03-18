@@ -1,72 +1,36 @@
-.. _developer_installation:
+.. _developer installation:
 
 ======================
 Developer installation
 ======================
 
-Do the following:
+Start by :ref:`forking and cloning as it is done for ASE develoment
+<ase:contribute>`.  Let ``<repo>`` be the folder where you have cloned to
+(could be ``~/gpaw``). Then do::
 
-  * Checkout the :ref:`latest_development_release` (if you
-    need access to svn updates)
-    or download a tarball of :ref:`latest_stable_release`.
+    $ cd <repo>
+    $ python setup.py build_ext
 
-    .. note::
+This will build two things:
 
-       The instructions assume :envvar:`GPAW_HOME` is set to *${HOME}/gpaw*.
+1) :file:`_gpaw.so`:  A shared library for serial calculations containing
+   GPAW's C-extension module.  The module will be in
+   :file:`<repo>/build/lib.<platform>-X.Y/`.
 
-  * Go to the :file:`gpaw` directory::
+   For example ``<platform>`` could be *linux-x86_64*, and
+   ``X.Y`` could be *2.7*.
 
-     [~]$ cd gpaw
+2) :file:`gpaw-python`: A special Python interpreter for parallel
+   calculations.  The interpreter has GPAW's C-code built in.  The
+   :file:`gpaw-python` executable is located
+   in :file:`<repo>/build/bin.<platform>-X.Y/`.
 
-  * build :ref:`c_extension`::
+   .. note::
 
-     [gpaw]$ python setup.py build_ext 2>&1 | tee build_ext.log
+       The :file:`gpaw-python` interpreter will be built only if
+       :git:`setup.py` finds an ``mpicc`` compiler.
 
-    This will build two things:
-
-    * :file:`_gpaw.so`:  A shared library for serial calculations containing
-      GPAW's C-extension module.  The module will be in
-      :file:`${GPAW_HOME}/build/lib.{<platform>}-{<python_version>}/`.
-
-      .. note::
-
-         Here is how to find the *<platform>* and *<python_version>* variables::
-       
-           python -c "from distutils import util; print util.get_platform()"
-           python -c "from distutils import sysconfig; print sysconfig.get_python_version()"
-
-      For example *<platform>* could be *linux-x86_64*, and
-      *<python_version>* could be *2.5*.
-
-    * :file:`gpaw-python`: A special Python interpreter for parallel
-      calculations.  The interpreter has GPAW's C-code built in.  The
-      :file:`gpaw-python` executable is located
-      in :file:`${GPAW_HOME}/build/bin.{<platform>}-{<python_version>}/`.
-
-      .. note::
-
-         The :file:`gpaw-python` interpreter will be built only if
-         :file:`setup.py` finds an ``mpicc`` compiler.
-
-      See :ref:`parallel_installation` for more details about parallel runs.
-
-  * Prepend :file:`${GPAW_HOME}` and :file:`${GPAW_HOME}/build/lib.{<platform>}-{<python_version>}/`
-    onto your :envvar:`PYTHONPATH` and
-    :file:`${GPAW_HOME}/build/bin.{<platform>}-{<python_version>}:${GPAW_HOME}/tools` onto
-    :envvar:`PATH`, e.g. put into :file:`~/.tcshrc`::
-
-     setenv GPAW_HOME ${HOME}/gpaw
-     setenv GPAW_PLATFORM `python -c "from distutils import util, sysconfig; print util.get_platform()+'-'+sysconfig.get_python_version()"`
-     setenv PYTHONPATH ${GPAW_HOME}:${PYTHONPATH}
-     setenv PYTHONPATH ${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
-     setenv PATH ${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${GPAW_HOME}/tools:${PATH}
-
-    or if you use bash, put these lines into :file:`~/.bashrc`::
-
-     export GPAW_HOME=${HOME}/gpaw
-     export GPAW_PLATFORM=`python -c "from distutils import util, sysconfig; print util.get_platform()+'-'+sysconfig.get_python_version()"`
-     export PYTHONPATH=${GPAW_HOME}:${PYTHONPATH}
-     export PYTHONPATH=${GPAW_HOME}/build/lib.${GPAW_PLATFORM}:${PYTHONPATH}
-     export PATH=${GPAW_HOME}/build/bin.${GPAW_PLATFORM}:${GPAW_HOME}/tools:${PATH}
-
-  * continue on :ref:`installationguide_developer`.
+Prepend :file:`<repo>` and :file:`<repo>/build/lib.<platform>-X.Y/`
+onto your :envvar:`PYTHONPATH` and
+:file:`<repo>/tools:<repo>/build/bin.<platform>-X.Y` onto
+:envvar:`PATH` as described here: :ref:`envvars`.

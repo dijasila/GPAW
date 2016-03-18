@@ -25,11 +25,12 @@ assert sys.version_info >= (2, 6)
 with open('gpaw/__init__.py') as fd:
     version = re.search("__version__ = '(.*)'", fd.read()).group(1)
  
-description = 'An electronic structure code based on the PAW method'
+description = 'GPAW: DFT and beyond within the projector-augmented wave method'
 long_description = """\
-A grid-based real-space Projector Augmented Wave (PAW) method Density
-Functional Theory (DFT) code featuring: Flexible boundary conditions,
-k-points and gradient corrected exchange-correlation functionals."""
+GPAW is a density-functional theory (DFT) Python code based on the
+projector-augmented wave (PAW) method and the atomic simulation environment
+(ASE). It uses plane-waves, atom-centered basis-functions or real-space
+uniform grids combined with multigrid methods."""
 
 libraries = []
 library_dirs = []

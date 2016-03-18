@@ -1,17 +1,26 @@
 Miscellaneous objects
 =====================
 
+.. autoclass:: gpaw.lfc.NewLocalizedFunctionsCollection
+    :members:
+
+.. autoclass:: gpaw.spline.Spline
+    :members:
+
+.. autoclass:: gpaw.poisson.PoissonSolver
+    :members:
+
 .. autoclass:: gpaw.xc.functional.XCFunctional
-   :members:
+    :members:
 
 .. autoclass:: gpaw.xc.gga.GGA
-   :members:
+    :members:
 
 .. autoclass:: gpaw.forces.ForceCalculator
-   :members:
+    :members:
 
 .. autoclass:: gpaw.grid_descriptor.GridDescriptor
-   :members:
+    :members:
 
 .. autoclass:: gpaw.scf.SCFLoop
-   :members:
+    :members:
