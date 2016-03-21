@@ -44,6 +44,8 @@ def main():
         '-l nodes=1:ppn=16:xeon16,mem=200gb')
     add('-m', '--mail-options',
         help='Example: -m abe (abort, begin, end)')
+    add('-W', '--attributes',
+        help='Example: -W depend=afterok:<id>')
     add('-N', '--jobname')
     add('-g', '--gpaw', help='Path to GPAW')
     add('-x', '--export',
@@ -177,6 +179,8 @@ if error:
         cmd += ['-l', ','.join(resources)]
     if opts.mail_options:
         cmd += ['-m', opts.mail_options]
+    if opts.attributes:
+        cmd += ['-W', opts.attributes]
     
     if opts.dry_run:
         print('\n'.join(qsub.splitlines()[1:9]))
