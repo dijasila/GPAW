@@ -40,7 +40,7 @@ def main():
         help='Name of queue: small, medium, long, verylong '
         '(25m, 2h, 12h, 48h).  Default is verylong')
     add('-l', '--resources',
-        help='Specify the resources needed.  Example: '
+        help='Specify the resources needed (comma-separated).  Example: '
         '-l nodes=1:ppn=16:xeon16,mem=200gb')
     add('-m', '--mail-options',
         help='Example: -m abe (abort, begin, end)')
@@ -104,7 +104,7 @@ def main():
 
     determine_nodes = True
     if opts.resources:
-        resources = opts.resources.split(':')
+        resources = opts.resources.split(',')
         for res in resources:
             if res.startswith('nodes='):
                 determine_nodes = False
@@ -123,8 +123,7 @@ def main():
                 ppn = opts.cores
             else:
                 2 / 0
-        resources += ['nodes={0}'.format(nodes),
-                      'ppn={0}:{1}'.format(ppn, arch)]
+        resources.append('nodes={0}:ppn={1}:{2}'.format(nodes, ppn, arch))
 
     qsub += 'job = %r\n' % args
     qsub += 'path = %r\n' % path
@@ -175,7 +174,7 @@ if error:
     if opts.queue:
         cmd += ['-q', opts.queue]
     if resources:
-        cmd += ['-l', ':'.join(resources)]
+        cmd += ['-l', ','.join(resources)]
     if opts.mail_options:
         cmd += ['-m', opts.mail_options]
     
