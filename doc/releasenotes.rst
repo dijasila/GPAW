@@ -36,8 +36,9 @@ Version 1.0.0
 
 * Correlation energies within the range-separated RPA.  See this
   :ref:`tutorial <rangerpa_tut>`.
-  
-* Experimental interface to the *libvdwxc* library.
+
+* Experimental interface to the `libvdwxc`_ library
+  for efficient van der Waals density functionals.
 
 * It's now possible to use Davidson and CG eigensolvers for MGGA calculations.
 
@@ -45,8 +46,9 @@ Version 1.0.0
 
 
 .. _fixed now: https://gitlab.com/gpaw/gpaw/commit/c72e02cd789
-    
-    
+.. _libvdwxc: https://gitlab.com/askhl/libvdwxc
+
+
 Version 0.11.0
 ==============
 
