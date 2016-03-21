@@ -18,6 +18,10 @@ Version 1.0.0
 
 * Corresponding ASE release: ASE-3.10.0.
 
+* A **BUG** related to use of time-reversal symmetry was found in the
+  `G_0W_0` code that was introduced in version 0.11.  This has been `fixed
+  now`_ --- *please run your calculations again*.
+
 * New :mod:`gpaw.external` module.
 
 * The gradients of the cavity and the dielectric in the continuum
@@ -40,6 +44,9 @@ Version 1.0.0
 * The functional name "M06L" is now deprecated.  Use "M06-L" from now on.
 
 
+.. _fixed now: https://gitlab.com/gpaw/gpaw/commit/c72e02cd789
+    
+    
 Version 0.11.0
 ==============
 

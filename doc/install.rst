@@ -264,7 +264,8 @@ and, in this case, provide HDF5 ``include_dirs``, ``libraries``, and
 Libxc Installation
 ------------------
 
-Libxc download/install instructions can be found `here
+If you OS does not have a LibXC_ package you can use then you can download
+and install LibXC_ as described `here
 <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`_.  A
 few extra tips:
 

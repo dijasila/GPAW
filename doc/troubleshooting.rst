@@ -3,10 +3,11 @@
 Troubleshooting
 ===============
 
+XXX todo!
+
 ::
     
     gpaw info
-
 
 If tests pass, and the parallel version is built, test the parallel code::
 
