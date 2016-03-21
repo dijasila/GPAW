@@ -33,6 +33,8 @@ for i, domega0 in enumerate([0.005, 0.01, 0.02, 0.03, 0.04, 0.05]):
                   bands=(3,5),
                   kpts=[0],
                   ecut=20,
+                  domega0 = domega0,
+                  omega2 = omega2,
                   filename='Si_g0w0_domega0_%s_omega2_%s' % (domega0, omega2)
                   )
 
@@ -43,21 +45,4 @@ for i, domega0 in enumerate([0.005, 0.01, 0.02, 0.03, 0.04, 0.05]):
 
 pickle.dump(data, paropen('frequency_data.pckl', 'w'))
 
-#import matplotlib.pyplot as plt
 
-#plt.figure(1)
-#plt.figure(figsize=(6.5, 4.5))
-
-#omega2 = np.array([1, 5, 10, 15, 20, 25])
-#color = ['ro-', 'go-', 'bo-', 'ko-', 'mo-', 'co-']
-
-#for j, k in enumerate([0.005, 0.01, 0.02, 0.03, 0.04, 0.05]):
-#    plt.plot(omega2, direct_gap[j,:], color[j], label='domega0 = %s' % (k))
-
-#plt.xlabel('omega2 (eV)')
-#plt.ylabel('Direct band gap (eV)')
-##plt.xlim([0., 250.])
-##plt.ylim([7.5, 10.])
-#plt.title('$G_0W_0$@LDA')
-#plt.legend(loc='upper left')
-#plt.savefig('Si_freq_new.png')

@@ -31,16 +31,15 @@ for j, k in enumerate([3, 5, 7, 9]):
     atoms.get_potential_energy()
 
     calc.diagonalize_full_hamiltonian()       
-    calc.write('Si_groundstate.gpw','all')    
+    calc.write('Si_groundstate_%k.gpw' %(k), mode='all')    
 
     for i, ecut in enumerate([50, 100, 150, 200]):
-        gw = G0W0(calc='Si_groundstate.gpw',
+        gw = G0W0(calc='Si_groundstate_%k.gpw' %(k),
                   nbands=100,                
                   bands=(3,5),               
                   ecut=ecut,   
                   kpts=[0],
-                  filename='Si-g0w0_GW_k%s_ecut%s' %(k, ecut),
-                  savepckl=False
+                  filename='Si-g0w0_GW_k%s_ecut%s' %(k, ecut)
                   )
 
         result = gw.calculate()
