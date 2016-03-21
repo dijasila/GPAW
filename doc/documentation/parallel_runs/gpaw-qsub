@@ -38,7 +38,7 @@ def main():
         help='Number of actual cores to use.')
     add('-q', '--queue', default='small',
         help='Name of queue: small, medium, long, verylong '
-        '(25m, 2h, 12h, 48h).  Default is verylong')
+        '(25m, 2h15m, 13h, 50h).  Default is small')
     add('-l', '--resources',
         help='Specify the resources needed (comma-separated).  Example: '
         '-l nodes=1:ppn=16:xeon16,mem=200gb')
