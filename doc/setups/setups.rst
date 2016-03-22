@@ -16,15 +16,19 @@ compressed :ref:`pawxml` files.
 Setup releases
 ==============
 
-===========  =======  ========  =============================
-Date         Version  Revision  Tarfile
-===========  =======  ========  =============================
-Mar 27 2014  0.9      11271     gpaw-setups-0.9.11271.tar.gz_
-Oct 26 2012  0.9      9672      gpaw-setups-0.9.9672.tar.gz_
-Apr 13 2011  0.8      7929      gpaw-setups-0.8.7929.tar.gz_
-Apr 19 2010  0.6      6300      gpaw-setups-0.6.6300.tar.gz_
-Jul 22 2009  0.5      3574      gpaw-setups-0.5.3574.tar.gz_
-===========  =======  ========  =============================
+===========  =============================
+Date         Tarfile
+===========  =============================
+Mar 22 2016  gpaw-setups-0.9.20000.tar.gz_
+Mar 27 2014  gpaw-setups-0.9.11271.tar.gz_
+Oct 26 2012  gpaw-setups-0.9.9672.tar.gz_
+Apr 13 2011  gpaw-setups-0.8.7929.tar.gz_
+Apr 19 2010  gpaw-setups-0.6.6300.tar.gz_
+Jul 22 2009  gpaw-setups-0.5.3574.tar.gz_
+===========  =============================
+
+.. _gpaw-setups-0.9.20000.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.20000.tar.gz
 
 .. _gpaw-setups-0.9.11271.tar.gz:
     https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.11271.tar.gz
