@@ -209,7 +209,6 @@ tests = [
     'spin/spinFe3plus.py',                  # ~4s
     'fermisplit.py',                        # ~4s
     'generic/Cl_minus.py',                  # ~4s
-    'vdw/ts09.py',                          # ~4s
     'lrtddft/pes.py',                       # ~4s
     # 'ase_read.py',                          # ~4s
     'corehole/h2o_recursion.py',            # ~5s
@@ -310,6 +309,7 @@ tests = [
     'parallel/fd_parallel_kpt.py',          # ~21s
     'pw/hyb.py',                            # ~21s
     'generic/Cu.py',                        # ~21s
+    'vdw/ts09.py',                          # ~21s
     'response/na_plasmon.py',               # ~22s
     'fermilevel.py',                        # ~23s
     'parallel/ut_hsblacs.py',               # ~23s

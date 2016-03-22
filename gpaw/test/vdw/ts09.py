@@ -1,41 +1,83 @@
-from ase import Atoms, io
+from __future__ import print_function
+import numpy as np
+
+import ase.io
 from ase.calculators.vdwcorrection import vdWTkatchenko09prl
-from ase.structure import molecule
 from ase.parallel import barrier
+from ase.structure import molecule
 
 from gpaw import GPAW
-from gpaw.cluster import Cluster
-from gpaw.analyse.hirshfeld import HirshfeldDensity, HirshfeldPartitioning
+from gpaw.analyse.hirshfeld import HirshfeldPartitioning
 from gpaw.analyse.vdwradii import vdWradii
+from gpaw.cluster import Cluster
 from gpaw.test import equal
 
 h = 0.4
-s = Cluster(molecule('Na2'))
+s = Cluster(molecule('LiH'))
 s.minimal_box(3., h=h)
 
-out_traj = 'Na2.traj'
-out_txt = 'Na2.txt'
-                       
-cc = GPAW(h=h, xc='PBE', txt=out_txt)
 
-# this is needed to initialize txt output
-cc.initialize(s)
+def print_charge_and_check(hp, q=0, label='unpolarized'):
+    q_a = np.array(hp.get_charges())
+    print('Charges ({0})='.format(label), q_a, ', sum=', q_a.sum())
+    equal(q_a.sum(), q, 0.03)
+    return q_a
 
-c = vdWTkatchenko09prl(HirshfeldPartitioning(cc),
-                       vdWradii(s.get_chemical_symbols(), 'PBE'))
-s.set_calculator(c)
-E = s.get_potential_energy()
-F_ac = s.get_forces()
-s.write(out_traj)
+# spin unpolarized
 
-barrier()
+if 1:
+    out_traj = 'LiH.traj'
+    out_txt = 'LiH.txt'
 
-# test I/O, accuracy due to text output
-accuracy = 1.e-5
-for fname in [out_traj, out_txt]:
-    s_out = io.read(fname)
-    ##print s_out.get_potential_energy(), E
-    ##print s_out.get_forces()
-    equal(s_out.get_potential_energy(), E, accuracy)
-    for fi, fo in zip(F_ac, s_out.get_forces()):
-        equal(fi, fo, accuracy)
+    cc = GPAW(h=h, xc='PBE', txt=out_txt)
+
+    # this is needed to initialize txt output
+    cc.initialize(s)
+
+    hp = HirshfeldPartitioning(cc)
+    c = vdWTkatchenko09prl(hp,
+                           vdWradii(s.get_chemical_symbols(), 'PBE'))
+    s.set_calculator(c)
+    E = s.get_potential_energy()
+    F_ac = s.get_forces()
+    s.write(out_traj)
+    q_a = print_charge_and_check(hp)
+
+    barrier()
+
+    # test I/O, accuracy due to text output
+    accuracy = 1.e-5
+    for fname in [out_traj, out_txt]:
+        s_out = ase.io.read(fname)
+        equal(s_out.get_potential_energy(), E, accuracy)
+        for fi, fo in zip(F_ac, s_out.get_forces()):
+            equal(fi, fo, accuracy)
+
+# spin polarized
+
+if 1:
+    ccs = GPAW(h=h, xc='PBE', spinpol=True,
+               txt=None)
+    hps = HirshfeldPartitioning(ccs)
+    cs = vdWTkatchenko09prl(hps, vdWradii(s.get_chemical_symbols(), 'PBE'))
+    s.set_calculator(cs)
+    Es = s.get_potential_energy()
+    Fs_ac = s.get_forces()
+
+    qs_a = print_charge_and_check(hps, label='spin')
+
+    equal(q_a, qs_a, 1.e-6)
+    equal(E, Es, 1.e-4)
+    equal(F_ac, Fs_ac, 1.e-4)
+
+# charged
+
+if 1:
+    cc.set(charge=1)
+    hpp = HirshfeldPartitioning(cc)
+    cp = vdWTkatchenko09prl(hpp,
+                            vdWradii(s.get_chemical_symbols(), 'PBE'))
+    s.set_calculator(cp)
+    E = s.get_potential_energy()
+    
+    print_charge_and_check(hpp, 1, label='+1')
