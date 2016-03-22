@@ -10,6 +10,12 @@ Git master branch
 
 :git:`master <>`.
 
+* There is a new PAW-dataset file available:
+  :ref:`gpaw-setup-0.9.20000.tar.gz <datasets>`.
+  It's identical to the previous
+  one except for one new data-file which is needed for doing vdW-DF
+  calculations with Python 3.
+
 
 Version 1.0.0
 =============
