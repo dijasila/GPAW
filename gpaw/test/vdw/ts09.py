@@ -1,21 +1,21 @@
 from __future__ import print_function
 import numpy as np
 
-from ase import Atoms, io
+import ase.io
 from ase.calculators.vdwcorrection import vdWTkatchenko09prl
-from ase.structure import molecule
 from ase.parallel import barrier
+from ase.structure import molecule
 
-from gpaw.test import equal
-from gpaw import GPAW, Mixer, MixerSum, MixerDif
-from gpaw.cluster import Cluster
-from gpaw.analyse.hirshfeld import HirshfeldDensity, HirshfeldPartitioning
+from gpaw import GPAW
+from gpaw.analyse.hirshfeld import HirshfeldPartitioning
 from gpaw.analyse.vdwradii import vdWradii
+from gpaw.cluster import Cluster
 from gpaw.test import equal
 
 h = 0.4
 s = Cluster(molecule('LiH'))
 s.minimal_box(3., h=h)
+
 
 def print_charge_and_check(hp, q=0, label='unpolarized'):
     q_a = np.array(hp.get_charges())
@@ -48,9 +48,7 @@ if 1:
     # test I/O, accuracy due to text output
     accuracy = 1.e-5
     for fname in [out_traj, out_txt]:
-        s_out = io.read(fname)
-        ##print s_out.get_potential_energy(), E
-        ##print s_out.get_forces()
+        s_out = ase.io.read(fname)
         equal(s_out.get_potential_energy(), E, accuracy)
         for fi, fo in zip(F_ac, s_out.get_forces()):
             equal(fi, fo, accuracy)
@@ -58,7 +56,7 @@ if 1:
 # spin polarized
 
 if 1:
-    ccs = GPAW(h=h, xc='PBE', spinpol=True, 
+    ccs = GPAW(h=h, xc='PBE', spinpol=True,
                txt=None)
     hps = HirshfeldPartitioning(ccs)
     cs = vdWTkatchenko09prl(hps, vdWradii(s.get_chemical_symbols(), 'PBE'))
