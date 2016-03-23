@@ -9,30 +9,43 @@ from gpaw.setup_data import search_for_file
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 
 
+_basis_letter2number = {'s': 1, 'd': 2, 't': 3, 'q': 4}
+_basis_number2letter = 'Xsdtq56789'
+
+
 def parse_basis_name(name):
     """Parse any basis type identifier: 'sz', 'dzp', 'qztp', '4z3p', ... """
-    letter2number = {'s': 1, 'd': 2, 't': 3, 'q': 4}
-    number2letter = 'Xsdtq56789'
 
-    newchars = ['', 'z', '', 'p']
-    zetacount = letter2number.get(name[0])
+    #newchars = ['', 'z', '', 'p']
+    zetacount = _basis_letter2number.get(name[0])
     if zetacount is None:
         zetacount = int(name[0])
     assert name[1] == 'z'
-    newchars[0] = number2letter[zetacount]
+    #newchars[0] = _basis_number2letter[zetacount]
     if len(name) == 2:
         polcount = 0
-        newchars[-1] = ''
+        #newchars[-1] = ''
     elif len(name) == 3:
         assert name[-1] == 'p'
         polcount = 1
     else:
         assert len(name) == 4 and name[-1] == 'p'
-        polcount = letter2number.get(name[2])
+        polcount = _basis_letter2number.get(name[2])
         if polcount is None:
             polcount = int(name[2])
-        newchars[2] = number2letter[polcount]
-    return zetacount, polcount, ''.join(newchars)
+        #newchars[2] = _basis_number2letter[polcount]
+    return zetacount, polcount#, ''.join(newchars)
+
+
+def get_basis_name(zetacount, polarizationcount):
+    zetachar = _basis_number2letter[zetacount]
+    if polarizationcount == 0:
+        return '%sz' % zetachar
+    elif polarizationcount == 1:
+        return '%szp' % zetachar
+    else:
+        polarizationchar = _basis_number2letter[polarizationcount]
+        return '%sz%sp' % (zetachar, polarizationchar)
 
 
 class Basis:
@@ -106,7 +119,7 @@ class Basis:
         Example: basis.reduce('sz') will remove all non single-zeta
         and polarization functions."""
 
-        zeta, pol = parse_basis_name(name)[:2]
+        zeta, pol = parse_basis_name(name)
         newbf_j = []
         N = {}
         p = 0
