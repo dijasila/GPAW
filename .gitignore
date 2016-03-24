@@ -41,5 +41,8 @@ doc/setups/[A-Z]*.rst
 *~
 \#*
 
+# Vim swap files:
+.*.sw?
+
 # This one is OK:
 !requirements.txt
