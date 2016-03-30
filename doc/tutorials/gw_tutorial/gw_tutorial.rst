@@ -113,12 +113,12 @@ Convergence with respect to cutoff energy and number of k-points
 Can we trust the calculated value of the direct bandgap? Not yet.
 Check for convergence with respect to the plane wave cutoff energy and number of k points is necessary. 
 This is done by changing the respective values in the groundstate calculation and restarting. 
-Script :download:`Si_ecut_k_conv_GW.py` carries out the calculations and :download:`Si_ecut_k_conv_plot_GW.py` plots the resulting data. It takes about xx minutes on 2 xeon-8 CPUs (16 cores total). The resulting figure is shown below.
+Script :download:`Si_ecut_k_conv_GW.py` carries out the calculations and :download:`Si_ecut_k_conv_plot_GW.py` plots the resulting data. It takes about 8 hours on 1 xeon-8 CPU (8 cores total). The resulting figure is shown below.
 
-.. image:: Si_EXX.png
+.. image:: Si_GW.png
        :height: 400 px
 
-A k-point sampling of (9x9x9) and 150 eV plane wave cutoff seems to give well converged results. 
+A k-point sampling of (9x9x9) and 150 eV plane wave cutoff seems to give results converged to within 0.05 eV. 
 
 
 Frequency dependence
@@ -128,16 +128,16 @@ Next, we should check the quality of the frequency grid used in the calculation.
 
 Running script :download:`Si_frequency_conv.py` calculates the direct band gap using different frequency grids with ``domega0`` varying from 0.005 to 0.05 and ``omega2`` from 1 to 25. The resulting data is plotted in :download:`Si_frequency_conv_plot.py` and the figure is shown below.
 
-.. image:: Si_w.png
+.. image:: Si_freq.png
        :height: 400 px
 
-Converged results are obtained for ``domega0=yy`` and ``omega2=xx``. 
+Converged results are obtained for ``domega0=0.02`` and ``omega2=10``, which is very close to the default values. 
 
 Final results
 -------------
-A full G0W0 calculation at the values found above for the plane wave cutoff, number of k-points and frequency sampling results in a direct bandgap of xxx eV (with :download:`Si_converged.py`). Hence the value of 3.18 eV calculated at first was definately not converged!
+A full G0W0 calculation at the values found above for the plane wave cutoff, number of k-points and frequency sampling results in a direct bandgap of 3.34 eV. Hence the value of 3.18 eV calculated at first was not converged!
 
-Another method for carrying out the frequency integration is the Plasmon Pole approximation (PPA). Read more about it here :ref:`gw_theory_ppa`. This is turned on by setting ``ppa = True``. Carrying out a full G0W0 calculation using the converged parameters and the PPA gives a direct band gap of xxx eV, which is in very good agreement with the result for the full frequency integration but the calculation took only xxx minutes on one CPU!
+Another method for carrying out the frequency integration is the Plasmon Pole approximation (PPA). Read more about it here :ref:`gw_theory_ppa`. This is turned on by setting ``ppa = True`` in the G0W0 calculator (see :download:`Si_converged_ppa.py`). Carrying out a full G0W0 calculation using the converged parameters and the PPA gives a direct band gap of xxx eV, which is in very good agreement with the result for the full frequency integration but the calculation took only xxx minutes on one CPU!
 
 .. note::
 

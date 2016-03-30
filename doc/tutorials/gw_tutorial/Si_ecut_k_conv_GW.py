@@ -10,9 +10,6 @@ from gpaw.response.g0w0 import G0W0
 from ase.units import Hartree
 import gpaw.mpi as mpi
 
-
-direct_gap = np.zeros((4,4))
-
 a = 5.431
 atoms = bulk('Si', 'diamond', a=a)
 
@@ -23,18 +20,17 @@ for j, k in enumerate([3, 5, 7, 9]):
                 xc='LDA',
                 occupations=FermiDirac(0.001),
                 eigensolver='rmm-diis',
-                txt='Si_groundstate.txt',
-                communicator=mpi.serial_comm
+                txt='Si_groundstate.txt'
                 )
 
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
 
     calc.diagonalize_full_hamiltonian()       
-    calc.write('Si_groundstate_%k.gpw' %(k), mode='all')    
+    calc.write('Si_groundstate_%s.gpw' %(k), mode='all')    
 
     for i, ecut in enumerate([50, 100, 150, 200]):
-        gw = G0W0(calc='Si_groundstate_%k.gpw' %(k),
+        gw = G0W0(calc='Si_groundstate_%s.gpw' %(k),
                   nbands=100,                
                   bands=(3,5),               
                   ecut=ecut,   
@@ -43,9 +39,5 @@ for j, k in enumerate([3, 5, 7, 9]):
                   )
 
         result = gw.calculate()
-
-        direct_gap[i,j] = result['qp'][0,0,1] - result['qp'][0,0,0]
-
-pickle.dump(direct_gap, paropen('direct_gap_GW.pckl', 'w'))
 
 
