@@ -11,7 +11,7 @@ from gpaw.external import ExternalPotential
             
         
 class CDFT(Calculator):
-    implemented_properties = ['energy']
+    implemented_properties = ['energy', 'forces']
     
     def __init__(self, calc, regions, charges, potentials=None, txt='-',
                  tolerance=0.01):
@@ -48,8 +48,11 @@ class CDFT(Calculator):
             
     def calculate(self, atoms, properties, system_changes):
         Calculator.calculate(self, atoms)
-        self.ext.set_positions_and_atomic_numbers(
-            self.atoms.positions / Bohr, self.atoms.numbers)
+        
+        if 'positions' in system_changes:
+            self.ext.set_positions_and_atomic_numbers(
+                self.atoms.positions / Bohr, self.atoms.numbers)
+            
         self.atoms.calc = self.calc
         
         p = functools.partial(print, file=self.log)
@@ -68,12 +71,13 @@ class CDFT(Calculator):
 
         m = minimize(f, self.v_i, jac=True,
                      options={'gtol': self.tolerance, 'norm': np.inf})
-        assert m.success
+        assert m.success, m
         p(m.message)
         p('Iterations:', m.nfev)
         self.v_i = m.x
         self.dn_i = m.jac
         self.results['energy'] = -m.fun * Hartree
+        self.results['forces'] = self.atoms.get_forces()
 
 
 def gaussians(gd, positions, numbers):
