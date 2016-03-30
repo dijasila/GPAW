@@ -11,10 +11,8 @@ from gpaw.response.g0w0 import G0W0
 a = 5.431
 atoms = bulk('Si', 'diamond', a=a)
 
-k = 
-ecut = 
-domega0 = 
-omega2 = 
+k = 9
+ecut = 150
 
 calc = GPAW(mode=PW(350),                  
             kpts={'size': (k, k, k), 'gamma': True},
@@ -22,21 +20,20 @@ calc = GPAW(mode=PW(350),
             xc='LDA',
             occupations=FermiDirac(0.001),
             eigensolver='rmm-diis',
-            txt='Si_converged.txt'
+            txt='Si_converged_ppa.txt'
             )
 
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 
 calc.diagonalize_full_hamiltonian()       
-calc.write('Si_converged.gpw','all')  
+calc.write('Si_converged_ppa.gpw','all')  
 
-gw = G0W0(calc='Si_converged.gpw',
+gw = G0W0(calc='Si_converged_ppa.gpw',
           bands=(3,5),               
           ecut=ecut,  
-          domega0 = ,
-          omega2 = ,
-          filename='Si-g0w0',
+          ppa=True,
+          filename='Si-g0w0_ppa',
           savepckl=False
           )
 

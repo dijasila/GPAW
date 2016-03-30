@@ -8,23 +8,23 @@ from gpaw import GPAW, FermiDirac
 from gpaw.wavefunctions.pw import PW
 from gpaw.response.g0w0 import G0W0
 
-direct_gap = pickle.load(paropen('direct_gap_GW.pckl', 'r'))
-
 import matplotlib.pyplot as plt
 
-plt.figure(1)
 plt.figure(figsize=(6.5, 4.5))
 
 ecuts = np.array([50, 100, 150, 200])
+color = ['ro-', 'bo-', 'go-', 'ko-']
+direct_gap = np.zeros(4)
 
 for j, k in enumerate([3, 5, 7, 9]):
-    print direct_gap[:,j]
-    plt.plot(ecuts, direct_gap[:,j], 'o-', label='(%sx%sx%s) k-points' % (k, k, k))
+    for i, ecut in enumerate([50,100,150,200]):
+        fil = pickle.load(paropen('Si-g0w0_GW_k%s_ecut%s_results.pckl' %(k, ecut), 'r'))
+        direct_gap[i] = fil['qp'][0,0,1] - fil['qp'][0,0,0]
+    plt.plot(ecuts, direct_gap, color[j], label='(%sx%sx%s) k-points' % (k, k, k))
 
-plt.xlabel('$E_{\mathrm{cut}}$ (eV)')
+plt.xlabel('Cutoff energy (eV)')
 plt.ylabel('Direct band gap (eV)')
-#plt.xlim([0., 250.])
-#plt.ylim([7.5, 10.])
-plt.title('non-selfconsistent G0W0')
-plt.legend(loc='upper right')
-plt.savefig('Si_GW_new.png')
+plt.title('non-selfconsistent G0W0@LDA')
+plt.legend(loc='lower right')
+plt.savefig('Si_GW.png')
+plt.show()
