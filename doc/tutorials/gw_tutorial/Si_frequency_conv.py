@@ -14,15 +14,14 @@ calc = GPAW(
             xc='LDA',
             eigensolver='rmm-diis',
             occupations=FermiDirac(0.001),
-#            parallel={'band': 1},
             txt='Si_groundstate_freq.txt'
            )
 
-#atoms.set_calculator(calc)
-#atoms.get_potential_energy()
+atoms.set_calculator(calc)
+atoms.get_potential_energy()
 
-#calc.diagonalize_full_hamiltonian()
-#calc.write('Si_groundstate_freq.gpw','all')
+calc.diagonalize_full_hamiltonian()
+calc.write('Si_groundstate_freq.gpw','all')
 
 data = np.zeros((6,6))
 
@@ -40,9 +39,6 @@ for i, domega0 in enumerate([0.005, 0.01, 0.02, 0.03, 0.04, 0.05]):
 
         results = gw.calculate()
 
-        data[i,j] = results['qp'][0,0,1] - results['qp'][0,0,0]
 
-
-pickle.dump(data, paropen('frequency_data.pckl', 'w'))
 
 
