@@ -59,14 +59,7 @@ askhl_10302_report.pdf  mortensen_gpaw-dev.pdf      rostgaard_master.pdf
 askhl_master.pdf        mortensen_mini2003talk.pdf  rostgaard_paw_notes.pdf
 marco_master.pdf        mortensen_paw.pdf           ss14.pdf
 """.split()
-
-logos = ['logo-gpaw.png']
-
-
-# flowchart.pdf  flowchart.sxd <-- where?
-devel_stuff = """
-gpaw-logo.svg gpaw-logo.odg overview.odg overview.pdf
-""".split()
+get('doc/literature', literature, 'static')
 
 architectures_stuff = """
 dynload_redstorm.c
@@ -77,12 +70,7 @@ numpy-1.0.4-system_info.py.patch.lapack_bgp_esslbg
 setup
 unixccompiler.py
 """.split()
-
-get('logos', logos, 'static')
 get('architectures', architectures_stuff, 'static')
-get('doc/literature', literature, 'static')
-get('doc/devel', devel_stuff, 'static')
-get('devel', ['bslogo.png', 'overview.png', 'stat.png'])
 
 # Note: bz-all.png is used both in an exercise and a tutorial.  Therefore
 # we put it in the common dir so far, rather than any of the two places
