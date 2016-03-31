@@ -25,51 +25,6 @@ from gpaw.xc.tools import vxc
 
 
 class G0W0(PairDensity):
-    """This class defines the G0W0 calculator. The G0W0 calculator is used
-    is used to calculate the quasi particle energies through the G0W0
-    approximation for a number of states.
-
-    Note: So far the G0W0 calculation only works for spin-paired systems.
-
-    Parameters:
-       calc: str or PAW object
-          GPAW calculator object or filename of saved calculator object.
-       filename: str
-          Base filename of output files.
-       kpts: list
-          List of indices of the IBZ k-points to calculate the quasi particle
-          energies for.
-       bands: tuple
-          Range of band indices, like (n1, n2+1), to calculate the quasi
-          particle energies for. Note that the second band index is not
-          included.
-       ecut: float
-          Plane wave cut-off energy in eV.
-       nbands: int
-          Number of bands to use in the calculation. If :None: the number will
-          be determined from :ecut: to yield a number close to the number of
-          plane waves used.
-       ppa: bool
-          Sets whether the Godby-Needs plasmon-pole approximation for the
-          dielectric function should be used.
-       truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
-       integrate_gamma: int
-            Method to integrate the Coulomb interaction. 1 is a numerical
-            integration at all q-points with G=[0,0,0] - this breaks the
-            symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
-            this conserves the symmetry. integrate_gamma=2 is the same as 1,
-            but the average is only carried out in the non-periodic directions.
-       E0: float
-          Energy (in eV) used for fitting in the plasmon-pole approximation.
-       domega0: float
-          Minimum frequency step (in eV) used in the generation of the non-
-          linear frequency grid.
-       omega2: float
-          Control parameter for the non-linear frequency grid, equal to the
-          frequency where the grid spacing has doubled in size.
-    """
     def __init__(self, calc, filename='gw',
                  kpts=None, bands=None, nbands=None, ppa=False,
                  truncation=None, integrate_gamma=1,
@@ -77,6 +32,54 @@ class G0W0(PairDensity):
                  domega0=0.025, omega2=10.0,
                  nblocks=1, savew=False, savepckl=True,
                  world=mpi.world):
+        """G0W0 calculator.
+        
+        The G0W0 calculator is used is used to calculate the quasi
+        particle energies through the G0W0 approximation for a number
+        of states.
+
+        .. note::
+            
+            So far the G0W0 calculation only works for spin-paired systems.
+
+        calc: str or PAW object
+            GPAW calculator object or filename of saved calculator object.
+        filename: str
+            Base filename of output files.
+        kpts: list
+            List of indices of the IBZ k-points to calculate the quasi particle
+            energies for.
+        bands: tuple
+            Range of band indices, like (n1, n2+1), to calculate the quasi
+            particle energies for. Note that the second band index is not
+            included.
+        ecut: float
+            Plane wave cut-off energy in eV.
+        nbands: int
+            Number of bands to use in the calculation. If None, the number will
+            be determined from :ecut: to yield a number close to the number of
+            plane waves used.
+        ppa: bool
+            Sets whether the Godby-Needs plasmon-pole approximation for the
+            dielectric function should be used.
+        truncation: str
+            Coulomb truncation scheme. Can be either wigner-seitz,
+            2D, 1D, or 0D
+        integrate_gamma: int
+            Method to integrate the Coulomb interaction. 1 is a numerical
+            integration at all q-points with G=[0,0,0] - this breaks the
+            symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
+            this conserves the symmetry. integrate_gamma=2 is the same as 1,
+            but the average is only carried out in the non-periodic directions.
+        E0: float
+            Energy (in eV) used for fitting in the plasmon-pole approximation.
+        domega0: float
+            Minimum frequency step (in eV) used in the generation of the non-
+            linear frequency grid.
+        omega2: float
+            Control parameter for the non-linear frequency grid, equal to the
+            frequency where the grid spacing has doubled in size.
+        """
 
         if world.rank != 0:
             txt = devnull
@@ -162,24 +165,26 @@ class G0W0(PairDensity):
         
     @timer('G0W0')
     def calculate(self, ecuts=None):
-        """Starts the G0W0 calculation. Returns a dict with the results with
-        the following key/value pairs:
+        """Starts the G0W0 calculation.
+        
+        Returns a dict with the results with the following key/value pairs:
 
-        f: (s, k, n) ndarray
-           Occupation numbers
-        eps: (s, k, n) ndarray
-           Kohn-Sham eigenvalues in eV
-        vxc: (s, k, n) ndarray
-           Exchange-correlation contributions in eV
-        exx: (s, k, n) ndarray
-           Exact exchange contributions in eV
-        sigma: (s, k, n) ndarray
-           Self-energy contributions in eV
-        Z: (s, k, n) ndarray
-           Renormalization factors
-        qp: (s, k, n) ndarray
-           Quasi particle energies in eV
-        """
+        =========  ===================================
+        key        value
+        =========  ===================================
+        ``f``      Occupation numbers
+        ``eps``    Kohn-Sham eigenvalues in eV
+        ``vxc``    Exchange-correlation
+                   contributions in eV
+        ``exx``    Exact exchange contributions in eV
+        ``sigma``  Self-energy contributions in eV
+        ``Z``      Renormalization factors
+        ``qp``     Quasi particle energies in eV
+        =========  ===================================
+        
+        All the values are ``ndarray``'s of shape
+        (spins, IBZ k-points, bands)``."""
+        
         kd = self.calc.wfs.kd
 
         self.calculate_ks_xc_contribution()
