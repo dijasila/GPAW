@@ -13,7 +13,7 @@ from gpaw.external import ExternalPotential
 class CDFT(Calculator):
     implemented_properties = ['energy', 'forces']
     
-    def __init__(self, calc, regions, charges, potentials=None, txt='-',
+    def __init__(self, calc, regions, charges, coefs=None, txt='-',
                  tolerance=0.01):
         """Constrained DFT calculator.
         
@@ -23,8 +23,8 @@ class CDFT(Calculator):
             Atom indices of atoms in the different regions.
         charges: list of float
             constrained charges in the different regions.
-        potentials: list of float
-            Initial values for potential.
+        coefs: list of float
+            Initial values for constraint coefficients (eV).
         txt: None or str or file descriptor
             Log file.  Default id '-' meaning standard out.  Use None for
             no output.
@@ -36,10 +36,10 @@ class CDFT(Calculator):
         self.charge_i = np.array(charges, dtype=float)
         self.tolerance = tolerance
         
-        if potentials is None:
+        if coefs is None:
             self.v_i = 0.1 * np.sign(self.charge_i)
         else:
-            self.v_i = np.array(potentials) / Hartree
+            self.v_i = np.array(coefs) / Hartree
 
         self.log = convert_string_to_fd(txt)
         
@@ -57,23 +57,36 @@ class CDFT(Calculator):
         
         p = functools.partial(print, file=self.log)
         
+        iteration = 0
+        
         def f(v_i):
+            nonlocal iteration
             self.ext.set_levels(v_i)
             e = self.atoms.get_potential_energy() / Hartree
             e += np.dot(v_i, self.charge_i)
             dens = self.calc.density
             dn_i = (-dens.finegd.integrate(self.ext.w_ig, dens.rhot_g) -
                     self.charge_i)
-            p('Potentials:', v_i * Hartree)
-            p('Energy: {0:.6f} eV'.format(e * Hartree))
-            p('Errors:', dn_i)
+            
+            if iteration == 0:
+                n = 7 * len(self.v_i)
+                p('iter {0:{1}} energy     errors'.format('coefs', n))
+                p('     {0:{1}} [eV]       [|e|]'.format('[eV]', n))
+            p('{0:4} {1} {2:10.3f} {3}'
+              .format(iteration,
+                      ''.join('{0:7.3f}'.format(v) for v in v_i * Hartree),
+                      e * Hartree,
+                      ''.join('{0:6.4f}'.format(dn) for dn in dn_i)))
+            
+            iteration += 1
             return -e, dn_i
 
         m = minimize(f, self.v_i, jac=True,
                      options={'gtol': self.tolerance, 'norm': np.inf})
         assert m.success, m
-        p(m.message)
-        p('Iterations:', m.nfev)
+        
+        p(m.message + '\n')
+        
         self.v_i = m.x
         self.dn_i = m.jac
         self.results['energy'] = -m.fun * Hartree
@@ -121,11 +134,10 @@ class CDFTPotential(ExternalPotential):
         ntot_g = gd.zeros()
         missing = list(range(len(self.Z_a)))
 
-        print('Electrons:', file=self.log)
+        N_i = []
         for i, indices in enumerate(self.indices_i):
             n_g = gaussians(gd, self.pos_av[indices], self.Z_a[indices])
-            print('atoms {0}: {1:.3f}'.format(indices, gd.integrate(n_g)),
-                  file=self.log)
+            N_i.append(gd.integrate(n_g))
             ntot_g += n_g
             self.w_ig[i] = n_g
             for a in indices:
@@ -136,10 +148,17 @@ class CDFTPotential(ExternalPotential):
         self.w_ig /= ntot_g
 
         volume_i = gd.integrate(self.w_ig)
-        print('Volumes:', file=self.log)
-        for indices, volume in zip(self.indices_i, volume_i):
-            print('atoms {0}: {1:.3f} Ang^3'.format(indices, volume * Bohr**3),
-                  file=self.log)
+
+        p = functools.partial(print, file=self.log)
+        print('Electrons:',
+              ', '.join('{0}: {1:.3f} ???'.format(indices, N)
+                        for indices, N in zip(self.indices_i, N_i)),
+              file=self.log)
+        print('Volumes:',
+              ', '.join('{0}: {1:.3f} Ang^3'.format(indices, volume * Bohr**3)
+                        for indices, volume in zip(self.indices_i, volume_i)),
+              file=self.log)
+        print(file=self.log)
 
     def calculate_potential(self, gd):
         if self.w_ig is None:
