@@ -87,13 +87,9 @@ the corresponding objects are defined in the code:
 The GPAW logo
 =============
 
-The GPAW-logo is available in the odg_ and svg_ file formats:
-gpaw-logo.odg_, gpaw-logo.svg_
+The GPAW-logo is available as an svg-file: :download:`gpaw-logo.svg`.
 
-.. _odg: http://www.openoffice.org/product/draw.html
-.. _svg: http://en.wikipedia.org/wiki/Scalable_Vector_Graphics
-.. _gpaw-logo.odg: ../_static/gpaw-logo.odg
-.. _gpaw-logo.svg: ../_static/gpaw-logo.svg
+.. image:: gpaw-logo.svg
 
 
 Statistics
