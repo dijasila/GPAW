@@ -11,8 +11,8 @@ from gpaw.response.g0w0 import G0W0
 a = 5.431
 atoms = bulk('Si', 'diamond', a=a)
 
-k = 9
-ecut = 150
+k = 10
+ecut = 200
 
 calc = GPAW(mode=PW(350),                  
             kpts={'size': (k, k, k), 'gamma': True},
@@ -30,13 +30,13 @@ calc.diagonalize_full_hamiltonian()
 calc.write('Si_converged_ppa.gpw','all')  
 
 gw = G0W0(calc='Si_converged_ppa.gpw',
+          kpts=[0],
           bands=(3,5),               
           ecut=ecut,  
           ppa=True,
-          filename='Si-g0w0_ppa',
-          savepckl=False
+          filename='Si-g0w0_ppa'
           )
 
 result = gw.calculate()
 
-print('Direct gap:', results['qp'][0,0,1] - results['qp'][0,0,0])
+print('Direct gap:', result['qp'][0,0,1] - result['qp'][0,0,0])

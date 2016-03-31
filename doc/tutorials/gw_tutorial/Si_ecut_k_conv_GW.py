@@ -13,7 +13,7 @@ import gpaw.mpi as mpi
 a = 5.431
 atoms = bulk('Si', 'diamond', a=a)
 
-for j, k in enumerate([3, 5, 7, 9]):
+for j, k in enumerate([4, 6, 8, 10]):
     calc = GPAW(mode=PW(350),                  
                 kpts={'size': (k, k, k), 'gamma': True},
                 dtype=complex,
@@ -31,7 +31,6 @@ for j, k in enumerate([3, 5, 7, 9]):
 
     for i, ecut in enumerate([50, 100, 150, 200]):
         gw = G0W0(calc='Si_groundstate_%s.gpw' %(k),
-                  nbands=100,                
                   bands=(3,5),               
                   ecut=ecut,   
                   kpts=[0],
