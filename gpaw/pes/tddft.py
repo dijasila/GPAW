@@ -61,7 +61,7 @@ class TDDFTPES(BasePES):
             indicees = []
             nbands = calc.get_number_of_bands()
             spin = (calc.get_number_of_spins() == 2)
-            f_tolerance = (1 + spin) * self.tolerance['occupation']
+            f_tolerance = (2 - spin) * self.tolerance['occupation']
             for kpt in calc.wfs.kpt_u:
                 for i in range(nbands):
                     if kpt.f_n[i] > f_tolerance:
