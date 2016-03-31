@@ -55,10 +55,10 @@ def get(path, names, target=None, source=None):
 
 literature = """
 askhl_10302_report.pdf  mortensen_gpaw-dev.pdf      rostgaard_master.pdf
-askhl_master.pdf        mortensen_mini2003talk.pdf  rostgaard_paw_notes.pdf
+askhl_master.pdf        mortensen_mini2003talk.pdf
 marco_master.pdf        mortensen_paw.pdf           ss14.pdf
 """.split()
-get('doc/literature', literature, 'static')
+get('doc/literature', literature, 'documentation')
 
 # Note: bz-all.png is used both in an exercise and a tutorial.  Therefore
 # we put it in the common dir so far, rather than any of the two places
