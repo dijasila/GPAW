@@ -113,12 +113,12 @@ Convergence with respect to cutoff energy and number of k-points
 Can we trust the calculated value of the direct bandgap? Not yet.
 Check for convergence with respect to the plane wave cutoff energy and number of k points is necessary. 
 This is done by changing the respective values in the groundstate calculation and restarting. 
-Script :download:`Si_ecut_k_conv_GW.py` carries out the calculations and :download:`Si_ecut_k_conv_plot_GW.py` plots the resulting data. It takes about 8 hours on 1 xeon-8 CPU (8 cores total). The resulting figure is shown below.
+Script :download:`Si_ecut_k_conv_GW.py` carries out the calculations and :download:`Si_ecut_k_conv_plot_GW.py` plots the resulting data. It takes about 12 hours on 2 xeon-8 CPUs (16 cores total). The resulting figure is shown below.
 
 .. image:: Si_GW.png
        :height: 400 px
 
-A k-point sampling of (9x9x9) and 150 eV plane wave cutoff seems to give results converged to within 0.05 eV. 
+A k-point sampling of (10x10x10) and 200 eV plane wave cutoff seems to give results converged to within 0.05 eV. The calculation at these parameters took a little more than 3 hours on 2 xeon-8 CPUs.
 
 
 Frequency dependence
@@ -135,9 +135,9 @@ Converged results are obtained for ``domega0=0.02`` and ``omega2=10``, which is 
 
 Final results
 -------------
-A full G0W0 calculation at the values found above for the plane wave cutoff, number of k-points and frequency sampling results in a direct bandgap of 3.34 eV. Hence the value of 3.18 eV calculated at first was not converged!
+A full G0W0 calculation at the values found above for the plane wave cutoff, number of k-points and frequency sampling results in a direct bandgap of 3.36 eV. Hence the value of 3.18 eV calculated at first was not converged!
 
-Another method for carrying out the frequency integration is the Plasmon Pole approximation (PPA). Read more about it here :ref:`gw_theory_ppa`. This is turned on by setting ``ppa = True`` in the G0W0 calculator (see :download:`Si_converged_ppa.py`). Carrying out a full G0W0 calculation using the converged parameters and the PPA gives a direct band gap of xxx eV, which is in very good agreement with the result for the full frequency integration but the calculation took only xxx minutes on one CPU!
+Another method for carrying out the frequency integration is the Plasmon Pole approximation (PPA). Read more about it here :ref:`gw_theory_ppa`. This is turned on by setting ``ppa = True`` in the G0W0 calculator (see :download:`Si_converged_ppa.py`). Carrying out a full G0W0 calculation using the converged parameters and the PPA gives a direct band gap of 3.34 eV, which is in very good agreement with the result for the full frequency integration but the calculation took only 1 hour and 35 minutes on 1 xeon-8 CPU!
 
 .. note::
 

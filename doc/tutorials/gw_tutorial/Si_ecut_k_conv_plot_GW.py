@@ -13,10 +13,10 @@ import matplotlib.pyplot as plt
 plt.figure(figsize=(6.5, 4.5))
 
 ecuts = np.array([50, 100, 150, 200])
-color = ['ro-', 'bo-', 'go-', 'ko-']
+color = ['ro-', 'bo-', 'go-', 'ko-', 'co-', 'mo-', 'yo-']
 direct_gap = np.zeros(4)
 
-for j, k in enumerate([3, 5, 7, 9]):
+for j, k in enumerate([4,6,8,10]):
     for i, ecut in enumerate([50,100,150,200]):
         fil = pickle.load(paropen('Si-g0w0_GW_k%s_ecut%s_results.pckl' %(k, ecut), 'r'))
         direct_gap[i] = fil['qp'][0,0,1] - fil['qp'][0,0,0]
