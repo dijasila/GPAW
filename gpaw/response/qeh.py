@@ -870,17 +870,21 @@ class BuildingBlock():
         df: DielectricFunction object
             Determines how linear response calculation is performed
         isotropic_q: bool
-            If True, only q-points along one direction (1 0 0)in the 
+            If True, only q-points along one direction (1 0 0) in the 
             2D BZ is included, thus asuming an isotropic material
         nq_inf: int
-            number of extra q points in the limit q->0, extrapolated from
-            q=0, assumung that the head of chi0_wGG goes as q^2 and the 
-            wings as q. Note that this does not hold for (semi)metals!
+            number of extra q points in the limit q->0 along each direction, 
+            extrapolated from q=0, assumung that the head of chi0_wGG goes 
+            as q^2 and the wings as q. 
+            Note that this does not hold for (semi)metals!
         """
         
         self.filename = filename
         self.isotropic_q = isotropic_q
         self.nq_inf = nq_inf
+        self.nq_inftot = nq_inf
+        if not isotropic_q:
+            self.nq_inftot *= 2
    
         self.df = df  # dielectric function object
         self.df.truncation = '2D'  # in case you forgot!
@@ -929,18 +933,22 @@ class BuildingBlock():
         q_abs = q_abs[sort]
         q_cs = q_cs[sort]
         q_cut = q_abs[1] / 2.  # smallest finite q
-        self.nq_cut = self.nq_inf + 1
+        self.nq_cut = self.nq_inftot + 1
         
-        q_infs = np.zeros([q_cs.shape[0] + self.nq_inf, 3])
+        q_infs = np.zeros([q_cs.shape[0] + self.nq_inftot, 3])
+        # x-direction:
         q_infs[1: self.nq_inf + 1, 0] = \
             np.linspace(0, q_cut, self.nq_inf+1)[1:]
+        if not isotropic_q:  # y-direction:
+            q_infs[self.nq_inf + 1 : self.nq_inf*2 + 1, 1] = \
+                np.linspace(0, q_cut, self.nq_inf+1)[1:]
        
         # add q_inf to list
-        self.q_cs = np.insert(q_cs, 1, np.zeros([self.nq_inf, 3]), axis=0)
+        self.q_cs = np.insert(q_cs, 1, np.zeros([self.nq_inftot, 3]), axis=0)
         self.q_vs = np.dot(self.q_cs, rcell_cv)
         self.q_vs += q_infs
         self.q_abs = (self.q_vs**2).sum(axis=1)**0.5    
-        self.q_infs = q_infs[:, 0]
+        self.q_infs = q_infs
         self.complete = False
         self.nq = 0
         if self.load_chi_file():
@@ -956,15 +964,15 @@ class BuildingBlock():
             self.save_chi_file()
             q_c = self.q_cs[nq]
             q_inf = self.q_infs[nq]
-            if np.isclose(q_inf, 0):
+            if np.allclose(q_inf, 0):
                 q_inf = None
             
             qcstr = '(' + ', '.join(['%.3f' % x for x in q_c]) + ')'
             print('Calculating contribution from q-point #%d/%d, q_c=%s'
                   % (nq + 1, Nq, qcstr), file=self.fd)
             if q_inf is not None:
-                print('q_inf=%1.3f' % q_inf, file=self.fd)
-            
+                qstr = '(' + ', '.join(['%.3f' % x for x in q_inf]) + ')'
+                print('    and q_inf=%s' % qstr , file=self.fd)
             pd, chi0, chi = self.df.get_dielectric_matrix(symmetric=False, 
                                                           calculate_chi=True,
                                                           q_c=q_c,
@@ -1051,13 +1059,16 @@ class BuildingBlock():
 
         # doesnt work yet!
         from scipy.interpolate import RectBivariateSpline
+        from scipy.interpolate import interp2d
         if not self.complete:
             self.calculate_building_block()
         q_grid *= Bohr
         w_grid /= Hartree
 
-        assert np.max(q_grid) <= np.max(self.q_abs)
-        assert np.max(w_grid) <= np.max(self.omega_w)
+        assert np.max(q_grid) <= np.max(self.q_abs), \
+            'q can not be larger that %1.2f Ang'% np.max(self.q_abs / Bohr)
+        assert np.max(w_grid) <= np.max(self.omega_w), \
+            'w can not be larger that %1.2f eV'% np.max(self.omega_w * Hartree)
         
         sort = np.argsort(self.q_abs)
         q_abs = self.q_abs[sort]
@@ -1068,6 +1079,13 @@ class BuildingBlock():
         yr = RectBivariateSpline(q_abs, self.omega_w, 
                                  self.chiM_qw.real,
                                  s=0)
+
+      
+        #import pylab as p
+        #p.plot(self.omega_w * Hartree, self.chiM_qw.real[1,:])
+        #p.plot(self.omega_w * Hartree, yr(q_grid, self.omega_w)[1,:])
+        #p.show()
+
         yi = RectBivariateSpline(q_abs, self.omega_w, 
                                  self.chiM_qw.imag, s=0)
 
