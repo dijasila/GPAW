@@ -227,6 +227,7 @@ class G0W0(PairDensity):
                    'vxc': self.vxc_sin * Hartree,
                    'exx': self.exx_sin * Hartree,
                    'sigma': self.sigma_sin * Hartree,
+                   'dsigma': self.dsigma_sin,
                    'Z': self.Z_sin,
                    'qp': self.qp_sin * Hartree}
       
@@ -636,6 +637,7 @@ class G0W0(PairDensity):
                        'vxc:   KS vxc [eV]',
                        'exx:   Exact exchange [eV]',
                        'sigma: Self-energies [eV]',
+                       'dsigma: Self-energy derrivatives',
                        'Z:     Renormalization factors',
                        'qp:    QP-energies [eV]']
 
