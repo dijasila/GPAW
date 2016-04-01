@@ -1057,7 +1057,6 @@ class BuildingBlock():
         w_grid: in eV
         """
 
-        # doesnt work yet!
         from scipy.interpolate import RectBivariateSpline
         from scipy.interpolate import interp2d
         if not self.complete:
@@ -1079,13 +1078,7 @@ class BuildingBlock():
         yr = RectBivariateSpline(q_abs, self.omega_w, 
                                  self.chiM_qw.real,
                                  s=0)
-
-      
-        #import pylab as p
-        #p.plot(self.omega_w * Hartree, self.chiM_qw.real[1,:])
-        #p.plot(self.omega_w * Hartree, yr(q_grid, self.omega_w)[1,:])
-        #p.show()
-
+        
         yi = RectBivariateSpline(q_abs, self.omega_w, 
                                  self.chiM_qw.imag, s=0)
 
