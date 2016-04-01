@@ -39,19 +39,15 @@ class GWQEHCorrection(PairDensity):
                  structure=None, d=None, layer=0, qqeh=None, wqeh=None,
                  dW_qw=None, d0=None, filename=None,
                  txt=sys.stdout, calc=None, kpts=[0], bands=None,
-                 world=mpi.world, qptint=None, domega0=None, omega2=None,
+                 world=mpi.world, qptint=None, domega0=0.1, omega2=10,
                  eta=0.1, include_q0=True): 
         
         self.d0 = d0 / Bohr
         self.gwfile = gwfile
 
-        if world.rank != 0:
-            txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w', 1)
-
         self.inputcalc = calc
-        # Just put fake ecut in order to use pairdensity object
+        # Set low ecut in order to use PairDensity object since only
+        # G=0 is needed.
         self.ecut = 1.
         PairDensity.__init__(self, calc, ecut=self.ecut, world=world,
                       txt=filename + '.gw')    
@@ -105,13 +101,13 @@ class GWQEHCorrection(PairDensity):
         self.nw = len(self.omega_w)
         self.wsize = 2 * self.nw
 
+        # Calculate screened potential of Heterostructure
         if dW_qw is None:
             try: 
                 self.qqeh, self.wqeh, dW_qw = pickle.load(
                     open(filename + '_dW_qw.pckl', 'r'))
             except:
-                dW_qw = self.calculate_W_QEH(structure, d, 
-                                                              layer)
+                dW_qw = self.calculate_W_QEH(structure, d, layer)
         else:
             self.qqeh = qqeh
             self.wqeh = None  # wqeh
@@ -154,8 +150,7 @@ class GWQEHCorrection(PairDensity):
                   for s, K, n1, n2 in self.mysKn1n2]
 
         kplusqdone_u = [set() for kpt in mykpts]
-
-
+ 
         #qd = self.qd
         #bz1q_qc = to1bz(qd.bzk_kc, qd.symmetry.cell_cv)
         #ibzqs = []
@@ -276,7 +271,6 @@ class GWQEHCorrection(PairDensity):
                         nn = kpt1.n1 + n - self.bands[0]
                         self.sigma_sin[kpt1.s, i, nn] += sigma
                         self.dsigma_sin[kpt1.s, i, nn] += dsigma
-            print(self.sigma_sin)
                        
         self.world.sum(self.sigma_sin)
         self.world.sum(self.dsigma_sin)
@@ -299,9 +293,8 @@ class GWQEHCorrection(PairDensity):
 
         # Need GW result for renormalization factor
         gwdata = pickle.load(open(self.gwfile))   
-        self.dsigmagw_sin = gwdata['dsigma_skn']
-        self.sigmagw_sin = gwdata['sigma_skn']
-        self.qpgw_sin = gwdata['qp_skn']
+        self.dsigmagw_sin = gwdata['dsigma']
+        self.qpgw_sin = gwdata['qp'] / Hartree
         nk = self.qpgw_sin.shape[1]
         if not self.sigma_sin.shape[1] == nk:
             self.sigma_sin = np.repeat(self.sigma_sin[:,:1,:], nk, axis=1)
