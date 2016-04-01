@@ -1,5 +1,5 @@
 master:
   script:
     - apt-get update -qy
-    - apt-get install -qy python-dev python-numpy libopenblas-dev liblapack-dev libxc-dv
+    - apt-get install -qy python-dev python-numpy libopenblas-dev liblapack-dev libxc-dev
     - python setup.py install --user
