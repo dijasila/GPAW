@@ -1,7 +1,7 @@
 from gpaw.atom.generator import Generator
 from gpaw.atom.basis import BasisMaker
 args = {'core': '[Kr]', 'rcut': 2.45}
-generator = Generator('Ag', 'GLLBSC')
+generator = Generator('Ag', 'GLLBSC', scalarrel=True)
 generator.N *= 2  # Increase grid resolution
 generator.run(**args)
 bm = BasisMaker(generator, name='GLLBSC-dz', run=False)
