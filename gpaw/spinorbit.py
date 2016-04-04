@@ -216,7 +216,7 @@ def set_calculator(calc, e_km, v_knm=None, width=None):
         kpt.weight *= 2
     
 def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
-                           inversion_center=[0, 0, 0], deg_tol=1.0e-6):
+                           inversion_center=[0, 0, 0], deg_tol=1.0e-6, tol=1.0e-6):
     '''Calculates parity eigenvalues at time-reversal invariant k-points.
     Only works in plane wave mode.
     '''
@@ -291,7 +291,7 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
             Ppsit_nG[:] *= phase_G
             P_nn = np.dot(psit_nG[n_n].conj(), np.array(Ppsit_nG).T)
         P_eig = np.linalg.eigh(P_nn)[0]
-        if np.allclose(np.abs(P_eig), 1):
+        if np.allclose(np.abs(P_eig), 1, tol):
             P_n = np.sign(P_eig).astype(int).tolist()
             if spin_orbit:
                 # Only include one of the degenerate pair of eigenvalues
