@@ -72,7 +72,7 @@ class G0W0(PairDensity):
     """
     def __init__(self, calc, filename='gw',
                  kpts=None, bands=None, nbands=None, ppa=False,
-                 truncation=None, integrate_gamma=1,
+                 truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
                  domega0=0.025, omega2=10.0,
                  nblocks=1, savew=False, savepckl=True,
