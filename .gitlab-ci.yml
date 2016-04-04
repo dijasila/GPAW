@@ -2,4 +2,6 @@ master:
   script:
     - apt-get update -qy
     - apt-get install -qy python-dev python-numpy libopenblas-dev liblapack-dev libxc-dev
+    - pip install https://gitlab.com/ase/ase.git
     - python setup.py install --user
+    - ~/.local/bin/gpaw info
