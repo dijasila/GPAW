@@ -149,8 +149,10 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
     # The even indices in H_mm are spin up along z
     for k in range(Nk):
         H_mm = np.zeros((2 * Nn, 2 * Nn), complex)
-        H_mm[:2 * Nn:2, :2 * Nn:2] += e_skn[0, k, :]
-        H_mm[1:2 * Nn:2, 1:2 * Nn:2] += e_skn[1, k, :]
+        i1 = np.arange(0, 2 * Nn, 2)
+        i2 = np.arange(1, 2 * Nn, 2)
+        H_mm[i1, i1] += e_skn[0, k, :]
+        H_mm[i2, i2] += e_skn[1, k, :]
         for ai in range(Na):
             P_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands]
                      for s in range(Ns)]
