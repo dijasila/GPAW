@@ -6,6 +6,7 @@ moab = {
     'cmdstr': '#MSUB ',
     'jobid': '$MOAB_JOBID',
     'mailtype': '-m bea',
+    'mail_f': '-M ',
     'mpirun': 'mpirun -n ',
     'name': '-N ',
     'nodes': '-l nodes=',
@@ -27,7 +28,7 @@ _hardware_info = {
             'cmdstr': '#SBATCH ',
             'jobid': '$SLURM_JOBID',
             'mpirun': 'srun -n ',
-            'mail': '--mail-user=',
+            'mail_f': '--mail-user=',
             'mailtype': '--mail-type=ALL',
             'name': '--job-name=',
             'nodes': '--nodes=',
@@ -160,7 +161,7 @@ class ComputeCluster:
             print(c + '--ntasks-per-node=' + str(ppn), file=f)
         print(c + d['walltime'] + hms_string(set['time']), file=f)
         if set['mail'] is not None:
-            print(c + '--mail-user=' + set['mail'], file=f)
+            print(c + d['mail_f'] + set['mail'], file=f)
         print(c + d['mailtype'], file=f)
         if 'modules' in self.data:
             for module in self.data['modules']:
