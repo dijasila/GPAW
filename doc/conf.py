@@ -17,7 +17,7 @@ exclude_patterns = ['build']
 default_role = 'math'
 pygments_style = 'sphinx'
 autoclass_content = 'both'
-imodindex_common_prefix = ['gpaw.']
+modindex_common_prefix = ['gpaw.']
 intersphinx_mapping = {
     'ase': ('http://wiki.fysik.dtu.dk/ase', None),
     'numpy': ('http://docs.scipy.org/doc/numpy', None),
