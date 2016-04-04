@@ -90,7 +90,7 @@ class LibVDWXC(GGA, object):
                  pfft_grid=None):
         """Initialize LibVDWXC object (further initialization required).
 
-        parallel can be 'auto', '', 'serial', 'mpi', or 'pfft'.
+        parallel can be 'auto', 'serial', 'mpi', or 'pfft'.
 
          * 'serial' uses FFTW and only works with serial decompositions.
 

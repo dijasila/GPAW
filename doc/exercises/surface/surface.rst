@@ -28,8 +28,7 @@ whereas (110) is most open. Here we'll focus on (100).
     s = fcc100('Al', (1, 1, 5))
     view(s, repeat=(4, 4, 1))
 
-  Read more about the :func:`~ase.lattice.surface.fcc100` function
-  :ase:`here <ase/lattice.html>`.
+  Read more here: :func:`ase.lattice.surface.fcc100`.
 
 * Answer the same questions for the (111) surface.
 
@@ -62,11 +61,11 @@ the cohesive energy per bulk atom. For Aluminium we have `E_{coh}` = 3.34 eV.
 
   .. math:: \sigma = \frac{NE_{N-1} - (N-1)E_N}{2A}
 
-* The script :svn:`~doc/exercises/surface/Al100.py` defines
+* The script :git:`~doc/exercises/surface/Al100.py` defines
   an ``energy()`` function for calculating `E_N`.  Use it to calculate
   `\sigma` for `N` = 5.  Use a two-dimensional Monkhorst-Pack
   **k**-point sampling (``kpts=(k, k, 1)``) that matches the size of
-  your unit cell.  
+  your unit cell.
 
   .. hint::
 
@@ -84,7 +83,7 @@ the cohesive energy per bulk atom. For Aluminium we have `E_{coh}` = 3.34 eV.
 
 * How well is the EMT estimate satisfied?
 
-.. note:: The experimental value of `\sigma` is 54 meV/Å\ :sup:`2`. 
+.. note:: The experimental value of `\sigma` is 54 meV/Å\ :sup:`2`.
    However, this was obtained from the curvature of an aluminium drop and
    is more likely to represent the value for a closepacked Al(111) surface.
 
@@ -92,8 +91,8 @@ the cohesive energy per bulk atom. For Aluminium we have `E_{coh}` = 3.34 eV.
 Work function
 =============
 
-Run the :svn:`~doc/exercises/surface/work_function.py`
+Run the :git:`~doc/exercises/surface/work_function.py`
 script and estimate the work function for a Al(100) surface (this
 script does not run in parallel). A typical
 experimental value for the work function of the Al(100) surface is
-4.20 eV. 
+4.20 eV.
