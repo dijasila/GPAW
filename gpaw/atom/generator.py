@@ -18,7 +18,7 @@ from gpaw.atom.filter import Filter
 
 
 class Generator(AllElectron):
-    def __init__(self, symbol, xcname='LDA', scalarrel=False, corehole=None,
+    def __init__(self, symbol, xcname='LDA', scalarrel=True, corehole=None,
                  configuration=None,
                  nofiles=True, txt='-', gpernode=150,
                  orbital_free=False, tw_coeff=1.):
