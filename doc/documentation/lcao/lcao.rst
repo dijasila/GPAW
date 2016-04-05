@@ -78,6 +78,10 @@ For a complete list of the parameters do::
 
   $ gpaw-basis --help
 
+For technical reasons, the basis set generator always generates the
+corresponding PAW, even if the latter exists on the user's system.
+Use the ``--save-setup`` option to save the calculated setup along with the
+basis set.
 
 Running a calculation
 ---------------------
