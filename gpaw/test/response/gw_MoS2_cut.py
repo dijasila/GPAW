@@ -44,7 +44,7 @@ gw = G0W0('MoS2.gpw',
 
 e_qp = gw.calculate()['qp'][0, 0]
 
-ev = 2.693
-ec = 6.812
+ev = 2.669
+ec = 6.831
 equal(e_qp[0], ev, 0.01)
 equal(e_qp[1], ec, 0.01)
