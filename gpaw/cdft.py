@@ -57,10 +57,7 @@ class CDFT(Calculator):
         
         p = functools.partial(print, file=self.log)
         
-        iteration = 0
-        
         def f(v_i):
-            nonlocal iteration
             self.ext.set_levels(v_i)
             e = self.atoms.get_potential_energy() / Hartree
             e += np.dot(v_i, self.charge_i)
@@ -68,19 +65,21 @@ class CDFT(Calculator):
             dn_i = (-dens.finegd.integrate(self.ext.w_ig, dens.rhot_g) -
                     self.charge_i)
             
-            if iteration == 0:
+            if f.iteration == 0:
                 n = 7 * len(self.v_i)
                 p('iter {0:{1}} energy     errors'.format('coefs', n))
                 p('     {0:{1}} [eV]       [|e|]'.format('[eV]', n))
             p('{0:4} {1} {2:10.3f} {3}'
-              .format(iteration,
+              .format(f.iteration,
                       ''.join('{0:7.3f}'.format(v) for v in v_i * Hartree),
                       e * Hartree,
                       ''.join('{0:6.4f}'.format(dn) for dn in dn_i)))
             
-            iteration += 1
+            f.iteration += 1
             return -e, dn_i
 
+        f.iteration = 0
+        
         m = minimize(f, self.v_i, jac=True,
                      options={'gtol': self.tolerance, 'norm': np.inf})
         assert m.success, m
