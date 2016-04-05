@@ -4,4 +4,7 @@ master:
     - apt-get install -qy python-dev python-numpy libopenblas-dev liblapack-dev libxc-dev python-pip
     - pip install git+https://gitlab.com/ase/ase.git@master
     - python setup.py install --user
-    - ~/.local/bin/gpaw info
+    - export PATH=~/.local/bin:$PATH
+    - gpaw install-data --register gpaw-datasets
+    - gpaw info
+    - ase-build H2 -v1 | gpaw run -p mode=pw
