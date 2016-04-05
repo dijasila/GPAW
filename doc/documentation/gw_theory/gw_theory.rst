@@ -90,7 +90,7 @@ density matrix elements vanish: `\rho^{n \mathbf{k}}_{m \mathbf{k}} = 0` for
 Frequency integration
 =====================
 
-`\rightarrow` ``w = (wlin, wmax, dw)``
+`\rightarrow` ``domega0, omega2``
 
 
 The frequency integration is performed numerically on a user-defined grid for
@@ -101,14 +101,8 @@ positive values only. This is done by rewriting the integral as:
 
 with the use of `W(\omega') = W(-\omega')`.
 
-The frequency grid is defined by an array of three values:
-`[\omega_{\text{lin}}, \omega_{\text{max}}, \Delta\omega]`. This creates a
-linear grid from `0` to `\omega_{\text{lin}}` with a spacing `\Delta\omega`.
-Above `\omega_{\text{lin}}`, the spacing increases linearly with every step
-up to the maximum frequency `\omega_{\text{max}}`. All values are in eV. The
-maximum frequency has to be bigger than the largest transition energy
-`|\epsilon_{n \, \mathbf{k}} - \epsilon_{m \, \mathbf{k} - \mathbf{q}}|`
-included in the calculation.
+The frequency grid is the same as that used for the dielectric function. Read more about it here: :ref:`df_tutorial_freq`.
+
 
 
 .. _gw_theory_ppa:
@@ -137,119 +131,32 @@ analytically. The fitting value `E_0` has to be chosen carefully. By default,
 it is 1 H.
 
 
-Static COHSEX
-=============
-
-`\rightarrow` ``w = None``
-
-In the static limit `\omega - \epsilon_{m \, \mathbf{k} - \mathbf{q}} = 0`,
-the self energy can be split into two terms, which can be identified as
-screened exchange and Coulomb hole:
-
-.. math:: \Sigma_{n \mathbf{k}}^{\text{SEX}} = - \frac{1}{\Omega} \sum\limits_{\mathbf{G} \mathbf{G}'} \sum\limits_{\vphantom{\mathbf{G}}\mathbf{q}} \sum\limits_{\vphantom{\mathbf{G}}m}^{\text{occ}} \varepsilon^{-1}_{\mathbf{G} \mathbf{G}'}(\mathbf{q}, 0) V_{\mathbf{G} \mathbf{G}'}^{\vphantom{-1}}(\mathbf{q}) \rho^{n \mathbf{k}}_{m \mathbf{k} - \mathbf{q}}(\mathbf{G}) \rho^{n \mathbf{k}*}_{m \mathbf{k} - \mathbf{q}}(\mathbf{G}')
-
-.. math:: \Sigma_{n \mathbf{k}}^{\text{COH}} = \frac{1}{2 \Omega} \sum\limits_{\mathbf{G} \mathbf{G}'} \sum\limits_{\vphantom{\mathbf{G}}\mathbf{q}} \sum\limits_{\vphantom{\mathbf{G}}m}^{\text{all}} \left(\varepsilon^{-1}_{\mathbf{G} \mathbf{G}'}(\mathbf{q}, 0) - \delta_{\mathbf{G} \mathbf{G}'}^{\vphantom{-1}}\right) V_{\mathbf{G} \mathbf{G}'}^{\vphantom{-1}}(\mathbf{q}) \rho^{n \mathbf{k}}_{m \mathbf{k} - \mathbf{q}}(\mathbf{G}) \rho^{n \mathbf{k}*}_{m \mathbf{k} - \mathbf{q}}(\mathbf{G}')
-
-where `V_{\mathbf{G} \mathbf{G}'}(\mathbf{q}) = 4 \pi / |\mathbf{q} +
-\mathbf{G}||\mathbf{q} + \mathbf{G}'|` is the Coulomb potential.
-
-The quasi-particle energies are then calculated as:
-
-.. math::  E_{n \mathbf{k}} = \epsilon_{n \mathbf{k}} + \Sigma_{n \mathbf{k}}^{\text{SEX}} + \Sigma_{n \mathbf{k}}^{\text{COH}} - V^{\text{XC}}_{n \mathbf{k}}
- 
-
 Hilbert transform
 =================
 
-Currently, there are two different methods implemented for evaluating the
-self energy.
-
-Method 1 (which is the default ``hilbert_trans = False``) performs the
-summation over plane waves first:
-
-.. math:: \sum\limits_{\mathbf{G} \mathbf{G}'} W_{\mathbf{G} \mathbf{G}'}(\mathbf{q}, \omega') \rho^{n \mathbf{k}}_{m \mathbf{k} - \mathbf{q}}(\mathbf{G}) \rho^{n \mathbf{k}*}_{m \mathbf{k} - \mathbf{q}}(\mathbf{G}')
-
-Then, the frequency integration with
-
-.. math:: \frac{1}{\omega + \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} + i \eta \, \text{sgn}(\epsilon_{m \, \mathbf{k} - \mathbf{q}} - \mu)} \hspace{0.4cm} \textsf{and} \hspace{0.4cm} - \frac{1}{\left(\omega + \omega' - \epsilon_{m \, \mathbf{k} - \mathbf{q}} + i \eta \, \text{sgn}(\epsilon_{m \, \mathbf{k} - \mathbf{q}} - \mu)\right)^2}
-
-for the self energy and its derivative is carried out, where `\omega =
-\epsilon_{n \mathbf{k}}`. This is done for every `(n \, \mathbf{k})` and `(m
-\, \mathbf{k}\!-\!\mathbf{q})` separately.
-
-Method 2 (``hilbert_trans = True``) reverses this order by doing the
-frequency integration first for all `\omega` on the grid. Then, for every `(n
-\, \mathbf{k})` and `(m \, \mathbf{k}\!-\!\mathbf{q})`, the contributions to
-`\Sigma(\omega = \epsilon_{n \mathbf{k}})` and its derivative are found by
-linear interpolation using the two closest points on the frequency grid with
-`\omega_i \leq \omega = \epsilon_{n \mathbf{k}} < \omega_{i+1}`. For `\omega
-= 0`, three points are used for the interpolation. This is similar to using
-the Hilbert transform for the dielectric response function.
-
-While the first method is more accurate, the second method can reduce the
-computational costs significantly. As long as the chosen frequency grid is
-fine enough, both methods yield the same results.
-
-See ref. \ [#Kresse2006]_ for details.
+The self-energy is evaluated using the Hilbert transform technique described in \ [#Kresse2006]_ .
 
 
 Parallelization
 ===============
 
-`\rightarrow` ``wpar = int``
+`\rightarrow` ``nblocks = int``
 
 
-By default, the calculation is fully parallelized over k-points, that means
-all `\mathbf{q}` in the summation. When more memory is required for storing
-the dielectric matrix as a function of `\omega`, `\mathbf{G}` and
-`\mathbf{G}'`, additional parallelization over frequencies may be necessary.
-This can be done by increasing ``wpar``. This value determines over how many
-CPUs the dielectric function (and its related quantities) should be
-distributed. Information about the memory usage is printed in the output file
-``df.out``.
-
-Note, that ``wpar`` needs to be an integer divisor of the number of requested
-CPUs.
+By default, the calculation is fully parallelized over k-points and bands. If more memory is required for storing the response function in the plane wave basis, additional block parallelization is possible. This distributes the matrix amongst the number of CPUs specified by ``nblocks``, resulting in a lower total memory requirement of the node. ``nblocks`` needs to be an integer divisor of the number of requested CPUs.
 
 
 I/O
 ===
 
 
-All necessary informations of the system are read from ``file =
+All necessary informations of the system are read from ``calc =
 'filename.gpw'`` which must contain the wavefunctions. This is done by
 performing ``calc.write('groundstate.gpw', 'all')`` after the groundstate
-calculation. GW supports grid mode and planewave basis.
+calculation. GW supports spin-paired planewave calculations. 
 
-Especially for big systems, it might be reasonable to determine the exact
-exchange contributions separately and store them in a pickle file which can
-be read by defining ``exxfile = 'filename.pckl'`` (see below). The band and
-k-point indices must match the ones used for the GW calculation. The pickle
-file needs to contain the following data:
-
-================= ==============================================================================
-``gwkpt_k``       list of k-point indices
-
-``gwbands_n``     list of bands indices
-
-``e_skn``         DFT eigenvalues as array with spin, k-points and bands
-
-``vxc_skn``       DFT exchange-correlation contributions as array with spin, k-points and bands
-
-``exx_skn``       exact exchange contributions as array with spin, k-points and bands
-================= ==============================================================================
-
-See the GW tutorial for an example: :ref:`gw tutorial`
-
-The output is written to ``txt = 'filename.out'`` which summarizes the input
-and results and gives an estimation of the timing while the calculation is
-running. An additional file ``df.out`` is created for the calculation of the
-dielectric matrix.
-
-All results are also stored in a pickle file called ``GW.pckl`` by default,
-which contains all data listed in the table above and additionally
-``Sigma_skn``, ``Z_skn`` and ``QP_skn`` for the self energy contributions,
-renormalization factors and the quasi-particle bandstructure, respectively.
+The exchange-correlation contribution to the Kohn-Sham eigenvalues is stored in ``'filename.vxc.npy'`` and the exact-exchange eigenvalues are stored in ``'filename.exx.npy'``.
+The resulting output is written to ``'filename_results.pckl'`` and a summary of input as well as a output parameters are given in the human-readable  ``'filename.txt'`` file. Information about the calculation of the screened coulomb interaction is printed in ``'filename.w.txt'``.
 
 
 Convergence
@@ -268,64 +175,21 @@ The results must be converged with respect to:
     
     ``ecut`` and ``nbands`` do not converge independently. As a rough
     estimation, ``ecut`` should be around the energy of the highest included
-    band.
+    band. If ``nbands`` is not specified it will be set equal to the amount of plane waves determined by ``ecut``.
 
-- the fineness of the frequency grid ``wlin, dw``
+- the number of frequency points ``domega0, omega2``
 
     The grid needs to resolve the features of the DFT spectrum.
 
 - the broadening ``eta``
 
     This parameter is only used for the response function and in the plasmon
-    pole approximation. Otherwise, it is automatically set to `\eta = 4
-    \Delta\omega`.
+    pole approximation. Otherwise, it is automatically set to `\eta = 0.1`.
 
 
 Parameters
 ==========
-
-=================  =================  ===================  ====================================================
-keyword            type               default value        description
-=================  =================  ===================  ====================================================
-``file``           ``str``            None                 gpw filename
-                                                           groundstate calculation including wavefunctions
-``nbands``         ``int``            equal to number of   Number of bands
-                                      plane waves
-``bands``          ``numpy.ndarray``  equal to nbands      Band indices for QP spectrum
-``kpoints``        ``numpy.ndarray``  all irreducible      K-point indices for QP spectrum
-                                      k-points
-``e_skn``          ``numpy.ndarray``  None                 User-defined starting point eigenvalues
-``eshift``         ``float``          None                 Manual shift of unoccupied bands (in eV)
-``w``              ``numpy.ndarray``  None                 [wlin, wmax, dw] for defining frequency grid (in eV)
-``ecut``           ``float``          150 (eV)             Planewave energy cutoff.
-``eta``            ``float``          0.1 (eV)             Broadening parameter.
-``ppa``            ``bool``           False                Use Plasmon Pole Approximation
-``E0``             ``float``          27.2114 (eV)         Frequency for fitting PPA
-``hilbert_trans``  ``bool``           False                False = method 1, True = method 2
-``wpar``           ``int``            1                    Parallelization in energy
-``vcut``           ``str``            None                 Coulomb truncation (currently, only '2D' supported)
-``txt``            ``str``            None                 Output filename
-=================  =================  ===================  ====================================================
-
-
-Functions
-=========
-
-``get_exact_exchange(ecut=None, communicator=world, file='EXX.pckl')``
-
-calculates exact exchange and Kohn-Sham exchange-correlation contributions
-for given ``bands`` and ``kpoints`` and stores everything in a pickle file.
-
-In planewave mode ``ecut`` is taken from the groundstate calculation.
-Otherwise, it can be chosen independently from the actual GW calculation. The
-value needs to be given in eV. Note that the exact exchange and GW may
-converge differently with respect to ``ecut``.
-
-``get_QP_spectrum(exxfile='EXX.pckl', file='GW.pckl')``
-
-calculates GW quasi-particle spectrum reading exact exchange and exchange-
-correlation contribution from ``exxfile`` and stores all results in a pickle
-file.
+For input parameters, see :ref:`gw_tutorial`.
 
 
 References

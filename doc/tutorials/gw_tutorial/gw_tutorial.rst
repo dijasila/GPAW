@@ -1,5 +1,5 @@
 .. module:: gpaw.response.g0w0
-.. _gw tutorial:
+.. _gw_tutorial:
 
 =========================================================
 Quasi-particle spectrum in the GW approximation: tutorial
@@ -91,7 +91,7 @@ shown below.
 .. image:: Si_GW.png
     :height: 400 px
 
-A k-point sampling of (10x10x10) and 200 eV plane wave cutoff seems to give
+A k-point sampling of (9x9x9) and 200 eV plane wave cutoff seems to give
 results converged to within 0.05 eV. The calculation at these parameters took
 a little more than 3 hours on 2 xeon-8 CPUs.
 
@@ -120,7 +120,7 @@ Final results
 -------------
 
 A full G0W0 calculation at the values found above for the plane wave cutoff,
-number of k-points and frequency sampling results in a direct bandgap of 3.36
+number of k-points and frequency sampling results in a direct bandgap of 3.35
 eV. Hence the value of 3.18 eV calculated at first was not converged!
 
 Another method for carrying out the frequency integration is the Plasmon Pole
