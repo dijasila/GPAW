@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """ TODO:
 
 1. we should find a good way in which to store files elsewhere than static
