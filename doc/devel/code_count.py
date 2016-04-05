@@ -81,6 +81,5 @@ def count_lines():
     
     fd.close()
 
-    
-if __name__ == '__main__':
-    plot_count()
+
+plot_count()
