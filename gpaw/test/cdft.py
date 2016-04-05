@@ -12,4 +12,4 @@ for d in np.linspace(d0, d0 + 0.1, 6):
     he2.set_distance(0, 1, d, 0)
     e = he2.get_potential_energy()
     f = he2.get_forces()
-    print(he2.positions[:, 2]), e, f[:, 2])
+    print(he2.positions[:, 2], e, f[:, 2])
