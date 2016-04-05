@@ -1,6 +1,4 @@
 # -*- coding: utf-8
-# In an attempt to appease epydoc and still have readable docstrings,
-# the vertical bar | is represented by u'\u2758' in this module.
 """This module defines Coulomb and XC kernels for the response model.
 """
 
@@ -8,7 +6,7 @@ import numpy as np
 from ase.dft import monkhorst_pack
 
 def get_coulomb_kernel(pd, N_c, truncation=None, q_v=None, wstc=None):
-    """Factory function that calls the specified flavour 
+    """Factory function that calls the specified flavour
     of the Coulomb interaction"""
 
     qG_Gv = pd.get_reciprocal_vectors(add_q=True)
@@ -57,7 +55,7 @@ def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
     if pd.kd.gamma:
         if q_v is not None:
             qG_Gv += q_v
-        else: # Only to avoid warning. Later set to zero in factory function 
+        else: # Only to avoid warning. Later set to zero in factory function
             qG_Gv[0] = [1., 1., 1.]
 
     # The non-periodic direction is determined from k-point grid
@@ -68,7 +66,7 @@ def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
         Nn_c = [2]    # Choose reduced cell vectors 0, 1
         Np_c = [0, 1] # Choose reduced cell vector 2
     # Truncation length is half of cell vector in non-periodic direction
-    R = pd.gd.cell_cv[Nn_c[0], Nn_c[0]] / 2. 
+    R = pd.gd.cell_cv[Nn_c[0], Nn_c[0]] / 2.
 
     qGp_G = ((qG_Gv[:, Np_c[0]])**2 + (qG_Gv[:, Np_c[1]]**2))**0.5
     qGn_G = qG_Gv[:, Nn_c[0]]
@@ -85,7 +83,7 @@ def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
     return v_G.astype(complex)
 
 def calculate_1D_truncated_coulomb(pd, q_v=None, N_c=None):
-    """ Simple 1D truncation of Coulomb kernel PRB 73, 205119. 
+    """ Simple 1D truncation of Coulomb kernel PRB 73, 205119.
     The periodic direction is determined from k-point grid.
     """
 
@@ -126,7 +124,7 @@ def calculate_0D_truncated_coulomb(pd, q_v=None):
     if pd.kd.gamma:
         if q_v is not None:
             qG_Gv += q_v
-        else: # Only to avoid warning. Later set to zero in factory function 
+        else: # Only to avoid warning. Later set to zero in factory function
             qG_Gv[0] = [1., 1., 1.]
     # The radius is determined from volume of cell
     R = (3 * np.linalg.det(pd.gd.cell_cv) / (4 * np.pi))**(1. / 3.)
@@ -145,7 +143,7 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100, reduced=False):
     if reduced:
         # Only integrate periodic directions if truncation is used
         Nf_c[np.where(N_c == 1)[0]] = 1
-    q_qc = monkhorst_pack(Nf_c) / N_c   
+    q_qc = monkhorst_pack(Nf_c) / N_c
     q_qc += pd.kd.ibzk_kc[0]
     q_qv = np.dot(q_qc, B_cv)
 
@@ -160,7 +158,7 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100, reduced=False):
             Nn_c = [2]    # Choose reduced cell vectors 0, 1
             Np_c = [0, 1] # Choose reduced cell vector 2
         # Truncation length is half of cell vector in non-periodic direction
-        R = pd.gd.cell_cv[Nn_c[0], Nn_c[0]] / 2. 
+        R = pd.gd.cell_cv[Nn_c[0], Nn_c[0]] / 2.
 
         qp_q = ((q_qv[:, Np_c[0]])**2 + (q_qv[:, Np_c[1]]**2))**0.5
         qn_q = q_qv[:, Nn_c[0]]
@@ -184,7 +182,7 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100, reduced=False):
         qnR_q = (q_qv[:, Nn_c[0]]**2 + q_qv[:, Nn_c[1]]**2)**0.5 * R
         qpR_q = abs(q_qv[:, Np_c[0]]) * R
         V_q = 4 * np.pi / (q_qv**2).sum(axis=1)
-        V_q *= (1.0 + qnR_q * j1(qnR_q) * k0(qpR_q) 
+        V_q *= (1.0 + qnR_q * j1(qnR_q) * k0(qpR_q)
                 - qpR_q * j0(qnR_q) * k1(qpR_q))
     elif truncation == '0D' or 'wigner-seitz':
         R = (3 * np.linalg.det(pd.gd.cell_cv) / (4 * np.pi))**(1. / 3.)

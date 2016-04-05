@@ -1,0 +1,5 @@
+master:
+  script:
+    - apt-get update -qy
+    - apt-get install -qy python-devel python-numpy
+    - python setup.py install --user

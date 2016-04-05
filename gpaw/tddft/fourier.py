@@ -8,13 +8,12 @@ from gpaw.analyse.observers import Observer
 from gpaw.transformers import Transformer
 from gpaw.tddft import attosec_to_autime, eV_to_aufrequency
 
-# -------------------------------------------------------------------
 
 class DensityFourierTransform(Observer):
     def __init__(self, timestep, frequencies, width=None, interval=1):
         """
         Parameters
-        ----------
+
         timestep: float
             Time step in attoseconds (10^-18 s), e.g., 4.0 or 8.0
         frequencies: NumPy array or list of floats
@@ -247,7 +246,7 @@ class DensityFourierTransform(Observer):
 
         # Collect average densities on master and write
         if master:
-            tar.add('Average', ('nspins', 'ngptsx', 'ngptsy', 
+            tar.add('Average', ('nspins', 'ngptsx', 'ngptsy',
                 'ngptsz', ), dtype=float)
         for s in range(self.nspins):
             big_Ant_G = self.gd.collect(self.Ant_sG[s])

@@ -7,9 +7,9 @@ atoms = bulk('Si', 'diamond', a=a)
 
 calc = GPAW(
             mode=PW(200),                  # energy cutoff for plane wave basis (in eV)
-            kpts=(3,3,3),
+            kpts={'size': (3, 3, 3), 'gamma': True},
+            dtype=complex,
             xc='LDA',
-            eigensolver='cg',
             occupations=FermiDirac(0.001),
             txt='Si_groundstate.txt'
            )
