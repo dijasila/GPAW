@@ -14,9 +14,13 @@ def info():
     """Show versions of GPAW and its dependencies."""
     results = [('python-' + sys.version.split()[0], sys.executable)]
     for name in ['gpaw', 'ase', 'numpy', 'scipy']:
-        module = import_module(name)
-        results.append((name + '-' + module.__version__,
-                        module.__file__.rsplit('/', 1)[0] + '/'))
+        try:
+            module = import_module(name)
+        except ImportError:
+            results.append((name, False))
+        else:
+            results.append((name + '-' + module.__version__,
+                            module.__file__.rsplit('/', 1)[0] + '/'))
     module = import_module('_gpaw')
     results.append(('_gpaw',
                     op.normpath(getattr(module, '__file__', 'built-in'))))
@@ -25,8 +29,9 @@ def info():
     results.append(('FFTW', fftw.FFTPlan is fftw.FFTWPlan))
     results.append(('scalapack', compiled_with_sl()))
     results.append(('libvdwxc', compiled_with_libvdwxc()))
-    results.append(('PAW-datasets',
-                    ':\n                '.join(gpaw.setup_paths)))
+    paths = ['{0}: {1}'.format(i + 1, path)
+             for i, path in enumerate(gpaw.setup_paths)]
+    results.append(('PAW-datasets', '\n                '.join(paths)))
 
     for a, b in results:
         if isinstance(b, bool):
