@@ -14,9 +14,13 @@ def info():
     """Show versions of GPAW and its dependencies."""
     results = [('python-' + sys.version.split()[0], sys.executable)]
     for name in ['gpaw', 'ase', 'numpy', 'scipy']:
-        module = import_module(name)
-        results.append((name + '-' + module.__version__,
-                        module.__file__.rsplit('/', 1)[0] + '/'))
+        try:
+            module = import_module(name)
+        except ImportError:
+            results.append((name, False))
+        else:
+            results.append((name + '-' + module.__version__,
+                            module.__file__.rsplit('/', 1)[0] + '/'))
     module = import_module('_gpaw')
     results.append(('_gpaw',
                     op.normpath(getattr(module, '__file__', 'built-in'))))
