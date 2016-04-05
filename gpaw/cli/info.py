@@ -29,8 +29,9 @@ def info():
     results.append(('FFTW', fftw.FFTPlan is fftw.FFTWPlan))
     results.append(('scalapack', compiled_with_sl()))
     results.append(('libvdwxc', compiled_with_libvdwxc()))
-    results.append(('PAW-datasets',
-                    ':\n                '.join(gpaw.setup_paths)))
+    paths = ['{0}: {1}'.format(i + 1, path)
+             for i, path in enumerate(gpaw.setup_paths)]
+    results.append(('PAW-datasets', '\n                '.join(paths)))
 
     for a, b in results:
         if isinstance(b, bool):
