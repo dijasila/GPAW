@@ -523,6 +523,11 @@ class FFTVDWFunctional(VDWFunctionalBase):
         self.world = wfs.world
         self.get_alphas()
 
+    def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None): #, add_gga=True, compensation_theta_ag=None):
+        Exc = GGA.calculate_spherical(self, rgd, n_sg, v_sg, e_g)
+        print("Calculate spherical vdw.py")
+        return Exc
+
     def get_alphas(self):
         if self.Nalpha < self.world.size:
             rstride = self.world.size // self.Nalpha
