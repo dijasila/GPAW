@@ -6,7 +6,7 @@ Overview
 
 
 This document describes the most important objects used for a DFT calculation.
-More information can be found in the :epydoc:`API <gpaw>` or in the code.
+More information can be found in the :git:`code <>`.
 
 
 PAW
