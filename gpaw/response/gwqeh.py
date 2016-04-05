@@ -388,7 +388,7 @@ class GWQEHCorrection(PairDensity):
     def get_W_on_grid(self, dW_qw, include_q0=True):
         """This function transforms the screened potential W(q,w) to the 
         (q,w)-grid of the GW calculation. Also, W is integrated over
-        a region around each q=0."""
+        a region around each q=0 if include_q0 is set to True."""
     
         q_cs = self.qd.ibzk_kc
 
@@ -399,12 +399,6 @@ class GWQEHCorrection(PairDensity):
 
         wqeh = self.wqeh  # w_grid.copy() # self.qeh
         qqeh = self.qqeh
-              
-        #import pylab as p
-        #p.plot(qqeh, dW_qw[:,0])
-        #p.plot(qqeh, dW_qw[:,10])
-        #p.show()
-
         sort = np.argsort(qqeh)
         qqeh = qqeh[sort]
         dW_qw = dW_qw[sort] 
@@ -438,12 +432,6 @@ class GWQEHCorrection(PairDensity):
             dWgw_qw[0, 0] = 0.0
             
         dWgw_qw = dWgw_qw[isort]
-    
-
-        #import pylab as p
-        #p.plot(q_grid, dWgw_qw[:,0],  '.')
-        #p.plot(q_grid, dWgw_qw[:,1], '.')
-        #p.show()
 
         return dWgw_qw
 
