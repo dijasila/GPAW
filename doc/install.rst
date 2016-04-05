@@ -174,7 +174,7 @@ Sou can get the source from a tar-file or from Git:
     Alternatively, you can get the source for the latest stable release from
     https://gitlab.com/gpaw/gpaw like this::
     
-        $ git clone -b 3.10.0 https://gitlab.com/gpaw/gpaw.git
+        $ git clone -b 1.0.0 https://gitlab.com/gpaw/gpaw.git
 
     or if you want the development version::
 
