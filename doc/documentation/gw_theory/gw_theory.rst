@@ -153,7 +153,7 @@ I/O
 All necessary informations of the system are read from ``calc =
 'filename.gpw'`` which must contain the wavefunctions. This is done by
 performing ``calc.write('groundstate.gpw', 'all')`` after the groundstate
-calculation. GW supports spin-paired planewave calculations. 
+calculation. GW supports spin-paired planewave calculations.
 
 The exchange-correlation contribution to the Kohn-Sham eigenvalues is stored in ``'filename.vxc.npy'`` and the exact-exchange eigenvalues are stored in ``'filename.exx.npy'``.
 The resulting output is written to ``'filename_results.pckl'`` and a summary of input as well as a output parameters are given in the human-readable  ``'filename.txt'`` file. Information about the calculation of the screened coulomb interaction is printed in ``'filename.w.txt'``.
@@ -189,7 +189,7 @@ The results must be converged with respect to:
 
 Parameters
 ==========
-For input parameters, see :ref:`gw_tutorial`.
+For input parameters, see :ref:`gw tutorial`.
 
 
 References
