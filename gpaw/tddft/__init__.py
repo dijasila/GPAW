@@ -331,8 +331,8 @@ class TDDFT(GPAW):
                       % (self.time * autime_to_attosec))
             self.text('Time step:     %7.2f as' % time_step)
             header = """\
-                        Simulation      Total        log10     Iterations:
-             Time          time         Energy       Norm      Propagator"""
+                        Simulation     Total         log10     Iterations:
+             Time          time        Energy (eV)   Norm      Propagator"""
             self.text()
             self.text(header)
 
@@ -374,7 +374,8 @@ class TDDFT(GPAW):
                     self.text(iter_text %
                               (self.niter, T[3], T[4], T[5],
                                self.time * autime_to_attosec,
-                               self.Etot, log(abs(norm)+1e-16)/log(10),
+                               self.Etot * aufrequency_to_eV,
+                               log(abs(norm)+1e-16)/log(10),
                                niterpropagator))
 
                     self.txt.flush()
