@@ -296,7 +296,7 @@ Band parallelization
 --------------------
 
 Parallelization over Kohn-Sham orbitals (i.e. bands) becomes favorable when
-the number of bands :math:`N` is so large that :math:`\mathcal{O}(N^2)`
+the number of bands `N` is so large that `\mathcal{O}(N^2)`
 operations begin to dominate in terms of computational time. Linear algebra
 for orthonormalization and diagonalization of the wavefunctions is the most
 noticeable contributor in this regime, and therefore, band parallelization

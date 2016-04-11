@@ -153,7 +153,7 @@ analyzing the spatial extent of the oscillating modes.
 
 
 The discrete moving-average Fourier transform of the pseudo-electron density
-:math:`\tilde{n}(\mathbf{r},t)` is defined:
+`\tilde{n}(\mathbf{r},t)` is defined:
 
 .. math::
 
@@ -162,10 +162,10 @@ The discrete moving-average Fourier transform of the pseudo-electron density
     \mathrm{e}^{-\textstyle\frac{1}{2}t_j^2\sigma^2}
     \mathrm{e}^{\displaystyle\mathrm{i}\omega t_j} \Delta t_j
 
-, where we allow for variable time-step :math:`\Delta t_j` along the :math:`N`
-propagation steps in the time-series :math:`j=0,1,\ldots,N`. With a total
-propagation time of :math:`t_N`, the Fourier transforms are taken relative to
-the time-average :math:`\overline{n}_N(\mathbf{r})` of the pseudo density:
+, where we allow for variable time-step `\Delta t_j` along the `N`
+propagation steps in the time-series `j=0,1,\ldots,N`. With a total
+propagation time of `t_N`, the Fourier transforms are taken relative to
+the time-average `\overline{n}_N(\mathbf{r})` of the pseudo density:
 
 .. math::
 
@@ -174,8 +174,8 @@ the time-average :math:`\overline{n}_N(\mathbf{r})` of the pseudo density:
     \sum_{j=0}^{N-1}\Delta t_j
 
 
-Regrettably, having arrived at time :math:`t_N` will not enable us to perform
-the above summations because recording :math:`N\sim 10^4` sets of grid data is
+Regrettably, having arrived at time `t_N` will not enable us to perform
+the above summations because recording `N\sim 10^4` sets of grid data is
 completely intractable. Instead, an iterative cumulation scheme is implemented,
 which only requires data from one time-step at a time.
 
@@ -202,7 +202,7 @@ with a tolerance around ``1e-4`` works reasonably well for timesteps of 5-10 as.
 
 .. tip::
 
-    Using a finite width :math:`\sigma` around ``0.1 eV`` will make any
+    Using a finite width `\sigma` around ``0.1 eV`` will make any
     ballpark figure a much safer bet. Be aware that peaks found using
     :ref:`LrTDDFT <lrtddft>` may shift slightly.
 
@@ -282,8 +282,8 @@ propagators because they have an embedded Euler step in each predictor step:
 
   \tilde{\psi}_n(t+\Delta t) \approx (1 - i \hat{S}^{\;-1}_\mathrm{approx.}(t) \tilde{H}(t) \Delta t)\tilde{\psi}_n(t)
 
-, where :math:`\hat{S}^{\;-1}_\mathrm{approx.}` is an inexpensive operation
-which approximates the inverse of the overlap operator :math:`\hat{S}`. See
+, where `\hat{S}^{\;-1}_\mathrm{approx.}` is an inexpensive operation
+which approximates the inverse of the overlap operator `\hat{S}`. See
 the :ref:`Developers Guide <overlaps>` for details.
 
 

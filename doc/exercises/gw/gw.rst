@@ -29,7 +29,7 @@ version, and the one so far implemented in GPAW, we can use it to find the
 corrections to the DFT band structure than include the missing screening
 effect when we add or remove an electron. In this approximation the
 quasiparticle energy (electron addition/removal energies) of the state
-:math:`(\mathbf{k}, n)` is given by
+`(\mathbf{k}, n)` is given by
 
 .. math::
     
@@ -68,7 +68,7 @@ In order to carry out the GW calculation we need the wavefunctions and correspon
 
 Note that in order to use the ``diagonalize_full_hamiltonian()`` method, the calculator has to use a plane wave basis, which is done by specifying ``mode=PW()`` and correctly importing the PW class: ``from gpaw import PW``. It is a good idea to save the calculator with the ``write()`` method and remember to include the wavefunctions by setting the second argument to ``'all'``.
 
-- Write a script that calculates the ground state of silicon and all of the unoccupied bands and saves the result. Use a plane wave cut-off of say 200 eV and 4x4x4 k-point sampling that is shifted to include the :math:`\Gamma`-point (this can be done by specifying ``kpts={'size': (4, 4, 4), 'gamma': True}``. Why this k-point sampling?
+- Write a script that calculates the ground state of silicon and all of the unoccupied bands and saves the result. Use a plane wave cut-off of say 200 eV and 4x4x4 k-point sampling that is shifted to include the `\Gamma`-point (this can be done by specifying ``kpts={'size': (4, 4, 4), 'gamma': True}``. Why this k-point sampling?
 
 ----------------
 G0W0 calculation

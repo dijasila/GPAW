@@ -248,7 +248,7 @@ Example::
     </derivatives>
   </radial_grid>
     
-This defines one radial grid as :math:`r_i = di` where `i` runs from 0 to 9.  Inside the ``<radial_grid>`` element we have the
+This defines one radial grid as `r_i = di` where `i` runs from 0 to 9.  Inside the ``<radial_grid>`` element we have the
 10 values of `r_i` followed by the 10 values of the derivatives
 `dr_i/di`.
 
@@ -309,10 +309,10 @@ waves *ij* and the spherical harmonics:
   \sum_{\ell m} C_{\ell m \ell_i m_i \ell_j m_j} \hat{Q}^{\ell}_{i j}(r) Y_{\ell m}(\theta, \phi),
 
 
-where :math:`C_{\ell m \ell_i m_i \ell_j m_j}` is a *Gaunt coefficient*.
+where `C_{\ell m \ell_i m_i \ell_j m_j}` is a *Gaunt coefficient*.
 
-The standard expression \ [#Blo94]_ for the *shape function* :math:`\hat{Q}^{\ell}_{i j}(\mathbf{r})`
-is a product of the multipole moment :math:`Q^{\ell}_{i j}` and a shape function :math:`g_\ell(r)`:
+The standard expression \ [#Blo94]_ for the *shape function* `\hat{Q}^{\ell}_{i j}(\mathbf{r})`
+is a product of the multipole moment `Q^{\ell}_{i j}` and a shape function `g_\ell(r)`:
 
 .. math::
 
@@ -351,21 +351,21 @@ Example::
     <shape_function type="bessel" rc="3.478505426185e-01">
  
 
-There is also a more general formulation where :math:`\hat{Q}^{\ell}_{i j}(r)` is given in
+There is also a more general formulation where `\hat{Q}^{\ell}_{i j}(r)` is given in
 a numerical form. Several *shape functions* can be set (with the ``<shape_function>`` tag),
 depending on `\ell` and/or combinations of partial waves (specified using the optional
 ``state1`` and ``state2`` attributes).
 See for instance section II.C of [#Laa93]_.
 
-Example 1, defining numerically :math:`g_\ell(r)`
-in :math:`\hat{Q}^{\ell}_{i j}(r)=Q^{\ell}_{i j} g_\ell(r)`::
+Example 1, defining numerically `g_\ell(r)`
+in `\hat{Q}^{\ell}_{i j}(r)=Q^{\ell}_{i j} g_\ell(r)`::
     
     <shape_function type="numeric" l=0 grid="g1">
         ... ... ...
     </shape_function>
 
 
-Example 2, defining directly :math:`\hat{Q}^{\ell}_{i j}(r)`
+Example 2, defining directly `\hat{Q}^{\ell}_{i j}(r)`
 for states *i=* ``N-2s`` and *j=* ``N-2p``, and *l=0*::
     
     <shape_function type="numeric" l=0 state1="N-2s" state2="N-2p" grid="g1">

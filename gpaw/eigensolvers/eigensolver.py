@@ -5,6 +5,7 @@ import numpy as np
 from gpaw.utilities.blas import axpy
 from gpaw.utilities import unpack
 from gpaw.hs_operators import reshape
+from gpaw.xc.hybrid import HybridXC
 
 
 class Eigensolver:
@@ -53,8 +54,10 @@ class Eigensolver:
         implement *iterate_one_k_point* method for a single iteration of
         a single kpoint.
         """
-
+        
         if not self.initialized:
+            if isinstance(hamiltonian.xc, HybridXC):
+                self.blocksize = wfs.bd.mynbands
             self.initialize(wfs)
 
         error = 0.0
