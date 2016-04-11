@@ -102,7 +102,7 @@ direction.  Use a loop structure like::
 
 The ``set`` method can be used to change the parameters of a
 calculator without creating a new one.  Make sure that the numbers of
-grid points are chosen to cover :math:`0.15<h<0.25`.  While performing
+grid points are chosen to cover `0.15<h<0.25`.  While performing
 this convergence check, the other parameters do not need to be
 converged - you can reduce the cell size to e.g. ``a = 6.0`` to
 improve performance.  You may wish to run the calculation in parallel.

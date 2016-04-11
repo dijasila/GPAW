@@ -74,7 +74,7 @@ obey the following orthogonality requirements:
           \tilde{\psi}_{\sigma\mathbf{k}m} \rangle =
   \delta_{nm},
 
-, where :math:`\hat{O}` is the overlap operator in the PAW formalism. Refer
+, where `\hat{O}` is the overlap operator in the PAW formalism. Refer
 to :ref:`Orthogonalizing the wave functions <orthogonalization>` for details.
 
 
@@ -93,7 +93,7 @@ The overlap operator is defined in terms of the PAW overlap corrections:
 
 The constants `\Delta O_{i_1 i_2}^a` are found in
 ``paw.wfs.setups[a].dO_ii`` (``ndarray``). XXX Someone should
-rename ``dO_ii`` to ``dS_ii`` or :math:`\hat{S}` to :math:`\hat{O}`.
+rename ``dO_ii`` to ``dS_ii`` or `\hat{S}` to `\hat{O}`.
 
 .. math::
 
@@ -111,7 +111,7 @@ An approximate inverse overlap operator is similarly defined by:
     \sum_a \sum_{i_1 i_2} |\tilde{p}_{i_1}^a\rangle
     \Delta C_{i_1 i_2}^a \langle\tilde{p}_{i_2}^a|.
 
-The inverse overlap coefficients :math:`\Delta C_{i_1 i_2}^a` are found in ``setup.dC_ii``
+The inverse overlap coefficients `\Delta C_{i_1 i_2}^a` are found in ``setup.dC_ii``
 (``ndarray``) and are solutions to the system of linear equations:
 
 .. math::
@@ -119,10 +119,10 @@ The inverse overlap coefficients :math:`\Delta C_{i_1 i_2}^a` are found in ``set
     \Delta C_{i_1 i_2}^a  + \Delta O_{i_1 i_2}^a + \sum_{i_3 i_4} \Delta C_{i_1 i_3}^a
     B_{i_3 i_4}^a \Delta O_{i_4 i_2}^a = 0 \qquad ,\forall i_1,i_2
 
-, such that :math:`\hat{O}^{\;-1}_\mathrm{approx.}\hat{O} = \hat{I}` provided
-:math:`\langle\tilde{p}_{i_1}^a|\tilde{p}_{i_2}^{a'}\rangle = \delta_{a a'}
+, such that `\hat{O}^{\;-1}_\mathrm{approx.}\hat{O} = \hat{I}` provided
+`\langle\tilde{p}_{i_1}^a|\tilde{p}_{i_2}^{a'}\rangle = \delta_{a a'}
 \langle\tilde{p}_{i_1}^a|\tilde{p}_{i_2}^{a}\rangle`. These projector overlaps
-:math:`B_{i_1 i_2}^a = \langle\tilde{p}_{i_1}^a|\tilde{p}_{i_2}^{a}\rangle`
+`B_{i_1 i_2}^a = \langle\tilde{p}_{i_1}^a|\tilde{p}_{i_2}^{a}\rangle`
 are likewise found in ``setup.B_ii``.
 
 
