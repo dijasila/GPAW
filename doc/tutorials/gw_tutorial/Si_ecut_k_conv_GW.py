@@ -27,6 +27,6 @@ for j, k in enumerate([4, 6, 8, 10]):
                   bands=(3, 5),
                   ecut=ecut,
                   kpts=[0],
-                  filename='Si-g0w0_GW_k%s_ecut%s' % (k, ecut))
+                  filename='Si-g0w0_k%s_ecut%s' % (k, ecut))
 
         result = gw.calculate()
