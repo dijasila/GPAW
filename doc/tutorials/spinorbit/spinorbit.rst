@@ -179,10 +179,10 @@ metals, the states close to the Fermi level will be very important. For this
 reason, we need quite high k-point sampling to converge the calculation. The
 following script generates the ground state of hcp Co with a dense k-point
 sampling :download:`gs_Co.py`. The script :download:`anisotropy.py`
-calculates the ground state energy when `theta` takes values on a path from
+calculates the ground state energy when `\theta` takes values on a path from
 `0.0` to `\pi` (easy to hard to easy axes). The results are shown below and
 was generated with the script :download:`plot_anisotropy.py`. The curve
-exhibits a maximum at `theta=\pi/2`, which is the hard axis. The magnetic
+exhibits a maximum at `\theta=\pi/2`, which is the hard axis. The magnetic
 anisotropy energy is `\sim 60 \mu eV` per unit cell, which agrees well with
 the experimental value of `70 \mu eV`.
 
