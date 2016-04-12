@@ -200,7 +200,9 @@ class G0W0(PairDensity):
                 self.previous_sigma = 0.
                 self.previous_dsigma = 0.
             else:
-                print('Reading '+str(self.last_q+1)+' q-point(s) from the previous calculation: '+self.restartfile+'.sigma.pckl', file=self.fd)
+                print('Reading ' + str(self.last_q + 1) +
+                      ' q-point(s) from the previous calculation: ' +
+                      self.restartfile + '.sigma.pckl', file=self.fd)
         else:
             self.last_q = -1
             self.previous_sigma = 0.
@@ -553,9 +555,11 @@ class G0W0(PairDensity):
             qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
             weight_q = kd.q_weights
             qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
-            a_wq = np.sum([chi0_vq*qf_qv.T for chi0_vq in np.dot(chi0_wvv[wa:wb,:,:], qf_qv.T)], axis=1)
-            a0_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb,0,:,:])
-            a1_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb,1,:,:])
+            a_wq = np.sum([chi0_vq * qf_qv.T
+                           for chi0_vq in
+                           np.dot(chi0_wvv[wa:wb], qf_qv.T)], axis=1)
+            a0_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 0])
+            a1_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 1])
             
         self.timer.start('Dyson eq.')
         # Calculate W and store it in chi0_wGG ndarray:
@@ -735,8 +739,8 @@ class G0W0(PairDensity):
         self.world.sum(sigma_sin_write)
         self.world.sum(dsigma_sin_write)
         data = {'last_q': nQ,
-                'sigma_sin': sigma_sin_write+self.previous_sigma,
-                'dsigma_sin': dsigma_sin_write+self.previous_dsigma,
+                'sigma_sin': sigma_sin_write + self.previous_sigma,
+                'dsigma_sin': dsigma_sin_write + self.previous_dsigma,
                 'kpts': self.kpts,
                 'bands': self.bands,
                 'nbands': self.nbands,
@@ -755,10 +759,19 @@ class G0W0(PairDensity):
         except IOError:
             return False
         else:
-            if data['kpts'] == self.kpts and data['bands'] == self.bands and data['nbands'] == self.nbands and data['ecut'] == self.ecut and data['domega0'] == self.domega0 and data['omega2'] == self.omega2 and data['integrate_gamma'] == self.integrate_gamma:
+            if (data['kpts'] == self.kpts and
+                data['bands'] == self.bands and
+                data['nbands'] == self.nbands and
+                data['ecut'] == self.ecut and
+                data['domega0'] == self.domega0 and
+                data['omega2'] == self.omega2 and
+                data['integrate_gamma'] == self.integrate_gamma):
                 self.last_q = data['last_q']
                 self.previous_sigma = data['sigma_sin']
                 self.previous_dsigma = data['dsigma_sin']
                 return True
             else:
-                raise ValueError('Restart file not compatible with parameters used in current calculation. Check kpts, bands, nbands, ecut, domega0, omega2, integrate_gamma.')
+                raise ValueError(
+                    'Restart file not compatible with parameters used in '
+                    'current calculation. Check kpts, bands, nbands, ecut, '
+                    'domega0, omega2, integrate_gamma.')
