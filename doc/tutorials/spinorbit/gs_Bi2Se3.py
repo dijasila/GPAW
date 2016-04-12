@@ -19,10 +19,9 @@ cell = [[-a / 2, -3**0.5 / 6 * a, c / 3],
 pos = [[mu, mu, mu],
        [-mu, -mu, -mu],
        [0.0, 0.0, 0.0],
-       [nu, nu, nu], 
+       [nu, nu, nu],
        [-nu, -nu, -nu]]
 a = Atoms('Bi2Se3', cell=cell, scaled_positions=pos, pbc=True)
-#a.edit()
 a.set_calculator(calc)
 a.get_potential_energy()
 

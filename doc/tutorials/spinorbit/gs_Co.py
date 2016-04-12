@@ -1,7 +1,5 @@
-import numpy as np
 from ase.lattice import bulk
-from gpaw import *
-from gpaw import PW
+from gpaw import GPAW, PW
 
 calc = GPAW(mode=PW(600),
             xc='PBE',
@@ -13,7 +11,6 @@ calc = GPAW(mode=PW(600),
             txt='gs_Co.txt')
 
 bulk = bulk('Co', 'hcp')
-#bulk.edit()
 bulk.set_initial_magnetic_moments([1.0, 1.0])
 bulk.set_calculator(calc)
 bulk.get_potential_energy()

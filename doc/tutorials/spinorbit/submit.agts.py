@@ -16,11 +16,11 @@ def agts(queue):
               walltime=10, creates='Fe_bands.png')
 
     Bi2Se3_gs = queue.add('gs_Bi2Se3.py', ncpus=4, walltime=40)
-    Bi2Se3_bands = queue.add('Bi2Se3_bands.py', deps=Bi2Se3_gs, ncpus=32, 
+    Bi2Se3_bands = queue.add('Bi2Se3_bands.py', deps=Bi2Se3_gs, ncpus=32,
                              walltime=300)
-    high_sym = queue.add('high_sym.py', deps=Bi2Se3_gs, ncpus=4, 
+    high_sym = queue.add('high_sym.py', deps=Bi2Se3_gs, ncpus=4,
                          walltime=30)
-    parity = queue.add('parity.py', deps=high_sym, ncpus=1, walltime=2)
+    queue.add('parity.py', deps=high_sym, ncpus=1, walltime=2)
     queue.add('plot_Bi2Se3_bands.py', ncpus=1, deps=Bi2Se3_bands,
               walltime=2, creates='Bi2Se3_bands.png')
 

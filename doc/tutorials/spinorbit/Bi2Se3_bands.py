@@ -1,3 +1,4 @@
+from __future__ import print_function
 from ase.dft.kpoints import get_bandpath
 from ase.io import read
 from ase.parallel import paropen
@@ -12,20 +13,18 @@ Z = [0.5, 0.5, 0.5]
 kpts, x, X = get_bandpath([G, Z, F, G, L], a.cell, npoints=200)
 
 calc = GPAW('gs_Bi2Se3.gpw',
-            kpts=kpts, 
-            symmetry='off', 
+            kpts=kpts,
+            symmetry='off',
             parallel={'band': 16},
-            txt='Bi2Se3_bands.txt') 
+            txt='Bi2Se3_bands.txt')
 calc.diagonalize_full_hamiltonian(nbands=48, scalapack=(4, 4, 32))
 
 calc.write('Bi2Se3_bands.gpw', mode='all')
 
-f = paropen('kpath.dat', 'w')
-for k in x:
-    print >> f, k
-f.close()
+with paropen('kpath.dat', 'w') as f:
+    for k in x:
+        print(k, file=f)
 
-f = paropen('highsym.dat', 'w')
-for k in X:
-    print >> f, k
-f.close()
+with paropen('highsym.dat', 'w') as f:
+    for k in X:
+        print(k, file=f)
