@@ -167,6 +167,7 @@ tests = [
     'ds_beta.py',                           # ~2s
     'multipoleH2O.py',                      # ~2s
     'noncollinear/h.py',                    # ~2s
+    'spinorbit_Kr.py',                      # ~2s
     'stdout.py',                            # ~2s
     'lcao/largecellforce.py',               # ~2s
     'parallel/scalapack_diag_simple.py',    # ~2s
@@ -390,6 +391,7 @@ if mpi.size > 1:
                 'coreeig.py',
                 'ext_potential/stark_shift.py',
                 'exx/q.py',
+                'spinorbit_Kr.py',
                 'fd_ops/laplace.py',
                 'potential.py',
                 'lcao/pair_and_coulomb.py',
