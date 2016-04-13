@@ -28,6 +28,8 @@ for mode in ['serial', 'mpi', 'pfft']:
     def test(vdwxcclass, Eref=None, nvref=None):
         xc = vdwxcclass(mode=mode)
         xc._initialize(gd)
+        if gd.comm.rank == 0:
+            print(xc.libvdwxc.tostring())
         v_sg = gd.zeros(1)
         E = xc.calculate(gd, n_sg, v_sg)
         nv = gd.integrate(n_sg * v_sg, global_integral=True)

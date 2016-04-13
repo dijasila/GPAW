@@ -128,6 +128,9 @@ class LibVDWXC(object):
             pardesc = 'pfft with %d x %d CPU grid' % self.pfft_grid
         return '%s [libvdwxc/%s]' % (self.vdw_functional_name, pardesc)
 
+    def tostring(self):
+        return _gpaw.libvdwxc_tostring(self._ptr)
+
     def __del__(self):
         if hasattr(self, '_ptr'):
             _gpaw.libvdwxc_free(self._ptr)
