@@ -17,17 +17,17 @@ if gd.comm.rank == 0:
     nG_sg[:] = gen.rand(*nG_sg.shape)
 gd.distribute(nG_sg, n_sg)
 
-for parallel in ['serial', 'mpi', 'pfft']:
-    if parallel == 'serial' and gd.comm.size > 1:
+for mode in ['serial', 'mpi', 'pfft']:
+    if mode == 'serial' and gd.comm.size > 1:
         continue
-    if parallel == 'mpi' and not libvdwxc_has_mpi():
+    if mode == 'mpi' and not libvdwxc_has_mpi():
         continue
-    if parallel == 'pfft' and not libvdwxc_has_pfft():
+    if mode == 'pfft' and not libvdwxc_has_pfft():
         continue
 
     def test(vdwxcclass, Eref=None, nvref=None):
-        xc = vdwxcclass(parallel=parallel)
-        xc._libvdwxc_init(gd)
+        xc = vdwxcclass(mode=mode)
+        xc._initialize(gd)
         v_sg = gd.zeros(1)
         E = xc.calculate(gd, n_sg, v_sg)
         nv = gd.integrate(n_sg * v_sg, global_integral=True)

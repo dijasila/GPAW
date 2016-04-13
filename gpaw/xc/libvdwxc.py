@@ -9,6 +9,14 @@ from gpaw.mpi import have_mpi
 import _gpaw
 
 
+def libvdwxc_has_mpi():
+    return have_mpi and _gpaw.libvdwxc_has('mpi')
+
+
+def libvdwxc_has_pfft():
+    return have_mpi and _gpaw.libvdwxc_has('pfft')
+
+
 def check_grid_descriptor(gd):
     assert gd.parsize_c[1] == 1 and gd.parsize_c[2] == 1
     nxpts_p = gd.n_cp[0][1:] - gd.n_cp[0][:-1]
@@ -16,19 +24,6 @@ def check_grid_descriptor(gd):
     for nxpts in nxpts_p[1:-1]:
         assert nxpts == nxpts0
     assert nxpts_p[-1] <= nxpts0
-
-
-_VDW_NUMERICAL_CODES = {'vdW-DF': 1,
-                        'vdW-DF2': 2,
-                        'vdW-DF-CX': 3}
-
-
-def libvdwxc_has_mpi():
-    return have_mpi and _gpaw.libvdwxc_has('mpi')
-
-
-def libvdwxc_has_pfft():
-    return have_mpi and _gpaw.libvdwxc_has('pfft')
 
 
 def get_domains(N_c, parsize_c):
@@ -50,7 +45,126 @@ def get_auto_pfft_grid(size):
     return nproc1, nproc2
 
 
-class VDWDistribution:
+_VDW_NUMERICAL_CODES = {'vdW-DF': 1,
+                        'vdW-DF2': 2,
+                        'vdW-DF-CX': 3}
+
+
+class LibVDWXC(object):
+    """Minimum-tomfoolery object-oriented interface to libvdwxc."""
+    def __init__(self, funcname, N_c, cell_cv, comm, mode='auto',
+                 pfft_grid=None):
+        if not compiled_with_libvdwxc():
+            raise ImportError('libvdwxc not compiled into GPAW')
+
+        self.vdw_functional_name = funcname
+        code = _VDW_NUMERICAL_CODES[funcname]
+        self.shape = tuple(N_c)
+        ptr = np.empty(1, np.intp)
+        _gpaw.libvdwxc_create(ptr, code, self.shape,
+                              tuple(cell_cv.ravel()))
+        # assign ptr only now that it is initialized (so __del__ always works)
+        self._ptr = ptr
+
+        # Choose mode automatically if necessary:
+        if mode == 'auto':
+            if pfft_grid is not None:
+                mode = 'pfft'
+            elif comm.size > 1:
+                mode = 'mpi'
+            else:
+                mode = 'serial'
+        assert mode in ['serial', 'mpi', 'pfft']
+
+        if mode != 'serial' and not have_mpi:
+            raise ImportError('MPI not available for libvdwxc-%s '
+                              'because GPAW is serial' % mode)
+        if mode != 'pfft' and pfft_grid is not None:
+            raise ValueError('pfft_grid specified with mode %s' % mode)
+
+        if mode == 'serial':
+            assert comm.size == 1, ('You cannot run in serial with %d cores'
+                                    % comm.size)
+            _gpaw.libvdwxc_init_serial(self._ptr)
+        elif comm.get_c_object() is None:
+            pass  # For dry run.  XXXXXX liable to cause really nasty errors.
+        elif mode == 'mpi':
+            if not libvdwxc_has_mpi():
+                raise ImportError('libvdwxc not compiled with MPI')
+            _gpaw.libvdwxc_init_mpi(self._ptr, comm.get_c_object())
+        if mode == 'pfft':
+            if mode == 'pfft' and not libvdwxc_has_pfft():
+                raise ImportError('libvdwxc not compiled with PFFT')
+            if pfft_grid is None:
+                pfft_grid = get_auto_pfft_grid(comm.size)
+            nx, ny = pfft_grid
+            assert nx * ny == comm.size
+            _gpaw.libvdwxc_init_pfft(self._ptr, comm.get_c_object(), nx, ny)
+            self.pfft_grid = (nx, ny)  # Makes sure that pfft_grid is a tuple
+
+        self.mode = mode
+        self.comm = comm
+
+    def calculate(self, n_g, sigma_g, dedn_g, dedsigma_g):
+        """Calculate energy and add partial derivatives to arrays."""
+        for arr in [n_g, sigma_g, dedn_g, dedsigma_g]:
+            assert arr.flags.contiguous
+            assert arr.dtype == float
+            # XXX We cannot actually ask libvdwxc about its expected shape
+            # assert arr.shape == self.shape, [arr.shape, self.shape]
+        energy = _gpaw.libvdwxc_calculate(self._ptr, n_g, sigma_g,
+                                          dedn_g, dedsigma_g)
+        return energy
+
+    def get_description(self):
+        if self.mode == 'serial':
+            pardesc = 'fftw3 serial'
+        elif self.mode == 'mpi':
+            size = self.comm.size
+            cores = '%d cores' % size if size != 1 else 'one core'
+            pardesc = 'fftw3-mpi with %s' % cores
+        else:
+            assert self.mode == 'pfft'
+            pardesc = 'pfft with %d x %d CPU grid' % self.pfft_grid
+        return '%s [libvdwxc/%s]' % (self.vdw_functional_name, pardesc)
+
+    def __del__(self):
+        if hasattr(self, '_ptr'):
+            _gpaw.libvdwxc_free(self._ptr)
+
+
+class RedistWrapper:
+    """Call libvdwxc redistributing automatically from and to GPAW grid."""
+    def __init__(self, libvdwxc, distribution, timer=nulltimer):
+        self.libvdwxc = libvdwxc
+        self.distribution = distribution
+        self.timer = timer
+
+    def calculate(self, n_g, sigma_g, v_g, dedsigma_g):
+        zeros = self.distribution.block_zeros
+        nblock_g = zeros()
+        sigmablock_g = zeros()
+        vblock_g = zeros()
+        dedsigmablock_g = zeros()
+
+        self.timer.start('redistribute')
+        self.distribution.gd2block(n_g, nblock_g)
+        self.distribution.gd2block(sigma_g, sigmablock_g)
+        self.timer.stop('redistribute')
+
+        self.timer.start('libvdwxc nonlocal')
+        energy = self.libvdwxc.calculate(nblock_g, sigmablock_g,
+                                         vblock_g, dedsigmablock_g)
+        self.timer.stop('libvdwxc nonlocal')
+
+        self.timer.start('redistribute')
+        self.distribution.block2gd_add(vblock_g, v_g)
+        self.distribution.block2gd_add(dedsigmablock_g, dedsigma_g)
+        self.timer.stop('redistribute')
+        return energy
+
+
+class FFTDistribution:
     def __init__(self, gd, parsize_c):
         self.input_gd = gd
         assert np.product(parsize_c) == gd.comm.size
@@ -64,7 +178,7 @@ class VDWDistribution:
         # correspondence.  The actual domains it defines are unused!!
         self.aux_gd = gd.new_descriptor(comm=gd.comm, parsize_c=parsize_c)
         parpos_c = self.aux_gd.get_processor_position_from_rank()
-        
+
         self.local_output_size_c = tuple(self.domains_out.get_box(parpos_c)[1])
 
     def block_zeros(self, shape=(),):
@@ -85,12 +199,12 @@ class VDWDistribution:
                              a_xg, b_xg, behavior='add')
 
 
-class LibVDWXC(GGA, object):
-    def __init__(self, gga_kernel, name, timer=nulltimer, parallel='auto',
+class VDWXC(GGA, object):
+    def __init__(self, gga_kernel, name, mode='auto',
                  pfft_grid=None):
-        """Initialize LibVDWXC object (further initialization required).
+        """Initialize VDWXC object (further initialization required).
 
-        parallel can be 'auto', 'serial', 'mpi', or 'pfft'.
+        mode can be 'auto', 'serial', 'mpi', or 'pfft'.
 
          * 'serial' uses FFTW and only works with serial decompositions.
 
@@ -109,53 +223,22 @@ class LibVDWXC(GGA, object):
          PFFT.  If left unspecified, a hopefully reasonable automatic
          choice will be made.
          """
-        self._vdw = None
-        object.__init__(self)
         GGA.__init__(self, gga_kernel)
-        self.timer = timer
-        self.vdwcoef = 1.0
-        self.vdw_functional_name = name
 
-        if parallel == 'auto':
-            if have_mpi and libvdwxc_has_mpi():
-                parallel = 'mpi'
-            else:
-                parallel = 'serial'
-        self.parallel = parallel
-        if parallel != 'pfft' and pfft_grid is not None:
-            raise ValueError('pfft_grid specified but pfft not available')
-        self.pfft_grid = pfft_grid
+        # We set these in the initialize later (ugly).
+        self.libvwxc = None
         self.distribution = None
+        self.redist_wrapper = None
+        self.timer = nulltimer
 
-        # Check for missing libraries.  I guess ImportError makes most sense?
-        if not compiled_with_libvdwxc():
-            raise ImportError('libvdwxc not compiled into GPAW')
-        if parallel != 'serial' and not have_mpi:
-            raise ImportError('MPI not available for libvdwxc-%s '
-                              'because GPAW is serial' % parallel)
-        if parallel == 'mpi' and not libvdwxc_has_mpi():
-            raise ImportError('libvdwxc not compiled with MPI')
-        if parallel == 'pfft' and not libvdwxc_has_pfft():
-            raise ImportError('libvdwxc not compiled with PFFT')
+        # These parameters are simply stored for later forwarding
+        self._vdw_functional_name = name
+        self._mode = mode
+        self._pfft_grid = pfft_grid
 
     @property
     def name(self):
-        if self.parallel == 'serial':
-            pardesc = 'FFTW serial'
-        elif self.parallel == 'mpi':
-            if self.distribution is None:
-                cores = 'unspecified number of cores'
-            else:
-                size = self.distribution.input_gd.comm.size
-                cores = '%d cores' % size if size != 1 else 'one core'
-            pardesc = 'FFTW-MPI with %s' % cores
-        else:
-            assert self.parallel == 'pfft'
-            if self.pfft_grid is None:
-                pardesc = 'PFFT with unspecified parallelization'
-            else:
-                pardesc = 'PFFT with %d x %d CPU grid' % tuple(self.pfft_grid)
-        return '%s [libvdwxc/%s]' % (self.vdw_functional_name, pardesc)
+        return self.libvdwxc.get_description()
 
     @name.setter
     def name(self, value):
@@ -165,48 +248,27 @@ class LibVDWXC(GGA, object):
     def get_setup_name(self):
         return 'revPBE'
 
-    def _libvdwxc_init(self, gd):
-        """Initialize libvdwxc things in C."""
-        self.timer.start('libvdwxc init')
-        
-        comm = gd.comm
-
-        # TODO Here we could decide FFT padding.
+    def _initialize(self, gd):
         N_c = gd.get_size_of_global_array(pad=True)
-
-        code = _VDW_NUMERICAL_CODES[self.vdw_functional_name]
-        self._vdw = np.empty(1, np.intp)
-        _gpaw.libvdwxc_create(self._vdw, code, tuple(N_c),
-                              tuple(gd.cell_cv.ravel()))
-
+        self.libvdwxc = LibVDWXC(self._vdw_functional_name, N_c, gd.cell_cv,
+                                 gd.comm, mode=self._mode,
+                                 pfft_grid=self._pfft_grid)
         cpugrid = [1, 1, 1]
-
-        if self.parallel == 'pfft':
-            if self.pfft_grid is None:
-                # TODO decide grid intelligently (e.g., based on other comms)
-                self.pfft_grid = get_auto_pfft_grid(comm.size)
-            nproc1, nproc2 = self.pfft_grid
-            assert nproc1 * nproc2 == comm.size
-            cpugrid[0] = nproc1
-            cpugrid[1] = nproc2
-            _gpaw.libvdwxc_init_pfft(self._vdw, comm.get_c_object(),
-                                     nproc1, nproc2)
-        elif self.parallel == 'mpi':
-            cpugrid[0] = comm.size
-            _gpaw.libvdwxc_init_mpi(self._vdw, comm.get_c_object())
-        else:
-            assert self.parallel == 'serial'
-            assert comm.size == 1, ('You cannot run in serial with %d cores'
-                                    % comm.size)
-            _gpaw.libvdwxc_init_serial(self._vdw)
-
-        self.distribution = VDWDistribution(gd, cpugrid)
-        self.timer.stop('libvdwxc init')
+        if self.libvdwxc.mode == 'mpi':
+            cpugrid[0] = gd.comm.size
+        elif self.libvdwxc.mode == 'pfft':
+            cpugrid[0], cpugrid[1] = self.libvdwxc.pfft_grid
+        self.distribution = FFTDistribution(gd, cpugrid)
+        self.redist_wrapper = RedistWrapper(self.libvdwxc,
+                                            self.distribution,
+                                            self.timer)
 
     def initialize(self, density, hamiltonian, wfs, occupations):
-        self.timer.start('initialize')
         GGA.initialize(self, density, hamiltonian, wfs, occupations)
-        self._libvdwxc_init(density.finegd)
+        self.timer = hamiltonian.timer  # fragile object robbery
+        self.timer.start('initialize')
+        self._initialize(hamiltonian.finegd)
+        # TODO Here we could decide FFT padding.
         self.timer.stop('initialize')
 
     def calculate(self, gd, n_sg, v_sg, e_g=None):
@@ -215,8 +277,6 @@ class LibVDWXC(GGA, object):
         gd may be non-periodic.  To be distinguished from self.gd
         which is always periodic due to priminess of FFT dimensions.
         (To do: proper padded FFTs.)"""
-        nspins = len(n_sg)
-        assert nspins == 1, 'libvdwxc does not work with multiple spins yet'
         assert gd == self.distribution.input_gd
 
         if e_g is not None:
@@ -225,53 +285,27 @@ class LibVDWXC(GGA, object):
         energy = GGA.calculate(self, gd, n_sg, v_sg, e_g=None)
         return energy
 
-    def calculate_nonlocal(self, n_g, sigma_g, v_g, dedsigma_g):
-        for arr in [n_g, sigma_g, v_g, dedsigma_g]:
-            assert arr.flags.contiguous
-            assert arr.dtype == float
-            np.all(arr.shape == self.distribution.local_output_size_c)
-        energy = _gpaw.libvdwxc_calculate(self._vdw, n_g, sigma_g,
-                                          v_g, dedsigma_g)
-        return energy
-
     def calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
-        assert self._vdw is not None
+        assert self.libvdwxc is not None
+        assert len(n_sg) == 1, 'libvdwxc does not work with multiple spins yet'
+        assert len(sigma_xg) == 1
+        assert len(v_sg) == 1
+        assert len(dedsigma_xg) == 1
+
         self.timer.start('van der Waals')
         n_sg[:] = np.abs(n_sg)  # XXXX What to do about this?
         sigma_xg[:] = np.abs(sigma_xg)
-        assert len(n_sg) == 1
-        assert len(sigma_xg) == 1
         self.timer.start('semilocal')
         GGA.calculate_gga(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
         self.timer.stop('semilocal')
 
-        zeros = self.distribution.block_zeros
+        energy_nonlocal = self.redist_wrapper.calculate(
+            n_sg[0], sigma_xg[0], v_sg[0], dedsigma_xg[0])
 
-        nblock_g = zeros()
-        sigmablock_g = zeros()
-        vblock_g = zeros()
-        dedsigmablock_g = zeros()
-
-        self.timer.start('redistribute')
-        self.distribution.gd2block(n_sg[0], nblock_g)
-        self.distribution.gd2block(sigma_xg[0], sigmablock_g)
-        self.timer.stop('redistribute')
-
-        self.timer.start('libvdwxc nonlocal')
-        energy_nonlocal = self.calculate_nonlocal(nblock_g, sigmablock_g,
-                                                  vblock_g, dedsigmablock_g)
-        self.timer.stop('libvdwxc nonlocal')
-
-        for obj in [energy_nonlocal, vblock_g, dedsigmablock_g]:
-            obj *= self.vdwcoef
-
-        self.timer.start('redistribute')
-        self.distribution.block2gd_add(vblock_g, v_sg[0])
-        self.distribution.block2gd_add(dedsigmablock_g, dedsigma_xg[0])
-        self.timer.stop('redistribute')
+        # XXXXXXXXXXXXXXXX ignoring vdwcoef
 
         # XXXXXXXXXXXXXXXX ugly
-        e_g[0, 0, 0] += self.vdwcoef * energy_nonlocal / self.gd.dv
+        e_g[0, 0, 0] += energy_nonlocal / self.gd.dv
         self.timer.stop('van der Waals')
 
     def estimate_memory(self, mem):
@@ -279,46 +313,21 @@ class LibVDWXC(GGA, object):
         mem.subnode('thetas', 20 * size)
         mem.subnode('other', 3 * size)
 
-    def __del__(self):
-        if self._vdw is not None:
-            _gpaw.libvdwxc_free(self._vdw)
-
 
 def vdw_df(*args, **kwargs):
     kernel = LibXC('GGA_X_PBE_R+LDA_C_PW')
-    return LibVDWXC(gga_kernel=kernel, name='vdW-DF', *args, **kwargs)
+    return VDWXC(gga_kernel=kernel, name='vdW-DF', *args, **kwargs)
 
 
 def vdw_df2(*args, **kwargs):
     kernel = LibXC('GGA_X_RPW86+LDA_C_PW')
-    return LibVDWXC(gga_kernel=kernel, name='vdW-DF2', *args, **kwargs)
+    return VDWXC(gga_kernel=kernel, name='vdW-DF2', *args, **kwargs)
 
 
 def vdw_df_cx(*args, **kwargs):
+    # Exists also in libxc 2.2.2 or newer (or maybe from older)
     kernel = CXGGAKernel()
-    return LibVDWXC(gga_kernel=kernel, name='vdW-DF-CX', *args, **kwargs)
-
-
-# WARNING!  These classes will be deprecated and removed soon.
-class VDWDF(LibVDWXC):
-    def __init__(self, timer=nulltimer):
-        kernel = LibXC('GGA_X_PBE_R+LDA_C_PW')
-        LibVDWXC.__init__(self, gga_kernel=kernel, name='vdW-DF',
-                          timer=timer)
-
-
-class VDWDF2(LibVDWXC):
-    def __init__(self, timer=nulltimer):
-        kernel = LibXC('GGA_X_RPW86+LDA_C_PW')
-        LibVDWXC.__init__(self, gga_kernel=kernel, name='vdW-DF2',
-                          timer=timer)
-
-
-class VDWDFCX(LibVDWXC):
-    def __init__(self, timer=nulltimer):
-        kernel = CXGGAKernel()
-        LibVDWXC.__init__(self, gga_kernel=kernel, name='vdW-DF-CX',
-                          timer=timer)
+    return VDWXC(gga_kernel=kernel, name='vdW-DF-CX', *args, **kwargs)
 
 
 class CXGGAKernel:
@@ -357,7 +366,7 @@ class CXGGAKernel:
         c = 0.163
         mu_LM = 0.09434
         s_prefactor = 6.18733545256027
-        Ax = -0.738558766382022 # = -3./4. * (3./pi)**(1./3)
+        Ax = -0.738558766382022  # = -3./4. * (3./pi)**(1./3)
         four_thirds = 4. / 3.
 
         grad_rho = np.sqrt(grho)
@@ -387,7 +396,7 @@ class CXGGAKernel:
             (2 * a * s_1 + 4 * b * s_3 + 6 * c * s_5)
 
         if self.just_kidding:
-            df_ds = df_rPW86_ds # XXXXXXXXXXXXXXXXXXXX
+            df_ds = df_rPW86_ds  # XXXXXXXXXXXXXXXXXXXX
         else:
             df_ds = 1. / (1. + alp * s_6)**2 \
                 * (2.0 * mu_LM * s_1 * (1. + alp * s_6)
@@ -489,7 +498,7 @@ def test_selfconsistent():
         calc = GPAW(mode='lcao',
                     xc=xc,
                     setups='sg15',
-                    txt='gpaw.%s.txt' % str(xc)#.kernel.name
+                    txt='gpaw.%s.txt' % str(xc)  # .kernel.name
                     )
         system.set_calculator(calc)
         return system.get_potential_energy()
@@ -501,20 +510,19 @@ def test_selfconsistent():
         e = test(xc)
         libxc_results[name] = e
 
-
     cx_gga_results = {}
     cx_gga_results['rpw86'] = test(GGA(CXGGAKernel(just_kidding=True)))
     cx_gga_results['lv_rpw86'] = test(GGA(CXGGAKernel(just_kidding=False)))
-    
+
     vdw_results = {}
     vdw_coef0_results = {}
 
     for vdw in [VDWDF(), VDWDF2(), VDWDFCX()]:
         vdw.vdwcoef = 0.0
         vdw_coef0_results[vdw.__class__.__name__] = test(vdw)
-        vdw.vdwcoef = 1.0 # Leave nicest text file by running real calc last
+        vdw.vdwcoef = 1.0  # Leave nicest text file by running real calc last
         vdw_results[vdw.__class__.__name__] = test(vdw)
-    
+
     from gpaw.mpi import world
     # These tests basically verify that the LDA/GGA parts of vdwdf
     # work correctly.
@@ -538,4 +546,4 @@ def test_selfconsistent():
 
 if __name__ == '__main__':
     test_derivatives()
-    #test_selfconsistent()
+    # test_selfconsistent()
