@@ -32,8 +32,8 @@ class Chi0(PairDensity):
     def __init__(self, calc,
                  frequencies=None, domega0=0.1, omega2=10.0, omegamax=None,
                  ecut=50, hilbert=True, nbands=None,
-                 timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
-                 real_space_derivatives=False, intraband=True,
+                 timeordered=False, eta=0.2, elph_eta=0.0, ftol=1e-6, 
+                 threshold=1, real_space_derivatives=False, intraband=True,
                  world=mpi.world, txt=sys.stdout, timer=None,
                  nblocks=1, no_optical_limit=False,
                  keep_occupied_states=False, gate_voltage=None,
@@ -46,6 +46,7 @@ class Chi0(PairDensity):
                              gate_voltage=gate_voltage, eshift=eshift)
 
         self.eta = eta / Hartree
+        self.elph_eta = elph_eta # dimensionless quantity
         self.domega0 = domega0 / Hartree
         self.omega2 = omega2 / Hartree
         self.omegamax = None if omegamax is None else omegamax / Hartree
@@ -280,11 +281,11 @@ class Chi0(PairDensity):
         """Update chi."""
 
         if self.timeordered:
-            deps1_m = deps_m + 1j * self.eta * np.sign(deps_m)
+            deps1_m = deps_m + 1j * np.sign(deps_m) * (self.eta + self.elph_eta * deps_m)
             deps2_m = deps1_m
         else:
-            deps1_m = deps_m + 1j * self.eta
-            deps2_m = deps_m - 1j * self.eta
+            deps1_m = deps_m + 1j * (self.eta + self.elph_eta * deps_m)
+            deps2_m = deps_m - 1j * (self.eta + self.elph_eta * deps_m)
         
         for omega, chi0_GG in zip(self.omega_w, chi0_wGG):
             x_m = df_m * (1 / (omega + deps1_m) - 1 / (omega - deps2_m))

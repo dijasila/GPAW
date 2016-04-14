@@ -19,7 +19,7 @@ class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
     def __init__(self, calc, name=None, frequencies=None, domega0=0.1,
                  omega2=10.0, omegamax=None, ecut=50, hilbert=True,
-                 nbands=None, eta=0.2, ftol=1e-6, threshold=1,
+                 nbands=None, eta=0.2, elph_eta=0.0, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  gate_voltage=None, truncation=None, disable_point_group=False,
                  disable_time_reversal=False, use_more_memory=1,
