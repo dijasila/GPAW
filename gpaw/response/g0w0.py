@@ -659,7 +659,7 @@ class G0W0(PairDensity):
                 if self.ac and np.allclose(q_c, 0):
                     self.add_anisotropy_correction(pd, W_GG, einv_GG, chi0_wxvG[wa+iw], 
                                                    chi0_wvv[wa+iw], sqrV_G)
-                if np.allclose(q_c, 0) or self.integrate_gamma != 0:
+                elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
                     W_GG[0, 0] = (einv_GG[0, 0] - 1.0) * V0
                     W_GG[0, 1:] = einv_GG[0, 1:] * sqrV_G[1:] * sqrV0
                     W_GG[1:, 0] = einv_GG[1:, 0] * sqrV0 * sqrV_G[1:]
