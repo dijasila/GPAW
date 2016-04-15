@@ -83,7 +83,7 @@ News
 
 * :ref:`GPAW version 0.7 <releasenotes>` released (Apr 23 2010)
 
-* GPAW is :math:`\Psi_k` `scientific highlight of the month`_ (Apr 3 2010)
+* GPAW is `\Psi_k` `scientific highlight of the month`_ (Apr 3 2010)
 
 * A third GPAW code sprint was successfully hosted at CAMD (Oct 20 2009)
 

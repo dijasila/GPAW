@@ -77,10 +77,10 @@ def main():
         if opts1.verbose:
             raise
         else:
-            print('{0}: {1}'.format(x.__class__.__name__, x), file=sys.stderr)
-            print('To get a full traceback, use: gpaw --verbose',
-                  file=sys.stderr)
-
+            error = ('{0}: {1}'.format(x.__class__.__name__, x) +
+                     '\nTo get a full traceback, use: gpaw --verbose')
+            parser1.error(error)
+            
             
 def construct_parser(func, name):
     """Construct parser from function arguments and docstring."""

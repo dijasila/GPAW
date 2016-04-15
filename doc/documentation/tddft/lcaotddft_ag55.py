@@ -15,7 +15,7 @@ convergence = {'density': 1e-6}
 # Increase accuracy of Poisson Solver and apply multipole corrections up to l=2
 poissonsolver = PoissonSolver(eps=1e-14, remove_moment=1 + 3)
 
-td_calc = LCAOTDDFT(xc='GLLBSC', basis='GLLBSC-dz', h=0.3, nbands=352,
+td_calc = LCAOTDDFT(xc='GLLBSC', basis='GLLBSC.dz', h=0.3, nbands=352,
                     convergence=convergence, poissonsolver=poissonsolver,
                     occupations=FermiDirac(0.1),
                     parallel={'sl_default': (8, 8, 32), 'band': 2})

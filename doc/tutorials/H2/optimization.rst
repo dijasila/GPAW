@@ -6,7 +6,7 @@
 
 In the tutorial on :ref:`how to calculate atomization energies
 <atomization_energy>`, we calculated the atomization energy for
-:math:`\rm{H}_2` using the experimental bond length of 0.74 Å.  In
+`\rm{H}_2` using the experimental bond length of 0.74 Å.  In
 this tutorial, we ask an :mod:`ASE optimizer <ase.optimize>`
 to iteratively find
 the structural energy minimum, where all atomic forces are below 0.05

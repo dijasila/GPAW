@@ -20,7 +20,7 @@ exercise, we will try to use DFT and GPAW.
 
 The PAW setups for both Al and Au are quite smooth, so we can try with a low
 plane-wave cutoff of 200 eV.  For a quick'n'dirty
-calculation we can do with just a :math:`2 \times 2` sampling of the
+calculation we can do with just a `2 \times 2` sampling of the
 surface Brillouin zone.  Use these parameters for the DFT
 calculations::
 

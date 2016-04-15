@@ -20,7 +20,7 @@ In general, the exact correlation energy can be expressed in terms of the exact 
 
 and the RPA approximation for correlation energies is simply obtained from the RPA approximation for the response function. 
 From the point of view of TDDFT, the response function can be expressed exactly in terms of the Kohn-Sham response 
-function and the exchange-correlation kernel :math:`f_{xc}`:
+function and the exchange-correlation kernel `f_{xc}`:
 
 .. math::
 
@@ -33,22 +33,22 @@ renders the pair-correlation function divergent. As it turns out, the adiabatic 
 by a simple non-empirical procedure, which results in a density-dependent non-locality in the kernel. This can be done 
 for any adiabatic kernel and the method has implemented for LDA and PBE. We refer to these approximations as renormalized 
 adiabatic LDA (rALDA) and renormalized adiabatic PBE (rAPBE). We only include the exchange part of the kernel, since this 
-part is linear in :math:`\lambda` and the kernel thus only needs to be evaluated for :math:`\lambda=1`.
+part is linear in `\lambda` and the kernel thus only needs to be evaluated for `\lambda=1`.
 
 For more details on the theory and implementation of RPA we refer to :ref:`rpa` and the tutorial :ref:`rpa_tut`. 
 The RPA tutorial should be studied before the present tutorial, which inherits much of the terminology from RPA. 
 Details on the theory, implementation and benchmarking of the renormalized kernels can be found in Refs. [#Olsen1]_, [#Olsen2]_, and [#Olsen3]_.
 
 Below we give examples on how to calculate the correlation energy of a Hydrogen atom as well as the rAPBE atomization energy 
-of a :math:`CO` molecule and the rAPBE cohesive energy of diamond. 
+of a `CO` molecule and the rAPBE cohesive energy of diamond. 
 Note that some of the calculations in this tutorial will need a lot of CPU time and are essentially not possible without a supercomputer.
 
 Finally, we note that there is some freedom in deciding how to include the density dependence in the kernel.
 By default the kernel is constructed from a two-point average of the density.
 However as shown in Example 4 it is possible to instead use a reciprocal-space averaging procedure.  
 Within this averaging scheme it is possible to explore different
-approximations for :math:`f_{xc}`, for instance a simple dynamical kernel, or a jellium-with-gap model, which displays
-a :math:`1/q^2` divergence for small :math:`q`.  More details can be found below and in [#Patrick]_.
+approximations for `f_{xc}`, for instance a simple dynamical kernel, or a jellium-with-gap model, which displays
+a `1/q^2` divergence for small `q`.  More details can be found below and in [#Patrick]_.
 
 Example 1: Correlation energy of the Hydrogen atom
 ==================================================
@@ -190,7 +190,7 @@ by setting ``xc='rALDAc'``:
 
 Alternatively, we can look at more exotic kernels, such as a simplified version of the
 jellium-with-gap kernel of Ref. [#Trevisanutto]_ (JGMs).
-This kernel diverges as `1/q^2` for small :math:`q`, with the strength of the divergence
+This kernel diverges as `1/q^2` for small `q`, with the strength of the divergence
 depending on the size of the band gap.
 To use this kernel, the gap must be specified as ``Eg=X``, where X is in eV:
 
@@ -226,14 +226,14 @@ Incidentally, a fully-converged RPA calculation gives a correlation energy
 of -1.781 eV per electron.
 
 We conclude with some practical points.  The wavevector-averaging scheme is less intuitive
-than the density-average, but avoids some difficulties such as having to describe the :math:`1/r`
+than the density-average, but avoids some difficulties such as having to describe the `1/r`
 divergence of the Coulomb interaction in real space.  It also provides a natural framework
 to construct the JGMs kernel, and can be faster to construct for systems with many k points.
 However it is also worth remembering that kernels which scale linearly in the coupling constant
 (e.g rALDA) need only be constructed once per k point.  Those that do not scale linearly (e.g. rALDAc) 
-need to be constructed :math:`N_\lambda` times, and the CP_dyn kernel must be constructed
-at each frequency point as well, i.e. :math:`N_\lambda N_\omega` times.  Assuming standard values
-of 8 and 16 for :math:`N_\lambda` and :math:`N_\omega` means there is a factor 100 cost
+need to be constructed `N_\lambda` times, and the CP_dyn kernel must be constructed
+at each frequency point as well, i.e. `N_\lambda N_\omega` times.  Assuming standard values
+of 8 and 16 for `N_\lambda` and `N_\omega` means there is a factor 100 cost
 in constructing and storing a dynamical kernel compared to rALDA.  Finally we point out that 
 the rALDA and rAPBE kernels are also special because they have explicit spin-polarized forms.
 
