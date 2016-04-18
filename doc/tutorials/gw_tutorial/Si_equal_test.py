@@ -9,8 +9,8 @@ from gpaw import GPAW, FermiDirac
 from gpaw.wavefunctions.pw import PW
 from gpaw.response.g0w0 import G0W0
 
-ecut_equal = np.array([[5.261509, 4.812856, 4.67658, 4.62321],[8.47755, 8.135819, 8.041485, 8.004718]])
-for i, ecut in enumerate([50,100,150,200]):
+ecut_equal = np.array([[5.308, 4.860, 4.724],[8.423, 8.083, 7.989]])
+for i, ecut in enumerate([50,100,150]):
     fil = pickle.load(paropen('Si-g0w0_k8_ecut%s_results.pckl' %(ecut), 'r'))
     equal(fil['qp'][0,0,1], ecut_equal[1,i], 0.001)
     equal(fil['qp'][0,0,0], ecut_equal[0,i], 0.001)
