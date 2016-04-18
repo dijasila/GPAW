@@ -81,7 +81,7 @@ class DielectricFunction:
         self.chi0 = Chi0(calc, frequencies, domega0=domega0,
                          omega2=omega2, omegamax=omegamax,
                          ecut=ecut, hilbert=hilbert, nbands=nbands,
-                         eta=eta, ftol=ftol, threshold=threshold,
+                         eta=eta, elph_eta=elph_eta, ftol=ftol, threshold=threshold,
                          intraband=intraband, world=world, nblocks=nblocks,
                          txt=txt, gate_voltage=gate_voltage,
                          disable_point_group=disable_point_group,
