@@ -235,7 +235,7 @@ class InputParameters(dict):
                              r['InterpolationStencil'])
             if r['PoissonStencil'] == 999:
                 self.poissonsolver = FFTPoissonSolver()
-            else:
+            elif isinstance(r['PoissonStencil'], int):
                 self.poissonsolver = PoissonSolver(nn=r['PoissonStencil'])
             self.charge = r['Charge']
             fixmom = r['FixMagneticMoment']
