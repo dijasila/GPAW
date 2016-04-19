@@ -272,7 +272,20 @@ class VDWXC(GGA, object):
         GGA.initialize(self, density, hamiltonian, wfs, occupations)
         self.timer = hamiltonian.timer  # fragile object robbery
         self.timer.start('initialize')
-        self._initialize(hamiltonian.finegd)
+        try:
+            gd = density.xc_grid2grid.big_gd
+        except AttributeError:
+            gd = density.finegd
+        if wfs.world.size > gd.comm.size:
+            # We could issue a warning if an excuse turns out to exist some day
+            raise ValueError('You are using libvdwxc with only '
+                             '%d out of %d available cores.  This is not '
+                             'a crime but is likely silly and therefore '
+                             'triggers and error.  Please use '
+                             'parallel={\'augment_grids\': True} '
+                             'or complain to the developers.' %
+                             (gd.comm.size, wfs.world.size))
+        self._initialize(gd)
         # TODO Here we could decide FFT padding.
         self.timer.stop('initialize')
 
