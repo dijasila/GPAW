@@ -854,7 +854,6 @@ class PAW(PAWTextOutput):
                     psolver=par.poissonsolver,
                     stencil=par.stencils[1])
             else:
-                print str(par.poissonsolver)
                 assert par.poissonsolver is None, str(par.poissonsolver) +\
                         ' is not supported in PW mode'
                 self.hamiltonian = self.reciprocal_space_hamiltonian_class(
