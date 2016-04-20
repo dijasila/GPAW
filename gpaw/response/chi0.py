@@ -282,13 +282,14 @@ class Chi0(PairDensity):
     @timer('CHI_0 update')
     def update(self, n_mG, deps_m, df_m, chi0_wGG):
         """Update chi."""
-
+        print(deps_m)
         if self.timeordered:
-            deps1_m = deps_m + 1j * np.sign(deps_m) * (self.eta + self.elph_eta * deps_m)
+            deps1_m = deps_m + 1j * np.sign(deps_m) * \
+                (self.eta + self.elph_eta * np.abs(deps_m))
             deps2_m = deps1_m
         else:
-            deps1_m = deps_m + 1j * (self.eta + self.elph_eta * deps_m)
-            deps2_m = deps_m - 1j * (self.eta + self.elph_eta * deps_m)
+            deps1_m = deps_m + 1j * (self.eta + self.elph_eta * np.abs(deps_m))
+            deps2_m = deps_m - 1j * (self.eta + self.elph_eta * np.abs(deps_m))
         
         for omega, chi0_GG in zip(self.omega_w, chi0_wGG):
             x_m = df_m * (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
