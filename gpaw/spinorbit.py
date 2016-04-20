@@ -83,7 +83,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
                               theta=0.0, phi=0.0):
     
     if bands is None:
-        bands = range(calc.get_number_of_bands())
+        bands = np.arange(calc.get_number_of_bands())
 
     # Rotation matrix
     Ry_vv = np.array([[np.cos(theta), 0.0, -np.sin(theta)],
