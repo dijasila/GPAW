@@ -538,7 +538,7 @@ class BSE():
             self.par_save('v_TS', 'v_TS', self.v_St.T)
         return
 
-    def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
+    def get_vchi(self, w_w=None, eta=0.1, elph_eta=0.0, q_c=[0.0, 0.0, 0.0],
                  direction=0, ac=1.0, readfile=None, optical=True):
         """Returns v * \chi where v is the bare Coulomb interaction"""
 
@@ -592,7 +592,7 @@ class BSE():
                     C_T = np.empty(nS, dtype=complex)
                 world.broadcast(C_T, 0)
         for iw, w in enumerate(w_w):
-            tmp_T = 1. / (w - w_T + 1j * eta)
+            tmp_T = 1. / (w - w_T + 1j * (eta + elph_eta * np.abs(w_T)))
             vchi_w[iw] += np.dot(tmp_T, C_T)
         vchi_w *=  4 * np.pi / self.vol
 
@@ -604,7 +604,7 @@ class BSE():
 
         return vchi_w * ac
 
-    def get_dielectric_function(self, w_w=None, eta=0.1,
+    def get_dielectric_function(self, w_w=None, eta=0.1, elph_eta=0.0,
                                 q_c=[0.0, 0.0, 0.0], direction=0,
                                 filename='df_bse.csv', readfile=None,
                                 write_eig=None):
@@ -631,8 +631,8 @@ class BSE():
             File on which the BSE eigenvalues are written
         """
 
-        epsilon_w = -self.get_vchi(w_w=w_w, eta=eta, q_c=q_c,
-                                   direction=direction,
+        epsilon_w = -self.get_vchi(w_w=w_w, eta=eta, elph_eta=elph_eta, 
+                                   q_c=q_c, direction=direction,
                                    readfile=readfile, optical=True)
         epsilon_w += 1.0
     
