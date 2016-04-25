@@ -19,7 +19,7 @@ ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) .
 # the i18n builder cannot share the environment and doctrees with the others
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) .
 
-.PHONY: help clean html linkcheck
+.PHONY: help clean html linkcheck browse
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
@@ -31,6 +31,7 @@ help:
 	@echo "  html       to make standalone HTML files"
 	@echo "  linkcheck  to check all external links for integrity"
 	@echo "  clean      to clean up"
+	@echo "  browse     to open browser"
 
 clean:
 	rm -rf $(BUILDDIR)/*
@@ -41,3 +42,6 @@ linkcheck:
 	@echo
 	@echo "Link check complete; look for any errors in the above output " \
 	      "or in $(BUILDDIR)/linkcheck/output.txt."
+
+browse:
+	firefox build/html/index.html

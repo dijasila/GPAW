@@ -11,7 +11,8 @@ functions = {'xc': 'gpaw.xc.xc',
              'run': 'gpaw.cli.run.main',
              'dos': 'gpaw.cli.dos.dos',
              'rpa': 'gpaw.xc.rpa.rpa',
-             'info': 'gpaw.cli.info.info',
+             'gpw': 'gpaw.cli.gpw.gpw',
+             'info': 'gpaw.cli.info.main',
              'test': 'gpaw.test.test.main',
              'atom': 'gpaw.atom.aeatom.main',
              'diag': 'gpaw.fulldiag.fulldiag',
@@ -40,7 +41,11 @@ def main():
         if size == 1:
             # Start again using gpaw-python in parallel:
             args = ['mpiexec', '-np', str(opts1.parallel),
-                    'gpaw-python'] + sys.argv
+                    'gpaw-python']
+            if args1[0] == 'python':
+                args += args1[1:]
+            else:
+                args += sys.argv
             os.execvp('mpiexec', args)
     
     if len(args1) == 0:
@@ -72,10 +77,10 @@ def main():
         if opts1.verbose:
             raise
         else:
-            print('{0}: {1}'.format(x.__class__.__name__, x), file=sys.stderr)
-            print('To get a full traceback, use: gpaw --verbose',
-                  file=sys.stderr)
-
+            error = ('{0}: {1}'.format(x.__class__.__name__, x) +
+                     '\nTo get a full traceback, use: gpaw --verbose')
+            parser1.error(error)
+            
             
 def construct_parser(func, name):
     """Construct parser from function arguments and docstring."""

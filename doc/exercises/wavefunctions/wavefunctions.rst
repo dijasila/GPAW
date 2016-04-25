@@ -77,7 +77,7 @@ atom and CO molecule and compare them to results from molecular orbital theory.
 * Can you identify the highest occupied state and the lowest unoccupied state?
 
   How does your wavefunctions compare to a molecular orbital picture?
-  Try to Identify :math:`\sigma` and :math:`\pi` orbitals. Which
+  Try to Identify `\sigma` and `\pi` orbitals. Which
   wavefunctions are bonding and which are antibonding?
 
 .. hint::

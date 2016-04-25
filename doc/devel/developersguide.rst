@@ -27,7 +27,7 @@ the all-electron wave functions can be obtained:
 
   \psi_{\sigma\mathbf{k}n}(\mathbf{r}) =
   \tilde{\psi}_{\sigma\mathbf{k}n}(\mathbf{r}) +
-  \sum_a \sum_i 
+  \sum_a \sum_i
   [\phi_i^a(\mathbf{r} - \mathbf{R}^a) -
    \tilde{\phi}_i^a(\mathbf{r} - \mathbf{R}^a)]
   \langle\tilde{p}_i^a | \tilde{\psi}_{\sigma\mathbf{k}n} \rangle,
@@ -57,12 +57,8 @@ like `\tilde{p}_{n\ell m}^a(\mathbf{r})` on the 3D grid, you need both
 the radial part `\tilde{p}_{n\ell}^a(r)` (one of the splines in
 ``paw.wfs.setups[a].pt_j``) and a spherical harmonics `Y_{\ell
 m}(\theta,\phi)`.  Putting radial functions times spherical harmonics
-on a grid is done by the :epydoc:`LocalizedFunctionsCollection <gpaw.lfc>`
-class (previously the :epydoc:`create_localized_functions 
-<gpaw.localized_functions>` function).  The result of the operation is a
-:epydoc:`gpaw.localized_functions.LocFuncs` object (``paw.wfs.pt.lfs_a[a]``).
-
-See also :epydoc:`gpaw.setup.Setup` and :epydoc:`gpaw.spline.Spline`.
+on a grid is done by the :class:`gpaw.lfc.NewLocalizedFunctionsCollection`
+class. See also :class:`gpaw.setup.Setup` and :class:`gpaw.spline.Spline`.
 
 
 .. _orthogonality:
@@ -72,13 +68,13 @@ obey the following orthogonality requirements:
 
 .. math::
 
-  \langle \psi_{\sigma\mathbf{k}n} | 
+  \langle \psi_{\sigma\mathbf{k}n} |
           \psi_{\sigma\mathbf{k}m} \rangle =
   \langle \tilde{\psi}_{\sigma\mathbf{k}n} | \hat{O} |
           \tilde{\psi}_{\sigma\mathbf{k}m} \rangle =
   \delta_{nm},
 
-, where :math:`\hat{O}` is the overlap operator in the PAW formalism. Refer
+, where `\hat{O}` is the overlap operator in the PAW formalism. Refer
 to :ref:`Orthogonalizing the wave functions <orthogonalization>` for details.
 
 
@@ -97,7 +93,7 @@ The overlap operator is defined in terms of the PAW overlap corrections:
 
 The constants `\Delta O_{i_1 i_2}^a` are found in
 ``paw.wfs.setups[a].dO_ii`` (``ndarray``). XXX Someone should
-rename ``dO_ii`` to ``dS_ii`` or :math:`\hat{S}` to :math:`\hat{O}`.
+rename ``dO_ii`` to ``dS_ii`` or `\hat{S}` to `\hat{O}`.
 
 .. math::
 
@@ -115,7 +111,7 @@ An approximate inverse overlap operator is similarly defined by:
     \sum_a \sum_{i_1 i_2} |\tilde{p}_{i_1}^a\rangle
     \Delta C_{i_1 i_2}^a \langle\tilde{p}_{i_2}^a|.
 
-The inverse overlap coefficients :math:`\Delta C_{i_1 i_2}^a` are found in ``setup.dC_ii``
+The inverse overlap coefficients `\Delta C_{i_1 i_2}^a` are found in ``setup.dC_ii``
 (``ndarray``) and are solutions to the system of linear equations:
 
 .. math::
@@ -123,10 +119,10 @@ The inverse overlap coefficients :math:`\Delta C_{i_1 i_2}^a` are found in ``set
     \Delta C_{i_1 i_2}^a  + \Delta O_{i_1 i_2}^a + \sum_{i_3 i_4} \Delta C_{i_1 i_3}^a
     B_{i_3 i_4}^a \Delta O_{i_4 i_2}^a = 0 \qquad ,\forall i_1,i_2
 
-, such that :math:`\hat{O}^{\;-1}_\mathrm{approx.}\hat{O} = \hat{I}` provided
-:math:`\langle\tilde{p}_{i_1}^a|\tilde{p}_{i_2}^{a'}\rangle = \delta_{a a'}
+, such that `\hat{O}^{\;-1}_\mathrm{approx.}\hat{O} = \hat{I}` provided
+`\langle\tilde{p}_{i_1}^a|\tilde{p}_{i_2}^{a'}\rangle = \delta_{a a'}
 \langle\tilde{p}_{i_1}^a|\tilde{p}_{i_2}^{a}\rangle`. These projector overlaps
-:math:`B_{i_1 i_2}^a = \langle\tilde{p}_{i_1}^a|\tilde{p}_{i_2}^{a}\rangle`
+`B_{i_1 i_2}^a = \langle\tilde{p}_{i_1}^a|\tilde{p}_{i_2}^{a}\rangle`
 are likewise found in ``setup.B_ii``.
 
 
@@ -140,7 +136,7 @@ constructed (see `here <http://xkcd.com/849>`_):
 
 .. math::
 
-  \tilde{n}_\sigma(\mathbf{r}) = 
+  \tilde{n}_\sigma(\mathbf{r}) =
   \frac{1}{N_s} \sum_{s=1}^{N_s}
   \hat{S}_s \left [
   \sum_{n\mathbf{k}} f_{n\mathbf{k}\sigma}
@@ -148,7 +144,7 @@ constructed (see `here <http://xkcd.com/849>`_):
   \frac{1}{2} \sum_a \tilde{n}_c^a(|\mathbf{r}-\mathbf{R}^a|) \right ].
 
 Here, `\hat{S}_s` is one of the `N_s` symmetry operators of the system
-(see :epydoc:`gpaw.symmetry.Symmetry`), `f_{n\mathbf{k}\sigma}` are
+(see :class:`gpaw.symmetry.Symmetry`), `f_{n\mathbf{k}\sigma}` are
 the occupation numbers (adding up to the number of valence elctrons),
 and `\tilde{n}_c^a(r)` is the pseudo core density for atom number `a`.
 
@@ -176,7 +172,7 @@ where
   \tilde{\phi}_{i_1}^a(\mathbf{r})\tilde{\phi}_{i_2}^a(\mathbf{r}) +
   \frac{1}{2} \tilde{n}_c^a(r),
 
-are atom centered expansions, and 
+are atom centered expansions, and
 
 .. math::
 
@@ -193,35 +189,27 @@ way as the pseudo electron spin-densities.
 
    * - formula
      - object
-     - previously
      - type
    * - `\hat{S}_s`
      - ``paw.wfs.symmetry``
-     - ``paw.symmetry``
-     - :epydoc:`gpaw.symmetry.Symmetry`
+     - :class:`gpaw.symmetry.Symmetry`
    * - `\tilde{n}_\sigma`
      - ``paw.density.nt_sG`` and ``paw.density.nt_sg``
-     -
      - ``ndarray``
    * - `\tilde{n}=\sum_\sigma\tilde{n}_\sigma`
      - ``paw.density.nt_g``
-     -
      - ``ndarray``
    * - `\tilde{n}_c^a(r)`
      - ``paw.wfs.setups[a].nct``
-     - ``setup.nct``
-     - :epydoc:`gpaw.spline.Spline`
+     - :class:`gpaw.spline.Spline`
    * - `\tilde{n}_c^a(\mathbf{r}-\mathbf{R}^a)`
-     - ``paw.density.nct.lfs_a[a]``
-     - ``nuclei[a].nct``
-     - :epydoc:`gpaw.localized_functions.LocFuncs`
+     - ``paw.density.nct``
+     - :class:`gpaw.lfc.NewLocalizedFunctionsCollection`
    * - `f_{\sigma\mathbf{k}n}`
      - ``paw.wfs.kpt_u[u].f_n``
-     - ``paw.kpt_u[u].f_n``
      - ``ndarray``
    * - `D_{\sigma i_1 i_2}^a`
      - ``paw.density.D_asp[a]``
-     - ``nuclei[a].D_sp``
      - ``ndarray``
 
 From the all-electron and pseudo electron densities we can now construct
@@ -243,7 +231,7 @@ positive charge and the protons as negative charge).  The compensation charges a
 
 .. math::
 
-  \tilde{Z}^a(\mathbf{r}) = 
+  \tilde{Z}^a(\mathbf{r}) =
   \sum_{\ell=0}^{\ell_{\text{max}}} \sum_{m=-\ell}^\ell
    Q_{\ell m}^a \hat{g}_{\ell m}^a(\mathbf{r}) =
   \sum_{\ell=0}^{\ell_{\text{max}}} \sum_{m=-\ell}^\ell
@@ -258,7 +246,7 @@ for `Q_L^a`:
 
 .. math::
 
-  Q_L^a = \sum_{i_1 i_2} \Delta_{i_1 i_2 L}^a 
+  Q_L^a = \sum_{i_1 i_2} \Delta_{i_1 i_2 L}^a
   \sum_\sigma D_{\sigma i_1 i_2}^a +
   \Delta_0^a \delta_{\ell,0},
 
@@ -266,7 +254,7 @@ where
 
 .. math::
 
-  \Delta_{i_1 i_2 L}^a = 
+  \Delta_{i_1 i_2 L}^a =
   \int d\mathbf{r} Y_L(\hat{\mathbf{r}}) r^\ell
   [\phi_{i_1}^a(\mathbf{r})\phi_{i_2}^a(\mathbf{r}) -
    \tilde{\phi}_{i_1}^a(\mathbf{r})\tilde{\phi}_{i_2}^a(\mathbf{r})],
@@ -282,35 +270,27 @@ where
 
    * - formula
      - object
-     - previously
      - type
    * - `\tilde{\rho}`
      - ``paw.density.rhot_g``
-     -
      - ``ndarray``
    * - `\mathbb{Z}^a`
      - ``setup.Z``
-     -
      - ``int``
    * - `\Delta_{i_1 i_2 L}^a`
      - ``setup.Delta_pL``
-     -
      - ``ndarray``
    * - `\Delta_0^a`
      - ``setup.Delta0``
-     -
      - ``float``
    * - `\hat{g}_\ell^a(r)`
      - ``setup.ghat_l``
-     -
-     - List of :epydoc:`gpaw.spline.Spline`\ s
+     - List of :class:`gpaw.spline.Spline`\ s
    * - `\hat{g}_L^a(\mathbf{r}-\mathbf{R}^a)`
-     - ``paw.density.ghat.lfs_a[a]``
-     - ``nuclei[a].ghat_L``
-     - :epydoc:`gpaw.localized_functions.LocFuncs`
+     - ``paw.density.ghat``
+     - :class:`gpaw.lfc.NewLocalizedFunctionsCollection`
    * - `Q_L^a`
      - ``paw.density.Q_aL[a]``
-     - ``nuclei[a].Q_L``
      - ``ndarray``
 
 
@@ -340,7 +320,7 @@ evaluated on radial grids inside the augmentation spheres:
   %.. math::
   %
   \\
-  E^a &= -\frac{1}{2} 2\sum_i^{\text{core}} 
+  E^a &= -\frac{1}{2} 2\sum_i^{\text{core}}
   \int d\mathbf{r}
   \phi_i^a(\mathbf{r})
   \nabla^2 \phi_i^a(\mathbf{r})
@@ -375,4 +355,4 @@ The electrostatic energy part of `\tilde{E}` is calculated as
 d\mathbf{r}\tilde{v}_H(\mathbf{r})\tilde{\rho}(\mathbf{r})`, where the
 Hartree potential is found by solving Poissons equation:
 `\nabla^2 \tilde{v}_H(\mathbf{r})=-4\pi\tilde{\rho}(\mathbf{r})` (see
-:epydoc:`gpaw.poisson.PoissonSolver`).
+:class:`gpaw.poisson.PoissonSolver`).

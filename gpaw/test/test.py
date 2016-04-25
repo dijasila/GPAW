@@ -5,9 +5,8 @@ import tempfile
 import warnings
 from optparse import OptionParser
 
-import numpy as np
-
 import gpaw.mpi as mpi
+from gpaw.cli.info import info
 from gpaw import debug, __version__
 
 
@@ -98,10 +97,11 @@ def main(args=None):
 
     if mpi.world.size > 8:
         if mpi.rank == 0:
-            message = '!!!!!!!\n' \
-                'GPAW regression test suite was not designed to run on more\n' \
-                'than 8 MPI tasks. Re-run test suite using 1, 2, 4 or 8 MPI\n' \
-                'tasks instead.'
+            message = (
+                '!!!!!!!\n'
+                'GPAW regression test suite was not designed to run on more\n'
+                'than 8 MPI tasks. Re-run test suite using 1, 2, 4 or 8 MPI\n'
+                'tasks instead.')
             warnings.warn(message, RuntimeWarning)
 
     if mpi.rank == 0:
@@ -123,12 +123,10 @@ def main(args=None):
     python = platform.python_version() + ' ' + platform.python_compiler()
     python += ' ' + ' '.join(platform.architecture())
     if mpi.rank == 0:
-        print('GPAW:', __version__)
-        print('python %s on %s' % (python, operating_system))
-        print('Running tests in %s' % tmpdir)
-        print('Numpy:', np.__version__)
-        print('Jobs: %d, Cores: %d, debug-mode: %r' % (opt.jobs, mpi.size,
-                                                       debug))
+        info()
+        print('Running tests in', tmpdir)
+        print('Jobs: {0}, Cores: {1}, debug-mode: {2}'
+              .format(opt.jobs, mpi.size, debug))
     failed = TestRunner(tests, jobs=opt.jobs,
                         show_output=opt.show_output).run()
     os.chdir(cwd)

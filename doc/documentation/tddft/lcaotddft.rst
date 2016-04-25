@@ -141,7 +141,7 @@ with the :command:`gpaw install-data` tool using the following options::
 
     $ gpaw install-data {<directory>} --basis --version=pvalence
     
-See :ref:`installationguide_setup_files` for more information on basis set
+See :ref:`installation of paw datasets` for more information on basis set
 installation. It is again reminded that these basis sets are not thoroughly
 tested and **it is essential to benchmark the performance of the basis sets
 for your application**.
@@ -163,7 +163,7 @@ obtained with::
     
     $ gpaw install-data {<directory>} --basis --version=coopt
     
-See :ref:`installationguide_setup_files` for basis set installation. Finally,
+See :ref:`installation of paw datasets` for basis set installation. Finally,
 it is again emphasized that when using the basis sets, **it is essential to
 benchmark their suitability for your application**.
 

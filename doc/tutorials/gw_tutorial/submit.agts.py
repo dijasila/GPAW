@@ -1,7 +1,6 @@
 def agts(queue):
-    groundstate = queue.add('Si_groundstate.py')
-    queue.add('Si_gw.py', deps=groundstate, ncpus=1, walltime=20)
-    conv = queue.add('exx_convergence.py', ncpus=4, walltime=60)
-    queue.add('plot_convergence.py', deps=conv, creates=['Si_EXX.png'])
-    freq = queue.add('frequency.py', ncpus=4, walltime=40*60)
-    queue.add('plot_frequency.py', deps=freq, creates='Si_w.png')
+    conv = queue.add('Si_ecut_k_conv_GW.py', ncpus=8, walltime=25 * 60)
+    queue.add('Si_ecut_k_conv_plot_GW.py', deps=conv, creates=['Si_GW.png'])
+    freq = queue.add('Si_frequency_conv.py', ncpus=8, walltime=10 * 60)
+    queue.add('Si_frequency_conv_plot.py', deps=freq, creates=['Si_freq.png'])
+    queue.add('Si_equal_test.py', deps=[conv, freq])

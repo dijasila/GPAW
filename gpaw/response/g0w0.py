@@ -25,50 +25,63 @@ from gpaw.xc.tools import vxc
 
 
 class G0W0(PairDensity):
-    """This class defines the G0W0 calculator. The G0W0 calculator is used
-    is used to calculate the quasi particle energies through the G0W0
-    approximation for a number of states.
+    def __init__(self, calc, filename='gw', restartfile=None,
+                 kpts=None, bands=None, nbands=None, ppa=False,
+                 truncation=None, integrate_gamma=0,
+                 ecut=150.0, eta=0.1, E0=1.0 * Hartree,
+                 domega0=0.025, omega2=10.0,
+                 nblocks=1, savew=False, savepckl=True,
+                 world=mpi.world):
+        """G0W0 calculator.
+        
+        The G0W0 calculator is used is used to calculate the quasi
+        particle energies through the G0W0 approximation for a number
+        of states.
 
-    Note: So far the G0W0 calculation only works for spin-paired systems.
+        .. note::
+            
+            So far the G0W0 calculation only works for spin-paired systems.
 
-    Parameters:
-       calc: str or PAW object
-          GPAW calculator object or filename of saved calculator object.
-       filename: str
-          Base filename of output files.
-       kpts: list
-          List of indices of the IBZ k-points to calculate the quasi particle
-          energies for.
-       bands: tuple
-          Range of band indices, like (n1, n2+1), to calculate the quasi
-          particle energies for. Note that the second band index is not
-          included.
-       ecut: float
-          Plane wave cut-off energy in eV.
-       nbands: int
-          Number of bands to use in the calculation. If :None: the number will
-          be determined from :ecut: to yield a number close to the number of
-          plane waves used.
-       ppa: bool
-          Sets whether the Godby-Needs plasmon-pole approximation for the
-          dielectric function should be used.
-       truncation: str
+        calc: str or PAW object
+            GPAW calculator object or filename of saved calculator object.
+        filename: str
+            Base filename of output files.
+        restartfile: str
+            File that stores data necessary to restart a calculation.
+        kpts: list
+            List of indices of the IBZ k-points to calculate the quasi particle
+            energies for.
+        bands: tuple
+            Range of band indices, like (n1, n2+1), to calculate the quasi
+            particle energies for. Note that the second band index is not
+            included.
+        ecut: float
+            Plane wave cut-off energy in eV.
+        nbands: int
+            Number of bands to use in the calculation. If None, the number will
+            be determined from :ecut: to yield a number close to the number of
+            plane waves used.
+        ppa: bool
+            Sets whether the Godby-Needs plasmon-pole approximation for the
+            dielectric function should be used.
+        truncation: str
             Coulomb truncation scheme. Can be either wigner-seitz,
             2D, 1D, or 0D
-       integrate_gamma: int
+        integrate_gamma: int
             Method to integrate the Coulomb interaction. 1 is a numerical
             integration at all q-points with G=[0,0,0] - this breaks the
             symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
             this conserves the symmetry. integrate_gamma=2 is the same as 1,
             but the average is only carried out in the non-periodic directions.
-       E0: float
-          Energy (in eV) used for fitting in the plasmon-pole approximation.
-       domega0: float
-          Minimum frequency step (in eV) used in the generation of the non-
-          linear frequency grid.
-       omega2: float
-          Control parameter for the non-linear frequency grid, equal to the
-          frequency where the grid spacing has doubled in size.
+
+        E0: float
+            Energy (in eV) used for fitting in the plasmon-pole approximation.
+        domega0: float
+            Minimum frequency step (in eV) used in the generation of the non-
+            linear frequency grid.
+        omega2: float
+            Control parameter for the non-linear frequency grid, equal to the
+            frequency where the grid spacing has doubled in size.
     """
 
 
@@ -99,6 +112,7 @@ class G0W0(PairDensity):
                              txt=txt)
 
         self.filename = filename
+        self.restartfile = restartfile
         self.savew = savew
         self.savepckl = savepckl
         
@@ -168,29 +182,46 @@ class G0W0(PairDensity):
         # assert self.calc.wfs.nspins == 1
         
     @timer('G0W0')
-    def calculate(self, ecuts=None):
-        """Starts the G0W0 calculation. Returns a dict with the results with
-        the following key/value pairs:
+    def calculate(self):
+        """Starts the G0W0 calculation.
+        
+        Returns a dict with the results with the following key/value pairs:
 
-        f: (s, k, n) ndarray
-           Occupation numbers
-        eps: (s, k, n) ndarray
-           Kohn-Sham eigenvalues in eV
-        vxc: (s, k, n) ndarray
-           Exchange-correlation contributions in eV
-        exx: (s, k, n) ndarray
-           Exact exchange contributions in eV
-        sigma: (s, k, n) ndarray
-           Self-energy contributions in eV
-        Z: (s, k, n) ndarray
-           Renormalization factors
-        qp: (s, k, n) ndarray
-           Quasi particle energies in eV
-        """
+        =========  ===================================
+        key        value
+        =========  ===================================
+        ``f``      Occupation numbers
+        ``eps``    Kohn-Sham eigenvalues in eV
+        ``vxc``    Exchange-correlation
+                   contributions in eV
+        ``exx``    Exact exchange contributions in eV
+        ``sigma``  Self-energy contributions in eV
+        ``Z``      Renormalization factors
+        ``qp``     Quasi particle energies in eV
+        =========  ===================================
+        
+        All the values are ``ndarray``'s of shape
+        (spins, IBZ k-points, bands)."""
+        
         kd = self.calc.wfs.kd
 
         self.calculate_ks_xc_contribution()
         self.calculate_exact_exchange()
+
+        if self.restartfile is not None:
+            loaded = self.load_restart_file()
+            if not loaded:
+                self.last_q = -1
+                self.previous_sigma = 0.
+                self.previous_dsigma = 0.
+            else:
+                print('Reading ' + str(self.last_q + 1) +
+                      ' q-point(s) from the previous calculation: ' +
+                      self.restartfile + '.sigma.pckl', file=self.fd)
+        else:
+            self.last_q = -1
+            self.previous_sigma = 0.
+            self.previous_dsigma = 0.
 
         # Reset calculation
         self.sigma_sin = np.zeros(self.shape)   # self-energies
@@ -223,6 +254,10 @@ class G0W0(PairDensity):
 
         self.world.sum(self.sigma_sin)
         self.world.sum(self.dsigma_sin)
+
+        if self.restartfile is not None and loaded:
+            self.sigma_sin += self.previous_sigma
+            self.dsigma_sin += self.previous_dsigma
         
         self.Z_sin = 1 / (1 - self.dsigma_sin)
         self.qp_sin = self.eps_sin + self.Z_sin * (self.sigma_sin +
@@ -234,6 +269,7 @@ class G0W0(PairDensity):
                    'vxc': self.vxc_sin * Hartree,
                    'exx': self.exx_sin * Hartree,
                    'sigma': self.sigma_sin * Hartree,
+                   'dsigma': self.dsigma_sin,
                    'Z': self.Z_sin,
                    'qp': self.qp_sin * Hartree}
       
@@ -437,6 +473,9 @@ class G0W0(PairDensity):
         # Need to pause the timer in between iterations
         self.timer.stop('W')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
+            if iq <= self.last_q:
+                continue
+
             self.timer.start('W')
             if self.savew:
                 wfilename = self.filename + '.w.q%d.pckl' % iq
@@ -470,6 +509,9 @@ class G0W0(PairDensity):
                     assert np.allclose(d_c.round(), d_c)
                     yield pd, W, Q_c
                     done.add(Q2)
+
+            if self.restartfile is not None:
+                self.save_restart_file(iq)
     
     @timer('WW')
     def calculate_w(self, chi0, q_c, htp, htm, wstc, A1_x, A2_x):
@@ -486,8 +528,10 @@ class G0W0(PairDensity):
             A1_x = chi0_wGG.ravel()
             chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
             wa = min(self.blockcomm.rank * mynw, nw)
+            wb = min(wa + mynw, nw)
         else:
             wa = 0
+            wb = nw
 
         if self.integrate_gamma != 0:
             if self.integrate_gamma == 2:
@@ -512,33 +556,36 @@ class G0W0(PairDensity):
 
         if self.ppa:
             einv_wGG = []
+
+        # Generate fine grid in vicinity of gamma
+        if np.allclose(q_c, 0):
+            kd = self.calc.wfs.kd
+            N = 4
+            N_c = np.array([N, N, N])
+            if self.truncation is not None:
+                # Only average periodic directions if trunction is used
+                N_c[np.where(kd.N_c == 1)[0]] = 1
+            qf_qc = monkhorst_pack(N_c) / kd.N_c
+            qf_qc *= 1.0e-6
+            U_scc = kd.symmetry.op_scc
+            qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
+            weight_q = kd.q_weights
+            qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
+            a_wq = np.sum([chi0_vq * qf_qv.T
+                           for chi0_vq in
+                           np.dot(chi0_wvv[wa:wb], qf_qv.T)], axis=1)
+            a0_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 0])
+            a1_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 1])
             
         self.timer.start('Dyson eq.')
         # Calculate W and store it in chi0_wGG ndarray:
         for iw, chi0_GG in enumerate(chi0_wGG):
             if np.allclose(q_c, 0):
-                # Generate fine grid in vicinity of gamma
-                kd = self.calc.wfs.kd
-                N = 4
-                N_c = np.array([N, N, N])
-                if self.truncation is not None:
-                    # Only average periodic directions if trunction is used
-                    N_c[np.where(kd.N_c == 1)[0]] = 1
-                qf_qc = monkhorst_pack(N_c) / kd.N_c
-                qf_qc *= 1.0e-6
-                U_scc = kd.symmetry.op_scc
-                qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
-                weight_q = kd.q_weights
-                qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
-                a_q = np.sum(np.dot(chi0_wvv[wa+iw], qf_qv.T) * qf_qv.T, axis=0)
-                a0_qG = np.dot(qf_qv, chi0_wxvG[wa+iw, 0])
-                a1_qG = np.dot(qf_qv, chi0_wxvG[wa+iw, 1])
                 einv_GG = np.zeros((nG, nG), complex)
-                # W_GG = np.zeros((nG, nG), complex)
                 for iqf in range(len(qf_qv)):
-                    chi0_GG[0] = a0_qG[iqf]
-                    chi0_GG[:, 0] = a1_qG[iqf]
-                    chi0_GG[0, 0] = a_q[iqf]
+                    chi0_GG[0] = a0_qwG[iqf, iw]
+                    chi0_GG[:, 0] = a1_qwG[iqf, iw]
+                    chi0_GG[0, 0] = a_wq[iw, iqf]
                     sqrV_G = get_coulomb_kernel(pd,
                                                 kd.N_c,
                                                 truncation=self.truncation,
@@ -547,9 +594,6 @@ class G0W0(PairDensity):
                     e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:,
                                                                   np.newaxis]
                     einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
-                    # einv_GG = np.linalg.inv(e_GG) * weight_q[iqf]
-                    # W_GG += (einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
-                    #          * weight_q[iqf])
             else:
                 sqrV_G = get_coulomb_kernel(pd,
                                             self.calc.wfs.kd.N_c,
@@ -648,6 +692,7 @@ class G0W0(PairDensity):
                        'vxc:   KS vxc [eV]',
                        'exx:   Exact exchange [eV]',
                        'sigma: Self-energies [eV]',
+                       'dsigma: Self-energy derrivatives',
                        'Z:     Renormalization factors',
                        'qp:    QP-energies [eV]']
 
@@ -942,3 +987,46 @@ class G0W0(PairDensity):
             W_GG[i_G[iG], i_G] += Bgc_GG[iG, :]      
        
         return W_GG
+
+    def save_restart_file(self, nQ):
+        sigma_sin_write = self.sigma_sin.copy()
+        dsigma_sin_write = self.dsigma_sin.copy()
+        self.world.sum(sigma_sin_write)
+        self.world.sum(dsigma_sin_write)
+        data = {'last_q': nQ,
+                'sigma_sin': sigma_sin_write + self.previous_sigma,
+                'dsigma_sin': dsigma_sin_write + self.previous_dsigma,
+                'kpts': self.kpts,
+                'bands': self.bands,
+                'nbands': self.nbands,
+                'ecut': self.ecut,
+                'domega0': self.domega0,
+                'omega2': self.omega2,
+                'integrate_gamma': self.integrate_gamma}
+
+        if self.world.rank == 0:
+            with open(self.restartfile + '.sigma.pckl', 'wb') as fd:
+                pickle.dump(data, fd)
+
+    def load_restart_file(self):
+        try:
+            data = pickle.load(open(self.restartfile + '.sigma.pckl'))
+        except IOError:
+            return False
+        else:
+            if (data['kpts'] == self.kpts and
+                data['bands'] == self.bands and
+                data['nbands'] == self.nbands and
+                data['ecut'] == self.ecut and
+                data['domega0'] == self.domega0 and
+                data['omega2'] == self.omega2 and
+                data['integrate_gamma'] == self.integrate_gamma):
+                self.last_q = data['last_q']
+                self.previous_sigma = data['sigma_sin']
+                self.previous_dsigma = data['dsigma_sin']
+                return True
+            else:
+                raise ValueError(
+                    'Restart file not compatible with parameters used in '
+                    'current calculation. Check kpts, bands, nbands, ecut, '
+                    'domega0, omega2, integrate_gamma.')

@@ -32,7 +32,7 @@ alpha = 1 / 137.036
 class AllElectron:
     """Object for doing an atomic DFT calculation."""
 
-    def __init__(self, symbol, xcname='LDA', scalarrel=False,
+    def __init__(self, symbol, xcname='LDA', scalarrel=True,
                  corehole=None, configuration=None, nofiles=True,
                  txt='-', gpernode=150, orbital_free=False, tw_coeff=1.):
         """Do an atomic DFT calculation.
@@ -701,7 +701,7 @@ class AllElectron:
         return alpha * potential
 
 
-def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel=False, gmax=None):
+def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel, gmax=None):
     """n, A = shoot(u, l, vr, e, ...)
 
     For guessed trial eigenenergy e, integrate the radial Schrodinger
@@ -806,7 +806,7 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel=False, gmax=None):
     return nodes, A
 
 
-def shoot_confined(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel=False,
+def shoot_confined(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel,
                    gmax=None, rc=10., beta=7.):
     """This method is used by the solve_confined method."""
     # XXX much of this is pasted from the ordinary shoot method

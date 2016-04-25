@@ -2,7 +2,7 @@
 Dipole corrections in GPAW
 ==========================
 
-As an example system, a 2 layer :math:`2\times2` slab of fcc (100) Al
+As an example system, a 2 layer `2\times2` slab of fcc (100) Al
 is constructed with a single Na adsorbed on one side of the surface.
 
 .. literalinclude:: dipole.py

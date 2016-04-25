@@ -16,7 +16,7 @@ the two BLAS functions ``daxpy`` and ``zaxpy`` in Python::
    PyObject* alpha;
    PyArrayObject* x;
    PyArrayObject* y;
-   if (!PyArg_ParseTuple(args, "OOO", &alpha, &x, &y)) 
+   if (!PyArg_ParseTuple(args, "OOO", &alpha, &x, &y))
      return NULL;
    integer n = x->dimensions[0];
    for (int d = 1; d < x->nd; d++)
@@ -26,14 +26,14 @@ the two BLAS functions ``daxpy`` and ``zaxpy`` in Python::
    if (PyFloat_Check(alpha))
      {
        PyFloatObject* palpha = (PyFloatObject*)alpha;
-       daxpy_(&n, &(palpha->ob_fval), 
+       daxpy_(&n, &(palpha->ob_fval),
              DOUBLEP(x), &incx,
              DOUBLEP(y), &incy);
      }
    else
      {
        PyComplexObject* palpha = (PyComplexObject*)alpha;
-       zaxpy_(&n, (doublecomplex*)(&(palpha->cval)), 
+       zaxpy_(&n, (doublecomplex*)(&(palpha->cval)),
               (doublecomplex*)COMPLEXP(x), &incx,
               (doublecomplex*)COMPLEXP(y), &incy);
      }
@@ -88,4 +88,4 @@ default), then the Python wrapper function is bypassed for calls to
 the function.
 
 
-.. _Python documentation: http://docs.python.org/ext/ext.html
+.. _Python documentation: http://docs.python.org/extending/index.html

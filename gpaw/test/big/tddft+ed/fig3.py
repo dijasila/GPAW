@@ -1,10 +1,8 @@
 from ase import Atoms
-from ase.io import read
-from gpaw import GPAW, Mixer
+from gpaw import GPAW
 from gpaw.fdtd import FDTDPoissonSolver, PermittivityPlus, PolarizableMaterial, PolarizableSphere
 from gpaw.mpi import world
-from gpaw.svnversion import svnversion
-from gpaw.tddft import TDDFT, photoabsorption_spectrum, units
+from gpaw.tddft import TDDFT
 from gpaw.test import equal
 import numpy as np
 import sys
@@ -30,7 +28,7 @@ npworld = world.size
 bondlength    = 3.0788
 
 # Permittivity
-if world.rank==0:
+if world.rank == 0:
     fo = open("silver.txt", "wb")
     fo.writelines(["0.1696  0.1795 135.0\n",
                    "0.3655  0.2502 -40.30\n",
@@ -40,14 +38,14 @@ if world.rank==0:
                    "4.018   1.049  -15.36\n",
                    "4.243   0.9967  18.07\n",
                    "5.303   2.592   40.42\n",
-                   "7.197   2.774   31.02"]);
+                   "7.197   2.774   31.02"])
     fo.close()
 
 # Whole simulation cell (Angstroms)
-large_cell = [cx, cy, cz];
+large_cell = [cx, cy, cz]
 
 # Quantum subsystem
-atom_center = np.array([0.5*cx, 0.5*cy, 0.5*cz]);
+atom_center = np.array([0.5*cx, 0.5*cy, 0.5*cz])
 atoms = Atoms('Na2', [[-0.5*bondlength, 0.0, 0.0],
                       [ 0.5*bondlength, 0.0, 0.0]])
 
@@ -115,4 +113,3 @@ ref_qm_dipole_moment = [ 1.44266213e-02,  1.04985435e-09, -1.04920610e-09 ]
 tol = 0.0001
 equal(td_calc.get_dipole_moment(), ref_qm_dipole_moment, tol)
 equal(td_calc.hamiltonian.poisson.get_dipole_moment(), ref_cl_dipole_moment, tol)
-

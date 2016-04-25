@@ -30,7 +30,7 @@ and "N/A" denotes an optimization failure.
 Only the systems that fail to converge or converge to a
 total energy above the threshold are given in the tables.
 
-Calculator used: GPAW mode='lcao' (see :svn:`~doc/devel/ase_optimize/g2_dzp.py`)
+Calculator used: GPAW mode='lcao' (see :git:`~doc/devel/ase_optimize/g2_dzp.py`)
 
 Limit of optimizer steps: 100
 
@@ -48,7 +48,7 @@ The PBE optimization starts from LDA unit cells.
 
 Description of plots and tables: see the section above.
 
-Calculator used: GPAW mode=PW() (see :svn:`~doc/devel/ase_optimize/htb_pw.py`)
+Calculator used: GPAW mode=PW() (see :git:`~doc/devel/ase_optimize/htb_pw.py`)
 
 Limit of optimizer steps: 50
 

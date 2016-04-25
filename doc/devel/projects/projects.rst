@@ -23,7 +23,6 @@ Ongoing Projects
     gpu
     noncollinear
     hybrids
-    dvcs
     csm
     elph
     hubu

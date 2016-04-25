@@ -6,10 +6,10 @@ Hybrid functionals
 
 Currently we have two implementation of exact exchange:
 
-1) :svn:`~gpaw/xc/hybrid.py`: Can handle Gamma-point only
+1) :git:`~gpaw/xc/hybrid.py`: Can handle Gamma-point only
    calculations self-consistently (for molecules and large cells).
 
-2) :svn:`~gpaw/xc/hybridk.py`: Can handle k-points, but not
+2) :git:`~gpaw/xc/hybridk.py`: Can handle k-points, but not
    self-consitently.
 
 Things to work on:

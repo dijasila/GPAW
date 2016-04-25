@@ -289,21 +289,22 @@ class VDWFunctionalBase:
             filename = os.path.join(dir, name)
             if os.path.isfile(filename):
                 self.phi_ij = np.loadtxt(filename)
-                break
-        else:
+                if self.verbose:
+                    print('VDW: using', filename)
+                return
+                
+        if sys.version_info.major == 2:
             oldname = name[:-3] + 'pckl'
             for dir in dirs:
                 filename = os.path.join(dir, oldname)
                 if os.path.isfile(filename):
                     self.phi_ij = pickle.load(open(filename))
-                    break
-            else:
-                print('VDW: Could not find table file:', name)
-                self.make_table(name)
-                return
-                
-        if self.verbose:
-            print('VDW: using', filename)
+                    if self.verbose:
+                        print('VDW: using', filename)
+                    return
+
+        print('VDW: Could not find table file:', name)
+        self.make_table(name)
             
     def make_table(self, name):
         print('VDW: Generating vdW-DF kernel ...')
@@ -334,9 +335,11 @@ class VDWFunctionalBase:
         
         print()
         print('VDW: Done!')
+        header = ('phi0={0:.3f}, ds={1:.3f}, Dmax={2:.3f}, nD={3}, ndelta={4}'
+                  .format(self.phi0, self.ds, self.D_j[-1],
+                          len(self.delta_i), len(self.D_j)))
         if self.world.rank == 0:
-            with open(name, 'w') as f:
-                np.savetxt(f, self.phi_ij)
+            np.savetxt(name, self.phi_ij, header=header)
 
     def make_prl_plot(self, multiply_by_4_pi_D_squared=True):
         import pylab as plt

@@ -8,12 +8,13 @@ The generation of setups, starts from a spin-paired atomic
 all-electron calculation with spherical symmetry.
 
 
+.. module:: gpaw.atom
+
 All-electron calculations for spherical atoms
 =============================================
 
-This is done by the :epydoc:`gpaw.atom.all_electron.AllElectron` class
-in :epydoc:`gpaw.atom.all_electron`.  The all-electron wave functions
-are defined as:
+This is done by the :class:`gpaw.atom.all_electron.AllElectron` class.  The
+all-electron wave functions are defined as:
 
 .. math::
 
@@ -21,7 +22,7 @@ are defined as:
   \frac{u_{n\ell}(r)}{r} Y_{\ell m}(\hat{\mathbf{r}}),
 
 The `u_{n\ell}(r)` functions are stored in an attribute ``u_j`` of the
-:epydoc:`gpaw.atom.all_electron.AllElectron` object.  The ``u_j``
+:class:`~gpaw.atom.all_electron.AllElectron` object.  The ``u_j``
 member/attribute is an ``ndarray`` with shape ``(nj, N)``, where
 ``nj`` is the number of states (1s, 2s, 2p, ...) and ``N`` is the
 number of radial grid points.
@@ -35,6 +36,8 @@ number of radial grid points.
 
   Try ``gpaw-setup -h`` for more options.
 
+.. autoclass:: gpaw.atom.all_electron.AllElectron
+
 
 Generation of setups
 ====================
@@ -47,12 +50,12 @@ name               description              example
 ``core``           Froze core               ``'[Ne]'``
 ``rcut``           Cutoff radius/radii for  ``1.9``
                    projector functions
-``extra``          Extra non-bound	    ``{0: [0.5]}``
+``extra``          Extra non-bound          ``{0: [0.5]}``
                    projectors
-``vbar``           Zero-potential	    ``('poly', 1.7)``
-``filter``         Fourier-filtering	    ``(0.4, 1.75)``
+``vbar``           Zero-potential           ``('poly', 1.7)``
+``filter``         Fourier-filtering        ``(0.4, 1.75)``
                    parameters
-``rcutcomp``	   Cutoff radius for	    ``1.8``
+``rcutcomp``       Cutoff radius for        ``1.8``
                    compensation charges
 =================  =======================  =================
 
@@ -83,7 +86,7 @@ while you run GPAW with the single command::
 
     GPAW_SETUP_PATH=.:$GPAW_SETUP_PATH gpaw-python script.py
 
-or if you are using csh or tcsh, you have to first run ``setenv`` and then 
+or if you are using csh or tcsh, you have to first run ``setenv`` and then
 GPAW::
 
     setenv GPAW_SETUP_PATH .:$GPAW_SETUP_PATH&& gpaw-python script.py
