@@ -14,7 +14,7 @@ class PS2AE:
     Interpolates PS wave functions to a fine grid and adds PAW
     corrections in order to obtain true AE wave functions.
     """
-    def __init__(self, calc, h=0.05, n=2):
+    def __init__(self, calc, h=0.05, n=2, grid = None):
         """Create transformation object.
         
         calc: GPAW calculator object
@@ -25,14 +25,17 @@ class PS2AE:
             Force number of points to be a mulitiple of n.
         """
         self.calc = calc
-
+        self. grid = grid
         # Create plane-wave descriptor for starting grid:
         gd0 = GridDescriptor(calc.wfs.gd.N_c, calc.wfs.gd.cell_cv)
         self.pd0 = PWDescriptor(ecut=None, gd=gd0)
         
         # ... and a descriptor for the final gris:
-        N_c = h2gpts(h / Bohr, gd0.cell_cv, n)
-        N_c = np.array([get_efficient_fft_size(N) for N in N_c])
+        if self.grid is None:
+            N_c = h2gpts(h / Bohr, gd0.cell_cv, n)
+            N_c = np.array([get_efficient_fft_size(N) for N in N_c])
+        else:
+            N_c = self.grid.shape
         self.gd = GridDescriptor(N_c, gd0.cell_cv)
         self.pd = PWDescriptor(ecut=None, gd=self.gd)
         
