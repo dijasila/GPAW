@@ -15,7 +15,7 @@ from gpaw.utilities import divrl
 from gpaw.atom.generator import Generator
 from gpaw.atom.all_electron import AllElectron
 from gpaw.atom.configurations import parameters
-from gpaw.basis_data import Basis, BasisFunction
+from gpaw.basis_data import Basis, BasisFunction, get_basis_name
 from gpaw.atom.radialgd import AERadialGridDescriptor
 
 
@@ -102,7 +102,9 @@ def rsplit_by_norm(rgd, l, u, tailnorm_squared, txt):
 class BasisMaker:
     """Class for creating atomic basis functions."""
     def __init__(self, generator, name=None, run=True, gtxt='-',
-                 non_relativistic_guess=False, xc='PBE'):
+                 non_relativistic_guess=False, xc='PBE',
+                 save_setup=False):
+
         if isinstance(generator, str):  # treat 'generator' as symbol
             generator = Generator(generator, scalarrel=True,
                                   xcname=xc, txt=gtxt,
@@ -113,6 +115,7 @@ class BasisMaker:
                                           1.0 / generator.N, generator.N,
                                           default_spline_points=100)
         self.name = name
+
         if run:
             if non_relativistic_guess:
                 ae0 = AllElectron(generator.symbol, scalarrel=False,
@@ -122,14 +125,23 @@ class BasisMaker:
                 ae0.run()
                 # Now files will be stored such that they can
                 # automagically be used by the next run()
-            generator.run(write_xml=False, use_restart_file=False,
-                          **parameters[generator.symbol])
+            setup = generator.run(write_xml=False, use_restart_file=False,
+                                  name=name,
+                                  **parameters[generator.symbol])
+
+            if save_setup:
+                setup.write_xml()
+        else:
+            if save_setup:
+                raise ValueError('cannot save setup here because setup '
+                                 'was already generated before basis '
+                                 'generation.')
 
     def smoothify(self, psi_mg, l):
         """Generate pseudo wave functions from all-electron ones.
 
         The pseudo wave function is::
-        
+
                                    ___
                ~                   \    /   ~             \    ~     ~
             | psi  > = | psi  > +   )  | | phi > - | phi > ) < p  | psi > ,
@@ -137,7 +149,7 @@ class BasisMaker:
                                     i
 
         where the scalar products are found by solving::
-        
+
                             ___
               ~             \     ~             ~     ~
             < p | psi  > =   )  < p  | phi  > < p  | psi  > .
@@ -174,7 +186,7 @@ class BasisMaker:
         w_g = np.ones(g.r.shape)
         w_g[0:gmerge] = (g.r[0:gmerge] / g.r[gmerge])**2.
         w_g = w_g[None]
-        
+
         psit_mg = psi_mg * w_g + np.dot(Qt_nm.T, s_ng - u_ng * w_g)
         return psit_mg
 
@@ -349,7 +361,8 @@ class BasisMaker:
                 adverb = 'sharply'
             else:
                 adverb = 'softly'
-            print('Zeta 1: %s confined pseudo wave,' % adverb, end=' ', file=txt)
+            print('Zeta 1: %s confined pseudo wave,' % adverb, end=' ',
+                  file=txt)
 
             u, e, de, vconf, rc = self.rcut_by_energy(fullj, esplit,
                                                       tolerance,
@@ -364,11 +377,12 @@ class BasisMaker:
                 print('rc=%.02f Bohr' % rc, file=txt)
             else:
                 print('fixed energy shift', file=txt)
-                print('DE=%.03f eV :: rc=%.02f Bohr' % (de * Hartree,
-                                                                rc), file=txt)
+                print('DE=%.03f eV :: rc=%.02f Bohr'
+                      % (de * Hartree, rc), file=txt)
+
             if vconf is not None:
-                print(('Potential amp=%.02f :: ri/rc=%.02f' %
-                               (amplitude, ri_rel)), file=txt)
+                print('Potential amp=%.02f :: ri/rc=%.02f' %
+                      (amplitude, ri_rel), file=txt)
             phit_g = self.smoothify(u, l)
             bf = BasisFunction(l, rc, phit_g,
                                '%s-sz confined orbital' % orbitaltype)
@@ -385,7 +399,7 @@ class BasisMaker:
                 vconf2 = g.get_confinement_potential(amplitude,
                                                      ri_rel * rc * .99, rc)
                 u2, e2 = g.solve_confined(fullj, rc, vconf2)
-                
+
                 phit2_g = self.smoothify(u2, l)
                 dphit_g = phit2_g - phit_g
                 dphit_norm = np.dot(rgd.dr_g, dphit_g * dphit_g) ** .5
@@ -407,7 +421,7 @@ class BasisMaker:
                                                        '0sdtq56789'[zeta])
                 bf = BasisFunction(l, rsplit, phit_g - splitwave, descr)
                 multizetas[i].append(bf)
-            
+
         if polarizationcount > 0 or l_pol is not None:
             if l_pol is None:
                 # Now make up some properties for the polarization orbital
@@ -486,14 +500,14 @@ class BasisMaker:
                 bf_pol = BasisFunction(l_pol, rsplit, psi_pol - splitwave,
                                        descr)
                 polarization_functions.append(bf_pol)
-        
+
         bf_j = []
         bf_j.extend(singlezetas)
         bf_j.extend(energy_derivative_functions)
         for multizeta_list in multizetas:
             bf_j.extend(multizeta_list)
         bf_j.extend(polarization_functions)
-        
+
         rcmax = max([bf.rc for bf in bf_j])
 
         # The non-equidistant grids are really only suited for AE WFs
@@ -504,18 +518,18 @@ class BasisMaker:
         for bf in bf_j:
             # We have been storing phit_g * r, but we just want phit_g
             bf.phit_g = divrl(bf.phit_g, 1, rgd.r_g)
-            
+
             gcut = min(int(1 + bf.rc / d), ng - 1)
-            
+
             assert equidistant_grid[gcut] >= bf.rc
             assert equidistant_grid[gcut - 1] <= bf.rc
-            
+
             bf.rc = equidistant_grid[gcut]
             # Note: bf.rc *must* correspond to a grid point (spline issues)
             bf.ng = gcut + 1
             # XXX all this should be done while building the basis vectors,
             # not here
-            
+
             # Quick hack to change to equidistant coordinates
             spline = rgd.spline(bf.phit_g, rgd.r_g[rgd.floor(bf.rc)], bf.l,
                                 points=100)
@@ -523,7 +537,13 @@ class BasisMaker:
                                   for r in equidistant_grid[:bf.ng]])
             bf.phit_g[-1] = 0.
 
-        basis = Basis(g.symbol, self.name, False)
+        basistype = get_basis_name(zetacount, polarizationcount)
+        if self.name is None:
+            compound_name = basistype
+        else:
+            compound_name = '%s.%s' % (self.name, basistype)
+
+        basis = Basis(g.symbol, compound_name, False)
         basis.ng = ng
         basis.d = d
         basis.bf_j = bf_j

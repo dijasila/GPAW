@@ -86,9 +86,21 @@ PyObject* libvdwxc_calculate(PyObject* self, PyObject* args)
     double* sigma_g = (double*)PyArray_DATA(sigma_obj);
     double* dedn_g = (double*)PyArray_DATA(dedn_obj);
     double* dedsigma_g = (double*)PyArray_DATA(dedsigma_obj);
-
     double energy = vdwxc_calculate(*vdw, rho_g, sigma_g, dedn_g, dedsigma_g);
     return Py_BuildValue("d", energy);
+}
+
+PyObject* libvdwxc_tostring(PyObject* self, PyObject* args)
+{
+    PyObject *vdwxc_obj;
+    if(!PyArg_ParseTuple(args, "O", &vdwxc_obj)) {
+        return NULL;
+    }
+    vdwxc_data* vdw = unpack_vdwxc_pointer(vdwxc_obj);
+    int maxlen = 80 * 200; // up to a few hundred lines
+    char str[maxlen];
+    vdwxc_tostring(*vdw, maxlen, str);
+    return Py_BuildValue("s", str);
 }
 
 PyObject* libvdwxc_free(PyObject* self, PyObject* args)

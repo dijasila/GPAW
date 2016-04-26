@@ -71,7 +71,7 @@ system.
 Submit tool on Niflheim
 -----------------------
 
-At CAMd, we use this submit tool: :svn:`~doc/documentation/parallel_runs/gpaw-qsub`.
+At CAMd, we use this submit tool: :git:`~doc/documentation/parallel_runs/gpaw-qsub`.
 
 Examples::
 
@@ -93,7 +93,7 @@ to get the architectures implemented and the available options. As an example, u
 
   $ gpaw-runscript script.py 32
 
-to write a job sumission script running script.py on 32 cpus. 
+to write a job sumission script running script.py on 32 cpus.
 The tool tries to guess the architecture/host automatically.
 
 By default it uses the following environment variables to write the runscript:
@@ -147,9 +147,6 @@ which is equivalent to
 >>> if rank == 0:
 ...     print('This is written by the master only')
 
-Note that parprint has the syntax of the print statement in 
-`Python3 <http://docs.python.org/release/3.0.1/whatsnew/3.0.html>`_.
-
 
 .. _different_calculations_in parallel:
 
@@ -188,9 +185,9 @@ nitrogen molecule using two processes:
 Parallelization options
 =======================
 
-In version 0.7, a new keyword called ``parallel`` was introduced to provide 
+In version 0.7, a new keyword called ``parallel`` was introduced to provide
 a unified way of specifying parallelization-related options. Similar to
-the way we :ref:`specify convergence criteria <manual_convergence>` with the 
+the way we :ref:`specify convergence criteria <manual_convergence>` with the
 ``convergence`` keyword, a Python dictionary is used to contain all such
 options in a single keyword.
 
@@ -287,7 +284,7 @@ where ``n`` is the total number of boxes.
    ``parallel={'domain': world.size}`` will force all parallelization to be
    carried out solely in terms of domain decomposition, and will in general
    be much more efficient than e.g. ``parallel={'domain': (1,1,world.size)}``.
-   You might have to add ``from gpaw.mpi import wold`` to the script to 
+   You might have to add ``from gpaw.mpi import wold`` to the script to
    define ``world``.
 
 There is also a command line argument ``--domain-decomposition`` which allows you
@@ -299,7 +296,7 @@ Band parallelization
 --------------------
 
 Parallelization over Kohn-Sham orbitals (i.e. bands) becomes favorable when
-the number of bands :math:`N` is so large that :math:`\mathcal{O}(N^2)`
+the number of bands `N` is so large that `\mathcal{O}(N^2)`
 operations begin to dominate in terms of computational time. Linear algebra
 for orthonormalization and diagonalization of the wavefunctions is the most
 noticeable contributor in this regime, and therefore, band parallelization

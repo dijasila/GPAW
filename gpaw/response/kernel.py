@@ -1,6 +1,4 @@
 # -*- coding: utf-8
-# In an attempt to appease epydoc and still have readable docstrings,
-# the vertical bar | is represented by u'\u2758' in this module.
 """This module defines Coulomb and XC kernels for the response model.
 """
 

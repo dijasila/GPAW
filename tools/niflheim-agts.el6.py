@@ -96,7 +96,7 @@ cd '" + gpawdir + "'&& \
 source /home/opt/modulefiles/modulefiles_el6.sh&& \
 module load intel-compilers && \
 python setup.py --remove-default-flags --customize=\
-doc/install/Linux/Niflheim/el6-sl230s-tm-gfortran-openmpi-1.6.3-acml-4.4.0-sl-hdf5-1.8.10.py \
+doc/platforms/Linux/Niflheim/el6-sl230s-tm-gfortran-openmpi-1.6.3-acml-4.4.0-sl-hdf5-1.8.10.py \
 build_ext 2>&1 > surt.log' | ssh surt bash")
 
 cmd("echo '\
@@ -105,7 +105,7 @@ source /home/opt/modulefiles/modulefiles_el6.sh&& \
 module load intel-compilers && \
 source /home/camp/modulefiles.sh&& \
 python setup.py --remove-default-flags --customize=\
-doc/install/Linux/Niflheim/el6-dl160g6-tm-gfortran-openmpi-1.6.3-acml-4.4.0-sl-hdf5-1.8.10.py \
+doc/platforms/Linux/Niflheim/el6-dl160g6-tm-gfortran-openmpi-1.6.3-acml-4.4.0-sl-hdf5-1.8.10.py \
 build_ext 2>&1 > muspel.log' | ssh muspel bash")
 
 cmd("echo '\
@@ -114,7 +114,7 @@ source /home/opt/modulefiles/modulefiles_el6.sh&& \
 module load intel-compilers && \
 source /home/camp/modulefiles.sh&& \
 python setup.py --remove-default-flags --customize=\
-doc/install/Linux/Niflheim/el6-x3455-tm-gfortran-openmpi-1.6.3-acml-4.4.0-sl-hdf5-1.8.10.py \
+doc/platforms/Linux/Niflheim/el6-x3455-tm-gfortran-openmpi-1.6.3-acml-4.4.0-sl-hdf5-1.8.10.py \
 build_ext 2>&1 > slid.log' | ssh slid bash")
 
 cmd("""wget --no-check-certificate --quiet \
