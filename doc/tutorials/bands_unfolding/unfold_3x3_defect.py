@@ -6,8 +6,7 @@ from ase.dft.kpoints import get_bandpath
 from gpaw import GPAW
 from gpaw import mpi
 
-from gpaw.response.bands_unfolding import Unfold, find_K_from_k, plot_spectral_function
-
+from gpaw.unfold import Unfold, find_K_from_k, plot_spectral_function
 
 
 a = 3.184
@@ -28,7 +27,7 @@ for k in kpts:
     K = find_K_from_k(k, M_SP)[0]
     Kpts.append(K)
 
-'''
+
 calc = 'gs_3x3_defect.gpw'
 calc_bands = GPAW(calc,
                   fixdensity=True,
@@ -39,7 +38,7 @@ calc_bands = GPAW(calc,
 
 calc_bands.get_potential_energy()
 calc_bands.write('bands_3x3_defect.gpw', 'all')
-'''
+
 
 calc = 'bands_3x3_defect.gpw'
 Unfold = Unfold(name='3x3_defect',
@@ -47,11 +46,11 @@ Unfold = Unfold(name='3x3_defect',
                 M=M_SP,
                 spinorbit=False)
 
-Unfold.spectral_function(kpoints=kpts, filename='weights_3x3_defect.pckl')
+Unfold.spectral_function(kpoints=kpts)
 
-
-e,A_ke = pickle.load(open('sf_3x3_defect.pckl'))
-ef = Unfold.calc.get_fermi_level()              
-e = e * Hartree - ef
-plot_spectral_function(e, A_ke, kpts, x, X, path, ['M','K','G'])
-               
+if mpi.world.rank == 0:
+    e,A_ke = pickle.load(open('sf_3x3_defect.pckl'))
+    ef = Unfold.calc.get_fermi_level()
+    e = e * Hartree - ef
+    plot_spectral_function(e, A_ke, kpts, x, X, path,
+                           ['M','K','G'], 'blue', -3, 3)
