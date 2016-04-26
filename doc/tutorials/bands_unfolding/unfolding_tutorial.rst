@@ -46,7 +46,7 @@ In the previous equation, :math:`P_{\vec{K}m}(\vec{k})` are the weights defined 
 
 which give information about how much of the character :math:`|\vec{k}n\rangle` is preserved in :math:`|\vec{K}n\rangle`. 
 From the expression above, it seems that calculating the weights requires the knowledge of the PC eigenstates.
-However, V.Popescu and A.Zunger show in  \ [#Review]_ that weights can be found using only SC quantities according to:
+However, V.Popescu and A.Zunger show in  [#Review]_ that weights can be found using only SC quantities according to:
 
   .. math::
     P_{\vec{K}m}(\vec{k}) = \sum_{sub\{\vec{G}\}} |C_{\vec{K}m}(\vec{G}+\vec{k}-\vec{K})|^2
@@ -67,8 +67,9 @@ Band Structure Unfolding for MoS:math:`_2 3\times3` supercell with single sulfur
 Groundstate calculation
 -----------------------
 
-First, we need a regular groundstate calculation for a :math:`3\times3` supercell with a sulfur vacancy. 
-For supercell calculation it is convenient to use 'lcao' with a 'dzp' basis.
+First, we need a regular groundstate calculation for a `3\times3`
+supercell with a sulfur vacancy.  For supercell calculation it is
+convenient to use 'lcao' with a 'dzp' basis.
 
 .. literalinclude:: gs_3x3_defect.py
 
@@ -80,7 +81,7 @@ Defining the band path in the PBZ and finding the corresponding  :math:`\vec{K}`
 -------------------------------------------------------------------------------------------
 
 Next, we set up the path  in the PBZ along which we want to calculate the spectral function, we define the transformation matrix M,
-and find the corresponding :math:`\vec{K} in the SBZ.
+and find the corresponding `\vec{K}` in the SBZ.
 
 .. literalinclude:: unfold_3x3_defect.py
     :lines: 1-29
@@ -97,12 +98,12 @@ Unfolding the bands and calculating Spectral Function
 
 We are now ready to proceed with the unfolding. First we set up the 'unfold' class.
 
-.. literalinclude:: unfold_3x3_defect_.py
+.. literalinclude:: unfold_3x3_defect.py
     :lines: 44-48
 
 and then we call the function for calculating the spectral function.
 
-.. literalinclude:: unfold_3x3_defect_.py
+.. literalinclude:: unfold_3x3_defect.py
     :lines: 50
 
 This can be run in parallel over kpoints, and you may want to do that since the supercell is relatively big.
@@ -116,11 +117,12 @@ Plotting Spectral Function
 ---------------------------
 Finally you can plot the spectral function using an utility function included in bands_unfolding.py
 
-.. literalinclude:: unfolding_3x3_defect_.py
+.. literalinclude:: unfolding_3x3_defect.py
     :lines: 52-56
 
 which will produce the following image:
+
 .. image:: sf.png
-       :height: 400 px
+    :height: 400 px
 
 where you can clearly see the defect state in the gap!
