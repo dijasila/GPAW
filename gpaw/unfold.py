@@ -301,14 +301,17 @@ def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Knm=None):
 
 
 def plot_spectral_function(e, A_ke, kpoints, x, X, path, points_name,
-                           color='blue'):
+                           color='blue', emin=None, emax=None):
     ''' Function to plot spectral function corresponding to the bandstructure
         along the kpoints path'''
  
     import matplotlib.pyplot as plt
     print('Plotting Spectral Function')
-    emin = e.min()
-    emax = e.max()
+
+    if emin is None:
+        emin = e.min()
+    if emax is None:
+        emax = e.max()
    
     A_ke /= np.max(A_ke)
     A_ek = A_ke.T
@@ -325,7 +328,7 @@ def plot_spectral_function(e, A_ke, kpoints, x, X, path, points_name,
                origin='lower',
                vmin=0.,
                vmax=1,
-               extent=[0, x[-1], emin, emax])
+               extent=[0, x[-1], e.min(), e.max()])
     
     for i in range(len(path))[1:-1]:
         plt.plot(2 * [X[i]], [emin, emax], lw=0.5, c='0.5')
@@ -372,7 +375,7 @@ def plot_band_structure(e_mK, P_mK, kpoints, x, X, path, points_name,
     plt.xticks(X, points_name, size=20)
     plt.yticks(size=20)
     plt.ylabel('E(eV)', size=20)
-    plt.axis([0, x[-1], -3, 3])
+    plt.axis([0, x[-1], emin, emax])
     plt.show()
     return
 
