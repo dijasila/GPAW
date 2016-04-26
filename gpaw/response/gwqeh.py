@@ -30,19 +30,65 @@ from ase.units import Bohr
 
 
 class GWQEHCorrection(PairDensity):
-    """ Class for calculating quasiparticle energies of van der Waals
-    heterostructures using the GW approximation for the self-energy. 
-    The quasiparticle energy correction due to increased screening from
-    surrounding layers is obtained from the QEH model.
-    """
-    def __init__(self, gwfile,
-                 structure=None, d=None, layer=0, qqeh=None, wqeh=None,
-                 dW_qw=None, d0=None, filename=None,
-                 txt=sys.stdout, calc=None, kpts=[0], bands=None,
-                 world=mpi.world, qptint=None, domega0=0.1, omega2=10,
-                 eta=0.1, include_q0=True): 
+    def __init__(self, calc, gwfile, filename=None, kpts=[0], bands=None,
+                 structure=None, d=None, layer=0, 
+                 dW_qw=None, qqeh=None, wqeh=None,
+                 txt=sys.stdout, world=mpi.world, domega0=0.025, 
+                 omega2=10.0, eta=0.1, include_q0=True): 
+        """ 
+        Class for calculating quasiparticle energies of van der Waals
+        heterostructures using the GW approximation for the self-energy. 
+        The quasiparticle energy correction due to increased screening from
+        surrounding layers is obtained from the QEH model.
+        Parameters:
         
-        self.d0 = d0 / Bohr
+        calc: str or PAW object
+            GPAW calculator object or filename of saved calculator object.
+        gwfile: str
+            name of gw results file from the monolayer calculation
+        filename: str
+            filename for gwqeh output
+        kpts: list
+            List of indices of the IBZ k-points to calculate the quasi particle 
+            energies for. Set to [0] by default since the QP correction is 
+            generally the same for all k. 
+        bands: tuple
+            Range of band indices, like (n1, n2+1), to calculate the quasi
+            particle energies for. Note that the second band index is not
+            included.
+        structure: list of str
+            Heterostructure set up. Each entry should consist of number of
+            layers + chemical formula.
+            For example: ['3H-MoS2', graphene', '10H-WS2'] gives 3 layers of
+            H-MoS2, 1 layer of graphene and 10 layers of H-WS2.
+            The name of the layers should correspond to building block files:
+            "<name>-chi.pckl" in the local repository. 
+        d: array of floats
+            Interlayer distances for neighboring layers in Ang.
+            Length of array = number of layers - 1
+        layer: int
+            index of layer to calculate QP correction for. 
+        dW_qw: 2D array of floats dimension q X w
+            Change in screened interaction. Should be set to None to calculate 
+            dW directly from buildingblocks.
+        qqeh: array of floats
+            q-grid used for dW_qw (only needed if dW is given by hand).
+        wqeh: array of floats
+            w-grid used for dW_qw. So far this have to be the same as for the 
+            GWQEH calculation.  (only needed if dW is given by hand).
+        domega0: float
+            Minimum frequency step (in eV) used in the generation of the non-
+            linear frequency grid.
+        omega2: float
+            Control parameter for the non-linear frequency grid, equal to the
+            frequency where the grid spacing has doubled in size.
+        eta: float
+            Broadening parameter.
+        include_q0: bool
+            include q=0 in W or not. if True an integral arround q=0 is
+            performed, if False the q=0 contribution is set to zero. 
+        """
+        
         self.gwfile = gwfile
 
         self.inputcalc = calc
@@ -50,7 +96,7 @@ class GWQEHCorrection(PairDensity):
         # G=0 is needed.
         self.ecut = 1.
         PairDensity.__init__(self, calc, ecut=self.ecut, world=world,
-                      txt=filename + '.gw')    
+                             txt=filename + '.gw')    
     
         self.filename = filename
         self.ecut /= Hartree
@@ -157,8 +203,9 @@ class GWQEHCorrection(PairDensity):
             self.save_state_file()
      
             qcstr = '(' + ', '.join(['%.3f' % x for x in q_c]) + ')'
-            #print('Calculating contribution from IBZ q-pointq #%d/%d, q_c=%s' %
-            #      (nq + 1, nibzqs, qcstr), file=self.fd)
+            # print('Calculating contribution from IBZ q-pointq #%d/%d, 
+            # q_c=%s' %
+            #       (nq + 1, nibzqs, qcstr), file=self.fd)
             
             rcell_cv = 2 * pi * np.linalg.inv(self.calc.wfs.gd.cell_cv).T
             q_abs = np.linalg.norm(np.dot(q_c, rcell_cv))
@@ -167,7 +214,6 @@ class GWQEHCorrection(PairDensity):
             dW_w = self.dW_qw[nq]
             dW_w = dW_w[:, np.newaxis, np.newaxis]
             L = abs(self.calc.wfs.gd.cell_cv[2, 2])
-            d0 = self.d0
             dW_w *= L 
 
             nw = self.nw
@@ -207,20 +253,19 @@ class GWQEHCorrection(PairDensity):
                 self.sign = 1 - 2 * time_reversal
                 Q_c = self.qd.bzk_kc[Q2]
                 d_c = self.sign * np.dot(U_cc, q_c) - Q_c
-                assert np.allclose(d_c.round(), d_c)#,
-                                   #("Difference should only be equal to a reciprocal "
-                                   # "lattice vector"))
-
+                assert np.allclose(d_c.round(), d_c)
               
                 for u1, kpt1 in enumerate(mykpts):
                     K2 = kd.find_k_plus_q(Q_c, [kpt1.K])[0] 
-                    kpt2 = self.get_k_point(kpt1.s, K2, 0, self.nbands, block=True)
+                    kpt2 = self.get_k_point(kpt1.s, K2, 0, self.nbands, 
+                                            block=True)
                     k1 = kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
 
                     N_c = pd0.gd.N_c
                     i_cG = self.sign * np.dot(U_cc, 
-                                         np.unravel_index(pd0.Q_qG[0], N_c))
+                                              np.unravel_index(pd0.Q_qG[0], 
+                                                               N_c))
 
                     k1_c = kd.bzk_kc[kpt1.K]
                     k2_c = kd.bzk_kc[K2]
@@ -241,9 +286,11 @@ class GWQEHCorrection(PairDensity):
                     Q_aGii = []
                     for a, Q_Gii in enumerate(self.Q_aGii):
                         x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
-                                                        np.dot(M_vv, pos_av[a]))))
+                                                        np.dot(M_vv, 
+                                                               pos_av[a]))))
                         U_ii = self.calc.wfs.setups[a].R_sii[self.s]
-                        Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
+                        Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, 
+                                                                   None]),
                                        U_ii.T).transpose(1, 0, 2)
                         if self.sign == -1:
                             Q_Gii = Q_Gii.conj()
@@ -255,14 +302,15 @@ class GWQEHCorrection(PairDensity):
                         C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
                                   for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
 
-                        n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                             pd0, I_G)
+                        n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, 
+                                                             kpt2, pd0, I_G)
                         if self.sign == 1:
                             n_mG = n_mG.conj()
                                     
                         f_m = kpt2.f_n
                         deps_m = eps1 - kpt2.eps_n
-                        sigma, dsigma = self.calculate_sigma(n_mG, deps_m, f_m, Wpm_w)
+                        sigma, dsigma = self.calculate_sigma(n_mG, deps_m, 
+                                                             f_m, Wpm_w)
                         nn = kpt1.n1 + n - self.bands[0]
                         self.sigma_sin[kpt1.s, i, nn] += sigma
                         self.dsigma_sin[kpt1.s, i, nn] += dsigma
@@ -292,8 +340,8 @@ class GWQEHCorrection(PairDensity):
         self.qpgw_sin = gwdata['qp'] / Hartree
         nk = self.qpgw_sin.shape[1]
         if not self.sigma_sin.shape[1] == nk:
-            self.sigma_sin = np.repeat(self.sigma_sin[:,:1,:], nk, axis=1)
-            self.dsigma_sin = np.repeat(self.dsigma_sin[:,:1,:], nk, axis=1)
+            self.sigma_sin = np.repeat(self.sigma_sin[:, :1, :], nk, axis=1)
+            self.dsigma_sin = np.repeat(self.dsigma_sin[:, :1, :], nk, axis=1)
         self.Z_sin = 1. / (1 - self.dsigma_sin - self.dsigmagw_sin)
         self.qp_sin = self.Z_sin * self.sigma_sin
         
@@ -347,7 +395,6 @@ class GWQEHCorrection(PairDensity):
 
         return sigma, dsigma
 
-
     def save_state_file(self, q=0):
         data = {'kpts': self.kpts,
                 'bands': self.bands,
@@ -356,8 +403,8 @@ class GWQEHCorrection(PairDensity):
                 'complete': self.complete,
                 'sigma_sin': self.sigma_sin,
                 'dsigma_sin': self.dsigma_sin,
-                'qp_sin' : self.qp_sin,
-                'Qp_sin' : self.Qp_sin}
+                'qp_sin': self.qp_sin,
+                'Qp_sin': self.Qp_sin}
         if self.world.rank == 0:
             with open(self.filename + '.sigma.pckl', 'wb') as fd:
                 pickle.dump(data, fd) 
@@ -390,6 +437,7 @@ class GWQEHCorrection(PairDensity):
         rcell_cv = 2 * pi * np.linalg.inv(self.calc.wfs.gd.cell_cv).T
         q_vs = np.dot(q_cs, rcell_cv)
         q_grid = (q_vs**2).sum(axis=1)**0.5
+        self.q_grid = q_grid
         w_grid = self.omega_w
 
         wqeh = self.wqeh  # w_grid.copy() # self.qeh
@@ -453,7 +501,7 @@ class GWQEHCorrection(PairDensity):
         # Full heterostructure
         HS = Heterostructure(structure=structure, d=d,
                              wmax=wmax * Hartree,
-                             #qmax=qmax / Bohr
+                             # qmax=qmax / Bohr
                              ) 
         
         W_qw = HS.get_screened_potential(layer=layer)
