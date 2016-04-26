@@ -151,27 +151,11 @@ class GWQEHCorrection(PairDensity):
 
         kplusqdone_u = [set() for kpt in mykpts]
  
-        #qd = self.qd
-        #bz1q_qc = to1bz(qd.bzk_kc, qd.symmetry.cell_cv)
-        #ibzqs = []
-        #for bzq_c in bz1q_qc:
-        #    ibzq, iop, timerev, diff_c = qd.find_ibzkpt(qd.symmetry.op_scc,
-        #                                                qd.ibzk_kc,
-        #                                                bzq_c)
-        #    if ibzq not in ibzqs:
-        #        ibzqs.append(ibzq)
-
-        # Loop over IBZ q-points
-        #nibzqs = len(ibzqs)
         for iq, q_c in enumerate(self.qd.ibzk_kc):
-        #for nq in range(self.nq, nibzqs):
             self.nq = iq
             nq = iq
             self.save_state_file()
-            
-            #ibzq = ibzqs[nq]
-            #q_c = self.qd.ibzk_kc[ibzq]
-
+     
             qcstr = '(' + ', '.join(['%.3f' % x for x in q_c]) + ')'
             #print('Calculating contribution from IBZ q-pointq #%d/%d, q_c=%s' %
             #      (nq + 1, nibzqs, qcstr), file=self.fd)
@@ -205,7 +189,7 @@ class GWQEHCorrection(PairDensity):
             pd0.ngmax = 1
             G_Gv = pd0.get_reciprocal_vectors()
         
-            Q_aGii = self.initialize_paw_corrections(pd0)
+            self.Q_aGii = self.initialize_paw_corrections(pd0)
 
             # Loop over all k-points in the BZ and find those that are related
             # to the current IBZ k-point by symmetry
@@ -217,11 +201,12 @@ class GWQEHCorrection(PairDensity):
                     
             for Q2 in Q2s:
                 s = self.qd.sym_k[Q2]
+                self.s = s
                 U_cc = self.qd.symmetry.op_scc[s]
                 time_reversal = self.qd.time_reversal_k[Q2]
-                sign = 1 - 2 * time_reversal
+                self.sign = 1 - 2 * time_reversal
                 Q_c = self.qd.bzk_kc[Q2]
-                d_c = sign * np.dot(U_cc, q_c) - Q_c
+                d_c = self.sign * np.dot(U_cc, q_c) - Q_c
                 assert np.allclose(d_c.round(), d_c)#,
                                    #("Difference should only be equal to a reciprocal "
                                    # "lattice vector"))
@@ -234,7 +219,7 @@ class GWQEHCorrection(PairDensity):
                     i = self.kpts.index(k1)
 
                     N_c = pd0.gd.N_c
-                    i_cG = sign * np.dot(U_cc, 
+                    i_cG = self.sign * np.dot(U_cc, 
                                          np.unravel_index(pd0.Q_qG[0], N_c))
 
                     k1_c = kd.bzk_kc[kpt1.K]
@@ -243,7 +228,7 @@ class GWQEHCorrection(PairDensity):
                     q1_c = kd.bzk_kc[K2] - kd.bzk_kc[kpt1.K]
 
                     # G-vector that connects the full Q_c with q1_c
-                    shift1_c = q1_c - sign * np.dot(U_cc, q_c)
+                    shift1_c = q1_c - self.sign * np.dot(U_cc, q_c)
                     assert np.allclose(shift1_c.round(), shift1_c)
                     shift1_c = shift1_c.round().astype(int)
                     shift_c = kpt1.shift_c - kpt2.shift_c - shift1_c
@@ -253,6 +238,16 @@ class GWQEHCorrection(PairDensity):
                     M_vv = np.dot(pd0.gd.cell_cv.T,
                                   np.dot(U_cc.T,
                                          np.linalg.inv(pd0.gd.cell_cv).T))
+                    Q_aGii = []
+                    for a, Q_Gii in enumerate(self.Q_aGii):
+                        x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
+                                                        np.dot(M_vv, pos_av[a]))))
+                        U_ii = self.calc.wfs.setups[a].R_sii[self.s]
+                        Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
+                                       U_ii.T).transpose(1, 0, 2)
+                        if self.sign == -1:
+                            Q_Gii = Q_Gii.conj()
+                        Q_aGii.append(Q_Gii)
 
                     for n in range(kpt1.n2 - kpt1.n1):
                         ut1cc_R = kpt1.ut_nR[n].conj()
@@ -262,7 +257,7 @@ class GWQEHCorrection(PairDensity):
 
                         n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                              pd0, I_G)
-                        if sign == 1:
+                        if self.sign == 1:
                             n_mG = n_mG.conj()
                                     
                         f_m = kpt2.f_n
