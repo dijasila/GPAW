@@ -39,12 +39,12 @@ gw = G0W0('MoS2.gpw',
           eta=0.2,
           truncation='2D',
           kpts=[((1 / 3, 1 / 3, 0))],
-          bands=(8, 10))
+          bands=(8, 10),
+          savepckl=True)
 
 e_qp = gw.calculate()['qp'][0, 0]
 
-ev = 2.699
-ec = 6.800
-
+ev = 2.669
+ec = 6.831
 equal(e_qp[0], ev, 0.01)
 equal(e_qp[1], ec, 0.01)

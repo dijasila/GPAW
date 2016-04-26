@@ -1,3 +1,4 @@
+.. module:: gpaw.solvation
 .. _continuum_solvent_model:
 
 =============================
@@ -118,15 +119,17 @@ using the continuum solvent model:
 
 The calculated value for the solvation Gibbs energy should be about
 -4.5 kcal per mole. The experimental value is -5.0 kcal per mole
-[#KCT06]_. Please refer to the Epydoc documentation of the
-:epydoc:`gpaw.solvation` module or the source code for further reading
-about the usage of the ``SolvationGPAW`` calculator class or model specific
-parts.
+[#KCT06]_. Please refer to the :git:`solvation module source code
+<gpaw/solvation>` for further reading about the usage of the
+:class:`~gpaw.solvation.calculator.SolvationGPAW` calculator class or model
+specific parts.
 
 There is also a helper function to use the solvation parameters for
 water as in the above example:
 
 .. literalinclude:: kwargs_factory.py
+
+.. autoclass:: gpaw.solvation.calculator.SolvationGPAW
 
 
 References

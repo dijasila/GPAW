@@ -11,9 +11,7 @@ import numpy as np
 import pylab as plt
 
 
-dimers = diatomic.keys()
-dimers.remove('FH')
-molecules = atomization_vasp.keys()
+molecules = list(atomization_vasp.keys())
 atoms = set()
 for m in molecules:
     atoms.update(molecule(m).get_chemical_symbols())

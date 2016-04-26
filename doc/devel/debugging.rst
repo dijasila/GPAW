@@ -17,12 +17,12 @@ b(reak) [[filename:]lineno|function[, condition]]
 
 s(tep)
 
-  Execute the current line, stop at the first possible occasion (either in a function that is called or on the next line 
+  Execute the current line, stop at the first possible occasion (either in a function that is called or on the next line
   in the current function).
 
 n(ext)
 
-  Continue execution until the next line in the current function is reached or it returns. 
+  Continue execution until the next line in the current function is reached or it returns.
 
 r(eturn)
 
@@ -30,20 +30,20 @@ r(eturn)
 
 c(ont(inue))
 
-  Continue execution, only stop when a breakpoint is encountered. 
+  Continue execution, only stop when a breakpoint is encountered.
 
 l(ist) [first[, last]]
 
-  List source code for the current file. 
+  List source code for the current file.
 
 p expression
 
-  Evaluate the expression in the current context and print its value. Note: "print" can also be used, but is not a   
+  Evaluate the expression in the current context and print its value. Note: "print" can also be used, but is not a
   debugger command -- this executes the Python print statement
 
-Most commands can be invoked with only the first letter. A full list of 
+Most commands can be invoked with only the first letter. A full list of
 all the commands and their explanation can be found in the `Python debugger (PDB)
-documentation <http://docs.python.org/lib/module-pdb.html>`_.
+documentation <http://docs.python.org/library/pdb.html>`_.
 
 
 An example session might look like::
@@ -76,16 +76,20 @@ An example session might look like::
 
 Emacs has a special mode for python debugging which can be invoked as *M-x pdb*. After that one has to give the command to start the debugger (e.g. python -m pdb script.py). Emacs opens two windows, one for the debugger command prompt and one which shows the source code and the current point of execution. Breakpoints can be set also on the source-code window.
 
+
 C debugging
 ===========
 
-First of all, the C-extension should be compiled with the *-g* flag in order to get the debug information into the library. 
-Also, the optimizations should be switched off which could be done in :ref:`customize.py <install_custom_installation>` as::
+First of all, the C-extension should be compiled with the *-g* flag in
+order to get the debug information into the library. Also, the
+optimizations should be switched off which could be done in
+:ref:`customize.py <customizing installation>` as::
 
    extra_link_args += ['-g']
    extra_compile_args += ['-O0', '-g']
 
-There are several debuggers available, the following example session applies to *gdb*::
+There are several debuggers available, the following example session
+applies to *gdb*::
 
   sepeli ~/gpaw/trunk/test> gdb python
   GNU gdb Red Hat Linux (6.1post-1.20040607.52rh)
@@ -149,7 +153,7 @@ p(rint) expr
    Inquire about the symbols (names of variables, functions and types) defined
    in a compiled program. ``expr`` may include calls to functions in the program
    being debugged. Can also be used to evaluate more complicated expressions
-   or referring to static variables in other source files as ``'foo.c'::x``.   
+   or referring to static variables in other source files as ``'foo.c'::x``.
 
 
 .. hint::

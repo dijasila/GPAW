@@ -5,13 +5,13 @@ Manual
 ======
 
 GPAW calculations are controlled through scripts written in the
-programming language Python_.  GPAW relies on the :ase:`Atomic
-Simulation Environment <>` (ASE), which is a Python package that helps
+programming language Python_.  GPAW relies on the `Atomic
+Simulation Environment <ASE>`_ (ASE), which is a Python package that helps
 us describe our atoms.  The ASE package also
 handles molecular dynamics, analysis, visualization, geometry
 optimization and more.  If you don't know anything about ASE, then it
 might be a good idea to familiarize yourself with it before continuing
-(at least read the :ase:`ASE introduction <intro.html>`).
+(at least read the :ref:`ase:about` section).
 
 Below, there will be Python code examples starting with ``>>>`` (and
 ``...`` for continuation lines).  It is a good idea to start the
@@ -19,9 +19,10 @@ Python interpreter and try some of the examples below.
 
 .. _Python: http://www.python.org
 
-The units used by the GPAW calculator correspond to the :ase:`ASE
-conventions <ase/units.html>`, most importantly electron volts and
+The units used by the GPAW calculator correspond to the :mod:`ASE
+conventions <ase.units>`, most importantly electron volts and
 angstroms.
+
 
 -----------------------
 Doing a PAW calculation
@@ -45,14 +46,14 @@ In Python code, it looks like this:
     
 If the above code was executed, a calculation for a single `\rm{H}_2`
 molecule would be started.  The calculation would be done using a
-supercell of size :math:`6.0 \times 6.0 \times 6.0` Å with cluster
+supercell of size `6.0 \times 6.0 \times 6.0` Å with cluster
 boundary conditions.  The parameters for the PAW calculation are:
 
 * 2 electronic bands.
 * Local density approximation (LDA)\ [#LDA]_ for the
   exchange-correlation functional.
 * Spin-paired calculation.
-* :math:`32 \times 32 \times 32` grid points.
+* `32 \times 32 \times 32` grid points.
 
 The values of these parameters can be found in the text output file:
 :download:`h2.txt`.
@@ -293,7 +294,7 @@ Currently all the hybrid functionals use the PBE setup as a *base* setup.
 
 For more information about ``gpaw-setup`` see :ref:`generation_of_setups`.
 
-Set the location of setups as described on :ref:`installationguide_setup_files`.
+Set the location of setups as described on :ref:`installation of paw datasets`.
 
 The details of the implementation of the exchange-correlation
 are described on the :ref:`xc_functionals` page.
@@ -537,7 +538,7 @@ In words:
   should be less than 0.001 electrons per valence electron.
 
 * The integrated value of the square of the residuals of the Kohn-Sham
-  equations should be less than :math:`4.0 \times 10^{-8}
+  equations should be less than `4.0 \times 10^{-8}
   \mathrm{eV}^2` per valence electron (FD mode only).
 
 * The maximum change in the magnitude of the vector representing the
@@ -632,7 +633,7 @@ used in the calulation.
 For a given element ``E``, setup name ``NAME``, and xc-functional
 'XC', GPAW looks for the file :file:`E.NAME.XC` or :file:`E.NAME.XC.gz`
 (in that order) in the setup locations
-(see :ref:`installationguide_setup_files`).
+(see :ref:`installation of paw datasets`).
 Unless ``NAME='paw'``, in which case it will simply look for
 :file:`E.XC` (or :file:`E.XC.gz`).
 The ``setups`` keyword can be either a single string, or a dictionary.
@@ -656,7 +657,7 @@ There exist three special names that, if used, do not specify a file name:
   atom. I.e. no PAW or pseudo potential is used.
 * ``sg15`` specifies the `SG15 optimized norm-conserving Vanderbilt
   pseudopotentials`_ for the PBE functional.  These have to be
-  installed separately.  Use :file:`gpaw-install-setups --sg15
+  installed separately.  Use :command:`gpaw install-data --sg15
   {<dir>}` to download and unpack the pseudopotentials into
   :file:`{<dir>}/sg15_oncv_upf_{<version>}`.  As of now, the SG15
   pseudopotentials should still be considered experimental in GPAW.
@@ -699,7 +700,7 @@ constructed by solving the Kohn-Sham equations in the LCAO basis.
 
 If ``basis`` is a string, :file:`basis='basisname'`, then GPAW will
 look for files named :file:`{symbol}.{basisname}.basis` in the setup
-locations (see :ref:`installationguide_setup_files`), where
+locations (see :ref:`installation of paw datasets`), where
 :file:`{symbol}` is taken as the chemical symbol from the ``Atoms``
 object.  If a non-default setup is used for an element, its name is
 included as :file:`{symbol}.{setupname}.{basisname}.basis`.
@@ -727,7 +728,7 @@ The value ``None`` (default) implies that the pseudo partial waves
 from the setup are used as a basis. This basis is always available;
 choosing anything else requires the existence of the corresponding
 basis set file in setup locations
-(see :ref:`installationguide_setup_files`).
+(see :ref:`installation of paw datasets`).
 
 For details on the LCAO mode and generation of basis set files; see
 the :ref:`LCAO <lcao>` documentation.

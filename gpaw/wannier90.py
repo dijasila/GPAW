@@ -3,6 +3,7 @@ import numpy as np
 from gpaw.utilities.blas import gemmdot
 from ase.units import Bohr
 
+
 class Wannier90:
     
     def __init__(self, calc, seed=None, bands=None, orbitals_ai=None,
@@ -36,8 +37,9 @@ class Wannier90:
         self.kpts_kc = calc.get_ibz_k_points()
         self.Nk = len(self.kpts_kc)
         self.spin = spin
+
         
-def write_input(calc, 
+def write_input(calc,
                 seed=None,
                 bands=None,
                 orbitals_ai=None,
@@ -47,7 +49,8 @@ def write_input(calc,
                 dis_num_iter=200,
                 dis_froz_max=0.1,
                 dis_mix_ratio=0.5,
-                spinors=False): 
+                search_shells=None,
+                spinors=False):
     
     if seed is None:
         seed = calc.atoms.get_chemical_formula()
@@ -93,7 +96,7 @@ def write_input(calc,
         for orb in orbitals_i:
             l = l_i[orb]
             n = n_i[orb]
-            print('f=%1.2f, %1.2f, %1.2f : s ' % (r_c[0], r_c[1], r_c[2]), 
+            print('f=%1.2f, %1.2f, %1.2f : s ' % (r_c[0], r_c[1], r_c[2]),
                   end='', file=f)
             print('# n = %s, l = %s' % (n, l), file=f)
 
@@ -107,6 +110,9 @@ def write_input(calc,
     print('hr_plot = True', file=f)
     print(file=f)
     print('num_bands       = %d' % len(bands), file=f)
+
+    if search_shells is not None:
+        print("search_shells = {0}".format(search_shells), file=f)
 
     maxn = max(bands)
     if maxn + 1 != len(bands):
@@ -129,6 +135,8 @@ def write_input(calc,
 
     if len(bands) > Nw:
         ef = calc.get_fermi_level()
+        if hasattr(ef, 'dtype'):
+            ef = (ef[0] + ef[1]) / 2
         print('# Fermi level: %2.3f' % ef, file=f)
         print('dis_froz_max  = %2.3f' % (ef + dis_froz_max), file=f)
         print('dis_num_iter  = %d' % dis_num_iter, file=f)
@@ -137,7 +145,7 @@ def write_input(calc,
 
     print('begin unit_cell_cart', file=f)
     for cell_c in calc.atoms.cell:
-        print('%14.10f %14.10f %14.10f' % (cell_c[0], cell_c[1], cell_c[2]), 
+        print('%14.10f %14.10f %14.10f' % (cell_c[0], cell_c[1], cell_c[2]),
               file=f)
     print('end unit_cell_cart', file=f)
     print(file=f)
@@ -167,8 +175,9 @@ def write_input(calc,
         print('%14.10f %14.10f %14.10f' % (kpt[0], kpt[1], kpt[2]), file=f)
     print('end kpoints', file=f)
 
-    f.close()    
+    f.close()
 
+    
 def write_projections(calc, seed=None, spin=0, orbitals_ai=None, v_knm=None):
 
     if seed is None:
@@ -179,7 +188,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, v_knm=None):
 
     spinors = False
 
-    win_file = open(seed  + '.win')
+    win_file = open(seed + '.win')
     for line in win_file.readlines():
         l_e = line.split()
         if len(l_e) > 0:
@@ -232,7 +241,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, v_knm=None):
     for ik in range(Nk):
         if spinors:
             P_ani = get_spinorbit_projections(calc, ik, v_knm[ik])
-        else:    
+        else:
             P_ani = calc.wfs.kpt_u[spin * Nk + ik].P_ani
         for i in range(Nw):
             icount = 0
@@ -252,6 +261,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, v_knm=None):
     
     f.close()
 
+    
 def write_eigenvalues(calc, seed=None, spin=0, e_km=None):
 
     if seed is None:
@@ -272,6 +282,7 @@ def write_eigenvalues(calc, seed=None, spin=0, e_km=None):
 
     f.close()
 
+    
 def write_overlaps(calc, seed=None, spin=0, v_knm=None):
 
     if seed is None:
@@ -287,9 +298,8 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None):
     kpts_kc = calc.get_bz_k_points()
     Nk = len(kpts_kc)
 
-    nnkp = open(seed  + '.nnkp', 'r')
+    nnkp = open(seed + '.nnkp', 'r')
     lines = nnkp.readlines()
-    neighbor_kb = []
     for il, line in enumerate(lines):
         if len(line.split()) > 1:
             if line.split()[0] == 'begin' and line.split()[1] == 'nnkpts':
@@ -297,12 +307,12 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None):
                 i0 = il + 2
                 break
 
-    f = open(seed + '.mmn', 'w')    
+    f = open(seed + '.mmn', 'w')
 
     print('Kohn-Sham input generated from GPAW calculation', file=f)
     print('%10d %6d %6d' % (Nn, Nk, Nb), file=f)
 
-    icell_cv = (2 * np.pi) * np.linalg.inv(calc.wfs.gd.cell_cv).T 
+    icell_cv = (2 * np.pi) * np.linalg.inv(calc.wfs.gd.cell_cv).T
     r_g = calc.wfs.gd.get_grid_point_coordinates()
     Ng = np.prod(np.shape(r_g)[1:]) * (spinors + 1)
 
@@ -335,7 +345,7 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None):
     for ik in range(Nk):
         if spinors:
             P_kani.append(get_spinorbit_projections(calc, ik, v_knm[ik]))
-        else:    
+        else:
             P_kani.append(calc.wfs.kpt_u[spin * Nk + ik].P_ani)
 
     for ik1 in range(Nk):
@@ -352,7 +362,7 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None):
             u2_nG = u2_nG * np.exp(-1.0j * gemmdot(bG_v, r_g, beta=0.0))
             M_mm = get_overlap(calc,
                                bands,
-                               np.reshape(u1_nG, (len(u1_nG), Ng)), 
+                               np.reshape(u1_nG, (len(u1_nG), Ng)),
                                np.reshape(u2_nG, (len(u2_nG), Ng)),
                                P_kani[ik1],
                                P_kani[ik2],
@@ -367,9 +377,8 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None):
 
     f.close()
 
+    
 def get_overlap(calc, bands, u1_nG, u2_nG, P1_ani, P2_ani, dO_aii, bG_v):
-
-    Nn = len(u1_nG)
     M_nn = np.dot(u1_nG.conj(), u2_nG.T) * calc.wfs.gd.dv
     r_av = calc.atoms.positions / Bohr
     for ia in range(len(P1_ani.keys())):
@@ -381,9 +390,9 @@ def get_overlap(calc, bands, u1_nG, u2_nG, P1_ani, P2_ani, dO_aii, bG_v):
 
     return M_nn
 
+    
 def get_bands(seed):
-
-    win_file = open(seed  + '.win')
+    win_file = open(seed + '.win')
     exclude_bands = None
     for line in win_file.readlines():
         l_e = line.split()
@@ -391,8 +400,8 @@ def get_bands(seed):
             if l_e[0] == 'num_bands':
                 Nn = int(l_e[2])
             if l_e[0] == 'exclude_bands':
-                exclude_bands=line.split()[2]
-                exclude_bands=[int(n) - 1 for n in exclude_bands.split(',')]
+                exclude_bands = line.split()[2]
+                exclude_bands = [int(n) - 1 for n in exclude_bands.split(',')]
     if exclude_bands is None:
         bands = range(Nn)
     else:
@@ -402,12 +411,12 @@ def get_bands(seed):
 
     return bands
 
+    
 def get_spinorbit_projections(calc, ik, v_nm):
     # For spinors the number of projectors and bands are doubled
     Na = len(calc.atoms)
     Nk = len(calc.get_ibz_k_points())
     Ns = calc.wfs.nspins
-    Nn = calc.wfs.bd.nbands    
 
     v0_mn = v_nm[::2].T
     v1_mn = v_nm[1::2].T
@@ -425,11 +434,11 @@ def get_spinorbit_projections(calc, ik, v_nm):
 
     return P_ani
 
+    
 def get_spinorbit_wavefunctions(calc, ik, v_nm):
     # For spinors the number of bands is doubled and a spin dimension is added
-    Nk = len(calc.get_ibz_k_points())
     Ns = calc.wfs.nspins
-    Nn = calc.wfs.bd.nbands    
+    Nn = calc.wfs.bd.nbands
 
     v0_mn = v_nm[::2].T
     v1_mn = v_nm[1::2].T
@@ -450,6 +459,7 @@ def get_spinorbit_wavefunctions(calc, ik, v_nm):
 
     return u_mG
 
+    
 def write_wavefunctions(calc, v_knm=None, spin=0, seed=None):
 
     wfs = calc.wfs
@@ -465,7 +475,6 @@ def write_wavefunctions(calc, v_knm=None, spin=0, seed=None):
     bands = get_bands(seed)
     Nn = len(bands)
     Nk = len(calc.get_ibz_k_points())
-    r_g = wfs.gd.get_grid_point_coordinates()
 
     for ik in range(Nk):
         if spinors:
