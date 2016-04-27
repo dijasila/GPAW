@@ -62,7 +62,7 @@ class LibVDWXC(object):
         self.shape = tuple(N_c)
         ptr = np.empty(1, np.intp)
         _gpaw.libvdwxc_create(ptr, code, self.shape,
-                              tuple(cell_cv.ravel()))
+                              tuple(np.ravel(cell_cv)))
         # assign ptr only now that it is initialized (so __del__ always works)
         self._ptr = ptr
 
@@ -229,7 +229,7 @@ class VDWXC(GGA, object):
         GGA.__init__(self, gga_kernel)
 
         # We set these in the initialize later (ugly).
-        self.libvwxc = None
+        self.libvdwxc = None
         self.distribution = None
         self.redist_wrapper = None
         self.timer = nulltimer
@@ -241,6 +241,8 @@ class VDWXC(GGA, object):
 
     @property
     def name(self):
+        if self.libvdwxc is None:
+            return 'libvdwxc (uninitialized)'
         return self.libvdwxc.get_description()
 
     @name.setter
@@ -270,7 +272,20 @@ class VDWXC(GGA, object):
         GGA.initialize(self, density, hamiltonian, wfs, occupations)
         self.timer = hamiltonian.timer  # fragile object robbery
         self.timer.start('initialize')
-        self._initialize(hamiltonian.finegd)
+        try:
+            gd = density.xc_grid2grid.big_gd
+        except AttributeError:
+            gd = density.finegd
+        if wfs.world.size > gd.comm.size:
+            # We could issue a warning if an excuse turns out to exist some day
+            raise ValueError('You are using libvdwxc with only '
+                             '%d out of %d available cores.  This is not '
+                             'a crime but is likely silly and therefore '
+                             'triggers and error.  Please use '
+                             'parallel={\'augment_grids\': True} '
+                             'or complain to the developers.' %
+                             (gd.comm.size, wfs.world.size))
+        self._initialize(gd)
         # TODO Here we could decide FFT padding.
         self.timer.stop('initialize')
 
@@ -330,6 +345,11 @@ def vdw_df2(*args, **kwargs):
 def vdw_df_cx(*args, **kwargs):
     # Exists also in libxc 2.2.2 or newer (or maybe from older)
     kernel = CXGGAKernel()
+    return VDWXC(gga_kernel=kernel, name='vdW-DF-CX', *args, **kwargs)
+
+
+def vdw_df_cx_libxc(*args, **kwargs):
+    kernel = LibXC('GGA_X_LV_RPW86+LDA_C_PW')
     return VDWXC(gga_kernel=kernel, name='vdW-DF-CX', *args, **kwargs)
 
 
