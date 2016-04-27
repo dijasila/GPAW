@@ -7,7 +7,7 @@ import ase.units
 from ase.utils import devnull
 import gpaw.mpi as mpi
 import sys
-import os   
+import os
 
 Hartree = 27.2113956555
 Bohr = 0.529177257507
@@ -991,11 +991,11 @@ class BuildingBlock():
             # self.clear_temp_files()
         # Induced densities are not probably described in q-> 0 limit-
         # replace with finite q result:
-                
-        for n in range(Nq):
-            if np.allclose(self.q_cs[n], 0):
-                self.drhoM_qz[n] = self.drhoM_qz[self.nq_cut]
-                self.drhoD_qz[n] = self.drhoD_qz[self.nq_cut]
+        if self.world.rank == 0:        
+            for n in range(Nq):
+                if np.allclose(self.q_cs[n], 0):
+                    self.drhoM_qz[n] = self.drhoM_qz[self.nq_cut]
+                    self.drhoD_qz[n] = self.drhoD_qz[self.nq_cut]
                 
         self.complete = True
         self.save_chi_file()   
@@ -1028,7 +1028,7 @@ class BuildingBlock():
 
         if self.world.rank == 0:
             with open(filename + '-chi.pckl', 'wb') as fd:
-                pickle.dump(data, fd)
+                pickle.dump(data, fd, pickle.HIGHEST_PROTOCOL)
 
     def load_chi_file(self):
         try:
@@ -1212,7 +1212,8 @@ def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
     """
     if name is not None:
         pickle.dump((np.array(q_list_abs), omega_w, chiM_qw, chiD_qw,
-                     z, drhoM_qz, drhoD_qz), open(name + '-chi.pckl', 'w'))
+                     z, drhoM_qz, drhoD_qz), open(name + '-chi.pckl', 'w'),
+                    pickle.HIGHEST_PROTOCOL)
     return np.array(q_list_abs) / Bohr, omega_w * Hartree, chiM_qw, \
         chiD_qw, z, drhoM_qz, drhoD_qz
 
