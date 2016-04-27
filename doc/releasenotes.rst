@@ -10,6 +10,9 @@ Git master branch
 
 :git:`master <>`.
 
+* There was a **BUG** in the recently added spin-orbit module.  Should now
+  be fixed.
+
 * There is a new PAW-dataset file available:
   :ref:`gpaw-setup-0.9.20000.tar.gz <datasets>`.
   It's identical to the previous
