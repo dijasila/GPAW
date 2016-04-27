@@ -40,6 +40,7 @@ Specialized tutorials
    hubbardu/hubbardu
    jellium/jellium
    hydrogen/h
+   defects/defects
    stm/stm
    bader/bader
    all-electron/all_electron_density
