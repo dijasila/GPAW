@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import ase.db
 
@@ -8,8 +9,8 @@ data = []
 for row in con.select():
     data.append((row.optimizer,
                  row.name,
-                 row.time,
-                 row.steps,
+                 row.get('time', 42),
+                 row.get('steps', 42),
                  row.get('energy', 42),
                  row.get('fmax', 42)))
 data.sort()
