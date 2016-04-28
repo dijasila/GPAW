@@ -12,10 +12,10 @@ import gpaw.mpi as mpi
 
 
 class Unfold:
-    '''This Class is used to Unfold the Bands of a supercell (SC) calculations
-       into a the primitive cell (PC). As a convention (when possible) capital
-       letters variables are related to the SC while lowercase ones to the
-       PC '''
+    """This Class is used to Unfold the Bands of a supercell (SC) calculations
+    into a the primitive cell (PC). As a convention (when possible) capital
+    letters variables are related to the SC while lowercase ones to the
+    PC """
 
     def __init__(self,
                  name=None,
@@ -47,7 +47,7 @@ class Unfold:
         self.v_Knm = None
         if spinorbit:
             if mpi.world.rank == 0:
-                print ('Calculating spinorbit Corrections')
+                print('Calculating spinorbit Corrections')
             self.nb = 2 * self.calc.get_number_of_bands()
             self.e_mK, self.v_Knm = get_spinorbit_eigenvalues(self.calc,
                                                               return_wfs=True)
@@ -55,7 +55,7 @@ class Unfold:
                 print('Done with the spinorbit Corrections')
                                                     
     def get_K_index(self, K):
-        ''' Find the index of a given K'''
+        """Find the index of a given K."""
 
         K = np.array([K])
         bzKG = to1bz(K, self.acell_cv)[0]
@@ -63,9 +63,9 @@ class Unfold:
         return iK
 
     def get_g(self, iK):
-        ''' Not all the G vectors are relevant for the bands unfolding,
-            but only the ones that match the PC reciprocal vectors.
-            This function finds the relevant ones.'''
+        """Not all the G vectors are relevant for the bands unfolding,
+        but only the ones that match the PC reciprocal vectors.
+        This function finds the relevant ones."""
       
         G_Gv_temp = self.pd.get_reciprocal_vectors(q=iK, add_q=False)
         G_Gc_temp = np.dot(G_Gv_temp, np.linalg.inv(self.bcell_cv))
@@ -83,7 +83,7 @@ class Unfold:
         return np.array(iG_list), np.array(g_list)
 
     def get_G_index(self, iK, G, G_list):
-        ''' Find the index of a given G'''
+        """Find the index of a given G."""
      
         G_list -= G
         sumG = np.sum(abs(G_list), axis=1)
@@ -91,7 +91,7 @@ class Unfold:
         return iG
 
     def get_eigenvalues(self, iK):
-        ''' Get the list of eigenvalues for a given iK '''
+        """Get the list of eigenvalues for a given iK."""
 
         if self.spinorbit is False:
             e_m = self.calc.get_eigenvalues(kpt=iK, spin=0) / Hartree
@@ -100,9 +100,9 @@ class Unfold:
         return np.array(e_m)
 
     def get_pw_wavefunctions_k(self, iK):
-        ''' Get the list of Fourier coefficients of the WaveFunction for a
-            given iK. For spinors the number of bands is doubled and a spin
-            dimension is added'''
+        """Get the list of Fourier coefficients of the WaveFunction for a
+        given iK. For spinors the number of bands is doubled and a spin
+        dimension is added."""
 
         psi_mgrid = get_rs_wavefunctions_k(self.calc, iK, self.spinorbit,
                                            self.v_Knm)
@@ -132,11 +132,14 @@ class Unfold:
             return u_mG
     
     def get_spectral_weights_k(self, k_t):
-        ''' Returns the spectral weights for a given k in the PC:
-                 P_mK(k_t) = \sum_n |<Km|k_t n>|**2
-            which can be shown to be equivalent to:
-                P_mK(k_t) = \sum_g |C_Km(g+k_t-K)|**2
-        '''
+        """Returns the spectral weights for a given k in the PC:
+            
+            P_mK(k_t) = \sum_n |<Km|k_t n>|**2
+        
+        which can be shown to be equivalent to:
+        
+            P_mK(k_t) = \sum_g |C_Km(g+k_t-K)|**2
+        """
   
         K_c, G_t = find_K_from_k(k_t, self.M)
         iK = self.get_K_index(K_c)
@@ -172,8 +175,9 @@ class Unfold:
         return np.array(P_m)
 
     def get_spectral_weights(self, kpoints, filename=None):
-        ''' Collect the spectral weights for the k points in the kpoints list.
-            This function is parallelized over ks.'''
+        """Collect the spectral weights for the k points in the kpoints list.
+        
+        This function is parallelized over k's."""
 
         Nk = len(kpoints)
         Nb = self.nb
@@ -211,7 +215,7 @@ class Unfold:
         return e_mK, P_mK
   
     def spectral_function(self, kpts, width=0.002, npts=10000, filename=None):
-        '''Returns the spectral function for all the ks in kpoints:
+        """Returns the spectral function for all the ks in kpoints:
                                                                                             
                                               eta / pi
                                                                                       
@@ -221,7 +225,7 @@ class Unfold:
                                                                                
  
         at each k-points defined on npts energy points in the range
-        [emin, emax]. The width keyword is FWHM = 2 * eta.'''
+        [emin, emax]. The width keyword is FWHM = 2 * eta."""
 
         Nk = len(kpts)
         A_ke = np.zeros((Nk, npts), float)
@@ -242,12 +246,11 @@ class Unfold:
         if world.rank == 0:
             pickle.dump((e, A_ke), open('sf_' + self.name + '.pckl', 'wb'))
             print('Spectral Function calculation completed!')
-        return
 
 
 def find_K_from_k(k, M):
-    ''' Gets a k vector in scaled coordinates and returns a K vector and the
-        unfolding G in scaled Coordinates'''
+    """Gets a k vector in scaled coordinates and returns a K vector and the
+    unfolding G in scaled Coordinates."""
 
     KG = np.dot(M, k)
     G = np.zeros(3, dtype=int)
@@ -264,8 +267,8 @@ def find_K_from_k(k, M):
 
 
 def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Knm=None):
-    ''' Get the list of WaveFunction for a given iK. For spinors the number of
-        bands is doubled and a spin dimension is added'''
+    """Get the list of WaveFunction for a given iK. For spinors the number of
+    bands is doubled and a spin dimension is added."""
  
     N_c = calc.wfs.gd.N_c
     k_c = calc.wfs.kd.ibzk_kc[iK]
@@ -304,8 +307,8 @@ def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Knm=None):
 
 def plot_spectral_function(e, A_ke, x, X, points_name,
                            color='blue', emin=None, emax=None):
-    ''' Function to plot spectral function corresponding to the bandstructure
-        along the kpoints path'''
+    """Function to plot spectral function corresponding to the bandstructure
+    along the kpoints path."""
  
     import matplotlib.pyplot as plt
     print('Plotting Spectral Function')
@@ -344,9 +347,9 @@ def plot_spectral_function(e, A_ke, x, X, points_name,
 
 def plot_band_structure(e_mK, P_mK, x, X, points_name,
                         weights_mK=None, color='red', fit=True, nfit=200):
-    ''' Function to plot the bandstructure using the P_mK weights directly.
-        each point is represented with a filled circle, whose size and color
-        vary with as a function of P_mK'''
+    """Function to plot the bandstructure using the P_mK weights directly.
+    each point is represented with a filled circle, whose size and color
+    vary with as a function of P_mK."""
 
     import matplotlib.pyplot as plt
     print('Plotting Bands Structure')
@@ -381,8 +384,8 @@ def plot_band_structure(e_mK, P_mK, x, X, points_name,
 
 
 def make_colormap(main_color):
-    ''' Custom colormaps used in plot_spectral function and
-        plot_band_structure '''
+    """Custom colormaps used in plot_spectral function and
+    plot_band_structure."""
 
     from matplotlib.colors import LinearSegmentedColormap
     if main_color == 'blue':
@@ -443,7 +446,7 @@ def make_colormap(main_color):
 
 
 def get_vacuum_level(calc, plot_pot=False):
-    ''' Get the vacuum energy level from a given calculator'''
+    """Get the vacuum energy level from a given calculator."""
 
     calc.restore_state()
     if calc.wfs.mode is 'pw':

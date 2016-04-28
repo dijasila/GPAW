@@ -1,5 +1,8 @@
+import pickle
+
 from ase.build import mx2
 from ase.dft.kpoints import get_bandpath, special_points
+from ase.parallel import paropen
 
 from gpaw import GPAW
 from gpaw.unfold import Unfold, find_K_from_k
@@ -7,8 +10,11 @@ from gpaw.unfold import Unfold, find_K_from_k
 a = 3.184
 PC = mx2(a=a).cell
 path = [special_points['hexagonal'][k] for k in 'MKG']
-kpts, x, X = get_bandpath(path, PC, 48)
+kpts, x, X = get_bandpath(path, PC, 8)
 
+with paropen('x.pckl', 'wb') as fd:
+    pickle.dump((x, X), fd)
+    
 M = [[3, 0, 0], [0, 3, 0], [0, 0, 1]]
 
 Kpts = []
