@@ -36,7 +36,7 @@ Specialized tutorials
    :maxdepth: 2
 
    band_gap/band_gap
-   bands_unfolding/unfolding_tutorial
+   unfold/unfold
    dipole_correction/dipole
    hubbardu/hubbardu
    jellium/jellium
