@@ -678,3 +678,4 @@ class RealSpaceHamiltonian(Hamiltonian):
             dens.ghat.derivative(self.vHt_g, ghat_aLv)
         
         dens.nct.derivative(vt_G, nct_av)
+

@@ -22,52 +22,76 @@ from ase.units import Hartree
 class Marcus_parameters:
 
     def __init__(self, cdft_a = None, cdft_b = None,
+               calc_a = None, calc_b = None, wfs_a = 'initial.gpw',
+               wfs_b = 'final.gpw', gd = None,
+               FA = None, FB = None, Va = None, Vb = None,
+               NA = None, NB = None, weightA = None, weightB = None,
                h = 0.05,
                E_KS_A = None, E_KS_B = None,
                freq = None, temp = None, E_tst = None):
         
         '''cdft_a cdft_b: cdft calculators
-        freq: float
-            effective frequency
-        temp: float
-            temperature in K
-        E_tst: float 
-            adiabatic reaction barrier
+        freq = effective frequency
+        temp = temperature
+        E_tst = adiabatic reaction barrier
         '''
-        self.cdft_a = cdft_a
-        self.cdft_b = cdft_b
+        if cdft_a is not None and cdft_b is not None:
+            self.cdft_a = cdft_a
+            self.cdft_b = cdft_b
         
-        self.calc_a = self.cdft_a.calc
-        self.calc_b = self.cdft_b.calc
-        self.gd = self.cdft_a.get_grid()
-        # cDFT free energies
-        # <A|H^KS + V_a w_a|A>
-        self.FA = self.cdft_a.cdft_energy()
-        self.FB = self.cdft_b.cdft_energy()
+            self.calc_a = self.cdft_a.calc
+            self.calc_b = self.cdft_b.calc
+            self.gd = self.cdft_a.get_grid()
+            # cDFT energies
+            self.FA = self.cdft_a.cdft_energy()
+            self.FB = self.cdft_b.cdft_energy()
         
-        # lagrange multipliers
-        self.Va = self.cdft_a.get_lagrangians() * Hartree
-        self.Vb = self.cdft_b.get_lagrangians() * Hartree
-        # Weight functions
-        self.weightA = self.cdft_a.get_weight()
-        self.weightB = self.cdft_b.get_weight()
+            # lagrange multipliers
+            self.Va = self.cdft_a.get_lagrangians() * Hartree
+            self.Vb = self.cdft_b.get_lagrangians() * Hartree
+            # Weight functions
+            self.weightA = self.cdft_a.get_weight()
+            self.weightB = self.cdft_b.get_weight()
             
-        #constraint values
-        self.NA = self.cdft_a.get_constraints()
-        self.NB = self.cdft_b.get_constraints()
+            #constraint values
+            self.NA = self.cdft_a.get_constraints()
+            self.NB = self.cdft_b.get_constraints()
 
-        # KS calculators (not cDFT) for non-self consistent
-        # calculation using cDFT density
+            # KS calculators (not cDFT) for non-self consistent
+            # calculation using cDFT density
         
-        self.KS_calc_a = cdft_a.calc.set(external = None, fixdensity = True)
-        self.KS_calc_b = cdft_b.calc.set(external = None, fixdensity = True)       
+            self.KS_calc_a = cdft_a.calc.set(external = None, fixdensity = True)
+            self.KS_calc_b = cdft_b.calc.set(external = None, fixdensity = True)
+        
+        else:
+            self.calc_a = calc_a
+            self.calc_b = calc_b
+            self.gd = self.calc_a.density.finegd
+            # cDFT energies
+            self.FA = FA
+            self.FB = FB
+        
+            # Weights, i.e., lagrange multipliers
+            self.Va = Va * Hartree
+            self.Vb = Va * Hartree
+        
+            # Weight functions
+            self.weightA = weightA
+            self.weightB = weightB
+            self.NA = NA
+            self.NB = NB            
 
         # KS energies with cDFT densities
         self.E_KS_A = E_KS_A
         self.E_KS_B = E_KS_B
 
-        self.wfs_a = self.calc_a.wfs
-        self.wfs_b = self.calc_b.wfs
+        # initialize
+        if wfs_a and wfs_b:
+            self.wfs_a = wfs_a
+            self.wfs_b = wfs_b
+        else:
+            self.wfs_a = self.calc_a.wfs
+            self.wfs_b = self.calc_b.wfs
         
         self.density = self.calc_a.density.finegd.zeros()
         self.atoms = self.calc_a.atoms
@@ -88,7 +112,7 @@ class Marcus_parameters:
             self.temp = temp
         else:
             self.temp = 298
-            
+        print ('THE NEW MARCUS MODULE')
     def get_coupling_term(self):
         
         '''solves the generalized eigen-equation
@@ -161,10 +185,7 @@ class Marcus_parameters:
 
     def get_ae_weight_matrix(self):
     	''' Compute W_AB =  <Psi_A|sum_i w_i^B(r)| Psi_B>
-    	=sum_i int dr n_ab(r) w_i^B(r) 
-    	n_ab = n_ab_pseudo + sum_a sum_kl D^a_ijkl (psi_l^a*psi_k^a -
-            pseudo(psi_a^l)*pseudo(psi_a^k) ) 
-        pair density
+    	with all-electron pair density
         '''
         
         ns = self.calc_a.wfs.nspins
@@ -193,7 +214,7 @@ class Marcus_parameters:
     	if n_bands_a == n_bands_b:
             n_bands = n_bands_a
         else:
-            n_bands = np.max(n_bands_a,n_bands_b)
+            n_bands = np.max((n_bands_a,n_bands_b))
     	
     	# list to store k-dependent weight matrices
     	w_ij_AB =[]
@@ -208,7 +229,7 @@ class Marcus_parameters:
     	    if na == nb:
                 n_occup = na
             else:
-                n_occup = np.max(na,nb)
+                n_occup = np.max((na,nb))
     	    
     	    occup_k = n_occup
     	    w_ij_AB.append(np.zeros((occup_k,occup_k)))
@@ -217,26 +238,49 @@ class Marcus_parameters:
             Vaw_ij_BA.append(np.zeros((occup_k,occup_k)))
         
         w_k = []
-        
+        # get weight matrix at for each ij band at kpt and spin
+        # the resulting matrix is organized in alpha and beta blocks
+        #    |       |    |
+        #    |  a    | 0  |    a:<psi_a|w|psi_a> != 0 
+        # W =|_______|____|  , <psi_a|w|psi_b> = 0
+        #    |   0   |  b |    b:<psi_b|w|psi_b> != 0
+        #    |       |    |
+        #
+        # a = nAa x nAa, b = nAb x nAb        
         for spin in range(ns):      
             for kpt_a, kpt_b in zip(self.calc_a.wfs.kpt_u[spin*nk:(spin+1)*nk], 
                  self.calc_b.wfs.kpt_u[spin*nk:(spin+1)*nk]):
-                
+                               
                 k = kpt_a.k
-    	        na = n_occup_a[k].sum() # sum spins
-    	        nb = n_occup_b[k].sum()
-    	        if na == nb:
-                    n_occup = na
-                else:
-                    n_occup = np.max(na,nb)
-                # band indices
-                if n_occup.sum() <= n_bands:
-                    bands = n_occup.sum()
-                else:
-                    bands = n_bands
+                nAa = n_occup_a[k][0]
+                nAb =  n_occup_a[k][1]
+                nBa, nBb = n_occup_b[k][0], n_occup_b[k][1]
+
+                nA = nAa + nAb
                 
-                for i in range(bands): 
-                    for j in range(bands):
+                nB = nBa + nBb
+
+                # check that a and b cDFT states have similar spin state
+                if np.sign(nAa-nAb) != np.sign(nBa-nBb):
+                    raise ValueError('The cDFT wave functions have'
+                        'different spin states! Similar'
+                        'spin states are required for coupling constant'
+                        'calculation!')
+
+                if na==nb:
+                    n_occup=nA
+                else:
+                    n_occup = np.max((nA,nB))
+                
+                # size of alpha block
+                # ideally A and B contain equivalent amount of alphas...
+                if nAa >= nAb: # more alphas
+                    nas = n_occup - np.min((nAb,nBb))
+                else: # more betas
+                    nas = n_occup - np.min((nAa,nBa))
+                
+                for i in range(n_occup): 
+                    for j in range(n_occup):
                         # take only the bands which contain electrons
                         if i < n_occup_a[k][spin] and j < n_occup_b[k][spin]:
                             psi_ka = psi_a.get_wave_function(n = i, k = k, s = spin,ae = True)
@@ -274,12 +318,16 @@ class Marcus_parameters:
                         
                             print 'w_ab, w_ba', w_ab, w_ba
                             # fill the pair density-weight matrix
-
-                            w_ij_AB[k][2*i+spin][2*j+spin] = w_ab.sum()
-                            w_ij_BA[k][2*j+spin][2*i+spin] = w_ba.sum()
-                            Vbw_ij_AB[k][2*i+spin][2*j+spin] = (self.Vb * w_ab).sum()
-                            Vaw_ij_BA[k][2*j+spin][2*i+spin] = (self.Va * w_ba).sum()
-                        
+                            if spin == 0:
+                                w_ij_AB[k][i][j] = w_ab.sum()
+                                w_ij_BA[k][j][i] = w_ba.sum()
+                                Vbw_ij_AB[k][i][j] = (self.Vb * w_ab).sum()
+                                Vaw_ij_BA[k][j][i] = (self.Va * w_ba).sum()
+                            else:
+                                w_ij_AB[k][nas+i][nas+j] = w_ab.sum()
+                                w_ij_BA[k][nas+j][nas+i] = w_ba.sum()
+                                Vbw_ij_AB[k][nas+i][nas+j] = (self.Vb * w_ab).sum()
+                                Vaw_ij_BA[k][nas+j][nas+i] = (self.Va * w_ba).sum()
         #get determinants for each kpt
         W_k_AB = np.zeros(nk)
         W_k_BA = np.zeros(nk)
@@ -306,7 +354,7 @@ class Marcus_parameters:
         return self.W, self.VW
     
     def get_ae_overlap_matrix(self):                       
-        ''' using the all-electron pair density'''
+        ''' <Psi_A|Psi_B> using the all-electron pair density'''
         
         psi_a = PS2AE(self.calc_a, h = self.h, n = 2)
         psi_b = PS2AE(self.calc_b, h = self.h, n = 2)
@@ -315,7 +363,7 @@ class Marcus_parameters:
     	nk = len(self.calc_a.wfs.kd.weight_k)        
         self.S = np.identity(2)
         
-        # total of filled a and b bands for each spin
+        # total of filled a and b bands for each spin and kpt 
         n_occup_a = self.get_n_occupied_bands(self.calc_a) 
         n_occup_b = self.get_n_occupied_bands(self.calc_b)
     	# total a or b bands
@@ -325,7 +373,7 @@ class Marcus_parameters:
     	if n_bands_a == n_bands_b:
             n_bands = n_bands_a
         else:
-            n_bands = np.max(n_bands_a,n_bands_b)
+            n_bands = np.max((n_bands_a,n_bands_b))
     	
     	# list to store k-dependent overlap matrices
     	S_kn = []
@@ -337,34 +385,58 @@ class Marcus_parameters:
     	    if na == nb:
                 n_occup = na
             else:
-                n_occup = np.max(na,nb)	    
+                n_occup = np.max((na,nb))	    
 
     	    S_kn.append(np.zeros((n_occup,n_occup)))
 
         w_k = [] #store kpt weights
         
         # get overlap at for each ij band at kpt and spin
-        for spin in range(ns):        
+        # the resulting matrix is organized in alpha and beta blocks
+        #    |       |    |
+        #    |  a    | 0  |    a:<psi_a|psi_a> != 0 
+        # S =|_______|____|  , <psi_a|psi_b> = 0
+        #    |   0   |  b |    b:<psi_b|psi_b> != 0
+        #    |       |    |
+        #
+        # a = naa x naa, b = nab x nab
+
+        for spin in range(ns): 
             for kpt_a, kpt_b in zip(self.calc_a.wfs.kpt_u[spin*nk:(spin+1)*nk], 
-                 self.calc_b.wfs.kpt_u[spin*nk:(spin+1)*nk]):
+                self.calc_b.wfs.kpt_u[spin*nk:(spin+1)*nk]):
                 
                 k = kpt_a.k
-    	        
-    	        na = n_occup_a[k].sum() # sum spins
-    	        nb = n_occup_b[k].sum()
-    	        if na == nb:
-                    n_occup = na
+                nAa = n_occup_a[k][0]
+                nAb =  n_occup_a[k][1]
+                nBa, nBb = n_occup_b[k][0], n_occup_b[k][1]
+
+                nA = nAa + nAb
+        	    
+                nB = nBa + nBb
+
+                # check that a and b cDFT states have similar spin state
+                if np.sign(nAa-nAb) != np.sign(nBa-nBb):
+                    raise ValueError('The cDFT wave functions have'
+                        'different spin states! Similar'
+                        'spin states are required for coupling constant'
+                        'calculation!')
+
+                if na==nb:
+                    n_occup=nA
                 else:
-                    n_occup = np.max(na,nb)
-                # band indices
-                if n_occup.sum() <= n_bands:
-                    bands = n_occup.sum()
-                else:
-                    bands = n_bands
+                    n_occup = np.max((nA,nB))
                 
-                for i in range(bands): 
-                    for j in range(bands):
-                        # take only the bands which contain electrons
+                # size of alpha block
+                # ideally A and B contain equivalent amount of alphas...
+                if nAa >= nAb: # more alphas
+                    nas = n_occup - np.min((nAb,nBb))
+                else: # more betas
+                    nas = n_occup - np.min((nAa,nBa))
+                
+                # loop over all occupied spin orbitals                
+                for i in range(n_occup): 
+                    for j in range(n_occup):   
+                        # take only the bands which contain electrons in spin-orbital
                         if i < n_occup_a[k][spin] and j < n_occup_b[k][spin]:
                             psi_ka = psi_a.get_wave_function(n = i, k = k, s = spin,ae = True)
                             f_na = kpt_a.f_n[i]
@@ -378,14 +450,18 @@ class Marcus_parameters:
                             n_ij = n_ij * (f_nb/kpt_b.weight * f_na/kpt_a.weight)
                             # store k-point weights
                             w_k.append(kpt_a.weight * kpt_b.weight)
-                            
+                               
                             # fill the pair density matrix
                             # contains both a and b spin indices
                             print 'overlap, i,j, spin',n_ij, i, j,spin
                             print S_kn
-                            S_kn[k][2*i+spin][2*j+spin] += n_ij
-                            
-        # sum over kpts
+                            # spin blocks
+                            if spin == 0:
+                                S_kn[k][i][j] += n_ij
+                            elif spin==1:
+                                S_kn[k][nas + i][nas + j] += n_ij
+                                
+            # sum over kpts
         print S_kn
         S_k_AB = np.zeros(nk)
         S_k_BA = np.zeros(nk)
@@ -525,5 +601,4 @@ class Marcus_parameters:
             print full_and_partial
             # get number of full and partial
             occup_ks[k][s] += full_and_partial.sum()
-        print occup_ks
-        return occup_ks 
+        return occup_ks

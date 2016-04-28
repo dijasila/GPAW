@@ -42,8 +42,9 @@ class ConstantPotential(ExternalPotential):
         self.constant = constant / Hartree
         
     def __str__(self):
+        self.name = 'Constrant potential'
         return 'Constant potential: {0:.3f} eV'.format(self.constant * Hartree)
-        
+    
     def calculate_potential(self, gd):
         self.vext_g = gd.zeros() + self.constant
 
@@ -66,6 +67,7 @@ class ConstantElectricField(ExternalPotential):
         self.tolerance = tolerance
         
     def __str__(self):
+        self.name = 'Constant electric field'
         return ('Constant electric field: '
                 '({0:.3f}, {1:.3f}, {2:.3f}) eV/Ang'
                 .format(*(self.field_v * Hartree / Bohr)))
@@ -128,13 +130,14 @@ class PointChargePotential(ExternalPotential):
             self.R_pv = None
             
     def __str__(self):
+        self.name = 'Point-charge potential'
         return ('Point-charge potential '
                 '(points: {0}, cutoffs: {1:.3f}, {2:.3f}, {3:.3f} Ang)'
                 .format(len(self.q_p),
                         self.rc * Bohr,
                         (self.rc2 - self.width) * Bohr,
-                        self.rc2 * Bohr))
-            
+                        self.rc2 * Bohr)) 
+
     def set_positions(self, R_pv):
         """Update positions."""
         self.R_pv = np.asarray(R_pv) / Bohr
@@ -157,3 +160,4 @@ class PointChargePotential(ExternalPotential):
                            self.vext_g, dens.rhot_g, F_pv)
         gd.comm.sum(F_pv)
         return F_pv * Hartree / Bohr
+
