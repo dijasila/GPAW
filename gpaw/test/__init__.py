@@ -353,6 +353,7 @@ tests = [
     'exx/AA_enthalpy.py',                   # ~119s
     'lcao/tdgllbsc.py',                     # ~132s
     'solvation/forces.py',                  # ~140s
+    'cdft.py',
     'response/gw_MoS2_cut.py',
     'response/gwsi.py',                     # ~147s
     'response/graphene.py',                 # ~160s
