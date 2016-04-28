@@ -1,4 +1,5 @@
 .. _unfolding_tutorial:
+.. module:: gpaw.unfold
 
 ==============================================================
 Electronic Band Structure Unfolding for Supercell Calculations
@@ -46,7 +47,8 @@ calculation starting from eigenvalues and eigenfunctions of the SC one.
 Such a spectral function can be calculated as follow:
 
   .. math::
-    A(\vec{k},\epsilon) = \sum_m P_{\vec{K}m}(\vec{k}) \delta(\epsilon_{\vec{K}m}-\epsilon).
+    A(\vec{k},\epsilon) =
+    \sum_m P_{\vec{K}m}(\vec{k}) \delta(\epsilon_{\vec{K}m}-\epsilon).
  
 Remember that `\vec{k}` and `\vec{K}` are related to each other and this is why
 we made `\vec{K}` appear on the RHS.
@@ -62,7 +64,8 @@ V.Popescu and A.Zunger show in  [#unfolding_theory]_ that weights can be found
 using only SC quantities, according to:
 
   .. math::
-    P_{\vec{K}m}(\vec{k}) = \sum_{sub\{\vec{G}\}} |C_{\vec{K}m}(\vec{G}+\vec{k}-\vec{K})|^2
+    P_{\vec{K}m}(\vec{k}) = \sum_{sub\{\vec{G}\}}
+    |C_{\vec{K}m}(\vec{G}+\vec{k}-\vec{K})|^2
 
 where `C_{\vec{K}m}` are the Fourier coefficients of the eigenstate
 `|\vec{K}m\rangle` and `sub\{\vec{G}\}` a subset of reciprocal space
@@ -73,12 +76,12 @@ This is the method implemented in GPAW and it works in 'realspace', 'lcao' and
 
 .. [#unfolding_theory] V. Popescu and A. Zunger
                       Extracting E versus `\vec{k}` effective band structure
-		      from supercell calculations on alloys and impurities
-		      *Phys. Rev. B* **85**, 085201 (2012)
+                      from supercell calculations on alloys and impurities
+                      *Phys. Rev. B* **85**, 085201 (2012)
 
 
-Band Structure Unfolding for MoS2 `3\times3` supercell with single sulfur vacancy
-==================================================================================
+Band Structure Unfolding for MoS2 supercell with single sulfur vacancy
+======================================================================
 
 
 Groundstate calculation
@@ -90,20 +93,20 @@ convenient to use 'lcao' with a 'dzp' basis.
 
 .. literalinclude:: gs_3x3_defect.py
 
-It takes a few minutes if run in parallel. 
+It takes a few minutes if run in parallel.
 The last line in the script creates a .gpw file which contains all the
 informations of the system, including the wavefunctions.
 
 
-Defining the band path in the PBZ and finding the corresponding `\vec{K}` in the SBZ
-------------------------------------------------------------------------------------
+Band path in the PBZ and finding the corresponding `\vec{K}` in the SBZ
+-----------------------------------------------------------------------
 
 Next, we set up the path  in the PBZ along which we want to calculate the
 spectral function, we define the transformation matrix M, and find the
 corresponding `\vec{K}` in the SBZ.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 1-24
+    :lines: 1-23
 
 Non self-consistent calculation at the `\vec{K}` points
 -------------------------------------------------------
@@ -111,39 +114,39 @@ Once we have the relevant `\vec{K}` we have to calculate eigenvalues and
 eigenvectors; we can do that non self-consistently.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 27-36
+    :lines: 25-33
 
 Unfolding the bands and calculating Spectral Function
 -----------------------------------------------------
 
-We are now ready to proceed with the unfolding. First we set up the 'unfold'
-class.
+We are now ready to proceed with the unfolding. First we set up the
+:class:`Unfold` object.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 39-43
+    :lines: 35-38
 
 and then we call the function for calculating the spectral function.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 45
+    :lines: 40
 
 This can be run in parallel over kpoints, and you may want to do that since the
 supercell is relatively big.
 
 .. note::
+    
     The function produces two outputs, 'weights_3x3_defects.pckl' containing
-    the eigenvalues `\epsilon_{\vec{K}m}` and the weights `P_{\vec{K}m}(\vec{k})`
-    and 'sf_3x3_defects.pckl' which contains the spectral function and the
-    corresponding energy array.
+    the eigenvalues `\epsilon_{\vec{K}m}` and the weights
+    `P_{\vec{K}m}(\vec{k})` and 'sf_3x3_defects.pckl' which contains the
+    spectral function and the corresponding energy array.
 
 
 Plotting Spectral Function
 ---------------------------
 Finally you can plot the spectral function using an utility function included
-in bands_unfolding.py
+in :mod:`gpaw.unfold` module.
 
 .. literalinclude:: plot_sf.py
-    :lines: 21-28
 
 which will produce the following image:
 
@@ -151,3 +154,6 @@ which will produce the following image:
     :height: 400 px
 
 where you can clearly see the defect states in the gap!
+
+.. autofunction:: plot_spectral_function
+.. autoclass:: Unfold

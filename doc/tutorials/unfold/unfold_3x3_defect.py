@@ -10,7 +10,7 @@ from gpaw.unfold import Unfold, find_K_from_k
 a = 3.184
 PC = mx2(a=a).cell
 path = [special_points['hexagonal'][k] for k in 'MKG']
-kpts, x, X = get_bandpath(path, PC, 8)
+kpts, x, X = get_bandpath(path, PC, 48)
 
 with paropen('x.pckl', 'wb') as fd:
     pickle.dump((x, X), fd)
