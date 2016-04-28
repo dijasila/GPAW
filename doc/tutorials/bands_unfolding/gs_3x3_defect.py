@@ -1,14 +1,12 @@
-from ase import *
-from ase.build.surface import mx2
+from ase.build import mx2
 from gpaw import GPAW, FermiDirac
-
 
 structure = mx2(formula='MoS2', kind='2H', a=3.184, thickness=3.127,
                 size=(3, 3, 1), vacuum=7.5)
 structure.pbc = (1, 1, 1)
 
-#Create vacancy
-del structure[[2]]
+# Create vacancy
+del structure[2]
 
 calc = GPAW(mode='lcao',
             basis='dzp',

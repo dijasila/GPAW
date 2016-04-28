@@ -25,7 +25,7 @@ class Unfold:
                    
         self.name = name
         self.calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
-        self.M = M
+        self.M = np.array(M, dtype=float)
         self.spinorbit = spinorbit
                       
         self.gd = self.calc.wfs.gd.new_descriptor()
@@ -40,7 +40,7 @@ class Unfold:
         rpad = np.ones(3, int)
         self.acell_cv = self.gd.cell_cv
         self.acell_cv, self.bcell_cv, self.vol, self.BZvol = \
-                            get_primitive_cell(self.acell_cv, rpad=rpad)
+            get_primitive_cell(self.acell_cv, rpad=rpad)
         
         self.nb = self.calc.get_number_of_bands()
         
@@ -75,8 +75,8 @@ class Unfold:
         for iG, G in enumerate(G_Gc_temp):
             a = np.dot(G, np.linalg.inv(self.M).T)
             check = np.abs(a) % 1 < 1e-5
-            check2 = np.abs((np.abs(a[np.where(check == False)]) % 1) - 1) < 1e-5
-            if all(check) is True or all(check2) is True:
+            check2 = np.abs((np.abs(a[np.where(~check)]) % 1) - 1) < 1e-5
+            if all(check) or all(check2):
                 iG_list.append(iG)
                 g_list.append(G)
         
@@ -165,8 +165,8 @@ class Unfold:
                 norm = np.sum(np.linalg.norm(C_mG[m, 0, :])**2 +
                               np.linalg.norm(C_mG[m, 1, :])**2)
                 for iG in igG_t_list:
-                    P += np.linalg.norm(C_mG[m, 0, iG])**2 + \
-                            np.linalg.norm(C_mG[m, 1, iG])**2
+                    P += (np.linalg.norm(C_mG[m, 0, iG])**2 +
+                          np.linalg.norm(C_mG[m, 1, iG])**2)
                 P_m.append(P / norm)
         
         return np.array(P_m)
@@ -183,14 +183,14 @@ class Unfold:
             e_Km = []
             P_Km = []
             if world.rank == 0:
-                print ('Getting EigenValues and Weights')
+                print('Getting EigenValues and Weights')
                 
             e_Km = np.zeros((Nk, Nb))
             P_Km = np.zeros((Nk, Nb))
             myk = range(0, Nk)[world.rank::world.size]
             for ik in myk:
                 k = kpoints[ik]
-                print ('kpoint: %s' % k)
+                print('kpoint: %s' % k)
                 K_c, G_c = find_K_from_k(k, self.M)
                 iK = self.get_K_index(K_c)
                 e_Km[ik] = self.get_eigenvalues(iK)
@@ -204,13 +204,13 @@ class Unfold:
             P_mK = np.array(P_Km).T
             if world.rank == 0:
                 pickle.dump((e_mK, P_mK), open('weights_' + self.name +
-                                               '.pckl', 'w'))
+                                               '.pckl', 'wb'))
         else:
-            e_mK, P_mK = pickle.load(open(filename))
+            e_mK, P_mK = pickle.load(open(filename, 'rb'))
 
         return e_mK, P_mK
   
-    def spectral_function(self, kpoints, width=0.002, npts=10000, filename=None):
+    def spectral_function(self, kpts, width=0.002, npts=10000, filename=None):
         '''Returns the spectral function for all the ks in kpoints:
                                                                                             
                                               eta / pi
@@ -223,13 +223,13 @@ class Unfold:
         at each k-points defined on npts energy points in the range
         [emin, emax]. The width keyword is FWHM = 2 * eta.'''
 
-        Nk = len(kpoints)
+        Nk = len(kpts)
         A_ke = np.zeros((Nk, npts), float)
         
         world = mpi.world
-        e_mK, P_mK = self.get_spectral_weights(kpoints, filename)
+        e_mK, P_mK = self.get_spectral_weights(kpts, filename)
         if world.rank == 0:
-            print ('Calculating the Spectral Function')
+            print('Calculating the Spectral Function')
         emin = np.min(e_mK) - 5 * width
         emax = np.max(e_mK) + 5 * width
         e = np.linspace(emin, emax, npts)
@@ -240,8 +240,8 @@ class Unfold:
                 D = (width / 2 / np.pi) / ((e - e0)**2 + (width / 2)**2)
                 A_ke[ik] += P_mK[ie, ik] * D
         if world.rank == 0:
-            pickle.dump((e, A_ke), open('sf_' + self.name + '.pckl', 'w'))
-            print ('Spectral Function calculation completed!')
+            pickle.dump((e, A_ke), open('sf_' + self.name + '.pckl', 'wb'))
+            print('Spectral Function calculation completed!')
         return
 
 
@@ -249,7 +249,7 @@ def find_K_from_k(k, M):
     ''' Gets a k vector in scaled coordinates and returns a K vector and the
         unfolding G in scaled Coordinates'''
 
-    KG = np.dot(k, M.T)
+    KG = np.dot(M, k)
     G = np.zeros(3, dtype=int)
     
     for i in range(3):
@@ -283,10 +283,12 @@ def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Knm=None):
         v0_mn = v_nm[::2].T
         v1_mn = v_nm[1::2].T
             
-        u0_ngrid = np.array([calc.wfs.get_wave_function_array(n, iK, 0) *
-                             eikr_R for n in range(Nb)])
-        u1_ngrid = np.array([calc.wfs.get_wave_function_array(n, iK, (Ns - 1))
-                             * eikr_R for n in range(Nb)])
+        u0_ngrid = np.array(
+            [calc.wfs.get_wave_function_array(n, iK, 0) * eikr_R
+             for n in range(Nb)])
+        u1_ngrid = np.array(
+            [calc.wfs.get_wave_function_array(n, iK, (Ns - 1)) * eikr_R
+             for n in range(Nb)])
             
         u0_mG = np.swapaxes(np.dot(v0_mn, np.swapaxes(u0_ngrid, 0, 2)), 1, 2)
         u1_mG = np.swapaxes(np.dot(v1_mn, np.swapaxes(u1_ngrid, 0, 2)), 1, 2)
@@ -300,7 +302,7 @@ def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Knm=None):
         return ut_mgrid
 
 
-def plot_spectral_function(e, A_ke, kpoints, x, X, path, points_name,
+def plot_spectral_function(e, A_ke, x, X, points_name,
                            color='blue', emin=None, emax=None):
     ''' Function to plot spectral function corresponding to the bandstructure
         along the kpoints path'''
@@ -322,7 +324,7 @@ def plot_spectral_function(e, A_ke, kpoints, x, X, path, points_name,
     plt.figure()
     
     plt.plot([0, x[-1]], 2 * [0.0], '--', c='0.5')
-    plt.imshow(A_ekc+0.23,
+    plt.imshow(A_ekc + 0.23,
                cmap=mycmap,
                aspect='auto',
                origin='lower',
@@ -330,18 +332,17 @@ def plot_spectral_function(e, A_ke, kpoints, x, X, path, points_name,
                vmax=1,
                extent=[0, x[-1], e.min(), e.max()])
     
-    for i in range(len(path))[1:-1]:
-        plt.plot(2 * [X[i]], [emin, emax], lw=0.5, c='0.5')
+    for k in X[1:-1]:
+        plt.plot([k, k], [emin, emax], lw=0.5, c='0.5')
     plt.xticks(X, points_name, size=20)
     plt.yticks(size=20)
     plt.ylabel('E(eV)', size=20)
     plt.axis([0, x[-1], emin, emax])
     plt.savefig('sf.png')
     plt.show()
-    return
 
 
-def plot_band_structure(e_mK, P_mK, kpoints, x, X, path, points_name,
+def plot_band_structure(e_mK, P_mK, x, X, points_name,
                         weights_mK=None, color='red', fit=True, nfit=200):
     ''' Function to plot the bandstructure using the P_mK weights directly.
         each point is represented with a filled circle, whose size and color
@@ -370,14 +371,13 @@ def plot_band_structure(e_mK, P_mK, kpoints, x, X, path, points_name,
                 marker='o',
                 edgecolor='none')
 
-    for i in range(len(path))[1:-1]:
-        plt.plot(2 * [X[i]], [emin, emax], lw=0.5, c='0.5')
+    for k in X[1:-1]:
+        plt.plot([k, k], [emin, emax], lw=0.5, c='0.5')
     plt.xticks(X, points_name, size=20)
     plt.yticks(size=20)
     plt.ylabel('E(eV)', size=20)
     plt.axis([0, x[-1], emin, emax])
     plt.show()
-    return
 
 
 def make_colormap(main_color):
