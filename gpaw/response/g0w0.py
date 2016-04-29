@@ -124,7 +124,6 @@ class G0W0(PairDensity):
         self.mixing = mixing
         if self.method == 'GW0':
             assert self.maxiter > 1
-            assert savew == True 
 
         self.kpts = list(select_kpts(kpts, self.calc))
                 
