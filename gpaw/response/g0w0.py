@@ -31,7 +31,7 @@ class G0W0(PairDensity):
                  ecut=150.0, eta=0.1, E0=1.0 * Hartree,
                  domega0=0.025, omega2=10.0,
                  nblocks=1, savew=False, savepckl=True,
-                 world=mpi.world):
+                 world=mpi.world, ecut_interpolation=False):
         """G0W0 calculator.
         
         The G0W0 calculator is used is used to calculate the quasi
@@ -106,6 +106,16 @@ class G0W0(PairDensity):
         self.savepckl = savepckl
         
         ecut /= Hartree
+        if ecut_interpolation:
+            pct = 0.8
+            necuts = 3
+            self.ecut_e = ecut * (1 + (1. / pct - 1) * np.arange(necuts) /
+                                  (necuts - 1))**(-2 / 3)
+        else:
+            self.ecut_e = [ecut]
+
+        #self.reuse_extrapolation = reuse_extrapolation
+        self.has_extrapolation = False
         
         self.ppa = ppa
         self.truncation = truncation
@@ -128,6 +138,8 @@ class G0W0(PairDensity):
         self.f_sin = np.empty(shape)       # occupation numbers
         self.sigma_sin = np.zeros(shape)   # self-energies
         self.dsigma_sin = np.zeros(shape)  # derivatives of self-energies
+        self.sigma_esin = np.zeros((len(self.ecut_e), ) + self.shape)
+        self.dsigma_esin = np.zeros((len(self.ecut_e), ) + self.shape)
         self.vxc_sin = None                # KS XC-contributions
         self.exx_sin = None                # exact exchange contributions
         self.Z_sin = None                  # renormalization factors
@@ -199,6 +211,8 @@ class G0W0(PairDensity):
                 self.last_q = -1
                 self.previous_sigma = 0.
                 self.previous_dsigma = 0.
+                self.previous_sigma_e = 0.
+                self.previous_dsigma_e = 0.
             else:
                 print('Reading ' + str(self.last_q + 1) +
                       ' q-point(s) from the previous calculation: ' +
@@ -207,10 +221,14 @@ class G0W0(PairDensity):
             self.last_q = -1
             self.previous_sigma = 0.
             self.previous_dsigma = 0.
+            self.previous_sigma_e = 0.
+            self.previous_dsigma_e = 0.
 
         # Reset calculation
         self.sigma_sin = np.zeros(self.shape)   # self-energies
         self.dsigma_sin = np.zeros(self.shape)  # derivatives of self-energies
+        self.sigma_esin = np.zeros((len(self.ecut_e), ) + self.shape)
+        self.dsigma_esin = np.zeros((len(self.ecut_e), ) + self.shape)
 
         # Get KS eigenvalues and occupation numbers:
         b1, b2 = self.bands
@@ -228,18 +246,26 @@ class G0W0(PairDensity):
         
         # Loop over q in the IBZ:
         nQ = 0
-        for pd0, W0, q_c in self.calculate_screened_potential():
+        for ie, pd0, W0, q_c in self.calculate_screened_potential():
             for kpt1 in mykpts:
                 K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
                 kpt2 = self.get_k_point(kpt1.s, K2, 0, self.nbands, block=True)
                 k1 = kd.bz2ibz_k[kpt1.K]
                 i = self.kpts.index(k1)
-                self.calculate_q(i, kpt1, kpt2, pd0, W0)
+                self.calculate_q(ie, i, kpt1, kpt2, pd0, W0)
             nQ += 1
 
-        self.world.sum(self.sigma_sin)
-        self.world.sum(self.dsigma_sin)
+        #self.world.sum(self.sigma_sin)
+        #self.world.sum(self.dsigma_sin)
+        self.world.sum(self.sigma_isin)
+        self.world.sum(self.dsigma_isin)
 
+        if len(self.ecut_e) > 1:
+            self.interpolate_ecut()
+        else:
+            self.sigma_sin = self.sigma_iskn[0]
+            self.dsigma_sin = self.dsigma_iskn[0]
+            
         if self.restartfile is not None and loaded:
             self.sigma_sin += self.previous_sigma
             self.dsigma_sin += self.previous_dsigma
@@ -265,7 +291,7 @@ class G0W0(PairDensity):
         
         return results
         
-    def calculate_q(self, i, kpt1, kpt2, pd0, W0):
+    def calculate_q(self, ie, i, kpt1, kpt2, pd0, W0):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
         wfs = self.calc.wfs
@@ -322,8 +348,10 @@ class G0W0(PairDensity):
             deps_m = eps1 - kpt2.eps_n
             sigma, dsigma = calculate_sigma(n_mG, deps_m, f_m, W0)
             nn = kpt1.n1 + n - self.bands[0]
-            self.sigma_sin[kpt1.s, i, nn] += sigma
-            self.dsigma_sin[kpt1.s, i, nn] += dsigma
+            self.sigma_esin[ie, kpt1.s, i, nn] += sigma
+            self.dsigma_esin[ie, kpt1.s, i, nn] += dsigma
+            #self.sigma_sin[kpt1.s, i, nn] += sigma
+            #self.dsigma_sin[kpt1.s, i, nn] += dsigma
             
     def check(self, i_cG, shift0_c, N_c, q_c, Q_aGii):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
@@ -459,51 +487,71 @@ class G0W0(PairDensity):
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             if iq <= self.last_q:
                 continue
-
-            self.timer.start('W')
-            if self.savew:
-                wfilename = self.filename + '.w.q%d.pckl' % iq
-                fd = opencew(wfilename)
-            if self.savew and fd is None:
-                # Read screened potential from file
-                with open(wfilename, 'rb') as fd:
-                    pd, W = pickle.load(fd)
-                # We also need to initialize the PAW corrections
-                self.Q_aGii = self.initialize_paw_corrections(pd)
-            else:
-                # First time calculation
-                pd, W = self.calculate_w(chi0, q_c, htp, htm, wstc, A1_x, A2_x)
+            for ie, ecut in enumerate(self.ecut_e):
+                self.timer.start('W')
                 if self.savew:
-                    pickle.dump((pd, W), fd, pickle.HIGHEST_PROTOCOL)
+                    wfilename = self.filename + '.w.q%d.pckl' % iq
+                    if ie > 0:
+                         wfilename = self.filename + \
+                             '.w.q%d.ecut%.0f.pckl' % (iq, ecut)
+                    fd = opencew(wfilename)
+                if self.savew and fd is None:
+                    # Read screened potential from file
+                    with open(wfilename, 'rb') as fd:
+                        pd, W = pickle.load(fd)
+                    # We also need to initialize the PAW corrections
+                    self.Q_aGii = self.initialize_paw_corrections(pd)
+                else:
+                    # First time calculation
+                    pdi, W = self.calculate_w(chi0, q_c, ecut, htp, htm, 
+                                             wstc, A1_x, A2_x)
+                    if self.savew:
+                        pickle.dump((pdi, W), fd, pickle.HIGHEST_PROTOCOL)
 
-            self.timer.stop('W')
-            # Loop over all k-points in the BZ and find those that are related
-            # to the current IBZ k-point by symmetry
-            Q1 = self.qd.ibz2bz_k[iq]
-            done = set()
-            for Q2 in self.qd.bz2bz_ks[Q1]:
-                if Q2 >= 0 and Q2 not in done:
-                    s = self.qd.sym_k[Q2]
-                    self.s = s
-                    self.U_cc = self.qd.symmetry.op_scc[s]
-                    time_reversal = self.qd.time_reversal_k[Q2]
-                    self.sign = 1 - 2 * time_reversal
-                    Q_c = self.qd.bzk_kc[Q2]
-                    d_c = self.sign * np.dot(self.U_cc, q_c) - Q_c
-                    assert np.allclose(d_c.round(), d_c)
-                    yield pd, W, Q_c
-                    done.add(Q2)
+                self.timer.stop('W')
+                # Loop over all k-points in the BZ and find those that are related
+                # to the current IBZ k-point by symmetry
+                Q1 = self.qd.ibz2bz_k[iq]
+                done = set()
+                for Q2 in self.qd.bz2bz_ks[Q1]:
+                    if Q2 >= 0 and Q2 not in done:
+                        s = self.qd.sym_k[Q2]
+                        self.s = s
+                        self.U_cc = self.qd.symmetry.op_scc[s]
+                        time_reversal = self.qd.time_reversal_k[Q2]
+                        self.sign = 1 - 2 * time_reversal
+                        Q_c = self.qd.bzk_kc[Q2]
+                        d_c = self.sign * np.dot(self.U_cc, q_c) - Q_c
+                        assert np.allclose(d_c.round(), d_c)
+                        yield ie, pdi, W, Q_c
+                        done.add(Q2)
 
-            if self.restartfile is not None:
-                self.save_restart_file(iq)
+                if self.restartfile is not None:
+                    self.save_restart_file(iq)
     
     @timer('WW')
-    def calculate_w(self, chi0, q_c, htp, htm, wstc, A1_x, A2_x):
+    def calculate_w(self, chi0, q_c, ecut, htp, htm, wstc, A1_x, A2_x):
         """Calculates the screened potential for a specified q-point."""
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = chi0.calculate(q_c, A_x=A1_x)
         self.Q_aGii = chi0.Q_aGii
         self.Ga = chi0.Ga
         self.Gb = chi0.Gb
+
+        if pd.ecut > ecut:
+            pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
+                               kd=pd.kd)
+            G2G = pdi.map(pd, q=0)
+            
+            chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
+
+            if chi0_wxvG is not None:
+                chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
+
+            if Q_aGii is not None:
+                for a, Q_Gii in enumerate(Q_aGii):
+                    self.Q_aGii[a] = self.Q_Gii.take(G2G, axis=0)
+        else:
+            pdi = pd
 
         nw = chi0_wGG.shape[0]
         mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
@@ -522,7 +570,7 @@ class G0W0(PairDensity):
                 reduced = True
             else:
                 reduced = False
-            V0, sqrV0 = get_integrated_kernel(pd,
+            V0, sqrV0 = get_integrated_kernel(pdi,
                                               self.calc.wfs.kd.N_c,
                                               truncation=self.truncation,
                                               reduced=reduced,
@@ -570,7 +618,7 @@ class G0W0(PairDensity):
                     chi0_GG[0] = a0_qwG[iqf, iw]
                     chi0_GG[:, 0] = a1_qwG[iqf, iw]
                     chi0_GG[0, 0] = a_wq[iw, iqf]
-                    sqrV_G = get_coulomb_kernel(pd,
+                    sqrV_G = get_coulomb_kernel(pdi,
                                                 kd.N_c,
                                                 truncation=self.truncation,
                                                 wstc=wstc,
@@ -579,7 +627,7 @@ class G0W0(PairDensity):
                                                                   np.newaxis]
                     einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
             else:
-                sqrV_G = get_coulomb_kernel(pd,
+                sqrV_G = get_coulomb_kernel(pdi,
                                             self.calc.wfs.kd.N_c,
                                             truncation=self.truncation,
                                             wstc=wstc)**0.5
@@ -610,7 +658,7 @@ class G0W0(PairDensity):
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrV0 * sqrV_G[1:]
 
             self.timer.stop('Dyson eq.')
-            return pd, [W_GG, omegat_GG]
+            return pdi, [W_GG, omegat_GG]
             
         if self.blockcomm.size > 1:
             Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)
@@ -625,7 +673,7 @@ class G0W0(PairDensity):
             htm(Wm_wGG)
         self.timer.stop('Dyson eq.')
         
-        return pd, [Wp_wGG, Wm_wGG]
+        return pdi, [Wp_wGG, Wm_wGG]
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
@@ -736,11 +784,17 @@ class G0W0(PairDensity):
     def save_restart_file(self, nQ):
         sigma_sin_write = self.sigma_sin.copy()
         dsigma_sin_write = self.dsigma_sin.copy()
+        sigma_esin_write = self.sigma_esin.copy()
+        dsigma_esin_write = self.dsigma_esin.copy()
         self.world.sum(sigma_sin_write)
         self.world.sum(dsigma_sin_write)
+        self.world.sum(sigma_esin_write)
+        self.world.sum(dsigma_esin_write)
         data = {'last_q': nQ,
                 'sigma_sin': sigma_sin_write + self.previous_sigma,
                 'dsigma_sin': dsigma_sin_write + self.previous_dsigma,
+                'sigma_esin': sigma_esin_write + self.previous_sigma_e,
+                'dsigma_esin': dsigma_esin_write + self.previous_dsigma_e,
                 'kpts': self.kpts,
                 'bands': self.bands,
                 'nbands': self.nbands,
@@ -769,9 +823,47 @@ class G0W0(PairDensity):
                 self.last_q = data['last_q']
                 self.previous_sigma = data['sigma_sin']
                 self.previous_dsigma = data['dsigma_sin']
+                self.previous_sigma_e = data['sigma_esin']
+                self.previous_dsigma_e = data['dsigma_esin']
                 return True
             else:
                 raise ValueError(
                     'Restart file not compatible with parameters used in '
                     'current calculation. Check kpts, bands, nbands, ecut, '
                     'domega0, omega2, integrate_gamma.')
+
+    def interpolate_ecut(self):
+        # Do linear fit of selfenergy vs. inverse of number of plane waves
+        # to extrapolate to infinite number of plane waves
+        self.sigma_sin = np.zeros(self.shape, complex)
+        self.dsigma_sin = np.zeros(self.shape, complex)
+        invN_i = self.ecut_e**(-3. / 2)
+        for m in range(np.product(self.shape)):
+            s, i, n = np.unravel_index(m, self.shape)
+            if not self.has_extrapolation: # self.reuse_extrapolation or not
+                psig = np.polyfit(invN_i, self.sigma_esin[:, s, i, n], 1)
+                
+                self.sigshift_sin[s, i, n] = (psig[1] -
+                                              self.sigma_esin[0, s, i, n])
+                
+                sigslopes = (np.diff(self.sigma_esin[:, s, i, n]) /
+                             np.diff(invN_i))
+                imin = np.argmin(sigslopes)
+                imax = np.argmax(sigslopes)
+                sigmax = (self.sigma_esin[imin, s, i, n] -
+                          sigslopes[imin] * invN_i[imin])
+                sigmin = (self.sigma_esin[imax, s, i, n] -
+                          sigslopes[imax] * invN_i[imax])
+                assert (psig[1].real < sigmax.real and
+                        psig[1].real > sigmin.real)
+                sigerr = sigmax - sigmin
+                self.sigerr_sin[s, i, n] = sigerr
+                
+                pdsig = np.polyfit(invN_i, self.dsigma_esin[:, s, i, n], 1)
+                self.dsigshift_sin[s, i, n] = (pdsig[1] -
+                                               self.dsigma_sin[s, i, n])
+                
+            self.sigma_sin[s, i, n] = (self.sigma_esin[0, s, i, n] +
+                                       self.sigshift_sin[s, i, n])
+            self.dsigma_sin[s, i, n] = (self.dsigma_esin[0, s, i, n] +
+                                        self.dsigshift_sin[s, i, n])
