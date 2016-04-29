@@ -19,7 +19,7 @@ data = np.array([x[2:] for x in data]).reshape((N, M, 4))
 e0 = data[:, :, 2].min(0)
 results = []
 for opt, d in zip(optimizers, data):
-    ok = (d[:, 3] < 0.05) & (d[:, 2] < e0 + 0.002)
+    ok = (d[:, 3] < 0.05) & (d[:, 2] < e0 + 0.1)
     failed = M - sum(ok)
     time, niter = d[ok, :2].mean(0)
     results.append((failed, time, niter, opt))

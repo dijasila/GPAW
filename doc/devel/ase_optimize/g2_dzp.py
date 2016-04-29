@@ -23,6 +23,7 @@ for name, atoms in zip(g2.names, g2):
         mol = atoms.copy()
         mol.calc = GPAW(mode='lcao',
                         basis='dzp',
+                        h=0.17,
                         xc='PBE',
                         mixer=Mixer(0.05, 2),
                         txt='{0}-{1}.txt'.format(name, optimizer))
