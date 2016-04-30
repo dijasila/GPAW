@@ -6,8 +6,8 @@ from gpaw.unfold import plot_spectral_function
 calc = GPAW('gs_3x3_defect.gpw', txt=None)
 ef = calc.get_fermi_level()
 
-e, A_ke = pickle.load(open('sf_3x3_defect.pckl', 'rb'))
-x, X = pickle.load(open('x.pckl', 'rb'))
-e = e * Hartree - ef
-plot_spectral_function(e, A_ke, x, X,
-                       ['M', 'K', 'G'], 'blue', -3, 3)
+plot_spectral_function(filename='sf_3x3_defect',
+                       color='blue',
+                       eref=ef,
+                       emin=-3,
+                       emax=3)
