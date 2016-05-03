@@ -113,5 +113,4 @@ where :download:`gpaw-script.llrun` looks like this:
 
 Absolute paths are important!
 
-It's convenient to customize as in :file:`gpaw-qsub.py` which can be
-found at the :ref:`parallel_runs` page.
+It's convenient to customize as described on the :ref:`parallel_runs` page.

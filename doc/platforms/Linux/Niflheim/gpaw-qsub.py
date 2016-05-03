@@ -162,7 +162,7 @@ for x in export:
     
 cmd.append(os.path.join(path,
                         'build',
-                        'bin.' + os.environ['GPAW_PLATFORM'],
+                        'bin.linux-x86_64-' + os.environ['FYS_PLATFORM'] + '-2.6',
                         'gpaw-python'))
 if module:
     cmd += ['-m', module]
