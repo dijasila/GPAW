@@ -48,7 +48,10 @@ import numpy as np
 from numpy.fft import ifft
 
 from ase import Atoms
-from ase.calculators.neighborlist import NeighborList
+try:
+    from ase.neighborlist import NeighborList
+except ImportError:
+    from ase.calculators.neighborlist import NeighborList
 from ase.data import covalent_radii
 from ase.units import Bohr
 
@@ -591,6 +594,7 @@ class LazySphericalHarmonics:
             self.Y_lm[l] = Y_m
         return Y_m
 
+        
 class LazySphericalHarmonicsDerivative(LazySphericalHarmonics):
     def evaluate(self, l):
         drlYdR_mc = np.empty((2 * l + 1, 3))
@@ -646,6 +650,7 @@ class BlochPhases:
     def inverse(self):
         return BlochPhases(-self.ibzk_qc, self.offset)
 
+        
 class TwoCenterIntegralCalculator:
     # This class knows how to apply phases, and whether to call the
     # various derivative() or evaluate() methods
