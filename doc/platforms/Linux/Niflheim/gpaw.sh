@@ -10,4 +10,4 @@ export PATH=$GPAW/tools:$GPAW/build/bin.linux-x86_64-$FYS_PLATFORM:$PATH
 export PYTHONPATH=$GPAW:$GPAW/build/lib.linux-x86_64-$FYS_PLATFORM:$PYTHONPATH
 export PATH=$ASE/tools:$PATH
 export PYTHONPATH=$ASE:$PYTHONPATH
-alias gpaw-qsub=$GPAW/doc/platforms/Linux/niflheim/gpaw-qsub.py
+alias gpaw-qsub=$GPAW/doc/platforms/Linux/Niflheim/gpaw-qsub.py
