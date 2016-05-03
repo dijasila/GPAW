@@ -52,4 +52,4 @@ Here we install an additional version of GPAW for, say, production runs::
     
 Now you can submit jobs that use this production version with::
 
-    $ gpaw-qsub -c 16 -q long -g ~/production my-script.py
+    $ gpaw-qsub -c 16 -q long -g ~/production/gpaw my-script.py
