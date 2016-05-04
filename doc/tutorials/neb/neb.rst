@@ -4,8 +4,7 @@
 NEB calculations parallelized over images
 =========================================
 
-The :ase:`Gold atom diffusion on Al(100)
-<tutorials/neb/diffusion.html>` example can be used with GPAW like
+The :ref:`ase:diffusion tutorial` example can be used with GPAW like
 this:
 
 .. literalinclude:: neb.py

@@ -8,7 +8,6 @@ MANIFEST
 *.png
 *.gif
 *.pov
-*.svg
 *.jpg
 *.odg
 *.dat
@@ -25,6 +24,9 @@ MANIFEST
 N.LDA
 *.gpw
 *.npy
+theme.css
+bigpicture.svg
+doc/setups/[A-Z]*.rst
 
 # If you run the tests, these may write out files
 *.gpw
@@ -38,6 +40,9 @@ N.LDA
 # Editor backup files:
 *~
 \#*
+
+# Vim swap files:
+.*.sw?
 
 # This one is OK:
 !requirements.txt

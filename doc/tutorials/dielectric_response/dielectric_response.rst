@@ -50,6 +50,7 @@ and is in 3D related to the macroscopic dielectric function as,
 
 Refer to :ref:`df_theory`  for detailed documentation on theoretical part. 
 
+.. _df_tutorial_freq:
 
 Frequency grid
 ==============
@@ -265,7 +266,7 @@ A more sophisticated example: graphite
 
 Here is a more sophisticated example of calculating EELS of graphite with
 different  `\mathbf{q}`.  You can also get the script here:
-:svn:`~doc/tutorials/dielectric_response/graphite_EELS.py`. The results
+:git:`~doc/tutorials/dielectric_response/graphite_EELS.py`. The results
 (plot) are shown in the following section.
 
 .. literalinclude:: graphite_EELS.py

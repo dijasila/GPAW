@@ -30,32 +30,14 @@ and "N/A" denotes an optimization failure.
 Only the systems that fail to converge or converge to a
 total energy above the threshold are given in the tables.
 
-Calculator used: GPAW mode='lcao' (see :svn:`~doc/devel/ase_optimize/g2_dzp.py`)
+Calculator used: GPAW mode='lcao' (see :git:`~doc/devel/ase_optimize/g2_dzp.py`)
 
-Limit of optimizer steps: 100
-
-.. image:: g2_dzp_optimizer_force_calls.png
+Limit of optimizer steps: 25
 
 .. csv-table::
-   :file: g2_dzp_relaxed_energy.csv
+   :file: g2_dzp.csv
+   :header: optimizer, failed, time, steps
 
-
-HTB
-===
-Unit cell stress relaxation using StrainFilter (see :mod:`ase.constraints`) for
-bulk systems compilation by Haas, Tran, and Blaha (10.1103/PhysRevB.79.085104).
-The PBE optimization starts from LDA unit cells.
-
-Description of plots and tables: see the section above.
-
-Calculator used: GPAW mode=PW() (see :svn:`~doc/devel/ase_optimize/htb_pw.py`)
-
-Limit of optimizer steps: 50
-
-.. image:: htb_pw_optimizer_force_calls.png
-
-.. csv-table::
-   :file: htb_pw_relaxed_energy.csv
 
 N2Cu
 ====
@@ -64,14 +46,14 @@ Relaxation of Cu surface.
 Calculator used: EMT
 
 .. csv-table::
-   :file: N2Cu-surf.csv       
+   :file: N2Cu-surf.csv
 
 N2 adsorption on relaxed Ru surface
 
 Calculator used: EMT
 
 .. csv-table::
-   :file: N2Cu-N2.csv       
+   :file: N2Cu-N2.csv
 
 Cu_bulk
 =======
@@ -80,7 +62,7 @@ Bulk relaxation of Cu where atoms has been rattled.
 Calculator used: EMT
 
 .. csv-table::
-   :file: Cu_bulk.csv       
+   :file: Cu_bulk.csv
 
 CO_Au111
 ========
@@ -89,7 +71,7 @@ CO adsorption on Au
 Calculator used: EMT
 
 .. csv-table::
-   :file: CO_Au111.csv       
+   :file: CO_Au111.csv
 
 H2
 ==
@@ -98,12 +80,12 @@ Geometry optimization of gas-phase molecule.
 Calculator used: EMT
 
 .. csv-table::
-   :file: H2-emt.csv       
+   :file: H2-emt.csv
 
 Calculator used: GPAW
 
 .. csv-table::
-   :file: H2-gpaw.csv       
+   :file: H2-gpaw.csv
 
 C5H12
 =====
@@ -112,7 +94,7 @@ Geometry optimization of gas-phase molecule.
 Calculator used: GPAW (lcao)
 
 .. csv-table::
-   :file: C5H12-gpaw.csv       
+   :file: C5H12-gpaw.csv
 
 nanoparticle
 ============
@@ -121,7 +103,7 @@ Adsorption of a NH on a Pd nanoparticle.
 Calculator used: GPAW (lcao)
 
 .. csv-table::
-   :file: nanoparticle.csv       
+   :file: nanoparticle.csv
 
 NEB
 =======
@@ -130,9 +112,9 @@ Diffusion of gold atom on Al(100) surface.
 Calculator used: EMT
 
 .. csv-table::
-   :file: neb-emt.csv       
+   :file: neb-emt.csv
 
 Calculator used: GPAW (lcao)
 
 .. csv-table::
-   :file: neb-gpaw.csv       
+   :file: neb-gpaw.csv

@@ -460,8 +460,8 @@ class NewLocalizedFunctionsCollection(BaseLFC):
     def add_derivative(self, a, v, a_xG, c_axi=1.0, q=-1):
         """Add derivative of localized functions on atom to extended arrays.
 
-        Parameters
-        ----------
+        Parameters:
+
         a: int
             Atomic index of the derivative
         v: int

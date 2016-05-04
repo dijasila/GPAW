@@ -13,7 +13,7 @@ import numpy as np
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '0.12.0'
+__version__ = '1.0.1b1'
 __ase_version_required__ = '3.10.0'
 
 __all__ = ['GPAW', 'Calculator',
@@ -311,4 +311,5 @@ if home is not None:
     rc = os.path.join(home, '.gpaw', 'rc.py')
     if os.path.isfile(rc):
         # Read file in ~/.gpaw/rc.py
-        exec(open(rc).read())
+        with open(rc) as fd:
+            exec(fd.read())

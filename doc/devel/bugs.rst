@@ -1,11 +1,11 @@
-.. _bugs:
-
 =======================
 Bugs in the latest GPAW
 =======================
 
-Bugs and feature proposals are managed using `Trac <https://trac.fysik.dtu.dk/projects/gpaw/>`_. If you have
-a problem with GPAW, and you are already subscribed to the :ref:`mailing_lists`, this is the place to handle:
+Bugs and feature proposals are managed using `Trac
+<https://trac.fysik.dtu.dk/projects/gpaw/>`_. If you have a problem with
+GPAW, and you are already subscribed to the :ref:`mail lists`, this is the
+place to handle:
 
 * Bugs in the code
 * Enhancement proposals
@@ -24,8 +24,9 @@ by checking that all array arguments passed from Python to C functions have the 
 Apart from appending ``--debug`` to the command line arguments when running ``python`` or ``gpaw-python``,
 please familiarize yourself with the :ref:`debugging tools <debugging>` for the Python and C code.
 
-If you experience segfaults or unexplained MPI crashes when running GPAW in parallel, it is recommended to
-try a :ref:`custom installation <install_custom_installation>` with a debugging flag in ``customize.py``::
+If you experience segfaults or unexplained MPI crashes when running GPAW
+in parallel, it is recommended to try a :ref:`custom installation
+<customizing installation>` with a debugging flag in ``customize.py``::
 
   define_macros += [("GPAW_MPI_DEBUG",1)]
 
@@ -40,7 +41,7 @@ Common sources of bugs
   - Code which is not used very often will tend to stop working.
   - Be weary of copy/paste errors. Avoid code duplication if you can.
   - Numerics default type on an alpha is Int64. Use long instead of int.
-  - Elements of NumPy arrays are C ordered, BLAS and LAPACK routines expect Fortran ordering.  
+  - Elements of NumPy arrays are C ordered, BLAS and LAPACK routines expect Fortran ordering.
 
 .. spacer
 
@@ -69,13 +70,13 @@ Common sources of bugs
 
       n = 0
       for thing in things:
-	  thing.do_stuff(n)
-	  n += 1
+          thing.do_stuff(n)
+          n += 1
 
     Use this instead::
 
       for n, thing in enumerate(things):
-	  thing.do_stuff(n)
+          thing.do_stuff(n)
 
   - Indentation errors like this one::
 

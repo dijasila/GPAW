@@ -61,12 +61,12 @@ class BSE():
             valence/conduction bands
         truncation: str
             Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D 
+            2D, 1D, or 0D
         integrate_gamma: int
-            Method to integrate the Coulomb interaction. 1 is a numerical 
-            integration at all q-points with G=[0,0,0] - this breaks the 
-            symmetry slightly. 0 is analytical integration at q=[0,0,0] only - 
-            this conserves the symmetry. integrate_gamma=2 is the same as 1, 
+            Method to integrate the Coulomb interaction. 1 is a numerical
+            integration at all q-points with G=[0,0,0] - this breaks the
+            symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
+            this conserves the symmetry. integrate_gamma=2 is the same as 1,
             but the average is only carried out in the non-periodic directions.
         txt: str
             txt output
@@ -137,7 +137,9 @@ class BSE():
             eshift /= Hartree
         if gw_skn is not None:
             assert self.nv + self.nc == len(gw_skn[0, 0])
-            assert self.kd.nbzkpts == len(gw_skn[0])
+            assert self.kd.nibzkpts == len(gw_skn[0])
+            gw_skn = gw_skn[:, self.kd.bz2ibz_k]
+            #assert self.kd.nbzkpts == len(gw_skn[0])
             gw_skn /= Hartree
         self.gw_skn = gw_skn
         self.eshift = eshift
@@ -203,12 +205,15 @@ class BSE():
         ci, cf = self.con_n[0], self.con_n[-1] + 1
         for ik, iK in enumerate(myKrange):
             pair = get_pair(pd0, 0, iK, vi, vf, ci, cf)
-            # deps_nm = (self.gw_skn[0, ik, :self.nv][:, np.newaxis] -
-            #            self.gw_skn[0, ik, self.nv:])
-
             n_n = np.arange(self.nv)
             m_m = np.arange(self.nc)
-            deps_kmn[ik] = -pair.get_transition_energies(n_n, m_m)
+
+            if self.gw_skn is not None:
+                deps_kmn[ik] = -(self.gw_skn[0, iK, :self.nv][:, np.newaxis] -
+                                 self.gw_skn[0, iK, self.nv:])
+            else:
+                deps_kmn[ik] = -pair.get_transition_energies(n_n, m_m)
+                
             df_Kmn[iK] = pair.get_occupation_differences(n_n, m_m)
             rhoex_KmnG[iK] = get_rho(pd0, pair,
                                      n_n, m_m,
@@ -318,10 +323,12 @@ class BSE():
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_qaGii[iq]):
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
-                                            sign * np.dot(M_vv, pos_av[a]))))
+                                            np.dot(M_vv, pos_av[a]))))
             U_ii = self.calc.wfs.setups[a].R_sii[sym]
             Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
                            U_ii.T).transpose(1, 0, 2)
+            if sign == -1:
+                Q_Gii = Q_Gii.conj()
             Q_aGii.append(Q_Gii)
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),

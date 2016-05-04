@@ -124,24 +124,28 @@ After these remarks, we describe two packages of basis sets that can be used as 
 starting point for choosing a suitable basis set for your needs. Namely,
 :ref:`pvalence basis sets` and :ref:`coopt basis sets`.
 
+
 .. _pvalence basis sets:
 
 p-valence basis sets
 --------------------
 
-The so-called p-valence basis sets are constructed for transition metals by replacing the p-type
-polarization function of the default basis sets with a bound unoccupied p-type
-orbital and its split-valence complement.  
-Such basis sets correspond to the ones
-used in Ref. [#Kuisma2015]_. These basis sets significantly improve density of
-states of unoccupied states.
+The so-called p-valence basis sets are constructed for transition metals by
+replacing the p-type polarization function of the default basis sets with a
+bound unoccupied p-type orbital and its split-valence complement. Such basis
+sets correspond to the ones used in Ref. [#Kuisma2015]_. These basis sets
+significantly improve density of states of unoccupied states.
 
-The p-valence basis sets can be easily obtained for the appropriate elements with the :file:`gpaw-install-setups` tool using the following options:
-:file:`gpaw-install-setups {<directory>} --basis --version=pvalence`.
-See :ref:`installationguide_setup_files` for more information on basis set installation.
-It is again reminded that these basis sets
-are not thoroughly tested and **it is essential to benchmark the performance of
-the basis sets for your application**.
+The p-valence basis sets can be easily obtained for the appropriate elements
+with the :command:`gpaw install-data` tool using the following options::
+
+    $ gpaw install-data {<directory>} --basis --version=pvalence
+    
+See :ref:`installation of paw datasets` for more information on basis set
+installation. It is again reminded that these basis sets are not thoroughly
+tested and **it is essential to benchmark the performance of the basis sets
+for your application**.
+
 
 .. _coopt basis sets:
 
@@ -155,12 +159,13 @@ silver, and gold clusters.
 
 For further details of the basis sets, as well as their construction and
 performance, see [#Rossi2015]_. For convenience, these basis sets can be easily
-obtained with the ``gpaw-install-setups`` tool with following options:
-:file:`gpaw-install-setups {<directory>} --basis --version=coopt`.
-See :ref:`installationguide_setup_files` for basis set installation.
-Finally, it is again
-emphasized that when using the basis sets, **it is essential to benchmark their
-suitability for your application**.
+obtained with::
+    
+    $ gpaw install-data {<directory>} --basis --version=coopt
+    
+See :ref:`installation of paw datasets` for basis set installation. Finally,
+it is again emphasized that when using the basis sets, **it is essential to
+benchmark their suitability for your application**.
 
 
 Parallelization
@@ -218,7 +223,7 @@ This can now be fourier transformed at the desired frequency. Here, we look from
 
 .. literalinclude:: lcaotddft_analyse.py
 
-Two cube files are created, one for the sin (imag) and cos (real) transform at the frequency.  Usually, one is interested in the absorbing part, i.e., the imaginary part. Below the plasmon resonance is visualized 
+Two cube files are created, one for the sin (imag) and cos (real) transform at the frequency.  Usually, one is interested in the absorbing part, i.e., the imaginary part. Below the plasmon resonance is visualized
 in the Na8 wire. In their current form, these cube files contain just the pseudo part of density.
 
 .. image:: Na8_imag.png

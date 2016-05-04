@@ -24,7 +24,9 @@ or you can write a small script to do it:
 
 .. literalinclude:: setups.py
 
-Set the location of setups as described on :ref:`installationguide_setup_files`.
+Set the location of setups as described here:
+:ref:`installation of paw datasets`.
+
 
 Spectrum calculation using unoccupied states
 ============================================
@@ -65,7 +67,7 @@ the recursion coefficients with a denser k-point mesh to converge the
 uncoccupied DOS. A Delta Kohn-Sham calculation can be done for the
 gamma point, and the shift is made so that the first unoccupied
 eigenvalue at the gamma point ends up at the computed total energy
-difference. 
+difference.
 
 
 .. literalinclude:: diamond1.py
@@ -76,7 +78,7 @@ Compute recursion coefficients:
 
 Compute the spectrum with the get_spectra method. delta is the HWHM
 (should we change it to FWHM???) width of the lorentzian broadening,
-and fwhm is the FWHM of the Gaussian broadening. 
+and fwhm is the FWHM of the Gaussian broadening.
 
 ::
 
@@ -97,7 +99,7 @@ and fwhm is the FWHM of the Gaussian broadening.
 
 
 Below the calculated spectrum of Diamond with half and full core holes
-are shown along with the experimental spectrum. 
+are shown along with the experimental spectrum.
 
 .. figure:: h2o_xas_3.png
    :width: 400 px
@@ -119,8 +121,8 @@ states need to be determined. Calculate the spectrum with
   xas = XAS(calc, mode='xes', center=n)
 
 Where n is the number of the atom in the atoms object, the center
-keyword is only necessary if there are more than one xes setup. The spectrum 
-can be shifted by putting the first transition to the fermi level, or to 
+keyword is only necessary if there are more than one xes setup. The spectrum
+can be shifted by putting the first transition to the fermi level, or to
 compute the total energy diffrence between the core hole state and the state
 with a valence hole in HOMO.
 
@@ -142,7 +144,7 @@ and plot it
 .. literalinclude:: h2o_xas_box2.py
 
 .. figure:: h2o_xas_box.png
-        :width: 550 px  
+        :width: 550 px
 
 
 .. [Nil04] *Chemical bonding on surfaces probed by X-ray emission

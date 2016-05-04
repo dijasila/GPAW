@@ -22,8 +22,9 @@ decomposition that match both the number of processors and the size of
 the unit cell.  This choice can be overruled, see
 :ref:`manual_parallelization_types`.
 
-Before starting a parallel calculation, it might be useful to check how the parallelization corresponding to the given number
-of processes would be done with ``--dry-run`` command line option::
+Before starting a parallel calculation, it might be useful to check how the
+parallelization corresponding to the given number of processes would be done
+with ``--dry-run`` command line option::
 
   python script.py --dry-run=8
 
@@ -42,7 +43,8 @@ examples::
 Simple submit tool
 ==================
 
-Instead writing a file with the line "mpirun ... gpaw-python script.py" and then submitting it to a queueing system, it is simpler to automate this::
+Instead writing a file with the line "mpirun ... gpaw-python script.py" and
+then submitting it to a queueing system, it is simpler to automate this::
 
   #!/usr/bin/env python
   from sys import argv
@@ -66,21 +68,6 @@ Now you can do::
 You will have to modify the script so that it works with your queueing
 system.
 
-.. _submit_tool_on_niflheim:
-
-Submit tool on Niflheim
------------------------
-
-At CAMd, we use this submit tool: :svn:`~doc/documentation/parallel_runs/gpaw-qsub`.
-
-Examples::
-
-  $ gpaw-qsub -q medium -l nodes=8 -m abe fcc.py --domain-decomposition=1,2,2
-  $ gpaw-qsub -q long -l nodes=6:ppn=8:xeon5570 -m abe hcp_n2.py --gpaw=blacs=1 \
-    --sl_default=4,4,2 --domain-decomposition=8 --state-parallelization=2
-
-.. tip::
-  CAMd users must always remember to source the openmpi environment settings before recompiling the code. See :ref:`Niflheim`.
 
 Alternative submit tool
 =======================
@@ -89,17 +76,18 @@ Alternatively, the script gpaw-runscript can be used, try::
 
   $ gpaw-runscript -h
 
-to get the architectures implemented and the available options. As an example, use::
+to get the architectures implemented and the available options. As an
+example, use::
 
   $ gpaw-runscript script.py 32
 
-to write a job sumission script running script.py on 32 cpus. 
+to write a job sumission script running script.py on 32 cpus.
 The tool tries to guess the architecture/host automatically.
 
 By default it uses the following environment variables to write the runscript:
 
 =============== ===================================
-variable        meaning                            
+variable        meaning
 =============== ===================================
 HOSTNAME        name used to assing host type
 PYTHONPATH      path for python
@@ -111,12 +99,14 @@ GPAW_MAIL       where to send emails about the jobs
 Writing to files
 ================
 
-Be careful when writing to files in a parallel run.  Instead of ``f = open('data', 'w')``, use:
+Be careful when writing to files in a parallel run.  Instead of ``f =
+open('data', 'w')``, use:
 
 >>> from ase.parallel import paropen
 >>> f = paropen('data', 'w')
 
-Using ``paropen``, you get a real file object on the master node, and dummy objects on the slaves.  It is equivalent to this:
+Using ``paropen``, you get a real file object on the master node, and dummy
+objects on the slaves.  It is equivalent to this:
 
 >>> from ase.parallel import rank
 >>> if rank == 0:
@@ -124,7 +114,8 @@ Using ``paropen``, you get a real file object on the master node, and dummy obje
 ... else:
 ...     f = open('/dev/null', 'w')
 
-If you *really* want all nodes to write something to files, you should make sure that the files have different names:
+If you *really* want all nodes to write something to files, you should make
+sure that the files have different names:
 
 >>> from ase.parallel import rank
 >>> f = open('data.%d' % rank, 'w')
@@ -146,9 +137,6 @@ which is equivalent to
 >>> print('This is written by all nodes')
 >>> if rank == 0:
 ...     print('This is written by the master only')
-
-Note that parprint has the syntax of the print statement in 
-`Python3 <http://docs.python.org/release/3.0.1/whatsnew/3.0.html>`_.
 
 
 .. _different_calculations_in parallel:
@@ -188,9 +176,9 @@ nitrogen molecule using two processes:
 Parallelization options
 =======================
 
-In version 0.7, a new keyword called ``parallel`` was introduced to provide 
+In version 0.7, a new keyword called ``parallel`` was introduced to provide
 a unified way of specifying parallelization-related options. Similar to
-the way we :ref:`specify convergence criteria <manual_convergence>` with the 
+the way we :ref:`specify convergence criteria <manual_convergence>` with the
 ``convergence`` keyword, a Python dictionary is used to contain all such
 options in a single keyword.
 
@@ -287,11 +275,12 @@ where ``n`` is the total number of boxes.
    ``parallel={'domain': world.size}`` will force all parallelization to be
    carried out solely in terms of domain decomposition, and will in general
    be much more efficient than e.g. ``parallel={'domain': (1,1,world.size)}``.
-   You might have to add ``from gpaw.mpi import wold`` to the script to 
+   You might have to add ``from gpaw.mpi import wold`` to the script to
    define ``world``.
 
-There is also a command line argument ``--domain-decomposition`` which allows you
-to control domain decomposition (see example at :ref:`submit_tool_on_niflheim`).
+There is also a command line argument ``--domain-decomposition`` which allows
+you to control domain decomposition.
+
 
 .. _manual_parsize_bands:
 
@@ -299,7 +288,7 @@ Band parallelization
 --------------------
 
 Parallelization over Kohn-Sham orbitals (i.e. bands) becomes favorable when
-the number of bands :math:`N` is so large that :math:`\mathcal{O}(N^2)`
+the number of bands `N` is so large that `\mathcal{O}(N^2)`
 operations begin to dominate in terms of computational time. Linear algebra
 for orthonormalization and diagonalization of the wavefunctions is the most
 noticeable contributor in this regime, and therefore, band parallelization
@@ -315,8 +304,8 @@ where ``nbg`` is the number of band groups to parallelize over.
    band parallelization and ScaLAPACK in conjunction to reduce this
    potential bottleneck.
 
-There is also a command line argument ``--state-parallelization`` which allows you
-to control band parallelization (see example at :ref:`submit_tool_on_niflheim`).
+There is also a command line argument ``--state-parallelization`` which
+allows you to control band parallelization.
 
 More information about these topics can be found here:
 
@@ -328,31 +317,60 @@ More information about these topics can be found here:
 .. _manual_ScaLAPACK:
 
 ScaLAPACK
---------------------
-Calculations with nbands > 500 will benefit from ScaLAPACK (otherwise
-the default serial LAPACK should be used). The ScaLAPACK parameters
-are defined either using the aformentioned ``'sl_...'`` entry in the parallel
-keyword dictionary or using a command line argument,
-e.g. ``--sl_default=m,n,mb``.  A reasonbly good guess for these 
-parameters on most systems is related to the numbers of bands. 
-We recommend::
+---------
+
+ScaLAPACK improves performance of calculations beyond a certain size.
+This size depends on whether using FD, LCAO, or PW mode.
+
+In FD or PW mode, ScaLAPACK operations are applied to arrays of size
+nbands by nbands, whereas in LCAO mode, the arrays are generally the
+number of orbitals by the number of orbitals and therefore larger,
+making ScaLAPACK particularly important for LCAO calculations.
+
+With LCAO, it starts to become an advantage to use ScaLAPACK at around
+800 orbitals which corresponds to about 50 normal (non-hydrogen,
+non-semicore) atoms with standard DZP basis set.
+In FD mode, calculations with nbands > 500 will
+benefit from ScaLAPACK; otherwise, the default serial LAPACK might as
+well be used.
+
+The ScaLAPACK parameters
+are defined either using the aforementioned ``'sl_...'`` entry in the parallel
+keyword dictionary (recommended) such as ``sl_default=(m, n, block)``,
+or alternatively using a command line argument such as
+``--sl_default=m,n,block``.
+
+A block size of 64 has been found to be a universally good choice both
+in all modes.
+
+In LCAO mode, it is normally best to assign as many cores as possible,
+which means that ``m`` and ``n`` should multiply to the total number of cores
+divided by the k-point/spin parallelization.
+For example with 128 cores and parallelizing by 4 over k-points,
+there are 32 cores per k-point available per scalapack and a sensible
+choice is ``m=8``, ``n=4``.  You can use ``sl_auto=True`` to make
+such a choice automatically.
+
+In FD or PW mode, a good guess for these
+parameters on most systems is related to the numbers of bands.
+We recommend for FD/PW::
 
   mb = 64
   m = floor(sqrt(nbands/mb))
   n = m
 
 There are a total of four ``'sl_...'`` keywords. Most people will be
-fine just using ``'sl_default'``. Here we use the same 
+fine just using ``'sl_default'`` or even ``'sl_auto'``. Here we use the same
 ScaLAPACK parameters in three different places: i) general eigensolve
-in the LCAO intilization ii) standard eigensolve in the FD calculation and 
+in the LCAO intilization ii) standard eigensolve in the FD calculation and
 iii) Cholesky decomposition in the FD calculation. It is currently
 possible to use different ScaLAPACK parameters in the LCAO
-initialization and the FD calculation by using two of the ScaLAPACK 
+initialization and the FD calculation by using two of the ScaLAPACK
 keywords in tandem, e.g::
 
    --sl_lcao=p,q,pb --sl_default=m,n,mb
 
-where ``p``, ``q``, ``pb``, ``m``, ``n``, and ``mb`` all 
+where ``p``, ``q``, ``pb``, ``m``, ``n``, and ``mb`` all
 have different values. The most general case is the combination
 of three ScaLAPACK keywords, e.g::
 

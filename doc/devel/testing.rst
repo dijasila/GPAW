@@ -36,7 +36,7 @@ A temporary directory will be made and the tests will run in that
 directory.  If all tests pass, the directory is removed.
 
 The test suite consists of a large number of small and quick tests
-found in the :trac:`gpaw/test` directory.  The tests run nightly in serial
+found in the :git:`gpaw/test/` directory.  The tests run nightly in serial
 and in parallel.  Here are the results from `BuildBot
 <https://gpaw-buildbot.fysik.dtu.dk/waterfall>`_.
 
@@ -57,7 +57,7 @@ A test script should fulfill a number of requirements:
 
 A test can produce standard output and files - it doesn't have to
 clean up.  Remember to add the new test to list of all tests specified
-in the :trac:`gpaw/test/__init__.py` file.
+in the :git:`gpaw/test/__init__.py` file.
 
 Use this function to check results:
 
@@ -70,10 +70,10 @@ Use this function to check results:
 Big tests
 =========
 
-The directory in :trac:`gpaw/test/big` contains a set of longer and more
+The directory in :git:`gpaw/test/big/` contains a set of longer and more
 realistic tests that we run every weekend.  These are submitted to a
 queueing system of a large computer.  Here is an example for Niflheim:
-:trac:`gpaw/test/big/niflheim.py`.
+:git:`gpaw/test/big/niflheim.py`.
 
 
 Adding new tests

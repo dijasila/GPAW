@@ -42,7 +42,7 @@ plane-waves used.  You can conveniently monitor some variables by using the
   $ grep iter Al-fcc.txt
 
 you see the progress of the iteration cycles including convergence of
-wave functions, density and total energy. If the ``txt`` keyword is omitted 
+wave functions, density and total energy. If the ``txt`` keyword is omitted
 the log output will be printed directly in the terminal.
 
 .. highlight:: python
@@ -104,13 +104,12 @@ bulk Aluminum.
 
   Then choose :menuselection:`Tools --> Bulk Modulus`.
 
-  Another alternative is to use the :ase:`Equation of state module
-  <ase/utils.html#equation-of-state>` (see this :ase:`tutorial
-  <tutorials/eos/eos.html>`).
+  Another alternative is to use the :class:`Equation of state module
+  <ase.utils.eos.EquationOfState>` (see this :ref:`tutorial <ase:eos>`).
 
 * Compare your results to the experimental values `a_0` = 4.05 Å and `B`
   = 76 GPa.  Mind the units when you calculate the bulk modulus (read
-  about ASE-units :ase:`here <ase/units.html>`).
+  about ASE-units :mod:`here <ase.units>`).
   What are the possible error sources?
 
   .. note::

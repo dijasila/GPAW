@@ -73,11 +73,15 @@ will generate the basis-set files :file:`H.dzp.basis` and
 parameters. Note that :file:`dzp` stands for ``double zeta polarized``
 which is the default basis-set type. The basis-set should be placed in
 the same directory as the GPAW setups
-(see :ref:`installationguide_setup_files` for details).
+(see :ref:`installation of paw datasets` for details).
 For a complete list of the parameters do::
 
   $ gpaw-basis --help
 
+For technical reasons, the basis set generator always generates the
+corresponding PAW, even if the latter exists on the user's system.
+Use the ``--save-setup`` option to save the calculated setup along with the
+basis set.
 
 Running a calculation
 ---------------------
@@ -189,6 +193,11 @@ atoms are ghosts::
 
 Notes on performance
 --------------------
+
+For larger LCAO calculations, it is crucial to use ScaLAPACK.
+See the dedicated section on :ref:`manual_ScaLAPACK` for more information.
+Below are some hints on how to obtain good performance for operations not
+related to ScaLAPACK.
 
 The *only* difference between the FD (grid-based finite-difference)
 and LCAO modes is the way in which pseudo wave functions are

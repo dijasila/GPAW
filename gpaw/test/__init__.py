@@ -167,6 +167,7 @@ tests = [
     'ds_beta.py',                           # ~2s
     'multipoleH2O.py',                      # ~2s
     'noncollinear/h.py',                    # ~2s
+    'spinorbit_Kr.py',                      # ~2s
     'stdout.py',                            # ~2s
     'lcao/largecellforce.py',               # ~2s
     'parallel/scalapack_diag_simple.py',    # ~2s
@@ -209,9 +210,7 @@ tests = [
     'spin/spinFe3plus.py',                  # ~4s
     'fermisplit.py',                        # ~4s
     'generic/Cl_minus.py',                  # ~4s
-    'vdw/ts09.py',                          # ~4s
     'lrtddft/pes.py',                       # ~4s
-    # 'ase_read.py',                          # ~4s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
@@ -310,6 +309,7 @@ tests = [
     'parallel/fd_parallel_kpt.py',          # ~21s
     'pw/hyb.py',                            # ~21s
     'generic/Cu.py',                        # ~21s
+    'vdw/ts09.py',                          # ~21s
     'response/na_plasmon.py',               # ~22s
     'fermilevel.py',                        # ~23s
     'parallel/ut_hsblacs.py',               # ~23s
@@ -391,6 +391,7 @@ if mpi.size > 1:
                 'coreeig.py',
                 'ext_potential/stark_shift.py',
                 'exx/q.py',
+                'spinorbit_Kr.py',
                 'fd_ops/laplace.py',
                 'potential.py',
                 'lcao/pair_and_coulomb.py',

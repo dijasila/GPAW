@@ -4,8 +4,8 @@
 Tutorials
 =========
 
-If you are not familiar with :ase:`ASE <>`, consider going through the
-:ase:`ASE Tutorials <tutorials/tutorials.html>` first.
+If you are not familiar with ASE, consider going through the
+:ref:`ASE Tutorials <ase:tutorials>` first.
 
 The GPAW tutorials are meant to guide the user through some scripts.
 The first section of tutorials cover the most common tasks.  The
@@ -36,6 +36,7 @@ Specialized tutorials
    :maxdepth: 2
 
    band_gap/band_gap
+   unfold/unfold
    dipole_correction/dipole
    hubbardu/hubbardu
    jellium/jellium

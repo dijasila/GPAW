@@ -1,8 +1,37 @@
-.. _algorithms:
+.. _features and algorithms:
 
-==========
-Algorithms
-==========
+=======================
+Features and algorithms
+=======================
+
+Quick links to all features:
+    
+.. list-table::
+    
+    * - :ref:`Plane-waves <manual_mode>`
+      - :ref:`Finite-difference <manual_stencils>`
+      - :ref:`LCAO <lcao>`
+    * - :ref:`XC-functionals <xc>`
+      - :ref:`DFT+U <hubbardu>`
+      - :ref:`GLLB-SC <bandgab>`
+    * - :ref:`DOS <pdos>`
+      - :ref:`STM <stm tutorial>`
+      - :ref:`Wannier functions <wannier>`
+    * - :ref:`delta-SCF <dscf>`
+      - :ref:`XAS <xas>`
+      - :ref:`Jellium <jellium>`
+    * - :ref:`TDDFT <timepropagation>`
+      - :ref:`LRTDDFT (molecules) <lrtddft>`
+      - :ref:`LRTDDFT (extended systems) <df_theory>`
+    * - :ref:`Transport <transport_exercise>`
+      - :ref:`NEGF-transport <transport>`
+      - :ref:`Keldysh GF-transport ... <keldyshgf>`
+    * - :ref:`RPA-correlation <rpa>`
+      - :ref:`GW <gw_theory>`
+      - :ref:`BSE <bse>`
+    * - :ref:`Parallelization <parallel_runs>`
+      - :ref:`Continuum Solvent Model <continuum_solvent_model>`
+      -
 
 This Page gives a quick overview of the algorithms used.  We have
 written some :ref:`papers <gpaw_publications>` about the implementation,
@@ -23,15 +52,15 @@ there is a one to one transformation between the pseudo and
 all-electron quantities.
 
 
-Grids
-=====
+Description of the wave functions
+=================================
 
 Pseudo wave functions can be described in three ways:
 
 Finite-difference (FD):
     Uniform real-space orthorhombic grids.  Two kinds of grids are involved
     in the calculations: A coarse grid used for the wave functions and a fine
-    grid (:math:`2^3=8` times higher grid point density) used for densities and
+    grid (`2^3=8` times higher grid point density) used for densities and
     potentials.  The pseudo electron density is first calculated on the coarse
     grid from the wave functions, and then interpolated to the fine grid, where
     compensation charges are added for achieving normalization.  The effective
@@ -64,7 +93,7 @@ Compensation charges
 
 Compensation charges
 are expanded to give correct multipole moments up to angular momentum
-number :math:`\ell=2`.
+number `\ell=2`.
 
 
 Boundary conditions
@@ -116,7 +145,7 @@ ASE interface
 =============
 
 The code has been designed to work together with the atomic
-simulation environment (:ase:`ASE <>`). ASE provides:
+simulation environment (`ASE <https://wiki.fysik.dtu.dk/ase>`). ASE provides:
 
  * Structure optimization.
  * Molecular dynamics.
@@ -130,7 +159,7 @@ Open Software
 =============
 
 GPAW is released under the `GNU Public License <http://xkcd.com/225>`_
-version 3 or any later version.  See the file :trac:`COPYING` which
+version 3 or any later version.  See the file :git:`COPYING` which
 accompanies the downloaded files, or see the license at GNU's web
 server at http://www.gnu.org/licenses/.  Everybody is invited to
 participate in using and :ref:`developing the code <devel>`.
