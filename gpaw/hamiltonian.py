@@ -567,7 +567,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         Eext = 0.0
         if self.vext is not None:
             assert self.collinear
-            name =  self.vext.name
+            name =  self.vext.get_name()
 
             if name == 'CDFT':
                 # cDFT works with all-electron density
@@ -667,7 +667,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.vbar.derivative(dens.nt_g, vbar_av)
         if self.vext:
             
-            if self.vext.name == 'CDFT':
+            if self.vext.get_name() == 'CDFT':
                 # CDFT force is computed in CDFT main
                 dens.ghat.derivative(self.vHt_g, ghat_aLv)
             else:

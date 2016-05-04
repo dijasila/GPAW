@@ -42,10 +42,14 @@ class Marcus_parameters:
             self.calc_a = self.cdft_a.calc
             self.calc_b = self.cdft_b.calc
             self.gd = self.cdft_a.get_grid()
-            # cDFT energies
+            # cDFT free energies
             self.FA = self.cdft_a.cdft_energy()
             self.FB = self.cdft_b.cdft_energy()
-        
+            
+            # cDFT energies
+            self.EA = self.cdft_A.dft_energy()
+            self.EB = self.cdft_B.dft_energy()
+
             # lagrange multipliers
             self.Va = self.cdft_a.get_lagrangians() * Hartree
             self.Vb = self.cdft_b.get_lagrangians() * Hartree
@@ -112,7 +116,7 @@ class Marcus_parameters:
             self.temp = temp
         else:
             self.temp = 298
-        print ('THE NEW MARCUS MODULE')
+
     def get_coupling_term(self):
         
         '''solves the generalized eigen-equation
@@ -184,8 +188,8 @@ class Marcus_parameters:
     
 
     def get_ae_weight_matrix(self):
-    	''' Compute W_AB =  <Psi_A|sum_i w_i^B(r)| Psi_B>
-    	with all-electron pair density
+        ''' Compute W_AB =  <Psi_A|sum_i w_i^B(r)| Psi_B>
+        with all-electron pair density
         '''
         
         ns = self.calc_a.wfs.nspins
@@ -208,32 +212,32 @@ class Marcus_parameters:
         
         n_occup_a = self.get_n_occupied_bands(self.calc_a) # total of filled a and b bands
         n_occup_b = self.get_n_occupied_bands(self.calc_b)
-    	
+        
         n_bands_a = self.calc_a.get_number_of_bands() # total a or b bands
         n_bands_b = self.calc_b.get_number_of_bands()
-    	if n_bands_a == n_bands_b:
+        if n_bands_a == n_bands_b:
             n_bands = n_bands_a
         else:
             n_bands = np.max((n_bands_a,n_bands_b))
-    	
-    	# list to store k-dependent weight matrices
-    	w_ij_AB =[]
-    	w_ij_BA = []
-    	Vbw_ij_AB = []
-    	Vaw_ij_BA = []
-    	
-    	# form weight matrices of correct size for each kpt	
-    	for k in range(nk):
-    	    na = n_occup_a[k].sum() # sum spins
-    	    nb = n_occup_b[k].sum()
-    	    if na == nb:
+        
+        # list to store k-dependent weight matrices
+        w_ij_AB =[]
+        w_ij_BA = []
+        Vbw_ij_AB = []
+        Vaw_ij_BA = []
+        
+        # form weight matrices of correct size for each kpt 
+        for k in range(nk):
+            na = n_occup_a[k].sum() # sum spins
+            nb = n_occup_b[k].sum()
+            if na == nb:
                 n_occup = na
             else:
                 n_occup = np.max((na,nb))
-    	    
-    	    occup_k = n_occup
-    	    w_ij_AB.append(np.zeros((occup_k,occup_k)))
-    	    w_ij_BA.append(np.zeros((occup_k,occup_k)))
+            
+            occup_k = n_occup
+            w_ij_AB.append(np.zeros((occup_k,occup_k)))
+            w_ij_BA.append(np.zeros((occup_k,occup_k)))
             Vbw_ij_AB.append(np.zeros((occup_k,occup_k)))
             Vaw_ij_BA.append(np.zeros((occup_k,occup_k)))
         
@@ -358,36 +362,36 @@ class Marcus_parameters:
         
         psi_a = PS2AE(self.calc_a, h = self.h, n = 2)
         psi_b = PS2AE(self.calc_b, h = self.h, n = 2)
-    	
-    	ns = self.calc_a.wfs.nspins
-    	nk = len(self.calc_a.wfs.kd.weight_k)        
+        
+        ns = self.calc_a.wfs.nspins
+        nk = len(self.calc_a.wfs.kd.weight_k)        
         self.S = np.identity(2)
         
         # total of filled a and b bands for each spin and kpt 
         n_occup_a = self.get_n_occupied_bands(self.calc_a) 
         n_occup_b = self.get_n_occupied_bands(self.calc_b)
-    	# total a or b bands
+        # total a or b bands
         n_bands_a = self.calc_a.get_number_of_bands() 
         n_bands_b = self.calc_b.get_number_of_bands()
-    	
-    	if n_bands_a == n_bands_b:
+        
+        if n_bands_a == n_bands_b:
             n_bands = n_bands_a
         else:
             n_bands = np.max((n_bands_a,n_bands_b))
-    	
-    	# list to store k-dependent overlap matrices
-    	S_kn = []
-    	
-    	# form overlap matrices of correct size for each kpt
-    	for k in range(nk):
-    	    na = n_occup_a[k].sum() # sum spins
-    	    nb = n_occup_b[k].sum()
-    	    if na == nb:
+        
+        # list to store k-dependent overlap matrices
+        S_kn = []
+        
+        # form overlap matrices of correct size for each kpt
+        for k in range(nk):
+            na = n_occup_a[k].sum() # sum spins
+            nb = n_occup_b[k].sum()
+            if na == nb:
                 n_occup = na
             else:
-                n_occup = np.max((na,nb))	    
+                n_occup = np.max((na,nb))       
 
-    	    S_kn.append(np.zeros((n_occup,n_occup)))
+            S_kn.append(np.zeros((n_occup,n_occup)))
 
         w_k = [] #store kpt weights
         
@@ -411,7 +415,7 @@ class Marcus_parameters:
                 nBa, nBb = n_occup_b[k][0], n_occup_b[k][1]
 
                 nA = nAa + nAb
-        	    
+                
                 nB = nBa + nBb
 
                 # check that a and b cDFT states have similar spin state
@@ -520,7 +524,7 @@ class Marcus_parameters:
         # set cdft_a on geometry of B
         geometry.set_calculator(cdft)
         self.reorg_energy = geometry.get_potential_energy()
-        self.reorg_energy -= self.FA
+        self.reorg_energy -= self.EA
         
         return self.reorg_energy
              
@@ -557,7 +561,7 @@ class Marcus_parameters:
         # electron transmission coeffiecient
         # is the reaction diabatic or adiabatic?
         P_lz = self.get_landau_zener()
-        dE = self.FA - self.FB
+        dE = self.EA - self.EB
         if  dE>= -self.reorg_energy:
             # normal
             kappa = 2. * P_lz / (1 + P_lz)
@@ -575,7 +579,7 @@ class Marcus_parameters:
         # and an adiabatic correction
         
         # reaction energy
-        dE = self.FA - self.FB
+        dE = self.EA - self.EB
         
         # crossing of the parabolas
         barrier = 1. / (4. * self.reorg_energy) * \

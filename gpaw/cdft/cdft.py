@@ -16,7 +16,9 @@ class CDFT(Calculator):
     implemented_properties = ['energy', 'forces']
     
     def __init__(self, calc, atoms, regions, charges, coefs=None, txt='-',
-                 gtol=0.01, ftol = 1e-8, xtol = 1e-8, method='BFGS', forces = 'analytical'):
+                method='BFGS', forces = 'analytical',
+                 minimizer_options={'gtol':0.01, 'ftol': 1e-8, 'xtol':1e-8,
+                 'max_trust_radius':1.,'initial_trust_radius':1.e-2}):
         
         """Constrained DFT calculator.
         
@@ -31,9 +33,8 @@ class CDFT(Calculator):
         txt: None or str or file descriptor
             Log file.  Default id '-' meaning standard out.  Use None for
             no output.
-        gtol, ftol, xtol: float
-            Maximum accepted error in constrained charges, 
-            relative error in energy and Lagrangians.
+        minimizer_options: dict
+            options for scipy optimizers, see:scipy.optimize.minimize
         method: str
             One of scipy optimizers, e.g., BFGS, CG
         forces: str
@@ -44,9 +45,7 @@ class CDFT(Calculator):
         Calculator.__init__(self)
         self.calc = calc
         self.charge_i = np.array(charges, dtype=float)
-        self.gtol = gtol
-        self.ftol = ftol
-        self.xtol = xtol
+        self.options = minimizer_options
         self.regions = regions
         self.forces = forces
 
@@ -117,26 +116,37 @@ class CDFT(Calculator):
                             pad=False) * Bohr**3
             
             # get the cDFT gradient 
-            dn_i = (self.gd.integrate(self.ext.w_ig*self.ae_dens,global_integral=True) -
+            self.dn_i = (self.gd.integrate(self.ext.w_ig*self.ae_dens,global_integral=True) -
                     self.constraints)
             self.w = self.ext.w_ig
+            
             if self.iteration == 0:
                 n = 7 * len(self.v_i)
-                p('Convergence: gradient: %1.2e, energy: %1.2e'%(self.gtol,self.ftol))
+                p('Optimizer setups:{}'.format(self.options))
                 p('iter {0:{1}} energy     errors'.format('coefs', n))
                 p('     {0:{1}} [eV]       [e]'.format('[eV]', n))
             p('{0:4} {1} {2:10.3f} {3}'
               .format(self.iteration,
-                      ''.join('{0:7.3f}'.format(v) for v in v_i * Hartree),
+                      ''.join('{0:7.3f}'.format(v) for v in self.v_i * Hartree),
                       Edft,
-                      ''.join('{0:6.4f}'.format(dn) for dn in dn_i)))
+                      ''.join('{0:6.4f}'.format(dn) for dn in self.dn_i)))
             
             self.iteration += 1
-            return -Edft, -dn_i # return negative because maximising wrt v_i
-                   
-        m = minimize(f, self.v_i, jac=True, method = self.method,
-                     options={'gtol': self.gtol, 'ftol':self.ftol, 
-                     'xtol':self.xtol,'norm': np.inf})
+
+            return -Edft, -self.dn_i # return negative because maximising wrt v_i
+        
+        def hessian(v_i):
+            # Hessian approximated with BFGS
+            self.hess = self.update_hessian(v_i)
+            return self.hess
+
+        if self.method == 'trust-ncg' or self.method == 'dogleg':
+            # these methods need hessian
+            m = minimize(f, self.v_i, jac=True, method = self.method,
+                     hess = hessian,options=self.options)
+        else:
+            m = minimize(f, self.v_i, jac=True, method = self.method,
+                     options=self.options)
         assert m.success, m
         
         p(m.message + '\n')
@@ -150,7 +160,13 @@ class CDFT(Calculator):
 
         self.results['energy'] = -m.fun
         self.Edft = -m.fun 
-        # Free energy, Ecdft = Edft + sum_i [V_i* int(w_i * n)] 
+        # Free energy <A|H^KS + V_a w_a|A> = Edft + <A|Vw|A>
+        try:
+            # remove external from Edft
+            self.Edft -= np.dot(self.v_i, self.dn_i)
+        except:
+            pass
+        
         self.Ecdft = self.Edft + np.dot(self.v_i, 
                                 self.gd.integrate(self.w, self.ae_dens, 
                                 global_integral=True)) 
@@ -161,7 +177,7 @@ class CDFT(Calculator):
                     self.regions)
         
         f_cdft = f.get_cdft_forces(self.ae_dens / (Bohr**3), self.v_i, self.forces)
-        print (f_cdft)
+
         self.calc.wfs.world.broadcast(f_cdft,0) 
 
         self.results['forces'] = self.atoms.get_forces() + f_cdft
@@ -172,6 +188,9 @@ class CDFT(Calculator):
     def cdft_energy(self):
         return self.Ecdft
 
+    def dft_energy(self):
+        return self.Edft
+
     def get_lagrangians(self):
         return self.v_i
 
@@ -180,6 +199,69 @@ class CDFT(Calculator):
 
     def get_grid(self):
         return self.gd
+    
+    def update_hessian(self,v_i):
+        '''Computation of a BFGS Hessian to be 
+        used with trust-ncg and dogleg optimizers
+
+        returns a pos.def. hessian
+        '''
+        iteration = self.iteration - 1
+        n_regions = len(self.regions)
+
+        if iteration == 0:
+            # Initialize Hessian as identity
+            # scaled with gradients
+            Hk = np.abs(self.dn_i)*np.identity(n_regions)
+
+        else:       
+            Hk0 = self.hess
+            # Form new Hessian using BFGS
+            s = v_i - self.old_v_i
+            # difference of gradients = y
+            y = self.dn_i - self.old_gradient
+            #BFGS step
+            #Hk = Hk0 + y*yT/(yT*s) - Hk0*s*sT*Hk0/(sT*Hk0*s)
+            #form each term
+            first_num = np.dot(y, np.transpose(y))
+            first_den = np.dot(np.transpose(y),s)
+                
+            second_num = np.dot(Hk0 ,np.dot(s, np.dot( np.transpose(s),Hk0) ) )
+            second_den = (np.dot(np.transpose(s), np.dot(Hk0, s)))
+                
+            Hk = Hk0 + \
+                    first_num/first_den - \
+                    second_num/second_den
+                
+        #make sure Hk is pos. def.eigs = np.linalg.eigvals(self.Hk)
+        hess = Hk.copy()
+        eigs = np.linalg.eigvals(hess)
+        if not all( eig > 0. for eig in eigs):    
+            hess = Hk.copy()
+            while not all( eig > 0. for eig in eigs):
+                #round down smallest eigenvalue with 2 decimals 
+                mineig = np.floor(min(eigs)*100.)/100.
+                hess = hess - mineig*np.identity(n_regions)
+                eigs = np.linalg.eigvals(hess)
+            
+        self.old_gradient = self.dn_i
+        self.old_v_i = self.v_i
+        self.old_hessian = hess
+
+        return hess 
+
+def gaussians(gd, positions, numbers):
+    r_Rv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
+    radii = covalent_radii[numbers]
+    cutoffs = radii + 3.0
+    sigmas = radii * min(covalent_radii) + 0.5
+    result_R = gd.zeros()
+    for pos, Z, rc, sigma in zip(positions, numbers, cutoffs, sigmas):
+        d2_R = ((r_Rv - pos)**2).sum(3)
+        a_R = Z / (sigma**3 * (2 * np.pi)**1.5) * np.exp(-d2_R / (2 * sigma**2))
+        a_R[d2_R > rc] = 0.0
+        result_R += a_R
+    return result_R
     
     
 class CDFTPotential(ExternalPotential):
@@ -193,12 +275,13 @@ class CDFTPotential(ExternalPotential):
         self.Z_a = None
         self.w_ig = None
         self.constraints = constraints
+        self.name = 'CDFT'
 
     def __str__(self):
         self.name = 'CDFT'
         return 'CDFTPotential'
         
-    def name(self):
+    def get_name(self):
         return self.name
         
     def update_ae_density(self,ae_dens):
@@ -234,8 +317,22 @@ class CDFTPotential(ExternalPotential):
         ntot_g = gd.zeros()
         missing = list(range(len(self.Z_a)))
 
-        w = []
+        N_i = []
         
+        '''for i, indices in enumerate(self.indices_i):
+            n_g = gaussians(gd, self.pos_av[indices], self.Z_a[indices])
+            N_i.append(gd.integrate(n_g))
+            ntot_g += n_g
+            self.w_ig[i] = n_g
+            for a in indices:
+                missing.remove(a)
+        
+        ntot_g += gaussians(gd, self.pos_av[missing], self.Z_a[missing])
+        ntot_g[ntot_g == 0] = 1.0
+        self.w_ig /= ntot_g
+        '''
+
+        w = []
         # make weight functions
         for i in range(len(self.indices_i)):
             wf = WeightFunc(self.gd,
@@ -251,6 +348,10 @@ class CDFTPotential(ExternalPotential):
         volume_i = self.gd.integrate(self.w_ig)
 
         p = functools.partial(print, file=self.log)
+        p('Electrons:',
+              ', '.join('{0}: {1:.3f} ???'.format(indices, N)
+                        for indices, N in zip(self.indices_i, N_i)),
+              file=self.log)
         p('Volumes:',
               ', '.join('{0}: {1:.3f} Ang^3'.format(indices, volume * Bohr**3)
                         for indices, volume in zip(self.indices_i, volume_i)),
@@ -266,6 +367,8 @@ class CDFTPotential(ExternalPotential):
         if self.w_ig is None:
             self.initialize_partitioning(self.gd)
         self.vext_g = np.einsum('i,ijkl', self.v_i, self.w_ig)
+
+
 
 # Cut-off dict:
 Rc = {
@@ -637,5 +740,4 @@ class WeightFunc:
         ####### fd derivative
         fd_der = (w_pos-w_neg)/(2*dx)
 
-        
         return fd_der
