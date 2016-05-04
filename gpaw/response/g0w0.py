@@ -24,7 +24,6 @@ from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.tools import vxc
 import os
 
-
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', restartfile=None,
                  kpts=None, bands=None, nbands=None, ppa=False,
@@ -34,6 +33,7 @@ class G0W0(PairDensity):
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False):
+
         """G0W0 calculator.
         
         The G0W0 calculator is used is used to calculate the quasi
@@ -247,6 +247,7 @@ class G0W0(PairDensity):
             self.previous_dsigma = 0.
 
         self.ite = 0
+
         dqp_skn = np.zeros(self.shape)
 
         while self.ite < self.maxiter:
@@ -1089,6 +1090,7 @@ class G0W0(PairDensity):
                 S_v0G, np.tensordot(u_vvv, S_vG0 * sqrV_G[None, 1:],
                                     axes=(2, 0)), axes=(0, 1)), axis=1)
             
+
     def update_energies(self, mixing):
         """Updates the energies of the calculator with the quasi-particle
         energies."""
