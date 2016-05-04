@@ -377,7 +377,7 @@ class G0W0(PairDensity):
             if self.sign == -1:
                 Q_Gii = Q_Gii.conj()
             Q_aGii.append(Q_Gii)
-        debug = True
+
         if debug:
             self.check(ie, i_cG, shift0_c, N_c, q_c, Q_aGii)
                 
@@ -462,7 +462,7 @@ class G0W0(PairDensity):
 
     def calculate_screened_potential(self):
         """Calculates the screened potential for each q-point in the 1st BZ.
-        Sknce many q-points are related by symmetry, the actual calculation is
+        Since many q-points are related by symmetry, the actual calculation is
         only done for q-points in the IBZ and the rest are obtained by symmetry
         transformations. Results are returned as a generator to that it is not
         necessary to store a huge matrix for each q-point in the memory."""
@@ -471,11 +471,11 @@ class G0W0(PairDensity):
         self.timer.start('W')
         print('Calculating screened Coulomb potential', file=self.fd)
         if self.truncation is not None:
-            print('Uskng %s truncated Coloumb potential' % self.truncation,
+            print('Using %s truncated Coloumb potential' % self.truncation,
                   file=self.fd)
             
         if self.ppa:
-            print('Uskng Godby-Needs plasmon-pole approximation:',
+            print('Using Godby-Needs plasmon-pole approximation:',
                   file=self.fd)
             print('    Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
                   file=self.fd)
@@ -488,7 +488,7 @@ class G0W0(PairDensity):
                           'timeordered': False,
                           'frequencies': frequencies}
         else:
-            print('Uskng full frequency integration:', file=self.fd)
+            print('Using full frequency integration:', file=self.fd)
             print('  domega0: {0:g}'.format(self.domega0 * Hartree),
                   file=self.fd)
             print('  omega2: {0:g}'.format(self.omega2 * Hartree),
