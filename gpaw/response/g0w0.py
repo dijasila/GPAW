@@ -119,9 +119,11 @@ class G0W0(PairDensity):
         else:
             ecut_e = np.array([ecut])
         self.ecut_e = ecut_e / Hartree
-        
+
         PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
                              txt=txt)
+
+        ecut /= Hartree
 
         self.filename = filename
         self.restartfile = restartfile
@@ -304,9 +306,10 @@ class G0W0(PairDensity):
                 self.dsigma_skn = self.dsigma_eskn[0]
             
             self.Z_skn = 1 / (1 - self.dsigma_skn)
-            qp_skn = self.eps_skn + self.Z_skn * (self.sigma_skn +
-                                                  self.exx_skn -
-                                                  self.vxc_skn)
+
+            qp_skn = self.qp_skn + self.Z_skn * (self.eps_skn -
+                     self.vxc_skn - self.qp_skn + self.exx_skn +
+                     self.sigma_skn)
 
             dqp_skn = qp_skn - self.qp_skn
             self.qp_skn = qp_skn
@@ -500,7 +503,7 @@ class G0W0(PairDensity):
                           'timeordered': True,
                           'domega0': self.domega0 * Hartree,
                           'omega2': self.omega2 * Hartree}
-        
+
         chi0 = Chi0(self.inputcalc,
                     nbands=self.nbands,
                     ecut=self.ecut * Hartree,
@@ -555,11 +558,11 @@ class G0W0(PairDensity):
                 if self.savew and fd is None:
                     # Read screened potential from file
                     with open(wfilename, 'rb') as fd:
-                        pd, W = pickle.load(fd)
+                        pdi, W = pickle.load(fd)
                     # We also need to initialize the PAW corrections
-                    self.Q_aGii = self.initialize_paw_corrections(pd)
+                    self.Q_aGii = self.initialize_paw_corrections(pdi)
 
-                    nG = pd.ngmax
+                    nG = pdi.ngmax
                     nw = len(self.omega_w)
                     mynG = (nG + self.blockcomm.size - 1) // \
                         self.blockcomm.size
