@@ -72,7 +72,7 @@ Radial cutoffs and eigenvalues:
     
 {table1}
         
-The figure shows convergence of the absolule energy (red line)
+The figure shows convergence of the absolute energy (red line)
 and atomization energy (green line) of a {symbol} dimer relative
 to completely converged numbers (plane-wave calculation at 1500 eV).
 Also shown are finite-difference and LCAO (dzp) calculations at gridspacings
@@ -103,7 +103,7 @@ Egg-box errors in finite-difference mode:
     plt.semilogy([solve(depw, de) for de in defd], defd, 'gs',
                  label='fd, atomization')
     plt.semilogy([solve(epw, de) for de in elcao], elcao, 'ro',
-                 label='lcao, absoulte')
+                 label='lcao, absolute')
     plt.semilogy([solve(depw, de) for de in delcao], delcao, 'go',
                  label='lcao, atomization')
     plt.xlabel('plane-wave cutoff [eV]')
