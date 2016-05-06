@@ -56,7 +56,7 @@ def check(con, name):
         con.write(atoms, name=name, test='pw1', ecut=ecut)
         del con[id]
 
-    for g in [20, 24]:
+    for g in [20, 24, 28]:
         id = con.reserve(name=name, test='fd1', gpts=g)
         if id is None:
             continue
@@ -67,7 +67,7 @@ def check(con, name):
         con.write(atoms, name=name, test='fd1', gpts=g)
         del con[id]
         
-    for g in [20, 24]:
+    for g in [20, 24, 28]:
         id = con.reserve(name=name, test='lcao1', gpts=g)
         if id is None:
             continue
@@ -104,7 +104,7 @@ def check(con, name):
             con.write(atoms, name=name, test='relax')
             del con[id]
             
-    for g in [20, 24]:
+    for g in [20, 24, 28]:
         id = con.reserve(name=name, test='fd2', gpts=g)
         if id is None:
             continue
@@ -115,7 +115,7 @@ def check(con, name):
         con.write(atoms, name=name, test='fd2', gpts=g)
         del con[id]
             
-    for g in [20, 24]:
+    for g in [20, 24, 28]:
         id = con.reserve(name=name, test='lcao2', gpts=g)
         if id is None:
             continue

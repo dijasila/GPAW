@@ -2,12 +2,13 @@
 # ... and all the rest
 from __future__ import print_function
 import json
+
 import matplotlib.pyplot as plt
 from ase.data import atomic_numbers, atomic_names
 from ase.units import Hartree
 from ase.utils import plural
 
-from gpaw.atom.check import cutoffs, solve
+from gpaw.atom.check import cutoffs, solve, all_names
 
 
 with open('datasets.json') as fd:
@@ -32,8 +33,7 @@ Datasets:
 .. csv-table::
     :header: name, valence electrons, frozen core electrons
 
-{table}
-"""
+{table}"""
     
     table = ''
     for e, nlfer, energies in data[symbol]:
@@ -61,6 +61,7 @@ def rst1(dataset, nlfer, energies):
         table1 += '\n'
 
     rst = """
+    
 {electrons}
 ====================
 
@@ -84,14 +85,15 @@ Egg-box errors in finite-difference mode:
 .. csv-table::
     :header: grid-spacing [Å], energy error [eV]
     
-{table2}
-"""
+{table2}"""
+
     epw, depw, efd, defd, elcao, delcao, deegg = energies
     
     table2 = ''
     for h, e in zip([0.16, 0.18, 0.2], deegg):
         table2 += '    {:.2f},{:.4f}\n'.format(h, e)
-        
+
+    plt.figure()
     plt.semilogy(cutoffs[:-1], epw[:-1], 'r',
                  label='pw, absolute')
     plt.semilogy(cutoffs[:-1], depw[:-1], 'g',
@@ -114,6 +116,8 @@ Egg-box errors in finite-difference mode:
                           dataset=dataset)
 
         
-for symbol in ['Na']:  # all_names:
+for symbol in all_names:
     if '.' not in symbol:
+        print(symbol, end='', flush=True)
         rst(symbol)
+print()
