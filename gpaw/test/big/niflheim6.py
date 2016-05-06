@@ -42,7 +42,7 @@ class NiflheimCluster(Cluster):
             arch = 'linux-x86_64-x3455-el6'
 
         gpaw_python = os.path.join(dir, 'gpaw', 'build',
-                                   'bin.' + arch, 'gpaw-python')
+                                   'bin.' + arch + '-2.6', 'gpaw-python')
 
         submit_pythonpath = ':'.join([
             self.asepath,
