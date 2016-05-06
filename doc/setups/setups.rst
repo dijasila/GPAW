@@ -207,6 +207,6 @@ Comparison and Benchmark DataBase`_, `Dacapo pseudo potentials`_, and
 
 .. toctree::
    :glob:
-   :maxdepth: 1
+   :hidden:
 
    [A-Z]*

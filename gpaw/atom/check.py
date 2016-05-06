@@ -142,7 +142,7 @@ def solve(energies, de):
     return np.log(a / de) / b
     
     
-def summary(con, name, de):
+def summary(con, name):
     eegg = [row.get('eegg', np.nan)
             for row in con.select(name=name, test='eggbox', sort='h')]
     ecut = np.array([row.energy for row in con.select(name=name,
@@ -177,9 +177,8 @@ def summary(con, name, de):
     deL = eL - 0.5 * eL2
     
     return (energies, denergies,
-            eegg,
-            solve(energies, de), solve(denergies, de),
-            abs(eg), abs(deg), abs(eL), abs(deL))
+            abs(eg), abs(deg), abs(eL), abs(deL),
+            eegg)
 
 all_names = [
     'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Na.1',
