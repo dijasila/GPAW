@@ -93,22 +93,31 @@ Egg-box errors in finite-difference mode:
     for h, e in zip([0.16, 0.18, 0.2], deegg):
         table2 += '    {:.2f},{:.4f}\n'.format(h, e)
 
-    plt.figure()
-    plt.semilogy(cutoffs[:-1], epw[:-1], 'r',
+    plt.figure(figsize=(8, 4))
+    plt.subplots_adjust(wspace=0)
+
+    ax1 = plt.subplot(121)
+    ax1.semilogy(cutoffs[:-1], epw[:-1], 'r',
                  label='pw, absolute')
-    plt.semilogy(cutoffs[:-1], depw[:-1], 'g',
+    ax1.semilogy(cutoffs[:-1], depw[:-1], 'g',
                  label='pw, atomization')
-    plt.semilogy([solve(epw, de) for de in efd], efd, 'rs',
-                 label='fd, absolute')
-    plt.semilogy([solve(depw, de) for de in defd], defd, 'gs',
-                 label='fd, atomization')
-    plt.semilogy([solve(epw, de) for de in elcao], elcao, 'ro',
-                 label='lcao, absolute')
-    plt.semilogy([solve(depw, de) for de in delcao], delcao, 'go',
-                 label='lcao, atomization')
+    plt.xticks([200, 400, 600])
     plt.xlabel('plane-wave cutoff [eV]')
     plt.ylabel('error [eV/atom]')
     plt.legend(loc='best')
+    
+    ax2 = plt.subplot(122, sharey=ax1)
+    h = [4.0 / g for g in [20, 24]]
+    ax2.semilogy(h, efd, '-rs', label='fd, absolute')
+    ax2.semilogy(h, defd, '-gs', label='fd, atomization')
+    ax2.semilogy(h, elcao, '-ro', label='lcao, absolute')
+    ax2.semilogy(h, delcao, '-go', label='lcao, atomization')
+    plt.xticks([0.16, 0.18, 0.2])
+    plt.xlim(0.15, 0.2)
+    plt.xlabel('grid-spacing [Å]')
+    plt.legend(loc='best')
+    plt.setp(ax2.get_yticklabels(), visible=False)
+    
     plt.savefig(dataset + '.png')
 
     return nv, rst.format(electrons=plural(nv, 'valence electron'),
