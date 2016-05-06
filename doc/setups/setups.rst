@@ -27,23 +27,18 @@ Apr 19 2010  gpaw-setups-0.6.6300.tar.gz_
 Jul 22 2009  gpaw-setups-0.5.3574.tar.gz_
 ===========  =============================
 
-.. _gpaw-setups-0.9.20000.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.20000.tar.gz
 
-.. _gpaw-setups-0.9.11271.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.11271.tar.gz
+Periodic table
+==============
 
-.. _gpaw-setups-0.9.9672.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.9672.tar.gz
-
-.. _gpaw-setups-0.8.7929.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.8.7929.tar.gz
-
-.. _gpaw-setups-0.6.6300.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.6.6300.tar.gz
-
-.. _gpaw-setups-0.5.3574.tar.gz:
-    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.5.3574.tar.gz
+=== === === === === === === === === === === === === === === === === ===
+H_                                                                  He_
+Li_ Be_                                         B_  C_  N_  O_  F_  Ne_
+Na_ Mg_                                         Al_ Si_ P_  S_  Cl_ Ar_
+K_  Ca_ Sc_ Ti_ V_  Cr_ Mn_ Fe_ Co_ Ni_ Cu_ Zn_ Ga_ Ge_ As_ Se_ Br_ Kr_
+Rb_ Sr_ Y_  Zr_ Nb_ Mo_ Tc  Ru_ Rh_ Pd_ Ag_ Cd_ In_ Sn_ Sb_ Te_ I_  Xe_
+Cs_ Ba_ La_ Hf_ Ta_ W_  Re_ Os_ Ir_ Pt_ Au_ Hg_ Tl_ Pb_ Bi_ Po  At  Rn_
+=== === === === === === === === === === === === === === === === === ===
 
 
 .. _installation of paw datasets:
@@ -71,13 +66,10 @@ To manually install the setups, do as follows:
 
 2) Set the environment variable :envvar:`GPAW_SETUP_PATH`
    to point to the directory
-   :file:`gpaw-setups-{<version>}/`, e.g. put into :file:`~/.tcshrc`::
+   :file:`gpaw-setups-{<version>}/`, e.g. for bash users, you would put into
+   :file:`~/.bashrc`::
 
-    setenv GPAW_SETUP_PATH ${HOME}/gpaw-setups-<version>
-
-   or if you use bash, put these lines into :file:`~/.bashrc`::
-
-    export GPAW_SETUP_PATH=${HOME}/gpaw-setups-<version>
+       export GPAW_SETUP_PATH=~/gpaw-setups-<version>
 
    Refer to :ref:`using_your_own_setups` for alternative way of
    setting the location of PAW datasets.
@@ -87,53 +79,41 @@ To manually install the setups, do as follows:
      In case of several locations of PAW datasets the first found setup
      file is used.
 
-     
-Periodic table
-==============
-
-=== === === === === === === === === === === === === === === === === ===
-H_                                                                  He_
-Li_ Be_                                         B_  C_  N_  O_  F_  Ne_
-Na_ Mg_                                         Al_ Si_ P_  S_  Cl_ Ar_
-K_  Ca_ Sc_ Ti_ V_  Cr_ Mn_ Fe_ Co_ Ni_ Cu_ Zn_ Ga_ Ge_ As_ Se_ Br_ Kr_
-Rb_ Sr_ Y_  Zr_ Nb_ Mo_ Tc  Ru_ Rh_ Pd_ Ag_ Cd_ In_ Sn_ Sb_ Te_ I_  Xe_
-Cs_ Ba_ La_ Hf_ Ta_ W_  Re_ Os_ Ir_ Pt_ Au_ Hg_ Tl_ Pb_ Bi_ Po  At  Rn_
-=== === === === === === === === === === === === === === === === === ===
-
-See also `NIST Atomic Reference Data`_, `Computational Chemistry
-Comparison and Benchmark DataBase`_, `Dacapo pseudo potentials`_, and
-`Vasp pseudo potentials`_.
+See also `NIST Atomic Reference Data`_.
 
 .. _NIST Atomic Reference Data: http://physics.nist.gov/PhysRefData/DFTdata/Tables/ptable.html
-.. _Computational Chemistry Comparison and Benchmark DataBase: http://srdata.nist.gov/cccbdb/
-.. _Dacapo pseudo potentials: https://wiki.fysik.dtu.dk/dacapo/Pseudopotential_Library
-.. _Vasp pseudo potentials: http://cms.mpi.univie.ac.at/vasp/vasp/Pseudopotentials_supplied_with_VASP_package.html
 
 
 .. toctree::
    :maxdepth: 2
 
-   g2_1
-   dcdft
    molecule_tests
    bulk_tests
+   g2_1
+   dcdft
    generation_of_setups
    pawxml
 
-.. from gpaw.atom.configurations import parameters
-   for s in parameters:
-       print '.. %3s: %2s.html' % ('_' + s, s)
 
-.. from gpaw.atom.configurations import parameters
-   from ase.data import atomic_numbers
-   from ase.data import chemical_symbols
-   anums=[]
-   for s in parameters:
-       anums.append(atomic_numbers[s])
-   anums.sort()
-   for a in anums:
-       s = chemical_symbols[a]
-       print '.. %3s: %2s.html' % ('_' + s, s)
+.. toctree::
+   :glob:
+   :hidden:
+
+   [A-Z]*
+
+
+.. _gpaw-setups-0.9.20000.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.20000.tar.gz
+.. _gpaw-setups-0.9.11271.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.11271.tar.gz
+.. _gpaw-setups-0.9.9672.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.9672.tar.gz
+.. _gpaw-setups-0.8.7929.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.8.7929.tar.gz
+.. _gpaw-setups-0.6.6300.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.6.6300.tar.gz
+.. _gpaw-setups-0.5.3574.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.5.3574.tar.gz
 
 ..  _H:  H.html
 .. _He: He.html
@@ -204,9 +184,3 @@ Comparison and Benchmark DataBase`_, `Dacapo pseudo potentials`_, and
 .. _Pb: Pb.html
 .. _Bi: Bi.html
 .. _Rn: Rn.html
-
-.. toctree::
-   :glob:
-   :hidden:
-
-   [A-Z]*
