@@ -23,7 +23,7 @@ for name in all_names:
         params = parameters[symbol]
         
     gen = Generator(symbol, 'PBE', scalarrel=True)
-    gen.run(**params)
+    gen.run(write_xml=False, **params)
     nlfer = []
     for j in range(gen.njcore):
         nlfer.append((gen.n_j[j], gen.l_j[j], gen.f_j[j], gen.e_j[j], 0.0))
@@ -31,5 +31,3 @@ for name in all_names:
         nlfer.append((n, l, f, eps, gen.rcut_l[l]))
     con.write(Atoms(symbol), test='dataset', name=name, data={'nlfer': nlfer})
     del con[id]
-    break
-    
