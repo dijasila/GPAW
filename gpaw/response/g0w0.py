@@ -24,7 +24,6 @@ from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.tools import vxc
 import os
 
-
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', restartfile=None,
                  kpts=None, bands=None, nbands=None, ppa=False,
@@ -34,6 +33,7 @@ class G0W0(PairDensity):
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False):
+
         """G0W0 calculator.
         
         The G0W0 calculator is used is used to calculate the quasi
@@ -210,19 +210,21 @@ class G0W0(PairDensity):
         
         Returns a dict with the results with the following key/value pairs:
 
-        =========  ===================================
-        key        value
-        =========  ===================================
-        ``f``      Occupation numbers
-        ``eps``    Kohn-Sham eigenvalues in eV
-        ``vxc``    Exchange-correlation
-                   contributions in eV
-        ``exx``    Exact exchange contributions in eV
-        ``sigma``  Self-energy contributions in eV
-        ``dsigma`` Self-energy derivatives
-        ``Z``      Renormalization factors
-        ``qp``     Quasi particle energies in eV
-        =========  ===================================
+        =========   ===================================
+        key         value
+        =========   ===================================
+        ``f``       Occupation numbers
+        ``eps``     Kohn-Sham eigenvalues in eV
+        ``vxc``     Exchange-correlation
+                    contributions in eV
+        ``exx``     Exact exchange contributions in eV
+        ``sigma``   Self-energy contributions in eV
+        ``dsigma``  Self-energy derivatives
+        ``sigma_e`` Self-energy contributions in eV 
+                    used for ecut extrapolation
+        ``Z``       Renormalization factors
+        ``qp``      Quasi particle energies in eV
+        =========   ===================================
         
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
@@ -249,6 +251,7 @@ class G0W0(PairDensity):
             self.previous_dsigma = 0.
 
         self.ite = 0
+
         dqp_skn = np.zeros(self.shape)
 
         while self.ite < self.maxiter:
@@ -324,13 +327,14 @@ class G0W0(PairDensity):
                    'exx': self.exx_skn * Hartree,
                    'sigma': self.sigma_skn * Hartree,
                    'dsigma': self.dsigma_skn,
-                   # 'sigma_eskn': self.sigma_eskn * Hartree,
-                   # 'dsigma_eskn': self.dsigma_eskn,
                    'Z': self.Z_skn,
                    'qp': self.qp_skn * Hartree,
                    'iqp': self.qp_iskn * Hartree}
       
         self.print_results(results)
+        
+        if len(self.ecut_e) > 1:  # save non-extrapolated result
+            results.update({'sigma_e': self.sigma_eskn * Hartree})
 
         if self.savepckl:
             pickle.dump(results,
@@ -622,7 +626,7 @@ class G0W0(PairDensity):
                 wa = 0
                 wb = nw
                 
-            if len(self.ecut_e) > 0:  # keep stuff
+            if len(self.ecut_e) > 1:  # keep stuff
                 """ WIP: Could this be done in a smoother way?
                 chi0 should only becalculated once pr q- but is it
                 too messy to assign chi to self for each q-round? 
@@ -823,13 +827,13 @@ class G0W0(PairDensity):
 
     def print_results(self, results):
         description = ['f:      Occupation numbers',
-                       'eps:    KS-eigenvalues [eV]',
-                       'vxc:    KS vxc [eV]',
-                       'exx:    Exact exchange [eV]',
-                       'sigma:  Self-energies [eV]',
-                       'dsigma: Self-energy derivatives',
-                       'Z:      Renormalization factors',
-                       'qp:     QP-energies [eV]']
+                       'eps:     KS-eigenvalues [eV]',
+                       'vxc:     KS vxc [eV]',
+                       'exx:     Exact exchange [eV]',
+                       'sigma:   Self-energies [eV]',
+                       'dsigma:  Self-energy derivatives',
+                       'Z:       Renormalization factors',
+                       'qp:      QP-energies [eV]']
 
         print('\nResults:', file=self.fd)
         for line in description:
@@ -901,7 +905,7 @@ class G0W0(PairDensity):
                 'kpts': self.kpts,
                 'bands': self.bands,
                 'nbands': self.nbands,
-                'ecut': self.ecut,
+                'ecut_e': self.ecut_e,
                 'domega0': self.domega0,
                 'omega2': self.omega2,
                 'integrate_gamma': self.integrate_gamma}
@@ -919,7 +923,7 @@ class G0W0(PairDensity):
             if (data['kpts'] == self.kpts and
                 data['bands'] == self.bands and
                 data['nbands'] == self.nbands and
-                data['ecut'] == self.ecut and
+                (data['ecut_e'] == self.ecut_e).all and
                 data['domega0'] == self.domega0 and
                 data['omega2'] == self.omega2 and
                 data['integrate_gamma'] == self.integrate_gamma):
@@ -1092,6 +1096,7 @@ class G0W0(PairDensity):
                 S_v0G, np.tensordot(u_vvv, S_vG0 * sqrV_G[None, 1:],
                                     axes=(2, 0)), axes=(0, 1)), axis=1)
             
+
     def update_energies(self, mixing):
         """Updates the energies of the calculator with the quasi-particle
         energies."""
