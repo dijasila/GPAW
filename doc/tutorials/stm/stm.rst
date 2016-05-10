@@ -5,7 +5,7 @@ Tutorial: STM images - Al(111)
 ==============================
 
 Let's make a 2 layer Al(111) fcc surface using the
-:func:`ase.lattice.surface.fcc111` function:
+:func:`ase.build.fcc111` function:
 
 .. literalinclude:: al111.py
    :lines: 1-3
