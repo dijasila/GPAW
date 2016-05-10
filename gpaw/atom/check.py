@@ -201,7 +201,6 @@ def main():
     parser.add_option('-d', '--database', default='check.db')
     parser.add_option('-e', '--energy-difference', type=float, default=0.01)
     opts, names = parser.parse_args()
-    names = names or all_names
     con = ase.db.connect(opts.database)
     if opts.summary:
         for name in names:

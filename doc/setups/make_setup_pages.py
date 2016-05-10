@@ -93,8 +93,7 @@ Egg-box errors in finite-difference mode:
     for h, e in zip([0.16, 0.18, 0.2], deegg):
         table2 += '    {:.2f},{:.4f}\n'.format(h, e)
 
-    plt.figure(figsize=(8, 4))
-    plt.subplots_adjust(wspace=0)
+    plt.figure(figsize=(8, 5))
 
     ax1 = plt.subplot(121)
     ax1.semilogy(cutoffs[:-1], epw[:-1], 'r',
@@ -107,17 +106,19 @@ Egg-box errors in finite-difference mode:
     plt.legend(loc='best')
     
     ax2 = plt.subplot(122, sharey=ax1)
-    h = [4.0 / g for g in [20, 24]]
+    h = [4.0 / g for g in [20, 24, 28]]
     ax2.semilogy(h, efd, '-rs', label='fd, absolute')
     ax2.semilogy(h, defd, '-gs', label='fd, atomization')
     ax2.semilogy(h, elcao, '-ro', label='lcao, absolute')
     ax2.semilogy(h, delcao, '-go', label='lcao, atomization')
     plt.xticks([0.16, 0.18, 0.2])
-    plt.xlim(0.15, 0.2)
+    plt.xlim(0.14, 0.2)
     plt.xlabel('grid-spacing [Å]')
     plt.legend(loc='best')
     plt.setp(ax2.get_yticklabels(), visible=False)
     
+    plt.tight_layout()
+    plt.subplots_adjust(wspace=0)
     plt.savefig(dataset + '.png')
 
     return nv, rst.format(electrons=plural(nv, 'valence electron'),
