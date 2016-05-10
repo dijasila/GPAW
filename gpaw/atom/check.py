@@ -56,7 +56,7 @@ def check(con, name):
         con.write(atoms, name=name, test='pw1', ecut=ecut)
         del con[id]
 
-    for g in [20, 24]:
+    for g in [20, 24, 28]:
         id = con.reserve(name=name, test='fd1', gpts=g)
         if id is None:
             continue
@@ -67,7 +67,7 @@ def check(con, name):
         con.write(atoms, name=name, test='fd1', gpts=g)
         del con[id]
         
-    for g in [20, 24]:
+    for g in [20, 24, 28]:
         id = con.reserve(name=name, test='lcao1', gpts=g)
         if id is None:
             continue
@@ -104,7 +104,7 @@ def check(con, name):
             con.write(atoms, name=name, test='relax')
             del con[id]
             
-    for g in [20, 24]:
+    for g in [20, 24, 28]:
         id = con.reserve(name=name, test='fd2', gpts=g)
         if id is None:
             continue
@@ -115,7 +115,7 @@ def check(con, name):
         con.write(atoms, name=name, test='fd2', gpts=g)
         del con[id]
             
-    for g in [20, 24]:
+    for g in [20, 24, 28]:
         id = con.reserve(name=name, test='lcao2', gpts=g)
         if id is None:
             continue
@@ -142,7 +142,7 @@ def solve(energies, de):
     return np.log(a / de) / b
     
     
-def summary(con, name, de):
+def summary(con, name):
     eegg = [row.get('eegg', np.nan)
             for row in con.select(name=name, test='eggbox', sort='h')]
     ecut = np.array([row.energy for row in con.select(name=name,
@@ -177,18 +177,18 @@ def summary(con, name, de):
     deL = eL - 0.5 * eL2
     
     return (energies, denergies,
-            eegg,
-            solve(energies, de), solve(denergies, de),
-            abs(eg), abs(deg), abs(eL), abs(deL))
+            abs(eg), abs(deg), abs(eL), abs(deL),
+            eegg)
 
-all = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Na.1',
-       'Mg', 'Mg.2', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc', 'Ti',
-       'V', 'V.5', 'Cr', 'Mn', 'Mn.7', 'Fe', 'Co', 'Ni', 'Ni.10', 'Cu', 'Zn',
-       'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Nb.5',
-       'Mo', 'Mo.6', 'Ru', 'Ru.8', 'Rh', 'Rh.9', 'Pd', 'Pd.10', 'Ag', 'Ag.11',
-       'Cd', 'In', 'Sn', 'Sb', 'Te', 'Te.16', 'I', 'Xe', 'Cs', 'Ba', 'Hf',
-       'Ta', 'Ta.5', 'W', 'W.6', 'Re', 'Os', 'Os.8', 'Ir', 'Ir.9', 'Pt',
-       'Pt.10', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Rn']
+all_names = [
+    'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Na.1',
+    'Mg', 'Mg.2', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc', 'Ti',
+    'V', 'V.5', 'Cr', 'Mn', 'Mn.7', 'Fe', 'Co', 'Ni', 'Ni.10', 'Cu', 'Zn',
+    'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Nb.5',
+    'Mo', 'Mo.6', 'Ru', 'Ru.8', 'Rh', 'Rh.9', 'Pd', 'Pd.10', 'Ag', 'Ag.11',
+    'Cd', 'In', 'Sn', 'Sb', 'Te', 'Te.16', 'I', 'Xe', 'Cs', 'Ba', 'Hf',
+    'Ta', 'Ta.5', 'W', 'W.6', 'Re', 'Os', 'Os.8', 'Ir', 'Ir.9', 'Pt',
+    'Pt.10', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Rn']
 
 
 def main():
@@ -201,7 +201,6 @@ def main():
     parser.add_option('-d', '--database', default='check.db')
     parser.add_option('-e', '--energy-difference', type=float, default=0.01)
     opts, names = parser.parse_args()
-    names = names or all
     con = ase.db.connect(opts.database)
     if opts.summary:
         for name in names:

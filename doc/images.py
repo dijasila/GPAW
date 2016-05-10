@@ -17,7 +17,6 @@ except ImportError:
     from urllib.request import urlopen
     from urllib.error import HTTPError
 import os
-from sys import executable
 
 srcpath = 'http://wiki.fysik.dtu.dk/gpaw-files'
 agtspath = 'http://wiki.fysik.dtu.dk'
@@ -139,13 +138,6 @@ get('agts-files', g2_1_stuff, target='setups', source=agtspath)
 
 
 def setup(app):
-    # Generate one page for each setup:
-    if get('setups', ['setups-data.tar.gz'], 'static'):
-        print('Extracting setup data ...')
-        os.system('tar -C static -xzf static/setups-data.tar.gz')
-        print('Generating setup pages ...')
-        os.system('cd setups; %s make_setup_pages.py' % executable)
-
     # Get png files and other stuff from the AGTS scripts that run
     # every weekend:
     from gpaw.test.big.agts import AGTSQueue
