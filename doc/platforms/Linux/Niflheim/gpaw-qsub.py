@@ -36,7 +36,7 @@ def main():
         help='Do not submit anything, but write parameters and qsub command')
     add('-n', '--processes', type=int,
         help='Number of actual cores to use.')
-    add('-q', '--queue', default='small',
+    add('-q', '--queue',
         help='Name of queue: small, medium, long, verylong '
         '(25m, 2h15m, 13h, 50h).  Default is small')
     add('-l', '--resources',
