@@ -17,7 +17,6 @@ except ImportError:
     from urllib.request import urlopen
     from urllib.error import HTTPError
 import os
-from sys import executable
 
 srcpath = 'http://wiki.fysik.dtu.dk/gpaw-files'
 agtspath = 'http://wiki.fysik.dtu.dk'
