@@ -133,7 +133,8 @@ def main():
     qsub += 'processes = {0}\n'.format(opts.processes)
     qsub += 'nthreads = %d\n' % opts.threads
     qsub += 'export = %r\n' % export
-
+    header = qsub
+    
     qsub += """
 import os
 import subprocess
@@ -183,7 +184,7 @@ if error:
         cmd += ['-W', opts.attributes]
     
     if opts.dry_run:
-        print('\n'.join(qsub.splitlines()[1:9]))
+        print(header)
         print(' '.join(cmd))
     else:
         subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(qsub)
