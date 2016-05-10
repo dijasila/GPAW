@@ -1,14 +1,16 @@
+# -*- coding: utf-8 -*-
 # creates: H.rst, H.png, He.rst, He.png
 # ... and all the rest
 from __future__ import print_function
 import json
+import sys
 
 import matplotlib.pyplot as plt
 from ase.data import atomic_numbers, atomic_names
 from ase.units import Hartree
 from ase.utils import plural
 
-from gpaw.atom.check import cutoffs, solve, all_names
+from gpaw.atom.check import cutoffs, all_names
 
 
 with open('datasets.json') as fd:
@@ -113,7 +115,7 @@ Egg-box errors in finite-difference mode:
     ax2.semilogy(h, delcao, '-go', label='lcao, atomization')
     plt.xticks([0.16, 0.18, 0.2])
     plt.xlim(0.14, 0.2)
-    plt.xlabel('grid-spacing [Å]')
+    plt.xlabel(u'grid-spacing [Å]')
     plt.legend(loc='best')
     plt.setp(ax2.get_yticklabels(), visible=False)
     
@@ -128,6 +130,7 @@ Egg-box errors in finite-difference mode:
         
 for symbol in all_names:
     if '.' not in symbol:
-        print(symbol, end='', flush=True)
+        print(symbol, end='')
+        sys.stdout.flush()
         rst(symbol)
 print()

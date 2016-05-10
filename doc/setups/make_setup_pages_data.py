@@ -3,10 +3,13 @@ from ase.io.jsonio import encode
 
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters, parameters_extra
-from gpaw.atom.check import summary, all_names
-
+from gpaw.atom.check import check, summary, all_names
 
 con = ase.db.connect('datasets.db')
+
+for name in all_names:
+    check(con, name)
+
 data = {}
 for name in all_names:
     if '.' in name:
