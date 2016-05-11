@@ -981,9 +981,10 @@ class BuildingBlock():
                                                           add_intraband
                                                           )
             print('calculated chi!', file=self.fd)
+            chi_collected = self.collect_chi(chi)
             if self.world.rank == 0:
                 q, omega_w, chiM_qw, chiD_qw, z, drhoM_qz, drhoD_qz = \
-                    get_chi_2D(self.omega_w, pd, chi)
+                    get_chi_2D(self.omega_w, pd, chi_collected)
 
                 self.update_building_block(chiM_qw, chiD_qw, drhoM_qz, 
                                            drhoD_qz)
@@ -1115,6 +1116,17 @@ class BuildingBlock():
         self.omega_w = w_grid
 
         self.save_chi_file(filename=self.filename + '_int')
+
+    def collect_chi(self, a_wGG):
+        world = self.df.chi0.world
+        b_w = np.zeros((self.df.mynw, a_wGG.shape[1], a_wGG.shape[2]),
+                       a_wGG.dtype)
+        b_w[:self.df.w2 - self.df.w1] = a_wGG
+        nw = len(self.df.omega_w)
+        A_wGG = np.empty((world.size * self.df.mynw, a_wGG.shape[1],
+                                    a_wGG.shape[2]), a_wGG.dtype)
+        world.all_gather(b_w, A_wGG)
+        return A_wGG[:nw]
 
     def clear_temp_files(self):
         if not self.savechi0:
