@@ -12,7 +12,7 @@ k = 12           # number of k-points (k*k*k)
 ne = a**3 / (4 * np.pi / 3 * rs**3)
 
 bulk = Atoms(pbc=True, cell=(a, a, a))
-bulk.calc = GPAW(poissonsolver=JelliumPoissonSolver(),
+bulk.calc = GPAW(poissonsolver=JelliumPoissonSolver(charge=ne),
                  xc='LDA_X+LDA_C_WIGNER',
                  charge=-ne,
                  nbands=5,
