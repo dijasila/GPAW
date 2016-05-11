@@ -95,7 +95,7 @@ Egg-box errors in finite-difference mode:
     for h, e in zip([0.16, 0.18, 0.2], deegg):
         table2 += '    {:.2f},{:.4f}\n'.format(h, e)
 
-    plt.figure(figsize=(8, 5))
+    fig = plt.figure(figsize=(8, 5))
 
     ax1 = plt.subplot(121)
     ax1.semilogy(cutoffs[:-1], epw[:-1], 'r',
@@ -122,7 +122,8 @@ Egg-box errors in finite-difference mode:
     plt.tight_layout()
     plt.subplots_adjust(wspace=0)
     plt.savefig(dataset + '.png')
-
+    plt.close(fig)
+    
     return nv, rst.format(electrons=plural(nv, 'valence electron'),
                           table1=table1, table2=table2, symbol=symbol,
                           dataset=dataset)
