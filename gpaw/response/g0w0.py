@@ -139,6 +139,7 @@ class G0W0(PairDensity):
         self.ac = anisotropy_correction
         if self.ac:
             assert self.truncation == '2D'
+            self.x0density = 0.1  # ? 0.01
 
         self.maxiter = maxiter
         self.method = method
@@ -981,10 +982,8 @@ class G0W0(PairDensity):
         self.cell_cv = self.calc.wfs.gd.cell_cv
         self.qpts_qc = self.calc.wfs.kd.bzk_kc
         self.weight_q = 1.0 * np.ones(len(self.qpts_qc)) / len(self.qpts_qc)
-        self.x0density = 0.1  # ? 0.01
         L = self.cell_cv[2, 2]
         nG = W_GG.shape[0]
-
         vc_00 = 4 * pi * L/2.
         vc_G0 = sqrV_G[1:]**2
 
