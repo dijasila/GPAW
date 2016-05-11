@@ -33,7 +33,19 @@ class DipoleCorrection:
 
     def solve(self, phi, rho, **kwargs):
         gd = self.poissonsolver.gd
-        drho, dphi = self.corrector.get_dipole_correction(gd, rho)
+  
+        if self.poissonsolver.__module__ == 'gpaw.jellium':
+            # This is possibly dangerous, if jellium module is
+            # moved, this will stop working properly.
+            
+            # If jellium calc, rho is not charge density unless we do this:
+            rho -= self.poissonsolver.mask_g * (self.poissonsolver.charge / self.poissonsolver.volume)
+            # Calculate dipole corrections for the actual jellium charge density
+            drho, dphi = self.corrector.get_dipole_correction(gd, rho)
+            rho += self.poissonsolver.mask_g * (self.poissonsolver.charge / self.poissonsolver.volume)
+        else:
+            drho, dphi = self.corrector.get_dipole_correction(gd, rho)
+
         phi -= dphi
         iters = self.poissonsolver.solve(phi, rho + drho, **kwargs)
         phi += dphi
