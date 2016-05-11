@@ -55,7 +55,7 @@ Version 1.0.0
 
 
 .. _fixed now: https://gitlab.com/gpaw/gpaw/commit/c72e02cd789
-.. _libvdwxc: https://gitlab.com/askhl/libvdwxc
+.. _libvdwxc: https://gitlab.com/libvdwxc/libvdwxc
 
 
 Version 0.11.0

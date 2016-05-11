@@ -701,7 +701,6 @@ class Heterostructure:
         I2 = 2 * np.pi / vol / 2. * (1. / q_z**2 - 1. / (q_z**2 + q_c**2))
 
         q_max = self.q_abs[-1]
-        print(q_max / Bohr)
         omega_weight = 1. / (2 * np.pi / vol *
                              (q_z**2 / 2. * (1. / (q_max**2 + q_z**2) -
                                              1. / q_z**2) + 
@@ -862,7 +861,7 @@ class BuildingBlock():
     building block of 2D material"""
     
     def __init__(self, filename, df, isotropic_q=True, nq_inf=10,
-                 txt=sys.stdout):
+                 qmax=None, txt=sys.stdout):
         """Creates a BuildingBlock object.
 
         filename: str
@@ -872,13 +871,17 @@ class BuildingBlock():
         isotropic_q: bool
             If True, only q-points along one direction (1 0 0) in the 
             2D BZ is included, thus asuming an isotropic material
+        qmax: float
+            Cutoff for q-grid. To be used if one wishes to sample outside the
+            irreducible BZ. Only works for isotropic q-sampling.
         nq_inf: int
             number of extra q points in the limit q->0 along each direction, 
             extrapolated from q=0, assumung that the head of chi0_wGG goes 
             as q^2 and the wings as q. 
             Note that this does not hold for (semi)metals!
         """
-        
+        if qmax is not None:
+            assert isotropic_q
         self.filename = filename
         self.isotropic_q = isotropic_q
         self.nq_inf = nq_inf
@@ -917,7 +920,7 @@ class BuildingBlock():
         qd = KPointDescriptor(bzq_qc)
         qd.set_symmetry(calc.atoms, kd.symmetry)
         q_cs = qd.ibzk_kc
-
+        rcell_cv = 2 * pi * np.linalg.inv(calc.wfs.gd.cell_cv).T
         if isotropic_q:  # only use q along [1 0 0] direction.
             Nk = kd.N_c
             omit_q = []
@@ -925,8 +928,26 @@ class BuildingBlock():
                 if not np.allclose(q_c[1:], 0):
                     omit_q.append(n)
             q_cs = np.delete(q_cs, omit_q, axis=0)
-
-        rcell_cv = 2 * pi * np.linalg.inv(calc.wfs.gd.cell_cv).T
+            q = 0
+            if qmax is not None: # 
+                qmax *= Bohr
+                qmax_v = np.array([qmax, 0, 0])
+                qmax_c = 1. / (2 * np.pi) * np.dot(qmax_v, calc.wfs.gd.cell_cv)
+                q_c = q_cs[-1]
+                q_v = np.dot(q_c, rcell_cv)
+                q = (q_v**2).sum()**0.5
+                nk = kd.N_c[0]
+                assert nk % 2 == 0 
+                i = nk / 2.
+                while q < qmax:
+                    if i == nk: # omit BZ edge 
+                        i += 1
+                        continue 
+                    q_c = np.array([i / nk, 0, 0])
+                    q_cs = np.append(q_cs, q_c[np.newaxis, :], axis=0)
+                    q_v = np.dot(q_c, rcell_cv)
+                    q = (q_v**2).sum()**0.5
+                    i += 1
         q_vs = np.dot(q_cs, rcell_cv)
         q_abs = (q_vs**2).sum(axis=1)**0.5
         sort = np.argsort(q_abs)
