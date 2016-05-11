@@ -13,7 +13,7 @@ k = 12           # number of k-points (k*k*1)
 
 ne = a**2 * L / (4 * np.pi / 3 * rs**3)
 
-ps = JelliumSurfacePoissonSolver(z1=v, z2=v + L)
+ps = JelliumSurfacePoissonSolver(z1=v, z2=v + L, charge = ne)
 surf = Atoms(pbc=(True, True, False),
              cell=(a, a, v + L + v))
 surf.calc = GPAW(poissonsolver=ps,
