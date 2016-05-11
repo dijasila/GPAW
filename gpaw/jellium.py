@@ -10,9 +10,10 @@ from gpaw.poisson import PoissonSolver
 
 class JelliumPoissonSolver(PoissonSolver):
     """Jellium Poisson solver."""
-    
-    mask_g = None  # where to put the jellium
-    rs = None  # Wigner Seitz radius
+    def __init__(self, charge, **kwargs):
+        self.mask_g = None  # where to put the jellium
+        self.rs = None  # Wigner Seitz radius
+        self.charge = charge  # Total Jellium positive background charge
     
     def get_mask(self, r_gv):
         """Choose which grid points are inside the jellium.
@@ -38,25 +39,28 @@ class JelliumPoissonSolver(PoissonSolver):
         if eps is None:
             eps = self.eps
         
-        self.rs = (3 / pi / 4 * self.volume / charge)**(1 / 3.0)
+        self.rs = (3 / pi / 4 * self.volume / self.charge)**(1 / 3.0)
         
-        rho -= self.mask_g * (charge / self.volume)
+        rho -= self.mask_g * (self.charge / self.volume)
         niter = self.solve_neutral(phi, rho, eps=eps)
         return niter
 
 
 class JelliumSurfacePoissonSolver(JelliumPoissonSolver):
-    def __init__(self, z1, z2, **kwargs):
+    def __init__(self, z1, z2, charge, **kwargs):
         """Put the positive background charge where z1 < z < z2.
 
         z1: float
             Position of lower surface in Angstrom units.
         z2: float
-            Position of upper surface in Angstrom units."""
+            Position of upper surface in Angstrom units.
+        charge: float
+            Total positive Jellium background charge"""
         
         PoissonSolver.__init__(self, **kwargs)
         self.z1 = (z1 - 0.0001) / Bohr
         self.z2 = (z2 - 0.0001) / Bohr
+        self.charge = charge
 
     def get_mask(self, r_gv):
         return np.logical_and(r_gv[:, :, :, 2] > self.z1,
