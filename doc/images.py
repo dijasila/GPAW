@@ -136,6 +136,8 @@ pbe_nwchem_def2_qzvppd_opt_ea_vs.csv pbe_nwchem_def2_qzvppd_opt_distance_vs.csv
 
 get('agts-files', g2_1_stuff, target='setups', source=agtspath)
 
+get('agts-files', ['datasets.json'], 'setups', source=agtspath)
+
 
 def setup(app):
     # Get png files and other stuff from the AGTS scripts that run
