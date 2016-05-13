@@ -59,7 +59,10 @@ class Density(object):
         self.ns = self.nspins * self.ncomp**2
 
         # This can contain e.g. a Jellium background charge
-        self.background_charge = background_charge
+        if background_charge is not None:
+            self.background_charge = background_charge.set_grid_descriptor(self.gd)
+        else:
+            self.background_charge = None
 
         self.charge_eps = 1e-7
 
