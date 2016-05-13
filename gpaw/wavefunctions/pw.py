@@ -1232,7 +1232,7 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 class ReciprocalSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True,
-                 background_charge):
+                 background_charge = None):
         assert gd.comm.size == 1
         serial_finegd = finegd.new_descriptor(comm=gd.comm)
 
