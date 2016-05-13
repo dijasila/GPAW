@@ -750,9 +750,14 @@ class G0W0(PairDensity):
                 W_GG[:] = (einv_GG - delta_GG) * sqrV_G * sqrV_G[:, np.newaxis]
                 
                 if self.ac and np.allclose(q_c, 0):
+                    if iw == 0:
+                        print_ac = True
+                    else:
+                        print_ac = False
                     self.add_anisotropy_correction(pdi, W_GG, einv_GG, 
                                                    chi0_wxvG[wa+iw], 
-                                                   chi0_wvv[wa+iw], sqrV_G)
+                                                   chi0_wvv[wa+iw], sqrV_G,
+                                                   print_ac=print_ac)
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
                     W_GG[0, 0] = (einv_GG[0, 0] - 1.0) * V0
                     W_GG[0, 1:] = einv_GG[0, 1:] * sqrV_G[1:] * sqrV0
@@ -977,7 +982,7 @@ class G0W0(PairDensity):
                                         self.dsigshift_skn[s, k, n])
 
     def add_anisotropy_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv, 
-                                  sqrV_G):
+                                  sqrV_G, print_ac=False):
         from ase.dft import monkhorst_pack 
         self.cell_cv = self.calc.wfs.gd.cell_cv
         self.qpts_qc = self.calc.wfs.kd.bzk_kc
@@ -1020,12 +1025,14 @@ class G0W0(PairDensity):
                          q0density).astype(int)
         npts_c[2] = 1
         npts_c += (npts_c + 1) % 2
-#        print('qf=%.3f, q0density=%s, q0 volume=%.5f ~ %.2f %%' %
-#              (qf, q0density, q0vol, q0vol / rvol * 100.),
-#              file=self.fd)
-#        print('Evaluating Gamma point contribution to W on a ' +
-#              '%dx%dx%d grid' % tuple(npts_c), file=self.fd)
-        #npts_c = np.array([1, 1, 1])
+        if print_ac:
+            print('Applying analytical 2D correction to W:', 
+                  file=self.fd)
+            #print('qf=%.3f, q0density=%s, q0 volume=%.5f ~ %.2f %%' %
+            #      (qf, q0density, q0vol, q0vol / rvol * 100.),
+            #      file=self.fd)
+            print('    Evaluating Gamma point contribution to W on a ' +
+                  '%dx%dx%d grid' % tuple(npts_c), file=self.fd)
                 
         qpts_qc = monkhorst_pack(npts_c) #((np.indices(npts_c).transpose((1, 2, 3, 0)) \
             #.reshape((-1, 3)) + 0.5) / npts_c - 0.5) #/ N_c
