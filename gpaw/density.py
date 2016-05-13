@@ -42,7 +42,8 @@ class Density(object):
      ========== =========================================
     """
 
-    def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True):
+    def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True,
+                 background_charge):
         """Create the Density object."""
 
         self.gd = gd
@@ -57,7 +58,8 @@ class Density(object):
         self.ncomp = 1 if collinear else 2
         self.ns = self.nspins * self.ncomp**2
 
-        self.jellium = None
+        # This can contain e.g. a Jellium background charge
+        self.background_charge = background_charge
 
         self.charge_eps = 1e-7
 
@@ -553,9 +555,9 @@ class Density(object):
 
 class RealSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True,
-                 stencil=3):
+                 stencil=3, background_charge = None):
         Density.__init__(self, gd, finegd, nspins, charge, grid2grid,
-                         collinear=collinear)
+                         collinear=collinear, background_charge)
         self.stencil = stencil
 
     def initialize(self, setups, timer, magmom_av, hund):
@@ -626,6 +628,9 @@ class RealSpaceDensity(Density):
         self.rhot_g = self.nt_g.copy()
         self.ghat.add(self.rhot_g, self.Q_aL)
 
+        if self.background_charge is not None:
+            self.background_charge.add_to(self.rhot_g)
+        
         if debug:
             charge = self.finegd.integrate(self.rhot_g) + self.charge
             if abs(charge) > self.charge_eps:
