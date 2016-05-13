@@ -60,7 +60,8 @@ class Density(object):
 
         # This can contain e.g. a Jellium background charge
         if background_charge is not None:
-            self.background_charge = background_charge.set_grid_descriptor(self.gd)
+            background_charge.set_grid_descriptor(self.gd)
+            self.background_charge = background_charge
         else:
             self.background_charge = None
 
