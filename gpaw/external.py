@@ -38,7 +38,7 @@ class ExternalPotential:
 
 class ConstantPotential(ExternalPotential):
     """Constant potential for tests."""
-    def __init__(self, constant=1.):
+    def __init__(self, constant=1.0):
         self.constant = constant / Hartree
         
     def __str__(self):
