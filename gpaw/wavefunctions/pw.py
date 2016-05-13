@@ -1236,8 +1236,8 @@ class ReciprocalSpaceDensity(Density):
         assert gd.comm.size == 1
         serial_finegd = finegd.new_descriptor(comm=gd.comm)
 
-        assert (background_charge == None,
-                "Background charges (e.g. Jellium) not implemented in PW mode")
+        assert background_charge == None,\
+                "Background charges (e.g. Jellium) not implemented in PW mode"
 
         from gpaw.utilities.grid import NullGrid2Grid
         Density.__init__(self, gd, serial_finegd, nspins, charge,
