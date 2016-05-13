@@ -584,7 +584,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         # Add any background_charge to charge
         charge = -density.charge
         if density.background_charge is not None:
-            charge += density.background_charge.charge
+            charge -= density.background_charge.charge
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
                                            charge=charge)
