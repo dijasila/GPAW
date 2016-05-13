@@ -560,7 +560,8 @@ class RealSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True,
                  stencil=3, background_charge = None):
         Density.__init__(self, gd, finegd, nspins, charge, grid2grid,
-                         collinear=collinear, background_charge = None)
+                         collinear=collinear,
+                         background_charge = background_charge)
         self.stencil = stencil
 
     def initialize(self, setups, timer, magmom_av, hund):
