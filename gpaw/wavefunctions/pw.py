@@ -1231,13 +1231,15 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 
 class ReciprocalSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True):
+    def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True,
+                 background_charge):
         assert gd.comm.size == 1
         serial_finegd = finegd.new_descriptor(comm=gd.comm)
 
         from gpaw.utilities.grid import NullGrid2Grid
         Density.__init__(self, gd, serial_finegd, nspins, charge,
-                         grid2grid=NullGrid2Grid(gd), collinear=collinear)
+                         grid2grid=NullGrid2Grid(gd), collinear=collinear,
+                         background_charge = background_charge)
 
         self.pd2 = PWDescriptor(None, gd)
         self.pd3 = PWDescriptor(None, serial_finegd)
