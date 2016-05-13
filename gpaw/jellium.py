@@ -73,8 +73,16 @@ class Jellium():
         self.rs = None  # the Wigner-Seitz radius
         self.volume = None
         self.mask_g = None
+        self.gd = None
 
-    def get_mask(self, gd):
+    def set_grid_descriptor(self, gd):
+        """ Set the grid descriptor for the Jellium background charge"""
+        self.gd = gd
+        self.mask_g = self.get_mask().astype(float)
+        self.volume = self.gd.comm.sum(self.mask_g.sum()) * self.gd.dv
+        self.rs = (3 / pi / 4 * self.volume / self.charge)**(1 / 3.0)
+
+    def get_mask(self):
         """Choose which grid points are inside the jellium.
 
         gd: grid descriptor
@@ -83,15 +91,10 @@ class Jellium():
         is.  This implementation will put the positive background in the
         whole cell.  Overwrite this method in subclasses."""
         
-        return gd.zeros() + 1.0
+        return self.gd.zeros() + 1.0
 
-    def add_to(self, rhot_g, gd):
+    def add_to(self, rhot_g):
         """ Add Jellium background charge to pseudo charge density rhot_g"""
-        # XXX Is there any way to initialize self.mask_g, self.volume and
-        # XXX self.rs only once, during initialization of the object?
-        self.mask_g = self.get_mask(gd).astype(float)
-        self.volume = gd.comm.sum(self.mask_g.sum()) * gd.dv
-        self.rs = (3 / pi / 4 * self.volume / self.charge)**(1 / 3.0)
         rhot_g -= self.mask_g * (self.charge / self.volume)
         return rhot_g
         
@@ -108,7 +111,7 @@ class JelliumSlab(Jellium):
         self.z1 = (z1 - 0.0001) / Bohr
         self.z2 = (z2 - 0.0001) / Bohr
 
-    def get_mask(self, gd):
-        r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
+    def get_mask(self):
+        r_gv = self.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
         return np.logical_and(r_gv[:, :, :, 2] > self.z1,
                               r_gv[:, :, :, 2] < self.z2)
