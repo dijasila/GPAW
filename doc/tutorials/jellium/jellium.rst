@@ -41,7 +41,7 @@ The surface energy is:
 >>> L = 10 * a
 >>> sigma = (e - L / a * e0) / 2 / a**2
 >>> print('%.2f mev/Ang^2' % (1000 * sigma))
-5.40 mev/Ang^2
+5.41 mev/Ang^2
 >>> print('%.1f erg/cm^2' % (sigma / 6.24150974e-5))
 86.6 erg/cm^2
 
@@ -61,10 +61,10 @@ Other jellium geometries
 ========================
 
 For other geometries, one will have to subclass
-:class:`~gpaw.jellium.JelliumPoissonSolver`, and implement the
-:meth:`~gpaw.jellium.JelliumPoissonSolver.get_mask` method:
+:class:`~gpaw.jellium.Jellium`, and implement the
+:meth:`~gpaw.jellium.Jellium.get_mask` method:
 
-.. autoclass:: gpaw.jellium.JelliumPoissonSolver
+.. autoclass:: gpaw.jellium.Jellium
    :members:
 
 
