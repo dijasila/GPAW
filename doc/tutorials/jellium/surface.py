@@ -1,7 +1,7 @@
 import numpy as np
 from ase import Atoms
 from ase.units import Bohr
-from gpaw.jellium import JelliumSurfacePoissonSolver
+from gpaw.jellium import JelliumSlab
 from gpaw import GPAW, Mixer
 
 rs = 5.0 * Bohr  # Wigner-Seitz radius
@@ -13,10 +13,11 @@ k = 12           # number of k-points (k*k*1)
 
 ne = a**2 * L / (4 * np.pi / 3 * rs**3)
 
-ps = JelliumSurfacePoissonSolver(z1=v, z2=v + L)
+bc = JelliumSlab(ne, z1=v, z2=v + L)
+
 surf = Atoms(pbc=(True, True, False),
              cell=(a, a, v + L + v))
-surf.calc = GPAW(poissonsolver=ps,
+surf.calc = GPAW(background_charge = bc,
                  xc='LDA_X+LDA_C_WIGNER',
                  eigensolver='dav',
                  charge=-ne,
