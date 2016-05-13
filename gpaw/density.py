@@ -57,6 +57,8 @@ class Density(object):
         self.ncomp = 1 if collinear else 2
         self.ns = self.nspins * self.ncomp**2
 
+        self.jellium = None
+
         self.charge_eps = 1e-7
 
         self.D_asp = None

@@ -61,3 +61,45 @@ class JelliumSurfacePoissonSolver(JelliumPoissonSolver):
     def get_mask(self, r_gv):
         return np.logical_and(r_gv[:, :, :, 2] > self.z1,
                               r_gv[:, :, :, 2] < self.z2)
+
+
+
+class Jellium():
+    """ The Jellium object """
+    def __init__(self, system, charge):
+        self.charge = charge
+        self.volume = system.get_volume()
+        self.rs = (3 / pi / 4 * self.volume / self.charge)**(1 / 3.0)
+        self.mask_g = None
+
+    def get_mask(self, gd):
+        """Choose which grid points are inside the jellium.
+
+        gd: grid descriptor
+
+        Return ndarray of ones and zeros indicating where the jellium
+        is.  This implementation will put the positive background in the
+        whole cell.  Overwrite this method in subclasses."""
+        
+        return gd.zeros() + 1.0
+
+    def set_mask(self, gd):
+        self.mask_g = self.get_mask(gd).astype(float)
+
+class JelliumSlab(Jellium):
+    """ The Jellium slab object """
+    def __init__(self, system, charge, z1, z2):
+        """Put the positive background charge where z1 < z < z2.
+        
+        z1: float
+            Position of lower surface in Angstrom units.
+        z2: float
+            Position of upper surface in Angstrom units."""
+        Jellium.__init__(self, system, charge)
+        self.z1 = (z1 - 0.0001) / Bohr
+        self.z2 = (z2 - 0.0001) / Bohr
+
+    def get_mask(self, gd):
+        r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
+        return np.logical_and(r_gv[:, :, :, 2] > self.z1,
+                              r_gv[:, :, :, 2] < self.z2)
