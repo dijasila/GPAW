@@ -7,7 +7,7 @@ from ase.units import Bohr
 
 from gpaw.poisson import PoissonSolver
 
-
+# Following two classes are old
 class JelliumPoissonSolver(PoissonSolver):
     """Jellium Poisson solver."""
     
@@ -66,10 +66,12 @@ class JelliumSurfacePoissonSolver(JelliumPoissonSolver):
 
 class Jellium():
     """ The Jellium object """
-    def __init__(self, system, charge):
+    def __init__(self, charge):
+        """ Initialize the Jellium object
+        Input: charge, a positive number, the total Jellium background charge"""
         self.charge = charge
-        self.volume = system.get_volume()
-        self.rs = (3 / pi / 4 * self.volume / self.charge)**(1 / 3.0)
+        self.rs = None  # the Wigner-Seitz radius
+        self.volume = None
         self.mask_g = None
 
     def get_mask(self, gd):
@@ -83,19 +85,26 @@ class Jellium():
         
         return gd.zeros() + 1.0
 
-    def set_mask(self, gd):
+    def add_to(self, rhot_g, gd):
+        """ Add Jellium background charge to pseudo charge density rhot_g"""
+        # XXX Is there any way to initialize self.mask_g, self.volume and
+        # XXX self.rs only once, during initialization of the object?
         self.mask_g = self.get_mask(gd).astype(float)
-
+        self.volume = gd.comm.sum(self.mask_g.sum()) * gd.dv
+        self.rs = (3 / pi / 4 * self.volume / self.charge)**(1 / 3.0)
+        rhot_g -= self.mask_g * (self.charge / self.volume)
+        return rhot_g
+        
 class JelliumSlab(Jellium):
     """ The Jellium slab object """
-    def __init__(self, system, charge, z1, z2):
+    def __init__(self, charge, z1, z2):
         """Put the positive background charge where z1 < z < z2.
         
         z1: float
             Position of lower surface in Angstrom units.
         z2: float
             Position of upper surface in Angstrom units."""
-        Jellium.__init__(self, system, charge)
+        Jellium.__init__(self, charge)
         self.z1 = (z1 - 0.0001) / Bohr
         self.z2 = (z2 - 0.0001) / Bohr
 
