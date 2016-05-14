@@ -11,7 +11,7 @@ rs = 5.0 * Bohr  # Wigner-Seitz radius
 h = 0.24          # grid-spacing
 a = 8 * h        # lattice constant
 v = 3 * a        # vacuum
-L = 10 * a       # thickness
+L = 8 * a       # thickness
 k = 6           # number of k-points (k*k*1)
 
 ps = PoissonSolver()
@@ -48,8 +48,8 @@ v = (surf.calc.hamiltonian.vHt_g * Hartree).mean(0).mean(0)
 # Get the work function
 phi1 = v[-1] - efermi
 
-#print(phi1)
-#equal(phi1, 2.70417600672, 1e-5)
-# Reference value: Lang and Kohn, 1971, Theory of Metal Surfaces - Work function
+equal(phi1, 2.71794017294, 1e-5)
+# Reference value: Lang and Kohn, 1971, Theory of Metal Surfaces: Work function
+# DOI 10.1103/PhysRevB.3.1215
 # r_s = 5, work function = 2.73 eV
 
