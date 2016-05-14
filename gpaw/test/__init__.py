@@ -316,6 +316,7 @@ tests = [
     'ralda/ralda_energy_H2.py',             # ~23s
     'response/diamond_absorption.py',       # ~24s
     'ralda/ralda_energy_Si.py',             # ~24s
+    'jellium.py',                           # ~24s
     'utilities/ldos.py',                    # ~25s
     'solvation/swap_atoms.py',              # ~25s
     'xc/revPBE_Li.py',                      # ~26s
