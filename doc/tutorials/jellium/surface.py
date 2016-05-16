@@ -13,11 +13,11 @@ k = 12           # number of k-points (k*k*1)
 
 ne = a**2 * L / (4 * np.pi / 3 * rs**3)
 
-bc = JelliumSlab(ne, z1=v, z2=v + L)
+jellium = JelliumSlab(ne, z1=v, z2=v + L)
 
 surf = Atoms(pbc=(True, True, False),
              cell=(a, a, v + L + v))
-surf.calc = GPAW(background_charge = bc,
+surf.calc = GPAW(background_charge=jellium,
                  xc='LDA_X+LDA_C_WIGNER',
                  eigensolver='dav',
                  charge=-ne,

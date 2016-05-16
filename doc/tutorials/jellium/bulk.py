@@ -10,10 +10,10 @@ a = 8 * h        # lattice constant
 k = 12           # number of k-points (k*k*k)
 
 ne = a**3 / (4 * np.pi / 3 * rs**3)
-bc = Jellium(ne)
+jellium = Jellium(ne)
 
 bulk = Atoms(pbc=True, cell=(a, a, a))
-bulk.calc = GPAW(background_charge = bc,
+bulk.calc = GPAW(background_charge=jellium,
                  xc='LDA_X+LDA_C_WIGNER',
                  charge=-ne,
                  nbands=5,
