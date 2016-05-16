@@ -1232,23 +1232,24 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 class ReciprocalSpaceDensity(Density):
     def __init__(self, gd, finegd, nspins, charge, grid2grid, collinear=True,
-                 background_charge = None):
+                 background_charge=None):
         assert gd.comm.size == 1
         serial_finegd = finegd.new_descriptor(comm=gd.comm)
 
-        assert background_charge == None,\
-                "Background charges (e.g. Jellium) not implemented in PW mode"
+        if background_charge is not None:
+            raise NotImplementedError('Background charges (e.g. Jellium) not '
+                                      'implemented in PW mode')
 
         from gpaw.utilities.grid import NullGrid2Grid
         Density.__init__(self, gd, serial_finegd, nspins, charge,
                          grid2grid=NullGrid2Grid(gd), collinear=collinear,
-                         background_charge = background_charge)
+                         background_charge=background_charge)
 
         self.pd2 = PWDescriptor(None, gd)
         self.pd3 = PWDescriptor(None, serial_finegd)
 
         self.G3_G = self.pd2.map(self.pd3)
-        
+
         self.xc_grid2grid = grid2grid.new(serial_finegd, finegd)
         self.xc_matrix_distributor = None
 

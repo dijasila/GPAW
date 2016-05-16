@@ -829,12 +829,12 @@ class PAW(PAWTextOutput):
                     gd, finegd, nspins, par.charge + setups.core_charge,
                     grid2grid, collinear=collinear,
                     stencil=par.stencils[1],
-                    background_charge = par.background_charge)
+                    background_charge=par.background_charge)
             else:
                 self.density = pw.ReciprocalSpaceDensity(
                     gd, finegd, nspins, par.charge + setups.core_charge,
                     grid2grid, collinear=collinear,
-                    background_charge = par.background_charge)
+                    background_charge=par.background_charge)
 
         self.density.initialize(setups, self.timer, magmom_av, par.hund)
         self.density.set_mixer(par.mixer)

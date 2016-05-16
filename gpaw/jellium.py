@@ -31,19 +31,20 @@ class Jellium():
         Return ndarray of ones and zeros indicating where the jellium
         is.  This implementation will put the positive background in the
         whole cell.  Overwrite this method in subclasses."""
-        
+
         return self.gd.zeros() + 1.0
 
     def add_to(self, rhot_g):
         """ Add Jellium background charge to pseudo charge density rhot_g"""
         rhot_g -= self.mask_g * (self.charge / self.volume)
         return rhot_g
-        
+
+
 class JelliumSlab(Jellium):
     """ The Jellium slab object """
     def __init__(self, charge, z1, z2):
         """Put the positive background charge where z1 < z < z2.
-        
+
         z1: float
             Position of lower surface in Angstrom units.
         z2: float
