@@ -54,6 +54,9 @@ for mode in ['serial', 'mpi', 'pfft']:
         if nverr is not None:
             assert nverr < 1e-14, 'error=%s' % nverr
 
+    from functools import partial
+    vdw_df_cx_part = partial(vdw_df_cx, gga_backend='purepython')
+
     test(vdw_df, -3.7373236650435593, -4.7766302688360334)
     test(vdw_df2, -3.75680663471042, -4.7914451465590480)
-    test(vdw_df_cx, -3.6297336577106862, -4.6753445074468276)
+    test(vdw_df_cx_part, -3.6297336577106862, -4.6753445074468276)
