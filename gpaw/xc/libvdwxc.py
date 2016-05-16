@@ -381,17 +381,20 @@ def vdw_df_cx(*args, **kwargs):
 
 def vdw_optPBE(*args, **kwargs):
     kernel = LibXC('GGA_X_OPTPBE_VDW+LDA_C_PW')
-    return VDWXC(gga_kernel=kernel, name='vdW-optPBE', *args, **kwargs)
+    return VDWXC(gga_kernel=kernel, name='vdW-optPBE',
+                 libvdwxc_name='vdW-DF', *args, **kwargs)
 
 
 def vdw_optB88(*args, **kwargs):
     kernel = LibXC('GGA_X_OPTB88_VDW+LDA_C_PW')
-    return VDWXC(gga_kernel=kernel, name='optB88', *args, **kwargs)
+    return VDWXC(gga_kernel=kernel, name='optB88',
+                 libvdwxc_name='vdW-DF', *args, **kwargs)
 
 
 def vdw_C09(*args, **kwargs):
     kernel = LibXC('GGA_X_C09X+LDA_C_PW')
-    return VDWXC(gga_kernel=kernel, name='vdW-C09', *args, **kwargs)
+    return VDWXC(gga_kernel=kernel, name='vdW-C09',
+                 libvdwxc_name='vdW-DF', *args, **kwargs)
 
 
 def vdw_beef(*args, **kwargs):

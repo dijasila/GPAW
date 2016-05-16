@@ -2,6 +2,7 @@ from __future__ import print_function
 import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.xc.libvdwxc import vdw_df, vdw_df2, vdw_df_cx, \
+    vdw_optPBE, vdw_optB88, vdw_C09, vdw_beef, \
     libvdwxc_has_mpi, libvdwxc_has_pfft
 
 # This test verifies that the results returned by the van der Waals
@@ -25,7 +26,7 @@ for mode in ['serial', 'mpi', 'pfft']:
     if mode == 'pfft' and not libvdwxc_has_pfft():
         continue
 
-    def test(vdwxcclass, Eref=None, nvref=None):
+    def test(vdwxcclass, Eref=np.nan, nvref=np.nan):
         xc = vdwxcclass(mode=mode)
         xc._initialize(gd)
         if gd.comm.rank == 0:
@@ -60,3 +61,8 @@ for mode in ['serial', 'mpi', 'pfft']:
     test(vdw_df, -3.7373236650435593, -4.7766302688360334)
     test(vdw_df2, -3.75680663471042, -4.7914451465590480)
     test(vdw_df_cx_part, -3.6297336577106862, -4.6753445074468276)
+
+    test(vdw_optPBE, -3.6836013391734239, -4.7290002029944613)
+    test(vdw_optB88, -3.7182162512875037, -4.7586582439197587)
+    test(vdw_C09, -3.6178542441863657, -4.6660960269614167)
+    test(vdw_beef, -3.7742682115984687, -4.8520774634041866)
