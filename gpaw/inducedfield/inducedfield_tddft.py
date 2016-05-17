@@ -446,7 +446,9 @@ class TDDFTInducedField(BaseInducedField, Observer):
                 if self.domain_comm.rank == 0:
                     D0_asp = {}
                     for a in range(self.na):
-                        D0_asp[a] = np.empty((self.nspins, np_a[a]),
+                        npa = np_a[a]
+                        assert len(npa) == 1
+                        D0_asp[a] = np.empty((self.nspins, npa[0]),
                                              dtype=float)
                 else:
                     D0_asp = {}
@@ -459,7 +461,7 @@ class TDDFTInducedField(BaseInducedField, Observer):
                     tar.add('D0_%dsp' % a, ('nspins', 'np_%d' % a),
                             dtype=float)
                     tar.fill(D0_asp[a])
-        
+
         if 'FD' in writes:
             # Collect FD_awsp to world master
             if self.kpt_comm.rank == 0 and self.band_comm.rank == 0:
@@ -467,7 +469,9 @@ class TDDFTInducedField(BaseInducedField, Observer):
                 if self.domain_comm.rank == 0:
                     FD_awsp = {}
                     for a in range(self.na):
-                        FD_awsp[a] = np.empty((self.nw, self.nspins, np_a[a]),
+                        npa = np_a[a]
+                        assert len(npa) == 1
+                        FD_awsp[a] = np.empty((self.nw, self.nspins, npa[0]),
                                               dtype=complex)
                 else:
                     FD_awsp = {}
