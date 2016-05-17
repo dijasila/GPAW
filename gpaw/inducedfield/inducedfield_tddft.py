@@ -127,7 +127,7 @@ class TDDFTInducedField(BaseInducedField, Observer):
             # Fourier transformed D_asp
             self.FD_awsp = {}
             for a, np_ in self.np_a.items():
-                self.FD_awsp[a] = np.zeros((self.nw, self.nspins, np_),
+                self.FD_awsp[a] = np.zeros((self.nw, self.nspins, np_[0]),
                                            dtype=self.dtype)
             
             self.allocated = True
