@@ -136,6 +136,10 @@ class PAWTextOutput:
 
         t('Using the %s Exchange-Correlation Functional.'
           % self.hamiltonian.xc.name)
+        desc = self.hamiltonian.xc.get_description()
+        if desc is not None:
+            t('Details:')
+            t('\n'.join('  %s' % line for line in desc.splitlines()))
         if self.wfs.nspins == 2:
             t('Spin-Polarized Calculation.')
             t('Magnetic Moment:  (%.6f, %.6f, %.6f)' %
