@@ -35,4 +35,4 @@ for esolver in esolvers:
     calc.set(convergence={'eigenstates': 3.5e-9})
     calc.set(eigensolver=esolver)
     E = mol.get_potential_energy()
-    equal(E, Eini], 0.0005)
+    equal(E, Eini, 0.0005)
