@@ -37,8 +37,13 @@ class XCFunctional:
     
     def set_positions(self, spos_ac, atom_partition=None):
         pass
-    
+
+    def get_description(self):
+        """Get long description of functional as a string, or None."""
+        return None
+
     def summary(self, fd):
+        """Write summary of last calculation to file."""
         pass
 
     def write(self, writer, natoms=None):
