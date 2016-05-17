@@ -502,6 +502,8 @@ class PAW(PAWTextOutput):
 
         nao = setups.nao
         nvalence = setups.nvalence - par.charge
+        if par.background_charge is not None:
+            nvalence += par.background_charge.charge
         M_v = magmom_av.sum(0)
         M = np.dot(M_v, M_v) ** 0.5
 
@@ -836,6 +838,9 @@ class PAW(PAWTextOutput):
                     grid2grid, collinear=collinear,
                     background_charge=par.background_charge)
 
+        # XXXXXXXXXX if setups change, then setups.core_charge may change.
+        # But that parameter was supplied in Density constructor!
+        # This surely is a bug!
         self.density.initialize(setups, self.timer, magmom_av, par.hund)
         self.density.set_mixer(par.mixer)
 
