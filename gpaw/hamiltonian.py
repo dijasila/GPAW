@@ -581,11 +581,9 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.stop('XC 3D grid')
 
         self.timer.start('Poisson')
-        # Add any background_charge to charge
-        charge = -density.charge
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, density.rhot_g,
-                                           charge=charge)
+                                           charge=-density.charge)
         self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')
