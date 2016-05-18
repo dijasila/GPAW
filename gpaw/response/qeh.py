@@ -1003,6 +1003,7 @@ class BuildingBlock():
                                                           )
             print('calculated chi!', file=self.fd)
             chi_collected = self.collect_chi(chi)
+
             if self.world.rank == 0:
                 q, omega_w, chiM_qw, chiD_qw, z, drhoM_qz, drhoD_qz = \
                     get_chi_2D(self.omega_w, pd, chi_collected)
