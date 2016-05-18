@@ -888,7 +888,7 @@ class BuildingBlock():
         self.nq_inftot = nq_inf
         if not isotropic_q:
             self.nq_inftot *= 2
-   
+    
         self.df = df  # dielectric function object
         self.df.truncation = '2D'  # in case you forgot!
         self.omega_w = self.df.chi0.omega_w
@@ -994,24 +994,36 @@ class BuildingBlock():
             if q_inf is not None:
                 qstr = '(' + ', '.join(['%.3f' % x for x in q_inf]) + ')'
                 print('    and q_inf=%s' % qstr , file=self.fd)
-            pd, chi0, chi = self.df.get_dielectric_matrix(symmetric=False, 
-                                                          calculate_chi=True,
-                                                          q_c=q_c,
-                                                          q_v=q_inf,
-                                                          add_intraband=
-                                                          add_intraband
-                                                          )
+            pd, chi0_wGG, \
+                chi_wGG = self.df.get_dielectric_matrix(symmetric=False, 
+                                                        calculate_chi=True,
+                                                        q_c=q_c,
+                                                        q_v=q_inf,
+                                                        add_intraband=
+                                                        add_intraband
+                                                        )
             print('calculated chi!', file=self.fd)
-            chi_collected = self.collect_chi(chi)
+            q, omega_w, chiM_qw, chiD_qw, z, drhoM_qz, drhoD_qz = \
+                get_chi_2D(self.omega_w, pd, chi_collected)
+
+            nw = len(self.omega_w)
+            world = self.df.chi0.world
+            mynw = (nw + world.size - 1) // world.size
+            w1 = min(self.df.mynw * world.rank, nw)
+            w2 = min(self.df.w1 + self.df.mynw, nw)
+            q, omega_w, chiM_qw, chiD_qw, z, drhoM_qz, drhoD_qz = \
+                get_chi_2D(self.omega_w, pd, chi_wGG)
+
+            chiM_w = chiM_qw[0]
+            chiD_w = chiD_qw[0]
+            chiM_w = self.collect(chiM_w)
+            chiD_w = self.collect(chiD_w)
 
             if self.world.rank == 0:
-                q, omega_w, chiM_qw, chiD_qw, z, drhoM_qz, drhoD_qz = \
-                    get_chi_2D(self.omega_w, pd, chi_collected)
+                assert w1 == 0  # drhoM and drhoD in static limit
+                self.update_building_block(chiM_w[np.newaxis, :], chiD_w[np.newaxis, :], 
+                                           drhoM_qz, drhoD_qz)
 
-                self.update_building_block(chiM_qw, chiD_qw, drhoM_qz, 
-                                           drhoD_qz)
-
-            # self.clear_temp_files()
         # Induced densities are not probably described in q-> 0 limit-
         # replace with finite q result:
         if self.world.rank == 0:        
@@ -1139,16 +1151,14 @@ class BuildingBlock():
 
         self.save_chi_file(filename=self.filename + '_int')
 
-    def collect_chi(self, a_wGG):
+    def collect(self, a_w):
         world = self.df.chi0.world
-        b_w = np.zeros((self.df.mynw, a_wGG.shape[1], a_wGG.shape[2]),
-                       a_wGG.dtype)
-        b_w[:self.df.w2 - self.df.w1] = a_wGG
-        nw = len(self.df.omega_w)
-        A_wGG = np.empty((world.size * self.df.mynw, a_wGG.shape[1],
-                                    a_wGG.shape[2]), a_wGG.dtype)
-        world.all_gather(b_w, A_wGG)
-        return A_wGG[:nw]
+        b_w = np.zeros(self.df.mynw, a_w.dtype)
+        b_w[:self.df.w2 - self.df.w1] = a_w
+        nw = len(self.omega_w)
+        A_w = np.empty(world.size * self.df.mynw, a_w.dtype)
+        world.all_gather(b_w, A_w)
+        return A_w[:nw]
 
     def clear_temp_files(self):
         if not self.savechi0:
@@ -1192,7 +1202,7 @@ def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
         nq = len(filenames)
     elif chi_wGG is not None:
         nq = 1
-    nw = omega_w.shape[0]
+    nw = chi_wGG.shape[0] #omega_w.shape[0]
     r = pd.gd.get_grid_point_coordinates()
     z = r[2, 0, 0, :]
     L = pd.gd.cell_cv[2, 2]  # Length of cell in Bohr
