@@ -51,4 +51,4 @@ for xc in [XC('PBE'),
 for name in current:
     for ref, cur in zip(ref_1871[name], current[name]):
         print(ref, cur, ref - cur)
-        equal(ref, cur, 2.5e-3)
+        equal(ref, cur, 2.9e-3)

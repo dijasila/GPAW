@@ -160,6 +160,7 @@ extensions = [Extension('_gpaw',
                         extra_objects=extra_objects)]
 
 if hdf5:
+    assert sys.version_info < (3, 0), 'We do not support hdf5 on Python 3'
     hdf5_sources = ['c/hdf5.c']
     define_macros.append(('GPAW_WITH_HDF5', '1'))
 

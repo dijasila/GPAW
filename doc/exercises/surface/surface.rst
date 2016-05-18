@@ -28,7 +28,7 @@ whereas (110) is most open. Here we'll focus on (100).
     s = fcc100('Al', (1, 1, 5))
     view(s, repeat=(4, 4, 1))
 
-  Read more here: :func:`ase.lattice.surface.fcc100`.
+  Read more here: :func:`ase.build.fcc100`.
 
 * Answer the same questions for the (111) surface.
 

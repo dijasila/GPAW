@@ -2,8 +2,8 @@ import sys
 import sphinx_rtd_theme
 sys.path.append('.')
 
-extensions = ['ext',
-              'images',
+extensions = ['images',
+              'ext',
               'sphinx.ext.autodoc',
               'sphinx.ext.viewcode',
               'sphinx.ext.mathjax',
