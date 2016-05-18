@@ -4,6 +4,10 @@
 DeltaCodesDFT - Comparing Solid State DFT Codes, Basis Sets and Potentials
 ==========================================================================
 
+.. note::
+    
+    This exercise is currently broken.  Please skip it.
+    
 The webpage https://molmod.ugent.be/deltacodesdft provides a method
 for measuring the precision of a given calculation method
 against a chosen reference method (computational
