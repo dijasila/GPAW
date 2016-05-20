@@ -45,18 +45,22 @@ def spectrum(exlist=None,
              form='r'):
     """Write out a folded spectrum.
 
-    Parameters:
-    =============== ===================================================
-    ``exlist``      ExcitationList
-    ``filename``    File name for the output file, STDOUT if not given
-    ``emin``        min. energy, set to cover all energies if not given
-    ``emax``        max. energy, set to cover all energies if not given
-    ``de``          energy spacing
-    ``energyunit``  Energy unit 'eV' or 'nm', default 'eV'
-    ``folding``     Gauss (default) or Lorentz
-    ``width``       folding width in terms of the chosen energyunit
-    =============== ===================================================
-    all energies in [eV]
+    Parameters
+    ----------
+    exlist: ExcitationList
+    filename:
+        File name for the output file, STDOUT if not given
+    emin:
+        min. energy, set to cover all energies if not given
+    emax:    
+        max. energy, set to cover all energies if not given
+    de:
+        energy spacing
+    energyunit: {'eV', 'nm'}
+        Energy unit, default 'eV'
+    folding: {'Gauss', 'Lorentz'}
+    width: 
+        folding width in terms of the chosen energyunit
     """
 
     # output
