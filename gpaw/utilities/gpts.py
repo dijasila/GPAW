@@ -2,7 +2,6 @@ import numpy as np
 from ase.units import Bohr, Hartree
 
 from gpaw.utilities import h2gpts
-from gpaw.wavefunctions.pw import PW
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.wavefunctions.fd import FD
 
