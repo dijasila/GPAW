@@ -14,7 +14,7 @@ single-particle picture.  The most refined ab-initio method for calculating
 the absorption spectrum is consists in the numerical solution of the Bethe-
 Salpeter equation (BSE). In this exercise we show how this can be done using
 GPAW. For a brief overview on the BSE and how it is implemented in GPAW take
-a look at this page: :ref:`bse`.
+a look at this page: :ref:`bse_theory`.
 
 In the following we will study the absorption spectrum of Lithium Flouride,
 which is well known for having strong excitonic effects. As a starting point

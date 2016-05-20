@@ -5,7 +5,7 @@
 Interface to Wannier90
 ======================
 
-In this tutorial we will briefly scetch the interface to Wannier90. The tutorial assumes that ``Wannier90`` is installed and ``wannier90.x``, ``postw90.x`` are in your path of executables. We emphasize that this is only to be regarded as a tutorial on the GPAW interface to ``Wannier90``. Details and tutorials on the ``Wannier90`` code itself can be found at the `Wannier90 home page <http://www.wannier.org>`_. For details on the theory Ref. [#Wannier]_ may be consulted.
+In this tutorial we will briefly scetch the interface to Wannier90. The tutorial assumes that ``Wannier90`` is installed and ``wannier90.x``, ``postw90.x`` are in your path of executables. We emphasize that this is only to be regarded as a tutorial on the GPAW interface to ``Wannier90``. Details and tutorials on the ``Wannier90`` code itself can be found at the `Wannier90 home page <http://www.wannier.org>`_. For details on the theory the review paper[#Wannier_cose]_ may be consulted.
 
 Wannier functions of GaAs
 =========================
@@ -86,8 +86,8 @@ The spiky structure of the Berry curvature makes it highly non-trivial to conver
 Now run ``postw90.x Fe`` once more. This calculates the anomalous Hall conductivity on a `50\times50\times50` `k`-mesh. The `z`-component should be  803 S/cm and can be read from the output file ``Fe.wpout``. This is not too bad, but one needs to go to much higher `k`-point densities to obtain the converged values of 757 S/cm [#AHC]_.
 
 
-.. [#Wannier] N. Marzari, A. A. Mostofi, J. R. Yates, I. Souza, and D. Vanderbilt
-              *Rev. Mod. Phys.* **84**, 1419 (2012)
+.. [#Wannier_code] N. Marzari, A. A. Mostofi, J. R. Yates, I. Souza, and D. Vanderbilt
+                   *Rev. Mod. Phys.* **84**, 1419 (2012)
 
 .. [#AHC]     X. Wang, J. R. Yates, I. Souza, and D. Vanderbilt
               *Phys. Rev. B* **74**, 195118 (2006)

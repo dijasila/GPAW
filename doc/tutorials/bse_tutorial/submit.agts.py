@@ -7,7 +7,7 @@ def agts(queue):
     bse_mos2 = queue.add('pol_MoS2.py', ncpus=16, walltime=6000, deps=gs_mos2)
     queue.add('plot_MoS2.py', ncpus=1, walltime=10, deps=bse_mos2, creates='bse_MoS2.png')
 
-    2d_eps = queue.add('gs_2d_eps.py', ncpus=1, walltime=500, deps=gs_mos2)
-    queue.add('plot_2d_eps.py', ncpus=1, walltime=10, deps=2d_eps, creates='2d_eps.png')
+    eps = queue.add('gs_2d_eps.py', ncpus=1, walltime=500, deps=gs_mos2)
+    queue.add('plot_2d_eps.py', ncpus=1, walltime=10, deps=eps, creates='2d_eps.png')
 
     queue.add('alpha_MoS2.py', ncpus=1, walltime=10, deps=gs_mos2)
