@@ -191,13 +191,15 @@ class Writer(Folder):
 def polarizability(exlist, omega, form='v', index=0):
     """Return the polarizability in ASE units (e^2 Angstrom^2 / eV).
 
-    Parameters:
-    =============== ===================================================
-    ``exlist``      ExcitationList
-    ``omega``       Photon energy (eV)
-    ``form``        Form of the dipole matrix element ('v' or 'r')
-    ``index``       0: averaged, 1,2,3:alpha_xx, alpha_yy, alpha_zz
-    =============== ===================================================
+    Parameters
+    ----------
+    exlist: ExcitationList
+    omega:
+        Photon energy (eV)
+    form: {'v', 'r'}
+        Form of the dipole matrix element
+    index: {0, 1, 2, 3}
+        0: averaged, 1,2,3:alpha_xx, alpha_yy, alpha_zz
     """
     alpha = 0
     for ex in exlist:
