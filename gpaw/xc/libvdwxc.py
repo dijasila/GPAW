@@ -87,7 +87,9 @@ class LibVDWXC(object):
                                     % comm.size)
             _gpaw.libvdwxc_init_serial(self._ptr)
         elif comm.get_c_object() is None:
-            pass  # For dry run.  XXXXXX liable to cause really nasty errors.
+            from gpaw.mpi import DryRunCommunicator
+            # XXXXXX liable to cause really nasty errors.
+            assert isinstance(comm, DryRunCommunicator)
         elif mode == 'mpi':
             if not libvdwxc_has_mpi():
                 raise ImportError('libvdwxc not compiled with MPI')

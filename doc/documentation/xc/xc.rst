@@ -1,5 +1,5 @@
 .. _xc:
-    
+
 ==============
 XC Functionals
 ==============
@@ -12,4 +12,5 @@ XC Functionals
    rpa
    tpss
    vdw
+   libvdwxc
    vdwcorrection
