@@ -52,14 +52,14 @@ def spectrum(exlist=None,
         File name for the output file, STDOUT if not given
     emin:
         min. energy, set to cover all energies if not given
-    emax:    
+    emax:
         max. energy, set to cover all energies if not given
     de:
         energy spacing
     energyunit: {'eV', 'nm'}
         Energy unit, default 'eV'
     folding: {'Gauss', 'Lorentz'}
-    width: 
+    width:
         folding width in terms of the chosen energyunit
     """
 
@@ -192,6 +192,7 @@ class Writer(Folder):
         if filename is not None:
             out.close()
 
+            
 def polarizability(exlist, omega, form='v', index=0):
     """Return the polarizability in ASE units (e^2 Angstrom^2 / eV).
 
