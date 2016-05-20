@@ -1,8 +1,8 @@
 .. _spinorbit:
 
-=========================================================
-Calculating band structures with spin-orbit coupling
-=========================================================
+===================
+Spin-orbit coupling
+===================
 
 The spin-orbit module calculates spin-orbit band structures non-
 selfconsistently. The input is a standard converged GPAW calculation and the
