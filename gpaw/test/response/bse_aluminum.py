@@ -5,7 +5,7 @@ from ase.units import Bohr, Hartree
 from ase.lattice import bulk
 from gpaw import GPAW
 from gpaw.response.df import DielectricFunction
-from gpaw.response.bse_new import BSE
+from gpaw.response.bse import BSE
 from gpaw.mpi import rank
 from gpaw.test import findpeak, equal
 

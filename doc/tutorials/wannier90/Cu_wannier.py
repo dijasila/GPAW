@@ -6,7 +6,11 @@ seed = 'Cu'
 
 calc = GPAW(seed + '.gpw', txt=None)
 
-w90.write_input(calc, orbitals_ai=[[0, 1] + range(4, 9)])
+w90.write_input(calc,
+                orbitals_ai=[[0, 1] + range(4, 9)],
+                bands=range(20),
+                num_iter=1000,
+                dis_num_iter=500)
 
 os.system('wannier90.x -pp ' + seed)
 

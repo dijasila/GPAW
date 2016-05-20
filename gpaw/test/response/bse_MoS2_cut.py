@@ -4,7 +4,7 @@ from ase import Atoms
 from ase.lattice.hexagonal import Hexagonal
 from gpaw import GPAW, FermiDirac
 from gpaw.test import findpeak, equal
-from gpaw.response.bse_new import BSE
+from gpaw.response.bse import BSE
 from gpaw.mpi import rank
 
 if 1:

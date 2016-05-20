@@ -1,7 +1,7 @@
-.. _bse:
+.. _bse_theory:
 
 ============================================
- Bethe Salpeter Equation (BSE) for excitons
+Bethe-Salpeter Equation - Theory
 ============================================
 
 Introduction

@@ -3,7 +3,7 @@ import os
 import numpy as np
 from ase.lattice import bulk
 from gpaw import GPAW, FermiDirac
-from gpaw.response.bse_new import BSE
+from gpaw.response.bse import BSE
 from gpaw.mpi import rank
 from gpaw.test import findpeak, equal
 
