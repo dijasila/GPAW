@@ -2,7 +2,7 @@ from __future__ import print_function
 import sys
 import numpy as np
 
-from ase.units import _hbar, _c, _e, _me, Hartree
+from ase.units import _hbar, _c, _e, _me, Hartree, Bohr
 from gpaw import __version__ as version
 from gpaw.utilities.folder import Folder
 
@@ -187,3 +187,20 @@ class Writer(Folder):
 
         if filename is not None:
             out.close()
+
+def polarizability(exlist, omega, form='v', index=0):
+    """Return the polarizability in ASE units (e^2 Angstrom^2 / eV).
+
+    Parameters:
+    =============== ===================================================
+    ``exlist``      ExcitationList
+    ``omega``       Photon energy (eV)
+    ``form``        Form of the dipole matrix element ('v' or 'r')
+    ``index``       0: averaged, 1,2,3:alpha_xx, alpha_yy, alpha_zz
+    =============== ===================================================
+    """
+    alpha = 0
+    for ex in exlist:
+        alpha += ex.get_oscillator_strength(form=form)[index] / (
+            (ex.energy * Hartree)**2 - omega**2)
+    return alpha * Bohr**2 * Hartree
