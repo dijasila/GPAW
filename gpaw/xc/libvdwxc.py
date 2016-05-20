@@ -297,15 +297,17 @@ class VDWXC(GGA, object):
             gd = density.xc_grid2grid.big_gd
         except AttributeError:
             gd = density.finegd
-        if wfs.world.size > gd.comm.size:
+        if wfs.world.size > gd.comm.size and np.prod(gd.N_c) > 64**3:
             # We could issue a warning if an excuse turns out to exist some day
             raise ValueError('You are using libvdwxc with only '
-                             '%d out of %d available cores.  This is not '
+                             '%d out of %d available cores in a non-small '
+                             'calculation (%s points).  This is not '
                              'a crime but is likely silly and therefore '
                              'triggers and error.  Please use '
                              'parallel={\'augment_grids\': True} '
                              'or complain to the developers.' %
-                             (gd.comm.size, wfs.world.size))
+                             (gd.comm.size, wfs.world.size,
+                              ' x '.join(str(N) for N in gd.N_c)))
         self._initialize(gd)
         # TODO Here we could decide FFT padding.
         self.timer.stop('initialize')
