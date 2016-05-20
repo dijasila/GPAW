@@ -8,7 +8,7 @@ from gpaw import GPAW
 
 # setting number of decimals globally makes numpy.test() tests
 # which use docstrings fail
-#np.set_printoptions(precision=3, suppress=1)
+# np.set_printoptions(precision=3, suppress=1)
 
 system = molecule('H2')
 system.center(vacuum=2.5)
@@ -26,4 +26,4 @@ for mode in ['normal', 'all']:
     wf2 = calc2.get_pseudo_wave_function(0)
     err = np.abs(wf2 - wf).max()
     print('%s: err=%s' % (mode, repr(err)))
-    assert err == 0.0
+    assert abs(err) < 1e-14

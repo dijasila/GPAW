@@ -1,4 +1,5 @@
 def agts(queue):
+    return
     run = queue.add('pbe_gpaw_pw.py Al', ncpus=4,
                     queueopts='-l nodes=1:ppn=4:opteron4', walltime=60)
     if 0:  # run when new setups ready

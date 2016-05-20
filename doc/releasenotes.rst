@@ -10,6 +10,9 @@ Git master branch
 
 :git:`master <>`.
 
+* There was a **BUG** in the recently added spin-orbit module.  Should now
+  be fixed.
+
 * There is a new PAW-dataset file available:
   :ref:`gpaw-setup-0.9.20000.tar.gz <datasets>`.
   It's identical to the previous
@@ -52,7 +55,7 @@ Version 1.0.0
 
 
 .. _fixed now: https://gitlab.com/gpaw/gpaw/commit/c72e02cd789
-.. _libvdwxc: https://gitlab.com/askhl/libvdwxc
+.. _libvdwxc: https://gitlab.com/libvdwxc/libvdwxc
 
 
 Version 0.11.0

@@ -53,7 +53,7 @@ In the current implementation, the permittivity of the classical material is par
 
     \epsilon(\mathbf{r}, \omega) = \epsilon_{\infty} + \sum_j \frac{\epsilon_0 \beta_j(\mathbf{r})}{\bar{\omega}_j^2(\mathbf{r})-\mbox{i}\omega\alpha_j(\mathbf{r})-\omega^2},
 
-where :math:`\alpha_j, \beta_j, \bar{\omega}_j` are
+where `\alpha_j, \beta_j, \bar{\omega}_j` are
 fitted to reproduce the experimental permittivity.
 For gold and silver they can be found in Ref. \ [#Coomar]_.
 Permittivity defines how classical charge density polarizes
@@ -66,11 +66,11 @@ Geometry components
 -------------------
 Several routines are available to generate the basic shapes:
 
-* :math:`\text{PolarizableBox}(\mathbf{r}_1, \mathbf{r}_2, \epsilon({\mathbf{r}, \omega}))` where :math:`\mathbf{r}_1` and :math:`\mathbf{r}_2` are the corner points, and :math:`\epsilon({\mathbf{r}, \omega})` is the permittivity inside the structure
-* :math:`\text{PolarizableSphere}(\mathbf{p}, r, \epsilon({\mathbf{r}, \omega}))` where :math:`\mathbf{p}` is the center and :math:`r` is the radius of the sphere
-* :math:`\text{PolarizableEllipsoid}(\mathbf{p}, \mathbf{r}, \epsilon({\mathbf{r}, \omega}))` where :math:`\mathbf{p}` is the center and :math:`\mathbf{r}` is the array containing the three radii
-* :math:`\text{PolarizableRod}(\mathbf{p}, r, \epsilon({\mathbf{r}, \omega}), c)` where :math:`\mathbf{p}` is an array of subsequent corner coordinates, :math:`r` is the radius, and :math:`c` is a boolean denoting whether the corners are rounded
-* :math:`\text{PolarizableTetrahedron}(\mathbf{p}, \epsilon({\mathbf{r}, \omega}))` where :math:`\mathbf{p}` is an array containing the four corner points of the tetrahedron
+* `\text{PolarizableBox}(\mathbf{r}_1, \mathbf{r}_2, \epsilon({\mathbf{r}, \omega}))` where `\mathbf{r}_1` and `\mathbf{r}_2` are the corner points, and `\epsilon({\mathbf{r}, \omega})` is the permittivity inside the structure
+* `\text{PolarizableSphere}(\mathbf{p}, r, \epsilon({\mathbf{r}, \omega}))` where `\mathbf{p}` is the center and `r` is the radius of the sphere
+* `\text{PolarizableEllipsoid}(\mathbf{p}, \mathbf{r}, \epsilon({\mathbf{r}, \omega}))` where `\mathbf{p}` is the center and `\mathbf{r}` is the array containing the three radii
+* `\text{PolarizableRod}(\mathbf{p}, r, \epsilon({\mathbf{r}, \omega}), c)` where `\mathbf{p}` is an array of subsequent corner coordinates, `r` is the radius, and `c` is a boolean denoting whether the corners are rounded
+* `\text{PolarizableTetrahedron}(\mathbf{p}, \epsilon({\mathbf{r}, \omega}))` where `\mathbf{p}` is an array containing the four corner points of the tetrahedron
 
 
 
@@ -104,7 +104,7 @@ needs to propagate something. Similarly, the arguments for TDDFT
 Note that the permittivity was initialized as PermittivityPlus, where
 Plus indicates that a renormalizing Lorentzian term is included; this extra
 term brings the static limit to vacuum value, i.e.,
-:math:`\epsilon(\omega=0)=\epsilon_0`, see Ref. \ [#Sakko]_ for
+`\epsilon(\omega=0)=\epsilon_0`, see Ref. \ [#Sakko]_ for
 detailed explanation.
 
 The above script generates the photoabsorption spectrum and compares
@@ -131,7 +131,7 @@ a look at the standard output where the "Fill ratio" tells that
 18.035% of the grid points locate inside the sphere. This
 means that the volume (and intensity) is roughly 16% too large:
 
- :math:`\frac{V}{V_{\text{sphere}}}\approx\frac{0.18035\times(15\text{nm})^3)}{\frac{4}{3}\pi\times(5\text{nm})^3}\approx1.16`.
+ `\frac{V}{V_{\text{sphere}}}\approx\frac{0.18035\times(15\text{nm})^3)}{\frac{4}{3}\pi\times(5\text{nm})^3}\approx1.16`.
 
 -----------
 Limitations
@@ -183,7 +183,7 @@ Technical remarks
 TODO
 ----
 
-* Dielectrics (:math:`\epsilon_{\infty}\neq\epsilon_0`)
+* Dielectrics (`\epsilon_{\infty}\neq\epsilon_0`)
 * Geometries from 3D model files
 * Subcell averaging
 * Full FDTD (retardation effects) or interface to an external FDTD software

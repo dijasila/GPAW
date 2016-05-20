@@ -8,12 +8,12 @@ from gpaw.test import equal
 import numpy as np
 
 # Whole simulation cell (Angstroms)
-large_cell = [20, 20, 30];
+large_cell = [20, 20, 30]
 
 # Quantum subsystem
-atom_center = np.array([10.0, 10.0, 20.0]);
+atom_center = np.array([10.0, 10.0, 20.0])
 atoms = Atoms('Na2', [atom_center + [0.0, 0.0, -1.50],
-                      atom_center + [0.0, 0.0, +1.50]]);
+                      atom_center + [0.0, 0.0, +1.50]])
 
 # Permittivity file
 if world.rank == 0:
@@ -24,7 +24,7 @@ world.barrier()
 
 # Classical subsystem
 classical_material = PolarizableMaterial()
-sphere_center = np.array([10.0, 10.0, 10.0]);
+sphere_center = np.array([10.0, 10.0, 10.0])
 classical_material.add_component(PolarizableSphere(permittivity = PermittivityPlus('ed.txt'),
                                                    center = sphere_center,
                                                    radius = 5.0
@@ -49,7 +49,7 @@ atoms, qm_spacing, gpts = poissonsolver.cut_cell(atoms,
 gs_calc = GPAW(gpts          = gpts,
                eigensolver   = 'cg',
                nbands        = -1,
-               poissonsolver = poissonsolver);
+               poissonsolver = poissonsolver)
 atoms.set_calculator(gs_calc)
 
 # Ground state
@@ -77,8 +77,7 @@ td_calc2.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
 
 # Test
 ref_cl_dipole_moment = [ -5.16149623e-14, -5.89090408e-14,  3.08450150e-02]
-ref_qm_dipole_moment = [ -2.63340461e-11,  2.61812794e-12, -9.35619772e-02]
+ref_qm_dipole_moment = [ -2.63340461e-11,  2.61812794e-12, 5.21368171e-01]
 tol = 0.0001
 equal(td_calc2.hamiltonian.poisson.get_classical_dipole_moment(), ref_cl_dipole_moment, tol)
 equal(td_calc2.hamiltonian.poisson.get_quantum_dipole_moment(), ref_qm_dipole_moment, tol)
-

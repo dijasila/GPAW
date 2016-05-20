@@ -10,8 +10,8 @@ Performing a structure optimization
 A *structure optimization*, also called a *relaxation*, is a series of
 calculations used to determine the minimum-energy structure of a given
 system.  This involves multiple calculations of the atomic forces
-:math:`\mathbf F^a = -\tfrac{\partial E}{\partial \mathbf R^a}` with
-respect to the atomic positions :math:`\mathbf R^a` as the atoms
+`\mathbf F^a = -\tfrac{\partial E}{\partial \mathbf R^a}` with
+respect to the atomic positions `\mathbf R^a` as the atoms
 are moved downhill according to an optimization algorithm.
 
 The following script uses the :mod:`EMT calculator <ase.calculators.emt>`
@@ -103,7 +103,7 @@ interesting properties like the molecule's atomization energy.
 The *atomization energy* of a molecule is equal to the total energy of
 the molecule minus the sum of the energies of each of its constituent
 *isolated* atoms.  For example, the atomization energy of :mol:`H_2` is
-:math:`E[\mathrm{H}_2] - 2 E[\mathrm H]`.
+`E[\mathrm{H}_2] - 2 E[\mathrm H]`.
 
 GPAW calculations are by default spin-paired, i.e. the spin-up and
 spin-down densities are assumed to be equal.  As this is not the case

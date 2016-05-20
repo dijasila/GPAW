@@ -36,7 +36,7 @@ def main():
         help='Do not submit anything, but write parameters and qsub command')
     add('-n', '--processes', type=int,
         help='Number of actual cores to use.')
-    add('-q', '--queue', default='small',
+    add('-q', '--queue',
         help='Name of queue: small, medium, long, verylong '
         '(25m, 2h15m, 13h, 50h).  Default is small')
     add('-l', '--resources',
@@ -133,7 +133,8 @@ def main():
     qsub += 'processes = {0}\n'.format(opts.processes)
     qsub += 'nthreads = %d\n' % opts.threads
     qsub += 'export = %r\n' % export
-
+    header = qsub
+    
     qsub += """
 import os
 import subprocess
@@ -162,7 +163,7 @@ for x in export:
     
 cmd.append(os.path.join(path,
                         'build',
-                        'bin.' + os.environ['GPAW_PLATFORM'],
+                        'bin.linux-x86_64-' + os.environ['FYS_PLATFORM'] + '-2.6',
                         'gpaw-python'))
 if module:
     cmd += ['-m', module]
@@ -183,7 +184,7 @@ if error:
         cmd += ['-W', opts.attributes]
     
     if opts.dry_run:
-        print('\n'.join(qsub.splitlines()[1:9]))
+        print(header)
         print(' '.join(cmd))
     else:
         subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(qsub)

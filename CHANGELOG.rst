@@ -3,4 +3,4 @@ Changelog
 
 See what's new in GPAW here:
     
-    https://wiki.fysik.dtu.dk/gpaw/devel/releasenotes.html
+    https://wiki.fysik.dtu.dk/gpaw/releasenotes.html

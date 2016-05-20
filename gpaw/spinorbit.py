@@ -78,12 +78,12 @@ def get_radial_potential(calc, a, ai):
     return f_sg[:] / r_g
 
     
-def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
+def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
                               return_wfs=False, scale=1.0,
                               theta=0.0, phi=0.0):
     
     if bands is None:
-        bands = range(calc.get_number_of_bands())
+        bands = np.arange(calc.get_number_of_bands())
 
     # Rotation matrix
     Ry_vv = np.array([[np.cos(theta), 0.0, -np.sin(theta)],
@@ -99,7 +99,12 @@ def get_spinorbit_eigenvalues(calc, bands=None, return_spin=False,
     Ns = calc.wfs.nspins
     Nn = len(bands)
     if Ns == 1:
-        e_kn = [calc.get_eigenvalues(kpt=k)[bands] for k in range(Nk)]
+        if gw_kn is None:
+            e_kn = [calc.get_eigenvalues(kpt=k)[bands] for k in range(Nk)]
+        else:
+            assert Nk == len(gw_kn)
+            assert Nn == len(gw_kn.T)
+            e_kn = gw_kn
         e_skn = np.array([e_kn, e_kn])
     else:
         e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)[bands]

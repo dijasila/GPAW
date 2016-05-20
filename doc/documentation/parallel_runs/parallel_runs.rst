@@ -22,8 +22,9 @@ decomposition that match both the number of processors and the size of
 the unit cell.  This choice can be overruled, see
 :ref:`manual_parallelization_types`.
 
-Before starting a parallel calculation, it might be useful to check how the parallelization corresponding to the given number
-of processes would be done with ``--dry-run`` command line option::
+Before starting a parallel calculation, it might be useful to check how the
+parallelization corresponding to the given number of processes would be done
+with ``--dry-run`` command line option::
 
   python script.py --dry-run=8
 
@@ -42,7 +43,8 @@ examples::
 Simple submit tool
 ==================
 
-Instead writing a file with the line "mpirun ... gpaw-python script.py" and then submitting it to a queueing system, it is simpler to automate this::
+Instead writing a file with the line "mpirun ... gpaw-python script.py" and
+then submitting it to a queueing system, it is simpler to automate this::
 
   #!/usr/bin/env python
   from sys import argv
@@ -66,21 +68,6 @@ Now you can do::
 You will have to modify the script so that it works with your queueing
 system.
 
-.. _submit_tool_on_niflheim:
-
-Submit tool on Niflheim
------------------------
-
-At CAMd, we use this submit tool: :git:`~doc/documentation/parallel_runs/gpaw-qsub`.
-
-Examples::
-
-  $ gpaw-qsub -q medium -l nodes=8 -m abe fcc.py --domain-decomposition=1,2,2
-  $ gpaw-qsub -q long -l nodes=6:ppn=8:xeon5570 -m abe hcp_n2.py --gpaw=blacs=1 \
-    --sl_default=4,4,2 --domain-decomposition=8 --state-parallelization=2
-
-.. tip::
-  CAMd users must always remember to source the openmpi environment settings before recompiling the code. See :ref:`Niflheim`.
 
 Alternative submit tool
 =======================
@@ -89,7 +76,8 @@ Alternatively, the script gpaw-runscript can be used, try::
 
   $ gpaw-runscript -h
 
-to get the architectures implemented and the available options. As an example, use::
+to get the architectures implemented and the available options. As an
+example, use::
 
   $ gpaw-runscript script.py 32
 
@@ -111,12 +99,14 @@ GPAW_MAIL       where to send emails about the jobs
 Writing to files
 ================
 
-Be careful when writing to files in a parallel run.  Instead of ``f = open('data', 'w')``, use:
+Be careful when writing to files in a parallel run.  Instead of ``f =
+open('data', 'w')``, use:
 
 >>> from ase.parallel import paropen
 >>> f = paropen('data', 'w')
 
-Using ``paropen``, you get a real file object on the master node, and dummy objects on the slaves.  It is equivalent to this:
+Using ``paropen``, you get a real file object on the master node, and dummy
+objects on the slaves.  It is equivalent to this:
 
 >>> from ase.parallel import rank
 >>> if rank == 0:
@@ -124,7 +114,8 @@ Using ``paropen``, you get a real file object on the master node, and dummy obje
 ... else:
 ...     f = open('/dev/null', 'w')
 
-If you *really* want all nodes to write something to files, you should make sure that the files have different names:
+If you *really* want all nodes to write something to files, you should make
+sure that the files have different names:
 
 >>> from ase.parallel import rank
 >>> f = open('data.%d' % rank, 'w')
@@ -287,8 +278,9 @@ where ``n`` is the total number of boxes.
    You might have to add ``from gpaw.mpi import wold`` to the script to
    define ``world``.
 
-There is also a command line argument ``--domain-decomposition`` which allows you
-to control domain decomposition (see example at :ref:`submit_tool_on_niflheim`).
+There is also a command line argument ``--domain-decomposition`` which allows
+you to control domain decomposition.
+
 
 .. _manual_parsize_bands:
 
@@ -296,7 +288,7 @@ Band parallelization
 --------------------
 
 Parallelization over Kohn-Sham orbitals (i.e. bands) becomes favorable when
-the number of bands :math:`N` is so large that :math:`\mathcal{O}(N^2)`
+the number of bands `N` is so large that `\mathcal{O}(N^2)`
 operations begin to dominate in terms of computational time. Linear algebra
 for orthonormalization and diagonalization of the wavefunctions is the most
 noticeable contributor in this regime, and therefore, band parallelization
@@ -312,8 +304,8 @@ where ``nbg`` is the number of band groups to parallelize over.
    band parallelization and ScaLAPACK in conjunction to reduce this
    potential bottleneck.
 
-There is also a command line argument ``--state-parallelization`` which allows you
-to control band parallelization (see example at :ref:`submit_tool_on_niflheim`).
+There is also a command line argument ``--state-parallelization`` which
+allows you to control band parallelization.
 
 More information about these topics can be found here:
 

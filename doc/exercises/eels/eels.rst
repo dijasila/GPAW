@@ -66,7 +66,7 @@ spectrum by like this:
     :start-after: # Plot
 
 Look at the spectrum, where is the plasmon peak? Compare the result to the
-experimental plasmon energy :math:`\omega_P \approx 3.9 \mathrm{eV}`. Also
+experimental plasmon energy `\omega_P \approx 3.9 \mathrm{eV}`. Also
 compare the result to the Drude value for the plasmon frequency given above.
 (Hint: For silver there is one valence s electron pr. atom, use this to
 calculate the free-electron density.)

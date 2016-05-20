@@ -1,7 +1,5 @@
-import numpy as np
 from ase.lattice import bulk
-from gpaw import *
-from gpaw import PW
+from gpaw import GPAW, PW
 
 calc = GPAW(mode=PW(600),
             xc='PBE',

@@ -318,7 +318,7 @@ A few examples:
  =========== =================== ===========================================
  ``spos_c``  ``(3,)``            **S**\ caled **pos**\ ition vector
  ``nt_sG``   ``(2, 24, 24, 24)`` Pseudo-density array
-                                 :math:`\tilde{n}_\sigma(\vec{r})`
+                                 `\tilde{n}_\sigma(\vec{r})`
                                  (``t`` means *tilde*):
                                  two spins, 24*24*24 grid points.
  ``cell_cv`` ``(3, 3)``          Unit cell vectors.
@@ -335,11 +335,11 @@ Commonly used indices:
  ``v``    *xyz*-index (0, 1, 2)
  ``k``    **k**-point index
  ``q``    **k**-point index (local, i.e. it starts at 0 on each processor)
- ``s``    Spin index (:math:`\sigma`)
+ ``s``    Spin index (`\sigma`)
  ``u``    Combined spin and **k**-point index (local)
  ``G``    Three indices into the coarse 3D grid
  ``g``    Three indices into the fine 3D grid
- ``M``    LCAO orbital index (:math:`\mu`)
+ ``M``    LCAO orbital index (`\mu`)
  ``n``    Principal quantum number *or* band number
  ``l``    Angular momentum quantum number (s, p, d, ...)
  ``m``    Magnetic quantum number (0, 1, ..., 2*l - 1)
@@ -443,7 +443,7 @@ various MPI groups, simulating an MPI run can be done using ``gpaw-mpisim``::
 
 
 
-For the case of a :math:`\Gamma`-point calculation without band-parallelization,
+For the case of a `\Gamma`-point calculation without band-parallelization,
 all parallel communication is done in the one *domain_comm* communicator,
 which in this case is equal to *mpi.world*.
 

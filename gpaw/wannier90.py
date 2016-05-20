@@ -49,6 +49,7 @@ def write_input(calc,
                 dis_num_iter=200,
                 dis_froz_max=0.1,
                 dis_mix_ratio=0.5,
+                search_shells=None,
                 spinors=False):
     
     if seed is None:
@@ -109,6 +110,9 @@ def write_input(calc,
     print('hr_plot = True', file=f)
     print(file=f)
     print('num_bands       = %d' % len(bands), file=f)
+
+    if search_shells is not None:
+        print("search_shells = {0}".format(search_shells), file=f)
 
     maxn = max(bands)
     if maxn + 1 != len(bands):
