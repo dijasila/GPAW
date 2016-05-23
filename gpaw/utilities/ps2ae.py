@@ -1,12 +1,79 @@
 import numpy as np
 from ase.units import Bohr
 
-from gpaw.fftw import get_efficient_fft_size
+from gpaw.fftw import get_efficient_fft_size, FFTPlan
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.lfc import LFC
 from gpaw.utilities import h2gpts
-from gpaw.wavefunctions.pw import PWDescriptor
 
+
+class Interpolator:
+    def __init__(self, n_c, N_c):
+        self.tmp_r = np.empty(n_c, dtype=complex)
+        self.tmp_R = np.empty(N_c, dtype=complex)
+        self.fftplan = FFTPlan(self.tmp_r, self.tmp_r, -1)
+        self.ifftplan = FFTPlan(self.tmp_R, self.tmp_R, 1)
+        self.slice = tuple(slice(N // 2 - n // 2, N // 2 + n // 2)
+                           for n, N in zip(n_c, N_c))
+        print(self.slice)
+
+    def interpolate(self, a_r):
+        print(a_r.sum())
+        b_r = self.tmp_r
+        b_R = self.tmp_R
+        b_r[:] = a_r
+        self.fftplan.execute()
+        b_R[:] = 0.0
+        #b_R[self.slice] = np.fft.fftshift(b_r) / b_r.size
+        n_c = np.array(b_r.shape)
+        N_c = np.array(b_R.shape)
+        a0, a1, a2 = N_c // 2 - n_c // 2
+        b0, b1, b2 = n_c + (a0, a1, a2)
+        print(a0,a1,a2)
+        print(b0,b1,b2)
+        print(b_r.sum()/b_r.size)
+        c_r = np.fft.fftshift(b_r) / b_r.size
+        print(c_r.sum())
+        c_r[0]*=0.5
+        c_r[:,0]*=0.5
+        c_r[:,:,0]*=0.5
+        
+        b_R[a0:b0, a1:b1, a2:b2] = c_r
+        
+        b_R[b0, a1:b1, a2:b2] = b_R[a0, a1:b1, a2:b2]
+        b_R[a0:b0+1, b1, a2:b2] = b_R[a0:b0+1, a1, a2:b2]
+        b_R[a0:b0+1, a1:b1+1, b2] = b_R[a0:b0+1, a1:b1+1, a2]
+        
+        b_R[b0, a1+1:b1, a2+1:b2] = b_R[a0, a1+1:b1, a2+1:b2][::-1,::-1]
+        b_R[a0+1:b0, b1, a2+1:b2] = b_R[a0+1:b0, a1, a2+1:b2][::-1,::-1]
+        b_R[a0+1:b0, a1+1:b1, b2] = b_R[a0+1:b0, a1+1:b1, a2][::-1,::-1]
+        print(b_R.sum())
+        
+        if 0:
+            b_R[a0, a1:b1, a2:b2] *= 0.5
+            b_R[b0, a1:b1, a2:b2] = b_R[a0, b1-1:a1-1, b2-1:a2-1].conj()
+            b0 += 1
+        if 0:
+            b_R[a0:b0, a1, a2:b2] *= 0.5
+            b_R[a0:b0, b1, a2:b2] = b_R[a0:b0, a1, a2:b2]
+            b1 += 1
+        if 0:
+            if 1:
+                print(b_R[a0:b0, a1:b1, a2])
+                b_R[a0:b0, a1:b1, a2] *= 0.5
+                b_R[a0:b0, a1:b1, b2] = b_R[a0:b0, a1:b1, a2]
+        
+        b_R[:] = np.fft.ifftshift(b_R)
+        #print(b_r[0,0]/b_r.size)
+        #print(b_R[0,0])
+        self.ifftplan.execute()
+        b_R = b_R.copy()
+        if a_r.dtype == float:
+            print(b_R.imag.ptp())
+            b_R = b_R.real.copy()
+        print(b_R.sum())
+        return b_R
+        
 
 class PS2AE:
     """Transform PS to AE wave functions.
@@ -25,19 +92,14 @@ class PS2AE:
             Force number of points to be a mulitiple of n.
         """
         self.calc = calc
-        dtype = calc.wfs.dtype
-        kd = calc.wfs.kd
+        gd = calc.wfs.gd
         
-        # Create plane-wave descriptor for starting grid:
-        gd0 = GridDescriptor(calc.wfs.gd.N_c, calc.wfs.gd.cell_cv)
-        self.pd0 = PWDescriptor(ecut=None, gd=gd0, kd=kd)
-        
-        # ... and a descriptor for the final gris:
-        N_c = h2gpts(h / Bohr, gd0.cell_cv, n)
-        N_c = np.array([get_efficient_fft_size(N) for N in N_c])
-        self.gd = GridDescriptor(N_c, gd0.cell_cv)
-        self.pd = PWDescriptor(ecut=None, gd=self.gd, kd=kd)
-        
+        # Descriptor for the final grid:
+        N_c = h2gpts(h / Bohr, gd.cell_cv)
+        N_c = np.array([get_efficient_fft_size(N, n) for N in N_c])
+        self.gd = GridDescriptor(N_c, gd.cell_cv)
+        self.interpolator = Interpolator(gd.N_c, N_c)
+        print(gd.N_c, N_c)
         self.dphi = None  # PAW correction (will be initialize when needed)
 
     def _initialize_corrections(self):
@@ -76,9 +138,9 @@ class PS2AE:
         ae: bool
             Add PAW correction to get an all-electron wave function.
         """
-        psi_r = self.calc.get_pseudo_wave_function(n, k, s, pad=True)
-        psi_r *= Bohr**1.5
-        psi_R, _ = self.pd0.interpolate(psi_r, self.pd)
+        psi_r = self.calc.get_pseudo_wave_function(n, k, s, pad=True,
+                                                   periodic=True).real
+        psi_R = self.interpolator.interpolate(psi_r * Bohr**1.5)
         if ae:
             self._initialize_corrections()
             wfs = self.calc.wfs
@@ -86,6 +148,5 @@ class PS2AE:
             band_rank, n = wfs.bd.who_has(n)
             assert kpt_rank == 0 and band_rank == 0
             P_ai = dict((a, P_ni[n]) for a, P_ni in wfs.kpt_u[u].P_ani.items())
-            print(psi_R.dtype, P_ai,k)
             self.dphi.add(psi_R, P_ai, k)
         return psi_R
