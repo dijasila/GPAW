@@ -14,8 +14,7 @@ df = DielectricFunction('gs_Si.gpw',
                         hilbert=False,
                         eta=eta,
                         eshift=eshift,
-                        txt='rpa_Si.txt',
-                        )
+                        txt='rpa_Si.txt')
 
 df.get_dielectric_function(filename='eps_rpa_Si.csv')
 
@@ -27,10 +26,9 @@ bse = BSE('gs_Si.gpw',
           eshift=eshift,
           mode='BSE',
           integrate_gamma=0,
-          txt='bse_Si.txt',
-          )
+          txt='bse_Si.txt')
 
 bse.get_dielectric_function(filename='eps_bse_Si.csv',
                             eta=eta,
                             write_eig='bse_Si_eig.dat',
-                            w_w=np.linspace(0., 10., 10001))
+                            w_w=np.linspace(0.0, 10.0, 10001))

@@ -1,5 +1,4 @@
 from __future__ import print_function
-import numpy as np
 from gpaw.response.df import DielectricFunction
 
 df = DielectricFunction('gs_MoS2.gpw',
@@ -8,8 +7,7 @@ df = DielectricFunction('gs_MoS2.gpw',
                         nbands=50,
                         intraband=False,
                         hilbert=False,
-                        eta=0.1,
-                        )
+                        eta=0.1)
 
 alpha = df.get_polarizability(pbc=[True, True, False],
                               filename=None)[1][0].real

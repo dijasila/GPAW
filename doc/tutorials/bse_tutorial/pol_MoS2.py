@@ -8,18 +8,16 @@ eta = 0.05
 
 df = DielectricFunction('gs_MoS2.gpw',
                         ecut=ecut,
-                        frequencies=np.linspace(0., 5., 1001),
+                        frequencies=np.linspace(0, 5, 1001),
                         nbands=50,
                         intraband=False,
                         hilbert=False,
                         eta=eta,
                         eshift=eshift,
-                        txt='rpa_MoS2.txt',
-                        )
+                        txt='rpa_MoS2.txt')
 
 df.get_polarizability(filename='pol_rpa_MoS2.csv',
-                      pbc=[True, True, False],
-                      )
+                      pbc=[True, True, False])
 
 bse = BSE('gs_MoS2.gpw',
           ecut=ecut,
@@ -29,14 +27,13 @@ bse = BSE('gs_MoS2.gpw',
           eshift=eshift,
           mode='BSE',
           integrate_gamma=1,
-          txt='bse_MoS2.txt',
-          )
+          txt='bse_MoS2.txt')
 
 bse.get_polarizability(filename='pol_bse_MoS2.csv',
                        eta=eta,
                        pbc=[True, True, False],
                        write_eig='bse_MoS2_eig.dat',
-                       w_w=np.linspace(0., 5., 5001))
+                       w_w=np.linspace(0, 5, 5001))
 
 bse = BSE('gs_MoS2.gpw',
           ecut=ecut,
@@ -47,11 +44,10 @@ bse = BSE('gs_MoS2.gpw',
           eshift=eshift,
           mode='BSE',
           integrate_gamma=1,
-          txt='bse_MoS2_trun.txt',
-          )
+          txt='bse_MoS2_trun.txt')
 
 bse.get_polarizability(filename='pol_bse_MoS2_trun.csv',
                        eta=eta,
                        pbc=[True, True, False],
                        write_eig='bse_MoS2_eig_trun.dat',
-                       w_w=np.linspace(0., 5., 5001))
+                       w_w=np.linspace(0, 5, 5001))
