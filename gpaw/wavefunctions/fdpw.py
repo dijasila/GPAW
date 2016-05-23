@@ -181,7 +181,7 @@ class FDPWWaveFunctions(WaveFunctions):
         if self.bd.comm.rank == 0:
             self.kd.comm.sum(F_av, 0)
 
-    def _get_wave_function_array(self, u, n, realspace=True):
+    def _get_wave_function_array(self, u, n, realspace=True, phase=None):
         psit_nG = self.kpt_u[u].psit_nG
         if psit_nG is None:
             raise RuntimeError('This calculator has no wave functions!')
