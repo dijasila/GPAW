@@ -607,9 +607,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
             return self.pd.ifft(psit_G, kpt.q) * eikr_R
 
     def get_wave_function_array(self, n, k, s, realspace=True,
-                                cut=True):
+                                cut=True, periodic=False):
         psit_G = FDPWWaveFunctions.get_wave_function_array(self, n, k, s,
-                                                           realspace)
+                                                           realspace, periodic)
         if cut and psit_G is not None and not realspace:
             psit_G = psit_G[:self.ng_k[k]].copy()
 
