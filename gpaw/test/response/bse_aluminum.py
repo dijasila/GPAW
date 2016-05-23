@@ -1,32 +1,28 @@
 from __future__ import print_function
 import numpy as np
-import os
-from ase.units import Bohr, Hartree
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW
 from gpaw.response.df import DielectricFunction
 from gpaw.response.bse import BSE
-from gpaw.mpi import rank
 from gpaw.test import findpeak, equal
 
 GS = 1
 df = 1
 bse = 1
 check_spectrum = 1
-delfiles = 1
 
 if GS:
     a = 4.043
     atoms = bulk('Al', 'fcc', a=a)
     calc = GPAW(mode='pw',
-                kpts={'size': (4,4,4), 'gamma': True},
+                kpts={'size': (4, 4, 4), 'gamma': True},
                 xc='LDA',
                 nbands=4,
                 convergence={'bands': 'all'})
     
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
-    calc.write('Al.gpw','all')
+    calc.write('Al.gpw', 'all')
 
 q_c = np.array([0.25, 0.0, 0.0])
 w_w = np.linspace(0, 24, 241)
@@ -53,9 +49,7 @@ if df:
                             eta=eta,
                             ecut=ecut,
                             hilbert=False)
-    df_w =  df.get_eels_spectrum(q_c=q_c,
-                                 filename=None,
-                                 )[1]
+    df_w = df.get_eels_spectrum(q_c=q_c, filename=None)[1]
 
 if check_spectrum:
     w_ = 15.1423
@@ -66,7 +60,3 @@ if check_spectrum:
     equal(wdf, w_, 0.01)
     equal(Ibse, I_, 0.1)
     equal(Idf, I_, 0.1)
-
-if delfiles and rank == 0:
-    os.remove('Al.gpw')
-    os.remove('pair.txt')

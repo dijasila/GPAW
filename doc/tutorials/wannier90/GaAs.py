@@ -1,11 +1,8 @@
-from ase import *
+from ase import Atoms
 from ase.lattice import bulk
-from ase.dft import monkhorst_pack
-from ase.parallel import paropen
-from gpaw import *
-from gpaw.wavefunctions.pw import PW
+from gpaw import GPAW, FermiDirac, PW
 
-cell = bulk('Ga', 'fcc', a=5.68).get_cell()
+cell = bulk('Ga', 'fcc', a=5.68).cell
 a = Atoms('GaAs', cell=cell, pbc=True,
           scaled_positions=((0, 0, 0), (0.25, 0.25, 0.25)))
 

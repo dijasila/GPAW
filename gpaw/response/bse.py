@@ -25,7 +25,7 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
 
 
-class BSE():
+class BSE:
     def __init__(self,
                  calc=None,
                  ecut=10.,
@@ -139,7 +139,7 @@ class BSE():
             assert self.nv + self.nc == len(gw_skn[0, 0])
             assert self.kd.nibzkpts == len(gw_skn[0])
             gw_skn = gw_skn[:, self.kd.bz2ibz_k]
-            #assert self.kd.nbzkpts == len(gw_skn[0])
+            # assert self.kd.nbzkpts == len(gw_skn[0])
             gw_skn /= Hartree
         self.gw_skn = gw_skn
         self.eshift = eshift
@@ -427,8 +427,9 @@ class BSE():
                                                 truncation=self.truncation,
                                                 wstc=self.wstc,
                                                 q_v=qf_qv[iqf])**0.5
-                    sqrV_G *= ac**0.5 # Multiply by adiabatic coupling
-                    e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
+                    sqrV_G *= ac**0.5  # Multiply by adiabatic coupling
+                    e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:,
+                                                                  np.newaxis]
                     einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
                     # einv_GG = np.linalg.inv(e_GG) * weight_q[iqf]
                     # W_GG += (einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
@@ -479,7 +480,7 @@ class BSE():
             
             if pd.kd.gamma:
                 e = 1 / einv_GG[0, 0].real
-                print('    RPA dielectric constant is: %3.3f' %  e,
+                print('    RPA dielectric constant is: %3.3f' % e,
                       file=self.fd)
             self.Q_qaGii.append(chi0.Q_aGii)
             self.pd_q.append(pd)
@@ -594,7 +595,7 @@ class BSE():
         for iw, w in enumerate(w_w):
             tmp_T = 1. / (w - w_T + 1j * eta)
             vchi_w[iw] += np.dot(tmp_T, C_T)
-        vchi_w *=  4 * np.pi / self.vol
+        vchi_w *= 4 * np.pi / self.vol
 
         if not np.allclose(self.q_c, 0.0):
             cell_cv = self.calc.wfs.gd.cell_cv
@@ -703,7 +704,7 @@ class BSE():
         if world.rank == 0 and filename is not None:
             f = open(filename, 'w')
             for iw, w in enumerate(w_w):
-                print('%.6f, %.6f' %  (w, eels_w[iw]), file=f)
+                print('%.6f, %.6f' % (w, eels_w[iw]), file=f)
             f.close()
         world.barrier()
 

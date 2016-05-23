@@ -1,7 +1,5 @@
-from ase import *
-from ase.lattice import bulk
-from gpaw import *
-from gpaw.wavefunctions.pw import PW
+from ase.build import bulk
+from gpaw import GPAW, FermiDirac, PW
 
 a = bulk('Fe', 'bcc')
 a.set_initial_magnetic_moments([-2.0])
