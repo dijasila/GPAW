@@ -28,7 +28,7 @@ Quick links to all features:
       - :ref:`Keldysh GF-transport ... <keldyshgf>`
     * - :ref:`RPA-correlation <rpa>`
       - :ref:`GW <gw_theory>`
-      - :ref:`BSE <bse>`
+      - :ref:`BSE <bse theory>`
     * - :ref:`Parallelization <parallel_runs>`
       - :ref:`Continuum Solvent Model <continuum_solvent_model>`
       -
