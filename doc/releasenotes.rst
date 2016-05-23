@@ -143,7 +143,7 @@ Version 0.10.0
 * Beyond RPA-correlation: `using renormalized LDA and PBE
   <https://trac.fysik.dtu.dk/projects/gpaw/browser/branches/sprint2013/doc/tutorials/fxc_correlation>`_.
 
-* :ref:`bse`.
+* :ref:`bse theory`.
 
 * Improved RMM-DIIS eigensolver.
 

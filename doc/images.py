@@ -136,6 +136,8 @@ pbe_nwchem_def2_qzvppd_opt_ea_vs.csv pbe_nwchem_def2_qzvppd_opt_distance_vs.csv
 
 get('agts-files', g2_1_stuff, target='setups', source=agtspath)
 
+get('tutorials/wannier90', ['GaAs.png', 'Cu.png', 'Fe.png'])
+
 get('agts-files', ['datasets.json'], 'setups', source=agtspath)
 
 

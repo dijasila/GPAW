@@ -1,12 +1,12 @@
 .. module:: gpaw.response.bse
-.. _bse_tutorial:
+.. _bse tutorial:
 
 ========================================
 The Bethe-Salpeter equation and Excitons
 ========================================
 
 For a brief introduction to the Bethe-Salpeter equation and the details of its
-implementation in GPAW, see :ref:`bse_theory`.
+implementation in GPAW, see :ref:`bse theory`.
 
 
 Absorption spectrum of bulk silicon
@@ -25,9 +25,9 @@ The Hamiltonian is stored in ``H_SS.gpw`` by default and its eigenstates and eig
     bse.get_dielectric_function(filename='bse_0.1.csv',
                                 readfile='v_TS.gpw',
                                 eta=0.1,
-			        w_w=np.linspace(0, 20, 10001))
+                                w_w=np.linspace(0, 20, 10001))
 
-This should finish almost instantaneously. 
+This should finish almost instantaneously.
 
 The parameters that needs to be converged in the calculation are the k-points in the initial ground state calculation. In addition the following keywords in the BSE object should be converged: the plane wave cutoff ``ecut``, the numbers of bands used to calculate the screened interaction ``nbands``, the list of valence bands ``valence_bands`` and the list of conduction bands ``conduction_bands`` included in the Hamiltonian. It is also possible to provide an array ``gw_skn``, with GW eigenvalues to be used in the non-interacting part of th Hamiltonian. Here, the indices denote spin, k-points and bands, which has to match the spin, k-point sampling and the number of specified valence and conduction bands in the ground state calculation.
 
@@ -51,7 +51,7 @@ The excitonic effects are much stronger than in the case of Si due to the reduce
 2D screening with and without Coulomb truncation
 ------------------------------------------------
 
-To see the effect of the Coulomb truncation, which eliminates the screening from layers in periodic images, we will now calculate the dielectric constant evaluated at the center of the layer `z_0` and averaged in the plane. This is accomplished with 
+To see the effect of the Coulomb truncation, which eliminates the screening from layers in periodic images, we will now calculate the dielectric constant evaluated at the center of the layer `z_0` and averaged in the plane. This is accomplished with
 
 .. math:: \epsilon_{2D}^{-1}(\mathbf{q})=\sum_{\mathbf{G}|G_{\parallel=0}}e^{iG_zz_0}\epsilon_{\mathbf{G}\mathbf{0}}^{-1}(\mathbf{q})
 
@@ -67,7 +67,7 @@ In 3D materials the Mott-Wannier model of excitons has been highly succesful and
 
 .. math:: E_B^{3D}=\frac{\mu}{2\epsilon_0^2}
 
-where `\mu^{-1}=m_v^{-1}+m_c^{-1}` and `m_v` and `m_c` are the masses of valence and conduction electrons respectively. The 3D expression relies on the fact that the screening is local in real space and thus approximately independent of `q`. This is clearly not the case in 2D where we always have 
+where `\mu^{-1}=m_v^{-1}+m_c^{-1}` and `m_v` and `m_c` are the masses of valence and conduction electrons respectively. The 3D expression relies on the fact that the screening is local in real space and thus approximately independent of `q`. This is clearly not the case in 2D where we always have
 
 .. math:: \epsilon_{2D}(\mathbf{q})=1+2\pi\alpha|\mathbf{q}|
 
